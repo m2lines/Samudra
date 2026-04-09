@@ -21,19 +21,22 @@ NH, NW = 2, 4
 H, W = 8, 16
 
 
-def make_perceiver_encoder(in_channels, out_channels, *, num_latents=2):
-    """Build a regular Perceiver for the encoder (uses mean-pooling)."""
+ENCODER_LATENT_DIM = 3
+
+
+def make_perceiver_encoder(prog_channels, *, num_latents=2, max_freq=10.0):
+    """Build a 2-D Perceiver for the encoder's prognostic stream."""
     from perceiver_pytorch import Perceiver
 
     return Perceiver(
         num_freq_bands=4,
-        max_freq=1.0,
+        max_freq=max_freq,
         depth=2,
         input_axis=2,
-        input_channels=in_channels,
-        latent_dim=3,
+        input_channels=prog_channels,
+        latent_dim=ENCODER_LATENT_DIM,
         num_latents=num_latents,
-        num_classes=out_channels,
+        num_classes=ENCODER_LATENT_DIM,
         weight_tie_layers=True,
         self_per_cross_attn=2,
     )
@@ -119,24 +122,28 @@ def make_decoder_with_shared_weights(
 
 def test_roundtrip():
     H_rt, W_rt = 4, 8
-    x = torch.randn(3, 10, H_rt, W_rt)
+    embed_dim = 4
+    prog = torch.randn(3, 7, H_rt, W_rt)
+    boundary = torch.randn(3, 3, H_rt, W_rt)
 
     patch_embed = PerceiverEncoder(
-        in_channels=10,
-        out_channels=4,
+        prog_channels=7,
+        boundary_channels=3,
+        out_channels=embed_dim,
+        latent_dim=ENCODER_LATENT_DIM,
         patch_extent=(180, 180),
-        perceiver=make_perceiver_encoder(10, 4),
+        perceiver=make_perceiver_encoder(7),
     )
 
-    patches = patch_embed(x, make_resolution(x))
-    res = make_resolution(x)
+    res = make_resolution(prog)
+    patches = patch_embed(prog, boundary, res)
 
     decode = PerceiverDecoder(
-        in_channels=4,
+        in_channels=embed_dim,
         out_channels=10,
         patch_extent=(180, 180),
         queries_dim=QUERIES_DIM,
-        perceiver_io=make_decoder_perceiver_io(4, 10),
+        perceiver_io=make_decoder_perceiver_io(embed_dim, 10),
         window_patches=None,
         context_patches=None,
     )

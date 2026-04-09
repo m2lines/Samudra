@@ -4,13 +4,15 @@
 # - https://github.com/lucidrains/vit-pytorch
 
 import torch
+import torch.nn.functional as F
 from aurora.model.fourier import pos_expansion, scale_expansion
 from aurora.model.posencoding import pos_scale_enc
 from einops import rearrange
 from jaxtyping import Float
+from perceiver_pytorch.perceiver_pytorch import FeedForward, PreNorm
 from torch import nn
 
-from ocean_emulators.constants import Input, Lat, Lon
+from ocean_emulators.constants import Lat, Lon
 
 
 def patch_from(
@@ -27,27 +29,82 @@ def patch_from(
     return patch_h, patch_w
 
 
+class CrossAttention(nn.Module):
+    """Multi-head cross-attention using ``F.scaled_dot_product_attention``.
+
+    Queries come from one sequence, keys/values from another (the context).
+    Falls back to self-attention when no context is provided.
+    """
+
+    def __init__(
+        self,
+        query_dim: int,
+        context_dim: int | None = None,
+        heads: int = 8,
+        dim_head: int = 64,
+        dropout: float = 0.0,
+    ) -> None:
+        super().__init__()
+        inner_dim = dim_head * heads
+        context_dim = context_dim or query_dim
+
+        self.heads = heads
+        self.dim_head = dim_head
+
+        self.to_q = nn.Linear(query_dim, inner_dim, bias=False)
+        self.to_kv = nn.Linear(context_dim, inner_dim * 2, bias=False)
+        self.to_out = nn.Linear(inner_dim, query_dim)
+        self.dropout = dropout
+
+    def forward(
+        self, x: torch.Tensor, context: torch.Tensor | None = None
+    ) -> torch.Tensor:
+        context = context if context is not None else x
+        h = self.heads
+
+        q = rearrange(self.to_q(x), "b n (h d) -> b h n d", h=h)
+        kv = self.to_kv(context)
+        k, v = rearrange(kv, "b n (two h d) -> two b h n d", two=2, h=h)
+
+        out = F.scaled_dot_product_attention(
+            q, k, v, dropout_p=self.dropout if self.training else 0.0
+        )
+        out = rearrange(out, "b h n d -> b n (h d)")
+        return self.to_out(out)
+
+
 class PerceiverEncoder(nn.Module):
-    """A perceiver-based encoder for Samudra's flattened data (a whole column of the ocean, with history).
+    """A perceiver-based encoder that fuses prognostic and boundary streams.
 
-    We adopt some of Aurora's positional encodings[1], which uses log-spaced fourier features with geometry-informed
-    wavelengths. These encode 2d positions (the average latitude and longitude of each patch) as well as grid cell area
-    (measured in km^2) for each token before it enters the processor.
+    The prognostic stream is the primary input.  It is patchified into 2-D
+    spatial patches and fed directly to a Perceiver with ``input_axis=2``,
+    preserving native 2-D Fourier position encoding within each patch.  The
+    Perceiver's cross-attention layers do the heavy representation learning
+    on raw prognostic channel data — no linear bottleneck before attention.
 
-    > Note: We assume that data along the lat/lon coordinates are positioned at the center of each grid point! Please
-    > ensure this is the case at the data processing time.
+    The boundary stream is auxiliary context at a potentially different
+    resolution.  It is patchified, linearly projected to the Perceiver's
+    latent dimension, and injected via a **cross-attention layer** that lets
+    the Perceiver's latent vectors attend to boundary tokens.  This
+    asymmetric design reflects the asymmetric role of prognostics (high-res
+    output to predict) vs. boundaries (low-res external forcing).
 
-    This encoder is designed to make the same number of patches with the same spatial extents across different scales
-    of input data (input data may vary in resolution of lat/lng grid). To accomplish this with a single perceiver model,
-    our `forward` call requires supplementary information: the resolution (a pair of Lat/Lon tensors), which is used to
-    make consistent positional encodings for patches across different scales. While higher resolution scales will
-    contain more data per patch, the patch will refer to the same physical area on Earth as all other scales.
+    Because ``patch_extent`` is specified in degrees, both streams produce
+    the **same latent grid** regardless of their spatial resolution.
+
+    Patch-level positional and scale encodings (Aurora-style Fourier
+    features [1]) are computed on the prognostic (output) grid and added
+    after the Perceiver and boundary fusion.
 
     Args:
-        in_channels (int): the number of input channels (roughly:  time x variable x (surface + depths)).
-        out_channels (int): size of the latent dimension (aka, the embedding dimension).
-        patch_extent (tuple[float, float]): spatial extent of each patch measured in degrees of lat/lon.
-        perceiver (nn.Module): the perceiver module implementation to use.
+        prog_channels: Number of prognostic input channels.
+        boundary_channels: Number of boundary input channels.
+        out_channels: Size of the output embedding dimension.
+        latent_dim: Dimension of the Perceiver's internal latent vectors.
+        patch_extent: Spatial extent of each patch in degrees ``(lat, lon)``.
+        perceiver: Perceiver module operating on 2-D prog patches.  Must
+            support ``perceiver(data, return_embeddings=True)`` returning
+            ``(batch, num_latents, latent_dim)``.
 
     References:
         [1]: https://ar5iv.labs.arxiv.org/html/2405.13063#A2.SS4
@@ -56,56 +113,111 @@ class PerceiverEncoder(nn.Module):
     # TODO(alxmrs): Implement gradient checkpointing
     def __init__(
         self,
-        in_channels: int,
+        prog_channels: int,
+        boundary_channels: int,
         out_channels: int,
+        latent_dim: int,
         patch_extent: tuple[float, float],
         perceiver: nn.Module,
     ) -> None:
         super().__init__()
-        self.in_channels = in_channels
-        self.out_channels: int = out_channels  # aka, `embed_dim`.
+        self.prog_channels = prog_channels
+        self.boundary_channels = boundary_channels
+        self.in_channels: int = prog_channels + boundary_channels
+        self.out_channels: int = out_channels
+        self.latent_dim = latent_dim
         self.patch_extent = patch_extent
         self.perceiver = perceiver
+
+        # Boundary: project to latent_dim, then cross-attend from
+        # Perceiver latents.  PreNorm mirrors the Perceiver's own layer
+        # structure (pre-norm attention + pre-norm feed-forward).
+        self.boundary_proj = nn.Linear(boundary_channels, latent_dim)
+        self.boundary_cross_attn = PreNorm(
+            latent_dim,
+            CrossAttention(latent_dim, context_dim=latent_dim, heads=1, dim_head=64),
+            context_dim=latent_dim,
+        )
+        self.boundary_ff = PreNorm(latent_dim, FeedForward(latent_dim))
+
+        # Pool latents and project to output embedding dimension.
+        self.latent_norm = nn.LayerNorm(latent_dim)
+        self.to_out = nn.Linear(latent_dim, out_channels)
+
         # TODO(#451): The input to these position and scale linear units could be a hparam.
-        self.pos_embed = nn.Linear(self.out_channels, self.out_channels)
-        self.scale_embed = nn.Linear(self.out_channels, self.out_channels)
+        self.pos_embed = nn.Linear(out_channels, out_channels)
+        self.scale_embed = nn.Linear(out_channels, out_channels)
 
     def forward(
-        self, x: Input, resolution: tuple[Lat, Lon]
-    ) -> Float[torch.Tensor, "batch {self.embed_dim} h w"]:
-        _, V, H, W = x.shape
-        lat, lon = resolution
-        patch_h, patch_w = patch_from(self.patch_extent, H, W)
-        # V is a cross product of variable, level (encoded in vars), and time (has history).
-        assert V == self.in_channels
-        # Ensure patch_size is appropriate for the data.
-        assert H % patch_h == 0, f"{H} % {patch_h} != 0."
-        assert W % patch_w == 0, f"{W} % {patch_w} != 0."
+        self,
+        prog: torch.Tensor,
+        boundary: torch.Tensor,
+        prog_res: tuple[Lat, Lon],
+    ) -> Float[torch.Tensor, "batch {self.out_channels} h w"]:
+        # --- Prognostic stream: 2-D patches → Perceiver ---
+        _, V_p, H_p, W_p = prog.shape
+        assert V_p == self.prog_channels, (
+            f"Expected {self.prog_channels} prog channels, got {V_p}."
+        )
+        ph_p, pw_p = patch_from(self.patch_extent, H_p, W_p)
+        assert H_p % ph_p == 0, f"{H_p} % {ph_p} != 0."
+        assert W_p % pw_p == 0, f"{W_p} % {pw_p} != 0."
+        lat_h, lat_w = H_p // ph_p, W_p // pw_p
 
-        # Perceiver experiment ideas:
-        # 1. leave it as it is: treating each pixel as a token -- i.e. all channels (includes depths) per pixel
-        # 2. change to original plan, where each float is its own token
-        # 3. Add a third dim -- ph pw d v -- so each spatial position is a token
-        x = rearrange(
-            x,
+        prog_patches = rearrange(
+            prog,
             "b v (h ph) (w pw) -> (b h w) ph pw v",
-            ph=patch_h,
-            pw=patch_w,
+            ph=ph_p,
+            pw=pw_p,
         )
-        # NB(alxmrs): This is includes a mean and LayerNorm before linear projection!
-        x = self.perceiver(x)  # (B_H_W, ..., V) -> (B_H_W, out_channels)
+        # NB(alxmrs): The Perceiver includes a mean and LayerNorm before
+        # its linear projection, plus 2-D Fourier position encoding within
+        # each patch.  return_embeddings=True gives us the raw latent
+        # vectors *before* the Perceiver's output head.
+        latents = self.perceiver(
+            prog_patches, return_embeddings=True
+        )  # (B_HW, num_latents, latent_dim)
 
-        # Make `x` amenable to adding position + scale encoding
-        x = rearrange(
-            x,
-            "(b h w) l -> b (h w) l ",
-            h=(H // patch_h),
-            w=(W // patch_w),
+        # --- Boundary stream: flatten patches, project ---
+        _, V_b, H_b, W_b = boundary.shape
+        assert V_b == self.boundary_channels, (
+            f"Expected {self.boundary_channels} boundary channels, got {V_b}."
+        )
+        ph_b, pw_b = patch_from(self.patch_extent, H_b, W_b)
+        assert H_b % ph_b == 0, f"{H_b} % {ph_b} != 0."
+        assert W_b % pw_b == 0, f"{W_b} % {pw_b} != 0."
+        b_lat_h, b_lat_w = H_b // ph_b, W_b // pw_b
+
+        assert lat_h == b_lat_h and lat_w == b_lat_w, (
+            f"Latent grid mismatch: prog ({lat_h}, {lat_w}) vs "
+            f"boundary ({b_lat_h}, {b_lat_w}). Check that patch_extent "
+            f"divides both grids evenly."
         )
 
-        # Calculate and add positional + scale encoding
+        boundary_patches = rearrange(
+            boundary,
+            "b v (h ph) (w pw) -> (b h w) (ph pw) v",
+            ph=ph_b,
+            pw=pw_b,
+        )
+        boundary_tokens = self.boundary_proj(
+            boundary_patches
+        )  # (B_HW, ph_b*pw_b, latent_dim)
+
+        # --- Fusion: Perceiver latents cross-attend to boundary context ---
+        latents = self.boundary_cross_attn(latents, context=boundary_tokens) + latents
+        latents = self.boundary_ff(latents) + latents
+
+        # --- Pool across latents and project to output dim ---
+        x = latents.mean(dim=1)  # (B_HW, latent_dim)
+        x = self.to_out(self.latent_norm(x))  # (B_HW, out_channels)
+
+        # --- Patch-level positional + scale encoding ---
+        x = rearrange(x, "(b h w) l -> b (h w) l", h=lat_h, w=lat_w)
+        lat, lon = prog_res
+        patch_h, patch_w = patch_from(self.patch_extent, len(lat), len(lon))
         pos_encode, scale_encode = pos_scale_enc(
-            self.out_channels,  # aka "embed_dim"
+            self.out_channels,
             lat,
             lon,
             (patch_h, patch_w),
@@ -122,12 +234,7 @@ class PerceiverEncoder(nn.Module):
         ).unsqueeze(0)
         x = x + pos_encoding + scale_encoding
 
-        # Unpack spatial channels, move channel dimension to correct location.
-        x = rearrange(
-            x,
-            "b (h w) l -> b l h w",
-            h=(H // patch_h),
-            w=(W // patch_w),
-        )
+        # Unpack spatial dims, move channel dim to standard location.
+        x = rearrange(x, "b (h w) l -> b l h w", h=lat_h, w=lat_w)
 
         return x

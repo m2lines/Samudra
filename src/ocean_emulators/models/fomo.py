@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING
 
 import torch
 from perceiver_pytorch import Perceiver
-from perceiver_pytorch.perceiver_pytorch import Attention, FeedForward
+from perceiver_pytorch.perceiver_pytorch import FeedForward
 from torch import nn
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
@@ -11,6 +11,7 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
 from ocean_emulators.constants import Boundary, Prognostic
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import PerceiverDecoder, PerceiverEncoder
+from ocean_emulators.models.modules.encoder import CrossAttention
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.device import autocast
@@ -20,13 +21,13 @@ if TYPE_CHECKING:
 
 _checkpoint_types: tuple[type, ...] = (
     nn.LayerNorm,
+    CrossAttention,
     FeedForward,
     nn.Linear,
     Perceiver,
     PerceiverDecoder,
     PerceiverEncoder,
     UNetBackbone,
-    Attention,
 )
 
 try:
@@ -89,15 +90,18 @@ class FOMO(BaseModel):
     def forward_once(
         self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
     ) -> Prognostic:
-        # Prognostic and boundary are carried as separate tensors through the
-        # data pipeline, but this encoder still expects a single concatenated
-        # input.  The dual-perceiver encoder that fuses them at the token level
-        # (enabling cross-resolution) lands in a follow-up PR.
-        fts = torch.cat((prognostic, boundary), dim=1)
         with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
+            # 3D coordinates are appended to the prognostic stream only
+            # (they describe the output grid, not the boundary grid).
             if self.maybe_add_3d_coordinates is not None:
-                fts = self.maybe_add_3d_coordinates(fts, ctx.input_resolution_cpu)
-            fts = self.encoder(fts, ctx.input_resolution_cpu)
+                prognostic = self.maybe_add_3d_coordinates(
+                    prognostic, ctx.output_resolution_cpu
+                )
+
+            # Token-level fusion: the encoder patchifies each stream
+            # independently, projects to a common embedding dim, and
+            # concatenates along the token axis before the Perceiver.
+            fts = self.encoder(prognostic, boundary, ctx.output_resolution_cpu)
             fts = self.processor(fts)
 
             # TODO(alxmrs): When the output resolution differs from the input (i.e. in a "mix" schedule), we cannot use

@@ -105,7 +105,8 @@ class ConstantResidualModel(BaseModel):
 
 def test_validate_batch_uses_absolute_predictions_for_residual_models():
     wet = torch.ones((1, 1, 1, 1), dtype=torch.bool)
-    ctx = GridContext(wet, (1.0, 1.0))
+    grid = torch.zeros(1)
+    ctx = GridContext(wet, (grid, grid), (grid, grid))
     batch = TrainData(num_prognostic_channels=1, ctx=ctx)
     input_ = torch.tensor([[[[10.0]], [[5.0]]]])
     label = torch.tensor([[[[11.0]]]])

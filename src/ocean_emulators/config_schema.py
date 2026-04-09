@@ -52,6 +52,8 @@ def _collect_pydantic_models(
             _collect_pydantic_models(field.annotation, models, seen)
         return
 
+    # We check if this is a parameterized type and recurse if so (eg Union[int, str])
+    # (Union is the origin in that case.)
     origin = get_origin(annotation)
     if origin is None:
         return

@@ -165,6 +165,8 @@ class GpuDataLoadingConfig(BaseDataLoadingConfig):
     kvikio_num_threads: int = Field(default=8, gt=0)
 
     def num_pytorch_workers(self) -> int:
+        # When loading data direct to GPU, we don't want worker processes.
+        # 0 means "load in the main process"
         return 0
 
 

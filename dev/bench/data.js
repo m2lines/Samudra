@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775590774949,
+  "lastUpdate": 1775779446996,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -8949,6 +8949,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.3661129115618577",
             "extra": "mean: 57.35800261940002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fomobot640@gmail.com",
+            "name": "fomo-bot",
+            "username": "fomo-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4e09c32ae1f542b6ceffd1ffe25b85676939dab5",
+          "message": "Fix residual validation predictions (#658)\n\n## Summary\n- make one-step validation use the model's normal forward path so\nresidual predictions are converted to absolute fields before loss/image\nlogging\n- add a regression test covering `pred_residuals=True` validation\nbehavior\n\nFixes #400\n\n---------\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2026-04-09T19:44:45-04:00",
+          "tree_id": "e1b67844155b46f4773dacb28d05f6fa6df4a294",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/4e09c32ae1f542b6ceffd1ffe25b85676939dab5"
+        },
+        "date": 1775779445999,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1879351047978006,
+            "unit": "iter/sec",
+            "range": "stddev: 0.001920902189557803",
+            "extra": "mean: 841.7968253999959 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.187850489026198,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06161115668589268",
+            "extra": "mean: 5.323382468600005 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.017224368079150242,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5255212368255578",
+            "extra": "mean: 58.057282299400015 sec\nrounds: 5"
           }
         ]
       }

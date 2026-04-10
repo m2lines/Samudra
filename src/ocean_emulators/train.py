@@ -154,8 +154,10 @@ class Trainer:
                 "Step predictions on a mixed multiscale training schedule is not currently supported."
             )
 
+        data_num_workers = cfg.data.loading.num_pytorch_workers()
+
         self.mp_context: BaseContext | None = None
-        if cfg.data.num_workers > 0:
+        if data_num_workers > 0:
             if self.data_container.supports_fork:
                 self.mp_context = multiprocessing.get_context("fork")
             else:
@@ -315,7 +317,7 @@ class Trainer:
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
-        self.num_workers: int = cfg.data.num_workers
+        self.num_workers: int = data_num_workers
         self.pin_mem: bool = cfg.pin_mem
         self.train_time: config.TimeConfig = cfg.train_time
         self.val_time = cfg.val_time

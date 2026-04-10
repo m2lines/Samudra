@@ -156,6 +156,7 @@ class DataConfig(BaseConfig):
     )
     static_data_vars: list[str] | None = None
     num_workers: int = 4
+    persistent_workers: bool = True
     hist: int = 1
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
     normalize_before_mask: bool = True

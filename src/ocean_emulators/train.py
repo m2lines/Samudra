@@ -316,6 +316,7 @@ class Trainer:
         self.batch_size: int = cfg.batch_size
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
         self.num_workers: int = cfg.data.num_workers
+        self.persistent_workers: bool = cfg.data.persistent_workers
         self.pin_mem: bool = cfg.pin_mem
         self.train_time: config.TimeConfig = cfg.train_time
         self.val_time = cfg.val_time
@@ -329,6 +330,9 @@ class Trainer:
         self.delayed_loss_estimate: bool = cfg.delayed_loss_estimate
 
         self.profiler = cfg.profiler.build(self.output_dir, self.device)
+        self.validation_images_enabled = self._sync_flag_from_main(
+            self.wandb_logger.enabled
+        )
 
         assert self.tensor_map is not None
 
@@ -649,8 +653,9 @@ class Trainer:
 
     def validate_one_epoch(self, epoch):
         self.model.eval()
-        log_validation_images = should_log_validation_images(
-            epoch, self.validation_image_log_freq
+        log_validation_images = (
+            should_log_validation_images(epoch, self.validation_image_log_freq)
+            and self.validation_images_enabled
         )
 
         if self.train_schedule == "standard":
@@ -893,6 +898,7 @@ class Trainer:
             train_data,
             batch_sampler=train_batch_sampler,
             num_workers=self.num_workers,
+            persistent_workers=self.persistent_workers and self.num_workers > 0,
             pin_memory=self.pin_mem,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
@@ -902,6 +908,7 @@ class Trainer:
             val_data,
             batch_sampler=val_batch_sampler,
             num_workers=self.num_workers,
+            persistent_workers=self.persistent_workers and self.num_workers > 0,
             pin_memory=self.pin_mem,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
@@ -1055,6 +1062,15 @@ class Trainer:
 
     def is_wandb_enabled(self):
         return self.wandb_logger.enabled and is_main_process()
+
+    def _sync_flag_from_main(self, flag: bool) -> bool:
+        """Broadcast a boolean decision from rank 0 to every process."""
+        if self.distributed is None:
+            return flag
+
+        synced = torch.tensor([int(flag)], device=self.device)
+        torch.distributed.broadcast(synced, src=0)
+        return bool(synced.item())
 
     @contextlib.contextmanager
     def _test_context(self):

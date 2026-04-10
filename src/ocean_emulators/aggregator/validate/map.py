@@ -2,7 +2,7 @@ import torch
 
 from ocean_emulators.aggregator.plotting import plot_paneled_data
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
-from ocean_emulators.utils.distributed import all_reduce_mean
+from ocean_emulators.utils.distributed import all_reduce_mean, is_main_process
 
 
 class MapAggregator(ValidateSubAggregator):
@@ -73,6 +73,7 @@ class MapAggregator(ValidateSubAggregator):
         time_dim = 0
         target_time = self.hist  # Use latest time step
         image_logs = {}
+        render_images = is_main_process()
         sorted_names = sorted(list(self._gen_data.keys()))
         for name in sorted_names:
             # use first sample in batch
@@ -88,6 +89,8 @@ class MapAggregator(ValidateSubAggregator):
                 )
                 / self._n_batches
             )
+            if not render_images:
+                continue
             image_logs[f"image-error/{name}"] = plot_paneled_data(
                 [[(gen - target).cpu().numpy()]],
                 diverging=True,

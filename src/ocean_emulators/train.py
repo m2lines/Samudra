@@ -38,6 +38,7 @@ from ocean_emulators.constants import (
     MAX_TRAIN_MODEL_STEPS_FORWARD,
     PROGNOSTIC_VARS,
     BoundaryVarNames,
+    LoaderVersion,
     PrognosticVarNames,
     TensorMap,
 )
@@ -50,6 +51,7 @@ from ocean_emulators.datasets import (
     TrainDataLoader,
 )
 from ocean_emulators.models.base import BaseModel
+from ocean_emulators.rust_loader import RustTrainDataLoader
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
 from ocean_emulators.utils.data import DataSource, Normalize, get_inference_steps
 from ocean_emulators.utils.device import using_gpu
@@ -97,6 +99,7 @@ class Trainer:
     model: BaseModel | nn.parallel.DistributedDataParallel
 
     def __init__(self, cfg: TrainConfig) -> None:
+        self.cfg = cfg
         cfg.prepare_output_dirs()
         cfg.save_yaml(cfg.experiment.output_dir / "config.yaml")
 
@@ -810,33 +813,6 @@ class Trainer:
             for src, dst in srcs
         ]
 
-        # Create datasets
-        match self.loader_version:
-            case TorchTrainDataset.FLAG:
-                train_data: torch.utils.data.Dataset[RawTrainData] = ConcatDataset(
-                    train_datasets
-                )
-
-                val_data: torch.utils.data.Dataset[RawTrainData] = ConcatDataset(
-                    val_datasets
-                )
-
-            case _:
-                raise NotImplementedError(
-                    f"Loader version {self.loader_version} not supported."
-                )
-
-        logger.info("Instantiating torch loaders")
-
-        match self.loader_version:
-            case TorchTrainDataset.FLAG:
-                collate_fn = collate_raw_train_data
-            case _:
-                raise NotImplementedError(
-                    f"Collate function not defined for loader version "
-                    f"{self.loader_version}"
-                )
-
         # Create batch samplers - branch on distributed vs non-distributed
         # Group by input AND label resolution to handle all training schedules
         def group_key(ds):
@@ -887,31 +863,67 @@ class Trainer:
         self.train_sampler = train_batch_sampler
         self.val_sampler = val_batch_sampler
 
-        # Create data loaders (same for both distributed and non-distributed)
-        # When using batch_sampler, don't specify batch_size or sampler
-        train_dataloader = DataLoader(
-            train_data,
-            batch_sampler=train_batch_sampler,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_mem,
-            collate_fn=collate_fn,
-            multiprocessing_context=self.mp_context,
-        )
+        match self.loader_version:
+            case TorchTrainDataset.FLAG:
+                logger.info("Instantiating torch loaders")
+                train_data: torch.utils.data.Dataset[RawTrainData] = ConcatDataset(
+                    train_datasets
+                )
+                val_data: torch.utils.data.Dataset[RawTrainData] = ConcatDataset(
+                    val_datasets
+                )
 
-        val_dataloader = DataLoader(
-            val_data,
-            batch_sampler=val_batch_sampler,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_mem,
-            collate_fn=collate_fn,
-            multiprocessing_context=self.mp_context,
-        )
+                train_dataloader = DataLoader(
+                    train_data,
+                    batch_sampler=train_batch_sampler,
+                    num_workers=self.num_workers,
+                    pin_memory=self.pin_mem,
+                    collate_fn=collate_raw_train_data,
+                    multiprocessing_context=self.mp_context,
+                )
 
-        # Wrap dataloaders to handle GPU post-processing
-        self.train_loader = TrainDataLoader(
-            train_dataloader, train_datasets, self.device
-        )
-        self.val_loader = TrainDataLoader(val_dataloader, val_datasets, self.device)
+                val_dataloader = DataLoader(
+                    val_data,
+                    batch_sampler=val_batch_sampler,
+                    num_workers=self.num_workers,
+                    pin_memory=self.pin_mem,
+                    collate_fn=collate_raw_train_data,
+                    multiprocessing_context=self.mp_context,
+                )
+
+                self.train_loader = TrainDataLoader(
+                    train_dataloader, train_datasets, self.device
+                )
+                self.val_loader = TrainDataLoader(
+                    val_dataloader, val_datasets, self.device
+                )
+            case LoaderVersion.OM4_RUST_V0:
+                if self.train_schedule != "standard":
+                    raise NotImplementedError(
+                        "tide v0 only supports the standard single-scale train schedule"
+                    )
+                if len(train_datasets) != 1 or len(val_datasets) != 1:
+                    raise NotImplementedError(
+                        "tide v0 only supports a single train and validation dataset"
+                    )
+
+                logger.info("Instantiating tide loaders")
+                self.train_loader = RustTrainDataLoader(
+                    batch_sampler=train_batch_sampler,
+                    datasets=train_datasets,
+                    device=self.device,
+                    rust_cfg=self.cfg.data.rust_loader,
+                )
+                self.val_loader = RustTrainDataLoader(
+                    batch_sampler=val_batch_sampler,
+                    datasets=val_datasets,
+                    device=self.device,
+                    rust_cfg=self.cfg.data.rust_loader,
+                )
+            case _:
+                raise NotImplementedError(
+                    f"Loader version {self.loader_version} not supported."
+                )
 
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
         with self._test_context():

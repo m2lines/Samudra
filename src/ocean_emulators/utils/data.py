@@ -83,6 +83,7 @@ class DataSource:
     means: xr.Dataset
     stds: xr.Dataset
     masks: Masks
+    data_path: str | None = None
 
     @cached_property
     def is_compact(self) -> bool:
@@ -291,6 +292,7 @@ class DataSource:
             boundary_var_names=boundary_var_names,
             static_data_vars=static_data_vars,
             name=f"{data_location}-{use_dask}",
+            data_path=str(data_location),
         )
 
     @classmethod
@@ -304,6 +306,7 @@ class DataSource:
         boundary_var_names: BoundaryVarNames,
         static_data_vars: list[str] | None = None,
         name: str = "DataSource",
+        data_path: str | None = None,
     ) -> Self:
         data, means, stds = validate_data(
             data,
@@ -320,6 +323,7 @@ class DataSource:
             means=means,
             stds=stds,
             masks=masks,
+            data_path=data_path,
         )
 
 

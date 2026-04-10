@@ -1,0 +1,17 @@
+[package]
+name = "tide"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "tide"
+crate-type = ["cdylib"]
+
+[dependencies]
+anyhow = "1.0.98"
+ndarray = "0.16.1"
+numpy = "0.25.0"
+pyo3 = "0.25.0"
+rayon = "1.11.0"
+zarrs = { version = "0.21.2", features = ["filesystem"] }
+

@@ -1,4 +1,5 @@
-# Build (and for main/manual runs, publish and test) the PhysicsNeMo-based container on x86 Linux.
+# Build the PhysicsNeMo-based container on PRs; on main/manual runs, also publish the
+# x86_64 image and run the same container test flow on both x86_64 and arm64 GPU nodes.
 name: Container PhysicsNeMo 25.11
 
 on:
@@ -117,6 +118,52 @@ jobs:
     secrets:
       GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
 
+  resolve-arm-dlami:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    needs: build-and-smoke
+    runs-on: ubuntu-latest
+    outputs:
+      ami_id: ${{ steps.resolve.outputs.ami_id }}
+      aws_region: ${{ steps.resolve.outputs.aws_region }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.EC2_LAUNCH_ROLE }}
+          role-session-name: github-actions-session
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Resolve latest ARM64 GPU DLAMI
+        id: resolve
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+          ARM_DLAMI_NAME_FILTER: Deep Learning ARM64 Base OSS Nvidia Driver GPU AMI (Ubuntu 24.04) ????????
+        run: |
+          set -euo pipefail
+          ami_id="$(aws ec2 describe-images \
+            --region "${AWS_REGION}" \
+            --owners amazon \
+            --filters \
+              "Name=name,Values=${ARM_DLAMI_NAME_FILTER}" \
+              "Name=state,Values=available" \
+            --query 'reverse(sort_by(Images, &CreationDate))[:1].ImageId' \
+            --output text)"
+          echo "ami_id=${ami_id}" >> "${GITHUB_OUTPUT}"
+          echo "aws_region=${AWS_REGION}" >> "${GITHUB_OUTPUT}"
+
+  ec2-arm:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    needs: [build-and-smoke, resolve-arm-dlami]
+    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
+    with:
+      aws_region: ${{ needs.resolve-arm-dlami.outputs.aws_region }}
+      ec2_instance_type: g5g.xlarge
+      ec2_image_id: ${{ needs.resolve-arm-dlami.outputs.ami_id }}
+      ec2_root_device_size: 200 # local arm64 image build plus test data/cache need substantial headroom
+      aws_tags: '[{"Key": "project", "Value": "fomo"}]'
+    secrets:
+      GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
+
   test-container-cpu-gpu:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     needs: [build-and-smoke, ec2]
@@ -181,9 +228,85 @@ jobs:
               python -m pytest -p no:zarr -v -m "not manual and cuda" -x
             '
 
+  test-container-arm64-cpu-gpu:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    needs: [build-and-smoke, resolve-arm-dlami, ec2-arm]
+    runs-on: ${{ needs.ec2-arm.outputs.id }}
+    env:
+      LOCAL_ARM64_IMAGE_TAG: ocean-emulator:physicsnemo-25.11-arm64-${{ github.sha }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Confirm arm64 runner
+        run: |
+          arch="$(uname -m)"
+          echo "runner arch=${arch}"
+          test "${arch}" = "aarch64"
+
+      - name: Cache test data
+        uses: actions/cache@v3
+        with:
+          path: .data_cache/
+          key: ${{ runner.os }}-${{ runner.arch }}-test-data-${{ hashFiles('tests/conftest.py', 'configs/test/*.yaml') }}
+
+      - name: Show disk before build
+        run: |
+          df -h
+          docker system df || true
+
+      - name: Build arm64 container
+        run: |
+          BUILDKIT_PROGRESS=plain \
+          IMAGE_TAG="${LOCAL_ARM64_IMAGE_TAG}" \
+          DOCKERFILE=containers/Dockerfile.physicsnemo-25.11 \
+          BUILD_APPTAINER=0 \
+          bash scripts/container/build_physicsnemo_25_11.sh
+
+      - name: Run CPU tests in arm64 container
+        timeout-minutes: 90
+        run: |
+          docker run --rm \
+            --ipc=host \
+            -v "${GITHUB_WORKSPACE}/.data_cache:/workspace/.data_cache" \
+            --workdir /workspace \
+            --entrypoint bash \
+            "${LOCAL_ARM64_IMAGE_TAG}" -lc '
+              set -euo pipefail
+              . .venv/bin/activate
+              # The smaller arm64 runner is more prone to losing the GitHub runner
+              # process under xdist CPU-test load after the local image build.
+              python -m pytest -p no:zarr -v -m "not manual and not cuda"
+            '
+
+      - name: Run GPU tests in arm64 container if supported
+        timeout-minutes: 90
+        run: |
+          docker run --rm --gpus all \
+            --ipc=host \
+            -v "${GITHUB_WORKSPACE}/.data_cache:/workspace/.data_cache" \
+            --workdir /workspace \
+            --entrypoint bash \
+            "${LOCAL_ARM64_IMAGE_TAG}" -lc '
+              set -euo pipefail
+              . .venv/bin/activate
+              if python scripts/container/check_cuda_compat.py; then
+                python -m pytest -p no:zarr -v -m "not manual and cuda" -x
+              else
+                status="$?"
+                if [ "${status}" -eq 2 ]; then
+                  echo "Skipping arm64 GPU tests because the runner GPU architecture is unsupported by the current PyTorch build."
+                  exit 0
+                fi
+                exit "${status}"
+              fi
+            '
+
   report-container-test-status:
     if: always()
-    needs: [build-and-smoke, ec2, test-container-cpu-gpu]
+    needs: [build-and-smoke, ec2, resolve-arm-dlami, ec2-arm, test-container-cpu-gpu, test-container-arm64-cpu-gpu]
     runs-on: ubuntu-latest
     steps:
       - name: Check job results

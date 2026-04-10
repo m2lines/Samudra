@@ -98,9 +98,6 @@ class FOMO(BaseModel):
                     prognostic, ctx.output_resolution_cpu
                 )
 
-            # Token-level fusion: the encoder patchifies each stream
-            # independently, projects to a common embedding dim, and
-            # concatenates along the token axis before the Perceiver.
             fts = self.encoder(prognostic, boundary, ctx.output_resolution_cpu)
             fts = self.processor(fts)
 

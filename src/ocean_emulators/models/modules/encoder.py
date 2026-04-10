@@ -182,7 +182,7 @@ class PerceiverEncoder(nn.Module):
             )
 
         # Pool latents and project to output embedding dimension.
-        self.latent_norm = nn.LayerNorm(latent_dim)
+        # Mean-pool matches the Perceiver's own output_mode="average".
         self.to_out = nn.Linear(latent_dim, out_channels)
 
         # TODO(#451): The input to these position and scale linear units could be a hparam.
@@ -263,7 +263,7 @@ class PerceiverEncoder(nn.Module):
 
         # --- Pool across latents and project to output dim ---
         x = latents.mean(dim=1)  # (B_HW, latent_dim)
-        x = self.to_out(self.latent_norm(x))  # (B_HW, out_channels)
+        x = self.to_out(x)  # (B_HW, out_channels)
 
         # --- Patch-level positional + scale encoding ---
         x = rearrange(x, "(b h w) l -> b (h w) l", h=lat_h, w=lat_w)

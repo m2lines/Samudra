@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775781241467,
+  "lastUpdate": 1775848218101,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -9039,6 +9039,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.27314090963303694",
             "extra": "mean: 58.0195448478 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f99f06b386f423bbcc240b5a1c71ca3d0bf55a4f",
+          "message": "Split data loading config from worker settings (#668)\n\n## Summary\nThis is the first PR in the LLC stack.\n\nIt separates `data.loading` from generic worker and DataLoader settings\nso CPU vs GPU loading can be configured explicitly without overloading\none config object.\n\n## Why\nLater LLC and GPU-decode changes need an explicit loading mode. Pulling\nthat distinction forward keeps the rest of the stack smaller and should\npreserve OM4 CPU behavior.\n\n## Notes\nThis is intended as a draft stacked base PR for the rest of the LLC\nstack.\n\n---------\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>",
+          "timestamp": "2026-04-10T14:50:56-04:00",
+          "tree_id": "bee195093e0e0357cbcb34d65fe3fcd2b2df89e3",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/f99f06b386f423bbcc240b5a1c71ca3d0bf55a4f"
+        },
+        "date": 1775848216969,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.098763741842008,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002791444886227544",
+            "extra": "mean: 910.1137596000058 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1719515084873159,
+            "unit": "iter/sec",
+            "range": "stddev: 0.010008004759774071",
+            "extra": "mean: 5.815593063399996 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.016730469356375007,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3871299495104619",
+            "extra": "mean: 59.77118625300002 sec\nrounds: 5"
           }
         ]
       }

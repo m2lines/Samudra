@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1775779450086,
+  "lastUpdate": 1775781238789,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -8994,6 +8994,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.5255212368255578",
             "extra": "mean: 58.057282299400015 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9bbee6b3f657436b825a24a2e9bd0c358d39eaf5",
+          "message": "Add Nsight Systems support to the Torch train harness (#674)\n\nLets you run nsys profiler by setting `NSYS_ARGS`. By default will write\nto `${OUTPUT_BASE}/${NAME}/nsys/`. Also documents how to turn this on\nfor torch.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2026-04-10T00:14:23Z",
+          "tree_id": "12cf405d084a7997f97d88210d56ba956563c870",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/9bbee6b3f657436b825a24a2e9bd0c358d39eaf5"
+        },
+        "date": 1775781237844,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1781348553513538,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0007940934680231814",
+            "extra": "mean: 848.7992656000074 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.18842786692946187,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03253695306239244",
+            "extra": "mean: 5.3070706381999795 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.017235571265221985,
+            "unit": "iter/sec",
+            "range": "stddev: 0.27314090963303694",
+            "extra": "mean: 58.0195448478 sec\nrounds: 5"
           }
         ]
       }

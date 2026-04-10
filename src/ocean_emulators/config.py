@@ -1,7 +1,7 @@
 import abc
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, Literal, Self, assert_never
+from typing import Annotated, Any, Literal, Self, assert_never
 
 import cftime
 import pydantic
@@ -366,6 +366,23 @@ class CorrectorConfig(BaseConfig):
 PerceiverImpl = Literal["auto", "naive", "flash"]
 
 
+class _FlattenThenPerceiver(nn.Module):
+    """Flatten 2-D patches to 1-D tokens, then forward to a FlashPerceiver.
+
+    Unlike ``nn.Sequential``, this wrapper passes keyword arguments
+    (e.g. ``return_embeddings=True``) through to the inner perceiver.
+    """
+
+    def __init__(self, perceiver: nn.Module) -> None:
+        super().__init__()
+        self.perceiver = perceiver
+
+    def forward(self, x: torch.Tensor, **kwargs: Any) -> torch.Tensor:
+        b, ph, pw, v = x.shape
+        x = x.reshape(b, ph * pw, v)
+        return self.perceiver(x, **kwargs)
+
+
 class PerceiverConfig(BaseConfig):
     """A standard config interface to various perceiver implementations.
 
@@ -412,13 +429,11 @@ class PerceiverConfig(BaseConfig):
                 from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
             except ModuleNotFoundError as e:
                 raise _flash_import_error() from e
-            from einops.layers.torch import Rearrange
 
-            # Flash perceiver expects (batch, seq_len, dim).  Flatten the
-            # 2-D patches before feeding; the encoder uses
-            # return_embeddings=True to get raw latents.
-            perceiver: nn.Module = nn.Sequential(
-                Rearrange("b ph pw v -> b (ph pw) v"),
+            # Flash perceiver expects (batch, seq_len, dim).  We flatten
+            # the 2-D patches inline and forward kwargs (e.g.
+            # return_embeddings=True) to the FlashPerceiver.
+            perceiver: nn.Module = _FlattenThenPerceiver(
                 FlashPerceiver(
                     latent_rotary_emb_dim=max_freq,
                     depth=self.depth,
@@ -517,6 +532,12 @@ def _flash_import_error() -> ValueError:
 
 class EncoderConfig(BaseConfig):
     perceiver: PerceiverConfig = PerceiverConfig()
+    boundary_attn_heads: int = Field(
+        default=4,
+        description="Number of attention heads for boundary cross-attention. "
+        "More heads let the model attend to different aspects of boundary forcing "
+        "(e.g. heat flux vs. wind stress) independently.",
+    )
 
     def build(
         self,
@@ -537,6 +558,7 @@ class EncoderConfig(BaseConfig):
             perceiver=self.perceiver.build(
                 prog_channels, max_patch_size, implementation
             ),
+            boundary_attn_heads=self.boundary_attn_heads,
         )
 
 

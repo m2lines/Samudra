@@ -21,7 +21,7 @@ NH, NW = 2, 4
 H, W = 8, 16
 
 
-ENCODER_LATENT_DIM = 3
+ENCODER_LATENT_DIM = 4
 
 
 def make_perceiver_encoder(prog_channels, *, num_latents=2, max_freq=10.0):

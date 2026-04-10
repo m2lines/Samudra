@@ -4,7 +4,7 @@ from perceiver_pytorch import Perceiver
 from ocean_emulators.constants import Lat, Lon
 from ocean_emulators.models.modules.encoder import PerceiverEncoder, patch_from
 
-LATENT_DIM = 3
+LATENT_DIM = 4
 
 
 def make_perceiver(prog_channels, *, num_latents=2, max_freq=10.0):

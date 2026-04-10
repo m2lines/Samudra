@@ -12,7 +12,7 @@ from jaxtyping import Float
 from perceiver_pytorch.perceiver_pytorch import FeedForward, PreNorm
 from torch import nn
 
-from ocean_emulators.constants import Lat, Lon
+from ocean_emulators.constants import Boundary, Lat, Lon, Prognostic
 
 
 def patch_from(
@@ -119,6 +119,7 @@ class PerceiverEncoder(nn.Module):
         latent_dim: int,
         patch_extent: tuple[float, float],
         perceiver: nn.Module,
+        boundary_attn_heads: int = 4,
     ) -> None:
         super().__init__()
         self.prog_channels = prog_channels
@@ -132,10 +133,16 @@ class PerceiverEncoder(nn.Module):
         # Boundary: project to latent_dim, then cross-attend from
         # Perceiver latents.  PreNorm mirrors the Perceiver's own layer
         # structure (pre-norm attention + pre-norm feed-forward).
+        dim_head = latent_dim // boundary_attn_heads
         self.boundary_proj = nn.Linear(boundary_channels, latent_dim)
         self.boundary_cross_attn = PreNorm(
             latent_dim,
-            CrossAttention(latent_dim, context_dim=latent_dim, heads=1, dim_head=64),
+            CrossAttention(
+                latent_dim,
+                context_dim=latent_dim,
+                heads=boundary_attn_heads,
+                dim_head=dim_head,
+            ),
             context_dim=latent_dim,
         )
         self.boundary_ff = PreNorm(latent_dim, FeedForward(latent_dim))
@@ -148,21 +155,30 @@ class PerceiverEncoder(nn.Module):
         self.pos_embed = nn.Linear(out_channels, out_channels)
         self.scale_embed = nn.Linear(out_channels, out_channels)
 
+    def _patchify_params(
+        self, shape: torch.Size, expected_channels: int
+    ) -> tuple[int, int, int, int]:
+        """Validate channels and compute patch / latent-grid dims.
+
+        Returns ``(ph, pw, lat_h, lat_w)``.
+        """
+        _, v, h, w = shape
+        assert v == expected_channels, (
+            f"Expected {expected_channels} channels, got {v}."
+        )
+        ph, pw = patch_from(self.patch_extent, h, w)
+        assert h % ph == 0, f"{h} % {ph} != 0."
+        assert w % pw == 0, f"{w} % {pw} != 0."
+        return ph, pw, h // ph, w // pw
+
     def forward(
         self,
-        prog: torch.Tensor,
-        boundary: torch.Tensor,
+        prog: Prognostic,
+        boundary: Boundary,
         prog_res: tuple[Lat, Lon],
     ) -> Float[torch.Tensor, "batch {self.out_channels} h w"]:
         # --- Prognostic stream: 2-D patches → Perceiver ---
-        _, V_p, H_p, W_p = prog.shape
-        assert V_p == self.prog_channels, (
-            f"Expected {self.prog_channels} prog channels, got {V_p}."
-        )
-        ph_p, pw_p = patch_from(self.patch_extent, H_p, W_p)
-        assert H_p % ph_p == 0, f"{H_p} % {ph_p} != 0."
-        assert W_p % pw_p == 0, f"{W_p} % {pw_p} != 0."
-        lat_h, lat_w = H_p // ph_p, W_p // pw_p
+        ph_p, pw_p, lat_h, lat_w = self._patchify_params(prog.shape, self.prog_channels)
 
         prog_patches = rearrange(
             prog,
@@ -179,14 +195,9 @@ class PerceiverEncoder(nn.Module):
         )  # (B_HW, num_latents, latent_dim)
 
         # --- Boundary stream: flatten patches, project ---
-        _, V_b, H_b, W_b = boundary.shape
-        assert V_b == self.boundary_channels, (
-            f"Expected {self.boundary_channels} boundary channels, got {V_b}."
+        ph_b, pw_b, b_lat_h, b_lat_w = self._patchify_params(
+            boundary.shape, self.boundary_channels
         )
-        ph_b, pw_b = patch_from(self.patch_extent, H_b, W_b)
-        assert H_b % ph_b == 0, f"{H_b} % {ph_b} != 0."
-        assert W_b % pw_b == 0, f"{W_b} % {pw_b} != 0."
-        b_lat_h, b_lat_w = H_b // ph_b, W_b // pw_b
 
         assert lat_h == b_lat_h and lat_w == b_lat_w, (
             f"Latent grid mismatch: prog ({lat_h}, {lat_w}) vs "

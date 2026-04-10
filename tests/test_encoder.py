@@ -5,6 +5,7 @@ from ocean_emulators.constants import Lat, Lon
 from ocean_emulators.models.modules.encoder import PerceiverEncoder, patch_from
 
 LATENT_DIM = 4
+BOUNDARY_ATTN_HEADS = 1
 
 
 def make_perceiver(prog_channels, *, num_latents=2, max_freq=10.0):
@@ -27,6 +28,21 @@ def make_perceiver(prog_channels, *, num_latents=2, max_freq=10.0):
     )
 
 
+def make_encoder(prog_channels, boundary_channels, out_channels, patch_extent, **kw):
+    kw.setdefault("num_fusion_self_attn", 0)
+    kw.setdefault("boundary_fourier_dim", 4)
+    return PerceiverEncoder(
+        prog_channels=prog_channels,
+        boundary_channels=boundary_channels,
+        out_channels=out_channels,
+        latent_dim=LATENT_DIM,
+        patch_extent=patch_extent,
+        perceiver=make_perceiver(prog_channels),
+        boundary_attn_heads=BOUNDARY_ATTN_HEADS,
+        **kw,
+    )
+
+
 def make_resolution(x: torch.Tensor) -> tuple[Lat, Lon]:
     lat = torch.linspace(start=-90, end=90, steps=x.shape[-2])
     lon = torch.linspace(start=0, end=360, steps=x.shape[-1])
@@ -38,15 +54,7 @@ def test_makes_patches():
     boundary = torch.randn(3, 3, 4, 8)
     embed_dim = 4
 
-    encoder = PerceiverEncoder(
-        prog_channels=7,
-        boundary_channels=3,
-        out_channels=embed_dim,
-        latent_dim=LATENT_DIM,
-        patch_extent=(180, 180),
-        perceiver=make_perceiver(7),
-    )
-
+    encoder = make_encoder(7, 3, embed_dim, (180, 180))
     patches = encoder(prog, boundary, make_resolution(prog))
 
     assert patches.shape == (3, embed_dim, 1, 2)
@@ -57,15 +65,7 @@ def test_makes_rectangular_patches():
     boundary = torch.randn(1, 3, 4, 8)
     embed_dim = 4
 
-    encoder = PerceiverEncoder(
-        prog_channels=7,
-        boundary_channels=3,
-        out_channels=embed_dim,
-        latent_dim=LATENT_DIM,
-        patch_extent=(180, 90),
-        perceiver=make_perceiver(7),
-    )
-
+    encoder = make_encoder(7, 3, embed_dim, (180, 90))
     patches = encoder(prog, boundary, make_resolution(prog))
 
     assert patches.shape == (1, embed_dim, 1, 4)
@@ -76,15 +76,7 @@ def test_makes_patches__high_res():
     boundary = torch.randn(1, 3, 14, 21)
     embed_dim = 4
 
-    encoder = PerceiverEncoder(
-        prog_channels=7,
-        boundary_channels=3,
-        out_channels=embed_dim,
-        latent_dim=LATENT_DIM,
-        patch_extent=(90.0, 120.0),
-        perceiver=make_perceiver(7),
-    )
-
+    encoder = make_encoder(7, 3, embed_dim, (90.0, 120.0))
     patches = encoder(prog, boundary, make_resolution(prog))
 
     assert patches.shape == (1, embed_dim, 2, 3)
@@ -95,15 +87,7 @@ def test_makes_patches__more_variables():
     boundary = torch.randn(1, 3, 4, 8)
     embed_dim = 4
 
-    encoder = PerceiverEncoder(
-        prog_channels=17,
-        boundary_channels=3,
-        out_channels=embed_dim,
-        latent_dim=LATENT_DIM,
-        patch_extent=(180, 180),
-        perceiver=make_perceiver(17),
-    )
-
+    encoder = make_encoder(17, 3, embed_dim, (180, 180))
     patches = encoder(prog, boundary, make_resolution(prog))
 
     assert patches.shape == (1, embed_dim, 1, 2)
@@ -115,14 +99,7 @@ def test_cross_resolution_token_fuse():
     prog = torch.randn(1, 7, 8, 16)
     boundary = torch.randn(1, 3, 2, 4)
 
-    encoder = PerceiverEncoder(
-        prog_channels=7,
-        boundary_channels=3,
-        out_channels=embed_dim,
-        latent_dim=LATENT_DIM,
-        patch_extent=(90, 90),
-        perceiver=make_perceiver(7),
-    )
+    encoder = make_encoder(7, 3, embed_dim, (90, 90))
 
     prog_res = (
         torch.linspace(-90, 90, 8),
@@ -141,14 +118,7 @@ def test_boundary_stream_influences_output():
     boundary_a = torch.randn(1, 3, 4, 8)
     boundary_b = torch.randn(1, 3, 4, 8)
 
-    encoder = PerceiverEncoder(
-        prog_channels=5,
-        boundary_channels=3,
-        out_channels=embed_dim,
-        latent_dim=LATENT_DIM,
-        patch_extent=(180, 180),
-        perceiver=make_perceiver(5),
-    )
+    encoder = make_encoder(5, 3, embed_dim, (180, 180))
     encoder.eval()
 
     res = make_resolution(prog)
@@ -158,6 +128,36 @@ def test_boundary_stream_influences_output():
     assert not torch.allclose(out_a, out_b), (
         "Different boundary inputs should produce different outputs."
     )
+
+
+def test_fusion_self_attn():
+    """Enabling fusion self-attention layers changes the output."""
+    embed_dim = 4
+
+    encoder_0 = make_encoder(7, 3, embed_dim, (180, 180), num_fusion_self_attn=0)
+    encoder_2 = make_encoder(7, 3, embed_dim, (180, 180), num_fusion_self_attn=2)
+
+    # Verify the self-attention layers exist (or not)
+    assert len(encoder_0.fusion_self_attn_layers) == 0
+    assert len(encoder_2.fusion_self_attn_layers) == 4  # 2 layers × (attn + ff)
+
+
+def test_boundary_attn_heads_divisibility():
+    """Non-divisible latent_dim / heads should raise."""
+    import pytest
+
+    with pytest.raises(AssertionError, match="divisible"):
+        PerceiverEncoder(
+            prog_channels=7,
+            boundary_channels=3,
+            out_channels=4,
+            latent_dim=7,
+            patch_extent=(180, 180),
+            perceiver=make_perceiver(7),
+            boundary_attn_heads=3,
+            num_fusion_self_attn=0,
+            boundary_fourier_dim=4,
+        )
 
 
 def test_patch_from__full_globe():

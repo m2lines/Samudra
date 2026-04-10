@@ -3,6 +3,7 @@
 # - https://github.com/microsoft/aurora/blob/main/aurora/model/encoder.py
 # - https://github.com/lucidrains/vit-pytorch
 
+
 import torch
 import torch.nn.functional as F
 from aurora.model.fourier import pos_expansion, scale_expansion
@@ -13,6 +14,7 @@ from perceiver_pytorch.perceiver_pytorch import FeedForward, PreNorm
 from torch import nn
 
 from ocean_emulators.constants import Boundary, Lat, Lon, Prognostic
+from ocean_emulators.models.modules.augment_input import FourierPatchPositionEncoding
 
 
 def patch_from(
@@ -29,11 +31,11 @@ def patch_from(
     return patch_h, patch_w
 
 
-class CrossAttention(nn.Module):
-    """Multi-head cross-attention using ``F.scaled_dot_product_attention``.
+class MultiHeadAttention(nn.Module):
+    """Multi-head attention using ``F.scaled_dot_product_attention``.
 
-    Queries come from one sequence, keys/values from another (the context).
-    Falls back to self-attention when no context is provided.
+    Supports both self-attention (no context) and cross-attention
+    (context provided as keys/values).
     """
 
     def __init__(
@@ -57,8 +59,10 @@ class CrossAttention(nn.Module):
         self.dropout = dropout
 
     def forward(
-        self, x: torch.Tensor, context: torch.Tensor | None = None
-    ) -> torch.Tensor:
+        self,
+        x: Float[torch.Tensor, "batch seq query_dim"],
+        context: Float[torch.Tensor, "batch ctx_seq context_dim"] | None = None,
+    ) -> Float[torch.Tensor, "batch seq query_dim"]:
         context = context if context is not None else x
         h = self.heads
 
@@ -119,7 +123,9 @@ class PerceiverEncoder(nn.Module):
         latent_dim: int,
         patch_extent: tuple[float, float],
         perceiver: nn.Module,
-        boundary_attn_heads: int = 4,
+        boundary_attn_heads: int,
+        num_fusion_self_attn: int,
+        boundary_fourier_dim: int,
     ) -> None:
         super().__init__()
         self.prog_channels = prog_channels
@@ -130,14 +136,25 @@ class PerceiverEncoder(nn.Module):
         self.patch_extent = patch_extent
         self.perceiver = perceiver
 
-        # Boundary: project to latent_dim, then cross-attend from
-        # Perceiver latents.  PreNorm mirrors the Perceiver's own layer
-        # structure (pre-norm attention + pre-norm feed-forward).
+        assert latent_dim % boundary_attn_heads == 0, (
+            f"latent_dim ({latent_dim}) must be divisible by "
+            f"boundary_attn_heads ({boundary_attn_heads})."
+        )
         dim_head = latent_dim // boundary_attn_heads
-        self.boundary_proj = nn.Linear(boundary_channels, latent_dim)
+
+        # Within each patch, boundary pixels get 2-D Fourier position
+        # features so the cross-attention knows *where* in the patch each
+        # token is.  The module adds 2 * fourier_dim features.
+        self.boundary_pos_enc = FourierPatchPositionEncoding(boundary_fourier_dim)
+        self.boundary_proj = nn.Linear(
+            boundary_channels + 2 * boundary_fourier_dim, latent_dim
+        )
+
+        # Boundary: cross-attend from Perceiver latents.  PreNorm mirrors
+        # the Perceiver's own layer structure.
         self.boundary_cross_attn = PreNorm(
             latent_dim,
-            CrossAttention(
+            MultiHeadAttention(
                 latent_dim,
                 context_dim=latent_dim,
                 heads=boundary_attn_heads,
@@ -146,6 +163,23 @@ class PerceiverEncoder(nn.Module):
             context_dim=latent_dim,
         )
         self.boundary_ff = PreNorm(latent_dim, FeedForward(latent_dim))
+
+        # --- optional self-attention after fusion ---
+        self.fusion_self_attn_layers = nn.ModuleList()
+        for _ in range(num_fusion_self_attn):
+            self.fusion_self_attn_layers.append(
+                PreNorm(
+                    latent_dim,
+                    MultiHeadAttention(
+                        latent_dim,
+                        heads=boundary_attn_heads,
+                        dim_head=dim_head,
+                    ),
+                )
+            )
+            self.fusion_self_attn_layers.append(
+                PreNorm(latent_dim, FeedForward(latent_dim))
+            )
 
         # Pool latents and project to output embedding dimension.
         self.latent_norm = nn.LayerNorm(latent_dim)
@@ -207,10 +241,13 @@ class PerceiverEncoder(nn.Module):
 
         boundary_patches = rearrange(
             boundary,
-            "b v (h ph) (w pw) -> (b h w) (ph pw) v",
+            "b v (h ph) (w pw) -> (b h w) ph pw v",
             ph=ph_b,
             pw=pw_b,
         )
+
+        boundary_patches = self.boundary_pos_enc(boundary_patches)
+        boundary_patches = rearrange(boundary_patches, "b ph pw d -> b (ph pw) d")
         boundary_tokens = self.boundary_proj(
             boundary_patches
         )  # (B_HW, ph_b*pw_b, latent_dim)
@@ -218,6 +255,11 @@ class PerceiverEncoder(nn.Module):
         # --- Fusion: Perceiver latents cross-attend to boundary context ---
         latents = self.boundary_cross_attn(latents, context=boundary_tokens) + latents
         latents = self.boundary_ff(latents) + latents
+
+        # Optional self-attention layers for deeper fusion integration (turned off by default)
+        for i in range(0, len(self.fusion_self_attn_layers), 2):
+            latents = self.fusion_self_attn_layers[i](latents) + latents
+            latents = self.fusion_self_attn_layers[i + 1](latents) + latents
 
         # --- Pool across latents and project to output dim ---
         x = latents.mean(dim=1)  # (B_HW, latent_dim)

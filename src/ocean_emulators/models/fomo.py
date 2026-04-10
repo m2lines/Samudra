@@ -11,7 +11,7 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
 from ocean_emulators.constants import Boundary, Prognostic
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import PerceiverDecoder, PerceiverEncoder
-from ocean_emulators.models.modules.encoder import CrossAttention
+from ocean_emulators.models.modules.encoder import MultiHeadAttention
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.device import autocast
@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 
 _checkpoint_types: tuple[type, ...] = (
     nn.LayerNorm,
-    CrossAttention,
+    MultiHeadAttention,
     FeedForward,
     nn.Linear,
     Perceiver,

@@ -19,6 +19,11 @@
 # Private GHCR pulls (if needed):
 #   export GHCR_USERNAME=...
 #   export GHCR_TOKEN=...
+#
+# Optional Nsight Systems profiling inside the container:
+#   export NSYS_ARGS="--trace=cuda,nvtx,osrt --sample=none"
+#   # If NSYS_ARGS omits -o/--output, reports are written under:
+#   #   ${OUTPUT_BASE}/${NAME}/nsys/
 
 #SBATCH --job-name=oe-train
 #SBATCH --output=slurm-%j.out
@@ -46,6 +51,7 @@ CONFIG="${CONFIG:-}"
 NAME="${NAME:-}"
 NAME_SUFFIX="${NAME_SUFFIX:-}"
 ARGS="${ARGS:-}"
+NSYS_ARGS="${NSYS_ARGS:-}"
 if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then
   NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"
 fi
@@ -90,6 +96,7 @@ if [[ -e "${RUN_DIR}" ]]; then
   echo "Pick a unique NAME_SUFFIX." >&2
   exit 4
 fi
+NSYS_OUTPUT_DIR="${RUN_DIR}/nsys"
 
 # W&B mode defaults: online if key provided, else disabled.
 WANDB_MODE="${WANDB_MODE:-}"
@@ -147,6 +154,10 @@ echo "Outputs:    ${OUTPUT_BASE}"
 echo "W&B mode:   ${WANDB_MODE}"
 echo "Image ref:  ${IMAGE_REF}"
 echo "SIF path:   ${SIF_PATH}"
+if [[ -n "${NSYS_ARGS}" ]]; then
+  echo "NSYS args:  ${NSYS_ARGS}"
+  echo "NSYS out:   ${NSYS_OUTPUT_DIR}"
+fi
 
 if [[ ! -s "${SIF_PATH}" ]]; then
   echo "SIF not found locally. Pulling from registry..."
@@ -205,6 +216,12 @@ BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 # Create the run directory after preflight validation so early failures are
 # retryable with the same NAME.
 mkdir -p "${RUN_DIR}"
+if [[ -n "${NSYS_ARGS}" ]]; then
+  mkdir -p "${NSYS_OUTPUT_DIR}"
+fi
+
+export OE_NSYS_ARGS="${NSYS_ARGS}"
+export OE_NSYS_OUTPUT_DIR="${NSYS_OUTPUT_DIR}"
 
 srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
   "${APPTAINER_BIN}" exec --nv \
@@ -223,7 +240,31 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         echo \"Hint: rebuild/pull a container tag that includes /workspace/configs.\" >&2
         exit 2
       fi
-      /workspace/.venv/bin/python -m torch.distributed.run \
+      profiler_cmd=()
+      if [[ -n \"\${OE_NSYS_ARGS:-}\" ]]; then
+        if ! command -v nsys >/dev/null 2>&1; then
+          echo \"ERROR: NSYS_ARGS was set, but nsys is not available inside the container PATH.\" >&2
+          exit 3
+        fi
+        read -r -a nsys_args <<< \"\${OE_NSYS_ARGS}\"
+        has_nsys_output=0
+        for arg in \"\${nsys_args[@]}\"; do
+          case \"\${arg}\" in
+            -o|--output|-o?*|--output=*)
+              has_nsys_output=1
+              break
+              ;;
+          esac
+        done
+        profiler_cmd=(nsys profile \"\${nsys_args[@]}\")
+        if [[ \"\${has_nsys_output}\" == \"0\" ]]; then
+          profiler_cmd+=(
+            -o \"\${OE_NSYS_OUTPUT_DIR}/nsys-node\${SLURM_NODEID:-0}-proc\${SLURM_PROCID:-0}\"
+          )
+        fi
+        echo \"Nsight Systems profiling enabled on proc \${SLURM_PROCID:-unset}.\"
+      fi
+      \"\${profiler_cmd[@]}\" /workspace/.venv/bin/python -m torch.distributed.run \
         --nnodes=${SLURM_NNODES} \
         --nproc_per_node=${GPUS_PER_NODE} \
         --master_addr=${MASTER_ADDR} \

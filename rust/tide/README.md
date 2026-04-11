@@ -104,3 +104,6 @@ uv lock --check
   cross-step data reuse.
 - Extend support beyond standard Samudra train/validation once the narrow path is
   stable and measurably faster.
+- Implement important optimizations like batch-aware eviction, auto tuning between
+  strategies (eg with a small crop, do you CPU-decode then copy the crop or GPU decode
+  and crop)

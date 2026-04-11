@@ -75,6 +75,7 @@ dev = [
   "scalene>=1.5.51",
   "snakeviz>=2.2.2",
   "tenacity>=9",
+  "tide",
   "tqdm>=4.67.1",
   "types-pyyaml>=6.0.12.20241230",
   "types-tqdm>=4.67.0.20250516",
@@ -135,6 +136,7 @@ extra-build-dependencies.flash-attn = [ { requirement = "torch", match-runtime =
 extra-build-variables.flash-attn = { FLASH_ATTENTION_SKIP_CUDA_BUILD = "TRUE" }
 
 [tool.uv.sources]
+tide = { path = "rust/ocean_loader" }
 torch = [
   { index = "pytorch-cu130", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
 ]

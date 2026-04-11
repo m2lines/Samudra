@@ -15,3 +15,11 @@ dynamic = [ "version" ]
 
 [tool.maturin]
 features = [ "pyo3/extension-module" ]
+
+[tool.uv]
+cache-keys = [
+  "Cargo.toml",
+  "Cargo.lock",
+  "pyproject.toml",
+  "src/**/*.rs",
+]

@@ -136,7 +136,7 @@ extra-build-dependencies.flash-attn = [ { requirement = "torch", match-runtime =
 extra-build-variables.flash-attn = { FLASH_ATTENTION_SKIP_CUDA_BUILD = "TRUE" }
 
 [tool.uv.sources]
-tide = { path = "rust/ocean_loader" }
+tide = { path = "rust/tide" }
 torch = [
   { index = "pytorch-cu130", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
 ]

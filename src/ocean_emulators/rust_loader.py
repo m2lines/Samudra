@@ -3,12 +3,14 @@ from __future__ import annotations
 import bisect
 import concurrent.futures
 import dataclasses
+import importlib
 from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import torch
+import xarray as xr
 
 from ocean_emulators.config import RustLoaderConfig
 from ocean_emulators.utils.ctx import GridContext
@@ -17,23 +19,22 @@ from ocean_emulators.utils.data import LoadStats
 if TYPE_CHECKING:
     from ocean_emulators.datasets import TorchTrainDataset
 
+_tide_module: Any | None = None
+_TIDE_IMPORT_ERROR: ImportError | None = None
 try:
-    import tide
+    _tide_module = importlib.import_module("tide")
 except ImportError as exc:  # pragma: no cover - exercised via runtime error path
-    tide = None
     _TIDE_IMPORT_ERROR = exc
-else:
-    _TIDE_IMPORT_ERROR = None
 
 
 def _require_tide() -> Any:
-    if tide is None:
+    if _tide_module is None:
         raise RuntimeError(
             "The optional Rust loader extension `tide` is not installed. "
             "Build it with `uvx maturin develop --uv --manifest-path "
-            "rust/ocean_loader/Cargo.toml`."
+            "rust/tide/Cargo.toml`."
         ) from _TIDE_IMPORT_ERROR
-    return tide
+    return _tide_module
 
 
 def _flatten_dataset(dataset) -> np.ndarray:
@@ -93,8 +94,15 @@ class TideDatasetHandle:
 
         self.dataset = dataset
         self.spatial_window = SpatialWindow.full(dataset)
+        data_path = _as_local_path(
+            dataset.prognostic_srcs[0].data_path, label="data source"
+        )
+        self._time_index = self._build_time_index(
+            data_path,
+            dataset.prognostic_srcs[0].data.time.values,
+        )
         self.backend = tide_mod.Dataset(
-            _as_local_path(dataset.prognostic_srcs[0].data_path, label="data source"),
+            data_path,
             list(dataset.prognostic_srcs[0].data.data_vars),
             list(dataset.boundary_src.data.data_vars),
             _flatten_dataset(dataset.prognostic_srcs[0].means),
@@ -109,6 +117,26 @@ class TideDatasetHandle:
             rust_cfg.chunk_read_concurrency,
             rust_cfg.decode_concurrency,
         )
+
+    @staticmethod
+    def _build_time_index(data_path: str, sliced_times: np.ndarray) -> np.ndarray:
+        full_times = np.asarray(xr.open_zarr(data_path, chunks=None).time.values)
+        if sliced_times.size == 0:
+            return np.asarray([], dtype=np.int64)
+
+        matches = np.flatnonzero(full_times == sliced_times[0])
+        if matches.size == 0:
+            raise ValueError("Could not locate sliced time range in tide backing store")
+
+        offset = int(matches[0])
+        end = offset + sliced_times.size
+        if end <= full_times.size and np.array_equal(
+            full_times[offset:end], sliced_times
+        ):
+            return np.arange(offset, end, dtype=np.int64)
+
+        lookup = {time: index for index, time in enumerate(full_times)}
+        return np.asarray([lookup[time] for time in sliced_times], dtype=np.int64)
 
     def make_batch(
         self,
@@ -140,8 +168,12 @@ class TideDatasetHandle:
             x_index = self.dataset._get_x_index(idx, step)
             input_times = x_index.isel(time=slice(0, self.dataset.hist + 1)).values
             label_times = x_index.isel(time=slice(self.dataset.hist + 1, None)).values
-            input_time_indices.append([int(v) for v in input_times.tolist()])
-            label_time_indices.append([int(v) for v in label_times.tolist()])
+            input_time_indices.append(
+                [int(self._time_index[int(v)]) for v in input_times]
+            )
+            label_time_indices.append(
+                [int(self._time_index[int(v)]) for v in label_times]
+            )
         return ExampleSpec(input_time_indices, label_time_indices)
 
 

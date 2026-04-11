@@ -2828,7 +2828,7 @@ dev = [
     { name = "scalene", specifier = ">=1.5.51" },
     { name = "snakeviz", specifier = ">=2.2.2" },
     { name = "tenacity", specifier = ">=9" },
-    { name = "tide", directory = "rust/ocean_loader" },
+    { name = "tide", directory = "rust/tide" },
     { name = "tqdm", specifier = ">=4.67.1" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20241230" },
     { name = "types-tqdm", specifier = ">=4.67.0.20250516" },
@@ -4315,7 +4315,7 @@ wheels = [
 
 [[package]]
 name = "tide"
-source = { directory = "rust/ocean_loader" }
+source = { directory = "rust/tide" }
 
 [[package]]
 name = "timm"

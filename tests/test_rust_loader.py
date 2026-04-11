@@ -1,7 +1,10 @@
+import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 from ocean_emulators.constants import LoaderVersion
+from ocean_emulators.rust_loader import TideDatasetHandle
 from ocean_emulators.train import Trainer
 from ocean_emulators.utils.multiton import MultitonScope
 from tests.conftest import DEFAULT_CONFIG
@@ -18,6 +21,19 @@ def _with_rust_loader(train_config):
             )
         }
     )
+
+
+def test_tide_time_index_maps_sliced_times_to_backing_store(tmp_path):
+    times = np.arange("1975-01-01", "1975-01-08", dtype="datetime64[D]")
+    path = tmp_path / "data.zarr"
+    xr.Dataset(
+        {"sample": ("time", np.arange(times.size, dtype=np.float32))},
+        coords={"time": times},
+    ).to_zarr(path)
+
+    mapped = TideDatasetHandle._build_time_index(str(path), times[2:5])
+
+    assert np.array_equal(mapped, np.asarray([2, 3, 4], dtype=np.int64))
 
 
 @pytest.mark.parametrize(

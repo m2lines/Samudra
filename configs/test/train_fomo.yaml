@@ -51,6 +51,7 @@ data:
   hist: 0
 
 model:
+  perceiver_implementation: "naive"
   pred_residuals: false
   last_kernel_size: 3
   pad: "circular"

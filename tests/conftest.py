@@ -290,7 +290,11 @@ def config_name(request: pytest.FixtureRequest) -> str:
     return request.param
 
 
-@pytest.fixture(scope="session", params=[e for e in c.LoaderVersion])
+# Rust v0 has a model-specific batch API and is covered by tests/test_rust_loader.py.
+@pytest.fixture(
+    scope="session",
+    params=[e for e in c.LoaderVersion if e != c.LoaderVersion.OM4_RUST_V0],
+)
 def loader_version(request: pytest.FixtureRequest) -> c.LoaderVersion:
     return request.param
 

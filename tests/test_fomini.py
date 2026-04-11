@@ -25,7 +25,8 @@ def make_perceiver_io(
 def make_ctx(out_channels: int, H: int, W: int) -> GridContext:
     mask = torch.ones(out_channels, H, W, dtype=torch.bool)
     dummy = torch.randn(1, 1, H, W)
-    return GridContext(mask, make_resolution(dummy))
+    res = make_resolution(dummy)
+    return GridContext(mask, res, res)
 
 
 def make_model(query_chunk_size: int | None) -> FOMini:

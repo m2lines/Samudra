@@ -48,6 +48,10 @@ class BaseModel(torch.nn.Module):
             if step == 0:
                 input_tensor = train_data.get_initial_input()
             else:
+                # TODO(alxmrs): With cross-resolution training (e.g. "mix" schedule where
+                #  input and output grids differ), the previous prediction lives on the
+                #  output grid but merge_prognostic_and_boundary expects the input grid.
+                #  Multi-step rollouts (steps > 1) will need regridding here.
                 prev_output = outputs[-1]
                 if (
                     self.gradient_detach_interval > 0

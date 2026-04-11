@@ -3,8 +3,7 @@ import json
 import re
 import sys
 from pathlib import Path
-from types import UnionType
-from typing import get_args
+from typing import get_args, get_origin
 
 import pydantic
 import yaml
@@ -15,36 +14,52 @@ from ocean_emulators.viz import VizConfig
 
 def get_pydantic_models(
     model: type[pydantic.BaseModel],
-    seen: dict[str, type[pydantic.BaseModel]] | None = None,
+    models: dict[str, type[pydantic.BaseModel]] | None = None,
+    seen: set[int] | None = None,
 ) -> dict[str, type[pydantic.BaseModel]]:
     """Recursively find all Pydantic models in a model's fields.
 
     Args:
         model: The Pydantic model to start from
-        seen: Dictionary of already seen models (keyed by model name)
+        models: Collected models keyed by model name
+        seen: Visited annotation objects keyed by identity
 
     Returns:
         Dictionary of model names to model classes
     """
+    if models is None:
+        models = {}
     if seen is None:
-        seen = {}
+        seen = set()
 
-    model_name = model.__name__
-    if model_name in seen:
-        return seen
+    _collect_pydantic_models(model, models, seen)
+    return models
 
-    seen[model_name] = model
 
-    for field in model.model_fields.values():
-        field_type = field.annotation
-        if isinstance(field_type, type) and issubclass(field_type, pydantic.BaseModel):
-            get_pydantic_models(field_type, seen)
-        elif isinstance(field_type, UnionType):
-            for type_ in get_args(field_type):
-                if isinstance(type_, type) and issubclass(type_, pydantic.BaseModel):
-                    get_pydantic_models(type_, seen)
+def _collect_pydantic_models(
+    annotation: object,
+    models: dict[str, type[pydantic.BaseModel]],
+    seen: set[int],
+) -> None:
+    annotation_id = id(annotation)
+    if annotation_id in seen:
+        return
+    seen.add(annotation_id)
 
-    return seen
+    if isinstance(annotation, type) and issubclass(annotation, pydantic.BaseModel):
+        models[annotation.__name__] = annotation
+        for field in annotation.model_fields.values():
+            _collect_pydantic_models(field.annotation, models, seen)
+        return
+
+    # We check if this is a parameterized type and recurse if so (eg Union[int, str])
+    # (Union is the origin in that case.)
+    origin = get_origin(annotation)
+    if origin is None:
+        return
+
+    for arg in get_args(annotation):
+        _collect_pydantic_models(arg, models, seen)
 
 
 def generate_schemas(

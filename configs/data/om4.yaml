@@ -6,3 +6,5 @@ sources:
     data_stds_location: OM4_stds.zarr
 static_data_vars: []
 concurrent_compute: true
+loading:
+  type: cpu

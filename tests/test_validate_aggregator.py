@@ -1,6 +1,6 @@
 import torch
 
-from ocean_emulators.aggregator import ValidateAggregator
+from ocean_emulators.aggregator import Aggregator, ValidateAggregator
 from ocean_emulators.aggregator.train import TrainAggregator
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from ocean_emulators.constants import TensorMap
@@ -37,6 +37,10 @@ def val_batch_of(
         ctx=GridContext(
             label_mask=torch.ones(n_prog, h, w),
             input_resolution_cpu=(
+                torch.linspace(-90, 90, steps=h),
+                torch.linspace(-180, 180, steps=w),
+            ),
+            output_resolution_cpu=(
                 torch.linspace(-90, 90, steps=h),
                 torch.linspace(-180, 180, steps=w),
             ),
@@ -123,3 +127,24 @@ def test_val_aggregator__hist_gt_0__does_not_require_wetmask_target_shape_match(
     val_agg.record_validation_batch(val_batch)
     val_logs = val_agg.get_logs(label="test")
     assert val_logs["test/fake/num_recordings"] == 1.0
+
+
+def test_validation_aggregator__reduced_only__omits_image_logs(
+    dummy_src: DataSource,
+):
+    val_batch = val_batch_of(*dummy_src.grid_size)
+    num_prog_channels = val_batch.loss_per_channel.shape[0]
+    val_agg = Aggregator.get_validation_aggregator(
+        dummy_src.metadata,
+        hist=0,
+        area_weights=dummy_src.spherical_area_weights,
+        num_prognostic_channels=num_prog_channels,
+        include_image_aggregators=False,
+    )
+
+    val_agg.record_validation_batch(val_batch)
+    val_logs = val_agg.get_logs(label="val")
+
+    assert any(key.startswith("val/reduced/") for key in val_logs)
+    assert not any("/snapshot/" in key for key in val_logs)
+    assert not any("/mean_map/" in key for key in val_logs)

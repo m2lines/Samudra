@@ -9,7 +9,6 @@ import time
 import warnings
 from collections import OrderedDict
 from collections.abc import Iterable
-from concurrent.futures import ThreadPoolExecutor
 from multiprocessing.context import BaseContext
 from pathlib import Path
 from typing import Any, assert_never
@@ -83,6 +82,17 @@ from ocean_emulators.utils.wandb import WandBLogger
 logger = logging.getLogger(__name__)
 
 
+def should_log_validation_images(epoch: int, frequency: int) -> bool:
+    """Return whether to log validation images for a 1-based training epoch."""
+    if epoch < 1:
+        raise ValueError(f"Epoch must be >= 1, got {epoch}")
+    if frequency < 1:
+        raise ValueError(
+            f"Validation image log frequency must be >= 1, got {frequency}"
+        )
+    return (epoch - 1) % frequency == 0
+
+
 class Trainer:
     model: BaseModel | nn.parallel.DistributedDataParallel
 
@@ -135,9 +145,19 @@ class Trainer:
             boundary_var_names=self.boundary_var_names,
         )
         self.train_schedule: TrainSchedule = cfg.experiment.train_schedule
+        if self.train_schedule == "mix" and cfg.model.pred_residuals:
+            raise ValueError(
+                "Residual predictions on a mixed multiscale training schedule is not currently supported."
+            )
+        if self.train_schedule == "mix" and any(step > 1 for step in cfg.steps):
+            raise ValueError(
+                "Step predictions on a mixed multiscale training schedule is not currently supported."
+            )
+
+        data_num_workers = cfg.data.loading.num_pytorch_workers()
 
         self.mp_context: BaseContext | None = None
-        if cfg.data.num_workers > 0:
+        if data_num_workers > 0:
             if self.data_container.supports_fork:
                 self.mp_context = multiprocessing.get_context("fork")
             else:
@@ -148,7 +168,7 @@ class Trainer:
 
         self.tensor_map = TensorMap.init_instance(
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
-        )
+        ).to(self.device)
 
         logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
@@ -168,11 +188,7 @@ class Trainer:
                 f"with validation time range {cfg.val_time}"
             )
 
-        self.executor: ThreadPoolExecutor | None = None
-        if cfg.data.concurrent_compute:
-            self.executor = ThreadPoolExecutor(
-                max_workers=None, thread_name_prefix="concurrent_compute"
-            )
+        self.concurrent_compute = cfg.data.concurrent_compute
 
         self.primary_src = self.data_container.primary_source
 
@@ -295,12 +311,13 @@ class Trainer:
         self.steps = cfg.steps
         self.step_transition = cfg.step_transition
         self.save_freq = cfg.save_freq
+        self.validation_image_log_freq = cfg.validation_image_log_freq
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
-        self.num_workers: int = cfg.data.num_workers
+        self.num_workers: int = data_num_workers
         self.pin_mem: bool = cfg.pin_mem
         self.train_time: config.TimeConfig = cfg.train_time
         self.val_time = cfg.val_time
@@ -634,6 +651,9 @@ class Trainer:
 
     def validate_one_epoch(self, epoch):
         self.model.eval()
+        log_validation_images = should_log_validation_images(
+            epoch, self.validation_image_log_freq
+        )
 
         if self.train_schedule == "standard":
             # The standard val aggregator only supports a single scale.
@@ -642,6 +662,7 @@ class Trainer:
                 self.hist,
                 self.primary_src.spherical_area_weights.to(self.device),
                 self.num_out,
+                include_image_aggregators=log_validation_images,
             )
         else:
             # Create a validation aggregator that handles multiple scales.
@@ -768,7 +789,7 @@ class Trainer:
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
-                executor=self.executor,
+                concurrent_compute_=self.concurrent_compute,
             )
             for stride in self.data_stride
             for src, dst in srcs
@@ -785,7 +806,7 @@ class Trainer:
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
-                executor=self.executor,
+                concurrent_compute_=self.concurrent_compute,
             )
             for stride in self.data_stride
             for src, dst in srcs
@@ -1063,8 +1084,6 @@ class Trainer:
             self._ema.restore(parameters=self.model.parameters())
 
     def finish(self):
-        if self.executor is not None:
-            self.executor.shutdown()
         self.wandb_logger.finish()
 
 

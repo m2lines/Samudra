@@ -1,11 +1,11 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-04-02-CONT:[2026-03-29-samudra_llc:Agulhas_patch:group_norm=32(divisible_channels=[256,384,512,512]),pred_resid=false,1yr,temporal_stride=6-11154413.out][temporal_stride=3,steps=2_ON_FULL_LLC_DATA]-WITH_num_workers=2_per_gpu
+#SBATCH --job-name=2026-04-12-Samudra_LLC:temporal_stride=18,data_stride=3,hist=2_loss_test
 #SBATCH -N 1
-#SBATCH --mem=400GB
+#SBATCH --mem=500GB
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=30
-#SBATCH --gres=gpu:2
+#SBATCH --cpus-per-task=60
+#SBATCH --gres=gpu:4
 #SBATCH --time=03-23:00:00
 #SBATCH --signal=B:USR1@300
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
@@ -13,6 +13,7 @@
 
 # load Python platform with PyTorch and CUDA support preinstalled
 module load miniforge/24.3.0-0
+module load cuda/13.1.0
 
 # cd to correct directory
 cd /orcd/home/002/codycruz/Ocean_Emulator
@@ -30,28 +31,77 @@ export TORCH_NCCL_DUMP_ON_TIMEOUT=1
 export TORCH_FR_BUFFER_SIZE="${TORCH_FR_BUFFER_SIZE:-1048576}"
 export NCCL_DEBUG=INFO
 
-# DDP params
-DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-4}"
+# PROFILING
+export NSYS_ARGS="--trace=cuda,nvtx,osrt --sample=cpu --delay=300 --duration=120"
+NSYS_OUTPUT_DIR="/orcd/home/002/codycruz/Ocean_Emulator/logs/nsys"
+mkdir -p "${NSYS_OUTPUT_DIR}"
+PROFILER_CMD=()
+if [[ -n "${NSYS_ARGS}" ]]; then
+  if ! command -v nsys >/dev/null 2>&1; then
+    echo "ERROR: NSYS_ARGS was set, but nsys is not available on PATH." >&2
+    exit 1
+  fi
+  read -r -a nsys_args <<< "${NSYS_ARGS}"
+  has_nsys_output=0
+  for arg in "${nsys_args[@]}"; do
+    case "${arg}" in
+      -o|--output|-o?*|--output=*)
+        has_nsys_output=1
+        break
+        ;;
+    esac
+  done
+  PROFILER_CMD=(nsys profile "${nsys_args[@]}")
+  if [[ "${has_nsys_output}" == "0" ]]; then
+    PROFILER_CMD+=(
+      -o "${NSYS_OUTPUT_DIR}/llc-${SLURM_JOB_ID:-manual}-node${SLURM_NODEID:-0}-proc${SLURM_PROCID:-0}"
+    )
+  fi
+fi
+
+# KNOBS
+
+# GPUS WORKERS 
+GPUS="${GPUS:-4}"
+DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-2}"
+
+# DDP
 PIN_MEM="${PIN_MEM:-false}"
 DDP_BROADCAST_BUFFERS="${DDP_BROADCAST_BUFFERS:-false}"
-DDP_TIMEOUT_MINUTES="${DDP_TIMEOUT_MINUTES:-60}"
+DDP_TIMEOUT_MINUTES="${DDP_TIMEOUT_MINUTES:-300}"
 DDP_MAX_DATA_WORKERS_PER_RANK="${DDP_MAX_DATA_WORKERS_PER_RANK:-12}"
 CONCURRENT_COMPUTE="${CONCURRENT_COMPUTE:-false}"
+
+# DATA
 LLC_FACE="${LLC_FACE:-1}"
 LLC_I_START="${LLC_I_START:-2880}"
 LLC_I_END="${LLC_I_END:-3600}"
 LLC_J_START="${LLC_J_START:-720}"
 LLC_J_END="${LLC_J_END:-1440}"
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-}"
-FINETUNE="${FINETUNE:-false}"
-RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-true}"
-RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-true}"
-EXPERIMENT_NAME="${EXPERIMENT_NAME:-}"
-BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
 
-EPOCHS="${EPOCHS:-2}"
+# CHECKPOINTING FINETUNING
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-}" #.LOCAL/2026-04-03-CONT:[increase-step-test-suite]-WITH_temporal_stride=6,steps=4,2011-09-14-2012-01-01-RESUME/saved_nets/ckpt.pt}"
+FINETUNE="${FINETUNE:-false}"
+RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
+RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
+
+# NAME, DIRECTORY, EPOCHS, SAVE_FREQ
+EXPERIMENT_NAME="${EXPERIMENT_NAME:-}" # 2026-04-04-CONT:[increase-step-test-suite]-WITH_temporal_stride=6,steps=4,2012-01-01-2012-09-14-RESUME}"
+BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
+EPOCHS="${EPOCHS:-1}"
 SAVE_FREQ="${SAVE_FREQ:-1}"
-GPUS="${GPUS:-2}"
+
+# CURRICULUM
+#list knobs should be passed like "[1]" or "[1, 2, 4]".
+DATA_STRIDE="${DATA_STRIDE:-[3]}"
+TEMPORAL_STRIDE="${TEMPORAL_STRIDE:-18}"
+STEPS="${STEPS:-[1]}"
+STEP_TRANSITION="${STEP_TRANSITION:-[]}"
+HIST="${HIST:-2}"
+GRADIENT_DETACH_INTERVAL="${GRADIENT_DETACH_INTERVAL:-2}"
+
+
+
 
 echo "======== train ocean_emulator samudra w/ ${GPUS} gpus on LLC4320 data ========"
 echo "training for ${EPOCHS} total epochs and saving checkpoints every ${SAVE_FREQ}"
@@ -62,7 +112,8 @@ fi
 echo "using ddp_broadcast_buffers=${DDP_BROADCAST_BUFFERS} and ddp_timeout_minutes=${DDP_TIMEOUT_MINUTES}"
 echo "using ddp_max_data_workers_per_rank=${DDP_MAX_DATA_WORKERS_PER_RANK}"
 echo "using data.concurrent_compute=${CONCURRENT_COMPUTE}"
-echo "using LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
+echo "using curriculum: data_stride=${DATA_STRIDE}, temporal_stride=${TEMPORAL_STRIDE}, steps=${STEPS}, step_transition=${STEP_TRANSITION}, hist=${HIST}, grad-detach=${GRADIENT_DETACH_INTERVAL}"
+echo "using data location: LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
 
 # Optional resume behavior:
 # - RESUME_CKPT_PATH set + FINETUNE=false resumes optimizer/scheduler and starts at ckpt epoch + 1.
@@ -105,6 +156,12 @@ uv run python -m torch.distributed.run \
   -m ocean_emulators.train configs/samudra_llc/train.yaml \
   --save_freq "${SAVE_FREQ}" \
   --epochs "${EPOCHS}" \
+  --data_stride "${DATA_STRIDE}" \
+  --temporal_stride "${TEMPORAL_STRIDE}" \
+  --steps "${STEPS}" \
+  --step_transition "${STEP_TRANSITION}" \
+  --data.hist "${HIST}" \
+  --model.gradient_detach_interval "${GRADIENT_DETACH_INTERVAL}" \
   --gradient_accumulation_steps 4 \
   --ddp_bucket_cap_mb 25 \
   --ddp_use_no_sync_for_accumulation true \

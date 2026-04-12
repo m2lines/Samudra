@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-03-26-eval:samudra_llc:epoch1_oct2012_patchloc=i(2880,3600)-j(720,1440)
+#SBATCH --job-name=2026-04-06-eval:samudra_llc:Agulhas,from-4-4-26-RESUME
 #SBATCH -N 1
 #SBATCH --mem=200GB
 #SBATCH --ntasks=1
@@ -21,12 +21,12 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
-CKPT_PATH="${CKPT_PATH:-/orcd/home/002/codycruz/Ocean_Emulator/.LOCAL/2026-03-23-samudra_llc:clean_run:all_fields-all_depths,loc=i(2880,3600)-j(720,1440)/saved_nets/ckpt_1.pt}"
-EXPERIMENT_NAME="${EXPERIMENT_NAME:-2026-03-26-eval:samudra_llc:epoch1_oct2012_patchloc=i(2880,3600)-j(720,1440)}"
+CKPT_PATH="${CKPT_PATH:-/orcd/home/002/codycruz/Ocean_Emulator/.LOCAL/2026-04-04-CONT:[increase-step-test-suite]-WITH_temporal_stride=6,steps=4,2012-01-01-2012-09-14-RESUME/saved_nets/ckpt.pt}"
+EXPERIMENT_NAME="${EXPERIMENT_NAME:-2026-04-06-eval:samudra_llc:Agulhas,from-4-4-26-RESUME}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-/orcd/data/abodner/002/cody/inference_patch/predictions}"
 
 INFER_START="${INFER_START:-2012-10-01}"
-INFER_END="${INFER_END:-2012-10-07}"
+INFER_END="${INFER_END:-2012-11-01}"
 NUM_MODEL_STEPS_FORWARD="${NUM_MODEL_STEPS_FORWARD:-2}"
 
 DATA_ROOT="${DATA_ROOT:-/orcd/data/abodner/}"

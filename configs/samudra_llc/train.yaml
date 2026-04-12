@@ -31,6 +31,7 @@ data_stride: [3]
 temporal_stride: 18
 steps: [1]
 step_transition: []
+temporal_stride_transition: []
 preemptible: false
 
 backend: auto

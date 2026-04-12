@@ -92,11 +92,12 @@ EPOCHS="${EPOCHS:-1}"
 SAVE_FREQ="${SAVE_FREQ:-1}"
 
 # CURRICULUM
-#list knobs should be passed like "[1]" or "[1, 2, 4]".
-DATA_STRIDE="${DATA_STRIDE:-[3]}"
+# list knobs should be passed like "[1]" or "[1, 2, 4]".
 TEMPORAL_STRIDE="${TEMPORAL_STRIDE:-18}"
+TEMPORAL_STRIDE_TRANSITION="${TEMPORAL_STRIDE_TRANSITION:-[]}"
 STEPS="${STEPS:-[1]}"
 STEP_TRANSITION="${STEP_TRANSITION:-[]}"
+DATA_STRIDE="${DATA_STRIDE:-[3]}"
 HIST="${HIST:-2}"
 GRADIENT_DETACH_INTERVAL="${GRADIENT_DETACH_INTERVAL:-2}"
 
@@ -112,7 +113,7 @@ fi
 echo "using ddp_broadcast_buffers=${DDP_BROADCAST_BUFFERS} and ddp_timeout_minutes=${DDP_TIMEOUT_MINUTES}"
 echo "using ddp_max_data_workers_per_rank=${DDP_MAX_DATA_WORKERS_PER_RANK}"
 echo "using data.concurrent_compute=${CONCURRENT_COMPUTE}"
-echo "using curriculum: data_stride=${DATA_STRIDE}, temporal_stride=${TEMPORAL_STRIDE}, steps=${STEPS}, step_transition=${STEP_TRANSITION}, hist=${HIST}, grad-detach=${GRADIENT_DETACH_INTERVAL}"
+echo "using curriculum: data_stride=${DATA_STRIDE}, temporal_stride=${TEMPORAL_STRIDE}, steps=${STEPS}, step_transition=${STEP_TRANSITION}, temporal_stride_transition=${TEMPORAL_STRIDE_TRANSITION}, hist=${HIST}, grad-detach=${GRADIENT_DETACH_INTERVAL}"
 echo "using data location: LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
 
 # Optional resume behavior:
@@ -138,6 +139,25 @@ if [[ -n "${BASE_OUTPUT_DIR}" ]]; then
   echo "overriding experiment.base_output_dir=${BASE_OUTPUT_DIR}"
 fi
 
+CURRICULUM_ARGS=(
+  --data_stride "${DATA_STRIDE}"
+  --temporal_stride "${TEMPORAL_STRIDE}"
+  --steps "${STEPS}"
+  --data.hist "${HIST}"
+)
+
+# pydantic-settings parses `--some_list "[]"` as `[""]` for list[int] fields.
+# Omit transition flags entirely when they are empty; YAML defaults remain [].
+STEP_TRANSITION_COMPACT="$(echo "${STEP_TRANSITION}" | tr -d '[:space:]')"
+if [[ -n "${STEP_TRANSITION_COMPACT}" && "${STEP_TRANSITION_COMPACT}" != "[]" ]]; then
+  CURRICULUM_ARGS+=(--step_transition "${STEP_TRANSITION}")
+fi
+
+TEMPORAL_STRIDE_TRANSITION_COMPACT="$(echo "${TEMPORAL_STRIDE_TRANSITION}" | tr -d '[:space:]')"
+if [[ -n "${TEMPORAL_STRIDE_TRANSITION_COMPACT}" && "${TEMPORAL_STRIDE_TRANSITION_COMPACT}" != "[]" ]]; then
+  CURRICULUM_ARGS+=(--temporal_stride_transition "${TEMPORAL_STRIDE_TRANSITION}")
+fi
+
 # Forward scheduler signals to torchrun so trainer can write emergency checkpoints.
 TRAIN_PID=""
 forward_signal() {
@@ -156,11 +176,7 @@ uv run python -m torch.distributed.run \
   -m ocean_emulators.train configs/samudra_llc/train.yaml \
   --save_freq "${SAVE_FREQ}" \
   --epochs "${EPOCHS}" \
-  --data_stride "${DATA_STRIDE}" \
-  --temporal_stride "${TEMPORAL_STRIDE}" \
-  --steps "${STEPS}" \
-  --step_transition "${STEP_TRANSITION}" \
-  --data.hist "${HIST}" \
+  "${CURRICULUM_ARGS[@]}" \
   --model.gradient_detach_interval "${GRADIENT_DETACH_INTERVAL}" \
   --gradient_accumulation_steps 4 \
   --ddp_bucket_cap_mb 25 \

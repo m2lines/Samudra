@@ -200,11 +200,20 @@ class Trainer:
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
 
         assert isinstance(cfg.data_stride, list)
-        assert isinstance(cfg.temporal_stride, int)
-        assert cfg.temporal_stride >= 1
+        if isinstance(cfg.temporal_stride, int):
+            temporal_strides = [cfg.temporal_stride]
+        else:
+            temporal_strides = cfg.temporal_stride
+        assert isinstance(temporal_strides, list)
+        assert all(
+            isinstance(temporal_stride, int) and temporal_stride >= 1
+            for temporal_stride in temporal_strides
+        )
         assert isinstance(cfg.steps, list)
         assert isinstance(cfg.step_transition, list)
         assert len(cfg.step_transition) == len(cfg.steps) - 1
+        assert isinstance(cfg.temporal_stride_transition, list)
+        assert len(cfg.temporal_stride_transition) == len(temporal_strides) - 1
         max_steps = str(cfg.steps[-1])
         self.str_video = "steps_" + max_steps + "_" + "_Lateral_Data_025_no_smooth"
 
@@ -406,7 +415,9 @@ class Trainer:
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
         self.data_stride: list[int] = cfg.data_stride
-        self.temporal_stride: int = cfg.temporal_stride
+        self.temporal_strides: list[int] = temporal_strides
+        self.temporal_stride_transition: list[int] = cfg.temporal_stride_transition
+        self.temporal_stride: int = self.temporal_strides[0]
         self.batch_size: int = cfg.batch_size
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
         self.ddp_use_no_sync_for_accumulation = (
@@ -525,9 +536,15 @@ class Trainer:
                 self._active_epoch = epoch
 
                 # Iterative step training
-                if epoch == self.start_epoch or epoch in self.step_transition:
+                if (
+                    epoch == self.start_epoch
+                    or epoch in self.step_transition
+                    or epoch in self.temporal_stride_transition
+                ):
                     cur_step = self.get_current_step(epoch)
-                    self.init_data_loaders(cur_step)
+                    cur_temporal_stride = self.get_current_temporal_stride(epoch)
+                    self.temporal_stride = cur_temporal_stride
+                    self.init_data_loaders(cur_step, cur_temporal_stride)
 
                 if isinstance(self.train_sampler, DistributedSampler):
                     self.train_sampler.set_epoch(epoch)
@@ -951,7 +968,7 @@ class Trainer:
             epoch (int): Current epoch number
 
         Returns:
-            tuple: (current_step, current_step_idx)
+            int: current_step
         """
         if epoch == self.start_epoch:
             # Find initial step based on start epoch
@@ -966,7 +983,7 @@ class Trainer:
                 cur_step = self.steps[-1]
                 cur_step_idx = len(self.steps) - 1
             logger.info(f"Starting training at step {cur_step}")
-        else:
+        elif epoch in self.step_transition:
             # Transition to next step
             cur_step_idx = next(
                 i for i, e in enumerate(self.step_transition) if e == epoch
@@ -974,14 +991,58 @@ class Trainer:
             cur_step_idx += 1
             cur_step = self.steps[cur_step_idx]
             logger.info(f"Transitioning to step {cur_step}")
+        else:
+            cur_step = None
+            for i, epoch_to_transition in enumerate(self.step_transition):
+                if epoch <= epoch_to_transition:
+                    cur_step = self.steps[i]
+                    break
+            if cur_step is None:
+                cur_step = self.steps[-1]
 
         return cur_step
 
-    def init_data_loaders(self, cur_step: int) -> None:
+    def get_current_temporal_stride(self, epoch: int) -> int:
+        """Determine the current temporal stride based on epoch transitions."""
+        if epoch == self.start_epoch:
+            cur_temporal_stride = None
+            for i, epoch_to_transition in enumerate(self.temporal_stride_transition):
+                if epoch <= epoch_to_transition:
+                    cur_temporal_stride = self.temporal_strides[i]
+                    break
+            if cur_temporal_stride is None:
+                cur_temporal_stride = self.temporal_strides[-1]
+            logger.info(
+                f"Starting training at temporal_stride {cur_temporal_stride}"
+            )
+        elif epoch in self.temporal_stride_transition:
+            cur_temporal_stride_idx = next(
+                i
+                for i, e in enumerate(self.temporal_stride_transition)
+                if e == epoch
+            )
+            cur_temporal_stride_idx += 1
+            cur_temporal_stride = self.temporal_strides[cur_temporal_stride_idx]
+            logger.info(
+                f"Transitioning to temporal_stride {cur_temporal_stride}"
+            )
+        else:
+            cur_temporal_stride = None
+            for i, epoch_to_transition in enumerate(self.temporal_stride_transition):
+                if epoch <= epoch_to_transition:
+                    cur_temporal_stride = self.temporal_strides[i]
+                    break
+            if cur_temporal_stride is None:
+                cur_temporal_stride = self.temporal_strides[-1]
+
+        return cur_temporal_stride
+
+    def init_data_loaders(self, cur_step: int, cur_temporal_stride: int) -> None:
         """Initialize training and validation data loaders.
 
         Args:
             cur_step: Current training step size
+            cur_temporal_stride: Current temporal stride
         """
         train_datasets = [
             TorchTrainDataset(
@@ -993,7 +1054,7 @@ class Trainer:
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
-                temporal_stride=self.temporal_stride,
+                temporal_stride=cur_temporal_stride,
                 executor=self.executor,
             )
             for stride in self.data_stride
@@ -1009,7 +1070,7 @@ class Trainer:
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
-                temporal_stride=self.temporal_stride,
+                temporal_stride=cur_temporal_stride,
                 executor=self.executor,
             )
             for stride in self.data_stride

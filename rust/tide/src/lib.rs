@@ -14,33 +14,6 @@ use zarrs::storage::ReadableWritableListableStorage;
 type ValueId = usize;
 type Store = ReadableWritableListableStorage;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-struct SpatialWindow {
-    lat_start: usize,
-    lat_end: usize,
-    lon_start: usize,
-    lon_end: usize,
-}
-
-impl SpatialWindow {
-    fn full(lat: usize, lon: usize) -> Self {
-        Self {
-            lat_start: 0,
-            lat_end: lat,
-            lon_start: 0,
-            lon_end: lon,
-        }
-    }
-
-    fn height(&self) -> usize {
-        self.lat_end - self.lat_start
-    }
-
-    fn width(&self) -> usize {
-        self.lon_end - self.lon_start
-    }
-}
-
 #[derive(Clone, Debug)]
 struct ExampleSpec {
     input_time_indices: Vec<Vec<usize>>,
@@ -50,7 +23,6 @@ struct ExampleSpec {
 #[derive(Clone, Debug)]
 struct BatchSpec {
     examples: Vec<ExampleSpec>,
-    spatial_window: SpatialWindow,
 }
 
 #[derive(Clone, Debug)]
@@ -86,45 +58,24 @@ impl Graph {
 #[derive(Clone, Debug)]
 enum Op {
     LoadPlane {
-        out: ValueId,
         var: String,
         time: usize,
     },
-    Crop {
-        out: ValueId,
-        input: ValueId,
-        window: SpatialWindow,
-    },
     PackPrognostic {
-        out: ValueId,
         inputs: Vec<ValueId>,
         batch: usize,
         time: usize,
     },
     PackBoundary {
-        out: ValueId,
         inputs: Vec<ValueId>,
         batch: usize,
         time: usize,
     },
     PackLabel {
-        out: ValueId,
         inputs: Vec<ValueId>,
         batch: usize,
         time: usize,
     },
-}
-
-impl Op {
-    fn out(&self) -> ValueId {
-        match self {
-            Self::LoadPlane { out, .. }
-            | Self::Crop { out, .. }
-            | Self::PackPrognostic { out, .. }
-            | Self::PackBoundary { out, .. }
-            | Self::PackLabel { out, .. } => *out,
-        }
-    }
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -132,10 +83,6 @@ enum OpKey {
     LoadPlane {
         var: String,
         time: usize,
-    },
-    Crop {
-        input: ValueId,
-        window: SpatialWindow,
     },
     PackPrognostic {
         inputs: Vec<ValueId>,
@@ -171,13 +118,13 @@ impl Builder {
         self.ops.len()
     }
 
-    fn intern(&mut self, key: OpKey, make: impl FnOnce(ValueId) -> Op) -> ValueId {
+    fn intern(&mut self, key: OpKey, make: impl FnOnce() -> Op) -> ValueId {
         if let Some(value) = self.dedupe.get(&key) {
             return *value;
         }
 
         let out = self.fresh();
-        let op = make(out);
+        let op = make();
         self.ops.push(op);
         self.dedupe.insert(key, out);
         out
@@ -189,24 +136,11 @@ impl Builder {
                 var: var.to_owned(),
                 time,
             },
-            |out| Op::LoadPlane {
-                out,
+            || Op::LoadPlane {
                 var: var.to_owned(),
                 time,
             },
         )
-    }
-
-    fn crop(&mut self, input: ValueId, window: SpatialWindow, is_full: bool) -> ValueId {
-        if is_full {
-            input
-        } else {
-            self.intern(OpKey::Crop { input, window }, |out| Op::Crop {
-                out,
-                input,
-                window,
-            })
-        }
     }
 
     fn pack_prognostic(&mut self, inputs: Vec<ValueId>, batch: usize, time: usize) -> ValueId {
@@ -216,8 +150,7 @@ impl Builder {
                 batch,
                 time,
             },
-            |out| Op::PackPrognostic {
-                out,
+            || Op::PackPrognostic {
                 inputs,
                 batch,
                 time,
@@ -232,8 +165,7 @@ impl Builder {
                 batch,
                 time,
             },
-            |out| Op::PackBoundary {
-                out,
+            || Op::PackBoundary {
                 inputs,
                 batch,
                 time,
@@ -248,8 +180,7 @@ impl Builder {
                 batch,
                 time,
             },
-            |out| Op::PackLabel {
-                out,
+            || Op::PackLabel {
                 inputs,
                 batch,
                 time,
@@ -274,18 +205,6 @@ impl ZarrBackend {
                 .with_context(|| format!("opening zarr store at {data_path}"))?,
         );
         Ok(Self { store })
-    }
-
-    fn spatial_shape(&self, var: &str) -> Result<(usize, usize)> {
-        let array = Array::open(self.store.clone(), var)
-            .or_else(|_| Array::open(self.store.clone(), &format!("/{var}")))
-            .with_context(|| format!("opening array {var}"))?;
-        let shape = array.shape().to_vec();
-        ensure!(
-            shape.len() == 3,
-            "expected 3-D array for {var}, got {shape:?}"
-        );
-        Ok((shape[1] as usize, shape[2] as usize))
     }
 }
 
@@ -327,11 +246,6 @@ struct DatasetInner {
     backend: Arc<dyn PlaneBackend>,
     prognostic_vars: Vec<String>,
     boundary_vars: Vec<String>,
-    lat: usize,
-    lon: usize,
-    cpu_budget_bytes: usize,
-    chunk_read_concurrency: usize,
-    decode_concurrency: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -349,14 +263,12 @@ enum ValueStatus {
 
 struct RuntimeState {
     status: HashMap<ValueId, ValueStatus>,
-    cache_bytes: usize,
 }
 
 impl RuntimeState {
     fn new() -> Self {
         Self {
             status: HashMap::new(),
-            cache_bytes: 0,
         }
     }
 }
@@ -387,15 +299,6 @@ impl BatchRuntime {
         let boundary = self.materialize_tensor(root.boundary)?;
         let label = self.materialize_tensor(root.label)?;
         Ok((boundary, label))
-    }
-
-    fn prefetch_step(&self, step: usize) -> Result<()> {
-        if step == 0 {
-            let _ = self.materialize_raw_step0_parts()?;
-        } else {
-            let _ = self.materialize_raw_step_parts(step)?;
-        }
-        Ok(())
     }
 
     fn materialize_tensor(&self, value: ValueId) -> Result<Array4<f32>> {
@@ -436,10 +339,6 @@ impl BatchRuntime {
             let mut state = self.state.lock().unwrap();
             match &result {
                 Ok(data) => {
-                    state.cache_bytes += estimate_bytes(data.as_ref());
-                    let _ = self.dataset.cpu_budget_bytes;
-                    let _ = self.dataset.chunk_read_concurrency;
-                    let _ = self.dataset.decode_concurrency;
                     state.status.insert(value, ValueStatus::Ready(data.clone()));
                 }
                 Err(err) => {
@@ -458,17 +357,6 @@ impl BatchRuntime {
             Op::LoadPlane { var, time, .. } => Ok(Arc::new(ValueData::Plane(
                 self.dataset.backend.load_plane(var, *time)?,
             ))),
-            Op::Crop { input, window, .. } => {
-                let plane = self.materialize_plane(*input)?;
-                Ok(Arc::new(ValueData::Plane(
-                    plane
-                        .slice(s![
-                            window.lat_start..window.lat_end,
-                            window.lon_start..window.lon_end
-                        ])
-                        .to_owned(),
-                )))
-            }
             Op::PackPrognostic {
                 inputs,
                 batch,
@@ -551,13 +439,6 @@ impl BatchRuntime {
     }
 }
 
-fn estimate_bytes(data: &ValueData) -> usize {
-    match data {
-        ValueData::Plane(plane) => plane.len() * std::mem::size_of::<f32>(),
-        ValueData::Tensor(tensor) => tensor.len() * std::mem::size_of::<f32>(),
-    }
-}
-
 fn build_batch_plan(dataset: &DatasetInner, spec: &BatchSpec) -> Result<(Graph, TrainBatchPlan)> {
     ensure!(
         !spec.examples.is_empty(),
@@ -577,9 +458,6 @@ fn build_batch_plan(dataset: &DatasetInner, spec: &BatchSpec) -> Result<(Graph, 
         );
     }
 
-    let full_window = SpatialWindow::full(dataset.lat, dataset.lon);
-    let is_full = spec.spatial_window == full_window;
-
     let mut builder = Builder::new();
 
     let step0_prog_raw = load_packed_tensor(
@@ -588,8 +466,6 @@ fn build_batch_plan(dataset: &DatasetInner, spec: &BatchSpec) -> Result<(Graph, 
         &spec.examples,
         0,
         TimeSet::Input,
-        spec.spatial_window,
-        is_full,
         PackKind::Prognostic,
     )?;
 
@@ -599,8 +475,6 @@ fn build_batch_plan(dataset: &DatasetInner, spec: &BatchSpec) -> Result<(Graph, 
         &spec.examples,
         0,
         TimeSet::Input,
-        spec.spatial_window,
-        is_full,
         PackKind::Boundary,
     )?;
 
@@ -610,8 +484,6 @@ fn build_batch_plan(dataset: &DatasetInner, spec: &BatchSpec) -> Result<(Graph, 
         &spec.examples,
         0,
         TimeSet::Label,
-        spec.spatial_window,
-        is_full,
         PackKind::Label,
     )?;
 
@@ -623,8 +495,6 @@ fn build_batch_plan(dataset: &DatasetInner, spec: &BatchSpec) -> Result<(Graph, 
             &spec.examples,
             step,
             TimeSet::Input,
-            spec.spatial_window,
-            is_full,
             PackKind::Boundary,
         )?;
 
@@ -634,8 +504,6 @@ fn build_batch_plan(dataset: &DatasetInner, spec: &BatchSpec) -> Result<(Graph, 
             &spec.examples,
             step,
             TimeSet::Label,
-            spec.spatial_window,
-            is_full,
             PackKind::Label,
         )?;
         raw_later_steps.push(StepRoot {
@@ -676,8 +544,6 @@ fn load_packed_tensor(
     examples: &[ExampleSpec],
     step: usize,
     time_set: TimeSet,
-    window: SpatialWindow,
-    is_full_window: bool,
     pack_kind: PackKind,
 ) -> Result<ValueId> {
     let time_count = match time_set {
@@ -698,7 +564,6 @@ fn load_packed_tensor(
         for &time in times {
             for var in vars {
                 let plane = builder.load_plane(var, time);
-                let plane = builder.crop(plane, window, is_full_window);
                 planes.push(plane);
             }
         }
@@ -721,23 +586,10 @@ struct Dataset {
 #[pymethods]
 impl Dataset {
     #[new]
-    #[pyo3(
-        signature = (
-            data_path,
-            prognostic_vars,
-            boundary_vars,
-            cpu_budget_bytes=1 << 30,
-            chunk_read_concurrency=4,
-            decode_concurrency=4
-        )
-    )]
     fn new(
         data_path: String,
         prognostic_vars: Vec<String>,
         boundary_vars: Vec<String>,
-        cpu_budget_bytes: usize,
-        chunk_read_concurrency: usize,
-        decode_concurrency: usize,
     ) -> PyResult<Self> {
         let path = std::path::Path::new(&data_path);
         if !path.is_absolute() {
@@ -748,24 +600,17 @@ impl Dataset {
 
         let backend = ZarrBackend::new(&data_path)
             .map_err(|err| PyRuntimeError::new_err(format!("{err:#}")))?;
-        let shape_var = prognostic_vars
-            .first()
-            .or_else(|| boundary_vars.first())
-            .ok_or_else(|| PyValueError::new_err("at least one zarr variable is required"))?;
-        let (lat, lon) = backend
-            .spatial_shape(shape_var)
-            .map_err(|err| PyRuntimeError::new_err(format!("{err:#}")))?;
+        if prognostic_vars.is_empty() && boundary_vars.is_empty() {
+            return Err(PyValueError::new_err(
+                "at least one zarr variable is required",
+            ));
+        }
 
         Ok(Self {
             inner: Arc::new(DatasetInner {
                 backend: Arc::new(backend),
                 prognostic_vars,
                 boundary_vars,
-                lat,
-                lon,
-                cpu_budget_bytes,
-                chunk_read_concurrency,
-                decode_concurrency,
             }),
         })
     }
@@ -774,7 +619,6 @@ impl Dataset {
         &self,
         input_time_indices: Vec<Vec<Vec<usize>>>,
         label_time_indices: Vec<Vec<Vec<usize>>>,
-        spatial_window: Option<(usize, usize, usize, usize)>,
     ) -> PyResult<RustTrainBatch> {
         if input_time_indices.is_empty() || input_time_indices.len() != label_time_indices.len() {
             return Err(PyValueError::new_err(
@@ -791,24 +635,8 @@ impl Dataset {
             })
             .collect::<Vec<_>>();
 
-        let window = match spatial_window {
-            Some((lat_start, lat_end, lon_start, lon_end)) => SpatialWindow {
-                lat_start,
-                lat_end,
-                lon_start,
-                lon_end,
-            },
-            None => SpatialWindow::full(self.inner.lat, self.inner.lon),
-        };
-
-        let (graph, plan) = build_batch_plan(
-            &self.inner,
-            &BatchSpec {
-                examples,
-                spatial_window: window,
-            },
-        )
-        .map_err(|err| PyRuntimeError::new_err(format!("{err:#}")))?;
+        let (graph, plan) = build_batch_plan(&self.inner, &BatchSpec { examples })
+            .map_err(|err| PyRuntimeError::new_err(format!("{err:#}")))?;
 
         Ok(RustTrainBatch {
             inner: Arc::new(BatchRuntime {
@@ -866,12 +694,6 @@ impl RustTrainBatch {
             .map_err(|err| PyRuntimeError::new_err(format!("{err:#}")))?;
         Ok((boundary.into_pyarray(py), label.into_pyarray(py)))
     }
-
-    fn prefetch_step(&self, py: Python<'_>, step: usize) -> PyResult<()> {
-        py.allow_threads(|| self.inner.prefetch_step(step))
-            .map_err(|err| PyRuntimeError::new_err(format!("{err:#}")))?;
-        Ok(())
-    }
 }
 
 #[pymodule]
@@ -911,11 +733,6 @@ mod tests {
             backend: Arc::new(FakeBackend { loads, sleep_ms }),
             prognostic_vars: vec!["thetao_0".to_owned(), "so_0".to_owned()],
             boundary_vars: vec!["hfds".to_owned()],
-            lat: 2,
-            lon: 2,
-            cpu_budget_bytes: 1 << 20,
-            chunk_read_concurrency: 2,
-            decode_concurrency: 2,
         })
     }
 
@@ -941,7 +758,6 @@ mod tests {
                     input_time_indices: vec![vec![0], vec![1]],
                     label_time_indices: vec![vec![1], vec![2]],
                 }],
-                spatial_window: SpatialWindow::full(2, 2),
             },
         );
 
@@ -977,7 +793,6 @@ mod tests {
                         label_time_indices: vec![vec![1]],
                     },
                 ],
-                spatial_window: SpatialWindow::full(2, 2),
             },
         );
 
@@ -1002,7 +817,6 @@ mod tests {
                     input_time_indices: vec![vec![0], vec![1], vec![2]],
                     label_time_indices: vec![vec![1], vec![2], vec![3]],
                 }],
-                spatial_window: SpatialWindow::full(2, 2),
             },
         );
 
@@ -1021,7 +835,6 @@ mod tests {
                     input_time_indices: vec![vec![0]],
                     label_time_indices: vec![vec![1]],
                 }],
-                spatial_window: SpatialWindow::full(2, 2),
             },
         ));
 

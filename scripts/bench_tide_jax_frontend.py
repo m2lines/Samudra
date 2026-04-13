@@ -5,7 +5,7 @@ import gc
 import json
 import statistics
 import time
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +13,7 @@ import jax
 import jax.numpy as jnp
 import torch
 
-from ocean_emulators import tide_jax
+from ocean_emulators import samudrax, tide_jax
 from ocean_emulators.config import TrainConfig
 from ocean_emulators.constants import LoaderVersion
 from ocean_emulators.train import Trainer
@@ -75,17 +75,13 @@ def apply_spatial_crop(tensor: Any, jax_crop: tuple[int, int, int, int] | None) 
     return tensor[..., lat_start:lat_end, lon_start:lon_end]
 
 
-def crop_stats(
-    stats: tide_jax.TideJaxStats, jax_crop: tuple[int, int, int, int] | None
-) -> tide_jax.TideJaxStats:
+def crop_data_source(
+    source: samudrax.DataSource, jax_crop: tuple[int, int, int, int] | None
+) -> samudrax.DataSource:
     if jax_crop is None:
-        return stats
+        return source
     lat_start, lat_end, lon_start, lon_end = jax_crop
-    return replace(
-        stats,
-        prognostic_mask=stats.prognostic_mask[:, lat_start:lat_end, lon_start:lon_end],
-        boundary_mask=stats.boundary_mask[lat_start:lat_end, lon_start:lon_end],
-    )
+    return source.crop_spatial(lat_start, lat_end, lon_start, lon_end)
 
 
 def shape_after_spatial_crop(
@@ -124,8 +120,6 @@ def build_config(args: argparse.Namespace, case: Case) -> TrainConfig:
             case.loader_version,
             "--data.num_workers",
             str(case.workers),
-            "--data.rust_loader.prefetch_steps",
-            "0",
             "--batch_size",
             str(args.batch_size),
             "--train_time.start",
@@ -161,27 +155,40 @@ def consume_torch_batch(batch: Any) -> None:
         _ = batch.get_label(step)
 
 
+def single_samudra_data_source(loader: Any) -> samudrax.DataSource:
+    datasets = loader.datasets
+    if len(datasets) != 1:
+        raise NotImplementedError(
+            "Tide JAX benchmark v0 expects one data source; pass the matching "
+            "train dataset explicitly for multi-source schedules."
+        )
+    return samudrax.DataSource.from_train_dataset(datasets[0])
+
+
 def build_tide_jax_programs(
-    batch: Any, *, jax_crop: tuple[int, int, int, int] | None
+    batch: Any,
+    *,
+    source: samudrax.DataSource,
+    jax_crop: tuple[int, int, int, int] | None,
 ) -> tuple[float, Any, dict[int, Any]]:
     start = time.perf_counter()
     spec = tide_jax.shape_spec_from_batch(batch)
-    stats = crop_stats(tide_jax.stats_from_batch(batch), jax_crop)
+    source = crop_data_source(source, jax_crop)
 
     def step0():
-        prognostic = tide_jax.normalize_and_mask(
+        prognostic = samudrax.normalize_and_mask(
             apply_spatial_crop(tide_jax.raw_step0_prognostic(spec), jax_crop),
-            stats,
+            source,
             "prognostic",
         )
-        boundary = tide_jax.normalize_and_mask(
+        boundary = samudrax.normalize_and_mask(
             apply_spatial_crop(tide_jax.raw_step0_boundary(spec), jax_crop),
-            stats,
+            source,
             "boundary",
         )
-        label = tide_jax.normalize_and_mask(
+        label = samudrax.normalize_and_mask(
             apply_spatial_crop(tide_jax.raw_step0_label(spec), jax_crop),
-            stats,
+            source,
             "prognostic",
         )
         return jnp.concatenate((prognostic, boundary), axis=1), label
@@ -196,14 +203,14 @@ def build_tide_jax_programs(
     for step in range(1, len(batch)):
 
         def later_step(prev_prediction, *, step=step):
-            boundary = tide_jax.normalize_and_mask(
+            boundary = samudrax.normalize_and_mask(
                 apply_spatial_crop(tide_jax.raw_boundary(spec, step), jax_crop),
-                stats,
+                source,
                 "boundary",
             )
-            label = tide_jax.normalize_and_mask(
+            label = samudrax.normalize_and_mask(
                 apply_spatial_crop(tide_jax.raw_label(spec, step), jax_crop),
-                stats,
+                source,
                 "prognostic",
             )
             return (
@@ -255,7 +262,9 @@ def run_case(args: argparse.Namespace, case: Case) -> dict[str, float]:
         if case.use_jax_frontend:
             warmup_batch = next(loader_iter)
             _, step0_program, later_programs = build_tide_jax_programs(
-                warmup_batch, jax_crop=args.jax_crop
+                warmup_batch,
+                source=single_samudra_data_source(trainer.train_loader),
+                jax_crop=args.jax_crop,
             )
             consume_tide_jax_batch(
                 warmup_batch,
@@ -351,18 +360,18 @@ def main() -> None:
         "mean_excl_first_s, median_batch_s, min_s, max_s, batch_per_s"
     )
     for case in cases:
-        stats = run_case(args, case)
+        result = run_case(args, case)
         print(
             f"{case.name}, "
-            f"{stats['init_s']:.3f}, "
-            f"{stats['setup_s']:.4f}, "
-            f"{stats['first_batch_s']:.4f}, "
-            f"{stats['mean_batch_s']:.4f}, "
-            f"{stats['mean_excl_first_s']:.4f}, "
-            f"{stats['median_batch_s']:.4f}, "
-            f"{stats['min_s']:.4f}, "
-            f"{stats['max_s']:.4f}, "
-            f"{stats['batch_per_s']:.2f}",
+            f"{result['init_s']:.3f}, "
+            f"{result['setup_s']:.4f}, "
+            f"{result['first_batch_s']:.4f}, "
+            f"{result['mean_batch_s']:.4f}, "
+            f"{result['mean_excl_first_s']:.4f}, "
+            f"{result['median_batch_s']:.4f}, "
+            f"{result['min_s']:.4f}, "
+            f"{result['max_s']:.4f}, "
+            f"{result['batch_per_s']:.2f}",
             flush=True,
         )
 

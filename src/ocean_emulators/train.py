@@ -912,13 +912,11 @@ class Trainer:
                     batch_sampler=train_batch_sampler,
                     datasets=train_datasets,
                     device=self.device,
-                    rust_cfg=self.cfg.data.rust_loader,
                 )
                 self.val_loader = RustTrainDataLoader(
                     batch_sampler=val_batch_sampler,
                     datasets=val_datasets,
                     device=self.device,
-                    rust_cfg=self.cfg.data.rust_loader,
                 )
             case _:
                 raise NotImplementedError(

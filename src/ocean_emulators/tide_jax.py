@@ -15,7 +15,6 @@ type TideLeafKind = Literal[
     "raw_boundary",
     "raw_label",
 ]
-type TideTensorKind = Literal["prognostic", "boundary"]
 type TensorPlacement = Literal["cpu", "torch_device"]
 type JaxBlobPlacement = Literal["cpu", "device"]
 type JaxBlobPlacementPolicy = Literal["cpu", "device", "auto"]
@@ -39,18 +38,6 @@ class TideJaxShapeSpec:
     boundary_shape: tuple[int, ...]
     label_shape: tuple[int, ...]
     dtype: np.dtype = np.dtype(np.float32)
-
-
-@dataclasses.dataclass(frozen=True)
-class TideJaxStats:
-    prognostic_mean: np.ndarray
-    prognostic_std: np.ndarray
-    boundary_mean: np.ndarray
-    boundary_std: np.ndarray
-    prognostic_mask: np.ndarray
-    boundary_mask: np.ndarray
-    normalize_before_mask: bool
-    masked_fill_value: np.float32
 
 
 @dataclasses.dataclass(frozen=True)
@@ -142,27 +129,21 @@ class TideJaxProgram:
 class RustTrainBatchMaterializer:
     """Materialize raw Tide leaves as JAX arrays.
 
-    `tensor_placement` controls where the Python Tide shim places torch tensors
-    before conversion. `jax_device` controls the target JAX device; GPU stays
-    zero-copy only when torch CUDA tensors and a compatible CUDA jaxlib are both
-    present.
+    `jax_blob_placement` controls where each opaque JAX blob executes; Tide raw
+    leaves are placed to match the blob. `output_placement` controls where final
+    outputs are returned.
     """
 
     def __init__(
         self,
         batch: Any,
         *,
-        tensor_placement: TensorPlacement | None = None,
         jax_device: Any | None = None,
-        jax_blob_placement: JaxBlobPlacementPolicy | None = None,
+        jax_blob_placement: JaxBlobPlacementPolicy = "cpu",
         output_placement: JaxBlobPlacementPolicy | None = None,
     ) -> None:
         self._batch = batch
         self._jax_device = jax_device
-        if jax_blob_placement is None:
-            jax_blob_placement = (
-                "device" if tensor_placement == "torch_device" else "cpu"
-            )
         self._jax_blob_placement = jax_blob_placement
         self._output_placement = output_placement or jax_blob_placement
 
@@ -243,54 +224,6 @@ def raw_label(spec: TideJaxShapeSpec, step: int) -> Any:
     return _bind_leaf("raw_label", step, spec.label_shape, spec.dtype)
 
 
-def normalize(tensor: Any, stats: TideJaxStats, kind: TideTensorKind) -> Any:
-    mean, std = _stats_for_kind(stats, kind)
-    channel_count = int(tensor.shape[1])
-    if channel_count % mean.shape[0] != 0:
-        raise ValueError(
-            f"{kind} channel count {channel_count} must be divisible by "
-            f"statistics length {mean.shape[0]}"
-        )
-    stat_index = jnp.arange(channel_count) % mean.shape[0]
-    mean_jax = jnp.asarray(mean, dtype=tensor.dtype)[stat_index].reshape(
-        (1, channel_count, 1, 1)
-    )
-    std_jax = jnp.asarray(std, dtype=tensor.dtype)[stat_index].reshape(
-        (1, channel_count, 1, 1)
-    )
-    normalized = (tensor - mean_jax) / std_jax
-    return jnp.where(jnp.isnan(normalized), jnp.asarray(0.0, tensor.dtype), normalized)
-
-
-def apply_mask(tensor: Any, stats: TideJaxStats, kind: TideTensorKind) -> Any:
-    channel_count = int(tensor.shape[1])
-    if kind == "prognostic":
-        mask = np.asarray(stats.prognostic_mask, dtype=np.bool_)
-        if channel_count % mask.shape[0] != 0:
-            raise ValueError(
-                f"prognostic channel count {channel_count} must be divisible by "
-                f"mask channels {mask.shape[0]}"
-            )
-        mask_index = jnp.arange(channel_count) % mask.shape[0]
-        mask_jax = jnp.asarray(mask)[mask_index].reshape(
-            (1, channel_count, mask.shape[1], mask.shape[2])
-        )
-    elif kind == "boundary":
-        mask = np.asarray(stats.boundary_mask, dtype=np.bool_)
-        mask_jax = jnp.asarray(mask).reshape((1, 1, mask.shape[0], mask.shape[1]))
-    else:
-        raise AssertionError(f"unknown tensor kind {kind!r}")
-
-    fill = jnp.asarray(stats.masked_fill_value, dtype=tensor.dtype)
-    return jnp.where(mask_jax, tensor, fill)
-
-
-def normalize_and_mask(tensor: Any, stats: TideJaxStats, kind: TideTensorKind) -> Any:
-    if stats.normalize_before_mask:
-        return apply_mask(normalize(tensor, stats, kind), stats, kind)
-    return normalize(apply_mask(tensor, stats, kind), stats, kind)
-
-
 def shape_spec_from_batch(batch: Any, *, later_step: int = 1) -> TideJaxShapeSpec:
     del later_step
     step0_prognostic_tensor, step0_boundary_tensor, step0_label_tensor = (
@@ -304,19 +237,6 @@ def shape_spec_from_batch(batch: Any, *, later_step: int = 1) -> TideJaxShapeSpe
         boundary_shape=tuple(step0_boundary_tensor.shape),
         label_shape=tuple(step0_label_tensor.shape),
         dtype=np.dtype(np.float32),
-    )
-
-
-def stats_from_batch(batch: Any) -> TideJaxStats:
-    return TideJaxStats(
-        prognostic_mean=np.asarray(batch.prognostic_mean, dtype=np.float32),
-        prognostic_std=np.asarray(batch.prognostic_std, dtype=np.float32),
-        boundary_mean=np.asarray(batch.boundary_mean, dtype=np.float32),
-        boundary_std=np.asarray(batch.boundary_std, dtype=np.float32),
-        prognostic_mask=np.asarray(batch.prognostic_mask, dtype=np.bool_),
-        boundary_mask=np.asarray(batch.boundary_mask, dtype=np.bool_),
-        normalize_before_mask=bool(batch.normalize_before_mask),
-        masked_fill_value=np.float32(batch.masked_fill_value),
     )
 
 
@@ -480,24 +400,6 @@ def _validate_jaxpr(jaxpr: Any) -> None:
             raise NotImplementedError(
                 f"Tide JAX frontend does not support `{name}` in v0"
             )
-
-
-def _stats_for_kind(
-    stats: TideJaxStats, kind: TideTensorKind
-) -> tuple[np.ndarray, np.ndarray]:
-    match kind:
-        case "prognostic":
-            return (
-                np.asarray(stats.prognostic_mean, dtype=np.float32),
-                np.asarray(stats.prognostic_std, dtype=np.float32),
-            )
-        case "boundary":
-            return (
-                np.asarray(stats.boundary_mean, dtype=np.float32),
-                np.asarray(stats.boundary_std, dtype=np.float32),
-            )
-        case _:
-            raise AssertionError(f"unknown tensor kind {kind!r}")
 
 
 def _torch_tensor_to_jax_array(

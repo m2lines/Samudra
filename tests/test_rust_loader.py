@@ -41,35 +41,17 @@ def test_tide_time_index_maps_sliced_times_to_backing_store(tmp_path):
     indirect=True,
 )
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)
-def test_tide_torch_batch_api_is_disabled(train_config):
+def test_tide_raw_batch_returns_full_grid(train_config):
     pytest.importorskip("tide")
     rust_config = _with_rust_loader(train_config)
 
     with MultitonScope():
         trainer = Trainer(rust_config)
         trainer.init_data_loaders(cur_step=rust_config.steps[0])
-        batch = trainer.train_loader[0]
-
-        with pytest.raises(NotImplementedError, match="JAX frontend"):
-            batch.get_input(0)
-
-
-@pytest.mark.parametrize(
-    "data_source,config_name",
-    [("mock-om4", DEFAULT_CONFIG)],
-    indirect=True,
-)
-@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
-def test_tide_raw_batch_returns_full_spatial_window(train_config):
-    pytest.importorskip("tide")
-    rust_config = _with_rust_loader(train_config)
-
-    with MultitonScope():
-        trainer = Trainer(rust_config)
-        trainer.init_data_loaders(cur_step=rust_config.steps[0])
+        dataset = trainer.train_loader.datasets[0]
         batch = trainer.train_loader[0]
         prognostic, boundary, label = batch.get_raw_step0_parts()
 
-    assert prognostic.shape[-2:] == batch.prognostic_mask.shape[-2:]
-    assert boundary.shape[-2:] == batch.boundary_mask.shape[-2:]
-    assert label.shape[-2:] == batch.prognostic_mask.shape[-2:]
+    assert prognostic.shape[-2:] == dataset.wet_prognostic[0].shape[-2:]
+    assert boundary.shape[-2:] == dataset.wet_surface.shape[-2:]
+    assert label.shape[-2:] == dataset.wet_prognostic[0].shape[-2:]

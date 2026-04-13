@@ -10,8 +10,7 @@ What works:
 
 - Builds as a `maturin`/PyO3 extension named `tide`.
 - Can be instantiated through the Python training config via
-  `data.loader_version: om4-rust-v0`, although the prepared torch trainer path is
-  currently disabled.
+  `data.loader_version: om4-rust-v0` for raw Tide/JAX experiments.
 - Supports raw batch construction for the standard single-scale Samudra
   train/validation schedule.
 - Uses the existing Python sampler and batch ordering; Rust receives concrete
@@ -25,15 +24,19 @@ What works:
   boundary/label tensors for the JAX frontend.
 - Keeps the Rust SSA graph raw-only: no mask, normalization, or input-concat ops
   are currently encoded as Tide IR nodes.
+- Keeps normalization metadata, masks, and fill values out of Tide batch objects;
+  the Samudra-specific `samudrax` helper receives the existing Python train
+  dataset/source and builds that metadata on the Python/JAX side.
 - Returns regular CPU NumPy arrays across the FFI boundary; the Python shim can
   keep raw torch tensors on CPU or move them to the configured torch device
   before JAX conversion.
-- Has Python parity coverage for raw Tide plus JAX mask/normalization against
-  the existing torch loader on mock OM4 data, plus a regression test for mapping
-  sliced train/validation times back to the full backing Zarr store indices.
+- Has Python parity coverage for raw Tide plus `samudrax` mask/normalization
+  against the existing torch loader on mock OM4 data, plus a regression test for
+  mapping sliced train/validation times back to the full backing Zarr store
+  indices.
 - Has an experimental dev-only JAX frontend that traces small JAXPR builder
   functions, materializes raw Tide leaves through the Python API, and evaluates
-  mask/normalization plus ordinary JAX tensor ops on CPU or CUDA when a
+  `samudrax` mask/normalization plus ordinary JAX tensor ops on CPU or CUDA when a
   compatible JAX wheel is installed.
 - The JAX frontend treats non-Tide JAXPR regions as opaque blobs and can choose
   whether to run each blob on CPU or on the selected JAX device. This lets plain
@@ -42,8 +45,8 @@ What works:
 
 What does not work yet:
 
-- The old Tide-via-torch prepared batch API is intentionally disabled while we
-  iterate on the JAX frontend.
+- No prepared Tide-via-torch batch API; Tide exposes raw leaves for the JAX
+  frontend only.
 - No GPU decode, GDS, KvikIO, or direct-to-device reads.
 - No pinned-memory allocation.
 - No GPU memory budget, no pinned-memory budget, and no meaningful CPU memory
@@ -54,16 +57,15 @@ What does not work yet:
 - The frontend does not yet introspect opaque blobs to recognize slices or push
   spatial windows into Rust chunk enumeration automatically.
 - No integration into the main package wheel; this remains a sidecar extension.
-- The concurrency settings exist in config, but v0 still needs real tuning and
-  enforcement work around read/decode concurrency and memory accounting.
+- No read/decode concurrency controls or memory accounting are implemented yet.
 
 ## Recent Local Results
 
-On `/home/jder/data/om4_onedeg`, an earlier direct real-data parity check matched
-the existing torch loader for step 0 input/label and step 1 input/label after
-fixing time-index mapping for train windows that start after the backing Zarr
-store start. That prepared Tide-via-torch path is now disabled; the comparable
-path is raw Tide plus JAX mask/normalization.
+On `/home/jder/data/om4_onedeg`, an earlier real-data parity check matched the
+existing torch loader for step 0 input/label and step 1 input/label after fixing
+time-index mapping for train windows that start after the backing Zarr store
+start. The comparable path now is raw Tide plus `samudrax` mask/normalization; the
+prepared Tide-via-torch API has been removed.
 
 On the same local one-degree dataset, a 20-batch CUDA benchmark with batch size
 4, two rollout steps, no tide prefetch, and explicit `torch.cuda.synchronize()`
@@ -135,15 +137,14 @@ uv lock --check
   comparable Tide/PyTorch/JAX frontend measurements on larger local datasets.
 - Add half-degree and quarter-degree local benchmarks once local fixture data is
   available.
-- Implement real read/decode concurrency and connect it to the existing config
-  knobs.
+- Implement real read/decode concurrency and add config once it is enforced.
 - Add explicit memory accounting and enforce CPU/pinned/GPU budgets.
 - Move the FFI boundary toward torch tensors, pinned buffers, or a GPU JAX/DLPack
   path to avoid avoidable host-side copies.
 - Add GPU-side decode and explicit direct-I/O behavior with no silent CPU
   fallback.
-- Implement within-batch prefetch in Rust rather than relying on the current
-  Python thread shim.
+- Implement within-batch prefetch in the Rust/JAX scheduler rather than
+  reintroducing a Python thread shim.
 - Add coarse opaque-blob characterization, starting with static slices, so Tide
   can decide whether to push a crop into Rust loading or run the blob on device.
 - Extend the semantic IR/interpreter for repeated cross-step data reuse.

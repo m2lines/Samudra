@@ -146,13 +146,6 @@ class DataSourceConfig(BaseConfig):
     )
 
 
-class RustLoaderConfig(BaseConfig):
-    cpu_budget_bytes: int = 1 << 30
-    chunk_read_concurrency: int = Field(default=4, ge=1)
-    decode_concurrency: int = Field(default=4, ge=1)
-    prefetch_steps: int = Field(default=0, ge=0)
-
-
 class DataConfig(BaseConfig):
     sources: list[DataSourceConfig] = Field(
         description=(
@@ -168,7 +161,6 @@ class DataConfig(BaseConfig):
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
     concurrent_compute: bool = False
-    rust_loader: RustLoaderConfig = RustLoaderConfig()
 
     def build(
         self,

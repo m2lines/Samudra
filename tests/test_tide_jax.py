@@ -9,7 +9,7 @@ from ocean_emulators.utils.multiton import MultitonScope
 jax = pytest.importorskip("jax")
 jnp = pytest.importorskip("jax.numpy")
 
-from ocean_emulators import tide_jax  # noqa: E402
+from ocean_emulators import samudrax, tide_jax  # noqa: E402
 
 
 class DictMaterializer:
@@ -106,13 +106,13 @@ def test_plain_jax_slice_runs_inside_an_opaque_blob():
     assert materializer.requests[0][1] == "cpu"
 
 
-def _stats(*, normalize_before_mask: bool = True) -> tide_jax.TideJaxStats:
+def _data_source(*, normalize_before_mask: bool = True) -> samudrax.DataSource:
     prognostic_mask = np.ones((2, 4, 5), dtype=np.bool_)
     prognostic_mask[0, 0, 0] = False
     prognostic_mask[1, 1, 1] = False
     boundary_mask = np.ones((4, 5), dtype=np.bool_)
     boundary_mask[0, 1] = False
-    return tide_jax.TideJaxStats(
+    return samudrax.DataSource(
         prognostic_mean=np.asarray([10.0, 20.0], dtype=np.float32),
         prognostic_std=np.asarray([2.0, 4.0], dtype=np.float32),
         boundary_mean=np.asarray([100.0], dtype=np.float32),
@@ -125,15 +125,15 @@ def _stats(*, normalize_before_mask: bool = True) -> tide_jax.TideJaxStats:
 
 
 def _normalize_and_mask_np(
-    tensor: np.ndarray, stats: tide_jax.TideJaxStats, kind: tide_jax.TideTensorKind
+    tensor: np.ndarray, source: samudrax.DataSource, kind: samudrax.TensorKind
 ) -> np.ndarray:
     def normalize(data):
         if kind == "prognostic":
-            mean = stats.prognostic_mean
-            std = stats.prognostic_std
+            mean = source.prognostic_mean
+            std = source.prognostic_std
         else:
-            mean = stats.boundary_mean
-            std = stats.boundary_std
+            mean = source.boundary_mean
+            std = source.boundary_std
         stat_index = np.arange(data.shape[1]) % mean.shape[0]
         out = (data - mean[stat_index][None, :, None, None]) / std[stat_index][
             None, :, None, None
@@ -142,13 +142,13 @@ def _normalize_and_mask_np(
 
     def apply_mask(data):
         if kind == "prognostic":
-            mask_index = np.arange(data.shape[1]) % stats.prognostic_mask.shape[0]
-            mask = stats.prognostic_mask[mask_index][None, :, :, :]
+            mask_index = np.arange(data.shape[1]) % source.prognostic_mask.shape[0]
+            mask = source.prognostic_mask[mask_index][None, :, :, :]
         else:
-            mask = stats.boundary_mask[None, None, :, :]
-        return np.where(mask, data, stats.masked_fill_value).astype(np.float32)
+            mask = source.boundary_mask[None, None, :, :]
+        return np.where(mask, data, source.masked_fill_value).astype(np.float32)
 
-    if stats.normalize_before_mask:
+    if source.normalize_before_mask:
         return apply_mask(normalize(tensor))
     return normalize(apply_mask(tensor))
 
@@ -168,23 +168,23 @@ def _with_rust_loader(train_config):
 
 def test_tide_jax_traces_step0_leaves_and_evaluates_jax_ops():
     spec = _spec()
-    stats = _stats()
+    source = _data_source()
 
     def step0():
-        prognostic = tide_jax.normalize_and_mask(
+        prognostic = samudrax.normalize_and_mask(
             tide_jax.raw_step0_prognostic(spec),
-            stats,
+            source,
             "prognostic",
         )
-        boundary = tide_jax.normalize_and_mask(
+        boundary = samudrax.normalize_and_mask(
             tide_jax.raw_step0_boundary(spec),
-            stats,
+            source,
             "boundary",
         )
         input_ = jnp.concatenate((prognostic, boundary), axis=1)
-        label = tide_jax.normalize_and_mask(
+        label = samudrax.normalize_and_mask(
             tide_jax.raw_step0_label(spec),
-            stats,
+            source,
             "prognostic",
         )
         return jnp.where(input_ > 10.0, input_, -input_), label + 1.0
@@ -217,8 +217,8 @@ def test_tide_jax_traces_step0_leaves_and_evaluates_jax_ops():
     )
     input_ = np.concatenate(
         (
-            _normalize_and_mask_np(prognostic, stats, "prognostic"),
-            _normalize_and_mask_np(boundary, stats, "boundary"),
+            _normalize_and_mask_np(prognostic, source, "prognostic"),
+            _normalize_and_mask_np(boundary, source, "boundary"),
         ),
         axis=1,
     )
@@ -227,24 +227,24 @@ def test_tide_jax_traces_step0_leaves_and_evaluates_jax_ops():
         out_input, np.where(input_ > 10.0, input_, -input_), rtol=1e-6, atol=1e-6
     )
     np.testing.assert_allclose(
-        out_label, _normalize_and_mask_np(label, stats, "prognostic") + 1.0
+        out_label, _normalize_and_mask_np(label, source, "prognostic") + 1.0
     )
 
 
 def test_tide_jax_traces_later_step_boundary_and_label():
     spec = _spec()
-    stats = _stats()
+    source = _data_source()
     prev = jax.ShapeDtypeStruct((2, 2, 4, 5), jnp.float32)
 
     def later_step(prev_prediction):
-        boundary = tide_jax.normalize_and_mask(
+        boundary = samudrax.normalize_and_mask(
             tide_jax.raw_boundary(spec, 1),
-            stats,
+            source,
             "boundary",
         )
-        label = tide_jax.normalize_and_mask(
+        label = samudrax.normalize_and_mask(
             tide_jax.raw_label(spec, 1),
-            stats,
+            source,
             "prognostic",
         )
         input_ = jnp.concatenate((prev_prediction, boundary), axis=1)
@@ -268,11 +268,11 @@ def test_tide_jax_traces_later_step_boundary_and_label():
     np.testing.assert_allclose(
         out_input,
         np.concatenate(
-            (prev_value, _normalize_and_mask_np(boundary, stats, "boundary")), axis=1
+            (prev_value, _normalize_and_mask_np(boundary, source, "boundary")), axis=1
         ),
     )
     np.testing.assert_allclose(
-        out_label, _normalize_and_mask_np(label, stats, "prognostic")
+        out_label, _normalize_and_mask_np(label, source, "prognostic")
     )
 
 
@@ -315,29 +315,31 @@ def test_tide_jax_matches_rust_batch(train_config):
         batch = trainer.train_loader[0]
 
         spec = tide_jax.shape_spec_from_batch(batch)
-        stats = tide_jax.stats_from_batch(batch)
+        source = samudrax.DataSource.from_train_dataset(
+            trainer.train_loader.datasets[0]
+        )
 
         def step0():
-            prognostic = tide_jax.normalize_and_mask(
+            prognostic = samudrax.normalize_and_mask(
                 tide_jax.raw_step0_prognostic(spec),
-                stats,
+                source,
                 "prognostic",
             )
-            boundary = tide_jax.normalize_and_mask(
+            boundary = samudrax.normalize_and_mask(
                 tide_jax.raw_step0_boundary(spec),
-                stats,
+                source,
                 "boundary",
             )
-            label = tide_jax.normalize_and_mask(
+            label = samudrax.normalize_and_mask(
                 tide_jax.raw_step0_label(spec),
-                stats,
+                source,
                 "prognostic",
             )
             return jnp.concatenate((prognostic, boundary), axis=1), label
 
         step0_program = tide_jax.trace_tide_jax(step0)
         out_input, out_label = step0_program.eval(
-            tide_jax.RustTrainBatchMaterializer(batch, tensor_placement="cpu")
+            tide_jax.RustTrainBatchMaterializer(batch, jax_blob_placement="cpu")
         )
 
         np.testing.assert_allclose(
@@ -351,14 +353,14 @@ def test_tide_jax_matches_rust_batch(train_config):
         prev = jax.ShapeDtypeStruct(tuple(prev_prediction.shape), jnp.float32)
 
         def later_step(prev_prediction):
-            boundary = tide_jax.normalize_and_mask(
+            boundary = samudrax.normalize_and_mask(
                 tide_jax.raw_boundary(spec, 1),
-                stats,
+                source,
                 "boundary",
             )
-            label = tide_jax.normalize_and_mask(
+            label = samudrax.normalize_and_mask(
                 tide_jax.raw_label(spec, 1),
-                stats,
+                source,
                 "prognostic",
             )
             return (
@@ -368,7 +370,7 @@ def test_tide_jax_matches_rust_batch(train_config):
 
         later_program = tide_jax.trace_tide_jax(later_step, prev)
         out_input, out_label = later_program.eval(
-            tide_jax.RustTrainBatchMaterializer(batch, tensor_placement="cpu"),
+            tide_jax.RustTrainBatchMaterializer(batch, jax_blob_placement="cpu"),
             jnp.asarray(prev_prediction.numpy()),
         )
 

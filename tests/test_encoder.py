@@ -1,3 +1,4 @@
+import pytest
 import torch
 from perceiver_pytorch import Perceiver
 
@@ -107,7 +108,6 @@ def test_cross_resolution_token_fuse():
 
 def test_latent_grid_mismatch_raises():
     """Misaligned latent grids between prog and boundary should raise."""
-    import pytest
 
     embed_dim = 4
     # prog: 8x16 with patch_extent=(90,90) → ph=4,pw=4 → latent 2x4

@@ -1,3 +1,5 @@
+from typing import Any
+
 import torch
 from aurora.model.fourier import FourierExpansion
 from aurora.model.posencoding import lat_lon_meshgrid
@@ -102,3 +104,20 @@ class Concat3dCoordinates(nn.Module):
             .expand(fts.shape[0], -1, -1, -1)
         )
         return torch.cat((fts, grid), dim=1)
+
+
+class _FlattenThenPerceiver(nn.Module):
+    """Flatten 2-D patches to 1-D tokens, then forward to a FlashPerceiver.
+
+    Unlike ``nn.Sequential``, this wrapper passes keyword arguments
+    (e.g. ``return_embeddings=True``) through to the inner perceiver.
+    """
+
+    def __init__(self, perceiver: nn.Module) -> None:
+        super().__init__()
+        self.perceiver = perceiver
+
+    def forward(self, x: torch.Tensor, **kwargs: Any) -> torch.Tensor:
+        b, ph, pw, v = x.shape
+        x = x.reshape(b, ph * pw, v)
+        return self.perceiver(x, **kwargs)

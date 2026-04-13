@@ -130,7 +130,6 @@ class PerceiverEncoder(nn.Module):
         super().__init__()
         self.prog_channels = prog_channels
         self.boundary_channels = boundary_channels
-        self.in_channels: int = prog_channels + boundary_channels
         self.out_channels: int = out_channels
         self.latent_dim = latent_dim
         self.patch_extent = patch_extent
@@ -212,13 +211,15 @@ class PerceiverEncoder(nn.Module):
         prog_res: tuple[Lat, Lon],
     ) -> Float[torch.Tensor, "batch {self.out_channels} h w"]:
         # --- Prognostic stream: 2-D patches → Perceiver ---
-        ph_p, pw_p, lat_h, lat_w = self._patchify_params(prog.shape, self.prog_channels)
+        patch_h, patch_w, lat_h, lat_w = self._patchify_params(
+            prog.shape, self.prog_channels
+        )
 
         prog_patches = rearrange(
             prog,
             "b v (h ph) (w pw) -> (b h w) ph pw v",
-            ph=ph_p,
-            pw=pw_p,
+            ph=patch_h,
+            pw=patch_w,
         )
         # NB(alxmrs): The Perceiver includes a mean and LayerNorm before
         # its linear projection, plus 2-D Fourier position encoding within
@@ -229,7 +230,7 @@ class PerceiverEncoder(nn.Module):
         )  # (B_HW, num_latents, latent_dim)
 
         # --- Boundary stream: flatten patches, project ---
-        ph_b, pw_b, b_lat_h, b_lat_w = self._patchify_params(
+        b_patch_w, b_patch_w, b_lat_h, b_lat_w = self._patchify_params(
             boundary.shape, self.boundary_channels
         )
 
@@ -242,8 +243,8 @@ class PerceiverEncoder(nn.Module):
         boundary_patches = rearrange(
             boundary,
             "b v (h ph) (w pw) -> (b h w) ph pw v",
-            ph=ph_b,
-            pw=pw_b,
+            ph=b_patch_w,
+            pw=b_patch_w,
         )
 
         boundary_patches = self.boundary_pos_enc(boundary_patches)
@@ -268,7 +269,6 @@ class PerceiverEncoder(nn.Module):
         # --- Patch-level positional + scale encoding ---
         x = rearrange(x, "(b h w) l -> b (h w) l", h=lat_h, w=lat_w)
         lat, lon = prog_res
-        patch_h, patch_w = patch_from(self.patch_extent, len(lat), len(lon))
         pos_encode, scale_encode = pos_scale_enc(
             self.out_channels,
             lat,

@@ -109,24 +109,41 @@ def test_cross_resolution_token_fuse():
 
     # Both grids with 90-degree patches → 2 lat patches, 4 lon patches
     assert patches.shape == (1, embed_dim, 2, 4)
+    assert torch.isfinite(patches).all(), "Output contains NaN or Inf."
 
 
-def test_boundary_stream_influences_output():
-    """Changing boundary data changes the encoder output, proving cross-attention is active."""
-    embed_dim = 8
-    prog = torch.randn(1, 5, 4, 8)
-    boundary_a = torch.randn(1, 3, 4, 8)
-    boundary_b = torch.randn(1, 3, 4, 8)
+def test_latent_grid_mismatch_raises():
+    """Misaligned latent grids between prog and boundary should raise."""
+    import pytest
 
-    encoder = make_encoder(5, 3, embed_dim, (180, 180))
-    encoder.eval()
+    embed_dim = 4
+    # prog: 8x16 with patch_extent=(90,90) → ph=4,pw=4 → latent 2x4
+    # boundary: 4x6 with same extent → ph=2,pw=2 → latent 2x3 (mismatch on lon)
+    prog = torch.randn(1, 7, 8, 16)
+    boundary = torch.randn(1, 3, 4, 6)
 
-    res = make_resolution(prog)
-    out_a = encoder(prog, boundary_a, res)
-    out_b = encoder(prog, boundary_b, res)
+    encoder = make_encoder(7, 3, embed_dim, (90, 90))
+    prog_res = (torch.linspace(-90, 90, 8), torch.linspace(0, 360, 16))
 
-    assert not torch.allclose(out_a, out_b), (
-        "Different boundary inputs should produce different outputs."
+    with pytest.raises(AssertionError, match="Latent grid mismatch"):
+        encoder(prog, boundary, prog_res)
+
+
+def test_gradients_flow_to_both_streams():
+    """Gradients flow from the output back to both prognostic and boundary inputs."""
+    embed_dim = 4
+    prog = torch.randn(1, 7, 4, 8, requires_grad=True)
+    boundary = torch.randn(1, 3, 4, 8, requires_grad=True)
+
+    encoder = make_encoder(7, 3, embed_dim, (180, 180))
+    out = encoder(prog, boundary, make_resolution(prog))
+    out.sum().backward()
+
+    assert prog.grad is not None and prog.grad.abs().sum() > 0, (
+        "Gradients must flow to prognostic input."
+    )
+    assert boundary.grad is not None and boundary.grad.abs().sum() > 0, (
+        "Gradients must flow to boundary input."
     )
 
 

@@ -1,7 +1,7 @@
 import abc
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, Any, Literal, Self, assert_never
+from typing import Annotated, Literal, Self, assert_never
 
 import cftime
 import pydantic
@@ -36,7 +36,10 @@ from ocean_emulators.models.modules import (
     TransposedConvUpsample,
     UNetBackbone,
 )
-from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
+from ocean_emulators.models.modules.augment_input import (
+    Concat3dCoordinates,
+    _FlattenThenPerceiver,
+)
 from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from ocean_emulators.models.modules.encoder import patch_from
 from ocean_emulators.utils.data import DataContainer, DataSource
@@ -364,23 +367,6 @@ class CorrectorConfig(BaseConfig):
 
 
 PerceiverImpl = Literal["auto", "naive", "flash"]
-
-
-class _FlattenThenPerceiver(nn.Module):
-    """Flatten 2-D patches to 1-D tokens, then forward to a FlashPerceiver.
-
-    Unlike ``nn.Sequential``, this wrapper passes keyword arguments
-    (e.g. ``return_embeddings=True``) through to the inner perceiver.
-    """
-
-    def __init__(self, perceiver: nn.Module) -> None:
-        super().__init__()
-        self.perceiver = perceiver
-
-    def forward(self, x: torch.Tensor, **kwargs: Any) -> torch.Tensor:
-        b, ph, pw, v = x.shape
-        x = x.reshape(b, ph * pw, v)
-        return self.perceiver(x, **kwargs)
 
 
 class PerceiverConfig(BaseConfig):

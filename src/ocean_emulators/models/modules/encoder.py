@@ -88,8 +88,8 @@ class PerceiverEncoder(nn.Module):
         )
 
         # TODO(#451): The input to these position and scale linear units could be a hparam.
-        self.pos_embed = nn.Linear(out_channels, out_channels)
-        self.scale_embed = nn.Linear(out_channels, out_channels)
+        self.pos_embed = nn.Linear(self.out_channels, self.out_channels)
+        self.scale_embed = nn.Linear(self.out_channels, self.out_channels)
 
     def _patchify_params(
         self, shape: torch.Size, expected_channels: int

@@ -66,6 +66,18 @@ def test_fomo_forward_once_cross_resolution():
         weight_tie_layers=True,
         self_per_cross_attn=2,
     )
+    boundary_perceiver = Perceiver(
+        num_freq_bands=4,
+        max_freq=10.0,
+        depth=1,
+        input_axis=2,
+        input_channels=boundary_channels,
+        latent_dim=latent_dim,
+        num_latents=2,
+        num_classes=latent_dim,
+        weight_tie_layers=True,
+        self_per_cross_attn=2,
+    )
     encoder = PerceiverEncoder(
         prog_channels=prog_channels,
         boundary_channels=boundary_channels,
@@ -73,9 +85,7 @@ def test_fomo_forward_once_cross_resolution():
         latent_dim=latent_dim,
         patch_extent=patch_extent,
         perceiver=perceiver,
-        boundary_attn_heads=1,
-        num_fusion_self_attn=0,
-        boundary_fourier_dim=4,
+        boundary_perceiver=boundary_perceiver,
     )
 
     processor = UNetBackbone(

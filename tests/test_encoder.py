@@ -5,21 +5,16 @@ from ocean_emulators.constants import Lat, Lon
 from ocean_emulators.models.modules.encoder import PerceiverEncoder, patch_from
 
 LATENT_DIM = 4
-BOUNDARY_ATTN_HEADS = 1
 
 
-def make_perceiver(prog_channels, *, num_latents=2, max_freq=10.0):
-    """Build a naive 2-D Perceiver for the prognostic stream.
-
-    Uses ``input_axis=2`` so within-patch spatial structure is preserved
-    via 2-D Fourier position encoding.
-    """
+def make_perceiver(input_channels, *, num_latents=2, max_freq=10.0):
+    """Build a naive 2-D Perceiver."""
     return Perceiver(
         num_freq_bands=4,
         max_freq=max_freq,
         depth=2,
         input_axis=2,
-        input_channels=prog_channels,
+        input_channels=input_channels,
         latent_dim=LATENT_DIM,
         num_latents=num_latents,
         num_classes=LATENT_DIM,
@@ -28,9 +23,7 @@ def make_perceiver(prog_channels, *, num_latents=2, max_freq=10.0):
     )
 
 
-def make_encoder(prog_channels, boundary_channels, out_channels, patch_extent, **kw):
-    kw.setdefault("num_fusion_self_attn", 0)
-    kw.setdefault("boundary_fourier_dim", 4)
+def make_encoder(prog_channels, boundary_channels, out_channels, patch_extent):
     return PerceiverEncoder(
         prog_channels=prog_channels,
         boundary_channels=boundary_channels,
@@ -38,8 +31,7 @@ def make_encoder(prog_channels, boundary_channels, out_channels, patch_extent, *
         latent_dim=LATENT_DIM,
         patch_extent=patch_extent,
         perceiver=make_perceiver(prog_channels),
-        boundary_attn_heads=BOUNDARY_ATTN_HEADS,
-        **kw,
+        boundary_perceiver=make_perceiver(boundary_channels),
     )
 
 
@@ -145,36 +137,6 @@ def test_gradients_flow_to_both_streams():
     assert boundary.grad is not None and boundary.grad.abs().sum() > 0, (
         "Gradients must flow to boundary input."
     )
-
-
-def test_fusion_self_attn():
-    """Enabling fusion self-attention layers changes the output."""
-    embed_dim = 4
-
-    encoder_0 = make_encoder(7, 3, embed_dim, (180, 180), num_fusion_self_attn=0)
-    encoder_2 = make_encoder(7, 3, embed_dim, (180, 180), num_fusion_self_attn=2)
-
-    # Verify the self-attention layers exist (or not)
-    assert len(encoder_0.fusion_self_attn_layers) == 0
-    assert len(encoder_2.fusion_self_attn_layers) == 4  # 2 layers × (attn + ff)
-
-
-def test_boundary_attn_heads_divisibility():
-    """Non-divisible latent_dim / heads should raise."""
-    import pytest
-
-    with pytest.raises(AssertionError, match="divisible"):
-        PerceiverEncoder(
-            prog_channels=7,
-            boundary_channels=3,
-            out_channels=4,
-            latent_dim=7,
-            patch_extent=(180, 180),
-            perceiver=make_perceiver(7),
-            boundary_attn_heads=3,
-            num_fusion_self_attn=0,
-            boundary_fourier_dim=4,
-        )
 
 
 def test_patch_from__full_globe():

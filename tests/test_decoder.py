@@ -133,9 +133,7 @@ def test_roundtrip():
         latent_dim=ENCODER_LATENT_DIM,
         patch_extent=(180, 180),
         perceiver=make_perceiver_encoder(7),
-        boundary_attn_heads=1,
-        num_fusion_self_attn=0,
-        boundary_fourier_dim=4,
+        boundary_perceiver=make_perceiver_encoder(3),
     )
 
     res = make_resolution(prog)

@@ -518,26 +518,9 @@ def _flash_import_error() -> ValueError:
 
 class EncoderConfig(BaseConfig):
     perceiver: PerceiverConfig = PerceiverConfig()
-    boundary_attn_heads: int = Field(
-        default=4,
-        description="Number of attention heads for boundary cross-attention. "
-        "More heads let the model attend to different aspects of boundary forcing "
-        "(e.g. heat flux vs. wind stress) independently.",
-        gt=0,
-    )
-    num_fusion_self_attn: int = Field(
-        default=0,
-        description="Number of self-attention + feed-forward layers applied to "
-        "the fused latents after boundary cross-attention. 0 means boundary info "
-        "is integrated in a single cross-attention pass before pooling.",
-        ge=0,
-    )
-    boundary_fourier_dim: int = Field(
-        default=8,
-        description="Dimensionality of Fourier position encoding per spatial axis "
-        "for within-patch boundary tokens. Must be even. Total features added: "
-        "2 * boundary_fourier_dim (one set per axis).",
-        gt=0,
+    boundary_perceiver: PerceiverConfig = PerceiverConfig(
+        depth=2,
+        num_latents=64,
     )
 
     def build(
@@ -550,6 +533,10 @@ class EncoderConfig(BaseConfig):
         implementation: PerceiverImpl,
     ) -> PerceiverEncoder:
         latent_dim = self.perceiver.latent_dim
+        assert self.boundary_perceiver.latent_dim == latent_dim, (
+            f"Boundary perceiver latent_dim ({self.boundary_perceiver.latent_dim}) "
+            f"must match prognostic perceiver latent_dim ({latent_dim}) for fusion."
+        )
         return PerceiverEncoder(
             prog_channels=prog_channels,
             boundary_channels=boundary_channels,
@@ -559,9 +546,9 @@ class EncoderConfig(BaseConfig):
             perceiver=self.perceiver.build(
                 prog_channels, max_patch_size, implementation
             ),
-            boundary_attn_heads=self.boundary_attn_heads,
-            num_fusion_self_attn=self.num_fusion_self_attn,
-            boundary_fourier_dim=self.boundary_fourier_dim,
+            boundary_perceiver=self.boundary_perceiver.build(
+                boundary_channels, max_patch_size, implementation
+            ),
         )
 
 

@@ -36,10 +36,7 @@ from ocean_emulators.models.modules import (
     TransposedConvUpsample,
     UNetBackbone,
 )
-from ocean_emulators.models.modules.augment_input import (
-    Concat3dCoordinates,
-    _FlattenThenPerceiver,
-)
+from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
 from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from ocean_emulators.models.modules.encoder import patch_from
 from ocean_emulators.utils.data import DataContainer, DataSource
@@ -393,17 +390,15 @@ class PerceiverConfig(BaseConfig):
         max_patch_size: tuple[int, int],
         implementation: PerceiverImpl,
     ) -> nn.Module:
-        """Build a regular Perceiver for the prognostic stream.
+        """Build a Perceiver that maps 2-D patches to a pooled latent vector.
 
-        The Perceiver receives raw 2-D prognostic patches
-        ``(batch, ph, pw, prog_channels)`` with internal Fourier position
-        encoding, preserving within-patch spatial structure.  The encoder
-        calls it with ``return_embeddings=True`` to get the raw latent
-        vectors before pooling — boundary fusion and pooling happen
-        outside the Perceiver.
+        The Perceiver receives raw 2-D patches
+        ``(batch, ph, pw, input_channels)`` with internal Fourier position
+        encoding.  It returns ``(batch, latent_dim)`` after mean-pooling
+        its latent vectors.
 
         Args:
-            prog_channels: Number of raw prognostic input channels.
+            prog_channels: Number of input channels per patch pixel.
             max_patch_size: Largest ``(ph, pw)`` across data sources,
                 used to set the Fourier frequency range.
             implementation: Which Perceiver backend to use.
@@ -415,17 +410,19 @@ class PerceiverConfig(BaseConfig):
                 from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
             except ModuleNotFoundError as e:
                 raise _flash_import_error() from e
+            from einops.layers.torch import Rearrange
 
-            # Flash perceiver expects (batch, seq_len, dim).  We flatten
-            # the 2-D patches inline and forward kwargs (e.g.
-            # return_embeddings=True) to the FlashPerceiver.
-            perceiver: nn.Module = _FlattenThenPerceiver(
+            # Flash perceiver expects (batch, seq_len, dim); naive handles
+            # (batch, ph, pw, dim) natively via input_axis=2.  Bake the
+            # spatial-flatten into the module so callers don't need to care.
+            perceiver: nn.Module = nn.Sequential(
+                Rearrange("b ph pw v -> b (ph pw) v"),
                 FlashPerceiver(
                     latent_rotary_emb_dim=max_freq,
                     depth=self.depth,
                     input_dim=prog_channels,
-                    # No output projection — encoder handles pooling.
-                    output_dim=None,
+                    output_dim=self.latent_dim,
+                    output_mode="average",
                     latent_dim=self.latent_dim,
                     num_latents=self.num_latents,
                     use_flash_attn=True,
@@ -440,7 +437,6 @@ class PerceiverConfig(BaseConfig):
                 depth=self.depth,
                 input_axis=2,
                 input_channels=prog_channels,
-                # num_classes is unused — we call with return_embeddings=True.
                 num_classes=self.latent_dim,
                 latent_dim=self.latent_dim,
                 num_latents=self.num_latents,

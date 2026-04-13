@@ -230,7 +230,7 @@ class PerceiverEncoder(nn.Module):
         )  # (B_HW, num_latents, latent_dim)
 
         # --- Boundary stream: flatten patches, project ---
-        b_patch_w, b_patch_w, b_lat_h, b_lat_w = self._patchify_params(
+        b_patch_h, b_patch_w, b_lat_h, b_lat_w = self._patchify_params(
             boundary.shape, self.boundary_channels
         )
 
@@ -243,7 +243,7 @@ class PerceiverEncoder(nn.Module):
         boundary_patches = rearrange(
             boundary,
             "b v (h ph) (w pw) -> (b h w) ph pw v",
-            ph=b_patch_w,
+            ph=b_patch_h,
             pw=b_patch_w,
         )
 

@@ -1,6 +1,6 @@
 use anyhow::{anyhow, bail, ensure, Context, Result};
 use ndarray::{s, Array2, Array4};
-use numpy::{IntoPyArray, PyArray4, PyReadonlyArray1, PyReadonlyArray2, PyReadonlyArray3};
+use numpy::{IntoPyArray, PyArray4};
 use pyo3::exceptions::{PyRuntimeError, PyValueError};
 use pyo3::prelude::*;
 use rayon::prelude::*;
@@ -13,12 +13,6 @@ use zarrs::storage::ReadableWritableListableStorage;
 
 type ValueId = usize;
 type Store = ReadableWritableListableStorage;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-enum TensorKind {
-    Prognostic,
-    Boundary,
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 struct SpatialWindow {
@@ -66,10 +60,16 @@ struct StepRoot {
 }
 
 #[derive(Clone, Debug)]
+struct Step0Root {
+    prognostic: ValueId,
+    boundary: ValueId,
+    label: ValueId,
+}
+
+#[derive(Clone, Debug)]
 struct TrainBatchPlan {
-    step0_input: ValueId,
-    step0_label: ValueId,
-    later_steps: Vec<StepRoot>,
+    raw_step0: Step0Root,
+    raw_later_steps: Vec<StepRoot>,
 }
 
 #[derive(Clone, Debug)]
@@ -113,22 +113,6 @@ enum Op {
         batch: usize,
         time: usize,
     },
-    Normalize {
-        out: ValueId,
-        input: ValueId,
-        kind: TensorKind,
-    },
-    ApplyMask {
-        out: ValueId,
-        input: ValueId,
-        kind: TensorKind,
-        fill_value_bits: u32,
-    },
-    ConcatInput {
-        out: ValueId,
-        prognostic: ValueId,
-        boundary: ValueId,
-    },
 }
 
 impl Op {
@@ -138,18 +122,21 @@ impl Op {
             | Self::Crop { out, .. }
             | Self::PackPrognostic { out, .. }
             | Self::PackBoundary { out, .. }
-            | Self::PackLabel { out, .. }
-            | Self::Normalize { out, .. }
-            | Self::ApplyMask { out, .. }
-            | Self::ConcatInput { out, .. } => *out,
+            | Self::PackLabel { out, .. } => *out,
         }
     }
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 enum OpKey {
-    LoadPlane { var: String, time: usize },
-    Crop { input: ValueId, window: SpatialWindow },
+    LoadPlane {
+        var: String,
+        time: usize,
+    },
+    Crop {
+        input: ValueId,
+        window: SpatialWindow,
+    },
     PackPrognostic {
         inputs: Vec<ValueId>,
         batch: usize,
@@ -164,16 +151,6 @@ enum OpKey {
         inputs: Vec<ValueId>,
         batch: usize,
         time: usize,
-    },
-    Normalize { input: ValueId, kind: TensorKind },
-    ApplyMask {
-        input: ValueId,
-        kind: TensorKind,
-        fill_value_bits: u32,
-    },
-    ConcatInput {
-        prognostic: ValueId,
-        boundary: ValueId,
     },
 }
 
@@ -279,44 +256,6 @@ impl Builder {
             },
         )
     }
-
-    fn normalize(&mut self, input: ValueId, kind: TensorKind) -> ValueId {
-        self.intern(OpKey::Normalize { input, kind }, |out| Op::Normalize {
-            out,
-            input,
-            kind,
-        })
-    }
-
-    fn apply_mask(&mut self, input: ValueId, kind: TensorKind, fill_value: f32) -> ValueId {
-        self.intern(
-            OpKey::ApplyMask {
-                input,
-                kind,
-                fill_value_bits: fill_value.to_bits(),
-            },
-            |out| Op::ApplyMask {
-                out,
-                input,
-                kind,
-                fill_value_bits: fill_value.to_bits(),
-            },
-        )
-    }
-
-    fn concat_input(&mut self, prognostic: ValueId, boundary: ValueId) -> ValueId {
-        self.intern(
-            OpKey::ConcatInput {
-                prognostic,
-                boundary,
-            },
-            |out| Op::ConcatInput {
-                out,
-                prognostic,
-                boundary,
-            },
-        )
-    }
 }
 
 trait PlaneBackend: Send + Sync {
@@ -336,6 +275,18 @@ impl ZarrBackend {
         );
         Ok(Self { store })
     }
+
+    fn spatial_shape(&self, var: &str) -> Result<(usize, usize)> {
+        let array = Array::open(self.store.clone(), var)
+            .or_else(|_| Array::open(self.store.clone(), &format!("/{var}")))
+            .with_context(|| format!("opening array {var}"))?;
+        let shape = array.shape().to_vec();
+        ensure!(
+            shape.len() == 3,
+            "expected 3-D array for {var}, got {shape:?}"
+        );
+        Ok((shape[1] as usize, shape[2] as usize))
+    }
 }
 
 impl PlaneBackend for ZarrBackend {
@@ -344,7 +295,10 @@ impl PlaneBackend for ZarrBackend {
             .or_else(|_| Array::open(self.store.clone(), &format!("/{var}")))
             .with_context(|| format!("opening array {var}"))?;
         let shape = array.shape().to_vec();
-        ensure!(shape.len() == 3, "expected 3-D array for {var}, got {shape:?}");
+        ensure!(
+            shape.len() == 3,
+            "expected 3-D array for {var}, got {shape:?}"
+        );
         let lat = shape[1] as usize;
         let lon = shape[2] as usize;
 
@@ -373,23 +327,12 @@ struct DatasetInner {
     backend: Arc<dyn PlaneBackend>,
     prognostic_vars: Vec<String>,
     boundary_vars: Vec<String>,
-    prognostic_mean: Vec<f32>,
-    prognostic_std: Vec<f32>,
-    boundary_mean: Vec<f32>,
-    boundary_std: Vec<f32>,
-    prognostic_mask: Array3Bool,
-    boundary_mask: Array2Bool,
-    normalize_before_mask: bool,
-    masked_fill_value: f32,
     lat: usize,
     lon: usize,
     cpu_budget_bytes: usize,
     chunk_read_concurrency: usize,
     decode_concurrency: usize,
 }
-
-type Array3Bool = ndarray::Array3<bool>;
-type Array2Bool = ndarray::Array2<bool>;
 
 #[derive(Clone, Debug)]
 enum ValueData {
@@ -427,16 +370,18 @@ struct BatchRuntime {
 }
 
 impl BatchRuntime {
-    fn materialize_step0(&self) -> Result<(Array4<f32>, Array4<f32>)> {
-        let input = self.materialize_tensor(self.plan.step0_input)?;
-        let label = self.materialize_tensor(self.plan.step0_label)?;
-        Ok((input, label))
+    fn materialize_raw_step0_parts(&self) -> Result<(Array4<f32>, Array4<f32>, Array4<f32>)> {
+        let root = &self.plan.raw_step0;
+        let prognostic = self.materialize_tensor(root.prognostic)?;
+        let boundary = self.materialize_tensor(root.boundary)?;
+        let label = self.materialize_tensor(root.label)?;
+        Ok((prognostic, boundary, label))
     }
 
-    fn materialize_step_parts(&self, step: usize) -> Result<(Array4<f32>, Array4<f32>)> {
+    fn materialize_raw_step_parts(&self, step: usize) -> Result<(Array4<f32>, Array4<f32>)> {
         let root = self
             .plan
-            .later_steps
+            .raw_later_steps
             .get(step.saturating_sub(1))
             .with_context(|| format!("step {step} is out of range"))?;
         let boundary = self.materialize_tensor(root.boundary)?;
@@ -446,9 +391,9 @@ impl BatchRuntime {
 
     fn prefetch_step(&self, step: usize) -> Result<()> {
         if step == 0 {
-            let _ = self.materialize_step0()?;
+            let _ = self.materialize_raw_step0_parts()?;
         } else {
-            let _ = self.materialize_step_parts(step)?;
+            let _ = self.materialize_raw_step_parts(step)?;
         }
         Ok(())
     }
@@ -467,7 +412,9 @@ impl BatchRuntime {
                 match state.status.get(&value) {
                     Some(ValueStatus::Ready(data)) => return Ok(data.clone()),
                     Some(ValueStatus::Failed(message)) => {
-                        return Err(anyhow!("materialization failed for value {value}: {message}"));
+                        return Err(anyhow!(
+                            "materialization failed for value {value}: {message}"
+                        ));
                     }
                     Some(ValueStatus::Running) => {
                         state = self.condvar.wait(state).unwrap();
@@ -555,50 +502,6 @@ impl BatchRuntime {
                 *time,
                 self.dataset.prognostic_vars.len(),
             )?))),
-            Op::Normalize { input, kind, .. } => {
-                let tensor = self.materialize_tensor(*input)?;
-                Ok(Arc::new(ValueData::Tensor(self.normalize_tensor(tensor, *kind)?)))
-            }
-            Op::ApplyMask {
-                input,
-                kind,
-                fill_value_bits,
-                ..
-            } => {
-                let tensor = self.materialize_tensor(*input)?;
-                Ok(Arc::new(ValueData::Tensor(self.apply_mask(
-                    tensor,
-                    *kind,
-                    f32::from_bits(*fill_value_bits),
-                )?)))
-            }
-            Op::ConcatInput {
-                prognostic,
-                boundary,
-                ..
-            } => {
-                let (prog, bound) = rayon::join(
-                    || self.materialize_tensor(*prognostic),
-                    || self.materialize_tensor(*boundary),
-                );
-                let prog = prog?;
-                let bound = bound?;
-                ensure!(
-                    prog.shape()[0] == bound.shape()[0]
-                        && prog.shape()[2] == bound.shape()[2]
-                        && prog.shape()[3] == bound.shape()[3],
-                    "concat inputs must agree on batch/height/width"
-                );
-                let batch = prog.shape()[0];
-                let channels = prog.shape()[1] + bound.shape()[1];
-                let lat = prog.shape()[2];
-                let lon = prog.shape()[3];
-                let mut out = Array4::<f32>::zeros((batch, channels, lat, lon));
-                let prog_channels = prog.shape()[1];
-                out.slice_mut(s![.., 0..prog_channels, .., ..]).assign(&prog);
-                out.slice_mut(s![.., prog_channels.., .., ..]).assign(&bound);
-                Ok(Arc::new(ValueData::Tensor(out)))
-            }
         }
     }
 
@@ -646,86 +549,6 @@ impl BatchRuntime {
 
         Ok(out)
     }
-
-    fn normalize_tensor(&self, tensor: Array4<f32>, kind: TensorKind) -> Result<Array4<f32>> {
-        let (means, stds) = match kind {
-            TensorKind::Prognostic => (
-                &self.dataset.prognostic_mean,
-                &self.dataset.prognostic_std,
-            ),
-            TensorKind::Boundary => (&self.dataset.boundary_mean, &self.dataset.boundary_std),
-        };
-        let base_channels = means.len();
-        ensure!(base_channels > 0, "normalization statistics must not be empty");
-        ensure!(
-            tensor.shape()[1] % base_channels == 0,
-            "channel count {} is not divisible by statistics length {}",
-            tensor.shape()[1],
-            base_channels
-        );
-
-        let mut out = tensor;
-        for batch_idx in 0..out.shape()[0] {
-            for channel in 0..out.shape()[1] {
-                let stat_idx = channel % base_channels;
-                let mean = means[stat_idx];
-                let std = stds[stat_idx];
-                out.slice_mut(s![batch_idx, channel, .., ..])
-                    .mapv_inplace(|v| {
-                        let norm = (v - mean) / std;
-                        if norm.is_nan() { 0.0 } else { norm }
-                    });
-            }
-        }
-        Ok(out)
-    }
-
-    fn apply_mask(
-        &self,
-        tensor: Array4<f32>,
-        kind: TensorKind,
-        fill_value: f32,
-    ) -> Result<Array4<f32>> {
-        let mut out = tensor;
-        match kind {
-            TensorKind::Prognostic => {
-                let mask = &self.dataset.prognostic_mask;
-                ensure!(
-                    out.shape()[1] % mask.shape()[0] == 0,
-                    "prognostic channels {} must be divisible by mask channels {}",
-                    out.shape()[1],
-                    mask.shape()[0]
-                );
-                for batch_idx in 0..out.shape()[0] {
-                    for channel in 0..out.shape()[1] {
-                        let mask_idx = channel % mask.shape()[0];
-                        for lat in 0..out.shape()[2] {
-                            for lon in 0..out.shape()[3] {
-                                if !mask[(mask_idx, lat, lon)] {
-                                    out[(batch_idx, channel, lat, lon)] = fill_value;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            TensorKind::Boundary => {
-                let mask = &self.dataset.boundary_mask;
-                for batch_idx in 0..out.shape()[0] {
-                    for channel in 0..out.shape()[1] {
-                        for lat in 0..out.shape()[2] {
-                            for lon in 0..out.shape()[3] {
-                                if !mask[(lat, lon)] {
-                                    out[(batch_idx, channel, lat, lon)] = fill_value;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        Ok(out)
-    }
 }
 
 fn estimate_bytes(data: &ValueData) -> usize {
@@ -736,9 +559,15 @@ fn estimate_bytes(data: &ValueData) -> usize {
 }
 
 fn build_batch_plan(dataset: &DatasetInner, spec: &BatchSpec) -> Result<(Graph, TrainBatchPlan)> {
-    ensure!(!spec.examples.is_empty(), "batch must contain at least one example");
+    ensure!(
+        !spec.examples.is_empty(),
+        "batch must contain at least one example"
+    );
     let rollout_steps = spec.examples[0].input_time_indices.len();
-    ensure!(rollout_steps > 0, "batch must contain at least one rollout step");
+    ensure!(
+        rollout_steps > 0,
+        "batch must contain at least one rollout step"
+    );
 
     for example in &spec.examples {
         ensure!(
@@ -753,7 +582,7 @@ fn build_batch_plan(dataset: &DatasetInner, spec: &BatchSpec) -> Result<(Graph, 
 
     let mut builder = Builder::new();
 
-    let step0_prog = load_packed_tensor(
+    let step0_prog_raw = load_packed_tensor(
         &mut builder,
         &dataset.prognostic_vars,
         &spec.examples,
@@ -763,15 +592,8 @@ fn build_batch_plan(dataset: &DatasetInner, spec: &BatchSpec) -> Result<(Graph, 
         is_full,
         PackKind::Prognostic,
     )?;
-    let step0_prog = normalize_and_mask(
-        &mut builder,
-        step0_prog,
-        TensorKind::Prognostic,
-        dataset.normalize_before_mask,
-        dataset.masked_fill_value,
-    );
 
-    let step0_boundary = load_packed_tensor(
+    let step0_boundary_raw = load_packed_tensor(
         &mut builder,
         &dataset.boundary_vars,
         &spec.examples,
@@ -781,17 +603,8 @@ fn build_batch_plan(dataset: &DatasetInner, spec: &BatchSpec) -> Result<(Graph, 
         is_full,
         PackKind::Boundary,
     )?;
-    let step0_boundary = normalize_and_mask(
-        &mut builder,
-        step0_boundary,
-        TensorKind::Boundary,
-        dataset.normalize_before_mask,
-        dataset.masked_fill_value,
-    );
 
-    let step0_input = builder.concat_input(step0_prog, step0_boundary);
-
-    let step0_label = load_packed_tensor(
+    let step0_label_raw = load_packed_tensor(
         &mut builder,
         &dataset.prognostic_vars,
         &spec.examples,
@@ -801,17 +614,10 @@ fn build_batch_plan(dataset: &DatasetInner, spec: &BatchSpec) -> Result<(Graph, 
         is_full,
         PackKind::Label,
     )?;
-    let step0_label = normalize_and_mask(
-        &mut builder,
-        step0_label,
-        TensorKind::Prognostic,
-        dataset.normalize_before_mask,
-        dataset.masked_fill_value,
-    );
 
-    let mut later_steps = Vec::new();
+    let mut raw_later_steps = Vec::new();
     for step in 1..rollout_steps {
-        let boundary = load_packed_tensor(
+        let boundary_raw = load_packed_tensor(
             &mut builder,
             &dataset.boundary_vars,
             &spec.examples,
@@ -821,15 +627,8 @@ fn build_batch_plan(dataset: &DatasetInner, spec: &BatchSpec) -> Result<(Graph, 
             is_full,
             PackKind::Boundary,
         )?;
-        let boundary = normalize_and_mask(
-            &mut builder,
-            boundary,
-            TensorKind::Boundary,
-            dataset.normalize_before_mask,
-            dataset.masked_fill_value,
-        );
 
-        let label = load_packed_tensor(
+        let label_raw = load_packed_tensor(
             &mut builder,
             &dataset.prognostic_vars,
             &spec.examples,
@@ -839,22 +638,21 @@ fn build_batch_plan(dataset: &DatasetInner, spec: &BatchSpec) -> Result<(Graph, 
             is_full,
             PackKind::Label,
         )?;
-        let label = normalize_and_mask(
-            &mut builder,
-            label,
-            TensorKind::Prognostic,
-            dataset.normalize_before_mask,
-            dataset.masked_fill_value,
-        );
-        later_steps.push(StepRoot { boundary, label });
+        raw_later_steps.push(StepRoot {
+            boundary: boundary_raw,
+            label: label_raw,
+        });
     }
 
     Ok((
         Graph { ops: builder.ops },
         TrainBatchPlan {
-            step0_input,
-            step0_label,
-            later_steps,
+            raw_step0: Step0Root {
+                prognostic: step0_prog_raw,
+                boundary: step0_boundary_raw,
+                label: step0_label_raw,
+            },
+            raw_later_steps,
         },
     ))
 }
@@ -915,22 +713,6 @@ fn load_packed_tensor(
     Ok(value)
 }
 
-fn normalize_and_mask(
-    builder: &mut Builder,
-    input: ValueId,
-    kind: TensorKind,
-    normalize_before_mask: bool,
-    masked_fill_value: f32,
-) -> ValueId {
-    if normalize_before_mask {
-        let normalized = builder.normalize(input, kind);
-        builder.apply_mask(normalized, kind, masked_fill_value)
-    } else {
-        let masked = builder.apply_mask(input, kind, masked_fill_value);
-        builder.normalize(masked, kind)
-    }
-}
-
 #[pyclass]
 struct Dataset {
     inner: Arc<DatasetInner>,
@@ -944,14 +726,6 @@ impl Dataset {
             data_path,
             prognostic_vars,
             boundary_vars,
-            prognostic_mean,
-            prognostic_std,
-            boundary_mean,
-            boundary_std,
-            prognostic_mask,
-            boundary_mask,
-            normalize_before_mask,
-            masked_fill_value,
             cpu_budget_bytes=1 << 30,
             chunk_read_concurrency=4,
             decode_concurrency=4
@@ -961,14 +735,6 @@ impl Dataset {
         data_path: String,
         prognostic_vars: Vec<String>,
         boundary_vars: Vec<String>,
-        prognostic_mean: PyReadonlyArray1<'_, f32>,
-        prognostic_std: PyReadonlyArray1<'_, f32>,
-        boundary_mean: PyReadonlyArray1<'_, f32>,
-        boundary_std: PyReadonlyArray1<'_, f32>,
-        prognostic_mask: PyReadonlyArray3<'_, bool>,
-        boundary_mask: PyReadonlyArray2<'_, bool>,
-        normalize_before_mask: bool,
-        masked_fill_value: f32,
         cpu_budget_bytes: usize,
         chunk_read_concurrency: usize,
         decode_concurrency: usize,
@@ -982,31 +748,19 @@ impl Dataset {
 
         let backend = ZarrBackend::new(&data_path)
             .map_err(|err| PyRuntimeError::new_err(format!("{err:#}")))?;
-
-        let prognostic_mask = prognostic_mask.as_array().to_owned();
-        let boundary_mask = boundary_mask.as_array().to_owned();
-        let lat = boundary_mask.shape()[0];
-        let lon = boundary_mask.shape()[1];
-
-        if prognostic_mask.shape()[1] != lat || prognostic_mask.shape()[2] != lon {
-            return Err(PyValueError::new_err(
-                "prognostic_mask spatial shape must match boundary_mask",
-            ));
-        }
+        let shape_var = prognostic_vars
+            .first()
+            .or_else(|| boundary_vars.first())
+            .ok_or_else(|| PyValueError::new_err("at least one zarr variable is required"))?;
+        let (lat, lon) = backend
+            .spatial_shape(shape_var)
+            .map_err(|err| PyRuntimeError::new_err(format!("{err:#}")))?;
 
         Ok(Self {
             inner: Arc::new(DatasetInner {
                 backend: Arc::new(backend),
                 prognostic_vars,
                 boundary_vars,
-                prognostic_mean: prognostic_mean.as_slice()?.to_vec(),
-                prognostic_std: prognostic_std.as_slice()?.to_vec(),
-                boundary_mean: boundary_mean.as_slice()?.to_vec(),
-                boundary_std: boundary_std.as_slice()?.to_vec(),
-                prognostic_mask,
-                boundary_mask,
-                normalize_before_mask,
-                masked_fill_value,
                 lat,
                 lon,
                 cpu_budget_bytes,
@@ -1076,28 +830,39 @@ struct RustTrainBatch {
 #[pymethods]
 impl RustTrainBatch {
     fn num_steps(&self) -> usize {
-        self.inner.plan.later_steps.len() + 1
+        self.inner.plan.raw_later_steps.len() + 1
     }
 
-    fn step0<'py>(&self, py: Python<'py>) -> PyResult<(Bound<'py, PyArray4<f32>>, Bound<'py, PyArray4<f32>>)> {
-        let (input, label) = py
-            .allow_threads(|| self.inner.materialize_step0())
+    fn raw_step0_parts<'py>(
+        &self,
+        py: Python<'py>,
+    ) -> PyResult<(
+        Bound<'py, PyArray4<f32>>,
+        Bound<'py, PyArray4<f32>>,
+        Bound<'py, PyArray4<f32>>,
+    )> {
+        let (prognostic, boundary, label) = py
+            .allow_threads(|| self.inner.materialize_raw_step0_parts())
             .map_err(|err| PyRuntimeError::new_err(format!("{err:#}")))?;
-        Ok((input.into_pyarray(py), label.into_pyarray(py)))
+        Ok((
+            prognostic.into_pyarray(py),
+            boundary.into_pyarray(py),
+            label.into_pyarray(py),
+        ))
     }
 
-    fn step_parts<'py>(
+    fn raw_step_parts<'py>(
         &self,
         py: Python<'py>,
         step: usize,
     ) -> PyResult<(Bound<'py, PyArray4<f32>>, Bound<'py, PyArray4<f32>>)> {
         if step == 0 {
             return Err(PyValueError::new_err(
-                "step_parts is only valid for rollout steps > 0",
+                "raw_step_parts is only valid for rollout steps > 0",
             ));
         }
         let (boundary, label) = py
-            .allow_threads(|| self.inner.materialize_step_parts(step))
+            .allow_threads(|| self.inner.materialize_raw_step_parts(step))
             .map_err(|err| PyRuntimeError::new_err(format!("{err:#}")))?;
         Ok((boundary.into_pyarray(py), label.into_pyarray(py)))
     }
@@ -1134,7 +899,10 @@ mod tests {
             if self.sleep_ms > 0 {
                 std::thread::sleep(Duration::from_millis(self.sleep_ms));
             }
-            Ok(Array2::from_elem((2, 2), (time as f32) + (var.len() as f32)))
+            Ok(Array2::from_elem(
+                (2, 2),
+                (time as f32) + (var.len() as f32),
+            ))
         }
     }
 
@@ -1143,14 +911,6 @@ mod tests {
             backend: Arc::new(FakeBackend { loads, sleep_ms }),
             prognostic_vars: vec!["thetao_0".to_owned(), "so_0".to_owned()],
             boundary_vars: vec!["hfds".to_owned()],
-            prognostic_mean: vec![0.0, 0.0],
-            prognostic_std: vec![1.0, 1.0],
-            boundary_mean: vec![0.0],
-            boundary_std: vec![1.0],
-            prognostic_mask: ndarray::Array3::from_elem((2, 2, 2), true),
-            boundary_mask: ndarray::Array2::from_elem((2, 2), true),
-            normalize_before_mask: true,
-            masked_fill_value: 0.0,
             lat: 2,
             lon: 2,
             cpu_budget_bytes: 1 << 20,
@@ -1246,7 +1006,7 @@ mod tests {
             },
         );
 
-        let (_boundary, _label) = runtime.materialize_step_parts(1).unwrap();
+        let (_boundary, _label) = runtime.materialize_raw_step_parts(1).unwrap();
         assert_eq!(loads.load(Ordering::SeqCst), 3);
     }
 
@@ -1267,8 +1027,8 @@ mod tests {
 
         let left = runtime.clone();
         let right = runtime.clone();
-        let t1 = std::thread::spawn(move || left.materialize_step0().unwrap());
-        let t2 = std::thread::spawn(move || right.materialize_step0().unwrap());
+        let t1 = std::thread::spawn(move || left.materialize_raw_step0_parts().unwrap());
+        let t2 = std::thread::spawn(move || right.materialize_raw_step0_parts().unwrap());
 
         let _ = t1.join().unwrap();
         let _ = t2.join().unwrap();

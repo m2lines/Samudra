@@ -6,7 +6,7 @@ import dataclasses
 import importlib
 from collections.abc import Iterator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 import torch
@@ -25,6 +25,8 @@ try:
     _tide_module = importlib.import_module("tide")
 except ImportError as exc:  # pragma: no cover - exercised via runtime error path
     _TIDE_IMPORT_ERROR = exc
+
+type TensorPlacement = Literal["cpu", "torch_device"]
 
 
 def _require_tide() -> Any:
@@ -97,6 +99,14 @@ class TideDatasetHandle:
         data_path = _as_local_path(
             dataset.prognostic_srcs[0].data_path, label="data source"
         )
+        self.prognostic_mean = _flatten_dataset(dataset.prognostic_srcs[0].means)
+        self.prognostic_std = _flatten_dataset(dataset.prognostic_srcs[0].stds)
+        self.boundary_mean = _flatten_dataset(dataset.boundary_src.means)
+        self.boundary_std = _flatten_dataset(dataset.boundary_src.stds)
+        self.prognostic_mask = dataset.wet_prognostic[0].cpu().numpy()
+        self.boundary_mask = dataset.wet_surface.cpu().numpy()
+        self.normalize_before_mask = dataset.normalize_before_mask
+        self.masked_fill_value = np.float32(dataset.masked_fill_value)
         self._time_index = self._build_time_index(
             data_path,
             dataset.prognostic_srcs[0].data.time.values,
@@ -105,14 +115,6 @@ class TideDatasetHandle:
             data_path,
             list(dataset.prognostic_srcs[0].data.data_vars),
             list(dataset.boundary_src.data.data_vars),
-            _flatten_dataset(dataset.prognostic_srcs[0].means),
-            _flatten_dataset(dataset.prognostic_srcs[0].stds),
-            _flatten_dataset(dataset.boundary_src.means),
-            _flatten_dataset(dataset.boundary_src.stds),
-            dataset.wet_prognostic[0].cpu().numpy(),
-            dataset.wet_surface.cpu().numpy(),
-            dataset.normalize_before_mask,
-            np.float32(dataset.masked_fill_value),
             rust_cfg.cpu_budget_bytes,
             rust_cfg.chunk_read_concurrency,
             rust_cfg.decode_concurrency,
@@ -159,6 +161,14 @@ class TideDatasetHandle:
             num_prognostic_channels=self.dataset.num_prognostic_channels,
             device=device,
             prefetch_steps=rust_cfg.prefetch_steps,
+            prognostic_mean=self.prognostic_mean,
+            prognostic_std=self.prognostic_std,
+            boundary_mean=self.boundary_mean,
+            boundary_std=self.boundary_std,
+            prognostic_mask=self.prognostic_mask,
+            boundary_mask=self.boundary_mask,
+            normalize_before_mask=self.normalize_before_mask,
+            masked_fill_value=self.masked_fill_value,
         )
 
     def _example_spec(self, idx: int) -> ExampleSpec:
@@ -188,14 +198,31 @@ class RustTrainBatch:
         num_prognostic_channels: int,
         device: torch.device,
         prefetch_steps: int,
+        prognostic_mean: np.ndarray,
+        prognostic_std: np.ndarray,
+        boundary_mean: np.ndarray,
+        boundary_std: np.ndarray,
+        prognostic_mask: np.ndarray,
+        boundary_mask: np.ndarray,
+        normalize_before_mask: bool,
+        masked_fill_value: np.float32,
     ) -> None:
         self._rust_batch = rust_batch
         self.ctx = ctx
         self.num_prognostic_channels = num_prognostic_channels
         self._device = device
-        self._step0_input: torch.Tensor | None = None
-        self._step0_label: torch.Tensor | None = None
-        self._later_steps: dict[int, tuple[torch.Tensor, torch.Tensor]] = {}
+        self.prognostic_mean = prognostic_mean
+        self.prognostic_std = prognostic_std
+        self.boundary_mean = boundary_mean
+        self.boundary_std = boundary_std
+        self.prognostic_mask = prognostic_mask
+        self.boundary_mask = boundary_mask
+        self.normalize_before_mask = normalize_before_mask
+        self.masked_fill_value = masked_fill_value
+        self._raw_step0_parts: (
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None
+        ) = None
+        self._raw_later_steps: dict[int, tuple[torch.Tensor, torch.Tensor]] = {}
         self._prefetch_futures: list[concurrent.futures.Future[None]] = []
         self.load_stats = LoadStats(0.0)
         if prefetch_steps > 0:
@@ -213,90 +240,139 @@ class RustTrainBatch:
         return self._rust_batch.num_steps()
 
     def __getitem__(self, step: int) -> tuple[torch.Tensor, torch.Tensor]:
-        if step == 0:
-            return self.get_input(0), self.get_label(0)
-        raise NotImplementedError(
-            "Direct indexing is only supported for step 0 in tide v0"
-        )
+        raise self._torch_api_disabled_error()
 
     def step0(self) -> tuple[torch.Tensor, torch.Tensor, GridContext]:
-        self._ensure_step0()
-        assert self._step0_input is not None
-        assert self._step0_label is not None
-        return self._step0_input, self._step0_label, self.ctx
+        raise self._torch_api_disabled_error()
 
     def step_from_prev(
         self, step: int, prev_prediction: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        boundary, label = self._ensure_later_step(step)
-        input_ = torch.cat((prev_prediction, boundary), dim=1)
-        return input_, label
+        raise self._torch_api_disabled_error()
 
     def prefetch(self, upto_step: int) -> None:
         upper = min(upto_step, len(self) - 1)
         for step in range(0, upper + 1):
-            if step == 0 and self._step0_input is not None:
+            if step == 0 and self._raw_step0_parts is not None:
                 continue
-            if step > 0 and step in self._later_steps:
+            if step > 0 and step in self._raw_later_steps:
                 continue
             self._prefetch_futures.append(
                 self._executor().submit(self._prefetch_step, step)
             )
 
     def get_initial_input(self) -> torch.Tensor:
-        self._ensure_step0()
-        assert self._step0_input is not None
-        return self._step0_input
+        raise self._torch_api_disabled_error()
 
     def get_input(self, step: int) -> torch.Tensor:
-        if step != 0:
-            raise NotImplementedError(
-                "tide v0 only exposes the fully prepared input for rollout step 0"
-            )
-        return self.get_initial_input()
+        raise self._torch_api_disabled_error()
 
     def get_label(self, step: int) -> torch.Tensor:
+        raise self._torch_api_disabled_error()
+
+    def get_boundary(self, step: int) -> torch.Tensor:
+        raise self._torch_api_disabled_error()
+
+    def get_raw_step0_prognostic(
+        self, placement: TensorPlacement = "cpu"
+    ) -> torch.Tensor:
+        prognostic, _, _ = self._ensure_raw_step0_parts()
+        return self._place_tensor(prognostic, placement)
+
+    def get_raw_step0_boundary(
+        self, placement: TensorPlacement = "cpu"
+    ) -> torch.Tensor:
+        _, boundary, _ = self._ensure_raw_step0_parts()
+        return self._place_tensor(boundary, placement)
+
+    def get_raw_step0_label(self, placement: TensorPlacement = "cpu") -> torch.Tensor:
+        _, _, label = self._ensure_raw_step0_parts()
+        return self._place_tensor(label, placement)
+
+    def get_raw_step0_parts(
+        self, placement: TensorPlacement = "cpu"
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        prognostic, boundary, label = self._ensure_raw_step0_parts()
+        return (
+            self._place_tensor(prognostic, placement),
+            self._place_tensor(boundary, placement),
+            self._place_tensor(label, placement),
+        )
+
+    def get_raw_boundary(
+        self, step: int, placement: TensorPlacement = "cpu"
+    ) -> torch.Tensor:
         if step == 0:
-            self._ensure_step0()
-            assert self._step0_label is not None
-            return self._step0_label
-        _, label = self._ensure_later_step(step)
-        return label
+            return self.get_raw_step0_boundary(placement)
+        boundary, _ = self._ensure_raw_later_step(step)
+        return self._place_tensor(boundary, placement)
+
+    def get_raw_label(
+        self, step: int, placement: TensorPlacement = "cpu"
+    ) -> torch.Tensor:
+        if step == 0:
+            return self.get_raw_step0_label(placement)
+        _, label = self._ensure_raw_later_step(step)
+        return self._place_tensor(label, placement)
 
     def merge_prognostic_and_boundary(
         self, prognostic: torch.Tensor, step: int
     ) -> torch.Tensor:
-        boundary, _ = self._ensure_later_step(step)
-        return torch.cat((prognostic, boundary), dim=1)
+        raise self._torch_api_disabled_error()
 
     def _prefetch_step(self, step: int) -> None:
         if step == 0:
-            self._ensure_step0()
+            self._ensure_raw_step0_parts()
             return
-        self._ensure_later_step(step)
+        self._ensure_raw_later_step(step)
 
-    def _ensure_step0(self) -> None:
-        if self._step0_input is not None and self._step0_label is not None:
-            return
-        input_np, label_np = self._rust_batch.step0()
-        self._step0_input = self._to_device_tensor(input_np)
-        self._step0_label = self._to_device_tensor(label_np)
+    def _ensure_raw_step0_parts(
+        self,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        if self._raw_step0_parts is not None:
+            return self._raw_step0_parts
+        prognostic_np, boundary_np, label_np = self._rust_batch.raw_step0_parts()
+        self._raw_step0_parts = (
+            self._to_cpu_tensor(prognostic_np),
+            self._to_cpu_tensor(boundary_np),
+            self._to_cpu_tensor(label_np),
+        )
+        return self._raw_step0_parts
 
-    def _ensure_later_step(self, step: int) -> tuple[torch.Tensor, torch.Tensor]:
-        cached = self._later_steps.get(step)
+    def _ensure_raw_later_step(self, step: int) -> tuple[torch.Tensor, torch.Tensor]:
+        cached = self._raw_later_steps.get(step)
         if cached is not None:
             return cached
-        boundary_np, label_np = self._rust_batch.step_parts(step)
+        boundary_np, label_np = self._rust_batch.raw_step_parts(step)
         cached = (
-            self._to_device_tensor(boundary_np),
-            self._to_device_tensor(label_np),
+            self._to_cpu_tensor(boundary_np),
+            self._to_cpu_tensor(label_np),
         )
-        self._later_steps[step] = cached
+        self._raw_later_steps[step] = cached
         return cached
 
-    def _to_device_tensor(self, array: np.ndarray) -> torch.Tensor:
-        return torch.from_numpy(array).to(
-            device=self._device, dtype=torch.float32, non_blocking=True
+    def _to_cpu_tensor(self, array: np.ndarray) -> torch.Tensor:
+        return torch.from_numpy(array).to(dtype=torch.float32)
+
+    def _place_tensor(
+        self, tensor: torch.Tensor, placement: TensorPlacement
+    ) -> torch.Tensor:
+        match placement:
+            case "cpu":
+                return tensor
+            case "torch_device":
+                return tensor.to(
+                    device=self._device, dtype=torch.float32, non_blocking=True
+                )
+            case _:
+                raise ValueError(f"unknown tensor placement {placement!r}")
+
+    @staticmethod
+    def _torch_api_disabled_error() -> NotImplementedError:
+        return NotImplementedError(
+            "The tide torch batch API is disabled while the JAX frontend owns "
+            "masking, normalization, and input assembly. Use get_raw_* methods "
+            "through ocean_emulators.tide_jax instead."
         )
 
 

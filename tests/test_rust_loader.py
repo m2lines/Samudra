@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-import torch
 import xarray as xr
 
 from ocean_emulators.constants import LoaderVersion
@@ -38,49 +37,39 @@ def test_tide_time_index_maps_sliced_times_to_backing_store(tmp_path):
 
 @pytest.mark.parametrize(
     "data_source,config_name",
-    [
-        ("mock-om4", DEFAULT_CONFIG),
-        ("mock-om4", "test/train_default_2step.yaml"),
-    ],
+    [("mock-om4", DEFAULT_CONFIG)],
     indirect=True,
 )
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)
-def test_tide_loader_matches_torch_loader(train_config):
-    pytest.importorskip("tide")
-    rust_config = _with_rust_loader(train_config)
-
-    with MultitonScope():
-        torch_trainer = Trainer(train_config)
-        torch_trainer.init_data_loaders(cur_step=train_config.steps[0])
-        torch_batch = torch_trainer.train_loader[0]
-
-    with MultitonScope():
-        rust_trainer = Trainer(rust_config)
-        rust_trainer.init_data_loaders(cur_step=rust_config.steps[0])
-        rust_batch = rust_trainer.train_loader[0]
-
-    assert torch.allclose(torch_batch.get_input(0), rust_batch.get_input(0))
-    assert torch.allclose(torch_batch.get_label(0), rust_batch.get_label(0))
-
-    for step in range(1, len(torch_batch)):
-        prev_prediction = torch.randn_like(torch_batch.get_label(step - 1))
-        assert torch.allclose(
-            torch_batch.merge_prognostic_and_boundary(prev_prediction, step),
-            rust_batch.merge_prognostic_and_boundary(prev_prediction, step),
-        )
-        assert torch.allclose(torch_batch.get_label(step), rust_batch.get_label(step))
-
-
-@pytest.mark.parametrize(
-    "data_source,config_name",
-    [("mock-om4", "test/train_default_2step.yaml")],
-    indirect=True,
-)
-@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
-def test_tide_trainer_smoke_cpu(train_config):
+def test_tide_torch_batch_api_is_disabled(train_config):
     pytest.importorskip("tide")
     rust_config = _with_rust_loader(train_config)
 
     with MultitonScope():
         trainer = Trainer(rust_config)
-        trainer.run()
+        trainer.init_data_loaders(cur_step=rust_config.steps[0])
+        batch = trainer.train_loader[0]
+
+        with pytest.raises(NotImplementedError, match="JAX frontend"):
+            batch.get_input(0)
+
+
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", DEFAULT_CONFIG)],
+    indirect=True,
+)
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+def test_tide_raw_batch_returns_full_spatial_window(train_config):
+    pytest.importorskip("tide")
+    rust_config = _with_rust_loader(train_config)
+
+    with MultitonScope():
+        trainer = Trainer(rust_config)
+        trainer.init_data_loaders(cur_step=rust_config.steps[0])
+        batch = trainer.train_loader[0]
+        prognostic, boundary, label = batch.get_raw_step0_parts()
+
+    assert prognostic.shape[-2:] == batch.prognostic_mask.shape[-2:]
+    assert boundary.shape[-2:] == batch.boundary_mask.shape[-2:]
+    assert label.shape[-2:] == batch.prognostic_mask.shape[-2:]

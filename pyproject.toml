@@ -62,6 +62,7 @@ dev = [
   "fsspec>=2025.3",
   "hypothesis[numpy]>=6.127.2",
   "ipykernel>=6.29.5",
+  "jax[cpu]<0.5",
   "jupyter>=1.1.1",
   "memray>=1.17.1",
   "mypy>=1.15",

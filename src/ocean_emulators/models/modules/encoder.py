@@ -113,11 +113,19 @@ class PerceiverEncoder(nn.Module):
         boundary: Boundary,
         prog_res: tuple[Lat, Lon],
     ) -> Float[torch.Tensor, "batch {self.out_channels} h w"]:
-        # --- Prognostic stream: 2-D patches → Perceiver ---
         patch_h, patch_w, lat_h, lat_w = self._patchify_params(
             prog.shape, self.prog_channels
         )
+        b_patch_h, b_patch_w, b_lat_h, b_lat_w = self._patchify_params(
+            boundary.shape, self.boundary_channels
+        )
+        assert lat_h == b_lat_h and lat_w == b_lat_w, (
+            f"Latent grid mismatch: prog ({lat_h}, {lat_w}) vs "
+            f"boundary ({b_lat_h}, {b_lat_w}). Check that patch_extent "
+            f"divides both grids evenly."
+        )
 
+        # --- Prognostic stream: 2-D patches → Perceiver ---
         prog_patches = rearrange(
             prog,
             "b v (h ph) (w pw) -> (b h w) ph pw v",
@@ -127,16 +135,6 @@ class PerceiverEncoder(nn.Module):
         prog_pooled = self.perceiver(prog_patches)  # (B_HW, latent_dim)
 
         # --- Boundary stream: 2-D patches → boundary Perceiver ---
-        b_patch_h, b_patch_w, b_lat_h, b_lat_w = self._patchify_params(
-            boundary.shape, self.boundary_channels
-        )
-
-        assert lat_h == b_lat_h and lat_w == b_lat_w, (
-            f"Latent grid mismatch: prog ({lat_h}, {lat_w}) vs "
-            f"boundary ({b_lat_h}, {b_lat_w}). Check that patch_extent "
-            f"divides both grids evenly."
-        )
-
         boundary_patches = rearrange(
             boundary,
             "b v (h ph) (w pw) -> (b h w) ph pw v",
@@ -173,7 +171,7 @@ class PerceiverEncoder(nn.Module):
         ).unsqueeze(0)
         x = x + pos_encoding + scale_encoding
 
-        # Unpack spatial dims, move channel dim to standard location.
+        # --- Unpack spatial dims, move channel dim to standard location ---
         x = rearrange(x, "b (h w) l -> b l h w", h=lat_h, w=lat_w)
 
         return x

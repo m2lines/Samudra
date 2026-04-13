@@ -386,7 +386,7 @@ class PerceiverConfig(BaseConfig):
 
     def build(
         self,
-        prog_channels: int,
+        in_channels: int,
         max_patch_size: tuple[int, int],
         implementation: PerceiverImpl,
     ) -> nn.Module:
@@ -398,7 +398,7 @@ class PerceiverConfig(BaseConfig):
         its latent vectors.
 
         Args:
-            prog_channels: Number of input channels per patch pixel.
+            in_channels: Number of input channels per patch pixel.
             max_patch_size: Largest ``(ph, pw)`` across data sources,
                 used to set the Fourier frequency range.
             implementation: Which Perceiver backend to use.
@@ -420,7 +420,7 @@ class PerceiverConfig(BaseConfig):
                 FlashPerceiver(
                     latent_rotary_emb_dim=max_freq,
                     depth=self.depth,
-                    input_dim=prog_channels,
+                    input_dim=in_channels,
                     output_dim=self.latent_dim,
                     output_mode="average",
                     latent_dim=self.latent_dim,
@@ -436,7 +436,7 @@ class PerceiverConfig(BaseConfig):
                 max_freq=max_freq,
                 depth=self.depth,
                 input_axis=2,
-                input_channels=prog_channels,
+                input_channels=in_channels,
                 num_classes=self.latent_dim,
                 latent_dim=self.latent_dim,
                 num_latents=self.num_latents,

@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING
 
 import torch
 from perceiver_pytorch import Perceiver
-from perceiver_pytorch.perceiver_pytorch import FeedForward
+from perceiver_pytorch.perceiver_pytorch import Attention, FeedForward
 from torch import nn
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
@@ -26,6 +26,7 @@ _checkpoint_types: tuple[type, ...] = (
     PerceiverDecoder,
     PerceiverEncoder,
     UNetBackbone,
+    Attention,
 )
 
 try:

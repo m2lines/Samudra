@@ -532,16 +532,12 @@ class EncoderConfig(BaseConfig):
         max_patch_size: tuple[int, int],
         implementation: PerceiverImpl,
     ) -> PerceiverEncoder:
-        latent_dim = self.perceiver.latent_dim
-        assert self.boundary_perceiver.latent_dim == latent_dim, (
-            f"Boundary perceiver latent_dim ({self.boundary_perceiver.latent_dim}) "
-            f"must match prognostic perceiver latent_dim ({latent_dim}) for fusion."
-        )
         return PerceiverEncoder(
             prog_channels=prog_channels,
             boundary_channels=boundary_channels,
             out_channels=out_channels,
-            latent_dim=latent_dim,
+            prog_latent_dim=self.perceiver.latent_dim,
+            boundary_latent_dim=self.boundary_perceiver.latent_dim,
             patch_extent=patch_extent,
             perceiver=self.perceiver.build(
                 prog_channels, max_patch_size, implementation

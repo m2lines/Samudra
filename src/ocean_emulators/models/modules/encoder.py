@@ -52,8 +52,8 @@ class PerceiverEncoder(nn.Module):
         prog_channels: Number of prognostic input channels.
         boundary_channels: Number of boundary input channels.
         out_channels: Size of the output embedding dimension.
-        latent_dim: Dimension of the Perceiver's internal latent vectors.
-            Both Perceivers must share this dimension.
+        prog_latent_dim: Output dimension of the prognostic Perceiver.
+        boundary_latent_dim: Output dimension of the boundary Perceiver.
         patch_extent: Spatial extent of each patch in degrees ``(lat, lon)``.
         perceiver: Perceiver module for the prognostic stream.
         boundary_perceiver: Perceiver module for the boundary stream.
@@ -68,7 +68,8 @@ class PerceiverEncoder(nn.Module):
         prog_channels: int,
         boundary_channels: int,
         out_channels: int,
-        latent_dim: int,
+        prog_latent_dim: int,
+        boundary_latent_dim: int,
         patch_extent: tuple[float, float],
         perceiver: nn.Module,
         boundary_perceiver: nn.Module,
@@ -77,17 +78,14 @@ class PerceiverEncoder(nn.Module):
         self.prog_channels = prog_channels
         self.boundary_channels = boundary_channels
         self.out_channels: int = out_channels
-        self.latent_dim = latent_dim
         self.patch_extent = patch_extent
         self.perceiver = perceiver
         self.boundary_perceiver = boundary_perceiver
 
-        # Concat → Linear fusion of the two Perceiver outputs.
-        self.fusion_proj = nn.Linear(latent_dim * 2, latent_dim)
-
-        # Pool latents and project to output embedding dimension.
-        # Mean-pool matches the Perceiver's own output_mode="average".
-        self.to_out = nn.Linear(latent_dim, out_channels)
+        # Fuse the two Perceiver outputs and project to embedding dim.
+        self.fusion_proj = nn.Linear(
+            prog_latent_dim + boundary_latent_dim, out_channels
+        )
 
         # TODO(#451): The input to these position and scale linear units could be a hparam.
         self.pos_embed = nn.Linear(out_channels, out_channels)
@@ -152,8 +150,7 @@ class PerceiverEncoder(nn.Module):
         # --- Fusion: concat pooled representations, project ---
         x = self.fusion_proj(
             torch.cat([prog_pooled, boundary_pooled], dim=-1)
-        )  # (B_HW, latent_dim)
-        x = self.to_out(x)  # (B_HW, out_channels)
+        )  # (B_HW, out_channels)
 
         # --- Patch-level positional + scale encoding ---
         x = rearrange(x, "(b h w) l -> b (h w) l", h=lat_h, w=lat_w)

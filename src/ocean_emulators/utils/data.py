@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from ocean_emulators.config import TimeConfig
 
 from ocean_emulators.constants import (
-    OM4_DATASET_SPEC,
     BatchTimeSeriesOutput,
     BoundaryVarNames,
     DatasetSpec,
@@ -37,7 +36,6 @@ from ocean_emulators.constants import (
 )
 from ocean_emulators.derived_variables import add_derived_variables
 from ocean_emulators.utils.location import ResolvedLocation
-from ocean_emulators.utils.multiton import Multiton
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +80,7 @@ class DataSource:
     means: xr.Dataset
     stds: xr.Dataset
     masks: Masks
-    dataset_spec: DatasetSpec = OM4_DATASET_SPEC
+    dataset_spec: DatasetSpec
 
     @cached_property
     def is_compact(self) -> bool:
@@ -302,7 +300,7 @@ class DataSource:
         means: xr.Dataset,
         stds: xr.Dataset,
         *,
-        dataset_spec: DatasetSpec = OM4_DATASET_SPEC,
+        dataset_spec: DatasetSpec,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         static_data_vars: list[str] | None = None,
@@ -423,7 +421,7 @@ class DataContainer:
     inference_source: DataSource
     loader_version: LoaderVersion
     supports_fork: bool
-    dataset_spec: DatasetSpec = OM4_DATASET_SPEC
+    dataset_spec: DatasetSpec
     # TODO(559): static_data should belong to the DataSource, since we now
     #  deal with multiple resolutions.
     static_data: xr.Dataset | None = None
@@ -524,7 +522,7 @@ def extract_wet_mask(
     data: xr.Dataset,
     prognostic_var_names: PrognosticVarNames,
     *,
-    dataset_spec: DatasetSpec = OM4_DATASET_SPEC,
+    dataset_spec: DatasetSpec,
 ) -> Masks:
     """A mask for where the oceans are. Water is wet."""
     data_ = flatten_masks(data, dataset_spec=dataset_spec)
@@ -550,7 +548,7 @@ def extract_wet_mask(
 def _parse_lev_from_output_var(
     prognostic_var_names: PrognosticVarNames,
     *,
-    dataset_spec: DatasetSpec = OM4_DATASET_SPEC,
+    dataset_spec: DatasetSpec,
 ) -> list[int]:
     """Parse the `lev` dimension from the output var names. Default: 0 for surface."""
     depth_inds = []
@@ -574,9 +572,9 @@ def _parse_lev_from_output_var(
 
 def flatten_masks(
     data: xr.Dataset,
-    dataset_spec: DatasetSpec = OM4_DATASET_SPEC,
+    dataset_spec: DatasetSpec,
 ) -> xr.Dataset:
-    """Adds level-wise mask variables with dimensions (y, x)."""
+    """Adds level-wise mask variables from the stacked wet mask."""
     data_ = data.copy()
     mask_vars = list(dataset_spec.mask_vars)
     if mask_vars[0] not in data_.variables:
@@ -596,9 +594,9 @@ def flatten_masks(
 
 def unflatten_masks(
     data: xr.Dataset,
-    dataset_spec: DatasetSpec = OM4_DATASET_SPEC,
+    dataset_spec: DatasetSpec,
 ) -> xr.Dataset:
-    """Adds a stacked wet mask `xarray.DataArray` with dimensions (lev, y, x)."""
+    """Adds a stacked wet mask `xarray.DataArray` from level-wise mask variables."""
     data_ = data.copy()
     mask_vars = list(dataset_spec.mask_vars)
     if dataset_spec.mask_all_levels_var not in data_.variables:
@@ -771,7 +769,7 @@ def compute_anomalies(
 
 def with_level_index_vars(
     data: xr.Dataset,
-    dataset_spec: DatasetSpec = OM4_DATASET_SPEC,
+    dataset_spec: DatasetSpec,
 ) -> xr.Dataset:
     """
     Ensure variable names use a depth level index, not depth level value.
@@ -850,31 +848,6 @@ def validate_data(
 
 
 class Normalize:
-    @classmethod
-    def get_instance(cls) -> "Normalize":
-        instance = Multiton._current_scope.get(cls)
-        if instance is None:
-            raise ValueError(f"{cls} not initialized")
-        return instance
-
-    @classmethod
-    def init_instance(
-        cls,
-        src: DataSource,
-        prognostic_var_names: PrognosticVarNames,
-        boundary_var_names: BoundaryVarNames,
-    ) -> "Normalize":
-        if Multiton._current_scope.get(cls) is not None:
-            raise ValueError(f"{cls} already initialized")
-
-        instance = cls(
-            src,
-            prognostic_var_names=prognostic_var_names,
-            boundary_var_names=boundary_var_names,
-        )
-        Multiton._current_scope[cls] = instance
-        return instance
-
     def __init__(
         self,
         src: DataSource,

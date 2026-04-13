@@ -6,7 +6,7 @@ import torch
 import xarray as xr
 from scipy.stats import pearsonr
 
-from ocean_emulators.constants import DEPTH_LEVELS, TensorMap
+from ocean_emulators.constants import OM4_DATASET_SPEC, TensorMap
 from ocean_emulators.utils.data import (
     DataSource,
     Masks,
@@ -18,14 +18,13 @@ from ocean_emulators.utils.data import (
     unflatten_masks,
     with_level_index_vars,
 )
-from ocean_emulators.utils.multiton import MultitonScope
 
 
 def test_mask_roundtrip(data_source):
     data = data_source.data
 
-    unflattened = unflatten_masks(data.copy())
-    flattened = flatten_masks(unflattened.copy())
+    unflattened = unflatten_masks(data.copy(), dataset_spec=OM4_DATASET_SPEC)
+    flattened = flatten_masks(unflattened.copy(), dataset_spec=OM4_DATASET_SPEC)
 
     assert flattened == data, "Assume a safe roundtrip"
 
@@ -49,12 +48,12 @@ def test_rename_vars():
     )
 
     # Apply rename_vars
-    renamed_ds = with_level_index_vars(ds)
+    renamed_ds = with_level_index_vars(ds, dataset_spec=OM4_DATASET_SPEC)
 
     # Test that variables are renamed correctly
-    assert "so_11" in renamed_ds.variables  # 1040.0 is at index 11 in DEPTH_LEVELS
-    assert "thetao_0" in renamed_ds.variables  # 2.5 is at index 0 in DEPTH_LEVELS
-    assert "vo_1" in renamed_ds.variables  # 10.0 is at index 1 in DEPTH_LEVELS
+    assert "so_11" in renamed_ds.variables  # 1040.0 is OM4 depth index 11
+    assert "thetao_0" in renamed_ds.variables  # 2.5 is OM4 depth index 0
+    assert "vo_1" in renamed_ds.variables  # 10.0 is OM4 depth index 1
     assert "zos" in renamed_ds.variables  # Should remain unchanged
 
     # Test that data values are preserved
@@ -84,9 +83,9 @@ def test_rename_vars_invalid_depth():
         },
     )
 
-    # Should raise ValueError because 9999.0 is not in DEPTH_LEVELS
+    # Should raise ValueError because 9999.0 is not an OM4 depth level
     with pytest.raises(ValueError):
-        with_level_index_vars(ds)
+        with_level_index_vars(ds, dataset_spec=OM4_DATASET_SPEC)
 
 
 def test_compute_anomalies():
@@ -155,16 +154,21 @@ def normalize_input():
 
     # Warning: the 'data' field is not used because this test tries to test
     # normalization which only needs mean and std. Thus, we set it to `data_mean`.
-    test = DataSource("test", data_mean, data_mean, data_std, masks=masks)
+    test = DataSource(
+        "test",
+        data_mean,
+        data_mean,
+        data_std,
+        masks=masks,
+        dataset_spec=OM4_DATASET_SPEC,
+    )
 
-    # Initialize Normalize instance
-    with MultitonScope():
-        normalize = Normalize.init_instance(
-            test,
-            prognostic_var_names=["var_0", "var_1"],
-            boundary_var_names=["var_2"],
-        )
-        yield normalize, wet_mask
+    normalize = Normalize(
+        test,
+        prognostic_var_names=["var_0", "var_1"],
+        boundary_var_names=["var_2"],
+    )
+    yield normalize, wet_mask
 
 
 def test_normalize_unnormalize_tensor_prognostic(normalize_input):
@@ -188,78 +192,77 @@ def test_unnormalize_prognostic_tensor(normalize_input, fill_value):
 
 @pytest.fixture
 def data_init(hist: int):
-    with MultitonScope():
-        levels = 19
-        lats = 3
-        lons = 3
-        total_time_steps = 100
+    levels = 19
+    lats = 3
+    lons = 3
+    total_time_steps = 100
 
-        tensor_map = TensorMap.init_instance("thetao_1", "hfds")
+    tensor_map = TensorMap("thetao_1", "hfds", dataset_spec=OM4_DATASET_SPEC)
 
-        wet_mask_ = np.array([[1, 0, 1], [0, 1, 0], [1, 0, 1]])
-        wet_full = np.tile(wet_mask_, (total_time_steps, levels, 1, 1))
+    wet_mask_ = np.array([[1, 0, 1], [0, 1, 0], [1, 0, 1]])
+    wet_full = np.tile(wet_mask_, (total_time_steps, levels, 1, 1))
 
-        # Even thetao, odd hfds for every time step
-        # Ex, timestep 0: thetao = 0, hfds = 1
-        # Ex, timestep 1: thetao = 2, hfds = 3
-        # Ex, timestep 2: thetao = 4, hfds = 5
-        # ...
-        data = xr.Dataset(
-            {
-                **{
-                    f"thetao_{lev}": (
-                        ["time", "lat", "lon"],
-                        np.tile(
-                            np.arange(total_time_steps)[:, None, None] * 2,
-                            (1, lats, lons),
-                        ),
-                    )
-                    for lev in range(levels)
-                },
-                "hfds": (
+    # Even thetao, odd hfds for every time step
+    # Ex, timestep 0: thetao = 0, hfds = 1
+    # Ex, timestep 1: thetao = 2, hfds = 3
+    # Ex, timestep 2: thetao = 4, hfds = 5
+    # ...
+    data = xr.Dataset(
+        {
+            **{
+                f"thetao_{lev}": (
                     ["time", "lat", "lon"],
                     np.tile(
-                        np.arange(total_time_steps)[:, None, None] * 2 + 1,
+                        np.arange(total_time_steps)[:, None, None] * 2,
                         (1, lats, lons),
                     ),
-                ),
-                "wetmask": (
-                    ["time", "lev", "lat", "lon"],
-                    wet_full,
-                ),
+                )
+                for lev in range(levels)
             },
-            coords={
-                "time": np.arange(total_time_steps),
-                "lev": DEPTH_LEVELS,
-                "lat": np.arange(lats),
-                "lon": np.arange(lons),
-            },
-        )
-        data_mean = data.mean() * 0.0
-        data_std = data.std() * 0.0 + 1.0
-        val = DataSource.from_datasets(
-            data,
-            data_mean,
-            data_std,
-            name="test",
-            prognostic_var_names=tensor_map.prognostic_var_names,
-            boundary_var_names=tensor_map.boundary_var_names,
-        )
+            "hfds": (
+                ["time", "lat", "lon"],
+                np.tile(
+                    np.arange(total_time_steps)[:, None, None] * 2 + 1,
+                    (1, lats, lons),
+                ),
+            ),
+            "wetmask": (
+                ["time", "lev", "lat", "lon"],
+                wet_full,
+            ),
+        },
+        coords={
+            "time": np.arange(total_time_steps),
+            "lev": list(OM4_DATASET_SPEC.depth_levels),
+            "lat": np.arange(lats),
+            "lon": np.arange(lons),
+        },
+    )
+    data_mean = data.mean() * 0.0
+    data_std = data.std() * 0.0 + 1.0
+    val = DataSource.from_datasets(
+        data,
+        data_mean,
+        data_std,
+        dataset_spec=OM4_DATASET_SPEC,
+        name="test",
+        prognostic_var_names=tensor_map.prognostic_var_names,
+        boundary_var_names=tensor_map.boundary_var_names,
+    )
 
-        normalize = Normalize.init_instance(
-            val,
-            prognostic_var_names=tensor_map.prognostic_var_names,
-            boundary_var_names=tensor_map.boundary_var_names,
-        )
-        yield normalize, val.masks.prognostic
+    normalize = Normalize(
+        val,
+        prognostic_var_names=tensor_map.prognostic_var_names,
+        boundary_var_names=tensor_map.boundary_var_names,
+    )
+    yield normalize, val.masks.prognostic, tensor_map
 
 
 @pytest.mark.parametrize("input_type", ["input", "target"])
 @pytest.mark.parametrize("long_rollout", [True, False])
 @pytest.mark.parametrize("hist", [0, 1, 2])
 def test_get_norm_unnorm_dicts(data_init, input_type, long_rollout, hist):
-    normalize, wet = data_init
-    tensor_map: TensorMap = TensorMap.get_instance()
+    normalize, wet, tensor_map = data_init
 
     num_prognostic_channels = normalize._prognostic_std_np.shape[0]
     num_boundary_channels = normalize._boundary_std_np.shape[0]

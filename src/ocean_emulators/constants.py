@@ -10,8 +10,6 @@ import xarray as xr
 from jaxtyping import Bool, Float
 from torch import Tensor
 
-from ocean_emulators.utils.multiton import Multiton
-
 # Common Type Aliases
 # See "Existing jaxtyping annotations" section of
 #  https://docs.kidger.site/jaxtyping/api/array/#array
@@ -374,20 +372,9 @@ def get_dataset_spec(dataset_type: DatasetType) -> DatasetSpec:
     raise ValueError(f"Unsupported dataset type: {dataset_type}")
 
 
-DEPTH_LEVELS = list(OM4_DATASET_SPEC.depth_levels)
-DEPTH_THICKNESS = list(OM4_DATASET_SPEC.depth_thickness)
-DEPTH_I_LEVELS = list(OM4_DATASET_SPEC.depth_i_levels)
-MASK_VARS = list(OM4_DATASET_SPEC.mask_vars)
-MASK_ALL_LEVELS_VAR = OM4_DATASET_SPEC.mask_all_levels_var
-SECONDS_PER_TIME_STEP = OM4_DATASET_SPEC.seconds_per_time_step
-PROGNOSTIC_VARS = OM4_DATASET_SPEC.prognostic_vars
-BOUNDARY_VARS = OM4_DATASET_SPEC.boundary_vars
-DEFAULT_METADATA = OM4_DATASET_SPEC.default_metadata
-
-
 def construct_metadata(
     data: xr.Dataset,
-    dataset_spec: DatasetSpec = OM4_DATASET_SPEC,
+    dataset_spec: DatasetSpec,
 ) -> dict[str, dict[str, str]]:
     metadata = {}
     for var in data.variables:
@@ -418,36 +405,11 @@ class LoaderVersion(enum.Enum):
 
 
 class TensorMap:
-    @classmethod
-    def get_instance(cls) -> "TensorMap":
-        instance = Multiton._current_scope.get(cls)
-        if instance is None:
-            raise ValueError(f"{cls} not initialized")
-        return instance
-
-    @classmethod
-    def init_instance(
-        cls,
-        prognostic_vars_key: str,
-        boundary_vars_key: str,
-        dataset_spec: DatasetSpec = OM4_DATASET_SPEC,
-    ) -> "TensorMap":
-        if Multiton._current_scope.get(cls) is not None:
-            raise ValueError(f"{cls} already initialized")
-
-        instance = cls(
-            prognostic_vars_key,
-            boundary_vars_key,
-            dataset_spec=dataset_spec,
-        )
-        Multiton._current_scope[cls] = instance
-        return instance
-
     def __init__(
         self,
         prognostic_vars_key: str,
         boundary_vars_key: str,
-        dataset_spec: DatasetSpec = OM4_DATASET_SPEC,
+        dataset_spec: DatasetSpec,
     ):
         """
         Maps input variables / depth levels to their indices in the input tensor.

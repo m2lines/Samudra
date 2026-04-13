@@ -19,12 +19,7 @@ from numpy.typing import NDArray
 from torch.utils.data import ConcatDataset, DataLoader
 
 from ocean_emulators.config import TimeConfig, TrainConfig, TrainSchedule
-from ocean_emulators.constants import (
-    BOUNDARY_VARS,
-    PROGNOSTIC_VARS,
-    LoaderVersion,
-    TensorMap,
-)
+from ocean_emulators.constants import OM4_DATASET_SPEC, LoaderVersion
 from ocean_emulators.datasets import (
     InferenceDataset,
     TorchTrainDataset,
@@ -81,8 +76,8 @@ def make_loader(
     if time_config is None:
         time_config = cfg.train_time
 
-    prognostic = PROGNOSTIC_VARS[cfg.experiment.prognostic_vars_key]
-    boundary = BOUNDARY_VARS[cfg.experiment.boundary_vars_key]
+    prognostic = OM4_DATASET_SPEC.prognostic_vars[cfg.experiment.prognostic_vars_key]
+    boundary = OM4_DATASET_SPEC.boundary_vars[cfg.experiment.boundary_vars_key]
 
     data_config = (
         cfg.data
@@ -101,10 +96,6 @@ def make_loader(
         pytest.skip(f"{version} does not support compact data.")
 
     with MultitonScope():
-        TensorMap.init_instance(
-            cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
-        )
-
         match schedule:
             case "standard":
                 srcs: Iterable[tuple[DataSource, DataSource | None]] = [(src, None)]
@@ -318,11 +309,12 @@ def test_loader__data_shape(
         num_input_timesteps = history + 1
 
         input_var_dim = (
-            len(PROGNOSTIC_VARS[exp.prognostic_vars_key])
-            + len(BOUNDARY_VARS[exp.boundary_vars_key])
+            len(OM4_DATASET_SPEC.prognostic_vars[exp.prognostic_vars_key])
+            + len(OM4_DATASET_SPEC.boundary_vars[exp.boundary_vars_key])
         ) * num_input_timesteps
         output_var_dim = (
-            len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * num_input_timesteps
+            len(OM4_DATASET_SPEC.prognostic_vars[exp.prognostic_vars_key])
+            * num_input_timesteps
         )
 
         n_samples = calc_num_samples(
@@ -371,11 +363,12 @@ def test_loader__data_shape__across_schedules(
         num_input_timesteps = history + 1
 
         input_var_dim = (
-            len(PROGNOSTIC_VARS[exp.prognostic_vars_key])
-            + len(BOUNDARY_VARS[exp.boundary_vars_key])
+            len(OM4_DATASET_SPEC.prognostic_vars[exp.prognostic_vars_key])
+            + len(OM4_DATASET_SPEC.boundary_vars[exp.boundary_vars_key])
         ) * num_input_timesteps
         output_var_dim = (
-            len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * num_input_timesteps
+            len(OM4_DATASET_SPEC.prognostic_vars[exp.prognostic_vars_key])
+            * num_input_timesteps
         )
 
         n_samples = calc_num_samples(
@@ -445,10 +438,12 @@ def test_inference__data_shape(inference_loader_pair):
     hist = cfg.data.hist + 1
 
     input_var_dim = (
-        len(PROGNOSTIC_VARS[exp.prognostic_vars_key])
-        + len(BOUNDARY_VARS[exp.boundary_vars_key])
+        len(OM4_DATASET_SPEC.prognostic_vars[exp.prognostic_vars_key])
+        + len(OM4_DATASET_SPEC.boundary_vars[exp.boundary_vars_key])
     ) * hist
-    output_var_dim = len(PROGNOSTIC_VARS[exp.prognostic_vars_key]) * hist
+    output_var_dim = (
+        len(OM4_DATASET_SPEC.prognostic_vars[exp.prognostic_vars_key]) * hist
+    )
 
     samples = list(loader)
     assert len(samples) == 1, (
@@ -616,11 +611,17 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
         prognostic=wet,
         boundary=wet_surface,
     )
-    test = DataSource("test", data, data_mean, data_std, masks=masks)
+    test = DataSource(
+        "test",
+        data,
+        data_mean,
+        data_std,
+        masks=masks,
+        dataset_spec=OM4_DATASET_SPEC,
+    )
 
-    # Initialize and yield within the MultitonScope
     with MultitonScope():
-        _ = Normalize.init_instance(
+        _ = Normalize(
             test,
             prognostic_var_names=["prognostic1", "prognostic2"],
             boundary_var_names=["boundary1", "boundary2"],

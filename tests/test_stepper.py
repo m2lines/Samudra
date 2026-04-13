@@ -3,7 +3,7 @@ import pytest
 import torch
 import xarray as xr
 
-from ocean_emulators.constants import DEPTH_LEVELS, TensorMap
+from ocean_emulators.constants import OM4_DATASET_SPEC, TensorMap
 from ocean_emulators.datasets import InferenceDataset, TrainData
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.stepper import Stepper
@@ -20,7 +20,7 @@ def inf_data_init(hist: int):
         lons = 1
         total_time_steps = 100
 
-        tensor_map = TensorMap.init_instance("thetao_1", "hfds")
+        tensor_map = TensorMap("thetao_1", "hfds", dataset_spec=OM4_DATASET_SPEC)
 
         # Even thetao, odd hfds for every time step
         # Ex, timestep 0: thetao = 0, hfds = 1
@@ -53,7 +53,7 @@ def inf_data_init(hist: int):
             },
             coords={
                 "time": np.arange(total_time_steps),
-                "lev": DEPTH_LEVELS,
+                "lev": list(OM4_DATASET_SPEC.depth_levels),
                 "lat": np.arange(lats),
                 "lon": np.arange(lons),
             },
@@ -64,12 +64,13 @@ def inf_data_init(hist: int):
             data,
             data_mean,
             data_std,
+            dataset_spec=OM4_DATASET_SPEC,
             name="test-data",
             prognostic_var_names=tensor_map.prognostic_var_names,
             boundary_var_names=tensor_map.boundary_var_names,
         )
 
-        _ = Normalize.init_instance(
+        _ = Normalize(
             val,
             prognostic_var_names=tensor_map.prognostic_var_names,
             boundary_var_names=tensor_map.boundary_var_names,

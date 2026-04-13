@@ -14,14 +14,13 @@ def val_batch_of(
     h: int,
     w: int,
     *,
+    tensor_map: TensorMap,
     hist: int = 0,
     batch_size: int = 1,
 ) -> ValBatchOutput:
     """Create a dummy Validation Batch loss / data from a DataSource."""
-    # If we can consume a DataSource, then TensorMap has to be initialized.
-    tm = TensorMap.get_instance()
-    n_prog_base = len(tm.prognostic_var_names)
-    n_boundary_base = len(tm.boundary_var_names)
+    n_prog_base = len(tensor_map.prognostic_var_names)
+    n_boundary_base = len(tensor_map.boundary_var_names)
     n_prog = (hist + 1) * n_prog_base
     n_boundary = (hist + 1) * n_boundary_base
 
@@ -49,6 +48,18 @@ def val_batch_of(
     return batch
 
 
+def tensor_map_for(src: DataSource) -> TensorMap:
+    return TensorMap("thetao_1", "hfds", dataset_spec=src.dataset_spec)
+
+
+def normalize_for(src: DataSource, tensor_map: TensorMap) -> Normalize:
+    return Normalize(
+        src,
+        tensor_map.prognostic_var_names,
+        tensor_map.boundary_var_names,
+    )
+
+
 class FakeSubAggregator(ValidateSubAggregator):
     def __init__(self):
         self.num_recordings = 0
@@ -71,10 +82,10 @@ class FakeSubAggregator(ValidateSubAggregator):
 
 
 def test_val_aggregator__no_op__is_same_as_train_aggregator(dummy_src: DataSource):
-    val_batch = val_batch_of(*dummy_src.grid_size)
+    tensor_map = tensor_map_for(dummy_src)
+    normalize = normalize_for(dummy_src, tensor_map)
+    val_batch = val_batch_of(*dummy_src.grid_size, tensor_map=tensor_map)
     num_prog_channels = val_batch.loss_per_channel.shape[0]
-    tensor_map = TensorMap.get_instance()
-    normalize = Normalize.get_instance()
     val_agg = ValidateAggregator(
         {},
         hist=0,
@@ -98,10 +109,10 @@ def test_val_aggregator__no_op__is_same_as_train_aggregator(dummy_src: DataSourc
 def test_train_val_aggregator__with_fake_subagg__is_added_to_logs(
     dummy_src: DataSource,
 ):
-    val_batch = val_batch_of(*dummy_src.grid_size)
+    tensor_map = tensor_map_for(dummy_src)
+    normalize = normalize_for(dummy_src, tensor_map)
+    val_batch = val_batch_of(*dummy_src.grid_size, tensor_map=tensor_map)
     num_prog_channels = val_batch.loss_per_channel.shape[0]
-    tensor_map = TensorMap.get_instance()
-    normalize = Normalize.get_instance()
     val_agg = ValidateAggregator(
         {"fake": FakeSubAggregator()},
         hist=0,
@@ -133,10 +144,12 @@ def test_train_val_aggregator__with_fake_subagg__is_added_to_logs(
 def test_val_aggregator__hist_gt_0__does_not_require_wetmask_target_shape_match(
     dummy_src: DataSource,
 ):
-    val_batch = val_batch_of(*dummy_src.grid_size, hist=1, batch_size=2)
+    tensor_map = tensor_map_for(dummy_src)
+    normalize = normalize_for(dummy_src, tensor_map)
+    val_batch = val_batch_of(
+        *dummy_src.grid_size, tensor_map=tensor_map, hist=1, batch_size=2
+    )
     num_prog_channels = val_batch.loss_per_channel.shape[0]
-    tensor_map = TensorMap.get_instance()
-    normalize = Normalize.get_instance()
     val_agg = ValidateAggregator(
         {"fake": FakeSubAggregator()},
         hist=1,
@@ -152,15 +165,17 @@ def test_val_aggregator__hist_gt_0__does_not_require_wetmask_target_shape_match(
 def test_validation_aggregator__reduced_only__omits_image_logs(
     dummy_src: DataSource,
 ):
-    val_batch = val_batch_of(*dummy_src.grid_size)
+    tensor_map = tensor_map_for(dummy_src)
+    normalize = normalize_for(dummy_src, tensor_map)
+    val_batch = val_batch_of(*dummy_src.grid_size, tensor_map=tensor_map)
     num_prog_channels = val_batch.loss_per_channel.shape[0]
     val_agg = Aggregator.get_validation_aggregator(
         dummy_src.metadata,
         hist=0,
         area_weights=dummy_src.spherical_area_weights,
         num_prognostic_channels=num_prog_channels,
-        tensor_map=TensorMap.get_instance(),
-        normalize=Normalize.get_instance(),
+        tensor_map=tensor_map,
+        normalize=normalize,
         include_image_aggregators=False,
     )
 

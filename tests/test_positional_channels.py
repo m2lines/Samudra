@@ -21,8 +21,12 @@ def test_positional_parameters_update(dummy_src: DataSource):
         ),
         pos_channels=1,
     )
-    tensor_map = c.TensorMap.get_instance()
-    normalize = Normalize.get_instance()
+    tensor_map = c.TensorMap("thetao_1", "hfds", dataset_spec=src.dataset_spec)
+    normalize = Normalize(
+        src,
+        tensor_map.prognostic_var_names,
+        tensor_map.boundary_var_names,
+    )
     model = config.build(
         in_channels=2,
         out_channels=1,

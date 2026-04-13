@@ -18,15 +18,8 @@ from ocean_emulators.config import (
     TrainConfig,
     TrainSchedule,
 )
-from ocean_emulators.constants import BOUNDARY_VARS
 from ocean_emulators.train import Trainer
-from ocean_emulators.utils.data import (
-    DataSource,
-    Masks,
-    Normalize,
-    _is_compact,
-    compact_dataset,
-)
+from ocean_emulators.utils.data import DataSource, Masks, _is_compact, compact_dataset
 from ocean_emulators.utils.multiton import MultitonScope
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
@@ -191,7 +184,9 @@ class DataSourceDims:
         coords = {
             "lon": xr.DataArray(self.lng, dims=["lon"]),
             "lat": xr.DataArray(self.lat, dims=["lat"]),
-            "lev": xr.DataArray(np.array(c.DEPTH_LEVELS), dims=["lev"]),
+            "lev": xr.DataArray(
+                np.array(c.OM4_DATASET_SPEC.depth_levels), dims=["lev"]
+            ),
             "time": xr.DataArray(time, dims=["time"]),
         }
         return coords
@@ -332,14 +327,14 @@ def _uncached_data_source(name: str) -> DataSource:
             vars_3d = {
                 f"{var}_{lev}": dims.encode(len(vars_2d) + i + j * 10)
                 for i, var in enumerate(["so", "thetao", "uo", "vo"])
-                for j, lev in enumerate(c.DEPTH_I_LEVELS)
+                for j, lev in enumerate(c.OM4_DATASET_SPEC.depth_i_levels)
             }
             # Mask with a binary circle.
             masks = {
                 f"mask_{lev}": xr.DataArray(
                     np.where(normal > 0.5**lev, 1, 0), dims=["lat", "lon"]
                 )
-                for lev in range(len(c.DEPTH_I_LEVELS))
+                for lev in range(len(c.OM4_DATASET_SPEC.depth_i_levels))
             }
             ds = xr.Dataset(vars_2d | vars_3d | masks, coords=coords)
 
@@ -347,6 +342,7 @@ def _uncached_data_source(name: str) -> DataSource:
                 ds,
                 ds.mean(),
                 ds.std(),
+                dataset_spec=c.OM4_DATASET_SPEC,
                 name=name,
                 prognostic_var_names=list(vars_3d.keys()),
                 boundary_var_names=list(vars_2d.keys()),
@@ -387,7 +383,7 @@ def _uncached_data_source(name: str) -> DataSource:
             vars_3d = {
                 f"{var}_lev_{_fmtl(lev)}": dims.encode(len(vars_2d) + i + j * 10)
                 for i, var in enumerate(var_names_3d)
-                for j, lev in enumerate(c.DEPTH_LEVELS)
+                for j, lev in enumerate(c.OM4_DATASET_SPEC.depth_levels)
             }
 
             # zos is an edge case 3d var.
@@ -413,6 +409,7 @@ def _uncached_data_source(name: str) -> DataSource:
                 data=data,
                 means=means,
                 stds=stds,
+                dataset_spec=c.OM4_DATASET_SPEC,
                 name=name,
                 prognostic_var_names=prognostic_var_names,
                 boundary_var_names=boundary_var_names,
@@ -433,7 +430,9 @@ def _maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource |
         stds = xr.open_dataset(cache / "stds.nc")
 
         boundary_vars = [
-            str(v) for v in data.data_vars if v in BOUNDARY_VARS["tau_hfds_hfds_anom"]
+            str(v)
+            for v in data.data_vars
+            if v in c.OM4_DATASET_SPEC.boundary_vars["tau_hfds_hfds_anom"]
         ]
 
         if _is_compact(data, means, stds):
@@ -459,6 +458,7 @@ def _maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource |
             data=data,
             means=means,
             stds=stds,
+            dataset_spec=c.OM4_DATASET_SPEC,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_vars,
         )
@@ -570,28 +570,21 @@ def trainer_pair(
 @pytest.fixture
 def dummy_src():
     h, w = 4, 8
-    with MultitonScope():
-        # Create some tiny data
-        c.TensorMap.init_instance("thetao_1", "hfds")
-        coords = {"lev": [0], "lat": np.arange(h), "lon": np.arange(w)}
-        data = xr.Dataset(
-            {
-                "thetao": (("lev", "lat", "lon"), np.zeros((1, h, w))),
-                "hfds": (("lat", "lon"), np.zeros((h, w))),
-            },
-            coords=coords,
-        )
-        masks = Masks(torch.ones(1, h, w), torch.ones(h, w))
-        src = DataSource(
-            name="dummy",
-            data=data,
-            means=data.mean(dim=["lat", "lon"]),
-            stds=data.std(dim=["lat", "lon"]),
-            masks=masks,
-        )
-        Normalize.init_instance(
-            src,
-            c.TensorMap.get_instance().prognostic_var_names,
-            c.TensorMap.get_instance().boundary_var_names,
-        )
-        yield src
+    coords = {"lev": [0], "lat": np.arange(h), "lon": np.arange(w)}
+    data = xr.Dataset(
+        {
+            "thetao": (("lev", "lat", "lon"), np.zeros((1, h, w))),
+            "hfds": (("lat", "lon"), np.zeros((h, w))),
+        },
+        coords=coords,
+    )
+    masks = Masks(torch.ones(1, h, w), torch.ones(h, w))
+    src = DataSource(
+        name="dummy",
+        data=data,
+        means=data.mean(dim=["lat", "lon"]),
+        stds=data.std(dim=["lat", "lon"]),
+        masks=masks,
+        dataset_spec=c.OM4_DATASET_SPEC,
+    )
+    yield src

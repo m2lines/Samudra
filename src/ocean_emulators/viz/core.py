@@ -27,7 +27,7 @@ from matplotlib import colors
 from matplotlib.ticker import FixedLocator, MaxNLocator, ScalarFormatter
 from tqdm.auto import tqdm
 
-from ocean_emulators.constants import DEPTH_LEVELS, DEPTH_THICKNESS
+from ocean_emulators.constants import OM4_DATASET_SPEC
 from ocean_emulators.utils.data import (
     spherical_area,
     spherical_area_weights,
@@ -119,7 +119,7 @@ class Viz:
             }
 
         key1 = runs[0].name
-        levels = len(DEPTH_LEVELS)
+        levels = len(OM4_DATASET_SPEC.depth_levels)
 
         groundtruth_rollout = groundtruth_rollout.sel(time=time_range)
 
@@ -3751,12 +3751,12 @@ def _combine_variables_by_level(ds, combine_vars):
     xarray.Dataset: The dataset with combined variables and a new 'lev' dimension.
     """
     for v in combine_vars:
-        level_numbers = [i for i in range(len(DEPTH_LEVELS))]
+        level_numbers = [i for i in range(len(OM4_DATASET_SPEC.depth_levels))]
         sorted_vars = [v + "_" + str(lev) for lev in level_numbers]
         if sorted_vars[0] not in ds.data_vars:
             continue
         combined = xr.concat([ds[var] for var in sorted_vars], dim="lev")
-        combined = combined.assign_coords(lev=DEPTH_LEVELS)
+        combined = combined.assign_coords(lev=list(OM4_DATASET_SPEC.depth_levels))
         ds[v] = combined
         ds = ds.drop_vars(sorted_vars)
     return ds
@@ -3886,7 +3886,7 @@ def process_data(data, pred_dict):
     """
     Get plot ready OM4 data.
     """
-    ds_groundtruth = with_level_index_vars(data)
+    ds_groundtruth = with_level_index_vars(data, dataset_spec=OM4_DATASET_SPEC)
 
     # Store ds_prediction
     copy_dict = deepcopy(pred_dict)
@@ -3914,7 +3914,7 @@ def process_data(data, pred_dict):
     ds_groundtruth, pred_dict = postprocess_for_plot(
         ds_groundtruth,
         ds_groundtruth.areacello,
-        np.array(DEPTH_THICKNESS),
+        np.array(OM4_DATASET_SPEC.depth_thickness),
         pred_dict,
     )
 

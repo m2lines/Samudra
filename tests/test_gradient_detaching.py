@@ -4,7 +4,7 @@ import torch
 import xarray as xr
 
 from ocean_emulators.config import SamudraConfig, UNetBackboneConfig
-from ocean_emulators.constants import TensorMap
+from ocean_emulators.constants import OM4_DATASET_SPEC, TensorMap
 from ocean_emulators.datasets import TrainData
 from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.data import DataSource, Masks, Normalize
@@ -46,12 +46,17 @@ def create_samudra_model():
             )
             masks = Masks(torch.ones(h, w), torch.ones(h, w))
             src = DataSource(
-                name="dummy", data=data, means=data, stds=ones, masks=masks
+                name="dummy",
+                data=data,
+                means=data,
+                stds=ones,
+                masks=masks,
+                dataset_spec=OM4_DATASET_SPEC,
             )
 
             # Initialize TensorMap and Normalize
-            tensor_map = TensorMap.init_instance("thetao_1", "hfds")
-            normalize = Normalize.init_instance(
+            tensor_map = TensorMap("thetao_1", "hfds", dataset_spec=OM4_DATASET_SPEC)
+            normalize = Normalize(
                 src,
                 tensor_map.prognostic_var_names,
                 tensor_map.boundary_var_names,

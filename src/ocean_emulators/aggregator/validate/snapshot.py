@@ -2,6 +2,7 @@ import torch
 
 from ocean_emulators.aggregator.plotting import plot_paneled_data
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
+from ocean_emulators.utils.distributed import is_main_process
 from ocean_emulators.utils.wandb import Metrics
 
 
@@ -67,6 +68,9 @@ class SnapshotAggregator(ValidateSubAggregator):
         Args:
             label: Label to prepend to all log keys.
         """
+        if not is_main_process():
+            return {}
+
         time_dim = 1
         target_time = 0  # first output time step
         input_time = self.hist  # last input time step

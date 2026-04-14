@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from ocean_emulators.config import DynamicLossConfig
+from ocean_emulators.config import CpuDataLoadingConfig, DynamicLossConfig
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.train import Trainer, should_log_validation_images
 from ocean_emulators.utils.ctx import GridContext
@@ -179,3 +179,39 @@ def test_should_log_validation_images_rejects_invalid_inputs():
 
     with pytest.raises(ValueError, match="Validation image log frequency must be >= 1"):
         should_log_validation_images(1, 0)
+
+
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "test/train_default.yaml")],
+    indirect=True,
+)
+def test_data_loaders_enable_persistent_workers_on_positive_num_workers(
+    trainer_pair: TrainPair,
+):
+    _, trainer = trainer_pair
+
+    assert trainer.train_loader._dataloader.persistent_workers is True
+    assert trainer.val_loader._dataloader.persistent_workers is True
+
+
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "test/train_default.yaml")],
+    indirect=True,
+)
+def test_data_loaders_disable_persistent_workers_when_num_workers_is_zero(
+    train_config,
+):
+    assert isinstance(train_config.data.loading, CpuDataLoadingConfig)
+    train_config.data.loading.num_workers = 0
+    train_config.data.loading.persistent_workers = True
+
+    with MultitonScope():
+        trainer = Trainer(train_config)
+        trainer.init_data_loaders(cur_step=train_config.steps[0])
+
+    assert trainer.train_loader._dataloader.persistent_workers is False
+    assert trainer.val_loader._dataloader.persistent_workers is False

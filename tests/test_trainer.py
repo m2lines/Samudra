@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from ocean_emulators.config import DynamicLossConfig
+from ocean_emulators.config import CpuDataLoadingConfig, DynamicLossConfig
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.train import Trainer, should_log_validation_images
 from ocean_emulators.utils.ctx import GridContext
@@ -205,8 +205,9 @@ def test_data_loaders_enable_persistent_workers_on_positive_num_workers(
 def test_data_loaders_disable_persistent_workers_when_num_workers_is_zero(
     train_config,
 ):
-    train_config.data.num_workers = 0
-    train_config.data.persistent_workers = True
+    assert isinstance(train_config.data.loading, CpuDataLoadingConfig)
+    train_config.data.loading.num_workers = 0
+    train_config.data.loading.persistent_workers = True
 
     with MultitonScope():
         trainer = Trainer(train_config)

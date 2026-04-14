@@ -146,6 +146,46 @@ class DataSourceConfig(BaseConfig):
     )
 
 
+class BaseDataLoadingConfig(BaseConfig):
+    def num_pytorch_workers(self) -> int:
+        raise NotImplementedError
+
+    def persistent_pytorch_workers(self) -> bool:
+        raise NotImplementedError
+
+
+class CpuDataLoadingConfig(BaseDataLoadingConfig):
+    type: Literal["cpu"] = "cpu"
+    num_workers: int = Field(default=4, ge=0)
+    persistent_workers: bool = True
+
+    def num_pytorch_workers(self) -> int:
+        return self.num_workers
+
+    def persistent_pytorch_workers(self) -> bool:
+        return self.persistent_workers
+
+
+class GpuDataLoadingConfig(BaseDataLoadingConfig):
+    type: Literal["gpu"] = "gpu"
+    kvikio_task_size: int = Field(default=64 * 1024 * 1024, gt=0)
+    kvikio_num_threads: int = Field(default=8, gt=0)
+
+    def num_pytorch_workers(self) -> int:
+        # When loading data direct to GPU, we don't want worker processes.
+        # 0 means "load in the main process"
+        return 0
+
+    def persistent_pytorch_workers(self) -> bool:
+        return False
+
+
+DataLoadingConfig = Annotated[
+    CpuDataLoadingConfig | GpuDataLoadingConfig,
+    Field(discriminator="type"),
+]
+
+
 class DataConfig(BaseConfig):
     sources: list[DataSourceConfig] = Field(
         description=(
@@ -155,8 +195,7 @@ class DataConfig(BaseConfig):
         min_length=1,
     )
     static_data_vars: list[str] | None = None
-    num_workers: int = 4
-    persistent_workers: bool = True
+    loading: DataLoadingConfig = Field(default_factory=CpuDataLoadingConfig)
     hist: int = 1
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
     normalize_before_mask: bool = True

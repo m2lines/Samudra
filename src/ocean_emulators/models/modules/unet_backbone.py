@@ -5,12 +5,9 @@ import torch
 from torch import nn
 
 from ocean_emulators.models.modules.blocks import (
-    BilinearUpsample,
     CoreBlock,
     CoreBlockBuilder,
-    TransposedConvUpsample,
     UpsamplingBlockBuilder,
-    ZonallyPeriodicBilinearUpsample,
 )
 from ocean_emulators.utils.train import pairwise
 
@@ -82,10 +79,15 @@ class UNetBackbone(nn.Module):
 
         # going down
         layers: list[nn.Module] = []
-        encoder_skip_indices: list[int] = []
+        layer_names: list[str] = []
+
+        def append_layer(layer: nn.Module, *, name: str) -> None:
+            layers.append(layer)
+            layer_names.append(name)
+
         for i, (a, b) in enumerate(pairwise(ch_width)):
             # Core block
-            layers.append(
+            append_layer(
                 create_block(
                     in_channels=a,
                     out_channels=b,
@@ -93,18 +95,28 @@ class UNetBackbone(nn.Module):
                     n_layers=n_layers[i],
                     pad=pad,
                     checkpoint_simple=checkpoint_simple,
-                )
+                ),
+                name=(
+                    f"encoder_block_{i}"
+                    if encoder_attention_blocks is not None
+                    else f"encoder_skip_{i}"
+                ),
             )
             if encoder_attention_blocks is not None:
                 attention_block = encoder_attention_blocks[i]
                 if attention_block is not None:
-                    layers.append(attention_block)
-            encoder_skip_indices.append(len(layers) - 1)
+                    append_layer(
+                        attention_block,
+                        name=f"encoder_skip_attention_{i}",
+                    )
             # Down sampling block
-            layers.append(downsampling_block)
+            append_layer(
+                downsampling_block,
+                name=f"downsample_{i}",
+            )
 
         if bottleneck_block is None:
-            layers.append(
+            append_layer(
                 create_block(
                     in_channels=b,
                     out_channels=b,
@@ -112,13 +124,20 @@ class UNetBackbone(nn.Module):
                     n_layers=n_layers[i],
                     pad=pad,
                     checkpoint_simple=checkpoint_simple,
-                )
+                ),
+                name="bottleneck_block",
             )
         else:
-            layers.append(bottleneck_block)
+            append_layer(
+                bottleneck_block,
+                name="bottleneck_attention",
+            )
 
         # First upsampling
-        layers.append(create_upsampling_block(in_channels=b, out_channels=b))
+        append_layer(
+            create_upsampling_block(in_channels=b, out_channels=b),
+            name="upsample_0",
+        )
 
         # Reverse for upsampling path
         ch_width.reverse()
@@ -127,7 +146,7 @@ class UNetBackbone(nn.Module):
 
         # going up
         for i, (a, b) in enumerate(pairwise(ch_width[:-1])):
-            layers.append(
+            append_layer(
                 create_block(
                     in_channels=a,
                     out_channels=b,
@@ -135,16 +154,24 @@ class UNetBackbone(nn.Module):
                     n_layers=n_layers[i],
                     pad=pad,
                     checkpoint_simple=checkpoint_simple,
-                )
+                ),
+                name=f"decoder_block_{i}",
             )
             if decoder_attention_blocks is not None:
                 attention_block = decoder_attention_blocks[i]
                 if attention_block is not None:
-                    layers.append(attention_block)
-            layers.append(create_upsampling_block(in_channels=b, out_channels=b))
+                    append_layer(
+                        attention_block,
+                        name=f"decoder_attention_{i}",
+                    )
+            append_layer(
+                create_upsampling_block(in_channels=b, out_channels=b),
+                name=f"upsample_{i + 1}",
+            )
 
         # Final conv block
-        layers.append(
+        final_stage = len(ch_width[:-1]) - 1
+        append_layer(
             create_block(
                 in_channels=b,
                 out_channels=b,  # this is the same as self.out_channels
@@ -152,26 +179,26 @@ class UNetBackbone(nn.Module):
                 n_layers=n_layers[i],
                 pad=pad,
                 checkpoint_simple=checkpoint_simple,
-            )
+            ),
+            name="final_block",
         )
         if decoder_attention_blocks is not None:
             attention_block = decoder_attention_blocks[-1]
             if attention_block is not None:
-                layers.append(attention_block)
+                append_layer(
+                    attention_block,
+                    name=f"decoder_attention_{final_stage}",
+                )
 
         first_block = layers[0]
         assert isinstance(first_block, CoreBlock)
         self.N_pad = first_block.N_pad
         self.layers = nn.ModuleList(layers)
-        self.encoder_skip_indices = set(encoder_skip_indices)
-        self.num_steps = int(len(ch_width) - 1)
+        self.layer_names = tuple(layer_names)
 
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
         skip_inputs: list[torch.Tensor] = []
-        for i in range(self.num_steps):
-            skip_inputs.append(torch.zeros_like(fts))
-        count = 0
-        for layer_index, layer in enumerate(self.layers):
+        for layer, layer_name in zip(self.layers, self.layer_names, strict=True):
             # Circular/Globe padding
             if isinstance(layer, nn.Conv2d):
                 fts = torch.nn.functional.pad(
@@ -188,29 +215,20 @@ class UNetBackbone(nn.Module):
                 fts = layer(fts)
 
             # UNet residuals logic (skip connections)
-            if count < self.num_steps:
-                if layer_index in self.encoder_skip_indices:
-                    skip_inputs[count] = fts
-                    count += 1
-            elif count >= self.num_steps:
-                if (
-                    isinstance(layer, BilinearUpsample)
-                    or isinstance(layer, TransposedConvUpsample)
-                    or isinstance(layer, ZonallyPeriodicBilinearUpsample)
-                ):
-                    crop = np.array(fts.shape[2:])
-                    shape = np.array(
-                        skip_inputs[int(2 * self.num_steps - count - 1)].shape[2:]
-                    )
-                    pads = shape - crop
-                    pads = [
-                        pads[1] // 2,
-                        pads[1] - pads[1] // 2,
-                        pads[0] // 2,
-                        pads[0] - pads[0] // 2,
-                    ]
-                    fts = nn.functional.pad(fts, pads)
-                    fts += skip_inputs[int(2 * self.num_steps - count - 1)]
-                    count += 1
+            if layer_name.startswith("encoder_skip_"):
+                skip_inputs.append(fts)
+            elif layer_name.startswith("upsample_"):
+                skip_input = skip_inputs.pop()
+                crop = np.array(fts.shape[2:])
+                shape = np.array(skip_input.shape[2:])
+                pads = shape - crop
+                pads = [
+                    pads[1] // 2,
+                    pads[1] - pads[1] // 2,
+                    pads[0] // 2,
+                    pads[0] - pads[0] // 2,
+                ]
+                fts = nn.functional.pad(fts, pads)
+                fts += skip_input
 
         return fts

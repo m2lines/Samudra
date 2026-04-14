@@ -145,6 +145,12 @@ class PerceiverEncoder(nn.Module):
             boundary_patches
         )  # (B_HW, latent_dim)
 
+        # TODO(alxmrs): Linear fusion may not be a strong enough way to encode the
+        #  boundary signal. If this doesn't prove effective, consider using a
+        #  PerceiverIO model to cross-attend the prognostic and boundary latents.
+        #  For this, we could simply add a PerceiverIO after the two above perceivers,
+        #  or replace the boundary perceiver with a PerceiverIO that cross attends the
+        #  boundary input with the prognostic latents.
         # --- Fusion: concat pooled representations, project ---
         x = self.fusion_proj(
             torch.cat([prog_pooled, boundary_pooled], dim=-1)

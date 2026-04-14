@@ -825,7 +825,7 @@ class FOMOConfig(BaseModelConfig):
 
         add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
         return FOMO(
-            in_channels=prog_channels + boundary_channels,
+            in_channels=encoder_prog_channels + boundary_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,

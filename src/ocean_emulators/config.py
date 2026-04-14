@@ -824,6 +824,7 @@ class FOMOConfig(BaseModelConfig):
         )
 
         add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
+        # TODO(alxmrs): `in_channels` isn't used anywhere :/ Consider removing from base model.
         return FOMO(
             in_channels=encoder_prog_channels + boundary_channels,
             out_channels=out_channels,

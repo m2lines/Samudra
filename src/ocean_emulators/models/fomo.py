@@ -89,15 +89,14 @@ class FOMO(BaseModel):
     def forward_once(
         self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
     ) -> Prognostic:
-        # Prognostic and boundary are carried as separate tensors through the
-        # data pipeline, but this encoder still expects a single concatenated
-        # input.  The dual-perceiver encoder that fuses them at the token level
-        # (enabling cross-resolution) lands in a follow-up PR.
-        fts = torch.cat((prognostic, boundary), dim=1)
         with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
+            # 3D coordinates describe the grid the prognostic tensor sits on.
             if self.maybe_add_3d_coordinates is not None:
-                fts = self.maybe_add_3d_coordinates(fts, ctx.input_resolution_cpu)
-            fts = self.encoder(fts, ctx.input_resolution_cpu)
+                prognostic = self.maybe_add_3d_coordinates(
+                    prognostic, ctx.input_resolution_cpu
+                )
+
+            fts = self.encoder(prognostic, boundary, ctx.input_resolution_cpu)
             fts = self.processor(fts)
 
             # TODO(alxmrs): When the output resolution differs from the input (i.e. in a "mix" schedule), we cannot use

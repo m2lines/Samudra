@@ -183,3 +183,54 @@ def test_fomo_forward_once_mix_schedule(add_3d_coordinates: bool):
 
     assert output.shape == (1, out_channels, output_h, output_w)
     assert torch.isfinite(output).all(), "Output contains NaN or Inf."
+
+
+@pytest.mark.parametrize("add_3d_coordinates", [False, True])
+def test_fomo_autoregressive_mix_schedule(add_3d_coordinates: bool):
+    """Two-step autoregressive rollout with mix schedule via BaseModel.forward.
+
+    Step 0: prog at input resolution (4x8) → output at output resolution (16x32).
+    Step 1: BaseModel.forward feeds back decoder output (16x32) as prog, updating
+    ctx.input_resolution_cpu to output_resolution_cpu so the encoder sees the
+    correct grid.
+    """
+    from ocean_emulators.datasets import TrainData
+
+    prog_channels, boundary_channels, out_channels = 7, 3, 7
+    input_h, input_w = 4, 8
+    output_h, output_w = 16, 32
+
+    model = _make_fomo(
+        prog_channels,
+        boundary_channels,
+        out_channels,
+        add_3d_coordinates=add_3d_coordinates,
+    )
+    input_res = _make_resolution(input_h, input_w)
+    output_res = _make_resolution(output_h, output_w)
+    ctx = GridContext(
+        label_mask=torch.ones(out_channels, output_h, output_w, dtype=torch.bool),
+        input_resolution_cpu=input_res,
+        output_resolution_cpu=output_res,
+    )
+
+    train_data = TrainData(prog_channels, boundary_channels, ctx)
+    # Step 0: prog and boundary at input resolution
+    train_data.append(
+        torch.randn(1, prog_channels, input_h, input_w),
+        torch.randn(1, boundary_channels, input_h, input_w),
+        torch.randn(1, out_channels, output_h, output_w),
+    )
+    # Step 1: boundary at input resolution, prog will come from step 0 output
+    train_data.append(
+        torch.randn(1, prog_channels, input_h, input_w),  # unused as prog
+        torch.randn(1, boundary_channels, input_h, input_w),
+        torch.randn(1, out_channels, output_h, output_w),
+    )
+
+    outputs = model.forward(train_data, loss_fn=None)
+
+    assert len(outputs) == 2
+    for out in outputs:
+        assert out.shape == (1, out_channels, output_h, output_w)
+        assert torch.isfinite(out).all(), "Output contains NaN or Inf."

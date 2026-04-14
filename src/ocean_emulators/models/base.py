@@ -4,6 +4,7 @@ import logging
 
 import torch
 
+from ocean_emulators.constants import Boundary, Prognostic
 from ocean_emulators.utils.ctx import GridContext
 
 logger = logging.getLogger(__name__)
@@ -34,7 +35,9 @@ class BaseModel(torch.nn.Module):
         self.hist = hist
         self.gradient_detach_interval = gradient_detach_interval
 
-    def forward_once(self, fts, ctx: GridContext):
+    def forward_once(
+        self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
+    ) -> Prognostic:
         raise NotImplementedError()
 
     def forward(
@@ -46,31 +49,20 @@ class BaseModel(torch.nn.Module):
         loss = torch.tensor(torch.nan)
         for step in range(len(train_data)):
             if step == 0:
-                input_tensor = train_data.get_initial_input()
+                prog_tensor, boundary_tensor = train_data.get_initial_input()
             else:
-                # TODO(alxmrs): With cross-resolution training (e.g. "mix" schedule where
-                #  input and output grids differ), the previous prediction lives on the
-                #  output grid but merge_prognostic_and_boundary expects the input grid.
-                #  Multi-step rollouts (steps > 1) will need regridding here.
                 prev_output = outputs[-1]
                 if (
                     self.gradient_detach_interval > 0
                     and step % self.gradient_detach_interval == 0
                 ):
                     prev_output = prev_output.detach()
-                input_tensor = train_data.merge_prognostic_and_boundary(
-                    prognostic=prev_output, step=step
-                )
+                _, boundary_tensor = train_data.get_input(step)
+                prog_tensor = prev_output
 
-            decodings = self.forward_once(input_tensor, train_data.ctx)
+            decodings = self.forward_once(prog_tensor, boundary_tensor, train_data.ctx)
             if self.pred_residuals:
-                pred = (
-                    input_tensor[
-                        :,
-                        : self.out_channels,
-                    ]  # Residuals on last state in input
-                    + decodings
-                )  # Residual prediction
+                pred = prog_tensor + decodings  # Residual prediction
             else:
                 pred = decodings  # Absolute prediction
 
@@ -101,7 +93,8 @@ class BaseModel(torch.nn.Module):
         num_steps=None,
         epoch=None,
     ) -> ModelInferenceOutput:
-        out_shape = (num_steps, *dataset[0][1].shape[1:])
+        # `dataset[idx]` returns `(prog, boundary, label)`.
+        out_shape = (num_steps, *dataset[0][-1].shape[1:])
 
         pred_tensor = torch.zeros(out_shape, device=get_device())
         initial_prognostic = initial_prognostic.to(get_device())
@@ -113,26 +106,18 @@ class BaseModel(torch.nn.Module):
                 f"of {steps_completed + num_steps - 1}."
             )
             if step == 0:
-                input_tensor = dataset.merge_prognostic_and_boundary(
+                prog_tensor, boundary_tensor = dataset.get_boundary_for_prognostic(
                     prognostic=initial_prognostic,
                     step=steps_completed,
                 )
             else:
-                input_tensor = dataset.merge_prognostic_and_boundary(
+                prog_tensor, boundary_tensor = dataset.get_boundary_for_prognostic(
                     prognostic=pred_tensor[step - 1].unsqueeze(0),
                     step=steps_completed + step,
                 )
-            decodings = self.forward_once(input_tensor, dataset.ctx)
+            decodings = self.forward_once(prog_tensor, boundary_tensor, dataset.ctx)
             if self.pred_residuals:
-                pred = (
-                    input_tensor[
-                        0,
-                        : self.out_channels,
-                    ].to(  # Residuals on last state in input
-                        device=get_device()
-                    )
-                    + decodings
-                )
+                pred = prog_tensor.to(device=get_device()) + decodings
             else:
                 pred = decodings
 

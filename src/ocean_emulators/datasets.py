@@ -13,6 +13,7 @@ from torch.utils.data import Dataset
 from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 
 from ocean_emulators.constants import (
+    Boundary,
     BoundaryVarNames,
     Example,
     GridMask,
@@ -138,9 +139,9 @@ class InferenceDataset(Dataset):
         label = self._get_label(x_index)
         return label
 
-    def get_initial_input(self):
-        data = self.__getitem__(0)[0]
-        return data
+    def get_initial_input(self) -> tuple[Prognostic, Boundary]:
+        prog, boundary, _ = self.__getitem__(0)
+        return prog, boundary
 
     def get_target_time(self, start_step: int, num_steps: int):
         x_index = self._get_x_index(start_step)
@@ -154,20 +155,28 @@ class InferenceDataset(Dataset):
             )
         )
 
-    def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
+    def get_boundary_for_prognostic(
+        self, prognostic: Prognostic, step: int
+    ) -> tuple[Prognostic, Boundary]:
+        """Return ``(prognostic, boundary)`` at the requested step.
+
+        Prognostic is passed through verbatim; boundary is fetched from the
+        boundary source and returned on the same device as ``prognostic``. The
+        two tensors may live on different spatial grids once the cross-
+        resolution boundary source lands — the encoder is responsible for
+        fusing them.
+        """
         x_index = self._get_x_index(step)
         boundary = self._get_boundary(x_index).to(prognostic.device)
-        data = torch.cat((prognostic, boundary), dim=1)
-        return data
+        return prognostic, boundary
 
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx):
         x_index = self._get_x_index(idx)
-        data_in = self._get_prognostic(x_index)
+        data_in_prog = self._get_prognostic(x_index)
         data_in_boundary = self._get_boundary(x_index)
-        data_in = torch.cat((data_in, data_in_boundary), dim=1)
         label = self._get_label(x_index)
-        return (data_in, label)
+        return (data_in_prog, data_in_boundary, label)
 
     def _get_x_index(self, idx):
         if isinstance(idx, slice):
@@ -357,44 +366,40 @@ class RawTrainData:
 class TrainData:
     """A single batch of training data.
 
-    A single batch contains multiple steps worth of `Example`s (i.e., input/output pairs). These steps are used during
-    autoregressive rollout in the training and inference process.
-
-    Constraint: The `Input` tensor is a combination of (flattened) prognostic variables (at all depth levels) and
-    boundary forcings. The top `num_prognostic_channels` number of channels must be prognostic variables whereas the
-    remaining bottom channels are boundary forcings.
+    A single batch contains multiple steps worth of ``Example`` entries, each
+    of which is a ``(prognostic_input, boundary_input, label)`` triple. The
+    prognostic and boundary tensors are carried *separately* (they are no
+    longer concatenated along the channel dim) so that the encoder can fuse
+    them at the token level, potentially at different spatial resolutions.
     """
 
-    def __init__(self, num_prognostic_channels: int, ctx: GridContext):
+    def __init__(
+        self, num_prognostic_channels: int, num_boundary_channels: int, ctx: GridContext
+    ):
         self.num_prognostic_channels = num_prognostic_channels
+        self.num_boundary_channels = num_boundary_channels
         self.ctx = ctx
         self.example_by_step: list[Example] = []
         self.load_stats: LoadStats | None = None
 
-    def append(self, input_: Input, label: Prognostic):
+    def append(
+        self, prognostic_input: Prognostic, boundary_input: Boundary, label: Prognostic
+    ) -> None:
         """Add another Example as a new step."""
-        self.example_by_step.append((input_, label))
+        self.example_by_step.append((prognostic_input, boundary_input, label))
 
-    def get_initial_input(self) -> Input:
+    def get_initial_input(self) -> tuple[Prognostic, Boundary]:
         return self.get_input(0)
 
-    def get_input(self, step: int) -> Input:
-        return self[step][0]
+    def get_input(self, step: int) -> tuple[Prognostic, Boundary]:
+        prog, boundary, _ = self.example_by_step[step]
+        return prog, boundary
 
     def get_label(self, step: int) -> Prognostic:
-        return self[step][1]
-
-    def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
-        input_ = self.get_input(step)
-        merged = input_.clone()
-        merged[:, : self.num_prognostic_channels] = prognostic
-        return merged
-
-    def values(self):
-        return self.example_by_step
+        return self.example_by_step[step][2]
 
     def __getitem__(self, step: int) -> Example:
-        """Converts index (step) into (data, label) tuple."""
+        """Converts index (step) into (prognostic, boundary, label) triple."""
         return self.example_by_step[step]
 
     def __len__(self) -> int:
@@ -405,16 +410,20 @@ class TrainData:
 
     def to(self, device: torch.device) -> None:
         for step in self:
+            prog, boundary, label = self.example_by_step[step]
             self.example_by_step[step] = (
-                self[step][0].to(device, non_blocking=True),
-                self[step][1].to(device, non_blocking=True),
+                prog.to(device, non_blocking=True),
+                boundary.to(device, non_blocking=True),
+                label.to(device, non_blocking=True),
             )
 
     def pin_memory(self):
         for step in self:
+            prog, boundary, label = self.example_by_step[step]
             self.example_by_step[step] = (
-                self[step][0].pin_memory(),
-                self[step][1].pin_memory(),
+                prog.pin_memory(),
+                boundary.pin_memory(),
+                label.pin_memory(),
             )
         return self
 
@@ -484,6 +493,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self._concurrent_compute = concurrent_compute_
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
+        self.num_boundary_channels: int = (hist + 1) * len(boundary_var_names)
         assert np.array_equal(srcs[0].data.time, srcs[-1].data.time), (
             "src and dst DataSource have different time slices!"
         )
@@ -605,9 +615,13 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         Returns:
             TrainData with tensors on the target device
         """
-        train_data = TrainData(self.num_prognostic_channels, self.ctx.to(device))
+        train_data = TrainData(
+            self.num_prognostic_channels,
+            self.num_boundary_channels,
+            self.ctx.to(device),
+        )
         for input_, boundary, label in raw_train_data.raw_data:
-            input_, label = self._to_example(
+            prog_input, boundary_input, label_tensor = self._to_example(
                 OceanData.from_data_source(
                     input_,
                     self.wet_prognostic[0],
@@ -622,43 +636,27 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                     label, self.wet_prognostic[-1], self.prognostic_srcs[-1]
                 ).to(device=device, non_blocking=True),
             )
-            train_data.append(input_, label)
+            train_data.append(prog_input, boundary_input, label_tensor)
         train_data.load_stats = raw_train_data.load_stats
         return train_data
 
     def _to_example(
         self, input_: OceanData, boundary: OceanData, label: OceanData
-    ) -> tuple[Input, Prognostic]:
+    ) -> Example:
         # Input/boundary only include current steps; label only includes forecasted steps.
-        total_input = self._prep_tensor_steps(input_, boundary)
+        prog_input = self._prep_tensor_steps(input_)
+        boundary_input = self._prep_tensor_steps(boundary)
         label_tensor = self._prep_tensor_steps(label)
-        return total_input, label_tensor
+        return prog_input, boundary_input, label_tensor
 
-    def _prep_tensor_steps(
-        self,
-        prognostic: OceanData,
-        boundary: OceanData | None = None,
-    ) -> Input:
-        """Prepare tensor steps by normalizing, masking and flattening dimensions."""
-        prognostic_steps = prognostic.normalize_and_mask(
+    def _prep_tensor_steps(self, ocean_data: OceanData) -> Input:
+        """Normalize, mask, and flatten (time, variable) dims into a channel dim."""
+        steps = ocean_data.normalize_and_mask(
             self.normalize_before_mask, self.masked_fill_value
         )
-
-        # Flatten time and variable dimensions
-        def flatten_dims(tensor: torch.Tensor) -> torch.Tensor:
-            return rearrange(
-                tensor, "batch time variable lat lon -> batch (time variable) lat lon"
-            )
-
-        prognostic_steps = flatten_dims(prognostic_steps)
-        if boundary is not None:
-            boundary_steps = boundary.normalize_and_mask(
-                self.normalize_before_mask, self.masked_fill_value
-            )
-            boundary_steps = flatten_dims(boundary_steps)
-            return torch.cat((prognostic_steps, boundary_steps), dim=1)
-
-        return prognostic_steps
+        return rearrange(
+            steps, "batch time variable lat lon -> batch (time variable) lat lon"
+        )
 
     def _get_x_index(self, idx: int, step: int) -> xr.DataArray:
         assert isinstance(idx, int)

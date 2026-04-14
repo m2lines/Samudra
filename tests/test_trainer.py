@@ -118,19 +118,22 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
     wet = trainer.inference_src.masks.prognostic_with_hist(hist)
     ctx = GridContext(wet, resolution, resolution).to(trainer.device)
     data = trainer.inference_loader.dataset[0]
-    X, y = data
+    inference_dataset, _num_steps = data
+    prog, boundary, _label = inference_dataset[0]
+    prog = prog.to(trainer.device)
+    boundary = boundary.to(trainer.device)
     trainer.best_val_loss = 10
     trainer.best_inf_loss = 10
 
     model = trainer.model
     assert isinstance(model, BaseModel)
-    out = model.forward_once(X[0][0].to(trainer.device), ctx)
+    out = model.forward_once(prog, boundary, ctx)
 
     with tempfile.TemporaryDirectory() as tmpdir:
         trainer.save_checkpoint(1, Path(tmpdir) / "test.pt")
         trainer.load_checkpoint(Path(tmpdir) / "test.pt")
 
-    out2 = model.forward_once(X[0][0].to(trainer.device), ctx)
+    out2 = model.forward_once(prog, boundary, ctx)
 
     assert torch.allclose(out, out2)
 

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776178224116,
+  "lastUpdate": 1776178227058,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -18357,6 +18357,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.1273954015622134",
             "extra": "mean: 48.986116551200006 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e650934ae2900473c06d3bcf5250eaf49b7ab80b",
+          "message": "Small improvements from profiling on NYU torch (#677)\n\n3 small changes to help with GPU utilization:\n\n* Don't compute validation images if w&b is off.\n* Only compute images on rank 0 (this doesn't really change latency but\nit does mean other CPUs/GPUs are not competing for resources while we do\nthis)\n* Turn on persistent workers to reduce start-of-epoch delays.\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>",
+          "timestamp": "2026-04-14T14:36:19Z",
+          "tree_id": "8dc8386692d0985622994cc8867f7cea3303c010",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/e650934ae2900473c06d3bcf5250eaf49b7ab80b"
+        },
+        "date": 1776178226569,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0820487026069607,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002384944812281885",
+            "extra": "mean: 924.172819200021 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.17332204983217106,
+            "unit": "iter/sec",
+            "range": "stddev: 0.017111908806392417",
+            "extra": "mean: 5.769606354000007 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.04959077997611817,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07770260995240054",
+            "extra": "mean: 20.16503875279998 sec\nrounds: 5"
           }
         ]
       }

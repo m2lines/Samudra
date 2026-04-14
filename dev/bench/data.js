@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776207004591,
+  "lastUpdate": 1776207007223,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -18447,6 +18447,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.07770260995240054",
             "extra": "mean: 20.16503875279998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fomobot640@gmail.com",
+            "name": "fomo-bot",
+            "username": "fomo-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2aa8f9648bb574d13e818891d5da9fe70b183e56",
+          "message": "Stabilize data loader benchmarks (#699)\n\n## Summary\n- warm the dataset loader benchmarks with one untimed pass before\npytest-benchmark records rounds\n- use a deterministic index order for the train-loader benchmark so the\nmeasured access pattern is stable\n\n## Investigation\nThe alert on aeef3ec does not look like a real data-loader regression.\nThe commit only added configs under configs/samudra_om4_v2_highres, and\nthere was no diff in tests, src, benchmark workflow, or test configs\nversus f99f06b. In the flagged CPU run, the loader benchmark min/median\nwere ~912-914 ms, matching the previous run, but one of five rounds took\n12.3 s. That single outlier inflated the mean to 3.19 s and caused\ngithub-action-benchmark to report 0.313 iter/sec. The GPU benchmark in\nthe same run stayed steady at ~918 ms.\n\nThis patch makes the benchmark measure steady-state loader throughput\nrather than the first cold/cache-restored read.\n\nFixes #698\n\n## Tests\n- uv run --locked pytest -m \"manual and not cuda\" --benchmark-only\ntests/test_datasets.py::test_profile__loader__1gb --benchmark-json\n/tmp/ocean-emulator-loader-benchmark.json\n- uv run --locked pytest -m \"manual and not cuda\" --benchmark-only\ntests/test_datasets.py::test_profile__inference_loader__1gb\n--benchmark-json /tmp/ocean-emulator-inference-loader-benchmark.json\n- uvx pre-commit run --files tests/test_datasets.py\n- git diff --check\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>\nCo-authored-by: Alex Merose <alex@openathena.ai>",
+          "timestamp": "2026-04-14T22:36:14Z",
+          "tree_id": "959e28a06dca7fb38046805b8d1945d8c07b1ff6",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/2aa8f9648bb574d13e818891d5da9fe70b183e56"
+        },
+        "date": 1776207006847,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.100949155658721,
+            "unit": "iter/sec",
+            "range": "stddev: 0.000868886133821548",
+            "extra": "mean: 908.3071591999897 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.17653406461175083,
+            "unit": "iter/sec",
+            "range": "stddev: 0.018701898120066566",
+            "extra": "mean: 5.664629102600043 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.05053324685114169,
+            "unit": "iter/sec",
+            "range": "stddev: 0.13619568706283988",
+            "extra": "mean: 19.78895207239998 sec\nrounds: 5"
           }
         ]
       }

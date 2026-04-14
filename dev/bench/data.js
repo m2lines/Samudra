@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1776119959431,
+  "lastUpdate": 1776178224116,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -9129,6 +9129,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.18949334995961015",
             "extra": "mean: 60.86729209080001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e650934ae2900473c06d3bcf5250eaf49b7ab80b",
+          "message": "Small improvements from profiling on NYU torch (#677)\n\n3 small changes to help with GPU utilization:\n\n* Don't compute validation images if w&b is off.\n* Only compute images on rank 0 (this doesn't really change latency but\nit does mean other CPUs/GPUs are not competing for resources while we do\nthis)\n* Turn on persistent workers to reduce start-of-epoch delays.\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>",
+          "timestamp": "2026-04-14T14:36:19Z",
+          "tree_id": "8dc8386692d0985622994cc8867f7cea3303c010",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/e650934ae2900473c06d3bcf5250eaf49b7ab80b"
+        },
+        "date": 1776178222946,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.29147537301162124,
+            "unit": "iter/sec",
+            "range": "stddev: 5.605412786376867",
+            "extra": "mean: 3.4308215808 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1668356585426272,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07358144826846406",
+            "extra": "mean: 5.993922454800009 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.035337998530986625,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2048771415152503",
+            "extra": "mean: 28.298150477400007 sec\nrounds: 5"
           }
         ]
       }

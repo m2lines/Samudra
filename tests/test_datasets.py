@@ -714,12 +714,15 @@ def test_profile__loader__1gb(train_config, loader_version, benchmark):
     cfg = train_config
 
     with make_loader(cfg, version=loader_version) as loader:
+        indices = np.random.default_rng(0).integers(0, len(loader), size=len(loader))
 
-        @benchmark
         def bench():
-            indices = np.random.randint(0, len(loader), size=len(loader))
             for idx in indices:
                 _ = loader.dataset[int(idx)]
+
+        # Warm the restored Zarr cache before timing steady-state loader throughput.
+        bench()
+        benchmark(bench)
 
 
 @pytest.mark.manual
@@ -729,9 +732,12 @@ def test_profile__loader__1gb(train_config, loader_version, benchmark):
 def test_profile__inference_loader__1gb(inference_loader_pair, benchmark):
     cfg, loader = inference_loader_pair
 
-    @benchmark
     def bench():
         for sample in loader:
             dataset, n = sample
             for X, y in dataset:
                 _, _ = X, y
+
+    # Warm the restored Zarr cache before timing steady-state loader throughput.
+    bench()
+    benchmark(bench)

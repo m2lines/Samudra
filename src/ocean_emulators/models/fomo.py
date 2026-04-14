@@ -90,14 +90,13 @@ class FOMO(BaseModel):
         self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
     ) -> Prognostic:
         with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
-            # 3D coordinates are appended to the prognostic stream only
-            # (they describe the output grid, not the boundary grid).
+            # 3D coordinates describe the grid the prognostic tensor sits on.
             if self.maybe_add_3d_coordinates is not None:
                 prognostic = self.maybe_add_3d_coordinates(
-                    prognostic, ctx.output_resolution_cpu
+                    prognostic, ctx.input_resolution_cpu
                 )
 
-            fts = self.encoder(prognostic, boundary, ctx.output_resolution_cpu)
+            fts = self.encoder(prognostic, boundary, ctx.input_resolution_cpu)
             fts = self.processor(fts)
 
             # TODO(alxmrs): When the output resolution differs from the input (i.e. in a "mix" schedule), we cannot use

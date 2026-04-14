@@ -135,6 +135,7 @@ def test_validation_aggregator__reduced_only__omits_image_logs(
         hist=0,
         area_weights=dummy_src.spherical_area_weights,
         num_prognostic_channels=num_prog_channels,
+        model=torch.nn.Identity(),
         include_image_aggregators=False,
     )
 

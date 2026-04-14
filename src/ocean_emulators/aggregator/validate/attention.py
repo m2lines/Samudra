@@ -104,6 +104,7 @@ def _collect_attention_blocks(model: nn.Module) -> list[_AttentionBlockInfo]:
             in_decoder = True
 
         if _is_attention_block(layer):
+            assert isinstance(layer, AxialAttentionBlock | FullAttentionBlock)
             if index == first_upsample_index - 1:
                 name = "bottleneck"
             elif in_decoder:
@@ -115,17 +116,11 @@ def _collect_attention_blocks(model: nn.Module) -> list[_AttentionBlockInfo]:
         if not in_decoder and isinstance(layer, AvgPool | MaxPool):
             encoder_stage += 1
         elif (
-            in_decoder
-            and index != first_upsample_index
-            and _is_upsampling_layer(layer)
+            in_decoder and index != first_upsample_index and _is_upsampling_layer(layer)
         ):
             decoder_stage += 1
 
     return blocks
-
-
-def has_attention_blocks(model: nn.Module) -> bool:
-    return bool(_collect_attention_blocks(model))
 
 
 @contextmanager
@@ -180,9 +175,7 @@ class AttentionAggregator(ValidateSubAggregator):
         self._blocks = _collect_attention_blocks(model)
         self._query_lat = query_lat
         self._query_lon = query_lon
-        self._captures: dict[
-            str, _AxialAttentionCapture | _FullAttentionCapture
-        ] = {}
+        self._captures: dict[str, _AxialAttentionCapture | _FullAttentionCapture] = {}
 
     @torch.no_grad()
     def record_batch(

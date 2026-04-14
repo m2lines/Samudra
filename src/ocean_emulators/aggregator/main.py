@@ -10,10 +10,7 @@ import torch.nn as nn
 from ocean_emulators.aggregator.inference import InferenceEvaluatorAggregator
 from ocean_emulators.aggregator.train import TrainAggregator
 from ocean_emulators.aggregator.validate import ValidateAggregator
-from ocean_emulators.aggregator.validate.attention import (
-    AttentionAggregator,
-    has_attention_blocks,
-)
+from ocean_emulators.aggregator.validate.attention import AttentionAggregator
 from ocean_emulators.aggregator.validate.map import MapAggregator
 from ocean_emulators.aggregator.validate.reduced import MeanAggregator
 from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
@@ -31,7 +28,7 @@ class Aggregator:
         hist: int,
         area_weights: torch.Tensor,
         num_prognostic_channels: int,
-        *,
+        model: nn.Module,
         include_image_aggregators: bool = True,
     ) -> ValidateAggregator:
         val_aggregators: dict[str, ValidateSubAggregator] = {
@@ -42,6 +39,7 @@ class Aggregator:
                 {
                     "snapshot": SnapshotAggregator(metadata, hist),
                     "mean_map": MapAggregator(metadata, hist),
+                    "attention": AttentionAggregator(model),
                 }
             )
 

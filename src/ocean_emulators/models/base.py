@@ -63,7 +63,8 @@ class BaseModel(torch.nn.Module):
                 prog_tensor = prev_output
                 # From step 1 onward the prognostic is the previous decoder
                 # output, which sits on the output grid — update the context
-                # so the encoder uses the correct resolution.
+                # so the encoder uses the correct resolution. This is a no-op
+                # when input and output resolutions are equal (match schedule).
                 ctx = dataclasses.replace(
                     ctx, input_resolution_cpu=ctx.output_resolution_cpu
                 )
@@ -126,7 +127,9 @@ class BaseModel(torch.nn.Module):
                 ).to(device=prog_tensor.device)
 
                 # From step 1 onward the prognostic is the previous decoder
-                # output, which sits on the output grid.
+                # output, which sits on the output grid — update the context
+                # so the encoder uses the correct resolution. This is a no-op
+                # when input and output resolutions are equal (match schedule).
                 ctx = dataclasses.replace(
                     ctx, input_resolution_cpu=ctx.output_resolution_cpu
                 )

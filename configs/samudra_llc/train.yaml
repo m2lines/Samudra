@@ -37,7 +37,7 @@ preemptible: false
 backend: auto
 
 experiment:
-  name: 2026-04-12-Samudra_LLC:temporal_stride=18,data_stride=3,hist=2_loss_test
+  name: 2026-04-15-Samudra_LLC:revised_curriculum_1_test
   data_root: /orcd/data/abodner/
   rand_seed: 15
   base_output_dir: .LOCAL

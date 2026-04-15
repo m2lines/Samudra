@@ -164,17 +164,6 @@ def plot_attention_map(
     axis: Literal["height", "width", "full"],
     caption: str | None = None,
 ) -> WBValue:
-    """Plot an attention weight matrix as a heatmap.
-
-    Args:
-        attn_weights: 2D array of shape ``(seq, seq)`` representing averaged
-            attention weights.
-        axis: ``"height"``, ``"width"``, or ``"full"`` — selects axis labels.
-        caption: Optional caption for the W&B image.
-
-    Returns:
-        A W&B Image suitable for logging.
-    """
     wandb_logger = WandBLogger.get_instance()
     display_weights = _downsample_for_display(attn_weights)
 
@@ -190,18 +179,23 @@ def plot_attention_map(
     im = ax.imshow(display_weights, cmap="viridis", aspect="auto")
     fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
 
-    if axis == "height":
-        ax.set_xlabel("Key (latitude index)")
-        ax.set_ylabel("Query (latitude index)")
-        ax.set_title("Height-axis attention")
-    elif axis == "width":
-        ax.set_xlabel("Key (longitude index)")
-        ax.set_ylabel("Query (longitude index)")
-        ax.set_title("Width-axis attention")
-    else:
-        ax.set_xlabel("Key token index")
-        ax.set_ylabel("Query token index")
-        ax.set_title("Full 2D attention")
+    labels = {
+        "height": (
+            "Key (latitude index)",
+            "Query (latitude index)",
+            "Height-axis attention",
+        ),
+        "width": (
+            "Key (longitude index)",
+            "Query (longitude index)",
+            "Width-axis attention",
+        ),
+        "full": ("Key token index", "Query token index", "Full 2D attention"),
+    }
+    xlabel, ylabel, title = labels[axis]
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
 
     fig.tight_layout()
     image = wandb_logger.Image(fig, caption=caption)
@@ -217,27 +211,11 @@ def plot_attention_receptive_field(
     query_lon: int,
     caption: str | None = None,
 ) -> WBValue:
-    """Plot a 2D receptive-field heatmap for a single query location.
-
-    Combines height and width attention via outer product to show where
-    a given ``(lat, lon)`` point attends in the full spatial grid.
-
-    Args:
-        height_weights: ``(H, H)`` height attention matrix.
-        width_weights: ``(W, W)`` width attention matrix.
-        query_lat: Latitude index of the query point.
-        query_lon: Longitude index of the query point.
-        caption: Optional caption for the W&B image.
-
-    Returns:
-        A W&B Image suitable for logging.
-    """
     wandb_logger = WandBLogger.get_instance()
 
-    # Outer product of the row for this query in each axis
-    h_row = height_weights[query_lat]  # (H,)
-    w_row = width_weights[query_lon]  # (W,)
-    receptive_field = np.outer(h_row, w_row)  # (H, W)
+    h_row = height_weights[query_lat]
+    w_row = width_weights[query_lon]
+    receptive_field = np.outer(h_row, w_row)
 
     fig = Figure(figsize=(8, 4))
     ax = fig.add_subplot(111)
@@ -261,17 +239,6 @@ def plot_full_attention_receptive_field(
     query_lon: int,
     caption: str | None = None,
 ) -> WBValue:
-    """Plot the attention map from one query token back onto the 2D grid.
-
-    Args:
-        attn_weights: ``(H*W, H*W)`` full-attention matrix averaged over heads
-            and batch.
-        grid_shape: The original 2D spatial layout corresponding to the token
-            sequence order.
-        query_lat: Query latitude index on the 2D grid.
-        query_lon: Query longitude index on the 2D grid.
-        caption: Optional caption for the W&B image.
-    """
     height, width = grid_shape
     if not (0 <= query_lat < height and 0 <= query_lon < width):
         raise IndexError(

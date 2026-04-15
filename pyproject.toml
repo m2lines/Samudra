@@ -80,6 +80,11 @@ dev = [
   "types-tqdm>=4.67.0.20250516",
   "xarrayutils>=2.0.1",
 ]
+docs = [
+  "mkdocs>=1.6",
+  "mkdocs-material>=9.5",
+  "mkdocstrings[python]>=0.27",
+]
 
 [tool.ruff]
 lint.select = [ "B006", "D", "E", "F", "I", "UP", "W" ]

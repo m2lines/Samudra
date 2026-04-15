@@ -1,4 +1,4 @@
-name: Deploy Samudra 2 paper site
+name: Deploy docs site
 
 on:
   push:
@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - "docs/**"
+      - "docs-src/**"
+      - "mkdocs.yml"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -23,6 +25,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Build API docs with MkDocs
+        run: uv run --group docs mkdocs build
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

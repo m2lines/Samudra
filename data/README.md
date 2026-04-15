@@ -3,6 +3,8 @@
 [![Run Unit Tests](https://github.com/m2lines/ocean_emulators/actions/workflows/tests.yaml/badge.svg)](https://github.com/m2lines/ocean_emulators/actions/workflows/tests.yaml)
 [![Run Unit Tests requiring xESMF](https://github.com/m2lines/ocean_emulators/actions/workflows/tests_xesmf.yaml/badge.svg)](https://github.com/m2lines/ocean_emulators/actions/workflows/tests_xesmf.yaml)
 
+Data engineering routines to prepare ocean simulations for neural emulation.
+
 ## Usage via command line interface
 
 First, please clone this repository:

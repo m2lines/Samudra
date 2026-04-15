@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Samudra 2 - Scaling Ocean Emulators across Resolutions</title>
+  <meta
+    name="description"
+    content="Samudra 2: a neural ocean emulator that scales to 1 deg, 1/2 deg, and 1/4 deg resolution with multi-year autoregressive rollouts."
+  >
+  <meta property="og:title" content="Samudra 2 - Scaling Ocean Emulators across Resolutions">
+  <meta
+    property="og:description"
+    content="Samudra 2: a neural ocean emulator that scales to 1 deg, 1/2 deg, and 1/4 deg resolution with multi-year autoregressive rollouts."
+  >
+  <meta property="og:image" content="./static/images/teaser.png">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="icon" href="./static/images/favicon.svg">
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Noto+Sans:wght@400;500;700&display=swap">
+  <link rel="stylesheet" href="./static/css/style.css">
+</head>
+<body>
+
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop has-text-centered">
+      <h1 class="title is-1 publication-title">Samudra 2: Scaling Ocean Emulators<br>across Resolutions</h1>
+
+      <div class="is-size-5 publication-authors">
+        <span class="author-block"><a href="mailto:y.y@nyu.edu">Yuan Yuan</a><sup>1,*</sup>,</span>
+        <span class="author-block">Jesse Rusak<sup>2</sup>,</span>
+        <span class="author-block">Alexander Merose<sup>2</sup>,</span>
+        <span class="author-block">Adam Subel<sup>1</sup>,</span>
+        <span class="author-block">Pavel Perezhogin<sup>1</sup>,</span>
+        <span class="author-block">Alistair Adcroft<sup>3</sup>,</span>
+        <span class="author-block">Carlos Fernandez-Granda<sup>1</sup>,</span>
+        <span class="author-block">Laure Zanna<sup>1</sup></span>
+      </div>
+
+      <div class="is-size-6 publication-authors" style="margin-top: 0.6rem;">
+        <span class="author-block"><sup>1</sup>New York University</span>
+        &nbsp;
+        <span class="author-block"><sup>2</sup>Open Athena</span>
+        &nbsp;
+        <span class="author-block"><sup>3</sup>Princeton University</span>
+      </div>
+      <div class="is-size-7 publication-authors" style="margin-top: 0.25rem; color: #666;">
+        <sup>*</sup>Corresponding author
+      </div>
+
+      <div class="publication-links" style="margin-top: 1.5rem;">
+        <span class="link-block">
+          <a href="#" class="external-link button is-normal is-rounded is-dark">
+            <span class="icon"><i class="fas fa-file-pdf"></i></span>
+            <span>Paper PDF</span>
+          </a>
+        </span>
+        <span class="link-block">
+          <a href="https://github.com/Open-Athena/Ocean_Emulator" class="external-link button is-normal is-rounded is-dark" target="_blank" rel="noreferrer">
+            <span class="icon"><i class="fab fa-github"></i></span>
+            <span>Code</span>
+          </a>
+        </span>
+        <span class="link-block">
+          <a href="#" class="external-link button is-normal is-rounded is-dark">
+            <span class="icon"><i class="fas fa-cube"></i></span>
+            <span>Hugging Face</span>
+          </a>
+        </span>
+        <span class="link-block">
+          <a href="#bibtex" class="external-link button is-normal is-rounded is-dark">
+            <span class="icon"><i class="fas fa-bookmark"></i></span>
+            <span>Citation</span>
+          </a>
+        </span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section tldr-section">
+  <div class="container is-max-desktop">
+    <div class="notification is-light tldr-box">
+      <p>
+        <strong>TL;DR.</strong> Samudra 2 is a neural ocean emulator that scales to 1 deg, 1/2 deg, and 1/4 deg
+        resolution with stable about 8-year autoregressive rollouts.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="hero teaser">
+  <div class="container is-max-desktop">
+    <div class="hero-body">
+      <figure class="image">
+        <img src="./static/images/teaser.png" alt="Gulf Stream surface kinetic energy across resolutions">
+      </figure>
+      <h2 class="subtitle has-text-centered" style="margin-top: 1rem;">
+        Surface kinetic energy in the Gulf Stream region from GFDL OM4 (top) and <strong>Samudra 2</strong> (bottom)
+        at 1 deg, 1/2 deg, and 1/4 deg resolution near the end of an 8-year autoregressive rollout.
+        At finer grids, the emulator progressively captures mesoscale eddies, meanders, and filamentary
+        western boundary current structure.
+      </h2>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <div class="columns is-centered has-text-centered">
+      <div class="column is-four-fifths">
+        <h2 class="title is-3">Abstract</h2>
+        <div class="content has-text-justified">
+          <p>
+            Ocean general circulation models are essential to climate science but computationally expensive,
+            severely limiting the ensembles and scenarios that can be explored. Neural emulators promise
+            orders-of-magnitude speedups, yet no ocean emulator to date has combined fine spatial resolution
+            with multi-year autoregressive rollouts. Samudra, the first autoregressive neural ocean emulator
+            to produce multi-decade global rollouts, was restricted to 1 deg resolution and exhibited two
+            long-horizon failure modes: <em>variance collapse</em> and <em>imprinting artifacts</em>.
+          </p>
+          <p>
+            Samudra 2 extends that framework with two complementary modifications: a widened ConvNeXt U-Net
+            backbone with a reduced block-internal expansion factor, and a dynamic loss that reweights
+            per-variable MSE contributions inversely by each channel's running prediction error. This
+            amplifies the gradient signal from slow-evolving deep-ocean fields that standard MSE would
+            otherwise neglect.
+          </p>
+          <p>
+            At 1 deg, Samudra 2 raises upper-ocean global-mean temperature R<sup>2</sup> from 0.56 to 0.87
+            and reduces deep-ocean temperature error by roughly sevenfold compared to the original Samudra.
+            The same architecture scales to 1/2 deg and 1/4 deg over approximately 8-year autoregressive
+            rollouts, recovering mesoscale eddies and sharp western boundary currents absent at coarser grids.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section has-background-light">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">Core ideas</h2>
+    <div class="columns feature-cards">
+      <div class="column">
+        <div class="box feature-card">
+          <h4 class="title is-5"><i class="fas fa-layer-group"></i>&nbsp; Wider ConvNeXt U-Net</h4>
+          <p>
+            Stage widths increase from [200, 250, 300, 400] to [280, 380, 480, 520] and the
+            block-internal expansion factor is reduced from 4 to 2, shifting capacity toward
+            inter-stage features that higher resolutions need.
+          </p>
+        </div>
+      </div>
+      <div class="column">
+        <div class="box feature-card">
+          <h4 class="title is-5"><i class="fas fa-sliders-h"></i>&nbsp; Dynamic variance-weighted loss</h4>
+          <p>
+            Per-channel MSE weights are updated online using an exponential moving average of inverse
+            prediction error, amplifying the gradient signal from slow-evolving deep-ocean fields.
+          </p>
+        </div>
+      </div>
+      <div class="column">
+        <div class="box feature-card">
+          <h4 class="title is-5"><i class="fas fa-globe"></i>&nbsp; Scaling to higher resolutions</h4>
+          <p>
+            The paper demonstrates multi-year ocean emulation at 1/2 deg and 1/4 deg on GFDL OM4 data,
+            where mesoscale eddies and western boundary currents emerge at eddy-permitting resolution.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">Method</h2>
+    <div class="content">
+      <p>
+        The emulator is an autoregressive function <em>g<sub>theta</sub></em> that maps two consecutive
+        ocean states plus atmospheric forcing to the next two states:
+      </p>
+      <p class="has-text-centered">
+        <em>(x-hat<sub>t+1</sub>, x-hat<sub>t+2</sub>) = g<sub>theta</sub>(x<sub>t-1</sub>, x<sub>t</sub>, f<sub>t-1</sub>, f<sub>t</sub>)</em>
+      </p>
+      <p>
+        State <em>x<sub>t</sub></em> contains four 3D prognostic variables across 19 depth levels:
+        potential temperature, salinity, zonal velocity, and meridional velocity, plus sea surface height.
+        That yields 77 prognostic channels. Training uses short autoregressive rollouts with
+        <em>K</em> = 4 steps, while evaluation runs freely for about 580 steps, roughly 8 years,
+        from 2014 to 2022 with no ground-truth feedback.
+      </p>
+    </div>
+    <figure class="image">
+      <img src="./static/images/rollout_diagram.png" alt="Training versus inference rollout diagram">
+    </figure>
+    <p class="has-text-centered is-size-7"><em>Figure 2. Training with short rollouts versus long-horizon free-running inference.</em></p>
+  </div>
+</section>
+
+<section class="section has-background-light">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">Results</h2>
+
+    <h4 class="title is-5" style="margin-top: 1.5rem;">Quantitative summary at 1 deg</h4>
+    <div class="content">
+      <p>
+        Against the original Samudra at 1 deg resolution, Samudra 2 improves the main long-horizon
+        diagnostics reported in the paper. It tracks the Nino 3.4 index with higher skill
+        (R<sup>2</sup> 0.93 versus 0.90, RMSE 0.222 C versus 0.268 C) and substantially improves
+        detrended global-mean temperature in the upper ocean.
+      </p>
+      <div class="columns is-vcentered has-text-centered">
+        <div class="column">
+          <div class="metric-big">0.56 to <strong>0.87</strong></div>
+          <div class="metric-label">Upper-ocean R<sup>2</sup> (0-700 m)</div>
+        </div>
+        <div class="column">
+          <div class="metric-big">about 10x</div>
+          <div class="metric-label">error reduction at 700-2000 m</div>
+        </div>
+        <div class="column">
+          <div class="metric-big">about 7x</div>
+          <div class="metric-label">error reduction at 2000-7000 m</div>
+        </div>
+      </div>
+      <p>
+        The deepest layers remain the hardest regime, but the paper shows that Samudra 2 sharply
+        reduces imprinting artifacts, where velocity-field patterns leak into temperature and salinity
+        at depth.
+      </p>
+    </div>
+
+    <h4 class="title is-5" style="margin-top: 2rem;">Rollout demo</h4>
+    <div class="content">
+      <p>
+        The same architecture, trained independently at each resolution, recovers progressively finer
+        dynamical structure. At 1/4 deg, mesoscale eddies, meanders, and sharper western boundary currents
+        become visible in a way that does not come across as well in a single static snapshot.
+      </p>
+      <p>
+        This video is a better front-page demonstration of the paper's result: long-horizon behavior
+        that remains organized, energetic, and spatially coherent through rollout.
+      </p>
+    </div>
+    <div class="video-embed">
+      <iframe
+        src="https://drive.google.com/file/d/1iE3FW7VtFl_10qPcae2ZeWuw05oWFlO_/preview"
+        allow="autoplay"
+        allowfullscreen
+      ></iframe>
+    </div>
+    <p class="has-text-centered is-size-7" style="margin-top: 0.75rem;">
+      <em>Long-horizon rollout video for Samudra 2, embedded from Google Drive.</em>
+    </p>
+  </div>
+</section>
+
+<section class="section has-background-light">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">Why it matters</h2>
+    <div class="content">
+      <p>
+        A multi-year eddy-permitting ocean rollout that would take millions of core-hours on a
+        traditional OGCM completes on a single GPU with Samudra 2. That is roughly two orders of
+        magnitude of speedup, which changes the workflow from running a few scenarios to running
+        hundreds or thousands of ensemble members for sea-level projections, ocean heat uptake,
+        and climate variability studies such as ENSO.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="bibtex">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">BibTeX</h2>
+    <pre><code>@article{yuan2026samudra2,
+  title   = {Samudra 2: Scaling Ocean Emulators Across Resolutions},
+  author  = {Yuan, Yuan and Rusak, Jesse and Merose, Alexander and
+             Subel, Adam and Perezhogin, Pavel and Adcroft, Alistair and
+             Fernandez-Granda, Carlos and Zanna, Laure},
+  year    = {2026}
+}</code></pre>
+  </div>
+</section>
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3">Acknowledgements</h2>
+    <div class="content">
+      <p>
+        We thank NVIDIA for a GPU hardware grant and support, Lambda for hardware support,
+        AWS for infrastructure grants, and NYU IT High Performance Computing for resources and staff
+        expertise. This wording follows the paper acknowledgement section more closely than the
+        initial placeholder issue content.
+      </p>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <div class="content has-text-centered">
+      <p>
+        Source on <a href="https://github.com/Open-Athena/Ocean_Emulator" target="_blank" rel="noreferrer">GitHub</a>.
+        Website template adapted from <a href="https://github.com/nerfies/nerfies.github.io" target="_blank" rel="noreferrer">Nerfies</a>.
+      </p>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

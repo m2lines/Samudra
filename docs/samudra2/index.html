@@ -6,12 +6,12 @@
   <title>Samudra 2 - Scaling Ocean Emulators across Resolutions</title>
   <meta
     name="description"
-    content="Samudra 2: a neural ocean emulator that scales to 1 deg, 1/2 deg, and 1/4 deg resolution with multi-year autoregressive rollouts."
+    content="Samudra 2: a neural ocean emulator that scales to 1°, 1/2°, and 1/4° resolution with multi-year autoregressive rollouts."
   >
   <meta property="og:title" content="Samudra 2 - Scaling Ocean Emulators across Resolutions">
   <meta
     property="og:description"
-    content="Samudra 2: a neural ocean emulator that scales to 1 deg, 1/2 deg, and 1/4 deg resolution with multi-year autoregressive rollouts."
+    content="Samudra 2: a neural ocean emulator that scales to 1°, 1/2°, and 1/4° resolution with multi-year autoregressive rollouts."
   >
   <meta property="og:image" content="./static/images/teaser.png">
   <meta name="twitter:card" content="summary_large_image">
@@ -86,8 +86,8 @@
   <div class="container is-max-desktop">
     <div class="notification is-light tldr-box">
       <p>
-        <strong>TL;DR.</strong> Samudra 2 is a neural ocean emulator that scales to 1 deg, 1/2 deg, and 1/4 deg
-        resolution with stable about 8-year autoregressive rollouts.
+        <strong>TL;DR.</strong> Samudra 2 is a neural ocean emulator that scales to 1°, 1/2°, and 1/4°
+        resolution with stable ~8-year autoregressive rollouts.
       </p>
     </div>
   </div>
@@ -150,7 +150,7 @@
         <div class="box feature-card">
           <h4 class="title is-5"><i class="fas fa-layer-group"></i>&nbsp; Wider ConvNeXt U-Net</h4>
           <p>
-            Stage widths increase from [200, 250, 300, 400] to [280, 380, 480, 520] and the
+            Stage widths increase from <code>[200, 250, 300, 400]</code> to <code>[280, 380, 480, 520]</code> and the
             block-internal expansion factor is reduced from 4 to 2, shifting capacity toward
             inter-stage features that higher resolutions need.
           </p>
@@ -213,7 +213,7 @@
       <p>
         Against the original Samudra at 1 deg resolution, Samudra 2 improves the main long-horizon
         diagnostics reported in the paper. It tracks the Nino 3.4 index with higher skill
-        (R<sup>2</sup> 0.93 versus 0.90, RMSE 0.222 C versus 0.268 C) and substantially improves
+        (R<sup>2</sup> 0.93 versus 0.90, RMSE 0.222 °C versus 0.268 °C) and substantially improves
         detrended global-mean temperature in the upper ocean.
       </p>
       <div class="columns is-vcentered has-text-centered">

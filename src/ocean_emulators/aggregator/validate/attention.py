@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 from typing import cast
 
+import numpy as np
 import torch
 import torch.nn as nn
 
@@ -105,6 +106,7 @@ class AttentionAggregator(ValidateSubAggregator):
         self._query_lon = query_lon
         self._axial_captures: dict[str, tuple[torch.Tensor, torch.Tensor]] = {}
         self._full_captures: dict[str, tuple[torch.Tensor, tuple[int, int]]] = {}
+        self._rng = np.random.default_rng()
 
     @torch.no_grad()
     def record_batch(
@@ -184,6 +186,8 @@ class AttentionAggregator(ValidateSubAggregator):
             height, width = spatial_shape
             query_lat = self._query_lat if self._query_lat is not None else height // 2
             query_lon = self._query_lon if self._query_lon is not None else width // 2
+            middle_lat = height // 2
+            random_middle_lon = int(self._rng.integers(width))
 
             logs[f"{label}/{name}/matrix"] = plot_attention_map(
                 weights_np,
@@ -199,6 +203,18 @@ class AttentionAggregator(ValidateSubAggregator):
                     caption=(
                         f"Full-attention receptive field at {name} "
                         f"({query_lat}, {query_lon})"
+                    ),
+                )
+            )
+            logs[f"{label}/{name}/receptive_field_midline_random"] = (
+                plot_full_attention_receptive_field(
+                    weights_np,
+                    grid_shape=spatial_shape,
+                    query_lat=middle_lat,
+                    query_lon=random_middle_lon,
+                    caption=(
+                        f"Full-attention receptive field at {name} "
+                        f"({middle_lat}, {random_middle_lon})"
                     ),
                 )
             )

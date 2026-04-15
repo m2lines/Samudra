@@ -658,8 +658,8 @@ class Trainer:
                 self.hist,
                 self.primary_src.spherical_area_weights.to(self.device),
                 self.num_out,
-                self.model,
-                log_validation_images,
+                include_image_aggregators=log_validation_images,
+                model=self.model,
             )
         else:
             # Create a validation aggregator that handles multiple scales.

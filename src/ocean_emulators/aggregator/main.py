@@ -28,8 +28,9 @@ class Aggregator:
         hist: int,
         area_weights: torch.Tensor,
         num_prognostic_channels: int,
-        model: nn.Module,
+        *,
         include_image_aggregators: bool = True,
+        model: nn.Module,
     ) -> ValidateAggregator:
         val_aggregators: dict[str, ValidateSubAggregator] = {
             "reduced": MeanAggregator(area_weights, hist),

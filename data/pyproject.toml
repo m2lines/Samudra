@@ -10,8 +10,8 @@ requires-python = ">=3.9"
 description = "TBD"
 readme = "README.md"
 authors = [
-  { name = "Adam Subel", email = "adam.subel@nyu.edu"},
-  { name = "Julius Busecke", email = "julius@ldeo.columbia.edu" }
+    { name = "Adam Subel", email = "adam.subel@nyu.edu" },
+    { name = "Julius Busecke", email = "julius@ldeo.columbia.edu" }
 ]
 classifiers = [
     "Development Status :: 1 - Planning",
@@ -29,7 +29,7 @@ keywords = ["climate", "data", "ml", "emulators"]
 dependencies = [
     "xarray",
     "xmip",
-    "xarray-schema",
+    "xarrera",
     "gcm_filters", # to avoid https://stackoverflow.com/questions/7446187/no-module-named-pkg-resources which seemed to have https://github.com/m2lines/ocean_emulators/actions/runs/10392595642/job/28778202015?pr=53
     "setuptools",
     "fire>=0.7.1",
@@ -45,7 +45,8 @@ dependencies = [
 [project.optional-dependencies]
 test = [
     "pytest",
-    "dask"
+    "dask",
+    "h5py",
 ]
 
 dev = [

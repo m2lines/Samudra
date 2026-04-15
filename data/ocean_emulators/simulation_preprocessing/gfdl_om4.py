@@ -3,7 +3,7 @@ import numpy as np
 import xarray as xr
 from ocean_emulators.dataset_validation import ds_processed_validate
 from ocean_emulators.utils import apply_mask
-from xarray_schema import SchemaError
+from xarrera import SchemaError
 from xgcm import Grid
 
 from .interpolate import interpolate_to_cell_centers

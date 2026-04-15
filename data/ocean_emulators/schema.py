@@ -1,13 +1,6 @@
 import warnings
 
-# Suppress pkg_resources deprecation warning from xarray_schema
-warnings.filterwarnings(
-    "ignore",
-    category=UserWarning,
-    message=".*pkg_resources is deprecated.*",
-)
-
-from xarray_schema import CoordsSchema, DataArraySchema, DatasetSchema  # noqa: E402
+from xarrera import CoordsSchema, DataArraySchema, DatasetSchema  # noqa: E402
 
 ### Preprocessing Stage
 vars_3d = ["so", "thetao", "uo", "vo"]

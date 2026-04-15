@@ -208,7 +208,7 @@ class UNetBackbone(nn.Module):
         for i in range(self.num_steps):
             skip_inputs.append(torch.zeros_like(fts))
         count = 0
-        for layer in self.layers:
+        for layer_index, layer in enumerate(self.layers):
             # Circular/Globe padding
             if isinstance(layer, nn.Conv2d):
                 fts = torch.nn.functional.pad(
@@ -226,7 +226,7 @@ class UNetBackbone(nn.Module):
 
             # UNet residuals logic (skip connections)
             if count < self.num_steps:
-                if isinstance(layer, CoreBlock):
+                if layer_index in self.encoder_skip_indices:
                     skip_inputs[count] = fts
                     count += 1
             elif count >= self.num_steps:

@@ -680,10 +680,11 @@ class Trainer:
                     break
 
                 # Capture attention maps on the last batch only (zero overhead otherwise).
+                # Only rank 0 logs to W&B, so skip the expensive materialization on other ranks.
                 is_last_batch = data_iter_step == total_val_batches - 1
                 ctx = (
                     capture_attention(self.model)
-                    if is_last_batch
+                    if is_last_batch and is_main_process()
                     else contextlib.nullcontext()
                 )
                 with ctx:

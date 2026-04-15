@@ -112,11 +112,15 @@ figure.image img {
   flex-direction: column;
 }
 
+.feature-card h4.title {
+  min-height: 3.5rem;
+}
+
 .feature-card p {
   margin-bottom: 0;
 }
 
-.feature-card p:last-child {
+.feature-card p:last-child:has(.button) {
   margin-top: auto !important;
   padding-top: 1rem;
 }
@@ -136,20 +140,28 @@ figure.image img {
   top: 0; left: 0;
   width: 100%; height: 100%;
   border: 0;
+  overflow: hidden;
+  touch-action: none;
 }
 
 /* Dark-mode overrides for Bulma components */
 @media (prefers-color-scheme: dark) {
-  .hero, .section { background: var(--bg); color: var(--ink); }
+  body, .hero, .hero-body, .section { background: var(--bg) !important; color: var(--ink); }
   .has-background-light { background: var(--bg-light-section) !important; }
   .title, .subtitle { color: var(--ink); }
   .box, .notification { background: var(--card-bg); color: var(--ink); }
+  .notification.is-light { background: var(--tldr-bg); color: var(--ink); }
   .content p, .content li { color: var(--ink); }
+  .content a { color: var(--accent); }
+  .content strong { color: var(--ink); }
+  .metric-big strong { color: var(--accent); }
   figure.image img { box-shadow: 0 2px 12px var(--card-shadow); }
   .video-embed { box-shadow: 0 2px 12px var(--card-shadow); }
   .publication-links .button.is-dark { background: #2a2a42; }
   .publication-links .button.is-dark:hover { background: var(--accent); }
   .publication-authors div[style*="color: #666"] { color: var(--metric-label) !important; }
   footer.footer a { color: var(--accent); }
-  code { background: var(--bg-alt); color: var(--ink); }
+  a { color: var(--accent); }
+  a:hover { color: var(--accent-dark); }
+  code { background: var(--bg-alt); color: var(--accent); }
 }

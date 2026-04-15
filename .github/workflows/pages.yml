@@ -30,7 +30,7 @@ jobs:
         uses: astral-sh/setup-uv@v6
 
       - name: Build API docs with MkDocs
-        run: uv run --group docs mkdocs build
+        run: uv run --only-group docs mkdocs build
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

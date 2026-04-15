@@ -1,7 +1,7 @@
 import torch
 
-import ocean_emulators.constants as c
 from ocean_emulators.config import SamudraConfig, UNetBackboneConfig
+from ocean_emulators.constants import TensorMap
 from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.data import DataSource, Normalize
 
@@ -21,7 +21,7 @@ def test_positional_parameters_update(dummy_src: DataSource):
         ),
         pos_channels=1,
     )
-    tensor_map = c.TensorMap("thetao_1", "hfds", dataset_spec=src.dataset_spec)
+    tensor_map = TensorMap("thetao_1", "hfds", dataset_spec=src.dataset_spec)
     normalize = Normalize(
         src,
         tensor_map.prognostic_var_names,

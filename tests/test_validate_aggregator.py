@@ -193,7 +193,8 @@ def test_validation_aggregator__reduced_only__omits_image_logs(
 def test_snapshot_aggregator__non_main_rank__skips_plot_rendering(
     dummy_src: DataSource, monkeypatch: pytest.MonkeyPatch
 ):
-    val_batch = val_batch_of(*dummy_src.grid_size)
+    tensor_map = tensor_map_for(dummy_src)
+    val_batch = val_batch_of(*dummy_src.grid_size, tensor_map=tensor_map)
     aggregator = SnapshotAggregator(dummy_src.metadata, hist=0)
 
     monkeypatch.setattr(

@@ -5,9 +5,12 @@ import torch
 from torch import nn
 
 from ocean_emulators.models.modules.blocks import (
+    BilinearUpsample,
     CoreBlock,
     CoreBlockBuilder,
+    TransposedConvUpsample,
     UpsamplingBlockBuilder,
+    ZonallyPeriodicBilinearUpsample,
 )
 from ocean_emulators.utils.train import pairwise
 
@@ -80,6 +83,7 @@ class UNetBackbone(nn.Module):
         # going down
         layers: list[nn.Module] = []
         layer_names: list[str] = []
+        encoder_skip_indices: list[int] = []
 
         def append_layer(layer: nn.Module, *, name: str) -> None:
             layers.append(layer)
@@ -109,6 +113,7 @@ class UNetBackbone(nn.Module):
                         attention_block,
                         name=f"encoder_skip_attention_{i}",
                     )
+            encoder_skip_indices.append(len(layers) - 1)
             # Down sampling block
             append_layer(
                 downsampling_block,
@@ -195,10 +200,15 @@ class UNetBackbone(nn.Module):
         self.N_pad = first_block.N_pad
         self.layers = nn.ModuleList(layers)
         self.layer_names = tuple(layer_names)
+        self.encoder_skip_indices = set(encoder_skip_indices)
+        self.num_steps = int(len(ch_width) - 1)
 
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
         skip_inputs: list[torch.Tensor] = []
-        for layer, layer_name in zip(self.layers, self.layer_names, strict=True):
+        for i in range(self.num_steps):
+            skip_inputs.append(torch.zeros_like(fts))
+        count = 0
+        for layer in self.layers:
             # Circular/Globe padding
             if isinstance(layer, nn.Conv2d):
                 fts = torch.nn.functional.pad(
@@ -215,20 +225,29 @@ class UNetBackbone(nn.Module):
                 fts = layer(fts)
 
             # UNet residuals logic (skip connections)
-            if layer_name.startswith("encoder_skip_"):
-                skip_inputs.append(fts)
-            elif layer_name.startswith("upsample_"):
-                skip_input = skip_inputs.pop()
-                crop = np.array(fts.shape[2:])
-                shape = np.array(skip_input.shape[2:])
-                pads = shape - crop
-                pads = [
-                    pads[1] // 2,
-                    pads[1] - pads[1] // 2,
-                    pads[0] // 2,
-                    pads[0] - pads[0] // 2,
-                ]
-                fts = nn.functional.pad(fts, pads)
-                fts += skip_input
+            if count < self.num_steps:
+                if isinstance(layer, CoreBlock):
+                    skip_inputs[count] = fts
+                    count += 1
+            elif count >= self.num_steps:
+                if (
+                    isinstance(layer, BilinearUpsample)
+                    or isinstance(layer, TransposedConvUpsample)
+                    or isinstance(layer, ZonallyPeriodicBilinearUpsample)
+                ):
+                    crop = np.array(fts.shape[2:])
+                    shape = np.array(
+                        skip_inputs[int(2 * self.num_steps - count - 1)].shape[2:]
+                    )
+                    pads = shape - crop
+                    pads = [
+                        pads[1] // 2,
+                        pads[1] - pads[1] // 2,
+                        pads[0] // 2,
+                        pads[0] - pads[0] // 2,
+                    ]
+                    fts = nn.functional.pad(fts, pads)
+                    fts += skip_inputs[int(2 * self.num_steps - count - 1)]
+                    count += 1
 
         return fts

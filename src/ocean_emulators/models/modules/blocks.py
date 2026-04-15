@@ -145,13 +145,6 @@ class ZonallyPeriodicBilinearUpsample(torch.nn.Module):
         return upsampled[..., start:end]
 
 
-UPSAMPLING_LAYERS = (
-    BilinearUpsample,
-    TransposedConvUpsample,
-    ZonallyPeriodicBilinearUpsample,
-)
-
-
 class AvgPool(torch.nn.Module):
     def __init__(
         self,

@@ -49,7 +49,7 @@ def validate_batch(
 
 
 @torch.no_grad()
-def inference(
+def run_rollout(
     model: BaseModel,
     dataset: InferenceDataset,
     inf_aggregator: InferenceEvaluatorAggregator,
@@ -59,6 +59,7 @@ def inference(
     num_model_steps_forward: int = 200,
     save_zarr: bool = False,
 ) -> None:
+    """Performs inference, which is an auto-regressive rollout."""
     if save_zarr:
         if output_dir is None or model_path is None:
             raise ValueError(

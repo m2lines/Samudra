@@ -53,7 +53,7 @@ from ocean_emulators.models.base import BaseModel
 from ocean_emulators.stepper import (
     TrainBatchOutput,
     ValBatchOutput,
-    inference,
+    run_rollout,
     train_batch,
     validate_batch,
 )
@@ -725,7 +725,7 @@ class Trainer:
 
                 # TODO(jder): we need the underlying model so we can use forward_once;
                 # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/51
-                inference(
+                run_rollout(
                     model=self.model.module
                     if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
                     else self.model,

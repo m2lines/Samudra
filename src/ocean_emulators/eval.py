@@ -18,7 +18,7 @@ from ocean_emulators.constants import (
     construct_metadata,
 )
 from ocean_emulators.datasets import InferenceDataset
-from ocean_emulators.stepper import inference
+from ocean_emulators.stepper import run_rollout
 from ocean_emulators.utils.data import (
     Normalize,
     get_inference_steps,
@@ -210,7 +210,7 @@ class Eval:
             self.prognostic_var_names,
         )
 
-        inference(
+        run_rollout(
             model=self.model,
             dataset=self.inference_dataset,
             inf_aggregator=inf_aggregator,

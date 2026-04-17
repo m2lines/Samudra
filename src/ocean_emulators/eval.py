@@ -37,6 +37,12 @@ logger = logging.getLogger(__name__)
 
 
 class Eval:
+    """Evaluation pipeline for ocean emulator models.
+
+    Runs long autoregressive rollouts and computes metrics against ground-truth
+    ocean states.
+    """
+
     def __init__(self, cfg: EvalConfig) -> None:
         cfg.prepare_output_dirs()
 

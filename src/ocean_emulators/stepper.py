@@ -21,6 +21,12 @@ from ocean_emulators.utils.writer import ZarrWriter
 
 
 class Stepper:
+    """Coordinates model execution for training, validation, and inference.
+
+    Provides static methods that handle single-step forward passes (training
+    and validation) and multi-step autoregressive rollouts (inference).
+    """
+
     def __init__(self):
         pass
 

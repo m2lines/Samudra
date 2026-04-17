@@ -18,8 +18,8 @@ source .venv/bin/activate
 
 ## Verify Installation
 
-Run the test suite to confirm everything is set up correctly:
+Print the training CLI help to confirm everything is set up correctly:
 
 ```bash
-uv run pytest -m "not manual and not cuda" -n auto
+uv run -m ocean_emulators.train --help
 ```

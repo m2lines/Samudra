@@ -94,6 +94,12 @@ def should_log_validation_images(epoch: int, frequency: int) -> bool:
 
 
 class Trainer:
+    """Orchestrates the full model training loop.
+
+    Handles initialization, distributed setup, checkpointing, learning rate
+    scheduling, EMA, and Weights & Biases logging.
+    """
+
     model: BaseModel | nn.parallel.DistributedDataParallel
 
     def __init__(self, cfg: TrainConfig) -> None:

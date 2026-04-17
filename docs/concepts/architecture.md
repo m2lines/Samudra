@@ -5,16 +5,54 @@
 Ocean Emulators is organized around a few core components that work together to train and evaluate neural ocean emulators.
 
 ```
-Input (two ocean states + forcing) → Model → Output (next two predicted states)
+                        Training Pipeline
+ ┌─────────────────────────────────────────────────────────┐
+ │                                                         │
+ │  ┌──────────┐    ┌─────────┐    ┌──────────────────┐    │
+ │  │ DataSet  │───▶│ Stepper │───▶│ Model            │    │
+ │  │ (Zarr)   │    │         │    │ (Samudra / FOMO) │    │
+ │  └──────────┘    │         │◀───│                  │    │
+ │                  │         │    └──────────────────┘    │
+ │                  │         │                            │
+ │                  │         │───▶ Loss ───▶ Optimizer    │
+ │                  └─────────┘                            │
+ │                       │                                 │
+ │                       ▼                                 │
+ │                  Aggregator ───▶ W&B / Metrics          │
+ └─────────────────────────────────────────────────────────┘
 ```
 
 The emulator autoregressively predicts future ocean states. During training, short rollouts (K=4 steps) are used. During inference, the model runs freely for hundreds of steps without ground-truth feedback.
 
 ## Core Components
 
+```
+ ┌───────────────────────────────────────────────────────────┐
+ │                     Configuration                         │
+ │               (YAML + Pydantic validation)                │
+ └──────────┬──────────────┬──────────────┬──────────────────┘
+            │              │              │
+            ▼              ▼              ▼
+ ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+ │   Datasets   │  │    Models    │  │   Training   │
+ │  TrainData   │  │  Base Model  │  │    train.py  │
+ │  Inference   │  │   Samudra    │  │   Stepper    │
+ │  Dataset     │  │    FOMO      │  │   Scheduler  │
+ └──────┬───────┘  └──────┬───────┘  └──────┬───────┘
+        │                 │                 │
+        └────────┬────────┘                 │
+                 ▼                          ▼
+          ┌─────────────┐          ┌──────────────┐
+          │   Stepper   │◀────────▶│  Aggregator  │
+          │ train_batch │          │  Metrics     │
+          │ validate    │          │  Plotting    │
+          │ inference   │          └──────────────┘
+          └─────────────┘
+```
+
 ### Models
 
-All models inherit from a common base class (`ocean_emulators.models.base`) that provides:
+All models inherit from a common base class (`ocean_emulators.models.base`) that provides configuration for:
 
 - Residual prediction (predict the change, not the absolute state)
 - Ocean masking (land vs. ocean)
@@ -38,24 +76,40 @@ The `Stepper` class (`ocean_emulators.stepper`) coordinates model execution:
 
 `ocean_emulators.datasets` handles OM4 ocean model data in Zarr format:
 
-- `TrainData` — training dataset with time-based splits
-- `InferenceDataset` — evaluation dataset for long rollouts
+- `TrainData` — training dataset with time-based splits. Supports single or multiscale training.
+- `InferenceDataset` — evaluation dataset for long rollouts. Only supports a single scale of data.
 - Supports 1°, 1/2°, and 1/4° resolutions
 
 ### Configuration
 
-YAML-based configuration with Pydantic validation (`ocean_emulators.config`). Supports `!include` directives and command-line overrides.
+YAML-based configuration with Pydantic validation (`ocean_emulators.config`). Supports `!include` directives and command-line overrides. See the [Contributing Guide](../contributing.md) for details on working with the configuration system.
 
 ### Training Loop
 
-`ocean_emulators.train` provides:
+`ocean_emulators.train` orchestrates the full training process:
 
-- Distributed training via PyTorch DDP
-- Checkpointing
-- Learning rate scheduling with warmup
-- EMA (Exponential Moving Average) support
-- Weights & Biases integration
+- Initializes the model, optimizer, and learning rate scheduler
+- Runs the training loop: for each epoch, iterates over batches via `Stepper.train_batch`
+- Performs multi-step autoregressive rollouts (K steps) with gradient detaching
+- Runs validation at configured intervals via `Stepper.validate_batch`
+- Supports distributed training via PyTorch DDP and SLURM
+- Saves checkpoints (model state, optimizer, epoch) for resumption
+- Applies EMA (Exponential Moving Average) to model weights
+- Logs metrics and visualizations to Weights & Biases
 
 ### Evaluation
 
-The aggregator system (`ocean_emulators.aggregator`) collects metrics during training and evaluation, including map metrics, reduced metrics, and snapshot visualizations.
+`ocean_emulators.eval` runs long autoregressive rollouts for model evaluation:
+
+- Loads a trained checkpoint and runs free-running inference (hundreds of steps, no ground-truth feedback)
+- Computes metrics against ground-truth data: RMSE, bias, anomaly correlation
+- Produces per-variable, per-depth, and spatial metric breakdowns
+- Writes predicted fields to Zarr output for downstream analysis and visualization
+
+### Aggregator
+
+The aggregator system (`ocean_emulators.aggregator`) is a separate component that collects and organizes metrics during both training and evaluation:
+
+- `ValidateAggregator` — computes map metrics, reduced metrics, and snapshot visualizations during training validation
+- `InferenceEvaluatorAggregator` — collects metrics during long inference rollouts
+- `TrainAggregator` — tracks training loss breakdowns by channel, depth, and variable

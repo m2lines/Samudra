@@ -106,15 +106,16 @@ class BaseModel(torch.nn.Module):
                 f"of {steps_completed + num_steps - 1}."
             )
             if step == 0:
-                prog_tensor, boundary_tensor = dataset.get_boundary_for_prognostic(
-                    prognostic=initial_prognostic,
-                    step=steps_completed,
+                prog_tensor = initial_prognostic
+                boundary_tensor = dataset.get_boundary(steps_completed).to(
+                    device=prog_tensor.device
                 )
             else:
-                prog_tensor, boundary_tensor = dataset.get_boundary_for_prognostic(
-                    prognostic=pred_tensor[step - 1].unsqueeze(0),
-                    step=steps_completed + step,
-                )
+                prog_tensor = pred_tensor[step - 1].unsqueeze(0)
+                boundary_tensor = dataset.get_boundary(
+                    steps_completed + step,
+                ).to(device=prog_tensor.device)
+
             decodings = self.forward_once(prog_tensor, boundary_tensor, dataset.ctx)
             if self.pred_residuals:
                 pred = prog_tensor.to(device=get_device()) + decodings

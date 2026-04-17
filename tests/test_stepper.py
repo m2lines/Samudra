@@ -285,10 +285,8 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
     )
     assert torch.equal(pred.flatten(), expected_pred)
 
-    merged_prog, merged_boundary = inference_dataset.get_boundary_for_prognostic(
-        prognostic=pred,
-        step=merge_step,
-    )
+    merged_prog = pred
+    merged_boundary = inference_dataset.get_boundary(merge_step)
     merged_input_tensor = torch.cat((merged_prog, merged_boundary), dim=1)
     assert merged_input_tensor.shape == (1, num_input_channels, 1, 1)
 

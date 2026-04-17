@@ -155,20 +155,11 @@ class InferenceDataset(Dataset):
             )
         )
 
-    def get_boundary_for_prognostic(
-        self, prognostic: Prognostic, step: int
-    ) -> tuple[Prognostic, Boundary]:
-        """Return ``(prognostic, boundary)`` at the requested step.
-
-        Prognostic is passed through verbatim; boundary is fetched from the
-        boundary source and returned on the same device as ``prognostic``. The
-        two tensors may live on different spatial grids once the cross-
-        resolution boundary source lands — the encoder is responsible for
-        fusing them.
-        """
+    def get_boundary(self, step: int) -> Boundary:
+        """Return boundary at the requested step."""
         x_index = self._get_x_index(step)
-        boundary = self._get_boundary(x_index).to(prognostic.device)
-        return prognostic, boundary
+        boundary = self._get_boundary(x_index)
+        return boundary
 
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx):

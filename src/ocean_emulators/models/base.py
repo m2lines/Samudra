@@ -111,7 +111,7 @@ class BaseModel(torch.nn.Module):
                     device=prog_tensor.device
                 )
             else:
-                prog_tensor = pred_tensor[step - 1].unsqueeze(0)
+                prog_tensor = pred_tensor[step - 1]
                 boundary_tensor = dataset.get_boundary(
                     steps_completed + step,
                 ).to(device=prog_tensor.device)

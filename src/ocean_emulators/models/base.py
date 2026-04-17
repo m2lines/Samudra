@@ -118,7 +118,7 @@ class BaseModel(torch.nn.Module):
 
             decodings = self.forward_once(prog_tensor, boundary_tensor, dataset.ctx)
             if self.pred_residuals:
-                pred = prog_tensor.to(device=get_device()) + decodings
+                pred = prog_tensor[0].to(device=get_device()) + decodings
             else:
                 pred = decodings
 

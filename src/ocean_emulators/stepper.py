@@ -43,7 +43,7 @@ def validate_batch(
     loss = torch.mean(loss_per_channel)
     # `input_data` in ValBatchOutput is used for val visualization; pass the
     # channel-concatenated tensor for continuity with existing consumers.
-    # We only ever mix scales across boundary and prognostic during inference.
+    # We don't mix scales across boundary and prognostic during training.
     input_data = torch.cat((prognostic, boundary), dim=1)
     return ValBatchOutput(loss, loss_per_channel, input_data, label, outs, batch.ctx)
 

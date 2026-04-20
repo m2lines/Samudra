@@ -1,101 +1,94 @@
 # pyproject.toml
+
 [build-system]
-requires = ["setuptools>=61", "wheel", "setuptools_scm[toml]>=6.0"]
 build-backend = "setuptools.build_meta"
 
+requires = [ "setuptools>=61", "setuptools-scm[toml]>=6", "wheel" ]
+
 [project]
-name = "ocean_emulators"
-dynamic = ["version"]
-requires-python = ">=3.9"
+name = "ocean-emulators"
 description = "TBD"
 readme = "README.md"
-authors = [
-    { name = "Adam Subel", email = "adam.subel@nyu.edu" },
-    { name = "Julius Busecke", email = "julius@ldeo.columbia.edu" }
-]
-classifiers = [
-    "Development Status :: 1 - Planning",
-    "License :: OSI Approved :: Apache Software License",
-    "Operating System :: OS Independent",
-    "Intended Audience :: Science/Research",
-    "Programming Language :: Python",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Topic :: Scientific/Engineering",
-]
+keywords = [ "climate", "data", "emulators", "ml" ]
 license = { text = "Apache-2.0" }
-keywords = ["climate", "data", "ml", "emulators"]
+authors = [
+  { name = "Adam Subel", email = "adam.subel@nyu.edu" },
+  { name = "Julius Busecke", email = "julius@ldeo.columbia.edu" },
+]
+requires-python = ">=3.10"
+classifiers = [
+  "Development Status :: 1 - Planning",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+]
+dynamic = [ "version" ]
 dependencies = [
-    "xarray",
-    "xmip",
-    "xarrera",
-    "gcm_filters", # to avoid https://stackoverflow.com/questions/7446187/no-module-named-pkg-resources which seemed to have https://github.com/m2lines/ocean_emulators/actions/runs/10392595642/job/28778202015?pr=53
-    "setuptools",
-    "fire>=0.7.1",
-    "cartopy>=0.23.0",
-    "zarr>=2.18.2",
-    "gcsfs>=2025.10.0",
-    "s3fs>=2025.10.0",
-    "xesmf>=0.8.10",
-    "bokeh>=3.1.0",
-    "h5netcdf>=1.7.3",
+  "bokeh>=3.1",
+  "cartopy>=0.23",
+  "fire>=0.7.1",
+  "gcm-filters",     # to avoid https://stackoverflow.com/questions/7446187/no-module-named-pkg-resources which seemed to have https://github.com/m2lines/ocean_emulators/actions/runs/10392595642/job/28778202015?pr=53
+  "gcsfs>=2025.10",
+  "h5netcdf>=1.7.3",
+  "s3fs>=2025.10",
+  "setuptools",
+  "xarray",
+  "xarrera",
+  "xesmf>=0.8.10",
+  "xmip",
+  "zarr>=2.18.2",
 ]
 
-[project.optional-dependencies]
-test = [
-    "pytest",
-    "dask",
-    "h5py",
+optional-dependencies.dev = [
+  "ocean-emulators[test]",
+  "pre-commit",
 ]
-
-dev = [
-    "pre-commit",
-    "ocean_emulators[test]"
+optional-dependencies.test = [
+  "dask",
+  "h5py",
+  "pytest",
 ]
-
-[project.urls]
-Homepage = "https://github.com/jbusecke/ocean_emulators"
-Tracker = "https://github.com/jbusecke/ocean_emulators/issues"
+urls.Homepage = "https://github.com/jbusecke/ocean_emulators"
+urls.Tracker = "https://github.com/jbusecke/ocean_emulators/issues"
 
 [tool.setuptools.packages.find]
-exclude = ["book", "docs"]  # exclude packages matching these glob patterns (empty by default)
+exclude = [ "book", "docs" ] # exclude packages matching these glob patterns (empty by default)
 
 [tool.setuptools_scm]
 write_to = "ocean_emulators/_version.py"
 write_to_template = "__version__ = '{version}'"
 
 [tool.ruff]
-# Exclude a variety of commonly ignored directories.
-exclude = [
-    "ocean_emulators/__init__.py",
-]
-
 # Same as Black.
 line-length = 88
 indent-width = 4
 
-[tool.ruff.lint]
+# Exclude a variety of commonly ignored directories.
+exclude = [
+  "ocean_emulators/__init__.py",
+]
+
+# Like Black, indent with spaces, rather than tabs.
+format.indent-style = "space"
+# Like Black, use double quotes for strings.
+format.quote-style = "double"
+# Like Black, automatically detect the appropriate line ending.
+format.line-ending = "auto"
+# Like Black, respect magic trailing commas.
+format.skip-magic-trailing-comma = false
 # Enable Pyflakes (`F`) and a subset of the pycodestyle (`E`)  codes by default.
 # Unlike Flake8, Ruff doesn't enable pycodestyle warnings (`W`) or
 # McCabe complexity (`C901`) by default.
-select = ["E4", "E7", "E9", "F"]
+lint.select = [ "E4", "E7", "E9", "F" ]
 # not the cleanest solution, but otherwise pytest fixtures raise error in tests ( I wish I could apply this to test modules only, some more discusstion here: https://github.com/astral-sh/ruff/issues/3295)
-ignore = ["F811"]
-
+lint.ignore = [ "F811" ]
 # Allow fix for all enabled rules (when `--fix`) is provided.
-fixable = ["ALL"]
-unfixable = []
-
-[tool.ruff.format]
-# Like Black, use double quotes for strings.
-quote-style = "double"
-
-# Like Black, indent with spaces, rather than tabs.
-indent-style = "space"
-
-# Like Black, respect magic trailing commas.
-skip-magic-trailing-comma = false
-
-# Like Black, automatically detect the appropriate line ending.
-line-ending = "auto"
+lint.fixable = [ "ALL" ]
+lint.unfixable = [  ]

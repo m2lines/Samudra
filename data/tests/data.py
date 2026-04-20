@@ -1,7 +1,8 @@
 import dask.array as dsa
-import xarray as xr
 import numpy as np
 import pytest
+import xarray as xr
+
 from ocean_emulators.utils import apply_mask
 
 

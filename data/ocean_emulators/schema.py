@@ -1,5 +1,3 @@
-import warnings
-
 from xarrera import CoordsSchema, DataArraySchema, DatasetSchema  # noqa: E402
 
 ### Preprocessing Stage

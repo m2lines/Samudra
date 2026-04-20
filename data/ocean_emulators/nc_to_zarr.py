@@ -2,9 +2,10 @@
 """A quick utility script to convert NetCDF files from the OSN pod to Zarr."""
 
 import os
+import sys
+
 import fsspec
 import xarray as xr
-import sys
 
 if __name__ == "__main__":
     fs_src = fsspec.filesystem(

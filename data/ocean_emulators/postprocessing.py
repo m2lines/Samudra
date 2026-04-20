@@ -1,5 +1,7 @@
-import xarray as xr
 import warnings
+
+import xarray as xr
+
 from ocean_emulators.dataset_validation import ds_input_validate
 from ocean_emulators.utils import assert_mask_match
 

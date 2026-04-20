@@ -1,6 +1,7 @@
-import xarray as xr
-import numpy as np
 import subprocess
+
+import numpy as np
+import xarray as xr
 
 
 def get_git_url_hash():
@@ -41,7 +42,7 @@ def _pick_first_element_of_missing_dims(mask: xr.DataArray, data: xr.DataArray):
 
 
 def apply_mask(ds: xr.Dataset, mask: xr.DataArray):
-    """applies mask to same and lower dimensional data"""
+    """Applies mask to same and lower dimensional data"""
     ds_out = xr.Dataset(attrs=ds.attrs)
     for var in ds.data_vars:
         data = ds[var]
@@ -84,7 +85,8 @@ def _find_index_for_true(da_bool: xr.DataArray, check_dims):
 
 def ensure_nan_consistency(ds: xr.Dataset, name="None"):
     """Test the consistency of nan values in the dataset across variables and time
-    (compared to a reference at time=0)."""
+    (compared to a reference at time=0).
+    """
     ds = ds.to_array()
     ref = ds.isel(time=0)
     # # make sure the ref data has nans in the same places for all variables

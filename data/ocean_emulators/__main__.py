@@ -10,12 +10,12 @@ os.environ["BLOSC_NOLOCK"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["BLOSC_TRACE"] = "1"
 
-import sys
 import datetime
+import logging
+import sys
+import warnings
 from typing import Literal
 
-import warnings
-import logging
 import fire
 import fsspec
 import xarray as xr
@@ -23,11 +23,11 @@ import xarray as xr
 from ocean_emulators.dataset_validation import ds_processed_validate
 from ocean_emulators.plotting import rotated_vectors_qc_plots
 from ocean_emulators.preprocessing import (
+    account_for_partial_depths,
+    flatten_by_depth_level,
+    horizontal_regrid,
     rotate_vectors,
     spatially_filter,
-    horizontal_regrid,
-    flatten_by_depth_level,
-    account_for_partial_depths,
 )
 from ocean_emulators.simulation_preprocessing.gfdl_om4 import om4_preprocessing
 from ocean_emulators.utils import get_git_url_hash
@@ -302,7 +302,6 @@ class CLI:
                 this value will be used instead of the scale inferred from the target grid name.
                 By default (None), the scale is automatically estimated from the target grid basename.
         """
-
         logger.info("preprocessing.")
         ds_processed = om4_preprocessing(
             zarr_data_path, native_grid_path, nc_mosaic_path

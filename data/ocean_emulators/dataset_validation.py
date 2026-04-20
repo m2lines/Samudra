@@ -1,14 +1,16 @@
+import warnings
+
+import xarray as xr
+
 from ocean_emulators.schema import (
-    ds_processed_coords_schema,
-    ds_processed_schema,
     ds_input_coords_schema,
     ds_input_schema,
     ds_prediction_coords_schema,
     ds_prediction_schema,
+    ds_processed_coords_schema,
+    ds_processed_schema,
 )
-from ocean_emulators.utils import split_2d_3d, ensure_nan_consistency
-import xarray as xr
-import warnings
+from ocean_emulators.utils import ensure_nan_consistency, split_2d_3d
 
 
 def _nan_test_deep(ds_input: xr.Dataset):
@@ -35,7 +37,8 @@ def ds_processed_validate(ds_processed: xr.Dataset, deep=False):
 ### For input datasets (with generic steps like regridding, filtering, etc applied) ###
 def ds_input_validate(ds_input: xr.Dataset, deep=False):
     """Test function to assert the format of the input dataset.
-    If `deep` is True, this will run expensive compuation across the entire dataset."""
+    If `deep` is True, this will run expensive compuation across the entire dataset.
+    """
     ds_input_schema.validate(ds_input)
     ds_input_coords_schema.validate(ds_input.coords)
     # ds_input_attrs_schema.validate(ds_input.attrs) # this does not work as I want, replace with manual check for now

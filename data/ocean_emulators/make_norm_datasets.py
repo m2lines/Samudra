@@ -2,9 +2,10 @@
 """A quick utility script to create *_means.zarr and *_stds.zarr from a dataset."""
 
 import os
+import sys
+
 import fsspec
 import xarray as xr
-import sys
 from dask.distributed import LocalCluster
 
 if __name__ == "__main__":
@@ -48,9 +49,9 @@ if __name__ == "__main__":
         # Extract depth level from variable name if it exists (e.g., "so_0" -> 0)
         if "_" in var:
             parts = var.rsplit("_", 1)
-            assert parts[
-                1
-            ].isdigit(), f"{var=} is unexpected; must be follow format `[var]_[digit]`."
+            assert parts[1].isdigit(), (
+                f"{var=} is unexpected; must be follow format `[var]_[digit]`."
+            )
             level = int(parts[1])
             mask_name = f"mask_{level}"
 

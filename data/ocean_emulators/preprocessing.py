@@ -2,14 +2,14 @@
 
 import logging
 
-from xgcm import Grid
-import xarray as xr
-import numpy as np
 import cf_xarray
+import gcm_filters
+import numpy as np
+import xarray as xr
+from xgcm import Grid
 
 from ocean_emulators.schema import vars_3d
 from ocean_emulators.utils import split_2d_3d
-import gcm_filters
 
 try:
     import xesmf as xe  # type: ignore
@@ -116,7 +116,7 @@ def manual_v0_fixes(ds_input: xr.Dataset) -> xr.Dataset:
 #################### CMIP specific Code ###########################
 def infer_vertical_cell_extent(ds: xr.Dataset, dz_name: str = "dz") -> xr.Dataset:
     """
-    recomputes z* vertical cell extent according to
+    Recomputes z* vertical cell extent according to
 
     thkcello is the nominal cell thickness in z* coordinates. The model actual thkcello is time-dependent and can be calculated as thkcello * ( deptho + zos ) / deptho
     """
@@ -124,7 +124,7 @@ def infer_vertical_cell_extent(ds: xr.Dataset, dz_name: str = "dz") -> xr.Datase
 
     if not all(v in ds.variables for v in required_vars):
         raise ValueError(
-            f"Could not find {set(required_vars)-set(ds.variables)} in datasset coords. Found {list(ds.coords)}"
+            f"Could not find {set(required_vars) - set(ds.variables)} in datasset coords. Found {list(ds.coords)}"
         )
 
     ds = ds.assign_coords({dz_name: ds.thkcello * (ds.deptho + ds.zos) / ds.deptho})
@@ -152,7 +152,7 @@ def cmip_vertical_outer_grid(ds: xr.Dataset) -> xr.Dataset:
 
 ##################### General Code #################
 def rotate_vectors(u, v, angle):
-    """rotates vector components u and v using `angle`
+    """Rotates vector components u and v using `angle`
     (assumed to be defined in deg, and in the CCW direction)
     Currently only works when all components are on the same grid position
     """
@@ -377,9 +377,9 @@ def flatten_by_depth_level(ds: xr.Dataset) -> xr.Dataset:
                 ds[f"{var}_{i}"].attrs["long_name"] = long_name + f" level-{i}"
 
         # Also flatten wetmask if it has a lev dimension
-        assert (
-            "wetmask" in ds.coords and "lev" in ds["wetmask"].dims
-        ), "Input dataset does not have expected wetmask structure (equipped with a 'lev' dimension)."
+        assert "wetmask" in ds.coords and "lev" in ds["wetmask"].dims, (
+            "Input dataset does not have expected wetmask structure (equipped with a 'lev' dimension)."
+        )
         ds[f"mask_{i}"] = ds["wetmask"].isel({"lev": i})
         ds[f"mask_{i}"].attrs["long_name"] = f"ocean mask level-{i}"
         ds[f"mask_{i}"].attrs["units"] = "0 if land, 1 if ocean"

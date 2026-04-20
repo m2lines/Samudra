@@ -1,7 +1,7 @@
+import fsspec
 import numpy as np
 import xarray as xr
 from xgcm import Grid
-import fsspec
 
 from .gfdl_om4 import om4_preprocessing
 from .interpolate import interpolate_to_cell_centers

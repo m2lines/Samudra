@@ -385,6 +385,9 @@ class AxialAttention(nn.Module):
 
     - height attention gets a ``(1, C, H, 1)`` embedding
     - width attention gets a ``(1, C, 1, W)`` embedding
+
+    It also applies per-head LayerNorm to Q and K after projection to reduce
+    logit scale drift and attention sink collapse.
     """
 
     def __init__(
@@ -407,6 +410,8 @@ class AxialAttention(nn.Module):
         self.positional_embedding = positional_embedding
 
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
+        self.q_norm = nn.LayerNorm(self.head_dim)
+        self.k_norm = nn.LayerNorm(self.head_dim)
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
 
@@ -414,6 +419,7 @@ class AxialAttention(nn.Module):
         # ``self.last_attn_weights`` for visualization / debugging.
         self.capture_weights = False
         self.last_attn_weights: torch.Tensor | None = None
+        self.last_attn_entropy: torch.Tensor | None = None
 
     def forward(
         self,
@@ -454,6 +460,8 @@ class AxialAttention(nn.Module):
             qkv, "batch seq three heads head_dim -> three batch heads seq head_dim"
         )
         q, k, v = qkv.unbind(0)
+        q = self.q_norm(q)
+        k = self.k_norm(k)
 
         # Use scaled_dot_product_attention (supports flash / memory-efficient kernels)
         out = torch.nn.functional.scaled_dot_product_attention(
@@ -469,14 +477,21 @@ class AxialAttention(nn.Module):
             scale = self.head_dim**-0.5
             attn_weights = (q @ k.transpose(-2, -1)) * scale
             attn_weights = attn_weights.softmax(dim=-1)
+            # Clamp before log to avoid NaNs from zero-probability attention entries.
+            attn_entropy = -(attn_weights * attn_weights.clamp_min(1e-12).log()).sum(
+                dim=-1
+            )
             # Average over heads: (batch_size, seq, seq)
             attn_avg = attn_weights.mean(dim=1).detach().cpu()
+            entropy_avg = attn_entropy.mean(dim=1).detach().cpu()
             if self.axis == "height":
                 # Reshape back to (B, W, H, H) then average over batch and W
                 self.last_attn_weights = attn_avg.reshape(B, W, H, H).mean(dim=(0, 1))
+                self.last_attn_entropy = entropy_avg.reshape(B, W, H).mean(dim=(0, 1))
             else:
                 # Reshape back to (B, H, W, W) then average over batch and H
                 self.last_attn_weights = attn_avg.reshape(B, H, W, W).mean(dim=(0, 1))
+                self.last_attn_entropy = entropy_avg.reshape(B, H, W).mean(dim=(0, 1))
 
         out = rearrange(out, "batch heads seq head_dim -> batch seq (heads head_dim)")
         out = self.proj(out)
@@ -595,6 +610,7 @@ class FullAttention(nn.Module):
 
         self.capture_weights = False
         self.last_attn_weights: torch.Tensor | None = None
+        self.last_attn_entropy: torch.Tensor | None = None
         self.last_spatial_shape: tuple[int, int] | None = None
 
     def forward(
@@ -634,8 +650,12 @@ class FullAttention(nn.Module):
             scale = self.head_dim**-0.5
             attn_weights = (q @ k.transpose(-2, -1)) * scale
             attn_weights = attn_weights.softmax(dim=-1)
+            attn_entropy = -(attn_weights * attn_weights.clamp_min(1e-12).log()).sum(
+                dim=-1
+            )
             # Average over heads and batch: (H*W, H*W)
             self.last_attn_weights = attn_weights.mean(dim=1).mean(dim=0).detach().cpu()
+            self.last_attn_entropy = attn_entropy.mean(dim=1).mean(dim=0).detach().cpu()
             self.last_spatial_shape = (H, W)
 
         out = rearrange(out, "batch heads seq head_dim -> batch seq (heads head_dim)")

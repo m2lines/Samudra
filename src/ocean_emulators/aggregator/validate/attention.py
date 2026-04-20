@@ -8,6 +8,7 @@ import torch
 import torch.nn as nn
 
 from ocean_emulators.aggregator.plotting import (
+    plot_attention_entropy_map,
     plot_attention_map,
     plot_attention_receptive_field,
     plot_full_attention_receptive_field,
@@ -21,6 +22,12 @@ from ocean_emulators.models.modules.blocks import (
 )
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 from ocean_emulators.utils.wandb import Metrics, MetricsDict
+
+
+def _normalized_entropy(entropy: np.ndarray, support_size: int) -> np.ndarray:
+    if support_size <= 1:
+        return np.zeros_like(entropy, dtype=np.float32)
+    return entropy / np.log(support_size)
 
 
 def _get_unet_backbone(model: nn.Module) -> UNetBackbone | None:
@@ -150,6 +157,14 @@ class AttentionAggregator(ValidateSubAggregator):
         for name, (height_weights, width_weights) in self._axial_captures.items():
             height_np = height_weights.float().numpy()
             width_np = width_weights.float().numpy()
+            height_entropy = -np.sum(
+                height_np * np.log(np.clip(height_np, 1e-12, None)), axis=-1
+            )
+            width_entropy = -np.sum(
+                width_np * np.log(np.clip(width_np, 1e-12, None)), axis=-1
+            )
+            height_entropy_norm = _normalized_entropy(height_entropy, height_np.shape[-1])
+            width_entropy_norm = _normalized_entropy(width_entropy, width_np.shape[-1])
             query_lat = (
                 self._query_lat
                 if self._query_lat is not None
@@ -171,6 +186,14 @@ class AttentionAggregator(ValidateSubAggregator):
                 axis="width",
                 caption="Width-axis attention (avg over heads, batch, height)",
             )
+            logs[f"{label}/{name}/height_entropy"] = float(height_entropy.mean())
+            logs[f"{label}/{name}/height_entropy_normalized"] = float(
+                height_entropy_norm.mean()
+            )
+            logs[f"{label}/{name}/width_entropy"] = float(width_entropy.mean())
+            logs[f"{label}/{name}/width_entropy_normalized"] = float(
+                width_entropy_norm.mean()
+            )
             logs[f"{label}/{name}/receptive_field"] = plot_attention_receptive_field(
                 height_np,
                 width_np,
@@ -183,6 +206,8 @@ class AttentionAggregator(ValidateSubAggregator):
 
         for name, (weights, spatial_shape) in self._full_captures.items():
             weights_np = weights.float().numpy()
+            entropy = -np.sum(weights_np * np.log(np.clip(weights_np, 1e-12, None)), axis=-1)
+            entropy_norm = _normalized_entropy(entropy, weights_np.shape[-1])
             height, width = spatial_shape
             query_lat = self._query_lat if self._query_lat is not None else height // 2
             query_lon = self._query_lon if self._query_lon is not None else width // 2
@@ -193,6 +218,13 @@ class AttentionAggregator(ValidateSubAggregator):
                 weights_np,
                 axis="full",
                 caption="Full attention (avg over heads and batch)",
+            )
+            logs[f"{label}/{name}/entropy"] = float(entropy.mean())
+            logs[f"{label}/{name}/entropy_normalized"] = float(entropy_norm.mean())
+            logs[f"{label}/{name}/entropy_map"] = plot_attention_entropy_map(
+                entropy,
+                grid_shape=spatial_shape,
+                caption=f"Per-query attention entropy at {name}",
             )
             logs[f"{label}/{name}/receptive_field"] = (
                 plot_full_attention_receptive_field(

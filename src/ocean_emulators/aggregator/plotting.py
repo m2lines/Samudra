@@ -137,7 +137,7 @@ def _stitch_data_panels(data: list[list[np.ndarray]], fill_value) -> np.ndarray:
     return stitched_data
 
 
-def _downsample_for_display(data: np.ndarray, max_size: int = 256) -> np.ndarray:
+def _downsample_for_display(data: np.ndarray, max_size: int = 512) -> np.ndarray:
     """Average-pool a 2D array for display if it is too large."""
     height, width = data.shape
     if height <= max_size and width <= max_size:
@@ -256,6 +256,41 @@ def plot_full_attention_receptive_field(
     ax.set_xlabel("Longitude index")
     ax.set_ylabel("Latitude index")
     ax.set_title(f"Full-attention receptive field at ({query_lat}, {query_lon})")
+    fig.tight_layout()
+
+    image = wandb_logger.Image(fig, caption=caption)
+    plt.close(fig)
+    gc.collect()
+    return image
+
+
+def plot_attention_entropy_map(
+    entropy: np.ndarray,
+    grid_shape: tuple[int, int] | None = None,
+    caption: str | None = None,
+) -> WBValue:
+    """Plot per-query attention entropy as a heatmap.
+
+    Args:
+        entropy: Per-query attention entropy. Either a 1D vector or a 2D map.
+        grid_shape: Optional shape used to reshape 1D entropy into a 2D map.
+        caption: Optional caption for the W&B image.
+    """
+    entropy_map = entropy
+    if entropy.ndim == 1:
+        if grid_shape is None:
+            entropy_map = entropy[np.newaxis, :]
+        else:
+            entropy_map = entropy.reshape(grid_shape)
+
+    wandb_logger = WandBLogger.get_instance()
+    fig = Figure(figsize=(8, 4))
+    ax = fig.add_subplot(111)
+    im = ax.imshow(entropy_map, cmap="magma", aspect="auto", origin="lower")
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    ax.set_xlabel("Query index" if entropy_map.shape[0] == 1 else "Longitude index")
+    ax.set_ylabel("Entropy" if entropy_map.shape[0] == 1 else "Latitude index")
+    ax.set_title("Attention entropy")
     fig.tight_layout()
 
     image = wandb_logger.Image(fig, caption=caption)

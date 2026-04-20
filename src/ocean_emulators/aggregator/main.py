@@ -5,10 +5,12 @@ See the original repository at: https://github.com/ai2cm/ace/tree/39133c18524cda
 """
 
 import torch
+import torch.nn as nn
 
 from ocean_emulators.aggregator.inference import InferenceEvaluatorAggregator
 from ocean_emulators.aggregator.train import TrainAggregator
 from ocean_emulators.aggregator.validate import ValidateAggregator
+from ocean_emulators.aggregator.validate.attention import AttentionAggregator
 from ocean_emulators.aggregator.validate.map import MapAggregator
 from ocean_emulators.aggregator.validate.reduced import MeanAggregator
 from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
@@ -28,6 +30,7 @@ class Aggregator:
         num_prognostic_channels: int,
         *,
         include_image_aggregators: bool = True,
+        model: nn.Module,
     ) -> ValidateAggregator:
         val_aggregators: dict[str, ValidateSubAggregator] = {
             "reduced": MeanAggregator(area_weights, hist),
@@ -37,6 +40,7 @@ class Aggregator:
                 {
                     "snapshot": SnapshotAggregator(metadata, hist),
                     "mean_map": MapAggregator(metadata, hist),
+                    "attention": AttentionAggregator(model),
                 }
             )
 

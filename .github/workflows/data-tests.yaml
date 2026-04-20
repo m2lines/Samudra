@@ -1,4 +1,4 @@
-name: Run Unit Tests
+name: Data Tests
 
 on:
   push:
@@ -7,8 +7,6 @@ on:
   pull_request:
     branches:
       - "*"
-  schedule:
-    - cron: "0 13 * * 1"
 
 jobs:
   build:
@@ -44,4 +42,5 @@ jobs:
       - name: 🏄‍♂️ Run Tests
         shell: bash -l {0}
         run: |
+          cd data/
           pytest tests -v

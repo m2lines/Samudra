@@ -163,7 +163,9 @@ class AttentionAggregator(ValidateSubAggregator):
             width_entropy = -np.sum(
                 width_np * np.log(np.clip(width_np, 1e-12, None)), axis=-1
             )
-            height_entropy_norm = _normalized_entropy(height_entropy, height_np.shape[-1])
+            height_entropy_norm = _normalized_entropy(
+                height_entropy, height_np.shape[-1]
+            )
             width_entropy_norm = _normalized_entropy(width_entropy, width_np.shape[-1])
             query_lat = (
                 self._query_lat
@@ -206,7 +208,9 @@ class AttentionAggregator(ValidateSubAggregator):
 
         for name, (weights, spatial_shape) in self._full_captures.items():
             weights_np = weights.float().numpy()
-            entropy = -np.sum(weights_np * np.log(np.clip(weights_np, 1e-12, None)), axis=-1)
+            entropy = -np.sum(
+                weights_np * np.log(np.clip(weights_np, 1e-12, None)), axis=-1
+            )
             entropy_norm = _normalized_entropy(entropy, weights_np.shape[-1])
             height, width = spatial_shape
             query_lat = self._query_lat if self._query_lat is not None else height // 2

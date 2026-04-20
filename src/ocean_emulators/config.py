@@ -23,12 +23,14 @@ from ocean_emulators.models import FOMO, FOMini, Samudra
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import (
     AvgPool,
+    AxialAttentionBlock,
     BilinearUpsample,
     CappedGELU,
     ConvBlock,
     ConvNeXtBlock,
     CoreBlock,
     CoreBlockBuilder,
+    FullAttentionBlock,
     MaxPool,
     PerceiverDecoder,
     PerceiverEncoder,
@@ -283,6 +285,90 @@ class DataConfig(BaseConfig):
 BlockType = Literal["conv_next_block", "conv_block"]
 ActivationType = Literal["relu", "gelu", "capped_gelu"]
 NormType = Literal["batch", "instance", "layer"]
+AttentionType = Literal["axial", "full"]
+BottleneckBlockType = Literal["attention"]
+
+
+class AttentionBlockConfig(BaseConfig):
+    """Configuration for a single attention block in the U-Net."""
+
+    attention_type: AttentionType = Field(
+        default="full",
+        description="Attention implementation to use at this stage.",
+    )
+
+    num_heads: int = Field(
+        default=8,
+        description="Number of attention heads. Must divide the stage channel width evenly.",
+    )
+    attn_drop: float = Field(
+        default=0.0,
+        description="Dropout rate applied to attention weights.",
+    )
+    proj_drop: float = Field(
+        default=0.0,
+        description="Dropout rate applied to the output projection.",
+    )
+
+    def build(self, channels: int) -> nn.Module:
+        assert channels % self.num_heads == 0, (
+            f"channels {channels} must be divisible by num_heads {self.num_heads}"
+        )
+        if self.attention_type == "axial":
+            return AxialAttentionBlock(
+                channels=channels,
+                num_heads=self.num_heads,
+                attn_drop=self.attn_drop,
+                proj_drop=self.proj_drop,
+            )
+        if self.attention_type == "full":
+            return FullAttentionBlock(
+                channels=channels,
+                num_heads=self.num_heads,
+                attn_drop=self.attn_drop,
+                proj_drop=self.proj_drop,
+            )
+        assert_never(self.attention_type)
+
+
+class BottleneckBlockConfig(BaseConfig):
+    # TODO: Add Transformer and MaxVIT style bottlenecks as options here as well
+    block_type: BottleneckBlockType = Field(
+        default="attention",
+        description="Bottleneck block family to insert between the U-Net middle block and decoder.",
+    )
+    attention: AttentionBlockConfig | None = Field(
+        default=None,
+        description="Attention bottleneck settings used when `block_type` is `attention`.",
+    )
+
+    def build(self, channels: int) -> nn.Module:
+        if self.block_type == "attention":
+            attention_config = self.attention
+            if attention_config is None:
+                raise ValueError(
+                    "`attention.bottleneck.attention` must be set when "
+                    "`attention.bottleneck.block_type` is `attention`."
+                )
+            return attention_config.build(channels)
+        assert_never(self.block_type)
+
+
+class UNetAttentionConfig(BaseConfig):
+    """Optional attention blocks to insert after U-Net core blocks."""
+
+    encoder: list[AttentionBlockConfig | None] | None = Field(
+        default=None,
+        description="Optional attention blocks after encoder core blocks, one entry per value in ch_width.",
+    )
+    bottleneck: BottleneckBlockConfig | None = Field(
+        default=None,
+        description="Optional bottleneck block after the bottleneck core block.",
+    )
+    decoder: list[AttentionBlockConfig | None] | None = Field(
+        default=None,
+        description="Optional attention blocks after decoder core blocks, one entry per value in ch_width.",
+    )
 
 
 class BlockConfig(BaseConfig):
@@ -590,6 +676,10 @@ class UNetBackboneConfig(BaseConfig):
     core_block: BlockConfig = BlockConfig()
     down_sampling_block: DownSamplingBlocks = "avg_pool"
     up_sampling_block: UpSamplingBlocks = "zonally_periodic_upsample"
+    attention: UNetAttentionConfig | None = Field(
+        default=None,
+        description="Optional attention blocks to insert after encoder, bottleneck, and decoder core blocks.",
+    )
 
     def build(
         self,
@@ -600,6 +690,25 @@ class UNetBackboneConfig(BaseConfig):
         assert len(self.ch_width) == len(self.dilation) == len(self.n_layers), (
             "`ch_width`, `dilation`, and `n_layers` must have the same length."
         )
+
+        encoder_attention_configs: list[AttentionBlockConfig | None] | None = None
+        decoder_attention_configs: list[AttentionBlockConfig | None] | None = None
+        bottleneck_config: BottleneckBlockConfig | None = None
+
+        if self.attention is not None:
+            encoder_attention_configs = self.attention.encoder
+            decoder_attention_configs = self.attention.decoder
+
+            bottleneck_config = self.attention.bottleneck
+
+            if encoder_attention_configs is not None:
+                assert len(encoder_attention_configs) == len(self.ch_width), (
+                    "`attention.encoder` must have the same length as `ch_width`."
+                )
+            if decoder_attention_configs is not None:
+                assert len(decoder_attention_configs) == len(self.ch_width), (
+                    "`attention.decoder` must have the same length as `ch_width`."
+                )
 
         def create_upsampling_block(in_channels: int, out_channels: int):
             match self.up_sampling_block:
@@ -624,6 +733,37 @@ class UNetBackboneConfig(BaseConfig):
             case _:
                 assert_never(self.down_sampling_block)
 
+        encoder_attention_blocks: list[nn.Module | None] | None = None
+        if encoder_attention_configs is not None:
+            encoder_attention_blocks = []
+            for cfg, channels in zip(
+                encoder_attention_configs, self.ch_width, strict=True
+            ):
+                if cfg is None:
+                    encoder_attention_blocks.append(None)
+                else:
+                    encoder_attention_blocks.append(cfg.build(channels))
+
+        bottleneck_block = (
+            bottleneck_config.build(self.ch_width[-1])
+            if bottleneck_config is not None
+            else None
+        )
+        decoder_attention_blocks: list[nn.Module | None] | None = None
+        if decoder_attention_configs is not None:
+            # Skip the bottleneck width and repeat the final decoder width (as done in core blocks)
+            decoder_attention_channels = self.ch_width[-2::-1] + [self.ch_width[0]]
+            decoder_attention_blocks = []
+            for cfg, channels in zip(
+                decoder_attention_configs,
+                decoder_attention_channels,
+                strict=True,
+            ):
+                if cfg is None:
+                    decoder_attention_blocks.append(None)
+                else:
+                    decoder_attention_blocks.append(cfg.build(channels))
+
         return UNetBackbone(
             in_channels=in_channels,
             ch_width=self.ch_width,
@@ -634,6 +774,9 @@ class UNetBackboneConfig(BaseConfig):
             downsampling_block=downsampling_block,
             create_upsampling_block=create_upsampling_block,
             checkpointing=checkpointing,
+            encoder_attention_blocks=encoder_attention_blocks,
+            bottleneck_block=bottleneck_block,
+            decoder_attention_blocks=decoder_attention_blocks,
         )
 
 

@@ -134,13 +134,20 @@ jobs:
         id: resolve
         env:
           AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
-          ARM_UBUNTU_SSM_PARAMETER: /aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id
+          CANONICAL_OWNER_ID: "099720109477"
+          ARM_UBUNTU_NAME_FILTER: ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-arm64-server-*
         run: |
           set -euo pipefail
-          ami_id="$(aws ssm get-parameter \
+          ami_id="$(aws ec2 describe-images \
             --region "${AWS_REGION}" \
-            --name "${ARM_UBUNTU_SSM_PARAMETER}" \
-            --query 'Parameter.Value' \
+            --owners "${CANONICAL_OWNER_ID}" \
+            --filters \
+              "Name=name,Values=${ARM_UBUNTU_NAME_FILTER}" \
+              "Name=architecture,Values=arm64" \
+              "Name=virtualization-type,Values=hvm" \
+              "Name=root-device-type,Values=ebs" \
+              "Name=state,Values=available" \
+            --query 'reverse(sort_by(Images, &CreationDate))[:1].ImageId' \
             --output text)"
           echo "ami_id=${ami_id}" >> "${GITHUB_OUTPUT}"
           echo "aws_region=${AWS_REGION}" >> "${GITHUB_OUTPUT}"

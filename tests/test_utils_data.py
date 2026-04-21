@@ -263,7 +263,7 @@ def test_data_source_normalize_with_preserves_dtype_and_device():
     means = xr.Dataset({"var_0": 1.0, "var_1": 2.0})
     stds = xr.Dataset({"var_0": 0.5, "var_1": 2.0})
     source = DataSource(
-        "test", data, means, stds, masks=masks, dataset_spec=OM4_DATASET_SPEC
+        "test", data, means, stds, masks=masks, dataset_spec=TEST_DATASET_SPEC
     )
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

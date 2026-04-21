@@ -8,7 +8,6 @@ import xarray as xr
 from torch.utils.data import DataLoader
 
 import ocean_emulators.datasets as datasets_mod
-from ocean_emulators.constants import OM4_DATASET_SPEC
 from ocean_emulators.datasets import (
     InferenceDataset,
     TorchTrainDataset,
@@ -19,6 +18,7 @@ from ocean_emulators.datasets import (
 from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
 from ocean_emulators.utils.train import collate_raw_train_data
+from tests.conftest import TEST_DATASET_SPEC
 
 
 def test_dataarray_to_torch_float32_handles_dask_arrays():
@@ -183,7 +183,7 @@ def tiny_dataset_input():
         data_mean,
         data_std,
         masks=masks,
-        dataset_spec=OM4_DATASET_SPEC,
+        dataset_spec=TEST_DATASET_SPEC,
     )
 
     with MultitonScope():

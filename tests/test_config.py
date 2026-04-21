@@ -307,8 +307,8 @@ def test_llc_train_config_uses_group_norm_and_temporal_stride(tmp_path):
     assert cfg.data.dataset.type == "llc"
     assert isinstance(cfg.model, SamudraConfig)
     assert cfg.temporal_stride == 24
-    assert cfg.experiment.prognostic_vars_key == "single_1"
-    assert cfg.experiment.boundary_vars_key == "single_1"
+    assert cfg.data.dataset.prognostic_vars_key == "single_1"
+    assert cfg.data.dataset.boundary_vars_key == "single_1"
     assert cfg.model.unet.core_block.norm == "group"
     assert cfg.model.unet.core_block.group_norm_groups == 32
 

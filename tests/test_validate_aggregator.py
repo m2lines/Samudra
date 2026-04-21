@@ -52,7 +52,7 @@ def val_batch_of(
 
 
 def tensor_map_for(src: DataSource) -> TensorMap:
-    return TensorMap("thetao_1", "hfds", dataset_spec=src.dataset_spec)
+    return TensorMap(dataset_spec=src.dataset_spec)
 
 
 def normalize_for(src: DataSource, tensor_map: TensorMap) -> Normalize:

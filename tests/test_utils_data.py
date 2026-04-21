@@ -6,7 +6,7 @@ import torch
 import xarray as xr
 from scipy.stats import pearsonr
 
-from ocean_emulators.constants import OM4_DATASET_SPEC, TensorMap
+from ocean_emulators.constants import TensorMap
 from ocean_emulators.utils.data import (
     DataSource,
     Masks,
@@ -18,13 +18,14 @@ from ocean_emulators.utils.data import (
     unflatten_masks,
     with_level_index_vars,
 )
+from tests.conftest import TEST_DATASET_SPEC
 
 
 def test_mask_roundtrip(data_source):
     data = data_source.data
 
-    unflattened = unflatten_masks(data.copy(), dataset_spec=OM4_DATASET_SPEC)
-    flattened = flatten_masks(unflattened.copy(), dataset_spec=OM4_DATASET_SPEC)
+    unflattened = unflatten_masks(data.copy(), dataset_spec=TEST_DATASET_SPEC)
+    flattened = flatten_masks(unflattened.copy(), dataset_spec=TEST_DATASET_SPEC)
 
     assert flattened == data, "Assume a safe roundtrip"
 
@@ -48,7 +49,7 @@ def test_rename_vars():
     )
 
     # Apply rename_vars
-    renamed_ds = with_level_index_vars(ds, dataset_spec=OM4_DATASET_SPEC)
+    renamed_ds = with_level_index_vars(ds, dataset_spec=TEST_DATASET_SPEC)
 
     # Test that variables are renamed correctly
     assert "so_11" in renamed_ds.variables  # 1040.0 is OM4 depth index 11
@@ -85,7 +86,7 @@ def test_rename_vars_invalid_depth():
 
     # Should raise ValueError because 9999.0 is not an OM4 depth level
     with pytest.raises(ValueError):
-        with_level_index_vars(ds, dataset_spec=OM4_DATASET_SPEC)
+        with_level_index_vars(ds, dataset_spec=TEST_DATASET_SPEC)
 
 
 def test_compute_anomalies():
@@ -160,7 +161,7 @@ def normalize_input():
         data_mean,
         data_std,
         masks=masks,
-        dataset_spec=OM4_DATASET_SPEC,
+        dataset_spec=TEST_DATASET_SPEC,
     )
 
     normalize = Normalize(
@@ -197,7 +198,7 @@ def data_init(hist: int):
     lons = 3
     total_time_steps = 100
 
-    tensor_map = TensorMap("thetao_1", "hfds", dataset_spec=OM4_DATASET_SPEC)
+    tensor_map = TensorMap(dataset_spec=TEST_DATASET_SPEC)
 
     wet_mask_ = np.array([[1, 0, 1], [0, 1, 0], [1, 0, 1]])
     wet_full = np.tile(wet_mask_, (total_time_steps, levels, 1, 1))
@@ -233,7 +234,7 @@ def data_init(hist: int):
         },
         coords={
             "time": np.arange(total_time_steps),
-            "lev": list(OM4_DATASET_SPEC.depth_levels),
+            "lev": list(TEST_DATASET_SPEC.depth_levels),
             "lat": np.arange(lats),
             "lon": np.arange(lons),
         },
@@ -244,7 +245,7 @@ def data_init(hist: int):
         data,
         data_mean,
         data_std,
-        dataset_spec=OM4_DATASET_SPEC,
+        dataset_spec=TEST_DATASET_SPEC,
         name="test",
         prognostic_var_names=tensor_map.prognostic_var_names,
         boundary_var_names=tensor_map.boundary_var_names,

@@ -26,6 +26,14 @@ REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
 DEFAULT_CONFIG = "test/train_default.yaml"
 FOMO_CONFIG = "test/train_fomo.yaml"
 ALL_CONFIGS = [DEFAULT_CONFIG, "test/train_default_2step.yaml", FOMO_CONFIG]
+TEST_DATASET_SPEC = c.build_om4_spec(
+    prognostic_vars_key="thetao_1",
+    boundary_vars_key="hfds",
+)
+TEST_FULL_DATASET_SPEC = c.build_om4_spec(
+    prognostic_vars_key="thermo_dynamic_all",
+    boundary_vars_key="tau_hfds_hfds_anom",
+)
 
 TrainPair = tuple[TrainConfig, Trainer]
 
@@ -184,9 +192,7 @@ class DataSourceDims:
         coords = {
             "lon": xr.DataArray(self.lng, dims=["lon"]),
             "lat": xr.DataArray(self.lat, dims=["lat"]),
-            "lev": xr.DataArray(
-                np.array(c.OM4_DATASET_SPEC.depth_levels), dims=["lev"]
-            ),
+            "lev": xr.DataArray(np.array(TEST_DATASET_SPEC.depth_levels), dims=["lev"]),
             "time": xr.DataArray(time, dims=["time"]),
         }
         return coords
@@ -327,14 +333,14 @@ def _uncached_data_source(name: str) -> DataSource:
             vars_3d = {
                 f"{var}_{lev}": dims.encode(len(vars_2d) + i + j * 10)
                 for i, var in enumerate(["so", "thetao", "uo", "vo"])
-                for j, lev in enumerate(c.OM4_DATASET_SPEC.depth_i_levels)
+                for j, lev in enumerate(TEST_DATASET_SPEC.depth_i_levels)
             }
             # Mask with a binary circle.
             masks = {
                 f"mask_{lev}": xr.DataArray(
                     np.where(normal > 0.5**lev, 1, 0), dims=["lat", "lon"]
                 )
-                for lev in range(len(c.OM4_DATASET_SPEC.depth_i_levels))
+                for lev in range(len(TEST_DATASET_SPEC.depth_i_levels))
             }
             ds = xr.Dataset(vars_2d | vars_3d | masks, coords=coords)
 
@@ -342,7 +348,7 @@ def _uncached_data_source(name: str) -> DataSource:
                 ds,
                 ds.mean(),
                 ds.std(),
-                dataset_spec=c.OM4_DATASET_SPEC,
+                dataset_spec=TEST_DATASET_SPEC,
                 name=name,
                 prognostic_var_names=list(vars_3d.keys()),
                 boundary_var_names=list(vars_2d.keys()),
@@ -383,7 +389,7 @@ def _uncached_data_source(name: str) -> DataSource:
             vars_3d = {
                 f"{var}_lev_{_fmtl(lev)}": dims.encode(len(vars_2d) + i + j * 10)
                 for i, var in enumerate(var_names_3d)
-                for j, lev in enumerate(c.OM4_DATASET_SPEC.depth_levels)
+                for j, lev in enumerate(TEST_DATASET_SPEC.depth_levels)
             }
 
             # zos is an edge case 3d var.
@@ -409,7 +415,7 @@ def _uncached_data_source(name: str) -> DataSource:
                 data=data,
                 means=means,
                 stds=stds,
-                dataset_spec=c.OM4_DATASET_SPEC,
+                dataset_spec=TEST_DATASET_SPEC,
                 name=name,
                 prognostic_var_names=prognostic_var_names,
                 boundary_var_names=boundary_var_names,
@@ -432,7 +438,7 @@ def _maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource |
         boundary_vars = [
             str(v)
             for v in data.data_vars
-            if v in c.OM4_DATASET_SPEC.boundary_vars["tau_hfds_hfds_anom"]
+            if v in TEST_FULL_DATASET_SPEC.boundary_var_names
         ]
 
         if _is_compact(data, means, stds):
@@ -458,7 +464,7 @@ def _maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource |
             data=data,
             means=means,
             stds=stds,
-            dataset_spec=c.OM4_DATASET_SPEC,
+            dataset_spec=TEST_DATASET_SPEC,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_vars,
         )
@@ -585,6 +591,6 @@ def dummy_src():
         means=data.mean(dim=["lat", "lon"]),
         stds=data.std(dim=["lat", "lon"]),
         masks=masks,
-        dataset_spec=c.OM4_DATASET_SPEC,
+        dataset_spec=TEST_DATASET_SPEC,
     )
     yield src

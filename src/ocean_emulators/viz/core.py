@@ -27,7 +27,7 @@ from matplotlib import colors
 from matplotlib.ticker import FixedLocator, MaxNLocator, ScalarFormatter
 from tqdm.auto import tqdm
 
-from ocean_emulators.constants import OM4_DATASET_SPEC, DatasetSpec
+from ocean_emulators.constants import DatasetSpec, build_om4_spec
 from ocean_emulators.utils.data import (
     spherical_area,
     spherical_area_weights,
@@ -120,7 +120,7 @@ class Viz:
 
         key1 = runs[0].name
         # TODO: Support non-OM4 dataset specs in visualization.
-        self.dataset_spec = OM4_DATASET_SPEC
+        self.dataset_spec = build_om4_spec()
         levels = len(self.dataset_spec.depth_levels)
 
         groundtruth_rollout = groundtruth_rollout.sel(time=time_range)

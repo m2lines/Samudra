@@ -38,10 +38,12 @@ experiment:
     project: ocean-emulators
     entity: m2lines
     group: samudra-train-om4
-  prognostic_vars_key: thermo_dynamic_5
-  boundary_vars_key: tau_hfds
   data_root: .data_cache/
 data:
+  dataset:
+    type: om4
+    prognostic_vars_key: thermo_dynamic_5
+    boundary_vars_key: tau_hfds
   sources:
     - data_location: data.zarr
       data_means_location: means.nc

@@ -19,7 +19,7 @@ from numpy.typing import NDArray
 from torch.utils.data import ConcatDataset, DataLoader
 
 from ocean_emulators.config import TimeConfig, TrainConfig, TrainSchedule
-from ocean_emulators.constants import OM4_DATASET_SPEC, LoaderVersion
+from ocean_emulators.constants import LoaderVersion
 from ocean_emulators.datasets import (
     InferenceDataset,
     TorchTrainDataset,
@@ -30,7 +30,13 @@ from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
 from ocean_emulators.utils.samplers import EquivalenceGroupBatchSampler
 from ocean_emulators.utils.train import collate_raw_train_data
-from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair, cache_dir
+from tests.conftest import (
+    DEFAULT_CONFIG,
+    TEST_DATASET_SPEC,
+    DataSourceDims,
+    TrainPair,
+    cache_dir,
+)
 
 
 @pytest.fixture
@@ -76,19 +82,17 @@ def make_loader(
     if time_config is None:
         time_config = cfg.train_time
 
-    prognostic = OM4_DATASET_SPEC.prognostic_vars[cfg.experiment.prognostic_vars_key]
-    boundary = OM4_DATASET_SPEC.boundary_vars[cfg.experiment.boundary_vars_key]
-
     data_config = (
         cfg.data
         if version is None
         else cfg.data.model_copy(update={"loader_version": str(version.value)})
     )
+    dataset_spec = data_config.dataset.build_spec()
+    prognostic = dataset_spec.prognostic_var_names
+    boundary = dataset_spec.boundary_var_names
 
     container = data_config.build(
         cfg.experiment.resolved_data_root,
-        prognostic,
-        boundary,
     )
     version = container.loader_version
     src = container.primary_source
@@ -304,18 +308,15 @@ def test_loader__data_shape(
     train_config.data.hist = history
 
     with make_loader(train_config, version=loader_version) as loader:
-        exp = train_config.experiment
+        dataset_spec = train_config.data.dataset.build_spec()
         batch_size = train_config.batch_size
         num_input_timesteps = history + 1
 
         input_var_dim = (
-            len(OM4_DATASET_SPEC.prognostic_vars[exp.prognostic_vars_key])
-            + len(OM4_DATASET_SPEC.boundary_vars[exp.boundary_vars_key])
+            len(dataset_spec.prognostic_var_names)
+            + len(dataset_spec.boundary_var_names)
         ) * num_input_timesteps
-        output_var_dim = (
-            len(OM4_DATASET_SPEC.prognostic_vars[exp.prognostic_vars_key])
-            * num_input_timesteps
-        )
+        output_var_dim = len(dataset_spec.prognostic_var_names) * num_input_timesteps
 
         n_samples = calc_num_samples(
             train_config, train_config.train_time.time_slice, "standard"
@@ -358,18 +359,15 @@ def test_loader__data_shape__across_schedules(
     with make_loader(
         train_config, version=LoaderVersion.OM4_TORCH, schedule=schedule
     ) as loader:
-        exp = train_config.experiment
+        dataset_spec = train_config.data.dataset.build_spec()
         batch_size = train_config.batch_size
         num_input_timesteps = history + 1
 
         input_var_dim = (
-            len(OM4_DATASET_SPEC.prognostic_vars[exp.prognostic_vars_key])
-            + len(OM4_DATASET_SPEC.boundary_vars[exp.boundary_vars_key])
+            len(dataset_spec.prognostic_var_names)
+            + len(dataset_spec.boundary_var_names)
         ) * num_input_timesteps
-        output_var_dim = (
-            len(OM4_DATASET_SPEC.prognostic_vars[exp.prognostic_vars_key])
-            * num_input_timesteps
-        )
+        output_var_dim = len(dataset_spec.prognostic_var_names) * num_input_timesteps
 
         n_samples = calc_num_samples(
             train_config, train_config.train_time.time_slice, schedule
@@ -433,17 +431,14 @@ def test_loader__data_shape__across_schedules(
 def test_inference__data_shape(inference_loader_pair):
     cfg, loader = inference_loader_pair
 
-    exp = cfg.experiment
+    dataset_spec = cfg.data.dataset.build_spec()
     batch_size = 1  # Inference always uses batch size 1
     hist = cfg.data.hist + 1
 
     input_var_dim = (
-        len(OM4_DATASET_SPEC.prognostic_vars[exp.prognostic_vars_key])
-        + len(OM4_DATASET_SPEC.boundary_vars[exp.boundary_vars_key])
+        len(dataset_spec.prognostic_var_names) + len(dataset_spec.boundary_var_names)
     ) * hist
-    output_var_dim = (
-        len(OM4_DATASET_SPEC.prognostic_vars[exp.prognostic_vars_key]) * hist
-    )
+    output_var_dim = len(dataset_spec.prognostic_var_names) * hist
 
     samples = list(loader)
     assert len(samples) == 1, (
@@ -617,7 +612,7 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
         data_mean,
         data_std,
         masks=masks,
-        dataset_spec=OM4_DATASET_SPEC,
+        dataset_spec=TEST_DATASET_SPEC,
     )
 
     with MultitonScope():

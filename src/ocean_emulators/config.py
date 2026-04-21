@@ -14,13 +14,12 @@ from torch.nn import GELU
 
 from ocean_emulators.config_base import BaseConfig, TopLevelConfig
 from ocean_emulators.constants import (
-    BoundaryVarNames,
     DatasetSpec,
     Grid,
     LoaderVersion,
-    PrognosticVarNames,
     TensorMap,
-    get_dataset_spec,
+    build_llc_spec,
+    build_om4_spec,
 )
 from ocean_emulators.models import FOMO, FOMini, Samudra
 from ocean_emulators.models.base import BaseModel
@@ -191,13 +190,20 @@ DataLoadingConfig = Annotated[
 
 class Om4DatasetConfig(BaseConfig):
     type: Literal["om4"] = "om4"
+    prognostic_vars_key: str = "thermo_dynamic_all"
+    boundary_vars_key: str = "tau_hfds"
 
     def build_spec(self) -> DatasetSpec:
-        return get_dataset_spec(self.type)
+        return build_om4_spec(
+            self.prognostic_vars_key,
+            self.boundary_vars_key,
+        )
 
 
 class LlcDatasetConfig(BaseConfig):
     type: Literal["llc"] = "llc"
+    prognostic_vars_key: str = "single_1"
+    boundary_vars_key: str = "single_1"
     face: int = 1
     i_start: int = 0
     i_end: int = 720
@@ -205,7 +211,15 @@ class LlcDatasetConfig(BaseConfig):
     j_end: int = 720
 
     def build_spec(self) -> DatasetSpec:
-        return get_dataset_spec(self.type)
+        return build_llc_spec(
+            self.prognostic_vars_key,
+            self.boundary_vars_key,
+            face=self.face,
+            i_start=self.i_start,
+            i_end=self.i_end,
+            j_start=self.j_start,
+            j_end=self.j_end,
+        )
 
 
 DatasetConfig = Annotated[
@@ -234,8 +248,6 @@ class DataConfig(BaseConfig):
     def build(
         self,
         data_root: ResolvedLocation,
-        prognostic_var_names: PrognosticVarNames,
-        boundary_var_names: BoundaryVarNames,
     ) -> DataContainer:
         dataset_spec = self.dataset.build_spec()
         if self.dataset.type != "om4":
@@ -262,8 +274,8 @@ class DataConfig(BaseConfig):
                 means_location=resolved_means_location,
                 stds_location=resolved_stds_location,
                 dataset_spec=dataset_spec,
-                prognostic_var_names=prognostic_var_names,
-                boundary_var_names=boundary_var_names,
+                prognostic_var_names=dataset_spec.prognostic_var_names,
+                boundary_var_names=dataset_spec.boundary_var_names,
                 static_data_vars=self.static_data_vars,
                 use_dask=turn_on_dask,
             )
@@ -971,12 +983,6 @@ class ExperimentConfig(BaseConfig):
     # Define multi-scale dataloader example schedule. Default: single scale.
     train_schedule: TrainSchedule = "standard"
     wandb: WandBConfig
-
-    # Model configuration
-    prognostic_vars_key: str = (
-        "thermo_dynamic_all"  # all means all levels and _$num means $num levels
-    )
-    boundary_vars_key: str = "tau_hfds"
 
     @cached_property
     def output_dir(self) -> Path:

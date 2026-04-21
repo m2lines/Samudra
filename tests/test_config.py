@@ -49,6 +49,18 @@ def test_data_config_defaults_to_cpu_loading():
     assert isinstance(cfg.dataset, Om4DatasetConfig)
 
 
+def test_om4_dataset_config_builds_selected_spec():
+    cfg = Om4DatasetConfig(
+        prognostic_vars_key="thetao_1",
+        boundary_vars_key="hfds",
+    )
+
+    spec = cfg.build_spec()
+
+    assert spec.prognostic_var_names == ["thetao_0"]
+    assert spec.boundary_var_names == ["hfds"]
+
+
 def test_data_config_accepts_llc_dataset_type():
     cfg = DataConfig.model_validate(
         {
@@ -72,6 +84,9 @@ def test_data_config_accepts_llc_dataset_type():
 
     assert isinstance(cfg.dataset, LlcDatasetConfig)
     assert cfg.dataset.face == 2
+    spec = cfg.dataset.build_spec()
+    assert spec.spatial_subset is not None
+    assert spec.spatial_subset.face == 2
 
 
 def test_data_config_accepts_gpu_loading():

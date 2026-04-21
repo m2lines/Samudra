@@ -52,17 +52,10 @@ class Eval:
         # Getting prognostic and boundary variables
         self.dataset_spec = cfg.data.dataset.build_spec()
         self.prognostic_var_names: PrognosticVarNames = (
-            self.dataset_spec.prognostic_var_names(cfg.experiment.prognostic_vars_key)
+            self.dataset_spec.prognostic_var_names
         )
-        self.boundary_var_names: BoundaryVarNames = (
-            self.dataset_spec.boundary_var_names(cfg.experiment.boundary_vars_key)
-        )
-
-        levels = cfg.experiment.prognostic_vars_key.split("_")[-1]
-        if "all" in levels:
-            self.levels = len(self.dataset_spec.depth_i_levels)
-        else:
-            self.levels = int(levels)
+        self.boundary_var_names: BoundaryVarNames = self.dataset_spec.boundary_var_names
+        self.levels = self.dataset_spec.num_prognostic_depth_levels
 
         str_prognostics = ", ".join([i for i in self.prognostic_var_names])
         str_boundaries = ", ".join([i for i in self.boundary_var_names])
@@ -77,11 +70,7 @@ class Eval:
         self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound))
         self.num_out = int((cfg.data.hist + 1) * self.N_prog)
 
-        self.tensor_map = TensorMap(
-            cfg.experiment.prognostic_vars_key,
-            cfg.experiment.boundary_vars_key,
-            dataset_spec=self.dataset_spec,
-        ).to(self.device)
+        self.tensor_map = TensorMap(dataset_spec=self.dataset_spec).to(self.device)
 
         logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
@@ -90,8 +79,6 @@ class Eval:
         logger.info(f"Loading data")
         self.data_container = cfg.data.build(
             cfg.experiment.resolved_data_root,
-            self.prognostic_var_names,
-            self.boundary_var_names,
         )
 
         self.src = self.data_container.inference_source

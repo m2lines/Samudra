@@ -11,8 +11,7 @@
 
 import xarray as xr
 from distributed import Client
-
-from ocean_emulators.dataset_validation import ds_input_validate
+from ocean_preprocessing.dataset_validation import ds_input_validate
 
 # In[2]:
 
@@ -42,7 +41,7 @@ input_dict = {
 # In[4]:
 
 
-# from ocean_emulators.preprocessing import manual_v0_fixes
+# from ocean_preprocessing.preprocessing import manual_v0_fixes
 # input_dict['input_OM4v0.0'] = manual_v0_fixes(input_dict['input_OM4v0.0'])
 
 # # add wetmask to CM4

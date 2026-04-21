@@ -43,19 +43,19 @@
 import intake
 import numpy as np
 import xarray as xr
-from scale_aware_air_sea.utils import to_zarr_split
-from xmip.postprocessing import (
-    _drop_duplicate_grid_labels,  # FIXME: Make this part of the public API (started https://github.com/jbusecke/xMIP/pull/356)
-)
-from xmip.preprocessing import combined_preprocessing
 
 # In[1]:
-from ocean_emulators.preprocessing import (
+from ocean_preprocessing.preprocessing import (
     infer_vertical_cell_extent,
     input_data_test,
     spatially_regrid,
     vertical_regrid,
 )
+from scale_aware_air_sea.utils import to_zarr_split
+from xmip.postprocessing import (
+    _drop_duplicate_grid_labels,  # FIXME: Make this part of the public API (started https://github.com/jbusecke/xMIP/pull/356)
+)
+from xmip.preprocessing import combined_preprocessing
 
 to_ddict_kwargs = dict(aggregate=False, preprocess=combined_preprocessing)
 
@@ -216,7 +216,7 @@ ddict_reloaded = {
 
 import itertools
 
-from ocean_emulators.preprocessing import test_vertex_order
+from ocean_preprocessing.preprocessing import test_vertex_order
 
 
 def reorder_vertex(ds, new_order):
@@ -982,7 +982,7 @@ ds
 # In[9]:
 
 
-# from ocean_emulators.plotting import qc_plots
+# from ocean_preprocessing.plotting import qc_plots
 ddict_reloaded = {}
 for path in paths:
     ds = xr.open_dataset(path, engine="zarr", chunks={})

@@ -95,19 +95,21 @@ import cartopy.crs as ccrs
 import fsspec
 import matplotlib.pyplot as plt
 import xarray as xr
-
-# In[9]:
-from scale_aware_air_sea.utils import to_zarr_split
-
-from ocean_emulators.dataset_validation import ds_input_validate, ds_processed_validate
-from ocean_emulators.plotting import rotated_vectors_qc_plots
-from ocean_emulators.preprocessing import (
+from ocean_preprocessing.dataset_validation import (
+    ds_input_validate,
+    ds_processed_validate,
+)
+from ocean_preprocessing.plotting import rotated_vectors_qc_plots
+from ocean_preprocessing.preprocessing import (
     horizontal_regrid,
     rotate_vectors,
     spatially_filter,
 )
-from ocean_emulators.simulation_preprocessing.gfdl_om4 import om4_preprocessing
-from ocean_emulators.utils import get_git_url_hash
+from ocean_preprocessing.simulation_preprocessing.gfdl_om4 import om4_preprocessing
+from ocean_preprocessing.utils import get_git_url_hash
+
+# In[9]:
+from scale_aware_air_sea.utils import to_zarr_split
 
 get_ipython().run_line_magic("matplotlib", "inline")
 

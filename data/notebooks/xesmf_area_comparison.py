@@ -28,7 +28,7 @@ with fsspec.open(nc_mosaic_path) as f:
 # In[4]:
 
 
-from ocean_emulators.simulation_preprocessing.gfdl_om4 import convert_super_grid
+from ocean_preprocessing.simulation_preprocessing.gfdl_om4 import convert_super_grid
 
 # In[5]:
 

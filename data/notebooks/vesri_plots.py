@@ -39,8 +39,8 @@ from xarrayutils.plotting import linear_piecewise_scale
 
 # this is janky. Somehow importing xarrayutils disables this...
 get_ipython().run_line_magic("matplotlib", "inline")
-from ocean_emulators.postprocessing import post_processor, prediction_data_test
-from ocean_emulators.preprocessing import manual_v0_fixes
+from ocean_preprocessing.postprocessing import post_processor, prediction_data_test
+from ocean_preprocessing.preprocessing import manual_v0_fixes
 
 # In[6]:
 

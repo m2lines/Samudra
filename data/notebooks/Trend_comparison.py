@@ -23,9 +23,8 @@ get_ipython().system("pip install -e ../")
 import matplotlib.pyplot as plt
 import xarray as xr
 from dask.diagnostics import ProgressBar
+from ocean_preprocessing.postprocessing import post_processor
 from xarrayutils.plotting import linear_piecewise_scale
-
-from ocean_emulators.postprocessing import post_processor
 
 get_ipython().run_line_magic("matplotlib", "inline")
 

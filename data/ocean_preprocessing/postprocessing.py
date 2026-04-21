@@ -2,8 +2,8 @@ import warnings
 
 import xarray as xr
 
-from ocean_emulators.dataset_validation import ds_input_validate
-from ocean_emulators.utils import assert_mask_match
+from ocean_preprocessing.dataset_validation import ds_input_validate
+from ocean_preprocessing.utils import assert_mask_match
 
 
 def post_processor(ds: xr.Dataset, ds_truth: xr.Dataset) -> xr.Dataset:

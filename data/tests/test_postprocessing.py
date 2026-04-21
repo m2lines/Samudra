@@ -1,6 +1,6 @@
 import xarray as xr
+from ocean_preprocessing.postprocessing import post_processor, prediction_data_test
 
-from ocean_emulators.postprocessing import post_processor, prediction_data_test
 from tests.data import (  # noqa # Might want to put these in conftest.py (see https://stackoverflow.com/questions/73191533/using-conftest-py-vs-importing-fixtures-from-dedicate-modules)
     input_data,
     prediction_data,

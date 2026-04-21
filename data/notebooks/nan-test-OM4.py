@@ -9,8 +9,7 @@
 import glob
 
 import xarray as xr
-
-from ocean_emulators.preprocessing import test_nan_consistency
+from ocean_preprocessing.preprocessing import test_nan_consistency
 
 directory = "/scratch/aa9537/OM4-5daily/"
 files = sorted(glob.glob(f"{directory}*ocean_5daily.nc"))

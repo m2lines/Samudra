@@ -15,7 +15,7 @@ import hvplot.pandas  # noqa
 import xarray as xr
 from distributed import Client
 
-from ocean_emulators.preprocessing import manual_v0_fixes
+from ocean_preprocessing.preprocessing import manual_v0_fixes
 
 # In[3]:
 

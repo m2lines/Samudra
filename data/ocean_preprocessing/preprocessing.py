@@ -8,8 +8,8 @@ import numpy as np
 import xarray as xr
 from xgcm import Grid
 
-from ocean_emulators.schema import vars_3d
-from ocean_emulators.utils import split_2d_3d
+from ocean_preprocessing.schema import vars_3d
+from ocean_preprocessing.utils import split_2d_3d
 
 try:
     import xesmf as xe  # type: ignore

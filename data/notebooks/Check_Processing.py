@@ -470,7 +470,7 @@ plt.figure(figsize=(10, 6))
 plt.loglog(1 / k_centers_ref, spectrum_ref.mean(0), "-", label="Reference")
 plt.loglog(1 / k_centers_processed, spectrum_processed.mean(0), "-", label="Processed")
 plt.gca().invert_xaxis()
-plt.xlabel(rf"Wavenumber $\kappa$ (1/ km)")
+plt.xlabel(r"Wavenumber $\kappa$ (1/ km)")
 plt.ylabel("Power Spectral Density")
 plt.title(
     "Isotropic Power Spectrum of "

@@ -2,7 +2,7 @@ import warnings
 
 import xarray as xr
 
-from ocean_emulators.schema import (
+from ocean_preprocessing.schema import (
     ds_input_coords_schema,
     ds_input_schema,
     ds_prediction_coords_schema,
@@ -10,7 +10,7 @@ from ocean_emulators.schema import (
     ds_processed_coords_schema,
     ds_processed_schema,
 )
-from ocean_emulators.utils import ensure_nan_consistency, split_2d_3d
+from ocean_preprocessing.utils import ensure_nan_consistency, split_2d_3d
 
 
 def _nan_test_deep(ds_input: xr.Dataset):

@@ -20,19 +20,19 @@ import fire
 import fsspec
 import xarray as xr
 
-from ocean_emulators.dataset_validation import ds_processed_validate
-from ocean_emulators.plotting import rotated_vectors_qc_plots
-from ocean_emulators.preprocessing import (
+from ocean_preprocessing.dataset_validation import ds_processed_validate
+from ocean_preprocessing.plotting import rotated_vectors_qc_plots
+from ocean_preprocessing.preprocessing import (
     account_for_partial_depths,
     flatten_by_depth_level,
     horizontal_regrid,
     rotate_vectors,
     spatially_filter,
 )
-from ocean_emulators.simulation_preprocessing.gfdl_om4 import om4_preprocessing
-from ocean_emulators.utils import get_git_url_hash
+from ocean_preprocessing.simulation_preprocessing.gfdl_om4 import om4_preprocessing
+from ocean_preprocessing.utils import get_git_url_hash
 
-logger = logging.getLogger("ocean_emulators")
+logger = logging.getLogger("ocean_preprocessing")
 logging.basicConfig(
     level=logging.INFO,
     format="[%(asctime)s][%(levelname)-8s][%(name)s] %(message)s",
@@ -473,4 +473,4 @@ class CLI:
 
 
 if __name__ == "__main__":
-    fire.Fire(CLI, name="ocean_emulators")
+    fire.Fire(CLI, name="ocean_preprocessing")

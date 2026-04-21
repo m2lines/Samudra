@@ -116,6 +116,7 @@ ini_options.addopts = "--jaxtyping-packages=data,datasets,beartype.beartype --st
 
 [tool.mypy]
 check_untyped_defs = true
+exclude = [ "^data/" ]
 overrides = [
   { module = [
     "cftime.*",

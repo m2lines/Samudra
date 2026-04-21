@@ -5,7 +5,7 @@
 # Vision:
 #
 # ```
-# from ocean_emulators.plotting import eval_plots
+# from ocean_preprocessing.plotting import eval_plots
 #
 # training_url = ...
 # prediction_url = ...
@@ -34,7 +34,7 @@
 import xarray as xr
 
 # In[3]:
-from ocean_emulators.postprocessing import post_processor, prediction_data_test
+from ocean_preprocessing.postprocessing import post_processor, prediction_data_test
 
 # In[4]:
 

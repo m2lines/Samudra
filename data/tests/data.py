@@ -2,8 +2,7 @@ import dask.array as dsa
 import numpy as np
 import pytest
 import xarray as xr
-
-from ocean_emulators.utils import apply_mask
+from ocean_preprocessing.utils import apply_mask
 
 
 @pytest.fixture

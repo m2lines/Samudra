@@ -4,8 +4,8 @@ import xarray as xr
 from xarrera import SchemaError
 from xgcm import Grid
 
-from ocean_emulators.dataset_validation import ds_processed_validate
-from ocean_emulators.utils import apply_mask
+from ocean_preprocessing.dataset_validation import ds_processed_validate
+from ocean_preprocessing.utils import apply_mask
 
 from .interpolate import interpolate_to_cell_centers
 

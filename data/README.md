@@ -1,17 +1,14 @@
-# ocean_emulators
-[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/m2lines/ocean_emulators/main.svg)](https://results.pre-commit.ci/latest/github/m2lines/ocean_emulators/main)
-[![Run Unit Tests](https://github.com/m2lines/ocean_emulators/actions/workflows/tests.yaml/badge.svg)](https://github.com/m2lines/ocean_emulators/actions/workflows/tests.yaml)
-[![Run Unit Tests requiring xESMF](https://github.com/m2lines/ocean_emulators/actions/workflows/tests_xesmf.yaml/badge.svg)](https://github.com/m2lines/ocean_emulators/actions/workflows/tests_xesmf.yaml)
+# ocean_preprocessing
 
 Data engineering routines to prepare ocean simulations for neural emulation.
 
 ## Usage via command line interface
 
-First, please clone this repository:
+First, please clone this repository and change into the `data/` directory (the root of the data engineering subproject).
+Make sure to deactivate any currently active python environments:
 ```bash
-git clone https://github.com/m2lines/ocean_emulators.git
-# recommended: via ssh -- requires additional setup
-git clone git@github.com:m2lines/ocean_emulators.git
+cd data/
+deactivate
 ```
 
 Next, create a local environment from the `mamba_env.yaml` file with conda, mamba or pixi. Here is an example using
@@ -21,17 +18,19 @@ mamba:
 mamba create -f mamba_env.yaml
 ```
 
+This subproject uses an anaconda-style environment because a core dependency (xESMF) is only distributed on conda forge.
+
 Now, you should be able to use this package as a CLI! You can call it like so:
 
 ```bash
-python -m ocean_emulators -h
+python -m ocean_preprocessing -h
 ```
 
 This opens up the help pages and documents the CLI's subcommands and common arguments.
 Currently, only the following subcommand is supported:
 
 ```bash
-python -m ocean_emulators om4 -h
+python -m ocean_preprocessing om4 -h
 ```
 
 ### Example usage
@@ -48,7 +47,7 @@ export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
 export AWS_ACCESS_KEY_ID=...
 export AWS_SECRET_ACCESS_KEY=...
 # Then, run the standard OM4 processing pipeline:
-python -m ocean_emulators om4 \
+python -m ocean_preprocessing om4 \
    "s3://emulators/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr" \
    "s3://emulators/am16581/ocean_static_no_mask_table.zarr" \
    "s3://emulators/am16581/grids/ocean_hgrid.zarr" \
@@ -84,7 +83,7 @@ export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
 export AWS_ACCESS_KEY_ID=...
 export AWS_SECRET_ACCESS_KEY=...
 # Then, run the standard OM4 processing pipeline:
-python -m ocean_emulators om4 \
+python -m ocean_preprocessing om4 \
    "s3://emulators/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr" \
    "s3://emulators/am16581/ocean_static_no_mask_table.zarr" \
    "s3://emulators/am16581/grids/ocean_hgrid.zarr" \
@@ -94,14 +93,10 @@ python -m ocean_emulators om4 \
     --wait_for_workers=True
 ```
 
-That's how you can run this package as a command-line utility! Beyond this, `ocean_emulators` can be used a library
+That's how you can run this package as a command-line utility! Beyond this, `ocean_preprocessing` can be used a library
 in a script or notebook. Continue reading to get a better understanding of this package's capabilities.
 
-## Preprocessing
-
-This repository is currently being used to preprocess ocean datasets.
-
-### Preprocessing steps
+## Preprocessing steps
 
 1. Interpolation of variables at the cell boundaries to the cell centers
 2. Coarsening time-resolution of input data to 5-day simple average
@@ -109,14 +104,14 @@ This repository is currently being used to preprocess ocean datasets.
 4. Spatial filtering with 18 x 18 gaussian kernel
 5. Horizontal regridding of native 0.25 degree data to 1 degree data
 
-### Preprocessing files
+## Preprocessing files
 These files live on the OSN pod:
 - Data: https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-11-01-CM4-pre-industrial-control-simulation/ocean_5daily.zarr
 - Gaussian Grid: https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-08-01-sample-raw-CM4-data/gaussian_grid_180_by_360.nc
 - Mosaic File: https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-11-11-static-data/ocean_hgrid.nc
 - Static Data File: https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-11-11-static-data/ocean_static_no_mask_table.nc
 
-### Possible issues
+## Possible issues
 
 1. Rotation of wind stresses (not done in this repo)
 2. Filtering across the Tripolar fold - https://github.com/m2lines/ocean_emulators/issues/69
@@ -129,20 +124,20 @@ These files live on the OSN pod:
 ## Data flow diagram
 ```mermaid
 flowchart TD
-    a[(A bunch of files/Zarr stores)] --> A[model specific processing **ocean_emulators.simulation_preprocessing**]
+    a[(A bunch of files/Zarr stores)] --> A[model specific processing **ocean_preprocessing.simulation_preprocessing**]
     A -->  b(**ds_processed**)
-    b --> |validate| B[**ocean_emulators.dataset_validation.ds_processed_validate**]
-    B --> C[Generic Preprocessing **ocean_emulators.preprocessing**]
+    b --> |validate| B[**ocean_preprocessing.dataset_validation.ds_processed_validate**]
+    B --> C[Generic Preprocessing **ocean_preprocessing.preprocessing**]
     C --> c(**ds_input**)
-    c --> |validate| D[**ocean_emulators.dataset_validation.ds_input_validate**]
+    c --> |validate| D[**ocean_preprocessing.dataset_validation.ds_input_validate**]
     D --> |download into uncompressed zarr| CC[ **ds_input** Local HPC copy]
     CC --> E[training]
     E --> d(model)
     d --> F[rollout]
     F --> e[**ds_prediction_raw**]
-    e --> H[Postprocessing **ocean_emulators.postprocessing**]
+    e --> H[Postprocessing **ocean_preprocessing.postprocessing**]
     H --> f(**ds_prediction**)
-    f -->|validate| I[**ocean_emulators.dataset_validation.ds_prediction_validate**]
+    f -->|validate| I[**ocean_preprocessing.dataset_validation.ds_prediction_validate**]
     CC --> I
     I --> |upload to cloud| J[**ds_prediction** Shareable prediction output]
 ```
@@ -151,11 +146,11 @@ flowchart TD
 ## Producing Input and Prediction Datasets
 
 ### Preprocessed Datasets (`ds_processed`)
-This is the only model specific step produced by modules in `ocean_emulators.simulation_preprocessing.<model_module>`. The output `ds_processed` can then be fed into the generic preprocessing steps to produce the input dataset. These functions should not modify the data in any other way than interpolating velocity data onto the tracer points (the setup/execution of which might depend on the source).
+This is the only model specific step produced by modules in `ocean_preprocessing.simulation_preprocessing.<model_module>`. The output `ds_processed` can then be fed into the generic preprocessing steps to produce the input dataset. These functions should not modify the data in any other way than interpolating velocity data onto the tracer points (the setup/execution of which might depend on the source).
 
 Example:
 ```python
-from ocean_emulators.simulation_preprocessing.gfdl_om4 import om4_preprocessing
+from ocean_preprocessing.simulation_preprocessing.gfdl_om4 import om4_preprocessing
 
 zarr_data_path = 'gs://leap-persistent/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr'
 nc_grid_path = 'gs://leap-persistent/sd5313/OM4-5daily/ocean_static_no_mask_table.nc'
@@ -166,7 +161,7 @@ ds_processed = om4_preprocessing(zarr_data_path, nc_grid_path, nc_mosaic_path)
 #### QC
 To ensure that the output of model specific preprocessing is correct, run the validation function before applying further steps:
 ```python
-from ocean_emulators.dataset_validation import ds_processed_validate
+from ocean_preprocessing.dataset_validation import ds_processed_validate
 
 ds_processed_validate(ds_processed, deep=True) # deep enables long-running tests that check for nan consistency on the entire dataset
 ```
@@ -176,7 +171,7 @@ ds_processed_validate(ds_processed, deep=True) # deep enables long-running tests
 #### QC
 To ensure that an input dataset adheres to the most recent checks please always run the following before publishing/uploading:
 ```python
-from ocean_emulators.dataset_validation import ds_input_validate
+from ocean_preprocessing.dataset_validation import ds_input_validate
 ds = ...
 ds_input_validate(ds, deep=True) # deep enables long-running tests that check for nan consistency on the entire dataset
 ```
@@ -187,7 +182,7 @@ ds_input_validate(ds, deep=True) # deep enables long-running tests that check fo
 We aim to not upload the raw prediction output. Instead use the postprocessor to create an xarray dataset that is formattes as much as possible as the input data:
 
 ```python
-from ocean_emulators.postprocessing import post_processor
+from ocean_preprocessing.postprocessing import post_processor
 ds_input = ... # load datasets that was used for the training of this model
 ds_truth = ds_input.isel(time=...) # select the timesteps that are considered the ground-truth to compare predictions against
 ds_raw_prediction = ... # output from the inference/prediction
@@ -197,7 +192,7 @@ ds_prediction = post_processor(ds_raw_prediction, ds_truth)
 #### QC
 Before uploading please always run the most recent checks
 ```python
-from ocean_emulators.postprocessing import prediction_data_test
+from ocean_preprocessing.postprocessing import prediction_data_test
 ds_prediction = ... # see above
 ds_truth = ...# see above
 prediction_data_test(ds_prediction, ds_truth)
@@ -238,46 +233,4 @@ mamba install pytest dask pre-commit
 Before you edit the code make sure all tests pass by running pytest from the root level of this repository
 ```
 pytest
-```
-
-### Code Linting
-
-We use [pre-commit.ci](https://results.pre-commit.ci/) to run the CI linting checks.
-
-You can configure pre-commit to run locally on every commit like this:
-
-```
-pre-commit install
-```
-
-and if you want to run the linting manually do:
-
-```
-pre-commit run --all-files
-```
-
->[!TIP]
-> You can also commit and bypass these checks (not generally recommended)
-> ```
-> git commit -m "some message" --no-verify
-> ```
-
-## Developing the documentation page
-
-Clone this repository and navigate into the `docs/` folder
-
-Set up a new environment for the docs
-```
-mamba env create -f environment.yaml
-mamba activate ocean_emulators_docs
-```
-
-Build the html docs with
-```
-jupyter-book build .
-```
-
-You can then look at them
-```
-open _build/html/index.html
 ```

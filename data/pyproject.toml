@@ -3,13 +3,14 @@
 [build-system]
 build-backend = "setuptools.build_meta"
 
-requires = [ "setuptools>=61", "setuptools-scm[toml]>=6", "wheel" ]
+requires = [ "setuptools>=61", "wheel" ]
 
 [project]
-name = "ocean-emulators"
-description = "TBD"
+name = "ocean-preprocessing"
+version = "0.1.0"
+description = "Data engineering routines to prepare ocean simulations for neural emulation."
 readme = "README.md"
-keywords = [ "climate", "data", "emulators", "ml" ]
+keywords = [ "climate", "data", "emulators", "ml", "preprocessing" ]
 license = { text = "Apache-2.0" }
 authors = [
   { name = "Adam Subel", email = "adam.subel@nyu.edu" },
@@ -29,7 +30,6 @@ classifiers = [
   "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering",
 ]
-dynamic = [ "version" ]
 dependencies = [
   "bokeh>=3.1",
   "cartopy>=0.23",
@@ -47,7 +47,7 @@ dependencies = [
 ]
 
 optional-dependencies.dev = [
-  "ocean-emulators[test]",
+  "ocean-preprocessing[test]",
   "pre-commit",
 ]
 optional-dependencies.test = [
@@ -61,10 +61,6 @@ urls.Tracker = "https://github.com/jbusecke/ocean_emulators/issues"
 [tool.setuptools.packages.find]
 exclude = [ "book", "docs" ] # exclude packages matching these glob patterns (empty by default)
 
-[tool.setuptools_scm]
-write_to = "ocean_emulators/_version.py"
-write_to_template = "__version__ = '{version}'"
-
 [tool.ruff]
 # Same as Black.
 line-length = 88
@@ -72,7 +68,7 @@ indent-width = 4
 
 # Exclude a variety of commonly ignored directories.
 exclude = [
-  "ocean_emulators/__init__.py",
+  "ocean_preprocessing/__init__.py",
 ]
 
 # Like Black, indent with spaces, rather than tabs.
@@ -92,3 +88,6 @@ lint.ignore = [ "F811" ]
 # Allow fix for all enabled rules (when `--fix`) is provided.
 lint.fixable = [ "ALL" ]
 lint.unfixable = [  ]
+
+[tool.pytest.ini_options]
+testpaths = [ "tests" ]

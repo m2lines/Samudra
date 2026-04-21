@@ -1,7 +1,10 @@
+import pytest
 import torch
 
 from ocean_emulators.aggregator import Aggregator, ValidateAggregator
 from ocean_emulators.aggregator.train import TrainAggregator
+from ocean_emulators.aggregator.validate.map import MapAggregator
+from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from ocean_emulators.constants import TensorMap
 from ocean_emulators.utils.ctx import GridContext
@@ -148,3 +151,62 @@ def test_validation_aggregator__reduced_only__omits_image_logs(
     assert any(key.startswith("val/reduced/") for key in val_logs)
     assert not any("/snapshot/" in key for key in val_logs)
     assert not any("/mean_map/" in key for key in val_logs)
+
+
+def test_snapshot_aggregator__non_main_rank__skips_plot_rendering(
+    dummy_src: DataSource, monkeypatch: pytest.MonkeyPatch
+):
+    val_batch = val_batch_of(*dummy_src.grid_size)
+    aggregator = SnapshotAggregator(dummy_src.metadata, hist=0)
+
+    monkeypatch.setattr(
+        "ocean_emulators.aggregator.validate.snapshot.is_main_process",
+        lambda: False,
+    )
+
+    aggregator.record_batch(
+        loss=val_batch.loss,
+        target_data={"foo": val_batch.target_data.unsqueeze(1)[:, :, 0]},
+        gen_data={"foo": val_batch.gen_data.unsqueeze(1)[:, :, 0]},
+        input_data={"foo": val_batch.input_data.unsqueeze(1)[:, :, 0]},
+        target_data_norm={},
+        gen_data_norm={},
+        input_data_norm={},
+    )
+
+    assert aggregator.get_logs("snapshot") == {}
+
+
+def test_map_aggregator__non_main_rank__still_reduces_but_skips_plot_rendering(
+    dummy_src: DataSource, monkeypatch: pytest.MonkeyPatch
+):
+    aggregator = MapAggregator(dummy_src.metadata, hist=0)
+    reduce_calls: list[torch.Tensor] = []
+
+    monkeypatch.setattr(
+        "ocean_emulators.aggregator.validate.map.is_main_process",
+        lambda: False,
+    )
+
+    def fake_all_reduce_mean(tensor: torch.Tensor) -> torch.Tensor:
+        reduce_calls.append(tensor.clone())
+        return tensor
+
+    monkeypatch.setattr(
+        "ocean_emulators.aggregator.validate.map.all_reduce_mean",
+        fake_all_reduce_mean,
+    )
+
+    data = torch.ones(2, 1, *dummy_src.grid_size)
+    aggregator.record_batch(
+        loss=torch.tensor(1.0),
+        target_data={"foo": data},
+        gen_data={"foo": data},
+        input_data={},
+        target_data_norm={},
+        gen_data_norm={},
+        input_data_norm={},
+    )
+
+    assert aggregator.get_logs("mean_map") == {}
+    assert len(reduce_calls) == 2

@@ -150,13 +150,20 @@ class BaseDataLoadingConfig(BaseConfig):
     def num_pytorch_workers(self) -> int:
         raise NotImplementedError
 
+    def persistent_pytorch_workers(self) -> bool:
+        raise NotImplementedError
+
 
 class CpuDataLoadingConfig(BaseDataLoadingConfig):
     type: Literal["cpu"] = "cpu"
     num_workers: int = Field(default=4, ge=0)
+    persistent_workers: bool = True
 
     def num_pytorch_workers(self) -> int:
         return self.num_workers
+
+    def persistent_pytorch_workers(self) -> bool:
+        return self.persistent_workers
 
 
 class GpuDataLoadingConfig(BaseDataLoadingConfig):
@@ -168,6 +175,9 @@ class GpuDataLoadingConfig(BaseDataLoadingConfig):
         # When loading data direct to GPU, we don't want worker processes.
         # 0 means "load in the main process"
         return 0
+
+    def persistent_pytorch_workers(self) -> bool:
+        return False
 
 
 DataLoadingConfig = Annotated[
@@ -655,7 +665,8 @@ class BaseModelConfig(BaseConfig, abc.ABC):
     @abc.abstractmethod
     def build(
         self,
-        in_channels: int,
+        prog_channels: int,
+        boundary_channels: int,
         out_channels: int,
         hist: int,
         static_data_for_corrector: xr.Dataset | None,
@@ -678,7 +689,8 @@ class SamudraConfig(BaseModelConfig):
 
     def build(
         self,
-        in_channels: int,
+        prog_channels: int,
+        boundary_channels: int,
         out_channels: int,
         hist: int,
         static_data_for_corrector: xr.Dataset | None,
@@ -694,6 +706,7 @@ class SamudraConfig(BaseModelConfig):
             corrector = self.corrector.build(
                 hist, src.spherical_area_weights, static_data_for_corrector
             )
+        in_channels = prog_channels + boundary_channels
         total_in_channels = (
             in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
         )
@@ -741,7 +754,8 @@ class FOMOConfig(BaseModelConfig):
 
     def build(
         self,
-        in_channels: int,
+        prog_channels: int,
+        boundary_channels: int,
         out_channels: int,
         hist: int,
         static_data_for_corrector: xr.Dataset | None,
@@ -763,8 +777,16 @@ class FOMOConfig(BaseModelConfig):
                 "Please set `use_bfloat16=True` or `perceiver_implementation='naive'`."
             )
 
+        in_channels = prog_channels + boundary_channels
+        total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
+
         encoder = self.encoder.build(
-            in_channels, self.embedding_dim, extent, max_lat_size, max_lon_size, impl
+            total_in_channels,
+            self.embedding_dim,
+            extent,
+            max_lat_size,
+            max_lon_size,
+            impl,
         )
         processor = self.processor.build(
             self.embedding_dim,
@@ -778,7 +800,6 @@ class FOMOConfig(BaseModelConfig):
             impl,
         )
 
-        total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
         add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
         return FOMO(
             in_channels=total_in_channels,
@@ -828,7 +849,8 @@ class FOMiniConfig(BaseModelConfig):
 
     def build(
         self,
-        in_channels: int,
+        prog_channels: int,
+        boundary_channels: int,
         out_channels: int,
         hist: int,
         static_data_for_corrector: xr.Dataset | None,
@@ -847,6 +869,7 @@ class FOMiniConfig(BaseModelConfig):
                 "Please set `use_bfloat16=True` or `perceiver_implementation='naive'`."
             )
 
+        in_channels = prog_channels + boundary_channels
         perceiver_io = self.perceiver.build_io(
             self.embedding_dim,
             self.queries_dim,

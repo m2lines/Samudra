@@ -48,15 +48,22 @@ def make_model(query_chunk_size: int | None) -> FOMini:
     )
 
 
+def _split_prog_boundary(x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    # FOMini expects in_channels=10; split arbitrarily into 6 prog + 4 boundary.
+    return x[:, :6], x[:, 6:]
+
+
 def test_forward_shape():
     model = make_model(query_chunk_size=None)
     x = torch.randn(2, 10, 4, 8)
-    out = model.forward_once(x, make_ctx(out_channels=6, H=4, W=8))
+    prog, boundary = _split_prog_boundary(x)
+    out = model.forward_once(prog, boundary, make_ctx(out_channels=6, H=4, W=8))
     assert out.shape == (2, 6, 4, 8)
 
 
 def test_chunked_queries_match_full_decode():
     x = torch.randn(2, 10, 4, 8)
+    prog, boundary = _split_prog_boundary(x)
     ctx = make_ctx(out_channels=6, H=4, W=8)
 
     full = make_model(query_chunk_size=None)
@@ -67,8 +74,8 @@ def test_chunked_queries_match_full_decode():
     chunked.eval()
 
     with torch.no_grad():
-        y_full = full.forward_once(x, ctx)
-        y_chunked = chunked.forward_once(x, ctx)
+        y_full = full.forward_once(prog, boundary, ctx)
+        y_chunked = chunked.forward_once(prog, boundary, ctx)
     assert torch.allclose(y_full, y_chunked, atol=1e-5)
 
 

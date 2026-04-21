@@ -222,11 +222,7 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
         }
     )
 
-    container = cfg.build(
-        LocalLocation(path=tmp_path),
-        prognostic_var_names=["Theta_0"],
-        boundary_var_names=["oceQnet"],
-    )
+    container = cfg.build(LocalLocation(path=tmp_path))
     source = container.primary_source
 
     assert source.dataset_spec.type == "llc"

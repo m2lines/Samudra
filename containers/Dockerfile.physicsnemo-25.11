@@ -22,10 +22,11 @@ ENV WANDB_GIT_COMMIT="${VCS_REF}" \
 # Upgrade to a newer Nsight Systems CLI build so `--trace=nccl` is available.
 # NVIDIA publishes different Debian packages for amd64 and arm64.
 RUN apt-get update \
-    && case "${TARGETARCH}" in \
-        amd64) NSYS_CLI_DEB_URL="${NSYS_CLI_AMD64_DEB_URL}" ;; \
-        arm64) NSYS_CLI_DEB_URL="${NSYS_CLI_ARM64_DEB_URL}" ;; \
-        *) echo "Unsupported TARGETARCH=${TARGETARCH} for Nsight Systems CLI install" >&2; exit 1 ;; \
+    && target_arch="${TARGETARCH:-$(dpkg --print-architecture)}" \
+    && case "${target_arch}" in \
+        amd64|x86_64) NSYS_CLI_DEB_URL="${NSYS_CLI_AMD64_DEB_URL}" ;; \
+        arm64|aarch64) NSYS_CLI_DEB_URL="${NSYS_CLI_ARM64_DEB_URL}" ;; \
+        *) echo "Unsupported TARGETARCH=${target_arch} for Nsight Systems CLI install" >&2; exit 1 ;; \
        esac \
     && apt-get install -y --no-install-recommends ca-certificates curl \
     && curl -fsSL "${NSYS_CLI_DEB_URL}" -o /tmp/nsight-systems-cli.deb \

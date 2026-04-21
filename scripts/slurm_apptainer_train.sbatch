@@ -369,7 +369,7 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         fi
         echo \"Nsight Systems profiling enabled on proc \${SLURM_PROCID:-unset}.\"
       fi
-      \"\${profiler_cmd[@]}\" /workspace/.venv/bin/python -m torch.distributed.run \
+      TRAIN_CMD=\"\${profiler_cmd[*]} /workspace/.venv/bin/python -m torch.distributed.run \
         --nnodes=${SLURM_NNODES} \
         --nproc_per_node=${GPUS_PER_NODE} \
         --master_addr=${MASTER_ADDR} \

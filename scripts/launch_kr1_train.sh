@@ -44,7 +44,7 @@ fi
 export CONFIG=configs/fomo_om4/train_multiscale.yaml
 
 # ── Run name ──
-export NAME_SUFFIX=kr1_fomo_multiscale_v42
+export NAME_SUFFIX=kr1_fomo_multiscale_v43
 
 # ── Data root: parent dir containing all three resolution subdirectories ──
 export DATA_ROOT="${DATA_ROOT:-/scratch/am16581/data}"

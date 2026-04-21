@@ -27,17 +27,23 @@ testing is intentionally not attempted on cloud runners because the available sm
 ARM GPU instances expose older NVIDIA T4G GPUs that are unsupported by the current
 PyTorch/CUDA stack.
 
-The scheduled GPU scrub is defined in:
+The scheduled ARM GPU scrub is defined as a repo-local harness scrub skill, not a
+GitHub Actions workflow:
 
 ```text
-.github/workflows/container-physicsnemo-nightly-gpu.yml
+.agents/skills/scrub-physicsnemo-arm64-gpu-container/SKILL.md
 ```
 
-That workflow pulls `ghcr.io/<owner>/ocean-emulator-physicsnemo:25.11-arm64-latest`
-from `main` and runs the CUDA-marked tests on a self-hosted ARM GPU runner. By
-default it targets `self-hosted`, `Linux`, `ARM64`, and `gpu` labels; set the repo
-variable `ARM_GPU_RUNNER_LABELS` to a JSON label array if the runner uses different
-labels.
+That scrub runs on the local ARM GPU host, pulls
+`ghcr.io/<owner>/ocean-emulator-physicsnemo:25.11-arm64-latest` from `main`, and
+runs the CUDA-marked tests with:
+
+```bash
+scripts/container/scrub_arm64_gpu_container_tests.sh
+```
+
+The scrub host must allow the harness user to run Docker directly or through
+non-interactive `sudo docker`.
 
 Published image tags:
 

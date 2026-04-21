@@ -1,0 +1,68 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PYTEST_MARK_EXPR="${PYTEST_MARK_EXPR:-cuda and not manual}"
+PYTEST_ARGS="${PYTEST_ARGS:--x}"
+IMAGE_TAG="${IMAGE_TAG:-}"
+GHCR_OWNER="${GHCR_OWNER:-}"
+
+if [[ "$(uname -m)" != "aarch64" ]]; then
+  echo "This scrub must run on an ARM64/aarch64 host; got $(uname -m)." >&2
+  exit 2
+fi
+
+if ! command -v nvidia-smi >/dev/null 2>&1; then
+  echo "nvidia-smi is required for the ARM GPU container scrub." >&2
+  exit 3
+fi
+
+if ! nvidia-smi >/dev/null; then
+  echo "nvidia-smi failed; no usable NVIDIA GPU is visible." >&2
+  exit 4
+fi
+
+docker_cmd=(docker)
+if ! docker version >/dev/null 2>&1; then
+  if command -v sudo >/dev/null 2>&1 && sudo -n docker version >/dev/null 2>&1; then
+    docker_cmd=(sudo -n docker)
+  else
+    echo "Docker is required for the ARM GPU container scrub and must be usable by the current user." >&2
+    exit 5
+  fi
+fi
+
+if [[ -z "${GHCR_OWNER}" ]]; then
+  remote_url="$(git config --get remote.origin.url || true)"
+  if [[ "${remote_url}" =~ github.com[:/]([^/]+)/[^/.]+(\.git)?$ ]]; then
+    GHCR_OWNER="${BASH_REMATCH[1]}"
+  else
+    GHCR_OWNER="Open-Athena"
+  fi
+fi
+
+owner_lower="$(echo "${GHCR_OWNER}" | tr '[:upper:]' '[:lower:]')"
+if [[ -z "${IMAGE_TAG}" ]]; then
+  IMAGE_TAG="ghcr.io/${owner_lower}/ocean-emulator-physicsnemo:25.11-arm64-latest"
+fi
+
+login_token="${GHCR_TOKEN:-${GITHUB_TOKEN:-${GH_TOKEN:-}}}"
+login_user="${GHCR_USERNAME:-${GITHUB_ACTOR:-}}"
+if [[ -n "${login_token}" && -z "${login_user}" ]] && command -v gh >/dev/null 2>&1; then
+  login_user="$(gh api user --jq .login 2>/dev/null || true)"
+fi
+if [[ -n "${login_token}" && -n "${login_user}" ]]; then
+  echo "==> Logging in to ghcr.io as ${login_user}"
+  printf '%s' "${login_token}" | "${docker_cmd[@]}" login ghcr.io -u "${login_user}" --password-stdin >/dev/null
+fi
+
+nvidia-smi --query-gpu=name,compute_cap --format=csv,noheader
+
+echo "==> Pulling ${IMAGE_TAG}"
+"${docker_cmd[@]}" pull "${IMAGE_TAG}"
+
+echo "==> Running CUDA tests from ${IMAGE_TAG}"
+DOCKER_CMD="${docker_cmd[*]}" \
+IMAGE_TAG="${IMAGE_TAG}" \
+PYTEST_MARK_EXPR="${PYTEST_MARK_EXPR}" \
+PYTEST_ARGS="${PYTEST_ARGS}" \
+bash scripts/container/run_cuda_tests_in_image.sh

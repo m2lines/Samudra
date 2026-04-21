@@ -262,13 +262,14 @@ jobs:
       - name: Install Docker
         run: |
           set -euo pipefail
-          if ! command -v docker >/dev/null 2>&1; then
+          if ! command -v docker >/dev/null 2>&1 || ! docker buildx version >/dev/null 2>&1; then
             sudo apt-get update
-            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io docker-buildx
           fi
           sudo systemctl enable --now docker || sudo service docker start
           sudo chmod 666 /var/run/docker.sock
           docker version
+          docker buildx version
 
       - name: Cache test data
         uses: actions/cache@v3

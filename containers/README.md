@@ -19,12 +19,39 @@ On CI, GitHub Actions builds and validates this image via:
 .github/workflows/container-physicsnemo.yml
 ```
 
-The CI workflow smoke-tests the Dockerfile on every PR. On `main` pushes and manual
-dispatches, it publishes the x86_64 image to GHCR, runs CPU/GPU tests from that
-published image on an x86_64 EC2 GPU runner, and separately builds the same Dockerfile
-on an ARM64 `g5g` runner for ARM64 container validation. The ARM64 job always runs CPU
-tests and only runs GPU tests when the runner GPU architecture is supported by the
-current PyTorch build in the image.
+The CI workflow smoke-tests the x86_64 Dockerfile on every PR. On `main` pushes and
+manual dispatches, it publishes the x86_64 image to GHCR, runs CPU/GPU tests from
+that published image on an x86_64 EC2 GPU runner, and separately launches a non-GPU
+ARM64 EC2 runner to build, publish, pull, and CPU-test an ARM64 image. ARM64 GPU
+testing is intentionally not attempted on cloud runners because the available small
+ARM GPU instances expose older NVIDIA T4G GPUs that are unsupported by the current
+PyTorch/CUDA stack.
+
+The scheduled GPU scrub is defined in:
+
+```text
+.github/workflows/container-physicsnemo-nightly-gpu.yml
+```
+
+That workflow pulls `ghcr.io/<owner>/ocean-emulator-physicsnemo:25.11-arm64-latest`
+from `main` and runs the CUDA-marked tests on a self-hosted ARM GPU runner. By
+default it targets `self-hosted`, `Linux`, `ARM64`, and `gpu` labels; set the repo
+variable `ARM_GPU_RUNNER_LABELS` to a JSON label array if the runner uses different
+labels.
+
+Published image tags:
+
+```text
+25.11-<sha>                  # existing x86_64 compatibility tag
+25.11-x86_64-<sha>
+25.11-arm64-<sha>
+25.11-latest                 # existing x86_64 compatibility tag from main
+25.11-x86_64-latest
+25.11-arm64-latest
+25.11-manual-<ref>           # existing x86_64 compatibility tag from workflow_dispatch
+25.11-x86_64-manual-<ref>
+25.11-arm64-manual-<ref>
+```
 
 Useful environment variables:
 

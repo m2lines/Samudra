@@ -1,0 +1,64 @@
+# Pull the latest arm64 image from main and run CUDA tests on a local/self-hosted
+# ARM GPU runner. This covers the GPU path that current cloud ARM instances cannot.
+name: Nightly Container GPU Scrub
+
+on:
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  arm64-gpu-container-tests:
+    runs-on: ${{ fromJSON(vars.ARM_GPU_RUNNER_LABELS || '["self-hosted","Linux","ARM64","gpu"]') }}
+    timeout-minutes: 120
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - name: Confirm ARM GPU runner
+        run: |
+          set -euo pipefail
+          arch="$(uname -m)"
+          echo "runner arch=${arch}"
+          test "${arch}" = "aarch64"
+          nvidia-smi
+          docker version
+
+      - name: Cache test data
+        uses: actions/cache@v3
+        with:
+          path: .data_cache/
+          key: ${{ runner.os }}-${{ runner.arch }}-test-data-${{ hashFiles('tests/conftest.py', 'configs/test/*.yaml') }}
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull latest arm64 image from main
+        run: |
+          set -euo pipefail
+          owner_lower="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          image="ghcr.io/${owner_lower}/ocean-emulator-physicsnemo:25.11-arm64-latest"
+          docker pull "${image}"
+          echo "TEST_IMAGE=${image}" >> "${GITHUB_ENV}"
+
+      - name: Run GPU tests in latest arm64 container
+        timeout-minutes: 90
+        run: |
+          IMAGE_TAG="${TEST_IMAGE}" \
+          PYTEST_MARK_EXPR="cuda and not manual" \
+          PYTEST_ARGS="-x" \
+          bash scripts/container/run_cuda_tests_in_image.sh

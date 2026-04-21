@@ -1,5 +1,6 @@
-# Build the PhysicsNeMo-based container on PRs; on main/manual runs, also publish the
-# x86_64 image and run the same container test flow on both x86_64 and arm64 GPU nodes.
+# Build the PhysicsNeMo-based container on PRs; on main/manual runs, also publish
+# x86_64 and arm64 images, run x86_64 CPU/GPU container tests, and run arm64
+# CPU-only container tests on a non-GPU ARM runner.
 name: Container PhysicsNeMo 25.11
 
 on:
@@ -82,7 +83,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish image
+      - name: Publish x86_64 image
         if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
         run: |
           set -euo pipefail
@@ -91,20 +92,58 @@ jobs:
           ghcr_image="ghcr.io/${owner_lower}/ocean-emulator-physicsnemo"
 
           sha_tag="${ghcr_image}:25.11-${GITHUB_SHA}"
+          arch_sha_tag="${ghcr_image}:25.11-x86_64-${GITHUB_SHA}"
           docker tag "${LOCAL_IMAGE_TAG}" "${sha_tag}"
+          docker tag "${LOCAL_IMAGE_TAG}" "${arch_sha_tag}"
           docker push "${sha_tag}"
+          docker push "${arch_sha_tag}"
 
           if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
             ref_tag="${ghcr_image}:25.11-manual-${GITHUB_REF_NAME//\//-}"
+            arch_ref_tag="${ghcr_image}:25.11-x86_64-manual-${GITHUB_REF_NAME//\//-}"
             docker tag "${LOCAL_IMAGE_TAG}" "${ref_tag}"
+            docker tag "${LOCAL_IMAGE_TAG}" "${arch_ref_tag}"
             docker push "${ref_tag}"
+            docker push "${arch_ref_tag}"
           fi
 
           if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF}" = "refs/heads/main" ]; then
             latest_tag="${ghcr_image}:25.11-latest"
+            arch_latest_tag="${ghcr_image}:25.11-x86_64-latest"
             docker tag "${LOCAL_IMAGE_TAG}" "${latest_tag}"
+            docker tag "${LOCAL_IMAGE_TAG}" "${arch_latest_tag}"
             docker push "${latest_tag}"
+            docker push "${arch_latest_tag}"
           fi
+
+  resolve-arm-ubuntu-ami:
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    outputs:
+      ami_id: ${{ steps.resolve.outputs.ami_id }}
+      aws_region: ${{ steps.resolve.outputs.aws_region }}
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.EC2_LAUNCH_ROLE }}
+          role-session-name: github-actions-session
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      - name: Resolve latest ARM64 Ubuntu AMI
+        id: resolve
+        env:
+          AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+          ARM_UBUNTU_SSM_PARAMETER: /aws/service/canonical/ubuntu/server/24.04/stable/current/arm64/hvm/ebs-gp3/ami-id
+        run: |
+          set -euo pipefail
+          ami_id="$(aws ssm get-parameter \
+            --region "${AWS_REGION}" \
+            --name "${ARM_UBUNTU_SSM_PARAMETER}" \
+            --query 'Parameter.Value' \
+            --output text)"
+          echo "ami_id=${ami_id}" >> "${GITHUB_OUTPUT}"
+          echo "aws_region=${AWS_REGION}" >> "${GITHUB_OUTPUT}"
 
   ec2:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
@@ -118,47 +157,14 @@ jobs:
     secrets:
       GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
 
-  resolve-arm-dlami:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    needs: build-and-smoke
-    runs-on: ubuntu-latest
-    outputs:
-      ami_id: ${{ steps.resolve.outputs.ami_id }}
-      aws_region: ${{ steps.resolve.outputs.aws_region }}
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.EC2_LAUNCH_ROLE }}
-          role-session-name: github-actions-session
-          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
-
-      - name: Resolve latest ARM64 GPU DLAMI
-        id: resolve
-        env:
-          AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
-          ARM_DLAMI_NAME_FILTER: Deep Learning ARM64 Base OSS Nvidia Driver GPU AMI (Ubuntu 24.04) ????????
-        run: |
-          set -euo pipefail
-          ami_id="$(aws ec2 describe-images \
-            --region "${AWS_REGION}" \
-            --owners amazon \
-            --filters \
-              "Name=name,Values=${ARM_DLAMI_NAME_FILTER}" \
-              "Name=state,Values=available" \
-            --query 'reverse(sort_by(Images, &CreationDate))[:1].ImageId' \
-            --output text)"
-          echo "ami_id=${ami_id}" >> "${GITHUB_OUTPUT}"
-          echo "aws_region=${AWS_REGION}" >> "${GITHUB_OUTPUT}"
-
   ec2-arm:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    needs: [build-and-smoke, resolve-arm-dlami]
+    needs: resolve-arm-ubuntu-ami
     uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
     with:
-      aws_region: ${{ needs.resolve-arm-dlami.outputs.aws_region }}
-      ec2_instance_type: g5g.xlarge
-      ec2_image_id: ${{ needs.resolve-arm-dlami.outputs.ami_id }}
+      aws_region: ${{ needs.resolve-arm-ubuntu-ami.outputs.aws_region }}
+      ec2_instance_type: m7g.xlarge
+      ec2_image_id: ${{ needs.resolve-arm-ubuntu-ami.outputs.ami_id }}
       ec2_root_device_size: 200 # local arm64 image build plus test data/cache need substantial headroom
       aws_tags: '[{"Key": "project", "Value": "fomo"}]'
     secrets:
@@ -228,9 +234,9 @@ jobs:
               python -m pytest -p no:zarr -v -m "not manual and cuda" -x
             '
 
-  test-container-arm64-cpu-gpu:
+  build-test-publish-arm64:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    needs: [build-and-smoke, resolve-arm-dlami, ec2-arm]
+    needs: ec2-arm
     runs-on: ${{ needs.ec2-arm.outputs.id }}
     env:
       LOCAL_ARM64_IMAGE_TAG: ocean-emulator:physicsnemo-25.11-arm64-${{ github.sha }}
@@ -245,6 +251,17 @@ jobs:
           arch="$(uname -m)"
           echo "runner arch=${arch}"
           test "${arch}" = "aarch64"
+
+      - name: Install Docker
+        run: |
+          set -euo pipefail
+          if ! command -v docker >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io
+          fi
+          sudo systemctl enable --now docker || sudo service docker start
+          sudo chmod 666 /var/run/docker.sock
+          docker version
 
       - name: Cache test data
         uses: actions/cache@v3
@@ -265,6 +282,42 @@ jobs:
           BUILD_APPTAINER=0 \
           bash scripts/container/build_physicsnemo_25_11.sh
 
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish arm64 image
+        run: |
+          set -euo pipefail
+
+          owner_lower="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          ghcr_image="ghcr.io/${owner_lower}/ocean-emulator-physicsnemo"
+
+          sha_tag="${ghcr_image}:25.11-arm64-${GITHUB_SHA}"
+          docker tag "${LOCAL_ARM64_IMAGE_TAG}" "${sha_tag}"
+          docker push "${sha_tag}"
+          echo "TEST_ARM64_IMAGE=${sha_tag}" >> "${GITHUB_ENV}"
+
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            ref_tag="${ghcr_image}:25.11-arm64-manual-${GITHUB_REF_NAME//\//-}"
+            docker tag "${LOCAL_ARM64_IMAGE_TAG}" "${ref_tag}"
+            docker push "${ref_tag}"
+          fi
+
+          if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+            latest_tag="${ghcr_image}:25.11-arm64-latest"
+            docker tag "${LOCAL_ARM64_IMAGE_TAG}" "${latest_tag}"
+            docker push "${latest_tag}"
+          fi
+
+      - name: Pull published arm64 image
+        run: |
+          set -euo pipefail
+          docker pull "${TEST_ARM64_IMAGE}"
+
       - name: Run CPU tests in arm64 container
         timeout-minutes: 90
         run: |
@@ -273,7 +326,7 @@ jobs:
             -v "${GITHUB_WORKSPACE}/.data_cache:/workspace/.data_cache" \
             --workdir /workspace \
             --entrypoint bash \
-            "${LOCAL_ARM64_IMAGE_TAG}" -lc '
+            "${TEST_ARM64_IMAGE}" -lc '
               set -euo pipefail
               . .venv/bin/activate
               # The smaller arm64 runner is more prone to losing the GitHub runner
@@ -281,32 +334,15 @@ jobs:
               python -m pytest -p no:zarr -v -m "not manual and not cuda"
             '
 
-      - name: Run GPU tests in arm64 container if supported
-        timeout-minutes: 90
-        run: |
-          docker run --rm --gpus all \
-            --ipc=host \
-            -v "${GITHUB_WORKSPACE}/.data_cache:/workspace/.data_cache" \
-            --workdir /workspace \
-            --entrypoint bash \
-            "${LOCAL_ARM64_IMAGE_TAG}" -lc '
-              set -euo pipefail
-              . .venv/bin/activate
-              if python scripts/container/check_cuda_compat.py; then
-                python -m pytest -p no:zarr -v -m "not manual and cuda" -x
-              else
-                status="$?"
-                if [ "${status}" -eq 2 ]; then
-                  echo "Skipping arm64 GPU tests because the runner GPU architecture is unsupported by the current PyTorch build."
-                  exit 0
-                fi
-                exit "${status}"
-              fi
-            '
-
   report-container-test-status:
     if: always()
-    needs: [build-and-smoke, ec2, resolve-arm-dlami, ec2-arm, test-container-cpu-gpu, test-container-arm64-cpu-gpu]
+    needs:
+      - build-and-smoke
+      - resolve-arm-ubuntu-ami
+      - ec2
+      - ec2-arm
+      - test-container-cpu-gpu
+      - build-test-publish-arm64
     runs-on: ubuntu-latest
     steps:
       - name: Check job results

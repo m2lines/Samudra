@@ -8,6 +8,7 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
 )
 
+from ocean_emulators.constants import Boundary, Prognostic
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules import PerceiverDecoder, PerceiverEncoder
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
@@ -85,7 +86,14 @@ class FOMO(BaseModel):
                 check_fn=lambda m: isinstance(m, _checkpoint_types),
             )
 
-    def forward_once(self, fts: torch.Tensor, ctx: GridContext) -> torch.Tensor:
+    def forward_once(
+        self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
+    ) -> Prognostic:
+        # Prognostic and boundary are carried as separate tensors through the
+        # data pipeline, but this encoder still expects a single concatenated
+        # input.  The dual-perceiver encoder that fuses them at the token level
+        # (enabling cross-resolution) lands in a follow-up PR.
+        fts = torch.cat((prognostic, boundary), dim=1)
         with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
             if self.maybe_add_3d_coordinates is not None:
                 fts = self.maybe_add_3d_coordinates(fts, ctx.input_resolution_cpu)

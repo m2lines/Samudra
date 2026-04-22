@@ -9,6 +9,7 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
 )
 
+from ocean_emulators.constants import Boundary, Prognostic
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules.augment_input import make_3d_coordinate_grid
 from ocean_emulators.utils.ctx import GridContext
@@ -125,7 +126,12 @@ class FOMini(BaseModel):
             )
         return torch.cat(out_chunks, dim=1)
 
-    def forward_once(self, fts: torch.Tensor, ctx: GridContext) -> torch.Tensor:
+    def forward_once(
+        self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
+    ) -> Prognostic:
+        # FOMini is a single-scale pixel-token model; fuse prognostic +
+        # boundary into the single channel-stacked input it expects.
+        fts = torch.cat((prognostic, boundary), dim=1)
         B, _, H, W = fts.shape
         lat, lon = ctx.input_resolution_cpu
         if H != len(lat) or W != len(lon):

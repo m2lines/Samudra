@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.utils.checkpoint
 
-from ocean_emulators.constants import GridSize
+from ocean_emulators.constants import Boundary, GridSize, Prognostic
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 from ocean_emulators.utils.ctx import GridContext
@@ -49,7 +49,12 @@ class Samudra(BaseModel):
         self.corrector = corrector
         self.use_bfloat16 = use_bfloat16
 
-    def forward_once(self, fts: torch.Tensor, ctx: GridContext) -> torch.Tensor:
+    def forward_once(
+        self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
+    ) -> Prognostic:
+        # Samudra is a single-scale model; fuse prognostic + boundary into
+        # the single channel-stacked input its backbone expects.
+        fts = torch.cat((prognostic, boundary), dim=1)
         if self.corrector is not None:
             fts_input = fts.clone().detach()
 

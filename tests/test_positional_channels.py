@@ -21,7 +21,8 @@ def test_positional_parameters_update(dummy_src: DataSource):
         pos_channels=1,
     )
     model = config.build(
-        in_channels=2,
+        prog_channels=1,
+        boundary_channels=1,
         out_channels=1,
         hist=0,
         static_data_for_corrector=None,
@@ -38,10 +39,13 @@ def test_positional_parameters_update(dummy_src: DataSource):
 
     # Run a step and confirm they have changed
     optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
-    x = torch.randn(1, 2, h, w)
+    prog = torch.randn(1, 1, h, w)
+    boundary = torch.randn(1, 1, h, w)
     optimizer.zero_grad()
     out = model.forward_once(
-        x, GridContext(masks.prognostic, src.resolution, src.resolution)
+        prog,
+        boundary,
+        GridContext(masks.prognostic, src.resolution, src.resolution),
     )
     loss = out.sum()
     loss.backward()

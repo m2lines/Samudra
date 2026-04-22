@@ -1,11 +1,10 @@
-name: ocean_emulators
+name: ocean_preprocessing
 channels:
   - conda-forge
 dependencies:
     - python=3.11
     - xarray
     - xmip
-    - xarrera
     - gcm_filters  # to avoid https://stackoverflow.com/questions/7446187/no-module-named-pkg-resources which seemed to have https://github.com/m2lines/ocean_emulators/actions/runs/10392595642/job/28778202015?pr=53
     - setuptools
     - fire==0.7.1

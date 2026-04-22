@@ -1,9 +1,12 @@
+import numpy as np
 import pytest
 import xarray as xr
-import numpy as np
-from ocean_emulators.preprocessing import rotate_vectors, horizontal_regrid
-from tests.data import input_data  # noqa # Might want to put these in conftest.py (see https://stackoverflow.com/questions/73191533/using-conftest-py-vs-importing-fixtures-from-dedicate-modules)
+from ocean_preprocessing.preprocessing import horizontal_regrid, rotate_vectors
+
 from tests import requires_xesmf
+from tests.data import (
+    input_data,  # noqa # Might want to put these in conftest.py (see https://stackoverflow.com/questions/73191533/using-conftest-py-vs-importing-fixtures-from-dedicate-modules)
+)
 
 try:
     import xesmf as xe

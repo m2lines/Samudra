@@ -1,9 +1,0 @@
-name: ocean_emulators_docs
-channels:
-  - conda-forge
-dependencies:
-  - python=3.10
-  - pip
-  - pip:
-    - jupyter-book
-    - myst

@@ -553,13 +553,6 @@ def _parse_lev_from_output_var(
     """Parse the `lev` dimension from the output var names. Default: 0 for surface."""
     depth_inds = []
     for var_depth_i in prognostic_var_names:
-        if "_lev_" in var_depth_i:
-            _, lev_depth = var_depth_i.split("_lev_", maxsplit=1)
-            depth_inds.append(
-                dataset_spec.depth_levels.index(float(lev_depth.replace("_", ".")))
-            )
-            continue
-
         # Examples: "so_18", "zos"
         var_split = var_depth_i.split("_")
         if len(var_split) == 1:
@@ -873,19 +866,15 @@ class Normalize:
         self._boundary_std_np = self.boundary_std.to_array().to_numpy().reshape(-1)
         self._wet_mask_np = self.wet_mask.numpy()
 
-    def _to_tensor(self, array: np.ndarray, device: torch.device) -> torch.Tensor:
-        """Convert numpy array to tensor on specified device."""
-        return torch.from_numpy(array).to(device)
-
     def normalize_tensor_prognostic(
         self, data: torch.Tensor, fill_nan=True, fill_value=0.0
     ) -> torch.Tensor:
         """Normalize prognostic tensor."""
-        tensor_mean = self._to_tensor(self._prognostic_mean_np, data.device).to(
-            data.dtype
+        tensor_mean = torch.from_numpy(self._prognostic_mean_np).to(
+            data.device, data.dtype
         )
-        tensor_std = self._to_tensor(self._prognostic_std_np, data.device).to(
-            data.dtype
+        tensor_std = torch.from_numpy(self._prognostic_std_np).to(
+            data.device, data.dtype
         )
 
         expand_var_dim = [1] * data.ndim
@@ -904,11 +893,11 @@ class Normalize:
         self, data: torch.Tensor, fill_value=float("nan")
     ) -> torch.Tensor:
         """Unnormalize prognostic tensor and apply fill value to land cells."""
-        tensor_mean = self._to_tensor(self._prognostic_mean_np, data.device).to(
-            data.dtype
+        tensor_mean = torch.from_numpy(self._prognostic_mean_np).to(
+            data.device, data.dtype
         )
-        tensor_std = self._to_tensor(self._prognostic_std_np, data.device).to(
-            data.dtype
+        tensor_std = torch.from_numpy(self._prognostic_std_np).to(
+            data.device, data.dtype
         )
 
         expand_var_dim = [1] * data.ndim
@@ -926,10 +915,10 @@ class Normalize:
         self, data: torch.Tensor, fill_value=float("nan")
     ) -> torch.Tensor:
         """Unnormalize boundary tensor."""
-        tensor_mean = self._to_tensor(self._boundary_mean_np, data.device).to(
-            data.dtype
+        tensor_mean = torch.from_numpy(self._boundary_mean_np).to(
+            data.device, data.dtype
         )
-        tensor_std = self._to_tensor(self._boundary_std_np, data.device).to(data.dtype)
+        tensor_std = torch.from_numpy(self._boundary_std_np).to(data.device, data.dtype)
 
         expand_var_dim = [1] * data.ndim
         expand_var_dim[-3] = -1

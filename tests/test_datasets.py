@@ -87,7 +87,7 @@ def make_loader(
         if version is None
         else cfg.data.model_copy(update={"loader_version": str(version.value)})
     )
-    dataset_spec = data_config.dataset.build_spec()
+    dataset_spec = data_config.dataset.build()
     prognostic = dataset_spec.prognostic_var_names
     boundary = dataset_spec.boundary_var_names
 
@@ -308,7 +308,7 @@ def test_loader__data_shape(
     train_config.data.hist = history
 
     with make_loader(train_config, version=loader_version) as loader:
-        dataset_spec = train_config.data.dataset.build_spec()
+        dataset_spec = train_config.data.dataset.build()
         batch_size = train_config.batch_size
         num_input_timesteps = history + 1
 
@@ -359,7 +359,7 @@ def test_loader__data_shape__across_schedules(
     with make_loader(
         train_config, version=LoaderVersion.OM4_TORCH, schedule=schedule
     ) as loader:
-        dataset_spec = train_config.data.dataset.build_spec()
+        dataset_spec = train_config.data.dataset.build()
         batch_size = train_config.batch_size
         num_input_timesteps = history + 1
 
@@ -431,7 +431,7 @@ def test_loader__data_shape__across_schedules(
 def test_inference__data_shape(inference_loader_pair):
     cfg, loader = inference_loader_pair
 
-    dataset_spec = cfg.data.dataset.build_spec()
+    dataset_spec = cfg.data.dataset.build()
     batch_size = 1  # Inference always uses batch size 1
     hist = cfg.data.hist + 1
 

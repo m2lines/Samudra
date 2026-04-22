@@ -52,15 +52,6 @@ BoundaryVarNames = list[str]
 
 
 @dataclasses.dataclass(frozen=True)
-class DatasetSpatialSubset:
-    face: int
-    i_start: int
-    i_end: int
-    j_start: int
-    j_end: int
-
-
-@dataclasses.dataclass(frozen=True)
 class DatasetSpec:
     type: DatasetType
     depth_levels: tuple[float, ...]
@@ -73,7 +64,6 @@ class DatasetSpec:
     default_metadata: dict[str, dict[str, str]]
     ocean_heat_temperature_var: str
     surface_heat_flux_var: str
-    spatial_subset: DatasetSpatialSubset | None = None
 
     def __post_init__(self) -> None:
         if len(self.depth_levels) != len(self.depth_thickness):
@@ -257,11 +247,6 @@ def build_om4_spec(
 def build_llc_spec(
     prognostic_vars_key: str = "single_1",
     boundary_vars_key: str = "single_1",
-    face: int = 1,
-    i_start: int = 0,
-    i_end: int = 720,
-    j_start: int = 0,
-    j_end: int = 720,
 ) -> DatasetSpec:
     return DatasetSpec(
         type="llc",
@@ -434,13 +419,6 @@ def build_llc_spec(
         },
         ocean_heat_temperature_var="Theta",
         surface_heat_flux_var="oceQnet",
-        spatial_subset=DatasetSpatialSubset(
-            face=face,
-            i_start=i_start,
-            i_end=i_end,
-            j_start=j_start,
-            j_end=j_end,
-        ),
     )
 
 

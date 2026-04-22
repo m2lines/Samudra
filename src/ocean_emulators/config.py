@@ -193,7 +193,7 @@ class Om4DatasetConfig(BaseConfig):
     prognostic_vars_key: str = "thermo_dynamic_all"
     boundary_vars_key: str = "tau_hfds"
 
-    def build_spec(self) -> DatasetSpec:
+    def build(self) -> DatasetSpec:
         return build_om4_spec(
             self.prognostic_vars_key,
             self.boundary_vars_key,
@@ -210,15 +210,10 @@ class LlcDatasetConfig(BaseConfig):
     j_start: int = 0
     j_end: int = 720
 
-    def build_spec(self) -> DatasetSpec:
+    def build(self) -> DatasetSpec:
         return build_llc_spec(
             self.prognostic_vars_key,
             self.boundary_vars_key,
-            face=self.face,
-            i_start=self.i_start,
-            i_end=self.i_end,
-            j_start=self.j_start,
-            j_end=self.j_end,
         )
 
 
@@ -249,7 +244,7 @@ class DataConfig(BaseConfig):
         self,
         data_root: ResolvedLocation,
     ) -> DataContainer:
-        dataset_spec = self.dataset.build_spec()
+        dataset_spec = self.dataset.build()
         if self.dataset.type != "om4":
             raise NotImplementedError(
                 f"Dataset type {self.dataset.type!r} is not wired into the data "

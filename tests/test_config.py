@@ -55,7 +55,7 @@ def test_om4_dataset_config_builds_selected_spec():
         boundary_vars_key="hfds",
     )
 
-    spec = cfg.build_spec()
+    spec = cfg.build()
 
     assert spec.prognostic_var_names == ["thetao_0"]
     assert spec.boundary_var_names == ["hfds"]
@@ -84,9 +84,7 @@ def test_data_config_accepts_llc_dataset_type():
 
     assert isinstance(cfg.dataset, LlcDatasetConfig)
     assert cfg.dataset.face == 2
-    spec = cfg.dataset.build_spec()
-    assert spec.spatial_subset is not None
-    assert spec.spatial_subset.face == 2
+    assert cfg.dataset.build().prognostic_var_names == ["Theta_0"]
 
 
 def test_data_config_accepts_gpu_loading():

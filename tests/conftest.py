@@ -1,6 +1,6 @@
 import dataclasses
 import pathlib
-from collections.abc import Generator
+from collections.abc import Generator, Iterable
 from typing import ClassVar, Self
 
 import cftime
@@ -34,6 +34,20 @@ TEST_FULL_DATASET_SPEC = c.build_om4_spec(
     prognostic_vars_key="thermo_dynamic_all",
     boundary_vars_key="tau_hfds_hfds_anom",
 )
+
+
+def _om4_canonical_var_names(var_names: Iterable[str]) -> list[str]:
+    out = []
+    for var_name in var_names:
+        if "_lev_" not in var_name:
+            out.append(var_name)
+            continue
+
+        base_name, lev_depth = var_name.split("_lev_", maxsplit=1)
+        depth_level = float(lev_depth.replace("_", "."))
+        out.append(f"{base_name}_{TEST_DATASET_SPEC.depth_levels.index(depth_level)}")
+    return out
+
 
 TrainPair = tuple[TrainConfig, Trainer]
 
@@ -402,7 +416,7 @@ def _uncached_data_source(name: str) -> DataSource:
             means = data.mean(dim=["time", "lat", "lon"])
             stds = data.std(dim=["time", "lat", "lon"])
 
-            prognostic_var_names = list(vars_3d.keys())
+            prognostic_var_names = _om4_canonical_var_names(vars_3d.keys())
             boundary_var_names = list(vars_2d.keys())
             if name == "compact":
                 data = compact_dataset(data)
@@ -453,11 +467,11 @@ def _maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource |
                 else:
                     prognostic_var_names.append(str(var))
         else:
-            prognostic_var_names = [
+            prognostic_var_names = _om4_canonical_var_names(
                 str(v)
                 for v in data.data_vars
                 if v not in boundary_vars and "mask" not in v
-            ]
+            )
 
         return DataSource.from_datasets(
             name=cache_name,

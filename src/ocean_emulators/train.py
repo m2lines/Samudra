@@ -114,7 +114,7 @@ class Trainer:
         set_seed(cfg.experiment.rand_seed)
 
         # Getting prognostic and boundary variables
-        self.dataset_spec = cfg.data.dataset.build_spec()
+        self.dataset_spec = cfg.data.dataset.build()
         self.prognostic_var_names: PrognosticVarNames = (
             self.dataset_spec.prognostic_var_names
         )

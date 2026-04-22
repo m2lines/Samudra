@@ -179,8 +179,8 @@ class OceanHeatCorrector(BaseCorrector):
         sea_surface_fraction_tensor: torch.Tensor,
     ):
         super().__init__(hist, tensor_map, normalize)
-        # Area weights are not on the correct scale.
         self.dataset_spec = dataset_spec
+        # Area weights are not on the correct scale.
         self.area_weights = area_weights
         self.area_weighted_func = partial(
             area_weighted_sum, area_weights=self.area_weights

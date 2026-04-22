@@ -15,7 +15,7 @@ MIGRATIONS=(
     "jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr|raw/om4_5daily.zarr"
     "am16581/ocean_static_no_mask_table.zarr|raw/ocean_static_no_mask_table.zarr"
     "am16581/grids|raw/grids"
-    "am16581/data/2025-11/om4_onedeg_blur_v8|v2025-11/om4_onedeg_blur"
+    "am16581/data/2025-11/om4_onedeg_blur_v8|v2025-11/om4_onedeg_filter"
     "am16581/data/2025-11/om4_onedeg_v3|v2025-11/om4_onedeg"
     "am16581/data/2025-11/om4_halfdeg_v4|v2025-11/om4_halfdeg"
     "am16581/data/2025-11/om4_quarterdeg_v2|v2025-11/om4_quarterdeg"

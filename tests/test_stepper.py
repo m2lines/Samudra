@@ -4,8 +4,9 @@ import torch
 import xarray as xr
 
 from ocean_emulators.constants import DEPTH_LEVELS, TensorMap
-from ocean_emulators.datasets import InferenceDataset
+from ocean_emulators.datasets import InferenceDataset, TrainData
 from ocean_emulators.models.base import BaseModel
+from ocean_emulators.stepper import Stepper
 from ocean_emulators.utils.data import DataSource, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
 
@@ -91,6 +92,14 @@ class MockModel(BaseModel):
 
     def forward_once(self, x):
         return x[:, : self.out_channels] * 10.0 + x[:, -1]
+
+
+class ResidualMockModel(BaseModel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def forward_once(self, x):
+        return torch.ones_like(x[:, : self.out_channels]) * 2.0
 
 
 # These tests will fail with OHC PR
@@ -255,6 +264,30 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
         device=merged_input_tensor.device,
     )
     assert torch.equal(merged_input_tensor.flatten(), expected_merged_input)
+
+
+def test_validate_batch_applies_residual_prediction() -> None:
+    model = ResidualMockModel(
+        in_channels=2,
+        out_channels=1,
+        wet=torch.ones((1, 2, 2), dtype=torch.bool),
+        hist=0,
+        pred_residuals=True,
+        last_kernel_size=3,
+        pad="circular",
+        static_data=None,
+        gradient_detach_interval=0,
+    )
+
+    batch = TrainData(num_prognostic_channels=1)
+    input_tensor = torch.full((1, 2, 2, 2), 3.0, dtype=torch.float32)
+    label_tensor = torch.full((1, 1, 2, 2), 5.0, dtype=torch.float32)
+    batch.append(input_tensor, label_tensor)
+
+    output = Stepper.validate_batch(model, batch, torch.nn.MSELoss(reduction="none"))
+
+    expected = torch.full((1, 1, 2, 2), 5.0, dtype=torch.float32)
+    assert torch.equal(output.gen_data, expected)
 
 
 @pytest.mark.parametrize("hist", [0, 1, 2, 3])

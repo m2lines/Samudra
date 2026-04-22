@@ -1,15 +1,18 @@
 #!/bin/bash
-#SBATCH -p pi_abodner
-#SBATCH --job-name=2026-04-22-Samudra_LLC:config_tests_experiment_3
+#SBATCH -w node3300
+#SBATCH --reservation=rres_abodner_2026-04-14_a3sswmcp
+#SBATCH --qos=rres_qos_abodner_2026-04-14_a3sswmcp
+#SBATCH --account=rres_acc_abodner_2026-04-14_a3sswmcp
+#SBATCH --job-name=2026-04-17-Samudra_LLC:res_test_1_curriculum
 #SBATCH -N 1
-#SBATCH --mem=500GB
+#SBATCH --mem=1000GB
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=60
-#SBATCH --gres=gpu:4
-#SBATCH --time=01-0:00:00
+#SBATCH --cpus-per-task=120
+#SBATCH -G h200:8
+#SBATCH --time=01-19:00:00
 #SBATCH --signal=B:USR1@300
-#SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
-#SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
+#SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/reservation_test/%x-%j.out
+#SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/reservation_test/%x-%j.out
 
 # load Python platform with PyTorch and CUDA support preinstalled
 module load miniforge/24.3.0-0
@@ -33,7 +36,7 @@ export NCCL_DEBUG=INFO
 
 # PROFILING
 export NSYS_ARGS="--trace=cuda,nvtx,osrt --sample=cpu --delay=300 --duration=120"
-NSYS_OUTPUT_DIR="/orcd/home/002/codycruz/Ocean_Emulator/logs/nsys"
+NSYS_OUTPUT_DIR="/orcd/home/002/codycruz/Ocean_Emulator/logs/reservation_test/nsys"
 mkdir -p "${NSYS_OUTPUT_DIR}"
 PROFILER_CMD=()
 if [[ -n "${NSYS_ARGS}" ]]; then
@@ -62,7 +65,7 @@ fi
 # KNOBS
 
 # GPUS WORKERS 
-GPUS="${GPUS:-4}"
+GPUS="${GPUS:-8}"
 DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-2}"
 
 # DDP
@@ -88,7 +91,7 @@ RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
 # NAME, DIRECTORY, EPOCHS, SAVE_FREQ
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-}" # 2026-04-04-CONT:[increase-step-test-suite]-WITH_temporal_stride=6,steps=4,2012-01-01-2012-09-14-RESUME}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
-EPOCHS="${EPOCHS:-1}"
+EPOCHS="${EPOCHS:-6}"
 SAVE_FREQ="${SAVE_FREQ:-1}"
 
 # OPTIMIZATION (LR + SCHEDULER)
@@ -96,17 +99,17 @@ LEARNING_RATE="${LEARNING_RATE:-0.0006}"
 SCHEDULER_MODE="${SCHEDULER_MODE:-cosine}" # SCHEDULER_MODE: "cosine" (default) or "fixed" (no LR decay)
 # If set while using cosine, stretches LR decay over a longer horizon than EPOCHS.
 # Example: EPOCHS=6 and SCHEDULER_TARGET_EPOCHS=60 gives a much gentler decay.
-SCHEDULER_TARGET_EPOCHS="${SCHEDULER_TARGET_EPOCHS:-30}"
+SCHEDULER_TARGET_EPOCHS="${SCHEDULER_TARGET_EPOCHS:-20}"
 
 # CURRICULUM
 # list knobs should be passed like "[1]" or "[1, 2, 4]".
 TEMPORAL_STRIDE="${TEMPORAL_STRIDE:-6}"
 TEMPORAL_STRIDE_TRANSITION="${TEMPORAL_STRIDE_TRANSITION:-[]}"
-STEPS="${STEPS:-[1]}"
-STEP_TRANSITION="${STEP_TRANSITION:-[]}"
+STEPS="${STEPS:-[1,2,3,4]}"
+STEP_TRANSITION="${STEP_TRANSITION:-[2,3,4]}"
 DATA_STRIDE="${DATA_STRIDE:-[6]}"
 HIST="${HIST:-1}"
-GRADIENT_DETACH_INTERVAL="${GRADIENT_DETACH_INTERVAL:-4}"
+GRADIENT_DETACH_INTERVAL="${GRADIENT_DETACH_INTERVAL:-2}"
 
 
 

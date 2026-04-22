@@ -6,4 +6,4 @@ data_stds_location: 002/cody/LLC_means_stds/var_96_LLC_stds.zarr
 static_data_vars: []
 concurrent_compute: false
 num_workers: 4
-hist: 2
+hist: 1

@@ -49,6 +49,8 @@ class Stepper:
             else model
         )
         outs = model.forward_once(input)
+        if model.pred_residuals:
+            outs = input[:, : model.out_channels] + outs
         loss_per_channel = loss_fn(outs, label)
         loss = torch.mean(loss_per_channel)
         return ValBatchOutput(loss, loss_per_channel, input, label, outs)

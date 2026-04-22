@@ -32,12 +32,12 @@ jobs:
           micromamba-version: 'latest'
           create-args: >-
             python=${{ matrix.python-version }} xesmf
-      - name: 🌈 Install ocean_emulator package
+      - name: 🌈 Install ocean_preprocessing package
         shell: bash -l {0}
         run: |
-          python -m pip install -e  ".[test]"
+          python -m pip install -e "./data[test]"
       - name: 🔎 Check current version
-        run: python -c "import ocean_emulators; print(ocean_emulators.__version__)"
+        run: python -c "import ocean_preprocessing; print(ocean_preprocessing.__version__)"
       - name: 🏄‍♂️ Run Tests
         shell: bash -l {0}
         run: |

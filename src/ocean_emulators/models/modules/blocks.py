@@ -100,16 +100,17 @@ class ZonallyPeriodicBilinearUpsample(torch.nn.Module):
 
 
 class DropPath(torch.nn.Module):
-    """Stochastic depth (drop path) for residual connections.
+    """Shortcut dropout (drop path) for skip connections.
 
-    During training, randomly drops entire samples' residual contributions
+    During training, randomly drops entire samples' skip connections
     with probability ``drop_prob``, scaling survivors by 1/(1-p) to preserve
     expected values. Implemented via ``nn.Dropout`` applied to a per-sample
     mask of ones.
 
     References:
-        [0]: Deep Networks with Stochastic Depth (https://arxiv.org/abs/1603.09382)
+        [0]: Rethinking U-net Skip Connections for Biomedical Image Segmentation (https://arxiv.org/abs/2402.08276)
         [1]: Dropout Reduces Underfitting (https://arxiv.org/abs/2303.01500)
+
     """
 
     def __init__(self, drop_prob: float = 0.0):

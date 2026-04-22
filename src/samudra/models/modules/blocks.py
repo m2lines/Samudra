@@ -113,7 +113,7 @@ class DropPath(torch.nn.Module):
     expected values. Implemented via ``nn.Dropout`` applied to a per-sample
     mask of ones.
 
-    Supports "early stochastic depth" scheduling [1]: call
+    Supports "early dropout" scheduling [1]: call
     :meth:`set_progress` each epoch with ``progress = epoch / drop_path_epochs``
     to linearly decay the drop rate to 0, then keep it off for the rest of
     training.

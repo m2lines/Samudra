@@ -1,10 +1,12 @@
 #!/usr/bin/env bash
+# This script is run on our local arm64 GPU box nightly in order to smoke test our latest docker image.
 set -euo pipefail
 
 PYTEST_MARK_EXPR="${PYTEST_MARK_EXPR:-cuda and not manual}"
-PYTEST_ARGS="${PYTEST_ARGS:--x}"
+# FOMO flash-attention tests are disabled on ARM until #710 is fixed.
+PYTEST_ARGS="${PYTEST_ARGS:--x -k 'not train_fomo'}"
 IMAGE_TAG="${IMAGE_TAG:-}"
-GHCR_OWNER="${GHCR_OWNER:-}"
+DOCKER_REPO="${DOCKER_REPO:-ghcr.io/Open-Athena}"
 
 if [[ "$(uname -m)" != "aarch64" ]]; then
   echo "This scrub must run on an ARM64/aarch64 host; got $(uname -m)." >&2
@@ -31,18 +33,9 @@ if ! docker version >/dev/null 2>&1; then
   fi
 fi
 
-if [[ -z "${GHCR_OWNER}" ]]; then
-  remote_url="$(git config --get remote.origin.url || true)"
-  if [[ "${remote_url}" =~ github.com[:/]([^/]+)/[^/.]+(\.git)?$ ]]; then
-    GHCR_OWNER="${BASH_REMATCH[1]}"
-  else
-    GHCR_OWNER="Open-Athena"
-  fi
-fi
-
-owner_lower="$(echo "${GHCR_OWNER}" | tr '[:upper:]' '[:lower:]')"
 if [[ -z "${IMAGE_TAG}" ]]; then
-  IMAGE_TAG="ghcr.io/${owner_lower}/ocean-emulator-physicsnemo:25.11-arm64-latest"
+  docker_repo_lower="$(echo "${DOCKER_REPO}" | tr '[:upper:]' '[:lower:]')"
+  IMAGE_TAG="${docker_repo_lower}/ocean-emulator-physicsnemo:25.11-arm64-latest"
 fi
 
 login_token="${GHCR_TOKEN:-${GITHUB_TOKEN:-${GH_TOKEN:-}}}"

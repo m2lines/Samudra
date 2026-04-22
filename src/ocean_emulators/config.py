@@ -1,5 +1,5 @@
 import abc
-from functools import cache, cached_property
+from functools import cached_property
 from pathlib import Path
 from typing import Annotated, Literal, Self, assert_never
 
@@ -483,26 +483,15 @@ class PerceiverConfig(BaseConfig):
 
 
 def _use_flash(implementation: PerceiverImpl) -> bool:
-    if implementation == "flash":
-        return True
-    return implementation == "auto" and _flash_available()
+    return (
+        implementation == "auto" and torch.cuda.is_available()
+    ) or implementation == "flash"
 
 
 def _use_naive(implementation: PerceiverImpl) -> bool:
-    return implementation == "naive" or (
-        implementation == "auto" and not _flash_available()
-    )
-
-
-@cache
-def _flash_available() -> bool:
-    if not torch.cuda.is_available():
-        return False
-    try:
-        import flash_perceiver  # noqa: F401
-    except ImportError:
-        return False
-    return True
+    return (
+        implementation == "auto" and not torch.cuda.is_available()
+    ) or implementation == "naive"
 
 
 def _flash_import_error() -> ValueError:
@@ -750,7 +739,7 @@ class FOMOConfig(BaseModelConfig):
     perceiver_implementation: PerceiverImpl = Field(
         default="auto",
         description="Perceiver attention implementation shared by the encoder and decoder. "
-        "'auto' selects flash attention when CUDA and the flash dependencies are usable, otherwise naive.",
+        "'auto' selects flash attention when CUDA is available, otherwise naive.",
     )
     patch_extent: list[float] = Field(
         default=[6.0, 10.0],
@@ -834,7 +823,7 @@ class FOMiniConfig(BaseModelConfig):
     perceiver_implementation: PerceiverImpl = Field(
         default="auto",
         description="Perceiver attention implementation for the single PerceiverIO model. "
-        "'auto' selects flash attention when CUDA and the flash dependencies are usable, otherwise naive.",
+        "'auto' selects flash attention when CUDA is available, otherwise naive.",
     )
     embedding_dim: int = Field(
         default=128,

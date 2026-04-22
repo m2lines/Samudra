@@ -116,42 +116,6 @@ jobs:
             docker push "${arch_latest_tag}"
           fi
 
-  resolve-arm-ubuntu-ami:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    runs-on: ubuntu-latest
-    outputs:
-      ami_id: ${{ steps.resolve.outputs.ami_id }}
-      aws_region: ${{ steps.resolve.outputs.aws_region }}
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ vars.EC2_LAUNCH_ROLE }}
-          role-session-name: github-actions-session
-          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
-
-      - name: Resolve latest ARM64 Ubuntu AMI
-        id: resolve
-        env:
-          AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
-          CANONICAL_OWNER_ID: "099720109477"
-          ARM_UBUNTU_NAME_FILTER: ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-arm64-server-*
-        run: |
-          set -euo pipefail
-          ami_id="$(aws ec2 describe-images \
-            --region "${AWS_REGION}" \
-            --owners "${CANONICAL_OWNER_ID}" \
-            --filters \
-              "Name=name,Values=${ARM_UBUNTU_NAME_FILTER}" \
-              "Name=architecture,Values=arm64" \
-              "Name=virtualization-type,Values=hvm" \
-              "Name=root-device-type,Values=ebs" \
-              "Name=state,Values=available" \
-            --query 'reverse(sort_by(Images, &CreationDate))[:1].ImageId' \
-            --output text)"
-          echo "ami_id=${ami_id}" >> "${GITHUB_OUTPUT}"
-          echo "aws_region=${AWS_REGION}" >> "${GITHUB_OUTPUT}"
-
   ec2:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     needs: build-and-smoke
@@ -166,12 +130,18 @@ jobs:
 
   ec2-arm:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    needs: resolve-arm-ubuntu-ami
     uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
     with:
-      aws_region: ${{ needs.resolve-arm-ubuntu-ami.outputs.aws_region }}
+      aws_region: us-east-1
       ec2_instance_type: m7g.xlarge
-      ec2_image_id: ${{ needs.resolve-arm-ubuntu-ami.outputs.ami_id }}
+      # Ubuntu 24.04 LTS arm64 hvm ebs-gp3 in us-east-1, Canonical owner 099720109477.
+      # To refresh, run:
+      # aws ec2 describe-images --region us-east-1 --owners 099720109477 --filters \
+      #   'Name=name,Values=ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-arm64-server-*' \
+      #   'Name=architecture,Values=arm64' 'Name=virtualization-type,Values=hvm' \
+      #   'Name=root-device-type,Values=ebs' 'Name=state,Values=available' \
+      #   --query 'reverse(sort_by(Images, &CreationDate))[:1].ImageId' --output text
+      ec2_image_id: ami-02c57ce16e9a8e906
       ec2_root_device_size: 200 # local arm64 image build plus test data/cache need substantial headroom
       aws_tags: '[{"Key": "project", "Value": "fomo"}]'
     secrets:
@@ -346,7 +316,6 @@ jobs:
     if: always()
     needs:
       - build-and-smoke
-      - resolve-arm-ubuntu-ami
       - ec2
       - ec2-arm
       - test-container-cpu-gpu

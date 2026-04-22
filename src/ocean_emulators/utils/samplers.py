@@ -299,22 +299,10 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
         if self.shuffle:
             rng.shuffle(chunks)
 
-        # Flatten chunks back to a list of batches. Every consecutive
-        # num_replicas batches now belong to the same resolution group.
+        # Per-group chunking above already ensures len is a multiple of num_replicas,
+        # so every consecutive num_replicas batches belong to the same group.
         all_batches = list(itertools.chain.from_iterable(chunks))
-
-        # Ensure uniform batch count across all ranks to prevent DDP hangs.
-        total = len(all_batches)
-        if self.drop_last:
-            num_batches_per_rank = total // self.num_replicas
-            all_batches = all_batches[: num_batches_per_rank * self.num_replicas]
-        else:
-            num_batches_per_rank = (total + self.num_replicas - 1) // self.num_replicas
-            padding_size = num_batches_per_rank * self.num_replicas - total
-            if padding_size > 0:
-                all_batches = all_batches + [
-                    all_batches[i % total] for i in range(padding_size)
-                ]
+        assert len(all_batches) % self.num_replicas == 0
 
         # Each worker takes every num_replicas'th batch starting at rank
         for i in range(self.rank, len(all_batches), self.num_replicas):

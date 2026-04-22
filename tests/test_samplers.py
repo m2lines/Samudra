@@ -454,8 +454,8 @@ def test_group_batch_sampler__distributed__replica_chunks_are_homogeneous():
         ), f"Step {step}: ranks process mixed groups. Indices: {step_indices}"
 
 
-def test_group_batch_sampler__n_workers_no_drop_last__moves_awkward_batches_to_the_end():
-    """Without drop_last, all steps except possibly the last should be homogeneous across ranks."""
+def test_group_batch_sampler__n_workers_no_drop_last__all_steps_homogeneous():
+    """With per-group padding, every step should be homogeneous across ranks."""
     ds_size = 20
     n_workers = 8
     datasets = [
@@ -481,9 +481,8 @@ def test_group_batch_sampler__n_workers_no_drop_last__moves_awkward_batches_to_t
     counts = [len(rb) for rb in rank_batches]
     assert len(set(counts)) == 1, f"Ranks have different batch counts: {counts}"
 
-    # All steps except possibly the last should be homogeneous across ranks
     batches_per_rank = counts[0]
-    for step in range(batches_per_rank - 1):
+    for step in range(batches_per_rank):
         step_indices = list(
             itertools.chain.from_iterable(
                 rank_batches[r][step] for r in range(n_workers)
@@ -492,3 +491,75 @@ def test_group_batch_sampler__n_workers_no_drop_last__moves_awkward_batches_to_t
         assert all(b >= ds_size for b in step_indices) or all(
             b < ds_size for b in step_indices
         ), f"Step {step}: ranks process mixed groups. Indices: {step_indices}"
+
+
+def test_group_batch_sampler__distributed__small_group_is_padded_when_not_dropping():
+    """A group with fewer batches than num_replicas is padded (not dropped) with drop_last=False."""
+    # Group 0: 10 batches (1 full chunk of 8 + 2 remainder -> padded to 8)
+    # Group 1: 2 batches (0 full chunks -> padded to 8 entirely from duplicates)
+    n_workers = 8
+    datasets = [
+        MockDataset(20, grid_size=(10, 20)),  # 10 batches
+        MockDataset(4, grid_size=(5, 10)),  # 2 batches (smaller than n_workers)
+    ]
+
+    rank_batches = []
+    for rank in range(n_workers):
+        sampler = DistributedEquivalenceGroupBatchSampler(
+            datasets=datasets,  # type: ignore[arg-type]
+            group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
+            batch_size=2,
+            num_replicas=n_workers,
+            rank=rank,
+            shuffle=True,
+            drop_last=False,
+        )
+        rank_batches.append(list(sampler))
+
+    counts = [len(rb) for rb in rank_batches]
+    assert len(set(counts)) == 1, f"Ranks have different batch counts: {counts}"
+
+    # Every step must be homogeneous across ranks (small group is padded, not mixed).
+    batches_per_rank = counts[0]
+    for step in range(batches_per_rank):
+        step_indices = list(
+            itertools.chain.from_iterable(
+                rank_batches[r][step] for r in range(n_workers)
+            )
+        )
+        assert all(idx < 20 for idx in step_indices) or all(
+            idx >= 20 for idx in step_indices
+        ), f"Step {step} mixes groups: {step_indices}"
+
+    # The small group's samples must appear at least once across all ranks
+    # (otherwise it was silently dropped).
+    all_indices = {idx for rb in rank_batches for batch in rb for idx in batch}
+    assert any(idx >= 20 for idx in all_indices), (
+        "Small group was dropped instead of padded"
+    )
+
+
+def test_group_batch_sampler__distributed__shuffle_false_is_deterministic_across_epochs():
+    """With shuffle=False, batch order (incl. padding) must not change across epochs."""
+    # Choose a size that triggers padding so we exercise the padding path.
+    n_workers = 3
+    datasets = [MockDataset(10), MockDataset(10)]  # 10 batches total, not divisible
+
+    sampler = DistributedEquivalenceGroupBatchSampler(
+        datasets=datasets,  # type: ignore[arg-type]
+        group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
+        batch_size=2,
+        num_replicas=n_workers,
+        rank=0,
+        shuffle=False,
+        drop_last=False,
+    )
+
+    sampler.set_epoch(0)
+    batches_epoch_0 = [tuple(b) for b in sampler]
+    sampler.set_epoch(5)
+    batches_epoch_5 = [tuple(b) for b in sampler]
+
+    assert batches_epoch_0 == batches_epoch_5, (
+        "shuffle=False sampler should be deterministic across epochs"
+    )

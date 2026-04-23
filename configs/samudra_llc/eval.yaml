@@ -6,6 +6,7 @@ disk_mode: true
 inference_time:
   start: "2012-11-01"
   end: "2012-11-14"
+inference_stride: 6
 num_model_steps_forward: 25
 
 experiment:

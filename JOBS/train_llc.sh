@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-04-22-Samudra_LLC:config_tests_experiment_3
+#SBATCH --job-name=2026-04-22-Samudra_LLC:config_tests_experiment_4_halo_sponge
 #SBATCH -N 1
 #SBATCH --mem=500GB
 #SBATCH --ntasks=1
@@ -64,7 +64,7 @@ fi
 # GPUS WORKERS 
 GPUS="${GPUS:-4}"
 DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-2}"
-PAD="${PAD:-constant}"
+PAD="${PAD:-halo_sponge}"
 NUM_HALO="${NUM_HALO:-4}"
 NUM_SPONGE="${NUM_SPONGE:-12}"
 

@@ -573,18 +573,25 @@ def spherical_area_weights(data: xr.Dataset) -> Grid:
     return weights
 
 
-def get_inference_steps(data_source: DataSource, hist: int = 1):
+def get_inference_steps(
+    data_source: DataSource, hist: int = 1, inference_stride: int = 1
+):
     """
     Get the number of inference/rollout steps for the given time configuration.
 
     Args:
         data_source: The data source sliced to the inference time range
         hist: How many additional history samples we get per step
+        inference_stride: Temporal subsampling factor applied before inference
 
     Returns:
         num_steps: Total number of rolled-out inferences which fit into the time range
     """
+    if inference_stride < 1:
+        raise ValueError("inference_stride must be >= 1")
+
     num_steps = data_source.data.time.size
+    num_steps = (num_steps + inference_stride - 1) // inference_stride
 
     # Might have extra remaining days, so we remove them
     mod = num_steps % (hist + 1)

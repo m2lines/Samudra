@@ -149,6 +149,89 @@ def test_inference_dataset(inf_data_init, hist):
         assert torch.equal(target_cur.flatten(), expected_target)
 
 
+def test_inference_dataset_with_stride():
+    with MultitonScope():
+        levels = 19
+        lats = 1
+        lons = 1
+        total_time_steps = 30
+
+        tensor_map = TensorMap.init_instance("thetao_1", "hfds")
+        data = xr.Dataset(
+            {
+                **{
+                    f"thetao_{lev}": (
+                        ["time", "lat", "lon"],
+                        np.tile(
+                            np.arange(total_time_steps)[:, None, None] * 2,
+                            (1, lats, lons),
+                        ),
+                    )
+                    for lev in range(levels)
+                },
+                "hfds": (
+                    ["time", "lat", "lon"],
+                    np.tile(
+                        np.arange(total_time_steps)[:, None, None] * 2 + 1,
+                        (1, lats, lons),
+                    ),
+                ),
+                "wetmask": (
+                    ["time", "lev", "lat", "lon"],
+                    np.ones((total_time_steps, levels, lats, lons)),
+                ),
+            },
+            coords={
+                "time": np.arange(total_time_steps),
+                "lev": DEPTH_LEVELS,
+                "lat": np.arange(lats),
+                "lon": np.arange(lons),
+            },
+        )
+        data_mean: xr.Dataset = data.mean() * 0.0
+        data_std: xr.Dataset = data.std() * 0.0 + 1.0
+        val = DataSource.from_datasets(
+            data,
+            data_mean,
+            data_std,
+            name="test-data",
+            prognostic_var_names=tensor_map.prognostic_var_names,
+            boundary_var_names=tensor_map.boundary_var_names,
+        )
+
+        _ = Normalize.init_instance(
+            val,
+            prognostic_var_names=tensor_map.prognostic_var_names,
+            boundary_var_names=tensor_map.boundary_var_names,
+        )
+        inference_dataset = InferenceDataset(
+            val,
+            tensor_map.prognostic_var_names,
+            tensor_map.boundary_var_names,
+            hist=1,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+            long_rollout=True,
+            inference_stride=2,
+        )
+
+        input_0, target_0 = inference_dataset[0]
+        assert torch.equal(
+            input_0.flatten(), torch.tensor([0, 4, 1, 5], device=input_0.device)
+        )
+        assert torch.equal(
+            target_0.flatten(), torch.tensor([8, 12], device=target_0.device)
+        )
+
+        input_1, target_1 = inference_dataset[1]
+        assert torch.equal(
+            input_1.flatten(), torch.tensor([8, 12, 9, 13], device=input_1.device)
+        )
+        assert torch.equal(
+            target_1.flatten(), torch.tensor([16, 20], device=target_1.device)
+        )
+
+
 @pytest.mark.parametrize("hist", [0, 1, 2, 3, 4])
 @pytest.mark.parametrize("num_steps", [1, 2, 3])
 def test_inference_rollout(inf_data_init, hist, num_steps):

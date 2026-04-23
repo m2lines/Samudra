@@ -37,7 +37,7 @@ preemptible: false
 backend: auto
 
 experiment:
-  name: 2026-04-22-Samudra_LLC:config_tests_experiment_3
+  name: 2026-04-22-Samudra_LLC:config_tests_experiment_4_halo_sponge
   data_root: /orcd/data/abodner/
   rand_seed: 15
   base_output_dir: .LOCAL

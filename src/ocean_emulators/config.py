@@ -1047,6 +1047,7 @@ class EvalConfig(TopLevelConfig):
     # so we can leave it out of config files
     ckpt_path: str | None = None
     num_model_steps_forward: int = 200
+    inference_stride: int = 1
     backend: EvalBackendConfig = "auto"
 
     # Config components

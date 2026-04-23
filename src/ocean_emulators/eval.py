@@ -147,6 +147,7 @@ class Eval:
         self.num_workers = cfg.data.num_workers
         self.inference_time = cfg.inference_time
         self.num_model_steps_forward = cfg.num_model_steps_forward
+        self.inference_stride = cfg.inference_stride
         self.save_zarr = cfg.save_zarr
         self.model_path = cfg.ckpt_path
         self.normalize_before_mask = cfg.data.normalize_before_mask
@@ -167,6 +168,7 @@ class Eval:
         self.num_time_steps = get_inference_steps(
             sliced_src,
             hist=self.hist,
+            inference_stride=self.inference_stride,
         )
         self.inference_dataset = InferenceDataset(
             src=sliced_src,
@@ -176,6 +178,7 @@ class Eval:
             normalize_before_mask=self.normalize_before_mask,
             masked_fill_value=self.masked_fill_value,
             long_rollout=True,
+            inference_stride=self.inference_stride,
         )
 
     def run(self) -> None:

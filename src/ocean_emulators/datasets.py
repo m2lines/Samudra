@@ -41,6 +41,8 @@ class InferenceDataset(Dataset):
     """This class is used for inference rollouts.
 
     It creates rolling indices to keep track of histories/past states.
+    When `inference_stride > 1`, the underlying time series is first subsampled
+    before these windows are constructed.
     For example,
     Hist=0 ; 0->[0, 1]; 1->[1, 2]; 2->[2, 3]; 3->[3, 4]
     Hist=1 ; 0->[[0, 1], [2, 3]]; 1->[[2, 3], [4, 5]];
@@ -61,13 +63,22 @@ class InferenceDataset(Dataset):
         normalize_before_mask,
         masked_fill_value,
         long_rollout,
+        inference_stride: int = 1,
     ):
         super().__init__()
         self.device = get_device()
 
         self.hist = hist
+        if inference_stride < 1:
+            raise ValueError("inference_stride must be >= 1")
+        self.inference_stride = inference_stride
 
         self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
+        if inference_stride > 1:
+            src = src.map_data(
+                lambda ds: ds.isel(time=slice(None, None, inference_stride)),
+                suffix=f"inference_stride={inference_stride}",
+            )
         data = src.data
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")

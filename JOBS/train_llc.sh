@@ -64,6 +64,9 @@ fi
 # GPUS WORKERS 
 GPUS="${GPUS:-4}"
 DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-2}"
+PAD="${PAD:-constant}"
+NUM_HALO="${NUM_HALO:-4}"
+NUM_SPONGE="${NUM_SPONGE:-12}"
 
 # DDP
 PIN_MEM="${PIN_MEM:-false}"
@@ -123,6 +126,7 @@ echo "using data.concurrent_compute=${CONCURRENT_COMPUTE}"
 echo "using optimization: learning_rate=${LEARNING_RATE}, scheduler_mode=${SCHEDULER_MODE}, scheduler_target_epochs=${SCHEDULER_TARGET_EPOCHS:-<default>}"
 echo "using curriculum: data_stride=${DATA_STRIDE}, temporal_stride=${TEMPORAL_STRIDE}, steps=${STEPS}, step_transition=${STEP_TRANSITION}, temporal_stride_transition=${TEMPORAL_STRIDE_TRANSITION}, hist=${HIST}, grad-detach=${GRADIENT_DETACH_INTERVAL}"
 echo "using data location: LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
+echo "using padding: pad=${PAD}, num_halo=${NUM_HALO}, num_sponge=${NUM_SPONGE}"
 
 # Optional resume behavior:
 # - RESUME_CKPT_PATH set + FINETUNE=false resumes optimizer/scheduler and starts at ckpt epoch + 1.
@@ -206,6 +210,9 @@ uv run python -m torch.distributed.run \
   --epochs "${EPOCHS}" \
   "${OPTIM_ARGS[@]}" \
   "${CURRICULUM_ARGS[@]}" \
+  --model.pad "${PAD}" \
+  --model.num_halo "${NUM_HALO}" \
+  --model.num_sponge "${NUM_SPONGE}" \
   --model.gradient_detach_interval "${GRADIENT_DETACH_INTERVAL}" \
   --gradient_accumulation_steps 4 \
   --ddp_bucket_cap_mb 25 \

@@ -12,6 +12,7 @@ from ocean_emulators.models.modules.blocks import (
     UpsamplingBlockBuilder,
     ZonallyPeriodicBilinearUpsample,
 )
+from ocean_emulators.models.modules.padding import apply_spatial_pad
 from ocean_emulators.utils.train import pairwise
 
 if TYPE_CHECKING:
@@ -154,12 +155,7 @@ class UNetBackbone(nn.Module):
         for layer in self.layers:
             # Circular/Globe padding
             if isinstance(layer, nn.Conv2d):
-                fts = torch.nn.functional.pad(
-                    fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
-                )
-                fts = torch.nn.functional.pad(
-                    fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
-                )
+                fts = apply_spatial_pad(fts, self.N_pad, self.pad)
 
             # (Maybe) apply checkpointing
             if self.checkpoint_all:

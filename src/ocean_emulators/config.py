@@ -47,6 +47,7 @@ from ocean_emulators.utils.loss import (
     GradientLoss,
     LossFn,
     LossMetric,
+    build_halo_sponge_spatial_weight,
     loss_fn_from_metric,
 )
 from ocean_emulators.utils.profiler import Profiler
@@ -233,6 +234,7 @@ class DataConfig(BaseConfig):
 BlockType = Literal["conv_next_block", "conv_block"]
 ActivationType = Literal["relu", "gelu", "capped_gelu"]
 NormType = Literal["batch", "instance", "group", "nonorm", "layer"]
+PadType = Literal["circular", "constant", "reflect", "replicate", "halo_sponge"]
 
 
 class BlockConfig(BaseConfig):
@@ -607,7 +609,7 @@ class RolloutNoiseConfig(BaseConfig):
 class BaseModelConfig(BaseConfig, abc.ABC):
     pred_residuals: bool = False
     last_kernel_size: int = 3
-    pad: str = "circular"
+    pad: PadType = "circular"
 
     checkpointing: Checkpointing | None = Field(
         default=None,
@@ -653,6 +655,22 @@ class BaseModelConfig(BaseConfig, abc.ABC):
 class SamudraConfig(BaseModelConfig):
     unet: UNetBackboneConfig = UNetBackboneConfig()
     corrector: CorrectorConfig | None = None  # None turns all correctors off.
+    num_halo: int = Field(
+        default=4,
+        ge=0,
+        description=(
+            "Outer-edge boundary width used when `pad == \"halo_sponge\"`. "
+            "Pixels in this band receive zero loss weight."
+        ),
+    )
+    num_sponge: int = Field(
+        default=12,
+        ge=0,
+        description=(
+            "Width of the linearly increasing sponge region just inside the halo "
+            "when `pad == \"halo_sponge\"`."
+        ),
+    )
     pos_channels: int = Field(
         default=0,
         description="""Number of channels used for a learned positional embedding""",
@@ -855,15 +873,34 @@ def build_loss_fn(
     device: torch.device,
     num_channels: int,
     pad_mode: str,
+    num_halo: int = 0,
+    num_sponge: int = 0,
 ) -> LossFn:
+    spatial_weight = (
+        build_halo_sponge_spatial_weight(
+            wet=wet,
+            num_halo=num_halo,
+            num_sponge=num_sponge,
+        )
+        if pad_mode == "halo_sponge"
+        else None
+    )
     match loss_cfg:
         case str():
             return loss_fn_from_metric(
-                loss_cfg, wet=wet, y_coord=y_coord, device=device
+                loss_cfg,
+                wet=wet,
+                y_coord=y_coord,
+                device=device,
+                spatial_weight=spatial_weight,
             )
         case DynamicLossConfig(metric=metric, limit=limit):
             loss_fn = loss_fn_from_metric(
-                metric, wet=wet, y_coord=y_coord, device=device
+                metric,
+                wet=wet,
+                y_coord=y_coord,
+                device=device,
+                spatial_weight=spatial_weight,
             )
             return DynamicLoss(
                 loss_fn=loss_fn,
@@ -873,13 +910,18 @@ def build_loss_fn(
             )
         case GradientLossConfig(metric=metric, alpha=alpha):
             loss_fn = loss_fn_from_metric(
-                metric, wet=wet, y_coord=y_coord, device=device
+                metric,
+                wet=wet,
+                y_coord=y_coord,
+                device=device,
+                spatial_weight=spatial_weight,
             )
             return GradientLoss(
                 loss_fn=loss_fn,
                 wet=wet,
                 gradient_weight=alpha,
                 pad_mode=pad_mode,
+                spatial_weight=spatial_weight,
             )
         case _:
             assert_never(loss_cfg)

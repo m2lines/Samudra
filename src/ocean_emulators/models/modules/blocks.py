@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.utils.checkpoint
 
 from ocean_emulators.models.modules.activations import CappedGELU
+from ocean_emulators.models.modules.padding import apply_spatial_pad
 
 
 class TransposedConvUpsample(torch.nn.Module):
@@ -169,12 +170,7 @@ class ConvBlock(CoreBlock):
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
         for layer in self.layers:
             if isinstance(layer, nn.Conv2d):
-                fts = torch.nn.functional.pad(
-                    fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
-                )
-                fts = torch.nn.functional.pad(
-                    fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
-                )
+                fts = apply_spatial_pad(fts, self.N_pad, self.pad)
                 # conv2d layers are expensive so we save their activations,
                 # other (simple) layers are cheap, so we don't save their activations.
             if self.checkpoint_simple and not isinstance(layer, nn.Conv2d):
@@ -297,12 +293,7 @@ class ConvNeXtBlock(CoreBlock):
         skip = self.skip_module(x)
         for layer in self.convblock:
             if isinstance(layer, nn.Conv2d) and layer.kernel_size[0] != 1:
-                x = torch.nn.functional.pad(
-                    x, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
-                )
-                x = torch.nn.functional.pad(
-                    x, (0, 0, self.N_pad, self.N_pad), mode="constant"
-                )
+                x = apply_spatial_pad(x, self.N_pad, self.pad)
             if self.checkpoint_simple and not isinstance(layer, nn.Conv2d):
                 x = torch.utils.checkpoint.checkpoint(layer, x, use_reentrant=False)
             else:

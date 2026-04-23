@@ -9,6 +9,7 @@ import xarray as xr
 from jaxtyping import Float
 
 from ocean_emulators.constants import Grid
+from ocean_emulators.models.modules.padding import resolved_x_pad_mode
 
 LossFn = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 LossMetric = Literal[
@@ -21,47 +22,128 @@ LossMetric = Literal[
 
 
 def loss_fn_from_metric(
-    metric: LossMetric, *, wet: Grid, y_coord: xr.DataArray, device: torch.device
+    metric: LossMetric,
+    *,
+    wet: Grid,
+    y_coord: xr.DataArray,
+    device: torch.device,
+    spatial_weight: torch.Tensor | None = None,
 ) -> LossFn:
     match metric:
         case "mse":
-            loss_fn: LossFn = partial(decomposed_mse, wet=wet)
+            loss_fn: LossFn = partial(
+                decomposed_mse, wet=wet, spatial_weight=spatial_weight
+            )
         case "mae":
-            loss_fn = partial(decomposed_mae, wet=wet)
+            loss_fn = partial(decomposed_mae, wet=wet, spatial_weight=spatial_weight)
         case "mse_mae":
-            loss_fn = partial(decomposed_mse_mae, wet=wet)
+            loss_fn = partial(
+                decomposed_mse_mae, wet=wet, spatial_weight=spatial_weight
+            )
         case "mse_diff_weighted":
-            loss_fn = partial(decomposed_mse_diff_weighted, wet=wet)
+            loss_fn = partial(
+                decomposed_mse_diff_weighted, wet=wet, spatial_weight=spatial_weight
+            )
         case "mse_cos_weighted":
             area_weights = np.sqrt(np.cos(np.deg2rad(y_coord))).to_numpy()
             area_weights = torch.from_numpy(area_weights).to(device=device)
-            loss_fn = partial(decomposed_mse_cos_weighted, wet=wet, cos=area_weights)
+            loss_fn = partial(
+                decomposed_mse_cos_weighted,
+                wet=wet,
+                cos=area_weights,
+                spatial_weight=spatial_weight,
+            )
         case _:
             assert_never(metric)
     return loss_fn
 
 
+def build_halo_sponge_spatial_weight(
+    wet: torch.Tensor,
+    *,
+    num_halo: int,
+    num_sponge: int,
+) -> torch.Tensor:
+    """Build a simple edge weighting mask for the loaded LLC patch.
+
+    The intended LLC workflow is:
+    - the outer `num_halo` cells receive zero weight
+    - the next `num_sponge` cells ramp linearly from low weight toward one
+    - the remaining interior stays fully weighted
+    """
+    h, w = wet.shape[-2:]
+    y = torch.arange(h, device=wet.device)
+    x = torch.arange(w, device=wet.device)
+
+    dist_y = torch.minimum(y, h - 1 - y).view(h, 1)
+    dist_x = torch.minimum(x, w - 1 - x).view(1, w)
+    boundary_distance = torch.minimum(dist_y, dist_x)
+
+    spatial_weight = torch.ones((h, w), device=wet.device, dtype=torch.float32)
+    if num_halo > 0:
+        spatial_weight = torch.where(
+            boundary_distance < num_halo,
+            torch.zeros_like(spatial_weight),
+            spatial_weight,
+        )
+    if num_sponge > 0:
+        sponge_mask = (boundary_distance >= num_halo) & (
+            boundary_distance < num_halo + num_sponge
+        )
+        sponge_weight = (
+            boundary_distance.to(torch.float32) - num_halo + 1
+        ) / (num_sponge + 1)
+        spatial_weight = torch.where(sponge_mask, sponge_weight, spatial_weight)
+
+    return spatial_weight.unsqueeze(0).expand_as(wet)
+
+
+def _weighted_channel_mean(
+    loss: torch.Tensor,
+    *,
+    wet: torch.Tensor,
+    spatial_weight: torch.Tensor | None = None,
+    extra_weight: torch.Tensor | None = None,
+) -> torch.Tensor:
+    weight = wet.to(dtype=loss.dtype).unsqueeze(0)
+    if spatial_weight is not None:
+        weight = weight * spatial_weight.to(dtype=loss.dtype).unsqueeze(0)
+    if extra_weight is not None:
+        weight = weight * extra_weight.to(dtype=loss.dtype)
+
+    numerator = (loss * weight).sum(dim=(0, 2, 3))
+    denominator = weight.sum(dim=(0, 2, 3)).clamp_min(1e-8) * loss.shape[0]
+    return numerator / denominator
+
+
 def decomposed_mse(
-    pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    wet: torch.Tensor,
+    spatial_weight: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Standard MSE loss (l2) computed per channel."""
-    pred = pred * wet
-    target = target * wet
-    return F.mse_loss(pred, target, reduction="none").mean(dim=(0, 2, 3))
+    mse = F.mse_loss(pred, target, reduction="none")
+    return _weighted_channel_mean(mse, wet=wet, spatial_weight=spatial_weight)
 
 
 def decomposed_mae(
-    pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    wet: torch.Tensor,
+    spatial_weight: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Standard MAE loss (l1) computed per channel."""
-    pred = pred * wet
-    target = target * wet
-    return F.l1_loss(pred, target, reduction="none").mean(dim=(0, 2, 3))
+    mae = F.l1_loss(pred, target, reduction="none")
+    return _weighted_channel_mean(mae, wet=wet, spatial_weight=spatial_weight)
 
 
 # TODO(alxmrs): This used to assume that hist=1; it may need to be fixed in the future.
 def decomposed_mse_diff_weighted(
-    pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    wet: torch.Tensor,
+    spatial_weight: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """MSE loss with weighted differences."""
     pred = pred * wet
@@ -80,19 +162,27 @@ def decomposed_mse_diff_weighted(
 
     # Combine losses
     combined_loss = torch.cat([mse[:, :1], diff_mse], dim=1)
-    return combined_loss.mean(dim=(0, 2, 3))
+    return _weighted_channel_mean(
+        combined_loss, wet=wet, spatial_weight=spatial_weight
+    )
 
 
 def decomposed_mse_cos_weighted(
-    pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor, cos: torch.Tensor
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    wet: torch.Tensor,
+    cos: torch.Tensor,
+    spatial_weight: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """MSE loss weighted by cosine of latitude."""
-    pred = pred * wet
-    target = target * wet
     weights = cos.view(1, 1, -1, 1)  # Reshape for broadcasting
     mse = F.mse_loss(pred, target, reduction="none")
-    weighted_mse = mse * weights
-    return weighted_mse.mean(dim=(0, 2, 3))
+    return _weighted_channel_mean(
+        mse,
+        wet=wet,
+        spatial_weight=spatial_weight,
+        extra_weight=weights,
+    )
 
 
 def decomposed_mse_scaled(
@@ -107,15 +197,16 @@ def decomposed_mse_scaled(
 
 
 def decomposed_mse_mae(
-    pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    wet: torch.Tensor,
+    spatial_weight: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Combined MSE and MAE loss."""
-    pred = pred * wet
-    target = target * wet
     mse = F.mse_loss(pred, target, reduction="none")
     mae = F.l1_loss(pred, target, reduction="none")
     combined = (mse + mae) / 2
-    return combined.mean(dim=(0, 2, 3))
+    return _weighted_channel_mean(combined, wet=wet, spatial_weight=spatial_weight)
 
 
 def _spatial_gradients(
@@ -123,16 +214,21 @@ def _spatial_gradients(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Compute forward differences along y and x axes with configurable x padding."""
     grad_y = tensor[:, :, 1:, :] - tensor[:, :, :-1, :]
-    grad_y = F.pad(grad_y, (0, 0, 0, 1), mode="constant")
+    grad_y_pad_mode = "replicate" if pad_mode == "halo_sponge" else "constant"
+    grad_y = F.pad(grad_y, (0, 0, 0, 1), mode=grad_y_pad_mode)
 
-    padded_x = F.pad(tensor, (0, 1, 0, 0), mode=pad_mode)
+    padded_x = F.pad(tensor, (0, 1, 0, 0), mode=resolved_x_pad_mode(pad_mode))
     grad_x = padded_x[:, :, :, 1:] - padded_x[:, :, :, :-1]
 
     return grad_y, grad_x
 
 
 def gradient_l1_loss(
-    pred: torch.Tensor, target: torch.Tensor, wet: torch.Tensor, pad_mode: str
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    wet: torch.Tensor,
+    pad_mode: str,
+    spatial_weight: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """L1 loss on spatial gradients, averaged per channel."""
     pred = pred * wet
@@ -144,7 +240,10 @@ def gradient_l1_loss(
     grad_loss_y = F.l1_loss(pred_grad_y, target_grad_y, reduction="none")
     grad_loss_x = F.l1_loss(pred_grad_x, target_grad_x, reduction="none")
 
-    grad_loss = (grad_loss_y.mean(dim=(0, 2, 3)) + grad_loss_x.mean(dim=(0, 2, 3))) / 2
+    grad_loss = (
+        _weighted_channel_mean(grad_loss_y, wet=wet, spatial_weight=spatial_weight)
+        + _weighted_channel_mean(grad_loss_x, wet=wet, spatial_weight=spatial_weight)
+    ) / 2
     return grad_loss
 
 
@@ -154,10 +253,15 @@ def decomposed_mae_gradient_weighted(
     wet: torch.Tensor,
     gradient_weight: float,
     pad_mode: str = "constant",
+    spatial_weight: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """MAE loss with spatial gradient matching penalty."""
-    mae_per_channel = decomposed_mae(pred, target, wet)
-    grad_loss = gradient_l1_loss(pred, target, wet, pad_mode)
+    mae_per_channel = decomposed_mae(
+        pred, target, wet, spatial_weight=spatial_weight
+    )
+    grad_loss = gradient_l1_loss(
+        pred, target, wet, pad_mode, spatial_weight=spatial_weight
+    )
     return mae_per_channel + gradient_weight * grad_loss
 
 
@@ -263,11 +367,13 @@ class GradientLoss:
         wet: Grid,
         gradient_weight: float,
         pad_mode: str,
+        spatial_weight: torch.Tensor | None = None,
     ):
         self.loss_fn = loss_fn
         self._wet = wet
         self._gradient_weight = gradient_weight
         self._pad_mode = pad_mode
+        self._spatial_weight = spatial_weight
 
     def __call__(
         self,
@@ -276,6 +382,10 @@ class GradientLoss:
     ) -> Float[torch.Tensor, " hist*var"]:
         base_loss = self.loss_fn(pred, target)
         grad_loss = gradient_l1_loss(
-            pred=pred, target=target, wet=self._wet, pad_mode=self._pad_mode
+            pred=pred,
+            target=target,
+            wet=self._wet,
+            pad_mode=self._pad_mode,
+            spatial_weight=self._spatial_weight,
         )
         return base_loss + self._gradient_weight * grad_loss

@@ -5,6 +5,7 @@ import xarray as xr
 
 from ocean_emulators.constants import Grid
 from ocean_emulators.models.base import BaseModel
+from ocean_emulators.models.modules.padding import apply_spatial_pad
 from ocean_emulators.models.modules.rollout_noise import RolloutNoiseInjector
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 from ocean_emulators.utils.device import autocast
@@ -72,12 +73,7 @@ class Samudra(BaseModel):
                 fts = self.add_3d_coordinates(fts)
 
             fts = self.unet(fts)
-            fts = torch.nn.functional.pad(
-                fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
-            )
-            fts = torch.nn.functional.pad(
-                fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
-            )
+            fts = apply_spatial_pad(fts, self.N_pad, self.pad)
         # TODO(jder): would be nice to keep inputs in bfloat16 and
         # have the convolution use float32 internally & in output dtype.
         fts = fts.to(torch.float32)

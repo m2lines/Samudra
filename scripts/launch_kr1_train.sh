@@ -44,7 +44,7 @@ fi
 export CONFIG=configs/fomo_om4/train_multiscale.yaml
 
 # ── Run name ──
-export NAME_SUFFIX=kr1_fomo_multiscale_v43
+export NAME_SUFFIX=kr1_fomo_multiscale_v44
 
 # ── Data root: parent dir containing all three resolution subdirectories ──
 export DATA_ROOT="${DATA_ROOT:-/scratch/am16581/data}"
@@ -100,7 +100,7 @@ export NSYS_PROFILE=0
 # ── Extra CLI overrides ──
 # The baked-in config has the decoder and data sources already configured.
 # We just pass the W&B project and any batch size tweaks here.
-export ARGS="--data.loading.num_workers=8 --data.concurrent_compute=true"
+export ARGS="--data.loading.num_workers=8 --data.concurrent_compute=true --resume_ckpt_path=/scratch/am16581/runs/2026-04-21-kr1_fomo_multiscale_v43/saved_nets/ckpt.pt"
 
 echo "=== KR1 Multi-Scale FOMO Training ==="
 echo "Config:         ${CONFIG}"

@@ -719,6 +719,91 @@ def test_train_dataset_normalize_pre_fill(
         assert inf_prog[0, 0, 0, 0] == data
 
 
+def _make_synthetic_source(
+    name: str, lat_size: int, lon_size: int, times: int = 10
+) -> DataSource:
+    """Build a tiny synthetic DataSource at an arbitrary (lat, lon) resolution."""
+    coords = {"time": range(times), "lat": range(lat_size), "lon": range(lon_size)}
+    data_array = torch.arange(
+        4 * times * lat_size * lon_size, dtype=torch.float32
+    ).reshape(4, times, lat_size, lon_size)
+    data = xr.Dataset(
+        {
+            var: xr.DataArray(data_array[i], dims=["time", "lat", "lon"], coords=coords)
+            for i, var in enumerate(
+                ["prognostic1", "prognostic2", "boundary1", "boundary2"]
+            )
+        }
+    )
+    stats_coords = {"lat": [0], "lon": [0]}
+    mean_values = {v: 0.0 for v in data.data_vars}
+    std_values = {v: 1.0 for v in data.data_vars}
+    data_mean = xr.Dataset(mean_values, coords=stats_coords)
+    data_std = xr.Dataset(std_values, coords=stats_coords)
+    wet_surface = torch.ones(lat_size, lon_size)
+    wet = wet_surface.expand(2, lat_size, lon_size)
+    masks = Masks(prognostic=wet, boundary=wet_surface)
+    return DataSource(name, data, data_mean, data_std, masks=masks)
+
+
+def test_inference_dataset__cross_resolution():
+    """InferenceDataset yields mismatched prog/boundary shapes when given distinct sources."""
+    prog_src = _make_synthetic_source("high_res", lat_size=8, lon_size=16)
+    boundary_src = _make_synthetic_source("low_res", lat_size=2, lon_size=4)
+    prognostic_var_names = ["prognostic1", "prognostic2"]
+    boundary_var_names = ["boundary1", "boundary2"]
+
+    with MultitonScope():
+        Normalize.init_instance(
+            prog_src,
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
+        )
+        dataset = InferenceDataset(
+            src=prog_src,
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
+            hist=0,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+            long_rollout=True,
+            boundary_src=boundary_src,
+        )
+
+        prog, boundary = dataset.get_initial_input()
+
+        # Prognostic sits on the high-res grid; boundary on the low-res grid.
+        assert prog.shape[-2:] == (8, 16)
+        assert boundary.shape[-2:] == (2, 4)
+        # Context tracks the prognostic resolution on both in and out.
+        assert dataset.ctx.input_resolution_cpu[0].shape == (8,)
+        assert dataset.ctx.output_resolution_cpu[0].shape == (8,)
+
+
+def test_inference_dataset__cross_resolution_time_mismatch_raises():
+    """Sources with different time axes must fail loudly."""
+    prog_src = _make_synthetic_source("prog", lat_size=8, lon_size=16, times=10)
+    boundary_src = _make_synthetic_source("boundary", lat_size=2, lon_size=4, times=5)
+
+    with MultitonScope():
+        Normalize.init_instance(
+            prog_src,
+            prognostic_var_names=["prognostic1", "prognostic2"],
+            boundary_var_names=["boundary1", "boundary2"],
+        )
+        with pytest.raises(ValueError, match="time axis"):
+            InferenceDataset(
+                src=prog_src,
+                prognostic_var_names=["prognostic1", "prognostic2"],
+                boundary_var_names=["boundary1", "boundary2"],
+                hist=0,
+                normalize_before_mask=True,
+                masked_fill_value=0.0,
+                long_rollout=True,
+                boundary_src=boundary_src,
+            )
+
+
 @pytest.mark.manual
 @pytest.mark.parametrize(
     "data_source,config_name", [("mock", DEFAULT_CONFIG)], indirect=True

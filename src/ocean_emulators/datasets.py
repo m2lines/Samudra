@@ -60,6 +60,7 @@ class InferenceDataset(Dataset):
         normalize_before_mask,
         masked_fill_value,
         long_rollout,
+        boundary_src: DataSource | None = None,
     ):
         super().__init__()
         # NOTE: Keep tensors on CPU during initialization. This allows the dataset
@@ -72,7 +73,22 @@ class InferenceDataset(Dataset):
         data = src.data
         self.input_res = src.resolution
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
-        self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
+        # When boundary_src is provided, boundaries come from a different source
+        # (typically a coarser resolution) — enabling cross-resolution rollouts.
+        # The rolling indices are built off the prognostic source's time axis and
+        # reused for both streams, so the two sources must share a time axis.
+        if boundary_src is not None:
+            if not boundary_src.data.time.equals(data.time):
+                raise ValueError(
+                    "Boundary source time axis does not match the prognostic "
+                    "source. Cross-resolution inference requires both sources "
+                    "to share a time axis."
+                )
+            self._boundary_src = boundary_src.filter(
+                boundary_var_names, prefix="boundary"
+            )
+        else:
+            self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
         self._times = data.time
         self.normalize_before_mask = normalize_before_mask
         self.masked_fill_value = masked_fill_value
@@ -102,7 +118,12 @@ class InferenceDataset(Dataset):
             )
 
         self.wet: PrognosticMask = src.masks.prognostic
-        self.wet_surface: GridMask = src.masks.boundary
+        # `wet_surface` is applied to the boundary tensor and must match its grid.
+        self.wet_surface: GridMask = (
+            boundary_src.masks.boundary
+            if boundary_src is not None
+            else src.masks.boundary
+        )
         self.wet_label = src.masks.prognostic_with_hist(self.hist)
         self.size = len(self.rolling_indices)
 

@@ -97,6 +97,7 @@ class Eval:
         )
 
         self.src = self.data_container.inference_source
+        self.boundary_src = self.data_container.inference_boundary_source
         self.data = self.src.data
         self.static_data = self.data_container.static_data
         self.metadata = construct_metadata(self.data)
@@ -165,6 +166,11 @@ class Eval:
 
     def init_inference_store(self):
         sliced_src = self.src.slice(self.inference_time)
+        sliced_boundary_src = (
+            self.boundary_src.slice(self.inference_time)
+            if self.boundary_src is not None
+            else None
+        )
         self.num_time_steps = get_inference_steps(
             sliced_src,
             hist=self.hist,
@@ -177,6 +183,7 @@ class Eval:
             normalize_before_mask=self.normalize_before_mask,
             masked_fill_value=self.masked_fill_value,
             long_rollout=True,
+            boundary_src=sliced_boundary_src,
         )
 
     def run(self) -> None:

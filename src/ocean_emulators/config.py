@@ -194,6 +194,17 @@ class DataConfig(BaseConfig):
         ),
         min_length=1,
     )
+    boundary_source: DataSourceConfig | None = Field(
+        default=None,
+        description=(
+            "Optional separate boundary source for inference. When set, "
+            "InferenceDataset loads boundary forcings from this source "
+            "(typically at a coarser resolution than the prognostic source), "
+            "enabling cross-resolution rollouts such as ¼° prognostics + "
+            "1° boundaries. When unset, boundaries are loaded from the same "
+            "source as the prognostics (current default behavior)."
+        ),
+    )
     static_data_vars: list[str] | None = None
     loading: DataLoadingConfig = Field(default_factory=CpuDataLoadingConfig)
     hist: int = 1
@@ -271,12 +282,22 @@ class DataConfig(BaseConfig):
             else None
         )
 
+        inference_boundary_source: DataSource | None = None
+        if self.boundary_source is not None:
+            inference_boundary_source, _ = make_source(
+                self.boundary_source.data_location,
+                self.boundary_source.data_means_location,
+                self.boundary_source.data_stds_location,
+                turn_on_dask=True,
+            )
+
         return DataContainer(
             sources,
             inference_source,
             loader_version,
             supports_fork,
             static_data,
+            inference_boundary_source=inference_boundary_source,
         )
 
 

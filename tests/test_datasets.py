@@ -153,7 +153,6 @@ def make_loader(
                     group_key=lambda ds: tuple(
                         prog.grid_size for prog in ds.prognostic_srcs
                     ),
-                    num_replicas=1,
                     batch_size=cfg.batch_size,
                     drop_last=drop_last,
                     shuffle=shuffle,

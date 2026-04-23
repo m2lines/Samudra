@@ -27,15 +27,12 @@ class MockDataset:
 def sampler_from_datasets(request):
     """Factory fixture that creates either standard or distributed sampler."""
 
-    def _make_sampler(
-        datasets, group_key, batch_size, shuffle, drop_last, num_replicas=1
-    ):
+    def _make_sampler(datasets, group_key, batch_size, shuffle, drop_last):
         if request.param == "standard":
             return EquivalenceGroupBatchSampler.from_datasets(
                 datasets=datasets,
                 group_key=group_key,
                 batch_size=batch_size,
-                num_replicas=num_replicas,
                 shuffle=shuffle,
                 drop_last=drop_last,
             )
@@ -44,7 +41,7 @@ def sampler_from_datasets(request):
                 datasets=datasets,
                 group_key=group_key,
                 batch_size=batch_size,
-                num_replicas=num_replicas,
+                num_replicas=1,  # Single worker to match standard behavior
                 rank=0,
                 shuffle=shuffle,
                 drop_last=drop_last,
@@ -390,30 +387,6 @@ class TestDistributedBatchSamplerDistribution:
             )
 
 
-def test_group_batch_sampler__standard__replica_chunks_are_homogeneous():
-    """For the non-distributed sampler, consecutive num_replicas batches are from the same group."""
-    ds_size = 20
-    n_workers = 8
-    datasets = [
-        MockDataset(ds_size, grid_size=(10, 20)),
-        MockDataset(ds_size, grid_size=(5, 10)),
-    ]
-    sampler = EquivalenceGroupBatchSampler.from_datasets(
-        datasets=datasets,  # type: ignore[arg-type]
-        group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
-        batch_size=2,
-        num_replicas=n_workers,
-        shuffle=True,
-        drop_last=True,
-    )
-    batches = list(sampler)
-    for chunk in itertools.batched(batches, n_workers):
-        indices = list(itertools.chain.from_iterable(chunk))
-        assert all(b >= ds_size for b in indices) or all(
-            b < ds_size for b in indices
-        ), "Cannot mix dataset batches within a replica chunk."
-
-
 def test_group_batch_sampler__distributed__replica_chunks_are_homogeneous():
     """All DDP ranks at the same step must process batches from the same group."""
     ds_size = 20
@@ -537,6 +510,37 @@ def test_group_batch_sampler__distributed__small_group_is_padded_when_not_droppi
     assert any(idx >= 20 for idx in all_indices), (
         "Small group was dropped instead of padded"
     )
+
+
+def test_group_batch_sampler__distributed__padding_cycles_group_batches():
+    """Padding should not duplicate one batch repeatedly when a group has alternatives."""
+    n_workers = 8
+    datasets = [MockDataset(20)]  # 10 batches: one full chunk plus a 2-batch tail
+
+    rank_batches = []
+    for rank in range(n_workers):
+        sampler = DistributedEquivalenceGroupBatchSampler(
+            datasets=datasets,  # type: ignore[arg-type]
+            group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
+            batch_size=2,
+            num_replicas=n_workers,
+            rank=rank,
+            shuffle=False,
+            drop_last=False,
+        )
+        rank_batches.append([tuple(batch) for batch in sampler])
+
+    second_step = [rank_batches[rank][1] for rank in range(n_workers)]
+    assert second_step == [
+        (16, 17),
+        (18, 19),
+        (0, 1),
+        (2, 3),
+        (4, 5),
+        (6, 7),
+        (8, 9),
+        (10, 11),
+    ]
 
 
 def test_group_batch_sampler__distributed__shuffle_false_is_deterministic_across_epochs():

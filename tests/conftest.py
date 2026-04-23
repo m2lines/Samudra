@@ -567,6 +567,47 @@ def trainer_pair(
         yield train_config, trainer
 
 
+def build_synthetic_source(
+    name: str,
+    h: int,
+    w: int,
+    n_times: int,
+    prognostic_var_names: list[str],
+    boundary_var_names: list[str],
+    seed: int | None = None,
+) -> DataSource:
+    """Build a synthetic DataSource at an arbitrary resolution, full-globe grid.
+
+    Lat/lon coordinates span the full globe so `patch_extent`-based slicing is
+    consistent across resolutions — required when combining two sources (e.g.
+    cross-resolution inference). Variable data is standard-normal; means/stds
+    are zero/one so `normalize_before_mask=True` is a no-op.
+    """
+    all_vars = list(prognostic_var_names) + list(boundary_var_names)
+    coords = {
+        "time": np.arange(n_times),
+        "lat": np.linspace(-90 + 180 / (2 * h), 90 - 180 / (2 * h), h),
+        "lon": np.linspace(360 / (2 * w), 360 - 360 / (2 * w), w),
+    }
+    generator = torch.Generator()
+    if seed is not None:
+        generator.manual_seed(seed)
+    arr = torch.randn(len(all_vars), n_times, h, w, generator=generator).numpy()
+    data = xr.Dataset(
+        {
+            v: xr.DataArray(arr[i], dims=["time", "lat", "lon"], coords=coords)
+            for i, v in enumerate(all_vars)
+        }
+    )
+    stats_coords = {"lat": [0], "lon": [0]}
+    mean_ds = xr.Dataset({v: 0.0 for v in all_vars}, coords=stats_coords)
+    std_ds = xr.Dataset({v: 1.0 for v in all_vars}, coords=stats_coords)
+    wet_surface = torch.ones(h, w)
+    wet = wet_surface.expand(len(prognostic_var_names), h, w)
+    masks = Masks(prognostic=wet, boundary=wet_surface)
+    return DataSource(name, data, mean_ds, std_ds, masks=masks)
+
+
 @pytest.fixture
 def dummy_src():
     h, w = 4, 8

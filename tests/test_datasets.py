@@ -35,7 +35,13 @@ from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
 from ocean_emulators.utils.samplers import EquivalenceGroupBatchSampler
 from ocean_emulators.utils.train import collate_raw_train_data
-from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair, cache_dir
+from tests.conftest import (
+    DEFAULT_CONFIG,
+    DataSourceDims,
+    TrainPair,
+    build_synthetic_source,
+    cache_dir,
+)
 
 
 @pytest.fixture
@@ -717,6 +723,94 @@ def test_train_dataset_normalize_pre_fill(
         data = (data - mean) / std
         assert td0_prog[0, 0, 0, 0] == data
         assert inf_prog[0, 0, 0, 0] == data
+
+
+def test_inference_dataset__cross_resolution():
+    """InferenceDataset yields mismatched prog/boundary shapes when given distinct sources."""
+    prognostic_var_names = ["prognostic1", "prognostic2"]
+    boundary_var_names = ["boundary1", "boundary2"]
+    prog_src = build_synthetic_source(
+        "high_res",
+        h=8,
+        w=16,
+        n_times=10,
+        prognostic_var_names=prognostic_var_names,
+        boundary_var_names=boundary_var_names,
+    )
+    boundary_src = build_synthetic_source(
+        "low_res",
+        h=2,
+        w=4,
+        n_times=10,
+        prognostic_var_names=prognostic_var_names,
+        boundary_var_names=boundary_var_names,
+    )
+
+    with MultitonScope():
+        Normalize.init_instance(
+            prog_src,
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
+        )
+        dataset = InferenceDataset(
+            src=prog_src,
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
+            hist=0,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+            long_rollout=True,
+            boundary_src=boundary_src,
+        )
+
+        prog, boundary = dataset.get_initial_input()
+
+        # Prognostic sits on the high-res grid; boundary on the low-res grid.
+        assert prog.shape[-2:] == (8, 16)
+        assert boundary.shape[-2:] == (2, 4)
+        # Context tracks the prognostic resolution on both in and out.
+        assert dataset.ctx.input_resolution_cpu[0].shape == (8,)
+        assert dataset.ctx.output_resolution_cpu[0].shape == (8,)
+
+
+def test_inference_dataset__cross_resolution_time_mismatch_raises():
+    """Sources with different time axes must fail loudly."""
+    prognostic_var_names = ["prognostic1", "prognostic2"]
+    boundary_var_names = ["boundary1", "boundary2"]
+    prog_src = build_synthetic_source(
+        "prog",
+        h=8,
+        w=16,
+        n_times=10,
+        prognostic_var_names=prognostic_var_names,
+        boundary_var_names=boundary_var_names,
+    )
+    boundary_src = build_synthetic_source(
+        "boundary",
+        h=2,
+        w=4,
+        n_times=5,
+        prognostic_var_names=prognostic_var_names,
+        boundary_var_names=boundary_var_names,
+    )
+
+    with MultitonScope():
+        Normalize.init_instance(
+            prog_src,
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
+        )
+        with pytest.raises(ValueError, match="time axis"):
+            InferenceDataset(
+                src=prog_src,
+                prognostic_var_names=prognostic_var_names,
+                boundary_var_names=boundary_var_names,
+                hist=0,
+                normalize_before_mask=True,
+                masked_fill_value=0.0,
+                long_rollout=True,
+                boundary_src=boundary_src,
+            )
 
 
 @pytest.mark.manual

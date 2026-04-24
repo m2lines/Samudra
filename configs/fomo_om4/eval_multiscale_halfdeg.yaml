@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../schemas/EvalConfig.json
+#
+# KR1 part 2: single-scale (1/2°) rollout evaluation of the multi-scale FOMO model.
+#
+# The eval code runs inference on the *first* data source only (halfdeg here).
+# All three sources must remain present so the model builds with the correct
+# max grid size for the encoder's Perceiver rotary positional embedding.
+#
+# Prognostic/boundary keys must match those used during training
+# (configs/fomo_om4/train_multiscale.yaml). Checkpoint load will fail if these
+# differ because channel counts change.
+
+debug: false
+save_zarr: true
+disk_mode: true
+inference_time:
+  start: "2014-10-05"
+  end: "2015-10-05"
+num_model_steps_forward: 25
+
+experiment:
+  name: kr1_fomo_multiscale_halfdeg_eval
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: online
+    project: default
+    entity: ocean_emulators
+    group: kr1_multiscale_eval
+    tags:
+      - kr1
+      - eval
+      - halfdeg
+      - multiscale
+      - fomo
+  prognostic_vars_key: thermo_dynamic_all
+  boundary_vars_key: tau_hfds
+
+data:
+  static_data_vars: []
+  concurrent_compute: true
+  sources:
+    # Halfdeg first → this is the scale evaluated.
+    - data_location: om4_halfdeg_v4/OM4.zarr
+      data_means_location: om4_halfdeg_v4/OM4_means.zarr
+      data_stds_location: om4_halfdeg_v4/OM4_stds.zarr
+    - data_location: om4_onedeg_v3/OM4.zarr
+      data_means_location: om4_onedeg_v3/OM4_means.zarr
+      data_stds_location: om4_onedeg_v3/OM4_stds.zarr
+    - data_location: om4_quarterdeg_v2/OM4.zarr
+      data_means_location: om4_quarterdeg_v2/OM4_means.zarr
+      data_stds_location: om4_quarterdeg_v2/OM4_stds.zarr
+
+model: !include model.yaml

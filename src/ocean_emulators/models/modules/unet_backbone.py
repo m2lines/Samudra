@@ -8,6 +8,7 @@ from ocean_emulators.models.modules.blocks import (
     BilinearUpsample,
     CoreBlock,
     CoreBlockBuilder,
+    DropPath,
     TransposedConvUpsample,
     UpsamplingBlockBuilder,
     ZonallyPeriodicBilinearUpsample,
@@ -53,6 +54,7 @@ class UNetBackbone(nn.Module):
         downsampling_block: nn.Module,
         create_upsampling_block: UpsamplingBlockBuilder,
         checkpointing: "Checkpointing | None",
+        drop_path_rate: float = 0.0,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -145,6 +147,7 @@ class UNetBackbone(nn.Module):
         self.N_pad = first_block.N_pad
         self.layers = nn.ModuleList(layers)
         self.num_steps = int(len(ch_width) - 1)
+        self.drop_path = DropPath(drop_path_rate)
 
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
         skip_inputs: list[torch.Tensor] = []
@@ -190,7 +193,9 @@ class UNetBackbone(nn.Module):
                         pads[0] - pads[0] // 2,
                     ]
                     fts = nn.functional.pad(fts, pads)
-                    fts += skip_inputs[int(2 * self.num_steps - count - 1)]
+                    fts += self.drop_path(
+                        skip_inputs[int(2 * self.num_steps - count - 1)]
+                    )
                     count += 1
 
         return fts

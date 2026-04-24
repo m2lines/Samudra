@@ -69,8 +69,8 @@ sbatch \
   --account=torch_pr_347_courant \
   --nodes=1 \
   --ntasks-per-node=1 \
-  --cpus-per-task=8 \
-  --mem=128G \
+  --cpus-per-task=4 \
+  --mem=64G \
   --gres=gpu:rtx6000:1 \
   --time=04:00:00 \
   --job-name=kr1-eval-halfdeg \

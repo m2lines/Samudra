@@ -99,6 +99,42 @@ class ZonallyPeriodicBilinearUpsample(torch.nn.Module):
         return upsampled[..., start:end]
 
 
+class DropPath(torch.nn.Module):
+    """Drop path dropout (for skip connections).
+
+    During training, randomly drops entire samples' skip connections
+    with probability ``drop_prob``, scaling survivors by 1/(1-p) to preserve
+    expected values. Implemented via ``nn.Dropout`` applied to a per-sample
+    mask of ones.
+
+    References:
+        [0]: Rethinking U-net Skip Connections for Biomedical Image Segmentation (https://arxiv.org/abs/2402.08276)
+        [1]: Dropout Reduces Underfitting (https://arxiv.org/abs/2303.01500)
+    """
+
+    def __init__(self, drop_prob: float = 0.0):
+        super().__init__()
+        self.dropout = torch.nn.Dropout(p=drop_prob)
+
+    def forward(
+        self, skip_conn: Float[torch.Tensor, "B C H W"]
+    ) -> Float[torch.Tensor, "B C H W"]:
+        if not self.training or self.dropout.p == 0.0:
+            return skip_conn
+        # Per-sample mask: (B, 1, 1, 1) broadcasts over C, H, W.
+        mask = self.dropout(
+            torch.ones(
+                skip_conn.shape[0],
+                1,
+                1,
+                1,
+                device=skip_conn.device,
+                dtype=skip_conn.dtype,
+            )
+        )
+        return skip_conn * mask
+
+
 class AvgPool(torch.nn.Module):
     def __init__(
         self,

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Samudra 2 favicon">
+  <rect width="64" height="64" rx="14" fill="#0b6fa4"/>
+  <path d="M8 39c7-6 12-8 18-8 8 0 12 4 17 4 5 0 9-3 13-8v13c-4 5-8 8-13 8-5 0-10-4-17-4-6 0-11 2-18 8V39z" fill="#fff"/>
+  <circle cx="20" cy="21" r="4" fill="#fff" opacity=".92"/>
+</svg>

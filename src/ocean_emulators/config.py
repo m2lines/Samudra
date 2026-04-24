@@ -596,7 +596,7 @@ class UNetBackboneConfig(BaseConfig):
     )
     drop_path_epochs: int = Field(
         default=0,
-        description="Number of epochs over which to linearly decay the drop path rate to 0 (early stochastic depth). "
+        description="Number of epochs over which to linearly decay the drop path rate to 0 (early shortcut dropout). "
         "0 means drop path is applied at a constant rate for the entire training run.",
     )
 

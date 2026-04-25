@@ -398,7 +398,7 @@ class PerceiverConfig(BaseConfig):
         if _use_flash(implementation):
             try:
                 from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
-            except ModuleNotFoundError as e:
+            except ImportError as e:
                 raise _flash_import_error() from e
             from einops.layers.torch import Rearrange
 
@@ -451,7 +451,7 @@ class PerceiverConfig(BaseConfig):
                 from flash_perceiver.perceiver import (  # type: ignore
                     PerceiverIO as FlashPerceiverIO,  # type: ignore
                 )
-            except ModuleNotFoundError as e:
+            except ImportError as e:
                 raise _flash_import_error() from e
             perceiver_io: nn.Module = FlashPerceiverIO(
                 depth=self.depth,

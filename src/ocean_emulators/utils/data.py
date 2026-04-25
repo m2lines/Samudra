@@ -523,6 +523,23 @@ def conditional_rearrange(
     return da.sortby(order_da)
 
 
+def _flatten_var_lev(ds: xr.Dataset) -> np.ndarray:
+    """Flatten a means/stds dataset into a 1-D array with one entry per channel.
+
+    Variables with a `lev` dim contribute `len(lev)` entries; variables without
+    contribute exactly one. This matches the channel layout of the prognostic /
+    boundary tensors, which `to_array().reshape(-1)` would otherwise mis-align
+    by broadcasting surface-only variables across all depth levels.
+    """
+    if "lev" in ds.dims:
+        return (
+            conditional_rearrange(ds, "(variable lev)=var", concat_dim="var")
+            .to_numpy()
+            .reshape(-1)
+        )
+    return ds.to_array().to_numpy().reshape(-1)
+
+
 def extract_wet_mask(
     data: xr.Dataset,
     prognostic_var_names: PrognosticVarNames,
@@ -862,13 +879,17 @@ class Normalize:
         self.wet_mask = src.masks.prognostic
         self.wet_mask_surface = src.masks.boundary
 
-        # Pre-compute numpy arrays for faster access
-        self._prognostic_mean_np = (
-            self.prognostic_mean.to_array().to_numpy().reshape(-1)
-        )
-        self._prognostic_std_np = self.prognostic_std.to_array().to_numpy().reshape(-1)
-        self._boundary_mean_np = self.boundary_mean.to_array().to_numpy().reshape(-1)
-        self._boundary_std_np = self.boundary_std.to_array().to_numpy().reshape(-1)
+        # Pre-compute numpy arrays for faster access. When a dataset mixes
+        # variables with and without a `lev` dim (e.g. thermo_dynamic_all has
+        # 4 depth-resolved variables plus surface-only `zos`), a plain
+        # `to_array().reshape(-1)` would broadcast the surface variable across
+        # all levels, producing too many channels. `conditional_rearrange`
+        # flattens (variable, lev) for depth vars and keeps surface vars as a
+        # single channel each, matching the prognostic tensor channel layout.
+        self._prognostic_mean_np = _flatten_var_lev(self.prognostic_mean)
+        self._prognostic_std_np = _flatten_var_lev(self.prognostic_std)
+        self._boundary_mean_np = _flatten_var_lev(self.boundary_mean)
+        self._boundary_std_np = _flatten_var_lev(self.boundary_std)
         self._wet_mask_np = self.wet_mask.numpy()
 
     def normalize_tensor_prognostic(
@@ -907,12 +928,7 @@ class Normalize:
 
         expand_var_dim = [1] * data.ndim
         expand_var_dim[-3] = -1
-        assert data.shape[-3] == self._prognostic_mean_np.shape[0], (
-            f"data.shape={tuple(data.shape)} "
-            f"_prognostic_mean_np.shape={self._prognostic_mean_np.shape} "
-            f"prognostic_mean vars={list(self.prognostic_mean.data_vars)} "
-            f"prognostic_mean dims={dict(self.prognostic_mean.dims)}"
-        )
+        assert data.shape[-3] == self._prognostic_mean_np.shape[0]
         tensor_mean = tensor_mean.reshape(expand_var_dim)
         tensor_std = tensor_std.reshape(expand_var_dim)
 

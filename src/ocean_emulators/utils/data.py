@@ -907,7 +907,12 @@ class Normalize:
 
         expand_var_dim = [1] * data.ndim
         expand_var_dim[-3] = -1
-        assert data.shape[-3] == self._prognostic_mean_np.shape[0]
+        assert data.shape[-3] == self._prognostic_mean_np.shape[0], (
+            f"data.shape={tuple(data.shape)} "
+            f"_prognostic_mean_np.shape={self._prognostic_mean_np.shape} "
+            f"prognostic_mean vars={list(self.prognostic_mean.data_vars)} "
+            f"prognostic_mean dims={dict(self.prognostic_mean.dims)}"
+        )
         tensor_mean = tensor_mean.reshape(expand_var_dim)
         tensor_std = tensor_std.reshape(expand_var_dim)
 

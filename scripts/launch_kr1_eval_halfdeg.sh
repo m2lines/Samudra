@@ -67,12 +67,12 @@ echo ""
 # Single RTX6000 GPU, single node. Eval is not distributed.
 sbatch \
   --account=torch_pr_347_courant \
-  --partition=rtx6000 \
+  --partition=h200_courant \
   --nodes=1 \
   --ntasks-per-node=1 \
   --cpus-per-task=4 \
   --mem=64G \
-  --gres=gpu:rtx6000:1 \
+  --gres=gpu:h200:1 \
   --time=04:00:00 \
   --job-name=kr1-eval-halfdeg \
   scripts/slurm_apptainer_eval.sbatch

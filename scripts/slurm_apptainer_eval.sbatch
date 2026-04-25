@@ -207,6 +207,7 @@ binds=(
   "${DATA_ROOT}:${DATA_ROOT}"
   "${OUTPUT_BASE}:${OUTPUT_BASE}"
   "${DATA_CACHE_DIR}:/workspace/.data_cache"
+  "${REPO_DIR}/configs:/workspace/configs"
 )
 
 # If checkpoint lives outside DATA_ROOT/OUTPUT_BASE, bind its parent path too.

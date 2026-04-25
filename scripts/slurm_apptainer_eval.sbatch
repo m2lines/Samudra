@@ -207,8 +207,11 @@ binds=(
   "${DATA_ROOT}:${DATA_ROOT}"
   "${OUTPUT_BASE}:${OUTPUT_BASE}"
   "${DATA_CACHE_DIR}:/workspace/.data_cache"
-  "${REPO_DIR}/configs:/workspace/configs"
 )
+if [[ "${MOUNT_SOURCE:-1}" != "0" ]]; then
+  binds+=("${REPO_DIR}/src:/workspace/src")
+  binds+=("${REPO_DIR}/configs:/workspace/configs")
+fi
 
 # If checkpoint lives outside DATA_ROOT/OUTPUT_BASE, bind its parent path too.
 case "${CKPT_PATH_HOST}" in

@@ -81,9 +81,9 @@ dev = [
   "xarrayutils>=2.0.1",
 ]
 docs = [
-  "zensical",
   "mkdocs-material>=9.5",
   "mkdocstrings[python]>=0.27",
+  "zensical",
 ]
 
 [tool.ruff]

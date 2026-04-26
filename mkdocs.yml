@@ -40,6 +40,7 @@ nav:
     - Quick Start: getting-started/quick-start.md
   - Concepts:
     - Architecture: concepts/architecture.md
+  - Contributing: contributing.md
   - API Reference:
     - Models:
       - Base Model: models/base.md
@@ -61,7 +62,7 @@ nav:
       - Samplers: utils/samplers.md
       - Writer: utils/writer.md
     - Visualization: viz.md
-  - Contributing: contributing.md
+
 
 markdown_extensions:
   - admonition

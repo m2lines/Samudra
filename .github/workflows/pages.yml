@@ -5,7 +5,6 @@ on:
     branches:
       - main
     paths:
-      - "static/**"
       - "docs/**"
       - "mkdocs.yml"
       - ".github/workflows/pages.yml"
@@ -33,7 +32,7 @@ jobs:
         run: uv run --only-group docs zensical build
 
       - name: Copy static pages into build output
-        run: cp -r static/* site/
+        run: cp -r docs/static/* site/
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

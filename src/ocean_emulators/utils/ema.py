@@ -1,6 +1,8 @@
+# SPDX-FileCopyrightText: 2022 Machine Vision and Learning Group, LMU Munich
 # SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: MIT
 
 """
 Exponential Moving Average (EMA) module.

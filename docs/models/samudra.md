@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Samudra
 
 The Samudra model uses a ConvNeXt U-Net backbone for autoregressive ocean emulation. Both Samudra (v1) and Samudra 2 (v2) share the same `Samudra` class — the architectural differences are driven by configuration.

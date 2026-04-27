@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 from .activations import CappedGELU, CappedLeakyReLU, ReLU
 from .blocks import (
     AvgPool,

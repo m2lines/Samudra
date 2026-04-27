@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 from .inference import InferenceEvaluatorAggregator
 from .loss import (
     get_channel_loss_dict,

@@ -1,4 +1,8 @@
 ---
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 name: scrub-physicsnemo-arm64-gpu-container
 description: Nightly local ARM GPU scrub that pulls the latest main PhysicsNeMo arm64 container and runs CUDA-marked tests outside GitHub Actions.
 schedule_cron: "0 17 3 ? * *"

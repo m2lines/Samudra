@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Contributing Guide
 
 Everyone can contribute to Ocean Emulator, and we value everyone's contributions. There are several ways to help,

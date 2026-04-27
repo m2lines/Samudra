@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 site_name: Ocean Emulators
 site_url: https://open-athena.github.io/Ocean_Emulator/docs/
 repo_url: https://github.com/Open-Athena/Ocean_Emulator

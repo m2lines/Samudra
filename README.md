@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Ocean Emulator
 
 [![Pre-commit](https://github.com/LaureZanna/Ocean_Emulator/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/LaureZanna/Ocean_Emulator/actions/workflows/pre-commit.yml)

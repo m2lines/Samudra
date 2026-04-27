@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Performance benchmarks with pytest
 # Based on this example: https://github.com/benchmark-action/github-action-benchmark/tree/master/examples/pytest
 name: Benchmark

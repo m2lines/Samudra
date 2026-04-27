@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Sources inspired by the following implementations:
 # - https://github.com/microsoft/aurora/blob/main/aurora/model/patchembed.py
 # - https://github.com/microsoft/aurora/blob/main/aurora/model/encoder.py

@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # AGENTS.md
 
 This file provides guidance to automated agents when working with code in this repository.

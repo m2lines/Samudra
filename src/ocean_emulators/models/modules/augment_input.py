@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import torch
 from aurora.model.posencoding import lat_lon_meshgrid
 from jaxtyping import Float

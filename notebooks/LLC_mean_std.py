@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # this script calculates the mean and std of the LLC4320 dataset, storing as .zarr files
 import numpy as np
 import xarray as xr

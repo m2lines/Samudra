@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # ~
 # Entrypoint to run a viz job on a single-node with an A100 GPU with skypilot.
 # ~

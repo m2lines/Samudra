@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Samudra OM4 V2 High-Res Configration
 
 A variant of the V2 configuration which uses a reduced

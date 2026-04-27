@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import pytest
 
 from ocean_emulators.utils.multiton import Multiton, MultitonScope

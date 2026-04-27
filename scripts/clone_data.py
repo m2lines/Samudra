@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Script to clone remote Oceans Emulator data locally."""
 # /// script
 # requires-python = ">=3.12"

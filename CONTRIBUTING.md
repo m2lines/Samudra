@@ -131,6 +131,8 @@ git push --force-with-lease
    ```shell
    scripts/annotate_license.sh
    ```
+   This uses the `reuse` tool under the hood. If you need to make a more complicate license attribution, please check
+   out the [reuse docs](https://reuse.readthedocs.io/en/stable/readme.html).
 
    It's totally ok to make lots of small commits as you develop your feature! Please, make sure to
    write [commit messages](https://cbea.ms/git-commit/) along the way.

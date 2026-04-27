@@ -1,6 +1,8 @@
+# SPDX-FileCopyrightText: 2023 Matthias Karlbauer, Nathaniel Cresswell-Clay, Thorsten Kurth
 # SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
 #
 # SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: MIT
 
 # TODO: Enable setting parameters for activation functions
 import torch

@@ -6,7 +6,7 @@
 set -euo pipefail
 
 SOURCE_REMOTE="nyu-osn:emulators"
-DEST_REMOTE="nyu-osn:m2lines-pubs/FOMO"
+DEST_REMOTE="nyu-osn-public:m2lines-pubs/FOMO"
 
 # Each entry is "<source-subpath>|<destination-subpath>", relative to the
 # remotes above. `rclone copy SRC DST` copies the *contents* of SRC into DST,

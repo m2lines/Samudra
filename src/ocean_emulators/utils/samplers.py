@@ -1,4 +1,5 @@
 import itertools
+import math
 import random
 from collections.abc import Callable, Hashable
 from typing import TYPE_CHECKING, Self
@@ -7,6 +8,9 @@ from torch.utils.data import BatchSampler, Sampler, SubsetRandomSampler
 
 if TYPE_CHECKING:
     from ocean_emulators.datasets import TorchTrainDataset
+
+type Batch = list[int]
+type DdpStepChunk = tuple[Batch, ...]
 
 
 class _SimpleSubsetSampler(Sampler):
@@ -21,7 +25,7 @@ class _SimpleSubsetSampler(Sampler):
         return len(self.indices)
 
 
-class EquivalenceGroupBatchSampler(Sampler[list[int]]):
+class EquivalenceGroupBatchSampler(Sampler[Batch]):
     """Groups indices into equivalence classes, batches within groups, and optionally shuffles.
 
     This sampler partitions dataset indices into groups. It creates batches within each group,
@@ -109,9 +113,6 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
         Examples:
                 - lambda ds: (ds._input_src.data.sizes['lat'], ds._input_src.data.sizes['lon'])  # group by resolution
                 - lambda ds: ds._input_src.data.sizes['lat']  # group by latitude size only
-            batch_size: Number of samples per batch
-            shuffle: Whether to shuffle indices within groups and shuffle batches globally
-            drop_last: Whether to drop incomplete batches at the end of each group
 
         Returns:
             EquivalenceGroupBatchSampler configured to group by the provided key
@@ -167,17 +168,18 @@ class EquivalenceGroupBatchSampler(Sampler[list[int]]):
         return total_batches
 
 
-class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
+class DistributedEquivalenceGroupBatchSampler(Sampler[Batch]):
     """Distributed version of EquivalenceGroupBatchSampler for multi-GPU training.
 
     Uses composition to delegate batching logic to EquivalenceGroupBatchSampler,
     handling only the distribution and epoch-based shuffling.
 
     Ensures uniform batch counts across all ranks to prevent DDP hangs at
-    collective sync points. When the total batch count isn't divisible by
-    num_replicas:
-    - drop_last=True: trims to the largest multiple of num_replicas
-    - drop_last=False: pads by duplicating batches from the beginning
+    collective sync points. Each equivalence group is chunked into logical
+    DDP steps of num_replicas batches, so ranks process the same group at the
+    same step. For an incomplete per-group step:
+    - drop_last=True: drops that incomplete group step
+    - drop_last=False: pads it by duplicating batches from the same group
 
     > Note: Compared to the non-distributed sampler: this one won't shuffle
     > _within_ batches, only between batches, when `shuffle=True`.
@@ -234,34 +236,72 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
         self.epoch = epoch
 
     def __iter__(self):
-        # Get all batches from inner sampler (deterministic order)
-        all_batches = list(self._inner)
+        # Every rank constructs the same shuffled global chunk order because
+        # seed, epoch, and input groups are identical across ranks.
+        rng = random.Random(self.seed + self.epoch)
 
-        # Shuffle with seeded RNG so all workers get identical ordering
+        # chunks: list[DdpStepChunk]
+        #   A global logical-step schedule. All ranks build this same list, then
+        #   each rank selects its own slot from every chunk below.
+        chunks: list[DdpStepChunk] = []
+        for sampler in self._inner._samplers:
+            # sampler: BatchSampler for one equivalence group/resolution.
+            #
+            # group_chunks: list[DdpStepChunk]
+            #   Each element is one candidate DDP step for this group. The last
+            #   one may be short before the drop/pad handling below.
+            group_chunks: list[DdpStepChunk] = list(
+                itertools.batched(sampler, self.num_replicas)
+            )
+            if group_chunks and len(group_chunks[-1]) < self.num_replicas:
+                if self.drop_last:
+                    # Drop the short step for this group. This avoids a final
+                    # step where only some ranks have same-group work.
+                    group_chunks.pop()
+                else:
+                    # Pad the incomplete chunk with duplicates from the same
+                    # group so every chunk is homogeneous and full-sized.
+                    #
+                    # partial_chunk: list[Batch]
+                    #   The short final DDP step for this group.
+                    partial_chunk: list[Batch] = list(group_chunks[-1])
+                    # Draw padding from all of this group's batches (not just
+                    # the tail) so padding doesn't systematically over-weight
+                    # the same examples every epoch.
+                    #
+                    # all_group_batches: list[Batch]
+                    #   Padding source restricted to this group, so no padded
+                    #   DDP step can mix resolutions.
+                    all_group_batches = list(
+                        itertools.chain.from_iterable(group_chunks)
+                    )
+                    if self.shuffle:
+                        rng.shuffle(all_group_batches)
+                    padding_pool = itertools.cycle(all_group_batches)
+                    while len(partial_chunk) < self.num_replicas:
+                        partial_chunk.append(next(padding_pool))
+                    # Replace the short tuple[Batch, ...] with a full
+                    # DdpStepChunk.
+                    group_chunks[-1] = tuple(partial_chunk)
+            if self.shuffle:
+                # Shuffle this group's DDP steps. Do not shuffle the batches
+                # within a step, because position in the tuple maps to rank.
+                rng.shuffle(group_chunks)
+            chunks.extend(group_chunks)
+
         if self.shuffle:
-            rng = random.Random(self.seed + self.epoch)
-            rng.shuffle(all_batches)
+            # Shuffle DDP steps across groups while keeping each step internally
+            # homogeneous.
+            rng.shuffle(chunks)
 
-        # Ensure uniform batch count across all ranks to prevent DDP hangs.
-        # Similar to torch.utils.data.DistributedSampler behavior:
-        # - drop_last=True: trim to largest multiple of num_replicas
-        # - drop_last=False: pad by duplicating batches to reach next multiple
-        total = len(all_batches)
-        if self.drop_last:
-            # Trim to ensure divisibility
-            num_batches_per_rank = total // self.num_replicas
-            total_batches_to_use = num_batches_per_rank * self.num_replicas
-            all_batches = all_batches[:total_batches_to_use]
-        else:
-            # Pad to ensure divisibility (ceiling division)
-            num_batches_per_rank = (total + self.num_replicas - 1) // self.num_replicas
-            # Pad by wrapping around from the beginning (may wrap multiple times
-            # if total < num_replicas)
-            padding_size = num_batches_per_rank * self.num_replicas - total
-            if padding_size > 0:
-                all_batches = all_batches + [
-                    all_batches[i % total] for i in range(padding_size)
-                ]
+        # Per-group chunking above already ensures len is a multiple of num_replicas,
+        # so every consecutive num_replicas batches belong to the same group.
+        #
+        # all_batches: list[Batch]
+        #   Flattened global schedule:
+        #     [step0_rank0, step0_rank1, ..., step1_rank0, step1_rank1, ...]
+        all_batches: list[Batch] = list(itertools.chain.from_iterable(chunks))
+        assert len(all_batches) % self.num_replicas == 0
 
         # Each worker takes every num_replicas'th batch starting at rank
         for i in range(self.rank, len(all_batches), self.num_replicas):
@@ -269,8 +309,15 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[list[int]]):
 
     def __len__(self):
         """Number of batches for this worker (same for all ranks)."""
-        total_batches = len(self._inner)
+        n = self.num_replicas
+        total = 0
+        for sampler in self._inner._samplers:
+            group_len = len(sampler)
+            if self.drop_last:
+                total += (group_len // n) * n
+            else:
+                total += math.ceil(group_len / n) * n
         if self.drop_last:
-            return total_batches // self.num_replicas
+            return total // n
         else:
-            return (total_batches + self.num_replicas - 1) // self.num_replicas
+            return math.ceil(total / n)

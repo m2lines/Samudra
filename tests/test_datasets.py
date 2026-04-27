@@ -171,9 +171,16 @@ def make_loader(
 
 
 def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
-    """Extract underlying X, y pairs from TrainData object."""
+    """Extract underlying X, y pairs from TrainData object.
+
+    X is the channel-concatenated (prognostic + boundary) tensor for parity
+    with the pre-split-API shape checks these tests do.
+    """
     steps = len(td)
-    x_arrays = [td.get_input(s).numpy(force=True) for s in range(steps)]
+    x_arrays = []
+    for s in range(steps):
+        prog, boundary = td.get_input(s)
+        x_arrays.append(torch.cat((prog, boundary), dim=1).numpy(force=True))
     y_arrays = [td.get_label(s).numpy(force=True) for s in range(steps)]
 
     return np.stack(x_arrays, axis=0), np.stack(y_arrays, axis=0)
@@ -458,7 +465,8 @@ def test_inference__data_shape(inference_loader_pair):
 
     for sample in samples:
         inference_dataset, n = sample
-        for X, y in inference_dataset:
+        for prog, boundary, y in inference_dataset:
+            X = torch.cat((prog, boundary), dim=1)
             assert X.shape == (batch_size, input_var_dim, 180, 360)
             assert y.shape == (batch_size, output_var_dim, 180, 360)
 
@@ -479,7 +487,8 @@ def test_inference__data_is_not_zero(inference_loader_pair):
 
     for sample in loader:
         dataset, n = sample
-        for X, y in dataset:
+        for prog, boundary, y in dataset:
+            X = torch.cat((prog, boundary), dim=1)
             assert np.count_nonzero(np.zeros(X.shape)) == 0, (
                 "Sanity check: Zero is zero."
             )
@@ -666,14 +675,15 @@ def test_train_dataset_no_input_change(
 ):
     train_loader, _ = tiny_dataset_input
     td = train_loader[0]
-    pred = torch.randn_like(td.get_label(0)) * 0.1
 
-    inp1 = td.get_input(1).clone()
-    td.merge_prognostic_and_boundary(pred, 1)
+    prog1, bnd1 = td.get_input(1)
+    prog1_orig, bnd1_orig = prog1.clone(), bnd1.clone()
 
     # Get a fresh copy from the loader
     td_new = train_loader[0]
-    assert torch.equal(td_new.get_input(1), inp1)
+    prog1_new, bnd1_new = td_new.get_input(1)
+    assert torch.equal(prog1_new, prog1_orig)
+    assert torch.equal(bnd1_new, bnd1_orig)
 
 
 @pytest.mark.parametrize("normalize_before_mask", [True, False])
@@ -685,25 +695,28 @@ def test_train_dataset_normalize_pre_fill(
     td0 = train_loader[0]
     data = masked_fill_value
 
-    td0_step0_input = td0.get_input(0)
+    td0_prog, td0_boundary = td0.get_input(0)
     td0_step0_label = td0.get_label(0)
-    inf_step0_input, inf_step0_label = inference_dataset[0]
+    inf_prog, inf_boundary, inf_step0_label = inference_dataset[0]
 
-    assert td0_step0_input.shape == (1, 8, 2, 2)
+    # Prog and boundary each carry (hist+1)*2 channels over a 2x2 grid.
+    assert td0_prog.shape == (1, 4, 2, 2)
+    assert td0_boundary.shape == (1, 4, 2, 2)
     assert td0_step0_label.shape == (1, 4, 2, 2)
-    assert inf_step0_input.shape == (1, 8, 2, 2)
+    assert inf_prog.shape == (1, 4, 2, 2)
+    assert inf_boundary.shape == (1, 4, 2, 2)
     assert inf_step0_label.shape == (1, 4, 2, 2)
 
-    # We expect [0,0,0] to be masked
+    # We expect [0,0,0] to be masked in the prognostic stream.
     if normalize_before_mask:
-        assert td0.get_input(0)[0, 0, 0, 0] == data
-        assert inference_dataset[0][0][0][0, 0, 0] == data
+        assert td0_prog[0, 0, 0, 0] == data
+        assert inf_prog[0, 0, 0, 0] == data
     else:
         mean = 0.5
         std = 1.0
         data = (data - mean) / std
-        assert td0.get_input(0)[0, 0, 0, 0] == data
-        assert inference_dataset[0][0][0][0, 0, 0] == data
+        assert td0_prog[0, 0, 0, 0] == data
+        assert inf_prog[0, 0, 0, 0] == data
 
 
 @pytest.mark.manual

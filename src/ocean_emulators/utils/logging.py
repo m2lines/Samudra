@@ -15,6 +15,8 @@ import torch
 from torch.nn.parallel import DistributedDataParallel
 from torchinfo import summary
 
+from ocean_emulators.constants import Boundary, Prognostic
+
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
@@ -230,9 +232,9 @@ class _ForwardOnceWrapper(torch.nn.Module):
         self._underlying: BaseModel = getattr(model, "module", model)  # type: ignore
         self._ctx = ctx
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, prognostic: Prognostic, boundary: Boundary) -> torch.Tensor:
         # Get the underlying model (handles DDP wrapping)
-        return self._underlying.forward_once(x, self._ctx)
+        return self._underlying.forward_once(prognostic, boundary, self._ctx)
 
 
 def get_model_summary(
@@ -245,14 +247,14 @@ def get_model_summary(
     # we pass verbose = 0 because we log the summary ourselves
     if data is not None:
         # TrainData is a complex wrapper that torchinfo cannot traverse.
-        # Extract the initial tensor and wrap the model to use forward_once.
-        input_tensor = data.get_initial_input()
-        # Wrap model to use forward_once for the summary
+        # Extract the initial prognostic + boundary and wrap the model to
+        # use forward_once.
+        prog_tensor, boundary_tensor = data.get_initial_input()
         wrapper = _ForwardOnceWrapper(model, data.ctx)
         logger.info(
             summary(
                 wrapper,
-                input_data=[input_tensor],
+                input_data=[prog_tensor, boundary_tensor],
                 depth=depth,
                 verbose=0,
             )

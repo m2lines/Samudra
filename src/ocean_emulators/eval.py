@@ -18,7 +18,7 @@ from ocean_emulators.constants import (
     construct_metadata,
 )
 from ocean_emulators.datasets import InferenceDataset
-from ocean_emulators.stepper import Stepper
+from ocean_emulators.stepper import run_rollout
 from ocean_emulators.utils.data import (
     Normalize,
     get_inference_steps,
@@ -82,8 +82,10 @@ class Eval:
         self.N_bound = len(self.boundary_var_names)
         self.N_prog = len(self.prognostic_var_names)
 
-        self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound))
-        self.num_out = int((cfg.data.hist + 1) * self.N_prog)
+        self.num_prog_in = int((cfg.data.hist + 1) * self.N_prog)
+        self.num_boundary_in = int((cfg.data.hist + 1) * self.N_bound)
+        self.num_in = self.num_prog_in + self.num_boundary_in
+        self.num_out = self.num_prog_in
 
         self.tensor_map = TensorMap.init_instance(
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
@@ -116,7 +118,8 @@ class Eval:
 
         # Model
         self.model = cfg.model.build(
-            in_channels=self.num_in,
+            prog_channels=self.num_prog_in,
+            boundary_channels=self.num_boundary_in,
             out_channels=self.num_out,
             hist=cfg.data.hist,
             static_data_for_corrector=self.static_data,
@@ -213,7 +216,7 @@ class Eval:
             self.prognostic_var_names,
         )
 
-        Stepper.inference(
+        run_rollout(
             model=self.model,
             dataset=self.inference_dataset,
             inf_aggregator=inf_aggregator,

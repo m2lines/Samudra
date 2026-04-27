@@ -19,8 +19,48 @@ On CI, GitHub Actions builds and validates this image via:
 .github/workflows/container-physicsnemo.yml
 ```
 
-The CI workflow publishes images on `main` pushes and manual dispatches, then runs
-CPU/GPU tests from the published image on an EC2 GPU runner.
+The CI workflow smoke-tests the x86_64 Dockerfile on every PR. On `main` pushes and
+manual dispatches, it publishes the x86_64 image to GHCR, runs CPU/GPU tests from
+that published image on an x86_64 EC2 GPU runner, and separately launches a non-GPU
+ARM64 EC2 runner to build, publish, pull, and CPU-test an ARM64 image. ARM64 GPU
+testing is intentionally not attempted on cloud runners because the available small
+ARM GPU instances expose older NVIDIA T4G GPUs that are unsupported by the current
+PyTorch/CUDA stack.
+
+The scheduled ARM GPU scrub is defined as a repo-local harness scrub skill, not a
+GitHub Actions workflow:
+
+```text
+.agents/skills/scrub-physicsnemo-arm64-gpu-container/SKILL.md
+```
+
+That scrub runs on the local ARM GPU host, pulls
+`ghcr.io/<owner>/ocean-emulator-physicsnemo:25.11-arm64-latest` from `main`, and
+runs the CUDA-marked tests that do not require FOMO flash attention with:
+
+```bash
+scripts/container/scrub_arm64_gpu_container_tests.sh
+```
+
+The temporary FOMO exclusion is tracked in
+[#710](https://github.com/Open-Athena/Ocean_Emulator/issues/710).
+
+The scrub host must allow the harness user to run Docker directly or through
+non-interactive `sudo docker`.
+
+Published image tags:
+
+```text
+25.11-<sha>                  # existing x86_64 compatibility tag
+25.11-x86_64-<sha>
+25.11-arm64-<sha>
+25.11-latest                 # existing x86_64 compatibility tag from main
+25.11-x86_64-latest
+25.11-arm64-latest
+25.11-manual-<ref>           # existing x86_64 compatibility tag from workflow_dispatch
+25.11-x86_64-manual-<ref>
+25.11-arm64-manual-<ref>
+```
 
 Useful environment variables:
 

@@ -10,6 +10,12 @@ from ocean_emulators.utils.device import autocast
 
 
 class Samudra(BaseModel):
+    """Samudra ocean emulator using a ConvNeXt U-Net backbone.
+
+    Implements the Samudra (and Samudra 2) model architecture for
+    single-scale ocean emulation.
+    """
+
     def __init__(
         self,
         in_channels: int,

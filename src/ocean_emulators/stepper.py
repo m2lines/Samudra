@@ -1,3 +1,10 @@
+"""Time-stepping primitives for training, validation, and inference.
+
+Provides module-level functions that handle single-step forward passes
+(``train_batch``, ``validate_batch``) and multi-step autoregressive
+rollouts (``run_rollout``).
+"""
+
 import logging
 from collections.abc import Callable
 from functools import partial

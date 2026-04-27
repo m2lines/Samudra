@@ -15,6 +15,13 @@ from ocean_emulators.utils.output import ModelInferenceOutput
 
 
 class BaseModel(torch.nn.Module):
+    """Abstract base model for neural ocean emulators.
+
+    Provides shared functionality for all ocean emulator models, including
+    residual prediction, ocean masking, and gradient detaching for multi-step
+    autoregressive rollouts.
+    """
+
     def __init__(
         self,
         in_channels,

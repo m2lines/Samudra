@@ -34,7 +34,7 @@ from tenacity import retry
 
 from ocean_emulators.utils.data import compact_dataset
 
-DATA_ROOT = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
+DEFAULT_DATA_ROOT = "https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/v2025-11/om4_onedeg/"
 
 
 @retry
@@ -61,7 +61,7 @@ def main(args: argparse.Namespace) -> None:
         ("OM4_stds", "zarr"),
     ]:
         dest = os.path.join(args.dest, name)
-        source = DATA_ROOT + name
+        source = (args.source or DEFAULT_DATA_ROOT) + name
 
         # Open Xarray Datasets with retries + exponential backoff.
         if name == "OM4":
@@ -84,9 +84,18 @@ def main(args: argparse.Namespace) -> None:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        "clone_data", description="Make a copy of the Samudra dataset (~70 GiBs)."
+        "clone_data",
+        description="Make a copy of the OM4 dataset (~100 GiBs - ~2 TiBs).",
     )
-    parser.add_argument("dest", type=str, help="Root directory for copy of datasets.")
+    parser.add_argument(
+        "dest", type=str, help="Root directory for the copy of datasets."
+    )
+    parser.add_argument(
+        "--source",
+        type=str,
+        default=DEFAULT_DATA_ROOT,
+        help="Alternative source root directory to copy data from. Defaults to 1° OM4 without Gaussian filtering.",
+    )
     parser.add_argument(
         "--time_start",
         type=int,
@@ -99,8 +108,21 @@ if __name__ == "__main__":
         default=None,
         help="end index for data.isel() along time dimension.",
     )
-    parser.add_argument("--write_time_chunks", type=int, default=1)
-    parser.add_argument("--compact_variables", action="store_true")
-    parser.add_argument("--local_cluster", action="store_true")
+    parser.add_argument(
+        "--write_time_chunks",
+        type=int,
+        default=1,
+        help="The number of chunks to write in each time dimension. Default=1.",
+    )
+    parser.add_argument(
+        "--compact_variables",
+        action="store_true",
+        help="Turn on a 'compact' data representation. This is now Zarr is more traditionally stored, but is sub-optimal in our data loader.",
+    )
+    parser.add_argument(
+        "--local_cluster",
+        action="store_true",
+        help="Run pipeline on a local dask cluster. This should be faster due to multi-processing.",
+    )
 
     main(parser.parse_args())

@@ -48,10 +48,10 @@ export AWS_ACCESS_KEY_ID=...
 export AWS_SECRET_ACCESS_KEY=...
 # Then, run the standard OM4 processing pipeline:
 python -m ocean_preprocessing om4 \
-   "s3://emulators/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr" \
-   "s3://emulators/am16581/ocean_static_no_mask_table.zarr" \
-   "s3://emulators/am16581/grids/ocean_hgrid.zarr" \
-   "s3://emulators/am16581/grids/gaussian_grid_360_by_720.zarr" \
+   "s3://m2lines-pubs/FOMO/raw/om4_5daily.zarr" \
+   "s3://m2lines-pubs/FOMO/raw/ocean_static_no_mask_table.zarr" \
+   "s3://m2lines-pubs/FOMO/raw/grids/ocean_hgrid.zarr" \
+   "s3://m2lines-pubs/FOMO/raw/grids/gaussian_grid_360_by_720.zarr" \
     --output_path="./local_om4_test.zarr" \
     --dry_run \
     --small_run
@@ -84,11 +84,11 @@ export AWS_ACCESS_KEY_ID=...
 export AWS_SECRET_ACCESS_KEY=...
 # Then, run the standard OM4 processing pipeline:
 python -m ocean_preprocessing om4 \
-   "s3://emulators/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr" \
-   "s3://emulators/am16581/ocean_static_no_mask_table.zarr" \
-   "s3://emulators/am16581/grids/ocean_hgrid.zarr" \
-   "s3://emulators/am16581/grids/gaussian_grid_360_by_720.zarr" \
-    --output_path="s3://emulators/am16581/om4_halfdeg_testrun.zarr" \
+   "s3://m2lines-pubs/FOMO/raw/om4_5daily.zarr" \
+   "s3://m2lines-pubs/FOMO/raw/ocean_static_no_mask_table.zarr" \
+   "s3://m2lines-pubs/FOMO/raw/grids/ocean_hgrid.zarr" \
+   "s3://m2lines-pubs/FOMO/raw/grids/gaussian_grid_360_by_720.zarr" \
+    --output_path="s3://m2lines-pubs/FOMO/v$(date "+%Y-%m")/om4_halfdeg/OM4.zarr" \
     --cluster="coiled" \
     --wait_for_workers=True
 ```
@@ -106,10 +106,10 @@ in a script or notebook. Continue reading to get a better understanding of this 
 
 ## Preprocessing files
 These files live on the OSN pod:
-- Data: https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-11-01-CM4-pre-industrial-control-simulation/ocean_5daily.zarr
-- Gaussian Grid: https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-08-01-sample-raw-CM4-data/gaussian_grid_180_by_360.nc
-- Mosaic File: https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-11-11-static-data/ocean_hgrid.nc
-- Static Data File: https://nyu1.osn.mghpcc.org/emulators/ai2_colab/2024-11-11-static-data/ocean_static_no_mask_table.nc
+- Data: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/raw/om4_5daily.zarr
+- Gaussian Grid: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/raw/grids/gaussian_grid_180_by_360.zarr
+- Mosaic File: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/raw/grids/ocean_hgrid.zarr
+- Static Data File: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/raw/ocean_static_no_mask_table.zarr
 
 ## Possible issues
 

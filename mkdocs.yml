@@ -44,7 +44,11 @@ nav:
     - Quick Start: getting-started/quick-start.md
   - Concepts:
     - Architecture: concepts/architecture.md
-  - Contributing: contributing.md
+    - Data: data.md
+    - How to Run: run.md
+    - Torch: torch.md
+  - Development:
+    - Contributing: contributing.md
   - API Reference:
     - Models:
       - Base Model: models/base.md

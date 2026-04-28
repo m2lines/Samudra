@@ -7,6 +7,7 @@ on:
     paths:
       - "docs/**"
       - "mkdocs.yml"
+      - "src/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -20,6 +21,9 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
 
     steps:
       - name: Checkout
@@ -32,7 +36,7 @@ jobs:
         run: uv run --only-group docs zensical build
 
       - name: Copy static pages into build output
-        run: cp -r docs/static/* site/
+        run: cp -R docs/static/. site/
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

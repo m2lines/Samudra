@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../schemas/SamudraConfig.json
+
+# Samudra-shaped model sized to fit a free-tier Colab T4 (16 GB VRAM).
+# Same architecture family as configs/samudra_om4_v2/model.yaml, just narrower.
+# Roughly 5-10M params depending on prognostic var count.
+
+checkpointing: all
+pred_residuals: false
+last_kernel_size: 3
+pad: "circular"
+
+# T4 (Turing) does not support bfloat16. Run in fp32.
+use_bfloat16: false
+
+unet:
+  ch_width: [128, 192, 256, 320]
+  dilation: [1, 2, 4, 8]
+  n_layers: [1, 1, 1, 1]
+
+  core_block:
+    block_type: "conv_next_block"
+    kernel_size: 3
+    activation: "capped_gelu"
+    upscale_factor: 2
+    norm: "batch"
+
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "zonally_periodic_upsample"
+
+corrector:
+  non_negative_corrector_names: null
+  ocean_heat_corrector: false

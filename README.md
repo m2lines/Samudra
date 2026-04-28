@@ -1,5 +1,7 @@
 # Ocean Emulator
 
+[![Open Quickstart In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/Open-Athena/Ocean_Emulator/blob/main/notebooks/quickstart.ipynb)
+
 [![Pre-commit](https://github.com/LaureZanna/Ocean_Emulator/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/LaureZanna/Ocean_Emulator/actions/workflows/pre-commit.yml)
 [![Test CPU](https://github.com/LaureZanna/Ocean_Emulator/actions/workflows/test.yml/badge.svg)](https://github.com/LaureZanna/Ocean_Emulator/actions/workflows/test.yml)
 [![Benchmark CPU](https://github.com/LaureZanna/Ocean_Emulator/actions/workflows/benchmarks.yml/badge.svg)](https://github.com/LaureZanna/Ocean_Emulator/actions/workflows/benchmarks.yml)
@@ -11,5 +13,6 @@
 
 > Ground truth (left) vs. Ocean Emulator prediction (right) for sea surface temperature in the tropical Pacific.
 
+For a browser-based smoke test, open the [Colab quickstart](https://colab.research.google.com/github/Open-Athena/Ocean_Emulator/blob/main/notebooks/quickstart.ipynb).
 
 Please see [CONTRIBUTING.md](CONTRIBUTING.md) to get started.

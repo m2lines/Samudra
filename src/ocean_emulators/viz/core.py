@@ -101,6 +101,8 @@ class VizRun:
 
 
 class Viz:
+    """Generates maps, time series, and probability density plots from evaluation outputs."""
+
     def __init__(
         self,
         output_path: str,

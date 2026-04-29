@@ -73,7 +73,8 @@ def create_samudra_model():
                 pos_channels=0,
                 gradient_detach_interval=gradient_detach_interval,
             ).build(
-                in_channels=2,
+                prog_channels=1,
+                boundary_channels=1,
                 out_channels=1,
                 hist=1,
                 static_data_for_corrector=None,
@@ -83,15 +84,18 @@ def create_samudra_model():
                 dataset_spec=src.dataset_spec,
             )
 
-            # Create TrainData compatible with model dimensions
+            # Create TrainData compatible with model dimensions.
+            # in_channels=2 splits into 1 prognostic + 1 boundary channel.
             train_data = TrainData(
                 num_prognostic_channels=1,
+                num_boundary_channels=1,
                 ctx=GridContext(masks.prognostic, src.resolution, src.resolution),
             )
             for step in range(4):
-                input_tensor = torch.randn(1, 2, h, w, requires_grad=True)
+                prog_tensor = torch.randn(1, 1, h, w, requires_grad=True)
+                boundary_tensor = torch.randn(1, 1, h, w, requires_grad=True)
                 label_tensor = torch.randn(1, 1, h, w)
-                train_data.append(input_tensor, label_tensor)
+                train_data.append(prog_tensor, boundary_tensor, label_tensor)
 
             return model, train_data
 

@@ -28,7 +28,9 @@ Boundary = Float[Grid, "*batch boundary_vars"]
 # So, we'll leave this default and use symbolic axes locally.
 type Input = Float[Grid, "*batch total_vars"]
 
-Example = tuple[Input, Prognostic]
+Example = tuple[
+    Prognostic, Boundary, Prognostic
+]  # (prognostic_input, boundary_input, label)
 
 GridMask = Bool[Tensor, "lat lon"]
 PrognosticMask = Bool[GridMask, "prognostic_vars"]

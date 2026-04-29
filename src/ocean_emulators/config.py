@@ -454,7 +454,7 @@ class PerceiverConfig(BaseConfig):
         if _use_flash(implementation):
             try:
                 from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
-            except ModuleNotFoundError as e:
+            except ImportError as e:
                 raise _flash_import_error() from e
             from einops.layers.torch import Rearrange
 
@@ -507,7 +507,7 @@ class PerceiverConfig(BaseConfig):
                 from flash_perceiver.perceiver import (  # type: ignore
                     PerceiverIO as FlashPerceiverIO,  # type: ignore
                 )
-            except ModuleNotFoundError as e:
+            except ImportError as e:
                 raise _flash_import_error() from e
             perceiver_io: nn.Module = FlashPerceiverIO(
                 depth=self.depth,
@@ -646,6 +646,10 @@ class UNetBackboneConfig(BaseConfig):
     core_block: BlockConfig = BlockConfig()
     down_sampling_block: DownSamplingBlocks = "avg_pool"
     up_sampling_block: UpSamplingBlocks = "zonally_periodic_upsample"
+    drop_path_rate: float = Field(
+        default=0.0,
+        description="Shortcut dropout rate. The chance we turn off skip connections in the UNet. Reasonable values are 0.1-0.3. Use 0.0 to disable.",
+    )
 
     def build(
         self,
@@ -690,6 +694,7 @@ class UNetBackboneConfig(BaseConfig):
             downsampling_block=downsampling_block,
             create_upsampling_block=create_upsampling_block,
             checkpointing=checkpointing,
+            drop_path_rate=self.drop_path_rate,
         )
 
 
@@ -721,7 +726,8 @@ class BaseModelConfig(BaseConfig, abc.ABC):
     @abc.abstractmethod
     def build(
         self,
-        in_channels: int,
+        prog_channels: int,
+        boundary_channels: int,
         out_channels: int,
         hist: int,
         static_data_for_corrector: xr.Dataset | None,
@@ -747,7 +753,8 @@ class SamudraConfig(BaseModelConfig):
 
     def build(
         self,
-        in_channels: int,
+        prog_channels: int,
+        boundary_channels: int,
         out_channels: int,
         hist: int,
         static_data_for_corrector: xr.Dataset | None,
@@ -771,6 +778,7 @@ class SamudraConfig(BaseModelConfig):
                 normalize=normalize,
                 dataset_spec=dataset_spec,
             )
+        in_channels = prog_channels + boundary_channels
         total_in_channels = (
             in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
         )
@@ -818,7 +826,8 @@ class FOMOConfig(BaseModelConfig):
 
     def build(
         self,
-        in_channels: int,
+        prog_channels: int,
+        boundary_channels: int,
         out_channels: int,
         hist: int,
         static_data_for_corrector: xr.Dataset | None,
@@ -843,8 +852,16 @@ class FOMOConfig(BaseModelConfig):
                 "Please set `use_bfloat16=True` or `perceiver_implementation='naive'`."
             )
 
+        in_channels = prog_channels + boundary_channels
+        total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
+
         encoder = self.encoder.build(
-            in_channels, self.embedding_dim, extent, max_lat_size, max_lon_size, impl
+            total_in_channels,
+            self.embedding_dim,
+            extent,
+            max_lat_size,
+            max_lon_size,
+            impl,
         )
         processor = self.processor.build(
             self.embedding_dim,
@@ -858,7 +875,6 @@ class FOMOConfig(BaseModelConfig):
             impl,
         )
 
-        total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
         add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
         return FOMO(
             in_channels=total_in_channels,
@@ -908,7 +924,8 @@ class FOMiniConfig(BaseModelConfig):
 
     def build(
         self,
-        in_channels: int,
+        prog_channels: int,
+        boundary_channels: int,
         out_channels: int,
         hist: int,
         static_data_for_corrector: xr.Dataset | None,
@@ -930,6 +947,7 @@ class FOMiniConfig(BaseModelConfig):
                 "Please set `use_bfloat16=True` or `perceiver_implementation='naive'`."
             )
 
+        in_channels = prog_channels + boundary_channels
         perceiver_io = self.perceiver.build_io(
             self.embedding_dim,
             self.queries_dim,

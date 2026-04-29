@@ -39,7 +39,7 @@ fi
 BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
 echo "==> Building ${IMAGE_TAG} from ${DOCKERFILE}"
-"${docker_cmd[@]}" build --pull \
+DOCKER_BUILDKIT="${DOCKER_BUILDKIT:-1}" "${docker_cmd[@]}" build --pull \
   --build-arg VCS_REF="${GIT_SHA}" \
   --build-arg VCS_URL="${GIT_URL}" \
   --build-arg BUILD_DATE="${BUILD_DATE}" \

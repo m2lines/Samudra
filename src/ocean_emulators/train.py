@@ -48,7 +48,13 @@ from ocean_emulators.datasets import (
     TrainDataLoader,
 )
 from ocean_emulators.models.base import BaseModel
-from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
+from ocean_emulators.stepper import (
+    TrainBatchOutput,
+    ValBatchOutput,
+    run_rollout,
+    train_batch,
+    validate_batch,
+)
 from ocean_emulators.utils.data import DataSource, Normalize, get_inference_steps
 from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.distributed import (
@@ -92,6 +98,12 @@ def should_log_validation_images(epoch: int, frequency: int) -> bool:
 
 
 class Trainer:
+    """Orchestrates the full model training loop.
+
+    Handles initialization, distributed setup, checkpointing, learning rate
+    scheduling, EMA, and Weights & Biases logging.
+    """
+
     model: BaseModel | nn.parallel.DistributedDataParallel
 
     def __init__(self, cfg: TrainConfig) -> None:
@@ -154,8 +166,10 @@ class Trainer:
             else:
                 self.mp_context = multiprocessing.get_context("spawn")
 
-        self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound))
-        self.num_out = int((cfg.data.hist + 1) * self.N_prog)
+        self.num_prog_in = int((cfg.data.hist + 1) * self.N_prog)
+        self.num_boundary_in = int((cfg.data.hist + 1) * self.N_bound)
+        self.num_in = self.num_prog_in + self.num_boundary_in
+        self.num_out = self.num_prog_in
 
         self.tensor_map = TensorMap(dataset_spec=self.dataset_spec).to(self.device)
 
@@ -196,7 +210,8 @@ class Trainer:
         )
 
         self.model = cfg.model.build(
-            in_channels=self.num_in,
+            prog_channels=self.num_prog_in,
+            boundary_channels=self.num_boundary_in,
             out_channels=self.num_out,
             hist=cfg.data.hist,
             # TODO(559): This won't work at multiple scales. Refactor as part of src.
@@ -416,9 +431,9 @@ class Trainer:
                 cur_step = self.get_current_step(epoch)
                 self.init_data_loaders(cur_step)
 
-            if isinstance(self.train_sampler, DistributedSampler):
+            if hasattr(self.train_sampler, "set_epoch"):
                 self.train_sampler.set_epoch(epoch)
-            if isinstance(self.val_sampler, DistributedSampler):
+            if hasattr(self.val_sampler, "set_epoch"):
                 self.val_sampler.set_epoch(epoch)
 
             start_epoch_train_time = time.perf_counter()
@@ -511,7 +526,7 @@ class Trainer:
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
 
-            TO: TrainBatchOutput = Stepper.train_batch(self.model, data, self.loss_fn)
+            TO: TrainBatchOutput = train_batch(self.model, data, self.loss_fn)
 
             # Scale loss by the actual number of microbatches that will be accumulated
             scaled_loss = TO.loss / r
@@ -642,9 +657,11 @@ class Trainer:
             # Run a fresh single-step forward pass so DynamicLoss sees an
             # up-to-date, unscaled loss signal
             with torch.no_grad():
-                single_step_data = TrainData(data.num_prognostic_channels, data.ctx)
-                input_, label = data[0]
-                single_step_data.append(input_, label)
+                single_step_data = TrainData(
+                    data.num_prognostic_channels, data.num_boundary_channels, data.ctx
+                )
+                prog_input, boundary_input, label = data[0]
+                single_step_data.append(prog_input, boundary_input, label)
                 pred = self.model(single_step_data)
                 # Compute the raw (unscaled) per-channel loss via the inner
                 # loss function, bypassing DynamicLoss scaling.
@@ -690,9 +707,7 @@ class Trainer:
                 if self.debug and (data_iter_step + 1) % 5 == 0:
                     break
 
-                VO: ValBatchOutput = Stepper.validate_batch(
-                    self.model, data, self.loss_fn
-                )
+                VO: ValBatchOutput = validate_batch(self.model, data, self.loss_fn)
                 val_aggregator.record_validation_batch(VO)
                 metric_logger.update(loss=VO.loss)
 
@@ -721,7 +736,7 @@ class Trainer:
 
                 # TODO(jder): we need the underlying model so we can use forward_once;
                 # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/51
-                Stepper.inference(
+                run_rollout(
                     model=self.model.module
                     if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
                     else self.model,

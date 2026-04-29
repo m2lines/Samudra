@@ -6,7 +6,7 @@ import xarray as xr
 from ocean_emulators.constants import TensorMap
 from ocean_emulators.datasets import InferenceDataset, TrainData
 from ocean_emulators.models.base import BaseModel
-from ocean_emulators.stepper import Stepper
+from ocean_emulators.stepper import validate_batch
 from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.data import DataSource, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
@@ -93,26 +93,34 @@ class MockModel(BaseModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def forward_once(self, x, ctx: GridContext):
-        return x[:, : self.out_channels] * 10.0 + x[:, -1]
+    def forward_once(
+        self,
+        prognostic: torch.Tensor,
+        boundary: torch.Tensor,
+        ctx: GridContext,
+    ):
+        # Exercises the two streams independently: scale prog, add the last
+        # boundary channel.
+        return prognostic * 10.0 + boundary[:, -1]
 
 
 class ConstantResidualModel(BaseModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def forward_once(self, x, ctx: GridContext):
-        return torch.ones_like(x[:, : self.out_channels])
+    def forward_once(self, prognostic, boundary, ctx: GridContext):
+        return torch.ones_like(prognostic)
 
 
 def test_validate_batch_uses_absolute_predictions_for_residual_models():
     wet = torch.ones((1, 1, 1, 1), dtype=torch.bool)
     grid = torch.zeros(1)
     ctx = GridContext(wet, (grid, grid), (grid, grid))
-    batch = TrainData(num_prognostic_channels=1, ctx=ctx)
-    input_ = torch.tensor([[[[10.0]], [[5.0]]]])
+    batch = TrainData(num_prognostic_channels=1, num_boundary_channels=1, ctx=ctx)
+    prog_input = torch.tensor([[[[10.0]]]])
+    boundary_input = torch.tensor([[[[5.0]]]])
     label = torch.tensor([[[[11.0]]]])
-    batch.append(input_, label)
+    batch.append(prog_input, boundary_input, label)
 
     model = ConstantResidualModel(
         in_channels=2,
@@ -124,13 +132,15 @@ def test_validate_batch_uses_absolute_predictions_for_residual_models():
         gradient_detach_interval=0,
     )
 
-    output = Stepper.validate_batch(
+    output = validate_batch(
         model,
         batch,
         lambda pred, target, ctx: ((pred - target) ** 2).mean(dim=(0, 2, 3)),
     )
 
-    assert torch.equal(output.input_data, input_)
+    assert torch.equal(
+        output.input_data, torch.cat((prog_input, boundary_input), dim=1)
+    )
     assert torch.equal(output.target_data, label)
     assert torch.equal(output.gen_data, label)
     assert torch.equal(output.loss_per_channel, torch.zeros(1))
@@ -144,7 +154,8 @@ def test_inference_dataset(inf_data_init, hist):
     num_input_channels = (hist + 1) * 2  # (hist + 1) * (thetao + hfds)
     num_prognostic_channels = hist + 1  # (hist + 1) * thetao
 
-    input_0, target_0 = inference_dataset[0]
+    prog_0, boundary_0, target_0 = inference_dataset[0]
+    input_0 = torch.cat((prog_0, boundary_0), dim=1)
 
     # Index 0 test
     # For hist = 0, input is [0, 1]
@@ -167,7 +178,8 @@ def test_inference_dataset(inf_data_init, hist):
     # Loop test
     for cur_step in range(1, len(inference_dataset)):
         base_step = cur_step * (hist + 1)
-        input_cur, target_cur = inference_dataset[cur_step]
+        prog_cur, boundary_cur, target_cur = inference_dataset[cur_step]
+        input_cur = torch.cat((prog_cur, boundary_cur), dim=1)
         assert input_cur.shape == (1, num_input_channels, 1, 1)
         expected_input = torch.tensor(
             [2 * i for i in range(base_step, base_step + hist + 1)]
@@ -254,7 +266,8 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
     model.eval()
     num_input_channels = (hist + 1) * 2  # (hist + 1) * (thetao + hfds)
     num_prognostic_channels = hist + 1  # (hist + 1) * thetao
-    input_tensor = inference_dataset.get_initial_input()
+    prog_tensor, boundary_tensor = inference_dataset.get_initial_input()
+    input_tensor = torch.cat((prog_tensor, boundary_tensor), dim=1)
 
     assert input_tensor.shape == (1, num_input_channels, 1, 1)
     expected_input = torch.tensor(
@@ -264,7 +277,8 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
     assert torch.equal(input_tensor.flatten(), expected_input)
 
     pred = model.forward_once(
-        input_tensor,
+        prog_tensor,
+        boundary_tensor,
         GridContext(wet, inference_dataset.input_res, inference_dataset.input_res),
     )
     assert pred.shape == (1, num_prognostic_channels, 1, 1)
@@ -273,10 +287,9 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
     )
     assert torch.equal(pred.flatten(), expected_pred)
 
-    merged_input_tensor = inference_dataset.merge_prognostic_and_boundary(
-        prognostic=pred,
-        step=merge_step,
-    )
+    merged_prog = pred
+    merged_boundary = inference_dataset.get_boundary(merge_step)
+    merged_input_tensor = torch.cat((merged_prog, merged_boundary), dim=1)
     assert merged_input_tensor.shape == (1, num_input_channels, 1, 1)
 
     # For hist = 0, merge_step = 1, need to merge [3]

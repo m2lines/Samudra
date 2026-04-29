@@ -5,13 +5,21 @@ IMAGE_TAG="${IMAGE_TAG:-ocean-emulator:physicsnemo-25.11}"
 PYTEST_MARK_EXPR="${PYTEST_MARK_EXPR:-cuda and not manual}"
 PYTEST_ARGS="${PYTEST_ARGS:-}"
 
-docker_cmd=(docker)
-if ! docker version >/dev/null 2>&1; then
-  if command -v sudo >/dev/null 2>&1 && sudo docker version >/dev/null 2>&1; then
-    docker_cmd=(sudo docker)
-  else
-    echo "Docker is required but not available to the current user." >&2
+if [[ -n "${DOCKER_CMD:-}" ]]; then
+  read -r -a docker_cmd <<<"${DOCKER_CMD}"
+  if ! "${docker_cmd[@]}" version >/dev/null 2>&1; then
+    echo "DOCKER_CMD is set but not usable: ${DOCKER_CMD}" >&2
     exit 1
+  fi
+else
+  docker_cmd=(docker)
+  if ! docker version >/dev/null 2>&1; then
+    if command -v sudo >/dev/null 2>&1 && sudo -n docker version >/dev/null 2>&1; then
+      docker_cmd=(sudo -n docker)
+    else
+      echo "Docker is required but not available to the current user." >&2
+      exit 1
+    fi
   fi
 fi
 

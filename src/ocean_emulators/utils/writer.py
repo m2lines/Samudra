@@ -11,6 +11,8 @@ from ocean_emulators.utils.output import ModelInferenceOutput
 
 
 class ZarrWriter:
+    """Writes model prediction outputs to Zarr format for downstream analysis."""
+
     def __init__(
         self,
         output_dir: str | os.PathLike,

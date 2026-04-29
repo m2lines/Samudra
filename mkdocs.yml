@@ -1,0 +1,79 @@
+site_name: Ocean Emulators
+site_url: https://open-athena.github.io/Ocean_Emulator/docs/
+repo_url: https://github.com/Open-Athena/Ocean_Emulator
+repo_name: Open-Athena/Ocean_Emulator
+docs_dir: docs
+site_dir: site/docs
+
+theme:
+  variant: modern
+  features:
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - toc.follow
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_source: true
+            show_root_heading: true
+            heading_level: 2
+            members_order: source
+            docstring_style: google
+            show_labels: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            merge_init_into_class: true
+            group_by_category: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quick-start.md
+  - Concepts:
+    - Architecture: concepts/architecture.md
+  - Contributing: contributing.md
+  - API Reference:
+    - Models:
+      - Base Model: models/base.md
+      - Samudra: models/samudra.md
+      - FOMO: models/fomo.md
+      - Modules: models/modules.md
+    - Datasets: datasets.md
+    - Training:
+      - Stepper: stepper.md
+      - Train: train.md
+      - Eval: eval.md
+    - Configuration: config.md
+    - Utilities:
+      - Data Utils: utils/data.md
+      - Distributed: utils/distributed.md
+      - Loss: utils/loss.md
+      - EMA: utils/ema.md
+      - Schedule: utils/schedule.md
+      - Samplers: utils/samplers.md
+      - Writer: utils/writer.md
+    - Visualization: viz.md
+
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+  - def_list
+  - attr_list

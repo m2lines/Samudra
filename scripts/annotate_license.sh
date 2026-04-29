@@ -4,7 +4,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Annotate staged files with SPDX copyright + license headers using `reuse`.
-# Code defaults to Apache-2.0; prose (.md, .rst) defaults to CC-BY-4.0.
+# Defaults by file class:
+#   - prose (.md, .rst, .html, .bib) → CC-BY-4.0
+#   - non-creative metadata (lockfiles, version pins, ignore files,
+#     auto-generated baselines, GitHub Pages markers) → CC0-1.0
+#   - everything else (source, configs, scripts, CI, Docker, ...)  → Apache-2.0
 # Files that already carry a SPDX header are left alone.
 # After annotation, modified files are re-staged so the headers land in the
 # same commit.
@@ -24,11 +28,20 @@ if (( ${#STAGED[@]} == 0 )); then
 fi
 
 DOCS=()
+DATA=()
 CODE=()
 for f in "${STAGED[@]}"; do
+    base=$(basename -- "$f")
     case "$f" in
-        *.md|*.rst) DOCS+=("$f") ;;
-        *)          CODE+=("$f") ;;
+        *.md|*.rst|*.html|*.bib)
+            DOCS+=("$f") ;;
+        *.lock|*.lock.license|.gitignore|.dockerignore|.python-version|.nojekyll*)
+            DATA+=("$f") ;;
+        *)
+            case "$base" in
+                .secrets.baseline*) DATA+=("$f") ;;
+                *)                  CODE+=("$f") ;;
+            esac ;;
     esac
 done
 
@@ -45,5 +58,6 @@ annotate() {
 
 annotate Apache-2.0 "${CODE[@]}"
 annotate CC-BY-4.0  "${DOCS[@]}"
+annotate CC0-1.0    "${DATA[@]}"
 
 git add -- "${STAGED[@]}"

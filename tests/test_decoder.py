@@ -1,9 +1,9 @@
 import pytest
 import torch
 from perceiver_pytorch.perceiver_io import PerceiverIO
-from test_encoder import make_resolution  # type: ignore
+from test_encoder import make_ctx, make_encoder, make_resolution  # type: ignore
 
-from ocean_emulators.models.modules import PerceiverDecoder, PerceiverEncoder
+from ocean_emulators.models.modules import PerceiverDecoder
 
 # Small values for fast tests.
 LATENT_DIM = 8
@@ -19,27 +19,6 @@ BATCH = 2
 #   patch_h=4, patch_w=4  →  nh=2, nw=4
 NH, NW = 2, 4
 H, W = 8, 16
-
-
-ENCODER_LATENT_DIM = 4
-
-
-def make_perceiver_encoder(prog_channels, *, num_latents=2, max_freq=10.0):
-    """Build a 2-D Perceiver for the encoder's prognostic stream."""
-    from perceiver_pytorch import Perceiver
-
-    return Perceiver(
-        num_freq_bands=4,
-        max_freq=max_freq,
-        depth=2,
-        input_axis=2,
-        input_channels=prog_channels,
-        latent_dim=ENCODER_LATENT_DIM,
-        num_latents=num_latents,
-        num_classes=ENCODER_LATENT_DIM,
-        weight_tie_layers=True,
-        self_per_cross_attn=2,
-    )
 
 
 def make_decoder_perceiver_io(in_channels=IN_CHANNELS, out_channels=OUT_CHANNELS):
@@ -126,19 +105,14 @@ def test_roundtrip():
     prog = torch.randn(3, 7, H_rt, W_rt)
     boundary = torch.randn(3, 3, H_rt, W_rt)
 
-    patch_embed = PerceiverEncoder(
+    patch_embed = make_encoder(
         prog_channels=7,
         boundary_channels=3,
         out_channels=embed_dim,
-        prog_latent_dim=ENCODER_LATENT_DIM,
-        boundary_latent_dim=ENCODER_LATENT_DIM,
         patch_extent=(180, 180),
-        perceiver=make_perceiver_encoder(7),
-        boundary_perceiver=make_perceiver_encoder(3),
     )
 
-    res = make_resolution(prog)
-    patches = patch_embed(prog, boundary, res)
+    patches = patch_embed(prog, boundary, make_ctx(prog))
 
     decode = PerceiverDecoder(
         in_channels=embed_dim,
@@ -150,7 +124,7 @@ def test_roundtrip():
         context_patches=None,
     )
 
-    y_hat = decode(patches, res)
+    y_hat = decode(patches, make_resolution(prog))
 
     assert y_hat.shape == (3, 10, H_rt, W_rt), (
         f"Decoder should produce full-resolution output, got {y_hat.shape}."

@@ -20,6 +20,7 @@ from ocean_emulators.models.modules.blocks import (
 from ocean_emulators.utils.ctx import GridContext
 
 LATENT_DIM = 4
+TOKEN_DIM = 8
 EMBED_DIM = 8
 QUERIES_DIM = 16
 PATCH_EXTENT = (90.0, 90.0)
@@ -47,13 +48,16 @@ def _create_upsample(in_channels: int, out_channels: int) -> BilinearUpsample:
     return BilinearUpsample()
 
 
-def _make_perceiver(input_channels: int, depth: int = 2) -> Perceiver:
+def _make_perceiver() -> Perceiver:
     return Perceiver(
-        num_freq_bands=4,
-        max_freq=10.0,
-        depth=depth,
-        input_axis=2,
-        input_channels=input_channels,
+        # num_freq_bands / max_freq are required positional kwargs but unused
+        # when fourier_encode_data=False.
+        num_freq_bands=0,
+        max_freq=1.0,
+        depth=2,
+        input_axis=1,
+        input_channels=TOKEN_DIM,
+        fourier_encode_data=False,
         latent_dim=LATENT_DIM,
         num_latents=2,
         num_classes=LATENT_DIM,
@@ -73,11 +77,11 @@ def _make_fomo(
         prog_channels=encoder_prog_channels,
         boundary_channels=boundary_channels,
         out_channels=EMBED_DIM,
-        prog_latent_dim=LATENT_DIM,
-        boundary_latent_dim=LATENT_DIM,
+        token_dim=TOKEN_DIM,
+        latent_dim=LATENT_DIM,
         patch_extent=PATCH_EXTENT,
-        perceiver=_make_perceiver(encoder_prog_channels),
-        boundary_perceiver=_make_perceiver(boundary_channels, depth=1),
+        max_patch_size=(4, 4),
+        perceiver=_make_perceiver(),
     )
     processor = UNetBackbone(
         in_channels=EMBED_DIM,

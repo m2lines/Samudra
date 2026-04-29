@@ -386,57 +386,42 @@ class PerceiverConfig(BaseConfig):
 
     def build(
         self,
-        in_channels: int,
-        max_patch_size: tuple[int, int],
+        token_dim: int,
         implementation: PerceiverImpl,
     ) -> nn.Module:
-        """Build a Perceiver that maps 2-D patches to a pooled latent vector.
+        """Build a Perceiver that maps ``(B, N, token_dim)`` to ``(B, latent_dim)``.
 
-        The Perceiver receives raw 2-D patches
-        ``(batch, ph, pw, input_channels)`` with internal Fourier position
-        encoding.  It returns ``(batch, latent_dim)`` after mean-pooling
-        its latent vectors.
-
-        Args:
-            in_channels: Number of input channels per patch pixel.
-            max_patch_size: Largest ``(ph, pw)`` across data sources,
-                used to set the Fourier frequency range.
-            implementation: Which Perceiver backend to use.
+        Position encoding is the caller's responsibility — the encoder applies
+        a custom 2-D Fourier scheme before concatenating prognostic and
+        boundary tokens into the sequence.
         """
-        max_freq = max(*max_patch_size)
-
         if _use_flash(implementation):
             try:
                 from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
             except ImportError as e:
                 raise _flash_import_error() from e
-            from einops.layers.torch import Rearrange
 
-            # Flash perceiver expects (batch, seq_len, dim); naive handles
-            # (batch, ph, pw, dim) natively via input_axis=2.  Bake the
-            # spatial-flatten into the module so callers don't need to care.
-            perceiver: nn.Module = nn.Sequential(
-                Rearrange("b ph pw v -> b (ph pw) v"),
-                FlashPerceiver(
-                    latent_rotary_emb_dim=max_freq,
-                    depth=self.depth,
-                    input_dim=in_channels,
-                    output_dim=self.latent_dim,
-                    output_mode="average",
-                    latent_dim=self.latent_dim,
-                    num_latents=self.num_latents,
-                    use_flash_attn=True,
-                    weight_tie_layers=True,
-                    self_per_cross_attn=2,
-                ),
+            return FlashPerceiver(
+                depth=self.depth,
+                input_dim=token_dim,
+                output_dim=self.latent_dim,
+                output_mode="average",
+                latent_dim=self.latent_dim,
+                num_latents=self.num_latents,
+                use_flash_attn=True,
+                weight_tie_layers=True,
+                self_per_cross_attn=2,
             )
         elif _use_naive(implementation):
-            perceiver = NaivePerceiver(
-                num_freq_bands=4,
-                max_freq=max_freq,
+            # ``num_freq_bands`` / ``max_freq`` are required positional kwargs
+            # but unused when ``fourier_encode_data=False``.
+            return NaivePerceiver(
                 depth=self.depth,
-                input_axis=2,
-                input_channels=in_channels,
+                input_axis=1,
+                input_channels=token_dim,
+                fourier_encode_data=False,
+                num_freq_bands=0,
+                max_freq=1.0,
                 num_classes=self.latent_dim,
                 latent_dim=self.latent_dim,
                 num_latents=self.num_latents,
@@ -445,8 +430,6 @@ class PerceiverConfig(BaseConfig):
             )
         else:
             raise ValueError(f"Unknown perceiver implementation: {implementation}.")
-
-        return perceiver
 
     def build_io(
         self,
@@ -514,9 +497,12 @@ def _flash_import_error() -> ValueError:
 
 class EncoderConfig(BaseConfig):
     perceiver: PerceiverConfig = PerceiverConfig()
-    boundary_perceiver: PerceiverConfig = PerceiverConfig(
-        depth=2,
-        num_latents=64,
+    token_dim: int = Field(
+        default=256,
+        description=(
+            "Per-token dimension fed into the Perceiver after projecting "
+            "prognostic and boundary pixels to a common space."
+        ),
     )
 
     def build(
@@ -532,15 +518,11 @@ class EncoderConfig(BaseConfig):
             prog_channels=prog_channels,
             boundary_channels=boundary_channels,
             out_channels=out_channels,
-            prog_latent_dim=self.perceiver.latent_dim,
-            boundary_latent_dim=self.boundary_perceiver.latent_dim,
+            token_dim=self.token_dim,
+            latent_dim=self.perceiver.latent_dim,
             patch_extent=patch_extent,
-            perceiver=self.perceiver.build(
-                prog_channels, max_patch_size, implementation
-            ),
-            boundary_perceiver=self.boundary_perceiver.build(
-                boundary_channels, max_patch_size, implementation
-            ),
+            max_patch_size=max_patch_size,
+            perceiver=self.perceiver.build(self.token_dim, implementation),
         )
 
 

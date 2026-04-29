@@ -8,7 +8,11 @@ ARG VCS_URL=unknown
 ARG BUILD_DATE=unknown
 ARG NSYS_CLI_AMD64_DEB_URL="https://developer.download.nvidia.com/devtools/nsight-systems/NsightSystems-linux-cli-public-2026.1.1.204-3717666.deb"
 ARG NSYS_CLI_ARM64_DEB_URL="https://developer.download.nvidia.com/devtools/nsight-systems/nsight-systems-cli-2026.1.1_2026.1.1.204-1_arm64.deb"
+ARG CUDA_APT_REPO_AMD64=ubuntu2404/x86_64
+ARG CUDA_APT_REPO_ARM64=ubuntu2404/sbsa
 ARG TARGETARCH
+ARG CUDA_KEYRING_VERSION=1.1-1
+ARG CUDA_GDS_TOOLS_PACKAGE=gds-tools-13-0
 
 LABEL org.opencontainers.image.revision="${VCS_REF}" \
       org.opencontainers.image.source="${VCS_URL}" \
@@ -16,24 +20,32 @@ LABEL org.opencontainers.image.revision="${VCS_REF}" \
 
 ENV WANDB_GIT_COMMIT="${VCS_REF}" \
     WANDB_GIT_REMOTE_URL="${VCS_URL}" \
-    WANDB_DISABLE_GIT=true
+    WANDB_DISABLE_GIT=true \
+    CUDA_GDS_TOOLS_DIR=/usr/local/cuda/gds/tools \
+    PATH=/usr/local/cuda/gds/tools:${PATH}
 
 # Upgrade to a newer Nsight Systems CLI build so `--trace=nccl` is available.
 # NVIDIA publishes different Debian packages for amd64 and arm64.
 RUN apt-get update \
     && target_arch="${TARGETARCH:-$(dpkg --print-architecture)}" \
     && case "${target_arch}" in \
-        amd64|x86_64) NSYS_CLI_DEB_URL="${NSYS_CLI_AMD64_DEB_URL}" ;; \
-        arm64|aarch64) NSYS_CLI_DEB_URL="${NSYS_CLI_ARM64_DEB_URL}" ;; \
+        amd64|x86_64) NSYS_CLI_DEB_URL="${NSYS_CLI_AMD64_DEB_URL}"; CUDA_APT_REPO="${CUDA_APT_REPO_AMD64}" ;; \
+        arm64|aarch64) NSYS_CLI_DEB_URL="${NSYS_CLI_ARM64_DEB_URL}"; CUDA_APT_REPO="${CUDA_APT_REPO_ARM64}" ;; \
         *) echo "Unsupported TARGETARCH=${target_arch} for Nsight Systems CLI install" >&2; exit 1 ;; \
        esac \
     && apt-get install -y --no-install-recommends ca-certificates curl \
     && curl -fsSL "${NSYS_CLI_DEB_URL}" -o /tmp/nsight-systems-cli.deb \
-    && apt-get install -y --no-install-recommends /tmp/nsight-systems-cli.deb \
-    && rm -f /tmp/nsight-systems-cli.deb \
+    && curl -fsSL "https://developer.download.nvidia.com/compute/cuda/repos/${CUDA_APT_REPO}/cuda-keyring_${CUDA_KEYRING_VERSION}_all.deb" -o /tmp/cuda-keyring.deb \
+    && dpkg -i /tmp/cuda-keyring.deb \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends /tmp/nsight-systems-cli.deb "${CUDA_GDS_TOOLS_PACKAGE}" \
+    && find "${CUDA_GDS_TOOLS_DIR}" -maxdepth 1 -type f -perm /111 -exec ln -sf {} /usr/local/bin/ ';' \
+    && rm -f /tmp/nsight-systems-cli.deb /tmp/cuda-keyring.deb \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/local/bin/nsys /usr/local/cuda/bin/nsys \
-    && nsys --version
+    && nsys --version \
+    && command -v gds_stats >/dev/null \
+    && command -v gdscheck >/dev/null
 
 COPY LICENSE README.md pyproject.toml uv.lock ./
 COPY src ./src
@@ -64,7 +76,6 @@ RUN . .venv/bin/activate \
         --no-install-package nvidia-cuda-runtime-cu12 \
         --no-install-package nvidia-cudnn-cu12 \
         --no-install-package nvidia-cufft-cu12 \
-        --no-install-package nvidia-cufile-cu12 \
         --no-install-package nvidia-curand-cu12 \
         --no-install-package nvidia-cusolver-cu12 \
         --no-install-package nvidia-cusparse-cu12 \

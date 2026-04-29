@@ -28,7 +28,7 @@ dependencies = [
   "jaxtyping>=0.3",
   "matplotlib>=3.10.1",
   "microsoft-aurora>=1.8",
-  "numpy>=1.26.4,<2",             # There is some incompatibility between a dependency and numpy 2+
+  "numpy>=1.26.4",
   "perceiver-pytorch>=0.8.8",
   "pydantic-settings>=2.8.1",
   "pytest-xdist[psutil]>=3.6.1",
@@ -37,18 +37,20 @@ dependencies = [
   "s3fs>=2025.5.1",
   "scipy>=1.15.2",
   "skypilot[aws,lambda]>=0.10",
-  "sqlalchemy>=2",                # skypilot requires sqlalchemy 2.0 but doesn't include that requirement
-  "torch>=2.9.0a0,<2.10",         # Matches PhysicsNeMo 25.11 for Docker build
+  "sqlalchemy>=2",                                                                                      # skypilot requires sqlalchemy 2.0 but doesn't include that requirement
+  "torch>=2.9.0a0,<2.10",                                                                               # Matches PhysicsNeMo 25.11 for Docker build
   "torchinfo>=1.8",
   "wandb>=0.19.8",
-  "xarray[io]>=2025.1.2",
+  "xarray[io]>=2026.2",
   "xarray-einstats[einops]>=0.8",
   "xesmf>=0.8.10",
-  "zarr<3",
+  "zarr @ git+https://github.com/Open-Athena/zarr-python.git@f59c571deda1f895c60b5f390f8cebf8f09673d1",
 ]
 optional-dependencies.cuda = [
   "flash-attn>=2.7.4.post1,<3",
   "flash-perceiver>=0.2",
+  "kvikio-cu12>=25.10",
+  "nvidia-nvcomp-cu12>=5.1",
   "torchvision>=0.24.0a0",
 ]
 
@@ -79,11 +81,6 @@ dev = [
   "types-pyyaml>=6.0.12.20241230",
   "types-tqdm>=4.67.0.20250516",
   "xarrayutils>=2.0.1",
-]
-docs = [
-  "mkdocs-material>=9.5",
-  "mkdocstrings[python]>=0.27",
-  "zensical",
 ]
 
 [tool.ruff]
@@ -138,16 +135,3 @@ overrides = [
 [tool.uv]
 extra-build-dependencies.flash-attn = [ { requirement = "torch", match-runtime = true } ]
 extra-build-variables.flash-attn = { FLASH_ATTENTION_SKIP_CUDA_BUILD = "TRUE" }
-
-[tool.uv.sources]
-torch = [
-  { index = "pytorch-cu130", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
-]
-torchvision = [
-  { index = "pytorch-cu130", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
-]
-
-[[tool.uv.index]]
-name = "pytorch-cu130"
-url = "https://download.pytorch.org/whl/cu130"
-explicit = true

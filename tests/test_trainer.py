@@ -27,6 +27,7 @@ def test_trainer__mini_benchmark(trainer_pair: TrainPair, caplog, benchmark):
         trainer.run()
 
 
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
 @pytest.mark.parametrize(
     "data_source,config_name",
     [("mock-om4", "test/train_default_2step.yaml")],
@@ -218,3 +219,25 @@ def test_data_loaders_disable_persistent_workers_when_num_workers_is_zero(
 
     assert trainer.train_loader._dataloader.persistent_workers is False
     assert trainer.val_loader._dataloader.persistent_workers is False
+
+
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "test/train_default_2step.yaml")],
+    indirect=True,
+)
+def test_init_data_loaders_disables_pin_memory_for_gpu_decode(
+    trainer_pair: TrainPair, caplog
+):
+    caplog.set_level(logging.INFO)
+    _, trainer = trainer_pair
+
+    trainer.pin_mem = True
+    trainer.data_container.sources[0].use_zarr_gpu_decode = True
+    trainer.data_container.inference_source.use_zarr_gpu_decode = True
+
+    trainer.init_data_loaders(cur_step=trainer.steps[0])
+
+    assert trainer.train_loader._dataloader.pin_memory is False
+    assert trainer.val_loader._dataloader.pin_memory is False
+    assert "Disabling DataLoader pin_memory because GPU zarr decode" in caplog.text

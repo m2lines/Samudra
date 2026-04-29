@@ -248,6 +248,32 @@ def test_normalize_unnormalize_tensor_prognostic(normalize_input):
     assert torch.allclose(input_data, unnormalized)
 
 
+def test_data_source_normalize_with_preserves_dtype_and_device():
+    masks = Masks(
+        prognostic=torch.ones((2, 1, 1), dtype=torch.bool),
+        boundary=torch.ones((1, 1), dtype=torch.bool),
+    )
+    data = xr.Dataset(
+        {
+            "var_0": (["lat", "lon"], np.zeros((1, 1))),
+            "var_1": (["lat", "lon"], np.zeros((1, 1))),
+        },
+        coords={"lat": [0], "lon": [0]},
+    )
+    means = xr.Dataset({"var_0": 1.0, "var_1": 2.0})
+    stds = xr.Dataset({"var_0": 0.5, "var_1": 2.0})
+    source = DataSource(
+        "test", data, means, stds, masks=masks, dataset_spec=TEST_DATASET_SPEC
+    )
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    tensor = torch.tensor([[[1.0]], [[3.0]]], dtype=torch.float32, device=device)
+    normalized = source.normalize_with(tensor)
+
+    assert normalized.dtype == tensor.dtype
+    assert normalized.device == tensor.device
+
+
 @pytest.mark.parametrize("fill_value", [float("nan"), 0.0])
 def test_unnormalize_prognostic_tensor(normalize_input, fill_value):
     normalize, wet_mask = normalize_input

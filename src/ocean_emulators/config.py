@@ -287,6 +287,9 @@ class DataConfig(BaseConfig):
 
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
+        gpu_loading = (
+            self.loading if isinstance(self.loading, GpuDataLoadingConfig) else None
+        )
 
         def make_source(
             data_location: Location,
@@ -307,6 +310,13 @@ class DataConfig(BaseConfig):
                 static_data_vars=self.static_data_vars,
                 use_dask=turn_on_dask,
                 canonicalize=self.dataset.canonicalize_datasets,
+                use_gpu_zarr_decode=gpu_loading is not None,
+                kvikio_task_size=(
+                    gpu_loading.kvikio_task_size if gpu_loading is not None else None
+                ),
+                kvikio_num_threads=(
+                    gpu_loading.kvikio_num_threads if gpu_loading is not None else None
+                ),
             )
 
             return data_source, all(

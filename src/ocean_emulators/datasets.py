@@ -1,8 +1,9 @@
 import logging
 import time
+from collections.abc import Callable
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
-from typing import ClassVar, final
+from typing import Any, ClassVar, final
 
 import numpy as np
 import torch
@@ -31,9 +32,100 @@ from ocean_emulators.utils.data import (
     conditional_rearrange,
 )
 from ocean_emulators.utils.device import using_gpu
+from ocean_emulators.utils.location import _zarr_gpu_decode_context
 from ocean_emulators.utils.logging import elapsed
 
 logger = logging.getLogger(__name__)
+
+
+def _to_torch_float32(array_like: Any) -> torch.Tensor:
+    get_duck_array = getattr(array_like, "get_duck_array", None)
+    if callable(get_duck_array):
+        array_like = get_duck_array()
+
+    if hasattr(array_like, "compute"):
+        array_like = array_like.compute()
+
+    if isinstance(array_like, np.ndarray):
+        return torch.from_numpy(array_like.astype(np.float32, copy=False))
+
+    if hasattr(array_like, "__dlpack__"):
+        return torch.from_dlpack(array_like).to(dtype=torch.float32)
+
+    if hasattr(array_like, "get"):
+        array_like = array_like.get()
+        return torch.from_numpy(np.asarray(array_like, dtype=np.float32))
+
+    return torch.as_tensor(array_like, dtype=torch.float32)
+
+
+def _dataarray_to_torch_float32(array: xr.DataArray) -> torch.Tensor:
+    return _to_torch_float32(array.data)
+
+
+def _materialize_dataarray_to_torch_float32(
+    build_array: Callable[[], xr.DataArray],
+    *,
+    use_zarr_gpu_decode: bool,
+) -> torch.Tensor:
+    try:
+        with _zarr_gpu_decode_context(use_zarr_gpu_decode):
+            return _to_torch_float32(build_array().data)
+    except RuntimeError:
+        raise
+    except Exception as exc:
+        if not use_zarr_gpu_decode:
+            raise
+
+        raise RuntimeError(
+            "GPU zarr decode failed while materializing tensors from xarray. "
+            "This usually means xarray/zarr GPU-buffer integration is incompatible "
+            "with the current store or environment. "
+            "Set data.loading.type=cpu to continue on the CPU path."
+        ) from exc
+
+
+def _stack_time_variable_lat_lon(dataset: xr.Dataset) -> xr.DataArray:
+    if "lev" in dataset.dims:
+        return conditional_rearrange(
+            dataset,
+            "time (variable lev)=var lat lon",
+            concat_dim="var",
+        ).rename({"var": "variable"})
+    return dataset.to_array().transpose("time", "variable", "lat", "lon")
+
+
+def _stack_window_time_variable_lat_lon(dataset: xr.Dataset) -> xr.DataArray:
+    if "lev" in dataset.dims:
+        return conditional_rearrange(
+            dataset,
+            "window_dim time (variable lev)=var lat lon",
+            concat_dim="var",
+        ).rename({"var": "variable"})
+    return dataset.to_array().transpose("window_dim", "time", "variable", "lat", "lon")
+
+
+def _materialize_dataset_to_torch_float32(
+    dataset: xr.Dataset,
+    *,
+    use_zarr_gpu_decode: bool,
+    windowed: bool,
+) -> torch.Tensor:
+    def build_array() -> xr.DataArray:
+        if windowed:
+            return _stack_window_time_variable_lat_lon(dataset)
+        return _stack_time_variable_lat_lon(dataset)
+
+    return _materialize_dataarray_to_torch_float32(
+        build_array,
+        use_zarr_gpu_decode=use_zarr_gpu_decode,
+    )
+
+
+def _mask_on_tensor_device(mask: torch.Tensor, tensor: torch.Tensor) -> torch.Tensor:
+    if mask.device == tensor.device:
+        return mask
+    return mask.to(tensor.device, non_blocking=tensor.device.type == "cuda")
 
 
 class InferenceDataset(Dataset):
@@ -73,6 +165,7 @@ class InferenceDataset(Dataset):
         self.input_res = src.resolution
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
+        self.use_zarr_gpu_decode = src.use_zarr_gpu_decode
         self._times = data.time
         self.normalize_before_mask = normalize_before_mask
         self.masked_fill_value = masked_fill_value
@@ -206,24 +299,13 @@ class InferenceDataset(Dataset):
         else:
             data_in_ds = data_in_src.data
 
-        if "lev" in data_in_ds.dims:
-            data_in_np: np.ndarray = (
-                conditional_rearrange(
-                    data_in_ds,
-                    "window_dim time (variable lev)=var lat lon",
-                    concat_dim="var",
-                )
-                .rename({"var": "variable"})
-                .to_numpy()
-            )
-        else:
-            data_in_np = (
-                data_in_ds.to_array()
-                .transpose("window_dim", "time", "variable", "lat", "lon")
-                .to_numpy()
-            )
-        data_in: torch.Tensor = torch.from_numpy(data_in_np).float()
-        data_in = torch.where(self.wet, data_in, self.masked_fill_value)
+        data_in = _materialize_dataset_to_torch_float32(
+            data_in_ds,
+            use_zarr_gpu_decode=self.use_zarr_gpu_decode,
+            windowed=True,
+        )
+        wet = _mask_on_tensor_device(self.wet, data_in)
+        data_in = torch.where(wet, data_in, self.masked_fill_value)
         if not self.normalize_before_mask:
             data_in = self._prognostic_src.normalize_with(data_in, variable_axis=2)
         data_in = rearrange(
@@ -246,14 +328,16 @@ class InferenceDataset(Dataset):
             data_in_boundary_ds = data_in_boundary_src.normalize()
         else:
             data_in_boundary_ds = data_in_boundary_src.data
-        data_in_boundary_np: np.ndarray = (
-            data_in_boundary_ds.to_array()
-            .transpose("window_dim", "time", "variable", "lat", "lon")
-            .to_numpy()
+        data_in_boundary = _materialize_dataset_to_torch_float32(
+            data_in_boundary_ds,
+            use_zarr_gpu_decode=self.use_zarr_gpu_decode,
+            windowed=True,
         )
-        data_in_boundary: torch.Tensor = torch.from_numpy(data_in_boundary_np).float()
+        wet_surface = _mask_on_tensor_device(self.wet_surface, data_in_boundary)
         data_in_boundary = torch.where(
-            self.wet_surface, data_in_boundary, self.masked_fill_value
+            wet_surface,
+            data_in_boundary,
+            self.masked_fill_value,
         )
         if not self.normalize_before_mask:
             data_in_boundary = self._boundary_src.normalize_with(
@@ -273,24 +357,13 @@ class InferenceDataset(Dataset):
             label_ds = label_src.normalize()
         else:
             label_ds = label_src.data
-        if "lev" in label_ds.dims:
-            label_np: np.ndarray = (
-                conditional_rearrange(
-                    label_ds,
-                    "window_dim time (variable lev)=var lat lon",
-                    concat_dim="var",
-                )
-                .rename({"var": "variable"})
-                .to_numpy()
-            )
-        else:
-            label_np = (
-                label_ds.to_array()
-                .transpose("window_dim", "time", "variable", "lat", "lon")
-                .to_numpy()
-            )
-        label: torch.Tensor = torch.from_numpy(label_np).float()
-        label = torch.where(self.wet, label, self.masked_fill_value)
+        label = _materialize_dataset_to_torch_float32(
+            label_ds,
+            use_zarr_gpu_decode=self.use_zarr_gpu_decode,
+            windowed=True,
+        )
+        wet = _mask_on_tensor_device(self.wet, label)
+        label = torch.where(wet, label, self.masked_fill_value)
         if not self.normalize_before_mask:
             label = self._prognostic_src.normalize_with(label, variable_axis=2)
         label = rearrange(
@@ -485,6 +558,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.normalize_before_mask: bool = normalize_before_mask
         self.masked_fill_value: float = masked_fill_value
         self._concurrent_compute = concurrent_compute_
+        self.use_zarr_gpu_decode = any(src.use_zarr_gpu_decode for src in srcs)
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         self.num_boundary_channels: int = (hist + 1) * len(boundary_var_names)
@@ -565,35 +639,18 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                     executor=self._get_executor(),
                 )
 
-            if "lev" in prognostic_selected[0].dims:
-                prognostics = [
-                    torch.from_numpy(
-                        conditional_rearrange(
-                            selected,
-                            "time (variable lev)=var lat lon",
-                            concat_dim="var",
-                        )
-                        .rename({"var": "variable"})
-                        .to_numpy()
-                        .astype(np.float32, copy=False)
-                    )
-                    for selected in prognostic_selected
-                ]
-            else:
-                prognostics = [
-                    torch.from_numpy(
-                        selected.to_array()
-                        .transpose("time", "variable", "lat", "lon")
-                        .to_numpy()
-                        .astype(np.float32, copy=False)
-                    )
-                    for selected in prognostic_selected
-                ]
-            boundary = torch.from_numpy(
-                boundary_selected.to_array()
-                .transpose("time", "variable", "lat", "lon")
-                .to_numpy()
-                .astype(np.float32, copy=False)
+            prognostics = [
+                _materialize_dataset_to_torch_float32(
+                    selected,
+                    use_zarr_gpu_decode=self.use_zarr_gpu_decode,
+                    windowed=False,
+                )
+                for selected in prognostic_selected
+            ]
+            boundary = _materialize_dataset_to_torch_float32(
+                boundary_selected,
+                use_zarr_gpu_decode=self.use_zarr_gpu_decode,
+                windowed=False,
             )
             input_, label = prognostics[0], prognostics[-1]
             TD.insert(input_, boundary, label)

@@ -96,7 +96,7 @@ class FOMO(BaseModel):
                     prognostic, ctx.input_resolution_cpu
                 )
 
-            fts = self.encoder(prognostic, boundary, ctx.input_resolution_cpu)
+            fts = self.encoder(prognostic, boundary, ctx)
             fts = self.processor(fts)
 
             # TODO(alxmrs): When the output resolution differs from the input (i.e. in a "mix" schedule), we cannot use

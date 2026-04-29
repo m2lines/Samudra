@@ -11,7 +11,8 @@ from einops import rearrange
 from jaxtyping import Float
 from torch import nn
 
-from ocean_emulators.constants import Boundary, Lat, Lon, Prognostic
+from ocean_emulators.constants import Boundary, Prognostic
+from ocean_emulators.utils.ctx import GridContext
 
 
 def patch_from(
@@ -108,10 +109,7 @@ class PerceiverEncoder(nn.Module):
         return ph, pw, h // ph, w // pw
 
     def forward(
-        self,
-        prog: Prognostic,
-        boundary: Boundary,
-        prog_res: tuple[Lat, Lon],
+        self, prog: Prognostic, boundary: Boundary, ctx: GridContext
     ) -> Float[torch.Tensor, "batch {self.out_channels} h w"]:
         patch_h, patch_w, lat_h, lat_w = self._patchify_params(
             prog.shape, self.prog_channels
@@ -158,7 +156,7 @@ class PerceiverEncoder(nn.Module):
 
         # --- Patch-level positional + scale encoding ---
         x = rearrange(x, "(b h w) l -> b (h w) l", h=lat_h, w=lat_w)
-        lat, lon = prog_res
+        lat, lon = ctx.input_resolution_cpu
         pos_encode, scale_encode = pos_scale_enc(
             self.out_channels,
             lat,

@@ -354,7 +354,7 @@ def test_train_one_epoch_uses_no_sync_for_intermediate_microbatches(
         _FakeDDP(trainer.model),
     )
     monkeypatch.setattr(
-        "ocean_emulators.train.Stepper.train_batch",
+        "ocean_emulators.train.train_batch",
         lambda model, data, loss_fn: TrainBatchOutput(
             loss=torch.tensor(1.0, requires_grad=True),
             loss_per_channel=torch.ones(trainer.num_out),
@@ -391,7 +391,7 @@ def test_train_one_epoch_warns_for_slow_batches(
     trainer.slow_batch_log_threshold_seconds = -1.0
 
     monkeypatch.setattr(
-        "ocean_emulators.train.Stepper.train_batch",
+        "ocean_emulators.train.train_batch",
         lambda model, data, loss_fn: TrainBatchOutput(
             loss=torch.tensor(1.0, requires_grad=True),
             loss_per_channel=torch.ones(trainer.num_out),

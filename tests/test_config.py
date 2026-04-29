@@ -13,6 +13,7 @@ from ocean_emulators.config import (
     GpuDataLoadingConfig,
     LlcDatasetConfig,
     Om4DatasetConfig,
+    SamudraConfig,
     TimeConfig,
     TrainConfig,
 )
@@ -288,3 +289,43 @@ def test_get_pydantic_models_collects_loading_variants():
 
     assert models["CpuDataLoadingConfig"] is CpuDataLoadingConfig
     assert models["GpuDataLoadingConfig"] is GpuDataLoadingConfig
+
+
+def test_llc_train_config_uses_group_norm_and_temporal_stride(tmp_path):
+    config_path = (
+        Path(__file__).resolve().parents[1] / "configs" / "samudra_llc" / "train.yaml"
+    )
+
+    cfg = TrainConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+        ]
+    )
+
+    assert cfg.data.dataset.type == "llc"
+    assert isinstance(cfg.model, SamudraConfig)
+    assert cfg.temporal_stride == 24
+    assert cfg.data.dataset.prognostic_vars_key == "single_1"
+    assert cfg.data.dataset.boundary_vars_key == "single_1"
+    assert cfg.model.unet.core_block.norm == "group"
+    assert cfg.model.unet.core_block.group_norm_groups == 32
+
+
+def test_llc_train_config_allows_cli_override_for_temporal_stride(tmp_path):
+    config_path = (
+        Path(__file__).resolve().parents[1] / "configs" / "samudra_llc" / "train.yaml"
+    )
+
+    cfg = TrainConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+            "--temporal_stride",
+            "12",
+        ]
+    )
+
+    assert cfg.temporal_stride == 12

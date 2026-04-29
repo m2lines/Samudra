@@ -92,3 +92,70 @@ class TestDropPath:
         torch.testing.assert_close(trunk.grad, torch.ones_like(trunk))
         # Skip gradient should be all zeros (dropped)
         torch.testing.assert_close(skip.grad, torch.zeros_like(skip))
+
+
+def test_convnext_block_group_norm_uses_divisible_group_count():
+    block = ConvNeXtBlock(
+        in_channels=10,
+        out_channels=10,
+        kernel_size=3,
+        dilation=1,
+        n_layers=1,
+        norm="group",
+        group_norm_groups=6,
+    )
+
+    norm_layers = [
+        layer for layer in block.convblock if isinstance(layer, nn.GroupNorm)
+    ]
+
+    assert len(norm_layers) == 2
+    assert all(layer.num_channels == 40 for layer in norm_layers)
+    assert all(layer.num_groups == 5 for layer in norm_layers)
+
+
+def test_convnext_block_layer_norm_uses_single_group():
+    block = ConvNeXtBlock(
+        in_channels=8,
+        out_channels=8,
+        kernel_size=3,
+        dilation=1,
+        n_layers=1,
+        norm="layer",
+    )
+
+    norm_layers = [
+        layer for layer in block.convblock if isinstance(layer, nn.GroupNorm)
+    ]
+
+    assert len(norm_layers) == 2
+    assert all(layer.num_groups == 1 for layer in norm_layers)
+
+
+def test_convnext_block_nonorm_inserts_no_normalization_layers():
+    block = ConvNeXtBlock(
+        in_channels=8,
+        out_channels=8,
+        kernel_size=3,
+        dilation=1,
+        n_layers=1,
+        norm="nonorm",
+    )
+
+    assert not any(
+        isinstance(layer, (nn.BatchNorm2d, nn.InstanceNorm2d, nn.GroupNorm))
+        for layer in block.convblock
+    )
+
+
+def test_convnext_block_group_norm_rejects_nonpositive_group_count():
+    with pytest.raises(ValueError, match="group_norm_groups must be >= 1"):
+        ConvNeXtBlock(
+            in_channels=8,
+            out_channels=8,
+            kernel_size=3,
+            dilation=1,
+            n_layers=1,
+            norm="group",
+            group_norm_groups=0,
+        )

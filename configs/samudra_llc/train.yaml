@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../schemas/TrainConfig.json
+
+debug: false
+disk_mode: true
+pin_mem: true
+save_freq: 5
+epochs: 70
+batch_size: 1
+learning_rate: 0.0006
+gradient_accumulation_steps: 4
+scheduler: { type: cosine }
+loss: mse
+finetune: false
+resume_ckpt_path: null
+inference_epochs: []
+data_percent: 1.0
+train_time:
+  start: "2011-09-14"
+  end: "2012-09-14"
+val_time:
+  start: "2012-09-15"
+  end: "2012-10-15"
+inference_times:
+  - start: "2012-10-16"
+    end: "2012-11-14"
+data_stride: [1]
+temporal_stride: 24
+steps: [1]
+step_transition: []
+preemptible: false
+
+backend: auto
+
+experiment:
+  name: samudra_llc
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: default
+
+data: !include ../data/llc.yaml
+model: !include model.yaml

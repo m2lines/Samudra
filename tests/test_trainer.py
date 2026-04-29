@@ -1,14 +1,22 @@
 import logging
 import tempfile
+from contextlib import contextmanager
 from pathlib import Path
+from typing import cast
 
 import pytest
 import torch
 
-from ocean_emulators.config import CpuDataLoadingConfig, DynamicLossConfig
+from ocean_emulators.config import (
+    CpuDataLoadingConfig,
+    DistributedConfig,
+    DynamicLossConfig,
+)
 from ocean_emulators.models.base import BaseModel
+from ocean_emulators.stepper import TrainBatchOutput
 from ocean_emulators.train import Trainer, should_log_validation_images
 from ocean_emulators.utils.ctx import GridContext
+from ocean_emulators.utils.device import set_device
 from ocean_emulators.utils.loss import DynamicLoss
 from ocean_emulators.utils.multiton import MultitonScope
 from tests.conftest import DEFAULT_CONFIG, TrainPair
@@ -27,7 +35,6 @@ def test_trainer__mini_benchmark(trainer_pair: TrainPair, caplog, benchmark):
         trainer.run()
 
 
-@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
 @pytest.mark.parametrize(
     "data_source,config_name",
     [("mock-om4", "test/train_default_2step.yaml")],
@@ -221,6 +228,185 @@ def test_data_loaders_disable_persistent_workers_when_num_workers_is_zero(
     assert trainer.val_loader._dataloader.persistent_workers is False
 
 
+class _FakeDDP(torch.nn.Module):
+    def __init__(self, module: torch.nn.Module, **kwargs):
+        super().__init__()
+        self.module = module
+        self.kwargs = kwargs
+        self.no_sync_calls = 0
+
+    @contextmanager
+    def no_sync(self):
+        self.no_sync_calls += 1
+        yield
+
+
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "test/train_default_2step.yaml")],
+    indirect=True,
+)
+def test_trainer_scales_cpu_loader_workers_per_rank(train_config, monkeypatch, caplog):
+    caplog.set_level(logging.INFO)
+    train_config.data.loading = CpuDataLoadingConfig(num_workers=8)
+    train_config.ddp_max_data_workers_per_rank = 2
+    train_config.ddp_timeout_minutes = 17
+    train_config.inference_epochs = []
+    captured_timeout: dict[str, int] = {}
+
+    def fake_init_train_backend(backend, ddp_timeout_minutes=60):
+        captured_timeout["value"] = ddp_timeout_minutes
+        set_device(torch.device("cpu"))
+        return torch.device("cpu"), DistributedConfig(world_size=4, rank=0, gpu=0)
+
+    monkeypatch.setattr(
+        "ocean_emulators.train.init_train_backend", fake_init_train_backend
+    )
+    monkeypatch.setattr("ocean_emulators.train.get_world_size", lambda: 4)
+    monkeypatch.setattr(
+        "ocean_emulators.train.nn.SyncBatchNorm.convert_sync_batchnorm",
+        lambda model: model,
+    )
+    monkeypatch.setattr(
+        "ocean_emulators.train.nn.parallel.DistributedDataParallel", _FakeDDP
+    )
+    monkeypatch.setattr(
+        "ocean_emulators.train.torch.distributed.broadcast",
+        lambda tensor, src=0: None,
+    )
+
+    with MultitonScope():
+        trainer = Trainer(train_config)
+
+    assert captured_timeout["value"] == 17
+    assert trainer.num_workers == 2
+    assert isinstance(train_config.data.loading, CpuDataLoadingConfig)
+    assert train_config.data.loading.num_workers == 2
+    assert "Scaling data.loading.num_workers from 8 to 2 per rank" in caplog.text
+    assert "Initializing DDP with options" in caplog.text
+
+
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "test/train_default_2step.yaml")],
+    indirect=True,
+)
+def test_trainer_disables_no_sync_with_static_graph(train_config, monkeypatch, caplog):
+    caplog.set_level(logging.WARNING)
+    train_config.gradient_accumulation_steps = 2
+    train_config.ddp_static_graph = True
+    train_config.ddp_use_no_sync_for_accumulation = True
+    train_config.inference_epochs = []
+
+    def fake_init_train_backend(backend, ddp_timeout_minutes=60):
+        set_device(torch.device("cpu"))
+        return torch.device("cpu"), DistributedConfig(world_size=2, rank=0, gpu=0)
+
+    monkeypatch.setattr(
+        "ocean_emulators.train.init_train_backend", fake_init_train_backend
+    )
+    monkeypatch.setattr("ocean_emulators.train.get_world_size", lambda: 2)
+    monkeypatch.setattr(
+        "ocean_emulators.train.nn.SyncBatchNorm.convert_sync_batchnorm",
+        lambda model: model,
+    )
+    monkeypatch.setattr(
+        "ocean_emulators.train.nn.parallel.DistributedDataParallel", _FakeDDP
+    )
+    monkeypatch.setattr(
+        "ocean_emulators.train.torch.distributed.broadcast",
+        lambda tensor, src=0: None,
+    )
+
+    with MultitonScope():
+        trainer = Trainer(train_config)
+
+    assert trainer.ddp_use_no_sync_for_accumulation is False
+    assert (
+        "Disabling DDP no_sync accumulation because ddp_static_graph=true"
+        in caplog.text
+    )
+
+
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "test/train_default_2step.yaml")],
+    indirect=True,
+)
+def test_train_one_epoch_uses_no_sync_for_intermediate_microbatches(
+    trainer_pair: TrainPair, monkeypatch
+):
+    _, trainer = trainer_pair
+    trainer.num_batches_seen = 1
+    trainer.gradient_accumulation_steps = 2
+    trainer.ddp_static_graph = False
+    trainer.ddp_use_no_sync_for_accumulation = True
+    trainer.distributed = DistributedConfig(world_size=2, rank=0, gpu=0)
+
+    monkeypatch.setattr(
+        "ocean_emulators.train.torch.nn.parallel.DistributedDataParallel", _FakeDDP
+    )
+    trainer.model = cast(
+        torch.nn.parallel.DistributedDataParallel,
+        _FakeDDP(trainer.model),
+    )
+    monkeypatch.setattr(
+        "ocean_emulators.train.train_batch",
+        lambda model, data, loss_fn: TrainBatchOutput(
+            loss=torch.tensor(1.0, requires_grad=True),
+            loss_per_channel=torch.ones(trainer.num_out),
+        ),
+    )
+    monkeypatch.setattr("ocean_emulators.train.all_reduce_mean", lambda x: x)
+    monkeypatch.setattr(trainer, "_maybe_update_loss", lambda *args, **kwargs: None)
+    monkeypatch.setattr(trainer.profiler, "after_batch", lambda *args, **kwargs: None)
+
+    total_batches = len(trainer.train_loader)
+    trainer.train_one_epoch(1)
+
+    expected_no_sync_calls = sum(
+        1
+        for batch_idx in range(total_batches)
+        if (batch_idx + 1) % trainer.gradient_accumulation_steps != 0
+        and batch_idx + 1 != total_batches
+    )
+    assert trainer.model.no_sync_calls == expected_no_sync_calls
+
+
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "test/train_default_2step.yaml")],
+    indirect=True,
+)
+def test_train_one_epoch_warns_for_slow_batches(
+    trainer_pair: TrainPair, monkeypatch, caplog
+):
+    caplog.set_level(logging.WARNING)
+    _, trainer = trainer_pair
+    trainer.num_batches_seen = 1
+    trainer.slow_batch_log_threshold_seconds = -1.0
+
+    monkeypatch.setattr(
+        "ocean_emulators.train.train_batch",
+        lambda model, data, loss_fn: TrainBatchOutput(
+            loss=torch.tensor(1.0, requires_grad=True),
+            loss_per_channel=torch.ones(trainer.num_out),
+        ),
+    )
+    monkeypatch.setattr("ocean_emulators.train.all_reduce_mean", lambda x: x)
+    monkeypatch.setattr(trainer, "_maybe_update_loss", lambda *args, **kwargs: None)
+    monkeypatch.setattr(trainer.profiler, "after_batch", lambda *args, **kwargs: None)
+
+    trainer.train_one_epoch(1)
+
+    assert "Slow batch load time" in caplog.text
+
+
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
 @pytest.mark.parametrize(
     "data_source,config_name",
     [("mock-om4", "test/train_default_2step.yaml")],

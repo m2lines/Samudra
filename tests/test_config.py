@@ -329,3 +329,32 @@ def test_llc_train_config_allows_cli_override_for_temporal_stride(tmp_path):
     )
 
     assert cfg.temporal_stride == 12
+
+
+def test_train_config_allows_cli_override_for_ddp_runtime_fields(tmp_path):
+    config_path = (
+        Path(__file__).resolve().parents[1] / "configs" / "test" / "train_default.yaml"
+    )
+
+    cfg = TrainConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--experiment.data_root",
+            str(tmp_path),
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+            "--ddp_bucket_cap_mb",
+            "64",
+            "--ddp_max_data_workers_per_rank",
+            "3",
+            "--ddp_timeout_minutes",
+            "15",
+            "--slow_batch_log_threshold_seconds",
+            "12.5",
+        ]
+    )
+
+    assert cfg.ddp_bucket_cap_mb == 64
+    assert cfg.ddp_max_data_workers_per_rank == 3
+    assert cfg.ddp_timeout_minutes == 15
+    assert cfg.slow_batch_log_threshold_seconds == 12.5

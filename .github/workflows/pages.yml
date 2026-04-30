@@ -9,6 +9,10 @@ on:
       - "mkdocs.yml"
       - "src/**"
       - ".github/workflows/pages.yml"
+  workflow_run:
+    workflows: ["Benchmark"]
+    types:
+      - completed
   workflow_dispatch:
 
 permissions:
@@ -21,6 +25,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
       pages: write
@@ -37,6 +42,22 @@ jobs:
 
       - name: Copy static pages into build output
         run: cp -R docs/static/. site/
+
+      # Benchmark results are pushed to the gh-pages branch by benchmarks.yml
+      # via benchmark-action/github-action-benchmark. We bring those files into
+      # the artifact so they're served at /dev/bench/ alongside the docs site.
+      - name: Check out benchmark data from gh-pages
+        uses: actions/checkout@v5
+        with:
+          ref: gh-pages
+          path: gh-pages-data
+
+      - name: Copy benchmark dashboard into build output
+        run: |
+          if [ -d gh-pages-data/dev/bench ]; then
+            mkdir -p site/dev/bench
+            cp -R gh-pages-data/dev/bench/. site/dev/bench/
+          fi
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

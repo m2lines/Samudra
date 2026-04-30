@@ -1,0 +1,49 @@
+# Slim dependency set for the Colab quickstart (Samudra-only training/eval).
+#
+# What this includes: the minimum to import ocean_emulators.train and run the
+# Samudra training loop on a small data subset.
+#
+# What this excludes (vs. pyproject.toml):
+#   - xesmf            (preprocessing only; needs ESMF system lib, painful on Colab)
+#   - skypilot, sqlalchemy, coiled  (cluster/cloud orchestration, unused on Colab)
+#   - cartopy, cmocean (full-fidelity viz; the notebook uses plain matplotlib)
+#   - flash-attn, flash-perceiver, torchvision  (CUDA-only / FOMO-only)
+#   - dacite, s3fs     (not actually imported in src/ on the training path)
+#   - pytest-xdist     (test infra)
+#
+# Torch is intentionally listed with a wider pin than pyproject; Colab's
+# preinstalled torch is the easier path. Override or skip as appropriate.
+
+# Core
+numpy>=1.26.4,<2
+torch>=2.4
+xarray[io]>=2025.1.2
+zarr<3
+dask>=2025.2
+distributed>=2025.2     # scripts/clone_data.py imports dask.distributed unconditionally
+scipy>=1.15.2
+
+# Config + types
+pydantic>=2
+pydantic-settings>=2.8.1
+pyyaml>=6.0.2
+jaxtyping>=0.3
+cftime>=1.6.4.post1
+
+# Tensor + data ops
+einops>=0.7
+xarray-einstats[einops]>=0.8
+
+# Models (top-level imports in src/, not gated)
+microsoft-aurora>=1.8
+perceiver-pytorch>=0.8.8
+
+# Logging + introspection
+wandb>=0.19.8
+torchinfo>=1.8
+matplotlib>=3.10.1
+
+# HTTP / data fetch (used by scripts/clone_data.py to pull the public OM4 zarr)
+aiohttp>=3.11.13
+requests>=2.32.3
+tenacity>=9

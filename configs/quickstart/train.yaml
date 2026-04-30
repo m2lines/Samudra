@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=../schemas/TrainConfig.json
+
+# Quickstart training config for the Colab notebook.
+#
+# Pairs with notebooks/quickstart.ipynb:
+#   - Data: ~290 timesteps (~4 yrs) of 1° OM4 data fetched via scripts/clone_data.py
+#   - Hardware: free-tier Colab T4 (16 GB VRAM, ~78 GB usable disk)
+#   - Runtime: ~10-20 min for the configured epochs
+#
+# This is intentionally a short, single-step training run for pedagogy.
+# To scale up, see configs/samudra_om4_v2/.
+
+debug: false
+disk_mode: false        # data fits in memory at this size; skip disk staging
+pin_mem: true
+save_freq: 2
+epochs: 5
+batch_size: 1
+preemptible: false
+learning_rate: 0.0003
+gradient_accumulation_steps: 1
+scheduler: null
+loss: mse
+finetune: false
+resume_ckpt_path: null
+inference_epochs: []     # keep the Colab run short; the notebook does a one-step prediction below
+data_percent: 1.0
+
+# These dates must lie within the time window cloned via clone_data.py.
+# Default notebook fetches indices 0..290 → 1958-01-03 .. ~1961-12-29.
+train_time:
+  start: "1958-02-01"
+  end: "1960-12-01"
+val_time:
+  start: "1960-12-01"
+  end: "1961-06-01"
+inference_times:
+  - start: "1961-06-01"
+    end: "1961-11-01"
+
+data_stride: [1]
+steps: [1]              # single-step training; faster + simpler for quickstart
+step_transition: []
+backend: auto
+
+experiment:
+  name: samudra_quickstart
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: ocean-emulators
+  prognostic_vars_key: thermo_dynamic_5    # 21 channels (vs 77 for thermo_dynamic_all)
+  boundary_vars_key: tau_hfds              # 3 channels (vs 4 with hfds_anomalies)
+  data_root: data_cache/
+
+data:
+  sources:
+    - data_location: OM4.zarr
+      data_means_location: OM4_means.zarr
+      data_stds_location: OM4_stds.zarr
+  loading:
+    type: cpu
+    num_workers: 0           # Colab is happier without dataloader subprocesses
+    persistent_workers: false
+  hist: 0
+  static_data_vars: []
+
+model: !include model.yaml

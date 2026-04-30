@@ -10,7 +10,7 @@ from ocean_emulators.derived_variables import compute_global_ocean_heat_content
 from ocean_emulators.models.corrector import OceanHeatCorrector, ReLUCorrector
 from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.device import get_device
-from ocean_emulators.utils.multiton import MultitonScope
+from tests.conftest import TEST_DATASET_SPEC
 
 
 @pytest.fixture
@@ -63,13 +63,19 @@ def corrector_init():
             self.dz = torch.tensor([1.0, 1.0])
 
     tensor_map = MockTensorMap()
-    test = DataSource("test", data, data_mean, data_std, masks)
-    with MultitonScope():
-        normalize = Normalize.init_instance(
-            test,
-            prognostic_var_names=["var_0", "var_1"],
-            boundary_var_names=["var_2"],
-        )
+    test = DataSource(
+        "test",
+        data,
+        data_mean,
+        data_std,
+        masks,
+        dataset_spec=TEST_DATASET_SPEC,
+    )
+    normalize = Normalize(
+        test,
+        prognostic_var_names=["var_0", "var_1"],
+        boundary_var_names=["var_2"],
+    )
 
     return normalize, tensor_map, wet_mask
 
@@ -161,7 +167,14 @@ def ocean_heat_init():
     # Create test wet mask
     wet_mask = torch.tensor([[1.0, 0.0], [1.0, 1.0]])
     masks = Masks(prognostic=wet_mask, boundary=wet_mask)
-    test = DataSource("test", data, data_mean, data_std, masks)
+    test = DataSource(
+        "test",
+        data,
+        data_mean,
+        data_std,
+        masks,
+        dataset_spec=TEST_DATASET_SPEC,
+    )
 
     class MockTensorMap:
         def __init__(self):
@@ -181,12 +194,11 @@ def ocean_heat_init():
             self.dz: torch.Tensor = torch.tensor([1.0, 2.0, 4.0]).to(get_device())
 
     tensor_map = MockTensorMap()
-    with MultitonScope():
-        normalize = Normalize.init_instance(
-            test,
-            prognostic_var_names=["thetao_0", "thetao_1", "thetao_2"],
-            boundary_var_names=["hfds"],
-        )
+    normalize = Normalize(
+        test,
+        prognostic_var_names=["thetao_0", "thetao_1", "thetao_2"],
+        boundary_var_names=["hfds"],
+    )
 
     wet_mask = wet_mask.to(get_device())
     return normalize, tensor_map, wet_mask
@@ -218,6 +230,7 @@ def test_ocean_heat_corrector(ocean_heat_init):
         area_weights=torch.ones(wet_mask.shape),
         tensor_map=tensor_map,
         normalize=normalize,
+        dataset_spec=TEST_DATASET_SPEC,
         hfgeou_tensor=hfgeou_tensor,
         sea_surface_fraction_tensor=sea_surface_fraction_tensor,
     )

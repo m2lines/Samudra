@@ -10,13 +10,13 @@ from collections.abc import Callable
 from functools import partial
 from os import PathLike
 
-logger = logging.getLogger(__name__)
-
 import torch
 
 from ocean_emulators.aggregator import InferenceEvaluatorAggregator
+from ocean_emulators.constants import TensorMap
 from ocean_emulators.datasets import InferenceDataset, TrainData
 from ocean_emulators.models.base import BaseModel
+from ocean_emulators.utils.data import Normalize
 from ocean_emulators.utils.device import get_device
 from ocean_emulators.utils.output import (
     ModelInferenceOutput,
@@ -25,6 +25,8 @@ from ocean_emulators.utils.output import (
 )
 from ocean_emulators.utils.wandb import get_record_to_wandb
 from ocean_emulators.utils.writer import ZarrWriter
+
+logger = logging.getLogger(__name__)
 
 
 def train_batch(
@@ -65,12 +67,18 @@ def run_rollout(
     model_path: str | PathLike | None = None,
     num_model_steps_forward: int = 200,
     save_zarr: bool = False,
+    tensor_map: TensorMap | None = None,
+    normalize: Normalize | None = None,
 ) -> None:
     """Performs inference, which is an auto-regressive rollout."""
     if save_zarr:
         if output_dir is None or model_path is None:
             raise ValueError(
                 "output_dir and model_path must be provided if save_zarr is True"
+            )
+        if tensor_map is None or normalize is None:
+            raise ValueError(
+                "tensor_map and normalize must be provided if save_zarr is True"
             )
         coords = dataset.get_coords_dict()
         if num_model_steps_forward > 0:
@@ -83,6 +91,8 @@ def run_rollout(
             hist=inf_aggregator.hist,
             model_path=model_path,
             time_chunk_size=chunk_size,
+            normalize=normalize,
+            tensor_map=tensor_map,
         )
     else:
         writer = None
@@ -128,12 +138,12 @@ def run_rollout(
         # Setting initial prognostic for next loop
         initial_prognostic = IO.prediction[-1].unsqueeze(0).clone()
         if writer:
-            logger.info(f"Writing to zarr...")
+            logger.info("Writing to zarr...")
             writer.record_batch(IO)
             writer.write()
 
-        logger.info(f"Recording logs...")
+        logger.info("Recording logs...")
         logs = inf_aggregator.record_batch(IO)
-        logger.info(f"Logging to wandb...")
+        logger.info("Logging to wandb...")
         record_logs(logs)
         step += num_steps

@@ -9,8 +9,8 @@ from torch import Tensor
 
 from ocean_emulators.aggregator.metrics import area_weighted_sum
 from ocean_emulators.constants import (
-    SECONDS_PER_TIME_STEP,
     Boundary,
+    DatasetSpec,
     HistBatched,
     HistChanneled,
     Input,
@@ -144,11 +144,12 @@ def compute_expected_heat_content_change(
     geothermal_heat_flux: Tensor,
     sea_surface_fraction_tensor: Tensor,
     area_weighted_func: Callable,
+    seconds_per_time_step: int,
 ) -> Tensor:
     # Expected change in heat content from surface flux
     dHC_expected = (
         area_weighted_func(surface_heat_flux * sea_surface_fraction_tensor)
-        * SECONDS_PER_TIME_STEP
+        * seconds_per_time_step
     )  # [J]
 
     # Apply geothermal heat flux
@@ -173,10 +174,12 @@ class OceanHeatCorrector(BaseCorrector):
         area_weights: torch.Tensor,
         tensor_map: TensorMap,
         normalize: Normalize,
+        dataset_spec: DatasetSpec,
         hfgeou_tensor: torch.Tensor,
         sea_surface_fraction_tensor: torch.Tensor,
     ):
         super().__init__(hist, tensor_map, normalize)
+        self.dataset_spec = dataset_spec
         # Area weights are not on the correct scale.
         self.area_weights = area_weights
         self.area_weighted_func = partial(
@@ -184,8 +187,12 @@ class OceanHeatCorrector(BaseCorrector):
         )
         self.dz = self.tensor_map.dz
 
-        self.thetao_idx = self.tensor_map.VAR_3D_IDX["thetao"]
-        self.hfds_idx = self.tensor_map.INPT_BOUNDARY_IDX["hfds"]
+        self.thetao_idx = self.tensor_map.VAR_3D_IDX[
+            dataset_spec.ocean_heat_temperature_var
+        ]
+        self.hfds_idx = self.tensor_map.INPT_BOUNDARY_IDX[
+            dataset_spec.surface_heat_flux_var
+        ]
 
         self.thetao_idx = self.thetao_idx.to(get_device())
         self.hfds_idx = self.hfds_idx.to(get_device())
@@ -197,7 +204,7 @@ class OceanHeatCorrector(BaseCorrector):
             self.area_weighted_func(
                 self.hfgeou_tensor * self.sea_surface_fraction_tensor
             )
-            * SECONDS_PER_TIME_STEP
+            * dataset_spec.seconds_per_time_step
         )
 
     def forward(self, fts_input: Input, fts: Prognostic) -> Prognostic:
@@ -227,6 +234,7 @@ class OceanHeatCorrector(BaseCorrector):
             self.dHC_geothermal,
             self.sea_surface_fraction_tensor,
             self.area_weighted_func,
+            self.dataset_spec.seconds_per_time_step,
         )
 
         HC_correct_ratio = (global_HC_t0 + dHC_expected) / (global_HC_t1 + 1e-8)
@@ -251,6 +259,9 @@ class Correctors(torch.nn.Module):
         hist: int,
         area_weights: torch.Tensor,
         static_data: xr.Dataset | None,
+        tensor_map: TensorMap,
+        normalize: Normalize,
+        dataset_spec: DatasetSpec,
     ):
         """
         Correctors class that applies a sequence of corrections to input tensors based
@@ -262,10 +273,14 @@ class Correctors(torch.nn.Module):
             hist: History length for temporal data
             area_weights: Area weights for area weighting
             static_data: Static data for corrections
+            tensor_map: Mapping from variable names to prognostic/boundary channels.
+            normalize: Normalization helper shared with the train/eval pipeline.
+            dataset_spec: Dataset-family metadata such as timestep length and heat variable names.
         """
         super().__init__()
-        self.tensor_map: TensorMap = TensorMap.get_instance()
-        self.normalize = Normalize.get_instance()
+        self.tensor_map = tensor_map
+        self.normalize = normalize
+        self.dataset_spec = dataset_spec
 
         correctors: list[BaseCorrector] = []
 
@@ -302,6 +317,7 @@ class Correctors(torch.nn.Module):
                     area_weights=area_weights,
                     tensor_map=self.tensor_map,
                     normalize=self.normalize,
+                    dataset_spec=self.dataset_spec,
                     hfgeou_tensor=hfgeou_tensor,
                     sea_surface_fraction_tensor=sea_surface_fraction_tensor,
                 )

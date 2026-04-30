@@ -2,7 +2,8 @@ import torch
 
 from ocean_emulators.aggregator.train import TrainAggregator
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
-from ocean_emulators.utils.data import get_aggregator_dicts
+from ocean_emulators.constants import TensorMap
+from ocean_emulators.utils.data import Normalize, get_aggregator_dicts
 from ocean_emulators.utils.output import ValBatchOutput
 from ocean_emulators.utils.wandb import Metrics, MetricsDict
 
@@ -15,11 +16,15 @@ class ValidateAggregator(TrainAggregator):
         aggregators: dict[str, ValidateSubAggregator],
         hist: int,
         num_prognostic_channels: int,
+        *,
+        tensor_map: TensorMap,
+        normalize: Normalize,
     ):
-        super().__init__()
+        super().__init__(tensor_map)
         self._aggregators = aggregators
         self.hist = hist
         self.num_prognostic_channels = num_prognostic_channels
+        self.normalize = normalize
 
     # TODO(jder): we could remove this by moving from inheritance
     # to composition with the TrainAggregator functionality.
@@ -56,6 +61,8 @@ class ValidateAggregator(TrainAggregator):
         assert target_data.shape[1] == self.num_prognostic_channels
         target_data_dict, target_data_unnorm_dict = get_aggregator_dicts(
             target_data,
+            normalize=self.normalize,
+            tensor_map=self.tensor_map,
             wet=wet,
             long_rollout=False,
             input_type="prognostic",
@@ -65,6 +72,8 @@ class ValidateAggregator(TrainAggregator):
 
         gen_data_dict, gen_data_unnorm_dict = get_aggregator_dicts(
             batch.gen_data,
+            normalize=self.normalize,
+            tensor_map=self.tensor_map,
             wet=wet,
             long_rollout=False,
             input_type="prognostic",
@@ -73,6 +82,8 @@ class ValidateAggregator(TrainAggregator):
         )
         input_data_dict, input_data_unnorm_dict = get_aggregator_dicts(
             batch.input_data,
+            normalize=self.normalize,
+            tensor_map=self.tensor_map,
             wet=wet,
             long_rollout=False,
             input_type="input",

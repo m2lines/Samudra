@@ -13,12 +13,14 @@ from ocean_emulators.aggregator.validate.map import MapAggregator
 from ocean_emulators.aggregator.validate.reduced import MeanAggregator
 from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
+from ocean_emulators.constants import TensorMap
+from ocean_emulators.utils.data import Normalize
 
 
 class Aggregator:
     @staticmethod
-    def get_train_aggregator() -> TrainAggregator:
-        return TrainAggregator()
+    def get_train_aggregator(tensor_map: TensorMap) -> TrainAggregator:
+        return TrainAggregator(tensor_map)
 
     @staticmethod
     def get_validation_aggregator(
@@ -26,6 +28,8 @@ class Aggregator:
         hist: int,
         area_weights: torch.Tensor,
         num_prognostic_channels: int,
+        tensor_map: TensorMap,
+        normalize: Normalize,
         *,
         include_image_aggregators: bool = True,
     ) -> ValidateAggregator:
@@ -44,6 +48,8 @@ class Aggregator:
             val_aggregators,
             hist=hist,
             num_prognostic_channels=num_prognostic_channels,
+            tensor_map=tensor_map,
+            normalize=normalize,
         )
 
     @staticmethod
@@ -54,6 +60,8 @@ class Aggregator:
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
+        tensor_map: TensorMap,
+        normalize: Normalize,
         channel_mean_names: list[str] | None = None,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(
@@ -63,6 +71,8 @@ class Aggregator:
             area_weights=area_weights,
             wet=wet,
             num_prognostic_channels=num_prognostic_channels,
+            normalize=normalize,
+            tensor_map=tensor_map,
             record_step_20=(n_timesteps > 20),
             log_global_mean_time_series=False,
             log_global_mean_norm_time_series=False,
@@ -77,6 +87,8 @@ class Aggregator:
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
+        tensor_map: TensorMap,
+        normalize: Normalize,
         channel_mean_names: list[str] | None = None,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(
@@ -86,6 +98,8 @@ class Aggregator:
             area_weights=area_weights,
             wet=wet,
             num_prognostic_channels=num_prognostic_channels,
+            normalize=normalize,
+            tensor_map=tensor_map,
             record_step_20=(n_timesteps > 20),
             log_global_mean_time_series=True,
             log_global_mean_norm_time_series=True,

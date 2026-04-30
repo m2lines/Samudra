@@ -8,6 +8,8 @@ from ocean_emulators.config import (
     DataConfig,
     DataSourceConfig,
     GpuDataLoadingConfig,
+    LlcDatasetConfig,
+    Om4DatasetConfig,
     TrainConfig,
 )
 from ocean_emulators.config_schema import get_pydantic_models
@@ -44,6 +46,45 @@ def test_data_config_defaults_to_cpu_loading():
     assert isinstance(cfg.loading, CpuDataLoadingConfig)
     assert cfg.loading.num_workers == 4
     assert cfg.loading.num_pytorch_workers() == 4
+    assert isinstance(cfg.dataset, Om4DatasetConfig)
+
+
+def test_om4_dataset_config_builds_selected_spec():
+    cfg = Om4DatasetConfig(
+        prognostic_vars_key="thetao_1",
+        boundary_vars_key="hfds",
+    )
+
+    spec = cfg.build()
+
+    assert spec.prognostic_var_names == ["thetao_0"]
+    assert spec.boundary_var_names == ["hfds"]
+
+
+def test_data_config_accepts_llc_dataset_type():
+    cfg = DataConfig.model_validate(
+        {
+            "dataset": {
+                "type": "llc",
+                "face": 2,
+                "i_start": 10,
+                "i_end": 20,
+                "j_start": 30,
+                "j_end": 40,
+            },
+            "sources": [
+                {
+                    "data_location": "data.zarr",
+                    "data_means_location": "means.zarr",
+                    "data_stds_location": "stds.zarr",
+                }
+            ],
+        }
+    )
+
+    assert isinstance(cfg.dataset, LlcDatasetConfig)
+    assert cfg.dataset.face == 2
+    assert cfg.dataset.build().prognostic_var_names == ["Theta_0"]
 
 
 def test_data_config_accepts_gpu_loading():

@@ -27,7 +27,7 @@ from matplotlib import colors
 from matplotlib.ticker import FixedLocator, MaxNLocator, ScalarFormatter
 from tqdm.auto import tqdm
 
-from ocean_emulators.constants import DEPTH_LEVELS, DEPTH_THICKNESS
+from ocean_emulators.constants import DatasetSpec, build_om4_spec
 from ocean_emulators.utils.data import (
     spherical_area,
     spherical_area_weights,
@@ -121,7 +121,9 @@ class Viz:
             }
 
         key1 = runs[0].name
-        levels = len(DEPTH_LEVELS)
+        # TODO: Support non-OM4 dataset specs in visualization.
+        self.dataset_spec = build_om4_spec()
+        levels = len(self.dataset_spec.depth_levels)
 
         groundtruth_rollout = groundtruth_rollout.sel(time=time_range)
 
@@ -143,7 +145,9 @@ class Viz:
 
         # This function processes the ds_groundtruth and predictions for plotting
         # The predictions are loaded into pred_dict
-        data, pred_dict = process_data(groundtruth_rollout, pred_dict)
+        data, pred_dict = process_data(
+            groundtruth_rollout, pred_dict, dataset_spec=self.dataset_spec
+        )
 
         last_index = len(data.time) - 1
         self.time_indices = [0, last_index // 2, last_index]
@@ -3740,7 +3744,9 @@ def isnan(x: xr.DataArray) -> xr.DataArray:
     return np.isnan(x)  # type: ignore
 
 
-def _combine_variables_by_level(ds, combine_vars):
+def _combine_variables_by_level(
+    ds: xr.Dataset, combine_vars: list[str], dataset_spec: DatasetSpec
+) -> xr.Dataset:
     """
     Combine variables in the dataset along a new 'lev' dimension based on their suffix.
 
@@ -3753,18 +3759,22 @@ def _combine_variables_by_level(ds, combine_vars):
     xarray.Dataset: The dataset with combined variables and a new 'lev' dimension.
     """
     for v in combine_vars:
-        level_numbers = [i for i in range(len(DEPTH_LEVELS))]
+        level_numbers = [i for i in range(len(dataset_spec.depth_levels))]
         sorted_vars = [v + "_" + str(lev) for lev in level_numbers]
         if sorted_vars[0] not in ds.data_vars:
             continue
         combined = xr.concat([ds[var] for var in sorted_vars], dim="lev")
-        combined = combined.assign_coords(lev=DEPTH_LEVELS)
+        combined = combined.assign_coords(lev=list(dataset_spec.depth_levels))
         ds[v] = combined
         ds = ds.drop_vars(sorted_vars)
     return ds
 
 
-def combine_variables_by_level(ds_groundtruth, pred_dict):
+def combine_variables_by_level(
+    ds_groundtruth: xr.Dataset,
+    pred_dict: dict[str, dict[str, Any]],
+    dataset_spec: DatasetSpec,
+) -> tuple[xr.Dataset, dict[str, dict[str, Any]]]:
     """
     Combine variables by level for ground truth and predictions.
 
@@ -3776,11 +3786,11 @@ def combine_variables_by_level(ds_groundtruth, pred_dict):
     xarray.Dataset, dict: Updated ground truth and prediction datasets.
     """
     ds_groundtruth = _combine_variables_by_level(
-        ds_groundtruth, ["thetao", "so", "uo", "vo", "mask"]
+        ds_groundtruth, ["thetao", "so", "uo", "vo", "mask"], dataset_spec
     )
     for key in pred_dict.keys():
         pred_dict[key]["ds_prediction"] = _combine_variables_by_level(
-            pred_dict[key]["ds_prediction"], pred_dict[key]["ls"]
+            pred_dict[key]["ds_prediction"], pred_dict[key]["ls"], dataset_spec
         )
     return ds_groundtruth, pred_dict
 
@@ -3884,11 +3894,15 @@ def postprocess_for_plot(
     return ds_groundtruth, pred_dict
 
 
-def process_data(data, pred_dict):
+def process_data(
+    data: xr.Dataset,
+    pred_dict: dict[str, dict[str, Any]],
+    dataset_spec: DatasetSpec,
+) -> tuple[xr.Dataset, dict[str, dict[str, Any]]]:
     """
     Get plot ready OM4 data.
     """
-    ds_groundtruth = with_level_index_vars(data)
+    ds_groundtruth = with_level_index_vars(data, dataset_spec=dataset_spec)
 
     # Store ds_prediction
     copy_dict = deepcopy(pred_dict)
@@ -3910,13 +3924,15 @@ def process_data(data, pred_dict):
         pred_dict[key]["ds_prediction"] = ds_prediction
 
     ### Combine Variables by level
-    ds_groundtruth, pred_dict = combine_variables_by_level(ds_groundtruth, pred_dict)
+    ds_groundtruth, pred_dict = combine_variables_by_level(
+        ds_groundtruth, pred_dict, dataset_spec
+    )
 
     ### Postprocess predictions for plotting
     ds_groundtruth, pred_dict = postprocess_for_plot(
         ds_groundtruth,
         ds_groundtruth.areacello,
-        np.array(DEPTH_THICKNESS),
+        np.array(dataset_spec.depth_thickness),
         pred_dict,
     )
 

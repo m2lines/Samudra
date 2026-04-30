@@ -34,9 +34,7 @@ from ocean_emulators.aggregator.loss import (
 from ocean_emulators.backend import init_train_backend
 from ocean_emulators.config import TrainConfig, TrainSchedule, build_loss_fn
 from ocean_emulators.constants import (
-    BOUNDARY_VARS,
     MAX_TRAIN_MODEL_STEPS_FORWARD,
-    PROGNOSTIC_VARS,
     BoundaryVarNames,
     PrognosticVarNames,
     TensorMap,
@@ -128,18 +126,12 @@ class Trainer:
         set_seed(cfg.experiment.rand_seed)
 
         # Getting prognostic and boundary variables
-        self.prognostic_var_names: PrognosticVarNames = PROGNOSTIC_VARS[
-            cfg.experiment.prognostic_vars_key
-        ]
-        self.boundary_var_names: BoundaryVarNames = BOUNDARY_VARS[
-            cfg.experiment.boundary_vars_key
-        ]
-
-        levels = cfg.experiment.prognostic_vars_key.split("_")[-1]
-        if "all" in levels:
-            self.levels = 19
-        else:
-            self.levels = int(levels)
+        self.dataset_spec = cfg.data.dataset.build()
+        self.prognostic_var_names: PrognosticVarNames = (
+            self.dataset_spec.prognostic_var_names
+        )
+        self.boundary_var_names: BoundaryVarNames = self.dataset_spec.boundary_var_names
+        self.levels = self.dataset_spec.num_prognostic_depth_levels
 
         str_prognostics = ", ".join([i for i in self.prognostic_var_names])
         str_boundaries = ", ".join([i for i in self.boundary_var_names])
@@ -153,8 +145,6 @@ class Trainer:
 
         self.data_container = cfg.data.build(
             data_root=cfg.experiment.resolved_data_root,
-            prognostic_var_names=self.prognostic_var_names,
-            boundary_var_names=self.boundary_var_names,
         )
         self.train_schedule: TrainSchedule = cfg.experiment.train_schedule
         if self.train_schedule == "mix" and cfg.model.pred_residuals:
@@ -181,9 +171,7 @@ class Trainer:
         self.num_in = self.num_prog_in + self.num_boundary_in
         self.num_out = self.num_prog_in
 
-        self.tensor_map = TensorMap.init_instance(
-            cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
-        ).to(self.device)
+        self.tensor_map = TensorMap(dataset_spec=self.dataset_spec).to(self.device)
 
         logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
@@ -215,7 +203,7 @@ class Trainer:
         self.loader_version = self.data_container.loader_version
 
         # This is used by both the aggregator and corrector. It only works at a single scale.
-        self.normalize = Normalize.init_instance(
+        self.normalize = Normalize(
             self.primary_src,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
@@ -229,6 +217,9 @@ class Trainer:
             # TODO(559): This won't work at multiple scales. Refactor as part of src.
             static_data_for_corrector=self.data_container.static_data,
             srcs=self.data_container.sources,
+            tensor_map=self.tensor_map,
+            normalize=self.normalize,
+            dataset_spec=self.dataset_spec,
         ).to(self.device)
 
         self.nets_dir = cfg.experiment.nets_dir
@@ -497,7 +488,7 @@ class Trainer:
 
     def train_one_epoch(self, epoch):
         self.model.train(True)
-        train_aggregator = Aggregator.get_train_aggregator()
+        train_aggregator = Aggregator.get_train_aggregator(self.tensor_map)
         metric_logger = MetricLogger(delimiter="  ")
         metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
         header = f"Training Epoch: [{epoch}]"
@@ -569,13 +560,19 @@ class Trainer:
                     "train/batch/lr": lr,
                     "train/batch/ema_cur_decay": self._ema.cur_decay.item(),
                     **get_channel_loss_dict(
-                        label="train", loss_per_channel=loss_per_channel_reduce
+                        label="train",
+                        loss_per_channel=loss_per_channel_reduce,
+                        tensor_map=self.tensor_map,
                     ),
                     **get_depth_loss_dict(
-                        label="train", loss_per_channel=loss_per_channel_reduce
+                        label="train",
+                        loss_per_channel=loss_per_channel_reduce,
+                        tensor_map=self.tensor_map,
                     ),
                     **get_variable_loss_dict(
-                        label="train", loss_per_channel=loss_per_channel_reduce
+                        label="train",
+                        loss_per_channel=loss_per_channel_reduce,
+                        tensor_map=self.tensor_map,
                     ),
                     "train/batch/data_load_time": metric_logger.meters[
                         "data_load_time"
@@ -605,10 +602,12 @@ class Trainer:
                             **get_channel_loss_scale_dict(
                                 label="train",
                                 loss_scale_per_channel=loss_scale_per_channel,
+                                tensor_map=self.tensor_map,
                             ),
                             **get_channel_loss_dict(
                                 label="train",
                                 loss_per_channel=unscaled_loss_per_channel,
+                                tensor_map=self.tensor_map,
                                 loss_name="loss_unscaled",
                             ),
                             "train/batch/loss_unscaled": unscaled_loss,
@@ -685,6 +684,8 @@ class Trainer:
                 self.hist,
                 self.primary_src.spherical_area_weights.to(self.device),
                 self.num_out,
+                self.tensor_map,
+                self.normalize,
                 include_image_aggregators=log_validation_images,
             )
         else:
@@ -693,6 +694,8 @@ class Trainer:
                 {},  # Currently, don't do anything else besides record the training loss.
                 self.hist,
                 self.num_out,
+                tensor_map=self.tensor_map,
+                normalize=self.normalize,
             )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
@@ -726,6 +729,8 @@ class Trainer:
                     self.primary_src.spherical_area_weights.to(self.device),
                     self.primary_src.masks.prognostic.to(self.device),
                     self.num_out,
+                    self.tensor_map,
+                    self.normalize,
                     self.prognostic_var_names,
                 )
 
@@ -741,6 +746,8 @@ class Trainer:
                     num_model_steps_forward=min(
                         num_steps // 2, self.max_train_model_steps_forward
                     ),
+                    tensor_map=self.tensor_map,
+                    normalize=self.normalize,
                 )
 
         logger.info(f"Aggregating inference logs")

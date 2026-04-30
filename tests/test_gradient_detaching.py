@@ -9,6 +9,7 @@ from ocean_emulators.datasets import TrainData
 from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.data import DataSource, Masks, Normalize
 from ocean_emulators.utils.multiton import MultitonScope
+from tests.conftest import TEST_DATASET_SPEC
 
 
 @pytest.fixture(params=[0, 1, 2])
@@ -46,15 +47,20 @@ def create_samudra_model():
             )
             masks = Masks(torch.ones(h, w), torch.ones(h, w))
             src = DataSource(
-                name="dummy", data=data, means=data, stds=ones, masks=masks
+                name="dummy",
+                data=data,
+                means=data,
+                stds=ones,
+                masks=masks,
+                dataset_spec=TEST_DATASET_SPEC,
             )
 
             # Initialize TensorMap and Normalize
-            TensorMap.init_instance("thetao_1", "hfds")
-            Normalize.init_instance(
+            tensor_map = TensorMap(dataset_spec=TEST_DATASET_SPEC)
+            normalize = Normalize(
                 src,
-                TensorMap.get_instance().prognostic_var_names,
-                TensorMap.get_instance().boundary_var_names,
+                tensor_map.prognostic_var_names,
+                tensor_map.boundary_var_names,
             )
 
             # Create Samudra model with the specified gradient_detach_interval
@@ -73,6 +79,9 @@ def create_samudra_model():
                 hist=1,
                 static_data_for_corrector=None,
                 srcs=[src],
+                tensor_map=tensor_map,
+                normalize=normalize,
+                dataset_spec=src.dataset_spec,
             )
 
             # Create TrainData compatible with model dimensions.

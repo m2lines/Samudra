@@ -1,5 +1,10 @@
 # yaml-language-server: $schema=../schemas/DataConfig.json
 
+dataset:
+  type: om4
+  prognostic_vars_key: thermo_dynamic_all
+  boundary_vars_key: tau_hfds_hfds_anom
+
 sources:
   - data_location: OM4.zarr
     data_means_location: OM4_means.zarr

@@ -9,13 +9,10 @@ from ocean_emulators.aggregator import Aggregator
 from ocean_emulators.backend import init_eval_backend
 from ocean_emulators.config import EvalConfig
 from ocean_emulators.constants import (
-    BOUNDARY_VARS,
-    PROGNOSTIC_VARS,
     BoundaryVarNames,
     Grid,
     PrognosticVarNames,
     TensorMap,
-    construct_metadata,
 )
 from ocean_emulators.datasets import InferenceDataset
 from ocean_emulators.stepper import run_rollout
@@ -59,18 +56,12 @@ class Eval:
         set_seed(cfg.experiment.rand_seed)
 
         # Getting prognostic and boundary variables
-        self.prognostic_var_names: PrognosticVarNames = PROGNOSTIC_VARS[
-            cfg.experiment.prognostic_vars_key
-        ]
-        self.boundary_var_names: BoundaryVarNames = BOUNDARY_VARS[
-            cfg.experiment.boundary_vars_key
-        ]
-
-        levels = cfg.experiment.prognostic_vars_key.split("_")[-1]
-        if "all" in levels:
-            self.levels = 19
-        else:
-            self.levels = int(levels)
+        self.dataset_spec = cfg.data.dataset.build()
+        self.prognostic_var_names: PrognosticVarNames = (
+            self.dataset_spec.prognostic_var_names
+        )
+        self.boundary_var_names: BoundaryVarNames = self.dataset_spec.boundary_var_names
+        self.levels = self.dataset_spec.num_prognostic_depth_levels
 
         str_prognostics = ", ".join([i for i in self.prognostic_var_names])
         str_boundaries = ", ".join([i for i in self.boundary_var_names])
@@ -87,9 +78,7 @@ class Eval:
         self.num_in = self.num_prog_in + self.num_boundary_in
         self.num_out = self.num_prog_in
 
-        self.tensor_map = TensorMap.init_instance(
-            cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
-        ).to(self.device)
+        self.tensor_map = TensorMap(dataset_spec=self.dataset_spec).to(self.device)
 
         logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
@@ -98,19 +87,17 @@ class Eval:
         logger.info(f"Loading data")
         self.data_container = cfg.data.build(
             cfg.experiment.resolved_data_root,
-            self.prognostic_var_names,
-            self.boundary_var_names,
         )
 
         self.src = self.data_container.inference_source
         self.data = self.src.data
         self.static_data = self.data_container.static_data
-        self.metadata = construct_metadata(self.data)
+        self.metadata = self.src.metadata
         self.wet = self.src.masks.prognostic_with_hist(cfg.data.hist)
         self.area_weights: Grid = spherical_area_weights(self.data)
         self.area_weights = self.area_weights.to(self.device)
 
-        self.normalize = Normalize.init_instance(
+        self.normalize = Normalize(
             self.src,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
@@ -124,6 +111,9 @@ class Eval:
             hist=cfg.data.hist,
             static_data_for_corrector=self.static_data,
             srcs=self.data_container.sources,
+            tensor_map=self.tensor_map,
+            normalize=self.normalize,
+            dataset_spec=self.dataset_spec,
         ).to(self.device)
 
         get_model_summary(self.model, None, cfg.debug)
@@ -213,6 +203,8 @@ class Eval:
             self.area_weights,
             self.src.masks.prognostic.to(self.device),
             self.num_out,
+            self.tensor_map,
+            self.normalize,
             self.prognostic_var_names,
         )
 
@@ -225,6 +217,8 @@ class Eval:
             model_path=self.model_path,
             num_model_steps_forward=self.num_model_steps_forward,
             save_zarr=self.save_zarr,
+            tensor_map=self.tensor_map,
+            normalize=self.normalize,
         )
         logs = inf_aggregator.get_summary_logs()
         return {f"inference/{k}": v for k, v in logs.items()}

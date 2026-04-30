@@ -36,14 +36,11 @@ GitHub Actions workflow:
 
 That scrub runs on the local ARM GPU host, pulls
 `ghcr.io/<owner>/ocean-emulator-physicsnemo:25.11-arm64-latest` from `main`, and
-runs the CUDA-marked tests that do not require FOMO flash attention with:
+runs the CUDA-marked tests inside the published ARM64 container with:
 
 ```bash
 scripts/container/scrub_arm64_gpu_container_tests.sh
 ```
-
-The temporary FOMO exclusion is tracked in
-[#710](https://github.com/Open-Athena/Ocean_Emulator/issues/710).
 
 The scrub host must allow the harness user to run Docker directly or through
 non-interactive `sudo docker`.

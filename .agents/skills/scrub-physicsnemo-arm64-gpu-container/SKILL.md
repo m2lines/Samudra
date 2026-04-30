@@ -47,7 +47,7 @@ scripts/container/scrub_arm64_gpu_container_tests.sh
 ## Expected Result
 
 - Docker pulls the latest ARM64 image published from `main`.
-- `scripts/container/run_cuda_tests_in_image.sh` runs CUDA tests inside the container. The default scrub excludes `train_fomo` cases until #710 is fixed and those tests can be re-enabled.
+- `scripts/container/run_cuda_tests_in_image.sh` runs the CUDA-marked tests inside the container, including the FOMO flash-attention coverage.
 - A successful scrub exits `0` and ends with `HARNESS_SCRUB_LOOP {"needs_followup_at":null}`.
 
 ## Failure Handling

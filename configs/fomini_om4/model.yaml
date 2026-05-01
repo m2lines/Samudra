@@ -4,11 +4,13 @@ pred_residuals: false
 last_kernel_size: 3
 pad: "circular"
 checkpointing: "all"
-perceiver_implementation: "naive"
+perceiver_implementation: "flash"
 embedding_dim: 1024
 queries_dim: 1024
 coordinate_embedding_dim: 512
-query_chunk_size: 4096
+query_chunk_size: null
+output_head_hidden_dim: 1024
+output_channel_chunk_size: 16
 
 perceiver:
   depth: 4

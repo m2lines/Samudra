@@ -10,6 +10,7 @@ from torch import nn
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
 )
+from torch.utils.checkpoint import checkpoint
 
 from ocean_emulators.constants import Boundary, Prognostic
 from ocean_emulators.models.base import BaseModel
@@ -90,6 +91,63 @@ class FactorizedChannelEmbedding(nn.Module):
         )
 
 
+class ChannelAwareOutputHead(nn.Module):
+    """Shared nonlinear head for producing each output channel at each pixel."""
+
+    def __init__(
+        self,
+        *,
+        dim: int,
+        hidden_dim: int,
+        channel_chunk_size: int,
+    ) -> None:
+        super().__init__()
+        if hidden_dim <= 0:
+            raise ValueError(f"hidden_dim must be positive, got {hidden_dim}.")
+        if channel_chunk_size <= 0:
+            raise ValueError(
+                f"channel_chunk_size must be positive, got {channel_chunk_size}."
+            )
+
+        self.pixel_proj = nn.Linear(dim, hidden_dim)
+        self.channel_proj = nn.Linear(dim, hidden_dim, bias=False)
+        self.norm = nn.LayerNorm(hidden_dim)
+        self.activation = nn.GELU()
+        self.output = nn.Linear(hidden_dim, 1)
+        self.channel_chunk_size = channel_chunk_size
+
+    def _score_chunk(
+        self,
+        pixel_hidden: torch.Tensor,
+        channel_hidden: torch.Tensor,
+    ) -> torch.Tensor:
+        combined = pixel_hidden.unsqueeze(2) + channel_hidden.unsqueeze(0).unsqueeze(0)
+        return self.output(self.activation(self.norm(combined))).squeeze(-1)
+
+    def forward(
+        self,
+        pixel_features: torch.Tensor,
+        channel_features: torch.Tensor,
+    ) -> torch.Tensor:
+        pixel_hidden = self.pixel_proj(pixel_features)
+        channel_hidden = self.channel_proj(channel_features)
+
+        out_chunks = []
+        for chunk in channel_hidden.split(self.channel_chunk_size, dim=0):
+            if self.training and torch.is_grad_enabled():
+                out_chunk = checkpoint(
+                    self._score_chunk,
+                    pixel_hidden,
+                    chunk,
+                    use_reentrant=False,
+                )
+            else:
+                out_chunk = self._score_chunk(pixel_hidden, chunk)
+            out_chunks.append(out_chunk)
+
+        return torch.cat(out_chunks, dim=-1)
+
+
 class FOMini(BaseModel):
     """Single PerceiverIO model using one token per lat/lon pixel.
 
@@ -109,6 +167,8 @@ class FOMini(BaseModel):
         coordinate_embedding_dim: int,
         queries_dim: int,
         query_chunk_size: int | None,
+        output_head_hidden_dim: int,
+        output_channel_chunk_size: int,
         input_channel_metadata: Sequence[tuple[int, int, int]],
         output_channel_metadata: Sequence[tuple[int, int, int]],
         num_variables: int,
@@ -170,6 +230,11 @@ class FOMini(BaseModel):
             num_times=num_times,
             num_depths=num_depths,
             dim=queries_dim,
+        )
+        self.output_head = ChannelAwareOutputHead(
+            dim=queries_dim,
+            hidden_dim=output_head_hidden_dim,
+            channel_chunk_size=output_channel_chunk_size,
         )
         self.output_bias = nn.Parameter(torch.zeros(out_channels))
         self.perceiver_io = perceiver_io
@@ -275,9 +340,7 @@ class FOMini(BaseModel):
 
             out = self._decode(data_tokens, query_tokens)
             output_channel_embed = self.output_channel_embed()
-            out = torch.einsum("bnd,cd->bnc", out, output_channel_embed) / math.sqrt(
-                output_channel_embed.shape[-1]
-            )
+            out = self.output_head(out, output_channel_embed)
             out = out + self.output_bias
 
         out = out.to(torch.float32)

@@ -46,6 +46,8 @@ def make_model(query_chunk_size: int | None) -> FOMini:
         coordinate_embedding_dim=8,
         queries_dim=10,
         query_chunk_size=query_chunk_size,
+        output_head_hidden_dim=14,
+        output_channel_chunk_size=3,
         input_channel_metadata=make_metadata(10, 5, 2, 3),
         output_channel_metadata=make_metadata(6, 5, 2, 3),
         num_variables=5,

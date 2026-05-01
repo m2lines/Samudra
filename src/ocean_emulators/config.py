@@ -917,6 +917,18 @@ class FOMiniConfig(BaseModelConfig):
         description="Optional chunk size for query decoding. If set, PerceiverIO is called "
         "over query chunks to reduce memory use.",
     )
+    output_head_hidden_dim: int | None = Field(
+        default=None,
+        gt=0,
+        description="Hidden dimension for the channel-aware FOMini output MLP. "
+        "Defaults to queries_dim.",
+    )
+    output_channel_chunk_size: int = Field(
+        default=16,
+        gt=0,
+        description="Number of output channels to score per chunk in the channel-aware "
+        "FOMini output MLP.",
+    )
     use_bfloat16: bool = Field(
         default=True,
         description="Use bfloat16 for most layers rather than float32. Required for flash attention.",
@@ -972,6 +984,12 @@ class FOMiniConfig(BaseModelConfig):
             coordinate_embedding_dim=self.coordinate_embedding_dim,
             queries_dim=self.queries_dim,
             query_chunk_size=self.query_chunk_size,
+            output_head_hidden_dim=(
+                self.output_head_hidden_dim
+                if self.output_head_hidden_dim is not None
+                else self.queries_dim
+            ),
+            output_channel_chunk_size=self.output_channel_chunk_size,
             input_channel_metadata=input_channel_metadata,
             output_channel_metadata=output_channel_metadata,
             num_variables=num_variables,

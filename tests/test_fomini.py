@@ -22,6 +22,12 @@ def make_perceiver_io(
     )
 
 
+def make_metadata(
+    channels: int, variables: int, times: int, depths: int
+) -> list[tuple[int, int, int]]:
+    return [(i % variables, i % times, i % depths) for i in range(channels)]
+
+
 def make_ctx(out_channels: int, H: int, W: int) -> GridContext:
     mask = torch.ones(out_channels, H, W, dtype=torch.bool)
     dummy = torch.randn(1, 1, H, W)
@@ -40,7 +46,12 @@ def make_model(query_chunk_size: int | None) -> FOMini:
         coordinate_embedding_dim=8,
         queries_dim=10,
         query_chunk_size=query_chunk_size,
-        perceiver_io=make_perceiver_io(12, 6, 10),
+        input_channel_metadata=make_metadata(10, 5, 2, 3),
+        output_channel_metadata=make_metadata(6, 5, 2, 3),
+        num_variables=5,
+        num_times=2,
+        num_depths=3,
+        perceiver_io=make_perceiver_io(12, 10, 10),
         hist=0,
         checkpointing=None,
         gradient_detach_interval=0,
@@ -82,3 +93,22 @@ def test_chunked_queries_match_full_decode():
 def test_invalid_chunk_size_raises():
     with pytest.raises(ValueError, match="query_chunk_size must be positive"):
         _ = make_model(query_chunk_size=0)
+
+
+def test_mask_information_affects_zero_input():
+    model = make_model(query_chunk_size=None)
+    x = torch.zeros(1, 10, 4, 8)
+    prog, boundary = _split_prog_boundary(x)
+    wet_ctx = make_ctx(out_channels=6, H=4, W=8)
+    land_ctx = make_ctx(out_channels=6, H=4, W=8)
+    land_ctx = GridContext(
+        torch.zeros_like(land_ctx.label_mask),
+        land_ctx.input_resolution_cpu,
+        land_ctx.output_resolution_cpu,
+    )
+
+    with torch.no_grad():
+        wet_out = model.forward_once(prog, boundary, wet_ctx)
+        land_out = model.forward_once(prog, boundary, land_ctx)
+
+    assert not torch.allclose(wet_out, land_out)

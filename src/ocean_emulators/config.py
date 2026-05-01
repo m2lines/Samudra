@@ -947,11 +947,19 @@ class FOMiniConfig(BaseModelConfig):
                 "Please set `use_bfloat16=True` or `perceiver_implementation='naive'`."
             )
 
+        input_channel_metadata, output_channel_metadata, num_variables = (
+            _build_fomini_channel_metadata(
+                prognostic_var_names=dataset_spec.prognostic_var_names,
+                boundary_var_names=dataset_spec.boundary_var_names,
+                hist=hist,
+            )
+        )
+
         in_channels = prog_channels + boundary_channels
         perceiver_io = self.perceiver.build_io(
             self.embedding_dim,
             self.queries_dim,
-            out_channels,
+            self.queries_dim,
             impl,
         )
         return FOMini(
@@ -964,12 +972,68 @@ class FOMiniConfig(BaseModelConfig):
             coordinate_embedding_dim=self.coordinate_embedding_dim,
             queries_dim=self.queries_dim,
             query_chunk_size=self.query_chunk_size,
+            input_channel_metadata=input_channel_metadata,
+            output_channel_metadata=output_channel_metadata,
+            num_variables=num_variables,
+            num_times=hist + 1,
+            num_depths=max(dataset_spec.num_prognostic_depth_levels, 1),
             perceiver_io=perceiver_io,
             hist=hist,
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
         )
+
+
+def _split_var_depth(var_name: str) -> tuple[str, int]:
+    base, sep, suffix = var_name.rpartition("_")
+    if sep and suffix.isdigit():
+        return base, int(suffix)
+    return var_name, 0
+
+
+def _build_channel_metadata(
+    var_names: list[str],
+    *,
+    variable_ids: dict[str, int],
+    hist: int,
+) -> list[tuple[int, int, int]]:
+    metadata = []
+    for time_id in range(hist + 1):
+        for var_name in var_names:
+            base, depth = _split_var_depth(var_name)
+            metadata.append((variable_ids[base], time_id, depth))
+    return metadata
+
+
+def _build_fomini_channel_metadata(
+    *,
+    prognostic_var_names: list[str],
+    boundary_var_names: list[str],
+    hist: int,
+) -> tuple[list[tuple[int, int, int]], list[tuple[int, int, int]], int]:
+    base_names = []
+    for var_name in [*prognostic_var_names, *boundary_var_names]:
+        base, _ = _split_var_depth(var_name)
+        if base not in base_names:
+            base_names.append(base)
+
+    variable_ids = {base: i for i, base in enumerate(base_names)}
+    prognostic_metadata = _build_channel_metadata(
+        prognostic_var_names,
+        variable_ids=variable_ids,
+        hist=hist,
+    )
+    boundary_metadata = _build_channel_metadata(
+        boundary_var_names,
+        variable_ids=variable_ids,
+        hist=hist,
+    )
+    return (
+        [*prognostic_metadata, *boundary_metadata],
+        prognostic_metadata,
+        len(variable_ids),
+    )
 
 
 AnyModelConfig = SamudraConfig | FOMOConfig | FOMiniConfig

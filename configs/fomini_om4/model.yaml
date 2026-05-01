@@ -5,12 +5,12 @@ last_kernel_size: 3
 pad: "circular"
 checkpointing: "all"
 perceiver_implementation: "naive"
-embedding_dim: 128
-queries_dim: 128
-coordinate_embedding_dim: 64
-query_chunk_size: 8192
+embedding_dim: 1024
+queries_dim: 1024
+coordinate_embedding_dim: 512
+query_chunk_size: 4096
 
 perceiver:
   depth: 4
-  latent_dim: 96
-  num_latents: 256
+  latent_dim: 2304
+  num_latents: 512

@@ -1147,6 +1147,9 @@ class TrainConfig(TopLevelConfig):
         start=JulianDate("0306-01-01"), end=JulianDate("0311-01-01")
     )
     inference_times: list[TimeConfig] = []
+    post_train_eval: "PostTrainCheckpointSweepConfig" = Field(
+        default_factory=lambda: PostTrainCheckpointSweepConfig()
+    )
 
     # Config components
     experiment: ExperimentConfig
@@ -1160,6 +1163,15 @@ class TrainConfig(TopLevelConfig):
 
 # See backend.py for how these are turned into concrete devices
 EvalBackendConfig = Literal["cpu", "cuda", "auto"]
+
+
+class PostTrainCheckpointSweepConfig(BaseConfig):
+    enabled: bool = False
+    eval_config_path: str
+    viz_config_path: str
+    last_n_checkpoints: int | None = Field(default=None, ge=1)
+    eval_dirname: str = "post_train_eval"
+    viz_dirname: str = "viz"
 
 
 class EvalConfig(TopLevelConfig):

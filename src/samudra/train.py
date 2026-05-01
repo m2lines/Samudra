@@ -52,6 +52,7 @@ from samudra.datasets import (
     TrainDataLoader,
 )
 from samudra.models.base import BaseModel
+from samudra.post_train_eval import run_post_train_checkpoint_sweep
 from samudra.stepper import (
     TrainBatchOutput,
     ValBatchOutput,
@@ -113,7 +114,6 @@ class Trainer:
     def __init__(self, cfg: TrainConfig) -> None:
         cfg.prepare_output_dirs()
         cfg.save_yaml(cfg.experiment.output_dir / "config.yaml")
-
         # Backend
         self.device, self.distributed = init_train_backend(cfg.backend)
 
@@ -365,6 +365,9 @@ class Trainer:
         self.train_loader: TrainDataLoader
         self.val_loader: TrainDataLoader
         self.inference_loader: DataLoader[TrainData]
+
+        #post training evaluation
+        self.post_train_eval = cfg.post_train_eval
 
     def init_inference_stores(self):
         # Determine number of processes based on device
@@ -1128,6 +1131,8 @@ class Trainer:
 
     def finish(self):
         self.wandb_logger.finish()
+        if is_main_process():
+            run_post_train_checkpoint_sweep(self.post_train_eval, self.ckpt_paths)
 
 
 def main():

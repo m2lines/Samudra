@@ -1,5 +1,6 @@
 # yaml-language-server: $schema=../schemas/FOMiniConfig.json
 
+# TODO: Sweep pred_residuals: true after the one-step MSE baseline.
 pred_residuals: false
 last_kernel_size: 3
 pad: "circular"
@@ -13,6 +14,8 @@ output_head_hidden_dim: 1024
 output_channel_chunk_size: 16
 
 perceiver:
+  # TODO: After loss/target are sane, try depth/latent sweeps such as
+  # depth: 8 with num_latents: 1024 and latent_dim: 1024 or 1536.
   depth: 4
   latent_dim: 2304
   num_latents: 512

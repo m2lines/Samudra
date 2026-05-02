@@ -524,7 +524,13 @@ class Trainer:
                 r = self.gradient_accumulation_steps
 
             if self.num_batches_seen == 0:
-                get_model_summary(self.model, data, self.debug)
+                if is_main_process():
+                    # In distributed mode, avoid running an extra CUDA forward pass
+                    # on every rank just to print torchinfo shapes.
+                    summary_data = None if self.distributed is not None else data
+                    get_model_summary(self.model, summary_data, self.debug)
+                if self.distributed is not None:
+                    torch.distributed.barrier()
 
             TO: TrainBatchOutput = train_batch(self.model, data, self.loss_fn)
 

@@ -6,11 +6,10 @@ pin_mem: true
 save_freq: 5
 epochs: 70
 batch_size: 4
-learning_rate: 0.0006
+gradient_accumulation_steps: 1
+learning_rate: 0.0001
 scheduler: { type: cosine }
-loss:
-  type: dynamic
-  metric: mse
+loss: mse
 finetune: false
 resume_ckpt_path: null
 test_using_ema: false
@@ -32,7 +31,10 @@ inference_times:
   - start: "2004-10-05"
     end: "2005-10-05"
 data_stride: [1]
-steps: [4]
+# TODO: If one-step MSE learns, try rollout curriculum:
+# steps: [1, 4]
+# step_transition: [2]  # or [3]
+steps: [1]
 step_transition: []
 preemptible: false
 

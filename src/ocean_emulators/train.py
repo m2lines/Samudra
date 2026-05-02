@@ -86,6 +86,29 @@ from ocean_emulators.utils.wandb import WandBLogger
 logger = logging.getLogger(__name__)
 
 
+def _get_dataloader_mp_context(
+    num_workers: int, supports_fork: bool, unsafe_to_fork: bool
+) -> BaseContext | None:
+    """Pick a DataLoader worker start method for the active runtime."""
+    if num_workers <= 0:
+        return None
+
+    if unsafe_to_fork:
+        try:
+            return multiprocessing.get_context("forkserver")
+        except ValueError:
+            logger.warning(
+                "multiprocessing context 'forkserver' is unavailable; "
+                "falling back to 'spawn' for DataLoader workers"
+            )
+            return multiprocessing.get_context("spawn")
+
+    if supports_fork:
+        return multiprocessing.get_context("fork")
+
+    return multiprocessing.get_context("spawn")
+
+
 def should_log_validation_images(epoch: int, frequency: int) -> bool:
     """Return whether to log validation images for a 1-based training epoch."""
     if epoch < 1:
@@ -159,12 +182,16 @@ class Trainer:
         data_num_workers = cfg.data.loading.num_pytorch_workers()
         persistent_workers = cfg.data.loading.persistent_pytorch_workers()
 
-        self.mp_context: BaseContext | None = None
-        if data_num_workers > 0:
-            if self.data_container.supports_fork:
-                self.mp_context = multiprocessing.get_context("fork")
-            else:
-                self.mp_context = multiprocessing.get_context("spawn")
+        self.mp_context = _get_dataloader_mp_context(
+            data_num_workers,
+            supports_fork=self.data_container.supports_fork,
+            unsafe_to_fork=self.distributed is not None or using_gpu(),
+        )
+        if self.mp_context is not None:
+            logger.info(
+                "DataLoader multiprocessing start method: "
+                f"{self.mp_context.get_start_method()}"
+            )
 
         self.num_prog_in = int((cfg.data.hist + 1) * self.N_prog)
         self.num_boundary_in = int((cfg.data.hist + 1) * self.N_bound)

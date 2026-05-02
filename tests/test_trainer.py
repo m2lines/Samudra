@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 import torch
 
+import ocean_emulators.train as train_module
 from ocean_emulators.config import CpuDataLoadingConfig, DynamicLossConfig
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.train import Trainer, should_log_validation_images
@@ -197,6 +198,38 @@ def test_data_loaders_enable_persistent_workers_on_positive_num_workers(
 
     assert trainer.train_loader._dataloader.persistent_workers is True
     assert trainer.val_loader._dataloader.persistent_workers is True
+
+
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "test/train_default.yaml")],
+    indirect=True,
+)
+def test_data_loaders_avoid_fork_when_gpu_runtime_has_workers(
+    train_config, monkeypatch
+):
+    assert isinstance(train_config.data.loading, CpuDataLoadingConfig)
+    train_config.data.loading.num_workers = 1
+    train_config.data.loading.persistent_workers = False
+    train_config.inference_epochs = []
+
+    monkeypatch.setattr(train_module, "using_gpu", lambda: True)
+
+    with MultitonScope():
+        trainer = Trainer(train_config)
+        trainer.init_data_loaders(cur_step=train_config.steps[0])
+
+        assert trainer.mp_context is not None
+        assert trainer.mp_context.get_start_method() in {"forkserver", "spawn"}
+        assert (
+            trainer.train_loader._dataloader.multiprocessing_context.get_start_method()
+            in {"forkserver", "spawn"}
+        )
+
+        batch = next(iter(trainer.train_loader))
+
+    assert len(batch.example_by_step) == train_config.steps[0]
 
 
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)

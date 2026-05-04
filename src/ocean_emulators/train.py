@@ -12,7 +12,7 @@ import tempfile
 import time
 import warnings
 from collections import OrderedDict
-from collections.abc import Iterable
+from collections.abc import Hashable, Iterable
 from multiprocessing.context import BaseContext
 from pathlib import Path
 from typing import Any, assert_never
@@ -933,7 +933,7 @@ class Trainer:
         # the config, map each source to its own batch size by group key so
         # cheaper (lower-res) scales can run with larger batches without OOM
         # on the ¼° scale.
-        bs_arg: int | dict
+        bs_arg: int | dict[Hashable, int]
         if self.per_scale_batch_size is not None:
             assert self.train_schedule in ("match", "standard"), (
                 "per_scale_batch_size only supported for 'match'/'standard' schedules"
@@ -958,6 +958,12 @@ class Trainer:
         else:
             bs_arg = self.batch_size
 
+        train_batch_sampler: (
+            EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
+        )
+        val_batch_sampler: (
+            EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
+        )
         if self.distributed is not None:
             # Distributed training
             assert self.distributed.world_size is not None
@@ -983,7 +989,7 @@ class Trainer:
             )
         else:
             # Non-distributed training
-            train_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
+            train_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(
                 datasets=train_datasets,
                 group_key=group_key,
                 batch_size=bs_arg,
@@ -991,7 +997,7 @@ class Trainer:
                 drop_last=True,
             )
 
-            val_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
+            val_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(
                 datasets=val_datasets,
                 group_key=group_key,
                 batch_size=bs_arg,

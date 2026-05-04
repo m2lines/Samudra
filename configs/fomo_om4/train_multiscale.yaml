@@ -61,7 +61,7 @@ data:
   dataset:
     type: om4
     prognostic_vars_key: thermo_dynamic_all
-    boundary_vars_key: tau_hfds_hfds_anom
+    boundary_vars_key: tau_hfds
   static_data_vars: []
   concurrent_compute: true
   loading:

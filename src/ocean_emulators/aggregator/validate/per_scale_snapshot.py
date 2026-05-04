@@ -7,14 +7,23 @@ step, so every rank sees the same number of batches per scale). The
 snapshot retains the *last* batch per scale and emits one ``error =
 gen - target`` map per variable.
 
+Subclasses ``TrainAggregator`` so we keep the default per-channel /
+per-depth / per-variable loss breakdowns (averaged across scales) on top
+of the per-scale loss + snapshot we add here. Without that inheritance,
+the multi-scale path would have *fewer* diagnostics than the previous
+``ValidateAggregator({}, ...)`` no-op.
+
 Logs (only on the main process for images):
-    val/{H}x{W}/loss
-    val/{H}x{W}/snapshot/image-error/{var}
+    val/mean/loss                            (global mean across scales)
+    val/depth/{i}/loss, val/var/{name}/loss  (per-channel breakdowns)
+    val/{H}x{W}/loss                         (per-scale mean)
+    val/{H}x{W}/snapshot/image-error/{var}   (per-scale snapshot)
 """
 
 import torch
 
 from ocean_emulators.aggregator.plotting import plot_paneled_data
+from ocean_emulators.aggregator.train import TrainAggregator
 from ocean_emulators.constants import (
     BoundaryVarNames,
     GridSize,
@@ -27,13 +36,17 @@ from ocean_emulators.utils.output import ValBatchOutput
 from ocean_emulators.utils.wandb import Metrics, MetricsDict
 
 
-class PerScaleSnapshotValidateAggregator:
-    """Tracks per-scale validation loss and a per-variable error snapshot.
+class PerScaleSnapshotValidateAggregator(TrainAggregator):
+    """Per-scale validation loss + per-variable error snapshots.
 
     Use this for ``match``/``mix`` training schedules where averaging across
     resolutions would hide per-scale pathologies. Each registered scale gets
     its own ``Normalize`` so unnormalize-for-display uses the correct stats
     for that scale.
+
+    Inherits ``TrainAggregator`` so the standard ``val/mean/loss``,
+    ``val/depth/...``, ``val/var/...``, ``val/channel/...`` breakdowns are
+    still produced on top of the per-scale routing this class adds.
     """
 
     def __init__(
@@ -47,20 +60,23 @@ class PerScaleSnapshotValidateAggregator:
         *,
         log_images: bool = True,
     ):
+        super().__init__(tensor_map)
         if len(sources) == 0:
             raise ValueError(
                 "PerScaleSnapshotValidateAggregator requires at least one source."
             )
-        self._tensor_map = tensor_map
         self._hist = hist
         self._num_prognostic_channels = num_prognostic_channels
         self._log_images = log_images
 
+        # NB: ``TrainAggregator`` already uses ``self._n_batches`` (int) as a
+        # global batch counter. Use a different name for our per-scale dict
+        # so the parent's bookkeeping isn't shadowed.
         self._normalize_for: dict[GridSize, Normalize] = {}
         self._metadata_for: dict[GridSize, dict[str, dict[str, str]]] = {}
-        self._loss_sum: dict[GridSize, torch.Tensor] = {}
-        self._n_batches: dict[GridSize, int] = {}
-        self._last_batch: dict[GridSize, ValBatchOutput | None] = {}
+        self._loss_sum_per_scale: dict[GridSize, torch.Tensor] = {}
+        self._batch_count_per_scale: dict[GridSize, int] = {}
+        self._last_batch_per_scale: dict[GridSize, ValBatchOutput | None] = {}
         for src in sources:
             key: GridSize = src.grid_size
             if key in self._normalize_for:
@@ -78,12 +94,15 @@ class PerScaleSnapshotValidateAggregator:
                 boundary_var_names=boundary_var_names,
             )
             self._metadata_for[key] = src.metadata
-            self._loss_sum[key] = torch.tensor(0.0)
-            self._n_batches[key] = 0
-            self._last_batch[key] = None
+            self._loss_sum_per_scale[key] = torch.tensor(0.0)
+            self._batch_count_per_scale[key] = 0
+            self._last_batch_per_scale[key] = None
 
     @torch.no_grad()
     def record_validation_batch(self, batch: ValBatchOutput) -> None:
+        # Parent records global per-channel/depth/var loss across all scales.
+        super().record_batch(batch)
+
         h, w = batch.ctx.label_mask.shape[-2:]
         key: GridSize = (int(h), int(w))
         if key not in self._normalize_for:
@@ -91,25 +110,29 @@ class PerScaleSnapshotValidateAggregator:
                 f"No per-scale state for batch grid_size {key}; "
                 f"registered: {list(self._normalize_for)}"
             )
-        self._loss_sum[key] = self._loss_sum[key] + batch.loss.detach().cpu()
-        self._n_batches[key] += 1
+        self._loss_sum_per_scale[key] = (
+            self._loss_sum_per_scale[key] + batch.loss.detach().cpu()
+        )
+        self._batch_count_per_scale[key] += 1
         if self._log_images:
-            self._last_batch[key] = batch
+            self._last_batch_per_scale[key] = batch
 
     @torch.no_grad()
     def get_logs(self, label: str = "val") -> Metrics:
-        logs: MetricsDict = {}
-        for grid_size, n in self._n_batches.items():
+        # Start with the parent's TrainAggregator outputs (val/mean/loss,
+        # val/depth/..., val/var/..., val/channel/...), then append per-scale.
+        logs: MetricsDict = dict(super().get_logs(label))
+        for grid_size, n in self._batch_count_per_scale.items():
             scale = f"{grid_size[0]}x{grid_size[1]}"
             if n == 0:
                 # No batches at this scale this epoch. Can happen if drop_last
                 # trims a scale's tail or the val set lacks samples at a scale.
                 continue
-            local_mean = self._loss_sum[grid_size] / n
+            local_mean = self._loss_sum_per_scale[grid_size] / n
             mean_loss = float(all_reduce_mean(local_mean).cpu().numpy())
             logs[f"{label}/{scale}/loss"] = mean_loss
 
-            last = self._last_batch[grid_size]
+            last = self._last_batch_per_scale[grid_size]
             if self._log_images and last is not None:
                 logs.update(
                     self._error_images(
@@ -141,7 +164,7 @@ class PerScaleSnapshotValidateAggregator:
         _, target_unnorm = get_aggregator_dicts(
             batch.target_data,
             normalize=normalize,
-            tensor_map=self._tensor_map,
+            tensor_map=self.tensor_map,
             wet=wet,
             long_rollout=False,
             input_type="prognostic",
@@ -151,7 +174,7 @@ class PerScaleSnapshotValidateAggregator:
         _, gen_unnorm = get_aggregator_dicts(
             batch.gen_data,
             normalize=normalize,
-            tensor_map=self._tensor_map,
+            tensor_map=self.tensor_map,
             wet=wet,
             long_rollout=False,
             input_type="prognostic",

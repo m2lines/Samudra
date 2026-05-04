@@ -3,8 +3,7 @@
 set -euo pipefail
 
 PYTEST_MARK_EXPR="${PYTEST_MARK_EXPR:-cuda and not manual}"
-# FOMO flash-attention tests are disabled on ARM until #710 is fixed.
-PYTEST_ARGS="${PYTEST_ARGS:--x -k 'not train_fomo'}"
+PYTEST_ARGS="${PYTEST_ARGS:--x}"
 IMAGE_TAG="${IMAGE_TAG:-}"
 DOCKER_REPO="${DOCKER_REPO:-ghcr.io/Open-Athena}"
 

@@ -14,13 +14,10 @@
 #   3. WANDB_API_KEY set if you want online logging.
 #
 # Usage:
-#   # First, rebuild the container from the kr1 branch:
-#   gh workflow run "Container PhysicsNeMo 25.11" --ref u/alxmrs/experiments/kr1
-#   # Wait for it to finish, then get the SHA:
-#   CONTAINER_HASH=$(git rev-parse HEAD)
-#
-#   # Then launch:
-#   export CONTAINER_HASH=<sha>
+#   # The slurm_apptainer_train.sbatch harness bind-mounts host src/ and
+#   # configs/ into the container, so source-only branch changes do NOT
+#   # require a container rebuild — any existing tag works.
+#   export CONTAINER_TAG=25.11-latest         # or CONTAINER_HASH=<sha>
 #   bash scripts/launch_kr1_train.sh
 #
 # The run output (checkpoints, logs) will be at:
@@ -44,7 +41,12 @@ fi
 export CONFIG=configs/fomo_om4/train_multiscale.yaml
 
 # ── Run name ──
-export NAME_SUFFIX=kr1_fomo_multiscale_v45
+# v46: fresh start on this branch (kr1-v2). Cannot resume from v43/v44/v45
+# because the FlashPerceiver input projection now takes +18 channels for the
+# 2D Fourier features fix; checkpoint shapes are incompatible. Other deltas:
+# loss=mse (was DynamicLoss), pred_residuals=true (was false), per-scale
+# validation snapshots, single-step warmup via steps=[1,2] step_transition=[10].
+export NAME_SUFFIX=kr1_fomo_multiscale_v46
 
 # ── Data root: parent dir containing all three resolution subdirectories ──
 export DATA_ROOT="${DATA_ROOT:-/scratch/am16581/data}"
@@ -99,8 +101,8 @@ export NSYS_PROFILE=0
 
 # ── Extra CLI overrides ──
 # The baked-in config has the decoder and data sources already configured.
-# We just pass the W&B project and any batch size tweaks here.
-export ARGS="--data.loading.num_workers=8 --data.concurrent_compute=true --resume_ckpt_path=/scratch/am16581/runs/2026-04-21-kr1_fomo_multiscale_v43/saved_nets/ckpt.pt"
+# v46: NO resume — see NAME_SUFFIX comment above. Fresh weights only.
+export ARGS="--data.loading.num_workers=8 --data.concurrent_compute=true --experiment.wandb.group=kr1_multiscale_relaunch"
 
 echo "=== KR1 Multi-Scale FOMO Training ==="
 echo "Config:         ${CONFIG}"

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777918166693,
+  "lastUpdate": 1777918175123,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -18537,6 +18537,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.13619568706283988",
             "extra": "mean: 19.78895207239998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fomobot640@gmail.com",
+            "name": "fomo-bot",
+            "username": "fomo-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "070b9b059a4c57c7be71fd727c97427d594b6368",
+          "message": "Fix inference loader benchmark unpacking (#728)\n\n## Summary\n- update the inference loader benchmark to consume the current (prog,\nboundary, y) sample contract\n- keep the benchmark focused on loader iteration without concatenating\ntensors\n\n## Verification\n- uv run --locked pytest\ntests/test_datasets.py::test_profile__inference_loader__1gb -m \"not\ncuda\" --benchmark-only --benchmark-json output-cpu.json\n- uv run --locked pytest -m \"not cuda\" --benchmark-only --benchmark-json\noutput-cpu.json\n\nFailure investigated from\nhttps://github.com/Open-Athena/Ocean_Emulator/actions/runs/25331021965/job/74264889302\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>",
+          "timestamp": "2026-05-04T13:55:18-04:00",
+          "tree_id": "0992c24a135bcfcddc95ba140995c61108a7f8ab",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/070b9b059a4c57c7be71fd727c97427d594b6368"
+        },
+        "date": 1777918174676,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.089631770027042,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0008865156252630633",
+            "extra": "mean: 917.7412292000099 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1740661115679497,
+            "unit": "iter/sec",
+            "range": "stddev: 0.040845972316994675",
+            "extra": "mean: 5.74494363660001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.05013881630781439,
+            "unit": "iter/sec",
+            "range": "stddev: 0.05613500121084246",
+            "extra": "mean: 19.944627209800025 sec\nrounds: 5"
           }
         ]
       }

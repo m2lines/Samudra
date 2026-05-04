@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777918175123,
+  "lastUpdate": 1777921157594,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -9264,6 +9264,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.22948593425188912",
             "extra": "mean: 27.9821100558 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0dbc093ad4d11adcd37bcb5c76d342e1c062dc76",
+          "message": "Adding comprehensive license & copyright identifiers in the codebase + adding proper IDs for vendored code. (#720)\n\nThis PR makes use of the `reuse` tool to annotate all files of the\nproject to make sure they have proper licenses. To make adding new\nlicenses easier, I've included a simple script and documented that this\nneeds to be used in the contributing guide.\n\nFixes #686 and Fixes #706.",
+          "timestamp": "2026-05-04T18:46:15Z",
+          "tree_id": "a6eeda22829abd51f8a974133730b298d37ea910",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/0dbc093ad4d11adcd37bcb5c76d342e1c062dc76"
+        },
+        "date": 1777921156522,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0865037874207422,
+            "unit": "iter/sec",
+            "range": "stddev: 0.007529152867349986",
+            "extra": "mean: 920.3833539999948 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.16974135815423252,
+            "unit": "iter/sec",
+            "range": "stddev: 0.013817861833428013",
+            "extra": "mean: 5.891316122800004 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.035582654940939144,
+            "unit": "iter/sec",
+            "range": "stddev: 0.19904934481867603",
+            "extra": "mean: 28.10358028820001 sec\nrounds: 5"
           }
         ]
       }

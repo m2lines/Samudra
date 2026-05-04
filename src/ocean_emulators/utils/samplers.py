@@ -35,7 +35,10 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
     Args:
         groups: List of index lists, where each inner list contains indices belonging to
             the same equivalence group.
-        batch_size: Number of samples per batch
+        batch_size: Number of samples per batch. May be a single int (uniform across
+            groups) or a per-group list aligned with ``groups`` (i-th entry is the
+            batch size for the i-th group). Per-group sizing lets cheaper groups
+            (e.g. low-resolution scales) run with larger batches.
         shuffle: Whether to shuffle indices within groups and shuffle batches globally
         drop_last: Whether to drop incomplete batches at the end of each group
     """
@@ -43,13 +46,21 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
     def __init__(
         self,
         groups: list[list[int]],
-        batch_size: int,
+        batch_size: int | list[int],
         shuffle: bool = True,
         drop_last: bool = False,
     ):
         super().__init__()
         self.groups = groups
-        self.batch_size = batch_size
+        if isinstance(batch_size, int):
+            self.batch_sizes: list[int] = [batch_size] * len(groups)
+        else:
+            if len(batch_size) != len(groups):
+                raise ValueError(
+                    f"batch_size list length {len(batch_size)} must match "
+                    f"number of groups {len(groups)}"
+                )
+            self.batch_sizes = list(batch_size)
         self.shuffle = shuffle
         self.drop_last = drop_last
 
@@ -59,17 +70,17 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
         self._samplers = [
             BatchSampler(
                 SubsetSampler(group),
-                batch_size=self.batch_size,
+                batch_size=bs,
                 drop_last=self.drop_last,
             )
-            for group in self.groups
+            for group, bs in zip(self.groups, self.batch_sizes)
         ]
 
     @classmethod
     def from_dataset_sizes(
         cls,
         dataset_sizes: list[int],
-        batch_size: int,
+        batch_size: int | list[int],
         shuffle: bool = True,
         drop_last: bool = False,
     ) -> Self:
@@ -78,7 +89,7 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
         Args:
             dataset_sizes: List of individual dataset sizes. Groups are created based on
                 cumulative boundaries, where each dataset forms its own equivalence group.
-            batch_size: Number of samples per batch
+            batch_size: Uniform int or per-group list aligned with ``dataset_sizes``.
             shuffle: Whether to shuffle indices within groups and shuffle batches globally
             drop_last: Whether to drop incomplete batches at the end of each group
         """
@@ -94,7 +105,7 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
         cls,
         datasets: list["TorchTrainDataset"],
         group_key: Callable[["TorchTrainDataset"], Hashable],
-        batch_size: int,
+        batch_size: int | dict[Hashable, int],
         shuffle: bool,
         drop_last: bool,
     ) -> Self:
@@ -106,7 +117,10 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
         Args:
             datasets: List of TorchTrainDataset instances to group
             group_key: Callable that extracts grouping key from a dataset.
-            batch_size: Number of samples per batch
+            batch_size: Uniform int across groups, or a ``{group_key: int}`` mapping
+                to set per-group batch sizes (e.g. larger batches for cheaper scales).
+                When a dict, every group key produced by ``group_key`` must have an
+                entry; missing keys raise ``KeyError``.
             shuffle: Whether to shuffle indices within groups and shuffle batches globally
             drop_last: Whether to drop incomplete batches at the end of each group
 
@@ -143,7 +157,21 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
         sorted_groups = sorted(groups.items(), key=lambda x: x[0])  # type: ignore
         group_indices = [indices for _, indices in sorted_groups]
 
-        return cls(group_indices, batch_size, shuffle, drop_last)
+        if isinstance(batch_size, dict):
+            try:
+                bs_per_group: int | list[int] = [
+                    batch_size[key] for key, _ in sorted_groups
+                ]
+            except KeyError as e:
+                raise KeyError(
+                    f"per-scale batch_size dict missing entry for group key {e!r}; "
+                    f"got keys {list(batch_size.keys())!r}, "
+                    f"observed dataset keys {[k for k, _ in sorted_groups]!r}"
+                ) from None
+        else:
+            bs_per_group = batch_size
+
+        return cls(group_indices, bs_per_group, shuffle, drop_last)
 
     def __iter__(self):
         # Create batch samplers for each group
@@ -187,7 +215,8 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[Batch]):
     Args:
         datasets: List of TorchTrainDataset instances to group
         group_key: Callable that extracts grouping key from a dataset
-        batch_size: Number of samples per batch
+        batch_size: Uniform int across groups, or a ``{group_key: int}`` mapping
+            to set per-group batch sizes. See ``EquivalenceGroupBatchSampler.from_datasets``.
         num_replicas: Number of distributed workers (world size)
         rank: Index of current worker (0 to num_replicas-1)
         shuffle: Whether to shuffle batches
@@ -200,7 +229,7 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[Batch]):
         self,
         datasets: list["TorchTrainDataset"],
         group_key: Callable[["TorchTrainDataset"], Hashable],
-        batch_size: int,
+        batch_size: int | dict[Hashable, int],
         num_replicas: int,
         rank: int,
         shuffle: bool = True,

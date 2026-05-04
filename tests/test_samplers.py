@@ -128,6 +128,54 @@ class TestEquivalenceGroupBatchSampler:
         assert set(all_indices) == set(range(8))
 
 
+class TestPerGroupBatchSize:
+    """Per-group batch size: lower-res groups can run with larger batches."""
+
+    def test_dict_routes_per_group_batch_size(self, sampler_from_datasets):
+        # Group A: 12 indices @ bs=2 -> 6 batches.
+        # Group B: 12 indices @ bs=4 -> 3 batches.
+        # Distinct grid sizes ensure they form separate groups.
+        small = MockDataset(12, grid_size=(100, 100))
+        big = MockDataset(12, grid_size=(200, 200))
+        sampler = sampler_from_datasets(
+            datasets=[small, big],
+            group_key=lambda ds: ds.grid_size,
+            batch_size={(100, 100): 2, (200, 200): 4},
+            shuffle=False,
+            drop_last=False,
+        )
+
+        batches = list(sampler)
+        sizes_per_group: dict[str, list[int]] = {"small": [], "big": []}
+        for batch in batches:
+            bucket = "small" if batch[0] < 12 else "big"
+            sizes_per_group[bucket].append(len(batch))
+
+        assert sizes_per_group["small"] == [2] * 6
+        assert sizes_per_group["big"] == [4] * 3
+
+    def test_dict_missing_key_raises(self, sampler_from_datasets):
+        a = MockDataset(4, grid_size=(100, 100))
+        b = MockDataset(4, grid_size=(200, 200))
+        with pytest.raises(KeyError, match="missing entry"):
+            sampler_from_datasets(
+                datasets=[a, b],
+                group_key=lambda ds: ds.grid_size,
+                batch_size={(100, 100): 2},  # missing (200, 200)
+                shuffle=False,
+                drop_last=False,
+            )
+
+    def test_list_length_must_match_groups(self):
+        with pytest.raises(ValueError, match="must match number of groups"):
+            EquivalenceGroupBatchSampler(
+                groups=[[0, 1], [2, 3]],
+                batch_size=[2],  # one entry, two groups
+                shuffle=False,
+                drop_last=False,
+            )
+
+
 class TestSamplersFromDatasets:
     """Tests for the high-level API shared by both sampler types."""
 

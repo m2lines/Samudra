@@ -8,6 +8,9 @@ import torch
 from ocean_emulators.aggregator import Aggregator, ValidateAggregator
 from ocean_emulators.aggregator.train import TrainAggregator
 from ocean_emulators.aggregator.validate.map import MapAggregator
+from ocean_emulators.aggregator.validate.per_scale_snapshot import (
+    PerScaleSnapshotValidateAggregator,
+)
 from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from ocean_emulators.constants import TensorMap
@@ -252,3 +255,74 @@ def test_map_aggregator__non_main_rank__still_reduces_but_skips_plot_rendering(
 
     assert aggregator.get_logs("mean_map") == {}
     assert len(reduce_calls) == 2
+
+
+def _per_scale_batch_for(src: DataSource, tensor_map: TensorMap) -> ValBatchOutput:
+    """Helper: build a val batch whose ctx label_mask matches `src.grid_size`."""
+    return val_batch_of(*src.grid_size, tensor_map=tensor_map)
+
+
+def test_per_scale_snapshot_val_aggregator__routes_loss_per_scale(
+    dummy_src: DataSource,
+):
+    """Loss is summed and logged separately under each scale's grid-size key."""
+    # Build a second source that differs only in grid_size, so routing is
+    # exercised end-to-end without needing a second real dataset.
+    other_data = dummy_src.data.isel(lat=slice(0, 2), lon=slice(0, 4))
+    other_masks = dummy_src.masks
+    other_masks_small = type(other_masks)(torch.ones(1, 2, 4), torch.ones(2, 4))
+    other_src = DataSource(
+        name="dummy_small",
+        data=other_data,
+        means=other_data.mean(dim=["lat", "lon"]),
+        stds=other_data.std(dim=["lat", "lon"]) + 1.0,
+        masks=other_masks_small,
+        dataset_spec=dummy_src.dataset_spec,
+    )
+
+    tensor_map = tensor_map_for(dummy_src)
+    agg = PerScaleSnapshotValidateAggregator(
+        sources=[dummy_src, other_src],
+        prognostic_var_names=tensor_map.prognostic_var_names,
+        boundary_var_names=tensor_map.boundary_var_names,
+        tensor_map=tensor_map,
+        hist=0,
+        num_prognostic_channels=len(tensor_map.prognostic_var_names),
+        log_images=False,
+    )
+
+    big_batch = _per_scale_batch_for(dummy_src, tensor_map)
+    small_batch = _per_scale_batch_for(other_src, tensor_map)
+    # Two batches at the big scale, one at the small scale: per-scale means
+    # should reflect each scale's own loss(es) only.
+    agg.record_validation_batch(big_batch)
+    agg.record_validation_batch(big_batch)
+    agg.record_validation_batch(small_batch)
+
+    logs = agg.get_logs(label="val")
+    h_big, w_big = dummy_src.grid_size
+    h_small, w_small = other_src.grid_size
+    assert f"val/{h_big}x{w_big}/loss" in logs
+    assert f"val/{h_small}x{w_small}/loss" in logs
+    # No image keys when log_images=False.
+    assert not any("snapshot" in k for k in logs)
+
+
+def test_per_scale_snapshot_val_aggregator__rejects_unknown_grid_size(
+    dummy_src: DataSource,
+):
+    """A batch from a grid the aggregator wasn't built for raises clearly."""
+    tensor_map = tensor_map_for(dummy_src)
+    agg = PerScaleSnapshotValidateAggregator(
+        sources=[dummy_src],
+        prognostic_var_names=tensor_map.prognostic_var_names,
+        boundary_var_names=tensor_map.boundary_var_names,
+        tensor_map=tensor_map,
+        hist=0,
+        num_prognostic_channels=len(tensor_map.prognostic_var_names),
+        log_images=False,
+    )
+    # Batch at a different grid than registered.
+    rogue = val_batch_of(99, 77, tensor_map=tensor_map)
+    with pytest.raises(KeyError, match="No per-scale state"):
+        agg.record_validation_batch(rogue)

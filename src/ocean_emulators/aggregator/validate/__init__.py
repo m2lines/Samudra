@@ -4,3 +4,4 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from .main import ValidateAggregator
+from .per_scale_snapshot import PerScaleSnapshotValidateAggregator

@@ -11,4 +11,4 @@ from .loss import (
     get_variable_loss_dict,
 )
 from .main import Aggregator
-from .validate import ValidateAggregator
+from .validate import PerScaleSnapshotValidateAggregator, ValidateAggregator

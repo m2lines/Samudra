@@ -29,7 +29,11 @@ from torch.utils.data import (
 )
 
 from ocean_emulators import config
-from ocean_emulators.aggregator import Aggregator, ValidateAggregator
+from ocean_emulators.aggregator import (
+    Aggregator,
+    PerScaleSnapshotValidateAggregator,
+    ValidateAggregator,
+)
 from ocean_emulators.aggregator.loss import (
     get_channel_loss_dict,
     get_channel_loss_scale_dict,
@@ -733,23 +737,27 @@ class Trainer:
 
         if self.train_schedule == "standard":
             # The standard val aggregator only supports a single scale.
-            val_aggregator = Aggregator.get_validation_aggregator(
-                self.primary_src.metadata,
-                self.hist,
-                self.primary_src.spherical_area_weights.to(self.device),
-                self.num_out,
-                self.tensor_map,
-                self.normalize,
-                include_image_aggregators=log_validation_images,
+            val_aggregator: ValidateAggregator | PerScaleSnapshotValidateAggregator = (
+                Aggregator.get_validation_aggregator(
+                    self.primary_src.metadata,
+                    self.hist,
+                    self.primary_src.spherical_area_weights.to(self.device),
+                    self.num_out,
+                    self.tensor_map,
+                    self.normalize,
+                    include_image_aggregators=log_validation_images,
+                )
             )
         else:
-            # Create a validation aggregator that handles multiple scales.
-            val_aggregator = ValidateAggregator(
-                {},  # Currently, don't do anything else besides record the training loss.
-                self.hist,
-                self.num_out,
+            # match/mix: per-scale loss + last-batch error image per scale.
+            val_aggregator = PerScaleSnapshotValidateAggregator(
+                sources=self.data_container.sources,
+                prognostic_var_names=self.prognostic_var_names,
+                boundary_var_names=self.boundary_var_names,
                 tensor_map=self.tensor_map,
-                normalize=self.normalize,
+                hist=self.hist,
+                num_prognostic_channels=self.num_out,
+                log_images=log_validation_images,
             )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"

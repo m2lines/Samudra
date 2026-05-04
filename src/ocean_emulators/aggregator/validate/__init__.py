@@ -1,1 +1,2 @@
 from .main import ValidateAggregator
+from .per_scale_snapshot import PerScaleSnapshotValidateAggregator

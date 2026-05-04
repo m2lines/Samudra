@@ -20,9 +20,7 @@ per_scale_batch_size: null
 gradient_accumulation_steps: 1
 learning_rate: 0.0006
 scheduler: { type: cosine }
-loss:
-  type: dynamic
-  metric: mse
+loss: mse
 finetune: false
 resume_ckpt_path: null
 inference_epochs: []

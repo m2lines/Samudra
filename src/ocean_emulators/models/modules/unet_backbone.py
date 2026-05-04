@@ -26,10 +26,12 @@ class UNetBackbone(nn.Module):
         ch_width (list[int]): The widths of CNN input channels going down into the U-Net. This module first builds
           downsampling CNN blocks before reversing the `ch_widths` to build upsampling CNN blocks. Typically, these
           values should be set in monotonically non-decreasing sizes.
-        dilation (list[int]): List of dilation sizes for CNN blocks. See [3] for a general background. This list must
-          be one less than the length of `ch_widths`.
+        kernel_size (list[int]): Per-stage kernel size for the spatial convolution inside each CoreBlock. Length must
+          match `ch_width`.
+        dilation (list[int]): List of dilation sizes for CNN blocks. See [3] for a general background. Length must
+          match `ch_width`.
         n_layers (list[int]): List of the number of CNN layers to be used in each block section of the U-Net. Typically,
-          this is set to all 1s. This value must match the length of `dilation`.
+          this is set to all 1s. Length must match `ch_width`.
         pad (str): The type of padding to use in all CNN blocks. Passed into `torch.functional.pad`'s `mode` argument.
         create_block: A factory method that creates the CoreBlocks for all CNN layers.
         downsampling_block (nn.Module): A block that downsamples during the descent of the U-Net.
@@ -47,6 +49,7 @@ class UNetBackbone(nn.Module):
         self,
         in_channels: int,
         ch_width: list[int],
+        kernel_size: list[int],
         dilation: list[int],
         n_layers: list[int],
         pad: str,
@@ -62,6 +65,7 @@ class UNetBackbone(nn.Module):
 
         # Create local copies of config lists that will be reversed
         ch_width = [in_channels] + ch_width.copy()
+        kernel_size = kernel_size.copy()
         dilation = dilation.copy()
         n_layers = n_layers.copy()
         self.pad = pad
@@ -87,6 +91,7 @@ class UNetBackbone(nn.Module):
                 create_block(
                     in_channels=a,
                     out_channels=b,
+                    kernel_size=kernel_size[i],
                     dilation=dilation[i],
                     n_layers=n_layers[i],
                     pad=pad,
@@ -101,6 +106,7 @@ class UNetBackbone(nn.Module):
             create_block(
                 in_channels=b,
                 out_channels=b,
+                kernel_size=kernel_size[i],
                 dilation=dilation[i],
                 n_layers=n_layers[i],
                 pad=pad,
@@ -113,6 +119,7 @@ class UNetBackbone(nn.Module):
 
         # Reverse for upsampling path
         ch_width.reverse()
+        kernel_size.reverse()
         dilation.reverse()
         n_layers.reverse()
 
@@ -122,6 +129,7 @@ class UNetBackbone(nn.Module):
                 create_block(
                     in_channels=a,
                     out_channels=b,
+                    kernel_size=kernel_size[i],
                     dilation=dilation[i],
                     n_layers=n_layers[i],
                     pad=pad,
@@ -135,6 +143,7 @@ class UNetBackbone(nn.Module):
             create_block(
                 in_channels=b,
                 out_channels=b,  # this is the same as self.out_channels
+                kernel_size=kernel_size[i],
                 dilation=dilation[i],
                 n_layers=n_layers[i],
                 pad=pad,

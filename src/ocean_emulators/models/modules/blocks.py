@@ -31,6 +31,24 @@ class PointwiseLinear(torch.nn.Module):
         return self.linear(x.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
 
 
+class LayerNorm2d(torch.nn.Module):
+    """Channel-wise LayerNorm for NCHW tensors.
+
+    Applies ``nn.LayerNorm`` along the channel axis at each spatial position,
+    matching the canonical ConvNeXt convention. The permute trick keeps the
+    underlying ``nn.LayerNorm`` operating on its natural last-dim layout.
+    """
+
+    def __init__(self, num_channels: int, eps: float = 1e-6):
+        super().__init__()
+        self.norm = torch.nn.LayerNorm(num_channels, eps=eps)
+
+    def forward(
+        self, x: Float[torch.Tensor, "B C H W"]
+    ) -> Float[torch.Tensor, "B C H W"]:
+        return self.norm(x.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
+
+
 class TransposedConvUpsample(torch.nn.Module):
     def __init__(
         self,
@@ -355,11 +373,133 @@ class ConvNeXtBlock(CoreBlock):
         return skip + x
 
 
+class TrueConvNeXtBlock(CoreBlock):
+    """Canonical ConvNeXt block with a depthwise spatial convolution.
+
+    Structure (per Liu et al. 2022, ConvNeXt)[0]:
+
+        x → pre_proj (1×1, in→out, identity if in==out)   # channel transition
+          → [skip branches here]
+          → dwconv (k×k, depthwise, groups=out)           # spatial mixing
+          → norm
+          → pw_expand (1×1, out → out·U)                  # channel expand
+          → activation
+          → pw_project (1×1, out·U → out)                 # channel project
+          + skip
+
+    Differs from ``ConvNeXtBlock`` (which is misnamed — its spatial convs are
+    dense, not depthwise) by factoring the spatial mixing (depthwise k×k) from
+    the channel mixing (1×1's). This decoupling makes large-kernel sweeps
+    affordable: at canonical 4× expansion, kernel-size cost scales as ``k²``
+    times channels, not ``k²`` times channels-squared.
+
+    This standard recipe has been adapted for our codebase, including:
+
+      - Circular-x / zero-y padding around the depthwise conv (zonal periodicity).
+      - ``PointwiseLinear`` for 1×1's (DDP-friendly gradient strides).
+      - Configurable ``norm`` (batch | instance | layer).
+      - Configurable ``activation`` (defaults to ``CappedGELU``).
+      - ``checkpoint_simple`` recomputes cheap layers on backward.
+
+    References:
+        [0]: Liu et al. 2022, "A ConvNet for the 2020s" (https://arxiv.org/abs/2201.03545)
+        [1]: Ding et al. 2022, "Scaling Up Your Kernels to 31×31" (https://arxiv.org/abs/2203.06717)
+
+    NOTE: ``dilation`` is asserted to be 1. Large depthwise kernels make
+    dilation redundant; combining the two would push ``N_pad`` beyond the
+    feature-map size at deep U-Net stages.
+    """
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        dilation: int = 1,
+        n_layers: int = 1,
+        activation: Callable[[], torch.nn.Module] = CappedGELU,
+        pad: str = "circular",
+        upscale_factor: int = 4,
+        norm: str = "batch",
+        checkpoint_simple: bool = False,
+    ):
+        super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
+        assert n_layers == 1, "TrueConvNeXtBlock only supports n_layers=1"
+        assert dilation == 1, (
+            "TrueConvNeXtBlock requires dilation=1; large depthwise kernels "
+            "make dilation redundant, and at deep U-Net stages the implied "
+            "N_pad would exceed the feature-map size."
+        )
+
+        # 1×1 channel transition; identity when widths already match.
+        if in_channels == out_channels:
+            self.pre_proj: torch.nn.Module = torch.nn.Identity()
+        else:
+            self.pre_proj = PointwiseLinear(in_channels, out_channels)
+
+        # Depthwise spatial conv at out_channels width.
+        self.dwconv = torch.nn.Conv2d(
+            out_channels,
+            out_channels,
+            kernel_size=kernel_size,
+            dilation=dilation,
+            groups=out_channels,
+        )
+
+        # Note: ``CoreBlock`` already binds ``self.norm`` to the *string* name
+        # of the norm. We use a distinct attribute for the actual module so the
+        # types don't clash.
+        match norm:
+            case "batch":
+                self.norm_layer: torch.nn.Module = torch.nn.BatchNorm2d(out_channels)
+            case "instance":
+                self.norm_layer = torch.nn.InstanceNorm2d(out_channels)
+            case "layer":
+                self.norm_layer = LayerNorm2d(out_channels)
+            case _:
+                raise NotImplementedError(f"Unknown norm: {norm!r}")
+
+        expanded = int(out_channels * upscale_factor)
+        self.pw_expand = PointwiseLinear(out_channels, expanded)
+        self.act = activation()
+        self.pw_project = PointwiseLinear(expanded, out_channels)
+
+        self.checkpoint_simple = checkpoint_simple
+
+    def _maybe_checkpoint(
+        self,
+        fn: torch.nn.Module,
+        x: Float[torch.Tensor, "B C H W"],
+    ) -> Float[torch.Tensor, "B C H W"]:
+        if self.checkpoint_simple:
+            return torch.utils.checkpoint.checkpoint(fn, x, use_reentrant=False)
+        return fn(x)
+
+    def forward(
+        self, x: Float[torch.Tensor, "B C_in H W"]
+    ) -> Float[torch.Tensor, "B C_out H W"]:
+        x = self.pre_proj(x)
+        skip = x
+
+        # Spatial conv: circular-x / zero-y pad, then depthwise k×k.
+        x = torch.nn.functional.pad(x, (self.N_pad, self.N_pad, 0, 0), mode=self.pad)
+        x = torch.nn.functional.pad(x, (0, 0, self.N_pad, self.N_pad), mode="constant")
+        x = self.dwconv(x)
+
+        x = self._maybe_checkpoint(self.norm_layer, x)
+        x = self.pw_expand(x)
+        x = self._maybe_checkpoint(self.act, x)
+        x = self.pw_project(x)
+
+        return skip + x
+
+
 class CoreBlockBuilder(Protocol):
     def __call__(
         self,
         in_channels: int,
         out_channels: int,
+        kernel_size: int,
         dilation: int,
         n_layers: int,
         pad: str,

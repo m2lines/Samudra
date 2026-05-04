@@ -36,6 +36,7 @@ from ocean_emulators.models.modules import (
     PerceiverEncoder,
     ReLU,
     TransposedConvUpsample,
+    TrueConvNeXtBlock,
     UNetBackbone,
 )
 from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
@@ -326,14 +327,19 @@ class DataConfig(BaseConfig):
         )
 
 
-BlockType = Literal["conv_next_block", "conv_block"]
+BlockType = Literal["conv_next_block", "true_conv_next_block", "conv_block"]
 ActivationType = Literal["relu", "gelu", "capped_gelu"]
 NormType = Literal["batch", "instance", "layer"]
 
 
 class BlockConfig(BaseConfig):
     block_type: BlockType = "conv_next_block"
-    kernel_size: int = 3
+    kernel_size: int = Field(
+        default=3,
+        description="Default kernel size for the spatial conv. Used as the per-stage "
+        "kernel when `unet.kernel_size` is not set. Ignored by `true_conv_next_block`, "
+        "which requires `unet.kernel_size` to be specified explicitly.",
+    )
     activation: ActivationType = "capped_gelu"
     upscale_factor: int = 4
     norm: NormType = "batch"
@@ -353,6 +359,7 @@ class BlockConfig(BaseConfig):
         def create_block(
             in_channels: int,
             out_channels: int,
+            kernel_size: int,
             dilation: int,
             n_layers: int,
             pad: str,
@@ -367,7 +374,7 @@ class BlockConfig(BaseConfig):
                         n_layers=n_layers,
                         pad=pad,
                         checkpoint_simple=checkpoint_simple,
-                        kernel_size=self.kernel_size,
+                        kernel_size=kernel_size,
                         activation=activation,
                     )
                 case "conv_next_block":
@@ -378,11 +385,24 @@ class BlockConfig(BaseConfig):
                         n_layers=n_layers,
                         pad=pad,
                         checkpoint_simple=checkpoint_simple,
-                        kernel_size=self.kernel_size,
+                        kernel_size=kernel_size,
                         upscale_factor=self.upscale_factor,
                         norm=self.norm,
                         activation=activation,
                         pointwise_linear=self.pointwise_linear,
+                    )
+                case "true_conv_next_block":
+                    return TrueConvNeXtBlock(
+                        in_channels=in_channels,
+                        out_channels=out_channels,
+                        kernel_size=kernel_size,
+                        dilation=dilation,
+                        n_layers=n_layers,
+                        pad=pad,
+                        checkpoint_simple=checkpoint_simple,
+                        upscale_factor=self.upscale_factor,
+                        norm=self.norm,
+                        activation=activation,
                     )
                 case _:
                     assert_never(self.block_type)
@@ -641,6 +661,13 @@ Checkpointing = Literal["all", "simple"]
 
 class UNetBackboneConfig(BaseConfig):
     ch_width: list[int] = [200, 250, 300, 400]
+    kernel_size: list[int] | None = Field(
+        default=None,
+        description="Per-stage kernel size for the spatial convolution inside each "
+        "CoreBlock. Length must match `ch_width`. When omitted, falls back to a "
+        "uniform list of `core_block.kernel_size`. Required for "
+        "`block_type: true_conv_next_block`.",
+    )
     dilation: list[int] = [1, 2, 4, 8]
     n_layers: list[int] = [1, 1, 1, 1]
     core_block: BlockConfig = BlockConfig()
@@ -660,6 +687,24 @@ class UNetBackboneConfig(BaseConfig):
         assert len(self.ch_width) == len(self.dilation) == len(self.n_layers), (
             "`ch_width`, `dilation`, and `n_layers` must have the same length."
         )
+
+        if self.kernel_size is None:
+            assert self.core_block.block_type != "true_conv_next_block", (
+                "`unet.kernel_size` is required when "
+                "`core_block.block_type == 'true_conv_next_block'`. "
+                "Specify a per-stage list, e.g. `kernel_size: [7, 13, 21, 31]`."
+            )
+            kernel_size = [self.core_block.kernel_size] * len(self.ch_width)
+        else:
+            assert len(self.kernel_size) == len(self.ch_width), (
+                f"`unet.kernel_size` (len={len(self.kernel_size)}) must have the "
+                f"same length as `ch_width` (len={len(self.ch_width)})."
+            )
+            assert all(k % 2 == 1 and k >= 1 for k in self.kernel_size), (
+                f"All entries in `unet.kernel_size` must be odd and >= 1; got "
+                f"{self.kernel_size}."
+            )
+            kernel_size = self.kernel_size
 
         def create_upsampling_block(in_channels: int, out_channels: int):
             match self.up_sampling_block:
@@ -687,6 +732,7 @@ class UNetBackboneConfig(BaseConfig):
         return UNetBackbone(
             in_channels=in_channels,
             ch_width=self.ch_width,
+            kernel_size=kernel_size,
             dilation=self.dilation,
             n_layers=self.n_layers,
             pad=pad,

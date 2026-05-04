@@ -8,6 +8,7 @@ from ocean_emulators.models.modules.blocks import (
     ConvNeXtBlock,
     DropPath,
     PointwiseLinear,
+    TrueConvNeXtBlock,
 )
 
 
@@ -52,6 +53,44 @@ def test_convnext_block_backward_pass(pointwise_linear: bool):
     y.sum().backward()
     assert x.grad is not None
     assert x.grad.shape == x.shape
+
+
+class TestTrueConvNeXtBlock:
+    @pytest.mark.parametrize("kernel_size", [3, 7, 15])
+    def test_preserves_shape_and_passes_gradients(self, kernel_size: int):
+        block = TrueConvNeXtBlock(
+            in_channels=8, out_channels=12, kernel_size=kernel_size
+        )
+        x = torch.randn(2, 8, 16, 24, requires_grad=True)
+        y = block(x)
+        assert y.shape == (2, 12, 16, 24)
+        y.sum().backward()
+        assert x.grad is not None and x.grad.shape == x.shape
+
+    @pytest.mark.parametrize("kernel_size", [3, 7, 15])
+    def test_zonal_translation_equivariance(self, kernel_size: int):
+        """Output shifts with the input along longitude (W axis).
+
+        Verifies the circular-x / zero-y padding is plumbed correctly: the
+        block must be exactly equivariant to longitudinal shifts. Eval mode
+        keeps BatchNorm using fixed running stats so the only source of
+        non-equivariance would be a misapplied padding mode.
+        """
+        torch.manual_seed(0)
+        block = TrueConvNeXtBlock(
+            in_channels=8, out_channels=8, kernel_size=kernel_size, norm="batch"
+        ).eval()
+
+        x = torch.randn(2, 8, 12, 24)
+        shift = 5
+
+        with torch.no_grad():
+            y = block(x)
+            y_shifted_input = block(torch.roll(x, shifts=shift, dims=-1))
+
+        torch.testing.assert_close(
+            y_shifted_input, torch.roll(y, shifts=shift, dims=-1)
+        )
 
 
 class TestDropPath:

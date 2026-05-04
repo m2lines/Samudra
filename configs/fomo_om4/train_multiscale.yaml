@@ -37,8 +37,8 @@ inference_times:
   - start: "2004-10-05"
     end: "2005-10-05" # "2014-10-05"
 data_stride: [1]
-steps: [2]  # v31: cut rollout from 4→2 to raise GPU util (v30 ~36%, bursty Python gaps)
-step_transition: []
+steps: [1, 2]  # v31: cut rollout from 4→2 to raise GPU util (v30 ~36%, bursty Python gaps)
+step_transition: [10]
 preemptible: false
 
 backend: auto

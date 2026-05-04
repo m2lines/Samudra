@@ -121,7 +121,11 @@ echo ""
 # Time: 2h per run. The gpu48 QOS (auto-assigned for >2h) caps GPUs at 2,
 # so we stay within the default QOS and rely on PREEMPTIBLE=1 to auto-requeue
 # after walltime / preemption and resume from checkpoint.
+# `EXTRA_SBATCH_ARGS` is an optional escape hatch for callers that want to
+# splice in extra sbatch flags (e.g. `--dependency=afterany:<jobid>` for
+# job chaining). Empty by default.
 sbatch \
+  ${EXTRA_SBATCH_ARGS:-} \
   --account=torch_pr_347_courant \
   --nodes=1 \
   --ntasks-per-node=1 \

@@ -1,5 +1,8 @@
+import math
+
 import torch
 from aurora.model.posencoding import lat_lon_meshgrid
+from einops import rearrange
 from jaxtyping import Float
 from torch import nn
 
@@ -58,3 +61,56 @@ class Concat3dCoordinates(nn.Module):
             .expand(fts.shape[0], -1, -1, -1)
         )
         return torch.cat((fts, grid), dim=1)
+
+
+def fourier_features_2d_dim(num_freq_bands: int) -> int:
+    """Channel-dim contribution of `FourierFeatures2D(num_freq_bands)`."""
+    return 2 * (2 * num_freq_bands + 1)
+
+
+class FourierFeatures2D(nn.Module):
+    """Concatenate 2D Fourier positional features along the channel dim.
+
+    Mirrors the `fourier_encode_data=True, input_axis=2` behavior of
+    perceiver-pytorch's Perceiver, so that the flash and naive perceiver
+    paths encode intra-patch position equivalently. Without this, the flash
+    perceiver only sees rotary positions on its latents and has no
+    intra-patch positional signal on the input tokens.
+
+    Frequency layout matches `perceiver_pytorch.fourier_encode`: scales are
+    `linspace(1., max_freq / 2, num_freq_bands)`, applied to positions
+    in [-1, 1].
+
+    Input:  (..., ph, pw, V)
+    Output: (..., ph, pw, V + fourier_features_2d_dim(num_freq_bands))
+    """
+
+    def __init__(self, num_freq_bands: int, max_freq: float) -> None:
+        super().__init__()
+        self.num_freq_bands = num_freq_bands
+        self.max_freq = max_freq
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        ph, pw = x.shape[-3], x.shape[-2]
+        ph_pos = torch.linspace(-1.0, 1.0, steps=ph, device=x.device, dtype=x.dtype)
+        pw_pos = torch.linspace(-1.0, 1.0, steps=pw, device=x.device, dtype=x.dtype)
+        # (ph, pw, 2)
+        pos = torch.stack(torch.meshgrid(ph_pos, pw_pos, indexing="ij"), dim=-1)
+
+        scales = torch.linspace(
+            1.0,
+            self.max_freq / 2,
+            self.num_freq_bands,
+            device=x.device,
+            dtype=x.dtype,
+        )
+        # (ph, pw, 2, 1) * (num_bands,) -> (ph, pw, 2, num_bands)
+        scaled = pos.unsqueeze(-1) * scales * math.pi
+        enc = torch.cat([scaled.sin(), scaled.cos(), pos.unsqueeze(-1)], dim=-1)
+        # Flatten (axis, freq) into a single feature dim.
+        enc = rearrange(enc, "ph pw ax feat -> ph pw (ax feat)")
+
+        # Broadcast across leading batch dims; concat along channel dim.
+        leading = x.shape[:-3]
+        enc = enc.expand(*leading, *enc.shape)
+        return torch.cat((x, enc), dim=-1)

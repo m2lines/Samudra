@@ -306,6 +306,17 @@ def test_per_scale_snapshot_val_aggregator__routes_loss_per_scale(
     assert f"val/{h_small}x{w_small}/loss" in logs
     # No image keys when log_images=False.
     assert not any("snapshot" in k for k in logs)
+    # We inherit TrainAggregator, so the standard per-channel breakdown
+    # (val/mean/loss + val/depth/.../loss + val/var/.../loss) must still
+    # be present alongside the per-scale routing.
+    train_agg = TrainAggregator(tensor_map)
+    train_agg.record_batch(big_batch)
+    train_agg.record_batch(big_batch)
+    train_agg.record_batch(small_batch)
+    train_logs = train_agg.get_logs(label="val")
+    assert set(train_logs).issubset(set(logs)), (
+        "Per-scale aggregator must keep all TrainAggregator log keys."
+    )
 
 
 def test_per_scale_snapshot_val_aggregator__rejects_unknown_grid_size(

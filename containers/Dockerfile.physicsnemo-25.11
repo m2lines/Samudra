@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # syntax=docker/dockerfile:1.7
 FROM nvcr.io/nvidia/physicsnemo/physicsnemo:25.11
 

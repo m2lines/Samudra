@@ -1,3 +1,8 @@
+# SPDX-FileCopyrightText: 2024 Allen Institute for Artificial Intelligence
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """
 The code in this directory is directly inspired by the ACE project by AI2.
 

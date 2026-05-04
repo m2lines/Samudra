@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Contributing Guide
 
 Everyone can contribute to Ocean Emulator, and we value everyone's contributions. There are several ways to help,
@@ -26,6 +32,7 @@ uvx pre-commit run --all-files # also creates config schemas for validation (see
 uv run pytest -m "not manual and not cuda"
 uv run pytest --benchmark-only --benchmark-autosave
 uv run pytest-benchmark compare 0001 0002
+./scripts/annotate_license.sh
 
 # push new remote branch to make a PR
 git push -u origin <feature-branch>
@@ -115,9 +122,17 @@ git push --force-with-lease
    Sometimes, you may want to skip _just one check_, but run the rest of the pre-commit. You can accomplish this by
    setting an [environment variable](https://pre-commit.com/#temporarily-disabling-hooks):
    ```shell
-   export SKIP=ruff
+   export SKIP=reuse
    uvx pre-commit run
    ```
+
+   If you add new code or docs, our pre-commit check will insist that you add a proper license identifier. To do this
+   automatically, please run:
+   ```shell
+   scripts/annotate_license.sh
+   ```
+   This uses the `reuse` tool under the hood. If you need to make a more complicate license attribution, please check
+   out the [reuse docs](https://reuse.readthedocs.io/en/stable/readme.html).
 
    It's totally ok to make lots of small commits as you develop your feature! Please, make sure to
    write [commit messages](https://cbea.ms/git-commit/) along the way.

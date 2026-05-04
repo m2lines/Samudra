@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # ~
 # Entrypoint to run a training job on a single-node, 8x A100 GPU cluster with skypilot.
 # ~

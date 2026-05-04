@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # This script is run on our local arm64 GPU box nightly in order to smoke test our latest docker image.
 set -euo pipefail
 

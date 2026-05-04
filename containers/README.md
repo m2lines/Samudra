@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # PhysicsNeMo 25.11 Container Flow
 
 Build a project image on top of NVIDIA PhysicsNeMo `25.11`, verify compatibility of

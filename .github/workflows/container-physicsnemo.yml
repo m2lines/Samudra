@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Build the PhysicsNeMo-based container on PRs; on main/manual runs, also publish
 # x86_64 and arm64 images, run x86_64 CPU/GPU container tests, and run arm64
 # CPU-only container tests on a non-GPU ARM runner.

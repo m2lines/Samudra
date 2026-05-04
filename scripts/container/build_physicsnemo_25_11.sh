@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 set -euo pipefail
 
 IMAGE_TAG="${IMAGE_TAG:-ocean-emulator:physicsnemo-25.11}"

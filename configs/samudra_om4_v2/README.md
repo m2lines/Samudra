@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Samudra OM4 V2
 
 These configurations are the v2 version of Samudra-style (UNet) model,

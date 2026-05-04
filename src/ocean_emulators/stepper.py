@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Time-stepping primitives for training, validation, and inference.
 
 Provides module-level functions that handle single-step forward passes

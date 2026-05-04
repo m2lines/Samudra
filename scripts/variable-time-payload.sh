@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 preempt_handler()
 {
     #place here: commands to run when preempt signal (SIGTERM) arrives from slurm

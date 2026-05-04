@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 repos:
 - repo: https://github.com/astral-sh/ruff-pre-commit
   rev: v0.11.2
@@ -49,3 +53,7 @@ repos:
   hooks:
   - id: detect-secrets
     args: ['--baseline', '.secrets.baseline']
+- repo: https://github.com/fsfe/reuse-tool
+  rev: v6.2.0
+  hooks:
+    - id: reuse

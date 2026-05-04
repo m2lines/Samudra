@@ -15,6 +15,40 @@ experiment, point `train.yaml`'s `model: !include` at the new file (or
 override at the CLI), and bump `experiment.name` so outputs don't clash
 with the V2 baseline run.
 
+## How to run on Torch (NYU HPC)
+
+```bash
+export CONFIG=configs/samudra_om4_v2/train.yaml
+export NAME_SUFFIX=om4_samudra_v2_large_kernel_v1   # bump for each run
+export ARGS="--model=@configs/samudra_om4_v2/model_large_kernel.yaml"
+
+# Container selection (pick one)
+export CONTAINER_HASH=<git_sha>
+# export CONTAINER_TAG=25.11-manual-<branch>
+# export IMAGE_REF=ghcr.io/<owner>/ocean-emulator-physicsnemo:25.11-<git_sha>
+
+sbatch \
+  --account=torch_pr_347_courant \
+  --nodes=1 \
+  --ntasks-per-node=1 \
+  --cpus-per-task=128 \
+  --mem=1400G \
+  --gres=gpu:rtx6000:8 \
+  --time=24:00:00 \
+  scripts/slurm_apptainer_train.sbatch
+```
+
+Notes:
+
+- Paths inside `ARGS` are resolved relative to `/workspace/` inside the
+  container, so the relative path above is correct.
+- Bump `NAME_SUFFIX` (e.g. `_v2`, `_v3`, ...) every new run. The harness
+  refuses to overwrite an existing `${OUTPUT_BASE}/$NAME` directory.
+- For evaluation, swap `CONFIG` to `configs/samudra_om4_v2/eval.yaml`,
+  set `TARGET_CHECKPOINT` to the trained run's checkpoint, keep the
+  same `ARGS="--model=@..."` so the eval pipeline reconstructs the
+  right model, and submit via `scripts/slurm_apptainer_eval.sbatch`.
+
 ## What changes from `model.yaml` (V2 baseline)
 
 Only two things change — everything else is held constant to isolate the

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../schemas/FOMOConfig.json
 
-pred_residuals: false
+pred_residuals: true
 last_kernel_size: 3
 pad: "circular"
 checkpointing: "all"

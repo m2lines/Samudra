@@ -744,8 +744,8 @@ def test_profile__inference_loader__1gb(inference_loader_pair, benchmark):
     def bench():
         for sample in loader:
             dataset, n = sample
-            for X, y in dataset:
-                _, _ = X, y
+            for prog, boundary, y in dataset:
+                _, _, _ = prog, boundary, y
 
     # Warm the restored Zarr cache before timing steady-state loader throughput.
     bench()

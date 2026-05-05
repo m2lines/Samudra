@@ -4,6 +4,7 @@ from ocean_emulators.utils.schedule import (
     CosineSchedulerConfig,
     CosineWithTailSchedulerConfig,
     CosineWithWarmupConfig,
+    EpochMultiplierScheduler,
 )
 
 
@@ -128,3 +129,35 @@ def test_cosine_with_warmup():
         "LR must decrease after warmup"
     )
     assert top / 20 > last, "LR must decrease by a significant amount after warmup"
+
+
+def test_epoch_multiplier_scheduler_scales_epochs_without_warping_base_cosine():
+    initial_lr = 0.01
+    total_epochs = 4
+    scheduler_config = CosineSchedulerConfig(target_epochs=10)
+
+    base_lr_history = simulate_lr_history(scheduler_config, initial_lr, total_epochs)
+
+    optimizer = torch.optim.SGD([torch.zeros(1)], lr=initial_lr)
+    scheduler = scheduler_config.build(optimizer, epochs=total_epochs)
+    wrapped = EpochMultiplierScheduler(
+        optimizer=optimizer,
+        scheduler=scheduler,
+        multipliers=[1.0, 0.75, 1.0],
+        transition_epochs=[2, 3],
+        current_epoch=1,
+    )
+
+    lr_history = []
+    for _epoch in range(total_epochs):
+        lr_history.append(optimizer.param_groups[0]["lr"])
+        optimizer.step()
+        wrapped.step()
+
+    expected = [
+        base_lr_history[0] * 1.0,
+        base_lr_history[1] * 0.75,
+        base_lr_history[2] * 1.0,
+        base_lr_history[3] * 1.0,
+    ]
+    assert lr_history == expected

@@ -77,6 +77,7 @@ from ocean_emulators.utils.logging import (
     handle_warnings,
 )
 from ocean_emulators.utils.loss import LossFn
+from ocean_emulators.utils.schedule import EpochMultiplierScheduler
 from ocean_emulators.utils.train import (
     CheckpointPaths,
     collate_inference_data,
@@ -212,6 +213,9 @@ class Trainer:
         assert isinstance(cfg.steps, list)
         assert isinstance(cfg.step_transition, list)
         assert len(cfg.step_transition) == len(cfg.steps) - 1
+        assert isinstance(cfg.lr_multipliers, list)
+        assert isinstance(cfg.lr_multiplier_transition, list)
+        assert len(cfg.lr_multiplier_transition) == len(cfg.lr_multipliers) - 1
         assert isinstance(cfg.temporal_stride_transition, list)
         assert len(cfg.temporal_stride_transition) == len(temporal_strides) - 1
         max_steps = str(cfg.steps[-1])
@@ -293,6 +297,19 @@ class Trainer:
         self.scheduler = None
         if cfg.scheduler:
             self.scheduler = cfg.scheduler.build(self.optimizer, cfg.epochs)
+        self.lr_multipliers = cfg.lr_multipliers
+        self.lr_multiplier_transition = cfg.lr_multiplier_transition
+        self.use_lr_multipliers = (
+            self.lr_multipliers != [1.0] or len(self.lr_multiplier_transition) > 0
+        )
+        if self.use_lr_multipliers:
+            self.scheduler = EpochMultiplierScheduler(
+                optimizer=self.optimizer,
+                scheduler=self.scheduler,
+                multipliers=self.lr_multipliers,
+                transition_epochs=self.lr_multiplier_transition,
+                current_epoch=1,
+            )
 
         # Initialize WandB
         self.wandb_logger = WandBLogger.init_instance()
@@ -355,6 +372,14 @@ class Trainer:
                             logger.info(
                                 "No scheduler configured; skipping scheduler reset."
                             )
+                    if self.use_lr_multipliers:
+                        self.scheduler = EpochMultiplierScheduler(
+                            optimizer=self.optimizer,
+                            scheduler=self.scheduler,
+                            multipliers=self.lr_multipliers,
+                            transition_epochs=self.lr_multiplier_transition,
+                            current_epoch=self.start_epoch,
+                        )
                     logger.info(
                         "Optimizer LR after reset: %s",
                         self.optimizer.param_groups[-1]["lr"],
@@ -609,6 +634,11 @@ class Trainer:
                     **val_stats,
                     **inf_stats,
                     "epoch": epoch,
+                    "lr_multiplier": (
+                        self.scheduler.applied_multiplier
+                        if isinstance(self.scheduler, EpochMultiplierScheduler)
+                        else 1.0
+                    ),
                     "epoch_train_seconds": end_epoch_train_time
                     - start_epoch_train_time,
                     "epoch_validation_seconds": end_epoch_val_time

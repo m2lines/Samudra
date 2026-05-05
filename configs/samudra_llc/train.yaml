@@ -7,11 +7,12 @@ save_freq: 1
 epochs: 10
 batch_size: 1
 learning_rate: 0.0006
-gradient_accumulation_steps: 4
+gradient_accumulation_steps: 3
 scheduler: { type: cosine }
 loss:
-  type: dynamic
-  metric: mse_diff_weighted
+  type: gradient
+  metric: mae
+  alpha: 0.1
 finetune: false
 #resume_ckpt_path: .LOCAL/2026-04-03-CONT:[increase-step-test-suite]-WITH_temporal_stride=6,steps=4,2011-09-14-2012-01-01-RESUME/saved_nets/ckpt.pt
 reset_optimizer_on_resume: false
@@ -37,7 +38,7 @@ preemptible: false
 backend: auto
 
 experiment:
-  name: 2026-04-22-Samudra_LLC:config_tests_experiment_4_halo_sponge
+  name: 2026-05-4-Samudra_LLC:uncompressed-cache_speed-test
   data_root: /orcd/data/abodner/
   rand_seed: 15
   base_output_dir: .LOCAL

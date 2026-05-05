@@ -7,13 +7,23 @@ from typing import Any, Self
 import yaml
 from pydantic import BaseModel, ConfigDict
 from pydantic.fields import FieldInfo
-from pydantic_settings import (
-    BaseSettings,
-    CliSettingsSource,
-    PydanticBaseSettingsSource,
-    SettingsConfigDict,
-    YamlConfigSettingsSource,
-)
+try:
+    from pydantic_settings import (
+        BaseSettings,
+        CliSettingsSource,
+        PydanticBaseSettingsSource,
+        SettingsConfigDict,
+        YamlConfigSettingsSource,
+    )
+
+    HAS_PYDANTIC_SETTINGS = True
+except ModuleNotFoundError:
+    BaseSettings = BaseModel  # type: ignore[misc,assignment]
+    CliSettingsSource = object  # type: ignore[assignment]
+    PydanticBaseSettingsSource = Any
+    SettingsConfigDict = ConfigDict  # type: ignore[assignment]
+    YamlConfigSettingsSource = None
+    HAS_PYDANTIC_SETTINGS = False
 
 
 def register_include_constructor():
@@ -86,17 +96,18 @@ class TopLevelConfig(BaseSettings):
             ),
         )
         parser.add_argument("config", type=str, help="Path to config YAML file")
-
-        cli_source = IncludeYamlCliSettingsSource(
-            cls,
-            root_parser=parser,
-            # If args_to_parse is None, we parse argv, which is what `True` does
-            cli_parse_args=args_to_parse if args_to_parse is not None else True,
-        )
-
-        # We do this after creating CliSettingsSource (which populates the parser)
-        # so the help is complete on error.
-        args = parser.parse_args(args_to_parse)
+        if HAS_PYDANTIC_SETTINGS:
+            cli_source = IncludeYamlCliSettingsSource(
+                cls,
+                root_parser=parser,
+                # If args_to_parse is None, we parse argv, which is what `True` does
+                cli_parse_args=args_to_parse if args_to_parse is not None else True,
+            )
+            # We do this after creating CliSettingsSource (which populates the parser)
+            # so the help is complete on error.
+            args = parser.parse_args(args_to_parse)
+        else:
+            args, unknown_args = parser.parse_known_args(args_to_parse)
 
         # Then we read the YAML file specified in the CLI
         # Note that by default, YamlConfigSettingsSource will ignore missing files
@@ -105,12 +116,18 @@ class TopLevelConfig(BaseSettings):
             raise FileNotFoundError(
                 f"Config file `{args.config}` (full path: {config_path}) not found"
             )
-        yaml_values = YamlConfigSettingsSource(cls, yaml_file=config_path)()
+        if HAS_PYDANTIC_SETTINGS:
+            yaml_values = YamlConfigSettingsSource(cls, yaml_file=config_path)()
+            return cls(
+                _cli_settings_source=cli_source,
+                **yaml_values,
+            )
 
-        return cls(
-            _cli_settings_source=cli_source,
-            **yaml_values,
-        )
+        with open(config_path) as f:
+            yaml_values = yaml.safe_load(f) or {}
+        cli_values = parse_cli_overrides(unknown_args)
+        merged_values = deep_update(yaml_values, cli_values)
+        return cls(**merged_values)
 
     def save_yaml(self, save_path: Path) -> None:
         """Save config to YAML file."""
@@ -131,3 +148,48 @@ class IncludeYamlCliSettingsSource(CliSettingsSource):
             with open(value[1:]) as f:
                 return yaml.safe_load(f)
         return super().decode_complex_value(field_name, field, value)
+
+
+def deep_update(base: dict[str, Any], updates: dict[str, Any]) -> dict[str, Any]:
+    """Recursively merge CLI override values into the YAML-loaded config."""
+    merged = dict(base)
+    for key, value in updates.items():
+        if (
+            key in merged
+            and isinstance(merged[key], dict)
+            and isinstance(value, dict)
+        ):
+            merged[key] = deep_update(merged[key], value)
+        else:
+            merged[key] = value
+    return merged
+
+
+def parse_cli_overrides(args: list[str]) -> dict[str, Any]:
+    """Parse `--foo.bar value` style overrides when pydantic-settings is absent."""
+    overrides: dict[str, Any] = {}
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if not arg.startswith("--"):
+            raise ValueError(f"Unexpected CLI token without flag: {arg}")
+        key = arg[2:]
+        if i + 1 >= len(args):
+            raise ValueError(f"Missing value for CLI override `{arg}`")
+        raw_value = args[i + 1]
+        if raw_value.startswith("@"):
+            with open(raw_value[1:]) as f:
+                value = yaml.safe_load(f)
+        else:
+            try:
+                value = yaml.safe_load(raw_value)
+            except yaml.YAMLError:
+                value = raw_value
+
+        cursor = overrides
+        parts = key.split(".")
+        for part in parts[:-1]:
+            cursor = cursor.setdefault(part, {})
+        cursor[parts[-1]] = value
+        i += 2
+    return overrides

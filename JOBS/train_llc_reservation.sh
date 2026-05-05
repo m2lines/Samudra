@@ -1,18 +1,18 @@
 #!/bin/bash
-#SBATCH -w node3300
-#SBATCH --reservation=rres_abodner_2026-04-14_a3sswmcp
-#SBATCH --qos=rres_qos_abodner_2026-04-14_a3sswmcp
-#SBATCH --account=rres_acc_abodner_2026-04-14_a3sswmcp
-#SBATCH --job-name=2026-04-17-Samudra_LLC:res_test_1_curriculum
+#SBATCH -w node3001
+#SBATCH --reservation=rres_abodner_2026-04-23_n9u5qb2f
+#SBATCH --qos=rres_qos_abodner_2026-04-23_n9u5qb2f
+#SBATCH --account=rres_acc_abodner_2026-04-23_n9u5qb2f
+#SBATCH --job-name=2026-04-28-Samudra_LLC:res_experiment_0_h200s_speedtest
 #SBATCH -N 1
-#SBATCH --mem=1000GB
+#SBATCH --mem=500GB
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=120
-#SBATCH -G h200:8
-#SBATCH --time=01-19:00:00
+#SBATCH --cpus-per-task=60
+#SBATCH -G h200:4
+#SBATCH --time=01-23:00:00
 #SBATCH --signal=B:USR1@300
-#SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/reservation_test/%x-%j.out
-#SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/reservation_test/%x-%j.out
+#SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/reservation_2/%x-%j.out
+#SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/reservation_2/%x-%j.out
 
 # load Python platform with PyTorch and CUDA support preinstalled
 module load miniforge/24.3.0-0
@@ -36,7 +36,7 @@ export NCCL_DEBUG=INFO
 
 # PROFILING
 export NSYS_ARGS="--trace=cuda,nvtx,osrt --sample=cpu --delay=300 --duration=120"
-NSYS_OUTPUT_DIR="/orcd/home/002/codycruz/Ocean_Emulator/logs/reservation_test/nsys"
+NSYS_OUTPUT_DIR="/orcd/home/002/codycruz/Ocean_Emulator/logs/reservation_2/nsys"
 mkdir -p "${NSYS_OUTPUT_DIR}"
 PROFILER_CMD=()
 if [[ -n "${NSYS_ARGS}" ]]; then
@@ -65,8 +65,11 @@ fi
 # KNOBS
 
 # GPUS WORKERS 
-GPUS="${GPUS:-8}"
+GPUS="${GPUS:-4}"
 DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-2}"
+PAD="${PAD:-constant}"
+NUM_HALO="${NUM_HALO:-4}"
+NUM_SPONGE="${NUM_SPONGE:-12}"
 
 # DDP
 PIN_MEM="${PIN_MEM:-false}"
@@ -83,7 +86,7 @@ LLC_J_START="${LLC_J_START:-720}"
 LLC_J_END="${LLC_J_END:-1440}"
 
 # CHECKPOINTING FINETUNING
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-}" #.LOCAL/2026-04-03-CONT:[increase-step-test-suite]-WITH_temporal_stride=6,steps=4,2011-09-14-2012-01-01-RESUME/saved_nets/ckpt.pt}"
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt}" 
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
@@ -91,7 +94,7 @@ RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
 # NAME, DIRECTORY, EPOCHS, SAVE_FREQ
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-}" # 2026-04-04-CONT:[increase-step-test-suite]-WITH_temporal_stride=6,steps=4,2012-01-01-2012-09-14-RESUME}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
-EPOCHS="${EPOCHS:-6}"
+EPOCHS="${EPOCHS:-7}"
 SAVE_FREQ="${SAVE_FREQ:-1}"
 
 # OPTIMIZATION (LR + SCHEDULER)
@@ -99,19 +102,19 @@ LEARNING_RATE="${LEARNING_RATE:-0.0006}"
 SCHEDULER_MODE="${SCHEDULER_MODE:-cosine}" # SCHEDULER_MODE: "cosine" (default) or "fixed" (no LR decay)
 # If set while using cosine, stretches LR decay over a longer horizon than EPOCHS.
 # Example: EPOCHS=6 and SCHEDULER_TARGET_EPOCHS=60 gives a much gentler decay.
-SCHEDULER_TARGET_EPOCHS="${SCHEDULER_TARGET_EPOCHS:-20}"
+SCHEDULER_TARGET_EPOCHS="${SCHEDULER_TARGET_EPOCHS:-30}"
+LR_MULTIPLIERS="${LR_MULTIPLIERS:-[1.0]}"
+LR_MULTIPLIER_TRANSITION="${LR_MULTIPLIER_TRANSITION:-[]}"
 
 # CURRICULUM
 # list knobs should be passed like "[1]" or "[1, 2, 4]".
 TEMPORAL_STRIDE="${TEMPORAL_STRIDE:-6}"
 TEMPORAL_STRIDE_TRANSITION="${TEMPORAL_STRIDE_TRANSITION:-[]}"
-STEPS="${STEPS:-[1,2,3,4]}"
-STEP_TRANSITION="${STEP_TRANSITION:-[2,3,4]}"
+STEPS="${STEPS:-[1]}"
+STEP_TRANSITION="${STEP_TRANSITION:-[]}"
 DATA_STRIDE="${DATA_STRIDE:-[6]}"
 HIST="${HIST:-1}"
 GRADIENT_DETACH_INTERVAL="${GRADIENT_DETACH_INTERVAL:-2}"
-
-
 
 
 echo "======== train ocean_emulator samudra w/ ${GPUS} gpus on LLC4320 data ========"
@@ -124,8 +127,10 @@ echo "using ddp_broadcast_buffers=${DDP_BROADCAST_BUFFERS} and ddp_timeout_minut
 echo "using ddp_max_data_workers_per_rank=${DDP_MAX_DATA_WORKERS_PER_RANK}"
 echo "using data.concurrent_compute=${CONCURRENT_COMPUTE}"
 echo "using optimization: learning_rate=${LEARNING_RATE}, scheduler_mode=${SCHEDULER_MODE}, scheduler_target_epochs=${SCHEDULER_TARGET_EPOCHS:-<default>}"
+echo "using lr multipliers: lr_multipliers=${LR_MULTIPLIERS}, lr_multiplier_transition=${LR_MULTIPLIER_TRANSITION}"
 echo "using curriculum: data_stride=${DATA_STRIDE}, temporal_stride=${TEMPORAL_STRIDE}, steps=${STEPS}, step_transition=${STEP_TRANSITION}, temporal_stride_transition=${TEMPORAL_STRIDE_TRANSITION}, hist=${HIST}, grad-detach=${GRADIENT_DETACH_INTERVAL}"
 echo "using data location: LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
+echo "using padding: pad=${PAD}, num_halo=${NUM_HALO}, num_sponge=${NUM_SPONGE}"
 
 # Optional resume behavior:
 # - RESUME_CKPT_PATH set + FINETUNE=false resumes optimizer/scheduler and starts at ckpt epoch + 1.
@@ -174,6 +179,7 @@ CURRICULUM_ARGS=(
   --data_stride "${DATA_STRIDE}"
   --temporal_stride "${TEMPORAL_STRIDE}"
   --steps "${STEPS}"
+  --lr_multipliers "${LR_MULTIPLIERS}"
   --data.hist "${HIST}"
 )
 
@@ -187,6 +193,11 @@ fi
 TEMPORAL_STRIDE_TRANSITION_COMPACT="$(echo "${TEMPORAL_STRIDE_TRANSITION}" | tr -d '[:space:]')"
 if [[ -n "${TEMPORAL_STRIDE_TRANSITION_COMPACT}" && "${TEMPORAL_STRIDE_TRANSITION_COMPACT}" != "[]" ]]; then
   CURRICULUM_ARGS+=(--temporal_stride_transition "${TEMPORAL_STRIDE_TRANSITION}")
+fi
+
+LR_MULTIPLIER_TRANSITION_COMPACT="$(echo "${LR_MULTIPLIER_TRANSITION}" | tr -d '[:space:]')"
+if [[ -n "${LR_MULTIPLIER_TRANSITION_COMPACT}" && "${LR_MULTIPLIER_TRANSITION_COMPACT}" != "[]" ]]; then
+  CURRICULUM_ARGS+=(--lr_multiplier_transition "${LR_MULTIPLIER_TRANSITION}")
 fi
 
 # Forward scheduler signals to torchrun so trainer can write emergency checkpoints.
@@ -209,6 +220,9 @@ uv run python -m torch.distributed.run \
   --epochs "${EPOCHS}" \
   "${OPTIM_ARGS[@]}" \
   "${CURRICULUM_ARGS[@]}" \
+  --model.pad "${PAD}" \
+  --model.num_halo "${NUM_HALO}" \
+  --model.num_sponge "${NUM_SPONGE}" \
   --model.gradient_detach_interval "${GRADIENT_DETACH_INTERVAL}" \
   --gradient_accumulation_steps 4 \
   --ddp_bucket_cap_mb 25 \

@@ -3,7 +3,7 @@
 checkpointing: all
 pred_residuals: true
 last_kernel_size: 3
-pad: "halo_sponge"
+pad: "constant"
 # `halo_sponge` keeps the same loaded LLC patch but reweights the outer edge:
 # halo pixels get zero loss weight, sponge pixels ramp inward toward 1.
 num_halo: 4
@@ -20,8 +20,8 @@ unet:
     kernel_size: 3
     activation: "capped_gelu"
     upscale_factor: 2
-    norm: "batch" # instance, batch, group
- #   group_norm_groups: 32
+    norm: "group" # instance, batch, group
+    group_norm_groups: 32
 
   down_sampling_block: "avg_pool"
   up_sampling_block: "bilinear_upsample"

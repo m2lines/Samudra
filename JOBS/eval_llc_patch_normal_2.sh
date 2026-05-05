@@ -1,12 +1,14 @@
 #!/bin/bash
-#SBATCH -p pi_abodner
-#SBATCH --job-name=2026-04-29-eval:Samudra_LLC:res_experiment_0_epoch8
+#SBATCH -p mit_normal_gpu
+#SBATCH --job-name=2026-04-29-eval:Samudra_LLC:res_experiment_0_epoch10_long
+#SBATCH --account=mit_amf_standard_gpu
+#SBATCH --qos=mit_amf_standard_gpu
 #SBATCH -N 1
 #SBATCH --mem=100GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
 #SBATCH --gres=gpu:1
-#SBATCH --time=00-06:00:00
+#SBATCH --time=00-03:00:00
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 
@@ -21,16 +23,12 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
-CKPT_PATH="${CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-27-Samudra_LLC:res_experiment_0/saved_nets/ckpt_8.pt}"
-EXPERIMENT_NAME="${EXPERIMENT_NAME:-2026-04-29-eval:Samudra_LLC:res_experiment_0_epoch8}"
+CKPT_PATH="${CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-27-Samudra_LLC:res_experiment_0/saved_nets/ckpt_10.pt}"
+EXPERIMENT_NAME="${EXPERIMENT_NAME:-2026-04-29-eval:Samudra_LLC:res_experiment_0_epoch10_long}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-/orcd/data/abodner/002/cody/inference_patch/res_2_4-29-26}"
 
-RAW_PRED_ZARR="${RAW_PRED_ZARR:-${BASE_OUTPUT_DIR}/${EXPERIMENT_NAME}/predictions.zarr}"
-TARGET_ZARR="${TARGET_ZARR:-${BASE_OUTPUT_DIR}/${EXPERIMENT_NAME}/predictions_4d.zarr}"
-REPACK_OVERWRITE="${REPACK_OVERWRITE:-false}"
-
 INFER_START="${INFER_START:-2012-10-01}"
-INFER_END="${INFER_END:-2012-10-04}"
+INFER_END="${INFER_END:-2012-10-16}"
 INFERENCE_STRIDE="${INFERENCE_STRIDE:-6}"
 NUM_MODEL_STEPS_FORWARD="${NUM_MODEL_STEPS_FORWARD:-2}"
 MODEL_NORM="${MODEL_NORM:-group}"

@@ -4,6 +4,88 @@ import torch
 from pydantic import BaseModel
 
 
+class EpochMultiplierScheduler:
+    """Wrap a scheduler and apply stage-wise LR multipliers by epoch."""
+
+    def __init__(
+        self,
+        optimizer: torch.optim.Optimizer,
+        scheduler: torch.optim.lr_scheduler.LRScheduler | None,
+        multipliers: list[float],
+        transition_epochs: list[int],
+        *,
+        current_epoch: int = 1,
+        apply_initial_multiplier: bool = True,
+    ) -> None:
+        assert len(multipliers) == len(transition_epochs) + 1
+        self.optimizer = optimizer
+        self.scheduler = scheduler
+        self.multipliers = [float(m) for m in multipliers]
+        self.transition_epochs = transition_epochs
+        self.current_epoch = current_epoch
+        self.applied_multiplier = 1.0
+
+        if apply_initial_multiplier:
+            self._apply_multiplier_for_epoch(self.current_epoch)
+
+    def _multiplier_for_epoch(self, epoch: int) -> float:
+        for i, epoch_to_transition in enumerate(self.transition_epochs):
+            if epoch < epoch_to_transition:
+                return self.multipliers[i]
+        return self.multipliers[-1]
+
+    def _scale_optimizer_lr(self, factor: float) -> None:
+        for param_group in self.optimizer.param_groups:
+            param_group["lr"] *= factor
+
+    def _apply_multiplier_for_epoch(self, epoch: int) -> None:
+        target_multiplier = self._multiplier_for_epoch(epoch)
+        factor = target_multiplier / self.applied_multiplier
+        self._scale_optimizer_lr(factor)
+        self.applied_multiplier = target_multiplier
+        self.current_epoch = epoch
+
+    def step(self) -> None:
+        if self.applied_multiplier != 1.0:
+            self._scale_optimizer_lr(1.0 / self.applied_multiplier)
+            self.applied_multiplier = 1.0
+
+        if self.scheduler is not None:
+            self.scheduler.step()
+
+        self._apply_multiplier_for_epoch(self.current_epoch + 1)
+
+    def get_last_lr(self) -> list[float]:
+        return [group["lr"] for group in self.optimizer.param_groups]
+
+    def state_dict(self) -> dict:
+        return {
+            "wrapped_scheduler": "epoch_multiplier",
+            "scheduler_state": (
+                self.scheduler.state_dict() if self.scheduler is not None else None
+            ),
+            "current_epoch": self.current_epoch,
+            "applied_multiplier": self.applied_multiplier,
+        }
+
+    def load_state_dict(self, state_dict: dict) -> None:
+        if state_dict.get("wrapped_scheduler") == "epoch_multiplier":
+            scheduler_state = state_dict.get("scheduler_state")
+            if self.scheduler is not None and scheduler_state is not None:
+                self.scheduler.load_state_dict(scheduler_state)
+            self.current_epoch = state_dict["current_epoch"]
+            self.applied_multiplier = state_dict["applied_multiplier"]
+            return
+
+        if self.scheduler is not None:
+            self.scheduler.load_state_dict(state_dict)
+            self.current_epoch = int(state_dict.get("last_epoch", 0)) + 1
+        else:
+            self.current_epoch = 1
+        self.applied_multiplier = 1.0
+        self._apply_multiplier_for_epoch(self.current_epoch)
+
+
 class CosineSchedulerConfig(BaseModel):
     """Cosine scheduler; see pytorch CosineAnnealingLR."""
 

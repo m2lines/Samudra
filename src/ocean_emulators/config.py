@@ -47,6 +47,7 @@ from ocean_emulators.utils.loss import (
     GradientLoss,
     LossFn,
     LossMetric,
+    WeightedLoss,
     build_halo_sponge_spatial_weight,
     loss_fn_from_metric,
 )
@@ -849,6 +850,11 @@ class DynamicLossConfig(pydantic.BaseModel):
     )
 
 
+class WeightedLossConfig(pydantic.BaseModel):
+    type: Literal["weighted"] = "weighted"
+    metric: LossMetric = "mse"
+
+
 class GradientLossConfig(pydantic.BaseModel):
     type: Literal["gradient"] = "gradient"
     # at the moment this metric is only used for the non-gradient loss
@@ -863,7 +869,7 @@ class GradientLossConfig(pydantic.BaseModel):
     )
 
 
-Loss = LossMetric | DynamicLossConfig | GradientLossConfig
+Loss = LossMetric | DynamicLossConfig | WeightedLossConfig | GradientLossConfig
 
 
 def build_loss_fn(
@@ -905,6 +911,19 @@ def build_loss_fn(
             return DynamicLoss(
                 loss_fn=loss_fn,
                 limit=limit,
+                device=device,
+                num_channels=num_channels,
+            )
+        case WeightedLossConfig(metric=metric):
+            loss_fn = loss_fn_from_metric(
+                metric,
+                wet=wet,
+                y_coord=y_coord,
+                device=device,
+                spatial_weight=spatial_weight,
+            )
+            return WeightedLoss(
+                loss_fn=loss_fn,
                 device=device,
                 num_channels=num_channels,
             )
@@ -1014,6 +1033,8 @@ class TrainConfig(TopLevelConfig):
     )
     steps: list[int] = [4]
     step_transition: list[int] = []
+    lr_multipliers: list[float] = [1.0]
+    lr_multiplier_transition: list[int] = []
     temporal_stride_transition: list[int] = []
     inference_epochs: list[int] = [-1]
     train_time: TimeConfig = TimeConfig(

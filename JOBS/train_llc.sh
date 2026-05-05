@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-04-22-Samudra_LLC:config_tests_experiment_4_halo_sponge
+#SBATCH --job-name=2026-05-4-Samudra_LLC:uncompressed-cache_speed-test
 #SBATCH -N 1
-#SBATCH --mem=500GB
+#SBATCH --mem=375GB
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=60
-#SBATCH --gres=gpu:4
-#SBATCH --time=01-0:00:00
+#SBATCH --cpus-per-task=45
+#SBATCH --gres=gpu:3
+#SBATCH --time=06-0:00:00
 #SBATCH --signal=B:USR1@300
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
@@ -18,8 +18,10 @@ module load cuda/13.1.0
 # cd to correct directory
 cd /orcd/home/002/codycruz/Ocean_Emulator
 
-# activate uv environment for ocean_emulator
-uv sync --dev
+# Use the already-built project environment directly instead of `uv run`, which
+# still mutates the shared `.venv` on this filesystem even with `--no-sync`.
+PROJECT_SITE_PACKAGES="/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib/python3.11/site-packages"
+export PYTHONPATH="/orcd/home/002/codycruz/Ocean_Emulator/src:${PROJECT_SITE_PACKAGES}${PYTHONPATH:+:${PYTHONPATH}}"
 
 # reduce data fragmentation
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -62,9 +64,9 @@ fi
 # KNOBS
 
 # GPUS WORKERS 
-GPUS="${GPUS:-4}"
-DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-2}"
-PAD="${PAD:-halo_sponge}"
+GPUS="${GPUS:-3}"
+DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-6}"
+PAD="${PAD:-constant}"
 NUM_HALO="${NUM_HALO:-4}"
 NUM_SPONGE="${NUM_SPONGE:-12}"
 
@@ -83,7 +85,7 @@ LLC_J_START="${LLC_J_START:-720}"
 LLC_J_END="${LLC_J_END:-1440}"
 
 # CHECKPOINTING FINETUNING
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-}" #.LOCAL/2026-04-03-CONT:[increase-step-test-suite]-WITH_temporal_stride=6,steps=4,2011-09-14-2012-01-01-RESUME/saved_nets/ckpt.pt}"
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-}" #/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
@@ -100,6 +102,8 @@ SCHEDULER_MODE="${SCHEDULER_MODE:-cosine}" # SCHEDULER_MODE: "cosine" (default) 
 # If set while using cosine, stretches LR decay over a longer horizon than EPOCHS.
 # Example: EPOCHS=6 and SCHEDULER_TARGET_EPOCHS=60 gives a much gentler decay.
 SCHEDULER_TARGET_EPOCHS="${SCHEDULER_TARGET_EPOCHS:-30}"
+LR_MULTIPLIERS="${LR_MULTIPLIERS:-[1.0]}"
+LR_MULTIPLIER_TRANSITION="${LR_MULTIPLIER_TRANSITION:-[]}"
 
 # CURRICULUM
 # list knobs should be passed like "[1]" or "[1, 2, 4]".
@@ -109,7 +113,7 @@ STEPS="${STEPS:-[1]}"
 STEP_TRANSITION="${STEP_TRANSITION:-[]}"
 DATA_STRIDE="${DATA_STRIDE:-[6]}"
 HIST="${HIST:-1}"
-GRADIENT_DETACH_INTERVAL="${GRADIENT_DETACH_INTERVAL:-4}"
+GRADIENT_DETACH_INTERVAL="${GRADIENT_DETACH_INTERVAL:-2}"
 
 
 
@@ -124,6 +128,7 @@ echo "using ddp_broadcast_buffers=${DDP_BROADCAST_BUFFERS} and ddp_timeout_minut
 echo "using ddp_max_data_workers_per_rank=${DDP_MAX_DATA_WORKERS_PER_RANK}"
 echo "using data.concurrent_compute=${CONCURRENT_COMPUTE}"
 echo "using optimization: learning_rate=${LEARNING_RATE}, scheduler_mode=${SCHEDULER_MODE}, scheduler_target_epochs=${SCHEDULER_TARGET_EPOCHS:-<default>}"
+echo "using lr multipliers: lr_multipliers=${LR_MULTIPLIERS}, lr_multiplier_transition=${LR_MULTIPLIER_TRANSITION}"
 echo "using curriculum: data_stride=${DATA_STRIDE}, temporal_stride=${TEMPORAL_STRIDE}, steps=${STEPS}, step_transition=${STEP_TRANSITION}, temporal_stride_transition=${TEMPORAL_STRIDE_TRANSITION}, hist=${HIST}, grad-detach=${GRADIENT_DETACH_INTERVAL}"
 echo "using data location: LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
 echo "using padding: pad=${PAD}, num_halo=${NUM_HALO}, num_sponge=${NUM_SPONGE}"
@@ -175,6 +180,7 @@ CURRICULUM_ARGS=(
   --data_stride "${DATA_STRIDE}"
   --temporal_stride "${TEMPORAL_STRIDE}"
   --steps "${STEPS}"
+  --lr_multipliers "${LR_MULTIPLIERS}"
   --data.hist "${HIST}"
 )
 
@@ -190,6 +196,11 @@ if [[ -n "${TEMPORAL_STRIDE_TRANSITION_COMPACT}" && "${TEMPORAL_STRIDE_TRANSITIO
   CURRICULUM_ARGS+=(--temporal_stride_transition "${TEMPORAL_STRIDE_TRANSITION}")
 fi
 
+LR_MULTIPLIER_TRANSITION_COMPACT="$(echo "${LR_MULTIPLIER_TRANSITION}" | tr -d '[:space:]')"
+if [[ -n "${LR_MULTIPLIER_TRANSITION_COMPACT}" && "${LR_MULTIPLIER_TRANSITION_COMPACT}" != "[]" ]]; then
+  CURRICULUM_ARGS+=(--lr_multiplier_transition "${LR_MULTIPLIER_TRANSITION}")
+fi
+
 # Forward scheduler signals to torchrun so trainer can write emergency checkpoints.
 TRAIN_PID=""
 forward_signal() {
@@ -203,7 +214,7 @@ trap 'forward_signal USR1' USR1
 trap 'forward_signal TERM' TERM
 trap 'forward_signal INT' INT
 
-uv run python -m torch.distributed.run \
+python3.11 -m torch.distributed.run \
   --standalone --nnodes=1 --nproc_per_node="${GPUS}" \
   -m ocean_emulators.train configs/samudra_llc/train.yaml \
   --save_freq "${SAVE_FREQ}" \

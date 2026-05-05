@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import xarray as xr
 from jaxtyping import Float
 
-from ocean_emulators.constants import Grid
+from ocean_emulators.constants import Grid, TensorMap
 from ocean_emulators.models.modules.padding import resolved_x_pad_mode
 
 LossFn = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
@@ -351,6 +351,56 @@ class DynamicLoss:
         """Load state from ``state_dict``."""
         if "per_channel_scale" in state:
             self._per_channel_scale = state["per_channel_scale"].to(self._device)
+
+
+class WeightedLoss:
+    """A loss wrapper with fixed per-channel weights."""
+
+    def __init__(
+        self,
+        loss_fn: LossFn,
+        *,
+        device: torch.device,
+        num_channels: int,
+    ):
+        self.loss_fn = loss_fn
+        tensor_map = TensorMap.get_instance()
+        if len(tensor_map.prognostic_var_names) != num_channels:
+            raise ValueError(
+                "WeightedLoss expected one static weight per prognostic channel."
+            )
+
+        weights = []
+        for channel_name in tensor_map.prognostic_var_names:
+            var_name = channel_name.split("_")[0]
+            if var_name in {"U", "V"}:
+                weights.append(1.0)
+            elif var_name in {"Theta", "Salt", "Eta"}:
+                weights.append(1.5)
+            else:
+                raise ValueError(
+                    f"WeightedLoss does not have a default static weight for {var_name}."
+                )
+        self._per_channel_scale: Float[torch.Tensor, " var"] = torch.tensor(
+            weights, device=device, dtype=torch.float32
+        )
+
+    def __call__(
+        self,
+        pred: Float[torch.Tensor, "batch hist*var lat lon"],
+        target: Float[torch.Tensor, "batch hist*var lat lon"],
+    ) -> Float[torch.Tensor, " hist*var"]:
+        loss_with_history_channels: Float[torch.Tensor, " hist*var"] = self.loss_fn(
+            pred, target
+        )
+        scaled_loss_including_history_dimension: Float[torch.Tensor, "hist var"] = (
+            loss_with_history_channels.reshape(-1, self._per_channel_scale.shape[0])
+            * self._per_channel_scale
+        )
+        return scaled_loss_including_history_dimension.reshape(-1)
+
+    def loss_scale_per_channel(self) -> Float[torch.Tensor, " var"]:
+        return self._per_channel_scale
 
 
 class GradientLoss:

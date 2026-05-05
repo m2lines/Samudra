@@ -23,6 +23,7 @@ from torch.utils.data import (
     DistributedSampler,
     RandomSampler,
     Sampler,
+    SequentialSampler,
 )
 
 from ocean_emulators import config
@@ -465,7 +466,9 @@ class Trainer:
             )
             self.ddp_use_no_sync_for_accumulation = False
         self.num_workers: int = cfg.data.num_workers
+        self.prefetch_factor: int = cfg.data.prefetch_factor
         self.pin_mem: bool = cfg.pin_mem
+        self.train_shuffle: bool = cfg.data.train_shuffle
         self.train_time: config.TimeConfig = cfg.train_time
         self.val_time = cfg.val_time
         self.inference_times = cfg.inference_times
@@ -484,7 +487,7 @@ class Trainer:
             self.init_inference_stores()
 
         # Add type annotations for samplers
-        self.train_sampler: DistributedSampler | RandomSampler
+        self.train_sampler: DistributedSampler | RandomSampler | SequentialSampler
         self.val_sampler: DistributedSampler | RandomSampler
         self.inference_sampler: DistributedSampler | RandomSampler
 
@@ -733,7 +736,11 @@ class Trainer:
                 r = self.gradient_accumulation_steps
 
             if self.num_batches_seen == 0:
-                get_model_summary(self.model, data, self.debug)
+                get_model_summary(
+                    self.model,
+                    data if self.debug else None,
+                    self.debug,
+                )
 
             is_last = global_data_iter_step + 1 == total_batches
             should_step = (
@@ -1127,10 +1134,17 @@ class Trainer:
         logger.info("Instantiating torch loaders")
 
         if self.distributed is not None:
-            self.train_sampler = DistributedSampler(train_data, shuffle=True)
+            self.train_sampler = DistributedSampler(
+                train_data,
+                shuffle=self.train_shuffle,
+            )
             self.val_sampler = DistributedSampler(val_data, shuffle=False)
         else:
-            self.train_sampler = RandomSampler(train_data)  # type: ignore
+            self.train_sampler = (
+                RandomSampler(train_data)
+                if self.train_shuffle
+                else SequentialSampler(train_data)
+            )  # type: ignore
             self.val_sampler = RandomSampler(val_data)  # type: ignore
 
         match self.loader_version:
@@ -1143,27 +1157,32 @@ class Trainer:
                 )
 
         # Create data loaders
-        train_dataloader = DataLoader(
-            train_data,
-            batch_size=self.batch_size,
-            sampler=self.train_sampler,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_mem,
-            drop_last=True,
-            collate_fn=collate_fn,
-            multiprocessing_context=self.mp_context,
-        )
+        train_loader_kwargs: dict[str, Any] = {
+            "dataset": train_data,
+            "batch_size": self.batch_size,
+            "sampler": self.train_sampler,
+            "num_workers": self.num_workers,
+            "pin_memory": self.pin_mem,
+            "drop_last": True,
+            "collate_fn": collate_fn,
+            "multiprocessing_context": self.mp_context,
+        }
+        val_loader_kwargs: dict[str, Any] = {
+            "dataset": val_data,
+            "batch_size": self.batch_size,
+            "sampler": self.val_sampler,
+            "num_workers": self.num_workers,
+            "pin_memory": self.pin_mem,
+            "drop_last": False,
+            "collate_fn": collate_fn,
+            "multiprocessing_context": self.mp_context,
+        }
+        if self.num_workers > 0:
+            train_loader_kwargs["prefetch_factor"] = self.prefetch_factor
+            val_loader_kwargs["prefetch_factor"] = self.prefetch_factor
 
-        val_dataloader = DataLoader(
-            val_data,
-            batch_size=self.batch_size,
-            sampler=self.val_sampler,
-            num_workers=self.num_workers,
-            pin_memory=self.pin_mem,
-            drop_last=False,
-            collate_fn=collate_fn,
-            multiprocessing_context=self.mp_context,
-        )
+        train_dataloader = DataLoader(**train_loader_kwargs)
+        val_dataloader = DataLoader(**val_loader_kwargs)
 
         # Wrap dataloaders to handle GPU post-processing
         self.train_loader = TrainDataLoader(

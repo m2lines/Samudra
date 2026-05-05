@@ -66,12 +66,14 @@ fi
 # GPUS WORKERS 
 GPUS="${GPUS:-3}"
 DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-6}"
+DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-4}"
+TRAIN_SHUFFLE="${TRAIN_SHUFFLE:-true}"
 PAD="${PAD:-constant}"
 NUM_HALO="${NUM_HALO:-4}"
 NUM_SPONGE="${NUM_SPONGE:-12}"
 
 # DDP
-PIN_MEM="${PIN_MEM:-false}"
+PIN_MEM="${PIN_MEM:-true}"
 DDP_BROADCAST_BUFFERS="${DDP_BROADCAST_BUFFERS:-false}"
 DDP_TIMEOUT_MINUTES="${DDP_TIMEOUT_MINUTES:-300}"
 DDP_MAX_DATA_WORKERS_PER_RANK="${DDP_MAX_DATA_WORKERS_PER_RANK:-12}"
@@ -83,6 +85,7 @@ LLC_I_START="${LLC_I_START:-2880}"
 LLC_I_END="${LLC_I_END:-3600}"
 LLC_J_START="${LLC_J_START:-720}"
 LLC_J_END="${LLC_J_END:-1440}"
+DATA_LOCATION_OVERRIDE="${DATA_LOCATION_OVERRIDE:-}"
 
 # CHECKPOINTING FINETUNING
 RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-}" #/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt
@@ -124,6 +127,7 @@ echo "using ${DATA_NUM_WORKERS} data workers and ${PIN_MEM} pin memory"
 if [[ "${GPUS}" -gt 0 ]]; then
   echo "effective workers per rank (after trainer scaling): $((DATA_NUM_WORKERS / GPUS))"
 fi
+echo "using data.prefetch_factor=${DATA_PREFETCH_FACTOR} and data.train_shuffle=${TRAIN_SHUFFLE}"
 echo "using ddp_broadcast_buffers=${DDP_BROADCAST_BUFFERS} and ddp_timeout_minutes=${DDP_TIMEOUT_MINUTES}"
 echo "using ddp_max_data_workers_per_rank=${DDP_MAX_DATA_WORKERS_PER_RANK}"
 echo "using data.concurrent_compute=${CONCURRENT_COMPUTE}"
@@ -132,6 +136,9 @@ echo "using lr multipliers: lr_multipliers=${LR_MULTIPLIERS}, lr_multiplier_tran
 echo "using curriculum: data_stride=${DATA_STRIDE}, temporal_stride=${TEMPORAL_STRIDE}, steps=${STEPS}, step_transition=${STEP_TRANSITION}, temporal_stride_transition=${TEMPORAL_STRIDE_TRANSITION}, hist=${HIST}, grad-detach=${GRADIENT_DETACH_INTERVAL}"
 echo "using data location: LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
 echo "using padding: pad=${PAD}, num_halo=${NUM_HALO}, num_sponge=${NUM_SPONGE}"
+if [[ -n "${DATA_LOCATION_OVERRIDE}" ]]; then
+  echo "overriding data.data_location=${DATA_LOCATION_OVERRIDE}"
+fi
 
 # Optional resume behavior:
 # - RESUME_CKPT_PATH set + FINETUNE=false resumes optimizer/scheduler and starts at ckpt epoch + 1.
@@ -184,6 +191,11 @@ CURRICULUM_ARGS=(
   --data.hist "${HIST}"
 )
 
+DATA_OVERRIDE_ARGS=()
+if [[ -n "${DATA_LOCATION_OVERRIDE}" ]]; then
+  DATA_OVERRIDE_ARGS+=(--data.data_location "${DATA_LOCATION_OVERRIDE}")
+fi
+
 # pydantic-settings parses `--some_list "[]"` as `[""]` for list[int] fields.
 # Omit transition flags entirely when they are empty; YAML defaults remain [].
 STEP_TRANSITION_COMPACT="$(echo "${STEP_TRANSITION}" | tr -d '[:space:]')"
@@ -232,6 +244,8 @@ python3.11 -m torch.distributed.run \
   --ddp_timeout_minutes "${DDP_TIMEOUT_MINUTES}" \
   --ddp_max_data_workers_per_rank "${DDP_MAX_DATA_WORKERS_PER_RANK}" \
   --data.num_workers "${DATA_NUM_WORKERS}" \
+  --data.prefetch_factor "${DATA_PREFETCH_FACTOR}" \
+  --data.train_shuffle "${TRAIN_SHUFFLE}" \
   --data.concurrent_compute "${CONCURRENT_COMPUTE}" \
   --pin_mem "${PIN_MEM}" \
   --data.llc_face "${LLC_FACE}" \
@@ -240,6 +254,7 @@ python3.11 -m torch.distributed.run \
   --data.llc_j_start "${LLC_J_START}" \
   --data.llc_j_end "${LLC_J_END}" \
   --experiment.data_root "/orcd/data/abodner/" \
+  "${DATA_OVERRIDE_ARGS[@]}" \
   "${RESUME_ARGS[@]}" \
   "${EXPERIMENT_ARGS[@]}" &
 

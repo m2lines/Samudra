@@ -3,6 +3,7 @@
 import contextlib
 import dataclasses
 import datetime
+import json
 from collections.abc import Generator
 
 import cftime
@@ -19,6 +20,8 @@ from torch.utils.data import ConcatDataset, DataLoader
 from ocean_emulators.config import TimeConfig, TrainConfig
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
+    DEPTH_I_LEVELS,
+    DEPTH_LEVELS,
     PROGNOSTIC_VARS,
     LoaderVersion,
     TensorMap,
@@ -29,7 +32,12 @@ from ocean_emulators.datasets import (
     TrainData,
     TrainDataLoader,
 )
-from ocean_emulators.utils.data import DataSource, Masks, Normalize
+from ocean_emulators.utils.data import (
+    PACKED_CACHE_FORMAT,
+    DataSource,
+    Masks,
+    Normalize,
+)
 from ocean_emulators.utils.multiton import MultitonScope
 from ocean_emulators.utils.train import collate_raw_train_data
 from tests.conftest import DEFAULT_CONFIG, DataSourceDims, TrainPair, cache_dir
@@ -197,6 +205,322 @@ def test_torch_train_dataset_temporal_stride_subsamples_window_starts() -> None:
     second_start = int(every_other._get_x_index(1, step=0).values[0])
     third_start = int(every_other._get_x_index(2, step=0).values[0])
     assert (first_start, second_start, third_start) == (0, 2, 4)
+
+
+def test_torch_train_dataset_compact_llc_like_loader_matches_flat() -> None:
+    levels = len(DEPTH_I_LEVELS)
+    time = np.arange(4)
+    lat = [0.0]
+    lon = [0.0]
+    lev = np.asarray(DEPTH_LEVELS, dtype=np.float32)
+
+    def make_3d(offset: float) -> np.ndarray:
+        base = np.arange(time.size * levels, dtype=np.float32).reshape(
+            time.size, levels, 1, 1
+        )
+        return base + offset
+
+    compact_data = xr.Dataset(
+        {
+            "U": (["time", "lev", "lat", "lon"], make_3d(0.0)),
+            "V": (["time", "lev", "lat", "lon"], make_3d(1000.0)),
+            "Theta": (["time", "lev", "lat", "lon"], make_3d(2000.0)),
+            "Salt": (["time", "lev", "lat", "lon"], make_3d(3000.0)),
+            "Eta": (
+                ["time", "lat", "lon"],
+                np.arange(time.size, dtype=np.float32).reshape(time.size, 1, 1),
+            ),
+            "oceTAUX": (
+                ["time", "lat", "lon"],
+                (10.0 + np.arange(time.size, dtype=np.float32)).reshape(time.size, 1, 1),
+            ),
+            "oceTAUY": (
+                ["time", "lat", "lon"],
+                (20.0 + np.arange(time.size, dtype=np.float32)).reshape(time.size, 1, 1),
+            ),
+            "oceQnet": (
+                ["time", "lat", "lon"],
+                (30.0 + np.arange(time.size, dtype=np.float32)).reshape(time.size, 1, 1),
+            ),
+            "wetmask": (
+                ["lev", "lat", "lon"],
+                np.ones((levels, 1, 1), dtype=bool),
+            ),
+        },
+        coords={"time": time, "lev": lev, "lat": lat, "lon": lon},
+    )
+    compact_means = compact_data.drop_vars("wetmask").mean("time", keep_attrs=True)
+    compact_stds = xr.zeros_like(compact_means, dtype=np.float32) + 1.0
+
+    flat_data = compact_data.drop_vars("wetmask").copy()
+    for var_name in ["U", "V", "Theta", "Salt"]:
+        data_array = flat_data[var_name]
+        for level_index in range(levels):
+            flat_data[f"{var_name}_{level_index}"] = data_array.isel(lev=level_index)
+        flat_data = flat_data.drop_vars(var_name)
+    flat_data["wetmask"] = compact_data["wetmask"]
+
+    flat_means = compact_means.drop_vars(["U", "V", "Theta", "Salt"]).copy()
+    flat_stds = compact_stds.drop_vars(["U", "V", "Theta", "Salt"]).copy()
+    for var_name in ["U", "V", "Theta", "Salt"]:
+        data_array = compact_means[var_name]
+        std_array = compact_stds[var_name]
+        for level_index in range(levels):
+            flat_means[f"{var_name}_{level_index}"] = data_array.isel(lev=level_index)
+            flat_stds[f"{var_name}_{level_index}"] = std_array.isel(lev=level_index)
+
+    prognostic = PROGNOSTIC_VARS["all"]
+    boundary = BOUNDARY_VARS["all"]
+
+    compact_src = DataSource.from_datasets(
+        compact_data,
+        compact_means,
+        compact_stds,
+        name="compact_llc_like",
+        prognostic_var_names=prognostic,
+        boundary_var_names=boundary,
+    )
+    flat_src = DataSource.from_datasets(
+        flat_data,
+        flat_means,
+        flat_stds,
+        name="flat_llc_like",
+        prognostic_var_names=prognostic,
+        boundary_var_names=boundary,
+    )
+
+    compact_dataset = TorchTrainDataset(
+        src=compact_src,
+        prognostic_var_names=prognostic,
+        boundary_var_names=boundary,
+        hist=1,
+        steps=1,
+        normalize_before_mask=True,
+        masked_fill_value=0.0,
+        stride=1,
+        temporal_stride=1,
+    )
+    flat_dataset = TorchTrainDataset(
+        src=flat_src,
+        prognostic_var_names=prognostic,
+        boundary_var_names=boundary,
+        hist=1,
+        steps=1,
+        normalize_before_mask=True,
+        masked_fill_value=0.0,
+        stride=1,
+        temporal_stride=1,
+    )
+
+    compact_sample = compact_dataset.to_train_data(
+        collate_raw_train_data([compact_dataset[0]])
+    )
+    flat_sample = flat_dataset.to_train_data(
+        collate_raw_train_data([flat_dataset[0]])
+    )
+
+    compact_input, compact_label = extract_sample_arrays(compact_sample)
+    flat_input, flat_label = extract_sample_arrays(flat_sample)
+
+    np.testing.assert_allclose(compact_input, flat_input)
+    np.testing.assert_allclose(compact_label, flat_label)
+
+
+def test_torch_train_dataset_packed_llc_like_loader_matches_flat() -> None:
+    levels = len(DEPTH_I_LEVELS)
+    time = np.arange(4)
+    lat = [0.0]
+    lon = [0.0]
+    lev = np.asarray(DEPTH_LEVELS, dtype=np.float32)
+
+    def make_3d(offset: float) -> np.ndarray:
+        base = np.arange(time.size * levels, dtype=np.float32).reshape(
+            time.size, levels, 1, 1
+        )
+        return base + offset
+
+    compact_data = xr.Dataset(
+        {
+            "U": (["time", "lev", "lat", "lon"], make_3d(0.0)),
+            "V": (["time", "lev", "lat", "lon"], make_3d(1000.0)),
+            "Theta": (["time", "lev", "lat", "lon"], make_3d(2000.0)),
+            "Salt": (["time", "lev", "lat", "lon"], make_3d(3000.0)),
+            "Eta": (
+                ["time", "lat", "lon"],
+                np.arange(time.size, dtype=np.float32).reshape(time.size, 1, 1),
+            ),
+            "oceTAUX": (
+                ["time", "lat", "lon"],
+                (10.0 + np.arange(time.size, dtype=np.float32)).reshape(time.size, 1, 1),
+            ),
+            "oceTAUY": (
+                ["time", "lat", "lon"],
+                (20.0 + np.arange(time.size, dtype=np.float32)).reshape(time.size, 1, 1),
+            ),
+            "oceQnet": (
+                ["time", "lat", "lon"],
+                (30.0 + np.arange(time.size, dtype=np.float32)).reshape(time.size, 1, 1),
+            ),
+            "wetmask": (
+                ["lev", "lat", "lon"],
+                np.ones((levels, 1, 1), dtype=bool),
+            ),
+        },
+        coords={"time": time, "lev": lev, "lat": lat, "lon": lon},
+    )
+    compact_means = compact_data.drop_vars("wetmask").mean("time", keep_attrs=True)
+    compact_stds = xr.zeros_like(compact_means, dtype=np.float32) + 1.0
+
+    flat_data = compact_data.drop_vars("wetmask").copy()
+    for var_name in ["U", "V", "Theta", "Salt"]:
+        data_array = flat_data[var_name]
+        for level_index in range(levels):
+            flat_data[f"{var_name}_{level_index}"] = data_array.isel(lev=level_index)
+        flat_data = flat_data.drop_vars(var_name)
+    flat_data["wetmask"] = compact_data["wetmask"]
+
+    flat_means = compact_means.drop_vars(["U", "V", "Theta", "Salt"]).copy()
+    flat_stds = compact_stds.drop_vars(["U", "V", "Theta", "Salt"]).copy()
+    for var_name in ["U", "V", "Theta", "Salt"]:
+        data_array = compact_means[var_name]
+        std_array = compact_stds[var_name]
+        for level_index in range(levels):
+            flat_means[f"{var_name}_{level_index}"] = data_array.isel(lev=level_index)
+            flat_stds[f"{var_name}_{level_index}"] = std_array.isel(lev=level_index)
+
+    prognostic = PROGNOSTIC_VARS["all"]
+    boundary = BOUNDARY_VARS["all"]
+
+    def channel_data(ds: xr.Dataset, channel_name: str) -> xr.DataArray:
+        if channel_name in ds:
+            return ds[channel_name]
+        base_name, level_index = channel_name.rsplit("_", 1)
+        return ds[base_name].isel(lev=int(level_index), drop=True)
+
+    packed_prognostic = xr.concat(
+        [channel_data(compact_data, name) for name in prognostic],
+        dim="prognostic_channel",
+    ).transpose("time", "prognostic_channel", "lat", "lon")
+    packed_boundary = xr.concat(
+        [channel_data(compact_data, name) for name in boundary],
+        dim="boundary_channel",
+    ).transpose("time", "boundary_channel", "lat", "lon")
+    packed_prognostic_mean = xr.DataArray(
+        np.asarray(
+            [channel_data(compact_means, name).item() for name in prognostic],
+            dtype=np.float32,
+        ),
+        dims=("prognostic_channel",),
+    )
+    packed_prognostic_std = xr.DataArray(
+        np.asarray(
+            [channel_data(compact_stds, name).item() for name in prognostic],
+            dtype=np.float32,
+        ),
+        dims=("prognostic_channel",),
+    )
+    packed_boundary_mean = xr.DataArray(
+        np.asarray(
+            [channel_data(compact_means, name).item() for name in boundary],
+            dtype=np.float32,
+        ),
+        dims=("boundary_channel",),
+    )
+    packed_boundary_std = xr.DataArray(
+        np.asarray(
+            [channel_data(compact_stds, name).item() for name in boundary],
+            dtype=np.float32,
+        ),
+        dims=("boundary_channel",),
+    )
+    packed_prognostic_mask = xr.DataArray(
+        np.stack(
+            [
+                compact_data["wetmask"].isel(lev=int(name.rsplit("_", 1)[1])).to_numpy()
+                if "_" in name
+                else compact_data["wetmask"].isel(lev=0).to_numpy()
+                for name in prognostic
+            ],
+            axis=0,
+        ),
+        dims=("prognostic_channel", "lat", "lon"),
+    )
+    packed_boundary_mask = xr.DataArray(
+        np.stack(
+            [compact_data["wetmask"].isel(lev=0).to_numpy() for _ in boundary],
+            axis=0,
+        ),
+        dims=("boundary_channel", "lat", "lon"),
+    )
+    packed_data = xr.Dataset(
+        {
+            "prognostic": packed_prognostic,
+            "boundary": packed_boundary,
+            "prognostic_mean": packed_prognostic_mean,
+            "prognostic_std": packed_prognostic_std,
+            "boundary_mean": packed_boundary_mean,
+            "boundary_std": packed_boundary_std,
+            "prognostic_mask": packed_prognostic_mask,
+            "boundary_mask": packed_boundary_mask,
+        },
+        coords={"time": time, "lat": lat, "lon": lon},
+        attrs={
+            "cache_format": PACKED_CACHE_FORMAT,
+            "prognostic_channel_names_json": json.dumps(prognostic),
+            "boundary_channel_names_json": json.dumps(boundary),
+        },
+    )
+
+    packed_src = DataSource.from_packed_dataset(
+        packed_data,
+        prognostic_var_names=prognostic,
+        boundary_var_names=boundary,
+        name="packed_llc_like",
+    )
+    flat_src = DataSource.from_datasets(
+        flat_data,
+        flat_means,
+        flat_stds,
+        name="flat_llc_like",
+        prognostic_var_names=prognostic,
+        boundary_var_names=boundary,
+    )
+
+    packed_dataset = TorchTrainDataset(
+        src=packed_src,
+        prognostic_var_names=prognostic,
+        boundary_var_names=boundary,
+        hist=1,
+        steps=1,
+        normalize_before_mask=True,
+        masked_fill_value=0.0,
+        stride=1,
+        temporal_stride=1,
+    )
+    flat_dataset = TorchTrainDataset(
+        src=flat_src,
+        prognostic_var_names=prognostic,
+        boundary_var_names=boundary,
+        hist=1,
+        steps=1,
+        normalize_before_mask=True,
+        masked_fill_value=0.0,
+        stride=1,
+        temporal_stride=1,
+    )
+
+    packed_sample = packed_dataset.to_train_data(
+        collate_raw_train_data([packed_dataset[0]])
+    )
+    flat_sample = flat_dataset.to_train_data(
+        collate_raw_train_data([flat_dataset[0]])
+    )
+
+    packed_input, packed_label = extract_sample_arrays(packed_sample)
+    flat_input, flat_label = extract_sample_arrays(flat_sample)
+
+    np.testing.assert_allclose(packed_input, flat_input)
+    np.testing.assert_allclose(packed_label, flat_label)
 
 
 def vector_of(max_vec_size: int, min_vec_size=1):

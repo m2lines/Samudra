@@ -1,4 +1,5 @@
 import dataclasses
+import json
 import logging
 import re
 from collections import defaultdict
@@ -38,6 +39,7 @@ from ocean_emulators.utils.location import ResolvedLocation
 from ocean_emulators.utils.multiton import Multiton
 
 logger = logging.getLogger(__name__)
+PACKED_CACHE_FORMAT = "llc-train-ready-v1"
 
 
 def _var_name_encode_level(var_name: str) -> bool:
@@ -46,12 +48,58 @@ def _var_name_encode_level(var_name: str) -> bool:
     return bool(var_name_encodes_level.search(var_name))
 
 
+def _base_var_name(var_name: str) -> str:
+    if not _var_name_encode_level(var_name):
+        return var_name
+    return var_name.rsplit("_", 1)[0]
+
+
 def _is_compact(data: xr.Dataset, means: xr.Dataset, stds: xr.Dataset) -> bool:
     return all(
         not _var_name_encode_level(str(v))
         for d in [data, means, stds]
         for v in d.keys()
     )
+
+
+def _is_packed_train_ready(data: xr.Dataset) -> bool:
+    required = {
+        "prognostic",
+        "boundary",
+        "prognostic_mean",
+        "prognostic_std",
+        "boundary_mean",
+        "boundary_std",
+        "prognostic_mask",
+        "boundary_mask",
+    }
+    return data.attrs.get("cache_format") == PACKED_CACHE_FORMAT or required.issubset(
+        set(data.data_vars)
+    )
+
+
+def _packed_channel_names(data: xr.Dataset, prefix: str) -> list[str]:
+    attr_name = f"{prefix}_channel_names_json"
+    raw = data.attrs.get(attr_name)
+    if raw is None:
+        raise KeyError(f"Packed cache is missing required attr {attr_name}")
+    names = json.loads(raw)
+    if not isinstance(names, list) or not all(isinstance(name, str) for name in names):
+        raise TypeError(f"Packed cache attr {attr_name} must decode to list[str]")
+    return names
+
+
+def _packed_channel_indices(
+    available_names: list[str],
+    requested_names: list[str],
+    *,
+    prefix: str,
+) -> tuple[list[int], list[str]]:
+    index_by_name = {name: i for i, name in enumerate(available_names)}
+    missing = [name for name in requested_names if name not in index_by_name]
+    if missing:
+        raise KeyError(f"Packed {prefix} cache is missing requested channels: {missing}")
+    return [index_by_name[name] for name in requested_names], list(requested_names)
 
 
 def _slice_llc_dim(data: xr.Dataset, *, dim: str, start: int, end: int) -> xr.Dataset:
@@ -104,6 +152,35 @@ def _slice_llc_region(
     return data
 
 
+def _coerce_time_scalar(value):
+    if isinstance(value, np.datetime64):
+        return value.astype("datetime64[us]").item()
+    return value
+
+
+def _select_required_data_vars(
+    data: xr.Dataset,
+    *,
+    prognostic_var_names: PrognosticVarNames,
+    boundary_var_names: BoundaryVarNames,
+    static_data_vars: list[str] | None,
+) -> xr.Dataset:
+    required = ["mask_c", "wetmask"]
+    for names in (
+        prognostic_var_names,
+        boundary_var_names,
+        static_data_vars or [],
+    ):
+        for name in names:
+            required.append(name)
+            required.append(_base_var_name(name))
+
+    selected = [name for name in dict.fromkeys(required) if name in data.data_vars]
+    if not selected:
+        return data
+    return data[selected]
+
+
 @dataclasses.dataclass
 class Masks:
     """A collection of masks to expose the ocean and mask land."""
@@ -130,11 +207,16 @@ class DataSource:
     means: xr.Dataset
     stds: xr.Dataset
     masks: Masks
+    packed_channel_names: dict[str, list[str]] | None = None
 
     @cached_property
     def is_compact(self) -> bool:
         """Check if the data source is compact."""
         return _is_compact(self.data, self.means, self.stds)
+
+    @property
+    def is_packed_train_ready(self) -> bool:
+        return self.packed_channel_names is not None
 
     def filter(
         self,
@@ -155,16 +237,65 @@ class DataSource:
             A new `DataSource` only with the filtered variables and levels.
         """
         name = f"{prefix}[{self.name}]"
+        if self.is_packed_train_ready:
+            if prefix not in {"prognostic", "boundary"}:
+                raise ValueError(f"Unsupported packed data prefix: {prefix}")
+
+            channel_dim = f"{prefix}_channel"
+            available_names = self.packed_channel_names.get(prefix, [])
+            indices, selected_names = _packed_channel_indices(
+                available_names,
+                list(var_names),
+                prefix=prefix,
+            )
+            data_var = prefix
+            mean_var = f"{prefix}_mean"
+            std_var = f"{prefix}_std"
+
+            data = xr.Dataset({data_var: self.data[data_var].isel({channel_dim: indices})})
+            means = xr.Dataset(
+                {mean_var: self.means[mean_var].isel({channel_dim: indices})}
+            )
+            stds = xr.Dataset(
+                {std_var: self.stds[std_var].isel({channel_dim: indices})}
+            )
+
+            if prefix == "prognostic":
+                masks = Masks(
+                    self.masks.prognostic[indices],
+                    self.masks.boundary,
+                )
+            else:
+                boundary_mask = self.masks.boundary
+                if boundary_mask.ndim >= 3:
+                    boundary_mask = boundary_mask[indices]
+                masks = Masks(
+                    self.masks.prognostic,
+                    boundary_mask,
+                )
+
+            return dataclasses.replace(
+                self,
+                name=name,
+                data=data,
+                means=means,
+                stds=stds,
+                masks=masks,
+                packed_channel_names={prefix: selected_names},
+            )
+
         if self.is_compact:
             parsed_var_names, levels = [], []
             for mangled_var_name in var_names:
                 if not _var_name_encode_level(mangled_var_name):
-                    parsed_var_names.append(mangled_var_name)
+                    if mangled_var_name not in parsed_var_names:
+                        parsed_var_names.append(mangled_var_name)
                     continue
                 tokens = mangled_var_name.split("_")
                 var_name, level = tokens[0], int(tokens[1])
 
-                parsed_var_names.append(var_name)
+                if var_name not in parsed_var_names:
+                    parsed_var_names.append(var_name)
                 # Build set of total levels
                 if level not in levels:
                     levels.append(level)
@@ -217,8 +348,8 @@ class DataSource:
 
     def slice(self, time: "TimeConfig") -> Self:
         """Slice the data source to only include the specified time slice."""
-        data_time_min = self.data.time.min().item()
-        data_time_max = self.data.time.max().item()
+        data_time_min = _coerce_time_scalar(self.data.time.min().item())
+        data_time_max = _coerce_time_scalar(self.data.time.max().item())
         if time.start.datetime > data_time_max or time.end.datetime < data_time_min:
             raise ValueError(
                 f"Time slice {time} is entirely outside the range of the data "
@@ -239,6 +370,15 @@ class DataSource:
     # TODO(jder): delete this once we've de-duplicated InferenceDataset with TorchTrainDataset
     def normalize(self, fill_nan=True, fill_value=0.0) -> xr.Dataset:
         """Normalize input data."""
+        if self.is_packed_train_ready:
+            data_var = next(iter(self.data.data_vars))
+            mean_var = next(iter(self.means.data_vars))
+            std_var = next(iter(self.stds.data_vars))
+            norm = (self.data[data_var] - self.means[mean_var]) / self.stds[std_var]
+            if fill_nan:
+                norm = norm.fillna(fill_value)
+            return xr.Dataset({data_var: norm})
+
         norm = (self.data - self.means) / self.stds
         if fill_nan:
             norm = norm.fillna(fill_value)
@@ -312,8 +452,24 @@ class DataSource:
     ) -> Self:
         chunks: dict[str, int] | None = {} if use_dask else None
         data = data_location.open(chunks)
+
+        if _is_packed_train_ready(data):
+            return cls.from_packed_dataset(
+                data,
+                prognostic_var_names=prognostic_var_names,
+                boundary_var_names=boundary_var_names,
+                name=f"{data_location}-{use_dask}",
+            )
+
         means = means_location.open(chunks)
         stds = stds_location.open(chunks)
+
+        data = _select_required_data_vars(
+            data,
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
+            static_data_vars=static_data_vars,
+        )
 
         # LLC specific fixes
         data = _slice_llc_region(
@@ -345,22 +501,22 @@ class DataSource:
             julian_times = [cftime.num2date(t.item() / 1_000_000, 'milliseconds since 1970-01-01', calendar='julian') for t in times]
             data = data.assign_coords(time=("time", julian_times))
 
-        # Rename means and stds from $var_lev_$index to $var_$index
-        for v in list(means.variables):
-            if "_lev_" in v:
-                var, lev = v.split("_lev_")
-                means = means.rename({v: f"{var}_{lev}"})
-        for v in stds.variables:
-            if "_lev_" in v:
-                var, lev = v.split("_lev_")
-                stds = stds.rename({v: f"{var}_{lev}"})
+        data_is_compact = any("lev" in data[v].dims for v in data.data_vars) and all(
+            not _var_name_encode_level(str(v)) for v in data.data_vars
+        )
+        if data_is_compact:
+            means = compact_dataset(means)
+            stds = compact_dataset(stds)
+        else:
+            means = with_level_index_vars(means)
+            stds = with_level_index_vars(stds)
 
-        # Flatten data to non-compact (ie Salt with `lev` into Salt_0, Salt_1, etc.)
-        for v in data.variables:
-            if "lev" in data[v].dims:
-                for index, lev in enumerate(DEPTH_I_LEVELS):
-                    data[f"{v}_{lev}"] = data[v].isel(lev=index)
-                data = data.drop_vars(v)
+            # Flatten data to non-compact (ie Salt with `lev` into Salt_0, Salt_1, etc.)
+            for v in list(data.variables):
+                if "lev" in data[v].dims:
+                    for index, lev in enumerate(DEPTH_I_LEVELS):
+                        data[f"{v}_{lev}"] = data[v].isel(lev=index)
+                    data = data.drop_vars(v)
 
         return cls.from_datasets(
             data,
@@ -370,6 +526,85 @@ class DataSource:
             boundary_var_names=boundary_var_names,
             static_data_vars=static_data_vars,
             name=f"{data_location}-{use_dask}",
+        )
+
+    @classmethod
+    def from_packed_dataset(
+        cls,
+        data: xr.Dataset,
+        *,
+        prognostic_var_names: PrognosticVarNames,
+        boundary_var_names: BoundaryVarNames,
+        name: str = "PackedDataSource",
+    ) -> Self:
+        data = with_lat_lon_coords(data)
+
+        available_prognostic = _packed_channel_names(data, "prognostic")
+        available_boundary = _packed_channel_names(data, "boundary")
+        prognostic_indices, prognostic_names = _packed_channel_indices(
+            available_prognostic,
+            prognostic_var_names,
+            prefix="prognostic",
+        )
+        boundary_indices, boundary_names = _packed_channel_indices(
+            available_boundary,
+            boundary_var_names,
+            prefix="boundary",
+        )
+
+        data_ds = xr.Dataset(
+            {
+                "prognostic": data["prognostic"].isel(
+                    prognostic_channel=prognostic_indices
+                ),
+                "boundary": data["boundary"].isel(boundary_channel=boundary_indices),
+            }
+        )
+        means_ds = xr.Dataset(
+            {
+                "prognostic_mean": data["prognostic_mean"].isel(
+                    prognostic_channel=prognostic_indices
+                ),
+                "boundary_mean": data["boundary_mean"].isel(
+                    boundary_channel=boundary_indices
+                ),
+            }
+        )
+        stds_ds = xr.Dataset(
+            {
+                "prognostic_std": data["prognostic_std"].isel(
+                    prognostic_channel=prognostic_indices
+                ),
+                "boundary_std": data["boundary_std"].isel(
+                    boundary_channel=boundary_indices
+                ),
+            }
+        )
+
+        prognostic_mask = torch.from_numpy(
+            data["prognostic_mask"]
+            .isel(prognostic_channel=prognostic_indices)
+            .to_numpy()
+            .astype(bool, copy=False)
+        )
+        boundary_mask = torch.from_numpy(
+            data["boundary_mask"]
+            .isel(boundary_channel=boundary_indices)
+            .to_numpy()
+            .astype(bool, copy=False)
+        )
+        masks = Masks(prognostic_mask, boundary_mask)
+
+        return cls(
+            name=name,
+            data=data_ds,
+            means=means_ds,
+            stds=stds_ds,
+            masks=masks,
+            packed_channel_names={
+                "prognostic": prognostic_names,
+                "boundary": boundary_names,
+            },
         )
 
     @classmethod
@@ -533,7 +768,7 @@ def _parse_lev_from_output_var(prognostic_var_names: PrognosticVarNames) -> list
 
 
 def flatten_masks(data: xr.Dataset) -> xr.Dataset:
-    """Adds data_vars "mask_0"..."mask_18" with dimensions (y, x)."""
+    """Adds data_vars "wetmask_0"... with dimensions (y, x)."""
     data_ = data.copy()
     if MASK_VARS[0] not in data_.variables:
         assert MASK_ALL_LEVELS_VAR in data_.variables, (
@@ -544,7 +779,7 @@ def flatten_masks(data: xr.Dataset) -> xr.Dataset:
         wet_mask = data_[MASK_ALL_LEVELS_VAR]
         for i, lev in enumerate(DEPTH_I_LEVELS):
             assert int(lev) == i, "Level indices must match the order of DEPTH_I_LEVELS"
-            data_[f"mask_{lev}"] = wet_mask.isel(lev=i)
+            data_[f"wetmask_{lev}"] = wet_mask.isel(lev=i)
 
         data_ = data_.drop_vars(MASK_ALL_LEVELS_VAR)
 

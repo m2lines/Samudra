@@ -37,6 +37,50 @@ _PIN_MEMORY_WARNING_EMITTED = False
 _PIN_MEMORY_DISABLED = False
 
 
+def _packed_channel_dim(data_array: xr.DataArray) -> str | None:
+    for dim in data_array.dims:
+        if dim.endswith("_channel"):
+            return dim
+    return None
+
+
+def _dataset_to_numpy(selected: xr.Dataset, leading_dims: tuple[str, ...]) -> np.ndarray:
+    arrays: list[np.ndarray] = []
+    leading_dim_set = set(leading_dims)
+
+    for data_array in selected.data_vars.values():
+        if any(dim not in data_array.dims for dim in leading_dims):
+            continue
+
+        if (channel_dim := _packed_channel_dim(data_array)) is not None:
+            spatial_dims = [
+                dim
+                for dim in data_array.dims
+                if dim not in leading_dim_set and dim != channel_dim
+            ]
+            array = data_array.transpose(
+                *leading_dims, channel_dim, *spatial_dims
+            ).to_numpy()
+        elif "lev" in data_array.dims:
+            spatial_dims = [
+                dim
+                for dim in data_array.dims
+                if dim not in leading_dim_set and dim != "lev"
+            ]
+            array = data_array.transpose(*leading_dims, "lev", *spatial_dims).to_numpy()
+        else:
+            spatial_dims = [dim for dim in data_array.dims if dim not in leading_dim_set]
+            array = data_array.transpose(*leading_dims, *spatial_dims).to_numpy()
+            array = np.expand_dims(array, axis=len(leading_dims))
+
+        arrays.append(array.astype(np.float32, copy=False))
+
+    if not arrays:
+        raise ValueError("Dataset did not contain any compatible time-varying data variables.")
+
+    return np.concatenate(arrays, axis=len(leading_dims))
+
+
 class InferenceDataset(Dataset):
     """This class is used for inference rollouts.
 
@@ -200,22 +244,7 @@ class InferenceDataset(Dataset):
         else:
             data_in_ds = data_in_src.data
 
-        if "lev" in data_in_ds.dims:
-            data_in_np: np.ndarray = (
-                conditional_rearrange(
-                    data_in_ds,
-                    "window_dim time (variable lev)=var lat lon",
-                    concat_dim="var",
-                )
-                .rename({"var": "variable"})
-                .to_numpy()
-            )
-        else:
-            data_in_np = (
-                data_in_ds.to_array()
-                .transpose("window_dim", "time", "variable", "lat", "lon")
-                .to_numpy()
-            )
+        data_in_np = _dataset_to_numpy(data_in_ds, ("window_dim", "time"))
         data_in: torch.Tensor = torch.from_numpy(data_in_np).float()
         data_in = torch.where(self.wet, data_in, self.masked_fill_value)
         if not self.normalize_before_mask:
@@ -240,10 +269,9 @@ class InferenceDataset(Dataset):
             data_in_boundary_ds = data_in_boundary_src.normalize()
         else:
             data_in_boundary_ds = data_in_boundary_src.data
-        data_in_boundary_np: np.ndarray = (
-            data_in_boundary_ds.to_array()
-            .transpose("window_dim", "time", "variable", "lat", "lon")
-            .to_numpy()
+        data_in_boundary_np = _dataset_to_numpy(
+            data_in_boundary_ds,
+            ("window_dim", "time"),
         )
         data_in_boundary: torch.Tensor = torch.from_numpy(data_in_boundary_np).float()
         data_in_boundary = torch.where(
@@ -267,22 +295,7 @@ class InferenceDataset(Dataset):
             label_ds = label_src.normalize()
         else:
             label_ds = label_src.data
-        if "lev" in label_ds.dims:
-            label_np: np.ndarray = (
-                conditional_rearrange(
-                    label_ds,
-                    "window_dim time (variable lev)=var lat lon",
-                    concat_dim="var",
-                )
-                .rename({"var": "variable"})
-                .to_numpy()
-            )
-        else:
-            label_np = (
-                label_ds.to_array()
-                .transpose("window_dim", "time", "variable", "lat", "lon")
-                .to_numpy()
-            )
+        label_np = _dataset_to_numpy(label_ds, ("window_dim", "time"))
         label: torch.Tensor = torch.from_numpy(label_np).float()
         label = torch.where(self.wet, label, self.masked_fill_value)
         if not self.normalize_before_mask:
@@ -533,43 +546,25 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step)
+            current_x_index = x_index.isel(time=slice(0, self.hist + 1))
             prognostic_selected = self._prognostic_src.data.isel(time=x_index)
-            boundary_selected = self._boundary_src.data.isel(time=x_index)
+            boundary_selected = self._boundary_src.data.isel(time=current_x_index)
 
             if self._executor is not None:
                 concurrent_compute(
                     prognostic_selected, boundary_selected, executor=self._executor
                 )
 
-            if "lev" in prognostic_selected.dims:
-                prognostic_all = torch.from_numpy(
-                    conditional_rearrange(
-                        prognostic_selected,
-                        "time (variable lev)=var lat lon",
-                        concat_dim="var",
-                    )
-                    .rename({"var": "variable"})
-                    .to_numpy()
-                    .astype(np.float32, copy=False)
-                )
-            else:
-                prognostic_all = torch.from_numpy(
-                    prognostic_selected.to_array()
-                    .transpose("time", "variable", "lat", "lon")
-                    .to_numpy()
-                    .astype(np.float32, copy=False)
-                )
-            boundary = torch.from_numpy(
-                boundary_selected.to_array()
-                .transpose("time", "variable", "lat", "lon")
-                .to_numpy()
-                .astype(np.float32, copy=False)
-            )
+            prognostic_all = self._dataset_to_tensor(prognostic_selected)
+            boundary = self._dataset_to_tensor(boundary_selected)
 
             TD.insert(prognostic_all, boundary)
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
 
         return TD
+
+    def _dataset_to_tensor(self, selected: xr.Dataset) -> torch.Tensor:
+        return torch.from_numpy(_dataset_to_numpy(selected, ("time",)))
 
     def to_train_data(self, raw_train_data: RawTrainData) -> TrainData:
         train_data = TrainData(self.num_prognostic_channels)

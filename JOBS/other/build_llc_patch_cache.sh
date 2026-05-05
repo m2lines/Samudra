@@ -48,8 +48,8 @@ K_CHUNK="${K_CHUNK:-51}"
 KP1_CHUNK="${KP1_CHUNK:-51}"
 
 INCLUDE_ALL_VARS="${INCLUDE_ALL_VARS:-false}"
-# Match the current training config: prognostic vars + boundary vars + wet mask, add other useful vars
-INCLUDE_VARS="${INCLUDE_VARS:-U,V,W,Theta,Salt,Eta,oceTAUX,oceTAUY,oceQnet,mask_c,XC,YC,Z,rA}"
+# Match the current training config: prognostic vars + boundary vars + wet mask.
+INCLUDE_VARS="${INCLUDE_VARS:-U,V,Theta,Salt,Eta,oceTAUX,oceTAUY,oceQnet,mask_c}"
 
 OVERWRITE="${OVERWRITE:-false}"
 RESUME="${RESUME:-true}"

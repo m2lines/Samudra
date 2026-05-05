@@ -39,7 +39,6 @@ DEFAULT_OUTPUT_ROOT = Path("/orcd/data/abodner/002/cody/LLC_patch")
 DEFAULT_REQUIRED_VARS = [
     "U",
     "V",
-    "W",
     "Theta",
     "Salt",
     "Eta",
@@ -47,10 +46,6 @@ DEFAULT_REQUIRED_VARS = [
     "oceTAUY",
     "oceQnet",
     "mask_c",
-    "XC",
-    "YC",
-    "Z",
-    "rA",
 ]
 
 logging.basicConfig(

@@ -47,10 +47,13 @@ def _var_name_encode_level(var_name: str) -> bool:
 
 
 def _is_compact(data: xr.Dataset, means: xr.Dataset, stds: xr.Dataset) -> bool:
+    # mask_<i> variables always encode a level by design; they don't determine
+    # whether prognostic/boundary variables are stacked.
     return all(
         not _var_name_encode_level(str(v))
         for d in [data, means, stds]
         for v in d.keys()
+        if not str(v).startswith("mask_")
     )
 
 

@@ -21,7 +21,16 @@ def pairwise(iterable):
 
 
 def collate_raw_train_data(data: Sequence[RawTrainData]) -> RawTrainData:
-    batched_data = RawTrainData(data[0].dataset_id)
+    # Carry per-sample indices through the collate step so PCGB can look up
+    # D_t per batch element. None on input → None on output (back-compat).
+    if all(d.sample_indices is not None for d in data):
+        batched_indices: torch.Tensor | None = torch.cat(
+            [d.sample_indices for d in data]  # type: ignore[misc]
+        )
+    else:
+        batched_indices = None
+
+    batched_data = RawTrainData(data[0].dataset_id, sample_indices=batched_indices)
     assert all(d.dataset_id == batched_data.dataset_id for d in data), (
         "we don't support heterogenous batches yet"
     )

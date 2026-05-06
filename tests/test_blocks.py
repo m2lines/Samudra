@@ -96,3 +96,19 @@ class TestDropPath:
         torch.testing.assert_close(trunk.grad, torch.ones_like(trunk))
         # Skip gradient should be all zeros (dropped)
         torch.testing.assert_close(skip.grad, torch.zeros_like(skip))
+
+    def test_explicit_drop_override_bypasses_stochastic_branch(self):
+        """The explicit `drop` arg overrides the stochastic Bernoulli branch.
+
+        drop=True must zero the skip and drop=False must pass it through
+        unscaled, regardless of train/eval mode or drop_prob. This is what the
+        boosting driver depends on to inject deterministic masks.
+        """
+        drop_path = DropPath(drop_prob=0.7)
+        skip = torch.randn(4, 16, 8, 8)
+        for mode in ("train", "eval"):
+            getattr(drop_path, mode)()
+            torch.testing.assert_close(
+                drop_path(skip, drop=True), torch.zeros_like(skip)
+            )
+            torch.testing.assert_close(drop_path(skip, drop=False), skip)

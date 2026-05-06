@@ -12,7 +12,7 @@ from typing import get_args, get_origin
 import pydantic
 import yaml
 
-from ocean_emulators.config import EvalConfig, TrainConfig
+from ocean_emulators.config import EvalConfig, PCGBConfig, TrainConfig
 from ocean_emulators.viz import VizConfig
 
 
@@ -166,6 +166,7 @@ def main():
     models = get_pydantic_models(TrainConfig)
     models.update(get_pydantic_models(EvalConfig))
     models.update(get_pydantic_models(VizConfig))
+    models.update(get_pydantic_models(PCGBConfig))
 
     generate_schemas(args.output_dir, models)
 

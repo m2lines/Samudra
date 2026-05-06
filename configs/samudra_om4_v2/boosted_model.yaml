@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/SamudraConfig.json
+
+# Architecture matches the samudra_om4_v2_drop_path_new_data checkpoint
+# referenced in boosted_samudra.md. drop_path_rate=0.5 ensured each of the
+# 16 skip-mask configurations saw training signal during the first 55 of 70
+# epochs. We re-declare drop_path_rate here to keep the schema self-describing,
+# but at boost / eval time the boosting driver injects deterministic per-skip
+# masks and the stochastic DropPath is bypassed.
+
+checkpointing: all
+pred_residuals: false
+last_kernel_size: 3
+pad: "circular"
+
+unet:
+  ch_width: [280, 380, 480, 520]
+  dilation: [1, 2, 4, 8]
+  n_layers: [1, 1, 1, 1]
+  drop_path_rate: 0.5
+
+  core_block:
+    block_type: "conv_next_block"
+    kernel_size: 3
+    activation: "capped_gelu"
+    upscale_factor: 2
+    norm: "batch"
+
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "zonally_periodic_upsample"
+
+corrector:
+  non_negative_corrector_names: null
+  ocean_heat_corrector: false

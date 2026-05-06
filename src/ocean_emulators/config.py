@@ -1175,4 +1175,108 @@ class EvalConfig(TopLevelConfig):
         self.experiment.output_dir.mkdir(parents=True, exist_ok=True)
 
 
-AnyTopLevelConfig = TrainConfig | EvalConfig
+# Mask-pool generation modes for the path-cyclic gradient boosting experiment.
+# "enumerate_all" enumerates every binary mask of length num_skips (2^num_skips
+# total). For 4 skips this gives 16 masks — small enough to scan exhaustively
+# during the end-of-round adversarial scoring pass.
+MaskPoolMode = Literal["enumerate_all"]
+
+
+class MaskPoolConfig(BaseConfig):
+    mode: MaskPoolMode = "enumerate_all"
+    num_skips: int = Field(
+        default=4,
+        ge=1,
+        description=(
+            "Number of UNet skip connections targeted by the mask pool. Must "
+            "match the number of skips in the loaded backbone (= len(unet.ch_width))."
+        ),
+    )
+
+
+# See boosted_samudra.md for the algorithm spec. PCGB shares most of its
+# training-time machinery with TrainConfig (same data, model, optimizer,
+# scheduler, distributed wiring) — what differs is the round structure on
+# top of the standard SGD inner loop.
+MaskSchedule = Literal["adversarial", "round_robin"]
+
+
+class PCGBConfig(TrainConfig):
+    """Path-Cyclic Gradient Boosting (see configs/samudra_om4_v2/boosted_samudra.md).
+
+    Inherits everything from TrainConfig (data, model, optimizer, scheduler,
+    DDP, wandb, ckpt I/O) and layers PCGB-specific knobs on top. The driver
+    in src/ocean_emulators/pcgb.py subclasses Trainer and replaces the per-
+    epoch loop with a per-round loop.
+    """
+
+    num_rounds: int = Field(
+        default=32,
+        ge=1,
+        description="T in the algorithm — number of boosting rounds.",
+    )
+    steps_per_round_epochs: float = Field(
+        default=2.0,
+        gt=0.0,
+        description=(
+            "K in the algorithm, expressed as a fraction of one full train "
+            "epoch. K_actual_steps = round(steps_per_round_epochs * "
+            "len(train_loader))."
+        ),
+    )
+    mask_pool: MaskPoolConfig = MaskPoolConfig()
+    mask_schedule: MaskSchedule = "adversarial"
+    mask_no_repeat_window: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "If > 0, the adversarial selector excludes the last "
+            "mask_no_repeat_window distinct masks from the argmax pool. "
+            "Defaults to 0 (trust the algorithm); set to 2–3 if mask "
+            "selection collapses onto a single mask in practice."
+        ),
+    )
+    scoring_subset_percent: float = Field(
+        default=0.25,
+        gt=0.0,
+        le=1.0,
+        description=(
+            "Fraction of the calibration set used for the end-of-round "
+            "scoring pass that produces both per-sample residuals and per-"
+            "mask weighted MSE scores. 0.25 keeps GPU utilization above 80%."
+        ),
+    )
+    calibration_time: TimeConfig = TimeConfig(
+        start=JulianDate("1975-01-03"), end=JulianDate("2013-10-05")
+    )
+
+    # R2-proper reweighting parameters (the AdaBoost.R2 confidence β_t is
+    # adaptive per round, so no manual α). EMA smoothing and clamp are
+    # lifted from the precedent in utils/loss.py:DynamicLoss.
+    reweight_ema_lambda: float = Field(
+        default=0.3,
+        gt=0.0,
+        le=1.0,
+        description=(
+            "EMA smoothing factor for D_t updates: D_{t+1} = (1-λ)·D_t + "
+            "λ·D_R2. Smaller λ = more smoothing (less per-round whipsaw)."
+        ),
+    )
+    reweight_clamp_limit: float = Field(
+        default=20.0,
+        gt=1.0,
+        description=(
+            "Maximum ratio max(D_t) / min(D_t) after each update. Prevents "
+            "the weighted distribution from collapsing onto a tiny set of "
+            "hardest examples. Mirrors DynamicLoss._limit."
+        ),
+    )
+
+    save_round_freq: int = Field(
+        default=2,
+        ge=1,
+        description="Save a per-round checkpoint every N rounds.",
+    )
+
+
+AnyTopLevelConfig = TrainConfig | EvalConfig | PCGBConfig

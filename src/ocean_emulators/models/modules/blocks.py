@@ -113,6 +113,12 @@ class DropPath(torch.nn.Module):
     expected values. Implemented via ``nn.Dropout`` applied to a per-sample
     mask of ones.
 
+    Callers may pass an explicit ``drop`` flag to bypass the stochastic
+    behavior: ``True`` forces the skip to be zeroed, ``False`` forces it to
+    pass through unscaled. ``None`` (the default) preserves the stochastic
+    Bernoulli semantics. Used by the boosting driver to inject deterministic
+    per-skip masks at inference time.
+
     References:
         [0]: Rethinking U-net Skip Connections for Biomedical Image Segmentation (https://arxiv.org/abs/2402.08276)
         [1]: Dropout Reduces Underfitting (https://arxiv.org/abs/2303.01500)
@@ -123,8 +129,14 @@ class DropPath(torch.nn.Module):
         self.dropout = torch.nn.Dropout(p=drop_prob)
 
     def forward(
-        self, skip_conn: Float[torch.Tensor, "B C H W"]
+        self,
+        skip_conn: Float[torch.Tensor, "B C H W"],
+        drop: bool | None = None,
     ) -> Float[torch.Tensor, "B C H W"]:
+        if drop is True:
+            return torch.zeros_like(skip_conn)
+        if drop is False:
+            return skip_conn
         if not self.training or self.dropout.p == 0.0:
             return skip_conn
         # Per-sample mask: (B, 1, 1, 1) broadcasts over C, H, W.

@@ -2,6 +2,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, assert_never
 
 import numpy as np
@@ -152,6 +154,31 @@ class UNetBackbone(nn.Module):
         self.layers = nn.ModuleList(layers)
         self.num_steps = int(len(ch_width) - 1)
         self.drop_path = DropPath(drop_path_rate)
+        # Optional deterministic per-skip mask. mask[i] == True means "drop
+        # skip i" (zero out), False means "keep skip i" (pass through, no
+        # DropPath). Set via with_skip_mask(); None preserves stochastic behavior.
+        self._skip_mask: tuple[bool, ...] | None = None
+
+    @contextmanager
+    def with_skip_mask(self, mask: Sequence[bool] | None) -> Iterator[None]:
+        """Inject a deterministic per-skip mask for the duration of the context.
+
+        Used by the boosting driver (Experiment A) to evaluate the network
+        under a specific path configuration without disturbing training-time
+        stochastic semantics. Re-entrant: nested contexts restore the prior
+        mask on exit.
+        """
+        if mask is not None and len(mask) != self.num_steps:
+            raise ValueError(
+                f"skip mask length {len(mask)} does not match number of "
+                f"skip connections {self.num_steps}"
+            )
+        prev = self._skip_mask
+        self._skip_mask = tuple(mask) if mask is not None else None
+        try:
+            yield
+        finally:
+            self._skip_mask = prev
 
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
         skip_inputs: list[torch.Tensor] = []
@@ -185,10 +212,9 @@ class UNetBackbone(nn.Module):
                     or isinstance(layer, TransposedConvUpsample)
                     or isinstance(layer, ZonallyPeriodicBilinearUpsample)
                 ):
+                    skip_idx = int(2 * self.num_steps - count - 1)
                     crop = np.array(fts.shape[2:])
-                    shape = np.array(
-                        skip_inputs[int(2 * self.num_steps - count - 1)].shape[2:]
-                    )
+                    shape = np.array(skip_inputs[skip_idx].shape[2:])
                     pads = shape - crop
                     pads = [
                         pads[1] // 2,
@@ -197,9 +223,12 @@ class UNetBackbone(nn.Module):
                         pads[0] - pads[0] // 2,
                     ]
                     fts = nn.functional.pad(fts, pads)
-                    fts += self.drop_path(
-                        skip_inputs[int(2 * self.num_steps - count - 1)]
+                    drop_override = (
+                        self._skip_mask[skip_idx]
+                        if self._skip_mask is not None
+                        else None
                     )
+                    fts += self.drop_path(skip_inputs[skip_idx], drop=drop_override)
                     count += 1
 
         return fts

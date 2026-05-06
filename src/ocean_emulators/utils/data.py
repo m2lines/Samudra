@@ -51,6 +51,7 @@ def _is_compact(data: xr.Dataset, means: xr.Dataset, stds: xr.Dataset) -> bool:
         not _var_name_encode_level(str(v))
         for d in [data, means, stds]
         for v in d.keys()
+        if not str(v).startswith("mask")
     )
 
 

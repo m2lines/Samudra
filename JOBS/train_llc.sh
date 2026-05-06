@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-05-4-Samudra_LLC:uncompressed-cache_speed-test
+#SBATCH --job-name=2026-05-05-Samudra_LLC:24-epoch_curriculum_hist=0_temporal-data-stride=6
 #SBATCH -N 1
 #SBATCH --mem=375GB
 #SBATCH --ntasks=1
@@ -65,9 +65,10 @@ fi
 
 # GPUS WORKERS 
 GPUS="${GPUS:-3}"
-DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-6}"
+DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-2}"
 DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-4}"
 TRAIN_SHUFFLE="${TRAIN_SHUFFLE:-true}"
+SURFACE_SNAPSHOT="${SURFACE_SNAPSHOT:-true}"
 PAD="${PAD:-constant}"
 NUM_HALO="${NUM_HALO:-4}"
 NUM_SPONGE="${NUM_SPONGE:-12}"
@@ -88,7 +89,7 @@ LLC_J_END="${LLC_J_END:-1440}"
 DATA_LOCATION_OVERRIDE="${DATA_LOCATION_OVERRIDE:-}"
 
 # CHECKPOINTING FINETUNING
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-}" #/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-05-05-Samudra_LLC:24ep_curriculum_h0_t6_g4/saved_nets/ckpt_18.pt}" #/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
@@ -96,7 +97,7 @@ RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
 # NAME, DIRECTORY, EPOCHS, SAVE_FREQ
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-}" # 2026-04-04-CONT:[increase-step-test-suite]-WITH_temporal_stride=6,steps=4,2012-01-01-2012-09-14-RESUME}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
-EPOCHS="${EPOCHS:-1}"
+EPOCHS="${EPOCHS:-24}"
 SAVE_FREQ="${SAVE_FREQ:-1}"
 
 # OPTIMIZATION (LR + SCHEDULER)
@@ -104,20 +105,19 @@ LEARNING_RATE="${LEARNING_RATE:-0.0006}"
 SCHEDULER_MODE="${SCHEDULER_MODE:-cosine}" # SCHEDULER_MODE: "cosine" (default) or "fixed" (no LR decay)
 # If set while using cosine, stretches LR decay over a longer horizon than EPOCHS.
 # Example: EPOCHS=6 and SCHEDULER_TARGET_EPOCHS=60 gives a much gentler decay.
-SCHEDULER_TARGET_EPOCHS="${SCHEDULER_TARGET_EPOCHS:-30}"
-LR_MULTIPLIERS="${LR_MULTIPLIERS:-[1.0]}"
-LR_MULTIPLIER_TRANSITION="${LR_MULTIPLIER_TRANSITION:-[]}"
+SCHEDULER_TARGET_EPOCHS="${SCHEDULER_TARGET_EPOCHS:-60}"
+LR_MULTIPLIERS="${LR_MULTIPLIERS:-[1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0]}"
+LR_MULTIPLIER_TRANSITION="${LR_MULTIPLIER_TRANSITION:-[13, 14, 15, 17, 18, 19, 21, 22, 23]}"
 
 # CURRICULUM
 # list knobs should be passed like "[1]" or "[1, 2, 4]".
 TEMPORAL_STRIDE="${TEMPORAL_STRIDE:-6}"
 TEMPORAL_STRIDE_TRANSITION="${TEMPORAL_STRIDE_TRANSITION:-[]}"
-STEPS="${STEPS:-[1]}"
-STEP_TRANSITION="${STEP_TRANSITION:-[]}"
+STEPS="${STEPS:-[1, 2, 3, 4]}"
+STEP_TRANSITION="${STEP_TRANSITION:-[13, 17, 21]}"
 DATA_STRIDE="${DATA_STRIDE:-[6]}"
-HIST="${HIST:-1}"
+HIST="${HIST:-0}"
 GRADIENT_DETACH_INTERVAL="${GRADIENT_DETACH_INTERVAL:-2}"
-
 
 
 
@@ -128,6 +128,7 @@ if [[ "${GPUS}" -gt 0 ]]; then
   echo "effective workers per rank (after trainer scaling): $((DATA_NUM_WORKERS / GPUS))"
 fi
 echo "using data.prefetch_factor=${DATA_PREFETCH_FACTOR} and data.train_shuffle=${TRAIN_SHUFFLE}"
+echo "using validation surface_snapshot=${SURFACE_SNAPSHOT}"
 echo "using ddp_broadcast_buffers=${DDP_BROADCAST_BUFFERS} and ddp_timeout_minutes=${DDP_TIMEOUT_MINUTES}"
 echo "using ddp_max_data_workers_per_rank=${DDP_MAX_DATA_WORKERS_PER_RANK}"
 echo "using data.concurrent_compute=${CONCURRENT_COMPUTE}"
@@ -243,6 +244,7 @@ python3.11 -m torch.distributed.run \
   --ddp_broadcast_buffers "${DDP_BROADCAST_BUFFERS}" \
   --ddp_timeout_minutes "${DDP_TIMEOUT_MINUTES}" \
   --ddp_max_data_workers_per_rank "${DDP_MAX_DATA_WORKERS_PER_RANK}" \
+  --surface_snapshot "${SURFACE_SNAPSHOT}" \
   --data.num_workers "${DATA_NUM_WORKERS}" \
   --data.prefetch_factor "${DATA_PREFETCH_FACTOR}" \
   --data.train_shuffle "${TRAIN_SHUFFLE}" \

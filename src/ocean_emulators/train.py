@@ -442,6 +442,7 @@ class Trainer:
         self.save_freq = cfg.save_freq
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
+        self.surface_snapshot: bool = cfg.surface_snapshot
         self.data_stride: list[int] = cfg.data_stride
         self.temporal_strides: list[int] = temporal_strides
         self.temporal_stride_transition: list[int] = cfg.temporal_stride_transition
@@ -945,6 +946,7 @@ class Trainer:
             self.area_weights,
             self.src.masks.prognostic.to(self.device),
             self.num_out,
+            surface_snapshot=self.surface_snapshot,
         )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"

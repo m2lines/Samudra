@@ -6,7 +6,13 @@ import torch
 import xarray as xr
 from scipy.stats import pearsonr
 
-from ocean_emulators.constants import DEPTH_LEVELS, TensorMap
+from ocean_emulators.constants import (
+    BOUNDARY_VARS,
+    DEPTH_I_LEVELS,
+    DEPTH_LEVELS,
+    PROGNOSTIC_VARS,
+    TensorMap,
+)
 from ocean_emulators.utils.data import (
     DataSource,
     Masks,
@@ -173,6 +179,90 @@ def test_normalize_unnormalize_tensor_prognostic(normalize_input):
     normalized = normalize.normalize_tensor_prognostic(input_data)
     unnormalized = normalize.unnormalize_tensor_prognostic(normalized, fill_value=0.0)
     assert torch.allclose(input_data, unnormalized)
+
+
+def test_normalize_compact_llc_stats_do_not_broadcast_surface_vars():
+    levels = len(DEPTH_I_LEVELS)
+    time = np.arange(4)
+    lat = [0.0]
+    lon = [0.0]
+    lev = np.asarray(DEPTH_LEVELS, dtype=np.float32)
+
+    def make_3d(offset: float) -> np.ndarray:
+        base = np.arange(time.size * levels, dtype=np.float32).reshape(
+            time.size, levels, 1, 1
+        )
+        return base + offset
+
+    compact_data = xr.Dataset(
+        {
+            "U": (["time", "lev", "lat", "lon"], make_3d(0.0)),
+            "V": (["time", "lev", "lat", "lon"], make_3d(1000.0)),
+            "Theta": (["time", "lev", "lat", "lon"], make_3d(2000.0)),
+            "Salt": (["time", "lev", "lat", "lon"], make_3d(3000.0)),
+            "Eta": (
+                ["time", "lat", "lon"],
+                np.arange(time.size, dtype=np.float32).reshape(time.size, 1, 1),
+            ),
+            "oceTAUX": (
+                ["time", "lat", "lon"],
+                (10.0 + np.arange(time.size, dtype=np.float32)).reshape(time.size, 1, 1),
+            ),
+            "oceTAUY": (
+                ["time", "lat", "lon"],
+                (20.0 + np.arange(time.size, dtype=np.float32)).reshape(time.size, 1, 1),
+            ),
+            "oceQnet": (
+                ["time", "lat", "lon"],
+                (30.0 + np.arange(time.size, dtype=np.float32)).reshape(time.size, 1, 1),
+            ),
+            "wetmask": (
+                ["lev", "lat", "lon"],
+                np.ones((levels, 1, 1), dtype=bool),
+            ),
+        },
+        coords={"time": time, "lev": lev, "lat": lat, "lon": lon},
+    )
+    compact_means = compact_data.drop_vars("wetmask").mean("time", keep_attrs=True)
+    compact_stds = xr.zeros_like(compact_means, dtype=np.float32) + 1.0
+
+    prognostic = PROGNOSTIC_VARS["all"]
+    boundary = BOUNDARY_VARS["all"]
+    src = DataSource.from_datasets(
+        compact_data,
+        compact_means,
+        compact_stds,
+        name="compact_llc_like",
+        prognostic_var_names=prognostic,
+        boundary_var_names=boundary,
+    )
+
+    with MultitonScope():
+        TensorMap.init_instance("all", "all")
+        normalize = Normalize.init_instance(
+            src,
+            prognostic_var_names=prognostic,
+            boundary_var_names=boundary,
+        )
+        assert normalize._prognostic_mean_np.shape[0] == len(prognostic)
+        assert normalize._boundary_mean_np.shape[0] == len(boundary)
+
+        sample = torch.randn(1, 2, len(prognostic), 1, 1)
+        unnormalized = normalize.unnormalize_tensor_prognostic(
+            sample, fill_value=0.0
+        )
+        assert unnormalized.shape == sample.shape
+
+        flat_sample = torch.randn(1, 2 * len(prognostic), 1, 1)
+        _, unnorm_dict = get_aggregator_dicts(
+            flat_sample,
+            src.masks.prognostic,
+            long_rollout=False,
+            input_type="prognostic",
+            num_prognostic_channels=2 * len(prognostic),
+            hist=1,
+        )
+        assert unnorm_dict["Eta"].shape == (1, 2, 1, 1)
 
 
 @pytest.mark.parametrize("fill_value", [float("nan"), 0.0])

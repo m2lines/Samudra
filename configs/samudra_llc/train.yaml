@@ -4,11 +4,13 @@ debug: false
 disk_mode: true
 pin_mem: true
 save_freq: 1
-epochs: 10
+epochs: 24
 batch_size: 1
 learning_rate: 0.0006
-gradient_accumulation_steps: 3
+gradient_accumulation_steps: 4
 scheduler: { type: cosine }
+lr_multipliers: [1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0]
+lr_multiplier_transition: [13, 14, 15, 17, 18, 19, 21, 22, 23]
 loss:
   type: gradient
   metric: mae
@@ -27,18 +29,18 @@ val_time:
   end: "2012-10-01" # "2011-09-16"
 inference_times:
   - start: "2012-10-01"
-    end: "2012-11-01"
+    end: "2012-10-04"
 data_stride: [6]
 temporal_stride: 6
-steps: [1]
-step_transition: []
+steps: [1, 2, 3, 4]
+step_transition: [13, 17, 21]
 temporal_stride_transition: []
 preemptible: false
 
 backend: auto
 
 experiment:
-  name: 2026-05-4-Samudra_LLC:uncompressed-cache_speed-test
+  name: 2026-05-05-Samudra_LLC:24ep_curriculum_h0_t6_g4
   data_root: /orcd/data/abodner/
   rand_seed: 15
   base_output_dir: .LOCAL

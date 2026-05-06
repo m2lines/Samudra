@@ -29,10 +29,7 @@ class MapAggregator(ValidateSubAggregator):
                 used in generating logged image captions.
             hist: Number of history steps to include in the snapshot.
         """
-        if metadata is None:
-            metadata = {}
-        else:
-            self._metadata = metadata
+        self._metadata = metadata or {}
         self._n_batches = 0
         self._target_data: dict[str, torch.Tensor] = {}
         self._gen_data: dict[str, torch.Tensor] = {}
@@ -105,9 +102,12 @@ class MapAggregator(ValidateSubAggregator):
         return image_logs
 
     def _get_caption(self, key: str, name: str) -> str:
-        if name in self._metadata:
-            caption_name = self._metadata[name]["long_name"]
-            units = self._metadata[name]["units"]
+        metadata_name = name
+        if metadata_name not in self._metadata and "_" in metadata_name:
+            metadata_name = metadata_name.rsplit("_", 1)[0]
+        if metadata_name in self._metadata:
+            caption_name = self._metadata[metadata_name]["long_name"]
+            units = self._metadata[metadata_name]["units"]
         else:
             caption_name, units = name, "unknown_units"
         caption = self._captions[key].format(name=caption_name, units=units)

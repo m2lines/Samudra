@@ -271,7 +271,7 @@ def build_flat_stats(
     dim_name: str,
 ) -> xr.DataArray:
     values = np.asarray(
-        [stats[stats_var_name(name, stats)].item() for name in channel_names],
+        [stats[stats_var_name(name, stats)].squeeze().item() for name in channel_names],
         dtype=np.float32,
     )
     return xr.DataArray(
@@ -290,6 +290,11 @@ def extract_mask_cube(ds: xr.Dataset) -> np.ndarray:
         raise KeyError("Source dataset must contain either mask_c or wetmask.")
 
     mask = standardize_spatial_dims(mask)
+
+    # Mask is static; drop time if it was stored with one
+    if "time" in mask.dims:
+        mask = mask.isel(time=0, drop=True)
+
     lev_dim = "lev" if "lev" in mask.dims else "k"
     return mask.transpose(lev_dim, "y", "x").to_numpy().astype(bool, copy=False)
 
@@ -546,7 +551,7 @@ def main() -> None:
     if "mask_c" not in data.data_vars and "wetmask" not in data.data_vars:
         raise KeyError("Source dataset is missing mask_c/wetmask.")
 
-    selected_vars = sorted(required_vars | {"mask_c", "wetmask"} & set(data.data_vars))
+    selected_vars = sorted((required_vars | {"mask_c", "wetmask"}) & set(data.data_vars))
     data = data[selected_vars]
     logger.info(
         "Slicing source to face=%d i=[%d:%d) j=[%d:%d)",

@@ -26,7 +26,10 @@ class SnapshotAggregator(ValidateSubAggregator):
     }
 
     def __init__(
-        self, metadata: dict[str, dict[str, str]] | None = None, hist: int = 0
+        self,
+        metadata: dict[str, dict[str, str]] | None = None,
+        hist: int = 0,
+        include_names: tuple[str, ...] | None = None,
     ):
         """
         Args:
@@ -34,11 +37,9 @@ class SnapshotAggregator(ValidateSubAggregator):
                 used in generating logged image captions.
             hist: Number of history steps to include in the snapshot.
         """
-        if metadata is None:
-            metadata = {}
-        else:
-            self._metadata = metadata
+        self._metadata = metadata or {}
         self.hist = hist
+        self._include_names = include_names
 
     @torch.no_grad()
     def record_batch(
@@ -71,7 +72,11 @@ class SnapshotAggregator(ValidateSubAggregator):
         target_time = 0  # first output time step
         input_time = self.hist  # last input time step
         image_logs = {}
-        for name in self._gen_data.keys():
+        if self._include_names is None:
+            names = list(self._gen_data.keys())
+        else:
+            names = [name for name in self._include_names if name in self._gen_data]
+        for name in names:
             # use first sample in batch
             gen = self._gen_data[name].select(dim=time_dim, index=target_time)[0].cpu()
             target = (
@@ -96,9 +101,12 @@ class SnapshotAggregator(ValidateSubAggregator):
         return image_logs
 
     def _get_caption(self, key: str, name: str) -> str:
-        if name in self._metadata:
-            caption_name = self._metadata[name]["long_name"]
-            units = self._metadata[name]["units"]
+        metadata_name = name
+        if metadata_name not in self._metadata and "_" in metadata_name:
+            metadata_name = metadata_name.rsplit("_", 1)[0]
+        if metadata_name in self._metadata:
+            caption_name = self._metadata[metadata_name]["long_name"]
+            units = self._metadata[metadata_name]["units"]
         else:
             caption_name, units = name, "unknown_units"
         caption = self._captions[key].format(name=caption_name, units=units)

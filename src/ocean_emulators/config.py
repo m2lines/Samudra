@@ -977,6 +977,14 @@ class TrainConfig(TopLevelConfig):
         ),
     )
     debug: bool = False
+    surface_snapshot: bool = Field(
+        default=False,
+        description=(
+            "If true, validation only logs surface snapshot images for "
+            "Theta_0, Salt_0, U_0, V_0, and Eta, and skips mean-map figures "
+            "to reduce validation aggregation time."
+        ),
+    )
     test_using_ema: bool = True
     ema_decay: float = 0.999
     faster_decay_at_start: bool = True

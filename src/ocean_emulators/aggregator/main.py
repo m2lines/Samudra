@@ -23,6 +23,7 @@ class Aggregator:
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
+        surface_snapshot: bool = False,
     ) -> ValidateAggregator:
         return ValidateAggregator(
             metadata=metadata,
@@ -30,6 +31,7 @@ class Aggregator:
             area_weights=area_weights,
             wet=wet,
             num_prognostic_channels=num_prognostic_channels,
+            surface_snapshot=surface_snapshot,
         )
 
     @staticmethod

@@ -5,9 +5,18 @@ from ocean_emulators.aggregator.validate.map import MapAggregator
 from ocean_emulators.aggregator.validate.reduced import MeanAggregator
 from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
+from ocean_emulators.constants import DEPTH_I_LEVELS
 from ocean_emulators.utils.data import Normalize, get_aggregator_dicts
 from ocean_emulators.utils.output import ValBatchOutput
 from ocean_emulators.utils.wandb import Metrics, MetricsDict
+
+SURFACE_SNAPSHOT_NAMES = (
+    f"Theta_{DEPTH_I_LEVELS[0]}",
+    f"Salt_{DEPTH_I_LEVELS[0]}",
+    f"U_{DEPTH_I_LEVELS[0]}",
+    f"V_{DEPTH_I_LEVELS[0]}",
+    "Eta",
+)
 
 
 class ValidateAggregator(TrainAggregator):
@@ -20,14 +29,21 @@ class ValidateAggregator(TrainAggregator):
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
+        surface_snapshot: bool = False,
     ):
         super().__init__()
 
+        snapshot_names = SURFACE_SNAPSHOT_NAMES if surface_snapshot else None
         val_aggregators: dict[str, ValidateSubAggregator] = {
-            "snapshot": SnapshotAggregator(metadata, hist),
-            "mean_map": MapAggregator(metadata, hist),
+            "snapshot": SnapshotAggregator(
+                metadata,
+                hist,
+                include_names=snapshot_names,
+            ),
             "reduced": MeanAggregator(area_weights, hist),
         }
+        if not surface_snapshot:
+            val_aggregators["mean_map"] = MapAggregator(metadata, hist)
         self._aggregators = val_aggregators
         self.normalize = Normalize.get_instance()
         self.hist = hist

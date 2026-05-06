@@ -102,6 +102,44 @@ def _packed_channel_indices(
     return [index_by_name[name] for name in requested_names], list(requested_names)
 
 
+def _flatten_dataset_channel_values(data: xr.Dataset) -> np.ndarray:
+    """Flatten dataset values in logical channel order without broadcasting surface vars.
+
+    This is used for normalization statistics, where compact LLC datasets may mix
+    level-wise variables like `U(lev)` with surface variables like `Eta()`.
+    `Dataset.to_array()` would broadcast `Eta` across `lev`, inflating the channel
+    count and breaking tensor normalization during validation/inference.
+    """
+
+    flattened: list[np.ndarray] = []
+    for data_array in data.data_vars.values():
+        channel_dim = next(
+            (dim for dim in data_array.dims if dim.endswith("_channel")),
+            None,
+        )
+        if channel_dim is not None:
+            ordered = data_array.transpose(
+                channel_dim,
+                *[dim for dim in data_array.dims if dim != channel_dim],
+            )
+        elif "lev" in data_array.dims:
+            ordered = data_array.transpose(
+                "lev",
+                *[dim for dim in data_array.dims if dim != "lev"],
+            )
+        else:
+            ordered = data_array
+
+        flattened.append(
+            np.asarray(ordered.to_numpy(), dtype=np.float32).reshape(-1)
+        )
+
+    if not flattened:
+        raise ValueError("Dataset must contain at least one data variable.")
+
+    return np.concatenate(flattened)
+
+
 def _slice_llc_dim(data: xr.Dataset, *, dim: str, start: int, end: int) -> xr.Dataset:
     if dim not in data.dims:
         return data
@@ -155,7 +193,36 @@ def _slice_llc_region(
 def _coerce_time_scalar(value):
     if isinstance(value, np.datetime64):
         return value.astype("datetime64[us]").item()
+    if isinstance(value, (int, np.integer)):
+        import cftime
+
+        return cftime.num2date(
+            int(value) / 1_000_000,
+            "milliseconds since 1970-01-01",
+            calendar="julian",
+        )
     return value
+
+
+def _with_julian_time_coord(data: xr.Dataset) -> xr.Dataset:
+    if "time" not in data.coords:
+        return data
+
+    time_values = np.asarray(data["time"].values)
+    if not np.issubdtype(time_values.dtype, np.datetime64):
+        return data
+
+    import cftime
+
+    julian_times = [
+        cftime.num2date(
+            int(ms),
+            "milliseconds since 1970-01-01",
+            calendar="julian",
+        )
+        for ms in time_values.astype("datetime64[ms]").astype("int64")
+    ]
+    return data.assign_coords(time=("time", julian_times))
 
 
 def _select_required_data_vars(
@@ -494,12 +561,7 @@ class DataSource:
 
         data = data.rename({'k': 'lev', 'mask_c': 'wetmask', 'i': 'x', 'j': 'y'})
 
-        # Convert data.time from numpy.datetime64[ns] to cftime.DatetimeJulian 
-        if "time" in data.coords:
-            import cftime
-            times = data["time"].values
-            julian_times = [cftime.num2date(t.item() / 1_000_000, 'milliseconds since 1970-01-01', calendar='julian') for t in times]
-            data = data.assign_coords(time=("time", julian_times))
+        data = _with_julian_time_coord(data)
 
         data_is_compact = any("lev" in data[v].dims for v in data.data_vars) and all(
             not _var_name_encode_level(str(v)) for v in data.data_vars
@@ -538,6 +600,7 @@ class DataSource:
         name: str = "PackedDataSource",
     ) -> Self:
         data = with_lat_lon_coords(data)
+        data = _with_julian_time_coord(data)
 
         available_prognostic = _packed_channel_names(data, "prognostic")
         available_boundary = _packed_channel_names(data, "boundary")
@@ -1007,12 +1070,12 @@ class Normalize(Multiton):
         self.wet_mask_surface = src.masks.boundary
 
         # Pre-compute numpy arrays for faster access
-        self._prognostic_mean_np = (
-            self.prognostic_mean.to_array().to_numpy().reshape(-1)
+        self._prognostic_mean_np = _flatten_dataset_channel_values(
+            self.prognostic_mean
         )
-        self._prognostic_std_np = self.prognostic_std.to_array().to_numpy().reshape(-1)
-        self._boundary_mean_np = self.boundary_mean.to_array().to_numpy().reshape(-1)
-        self._boundary_std_np = self.boundary_std.to_array().to_numpy().reshape(-1)
+        self._prognostic_std_np = _flatten_dataset_channel_values(self.prognostic_std)
+        self._boundary_mean_np = _flatten_dataset_channel_values(self.boundary_mean)
+        self._boundary_std_np = _flatten_dataset_channel_values(self.boundary_std)
         self._wet_mask_np = self.wet_mask.numpy()
 
     def _to_tensor(self, array: np.ndarray, device: torch.device) -> torch.Tensor:

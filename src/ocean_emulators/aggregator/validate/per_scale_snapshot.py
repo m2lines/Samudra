@@ -129,6 +129,11 @@ class PerScaleSnapshotValidateAggregator(TrainAggregator):
                 # trims a scale's tail or the val set lacks samples at a scale.
                 continue
             local_mean = self._loss_sum_per_scale[grid_size] / n
+            # all_reduce_mean uses the default (NCCL) backend which needs
+            # GPU tensors. Move to current CUDA device before reducing,
+            # then back to CPU for the float cast.
+            if torch.cuda.is_available():
+                local_mean = local_mean.cuda()
             mean_loss = float(all_reduce_mean(local_mean).cpu().numpy())
             logs[f"{label}/{scale}/loss"] = mean_loss
 

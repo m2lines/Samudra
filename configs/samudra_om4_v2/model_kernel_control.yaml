@@ -1,11 +1,14 @@
 # yaml-language-server: $schema=../schemas/SamudraConfig.json
 
-# Kernel-experiment v3: depthwise block + 3x3 kernels everywhere.
-# Block-type-only control to isolate the contribution of switching from
-# the V2 baseline's dense `conv_next_block` to the canonical depthwise
-# `true_conv_next_block`. Compare against the v1 large-kernel run
-# (`model_large_kernel.yaml`) to attribute deep-ocean gains to either
-# the block design or the kernel size schedule.
+# Kernel-experiment v3: depthwise block + 7x7 kernels everywhere — the
+# canonical ConvNeXt baseline (Liu et al. 2022). Isolates the block-type
+# contribution by holding kernel size at the ConvNeXt default while
+# switching from the V2 baseline's dense `conv_next_block` to the
+# canonical depthwise `true_conv_next_block`. Compare against v1
+# `model_large_kernel.yaml` (kernels [31,21,13,7]) to attribute the
+# deep-ocean gain to either the block design or the large-kernel schedule
+# — note v1's deepest stage was already 7x7, so v1 = v3 + (large kernels
+# at shallow stages).
 # See `exp_kernel.md`.
 
 checkpointing: all
@@ -15,7 +18,7 @@ pad: "circular"
 
 unet:
   ch_width: [280, 380, 480, 520]
-  kernel_size: [3, 3, 3, 3]
+  kernel_size: [7, 7, 7, 7]
   dilation: [1, 1, 1, 1]
   n_layers: [1, 1, 1, 1]
 

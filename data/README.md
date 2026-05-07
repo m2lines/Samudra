@@ -44,14 +44,8 @@ python -m ocean_preprocessing om4 -h
 Example: Test out this CLI on a small, dry run (this will process a small portion of the data and not write any output):
 
 ```bash
-# Check if you have the right envvars set:
-# set | grep AWS
-# set | grep FSSPEC
-# If not, set vars needed to authenticate data access
+# Set vars needed to access OSN Pod
 export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
-# Check with M2LInES project management for how to get the OSN Access keys.
-export AWS_ACCESS_KEY_ID=...
-export AWS_SECRET_ACCESS_KEY=...
 # Then, run the standard OM4 processing pipeline:
 python -m ocean_preprocessing om4 \
    "s3://m2lines-pubs/FOMO/raw/om4_5daily.zarr" \
@@ -77,13 +71,7 @@ python -m ocean_preprocessing om4 \
 Example: Run a real data processing pipeline on a coiled cluster:
 
 ```bash
-# These exports are needed in order to write to the OSN pod in practice.
-export AWS_REQUEST_CHECKSUM_CALCULATION=when_required
-export AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
-# Check if you have the right envvars set:
-# set | grep AWS
-# set | grep FSSPEC
-# If not, set vars needed to authenticate data access
+# Set vars needed to access OSN Pod
 export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
 # Check with M2LInES project management for how to get the OSN Access keys.
 export AWS_ACCESS_KEY_ID=...

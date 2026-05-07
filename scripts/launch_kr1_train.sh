@@ -46,7 +46,7 @@ export CONFIG=configs/fomo_om4/train_multiscale.yaml
 # 2D Fourier features fix; checkpoint shapes are incompatible. Other deltas:
 # loss=mse (was DynamicLoss), pred_residuals=true (was false), per-scale
 # validation snapshots, single-step warmup via steps=[1,2] step_transition=[10].
-export NAME_SUFFIX=kr1_fomo_multiscale_v46
+export NAME_SUFFIX=kr1_fomo_multiscale_v48
 
 # ── Data root: parent dir containing all three resolution subdirectories ──
 export DATA_ROOT="${DATA_ROOT:-/scratch/am16581/data}"
@@ -59,7 +59,7 @@ export WANDB_MODE="${WANDB_MODE:-${WANDB_API_KEY:+online}}"
 WANDB_MODE="${WANDB_MODE:-disabled}"
 
 # ─ Use preemptable resources, make the job resumable. ──
-export PREEMPTIBLE=0  # Turn off preemption
+export PREEMPTIBLE=1  # use preempt-resume support (PR #626)
 
 # ─ Checkpoint every 100 batches, not 250. ──
 export CHECKPOINT_BATCH_INTERVAL=100
@@ -102,7 +102,7 @@ export NSYS_PROFILE=0
 # ── Extra CLI overrides ──
 # The baked-in config has the decoder and data sources already configured.
 # v46: NO resume — see NAME_SUFFIX comment above. Fresh weights only.
-export ARGS="--data.loading.num_workers=8 --data.concurrent_compute=true --experiment.wandb.group=kr1_multiscale_relaunch"
+export ARGS="--data.loading.num_workers=8 --data.concurrent_compute=true --experiment.wandb.group=kr1_v48"
 
 echo "=== KR1 Multi-Scale FOMO Training ==="
 echo "Config:         ${CONFIG}"
@@ -124,7 +124,7 @@ echo ""
 # `EXTRA_SBATCH_ARGS` is an optional escape hatch for callers that want to
 # splice in extra sbatch flags (e.g. `--dependency=afterany:<jobid>` for
 # job chaining). Empty by default.
-sbatch \
+sbatch --requeue \
   ${EXTRA_SBATCH_ARGS:-} \
   --account=torch_pr_347_courant \
   --nodes=1 \

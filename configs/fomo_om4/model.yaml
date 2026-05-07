@@ -4,7 +4,7 @@
 
 # yaml-language-server: $schema=../schemas/FOMOConfig.json
 
-pred_residuals: true
+pred_residuals: false  # v48: drop residual path (v47 sawtooth artifacts)
 last_kernel_size: 3
 pad: "circular"
 checkpointing: "all"
@@ -26,7 +26,7 @@ decoder:
     num_latents: 256  # v30
   queries_dim: 64  # on the small end, but typical for PercieverIO models (usually in the ~100s-1000s).
   window_patches: 12  # Must evenly divide latent grid (60x72). Enables real spatial windowing.
-  context_patches: 1  # Look at this many window_patches around the target patch.
+  context_patches: 3  # v48: 1->3 to soften decoder window-boundary seams
 
 processor:
   ch_width: [380, 480, 520]  # v33: reverted wider ch_width (v32 regressed to 36%, v31 was 46%)

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """The module CLI entrypoint; routines for processing OM4 and CM4 datasets."""
 
 import os

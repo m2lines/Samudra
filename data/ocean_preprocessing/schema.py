@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 from xarrera import CoordsSchema, DataArraySchema, DatasetSchema  # noqa: E402
 
 ### Preprocessing Stage

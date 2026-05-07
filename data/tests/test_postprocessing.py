@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import xarray as xr
 from ocean_preprocessing.postprocessing import post_processor, prediction_data_test
 

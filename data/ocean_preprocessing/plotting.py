@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 import cartopy.crs as ccrs
 import matplotlib
 import matplotlib.pyplot as plt

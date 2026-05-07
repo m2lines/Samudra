@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """This is s bit silly. It would be better to be able to create datasets from the schema dynamically, so the schema serve as source of truth, and when they are updated, the test data is too. But for now lets at least test that our test fixtures are compliant."""
 
 from tests.data import input_data, prediction_data, processed_data  # noqa

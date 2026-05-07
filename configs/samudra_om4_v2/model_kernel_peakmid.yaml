@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=../schemas/SamudraConfig.json
+
+# Kernel-experiment v4: peak-in-middle kernel schedule [7, 21, 21, 13].
+# Adapts RepLKNet's actual shape (`[31, 29, 27, 13]`, peak in middle
+# stages with a drop at the deepest) to our U-Net's feature-map sizes.
+# Keeps the shallowest stage at 7x7 to preserve surface fidelity, peaks
+# at 21x21 in stages 2-3 where feature maps are still substantial, and
+# drops to 13x13 at the 22x45 deepest stage to avoid the >50% padding
+# waste that 31x31 would incur there.
+# See `exp_kernel.md`.
+
+checkpointing: all
+pred_residuals: false
+last_kernel_size: 3
+pad: "circular"
+
+unet:
+  ch_width: [280, 380, 480, 520]
+  kernel_size: [7, 21, 21, 13]
+  dilation: [1, 1, 1, 1]
+  n_layers: [1, 1, 1, 1]
+
+  core_block:
+    block_type: "true_conv_next_block"
+    activation: "capped_gelu"
+    upscale_factor: 2
+    norm: "batch"
+
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "zonally_periodic_upsample"
+
+corrector:
+  non_negative_corrector_names: null
+  ocean_heat_corrector: false

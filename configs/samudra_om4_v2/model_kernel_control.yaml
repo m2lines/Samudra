@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../schemas/SamudraConfig.json
+
+# Kernel-experiment v3: depthwise block + 3x3 kernels everywhere.
+# Block-type-only control to isolate the contribution of switching from
+# the V2 baseline's dense `conv_next_block` to the canonical depthwise
+# `true_conv_next_block`. Compare against the v1 large-kernel run
+# (`model_large_kernel.yaml`) to attribute deep-ocean gains to either
+# the block design or the kernel size schedule.
+# See `exp_kernel.md`.
+
+checkpointing: all
+pred_residuals: false
+last_kernel_size: 3
+pad: "circular"
+
+unet:
+  ch_width: [280, 380, 480, 520]
+  kernel_size: [3, 3, 3, 3]
+  dilation: [1, 1, 1, 1]
+  n_layers: [1, 1, 1, 1]
+
+  core_block:
+    block_type: "true_conv_next_block"
+    activation: "capped_gelu"
+    upscale_factor: 2
+    norm: "batch"
+
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "zonally_periodic_upsample"
+
+corrector:
+  non_negative_corrector_names: null
+  ocean_heat_corrector: false

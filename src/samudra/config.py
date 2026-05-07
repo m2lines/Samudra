@@ -49,7 +49,12 @@ from samudra.models.modules.augment_input import (
 )
 from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from samudra.models.modules.encoder import patch_from
-from samudra.utils.data import DataContainer, DataSource, Normalize
+from samudra.utils.data import (
+    DataContainer,
+    DataSource,
+    Normalize,
+    canonicalize_llc_datasets,
+)
 from samudra.utils.location import LocalLocation, Location, ResolvedLocation
 from samudra.utils.loss import (
     DynamicLoss,
@@ -207,21 +212,55 @@ class Om4DatasetConfig(BaseConfig):
             self.boundary_vars_key,
         )
 
+    def canonicalize_datasets(
+        self,
+        data: xr.Dataset,
+        means: xr.Dataset,
+        stds: xr.Dataset,
+    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+        return data, means, stds
+
 
 class LlcDatasetConfig(BaseConfig):
     type: Literal["llc"] = "llc"
     prognostic_vars_key: str = "single_1"
     boundary_vars_key: str = "single_1"
-    face: int = 1
-    i_start: int = 0
-    i_end: int = 720
-    j_start: int = 0
-    j_end: int = 720
+    face: int = Field(default=1, ge=0)
+    i_start: int = Field(default=0, ge=0)
+    i_end: int = Field(default=720, gt=0)
+    j_start: int = Field(default=0, ge=0)
+    j_end: int = Field(default=720, gt=0)
 
     def build(self) -> DatasetSpec:
         return build_llc_spec(
             self.prognostic_vars_key,
             self.boundary_vars_key,
+        )
+
+    @pydantic.model_validator(mode="after")
+    def validate_crop_bounds(self) -> Self:
+        if self.i_end <= self.i_start:
+            raise ValueError("LLC crop bounds must satisfy i_start < i_end")
+        if self.j_end <= self.j_start:
+            raise ValueError("LLC crop bounds must satisfy j_start < j_end")
+        return self
+
+    def canonicalize_datasets(
+        self,
+        data: xr.Dataset,
+        means: xr.Dataset,
+        stds: xr.Dataset,
+    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+        return canonicalize_llc_datasets(
+            data,
+            means,
+            stds,
+            face=self.face,
+            i_start=self.i_start,
+            i_end=self.i_end,
+            j_start=self.j_start,
+            j_end=self.j_end,
+            dataset_spec=self.build(),
         )
 
 
@@ -253,12 +292,6 @@ class DataConfig(BaseConfig):
         data_root: ResolvedLocation,
     ) -> DataContainer:
         dataset_spec = self.dataset.build()
-        if self.dataset.type != "om4":
-            raise NotImplementedError(
-                f"Dataset type {self.dataset.type!r} is not wired into the data "
-                "loader yet. The dataset-family interface lands in this PR; LLC "
-                "reader support follows in the next slice."
-            )
 
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
@@ -272,16 +305,24 @@ class DataConfig(BaseConfig):
             resolved_data_location = data_root.resolve(data_location)
             resolved_means_location = data_root.resolve(means_location)
             resolved_stds_location = data_root.resolve(stds_location)
-            return DataSource.from_locations(
-                data_location=resolved_data_location,
-                means_location=resolved_means_location,
-                stds_location=resolved_stds_location,
+
+            chunks: dict[str, int] | None = {} if turn_on_dask else None
+            data = resolved_data_location.open(chunks)
+            means = resolved_means_location.open(chunks)
+            stds = resolved_stds_location.open(chunks)
+            data, means, stds = self.dataset.canonicalize_datasets(data, means, stds)
+
+            data_source = DataSource.from_datasets(
+                data,
+                means,
+                stds,
                 dataset_spec=dataset_spec,
                 prognostic_var_names=dataset_spec.prognostic_var_names,
                 boundary_var_names=dataset_spec.boundary_var_names,
                 static_data_vars=self.static_data_vars,
-                use_dask=turn_on_dask,
+                name=f"{resolved_data_location}-{turn_on_dask}",
             )
+            return data_source
 
         sources = []
         for source_cfg in self.sources:

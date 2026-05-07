@@ -10,6 +10,7 @@ from collections.abc import Callable
 from functools import cached_property
 from typing import TYPE_CHECKING, Literal, Self
 
+import cftime
 import numpy as np
 import torch
 import xarray as xr
@@ -39,9 +40,26 @@ from samudra.constants import (
     construct_metadata,
 )
 from samudra.derived_variables import add_derived_variables
-from samudra.utils.location import ResolvedLocation
 
 logger = logging.getLogger(__name__)
+
+
+def _convert_llc_time_coord_to_julian(time_coord: xr.DataArray) -> np.ndarray:
+    """Convert LLC time coordinates to Julian-calendar cftime datetimes."""
+    values = np.asarray(time_coord.values)
+    if not np.issubdtype(values.dtype, np.datetime64):
+        raise TypeError(
+            "Expected raw LLC time coordinate to use datetime64 values, got "
+            f"{values.dtype}."
+        )
+
+    microseconds = values.astype("datetime64[us]").astype(np.int64)
+    converted = cftime.num2date(
+        microseconds,
+        "microseconds since 1970-01-01",
+        calendar="julian",
+    )
+    return np.asarray(converted, dtype=object)
 
 
 def _var_name_encode_level(var_name: str) -> bool:
@@ -269,35 +287,6 @@ class DataSource:
         return norm
 
     @classmethod
-    def from_locations(
-        cls,
-        data_location: ResolvedLocation,
-        means_location: ResolvedLocation,
-        stds_location: ResolvedLocation,
-        *,
-        dataset_spec: DatasetSpec,
-        prognostic_var_names: PrognosticVarNames,
-        boundary_var_names: BoundaryVarNames,
-        static_data_vars: list[str] | None,
-        use_dask: bool,
-    ) -> Self:
-        chunks: dict[str, int] | None = {} if use_dask else None
-        data = data_location.open(chunks)
-        means = means_location.open(chunks)
-        stds = stds_location.open(chunks)
-
-        return cls.from_datasets(
-            data,
-            means,
-            stds,
-            dataset_spec=dataset_spec,
-            prognostic_var_names=prognostic_var_names,
-            boundary_var_names=boundary_var_names,
-            static_data_vars=static_data_vars,
-            name=f"{data_location}-{use_dask}",
-        )
-
-    @classmethod
     def from_datasets(
         cls,
         data: xr.Dataset,
@@ -328,6 +317,128 @@ class DataSource:
             masks=masks,
             dataset_spec=dataset_spec,
         )
+
+
+def _rename_llc_level_index_vars(ds: xr.Dataset) -> xr.Dataset:
+    rename_map = {
+        name: f"{var}_{lev}"
+        for name in ds.variables
+        if isinstance(name, str) and "_lev_" in name
+        for var, lev in [name.split("_lev_", maxsplit=1)]
+    }
+    return ds.rename(rename_map) if rename_map else ds
+
+
+def _flatten_llc_level_vars(
+    data: xr.Dataset,
+    *,
+    dataset_spec: DatasetSpec,
+) -> xr.Dataset:
+    data_copy = data.copy()
+    for name in list(data_copy.data_vars):
+        if not isinstance(name, str):
+            continue
+        if "lev" not in data_copy[name].dims:
+            continue
+
+        n_levels = data_copy[name].sizes["lev"]
+        expected_levels = len(dataset_spec.depth_i_levels)
+        if n_levels != expected_levels:
+            raise ValueError(
+                f"Expected {expected_levels} levels for LLC variable {name}, got "
+                f"{n_levels}"
+            )
+
+        for index, lev in enumerate(dataset_spec.depth_i_levels):
+            data_copy[f"{name}_{lev}"] = data_copy[name].isel(lev=index)
+        data_copy = data_copy.drop_vars(name)
+
+    return data_copy
+
+
+def canonicalize_llc_datasets(
+    data: xr.Dataset,
+    means: xr.Dataset,
+    stds: xr.Dataset,
+    *,
+    face: int,
+    i_start: int,
+    i_end: int,
+    j_start: int,
+    j_end: int,
+    dataset_spec: DatasetSpec,
+) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+    """Standardize raw LLC inputs to the common non-compact loader layout."""
+    data_copy = data.copy()
+
+    if "face" in data_copy.dims or "face" in data_copy.coords:
+        data_copy = data_copy.sel(face=face, drop=True)
+
+    spatial_indexers = {}
+    if "i" in data_copy.dims:
+        spatial_indexers["i"] = slice(i_start, i_end)
+    if "i_g" in data_copy.dims:
+        spatial_indexers["i_g"] = slice(i_start, i_end)
+    if "j" in data_copy.dims:
+        spatial_indexers["j"] = slice(j_start, j_end)
+    if "j_g" in data_copy.dims:
+        spatial_indexers["j_g"] = slice(j_start, j_end)
+    if spatial_indexers:
+        data_copy = data_copy.isel(spatial_indexers)
+
+    unstagger_map = {
+        "U": {"i_g": "i"},
+        "V": {"j_g": "j"},
+        "oceTAUX": {"i_g": "i"},
+        "oceTAUY": {"j_g": "j"},
+    }
+    for var_name, rename_dims in unstagger_map.items():
+        if var_name not in data_copy.variables:
+            continue
+        used_renames = {
+            old: new
+            for old, new in rename_dims.items()
+            if old in data_copy[var_name].dims
+        }
+        if used_renames:
+            data_copy[var_name] = data_copy[var_name].rename(used_renames)
+
+    remaining_staggered = [
+        name
+        for name in data_copy.data_vars
+        if "i_g" in data_copy[name].dims or "j_g" in data_copy[name].dims
+    ]
+    if remaining_staggered:
+        raise ValueError(
+            "LLC canonicalization left staggered variables unresolved: "
+            f"{remaining_staggered}"
+        )
+
+    data_copy = data_copy.drop_vars(["i_g", "j_g"], errors="ignore")
+    rename_map = {
+        old: new
+        for old, new in {
+            "k": "lev",
+            "mask_c": "wetmask",
+            "i": "x",
+            "j": "y",
+        }.items()
+        if old in data_copy.dims
+        or old in data_copy.variables
+        or old in data_copy.coords
+    }
+    if rename_map:
+        data_copy = data_copy.rename(rename_map)
+
+    if "time" in data_copy.coords:
+        julian_times = _convert_llc_time_coord_to_julian(data_copy["time"])
+        data_copy = data_copy.assign_coords(time=("time", julian_times))
+
+    means_copy = _rename_llc_level_index_vars(means.copy())
+    stds_copy = _rename_llc_level_index_vars(stds.copy())
+    data_copy = _flatten_llc_level_vars(data_copy, dataset_spec=dataset_spec)
+
+    return data_copy, means_copy, stds_copy
 
 
 @dataclasses.dataclass

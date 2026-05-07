@@ -55,8 +55,6 @@ optional-dependencies.test = [
   "h5py",
   "pytest",
 ]
-urls.Homepage = "https://github.com/jbusecke/ocean_emulators"
-urls.Tracker = "https://github.com/jbusecke/ocean_emulators/issues"
 
 [tool.setuptools.packages.find]
 exclude = [ "book", "docs" ] # exclude packages matching these glob patterns (empty by default)

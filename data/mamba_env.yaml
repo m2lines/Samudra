@@ -21,5 +21,6 @@ dependencies:
     - h5netcdf
     - matplotlib
     - coiled
+    - distributed
     - pip:
       - -e .  # local sources

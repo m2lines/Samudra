@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1777921165169,
+  "lastUpdate": 1778182156245,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -9309,6 +9309,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.19904934481867603",
             "extra": "mean: 28.10358028820001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8370c821df6fa3ab1e61ff238992ce546755a104",
+          "message": "Merging the data engineering repo in full with this project. (#707)\n\nThis PR merges the m2lines emulators data engineering repo into our\nprimary repo.\n\nA good way to begin review of this change is to read this commit of the\nmigration script:\n[6bc907b](https://github.com/Open-Athena/Ocean_Emulator/pull/707/commits/6bc907bcba333d3d216e3cb98f17822d4ca202cf).\n\nIn addition, this PR works to meld the new repo with the old,\ncentralizing code and documentation into the appropriate places. This PR\nalso includes updates to our data documentation (and makes our\nContributing documentation spread out over a few pages). Since the\n`reuse` PR landed, we updated the script to apply to directories instead\nof just staged files. Last, in service to better documenting data, this\nPR updates the location for where we clone data.\n\nFixes #691\nFixes #692 - documents data access\nFixes #718\n\n---------\n\nCo-authored-by: Julius Busecke <julius@ldeo.columbia.edu>\nCo-authored-by: Adam Subel <adam.subel@nyu.edu>\nCo-authored-by: pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>\nCo-authored-by: Shubham Gupta <shubhamg@login22.chn.perlmutter.nersc.gov>\nCo-authored-by: Julius Busecke <jb8628@cm013.hpc.nyu.edu>\nCo-authored-by: Surya <surya.dheeshjith@gmail.com>\nCo-authored-by: Spencer Clark <spencerkclark@gmail.com>\nCo-authored-by: James Duncan <jpduncan@berkeley.edu>\nCo-authored-by: Elynn Wu <elynn510@gmail.com>\nCo-authored-by: Surya Dheeshjith <41594351+suryadheeshjith@users.noreply.github.com>\nCo-authored-by: Elynn Wu <elynnw@allenai.org>\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>\nCo-authored-by: Yuan Yuan <940545897@qq.com>\nCo-authored-by: Claude Opus 4.6 (1M context) <noreply@anthropic.com>\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2026-05-07T19:14:59Z",
+          "tree_id": "5be563294c3cfc9f9b7f3429a5cb90e7e69c36cb",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/8370c821df6fa3ab1e61ff238992ce546755a104"
+        },
+        "date": 1778182155354,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.085182805306144,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0010231922911851275",
+            "extra": "mean: 921.5037273999997 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.16305749361428515,
+            "unit": "iter/sec",
+            "range": "stddev: 0.22378023463836988",
+            "extra": "mean: 6.132806152199999 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.03500153699442283,
+            "unit": "iter/sec",
+            "range": "stddev: 0.13261640510260414",
+            "extra": "mean: 28.57017393719998 sec\nrounds: 5"
           }
         ]
       }

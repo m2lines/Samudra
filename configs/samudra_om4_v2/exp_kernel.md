@@ -58,29 +58,46 @@ kernel-size variable:
    dense-spatial-conv block) to `true_conv_next_block` (the canonical
    ConvNeXt block: 1×1 pre-projection → depthwise k×k → norm → 1×1
    expand → activation → 1×1 project + residual).
-2. **Per-stage kernel sizes** become `[31, 21, 13, 7]` (decreasing,
+2. **Per-stage kernel sizes** become `[7, 13, 21, 31]` (increasing,
    shallow-to-deep), replacing V2's uniform `kernel_size: 3` with
    dilation `[1, 2, 4, 8]`.
 
 Channel widths, expansion factor, norm, activation, padding, and
 down/upsamplers are all identical to V2.
 
-## Why decreasing kernels (`[31, 21, 13, 7]`)
+## Why increasing kernels (`[7, 13, 21, 31]`)
 
-Three considerations, all pointing the same direction:
+The previous version of this experiment used the *opposite* schedule
+`[31, 21, 13, 7]` (RepLKNet-style decreasing). That run produced a
+clear trade-off vs the Samudra-2 1° baseline (Yuan et al. 2026):
 
-- **Paper precedent.** RepLKNet uses `[31, 29, 27, 13]` and the ConvNeXt
-  ablations show the same shallow-to-deep decreasing pattern works well.
-  Deeper stages don't need big kernels because their effective receptive
-  field is already large via composition through the network.
-- **V2's effective RF.** V2 achieves an effective receptive field of
-  roughly `[3, 5, 9, 17]` per stage via dilation. This experiment's
-  kernels exceed that at every stage, so we're strictly testing "more
-  spatial context" vs. V2.
-- **Feature-map budget.** At 1° the deepest U-Net stage has spatial
-  dims ~22×45. A 31×31 kernel there would require `N_pad=15`, more than
-  half the feature height — wasted compute on padding. The decreasing
-  schedule keeps padding ≤15% at every stage.
+- **Surface / ENSO got worse:** Niño 3.4 R² 0.82 vs paper 0.93;
+  upper-ocean global-mean T R² 0.66 vs paper 0.87.
+- **Deep ocean got *better*:** global-mean T R² −6.56 vs paper −16.14
+  (a substantial reduction in deep-ocean error magnitude).
+
+The most parsimonious explanation: 31×31 kernels at the *shallow* stage
+smoothed the high-frequency input that surface predictions need, while
+the broad spatial context picked up at the bottleneck helped slow,
+large-scale deep-ocean signals. This schedule reverses that allocation:
+
+- **Shallow stage 1 (180×360, 280 ch): 7×7.** Same as ConvNeXt's
+  default — preserves surface variability for SST/ENSO.
+- **Mid stages 2-3 (90×180, 45×90): 13×13, 21×21.** Moderate RF
+  expansion to capture synoptic-to-basin-scale features.
+- **Deep stage 4 (22×45, 520 ch): 31×31.** Largest kernel where the
+  feature map is smallest, giving the bottleneck near-global context
+  for low-frequency deep-ocean modes.
+
+### Caveat on the deepest-stage kernel
+
+At 1° the deepest stage is 22×45, so a 31×31 kernel needs `N_pad=15`
+— ~68% of the feature height is padding. The previous schedule
+explicitly avoided this; here we accept the waste because (a) it is the
+direct mirror test of the previous run, and (b) once the kernel
+exceeds the feature map size, additional size mostly contributes
+zero-padded receptive field rather than useful signal, so 31 vs 21 at
+this stage may be near-equivalent in practice.
 
 ## Caveats
 

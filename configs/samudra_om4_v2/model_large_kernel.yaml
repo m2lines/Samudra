@@ -1,8 +1,10 @@
 # yaml-language-server: $schema=../schemas/SamudraConfig.json
 
 # Variant of `model.yaml` that swaps the dense-spatial `conv_next_block`
-# for the canonical depthwise `true_conv_next_block` and applies
-# RepLKNet-style large kernels (Ding et al. 2022, §5.3 + Table 11).
+# for the canonical depthwise `true_conv_next_block` and applies large
+# depthwise kernels in an increasing shallow-to-deep schedule, motivated
+# by the v1 large-kernel run (which used the opposite, decreasing
+# schedule and showed a surface-vs-deep trade-off vs Samudra-2).
 # See `exp_kernel.md` for the experiment design and kernel-size rationale.
 
 checkpointing: all
@@ -12,14 +14,13 @@ pad: "circular"
 
 unet:
   ch_width: [280, 380, 480, 520]
-  # Decreasing kernel sizes from shallow to deep stages, mirroring the
-  # RepLKNet-31 pattern. Largest at stage 1 where the feature map is
-  # biggest (180×360 at 1°); smallest at stage 4 where the feature map
-  # is small (22×45 at 1°) and the effective receptive field is already
-  # large via composition.
-  kernel_size: [31, 21, 13, 7]
-  # No dilation: large depthwise kernels make it redundant, and at deep
-  # stages the implied N_pad would exceed the feature-map size.
+  # Increasing kernel sizes from shallow to deep, reversing v1's
+  # `[31, 21, 13, 7]`. v1 helped deep-ocean tracking but hurt surface /
+  # ENSO; the surface degradation is most consistent with shallow-stage
+  # 31×31 smoothing the high-frequency input. By keeping the shallowest
+  # stage at 7×7 we preserve surface fidelity, while the deeper stages
+  # accumulate the broad-scale context that helped the deep ocean.
+  kernel_size: [7, 13, 21, 31]
   dilation: [1, 1, 1, 1]
   n_layers: [1, 1, 1, 1]
 

@@ -4,6 +4,7 @@
 
 from pathlib import Path
 
+import cftime
 import pytest
 from pydantic import ValidationError
 
@@ -17,7 +18,8 @@ from ocean_emulators.config import (
     TrainConfig,
 )
 from ocean_emulators.config_schema import get_pydantic_models
-from ocean_emulators.utils.location import UnresolvedLocation
+from ocean_emulators.utils.location import LocalLocation, UnresolvedLocation
+from tests.llc_fixtures import write_raw_llc_datasets
 
 
 def test_data_config_rejects_legacy_num_workers_field():
@@ -89,6 +91,59 @@ def test_data_config_accepts_llc_dataset_type():
     assert isinstance(cfg.dataset, LlcDatasetConfig)
     assert cfg.dataset.face == 2
     assert cfg.dataset.build().prognostic_var_names == ["Theta_0"]
+
+
+def test_data_config_rejects_invalid_llc_crop():
+    with pytest.raises(ValidationError, match="i_start < i_end"):
+        DataConfig.model_validate(
+            {
+                "dataset": {
+                    "type": "llc",
+                    "i_start": 20,
+                    "i_end": 20,
+                },
+                "sources": [
+                    {
+                        "data_location": "data.zarr",
+                        "data_means_location": "means.zarr",
+                        "data_stds_location": "stds.zarr",
+                    }
+                ],
+            }
+        )
+
+
+def test_data_config_builds_llc_source_from_local_files(tmp_path):
+    write_raw_llc_datasets(tmp_path)
+    cfg = DataConfig.model_validate(
+        {
+            "dataset": {
+                "type": "llc",
+                "face": 1,
+                "i_start": 1,
+                "i_end": 4,
+                "j_start": 1,
+                "j_end": 3,
+            },
+            "sources": [
+                {
+                    "data_location": "data.zarr",
+                    "data_means_location": "means.nc",
+                    "data_stds_location": "stds.nc",
+                }
+            ],
+        }
+    )
+
+    container = cfg.build(LocalLocation(path=tmp_path))
+    source = container.primary_source
+
+    assert source.dataset_spec.type == "llc"
+    assert "Theta_0" in source.data.variables
+    assert "wetmask_0" in source.data.variables
+    assert "face" not in source.data.dims
+    assert source.data["Theta_0"].shape == (3, 2, 3)
+    assert isinstance(source.data.time.values[0], cftime.DatetimeJulian)
 
 
 def test_data_config_accepts_gpu_loading():

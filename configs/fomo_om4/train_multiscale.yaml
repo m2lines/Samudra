@@ -39,7 +39,7 @@ inference_times:
 data_stride: [1]
 steps: [1, 2]  # v31: cut rollout from 4→2 to raise GPU util (v30 ~36%, bursty Python gaps)
 step_transition: [10]
-preemptible: false
+preemptible: true
 
 backend: auto
 
@@ -52,6 +52,7 @@ experiment:
     project: default
   train_schedule: match
 data:
+  hist: 0  # v48: 1->0 (drop history input frame; physics is markovian)
   dataset:
     type: om4
     prognostic_vars_key: thermo_dynamic_all

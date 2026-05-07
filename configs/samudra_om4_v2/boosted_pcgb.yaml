@@ -15,11 +15,11 @@ pin_mem: true
 # PCGB-specific knobs
 num_rounds: 32                     # T
 steps_per_round_epochs: 2.0        # K = 2 epochs of full train per round
-mask_pool:
-  mode: enumerate_all
+mask_searcher:
+  type: enumerate                  # v1 default — enumerate all 16 skip masks
   num_skips: 4                     # matches len(unet.ch_width)
-mask_schedule: adversarial
-mask_no_repeat_window: 0           # try (a) "trust the algorithm" first
+  schedule: adversarial            # argmax weighted MSE on D_t each round
+  no_repeat_window: 0              # try "trust the algorithm" first
 scoring_subset_percent: 0.25       # 25% of calibration set per scoring pass
 
 # R2 reweighting (DynamicLoss-borrowed stability additions)

@@ -154,31 +154,78 @@ class UNetBackbone(nn.Module):
         self.layers = nn.ModuleList(layers)
         self.num_steps = int(len(ch_width) - 1)
         self.drop_path = DropPath(drop_path_rate)
-        # Optional deterministic per-skip mask. mask[i] == True means "drop
-        # skip i" (zero out), False means "keep skip i" (pass through, no
-        # DropPath). Set via with_skip_mask(); None preserves stochastic behavior.
+        # Index core blocks separately so PCGB's mask searcher can address
+        # them by position (e.g. block 3 = "the middle block"). Order is
+        # the natural forward-pass order: down blocks, middle block, up
+        # blocks, final block. Convblock residuals on these are toggled
+        # via with_path_mask(block_drops=...).
+        self._core_blocks: list[CoreBlock] = [
+            layer for layer in layers if isinstance(layer, CoreBlock)
+        ]
+        # Optional deterministic per-skip mask (length = num_steps).
+        # mask[i]=True means "drop skip i" (zero out); None preserves
+        # stochastic DropPath behavior. Set via with_skip_mask /
+        # with_path_mask.
         self._skip_mask: tuple[bool, ...] | None = None
+
+    @property
+    def num_blocks(self) -> int:
+        """Number of CoreBlocks in this backbone, in forward-pass order."""
+        return len(self._core_blocks)
 
     @contextmanager
     def with_skip_mask(self, mask: Sequence[bool] | None) -> Iterator[None]:
         """Inject a deterministic per-skip mask for the duration of the context.
 
-        Used by the boosting driver (Experiment A) to evaluate the network
-        under a specific path configuration without disturbing training-time
-        stochastic semantics. Re-entrant: nested contexts restore the prior
-        mask on exit.
+        Equivalent to ``with_path_mask(skip_drops=mask, block_drops=None)``.
+        Kept for backwards-compatibility with v1 callers that only address
+        the UNet skip axis.
         """
-        if mask is not None and len(mask) != self.num_steps:
+        with self.with_path_mask(skip_drops=mask, block_drops=None):
+            yield
+
+    @contextmanager
+    def with_path_mask(
+        self,
+        skip_drops: Sequence[bool] | None,
+        block_drops: Sequence[bool] | None,
+    ) -> Iterator[None]:
+        """Inject deterministic masks on both UNet skips and conv-block residuals.
+
+        Args:
+          skip_drops: per-skip mask of length ``num_steps``. ``True`` zeros
+            the skip; ``None`` preserves stochastic DropPath semantics.
+          block_drops: per-CoreBlock residual mask of length ``num_blocks``.
+            ``True`` zeros the convblock (trunk) contribution, leaving the
+            block as a pure identity (Veit-style "skip block i" / `y =
+            y_{i-1}`); ``None`` preserves stochastic behavior on each block.
+
+        Re-entrant: nested contexts restore the prior masks on exit.
+        """
+        if skip_drops is not None and len(skip_drops) != self.num_steps:
             raise ValueError(
-                f"skip mask length {len(mask)} does not match number of "
-                f"skip connections {self.num_steps}"
+                f"skip mask length {len(skip_drops)} does not match number "
+                f"of skip connections {self.num_steps}"
             )
-        prev = self._skip_mask
-        self._skip_mask = tuple(mask) if mask is not None else None
+        if block_drops is not None and len(block_drops) != self.num_blocks:
+            raise ValueError(
+                f"block mask length {len(block_drops)} does not match "
+                f"number of core blocks {self.num_blocks}"
+            )
+
+        prev_skip = self._skip_mask
+        prev_block_overrides = [blk._drop_override for blk in self._core_blocks]
+
+        self._skip_mask = tuple(skip_drops) if skip_drops is not None else None
+        if block_drops is not None:
+            for i, blk in enumerate(self._core_blocks):
+                blk._drop_override = bool(block_drops[i])
         try:
             yield
         finally:
-            self._skip_mask = prev
+            self._skip_mask = prev_skip
+            for blk, prev in zip(self._core_blocks, prev_block_overrides):
+                blk._drop_override = prev
 
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
         skip_inputs: list[torch.Tensor] = []

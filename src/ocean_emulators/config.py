@@ -342,6 +342,18 @@ class BlockConfig(BaseConfig):
     upscale_factor: int = 4
     norm: NormType = "batch"
     pointwise_linear: bool = False
+    residual_drop_rate: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Stochastic-depth drop rate on the convblock (trunk) output of "
+            "each ConvNeXtBlock. With rate=0 and no PCGB override, this is a "
+            "no-op. PCGB's mask searcher uses the deterministic-mask path "
+            "(via `UNetBackbone.with_path_mask`); the rate is what governs "
+            "the i.i.d. Bernoulli behavior at training time."
+        ),
+    )
 
     def build(self) -> CoreBlockBuilder:
         match self.activation:
@@ -387,6 +399,7 @@ class BlockConfig(BaseConfig):
                         norm=self.norm,
                         activation=activation,
                         pointwise_linear=self.pointwise_linear,
+                        residual_drop_rate=self.residual_drop_rate,
                     )
                 case _:
                     assert_never(self.block_type)
@@ -1175,30 +1188,91 @@ class EvalConfig(TopLevelConfig):
         self.experiment.output_dir.mkdir(parents=True, exist_ok=True)
 
 
-# Mask-pool generation modes for the path-cyclic gradient boosting experiment.
-# "enumerate_all" enumerates every binary mask of length num_skips (2^num_skips
-# total). For 4 skips this gives 16 masks — small enough to scan exhaustively
-# during the end-of-round adversarial scoring pass.
-MaskPoolMode = Literal["enumerate_all"]
+# Mask-searcher discriminated union — see boosted_samudra.md "Searching the
+# path lattice." The searcher owns candidate generation, the surrogate (if
+# any), and next-mask selection. The driver in src/ocean_emulators/pcgb.py
+# is searcher-agnostic.
+
+MaskSchedule = Literal["adversarial", "round_robin"]
 
 
-class MaskPoolConfig(BaseConfig):
-    mode: MaskPoolMode = "enumerate_all"
-    num_skips: int = Field(
-        default=4,
-        ge=1,
+class EnumerateSearcherConfig(BaseConfig):
+    """v1 default: enumerate all 2^num_skips UNet-skip masks; no block drops.
+
+    Pool size = 2^num_skips. With num_skips=4 this is 16 candidates — small
+    enough to score every round, low enough scoring-cost to keep GPU
+    utilization above 80%.
+    """
+
+    type: Literal["enumerate"] = "enumerate"
+    num_skips: int = Field(default=4, ge=1)
+    schedule: MaskSchedule = "adversarial"
+    no_repeat_window: int = Field(
+        default=0,
+        ge=0,
         description=(
-            "Number of UNet skip connections targeted by the mask pool. Must "
-            "match the number of skips in the loaded backbone (= len(unet.ch_width))."
+            "If > 0, the adversarial selector excludes the last "
+            "no_repeat_window distinct masks from the argmax pool. Set to "
+            "2–3 if mask selection collapses onto a single mask in practice."
         ),
     )
 
 
-# See boosted_samudra.md for the algorithm spec. PCGB shares most of its
-# training-time machinery with TrainConfig (same data, model, optimizer,
-# scheduler, distributed wiring) — what differs is the round structure on
-# top of the standard SGD inner loop.
-MaskSchedule = Literal["adversarial", "round_robin"]
+class MixtureSearcherConfig(BaseConfig):
+    """v2 (future experiment): mixture sampling over the full path lattice.
+
+    Search space is `2^(num_skips + num_blocks)` — too large to enumerate.
+    Each round samples ``num_candidates`` masks from a (prior, stratified,
+    uniform) mixture and fits a per-bit linear surrogate online to bias the
+    next round's prior toward masks the model is currently failing on.
+    """
+
+    type: Literal["mixture"] = "mixture"
+    num_skips: int = Field(default=4, ge=1)
+    num_blocks: int = Field(
+        default=10,
+        ge=0,
+        description=(
+            "Number of conv-block residuals to include in the mask. 0 = "
+            "skip-only (equivalent to EnumerateSearcher with sampling); "
+            "10 matches the default ConvNeXt-UNet topology (4 down + "
+            "1 middle + 4 up + 1 final)."
+        ),
+    )
+    num_candidates: int = Field(
+        default=256,
+        ge=1,
+        description="Number of masks scored per round.",
+    )
+    prior_weight: float = Field(default=0.6, ge=0.0, le=1.0)
+    stratified_weight: float = Field(default=0.25, ge=0.0, le=1.0)
+    uniform_weight: float = Field(default=0.15, ge=0.0, le=1.0)
+    surrogate_decay: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "EMA retention for the per-bit importance vector: "
+            "w_b ← surrogate_decay · w_b + (1 - surrogate_decay) · β_b. "
+            "Smaller = faster forgetting / more responsive to recent rounds."
+        ),
+    )
+    prior_temperature: float = Field(
+        default=1.0,
+        gt=0.0,
+        description=(
+            "Temperature on the per-bit Bernoulli prior: "
+            "p_b = sigmoid(prior_temperature · w_b). Higher = greedier."
+        ),
+    )
+    no_repeat_window: int = Field(default=0, ge=0)
+    seed: int = 0
+
+
+MaskSearcherConfig = Annotated[
+    EnumerateSearcherConfig | MixtureSearcherConfig,
+    Field(discriminator="type"),
+]
 
 
 class PCGBConfig(TrainConfig):
@@ -1224,18 +1298,7 @@ class PCGBConfig(TrainConfig):
             "len(train_loader))."
         ),
     )
-    mask_pool: MaskPoolConfig = MaskPoolConfig()
-    mask_schedule: MaskSchedule = "adversarial"
-    mask_no_repeat_window: int = Field(
-        default=0,
-        ge=0,
-        description=(
-            "If > 0, the adversarial selector excludes the last "
-            "mask_no_repeat_window distinct masks from the argmax pool. "
-            "Defaults to 0 (trust the algorithm); set to 2–3 if mask "
-            "selection collapses onto a single mask in practice."
-        ),
-    )
+    mask_searcher: MaskSearcherConfig = Field(default_factory=EnumerateSearcherConfig)
     scoring_subset_percent: float = Field(
         default=0.25,
         gt=0.0,

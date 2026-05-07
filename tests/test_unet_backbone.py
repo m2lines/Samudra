@@ -4,12 +4,11 @@
 
 import pytest
 import torch
-from torch import nn
 
 from ocean_emulators.models.modules.blocks import (
     AvgPool,
+    BilinearUpsample,
     ConvNeXtBlock,
-    ZonallyPeriodicBilinearUpsample,
 )
 from ocean_emulators.models.modules.unet_backbone import UNetBackbone
 
@@ -35,8 +34,11 @@ def _build_tiny_backbone(drop_path_rate: float = 0.5) -> UNetBackbone:
             upscale_factor=1,
         )
 
-    def create_upsample(in_channels: int, out_channels: int) -> nn.Module:
-        return ZonallyPeriodicBilinearUpsample()
+    def create_upsample(in_channels: int, out_channels: int) -> BilinearUpsample:
+        # Plain bilinear is enough for a tiny test backbone (we don't need
+        # the longitude-periodic version that production uses); using one of
+        # the types in UpsamplingBlockBuilder's protocol union keeps mypy happy.
+        return BilinearUpsample()
 
     return UNetBackbone(
         in_channels=4,
@@ -103,4 +105,36 @@ def test_with_skip_mask_rejects_wrong_length():
     bad_mask = (False,) * (backbone.num_steps + 1)
     with pytest.raises(ValueError, match="skip mask length"):
         with backbone.with_skip_mask(bad_mask):
+            pass
+
+
+def test_with_path_mask_block_drops_change_output_and_validate_length():
+    """`with_path_mask` plumbs deterministic block-residual drops through
+    to each ConvNeXtBlock — verified by output divergence — and rejects a
+    wrong-length block mask. Together this covers the v2-PCGB plumbing.
+    """
+    torch.manual_seed(0)
+    backbone = _build_tiny_backbone()
+    backbone.eval()
+    x = torch.randn(2, 4, 16, 16)
+
+    keep_blocks = (False,) * backbone.num_blocks
+    drop_all_blocks = (True,) * backbone.num_blocks
+
+    baseline = backbone(x)
+    with backbone.with_path_mask(skip_drops=None, block_drops=keep_blocks):
+        with_keep = backbone(x)
+    with backbone.with_path_mask(skip_drops=None, block_drops=drop_all_blocks):
+        with_drop = backbone(x)
+
+    # block_drops=all-False is equivalent to no override (no-op).
+    torch.testing.assert_close(with_keep, baseline)
+    # block_drops=all-True zeros every conv-block trunk; output must change.
+    assert not torch.allclose(with_drop, baseline)
+
+    # Wrong-length block mask is rejected.
+    with pytest.raises(ValueError, match="block mask length"):
+        with backbone.with_path_mask(
+            skip_drops=None, block_drops=(False,) * (backbone.num_blocks + 1)
+        ):
             pass

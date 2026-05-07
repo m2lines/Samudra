@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/SamudraConfig.json
+
+# Same architecture as boosted_model.yaml, but with conv-block residual
+# drop enabled at training time. Used by the v2 PCGB experiment so the
+# network sees conv-block residual drops in its training distribution
+# (mirrors what the deterministic mask injection does at scoring time).
+
+checkpointing: all
+pred_residuals: false
+last_kernel_size: 3
+pad: "circular"
+
+unet:
+  ch_width: [280, 380, 480, 520]
+  dilation: [1, 2, 4, 8]
+  n_layers: [1, 1, 1, 1]
+  drop_path_rate: 0.5
+
+  core_block:
+    block_type: "conv_next_block"
+    kernel_size: 3
+    activation: "capped_gelu"
+    upscale_factor: 2
+    norm: "batch"
+    residual_drop_rate: 0.1   # i.i.d. Bernoulli per training forward
+
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "zonally_periodic_upsample"
+
+corrector:
+  non_negative_corrector_names: null
+  ocean_heat_corrector: false

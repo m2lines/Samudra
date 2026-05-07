@@ -198,6 +198,11 @@ class CoreBlock(torch.nn.Module):
         self.pad = pad
         self.upscale_factor = upscale_factor
         self.norm = norm
+        # Set per-forward by UNetBackbone.with_path_mask. Subclasses with a
+        # residual addition (e.g. ConvNeXtBlock) may consult this to
+        # deterministically zero the trunk contribution. Subclasses without
+        # a residual (e.g. ConvBlock) ignore it.
+        self._drop_override: bool | None = None
 
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
         raise NotImplementedError()
@@ -294,9 +299,17 @@ class ConvNeXtBlock(CoreBlock):
         norm="batch",
         checkpoint_simple: bool = False,
         pointwise_linear: bool = False,
+        residual_drop_rate: float = 0.0,
     ):
         super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
         assert n_layers == 1, "Can only use a single layer here!"
+
+        # Drop-path on the convblock (trunk) output. With rate=0 and no
+        # override, this is a no-op; PCGB sets `_drop_override` (inherited
+        # from CoreBlock) per-block via `UNetBackbone.with_path_mask` to
+        # deterministically zero the trunk (Veit-style "skip block i":
+        # y = y_{i-1} + 0 = y_{i-1}).
+        self.residual_drop_path = DropPath(residual_drop_rate)
 
         # Instantiate pointwise linear to increase/decrease channel depth if necessary
         if in_channels == out_channels:
@@ -370,7 +383,7 @@ class ConvNeXtBlock(CoreBlock):
                 x = torch.utils.checkpoint.checkpoint(layer, x, use_reentrant=False)
             else:
                 x = layer(x)
-        return skip + x
+        return skip + self.residual_drop_path(x, drop=self._drop_override)
 
 
 class CoreBlockBuilder(Protocol):

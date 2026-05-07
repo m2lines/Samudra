@@ -5,17 +5,24 @@
 """Unit tests for PCGB primitives.
 
 These tests cover the algorithmic core of PCGB without requiring a full
-data + model setup: SampleWeights' R2 update, mask selection logic, and
-state-dict round-trip. The full PCGB driver is exercised end-to-end via
-the launch chain in scripts/launch_boosted_samudra.sh.
+data + model setup: SampleWeights' R2 update, the two MaskSearcher
+implementations, and state-dict round-trip. The full PCGB driver is
+exercised end-to-end via the launch chain in
+scripts/launch_boosted_samudra.sh.
 """
 
 from __future__ import annotations
 
 import torch
 
-from ocean_emulators.config import MaskPoolConfig
-from ocean_emulators.pcgb import SampleWeights, build_mask_pool, pick_next_mask
+from ocean_emulators.pcgb import (
+    EnumerateSearcher,
+    MixtureSearcher,
+    PathMask,
+    SampleWeights,
+    all_kept,
+    bits_to_mask,
+)
 
 
 class TestSampleWeights:
@@ -37,9 +44,8 @@ class TestSampleWeights:
         )
         idx = torch.arange(100)
         residuals = torch.zeros(100)
-        residuals[10:15] = 5.0  # 5 "hard" samples
-        residuals[20:30] = 1.0  # 10 "medium"
-        # Rest are 0 (easy).
+        residuals[10:15] = 5.0
+        residuals[20:30] = 1.0
 
         sw.update(idx, residuals)
 
@@ -68,69 +74,122 @@ class TestSampleWeights:
         torch.testing.assert_close(sw.weights, sw2.weights)
 
 
-class TestPickNextMask:
+class TestPathMask:
+    def test_hashable_and_str(self):
+        m = PathMask(skip_drops=(False, True), block_drops=(True, False, True))
+        assert hash(m) == hash(m)
+        assert str(m) == "s01/b101"
+        assert m.num_drops() == 3
+        assert m.to_bits() == (False, True, True, False, True)
+
+    def test_skip_only_str_omits_block_segment(self):
+        m = PathMask(skip_drops=(True, False))
+        assert str(m) == "s10"
+
+    def test_bits_to_mask_splits_correctly(self):
+        m = bits_to_mask([True, False, True, False, True], num_skips=2)
+        assert m.skip_drops == (True, False)
+        assert m.block_drops == (True, False, True)
+
+
+class TestEnumerateSearcher:
     def setup_method(self):
-        self.pool = build_mask_pool(MaskPoolConfig(mode="enumerate_all", num_skips=3))
-        # 8 masks, all distinct
-        assert len(self.pool) == 8
+        self.searcher = EnumerateSearcher(
+            num_skips=3, schedule="adversarial", no_repeat_window=0
+        )
+
+    def test_pool_size_is_2_to_num_skips(self):
+        candidates = self.searcher.candidates_for_round(0)
+        assert len(candidates) == 8
+        assert all(m.num_drops() <= 3 for m in candidates)
+        assert all_kept(3) in candidates
 
     def test_adversarial_picks_argmax(self):
-        scores = torch.zeros(8)
-        scores[5] = 1.0  # mask index 5 has the highest weighted MSE
-        chosen = pick_next_mask(
-            self.pool,
-            scores,
-            schedule="adversarial",
-            history=[],
-            no_repeat_window=0,
-        )
-        assert chosen == self.pool[5]
+        candidates = self.searcher.candidates_for_round(0)
+        scores = [0.0] * len(candidates)
+        scores[5] = 1.0
+        scored = list(zip(candidates, scores))
+        chosen = self.searcher.select_next(scored, history=[], round_idx=0)
+        assert chosen == candidates[5]
 
-    def test_no_repeat_window_excludes_recent_then_falls_back_under_full_exclusion(
-        self,
-    ):
-        """Two orthogonal properties of the no-repeat window:
-        1. When fewer than `pool_size` recent masks are excluded, argmax
-           over the remaining pool is returned.
-        2. When the window excludes the entire pool, fall back to the
-           global argmax (so we never crash from an empty candidate set).
+    def test_no_repeat_window_falls_back_under_full_exclusion(self):
+        """When the window excludes the entire pool, fall back to the
+        global argmax (so we never crash from an empty candidate set).
         """
-        scores = torch.tensor([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0])
-
-        # (1) recent history excludes mask 7 (the global argmax) — picker
-        # should return the second-best (any other mask has score 0; we
-        # just check it's not pool[7]).
-        history_excl_argmax = [self.pool[7]]
-        chosen = pick_next_mask(
-            self.pool,
-            scores,
-            schedule="adversarial",
-            history=history_excl_argmax,
-            no_repeat_window=1,
+        searcher = EnumerateSearcher(
+            num_skips=3, schedule="adversarial", no_repeat_window=8
         )
-        assert chosen != self.pool[7]
-
-        # (2) window large enough to exclude entire pool — fall back to
-        # global argmax (pool[7]) instead of erroring.
-        full_history = list(self.pool)
-        chosen = pick_next_mask(
-            self.pool,
-            scores,
-            schedule="adversarial",
-            history=full_history,
-            no_repeat_window=len(self.pool),
-        )
-        assert chosen == self.pool[7]
+        candidates = searcher.candidates_for_round(0)
+        scores = [0.0] * len(candidates)
+        scores[7] = 1.0
+        scored = list(zip(candidates, scores))
+        chosen = searcher.select_next(scored, history=list(candidates), round_idx=8)
+        assert chosen == candidates[7]
 
     def test_round_robin_walks_pool_in_order(self):
-        scores = torch.zeros(8)  # adversarial would all tie; round-robin ignores
+        searcher = EnumerateSearcher(num_skips=3, schedule="round_robin")
+        candidates = searcher.candidates_for_round(0)
+        zero_scores = [(m, 0.0) for m in candidates]
         for round_idx in range(10):
-            history = [self.pool[i % 8] for i in range(round_idx)]
-            chosen = pick_next_mask(
-                self.pool,
-                scores,
-                schedule="round_robin",
-                history=history,
-                no_repeat_window=0,
-            )
-            assert chosen == self.pool[round_idx % 8]
+            chosen = searcher.select_next(zero_scores, history=[], round_idx=round_idx)
+            assert chosen == candidates[(round_idx + 1) % len(candidates)]
+
+
+class TestMixtureSearcher:
+    def test_candidate_budget_matches_num_candidates(self):
+        """Sampled candidate set has the requested size (within dedupe slack)."""
+        s = MixtureSearcher(num_skips=4, num_blocks=10, num_candidates=64, seed=0)
+        candidates = s.candidates_for_round(0)
+        # Dedupe may remove a few collisions on small lattices; allow ≥90%.
+        assert len(candidates) >= 58
+        # All candidates have the right shape.
+        assert all(
+            len(m.skip_drops) == 4 and len(m.block_drops) == 10 for m in candidates
+        )
+
+    def test_surrogate_concentrates_drop_probability_on_high_score_bits(self):
+        """After observing that bit b correlates with high score, the
+        surrogate should bias future samples toward dropping bit b.
+
+        This is the property that makes the searcher useful — without it,
+        the prior branch is just random sampling.
+        """
+        s = MixtureSearcher(
+            num_skips=4,
+            num_blocks=10,
+            num_candidates=200,
+            prior_weight=1.0,  # all-prior so we can read p_b directly
+            stratified_weight=0.0,
+            uniform_weight=0.0,
+            surrogate_decay=0.0,  # no smoothing — fresh fit each round
+            prior_temperature=2.0,
+            seed=42,
+        )
+
+        # Synthetic: bit 7 strongly increases score; others near zero. Train
+        # the surrogate over a few rounds with fresh candidates each round so
+        # the lstsq problem has rank.
+        d = 4 + 10
+        torch.manual_seed(0)
+        for _ in range(3):
+            scored = []
+            for _ in range(200):
+                bits = torch.bernoulli(torch.full((d,), 0.5)).bool().tolist()
+                m = bits_to_mask(bits, num_skips=4)
+                base_score = 0.05 * sum(bits)
+                lift = 1.0 if bits[7] else 0.0
+                scored.append((m, base_score + lift))
+            s.update(scored)
+
+        importance = s.importance
+        # Bit 7 should dominate — it's the only strong signal in the synthetic data.
+        assert importance[7].item() > 0.5, importance.tolist()
+        assert importance[7].item() > importance[:7].abs().max().item()
+        assert importance[7].item() > importance[8:].abs().max().item()
+
+    def test_select_next_picks_argmax_over_scored(self):
+        s = MixtureSearcher(num_skips=2, num_blocks=2, num_candidates=8, seed=1)
+        candidates = s.candidates_for_round(0)
+        scored = [(m, float(i)) for i, m in enumerate(candidates)]
+        chosen = s.select_next(scored, history=[], round_idx=0)
+        assert chosen == candidates[-1]

@@ -151,12 +151,13 @@ For t = 1..T (boosting rounds):
        precedent in src/ocean_emulators/utils/loss.py:DynamicLoss, which
        does the analogous adaptive reweighting along the channel axis.)
 
-    4. Adversarially select next mask:
-           M_{t+1} = argmax_M S(M)
+    4. Adversarially select next mask via the configured MaskSearcher:
+           candidates = searcher.candidates_for_round(t)   # which masks to score in step 2b
+           searcher.update(scored)                         # learn from this round's scores
+           M_{t+1} = searcher.select_next(scored)          # argmax over candidates
        The mask currently performing worst on the reweighted training
-       distribution gets next round's K SGD steps. This is the boosting-
-       theoretic choice (analog of "weak learner with highest weighted
-       error" — the one with the most slack to recover).
+       distribution gets next round's K SGD steps. (See "Searching the
+       path lattice" below for the v1 vs. v2 searcher choice.)
 
     5. Every 2 rounds, save a per-round checkpoint (diagnostics).
 
@@ -200,6 +201,62 @@ forward over that subset (16 masked + 1 unmasked).
   with the highest weighted error and improve it." Cost is amortized into
   the same scoring pass as step 2; selecting the next mask is essentially
   free given that pass already runs.
+
+## Searching the path lattice
+
+The `MaskSearcher` abstraction owns three responsibilities each round:
+generating the candidate set to score (`candidates_for_round`), learning
+from the scored results (`update`), and picking the next mask
+(`select_next`). Two implementations ship today; both target the same
+algorithmic role — only the candidate-generation strategy and learned
+state differ.
+
+### v1 — `EnumerateSearcher` (default; UNet skips only)
+
+Pool size `2^num_skips = 16`. Every mask is scored every round; selection
+is argmax over the round's scored set (or round-robin if so configured).
+Stateless across rounds. This is the configuration in
+`configs/samudra_om4_v2/boosted_pcgb.yaml` and the experiment we run first.
+
+| Knob | Default | Rationale |
+|---|---|---|
+| `num_skips` | 4 | Matches `len(unet.ch_width)`. |
+| `schedule` | `adversarial` | Argmax weighted MSE on `D_t`. |
+| `no_repeat_window` | 0 | "Trust the algorithm" first; raise to 2–3 if mask selection collapses. |
+
+### v2 — `MixtureSearcher` (future experiment; full path lattice)
+
+Pool size `2^(num_skips + num_blocks) = 2^14 = 16,384` — too large to
+enumerate. Each round samples `num_candidates ≈ 256` masks from a
+three-way mixture and fits a per-bit *importance* surrogate online:
+
+| Mixture branch | Default share | What it does |
+|---|---|---|
+| **Structured prior** | 60 % | Per-bit Bernoulli with `p_b = σ(α · w_b)`, where `w_b` is the running per-bit importance. Concentrates candidates on bits that, when set, predict high weighted MSE — i.e. plausibly the next argmax. |
+| **Stratified by Hamming weight** | 25 % | Pick `k ∈ {1, …, d-1}` uniformly, then sample a mask with exactly `k` drops. Hedges against the linear surrogate underfitting bit-interaction effects. |
+| **Uniform** | 15 % | Per-bit Bernoulli(0.5). Exploration tail; prevents the prior from collapsing onto a narrow region of the lattice. |
+
+The surrogate is a linear regression `S(M) ≈ Σ_b β_b · M[b]` fit each
+round to the round's `(mask, weighted-MSE)` pairs, then EMA-blended into
+the running estimate `w_b ← γ · w_b + (1-γ) · β_b`. Linear-model bias is
+the price of cheapness; the stratified branch hedges against missed
+bit-interactions. The closed loop is: dropping load-bearing blocks
+raises `S(M)` → those bits get higher `w_b` → the next round's prior
+samples them more often → SGD trains θ to compensate by recruiting other
+blocks. **Veit's wasted-capacity argument made operational.**
+
+| Knob | Default | Notes |
+|---|---|---|
+| `num_blocks` | 10 | 4 down + 1 middle + 4 up + 1 final ConvNeXt blocks. Address conv-block residual drops. |
+| `num_candidates` | 256 | Forward-pass budget per scoring round. |
+| `surrogate_decay` | 0.7 | EMA retention for `w_b` (≈3-round effective window). |
+| `prior_temperature` | 1.0 | Greediness of the structured-prior Bernoulli. |
+| `seed` | 0 | Per-rank RNG seed for the mixture sampler. |
+
+v2 also enables i.i.d. stochastic depth on conv-block residuals at
+training time (`core_block.residual_drop_rate=0.1`) so the network's
+training distribution covers the deterministic-mask regime the searcher
+exercises at scoring time.
 
 ### What's preserved from the boosting-theory canon, and what isn't
 
@@ -255,17 +312,16 @@ Defaults are starting points and will be revisited after the first design pass.
 
 | Knob | Default | Rationale |
 | --- | --- | --- |
-| Mask pool | enumerate all 2⁴ = 16 skip-masks | small enough to enumerate; covers the path lattice |
-| Mask schedule | adversarial (argmax weighted MSE on D_t) | boosting-theoretic; cost amortized into the end-of-round scoring pass |
-| Rounds T | 32 | each mask sees 2 expected rounds; enough for D_t to drift |
-| Steps per round K | 2 epochs of full train | matches baseline compute when T·K = 64 epochs ≈ baseline 70 |
-| Scoring subset | 25% of the calibration set | bounds the per-round forward-only cost to keep ≥80% GPU util |
-| Calibration set | `data_percent: 0.2` of train period | for the unmasked-residual reweighting target |
-| Reweighting | AdaBoost.R2-proper, adaptive β_t | no manual coefficient; matches `DynamicLoss` precedent in this repo |
-| EMA smoothing on D_t | λ = 0.3 (≈ effective window of 3 rounds) | borrowed from `DynamicLoss.N_WINDOW`; avoids per-round whipsaw |
-| `D_t` clamp | `max(D)/min(D) ≤ 20` | borrowed from `DynamicLoss._limit`; prevents distribution collapse |
-| Optimizer | Adam, lr cosine 6e-4 → 0 | matches baseline schedule across T·K total steps |
-| Per-round checkpoint cadence | every 2 rounds | space is fine; minimize utilization dips |
+| Mask searcher | `enumerate` (v1) | See "Searching the path lattice" — v1 enumerates 16 skip masks; v2 swaps in `mixture` for the full 14-bit lattice. |
+| Rounds T | 32 | Each skip-mask sees 2 expected rounds; enough for `D_t` to drift. |
+| Steps per round K | 2 epochs of full train | Matches baseline compute when T·K = 64 epochs ≈ baseline 70. |
+| Scoring subset | 25% of the calibration set | Bounds the per-round forward-only cost to keep ≥80% GPU util. |
+| Calibration set | `data_percent: 0.2` of train period | For the unmasked-residual reweighting target. |
+| Reweighting | AdaBoost.R2-proper, adaptive β_t | No manual coefficient; matches `DynamicLoss` precedent in this repo. |
+| EMA smoothing on D_t | λ = 0.3 (≈ effective window of 3 rounds) | Borrowed from `DynamicLoss.N_WINDOW`; avoids per-round whipsaw. |
+| `D_t` clamp | `max(D)/min(D) ≤ 20` | Borrowed from `DynamicLoss._limit`; prevents distribution collapse. |
+| Optimizer | Adam, lr cosine 6e-4 → 0 | Matches baseline schedule across T·K total steps. |
+| Per-round checkpoint cadence | every 2 rounds | Space is fine; minimize utilization dips. |
 
 ## Compute budget
 
@@ -287,9 +343,13 @@ Single-GPU PCGB cold-start would be ~40 h — does not fit. DDP is required.
 ## How to run
 
 ```bash
-# PCGB cold-start training (multi-GPU)
+# v1 PCGB cold-start training (multi-GPU): enumerate-skips searcher
 torchrun --nproc_per_node=8 -m ocean_emulators.pcgb \
   configs/samudra_om4_v2/boosted_pcgb.yaml
+
+# v2 PCGB (future experiment): mixture searcher over the full path lattice
+# torchrun --nproc_per_node=8 -m ocean_emulators.pcgb \
+#   configs/samudra_om4_v2/boosted_pcgb_v2.yaml
 
 # Eval the PCGB-trained checkpoint
 python -m ocean_emulators.eval configs/samudra_om4_v2/boosted_eval.yaml \
@@ -298,7 +358,8 @@ python -m ocean_emulators.eval configs/samudra_om4_v2/boosted_eval.yaml \
 
 On HPC, use `scripts/launch_boosted_samudra.sh` which submits the
 multi-node/multi-GPU train job and queues the eval behind it via SLURM
-dependency.
+dependency. Override `CONFIG=configs/samudra_om4_v2/boosted_pcgb_v2.yaml`
+to launch the v2 experiment.
 
 ## Outputs
 

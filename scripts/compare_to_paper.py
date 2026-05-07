@@ -96,8 +96,8 @@ def main(pred_path: str, truth_path: str) -> None:
     truth = truth.reindex(time=pred.time, method="nearest", tolerance=None)
     print(f"  aligned truth -> {truth.sizes['time']} timesteps", flush=True)
 
-    pred_T = stack_pred_levels(pred, "thetao").persist()
-    truth_T = truth["thetao"].transpose("time", "lev", "lat", "lon").persist()
+    pred_T = stack_pred_levels(pred, "thetao")
+    truth_T = truth["thetao"].transpose("time", "lev", "lat", "lon")
     levs = pred.lev.values
     print(f"  levs (m): {[round(float(v), 1) for v in levs]}", flush=True)
 
@@ -163,11 +163,12 @@ def main(pred_path: str, truth_path: str) -> None:
     # ------------------------------------------------------------------
     print("\n--- Deseasoned T snapshot @ 2022-09-30 ---", flush=True)
     snap_results = {}
-    target_idx = (
-        abs(pred.time - pred.time.sel(time="2022-09-30", method="nearest"))
-        .argmin()
-        .item()
-    )
+    import cftime
+
+    target = cftime.DatetimeJulian(2022, 9, 30, 12)
+    times = pred.time.values
+    deltas = np.array([abs((t - target).total_seconds()) for t in times])
+    target_idx = int(np.argmin(deltas))
     print(f"  snapshot t = {pred.time.values[target_idx]}", flush=True)
 
     for depth in [2.5, 700, 2000]:

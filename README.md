@@ -13,7 +13,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## Sea Surface Temperature (SST) Emulation
 
-![](/docs/assets/sst_tropical_pacific_ultra_small.gif "Sea Surface Temperature of the Tropical Pacific: Ground Truth vs Samudra v2")
+![](/docs/static/assets/sst_tropical_pacific_ultra_small.gif "Sea Surface Temperature of the Tropical Pacific: Ground Truth vs Samudra v2")
 
 > Ground truth (left) vs. Ocean Emulator prediction (right) for sea surface temperature in the tropical Pacific.
 

@@ -1,0 +1,67 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# pyproject.toml
+
+[build-system]
+build-backend = "setuptools.build_meta"
+
+requires = [ "setuptools>=61", "wheel" ]
+
+[project]
+name = "ocean-preprocessing"
+version = "0.1.0"
+description = "Data engineering routines to prepare ocean simulations for neural emulation."
+readme = "README.md"
+keywords = [ "climate", "data", "emulators", "ml", "preprocessing" ]
+license = { text = "Apache-2.0" }
+authors = [
+  { name = "Adam Subel", email = "adam.subel@nyu.edu" },
+  { name = "Julius Busecke", email = "julius@ldeo.columbia.edu" },
+]
+requires-python = ">=3.10"
+classifiers = [
+  "Development Status :: 1 - Planning",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+]
+dependencies = [
+  "bokeh>=3.1",
+  "cartopy>=0.23",
+  "fire>=0.7.1",
+  "gcm-filters",     # to avoid https://stackoverflow.com/questions/7446187/no-module-named-pkg-resources which seemed to have https://github.com/m2lines/ocean_emulators/actions/runs/10392595642/job/28778202015?pr=53
+  "gcsfs>=2025.10",
+  "h5netcdf>=1.7.3",
+  "s3fs>=2025.10",
+  "setuptools",
+  "xarray",
+  "xarrera",
+  "xesmf>=0.8.10",
+  "xmip",
+  "zarr>=2.18.2",
+]
+
+optional-dependencies.dev = [
+  "ocean-preprocessing[test]",
+  "pre-commit",
+]
+optional-dependencies.test = [
+  "dask",
+  "h5py",
+  "pytest",
+]
+
+[tool.setuptools.packages.find]
+exclude = [ "book", "docs" ] # exclude packages matching these glob patterns (empty by default)
+
+[tool.pytest.ini_options]
+testpaths = [ "tests" ]

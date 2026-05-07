@@ -8,21 +8,10 @@ repos:
   hooks:
     - id: ruff
       args: ["--fix", "--config", "pyproject.toml"]
-      exclude: ^(notebooks/|data/)
+      exclude: ^notebooks/
     - id: ruff-format
-      exclude: ^(notebooks/|data/)
-    - id: ruff
-      alias: ruff-data
-      name: ruff (data/)
-      args: ["--fix", "--config", "data/pyproject.toml"]
-      files: ^data/
-      exclude: ^data/notebooks/
-    - id: ruff-format
-      alias: ruff-format-data
-      name: ruff-format (data/)
-      args: ["--config", "data/pyproject.toml"]
-      files: ^data/
-      exclude: ^data/notebooks/
+      args: ["--config", "pyproject.toml"]
+      exclude: ^notebooks/
 - repo: https://github.com/pre-commit/pre-commit-hooks
   rev: v5.0.0
   hooks:

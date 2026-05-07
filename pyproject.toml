@@ -108,7 +108,8 @@ lint.ignore = [
 ]
 lint.per-file-ignores."*/__init__.py" = [ "F401" ]
 lint.per-file-ignores."scripts/*" = [ "D" ]
-lint.per-file-ignores."test_*.py" = [ "D" ]
+# F811 covers the pytest pattern of importing fixtures and reusing the name as a parameter.
+lint.per-file-ignores."test_*.py" = [ "D", "F811" ]
 lint.isort.split-on-trailing-comma = false
 lint.pydocstyle.convention = "google"
 

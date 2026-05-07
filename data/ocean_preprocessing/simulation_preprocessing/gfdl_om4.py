@@ -37,7 +37,7 @@ def convert_super_grid(ds_super_grid: xr.Dataset):
 def om4_preprocessing(
     zarr_data_path, nc_grid_path, nc_mosaic_path, fs=fsspec, backend_kwargs=None
 ):
-    """OM4 specific preprocessing"""
+    """OM4 specific preprocessing."""
     ds = xr.open_dataset(
         zarr_data_path, engine="zarr", chunks={}, backend_kwargs=backend_kwargs
     )

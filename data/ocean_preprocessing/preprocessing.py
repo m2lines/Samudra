@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Preprocess arbitrary datasets to standardized naming, grids"""
+"""Preprocess arbitrary datasets to standardized naming, grids."""
 
 import logging
 
@@ -24,7 +24,7 @@ except ImportError:
 
 
 def manual_v0_fixes(ds_input: xr.Dataset) -> xr.Dataset:
-    """Manual fixes for the already existing data (for now only v0.0). This should not be used in the future"""
+    """Manual fixes for the already existing data (for now only v0.0). This should not be used in the future."""
     # fixes that should be checked and fixes on the input data
     area = xr.open_dataset(
         "gs://leap-persistent/sd5313/grids_CM2x.zarr", engine="zarr", chunks={}
@@ -120,7 +120,7 @@ def manual_v0_fixes(ds_input: xr.Dataset) -> xr.Dataset:
 #################### CMIP specific Code ###########################
 def infer_vertical_cell_extent(ds: xr.Dataset, dz_name: str = "dz") -> xr.Dataset:
     """
-    Recomputes z* vertical cell extent according to
+    Recomputes z* vertical cell extent according to.
 
     thkcello is the nominal cell thickness in z* coordinates. The model actual thkcello is time-dependent and can be calculated as thkcello * ( deptho + zos ) / deptho
     """
@@ -158,7 +158,7 @@ def cmip_vertical_outer_grid(ds: xr.Dataset) -> xr.Dataset:
 def rotate_vectors(u, v, angle):
     """Rotates vector components u and v using `angle`
     (assumed to be defined in deg, and in the CCW direction)
-    Currently only works when all components are on the same grid position
+    Currently only works when all components are on the same grid position.
     """
     # angle should be a 2d array
     if not len(angle.dims) == 2:
@@ -235,7 +235,7 @@ def vertical_regrid(ds_raw: xr.Dataset, target_depth_bounds: np.ndarray) -> xr.D
 def spatially_filter(
     ds: xr.Dataset, w_mask, filter_scale, depth_dim="lev", y_dim="y", x_dim="x"
 ):
-    """Applies a spatial filter with 3d/2d wetmask depending on the variable dimensions"""
+    """Applies a spatial filter with 3d/2d wetmask depending on the variable dimensions."""
     wmask_3d = (w_mask == 1).astype(int).reset_coords(drop=True)
     depth_indexer = {depth_dim: 0}
     wmask_2d = wmask_3d.isel(**depth_indexer).drop_vars(depth_dim)
@@ -270,7 +270,7 @@ def spatially_filter(
 
 
 def horizontal_regrid(ds, ds_target):
-    """Regrid `ds` horizontally, and conserve the integral in space"""
+    """Regrid `ds` horizontally, and conserve the integral in space."""
     regridder_kwargs = dict(ignore_degenerate=True, periodic=True, unmapped_to_nan=True)
 
     # try to run this with higher precision (TODO: Test if this actually makes a difference).

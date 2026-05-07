@@ -46,7 +46,7 @@ def _pick_first_element_of_missing_dims(mask: xr.DataArray, data: xr.DataArray):
 
 
 def apply_mask(ds: xr.Dataset, mask: xr.DataArray):
-    """Applies mask to same and lower dimensional data"""
+    """Applies mask to same and lower dimensional data."""
     ds_out = xr.Dataset(attrs=ds.attrs)
     for var in ds.data_vars:
         data = ds[var]
@@ -56,7 +56,7 @@ def apply_mask(ds: xr.Dataset, mask: xr.DataArray):
 
 
 def assert_mask_match(ds: xr.Dataset, mask: xr.DataArray):
-    """Assert that nans at a sample time step are consistent with a mask (mask True or 1 indicates not nan)"""
+    """Assert that nans at a sample time step are consistent with a mask (mask True or 1 indicates not nan)."""
     for var in ds.data_vars:
         data_test = ds[var]
         # make sure that 2d variables are only tested agains 2d wetmask
@@ -74,7 +74,7 @@ def split_2d_3d(ds: xr.Dataset, depth_dim="lev"):
 
 
 def _find_index_for_true(da_bool: xr.DataArray, check_dims):
-    """Find slices along all dimensions within a boolean array that have any True value"""
+    """Find slices along all dimensions within a boolean array that have any True value."""
     # all_dims = da_bool.dims
     all_dims = [di for di in check_dims if di in da_bool.dims]
 

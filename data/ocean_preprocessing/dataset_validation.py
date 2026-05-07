@@ -18,7 +18,7 @@ from ocean_preprocessing.utils import ensure_nan_consistency, split_2d_3d
 
 
 def _nan_test_deep(ds_input: xr.Dataset):
-    """Expensive tests that compute on the entire dataset"""
+    """Expensive tests that compute on the entire dataset."""
     ds_nan_test_2d, ds_nan_test_3d = split_2d_3d(ds_input)
     print("2D consistency check")
     ensure_nan_consistency(ds_nan_test_2d, "2D nan consistency check")
@@ -29,7 +29,7 @@ def _nan_test_deep(ds_input: xr.Dataset):
 
 #### For processed (model specific) datasets
 def ds_processed_validate(ds_processed: xr.Dataset, deep=False):
-    """Validation function for the preprocessing stage"""
+    """Validation function for the preprocessing stage."""
     ds_processed_schema.validate(ds_processed)
     ds_processed_coords_schema.validate(
         ds_processed.coords

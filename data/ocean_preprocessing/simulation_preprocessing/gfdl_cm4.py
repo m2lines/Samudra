@@ -12,10 +12,11 @@ from .interpolate import interpolate_to_cell_centers
 
 
 def sis2_preprocessing(zarr_data_path, backend_kwargs=None):
-    """SIS2.0 specific preprocessing
+    """SIS2.0 specific preprocessing.
 
     Args:
         zarr_data_path (str): path to the sea ice model output
+        backend_kwargs (dict | None): backend kwargs forwarded to ``xr.open_dataset``.
     """
     ds = xr.open_dataset(
         zarr_data_path, engine="zarr", chunks={}, backend_kwargs=backend_kwargs
@@ -50,13 +51,15 @@ def cm4_preprocessing(
     fs=fsspec,
     backend_kwargs=None,
 ):
-    """CM4 specific preprocessing
+    """CM4 specific preprocessing.
 
     Args:
         om_zarr_path (str): path to the ocean model output
         sis_zarr_path (str): path to the sea ice model output
         nc_grid_path (str): path to the grid file
         nc_mosaic_path (str): path to the mosaic file
+        fs: filesystem object used to open remote files (defaults to ``fsspec``).
+        backend_kwargs (dict | None): backend kwargs forwarded to ``xr.open_dataset``.
     """
     ds_om = om4_preprocessing(
         zarr_data_path=om_zarr_path,

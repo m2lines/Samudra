@@ -11,7 +11,7 @@ from ocean_preprocessing.utils import assert_mask_match
 
 
 def post_processor(ds: xr.Dataset, ds_truth: xr.Dataset) -> xr.Dataset:
-    """Converts the prediction output to an xarray dataset with the same dimensions/variables as input"""
+    """Converts the prediction output to an xarray dataset with the same dimensions/variables as input."""
     # Always run the ds_input_validate in non-deep mode here
     try:
         ds_input_validate(ds_truth, deep=False)
@@ -51,7 +51,7 @@ def post_processor(ds: xr.Dataset, ds_truth: xr.Dataset) -> xr.Dataset:
 
 
 def prediction_data_test(ds_prediction: xr.Dataset, ds_input):
-    """Testfunction to check post-processed prediction output for format"""
+    """Testfunction to check post-processed prediction output for format."""
     # TODO: Run the test for the preprocessing data here and warn only if it fails
     # That data should have been checked before training and here we only strictly enforce that things reflect the state of the input data.
 

@@ -98,12 +98,6 @@ in a script or notebook. Continue reading to get a better understanding of this 
 4. Spatial filtering with 18 x 18 gaussian kernel
 5. Horizontal regridding of native 0.25 degree data to 1 degree data
 
-## Preprocessing files
-These files live on the OSN pod:
-- Data: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/raw/om4_5daily.zarr
-- Gaussian Grid: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/raw/grids/gaussian_grid_180_by_360.zarr
-- Mosaic File: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/raw/grids/ocean_hgrid.zarr
-- Static Data File: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/raw/ocean_static_no_mask_table.zarr
 
 ## Possible issues
 
@@ -194,8 +188,24 @@ prediction_data_test(ds_prediction, ds_truth)
 
 ## Where is the data?
 
+### Preprocessing files
+
+The preprocessing files are the inputs to create curated emulator dataseets for machine learning.
+These files live on the OSN pod:
+
+- Data: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/raw/om4_5daily.zarr
+- Gaussian Grid: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/raw/grids/gaussian_grid_180_by_360.zarr
+- Mosaic File: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/raw/grids/ocean_hgrid.zarr
+- Static Data File: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/raw/ocean_static_no_mask_table.zarr
+
+These can be directly input to our pre-processing scripts (see usage above).
+
 
 ### Raw data
+
+This section describes the input datasets used to create the pre-processing datasets. These are closer to the original
+CM4/OM4/CMIP data source.
+
 | input_id | Cloud | Greene |
 | --- | --- | --- |
 | `'OM4_5daily'` | `'https://nyu1.osn.mghpcc.org/emulators/jbusecke/ocean_emulators/OM4/OM4_raw_test.zarr'` |`'/scratch/aa9537/OM4-5daily/'` |

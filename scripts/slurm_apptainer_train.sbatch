@@ -230,6 +230,8 @@ binds=(
   "${OUTPUT_BASE}:${OUTPUT_BASE}"
   "${DATA_CACHE_DIR}:/workspace/.data_cache"
   "${RUN_DIR}/wandb:/workspace/wandb"
+  "${REPO_DIR}/src:/workspace/src"
+  "${REPO_DIR}/configs:/workspace/configs"
 )
 BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 

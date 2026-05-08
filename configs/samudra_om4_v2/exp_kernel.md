@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
 # Experiment: Large Depthwise Kernels
 
 Tests the hypothesis that **large depthwise kernels improve ocean

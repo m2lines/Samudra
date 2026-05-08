@@ -494,6 +494,226 @@ class TrueConvNeXtBlock(CoreBlock):
         return skip + x
 
 
+class RepConvNeXtBlock(TrueConvNeXtBlock):
+    """``TrueConvNeXtBlock`` with structural re-parameterization.
+
+    Adds a parallel small-kernel (3×3) depthwise branch alongside the main
+    k×k branch, with a per-branch ``BatchNorm2d`` between each conv and the
+    sum (matching the canonical RepLKNet recipe). The small branch gives the
+    optimizer an "easy path" for fine-scale spatial info that pure-large
+    kernels can wash out, and per-branch BN lets the optimizer learn an
+    independent scale for each branch.
+
+    Per Ding et al. 2022 (RepLKNet) §5: structural re-parameterization
+    helps large depthwise kernels train stably and retain high-frequency
+    features, addressing the surface-fidelity loss observed in our
+    experiments with large kernels in standard ("True") ConvNeXt blocks.
+
+    Spatial-conv structure (replacing the parent's single ``dwconv``):
+
+        x → ┬─ pad(N_pad)        → dwconv (k×k, bias=False) → bn_large ─┐
+            └─ pad(N_pad_small)  → dwconv_small (3×3,    "")  → bn_small ┘
+                                                                          ├─→ Σ
+                                                                          ┘
+
+    The parent's ``norm_layer`` is replaced with ``Identity()`` because BN
+    is now applied per branch. ``norm`` must therefore be ``"batch"``.
+
+    Both branches share input padding mode (circular-x / zero-y), so
+    ``fold_reparam()`` produces an exactly equivalent single conv: each
+    branch's ``Conv+BN`` is fused into a single ``Conv (bias=True)`` via
+    standard BN folding, then the small kernel weights are placed at the
+    center of the large kernel and biases are summed.
+
+    When ``kernel_size <= 3`` the small branch is skipped (a parallel 3×3
+    next to a 3×3 main conv would duplicate weights).
+
+    References:
+        Ding et al. 2022, "Scaling Up Your Kernels to 31×31" §5
+        (https://arxiv.org/abs/2203.06717)
+        Reference impl:
+        https://github.com/DingXiaoH/RepLKNet-pytorch/blob/main/replknet.py
+    """
+
+    SMALL_KERNEL = 3
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        dilation: int = 1,
+        n_layers: int = 1,
+        activation: Callable[[], torch.nn.Module] = CappedGELU,
+        pad: str = "circular",
+        upscale_factor: int = 4,
+        norm: str = "batch",
+        checkpoint_simple: bool = False,
+    ):
+        super().__init__(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            dilation=dilation,
+            n_layers=n_layers,
+            activation=activation,
+            pad=pad,
+            upscale_factor=upscale_factor,
+            norm=norm,
+            checkpoint_simple=checkpoint_simple,
+        )
+        # Canonical reparam: per-branch BN replaces the post-sum norm. The
+        # BN-folding identity used at fold time only handles BatchNorm.
+        assert norm == "batch", (
+            "RepConvNeXtBlock requires norm='batch' for the per-branch BN "
+            "folding identity to be valid."
+        )
+
+        # Replace the parent's bias-bearing dwconv with a bias-free variant
+        # (BN's beta supplies the effective bias). This matches the reference
+        # `conv_bn` building block.
+        self.dwconv = torch.nn.Conv2d(
+            out_channels,
+            out_channels,
+            kernel_size=kernel_size,
+            dilation=dilation,
+            groups=out_channels,
+            bias=False,
+        )
+        self.bn_large: torch.nn.Module = torch.nn.BatchNorm2d(out_channels)
+
+        self.dwconv_small: torch.nn.Module | None = None
+        self.bn_small: torch.nn.Module | None = None
+        if kernel_size > self.SMALL_KERNEL:
+            self.dwconv_small = torch.nn.Conv2d(
+                out_channels,
+                out_channels,
+                kernel_size=self.SMALL_KERNEL,
+                groups=out_channels,
+                bias=False,
+            )
+            self.bn_small = torch.nn.BatchNorm2d(out_channels)
+        self.N_pad_small = self.SMALL_KERNEL // 2
+
+        # Parent's post-spatial norm is now redundant: per-branch BN does
+        # the normalization. Replace with Identity so the parent's forward
+        # template (called via super interfaces in tests) stays valid.
+        self.norm_layer = torch.nn.Identity()
+
+    def forward(
+        self, x: Float[torch.Tensor, "B C_in H W"]
+    ) -> Float[torch.Tensor, "B C_out H W"]:
+        x = self.pre_proj(x)
+        skip = x
+
+        # Large kernel branch: pad → conv (no bias) → BN.
+        x_large = torch.nn.functional.pad(
+            x, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
+        )
+        x_large = torch.nn.functional.pad(
+            x_large, (0, 0, self.N_pad, self.N_pad), mode="constant"
+        )
+        out = self.bn_large(self.dwconv(x_large))
+
+        # Parallel small-kernel branch: pad → conv → BN.
+        if self.dwconv_small is not None:
+            assert self.bn_small is not None
+            x_small = torch.nn.functional.pad(
+                x, (self.N_pad_small, self.N_pad_small, 0, 0), mode=self.pad
+            )
+            x_small = torch.nn.functional.pad(
+                x_small, (0, 0, self.N_pad_small, self.N_pad_small), mode="constant"
+            )
+            out = out + self.bn_small(self.dwconv_small(x_small))
+
+        # norm_layer is Identity here; kept in the call sequence for parity
+        # with TrueConvNeXtBlock and to honor `checkpoint_simple`.
+        x = self._maybe_checkpoint(self.norm_layer, out)
+        x = self.pw_expand(x)
+        x = self._maybe_checkpoint(self.act, x)
+        x = self.pw_project(x)
+
+        return skip + x
+
+    @staticmethod
+    def _fuse_conv_bn(
+        conv: torch.nn.Conv2d, bn: torch.nn.BatchNorm2d
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Standard Conv+BN folding (Conv has no bias).
+
+        Returns ``(weight, bias)`` for the equivalent single conv:
+            W_eq = W * (γ / sqrt(σ² + ε)).reshape(-1, 1, 1, 1)
+            b_eq = β - μ * γ / sqrt(σ² + ε)
+        """
+        # `running_var` / `running_mean` are non-None on BatchNorm2d after init;
+        # `weight` / `bias` are non-None when affine=True (the default).
+        running_var = bn.running_var
+        running_mean = bn.running_mean
+        gamma = bn.weight
+        beta = bn.bias
+        assert (
+            running_var is not None
+            and running_mean is not None
+            and gamma is not None
+            and beta is not None
+        )
+        std = (running_var + bn.eps).sqrt()
+        scale = (gamma / std).reshape(-1, 1, 1, 1)
+        eq_w = conv.weight * scale
+        eq_b = beta - running_mean * gamma / std
+        return eq_w, eq_b
+
+    @torch.no_grad()
+    def fold_reparam(self) -> None:
+        """Fold each branch's ``Conv+BN`` into a single equivalent ``Conv``.
+
+        Process:
+        1. Fuse ``(dwconv, bn_large)`` → ``(eq_k, eq_b)`` via standard BN
+           folding (Conv has bias=False, BN supplies the effective bias).
+        2. Same for ``(dwconv_small, bn_small)`` if present.
+        3. Sum biases; place small kernel at the centre of the large one.
+        4. Replace ``self.dwconv`` with a single bias-bearing conv holding
+           the merged weights. ``bn_large`` becomes ``Identity()``; the
+           small branch and its BN are removed.
+
+        Both branches share identical padding semantics (circular-x /
+        zero-y), so the merged conv is mathematically exact.
+        """
+        # Already folded.
+        if not isinstance(self.bn_large, torch.nn.BatchNorm2d):
+            return
+
+        eq_k, eq_b = self._fuse_conv_bn(self.dwconv, self.bn_large)
+        if self.dwconv_small is not None:
+            assert isinstance(self.dwconv_small, torch.nn.Conv2d)
+            assert isinstance(self.bn_small, torch.nn.BatchNorm2d)
+            small_k, small_b = self._fuse_conv_bn(self.dwconv_small, self.bn_small)
+            eq_b = eq_b + small_b
+            c = eq_k.shape[-1] // 2
+            s = self.SMALL_KERNEL // 2
+            eq_k[:, :, c - s : c + s + 1, c - s : c + s + 1].add_(small_k)
+
+        # Replace dwconv with a bias-bearing Conv holding the merged params.
+        # Conv2d's tuple-typed kernel_size/dilation need narrowing for mypy.
+        kernel_hw = self.dwconv.kernel_size
+        dilation_hw = self.dwconv.dilation
+        merged = torch.nn.Conv2d(
+            self.dwconv.in_channels,
+            self.dwconv.out_channels,
+            kernel_size=(kernel_hw[0], kernel_hw[1]),
+            dilation=(dilation_hw[0], dilation_hw[1]),
+            groups=self.dwconv.groups,
+            bias=True,
+        )
+        merged.weight.data = eq_k
+        assert merged.bias is not None
+        merged.bias.data = eq_b
+        self.dwconv = merged
+        self.bn_large = torch.nn.Identity()
+        self.dwconv_small = None
+        self.bn_small = None
+
+
 class CoreBlockBuilder(Protocol):
     def __call__(
         self,

@@ -35,6 +35,7 @@ from ocean_emulators.models.modules import (
     PerceiverDecoder,
     PerceiverEncoder,
     ReLU,
+    RepConvNeXtBlock,
     TransposedConvUpsample,
     TrueConvNeXtBlock,
     UNetBackbone,
@@ -327,7 +328,12 @@ class DataConfig(BaseConfig):
         )
 
 
-BlockType = Literal["conv_next_block", "true_conv_next_block", "conv_block"]
+BlockType = Literal[
+    "conv_next_block",
+    "true_conv_next_block",
+    "rep_conv_next_block",
+    "conv_block",
+]
 ActivationType = Literal["relu", "gelu", "capped_gelu"]
 NormType = Literal["batch", "instance", "layer"]
 
@@ -393,6 +399,19 @@ class BlockConfig(BaseConfig):
                     )
                 case "true_conv_next_block":
                     return TrueConvNeXtBlock(
+                        in_channels=in_channels,
+                        out_channels=out_channels,
+                        kernel_size=kernel_size,
+                        dilation=dilation,
+                        n_layers=n_layers,
+                        pad=pad,
+                        checkpoint_simple=checkpoint_simple,
+                        upscale_factor=self.upscale_factor,
+                        norm=self.norm,
+                        activation=activation,
+                    )
+                case "rep_conv_next_block":
+                    return RepConvNeXtBlock(
                         in_channels=in_channels,
                         out_channels=out_channels,
                         kernel_size=kernel_size,
@@ -689,9 +708,12 @@ class UNetBackboneConfig(BaseConfig):
         )
 
         if self.kernel_size is None:
-            assert self.core_block.block_type != "true_conv_next_block", (
+            assert self.core_block.block_type not in (
+                "true_conv_next_block",
+                "rep_conv_next_block",
+            ), (
                 "`unet.kernel_size` is required when "
-                "`core_block.block_type == 'true_conv_next_block'`. "
+                f"`core_block.block_type == {self.core_block.block_type!r}`. "
                 "Specify a per-stage list, e.g. `kernel_size: [7, 13, 21, 31]`."
             )
             kernel_size = [self.core_block.kernel_size] * len(self.ch_width)

@@ -8,6 +8,7 @@ from ocean_emulators.models.modules.blocks import (
     ConvNeXtBlock,
     DropPath,
     PointwiseLinear,
+    RepConvNeXtBlock,
     TrueConvNeXtBlock,
 )
 
@@ -91,6 +92,66 @@ class TestTrueConvNeXtBlock:
         torch.testing.assert_close(
             y_shifted_input, torch.roll(y, shifts=shift, dims=-1)
         )
+
+
+class TestRepConvNeXtBlock:
+    @pytest.mark.parametrize("kernel_size", [7, 15])
+    def test_fold_reparam_preserves_output(self, kernel_size: int):
+        """Folding Conv+BN per branch and merging into a single conv must
+        produce a numerically identical forward pass — the contract that
+        lets us train with parallel branches and deploy the merged conv.
+
+        BN running stats need to be populated for fold to be meaningful;
+        we run a dummy training-mode forward first, then evaluate in eval
+        mode so the running stats (not batch stats) are used.
+        """
+        torch.manual_seed(0)
+        block = RepConvNeXtBlock(
+            in_channels=8, out_channels=8, kernel_size=kernel_size, norm="batch"
+        )
+
+        # Populate BN running stats with a few train-mode forwards.
+        block.train()
+        for _ in range(3):
+            with torch.no_grad():
+                block(torch.randn(2, 8, 12, 24))
+
+        block.eval()
+        x = torch.randn(2, 8, 12, 24)
+        with torch.no_grad():
+            y_before = block(x)
+            block.fold_reparam()
+            assert block.dwconv_small is None
+            assert block.bn_small is None
+            assert isinstance(block.bn_large, nn.Identity)
+            y_after = block(x)
+
+        torch.testing.assert_close(y_before, y_after, rtol=1e-5, atol=1e-6)
+
+    def test_fold_reparam_idempotent(self):
+        """Calling fold_reparam twice is a no-op on the second call."""
+        block = RepConvNeXtBlock(
+            in_channels=4, out_channels=4, kernel_size=7, norm="batch"
+        ).eval()
+        block.fold_reparam()
+        # Second call must not error and must leave the merged conv intact.
+        before_w = block.dwconv.weight.data.clone()
+        block.fold_reparam()
+        torch.testing.assert_close(block.dwconv.weight.data, before_w)
+
+    def test_no_small_branch_for_kernel_3(self):
+        """When kernel_size == SMALL_KERNEL the parallel branch is skipped:
+        adding a 3×3 next to a 3×3 main conv would be redundant."""
+        block = RepConvNeXtBlock(
+            in_channels=4, out_channels=4, kernel_size=3, norm="batch"
+        )
+        assert block.dwconv_small is None
+        assert block.bn_small is None
+
+    def test_requires_batch_norm(self):
+        """Fold relies on BN folding identity; assert other norms are rejected."""
+        with pytest.raises(AssertionError, match="norm='batch'"):
+            RepConvNeXtBlock(in_channels=4, out_channels=4, kernel_size=7, norm="layer")
 
 
 class TestDropPath:

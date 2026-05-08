@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Compute Samudra-2 paper baseline comparison metrics for a rollout.
 
 Loads predictions.zarr (split-per-level) and OM4.zarr ground truth (lev-dim),

@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/SamudraConfig.json
+
+# Kernel-experiment v8 (peakmid + re-parameterization): identical to v4
+# (`model_kernel_peakmid.yaml`) but uses the `rep_conv_next_block` —
+# adds a parallel 3x3 depthwise branch alongside the main k×k branch.
+# Per Ding et al. 2022 (RepLKNet) §5, structural re-parameterization
+# stabilizes large-kernel training and helps the model retain the
+# fine-scale features that pure-large kernels can wash out — directly
+# targeting the surface/upper-ocean R² loss our depthwise variants
+# (v1, v3, v4) all exhibited vs the paper baseline.
+# At inference the small branch can be folded into the large kernel
+# weights via `fold_reparam()` — exact equivalence is unit-tested.
+# See `exp_kernel.md`.
+
+checkpointing: all
+pred_residuals: false
+last_kernel_size: 3
+pad: "circular"
+
+unet:
+  ch_width: [280, 380, 480, 520]
+  kernel_size: [7, 21, 21, 13]
+  dilation: [1, 1, 1, 1]
+  n_layers: [1, 1, 1, 1]
+
+  core_block:
+    block_type: "rep_conv_next_block"
+    activation: "capped_gelu"
+    upscale_factor: 2
+    norm: "batch"
+
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "zonally_periodic_upsample"
+
+corrector:
+  non_negative_corrector_names: null
+  ocean_heat_corrector: false

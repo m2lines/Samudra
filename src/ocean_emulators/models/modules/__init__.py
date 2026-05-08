@@ -8,6 +8,7 @@ from .blocks import (
     CoreBlockBuilder,
     LayerNorm2d,
     MaxPool,
+    RepConvNeXtBlock,
     TransposedConvUpsample,
     TrueConvNeXtBlock,
     UpsamplingBlockBuilder,
@@ -33,5 +34,6 @@ __all__ = [
     "PerceiverDecoder",
     "PerceiverEncoder",
     "ReLU",
+    "RepConvNeXtBlock",
     "UNetBackbone",
 ]

@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../schemas/SamudraConfig.json
+
+# Kernel-experiment v7 (peakmid + wider): identical to v4
+# (`model_kernel_peakmid.yaml`, depthwise + [7, 21, 21, 13]) but with
+# ~25% wider channels [320, 480, 640, 720] (vs [280, 380, 480, 520]).
+# Tests whether v4's upper-ocean R² regression vs the paper baseline is
+# explained by undercapacity in the depthwise variant rather than by
+# block-type expressivity loss. If wider channels recover upper R²
+# while preserving v4's snapshot wins, depthwise + large kernels +
+# wider is a SOTA candidate.
+# See `exp_kernel.md`.
+
+checkpointing: all
+pred_residuals: false
+last_kernel_size: 3
+pad: "circular"
+
+unet:
+  ch_width: [320, 480, 640, 720]
+  kernel_size: [7, 21, 21, 13]
+  dilation: [1, 1, 1, 1]
+  n_layers: [1, 1, 1, 1]
+
+  core_block:
+    block_type: "true_conv_next_block"
+    activation: "capped_gelu"
+    upscale_factor: 2
+    norm: "batch"
+
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "zonally_periodic_upsample"
+
+corrector:
+  non_negative_corrector_names: null
+  ocean_heat_corrector: false

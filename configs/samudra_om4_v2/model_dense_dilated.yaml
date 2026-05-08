@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../schemas/SamudraConfig.json
+
+# Kernel-experiment v6 (dense + aggressive dilation): paper's dense
+# `conv_next_block` with kernel=3 and aggressive dilation [1, 8, 16, 32]
+# (vs paper's [1, 2, 4, 8]). Pushes effective receptive field from
+# [3, 5, 9, 17] to [3, 17, 33, 65] without the parameter explosion that
+# would come from large dense kernels (~360x more params at k=31 dense).
+# Tests whether the deep-ocean win we saw with v1's large depthwise
+# kernels is achievable in the dense paradigm via dilation, while
+# preserving the dense block's upper-ocean R² fidelity that v3 showed
+# is load-bearing.
+# Caveat: deepest stage feature map at 1° is ~22x45, so an ERF of 65
+# wraps around / pads beyond the map; in practice the d=32 conv's outer
+# taps fall on padding for most positions.
+# See `exp_kernel.md`.
+
+checkpointing: all
+pred_residuals: false
+last_kernel_size: 3
+pad: "circular"
+
+unet:
+  ch_width: [280, 380, 480, 520]
+  dilation: [1, 8, 16, 32]
+  n_layers: [1, 1, 1, 1]
+
+  core_block:
+    block_type: "conv_next_block"
+    kernel_size: 3
+    activation: "capped_gelu"
+    upscale_factor: 2
+    norm: "batch"
+
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "zonally_periodic_upsample"
+
+corrector:
+  non_negative_corrector_names: null
+  ocean_heat_corrector: false

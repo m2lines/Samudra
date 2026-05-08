@@ -131,6 +131,7 @@ sbatch --requeue --comment="preemption=yes;requeue=true" \
   --ntasks-per-node=1 \
   --cpus-per-task=128 \
   --mem=1400G \
+  --partition=rtx6000 \
   --gres=gpu:rtx6000:8 \
   --time=24:00:00 \
   --job-name=kr1-fomo \

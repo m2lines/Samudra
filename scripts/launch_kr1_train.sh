@@ -124,7 +124,7 @@ echo ""
 # `EXTRA_SBATCH_ARGS` is an optional escape hatch for callers that want to
 # splice in extra sbatch flags (e.g. `--dependency=afterany:<jobid>` for
 # job chaining). Empty by default.
-sbatch --requeue \
+sbatch --requeue --comment="preemption=yes;requeue=true" \
   ${EXTRA_SBATCH_ARGS:-} \
   --account=torch_pr_347_courant \
   --nodes=1 \

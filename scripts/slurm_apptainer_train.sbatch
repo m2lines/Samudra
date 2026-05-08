@@ -247,6 +247,7 @@ if [[ -n "${PREEMPTIBLE_EXPLICIT}" ]]; then
   fi
 fi
 
+mkdir -p "${RUN_DIR}/wandb"
 # Create the run directory after preflight validation so early failures are
 # retryable with the same NAME.
 mkdir -p "${RUN_DIR}"

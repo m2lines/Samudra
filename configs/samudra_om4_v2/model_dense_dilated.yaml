@@ -5,17 +5,19 @@
 # yaml-language-server: $schema=../schemas/SamudraConfig.json
 
 # Kernel-experiment v6 (dense + aggressive dilation): paper's dense
-# `conv_next_block` with kernel=3 and aggressive dilation [1, 8, 16, 32]
+# `conv_next_block` with kernel=3 and aggressive dilation [1, 8, 16, 16]
 # (vs paper's [1, 2, 4, 8]). Pushes effective receptive field from
-# [3, 5, 9, 17] to [3, 17, 33, 65] without the parameter explosion that
+# [3, 5, 9, 17] to [3, 17, 33, 33] without the parameter explosion that
 # would come from large dense kernels (~360x more params at k=31 dense).
 # Tests whether the deep-ocean win we saw with v1's large depthwise
 # kernels is achievable in the dense paradigm via dilation, while
 # preserving the dense block's upper-ocean R² fidelity that v3 showed
 # is load-bearing.
-# Caveat: deepest stage feature map at 1° is ~22x45, so an ERF of 65
-# wraps around / pads beyond the map; in practice the d=32 conv's outer
-# taps fall on padding for most positions.
+# Note: the deepest stage's dilation is capped at 16 (not 32) because
+# PyTorch's `mode="circular"` pad hard-fails when `pad > input_size`,
+# and the deepest feature map at 1° is ~22x45 in height. ERF 33 still
+# saturates the 22-pixel height with the kernel taps spanning the full
+# extent.
 # See `exp_kernel.md`.
 
 checkpointing: all
@@ -25,7 +27,7 @@ pad: "circular"
 
 unet:
   ch_width: [280, 380, 480, 520]
-  dilation: [1, 8, 16, 32]
+  dilation: [1, 8, 16, 16]
   n_layers: [1, 1, 1, 1]
 
   core_block:

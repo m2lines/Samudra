@@ -305,6 +305,16 @@ mkdir -p "${RUN_DIR}"
 _srun_pid=""
 trap '[[ -n "${_srun_pid}" ]] && kill -USR1 "${_srun_pid}" 2>/dev/null' USR1
 
+# Propagate runtime env vars (NCCL/UCX workarounds) into the container.
+# Apptainer drops most env by default; APPTAINERENV_<VAR> prefix makes them
+# available inside as <VAR>. Mirror anything set by the launch script.
+for v in NCCL_P2P_DISABLE NCCL_IB_DISABLE NCCL_NET TORCH_NCCL_ASYNC_ERROR_HANDLING TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC UCX_TLS UCX_NET_DEVICES; do
+  val="${!v:-}"
+  if [[ -n "$val" ]]; then
+    export "APPTAINERENV_${v}=${val}"
+  fi
+done
+
 # Forward USR1 from the batch shell to srun's process group.
 # --signal=B:USR1@120 sends USR1 to the batch shell 120s before walltime.
 # This trap relays it to srun, which forwards it to all tasks (torchrun → Python).

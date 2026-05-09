@@ -247,15 +247,18 @@ mkdir -p "${RUN_DIR}/wandb"
 # retryable with the same NAME.
 mkdir -p "${RUN_DIR}"
 
-# Propagate runtime env vars (NCCL/UCX workarounds) into the container.
-# Apptainer drops most env by default; APPTAINERENV_<VAR> prefix makes them
-# available inside as <VAR>. Mirror anything set by the launch script.
-for v in NCCL_P2P_DISABLE NCCL_IB_DISABLE NCCL_NET TORCH_NCCL_ASYNC_ERROR_HANDLING TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC UCX_TLS UCX_NET_DEVICES; do
-  val="${!v:-}"
-  if [[ -n "$val" ]]; then
-    export "APPTAINERENV_${v}=${val}"
-  fi
-done
+# NCCL/UCX workarounds for gr101/gr102 RTX6000 nodes (P2P/IB/UCX cause
+# segfaults on these nodes). Hardcoded in the sbatch (not conditional on
+# parent-shell env) so they survive slurm requeues, which dont reliably
+# preserve user-shell exports. APPTAINERENV_<VAR> prefix forwards them
+# into the apptainer container.
+export APPTAINERENV_NCCL_P2P_DISABLE=1
+export APPTAINERENV_NCCL_IB_DISABLE=1
+export APPTAINERENV_NCCL_NET=Socket
+export APPTAINERENV_TORCH_NCCL_ASYNC_ERROR_HANDLING=1
+export APPTAINERENV_TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=1800
+export APPTAINERENV_UCX_TLS=tcp,self,sm
+export APPTAINERENV_UCX_NET_DEVICES=all
 
 # Forward USR1 from the batch shell to srun's process group.
 # --signal=B:USR1@120 sends USR1 to the batch shell 120s before walltime.

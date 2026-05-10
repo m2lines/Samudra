@@ -65,29 +65,35 @@ class WandBLogger(Multiton):
         if finetune:
             return self._init_new_run(cfg, data_container)
 
-        # Load checkpoint and try to resume
-        checkpoint = torch.load(checkpoint_path)
+        if not self._enabled:
+            return None, None
+
+        # Load only on the rank that initializes W&B, and force CPU placement.
+        # Checkpoints can contain CUDA tensors saved from rank 0; loading them
+        # here without map_location makes every rank reserve memory on GPU 0
+        # before the real per-rank checkpoint load happens.
+        checkpoint = torch.load(checkpoint_path, map_location="cpu")
         wandb_id = checkpoint.get("wandb_id")
         wandb_name = checkpoint.get("wandb_name")
+        del checkpoint
 
-        if self._enabled:
-            try:
-                self.init(
-                    config=self._make_config(cfg, data_container),
-                    name=wandb_name,
-                    dir=cfg.experiment.output_dir,
-                    resume="must",
-                    id=wandb_id,
-                    **cfg.experiment.wandb.model_dump(),
-                )
-            except Exception:
-                # If resume fails, start new run
-                self.init(
-                    config=self._make_config(cfg, data_container),
-                    name=wandb_name,
-                    dir=cfg.experiment.output_dir,
-                    **cfg.experiment.wandb.model_dump(),
-                )
+        try:
+            self.init(
+                config=self._make_config(cfg, data_container),
+                name=wandb_name,
+                dir=cfg.experiment.output_dir,
+                resume="must",
+                id=wandb_id,
+                **cfg.experiment.wandb.model_dump(),
+            )
+        except Exception:
+            # If resume fails, start new run
+            self.init(
+                config=self._make_config(cfg, data_container),
+                name=wandb_name,
+                dir=cfg.experiment.output_dir,
+                **cfg.experiment.wandb.model_dump(),
+            )
 
         return wandb_id, wandb_name
 

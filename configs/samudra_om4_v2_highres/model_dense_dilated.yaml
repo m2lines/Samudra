@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/SamudraConfig.json
+
+# High-resolution variant of E1 (`model_dense_dilated.yaml` from v2 1°):
+# paper's dense `conv_next_block` with kernel=3 and aggressive dilation
+# `[1, 8, 16, 16]` (vs paper's `[1, 2, 4, 8]`). Keeps the v2_highres
+# recipe's `norm: instance` (small-batch-friendly) and `use_bfloat16:
+# true` (memory).
+#
+# At 1° this config beat the paper baseline on Niño 3.4 R²/RMSE and
+# achieved deep-ocean R² −1.88 vs paper −16.14 — an order-of-magnitude
+# improvement on the paper's hardest unsolved metric. This file tests
+# whether that improvement transfers to higher resolutions.
+#
+# Padding safety at higher resolutions: max stage-4 dilation is 16
+# (N_pad=16 with k=3). Deepest feature map heights are 22 (1°),
+# 45 (1/2°), 90 (1/4°) — all > 16, so `mode="circular"` pad is safe.
+
+checkpointing: all
+pred_residuals: false
+last_kernel_size: 3
+pad: "circular"
+use_bfloat16: true
+
+unet:
+  ch_width: [280, 380, 480, 520]
+  dilation: [1, 8, 16, 16]
+  n_layers: [1, 1, 1, 1]
+
+  core_block:
+    block_type: "conv_next_block"
+    kernel_size: 3
+    activation: "capped_gelu"
+    upscale_factor: 2
+    norm: "instance"
+
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "zonally_periodic_upsample"
+
+corrector:
+  non_negative_corrector_names: null
+  ocean_heat_corrector: false

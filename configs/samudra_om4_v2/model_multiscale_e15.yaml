@@ -1,0 +1,69 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/SamudraConfig.json
+
+# Kernel-experiment E15 (multi-scale at all stages): generalizes E14 to every
+# stage of the U-Net, with stage-appropriate parallel-dilation sets. The
+# per-stage main dilation schedule is rewritten so each stage's `dilation`
+# value is unique (`[1, 2, 4, 16]`), which lets the `parallel_dilations` map
+# disambiguate stages by their main dilation.
+#
+# Design (depth-dependent receptive-field allocation):
+#
+#   Stage 0 (surface, 180×360, d=1)   → main only, no parallels.
+#       Surface fields are dominated by *local* features (eddies, fronts).
+#       Multi-scale is unnecessary here and a parallel d=1 would duplicate
+#       the main.
+#
+#   Stage 1 (subbasin, 90×180, d=2)   → main d=2 + parallel d=1.
+#       The d=2 main bridges to sub-basin scale; the d=1 parallel keeps
+#       local detail. Anti-aliasing role for the parallel.
+#
+#   Stage 2 (basin,    45×90,  d=4)   → main d=4 + parallel d=1.
+#       Basin-scale gyres in the main; local-cell sampling in the parallel.
+#
+#   Stage 3 (bottleneck, 22×45, d=16) → main d=16 + parallel d=4 + d=1.
+#       The triple-scale stack: hemispheric teleconnection (d=16),
+#       basin-scale corrector (d=4), local detail (d=1).
+#
+# Compared to E14, E15 adds parallel branches throughout the depth profile
+# rather than only at the deeper stages. This tests whether multi-scale
+# matters everywhere or just at the bottleneck. Higher risk of training
+# instability (more BN branches to balance); recommend running E14 first.
+#
+# Parameter cost vs E1: parallels are depthwise (~9 params per channel per
+# branch), so the added cost is ~3% of E1's 84M.
+
+checkpointing: all
+pred_residuals: false
+last_kernel_size: 3
+pad: "circular"
+
+unet:
+  ch_width: [280, 380, 480, 520]
+  dilation: [1, 2, 4, 16]
+  n_layers: [1, 1, 1, 1]
+
+  core_block:
+    block_type: "multiscale_conv_next_block"
+    kernel_size: 3
+    activation: "capped_gelu"
+    upscale_factor: 2
+    norm: "batch"
+    parallel_dilations:
+      # Stage 0 (d=1): no parallels — local only.
+      # Stage 1 (d=2): parallel d=1 — local-detail corrector.
+      2: [1]
+      # Stage 2 (d=4): parallel d=1 — fills the cells d=4 skips.
+      4: [1]
+      # Stage 3 / bottleneck (d=16): parallels d=4 + d=1 — multi-scale stack.
+      16: [4, 1]
+
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "zonally_periodic_upsample"
+
+corrector:
+  non_negative_corrector_names: null
+  ocean_heat_corrector: false

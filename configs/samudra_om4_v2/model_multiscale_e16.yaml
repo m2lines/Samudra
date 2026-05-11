@@ -1,0 +1,63 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/SamudraConfig.json
+
+# Kernel-experiment E16 (pure depthwise multi-scale dilated reparam): same
+# per-stage main-dilation schedule + per-stage parallel-dilation map as E15,
+# but the *main* branch is depthwise instead of dense. This is the
+# parameter-efficient sibling of E14/E15 — a generalization of E2's
+# `rep_conv_next_block` (which had a single parallel small-kernel branch)
+# to *multi-dilation* parallel branches at each stage.
+#
+# Hypothesis: E2 showed that per-branch BN provides a real training-
+# stability benefit at depth (E2 beats E3 and E4 across mid/deep R² and
+# 2000m correlation despite a suboptimal kernel schedule). If we replace
+# E2's kernel-axis parallelism (k=3 + k=21 etc.) with *dilation-axis*
+# parallelism — and align main dilations with E1's empirically winning
+# schedule — does depthwise approach E1's deep R² (−1.88) at ~10× lower
+# parameter cost?
+#
+# Per-stage design mirrors E15 exactly:
+#   Stage 0 (d=1):  main depthwise k=3 d=1, no parallels
+#   Stage 1 (d=2):  main depthwise k=3 d=2 + depthwise k=3 d=1
+#   Stage 2 (d=4):  main depthwise k=3 d=4 + depthwise k=3 d=1
+#   Stage 3 (d=16): main depthwise k=3 d=16 + depthwise d=4 + depthwise d=1
+#
+# Expected param count: comparable to E2/v4 (~8–10M), much smaller than E1's
+# 84M. If deep R² lands in the [−5, −3] range it would be a major result for
+# parameter-efficient ocean emulators; if closer to E1 (~−2) it changes the
+# story about dense vs depthwise being the load-bearing axis.
+#
+# Comparable to "E11" / "MultiScaleRep" in the design discussion.
+
+checkpointing: all
+pred_residuals: false
+last_kernel_size: 3
+pad: "circular"
+
+unet:
+  ch_width: [280, 380, 480, 520]
+  dilation: [1, 2, 4, 16]
+  n_layers: [1, 1, 1, 1]
+  # Uniform kernel size at all stages — dilation does the receptive-field work.
+  kernel_size: [3, 3, 3, 3]
+
+  core_block:
+    block_type: "multiscale_true_conv_next_block"
+    kernel_size: 3
+    activation: "capped_gelu"
+    upscale_factor: 4  # canonical ConvNeXt expansion factor for depthwise
+    norm: "batch"
+    parallel_dilations:
+      2: [1]
+      4: [1]
+      16: [4, 1]
+
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "zonally_periodic_upsample"
+
+corrector:
+  non_negative_corrector_names: null
+  ocean_heat_corrector: false

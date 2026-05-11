@@ -32,6 +32,8 @@ from ocean_emulators.models.modules import (
     CoreBlock,
     CoreBlockBuilder,
     MaxPool,
+    MultiScaleConvNeXtBlock,
+    MultiScaleTrueConvNeXtBlock,
     PerceiverDecoder,
     PerceiverEncoder,
     ReLU,
@@ -332,6 +334,8 @@ BlockType = Literal[
     "conv_next_block",
     "true_conv_next_block",
     "rep_conv_next_block",
+    "multiscale_conv_next_block",
+    "multiscale_true_conv_next_block",
     "conv_block",
 ]
 ActivationType = Literal["relu", "gelu", "capped_gelu"]
@@ -350,6 +354,16 @@ class BlockConfig(BaseConfig):
     upscale_factor: int = 4
     norm: NormType = "batch"
     pointwise_linear: bool = False
+    parallel_dilations: dict[int, list[int]] = Field(
+        default_factory=dict,
+        description="Mapping from a stage's *main* dilation to the list of additional "
+        "depthwise parallel-branch dilations to use at that stage. Only consumed by "
+        "`multiscale_conv_next_block` and `multiscale_true_conv_next_block`. Example: "
+        "`{16: [4, 1]}` adds depthwise dilation-4 and dilation-1 branches at every "
+        "stage whose main dilation is 16. Stages whose main dilation is not present "
+        "in the map (or maps to an empty list) get no parallel branches and are "
+        "structurally equivalent to a single-conv ConvNeXt block.",
+    )
 
     def build(self) -> CoreBlockBuilder:
         match self.activation:
@@ -416,6 +430,34 @@ class BlockConfig(BaseConfig):
                         out_channels=out_channels,
                         kernel_size=kernel_size,
                         dilation=dilation,
+                        n_layers=n_layers,
+                        pad=pad,
+                        checkpoint_simple=checkpoint_simple,
+                        upscale_factor=self.upscale_factor,
+                        norm=self.norm,
+                        activation=activation,
+                    )
+                case "multiscale_conv_next_block":
+                    return MultiScaleConvNeXtBlock(
+                        in_channels=in_channels,
+                        out_channels=out_channels,
+                        kernel_size=kernel_size,
+                        dilation=dilation,
+                        parallel_dilations=self.parallel_dilations.get(dilation, []),
+                        n_layers=n_layers,
+                        pad=pad,
+                        checkpoint_simple=checkpoint_simple,
+                        upscale_factor=self.upscale_factor,
+                        norm=self.norm,
+                        activation=activation,
+                    )
+                case "multiscale_true_conv_next_block":
+                    return MultiScaleTrueConvNeXtBlock(
+                        in_channels=in_channels,
+                        out_channels=out_channels,
+                        kernel_size=kernel_size,
+                        dilation=dilation,
+                        parallel_dilations=self.parallel_dilations.get(dilation, []),
                         n_layers=n_layers,
                         pad=pad,
                         checkpoint_simple=checkpoint_simple,

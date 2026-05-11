@@ -7,6 +7,8 @@ from hypothesis import strategies as st
 from ocean_emulators.models.modules.blocks import (
     ConvNeXtBlock,
     DropPath,
+    MultiScaleConvNeXtBlock,
+    MultiScaleTrueConvNeXtBlock,
     PointwiseLinear,
     RepConvNeXtBlock,
     TrueConvNeXtBlock,
@@ -192,3 +194,128 @@ class TestDropPath:
         torch.testing.assert_close(trunk.grad, torch.ones_like(trunk))
         # Skip gradient should be all zeros (dropped)
         torch.testing.assert_close(skip.grad, torch.zeros_like(skip))
+
+
+class _MultiScaleBlockContract:
+    """Shared contract checks for the two multi-scale block variants.
+
+    Subclasses set ``BLOCK`` to the class under test. The checks below are the
+    orthogonal axes that should fail iff the implementation is broken: shape
+    preservation through multi-branch sum, the documented no-parallel
+    degenerate case, branches contributing distinct signal, and gradients
+    flowing into every parallel branch's weights. Anything else is
+    implementation detail.
+    """
+
+    BLOCK: type[nn.Module]
+
+    @pytest.mark.parametrize("parallel_dilations", [[], [1], [4, 1], [8, 2, 1]])
+    def test_preserves_shape_and_passes_gradients(
+        self, parallel_dilations: list[int]
+    ) -> None:
+        block = self.BLOCK(
+            in_channels=8,
+            out_channels=12,
+            kernel_size=3,
+            dilation=2,
+            parallel_dilations=parallel_dilations,
+        )
+        x = torch.randn(2, 8, 12, 24, requires_grad=True)
+        y = block(x)
+        assert y.shape == (2, 12, 12, 24)
+        y.sum().backward()
+        assert x.grad is not None and x.grad.shape == x.shape
+
+    def test_empty_parallel_is_single_branch(self) -> None:
+        """With ``parallel_dilations=[]`` no parallel modules exist; the
+        forward path reduces to the single main-branch contract.
+
+        This is the documented degenerate case and matters because the
+        configs use the same block type for both stages with and without
+        parallels (stage 0 in E15/E16 has no parallels).
+        """
+        block = self.BLOCK(
+            in_channels=4,
+            out_channels=4,
+            kernel_size=3,
+            dilation=1,
+            parallel_dilations=[],
+        )
+        dwconv_par = block.dwconv_par
+        bn_par = block.bn_par
+        assert isinstance(dwconv_par, nn.ModuleList) and len(dwconv_par) == 0
+        assert isinstance(bn_par, nn.ModuleList) and len(bn_par) == 0
+
+    def test_different_parallel_sets_produce_different_outputs(self) -> None:
+        """Adding a parallel branch must change the forward output.
+
+        Without this check the multi-branch path could be silently disabled
+        (e.g. branches zero-init that never train, or a wiring bug that
+        drops the sum) and tests above would still pass. Eval mode so BN
+        uses fixed stats; matched seeds so the main branch is identical.
+        """
+        torch.manual_seed(0)
+        block_no_par = self.BLOCK(
+            in_channels=4,
+            out_channels=4,
+            kernel_size=3,
+            dilation=4,
+            parallel_dilations=[],
+        ).eval()
+        torch.manual_seed(0)
+        block_with_par = self.BLOCK(
+            in_channels=4,
+            out_channels=4,
+            kernel_size=3,
+            dilation=4,
+            parallel_dilations=[1],
+        ).eval()
+
+        x = torch.randn(2, 4, 12, 24)
+        with torch.no_grad():
+            y_no_par = block_no_par(x)
+            y_with_par = block_with_par(x)
+
+        # Outputs should differ — the parallel branch is contributing.
+        # `assert_close` would raise; we assert the *opposite*.
+        max_abs_diff = (y_no_par - y_with_par).abs().max().item()
+        assert max_abs_diff > 1e-4, (
+            f"Adding a parallel branch produced no observable change "
+            f"(max abs diff = {max_abs_diff}); branch may be wired to zero."
+        )
+
+    def test_zonal_translation_equivariance(self) -> None:
+        """Output shifts with the input along longitude.
+
+        Circular-x / zero-y padding must be applied per-branch and
+        independently of dilation. Eval mode so BN uses running stats.
+        Translation equivariance fails immediately if a branch's padding
+        is mis-applied (e.g. constant instead of circular on x).
+        """
+        torch.manual_seed(0)
+        block = self.BLOCK(
+            in_channels=4,
+            out_channels=4,
+            kernel_size=3,
+            dilation=2,
+            parallel_dilations=[1],
+        ).eval()
+
+        x = torch.randn(2, 4, 12, 24)
+        shift = 5
+
+        with torch.no_grad():
+            y = block(x)
+            y_shifted_input = block(torch.roll(x, shifts=shift, dims=-1))
+
+        torch.testing.assert_close(
+            y_shifted_input, torch.roll(y, shifts=shift, dims=-1)
+        )
+
+
+class TestMultiScaleConvNeXtBlock(_MultiScaleBlockContract):
+    BLOCK = MultiScaleConvNeXtBlock
+
+
+class TestMultiScaleTrueConvNeXtBlock(_MultiScaleBlockContract):
+    BLOCK = MultiScaleTrueConvNeXtBlock

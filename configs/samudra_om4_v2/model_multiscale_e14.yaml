@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/SamudraConfig.json
+
+# Kernel-experiment E14 (multi-scale at the bottleneck): identical to E1
+# (`model_dense_dilated.yaml`) — dense main spatial conv, dilation
+# `[1, 8, 16, 16]` — but at every stage whose main dilation is 16 (encoder
+# stage 2 and the bottleneck at stage 3), adds two depthwise parallel
+# branches at dilations `[4, 1]` with per-branch BatchNorm before the sum.
+#
+# Hypothesis: the dilation-16 main captures global teleconnections (taps at
+# ~±128° in physical space), but skips the cells in between. The d=4 branch
+# fills in basin-scale features; the d=1 branch fills in local detail.
+# Per-branch BN lets each scale learn its own normalization statistics —
+# necessary because the three scales produce gradients of very different
+# magnitude early in training.
+#
+# At 1° this targets the metrics where E1 left headroom:
+#   - 2000m correlation (E1: 0.17, paper: 0.36) — a spatial-localization
+#     metric that should benefit from local-detail correction.
+#   - Upper-ocean R² (E1: 0.59, paper: 0.87) — same logic at smaller scale.
+# Deep R² (E1: −1.88, paper: −16.14) is expected to hold or improve modestly.
+#
+# Note: this block uses the *canonical* ConvNeXt recipe (one spatial conv +
+# pw_expand/project) rather than E1's two-stacked-dense-conv recipe. For a
+# clean ablation, run `model_multiscale_e14_baseline.yaml` (same recipe with
+# `parallel_dilations: {}`) to separate the recipe change from the
+# multi-branch change. See `exp_multiscale.md` for the full design rationale.
+
+checkpointing: all
+pred_residuals: false
+last_kernel_size: 3
+pad: "circular"
+
+unet:
+  ch_width: [280, 380, 480, 520]
+  dilation: [1, 8, 16, 16]
+  n_layers: [1, 1, 1, 1]
+
+  core_block:
+    block_type: "multiscale_conv_next_block"
+    kernel_size: 3
+    activation: "capped_gelu"
+    upscale_factor: 2
+    norm: "batch"
+    parallel_dilations:
+      16: [4, 1]
+
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "zonally_periodic_upsample"
+
+corrector:
+  non_negative_corrector_names: null
+  ocean_heat_corrector: false

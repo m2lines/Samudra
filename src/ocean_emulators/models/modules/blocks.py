@@ -714,6 +714,288 @@ class RepConvNeXtBlock(TrueConvNeXtBlock):
         self.bn_small = None
 
 
+class MultiScaleTrueConvNeXtBlock(CoreBlock):
+    """``TrueConvNeXtBlock`` extended with multiple parallel-dilation branches.
+
+    Generalizes :class:`RepConvNeXtBlock`'s "main + small-kernel parallel"
+    pattern to "main + N parallel branches at different *dilations*". Each
+    branch is depthwise; each gets its own ``BatchNorm2d``; the branch sums
+    feed the standard ``pw_expand → act → pw_project`` head.
+
+    Spatial-conv structure (replacing the parent's single ``dwconv``):
+
+        x → ┬─ pad(N_pad_main) → dwconv_main (k×k, d_main, bias=False) → bn_main ─┐
+            ├─ pad(N_pad_p_1)  → dwconv_par_1 (k×k, d_par_1,    "")     → bn_p_1   ┤
+            ┊                                                                       ├─ Σ
+            └─ pad(N_pad_p_M)  → dwconv_par_M (k×k, d_par_M,    "")     → bn_p_M   ┘
+
+    Motivation — multi-scale receptive field at a single stage:
+
+    A single dilated depthwise k×k samples only k² cells, spaced ``d`` apart
+    in latent space. At deep U-Net stages this is desirable (sparse global
+    teleconnections) but it *skips* the intermediate cells. The parallel
+    branches at smaller dilations sample those skipped cells and provide
+    local-detail correction without re-spending parameters on a dense kernel.
+
+    Per-branch ``BatchNorm`` (the canonical RepLKNet recipe) lets each scale
+    learn its own normalization statistics. This matters because gradients
+    from different-dilation branches have very different magnitude profiles
+    early in training — without independent BN, the larger-dilation branch
+    dominates and the smaller-dilation branches contribute noise.
+
+    With ``parallel_dilations=[]`` and the parent's parameters, this block
+    behaves identically to :class:`TrueConvNeXtBlock` (a clean degenerate
+    case useful for ablations).
+
+    Inference-time folding is intentionally *not* implemented for v1: branches
+    are run sequentially at inference. Folding would require a sparse kernel
+    that spans ``max(d_par) * (k-1) + 1`` cells, with non-zero weights only
+    at the union of the branches' stencils — possible but materially more
+    complex than the single-kernel fold in :class:`RepConvNeXtBlock`. At
+    deep stages the multi-branch forward is cheap relative to the dense
+    pointwise layers so the v1 cost is acceptable.
+
+    References:
+        Ding et al. 2022, "Scaling Up Your Kernels to 31×31" §5 — per-branch
+        BN recipe. https://arxiv.org/abs/2203.06717
+        Chen et al. 2017, "Rethinking Atrous Convolution for Semantic Image
+        Segmentation" (ASPP) — parallel dilated branches, no per-branch BN.
+        https://arxiv.org/abs/1706.05587
+    """
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        dilation: int = 1,
+        parallel_dilations: list[int] | None = None,
+        n_layers: int = 1,
+        activation: Callable[[], torch.nn.Module] = CappedGELU,
+        pad: str = "circular",
+        upscale_factor: int = 4,
+        norm: str = "batch",
+        checkpoint_simple: bool = False,
+    ):
+        super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
+        assert n_layers == 1, "MultiScaleTrueConvNeXtBlock only supports n_layers=1"
+        assert norm == "batch", (
+            "MultiScaleTrueConvNeXtBlock requires norm='batch' for the "
+            "per-branch BN recipe."
+        )
+        self.parallel_dilations: list[int] = list(parallel_dilations or [])
+
+        # 1×1 channel transition; identity when widths already match.
+        if in_channels == out_channels:
+            self.pre_proj: torch.nn.Module = torch.nn.Identity()
+        else:
+            self.pre_proj = PointwiseLinear(in_channels, out_channels)
+
+        # Main depthwise branch (parent-equivalent, bias-free for BN folding).
+        self.dwconv_main = torch.nn.Conv2d(
+            out_channels,
+            out_channels,
+            kernel_size=kernel_size,
+            dilation=dilation,
+            groups=out_channels,
+            bias=False,
+        )
+        self.bn_main = torch.nn.BatchNorm2d(out_channels)
+
+        # Parallel depthwise branches at user-specified dilations.
+        self.dwconv_par = torch.nn.ModuleList()
+        self.bn_par = torch.nn.ModuleList()
+        self._n_pad_par: list[int] = []
+        for d_par in self.parallel_dilations:
+            assert d_par >= 1, f"parallel dilation must be >= 1; got {d_par}"
+            self.dwconv_par.append(
+                torch.nn.Conv2d(
+                    out_channels,
+                    out_channels,
+                    kernel_size=kernel_size,
+                    dilation=d_par,
+                    groups=out_channels,
+                    bias=False,
+                )
+            )
+            self.bn_par.append(torch.nn.BatchNorm2d(out_channels))
+            n_pad_par = (kernel_size + (kernel_size - 1) * (d_par - 1) - 1) // 2
+            self._n_pad_par.append(n_pad_par)
+
+        expanded = int(out_channels * upscale_factor)
+        self.pw_expand = PointwiseLinear(out_channels, expanded)
+        self.act = activation()
+        self.pw_project = PointwiseLinear(expanded, out_channels)
+
+        self.checkpoint_simple = checkpoint_simple
+
+    def _spatial_pad(self, x: torch.Tensor, n_pad: int) -> torch.Tensor:
+        # Match the codebase convention: circular along x (longitude, wraps),
+        # zero along y (latitude, doesn't wrap at the poles).
+        x = torch.nn.functional.pad(x, (n_pad, n_pad, 0, 0), mode=self.pad)
+        x = torch.nn.functional.pad(x, (0, 0, n_pad, n_pad), mode="constant")
+        return x
+
+    def _maybe_checkpoint(
+        self,
+        fn: torch.nn.Module,
+        x: Float[torch.Tensor, "B C H W"],
+    ) -> Float[torch.Tensor, "B C H W"]:
+        if self.checkpoint_simple:
+            return torch.utils.checkpoint.checkpoint(fn, x, use_reentrant=False)
+        return fn(x)
+
+    def forward(
+        self, x: Float[torch.Tensor, "B C_in H W"]
+    ) -> Float[torch.Tensor, "B C_out H W"]:
+        x = self.pre_proj(x)
+        skip = x
+
+        # Main branch.
+        x_main = self._spatial_pad(x, self.N_pad)
+        out = self.bn_main(self.dwconv_main(x_main))
+
+        # Parallel branches summed in.
+        for conv, bn, n_pad in zip(
+            self.dwconv_par, self.bn_par, self._n_pad_par, strict=True
+        ):
+            x_par = self._spatial_pad(x, n_pad)
+            out = out + bn(conv(x_par))
+
+        x = self.pw_expand(out)
+        x = self._maybe_checkpoint(self.act, x)
+        x = self.pw_project(x)
+        return skip + x
+
+
+class MultiScaleConvNeXtBlock(CoreBlock):
+    """Dense ConvNeXt block with parallel depthwise multi-dilation branches.
+
+    Mirrors :class:`MultiScaleTrueConvNeXtBlock` but the **main** branch is a
+    *dense* k×k convolution at ``out_channels`` width, not depthwise. The
+    parallel branches remain depthwise. The dense main carries full
+    cross-channel mixing; the depthwise parallels add multi-scale spatial
+    diversity at near-zero extra parameter cost.
+
+    Spatial-conv structure:
+
+        x → ┬─ pad(N_pad_main) → conv_main (k×k, d_main, DENSE,    bias=False) → bn_main ─┐
+            ├─ pad(N_pad_p_1)  → dwconv_par_1 (k×k, d_par_1, depthwise, "")     → bn_p_1   ┤
+            ┊                                                                              ├─ Σ
+            └─ pad(N_pad_p_M)  → dwconv_par_M (k×k, d_par_M, depthwise, "")     → bn_p_M   ┘
+
+    This is a structural deviation from the codebase's existing
+    :class:`ConvNeXtBlock` (which uses two stacked dense convs that each
+    expand width by ``upscale_factor``). The recipe here follows the canonical
+    ConvNeXt: **one** spatial conv at ``out_channels`` width, then
+    ``pw_expand → act → pw_project``. For a controlled ablation against the
+    paper baseline / E1, run an additional "dense-canonical, no parallels"
+    config with this block and ``parallel_dilations=[]`` — that isolates the
+    spatial-recipe change from the multi-branch change.
+
+    Per-branch ``BatchNorm`` matches :class:`MultiScaleTrueConvNeXtBlock`.
+    """
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size: int,
+        dilation: int = 1,
+        parallel_dilations: list[int] | None = None,
+        n_layers: int = 1,
+        activation: Callable[[], torch.nn.Module] = CappedGELU,
+        pad: str = "circular",
+        upscale_factor: int = 4,
+        norm: str = "batch",
+        checkpoint_simple: bool = False,
+    ):
+        super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
+        assert n_layers == 1, "MultiScaleConvNeXtBlock only supports n_layers=1"
+        assert norm == "batch", (
+            "MultiScaleConvNeXtBlock requires norm='batch' for the per-branch "
+            "BN recipe."
+        )
+        self.parallel_dilations: list[int] = list(parallel_dilations or [])
+
+        # 1×1 channel transition; identity when widths already match.
+        if in_channels == out_channels:
+            self.pre_proj: torch.nn.Module = torch.nn.Identity()
+        else:
+            self.pre_proj = PointwiseLinear(in_channels, out_channels)
+
+        # Dense main branch (no groups). bias=False since BN supplies bias.
+        self.conv_main = torch.nn.Conv2d(
+            out_channels,
+            out_channels,
+            kernel_size=kernel_size,
+            dilation=dilation,
+            bias=False,
+        )
+        self.bn_main = torch.nn.BatchNorm2d(out_channels)
+
+        # Parallel *depthwise* branches at user-specified dilations.
+        self.dwconv_par = torch.nn.ModuleList()
+        self.bn_par = torch.nn.ModuleList()
+        self._n_pad_par: list[int] = []
+        for d_par in self.parallel_dilations:
+            assert d_par >= 1, f"parallel dilation must be >= 1; got {d_par}"
+            self.dwconv_par.append(
+                torch.nn.Conv2d(
+                    out_channels,
+                    out_channels,
+                    kernel_size=kernel_size,
+                    dilation=d_par,
+                    groups=out_channels,
+                    bias=False,
+                )
+            )
+            self.bn_par.append(torch.nn.BatchNorm2d(out_channels))
+            n_pad_par = (kernel_size + (kernel_size - 1) * (d_par - 1) - 1) // 2
+            self._n_pad_par.append(n_pad_par)
+
+        expanded = int(out_channels * upscale_factor)
+        self.pw_expand = PointwiseLinear(out_channels, expanded)
+        self.act = activation()
+        self.pw_project = PointwiseLinear(expanded, out_channels)
+
+        self.checkpoint_simple = checkpoint_simple
+
+    def _spatial_pad(self, x: torch.Tensor, n_pad: int) -> torch.Tensor:
+        x = torch.nn.functional.pad(x, (n_pad, n_pad, 0, 0), mode=self.pad)
+        x = torch.nn.functional.pad(x, (0, 0, n_pad, n_pad), mode="constant")
+        return x
+
+    def _maybe_checkpoint(
+        self,
+        fn: torch.nn.Module,
+        x: Float[torch.Tensor, "B C H W"],
+    ) -> Float[torch.Tensor, "B C H W"]:
+        if self.checkpoint_simple:
+            return torch.utils.checkpoint.checkpoint(fn, x, use_reentrant=False)
+        return fn(x)
+
+    def forward(
+        self, x: Float[torch.Tensor, "B C_in H W"]
+    ) -> Float[torch.Tensor, "B C_out H W"]:
+        x = self.pre_proj(x)
+        skip = x
+
+        x_main = self._spatial_pad(x, self.N_pad)
+        out = self.bn_main(self.conv_main(x_main))
+
+        for conv, bn, n_pad in zip(
+            self.dwconv_par, self.bn_par, self._n_pad_par, strict=True
+        ):
+            x_par = self._spatial_pad(x, n_pad)
+            out = out + bn(conv(x_par))
+
+        x = self.pw_expand(out)
+        x = self._maybe_checkpoint(self.act, x)
+        x = self.pw_project(x)
+        return skip + x
+
+
 class CoreBlockBuilder(Protocol):
     def __call__(
         self,

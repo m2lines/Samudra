@@ -439,6 +439,28 @@ class PerceiverConfig(BaseConfig):
         default=512,
         description="The number of latent vectors in the Perceiver. This is the `M` dimension for the Perceiver's `O(M*N)` complexity",
     )
+    cross_heads: int = Field(
+        default=1,
+        ge=1,
+        description="Number of attention heads used when latents cross-attend to input tokens. "
+        "PerceiverIO also uses this width when output queries cross-attend to latents.",
+    )
+    cross_head_dim: int = Field(
+        default=64,
+        ge=1,
+        description="Per-head dimension used when latents cross-attend to input tokens. "
+        "The input read bandwidth is num_latents * cross_heads * cross_head_dim.",
+    )
+    latent_heads: int = Field(
+        default=8,
+        ge=1,
+        description="Number of attention heads used for latent self-attention.",
+    )
+    latent_head_dim: int = Field(
+        default=64,
+        ge=1,
+        description="Per-head dimension used for latent self-attention.",
+    )
 
     def build(
         self,
@@ -471,6 +493,10 @@ class PerceiverConfig(BaseConfig):
                     output_mode="average",
                     latent_dim=self.latent_dim,
                     num_latents=self.num_latents,
+                    cross_heads=self.cross_heads,
+                    cross_head_dim=self.cross_head_dim,
+                    latent_heads=self.latent_heads,
+                    latent_head_dim=self.latent_head_dim,
                     use_flash_attn=True,
                     weight_tie_layers=True,
                     self_per_cross_attn=2,
@@ -486,6 +512,10 @@ class PerceiverConfig(BaseConfig):
                 num_classes=out_channels,
                 latent_dim=self.latent_dim,
                 num_latents=self.num_latents,
+                cross_heads=self.cross_heads,
+                cross_dim_head=self.cross_head_dim,
+                latent_heads=self.latent_heads,
+                latent_dim_head=self.latent_head_dim,
                 weight_tie_layers=True,
                 self_per_cross_attn=2,
             )
@@ -516,6 +546,12 @@ class PerceiverConfig(BaseConfig):
                 proj_dim=out_channels,
                 num_latents=self.num_latents,
                 latent_dim=self.latent_dim,
+                cross_heads=self.cross_heads,
+                cross_head_dim=self.cross_head_dim,
+                latent_heads=self.latent_heads,
+                latent_head_dim=self.latent_head_dim,
+                query_heads=self.cross_heads,
+                query_head_dim=self.cross_head_dim,
                 use_flash_attn=True,
                 weight_tie_layers=True,
             )
@@ -529,6 +565,10 @@ class PerceiverConfig(BaseConfig):
                 logits_dim=out_channels,
                 num_latents=self.num_latents,
                 latent_dim=self.latent_dim,
+                cross_heads=self.cross_heads,
+                cross_dim_head=self.cross_head_dim,
+                latent_heads=self.latent_heads,
+                latent_dim_head=self.latent_head_dim,
                 weight_tie_layers=True,
                 decoder_ff=True,
             )

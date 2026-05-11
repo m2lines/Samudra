@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 from pydantic import ValidationError
@@ -10,6 +11,7 @@ from ocean_emulators.config import (
     GpuDataLoadingConfig,
     LlcDatasetConfig,
     Om4DatasetConfig,
+    PerceiverConfig,
     TrainConfig,
 )
 from ocean_emulators.config_schema import get_pydantic_models
@@ -137,3 +139,32 @@ def test_get_pydantic_models_collects_loading_variants():
 
     assert models["CpuDataLoadingConfig"] is CpuDataLoadingConfig
     assert models["GpuDataLoadingConfig"] is GpuDataLoadingConfig
+
+
+def test_perceiver_config_passes_attention_width_to_naive_perceiver_io():
+    cfg = PerceiverConfig(
+        depth=2,
+        latent_dim=16,
+        num_latents=4,
+        cross_heads=2,
+        cross_head_dim=3,
+        latent_heads=4,
+        latent_head_dim=5,
+    )
+
+    perceiver = cast(
+        Any,
+        cfg.build_io(
+            in_channels=8,
+            queries_dim=7,
+            out_channels=6,
+            implementation="naive",
+        ),
+    )
+
+    assert perceiver.cross_attend_blocks[0].fn.heads == 2
+    assert perceiver.cross_attend_blocks[0].fn.to_q.out_features == 6
+    assert perceiver.decoder_cross_attn.fn.heads == 2
+    assert perceiver.decoder_cross_attn.fn.to_q.out_features == 6
+    assert perceiver.layers[0][0].fn.heads == 4
+    assert perceiver.layers[0][0].fn.to_q.out_features == 20

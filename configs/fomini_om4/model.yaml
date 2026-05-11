@@ -19,3 +19,5 @@ perceiver:
   depth: 4
   latent_dim: 2304
   num_latents: 512
+  cross_heads: 8
+  cross_head_dim: 64

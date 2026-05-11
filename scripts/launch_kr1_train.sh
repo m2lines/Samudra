@@ -47,6 +47,9 @@ export CONFIG=configs/fomo_om4/train_multiscale.yaml
 # loss=mse (was DynamicLoss), pred_residuals=true (was false), per-scale
 # validation snapshots, single-step warmup via steps=[1,2] step_transition=[10].
 export NAME_SUFFIX=kr1_fomo_multiscale_v48
+# Lock NAME at submit time so requeues + chain jobs use the same run dir.
+# Override via NAME=... in env to resume into a specific existing dir.
+export NAME="${NAME:-$(date +%Y-%m-%d)-${NAME_SUFFIX}}"
 
 # ── Data root: parent dir containing all three resolution subdirectories ──
 export DATA_ROOT="${DATA_ROOT:-/scratch/am16581/data}"

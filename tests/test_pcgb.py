@@ -55,6 +55,59 @@ class TestSampleWeights:
         assert abs(sw.weights.mean().item() - 1.0) < 1e-5
         assert (sw.weights.max() / sw.weights.min()).item() <= 20.0 + 1e-3
 
+    def test_beta_clip_prevents_sign_flip_when_L_bar_above_half(self):
+        """When L̄ > 0.5, raw AdaBoost.R2 β = L̄/(1-L̄) > 1 — and
+        `D' = D · β^(1-L_i)` then up-weights *easier* samples (lower
+        L_i) more than harder ones (L_i ≈ 1). Clipping β to ≤ 1 keeps
+        the reweighting direction correct: easier samples can only be
+        flat or down-weighted, never up-weighted past harder samples.
+
+        We construct residuals that exercise the pathology: 90 samples
+        at residual 0.8 (the "easier" cohort) and 10 samples at 1.0
+        (the hardest). After range-normalize: L = 0.8 / 1.0 for the
+        easier 90 and L = 1.0 for the hardest 10. With uniform D this
+        gives L̄ ≈ 0.82 → raw β ≈ 4.56. Then D'_easier ∝ β^0.2 ≈ 1.36
+        and D'_hardest ∝ β^0 = 1 — easier > hardest, the sign flip.
+
+        With beta_max=1.0, β clips to 1.0 and D stays uniform; the sign
+        flip is suppressed.
+        """
+        idx = torch.arange(100)
+        residuals = torch.cat([torch.full((90,), 0.8), torch.full((10,), 1.0)])
+
+        sw_unclipped = SampleWeights(
+            n_samples=100,
+            device=torch.device("cpu"),
+            ema_lambda=1.0,  # full replacement so we read D' directly
+            clamp_limit=1e6,  # disable max/min clamp for this test
+            beta_max=1e6,  # effectively disable β clip
+        )
+        sw_unclipped.update(idx, residuals)
+        easier_unclipped = sw_unclipped.weights[:90].mean().item()
+        hardest_unclipped = sw_unclipped.weights[90:].mean().item()
+        # Sign-flip pathology: easier samples up-weighted *above* hardest.
+        assert easier_unclipped > hardest_unclipped, (
+            easier_unclipped,
+            hardest_unclipped,
+        )
+
+        sw_clipped = SampleWeights(
+            n_samples=100,
+            device=torch.device("cpu"),
+            ema_lambda=1.0,
+            clamp_limit=1e6,
+            beta_max=1.0,
+        )
+        sw_clipped.update(idx, residuals)
+        easier_clipped = sw_clipped.weights[:90].mean().item()
+        hardest_clipped = sw_clipped.weights[90:].mean().item()
+        # Clipped: easier samples never exceed hardest. (Both are flat at
+        # 1.0 here because β=1 → D' = D · 1^(1-L) = D, no change.)
+        assert easier_clipped <= hardest_clipped + 1e-6, (
+            easier_clipped,
+            hardest_clipped,
+        )
+
     def test_state_dict_round_trip(self):
         sw = SampleWeights(
             n_samples=50,

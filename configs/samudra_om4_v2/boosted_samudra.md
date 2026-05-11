@@ -313,13 +313,15 @@ Defaults are starting points and will be revisited after the first design pass.
 | Knob | Default | Rationale |
 | --- | --- | --- |
 | Mask searcher | `enumerate` (v1) | See "Searching the path lattice" — v1 enumerates 16 skip masks; v2 swaps in `mixture` for the full 14-bit lattice. |
-| Rounds T | 32 | Each skip-mask sees 2 expected rounds; enough for `D_t` to drift. |
-| Steps per round K | 2 epochs of full train | Matches baseline compute when T·K = 64 epochs ≈ baseline 70. |
+| Rounds T | 70 | One round per baseline epoch — total SGD compute exactly matches the 70-epoch reference run. |
+| Steps per round K | 1 epoch of full train | Fresh `D_t` between rounds (avoids the staleness of K=2 epochs). Total T·K = 70 epochs of SGD. |
 | Scoring subset | 25% of the calibration set | Bounds the per-round forward-only cost to keep ≥80% GPU util. |
 | Calibration set | `data_percent: 0.2` of train period | For the unmasked-residual reweighting target. |
-| Reweighting | AdaBoost.R2-proper, adaptive β_t | No manual coefficient; matches `DynamicLoss` precedent in this repo. |
+| Reweighting | AdaBoost.R2-proper, adaptive β_t (clipped) | No manual coefficient; matches `DynamicLoss` precedent in this repo. |
+| `reweight_beta_max` | 1.0 | Caps β to keep the reweighting *direction* correct when L̄ > 0.5 (raw β > 1 inverts AdaBoost.R2 and up-weights easy examples). Sign-safe replacement for the canonical abort-on-failure rule. |
+| `reweight_enabled` | `true` (set to `false` in the no-reweight ablation) | When false, D_t stays at 1 forever — collapses to plain mean MSE so we can isolate the boosting signal from deterministic mask cycling. |
 | EMA smoothing on D_t | λ = 0.3 (≈ effective window of 3 rounds) | Borrowed from `DynamicLoss.N_WINDOW`; avoids per-round whipsaw. |
-| `D_t` clamp | `max(D)/min(D) ≤ 20` | Borrowed from `DynamicLoss._limit`; prevents distribution collapse. |
+| `D_t` clamp | `max(D)/min(D) ≤ 5` | Tightened from `DynamicLoss._limit=20` to bound the "Arctic-2018 collapse" risk where a few spatially-extreme samples dominate D_t. A `WARNING` fires if `H(D)/log2(N) < 0.8`. |
 | Optimizer | Adam, lr cosine 6e-4 → 0 | Matches baseline schedule across T·K total steps. |
 | Per-round checkpoint cadence | every 2 rounds | Space is fine; minimize utilization dips. |
 

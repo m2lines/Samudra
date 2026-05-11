@@ -452,16 +452,27 @@ class SampleWeights:
         device: torch.device,
         ema_lambda: float,
         clamp_limit: float,
+        beta_max: float = 1.0,
     ):
         if not (0.0 < ema_lambda <= 1.0):
             raise ValueError(f"ema_lambda must be in (0, 1], got {ema_lambda}")
         if clamp_limit <= 1.0:
             raise ValueError(f"clamp_limit must be > 1, got {clamp_limit}")
+        if beta_max <= 0.0:
+            raise ValueError(f"beta_max must be > 0, got {beta_max}")
         self._weights = torch.ones(n_samples, device=device)
         self._device = device
         self._n = n_samples
         self._ema_lambda = ema_lambda
         self._clamp_limit = clamp_limit
+        # Clip the AdaBoost.R2 confidence β to prevent the sign-flip
+        # pathology: when L̄ > 0.5, raw β > 1 would *up*-weight easy
+        # examples and leave hard ones unchanged (since β^(1-L_i) is
+        # largest at L_i=0). Capping at 1.0 keeps the reweighting
+        # direction correct — easy examples can only be down-weighted or
+        # held flat, never inverted into "easier than hard." This is the
+        # natural extension of the canonical "abort if L̄ ≥ 0.5" rule.
+        self._beta_max = beta_max
 
     @property
     def weights(self) -> torch.Tensor:
@@ -513,6 +524,8 @@ class SampleWeights:
         L_bar = float(((self._weights / self._n) * L).sum().item())
         L_bar_safe = min(max(L_bar, 1e-6), 1.0 - 1e-6)
         beta = L_bar_safe / (1.0 - L_bar_safe)
+        # Sign-safe clip — see __init__ docstring.
+        beta = min(beta, self._beta_max)
 
         D_prime = self._weights * (beta ** (1.0 - L))
 
@@ -655,8 +668,16 @@ class PCGB(Trainer):
             device=self.device,
             ema_lambda=cfg.reweight_ema_lambda,
             clamp_limit=cfg.reweight_clamp_limit,
+            beta_max=cfg.reweight_beta_max,
         )
-        logger.info(f"PCGB: tracking D_t over {n_train} train samples.")
+        # log2(N) — used as the entropy ceiling for the D-collapse warning.
+        import math
+
+        self._max_entropy_bits = math.log2(n_train) if n_train > 1 else 1.0
+        logger.info(
+            f"PCGB: tracking D_t over {n_train} train samples "
+            f"(reweight_enabled={cfg.reweight_enabled})."
+        )
 
         # Calibration scoring loader — fixed subset of the calibration period.
         self.scoring_loader = self._build_scoring_loader()
@@ -898,7 +919,22 @@ class PCGB(Trainer):
             candidates = self.searcher.candidates_for_round(t)
             local_idx, local_resid, scored = self._score_round(candidates)
 
-            r2_stats = self.sample_weights.update(local_idx, local_resid)
+            if self.cfg.reweight_enabled:
+                r2_stats = self.sample_weights.update(local_idx, local_resid)
+            else:
+                # Ablation arm: skip the R2 update so D stays at 1 forever.
+                # `sample_weights.lookup` keeps returning 1.0 for every
+                # sample, making the SGD loss equivalent to plain mean MSE.
+                # We still produce a stats record (with zero β) so the
+                # logged metric schema is identical across runs.
+                r2_stats = _R2Stats(
+                    L_bar=0.0,
+                    beta=0.0,
+                    max_weight=1.0,
+                    min_weight=1.0,
+                    entropy_bits=self._max_entropy_bits,
+                )
+
             self.searcher.update(scored)
             next_mask = self.searcher.select_next(scored, self._mask_history, t)
             self._current_mask = next_mask
@@ -919,6 +955,18 @@ class PCGB(Trainer):
                 "wall_seconds": time.perf_counter() - t_start,
             }
             self._round_metrics.append(metrics)
+
+            # D-collapse warning — entropy ratio below 80% of uniform means
+            # the reweighting has concentrated on a small fraction of
+            # samples, which is the "Arctic-2018 collapse" failure mode.
+            entropy_ratio = r2_stats.entropy_bits / max(self._max_entropy_bits, 1e-9)
+            if self.cfg.reweight_enabled and entropy_ratio < 0.8 and is_main_process():
+                logger.warning(
+                    f"PCGB: D_t entropy at {entropy_ratio:.1%} of uniform "
+                    f"(H={r2_stats.entropy_bits:.2f} / max={self._max_entropy_bits:.2f}) — "
+                    f"sample reweighting may be collapsing onto a narrow "
+                    f"subset. Consider tightening reweight_clamp_limit."
+                )
 
             if is_main_process():
                 logger.info(

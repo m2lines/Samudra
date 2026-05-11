@@ -1334,6 +1334,27 @@ class PCGBConfig(TrainConfig):
             "hardest examples. Mirrors DynamicLoss._limit."
         ),
     )
+    reweight_beta_max: float = Field(
+        default=1.0,
+        gt=0.0,
+        description=(
+            "Cap on AdaBoost.R2's confidence β_t = L̄/(1-L̄). When L̄ > 0.5 "
+            "raw β > 1 would invert the reweighting direction (up-weighting "
+            "easy examples). Default 1.0 keeps the reweighting sign-safe at "
+            "the cost of dampened reweighting in regimes where the canonical "
+            "rule would abort. Set higher to recover raw R2 behaviour."
+        ),
+    )
+    reweight_enabled: bool = Field(
+        default=True,
+        description=(
+            "When False, D_t is held at 1.0 for every sample throughout "
+            "training — the per-sample-weighted loss collapses to plain mean "
+            "MSE. Used by the `boosted_pcgb_no_reweight.yaml` ablation to "
+            "separate the boosting signal from the deterministic-mask "
+            "signal."
+        ),
+    )
 
     save_round_freq: int = Field(
         default=2,

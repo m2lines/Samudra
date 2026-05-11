@@ -13,8 +13,8 @@ disk_mode: true
 pin_mem: true
 
 # PCGB-specific knobs
-num_rounds: 32                     # T
-steps_per_round_epochs: 2.0        # K = 2 epochs of full train per round
+num_rounds: 70                     # T — exactly matches baseline 70-epoch budget
+steps_per_round_epochs: 1.0        # K = 1 epoch / round → T·K = 70 epochs total
 mask_searcher:
   type: enumerate                  # v1 default — enumerate all 16 skip masks
   num_skips: 4                     # matches len(unet.ch_width)
@@ -24,7 +24,9 @@ scoring_subset_percent: 0.25       # 25% of calibration set per scoring pass
 
 # R2 reweighting (DynamicLoss-borrowed stability additions)
 reweight_ema_lambda: 0.3
-reweight_clamp_limit: 20.0
+reweight_clamp_limit: 5.0         # tightened from 20 to bound Arctic-collapse risk
+reweight_beta_max: 1.0            # sign-safe AdaBoost.R2 β; see PCGBConfig
+reweight_enabled: true
 
 calibration_time:
   start: "1975-01-03"
@@ -37,7 +39,7 @@ learning_rate: 0.0006              # cosine 6e-4 → 0 over T rounds
 gradient_accumulation_steps: 1
 # epochs == num_rounds: scheduler steps once per round, so the cosine
 # schedule reaches 0 at the final round.
-epochs: 32
+epochs: 70
 scheduler: { type: cosine }
 loss: mse                          # plain MSE — PCGB's per-sample weighting
                                    # is the adaptive layer (vs. DynamicLoss

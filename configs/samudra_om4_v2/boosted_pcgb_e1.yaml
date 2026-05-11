@@ -1,0 +1,81 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/PCGBConfig.json
+
+# PCGB on top of the E1 (dense+dilated) architecture and checkpoint —
+# the strongest 1° baseline we have available on torch.
+#
+# Originally we planned to load `samudra_om4_v2_drop_path_new_data` (the
+# drop_path=0.5-trained reference run) but that checkpoint is no longer
+# on the cluster filesystem. Pivoting to E1 matches the other Claude's
+# explicit recommendation ("apply PCGB on top of E1's architecture, not
+# the v2 baseline").
+#
+# This config drives both the diagnostic (read-only single-pass scan)
+# and would drive the eventual PCGB training run if the diagnostic
+# greenlights it.
+
+debug: false
+disk_mode: true
+pin_mem: true
+
+num_rounds: 70
+steps_per_round_epochs: 1.0
+mask_searcher:
+  type: enumerate
+  num_skips: 4
+  schedule: adversarial
+  no_repeat_window: 0
+scoring_subset_percent: 0.25
+
+reweight_ema_lambda: 0.3
+reweight_clamp_limit: 5.0
+reweight_beta_max: 1.0
+reweight_enabled: true
+
+calibration_time:
+  start: "1975-01-03"
+  end: "2013-10-05"
+save_round_freq: 2
+
+batch_size: 4
+learning_rate: 0.0006
+gradient_accumulation_steps: 1
+epochs: 70
+scheduler: { type: cosine }
+loss: mse
+finetune: false
+# E1 ckpt — the diagnostic reads this; CLI override (`--resume_ckpt_path=...`)
+# will trump it if you point at a per-epoch snapshot or a different run.
+resume_ckpt_path: /scratch/am16581/runs/om4_samudra_v2_dense_dilated_v1/saved_nets/ckpt.pt
+inference_epochs: []
+data_percent: 1.0
+train_time:
+  start: "1975-01-03"
+  end: "2013-10-05"
+val_time:
+  start: "2013-10-05"
+  end: "2014-10-05"
+inference_times: []
+data_stride: [1]
+steps: [1]
+step_transition: []
+preemptible: false
+test_using_ema: false
+
+backend: auto
+
+experiment:
+  name: pcgb_diagnostic_e1
+  rand_seed: 15
+  base_output_dir: /scratch/am16581/runs
+  data_root: /scratch/am16581/data/om4_onedeg_v3
+  train_schedule: standard
+  wandb:
+    mode: online
+    project: default
+    entity: ocean_emulators
+data: !include ../data/om4.yaml
+model: !include boosted_model_e1.yaml

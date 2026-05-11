@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast

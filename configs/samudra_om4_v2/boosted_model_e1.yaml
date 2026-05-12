@@ -39,6 +39,12 @@ unet:
   down_sampling_block: "avg_pool"
   up_sampling_block: "zonally_periodic_upsample"
 
-corrector:
-  non_negative_corrector_names: null
-  ocean_heat_corrector: false
+# corrector left null — the E1 ckpt was trained with an effectively-no-op
+# Correctors (both options null/false → zero params). Setting `null` here
+# skips both the Correctors build AND the Normalize construction the build
+# would have required. Without staged data (see scripts/stage_data.py on
+# the kernel branch), the Normalize ctor crashes asking for level-flattened
+# variable names that the compact-form OM4.zarr doesn't expose. Diagnostic
+# loads the state_dict directly; ckpt has zero `corrector.*` keys so the
+# omission is a clean no-op for state-dict loading.
+corrector: null

@@ -41,7 +41,6 @@ from ocean_emulators.constants import BoundaryVarNames, PrognosticVarNames, Tens
 from ocean_emulators.datasets import TorchTrainDataset, TrainDataLoader
 from ocean_emulators.models import Samudra
 from ocean_emulators.pcgb import EnumerateSearcher, PathMask, _per_sample_masked_mse
-from ocean_emulators.utils.data import Normalize
 from ocean_emulators.utils.distributed import set_seed
 from ocean_emulators.utils.logging import handle_logging, handle_warnings
 from ocean_emulators.utils.train import collate_raw_train_data
@@ -96,11 +95,13 @@ def load_model_and_ckpt(cfg: PCGBConfig, device, data_container):
     num_boundary_in = (cfg.data.hist + 1) * n_bound
 
     tensor_map = TensorMap(dataset_spec=data_container.dataset_spec).to(device)
-    normalize = Normalize(
-        data_container.primary_source,
-        prognostic_var_names=data_container.dataset_spec.prognostic_var_names,
-        boundary_var_names=data_container.dataset_spec.boundary_var_names,
-    )
+    # Normalize is only consumed by the corrector branch of model.build();
+    # boosted_model_e1.yaml leaves corrector=null so normalize is unused.
+    # Skipping the ctor here also avoids a known incompatibility between
+    # `Normalize.__init__`'s `src.filter(...)` and the compact (lev-dim)
+    # OM4.zarr format on torch — the codebase's normal training path uses
+    # an upstream stage_data.py step (kernel branch) that pre-flattens the
+    # zarr into level-encoded variables (`uo_0..uo_18` etc.).
     model = cfg.model.build(
         prog_channels=num_prog_in,
         boundary_channels=num_boundary_in,
@@ -109,7 +110,7 @@ def load_model_and_ckpt(cfg: PCGBConfig, device, data_container):
         static_data_for_corrector=data_container.static_data,
         srcs=data_container.sources,
         tensor_map=tensor_map,
-        normalize=normalize,
+        normalize=None,  # type: ignore[arg-type]
         dataset_spec=data_container.dataset_spec,
     ).to(device)
     if not isinstance(model, Samudra):
@@ -198,7 +199,10 @@ def main() -> None:
     handle_logging(cfg.debug, cfg.experiment.output_dir)
     handle_warnings()
 
-    device = init_eval_backend(cfg.backend)
+    # cfg.backend is a TrainBackendConfig ("cpu"|"cuda"|"nccl"|"auto"); the
+    # diagnostic is single-GPU so nccl coerces to cuda.
+    eval_backend = "cuda" if cfg.backend == "nccl" else cfg.backend
+    device = init_eval_backend(eval_backend)
     set_seed(cfg.experiment.rand_seed)
 
     data_container = cfg.data.build(cfg.experiment.resolved_data_root)

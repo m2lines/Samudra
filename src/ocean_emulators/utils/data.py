@@ -845,7 +845,6 @@ def validate_data(
     return out
 
 
-
 def _flatten_var_lev(ds):
     """Flatten a means/stds-like dataset into a 1-D array, one entry per channel.
 
@@ -856,7 +855,6 @@ def _flatten_var_lev(ds):
     surface vars as one channel each, matching the prognostic tensor channel
     layout.
     """
-    import numpy as np
     if any("lev" in ds[v].dims for v in ds.data_vars):
         return (
             conditional_rearrange(ds, "(variable lev)=var", concat_dim="var")

@@ -5,7 +5,7 @@ disk_mode: true
 pin_mem: true
 save_freq: 5
 epochs: 70
-batch_size: 4
+batch_size: 1
 gradient_accumulation_steps: 1
 learning_rate: 0.0001
 scheduler: { type: cosine }

@@ -14,10 +14,10 @@ output_head_hidden_dim: 1024
 output_channel_chunk_size: 16
 
 perceiver:
-  # TODO: After loss/target are sane, try depth/latent sweeps such as
-  # depth: 8 with num_latents: 1024 and latent_dim: 1024 or 1536.
+  # 2560 latents is a 5x increase over the 512-latent baseline, aimed at
+  # testing whether coarse latent spatial capacity is limiting velocity fields.
   depth: 4
   latent_dim: 2304
-  num_latents: 512
+  num_latents: 2560
   cross_heads: 8
   cross_head_dim: 64

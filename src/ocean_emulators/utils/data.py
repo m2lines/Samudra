@@ -846,15 +846,7 @@ def validate_data(
 
 
 def _flatten_var_lev(ds):
-    """Flatten a means/stds-like dataset into a 1-D array, one entry per channel.
-
-    For datasets that mix depth-resolved variables (with a  dim) and
-    surface variables, a plain  would broadcast surface
-    vars across all levels, producing too many channels. This uses
-     to flatten depth vars into (variable, lev) and keep
-    surface vars as one channel each, matching the prognostic tensor channel
-    layout.
-    """
+    """Flatten a means/stds-like dataset into a 1-D array, one entry per channel."""
     if any("lev" in ds[v].dims for v in ds.data_vars):
         return (
             conditional_rearrange(ds, "(variable lev)=var", concat_dim="var")
@@ -881,12 +873,7 @@ class Normalize:
         self.wet_mask = src.masks.prognostic
         self.wet_mask_surface = src.masks.boundary
 
-        # Pre-compute numpy arrays for faster access. When a dataset mixes
-        # variables with and without a  dim (e.g. thermo_dynamic_all has
-        # 4 depth-resolved vars plus surface-only zos), a plain
-        #  would broadcast the surface variable across
-        # all levels, producing too many channels. _flatten_var_lev keeps the
-        # channel layout aligned with the prognostic tensor.
+        # Pre-compute numpy arrays for faster access; handle `lev` dim as needed.
         self._prognostic_mean_np = _flatten_var_lev(self.prognostic_mean)
         self._prognostic_std_np = _flatten_var_lev(self.prognostic_std)
         self._boundary_mean_np = _flatten_var_lev(self.boundary_mean)

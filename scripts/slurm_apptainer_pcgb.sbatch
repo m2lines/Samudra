@@ -172,6 +172,26 @@ binds=(
   "${OUTPUT_BASE}:${OUTPUT_BASE}"
   "${DATA_CACHE_DIR}:/workspace/.data_cache"
 )
+# Mount host source over the container's snapshotted source so PCGB/config
+# changes are visible without a container rebuild — same convention as the
+# kernel-branch train sbatch and the diagnostic sbatch.
+if [[ "${MOUNT_SOURCE:-1}" != "0" ]]; then
+  binds+=("${REPO_DIR}/src:/workspace/src")
+  binds+=("${REPO_DIR}/configs:/workspace/configs")
+  binds+=("${REPO_DIR}/scripts:/workspace/scripts")
+fi
+
+# Bind the checkpoint's parent dir if it lives outside DATA_ROOT/OUTPUT_BASE.
+if [[ -n "${CKPT_PATH:-}" ]]; then
+  case "${CKPT_PATH}" in
+    "${OUTPUT_BASE}"|"${OUTPUT_BASE}"/*|"${DATA_ROOT}"|"${DATA_ROOT}"/*) ;;
+    *)
+      CKPT_DIR="$(dirname "${CKPT_PATH}")"
+      binds+=("${CKPT_DIR}:${CKPT_DIR}")
+      ;;
+  esac
+fi
+
 BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 
 mkdir -p "${RUN_DIR}"

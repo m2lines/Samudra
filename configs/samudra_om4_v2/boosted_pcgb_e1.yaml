@@ -27,7 +27,11 @@ mask_searcher:
   type: enumerate
   num_skips: 4
   schedule: adversarial
-  no_repeat_window: 0
+  # Diagnostic on E1 ckpt showed bimodal 16-mask spread (188.8%) — the 8
+  # bit-3-dropped masks all cluster near 0.52 MSE vs ~0.025 for the bit-3-
+  # kept cluster. `no_repeat_window=2` forces PCGB to cycle through
+  # different masks rather than locking onto a single argmax every round.
+  no_repeat_window: 2
 scoring_subset_percent: 0.25
 
 reweight_ema_lambda: 0.3
@@ -46,9 +50,11 @@ gradient_accumulation_steps: 1
 epochs: 70
 scheduler: { type: cosine }
 loss: mse
-finetune: false
-# E1 ckpt — the diagnostic reads this; CLI override (`--resume_ckpt_path=...`)
-# will trump it if you point at a per-epoch snapshot or a different run.
+# Warm-start PCGB from the E1 ckpt to target the slack the diagnostic
+# observed on this exact checkpoint. `finetune: true` loads weights only
+# (no optimizer/scheduler state, no epoch resumption) so PCGB's round
+# loop starts fresh from round 1.
+finetune: true
 resume_ckpt_path: /scratch/am16581/runs/om4_samudra_v2_dense_dilated_v1/saved_nets/ckpt.pt
 inference_epochs: []
 data_percent: 1.0
@@ -68,7 +74,7 @@ test_using_ema: false
 backend: auto
 
 experiment:
-  name: pcgb_diagnostic_e1
+  name: pcgb_train_e1
   rand_seed: 15
   base_output_dir: /scratch/am16581/runs
   data_root: /scratch/am16581/data/om4_onedeg_v3

@@ -377,6 +377,82 @@ ${base_output_dir}/${experiment.name}/
 `pcgb_final.pt` has the same state-dict layout as a regular Samudra
 checkpoint, so any consumer (`eval.py`, `viz`, etc.) loads it without changes.
 
+## Follow-up experiments
+
+The first pass launches two runs concurrently:
+- **V1 / E1 warm-start** — `boosted_pcgb_e1.yaml`, `EnumerateSearcher`,
+  16-mask skip lattice, finetuned from the dense+dilated E1 ckpt. This
+  is the "does PCGB extract slack on top of an already-strong arch"
+  test.
+- **V2 cold-start** — `boosted_pcgb_v2.yaml`, `MixtureSearcher` over the
+  full 14-bit lattice. This is the "does PCGB beat plain SGD from
+  scratch" test.
+
+The follow-ups below assume that pair has finished. They are ordered by
+cost — Tier 1 is config-only, Tier 2 is new training runs, Tier 3 is
+post-hoc analysis.
+
+### Tier 1 — config-only, runnable next
+
+**A. No-reweight ablation.** Config exists at
+`configs/samudra_om4_v2/boosted_pcgb_no_reweight.yaml` (sets
+`reweight_enabled: false`). Holds `D_t = 1` forever, so step 1 collapses
+to plain mean MSE; PCGB reduces to "deterministic mask cycling + SGD"
+with the AdaBoost.R2 machinery off. Isolates the *reweighting*
+contribution from the *mask-cycling* contribution. If A ≈ V1 the
+boosting machinery is dead weight; if V1 > A the R2 reweighting is
+doing real work.
+
+**B. Round-robin schedule.** Set `mask_searcher.schedule: round_robin`
+in the V1 config. Walks the 16-mask pool in order rather than picking
+the argmax-weighted-MSE mask. Isolates "adversarial selection matters"
+from "coverage of the lattice matters." If B ≈ V1 the lattice is
+uniform enough that selection order doesn't matter; if V1 > B the
+argmax is finding genuinely informative weak learners.
+
+**I. Bit-3 lesion run.** The pre-launch 16-mask diagnostic on the E1
+ckpt produced a *bimodal* 188.8% spread — 8 bit-3-dropped masks
+clustered at MSE ≈ 0.52; 8 bit-3-kept clustered at MSE ≈ 0.025. Either
+(a) bit-3 (the innermost/deepest U-Net skip) is carrying nearly all
+the bottleneck-bypass capacity, or (b) dropping it breaks the network
+architecturally (resolution mismatch through the bottleneck). Two short
+fine-tunes — one with `M = drop-bit-3-only`, one with `M =
+drop-all-except-bit-3` — would disambiguate and tell us whether the
+adversarial selector is doing meaningful work or just chasing one load-
+bearing skip every round. Drives the `no_repeat_window` default and
+informs whether to even include bit-3 in the search pool.
+
+### Tier 2 — new training runs
+
+**E. Half-degree PCGB.** Same algorithm on the 0.5° dataset
+(`om4_halfdeg_v4`). Tests whether the boosting signal scales with data
+resolution: at 0.5° each batch carries ~4× more spatial information, so
+the path lattice may have less slack to recover. Roughly 4× the
+per-round wallclock; fits in a 24 h slot at 8 GPUs.
+
+**F. Depth-banded adaptive reweighting.** Extend AdaBoost.R2 from
+per-sample to per-(sample, depth-band). The depth axis has known
+imbalance — surface variables dominate gradient norms relative to deep-
+ocean variables. Reweighting along depth applies the same boosting
+recipe to Veit's wasted-capacity claim along the *depth* axis instead
+of the sample axis. The `DynamicLoss` precedent in `utils/loss.py` does
+the analogous per-channel adaptation and is a copy-target for the
+implementation.
+
+### Tier 3 — post-hoc analysis
+
+**G. Per-mask depth-banded MSE on the final PCGB ckpt.** Run the
+16-mask forward scan over the validation set, breaking per-mask MSE out
+by depth band. The hypothesis PCGB is selling is "level the depth
+distribution of error"; this is the most direct check, and it's free
+once a PCGB ckpt exists.
+
+**H. Rollout head-to-heads vs. Samudra-2 paper baseline.** Invoke
+`scripts/compare_to_paper.py` against the paper baseline checkpoints on
+S3. Settles whether PCGB beats the reference on multi-step rollout
+RMSE — the actual deployed metric — rather than just on the train/val
+MSE we monitor during PCGB rounds.
+
 ## References
 
 - Veit, Wilber, Belongie. *Residual Networks Behave Like Ensembles of

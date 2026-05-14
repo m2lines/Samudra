@@ -33,7 +33,11 @@ mask_searcher:
   uniform_weight: 0.15
   surrogate_decay: 0.7        # ~3-round effective window
   prior_temperature: 1.0
-  no_repeat_window: 0
+  # Same fix as E1: the E1 16-mask diagnostic showed a bimodal score
+  # distribution that made the adversarial argmax stick on a single
+  # cluster every round. Force the searcher to cycle through different
+  # masks rather than locking onto a single argmax.
+  no_repeat_window: 2
   seed: 0
 scoring_subset_percent: 0.25
 

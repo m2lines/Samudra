@@ -26,7 +26,7 @@ steps_per_round_epochs: 1.0        # K = 1 epoch / round
 mask_searcher:
   type: mixture
   num_skips: 4
-  num_blocks: 10              # 4 down + 1 middle + 4 up + 1 final
+  num_blocks: 9               # Matches backbone (4 down + 1 middle + 4 up CoreBlocks).
   num_candidates: 256
   prior_weight: 0.6
   stratified_weight: 0.25

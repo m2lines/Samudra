@@ -43,6 +43,7 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader, Subset
 from torch.utils.data.distributed import DistributedSampler
 
+from ocean_emulators.aggregator import Aggregator
 from ocean_emulators.config import (
     EnumerateSearcherConfig,
     MaskSearcherConfig,
@@ -51,9 +52,13 @@ from ocean_emulators.config import (
 )
 from ocean_emulators.datasets import TorchTrainDataset, TrainData, TrainDataLoader
 from ocean_emulators.models import Samudra
+from ocean_emulators.stepper import validate_batch
 from ocean_emulators.train import Trainer
 from ocean_emulators.utils.distributed import get_world_size, is_main_process
+from ocean_emulators.utils.logging import MetricLogger
+from ocean_emulators.utils.output import TrainBatchOutput
 from ocean_emulators.utils.train import collate_raw_train_data
+from ocean_emulators.utils.wandb import Metrics
 
 logger = logging.getLogger(__name__)
 
@@ -787,13 +792,22 @@ class PCGB(Trainer):
     # Per-round training
     # ------------------------------------------------------------------
 
-    def _train_round(self, round_idx: int, mask: PathMask) -> dict[str, float]:
+    def _train_round(
+        self, round_idx: int, mask: PathMask
+    ) -> tuple[dict[str, float], Metrics]:
+        """Run K SGD steps under ``mask`` with per-sample reweighting.
+
+        Returns a (pcgb_scalars, train_aggregator_logs) pair. The aggregator
+        logs use the same ``train/<var>`` key scheme as standard training, so
+        plots line up with baseline runs.
+        """
         self.model.train(True)
         self.optimizer.zero_grad()
 
         loss_running = 0.0
         n_steps = 0
         loader_iter: Iterator[TrainData] = self._cycling_train_iter()
+        train_aggregator = Aggregator.get_train_aggregator(self.tensor_map)
 
         with self._enter_mask(mask):
             for k in range(self.steps_per_round):
@@ -815,6 +829,19 @@ class PCGB(Trainer):
                 self.optimizer.step()
                 self.optimizer.zero_grad()
 
+                # Per-channel masked MSE for the aggregator — same shape as
+                # `decomposed_mse` so TrainAggregator can break out by
+                # variable/depth. Detached: aggregator metrics never feed
+                # back into autograd.
+                with torch.no_grad():
+                    wet = data.ctx.label_mask.to(device=pred.device)
+                    loss_per_channel = F.mse_loss(
+                        pred * wet, label * wet, reduction="none"
+                    ).mean(dim=(0, 2, 3))
+                train_aggregator.record_batch(
+                    TrainBatchOutput(loss.detach(), loss_per_channel)
+                )
+
                 loss_running += float(loss.detach().item())
                 n_steps += 1
                 self.num_batches_seen += 1
@@ -828,7 +855,8 @@ class PCGB(Trainer):
                         step=self.num_batches_seen,
                     )
 
-        return {"loss_weighted_mean": loss_running / max(n_steps, 1)}
+        pcgb_scalars = {"loss_weighted_mean": loss_running / max(n_steps, 1)}
+        return pcgb_scalars, train_aggregator.get_logs("train")
 
     def _cycling_train_iter(self) -> Iterator[TrainData]:
         epoch = 0
@@ -837,6 +865,39 @@ class PCGB(Trainer):
                 self.train_sampler.set_epoch(self.num_batches_seen + epoch)
             yield from self.train_loader
             epoch += 1
+
+    # ------------------------------------------------------------------
+    # End-of-round validation (unmasked network)
+    # ------------------------------------------------------------------
+
+    @torch.no_grad()
+    def _validate_round(self, round_idx: int) -> Metrics:
+        """Full validation pass under the *unmasked* (deployed) network.
+
+        Mirrors ``Trainer.validate_one_epoch`` (train.py:677) so the
+        ``val/<var>`` keys match standard training and plot directly
+        against the baseline reference run.
+        """
+        self.model.eval()
+        val_aggregator = Aggregator.get_validation_aggregator(
+            self.primary_src.metadata,
+            self.hist,
+            self.primary_src.spherical_area_weights.to(self.device),
+            self.num_out,
+            self.tensor_map,
+            self.normalize,
+            include_image_aggregators=False,
+        )
+        metric_logger = MetricLogger(delimiter="  ")
+        header = f"PCGB Validation [round {round_idx}]"
+
+        with self._test_context(), self._enter_mask(None):
+            for data in metric_logger.log_every(self.val_loader, 1, header):
+                vo = validate_batch(self.model, data, self.loss_fn)
+                val_aggregator.record_validation_batch(vo)
+                metric_logger.update(loss=vo.loss)
+
+        return val_aggregator.get_logs(label="val")
 
     # ------------------------------------------------------------------
     # End-of-round scoring
@@ -920,10 +981,18 @@ class PCGB(Trainer):
             mask = self._current_mask
             self._mask_history.append(mask)
 
-            train_metrics = self._train_round(t, mask)
+            train_metrics, train_agg_logs = self._train_round(t, mask)
 
             candidates = self.searcher.candidates_for_round(t)
             local_idx, local_resid, scored = self._score_round(candidates)
+
+            # Full validation pass on cadence. Uses the *unmasked* network
+            # — what we ship at inference — under the standard val
+            # aggregator, so `val/<var>` keys line up with baseline runs.
+            run_val = (
+                t % self.cfg.validate_every_n_rounds == 0 or t == self.cfg.num_rounds
+            )
+            val_agg_logs = self._validate_round(t) if run_val else {}
 
             if self.cfg.reweight_enabled:
                 r2_stats = self.sample_weights.update(local_idx, local_resid)
@@ -984,12 +1053,15 @@ class PCGB(Trainer):
                     f"({metrics['wall_seconds']:.0f}s)"
                 )
                 if self.is_wandb_enabled():
+                    log_payload: dict = {
+                        f"pcgb/round/{k}": v
+                        for k, v in metrics.items()
+                        if isinstance(v, (int, float))
+                    }
+                    log_payload.update(train_agg_logs)
+                    log_payload.update(val_agg_logs)
                     self.wandb_logger.log(
-                        {
-                            f"pcgb/round/{k}": v
-                            for k, v in metrics.items()
-                            if isinstance(v, (int, float))
-                        },
+                        log_payload,
                         step=self.num_batches_seen,
                     )
 

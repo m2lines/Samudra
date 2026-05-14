@@ -1362,5 +1362,16 @@ class PCGBConfig(TrainConfig):
         description="Save a per-round checkpoint every N rounds.",
     )
 
+    validate_every_n_rounds: int = Field(
+        default=2,
+        ge=1,
+        description=(
+            "Run a full validation pass (unmasked network) every N rounds. "
+            "Emits the same train/<var> and val/<var> aggregator keys that "
+            "standard training does, so PCGB plots line up with baseline "
+            "runs. Default 2 matches save_round_freq."
+        ),
+    )
+
 
 AnyTopLevelConfig = TrainConfig | EvalConfig | PCGBConfig

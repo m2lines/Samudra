@@ -642,6 +642,12 @@ class PCGB(Trainer):
         self._inner_model: Samudra = candidate
         self.backbone = self._inner_model.unet
 
+        # Trainer.run() lazily initializes loaders per-epoch (train.py:436).
+        # PCGB overrides run() with a per-round loop and sizes SampleWeights
+        # by the train-set length below, so we need train_loader available
+        # in __init__. Steps are forced to [1] above, so cur_step is 1.
+        self.init_data_loaders(self.get_current_step(self.start_epoch))
+
         # MaskSearcher — v1 default is EnumerateSearcher(num_skips=4).
         self.searcher: MaskSearcher = build_searcher(cfg.mask_searcher)
         if self.searcher.num_skips != self.backbone.num_steps:

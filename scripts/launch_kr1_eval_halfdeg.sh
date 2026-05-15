@@ -50,7 +50,7 @@ WANDB_MODE="${WANDB_MODE:-disabled}"
 
 # ── Extra CLI overrides ──
 # experiment.data_root must be set (no default for it in ExperimentConfig).
-export ARGS="--experiment.data_root=${DATA_ROOT}"
+export ARGS="--experiment.data_root=${DATA_ROOT} --data.hist=0"
 
 echo "=== KR1 Part 2: 1/2° Eval Rollout ==="
 echo "Config:       ${CONFIG}"

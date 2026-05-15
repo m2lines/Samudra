@@ -209,6 +209,15 @@ binds=(
   "${DATA_CACHE_DIR}:/workspace/.data_cache"
 )
 
+# Mount host source over the container's snapshotted source so config/eval-code
+# changes are visible without a container rebuild — same convention as the
+# PCGB sbatch.
+if [[ "${MOUNT_SOURCE:-1}" != "0" ]]; then
+  binds+=("${REPO_DIR}/src:/workspace/src")
+  binds+=("${REPO_DIR}/configs:/workspace/configs")
+  binds+=("${REPO_DIR}/scripts:/workspace/scripts")
+fi
+
 # If checkpoint lives outside DATA_ROOT/OUTPUT_BASE, bind its parent path too.
 case "${CKPT_PATH_HOST}" in
   "${OUTPUT_BASE}"|"${OUTPUT_BASE}"/*|"${DATA_ROOT}"|"${DATA_ROOT}"/*)

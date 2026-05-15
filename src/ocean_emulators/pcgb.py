@@ -672,6 +672,26 @@ class PCGB(Trainer):
             f"num_blocks={self.searcher.num_blocks})"
         )
 
+        # When block_drops can be active, dropping a CoreBlock's residual
+        # (block_drops[i]=True) bypasses that block's trunk so its params
+        # don't receive grad. DDP's reducer raises unless we rewrap with
+        # find_unused_parameters=True. Skip-only masks don't hit this:
+        # skip drops zero the skip tensor but every param still
+        # participates in the forward pass.
+        if self.searcher.num_blocks > 0 and self.distributed is not None:
+            from torch import nn
+
+            inner = self.model.module if hasattr(self.model, "module") else self.model
+            self.model = nn.parallel.DistributedDataParallel(
+                inner,
+                device_ids=[self.distributed.gpu],
+                find_unused_parameters=True,
+            )
+            logger.info(
+                "PCGB: rewrapped DDP with find_unused_parameters=True "
+                "(searcher uses block_drops)."
+            )
+
         # Per-sample weights — sized to the train dataset.
         n_train = self._n_train_samples()
         self.sample_weights = SampleWeights(

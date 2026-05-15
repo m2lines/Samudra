@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/EvalConfig.json
+
+# Eval a PCGB V2 (mixture-searcher cold-start) checkpoint. Mirrors
+# boosted_eval.yaml but loads boosted_model_v2.yaml so the model
+# definition matches what produced the ckpt — V2 trained with
+# residual_drop_rate=0.1 on each ConvNeXt block in addition to
+# drop_path_rate=0.5. Both stochastic-depth modules are bypassed at
+# eval time, but instantiating the model with the same config keeps
+# state_dict registration aligned in case any future change makes a
+# learnable parameter conditional on those rates.
+
+debug: false
+save_zarr: true
+disk_mode: true
+
+ckpt_path: null
+
+inference_time:
+  start: "2014-10-10"
+  end: "2022-12-24"
+num_model_steps_forward: 25
+
+experiment:
+  name: pcgb_eval_v2
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: online
+    project: default
+    entity: ocean_emulators
+data: !include ../data/om4.yaml
+model: !include boosted_model_v2.yaml

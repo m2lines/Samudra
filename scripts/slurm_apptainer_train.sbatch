@@ -1,9 +1,4 @@
 #!/bin/bash
-
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
-#
-# SPDX-License-Identifier: Apache-2.0
-
 # Slurm + Apptainer harness for distributed training, modeled after `skypilot/train.sky.yaml`.
 #
 # Submit with env vars (example):
@@ -251,59 +246,6 @@ mkdir -p "${RUN_DIR}/wandb"
 # Create the run directory after preflight validation so early failures are
 # retryable with the same NAME.
 mkdir -p "${RUN_DIR}"
-# ── Optional periodic py-spy dump watchdog ──
-# Set PYSPY_WATCHDOG=1 to enable periodic stack dumps of all training processes
-# (including DataLoader workers).  Dumps land in ${RUN_DIR}/pyspy_dumps.log.
-# PYSPY_INTERVAL controls the dump frequency in seconds (default: 60).
-PYSPY_WATCHDOG="${PYSPY_WATCHDOG:-0}"
-PYSPY_INTERVAL="${PYSPY_INTERVAL:-60}"
-PYSPY_DUMP_LOG="${RUN_DIR}/pyspy_dumps.log"
-
-# ── Optional py-spy record (flamegraph profiling) ──
-# Set PYSPY_RECORD=1 to record a flamegraph/speedscope profile of the full run.
-# Output lands in ${RUN_DIR}/pyspy_profile.<format>.
-PYSPY_RECORD="${PYSPY_RECORD:-0}"
-PYSPY_RECORD_RATE="${PYSPY_RECORD_RATE:-1}"
-PYSPY_RECORD_FORMAT="${PYSPY_RECORD_FORMAT:-speedscope}"
-PYSPY_RECORD_FILE="${RUN_DIR}/pyspy_profile.${PYSPY_RECORD_FORMAT}"
-
-# ── Optional NVIDIA Nsight Systems (nsys) profiling ──
-# Set NSYS_PROFILE=1 to wrap torchrun with nsys for GPU-level profiling.
-# Use NSYS_DELAY to skip warmup (seconds) and NSYS_DURATION to limit capture.
-# Mode: "lite" for low-overhead overview, "detailed" for full CUDA+Python backtraces.
-NSYS_PROFILE="${NSYS_PROFILE:-0}"
-NSYS_DELAY="${NSYS_DELAY:-120}"
-NSYS_DURATION="${NSYS_DURATION:-120}"
-NSYS_MODE="${NSYS_MODE:-lite}"
-NSYS_OUTPUT="${RUN_DIR}/nsys_profile"
-
-# ── Optional THP (Transparent Huge Pages) diagnostic monitoring ──
-# Set THP_MONITOR=1 to periodically sample /proc/vmstat for THP and compaction
-# counters. This diagnoses stalls caused by synchronous huge page defragmentation
-# (see: /sys/kernel/mm/transparent_hugepage/defrag).
-THP_MONITOR="${THP_MONITOR:-0}"
-THP_MONITOR_INTERVAL="${THP_MONITOR_INTERVAL:-5}"
-THP_VMSTAT_LOG="${RUN_DIR}/thp_vmstat.log"
-THP_SETTINGS_LOG="${RUN_DIR}/thp_settings.log"
-
-# ── Optional strace madvise tracing ──
-# Set STRACE_MADVISE=1 to attach strace to one DataLoader worker process
-# and capture madvise() syscalls (the trigger for THP defrag).
-STRACE_MADVISE="${STRACE_MADVISE:-0}"
-STRACE_LOG="${RUN_DIR}/strace_madvise.log"
-if [[ -n "${NSYS_ARGS}" ]]; then
-  mkdir -p "${NSYS_OUTPUT_DIR}"
-fi
-
-# Create the run directory after preflight validation so early failures are
-# retryable with the same NAME.
-mkdir -p "${RUN_DIR}"
-
-# Forward USR1 from the batch shell to srun's process group.
-# --signal=B:USR1@120 sends USR1 to the batch shell 120s before walltime.
-# This trap relays it to srun, which forwards it to all tasks (torchrun → Python).
-_srun_pid=""
-trap '[[ -n "${_srun_pid}" ]] && kill -USR1 "${_srun_pid}" 2>/dev/null' USR1
 
 # NCCL/UCX workarounds for gr101/gr102 RTX6000 nodes (P2P/IB/UCX cause
 # segfaults on these nodes). Hardcoded in the sbatch (not conditional on

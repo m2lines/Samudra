@@ -33,7 +33,7 @@ export CONTAINER_TAG="${CONTAINER_TAG:-25.11-latest}"
 export CONFIG=configs/fomo_om4/eval_multiscale_halfdeg.yaml
 
 # ── Run name ──
-export NAME_SUFFIX=kr1_fomo_multiscale_halfdeg_eval_v1
+export NAME_SUFFIX=kr1_fomo_multiscale_halfdeg_eval_3epoch
 
 # ── Data root ──
 export DATA_ROOT="${DATA_ROOT:-/scratch/am16581/data}"
@@ -67,12 +67,12 @@ echo ""
 # Single RTX6000 GPU, single node. Eval is not distributed.
 sbatch \
   --account=torch_pr_347_courant \
-  --partition=h200_courant \
+  --partition=rtx6000_lzanna \
   --nodes=1 \
   --ntasks-per-node=1 \
   --cpus-per-task=4 \
   --mem=64G \
-  --gres=gpu:h200:1 \
+  --gres=gpu:rtx6000:1 \
   --time=04:00:00 \
   --job-name=kr1-eval-halfdeg \
   scripts/slurm_apptainer_eval.sbatch

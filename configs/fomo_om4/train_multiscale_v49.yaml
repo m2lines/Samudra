@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # yaml-language-server: $schema=../schemas/TrainConfig.json
 
 debug: false
@@ -14,7 +18,7 @@ batch_size: 1  # bs=2 OOMs on 1/4°
 # per-scale sampler infrastructure stays in place for a future debug pass.
 per_scale_batch_size: null
 gradient_accumulation_steps: 1
-learning_rate: 0.0006
+learning_rate: 0.0003
 scheduler: { type: cosine }
 loss: mse
 finetune: false
@@ -37,8 +41,8 @@ inference_times:
   - start: "2004-10-05"
     end: "2005-10-05" # "2014-10-05"
 data_stride: [1]
-steps: [1, 2, 4, 8]  # v49: extended curriculum for autoregressive stability
-step_transition: [5, 15, 30]  # 1-4 → 1-step, 5-14 → 2-step, 15-29 → 4-step, 30+ → 8-step
+steps: [1, 2, 4]  # v49: cap at 4-step; 8-step makes climatology the MSE-optimal policy
+step_transition: [20, 45]  # 1-step ep 0-19 (clear v48's epoch-19 wall), 2-step ep 20-44 (collapse/sawtooth diagnostic window), 4-step ep 45-69 (rollout fine-tune)
 preemptible: true
 
 backend: auto
@@ -52,7 +56,7 @@ experiment:
     project: default
   train_schedule: match
 data:
-  hist: 0  # v48: 1->0 (drop history input frame; physics is markovian)
+  hist: 1  # v49: revert to 1 (v48 hist=0 collapsed to climatology — model needs temporal context to stay on trajectory)
   dataset:
     type: om4
     prognostic_vars_key: thermo_dynamic_all

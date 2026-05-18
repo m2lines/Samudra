@@ -15,7 +15,10 @@ from ocean_emulators.aggregator.inference import InferenceEvaluatorAggregator
 from ocean_emulators.aggregator.train import TrainAggregator
 from ocean_emulators.aggregator.validate import ValidateAggregator
 from ocean_emulators.aggregator.validate.map import MapAggregator
-from ocean_emulators.aggregator.validate.reduced import MeanAggregator
+from ocean_emulators.aggregator.validate.reduced import (
+    MeanAggregator,
+    StdRatioAggregator,
+)
 from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from ocean_emulators.constants import TensorMap
@@ -40,6 +43,7 @@ class Aggregator:
     ) -> ValidateAggregator:
         val_aggregators: dict[str, ValidateSubAggregator] = {
             "reduced": MeanAggregator(area_weights, hist),
+            "std_ratio": StdRatioAggregator(area_weights, hist),
         }
         if include_image_aggregators:
             val_aggregators.update(

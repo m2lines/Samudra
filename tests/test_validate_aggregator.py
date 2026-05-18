@@ -11,6 +11,7 @@ from ocean_emulators.aggregator.validate.map import MapAggregator
 from ocean_emulators.aggregator.validate.per_scale_snapshot import (
     PerScaleSnapshotValidateAggregator,
 )
+from ocean_emulators.aggregator.validate.reduced import StdRatioAggregator
 from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from ocean_emulators.constants import TensorMap
@@ -170,6 +171,47 @@ def test_val_aggregator__hist_gt_0__does_not_require_wetmask_target_shape_match(
     val_agg.record_validation_batch(val_batch)
     val_logs = val_agg.get_logs(label="test")
     assert val_logs["test/fake/num_recordings"] == 1.0
+
+
+def test_std_ratio_aggregator__perfect_pred__ratio_is_one():
+    """When pred equals target on every sample, std(pred)/std(target) → 1."""
+    h, w = 4, 8
+    area_weights = torch.ones(h, w)
+    agg = StdRatioAggregator(area_weights, target_time=0)
+    # Two batches with non-degenerate per-pixel variability across samples.
+    torch.manual_seed(0)
+    for _ in range(2):
+        target = torch.randn(3, 1, h, w)  # [batch, time, h, w]
+        agg.record_batch(
+            loss=torch.tensor(0.0),
+            target_data={"v": target},
+            gen_data={"v": target.clone()},
+            target_data_norm={},
+            gen_data_norm={},
+        )
+    logs = agg.get_logs(label="std_ratio")
+    assert logs["std_ratio/v"] == pytest.approx(1.0, abs=1e-6)
+
+
+def test_std_ratio_aggregator__constant_pred__ratio_is_zero():
+    """Mode-collapse signal: a constant prediction yields ratio == 0 even if
+    target has nontrivial temporal variability."""
+    h, w = 4, 8
+    area_weights = torch.ones(h, w)
+    agg = StdRatioAggregator(area_weights, target_time=0)
+    torch.manual_seed(0)
+    constant = torch.full((1, 1, h, w), 3.14)
+    for _ in range(4):
+        target = torch.randn(1, 1, h, w)
+        agg.record_batch(
+            loss=torch.tensor(0.0),
+            target_data={"v": target},
+            gen_data={"v": constant},
+            target_data_norm={},
+            gen_data_norm={},
+        )
+    logs = agg.get_logs(label="std_ratio")
+    assert logs["std_ratio/v"] == pytest.approx(0.0, abs=1e-6)
 
 
 def test_validation_aggregator__reduced_only__omits_image_logs(

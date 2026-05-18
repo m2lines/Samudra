@@ -147,3 +147,9 @@ def all_reduce_mean(x):
         x /= world_size
 
     return x
+
+
+def all_reduce_sum(x):
+    if get_world_size() > 1:
+        dist.all_reduce(x)
+    return x

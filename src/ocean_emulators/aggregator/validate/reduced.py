@@ -11,12 +11,13 @@ import torch
 
 from ocean_emulators.aggregator.metrics import (
     area_weighted_gradient_magnitude_percent_diff,
+    area_weighted_mean,
     area_weighted_mean_bias,
     area_weighted_rmse,
 )
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from ocean_emulators.utils.device import get_device
-from ocean_emulators.utils.distributed import all_reduce_mean
+from ocean_emulators.utils.distributed import all_reduce_mean, all_reduce_sum
 
 
 class AreaWeightedReducedMetric:
@@ -162,4 +163,135 @@ class MeanAggregator(ValidateSubAggregator):
         """
         return {
             f"{label}/{key}": data for key, data in sorted(self._get_data().items())
+        }
+
+
+class AreaWeightedTemporalStdMetric:
+    """Per-pixel running stats for one variable, used to compute temporal std
+    across the validation set.
+
+    `get()` returns the area-weighted spatial mean of std(pred) / std(target),
+    where each per-pixel std is computed over all recorded validation samples.
+    Diagnoses mode collapse: the ratio is near 0 when the model output has
+    no temporal variability, and near 1 when it tracks the target distribution.
+    """
+
+    def __init__(self, device: torch.device, area_weights: torch.Tensor):
+        self._device = device
+        self._area_weights = area_weights
+        self._sum_gen: torch.Tensor | None = None
+        self._sum_sq_gen: torch.Tensor | None = None
+        self._sum_target: torch.Tensor | None = None
+        self._sum_sq_target: torch.Tensor | None = None
+        self._count: int = 0
+
+    def record(self, target: torch.Tensor, gen: torch.Tensor):
+        if self._sum_gen is None:
+            shape = gen.shape[1:]
+            self._sum_gen = torch.zeros(shape, device=self._device, dtype=torch.float64)
+            self._sum_sq_gen = torch.zeros(
+                shape, device=self._device, dtype=torch.float64
+            )
+            self._sum_target = torch.zeros(
+                shape, device=self._device, dtype=torch.float64
+            )
+            self._sum_sq_target = torch.zeros(
+                shape, device=self._device, dtype=torch.float64
+            )
+        assert self._sum_sq_gen is not None
+        assert self._sum_target is not None
+        assert self._sum_sq_target is not None
+        g = gen.to(torch.float64)
+        t = target.to(torch.float64)
+        self._sum_gen += g.nansum(dim=0)
+        self._sum_sq_gen += (g * g).nansum(dim=0)
+        self._sum_target += t.nansum(dim=0)
+        self._sum_sq_target += (t * t).nansum(dim=0)
+        self._count += gen.shape[0]
+
+    def get(self) -> torch.Tensor:
+        assert self._sum_gen is not None
+        assert self._sum_sq_gen is not None
+        assert self._sum_target is not None
+        assert self._sum_sq_target is not None
+        sum_gen = all_reduce_sum(self._sum_gen.clone())
+        sum_sq_gen = all_reduce_sum(self._sum_sq_gen.clone())
+        sum_target = all_reduce_sum(self._sum_target.clone())
+        sum_sq_target = all_reduce_sum(self._sum_sq_target.clone())
+        count_t = torch.tensor([self._count], device=self._device, dtype=torch.float64)
+        count = float(all_reduce_sum(count_t).item())
+        if count < 2:
+            return torch.tensor(float("nan"), device=self._device)
+
+        mean_gen = sum_gen / count
+        mean_target = sum_target / count
+        var_gen = (sum_sq_gen / count - mean_gen * mean_gen).clamp_min(0.0)
+        var_target = (sum_sq_target / count - mean_target * mean_target).clamp_min(0.0)
+        std_gen = var_gen.sqrt()
+        std_target = var_target.sqrt()
+
+        # Pixels with zero target variability (e.g. static land masked to a
+        # constant or near-constant value) are excluded from the spatial mean
+        # by NaN-ing the ratio; area_weighted_mean treats NaN as land.
+        ratio = torch.where(
+            std_target > 1e-12,
+            std_gen / std_target,
+            torch.full_like(std_gen, float("nan")),
+        )
+        return area_weighted_mean(ratio, self._area_weights.to(self._device))
+
+
+class StdRatioAggregator(ValidateSubAggregator):
+    """Per-variable temporal std(pred)/std(target) over the validation set.
+
+    Designed to catch mode collapse (e.g. v48 climatology output) early:
+    a healthy run holds this ratio near 1; a collapsed run drops toward 0.
+    """
+
+    def __init__(self, area_weights: torch.Tensor, target_time: int):
+        self._area_weights = area_weights
+        self._target_time = target_time
+        self._metrics: dict[str, AreaWeightedTemporalStdMetric] | None = None
+
+    def _get_metrics(self, gen_data):
+        if self._metrics is None:
+            device = get_device()
+            self._metrics = {
+                key: AreaWeightedTemporalStdMetric(
+                    device=device, area_weights=self._area_weights
+                )
+                for key in gen_data
+            }
+        return self._metrics
+
+    @torch.no_grad()
+    def record_batch(
+        self,
+        *,
+        loss: torch.Tensor = torch.tensor(np.nan),
+        target_data,
+        gen_data,
+        target_data_norm,
+        gen_data_norm,
+        input_data: dict[str, torch.Tensor] | None = None,
+        input_data_norm: dict[str, torch.Tensor] | None = None,
+        i_time_start: int = 0,
+    ):
+        metrics = self._get_metrics(gen_data)
+        time_dim = 1
+        time_len = gen_data[next(iter(gen_data))].shape[time_dim]
+        target_time = self._target_time - i_time_start
+        if target_time >= 0 and time_len > target_time:
+            for name in gen_data:
+                target = target_data[name].select(dim=time_dim, index=target_time)
+                gen = gen_data[name].select(dim=time_dim, index=target_time)
+                metrics[name].record(target=target, gen=gen)
+
+    @torch.no_grad()
+    def get_logs(self, label: str):
+        if self._metrics is None:
+            return {}
+        return {
+            f"{label}/{key}": float(metric.get().detach().cpu().numpy())
+            for key, metric in sorted(self._metrics.items())
         }

@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Launch a KR1 training run with an embedded py-spy deadlock watchdog.
 #
 # Submits a single SLURM job that runs training AND a background watchdog.

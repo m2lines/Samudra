@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Slurm job to compact all FOMO multiscale Zarr datasets using Apptainer.
 #
 # This reads the uncompacted zarr data from SRC_ROOT and writes compacted

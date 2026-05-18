@@ -1,5 +1,9 @@
 # yaml-language-server: $schema=../schemas/EvalConfig.json
 #
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+#
 # KR1 part 2: single-scale (1/2°) rollout evaluation of the multi-scale FOMO model.
 #
 # The eval code runs inference on the *first* data source only (halfdeg here).

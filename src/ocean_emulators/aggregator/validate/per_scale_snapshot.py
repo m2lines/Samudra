@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Per-scale validation aggregator for the match/mix schedules.
 
 For each batch, route by ``batch.ctx.label_mask.shape[-2:]`` to a per-scale

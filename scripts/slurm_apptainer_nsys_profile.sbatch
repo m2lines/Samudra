@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Slurm + Apptainer harness for profiling distributed training with NVIDIA Nsight Systems.
 #
 # This is a modified version of slurm_apptainer_train.sbatch that wraps

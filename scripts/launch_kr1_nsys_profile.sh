@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Profile a KR1 multi-scale FOMO training run with NVIDIA Nsight Systems.
 #
 # Launches the normal 8-GPU distributed training under `nsys profile` to

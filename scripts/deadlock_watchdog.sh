@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Deadlock watchdog: monitors a SLURM training job and dumps py-spy stack
 # traces when training stops making progress.
 #

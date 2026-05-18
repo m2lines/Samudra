@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # KR1 smoke test: single-scale 1° FOMO training on Torch (NYU HPC).
 #
 # Why this run:

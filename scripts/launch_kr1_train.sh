@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Launch the KR1 multi-scale FOMO training run on Torch (NYU HPC).
 #
 # This script submits the training job for issue #616:
@@ -38,7 +43,7 @@ if [[ -z "${CONTAINER_HASH:-}" && -z "${CONTAINER_TAG:-}" && -z "${IMAGE_REF:-}"
 fi
 
 # ── Config (baked into the container) ──
-export CONFIG=configs/fomo_om4/train_multiscale.yaml
+export CONFIG=configs/fomo_om4/train_multiscale_v49.yaml
 
 # ── Run name ──
 # v46: fresh start on this branch (kr1-v2). Cannot resume from v43/v44/v45
@@ -46,7 +51,12 @@ export CONFIG=configs/fomo_om4/train_multiscale.yaml
 # 2D Fourier features fix; checkpoint shapes are incompatible. Other deltas:
 # loss=mse (was DynamicLoss), pred_residuals=true (was false), per-scale
 # validation snapshots, single-step warmup via steps=[1,2] step_transition=[10].
-export NAME_SUFFIX=kr1_fomo_multiscale_v48
+# v49: fresh start again — hist 0→1 changes input channel count
+# (FlashPerceiver projection shape), so v48 checkpoints don't load. Deltas:
+# hist=1 (v48 collapsed to climatology w/ hist=0), pred_residuals=true (v48
+# false), steps=[1,2,4] step_transition=[20,45] (extended 1-step phase + 4-step
+# cap), lr=0.0003 (halved to damp v47 sawtooth risk).
+export NAME_SUFFIX=kr1_fomo_multiscale_v49
 # Lock NAME at submit time so requeues + chain jobs use the same run dir.
 # Override via NAME=... in env to resume into a specific existing dir.
 export NAME="${NAME:-$(date +%Y-%m-%d)-${NAME_SUFFIX}}"
@@ -61,10 +71,15 @@ export OUTPUT_BASE="${OUTPUT_BASE:-/scratch/${USER}/runs}"
 export WANDB_MODE="${WANDB_MODE:-${WANDB_API_KEY:+online}}"
 WANDB_MODE="${WANDB_MODE:-disabled}"
 
-# ─ Use preemptable resources, make the job resumable. ──
-export PREEMPTIBLE=1  # use preempt-resume support (PR #626)
+# ─ Preemption ──
+# v49: HPC@ granted exemption from the post-2h ≥50% GPU-util preemption rule,
+# so the job will run uninterrupted within walltime. Use a normal (non-
+# preemptible) launch per docs/torch.md.
+export PREEMPTIBLE=0
 
 # ─ Checkpoint every 100 batches, not 250. ──
+# Kept for resilience against unexpected failures (node reboot, OOM, etc.),
+# even though we're no longer relying on preempt-resume.
 export CHECKPOINT_BATCH_INTERVAL=100
 
 # ── NCCL workarounds for RTX6000 nodes ──
@@ -105,7 +120,7 @@ export NSYS_PROFILE=0
 # ── Extra CLI overrides ──
 # The baked-in config has the decoder and data sources already configured.
 # v46: NO resume — see NAME_SUFFIX comment above. Fresh weights only.
-export ARGS="--data.loading.num_workers=8 --data.concurrent_compute=true --experiment.wandb.group=kr1_v48"
+export ARGS="--data.loading.num_workers=8 --data.concurrent_compute=true --experiment.wandb.group=kr1_v49"
 
 echo "=== KR1 Multi-Scale FOMO Training ==="
 echo "Config:         ${CONFIG}"
@@ -120,27 +135,21 @@ echo "CKPT_BATCH_INT: ${CHECKPOINT_BATCH_INTERVAL}"
 echo ""
 
 # ── Submit ──
-# 8x RTX6000, full node on torch.
-# Time: 2h per run. The gpu48 QOS (auto-assigned for >2h) caps GPUs at 2,
-# so we stay within the default QOS and rely on PREEMPTIBLE=1 to auto-requeue
-# after walltime / preemption and resume from checkpoint.
+# v49: standard non-preemptible 8x RTX6000 full-node launch per docs/torch.md.
+# HPC@ has waived the post-2h ≥50% GPU-util preemption rule, so the job runs
+# uninterrupted within walltime. No --partition (let SLURM place), no
+# --requeue/--comment (no preempt-resume needed).
 # `EXTRA_SBATCH_ARGS` is an optional escape hatch for callers that want to
 # splice in extra sbatch flags (e.g. `--dependency=afterany:<jobid>` for
 # job chaining). Empty by default.
-sbatch --requeue --comment="preemption=yes;requeue=true" \
+sbatch \
   ${EXTRA_SBATCH_ARGS:-} \
   --account=torch_pr_347_courant \
   --nodes=1 \
   --ntasks-per-node=1 \
   --cpus-per-task=128 \
   --mem=1400G \
-  --partition=rtx6000 \
   --gres=gpu:rtx6000:8 \
   --time=24:00:00 \
   --job-name=kr1-fomo \
   scripts/slurm_apptainer_train.sbatch
-
-# Turn off preemption
-#  --time=02:00:00 \
-#  --requeue \
-#  --comment="preemption=yes;requeue=true" \

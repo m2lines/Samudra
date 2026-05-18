@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Slurm + Apptainer harness for distributed training with py-spy profiling.
 #
 # Identical to slurm_apptainer_train.sbatch, but wraps torchrun with

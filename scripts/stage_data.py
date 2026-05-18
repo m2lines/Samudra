@@ -1,4 +1,9 @@
 #!/usr/bin/env python3
+
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 """Stage zarr data to node-local storage for faster I/O during training.
 
 Copies zarr stores from a (potentially slow) network filesystem to fast

@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Profile CPU memory for a single rank of the KR1 multi-scale FOMO training.
 #
 # Runs memray on a single GPU (no DDP) to measure per-rank memory footprint.

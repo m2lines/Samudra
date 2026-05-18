@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
 # Launch the KR1 (part 2) single-scale 1/2° rollout eval on Torch (NYU HPC).
 #
 # This evaluates the multi-scale FOMO model trained in part 1 on 1/2°

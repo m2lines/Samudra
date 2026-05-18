@@ -18,4 +18,4 @@ SPDX-License-Identifier: CC-BY-4.0
 > Ground truth (left) vs. Ocean Emulator prediction (right) for sea surface temperature in the tropical Pacific.
 
 
-Please see [CONTRIBUTING.md](CONTRIBUTING.md) to get started.
+Please see [CONTRIBUTING.md](docs/contributing.md) to get started.

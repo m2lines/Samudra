@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1778545274583,
+  "lastUpdate": 1779139270062,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -9444,6 +9444,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.08002336318328905",
             "extra": "mean: 28.1239826344 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fomobot640@gmail.com",
+            "name": "fomo-bot",
+            "username": "fomo-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "69cb792c7cb8d3d57e6186d3875f3cbb9aace38a",
+          "message": "Fix W&B checkpoint resume loading (#738)\n\nFixes a memory usage issue when resuming from a checkpoint; previously\nall per-GPU processes were loading the checkpoint unnecessarily.\n\n---------\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>",
+          "timestamp": "2026-05-18T21:07:06Z",
+          "tree_id": "ae731279579cb4fb95e439cccad12b2b85327972",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/69cb792c7cb8d3d57e6186d3875f3cbb9aace38a"
+        },
+        "date": 1779139268894,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.104646945479846,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00164927401949468",
+            "extra": "mean: 905.2666140000156 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.16861650672368372,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08950154881068868",
+            "extra": "mean: 5.9306174669999905 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.03529726806020344,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11060593611486773",
+            "extra": "mean: 28.33080447740001 sec\nrounds: 5"
           }
         ]
       }

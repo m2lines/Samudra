@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779139270062,
+  "lastUpdate": 1779139271876,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -18987,6 +18987,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.061013826540713266",
             "extra": "mean: 20.073851642399994 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fomobot640@gmail.com",
+            "name": "fomo-bot",
+            "username": "fomo-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "69cb792c7cb8d3d57e6186d3875f3cbb9aace38a",
+          "message": "Fix W&B checkpoint resume loading (#738)\n\nFixes a memory usage issue when resuming from a checkpoint; previously\nall per-GPU processes were loading the checkpoint unnecessarily.\n\n---------\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>",
+          "timestamp": "2026-05-18T21:07:06Z",
+          "tree_id": "ae731279579cb4fb95e439cccad12b2b85327972",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/69cb792c7cb8d3d57e6186d3875f3cbb9aace38a"
+        },
+        "date": 1779139271404,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0824518660602633,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00109453969419625",
+            "extra": "mean: 923.8286074000143 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.17302976906348694,
+            "unit": "iter/sec",
+            "range": "stddev: 0.027594750640052994",
+            "extra": "mean: 5.779352335800013 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.049648537843714986,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11512486542528977",
+            "extra": "mean: 20.14158006319999 sec\nrounds: 5"
           }
         ]
       }

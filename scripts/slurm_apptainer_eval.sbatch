@@ -229,6 +229,22 @@ BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 # retryable with the same NAME.
 mkdir -p "${RUN_DIR}"
 
+# Override the container-baked WANDB_GIT_COMMIT/REMOTE_URL (frozen at image
+# build time) with the host repo's current state. The harness bind-mounts
+# host src/ + configs/ into the container, so the code that actually runs
+# is the host commit — that's what wandb should label.
+if HOST_GIT_COMMIT="$(git -C "${REPO_DIR}" rev-parse HEAD 2>/dev/null)"; then
+  HOST_GIT_REMOTE="$(git -C "${REPO_DIR}" config --get remote.origin.url 2>/dev/null || true)"
+  if ! git -C "${REPO_DIR}" diff --quiet HEAD -- 2>/dev/null; then
+    DIRTY_NOTE=" (dirty: uncommitted host changes)"
+  else
+    DIRTY_NOTE=""
+  fi
+  export APPTAINERENV_WANDB_GIT_COMMIT="${HOST_GIT_COMMIT}"
+  export APPTAINERENV_WANDB_GIT_REMOTE_URL="${HOST_GIT_REMOTE}"
+  echo "Host git:   ${HOST_GIT_COMMIT}${DIRTY_NOTE}"
+fi
+
 srun --ntasks=1 --ntasks-per-node=1 \
   "${APPTAINER_BIN}" exec --nv \
     --bind "${BIND_ARG}" \

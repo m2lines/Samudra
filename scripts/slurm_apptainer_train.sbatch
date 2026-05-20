@@ -265,6 +265,22 @@ export APPTAINERENV_TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=1800
 export APPTAINERENV_UCX_TLS=tcp,self,sm
 export APPTAINERENV_UCX_NET_DEVICES=all
 
+# Override the container-baked WANDB_GIT_COMMIT/REMOTE_URL (frozen at image
+# build time, so wandb otherwise reports the build-time SHA forever). The
+# harness bind-mounts host src/ + configs/ into the container, so the code
+# that actually runs is the host commit — that's what wandb should label.
+if HOST_GIT_COMMIT="$(git -C "${REPO_DIR}" rev-parse HEAD 2>/dev/null)"; then
+  HOST_GIT_REMOTE="$(git -C "${REPO_DIR}" config --get remote.origin.url 2>/dev/null || true)"
+  if ! git -C "${REPO_DIR}" diff --quiet HEAD -- 2>/dev/null; then
+    DIRTY_NOTE=" (dirty: uncommitted host changes)"
+  else
+    DIRTY_NOTE=""
+  fi
+  export APPTAINERENV_WANDB_GIT_COMMIT="${HOST_GIT_COMMIT}"
+  export APPTAINERENV_WANDB_GIT_REMOTE_URL="${HOST_GIT_REMOTE}"
+  echo "Host git:    ${HOST_GIT_COMMIT}${DIRTY_NOTE}"
+fi
+
 # Forward USR1 from the batch shell to srun's process group.
 # --signal=B:USR1@120 sends USR1 to the batch shell 120s before walltime.
 # This trap relays it to srun, which forwards it to all tasks (torchrun → Python).

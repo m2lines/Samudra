@@ -43,7 +43,7 @@ if [[ -z "${CONTAINER_HASH:-}" && -z "${CONTAINER_TAG:-}" && -z "${IMAGE_REF:-}"
 fi
 
 # ── Config (baked into the container) ──
-export CONFIG=configs/fomo_om4/train_multiscale_v49.yaml
+export CONFIG=configs/fomo_om4/train_multiscale_v50.yaml
 
 # ── Run name ──
 # v46: fresh start on this branch (kr1-v2). Cannot resume from v43/v44/v45
@@ -56,7 +56,11 @@ export CONFIG=configs/fomo_om4/train_multiscale_v49.yaml
 # hist=1 (v48 collapsed to climatology w/ hist=0), pred_residuals=true (v48
 # false), steps=[1,2,4] step_transition=[20,45] (extended 1-step phase + 4-step
 # cap), lr=0.0003 (halved to damp v47 sawtooth risk).
-export NAME_SUFFIX=kr1_fomo_multiscale_v49
+# v50: v49 NaN'd on iter 1 of the first 2-step epoch (curriculum transition at
+# epoch 20). Reverting pred_residuals to false; std_ratio diagnostic now wired
+# into PerScale validation path. Keeping hist=1, steps=[1,2,4], transitions
+# [20,45]; LR back to v48's 0.0006.
+export NAME_SUFFIX=kr1_fomo_multiscale_v50
 # Lock NAME at submit time so requeues + chain jobs use the same run dir.
 # Override via NAME=... in env to resume into a specific existing dir.
 export NAME="${NAME:-$(date +%Y-%m-%d)-${NAME_SUFFIX}}"
@@ -120,7 +124,7 @@ export NSYS_PROFILE=0
 # ── Extra CLI overrides ──
 # The baked-in config has the decoder and data sources already configured.
 # v46: NO resume — see NAME_SUFFIX comment above. Fresh weights only.
-export ARGS="--data.loading.num_workers=8 --data.concurrent_compute=true --experiment.wandb.group=kr1_v49"
+export ARGS="--data.loading.num_workers=8 --data.concurrent_compute=true --experiment.wandb.group=kr1_v50"
 
 echo "=== KR1 Multi-Scale FOMO Training ==="
 echo "Config:         ${CONFIG}"

@@ -346,6 +346,10 @@ def test_per_scale_snapshot_val_aggregator__routes_loss_per_scale(
     h_small, w_small = other_src.grid_size
     assert f"val/{h_big}x{w_big}/loss" in logs
     assert f"val/{h_small}x{w_small}/loss" in logs
+    # std_ratio must surface per scale so the collapse diagnostic fires
+    # under PerScale routing (the path multi-scale FOMO actually takes).
+    assert any(k.startswith(f"val/{h_big}x{w_big}/std_ratio/") for k in logs)
+    assert any(k.startswith(f"val/{h_small}x{w_small}/std_ratio/") for k in logs)
     # No image keys when log_images=False.
     assert not any("snapshot" in k for k in logs)
     # We inherit TrainAggregator, so the standard per-channel breakdown

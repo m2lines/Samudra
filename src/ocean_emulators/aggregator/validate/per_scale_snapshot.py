@@ -28,6 +28,7 @@ import torch
 
 from ocean_emulators.aggregator.plotting import plot_paneled_data
 from ocean_emulators.aggregator.train import TrainAggregator
+from ocean_emulators.aggregator.validate.reduced import StdRatioAggregator
 from ocean_emulators.constants import (
     BoundaryVarNames,
     GridSize,
@@ -81,6 +82,7 @@ class PerScaleSnapshotValidateAggregator(TrainAggregator):
         self._loss_sum_per_scale: dict[GridSize, torch.Tensor] = {}
         self._batch_count_per_scale: dict[GridSize, int] = {}
         self._last_batch_per_scale: dict[GridSize, ValBatchOutput | None] = {}
+        self._std_ratio_per_scale: dict[GridSize, StdRatioAggregator] = {}
         for src in sources:
             key: GridSize = src.grid_size
             if key in self._normalize_for:
@@ -101,6 +103,9 @@ class PerScaleSnapshotValidateAggregator(TrainAggregator):
             self._loss_sum_per_scale[key] = torch.tensor(0.0)
             self._batch_count_per_scale[key] = 0
             self._last_batch_per_scale[key] = None
+            self._std_ratio_per_scale[key] = StdRatioAggregator(
+                src.spherical_area_weights, target_time=hist
+            )
 
     @torch.no_grad()
     def record_validation_batch(self, batch: ValBatchOutput) -> None:
@@ -120,6 +125,39 @@ class PerScaleSnapshotValidateAggregator(TrainAggregator):
         self._batch_count_per_scale[key] += 1
         if self._log_images:
             self._last_batch_per_scale[key] = batch
+
+        # Per-scale std(pred)/std(target) — collapse diagnostic.
+        wet = batch.ctx.label_mask
+        first_chunk = wet.shape[0] // (self._hist + 1)
+        wet_label = wet[:first_chunk]
+        normalize = self._normalize_for[key]
+        target_norm, target_unnorm = get_aggregator_dicts(
+            batch.target_data,
+            normalize=normalize,
+            tensor_map=self.tensor_map,
+            wet=wet_label,
+            long_rollout=False,
+            input_type="prognostic",
+            num_prognostic_channels=self._num_prognostic_channels,
+            hist=self._hist,
+        )
+        gen_norm, gen_unnorm = get_aggregator_dicts(
+            batch.gen_data,
+            normalize=normalize,
+            tensor_map=self.tensor_map,
+            wet=wet_label,
+            long_rollout=False,
+            input_type="prognostic",
+            num_prognostic_channels=self._num_prognostic_channels,
+            hist=self._hist,
+        )
+        self._std_ratio_per_scale[key].record_batch(
+            loss=batch.loss,
+            target_data=target_unnorm,
+            gen_data=gen_unnorm,
+            target_data_norm=target_norm,
+            gen_data_norm=gen_norm,
+        )
 
     @torch.no_grad()
     def get_logs(self, label: str = "val") -> Metrics:
@@ -150,6 +188,13 @@ class PerScaleSnapshotValidateAggregator(TrainAggregator):
                         prefix=f"{label}/{scale}/snapshot",
                     )
                 )
+
+            for k, v in (
+                self._std_ratio_per_scale[grid_size]
+                .get_logs(label=f"{scale}/std_ratio")
+                .items()
+            ):
+                logs[f"{label}/{k}"] = v
         return logs
 
     @torch.no_grad()

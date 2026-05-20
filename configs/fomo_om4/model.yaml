@@ -4,7 +4,7 @@
 
 # yaml-language-server: $schema=../schemas/FOMOConfig.json
 
-pred_residuals: true  # v49: re-enabled (v48 collapsed to climatology); v47 sawtooth mitigated by hist=1 + 20-epoch 1-step phase + 4-step rollout cap + halved LR
+pred_residuals: false  # v50: reverted from v49 (NaN'd on first 2-step iter at epoch 20). hist=1 mitigates the v48 climatology collapse; std_ratio diagnostic (now wired into PerScale path) flags regression.
 last_kernel_size: 3
 pad: "circular"
 checkpointing: "all"

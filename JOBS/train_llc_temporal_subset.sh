@@ -1,28 +1,34 @@
 #!/bin/bash
-#SBATCH -w node3001
-#SBATCH --reservation=rres_abodner_2026-04-23_n9u5qb2f
-#SBATCH --qos=rres_qos_abodner_2026-04-23_n9u5qb2f
-#SBATCH --account=rres_acc_abodner_2026-04-23_n9u5qb2f
-#SBATCH --job-name=2026-04-28-Samudra_LLC:res_experiment_0_h200s_speedtest
+#SBATCH -p pi_abodner
+#SBATCH --job-name=2026-05-21:samudra_llc:speed_test(C_h100)
 #SBATCH -N 1
-#SBATCH --mem=500GB
+#SBATCH --mem=200GB
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=60
-#SBATCH -G h200:4
-#SBATCH --time=01-23:00:00
+#SBATCH --cpus-per-task=15
+#SBATCH --gres=gpu:1
+#SBATCH --time=00-24:00:00
 #SBATCH --signal=B:USR1@300
-#SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/reservation_2/%x-%j.out
-#SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/reservation_2/%x-%j.out
+#SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
+#SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 
-# load Python platform with PyTorch and CUDA support preinstalled
+# DDP# load Python platform with PyTorch and CUDA support preinstalled
 module load miniforge/24.3.0-0
 module load cuda/13.1.0
 
 # cd to correct directory
 cd /orcd/home/002/codycruz/Ocean_Emulator
 
-# activate uv environment for ocean_emulator
-uv sync --dev
+# Use the already-built project environment directly instead of `uv run`, which
+# still mutates the shared `.venv` on this filesystem even with `--no-sync`.
+PROJECT_SITE_PACKAGES="/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib/python3.11/site-packages"
+export PYTHONPATH="/orcd/home/002/codycruz/Ocean_Emulator/src:${PROJECT_SITE_PACKAGES}${PYTHONPATH:+:${PYTHONPATH}}"
+PYTHON_BIN="${PYTHON_BIN:-/orcd/home/002/codycruz/Ocean_Emulator/.venv/bin/python}"
+
+if [[ ! -x "${PYTHON_BIN}" ]]; then
+  echo "ERROR: expected Python 3.11 environment at ${PYTHON_BIN}, but it is not executable." >&2
+  echo "If this node lacks /usr/bin/python3.11, recreate .venv with a portable Python 3.11 install or a venv built with --copies." >&2
+  exit 1
+fi
 
 # reduce data fragmentation
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -36,7 +42,7 @@ export NCCL_DEBUG=INFO
 
 # PROFILING
 export NSYS_ARGS="--trace=cuda,nvtx,osrt --sample=cpu --delay=300 --duration=120"
-NSYS_OUTPUT_DIR="/orcd/home/002/codycruz/Ocean_Emulator/logs/reservation_2/nsys"
+NSYS_OUTPUT_DIR="/orcd/home/002/codycruz/Ocean_Emulator/logs/nsys"
 mkdir -p "${NSYS_OUTPUT_DIR}"
 PROFILER_CMD=()
 if [[ -n "${NSYS_ARGS}" ]]; then
@@ -65,14 +71,17 @@ fi
 # KNOBS
 
 # GPUS WORKERS 
-GPUS="${GPUS:-4}"
-DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-2}"
+GPUS="${GPUS:-1}"
+DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-12}"
+DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-12}"
+TRAIN_SHUFFLE="${TRAIN_SHUFFLE:-true}"
+SURFACE_SNAPSHOT="${SURFACE_SNAPSHOT:-true}"
 PAD="${PAD:-constant}"
 NUM_HALO="${NUM_HALO:-4}"
 NUM_SPONGE="${NUM_SPONGE:-12}"
 
 # DDP
-PIN_MEM="${PIN_MEM:-false}"
+PIN_MEM="${PIN_MEM:-true}"
 DDP_BROADCAST_BUFFERS="${DDP_BROADCAST_BUFFERS:-false}"
 DDP_TIMEOUT_MINUTES="${DDP_TIMEOUT_MINUTES:-300}"
 DDP_MAX_DATA_WORKERS_PER_RANK="${DDP_MAX_DATA_WORKERS_PER_RANK:-12}"
@@ -84,9 +93,10 @@ LLC_I_START="${LLC_I_START:-2880}"
 LLC_I_END="${LLC_I_END:-3600}"
 LLC_J_START="${LLC_J_START:-720}"
 LLC_J_END="${LLC_J_END:-1440}"
+DATA_LOCATION_OVERRIDE="${DATA_LOCATION_OVERRIDE:-}"
 
 # CHECKPOINTING FINETUNING
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt}" 
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-}" #/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
@@ -94,7 +104,7 @@ RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
 # NAME, DIRECTORY, EPOCHS, SAVE_FREQ
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}" # 2026-04-04-CONT:[increase-step-test-suite]-WITH_temporal_stride=6,steps=4,2012-01-01-2012-09-14-RESUME}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
-EPOCHS="${EPOCHS:-7}"
+EPOCHS="${EPOCHS:-36}"
 SAVE_FREQ="${SAVE_FREQ:-1}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 
@@ -103,19 +113,20 @@ LEARNING_RATE="${LEARNING_RATE:-0.0006}"
 SCHEDULER_MODE="${SCHEDULER_MODE:-cosine}" # SCHEDULER_MODE: "cosine" (default) or "fixed" (no LR decay)
 # If set while using cosine, stretches LR decay over a longer horizon than EPOCHS.
 # Example: EPOCHS=6 and SCHEDULER_TARGET_EPOCHS=60 gives a much gentler decay.
-SCHEDULER_TARGET_EPOCHS="${SCHEDULER_TARGET_EPOCHS:-30}"
-LR_MULTIPLIERS="${LR_MULTIPLIERS:-[1.0]}"
-LR_MULTIPLIER_TRANSITION="${LR_MULTIPLIER_TRANSITION:-[]}"
+SCHEDULER_TARGET_EPOCHS="${SCHEDULER_TARGET_EPOCHS:-45}"
+LR_MULTIPLIERS="${LR_MULTIPLIERS:-[1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0]}"
+LR_MULTIPLIER_TRANSITION="${LR_MULTIPLIER_TRANSITION:-[7, 8, 9, 13, 14, 15, 19, 20, 21, 25, 26, 27, 31, 32, 33]}"
 
 # CURRICULUM
 # list knobs should be passed like "[1]" or "[1, 2, 4]".
-TEMPORAL_STRIDE="${TEMPORAL_STRIDE:-6}"
+TEMPORAL_STRIDE="${TEMPORAL_STRIDE:-3}"
 TEMPORAL_STRIDE_TRANSITION="${TEMPORAL_STRIDE_TRANSITION:-[]}"
-STEPS="${STEPS:-[1]}"
-STEP_TRANSITION="${STEP_TRANSITION:-[]}"
-DATA_STRIDE="${DATA_STRIDE:-[6]}"
-HIST="${HIST:-1}"
-GRADIENT_DETACH_INTERVAL="${GRADIENT_DETACH_INTERVAL:-2}"
+STEPS="${STEPS:-[2, 3, 4, 5, 6, 7]}"
+STEP_TRANSITION="${STEP_TRANSITION:-[7,13,19,25,31]}" 
+DATA_STRIDE="${DATA_STRIDE:-[3]}"
+HIST="${HIST:-0}"
+GRADIENT_DETACH_INTERVAL="${GRADIENT_DETACH_INTERVAL:-3}"
+
 
 
 echo "======== train ocean_emulator samudra w/ ${GPUS} gpus on LLC4320 data ========"
@@ -124,6 +135,8 @@ echo "using ${DATA_NUM_WORKERS} data workers and ${PIN_MEM} pin memory"
 if [[ "${GPUS}" -gt 0 ]]; then
   echo "effective workers per rank (after trainer scaling): $((DATA_NUM_WORKERS / GPUS))"
 fi
+echo "using data.prefetch_factor=${DATA_PREFETCH_FACTOR} and data.train_shuffle=${TRAIN_SHUFFLE}"
+echo "using validation surface_snapshot=${SURFACE_SNAPSHOT}"
 echo "using ddp_broadcast_buffers=${DDP_BROADCAST_BUFFERS} and ddp_timeout_minutes=${DDP_TIMEOUT_MINUTES}"
 echo "using ddp_max_data_workers_per_rank=${DDP_MAX_DATA_WORKERS_PER_RANK}"
 echo "using data.concurrent_compute=${CONCURRENT_COMPUTE}"
@@ -132,6 +145,9 @@ echo "using lr multipliers: lr_multipliers=${LR_MULTIPLIERS}, lr_multiplier_tran
 echo "using curriculum: data_stride=${DATA_STRIDE}, temporal_stride=${TEMPORAL_STRIDE}, steps=${STEPS}, step_transition=${STEP_TRANSITION}, temporal_stride_transition=${TEMPORAL_STRIDE_TRANSITION}, hist=${HIST}, grad-detach=${GRADIENT_DETACH_INTERVAL}"
 echo "using data location: LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
 echo "using padding: pad=${PAD}, num_halo=${NUM_HALO}, num_sponge=${NUM_SPONGE}"
+if [[ -n "${DATA_LOCATION_OVERRIDE}" ]]; then
+  echo "overriding data.data_location=${DATA_LOCATION_OVERRIDE}"
+fi
 
 # Optional resume behavior:
 # - RESUME_CKPT_PATH set + FINETUNE=false resumes optimizer/scheduler and starts at ckpt epoch + 1.
@@ -181,6 +197,11 @@ CURRICULUM_ARGS=(
   --data.hist "${HIST}"
 )
 
+DATA_OVERRIDE_ARGS=()
+if [[ -n "${DATA_LOCATION_OVERRIDE}" ]]; then
+  DATA_OVERRIDE_ARGS+=(--data.data_location "${DATA_LOCATION_OVERRIDE}")
+fi
+
 # pydantic-settings parses `--some_list "[]"` as `[""]` for list[int] fields.
 # Omit transition flags entirely when they are empty; YAML defaults remain [].
 STEP_TRANSITION_COMPACT="$(echo "${STEP_TRANSITION}" | tr -d '[:space:]')"
@@ -211,9 +232,9 @@ trap 'forward_signal USR1' USR1
 trap 'forward_signal TERM' TERM
 trap 'forward_signal INT' INT
 
-uv run python -m torch.distributed.run \
+"${PYTHON_BIN}" -m torch.distributed.run \
   --standalone --nnodes=1 --nproc_per_node="${GPUS}" \
-  -m ocean_emulators.train configs/samudra_llc/train.yaml \
+  -m ocean_emulators.train configs/samudra_llc/train_normal.yaml \
   --save_freq "${SAVE_FREQ}" \
   --epochs "${EPOCHS}" \
   "${OPTIM_ARGS[@]}" \
@@ -228,7 +249,10 @@ uv run python -m torch.distributed.run \
   --ddp_broadcast_buffers "${DDP_BROADCAST_BUFFERS}" \
   --ddp_timeout_minutes "${DDP_TIMEOUT_MINUTES}" \
   --ddp_max_data_workers_per_rank "${DDP_MAX_DATA_WORKERS_PER_RANK}" \
+  --surface_snapshot "${SURFACE_SNAPSHOT}" \
   --data.num_workers "${DATA_NUM_WORKERS}" \
+  --data.prefetch_factor "${DATA_PREFETCH_FACTOR}" \
+  --data.train_shuffle "${TRAIN_SHUFFLE}" \
   --data.concurrent_compute "${CONCURRENT_COMPUTE}" \
   --pin_mem "${PIN_MEM}" \
   --data.llc_face "${LLC_FACE}" \
@@ -237,6 +261,7 @@ uv run python -m torch.distributed.run \
   --data.llc_j_start "${LLC_J_START}" \
   --data.llc_j_end "${LLC_J_END}" \
   --experiment.data_root "/orcd/data/abodner/" \
+  "${DATA_OVERRIDE_ARGS[@]}" \
   "${RESUME_ARGS[@]}" \
   "${EXPERIMENT_ARGS[@]}" &
 

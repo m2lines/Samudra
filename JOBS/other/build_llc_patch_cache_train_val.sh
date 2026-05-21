@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
 #SBATCH -w node4006
-#SBATCH --job-name=2026-05-5-llc_patch_cache-face1-i2880-3600-j720-1440_trainval_ready
+#SBATCH --job-name=2026-05-5-llc_patch_cache-face1-i1440-2160-j720-1440_trainval_ready
 #SBATCH -N 1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
@@ -33,8 +33,8 @@ STDS_ZARR="${STDS_ZARR:-/orcd/data/abodner/002/cody/LLC_means_stds/var_96_LLC_st
 OUTPUT_ROOT="${OUTPUT_ROOT:-/orcd/data/abodner/002/cody/LLC_patch}"
 
 LLC_FACE="${LLC_FACE:-1}"
-LLC_I_START="${LLC_I_START:-2880}"
-LLC_I_END="${LLC_I_END:-3600}"
+LLC_I_START="${LLC_I_START:-1440}"
+LLC_I_END="${LLC_I_END:-2160}"
 LLC_J_START="${LLC_J_START:-720}"
 LLC_J_END="${LLC_J_END:-1440}"
 

@@ -1011,70 +1011,37 @@ class Trainer:
         Returns:
             int: current_step
         """
+        cur_step = self.steps[self._get_schedule_stage_index(epoch, self.step_transition)]
         if epoch == self.start_epoch:
-            # Find initial step based on start epoch
-            cur_step = None
-            cur_step_idx = None
-            for i, epoch_to_transition in enumerate(self.step_transition):
-                if epoch <= epoch_to_transition:
-                    cur_step = self.steps[i]
-                    cur_step_idx = i
-                    break
-            if cur_step is None:
-                cur_step = self.steps[-1]
-                cur_step_idx = len(self.steps) - 1
             logger.info(f"Starting training at step {cur_step}")
         elif epoch in self.step_transition:
-            # Transition to next step
-            cur_step_idx = next(
-                i for i, e in enumerate(self.step_transition) if e == epoch
-            )
-            cur_step_idx += 1
-            cur_step = self.steps[cur_step_idx]
             logger.info(f"Transitioning to step {cur_step}")
-        else:
-            cur_step = None
-            for i, epoch_to_transition in enumerate(self.step_transition):
-                if epoch <= epoch_to_transition:
-                    cur_step = self.steps[i]
-                    break
-            if cur_step is None:
-                cur_step = self.steps[-1]
 
         return cur_step
 
+    @staticmethod
+    def _get_schedule_stage_index(epoch: int, transition_epochs: list[int]) -> int:
+        """Return the active stage index for an epoch-based transition schedule.
+
+        A transition epoch is interpreted as the first epoch of the next stage.
+        For example, with transition epochs [5, 9], epochs 1-4 map to stage 0,
+        epochs 5-8 map to stage 1, and epoch 9 onward maps to stage 2.
+        """
+        return sum(epoch >= transition_epoch for transition_epoch in transition_epochs)
+
     def get_current_temporal_stride(self, epoch: int) -> int:
         """Determine the current temporal stride based on epoch transitions."""
+        cur_temporal_stride = self.temporal_strides[
+            self._get_schedule_stage_index(epoch, self.temporal_stride_transition)
+        ]
         if epoch == self.start_epoch:
-            cur_temporal_stride = None
-            for i, epoch_to_transition in enumerate(self.temporal_stride_transition):
-                if epoch <= epoch_to_transition:
-                    cur_temporal_stride = self.temporal_strides[i]
-                    break
-            if cur_temporal_stride is None:
-                cur_temporal_stride = self.temporal_strides[-1]
             logger.info(
                 f"Starting training at temporal_stride {cur_temporal_stride}"
             )
         elif epoch in self.temporal_stride_transition:
-            cur_temporal_stride_idx = next(
-                i
-                for i, e in enumerate(self.temporal_stride_transition)
-                if e == epoch
-            )
-            cur_temporal_stride_idx += 1
-            cur_temporal_stride = self.temporal_strides[cur_temporal_stride_idx]
             logger.info(
                 f"Transitioning to temporal_stride {cur_temporal_stride}"
             )
-        else:
-            cur_temporal_stride = None
-            for i, epoch_to_transition in enumerate(self.temporal_stride_transition):
-                if epoch <= epoch_to_transition:
-                    cur_temporal_stride = self.temporal_strides[i]
-                    break
-            if cur_temporal_stride is None:
-                cur_temporal_stride = self.temporal_strides[-1]
 
         return cur_temporal_stride
 

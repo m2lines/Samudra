@@ -36,6 +36,7 @@ WANDB_MODE="${WANDB_MODE:-disabled}"
 NCCL_DEBUG_LEVEL="${NCCL_DEBUG_LEVEL:-INFO}"
 EXTRA_ARGS="${EXTRA_ARGS:-}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-$(date +%Y-%m-%d)-samudra_llc:diagnose:thermo_fields-Qnet-forcings,all_depths,extent=719}"
+EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 
 # load Python platform with PyTorch and CUDA support preinstalled
 module load miniforge/24.3.0-0

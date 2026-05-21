@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p mit_normal_gpu
-#SBATCH --job-name=2026-05-2-eval:Samudra_LLC:replication_data-stride-72
+#SBATCH --job-name=2026-05-21-eval:Samudra_LLC:mae+mse+gradient-loss_steps=(3,4)_ckpt5
 #SBATCH --account=mit_amf_standard_gpu
 #SBATCH --qos=mit_amf_standard_gpu
 #SBATCH -N 1
@@ -17,20 +17,28 @@ set -euo pipefail
 module load miniforge/24.3.0-0
 
 cd /orcd/home/002/codycruz/Ocean_Emulator
-uv sync --dev
+PYTHON_ENV_ROOT="${PYTHON_ENV_ROOT:-/orcd/home/002/codycruz/envs/ocean-emulators-py311-portable}"
+PYTHON_BIN="${PYTHON_BIN:-${PYTHON_ENV_ROOT}/bin/python}"
+export PYTHONPATH="/orcd/home/002/codycruz/Ocean_Emulator/src${PYTHONPATH:+:${PYTHONPATH}}"
+
+if [[ ! -x "${PYTHON_BIN}" ]]; then
+  echo "ERROR: expected portable Python 3.11 environment at ${PYTHON_BIN}, but it is not executable." >&2
+  exit 1
+fi
 
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
-CKPT_PATH="${CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-30-Samudra_LLC:replication_data-stride=72/saved_nets/ckpt_4.pt}"
-EXPERIMENT_NAME="${EXPERIMENT_NAME:-2026-05-2-eval:Samudra_LLC:replication_data-stride-72}"
+CKPT_PATH="${CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-05-20:samudra_llc:mae+mse+gradient-loss_steps=(3,4)_test/saved_nets/ckpt_5.pt}"
+EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-/orcd/data/abodner/002/cody/inference_patch}"
+EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 
 INFER_START="${INFER_START:-2012-10-01}"
-INFER_END="${INFER_END:-2012-10-22}"
-INFERENCE_STRIDE="${INFERENCE_STRIDE:-72}"
-NUM_MODEL_STEPS_FORWARD="${NUM_MODEL_STEPS_FORWARD:-2}"
+INFER_END="${INFER_END:-2012-10-03}"
+INFERENCE_STRIDE="${INFERENCE_STRIDE:-3}"
+NUM_MODEL_STEPS_FORWARD="${NUM_MODEL_STEPS_FORWARD:-3}"
 MODEL_NORM="${MODEL_NORM:-group}"
 GROUP_NORM_GROUPS="${GROUP_NORM_GROUPS:-32}"
 PRED_RESIDUALS="${PRED_RESIDUALS:-true}"
@@ -92,7 +100,7 @@ if [[ -n "${PRED_RESIDUALS}" ]]; then
   MODEL_ARGS+=(--model.pred_residuals "${PRED_RESIDUALS}")
 fi
 
-uv run python -m ocean_emulators.eval configs/samudra_llc/eval.yaml \
+"${PYTHON_BIN}" -m ocean_emulators.eval configs/samudra_llc/eval.yaml \
   --backend cuda \
   --save_zarr true \
   --ckpt_path "${CKPT_PATH}" \
@@ -134,7 +142,7 @@ if [[ "${REPACK_OVERWRITE}" == "true" ]]; then
   REPACK_ARGS+=(--overwrite)
 fi
 
-uv run python scripts/repack_flat_prediction_zarr.py "${REPACK_ARGS[@]}"
+"${PYTHON_BIN}" scripts/repack_flat_prediction_zarr.py "${REPACK_ARGS[@]}"
 
 echo "Done. Repacked inference written to: ${TARGET_ZARR}"
 echo "Raw flat-channel predictions kept at: ${RAW_PRED_ZARR}"

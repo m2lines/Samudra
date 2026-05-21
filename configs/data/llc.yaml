@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=../schemas/DataConfig.json
 
-data_location:  /orcd/data/abodner/002/cody/LLC_patch/LLC4320_face1_i2880-3600_j720-1440_trainval_ready_20110913_20121001_t1.zarr  #/orcd/data/abodner/002/cody/LLC_patch/LLC4320_face1_i2880-3600_j720-1440_trainval_ready_20110913_20121001_t1.zarr # /orcd/data/abodner/002/cody/LLC_patch/LLC4320_face1_i2880-3600_j720-1440_uncompressed_t1_k51.zarr # /orcd/data/abodner/003/LLC4320/LLC4320 
+data_location:  /orcd/data/abodner/002/cody/LLC_patch/LLC4320_face1_i2880-3600_j720-1440_trainval_ready_20110913_20121001_t1.zarr  # /orcd/data/abodner/002/cody/LLC_patch/LLC4320_face1_i2880-3600_j720-1440_trainval_ready_20110913_20121001_t1.zarr # /orcd/data/abodner/002/cody/LLC_patch/LLC4320_face1_i2880-3600_j720-1440_uncompressed_t1_k51.zarr # /orcd/data/abodner/003/LLC4320/LLC4320 
+#               /orcd/data/abodner/002/cody/LLC_patch/LLC4320_face1_i1440-2160_j720-1440_trainval_ready_20110913_20121001_t1.zarr
 data_means_location: 002/cody/LLC_means_stds/var_96_LLC_means.zarr
 data_stds_location: 002/cody/LLC_means_stds/var_96_LLC_stds.zarr
 static_data_vars: []

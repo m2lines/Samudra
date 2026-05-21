@@ -137,3 +137,21 @@ def test_trainer_overlapping_time_ranges_raises_error(train_config, caplog):
     with MultitonScope():
         with pytest.raises(ValueError, match="Training time range.*"):
             Trainer(train_config)
+
+
+def test_get_current_step_resume_at_transition_uses_post_transition_stage():
+    trainer = Trainer.__new__(Trainer)
+    trainer.start_epoch = 9
+    trainer.steps = [2, 3, 4, 5, 6, 7]
+    trainer.step_transition = [5, 9, 13, 17, 21]
+
+    assert trainer.get_current_step(9) == 4
+
+
+def test_get_current_temporal_stride_resume_at_transition_uses_post_transition_stage():
+    trainer = Trainer.__new__(Trainer)
+    trainer.start_epoch = 9
+    trainer.temporal_strides = [1, 3, 6]
+    trainer.temporal_stride_transition = [5, 9]
+
+    assert trainer.get_current_temporal_stride(9) == 6

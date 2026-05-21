@@ -56,6 +56,7 @@ fi
 if [[ -z "${EXPERIMENT_NAME}" ]]; then
   EXPERIMENT_NAME="rerun-val-$(date +%Y-%m-%d-%H%M%S)"
 fi
+EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 
 if [[ "${GPUS}" -lt 1 ]]; then
   echo "ERROR: GPUS must be >= 1 (got ${GPUS})." >&2

@@ -4,6 +4,11 @@ checkpointing: all
 pred_residuals: false
 last_kernel_size: 3
 pad: "constant"
+# `halo_sponge` keeps the same loaded LLC patch but reweights the outer edge:
+# halo pixels get zero loss weight, sponge pixels ramp inward toward 1.
+num_halo: 4
+num_sponge: 12
+use_bfloat16: true
 
 unet:
   ch_width: [256, 384, 512, 512] # [280, 380, 480, 520]#

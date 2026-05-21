@@ -17,8 +17,14 @@ module load miniforge/24.3.0-0
 # cd to correct directory
 cd /orcd/home/002/codycruz/Ocean_Emulator
 
-# activate uv environment for ocean_emulator
-uv sync --dev
+PYTHON_ENV_ROOT="${PYTHON_ENV_ROOT:-/orcd/home/002/codycruz/envs/ocean-emulators-py311-portable}"
+PYTHON_BIN="${PYTHON_BIN:-${PYTHON_ENV_ROOT}/bin/python}"
+export PYTHONPATH="/orcd/home/002/codycruz/Ocean_Emulator/src${PYTHONPATH:+:${PYTHONPATH}}"
+
+if [[ ! -x "${PYTHON_BIN}" ]]; then
+  echo "ERROR: expected portable Python 3.11 environment at ${PYTHON_BIN}, but it is not executable." >&2
+  exit 1
+fi
 
 # reduce data fragmentation
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -46,8 +52,9 @@ RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-}"
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-true}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-true}"
-EXPERIMENT_NAME="${EXPERIMENT_NAME:-}"
+EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
+EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 
 EPOCHS="${EPOCHS:-1}"
 SAVE_FREQ="${SAVE_FREQ:-1}"
@@ -77,11 +84,8 @@ if [[ -n "${RESUME_CKPT_PATH}" ]]; then
   echo "reset scheduler on resume: ${RESET_SCHEDULER_ON_RESUME}"
 fi
 
-EXPERIMENT_ARGS=()
-if [[ -n "${EXPERIMENT_NAME}" ]]; then
-  EXPERIMENT_ARGS+=(--experiment.name "${EXPERIMENT_NAME}")
-  echo "overriding experiment.name=${EXPERIMENT_NAME}"
-fi
+EXPERIMENT_ARGS=(--experiment.name "${EXPERIMENT_NAME}")
+echo "overriding experiment.name=${EXPERIMENT_NAME}"
 if [[ -n "${BASE_OUTPUT_DIR}" ]]; then
   EXPERIMENT_ARGS+=(--experiment.base_output_dir "${BASE_OUTPUT_DIR}")
   echo "overriding experiment.base_output_dir=${BASE_OUTPUT_DIR}"
@@ -100,7 +104,7 @@ trap 'forward_signal USR1' USR1
 trap 'forward_signal TERM' TERM
 trap 'forward_signal INT' INT
 
-uv run python -m torch.distributed.run \
+"${PYTHON_BIN}" -m torch.distributed.run \
   --standalone --nnodes=1 --nproc_per_node="${GPUS}" \
   -m ocean_emulators.train configs/samudra_llc/train_normal.yaml \
   --save_freq "${SAVE_FREQ}" \

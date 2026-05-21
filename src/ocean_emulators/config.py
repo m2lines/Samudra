@@ -859,11 +859,7 @@ class WeightedLossConfig(pydantic.BaseModel):
 
 class GradientLossConfig(pydantic.BaseModel):
     type: Literal["gradient"] = "gradient"
-    # at the moment this metric is only used for the non-gradient loss
-    # (and would take a bit of refactoring to make it work for the gradient loss too)
-    # so we fix it to MAE for now until it's clear we what flexibility is needed here.
-    # TODO(#497): support other metrics for the gradient loss
-    metric: Literal["mae"] = "mae"
+    metric: Literal["mae", "mse_mae"] = "mae"
     alpha: float = Field(
         description="Scaling factor for the gradient penalty term (alpha in the gradient-weighted loss).",
         default=0.1,

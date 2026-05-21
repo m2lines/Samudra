@@ -1,17 +1,17 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-05-05-Samudra_LLC:24-epoch_curriculum_hist=0_temporal-data-stride=6
+#SBATCH --job-name=2026-05-21:samudra_llc:speed_test
 #SBATCH -N 1
-#SBATCH --mem=375GB
+#SBATCH --mem=125GB
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=45
-#SBATCH --gres=gpu:3
-#SBATCH --time=06-0:00:00
+#SBATCH --cpus-per-task=15
+#SBATCH --gres=gpu:1
+#SBATCH --time=06-06:00:00
 #SBATCH --signal=B:USR1@300
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 
-# load Python platform with PyTorch and CUDA support preinstalled
+# DDP# load Python platform with PyTorch and CUDA support preinstalled
 module load miniforge/24.3.0-0
 module load cuda/13.1.0
 
@@ -22,6 +22,13 @@ cd /orcd/home/002/codycruz/Ocean_Emulator
 # still mutates the shared `.venv` on this filesystem even with `--no-sync`.
 PROJECT_SITE_PACKAGES="/orcd/home/002/codycruz/Ocean_Emulator/.venv/lib/python3.11/site-packages"
 export PYTHONPATH="/orcd/home/002/codycruz/Ocean_Emulator/src:${PROJECT_SITE_PACKAGES}${PYTHONPATH:+:${PYTHONPATH}}"
+PYTHON_BIN="${PYTHON_BIN:-/orcd/home/002/codycruz/Ocean_Emulator/.venv/bin/python}"
+
+if [[ ! -x "${PYTHON_BIN}" ]]; then
+  echo "ERROR: expected Python 3.11 environment at ${PYTHON_BIN}, but it is not executable." >&2
+  echo "If this node lacks /usr/bin/python3.11, recreate .venv with a portable Python 3.11 install or a venv built with --copies." >&2
+  exit 1
+fi
 
 # reduce data fragmentation
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -64,8 +71,8 @@ fi
 # KNOBS
 
 # GPUS WORKERS 
-GPUS="${GPUS:-3}"
-DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-2}"
+GPUS="${GPUS:-1}"
+DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-3}"
 DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-4}"
 TRAIN_SHUFFLE="${TRAIN_SHUFFLE:-true}"
 SURFACE_SNAPSHOT="${SURFACE_SNAPSHOT:-true}"
@@ -89,33 +96,34 @@ LLC_J_END="${LLC_J_END:-1440}"
 DATA_LOCATION_OVERRIDE="${DATA_LOCATION_OVERRIDE:-}"
 
 # CHECKPOINTING FINETUNING
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-05-05-Samudra_LLC:24ep_curriculum_h0_t6_g4/saved_nets/ckpt_18.pt}" #/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-05-13:samudra_llc:long_curriculum_strides=3/saved_nets/ckpt_23.pt}" #/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
 
 # NAME, DIRECTORY, EPOCHS, SAVE_FREQ
-EXPERIMENT_NAME="${EXPERIMENT_NAME:-}" # 2026-04-04-CONT:[increase-step-test-suite]-WITH_temporal_stride=6,steps=4,2012-01-01-2012-09-14-RESUME}"
+EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}" # 2026-04-04-CONT:[increase-step-test-suite]-WITH_temporal_stride=6,steps=4,2012-01-01-2012-09-14-RESUME}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
-EPOCHS="${EPOCHS:-24}"
+EPOCHS="${EPOCHS:-72}"
 SAVE_FREQ="${SAVE_FREQ:-1}"
+EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 
 # OPTIMIZATION (LR + SCHEDULER)
 LEARNING_RATE="${LEARNING_RATE:-0.0006}"
 SCHEDULER_MODE="${SCHEDULER_MODE:-cosine}" # SCHEDULER_MODE: "cosine" (default) or "fixed" (no LR decay)
 # If set while using cosine, stretches LR decay over a longer horizon than EPOCHS.
 # Example: EPOCHS=6 and SCHEDULER_TARGET_EPOCHS=60 gives a much gentler decay.
-SCHEDULER_TARGET_EPOCHS="${SCHEDULER_TARGET_EPOCHS:-60}"
-LR_MULTIPLIERS="${LR_MULTIPLIERS:-[1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0]}"
-LR_MULTIPLIER_TRANSITION="${LR_MULTIPLIER_TRANSITION:-[13, 14, 15, 17, 18, 19, 21, 22, 23]}"
+SCHEDULER_TARGET_EPOCHS="${SCHEDULER_TARGET_EPOCHS:-90}"
+LR_MULTIPLIERS="${LR_MULTIPLIERS:-[1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0]}"
+LR_MULTIPLIER_TRANSITION="${LR_MULTIPLIER_TRANSITION:-[13, 16, 19, 25, 28, 31, 37, 40, 43, 49, 52, 55, 61, 64, 67]}"
 
 # CURRICULUM
 # list knobs should be passed like "[1]" or "[1, 2, 4]".
-TEMPORAL_STRIDE="${TEMPORAL_STRIDE:-6}"
+TEMPORAL_STRIDE="${TEMPORAL_STRIDE:-3}"
 TEMPORAL_STRIDE_TRANSITION="${TEMPORAL_STRIDE_TRANSITION:-[]}"
-STEPS="${STEPS:-[1, 2, 3, 4]}"
-STEP_TRANSITION="${STEP_TRANSITION:-[13, 17, 21]}"
-DATA_STRIDE="${DATA_STRIDE:-[6]}"
+STEPS="${STEPS:-[2, 3, 4, 5, 6, 7]}"
+STEP_TRANSITION="${STEP_TRANSITION:-[13,25,37,49,61]}" 
+DATA_STRIDE="${DATA_STRIDE:-[3]}"
 HIST="${HIST:-0}"
 GRADIENT_DETACH_INTERVAL="${GRADIENT_DETACH_INTERVAL:-2}"
 
@@ -154,11 +162,8 @@ if [[ -n "${RESUME_CKPT_PATH}" ]]; then
   echo "reset scheduler on resume: ${RESET_SCHEDULER_ON_RESUME}"
 fi
 
-EXPERIMENT_ARGS=()
-if [[ -n "${EXPERIMENT_NAME}" ]]; then
-  EXPERIMENT_ARGS+=(--experiment.name "${EXPERIMENT_NAME}")
-  echo "overriding experiment.name=${EXPERIMENT_NAME}"
-fi
+EXPERIMENT_ARGS=(--experiment.name "${EXPERIMENT_NAME}")
+echo "overriding experiment.name=${EXPERIMENT_NAME}"
 if [[ -n "${BASE_OUTPUT_DIR}" ]]; then
   EXPERIMENT_ARGS+=(--experiment.base_output_dir "${BASE_OUTPUT_DIR}")
   echo "overriding experiment.base_output_dir=${BASE_OUTPUT_DIR}"
@@ -227,7 +232,7 @@ trap 'forward_signal USR1' USR1
 trap 'forward_signal TERM' TERM
 trap 'forward_signal INT' INT
 
-python3.11 -m torch.distributed.run \
+"${PYTHON_BIN}" -m torch.distributed.run \
   --standalone --nnodes=1 --nproc_per_node="${GPUS}" \
   -m ocean_emulators.train configs/samudra_llc/train.yaml \
   --save_freq "${SAVE_FREQ}" \

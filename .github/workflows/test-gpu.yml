@@ -18,6 +18,7 @@ permissions:
 
 jobs:
   ec2:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
     with:
       ec2_instance_type: g6.xlarge
@@ -66,6 +67,13 @@ jobs:
     needs: [ec2, test-gpu]
     runs-on: ubuntu-latest
     steps:
+      - name: Block automatic AWS tests for fork PR
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        run: |
+          echo "AWS-backed GPU tests are not run automatically for fork pull requests."
+          echo "Run this workflow manually from the GitHub Actions UI when the PR should receive trusted CI."
+          exit 1
+
       - name: Check job results
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: exit 1

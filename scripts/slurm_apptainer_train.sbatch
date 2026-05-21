@@ -177,6 +177,11 @@ echo "W&B mode:    ${WANDB_MODE}"
 echo "Preemptible: ${PREEMPTIBLE}"
 echo "Image ref:   ${IMAGE_REF}"
 echo "SIF path:    ${SIF_PATH}"
+# Kernel memory tunables that affect training stability (v50 stalled 30min mid-
+# epoch with defrag=madvise; HPC@ set defrag=never on gr101/gr102 after that).
+# Log these so post-mortems can confirm the setting at run time.
+echo "THP defrag:  $(cat /sys/kernel/mm/transparent_hugepage/defrag 2>/dev/null || echo unavailable)"
+echo "THP enabled: $(cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null || echo unavailable)"
 
 if [[ ! -s "${SIF_PATH}" ]]; then
   echo "SIF not found locally. Pulling from registry..."

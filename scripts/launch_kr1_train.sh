@@ -43,7 +43,7 @@ if [[ -z "${CONTAINER_HASH:-}" && -z "${CONTAINER_TAG:-}" && -z "${IMAGE_REF:-}"
 fi
 
 # ── Config (baked into the container) ──
-export CONFIG=configs/fomo_om4/train_multiscale_v50.yaml
+export CONFIG=configs/fomo_om4/train_multiscale_v51.yaml
 
 # ── Run name ──
 # v46: fresh start on this branch (kr1-v2). Cannot resume from v43/v44/v45
@@ -60,7 +60,12 @@ export CONFIG=configs/fomo_om4/train_multiscale_v50.yaml
 # epoch 20). Reverting pred_residuals to false; std_ratio diagnostic now wired
 # into PerScale validation path. Keeping hist=1, steps=[1,2,4], transitions
 # [20,45]; LR back to v48's 0.0006.
-export NAME_SUFFIX=kr1_fomo_multiscale_v50
+# v51: v50 cleared the 1→2-step transition cleanly (no NaN), then DataLoader
+# hung 30 min at epoch 20 iter 356 — classic THP-defrag stall (kernel defrag
+# is back to `madvise` on gr101/gr102; sysadmin's v26 `never` setting was
+# reverted). Model delta: decoder.context_patches 3 → null (drop, no longer
+# needed with v50's loss profile). Everything else identical to v50.
+export NAME_SUFFIX=kr1_fomo_multiscale_v51
 # Lock NAME at submit time so requeues + chain jobs use the same run dir.
 # Override via NAME=... in env to resume into a specific existing dir.
 export NAME="${NAME:-$(date +%Y-%m-%d)-${NAME_SUFFIX}}"
@@ -124,7 +129,7 @@ export NSYS_PROFILE=0
 # ── Extra CLI overrides ──
 # The baked-in config has the decoder and data sources already configured.
 # v46: NO resume — see NAME_SUFFIX comment above. Fresh weights only.
-export ARGS="--data.loading.num_workers=8 --data.concurrent_compute=true --experiment.wandb.group=kr1_v50"
+export ARGS="--data.loading.num_workers=8 --data.concurrent_compute=true --experiment.wandb.group=kr1_v51"
 
 echo "=== KR1 Multi-Scale FOMO Training ==="
 echo "Config:         ${CONFIG}"

@@ -84,7 +84,9 @@ WANDB_MODE="${WANDB_MODE:-disabled}"
 # v49: HPC@ granted exemption from the post-2h ≥50% GPU-util preemption rule,
 # so the job will run uninterrupted within walltime. Use a normal (non-
 # preemptible) launch per docs/torch.md.
-export PREEMPTIBLE=0
+# Override via PREEMPTIBLE=1 in env to resume from latest_ckpt.pt in an
+# existing NAME dir (chained 48h jobs to reach 70 epochs).
+export PREEMPTIBLE="${PREEMPTIBLE:-0}"
 
 # ─ Checkpoint every 100 batches, not 250. ──
 # Kept for resilience against unexpected failures (node reboot, OOM, etc.),
@@ -152,13 +154,13 @@ echo ""
 # splice in extra sbatch flags (e.g. `--dependency=afterany:<jobid>` for
 # job chaining). Empty by default.
 sbatch \
-  ${EXTRA_SBATCH_ARGS:-} \
   --account=torch_pr_347_courant \
   --nodes=1 \
   --ntasks-per-node=1 \
   --cpus-per-task=128 \
   --mem=1400G \
   --gres=gpu:rtx6000:8 \
-  --time=24:00:00 \
+  --time="${WALLTIME:-24:00:00}" \
   --job-name=kr1-fomo \
+  ${EXTRA_SBATCH_ARGS:-} \
   scripts/slurm_apptainer_train.sbatch

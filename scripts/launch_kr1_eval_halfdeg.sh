@@ -38,7 +38,7 @@ export CONTAINER_TAG="${CONTAINER_TAG:-25.11-latest}"
 export CONFIG=configs/fomo_om4/eval_multiscale_halfdeg.yaml
 
 # ── Run name ──
-export NAME_SUFFIX=kr1_fomo_multiscale_halfdeg_eval_3epoch
+export NAME_SUFFIX=kr1_v51_halfdeg_eval_ema
 
 # ── Data root ──
 export DATA_ROOT="${DATA_ROOT:-/scratch/am16581/data}"
@@ -46,8 +46,8 @@ export DATA_ROOT="${DATA_ROOT:-/scratch/am16581/data}"
 # ── Output base ──
 export OUTPUT_BASE="${OUTPUT_BASE:-/scratch/${USER}/runs}"
 
-# ── Checkpoint: v43 EMA weights at epoch 19 (best available from part 1) ──
-export CKPT_PATH="${CKPT_PATH:-/scratch/am16581/runs/2026-04-21-kr1_fomo_multiscale_v43/saved_nets/ema_ckpt.pt}"
+# ── Checkpoint: v51 EMA weights (walltime-killed mid-epoch 30; best val 0.240 at epoch 29) ──
+export CKPT_PATH="${CKPT_PATH:-/scratch/am16581/runs/2026-05-21-kr1_fomo_multiscale_v51/saved_nets/ema_ckpt.pt}"
 
 # ── W&B ──
 export WANDB_MODE="${WANDB_MODE:-${WANDB_API_KEY:+online}}"
@@ -55,7 +55,9 @@ WANDB_MODE="${WANDB_MODE:-disabled}"
 
 # ── Extra CLI overrides ──
 # experiment.data_root must be set (no default for it in ExperimentConfig).
-export ARGS="--experiment.data_root=${DATA_ROOT} --data.hist=0"
+# data.hist must match training: v48 used hist=0; v51 uses hist=1. Wrong hist
+# doubles the decoder channel count and crashes on state_dict load.
+export ARGS="--experiment.data_root=${DATA_ROOT} --data.hist=1"
 
 echo "=== KR1 Part 2: 1/2° Eval Rollout ==="
 echo "Config:       ${CONFIG}"

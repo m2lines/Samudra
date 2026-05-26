@@ -7,6 +7,7 @@
 # - https://github.com/microsoft/aurora/blob/main/aurora/model/encoder.py
 # - https://github.com/lucidrains/vit-pytorch
 
+
 import torch
 from aurora.model.fourier import pos_expansion, scale_expansion
 from aurora.model.posencoding import pos_scale_enc
@@ -14,7 +15,7 @@ from einops import rearrange
 from jaxtyping import Float
 from torch import nn
 
-from ocean_emulators.constants import Input, Lat, Lon
+from ocean_emulators.constants import Boundary, Lat, Lon, Prognostic
 
 
 def patch_from(
@@ -32,26 +33,34 @@ def patch_from(
 
 
 class PerceiverEncoder(nn.Module):
-    """A perceiver-based encoder for Samudra's flattened data (a whole column of the ocean, with history).
+    """A dual-perceiver encoder that fuses prognostic and boundary streams.
 
-    We adopt some of Aurora's positional encodings[1], which uses log-spaced fourier features with geometry-informed
-    wavelengths. These encode 2d positions (the average latitude and longitude of each patch) as well as grid cell area
-    (measured in km^2) for each token before it enters the processor.
+    Each stream gets its own Perceiver.  The prognostic Perceiver is the
+    primary workhorse; the boundary Perceiver is typically configured to be
+    lightweight (fewer latents, shallower depth).  Both operate on 2-D
+    spatial patches with ``input_axis=2``, so they get native Fourier
+    position encoding within each patch for free.
 
-    > Note: We assume that data along the lat/lon coordinates are positioned at the center of each grid point! Please
-    > ensure this is the case at the data processing time.
+    Because ``patch_extent`` is specified in degrees, both streams produce
+    the **same latent grid** regardless of their spatial resolution.
 
-    This encoder is designed to make the same number of patches with the same spatial extents across different scales
-    of input data (input data may vary in resolution of lat/lng grid). To accomplish this with a single perceiver model,
-    our `forward` call requires supplementary information: the resolution (a pair of Lat/Lon tensors), which is used to
-    make consistent positional encodings for patches across different scales. While higher resolution scales will
-    contain more data per patch, the patch will refer to the same physical area on Earth as all other scales.
+    After mean-pooling each Perceiver's latents independently, the two
+    representations are concatenated and projected back to ``latent_dim``
+    via a learned linear layer.
+
+    Patch-level positional and scale encodings (Aurora-style Fourier
+    features [1]) are computed on the prognostic (output) grid and added
+    after fusion.
 
     Args:
-        in_channels (int): the number of input channels (roughly:  time x variable x (surface + depths)).
-        out_channels (int): size of the latent dimension (aka, the embedding dimension).
-        patch_extent (tuple[float, float]): spatial extent of each patch measured in degrees of lat/lon.
-        perceiver (nn.Module): the perceiver module implementation to use.
+        prog_channels: Number of prognostic input channels.
+        boundary_channels: Number of boundary input channels.
+        out_channels: Size of the output embedding dimension.
+        prog_latent_dim: Output dimension of the prognostic Perceiver.
+        boundary_latent_dim: Output dimension of the boundary Perceiver.
+        patch_extent: Spatial extent of each patch in degrees ``(lat, lon)``.
+        perceiver: Perceiver module for the prognostic stream.
+        boundary_perceiver: Perceiver module for the boundary stream.
 
     References:
         [1]: https://ar5iv.labs.arxiv.org/html/2405.13063#A2.SS4
@@ -60,56 +69,102 @@ class PerceiverEncoder(nn.Module):
     # TODO(alxmrs): Implement gradient checkpointing
     def __init__(
         self,
-        in_channels: int,
+        prog_channels: int,
+        boundary_channels: int,
         out_channels: int,
+        prog_latent_dim: int,
+        boundary_latent_dim: int,
         patch_extent: tuple[float, float],
         perceiver: nn.Module,
+        boundary_perceiver: nn.Module,
     ) -> None:
         super().__init__()
-        self.in_channels = in_channels
-        self.out_channels: int = out_channels  # aka, `embed_dim`.
+        self.prog_channels = prog_channels
+        self.boundary_channels = boundary_channels
+        self.out_channels: int = out_channels
         self.patch_extent = patch_extent
         self.perceiver = perceiver
+        self.boundary_perceiver = boundary_perceiver
+
+        # Fuse the two Perceiver outputs and project to embedding dim.
+        self.fusion_proj = nn.Linear(
+            prog_latent_dim + boundary_latent_dim, out_channels
+        )
+
         # TODO(#451): The input to these position and scale linear units could be a hparam.
         self.pos_embed = nn.Linear(self.out_channels, self.out_channels)
         self.scale_embed = nn.Linear(self.out_channels, self.out_channels)
 
-    def forward(
-        self, x: Input, resolution: tuple[Lat, Lon]
-    ) -> Float[torch.Tensor, "batch {self.embed_dim} h w"]:
-        _, V, H, W = x.shape
-        lat, lon = resolution
-        patch_h, patch_w = patch_from(self.patch_extent, H, W)
-        # V is a cross product of variable, level (encoded in vars), and time (has history).
-        assert V == self.in_channels
-        # Ensure patch_size is appropriate for the data.
-        assert H % patch_h == 0, f"{H} % {patch_h} != 0."
-        assert W % patch_w == 0, f"{W} % {patch_w} != 0."
+    def _patchify_params(
+        self, shape: torch.Size, expected_channels: int
+    ) -> tuple[int, int, int, int]:
+        """Validate channels and compute patch / latent-grid dims.
 
-        # Perceiver experiment ideas:
-        # 1. leave it as it is: treating each pixel as a token -- i.e. all channels (includes depths) per pixel
-        # 2. change to original plan, where each float is its own token
-        # 3. Add a third dim -- ph pw d v -- so each spatial position is a token
-        x = rearrange(
-            x,
+        Returns ``(ph, pw, lat_h, lat_w)``.
+        """
+        _, v, h, w = shape
+        assert v == expected_channels, (
+            f"Expected {expected_channels} channels, got {v}."
+        )
+        ph, pw = patch_from(self.patch_extent, h, w)
+        assert h % ph == 0, f"{h} % {ph} != 0."
+        assert w % pw == 0, f"{w} % {pw} != 0."
+        return ph, pw, h // ph, w // pw
+
+    def forward(
+        self,
+        prog: Prognostic,
+        boundary: Boundary,
+        prog_res: tuple[Lat, Lon],
+    ) -> Float[torch.Tensor, "batch {self.out_channels} h w"]:
+        patch_h, patch_w, lat_h, lat_w = self._patchify_params(
+            prog.shape, self.prog_channels
+        )
+        b_patch_h, b_patch_w, b_lat_h, b_lat_w = self._patchify_params(
+            boundary.shape, self.boundary_channels
+        )
+        assert lat_h == b_lat_h and lat_w == b_lat_w, (
+            f"Latent grid mismatch: prog ({lat_h}, {lat_w}) vs "
+            f"boundary ({b_lat_h}, {b_lat_w}). Check that patch_extent "
+            f"divides both grids evenly."
+        )
+
+        # --- Prognostic stream: 2-D patches → Perceiver ---
+        prog_patches = rearrange(
+            prog,
             "b v (h ph) (w pw) -> (b h w) ph pw v",
             ph=patch_h,
             pw=patch_w,
         )
-        # NB(alxmrs): This is includes a mean and LayerNorm before linear projection!
-        x = self.perceiver(x)  # (B_H_W, ..., V) -> (B_H_W, out_channels)
+        prog_pooled = self.perceiver(prog_patches)  # (B_HW, latent_dim)
 
-        # Make `x` amenable to adding position + scale encoding
-        x = rearrange(
-            x,
-            "(b h w) l -> b (h w) l ",
-            h=(H // patch_h),
-            w=(W // patch_w),
+        # --- Boundary stream: 2-D patches → boundary Perceiver ---
+        boundary_patches = rearrange(
+            boundary,
+            "b v (h ph) (w pw) -> (b h w) ph pw v",
+            ph=b_patch_h,
+            pw=b_patch_w,
         )
+        boundary_pooled = self.boundary_perceiver(
+            boundary_patches
+        )  # (B_HW, latent_dim)
 
-        # Calculate and add positional + scale encoding
+        # TODO(alxmrs): Linear fusion may not be a strong enough way to encode the
+        #  boundary signal. If this doesn't prove effective, consider using a
+        #  PerceiverIO model to cross-attend the prognostic and boundary latents.
+        #  For this, we could simply add a PerceiverIO after the two above perceivers,
+        #  or replace the boundary perceiver with a PerceiverIO that cross attends the
+        #  boundary input with the prognostic latents.
+        # --- Fusion: concat pooled representations, project ---
+        x = self.fusion_proj(
+            torch.cat([prog_pooled, boundary_pooled], dim=-1)
+        )  # (B_HW, out_channels)
+
+        # --- Patch-level positional + scale encoding ---
+        x = rearrange(x, "(b h w) l -> b (h w) l", h=lat_h, w=lat_w)
+        lat, lon = prog_res
         pos_encode, scale_encode = pos_scale_enc(
-            self.out_channels,  # aka "embed_dim"
+            self.out_channels,
             lat,
             lon,
             (patch_h, patch_w),
@@ -126,12 +181,7 @@ class PerceiverEncoder(nn.Module):
         ).unsqueeze(0)
         x = x + pos_encoding + scale_encoding
 
-        # Unpack spatial channels, move channel dimension to correct location.
-        x = rearrange(
-            x,
-            "b (h w) l -> b l h w",
-            h=(H // patch_h),
-            w=(W // patch_w),
-        )
+        # --- Unpack spatial dims, move channel dim to standard location ---
+        x = rearrange(x, "b (h w) l -> b l h w", h=lat_h, w=lat_w)
 
         return x

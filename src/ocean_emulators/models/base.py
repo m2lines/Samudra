@@ -4,6 +4,7 @@
 
 # TODO: Need to return step-wise losses for logging
 
+import dataclasses
 import logging
 
 import torch
@@ -58,6 +59,7 @@ class BaseModel(torch.nn.Module):
     ) -> torch.Tensor | list[torch.Tensor]:
         outputs: list[torch.Tensor] = []
         loss = torch.tensor(torch.nan)
+        ctx = train_data.ctx
         for step in range(len(train_data)):
             if step == 0:
                 prog_tensor, boundary_tensor = train_data.get_initial_input()
@@ -70,8 +72,15 @@ class BaseModel(torch.nn.Module):
                     prev_output = prev_output.detach()
                 _, boundary_tensor = train_data.get_input(step)
                 prog_tensor = prev_output
+                # From step 1 onward the prognostic is the previous decoder
+                # output, which sits on the output grid — update the context
+                # so the encoder uses the correct resolution. This is a no-op
+                # when input and output resolutions are equal (match schedule).
+                ctx = dataclasses.replace(
+                    ctx, input_resolution_cpu=ctx.output_resolution_cpu
+                )
 
-            decodings = self.forward_once(prog_tensor, boundary_tensor, train_data.ctx)
+            decodings = self.forward_once(prog_tensor, boundary_tensor, ctx)
             if self.pred_residuals:
                 pred = prog_tensor + decodings  # Residual prediction
             else:
@@ -111,6 +120,7 @@ class BaseModel(torch.nn.Module):
         initial_prognostic = initial_prognostic.to(get_device())
         target_time = dataset.get_target_time(steps_completed, num_steps)
 
+        ctx = dataset.ctx
         for step in range(num_steps):
             logger.info(
                 f"Inference [epoch {epoch}]: Rollout step {steps_completed + step} "
@@ -127,7 +137,14 @@ class BaseModel(torch.nn.Module):
                     steps_completed + step,
                 ).to(device=prog_tensor.device)
 
-            decodings = self.forward_once(prog_tensor, boundary_tensor, dataset.ctx)
+                # From step 1 onward the prognostic is the previous decoder
+                # output, which sits on the output grid — update the context
+                # so the encoder uses the correct resolution. This is a no-op
+                # when input and output resolutions are equal (match schedule).
+                ctx = dataclasses.replace(
+                    ctx, input_resolution_cpu=ctx.output_resolution_cpu
+                )
+            decodings = self.forward_once(prog_tensor, boundary_tensor, ctx)
             if self.pred_residuals:
                 pred = prog_tensor[0].to(device=get_device()) + decodings
             else:

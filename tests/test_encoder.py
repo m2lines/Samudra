@@ -8,19 +8,35 @@ from perceiver_pytorch import Perceiver
 from ocean_emulators.constants import Lat, Lon
 from ocean_emulators.models.modules.encoder import PerceiverEncoder, patch_from
 
+LATENT_DIM = 4
 
-def make_perceiver(in_channels, out_channels, *, num_latents=2, input_axis=2):
+
+def make_perceiver(input_channels, *, num_latents=2, max_freq=10.0):
+    """Build a naive 2-D Perceiver."""
     return Perceiver(
         num_freq_bands=4,
-        max_freq=1.0,
+        max_freq=max_freq,
         depth=2,
-        input_axis=input_axis,
-        input_channels=in_channels,
-        latent_dim=3,
+        input_axis=2,
+        input_channels=input_channels,
+        latent_dim=LATENT_DIM,
         num_latents=num_latents,
-        num_classes=out_channels,
+        num_classes=LATENT_DIM,
         weight_tie_layers=True,
         self_per_cross_attn=2,
+    )
+
+
+def make_encoder(prog_channels, boundary_channels, out_channels, patch_extent):
+    return PerceiverEncoder(
+        prog_channels=prog_channels,
+        boundary_channels=boundary_channels,
+        out_channels=out_channels,
+        prog_latent_dim=LATENT_DIM,
+        boundary_latent_dim=LATENT_DIM,
+        patch_extent=patch_extent,
+        perceiver=make_perceiver(prog_channels),
+        boundary_perceiver=make_perceiver(boundary_channels),
     )
 
 
@@ -31,68 +47,47 @@ def make_resolution(x: torch.Tensor) -> tuple[Lat, Lon]:
 
 
 def test_makes_patches():
-    x = torch.randn(3, 10, 4, 8)
+    prog = torch.randn(3, 7, 4, 8)
+    boundary = torch.randn(3, 3, 4, 8)
+    embed_dim = 4
 
-    patch_embed = PerceiverEncoder(
-        in_channels=10,
-        out_channels=4,
-        patch_extent=(180, 180),
-        perceiver=make_perceiver(10, 4),
-    )
+    encoder = make_encoder(7, 3, embed_dim, (180, 180))
+    patches = encoder(prog, boundary, make_resolution(prog))
 
-    patches = patch_embed(x, make_resolution(x))
-
-    assert patches.shape == (3, 4, 1, 2)
+    assert patches.shape == (3, embed_dim, 1, 2)
 
 
 def test_makes_rectangular_patches():
-    x = torch.randn(1, 10, 4, 8)
+    prog = torch.randn(1, 7, 4, 8)
+    boundary = torch.randn(1, 3, 4, 8)
+    embed_dim = 4
 
-    patch_embed = PerceiverEncoder(
-        in_channels=10,
-        out_channels=4,
-        patch_extent=(180, 90),
-        perceiver=make_perceiver(10, 4),
-    )
+    encoder = make_encoder(7, 3, embed_dim, (180, 90))
+    patches = encoder(prog, boundary, make_resolution(prog))
 
-    patches = patch_embed(x, make_resolution(x))
-
-    assert patches.shape == (
-        1,
-        4,
-        1,
-        4,
-    )
+    assert patches.shape == (1, embed_dim, 1, 4)
 
 
 def test_makes_patches__high_res():
-    x = torch.randn(1, 10, 14, 21)
+    prog = torch.randn(1, 7, 14, 21)
+    boundary = torch.randn(1, 3, 14, 21)
+    embed_dim = 4
 
-    patch_embed = PerceiverEncoder(
-        in_channels=10,
-        out_channels=4,
-        patch_extent=(90.0, 120.0),
-        perceiver=make_perceiver(10, 4),
-    )
+    encoder = make_encoder(7, 3, embed_dim, (90.0, 120.0))
+    patches = encoder(prog, boundary, make_resolution(prog))
 
-    patches = patch_embed(x, make_resolution(x))
-
-    assert patches.shape == (1, 4, 2, 3)
+    assert patches.shape == (1, embed_dim, 2, 3)
 
 
 def test_makes_patches__more_variables():
-    x = torch.randn(1, 20, 4, 8)
+    prog = torch.randn(1, 17, 4, 8)
+    boundary = torch.randn(1, 3, 4, 8)
+    embed_dim = 4
 
-    patch_embed = PerceiverEncoder(
-        in_channels=20,
-        out_channels=4,
-        patch_extent=(180, 180),
-        perceiver=make_perceiver(20, 4),
-    )
+    encoder = make_encoder(17, 3, embed_dim, (180, 180))
+    patches = encoder(prog, boundary, make_resolution(prog))
 
-    patches = patch_embed(x, make_resolution(x))
-
-    assert patches.shape == (1, 4, 1, 2)
+    assert patches.shape == (1, embed_dim, 1, 2)
 
 
 def test_patch_from__full_globe():

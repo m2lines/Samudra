@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-05-21:samudra_llc:speed_test
+#SBATCH --job-name=2026-05-25:samudra_llc:long_curriculum_strides=3_CONT_restart_2
 #SBATCH -N 1
-#SBATCH --mem=125GB
+#SBATCH --mem=300GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
 #SBATCH --gres=gpu:1
@@ -73,7 +73,7 @@ fi
 # GPUS WORKERS 
 GPUS="${GPUS:-1}"
 DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-3}"
-DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-4}"
+DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-3}"
 TRAIN_SHUFFLE="${TRAIN_SHUFFLE:-true}"
 SURFACE_SNAPSHOT="${SURFACE_SNAPSHOT:-true}"
 PAD="${PAD:-constant}"
@@ -96,7 +96,7 @@ LLC_J_END="${LLC_J_END:-1440}"
 DATA_LOCATION_OVERRIDE="${DATA_LOCATION_OVERRIDE:-}"
 
 # CHECKPOINTING FINETUNING
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-05-13:samudra_llc:long_curriculum_strides=3/saved_nets/ckpt_23.pt}" #/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/2026-05-21:samudra_llc:long_curriculum_strides=3_CONT-14194631/saved_nets/ckpt_24.pt}" #/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"

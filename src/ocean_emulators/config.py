@@ -857,17 +857,59 @@ class WeightedLossConfig(pydantic.BaseModel):
     metric: LossMetric = "mse"
 
 
+GradientLossType = Literal["gradient_h", "TS-gradient_z"]
+
+
 class GradientLossConfig(pydantic.BaseModel):
-    type: Literal["gradient"] = "gradient"
-    metric: Literal["mae", "mse_mae"] = "mae"
-    alpha: float = Field(
-        description="Scaling factor for the gradient penalty term (alpha in the gradient-weighted loss).",
+    type: GradientLossType | list[GradientLossType] | None = None
+    metric: LossMetric = "mae"
+    lambda_h: float = Field(
+        description="Scaling factor for the horizontal gradient_h penalty term.",
+        default=0.1,
+        ge=0.0,
+    )
+    lambda_z: float = Field(
+        description="Scaling factor for the normalized T/S TS-gradient_z penalty term.",
         default=0.1,
         ge=0.0,
     )
 
+    @pydantic.model_validator(mode="before")
+    @classmethod
+    def _normalize_legacy_gradient_config(cls, values):
+        if not isinstance(values, dict):
+            return values
+        values = dict(values)
 
-Loss = LossMetric | DynamicLossConfig | WeightedLossConfig | GradientLossConfig
+        def normalize_loss_type(loss_type):
+            if loss_type == "gradient":
+                return "gradient_h"
+            if loss_type == "gradient_v":
+                return "TS-gradient_z"
+            return loss_type
+
+        if isinstance(values.get("type"), list):
+            values["type"] = [normalize_loss_type(t) for t in values["type"]]
+        else:
+            values["type"] = normalize_loss_type(values.get("type"))
+        if "alpha" in values and "lambda_h" not in values:
+            values["lambda_h"] = values.pop("alpha")
+        if "lambda_v" in values and "lambda_z" not in values:
+            values["lambda_z"] = values.pop("lambda_v")
+        return values
+
+
+Loss = LossMetric | GradientLossConfig | DynamicLossConfig | WeightedLossConfig
+
+
+def _gradient_loss_types(
+    loss_type: GradientLossType | list[GradientLossType] | None,
+) -> set[GradientLossType]:
+    if loss_type is None:
+        return set()
+    if isinstance(loss_type, str):
+        return {loss_type}
+    return set(loss_type)
 
 
 def build_loss_fn(
@@ -925,7 +967,9 @@ def build_loss_fn(
                 device=device,
                 num_channels=num_channels,
             )
-        case GradientLossConfig(metric=metric, alpha=alpha):
+        case GradientLossConfig(
+            metric=metric, type=loss_type, lambda_h=lambda_h, lambda_z=lambda_z
+        ):
             loss_fn = loss_fn_from_metric(
                 metric,
                 wet=wet,
@@ -933,10 +977,14 @@ def build_loss_fn(
                 device=device,
                 spatial_weight=spatial_weight,
             )
+            gradient_types = _gradient_loss_types(loss_type)
+            if not gradient_types:
+                return loss_fn
             return GradientLoss(
                 loss_fn=loss_fn,
                 wet=wet,
-                gradient_weight=alpha,
+                lambda_h=lambda_h if "gradient_h" in gradient_types else 0.0,
+                lambda_z=lambda_z if "TS-gradient_z" in gradient_types else 0.0,
                 pad_mode=pad_mode,
                 spatial_weight=spatial_weight,
             )

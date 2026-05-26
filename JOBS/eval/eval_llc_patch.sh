@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-05-12-eval:Samudra_LLC:stride_1-vs-6_tests-6
+#SBATCH --job-name=2026-05-26-eval:Samudra_LLC:MAE+grad_z,h_temporal-subset--1_ckpt-14
 #SBATCH -N 1
 #SBATCH --mem=100GB
 #SBATCH --ntasks=1
@@ -28,15 +28,15 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
-CKPT_PATH="${CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-05-07:samudra_llc:hist=0,steps=4-speed_test/saved_nets/ckpt_24.pt}"
-EXPERIMENT_NAME="${EXPERIMENT_NAME:-2026-05-12-eval:Samudra_LLC:stride_1-vs-6_tests-6}"
+CKPT_PATH="${CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-05-26:2026-05-26:samudra_llc:MAE+grad_z,h_temporal-subset--2-14551992/saved_nets/ckpt_14.pt}"
+EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-/orcd/data/abodner/002/cody/inference_patch}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 
-INFER_START="${INFER_START:-2012-10-01}"
-INFER_END="${INFER_END:-2012-10-12}"
-INFERENCE_STRIDE="${INFERENCE_STRIDE:-6}"
-NUM_MODEL_STEPS_FORWARD="${NUM_MODEL_STEPS_FORWARD:-2}"
+INFER_START="${INFER_START:-2012-10-14}"
+INFER_END="${INFER_END:-2012-10-16}"
+INFERENCE_STRIDE="${INFERENCE_STRIDE:-3}"
+NUM_MODEL_STEPS_FORWARD="${NUM_MODEL_STEPS_FORWARD:-4}"
 MODEL_NORM="${MODEL_NORM:-group}"
 GROUP_NORM_GROUPS="${GROUP_NORM_GROUPS:-32}"
 PRED_RESIDUALS="${PRED_RESIDUALS:-true}"

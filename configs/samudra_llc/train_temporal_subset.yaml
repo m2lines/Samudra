@@ -12,9 +12,9 @@ scheduler: { type: cosine }
 lr_multipliers: [1.0]
 lr_multiplier_transition: []
 loss:
-  type: gradient
+  type: gradient_h
   metric: mae
-  alpha: 0.1
+  lambda_h: 0.1
 finetune: false
 #resume_ckpt_path: .LOCAL/2026-04-03-CONT:[increase-step-test-suite]-WITH_temporal_stride=6,steps=4,2011-09-14-2012-01-01-RESUME/saved_nets/ckpt.pt
 reset_optimizer_on_resume: false

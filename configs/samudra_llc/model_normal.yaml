@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=../schemas/SamudraConfig.json
 
 checkpointing: all
-pred_residuals: false
+pred_residuals: true
 last_kernel_size: 3
 pad: "constant"
 # `halo_sponge` keeps the same loaded LLC patch but reweights the outer edge:

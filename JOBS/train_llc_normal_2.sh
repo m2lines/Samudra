@@ -1,15 +1,18 @@
 #!/bin/bash
-#SBATCH -p pi_abodner
-#SBATCH --job-name=2026-05-25:samudra_llc:long_curriculum_strides=1_CONT_restart
+#SBATCH -p mit_normal_gpu
+#SBATCH --account=mit_amf_standard_gpu
+#SBATCH --qos=mit_amf_standard_gpu
+#SBATCH --job-name=2026-05-26:samudra_llc:MSE+grad_z,h_temporal-subset--2
 #SBATCH -N 1
-#SBATCH --mem=300GB
+#SBATCH --mem=254GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
-#SBATCH --gres=gpu:1
-#SBATCH --time=06-06:00:00
+#SBATCH -G h200:1
+#SBATCH --time=24:00:00
 #SBATCH --signal=B:USR1@300
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
+
 
 # DDP# load Python platform with PyTorch and CUDA support preinstalled
 module load miniforge/24.3.0-0
@@ -72,8 +75,8 @@ fi
 
 # GPUS WORKERS 
 GPUS="${GPUS:-1}"
-DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-3}"
-DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-3}"
+DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-8}"
+DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-8}"
 TRAIN_SHUFFLE="${TRAIN_SHUFFLE:-true}"
 SURFACE_SNAPSHOT="${SURFACE_SNAPSHOT:-true}"
 PAD="${PAD:-constant}"
@@ -96,7 +99,7 @@ LLC_J_END="${LLC_J_END:-1440}"
 DATA_LOCATION_OVERRIDE="${DATA_LOCATION_OVERRIDE:-}"
 
 # CHECKPOINTING FINETUNING
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/2026-05-21:samudra_llc:long_curriculum_strides=1_CONT-14194633/saved_nets/ckpt_12.pt}" #/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-05-26:2026-05-26:samudra_llc:MSE+grad_z,h_temporal-subset--1-14548145/saved_nets/ckpt_22.pt}" #/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
@@ -104,8 +107,8 @@ RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
 # NAME, DIRECTORY, EPOCHS, SAVE_FREQ
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}" # 2026-04-04-CONT:[increase-step-test-suite]-WITH_temporal_stride=6,steps=4,2012-01-01-2012-09-14-RESUME}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
-EPOCHS="${EPOCHS:-24}"
-SAVE_FREQ="${SAVE_FREQ:-1}"
+EPOCHS="${EPOCHS:-72}"
+SAVE_FREQ="${SAVE_FREQ:-2}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 
 # OPTIMIZATION (LR + SCHEDULER)
@@ -113,19 +116,19 @@ LEARNING_RATE="${LEARNING_RATE:-0.0006}"
 SCHEDULER_MODE="${SCHEDULER_MODE:-cosine}" # SCHEDULER_MODE: "cosine" (default) or "fixed" (no LR decay)
 # If set while using cosine, stretches LR decay over a longer horizon than EPOCHS.
 # Example: EPOCHS=6 and SCHEDULER_TARGET_EPOCHS=60 gives a much gentler decay.
-SCHEDULER_TARGET_EPOCHS="${SCHEDULER_TARGET_EPOCHS:-30}"
+SCHEDULER_TARGET_EPOCHS="${SCHEDULER_TARGET_EPOCHS:-90}"
 LR_MULTIPLIERS="${LR_MULTIPLIERS:-[1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0]}"
-LR_MULTIPLIER_TRANSITION="${LR_MULTIPLIER_TRANSITION:-[5, 6, 7, 9, 10, 11, 13, 14, 15, 17, 18, 19, 21, 22, 23]}"
+LR_MULTIPLIER_TRANSITION="${LR_MULTIPLIER_TRANSITION:-[13, 16, 19, 25, 28, 31, 37, 40, 43, 49, 52, 55, 61, 64, 67]}"
 
 # CURRICULUM
 # list knobs should be passed like "[1]" or "[1, 2, 4]".
-TEMPORAL_STRIDE="${TEMPORAL_STRIDE:-1}"
+TEMPORAL_STRIDE="${TEMPORAL_STRIDE:-3}"
 TEMPORAL_STRIDE_TRANSITION="${TEMPORAL_STRIDE_TRANSITION:-[]}"
 STEPS="${STEPS:-[2, 3, 4, 5, 6, 7]}"
-STEP_TRANSITION="${STEP_TRANSITION:-[5,9,13,17,21]}" 
-DATA_STRIDE="${DATA_STRIDE:-[1]}"
+STEP_TRANSITION="${STEP_TRANSITION:-[13,25,37,49,61]}" 
+DATA_STRIDE="${DATA_STRIDE:-[3]}"
 HIST="${HIST:-0}"
-GRADIENT_DETACH_INTERVAL="${GRADIENT_DETACH_INTERVAL:-2}"
+GRADIENT_DETACH_INTERVAL="${GRADIENT_DETACH_INTERVAL:-3}"
 
 
 
@@ -234,7 +237,7 @@ trap 'forward_signal INT' INT
 
 "${PYTHON_BIN}" -m torch.distributed.run \
   --standalone --nnodes=1 --nproc_per_node="${GPUS}" \
-  -m ocean_emulators.train configs/samudra_llc/train_2.yaml \
+  -m ocean_emulators.train configs/samudra_llc/train_normal_2.yaml \
   --save_freq "${SAVE_FREQ}" \
   --epochs "${EPOCHS}" \
   "${OPTIM_ARGS[@]}" \

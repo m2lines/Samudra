@@ -2,9 +2,9 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_standard_gpu
 #SBATCH --qos=mit_amf_standard_gpu
-#SBATCH --job-name=2026-05-21:samudra_llc:mae+mse+grad_long_curriculum(speed_test_C)
+#SBATCH --job-name=2026-05-26:2026-05-26:samudra_llc:MAE+grad_z,h_temporal-subset--2
 #SBATCH -N 1
-#SBATCH --mem=300GB
+#SBATCH --mem=254GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
 #SBATCH -G h200:1
@@ -75,8 +75,8 @@ fi
 
 # GPUS WORKERS 
 GPUS="${GPUS:-1}"
-DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-12}"
-DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-12}"
+DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-8}"
+DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-8}"
 TRAIN_SHUFFLE="${TRAIN_SHUFFLE:-true}"
 SURFACE_SNAPSHOT="${SURFACE_SNAPSHOT:-true}"
 PAD="${PAD:-constant}"
@@ -99,7 +99,7 @@ LLC_J_END="${LLC_J_END:-1440}"
 DATA_LOCATION_OVERRIDE="${DATA_LOCATION_OVERRIDE:-}"
 
 # CHECKPOINTING FINETUNING
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-05-21:samudra_llc:mae+mse+grad_long_curriculum(speed_test_C)-14206140/saved_nets/ckpt_12.pt}" #/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-05-26:2026-05-26:samudra_llc:MAE+grad_z,h_temporal-subset--1-14547994/saved_nets/ckpt_2.pt}" #/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
@@ -107,8 +107,8 @@ RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
 # NAME, DIRECTORY, EPOCHS, SAVE_FREQ
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}" # 2026-04-04-CONT:[increase-step-test-suite]-WITH_temporal_stride=6,steps=4,2012-01-01-2012-09-14-RESUME}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
-EPOCHS="${EPOCHS:-36}"
-SAVE_FREQ="${SAVE_FREQ:-1}"
+EPOCHS="${EPOCHS:-72}"
+SAVE_FREQ="${SAVE_FREQ:-2}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 
 # OPTIMIZATION (LR + SCHEDULER)
@@ -116,16 +116,16 @@ LEARNING_RATE="${LEARNING_RATE:-0.0006}"
 SCHEDULER_MODE="${SCHEDULER_MODE:-cosine}" # SCHEDULER_MODE: "cosine" (default) or "fixed" (no LR decay)
 # If set while using cosine, stretches LR decay over a longer horizon than EPOCHS.
 # Example: EPOCHS=6 and SCHEDULER_TARGET_EPOCHS=60 gives a much gentler decay.
-SCHEDULER_TARGET_EPOCHS="${SCHEDULER_TARGET_EPOCHS:-45}"
+SCHEDULER_TARGET_EPOCHS="${SCHEDULER_TARGET_EPOCHS:-90}"
 LR_MULTIPLIERS="${LR_MULTIPLIERS:-[1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0, 0.67, 0.85, 1.0]}"
-LR_MULTIPLIER_TRANSITION="${LR_MULTIPLIER_TRANSITION:-[7, 8, 9, 13, 14, 15, 19, 20, 21, 25, 26, 27, 31, 32, 33]}"
+LR_MULTIPLIER_TRANSITION="${LR_MULTIPLIER_TRANSITION:-[13, 16, 19, 25, 28, 31, 37, 40, 43, 49, 52, 55, 61, 64, 67]}"
 
 # CURRICULUM
 # list knobs should be passed like "[1]" or "[1, 2, 4]".
 TEMPORAL_STRIDE="${TEMPORAL_STRIDE:-3}"
 TEMPORAL_STRIDE_TRANSITION="${TEMPORAL_STRIDE_TRANSITION:-[]}"
 STEPS="${STEPS:-[2, 3, 4, 5, 6, 7]}"
-STEP_TRANSITION="${STEP_TRANSITION:-[7,13,19,25,31]}" 
+STEP_TRANSITION="${STEP_TRANSITION:-[13,25,37,49,61]}" 
 DATA_STRIDE="${DATA_STRIDE:-[3]}"
 HIST="${HIST:-0}"
 GRADIENT_DETACH_INTERVAL="${GRADIENT_DETACH_INTERVAL:-3}"

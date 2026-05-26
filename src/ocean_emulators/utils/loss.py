@@ -223,14 +223,14 @@ def _spatial_gradients(
     return grad_y, grad_x
 
 
-def gradient_l1_loss(
+def gradient_h_l1_loss(
     pred: torch.Tensor,
     target: torch.Tensor,
     wet: torch.Tensor,
     pad_mode: str,
     spatial_weight: torch.Tensor | None = None,
 ) -> torch.Tensor:
-    """L1 loss on spatial gradients, averaged per channel."""
+    """L1 loss on horizontal spatial gradients, averaged per channel."""
     pred = pred * wet
     target = target * wet
 
@@ -247,6 +247,84 @@ def gradient_l1_loss(
     return grad_loss
 
 
+def ts_gradient_z_l1_loss(
+    pred: torch.Tensor,
+    target: torch.Tensor,
+    wet: torch.Tensor,
+    spatial_weight: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """L1 loss on normalized vertical T/S differences, averaged per channel."""
+    tensor_map = TensorMap.get_instance()
+    num_vars = len(tensor_map.prognostic_var_names)
+    if pred.shape[1] % num_vars != 0:
+        raise ValueError(
+            "TS-gradient_z expected time-major channels to be a multiple of "
+            f"{num_vars}, got {pred.shape[1]}."
+        )
+
+    num_times = pred.shape[1] // num_vars
+    pred_by_time = pred.reshape(pred.shape[0], num_times, num_vars, *pred.shape[-2:])
+    target_by_time = target.reshape(
+        target.shape[0], num_times, num_vars, *target.shape[-2:]
+    )
+    wet_by_time = wet.reshape(num_times, num_vars, *wet.shape[-2:]).bool()
+    spatial_weight_by_time = (
+        spatial_weight.reshape(num_times, num_vars, *spatial_weight.shape[-2:])
+        if spatial_weight is not None
+        else None
+    )
+
+    loss_by_time = torch.zeros(
+        (num_times, num_vars), device=pred.device, dtype=pred.dtype
+    )
+    count_by_time = torch.zeros_like(loss_by_time)
+
+    for variable in ("Theta", "Salt"):
+        if variable not in tensor_map.VAR_3D_IDX:
+            continue
+        indices = tensor_map.VAR_3D_IDX[variable].to(
+            device=pred.device, dtype=torch.long
+        )
+        if indices.numel() < 2:
+            continue
+
+        lower = indices[:-1]
+        upper = indices[1:]
+        pred_grad_z = pred_by_time[:, :, upper] - pred_by_time[:, :, lower]
+        target_grad_z = target_by_time[:, :, upper] - target_by_time[:, :, lower]
+        grad_loss = F.l1_loss(pred_grad_z, target_grad_z, reduction="none")
+
+        midpoint_weight = (
+            wet_by_time[:, upper] & wet_by_time[:, lower]
+        ).to(dtype=pred.dtype)
+        if spatial_weight_by_time is not None:
+            midpoint_weight = midpoint_weight * torch.minimum(
+                spatial_weight_by_time[:, upper],
+                spatial_weight_by_time[:, lower],
+            ).to(dtype=pred.dtype)
+
+        valid_cells = midpoint_weight.sum(dim=(2, 3))
+        valid_pair = valid_cells > 0
+        numerator = (grad_loss * midpoint_weight.unsqueeze(0)).sum(dim=(0, 3, 4))
+        denominator = valid_cells.clamp_min(1e-8) * pred.shape[0]
+        pair_loss = torch.where(valid_pair, numerator / denominator, 0.0)
+
+        loss_by_time.index_add_(1, lower, pair_loss)
+        loss_by_time.index_add_(1, upper, pair_loss)
+        count_increment = valid_pair.to(dtype=pred.dtype)
+        count_by_time.index_add_(1, lower, count_increment)
+        count_by_time.index_add_(1, upper, count_increment)
+
+    return torch.where(
+        count_by_time > 0,
+        loss_by_time / count_by_time.clamp_min(1.0),
+        loss_by_time,
+    ).reshape(-1)
+
+
+gradient_l1_loss = gradient_h_l1_loss
+
+
 def decomposed_mae_gradient_weighted(
     pred: torch.Tensor,
     target: torch.Tensor,
@@ -259,7 +337,7 @@ def decomposed_mae_gradient_weighted(
     mae_per_channel = decomposed_mae(
         pred, target, wet, spatial_weight=spatial_weight
     )
-    grad_loss = gradient_l1_loss(
+    grad_loss = gradient_h_l1_loss(
         pred, target, wet, pad_mode, spatial_weight=spatial_weight
     )
     return mae_per_channel + gradient_weight * grad_loss
@@ -404,10 +482,10 @@ class WeightedLoss:
 
 
 class GradientLoss:
-    """Combine a base loss with a gradient matching penalty.
+    """Combine a base loss with optional gradient matching penalties.
 
-    Applies the provided per-channel loss metric then adds an L1 penalty on
-    spatial gradients, scaled by ``gradient_weight``.
+    Applies the provided per-channel loss metric, then optionally adds
+    horizontal gradient_h and normalized T/S TS-gradient_z penalties.
     """
 
     def __init__(
@@ -415,13 +493,15 @@ class GradientLoss:
         loss_fn: LossFn,
         *,
         wet: Grid,
-        gradient_weight: float,
+        lambda_h: float = 0.0,
+        lambda_z: float = 0.0,
         pad_mode: str,
         spatial_weight: torch.Tensor | None = None,
     ):
         self.loss_fn = loss_fn
         self._wet = wet
-        self._gradient_weight = gradient_weight
+        self._lambda_h = lambda_h
+        self._lambda_z = lambda_z
         self._pad_mode = pad_mode
         self._spatial_weight = spatial_weight
 
@@ -431,11 +511,22 @@ class GradientLoss:
         target: Float[torch.Tensor, "batch hist*var lat lon"],
     ) -> Float[torch.Tensor, " hist*var"]:
         base_loss = self.loss_fn(pred, target)
-        grad_loss = gradient_l1_loss(
-            pred=pred,
-            target=target,
-            wet=self._wet,
-            pad_mode=self._pad_mode,
-            spatial_weight=self._spatial_weight,
-        )
-        return base_loss + self._gradient_weight * grad_loss
+        total_loss = base_loss
+        if self._lambda_h > 0:
+            grad_h_loss = gradient_h_l1_loss(
+                pred=pred,
+                target=target,
+                wet=self._wet,
+                pad_mode=self._pad_mode,
+                spatial_weight=self._spatial_weight,
+            )
+            total_loss = total_loss + self._lambda_h * grad_h_loss
+        if self._lambda_z > 0:
+            grad_z_loss = ts_gradient_z_l1_loss(
+                pred=pred,
+                target=target,
+                wet=self._wet,
+                spatial_weight=self._spatial_weight,
+            )
+            total_loss = total_loss + self._lambda_z * grad_z_loss
+        return total_loss

@@ -18,7 +18,7 @@ batch_size: 1  # bs=2 OOMs on 1/4°
 # per-scale sampler infrastructure stays in place for a future debug pass.
 per_scale_batch_size: null
 gradient_accumulation_steps: 1
-learning_rate: 0.0006
+learning_rate: 0.0006  # v50: restored from v49's halved 0.0003 — sawtooth-damping LR cut was a v49 concern that no longer applies with pred_residuals=false
 scheduler: { type: cosine }
 loss: mse
 finetune: false
@@ -41,8 +41,8 @@ inference_times:
   - start: "2004-10-05"
     end: "2005-10-05" # "2014-10-05"
 data_stride: [1]
-steps: [1, 2]  # v31: cut rollout from 4→2 to raise GPU util (v30 ~36%, bursty Python gaps)
-step_transition: [10]
+steps: [1, 2, 4]  # v51: same curriculum as v50 (1→2-step transition passed cleanly before the THP stall took us out at epoch 20)
+step_transition: [20, 45]  # 1-step ep 0-19, 2-step ep 20-44, 4-step ep 45-69 — watch val/{H}x{W}/std_ratio in the 2-step window for early collapse signal
 preemptible: true
 
 backend: auto
@@ -56,7 +56,7 @@ experiment:
     project: default
   train_schedule: match
 data:
-  hist: 0  # v48: 1->0 (drop history input frame; physics is markovian)
+  hist: 1  # v49: revert to 1 (v48 hist=0 collapsed to climatology — model needs temporal context to stay on trajectory)
   dataset:
     type: om4
     prognostic_vars_key: thermo_dynamic_all

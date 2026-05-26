@@ -8,17 +8,20 @@ import itertools
 import logging
 import multiprocessing
 import os
+import signal
+import sys
 import tempfile
 import time
 import warnings
 from collections import OrderedDict
-from collections.abc import Iterable
+from collections.abc import Hashable, Iterable
 from multiprocessing.context import BaseContext
 from pathlib import Path
 from typing import Any, assert_never
 
 import dask
 import torch
+import torch.distributed as dist
 import torch.nn as nn
 from torch.utils.data import (
     ConcatDataset,
@@ -28,7 +31,11 @@ from torch.utils.data import (
 )
 
 from ocean_emulators import config
-from ocean_emulators.aggregator import Aggregator, ValidateAggregator
+from ocean_emulators.aggregator import (
+    Aggregator,
+    PerScaleSnapshotValidateAggregator,
+    ValidateAggregator,
+)
 from ocean_emulators.aggregator.loss import (
     get_channel_loss_dict,
     get_channel_loss_scale_dict,
@@ -306,6 +313,16 @@ class Trainer:
                 nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
                 device_ids=[self.distributed.gpu],
             )
+            # Create a CPU-side (Gloo) process group for data-loading barriers.
+            # This lets all ranks synchronize after loading a batch without
+            # consuming the NCCL timeout budget, preventing NCCL timeouts when
+            # the networked filesystem stalls on some ranks.
+            self._cpu_group = dist.new_group(
+                backend="gloo",
+                timeout=datetime.timedelta(hours=2),
+            )
+        else:
+            self._cpu_group = None
 
         # EMA (must come after DDP setup so parameter names match final self.model)
         if not loaded_checkpoint:
@@ -327,6 +344,7 @@ class Trainer:
         self.debug = cfg.debug
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size
+        self.per_scale_batch_size: list[int] | None = cfg.per_scale_batch_size
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
         self.num_workers: int = data_num_workers
         self.persistent_workers: bool = persistent_workers
@@ -365,6 +383,32 @@ class Trainer:
         self.train_loader: TrainDataLoader
         self.val_loader: TrainDataLoader
         self.inference_loader: DataLoader[TrainData]
+
+        # Preemption support
+        self._preempt_requested = False
+        self._preemptible = cfg.preemptible
+        self._checkpoint_batch_interval = cfg.checkpoint_batch_interval
+        if self._preemptible:
+            self._register_signal_handlers()
+
+    def _register_signal_handlers(self) -> None:
+        """Register handlers for SIGTERM and SIGUSR1 to support graceful preemption.
+
+        SLURM sends SIGUSR1 before walltime (via --signal=B:USR1@N) and SIGTERM
+        on preemption.  The handler sets a flag; the training loop checks it
+        every batch and saves a checkpoint before exiting.
+        """
+
+        def _handler(signum: int, frame: Any) -> None:
+            sig_name = signal.Signals(signum).name
+            logger.warning(
+                f"Received {sig_name} — preemption requested. "
+                "Will save checkpoint and exit."
+            )
+            self._preempt_requested = True
+
+        signal.signal(signal.SIGUSR1, _handler)
+        signal.signal(signal.SIGTERM, _handler)
 
     def init_inference_stores(self):
         # Determine number of processes based on device
@@ -527,6 +571,21 @@ class Trainer:
             else:
                 r = self.gradient_accumulation_steps
 
+            # Log grid resolution for every rank in the first few steps of
+            # each epoch to help diagnose cross-rank resolution mismatches.
+            if data_iter_step < 5:
+                res = data.ctx.label_mask.shape[-2:]
+                rank = self.distributed.rank if self.distributed else 0
+                logger.debug(
+                    f"rank {rank} step {data_iter_step} grid {res[0]}x{res[1]}"
+                )
+
+            # Synchronize all ranks after data loading so that no rank
+            # starts GPU work (and hits NCCL collectives) while another is
+            # still blocked on a slow networked filesystem read.
+            if self._cpu_group is not None:
+                dist.barrier(group=self._cpu_group)
+
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
 
@@ -534,7 +593,17 @@ class Trainer:
 
             # Scale loss by the actual number of microbatches that will be accumulated
             scaled_loss = TO.loss / r
-            scaled_loss.backward()
+
+            # Skip DDP gradient allreduce on non-final microbatches so that
+            # accumulation actually saves communication overhead (otherwise
+            # every backward triggers its own sync and r>1 is a pure no-op
+            # for throughput).
+            is_accum_step = (data_iter_step + 1) % self.gradient_accumulation_steps != 0
+            if is_accum_step and hasattr(self.model, "no_sync"):
+                with self.model.no_sync():  # type: ignore[operator]
+                    scaled_loss.backward()
+            else:
+                scaled_loss.backward()
 
             train_aggregator.record_batch(TO)
 
@@ -555,10 +624,22 @@ class Trainer:
                 else self.scheduler.get_last_lr()[0]
             )
 
+            # Only run the heavy per-channel all_reduce + wandb logging every
+            # 5 steps to stop per-iter CUDA syncs from dominating the loop.
+            # Intermediate iters use the local (unreduced) loss for the
+            # metric logger; this is fine for the running average.
+            do_full_metrics = data_iter_step % 5 == 0
+
             with torch.no_grad():
                 # Reduce losses
-                loss_value_reduce = all_reduce_mean(TO.loss.detach())
-                loss_per_channel_reduce = all_reduce_mean(TO.loss_per_channel.detach())
+                if do_full_metrics:
+                    loss_value_reduce = all_reduce_mean(TO.loss.detach())
+                    loss_per_channel_reduce = all_reduce_mean(
+                        TO.loss_per_channel.detach()
+                    )
+                else:
+                    loss_value_reduce = TO.loss.detach()
+                    loss_per_channel_reduce = TO.loss_per_channel.detach()
                 metrics = {
                     "train/batch/loss": loss_value_reduce,
                     "train/batch/lr": lr,
@@ -621,7 +702,8 @@ class Trainer:
             if (it_time := metric_logger.meters["iter_time"]).count > 0:
                 metrics["train/batch/iter_time"] = it_time.value
 
-            self.wandb_logger.log(metrics, step=self.num_batches_seen)
+            if do_full_metrics:
+                self.wandb_logger.log(metrics, step=self.num_batches_seen)
 
             metric_logger.update(loss=loss_value_reduce.item())
             metric_logger.update(lr=lr)
@@ -629,6 +711,37 @@ class Trainer:
             self._maybe_update_loss(TO, data)
 
             self.profiler.after_batch(self.num_batches_seen)
+
+            # Intra-epoch checkpoint: save periodically or on preemption signal.
+            if self._preempt_requested:
+                logger.warning(
+                    f"Preemption signal received at batch {data_iter_step + 1}/{total_batches} "
+                    f"of epoch {epoch}. Saving checkpoint and exiting."
+                )
+                if is_main_process():
+                    self.save_checkpoint(
+                        epoch,
+                        self.ckpt_paths.latest_checkpoint_path,
+                        mid_epoch=True,
+                    )
+                self.finish()
+                # Exit with special code so SLURM knows to requeue.
+                sys.exit(143)  # 128 + 15 (SIGTERM)
+
+            if (
+                self._checkpoint_batch_interval > 0
+                and (data_iter_step + 1) % self._checkpoint_batch_interval == 0
+                and is_main_process()
+            ):
+                logger.info(
+                    f"Intra-epoch checkpoint at batch {data_iter_step + 1}/{total_batches} "
+                    f"of epoch {epoch}."
+                )
+                self.save_checkpoint(
+                    epoch,
+                    self.ckpt_paths.latest_checkpoint_path,
+                    mid_epoch=True,
+                )
 
         if self.scheduler is not None:
             self.scheduler.step()
@@ -683,23 +796,27 @@ class Trainer:
 
         if self.train_schedule == "standard":
             # The standard val aggregator only supports a single scale.
-            val_aggregator = Aggregator.get_validation_aggregator(
-                self.primary_src.metadata,
-                self.hist,
-                self.primary_src.spherical_area_weights.to(self.device),
-                self.num_out,
-                self.tensor_map,
-                self.normalize,
-                include_image_aggregators=log_validation_images,
+            val_aggregator: ValidateAggregator | PerScaleSnapshotValidateAggregator = (
+                Aggregator.get_validation_aggregator(
+                    self.primary_src.metadata,
+                    self.hist,
+                    self.primary_src.spherical_area_weights.to(self.device),
+                    self.num_out,
+                    self.tensor_map,
+                    self.normalize,
+                    include_image_aggregators=log_validation_images,
+                )
             )
         else:
-            # Create a validation aggregator that handles multiple scales.
-            val_aggregator = ValidateAggregator(
-                {},  # Currently, don't do anything else besides record the training loss.
-                self.hist,
-                self.num_out,
+            # match/mix: per-scale loss + last-batch error image per scale.
+            val_aggregator = PerScaleSnapshotValidateAggregator(
+                sources=self.data_container.sources,
+                prognostic_var_names=self.prognostic_var_names,
+                boundary_var_names=self.boundary_var_names,
                 tensor_map=self.tensor_map,
-                normalize=self.normalize,
+                hist=self.hist,
+                num_prognostic_channels=self.num_out,
+                log_images=log_validation_images,
             )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
@@ -710,6 +827,9 @@ class Trainer:
             ):
                 if self.debug and (data_iter_step + 1) % 5 == 0:
                     break
+
+                if self._cpu_group is not None:
+                    dist.barrier(group=self._cpu_group)
 
                 VO: ValBatchOutput = validate_batch(self.model, data, self.loss_fn)
                 val_aggregator.record_validation_batch(VO)
@@ -876,6 +996,41 @@ class Trainer:
         def group_key(ds):
             return tuple(prog.grid_size for prog in ds.prognostic_srcs)
 
+        # Resolve per-scale batch size. When `per_scale_batch_size` is set in
+        # the config, map each source to its own batch size by group key so
+        # cheaper (lower-res) scales can run with larger batches without OOM
+        # on the ¼° scale.
+        bs_arg: int | dict[Hashable, int]
+        if self.per_scale_batch_size is not None:
+            assert self.train_schedule in ("match", "standard"), (
+                "per_scale_batch_size only supported for 'match'/'standard' schedules"
+            )
+            assert len(self.per_scale_batch_size) == len(scales), (
+                f"per_scale_batch_size length {len(self.per_scale_batch_size)} "
+                f"must match number of data sources {len(scales)}"
+            )
+            # Build a group-key → batch size map. Match schedule constructs
+            # each TorchTrainDataset with src=dst, so its group key is
+            # (src.grid_size, dst.grid_size). Standard schedule has a single
+            # src with no dst.
+            if self.train_schedule == "match":
+                bs_arg = {
+                    (s.grid_size, s.grid_size): b
+                    for s, b in zip(scales, self.per_scale_batch_size)
+                }
+            else:  # standard
+                bs_arg = {
+                    (s.grid_size,): b for s, b in zip(scales, self.per_scale_batch_size)
+                }
+        else:
+            bs_arg = self.batch_size
+
+        train_batch_sampler: (
+            EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
+        )
+        val_batch_sampler: (
+            EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
+        )
         if self.distributed is not None:
             # Distributed training
             assert self.distributed.world_size is not None
@@ -883,7 +1038,7 @@ class Trainer:
             train_batch_sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=train_datasets,
                 group_key=group_key,
-                batch_size=self.batch_size,
+                batch_size=bs_arg,
                 num_replicas=self.distributed.world_size,
                 rank=self.distributed.rank,
                 shuffle=True,
@@ -893,7 +1048,7 @@ class Trainer:
             val_batch_sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=val_datasets,
                 group_key=group_key,
-                batch_size=self.batch_size,
+                batch_size=bs_arg,
                 num_replicas=self.distributed.world_size,
                 rank=self.distributed.rank,
                 shuffle=False,
@@ -901,18 +1056,18 @@ class Trainer:
             )
         else:
             # Non-distributed training
-            train_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
+            train_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(
                 datasets=train_datasets,
                 group_key=group_key,
-                batch_size=self.batch_size,
+                batch_size=bs_arg,
                 shuffle=True,
                 drop_last=True,
             )
 
-            val_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
+            val_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(
                 datasets=val_datasets,
                 group_key=group_key,
-                batch_size=self.batch_size,
+                batch_size=bs_arg,
                 shuffle=True,
                 drop_last=False,
             )
@@ -923,6 +1078,12 @@ class Trainer:
 
         # Create data loaders (same for both distributed and non-distributed)
         # When using batch_sampler, don't specify batch_size or sampler
+        # timeout (seconds): if a DataLoader worker doesn't produce a batch
+        # within this window, raise an error instead of hanging the whole
+        # training run.  A stuck worker would otherwise block all DDP ranks
+        # at the next collective.
+        worker_timeout = 1800 if self.num_workers > 0 else 0
+
         train_dataloader = DataLoader(
             train_data,
             batch_sampler=train_batch_sampler,
@@ -931,6 +1092,7 @@ class Trainer:
             pin_memory=self.pin_mem,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
+            timeout=worker_timeout,
         )
 
         val_dataloader = DataLoader(
@@ -941,6 +1103,7 @@ class Trainer:
             pin_memory=self.pin_mem,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
+            timeout=worker_timeout,
         )
 
         # Wrap dataloaders to handle GPU post-processing
@@ -1004,6 +1167,7 @@ class Trainer:
         epoch: int,
         checkpoint_path: Path,
         for_inference: bool = False,
+        mid_epoch: bool = False,
     ):
         if for_inference:
             with self._ema_context():
@@ -1019,6 +1183,7 @@ class Trainer:
                 "model": model_state_dict,
                 "optimizer": self.optimizer.state_dict(),
                 "epoch": epoch,
+                "mid_epoch": mid_epoch,
                 "best_val_loss": self.best_val_loss,
                 "best_inf_loss": self.best_inf_loss,
                 "ema": self._ema.get_state(include_ema_params=not for_inference),
@@ -1076,7 +1241,15 @@ class Trainer:
                 )
                 load_state_dict_fn(checkpoint["loss_fn_state"])
 
-            self.start_epoch = checkpoint["epoch"] + 1
+            mid_epoch = checkpoint.get("mid_epoch", False)
+            if mid_epoch:
+                # Mid-epoch checkpoint: restart the same epoch.
+                self.start_epoch = checkpoint["epoch"]
+                logger.info(
+                    f"Resuming from mid-epoch checkpoint (epoch {self.start_epoch})."
+                )
+            else:
+                self.start_epoch = checkpoint["epoch"] + 1
             self.wandb_id = checkpoint.get("wandb_id")
             self.wandb_name = checkpoint.get("wandb_name")
             self.num_batches_seen = checkpoint.get("num_batches_seen", 0)
@@ -1127,6 +1300,9 @@ class Trainer:
             self._ema.restore(parameters=self.model.parameters())
 
     def finish(self):
+        if self._cpu_group is not None:
+            dist.destroy_process_group(self._cpu_group)
+            self._cpu_group = None
         self.wandb_logger.finish()
 
 

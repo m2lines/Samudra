@@ -21,17 +21,17 @@
 #   export CONTAINER_HASH=<git sha>   # expands to 25.11-<sha>
 #   export CONTAINER_TAG=25.11-latest
 #
+# Preemptible training (auto-requeue on preemption/walltime):
+#   export PREEMPTIBLE=1
+#   sbatch ... scripts/slurm_apptainer_train.sbatch
+#
 # Private GHCR pulls (if needed):
 #   export GHCR_USERNAME=...
 #   export GHCR_TOKEN=...
-#
-# Optional Nsight Systems profiling inside the container:
-#   export NSYS_ARGS="--trace=cuda,nvtx,osrt --sample=none"
-#   # If NSYS_ARGS omits -o/--output, reports are written under:
-#   #   ${OUTPUT_BASE}/${NAME}/nsys/
 
 #SBATCH --job-name=oe-train
 #SBATCH --output=slurm-%j.out
+#SBATCH --open-mode=append
 #SBATCH --account=torch_pr_347_courant
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -39,7 +39,8 @@
 #SBATCH --cpus-per-task=128
 #SBATCH --mem=1400G
 #SBATCH --gres=gpu:rtx6000:8
-#SBATCH --time=8:00:00
+#SBATCH --time=02:00:00
+#SBATCH --signal=B:USR1@120
 
 set -euo pipefail
 
@@ -56,7 +57,6 @@ CONFIG="${CONFIG:-}"
 NAME="${NAME:-}"
 NAME_SUFFIX="${NAME_SUFFIX:-}"
 ARGS="${ARGS:-}"
-NSYS_ARGS="${NSYS_ARGS:-}"
 if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then
   NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"
 fi
@@ -96,12 +96,29 @@ if [[ ! -d "${OUTPUT_BASE}" ]]; then
 fi
 
 RUN_DIR="${OUTPUT_BASE}/${NAME}"
-if [[ -e "${RUN_DIR}" ]]; then
-  echo "Refusing to run: output dir already exists: ${RUN_DIR}" >&2
-  echo "Pick a unique NAME_SUFFIX." >&2
-  exit 4
+# Track whether the user explicitly set PREEMPTIBLE before applying the default.
+PREEMPTIBLE_EXPLICIT="${PREEMPTIBLE+1}"  # non-empty if PREEMPTIBLE was set
+PREEMPTIBLE="${PREEMPTIBLE:-0}"
+if [[ "${PREEMPTIBLE}" == "1" && -n "${SLURM_JOB_ID:-}" ]]; then
+  # On Torch, preemption and auto-requeue are controlled via the job comment.
+  # See: https://sites.google.com/nyu.edu/nyu-hpc/hpc-systems/torch/torch-new-user-guide
+  #
+  # We set both the Comment (Torch-specific preemption policy) and Requeue
+  # (SLURM's built-in requeue flag) from within the running job so that
+  # preemption works even if the submitter forgot --requeue / --comment.
+  scontrol update JobId="${SLURM_JOB_ID}" \
+    Comment="preemption=yes;requeue=true" \
+    Requeue=1 2>/dev/null || true
 fi
-NSYS_OUTPUT_DIR="${RUN_DIR}/nsys"
+if [[ -e "${RUN_DIR}" ]]; then
+  if [[ "${PREEMPTIBLE}" == "1" ]]; then
+    echo "Output dir already exists (preemptible resume): ${RUN_DIR}"
+  else
+    echo "Refusing to run: output dir already exists: ${RUN_DIR}" >&2
+    echo "Pick a unique NAME_SUFFIX, or set PREEMPTIBLE=1 to allow resume." >&2
+    exit 4
+  fi
+fi
 
 # W&B mode defaults: online if key provided, else disabled.
 WANDB_MODE="${WANDB_MODE:-}"
@@ -151,18 +168,20 @@ if [[ -n "${GHCR_TOKEN:-}" ]] && [[ -z "${APPTAINER_DOCKER_PASSWORD:-}" ]]; then
   export APPTAINER_DOCKER_PASSWORD="${GHCR_TOKEN}"
 fi
 
-echo "Repo dir:   ${REPO_DIR}"
-echo "Config:     ${CONFIG_IN_CONTAINER}"
-echo "Name:       ${NAME}"
-echo "Data root:  ${DATA_ROOT}"
-echo "Outputs:    ${OUTPUT_BASE}"
-echo "W&B mode:   ${WANDB_MODE}"
-echo "Image ref:  ${IMAGE_REF}"
-echo "SIF path:   ${SIF_PATH}"
-if [[ -n "${NSYS_ARGS}" ]]; then
-  echo "NSYS args:  ${NSYS_ARGS}"
-  echo "NSYS out:   ${NSYS_OUTPUT_DIR}"
-fi
+echo "Repo dir:    ${REPO_DIR}"
+echo "Config:      ${CONFIG_IN_CONTAINER}"
+echo "Name:        ${NAME}"
+echo "Data root:   ${DATA_ROOT}"
+echo "Outputs:     ${OUTPUT_BASE}"
+echo "W&B mode:    ${WANDB_MODE}"
+echo "Preemptible: ${PREEMPTIBLE}"
+echo "Image ref:   ${IMAGE_REF}"
+echo "SIF path:    ${SIF_PATH}"
+# Kernel memory tunables that affect training stability (v50 stalled 30min mid-
+# epoch with defrag=madvise; HPC@ set defrag=never on gr101/gr102 after that).
+# Log these so post-mortems can confirm the setting at run time.
+echo "THP defrag:  $(cat /sys/kernel/mm/transparent_hugepage/defrag 2>/dev/null || echo unavailable)"
+echo "THP enabled: $(cat /sys/kernel/mm/transparent_hugepage/enabled 2>/dev/null || echo unavailable)"
 
 if [[ ! -s "${SIF_PATH}" ]]; then
   echo "SIF not found locally. Pulling from registry..."
@@ -215,18 +234,63 @@ binds=(
   "${DATA_ROOT}:${DATA_ROOT}"
   "${OUTPUT_BASE}:${OUTPUT_BASE}"
   "${DATA_CACHE_DIR}:/workspace/.data_cache"
+  "${RUN_DIR}/wandb:/workspace/wandb"
+  "${REPO_DIR}/src:/workspace/src"
+  "${REPO_DIR}/configs:/workspace/configs"
 )
 BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 
+# If the user explicitly set PREEMPTIBLE, override the config's preemptible flag.
+# If unset, the YAML config default is used.
+if [[ -n "${PREEMPTIBLE_EXPLICIT}" ]]; then
+  PREEMPTIBLE_FLAG=$([ "${PREEMPTIBLE}" = "1" ] && echo true || echo false)
+  ARGS="${ARGS} --preemptible=${PREEMPTIBLE_FLAG}"
+  if [[ "${PREEMPTIBLE}" == "1" ]]; then
+    # Default to checkpointing every 250 batches unless already set.
+    CHECKPOINT_BATCH_INTERVAL="${CHECKPOINT_BATCH_INTERVAL:-250}"
+    ARGS="${ARGS} --checkpoint_batch_interval=${CHECKPOINT_BATCH_INTERVAL}"
+  fi
+fi
+
+mkdir -p "${RUN_DIR}/wandb"
 # Create the run directory after preflight validation so early failures are
 # retryable with the same NAME.
 mkdir -p "${RUN_DIR}"
-if [[ -n "${NSYS_ARGS}" ]]; then
-  mkdir -p "${NSYS_OUTPUT_DIR}"
+
+# NCCL/UCX workarounds for gr101/gr102 RTX6000 nodes (P2P/IB/UCX cause
+# segfaults on these nodes). Hardcoded in the sbatch (not conditional on
+# parent-shell env) so they survive slurm requeues, which dont reliably
+# preserve user-shell exports. APPTAINERENV_<VAR> prefix forwards them
+# into the apptainer container.
+export APPTAINERENV_NCCL_P2P_DISABLE=1
+export APPTAINERENV_NCCL_IB_DISABLE=1
+export APPTAINERENV_NCCL_NET=Socket
+export APPTAINERENV_TORCH_NCCL_ASYNC_ERROR_HANDLING=1
+export APPTAINERENV_TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC=1800
+export APPTAINERENV_UCX_TLS=tcp,self,sm
+export APPTAINERENV_UCX_NET_DEVICES=all
+
+# Override the container-baked WANDB_GIT_COMMIT/REMOTE_URL (frozen at image
+# build time, so wandb otherwise reports the build-time SHA forever). The
+# harness bind-mounts host src/ + configs/ into the container, so the code
+# that actually runs is the host commit — that's what wandb should label.
+if HOST_GIT_COMMIT="$(git -C "${REPO_DIR}" rev-parse HEAD 2>/dev/null)"; then
+  HOST_GIT_REMOTE="$(git -C "${REPO_DIR}" config --get remote.origin.url 2>/dev/null || true)"
+  if ! git -C "${REPO_DIR}" diff --quiet HEAD -- 2>/dev/null; then
+    DIRTY_NOTE=" (dirty: uncommitted host changes)"
+  else
+    DIRTY_NOTE=""
+  fi
+  export APPTAINERENV_WANDB_GIT_COMMIT="${HOST_GIT_COMMIT}"
+  export APPTAINERENV_WANDB_GIT_REMOTE_URL="${HOST_GIT_REMOTE}"
+  echo "Host git:    ${HOST_GIT_COMMIT}${DIRTY_NOTE}"
 fi
 
-export OE_NSYS_ARGS="${NSYS_ARGS}"
-export OE_NSYS_OUTPUT_DIR="${NSYS_OUTPUT_DIR}"
+# Forward USR1 from the batch shell to srun's process group.
+# --signal=B:USR1@120 sends USR1 to the batch shell 120s before walltime.
+# This trap relays it to srun, which forwards it to all tasks (torchrun → Python).
+_srun_pid=""
+trap '[[ -n "${_srun_pid}" ]] && kill -USR1 "${_srun_pid}" 2>/dev/null' USR1
 
 srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
   "${APPTAINER_BIN}" exec --nv \
@@ -245,31 +309,7 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         echo \"Hint: rebuild/pull a container tag that includes /workspace/configs.\" >&2
         exit 2
       fi
-      profiler_cmd=()
-      if [[ -n \"\${OE_NSYS_ARGS:-}\" ]]; then
-        if ! command -v nsys >/dev/null 2>&1; then
-          echo \"ERROR: NSYS_ARGS was set, but nsys is not available inside the container PATH.\" >&2
-          exit 3
-        fi
-        read -r -a nsys_args <<< \"\${OE_NSYS_ARGS}\"
-        has_nsys_output=0
-        for arg in \"\${nsys_args[@]}\"; do
-          case \"\${arg}\" in
-            -o|--output|-o?*|--output=*)
-              has_nsys_output=1
-              break
-              ;;
-          esac
-        done
-        profiler_cmd=(nsys profile \"\${nsys_args[@]}\")
-        if [[ \"\${has_nsys_output}\" == \"0\" ]]; then
-          profiler_cmd+=(
-            -o \"\${OE_NSYS_OUTPUT_DIR}/nsys-node\${SLURM_NODEID:-0}-proc\${SLURM_PROCID:-0}\"
-          )
-        fi
-        echo \"Nsight Systems profiling enabled on proc \${SLURM_PROCID:-unset}.\"
-      fi
-      \"\${profiler_cmd[@]}\" /workspace/.venv/bin/python -m torch.distributed.run \
+      /workspace/.venv/bin/python -m torch.distributed.run \
         --nnodes=${SLURM_NNODES} \
         --nproc_per_node=${GPUS_PER_NODE} \
         --master_addr=${MASTER_ADDR} \
@@ -282,4 +322,15 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         --experiment.wandb.mode=\"${WANDB_MODE}\" \
         --backend=\"nccl\" \
         ${ARGS}
-    "
+    " &
+_srun_pid=$!
+# Wait for srun. If USR1 trap interrupts `wait`, it returns 128+signal;
+# re-wait to get srun's actual exit code. Preserve the exit code so SLURM
+# can decide whether to requeue (a clean exit 0 would prevent requeue).
+_rc=0
+wait "${_srun_pid}" || _rc=$?
+# If wait was interrupted by a signal (128+N), re-wait for srun's real exit.
+if (( _rc > 128 )); then
+  wait "${_srun_pid}" 2>/dev/null || _rc=$?
+fi
+exit "${_rc}"

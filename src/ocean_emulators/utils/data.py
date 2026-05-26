@@ -55,6 +55,7 @@ def _is_compact(data: xr.Dataset, means: xr.Dataset, stds: xr.Dataset) -> bool:
         not _var_name_encode_level(str(v))
         for d in [data, means, stds]
         for v in d.keys()
+        if not str(v).startswith("mask")
     )
 
 
@@ -471,6 +472,24 @@ def conditional_rearrange(
     vars_with_dim = [v for v in data if except_dim in data[v].dims]
     vars_without_dim = [v for v in data if except_dim not in data[v].dims]
 
+    # Edge cases: if every variable falls on one side of the split, the
+    # interleaving logic below collapses to a single rearrange. Skip the
+    # `concat` since `xr.Dataset[[]]` cannot be turned into a DataArray.
+    if not vars_without_dim:
+        return (
+            data[vars_with_dim]
+            .to_array()
+            .einops.rearrange(pattern, dask="allowed")
+            .drop_vars(concat_dim, errors="ignore")
+        )
+    if not vars_with_dim:
+        return (
+            data[vars_without_dim]
+            .to_array()
+            .einops.rearrange(pattern.replace(except_dim, ""), dask="allowed")
+            .drop_vars(concat_dim, errors="ignore")
+        )
+
     # Some of the `vars_without_dim` may need to appear before or behind `vars_with_dim`
     # in the final data array. These lists help preserve the correct order of the vars,
     # even after a rearrangement (i.e. merge to two or more dimensions).
@@ -844,6 +863,27 @@ def validate_data(
     return out
 
 
+
+def _flatten_var_lev(ds):
+    """Flatten a means/stds-like dataset into a 1-D array, one entry per channel.
+
+    For datasets that mix depth-resolved variables (with a  dim) and
+    surface variables, a plain  would broadcast surface
+    vars across all levels, producing too many channels. This uses
+     to flatten depth vars into (variable, lev) and keep
+    surface vars as one channel each, matching the prognostic tensor channel
+    layout.
+    """
+    import numpy as np
+    if any("lev" in ds[v].dims for v in ds.data_vars):
+        return (
+            conditional_rearrange(ds, "(variable lev)=var", concat_dim="var")
+            .to_numpy()
+            .reshape(-1)
+        )
+    return ds.to_array().to_numpy().reshape(-1)
+
+
 class Normalize:
     def __init__(
         self,
@@ -861,13 +901,16 @@ class Normalize:
         self.wet_mask = src.masks.prognostic
         self.wet_mask_surface = src.masks.boundary
 
-        # Pre-compute numpy arrays for faster access
-        self._prognostic_mean_np = (
-            self.prognostic_mean.to_array().to_numpy().reshape(-1)
-        )
-        self._prognostic_std_np = self.prognostic_std.to_array().to_numpy().reshape(-1)
-        self._boundary_mean_np = self.boundary_mean.to_array().to_numpy().reshape(-1)
-        self._boundary_std_np = self.boundary_std.to_array().to_numpy().reshape(-1)
+        # Pre-compute numpy arrays for faster access. When a dataset mixes
+        # variables with and without a  dim (e.g. thermo_dynamic_all has
+        # 4 depth-resolved vars plus surface-only zos), a plain
+        #  would broadcast the surface variable across
+        # all levels, producing too many channels. _flatten_var_lev keeps the
+        # channel layout aligned with the prognostic tensor.
+        self._prognostic_mean_np = _flatten_var_lev(self.prognostic_mean)
+        self._prognostic_std_np = _flatten_var_lev(self.prognostic_std)
+        self._boundary_mean_np = _flatten_var_lev(self.boundary_mean)
+        self._boundary_std_np = _flatten_var_lev(self.boundary_std)
         self._wet_mask_np = self.wet_mask.numpy()
 
     def normalize_tensor_prognostic(
@@ -953,18 +996,38 @@ class LoadStats:
 def compact_dataset(ds: xr.Dataset) -> xr.Dataset:
     data = ds.copy()
 
-    var_groups = defaultdict(list)
+    var_groups: dict[str, list[str]] = defaultdict(list)
     for key in data.keys():
-        if "_lev_" in (k := str(key)):
+        k = str(key)
+        if "_lev_" in k:
+            # Format: {var}_lev_{depth} (e.g., so_lev_2_5)
             base_name = k.split("_lev_")[0]
             var_groups[base_name].append(k)
+        elif re.match(r"^(.+?)_(\d+)$", k):
+            # Format: {var}_{index} (e.g., so_0, thetao_18)
+            # Exclude known non-leveled vars like mask_0..mask_18
+            m = re.match(r"^(.+?)_(\d+)$", k)
+            assert m is not None
+            base_name = m.group(1)
+            if base_name not in ("mask",):
+                var_groups[base_name].append(k)
 
-    def _parse_level(x) -> float:
+    def _parse_level_lev(x: str) -> float:
         return float(x.split("_lev_")[1].replace("_", "."))
 
+    def _parse_level_idx(x: str) -> int:
+        m = re.match(r"^.+?_(\d+)$", x)
+        assert m is not None
+        return int(m.group(1))
+
     for base_var, vars_ in var_groups.items():
-        sorted_vars = sorted(vars_, key=_parse_level)
-        levels = [_parse_level(var) for var in sorted_vars]
+        if "_lev_" in vars_[0]:
+            sorted_vars = sorted(vars_, key=_parse_level_lev)
+            levels = [_parse_level_lev(var) for var in sorted_vars]
+        else:
+            sorted_vars = sorted(vars_, key=_parse_level_idx)
+            indices = [_parse_level_idx(var) for var in sorted_vars]
+            levels = [DEPTH_LEVELS[i] for i in indices]
         if hasattr(data, "lev"):
             levels = data.lev.values
         da = xr.concat([data[var] for var in sorted_vars], dim="lev").assign_coords(

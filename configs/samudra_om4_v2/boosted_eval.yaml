@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/EvalConfig.json
+
+# Eval the PCGB-trained checkpoint on the test period. The PCGB final
+# checkpoint is a drop-in replacement for any Samudra ckpt — same key
+# layout — so this is a vanilla Eval run with `ckpt_path` pointed at it.
+#
+# Override on the CLI to point at the run-specific output:
+#   --ckpt_path=${OUTPUT_BASE}/${EXPERIMENT_NAME}/saved_nets/pcgb_final.pt
+# The launch script wires this for you.
+
+debug: false
+save_zarr: true
+disk_mode: true
+
+# Default ckpt_path is unset; the launch script populates it via CLI.
+ckpt_path: null
+
+inference_time:
+  start: "2014-10-10"
+  end: "2022-12-24"
+num_model_steps_forward: 25
+
+experiment:
+  name: pcgb_eval
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: online
+    project: default
+    entity: ocean_emulators
+data: !include ../data/om4.yaml
+model: !include boosted_model.yaml

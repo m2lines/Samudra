@@ -322,10 +322,20 @@ class InferenceDatasets(Dataset):
 
 
 class RawTrainData:
-    def __init__(self, dataset_id: "TorchTrainDataset.Id"):
+    def __init__(
+        self,
+        dataset_id: "TorchTrainDataset.Id",
+        sample_indices: torch.Tensor | None = None,
+    ):
         self.dataset_id: TorchTrainDataset.Id = dataset_id
         self.raw_data: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = []
         self.load_stats: LoadStats | None = None
+        # 1D LongTensor of dataset-relative sample indices. For a single-
+        # sample RawTrainData (pre-collate) this is shape (1,); after
+        # collation it's shape (batch,). Used by PCGB to look up per-sample
+        # weights D_t. Optional: None means "indices not tracked," which is
+        # the case for inference and for any caller that doesn't need it.
+        self.sample_indices: torch.Tensor | None = sample_indices
 
     def insert(
         self,
@@ -368,13 +378,20 @@ class TrainData:
     """
 
     def __init__(
-        self, num_prognostic_channels: int, num_boundary_channels: int, ctx: GridContext
+        self,
+        num_prognostic_channels: int,
+        num_boundary_channels: int,
+        ctx: GridContext,
+        sample_indices: torch.Tensor | None = None,
     ):
         self.num_prognostic_channels = num_prognostic_channels
         self.num_boundary_channels = num_boundary_channels
         self.ctx = ctx
         self.example_by_step: list[Example] = []
         self.load_stats: LoadStats | None = None
+        # See RawTrainData.sample_indices for semantics. Will live on the
+        # same device as the rest of the batch tensors after `to_train_data`.
+        self.sample_indices: torch.Tensor | None = sample_indices
 
     def append(
         self, prognostic_input: Prognostic, boundary_input: Boundary, label: Prognostic
@@ -539,7 +556,10 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()
-        TD = RawTrainData(self.id)
+        TD = RawTrainData(
+            self.id,
+            sample_indices=torch.tensor([idx], dtype=torch.long),
+        )
 
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step)
@@ -609,10 +629,16 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         Returns:
             TrainData with tensors on the target device
         """
+        sample_indices = (
+            raw_train_data.sample_indices.to(device, non_blocking=True)
+            if raw_train_data.sample_indices is not None
+            else None
+        )
         train_data = TrainData(
             self.num_prognostic_channels,
             self.num_boundary_channels,
             self.ctx.to(device),
+            sample_indices=sample_indices,
         )
         for input_, boundary, label in raw_train_data.raw_data:
             prog_input, boundary_input, label_tensor = self._to_example(

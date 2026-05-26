@@ -51,10 +51,13 @@ def _var_name_encode_level(var_name: str) -> bool:
 
 
 def _is_compact(data: xr.Dataset, means: xr.Dataset, stds: xr.Dataset) -> bool:
+    # mask_<i> variables always encode a level by design; they don't determine
+    # whether prognostic/boundary variables are stacked.
     return all(
         not _var_name_encode_level(str(v))
         for d in [data, means, stds]
         for v in d.keys()
+        if not str(v).startswith("mask_")
     )
 
 
@@ -861,13 +864,13 @@ class Normalize:
         self.wet_mask = src.masks.prognostic
         self.wet_mask_surface = src.masks.boundary
 
-        # Pre-compute numpy arrays for faster access
-        self._prognostic_mean_np = (
-            self.prognostic_mean.to_array().to_numpy().reshape(-1)
-        )
-        self._prognostic_std_np = self.prognostic_std.to_array().to_numpy().reshape(-1)
-        self._boundary_mean_np = self.boundary_mean.to_array().to_numpy().reshape(-1)
-        self._boundary_std_np = self.boundary_std.to_array().to_numpy().reshape(-1)
+        # Pre-compute numpy arrays for faster access. Use `_flatten` so that
+        # lev-dim datasets (compact format) get unrolled per-level instead of
+        # broadcasting non-lev variables (e.g. `zos`) over `lev`.
+        self._prognostic_mean_np = _flatten(self.prognostic_mean).numpy()
+        self._prognostic_std_np = _flatten(self.prognostic_std).numpy()
+        self._boundary_mean_np = _flatten(self.boundary_mean).numpy()
+        self._boundary_std_np = _flatten(self.boundary_std).numpy()
         self._wet_mask_np = self.wet_mask.numpy()
 
     def normalize_tensor_prognostic(

@@ -342,6 +342,18 @@ class BlockConfig(BaseConfig):
     upscale_factor: int = 4
     norm: NormType = "batch"
     pointwise_linear: bool = False
+    residual_drop_rate: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Stochastic-depth drop rate on the convblock (trunk) output of "
+            "each ConvNeXtBlock. With rate=0 and no PCGB override, this is a "
+            "no-op. PCGB's mask searcher uses the deterministic-mask path "
+            "(via `UNetBackbone.with_path_mask`); the rate is what governs "
+            "the i.i.d. Bernoulli behavior at training time."
+        ),
+    )
 
     def build(self) -> CoreBlockBuilder:
         match self.activation:
@@ -387,6 +399,7 @@ class BlockConfig(BaseConfig):
                         norm=self.norm,
                         activation=activation,
                         pointwise_linear=self.pointwise_linear,
+                        residual_drop_rate=self.residual_drop_rate,
                     )
                 case _:
                     assert_never(self.block_type)
@@ -1175,4 +1188,190 @@ class EvalConfig(TopLevelConfig):
         self.experiment.output_dir.mkdir(parents=True, exist_ok=True)
 
 
-AnyTopLevelConfig = TrainConfig | EvalConfig
+# Mask-searcher discriminated union — see boosted_samudra.md "Searching the
+# path lattice." The searcher owns candidate generation, the surrogate (if
+# any), and next-mask selection. The driver in src/ocean_emulators/pcgb.py
+# is searcher-agnostic.
+
+MaskSchedule = Literal["adversarial", "round_robin"]
+
+
+class EnumerateSearcherConfig(BaseConfig):
+    """v1 default: enumerate all 2^num_skips UNet-skip masks; no block drops.
+
+    Pool size = 2^num_skips. With num_skips=4 this is 16 candidates — small
+    enough to score every round, low enough scoring-cost to keep GPU
+    utilization above 80%.
+    """
+
+    type: Literal["enumerate"] = "enumerate"
+    num_skips: int = Field(default=4, ge=1)
+    schedule: MaskSchedule = "adversarial"
+    no_repeat_window: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "If > 0, the adversarial selector excludes the last "
+            "no_repeat_window distinct masks from the argmax pool. Set to "
+            "2–3 if mask selection collapses onto a single mask in practice."
+        ),
+    )
+
+
+class MixtureSearcherConfig(BaseConfig):
+    """v2 (future experiment): mixture sampling over the full path lattice.
+
+    Search space is `2^(num_skips + num_blocks)` — too large to enumerate.
+    Each round samples ``num_candidates`` masks from a (prior, stratified,
+    uniform) mixture and fits a per-bit linear surrogate online to bias the
+    next round's prior toward masks the model is currently failing on.
+    """
+
+    type: Literal["mixture"] = "mixture"
+    num_skips: int = Field(default=4, ge=1)
+    num_blocks: int = Field(
+        default=10,
+        ge=0,
+        description=(
+            "Number of conv-block residuals to include in the mask. 0 = "
+            "skip-only (equivalent to EnumerateSearcher with sampling); "
+            "10 matches the default ConvNeXt-UNet topology (4 down + "
+            "1 middle + 4 up + 1 final)."
+        ),
+    )
+    num_candidates: int = Field(
+        default=256,
+        ge=1,
+        description="Number of masks scored per round.",
+    )
+    prior_weight: float = Field(default=0.6, ge=0.0, le=1.0)
+    stratified_weight: float = Field(default=0.25, ge=0.0, le=1.0)
+    uniform_weight: float = Field(default=0.15, ge=0.0, le=1.0)
+    surrogate_decay: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "EMA retention for the per-bit importance vector: "
+            "w_b ← surrogate_decay · w_b + (1 - surrogate_decay) · β_b. "
+            "Smaller = faster forgetting / more responsive to recent rounds."
+        ),
+    )
+    prior_temperature: float = Field(
+        default=1.0,
+        gt=0.0,
+        description=(
+            "Temperature on the per-bit Bernoulli prior: "
+            "p_b = sigmoid(prior_temperature · w_b). Higher = greedier."
+        ),
+    )
+    no_repeat_window: int = Field(default=0, ge=0)
+    seed: int = 0
+
+
+MaskSearcherConfig = Annotated[
+    EnumerateSearcherConfig | MixtureSearcherConfig,
+    Field(discriminator="type"),
+]
+
+
+class PCGBConfig(TrainConfig):
+    """Path-Cyclic Gradient Boosting (see configs/samudra_om4_v2/boosted_samudra.md).
+
+    Inherits everything from TrainConfig (data, model, optimizer, scheduler,
+    DDP, wandb, ckpt I/O) and layers PCGB-specific knobs on top. The driver
+    in src/ocean_emulators/pcgb.py subclasses Trainer and replaces the per-
+    epoch loop with a per-round loop.
+    """
+
+    num_rounds: int = Field(
+        default=32,
+        ge=1,
+        description="T in the algorithm — number of boosting rounds.",
+    )
+    steps_per_round_epochs: float = Field(
+        default=2.0,
+        gt=0.0,
+        description=(
+            "K in the algorithm, expressed as a fraction of one full train "
+            "epoch. K_actual_steps = round(steps_per_round_epochs * "
+            "len(train_loader))."
+        ),
+    )
+    mask_searcher: MaskSearcherConfig = Field(default_factory=EnumerateSearcherConfig)
+    scoring_subset_percent: float = Field(
+        default=0.25,
+        gt=0.0,
+        le=1.0,
+        description=(
+            "Fraction of the calibration set used for the end-of-round "
+            "scoring pass that produces both per-sample residuals and per-"
+            "mask weighted MSE scores. 0.25 keeps GPU utilization above 80%."
+        ),
+    )
+    calibration_time: TimeConfig = TimeConfig(
+        start=JulianDate("1975-01-03"), end=JulianDate("2013-10-05")
+    )
+
+    # R2-proper reweighting parameters (the AdaBoost.R2 confidence β_t is
+    # adaptive per round, so no manual α). EMA smoothing and clamp are
+    # lifted from the precedent in utils/loss.py:DynamicLoss.
+    reweight_ema_lambda: float = Field(
+        default=0.3,
+        gt=0.0,
+        le=1.0,
+        description=(
+            "EMA smoothing factor for D_t updates: D_{t+1} = (1-λ)·D_t + "
+            "λ·D_R2. Smaller λ = more smoothing (less per-round whipsaw)."
+        ),
+    )
+    reweight_clamp_limit: float = Field(
+        default=20.0,
+        gt=1.0,
+        description=(
+            "Maximum ratio max(D_t) / min(D_t) after each update. Prevents "
+            "the weighted distribution from collapsing onto a tiny set of "
+            "hardest examples. Mirrors DynamicLoss._limit."
+        ),
+    )
+    reweight_beta_max: float = Field(
+        default=1.0,
+        gt=0.0,
+        description=(
+            "Cap on AdaBoost.R2's confidence β_t = L̄/(1-L̄). When L̄ > 0.5 "
+            "raw β > 1 would invert the reweighting direction (up-weighting "
+            "easy examples). Default 1.0 keeps the reweighting sign-safe at "
+            "the cost of dampened reweighting in regimes where the canonical "
+            "rule would abort. Set higher to recover raw R2 behaviour."
+        ),
+    )
+    reweight_enabled: bool = Field(
+        default=True,
+        description=(
+            "When False, D_t is held at 1.0 for every sample throughout "
+            "training — the per-sample-weighted loss collapses to plain mean "
+            "MSE. Used by the `boosted_pcgb_no_reweight.yaml` ablation to "
+            "separate the boosting signal from the deterministic-mask "
+            "signal."
+        ),
+    )
+
+    save_round_freq: int = Field(
+        default=2,
+        ge=1,
+        description="Save a per-round checkpoint every N rounds.",
+    )
+
+    validate_every_n_rounds: int = Field(
+        default=2,
+        ge=1,
+        description=(
+            "Run a full validation pass (unmasked network) every N rounds. "
+            "Emits the same train/<var> and val/<var> aggregator keys that "
+            "standard training does, so PCGB plots line up with baseline "
+            "runs. Default 2 matches save_round_freq."
+        ),
+    )
+
+
+AnyTopLevelConfig = TrainConfig | EvalConfig | PCGBConfig

@@ -1,0 +1,73 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/PCGBConfig.json
+
+# PCGB ablation — deterministic mask cycling ONLY, no sample reweighting.
+# Mirrors boosted_pcgb.yaml exactly except `reweight_enabled: false`. The
+# per-sample-weighted MSE collapses to plain mean MSE; D_t stays at 1
+# forever. Comparing this against boosted_pcgb.yaml at matched compute
+# isolates the reweighting contribution from the mask-cycling
+# contribution — addresses the confounded-baseline critique by giving us
+# a clean (mask-cycling alone) arm.
+
+debug: false
+disk_mode: true
+pin_mem: true
+
+num_rounds: 70
+steps_per_round_epochs: 1.0
+mask_searcher:
+  type: enumerate
+  num_skips: 4
+  schedule: adversarial
+  no_repeat_window: 0
+scoring_subset_percent: 0.25
+
+reweight_ema_lambda: 0.3
+reweight_clamp_limit: 5.0
+reweight_beta_max: 1.0
+reweight_enabled: false           # <-- the ablation knob
+
+calibration_time:
+  start: "1975-01-03"
+  end: "2013-10-05"
+save_round_freq: 2
+
+batch_size: 4
+learning_rate: 0.0006
+gradient_accumulation_steps: 1
+epochs: 70
+scheduler: { type: cosine }
+loss: mse
+finetune: false
+resume_ckpt_path: null
+inference_epochs: []
+data_percent: 1.0
+train_time:
+  start: "1975-01-03"
+  end: "2013-10-05"
+val_time:
+  start: "2013-10-05"
+  end: "2014-10-05"
+inference_times: []
+data_stride: [1]
+steps: [1]
+step_transition: []
+preemptible: false
+test_using_ema: false
+
+backend: auto
+
+experiment:
+  name: pcgb_samudra_no_reweight
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  train_schedule: standard
+  wandb:
+    mode: online
+    project: default
+    entity: ocean_emulators
+data: !include ../data/om4.yaml
+model: !include boosted_model.yaml

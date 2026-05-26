@@ -1,0 +1,76 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/PCGBConfig.json
+
+# Path-Cyclic Gradient Boosting (PCGB) — cold-start training of Samudra v2
+# with adversarial mask cycling and AdaBoost.R2-proper sample reweighting.
+# See configs/samudra_om4_v2/boosted_samudra.md for the algorithm spec.
+
+debug: false
+disk_mode: true
+pin_mem: true
+
+# PCGB-specific knobs
+num_rounds: 70                     # T — exactly matches baseline 70-epoch budget
+steps_per_round_epochs: 1.0        # K = 1 epoch / round → T·K = 70 epochs total
+mask_searcher:
+  type: enumerate                  # v1 default — enumerate all 16 skip masks
+  num_skips: 4                     # matches len(unet.ch_width)
+  schedule: adversarial            # argmax weighted MSE on D_t each round
+  no_repeat_window: 0              # try "trust the algorithm" first
+scoring_subset_percent: 0.25       # 25% of calibration set per scoring pass
+
+# R2 reweighting (DynamicLoss-borrowed stability additions)
+reweight_ema_lambda: 0.3
+reweight_clamp_limit: 5.0         # tightened from 20 to bound Arctic-collapse risk
+reweight_beta_max: 1.0            # sign-safe AdaBoost.R2 β; see PCGBConfig
+reweight_enabled: true
+
+calibration_time:
+  start: "1975-01-03"
+  end: "2013-10-05"
+save_round_freq: 2
+
+# TrainConfig fields PCGB inherits
+batch_size: 4
+learning_rate: 0.0006              # cosine 6e-4 → 0 over T rounds
+gradient_accumulation_steps: 1
+# epochs == num_rounds: scheduler steps once per round, so the cosine
+# schedule reaches 0 at the final round.
+epochs: 70
+scheduler: { type: cosine }
+loss: mse                          # plain MSE — PCGB's per-sample weighting
+                                   # is the adaptive layer (vs. DynamicLoss
+                                   # which adapts per-channel).
+finetune: false
+resume_ckpt_path: null              # cold start
+inference_epochs: []
+data_percent: 1.0
+train_time:
+  start: "1975-01-03"
+  end: "2013-10-05"
+val_time:
+  start: "2013-10-05"
+  end: "2014-10-05"
+inference_times: []
+data_stride: [1]
+steps: [1]                         # PCGB enforces single-step regression
+step_transition: []
+preemptible: false
+test_using_ema: false              # EMA disabled by PCGB driver regardless
+
+backend: auto
+
+experiment:
+  name: pcgb_samudra
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  train_schedule: standard
+  wandb:
+    mode: online
+    project: default
+    entity: ocean_emulators
+data: !include ../data/om4.yaml
+model: !include boosted_model.yaml

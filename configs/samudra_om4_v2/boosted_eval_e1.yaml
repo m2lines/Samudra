@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/EvalConfig.json
+
+# Eval a PCGB-E1 final checkpoint on the test period. Mirrors
+# boosted_eval.yaml but loads boosted_model_e1.yaml so the dilation
+# pattern (1, 8, 16, 16) matches the E1 architecture the ckpt was
+# trained under — loading with the V1 dilation (1, 2, 4, 8) would
+# silently apply the wrong dilation to E1 weights.
+
+debug: false
+save_zarr: true
+disk_mode: true
+
+ckpt_path: null
+
+inference_time:
+  start: "2014-10-10"
+  end: "2022-12-24"
+num_model_steps_forward: 25
+
+experiment:
+  name: pcgb_eval_e1
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: online
+    project: default
+    entity: ocean_emulators
+data: !include ../data/om4.yaml
+model: !include boosted_model_e1.yaml

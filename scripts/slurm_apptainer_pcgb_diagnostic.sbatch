@@ -4,30 +4,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Slurm + Apptainer harness for single-node evaluation, modeled after
-# `skypilot/eval.sky.yaml` and `scripts/slurm_apptainer_train.sbatch`.
+# Slurm + Apptainer harness for the PCGB diagnostic — a single-GPU,
+# read-only scan that scores every skip-mask on val and reports whether
+# PCGB has slack to redistribute. Gates the full 12 GPU-hour training run.
 #
 # Submit with env vars (example):
-#   export CONFIG=configs/samudra_om4/eval.yaml
-#   export NAME_SUFFIX=om4_samudra_baseline_eval  # NAME becomes YYYY-MM-DD-<suffix>
-#   export TARGET_CHECKPOINT=2026-02-22-om4_samudra_baseline/saved_nets/ema_ckpt.pt
-#   export ARGS="--num_model_steps_forward=25"
-#   sbatch --gres=gpu:rtx6000:1 scripts/slurm_apptainer_eval.sbatch
+#   export CONFIG=configs/samudra_om4_v2/boosted_pcgb_e1.yaml
+#   export NAME_SUFFIX=pcgb_diagnostic_e1
+#   export CKPT_PATH=/scratch/am16581/runs/om4_samudra_v2_dense_dilated_v1/saved_nets/ckpt.pt
+#   export DATA_ROOT=/scratch/am16581/data/om4_onedeg_v3
+#   sbatch scripts/slurm_apptainer_pcgb_diagnostic.sbatch
 #
-# Container selection (pick one):
-#   export IMAGE_REF=ghcr.io/open-athena/ocean-emulator-physicsnemo:25.11-<hash>
-#   export CONTAINER_HASH=<git sha>   # expands to 25.11-<sha>
-#   export CONTAINER_TAG=25.11-latest
-#
-# Checkpoint selection (pick one):
-#   export TARGET_CHECKPOINT=<path-relative-to-OUTPUT_BASE>
-#   export CKPT_PATH=/absolute/path/to/ema_ckpt.pt
-#
-# Private GHCR pulls (if needed):
-#   export GHCR_USERNAME=...
-#   export GHCR_TOKEN=...
+# Container selection — same conventions as scripts/slurm_apptainer_eval.sbatch.
 
-#SBATCH --job-name=oe-eval
+#SBATCH --job-name=oe-pcgb-diag
 #SBATCH --output=slurm-%j.out
 #SBATCH --account=torch_pr_347_courant
 #SBATCH --nodes=1
@@ -35,7 +25,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=128GB
 #SBATCH --gres=gpu:rtx6000:1
-#SBATCH --time=04:00:00
+#SBATCH --time=02:00:00
 
 set -euo pipefail
 
@@ -48,29 +38,20 @@ else
   exit 1
 fi
 
-CONFIG="${CONFIG:-}"
+CONFIG="${CONFIG:-configs/samudra_om4_v2/boosted_pcgb_e1.yaml}"
 NAME="${NAME:-}"
-NAME_SUFFIX="${NAME_SUFFIX:-}"
+NAME_SUFFIX="${NAME_SUFFIX:-pcgb_diagnostic}"
 ARGS="${ARGS:-}"
 BACKEND="${BACKEND:-cuda}"
 if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then
   NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"
 fi
-if [[ -z "${CONFIG}" || -z "${NAME}" ]]; then
-  echo "Missing required env vars. Need CONFIG and NAME." >&2
-  echo "Tip: set NAME_SUFFIX to auto-generate NAME as YYYY-MM-DD-<suffix>." >&2
-  echo "Example: export NAME_SUFFIX=om4_samudra_baseline_eval" >&2
-  exit 2
-fi
 
-# Config path inside the container image. Resolve relative paths under /workspace/
-# (the image's working directory where configs/ is copied).
 CONFIG_IN_CONTAINER="${CONFIG}"
 if [[ "${CONFIG_IN_CONTAINER}" != /* ]]; then
   CONFIG_IN_CONTAINER="/workspace/${CONFIG_IN_CONTAINER}"
 fi
 
-# Data + outputs (host paths; will be bind-mounted into the container at same paths).
 CURRENT_USER="${USER:-$(id -un)}"
 DATA_ROOT_DEFAULT="/scratch/${CURRENT_USER}/data/om4_onedeg_v3"
 OUTPUT_BASE_DEFAULT="/scratch/${CURRENT_USER}/runs"
@@ -79,14 +60,10 @@ OUTPUT_BASE="${OUTPUT_BASE:-${OUTPUT_BASE_DEFAULT}}"
 
 if [[ ! -d "${DATA_ROOT}" ]]; then
   echo "DATA_ROOT directory does not exist: ${DATA_ROOT}" >&2
-  echo "Set DATA_ROOT to an existing data directory." >&2
-  echo "Example: export DATA_ROOT=${DATA_ROOT_DEFAULT}" >&2
   exit 3
 fi
 if [[ ! -d "${OUTPUT_BASE}" ]]; then
   echo "OUTPUT_BASE directory does not exist: ${OUTPUT_BASE}" >&2
-  echo "Set OUTPUT_BASE to an existing output directory." >&2
-  echo "Example: export OUTPUT_BASE=${OUTPUT_BASE_DEFAULT}" >&2
   exit 4
 fi
 
@@ -97,7 +74,8 @@ if [[ -e "${RUN_DIR}" ]]; then
   exit 5
 fi
 
-# Resolve checkpoint path.
+# Checkpoint resolution — same UX as eval sbatch but using resume_ckpt_path
+# (the diagnostic config's field name, inherited from TrainConfig).
 TARGET_CHECKPOINT="${TARGET_CHECKPOINT:-}"
 CKPT_PATH="${CKPT_PATH:-}"
 if [[ -n "${TARGET_CHECKPOINT}" && -n "${CKPT_PATH}" ]]; then
@@ -117,16 +95,14 @@ elif [[ -n "${TARGET_CHECKPOINT}" ]]; then
     CKPT_PATH_HOST="${OUTPUT_BASE}/${TARGET_CHECKPOINT}"
   fi
 else
-  echo "Missing checkpoint. Set TARGET_CHECKPOINT (relative to OUTPUT_BASE) or CKPT_PATH." >&2
-  exit 7
+  # Fall back to whatever resume_ckpt_path is set in the YAML.
+  CKPT_PATH_HOST=""
 fi
-
-if [[ ! -f "${CKPT_PATH_HOST}" ]]; then
+if [[ -n "${CKPT_PATH_HOST}" && ! -f "${CKPT_PATH_HOST}" ]]; then
   echo "Checkpoint not found: ${CKPT_PATH_HOST}" >&2
   exit 8
 fi
 
-# W&B mode defaults: online if key provided, else disabled.
 WANDB_MODE="${WANDB_MODE:-}"
 if [[ -z "${WANDB_MODE}" ]]; then
   if [[ -n "${WANDB_API_KEY:-}" ]]; then
@@ -136,7 +112,6 @@ if [[ -z "${WANDB_MODE}" ]]; then
   fi
 fi
 
-# Container selection (same conventions as scripts/slurm_apptainer_train.sbatch).
 CONTAINER_REGISTRY="${CONTAINER_REGISTRY:-ghcr.io}"
 CONTAINER_ORG="${CONTAINER_ORG:-open-athena}"
 CONTAINER_REPO="${CONTAINER_REPO:-ocean-emulator-physicsnemo}"
@@ -159,14 +134,11 @@ cd "${REPO_DIR}"
 
 SIF_DIR="${SIF_DIR:-${REPO_DIR}/.apptainer-images}"
 mkdir -p "${SIF_DIR}"
-# Default cache name keys off IMAGE_REF so distinct refs never collide.
 IMAGE_REF_SAFE="$(echo "${IMAGE_REF}" | tr '/:@' '---')"
 SIF_PATH="${SIF_PATH:-${SIF_DIR}/${IMAGE_REF_SAFE}.sif}"
 
-# Apptainer tmp: keep on node-local /tmp to avoid scratch filesystems that don't support xattrs.
 export APPTAINER_TMPDIR="${APPTAINER_TMPDIR:-/tmp}"
 
-# GHCR auth (if image is private).
 if [[ -n "${GHCR_USERNAME:-}" ]] && [[ -z "${APPTAINER_DOCKER_USERNAME:-}" ]]; then
   export APPTAINER_DOCKER_USERNAME="${GHCR_USERNAME}"
 fi
@@ -179,7 +151,7 @@ echo "Config:     ${CONFIG_IN_CONTAINER}"
 echo "Name:       ${NAME}"
 echo "Data root:  ${DATA_ROOT}"
 echo "Outputs:    ${OUTPUT_BASE}"
-echo "Checkpoint: ${CKPT_PATH_HOST}"
+echo "Checkpoint: ${CKPT_PATH_HOST:-<from yaml>}"
 echo "W&B mode:   ${WANDB_MODE}"
 echo "Backend:    ${BACKEND}"
 echo "Image ref:  ${IMAGE_REF}"
@@ -200,7 +172,9 @@ export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export NUMEXPR_NUM_THREADS="${NUMEXPR_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export PYTHONUNBUFFERED=1
 
-# Bind mounts.
+# Bind-mount host repo source so PCGB changes are visible without a
+# container rebuild — same convention as the kernel-branch train sbatch.
+# Includes scripts/ so /workspace/scripts/pcgb_diagnostic.py resolves.
 DATA_CACHE_DIR="${DATA_CACHE_DIR:-${REPO_DIR}/.data_cache/${NAME}}"
 mkdir -p "${DATA_CACHE_DIR}"
 binds=(
@@ -208,31 +182,32 @@ binds=(
   "${OUTPUT_BASE}:${OUTPUT_BASE}"
   "${DATA_CACHE_DIR}:/workspace/.data_cache"
 )
-
-# Mount host source over the container's snapshotted source so config/eval-code
-# changes are visible without a container rebuild — same convention as the
-# PCGB sbatch.
 if [[ "${MOUNT_SOURCE:-1}" != "0" ]]; then
   binds+=("${REPO_DIR}/src:/workspace/src")
   binds+=("${REPO_DIR}/configs:/workspace/configs")
   binds+=("${REPO_DIR}/scripts:/workspace/scripts")
 fi
 
-# If checkpoint lives outside DATA_ROOT/OUTPUT_BASE, bind its parent path too.
-case "${CKPT_PATH_HOST}" in
-  "${OUTPUT_BASE}"|"${OUTPUT_BASE}"/*|"${DATA_ROOT}"|"${DATA_ROOT}"/*)
-    ;;
-  *)
-    CKPT_DIR="$(dirname "${CKPT_PATH_HOST}")"
-    binds+=("${CKPT_DIR}:${CKPT_DIR}")
-    ;;
-esac
+# Bind the parent dir of the checkpoint if it lives outside the
+# already-bound roots, so the container can read it.
+if [[ -n "${CKPT_PATH_HOST}" ]]; then
+  case "${CKPT_PATH_HOST}" in
+    "${OUTPUT_BASE}"|"${OUTPUT_BASE}"/*|"${DATA_ROOT}"|"${DATA_ROOT}"/*)
+      ;;
+    *)
+      CKPT_DIR="$(dirname "${CKPT_PATH_HOST}")"
+      binds+=("${CKPT_DIR}:${CKPT_DIR}")
+      ;;
+  esac
+fi
 
 BIND_ARG="$(IFS=,; echo "${binds[*]}")"
-
-# Create the run directory after preflight validation so early failures are
-# retryable with the same NAME.
 mkdir -p "${RUN_DIR}"
+
+CKPT_OVERRIDE_ARG=""
+if [[ -n "${CKPT_PATH_HOST}" ]]; then
+  CKPT_OVERRIDE_ARG="--resume_ckpt_path=${CKPT_PATH_HOST}"
+fi
 
 srun --ntasks=1 --ntasks-per-node=1 \
   "${APPTAINER_BIN}" exec --nv \
@@ -248,15 +223,20 @@ srun --ntasks=1 --ntasks-per-node=1 \
       fi
       if [[ ! -f \"${CONFIG_IN_CONTAINER}\" ]]; then
         echo \"ERROR: config not found inside container: ${CONFIG_IN_CONTAINER}\" >&2
-        echo \"Hint: rebuild/pull a container tag that includes /workspace/configs.\" >&2
         exit 2
       fi
-      /workspace/.venv/bin/python -m ocean_emulators.eval \"${CONFIG_IN_CONTAINER}\" \
-        --ckpt_path=\"${CKPT_PATH_HOST}\" \
+      if [[ ! -f /workspace/scripts/pcgb_diagnostic.py ]]; then
+        echo \"ERROR: /workspace/scripts/pcgb_diagnostic.py not found\" >&2
+        echo \"Hint: ensure MOUNT_SOURCE=1 (default) so the host scripts/ dir is bound.\" >&2
+        exit 3
+      fi
+      /workspace/.venv/bin/python /workspace/scripts/pcgb_diagnostic.py \
+        \"${CONFIG_IN_CONTAINER}\" \
         --experiment.name=\"${NAME}\" \
         --experiment.data_root=\"${DATA_ROOT}\" \
         --experiment.base_output_dir=\"${OUTPUT_BASE}\" \
         --experiment.wandb.mode=\"${WANDB_MODE}\" \
         --backend=\"${BACKEND}\" \
+        ${CKPT_OVERRIDE_ARG} \
         ${ARGS}
     "

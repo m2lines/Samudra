@@ -1,0 +1,50 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/SamudraConfig.json
+
+# E1 architecture mirror — dense+dilated conv_next_block with aggressive
+# dilation [1, 8, 16, 16]. This matches the configuration of the strongest
+# 1° checkpoint we have available
+# (`/scratch/am16581/runs/om4_samudra_v2_dense_dilated_v1/saved_nets/ckpt.pt`),
+# trained on the `u/alxmrs/large-dw-kernel` branch as kernel-experiment v6.
+#
+# Used by `boosted_pcgb_e1.yaml` and the diagnostic to evaluate PCGB on top
+# of the best-known architectural lever we have.
+#
+# NOTE: drop_path_rate=0 matches the E1 training regime exactly. The PCGB
+# driver still injects deterministic per-skip masks via `with_path_mask` at
+# scoring time — `drop_path_rate` only governs the stochastic Bernoulli
+# behaviour during plain training.
+
+checkpointing: all
+pred_residuals: false
+last_kernel_size: 3
+pad: "circular"
+
+unet:
+  ch_width: [280, 380, 480, 520]
+  dilation: [1, 8, 16, 16]
+  n_layers: [1, 1, 1, 1]
+  drop_path_rate: 0.0
+
+  core_block:
+    block_type: "conv_next_block"
+    kernel_size: 3
+    activation: "capped_gelu"
+    upscale_factor: 2
+    norm: "batch"
+
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "zonally_periodic_upsample"
+
+# corrector left null — the E1 ckpt was trained with an effectively-no-op
+# Correctors (both options null/false → zero params). Setting `null` here
+# skips both the Correctors build AND the Normalize construction the build
+# would have required. Without staged data (see scripts/stage_data.py on
+# the kernel branch), the Normalize ctor crashes asking for level-flattened
+# variable names that the compact-form OM4.zarr doesn't expose. Diagnostic
+# loads the state_dict directly; ckpt has zero `corrector.*` keys so the
+# omission is a clean no-op for state-dict loading.
+corrector: null

@@ -38,7 +38,7 @@ export CONTAINER_TAG="${CONTAINER_TAG:-25.11-latest}"
 export CONFIG=configs/fomo_om4/eval_multiscale_halfdeg.yaml
 
 # ── Run name ──
-export NAME_SUFFIX=kr1_v51_halfdeg_eval_ema
+export NAME_SUFFIX=kr1_v51_halfdeg_eval_ema_ep48
 
 # ── Data root ──
 export DATA_ROOT="${DATA_ROOT:-/scratch/am16581/data}"
@@ -46,7 +46,7 @@ export DATA_ROOT="${DATA_ROOT:-/scratch/am16581/data}"
 # ── Output base ──
 export OUTPUT_BASE="${OUTPUT_BASE:-/scratch/${USER}/runs}"
 
-# ── Checkpoint: v51 EMA weights (walltime-killed mid-epoch 30; best val 0.240 at epoch 29) ──
+# ── Checkpoint: v51 EMA weights post-resume chain (latest val 0.234 at epoch 48; chain OOM'd in 4-step phase) ──
 export CKPT_PATH="${CKPT_PATH:-/scratch/am16581/runs/2026-05-21-kr1_fomo_multiscale_v51/saved_nets/ema_ckpt.pt}"
 
 # ── W&B ──

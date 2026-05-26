@@ -5,9 +5,9 @@
 import pytest
 import torch
 from perceiver_pytorch.perceiver_io import PerceiverIO
-from test_encoder import make_resolution  # type: ignore
+from test_encoder import make_ctx, make_encoder, make_resolution  # type: ignore
 
-from ocean_emulators.models.modules import PerceiverDecoder, PerceiverEncoder
+from ocean_emulators.models.modules import PerceiverDecoder
 
 # Small values for fast tests.
 LATENT_DIM = 8
@@ -23,24 +23,6 @@ BATCH = 2
 #   patch_h=4, patch_w=4  →  nh=2, nw=4
 NH, NW = 2, 4
 H, W = 8, 16
-
-
-def make_perceiver_encoder(in_channels, out_channels, *, num_latents=2):
-    """Build a regular Perceiver for the encoder (uses mean-pooling)."""
-    from perceiver_pytorch import Perceiver
-
-    return Perceiver(
-        num_freq_bands=4,
-        max_freq=1.0,
-        depth=2,
-        input_axis=2,
-        input_channels=in_channels,
-        latent_dim=3,
-        num_latents=num_latents,
-        num_classes=out_channels,
-        weight_tie_layers=True,
-        self_per_cross_attn=2,
-    )
 
 
 def make_decoder_perceiver_io(in_channels=IN_CHANNELS, out_channels=OUT_CHANNELS):
@@ -123,29 +105,30 @@ def make_decoder_with_shared_weights(
 
 def test_roundtrip():
     H_rt, W_rt = 4, 8
-    x = torch.randn(3, 10, H_rt, W_rt)
+    embed_dim = 4
+    prog = torch.randn(3, 7, H_rt, W_rt)
+    boundary = torch.randn(3, 3, H_rt, W_rt)
 
-    patch_embed = PerceiverEncoder(
-        in_channels=10,
-        out_channels=4,
+    patch_embed = make_encoder(
+        prog_channels=7,
+        boundary_channels=3,
+        out_channels=embed_dim,
         patch_extent=(180, 180),
-        perceiver=make_perceiver_encoder(10, 4),
     )
 
-    patches = patch_embed(x, make_resolution(x))
-    res = make_resolution(x)
+    patches = patch_embed(prog, boundary, make_ctx(prog))
 
     decode = PerceiverDecoder(
-        in_channels=4,
+        in_channels=embed_dim,
         out_channels=10,
         patch_extent=(180, 180),
         queries_dim=QUERIES_DIM,
-        perceiver_io=make_decoder_perceiver_io(4, 10),
+        perceiver_io=make_decoder_perceiver_io(embed_dim, 10),
         window_patches=None,
         context_patches=None,
     )
 
-    y_hat = decode(patches, res)
+    y_hat = decode(patches, make_resolution(prog))
 
     assert y_hat.shape == (3, 10, H_rt, W_rt), (
         f"Decoder should produce full-resolution output, got {y_hat.shape}."

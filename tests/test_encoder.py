@@ -7,20 +7,47 @@ from perceiver_pytorch import Perceiver
 
 from ocean_emulators.constants import Lat, Lon
 from ocean_emulators.models.modules.encoder import PerceiverEncoder, patch_from
+from ocean_emulators.utils.ctx import GridContext
+
+LATENT_DIM = 4
+TOKEN_DIM = 8
 
 
-def make_perceiver(in_channels, out_channels, *, num_latents=2, input_axis=2):
+def make_perceiver(*, num_latents=2):
+    """Build a 1-D Perceiver matching the encoder's expected sequence shape."""
     return Perceiver(
-        num_freq_bands=4,
+        # num_freq_bands / max_freq are required positional kwargs but unused
+        # when fourier_encode_data=False.
+        num_freq_bands=0,
         max_freq=1.0,
         depth=2,
-        input_axis=input_axis,
-        input_channels=in_channels,
-        latent_dim=3,
+        input_axis=1,
+        input_channels=TOKEN_DIM,
+        fourier_encode_data=False,
+        latent_dim=LATENT_DIM,
         num_latents=num_latents,
-        num_classes=out_channels,
+        num_classes=LATENT_DIM,
         weight_tie_layers=True,
         self_per_cross_attn=2,
+    )
+
+
+def make_encoder(
+    prog_channels,
+    boundary_channels,
+    out_channels,
+    patch_extent,
+    max_patch_size=(8, 8),
+):
+    return PerceiverEncoder(
+        prog_channels=prog_channels,
+        boundary_channels=boundary_channels,
+        out_channels=out_channels,
+        token_dim=TOKEN_DIM,
+        latent_dim=LATENT_DIM,
+        patch_extent=patch_extent,
+        max_patch_size=max_patch_size,
+        perceiver=make_perceiver(),
     )
 
 
@@ -30,69 +57,73 @@ def make_resolution(x: torch.Tensor) -> tuple[Lat, Lon]:
     return lat, lon
 
 
-def test_makes_patches():
-    x = torch.randn(3, 10, 4, 8)
-
-    patch_embed = PerceiverEncoder(
-        in_channels=10,
-        out_channels=4,
-        patch_extent=(180, 180),
-        perceiver=make_perceiver(10, 4),
+def make_ctx(prog: torch.Tensor) -> GridContext:
+    """A minimal GridContext for encoder/FOMO tests; label_mask is a placeholder."""
+    res = make_resolution(prog)
+    mask = torch.ones(prog.shape[1], prog.shape[2], prog.shape[3], dtype=torch.bool)
+    return GridContext(
+        label_mask=mask,
+        input_resolution_cpu=res,
+        output_resolution_cpu=res,
     )
 
-    patches = patch_embed(x, make_resolution(x))
 
-    assert patches.shape == (3, 4, 1, 2)
+def test_makes_patches():
+    prog = torch.randn(3, 7, 4, 8)
+    boundary = torch.randn(3, 3, 4, 8)
+    embed_dim = 4
+
+    encoder = make_encoder(7, 3, embed_dim, (180, 180))
+    patches = encoder(prog, boundary, make_ctx(prog))
+
+    assert patches.shape == (3, embed_dim, 1, 2)
 
 
 def test_makes_rectangular_patches():
-    x = torch.randn(1, 10, 4, 8)
+    prog = torch.randn(1, 7, 4, 8)
+    boundary = torch.randn(1, 3, 4, 8)
+    embed_dim = 4
 
-    patch_embed = PerceiverEncoder(
-        in_channels=10,
-        out_channels=4,
-        patch_extent=(180, 90),
-        perceiver=make_perceiver(10, 4),
-    )
+    encoder = make_encoder(7, 3, embed_dim, (180, 90))
+    patches = encoder(prog, boundary, make_ctx(prog))
 
-    patches = patch_embed(x, make_resolution(x))
-
-    assert patches.shape == (
-        1,
-        4,
-        1,
-        4,
-    )
+    assert patches.shape == (1, embed_dim, 1, 4)
 
 
 def test_makes_patches__high_res():
-    x = torch.randn(1, 10, 14, 21)
+    prog = torch.randn(1, 7, 14, 21)
+    boundary = torch.randn(1, 3, 14, 21)
+    embed_dim = 4
 
-    patch_embed = PerceiverEncoder(
-        in_channels=10,
-        out_channels=4,
-        patch_extent=(90.0, 120.0),
-        perceiver=make_perceiver(10, 4),
-    )
+    encoder = make_encoder(7, 3, embed_dim, (90.0, 120.0))
+    patches = encoder(prog, boundary, make_ctx(prog))
 
-    patches = patch_embed(x, make_resolution(x))
-
-    assert patches.shape == (1, 4, 2, 3)
+    assert patches.shape == (1, embed_dim, 2, 3)
 
 
 def test_makes_patches__more_variables():
-    x = torch.randn(1, 20, 4, 8)
+    prog = torch.randn(1, 17, 4, 8)
+    boundary = torch.randn(1, 3, 4, 8)
+    embed_dim = 4
 
-    patch_embed = PerceiverEncoder(
-        in_channels=20,
-        out_channels=4,
-        patch_extent=(180, 180),
-        perceiver=make_perceiver(20, 4),
-    )
+    encoder = make_encoder(17, 3, embed_dim, (180, 180))
+    patches = encoder(prog, boundary, make_ctx(prog))
 
-    patches = patch_embed(x, make_resolution(x))
+    assert patches.shape == (1, embed_dim, 1, 2)
 
-    assert patches.shape == (1, 4, 1, 2)
+
+def test_cross_resolution_patches():
+    """Prog and boundary at different resolutions still produce the same patch grid."""
+    # Prog at 1/2 deg (8x16), boundary at 1 deg (4x8), patches of 90 degrees.
+    prog = torch.randn(1, 7, 8, 16)
+    boundary = torch.randn(1, 3, 4, 8)
+    embed_dim = 4
+
+    encoder = make_encoder(7, 3, embed_dim, (90.0, 90.0))
+    patches = encoder(prog, boundary, make_ctx(prog))
+
+    # 8 / patch_h(=4) = 2, 16 / patch_w(=4) = 4
+    assert patches.shape == (1, embed_dim, 2, 4)
 
 
 def test_patch_from__full_globe():

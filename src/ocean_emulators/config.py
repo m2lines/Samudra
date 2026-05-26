@@ -446,48 +446,43 @@ class PerceiverConfig(BaseConfig):
 
     def build(
         self,
-        in_channels: int,
-        out_channels: int,
-        max_patch_size: tuple[int, int],
+        token_dim: int,
         implementation: PerceiverImpl,
     ) -> nn.Module:
-        """Build a regular Perceiver (used by the encoder)."""
-        # This is not really a "frequency" but a maximum of the width appears to be reasonable from looking at the code.
-        max_freq = max(*max_patch_size)
+        """Build a Perceiver that maps ``(B, N, token_dim)`` to ``(B, latent_dim)``.
 
+        Position encoding is the caller's responsibility — the encoder applies
+        a custom 2-D Fourier scheme before concatenating prognostic and
+        boundary tokens into the sequence.
+        """
         if _use_flash(implementation):
             try:
                 from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
             except ImportError as e:
                 raise _flash_import_error() from e
-            from einops.layers.torch import Rearrange
 
-            # Flash perceiver expects (batch, seq_len, dim); naive handles
-            # (batch, ph, pw, dim) natively via input_axis=2.  Bake the
-            # spatial-flatten into the module so callers don't need to care.
-            perceiver: nn.Module = nn.Sequential(
-                Rearrange("b ph pw v -> b (ph pw) v"),
-                FlashPerceiver(
-                    latent_rotary_emb_dim=max_freq,
-                    depth=self.depth,
-                    input_dim=in_channels,
-                    output_dim=out_channels,
-                    output_mode="average",
-                    latent_dim=self.latent_dim,
-                    num_latents=self.num_latents,
-                    use_flash_attn=True,
-                    weight_tie_layers=True,
-                    self_per_cross_attn=2,
-                ),
+            return FlashPerceiver(
+                depth=self.depth,
+                input_dim=token_dim,
+                output_dim=self.latent_dim,
+                output_mode="average",
+                latent_dim=self.latent_dim,
+                num_latents=self.num_latents,
+                use_flash_attn=True,
+                weight_tie_layers=True,
+                self_per_cross_attn=2,
             )
         elif _use_naive(implementation):
-            perceiver = NaivePerceiver(
-                num_freq_bands=4,
-                max_freq=max_freq,
+            # ``num_freq_bands`` / ``max_freq`` are required positional kwargs
+            # but unused when ``fourier_encode_data=False``.
+            return NaivePerceiver(
                 depth=self.depth,
-                input_axis=2,
-                input_channels=in_channels,
-                num_classes=out_channels,
+                input_axis=1,
+                input_channels=token_dim,
+                fourier_encode_data=False,
+                num_freq_bands=0,
+                max_freq=1.0,
+                num_classes=self.latent_dim,
                 latent_dim=self.latent_dim,
                 num_latents=self.num_latents,
                 weight_tie_layers=True,
@@ -495,8 +490,6 @@ class PerceiverConfig(BaseConfig):
             )
         else:
             raise ValueError(f"Unknown perceiver implementation: {implementation}.")
-
-        return perceiver
 
     def build_io(
         self,
@@ -564,24 +557,32 @@ def _flash_import_error() -> ValueError:
 
 class EncoderConfig(BaseConfig):
     perceiver: PerceiverConfig = PerceiverConfig()
+    token_dim: int = Field(
+        default=256,
+        description=(
+            "Per-token dimension fed into the Perceiver after projecting "
+            "prognostic and boundary pixels to a common space."
+        ),
+    )
 
     def build(
         self,
-        in_channels: int,
+        prog_channels: int,
+        boundary_channels: int,
         out_channels: int,
         patch_extent: tuple[float, float],
-        max_lat_size: int,
-        max_lon_size: int,
+        max_patch_size: tuple[int, int],
         implementation: PerceiverImpl,
     ) -> PerceiverEncoder:
-        max_patch_size = patch_from(patch_extent, max_lat_size, max_lon_size)
         return PerceiverEncoder(
-            in_channels=in_channels,
+            prog_channels=prog_channels,
+            boundary_channels=boundary_channels,
             out_channels=out_channels,
+            token_dim=self.token_dim,
+            latent_dim=self.perceiver.latent_dim,
             patch_extent=patch_extent,
-            perceiver=self.perceiver.build(
-                in_channels, out_channels, max_patch_size, implementation
-            ),
+            max_patch_size=max_patch_size,
+            perceiver=self.perceiver.build(self.token_dim, implementation),
         )
 
 
@@ -843,12 +844,6 @@ class FOMOConfig(BaseModelConfig):
         assert len(self.patch_extent) == 2, "patch_extent must be a pair of floats."
         extent = self.patch_extent[0], self.patch_extent[1]
 
-        all_grid_sizes = [s.grid_size for s in srcs]
-        max_lat_size, max_lon_size = (
-            max(g[0] for g in all_grid_sizes),
-            max(g[1] for g in all_grid_sizes),
-        )
-
         impl = self.perceiver_implementation
         if _use_flash(impl) and not self.use_bfloat16:
             raise ValueError(
@@ -856,15 +851,25 @@ class FOMOConfig(BaseModelConfig):
                 "Please set `use_bfloat16=True` or `perceiver_implementation='naive'`."
             )
 
-        in_channels = prog_channels + boundary_channels
-        total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
+        # 3D coordinates are appended to the prognostic stream only.
+        encoder_prog_channels = prog_channels + (3 if self.add_3d_coordinates else 0)
+
+        # Compute the largest patch size (in pixels) across all data source
+        # resolutions.  Used to set the Perceiver's Fourier frequency range.
+        all_grid_sizes = [s.grid_size for s in srcs]
+        max_ph, max_pw = 0, 0
+        for grid_h, grid_w in all_grid_sizes:
+            ph, pw = patch_from(extent, grid_h, grid_w)
+            max_ph = max(max_ph, ph)
+            max_pw = max(max_pw, pw)
+        max_patch_size = (max_ph, max_pw)
 
         encoder = self.encoder.build(
-            total_in_channels,
+            encoder_prog_channels,
+            boundary_channels,
             self.embedding_dim,
             extent,
-            max_lat_size,
-            max_lon_size,
+            max_patch_size,
             impl,
         )
         processor = self.processor.build(
@@ -880,8 +885,9 @@ class FOMOConfig(BaseModelConfig):
         )
 
         add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
+        # TODO(alxmrs): `in_channels` isn't used anywhere :/ Consider removing from base model.
         return FOMO(
-            in_channels=total_in_channels,
+            in_channels=encoder_prog_channels + boundary_channels,
             out_channels=out_channels,
             pred_residuals=self.pred_residuals,
             last_kernel_size=self.last_kernel_size,

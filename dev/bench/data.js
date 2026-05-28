@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1779139271876,
+  "lastUpdate": 1780010319184,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -9489,6 +9489,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.11060593611486773",
             "extra": "mean: 28.33080447740001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "381e7c442ad48549cf3a2bce0307416823fee653",
+          "message": "Consistent 2d Fourier features for each (encoder) Perceiver impl. (#741)\n\nDuring trial and error experiments with FOMO, Claude and I detected a\npossible source of error in the initial runs where the production\nPerceiver used in the encoder has sub-par positional encodings.\nSpecifically, our Flash perceiver impl doesn't encode the 2d patch\ninformation in the same way as the naive Perceiver impl. This PR\naugments the input of that Perceiver, borrowing the Fourier encoding\nscheme from our \"naive\" impl library (a Lucid Rains dependency).\n\nCC: @jder - I wonder if this affects your recent Fomini experiments at\nall. I'm not sure if I should apply this to the PerceiverIO/decoder\nmodule, too.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2026-05-28T23:03:52Z",
+          "tree_id": "a6bcd787fabc88446eb1d1b1dd3851c3bc8c9dbd",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/381e7c442ad48549cf3a2bce0307416823fee653"
+        },
+        "date": 1780010318058,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0746938432867184,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0009836476417349113",
+            "extra": "mean: 930.4975609999929 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.16161410250492095,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1019122855675614",
+            "extra": "mean: 6.187578834399995 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.03165158628731826,
+            "unit": "iter/sec",
+            "range": "stddev: 0.19782229975828855",
+            "extra": "mean: 31.59399313900001 sec\nrounds: 5"
           }
         ]
       }

@@ -459,8 +459,6 @@ class PerceiverConfig(BaseConfig):
         # This is not really a "frequency" but a maximum of the width appears to be reasonable from looking at the code.
         max_freq = max(*max_patch_size)
 
-        # Match the naive perceiver's `num_freq_bands=4`; both paths therefore
-        # encode intra-patch position with the same Fourier-feature layout.
         num_freq_bands = 4
         if _use_flash(implementation):
             try:

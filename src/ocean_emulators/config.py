@@ -38,7 +38,11 @@ from ocean_emulators.models.modules import (
     TransposedConvUpsample,
     UNetBackbone,
 )
-from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
+from ocean_emulators.models.modules.augment_input import (
+    Concat3dCoordinates,
+    FourierFeatures2D,
+    fourier_features_2d_dim,
+)
 from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from ocean_emulators.models.modules.encoder import patch_from
 from ocean_emulators.utils.data import DataContainer, DataSource, Normalize
@@ -473,6 +477,9 @@ class PerceiverConfig(BaseConfig):
         # This is not really a "frequency" but a maximum of the width appears to be reasonable from looking at the code.
         max_freq = max(*max_patch_size)
 
+        # Match the naive perceiver's `num_freq_bands=4`; both paths therefore
+        # encode intra-patch position with the same Fourier-feature layout.
+        num_freq_bands = 4
         if _use_flash(implementation):
             try:
                 from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
@@ -480,15 +487,20 @@ class PerceiverConfig(BaseConfig):
                 raise _flash_import_error() from e
             from einops.layers.torch import Rearrange
 
-            # Flash perceiver expects (batch, seq_len, dim); naive handles
-            # (batch, ph, pw, dim) natively via input_axis=2.  Bake the
-            # spatial-flatten into the module so callers don't need to care.
+            # Flash perceiver expects (batch, seq_len, dim) and only adds rotary
+            # positions on its latents; it has no built-in intra-patch
+            # positional signal on the input. Naive Perceiver handles
+            # (batch, ph, pw, dim) and adds 2D Fourier features via
+            # `input_axis=2, fourier_encode_data=True`. Prepend an explicit
+            # FourierFeatures2D so flash matches naive on intra-patch position.
+            fourier_dim = fourier_features_2d_dim(num_freq_bands)
             perceiver: nn.Module = nn.Sequential(
+                FourierFeatures2D(num_freq_bands=num_freq_bands, max_freq=max_freq),
                 Rearrange("b ph pw v -> b (ph pw) v"),
                 FlashPerceiver(
                     latent_rotary_emb_dim=max_freq,
                     depth=self.depth,
-                    input_dim=in_channels,
+                    input_dim=in_channels + fourier_dim,
                     output_dim=out_channels,
                     output_mode="average",
                     latent_dim=self.latent_dim,
@@ -504,7 +516,7 @@ class PerceiverConfig(BaseConfig):
             )
         elif _use_naive(implementation):
             perceiver = NaivePerceiver(
-                num_freq_bands=4,
+                num_freq_bands=num_freq_bands,
                 max_freq=max_freq,
                 depth=self.depth,
                 input_axis=2,
@@ -944,6 +956,11 @@ class FOMiniConfig(BaseModelConfig):
         default=128,
         description="Dimension of data-token embeddings before PerceiverIO.",
     )
+    input_num_freq_bands: int = Field(
+        default=4,
+        ge=0,
+        description="Number of Fourier frequency bands projected into FOMini input tokens.",
+    )
     queries_dim: int = Field(
         default=128,
         description="Dimension of PerceiverIO output queries.",
@@ -1006,6 +1023,8 @@ class FOMiniConfig(BaseModelConfig):
                 hist=hist,
             )
         )
+        all_grid_sizes = [s.grid_size for s in srcs]
+        max_input_freq = max(max(g) for g in all_grid_sizes)
 
         in_channels = prog_channels + boundary_channels
         perceiver_io = self.perceiver.build_io(
@@ -1021,6 +1040,8 @@ class FOMiniConfig(BaseModelConfig):
             last_kernel_size=self.last_kernel_size,
             pad=self.pad,
             input_embedding_dim=self.embedding_dim,
+            input_num_freq_bands=self.input_num_freq_bands,
+            input_max_freq=max_input_freq,
             coordinate_embedding_dim=self.coordinate_embedding_dim,
             queries_dim=self.queries_dim,
             query_chunk_size=self.query_chunk_size,

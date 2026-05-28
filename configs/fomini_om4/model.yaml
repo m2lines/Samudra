@@ -7,6 +7,7 @@ pad: "circular"
 checkpointing: "all"
 perceiver_implementation: "flash"
 embedding_dim: 1024
+input_num_freq_bands: 4
 queries_dim: 1024
 coordinate_embedding_dim: 512
 query_chunk_size: null

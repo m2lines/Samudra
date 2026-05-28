@@ -4,6 +4,7 @@ from perceiver_pytorch.perceiver_io import PerceiverIO
 from test_encoder import make_resolution  # type: ignore
 
 from ocean_emulators.models.fomini import FOMini
+from ocean_emulators.models.modules.augment_input import fourier_features_2d_dim
 from ocean_emulators.utils.ctx import GridContext
 
 
@@ -43,6 +44,8 @@ def make_model(query_chunk_size: int | None) -> FOMini:
         last_kernel_size=3,
         pad="circular",
         input_embedding_dim=12,
+        input_num_freq_bands=4,
+        input_max_freq=None,
         coordinate_embedding_dim=8,
         queries_dim=10,
         query_chunk_size=query_chunk_size,
@@ -72,6 +75,13 @@ def test_forward_shape():
     prog, boundary = _split_prog_boundary(x)
     out = model.forward_once(prog, boundary, make_ctx(out_channels=6, H=4, W=8))
     assert out.shape == (2, 6, 4, 8)
+
+
+def test_input_fourier_projection_shape():
+    model = make_model(query_chunk_size=None)
+
+    assert model.input_fourier_embed.in_features == fourier_features_2d_dim(4)
+    assert model.input_fourier_embed.out_features == 12
 
 
 def test_chunked_queries_match_full_decode():

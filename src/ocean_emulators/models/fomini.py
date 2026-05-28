@@ -14,7 +14,11 @@ from torch.utils.checkpoint import checkpoint
 
 from ocean_emulators.constants import Boundary, Prognostic
 from ocean_emulators.models.base import BaseModel
-from ocean_emulators.models.modules.augment_input import make_3d_coordinate_grid
+from ocean_emulators.models.modules.augment_input import (
+    FourierFeatures2D,
+    fourier_features_2d_dim,
+    make_3d_coordinate_grid,
+)
 from ocean_emulators.utils.ctx import GridContext
 from ocean_emulators.utils.device import autocast
 
@@ -164,6 +168,8 @@ class FOMini(BaseModel):
         last_kernel_size: int,
         pad: str,
         input_embedding_dim: int,
+        input_num_freq_bands: int,
+        input_max_freq: float | None,
         coordinate_embedding_dim: int,
         queries_dim: int,
         query_chunk_size: int | None,
@@ -217,6 +223,15 @@ class FOMini(BaseModel):
             num_times=num_times,
             num_depths=num_depths,
             dim=input_embedding_dim,
+        )
+        self.input_fourier = FourierFeatures2D(
+            num_freq_bands=input_num_freq_bands,
+            max_freq=input_max_freq,
+        )
+        self.input_fourier_embed = nn.Linear(
+            fourier_features_2d_dim(input_num_freq_bands),
+            input_embedding_dim,
+            bias=False,
         )
         self.data_coordinate_embed = CoordinateEmbedding(
             coordinate_embedding_dim, input_embedding_dim
@@ -305,7 +320,12 @@ class FOMini(BaseModel):
 
         with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
             # Pixel tokens: one token per (lat, lon), channels are token features.
-            tokens = rearrange(fts, "b c h w -> b (h w) c")
+            tokens_spatial = rearrange(fts, "b c h w -> b h w c")
+            tokens = rearrange(tokens_spatial, "b h w c -> b (h w) c")
+            fourier_tokens = rearrange(
+                self.input_fourier.features(tokens_spatial), "b h w c -> b (h w) c"
+            )
+            fourier_tokens = self.input_fourier_embed(fourier_tokens)
 
             coords = make_3d_coordinate_grid(lat, lon).to(
                 device=fts.device, dtype=fts.dtype
@@ -334,6 +354,7 @@ class FOMini(BaseModel):
             data_tokens = (
                 value_tokens
                 + mask_tokens.unsqueeze(0)
+                + fourier_tokens
                 + self.data_coordinate_embed(coords).unsqueeze(0).expand(B, -1, -1)
             )
             query_tokens = self.query_coordinate_embed(coords)

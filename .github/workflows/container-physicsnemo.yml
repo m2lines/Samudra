@@ -328,13 +328,13 @@ jobs:
       - build-test-publish-arm64
     runs-on: ubuntu-latest
     steps:
-      - name: Block automatic AWS tests for fork PR
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
-        run: |
-          echo "AWS-backed container tests are not run automatically for fork pull requests."
-          echo "Run this workflow manually from the GitHub Actions UI when the PR should receive trusted CI."
-          exit 1
-
       - name: Check job results
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: exit 1
+
+      - name: Fail if container build did not run
+        if: needs['build-and-smoke'].result == 'skipped'
+        run: |
+          echo "AWS-backed container tests did not run automatically."
+          echo "Run this workflow manually from the GitHub Actions UI once the code has been reviewed."
+          exit 1

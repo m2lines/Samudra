@@ -571,3 +571,54 @@ def test_group_batch_sampler__distributed__shuffle_false_is_deterministic_across
     assert batches_epoch_0 == batches_epoch_5, (
         "shuffle=False sampler should be deterministic across epochs"
     )
+
+
+def test_distributed_sampler__all_ranks_same_resolution_per_step():
+    """All DDP ranks must get batches from the same resolution group at each step."""
+    num_replicas = 8
+    datasets = [
+        MockDataset(13, grid_size=(180, 360)),
+        MockDataset(11, grid_size=(360, 720)),
+        MockDataset(9, grid_size=(720, 1440)),
+    ]
+    group_key = lambda ds: ds.grid_size  # noqa: E731
+    group_boundary = 13
+    second_boundary = 13 + 11
+
+    def index_to_group(idx: int) -> int:
+        if idx < group_boundary:
+            return 0
+        elif idx < second_boundary:
+            return 1
+        else:
+            return 2
+
+    for drop_last in [True, False]:
+        for shuffle in [True, False]:
+            rank_batches: list[list[list[int]]] = []
+            for rank in range(num_replicas):
+                sampler = DistributedEquivalenceGroupBatchSampler(
+                    datasets=datasets,  # type: ignore[arg-type]
+                    group_key=group_key,
+                    batch_size=1,
+                    num_replicas=num_replicas,
+                    rank=rank,
+                    shuffle=shuffle,
+                    drop_last=drop_last,
+                )
+                rank_batches.append(list(sampler))
+
+            lengths = [len(rb) for rb in rank_batches]
+            assert len(set(lengths)) == 1, f"Unequal step counts: {lengths}"
+
+            for step in range(lengths[0]):
+                groups_at_step = set()
+                for rank in range(num_replicas):
+                    batch = rank_batches[rank][step]
+                    for idx in batch:
+                        groups_at_step.add(index_to_group(idx))
+                assert len(groups_at_step) == 1, (
+                    f"Mixed resolution groups at step {step} "
+                    f"(shuffle={shuffle}, drop_last={drop_last}): "
+                    f"groups={groups_at_step}"
+                )

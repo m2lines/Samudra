@@ -331,15 +331,7 @@ class DataSource:
 
 
 def _flatten(means_or_stds: xr.Dataset) -> torch.Tensor:
-    if "lev" in means_or_stds.dims:
-        array = conditional_rearrange(
-            means_or_stds,
-            "(variable lev)=var",
-            concat_dim="var",
-        ).rename({"var": "variable"})
-    else:
-        array = means_or_stds.to_dataarray()
-    return torch.from_numpy(array.to_numpy().flatten())
+    return torch.from_numpy(_flatten_var_lev(means_or_stds))
 
 
 @dataclasses.dataclass
@@ -525,18 +517,18 @@ def conditional_rearrange(
 def _flatten_var_lev(ds: xr.Dataset) -> np.ndarray:
     """Flatten a means/stds dataset into a 1-D array with one entry per channel.
 
-    Variables with a `lev` dim contribute `len(lev)` entries; variables without
-    contribute exactly one. This matches the channel layout of the prognostic /
-    boundary tensors, which `to_array().reshape(-1)` would otherwise mis-align
-    by broadcasting surface-only variables across all depth levels.
+    Variables with a `lev` dim are flattened with `lev` first; variables without
+    a `lev` dim are flattened as-is. This matches the channel layout of the
+    prognostic / boundary tensors, which `to_array().reshape(-1)` would otherwise
+    mis-align by broadcasting surface-only variables across all depth levels.
     """
-    if "lev" in ds.dims:
-        return (
-            conditional_rearrange(ds, "(variable lev)=var", concat_dim="var")
-            .to_numpy()
-            .reshape(-1)
-        )
-    return ds.to_array().to_numpy().reshape(-1)
+    flattened = []
+    for name in ds.data_vars:
+        var = ds[name]
+        if "lev" in var.dims:
+            var = var.transpose("lev", ...)
+        flattened.append(var.to_numpy().reshape(-1))
+    return np.concatenate(flattened)
 
 
 def extract_wet_mask(

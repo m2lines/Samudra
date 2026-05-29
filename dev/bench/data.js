@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780010325723,
+  "lastUpdate": 1780078763484,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -9534,6 +9534,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.19782229975828855",
             "extra": "mean: 31.59399313900001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a00f987d9065bdec369cd5e93be725c6ea423c89",
+          "message": "Use EC2 for container build (#744)\n\nAvoids having to set up GH billing for larger instances. Needed for #684\n\n---------\n\nCo-authored-by: Alex Merose <alex@openathena.ai>",
+          "timestamp": "2026-05-29T18:04:45Z",
+          "tree_id": "22afe22eece9e75085531323188817c0d38a54a0",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/a00f987d9065bdec369cd5e93be725c6ea423c89"
+        },
+        "date": 1780078762230,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0810822827770785,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0030154113652723427",
+            "extra": "mean: 924.9989718000052 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.16504397193380263,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04502056245022519",
+            "extra": "mean: 6.058991360199991 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.03464983217639369,
+            "unit": "iter/sec",
+            "range": "stddev: 0.20949105730523507",
+            "extra": "mean: 28.860168641200005 sec\nrounds: 5"
           }
         ]
       }

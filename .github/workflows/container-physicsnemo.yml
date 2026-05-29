@@ -40,7 +40,7 @@ jobs:
       #   'Name=root-device-type,Values=ebs' 'Name=state,Values=available' \
       #   --query 'reverse(sort_by(Images, &CreationDate))[:1].ImageId' --output text
       ec2_image_id: ami-04b70fa74e45c3917
-      ec2_root_device_size: 200 # local x86_64 image build needs substantial headroom
+      ec2_root_device_size: 200 # (GBs) local x86_64 image build needs substantial headroom
       aws_tags: '[{"Key": "project", "Value": "fomo"}]'
     secrets:
       GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}

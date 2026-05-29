@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780085251858,
+  "lastUpdate": 1780085258615,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -19257,6 +19257,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.2615325183371544",
             "extra": "mean: 20.730266621400006 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "507acbc8ed91b19cb11c7dee4ad83b0ffe796684",
+          "message": "Add distributed sampler resolution regression test (#747)\n\n## Summary\n- add a regression test that all distributed ranks receive the same\nresolution group at each step\n- covers uneven group sizes across 1 degree, half degree, and quarter\ndegree-like grids\n\nNote: this is the independent portion of the KR1 sampler test commit;\nthe non-distributed num_replicas tests depend on KR1 sampler API changes\nand were not included here.\n\n## Verification\n- uv run pytest tests/test_samplers.py -q",
+          "timestamp": "2026-05-29T15:53:29-04:00",
+          "tree_id": "e2db924c07d217cacd6d5dbe8d102dd62960d409",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/507acbc8ed91b19cb11c7dee4ad83b0ffe796684"
+        },
+        "date": 1780085258140,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0964916697927956,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0032256941487274426",
+            "extra": "mean: 911.9996326000091 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.17342443690270926,
+            "unit": "iter/sec",
+            "range": "stddev: 0.023349562562909192",
+            "extra": "mean: 5.76620006879998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.049860657003159475,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06409655714870194",
+            "extra": "mean: 20.0558929646 sec\nrounds: 5"
           }
         ]
       }

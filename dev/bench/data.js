@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780078763484,
+  "lastUpdate": 1780078770421,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -19167,6 +19167,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.10624652440963667",
             "extra": "mean: 22.917921957599994 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a00f987d9065bdec369cd5e93be725c6ea423c89",
+          "message": "Use EC2 for container build (#744)\n\nAvoids having to set up GH billing for larger instances. Needed for #684\n\n---------\n\nCo-authored-by: Alex Merose <alex@openathena.ai>",
+          "timestamp": "2026-05-29T18:04:45Z",
+          "tree_id": "22afe22eece9e75085531323188817c0d38a54a0",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/a00f987d9065bdec369cd5e93be725c6ea423c89"
+        },
+        "date": 1780078769928,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0707652593489752,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0012219514486751936",
+            "extra": "mean: 933.9115098000093 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.16882353534390732,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04080042319025302",
+            "extra": "mean: 5.923344739599952 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.04823864633596621,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2615325183371544",
+            "extra": "mean: 20.730266621400006 sec\nrounds: 5"
           }
         ]
       }

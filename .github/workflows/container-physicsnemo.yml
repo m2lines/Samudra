@@ -26,8 +26,28 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  ec2-build:
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
+    with:
+      aws_region: us-east-1
+      ec2_instance_type: m7i.xlarge
+      # Ubuntu 24.04 LTS amd64 hvm ebs-gp3 in us-east-1, Canonical owner 099720109477.
+      # To refresh, run:
+      # aws ec2 describe-images --region us-east-1 --owners 099720109477 --filters \
+      #   'Name=name,Values=ubuntu/images/hvm-ssd-gp3/ubuntu-noble-24.04-amd64-server-*' \
+      #   'Name=architecture,Values=x86_64' 'Name=virtualization-type,Values=hvm' \
+      #   'Name=root-device-type,Values=ebs' 'Name=state,Values=available' \
+      #   --query 'reverse(sort_by(Images, &CreationDate))[:1].ImageId' --output text
+      ec2_image_id: ami-04b70fa74e45c3917
+      ec2_root_device_size: 200 # (GBs) local x86_64 image build needs substantial headroom
+      aws_tags: '[{"Key": "project", "Value": "fomo"}]'
+    secrets:
+      GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
+
   build-and-smoke:
-    runs-on: ubuntu-24.04-4-core
+    needs: ec2-build
+    runs-on: ${{ needs.ec2-build.outputs.id }}
     env:
       LOCAL_IMAGE_TAG: ocean-emulator:physicsnemo-25.11-${{ github.sha }}
     steps:
@@ -40,36 +60,17 @@ jobs:
           echo "runner arch=${arch}"
           test "${arch}" = "x86_64"
 
-      - name: Reclaim runner disk space
+      - name: Install Docker
         run: |
           set -euo pipefail
-          echo "Disk usage before cleanup:"
-          df -h
-
-          # Remove large preinstalled SDKs that are not used by this workflow.
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /usr/local/share/boost
-          sudo rm -rf /opt/hostedtoolcache
-          sudo rm -rf /usr/lib/jvm
-          sudo rm -rf /usr/local/.ghcup
-          sudo rm -rf /usr/local/share/powershell
-          sudo rm -rf /usr/local/share/chromium
-          sudo rm -rf /usr/local/share/vcpkg
-          sudo swapoff -a || true
-          sudo rm -f /swapfile || true
-
-          # Move Docker root to the larger ephemeral mount on GitHub runners.
-          if [ -d /mnt ]; then
-            sudo mkdir -p /mnt/docker-data
-            echo '{"data-root":"/mnt/docker-data"}' | sudo tee /etc/docker/daemon.json >/dev/null
-            sudo systemctl restart docker
+          if ! command -v docker >/dev/null 2>&1 || ! docker buildx version >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io docker-buildx
           fi
-
-          echo "Disk usage after cleanup:"
-          df -h
-          docker info | grep "Docker Root Dir"
+          sudo systemctl enable --now docker || sudo service docker start
+          sudo chmod 666 /var/run/docker.sock
+          docker version
+          docker buildx version
 
       - name: Build container
         run: |
@@ -319,6 +320,7 @@ jobs:
   report-container-test-status:
     if: always()
     needs:
+      - ec2-build
       - build-and-smoke
       - ec2
       - ec2-arm
@@ -329,3 +331,10 @@ jobs:
       - name: Check job results
         if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         run: exit 1
+
+      - name: Fail if container build did not run
+        if: needs['build-and-smoke'].result == 'skipped'
+        run: |
+          echo "AWS-backed container tests did not run automatically."
+          echo "Run this workflow manually from the GitHub Actions UI once the code has been reviewed."
+          exit 1

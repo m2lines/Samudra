@@ -22,7 +22,7 @@ from ocean_emulators.utils.data import (
     unflatten_masks,
     with_level_index_vars,
 )
-from tests.conftest import TEST_DATASET_SPEC
+from tests.conftest import TEST_DATASET_SPEC, TEST_FULL_DATASET_SPEC
 
 
 def test_mask_roundtrip(data_source):
@@ -193,6 +193,36 @@ def test_unnormalize_prognostic_tensor(normalize_input, fill_value):
     normalized = normalize.normalize_tensor_prognostic(input_data)
     unnormalized = normalize.unnormalize_tensor_prognostic(normalized, fill_value)
     assert (torch.sum(torch.isnan(unnormalized)) > 0) == (math.isnan(fill_value))
+
+
+@pytest.mark.parametrize("data_source", ["compact"], indirect=True)
+def test_normalize_compact_mixed_depth_and_surface_stats(data_source):
+    src = DataSource.from_datasets(
+        data_source.data,
+        data_source.means,
+        data_source.stds,
+        dataset_spec=TEST_FULL_DATASET_SPEC,
+        name="compact-full",
+        prognostic_var_names=TEST_FULL_DATASET_SPEC.prognostic_var_names,
+        boundary_var_names=TEST_FULL_DATASET_SPEC.boundary_var_names,
+    )
+    normalize = Normalize(
+        src,
+        prognostic_var_names=TEST_FULL_DATASET_SPEC.prognostic_var_names,
+        boundary_var_names=TEST_FULL_DATASET_SPEC.boundary_var_names,
+    )
+
+    num_depth = len(TEST_FULL_DATASET_SPEC.depth_levels)
+    expected_prognostic_channels = 4 * num_depth + 1
+    assert expected_prognostic_channels == len(
+        TEST_FULL_DATASET_SPEC.prognostic_var_names
+    )
+    assert normalize._prognostic_mean_np.shape == (expected_prognostic_channels,)
+    assert normalize._prognostic_std_np.shape == (expected_prognostic_channels,)
+
+    lat, lon = src.grid_size
+    prognostic = torch.zeros(1, expected_prognostic_channels, lat, lon)
+    assert normalize.normalize_tensor_prognostic(prognostic).shape == prognostic.shape
 
 
 @pytest.fixture

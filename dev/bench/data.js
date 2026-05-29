@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780078770421,
+  "lastUpdate": 1780085251858,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -9579,6 +9579,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.20949105730523507",
             "extra": "mean: 28.860168641200005 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "507acbc8ed91b19cb11c7dee4ad83b0ffe796684",
+          "message": "Add distributed sampler resolution regression test (#747)\n\n## Summary\n- add a regression test that all distributed ranks receive the same\nresolution group at each step\n- covers uneven group sizes across 1 degree, half degree, and quarter\ndegree-like grids\n\nNote: this is the independent portion of the KR1 sampler test commit;\nthe non-distributed num_replicas tests depend on KR1 sampler API changes\nand were not included here.\n\n## Verification\n- uv run pytest tests/test_samplers.py -q",
+          "timestamp": "2026-05-29T15:53:29-04:00",
+          "tree_id": "e2db924c07d217cacd6d5dbe8d102dd62960d409",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/507acbc8ed91b19cb11c7dee4ad83b0ffe796684"
+        },
+        "date": 1780085250636,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1069475015059738,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0017769196137472263",
+            "extra": "mean: 903.3852089999982 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.16672187682735898,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10056141032476382",
+            "extra": "mean: 5.9980130924000035 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.03562135441890386,
+            "unit": "iter/sec",
+            "range": "stddev: 0.14133367096409474",
+            "extra": "mean: 28.073048212599996 sec\nrounds: 5"
           }
         ]
       }

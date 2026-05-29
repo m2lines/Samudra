@@ -11,7 +11,7 @@ gradient_accumulation_steps: 4
 scheduler: { type: cosine }
 loss:
   type: [gradient_h, TS-gradient_z] # gradient_h # 
-  metric: mae
+  metric: mse_mae
   lambda_h: 0.1
   lambda_z: 0.1
 finetune: false
@@ -21,8 +21,8 @@ reset_scheduler_on_resume: false
 inference_epochs: []
 data_percent: 1.0
 train_time:
-  start: "2011-09-13"
-  end: "2011-11-13"
+  start: "2011-09-13" #"2011-09-13"
+  end: "2012-09-13"   # "2011-11-13" 
 val_time:
   start: "2012-09-14" # "2011-09-15"
   end: "2012-10-14" # "2011-09-16"
@@ -38,7 +38,7 @@ preemptible: false
 backend: auto
 
 experiment:
-  name: 2026-05-26:samudra_llc:MAE+grad_z,h_temporal-subset--2
+  name: 2026-05-29:samudra_llc:A-3
   data_root: /orcd/data/abodner/
   rand_seed: 15
   base_output_dir: .LOCAL

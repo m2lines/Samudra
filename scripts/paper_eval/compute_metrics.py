@@ -64,8 +64,37 @@ def build_dz(lev: xr.DataArray) -> xr.DataArray:
     return xr.DataArray(dz, dims="lev", coords={"lev": lev}, name="dz")
 
 
+OM4_LEV_M = np.array(
+    [
+        2.5,
+        10.0,
+        22.5,
+        40.0,
+        65.0,
+        105.0,
+        165.0,
+        250.0,
+        375.0,
+        550.0,
+        775.0,
+        1050.0,
+        1400.0,
+        1850.0,
+        2400.0,
+        3100.0,
+        4000.0,
+        5000.0,
+        6000.0,
+    ]
+)
+
+
 def load_pred(pred_path: str) -> xr.Dataset:
-    """Load predictions, stack thetao_0..18, rename to paper's (y, x) convention."""
+    """Load predictions, stack thetao_0..18, rename to paper's (y, x) convention.
+
+    Older eval pipelines wrote per-level vars without a `lev` coord; we inject
+    OM4_LEV_M in that case so downstream band slicing works.
+    """
     pred = xr.open_zarr(pred_path)
     rename_map = {}
     if "lat" in pred.dims:
@@ -73,6 +102,8 @@ def load_pred(pred_path: str) -> xr.Dataset:
     if "lon" in pred.dims:
         rename_map["lon"] = "x"
     pred = pred.rename(rename_map)
+    if "lev" not in pred.coords:
+        pred = pred.assign_coords(lev=("lev", OM4_LEV_M))
     thetao = stack_pred_levels(pred, "thetao")
     out = xr.Dataset(
         coords={"time": pred.time, "lev": pred.lev, "y": pred.y, "x": pred.x}
@@ -240,7 +271,7 @@ def snapshot_metrics(pred: xr.Dataset, truth: xr.Dataset, time_idx: int = -1) ->
     """
     truth_des = _deseason(truth["thetao"])
     pred_des = _deseason(pred["thetao"])
-    wet = ~np.isnan(truth["thetao"].isel(time=0))
+    wet = truth["thetao"].isel(time=0).notnull()
 
     layer_indices = [(0, "2.5m"), (10, "775m_paper-700m"), (14, "2400m_paper-2000m")]
     out = {}

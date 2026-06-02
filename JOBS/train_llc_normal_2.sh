@@ -2,7 +2,7 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_standard_gpu
 #SBATCH --qos=mit_amf_standard_gpu
-#SBATCH --job-name=2026-05-29:samudra_llc:B-3
+#SBATCH --job-name=2026-06-01:samudra_llc:B-3
 #SBATCH -N 1
 #SBATCH --mem=254GB
 #SBATCH --ntasks=1

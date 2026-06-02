@@ -55,20 +55,21 @@ winner; ❌ marks a broken rollout.
 | 3 | kernel_peakmid_wide | depthwise TrueConvNeXt | k=[7, 13, 21, 31], d=1 | 1° | ~12 M | +0.9788 | 0.1244 | +0.9899 | −4.380 | −39.84 | −103.91 | 0.6428 / 0.4922 | 0.2755 / 0.2299 | 0.2540 / 0.0476 |
 | 4 | kernel_peakmid_seed42 | depthwise TrueConvNeXt | k=[7, 13, 21, 31], d=1 (seed 42) | 1° | ~12 M | +0.9648 | 0.1612 | +0.9885 | −3.168 | −51.62 | −144.61 | 0.6482 / 0.4833 | 0.3358 / 0.2097 | 0.1985 / 0.0485 |
 | 5 | E16 v3 multiscale-dw | depthwise + parallel dilations | k=3, d=[1, 2, 4, 16] + parallels | 1° | 13.40 M | +0.9554 | 0.1832 | +0.9796 | −5.061 | −32.22 | −83.73 | 0.5736 / 0.5466 | 0.3195 / 0.2293 | 0.2657 / 0.0488 |
-| 6 | **Paper Samudra-2** | dense ConvNeXt (V2) | k=3, d=[1, 2, 4, 8] | **1/2°** | 84.09 M | +0.9333 | 0.2217 | +0.9662 | **+0.8435** | −2.0166 | −13.4489 | **0.6795 / 0.4721** | 0.2975 / 0.2500 | **0.4076 / 0.0450** |
-| 7 | kernel_control | dense ConvNeXt | k=7, d=1 (ConvNeXt default) | 1° | ~84 M | +0.9320 | 0.2243 | +0.9686 | −2.354 | −27.67 | −119.41 | 0.6220 / 0.5057 | 0.3260 / 0.2256 | 0.1827 / 0.0524 |
-| 8 | kernel_peakmid_v1 | depthwise TrueConvNeXt | k=[7, 13, 21, 31], d=1 | 1° | ~12 M | +0.9314 | 0.2258 | +0.9670 | −1.551 | −17.23 | −75.74 | 0.6419 / 0.4810 | **0.3792 / 0.2058** | 0.2666 / 0.0479 |
-| 9 | kernel_peakmid_reparam | depthwise + reparam branch | k=[7, 13, 21, 31] + 3×3 reparam | 1° | ~12 M | +0.8729 | 0.3062 | +0.9346 | −2.217 | −22.68 | −59.75 | 0.6060 / 0.5103 | 0.3332 / 0.2312 | 0.3225 / 0.0462 |
-| 10 | large_kernel_v4 | depthwise TrueConvNeXt | k=[7, 13, 21, 31] reverse | 1° | ~12 M | +0.8438 | 0.3389 | +0.9203 | +0.5090 | −13.67 | −44.54 | 0.6107 / 0.5012 | 0.2845 / 0.2173 | 0.2655 / 0.0463 |
+| 6 | **Paper Samudra-2** | dense ConvNeXt (V2) | k=3, d=[1, 2, 4, 8] | **1/2°** | 84.09 M | +0.9333 | 0.2217 | +0.9662 | +0.8435 | −2.0166 | −13.4489 | 0.6795 / 0.4721 | 0.2975 / 0.2500 | **0.4076 / 0.0450** |
+| 7 | **Paper Samudra-2** | dense ConvNeXt (V2) | k=3, d=[1, 2, 4, 8] | **1°** | 84.09 M | +0.9331 | 0.2222 | +0.9675 | **+0.8787** | **−1.5793** | −16.1695 | **0.6842 / 0.4594** | 0.2839 / 0.2291 | 0.3370 / **0.0433** |
+| 8 | kernel_control | dense ConvNeXt | k=7, d=1 (ConvNeXt default) | 1° | ~84 M | +0.9320 | 0.2243 | +0.9686 | −2.354 | −27.67 | −119.41 | 0.6220 / 0.5057 | 0.3260 / 0.2256 | 0.1827 / 0.0524 |
+| 9 | kernel_peakmid_v1 | depthwise TrueConvNeXt | k=[7, 13, 21, 31], d=1 | 1° | ~12 M | +0.9314 | 0.2258 | +0.9670 | −1.551 | −17.23 | −75.74 | 0.6419 / 0.4810 | **0.3792 / 0.2058** | 0.2666 / 0.0479 |
+| 10 | kernel_peakmid_reparam | depthwise + reparam branch | k=[7, 13, 21, 31] + 3×3 reparam | 1° | ~12 M | +0.8729 | 0.3062 | +0.9346 | −2.217 | −22.68 | −59.75 | 0.6060 / 0.5103 | 0.3332 / 0.2312 | 0.3225 / 0.0462 |
+| 11 | large_kernel_v4 | depthwise TrueConvNeXt | k=[7, 13, 21, 31] reverse | 1° | ~12 M | +0.8438 | 0.3389 | +0.9203 | +0.5090 | −13.67 | −44.54 | 0.6107 / 0.5012 | 0.2845 / 0.2173 | 0.2655 / 0.0463 |
 | ❌ | E1 dense+dilated (broken) | dense ConvNeXt | k=3, d=[1, 8, 16, 16] | 1/4° | 84.04 M | −0.3338 | 0.9914 | −0.0651 | −324.6 | −3397.8 | −27992.6 | 0.1496 / 3.906 | 0.0091 / 0.900 | 0.0232 / 0.486 |
 
 **Notes**
 
-- "Paper Samudra-2 1/2°" row was produced by running
+- The two "Paper Samudra-2" rows were produced by running
   `scripts/paper_eval/compute_metrics.py` against Jesse Russell's
-  Samudra-2 halfdeg rollout at
-  `osn://emulators/jr7309/outputs/2026-02-05-samudra_om4_halfdeg_20_cap_fix_eval/predictions.zarr`
-  — the exact predictions used to produce the paper's halfdeg figures.
+  released paper rollouts on OSN:
+  - 1°: `osn://emulators/jr7309/outputs/2026-01-30-samudra_om4_onedeg_20_cap_eval/predictions.zarr`
+  - 1/2°: `osn://emulators/jr7309/outputs/2026-02-05-samudra_om4_halfdeg_20_cap_fix_eval/predictions.zarr`
 - "Params" for the kernel/peakmid family are approximate; the exact
   parameter count is in each `model_*.yaml`'s training W&B run.
 - The 1/4° E1 row is a **broken rollout** — the autoregressive
@@ -112,36 +113,37 @@ ties (Δ < 0.02 R² / corr or Δ < 0.02 °C RMSE).** The two qualitative
 results — Niño 3.4 RMSE halved, mid-depth R² sign-flipping from −2 to
 near zero — are the strongest reasons to ship E1.
 
-### At 1° (paper-published vs E1 trained at 1°)
+### At 1° (paper-actual 1° rollout vs E1 trained at 1°)
 
-The paper's published 1° table (Yuan et al. 2026) is reproduced from
-the paper text below. We **do not** have a re-run paper-1° rollout
-through our pipeline (the closest analog, the 1/2° rollout above, is
-remarkably close to the published 1° numbers — suggesting either that
-the paper's published numbers come from the halfdeg model, or that
-the metric is quasi-resolution-invariant for paper-architecture
-configurations).
+Jesse Russell's V2 1° paper rollout is at
+`osn://emulators/jr7309/outputs/2026-01-30-samudra_om4_onedeg_20_cap_eval/predictions.zarr`
+and was run through `scripts/paper_eval/compute_metrics.py` against the
+same 1° truth. The recomputed paper-1° values match the figures
+hardcoded in the older `scripts/compare_to_paper.py` to ±0.02 on every
+metric, confirming both the script and that the paper's published 1°
+table is indeed from the 1° model (not the halfdeg model).
 
-| Metric | **Paper Samudra-2 1° (published)** | **E1 dense+dilated 1°** | Δ (E1 − paper) | Winner |
+| Metric | **Paper Samudra-2 1°** | **E1 dense+dilated 1°** | Δ (E1 − paper) | Winner |
 |---|---:|---:|---:|---|
-| Niño 3.4 R² | 0.93 | **0.9792** | +0.049 | **E1** ⭐ |
-| Niño 3.4 RMSE (°C) | 0.222 | **0.1238** | −44 % | **E1** ⭐ |
-| Upper R² (0–700 m) | **0.87** | 0.4850 | −0.385 | **Paper** |
-| Mid R² (700–2000 m) | **−1.60** | −4.1949 | −2.59 | Paper |
-| Deep R² (2000–7000 m) | −16.14 | **−15.0211** | +6.9 % error reduction | ≈ tie |
-| 2.5 m snapshot corr | **0.6741** | 0.5513 | −0.123 | Paper |
-| 2.5 m snapshot RMSE | **0.4580** | 0.5690 | +0.111 | Paper |
-| 700 m snapshot corr | **0.2871** | 0.2785 | −0.009 | ≈ tie |
-| 700 m snapshot RMSE | **0.2455** | 0.2863 | +0.041 | Paper |
-| 2000 m snapshot corr | **0.3565** | 0.2435 | −0.113 | Paper |
-| 2000 m snapshot RMSE | **0.0421** | 0.0615 | +0.019 | Paper |
+| Niño 3.4 R² | 0.9331 | **0.9792** | +0.046 | **E1** ⭐ |
+| Niño 3.4 RMSE (°C) | 0.2222 | **0.1238** | −44 % | **E1** ⭐ |
+| Niño 3.4 corr | 0.9675 | **0.9896** | +0.022 | E1 |
+| Upper R² (0–700 m) | **0.8787** | 0.4850 | −0.394 | Paper |
+| Mid R² (700–2000 m) | **−1.579** | −4.1949 | −2.62 | Paper |
+| Deep R² (2000–7000 m) | −16.170 | **−15.021** | +7 % error reduction | ≈ tie |
+| 2.5 m snapshot corr | **0.6842** | 0.5513 | −0.133 | Paper |
+| 2.5 m snapshot RMSE | **0.4594** | 0.5690 | +0.110 | Paper |
+| 700 m snapshot corr | 0.2839 | 0.2785 | −0.005 | ≈ tie |
+| 700 m snapshot RMSE | **0.2291** | 0.2863 | +0.057 | Paper |
+| 2000 m snapshot corr | **0.3370** | 0.2435 | −0.094 | Paper |
+| 2000 m snapshot RMSE | **0.0433** | 0.0615 | +0.018 | Paper |
 
 **At 1° the story is less clean.** E1 1° decisively wins on Niño 3.4
-(both R² and RMSE) and roughly ties on deep R², but loses upper R²,
-2.5 m corr, and 2000 m corr by margins large enough that we cannot
-recommend E1 1° as a strict improvement over the paper baseline at
-1°. **The E1 story compounds with resolution** — by 1/2°, the same
-architecture sweeps the table.
+(both R² and RMSE — RMSE cut almost in half) and roughly ties on deep
+R², but loses upper R², 2.5 m corr, and 2000 m corr by margins large
+enough that we cannot recommend E1 1° as a strict improvement over
+the paper baseline at 1°. **The E1 story compounds with resolution**
+— by 1/2°, the same architecture sweeps the table.
 
 ### At 1/4° (paper-not-evaluated vs broken E1 rollout)
 

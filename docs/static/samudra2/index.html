@@ -61,7 +61,7 @@ SPDX-License-Identifier: CC-BY-4.0
       <div class="publication-links" style="margin-top: 1.5rem;">
         <span class="link-block">
           <a href="https://arxiv.org/abs/2606.02610" class="external-link button is-normal is-rounded is-dark" target="_blank" rel="noreferrer">
-            <span class="icon"><i class="fas fa-file-pdf"></i></span>
+            <span class="icon"><i class="fas fa-file-lines"></i></span>
             <span>Paper</span>
           </a>
         </span>
@@ -126,15 +126,15 @@ SPDX-License-Identifier: CC-BY-4.0
             expensive, limiting ensemble size and forcing scenarios. Neural emulators promise
             orders-of-magnitude speedups, yet existing ocean emulators have not combined fine spatial
             resolution with multi-year autoregressive rollouts. Samudra, the first autoregressive neural
-            ocean emulator to produce multi-decade global rollouts, is limited to 1&deg; resolution and
+            ocean emulator to produce multi-decade global rollouts, is limited to 1° resolution and
             exhibits two long-horizon failure modes: <em>variance collapse</em>, the loss of temporal
             variability, and <em>imprinting artifacts</em>, in which velocity patterns leak into deep-ocean
             fields. We present Samudra 2, which introduces a wider U-Net backbone with modified ConvNeXt-style
             blocks and a reduced block-internal expansion factor, together with a dynamic loss that reweights
             output channels according to their prediction errors, strengthening gradients for slow-evolving
-            deep-ocean fields. At 1&deg;, Samudra 2 increases upper-ocean global-mean temperature R<sup>2</sup> from 0.56 to
+            deep-ocean fields. At 1°, Samudra 2 increases upper-ocean global-mean temperature R<sup>2</sup> from 0.56 to
             0.87 and reduces deep-ocean temperature error by roughly sevenfold. The same architecture scales
-            to 1/2&deg; and 1/4&deg; over approximately 8-year autoregressive rollouts, recovering mesoscale
+            to 1/2° and 1/4° over approximately 8-year autoregressive rollouts, recovering mesoscale
             eddies and sharp western boundary currents. Running on a single GPU, Samudra 2 enables larger
             ensembles for sea-level projections, ocean heat uptake, and climate variability studies. Project
             page: <a href="https://openathena.ai/Ocean_Emulator/">https://openathena.ai/Ocean_Emulator/</a>.

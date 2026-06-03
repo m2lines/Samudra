@@ -56,6 +56,20 @@ class VizRun:
     variables: list[str]
 
 
+@dataclasses.dataclass
+class PreparedVizGroundtruth:
+    data_layout: DataLayout
+    data: xr.Dataset
+    profile_groundtruth: xr.Dataset
+    basins: xr.Dataset
+    time_indices: list[int]
+    prediction_coords: dict[str, xr.DataArray]
+    times: xr.DataArray
+    wetmask: xr.DataArray
+    areacello_values: np.ndarray
+    areacello_spherical_values: np.ndarray
+
+
 class Viz:
     """Generates maps, time series, and probability density plots from evaluation outputs."""
 
@@ -64,14 +78,13 @@ class Viz:
         output_path: str,
         dataset_name: str,
         runs: list["VizRun"],
-        basins: xr.Dataset,
-        groundtruth_rollout: xr.Dataset,
-        time_range: slice,
+        prepared_groundtruth: PreparedVizGroundtruth,
         observations: "ObsMetricsConfig | None" = None,
         data_root: ResolvedLocation | None = None,
-        *,
-        grid_type: GridType,
     ):
+        if not runs:
+            raise ValueError("Viz requires at least one run")
+
         pred_dict: dict[str, dict[str, Any]] = {}
         for run in runs:
             pred_dict[run.name] = {
@@ -84,24 +97,8 @@ class Viz:
             }
 
         key1 = runs[0].name
-        # TODO: Support non-OM4 data layouts in visualization.
-        self.data_layout = build_om4_layout(grid_type=grid_type)
+        self.data_layout = prepared_groundtruth.data_layout
         levels = len(self.data_layout.depth_levels)
-
-        groundtruth_rollout = groundtruth_rollout.sel(time=time_range)
-
-        groundtruth_rollout = preserve_2d_coords(groundtruth_rollout)
-
-        groundtruth_rollout = self._with_cell_areas(groundtruth_rollout)
-
-        # This function processes the ds_groundtruth and predictions for plotting
-        # The predictions are loaded into pred_dict
-        data, pred_dict = process_data(
-            groundtruth_rollout, pred_dict, data_layout=self.data_layout
-        )
-
-        last_index = len(data.time) - 1
-        self.time_indices = [0, last_index // 2, last_index]
 
         var_list = {
             "vo": r"$v$ $( m/s )$",
@@ -113,6 +110,8 @@ class Viz:
             "KE": r"$KE$ $( J/m^2 )$",
             "OHC": r"$OHC$ $Anomaly$ $( ZJ )$",
         }
+
+        pred_dict = process_prediction_runs(prepared_groundtruth, pred_dict)
 
         # Create folder paths
         self.timeseries_path = os.path.join(output_path, f"Timeseries")
@@ -151,21 +150,19 @@ class Viz:
 
         # Basin masks are built on first use to avoid breaking when no correct mask
         # is available and you're not doing basin-based analyses anyway.
-        self._basins: xr.Dataset = basins
+        self._basins: xr.Dataset = prepared_groundtruth.basins
 
         # Compute profile means
         with ProgressBar():
-            logger.info("Computing profile for ground truth " + dataset_name)
-            profile_groundtruth = profile_mean(data).load()
-
             for k in pred_dict.keys():
                 logger.info("Computing profile for prediction " + k)
                 pred_dict[k]["profile_prediction"] = profile_mean(
                     pred_dict[k]["ds_prediction"]
                 ).load()
 
-        self.data: xr.Dataset = data
-        self.profile_groundtruth: xr.Dataset = profile_groundtruth
+        self.time_indices = prepared_groundtruth.time_indices
+        self.data: xr.Dataset = prepared_groundtruth.data
+        self.profile_groundtruth: xr.Dataset = prepared_groundtruth.profile_groundtruth
         self.pred_dict: dict[str, dict[str, Any]] = pred_dict
         self.dataset_name: str = dataset_name
         self.clist: list[str] = clist
@@ -202,56 +199,6 @@ class Viz:
                 "Indian": process_mask(data, basins["basin_indian"], grid_type),
                 "Arctic": process_mask(data, basins["basin_arctic"], grid_type),
             }
-        )
-
-    def _with_cell_areas(self, data: xr.Dataset) -> xr.Dataset:
-        """Attach the two area fields the reductions downstream expect.
-
-        `areacello` is the *weighting* field (normalized to sum to one) and
-        `areacello_spherical` is the physical cell area in m^2. On a rectilinear
-        grid both follow analytically from the 1-D axes. On a curvilinear grid
-        they do not: once the grid folds, `cos(lat)` stops being proportional to
-        cell area and `np.diff(lat).mean()` stops describing the spacing, so we
-        use the source's own `areacello` and refuse to invent one.
-        """
-        if is_rectilinear(self.data_layout.grid_type):
-            data = data.assign(areacello=(["lat", "lon"], spherical_area_weights(data)))
-            data["areacello_spherical"] = (["lat", "lon"], spherical_area(data))
-            return data
-
-        if "areacello" not in data.variables:
-            raise ValueError(
-                "Cannot build cell areas for "
-                f"grid_type={self.data_layout.grid_type!r}: the source carries no "
-                "'areacello'. The rectilinear helpers (spherical_area_weights / "
-                "spherical_area) assume separable, uniformly spaced 1-D lat/lon "
-                "and are invalid on a curvilinear grid, so there is nothing safe "
-                "to fall back to. Preserve 'areacello' through preprocessing."
-            )
-
-        area = np.asarray(data["areacello"].values, dtype=np.float64)
-        expected = (data.sizes["lat"], data.sizes["lon"])
-        if area.shape != expected:
-            raise ValueError(
-                f"Source 'areacello' has shape {area.shape}, expected {expected} "
-                "to match the horizontal grid. Cell areas must be given on the "
-                "same grid as the data."
-            )
-        if not np.isfinite(area).any() or np.nansum(area) <= 0:
-            raise ValueError(
-                "Source 'areacello' has no positive finite values, so it cannot "
-                "be used to weight reductions."
-            )
-
-        weights = np.where(np.isfinite(area), area, 0.0)
-        weights = weights / weights.sum()
-
-        # Drop first: `areacello` arrives as a coordinate on OM4 sources, and we
-        # need both fields as data variables for the reductions downstream.
-        data = data.drop_vars(["areacello", "areacello_spherical"], errors="ignore")
-        return data.assign(
-            areacello=(["lat", "lon"], weights),
-            areacello_spherical=(["lat", "lon"], area),
         )
 
     def _map_coords(self, data) -> tuple:
@@ -4102,6 +4049,170 @@ def postprocess_for_plot(
     ds_groundtruth = ds_groundtruth.rename({"lat": "y", "lon": "x"})
 
     return ds_groundtruth, pred_dict
+
+
+def _prepare_groundtruth_rollout(
+    groundtruth_rollout: xr.Dataset,
+    time_range: slice,
+    data_layout: DataLayout,
+) -> xr.Dataset:
+    groundtruth_rollout = groundtruth_rollout.sel(time=time_range)
+    groundtruth_rollout = preserve_2d_coords(groundtruth_rollout)
+    return _with_cell_areas(groundtruth_rollout, data_layout)
+
+
+def _with_cell_areas(data: xr.Dataset, data_layout: DataLayout) -> xr.Dataset:
+    """Attach the two area fields the reductions downstream expect.
+
+    `areacello` is the *weighting* field (normalized to sum to one) and
+    `areacello_spherical` is the physical cell area in m^2. On a rectilinear
+    grid both follow analytically from the 1-D axes. On a curvilinear grid
+    they do not: once the grid folds, `cos(lat)` stops being proportional to
+    cell area and `np.diff(lat).mean()` stops describing the spacing, so we
+    use the source's own `areacello` and refuse to invent one.
+    """
+    if is_rectilinear(data_layout.grid_type):
+        data = data.assign(areacello=(["lat", "lon"], spherical_area_weights(data)))
+        data["areacello_spherical"] = (["lat", "lon"], spherical_area(data))
+        return data
+
+    if "areacello" not in data.variables:
+        raise ValueError(
+            "Cannot build cell areas for "
+            f"grid_type={data_layout.grid_type!r}: the source carries no "
+            "'areacello'. The rectilinear helpers (spherical_area_weights / "
+            "spherical_area) assume separable, uniformly spaced 1-D lat/lon "
+            "and are invalid on a curvilinear grid, so there is nothing safe "
+            "to fall back to. Preserve 'areacello' through preprocessing."
+        )
+
+    area = np.asarray(data["areacello"].values, dtype=np.float64)
+    expected = (data.sizes["lat"], data.sizes["lon"])
+    if area.shape != expected:
+        raise ValueError(
+            f"Source 'areacello' has shape {area.shape}, expected {expected} "
+            "to match the horizontal grid. Cell areas must be given on the "
+            "same grid as the data."
+        )
+    if not np.isfinite(area).any() or np.nansum(area) <= 0:
+        raise ValueError(
+            "Source 'areacello' has no positive finite values, so it cannot "
+            "be used to weight reductions."
+        )
+
+    weights = np.where(np.isfinite(area), area, 0.0)
+    weights = weights / weights.sum()
+
+    # Drop first: `areacello` arrives as a coordinate on OM4 sources, and we
+    # need both fields as data variables for the reductions downstream.
+    data = data.drop_vars(["areacello", "areacello_spherical"], errors="ignore")
+    return data.assign(
+        areacello=(["lat", "lon"], weights),
+        areacello_spherical=(["lat", "lon"], area),
+    )
+
+
+def _wetmask_for_groundtruth(ds_groundtruth: xr.Dataset) -> xr.DataArray:
+    if "mask" in ds_groundtruth.data_vars:
+        return ds_groundtruth["mask"].isel(time=0, missing_dims="ignore")
+    return ds_groundtruth.wetmask
+
+
+def prepare_viz_groundtruth(
+    dataset_name: str,
+    basins: xr.Dataset,
+    groundtruth_rollout: xr.Dataset,
+    time_range: slice,
+    grid_type: GridType,
+) -> PreparedVizGroundtruth:
+    # TODO: Support non-OM4 data layouts in visualization.
+    data_layout = build_om4_layout(grid_type=grid_type)
+    groundtruth_rollout = _prepare_groundtruth_rollout(
+        groundtruth_rollout,
+        time_range,
+        data_layout,
+    )
+    ds_groundtruth = with_level_index_vars(
+        groundtruth_rollout, depth_levels=data_layout.depth_levels
+    )
+    ds_groundtruth = _combine_variables_by_level(
+        ds_groundtruth,
+        ["thetao", "so", "uo", "vo", "mask"],
+        data_layout,
+    )
+
+    areacello_values = ds_groundtruth.areacello.values
+    areacello_spherical_values = ds_groundtruth["areacello_spherical"].values
+    times = ds_groundtruth.time
+    wetmask = _wetmask_for_groundtruth(ds_groundtruth)
+
+    data = _postprocess_for_plot(
+        ds_groundtruth,
+        areacello_values,
+        areacello_spherical_values,
+        np.array(data_layout.depth_thickness),
+        times,
+        wetmask,
+    )
+    prediction_coords = {name: coord for name, coord in data.coords.items()}
+    data = data.rename({"lat": "y", "lon": "x"})
+
+    last_index = len(data.time) - 1
+    time_indices = [0, last_index // 2, last_index]
+
+    with ProgressBar():
+        logger.info("Computing profile for ground truth " + dataset_name)
+        profile_groundtruth = profile_mean(data).load()
+
+    return PreparedVizGroundtruth(
+        data_layout=data_layout,
+        data=data,
+        profile_groundtruth=profile_groundtruth,
+        basins=basins,
+        time_indices=time_indices,
+        prediction_coords=prediction_coords,
+        times=times,
+        wetmask=wetmask,
+        areacello_values=areacello_values,
+        areacello_spherical_values=areacello_spherical_values,
+    )
+
+
+def process_prediction_runs(
+    prepared_groundtruth: PreparedVizGroundtruth,
+    pred_dict: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    for key in pred_dict.keys():
+        ds_prediction = pred_dict[key]["data"]
+
+        assert ds_prediction.time.size == prepared_groundtruth.data.time.size, (
+            f"Sizes different for {key}: {ds_prediction.time.size}!="
+            f"{prepared_groundtruth.data.time.size}; prediction range is "
+            f"{ds_prediction.time.values[0]} to "
+            f"{ds_prediction.time.values[-1]}\n"
+            f"groundtruth range is {prepared_groundtruth.data.time.values[0]} to "
+            f"{prepared_groundtruth.data.time.values[-1]}"
+        )
+        if "model_path" in ds_prediction.attrs:
+            pred_dict[key]["model_path"] = ds_prediction.attrs["model_path"]
+
+        ds_prediction = _combine_variables_by_level(
+            ds_prediction,
+            pred_dict[key]["ls"],
+            prepared_groundtruth.data_layout,
+        )
+        ds_prediction = _postprocess_for_plot(
+            ds_prediction,
+            prepared_groundtruth.areacello_values,
+            prepared_groundtruth.areacello_spherical_values,
+            np.array(prepared_groundtruth.data_layout.depth_thickness),
+            prepared_groundtruth.times,
+            prepared_groundtruth.wetmask,
+            coords=prepared_groundtruth.prediction_coords,
+        )
+        pred_dict[key]["ds_prediction"] = ds_prediction.rename({"lat": "y", "lon": "x"})
+
+    return pred_dict
 
 
 def process_data(

@@ -154,6 +154,14 @@ def compute_target_grid_coords(
     per-level `ocean_fraction` (conservative regrid of the native wetmask) match
     the live preprocessing pipeline exactly. Returns a coordinates-only dataset on
     the target `x`/`y` grid.
+
+    Note on area weighting: `areacello` here is the *geometric* cell area, i.e. it
+    assumes every cell is fully ocean. For conservation diagnostics (OHC, area- or
+    volume-weighted global means) the correct, land-aware weight is
+    ``areacello * ocean_fraction`` -- NOT `areacello` alone. Using bare `areacello`
+    overestimates coastal/global ocean area by ~2-4% at 1deg (less at finer grids).
+    Both fields are stored so analysis can recover geometric area, land-aware area,
+    or the wet fraction as needed.
     """
     source = _native_source(static_ds, supergrid_ds)
     target = target_grid_ds.rename(_TARGET_GRID_RENAME)

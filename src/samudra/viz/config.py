@@ -15,7 +15,12 @@ from samudra.config import DataConfig, ObsMetricsConfig, Om4TimeConfig
 from samudra.config_base import TopLevelConfig
 from samudra.utils.location import LocalLocation, Location, ResolvedLocation
 from samudra.utils.logging import handle_logging
-from samudra.viz.core import Viz, VizRun
+from samudra.viz.core import (
+    PreparedVizGroundtruth,
+    Viz,
+    VizRun,
+    prepare_viz_groundtruth,
+)
 
 
 @functools.cache
@@ -116,24 +121,38 @@ class VizConfig(TopLevelConfig):
             "data source (e.g. --data @data/om4_demo.yaml)."
         )
 
-    def build(self, default_root: ResolvedLocation) -> Viz:
+    def _data_root(self, default_root: ResolvedLocation) -> ResolvedLocation:
         if self.data_root is None:
-            data_root = default_root
-        else:
-            data_root = default_root.resolve(self.data_root)
+            return default_root
+        return default_root.resolve(self.data_root)
 
+    def prepare_groundtruth(
+        self,
+        default_root: ResolvedLocation,
+    ) -> PreparedVizGroundtruth:
+        data_root = self._data_root(default_root)
         groundtruth_rollout = data_root.resolve(self._groundtruth_location()).open(
             chunks={}
         )
+        return prepare_viz_groundtruth(
+            self.dataset_name,
+            data_root.resolve(self.basins_location).open(),
+            groundtruth_rollout,
+            self.groundtruth_time_range.time_slice,
+        )
 
+    def build(
+        self,
+        default_root: ResolvedLocation,
+        prepared_groundtruth: PreparedVizGroundtruth,
+    ) -> Viz:
+        data_root = self._data_root(default_root)
         return Viz(
             # TODO(jder): change to Path
             str(self.output_path),
             self.dataset_name,
             [run.build(data_root) for run in self.runs],
-            data_root.resolve(self.basins_location).open(),
-            groundtruth_rollout,
-            self.groundtruth_time_range.time_slice,
+            prepared_groundtruth=prepared_groundtruth,
             observations=self.observations,
             data_root=data_root,
         )
@@ -142,14 +161,21 @@ class VizConfig(TopLevelConfig):
 logger = logging.getLogger(__name__)
 
 
-def main(cfg: VizConfig):
+def _run_with_prepared_groundtruth(
+    cfg: VizConfig,
+    prepared_groundtruth: PreparedVizGroundtruth,
+):
     cfg.output_path.mkdir(parents=True, exist_ok=True)
     handle_logging(cfg.debug, cfg.output_path)
     cfg.save_yaml(cfg.output_path / "config.yaml")
 
     logger.info(f"Writing results to {cfg.output_path}")
 
-    viz = cfg.build(LocalLocation(path=Path.cwd()))
+    default_root = LocalLocation(path=Path.cwd())
+    viz = cfg.build(
+        default_root,
+        prepared_groundtruth=prepared_groundtruth,
+    )
 
     steps = [s for s in cfg.steps or _ordered_steps() if s not in cfg.not_steps]
     logger.info(f"Running steps: {', '.join(steps)}")
@@ -159,6 +185,19 @@ def main(cfg: VizConfig):
     # there's some appending to a metrics file.)
     for step in steps:
         _run_step(viz, step)
+
+
+def main(cfg: VizConfig):
+    default_root = LocalLocation(path=Path.cwd())
+    prepared_groundtruth = cfg.prepare_groundtruth(default_root)
+    _run_with_prepared_groundtruth(cfg, prepared_groundtruth)
+
+
+def run_with_prepared_groundtruth(
+    cfg: VizConfig,
+    prepared_groundtruth: PreparedVizGroundtruth,
+):
+    _run_with_prepared_groundtruth(cfg, prepared_groundtruth)
 
 
 def _run_step(viz: Viz, step: VizStep):

@@ -1170,8 +1170,8 @@ class PostTrainCheckpointSweepConfig(BaseConfig):
     eval_config_path: str | None = None
     viz_config_path: str | None = None
     last_n_checkpoints: int | None = Field(default=None, ge=1)
-    eval_dirname: str = "post_train_eval"
-    viz_dirname: str = "viz"
+    eval_dirname: str | None = None
+    viz_dirname: str | None = None
 
 
 class EvalConfig(TopLevelConfig):

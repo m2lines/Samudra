@@ -114,6 +114,7 @@ class Trainer:
     def __init__(self, cfg: TrainConfig) -> None:
         cfg.prepare_output_dirs()
         cfg.save_yaml(cfg.experiment.output_dir / "config.yaml")
+        self.cfg = cfg
         # Backend
         self.device, self.distributed = init_train_backend(cfg.backend)
 
@@ -1132,7 +1133,7 @@ class Trainer:
     def finish(self):
         self.wandb_logger.finish()
         if is_main_process():
-            run_post_train_checkpoint_sweep(self.post_train_eval, self.ckpt_paths)
+            run_post_train_checkpoint_sweep(self.cfg, self.ckpt_paths)
 
 
 def main():

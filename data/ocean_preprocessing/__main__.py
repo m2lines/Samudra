@@ -456,10 +456,14 @@ class CLI:
             ds = flatten_by_depth_level(ds_input)
         else:
             ds = ds_input
-            if "lev" in ds.dims:
-                dims_to_keep.append("lev")
-            elif "ilev" in ds.dims:
-                dims_to_keep.append("ilev")
+
+        # Retain the depth axis and cell-bound dims so grid-metadata coordinates
+        # (dz, lev, ocean_fraction, lon_b/lat_b) survive into the written dataset.
+        # `lev` is kept even when flattening, since dz/lev/ocean_fraction remain
+        # indexed by it after the prognostic vars are split out.
+        for extra in ("lev", "ilev", "x_b", "y_b"):
+            if extra in ds.dims:
+                dims_to_keep.append(extra)
 
         logger.info(f"dropping extraneous dimensions (keeping {dims_to_keep}).")
         ds = ds.drop_dims([x for x in list(ds.dims) if x not in dims_to_keep])

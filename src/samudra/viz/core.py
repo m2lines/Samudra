@@ -104,6 +104,20 @@ class VizRun:
     variables: list[str]
 
 
+@dataclasses.dataclass
+class PreparedVizGroundtruth:
+    dataset_spec: DatasetSpec
+    data: xr.Dataset
+    profile_groundtruth: xr.Dataset
+    basin_masks: xr.Dataset
+    time_indices: list[int]
+    prediction_coords: dict[str, xr.DataArray]
+    times: xr.DataArray
+    wetmask: xr.DataArray
+    areacello_values: np.ndarray
+    areacello_spherical_values: np.ndarray
+
+
 class Viz:
     """Generates maps, time series, and probability density plots from evaluation outputs."""
 
@@ -112,10 +126,11 @@ class Viz:
         output_path: str,
         dataset_name: str,
         runs: list["VizRun"],
-        basins: xr.Dataset,
-        groundtruth_rollout: xr.Dataset,
-        time_range: slice,
+        prepared_groundtruth: PreparedVizGroundtruth,
     ):
+        if not runs:
+            raise ValueError("Viz requires at least one run")
+
         pred_dict: dict[str, dict[str, Any]] = {}
         for run in runs:
             pred_dict[run.name] = {
@@ -125,36 +140,8 @@ class Viz:
             }
 
         key1 = runs[0].name
-        # TODO: Support non-OM4 dataset specs in visualization.
-        self.dataset_spec = build_om4_spec()
+        self.dataset_spec = prepared_groundtruth.dataset_spec
         levels = len(self.dataset_spec.depth_levels)
-
-        groundtruth_rollout = groundtruth_rollout.sel(time=time_range)
-
-        if "y" in groundtruth_rollout.coords:
-            groundtruth_rollout = groundtruth_rollout.drop_vars(
-                ["lat", "lon"], errors="ignore"
-            )
-            groundtruth_rollout = groundtruth_rollout.rename({"y": "lat", "x": "lon"})
-
-        groundtruth_rollout = groundtruth_rollout.assign(
-            areacello=(["lat", "lon"], spherical_area_weights(groundtruth_rollout))
-        )
-
-        # Compute real grid cell areas for physical calculations
-        groundtruth_rollout["areacello_spherical"] = (
-            ["lat", "lon"],
-            spherical_area(groundtruth_rollout),
-        )
-
-        # This function processes the ds_groundtruth and predictions for plotting
-        # The predictions are loaded into pred_dict
-        data, pred_dict = process_data(
-            groundtruth_rollout, pred_dict, dataset_spec=self.dataset_spec
-        )
-
-        last_index = len(data.time) - 1
-        self.time_indices = [0, last_index // 2, last_index]
 
         var_list = {
             "vo": r"$v$ $( m/s )$",
@@ -166,6 +153,8 @@ class Viz:
             "KE": r"$KE$ $( J/m^2 )$",
             "OHC": r"$OHC$ $Anomaly$ $( ZJ )$",
         }
+
+        pred_dict = process_prediction_runs(prepared_groundtruth, pred_dict)
 
         # Create folder paths
         self.timeseries_path = os.path.join(output_path, f"Timeseries")
@@ -202,45 +191,17 @@ class Viz:
 
         clist = ["#ff807a", "#1e8685", "#ffb579", "#63c8ab"]
 
-        atlantic_mask0 = basins["basin_atlantic"]
-        atlantic_mask = atlantic_mask0.where(atlantic_mask0["lat"] >= -32)
-        atlantic_mask = process_mask(data, atlantic_mask)
-        pacific_mask0 = basins["basin_pacific"]
-        pacific_mask = pacific_mask0.where(
-            pacific_mask0["lat"] >= -32
-        )  # TODO: include this -32 masking in the basin data
-        pacific_mask = process_mask(data, pacific_mask)
-        indian_ocean_mask0 = basins["basin_indian"]
-        indian_ocean_mask = indian_ocean_mask0.where(indian_ocean_mask0["lat"] >= -32)
-        indian_ocean_mask = process_mask(data, indian_ocean_mask)
-        southern_ocean_mask0 = basins["basin_southern"]
-        southern_ocean_mask = process_mask(data, southern_ocean_mask0)
-        arctic_mask0 = basins["basin_arctic"]
-        arctic_ocean_mask = process_mask(data, arctic_mask0)
-
-        self.basin_masks = xr.Dataset(
-            {
-                "Atlantic": atlantic_mask,
-                "Pacific": pacific_mask,
-                "Southern": southern_ocean_mask,
-                "Indian": indian_ocean_mask,
-                "Arctic": arctic_ocean_mask,
-            }
-        )
-
-        # Compute profile means
         with ProgressBar():
-            logger.info("Computing profile for ground truth " + dataset_name)
-            profile_groundtruth = profile_mean(data).load()
-
             for k in pred_dict.keys():
                 logger.info("Computing profile for prediction " + k)
                 pred_dict[k]["profile_prediction"] = profile_mean(
                     pred_dict[k]["ds_prediction"]
                 ).load()
 
-        self.data: xr.Dataset = data
-        self.profile_groundtruth: xr.Dataset = profile_groundtruth
+        self.time_indices = prepared_groundtruth.time_indices
+        self.basin_masks = prepared_groundtruth.basin_masks
+        self.data: xr.Dataset = prepared_groundtruth.data
+        self.profile_groundtruth: xr.Dataset = prepared_groundtruth.profile_groundtruth
         self.pred_dict: dict[str, dict[str, Any]] = pred_dict
         self.dataset_name: str = dataset_name
         self.clist: list[str] = clist
@@ -3896,6 +3857,159 @@ def postprocess_for_plot(
     ds_groundtruth = ds_groundtruth.rename({"lat": "y", "lon": "x"})
 
     return ds_groundtruth, pred_dict
+
+
+def _prepare_groundtruth_rollout(
+    groundtruth_rollout: xr.Dataset,
+    time_range: slice,
+) -> xr.Dataset:
+    groundtruth_rollout = groundtruth_rollout.sel(time=time_range)
+
+    if "y" in groundtruth_rollout.coords:
+        groundtruth_rollout = groundtruth_rollout.drop_vars(
+            ["lat", "lon"], errors="ignore"
+        )
+        groundtruth_rollout = groundtruth_rollout.rename({"y": "lat", "x": "lon"})
+
+    groundtruth_rollout = groundtruth_rollout.assign(
+        areacello=(["lat", "lon"], spherical_area_weights(groundtruth_rollout))
+    )
+
+    groundtruth_rollout["areacello_spherical"] = (
+        ["lat", "lon"],
+        spherical_area(groundtruth_rollout),
+    )
+    return groundtruth_rollout
+
+
+def _wetmask_for_groundtruth(ds_groundtruth: xr.Dataset) -> xr.DataArray:
+    if "mask" in ds_groundtruth.data_vars:
+        return ds_groundtruth["mask"].isel(time=0, missing_dims="ignore")
+    return ds_groundtruth.wetmask
+
+
+def _build_basin_masks(data: xr.Dataset, basins: xr.Dataset) -> xr.Dataset:
+    atlantic_mask0 = basins["basin_atlantic"]
+    atlantic_mask = atlantic_mask0.where(atlantic_mask0["lat"] >= -32)
+    atlantic_mask = process_mask(data, atlantic_mask)
+    pacific_mask0 = basins["basin_pacific"]
+    pacific_mask = pacific_mask0.where(
+        pacific_mask0["lat"] >= -32
+    )  # TODO: include this -32 masking in the basin data
+    pacific_mask = process_mask(data, pacific_mask)
+    indian_ocean_mask0 = basins["basin_indian"]
+    indian_ocean_mask = indian_ocean_mask0.where(indian_ocean_mask0["lat"] >= -32)
+    indian_ocean_mask = process_mask(data, indian_ocean_mask)
+    southern_ocean_mask0 = basins["basin_southern"]
+    southern_ocean_mask = process_mask(data, southern_ocean_mask0)
+    arctic_mask0 = basins["basin_arctic"]
+    arctic_ocean_mask = process_mask(data, arctic_mask0)
+
+    return xr.Dataset(
+        {
+            "Atlantic": atlantic_mask,
+            "Pacific": pacific_mask,
+            "Southern": southern_ocean_mask,
+            "Indian": indian_ocean_mask,
+            "Arctic": arctic_ocean_mask,
+        }
+    )
+
+
+def prepare_viz_groundtruth(
+    dataset_name: str,
+    basins: xr.Dataset,
+    groundtruth_rollout: xr.Dataset,
+    time_range: slice,
+) -> PreparedVizGroundtruth:
+    # TODO: Support non-OM4 dataset specs in visualization.
+    dataset_spec = build_om4_spec()
+    groundtruth_rollout = _prepare_groundtruth_rollout(
+        groundtruth_rollout,
+        time_range,
+    )
+    ds_groundtruth = with_level_index_vars(
+        groundtruth_rollout, dataset_spec=dataset_spec
+    )
+    ds_groundtruth = _combine_variables_by_level(
+        ds_groundtruth,
+        ["thetao", "so", "uo", "vo", "mask"],
+        dataset_spec,
+    )
+
+    areacello_values = ds_groundtruth.areacello.values
+    areacello_spherical_values = ds_groundtruth["areacello_spherical"].values
+    times = ds_groundtruth.time
+    wetmask = _wetmask_for_groundtruth(ds_groundtruth)
+
+    data = _postprocess_for_plot(
+        ds_groundtruth,
+        areacello_values,
+        areacello_spherical_values,
+        np.array(dataset_spec.depth_thickness),
+        times,
+        wetmask,
+    )
+    prediction_coords = {name: coord for name, coord in data.coords.items()}
+    data = data.rename({"lat": "y", "lon": "x"})
+
+    last_index = len(data.time) - 1
+    time_indices = [0, last_index // 2, last_index]
+    basin_masks = _build_basin_masks(data, basins)
+
+    with ProgressBar():
+        logger.info("Computing profile for ground truth " + dataset_name)
+        profile_groundtruth = profile_mean(data).load()
+
+    return PreparedVizGroundtruth(
+        dataset_spec=dataset_spec,
+        data=data,
+        profile_groundtruth=profile_groundtruth,
+        basin_masks=basin_masks,
+        time_indices=time_indices,
+        prediction_coords=prediction_coords,
+        times=times,
+        wetmask=wetmask,
+        areacello_values=areacello_values,
+        areacello_spherical_values=areacello_spherical_values,
+    )
+
+
+def process_prediction_runs(
+    prepared_groundtruth: PreparedVizGroundtruth,
+    pred_dict: dict[str, dict[str, Any]],
+) -> dict[str, dict[str, Any]]:
+    for key in pred_dict.keys():
+        ds_prediction = pred_dict[key]["data"]
+
+        assert ds_prediction.time.size == prepared_groundtruth.data.time.size, (
+            f"Sizes different for {key}: {ds_prediction.time.size}!="
+            f"{prepared_groundtruth.data.time.size}; prediction range is "
+            f"{ds_prediction.time.values[0]} to "
+            f"{ds_prediction.time.values[-1]}\n"
+            f"groundtruth range is {prepared_groundtruth.data.time.values[0]} to "
+            f"{prepared_groundtruth.data.time.values[-1]}"
+        )
+        if "model_path" in ds_prediction.attrs:
+            pred_dict[key]["model_path"] = ds_prediction.attrs["model_path"]
+
+        ds_prediction = _combine_variables_by_level(
+            ds_prediction,
+            pred_dict[key]["ls"],
+            prepared_groundtruth.dataset_spec,
+        )
+        ds_prediction = _postprocess_for_plot(
+            ds_prediction,
+            prepared_groundtruth.areacello_values,
+            prepared_groundtruth.areacello_spherical_values,
+            np.array(prepared_groundtruth.dataset_spec.depth_thickness),
+            prepared_groundtruth.times,
+            prepared_groundtruth.wetmask,
+            coords=prepared_groundtruth.prediction_coords,
+        )
+        pred_dict[key]["ds_prediction"] = ds_prediction.rename({"lat": "y", "lon": "x"})
+
+    return pred_dict
 
 
 def process_data(

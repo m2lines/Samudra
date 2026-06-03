@@ -1167,8 +1167,8 @@ EvalBackendConfig = Literal["cpu", "cuda", "auto"]
 
 class PostTrainCheckpointSweepConfig(BaseConfig):
     enabled: bool = False
-    eval_config_path: str
-    viz_config_path: str
+    eval_config_path: str | None = None
+    viz_config_path: str | None = None
     last_n_checkpoints: int | None = Field(default=None, ge=1)
     eval_dirname: str = "post_train_eval"
     viz_dirname: str = "viz"

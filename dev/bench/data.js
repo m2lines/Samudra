@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780085258615,
+  "lastUpdate": 1780503907958,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -9624,6 +9624,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.14133367096409474",
             "extra": "mean: 28.073048212599996 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "940545897@qq.com",
+            "name": "Yuan Yuan",
+            "username": "YuanYuan98"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8d4846ddc58981c94705f5af73169f613b876738",
+          "message": "[codex] Update Samudra 2 project page paper text (#755)\n\n## Summary\n\n- Update the Samudra 2 project page abstract to match the arXiv v1 paper\ntext and render it as a single paragraph.\n- Replace the acknowledgements section with the paper's \"Acknowledgments\nand Disclosure of Funding\" text.\n- Rename the top paper link from \"Paper PDF\" to \"Paper\" and point it to\nthe arXiv abstract page for `2606.02610`.\n- Keep the rollout demo as a YouTube embed, using the privacy-enhanced\nYouTube embed URL and fuller iframe attributes.\n\n## Impact\n\nThe hosted `/Ocean_Emulator/samudra2/` page will show the current paper\nabstract and funding acknowledgments, the Paper link will open the arXiv\nabstract page, and the rollout demo remains a YouTube video embed.\n\n## Note\n\nThis PR updates the visible Paper link to the arXiv abstract page\ninstead of committing the bundled 18MB PDF asset. The local working tree\ncopy of `docs/static/samudra2/assets/paper/samudra2-jmlr.pdf` was\nreplaced with `/Users/yy6080/Desktop/2606.02610v1.pdf` and hash-checked,\nbut local git push of the binary asset is unavailable in this\nenvironment.\n\n## Validation\n\n- Confirmed the updated HTML contains the new abstract and\nacknowledgements text.\n- Confirmed the abstract section contains one paragraph.\n- Confirmed the top paper button label is `Paper` and links to\n`https://arxiv.org/abs/2606.02610`.\n- Confirmed the rollout demo uses\n`https://www.youtube-nocookie.com/embed/jnwDHMq70OA?rel=0`.\n- Confirmed the local bundled PDF copy matches\n`/Users/yy6080/Desktop/2606.02610v1.pdf` by SHA-256.\n- Ran `uv run --only-group docs zensical build` successfully.\n\n---------\n\nCo-authored-by: Claude Opus 4.8 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-06-03T12:09:44-04:00",
+          "tree_id": "8afc5e29431eec2901736f3aac362628cd4d99b7",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/8d4846ddc58981c94705f5af73169f613b876738"
+        },
+        "date": 1780503906630,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0513401136371259,
+            "unit": "iter/sec",
+            "range": "stddev: 0.056834211547296454",
+            "extra": "mean: 951.1669791999907 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.16724609345568103,
+            "unit": "iter/sec",
+            "range": "stddev: 0.033155701140580876",
+            "extra": "mean: 5.979212903199993 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.03503514299367133,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1730898391940993",
+            "extra": "mean: 28.542769189800016 sec\nrounds: 5"
           }
         ]
       }

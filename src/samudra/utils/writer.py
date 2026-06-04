@@ -129,6 +129,12 @@ class ZarrWriter:
         for name, da in src.items():
             if name in ("time", "lat", "lon", "lev", "y", "x"):
                 continue
+            # Keep depth-resolved metadata (dz, ocean_fraction) consistent with the
+            # emitted levels. A shallow model spec (e.g. thermo_dynamic_5) predicts
+            # fewer levels than the source's full-depth grid coords carry, so slice
+            # those to the emitted `lev` count instead of conflicting with it.
+            if "lev" in da.dims:
+                da = da.isel(lev=slice(0, n_levels))
             dims = tuple(rename.get(str(d), str(d)) for d in da.dims)
             coords[name] = (dims, np.asarray(da.values))
 

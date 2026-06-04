@@ -8,7 +8,7 @@ import numpy as np
 import torch
 import xarray as xr
 
-from ocean_emulators.constants import TensorMap
+from ocean_emulators.constants import TensorMap, build_om4_spec
 from ocean_emulators.utils.data import Normalize
 from ocean_emulators.utils.writer import ZarrWriter
 from tests.conftest import TEST_FULL_DATASET_SPEC
@@ -135,3 +135,53 @@ def test_writer_appends_along_time(tmp_path):
     np.testing.assert_array_equal(out["time"].values, [0, 1, 2, 3, 4])
     assert out["thetao"].sizes["time"] == 5
     assert out["areacello"].dims == ("y", "x")  # static coord unaffected
+
+
+def test_writer_shallow_spec_slices_depth_metadata(tmp_path):
+    """A shallow model spec must not conflict with full-depth source coords.
+
+    A backfilled source carries 19-level `dz`/`ocean_fraction`, but a shallow spec
+    (e.g. thermo_dynamic_5) emits fewer levels. The writer slices the depth-resolved
+    coords to the emitted level count instead of raising on a conflicting `lev` dim.
+    """
+    spec = build_om4_spec(
+        prognostic_vars_key="thermo_dynamic_5", boundary_vars_key="tau_hfds"
+    )
+    tensor_map = TensorMap(dataset_spec=spec)
+    n_prog = spec.num_prognostic_depth_levels  # 5, fewer than the source's 19
+    n_channels = len(tensor_map.prognostic_var_names)
+    ny, nx, nt = 3, 4, 1
+
+    # Source coords carry the FULL 19-level depth metadata.
+    coords = {
+        "lat": xr.DataArray(np.linspace(-89, 89, ny), dims="lat"),
+        "lon": xr.DataArray(np.linspace(0, 359, nx), dims="lon"),
+        "lev": xr.DataArray(list(spec.depth_levels), dims="lev"),
+        "dz": xr.DataArray(list(spec.depth_thickness), dims="lev"),
+        "ocean_fraction": xr.DataArray(
+            np.ones((19, ny, nx)), dims=["lev", "lat", "lon"]
+        ),
+        "areacello": xr.DataArray(np.ones((ny, nx)), dims=["lat", "lon"]),
+    }
+    writer = ZarrWriter(
+        tmp_path,
+        coords=coords,
+        hist=0,
+        model_path="dummy.ckpt",
+        time_chunk_size=4,
+        normalize=_NO_NORMALIZE,
+        tensor_map=tensor_map,
+    )
+    writer.buffer = torch.zeros(nt, n_channels, ny, nx)
+    writer.time_buffer = xr.DataArray(np.arange(nt), dims="time")
+
+    writer.write()  # must not raise on conflicting lev sizes
+    out = xr.open_zarr(writer.pred_path)
+
+    # Depth axis and all depth-resolved coords are sliced to the emitted levels.
+    assert out.sizes["lev"] == n_prog
+    assert out["thetao"].sizes["lev"] == n_prog
+    assert out["dz"].sizes["lev"] == n_prog
+    assert out["ocean_fraction"].sizes["lev"] == n_prog
+    np.testing.assert_array_equal(out["lev"].values, spec.depth_levels[:n_prog])
+    np.testing.assert_array_equal(out["dz"].values, spec.depth_thickness[:n_prog])

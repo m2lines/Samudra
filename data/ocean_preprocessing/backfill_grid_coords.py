@@ -191,6 +191,15 @@ def _open(path: str, storage_options: dict | None = None, **kwargs) -> xr.Datase
     return xr.open_zarr(path, storage_options=so, **kwargs)
 
 
+def _zarr_store(path: str, storage_options: dict | None = None):
+    """A zarr-openable store for `path`: an fsspec mapper if remote, else the path."""
+    if "://" in str(path):
+        import fsspec
+
+        return fsspec.get_mapper(path, **(storage_options or {}))
+    return path
+
+
 def backfill_store(
     store_path: str,
     static_path: str,
@@ -298,14 +307,17 @@ def apply_grid_coords(
         return
 
     logger.info("appending coordinates to %s", store_path)
-    write_ds.to_zarr(store_path, mode="a", consolidated=True)
-    _promote_to_coords(store_path, to_write)
+    write_so = storage_options if "://" in str(store_path) else None
+    write_ds.to_zarr(store_path, mode="a", consolidated=True, storage_options=write_so)
+    _promote_to_coords(store_path, to_write, storage_options)
 
     _verify(store_path, coords, to_write, rtol, storage_options)
     logger.info("backfill complete and verified.")
 
 
-def _promote_to_coords(store_path: str, coord_names: list[str]) -> None:
+def _promote_to_coords(
+    store_path: str, coord_names: list[str], storage_options: dict | None = None
+) -> None:
     """Mark the newly-written arrays as coordinates (metadata-only, no chunk rewrite).
 
     Appending to an existing store writes the grid arrays as data variables, since
@@ -313,7 +325,8 @@ def _promote_to_coords(store_path: str, coord_names: list[str]) -> None:
     ``coordinates`` attribute to each data variable makes xarray promote them back
     to coordinates on read -- matching the layout newly generated datasets have.
     """
-    group = zarr.open_group(store_path, mode="a")
+    store = _zarr_store(store_path, storage_options)
+    group = zarr.open_group(store, mode="a")
     dim_coords = {"x", "y", "time", "lev", "x_b", "y_b"}
     skip = set(coord_names) | dim_coords
     ref = " ".join(coord_names)
@@ -323,7 +336,7 @@ def _promote_to_coords(store_path: str, coord_names: list[str]) -> None:
         existing = arr.attrs.get("coordinates", "")
         merged = list(dict.fromkeys([*existing.split(), *coord_names]))
         arr.attrs["coordinates"] = " ".join(merged) if existing else ref
-    zarr.consolidate_metadata(group.store)
+    zarr.consolidate_metadata(store)
 
 
 def _verify(

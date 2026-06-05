@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780503917408,
+  "lastUpdate": 1780680690552,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -9669,6 +9669,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.1730898391940993",
             "extra": "mean: 28.542769189800016 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "75f5c789c3b91755119e6c9452e448458409252b",
+          "message": "Fix Normalize stats for mixed surface variables (#746)\n\nWhen using compact datasets, flatten stds/means correctly given they\nhave a mix of with-lev and without-lev variables.",
+          "timestamp": "2026-06-05T13:17:00-04:00",
+          "tree_id": "0d3f430b402be5535960f7f2804387dd74d0275c",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/75f5c789c3b91755119e6c9452e448458409252b"
+        },
+        "date": 1780680689358,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0924850184251762,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004102718459580784",
+            "extra": "mean: 915.3443600000173 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1631032516739471,
+            "unit": "iter/sec",
+            "range": "stddev: 0.14452552650338",
+            "extra": "mean: 6.131085614400002 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.03551962794001286,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11013635628523159",
+            "extra": "mean: 28.153448050999998 sec\nrounds: 5"
           }
         ]
       }

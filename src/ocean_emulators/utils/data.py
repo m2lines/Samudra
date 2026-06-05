@@ -330,10 +330,6 @@ class DataSource:
         )
 
 
-def _flatten(means_or_stds: xr.Dataset) -> torch.Tensor:
-    return torch.from_numpy(_flatten_var_lev(means_or_stds))
-
-
 @dataclasses.dataclass
 class OceanData:
     """A slice of ocean data (boundary or prognostic) with normalization statistics.
@@ -368,8 +364,8 @@ class OceanData:
         mask: Float[torch.Tensor, " variable"],
         src: DataSource,
     ) -> Self:
-        means_torch = _flatten(src.means)
-        stds_torch = _flatten(src.stds)
+        means_torch = torch.from_numpy(_flatten(src.means))
+        stds_torch = torch.from_numpy(_flatten(src.stds))
         return cls(data, means_torch, stds_torch, mask)
 
     def with_time(self, time_range: slice) -> Self:
@@ -514,7 +510,7 @@ def conditional_rearrange(
     return da.sortby(order_da)
 
 
-def _flatten_var_lev(ds: xr.Dataset) -> np.ndarray:
+def _flatten(ds: xr.Dataset) -> np.ndarray:
     """Flatten a means/stds dataset into a 1-D array with one entry per channel.
 
     Variables with a `lev` dim are flattened with `lev` first; variables without
@@ -874,13 +870,12 @@ class Normalize:
         # variables with and without a `lev` dim (e.g. thermo_dynamic_all has
         # 4 depth-resolved variables plus surface-only `zos`), a plain
         # `to_array().reshape(-1)` would broadcast the surface variable across
-        # all levels, producing too many channels. `conditional_rearrange`
-        # flattens (variable, lev) for depth vars and keeps surface vars as a
-        # single channel each, matching the prognostic tensor channel layout.
-        self._prognostic_mean_np = _flatten_var_lev(self.prognostic_mean)
-        self._prognostic_std_np = _flatten_var_lev(self.prognostic_std)
-        self._boundary_mean_np = _flatten_var_lev(self.boundary_mean)
-        self._boundary_std_np = _flatten_var_lev(self.boundary_std)
+        # all levels, producing too many channels. `_flatten` flattens each
+        # variable independently, matching the prognostic tensor channel layout.
+        self._prognostic_mean_np = _flatten(self.prognostic_mean)
+        self._prognostic_std_np = _flatten(self.prognostic_std)
+        self._boundary_mean_np = _flatten(self.boundary_mean)
+        self._boundary_std_np = _flatten(self.boundary_std)
         self._wet_mask_np = self.wet_mask.numpy()
 
     def normalize_tensor_prognostic(

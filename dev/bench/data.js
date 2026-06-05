@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780680690552,
+  "lastUpdate": 1780680698934,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -19437,6 +19437,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.15569276424567124",
             "extra": "mean: 20.28587608959999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "75f5c789c3b91755119e6c9452e448458409252b",
+          "message": "Fix Normalize stats for mixed surface variables (#746)\n\nWhen using compact datasets, flatten stds/means correctly given they\nhave a mix of with-lev and without-lev variables.",
+          "timestamp": "2026-06-05T13:17:00-04:00",
+          "tree_id": "0d3f430b402be5535960f7f2804387dd74d0275c",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/75f5c789c3b91755119e6c9452e448458409252b"
+        },
+        "date": 1780680698291,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0834959092941399,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0009770832559808777",
+            "extra": "mean: 922.938417599994 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1734365227891487,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03511463421462011",
+            "extra": "mean: 5.765798252399963 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.049608192671674156,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08798898622560457",
+            "extra": "mean: 20.157960734799985 sec\nrounds: 5"
           }
         ]
       }

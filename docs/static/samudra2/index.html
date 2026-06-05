@@ -60,9 +60,9 @@ SPDX-License-Identifier: CC-BY-4.0
 
       <div class="publication-links" style="margin-top: 1.5rem;">
         <span class="link-block">
-          <a href="./assets/paper/samudra2-jmlr.pdf" class="external-link button is-normal is-rounded is-dark">
-            <span class="icon"><i class="fas fa-file-pdf"></i></span>
-            <span>Paper PDF</span>
+          <a href="https://arxiv.org/abs/2606.02610" class="external-link button is-normal is-rounded is-dark" target="_blank" rel="noreferrer">
+            <span class="icon"><i class="fas fa-file-lines"></i></span>
+            <span>Paper</span>
           </a>
         </span>
         <span class="link-block">
@@ -122,25 +122,22 @@ SPDX-License-Identifier: CC-BY-4.0
         <h2 class="title is-3">Abstract</h2>
         <div class="content has-text-justified">
           <p>
-            Ocean general circulation models are essential to climate science but computationally expensive,
-            severely limiting the ensembles and scenarios that can be explored. Neural emulators promise
-            orders-of-magnitude speedups, yet no ocean emulator to date has combined fine spatial resolution
-            with multi-year autoregressive rollouts. Samudra, the first autoregressive neural ocean emulator
-            to produce multi-decade global rollouts, was restricted to 1 deg resolution and exhibited two
-            long-horizon failure modes: <em>variance collapse</em> and <em>imprinting artifacts</em>.
-          </p>
-          <p>
-            Samudra 2 extends that framework with two complementary modifications: a widened ConvNeXt U-Net
-            backbone with a reduced block-internal expansion factor, and a dynamic loss that reweights
-            per-variable MSE contributions inversely by each channel's running prediction error. This
-            amplifies the gradient signal from slow-evolving deep-ocean fields that standard MSE would
-            otherwise neglect.
-          </p>
-          <p>
-            At 1 deg, Samudra 2 raises upper-ocean global-mean temperature R<sup>2</sup> from 0.56 to 0.87
-            and reduces deep-ocean temperature error by roughly sevenfold compared to the original Samudra.
-            The same architecture scales to 1/2 deg and 1/4 deg over approximately 8-year autoregressive
-            rollouts, recovering mesoscale eddies and sharp western boundary currents absent at coarser grids.
+            Ocean general circulation models (OGCMs) are essential to climate science but computationally
+            expensive, limiting ensemble size and forcing scenarios. Neural emulators promise
+            orders-of-magnitude speedups, yet existing ocean emulators have not combined fine spatial
+            resolution with multi-year autoregressive rollouts. Samudra, the first autoregressive neural
+            ocean emulator to produce multi-decade global rollouts, is limited to 1° resolution and
+            exhibits two long-horizon failure modes: <em>variance collapse</em>, the loss of temporal
+            variability, and <em>imprinting artifacts</em>, in which velocity patterns leak into deep-ocean
+            fields. We present Samudra 2, which introduces a wider U-Net backbone with modified ConvNeXt-style
+            blocks and a reduced block-internal expansion factor, together with a dynamic loss that reweights
+            output channels according to their prediction errors, strengthening gradients for slow-evolving
+            deep-ocean fields. At 1°, Samudra 2 increases upper-ocean global-mean temperature R<sup>2</sup> from 0.56 to
+            0.87 and reduces deep-ocean temperature error by roughly sevenfold. The same architecture scales
+            to 1/2° and 1/4° over approximately 8-year autoregressive rollouts, recovering mesoscale
+            eddies and sharp western boundary currents. Running on a single GPU, Samudra 2 enables larger
+            ensembles for sea-level projections, ocean heat uptake, and climate variability studies. Project
+            page: <a href="https://openathena.ai/Ocean_Emulator/">https://openathena.ai/Ocean_Emulator/</a>.
           </p>
         </div>
       </div>
@@ -257,8 +254,10 @@ SPDX-License-Identifier: CC-BY-4.0
     </div>
     <div class="video-embed">
       <iframe
-        src="https://www.youtube.com/embed/w4jQgzv98BY"
-        allow="autoplay; encrypted-media"
+        src="https://www.youtube-nocookie.com/embed/jnwDHMq70OA?rel=0"
+        title="Long-horizon rollout video for Samudra 2"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        referrerpolicy="strict-origin-when-cross-origin"
         allowfullscreen
       ></iframe>
     </div>
@@ -286,24 +285,30 @@ SPDX-License-Identifier: CC-BY-4.0
 <section class="section" id="bibtex">
   <div class="container is-max-desktop">
     <h2 class="title is-3">BibTeX</h2>
-    <pre><code>@article{yuan2026samudra2,
-  title   = {Samudra 2: Scaling Ocean Emulators Across Resolutions},
-  author  = {Yuan, Yuan and Rusak, Jesse and Merose, Alexander and
-             Subel, Adam and Perezhogin, Pavel and Adcroft, Alistair and
-             Fernandez-Granda, Carlos and Zanna, Laure},
-  year    = {2026}
+    <pre><code>@misc{yuan2026samudra2scalingocean,
+      title={Samudra 2: Scaling Ocean Emulators across Resolutions},
+      author={Yuan Yuan and Jesse Rusak and Alexander Merose and Adam Subel and Pavel Perezhogin and Alistair Adcroft and Carlos Fernandez-Granda and Laure Zanna},
+      year={2026},
+      eprint={2606.02610},
+      archivePrefix={arXiv},
+      primaryClass={cs.CE},
+      url={https://arxiv.org/abs/2606.02610},
 }</code></pre>
   </div>
 </section>
 
 <section class="section">
   <div class="container is-max-desktop">
-    <h2 class="title is-3">Acknowledgements</h2>
+    <h2 class="title is-3">Acknowledgments and Disclosure of Funding</h2>
     <div class="content">
       <p>
-        We thank NVIDIA for a GPU hardware grant and support, Lambda for hardware support,
-        AWS for infrastructure grants, and NYU IT High Performance Computing for resources and staff
-        expertise.
+        This project is supported by Schmidt Sciences, as part of the M2 LInES project. We also
+        acknowledge support from the NSF CAIG program via grant 2530958. We thank NVIDIA for a GPU
+        hardware grant, ongoing support, and helpful advice; <a href="https://lambda.ai/" target="_blank"
+        rel="noreferrer">Lambda</a> for a grant that provided the hardware for developing these models;
+        and AWS for infrastructure grants, which provided data storage and engineering lifecycle support.
+        This research was also supported in part through the NYU IT High Performance Computing resources,
+        services, and staff expertise.
       </p>
     </div>
   </div>

@@ -38,7 +38,7 @@ preemptible: false
 backend: auto
 
 experiment:
-  name: 2026-06-01:samudra_llc:A-3
+  name: 2026-06-05:samudra_llc:A-5
   data_root: /orcd/data/abodner/
   rand_seed: 15
   base_output_dir: .LOCAL

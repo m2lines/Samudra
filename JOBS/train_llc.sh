@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-05-28:samudra_llc:long_curriculum_strides=3_CONT_restart_3
+#SBATCH --job-name=2026-06-03:samudra_llc:long_curriculum_strides=3_CONT_restart_4
 #SBATCH -N 1
 #SBATCH --mem=300GB
 #SBATCH --ntasks=1
@@ -96,7 +96,7 @@ LLC_J_END="${LLC_J_END:-1440}"
 DATA_LOCATION_OVERRIDE="${DATA_LOCATION_OVERRIDE:-}"
 
 # CHECKPOINTING FINETUNING
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-05-25:samudra_llc:long_curriculum_strides=3_CONT_restart_2-14508042/saved_nets/ckpt_37.pt}" #/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-05-28:samudra_llc:long_curriculum_strides=3_CONT_restart_3-14675672/saved_nets/ckpt_40.pt}" #/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
@@ -106,6 +106,7 @@ EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}" # 
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
 EPOCHS="${EPOCHS:-72}"
 SAVE_FREQ="${SAVE_FREQ:-1}"
+EMERGENCY_CHECKPOINT_INTERVAL_MINUTES="${EMERGENCY_CHECKPOINT_INTERVAL_MINUTES:-120}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 
 # OPTIMIZATION (LR + SCHEDULER)
@@ -131,6 +132,7 @@ GRADIENT_DETACH_INTERVAL="${GRADIENT_DETACH_INTERVAL:-2}"
 
 echo "======== train ocean_emulator samudra w/ ${GPUS} gpus on LLC4320 data ========"
 echo "training for ${EPOCHS} total epochs and saving checkpoints every ${SAVE_FREQ}"
+echo "saving overwrite emergency checkpoints every ${EMERGENCY_CHECKPOINT_INTERVAL_MINUTES} minutes"
 echo "using ${DATA_NUM_WORKERS} data workers and ${PIN_MEM} pin memory"
 if [[ "${GPUS}" -gt 0 ]]; then
   echo "effective workers per rank (after trainer scaling): $((DATA_NUM_WORKERS / GPUS))"
@@ -237,6 +239,7 @@ trap 'forward_signal INT' INT
   -m ocean_emulators.train configs/samudra_llc/train.yaml \
   --save_freq "${SAVE_FREQ}" \
   --epochs "${EPOCHS}" \
+  --emergency_checkpoint_interval_minutes "${EMERGENCY_CHECKPOINT_INTERVAL_MINUTES}" \
   "${OPTIM_ARGS[@]}" \
   "${CURRICULUM_ARGS[@]}" \
   --model.pad "${PAD}" \

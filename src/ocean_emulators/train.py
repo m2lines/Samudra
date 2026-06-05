@@ -481,6 +481,18 @@ class Trainer:
         self.normalize_fill_value: float = cfg.data.masked_fill_value
 
         self.profiler = cfg.profiler.build(self.output_dir, self.device)
+        self.emergency_checkpoint_interval_seconds = (
+            cfg.emergency_checkpoint_interval_minutes * 60.0
+        )
+        self._next_emergency_checkpoint_time: float | None = None
+        if self.emergency_checkpoint_interval_seconds > 0:
+            self._next_emergency_checkpoint_time = (
+                time.perf_counter() + self.emergency_checkpoint_interval_seconds
+            )
+            logger.info(
+                "Periodic emergency checkpointing enabled: every %.1f minutes",
+                cfg.emergency_checkpoint_interval_minutes,
+            )
 
         assert self.tensor_map is not None
 
@@ -874,6 +886,12 @@ class Trainer:
             self.profiler.after_batch(self.num_batches_seen)
             self._last_completed_batch_in_epoch = global_data_iter_step
 
+            if sync_gradients:
+                self._maybe_save_periodic_emergency_checkpoint(
+                    epoch=epoch,
+                    batch_in_epoch=global_data_iter_step,
+                )
+
             if self._stop_requested and sync_gradients:
                 reason = self._stop_reason or "stop requested"
                 self.save_emergency_checkpoint(
@@ -1182,6 +1200,29 @@ class Trainer:
             f"Received {signame}; saving emergency minibatch checkpoint at "
             "next safe optimization step."
         )
+
+    def _maybe_save_periodic_emergency_checkpoint(
+        self,
+        epoch: int,
+        batch_in_epoch: int,
+    ) -> None:
+        if self._next_emergency_checkpoint_time is None:
+            return
+
+        now = time.perf_counter()
+        if now < self._next_emergency_checkpoint_time:
+            return
+
+        self.save_emergency_checkpoint(
+            epoch=epoch,
+            batch_in_epoch=batch_in_epoch,
+            reason="periodic_interval",
+        )
+
+        while self._next_emergency_checkpoint_time <= now:
+            self._next_emergency_checkpoint_time += (
+                self.emergency_checkpoint_interval_seconds
+            )
 
     def save_emergency_checkpoint(
         self,

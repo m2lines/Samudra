@@ -1070,6 +1070,15 @@ class TrainConfig(TopLevelConfig):
             "threshold. Set to 0 to disable warnings."
         ),
     )
+    emergency_checkpoint_interval_minutes: float = Field(
+        default=0.0,
+        ge=0.0,
+        description=(
+            "Overwrite the emergency minibatch checkpoint at this wall-clock "
+            "interval during training. Set to 0 to disable periodic emergency "
+            "checkpoints."
+        ),
+    )
 
     # Profiling parameters
     profiler: ProfilerConfig = ProfilerConfig()

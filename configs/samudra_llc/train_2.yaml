@@ -40,7 +40,7 @@ preemptible: false
 backend: auto
 
 experiment:
-  name: 2026-05-28:samudra_llc:long_curriculum_strides=1_CONT_restart-2
+  name: 2026-06-05:samudra_llc:long_curriculum_strides=1_CONT_restart-3
   data_root: /orcd/data/abodner/
   rand_seed: 15
   base_output_dir: .LOCAL

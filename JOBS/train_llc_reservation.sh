@@ -96,6 +96,7 @@ EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}" # 
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
 EPOCHS="${EPOCHS:-7}"
 SAVE_FREQ="${SAVE_FREQ:-1}"
+EMERGENCY_CHECKPOINT_INTERVAL_MINUTES="${EMERGENCY_CHECKPOINT_INTERVAL_MINUTES:-120}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 
 # OPTIMIZATION (LR + SCHEDULER)
@@ -120,6 +121,7 @@ GRADIENT_DETACH_INTERVAL="${GRADIENT_DETACH_INTERVAL:-2}"
 
 echo "======== train ocean_emulator samudra w/ ${GPUS} gpus on LLC4320 data ========"
 echo "training for ${EPOCHS} total epochs and saving checkpoints every ${SAVE_FREQ}"
+echo "saving overwrite emergency checkpoints every ${EMERGENCY_CHECKPOINT_INTERVAL_MINUTES} minutes"
 echo "using ${DATA_NUM_WORKERS} data workers and ${PIN_MEM} pin memory"
 if [[ "${GPUS}" -gt 0 ]]; then
   echo "effective workers per rank (after trainer scaling): $((DATA_NUM_WORKERS / GPUS))"
@@ -216,6 +218,7 @@ uv run python -m torch.distributed.run \
   -m ocean_emulators.train configs/samudra_llc/train.yaml \
   --save_freq "${SAVE_FREQ}" \
   --epochs "${EPOCHS}" \
+  --emergency_checkpoint_interval_minutes "${EMERGENCY_CHECKPOINT_INTERVAL_MINUTES}" \
   "${OPTIM_ARGS[@]}" \
   "${CURRICULUM_ARGS[@]}" \
   --model.pad "${PAD}" \

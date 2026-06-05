@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p mit_normal_gpu
-#SBATCH --job-name=2026-05-27-eval:Samudra_LLC:mae,grad_z,h_temporal-subset-1_ckpt-24
+#SBATCH --job-name=2026-06-04-eval:Samudra_LLC:A_ckpt-24
 #SBATCH --account=mit_amf_standard_gpu
 #SBATCH --qos=mit_amf_standard_gpu
 #SBATCH -N 1
@@ -11,7 +11,6 @@
 #SBATCH --time=00-03:00:00
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
-
 set -euo pipefail
 
 module load miniforge/24.3.0-0
@@ -30,14 +29,13 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
-CKPT_PATH="${CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-05-26:samudra_llc:mae,grad_z,h_temporal-subset-1-14560621/saved_nets/ckpt_24.pt}"
+CKPT_PATH="${CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-06-03:samudra_llc:A-3-15371823/saved_nets/ckpt_24.pt}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-/orcd/data/abodner/002/cody/inference_patch}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 
-
 INFER_START="${INFER_START:-2012-10-14}"
-INFER_END="${INFER_END:-2012-10-17}"
+INFER_END="${INFER_END:-2012-10-16}"
 INFERENCE_STRIDE="${INFERENCE_STRIDE:-3}"
 NUM_MODEL_STEPS_FORWARD="${NUM_MODEL_STEPS_FORWARD:-4}"
 MODEL_NORM="${MODEL_NORM:-group}"

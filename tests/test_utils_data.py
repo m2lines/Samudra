@@ -19,7 +19,9 @@ from ocean_emulators.utils.data import (
     compute_anomalies,
     flatten_masks,
     get_aggregator_dicts,
+    stack_levels,
     unflatten_masks,
+    with_depth_value_vars,
     with_level_index_vars,
 )
 from tests.conftest import TEST_DATASET_SPEC, TEST_FULL_DATASET_SPEC
@@ -32,6 +34,48 @@ def test_mask_roundtrip(data_source):
     flattened = flatten_masks(unflattened.copy(), dataset_spec=TEST_DATASET_SPEC)
 
     assert flattened == data, "Assume a safe roundtrip"
+
+
+@pytest.mark.parametrize("data_source", ["mock-om4"], indirect=True)
+def test_level_index_vars_roundtrip(data_source):
+    """`with_level_index_vars` and `with_depth_value_vars` are mutual inverses.
+
+    Exercised on the mock OM4 dataset (in ``<var>_<level_index>`` form) in both
+    orders, so each function is run against the other's real output.
+    """
+    spec = TEST_DATASET_SPEC
+    ds_idx = data_source.data  # OM4 data named <var>_<level_index>
+
+    ds_lev = with_depth_value_vars(ds_idx, spec)
+    # The inverse actually renamed the 3D vars to the depth-value form.
+    assert any("_lev_" in str(v) for v in ds_lev.variables)
+
+    # inverse -> forward recovers the index form ...
+    xr.testing.assert_identical(with_level_index_vars(ds_lev, spec), ds_idx)
+    # ... and forward -> inverse recovers the depth-value form.
+    xr.testing.assert_identical(
+        with_depth_value_vars(with_level_index_vars(ds_lev, spec), spec), ds_lev
+    )
+
+
+@pytest.mark.parametrize("data_source", ["mock-om4"], indirect=True)
+def test_stack_levels(data_source):
+    """`stack_levels` reassembles flattened OM4 data into depth-stacked form."""
+    spec = TEST_DATASET_SPEC
+    ds = data_source.data
+    n = len(spec.depth_levels)
+
+    stacked = stack_levels(ds, spec)
+
+    # 3D vars gain a `lev` dimension; per-level channels are gone.
+    for base in ["thetao", "so", "uo", "vo"]:
+        assert stacked[base].sizes["lev"] == n
+        assert f"{base}_0" not in stacked.variables
+    # Per-level masks collapse into a single stacked wetmask.
+    assert stacked["wetmask"].sizes["lev"] == n
+    assert "mask_0" not in stacked.variables
+    # Level-free variables are untouched.
+    assert "lev" not in stacked["zos"].dims
 
 
 def test_rename_vars():

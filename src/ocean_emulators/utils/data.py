@@ -330,18 +330,6 @@ class DataSource:
         )
 
 
-def _flatten(means_or_stds: xr.Dataset) -> torch.Tensor:
-    if "lev" in means_or_stds.dims:
-        array = conditional_rearrange(
-            means_or_stds,
-            "(variable lev)=var",
-            concat_dim="var",
-        ).rename({"var": "variable"})
-    else:
-        array = means_or_stds.to_dataarray()
-    return torch.from_numpy(array.to_numpy().flatten())
-
-
 @dataclasses.dataclass
 class OceanData:
     """A slice of ocean data (boundary or prognostic) with normalization statistics.
@@ -376,8 +364,8 @@ class OceanData:
         mask: Float[torch.Tensor, " variable"],
         src: DataSource,
     ) -> Self:
-        means_torch = _flatten(src.means)
-        stds_torch = _flatten(src.stds)
+        means_torch = torch.from_numpy(_flatten(src.means))
+        stds_torch = torch.from_numpy(_flatten(src.stds))
         return cls(data, means_torch, stds_torch, mask)
 
     def with_time(self, time_range: slice) -> Self:
@@ -520,6 +508,23 @@ def conditional_rearrange(
     order_da = xr.DataArray(order, dims=concat_dim)
 
     return da.sortby(order_da)
+
+
+def _flatten(ds: xr.Dataset) -> np.ndarray:
+    """Flatten a means/stds dataset into a 1-D array with one entry per channel.
+
+    Variables with a `lev` dim are flattened with `lev` first; variables without
+    a `lev` dim are flattened as-is. This matches the channel layout of the
+    prognostic / boundary tensors, which `to_array().reshape(-1)` would otherwise
+    mis-align by broadcasting surface-only variables across all depth levels.
+    """
+    flattened = []
+    for name in ds.data_vars:
+        var = ds[name]
+        if "lev" in var.dims:
+            var = var.transpose("lev", ...)
+        flattened.append(var.to_numpy().reshape(-1))
+    return np.concatenate(flattened)
 
 
 def extract_wet_mask(
@@ -861,13 +866,16 @@ class Normalize:
         self.wet_mask = src.masks.prognostic
         self.wet_mask_surface = src.masks.boundary
 
-        # Pre-compute numpy arrays for faster access
-        self._prognostic_mean_np = (
-            self.prognostic_mean.to_array().to_numpy().reshape(-1)
-        )
-        self._prognostic_std_np = self.prognostic_std.to_array().to_numpy().reshape(-1)
-        self._boundary_mean_np = self.boundary_mean.to_array().to_numpy().reshape(-1)
-        self._boundary_std_np = self.boundary_std.to_array().to_numpy().reshape(-1)
+        # Pre-compute numpy arrays for faster access. When a dataset mixes
+        # variables with and without a `lev` dim (e.g. thermo_dynamic_all has
+        # 4 depth-resolved variables plus surface-only `zos`), a plain
+        # `to_array().reshape(-1)` would broadcast the surface variable across
+        # all levels, producing too many channels. `_flatten` flattens each
+        # variable independently, matching the prognostic tensor channel layout.
+        self._prognostic_mean_np = _flatten(self.prognostic_mean)
+        self._prognostic_std_np = _flatten(self.prognostic_std)
+        self._boundary_mean_np = _flatten(self.boundary_mean)
+        self._boundary_std_np = _flatten(self.boundary_std)
         self._wet_mask_np = self.wet_mask.numpy()
 
     def normalize_tensor_prognostic(

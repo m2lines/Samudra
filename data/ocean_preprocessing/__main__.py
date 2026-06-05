@@ -187,6 +187,10 @@ class CLI:
             Useful for testing pipeline configuration. Default is False.
         small_run: If True, limits processing to the first 10 time steps only. Useful
             for quick testing and development. Default is False (processes all time steps).
+        write_retries: Number of times the distributed scheduler retries a failed task
+            during the final Zarr write. Guards against transient chunk-read failures
+            such as the intermittent blosc `-1` decompression error from truncated S3
+            reads (numcodecs#810). Only applies when running on a cluster. Default 5.
         cluster: Type of Dask cluster to use for distributed computation. Options are:
             'off' (no cluster, single-threaded), 'local' (LocalCluster), 'kube'
             (KubeCluster), 'slurm' (SlurmCluster), 'coiled' (Coiled cluster).
@@ -205,6 +209,7 @@ class CLI:
         account_for_partial_depths: bool = False,
         dry_run: bool = False,
         small_run: bool = False,
+        write_retries: int = 5,
         cluster: Cluster = "off",
         **cluster_opts,
     ):
@@ -217,6 +222,7 @@ class CLI:
         self.account_for_partial_depths = account_for_partial_depths
         self.dry_run = dry_run
         self.small_run = small_run
+        self.write_retries = write_retries
         self.dask_client = init_cluster(cluster, **cluster_opts)
 
     def _collect(self, ds: xr.Dataset):
@@ -236,15 +242,26 @@ class CLI:
 
         logger.info(f"writing dataset to {self.output_path}")
 
-        ds.to_zarr(
+        delayed = ds.to_zarr(
             self.output_path,
             mode="w",
             consolidated=True,
             encoding={
                 var_name: {"compressor": None} for var_name in ds.data_vars.keys()
             },  # Compression turned off
-            compute=True,
+            compute=False,
         )
+        # Reading blosc-compressed source chunks over S3 occasionally returns a
+        # truncated buffer, surfacing as an intermittent
+        # `RuntimeError: error during blosc decompression: -1` (numcodecs#810) that
+        # otherwise kills the whole job near completion. The failure is transient --
+        # re-fetching the chunk almost always succeeds -- so retry the failed task
+        # rather than abort. `retries` is a distributed-scheduler feature; fall back
+        # to a plain compute when running without a cluster.
+        if self.dask_client is not None:
+            self.dask_client.compute(delayed, retries=self.write_retries, sync=True)
+        else:
+            delayed.compute()
         logger.info("zarr write complete")
 
     def om4(

@@ -188,9 +188,8 @@ class CLI:
         small_run: If True, limits processing to the first 10 time steps only. Useful
             for quick testing and development. Default is False (processes all time steps).
         write_retries: Number of times the distributed scheduler retries a failed task
-            during the final Zarr write. Guards against transient chunk-read failures
-            such as the intermittent blosc `-1` decompression error from truncated S3
-            reads (numcodecs#810). Only applies when running on a cluster. Default 5.
+            during the final Zarr write. Guards against transient failures. Only applies
+             when running on a cluster. Default 5.
         cluster: Type of Dask cluster to use for distributed computation. Options are:
             'off' (no cluster, single-threaded), 'local' (LocalCluster), 'kube'
             (KubeCluster), 'slurm' (SlurmCluster), 'coiled' (Coiled cluster).

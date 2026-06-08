@@ -154,6 +154,116 @@ Attributes:
     zos:                               {'cell_measures': 'area: areacello', '...
 ```
 
+## Snapshot datasets
+
+The datasets above store the ocean state as 5-day **averages**. We also provide **snapshot**
+datasets, where the prognostic state variables (`thetao`, `so`, `uo`, `vo`, `zos`) are
+*instantaneous* values sampled at 00:00 UTC every 5 days, rather than 5-day means. The
+forcing variables (`hfds`, `tauuo`, `tauvo`, `wfo`) remain 5-day means, since the ocean
+integrates these fluxes in time (a snapshot of the forcing would not conserve the heat,
+momentum, and freshwater taken up between states).
+
+These datasets also carry the grid-metadata coordinates needed for physical analysis:
+`areacello` (geometric cell area), `ocean_fraction` (the per-level land-aware wet fraction;
+use `areacello * ocean_fraction` for area/volume weighting), the cell-corner bounds
+`lon_b`/`lat_b`, and the depth axis `lev`/`dz`. They are available at 1°, 1/2°, and 1/4°
+(regridded to a regular grid) and on the native 1/4° tripolar grid (no regridding).
+
+```shell
+>>> import xarray as xr
+>>> # 1 degree snapshots (no gaussian filtering)
+>>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/v2026-06/om4_onedeg_snapshots/OM4.zarr')
+>>> ds
+<xarray.Dataset> Size: 100GB
+Dimensions:         (time: 4745, y: 180, x: 360, lev: 19, y_b: 181, x_b: 361)
+Coordinates:
+  * time            (time) object 38kB 1958-01-06 00:00:00 ... 2023-01-01 00:...
+  * y               (y) float64 1kB -89.24 -88.25 -87.25 ... 87.25 88.25 89.24
+  * x               (x) float64 3kB 0.5 1.5 2.5 3.5 ... 356.5 357.5 358.5 359.5
+    areacello       (y, x) float64 518kB dask.array<chunksize=(180, 360), meta=np.ndarray>
+    lat             (y, x) float64 518kB dask.array<chunksize=(90, 360), meta=np.ndarray>
+    lon             (y, x) float64 518kB dask.array<chunksize=(90, 360), meta=np.ndarray>
+    ocean_fraction  (lev, y, x) float64 10MB dask.array<chunksize=(19, 180, 360), meta=np.ndarray>
+  * lev             (lev) float64 152B 2.5 10.0 22.5 40.0 ... 4e+03 5e+03 6e+03
+    dz              (lev) float64 152B dask.array<chunksize=(19,), meta=np.ndarray>
+    lat_b           (y_b, x_b) float64 523kB dask.array<chunksize=(91, 361), meta=np.ndarray>
+    lon_b           (y_b, x_b) float64 523kB dask.array<chunksize=(91, 361), meta=np.ndarray>
+Dimensions without coordinates: y_b, x_b
+Data variables: (12/100)
+    hfds            (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
+    mask_0          (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
+    ...              ...
+    wfo             (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
+    zos             (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
+Attributes: (12/13)
+    hfds:                              {'cell_measures': 'area: areacello', '...
+    m2lines/cli_args:                  /Users/alxmrs/git/Ocean_Emulator/data/...
+    m2lines/date_created:              2026-06-04T17:41:39.340848
+    m2lines/ocean_emulators_git_hash:  https://github.com/Open-Athena/Ocean_E...
+    regrid_method:                     conservative
+    wfo:                               {'cell_measures': 'area: areacello', '...
+>>> # 1/2 degree snapshots
+>>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/v2026-06/om4_halfdeg_snapshots/OM4.zarr')
+>>> ds
+<xarray.Dataset> Size: 399GB
+Dimensions:         (time: 4745, y: 360, x: 720, lev: 19, y_b: 361, x_b: 721)
+Coordinates:
+  * time            (time) object 38kB 1958-01-06 00:00:00 ... 2023-01-01 00:...
+  * y               (y) float64 3kB -89.62 -89.12 -88.62 ... 88.62 89.12 89.62
+  * x               (x) float64 6kB 0.25 0.75 1.25 1.75 ... 358.8 359.2 359.8
+    areacello       (y, x) float64 2MB dask.array<chunksize=(360, 720), meta=np.ndarray>
+    ocean_fraction  (lev, y, x) float64 39MB dask.array<chunksize=(19, 360, 720), meta=np.ndarray>
+  * lev             (lev) float64 152B 2.5 10.0 22.5 40.0 ... 4e+03 5e+03 6e+03
+    lon_b           (y_b, x_b) float64 2MB dask.array<chunksize=(91, 361), meta=np.ndarray>
+Dimensions without coordinates: y_b, x_b
+Data variables: (12/100)
+    hfds            (time, y, x) float32 5GB dask.array<chunksize=(1, 360, 720), meta=np.ndarray>
+    ...              ...
+    zos             (time, y, x) float32 5GB dask.array<chunksize=(1, 360, 720), meta=np.ndarray>
+>>> # 1/4 degree snapshots
+>>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/v2026-06/om4_quarterdeg_snapshots/OM4.zarr')
+>>> ds
+<xarray.Dataset> Size: 2TB
+Dimensions:         (time: 4745, y: 720, x: 1440, lev: 19, y_b: 721, x_b: 1441)
+Coordinates:
+  * time            (time) object 38kB 1958-01-06 00:00:00 ... 2023-01-01 00:...
+  * y               (y) float64 6kB -89.81 -89.56 -89.31 ... 89.31 89.56 89.81
+  * x               (x) float64 12kB 0.125 0.375 0.625 ... 359.4 359.6 359.9
+    areacello       (y, x) float64 8MB dask.array<chunksize=(720, 1440), meta=np.ndarray>
+    ocean_fraction  (lev, y, x) float64 158MB dask.array<chunksize=(19, 720, 1440), meta=np.ndarray>
+  * lev             (lev) float64 152B 2.5 10.0 22.5 40.0 ... 4e+03 5e+03 6e+03
+Dimensions without coordinates: y_b, x_b
+Data variables: (12/100)
+    hfds            (time, y, x) float32 20GB dask.array<chunksize=(1, 720, 1440), meta=np.ndarray>
+    ...              ...
+    zos             (time, y, x) float32 20GB dask.array<chunksize=(1, 720, 1440), meta=np.ndarray>
+>>> # Native 1/4 degree tripolar grid snapshots (no regridding; x/y are curvilinear indices,
+>>> # with 2D lon/lat coordinates giving the geographic location of each cell)
+>>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/v2026-06/om4_tripolar_snapshots/OM4.zarr')
+>>> ds
+<xarray.Dataset> Size: 2TB
+Dimensions:         (time: 4745, y: 1080, x: 1440, lev: 19, y_b: 1081, x_b: 1441)
+Coordinates:
+  * time            (time) object 38kB 1958-01-06 00:00:00 ... 2023-01-01 00:...
+  * y               (y) float64 9kB -80.39 -80.31 -80.23 ... 89.73 89.84 89.95
+  * x               (x) float64 12kB -299.7 -299.5 -299.2 ... 59.53 59.78 60.03
+    areacello       (y, x) float64 12MB dask.array<chunksize=(1080, 1440), meta=np.ndarray>
+    lat             (y, x) float64 12MB dask.array<chunksize=(271, 361), meta=np.ndarray>
+    lon             (y, x) float64 12MB dask.array<chunksize=(271, 361), meta=np.ndarray>
+    ocean_fraction  (lev, y, x) float64 236MB dask.array<chunksize=(19, 1080, 1440), meta=np.ndarray>
+  * lev             (lev) float64 152B 2.5 10.0 22.5 40.0 ... 4e+03 5e+03 6e+03
+    lat_b           (y_b, x_b) float64 12MB dask.array<chunksize=(271, 361), meta=np.ndarray>
+    lon_b           (y_b, x_b) float64 12MB dask.array<chunksize=(271, 361), meta=np.ndarray>
+Dimensions without coordinates: y_b, x_b
+Data variables: (12/100)
+    hfds            (time, y, x) float32 30GB dask.array<chunksize=(1, 1080, 1440), meta=np.ndarray>
+    ...              ...
+    zos             (time, y, x) float32 30GB dask.array<chunksize=(1, 1080, 1440), meta=np.ndarray>
+```
+
+Each snapshot store ships with companion `OM4_means.zarr` and `OM4_stds.zarr` normalization
+datasets in the same directory (see the normalization script below).
+
 ## How to get the data
 
 We recommend two methods for acquiring the dataset locally.
@@ -327,6 +437,46 @@ python -m ocean_preprocessing om4 \
     --n_workers=40 \
     --wait_for_workers=True
 ```
+
+**OM4 snapshots**
+
+The snapshot datasets are produced with the same `om4` pipeline, pointed at the 5-daily
+*snapshot* source (instantaneous state at 00:00 UTC every 5 days, with 5-day-mean forcings)
+instead of the averaged source. The state variables come straight from the simulation on the
+native 1/4° tripolar grid — ask M2LInES project management for access to the snapshot source
+store. One run per output grid:
+
+```shell
+deactivate
+mamba activate ocean_preprocessing
+export AWS_REQUEST_CHECKSUM_CALCULATION=when_required
+export AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
+export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
+# These keys are only needed to _write_ to the bucket.
+# Check with M2LInES project management for how to get the OSN Access keys.
+export AWS_ACCESS_KEY_ID=...
+export AWS_SECRET_ACCESS_KEY=...
+# 1° snapshots (see below for the 1/2°, 1/4°, and native tripolar variants)
+python -m ocean_preprocessing om4 \
+   "s3://emulators/wg2437/1958-2022.OM4p25_5daily_snapshots" \
+   "s3://m2lines-pubs/FOMO/raw/ocean_static_no_mask_table.zarr" \
+   "s3://m2lines-pubs/FOMO/raw/grids/ocean_hgrid.zarr" \
+   "s3://m2lines-pubs/FOMO/raw/grids/gaussian_grid_180_by_360.zarr" \
+    --output_path="s3://m2lines-pubs/FOMO/v$(date '+%Y-%m')/om4_onedeg_snapshots/OM4.zarr" \
+    --skip_spatial_filtering \
+    --skip_validation \
+    --cluster="coiled" \
+    --n_workers=40 \
+    --wait_for_workers=True
+```
+
+The other resolutions use the same command with a different target grid and output name:
+
+- **1/2°**: target `gaussian_grid_360_by_720.zarr` → `om4_halfdeg_snapshots`
+- **1/4°**: target `gaussian_grid_720_by_1440.zarr` → `om4_quarterdeg_snapshots`
+- **native tripolar**: add `--skip_regridding` and write to `om4_tripolar_snapshots`. The
+  target-grid argument is unused when regridding is skipped but is still required
+  positionally, so pass any grid (e.g. `gaussian_grid_720_by_1440.zarr`).
 
 After each of these datasets are computed, one can produce complementary mean and std datasets by running the following
 script:

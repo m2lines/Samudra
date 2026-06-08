@@ -2,9 +2,10 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_standard_gpu
 #SBATCH --qos=mit_amf_standard_gpu
-#SBATCH --job-name=2026-06-05:samudra_llc:A-5
+#SBATCH --job-name=2026-06-08:samudra_llc:A-7
 #SBATCH -N 1
 #SBATCH --mem=254GB
+#SBATCH --exclude=node3001
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
 #SBATCH -G h200:1
@@ -13,6 +14,10 @@
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 
+echo "SLURM_JOB_ID=${SLURM_JOB_ID:-<unset>}"
+echo "SLURM_JOB_NODELIST=${SLURM_JOB_NODELIST:-<unset>}"
+echo "SLURMD_NODENAME=${SLURMD_NODENAME:-<unset>}"
+echo "hostname=$(hostname)"
 
 # DDP# load Python platform with PyTorch and CUDA support preinstalled
 module load miniforge/24.3.0-0
@@ -99,7 +104,7 @@ LLC_J_END="${LLC_J_END:-1440}"
 DATA_LOCATION_OVERRIDE="${DATA_LOCATION_OVERRIDE:-}"
 
 # CHECKPOINTING FINETUNING
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-06-04:samudra_llc:A-4-15436024/saved_nets/ckpt_29.pt}" #/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-06-06:samudra_llc:A-6-15550128/saved_nets/ckpt.pt}" #/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
@@ -109,7 +114,7 @@ EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}" # 
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
 EPOCHS="${EPOCHS:-72}"
 SAVE_FREQ="${SAVE_FREQ:-1}"
-EMERGENCY_CHECKPOINT_INTERVAL_MINUTES="${EMERGENCY_CHECKPOINT_INTERVAL_MINUTES:-120}"
+EMERGENCY_CHECKPOINT_INTERVAL_MINUTES="${EMERGENCY_CHECKPOINT_INTERVAL_MINUTES:-30}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 
 # OPTIMIZATION (LR + SCHEDULER)

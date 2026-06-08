@@ -96,3 +96,28 @@ class TestDropPath:
         torch.testing.assert_close(trunk.grad, torch.ones_like(trunk))
         # Skip gradient should be all zeros (dropped)
         torch.testing.assert_close(skip.grad, torch.zeros_like(skip))
+
+    def test_set_progress_linearly_decays_rate(self):
+        """set_progress linearly interpolates dropout.p from max_drop_prob to 0."""
+        drop_path = DropPath(drop_prob=0.6)
+
+        drop_path.set_progress(0.0)
+        assert drop_path.dropout.p == pytest.approx(0.6)
+
+        drop_path.set_progress(0.5)
+        assert drop_path.dropout.p == pytest.approx(0.3)
+
+        drop_path.set_progress(1.0)
+        assert drop_path.dropout.p == pytest.approx(0.0)
+
+    def test_set_progress_beyond_one_keeps_drop_path_off(self):
+        """Once the early phase is over (progress >= 1), drop path stays disabled."""
+        drop_path = DropPath(drop_prob=0.5)
+        drop_path.train()
+
+        drop_path.set_progress(2.0)
+        assert drop_path.dropout.p == pytest.approx(0.0)
+
+        # Confirm it actually passes through (not just p==0 but forward is identity)
+        skip = torch.randn(4, 16, 8, 8)
+        torch.testing.assert_close(drop_path(skip), skip)

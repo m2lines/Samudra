@@ -440,6 +440,12 @@ class Trainer:
             if hasattr(self.val_sampler, "set_epoch"):
                 self.val_sampler.set_epoch(epoch)
 
+            # Early stochastic depth: decay drop path rate over training.
+            if isinstance(self.model, BaseModel):
+                self.model.set_epoch(epoch - 1)
+            elif isinstance(self.model, nn.parallel.DistributedDataParallel):
+                self.model.module.set_epoch(epoch - 1)  # type: ignore[union-attr]
+
             start_epoch_train_time = time.perf_counter()
             train_stats = self.train_one_epoch(epoch)
             end_epoch_train_time = time.perf_counter()

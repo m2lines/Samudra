@@ -25,6 +25,7 @@ quick demonstration on how to open each processed dataset we make available:
 >>> import xarray as xr
 >>> # One degree data with guassian filtering applied
 >>> # > NOTE: We recommend using the non-filtered data (see the next dataset)
+>>> # By default, we take 5 day averages across time.
 >>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/v2025-11/om4_onedeg_filter/OM4.zarr')
 >>> ds
 <xarray.Dataset> Size: 98GB
@@ -152,26 +153,8 @@ Attributes:
     uo:                                {'cell_methods': 'z_l:mean yh:mean xq:...
     vo:                                {'cell_methods': 'z_l:mean yq:point xh...
     zos:                               {'cell_measures': 'area: areacello', '...
-```
-
-## Snapshot datasets
-
-The datasets above store the ocean state as 5-day **averages**. We also provide **snapshot**
-datasets, where the prognostic state variables (`thetao`, `so`, `uo`, `vo`, `zos`) are
-*instantaneous* values sampled at 00:00 UTC every 5 days, rather than 5-day means. The
-forcing variables (`hfds`, `tauuo`, `tauvo`, `wfo`) remain 5-day means, since the ocean
-integrates these fluxes in time (a snapshot of the forcing would not conserve the heat,
-momentum, and freshwater taken up between states).
-
-These datasets also carry the grid-metadata coordinates needed for physical analysis:
-`areacello` (geometric cell area), `ocean_fraction` (the per-level land-aware wet fraction;
-use `areacello * ocean_fraction` for area/volume weighting), the cell-corner bounds
-`lon_b`/`lat_b`, and the depth axis `lev`/`dz`. They are available at 1°, 1/2°, and 1/4°
-(regridded to a regular grid) and on the native 1/4° tripolar grid (no regridding).
-
-```shell
->>> import xarray as xr
->>> # 1 degree snapshots (no gaussian filtering)
+>>> # 1 degree snapshots (no gaussian filtering) -- we sample every 5 days, not average over 5 days
+>>> # While ocean variables are snapshots, we still take averages for forcings.
 >>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/v2026-06/om4_onedeg_snapshots/OM4.zarr')
 >>> ds
 <xarray.Dataset> Size: 100GB
@@ -260,9 +243,6 @@ Data variables: (12/100)
     ...              ...
     zos             (time, y, x) float32 30GB dask.array<chunksize=(1, 1080, 1440), meta=np.ndarray>
 ```
-
-Each snapshot store ships with companion `OM4_means.zarr` and `OM4_stds.zarr` normalization
-datasets in the same directory (see the normalization script below).
 
 ## How to get the data
 
@@ -443,8 +423,7 @@ python -m ocean_preprocessing om4 \
 The snapshot datasets are produced with the same `om4` pipeline, pointed at the 5-daily
 *snapshot* source (instantaneous state at 00:00 UTC every 5 days, with 5-day-mean forcings)
 instead of the averaged source. The state variables come straight from the simulation on the
-native 1/4° tripolar grid — ask M2LInES project management for access to the snapshot source
-store. One run per output grid:
+native 1/4° tripolar grid. One run per output grid:
 
 ```shell
 deactivate
@@ -458,7 +437,7 @@ export AWS_ACCESS_KEY_ID=...
 export AWS_SECRET_ACCESS_KEY=...
 # 1° snapshots (see below for the 1/2°, 1/4°, and native tripolar variants)
 python -m ocean_preprocessing om4 \
-   "s3://emulators/wg2437/1958-2022.OM4p25_5daily_snapshots" \
+   "s3://m2lines-pubs/FOMO/raw/om4_5daily_snapshots.zarr" \
    "s3://m2lines-pubs/FOMO/raw/ocean_static_no_mask_table.zarr" \
    "s3://m2lines-pubs/FOMO/raw/grids/ocean_hgrid.zarr" \
    "s3://m2lines-pubs/FOMO/raw/grids/gaussian_grid_180_by_360.zarr" \
@@ -477,6 +456,8 @@ The other resolutions use the same command with a different target grid and outp
 - **native tripolar**: add `--skip_regridding` and write to `om4_tripolar_snapshots`. The
   target-grid argument is unused when regridding is skipped but is still required
   positionally, so pass any grid (e.g. `gaussian_grid_720_by_1440.zarr`).
+
+** Datasets for Normalization **
 
 After each of these datasets are computed, one can produce complementary mean and std datasets by running the following
 script:

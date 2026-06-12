@@ -4,18 +4,21 @@
 
 import math
 
+import cftime
 import numpy as np
 import pytest
 import torch
 import xarray as xr
 from scipy.stats import pearsonr
 
-from ocean_emulators.constants import TensorMap
+from ocean_emulators.constants import TensorMap, build_llc_spec
 from ocean_emulators.utils.data import (
     DataSource,
     Masks,
     Normalize,
     OceanData,
+    _convert_llc_time_coord_to_julian,
+    canonicalize_llc_datasets,
     compute_anomalies,
     flatten_masks,
     get_aggregator_dicts,
@@ -23,6 +26,7 @@ from ocean_emulators.utils.data import (
     with_level_index_vars,
 )
 from tests.conftest import TEST_DATASET_SPEC, TEST_FULL_DATASET_SPEC
+from tests.llc_fixtures import raw_llc_datasets
 
 
 def test_mask_roundtrip(data_source):
@@ -223,6 +227,60 @@ def test_normalize_compact_mixed_depth_and_surface_stats(data_source):
     lat, lon = src.grid_size
     prognostic = torch.zeros(1, expected_prognostic_channels, lat, lon)
     assert normalize.normalize_tensor_prognostic(prognostic).shape == prognostic.shape
+
+
+def test_convert_llc_time_coord_to_julian_handles_datetime64_values():
+    time_coord = xr.DataArray(
+        np.array(
+            ["2011-09-10T12:00:00", "2011-09-13T18:00:00"],
+            dtype="datetime64[ns]",
+        ),
+        dims=["time"],
+    )
+
+    converted = _convert_llc_time_coord_to_julian(time_coord)
+
+    assert isinstance(converted[0], cftime.DatetimeJulian)
+    assert [value.strftime("%Y-%m-%d %H:%M:%S") for value in converted.tolist()] == [
+        "2011-09-10 12:00:00",
+        "2011-09-13 18:00:00",
+    ]
+
+
+def test_canonicalize_llc_datasets_standardizes_layout():
+    data, means, stds = raw_llc_datasets()
+    expected_theta_0 = data["Theta"].isel(time=0, face=1, k=0, j=1, i=1).item()
+
+    llc_data, llc_means, llc_stds = canonicalize_llc_datasets(
+        data,
+        means,
+        stds,
+        face=1,
+        i_start=1,
+        i_end=4,
+        j_start=1,
+        j_end=3,
+        dataset_spec=build_llc_spec(),
+    )
+
+    assert "face" not in llc_data.dims
+    assert "i_g" not in llc_data.dims
+    assert "j_g" not in llc_data.dims
+    assert "Theta" not in llc_data.variables
+    assert "wetmask" not in llc_data.variables
+    assert "Theta_0" in llc_data.variables
+    assert "Theta_50" in llc_data.variables
+    assert "U_0" in llc_data.variables
+    assert "V_0" in llc_data.variables
+    assert "wetmask_0" in llc_data.variables
+    assert llc_data["Theta_0"].dims == ("time", "y", "x")
+    assert llc_data["Theta_0"].shape == (3, 2, 3)
+    assert llc_data["Theta_0"].isel(time=0, y=0, x=0).item() == expected_theta_0
+    assert isinstance(llc_data.time.values[0], cftime.DatetimeJulian)
+    assert "Theta_0" in llc_means.variables
+    assert "Theta_0" in llc_stds.variables
+    assert "Theta_lev_0" not in llc_means.variables
+    assert "Theta_lev_0" not in llc_stds.variables
 
 
 @pytest.fixture

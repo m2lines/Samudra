@@ -201,7 +201,7 @@ class Trainer:
 
         # We use dask for inference since it has memory issues otherwise.
         # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset
-        # see https://github.com/suryadheeshjith/Samudra/issues/208
+        # see https://github.com/m2lines/Samudra/issues/208
         self.inference_src = self.data_container.inference_source
 
         self.loader_version = self.data_container.loader_version
@@ -739,7 +739,7 @@ class Trainer:
                 )
 
                 # TODO(jder): we need the underlying model so we can use forward_once;
-                # see https://github.com/suryadheeshjith/Samudra/issues/51
+                # see https://github.com/m2lines/Samudra/issues/51
                 run_rollout(
                     model=self.model.module
                     if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)

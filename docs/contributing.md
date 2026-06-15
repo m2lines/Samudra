@@ -21,7 +21,7 @@ This project follows the [M2LInES _Code of Conduct_](https://m2lines.github.io/p
 <summary><strong>TL;DR</strong></summary>
 
 ```shell
-git clone git@github.com:Open-Athena/Samudra.git
+git clone git@github.com:m2lines/Samudra.git
 cd Samudra
 uv sync --dev
 source .venv/bin/activate
@@ -51,9 +51,9 @@ git push --force-with-lease
    # if you're using a fork, make sure to clone your fork's repo
    git clone https://github.com/m2lines/Samudra.git
    # preferred method, but requires setting up an ssh key with Github.
-   git clone git@github.com:Open-Athena/Samudra.git
+   git clone git@github.com:m2lines/Samudra.git
    # or, using the Github CLI
-   gh repo clone Open-Athena/Samudra
+   gh repo clone m2lines/Samudra
 
    # then, change directory
    cd Samudra
@@ -73,7 +73,7 @@ git push --force-with-lease
    # via http
    git remote add upstream https://github.com/m2lines/Samudra.git
    # via ssh
-   git remote add upstream git@github.com:Open-Athena/Samudra.git
+   git remote add upstream git@github.com:m2lines/Samudra.git
    ```
 
 5. Check out feature branches where you will develop from:

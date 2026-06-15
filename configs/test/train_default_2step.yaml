@@ -40,7 +40,7 @@ experiment:
   base_output_dir: .LOCAL
   wandb:
     mode: disabled
-    project: samudra
+    project: ocean-emulators
     entity: m2lines
     group: samudra-train-om4
   data_root: .data_cache/

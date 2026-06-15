@@ -4,17 +4,17 @@ SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# Ocean Emulators
+# Samudra
 
 **A PyTorch-based machine learning framework for training and evaluating neural ocean emulators.**
 
-Ocean Emulators provides tools to build models that learn to predict future ocean states autoregressively, achieving orders-of-magnitude speedups over traditional ocean general circulation models.
+Samudra provides tools to build models that learn to predict future ocean states autoregressively, achieving orders-of-magnitude speedups over traditional ocean general circulation models.
 
 ## Models
 
 - **Samudra** — ConvNeXt U-Net architecture for single-scale ocean emulation at 1° resolution.
 - **Samudra 2** — Wider ConvNeXt U-Net with dynamic variance-weighted loss, scaling to 1°, 1/2°, and 1/4° resolution with stable ~8-year rollouts.
-- **FOMO** — A "Foundation Ocean Model + Observations" uses a encoder-processor-decoder architecture to support multi-scale training.
+- **samudra-multi** — Encoder-processor-decoder architecture for multi-scale training.
 
 ## Key Features
 

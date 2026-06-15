@@ -4,7 +4,7 @@
 
 import torch
 
-from ocean_emulators.aggregator.metrics import weighted_mean
+from samudra.aggregator.metrics import weighted_mean
 
 
 def test_weighted_mean():

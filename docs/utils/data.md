@@ -6,4 +6,4 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Data Utilities
 
-::: ocean_emulators.utils.data
+::: samudra.utils.data

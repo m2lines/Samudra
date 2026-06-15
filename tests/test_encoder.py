@@ -5,8 +5,8 @@
 import torch
 from perceiver_pytorch import Perceiver
 
-from ocean_emulators.constants import Lat, Lon
-from ocean_emulators.models.modules.encoder import PerceiverEncoder, patch_from
+from samudra.constants import Lat, Lon
+from samudra.models.modules.encoder import PerceiverEncoder, patch_from
 
 
 def make_perceiver(in_channels, out_channels, *, num_latents=2, input_axis=2):

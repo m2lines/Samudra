@@ -31,4 +31,4 @@ loss:
 
 ## API Reference
 
-::: ocean_emulators.utils.loss
+::: samudra.utils.loss

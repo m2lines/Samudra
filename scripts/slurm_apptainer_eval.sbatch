@@ -242,7 +242,7 @@ srun --ntasks=1 --ntasks-per-node=1 \
         echo \"Hint: rebuild/pull a container tag that includes /workspace/configs.\" >&2
         exit 2
       fi
-      /workspace/.venv/bin/python -m ocean_emulators.eval \"${CONFIG_IN_CONTAINER}\" \
+      /workspace/.venv/bin/python -m samudra.eval \"${CONFIG_IN_CONTAINER}\" \
         --ckpt_path=\"${CKPT_PATH_HOST}\" \
         --experiment.name=\"${NAME}\" \
         --experiment.data_root=\"${DATA_ROOT}\" \

@@ -7,8 +7,8 @@ import random
 
 import pytest
 
-from ocean_emulators.constants import GridSize
-from ocean_emulators.utils.samplers import (
+from samudra.constants import GridSize
+from samudra.utils.samplers import (
     DistributedEquivalenceGroupBatchSampler,
     EquivalenceGroupBatchSampler,
 )

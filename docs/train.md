@@ -6,4 +6,4 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Train
 
-::: ocean_emulators.train
+::: samudra.train

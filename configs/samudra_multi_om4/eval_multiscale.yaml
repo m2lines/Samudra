@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/EvalConfig.json
+#
+# Eval config for the multi-scale samudra-multi model.
+#
+# The eval code runs inference on the *first* data source only.
+# To evaluate all three scales, run three separate eval jobs and
+# reorder the sources list so the target resolution is first.
+# All three sources must always be present so the model builds
+# with the correct max grid size for the encoder patch grid.
+# The max grid size affects the rotary positional embedding
+# dimension for the encoder's Perceiver. If it is set wrong,
+# it would likely cause hard-to-debug model level errors.
+# Setting multiple data sources lets us use checkpoints for
+# samudra-multi models that use multiple scales.
+
+debug: false
+save_zarr: true
+disk_mode: true
+inference_time:
+  start: "2014-10-05"
+  end: "2015-10-05"
+num_model_steps_forward: 25
+
+experiment:
+  name: samudra_multi_om4_eval
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: default
+
+data:
+  dataset:
+    type: om4
+    prognostic_vars_key: thermo_dynamic_all
+    boundary_vars_key: tau_hfds_hfds_anom
+  static_data_vars: []
+  concurrent_compute: true
+  sources:
+    # First source is used for inference. Reorder to eval a different scale.
+    - data_location: om4_onedeg_v3/OM4.zarr
+      data_means_location: om4_onedeg_v3/OM4_means.zarr
+      data_stds_location: om4_onedeg_v3/OM4_stds.zarr
+    - data_location: om4_halfdeg_v4/OM4.zarr
+      data_means_location: om4_halfdeg_v4/OM4_means.zarr
+      data_stds_location: om4_halfdeg_v4/OM4_stds.zarr
+    - data_location: om4_quarterdeg_v2/OM4.zarr
+      data_means_location: om4_quarterdeg_v2/OM4_means.zarr
+      data_stds_location: om4_quarterdeg_v2/OM4_stds.zarr
+
+model: !include model.yaml

@@ -1,0 +1,140 @@
+# SPDX-FileCopyrightText: 2024 Allen Institute for Artificial Intelligence
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+import gc
+
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.colors import Colormap
+from matplotlib.figure import Figure
+
+from samudra.utils.wandb import WandBLogger
+
+
+def get_cmap_limits(data: np.ndarray, diverging=False) -> tuple[float, float]:
+    vmin = np.nanmin(data)
+    vmax = np.nanmax(data)
+    if diverging:
+        vmax = max(abs(vmin), abs(vmax))
+        vmin = -vmax
+    return vmin, vmax
+
+
+def plot_imshow(
+    data: np.ndarray,
+    vmin: float | None = None,
+    vmax: float | None = None,
+    cmap: Colormap | None = None,
+    flip_lat: bool = True,
+    use_colorbar: bool = True,
+    nan_padding: bool = True,
+) -> Figure:
+    """Plot a 2D array using imshow, ensuring figure size is same as array size."""
+    min_ = np.nanmin(data) if vmin is None else vmin
+    max_ = np.nanmax(data) if vmax is None else vmax
+
+    if flip_lat:
+        lat_dim = -2
+        data = np.flip(data, axis=lat_dim)
+
+    if use_colorbar:
+        height, width = data.shape
+        colorbar_width = max(1, int(0.025 * width))
+        range_ = np.linspace(min_, max_, height)
+        range_ = np.repeat(range_[:, np.newaxis], repeats=colorbar_width, axis=1)
+        range_ = np.flipud(range_)  # wandb images start from top (and left)
+        padding = np.zeros((height, colorbar_width))
+        if nan_padding:
+            padding = padding + np.nan  # Set when using non-diverging map
+        data = np.concatenate((data, padding, range_), axis=1)
+
+    # make figure size (in pixels) be the same as array size
+    figsize = np.array(data.T.shape) / plt.rcParams["figure.dpi"]
+    fig = Figure(figsize=figsize)  # create directly for cleanup when it leaves scope
+    ax = fig.add_axes((0, 0, 1, 1))
+    ax.imshow(data, cmap=cmap, vmin=vmin, vmax=vmax)
+    ax.set_axis_off()
+    return fig
+
+
+def plot_paneled_data(
+    data: list[list[np.ndarray]],
+    diverging: bool,
+    caption: str | None = None,
+):
+    """Plot a list of 2D data arrays in a paneled plot."""
+    if diverging:
+        cmap = plt.colormaps.get_cmap("RdBu_r")
+        cmap.set_bad(color=(0.7, 0.7, 0.7))
+    else:
+        cmap = plt.colormaps.get_cmap("viridis")
+        cmap.set_bad(color="white")
+    vmin = np.inf
+    vmax = -np.inf
+    for row in data:
+        for arr in row:
+            vmin = min(vmin, np.nanmin(arr))
+            vmax = max(vmax, np.nanmax(arr))
+    if diverging:
+        vmax = max(abs(vmin), abs(vmax))
+        vmin = -vmax
+    if caption is not None:
+        caption += " "
+    else:
+        caption = ""
+
+    caption += f"vmin={vmin:.4g}, vmax={vmax:.4g}."
+
+    if diverging:
+        fill_value = 0.5 * (vmin + vmax)
+    else:
+        fill_value = vmin
+    all_data = _stitch_data_panels(data, fill_value=fill_value)
+
+    fig = plot_imshow(
+        all_data, vmin=vmin, vmax=vmax, cmap=cmap, nan_padding=not diverging
+    )
+    wandb = WandBLogger.get_instance()
+    wandb_image = wandb.Image(fig, caption=caption)
+    plt.close(fig)
+
+    # necessary to avoid CUDA error in some contexts
+    # see https://github.com/ai2cm/full-model/issues/740#issuecomment-2086546187
+    gc.collect()
+
+    return wandb_image
+
+
+def _stitch_data_panels(data: list[list[np.ndarray]], fill_value) -> np.ndarray:
+    for row in data:
+        if len(row) != len(data[0]):
+            raise ValueError("All rows must have the same number of panels.")
+
+    n_rows = len(data)
+    n_cols = len(data[0])
+    for row in data:
+        for arr in row:
+            if arr.shape != data[0][0].shape:
+                raise ValueError("All panels must have the same shape.")
+
+    stitched_data = np.full(
+        (
+            n_rows * data[0][0].shape[0] + n_rows - 1,
+            n_cols * data[0][0].shape[1] + n_cols - 1,
+        ),
+        fill_value=fill_value,
+    )
+
+    # iterate over rows backwards, as the image starts in the bottom left
+    # and moves upwards
+    for i, row in enumerate(reversed(data)):
+        for j, arr in enumerate(row):
+            start_row = i * (arr.shape[0] + 1)
+            end_row = start_row + arr.shape[0]
+            start_col = j * (arr.shape[1] + 1)
+            end_col = start_col + arr.shape[1]
+            stitched_data[start_row:end_row, start_col:end_col] = arr
+
+    return stitched_data

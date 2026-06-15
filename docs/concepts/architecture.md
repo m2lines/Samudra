@@ -8,7 +8,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## Overview
 
-Ocean Emulators is organized around a few core components that work together to train and evaluate neural ocean emulators.
+Samudra is organized around a few core components that work together to train and evaluate neural ocean emulators.
 
 ```
                         Training Pipeline
@@ -16,7 +16,7 @@ Ocean Emulators is organized around a few core components that work together to 
  │                                                         │
  │  ┌──────────┐    ┌─────────┐    ┌──────────────────┐    │
  │  │ DataSet  │───▶│ Stepper │───▶│ Model            │    │
- │  │ (Zarr)   │    │         │    │ (Samudra / FOMO) │    │
+ │  │ (Zarr)   │    │         │    │ (Samudra[-multi])│    │
  │  └──────────┘    │         │◀───│                  │    │
  │                  │         │    └──────────────────┘    │
  │                  │         │                            │
@@ -43,7 +43,7 @@ The emulator autoregressively predicts future ocean states. During training, sho
  │   Datasets   │  │    Models    │  │   Training   │
  │  TrainData   │  │  Base Model  │  │    train.py  │
  │  Inference   │  │   Samudra    │  │   Stepper    │
- │  Dataset     │  │    FOMO      │  │   Scheduler  │
+ │  Dataset     │  │  [-multi]    │  │   Scheduler  │
  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘
         │                 │                 │
         └────────┬────────┘                 │
@@ -58,21 +58,21 @@ The emulator autoregressively predicts future ocean states. During training, sho
 
 ### Models
 
-All models inherit from a common base class (`ocean_emulators.models.base`) that provides configuration for:
+All models inherit from a common base class (`samudra.models.base`) that provides configuration for:
 
 - Residual prediction (predict the change, not the absolute state)
 - Ocean masking (land vs. ocean)
 - Gradient detaching for multi-step rollouts
 
-**Samudra** (`ocean_emulators.models.samudra`) uses a ConvNeXt U-Net backbone for ocean emulation at 1° resolution.
+**Samudra** (`samudra.models.samudra`) uses a ConvNeXt U-Net backbone for ocean emulation at 1° resolution.
 
 **Samudra 2** uses the same `Samudra` class with a wider U-Net (`[280,380,480,520]` vs `[200,250,300,400]`), reduced ConvNeXt expansion factor (2 vs 4), zonally-periodic upsampling, and a dynamic variance-weighted loss. Scales to 1°, 1/2°, and 1/4° resolution.
 
-**FOMO** (`ocean_emulators.models.fomo`) uses an encoder → processor → decoder architecture, supporting multi-scale training on different resolutions simultaneously.
+**samudra-multi** (`samudra.models.samudra_multi`) uses an encoder → processor → decoder architecture, supporting multi-scale training on different resolutions simultaneously.
 
 ### Stepper
 
-The `Stepper` class (`ocean_emulators.stepper`) coordinates model execution:
+The `Stepper` class (`samudra.stepper`) coordinates model execution:
 
 - `train_batch` — single training step with loss computation
 - `validate_batch` — validation without gradient updates
@@ -80,7 +80,7 @@ The `Stepper` class (`ocean_emulators.stepper`) coordinates model execution:
 
 ### Data Pipeline
 
-`ocean_emulators.datasets` handles OM4 ocean model data in Zarr format:
+`samudra.datasets` handles OM4 ocean model data in Zarr format:
 
 - `TrainData` — training dataset with time-based splits. Supports single or multiscale training.
 - `InferenceDataset` — evaluation dataset for long rollouts. Only supports a single scale of data.
@@ -88,11 +88,11 @@ The `Stepper` class (`ocean_emulators.stepper`) coordinates model execution:
 
 ### Configuration
 
-YAML-based configuration with Pydantic validation (`ocean_emulators.config`). Supports `!include` directives and command-line overrides. See the [Contributing Guide](../contributing.md) for details on working with the configuration system.
+YAML-based configuration with Pydantic validation (`samudra.config`). Supports `!include` directives and command-line overrides. See the [Contributing Guide](../contributing.md) for details on working with the configuration system.
 
 ### Training Loop
 
-`ocean_emulators.train` orchestrates the full training process:
+`samudra.train` orchestrates the full training process:
 
 - Initializes the model, optimizer, and learning rate scheduler
 - Runs the training loop: for each epoch, iterates over batches via `Stepper.train_batch`
@@ -105,7 +105,7 @@ YAML-based configuration with Pydantic validation (`ocean_emulators.config`). Su
 
 ### Evaluation
 
-`ocean_emulators.eval` runs long autoregressive rollouts for model evaluation:
+`samudra.eval` runs long autoregressive rollouts for model evaluation:
 
 - Loads a trained checkpoint and runs free-running inference (hundreds of steps, no ground-truth feedback)
 - Computes metrics against ground-truth data: RMSE, bias, anomaly correlation
@@ -114,7 +114,7 @@ YAML-based configuration with Pydantic validation (`ocean_emulators.config`). Su
 
 ### Aggregator
 
-The aggregator system (`ocean_emulators.aggregator`) is a separate component that collects and organizes metrics during both training and evaluation:
+The aggregator system (`samudra.aggregator`) is a separate component that collects and organizes metrics during both training and evaluation:
 
 - `ValidateAggregator` — computes map metrics, reduced metrics, and snapshot visualizations during training validation
 - `InferenceEvaluatorAggregator` — collects metrics during long inference rollouts

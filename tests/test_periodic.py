@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import torch
 
-from ocean_emulators.models.modules.blocks import (
+from samudra.models.modules.blocks import (
     AvgPool,
     BilinearUpsample,
     ZonallyPeriodicBilinearUpsample,

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from ocean_emulators.config import (
+from samudra.config import (
     CpuDataLoadingConfig,
     DataConfig,
     DataSourceConfig,
@@ -16,8 +16,8 @@ from ocean_emulators.config import (
     Om4DatasetConfig,
     TrainConfig,
 )
-from ocean_emulators.config_schema import get_pydantic_models
-from ocean_emulators.utils.location import UnresolvedLocation
+from samudra.config_schema import get_pydantic_models
+from samudra.utils.location import UnresolvedLocation
 
 
 def test_data_config_rejects_legacy_num_workers_field():

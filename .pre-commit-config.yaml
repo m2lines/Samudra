@@ -3,58 +3,58 @@
 # SPDX-License-Identifier: Apache-2.0
 
 repos:
-- repo: https://github.com/astral-sh/ruff-pre-commit
-  rev: v0.11.2
-  hooks:
-    - id: ruff
-      args: ["--fix", "--config", "pyproject.toml"]
-      exclude: ^notebooks/
-    - id: ruff-format
-      args: ["--config", "pyproject.toml"]
-      exclude: ^notebooks/
-- repo: https://github.com/pre-commit/pre-commit-hooks
-  rev: v5.0.0
-  hooks:
-  - id: check-added-large-files
-    args: [--maxkb=250]
-    exclude: ^notebooks/
-  - id: trailing-whitespace
-    exclude: ^notebooks/
-  - id: check-yaml
-    args: [--unsafe]
-    exclude: ^notebooks/
-# We define our own mypy checker here rather than using https://github.com/pre-commit/mirrors-mypy
-# so it can run within our uv environment & access the correct installed libraries. See:
-# https://whynothugo.nl/journal/2023/01/12/notes-on-pre-commit/#using-the-system-plugin-language
-- repo: local
-  hooks:
-  - id: mypy
-    name: mypy
-    language: system
-    require_serial: true
-    entry: uv run --dev mypy
-    types_or: [python, pyi]
-    args: ["--config", "pyproject.toml"]
-    exclude: ^(notebooks/|data/)
-- repo: https://github.com/tox-dev/pyproject-fmt
-  rev: "v2.5.0"
-  hooks:
-    - id: pyproject-fmt
-- repo: local
-  hooks:
-  - id: validate-schemas
-    name: validate-schemas
-    language: system
-    require_serial: true
-    entry: uv run src/ocean_emulators/config_schema.py
-    pass_filenames: false
-    args: []
-- repo: https://github.com/Yelp/detect-secrets
-  rev: v1.5.0
-  hooks:
-  - id: detect-secrets
-    args: ['--baseline', '.secrets.baseline']
-- repo: https://github.com/fsfe/reuse-tool
-  rev: v6.2.0
-  hooks:
-    - id: reuse
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.11.2
+    hooks:
+      - id: ruff
+        args: ["--fix", "--config", "pyproject.toml"]
+        exclude: ^notebooks/
+      - id: ruff-format
+        args: ["--config", "pyproject.toml"]
+        exclude: ^notebooks/
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+        args: [--maxkb=250]
+        exclude: ^notebooks/
+      - id: trailing-whitespace
+        exclude: ^notebooks/
+      - id: check-yaml
+        args: [--unsafe]
+        exclude: ^notebooks/
+  # We define our own mypy checker here rather than using https://github.com/pre-commit/mirrors-mypy
+  # so it can run within our uv environment & access the correct installed libraries. See:
+  # https://whynothugo.nl/journal/2023/01/12/notes-on-pre-commit/#using-the-system-plugin-language
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        language: system
+        require_serial: true
+        entry: uv run --dev mypy
+        types_or: [python, pyi]
+        args: ["--config", "pyproject.toml"]
+        exclude: ^(notebooks/|data/)
+  - repo: https://github.com/tox-dev/pyproject-fmt
+    rev: "v2.5.0"
+    hooks:
+      - id: pyproject-fmt
+  - repo: local
+    hooks:
+      - id: validate-schemas
+        name: validate-schemas
+        language: system
+        require_serial: true
+        entry: uv run src/samudra/config_schema.py
+        pass_filenames: false
+        args: []
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ["--baseline", ".secrets.baseline"]
+  - repo: https://github.com/fsfe/reuse-tool
+    rev: v6.2.0
+    hooks:
+      - id: reuse

@@ -4,7 +4,7 @@
 
 import torch
 
-from ocean_emulators.utils.schedule import (
+from samudra.utils.schedule import (
     CosineSchedulerConfig,
     CosineWithTailSchedulerConfig,
     CosineWithWarmupConfig,

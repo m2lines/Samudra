@@ -9,12 +9,12 @@ from pathlib import Path
 import pytest
 import torch
 
-from ocean_emulators.config import CpuDataLoadingConfig, DynamicLossConfig
-from ocean_emulators.models.base import BaseModel
-from ocean_emulators.train import Trainer, should_log_validation_images
-from ocean_emulators.utils.ctx import GridContext
-from ocean_emulators.utils.loss import DynamicLoss
-from ocean_emulators.utils.multiton import MultitonScope
+from samudra.config import CpuDataLoadingConfig, DynamicLossConfig
+from samudra.models.base import BaseModel
+from samudra.train import Trainer, should_log_validation_images
+from samudra.utils.ctx import GridContext
+from samudra.utils.loss import DynamicLoss
+from samudra.utils.multiton import MultitonScope
 from tests.conftest import DEFAULT_CONFIG, TrainPair
 
 
@@ -50,10 +50,10 @@ def test_trainer__mini_2step(trainer_pair: TrainPair, caplog):
 )
 @pytest.mark.parametrize(
     "data_source,config_name",
-    [("mock-om4", "test/train_fomini.yaml")],
+    [("mock-om4", "test/train_samudra_mini.yaml")],
     indirect=True,
 )
-def test_trainer__fomini_smoke_cuda(trainer_pair: TrainPair, caplog):
+def test_trainer__samudra_mini_smoke_cuda(trainer_pair: TrainPair, caplog):
     caplog.set_level(logging.INFO)
     _, trainer = trainer_pair
 

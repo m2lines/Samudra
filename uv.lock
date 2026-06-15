@@ -2878,7 +2878,7 @@ wheels = [
 ]
 
 [[package]]
-name = "ocean-emulators"
+name = "samudra"
 version = "1.0"
 source = { editable = "." }
 dependencies = [

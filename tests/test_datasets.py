@@ -22,18 +22,18 @@ from hypothesis.extra.numpy import arrays
 from numpy.typing import NDArray
 from torch.utils.data import ConcatDataset, DataLoader
 
-from ocean_emulators.config import TimeConfig, TrainConfig, TrainSchedule
-from ocean_emulators.constants import LoaderVersion
-from ocean_emulators.datasets import (
+from samudra.config import TimeConfig, TrainConfig, TrainSchedule
+from samudra.constants import LoaderVersion
+from samudra.datasets import (
     InferenceDataset,
     TorchTrainDataset,
     TrainData,
     TrainDataLoader,
 )
-from ocean_emulators.utils.data import DataSource, Masks, Normalize
-from ocean_emulators.utils.multiton import MultitonScope
-from ocean_emulators.utils.samplers import EquivalenceGroupBatchSampler
-from ocean_emulators.utils.train import collate_raw_train_data
+from samudra.utils.data import DataSource, Masks, Normalize
+from samudra.utils.multiton import MultitonScope
+from samudra.utils.samplers import EquivalenceGroupBatchSampler
+from samudra.utils.train import collate_raw_train_data
 from tests.conftest import (
     DEFAULT_CONFIG,
     TEST_DATASET_SPEC,

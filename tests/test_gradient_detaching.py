@@ -7,12 +7,12 @@ import pytest
 import torch
 import xarray as xr
 
-from ocean_emulators.config import SamudraConfig, UNetBackboneConfig
-from ocean_emulators.constants import TensorMap
-from ocean_emulators.datasets import TrainData
-from ocean_emulators.utils.ctx import GridContext
-from ocean_emulators.utils.data import DataSource, Masks, Normalize
-from ocean_emulators.utils.multiton import MultitonScope
+from samudra.config import SamudraConfig, UNetBackboneConfig
+from samudra.constants import TensorMap
+from samudra.datasets import TrainData
+from samudra.utils.ctx import GridContext
+from samudra.utils.data import DataSource, Masks, Normalize
+from samudra.utils.multiton import MultitonScope
 from tests.conftest import TEST_DATASET_SPEC
 
 

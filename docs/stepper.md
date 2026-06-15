@@ -6,4 +6,4 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Stepper
 
-::: ocean_emulators.stepper
+::: samudra.stepper

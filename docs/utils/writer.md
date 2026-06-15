@@ -6,4 +6,4 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Writer
 
-::: ocean_emulators.utils.writer
+::: samudra.utils.writer

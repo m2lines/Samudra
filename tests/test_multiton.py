@@ -4,7 +4,7 @@
 
 import pytest
 
-from ocean_emulators.utils.multiton import Multiton, MultitonScope
+from samudra.utils.multiton import Multiton, MultitonScope
 
 
 class DummyMultiton(Multiton):

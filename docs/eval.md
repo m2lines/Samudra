@@ -6,4 +6,4 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Eval
 
-::: ocean_emulators.eval
+::: samudra.eval

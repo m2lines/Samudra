@@ -8,8 +8,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## Core
 
-::: ocean_emulators.viz.core
+::: samudra.viz.core
 
 ## Config
 
-::: ocean_emulators.viz.config
+::: samudra.viz.config

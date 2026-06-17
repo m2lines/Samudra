@@ -10,8 +10,8 @@ import torch
 import xarray as xr
 from scipy.stats import pearsonr
 
-from ocean_emulators.constants import TensorMap
-from ocean_emulators.utils.data import (
+from samudra.constants import TensorMap
+from samudra.utils.data import (
     DataSource,
     Masks,
     Normalize,

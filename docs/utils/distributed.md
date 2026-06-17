@@ -6,4 +6,4 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Distributed
 
-::: ocean_emulators.utils.distributed
+::: samudra.utils.distributed

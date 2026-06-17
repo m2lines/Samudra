@@ -4,10 +4,10 @@
 
 import torch
 
-from ocean_emulators.config import SamudraConfig, UNetBackboneConfig
-from ocean_emulators.constants import TensorMap
-from ocean_emulators.utils.ctx import GridContext
-from ocean_emulators.utils.data import DataSource, Normalize
+from samudra.config import SamudraConfig, UNetBackboneConfig
+from samudra.constants import TensorMap
+from samudra.utils.ctx import GridContext
+from samudra.utils.data import DataSource, Normalize
 
 
 def test_positional_parameters_update(dummy_src: DataSource):

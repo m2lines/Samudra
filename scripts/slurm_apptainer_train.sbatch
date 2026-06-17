@@ -275,7 +275,7 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         --master_addr=${MASTER_ADDR} \
         --master_port=${MASTER_PORT} \
         --node_rank=\${SLURM_PROCID} \
-        -m ocean_emulators.train \"${CONFIG_IN_CONTAINER}\" \
+        -m samudra.train \"${CONFIG_IN_CONTAINER}\" \
         --experiment.name=\"${NAME}\" \
         --experiment.data_root=\"${DATA_ROOT}\" \
         --experiment.base_output_dir=\"${OUTPUT_BASE}\" \

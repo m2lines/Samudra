@@ -14,7 +14,7 @@
 # To create or re-use a cluster:
 # ```
 # export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
-# sky launch -c fomo-cluster eval.sky.yaml --env-file <my-env>.env --env WANDB_API_KEY
+# sky launch -c samudra-cluster eval.sky.yaml --env-file <my-env>.env --env WANDB_API_KEY
 # ```
 # As the job progresses, skypilot will provide commands to locally monitor each stage.
 #
@@ -109,7 +109,7 @@ run: |
 
   DATA_ROOT=$(realpath ~/data)
 
-  uv run -m ocean_emulators.eval "${CONFIG}" \
+  uv run -m samudra.eval "${CONFIG}" \
     --ckpt_path="/outputs/${TARGET_CHECKPOINT}" \
     --experiment.data_root="${DATA_ROOT}" \
     --experiment.wandb.mode=online \

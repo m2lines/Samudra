@@ -6,4 +6,4 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Schedule
 
-::: ocean_emulators.utils.schedule
+::: samudra.utils.schedule

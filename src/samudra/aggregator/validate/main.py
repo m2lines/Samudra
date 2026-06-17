@@ -1,0 +1,117 @@
+# SPDX-FileCopyrightText: 2024 Allen Institute for Artificial Intelligence
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+import torch
+
+from samudra.aggregator.train import TrainAggregator
+from samudra.aggregator.validate.sub_aggregator import ValidateSubAggregator
+from samudra.constants import TensorMap
+from samudra.utils.data import Normalize, get_aggregator_dicts
+from samudra.utils.output import ValBatchOutput
+from samudra.utils.wandb import Metrics, MetricsDict
+
+
+class ValidateAggregator(TrainAggregator):
+    """Aggregates Validation Statistics."""
+
+    def __init__(
+        self,
+        aggregators: dict[str, ValidateSubAggregator],
+        hist: int,
+        num_prognostic_channels: int,
+        *,
+        tensor_map: TensorMap,
+        normalize: Normalize,
+    ):
+        super().__init__(tensor_map)
+        self._aggregators = aggregators
+        self.hist = hist
+        self.num_prognostic_channels = num_prognostic_channels
+        self.normalize = normalize
+
+    # TODO(jder): we could remove this by moving from inheritance
+    # to composition with the TrainAggregator functionality.
+    def record_batch(self, batch):
+        raise NotImplementedError(
+            "Call record_validation_batch instead of record_batch"
+        )
+
+    @torch.no_grad()
+    def record_validation_batch(self, batch: ValBatchOutput):
+        super().record_batch(batch)  # Record losses
+
+        # If there are no log aggregators, omit doing any extra work.
+        if not self._aggregators:
+            return
+
+        # Translate the GridContext mask by removing history.
+        target_data = batch.target_data  # [B, C*(hist+1), H, W]
+        wet = batch.ctx.label_mask  # [C*(hist+1), H, W]
+        assert wet.shape == target_data.shape[1:], (
+            "The wetmask must match the target data shape excluding batch."
+        )
+        assert wet.shape[0] % (self.hist + 1) == 0, (
+            "The wetmask channel count must be divisible by history size."
+        )
+        first_wetmask_chunk = wet.shape[0] // (self.hist + 1)
+        wet = wet[:first_wetmask_chunk]  # [C, H, W]
+
+        if len(target_data) == 0:
+            raise ValueError("No data in target_data")
+        if len(batch.gen_data) == 0:
+            raise ValueError("No data in gen_data")
+
+        assert target_data.shape[1] == self.num_prognostic_channels
+        target_data_dict, target_data_unnorm_dict = get_aggregator_dicts(
+            target_data,
+            normalize=self.normalize,
+            tensor_map=self.tensor_map,
+            wet=wet,
+            long_rollout=False,
+            input_type="prognostic",
+            num_prognostic_channels=self.num_prognostic_channels,
+            hist=self.hist,
+        )
+
+        gen_data_dict, gen_data_unnorm_dict = get_aggregator_dicts(
+            batch.gen_data,
+            normalize=self.normalize,
+            tensor_map=self.tensor_map,
+            wet=wet,
+            long_rollout=False,
+            input_type="prognostic",
+            num_prognostic_channels=self.num_prognostic_channels,
+            hist=self.hist,
+        )
+        input_data_dict, input_data_unnorm_dict = get_aggregator_dicts(
+            batch.input_data,
+            normalize=self.normalize,
+            tensor_map=self.tensor_map,
+            wet=wet,
+            long_rollout=False,
+            input_type="input",
+            num_prognostic_channels=self.num_prognostic_channels,
+            hist=self.hist,
+        )
+
+        for agg in self._aggregators.values():
+            agg.record_batch(
+                loss=batch.loss,
+                target_data=target_data_unnorm_dict,
+                gen_data=gen_data_unnorm_dict,
+                input_data=input_data_unnorm_dict,
+                target_data_norm=target_data_dict,
+                gen_data_norm=gen_data_dict,
+                input_data_norm=input_data_dict,
+            )
+
+    @torch.no_grad()
+    def get_logs(self, label: str = "train") -> Metrics:
+        logs: MetricsDict = dict(super().get_logs(label))
+        for agg_label in self._aggregators:
+            for k, v in self._aggregators[agg_label].get_logs(label=agg_label).items():
+                logs[f"{label}/{k}"] = v
+
+        return logs

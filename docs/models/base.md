@@ -6,4 +6,4 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Base Model
 
-::: ocean_emulators.models.base
+::: samudra.models.base

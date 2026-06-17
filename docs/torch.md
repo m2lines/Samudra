@@ -199,7 +199,7 @@ The eval harness runs one process (single-node, single-GPU by default) inside
 the PhysicsNeMo container and executes:
 
 ```bash
-python -m ocean_emulators.eval <CONFIG> ...
+python -m samudra.eval <CONFIG> ...
 ```
 
 It expects environment variables:

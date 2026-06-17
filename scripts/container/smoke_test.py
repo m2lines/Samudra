@@ -25,8 +25,8 @@ def version(dist_name: str) -> str:
 
 
 def main() -> int:
-    require_import("ocean_emulators")
-    require_import("ocean_emulators.models.samudra")
+    require_import("samudra")
+    require_import("samudra.models.samudra")
     require_import("flash_attn")
     require_import("flash_perceiver")
 

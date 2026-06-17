@@ -28,4 +28,4 @@ Samudra 2 widens the U-Net stages by ~40% while reducing the block-internal expa
 
 ## API Reference
 
-::: ocean_emulators.models.samudra
+::: samudra.models.samudra

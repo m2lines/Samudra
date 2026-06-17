@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/SamudraMultiConfig.json
+
+pred_residuals: false
+last_kernel_size: 3
+pad: "circular"
+checkpointing: "all"
+embedding_dim: 128  # Reduced from 280
+perceiver_implementation: "flash"
+# TODO(alxmrs): How fine of a resolution should each patch be? This produces a 60x72 latent grid.
+patch_extent: [3.0, 5.0]
+
+encoder:
+  perceiver:
+    depth: 2  # Reduced from 3
+    latent_dim: 48  # Reduced from 64
+    num_latents: 128  # Reduced from 256
+
+decoder:
+  perceiver:
+    depth: 2  # Match encoder depth
+    latent_dim: 48  # Match encoder latent_dim
+    num_latents: 128  # Match encoder num_latents
+  queries_dim: 64  # on the small end, but typical for PercieverIO models (usually in the ~100s-1000s).
+  window_patches: 12  # Must evenly divide latent grid (60x72). Enables real spatial windowing.
+  context_patches: 1  # Look at this many window_patches around the target patch.
+
+processor:
+  ch_width: [200, 256, 320]  # Reduced from [380, 480, 520]
+  dilation: [1, 1, 1]
+  n_layers: [1, 1, 1]
+
+  core_block:
+    block_type: "conv_next_block"
+    kernel_size: 3
+    activation: "capped_gelu"
+    upscale_factor: 2
+    norm: "batch"
+    pointwise_linear: true
+
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "zonally_periodic_upsample"

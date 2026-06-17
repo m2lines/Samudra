@@ -15,21 +15,16 @@ import torch
 import xarray as xr
 from numpy.typing import ArrayLike, NDArray
 
-import ocean_emulators.constants as c
-from ocean_emulators.config import (
-    JulianDate,
-    TrainBackendConfig,
-    TrainConfig,
-    TrainSchedule,
-)
-from ocean_emulators.train import Trainer
-from ocean_emulators.utils.data import DataSource, Masks, _is_compact, compact_dataset
-from ocean_emulators.utils.multiton import MultitonScope
+import samudra.constants as c
+from samudra.config import JulianDate, TrainBackendConfig, TrainConfig, TrainSchedule
+from samudra.train import Trainer
+from samudra.utils.data import DataSource, Masks, _is_compact, compact_dataset
+from samudra.utils.multiton import MultitonScope
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
 DEFAULT_CONFIG = "test/train_default.yaml"
-FOMO_CONFIG = "test/train_fomo.yaml"
-ALL_CONFIGS = [DEFAULT_CONFIG, "test/train_default_2step.yaml", FOMO_CONFIG]
+SAMUDRA_MULTI_CONFIG = "test/train_samudra_multi.yaml"
+ALL_CONFIGS = [DEFAULT_CONFIG, "test/train_default_2step.yaml", SAMUDRA_MULTI_CONFIG]
 TEST_DATASET_SPEC = c.build_om4_spec(
     prognostic_vars_key="thetao_1",
     boundary_vars_key="hfds",
@@ -499,7 +494,7 @@ def _write_cache(cache_root: pathlib.Path, data_source: DataSource) -> None:
     cache = cache_root / data_source.name
 
     # Turn off compression! Our training datasets currently have compression turned off.
-    #  See https://github.com/m2lines/ocean_emulators/blob/main/ocean_emulators/__main__.py#L240
+    #  See https://github.com/m2lines/samudra/blob/main/samudra/__main__.py#L240
     assert not (dz := cache / "data.zarr").exists(), "Data already exists in cache"
     data_source.data.to_zarr(
         dz, encoding={dv: {"compressor": None} for dv in data_source.data.data_vars}

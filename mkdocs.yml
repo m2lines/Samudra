@@ -2,10 +2,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-site_name: Ocean Emulators
-site_url: https://open-athena.github.io/Ocean_Emulator/docs/
-repo_url: https://github.com/Open-Athena/Ocean_Emulator
-repo_name: Open-Athena/Ocean_Emulator
+site_name: Samudra
+site_url: https://m2lines.github.io/Samudra/docs/
+repo_url: https://github.com/m2lines/Samudra
+repo_name: m2lines/Samudra
 docs_dir: docs
 site_dir: site/docs
 
@@ -40,37 +40,36 @@ plugins:
 nav:
   - Home: index.md
   - Getting Started:
-    - Installation: getting-started/installation.md
-    - Quick Start: getting-started/quick-start.md
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quick-start.md
   - Concepts:
-    - Architecture: concepts/architecture.md
-    - Data: data.md
-    - How to Run: run.md
-    - Torch: torch.md
+      - Architecture: concepts/architecture.md
+      - Data: data.md
+      - How to Run: run.md
+      - Torch: torch.md
   - Development:
-    - Contributing: contributing.md
+      - Contributing: contributing.md
   - API Reference:
-    - Models:
-      - Base Model: models/base.md
-      - Samudra: models/samudra.md
-      - FOMO: models/fomo.md
-      - Modules: models/modules.md
-    - Datasets: datasets.md
-    - Training:
-      - Stepper: stepper.md
-      - Train: train.md
-      - Eval: eval.md
-    - Configuration: config.md
-    - Utilities:
-      - Data Utils: utils/data.md
-      - Distributed: utils/distributed.md
-      - Loss: utils/loss.md
-      - EMA: utils/ema.md
-      - Schedule: utils/schedule.md
-      - Samplers: utils/samplers.md
-      - Writer: utils/writer.md
-    - Visualization: viz.md
-
+      - Models:
+          - Base Model: models/base.md
+          - Samudra: models/samudra.md
+          - samudra-multi: models/samudra_multi.md
+          - Modules: models/modules.md
+      - Datasets: datasets.md
+      - Training:
+          - Stepper: stepper.md
+          - Train: train.md
+          - Eval: eval.md
+      - Configuration: config.md
+      - Utilities:
+          - Data Utils: utils/data.md
+          - Distributed: utils/distributed.md
+          - Loss: utils/loss.md
+          - EMA: utils/ema.md
+          - Schedule: utils/schedule.md
+          - Samplers: utils/samplers.md
+          - Writer: utils/writer.md
+      - Visualization: viz.md
 
 markdown_extensions:
   - admonition

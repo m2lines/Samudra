@@ -6,4 +6,4 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # EMA
 
-::: ocean_emulators.utils.ema
+::: samudra.utils.ema

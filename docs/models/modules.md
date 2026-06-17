@@ -8,20 +8,20 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## U-Net Backbone
 
-::: ocean_emulators.models.modules.unet_backbone
+::: samudra.models.modules.unet_backbone
 
 ## Encoder
 
-::: ocean_emulators.models.modules.encoder
+::: samudra.models.modules.encoder
 
 ## Decoder
 
-::: ocean_emulators.models.modules.decoder
+::: samudra.models.modules.decoder
 
 ## Blocks
 
-::: ocean_emulators.models.modules.blocks
+::: samudra.models.modules.blocks
 
 ## Activations
 
-::: ocean_emulators.models.modules.activations
+::: samudra.models.modules.activations

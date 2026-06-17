@@ -16,8 +16,8 @@ SPDX-License-Identifier: CC-BY-4.0
 Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/Open-Athena/Ocean_Emulator.git
-cd Ocean_Emulator
+git clone https://github.com/m2lines/Samudra.git
+cd Samudra
 uv sync --dev
 source .venv/bin/activate
 ```
@@ -27,5 +27,5 @@ source .venv/bin/activate
 Print the training CLI help to confirm everything is set up correctly:
 
 ```bash
-uv run -m ocean_emulators.train --help
+uv run -m samudra.train --help
 ```

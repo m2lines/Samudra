@@ -15,7 +15,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ![](/docs/static/assets/sst_tropical_pacific_ultra_small.gif "Sea Surface Temperature of the Tropical Pacific: Ground Truth vs Samudra v2")
 
-> Ground truth (left) vs. Samudra prediction (right) for sea surface temperature in the tropical Pacific.
+> Ground truth (left) vs. Samudra 2 prediction (right) for sea surface temperature in the tropical Pacific.
 
 
 Please see [CONTRIBUTING.md](docs/contributing.md) to get started.

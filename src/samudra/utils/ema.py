@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2022 Machine Vision and Learning Group, LMU Munich
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-License-Identifier: MIT

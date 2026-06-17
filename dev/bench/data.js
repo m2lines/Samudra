@@ -1,6 +1,6 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781705273166,
-  "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
+  "lastUpdate": 1781720294784,
+  "repoUrl": "https://github.com/Open-Athena/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
       {
@@ -9759,6 +9759,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.08165420878915458",
             "extra": "mean: 28.068597188800005 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fc3084e2cac2044ae1935715f01e7dd8330883e1",
+          "message": "Update readme and contributing for public release (#763)\n\nTo make a bit more of a landing page. I removed contributing.md in the\nroot since clicking it in the github UI is unfriendly when it is a\nsymlink, and moving it out of docs raises various questions about how to\nkeep links working.",
+          "timestamp": "2026-06-17T14:03:33-04:00",
+          "tree_id": "7ae9f702c09b6073a4120e8a8faaa291f23c0584",
+          "url": "https://github.com/Open-Athena/Samudra/commit/fc3084e2cac2044ae1935715f01e7dd8330883e1"
+        },
+        "date": 1781720293481,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0929828810161528,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0012727089072727042",
+            "extra": "mean: 914.9274132000073 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1649331453965087,
+            "unit": "iter/sec",
+            "range": "stddev: 0.008375750204632926",
+            "extra": "mean: 6.0630626888000165 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.03500925589208109,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11271758992403073",
+            "extra": "mean: 28.563874738799996 sec\nrounds: 5"
           }
         ]
       }

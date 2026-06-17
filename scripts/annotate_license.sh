@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -22,7 +22,7 @@
 
 set -euo pipefail
 
-COPYRIGHT="Ocean Emulator Authors"
+COPYRIGHT="Samudra Authors"
 
 FILES=()
 RESTAGE=0

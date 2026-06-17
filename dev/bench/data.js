@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1780680698934,
+  "lastUpdate": 1781705262400,
   "repoUrl": "https://github.com/Open-Athena/Ocean_Emulator",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -9714,6 +9714,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.11013635628523159",
             "extra": "mean: 28.153448050999998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e0661bef3ec3ed633ac0e85dfaf3514f90e4dfb5",
+          "message": "Rename to Samudra (#760)\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>\nCo-authored-by: Alex Merose <alex@openathena.ai>",
+          "timestamp": "2026-06-17T13:54:07Z",
+          "tree_id": "b27078f1000385510deb9e7c54e62c9281b05a89",
+          "url": "https://github.com/Open-Athena/Ocean_Emulator/commit/e0661bef3ec3ed633ac0e85dfaf3514f90e4dfb5"
+        },
+        "date": 1781705260931,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0878838310787806,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004566338380326272",
+            "extra": "mean: 919.215794400003 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.17065228226692944,
+            "unit": "iter/sec",
+            "range": "stddev: 0.013772223159609681",
+            "extra": "mean: 5.859868890799999 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.035627003133559605,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08165420878915458",
+            "extra": "mean: 28.068597188800005 sec\nrounds: 5"
           }
         ]
       }

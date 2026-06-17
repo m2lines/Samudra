@@ -199,6 +199,8 @@ def test_data_loaders_enable_persistent_workers_on_positive_num_workers(
 ):
     _, trainer = trainer_pair
 
+    assert trainer.mp_context is not None
+    assert trainer.mp_context.get_start_method() == "spawn"
     assert trainer.train_loader._dataloader.persistent_workers is True
     assert trainer.val_loader._dataloader.persistent_workers is True
 
@@ -220,5 +222,6 @@ def test_data_loaders_disable_persistent_workers_when_num_workers_is_zero(
         trainer = Trainer(train_config)
         trainer.init_data_loaders(cur_step=train_config.steps[0])
 
+    assert trainer.mp_context is None
     assert trainer.train_loader._dataloader.persistent_workers is False
     assert trainer.val_loader._dataloader.persistent_workers is False

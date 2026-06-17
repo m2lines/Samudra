@@ -443,8 +443,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     FLAG = LoaderVersion.OM4_TORCH
 
     # Shared across all instances within a process. Created lazily on first
-    # __getitem__ call so that each forked DataLoader worker gets its own
-    # clean executor — avoids inheriting fork-corrupted locks from the parent.
+    # __getitem__ call so that each DataLoader worker gets its own clean
+    # executor.
     _shared_executor: ClassVar[ThreadPoolExecutor | None] = None
 
     @classmethod

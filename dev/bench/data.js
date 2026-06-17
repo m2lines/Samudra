@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1781720294784,
+  "lastUpdate": 1781720303531,
   "repoUrl": "https://github.com/Open-Athena/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -19617,6 +19617,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.12610567972592365",
             "extra": "mean: 20.1520420178 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "fc3084e2cac2044ae1935715f01e7dd8330883e1",
+          "message": "Update readme and contributing for public release (#763)\n\nTo make a bit more of a landing page. I removed contributing.md in the\nroot since clicking it in the github UI is unfriendly when it is a\nsymlink, and moving it out of docs raises various questions about how to\nkeep links working.",
+          "timestamp": "2026-06-17T14:03:33-04:00",
+          "tree_id": "7ae9f702c09b6073a4120e8a8faaa291f23c0584",
+          "url": "https://github.com/Open-Athena/Samudra/commit/fc3084e2cac2044ae1935715f01e7dd8330883e1"
+        },
+        "date": 1781720302931,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.090012792019535,
+            "unit": "iter/sec",
+            "range": "stddev: 0.003227180220123621",
+            "extra": "mean: 917.4204259999897 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.16809695255691276,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04374678116141413",
+            "extra": "mean: 5.948947823200001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.04868073854136937,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07623195338188624",
+            "extra": "mean: 20.542005523399986 sec\nrounds: 5"
           }
         ]
       }

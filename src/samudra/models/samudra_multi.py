@@ -47,7 +47,7 @@ except ImportError:
 
 
 class SamudraMulti(BaseModel):
-    """samudra-multi encoder-processor-decoder model.
+    """Multi-resolution encoder-processor-decoder model.
 
     Currently, this model is used only as a physical ocean emulator.
     """

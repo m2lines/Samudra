@@ -358,8 +358,8 @@ class TrainData:
 
     A single batch contains multiple steps worth of ``Example`` entries, each
     of which is a ``(prognostic_input, boundary_input, label)`` triple. The
-    prognostic and boundary tensors are carried separately because the samudra-multi model
-    encodes them separately (Samudra just concatenates them later).
+    prognostic and boundary tensors are carried separately because the
+    samudra-multi model encodes them separately (Samudra just concatenates them later).
     """
 
     def __init__(

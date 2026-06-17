@@ -174,8 +174,8 @@ git push --force-with-lease
 
 ## Running Samudra
 
-Please review the [How to Run](run.md) guide to learn how to train, evaluate, and visualize our emulators. To learn
-how to customize experiments and hyperparameters, please read our [configuration](config.md) guide.
+Please review the [How to Run](https://m2lines.github.io/Samudra/docs/run/) guide to learn how to train, evaluate, and visualize our emulators. To learn
+how to customize experiments and hyperparameters, please read our [configuration](https://m2lines.github.io/Samudra/docs/config/) guide.
 
 ## VS Code Integration
 
@@ -389,4 +389,4 @@ https://docs.pytorch.org/memory_viz -- see https://pytorch.org/blog/understandin
 
 ## Data Engineering
 
-To learn about how to access or recreate our datasets, please review our [data guide](data.md).
+To learn about how to access or recreate our datasets, please review our [data guide](https://m2lines.github.io/Samudra/docs/data/).

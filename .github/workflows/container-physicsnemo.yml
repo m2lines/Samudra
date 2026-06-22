@@ -28,7 +28,7 @@ concurrency:
 jobs:
   ec2-build:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
+    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@18a195f7f300c4afeac35aa6dfc6e649f9098816
     with:
       aws_region: us-east-1
       ec2_instance_type: m7i.xlarge
@@ -44,6 +44,7 @@ jobs:
       aws_tags: '[{"Key": "project", "Value": "fomo"}]'
     secrets:
       GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   build-and-smoke:
     needs: ec2-build
@@ -71,6 +72,12 @@ jobs:
           sudo chmod 666 /var/run/docker.sock
           docker version
           docker buildx version
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build container
         run: |
@@ -124,7 +131,7 @@ jobs:
   ec2:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     needs: build-and-smoke
-    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
+    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@18a195f7f300c4afeac35aa6dfc6e649f9098816
     with:
       ec2_instance_type: g6.xlarge
       ec2_image_id: ami-0365bff494b18bf93 # Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.7 (Ubuntu 22.04) in oa-ci-dev
@@ -132,10 +139,11 @@ jobs:
       aws_tags: '[{"Key": "project", "Value": "fomo"}]'
     secrets:
       GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   ec2-arm:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
+    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@18a195f7f300c4afeac35aa6dfc6e649f9098816
     with:
       aws_region: us-east-1
       ec2_instance_type: m7g.xlarge
@@ -151,6 +159,7 @@ jobs:
       aws_tags: '[{"Key": "project", "Value": "fomo"}]'
     secrets:
       GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
 
   test-container-cpu-gpu:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
@@ -256,6 +265,12 @@ jobs:
         run: |
           df -h
           docker system df || true
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build arm64 container
         run: |

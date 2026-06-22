@@ -367,7 +367,7 @@ class Trainer:
         self.val_loader: TrainDataLoader
         self.inference_loader: DataLoader[TrainData]
 
-        #post training evaluation
+        # post training evaluation
         self.post_train_eval = cfg.post_train_eval
 
     def init_inference_stores(self):
@@ -1132,6 +1132,14 @@ class Trainer:
 
     def finish(self):
         self.wandb_logger.finish()
+        if self.distributed is not None:
+            # Make sure every rank has finished training before rank 0 starts the
+            # post-train sweep, which claims every GPU via its own subprocesses.
+            # Tearing down the process group lets the non-main ranks exit and free
+            # their GPUs (and avoids the "destroy_process_group() was not called"
+            # warning at interpreter shutdown).
+            torch.distributed.barrier()
+            torch.distributed.destroy_process_group()
         if is_main_process():
             run_post_train_checkpoint_sweep(self.cfg, self.ckpt_paths)
 

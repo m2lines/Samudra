@@ -1170,8 +1170,24 @@ class PostTrainCheckpointSweepConfig(BaseConfig):
     eval_config_path: str | None = None
     viz_config_path: str | None = None
     last_n_checkpoints: int | None = Field(default=None, ge=1)
+    checkpoints: list[int] | None = Field(
+        default=None,
+        description="Explicit list of checkpoint epochs (matching ckpt_<epoch>.pt) "
+        "to evaluate; the final EMA checkpoint is always added. Mutually "
+        "exclusive with last_n_checkpoints.",
+    )
     eval_dirname: str | None = None
     viz_dirname: str | None = None
+
+    @pydantic.model_validator(mode="after")
+    def _check_checkpoint_selection(self) -> "PostTrainCheckpointSweepConfig":
+        if self.last_n_checkpoints is not None and self.checkpoints is not None:
+            raise ValueError(
+                "set only one of last_n_checkpoints or checkpoints, not both"
+            )
+        if self.checkpoints is not None and len(self.checkpoints) == 0:
+            raise ValueError("checkpoints must be a non-empty list when provided")
+        return self
 
 
 class EvalConfig(TopLevelConfig):

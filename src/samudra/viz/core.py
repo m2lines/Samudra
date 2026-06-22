@@ -11,7 +11,6 @@ import re
 import sys
 import warnings
 from collections.abc import Iterable
-from copy import deepcopy
 from subprocess import PIPE, STDOUT, Popen
 from typing import Any
 
@@ -112,10 +111,7 @@ class PreparedVizGroundtruth:
     basin_masks: xr.Dataset
     time_indices: list[int]
     prediction_coords: dict[str, xr.DataArray]
-    times: xr.DataArray
     wetmask: xr.DataArray
-    areacello_values: np.ndarray
-    areacello_spherical_values: np.ndarray
 
 
 class Viz:
@@ -3735,31 +3731,6 @@ def _combine_variables_by_level(
     return ds
 
 
-def combine_variables_by_level(
-    ds_groundtruth: xr.Dataset,
-    pred_dict: dict[str, dict[str, Any]],
-    dataset_spec: DatasetSpec,
-) -> tuple[xr.Dataset, dict[str, dict[str, Any]]]:
-    """
-    Combine variables by level for ground truth and predictions.
-
-    Parameters:
-    ds_groundtruth (xarray.Dataset): The ground truth dataset.
-    pred_dict (dict): Dictionary containing prediction datasets.
-
-    Returns:
-    xarray.Dataset, dict: Updated ground truth and prediction datasets.
-    """
-    ds_groundtruth = _combine_variables_by_level(
-        ds_groundtruth, ["thetao", "so", "uo", "vo", "mask"], dataset_spec
-    )
-    for key in pred_dict.keys():
-        pred_dict[key]["ds_prediction"] = _combine_variables_by_level(
-            pred_dict[key]["ds_prediction"], pred_dict[key]["ls"], dataset_spec
-        )
-    return ds_groundtruth, pred_dict
-
-
 def _postprocess_for_plot(
     ds,
     areacello: np.ndarray,
@@ -3803,60 +3774,6 @@ def _postprocess_for_plot(
     ds["areacello_spherical"] = (["lat", "lon"], areacello_spherical)
     ds["dz"] = ("lev", dz)
     return ds
-
-
-def postprocess_for_plot(
-    ds_groundtruth, areacello: xr.DataArray, dz: np.ndarray, pred_dict
-):
-    """
-    Postprocess for plotting.
-
-    Parameters:
-    ds_groundtruth (xarray.Dataset): The ground truth dataset.
-    areacello (xarray.DataArray): areacello dataarray.
-    pred_dict (dict): Dictionary containing prediction datasets.
-
-    Returns:
-    xarray.Dataset, dict: Postprocessed ground truth and prediction datasets.
-    """
-    areacello_values = areacello.values
-    times = ds_groundtruth.time
-    areacello_spherical_values = ds_groundtruth["areacello_spherical"].values
-
-    # Masking land with NaNs
-    if "mask" in ds_groundtruth.data_vars:
-        wetmask = ds_groundtruth["mask"].isel(
-            time=0, missing_dims="ignore"
-        )  # our data does not always have time for a mask
-    else:
-        wetmask = ds_groundtruth.wetmask
-
-    ds_groundtruth = _postprocess_for_plot(
-        ds_groundtruth, areacello_values, areacello_spherical_values, dz, times, wetmask
-    )
-
-    coords = ds_groundtruth.coords
-
-    for key in pred_dict.keys():
-        pred_dict[key]["ds_prediction"] = _postprocess_for_plot(
-            pred_dict[key]["ds_prediction"],
-            areacello_values,
-            areacello_spherical_values,
-            dz,
-            times,
-            wetmask,
-            coords=coords,
-        )
-
-        # Rename lat and lon to y and x
-        pred_dict[key]["ds_prediction"] = pred_dict[key]["ds_prediction"].rename(
-            {"lat": "y", "lon": "x"}
-        )
-
-    # Rename lat and lon to y and x (This needs to be done in the end!)
-    ds_groundtruth = ds_groundtruth.rename({"lat": "y", "lon": "x"})
-
-    return ds_groundtruth, pred_dict
 
 
 def _prepare_groundtruth_rollout(
@@ -3968,10 +3885,7 @@ def prepare_viz_groundtruth(
         basin_masks=basin_masks,
         time_indices=time_indices,
         prediction_coords=prediction_coords,
-        times=times,
         wetmask=wetmask,
-        areacello_values=areacello_values,
-        areacello_spherical_values=areacello_spherical_values,
     )
 
 
@@ -3979,6 +3893,10 @@ def process_prediction_runs(
     prepared_groundtruth: PreparedVizGroundtruth,
     pred_dict: dict[str, dict[str, Any]],
 ) -> dict[str, dict[str, Any]]:
+    depth_thickness = np.array(prepared_groundtruth.dataset_spec.depth_thickness)
+    times = prepared_groundtruth.data.time
+    areacello_values = prepared_groundtruth.data.areacello.values
+    areacello_spherical_values = prepared_groundtruth.data.areacello_spherical.values
     for key in pred_dict.keys():
         ds_prediction = pred_dict[key]["data"]
 
@@ -4000,61 +3918,16 @@ def process_prediction_runs(
         )
         ds_prediction = _postprocess_for_plot(
             ds_prediction,
-            prepared_groundtruth.areacello_values,
-            prepared_groundtruth.areacello_spherical_values,
-            np.array(prepared_groundtruth.dataset_spec.depth_thickness),
-            prepared_groundtruth.times,
+            areacello_values,
+            areacello_spherical_values,
+            depth_thickness,
+            times,
             prepared_groundtruth.wetmask,
             coords=prepared_groundtruth.prediction_coords,
         )
         pred_dict[key]["ds_prediction"] = ds_prediction.rename({"lat": "y", "lon": "x"})
 
     return pred_dict
-
-
-def process_data(
-    data: xr.Dataset,
-    pred_dict: dict[str, dict[str, Any]],
-    dataset_spec: DatasetSpec,
-) -> tuple[xr.Dataset, dict[str, dict[str, Any]]]:
-    """
-    Get plot ready OM4 data.
-    """
-    ds_groundtruth = with_level_index_vars(data, dataset_spec=dataset_spec)
-
-    # Store ds_prediction
-    copy_dict = deepcopy(pred_dict)
-
-    for key in pred_dict.keys():
-        ds_prediction = pred_dict[key]["data"]
-
-        assert ds_prediction.time.size == ds_groundtruth.time.size, (
-            f"Sizes different for {key}: {ds_prediction.time.size}!="
-            f"{ds_groundtruth.time.size}; prediction range is "
-            f"{ds_prediction.time.values[0]} to "
-            f"{ds_prediction.time.values[-1]}\n"
-            f"groundtruth range is {ds_groundtruth.time.values[0]} to "
-            f"{ds_groundtruth.time.values[-1]}"
-        )
-        if "model_path" in ds_prediction.attrs:
-            copy_dict[key]["model_path"] = ds_prediction.attrs["model_path"]
-
-        pred_dict[key]["ds_prediction"] = ds_prediction
-
-    ### Combine Variables by level
-    ds_groundtruth, pred_dict = combine_variables_by_level(
-        ds_groundtruth, pred_dict, dataset_spec
-    )
-
-    ### Postprocess predictions for plotting
-    ds_groundtruth, pred_dict = postprocess_for_plot(
-        ds_groundtruth,
-        ds_groundtruth.areacello,
-        np.array(dataset_spec.depth_thickness),
-        pred_dict,
-    )
-
-    return ds_groundtruth, pred_dict
 
 
 def remove_climatology(ds):

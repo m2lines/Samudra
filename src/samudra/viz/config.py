@@ -161,7 +161,7 @@ class VizConfig(TopLevelConfig):
 logger = logging.getLogger(__name__)
 
 
-def _run_with_prepared_groundtruth(
+def run_with_prepared_groundtruth(
     cfg: VizConfig,
     prepared_groundtruth: PreparedVizGroundtruth,
 ):
@@ -190,14 +190,7 @@ def _run_with_prepared_groundtruth(
 def main(cfg: VizConfig):
     default_root = LocalLocation(path=Path.cwd())
     prepared_groundtruth = cfg.prepare_groundtruth(default_root)
-    _run_with_prepared_groundtruth(cfg, prepared_groundtruth)
-
-
-def run_with_prepared_groundtruth(
-    cfg: VizConfig,
-    prepared_groundtruth: PreparedVizGroundtruth,
-):
-    _run_with_prepared_groundtruth(cfg, prepared_groundtruth)
+    run_with_prepared_groundtruth(cfg, prepared_groundtruth)
 
 
 def _run_step(viz: Viz, step: VizStep):

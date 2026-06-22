@@ -1115,6 +1115,40 @@ class TrainConfig(TopLevelConfig):
             "a value of 10 logs on epochs 1, 11, 21, ..."
         ),
     )
+    rollout_validation_steps: int = Field(
+        default=0,
+        ge=-1,
+        description=(
+            "Number of autoregressive model steps to run over val_time for "
+            "raw-field rollout validation. Use 0 to disable and -1 to use the "
+            "full validation period. Ignored when rollout_validation_days is set."
+        ),
+    )
+    rollout_validation_days: list[int] = Field(
+        default=[],
+        description=(
+            "Forecast-day horizons to run over val_time for raw-field rollout "
+            "validation, e.g. [30, 90, 180, 360]. Takes precedence over "
+            "rollout_validation_steps."
+        ),
+    )
+    rollout_validation_freq: int = Field(
+        default=1,
+        ge=1,
+        description=(
+            "How often to run rollout validation. Epochs are 1-based, so a "
+            "value of 10 runs on epochs 1, 11, 21, ..."
+        ),
+    )
+    rollout_validation_steps_forward: int = Field(
+        default=1,
+        ge=1,
+        description=(
+            "Number of autoregressive model steps to run per rollout validation "
+            "chunk before recording metrics. Higher values reduce CPU/GPU "
+            "synchronization overhead but increase target materialization memory."
+        ),
+    )
     epochs: int = 120
     preemptible: bool = True
     batch_size: int = 2

@@ -11,9 +11,9 @@ from typing import cast
 
 import torch
 
-from samudra.config import EvalConfig, PostTrainCheckpointSweepConfig, TrainConfig
+from samudra.config import EvalConfig, TrainConfig
 from samudra.eval import Eval
-from samudra.utils.location import LocalLocation
+from samudra.utils.location import LocalLocation, Location
 from samudra.utils.multiton import MultitonScope
 from samudra.utils.train import CheckpointPaths
 from samudra.viz import VizConfig
@@ -67,19 +67,37 @@ def _entry_from_file(
 def discover_checkpoints_from_directory(
     checkpoint_paths: CheckpointPaths,
     last_n_checkpoints: int | None = None,
+    checkpoints: list[int] | None = None,
 ) -> list[CheckpointEvalTarget]:
+    if last_n_checkpoints is not None and checkpoints is not None:
+        raise ValueError("pass only one of last_n_checkpoints or checkpoints, not both")
+
     checkpoint_dir = checkpoint_paths.checkpoint_dir
-    periodic: list[tuple[int, Path]] = []
+    periodic: dict[int, Path] = {}
     for path in checkpoint_dir.iterdir():
         if not path.is_file():
             continue
         if match := re.match(r"^ckpt_(\d+)\.pt$", path.name):
-            periodic.append((int(match.group(1)), path))
+            periodic[int(match.group(1))] = path
 
-    targets: list[CheckpointEvalTarget] = [
-        _entry_from_file(path, "periodic", epoch=epoch)
-        for epoch, path in sorted(periodic)
-    ]
+    if checkpoints is not None:
+        # Evaluate exactly the requested epochs; fail loudly if any are missing.
+        missing = sorted(set(checkpoints) - periodic.keys())
+        if missing:
+            raise ValueError(
+                f"requested checkpoint epochs not found in {checkpoint_dir}: {missing}"
+            )
+        targets = [
+            _entry_from_file(periodic[epoch], "periodic", epoch=epoch)
+            for epoch in sorted(set(checkpoints))
+        ]
+    else:
+        targets = [
+            _entry_from_file(path, "periodic", epoch=epoch)
+            for epoch, path in sorted(periodic.items())
+        ]
+
+    # The final EMA checkpoint is always included when present.
     if checkpoint_paths.ema_checkpoint_path.exists():
         targets.append(
             _entry_from_file(
@@ -88,7 +106,12 @@ def discover_checkpoints_from_directory(
                 for_inference=True,
             )
         )
+
     if last_n_checkpoints is not None:
+        if last_n_checkpoints < 1:
+            raise ValueError(
+                f"last_n_checkpoints must be >= 1, got {last_n_checkpoints}"
+            )
         targets = targets[-last_n_checkpoints:]
     return targets
 
@@ -132,7 +155,7 @@ def _run_single_checkpoint_eval(
     entry: CheckpointEvalTarget,
     eval_config_args: tuple[str, ...],
     sweep_root: Path,
-    data_root: object | None,
+    data_root: Location | None,
     gpu_index: int | None,
 ) -> dict[str, object]:
     if gpu_index is not None:
@@ -223,7 +246,7 @@ def _worker_main(
     entries: list[CheckpointEvalTarget],
     eval_config_args: tuple[str, ...],
     sweep_root: str,
-    data_root: object | None,
+    data_root: Location | None,
     gpu_index: int | None,
     queue: multiprocessing.Queue,
 ) -> None:
@@ -246,15 +269,17 @@ def _worker_main(
 def run_checkpoint_sweep(
     eval_config_args: tuple[str, ...],
     checkpoint_paths: CheckpointPaths,
-    data_root: object | None = None,
+    data_root: Location | None = None,
     sweep_root: Path | None = None,
     viz_config_args: tuple[str, ...] | None = None,
     last_n_checkpoints: int | None = None,
+    checkpoints: list[int] | None = None,
     viz_dirname: str | None = None,
 ) -> list[dict[str, object]]:
     targets = discover_checkpoints_from_directory(
         checkpoint_paths,
         last_n_checkpoints=last_n_checkpoints,
+        checkpoints=checkpoints,
     )
     if not targets:
         logger.warning("No checkpoints selected for post-train eval sweep")
@@ -395,6 +420,7 @@ def run_post_train_checkpoint_sweep(
         sweep_root=sweep_root,
         viz_config_args=viz_config_args,
         last_n_checkpoints=train_cfg.post_train_eval.last_n_checkpoints,
+        checkpoints=train_cfg.post_train_eval.checkpoints,
         viz_dirname=train_cfg.post_train_eval.viz_dirname,
     )
 
@@ -405,6 +431,7 @@ def run_standalone_checkpoint_sweep(
     eval_override_args: list[str] | None = None,
     viz_config_path: Path | None = None,
     last_n_checkpoints: int | None = None,
+    checkpoints: list[int] | None = None,
 ) -> list[dict[str, object]]:
     eval_config_args = (str(eval_config_path), *(eval_override_args or []))
     viz_config_args = (str(viz_config_path),) if viz_config_path is not None else None
@@ -414,6 +441,7 @@ def run_standalone_checkpoint_sweep(
         checkpoint_paths=CheckpointPaths(checkpoint_dir),
         viz_config_args=viz_config_args,
         last_n_checkpoints=last_n_checkpoints,
+        checkpoints=checkpoints,
     )
 
 
@@ -439,20 +467,29 @@ def main(argv: list[str] | None = None) -> None:
         type=int,
         help="Optional limit to only evaluate the last N discovered checkpoints",
     )
+    parser.add_argument(
+        "--checkpoints",
+        type=int,
+        nargs="+",
+        help="Explicit checkpoint epochs to evaluate; mutually exclusive with "
+        "--last_n_checkpoints",
+    )
     args, eval_override_args = parser.parse_known_args(argv)
 
     # Expand ~ in user-provided config paths before resolving them to absolute paths.
-    sweep_kwargs: dict[str, object] = {
-        "eval_config_path": Path(args.config).expanduser().resolve(),
-        "checkpoint_dir": Path(args.checkpoint_dir).expanduser().resolve(),
-        "eval_override_args": eval_override_args,
-    }
-    if args.viz_config is not None:
-        sweep_kwargs["viz_config_path"] = Path(args.viz_config).expanduser().resolve()
-    if args.last_n_checkpoints is not None:
-        sweep_kwargs["last_n_checkpoints"] = args.last_n_checkpoints
-
-    run_standalone_checkpoint_sweep(**sweep_kwargs)
+    viz_config_path = (
+        Path(args.viz_config).expanduser().resolve()
+        if args.viz_config is not None
+        else None
+    )
+    run_standalone_checkpoint_sweep(
+        eval_config_path=Path(args.config).expanduser().resolve(),
+        checkpoint_dir=Path(args.checkpoint_dir).expanduser().resolve(),
+        eval_override_args=eval_override_args,
+        viz_config_path=viz_config_path,
+        last_n_checkpoints=args.last_n_checkpoints,
+        checkpoints=args.checkpoints,
+    )
 
 
 if __name__ == "__main__":

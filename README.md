@@ -18,3 +18,11 @@ Samudra is a global ocean emulator described in ["Samudra: An AI Global Ocean Em
 > Ground truth (left) vs. Samudra 2 prediction (right) for sea surface temperature in the tropical Pacific.
 
 We are actively and openly developing this emulator to support new tasks and data sources with the goal of building a broadly useful foundation model for ocean and climate. Please see [our docs](https://m2lines.github.io/Samudra/docs/) for more or [our contributing guide](https://m2lines.github.io/Samudra/docs/contributing/) to join in!
+
+<p>
+  <a href="https://www.nyu.edu/"><img src="/docs/static/assets/nyu-logo.png" alt="NYU" /></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://www.princeton.edu/"><img src="/docs/static/assets/princeton-university-logo.png" alt="Princeton University" /></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://openathena.ai/"><img src="/docs/static/assets/open-athena-logo.png" alt="Open Athena" /></a>
+</p>

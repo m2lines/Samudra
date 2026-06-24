@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782343062408,
+  "lastUpdate": 1782343069412,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -19977,6 +19977,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.16865311569750951",
             "extra": "mean: 20.430543489 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "be944d4753f5ac4e59bb73b583d15a618af4efa3",
+          "message": "Add logos to readme (#775)",
+          "timestamp": "2026-06-24T23:04:36Z",
+          "tree_id": "dc49962751fd57854cb8da40d79d1fabc9fbed2c",
+          "url": "https://github.com/m2lines/Samudra/commit/be944d4753f5ac4e59bb73b583d15a618af4efa3"
+        },
+        "date": 1782343069148,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0928292746021813,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0027236570393486446",
+            "extra": "mean: 915.0560140000152 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.17482976268213216,
+            "unit": "iter/sec",
+            "range": "stddev: 0.026931932693695138",
+            "extra": "mean: 5.719849896600022 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.050119287812292954,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04198520081686858",
+            "extra": "mean: 19.952398440799993 sec\nrounds: 5"
           }
         ]
       }

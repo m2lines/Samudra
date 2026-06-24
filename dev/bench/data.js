@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782165487984,
+  "lastUpdate": 1782342376634,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -9894,6 +9894,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.18593665630661785",
             "extra": "mean: 28.720573781600013 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "06fd65f6b468f2d082b21a02de427ee260fc0ff3",
+          "message": "Reduce multiscale dataset test I/O (#779)",
+          "timestamp": "2026-06-24T18:52:11-04:00",
+          "tree_id": "ecece00e4b3b71898775e114e40df0c0aa09bfb4",
+          "url": "https://github.com/m2lines/Samudra/commit/06fd65f6b468f2d082b21a02de427ee260fc0ff3"
+        },
+        "date": 1782342375749,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.110217535257799,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0019066416866479004",
+            "extra": "mean: 900.7243790000075 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.16873141425370222,
+            "unit": "iter/sec",
+            "range": "stddev: 0.01893433484660072",
+            "extra": "mean: 5.926578666 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.03532040595520399,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1714071506577812",
+            "extra": "mean: 28.312245370799975 sec\nrounds: 5"
           }
         ]
       }

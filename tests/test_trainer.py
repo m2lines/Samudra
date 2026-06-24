@@ -6,12 +6,9 @@ import logging
 import tempfile
 from pathlib import Path
 
-import numpy as np
 import pytest
 import torch
-import xarray as xr
 
-import samudra.constants as c
 from samudra.config import CpuDataLoadingConfig, DynamicLossConfig, TrainConfig
 from samudra.models.base import BaseModel
 from samudra.train import Trainer, should_log_validation_images
@@ -65,132 +62,82 @@ def test_trainer__samudra_mini_smoke_cuda(trainer_pair: TrainPair, caplog):
     trainer.run()
 
 
-def _write_tiny_om4_zarr(data_root: Path) -> None:
-    spec = c.build_om4_spec(
-        prognostic_vars_key="thermo_dynamic_all",
-        boundary_vars_key="tau_hfds_hfds_anom",
-    )
-    rng = np.random.default_rng(314159)
-    time = xr.cftime_range("1975-01-03", periods=20, freq="5D", calendar="julian")
-    lat = np.linspace(-82.0, 82.0, 32, dtype=np.float32)
-    lon = np.linspace(0.5, 359.5, 64, dtype=np.float32)
-
-    time_signal = np.arange(len(time), dtype=np.float32)[:, None, None] * 0.03
-    lat_signal = np.sin(np.deg2rad(lat, dtype=np.float32))[None, :, None]
-    lon_signal = np.cos(np.deg2rad(lon, dtype=np.float32))[None, None, :]
-
-    variables = {}
-    for var_index, var_name in enumerate(
-        list(spec.prognostic_var_names) + list(spec.boundary_var_names)
-    ):
-        noise = rng.standard_normal((len(time), len(lat), len(lon)), dtype=np.float32)
-        variables[var_name] = (
-            ("time", "lat", "lon"),
-            (
-                0.05 * noise
-                + time_signal
-                + 0.01 * lat_signal
-                + 0.01 * lon_signal
-                + var_index * 0.001
-            ).astype(np.float32),
-        )
-
-    for mask_name in spec.mask_vars:
-        variables[mask_name] = (("lat", "lon"), np.ones((len(lat), len(lon)), bool))
-
-    data = xr.Dataset(
-        variables,
-        coords={
-            "time": xr.DataArray(time, dims=["time"]),
-            "lat": xr.DataArray(lat, dims=["lat"]),
-            "lon": xr.DataArray(lon, dims=["lon"]),
-        },
-    )
-    data_vars = list(spec.prognostic_var_names) + list(spec.boundary_var_names)
-    means = data[data_vars].mean(dim=["time", "lat", "lon"])
-    stds = data[data_vars].std(dim=["time", "lat", "lon"]) + 1e-6
-
-    data.to_zarr(
-        data_root / "OM4.zarr",
-        encoding={name: {"compressor": None} for name in data.data_vars},
-    )
-    means.to_zarr(data_root / "OM4_means.zarr")
-    stds.to_zarr(data_root / "OM4_stds.zarr")
-
-
-def _tiny_v2_config(tmp_path: Path, data_root: Path, run_name: str) -> TrainConfig:
-    config_path = Path(__file__).parents[1] / "configs/samudra_om4_v2/train.yaml"
-    cfg = TrainConfig.from_yaml_and_cli(
-        [
-            str(config_path),
-            "--experiment.data_root",
-            str(data_root),
-            "--experiment.base_output_dir",
-            str(tmp_path / "runs"),
-            "--experiment.name",
-            run_name,
-            "--backend",
-            "cuda",
-            "--train_time.start",
-            "1975-01-03",
-            "--train_time.end",
-            "1975-02-12",
-            "--val_time.start",
-            "1975-02-12",
-            "--val_time.end",
-            "1975-03-24",
-        ]
-    )
-    cfg.epochs = 2
-    cfg.save_freq = 1
-    cfg.batch_size = 1
-    cfg.steps = [1]
-    cfg.step_transition = []
-    cfg.data.concurrent_compute = False
-    assert isinstance(cfg.data.loading, CpuDataLoadingConfig)
-    cfg.data.loading.num_workers = 0
-    cfg.data.loading.persistent_workers = False
-
-    assert hasattr(cfg.model, "unet")
-    cfg.model.unet.ch_width = [8, 8, 8, 8]
-    cfg.model.unet.dilation = [1, 1, 1, 1]
-    cfg.model.unet.n_layers = [1, 1, 1, 1]
+def _copy_resume_parity_config(
+    train_config: TrainConfig, tmp_path: Path, run_name: str
+) -> TrainConfig:
+    cfg = train_config.model_copy(deep=True)
+    cfg.experiment.name = run_name
+    cfg.experiment.base_output_dir = str(tmp_path / "runs")
+    cfg.experiment.__dict__.pop("output_dir", None)
+    cfg.experiment.__dict__.pop("nets_dir", None)
+    cfg.resume_ckpt_path = None
     return cfg
 
 
-def _initialize_manual_run(cfg: TrainConfig) -> Trainer:
-    trainer = Trainer(cfg)
-    torch.backends.cudnn.benchmark = False
-    torch.backends.cudnn.deterministic = True
-    if cfg.resume_ckpt_path is None:
-        trainer.best_val_loss = 1e8
-        trainer.best_inf_loss = 1e8
-    trainer.init_data_loaders(cur_step=cfg.steps[0])
-    return trainer
+def _run_to_latest_checkpoint(cfg: TrainConfig) -> Path:
+    with MultitonScope():
+        trainer = Trainer(cfg)
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+        if cfg.resume_ckpt_path is None:
+            # Match the existing CUDA smoke test: skip the torchinfo summary path,
+            # which can OOM on shared CI GPUs even with this small config.
+            trainer.num_batches_seen = 1
+        trainer.run()
+        checkpoint_path = trainer.ckpt_paths.latest_checkpoint_path
+        del trainer
+    return checkpoint_path
 
 
-def _run_train_val_epoch(trainer: Trainer, epoch: int) -> tuple[float, float]:
-    for sampler in [trainer.train_sampler, trainer.val_sampler]:
-        if hasattr(sampler, "set_epoch"):
-            sampler.set_epoch(epoch)
+def _assert_nested_close(actual, expected, path: str) -> None:
+    if torch.is_tensor(actual) or torch.is_tensor(expected):
+        assert torch.is_tensor(actual) and torch.is_tensor(expected), path
+        torch.testing.assert_close(actual, expected, rtol=1e-6, atol=1e-6)
+    elif isinstance(actual, dict):
+        assert isinstance(expected, dict), path
+        assert actual.keys() == expected.keys(), path
+        for key in actual:
+            _assert_nested_close(actual[key], expected[key], f"{path}[{key!r}]")
+    elif isinstance(actual, (list, tuple)):
+        assert isinstance(expected, type(actual)), path
+        assert len(actual) == len(expected), path
+        for index, (actual_item, expected_item) in enumerate(zip(actual, expected)):
+            _assert_nested_close(actual_item, expected_item, f"{path}[{index}]")
+    elif isinstance(actual, float) or isinstance(expected, float):
+        assert actual == pytest.approx(expected, rel=1e-6, abs=1e-6), path
+    else:
+        assert actual == expected, path
 
-    train_stats = trainer.train_one_epoch(epoch)
-    val_stats = trainer.validate_one_epoch(epoch)
-    train_loss = float(train_stats["train/mean/loss"])
-    val_loss = float(val_stats["val/mean/loss"])
-    trainer.save_all_checkpoints(epoch, val_loss, inf_loss=None)
-    return train_loss, val_loss
+
+def _assert_checkpoints_close(continuous_path: Path, resumed_path: Path) -> None:
+    continuous = torch.load(continuous_path, map_location="cpu")
+    resumed = torch.load(resumed_path, map_location="cpu")
+
+    ignored_keys = {"wandb_name"}
+    assert set(continuous) - ignored_keys == set(resumed) - ignored_keys
+    for key in continuous:
+        if key in ignored_keys:
+            continue
+        _assert_nested_close(resumed[key], continuous[key], f"checkpoint[{key!r}]")
 
 
-@pytest.mark.cuda
-def test_checkpoint_resume_matches_continuous_tiny_v2_cuda(tmp_path, caplog):
+@pytest.mark.parametrize(
+    "backend",
+    [pytest.param("cuda", marks=pytest.mark.cuda)],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "test/train_samudra_mini_resume.yaml")],
+    indirect=True,
+)
+def test_checkpoint_resume_matches_continuous_samudra_mini_cuda(
+    train_config, tmp_path, caplog, monkeypatch
+):
     caplog.set_level(logging.INFO)
+    monkeypatch.setenv("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
     if not torch.cuda.is_available():
         pytest.fail("CUDA test requested but torch.cuda.is_available() is False")
-
-    data_root = tmp_path / "tiny_om4"
-    data_root.mkdir()
-    _write_tiny_om4_zarr(data_root)
 
     cudnn_benchmark = torch.backends.cudnn.benchmark
     cudnn_deterministic = torch.backends.cudnn.deterministic
@@ -200,37 +147,25 @@ def test_checkpoint_resume_matches_continuous_tiny_v2_cuda(tmp_path, caplog):
     torch.use_deterministic_algorithms(True)
 
     try:
-        continuous_cfg = _tiny_v2_config(tmp_path, data_root, "continuous")
-        with MultitonScope():
-            continuous_trainer = _initialize_manual_run(continuous_cfg)
-            _run_train_val_epoch(continuous_trainer, epoch=1)
-            checkpoint_path = (
-                continuous_trainer.ckpt_paths.latest_checkpoint_path_with_epoch(1)
-            )
-            continuous_epoch_2 = _run_train_val_epoch(continuous_trainer, epoch=2)
-            del continuous_trainer
+        continuous_cfg = _copy_resume_parity_config(
+            train_config, tmp_path, "continuous"
+        )
+        continuous_checkpoint = _run_to_latest_checkpoint(continuous_cfg)
 
-        resume_cfg = _tiny_v2_config(tmp_path, data_root, "resumed")
-        resume_cfg.resume_ckpt_path = str(checkpoint_path)
-        with MultitonScope():
-            resume_trainer = _initialize_manual_run(resume_cfg)
-            assert resume_trainer.start_epoch == 2
-            resumed_epoch_2 = _run_train_val_epoch(
-                resume_trainer, epoch=resume_trainer.start_epoch
-            )
-            del resume_trainer
+        interrupted_cfg = _copy_resume_parity_config(train_config, tmp_path, "resumed")
+        interrupted_cfg.epochs = 1
+        interrupted_checkpoint = _run_to_latest_checkpoint(interrupted_cfg)
+
+        resume_cfg = _copy_resume_parity_config(train_config, tmp_path, "resumed")
+        resume_cfg.resume_ckpt_path = str(interrupted_checkpoint)
+        resumed_checkpoint = _run_to_latest_checkpoint(resume_cfg)
     finally:
         torch.backends.cudnn.benchmark = cudnn_benchmark
         torch.backends.cudnn.deterministic = cudnn_deterministic
         torch.use_deterministic_algorithms(deterministic_algorithms)
         torch.cuda.empty_cache()
 
-    torch.testing.assert_close(
-        torch.tensor(continuous_epoch_2),
-        torch.tensor(resumed_epoch_2),
-        rtol=1e-6,
-        atol=1e-6,
-    )
+    _assert_checkpoints_close(continuous_checkpoint, resumed_checkpoint)
 
 
 @pytest.mark.parametrize(

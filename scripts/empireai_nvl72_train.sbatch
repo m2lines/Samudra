@@ -7,14 +7,14 @@
 # Empire AI Beta NVL72 Slurm/Pyxis launcher for half-degree OM4 training.
 #
 # Smoke test, 2 GPUs on 1 host:
-#   sbatch --account=YOUR_ACCOUNT --partition=beta --qos=test \
+#   SMOKE=1 sbatch --account=YOUR_ACCOUNT --partition=beta --qos=test \
 #     --nodes=1 --gres=gpu:2 --time=00:45:00 \
 #     scripts/empireai_nvl72_train.sbatch
 #
 # Full run, 36 GPUs on 9 hosts:
-#   RUN_MODE=full sbatch --account=YOUR_ACCOUNT --partition=beta --qos=standard \
+#   sbatch --account=YOUR_ACCOUNT --partition=beta --qos=standard \
 #     --requeue --signal=B:SIGTERM@900 \
-#     --nodes=9 --gres=gpu:4 --time=2-00:00:00 \
+#     --nodes=9 --gres=gpu:4 --time=12:00:00 \
 #     scripts/empireai_nvl72_train.sbatch
 #
 # Useful overrides:
@@ -29,15 +29,15 @@
 #SBATCH --error=%x_%j.err
 #SBATCH --partition=beta
 #SBATCH --account=nyu_beta_test
-#SBATCH --qos=test
-#SBATCH --nodes=1
+#SBATCH --qos=standard
+#SBATCH --nodes=9
 #SBATCH --ntasks-per-node=1
-#SBATCH --gres=gpu:2
-#SBATCH --time=00:45:00
+#SBATCH --gres=gpu:4
+#SBATCH --time=12:00:00
 
 set -euo pipefail
 
-RUN_MODE="${RUN_MODE:-smoke}"
+SMOKE="${SMOKE:-0}"
 CONFIG="${CONFIG:-configs/samudra_om4_v2/train.yaml}"
 DATA_ROOT="${DATA_ROOT:-${HOME}/data/om4_halfdeg}"
 OUTPUT_BASE="${OUTPUT_BASE:-${HOME}/runs}"
@@ -51,10 +51,10 @@ WANDB_PROJECT="${WANDB_PROJECT:-default}"
 # import GHCR's OCI image indexes by tag. Pin the ARM64 manifest digest.
 IMAGE_REF="${IMAGE_REF:-ghcr.io/m2lines/ocean-emulator-physicsnemo@sha256:d7cf627257df3e1fda74202435e00f55c15ebe2d2be9648f47daf31905f51bad}"
 
-case "${RUN_MODE}" in
-  smoke|full) ;;
+case "${SMOKE}" in
+  0|1) ;;
   *)
-    echo "RUN_MODE must be 'smoke' or 'full', got: ${RUN_MODE}" >&2
+    echo "SMOKE must be 0 or 1, got: ${SMOKE}" >&2
     exit 2
     ;;
 esac
@@ -104,14 +104,6 @@ fi
 export GPUS_PER_NODE
 
 TOTAL_GPUS="$(( SLURM_NNODES * GPUS_PER_NODE ))"
-if [[ "${RUN_MODE}" == "smoke" && "${TOTAL_GPUS}" -lt 2 ]]; then
-  echo "Smoke mode expects at least 2 GPUs; allocated ${TOTAL_GPUS}." >&2
-  exit 4
-fi
-if [[ "${RUN_MODE}" == "full" && ( "${SLURM_NNODES}" -ne 9 || "${TOTAL_GPUS}" -ne 36 ) ]]; then
-  echo "Full mode expects 9 nodes and 36 total GPUs; got ${SLURM_NNODES} nodes and ${TOTAL_GPUS} GPUs." >&2
-  exit 4
-fi
 
 if [[ -z "${OMP_NUM_THREADS:-}" ]]; then
   cpus_per_task="${SLURM_CPUS_PER_TASK:-16}"
@@ -129,7 +121,11 @@ export NCCL_DEBUG="${NCCL_DEBUG:-WARN}"
 export TORCH_NCCL_ASYNC_ERROR_HANDLING="${TORCH_NCCL_ASYNC_ERROR_HANDLING:-1}"
 
 if [[ -z "${NAME:-}" ]]; then
-  NAME="$(date +%Y-%m-%d-%H%M%S)-empireai-halfdeg-${RUN_MODE}"
+  run_kind="full"
+  if [[ "${SMOKE}" == "1" ]]; then
+    run_kind="smoke"
+  fi
+  NAME="$(date +%Y-%m-%d-%H%M%S)-empireai-halfdeg-${run_kind}"
 fi
 RUN_DIR="${OUTPUT_BASE}/${NAME}"
 if [[ -e "${RUN_DIR}" ]]; then
@@ -156,7 +152,7 @@ train_args=(
   "--backend=nccl"
 )
 
-if [[ "${RUN_MODE}" == "smoke" ]]; then
+if [[ "${SMOKE}" == "1" ]]; then
   train_args+=(
     "--epochs=1"
     "--batch_size=1"
@@ -183,7 +179,7 @@ export MASTER_ADDR MASTER_PORT
 
 container_mounts="${DATA_ROOT}:${DATA_ROOT},${OUTPUT_BASE}:${OUTPUT_BASE},${DATA_CACHE_DIR}:/workspace/.data_cache"
 
-echo "Run mode:      ${RUN_MODE}"
+echo "Smoke:         ${SMOKE}"
 echo "Job id:        ${SLURM_JOB_ID}"
 echo "Nodes:         ${SLURM_NNODES}"
 echo "GPUs/node:     ${GPUS_PER_NODE}"

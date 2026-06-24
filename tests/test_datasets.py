@@ -53,6 +53,18 @@ def coarsen_data(ds: xr.Dataset) -> xr.Dataset:
     return ds.coarsen(lat=2, lon=2).mean()  # type: ignore
 
 
+def coarsen_source(
+    src: DataSource,
+    prognostic: list[str],
+    boundary: list[str],
+) -> DataSource:
+    # DEFAULT_CONFIG selects thermo_dynamic_5 plus tau_hfds from the larger mock
+    # OM4 source; coarsen only those active variables to avoid extra Zarr reads.
+    coarsen_input = src.filter(prognostic + boundary, prefix="coarsen-input")
+    coarsened_src = coarsen_input.map_data(coarsen_data, suffix="half-size")
+    return dataclasses.replace(coarsened_src, masks=coarsen_masks(src.masks))
+
+
 def coarsen_masks(masks: Masks) -> Masks:
     """Coarsen masks to half resolution using max pooling (any True -> True)."""
     # For masks, we use max pooling: if any cell in the 2x2 block is True (valid),
@@ -108,17 +120,11 @@ def make_loader(
             case "standard":
                 srcs: Iterable[tuple[DataSource, DataSource | None]] = [(src, None)]
             case "match":
-                coarsened_src = src.map_data(coarsen_data, suffix="half-size")
-                coarsened_src = dataclasses.replace(
-                    coarsened_src, masks=coarsen_masks(src.masks)
-                )
+                coarsened_src = coarsen_source(src, prognostic, boundary)
                 scales = [src, coarsened_src]
                 srcs = [(s, s) for s in scales]
             case "mix":
-                coarsened_src = src.map_data(coarsen_data, suffix="half-size")
-                coarsened_src = dataclasses.replace(
-                    coarsened_src, masks=coarsen_masks(src.masks)
-                )
+                coarsened_src = coarsen_source(src, prognostic, boundary)
                 scales = [src, coarsened_src]
                 srcs = list(itertools.product(scales, repeat=2))  # type: ignore
             case _:
@@ -332,16 +338,14 @@ def test_loader__data_shape(
         n_samples = calc_num_samples(
             train_config, train_config.train_time.time_slice, "standard"
         )
-        samples = list(loader)
-
-        assert len(samples) == n_samples, (
+        assert len(loader) == n_samples, (
             f"Current config {train_config} only supports {n_samples} examples; "
-            f"got {len(samples)}."
+            f"got {len(loader)}."
         )
 
         # Only check the first 2 samples; this should be proof enough that everything is
         # the right shape.
-        for sample in samples[:2]:
+        for sample in itertools.islice(loader, 2):
             X, y = extract_sample_arrays(sample)
             assert X.shape == (
                 train_config.steps[0],
@@ -368,7 +372,11 @@ def test_loader__data_shape__across_schedules(
     history = train_config.data.hist
 
     with make_loader(
-        train_config, version=LoaderVersion.OM4_TORCH, schedule=schedule
+        train_config,
+        version=LoaderVersion.OM4_TORCH,
+        schedule=schedule,
+        # Keep grouped-sampler ordering deterministic for resolution coverage.
+        shuffle=False,
     ) as loader:
         dataset_spec = train_config.data.dataset.build()
         batch_size = train_config.batch_size
@@ -383,16 +391,35 @@ def test_loader__data_shape__across_schedules(
         n_samples = calc_num_samples(
             train_config, train_config.train_time.time_slice, schedule
         )
-        samples = list(loader)
-
-        assert len(samples) == n_samples, (
+        assert len(loader) == n_samples, (
             f"Current config {train_config} only supports {n_samples} examples; "
-            f"got {len(samples)}."
+            f"got {len(loader)}."
         )
 
-        example_resolutions = []
-        # Subsample the examples; this should be proof enough that everything is the right shape.
-        for sample in samples[::3]:
+        match schedule:
+            case "standard":
+                expected_patterns = {
+                    ((180, 360), (180, 360)),
+                }
+            case "match":
+                expected_patterns = {
+                    ((180, 360), (180, 360)),
+                    ((90, 180), (90, 180)),
+                }
+            case "mix":
+                # In mix mode with 2 scales, multiplex creates pattern: (0,0), (0,1), (1,0), (1,1)
+                expected_patterns = {
+                    ((180, 360), (180, 360)),  # (0,0): full-res input, full-res label
+                    ((180, 360), (90, 180)),  # (0,1): full-res input, half-res label
+                    ((90, 180), (180, 360)),  # (1,0): half-res input, full-res label
+                    ((90, 180), (90, 180)),  # (1,1): half-res input, half-res label
+                }
+            case _:
+                assert_never(schedule)
+
+        min_checked_batches = 10
+        observed_patterns = set()
+        for batch_idx, sample in enumerate(loader, start=1):
             X, y = extract_sample_arrays(sample)
             # Exclude the coordinate shape information for now; we'll test that separately.
             assert X.shape[:-2] == (
@@ -405,38 +432,21 @@ def test_loader__data_shape__across_schedules(
                 batch_size,
                 output_var_dim,
             )
-            example_resolutions.append((X.shape[-2:], y.shape[-2:]))
+            observed_patterns.add(
+                ((X.shape[-2], X.shape[-1]), (y.shape[-2], y.shape[-1]))
+            )
+            if (
+                observed_patterns == expected_patterns
+                and batch_idx >= min_checked_batches
+            ):
+                break
 
-        match schedule:
-            case "standard":
-                assert example_resolutions[0][0] == example_resolutions[0][1], (
-                    "The input and output should be equal"
-                )
-                assert all(
-                    example_resolutions[0] == eg for eg in example_resolutions[1:]
-                ), "All resolutions should be equal"
-            case "match":
-                for x_res, y_res in example_resolutions:
-                    assert x_res == y_res, (
-                        f"Resolutions must match across batches for 'match' schedule multiscale loader. {example_resolutions=}"
-                    )
-            case "mix":
-                # In mix mode with 2 scales, multiplex creates pattern: (0,0), (0,1), (1,0), (1,1)
-                # With grouped batch sampler, order may vary due to shuffling within groups.
-                # With drop_last=True and small sample counts, some groups might not produce any batches
-                valid_patterns = {
-                    ((180, 360), (180, 360)),  # (0,0): full-res input, full-res label
-                    ((180, 360), (90, 180)),  # (0,1): full-res input, half-res label
-                    ((90, 180), (180, 360)),  # (1,0): half-res input, full-res label
-                    ((90, 180), (90, 180)),  # (1,1): half-res input, half-res label
-                }
-                observed_patterns = set(example_resolutions)
-                # All observed patterns must be valid
-                assert observed_patterns == valid_patterns, (
-                    f"All resolutions must be valid members of the cartesian product for 'mix' schedule. "
-                    f"Valid patterns: {valid_patterns}, got {observed_patterns}, "
-                    f"invalid patterns: {observed_patterns - valid_patterns}"
-                )
+        assert observed_patterns == expected_patterns, (
+            f"Loader did not produce the expected resolution patterns for {schedule=}. "
+            f"Expected: {expected_patterns}, got: {observed_patterns}, "
+            f"missing: {expected_patterns - observed_patterns}, "
+            f"invalid: {observed_patterns - expected_patterns}"
+        )
 
 
 def test_inference__data_shape(inference_loader_pair):

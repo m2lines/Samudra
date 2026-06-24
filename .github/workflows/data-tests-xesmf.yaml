@@ -46,5 +46,5 @@ jobs:
         shell: bash -l {0}
         run: |
           cd data
-          pytest tests -v
+          pytest tests -v --durations=20 --durations-min=1.0
           # for now I am running all tests again. We could only cover the preprocessing here to save time.

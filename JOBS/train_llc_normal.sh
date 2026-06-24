@@ -75,7 +75,7 @@ if [[ -n "${NSYS_ARGS}" ]]; then
   fi
 fi
 
-# KNOBS
+# KNOBS 
 
 # GPUS WORKERS 
 GPUS="${GPUS:-1}"

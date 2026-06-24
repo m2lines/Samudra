@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782342376634,
+  "lastUpdate": 1782342380099,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -19887,6 +19887,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.07128572193120776",
             "extra": "mean: 20.581136276000006 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "06fd65f6b468f2d082b21a02de427ee260fc0ff3",
+          "message": "Reduce multiscale dataset test I/O (#779)",
+          "timestamp": "2026-06-24T18:52:11-04:00",
+          "tree_id": "ecece00e4b3b71898775e114e40df0c0aa09bfb4",
+          "url": "https://github.com/m2lines/Samudra/commit/06fd65f6b468f2d082b21a02de427ee260fc0ff3"
+        },
+        "date": 1782342379840,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0919212347902119,
+            "unit": "iter/sec",
+            "range": "stddev: 0.001707004946022304",
+            "extra": "mean: 915.8169730000054 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1721812723054623,
+            "unit": "iter/sec",
+            "range": "stddev: 0.028488183027254095",
+            "extra": "mean: 5.807832562800013 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.04894632394573397,
+            "unit": "iter/sec",
+            "range": "stddev: 0.16865311569750951",
+            "extra": "mean: 20.430543489 sec\nrounds: 5"
           }
         ]
       }

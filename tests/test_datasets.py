@@ -416,8 +416,9 @@ def test_loader__data_shape__across_schedules(
             case _:
                 assert_never(schedule)
 
+        min_checked_batches = 10
         observed_patterns = set()
-        for sample in loader:
+        for batch_idx, sample in enumerate(loader, start=1):
             X, y = extract_sample_arrays(sample)
             # Exclude the coordinate shape information for now; we'll test that separately.
             assert X.shape[:-2] == (
@@ -433,7 +434,10 @@ def test_loader__data_shape__across_schedules(
             observed_patterns.add(
                 ((X.shape[-2], X.shape[-1]), (y.shape[-2], y.shape[-1]))
             )
-            if observed_patterns == expected_patterns:
+            if (
+                observed_patterns == expected_patterns
+                and batch_idx >= min_checked_batches
+            ):
                 break
 
         assert observed_patterns == expected_patterns, (

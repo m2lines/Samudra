@@ -30,9 +30,7 @@
 #SBATCH --partition=beta
 #SBATCH --account=nyu_beta_test
 #SBATCH --qos=standard
-#SBATCH --nodes=9
 #SBATCH --ntasks-per-node=1
-#SBATCH --gres=gpu:4
 #SBATCH --time=12:00:00
 
 set -euo pipefail

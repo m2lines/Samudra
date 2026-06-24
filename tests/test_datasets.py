@@ -58,8 +58,8 @@ def coarsen_source(
     prognostic: list[str],
     boundary: list[str],
 ) -> DataSource:
-    # Coarsening the full mock OM4 dataset forces many unnecessary Zarr reads.
-    # Multiscale loader tests only need the variables in the active test config.
+    # DEFAULT_CONFIG selects thermo_dynamic_5 plus tau_hfds from the larger mock
+    # OM4 source; coarsen only those active variables to avoid extra Zarr reads.
     coarsen_input = src.filter(prognostic + boundary, prefix="coarsen-input")
     coarsened_src = coarsen_input.map_data(coarsen_data, suffix="half-size")
     return dataclasses.replace(coarsened_src, masks=coarsen_masks(src.masks))
@@ -375,6 +375,7 @@ def test_loader__data_shape__across_schedules(
         train_config,
         version=LoaderVersion.OM4_TORCH,
         schedule=schedule,
+        # Keep grouped-sampler ordering deterministic for resolution coverage.
         shuffle=False,
     ) as loader:
         dataset_spec = train_config.data.dataset.build()

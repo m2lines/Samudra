@@ -57,7 +57,7 @@ jobs:
 
       # Each test runs with a 5-minute timeout. The `-x` flag will stop on the first failure or hang.
       - name: Run pytest
-        run: uv run --with pytest-timeout --locked pytest -n 2 -v -m "not manual and cuda" --timeout=300 --timeout-method=signal -x
+        run: uv run --with pytest-timeout --locked pytest -n 2 -v -m "not manual and cuda" --timeout=300 --timeout-method=signal -x --durations=20 --durations-min=1.0
         timeout-minutes: 30
 
   # This exists beacuse the run-tests job will be skipped if the ec2 job fails,

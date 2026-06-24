@@ -22,6 +22,9 @@
 #   export OUTPUT_BASE="${HOME}/runs"
 #   export IMAGE_REF=ghcr.io/m2lines/ocean-emulator-physicsnemo@sha256:<digest>
 #   export WANDB_API_KEY=...
+#   export NCCL_SOCKET_IFNAME=bond0
+#   export NCCL_IB_HCA="mlx5_0,mlx5_1,mlx5_4,mlx5_5"
+#   export MELLANOX_VISIBLE_DEVICES=all
 #   export EXTRA_ARGS="--learning_rate=0.0003"
 
 #SBATCH --job-name=oe-halfdeg
@@ -116,6 +119,9 @@ export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export NUMEXPR_NUM_THREADS="${NUMEXPR_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export PYTHONUNBUFFERED=1
 export NCCL_DEBUG="${NCCL_DEBUG:-WARN}"
+export NCCL_SOCKET_IFNAME="${NCCL_SOCKET_IFNAME:-bond0}"
+export NCCL_IB_HCA="${NCCL_IB_HCA:-mlx5_0,mlx5_1,mlx5_4,mlx5_5}"
+export MELLANOX_VISIBLE_DEVICES="${MELLANOX_VISIBLE_DEVICES:-all}"
 export TORCH_NCCL_ASYNC_ERROR_HANDLING="${TORCH_NCCL_ASYNC_ERROR_HANDLING:-1}"
 
 if [[ -z "${NAME:-}" ]]; then
@@ -190,6 +196,9 @@ echo "Output dir:    ${RUN_DIR}"
 echo "W&B mode:      ${WANDB_MODE}"
 echo "W&B entity:    ${WANDB_ENTITY}"
 echo "W&B project:   ${WANDB_PROJECT}"
+echo "NCCL socket IF:${NCCL_SOCKET_IFNAME}"
+echo "NCCL IB HCAs:  ${NCCL_IB_HCA}"
+echo "Mellanox devs: ${MELLANOX_VISIBLE_DEVICES}"
 
 srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
   --container-image="${IMAGE_REF}" \

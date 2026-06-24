@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782342380099,
+  "lastUpdate": 1782343062408,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -9939,6 +9939,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.1714071506577812",
             "extra": "mean: 28.312245370799975 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "be944d4753f5ac4e59bb73b583d15a618af4efa3",
+          "message": "Add logos to readme (#775)",
+          "timestamp": "2026-06-24T23:04:36Z",
+          "tree_id": "dc49962751fd57854cb8da40d79d1fabc9fbed2c",
+          "url": "https://github.com/m2lines/Samudra/commit/be944d4753f5ac4e59bb73b583d15a618af4efa3"
+        },
+        "date": 1782343061517,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0914951969989493,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002282822712907944",
+            "extra": "mean: 916.1744391999946 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.17177038686594012,
+            "unit": "iter/sec",
+            "range": "stddev: 0.022080993722528267",
+            "extra": "mean: 5.821725259200003 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.035796615005749634,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10331582035145785",
+            "extra": "mean: 27.9356022864 sec\nrounds: 5"
           }
         ]
       }

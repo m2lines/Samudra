@@ -38,6 +38,7 @@ def sampler_from_datasets(request):
                 batch_size=batch_size,
                 shuffle=shuffle,
                 drop_last=drop_last,
+                seed=0,
             )
         else:
             return DistributedEquivalenceGroupBatchSampler(
@@ -48,6 +49,7 @@ def sampler_from_datasets(request):
                 rank=0,
                 shuffle=shuffle,
                 drop_last=drop_last,
+                seed=0,
             )
 
     return _make_sampler
@@ -60,6 +62,7 @@ class TestEquivalenceGroupBatchSampler:
             dataset_sizes=[3, 5, 2],
             batch_size=2,
             shuffle=False,
+            seed=0,
         )
 
         assert sampler.groups == [
@@ -76,6 +79,7 @@ class TestEquivalenceGroupBatchSampler:
             batch_size=2,
             shuffle=False,
             drop_last=False,
+            seed=0,
         )
         assert len(sampler) == 6
 
@@ -87,6 +91,7 @@ class TestEquivalenceGroupBatchSampler:
             batch_size=2,
             shuffle=False,
             drop_last=True,
+            seed=0,
         )
         assert len(sampler) == 4
 
@@ -97,6 +102,7 @@ class TestEquivalenceGroupBatchSampler:
             batch_size=2,
             shuffle=True,
             drop_last=False,
+            seed=123,
         )
 
         sampler.set_epoch(0)
@@ -118,6 +124,27 @@ class TestEquivalenceGroupBatchSampler:
                 else:
                     assert all(idx >= 10 for idx in batch), "Batch mixes groups"
 
+    def test_iter_shuffle_changes_with_seed(self):
+        sampler_a = EquivalenceGroupBatchSampler.from_dataset_sizes(
+            dataset_sizes=[10, 10],
+            batch_size=2,
+            shuffle=True,
+            drop_last=False,
+            seed=123,
+        )
+        sampler_b = EquivalenceGroupBatchSampler.from_dataset_sizes(
+            dataset_sizes=[10, 10],
+            batch_size=2,
+            shuffle=True,
+            drop_last=False,
+            seed=456,
+        )
+
+        sampler_a.set_epoch(0)
+        sampler_b.set_epoch(0)
+
+        assert list(sampler_a) != list(sampler_b)
+
     def test_all_indices_covered_exactly_once(self):
         """Each index should appear in exactly one batch (no shuffle, no drop_last)."""
         sampler = EquivalenceGroupBatchSampler.from_dataset_sizes(
@@ -125,6 +152,7 @@ class TestEquivalenceGroupBatchSampler:
             batch_size=2,
             shuffle=False,
             drop_last=False,
+            seed=0,
         )
 
         all_indices = []

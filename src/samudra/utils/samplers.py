@@ -51,7 +51,8 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
         batch_size: int,
         shuffle: bool = True,
         drop_last: bool = False,
-        seed: int = 0,
+        *,
+        seed: int,
     ):
         super().__init__()
         self.groups = groups
@@ -81,7 +82,8 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
         batch_size: int,
         shuffle: bool = True,
         drop_last: bool = False,
-        seed: int = 0,
+        *,
+        seed: int,
     ) -> Self:
         """Create sampler from dataset sizes, treating each as a contiguous group.
 
@@ -108,7 +110,8 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
         batch_size: int,
         shuffle: bool,
         drop_last: bool,
-        seed: int = 0,
+        *,
+        seed: int,
     ) -> Self:
         """Create sampler by grouping datasets using a key function.
 
@@ -138,6 +141,7 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
             ...     batch_size=32,
             ...     shuffle=True,
             ...     drop_last=True,
+            ...     seed=15,
             ... )
         """
         from collections import defaultdict
@@ -246,6 +250,7 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[Batch]):
             batch_size=batch_size,
             shuffle=False,  # We handle shuffling with seeded RNG
             drop_last=drop_last,
+            seed=seed,
         )
 
     def set_epoch(self, epoch: int) -> None:

@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-06-03:samudra_llc:long_curriculum_strides=3_CONT_restart_4
+#SBATCH --job-name=2026-06-18:samudra_llc:long_curriculum_strides=3_CONT_restart_8
 #SBATCH -N 1
 #SBATCH --mem=300GB
 #SBATCH --ntasks=1
@@ -96,7 +96,7 @@ LLC_J_END="${LLC_J_END:-1440}"
 DATA_LOCATION_OVERRIDE="${DATA_LOCATION_OVERRIDE:-}"
 
 # CHECKPOINTING FINETUNING
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-05-28:samudra_llc:long_curriculum_strides=3_CONT_restart_3-14675672/saved_nets/ckpt_40.pt}" #/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-06-12:samudra_llc:long_curriculum_strides=3_CONT_restart_7-15931293/saved_nets/ckpt_emergency.pt}"  # /home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
@@ -106,7 +106,7 @@ EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}" # 
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
 EPOCHS="${EPOCHS:-72}"
 SAVE_FREQ="${SAVE_FREQ:-1}"
-EMERGENCY_CHECKPOINT_INTERVAL_MINUTES="${EMERGENCY_CHECKPOINT_INTERVAL_MINUTES:-120}"
+EMERGENCY_CHECKPOINT_INTERVAL_MINUTES="${EMERGENCY_CHECKPOINT_INTERVAL_MINUTES:-30}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 
 # OPTIMIZATION (LR + SCHEDULER)

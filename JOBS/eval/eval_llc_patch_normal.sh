@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH -p mit_normal_gpu
-#SBATCH --job-name=2026-06-08-eval:Samudra_LLC:A_ckpt-38
-#SBATCH --account=mit_amf_standard_gpu
-#SBATCH --qos=mit_amf_standard_gpu
+#SBATCH --job-name=2026-06-22-eval:Samudra_LLC:long_curriculum_strides=3_ckpt-72
+#SBATCH --account=mit_amf_advanced_gpu
+#SBATCH --qos=mit_amf_advanced_gpu
 #SBATCH -N 1
 #SBATCH --mem=100GB
 #SBATCH --ntasks=1
@@ -29,13 +29,13 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
-CKPT_PATH="${CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-06-06:samudra_llc:A-6-15550128/saved_nets/ckpt_38.pt}"
+CKPT_PATH="${CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-06-18:samudra_llc:long_curriculum_strides=3_CONT_restart_8-16056908/saved_nets/ckpt_72.pt}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-/orcd/data/abodner/002/cody/inference_patch}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 
 INFER_START="${INFER_START:-2012-10-14}"
-INFER_END="${INFER_END:-2012-10-19}"
+INFER_END="${INFER_END:-2012-10-21}"
 INFERENCE_STRIDE="${INFERENCE_STRIDE:-3}"
 NUM_MODEL_STEPS_FORWARD="${NUM_MODEL_STEPS_FORWARD:-4}"
 MODEL_NORM="${MODEL_NORM:-group}"

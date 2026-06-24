@@ -1,15 +1,14 @@
 #!/bin/bash
 #SBATCH -p mit_normal_gpu
-#SBATCH --account=mit_amf_standard_gpu
-#SBATCH --qos=mit_amf_standard_gpu
-#SBATCH --job-name=2026-06-08:samudra_llc:A-7
+#SBATCH --account=mit_amf_advanced_gpu
+#SBATCH --qos=mit_amf_advanced_gpu
+#SBATCH --job-name=2026-06-18:samudra_llc:A-13
 #SBATCH -N 1
 #SBATCH --mem=254GB
-#SBATCH --exclude=node3001
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
 #SBATCH -G h200:1
-#SBATCH --time=24:00:00
+#SBATCH --time=48:00:00
 #SBATCH --signal=B:USR1@300
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
@@ -104,7 +103,7 @@ LLC_J_END="${LLC_J_END:-1440}"
 DATA_LOCATION_OVERRIDE="${DATA_LOCATION_OVERRIDE:-}"
 
 # CHECKPOINTING FINETUNING
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-06-06:samudra_llc:A-6-15550128/saved_nets/ckpt.pt}" #/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-06-13:samudra_llc:A-12-16008567/saved_nets/ckpt_emergency.pt}" #/home/codycruz/Ocean_Emulator/.LOCAL/2026-04-24-Samudra_LLC:config_tests_experiment_6_multi_epochs/saved_nets/ckpt_6.pt
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"

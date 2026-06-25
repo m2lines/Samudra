@@ -15,9 +15,9 @@
 #   sbatch --gres=gpu:rtx6000:1 scripts/slurm_apptainer_eval.sbatch
 #
 # Container selection (pick one):
-#   export IMAGE_REF=ghcr.io/m2lines/ocean-emulator-physicsnemo:25.11-<hash>
-#   export CONTAINER_HASH=<git sha>   # expands to 25.11-<sha>
-#   export CONTAINER_TAG=25.11-latest
+#   export IMAGE_REF=ghcr.io/m2lines/ocean-emulator-physicsnemo:26.05-<hash>
+#   export CONTAINER_HASH=<git sha>   # expands to 26.05-<sha>
+#   export CONTAINER_TAG=26.05-latest
 #
 # Checkpoint selection (pick one):
 #   export TARGET_CHECKPOINT=<path-relative-to-OUTPUT_BASE>
@@ -146,9 +146,9 @@ IMAGE_REF="${IMAGE_REF:-}"
 if [[ -z "${IMAGE_REF}" ]]; then
   if [[ -z "${CONTAINER_TAG}" ]]; then
     if [[ -n "${CONTAINER_HASH}" ]]; then
-      CONTAINER_TAG="25.11-${CONTAINER_HASH}"
+      CONTAINER_TAG="26.05-${CONTAINER_HASH}"
     else
-      CONTAINER_TAG="25.11-latest"
+      CONTAINER_TAG="26.05-latest"
     fi
   fi
   IMAGE_REF="${CONTAINER_REGISTRY}/${CONTAINER_ORG}/${CONTAINER_REPO}:${CONTAINER_TAG}"

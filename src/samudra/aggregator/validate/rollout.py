@@ -10,8 +10,6 @@ from samudra.utils.distributed import all_reduce_mean
 from samudra.utils.output import ModelInferenceOutput
 from samudra.utils.wandb import Metrics
 
-_DEPTH_SUFFIX = re.compile(r"^(?P<base>.+)_(?P<depth>[0-9]+)$")
-
 
 class _MeanStepAreaWeightedRmse:
     """Accumulates the mean of per-step area-weighted RMSE values."""
@@ -48,7 +46,7 @@ class _MeanStepAreaWeightedRmse:
 
 
 def _split_depth_name(name: str) -> tuple[str, str | None]:
-    match = _DEPTH_SUFFIX.match(name)
+    match = re.match(r"^(?P<base>.+)_(?P<depth>[0-9]+)$", name)
     if match is None:
         return name, None
     return match.group("base"), match.group("depth")

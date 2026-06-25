@@ -393,7 +393,6 @@ class Trainer:
         self.validation_image_log_freq = cfg.validation_image_log_freq
         self.rollout_validation_steps = cfg.rollout_validation_steps
         self.rollout_validation_days = cfg.rollout_validation_days
-        self.rollout_validation_freq = cfg.rollout_validation_freq
         self.rollout_validation_steps_forward = cfg.rollout_validation_steps_forward
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
@@ -809,10 +808,7 @@ class Trainer:
         return val_aggregator.get_logs(label="val")
 
     def should_run_rollout_validation(self, epoch: int) -> bool:
-        enabled = self.rollout_validation_steps != 0 or bool(
-            self.rollout_validation_days
-        )
-        return enabled and should_run_on_epoch_freq(epoch, self.rollout_validation_freq)
+        return self.rollout_validation_steps != 0 or bool(self.rollout_validation_days)
 
     @contextlib.contextmanager
     def _rank0_rollout_validation_context(self):

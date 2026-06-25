@@ -1132,14 +1132,6 @@ class TrainConfig(TopLevelConfig):
             "rollout_validation_steps."
         ),
     )
-    rollout_validation_freq: int = Field(
-        default=1,
-        ge=1,
-        description=(
-            "How often to run rollout validation. Epochs are 1-based, so a "
-            "value of 10 runs on epochs 1, 11, 21, ..."
-        ),
-    )
     rollout_validation_steps_forward: int = Field(
         default=1,
         ge=1,

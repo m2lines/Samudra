@@ -200,6 +200,14 @@ echo "NCCL socket IF:${NCCL_SOCKET_IFNAME}"
 echo "NCCL IB HCAs:  ${NCCL_IB_HCA}"
 echo "Mellanox devs: ${MELLANOX_VISIBLE_DEVICES}"
 
+echo "Warming shared Pyxis image cache on ${MASTER_ADDR}..."
+srun --nodes=1 --ntasks=1 --ntasks-per-node=1 --nodelist="${MASTER_ADDR}" \
+  --container-image="${IMAGE_REF}" \
+  --container-mount-home \
+  --container-mounts="${container_mounts}" \
+  true
+echo "Pyxis image cache warmup complete."
+
 srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
   --container-image="${IMAGE_REF}" \
   --container-mount-home \

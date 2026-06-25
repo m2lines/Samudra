@@ -1132,6 +1132,11 @@ class Trainer:
 
     def finish(self):
         self.wandb_logger.finish()
+        # Capture rank-0 status before tearing down the process group: once the
+        # group is destroyed, is_main_process() returns True on *every* rank
+        # (get_rank() falls back to 0 when distributed is not initialized), which
+        # would make all ranks launch the sweep concurrently and collide.
+        main_process = is_main_process()
         if self.distributed is not None:
             # Make sure every rank has finished training before rank 0 starts the
             # post-train sweep, which claims every GPU via its own subprocesses.
@@ -1140,7 +1145,7 @@ class Trainer:
             # warning at interpreter shutdown).
             torch.distributed.barrier()
             torch.distributed.destroy_process_group()
-        if is_main_process():
+        if main_process:
             run_post_train_checkpoint_sweep(self.cfg, self.ckpt_paths)
 
 

@@ -44,6 +44,7 @@ dependencies = [
   "sqlalchemy>=2",                # skypilot requires sqlalchemy 2.0 but doesn't include that requirement
   "torch>=2.9.0a0,<2.13",         # Matches PhysicsNeMo container builds
   "torchinfo>=1.8",
+  "typing-extensions>=4.15",
   "wandb>=0.19.8",
   "xarray[io]>=2025.1.2",
   "xarray-einstats[einops]>=0.8",

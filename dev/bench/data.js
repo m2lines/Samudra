@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782431132109,
+  "lastUpdate": 1782431139225,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -20067,6 +20067,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.04198520081686858",
             "extra": "mean: 19.952398440799993 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ab554631973ced3c567c1ef65ef2f84c222458d7",
+          "message": "[codex] Reduce processed data fixture memory (#780)",
+          "timestamp": "2026-06-25T16:31:25-07:00",
+          "tree_id": "f49cf4d965e539293c595bb2b52d8ea2f6e290ac",
+          "url": "https://github.com/m2lines/Samudra/commit/ab554631973ced3c567c1ef65ef2f84c222458d7"
+        },
+        "date": 1782431138965,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.089636417841254,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002341382852009697",
+            "extra": "mean: 917.7373146000036 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.17262632708363249,
+            "unit": "iter/sec",
+            "range": "stddev: 0.014587588276516626",
+            "extra": "mean: 5.792859159399995 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.049921530008368326,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0571245242906235",
+            "extra": "mean: 20.031437334400017 sec\nrounds: 5"
           }
         ]
       }

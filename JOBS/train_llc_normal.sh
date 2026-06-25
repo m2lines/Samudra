@@ -2,7 +2,7 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-06-24:samudra_llc:rb-1
+#SBATCH --job-name=2026-06-25:samudra_llc:rb-1-pred_field
 #SBATCH -x node4100
 #SBATCH -N 1
 #SBATCH --mem=254GB
@@ -49,13 +49,14 @@ export TORCH_FR_BUFFER_SIZE="${TORCH_FR_BUFFER_SIZE:-1048576}"
 export NCCL_DEBUG=INFO
 
 # PROFILING
-export NSYS_ARGS="--trace=cuda,nvtx,osrt --sample=cpu --delay=300 --duration=120"
+NSYS_ENABLE="${NSYS_ENABLE:-false}"
+export NSYS_ARGS="${NSYS_ARGS:---trace=cuda,nvtx,osrt --sample=cpu --delay=300 --duration=360 --force-overwrite=true}"
 NSYS_OUTPUT_DIR="/orcd/home/002/codycruz/Ocean_Emulator/logs/nsys"
 mkdir -p "${NSYS_OUTPUT_DIR}"
 PROFILER_CMD=()
-if [[ -n "${NSYS_ARGS}" ]]; then
+if [[ "${NSYS_ENABLE}" == "true" ]]; then
   if ! command -v nsys >/dev/null 2>&1; then
-    echo "ERROR: NSYS_ARGS was set, but nsys is not available on PATH." >&2
+    echo "ERROR: NSYS_ENABLE=true, but nsys is not available on PATH." >&2
     exit 1
   fi
   read -r -a nsys_args <<< "${NSYS_ARGS}"
@@ -74,11 +75,14 @@ if [[ -n "${NSYS_ARGS}" ]]; then
       -o "${NSYS_OUTPUT_DIR}/llc-${SLURM_JOB_ID:-manual}-node${SLURM_NODEID:-0}-proc${SLURM_PROCID:-0}"
     )
   fi
+  echo "NSYS profiling enabled: ${PROFILER_CMD[*]}"
+else
+  echo "NSYS profiling disabled (set NSYS_ENABLE=true to enable; NSYS_ARGS='${NSYS_ARGS}')"
 fi
 
 # KNOBS 
 
-# GPUS WORKERS 
+# GPUS WORKERS OTHER
 GPUS="${GPUS:-1}"
 DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-6}"
 DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-6}"
@@ -87,6 +91,8 @@ SURFACE_SNAPSHOT="${SURFACE_SNAPSHOT:-true}"
 PAD="${PAD:-constant}"
 NUM_HALO="${NUM_HALO:-4}"
 NUM_SPONGE="${NUM_SPONGE:-12}"
+NUM_SPONGE="${NUM_SPONGE:-12}"
+PRED_RESIDUALS="${PRED_RESIDUALS:-false}"
 
 # DDP
 PIN_MEM="${PIN_MEM:-true}"
@@ -113,7 +119,7 @@ RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}" # 2026-04-04-CONT:[increase-step-test-suite]-WITH_temporal_stride=6,steps=4,2012-01-01-2012-09-14-RESUME}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
 EPOCHS="${EPOCHS:-50}"
-SAVE_FREQ="${SAVE_FREQ:-1}"
+SAVE_FREQ="${SAVE_FREQ:-5}"
 EMERGENCY_CHECKPOINT_INTERVAL_MINUTES="${EMERGENCY_CHECKPOINT_INTERVAL_MINUTES:-30}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 
@@ -164,6 +170,7 @@ echo "using curriculum: data_stride=${DATA_STRIDE}, temporal_stride=${TEMPORAL_S
 echo "using replay: enabled=${REPLAY_ENABLED}, buffer_size=${REPLAY_BUFFER_SIZE}, refresh_every_n_microbatches=${REPLAY_REFRESH_EVERY_N_MICROBATCHES}, steps_per_epoch=${REPLAY_STEPS_PER_EPOCH}, max_lead_steps=${REPLAY_MAX_LEAD_STEPS}, max_lead_transition=${REPLAY_MAX_LEAD_TRANSITION}, checkpoint_buffer=${REPLAY_CHECKPOINT_BUFFER}"
 echo "using data location: LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
 echo "using padding: pad=${PAD}, num_halo=${NUM_HALO}, num_sponge=${NUM_SPONGE}"
+echo "predicting field or residual: pred_residual=${PRED_RESIDUALS}"
 if [[ -n "${DATA_LOCATION_OVERRIDE}" ]]; then
   echo "overriding data.data_location=${DATA_LOCATION_OVERRIDE}"
 fi
@@ -261,7 +268,7 @@ trap 'forward_signal USR1' USR1
 trap 'forward_signal TERM' TERM
 trap 'forward_signal INT' INT
 
-"${PYTHON_BIN}" -m torch.distributed.run \
+"${PROFILER_CMD[@]}" "${PYTHON_BIN}" -m torch.distributed.run \
   --standalone --nnodes=1 --nproc_per_node="${GPUS}" \
   -m ocean_emulators.train configs/samudra_llc/train_normal.yaml \
   --save_freq "${SAVE_FREQ}" \
@@ -274,6 +281,7 @@ trap 'forward_signal INT' INT
   --model.num_halo "${NUM_HALO}" \
   --model.num_sponge "${NUM_SPONGE}" \
   --model.gradient_detach_interval "${GRADIENT_DETACH_INTERVAL}" \
+  --model.pred_residuals "${PRED_RESIDUALS}" \
   --gradient_accumulation_steps 4 \
   --ddp_bucket_cap_mb 25 \
   --ddp_use_no_sync_for_accumulation true \

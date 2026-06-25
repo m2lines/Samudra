@@ -35,13 +35,14 @@ export TORCH_FR_BUFFER_SIZE="${TORCH_FR_BUFFER_SIZE:-1048576}"
 export NCCL_DEBUG=INFO
 
 # PROFILING
-export NSYS_ARGS="--trace=cuda,nvtx,osrt --sample=cpu --delay=300 --duration=120"
+NSYS_ENABLE="${NSYS_ENABLE:-false}"
+export NSYS_ARGS="${NSYS_ARGS:---trace=cuda,nvtx,osrt --sample=cpu --delay=300 --duration=120 --force-overwrite=true}"
 NSYS_OUTPUT_DIR="/orcd/home/002/codycruz/Ocean_Emulator/logs/reservation_2/nsys"
 mkdir -p "${NSYS_OUTPUT_DIR}"
 PROFILER_CMD=()
-if [[ -n "${NSYS_ARGS}" ]]; then
+if [[ "${NSYS_ENABLE}" == "true" ]]; then
   if ! command -v nsys >/dev/null 2>&1; then
-    echo "ERROR: NSYS_ARGS was set, but nsys is not available on PATH." >&2
+    echo "ERROR: NSYS_ENABLE=true, but nsys is not available on PATH." >&2
     exit 1
   fi
   read -r -a nsys_args <<< "${NSYS_ARGS}"
@@ -60,6 +61,9 @@ if [[ -n "${NSYS_ARGS}" ]]; then
       -o "${NSYS_OUTPUT_DIR}/llc-${SLURM_JOB_ID:-manual}-node${SLURM_NODEID:-0}-proc${SLURM_PROCID:-0}"
     )
   fi
+  echo "NSYS profiling enabled: ${PROFILER_CMD[*]}"
+else
+  echo "NSYS profiling disabled (set NSYS_ENABLE=true to enable; NSYS_ARGS='${NSYS_ARGS}')"
 fi
 
 # KNOBS
@@ -233,7 +237,7 @@ trap 'forward_signal USR1' USR1
 trap 'forward_signal TERM' TERM
 trap 'forward_signal INT' INT
 
-uv run python -m torch.distributed.run \
+"${PROFILER_CMD[@]}" uv run python -m torch.distributed.run \
   --standalone --nnodes=1 --nproc_per_node="${GPUS}" \
   -m ocean_emulators.train configs/samudra_llc/train.yaml \
   --save_freq "${SAVE_FREQ}" \

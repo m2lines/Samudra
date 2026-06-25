@@ -92,6 +92,69 @@ def test_replay_transition_uses_drifted_state_and_true_future_target():
     assert label.flatten().tolist() == [90.0]
 
 
+def test_replay_seeded_and_advanced_states_have_same_stored_shape():
+    dataset = make_replay_dataset(stride=3)
+
+    seeded_state = dataset.get_replay_initial_state(source_index=0)
+    seeded_state = dataset.remask_prognostic_state(seeded_state)[0]
+    advanced_state = dataset.remask_prognostic_state(
+        torch.full_like(seeded_state, 123.0)
+    )
+
+    assert seeded_state.shape == advanced_state.shape == (1, 1, 1)
+
+    seeded_input, _ = dataset.get_replay_transition(
+        source_index=0,
+        lead_step=0,
+        prognostic_state=seeded_state,
+    )
+    advanced_input, _ = dataset.get_replay_transition(
+        source_index=0,
+        lead_step=1,
+        prognostic_state=advanced_state,
+    )
+
+    assert seeded_input[:, : dataset.num_prognostic_channels].shape == (1, 1, 1, 1)
+    assert advanced_input[:, : dataset.num_prognostic_channels].shape == (1, 1, 1, 1)
+
+
+def test_replay_transition_advances_forcing_and_target_with_cursor():
+    dataset = make_replay_dataset(stride=3)
+    source_index = 2
+    cursor = ReplayCursor(
+        dataset_index=0,
+        source_index=source_index,
+        lead_step=0,
+        stride=dataset.stride,
+        temporal_stride=dataset.temporal_stride,
+    )
+
+    for expected_lead_step in [1, 2, 3]:
+        cursor = cursor.advance()
+        current_time_index = (
+            source_index * dataset.temporal_stride
+            + expected_lead_step * dataset.stride
+        )
+        target_time_index = current_time_index + dataset.stride
+        drifted_state = torch.tensor(
+            [[[1000.0 + expected_lead_step]]],
+            dtype=torch.float32,
+        )
+
+        input, label = dataset.get_replay_transition(
+            source_index=cursor.source_index,
+            lead_step=cursor.lead_step,
+            prognostic_state=drifted_state,
+        )
+
+        assert cursor.lead_step == expected_lead_step
+        assert input.flatten().tolist() == [
+            1000.0 + expected_lead_step,
+            current_time_index * 10.0 + 1.0,
+        ]
+        assert label.flatten().tolist() == [target_time_index * 10.0]
+
+
 def test_predict_step_residual_uses_actual_replay_input_state():
     drifted_input = torch.tensor([[[[999.0]], [[61.0]]]])
     true_next = torch.tensor([[[[90.0]]]])

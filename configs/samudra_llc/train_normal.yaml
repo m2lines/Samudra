@@ -46,7 +46,7 @@ preemptible: false
 backend: auto
 
 experiment:
-  name: 2026-06-24:samudra_llc:rb-1
+  name: 2026-06-25:samudra_llc:rb-1-pred_field
   data_root: /orcd/data/abodner/
   rand_seed: 15
   base_output_dir: .LOCAL

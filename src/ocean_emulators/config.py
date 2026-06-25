@@ -838,6 +838,52 @@ class ProfilerConfig(BaseConfig):
         return Profiler(output_dir, self.cuda_snapshot_frequency)
 
 
+class ReplayConfig(BaseConfig):
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "Enable hist=0 replay-buffer training instead of iterated rollout "
+            "training."
+        ),
+    )
+    buffer_size: int = Field(
+        default=32,
+        ge=1,
+        description="Number of rank-local prognostic states kept in replay memory.",
+    )
+    refresh_every_n_microbatches: int = Field(
+        default=16,
+        ge=1,
+        description=(
+            "Refresh replay memory with fresh gold initial conditions every N "
+            "training microbatches."
+        ),
+    )
+    steps_per_epoch: int = Field(
+        default=1024,
+        ge=1,
+        description=(
+            "Number of replay microbatches per epoch. Fresh gold samples per rank "
+            "per epoch are approximately steps_per_epoch / "
+            "refresh_every_n_microbatches * batch_size, plus cap-triggered refreshes."
+        ),
+    )
+    max_lead_steps: list[int] = Field(
+        default=[3, 5, 7],
+        description="Epoch curriculum for maximum replay lead depth.",
+    )
+    max_lead_transition: list[int] = Field(
+        default=[8, 16],
+        description=(
+            "Epochs where max_lead_steps advances to the next curriculum value."
+        ),
+    )
+    checkpoint_buffer: bool = Field(
+        default=True,
+        description="Save rank-local replay buffer sidecars next to checkpoints.",
+    )
+
+
 # See backend.py for how these are turned into concrete devices
 TrainBackendConfig = Literal["cpu", "cuda", "nccl", "auto"]
 
@@ -1082,6 +1128,7 @@ class TrainConfig(TopLevelConfig):
 
     # Profiling parameters
     profiler: ProfilerConfig = ProfilerConfig()
+    replay: ReplayConfig = ReplayConfig()
 
     # Data parameters at root level
     data_percent: float = 1.0

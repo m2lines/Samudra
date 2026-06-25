@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p mit_normal_gpu
-#SBATCH --job-name=2026-06-22-eval:Samudra_LLC:long_curriculum_strides=3_ckpt-72
+#SBATCH --job-name=2026-06-24-eval:Samudra_LLC:long_curriculum_strides=3_ckpt-72
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
 #SBATCH -N 1

@@ -9,9 +9,17 @@ batch_size: 1
 learning_rate: 0.0006
 gradient_accumulation_steps: 4
 scheduler: { type: cosine }
+replay:
+  enabled: false
+  buffer_size: 32
+  refresh_every_n_microbatches: 16
+  steps_per_epoch: 1024
+  max_lead_steps: [3, 5, 7]
+  max_lead_transition: [8, 16]
+  checkpoint_buffer: true
 loss:
-  type:  [gradient_h, TS-gradient_z] # gradient_h # 
-  metric: mae
+  type: [gradient_h, TS-gradient_z] # gradient_h # 
+  metric: mse_mae
   lambda_h: 0.1
   lambda_z: 0.1
 finetune: false
@@ -30,7 +38,7 @@ inference_times:
   - start: "2012-10-14"
     end: "2012-11-14"
 data_stride: [1]
-temporal_stride: 24
+temporal_stride: 1
 steps: [1]
 step_transition: []
 preemptible: false
@@ -38,7 +46,7 @@ preemptible: false
 backend: auto
 
 experiment:
-  name: 2026-06-20:samudra_llc:B-15
+  name: 2026-06-24:samudra_llc:rb-3
   data_root: /orcd/data/abodner/
   rand_seed: 15
   base_output_dir: .LOCAL

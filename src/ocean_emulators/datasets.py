@@ -1,3 +1,4 @@
+import dataclasses
 import logging
 import time
 from concurrent.futures import wait
@@ -432,6 +433,18 @@ class TrainData:
         return self
 
 
+@dataclasses.dataclass(frozen=True)
+class ReplayCursor:
+    dataset_index: int
+    source_index: int
+    lead_step: int
+    stride: int
+    temporal_stride: int
+
+    def advance(self) -> "ReplayCursor":
+        return dataclasses.replace(self, lead_step=self.lead_step + 1)
+
+
 @final
 class TorchTrainDataset(Dataset[RawTrainData]):
     """
@@ -577,6 +590,76 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         train_data.load_stats = raw_train_data.load_stats
         train_data.source_indices = list(raw_train_data.source_indices)
         return train_data
+
+    def get_replay_transition(
+        self,
+        source_index: int,
+        lead_step: int,
+        prognostic_state: torch.Tensor | None = None,
+    ) -> Example:
+        x_index = self._get_x_index(source_index, lead_step)
+        current_x_index = x_index.isel(time=slice(0, self.hist + 1))
+        prognostic_selected = self._prognostic_src.data.isel(time=x_index)
+        boundary_selected = self._boundary_src.data.isel(time=current_x_index)
+
+        if self._executor is not None:
+            concurrent_compute(
+                prognostic_selected, boundary_selected, executor=self._executor
+            )
+
+        prognostic_all = self._dataset_to_tensor(prognostic_selected).unsqueeze(0)
+        boundary_all = self._dataset_to_tensor(boundary_selected).unsqueeze(0)
+        input, label = self._get_input_and_label(
+            prognostic_all.to(device=self.device, non_blocking=True),
+            boundary_all.to(device=self.device, non_blocking=True),
+        )
+        if prognostic_state is not None:
+            if prognostic_state.ndim == 3:
+                prognostic_state = prognostic_state.unsqueeze(0)
+            if prognostic_state.shape != input[:, : self.num_prognostic_channels].shape:
+                raise ValueError(
+                    "Replay prognostic state shape does not match model input: "
+                    f"{prognostic_state.shape} vs "
+                    f"{input[:, : self.num_prognostic_channels].shape}"
+                )
+            input = input.clone()
+            input[:, : self.num_prognostic_channels] = prognostic_state.to(
+                device=input.device,
+                dtype=input.dtype,
+                non_blocking=True,
+            )
+        return input, label
+
+    def get_replay_initial_state(self, source_index: int) -> Prognostic:
+        input, _ = self.get_replay_transition(source_index, lead_step=0)
+        return input[:, : self.num_prognostic_channels]
+
+    def remask_prognostic_state(self, state: torch.Tensor) -> torch.Tensor:
+        if state.ndim == 3:
+            squeeze_batch = True
+            state = state.unsqueeze(0)
+        else:
+            squeeze_batch = False
+
+        mask = torch.cat([self.wet] * (self.hist + 1), dim=0).to(
+            device=state.device,
+            dtype=torch.bool,
+        )
+        if self.normalize_before_mask:
+            fill = torch.full_like(state, self.masked_fill_value)
+        else:
+            fill_value = (
+                (self.masked_fill_value - self.prognostic_means)
+                / self.prognostic_stds
+            )
+            fill_value = torch.cat([fill_value] * (self.hist + 1), dim=0)
+            fill = fill_value.to(device=state.device, dtype=state.dtype).view(
+                1, -1, 1, 1
+            )
+            fill = fill.expand_as(state)
+
+        masked = torch.where(mask.unsqueeze(0), state, fill)
+        return masked.squeeze(0) if squeeze_batch else masked
 
     def _get_input_and_label(
         self,

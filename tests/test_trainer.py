@@ -1,11 +1,14 @@
+import json
 import logging
 import tempfile
 from pathlib import Path
 
+import numpy as np
 import pytest
 import torch
+import xarray as xr
 
-from ocean_emulators.config import DynamicLossConfig
+from ocean_emulators.config import DynamicLossConfig, TrainConfig
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.train import Trainer
 from ocean_emulators.utils.loss import DynamicLoss
@@ -36,6 +39,117 @@ def test_trainer__mini_2step(trainer_pair: TrainPair, caplog):
     _, trainer = trainer_pair
 
     trainer.run()
+
+
+def _write_tiny_packed_cache(root: Path) -> None:
+    time = xr.cftime_range(
+        "1975-08-05",
+        "1975-12-31",
+        freq="5D",
+        calendar="julian",
+    )
+    lat = np.linspace(-4.0, 4.0, 8, dtype=np.float32)
+    lon = np.linspace(0.0, 7.0, 8, dtype=np.float32)
+    n_time = len(time)
+    base = np.arange(n_time, dtype=np.float32).reshape(n_time, 1, 1, 1)
+    spatial = np.zeros((1, 1, len(lat), len(lon)), dtype=np.float32)
+    prognostic = base + spatial
+    boundary = base + spatial + 1.0
+    packed = xr.Dataset(
+        {
+            "prognostic": (
+                ["time", "prognostic_channel", "lat", "lon"],
+                prognostic,
+            ),
+            "boundary": (
+                ["time", "boundary_channel", "lat", "lon"],
+                boundary,
+            ),
+            "prognostic_mean": (
+                ["prognostic_channel"],
+                np.zeros(1, dtype=np.float32),
+            ),
+            "prognostic_std": (
+                ["prognostic_channel"],
+                np.ones(1, dtype=np.float32),
+            ),
+            "boundary_mean": (
+                ["boundary_channel"],
+                np.zeros(1, dtype=np.float32),
+            ),
+            "boundary_std": (
+                ["boundary_channel"],
+                np.ones(1, dtype=np.float32),
+            ),
+            "prognostic_mask": (
+                ["prognostic_channel", "lat", "lon"],
+                np.ones((1, len(lat), len(lon)), dtype=bool),
+            ),
+            "boundary_mask": (
+                ["boundary_channel", "lat", "lon"],
+                np.ones((1, len(lat), len(lon)), dtype=bool),
+            ),
+        },
+        coords={"time": time, "lat": lat, "lon": lon},
+        attrs={
+            "cache_format": "llc-train-ready-v1",
+            "prognostic_channel_names_json": json.dumps(["Theta_0"]),
+            "boundary_channel_names_json": json.dumps(["oceQnet"]),
+        },
+    )
+    packed.to_zarr(root / "packed.zarr")
+
+
+def test_trainer__replay_smoke(tmp_path, caplog):
+    caplog.set_level(logging.INFO)
+    _write_tiny_packed_cache(tmp_path)
+    train_config = TrainConfig.from_yaml_and_cli(
+        [
+            "configs/test/train_default.yaml",
+            "--backend",
+            "cpu",
+            "--epochs",
+            "1",
+            "--save_freq",
+            "1",
+            "--experiment.data_root",
+            str(tmp_path),
+            "--experiment.name",
+            "test_replay_smoke",
+            "--experiment.prognostic_vars_key",
+            "single_1",
+            "--experiment.boundary_vars_key",
+            "single",
+            "--data.data_location",
+            "packed.zarr",
+            "--data.data_means_location",
+            "unused",
+            "--data.data_stds_location",
+            "unused",
+            "--data.num_workers",
+            "0",
+            "--data.hist",
+            "0",
+            "--replay.enabled",
+            "true",
+            "--replay.buffer_size",
+            "2",
+            "--replay.steps_per_epoch",
+            "2",
+            "--replay.refresh_every_n_microbatches",
+            "1",
+        ]
+    )
+    train_config.inference_epochs = []
+
+    with MultitonScope():
+        trainer = Trainer(train_config)
+        trainer.run()
+
+    sidecar = trainer.ckpt_paths.latest_checkpoint_path.with_name(
+        f"{trainer.ckpt_paths.latest_checkpoint_path.stem}.replay_rank0.pt"
+    )
+    assert sidecar.exists()
 
 
 @pytest.mark.parametrize(

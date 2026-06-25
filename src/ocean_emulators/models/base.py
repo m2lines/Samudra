@@ -42,6 +42,12 @@ class BaseModel(torch.nn.Module):
     def forward_once(self, fts):
         raise NotImplementedError()
 
+    def predict_step(self, input_tensor: torch.Tensor) -> torch.Tensor:
+        decodings = self.forward_once(input_tensor)
+        if self.pred_residuals:
+            return input_tensor[:, : self.out_channels] + decodings
+        return decodings
+
     def forward(
         self,
         train_data: TrainData,
@@ -75,17 +81,7 @@ class BaseModel(torch.nn.Module):
                     prognostic=prev_output, step=step
                 )
 
-            decodings = self.forward_once(input_tensor)
-            if self.pred_residuals:
-                pred = (
-                    input_tensor[
-                        :,
-                        : self.out_channels,
-                    ]  # Residuals on last state in input
-                    + decodings
-                )  # Residual prediction
-            else:
-                pred = decodings  # Absolute prediction
+            pred = self.predict_step(input_tensor)
 
             if loss_fn is not None:
                 if step == 0:
@@ -136,19 +132,7 @@ class BaseModel(torch.nn.Module):
                     step=steps_completed + step,
                 )
 
-            decodings = self.forward_once(input_tensor)
-            if self.pred_residuals:
-                pred = (
-                    input_tensor[
-                        0,
-                        : self.out_channels,
-                    ].to(  # Residuals on last state in input
-                        device=get_device()
-                    )
-                    + decodings
-                )
-            else:
-                pred = decodings
+            pred = self.predict_step(input_tensor)
 
             pred_tensor[step] = pred
 

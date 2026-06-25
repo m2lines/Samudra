@@ -11,6 +11,14 @@ gradient_accumulation_steps: 4
 scheduler: { type: cosine }
 lr_multipliers: [1.0]
 lr_multiplier_transition: []
+replay:
+  enabled: false
+  buffer_size: 32
+  refresh_every_n_microbatches: 16
+  steps_per_epoch: 1024
+  max_lead_steps: [3, 5, 7]
+  max_lead_transition: [8, 16]
+  checkpoint_buffer: true
 loss:
   type: gradient_h
   metric: mae

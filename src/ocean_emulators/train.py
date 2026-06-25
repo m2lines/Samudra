@@ -50,11 +50,13 @@ from ocean_emulators.datasets import (
     InferenceDataset,
     InferenceDatasets,
     RawTrainData,
+    ReplayCursor,
     TorchTrainDataset,
     TrainData,
     TrainDataLoader,
 )
 from ocean_emulators.models.base import BaseModel
+from ocean_emulators.replay import ReplayBuffer, ReplayEntry, replay_sidecar_path
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
 from ocean_emulators.utils.data import (
     Normalize,
@@ -105,6 +107,22 @@ class _OffsetBatchSampler(Sampler[list[int]]):
 
     def __len__(self) -> int:
         return max(len(self._batch_sampler) - self._start_batch, 0)
+
+
+class _ReplayMicrobatch:
+    load_stats = None
+
+
+class _ReplayMicrobatchRange:
+    def __init__(self, count: int):
+        self._count = max(count, 0)
+
+    def __iter__(self):
+        for _ in range(self._count):
+            yield _ReplayMicrobatch()
+
+    def __len__(self) -> int:
+        return self._count
 
 
 class Trainer:
@@ -214,6 +232,22 @@ class Trainer:
         assert isinstance(cfg.steps, list)
         assert isinstance(cfg.step_transition, list)
         assert len(cfg.step_transition) == len(cfg.steps) - 1
+        assert isinstance(cfg.replay.max_lead_steps, list)
+        assert isinstance(cfg.replay.max_lead_transition, list)
+        assert all(max_lead > 0 for max_lead in cfg.replay.max_lead_steps)
+        assert cfg.replay.max_lead_steps == sorted(cfg.replay.max_lead_steps)
+        assert cfg.replay.max_lead_transition == sorted(
+            cfg.replay.max_lead_transition
+        )
+        assert (
+            len(cfg.replay.max_lead_transition)
+            == len(cfg.replay.max_lead_steps) - 1
+        )
+        if cfg.replay.enabled and cfg.data.hist != 0:
+            raise ValueError(
+                "Replay buffer training currently supports data.hist=0 only "
+                "(one timestamp in, one next timestamp out)."
+            )
         assert isinstance(cfg.lr_multipliers, list)
         assert isinstance(cfg.lr_multiplier_transition, list)
         assert len(cfg.lr_multiplier_transition) == len(cfg.lr_multipliers) - 1
@@ -439,6 +473,20 @@ class Trainer:
         self.hist: int = cfg.data.hist
         self.steps = cfg.steps
         self.step_transition = cfg.step_transition
+        self.replay_cfg = cfg.replay
+        self.replay_enabled = cfg.replay.enabled
+        self.replay_buffer: ReplayBuffer | None = None
+        self.replay_resume_checkpoint_path = (
+            Path(cfg.resume_ckpt_path)
+            if cfg.resume_ckpt_path is not None and not cfg.finetune
+            else None
+        )
+        self._replay_resume_consumed = False
+        self.replay_storage_dtype = (
+            torch.bfloat16 if getattr(cfg.model, "use_bfloat16", False) else torch.float32
+        )
+        self.replay_generator = torch.Generator(device="cpu")
+        self.replay_generator.manual_seed(cfg.experiment.rand_seed + 104729 * get_rank())
         self.save_freq = cfg.save_freq
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
@@ -503,6 +551,8 @@ class Trainer:
         self.train_sampler: DistributedSampler | RandomSampler | SequentialSampler
         self.val_sampler: DistributedSampler | RandomSampler
         self.inference_sampler: DistributedSampler | RandomSampler
+        self.train_datasets: list[TorchTrainDataset]
+        self.val_datasets: list[TorchTrainDataset]
 
         # Add type annotations for loaders
         self.train_loader: TrainDataLoader
@@ -579,15 +629,28 @@ class Trainer:
                 self._active_epoch = epoch
 
                 # Iterative step training
-                if (
-                    epoch == self.start_epoch
-                    or epoch in self.step_transition
-                    or epoch in self.temporal_stride_transition
-                ):
-                    cur_step = self.get_current_step(epoch)
-                    cur_temporal_stride = self.get_current_temporal_stride(epoch)
-                    self.temporal_stride = cur_temporal_stride
-                    self.init_data_loaders(cur_step, cur_temporal_stride)
+                if self.replay_enabled:
+                    if epoch == self.start_epoch or epoch in self.temporal_stride_transition:
+                        cur_temporal_stride = self.get_current_temporal_stride(epoch)
+                        self.temporal_stride = cur_temporal_stride
+                        self.init_data_loaders(
+                            max(self.replay_cfg.max_lead_steps),
+                            cur_temporal_stride,
+                        )
+                        self.init_replay_buffer(
+                            force_reseed=epoch in self.temporal_stride_transition
+                        )
+                    cur_replay_max_lead = self.get_current_replay_max_lead(epoch)
+                else:
+                    if (
+                        epoch == self.start_epoch
+                        or epoch in self.step_transition
+                        or epoch in self.temporal_stride_transition
+                    ):
+                        cur_step = self.get_current_step(epoch)
+                        cur_temporal_stride = self.get_current_temporal_stride(epoch)
+                        self.temporal_stride = cur_temporal_stride
+                        self.init_data_loaders(cur_step, cur_temporal_stride)
 
                 if isinstance(self.train_sampler, DistributedSampler):
                     self.train_sampler.set_epoch(epoch)
@@ -604,7 +667,14 @@ class Trainer:
                 self._last_completed_batch_in_epoch = start_batch_in_epoch - 1
 
                 start_epoch_train_time = time.perf_counter()
-                train_stats = self.train_one_epoch(epoch, start_batch_in_epoch)
+                if self.replay_enabled:
+                    train_stats = self.train_one_epoch_replay(
+                        epoch,
+                        start_batch_in_epoch,
+                        cur_replay_max_lead,
+                    )
+                else:
+                    train_stats = self.train_one_epoch(epoch, start_batch_in_epoch)
                 self.start_batch_in_epoch = 0
                 end_epoch_train_time = time.perf_counter()
 
@@ -642,6 +712,8 @@ class Trainer:
 
                 if is_main_process():
                     self.save_all_checkpoints(epoch, v_loss, inf_loss)
+                if self.replay_enabled:
+                    self.save_replay_buffer_sidecars_for_epoch(epoch)
 
                 time_elapsed = time.perf_counter() - start_epoch_train_time
 
@@ -920,6 +992,245 @@ class Trainer:
         logger.info(f"Aggregating train logs")
         return train_aggregator.get_logs()
 
+    def train_one_epoch_replay(
+        self,
+        epoch: int,
+        start_batch_in_epoch: int,
+        max_lead_steps: int,
+    ):
+        if self.replay_buffer is None:
+            raise RuntimeError("Replay buffer was not initialized before training")
+
+        self.model.train(True)
+        train_aggregator = Aggregator.get_train_aggregator()
+        metric_logger = MetricLogger(delimiter="  ")
+        metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
+        header = f"Replay Training Epoch: [{epoch}]"
+
+        total_batches = self.replay_cfg.steps_per_epoch
+        start_batch_in_epoch = max(0, start_batch_in_epoch)
+        remaining_replay_batches = max(total_batches - start_batch_in_epoch, 0)
+        replay_steps = _ReplayMicrobatchRange(remaining_replay_batches)
+        processed_batches = 0
+
+        self.optimizer.zero_grad()
+
+        remaining_batches = total_batches % self.gradient_accumulation_steps
+        final_cycle_start = (
+            total_batches - remaining_batches
+            if remaining_batches > 0
+            else total_batches
+        )
+        ddp_model = (
+            self.model
+            if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
+            else None
+        )
+        use_no_sync = (
+            ddp_model is not None
+            and self.ddp_use_no_sync_for_accumulation
+            and self.gradient_accumulation_steps > 1
+            and not self.ddp_static_graph
+        )
+
+        for data_iter_step, _ in enumerate(
+            metric_logger.log_every(
+                replay_steps,
+                1,
+                header,
+                start_index=start_batch_in_epoch,
+                total_steps=total_batches,
+            )
+        ):
+            global_data_iter_step = start_batch_in_epoch + data_iter_step
+
+            if self.debug and (data_iter_step + 1) % 5 == 0:
+                break
+
+            in_final_cycle = (
+                global_data_iter_step + 1 > final_cycle_start
+            ) and remaining_batches > 0
+            r = remaining_batches if in_final_cycle else self.gradient_accumulation_steps
+
+            replay_indices = self.replay_buffer.sample_indices(
+                self.batch_size,
+                max_lead_steps=max_lead_steps,
+            )
+            data, replay_cursors = self.build_replay_train_data(replay_indices)
+
+            if self.num_batches_seen == 0:
+                get_model_summary(
+                    self.model,
+                    data if self.debug else None,
+                    self.debug,
+                )
+
+            is_last = global_data_iter_step + 1 == total_batches
+            should_step = (
+                global_data_iter_step + 1
+            ) % self.gradient_accumulation_steps == 0
+            sync_gradients = should_step or is_last
+
+            sync_context: contextlib.AbstractContextManager
+            if use_no_sync and not sync_gradients:
+                sync_context = ddp_model.no_sync()
+            else:
+                sync_context = contextlib.nullcontext()
+
+            with sync_context:
+                outputs = self.model(data)
+                pred = outputs[0]
+                label = data.get_label(0)
+                loss_per_channel = self.loss_fn(pred, label)
+                loss = torch.mean(loss_per_channel)
+                TO = TrainBatchOutput(loss, loss_per_channel)
+                scaled_loss = TO.loss / r
+                scaled_loss.backward()
+
+            cap_refreshes = self.advance_replay_entries(
+                replay_indices,
+                replay_cursors,
+                pred.detach(),
+                max_lead_steps=max_lead_steps,
+            )
+            scheduled_refreshes = 0
+            if (
+                global_data_iter_step + 1
+            ) % self.replay_cfg.refresh_every_n_microbatches == 0:
+                scheduled_refreshes = self.refresh_replay_entries(self.batch_size)
+
+            train_aggregator.record_batch(TO)
+            processed_batches += 1
+
+            self.num_batches_seen += 1
+
+            if sync_gradients:
+                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+                self._ema(model=self.model)
+
+            lr = (
+                self.optimizer.param_groups[-1]["lr"]
+                if self.scheduler is None
+                else self.scheduler.get_last_lr()[0]
+            )
+
+            with torch.no_grad():
+                if sync_gradients:
+                    loss_value_reduce = all_reduce_mean(TO.loss.detach())
+                    loss_per_channel_reduce = all_reduce_mean(
+                        TO.loss_per_channel.detach()
+                    )
+                else:
+                    loss_value_reduce = TO.loss.detach()
+                    loss_per_channel_reduce = TO.loss_per_channel.detach()
+                lead_steps = torch.tensor(
+                    [cursor.lead_step for cursor in replay_cursors],
+                    device=self.device,
+                    dtype=torch.float32,
+                )
+                metrics = {
+                    "train/batch/loss": loss_value_reduce,
+                    "train/batch/lr": lr,
+                    "train/batch/ema_cur_decay": self._ema.cur_decay.item(),
+                    "train/batch/replay_max_lead_steps": max_lead_steps,
+                    "train/batch/replay_mean_lead_step": lead_steps.mean(),
+                    "train/batch/replay_buffer_size": len(self.replay_buffer),
+                    "train/batch/replay_cap_refreshes": cap_refreshes,
+                    "train/batch/replay_scheduled_refreshes": scheduled_refreshes,
+                    **get_channel_loss_dict(
+                        label="train", loss_per_channel=loss_per_channel_reduce
+                    ),
+                    **get_depth_loss_dict(
+                        label="train", loss_per_channel=loss_per_channel_reduce
+                    ),
+                    **get_variable_loss_dict(
+                        label="train", loss_per_channel=loss_per_channel_reduce
+                    ),
+                    "train/batch/data_load_time": metric_logger.meters[
+                        "data_load_time"
+                    ].value,
+                    "train/batch/data_wait_time": metric_logger.meters[
+                        "data_wait_time"
+                    ].value,
+                }
+
+                if loss_scale_per_channel_fn := getattr(
+                    self.loss_fn, "loss_scale_per_channel", None
+                ):
+                    loss_scale_per_channel = loss_scale_per_channel_fn()
+                    loss_per_channel = TO.loss_per_channel.reshape(
+                        -1, loss_scale_per_channel.shape[0]
+                    ).mean(dim=0)
+
+                    unscaled_loss_per_channel = (
+                        loss_per_channel / loss_scale_per_channel
+                    )
+                    unscaled_loss = torch.mean(unscaled_loss_per_channel)
+
+                    metrics.update(
+                        {
+                            **get_channel_loss_scale_dict(
+                                label="train",
+                                loss_scale_per_channel=loss_scale_per_channel,
+                            ),
+                            **get_channel_loss_dict(
+                                label="train",
+                                loss_per_channel=unscaled_loss_per_channel,
+                                loss_name="loss_unscaled",
+                            ),
+                            "train/batch/loss_unscaled": unscaled_loss,
+                        }
+                    )
+
+            if (it_time := metric_logger.meters["iter_time"]).count > 0:
+                metrics["train/batch/iter_time"] = it_time.value
+
+            self.wandb_logger.log(metrics, step=self.num_batches_seen)
+
+            metric_logger.update(loss=loss_value_reduce.item())
+            metric_logger.update(lr=lr)
+
+            self._call_loss_update(data)
+
+            self.profiler.after_batch(self.num_batches_seen)
+            self._last_completed_batch_in_epoch = global_data_iter_step
+
+            if sync_gradients:
+                self._maybe_save_periodic_emergency_checkpoint(
+                    epoch=epoch,
+                    batch_in_epoch=global_data_iter_step,
+                )
+
+            if self._stop_requested and sync_gradients:
+                reason = self._stop_reason or "stop requested"
+                self.save_emergency_checkpoint(
+                    epoch=epoch,
+                    batch_in_epoch=global_data_iter_step,
+                    reason=reason,
+                )
+                raise GracefulStopRequested(
+                    f"Received stop request during epoch {epoch} at "
+                    f"batch {global_data_iter_step}."
+                )
+
+        if self.scheduler is not None:
+            self.scheduler.step()
+
+        if processed_batches == 0:
+            logger.warning(
+                "No replay training batches were processed in epoch %s "
+                "(start_batch_in_epoch=%s, total_batches=%s).",
+                epoch,
+                start_batch_in_epoch,
+                total_batches,
+            )
+            return {"train/mean/loss": float("nan")}
+
+        logger.info("Aggregating replay train logs")
+        return train_aggregator.get_logs()
+
     def _train_loader_with_batch_offset(self, start_batch_in_epoch: int) -> TrainDataLoader:
         """Build a train loader that starts at a specific batch index."""
         raw_loader = self.train_loader._dataloader
@@ -954,6 +1265,246 @@ class Trainer:
                 single_step_data.append(input, label)
                 pred = self.model(single_step_data)
                 update(pred[0], label)
+
+    def init_replay_buffer(self, *, force_reseed: bool = False) -> None:
+        if self.replay_buffer is not None and not force_reseed:
+            return
+
+        self.replay_buffer = ReplayBuffer(
+            buffer_size=self.replay_cfg.buffer_size,
+            storage_dtype=self.replay_storage_dtype,
+            generator=self.replay_generator,
+            pin_memory=self.pin_mem,
+        )
+
+        loaded = False
+        if (
+            not force_reseed
+            and not self._replay_resume_consumed
+            and self.replay_resume_checkpoint_path is not None
+        ):
+            loaded = self.load_replay_buffer_sidecar(self.replay_resume_checkpoint_path)
+            self._replay_resume_consumed = True
+
+        if not loaded:
+            if force_reseed:
+                logger.warning(
+                    "Reseeding replay buffer because temporal_stride changed."
+                )
+            self.seed_replay_buffer()
+        elif not self.replay_buffer.is_full:
+            logger.warning(
+                "Loaded replay buffer has %s/%s entries; filling the remainder "
+                "from fresh gold data.",
+                len(self.replay_buffer),
+                self.replay_cfg.buffer_size,
+            )
+            self.seed_replay_buffer()
+
+        fresh_per_rank = (
+            self.replay_cfg.steps_per_epoch
+            / self.replay_cfg.refresh_every_n_microbatches
+            * self.batch_size
+        )
+        logger.info(
+            "Replay buffer ready: size=%s storage_dtype=%s refresh_batch_size=%s "
+            "steps_per_epoch=%s refresh_every_n_microbatches=%s "
+            "fresh_gold_samples_per_rank_per_epoch≈%.1f "
+            "fresh_gold_samples_global_per_epoch≈%.1f",
+            len(self.replay_buffer),
+            self.replay_storage_dtype,
+            self.batch_size,
+            self.replay_cfg.steps_per_epoch,
+            self.replay_cfg.refresh_every_n_microbatches,
+            fresh_per_rank,
+            fresh_per_rank * get_world_size(),
+        )
+
+    def seed_replay_buffer(self) -> None:
+        if self.replay_buffer is None:
+            raise RuntimeError("Replay buffer must be created before seeding")
+        while not self.replay_buffer.is_full:
+            self.replay_buffer.append(self.sample_gold_replay_entry())
+
+    def sample_gold_replay_entry(self) -> ReplayEntry:
+        if not self.train_datasets:
+            raise RuntimeError("Cannot seed replay buffer before train datasets exist")
+        dataset_lengths = [len(dataset) for dataset in self.train_datasets]
+        total_length = sum(dataset_lengths)
+        if total_length == 0:
+            raise RuntimeError("Cannot seed replay buffer from empty datasets")
+        flat_source_index = int(
+            torch.randint(total_length, (1,), generator=self.replay_generator)
+        )
+        dataset_index = 0
+        source_index = flat_source_index
+        for candidate_index, dataset_length in enumerate(dataset_lengths):
+            if source_index < dataset_length:
+                dataset_index = candidate_index
+                break
+            source_index -= dataset_length
+        dataset = self.train_datasets[dataset_index]
+        cursor = ReplayCursor(
+            dataset_index=dataset_index,
+            source_index=source_index,
+            lead_step=0,
+            stride=dataset.stride,
+            temporal_stride=dataset.temporal_stride,
+        )
+        state = dataset.get_replay_initial_state(source_index)
+        state = dataset.remask_prognostic_state(state)[0]
+        return ReplayEntry(state=state, cursor=cursor)
+
+    def build_replay_train_data(
+        self, replay_indices: list[int]
+    ) -> tuple[TrainData, list[ReplayCursor]]:
+        if self.replay_buffer is None:
+            raise RuntimeError("Replay buffer is not initialized")
+        inputs = []
+        labels = []
+        cursors = []
+        for replay_index in replay_indices:
+            entry = self.replay_buffer.entries[replay_index]
+            cursor = entry.cursor
+            dataset = self.train_datasets[cursor.dataset_index]
+            self.validate_replay_cursor(cursor, dataset)
+            input, label = dataset.get_replay_transition(
+                cursor.source_index,
+                cursor.lead_step,
+                prognostic_state=entry.state,
+            )
+            inputs.append(input)
+            labels.append(label)
+            cursors.append(cursor)
+
+        train_data = TrainData(self.num_out)
+        train_data.append(torch.cat(inputs, dim=0), torch.cat(labels, dim=0))
+        return train_data, cursors
+
+    def advance_replay_entries(
+        self,
+        replay_indices: list[int],
+        cursors: list[ReplayCursor],
+        pred: torch.Tensor,
+        *,
+        max_lead_steps: int,
+    ) -> int:
+        if self.replay_buffer is None:
+            raise RuntimeError("Replay buffer is not initialized")
+
+        cap_refreshes = 0
+        with torch.no_grad():
+            for batch_index, replay_index in enumerate(replay_indices):
+                cursor = cursors[batch_index]
+                if cursor.lead_step + 1 >= max_lead_steps:
+                    self.replay_buffer.replace(
+                        replay_index,
+                        self.sample_gold_replay_entry(),
+                    )
+                    cap_refreshes += 1
+                    continue
+
+                dataset = self.train_datasets[cursor.dataset_index]
+                state = dataset.remask_prognostic_state(pred[batch_index])
+                self.replay_buffer.replace(
+                    replay_index,
+                    ReplayEntry(
+                        state=state,
+                        cursor=cursor.advance(),
+                    ),
+                )
+        return cap_refreshes
+
+    def refresh_replay_entries(self, count: int) -> int:
+        if self.replay_buffer is None:
+            raise RuntimeError("Replay buffer is not initialized")
+        refresh_indices = self.replay_buffer.random_indices(count)
+        for replay_index in refresh_indices:
+            self.replay_buffer.replace(replay_index, self.sample_gold_replay_entry())
+        return len(refresh_indices)
+
+    @staticmethod
+    def validate_replay_cursor(
+        cursor: ReplayCursor,
+        dataset: TorchTrainDataset,
+    ) -> None:
+        if cursor.stride != dataset.stride:
+            raise RuntimeError(
+                "Replay cursor stride does not match its dataset: "
+                f"{cursor.stride} vs {dataset.stride}"
+            )
+        if cursor.temporal_stride != dataset.temporal_stride:
+            raise RuntimeError(
+                "Replay cursor temporal_stride does not match its dataset: "
+                f"{cursor.temporal_stride} vs {dataset.temporal_stride}"
+            )
+
+    def replay_dataset_signature(self) -> list[dict[str, int]]:
+        return [
+            {
+                "stride": dataset.stride,
+                "temporal_stride": dataset.temporal_stride,
+                "length": len(dataset),
+            }
+            for dataset in self.train_datasets
+        ]
+
+    def save_replay_buffer_sidecars_for_epoch(self, epoch: int) -> None:
+        if not self.replay_cfg.checkpoint_buffer:
+            return
+        self.save_replay_buffer_sidecar(self.ckpt_paths.latest_checkpoint_path, epoch)
+        if epoch > 0 and epoch % self.save_freq == 0:
+            self.save_replay_buffer_sidecar(
+                self.ckpt_paths.latest_checkpoint_path_with_epoch(epoch),
+                epoch,
+            )
+
+    def save_replay_buffer_sidecar(self, checkpoint_path: Path, epoch: int) -> None:
+        if self.replay_buffer is None or not self.replay_cfg.checkpoint_buffer:
+            return
+        sidecar_path = replay_sidecar_path(checkpoint_path, get_rank())
+        temp_dir = os.path.dirname(sidecar_path)
+        with tempfile.NamedTemporaryFile(dir=temp_dir, delete=False) as tmp:
+            temporary_location = tmp.name
+            state = self.replay_buffer.state_dict(
+                world_size=get_world_size(),
+                rank=get_rank(),
+            )
+            state["epoch"] = epoch
+            state["num_batches_seen"] = self.num_batches_seen
+            state["dataset_signature"] = self.replay_dataset_signature()
+            torch.save(state, temporary_location)
+            os.replace(temporary_location, sidecar_path)
+
+    def load_replay_buffer_sidecar(self, checkpoint_path: Path) -> bool:
+        if self.replay_buffer is None:
+            raise RuntimeError("Replay buffer must exist before loading sidecar")
+        sidecar_path = replay_sidecar_path(checkpoint_path, get_rank())
+        if not sidecar_path.exists():
+            logger.warning(
+                "Replay buffer sidecar %s was not found; reseeding from gold data.",
+                sidecar_path,
+            )
+            return False
+        state = torch.load(sidecar_path, map_location=torch.device("cpu"))
+        saved_world_size = state.get("world_size")
+        if saved_world_size != get_world_size():
+            logger.warning(
+                "Replay buffer sidecar was saved with world_size=%s but current "
+                "world_size=%s; reseeding all rank-local replay buffers from gold.",
+                saved_world_size,
+                get_world_size(),
+            )
+            return False
+        if state.get("dataset_signature") != self.replay_dataset_signature():
+            logger.warning(
+                "Replay buffer dataset signature changed on resume; reseeding "
+                "from gold data."
+            )
+            return False
+        self.replay_buffer.load_state_dict(state)
+        logger.info("Loaded replay buffer sidecar from %s", sidecar_path)
+        return True
 
     def validate_one_epoch(self, epoch):
         self.model.eval()
@@ -1063,13 +1614,29 @@ class Trainer:
 
         return cur_temporal_stride
 
-    def init_data_loaders(self, cur_step: int, cur_temporal_stride: int) -> None:
+    def get_current_replay_max_lead(self, epoch: int) -> int:
+        cur_max_lead = self.replay_cfg.max_lead_steps[
+            self._get_schedule_stage_index(epoch, self.replay_cfg.max_lead_transition)
+        ]
+        if epoch == self.start_epoch:
+            logger.info(f"Starting replay training at max_lead_steps {cur_max_lead}")
+        elif epoch in self.replay_cfg.max_lead_transition:
+            logger.info(f"Transitioning replay max_lead_steps to {cur_max_lead}")
+        return cur_max_lead
+
+    def init_data_loaders(
+        self,
+        cur_step: int,
+        cur_temporal_stride: int | None = None,
+    ) -> None:
         """Initialize training and validation data loaders.
 
         Args:
             cur_step: Current training step size
             cur_temporal_stride: Current temporal stride
         """
+        if cur_temporal_stride is None:
+            cur_temporal_stride = self.temporal_stride
         train_datasets = [
             TorchTrainDataset(
                 src=self.src.slice(self.train_time),
@@ -1085,6 +1652,7 @@ class Trainer:
             )
             for stride in self.data_stride
         ]
+        self.train_datasets = train_datasets
 
         val_datasets = [
             TorchTrainDataset(
@@ -1101,6 +1669,7 @@ class Trainer:
             )
             for stride in self.data_stride
         ]
+        self.val_datasets = val_datasets
 
         # Create datasets
         match self.loader_version:
@@ -1245,6 +1814,11 @@ class Trainer:
                 epoch_complete=False,
                 save_reason=reason,
             )
+            if self.replay_enabled:
+                self.save_replay_buffer_sidecar(
+                    self.ckpt_paths.latest_batch_checkpoint_path,
+                    epoch,
+                )
             logger.warning(
                 f"Saved emergency minibatch checkpoint to {checkpoint_path} "
                 f"(epoch={epoch}, batch_in_epoch={batch_in_epoch}, reason={reason})"

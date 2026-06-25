@@ -128,6 +128,15 @@ DATA_STRIDE="${DATA_STRIDE:-[3]}"
 HIST="${HIST:-0}"
 GRADIENT_DETACH_INTERVAL="${GRADIENT_DETACH_INTERVAL:-3}"
 
+# REPLAY BUFFER
+REPLAY_ENABLED="${REPLAY_ENABLED:-false}"
+REPLAY_BUFFER_SIZE="${REPLAY_BUFFER_SIZE:-32}"
+REPLAY_REFRESH_EVERY_N_MICROBATCHES="${REPLAY_REFRESH_EVERY_N_MICROBATCHES:-16}"
+REPLAY_STEPS_PER_EPOCH="${REPLAY_STEPS_PER_EPOCH:-1024}"
+REPLAY_MAX_LEAD_STEPS="${REPLAY_MAX_LEAD_STEPS:-[3, 5, 7]}"
+REPLAY_MAX_LEAD_TRANSITION="${REPLAY_MAX_LEAD_TRANSITION:-[8, 16]}"
+REPLAY_CHECKPOINT_BUFFER="${REPLAY_CHECKPOINT_BUFFER:-true}"
+
 
 
 echo "======== train ocean_emulator samudra w/ ${GPUS} gpus on LLC4320 data ========"
@@ -145,6 +154,7 @@ echo "using data.concurrent_compute=${CONCURRENT_COMPUTE}"
 echo "using optimization: learning_rate=${LEARNING_RATE}, scheduler_mode=${SCHEDULER_MODE}, scheduler_target_epochs=${SCHEDULER_TARGET_EPOCHS:-<default>}"
 echo "using lr multipliers: lr_multipliers=${LR_MULTIPLIERS}, lr_multiplier_transition=${LR_MULTIPLIER_TRANSITION}"
 echo "using curriculum: data_stride=${DATA_STRIDE}, temporal_stride=${TEMPORAL_STRIDE}, steps=${STEPS}, step_transition=${STEP_TRANSITION}, temporal_stride_transition=${TEMPORAL_STRIDE_TRANSITION}, hist=${HIST}, grad-detach=${GRADIENT_DETACH_INTERVAL}"
+echo "using replay: enabled=${REPLAY_ENABLED}, buffer_size=${REPLAY_BUFFER_SIZE}, refresh_every_n_microbatches=${REPLAY_REFRESH_EVERY_N_MICROBATCHES}, steps_per_epoch=${REPLAY_STEPS_PER_EPOCH}, max_lead_steps=${REPLAY_MAX_LEAD_STEPS}, max_lead_transition=${REPLAY_MAX_LEAD_TRANSITION}, checkpoint_buffer=${REPLAY_CHECKPOINT_BUFFER}"
 echo "using data location: LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
 echo "using padding: pad=${PAD}, num_halo=${NUM_HALO}, num_sponge=${NUM_SPONGE}"
 if [[ -n "${DATA_LOCATION_OVERRIDE}" ]]; then
@@ -199,6 +209,16 @@ CURRICULUM_ARGS=(
   --data.hist "${HIST}"
 )
 
+REPLAY_ARGS=(
+  --replay.enabled "${REPLAY_ENABLED}"
+  --replay.buffer_size "${REPLAY_BUFFER_SIZE}"
+  --replay.refresh_every_n_microbatches "${REPLAY_REFRESH_EVERY_N_MICROBATCHES}"
+  --replay.steps_per_epoch "${REPLAY_STEPS_PER_EPOCH}"
+  --replay.max_lead_steps "${REPLAY_MAX_LEAD_STEPS}"
+  --replay.max_lead_transition "${REPLAY_MAX_LEAD_TRANSITION}"
+  --replay.checkpoint_buffer "${REPLAY_CHECKPOINT_BUFFER}"
+)
+
 DATA_OVERRIDE_ARGS=()
 if [[ -n "${DATA_LOCATION_OVERRIDE}" ]]; then
   DATA_OVERRIDE_ARGS+=(--data.data_location "${DATA_LOCATION_OVERRIDE}")
@@ -242,6 +262,7 @@ trap 'forward_signal INT' INT
   --emergency_checkpoint_interval_minutes "${EMERGENCY_CHECKPOINT_INTERVAL_MINUTES}" \
   "${OPTIM_ARGS[@]}" \
   "${CURRICULUM_ARGS[@]}" \
+  "${REPLAY_ARGS[@]}" \
   --model.pad "${PAD}" \
   --model.num_halo "${NUM_HALO}" \
   --model.num_sponge "${NUM_SPONGE}" \

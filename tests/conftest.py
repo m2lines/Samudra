@@ -16,7 +16,7 @@ import xarray as xr
 from numpy.typing import ArrayLike, NDArray
 
 import samudra.constants as c
-from samudra.config import JulianDate, TrainBackendConfig, TrainConfig, TrainSchedule
+from samudra.config import JulianDate, TrainBackendConfig, TrainConfig
 from samudra.train import Trainer
 from samudra.utils.data import DataSource, Masks, _is_compact, compact_dataset
 from samudra.utils.multiton import MultitonScope
@@ -311,11 +311,6 @@ def loader_version(request: pytest.FixtureRequest) -> c.LoaderVersion:
 
 @pytest.fixture(scope="session", params=[0, 1], ids=lambda x: f"hist{x}")
 def history(request: pytest.FixtureRequest) -> int:
-    return request.param
-
-
-@pytest.fixture(scope="session", params=["standard", "match", "mix"])
-def schedule(request: pytest.FixtureRequest) -> TrainSchedule:
     return request.param
 
 

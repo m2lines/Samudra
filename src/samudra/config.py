@@ -268,11 +268,11 @@ class DataConfig(BaseConfig):
             means_location: Location,
             stds_location: Location,
             turn_on_dask: bool = use_dask,
-        ) -> tuple[DataSource, bool]:
+        ) -> DataSource:
             resolved_data_location = data_root.resolve(data_location)
             resolved_means_location = data_root.resolve(means_location)
             resolved_stds_location = data_root.resolve(stds_location)
-            data_source = DataSource.from_locations(
+            return DataSource.from_locations(
                 data_location=resolved_data_location,
                 means_location=resolved_means_location,
                 stds_location=resolved_stds_location,
@@ -283,26 +283,15 @@ class DataConfig(BaseConfig):
                 use_dask=turn_on_dask,
             )
 
-            return data_source, all(
-                loc.supports_fork
-                for loc in [
-                    resolved_data_location,
-                    resolved_means_location,
-                    resolved_stds_location,
-                ]
-            )
-
         sources = []
-        supports_forks = []
         for source_cfg in self.sources:
-            src, fork = make_source(
-                source_cfg.data_location,
-                source_cfg.data_means_location,
-                source_cfg.data_stds_location,
+            sources.append(
+                make_source(
+                    source_cfg.data_location,
+                    source_cfg.data_means_location,
+                    source_cfg.data_stds_location,
+                )
             )
-            sources.append(src)
-            supports_forks.append(fork)
-        supports_fork = all(supports_forks)
 
         primary_source = sources[0]
         if use_dask:
@@ -311,7 +300,7 @@ class DataConfig(BaseConfig):
         else:
             # If we're not using dask for the main source, create a separate one
             primary = self.sources[0]
-            inference_source, _ = make_source(
+            inference_source = make_source(
                 primary.data_location,
                 primary.data_means_location,
                 primary.data_stds_location,
@@ -328,7 +317,6 @@ class DataConfig(BaseConfig):
             sources=sources,
             inference_source=inference_source,
             loader_version=loader_version,
-            supports_fork=supports_fork,
             dataset_spec=dataset_spec,
             static_data=static_data,
         )

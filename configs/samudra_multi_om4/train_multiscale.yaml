@@ -48,7 +48,6 @@ experiment:
   wandb:
     mode: disabled
     project: default
-  train_schedule: match
 data:
   dataset:
     type: om4

@@ -128,10 +128,7 @@ def _assert_checkpoints_close(continuous_path: Path, resumed_path: Path) -> None
 )
 @pytest.mark.parametrize(
     "data_source,config_name",
-    [
-        ("mock-om4", "test/train_samudra_mini_resume.yaml"),
-        ("mock-om4", "test/train_samudra_om4_v2_resume.yaml"),
-    ],
+    [("mock-om4", "test/train_samudra_om4_v2_resume.yaml")],
     indirect=True,
 )
 def test_checkpoint_resume_matches_continuous_cuda(

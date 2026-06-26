@@ -17,9 +17,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write
   contents: read
-  packages: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
@@ -28,6 +26,9 @@ concurrency:
 jobs:
   ec2-build:
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      id-token: write
     uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
     with:
       aws_region: us-east-1
@@ -48,11 +49,14 @@ jobs:
   build-and-smoke:
     needs: ec2-build
     runs-on: ${{ needs.ec2-build.outputs.id }}
+    permissions:
+      contents: read
+      packages: write
     env:
       LOCAL_IMAGE_TAG: ocean-emulator:physicsnemo-25.11-${{ github.sha }}
     steps:
       - name: Check out code
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
 
       - name: Confirm x86_64 runner
         run: |
@@ -82,7 +86,7 @@ jobs:
 
       - name: Log in to GHCR
         if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -124,6 +128,9 @@ jobs:
   ec2:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     needs: build-and-smoke
+    permissions:
+      contents: read
+      id-token: write
     uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
     with:
       ec2_instance_type: g6.xlarge
@@ -135,6 +142,9 @@ jobs:
 
   ec2-arm:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    permissions:
+      contents: read
+      id-token: write
     uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
     with:
       aws_region: us-east-1
@@ -156,20 +166,23 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     needs: [build-and-smoke, ec2]
     runs-on: ${{ needs.ec2.outputs.id }}
+    permissions:
+      contents: read
+      packages: read
     steps:
       - name: Check out code
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           ref: ${{ github.sha }}
 
       - name: Cache test data
-        uses: actions/cache@v3
+        uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c
         with:
           path: .data_cache/
           key: ${{ runner.os }}-test-data-${{ hashFiles('tests/conftest.py', 'configs/test/*.yaml') }}
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -220,11 +233,14 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     needs: ec2-arm
     runs-on: ${{ needs.ec2-arm.outputs.id }}
+    permissions:
+      contents: read
+      packages: write
     env:
       LOCAL_ARM64_IMAGE_TAG: ocean-emulator:physicsnemo-25.11-arm64-${{ github.sha }}
     steps:
       - name: Check out code
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           ref: ${{ github.sha }}
 
@@ -247,7 +263,7 @@ jobs:
           docker buildx version
 
       - name: Cache test data
-        uses: actions/cache@v3
+        uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c
         with:
           path: .data_cache/
           key: ${{ runner.os }}-${{ runner.arch }}-test-data-${{ hashFiles('tests/conftest.py', 'configs/test/*.yaml') }}
@@ -266,7 +282,7 @@ jobs:
           bash scripts/container/build_physicsnemo_25_11.sh
 
       - name: Log in to GHCR
-        uses: docker/login-action@v3
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
           registry: ghcr.io
           username: ${{ github.actor }}

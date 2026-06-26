@@ -52,6 +52,7 @@ from samudra.datasets import (
     TrainDataLoader,
 )
 from samudra.models.base import BaseModel
+from samudra.post_train_eval import run_post_train_checkpoint_sweep
 from samudra.stepper import (
     TrainBatchOutput,
     ValBatchOutput,
@@ -113,7 +114,7 @@ class Trainer:
     def __init__(self, cfg: TrainConfig) -> None:
         cfg.prepare_output_dirs()
         cfg.save_yaml(cfg.experiment.output_dir / "config.yaml")
-
+        self.cfg = cfg
         # Backend
         self.device, self.distributed = init_train_backend(cfg.backend)
 
@@ -365,6 +366,9 @@ class Trainer:
         self.train_loader: TrainDataLoader
         self.val_loader: TrainDataLoader
         self.inference_loader: DataLoader[TrainData]
+
+        # post training evaluation
+        self.post_train_eval = cfg.post_train_eval
 
     def init_inference_stores(self):
         # Determine number of processes based on device
@@ -1128,6 +1132,21 @@ class Trainer:
 
     def finish(self):
         self.wandb_logger.finish()
+        # Capture rank-0 status before tearing down the process group: once the
+        # group is destroyed, is_main_process() returns True on *every* rank
+        # (get_rank() falls back to 0 when distributed is not initialized), which
+        # would make all ranks launch the sweep concurrently and collide.
+        main_process = is_main_process()
+        if self.distributed is not None:
+            # Make sure every rank has finished training before rank 0 starts the
+            # post-train sweep, which claims every GPU via its own subprocesses.
+            # Tearing down the process group lets the non-main ranks exit and free
+            # their GPUs (and avoids the "destroy_process_group() was not called"
+            # warning at interpreter shutdown).
+            torch.distributed.barrier()
+            torch.distributed.destroy_process_group()
+        if main_process:
+            run_post_train_checkpoint_sweep(self.cfg, self.ckpt_paths)
 
 
 def main():

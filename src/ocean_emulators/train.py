@@ -1,11 +1,14 @@
 import contextlib
+import dataclasses
 import datetime
 import itertools
 import logging
 import multiprocessing
 import os
+import queue
 import signal
 import tempfile
+import threading
 import time
 import warnings
 from collections import OrderedDict
@@ -50,7 +53,12 @@ from ocean_emulators.datasets import (
     InferenceDataset,
     InferenceDatasets,
     RawTrainData,
+    RawReplayBatch,
+    RawReplayTransition,
+    ReplayBatchRequest,
+    ReplayBatchSlot,
     ReplayCursor,
+    ReplaySeedSlot,
     TorchTrainDataset,
     TrainData,
     TrainDataLoader,
@@ -59,6 +67,7 @@ from ocean_emulators.models.base import BaseModel
 from ocean_emulators.replay import ReplayBuffer, ReplayEntry, replay_sidecar_path
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
 from ocean_emulators.utils.data import (
+    LoadStats,
     Normalize,
     get_inference_steps,
     spherical_area_weights,
@@ -109,21 +118,355 @@ class _OffsetBatchSampler(Sampler[list[int]]):
         return max(len(self._batch_sampler) - self._start_batch, 0)
 
 
-class _ReplayMicrobatch:
-    load_stats = None
+@dataclasses.dataclass
+class _ReplayPreparedBatch:
+    request: ReplayBatchRequest
+    data: TrainData
+    cursors: list[ReplayCursor]
+    seed_entries: dict[int, ReplayEntry]
+    load_stats: LoadStats | None
+    ready_event: torch.cuda.Event | None = None
+
+    def wait_ready(self) -> None:
+        if self.ready_event is not None:
+            torch.cuda.current_stream().wait_event(self.ready_event)
 
 
-class _ReplayMicrobatchRange:
-    def __init__(self, count: int):
-        self._count = max(count, 0)
+def _replay_cursor_from_dict(raw: dict[str, int]) -> ReplayCursor:
+    return ReplayCursor(
+        dataset_index=int(raw["dataset_index"]),
+        source_index=int(raw["source_index"]),
+        lead_step=int(raw["lead_step"]),
+        stride=int(raw["stride"]),
+        temporal_stride=int(raw["temporal_stride"]),
+    )
 
-    def __iter__(self):
-        for _ in range(self._count):
-            yield _ReplayMicrobatch()
+
+def _replay_request_to_dict(request: ReplayBatchRequest) -> dict[str, Any]:
+    return {
+        "request_id": request.request_id,
+        "temporal_bundle_size": request.temporal_bundle_size,
+        "train_slots": [
+            {
+                "replay_index": slot.replay_index,
+                "cursor": dataclasses.asdict(slot.cursor),
+            }
+            for slot in request.train_slots
+        ],
+        "seed_slots": [
+            {
+                "replay_index": slot.replay_index,
+                "cursor": dataclasses.asdict(slot.cursor),
+                "reason": slot.reason,
+            }
+            for slot in request.seed_slots
+        ],
+    }
+
+
+def _replay_request_from_dict(raw: dict[str, Any]) -> ReplayBatchRequest:
+    return ReplayBatchRequest(
+        request_id=int(raw["request_id"]),
+        temporal_bundle_size=int(raw.get("temporal_bundle_size", 1)),
+        train_slots=tuple(
+            ReplayBatchSlot(
+                replay_index=int(slot["replay_index"]),
+                cursor=_replay_cursor_from_dict(slot["cursor"]),
+            )
+            for slot in raw["train_slots"]
+        ),
+        seed_slots=tuple(
+            ReplaySeedSlot(
+                replay_index=int(slot["replay_index"]),
+                cursor=_replay_cursor_from_dict(slot["cursor"]),
+                reason=str(slot["reason"]),
+            )
+            for slot in raw["seed_slots"]
+        ),
+    )
+
+
+class _ReplayPrefetchPipeline:
+    def __init__(
+        self,
+        trainer: "Trainer",
+        *,
+        start_batch_in_epoch: int,
+        total_batches: int,
+        max_lead_steps: int,
+    ) -> None:
+        self.trainer = trainer
+        self.start_batch_in_epoch = start_batch_in_epoch
+        self.total_batches = total_batches
+        self.max_lead_steps = max_lead_steps
+        self.horizon = trainer.replay_prefetch_horizon()
+        self._next_to_yield = start_batch_in_epoch
+        self._next_to_plan = start_batch_in_epoch
+        self._planned_requests: OrderedDict[int, ReplayBatchRequest] = OrderedDict()
+        self._reserved_indices: set[int] = set()
+        self._raw_cache: dict[int, RawReplayBatch] = {}
+        self._prepared_cache: dict[int, _ReplayPreparedBatch] = {}
+        self._closed = False
+        trainer._replay_active_planner = self
+
+        self._request_queue: queue.Queue[ReplayBatchRequest | None] = queue.Queue(
+            maxsize=max(2, self.horizon + 1)
+        )
+        self._result_queue: queue.Queue[RawReplayBatch | BaseException] = queue.Queue()
+        self._stop_event = threading.Event()
+        self._worker_threads = [
+            threading.Thread(
+                target=self._worker_loop,
+                name=f"replay_prefetch_{index}",
+                daemon=True,
+            )
+            for index in range(self._worker_count())
+        ]
+        for thread in self._worker_threads:
+            thread.start()
+
+        self._restore_state(trainer.consume_replay_planner_resume_state())
+        self._fill_window()
+
+        logger.info(
+            "Replay prefetch using %s in-process thread(s), horizon=%s. "
+            "This avoids multiprocessing shareFd/pickle copies for large gold frames.",
+            len(self._worker_threads),
+            self.horizon,
+        )
 
     def __len__(self) -> int:
-        return self._count
+        return max(self.total_batches - self.start_batch_in_epoch, 0)
 
+    def __iter__(self):
+        try:
+            while self._next_to_yield < self.total_batches:
+                yield self.next_prepared()
+        finally:
+            self.close()
+
+    def next_prepared(self) -> _ReplayPreparedBatch:
+        request_id = self._next_to_yield
+        self._drain_raw_results_nonblocking()
+        prepared = self._prepared_cache.pop(request_id, None)
+        if prepared is None:
+            prepared = self._prepare_async(self._raw_batch_for_request(request_id))
+        prepared.wait_ready()
+
+        self._next_to_yield += 1
+        self._prepare_cached_next_without_blocking()
+        return prepared
+
+    def _prepare_cached_next_without_blocking(self) -> None:
+        request_id = self._next_to_yield
+        if (
+            request_id >= self.total_batches
+            or request_id in self._prepared_cache
+            or request_id not in self._raw_cache
+        ):
+            return
+        self._prepared_cache[request_id] = self._prepare_async(
+            self._raw_cache.pop(request_id)
+        )
+
+    def complete(self, prepared: _ReplayPreparedBatch) -> None:
+        request = prepared.request
+        self._planned_requests.pop(request.request_id, None)
+        self._reserved_indices.difference_update(request.reserved_indices)
+        self._fill_window()
+        self._drain_raw_results_nonblocking()
+        self._prepare_cached_next_without_blocking()
+
+    def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        sentinel_count = max(self.trainer.num_workers, 1)
+        self._stop_event.set()
+        sentinel_count = max(len(self._worker_threads), 1)
+        for _ in range(sentinel_count):
+            try:
+                self._request_queue.put_nowait(None)
+            except (BrokenPipeError, EOFError):
+                break
+            except queue.Full:
+                break
+        for thread in self._worker_threads:
+            thread.join(timeout=1.0)
+        if self._next_to_yield >= self.total_batches:
+            self.trainer._replay_active_planner = None
+            self.trainer._replay_active_planner_state = None
+        else:
+            self.trainer._replay_active_planner = None
+            self.trainer._replay_active_planner_state = self.state_dict()
+
+    def state_dict(self) -> dict[str, Any]:
+        return {
+            "version": 1,
+            "start_batch_in_epoch": self.start_batch_in_epoch,
+            "total_batches": self.total_batches,
+            "max_lead_steps": self.max_lead_steps,
+            "horizon": self.horizon,
+            "next_to_yield": self._next_to_yield,
+            "next_to_plan": self._next_to_plan,
+            "reserved_indices": sorted(self._reserved_indices),
+            "planned_requests": [
+                _replay_request_to_dict(request)
+                for request in self._planned_requests.values()
+                if request.request_id >= self._next_to_yield
+            ],
+        }
+
+    def _restore_state(self, state: dict[str, Any] | None) -> None:
+        if state is None:
+            return
+        if (
+            state.get("version") != 1
+            or state.get("total_batches") != self.total_batches
+            or state.get("next_to_yield") != self.start_batch_in_epoch
+        ):
+            logger.warning(
+                "Ignoring replay planner resume state because it does not match "
+                "the current replay epoch position."
+            )
+            return
+
+        self._next_to_yield = int(state["next_to_yield"])
+        self._next_to_plan = int(state["next_to_plan"])
+        self._reserved_indices = {
+            int(index) for index in state.get("reserved_indices", [])
+        }
+        for raw_request in state.get("planned_requests", []):
+            request = _replay_request_from_dict(raw_request)
+            if request.request_id < self._next_to_yield:
+                continue
+            self._planned_requests[request.request_id] = request
+            self._request_queue.put(request)
+
+    def _fill_window(self) -> None:
+        while (
+            len(self._planned_requests) < self.horizon
+            and self._next_to_plan < self.total_batches
+        ):
+            try:
+                request = self.trainer.plan_replay_batch(
+                    global_batch_index=self._next_to_plan,
+                    max_lead_steps=self.max_lead_steps,
+                    exclude_reserved=self._reserved_indices,
+                )
+            except RuntimeError:
+                if self._planned_requests:
+                    break
+                raise
+
+            self._reserved_indices.update(request.reserved_indices)
+            self._planned_requests[request.request_id] = request
+            self._request_queue.put(request)
+            self._next_to_plan += 1
+
+    def _raw_batch_for_request(self, request_id: int) -> RawReplayBatch:
+        if request_id in self._raw_cache:
+            return self._raw_cache.pop(request_id)
+        while True:
+            result = self._result_queue.get()
+            if isinstance(result, BaseException):
+                raise result
+            raw_batch = result
+            raw_request_id = raw_batch.request.request_id
+            if raw_request_id == request_id:
+                return raw_batch
+            self._raw_cache[raw_request_id] = raw_batch
+
+    def _drain_raw_results_nonblocking(self) -> None:
+        while True:
+            try:
+                result = self._result_queue.get_nowait()
+            except queue.Empty:
+                return
+            if isinstance(result, BaseException):
+                raise result
+            self._raw_cache[result.request.request_id] = result
+
+    def _worker_count(self) -> int:
+        return max(1, min(self.trainer.num_workers, 1))
+
+    def _worker_loop(self) -> None:
+        while not self._stop_event.is_set():
+            try:
+                request = self._request_queue.get(timeout=0.1)
+            except queue.Empty:
+                continue
+            if request is None:
+                return
+
+            try:
+                self._result_queue.put(self._load_raw_batch(request))
+            except BaseException as e:
+                self._result_queue.put(e)
+                return
+
+    def _load_raw_batch(self, request: ReplayBatchRequest) -> RawReplayBatch:
+        start_time = time.perf_counter()
+        train_transitions = [
+            self._prepare_raw_transition_for_transport(
+                self.trainer.train_datasets[slot.cursor.dataset_index]
+                .get_raw_replay_train_transition(
+                    dataset_index=slot.cursor.dataset_index,
+                    source_index=slot.cursor.source_index,
+                    lead_step=slot.cursor.lead_step,
+                )
+            )
+            for slot in request.train_slots
+        ]
+        seed_transitions = [
+            self._prepare_raw_transition_for_transport(
+                self.trainer.train_datasets[slot.cursor.dataset_index]
+                .get_raw_replay_seed_transition(
+                    dataset_index=slot.cursor.dataset_index,
+                    source_index=slot.cursor.source_index,
+                    lead_step=slot.cursor.lead_step,
+                )
+            )
+            for slot in request.seed_slots
+        ]
+        return RawReplayBatch(
+            request=request,
+            train_transitions=train_transitions,
+            seed_transitions=seed_transitions,
+            load_stats=LoadStats(time.perf_counter() - start_time),
+        )
+
+    def _prepare_raw_transition_for_transport(
+        self,
+        transition: RawReplayTransition,
+    ) -> RawReplayTransition:
+        def convert(tensor: torch.Tensor | None) -> torch.Tensor | None:
+            if tensor is None:
+                return None
+            if tensor.dtype != self.trainer.replay_storage_dtype:
+                tensor = tensor.to(dtype=self.trainer.replay_storage_dtype)
+            if self.trainer.pin_mem and torch.cuda.is_available():
+                try:
+                    tensor = tensor.pin_memory()
+                except RuntimeError:
+                    pass
+            return tensor
+
+        transition.target_prognostic = convert(transition.target_prognostic)
+        transition.seed_prognostic = convert(transition.seed_prognostic)
+        transition.boundary = convert(transition.boundary)
+        return transition
+
+    def _prepare_async(self, raw_batch: RawReplayBatch) -> _ReplayPreparedBatch:
+        if self.trainer.device.type != "cuda":
+            return self.trainer.prepare_raw_replay_batch(raw_batch, ready_event=None)
+
+        assert self.trainer.replay_copy_stream is not None
+        with torch.cuda.stream(self.trainer.replay_copy_stream):
+            prepared = self.trainer.prepare_raw_replay_batch(raw_batch, ready_event=None)
+            prepared.ready_event = torch.cuda.Event()
+            prepared.ready_event.record(self.trainer.replay_copy_stream)
+            return prepared
 
 class Trainer:
     model: BaseModel | nn.parallel.DistributedDataParallel
@@ -487,6 +830,12 @@ class Trainer:
         )
         self.replay_generator = torch.Generator(device="cpu")
         self.replay_generator.manual_seed(cfg.experiment.rand_seed + 104729 * get_rank())
+        self.replay_copy_stream = (
+            torch.cuda.Stream() if self.device.type == "cuda" else None
+        )
+        self._replay_resume_planner_state: dict[str, Any] | None = None
+        self._replay_active_planner: _ReplayPrefetchPipeline | None = None
+        self._replay_active_planner_state: dict[str, Any] | None = None
         self.save_freq = cfg.save_freq
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
@@ -1009,8 +1358,12 @@ class Trainer:
 
         total_batches = self.replay_cfg.steps_per_epoch
         start_batch_in_epoch = max(0, start_batch_in_epoch)
-        remaining_replay_batches = max(total_batches - start_batch_in_epoch, 0)
-        replay_steps = _ReplayMicrobatchRange(remaining_replay_batches)
+        replay_batches = _ReplayPrefetchPipeline(
+            self,
+            start_batch_in_epoch=start_batch_in_epoch,
+            total_batches=total_batches,
+            max_lead_steps=max_lead_steps,
+        )
         processed_batches = 0
 
         self.optimizer.zero_grad()
@@ -1033,9 +1386,9 @@ class Trainer:
             and not self.ddp_static_graph
         )
 
-        for data_iter_step, _ in enumerate(
+        for data_iter_step, prepared in enumerate(
             metric_logger.log_every(
-                replay_steps,
+                replay_batches,
                 1,
                 header,
                 start_index=start_batch_in_epoch,
@@ -1052,11 +1405,8 @@ class Trainer:
             ) and remaining_batches > 0
             r = remaining_batches if in_final_cycle else self.gradient_accumulation_steps
 
-            replay_indices = self.replay_buffer.sample_indices(
-                self.batch_size,
-                max_lead_steps=max_lead_steps,
-            )
-            data, replay_cursors = self.build_replay_train_data(replay_indices)
+            data = prepared.data
+            replay_cursors = prepared.cursors
 
             if self.num_batches_seen == 0:
                 get_model_summary(
@@ -1087,17 +1437,11 @@ class Trainer:
                 scaled_loss = TO.loss / r
                 scaled_loss.backward()
 
-            cap_refreshes = self.advance_replay_entries(
-                replay_indices,
-                replay_cursors,
-                pred.detach(),
-                max_lead_steps=max_lead_steps,
+            cap_refreshes, scheduled_refreshes = self.apply_replay_prefetch_updates(
+                prepared,
+                pred,
             )
-            scheduled_refreshes = 0
-            if (
-                global_data_iter_step + 1
-            ) % self.replay_cfg.refresh_every_n_microbatches == 0:
-                scheduled_refreshes = self.refresh_replay_entries(self.batch_size)
+            replay_batches.complete(prepared)
 
             train_aggregator.record_batch(TO)
             processed_batches += 1
@@ -1266,6 +1610,313 @@ class Trainer:
                 pred = self.model(single_step_data)
                 update(pred[0], label)
 
+    def replay_prefetch_horizon(self) -> int:
+        worker_horizon = (
+            max(1, self.num_workers * self.prefetch_factor)
+            if self.num_workers > 0
+            else 1
+        )
+        slot_horizon = max(
+            1,
+            self.replay_cfg.buffer_size // max(self.batch_size, 1) - 1,
+        )
+        return max(1, min(worker_horizon, slot_horizon))
+
+    def consume_replay_planner_resume_state(self) -> dict[str, Any] | None:
+        state = self._replay_resume_planner_state
+        self._replay_resume_planner_state = None
+        return state
+
+    def sample_replay_seed_cursor(self) -> ReplayCursor:
+        if not self.train_datasets:
+            raise RuntimeError("Cannot seed replay buffer before train datasets exist")
+        dataset_lengths = [len(dataset) for dataset in self.train_datasets]
+        total_length = sum(dataset_lengths)
+        if total_length == 0:
+            raise RuntimeError("Cannot seed replay buffer from empty datasets")
+        flat_source_index = int(
+            torch.randint(
+                total_length,
+                (1,),
+                generator=self.replay_generator,
+                device="cpu",
+            ).item()
+        )
+        dataset_index = 0
+        source_index = flat_source_index
+        for candidate_index, dataset_length in enumerate(dataset_lengths):
+            if source_index < dataset_length:
+                dataset_index = candidate_index
+                break
+            source_index -= dataset_length
+        dataset = self.train_datasets[dataset_index]
+        return ReplayCursor(
+            dataset_index=dataset_index,
+            source_index=source_index,
+            lead_step=0,
+            stride=dataset.stride,
+            temporal_stride=dataset.temporal_stride,
+        )
+
+    def plan_replay_batch(
+        self,
+        *,
+        global_batch_index: int,
+        max_lead_steps: int,
+        exclude_reserved: set[int],
+    ) -> ReplayBatchRequest:
+        if self.replay_buffer is None:
+            raise RuntimeError("Replay buffer is not initialized")
+
+        replay_indices = self.replay_buffer.sample_indices(
+            self.batch_size,
+            max_lead_steps=max_lead_steps,
+            exclude_reserved=exclude_reserved,
+        )
+        train_slots = tuple(
+            ReplayBatchSlot(
+                replay_index=replay_index,
+                cursor=self.replay_buffer.entries[replay_index].cursor,
+            )
+            for replay_index in replay_indices
+        )
+
+        seed_slots: list[ReplaySeedSlot] = []
+        for slot in train_slots:
+            if slot.cursor.lead_step + 1 >= max_lead_steps:
+                seed_slots.append(
+                    ReplaySeedSlot(
+                        replay_index=slot.replay_index,
+                        cursor=self.sample_replay_seed_cursor(),
+                        reason="cap",
+                    )
+                )
+
+        reserved_for_request = {slot.replay_index for slot in train_slots}
+        if (
+            global_batch_index + 1
+        ) % self.replay_cfg.refresh_every_n_microbatches == 0:
+            refresh_indices = self.replay_buffer.random_indices(
+                self.batch_size,
+                exclude_reserved=exclude_reserved | reserved_for_request,
+            )
+            seen_refresh_indices: set[int] = set()
+            for replay_index in refresh_indices:
+                if replay_index in seen_refresh_indices:
+                    continue
+                seen_refresh_indices.add(replay_index)
+                seed_slots.append(
+                    ReplaySeedSlot(
+                        replay_index=replay_index,
+                        cursor=self.sample_replay_seed_cursor(),
+                        reason="scheduled",
+                    )
+                )
+
+        return ReplayBatchRequest(
+            request_id=global_batch_index,
+            train_slots=train_slots,
+            seed_slots=tuple(seed_slots),
+            temporal_bundle_size=1,
+        )
+
+    def prepare_raw_replay_batch(
+        self,
+        raw_batch: RawReplayBatch,
+        *,
+        ready_event: torch.cuda.Event | None,
+    ) -> _ReplayPreparedBatch:
+        if self.replay_buffer is None:
+            raise RuntimeError("Replay buffer is not initialized")
+
+        inputs = []
+        labels = []
+        cursors = []
+        for slot, transition in zip(
+            raw_batch.request.train_slots,
+            raw_batch.train_transitions,
+            strict=True,
+        ):
+            entry = self.replay_buffer.entries[slot.replay_index]
+            if entry.cursor != slot.cursor:
+                raise RuntimeError(
+                    "Replay buffer slot changed while a prefetched request was "
+                    "in flight. This indicates a reservation bug."
+                )
+            dataset = self.train_datasets[slot.cursor.dataset_index]
+            self.validate_replay_cursor(slot.cursor, dataset)
+            input, label = self._raw_replay_train_transition_to_example(
+                dataset,
+                transition,
+                entry,
+            )
+            inputs.append(input)
+            labels.append(label)
+            cursors.append(slot.cursor)
+
+        seed_entries: dict[int, ReplayEntry] = {}
+        for slot, transition in zip(
+            raw_batch.request.seed_slots,
+            raw_batch.seed_transitions,
+            strict=True,
+        ):
+            dataset = self.train_datasets[slot.cursor.dataset_index]
+            self.validate_replay_cursor(slot.cursor, dataset)
+            state = self._raw_replay_seed_transition_to_state(dataset, transition)
+            seed_entries[slot.replay_index] = self._stage_replay_state_for_buffer(
+                state,
+                slot.cursor,
+            )
+
+        train_data = TrainData(self.num_out)
+        if inputs:
+            train_data.append(torch.cat(inputs, dim=0), torch.cat(labels, dim=0))
+        train_data.load_stats = raw_batch.load_stats
+        train_data.source_indices = [
+            slot.cursor.source_index for slot in raw_batch.request.train_slots
+        ]
+        return _ReplayPreparedBatch(
+            request=raw_batch.request,
+            data=train_data,
+            cursors=cursors,
+            seed_entries=seed_entries,
+            load_stats=raw_batch.load_stats,
+            ready_event=ready_event,
+        )
+
+    def _raw_replay_train_transition_to_example(
+        self,
+        dataset: TorchTrainDataset,
+        transition: RawReplayTransition,
+        entry: ReplayEntry,
+    ):
+        if transition.target_prognostic is None or transition.boundary is None:
+            raise RuntimeError("Replay train transition is missing target or boundary")
+        label = dataset._prep_tensor_steps(
+            transition.target_prognostic.unsqueeze(0).to(
+                device=self.device,
+                non_blocking=True,
+            )
+        ).to(dtype=torch.float32)
+        boundary = dataset._prep_boundary_steps(
+            transition.boundary.unsqueeze(0).to(
+                device=self.device,
+                non_blocking=True,
+            )
+        )
+        self._wait_replay_entry_ready(entry)
+        prognostic_state = entry.state
+        if prognostic_state.ndim == 3:
+            prognostic_state = prognostic_state.unsqueeze(0)
+        if prognostic_state.shape[1:] != (dataset.num_prognostic_channels, *boundary.shape[-2:]):
+            raise ValueError(
+                "Replay prognostic state shape does not match model input: "
+                f"{prognostic_state.shape} vs boundary spatial shape {boundary.shape}"
+            )
+        prognostic_state = prognostic_state.to(
+            device=boundary.device,
+            dtype=boundary.dtype,
+            non_blocking=True,
+        )
+        input = torch.cat((prognostic_state, boundary), dim=1)
+        return input, label
+
+    def _wait_replay_entry_ready(self, entry: ReplayEntry) -> None:
+        if entry.ready_event is None:
+            return
+        if self.device.type == "cuda":
+            torch.cuda.current_stream().wait_event(entry.ready_event)
+        else:
+            entry.ready_event.synchronize()
+
+    def _stage_replay_state_for_buffer(
+        self,
+        state: torch.Tensor,
+        cursor: ReplayCursor,
+    ) -> ReplayEntry:
+        source = state.detach()
+        if (
+            source.device.type == "cuda"
+            and self.pin_mem
+            and torch.cuda.is_available()
+        ):
+            assert self.replay_copy_stream is not None
+            cpu_state = torch.empty(
+                source.shape,
+                device="cpu",
+                dtype=self.replay_storage_dtype,
+                pin_memory=True,
+            )
+            current_stream = torch.cuda.current_stream()
+            self.replay_copy_stream.wait_stream(current_stream)
+            with torch.cuda.stream(self.replay_copy_stream):
+                cpu_state.copy_(source, non_blocking=True)
+                source.record_stream(self.replay_copy_stream)
+                ready_event = torch.cuda.Event()
+                ready_event.record(self.replay_copy_stream)
+            return ReplayEntry(
+                state=cpu_state,
+                cursor=cursor,
+                ready_event=ready_event,
+            )
+
+        return ReplayEntry(state=source, cursor=cursor)
+
+    def _raw_replay_seed_transition_to_state(
+        self,
+        dataset: TorchTrainDataset,
+        transition: RawReplayTransition,
+    ) -> torch.Tensor:
+        if transition.seed_prognostic is None:
+            raise RuntimeError("Replay seed transition is missing seed prognostic")
+        state = dataset._prep_tensor_steps(
+            transition.seed_prognostic.unsqueeze(0).to(
+                device=self.device,
+                non_blocking=True,
+            )
+        )
+        return dataset.remask_prognostic_state(state)[0]
+
+    def apply_replay_prefetch_updates(
+        self,
+        prepared: _ReplayPreparedBatch,
+        pred: torch.Tensor,
+    ) -> tuple[int, int]:
+        if self.replay_buffer is None:
+            raise RuntimeError("Replay buffer is not initialized")
+
+        cap_refreshes = 0
+        scheduled_refreshes = 0
+        seed_reasons = {
+            slot.replay_index: slot.reason for slot in prepared.request.seed_slots
+        }
+        with torch.no_grad():
+            for batch_index, slot in enumerate(prepared.request.train_slots):
+                seed_entry = prepared.seed_entries.get(slot.replay_index)
+                if seed_entry is not None and seed_reasons[slot.replay_index] == "cap":
+                    self.replay_buffer.replace(slot.replay_index, seed_entry)
+                    cap_refreshes += 1
+                    continue
+
+                dataset = self.train_datasets[slot.cursor.dataset_index]
+                state = dataset.remask_prognostic_state(pred[batch_index])
+                self.replay_buffer.replace(
+                    slot.replay_index,
+                    self._stage_replay_state_for_buffer(
+                        state=state,
+                        cursor=slot.cursor.advance(),
+                    ),
+                )
+
+            for slot in prepared.request.seed_slots:
+                if slot.reason != "scheduled":
+                    continue
+                seed_entry = prepared.seed_entries[slot.replay_index]
+                self.replay_buffer.replace(slot.replay_index, seed_entry)
+                scheduled_refreshes += 1
+
+        return cap_refreshes, scheduled_refreshes
+
     def init_replay_buffer(self, *, force_reseed: bool = False) -> None:
         if self.replay_buffer is not None and not force_reseed:
             return
@@ -1309,6 +1960,7 @@ class Trainer:
         logger.info(
             "Replay buffer ready: size=%s storage_dtype=%s refresh_batch_size=%s "
             "steps_per_epoch=%s refresh_every_n_microbatches=%s "
+            "prefetch_horizon=%s "
             "fresh_gold_samples_per_rank_per_epoch≈%.1f "
             "fresh_gold_samples_global_per_epoch≈%.1f",
             len(self.replay_buffer),
@@ -1316,6 +1968,7 @@ class Trainer:
             self.batch_size,
             self.replay_cfg.steps_per_epoch,
             self.replay_cfg.refresh_every_n_microbatches,
+            self.replay_prefetch_horizon(),
             fresh_per_rank,
             fresh_per_rank * get_world_size(),
         )
@@ -1323,105 +1976,73 @@ class Trainer:
     def seed_replay_buffer(self) -> None:
         if self.replay_buffer is None:
             raise RuntimeError("Replay buffer must be created before seeding")
-        while not self.replay_buffer.is_full:
-            self.replay_buffer.append(self.sample_gold_replay_entry())
+        needed = self.replay_buffer.buffer_size - len(self.replay_buffer)
+        if needed <= 0:
+            return
+        for entry in self.load_replay_seed_entries(needed):
+            self.replay_buffer.append(entry)
 
-    def sample_gold_replay_entry(self) -> ReplayEntry:
-        if not self.train_datasets:
-            raise RuntimeError("Cannot seed replay buffer before train datasets exist")
-        dataset_lengths = [len(dataset) for dataset in self.train_datasets]
-        total_length = sum(dataset_lengths)
-        if total_length == 0:
-            raise RuntimeError("Cannot seed replay buffer from empty datasets")
-        flat_source_index = int(
-            torch.randint(total_length, (1,), generator=self.replay_generator)
-        )
-        dataset_index = 0
-        source_index = flat_source_index
-        for candidate_index, dataset_length in enumerate(dataset_lengths):
-            if source_index < dataset_length:
-                dataset_index = candidate_index
-                break
-            source_index -= dataset_length
-        dataset = self.train_datasets[dataset_index]
-        cursor = ReplayCursor(
-            dataset_index=dataset_index,
-            source_index=source_index,
-            lead_step=0,
-            stride=dataset.stride,
-            temporal_stride=dataset.temporal_stride,
-        )
-        state = dataset.get_replay_initial_state(source_index)
-        state = dataset.remask_prognostic_state(state)[0]
-        return ReplayEntry(state=state, cursor=cursor)
+    def load_replay_seed_entries(self, count: int) -> list[ReplayEntry]:
+        if count <= 0:
+            return []
 
-    def build_replay_train_data(
-        self, replay_indices: list[int]
-    ) -> tuple[TrainData, list[ReplayCursor]]:
-        if self.replay_buffer is None:
-            raise RuntimeError("Replay buffer is not initialized")
-        inputs = []
-        labels = []
-        cursors = []
-        for replay_index in replay_indices:
-            entry = self.replay_buffer.entries[replay_index]
-            cursor = entry.cursor
-            dataset = self.train_datasets[cursor.dataset_index]
-            self.validate_replay_cursor(cursor, dataset)
-            input, label = dataset.get_replay_transition(
-                cursor.source_index,
-                cursor.lead_step,
-                prognostic_state=entry.state,
-            )
-            inputs.append(input)
-            labels.append(label)
-            cursors.append(cursor)
-
-        train_data = TrainData(self.num_out)
-        train_data.append(torch.cat(inputs, dim=0), torch.cat(labels, dim=0))
-        return train_data, cursors
-
-    def advance_replay_entries(
-        self,
-        replay_indices: list[int],
-        cursors: list[ReplayCursor],
-        pred: torch.Tensor,
-        *,
-        max_lead_steps: int,
-    ) -> int:
-        if self.replay_buffer is None:
-            raise RuntimeError("Replay buffer is not initialized")
-
-        cap_refreshes = 0
-        with torch.no_grad():
-            for batch_index, replay_index in enumerate(replay_indices):
-                cursor = cursors[batch_index]
-                if cursor.lead_step + 1 >= max_lead_steps:
-                    self.replay_buffer.replace(
-                        replay_index,
-                        self.sample_gold_replay_entry(),
+        next_replay_index = len(self.replay_buffer.entries) if self.replay_buffer else 0
+        remaining = count
+        request_id = 0
+        entries_by_index: dict[int, ReplayEntry] = {}
+        while remaining > 0:
+            group_size = min(self.batch_size, remaining)
+            seed_slots = []
+            for _ in range(group_size):
+                seed_slots.append(
+                    ReplaySeedSlot(
+                        replay_index=next_replay_index,
+                        cursor=self.sample_replay_seed_cursor(),
+                        reason="seed",
                     )
-                    cap_refreshes += 1
-                    continue
-
-                dataset = self.train_datasets[cursor.dataset_index]
-                state = dataset.remask_prognostic_state(pred[batch_index])
-                self.replay_buffer.replace(
-                    replay_index,
-                    ReplayEntry(
-                        state=state,
-                        cursor=cursor.advance(),
-                    ),
                 )
-        return cap_refreshes
+                next_replay_index += 1
+            request = ReplayBatchRequest(
+                request_id=request_id,
+                train_slots=(),
+                seed_slots=tuple(seed_slots),
+                temporal_bundle_size=1,
+            )
+            raw_batch = RawReplayBatch(
+                request=request,
+                train_transitions=[],
+                seed_transitions=[
+                    self.train_datasets[slot.cursor.dataset_index]
+                    .get_raw_replay_seed_transition(
+                        dataset_index=slot.cursor.dataset_index,
+                        source_index=slot.cursor.source_index,
+                        lead_step=slot.cursor.lead_step,
+                    )
+                    for slot in request.seed_slots
+                ],
+            )
+            prepared = self.prepare_raw_seed_batch(raw_batch)
+            entries_by_index.update(prepared.seed_entries)
+            remaining -= group_size
+            request_id += 1
 
-    def refresh_replay_entries(self, count: int) -> int:
-        if self.replay_buffer is None:
-            raise RuntimeError("Replay buffer is not initialized")
-        refresh_indices = self.replay_buffer.random_indices(count)
-        for replay_index in refresh_indices:
-            self.replay_buffer.replace(replay_index, self.sample_gold_replay_entry())
-        return len(refresh_indices)
+        first_index = len(self.replay_buffer.entries) if self.replay_buffer else 0
+        return [
+            entries_by_index[replay_index]
+            for replay_index in range(first_index, first_index + count)
+        ]
+
+    def prepare_raw_seed_batch(self, raw_batch: RawReplayBatch) -> _ReplayPreparedBatch:
+        if self.device.type != "cuda":
+            return self.prepare_raw_replay_batch(raw_batch, ready_event=None)
+
+        assert self.replay_copy_stream is not None
+        with torch.cuda.stream(self.replay_copy_stream):
+            prepared = self.prepare_raw_replay_batch(raw_batch, ready_event=None)
+            prepared.ready_event = torch.cuda.Event()
+            prepared.ready_event.record(self.replay_copy_stream)
+        prepared.wait_ready()
+        return prepared
 
     @staticmethod
     def validate_replay_cursor(
@@ -1473,6 +2094,13 @@ class Trainer:
             state["epoch"] = epoch
             state["num_batches_seen"] = self.num_batches_seen
             state["dataset_signature"] = self.replay_dataset_signature()
+            planner_state = (
+                self._replay_active_planner.state_dict()
+                if self._replay_active_planner is not None
+                else self._replay_active_planner_state
+            )
+            if planner_state is not None:
+                state["planner_state"] = planner_state
             torch.save(state, temporary_location)
             os.replace(temporary_location, sidecar_path)
 
@@ -1503,6 +2131,7 @@ class Trainer:
             )
             return False
         self.replay_buffer.load_state_dict(state)
+        self._replay_resume_planner_state = state.get("planner_state")
         logger.info("Loaded replay buffer sidecar from %s", sidecar_path)
         return True
 

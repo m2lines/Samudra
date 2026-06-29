@@ -10,7 +10,7 @@ import torch
 import xarray as xr
 from einops import rearrange
 from jaxtyping import Float
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, IterableDataset
 from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 
 from ocean_emulators.constants import (
@@ -445,6 +445,82 @@ class ReplayCursor:
         return dataclasses.replace(self, lead_step=self.lead_step + 1)
 
 
+@dataclasses.dataclass(frozen=True)
+class ReplayBatchSlot:
+    replay_index: int
+    cursor: ReplayCursor
+
+
+@dataclasses.dataclass(frozen=True)
+class ReplaySeedSlot:
+    replay_index: int
+    cursor: ReplayCursor
+    reason: str
+
+
+@dataclasses.dataclass(frozen=True)
+class ReplayBatchRequest:
+    request_id: int
+    train_slots: tuple[ReplayBatchSlot, ...]
+    seed_slots: tuple[ReplaySeedSlot, ...]
+    temporal_bundle_size: int = 1
+
+    @property
+    def reserved_indices(self) -> set[int]:
+        return {
+            slot.replay_index
+            for slot in (*self.train_slots, *self.seed_slots)
+        }
+
+
+@dataclasses.dataclass
+class RawReplayTransition:
+    dataset_id: "TorchTrainDataset.Id"
+    dataset_index: int
+    source_index: int
+    lead_step: int
+    current_time_index: int
+    target_time_index: int
+    target_prognostic: torch.Tensor | None = None
+    seed_prognostic: torch.Tensor | None = None
+    boundary: torch.Tensor | None = None
+
+    def pin_memory(self):
+        if self.target_prognostic is not None:
+            self.target_prognostic = self.target_prognostic.pin_memory()
+        if self.seed_prognostic is not None:
+            self.seed_prognostic = self.seed_prognostic.pin_memory()
+        if self.boundary is not None:
+            self.boundary = self.boundary.pin_memory()
+        return self
+
+
+@dataclasses.dataclass
+class RawReplayBatch:
+    request: ReplayBatchRequest
+    train_transitions: list[RawReplayTransition]
+    seed_transitions: list[RawReplayTransition]
+    load_stats: LoadStats | None = None
+
+    def pin_memory(self):
+        global _PIN_MEMORY_WARNING_EMITTED
+        global _PIN_MEMORY_DISABLED
+        if _PIN_MEMORY_DISABLED:
+            return self
+        try:
+            for transition in (*self.train_transitions, *self.seed_transitions):
+                transition.pin_memory()
+        except RuntimeError as e:
+            if not _PIN_MEMORY_WARNING_EMITTED:
+                logger.warning(
+                    "Pin-memory failed for a replay batch; continuing without "
+                    f"pinning. Error: {e}"
+                )
+                _PIN_MEMORY_WARNING_EMITTED = True
+            _PIN_MEMORY_DISABLED = True
+        return self
+
+
 @final
 class TorchTrainDataset(Dataset[RawTrainData]):
     """
@@ -579,6 +655,87 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     def _dataset_to_tensor(self, selected: xr.Dataset) -> torch.Tensor:
         return torch.from_numpy(_dataset_to_numpy(selected, ("time",)))
 
+    def get_replay_time_indices(
+        self,
+        *,
+        source_index: int,
+        lead_step: int,
+    ) -> tuple[int, int]:
+        x_index = self._get_x_index(source_index, lead_step)
+        values = x_index.values
+        return int(values[self.hist]), int(values[self.hist + 1])
+
+    def get_raw_replay_transition(
+        self,
+        *,
+        dataset_index: int,
+        source_index: int,
+        lead_step: int,
+    ) -> RawReplayTransition:
+        return self.get_raw_replay_train_transition(
+            dataset_index=dataset_index,
+            source_index=source_index,
+            lead_step=lead_step,
+        )
+
+    def get_raw_replay_train_transition(
+        self,
+        *,
+        dataset_index: int,
+        source_index: int,
+        lead_step: int,
+    ) -> RawReplayTransition:
+        x_index = self._get_x_index(source_index, lead_step)
+        current_x_index = x_index.isel(time=slice(0, self.hist + 1))
+        t = int(x_index.values[self.hist + 1])
+        target_selected = self._prognostic_src.data.isel(time=t) 
+        boundary_selected = self._boundary_src.data.isel(time=current_x_index)
+
+        if self._executor is not None:
+            concurrent_compute(
+                target_selected, boundary_selected, executor=self._executor
+            )
+
+        target_prognostic = self._dataset_to_tensor(target_selected)
+        boundary = self._dataset_to_tensor(boundary_selected)
+        values = x_index.values
+        return RawReplayTransition(
+            dataset_id=self.id,
+            dataset_index=dataset_index,
+            source_index=source_index,
+            lead_step=lead_step,
+            current_time_index=int(values[self.hist]),
+            target_time_index=int(values[self.hist + 1]),
+            target_prognostic=target_prognostic,
+            boundary=boundary,
+        )
+
+    def get_raw_replay_seed_transition(
+        self,
+        *,
+        dataset_index: int,
+        source_index: int,
+        lead_step: int,
+    ) -> RawReplayTransition:
+        x_index = self._get_x_index(source_index, lead_step)
+        current_x_index = x_index.isel(time=slice(0, self.hist + 1))
+        seed_selected = self._prognostic_src.data.isel(time=current_x_index)
+
+        if self._executor is not None:
+            concurrent_compute(seed_selected, executor=self._executor)
+
+        seed_prognostic = self._dataset_to_tensor(seed_selected)
+        values = x_index.values
+        return RawReplayTransition(
+            dataset_id=self.id,
+            dataset_index=dataset_index,
+            source_index=source_index,
+            lead_step=lead_step,
+            current_time_index=int(values[self.hist]),
+            target_time_index=int(values[self.hist + 1]),
+            seed_prognostic=seed_prognostic,
+        )
+
     def to_train_data(self, raw_train_data: RawTrainData) -> TrainData:
         train_data = TrainData(self.num_prognostic_channels)
         for prognostic_all, boundary_all in raw_train_data.raw_data:
@@ -684,60 +841,81 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     ) -> Input:
         """Prepare tensor steps by normalizing, masking and flattening dimensions."""
 
-        def normalize(
-            data: Float[torch.Tensor, "batch time var lat lon"],
-            means: Float[torch.Tensor, " var"],
-            stds: Float[torch.Tensor, " var"],
-            fill_nan: bool = True,
-            fill_value: float = 0.0,
-        ) -> Float[torch.Tensor, "batch time var lat lon"]:
-            """Normalize input data treated as torch Tensors."""
-            norm = (data - means.view(1, 1, -1, 1, 1)) / stds.view(1, 1, -1, 1, 1)
-            if fill_nan:
-                norm = norm.nan_to_num(nan=fill_value)
-            norm = norm.to(data.dtype)
-            return norm
-
-        # Normalize and mask tensors
-        def normalize_and_mask(
-            tensor: torch.Tensor,
-            means: torch.Tensor,
-            stds: torch.Tensor,
-            mask: torch.Tensor,
-        ) -> torch.Tensor:
-            if self.normalize_before_mask:
-                tensor = normalize(tensor, means, stds)
-            tensor = torch.where(mask, tensor, self.masked_fill_value)
-            if not self.normalize_before_mask:
-                tensor = normalize(tensor, means, stds)
-            return tensor
-
-        prognostic_steps = normalize_and_mask(
+        prognostic_steps = self._normalize_and_mask_steps(
             prognostic_steps,
             self.prognostic_means,
             self.prognostic_stds,
             self.wet,
         )
         if boundary_steps is not None:
-            boundary_steps = normalize_and_mask(
+            boundary_steps = self._normalize_and_mask_steps(
                 boundary_steps,
                 self.boundary_means,
                 self.boundary_stds,
                 self.wet_surface,
             )
 
-        # Flatten time and variable dimensions
-        def flatten_dims(tensor: torch.Tensor) -> torch.Tensor:
-            return rearrange(
-                tensor, "batch time variable lat lon -> batch (time variable) lat lon"
-            )
-
-        prognostic_steps = flatten_dims(prognostic_steps)
+        prognostic_steps = self._flatten_steps(prognostic_steps)
         if boundary_steps is not None:
-            boundary_steps = flatten_dims(boundary_steps)
+            boundary_steps = self._flatten_steps(boundary_steps)
             return torch.cat((prognostic_steps, boundary_steps), dim=1)
 
         return prognostic_steps
+
+    def _prep_boundary_steps(
+        self,
+        boundary_steps: Float[torch.Tensor, "batch time variable lat lon"],
+    ) -> Input:
+        boundary_steps = self._normalize_and_mask_steps(
+            boundary_steps,
+            self.boundary_means,
+            self.boundary_stds,
+            self.wet_surface,
+        )
+        return self._flatten_steps(boundary_steps)
+
+    def _normalize_and_mask_steps(
+        self,
+        tensor: torch.Tensor,
+        means: torch.Tensor,
+        stds: torch.Tensor,
+        mask: torch.Tensor,
+    ) -> torch.Tensor:
+        if self.normalize_before_mask:
+            tensor = self._normalize_steps(tensor, means, stds)
+        tensor = torch.where(mask, tensor, self.masked_fill_value)
+        if not self.normalize_before_mask:
+            tensor = self._normalize_steps(tensor, means, stds)
+        return tensor
+
+    @staticmethod
+    def _normalize_steps(
+        data: Float[torch.Tensor, "batch time var lat lon"],
+        means: Float[torch.Tensor, " var"],
+        stds: Float[torch.Tensor, " var"],
+        fill_nan: bool = True,
+        fill_value: float = 0.0,
+    ) -> Float[torch.Tensor, "batch time var lat lon"]:
+        compute_dtype = (
+            torch.float32
+            if data.dtype in (torch.float16, torch.bfloat16)
+            else data.dtype
+        )
+        data_for_norm = data.to(dtype=compute_dtype)
+        means = means.to(device=data.device, dtype=compute_dtype)
+        stds = stds.to(device=data.device, dtype=compute_dtype)
+        norm = (data_for_norm - means.view(1, 1, -1, 1, 1)) / stds.view(
+            1, 1, -1, 1, 1
+        )
+        if fill_nan:
+            norm = norm.nan_to_num(nan=fill_value)
+        return norm.to(data.dtype)
+
+    @staticmethod
+    def _flatten_steps(tensor: torch.Tensor) -> torch.Tensor:
+        return rearrange(
+            tensor, "batch time variable lat lon -> batch (time variable) lat lon"
+        )
 
     def _get_x_index(self, idx: int, step: int) -> xr.DataArray:
         assert isinstance(idx, int)
@@ -751,6 +929,58 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             idx * self.temporal_stride + step * (self.hist + 1) * self.stride
         )
         return self.rolling_indices.isel(window=window_index, drop=True)
+
+
+@final
+class ReplayRequestDataset(IterableDataset[RawReplayBatch]):
+    """Worker-side replay loader fed by deterministic trainer requests."""
+
+    def __init__(
+        self,
+        datasets: list[TorchTrainDataset],
+        request_queue,
+    ) -> None:
+        super().__init__()
+        self._datasets = datasets
+        self._request_queue = request_queue
+
+    def __iter__(self):
+        while True:
+            request = self._request_queue.get()
+            if request is None:
+                return
+
+            start_time = time.perf_counter()
+            train_transitions = [
+                self._load_train_transition(slot.cursor)
+                for slot in request.train_slots
+            ]
+            seed_transitions = [
+                self._load_seed_transition(slot.cursor)
+                for slot in request.seed_slots
+            ]
+            yield RawReplayBatch(
+                request=request,
+                train_transitions=train_transitions,
+                seed_transitions=seed_transitions,
+                load_stats=LoadStats(time.perf_counter() - start_time),
+            )
+
+    def _load_train_transition(self, cursor: ReplayCursor) -> RawReplayTransition:
+        dataset = self._datasets[cursor.dataset_index]
+        return dataset.get_raw_replay_train_transition(
+            dataset_index=cursor.dataset_index,
+            source_index=cursor.source_index,
+            lead_step=cursor.lead_step,
+        )
+
+    def _load_seed_transition(self, cursor: ReplayCursor) -> RawReplayTransition:
+        dataset = self._datasets[cursor.dataset_index]
+        return dataset.get_raw_replay_seed_transition(
+            dataset_index=cursor.dataset_index,
+            source_index=cursor.source_index,
+            lead_step=cursor.lead_step,
+        )
 
 
 def concurrent_compute(

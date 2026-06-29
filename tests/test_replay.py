@@ -1,13 +1,22 @@
+import queue
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 
 import torch
 import xarray as xr
 
-from ocean_emulators.datasets import ReplayCursor, TorchTrainDataset
+from ocean_emulators.datasets import (
+    ReplayBatchRequest,
+    ReplayBatchSlot,
+    ReplayCursor,
+    ReplayRequestDataset,
+    ReplaySeedSlot,
+    TorchTrainDataset,
+)
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.replay import ReplayBuffer, ReplayEntry, replay_sidecar_path
-from ocean_emulators.train import Trainer
+from ocean_emulators.train import Trainer, _ReplayPrefetchPipeline
 from ocean_emulators.utils.data import DataSource, Masks
 
 
@@ -155,6 +164,273 @@ def test_replay_transition_advances_forcing_and_target_with_cursor():
         assert label.flatten().tolist() == [target_time_index * 10.0]
 
 
+def test_raw_replay_request_dataset_preserves_cursor_alignment():
+    dataset = make_replay_dataset(stride=3)
+    train_cursor = ReplayCursor(
+        dataset_index=0,
+        source_index=2,
+        lead_step=3,
+        stride=dataset.stride,
+        temporal_stride=dataset.temporal_stride,
+    )
+    seed_cursor = ReplayCursor(
+        dataset_index=0,
+        source_index=4,
+        lead_step=0,
+        stride=dataset.stride,
+        temporal_stride=dataset.temporal_stride,
+    )
+    request = ReplayBatchRequest(
+        request_id=7,
+        train_slots=(ReplayBatchSlot(replay_index=0, cursor=train_cursor),),
+        seed_slots=(
+            ReplaySeedSlot(
+                replay_index=1,
+                cursor=seed_cursor,
+                reason="scheduled",
+            ),
+        ),
+    )
+    request_queue = queue.Queue()
+    request_queue.put(request)
+    request_queue.put(None)
+
+    raw_batch = next(iter(ReplayRequestDataset([dataset], request_queue)))
+
+    assert raw_batch.request.request_id == 7
+    assert raw_batch.train_transitions[0].current_time_index == 11
+    assert raw_batch.train_transitions[0].target_time_index == 14
+    assert raw_batch.seed_transitions[0].current_time_index == 4
+    assert raw_batch.seed_transitions[0].target_time_index == 7
+
+
+def test_prepare_raw_replay_batch_uses_drifted_buffer_state():
+    dataset = make_replay_dataset(stride=3)
+    cursor = ReplayCursor(
+        dataset_index=0,
+        source_index=0,
+        lead_step=2,
+        stride=dataset.stride,
+        temporal_stride=dataset.temporal_stride,
+    )
+    request = ReplayBatchRequest(
+        request_id=1,
+        train_slots=(ReplayBatchSlot(replay_index=0, cursor=cursor),),
+        seed_slots=(),
+    )
+    raw_transition = dataset.get_raw_replay_transition(
+        dataset_index=0,
+        source_index=cursor.source_index,
+        lead_step=cursor.lead_step,
+    )
+    raw_batch = type(
+        "RawBatch",
+        (),
+        {
+            "request": request,
+            "train_transitions": [raw_transition],
+            "seed_transitions": [],
+            "load_stats": None,
+        },
+    )()
+
+    trainer = Trainer.__new__(Trainer)
+    trainer.device = torch.device("cpu")
+    trainer.num_out = dataset.num_prognostic_channels
+    trainer.train_datasets = [dataset]
+    trainer.replay_buffer = ReplayBuffer(
+        buffer_size=1,
+        storage_dtype=torch.float32,
+        generator=torch.Generator(device="cpu"),
+        pin_memory=False,
+    )
+    trainer.replay_buffer.append(
+        ReplayEntry(state=torch.tensor([[[999.0]]]), cursor=cursor)
+    )
+
+    prepared = trainer.prepare_raw_replay_batch(raw_batch, ready_event=None)
+    input, label = prepared.data[0]
+
+    assert input.flatten().tolist() == [999.0, 61.0]
+    assert label.flatten().tolist() == [90.0]
+
+
+def test_prepare_raw_replay_batch_keeps_loss_label_float32_with_bf16_transport():
+    dataset = make_replay_dataset(stride=3)
+    cursor = ReplayCursor(
+        dataset_index=0,
+        source_index=0,
+        lead_step=2,
+        stride=dataset.stride,
+        temporal_stride=dataset.temporal_stride,
+    )
+    request = ReplayBatchRequest(
+        request_id=1,
+        train_slots=(ReplayBatchSlot(replay_index=0, cursor=cursor),),
+        seed_slots=(),
+    )
+    raw_transition = dataset.get_raw_replay_transition(
+        dataset_index=0,
+        source_index=cursor.source_index,
+        lead_step=cursor.lead_step,
+    )
+    raw_transition.target_prognostic = raw_transition.target_prognostic.to(
+        dtype=torch.bfloat16
+    )
+    raw_transition.boundary = raw_transition.boundary.to(dtype=torch.bfloat16)
+    raw_batch = type(
+        "RawBatch",
+        (),
+        {
+            "request": request,
+            "train_transitions": [raw_transition],
+            "seed_transitions": [],
+            "load_stats": None,
+        },
+    )()
+
+    trainer = Trainer.__new__(Trainer)
+    trainer.device = torch.device("cpu")
+    trainer.num_out = dataset.num_prognostic_channels
+    trainer.train_datasets = [dataset]
+    trainer.replay_buffer = ReplayBuffer(
+        buffer_size=1,
+        storage_dtype=torch.bfloat16,
+        generator=torch.Generator(device="cpu"),
+        pin_memory=False,
+    )
+    trainer.replay_buffer.append(
+        ReplayEntry(state=torch.tensor([[[999.0]]], dtype=torch.bfloat16), cursor=cursor)
+    )
+
+    prepared = trainer.prepare_raw_replay_batch(raw_batch, ready_event=None)
+    input, label = prepared.data[0]
+    pred = torch.zeros_like(label, requires_grad=True)
+    loss = torch.nn.functional.mse_loss(pred, label)
+    loss.backward()
+
+    assert input.dtype == torch.bfloat16
+    assert label.dtype == torch.float32
+    assert pred.grad is not None
+
+
+def test_prepare_raw_replay_batch_supports_seed_only_requests():
+    dataset = make_replay_dataset(stride=3)
+    seed_cursor = ReplayCursor(
+        dataset_index=0,
+        source_index=4,
+        lead_step=0,
+        stride=dataset.stride,
+        temporal_stride=dataset.temporal_stride,
+    )
+    request = ReplayBatchRequest(
+        request_id=1,
+        train_slots=(),
+        seed_slots=(
+            ReplaySeedSlot(
+                replay_index=5,
+                cursor=seed_cursor,
+                reason="seed",
+            ),
+        ),
+    )
+    raw_transition = dataset.get_raw_replay_seed_transition(
+        dataset_index=0,
+        source_index=seed_cursor.source_index,
+        lead_step=seed_cursor.lead_step,
+    )
+    raw_batch = type(
+        "RawBatch",
+        (),
+        {
+            "request": request,
+            "train_transitions": [],
+            "seed_transitions": [raw_transition],
+            "load_stats": None,
+        },
+    )()
+
+    trainer = Trainer.__new__(Trainer)
+    trainer.device = torch.device("cpu")
+    trainer.num_out = dataset.num_prognostic_channels
+    trainer.train_datasets = [dataset]
+    trainer.replay_buffer = ReplayBuffer(
+        buffer_size=1,
+        storage_dtype=torch.float32,
+        generator=torch.Generator(device="cpu"),
+        pin_memory=False,
+    )
+
+    prepared = trainer.prepare_raw_replay_batch(raw_batch, ready_event=None)
+
+    assert len(prepared.data) == 0
+    assert prepared.seed_entries[5].state.flatten().tolist() == [40.0]
+
+
+def test_replay_prefetch_pipeline_yields_prepared_batch():
+    dataset = make_replay_dataset(stride=3)
+    cursor = ReplayCursor(
+        dataset_index=0,
+        source_index=0,
+        lead_step=0,
+        stride=dataset.stride,
+        temporal_stride=dataset.temporal_stride,
+    )
+
+    trainer = Trainer.__new__(Trainer)
+    trainer.device = torch.device("cpu")
+    trainer.num_out = dataset.num_prognostic_channels
+    trainer.train_datasets = [dataset]
+    trainer.batch_size = 1
+    trainer.num_workers = 0
+    trainer.prefetch_factor = 2
+    trainer.pin_mem = False
+    trainer.mp_context = None
+    trainer.train_loader = SimpleNamespace(
+        _dataloader=SimpleNamespace(
+            num_workers=0,
+            pin_memory=False,
+            timeout=0,
+            worker_init_fn=None,
+            multiprocessing_context=None,
+        )
+    )
+    trainer.replay_copy_stream = None
+    trainer.replay_storage_dtype = torch.float32
+    trainer._replay_resume_planner_state = None
+    trainer._replay_active_planner_state = None
+    trainer.replay_cfg = SimpleNamespace(
+        buffer_size=1,
+        refresh_every_n_microbatches=99,
+    )
+    trainer.replay_generator = torch.Generator(device="cpu")
+    trainer.replay_generator.manual_seed(1)
+    trainer.replay_buffer = ReplayBuffer(
+        buffer_size=1,
+        storage_dtype=torch.float32,
+        generator=trainer.replay_generator,
+        pin_memory=False,
+    )
+    trainer.replay_buffer.append(
+        ReplayEntry(state=torch.tensor([[[999.0]]]), cursor=cursor)
+    )
+
+    pipeline = _ReplayPrefetchPipeline(
+        trainer,
+        start_batch_in_epoch=0,
+        total_batches=1,
+        max_lead_steps=3,
+    )
+    iterator = iter(pipeline)
+    prepared = next(iterator)
+    input, label = prepared.data[0]
+    pipeline.complete(prepared)
+    pipeline.close()
+
+    assert input.flatten().tolist() == [999.0, 1.0]
+    assert label.flatten().tolist() == [30.0]
+
+
 def test_predict_step_residual_uses_actual_replay_input_state():
     drifted_input = torch.tensor([[[[999.0]], [[61.0]]]])
     true_next = torch.tensor([[[[90.0]]]])
@@ -214,3 +490,33 @@ def test_replay_sidecar_world_size_mismatch_reseeds(monkeypatch):
         monkeypatch.setattr("ocean_emulators.train.get_world_size", lambda: 1)
 
         assert not trainer.load_replay_buffer_sidecar(checkpoint_path)
+
+
+def test_replay_buffer_sampling_excludes_reserved_indices():
+    generator = torch.Generator(device="cpu")
+    generator.manual_seed(1)
+    buffer = ReplayBuffer(
+        buffer_size=4,
+        storage_dtype=torch.float32,
+        generator=generator,
+        pin_memory=False,
+    )
+    for index in range(4):
+        cursor = ReplayCursor(
+            dataset_index=0,
+            source_index=index,
+            lead_step=0,
+            stride=1,
+            temporal_stride=1,
+        )
+        buffer.append(ReplayEntry(state=torch.zeros(1, 1, 1), cursor=cursor))
+
+    sampled = buffer.sample_indices(
+        batch_size=8,
+        max_lead_steps=1,
+        exclude_reserved={1, 2, 3},
+    )
+    refreshed = buffer.random_indices(count=8, exclude_reserved={0, 1, 2})
+
+    assert set(sampled) == {0}
+    assert set(refreshed) == {3}

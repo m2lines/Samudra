@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 class ReplayEntry:
     state: torch.Tensor
     cursor: ReplayCursor
+    ready_event: torch.cuda.Event | None = None
 
 
 class ReplayBuffer:
@@ -48,16 +49,24 @@ class ReplayBuffer:
     def replace(self, index: int, entry: ReplayEntry) -> None:
         self.entries[index] = self._prepare_entry(entry)
 
-    def sample_indices(self, batch_size: int, max_lead_steps: int) -> list[int]:
+    def sample_indices(
+        self,
+        batch_size: int,
+        max_lead_steps: int,
+        *,
+        exclude_reserved: set[int] | None = None,
+    ) -> list[int]:
+        excluded = exclude_reserved or set()
         eligible = [
             index
             for index, entry in enumerate(self.entries)
             if entry.cursor.lead_step < max_lead_steps
+            and index not in excluded
         ]
         if not eligible:
             raise RuntimeError(
                 "Replay buffer has no entries below the active max_lead_steps "
-                f"cap ({max_lead_steps})."
+                f"cap ({max_lead_steps}) outside the reserved in-flight slots."
             )
         if len(eligible) >= batch_size:
             draw = torch.randperm(
@@ -74,23 +83,34 @@ class ReplayBuffer:
             )
         return [eligible[int(i)] for i in draw]
 
-    def random_indices(self, count: int) -> list[int]:
+    def random_indices(
+        self,
+        count: int,
+        *,
+        exclude_reserved: set[int] | None = None,
+    ) -> list[int]:
         if not self.entries:
             return []
-        if len(self.entries) >= count:
+        excluded = exclude_reserved or set()
+        eligible = [
+            index for index in range(len(self.entries)) if index not in excluded
+        ]
+        if not eligible:
+            return []
+        if len(eligible) >= count:
             draw = torch.randperm(
-                len(self.entries),
+                len(eligible),
                 generator=self.generator,
                 device="cpu",
             )[:count]
         else:
             draw = torch.randint(
-                len(self.entries),
+                len(eligible),
                 (count,),
                 generator=self.generator,
                 device="cpu",
             )
-        return [int(i) for i in draw]
+        return [eligible[int(i)] for i in draw]
 
     def state_dict(self, *, world_size: int, rank: int) -> dict[str, Any]:
         return {
@@ -101,7 +121,7 @@ class ReplayBuffer:
             "generator_state": self.generator.get_state(),
             "entries": [
                 {
-                    "state": entry.state.cpu(),
+                    "state": self._state_for_checkpoint(entry),
                     "cursor": dataclasses.asdict(entry.cursor),
                 }
                 for entry in self.entries
@@ -122,21 +142,65 @@ class ReplayBuffer:
             cursor = ReplayCursor(**raw_entry["cursor"])
             self.append(ReplayEntry(state=raw_entry["state"], cursor=cursor))
 
+    @staticmethod
+    def _state_for_checkpoint(entry: ReplayEntry) -> torch.Tensor:
+        if entry.ready_event is not None:
+            entry.ready_event.synchronize()
+        return entry.state.cpu()
+
     def _prepare_entry(self, entry: ReplayEntry) -> ReplayEntry:
-        state = entry.state.detach().to(
-            device="cpu",
-            dtype=self.storage_dtype,
-            copy=True,
-        )
-        if self.pin_memory and torch.cuda.is_available():
+        if entry.ready_event is not None:
+            if entry.state.device.type != "cpu":
+                raise ValueError("ReplayEntry with ready_event must store a CPU tensor")
+            if entry.state.dtype != self.storage_dtype:
+                raise ValueError(
+                    "ReplayEntry with ready_event has dtype "
+                    f"{entry.state.dtype}, expected {self.storage_dtype}"
+                )
+            return ReplayEntry(
+                state=entry.state,
+                cursor=entry.cursor,
+                ready_event=entry.ready_event,
+            )
+
+        source = entry.state.detach()
+        if source.device.type == "cuda" and self.pin_memory and torch.cuda.is_available():
             try:
-                state = state.pin_memory()
+                state = torch.empty(
+                    source.shape,
+                    device="cpu",
+                    dtype=self.storage_dtype,
+                    pin_memory=True,
+                )
+                state.copy_(source, non_blocking=False)
             except RuntimeError as e:
                 logger.warning(
-                    "Could not pin replay buffer state; continuing unpinned. Error: %s",
+                    "Could not copy replay buffer state into pinned memory; "
+                    "continuing unpinned. Error: %s",
                     e,
                 )
                 self.pin_memory = False
+                state = source.to(
+                    device="cpu",
+                    dtype=self.storage_dtype,
+                    copy=True,
+                )
+        else:
+            state = source.to(
+                device="cpu",
+                dtype=self.storage_dtype,
+                copy=True,
+            )
+            if self.pin_memory and torch.cuda.is_available():
+                try:
+                    state = state.pin_memory()
+                except RuntimeError as e:
+                    logger.warning(
+                        "Could not pin replay buffer state; continuing unpinned. "
+                        "Error: %s",
+                        e,
+                    )
+                    self.pin_memory = False
         return ReplayEntry(state=state, cursor=entry.cursor)
 
 

@@ -2,14 +2,14 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-06-25:samudra_llc:rb-1-pred_field
+#SBATCH --job-name=2026-06-26:samudra_llc:rb-1-8xbuffer_size_test
 #SBATCH -x node4100
 #SBATCH -N 1
 #SBATCH --mem=254GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
 #SBATCH -G h200:1
-#SBATCH --time=48:00:00
+#SBATCH --time=1:00:00
 #SBATCH --signal=B:USR1@300
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
@@ -50,7 +50,7 @@ export NCCL_DEBUG=INFO
 
 # PROFILING
 NSYS_ENABLE="${NSYS_ENABLE:-false}"
-export NSYS_ARGS="${NSYS_ARGS:---trace=cuda,nvtx,osrt --sample=cpu --delay=300 --duration=360 --force-overwrite=true}"
+export NSYS_ARGS="${NSYS_ARGS:---trace=cuda,nvtx,osrt --sample=cpu --delay=360 --duration=600 --force-overwrite=true}"
 NSYS_OUTPUT_DIR="/orcd/home/002/codycruz/Ocean_Emulator/logs/nsys"
 mkdir -p "${NSYS_OUTPUT_DIR}"
 PROFILER_CMD=()
@@ -92,7 +92,8 @@ PAD="${PAD:-constant}"
 NUM_HALO="${NUM_HALO:-4}"
 NUM_SPONGE="${NUM_SPONGE:-12}"
 NUM_SPONGE="${NUM_SPONGE:-12}"
-PRED_RESIDUALS="${PRED_RESIDUALS:-false}"
+PRED_RESIDUALS="${PRED_RESIDUALS:-true}"
+BATCH_SIZE="${BATCH_SIZE:-1}"
 
 # DDP
 PIN_MEM="${PIN_MEM:-true}"
@@ -144,7 +145,7 @@ GRADIENT_DETACH_INTERVAL="${GRADIENT_DETACH_INTERVAL:-3}"
 
 # REPLAY BUFFER
 REPLAY_ENABLED="${REPLAY_ENABLED:-true}"
-REPLAY_BUFFER_SIZE="${REPLAY_BUFFER_SIZE:-32}"
+REPLAY_BUFFER_SIZE="${REPLAY_BUFFER_SIZE:-256}"
 REPLAY_REFRESH_EVERY_N_MICROBATCHES="${REPLAY_REFRESH_EVERY_N_MICROBATCHES:-8}"
 REPLAY_STEPS_PER_EPOCH="${REPLAY_STEPS_PER_EPOCH:-4204}"
 REPLAY_MAX_LEAD_STEPS="${REPLAY_MAX_LEAD_STEPS:-[4, 5, 6, 7, 8, 9, 10, 11, 12, 13]}"
@@ -171,6 +172,7 @@ echo "using replay: enabled=${REPLAY_ENABLED}, buffer_size=${REPLAY_BUFFER_SIZE}
 echo "using data location: LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
 echo "using padding: pad=${PAD}, num_halo=${NUM_HALO}, num_sponge=${NUM_SPONGE}"
 echo "predicting field or residual: pred_residual=${PRED_RESIDUALS}"
+echo "using batch_size=${BATCH_SIZE}"
 if [[ -n "${DATA_LOCATION_OVERRIDE}" ]]; then
   echo "overriding data.data_location=${DATA_LOCATION_OVERRIDE}"
 fi
@@ -282,6 +284,7 @@ trap 'forward_signal INT' INT
   --model.num_sponge "${NUM_SPONGE}" \
   --model.gradient_detach_interval "${GRADIENT_DETACH_INTERVAL}" \
   --model.pred_residuals "${PRED_RESIDUALS}" \
+  --batch_size "${BATCH_SIZE}" \
   --gradient_accumulation_steps 4 \
   --ddp_bucket_cap_mb 25 \
   --ddp_use_no_sync_for_accumulation true \

@@ -259,6 +259,50 @@ sbatch \
   scripts/slurm_apptainer_eval.sbatch
 ```
 
+## Data Preprocessing On Torch (CPU, No Container)
+
+The `data/` subproject (`ocean_preprocessing`) can run its data-engineering jobs on
+Torch instead of a Coiled/AWS cluster. This is purely a cost/locality win: both the
+source and output Zarr stores live on OSN (`nyu1.osn.mghpcc.org`), which has no
+egress fees, so running the compute on HPC removes the Coiled/AWS bill while the
+OSN<->Torch transfer stays free.
+
+These jobs are **CPU-only** (streaming dask reductions, no GPU, no xESMF) and use
+the `ocean_preprocessing` conda/mamba env directly -- **not** the PhysicsNeMo
+Apptainer container, which does not carry `s3fs`/`fire`/`xarray`. Create the env
+once on the cluster:
+
+```bash
+mamba env create -f data/mamba_env.yaml   # creates the `ocean_preprocessing` env
+```
+
+### DUACS daily -> 5-day-average
+
+Main script:
+
+- `scripts/slurm_duacs_5day.sbatch`
+
+It reads the daily DUACS store from OSN, coarsens it to 5-day means, and writes the
+result back to OSN -- no `/scratch` staging. Credentials are kept out of the repo:
+put your OSN keys in `~/.osn_env` (a shell file that `export`s `AWS_ACCESS_KEY_ID`
+and `AWS_SECRET_ACCESS_KEY`), or export them into the submission environment. The
+harness sources that file, defaults `FSSPEC_S3_ENDPOINT_URL` to the OSN endpoint,
+and runs a `LocalCluster` sized to `--cpus-per-task`.
+
+```bash
+# Validate first (prints the dataset + full time axis, writes nothing):
+DRY_RUN=1 sbatch scripts/slurm_duacs_5day.sbatch
+
+# Then the real reduction:
+sbatch scripts/slurm_duacs_5day.sbatch
+```
+
+Recognized env vars: `OSN_ENV_FILE` (default `~/.osn_env`), `ENV_NAME` (default
+`ocean_preprocessing`), `PYTHON_BIN`, `SRC`, `OUTPUT_PATH`, `WINDOW`, `DRY_RUN`,
+`ARGS`. Defaults (1 node, 16 CPUs, 64 GB, 1 h) are sized for the streaming reduction;
+the native time chunk (50) is an exact multiple of the 5-day window, so the pass is
+embarrassingly parallel with no cross-chunk shuffle. Monitor via `slurm-<jobid>.out`.
+
 ## NCCL Gotcha On RTX6000 Nodes
 
 On Torch RTX6000 nodes we observed NCCL hangs for 8-GPU single-node training unless P2P is disabled.

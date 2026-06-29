@@ -34,6 +34,24 @@ def convert_super_grid(ds_super_grid: xr.Dataset):
     return angle_h, lon_h, lat_h, lon_b, lat_b
 
 
+def normalize_vertical_coords(ds: xr.Dataset) -> xr.Dataset:
+    """Rename raw OM4 vertical coordinates to the pipeline's expected names.
+
+    In OM4 output, ``z_l`` is the depth of the cell centers (equivalent to
+    ``lev``) and ``z_i`` is the depth of the cell interfaces (equivalent to
+    ``ilev``, which holds one extra entry). The 5-daily snapshot sources expose
+    ``z_l`` without a matching ``z_i``, so each coordinate is renamed
+    independently rather than gating the center rename (``z_l`` -> ``lev``) on
+    the interface coordinate being present.
+    """
+    vertical_rename = {
+        raw: new
+        for raw, new in (("z_l", "lev"), ("z_i", "ilev"))
+        if raw in ds.coords or raw in ds.dims
+    }
+    return ds.rename(vertical_rename) if vertical_rename else ds
+
+
 def om4_preprocessing(
     zarr_data_path, nc_grid_path, nc_mosaic_path, fs=fsspec, backend_kwargs=None
 ):
@@ -42,8 +60,9 @@ def om4_preprocessing(
         zarr_data_path, engine="zarr", chunks={}, backend_kwargs=backend_kwargs
     )
 
-    if "z_i" in ds.coords:
-        ds = ds.rename({"z_i": "ilev", "z_l": "lev"})
+    ds = normalize_vertical_coords(ds)
+
+    if "ilev" in ds.coords:
         dz = xr.DataArray(
             ds.ilev.diff("ilev").values,
             dims=["lev"],

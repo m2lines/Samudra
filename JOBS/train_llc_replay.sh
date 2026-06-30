@@ -2,8 +2,8 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-06-28:samudra_llc:rb-1-dataloderfix-PROFILE-3
-#SBATCH -x node4100
+#SBATCH --job-name=2026-06-30:samudra_llc:rb-1-dataloderfix-PROFILE-5-float16
+#SBATCH -x node4100,node3401
 #SBATCH -N 1
 #SBATCH --mem=254GB
 #SBATCH --ntasks=1
@@ -36,6 +36,7 @@ fi
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
+export PYTHONFAULTHANDLER="${PYTHONFAULTHANDLER:-1}"
 export TORCH_NCCL_DUMP_ON_TIMEOUT=1
 export TORCH_FR_BUFFER_SIZE="${TORCH_FR_BUFFER_SIZE:-1048576}"
 export NCCL_DEBUG=INFO
@@ -74,10 +75,13 @@ fi
 
 # GPUS / DATA WORKERS
 GPUS="${GPUS:-1}"
-DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-6}"
-DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-6}"
+DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-4}"
+DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-2}"
+BLOSC_THREADS="${BLOSC_THREADS:-1}"
+export OCEAN_BLOSC_THREADS="${OCEAN_BLOSC_THREADS:-${BLOSC_THREADS}}"
 SURFACE_SNAPSHOT="${SURFACE_SNAPSHOT:-true}"
-BATCH_SIZE="${BATCH_SIZE:-1}"
+BATCH_SIZE="${BATCH_SIZE:-2}"
+GRADIENT_ACCUMULATION_STEPS="${GRADIENT_ACCUMULATION_STEPS:-2}"
 PIN_MEM="${PIN_MEM:-true}"
 CONCURRENT_COMPUTE="${CONCURRENT_COMPUTE:-false}"
 
@@ -129,7 +133,7 @@ LR_MULTIPLIER_TRANSITION="${LR_MULTIPLIER_TRANSITION:-[]}"
 REPLAY_ENABLED="${REPLAY_ENABLED:-true}"
 REPLAY_BUFFER_SIZE="${REPLAY_BUFFER_SIZE:-32}"
 REPLAY_REFRESH_EVERY_N_MICROBATCHES="${REPLAY_REFRESH_EVERY_N_MICROBATCHES:-8}"
-REPLAY_STEPS_PER_EPOCH="${REPLAY_STEPS_PER_EPOCH:-4204}"
+REPLAY_STEPS_PER_EPOCH="${REPLAY_STEPS_PER_EPOCH:-8760}"
 REPLAY_MAX_LEAD_STEPS="${REPLAY_MAX_LEAD_STEPS:-[4, 5, 6, 7, 8, 9, 10, 11, 12, 13]}"
 REPLAY_MAX_LEAD_TRANSITION="${REPLAY_MAX_LEAD_TRANSITION:-[6, 11, 16, 21, 26, 31, 36, 41, 46]}"
 REPLAY_CHECKPOINT_BUFFER="${REPLAY_CHECKPOINT_BUFFER:-true}"
@@ -137,7 +141,7 @@ REPLAY_CHECKPOINT_BUFFER="${REPLAY_CHECKPOINT_BUFFER:-true}"
 echo "======== train ocean_emulator replay samudra w/ ${GPUS} gpus on LLC4320 data ========"
 echo "training for ${EPOCHS} total epochs and saving checkpoints every ${SAVE_FREQ}"
 echo "saving overwrite emergency checkpoints every ${EMERGENCY_CHECKPOINT_INTERVAL_MINUTES} minutes"
-echo "using ${DATA_NUM_WORKERS} data workers, prefetch_factor=${DATA_PREFETCH_FACTOR}, pin_mem=${PIN_MEM}"
+echo "using ${DATA_NUM_WORKERS} data workers, prefetch_factor=${DATA_PREFETCH_FACTOR}, blosc_threads=${OCEAN_BLOSC_THREADS}, pin_mem=${PIN_MEM}"
 if [[ "${GPUS}" -gt 0 ]]; then
   echo "effective workers per rank (after trainer scaling): $((DATA_NUM_WORKERS / GPUS))"
 fi
@@ -150,7 +154,7 @@ echo "using replay: enabled=${REPLAY_ENABLED}, buffer_size=${REPLAY_BUFFER_SIZE}
 echo "using data location: LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
 echo "using padding: pad=${PAD}, num_halo=${NUM_HALO}, num_sponge=${NUM_SPONGE}"
 echo "predicting field or residual: pred_residual=${PRED_RESIDUALS}"
-echo "using batch_size=${BATCH_SIZE}"
+echo "using batch_size=${BATCH_SIZE}, gradient_accumulation_steps=${GRADIENT_ACCUMULATION_STEPS}, effective_batch_size=$((BATCH_SIZE * GRADIENT_ACCUMULATION_STEPS))"
 if [[ -n "${DATA_LOCATION_OVERRIDE}" ]]; then
   echo "overriding data.data_location=${DATA_LOCATION_OVERRIDE}"
 fi
@@ -247,7 +251,7 @@ trap 'forward_signal INT' INT
   --model.num_sponge "${NUM_SPONGE}" \
   --model.pred_residuals "${PRED_RESIDUALS}" \
   --batch_size "${BATCH_SIZE}" \
-  --gradient_accumulation_steps 4 \
+  --gradient_accumulation_steps "${GRADIENT_ACCUMULATION_STEPS}" \
   --ddp_bucket_cap_mb 25 \
   --ddp_use_no_sync_for_accumulation true \
   --ddp_broadcast_buffers "${DDP_BROADCAST_BUFFERS}" \

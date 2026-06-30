@@ -2,14 +2,14 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-06-28:samudra_llc:rb-1-TIMING
-#SBATCH -x node4100
+#SBATCH --job-name=2026-06-30:samudra_llc:rb-1-TIMING-14
+#SBATCH -x node4100,node3401
 #SBATCH -N 1
 #SBATCH --mem=254GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
 #SBATCH -G h200:1
-#SBATCH --time=24:30:00
+#SBATCH --time=0:30:00
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 
@@ -34,6 +34,7 @@ fi
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
+export PYTHONFAULTHANDLER="${PYTHONFAULTHANDLER:-1}"
 export NCCL_DEBUG=WARN
 
 if [[ ! -x "${PYTHON_BIN}" ]]; then
@@ -50,10 +51,11 @@ GPU_ITERS="${GPU_ITERS:-60}"
 STEP_ITERS="${STEP_ITERS:-200}"
 WARMUP="${WARMUP:-8}"
 CADENCE="${CADENCE:-50}"
-READ_THREADS="${READ_THREADS:-1,2,4,6}"
+READ_THREADS="${READ_THREADS:-1,2,4,6,8,10}"
 
 # ---- data location (match your training run) ----
-BATCH_SIZE="${BATCH_SIZE:-1}"
+BATCH_SIZE="${BATCH_SIZE:-2}"
+GRADIENT_ACCUMULATION_STEPS="${GRADIENT_ACCUMULATION_STEPS:-2}"
 LLC_FACE="${LLC_FACE:-1}"
 LLC_I_START="${LLC_I_START:-2880}"
 LLC_I_END="${LLC_I_END:-3600}"
@@ -62,8 +64,10 @@ LLC_J_END="${LLC_J_END:-1440}"
 DATA_STRIDE="${DATA_STRIDE:-[1]}"
 TEMPORAL_STRIDE="${TEMPORAL_STRIDE:-1}"
 HIST="${HIST:-0}"
-DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-6}"
-DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-6}"
+DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-4}"
+DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-2}"
+BLOSC_THREADS="${BLOSC_THREADS:-1}"
+export OCEAN_BLOSC_THREADS="${OCEAN_BLOSC_THREADS:-${BLOSC_THREADS}}"
 PIN_MEM="${PIN_MEM:-true}"
 
 # ---- replay knobs (must be self-consistent for buffer init) ----
@@ -76,9 +80,9 @@ REPLAY_MAX_LEAD_TRANSITION="${REPLAY_MAX_LEAD_TRANSITION:-[6, 11, 16, 21, 26, 31
 
 echo "======== replay timing diagnostic ========"
 echo "read_iters=${READ_ITERS} gpu_iters=${GPU_ITERS} step_iters=${STEP_ITERS} warmup=${WARMUP}"
-echo "read_threads=${READ_THREADS} batch_size=${BATCH_SIZE}"
+echo "read_threads=${READ_THREADS} batch_size=${BATCH_SIZE} gradient_accumulation_steps=${GRADIENT_ACCUMULATION_STEPS} effective_batch_size=$((BATCH_SIZE * GRADIENT_ACCUMULATION_STEPS))"
 echo "data face=${LLC_FACE} i=[${LLC_I_START}:${LLC_I_END}) j=[${LLC_J_START}:${LLC_J_END})"
-echo "workers=${DATA_NUM_WORKERS} prefetch=${DATA_PREFETCH_FACTOR} pin_mem=${PIN_MEM}"
+echo "workers=${DATA_NUM_WORKERS} prefetch=${DATA_PREFETCH_FACTOR} blosc_threads=${OCEAN_BLOSC_THREADS} pin_mem=${PIN_MEM}"
 
 "${PYTHON_BIN}" -m torch.distributed.run \
   --standalone --nnodes=1 --nproc_per_node=1 \
@@ -91,6 +95,7 @@ echo "workers=${DATA_NUM_WORKERS} prefetch=${DATA_PREFETCH_FACTOR} pin_mem=${PIN
   --read-threads "${READ_THREADS}" \
   -- \
   --batch_size "${BATCH_SIZE}" \
+  --gradient_accumulation_steps "${GRADIENT_ACCUMULATION_STEPS}" \
   --data_stride "${DATA_STRIDE}" \
   --temporal_stride "${TEMPORAL_STRIDE}" \
   --data.hist "${HIST}" \

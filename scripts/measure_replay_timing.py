@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import math
 import statistics
 import time
@@ -340,6 +341,7 @@ def parse_args() -> tuple[argparse.Namespace, list[str]]:
 
 
 def main() -> None:
+    logger = logging.getLogger(__name__)
     args, user_overrides = parse_args()
     safe_overrides = [
         "--backend", "cuda",
@@ -435,8 +437,11 @@ def main() -> None:
         }
         print("SUMMARY")
         print(json.dumps(summary, indent=2, sort_keys=True))
+
     finally:
         trainer.finish()
+
+    logger.info(f"Done")
 
 
 if __name__ == "__main__":

@@ -202,6 +202,9 @@ class _ReplayPrefetchPipeline:
         self.horizon = trainer.replay_prefetch_horizon()
         self._next_to_yield = start_batch_in_epoch
         self._next_to_plan = start_batch_in_epoch
+        self._yielded_count = 0
+        self._completed_count = 0
+        self._completed_request_ids: set[int] = set()
         self._planned_requests: OrderedDict[int, ReplayBatchRequest] = OrderedDict()
         self._reserved_indices: set[int] = set()
         self._raw_cache: dict[int, RawReplayBatch] = {}
@@ -240,48 +243,65 @@ class _ReplayPrefetchPipeline:
 
     def __iter__(self):
         try:
-            while self._next_to_yield < self.total_batches:
+            while self._yielded_count < len(self):
                 yield self.next_prepared()
         finally:
             self.close()
 
     def next_prepared(self) -> _ReplayPreparedBatch:
-        request_id = self._next_to_yield
         self._drain_raw_results_nonblocking()
-        prepared = self._prepared_cache.pop(request_id, None)
+        prepared = self._pop_ready_prepared()
         if prepared is None:
-            prepared = self._prepare_async(self._raw_batch_for_request(request_id))
+            raw_batch = self._pop_ready_raw()
+            if raw_batch is None:
+                raw_batch = self._wait_for_any_raw_batch()
+            prepared = self._prepare_async(raw_batch)
         prepared.wait_ready()
-
-        self._next_to_yield += 1
-        self._prepare_cached_next_without_blocking()
+        self._yielded_count += 1
         return prepared
 
-    def _prepare_cached_next_without_blocking(self) -> None:
-        request_id = self._next_to_yield
-        if (
-            request_id >= self.total_batches
-            or request_id in self._prepared_cache
-            or request_id not in self._raw_cache
-        ):
+    def _pop_ready_prepared(self) -> _ReplayPreparedBatch | None:
+        if not self._prepared_cache:
+            return None
+        if self._next_to_yield in self._prepared_cache:
+            return self._prepared_cache.pop(self._next_to_yield)
+        request_id = next(iter(self._prepared_cache))
+        return self._prepared_cache.pop(request_id)
+
+    def _pop_ready_raw(self) -> RawReplayBatch | None:
+        if not self._raw_cache:
+            return None
+        if self._next_to_yield in self._raw_cache:
+            return self._raw_cache.pop(self._next_to_yield)
+        request_id = next(iter(self._raw_cache))
+        return self._raw_cache.pop(request_id)
+
+    def _prepare_cached_ready_without_blocking(self) -> None:
+        if self._prepared_cache:
             return
-        self._prepared_cache[request_id] = self._prepare_async(
-            self._raw_cache.pop(request_id)
-        )
+        raw_batch = self._pop_ready_raw()
+        if raw_batch is not None:
+            self._prepared_cache[raw_batch.request.request_id] = self._prepare_async(
+                raw_batch
+            )
 
     def complete(self, prepared: _ReplayPreparedBatch) -> None:
         request = prepared.request
         self._planned_requests.pop(request.request_id, None)
         self._reserved_indices.difference_update(request.reserved_indices)
+        self._completed_request_ids.add(request.request_id)
+        self._completed_count += 1
+        while self._next_to_yield in self._completed_request_ids:
+            self._completed_request_ids.remove(self._next_to_yield)
+            self._next_to_yield += 1
         self._fill_window()
         self._drain_raw_results_nonblocking()
-        self._prepare_cached_next_without_blocking()
+        self._prepare_cached_ready_without_blocking()
 
     def close(self) -> None:
         if self._closed:
             return
         self._closed = True
-        sentinel_count = max(self.trainer.num_workers, 1)
         self._stop_event.set()
         sentinel_count = max(len(self._worker_threads), 1)
         for _ in range(sentinel_count):
@@ -293,7 +313,7 @@ class _ReplayPrefetchPipeline:
                 break
         for thread in self._worker_threads:
             thread.join(timeout=1.0)
-        if self._next_to_yield >= self.total_batches:
+        if self._completed_count >= len(self):
             self.trainer._replay_active_planner = None
             self.trainer._replay_active_planner_state = None
         else:
@@ -302,13 +322,16 @@ class _ReplayPrefetchPipeline:
 
     def state_dict(self) -> dict[str, Any]:
         return {
-            "version": 1,
+            "version": 2,
             "start_batch_in_epoch": self.start_batch_in_epoch,
             "total_batches": self.total_batches,
             "max_lead_steps": self.max_lead_steps,
             "horizon": self.horizon,
             "next_to_yield": self._next_to_yield,
             "next_to_plan": self._next_to_plan,
+            "yielded_count": self._yielded_count,
+            "completed_count": self._completed_count,
+            "completed_request_ids": sorted(self._completed_request_ids),
             "reserved_indices": sorted(self._reserved_indices),
             "planned_requests": [
                 _replay_request_to_dict(request)
@@ -321,9 +344,9 @@ class _ReplayPrefetchPipeline:
         if state is None:
             return
         if (
-            state.get("version") != 1
+            state.get("version") != 2
             or state.get("total_batches") != self.total_batches
-            or state.get("next_to_yield") != self.start_batch_in_epoch
+            or state.get("completed_count", 0) != 0
         ):
             logger.warning(
                 "Ignoring replay planner resume state because it does not match "
@@ -333,6 +356,11 @@ class _ReplayPrefetchPipeline:
 
         self._next_to_yield = int(state["next_to_yield"])
         self._next_to_plan = int(state["next_to_plan"])
+        self._yielded_count = int(state.get("yielded_count", 0))
+        self._completed_count = int(state.get("completed_count", 0))
+        self._completed_request_ids = {
+            int(index) for index in state.get("completed_request_ids", [])
+        }
         self._reserved_indices = {
             int(index) for index in state.get("reserved_indices", [])
         }
@@ -364,18 +392,13 @@ class _ReplayPrefetchPipeline:
             self._request_queue.put(request)
             self._next_to_plan += 1
 
-    def _raw_batch_for_request(self, request_id: int) -> RawReplayBatch:
-        if request_id in self._raw_cache:
-            return self._raw_cache.pop(request_id)
+    def _wait_for_any_raw_batch(self) -> RawReplayBatch:
         while True:
             result = self._result_queue.get()
             if isinstance(result, BaseException):
                 raise result
             raw_batch = result
-            raw_request_id = raw_batch.request.request_id
-            if raw_request_id == request_id:
-                return raw_batch
-            self._raw_cache[raw_request_id] = raw_batch
+            return raw_batch
 
     def _drain_raw_results_nonblocking(self) -> None:
         while True:
@@ -388,7 +411,7 @@ class _ReplayPrefetchPipeline:
             self._raw_cache[result.request.request_id] = result
 
     def _worker_count(self) -> int:
-        return max(1, min(self.trainer.num_workers, 1))
+        return max(1, self.trainer.num_workers)
 
     def _worker_loop(self) -> None:
         while not self._stop_event.is_set():
@@ -445,11 +468,6 @@ class _ReplayPrefetchPipeline:
                 return None
             if tensor.dtype != self.trainer.replay_storage_dtype:
                 tensor = tensor.to(dtype=self.trainer.replay_storage_dtype)
-            if self.trainer.pin_mem and torch.cuda.is_available():
-                try:
-                    tensor = tensor.pin_memory()
-                except RuntimeError:
-                    pass
             return tensor
 
         transition.target_prognostic = convert(transition.target_prognostic)
@@ -460,6 +478,9 @@ class _ReplayPrefetchPipeline:
     def _prepare_async(self, raw_batch: RawReplayBatch) -> _ReplayPreparedBatch:
         if self.trainer.device.type != "cuda":
             return self.trainer.prepare_raw_replay_batch(raw_batch, ready_event=None)
+
+        if self.trainer.pin_mem and torch.cuda.is_available():
+            raw_batch.pin_memory()
 
         assert self.trainer.replay_copy_stream is not None
         with torch.cuda.stream(self.trainer.replay_copy_stream):

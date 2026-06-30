@@ -50,6 +50,8 @@ DEFAULT_STDS = Path("/orcd/data/abodner/002/cody/LLC_means_stds/var_96_LLC_stds.
 DEFAULT_OUTPUT_ROOT = Path("/orcd/data/abodner/002/cody/LLC_patch")
 DEFAULT_PROGNOSTIC_CHANNELS = PROGNOSTIC_VARS["all"]
 DEFAULT_BOUNDARY_CHANNELS = BOUNDARY_VARS["all"]
+DEFAULT_FLOAT_TYPE = "float16"
+SUPPORTED_FLOAT_TYPES = {"float16", "float32", "float64"}
 
 logging.basicConfig(
     level=logging.INFO,
@@ -76,7 +78,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--train-start", default="2011-09-13")
     parser.add_argument("--train-end", default="2012-09-13")
     parser.add_argument("--val-start", default="2012-09-14")
-    parser.add_argument("--val-end", default="2012-10-01")
+    parser.add_argument("--val-end", default="2012-10-")\
+
+    parser.add_argument(
+    "--float-type",
+    default=DEFAULT_FLOAT_TYPE,
+    choices=SUPPORTED_FLOAT_TYPES,
+    help="Floating point precision for prognostic/boundary data and stats (float16, float32, float64).",
+    )
 
     parser.add_argument(
         "--time-chunk",
@@ -96,7 +105,7 @@ def default_output_name(args: argparse.Namespace) -> str:
         f"LLC4320_face{args.face}_"
         f"i{args.i_start}-{args.i_end}_"
         f"j{args.j_start}-{args.j_end}_"
-        f"trainval_ready_{start}_{end}_t{args.time_chunk}.zarr"
+        f"trainval_ready_{start}_{end}_t{args.time_chunk}_{args.float_type}.zarr"
     )
 
 
@@ -228,6 +237,16 @@ def extract_xy_coords(ds: xr.Dataset) -> tuple[np.ndarray, np.ndarray]:
     return np.arange(y_size, dtype=np.int32), np.arange(x_size, dtype=np.int32)
 
 
+def get_numpy_float_type(float_type_str: str) -> type:
+    """Convert float type string to numpy dtype."""
+    type_map = {
+        "float16": np.float16,
+        "float32": np.float32,
+        "float64": np.float64,
+    }
+    return type_map[float_type_str]
+
+
 def build_packed_data_array(
     ds: xr.Dataset,
     channel_names: list[str],
@@ -236,11 +255,13 @@ def build_packed_data_array(
     y_coords: np.ndarray,
     x_coords: np.ndarray,
     time_chunk: int,
+    float_type: str,
 ) -> xr.DataArray:
+    float_dtype = get_numpy_float_type(float_type)
     channel_arrays: list[da.Array] = []
     for channel_name in channel_names:
         da_channel = extract_channel(ds, channel_name)
-        channel_arrays.append(da_channel.data[:, None, :, :].astype(np.float32))
+        channel_arrays.append(da_channel.data[:, None, :, :].astype(float_dtype))
 
     packed = da.concatenate(channel_arrays, axis=1)
     packed_da = xr.DataArray(
@@ -269,10 +290,12 @@ def build_flat_stats(
     channel_names: list[str],
     *,
     dim_name: str,
+    float_type: str,
 ) -> xr.DataArray:
+    float_dtype = get_numpy_float_type(float_type)
     values = np.asarray(
         [stats[stats_var_name(name, stats)].squeeze().item() for name in channel_names],
-        dtype=np.float32,
+        dtype=float_dtype,
     )
     return xr.DataArray(
         values,
@@ -349,13 +372,19 @@ def estimate_output_size_bytes(
     x_size: int,
     prognostic_channels: int,
     boundary_channels: int,
+    float_type: str,
 ) -> int:
-    float32_size = 4
+    float_size_map = {
+        "float16": 2,
+        "float32": 4,
+        "float64": 8,
+    }
+    float_size = float_size_map[float_type]
     bool_size = 1
-    prognostic_bytes = n_time * prognostic_channels * y_size * x_size * float32_size
-    boundary_bytes = n_time * boundary_channels * y_size * x_size * float32_size
+    prognostic_bytes = n_time * prognostic_channels * y_size * x_size * float_size
+    boundary_bytes = n_time * boundary_channels * y_size * x_size * float_size
     stats_bytes = 2 * (
-        (prognostic_channels + boundary_channels) * float32_size
+        (prognostic_channels + boundary_channels) * float_size
     )  # mean + std
     mask_bytes = (
         prognostic_channels + boundary_channels
@@ -379,6 +408,7 @@ def build_training_ready_dataset(
         y_coords=y_coords,
         x_coords=x_coords,
         time_chunk=args.time_chunk,
+        float_type=args.float_type,
     )
     boundary = build_packed_data_array(
         data,
@@ -387,18 +417,31 @@ def build_training_ready_dataset(
         y_coords=y_coords,
         x_coords=x_coords,
         time_chunk=args.time_chunk,
+        float_type=args.float_type,
     )
     prognostic_mean = build_flat_stats(
-        means, DEFAULT_PROGNOSTIC_CHANNELS, dim_name="prognostic_channel"
+        means,
+        DEFAULT_PROGNOSTIC_CHANNELS,
+        dim_name="prognostic_channel",
+        float_type=args.float_type,
     )
     prognostic_std = build_flat_stats(
-        stds, DEFAULT_PROGNOSTIC_CHANNELS, dim_name="prognostic_channel"
+        stds,
+        DEFAULT_PROGNOSTIC_CHANNELS,
+        dim_name="prognostic_channel",
+        float_type=args.float_type,
     )
     boundary_mean = build_flat_stats(
-        means, DEFAULT_BOUNDARY_CHANNELS, dim_name="boundary_channel"
+        means,
+        DEFAULT_BOUNDARY_CHANNELS,
+        dim_name="boundary_channel",
+        float_type=args.float_type,
     )
     boundary_std = build_flat_stats(
-        stds, DEFAULT_BOUNDARY_CHANNELS, dim_name="boundary_channel"
+        stds,
+        DEFAULT_BOUNDARY_CHANNELS,
+        dim_name="boundary_channel",
+        float_type=args.float_type,
     )
     prognostic_mask, boundary_mask = build_flat_masks(
         data,
@@ -438,6 +481,7 @@ def build_training_ready_dataset(
             "train_time_count": train_count,
             "val_time_count": val_count,
             "time_chunk": args.time_chunk,
+            "float_type": args.float_type,
             "prognostic_channel_names_json": json.dumps(
                 DEFAULT_PROGNOSTIC_CHANNELS
             ),
@@ -451,6 +495,7 @@ def build_training_ready_dataset(
         x_size=int(ds_out.sizes["x"]),
         prognostic_channels=len(DEFAULT_PROGNOSTIC_CHANNELS),
         boundary_channels=len(DEFAULT_BOUNDARY_CHANNELS),
+        float_type=args.float_type,
     )
     logger.info(
         "Selected %d train times + %d val times = %d total times",
@@ -464,6 +509,7 @@ def build_training_ready_dataset(
         tuple(int(ds_out.sizes[d]) for d in ("time", "boundary_channel", "y", "x")),
         total_bytes / (1024**3),
     )
+    logger.info("Using float type: %s", args.float_type)
     return ds_out
 
 
@@ -512,6 +558,8 @@ def main() -> None:
         raise ValueError("i-end must be greater than i-start")
     if args.j_end <= args.j_start:
         raise ValueError("j-end must be greater than j-start")
+    if args.float_type not in SUPPORTED_FLOAT_TYPES:
+        raise ValueError(f"float-type must be one of {SUPPORTED_FLOAT_TYPES}")
 
     output_path = build_output_path(args)
     tmp_path = output_path.with_name(f"{output_path.name}.tmp")

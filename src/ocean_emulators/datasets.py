@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+import os
 import time
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
@@ -30,7 +31,9 @@ from ocean_emulators.utils.logging import elapsed
 
 from numcodecs import blosc
 blosc.use_threads = True
-blosc.set_nthreads(1)
+blosc.set_nthreads(
+    max(1, int(os.environ.get("OCEAN_BLOSC_THREADS", min(4, os.cpu_count() or 1))))
+)
 
 
 logger = logging.getLogger(__name__)
@@ -74,7 +77,10 @@ def _dataset_to_numpy(selected: xr.Dataset, leading_dims: tuple[str, ...]) -> np
             array = data_array.transpose(*leading_dims, *spatial_dims).to_numpy()
             array = np.expand_dims(array, axis=len(leading_dims))
 
-        arrays.append(array.astype(np.float32, copy=False))
+        array = np.asarray(array)
+        if not np.issubdtype(array.dtype, np.floating) or array.dtype.itemsize > 4:
+            array = array.astype(np.float32, copy=False)
+        arrays.append(array)
 
     if not arrays:
         raise ValueError("Dataset did not contain any compatible time-varying data variables.")
@@ -686,26 +692,24 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         lead_step: int,
     ) -> RawReplayTransition:
         x_index = self._get_x_index(source_index, lead_step)
-        current_x_index = x_index.isel(time=slice(0, self.hist + 1))
-        t = int(x_index.values[self.hist + 1])
-        target_selected = self._prognostic_src.data.isel(time=t) 
-        boundary_selected = self._boundary_src.data.isel(time=current_x_index)
+        values = x_index.values
+        t_cur = int(values[self.hist])
+        t_tgt = int(values[self.hist + 1])
 
-        if self._executor is not None:
-            concurrent_compute(
-                target_selected, boundary_selected, executor=self._executor
-            )
+        # Basic indexing keeps a length-1 time dim and avoids vectorized/fancy isel.
+        target_selected = self._prognostic_src.data.isel(time=slice(t_tgt, t_tgt + 1))
+        boundary_selected = self._boundary_src.data.isel(time=slice(t_cur, t_cur + 1))
 
         target_prognostic = self._dataset_to_tensor(target_selected)
         boundary = self._dataset_to_tensor(boundary_selected)
-        values = x_index.values
+
         return RawReplayTransition(
             dataset_id=self.id,
             dataset_index=dataset_index,
             source_index=source_index,
             lead_step=lead_step,
-            current_time_index=int(values[self.hist]),
-            target_time_index=int(values[self.hist + 1]),
+            current_time_index=t_cur,
+            target_time_index=t_tgt,
             target_prognostic=target_prognostic,
             boundary=boundary,
         )
@@ -718,21 +722,20 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         lead_step: int,
     ) -> RawReplayTransition:
         x_index = self._get_x_index(source_index, lead_step)
-        current_x_index = x_index.isel(time=slice(0, self.hist + 1))
-        seed_selected = self._prognostic_src.data.isel(time=current_x_index)
-
-        if self._executor is not None:
-            concurrent_compute(seed_selected, executor=self._executor)
+        values = x_index.values
+        t_cur = int(values[self.hist])
+        t_tgt = int(values[self.hist + 1])
+        # Basic indexing keeps a length-1 time dim and avoids vectorized/fancy isel.
+        seed_selected = self._prognostic_src.data.isel(time=slice(t_cur, t_cur + 1))
 
         seed_prognostic = self._dataset_to_tensor(seed_selected)
-        values = x_index.values
         return RawReplayTransition(
             dataset_id=self.id,
             dataset_index=dataset_index,
             source_index=source_index,
             lead_step=lead_step,
-            current_time_index=int(values[self.hist]),
-            target_time_index=int(values[self.hist + 1]),
+            current_time_index=t_cur,
+            target_time_index=t_tgt,
             seed_prognostic=seed_prognostic,
         )
 
@@ -830,7 +833,9 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             boundary_all[:, : self.hist + 1, :, :, :],
         )
         # grab future steps, repeat as we do for input
-        label = self._prep_tensor_steps(prognostic_all[:, self.hist + 1 :, :, :, :])
+        label = self._prep_tensor_steps(
+            prognostic_all[:, self.hist + 1 :, :, :, :]
+        ).to(dtype=torch.float32)
         return total_input, label
 
     def _prep_tensor_steps(

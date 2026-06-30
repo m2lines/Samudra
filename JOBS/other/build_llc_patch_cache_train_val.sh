@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
 #SBATCH -w node4006
-#SBATCH --job-name=2026-05-5-llc_patch_cache-face1-i1440-2160-j720-1440_trainval_ready
+#SBATCH --job-name=2026-06-29-llc_patch_cache-face1-i2880-3600-j720-1440_trainval_ready--bfloat16-compressed
 #SBATCH -N 1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
@@ -30,18 +30,26 @@ export NUMEXPR_NUM_THREADS="${NUMEXPR_NUM_THREADS:-1}"
 SOURCE_ZARR="${SOURCE_ZARR:-/orcd/data/abodner/003/LLC4320/LLC4320}"
 MEANS_ZARR="${MEANS_ZARR:-/orcd/data/abodner/002/cody/LLC_means_stds/var_96_LLC_means.zarr}"
 STDS_ZARR="${STDS_ZARR:-/orcd/data/abodner/002/cody/LLC_means_stds/var_96_LLC_stds.zarr}"
-OUTPUT_ROOT="${OUTPUT_ROOT:-/orcd/data/abodner/002/cody/LLC_patch}"
+OUTPUT_ROOT="${OUTPUT_ROOT:-/orcd/data/abodner/002/cody/LLC_patch}" # save to storage
+#OUTPUT_ROOT="${OUTPUT_ROOT:-/orcd/scratch/codycruz/LLC_patch}" # save to scratch
 
 LLC_FACE="${LLC_FACE:-1}"
-LLC_I_START="${LLC_I_START:-1440}"
-LLC_I_END="${LLC_I_END:-2160}"
+LLC_I_START="${LLC_I_START:-2880}"
+LLC_I_END="${LLC_I_END:-3600}"
 LLC_J_START="${LLC_J_START:-720}"
 LLC_J_END="${LLC_J_END:-1440}"
 
 TRAIN_START="${TRAIN_START:-2011-09-13}"
 TRAIN_END="${TRAIN_END:-2012-09-13}"
 VAL_START="${VAL_START:-2012-09-14}"
-VAL_END="${VAL_END:-2012-10-01}"
+VAL_END="${VAL_END:-2012-10-14}"
+
+# TRAIN_START="${TRAIN_START:-2011-09-13}"
+# TRAIN_END="${TRAIN_END:-2011-09-20}"
+# VAL_START="${VAL_START:-2011-09-20}"
+# VAL_END="${VAL_END:-2011-09-27}"
+
+FLOAT_TYPE="${FLOAT_TYPE:-float16}"
 
 TIME_CHUNK="${TIME_CHUNK:-1}"
 TRAIN_START_TAG="${TRAIN_START//-/}"
@@ -83,6 +91,7 @@ ARGS=(
   --train-end "${TRAIN_END}"
   --val-start "${VAL_START}"
   --val-end "${VAL_END}"
+  --float-type "${FLOAT_TYPE}"
   --time-chunk "${TIME_CHUNK}"
 )
 
@@ -108,4 +117,4 @@ if [[ "${QUEUE_TRAIN_AFTER_BUILD}" == "true" ]]; then
   echo "queued dependent train job: ${train_submit_output}"
 fi
 
-"${PYTHON_BIN}" scripts/build_llc_patch_cache_uncompressed_train_val.py "${ARGS[@]}"
+"${PYTHON_BIN}" scripts/build_llc_patch_cache_compressed_train_val.py "${ARGS[@]}"

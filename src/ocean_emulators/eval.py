@@ -7,7 +7,7 @@ import torch
 
 from ocean_emulators.aggregator import Aggregator
 from ocean_emulators.backend import init_eval_backend
-from ocean_emulators.config import EvalConfig
+from ocean_emulators.config import EvalAblationConfig, EvalConfig
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
     PROGNOSTIC_VARS,
@@ -18,6 +18,7 @@ from ocean_emulators.constants import (
     construct_metadata,
 )
 from ocean_emulators.datasets import InferenceDataset
+from ocean_emulators.models.modules import ConvNeXtBlock, UNetBackbone
 from ocean_emulators.stepper import Stepper
 from ocean_emulators.utils.data import (
     Normalize,
@@ -34,6 +35,25 @@ from ocean_emulators.utils.logging import (
 from ocean_emulators.utils.wandb import WandBLogger
 
 logger = logging.getLogger(__name__)
+
+
+def parse_skip_indices(raw_indices: str) -> set[int]:
+    if raw_indices.strip() == "":
+        return set()
+
+    indices: set[int] = set()
+    for raw_index in raw_indices.split(","):
+        raw_index = raw_index.strip()
+        if raw_index == "":
+            continue
+        try:
+            indices.add(int(raw_index))
+        except ValueError as error:
+            raise ValueError(
+                "ablation.unet_skip_indices must be a comma-separated list of "
+                f"integers; got `{raw_indices}`."
+            ) from error
+    return indices
 
 
 class Eval:
@@ -126,6 +146,7 @@ class Eval:
                 "ckpt_path must be set; try --ckpt_path=path/to/checkpoint"
             )
         self.load_checkpoint(cfg.ckpt_path)
+        self.apply_ablation(cfg.ablation)
 
         self.network = self.model.__class__.__name__
 
@@ -162,6 +183,39 @@ class Eval:
             name = k.removeprefix("module.")
             new_state_dict[name] = v
         self.model.load_state_dict(new_state_dict)
+
+    def apply_ablation(self, cfg: EvalAblationConfig) -> None:
+        skip_indices = parse_skip_indices(cfg.unet_skip_indices)
+        unet_count = 0
+        convnext_count = 0
+
+        for module in self.model.modules():
+            if isinstance(module, UNetBackbone):
+                module.configure_ablation(
+                    disable_middle_block=cfg.disable_unet_middle_block,
+                    skip_mode=cfg.unet_skip_mode,
+                    skip_indices=skip_indices,
+                )
+                unet_count += 1
+            if isinstance(module, ConvNeXtBlock):
+                module.disable_residual = cfg.disable_convnext_block_residuals
+                convnext_count += 1
+
+        logger.info(
+            "Eval ablation: disable_unet_middle_block=%s, "
+            "unet_skip_mode=%s, unet_skip_indices=%s, "
+            "disable_convnext_block_residuals=%s",
+            cfg.disable_unet_middle_block,
+            cfg.unet_skip_mode,
+            sorted(skip_indices),
+            cfg.disable_convnext_block_residuals,
+        )
+        logger.info(
+            "Applied ablation settings to %s UNetBackbone module(s) and "
+            "%s ConvNeXtBlock module(s).",
+            unet_count,
+            convnext_count,
+        )
 
     def init_inference_store(self):
         sliced_src = self.src.slice(self.inference_time)

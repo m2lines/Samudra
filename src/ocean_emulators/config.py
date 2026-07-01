@@ -1167,6 +1167,40 @@ class TrainConfig(TopLevelConfig):
 
 # See backend.py for how these are turned into concrete devices
 EvalBackendConfig = Literal["cpu", "cuda", "auto"]
+UNetSkipAblationMode = Literal["keep", "drop_all", "drop_indices", "keep_indices"]
+
+
+class EvalAblationConfig(BaseConfig):
+    disable_unet_middle_block: bool = Field(
+        default=False,
+        description=(
+            "Bypass the U-Net middle CoreBlock during eval. The middle block has "
+            "matching input/output shape, so this is a shape-preserving ablation."
+        ),
+    )
+    unet_skip_mode: UNetSkipAblationMode = Field(
+        default="keep",
+        description=(
+            "How to ablate U-Net skip additions. `keep` uses all skips, "
+            "`drop_all` removes all skips, `drop_indices` removes only listed "
+            "skip indices, and `keep_indices` uses only listed skip indices."
+        ),
+    )
+    unet_skip_indices: str = Field(
+        default="",
+        description=(
+            "Comma-separated U-Net skip indices for drop_indices/keep_indices. "
+            "Index 0 is the shallowest/highest-resolution skip; larger indices "
+            "move deeper/lower-resolution."
+        ),
+    )
+    disable_convnext_block_residuals: bool = Field(
+        default=False,
+        description=(
+            "Disable the additive skip/projection path inside ConvNeXt CoreBlocks "
+            "during eval."
+        ),
+    )
 
 
 class EvalConfig(TopLevelConfig):
@@ -1185,6 +1219,7 @@ class EvalConfig(TopLevelConfig):
     inference_time: TimeConfig = TimeConfig(
         start=JulianDate("0311-01-01"), end=JulianDate("0351-01-01")
     )
+    ablation: EvalAblationConfig = EvalAblationConfig()
     experiment: ExperimentConfig
     data: DataConfig
     model: AnyModelConfig = SamudraConfig()

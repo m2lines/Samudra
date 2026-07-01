@@ -264,6 +264,7 @@ class ConvNeXtBlock(CoreBlock):
         )
         self.convblock = torch.nn.Sequential(*convblock)
         self.checkpoint_simple = checkpoint_simple
+        self.disable_residual = False
 
     @staticmethod
     def _build_norm_layer(
@@ -290,7 +291,7 @@ class ConvNeXtBlock(CoreBlock):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # return self.skip_module(x) + self.convblock(x)
-        skip = self.skip_module(x)
+        skip = None if self.disable_residual else self.skip_module(x)
         for layer in self.convblock:
             if isinstance(layer, nn.Conv2d) and layer.kernel_size[0] != 1:
                 x = apply_spatial_pad(x, self.N_pad, self.pad)
@@ -298,6 +299,9 @@ class ConvNeXtBlock(CoreBlock):
                 x = torch.utils.checkpoint.checkpoint(layer, x, use_reentrant=False)
             else:
                 x = layer(x)
+        if self.disable_residual:
+            return x
+        assert skip is not None
         return skip + x
 
 

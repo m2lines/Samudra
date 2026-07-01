@@ -64,6 +64,9 @@ class UNetBackbone(nn.Module):
         dilation = dilation.copy()
         n_layers = n_layers.copy()
         self.pad = pad
+        self.disable_middle_block = False
+        self.unet_skip_mode = "keep"
+        self.unet_skip_indices: set[int] = set()
 
         match checkpointing:
             case "all":
@@ -96,6 +99,7 @@ class UNetBackbone(nn.Module):
             layers.append(downsampling_block)
 
         # Middle block
+        self.middle_layer_index = len(layers)
         layers.append(
             create_block(
                 in_channels=b,
@@ -147,18 +151,60 @@ class UNetBackbone(nn.Module):
         self.layers = nn.ModuleList(layers)
         self.num_steps = int(len(ch_width) - 1)
 
+    def configure_ablation(
+        self,
+        disable_middle_block: bool = False,
+        skip_mode: str = "keep",
+        skip_indices: set[int] | None = None,
+    ) -> None:
+        valid_skip_modes = {"keep", "drop_all", "drop_indices", "keep_indices"}
+        if skip_mode not in valid_skip_modes:
+            raise ValueError(
+                f"Unknown UNet skip ablation mode `{skip_mode}`. "
+                f"Expected one of {sorted(valid_skip_modes)}."
+            )
+
+        skip_indices = skip_indices or set()
+        invalid_indices = sorted(
+            index for index in skip_indices if index < 0 or index >= self.num_steps
+        )
+        if invalid_indices:
+            raise ValueError(
+                "UNet skip ablation indices must be between 0 and "
+                f"{self.num_steps - 1}; got {invalid_indices}."
+            )
+
+        self.disable_middle_block = disable_middle_block
+        self.unet_skip_mode = skip_mode
+        self.unet_skip_indices = skip_indices
+
+    def _uses_skip_connection(self, skip_index: int) -> bool:
+        match self.unet_skip_mode:
+            case "keep":
+                return True
+            case "drop_all":
+                return False
+            case "drop_indices":
+                return skip_index not in self.unet_skip_indices
+            case "keep_indices":
+                return skip_index in self.unet_skip_indices
+            case _:
+                raise RuntimeError(f"Unhandled UNet skip mode {self.unet_skip_mode}")
+
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
         skip_inputs: list[torch.Tensor] = []
         for i in range(self.num_steps):
             skip_inputs.append(torch.zeros_like(fts))
         count = 0
-        for layer in self.layers:
+        for layer_index, layer in enumerate(self.layers):
             # Circular/Globe padding
             if isinstance(layer, nn.Conv2d):
                 fts = apply_spatial_pad(fts, self.N_pad, self.pad)
 
             # (Maybe) apply checkpointing
-            if self.checkpoint_all:
+            if self.disable_middle_block and layer_index == self.middle_layer_index:
+                pass
+            elif self.checkpoint_all:
                 fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False)  # type: ignore
             else:
                 fts = layer(fts)
@@ -174,10 +220,9 @@ class UNetBackbone(nn.Module):
                     or isinstance(layer, TransposedConvUpsample)
                     or isinstance(layer, ZonallyPeriodicBilinearUpsample)
                 ):
+                    skip_index = int(2 * self.num_steps - count - 1)
                     crop = np.array(fts.shape[2:])
-                    shape = np.array(
-                        skip_inputs[int(2 * self.num_steps - count - 1)].shape[2:]
-                    )
+                    shape = np.array(skip_inputs[skip_index].shape[2:])
                     pads = shape - crop
                     pads = [
                         pads[1] // 2,
@@ -186,7 +231,8 @@ class UNetBackbone(nn.Module):
                         pads[0] - pads[0] // 2,
                     ]
                     fts = nn.functional.pad(fts, pads)
-                    fts += skip_inputs[int(2 * self.num_steps - count - 1)]
+                    if self._uses_skip_connection(skip_index):
+                        fts += skip_inputs[skip_index]
                     count += 1
 
         return fts

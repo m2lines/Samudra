@@ -2,14 +2,14 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-06-30:samudra_llc:rb-Agulhas-strides=1-pred_resid-2
+#SBATCH --job-name=2026-06-30:samudra_llc:rb-double_Agulhas-testing
 #SBATCH -x node4100,node3401
 #SBATCH -N 1
 #SBATCH --mem=254GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
 #SBATCH -G h200:1
-#SBATCH --time=48:00:00
+#SBATCH --time=1:00:00
 #SBATCH --signal=B:USR1@300
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
@@ -42,7 +42,7 @@ export TORCH_FR_BUFFER_SIZE="${TORCH_FR_BUFFER_SIZE:-1048576}"
 export NCCL_DEBUG=INFO
 
 # PROFILING
-NSYS_ENABLE="${NSYS_ENABLE:-false}"
+NSYS_ENABLE="${NSYS_ENABLE:-true}"
 export NSYS_ARGS="${NSYS_ARGS:---trace=cuda,nvtx,osrt --sample=cpu --delay=360 --duration=600 --force-overwrite=true}"
 NSYS_OUTPUT_DIR="/orcd/home/002/codycruz/Ocean_Emulator/logs/nsys"
 mkdir -p "${NSYS_OUTPUT_DIR}"
@@ -75,8 +75,8 @@ fi
 
 # GPUS / DATA WORKERS
 GPUS="${GPUS:-1}"
-DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-6}"
-DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-6}"
+DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-4}"
+DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-4}"
 BLOSC_THREADS="${BLOSC_THREADS:-1}"
 export OCEAN_BLOSC_THREADS="${OCEAN_BLOSC_THREADS:-${BLOSC_THREADS}}"
 SURFACE_SNAPSHOT="${SURFACE_SNAPSHOT:-true}"
@@ -98,7 +98,7 @@ DDP_MAX_DATA_WORKERS_PER_RANK="${DDP_MAX_DATA_WORKERS_PER_RANK:-12}"
 
 # DATA
 LLC_FACE="${LLC_FACE:-1}"
-LLC_I_START="${LLC_I_START:-2880}"
+LLC_I_START="${LLC_I_START:-2160}"
 LLC_I_END="${LLC_I_END:-3600}"
 LLC_J_START="${LLC_J_START:-720}"
 LLC_J_END="${LLC_J_END:-1440}"
@@ -109,7 +109,7 @@ TEMPORAL_STRIDE_TRANSITION="${TEMPORAL_STRIDE_TRANSITION:-[]}"
 HIST="${HIST:-0}"
 
 # CHECKPOINTING / RESUME
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-06-30:samudra_llc:rb-Agulhas-strides=1-pred_resid-16875995/saved_nets/.LOCAL/2026-06-30:samudra_llc:rb-Agulhas-strides=1-pred_resid-16875995/saved_nets/ckpt_emergency.pt}"
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-}"
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
@@ -239,7 +239,7 @@ trap 'forward_signal INT' INT
 
 "${PROFILER_CMD[@]}" "${PYTHON_BIN}" -m torch.distributed.run \
   --standalone --nnodes=1 --nproc_per_node="${GPUS}" \
-  -m ocean_emulators.train configs/samudra_llc/train_replay.yaml \
+  -m ocean_emulators.train configs/samudra_llc/train_replay_testing.yaml \
   --save_freq "${SAVE_FREQ}" \
   --epochs "${EPOCHS}" \
   --emergency_checkpoint_interval_minutes "${EMERGENCY_CHECKPOINT_INTERVAL_MINUTES}" \

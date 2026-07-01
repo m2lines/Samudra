@@ -1,16 +1,15 @@
 #!/bin/bash
-#SBATCH -p mit_normal_gpu
-#SBATCH --job-name=2026-07-01-eval:Samudra_LLC:rb-Agulhas-strides=1-pred_field-ckpt-6
-#SBATCH --account=mit_amf_advanced_gpu
-#SBATCH --qos=mit_amf_advanced_gpu
+#SBATCH -p pi_abodner
+#SBATCH --job-name=2026-07-01-eval:Samudra_LLC:ablation
 #SBATCH -N 1
 #SBATCH --mem=100GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
 #SBATCH --gres=gpu:1
-#SBATCH --time=00-03:00:00
+#SBATCH --time=00-06:00:00
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
+
 set -euo pipefail
 
 module load miniforge/24.3.0-0
@@ -29,18 +28,34 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
-CKPT_PATH="${CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-06-30:samudra_llc:rb-Agulhas-strides=1-pred_field-16875998/saved_nets/ckpt.pt}"
+CKPT_PATH="${CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-06-05:samudra_llc:B-6-15508055/saved_nets/ckpt_38.pt}"
+
+# Runtime ablation controls. These do not modify the checkpoint.
+# ABLATION_UNET_SKIP_MODE: keep, drop_all, drop_indices, keep_indices.
+# ABLATION_UNET_SKIP_INDICES uses comma-separated indices; 0 is the
+# shallowest/highest-resolution U-Net skip and larger values are deeper.
+ABLATE_UNET_MIDDLE_BLOCK="${ABLATE_UNET_MIDDLE_BLOCK:-false}"
+ABLATION_UNET_SKIP_MODE="${ABLATION_UNET_SKIP_MODE:-keep}"
+ABLATION_UNET_SKIP_INDICES="${ABLATION_UNET_SKIP_INDICES:-}"
+ABLATE_CONVNEXT_BLOCK_RESIDUALS="${ABLATE_CONVNEXT_BLOCK_RESIDUALS:-false}"
+
+ABLATION_UNET_SKIP_INDICES_TAG="${ABLATION_UNET_SKIP_INDICES//,/+}"
+ABLATION_TAG="${ABLATION_TAG:-mid-${ABLATE_UNET_MIDDLE_BLOCK}_skip-${ABLATION_UNET_SKIP_MODE}${ABLATION_UNET_SKIP_INDICES_TAG:+-${ABLATION_UNET_SKIP_INDICES_TAG}}_convnextres-${ABLATE_CONVNEXT_BLOCK_RESIDUALS}}"
+
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}"
+if [[ -n "${ABLATION_TAG}" && "${ABLATION_TAG}" != "none" ]]; then
+  EXPERIMENT_NAME="${EXPERIMENT_NAME}-${ABLATION_TAG}"
+fi
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-/orcd/data/abodner/002/cody/inference_patch}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 
 INFER_START="${INFER_START:-2012-10-14}"
-INFER_END="${INFER_END:-2012-10-16}"
-INFERENCE_STRIDE="${INFERENCE_STRIDE:-1}"
+INFER_END="${INFER_END:-2012-10-19}"
+INFERENCE_STRIDE="${INFERENCE_STRIDE:-3}"
 NUM_MODEL_STEPS_FORWARD="${NUM_MODEL_STEPS_FORWARD:-4}"
 MODEL_NORM="${MODEL_NORM:-group}"
 GROUP_NORM_GROUPS="${GROUP_NORM_GROUPS:-32}"
-PRED_RESIDUALS="${PRED_RESIDUALS:-false}"
+PRED_RESIDUALS="${PRED_RESIDUALS:-true}"
 MODEL_PAD="${MODEL_PAD:-constant}"
 NUM_HALO="${NUM_HALO:-4}"
 NUM_SPONGE="${NUM_SPONGE:-12}"
@@ -48,21 +63,26 @@ NUM_SPONGE="${NUM_SPONGE:-12}"
 DATA_ROOT="${DATA_ROOT:-/orcd/data/abodner/}"
 DATA_LOCATION="${DATA_LOCATION:-/orcd/data/abodner/003/LLC4320/LLC4320}"
 LLC_FACE="${LLC_FACE:-1}"
-LLC_I_START="${LLC_I_START:-2880}" # 1440  2880
-LLC_I_END="${LLC_I_END:-3600}" #2160   3600
+LLC_I_START="${LLC_I_START:-2880}" # 1440
+LLC_I_END="${LLC_I_END:-3600}" #2160
 LLC_J_START="${LLC_J_START:-720}" # 1440
 LLC_J_END="${LLC_J_END:-1440}" # 2160
-
 
 RAW_PRED_ZARR="${RAW_PRED_ZARR:-${BASE_OUTPUT_DIR}/${EXPERIMENT_NAME}/predictions.zarr}"
 TARGET_ZARR="${TARGET_ZARR:-${BASE_OUTPUT_DIR}/${EXPERIMENT_NAME}/predictions_4d.zarr}"
 REPACK_OVERWRITE="${REPACK_OVERWRITE:-false}"
 
-echo "======== evaluating epoch-1 checkpoint on October 2012 ========"
+echo "======== evaluating checkpoint with runtime ablations ========"
 echo "checkpoint: ${CKPT_PATH}"
+echo "experiment: ${EXPERIMENT_NAME}"
 echo "inference window: ${INFER_START} -> ${INFER_END}"
 echo "inference_stride: ${INFERENCE_STRIDE}"
 echo "num_model_steps_forward: ${NUM_MODEL_STEPS_FORWARD}"
+echo "ablation tag: ${ABLATION_TAG}"
+echo "disable U-Net middle block: ${ABLATE_UNET_MIDDLE_BLOCK}"
+echo "U-Net skip mode: ${ABLATION_UNET_SKIP_MODE}"
+echo "U-Net skip indices: ${ABLATION_UNET_SKIP_INDICES}"
+echo "disable ConvNeXt block residuals: ${ABLATE_CONVNEXT_BLOCK_RESIDUALS}"
 if [[ -n "${MODEL_NORM}" ]]; then
   echo "model norm override: ${MODEL_NORM} (group_norm_groups=${GROUP_NORM_GROUPS})"
 fi
@@ -99,6 +119,13 @@ if [[ -n "${PRED_RESIDUALS}" ]]; then
   MODEL_ARGS+=(--model.pred_residuals "${PRED_RESIDUALS}")
 fi
 
+ABLATION_ARGS=(
+  --ablation.disable_unet_middle_block "${ABLATE_UNET_MIDDLE_BLOCK}"
+  --ablation.unet_skip_mode "${ABLATION_UNET_SKIP_MODE}"
+  --ablation.unet_skip_indices "${ABLATION_UNET_SKIP_INDICES}"
+  --ablation.disable_convnext_block_residuals "${ABLATE_CONVNEXT_BLOCK_RESIDUALS}"
+)
+
 "${PYTHON_BIN}" -m ocean_emulators.eval configs/samudra_llc/eval.yaml \
   --backend cuda \
   --save_zarr true \
@@ -115,6 +142,7 @@ fi
   --experiment.boundary_vars_key all \
   --data.data_location "${DATA_LOCATION}" \
   "${MODEL_ARGS[@]}" \
+  "${ABLATION_ARGS[@]}" \
   --data.llc_face "${LLC_FACE}" \
   --data.llc_i_start "${LLC_I_START}" \
   --data.llc_i_end "${LLC_I_END}" \

@@ -2,14 +2,14 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-06-30:samudra_llc:rb-1-TIMING-15-QUAD-AGULHAS
+#SBATCH --job-name=2026-07-01:samudra_llc:rb-1-TIMING-15-QUARTER-of-FACE
 #SBATCH -x node4100,node3401
 #SBATCH -N 1
 #SBATCH --mem=254GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
 #SBATCH -G h200:1
-#SBATCH --time=1:30:00
+#SBATCH --time=10:30:00
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 
@@ -46,21 +46,21 @@ echo "Using PYTHON_BIN=${PYTHON_BIN}"
   || { echo "ERROR: venv torch import failed; check environment." >&2; exit 1; }
 
 # ---- timing knobs ----
-READ_ITERS="${READ_ITERS:-60}"
-GPU_ITERS="${GPU_ITERS:-60}"
-STEP_ITERS="${STEP_ITERS:-200}"
-WARMUP="${WARMUP:-8}"
+READ_ITERS="${READ_ITERS:-8}"
+GPU_ITERS="${GPU_ITERS:-8}"
+STEP_ITERS="${STEP_ITERS:-30}"
+WARMUP="${WARMUP:-2}"
 CADENCE="${CADENCE:-50}"
-READ_THREADS="${READ_THREADS:-1,2,4,6,8,10}"
+READ_THREADS="${READ_THREADS:-1,2,4,6}"
 
 # ---- data location (match your training run) ----
-BATCH_SIZE="${BATCH_SIZE:-2}"
+BATCH_SIZE="${BATCH_SIZE:-1}"
 GRADIENT_ACCUMULATION_STEPS="${GRADIENT_ACCUMULATION_STEPS:-2}"
 LLC_FACE="${LLC_FACE:-1}"
-LLC_I_START="${LLC_I_START:-2160}"
-LLC_I_END="${LLC_I_END:-3600}"
+LLC_I_START="${LLC_I_START:-0}"
+LLC_I_END="${LLC_I_END:-2160}"
 LLC_J_START="${LLC_J_START:-0}"
-LLC_J_END="${LLC_J_END:-1440}"
+LLC_J_END="${LLC_J_END:-2160}"
 DATA_STRIDE="${DATA_STRIDE:-[1]}"
 TEMPORAL_STRIDE="${TEMPORAL_STRIDE:-1}"
 HIST="${HIST:-0}"
@@ -72,7 +72,7 @@ PIN_MEM="${PIN_MEM:-true}"
 
 # ---- replay knobs (must be self-consistent for buffer init) ----
 REPLAY_ENABLED="${REPLAY_ENABLED:-true}"
-REPLAY_BUFFER_SIZE="${REPLAY_BUFFER_SIZE:-32}"
+REPLAY_BUFFER_SIZE="${REPLAY_BUFFER_SIZE:-16}"
 REPLAY_REFRESH_EVERY_N_MICROBATCHES="${REPLAY_REFRESH_EVERY_N_MICROBATCHES:-8}"
 REPLAY_STEPS_PER_EPOCH="${REPLAY_STEPS_PER_EPOCH:-4204}"
 REPLAY_MAX_LEAD_STEPS="${REPLAY_MAX_LEAD_STEPS:-[4, 5, 6, 7, 8, 9, 10, 11, 12, 13]}"
@@ -86,7 +86,7 @@ echo "workers=${DATA_NUM_WORKERS} prefetch=${DATA_PREFETCH_FACTOR} blosc_threads
 
 "${PYTHON_BIN}" -m torch.distributed.run \
   --standalone --nnodes=1 --nproc_per_node=1 \
-  scripts/measure_replay_timing.py configs/samudra_llc/train_replay_testing.yaml \
+  scripts/measure_replay_timing.py configs/samudra_llc/train_replay_testing_2.yaml \
   --read-iters "${READ_ITERS}" \
   --gpu-iters "${GPU_ITERS}" \
   --step-iters "${STEP_ITERS}" \

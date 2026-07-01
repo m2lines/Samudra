@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-07-01-eval:Samudra_LLC:ablation
+#SBATCH --job-name=2026-07-01-eval:Samudra_LLC:ablation-skip-all
 #SBATCH -N 1
 #SBATCH --mem=100GB
 #SBATCH --ntasks=1
@@ -28,14 +28,14 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
-CKPT_PATH="${CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-06-05:samudra_llc:B-6-15508055/saved_nets/ckpt_38.pt}"
+CKPT_PATH="${CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/loss_exps/2026-06-18:samudra_llc:A-13-16056860/saved_nets/ckpt_72.pt}"
 
 # Runtime ablation controls. These do not modify the checkpoint.
 # ABLATION_UNET_SKIP_MODE: keep, drop_all, drop_indices, keep_indices.
 # ABLATION_UNET_SKIP_INDICES uses comma-separated indices; 0 is the
 # shallowest/highest-resolution U-Net skip and larger values are deeper.
 ABLATE_UNET_MIDDLE_BLOCK="${ABLATE_UNET_MIDDLE_BLOCK:-false}"
-ABLATION_UNET_SKIP_MODE="${ABLATION_UNET_SKIP_MODE:-keep}"
+ABLATION_UNET_SKIP_MODE="${ABLATION_UNET_SKIP_MODE:-drop_all}"
 ABLATION_UNET_SKIP_INDICES="${ABLATION_UNET_SKIP_INDICES:-}"
 ABLATE_CONVNEXT_BLOCK_RESIDUALS="${ABLATE_CONVNEXT_BLOCK_RESIDUALS:-false}"
 
@@ -46,11 +46,11 @@ EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}"
 if [[ -n "${ABLATION_TAG}" && "${ABLATION_TAG}" != "none" ]]; then
   EXPERIMENT_NAME="${EXPERIMENT_NAME}-${ABLATION_TAG}"
 fi
-BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-/orcd/data/abodner/002/cody/inference_patch}"
+BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-/orcd/data/abodner/002/cody/inference_patch/curriculum/ablations}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 
 INFER_START="${INFER_START:-2012-10-14}"
-INFER_END="${INFER_END:-2012-10-19}"
+INFER_END="${INFER_END:-2012-10-20}"
 INFERENCE_STRIDE="${INFERENCE_STRIDE:-3}"
 NUM_MODEL_STEPS_FORWARD="${NUM_MODEL_STEPS_FORWARD:-4}"
 MODEL_NORM="${MODEL_NORM:-group}"

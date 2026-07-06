@@ -8,9 +8,9 @@ import numpy as np
 import torch
 import xarray as xr
 
-from ocean_emulators.constants import TensorMap, build_om4_spec
-from ocean_emulators.utils.data import Normalize
-from ocean_emulators.utils.writer import ZarrWriter
+from samudra.constants import TensorMap, build_om4_spec
+from samudra.utils.data import Normalize
+from samudra.utils.writer import ZarrWriter
 from tests.conftest import TEST_FULL_DATASET_SPEC
 
 # write() never touches normalization (record_batch does), so these tests drive

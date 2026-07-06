@@ -2,14 +2,14 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-06-30:samudra_llc:rb-1-TIMING-15-QUAD-AGULHAS
+#SBATCH --job-name=2026-07-03:samudra_llc:rb-1-TIMING-QUARTER-FACE_upscale_factor-1_ch(160,240,320,320)-5-retry
 #SBATCH -x node4100,node3401
 #SBATCH -N 1
 #SBATCH --mem=254GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
 #SBATCH -G h200:1
-#SBATCH --time=1:30:00
+#SBATCH --time=18:30:00
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 
@@ -46,21 +46,21 @@ echo "Using PYTHON_BIN=${PYTHON_BIN}"
   || { echo "ERROR: venv torch import failed; check environment." >&2; exit 1; }
 
 # ---- timing knobs ----
-READ_ITERS="${READ_ITERS:-60}"
-GPU_ITERS="${GPU_ITERS:-60}"
+READ_ITERS="${READ_ITERS:-10}"
+GPU_ITERS="${GPU_ITERS:-10}"
 STEP_ITERS="${STEP_ITERS:-200}"
-WARMUP="${WARMUP:-8}"
+WARMUP="${WARMUP:-3}"
 CADENCE="${CADENCE:-50}"
-READ_THREADS="${READ_THREADS:-1,2,4,6,8,10}"
+READ_THREADS="${READ_THREADS:-1,2,4,6}"
 
 # ---- data location (match your training run) ----
 BATCH_SIZE="${BATCH_SIZE:-2}"
 GRADIENT_ACCUMULATION_STEPS="${GRADIENT_ACCUMULATION_STEPS:-2}"
 LLC_FACE="${LLC_FACE:-1}"
-LLC_I_START="${LLC_I_START:-2160}"
-LLC_I_END="${LLC_I_END:-3600}"
+LLC_I_START="${LLC_I_START:-0}"
+LLC_I_END="${LLC_I_END:-2160}"
 LLC_J_START="${LLC_J_START:-0}"
-LLC_J_END="${LLC_J_END:-1440}"
+LLC_J_END="${LLC_J_END:-2160}"
 DATA_STRIDE="${DATA_STRIDE:-[1]}"
 TEMPORAL_STRIDE="${TEMPORAL_STRIDE:-1}"
 HIST="${HIST:-0}"
@@ -74,7 +74,7 @@ PIN_MEM="${PIN_MEM:-true}"
 REPLAY_ENABLED="${REPLAY_ENABLED:-true}"
 REPLAY_BUFFER_SIZE="${REPLAY_BUFFER_SIZE:-32}"
 REPLAY_REFRESH_EVERY_N_MICROBATCHES="${REPLAY_REFRESH_EVERY_N_MICROBATCHES:-8}"
-REPLAY_STEPS_PER_EPOCH="${REPLAY_STEPS_PER_EPOCH:-4204}"
+REPLAY_STEPS_PER_EPOCH="${REPLAY_STEPS_PER_EPOCH:-8760}"
 REPLAY_MAX_LEAD_STEPS="${REPLAY_MAX_LEAD_STEPS:-[4, 5, 6, 7, 8, 9, 10, 11, 12, 13]}"
 REPLAY_MAX_LEAD_TRANSITION="${REPLAY_MAX_LEAD_TRANSITION:-[6, 11, 16, 21, 26, 31, 36, 41, 46]}"
 

@@ -73,5 +73,5 @@ experiment:
   prognostic_vars_key: all
   boundary_vars_key: all
 
-data: !include ../data/llc_normal.yaml
-model: !include model_replay.yaml
+data: !include ../data/llc_quad_agulhas.yaml
+model: !include model_replay_ch_width_reduced.yaml

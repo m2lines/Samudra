@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-07-01-eval:Samudra_LLC:ablation-skip-all
+#SBATCH --job-name=2026-07-01-eval:Samudra_LLC:ablation-skip-(0)
 #SBATCH -N 1
 #SBATCH --mem=100GB
 #SBATCH --ntasks=1
@@ -32,11 +32,17 @@ CKPT_PATH="${CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/loss
 
 # Runtime ablation controls. These do not modify the checkpoint.
 # ABLATION_UNET_SKIP_MODE: keep, drop_all, drop_indices, keep_indices.
-# ABLATION_UNET_SKIP_INDICES uses comma-separated indices; 0 is the
-# shallowest/highest-resolution U-Net skip and larger values are deeper.
+#
+# Current Samudra LLC U-Net skip indices:
+#   0 = shallowest / highest-resolution skip
+#   1 = second shallowest
+#   2 = second deepest
+#   3 = deepest / lowest-resolution skip
+#
+# ABLATION_UNET_SKIP_INDICES uses comma-separated indices.
 ABLATE_UNET_MIDDLE_BLOCK="${ABLATE_UNET_MIDDLE_BLOCK:-false}"
-ABLATION_UNET_SKIP_MODE="${ABLATION_UNET_SKIP_MODE:-drop_all}"
-ABLATION_UNET_SKIP_INDICES="${ABLATION_UNET_SKIP_INDICES:-}"
+ABLATION_UNET_SKIP_MODE="${ABLATION_UNET_SKIP_MODE:-drop_indices}"
+ABLATION_UNET_SKIP_INDICES="${ABLATION_UNET_SKIP_INDICES:-0}"
 ABLATE_CONVNEXT_BLOCK_RESIDUALS="${ABLATE_CONVNEXT_BLOCK_RESIDUALS:-false}"
 
 ABLATION_UNET_SKIP_INDICES_TAG="${ABLATION_UNET_SKIP_INDICES//,/+}"

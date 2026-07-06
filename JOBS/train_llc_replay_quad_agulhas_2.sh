@@ -2,7 +2,7 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-07-04:samudra_llc:rb-Agulhas-strides=1-pred_field-3
+#SBATCH --job-name=2026-07-04:samudra_llc:rb-1-quad-Agulhas_reduced_ch-width-1
 #SBATCH -x node4100,node3401
 #SBATCH -N 1
 #SBATCH --mem=254GB
@@ -89,7 +89,7 @@ CONCURRENT_COMPUTE="${CONCURRENT_COMPUTE:-false}"
 PAD="${PAD:-constant}"
 NUM_HALO="${NUM_HALO:-4}"
 NUM_SPONGE="${NUM_SPONGE:-12}"
-PRED_RESIDUALS="${PRED_RESIDUALS:-false}"
+PRED_RESIDUALS="${PRED_RESIDUALS:-true}"
 
 # DDP
 DDP_BROADCAST_BUFFERS="${DDP_BROADCAST_BUFFERS:-false}"
@@ -99,8 +99,8 @@ DDP_MAX_DATA_WORKERS_PER_RANK="${DDP_MAX_DATA_WORKERS_PER_RANK:-12}"
 # DATA
 LLC_FACE="${LLC_FACE:-1}"
 LLC_I_START="${LLC_I_START:-2880}"
-LLC_I_END="${LLC_I_END:-3600}"
-LLC_J_START="${LLC_J_START:-720}"
+LLC_I_END="${LLC_I_END:-4320}"
+LLC_J_START="${LLC_J_START:-0}"
 LLC_J_END="${LLC_J_END:-1440}"
 DATA_LOCATION_OVERRIDE="${DATA_LOCATION_OVERRIDE:-}"
 DATA_STRIDE="${DATA_STRIDE:-[1]}"
@@ -109,7 +109,7 @@ TEMPORAL_STRIDE_TRANSITION="${TEMPORAL_STRIDE_TRANSITION:-[]}"
 HIST="${HIST:-0}"
 
 # CHECKPOINTING / RESUME
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-07-03:samudra_llc:rb-Agulhas-strides=1-pred_field-2-17083354/saved_nets/ckpt.pt}"
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-}"
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
@@ -118,7 +118,7 @@ RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-}"
 EPOCHS="${EPOCHS:-50}"
-SAVE_FREQ="${SAVE_FREQ:-5}"
+SAVE_FREQ="${SAVE_FREQ:-6}"
 EMERGENCY_CHECKPOINT_INTERVAL_MINUTES="${EMERGENCY_CHECKPOINT_INTERVAL_MINUTES:-30}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 
@@ -239,7 +239,7 @@ trap 'forward_signal INT' INT
 
 "${PROFILER_CMD[@]}" "${PYTHON_BIN}" -m torch.distributed.run \
   --standalone --nnodes=1 --nproc_per_node="${GPUS}" \
-  -m ocean_emulators.train configs/samudra_llc/train_replay.yaml \
+  -m ocean_emulators.train configs/samudra_llc/train_replay_ch_width_reduced.yaml \
   --save_freq "${SAVE_FREQ}" \
   --epochs "${EPOCHS}" \
   --emergency_checkpoint_interval_minutes "${EMERGENCY_CHECKPOINT_INTERVAL_MINUTES}" \

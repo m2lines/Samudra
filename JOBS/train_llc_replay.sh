@@ -2,7 +2,7 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-06-30:samudra_llc:rb-Agulhas-strides=1-pred_resid-2
+#SBATCH --job-name=2026-07-04:samudra_llc:rb-Agulhas-strides=1-pred_resid-3
 #SBATCH -x node4100,node3401
 #SBATCH -N 1
 #SBATCH --mem=254GB
@@ -109,7 +109,7 @@ TEMPORAL_STRIDE_TRANSITION="${TEMPORAL_STRIDE_TRANSITION:-[]}"
 HIST="${HIST:-0}"
 
 # CHECKPOINTING / RESUME
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-06-30:samudra_llc:rb-Agulhas-strides=1-pred_resid-16875995/saved_nets/.LOCAL/2026-06-30:samudra_llc:rb-Agulhas-strides=1-pred_resid-16875995/saved_nets/ckpt_emergency.pt}"
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-07-03:samudra_llc:rb-Agulhas-strides=1-pred_resid-2-17083344/saved_nets/ckpt_10.pt}"
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"

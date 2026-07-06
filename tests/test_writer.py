@@ -19,7 +19,7 @@ _NO_NORMALIZE = cast(Normalize, None)
 
 
 def _source_coords(ny, nx):
-    """Coords as `get_coords_dict` returns them after backfill: 1D lat/lon dims,
+    """Coords as `get_coords_dict` should be returned: 1D lat/lon dims,
     plus the grid metadata that survives `with_lat_lon_coords` (areacello, dz,
     lev, ocean_fraction)."""
     spec = TEST_FULL_DATASET_SPEC
@@ -42,13 +42,7 @@ def _source_coords(ny, nx):
 
 
 def test_writer_output_is_analysis_ready(tmp_path):
-    """The eval writer emits depth-stacked vars on y/x dims with grid metadata.
-
-    Covers the three usability fixes from issue #508 at once: levels are
-    reassembled into a `lev` dimension (#1), horizontal dims are `y`/`x` to match
-    the ground truth (#2), and grid coords are propagated (#3). Each channel is
-    filled with its own index so a mis-placed level would be caught.
-    """
+    """The eval writer emits depth-stacked vars on y/x dims with grid metadata."""
     spec = TEST_FULL_DATASET_SPEC
     tensor_map = TensorMap(dataset_spec=spec)
     names = list(tensor_map.prognostic_var_names)

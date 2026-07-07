@@ -26,28 +26,35 @@ inference_time:
 num_model_steps_forward: 25
 
 experiment:
-  name: samudra_multi_om4_eval
+  name: kr1_samudra_multi_multiscale_halfdeg_eval
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:
-    mode: disabled
+    mode: online
     project: default
+    entity: ocean_emulators
+    group: kr1_multiscale_eval
+    tags:
+      - kr1
+      - eval
+      - halfdeg
+      - multiscale
+      - samudra-multi
 
 data:
   dataset:
     type: om4
     prognostic_vars_key: thermo_dynamic_all
-    boundary_vars_key: tau_hfds_hfds_anom
+    boundary_vars_key: tau_hfds
   static_data_vars: []
   concurrent_compute: true
   sources:
-    # First source is used for inference. Reorder to eval a different scale.
-    - data_location: om4_onedeg_v3/OM4.zarr
-      data_means_location: om4_onedeg_v3/OM4_means.zarr
-      data_stds_location: om4_onedeg_v3/OM4_stds.zarr
     - data_location: om4_halfdeg_v4/OM4.zarr
       data_means_location: om4_halfdeg_v4/OM4_means.zarr
       data_stds_location: om4_halfdeg_v4/OM4_stds.zarr
+    - data_location: om4_onedeg_v3/OM4.zarr
+      data_means_location: om4_onedeg_v3/OM4_means.zarr
+      data_stds_location: om4_onedeg_v3/OM4_stds.zarr
     - data_location: om4_quarterdeg_v2/OM4.zarr
       data_means_location: om4_quarterdeg_v2/OM4_means.zarr
       data_stds_location: om4_quarterdeg_v2/OM4_stds.zarr

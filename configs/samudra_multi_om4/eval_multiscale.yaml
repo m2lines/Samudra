@@ -26,20 +26,12 @@ inference_time:
 num_model_steps_forward: 25
 
 experiment:
-  name: kr1_samudra_multi_multiscale_halfdeg_eval
+  name: samudra_multi_om4_eval
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:
-    mode: online
+    mode: disabled
     project: default
-    entity: ocean_emulators
-    group: kr1_multiscale_eval
-    tags:
-      - kr1
-      - eval
-      - halfdeg
-      - multiscale
-      - samudra-multi
 
 data:
   dataset:

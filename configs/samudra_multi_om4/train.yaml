@@ -9,7 +9,7 @@ disk_mode: true
 pin_mem: true
 save_freq: 5
 epochs: 70
-batch_size: 1
+batch_size: 2
 learning_rate: 0.0006
 scheduler: { type: cosine }
 loss:
@@ -35,7 +35,7 @@ inference_times:
   - start: "2004-10-05"
     end: "2005-10-05" # "2014-10-05"
 data_stride: [1]
-steps: [2]
+steps: [4]
 step_transition: []
 preemptible: false
 

@@ -18,7 +18,6 @@ loss:
 finetune: false
 resume_ckpt_path: null
 inference_epochs: []
-data_percent: 1.0
 train_time:
   start: "1975-01-03"
   end: "2013-10-05"

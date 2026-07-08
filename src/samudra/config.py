@@ -1135,7 +1135,6 @@ class TrainConfig(TopLevelConfig):
     profiler: ProfilerConfig = ProfilerConfig()
 
     # Data parameters at root level
-    data_percent: float = 1.0
     data_stride: list[int] = [1]
     steps: list[int] = [4]
     step_transition: list[int] = []

@@ -90,7 +90,7 @@ RUN . .venv/bin/activate \
         --no-install-package nvidia-cusparselt-cu13 \
         --no-install-package nvidia-nccl-cu13 \
         --no-install-package nvidia-nvjitlink \
-        --no-install-package nvidia-nvshmem \
+        --no-install-package nvidia-nvshmem-cu13 \
         --no-install-package nvidia-nvtx \
         --no-install-package triton
 

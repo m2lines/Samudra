@@ -10,7 +10,7 @@ set -euo pipefail
 PYTEST_MARK_EXPR="${PYTEST_MARK_EXPR:-cuda and not manual}"
 PYTEST_ARGS="${PYTEST_ARGS:--x}"
 IMAGE_TAG="${IMAGE_TAG:-}"
-DOCKER_REPO="${DOCKER_REPO:-ghcr.io/Open-Athena}"
+DOCKER_REPO="${DOCKER_REPO:-ghcr.io/m2lines}"
 
 if [[ "$(uname -m)" != "aarch64" ]]; then
   echo "This scrub must run on an ARM64/aarch64 host; got $(uname -m)." >&2

@@ -17,7 +17,7 @@ uv run -m samudra.train configs/samudra_om4/train.yaml
 The samudra-multi model supports multi-scale training across different resolutions:
 
 ```bash
-uv run -m samudra.train configs/samudra_multi_om4/train_multiscale.yaml
+uv run -m samudra.train configs/samudra_multi_om4/train.yaml
 ```
 
 ### Data Paths

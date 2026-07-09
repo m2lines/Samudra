@@ -13,7 +13,6 @@
 #
 # Full run, 36 GPUs on 9 hosts:
 #   sbatch --account=YOUR_ACCOUNT --partition=beta --qos=standard \
-#     --requeue --signal=B:SIGTERM@900 \
 #     --nodes=9 --gres=gpu:4 --time=12:00:00 \
 #     scripts/empireai_nvl72_train.sbatch
 #
@@ -81,18 +80,6 @@ if [[ -z "${WANDB_MODE:-}" ]]; then
   fi
 fi
 
-if [[ -n "${GHCR_USERNAME:-}" && -n "${GHCR_TOKEN:-}" ]]; then
-  export ENROOT_CONFIG_PATH="${ENROOT_CONFIG_PATH:-${HOME}/.config/enroot}"
-  mkdir -p "${ENROOT_CONFIG_PATH}"
-  chmod 700 "${ENROOT_CONFIG_PATH}"
-  credentials_file="${ENROOT_CONFIG_PATH}/.credentials"
-  if [[ ! -f "${credentials_file}" ]] || ! grep -q '^machine ghcr.io ' "${credentials_file}"; then
-    umask 077
-    printf 'machine ghcr.io login %s password %s\n' \
-      "${GHCR_USERNAME}" "${GHCR_TOKEN}" >> "${credentials_file}"
-  fi
-fi
-
 gpus_on_node="${GPUS_PER_NODE:-${SLURM_GPUS_ON_NODE:-}}"
 if [[ -z "${gpus_on_node}" ]]; then
   gpus_on_node="$(scontrol show job "${SLURM_JOB_ID}" | sed -n 's/.*gres:gpu:\\([0-9][0-9]*\\).*/\\1/p' | head -n 1)"
@@ -128,11 +115,11 @@ export MELLANOX_VISIBLE_DEVICES="${MELLANOX_VISIBLE_DEVICES:-all}"
 export TORCH_NCCL_ASYNC_ERROR_HANDLING="${TORCH_NCCL_ASYNC_ERROR_HANDLING:-1}"
 
 if [[ -z "${NAME:-}" ]]; then
-  run_kind="full"
+  run_kind=""
   if [[ "${SMOKE}" == "1" ]]; then
-    run_kind="smoke"
+    run_kind="-smoke"
   fi
-  NAME="$(date +%Y-%m-%d-%H%M%S)-empireai-halfdeg-${run_kind}"
+  NAME="$(date +%Y-%m-%d-%H%M%S)-empireai${run_kind}"
 fi
 RUN_DIR="${OUTPUT_BASE}/${NAME}"
 if [[ -e "${RUN_DIR}" ]]; then
@@ -172,8 +159,6 @@ if [[ "${SMOKE}" == "1" ]]; then
     "--val_time.start=2013-10-05"
     "--val_time.end=2013-11-05"
   )
-else
-  train_args+=("--preemptible=true")
 fi
 
 if [[ -n "${EXTRA_ARGS}" ]]; then

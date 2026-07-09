@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783616226057,
+  "lastUpdate": 1783616227801,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -20243,6 +20243,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.07653423299981617",
             "extra": "mean: 20.444336830199994 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "454fc3fdb1b934c2ea67357e69e3fefa8390c1ec",
+          "message": "Update GHCR image org to m2lines (#785)\n\nFix out-of-date image reference.",
+          "timestamp": "2026-07-09T12:43:06-04:00",
+          "tree_id": "4428906f9f306f0714bc4bad3c4edf27e9ef6f01",
+          "url": "https://github.com/m2lines/Samudra/commit/454fc3fdb1b934c2ea67357e69e3fefa8390c1ec"
+        },
+        "date": 1783616227514,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0860338290506244,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00306030789066403",
+            "extra": "mean: 920.7816306000041 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.17203097636828213,
+            "unit": "iter/sec",
+            "range": "stddev: 0.018963188234383553",
+            "extra": "mean: 5.812906611999983 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.04982962456081851,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10780409778088679",
+            "extra": "mean: 20.068383191999988 sec\nrounds: 5"
           }
         ]
       }

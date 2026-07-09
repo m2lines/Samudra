@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783606993002,
+  "lastUpdate": 1783616226057,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -10072,6 +10072,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.18265137968025907",
             "extra": "mean: 28.352875805399982 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "454fc3fdb1b934c2ea67357e69e3fefa8390c1ec",
+          "message": "Update GHCR image org to m2lines (#785)\n\nFix out-of-date image reference.",
+          "timestamp": "2026-07-09T12:43:06-04:00",
+          "tree_id": "4428906f9f306f0714bc4bad3c4edf27e9ef6f01",
+          "url": "https://github.com/m2lines/Samudra/commit/454fc3fdb1b934c2ea67357e69e3fefa8390c1ec"
+        },
+        "date": 1783616225130,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0980163834216596,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0009995456494523987",
+            "extra": "mean: 910.7332231999862 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1698148264946591,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07607227252687711",
+            "extra": "mean: 5.888767315800021 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.03553149538595768,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08985603378495094",
+            "extra": "mean: 28.144044857599987 sec\nrounds: 5"
           }
         ]
       }

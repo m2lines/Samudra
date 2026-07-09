@@ -467,9 +467,8 @@ class PerceiverConfig(BaseConfig):
                 raise _flash_import_error() from e
             from einops.layers.torch import Rearrange
 
-            # Flash perceiver expects (batch, seq_len, dim) and only adds rotary
-            # positions on its latents — it has no built-in intra-patch
-            # positional signal on the input. Naive Perceiver handles
+            # Flash perceiver expects (batch, seq_len, dim), and has no built-in
+            # intra-patch positional signal on the input. Naive Perceiver handles
             # (batch, ph, pw, dim) and adds 2D Fourier features via
             # `input_axis=2, fourier_encode_data=True`. Prepend an explicit
             # FourierFeatures2D so flash matches naive on intra-patch position.
@@ -478,7 +477,6 @@ class PerceiverConfig(BaseConfig):
                 FourierFeatures2D(num_freq_bands=num_freq_bands, max_freq=max_freq),
                 Rearrange("b ph pw v -> b (ph pw) v"),
                 FlashPerceiver(
-                    latent_rotary_emb_dim=max_freq,
                     depth=self.depth,
                     input_dim=in_channels + fourier_dim,
                     output_dim=out_channels,

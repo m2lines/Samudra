@@ -78,8 +78,7 @@ class FourierFeatures2D(nn.Module):
     Mirrors the `fourier_encode_data=True, input_axis=2` behavior of
     perceiver-pytorch's Perceiver, so that the flash and naive perceiver
     paths encode intra-patch position equivalently. Without this, the flash
-    perceiver only sees rotary positions on its latents and has no
-    intra-patch positional signal on the input tokens.
+    perceiver has no intra-patch positional signal on the input tokens.
 
     Frequency layout matches `perceiver_pytorch.fourier_encode`: scales are
     `linspace(1., max_freq / 2, num_freq_bands)`, applied to positions

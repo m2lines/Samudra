@@ -141,7 +141,11 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
     assert source.dataset_spec.type == "llc"
     assert "Theta_0" in source.data.variables
     assert "wetmask_0" in source.data.variables
+    assert "mask_w" not in source.data.variables
+    assert "rAw" not in source.data.variables
     assert "face" not in source.data.dims
+    assert "i_g" not in source.data.dims
+    assert "j_g" not in source.data.dims
     assert source.data["Theta_0"].shape == (3, 2, 3)
     assert isinstance(source.data.time.values[0], cftime.DatetimeJulian)
 

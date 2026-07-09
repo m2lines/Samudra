@@ -284,6 +284,51 @@ def test_canonicalize_llc_datasets_standardizes_layout():
     assert "Theta_lev_0" not in llc_stds.variables
 
 
+def test_canonicalize_llc_datasets_ignores_unrequested_staggered_root_vars():
+    data, means, stds = raw_llc_datasets()
+
+    llc_data, _, _ = canonicalize_llc_datasets(
+        data,
+        means,
+        stds,
+        face=1,
+        i_start=1,
+        i_end=4,
+        j_start=1,
+        j_end=3,
+        dataset_spec=build_llc_spec(),
+    )
+
+    unrequested_staggered_vars = {
+        "SIuice",
+        "SIvice",
+        "XG",
+        "YG",
+        "dxC",
+        "dxG",
+        "dxV",
+        "dyC",
+        "dyG",
+        "dyU",
+        "hFacS",
+        "hFacW",
+        "mask_s",
+        "mask_w",
+        "rAs",
+        "rAw",
+        "rAz",
+    }
+    assert not unrequested_staggered_vars.intersection(llc_data.variables)
+    assert "i_g" not in llc_data.dims
+    assert "j_g" not in llc_data.dims
+    llc_spec = build_llc_spec()
+    assert set(llc_data.data_vars) == {
+        *(f"Theta_{i}" for i in llc_spec.depth_i_levels),
+        "oceQnet",
+        *llc_spec.mask_vars,
+    }
+
+
 @pytest.fixture
 def data_init(hist: int):
     levels = 19

@@ -36,6 +36,9 @@ def raw_llc_datasets(n_time: int = 3) -> tuple[xr.Dataset, xr.Dataset, xr.Datase
     )
     mask = np.ones((n_face, n_lev, n_j, n_i), dtype=bool)
     mask[:, :, 0, 0] = False
+    grid = np.arange(n_face * n_j * n_i, dtype=np.float32).reshape(
+        n_face, n_j, n_i
+    )
 
     data = xr.Dataset(
         {
@@ -48,8 +51,26 @@ def raw_llc_datasets(n_time: int = 3) -> tuple[xr.Dataset, xr.Dataset, xr.Datase
             "oceTAUX": (["time", "face", "j", "i_g"], surface + 600_000),
             "oceTAUY": (["time", "face", "j_g", "i"], surface + 700_000),
             "mask_c": (["face", "k", "j", "i"], mask),
+            # The real LLC root includes many grid/static variables that are not
+            # part of the configured training variables. These should not force
+            # canonicalization to resolve every staggered layout in the store.
+            "SIuice": (["time", "face", "j", "i_g"], surface + 800_000),
+            "SIvice": (["time", "face", "j_g", "i"], surface + 900_000),
+            "XG": (["face", "j_g", "i_g"], grid),
+            "YG": (["face", "j_g", "i_g"], grid + 1_000),
+            "dxC": (["face", "j", "i_g"], grid + 2_000),
+            "dxG": (["face", "j_g", "i"], grid + 3_000),
+            "dxV": (["face", "j_g", "i"], grid + 4_000),
+            "dyC": (["face", "j_g", "i"], grid + 5_000),
+            "dyG": (["face", "j", "i_g"], grid + 6_000),
+            "dyU": (["face", "j", "i_g"], grid + 7_000),
+            "hFacS": (["face", "k", "j_g", "i"], mask),
+            "hFacW": (["face", "k", "j", "i_g"], mask),
+            "mask_s": (["face", "k", "j_g", "i"], mask),
             "mask_w": (["face", "k", "j", "i_g"], mask),
+            "rAs": (["face", "j_g", "i"], grid + 8_000),
             "rAw": (["face", "j", "i_g"], mask[:, 0]),
+            "rAz": (["face", "j_g", "i_g"], grid + 9_000),
         },
         coords={
             "time": times,

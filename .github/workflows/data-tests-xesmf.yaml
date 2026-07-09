@@ -35,7 +35,7 @@ jobs:
           cache-downloads: true
           micromamba-version: 'latest'
           create-args: >-
-            python=${{ matrix.python-version }} xesmf
+            python=${{ matrix.python-version }} xesmf esmf=*=nompi_*
       - name: 🌈 Install ocean_preprocessing package
         shell: bash -l {0}
         run: |

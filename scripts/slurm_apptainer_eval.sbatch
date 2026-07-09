@@ -15,7 +15,7 @@
 #   sbatch --gres=gpu:rtx6000:1 scripts/slurm_apptainer_eval.sbatch
 #
 # Container selection (pick one):
-#   export IMAGE_REF=ghcr.io/open-athena/ocean-emulator-physicsnemo:25.11-<hash>
+#   export IMAGE_REF=ghcr.io/m2lines/ocean-emulator-physicsnemo:25.11-<hash>
 #   export CONTAINER_HASH=<git sha>   # expands to 25.11-<sha>
 #   export CONTAINER_TAG=25.11-latest
 #
@@ -138,7 +138,7 @@ fi
 
 # Container selection (same conventions as scripts/slurm_apptainer_train.sbatch).
 CONTAINER_REGISTRY="${CONTAINER_REGISTRY:-ghcr.io}"
-CONTAINER_ORG="${CONTAINER_ORG:-open-athena}"
+CONTAINER_ORG="${CONTAINER_ORG:-m2lines}"
 CONTAINER_REPO="${CONTAINER_REPO:-ocean-emulator-physicsnemo}"
 CONTAINER_HASH="${CONTAINER_HASH:-}"
 CONTAINER_TAG="${CONTAINER_TAG:-}"

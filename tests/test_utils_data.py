@@ -249,6 +249,7 @@ def test_convert_llc_time_coord_to_julian_handles_datetime64_values():
 
 def test_canonicalize_llc_datasets_standardizes_layout():
     data, means, stds = raw_llc_datasets()
+    dataset_spec = build_llc_spec(prognostic_vars_key="all", boundary_vars_key="all")
     expected_theta_0 = data["Theta"].isel(time=0, face=1, k=0, j=1, i=1).item()
 
     llc_data, llc_means, llc_stds = canonicalize_llc_datasets(
@@ -260,7 +261,7 @@ def test_canonicalize_llc_datasets_standardizes_layout():
         i_end=4,
         j_start=1,
         j_end=3,
-        dataset_spec=build_llc_spec(),
+        dataset_spec=dataset_spec,
     )
 
     assert "face" not in llc_data.dims

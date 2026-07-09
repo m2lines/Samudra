@@ -48,6 +48,8 @@ def raw_llc_datasets(n_time: int = 3) -> tuple[xr.Dataset, xr.Dataset, xr.Datase
             "oceTAUX": (["time", "face", "j", "i_g"], surface + 600_000),
             "oceTAUY": (["time", "face", "j_g", "i"], surface + 700_000),
             "mask_c": (["face", "k", "j", "i"], mask),
+            "mask_w": (["face", "k", "j", "i_g"], mask),
+            "rAw": (["face", "j", "i_g"], mask[:, 0]),
         },
         coords={
             "time": times,

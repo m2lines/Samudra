@@ -371,6 +371,21 @@ def canonicalize_llc_datasets(
     """Standardize raw LLC inputs to the common non-compact loader layout."""
     data_copy = data.copy()
 
+    requested_data_vars = {
+        var_name.rsplit("_", maxsplit=1)[0]
+        if var_name.rsplit("_", maxsplit=1)[-1].isdigit()
+        else var_name
+        for var_name in (
+            dataset_spec.prognostic_var_names + dataset_spec.boundary_var_names
+        )
+    }
+    requested_data_vars.update(
+        [dataset_spec.mask_all_levels_var, "mask_c", *dataset_spec.mask_vars]
+    )
+    data_copy = data_copy[
+        [name for name in data_copy.data_vars if name in requested_data_vars]
+    ]
+
     if "face" in data_copy.dims or "face" in data_copy.coords:
         data_copy = data_copy.sel(face=face, drop=True)
 

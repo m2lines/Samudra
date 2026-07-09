@@ -22,6 +22,7 @@ jobs:
   ec2:
     uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
     with:
+      action_ref: codex/update-gha-runner
       ec2_instance_type: g6.xlarge
       ec2_image_id: ami-0365bff494b18bf93 # Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.7 (Ubuntu 22.04) in oa-ci-dev
       ec2_root_device_size: 200 # leaves headroom for benchmarking I/O; instance runs out of disk otherwise

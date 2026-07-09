@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1782431139225,
+  "lastUpdate": 1783606984947,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -10029,6 +10029,49 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.12497993716421636",
             "extra": "mean: 28.408230012599983 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Jesse Rusak",
+            "username": "jder",
+            "email": "jesse@openathena.ai"
+          },
+          "committer": {
+            "name": "Jesse Rusak",
+            "username": "jder",
+            "email": "jesse@openathena.ai"
+          },
+          "id": "a9a4081bf804cafe54cb96a350689618637be759",
+          "message": "Test benchmark runner update",
+          "timestamp": "2026-07-09T14:07:34Z",
+          "url": "https://github.com/m2lines/Samudra/commit/a9a4081bf804cafe54cb96a350689618637be759"
+        },
+        "date": 1783606984016,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0898632507622268,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0026246153079393045",
+            "extra": "mean: 917.5463061999949 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.1698039845677172,
+            "unit": "iter/sec",
+            "range": "stddev: 0.015851107869068227",
+            "extra": "mean: 5.889143311599992 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.035269790862256865,
+            "unit": "iter/sec",
+            "range": "stddev: 0.18265137968025907",
+            "extra": "mean: 28.352875805399982 sec\nrounds: 5"
           }
         ]
       }

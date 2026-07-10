@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783651035474,
+  "lastUpdate": 1783651043273,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -20331,6 +20331,49 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.10780409778088679",
             "extra": "mean: 20.068383191999988 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "name": "Ryan Williams",
+            "username": "ryan-williams",
+            "email": "ryan.williams@openathena.ai"
+          },
+          "committer": {
+            "name": "Ryan Williams",
+            "username": "ryan-williams",
+            "email": "ryan.williams@openathena.ai"
+          },
+          "id": "5ce0a33561de18bc670a558555999827b5a1c339",
+          "message": "[throwaway] Pin ec2-gha to gha-runner upstream+OA merge for Benchmark proof\n\nPoints `action_ref` at Open-Athena/ec2-gha@7bf6754 (rw/gha-runner-merge-test),\nwhich pins gha_runner to Open-Athena/gha-runner@1c40af9 = omsf/gha-runner@8fbdacf\nmerged with the two OA-fork patches. Proves the merged runner works end-to-end\nbefore landing on Open-Athena/ec2-gha#6. Do not merge.\n\nCo-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-07-10T02:22:51Z",
+          "url": "https://github.com/m2lines/Samudra/commit/5ce0a33561de18bc670a558555999827b5a1c339"
+        },
+        "date": 1783651043018,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.100707218168521,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002046314850025895",
+            "extra": "mean: 908.5068068000055 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.17465030760921368,
+            "unit": "iter/sec",
+            "range": "stddev: 0.021165474557837294",
+            "extra": "mean: 5.72572710399993 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.05025655954247405,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04550832088723402",
+            "extra": "mean: 19.897900077199985 sec\nrounds: 5"
           }
         ]
       }

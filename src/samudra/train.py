@@ -25,6 +25,7 @@ from torch.utils.data import (
     DataLoader,
     DistributedSampler,
     RandomSampler,
+    Sampler,
 )
 
 from samudra import config
@@ -99,6 +100,22 @@ def should_log_validation_images(epoch: int, frequency: int) -> bool:
             f"Validation image log frequency must be >= 1, got {frequency}"
         )
     return (epoch - 1) % frequency == 0
+
+
+class _OffsetBatchSampler(Sampler[list[int]]):
+    """Wrap a batch sampler and skip batches already completed in an epoch."""
+
+    def __init__(self, batch_sampler: Sampler[list[int]], start_batch: int):
+        self._batch_sampler = batch_sampler
+        self._start_batch = max(start_batch, 0)
+
+    def __iter__(self):
+        for batch_index, batch in enumerate(self._batch_sampler):
+            if batch_index >= self._start_batch:
+                yield batch
+
+    def __len__(self) -> int:
+        return max(len(self._batch_sampler) - self._start_batch, 0)  # type: ignore[arg-type]
 
 
 class Trainer:
@@ -256,9 +273,9 @@ class Trainer:
         # Check for preemption
         if cfg.preemptible:
             assert not cfg.finetune, "Finetune is not supported with preemptible"
-            preempted = os.path.isfile(self.ckpt_paths.latest_checkpoint_path)
-            if preempted:
-                cfg.resume_ckpt_path = str(self.ckpt_paths.latest_checkpoint_path)
+            resumable_checkpoint = self.ckpt_paths.latest_resumable_checkpoint_path()
+            if resumable_checkpoint is not None:
+                cfg.resume_ckpt_path = str(resumable_checkpoint)
 
         # Set up wandb run
         self.wandb_id, self.wandb_name = self.wandb_logger.setup_run(
@@ -284,6 +301,7 @@ class Trainer:
             )
 
         self.num_batches_seen = 0
+        self.start_batch_in_epoch = 0
         loaded_checkpoint = False
         if cfg.resume_ckpt_path is not None:
             if cfg.finetune:
@@ -341,6 +359,18 @@ class Trainer:
         self.normalize_before_mask: bool = cfg.data.normalize_before_mask
         self.normalize_fill_value: float = cfg.data.masked_fill_value
         self.delayed_loss_estimate: bool = cfg.delayed_loss_estimate
+        self.mid_train_checkpoint_interval_seconds = (
+            cfg.mid_train_checkpoint_interval_minutes * 60.0
+        )
+        self._next_mid_train_checkpoint_time: float | None = None
+        if self.mid_train_checkpoint_interval_seconds > 0:
+            self._next_mid_train_checkpoint_time = (
+                time.perf_counter() + self.mid_train_checkpoint_interval_seconds
+            )
+            logger.info(
+                "Mid-train checkpointing enabled: every %.1f minutes",
+                cfg.mid_train_checkpoint_interval_minutes,
+            )
 
         self.profiler = cfg.profiler.build(self.output_dir, self.device)
         self.validation_images_enabled = self._sync_flag_from_main(
@@ -441,7 +471,17 @@ class Trainer:
                 self.val_sampler.set_epoch(epoch)
 
             start_epoch_train_time = time.perf_counter()
-            train_stats = self.train_one_epoch(epoch)
+            start_batch_in_epoch = (
+                self.start_batch_in_epoch if epoch == self.start_epoch else 0
+            )
+            if start_batch_in_epoch > 0:
+                logger.info(
+                    "Resuming epoch %s from batch %s",
+                    epoch,
+                    start_batch_in_epoch,
+                )
+            train_stats = self.train_one_epoch(epoch, start_batch_in_epoch)
+            self.start_batch_in_epoch = 0
             end_epoch_train_time = time.perf_counter()
             val_stats = self.validate_one_epoch(epoch)
             end_epoch_val_time = time.perf_counter()
@@ -490,7 +530,7 @@ class Trainer:
         logger.info(f"Training time {total_time_str}")
         self.finish()
 
-    def train_one_epoch(self, epoch):
+    def train_one_epoch(self, epoch, start_batch_in_epoch: int = 0):
         self.model.train(True)
         train_aggregator = Aggregator.get_train_aggregator(self.tensor_map)
         metric_logger = MetricLogger(delimiter="  ")
@@ -498,6 +538,11 @@ class Trainer:
         header = f"Training Epoch: [{epoch}]"
 
         total_batches = len(self.train_loader)
+        train_loader = (
+            self._train_loader_with_batch_offset(start_batch_in_epoch)
+            if start_batch_in_epoch > 0
+            else self.train_loader
+        )
 
         # Ensure gradients are zeroed at the start of the epoch so we don't
         # accidentally accumulate leftovers from checkpoint/loading.
@@ -512,13 +557,20 @@ class Trainer:
         )
 
         for data_iter_step, data in enumerate(
-            metric_logger.log_every(self.train_loader, 1, header)
+            metric_logger.log_every(
+                train_loader,
+                1,
+                header,
+                start_index=start_batch_in_epoch,
+                total_steps=total_batches,
+            )
         ):
+            global_data_iter_step = start_batch_in_epoch + data_iter_step
             if self.debug and (data_iter_step + 1) % 5 == 0:
                 break
 
             in_final_cycle = (
-                data_iter_step + 1 > final_cycle_start
+                global_data_iter_step + 1 > final_cycle_start
             ) and remaining_batches > 0
 
             # Determine the actual number of microbatches in this accumulation cycle
@@ -540,8 +592,10 @@ class Trainer:
 
             self.num_batches_seen += 1
 
-            is_last = data_iter_step + 1 == total_batches
-            should_step = (data_iter_step + 1) % self.gradient_accumulation_steps == 0
+            is_last = global_data_iter_step + 1 == total_batches
+            should_step = (
+                global_data_iter_step + 1
+            ) % self.gradient_accumulation_steps == 0
             # Step optimizer after accumulating enough batches or at the end
             if should_step or is_last:
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
@@ -629,12 +683,40 @@ class Trainer:
             self._maybe_update_loss(TO, data)
 
             self.profiler.after_batch(self.num_batches_seen)
+            if should_step or is_last:
+                self._maybe_save_mid_train_checkpoint(
+                    epoch=epoch,
+                    batch_in_epoch=global_data_iter_step,
+                )
 
         if self.scheduler is not None:
             self.scheduler.step()
 
         logger.info(f"Aggregating train logs")
         return train_aggregator.get_logs()
+
+    def _train_loader_with_batch_offset(
+        self,
+        start_batch_in_epoch: int,
+    ) -> TrainDataLoader:
+        raw_loader = self.train_loader._dataloader
+        if raw_loader.batch_sampler is None:
+            raise RuntimeError("Cannot resume mid-epoch without a batch sampler.")
+
+        batch_sampler = _OffsetBatchSampler(
+            raw_loader.batch_sampler,
+            start_batch=start_batch_in_epoch,
+        )
+        dataloader = DataLoader(
+            raw_loader.dataset,
+            batch_sampler=batch_sampler,
+            num_workers=self.num_workers,
+            persistent_workers=self.persistent_workers and self.num_workers > 0,
+            pin_memory=self.pin_mem,
+            collate_fn=raw_loader.collate_fn,
+            multiprocessing_context=self.mp_context,
+        )
+        return TrainDataLoader(dataloader, self.train_loader.datasets, self.device)
 
     def _maybe_update_loss(self, output: TrainBatchOutput, data: TrainData):
         if (update := getattr(self.loss_fn, "update", None)) is None:
@@ -999,11 +1081,65 @@ class Trainer:
             for_inference=True,
         )
 
+    def _maybe_save_mid_train_checkpoint(
+        self,
+        epoch: int,
+        batch_in_epoch: int,
+    ) -> None:
+        if self._next_mid_train_checkpoint_time is None:
+            return
+
+        now = time.perf_counter()
+        if now < self._next_mid_train_checkpoint_time:
+            return
+
+        if is_main_process():
+            self.save_mid_train_checkpoint(
+                epoch=epoch,
+                batch_in_epoch=batch_in_epoch,
+                reason="periodic_interval",
+            )
+
+        while self._next_mid_train_checkpoint_time <= now:
+            self._next_mid_train_checkpoint_time += (
+                self.mid_train_checkpoint_interval_seconds
+            )
+
+    def save_mid_train_checkpoint(
+        self,
+        epoch: int,
+        batch_in_epoch: int,
+        reason: str = "periodic_interval",
+    ) -> Path | None:
+        checkpoint_path = self.ckpt_paths.latest_mid_train_checkpoint_path
+        try:
+            self.save_checkpoint(
+                epoch=epoch,
+                checkpoint_path=checkpoint_path,
+                batch_in_epoch=max(batch_in_epoch, -1),
+                epoch_complete=False,
+                save_reason=f"mid_train_{reason}",
+            )
+        except Exception:
+            logger.exception("Failed to save mid-train checkpoint to %s", checkpoint_path)
+            return None
+
+        logger.info(
+            "Saved mid-train checkpoint to %s after epoch %s batch %s",
+            checkpoint_path,
+            epoch,
+            batch_in_epoch,
+        )
+        return checkpoint_path
+
     def save_checkpoint(
         self,
         epoch: int,
         checkpoint_path: Path,
         for_inference: bool = False,
+        batch_in_epoch: int | None = None,
+        epoch_complete: bool = True,
+        save_reason: str | None = None,
     ):
         if for_inference:
             with self._ema_context():
@@ -1025,7 +1161,12 @@ class Trainer:
                 "num_batches_seen": self.num_batches_seen,
                 "wandb_id": self.wandb_id,
                 "wandb_name": self.wandb_name,
+                "epoch_complete": epoch_complete,
             }
+            if batch_in_epoch is not None:
+                checkpoint["batch_in_epoch"] = batch_in_epoch
+            if save_reason is not None:
+                checkpoint["save_reason"] = save_reason
             loss_state: dict[str, Any] | None = None
             if state_dict_fn := getattr(self.loss_fn, "state_dict", None):
                 loss_state = state_dict_fn()
@@ -1076,12 +1217,19 @@ class Trainer:
                 )
                 load_state_dict_fn(checkpoint["loss_fn_state"])
 
-            self.start_epoch = checkpoint["epoch"] + 1
+            epoch_complete = checkpoint.get("epoch_complete", True)
+            if epoch_complete:
+                self.start_epoch = checkpoint["epoch"] + 1
+                self.start_batch_in_epoch = 0
+            else:
+                self.start_epoch = checkpoint["epoch"]
+                self.start_batch_in_epoch = checkpoint.get("batch_in_epoch", -1) + 1
             self.wandb_id = checkpoint.get("wandb_id")
             self.wandb_name = checkpoint.get("wandb_name")
             self.num_batches_seen = checkpoint.get("num_batches_seen", 0)
 
             logger.info(f"Start Epoch: {self.start_epoch}")
+            logger.info(f"Start Batch In Epoch: {self.start_batch_in_epoch}")
             logger.info(f"Wandb id: {self.wandb_id}")
             logger.info(f"Wandb name: {self.wandb_name}")
             logger.info(f"Optimizer LR: {self.optimizer.param_groups[-1]['lr']}")

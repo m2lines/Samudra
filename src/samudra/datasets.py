@@ -732,5 +732,9 @@ class TrainDataLoader:
         return self._dataloader.dataset
 
     @property
+    def datasets(self) -> list[TorchTrainDataset]:
+        return list(self._datasets.values())
+
+    @property
     def sampler(self):
         return self._dataloader.sampler

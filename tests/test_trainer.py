@@ -143,6 +143,32 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
 
 
 @pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "test/train_default_2step.yaml")],
+    indirect=True,
+)
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+def test_checkpoint_incomplete_mid_train_resume_batch(trainer_pair: TrainPair, tmp_path):
+    _, trainer = trainer_pair
+
+    trainer.best_val_loss = 10
+    trainer.best_inf_loss = 10
+    checkpoint_path = tmp_path / "mid_train.pt"
+
+    trainer.save_checkpoint(
+        epoch=3,
+        checkpoint_path=checkpoint_path,
+        batch_in_epoch=5,
+        epoch_complete=False,
+        save_reason="mid_train_periodic_interval",
+    )
+    trainer.load_checkpoint(checkpoint_path)
+
+    assert trainer.start_epoch == 3
+    assert trainer.start_batch_in_epoch == 6
+
+
+@pytest.mark.parametrize(
     "data_source,config_name,extra_config_args",
     [
         (

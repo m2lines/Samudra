@@ -420,6 +420,7 @@ def test_replay_prefetch_pipeline_yields_prepared_batch():
         start_batch_in_epoch=0,
         total_batches=1,
         max_lead_steps=3,
+        refresh_every_n_microbatches=99,
     )
     iterator = iter(pipeline)
     prepared = next(iterator)
@@ -429,6 +430,21 @@ def test_replay_prefetch_pipeline_yields_prepared_batch():
 
     assert input.flatten().tolist() == [999.0, 1.0]
     assert label.flatten().tolist() == [30.0]
+
+
+def test_replay_refresh_schedule_resolves_by_epoch():
+    trainer = Trainer.__new__(Trainer)
+    trainer.start_epoch = 1
+    trainer.replay_cfg = SimpleNamespace(
+        refresh_every_n_microbatches=[4, 8, 16],
+        refresh_every_n_microbatches_transition=[3, 5],
+    )
+
+    assert trainer.get_current_replay_refresh_every_n_microbatches(1) == 4
+    assert trainer.get_current_replay_refresh_every_n_microbatches(2) == 4
+    assert trainer.get_current_replay_refresh_every_n_microbatches(3) == 8
+    assert trainer.get_current_replay_refresh_every_n_microbatches(4) == 8
+    assert trainer.get_current_replay_refresh_every_n_microbatches(5) == 16
 
 
 def test_predict_step_residual_uses_actual_replay_input_state():

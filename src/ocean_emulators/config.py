@@ -851,12 +851,18 @@ class ReplayConfig(BaseConfig):
         ge=1,
         description="Number of rank-local prognostic states kept in replay memory.",
     )
-    refresh_every_n_microbatches: int = Field(
+    refresh_every_n_microbatches: int | list[int] = Field(
         default=16,
-        ge=1,
         description=(
             "Refresh replay memory with fresh gold initial conditions every N "
-            "training microbatches."
+            "training microbatches. May be a scalar or an epoch curriculum list."
+        ),
+    )
+    refresh_every_n_microbatches_transition: list[int] = Field(
+        default=[],
+        description=(
+            "Epochs where refresh_every_n_microbatches advances to the next "
+            "curriculum value when refresh_every_n_microbatches is a list."
         ),
     )
     steps_per_epoch: int = Field(

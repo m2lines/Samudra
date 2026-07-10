@@ -194,11 +194,13 @@ class _ReplayPrefetchPipeline:
         start_batch_in_epoch: int,
         total_batches: int,
         max_lead_steps: int,
+        refresh_every_n_microbatches: int,
     ) -> None:
         self.trainer = trainer
         self.start_batch_in_epoch = start_batch_in_epoch
         self.total_batches = total_batches
         self.max_lead_steps = max_lead_steps
+        self.refresh_every_n_microbatches = refresh_every_n_microbatches
         self.horizon = trainer.replay_prefetch_horizon()
         self._next_to_yield = start_batch_in_epoch
         self._next_to_plan = start_batch_in_epoch
@@ -326,6 +328,7 @@ class _ReplayPrefetchPipeline:
             "start_batch_in_epoch": self.start_batch_in_epoch,
             "total_batches": self.total_batches,
             "max_lead_steps": self.max_lead_steps,
+            "refresh_every_n_microbatches": self.refresh_every_n_microbatches,
             "horizon": self.horizon,
             "next_to_yield": self._next_to_yield,
             "next_to_plan": self._next_to_plan,
@@ -346,6 +349,9 @@ class _ReplayPrefetchPipeline:
         if (
             state.get("version") != 2
             or state.get("total_batches") != self.total_batches
+            or state.get("max_lead_steps") != self.max_lead_steps
+            or state.get("refresh_every_n_microbatches")
+            != self.refresh_every_n_microbatches
             or state.get("completed_count", 0) != 0
         ):
             logger.warning(
@@ -380,6 +386,9 @@ class _ReplayPrefetchPipeline:
                 request = self.trainer.plan_replay_batch(
                     global_batch_index=self._next_to_plan,
                     max_lead_steps=self.max_lead_steps,
+                    refresh_every_n_microbatches=(
+                        self.refresh_every_n_microbatches
+                    ),
                     exclude_reserved=self._reserved_indices,
                 )
             except RuntimeError:
@@ -606,6 +615,20 @@ class Trainer:
         assert (
             len(cfg.replay.max_lead_transition)
             == len(cfg.replay.max_lead_steps) - 1
+        )
+        if isinstance(cfg.replay.refresh_every_n_microbatches, int):
+            replay_refresh_values = [cfg.replay.refresh_every_n_microbatches]
+        else:
+            replay_refresh_values = cfg.replay.refresh_every_n_microbatches
+        assert isinstance(replay_refresh_values, list)
+        assert all(refresh > 0 for refresh in replay_refresh_values)
+        assert isinstance(cfg.replay.refresh_every_n_microbatches_transition, list)
+        assert cfg.replay.refresh_every_n_microbatches_transition == sorted(
+            cfg.replay.refresh_every_n_microbatches_transition
+        )
+        assert (
+            len(cfg.replay.refresh_every_n_microbatches_transition)
+            == len(replay_refresh_values) - 1
         )
         if cfg.replay.enabled and cfg.data.hist != 0:
             raise ValueError(
@@ -1011,6 +1034,9 @@ class Trainer:
                             force_reseed=epoch in self.temporal_stride_transition
                         )
                     cur_replay_max_lead = self.get_current_replay_max_lead(epoch)
+                    cur_replay_refresh_every = (
+                        self.get_current_replay_refresh_every_n_microbatches(epoch)
+                    )
                 else:
                     if (
                         epoch == self.start_epoch
@@ -1042,6 +1068,7 @@ class Trainer:
                         epoch,
                         start_batch_in_epoch,
                         cur_replay_max_lead,
+                        cur_replay_refresh_every,
                     )
                 else:
                     train_stats = self.train_one_epoch(epoch, start_batch_in_epoch)
@@ -1367,6 +1394,7 @@ class Trainer:
         epoch: int,
         start_batch_in_epoch: int,
         max_lead_steps: int,
+        refresh_every_n_microbatches: int,
     ):
         if self.replay_buffer is None:
             raise RuntimeError("Replay buffer was not initialized before training")
@@ -1384,6 +1412,7 @@ class Trainer:
             start_batch_in_epoch=start_batch_in_epoch,
             total_batches=total_batches,
             max_lead_steps=max_lead_steps,
+            refresh_every_n_microbatches=refresh_every_n_microbatches,
         )
         processed_batches = 0
 
@@ -1500,6 +1529,9 @@ class Trainer:
                     "train/batch/lr": lr,
                     "train/batch/ema_cur_decay": self._ema.cur_decay.item(),
                     "train/batch/replay_max_lead_steps": max_lead_steps,
+                    "train/batch/replay_refresh_every_n_microbatches": (
+                        refresh_every_n_microbatches
+                    ),
                     "train/batch/replay_mean_lead_step": lead_steps.mean(),
                     "train/batch/replay_buffer_size": len(self.replay_buffer),
                     "train/batch/replay_cap_refreshes": cap_refreshes,
@@ -1684,6 +1716,7 @@ class Trainer:
         *,
         global_batch_index: int,
         max_lead_steps: int,
+        refresh_every_n_microbatches: int,
         exclude_reserved: set[int],
     ) -> ReplayBatchRequest:
         if self.replay_buffer is None:
@@ -1716,7 +1749,7 @@ class Trainer:
         reserved_for_request = {slot.replay_index for slot in train_slots}
         if (
             global_batch_index + 1
-        ) % self.replay_cfg.refresh_every_n_microbatches == 0:
+        ) % refresh_every_n_microbatches == 0:
             refresh_indices = self.replay_buffer.random_indices(
                 self.batch_size,
                 exclude_reserved=exclude_reserved | reserved_for_request,
@@ -1973,14 +2006,17 @@ class Trainer:
             )
             self.seed_replay_buffer()
 
-        fresh_per_rank = (
-            self.replay_cfg.steps_per_epoch
-            / self.replay_cfg.refresh_every_n_microbatches
-            * self.batch_size
+        active_refresh_every = self.get_current_replay_refresh_every_n_microbatches(
+            self._active_epoch or self.start_epoch,
+            log=False,
+        )
+        fresh_per_rank = self.replay_fresh_gold_samples_per_epoch(
+            active_refresh_every
         )
         logger.info(
             "Replay buffer ready: size=%s storage_dtype=%s refresh_batch_size=%s "
-            "steps_per_epoch=%s refresh_every_n_microbatches=%s "
+            "steps_per_epoch=%s active_refresh_every_n_microbatches=%s "
+            "configured_refresh_every_n_microbatches=%s "
             "prefetch_horizon=%s "
             "fresh_gold_samples_per_rank_per_epoch≈%.1f "
             "fresh_gold_samples_global_per_epoch≈%.1f",
@@ -1988,6 +2024,7 @@ class Trainer:
             self.replay_storage_dtype,
             self.batch_size,
             self.replay_cfg.steps_per_epoch,
+            active_refresh_every,
             self.replay_cfg.refresh_every_n_microbatches,
             self.replay_prefetch_horizon(),
             fresh_per_rank,
@@ -2273,6 +2310,44 @@ class Trainer:
         elif epoch in self.replay_cfg.max_lead_transition:
             logger.info(f"Transitioning replay max_lead_steps to {cur_max_lead}")
         return cur_max_lead
+
+    def get_current_replay_refresh_every_n_microbatches(
+        self,
+        epoch: int,
+        *,
+        log: bool = True,
+    ) -> int:
+        refresh_values = self.replay_cfg.refresh_every_n_microbatches
+        if isinstance(refresh_values, int):
+            cur_refresh = refresh_values
+        else:
+            cur_refresh = refresh_values[
+                self._get_schedule_stage_index(
+                    epoch,
+                    self.replay_cfg.refresh_every_n_microbatches_transition,
+                )
+            ]
+        if log and epoch == self.start_epoch:
+            logger.info(
+                "Starting replay training at "
+                f"refresh_every_n_microbatches {cur_refresh}"
+            )
+        elif log and epoch in self.replay_cfg.refresh_every_n_microbatches_transition:
+            logger.info(
+                "Transitioning replay refresh_every_n_microbatches "
+                f"to {cur_refresh}"
+            )
+        return cur_refresh
+
+    def replay_fresh_gold_samples_per_epoch(
+        self,
+        refresh_every_n_microbatches: int,
+    ) -> float:
+        return (
+            self.replay_cfg.steps_per_epoch
+            / refresh_every_n_microbatches
+            * self.batch_size
+        )
 
     def init_data_loaders(
         self,

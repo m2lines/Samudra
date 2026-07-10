@@ -489,6 +489,8 @@ class PerceiverConfig(BaseConfig):
             perceiver = nn.Sequential(
                 FourierFeatures2D(num_freq_bands=num_freq_bands, max_freq=max_freq),
                 NaivePerceiver(
+                    # Required by perceiver-pytorch even when its internal
+                    # Fourier encoding is disabled below.
                     num_freq_bands=num_freq_bands,
                     max_freq=max_freq,
                     depth=self.depth,

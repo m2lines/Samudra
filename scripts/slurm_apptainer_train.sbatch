@@ -108,9 +108,13 @@ fi
 
 RUN_DIR="${OUTPUT_BASE}/${NAME}"
 if [[ -e "${RUN_DIR}" ]]; then
-  echo "Refusing to run: output dir already exists: ${RUN_DIR}" >&2
-  echo "Pick a unique NAME_SUFFIX." >&2
-  exit 4
+  if (( ${SLURM_RESTART_COUNT:-0} > 0 )); then
+    echo "Requeued job detected; resuming from existing output dir: ${RUN_DIR}"
+  else
+    echo "Refusing to run: output dir already exists: ${RUN_DIR}" >&2
+    echo "Pick a unique NAME_SUFFIX." >&2
+    exit 4
+  fi
 fi
 NSYS_OUTPUT_DIR="${RUN_DIR}/nsys"
 

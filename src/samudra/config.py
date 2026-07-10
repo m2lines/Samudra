@@ -460,6 +460,9 @@ class PerceiverConfig(BaseConfig):
         max_freq = max(*max_patch_size)
 
         num_freq_bands = 4
+        fourier_dim = fourier_features_2d_dim(num_freq_bands)
+        # Use the same explicit 2D Fourier features in both implementations so
+        # intra-patch positions are encoded equivalently.
         if _use_flash(implementation):
             try:
                 from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
@@ -467,12 +470,6 @@ class PerceiverConfig(BaseConfig):
                 raise _flash_import_error() from e
             from einops.layers.torch import Rearrange
 
-            # Flash perceiver expects (batch, seq_len, dim), and has no built-in
-            # intra-patch positional signal on the input. Naive Perceiver handles
-            # (batch, ph, pw, dim) and adds 2D Fourier features via
-            # `input_axis=2, fourier_encode_data=True`. Prepend an explicit
-            # FourierFeatures2D so flash matches naive on intra-patch position.
-            fourier_dim = fourier_features_2d_dim(num_freq_bands)
             perceiver: nn.Module = nn.Sequential(
                 FourierFeatures2D(num_freq_bands=num_freq_bands, max_freq=max_freq),
                 Rearrange("b ph pw v -> b (ph pw) v"),
@@ -489,17 +486,21 @@ class PerceiverConfig(BaseConfig):
                 ),
             )
         elif _use_naive(implementation):
-            perceiver = NaivePerceiver(
-                num_freq_bands=num_freq_bands,
-                max_freq=max_freq,
-                depth=self.depth,
-                input_axis=2,
-                input_channels=in_channels,
-                num_classes=out_channels,
-                latent_dim=self.latent_dim,
-                num_latents=self.num_latents,
-                weight_tie_layers=True,
-                self_per_cross_attn=2,
+            perceiver = nn.Sequential(
+                FourierFeatures2D(num_freq_bands=num_freq_bands, max_freq=max_freq),
+                NaivePerceiver(
+                    num_freq_bands=num_freq_bands,
+                    max_freq=max_freq,
+                    depth=self.depth,
+                    input_axis=2,
+                    input_channels=in_channels + fourier_dim,
+                    num_classes=out_channels,
+                    latent_dim=self.latent_dim,
+                    num_latents=self.num_latents,
+                    weight_tie_layers=True,
+                    fourier_encode_data=False,
+                    self_per_cross_attn=2,
+                ),
             )
         else:
             raise ValueError(f"Unknown perceiver implementation: {implementation}.")

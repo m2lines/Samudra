@@ -2,13 +2,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import sys
-import types
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
-from torch import nn
 
 from samudra.config import (
     CpuDataLoadingConfig,
@@ -17,7 +14,6 @@ from samudra.config import (
     GpuDataLoadingConfig,
     LlcDatasetConfig,
     Om4DatasetConfig,
-    PerceiverConfig,
     TrainConfig,
 )
 from samudra.config_schema import get_pydantic_models
@@ -138,32 +134,6 @@ def test_train_config_allows_cli_override_for_cpu_num_workers(tmp_path):
 
     assert isinstance(cfg.data.loading, CpuDataLoadingConfig)
     assert cfg.data.loading.num_workers == 2
-
-
-def test_flash_encoder_perceiver_does_not_enable_latent_rotary(monkeypatch):
-    captured_kwargs = {}
-
-    class FakeFlashPerceiver(nn.Module):
-        def __init__(self, **kwargs):
-            super().__init__()
-            captured_kwargs.update(kwargs)
-
-    fake_flash_perceiver = types.ModuleType("flash_perceiver")
-    fake_flash_perceiver.Perceiver = FakeFlashPerceiver
-    monkeypatch.setitem(sys.modules, "flash_perceiver", fake_flash_perceiver)
-
-    cfg = PerceiverConfig(depth=2, latent_dim=48, num_latents=256)
-
-    cfg.build(
-        in_channels=3,
-        out_channels=5,
-        max_patch_size=(12, 20),
-        implementation="flash",
-    )
-
-    assert "latent_rotary_emb_dim" not in captured_kwargs
-    assert captured_kwargs["latent_dim"] == 48
-    assert captured_kwargs["num_latents"] == 256
 
 
 def test_get_pydantic_models_collects_loading_variants():

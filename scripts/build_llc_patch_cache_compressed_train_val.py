@@ -30,6 +30,7 @@ import logging
 import shutil
 import sys
 from pathlib import Path
+import zarr
 
 import xarray as xr
 from numcodecs import Blosc
@@ -112,6 +113,17 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--overwrite", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
+
+    parser.add_argument(
+        "--time-batch",
+        type=int,
+        default=744,
+        help=(
+            "Number of time steps written per Zarr region write. Smaller batches "
+            "keep the Dask graph small so scheduling never OOMs on misaligned "
+            "patches. 744 ~= one month at hourly resolution."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -195,6 +207,68 @@ def build_encoding(
         "y": {"compressor": None, "chunks": (y_size,)},
         "x": {"compressor": None, "chunks": (x_size,)},
     }
+
+    
+def write_training_ready_in_batches(
+    ds_out: xr.Dataset,
+    tmp_path: Path,
+    encoding: dict[str, dict[str, object]],
+    time_batch: int,
+) -> None:
+    """Write the store in temporal batches using Zarr region writes.
+
+    Rationale: a single ds_out.to_zarr() over the whole year builds one enormous
+    Dask graph. dask.order() must sort that entire graph in memory before any
+    work runs, and misaligned patches (extra concatenate layers per timestep)
+    inflate it until ordering itself OOMs. Writing one batch at a time keeps each
+    graph ~(time_batch / n_times) of the size, so scheduling stays cheap and the
+    peak memory is bounded regardless of how many source chunks a patch touches.
+    """
+    time_size = int(ds_out.sizes["time"])
+    time_vars = [name for name, var in ds_out.data_vars.items() if "time" in var.dims]
+    static_ds = ds_out.drop_vars(time_vars)
+    time_ds = ds_out[time_vars]
+
+    static_encoding = {k: v for k, v in encoding.items() if k in static_ds.variables}
+    time_encoding = {k: v for k, v in encoding.items() if k in time_ds.variables}
+
+    # Phase 1: write coords + static vars (masks/means/stds) with real values.
+    logger.info("Writing coordinates and static variables")
+    static_ds.to_zarr(
+        tmp_path, mode="w", encoding=static_encoding, consolidated=False
+    )
+
+    # Phase 2: create the big time-varying arrays as metadata-only skeletons.
+    # compute=False creates the zarr arrays (correct shape/chunks/compressor)
+    # but defers the data write, which we intentionally never trigger.
+    logger.info("Creating time-varying array skeletons")
+    time_skeleton = time_ds.drop_vars(list(time_ds.coords))
+    time_skeleton.to_zarr(
+        tmp_path,
+        mode="a",
+        encoding=time_encoding,
+        compute=False,
+        consolidated=False,
+    )
+
+    # Phase 3: fill the skeleton one temporal batch at a time via region writes.
+    n_batches = (time_size + time_batch - 1) // time_batch
+    for b, start in enumerate(range(0, time_size, time_batch)):
+        stop = min(start + time_batch, time_size)
+        logger.info(
+            "Writing time batch %d/%d: time[%d:%d)", b + 1, n_batches, start, stop
+        )
+        batch = time_ds.isel(time=slice(start, stop)).drop_vars(
+            list(time_ds.coords)
+        )
+        batch.to_zarr(
+            tmp_path,
+            region={"time": slice(start, stop)},
+            consolidated=False,
+        )
+
+    logger.info("Consolidating metadata")
+    zarr.consolidate_metadata(str(tmp_path))
 
 
 def main() -> None:
@@ -280,9 +354,16 @@ def main() -> None:
         logger.info("Dry run requested; not writing any data.")
         return
 
+    if args.time_batch <= 0:
+        raise ValueError("time-batch must be positive")
+
     encoding = build_encoding(ds_out, args)
-    logger.info("Writing temporary store: %s", tmp_path)
-    ds_out.to_zarr(tmp_path, mode="w", consolidated=True, encoding=encoding)
+    logger.info(
+        "Writing temporary store in time batches of %d: %s",
+        args.time_batch,
+        tmp_path,
+    )
+    write_training_ready_in_batches(ds_out, tmp_path, encoding, args.time_batch)
 
     logger.info("Moving completed store to: %s", output_path)
     if output_path.exists():

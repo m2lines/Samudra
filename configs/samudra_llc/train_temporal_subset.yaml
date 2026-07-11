@@ -15,6 +15,7 @@ replay:
   enabled: false
   buffer_size: 32
   refresh_every_n_microbatches: 16
+  refresh_every_n_microbatches_transition: []
   steps_per_epoch: 1024
   max_lead_steps: [3, 5, 7]
   max_lead_transition: [8, 16]

@@ -2,8 +2,8 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-07-04:samudra_llc:rb-Agulhas-strides=1-pred_field-3
-#SBATCH -x node4100,node3401
+#SBATCH --job-name=2026-07-10:samudra_llc:rb-Agulhas-strides=1-pred_resid-eager-2
+#SBATCH -x node4100,node3401,node3000
 #SBATCH -N 1
 #SBATCH --mem=254GB
 #SBATCH --ntasks=1
@@ -89,7 +89,7 @@ CONCURRENT_COMPUTE="${CONCURRENT_COMPUTE:-false}"
 PAD="${PAD:-constant}"
 NUM_HALO="${NUM_HALO:-4}"
 NUM_SPONGE="${NUM_SPONGE:-12}"
-PRED_RESIDUALS="${PRED_RESIDUALS:-false}"
+PRED_RESIDUALS="${PRED_RESIDUALS:-true}"
 
 # DDP
 DDP_BROADCAST_BUFFERS="${DDP_BROADCAST_BUFFERS:-false}"
@@ -109,7 +109,7 @@ TEMPORAL_STRIDE_TRANSITION="${TEMPORAL_STRIDE_TRANSITION:-[]}"
 HIST="${HIST:-0}"
 
 # CHECKPOINTING / RESUME
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-07-03:samudra_llc:rb-Agulhas-strides=1-pred_field-2-17083354/saved_nets/ckpt.pt}"
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-07-09:samudra_llc:rb-Agulhas-strides=1-pred_resid-eager-17560442/saved_nets/ckpt_emergency.pt}"
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
@@ -132,9 +132,10 @@ LR_MULTIPLIER_TRANSITION="${LR_MULTIPLIER_TRANSITION:-[]}"
 # REPLAY BUFFER
 REPLAY_ENABLED="${REPLAY_ENABLED:-true}"
 REPLAY_BUFFER_SIZE="${REPLAY_BUFFER_SIZE:-32}"
-REPLAY_REFRESH_EVERY_N_MICROBATCHES="${REPLAY_REFRESH_EVERY_N_MICROBATCHES:-8}"
+REPLAY_REFRESH_EVERY_N_MICROBATCHES="${REPLAY_REFRESH_EVERY_N_MICROBATCHES:-[8,12,16,20,24,28,32,36,40,44]}"
+REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION="${REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION:-[6, 11, 16, 21, 26, 31, 36, 41, 46]}"
 REPLAY_STEPS_PER_EPOCH="${REPLAY_STEPS_PER_EPOCH:-8760}"
-REPLAY_MAX_LEAD_STEPS="${REPLAY_MAX_LEAD_STEPS:-[4, 5, 6, 7, 8, 9, 10, 11, 12, 13]}"
+REPLAY_MAX_LEAD_STEPS="${REPLAY_MAX_LEAD_STEPS:-[4, 8, 12, 16, 20, 24, 28, 32, 34, 40]}"
 REPLAY_MAX_LEAD_TRANSITION="${REPLAY_MAX_LEAD_TRANSITION:-[6, 11, 16, 21, 26, 31, 36, 41, 46]}"
 REPLAY_CHECKPOINT_BUFFER="${REPLAY_CHECKPOINT_BUFFER:-true}"
 
@@ -150,7 +151,7 @@ echo "using ddp_broadcast_buffers=${DDP_BROADCAST_BUFFERS}, ddp_timeout_minutes=
 echo "using optimization: learning_rate=${LEARNING_RATE}, scheduler_mode=${SCHEDULER_MODE}, scheduler_target_epochs=${SCHEDULER_TARGET_EPOCHS:-<default>}"
 echo "using lr multipliers: lr_multipliers=${LR_MULTIPLIERS}, lr_multiplier_transition=${LR_MULTIPLIER_TRANSITION}"
 echo "using replay data: data_stride=${DATA_STRIDE}, temporal_stride=${TEMPORAL_STRIDE}, temporal_stride_transition=${TEMPORAL_STRIDE_TRANSITION}, hist=${HIST}"
-echo "using replay: enabled=${REPLAY_ENABLED}, buffer_size=${REPLAY_BUFFER_SIZE}, refresh_every_n_microbatches=${REPLAY_REFRESH_EVERY_N_MICROBATCHES}, steps_per_epoch=${REPLAY_STEPS_PER_EPOCH}, max_lead_steps=${REPLAY_MAX_LEAD_STEPS}, max_lead_transition=${REPLAY_MAX_LEAD_TRANSITION}, checkpoint_buffer=${REPLAY_CHECKPOINT_BUFFER}"
+echo "using replay: enabled=${REPLAY_ENABLED}, buffer_size=${REPLAY_BUFFER_SIZE}, refresh_every_n_microbatches=${REPLAY_REFRESH_EVERY_N_MICROBATCHES}, refresh_every_n_microbatches_transition=${REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION}, steps_per_epoch=${REPLAY_STEPS_PER_EPOCH}, max_lead_steps=${REPLAY_MAX_LEAD_STEPS}, max_lead_transition=${REPLAY_MAX_LEAD_TRANSITION}, checkpoint_buffer=${REPLAY_CHECKPOINT_BUFFER}"
 echo "using data location: LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
 echo "using padding: pad=${PAD}, num_halo=${NUM_HALO}, num_sponge=${NUM_SPONGE}"
 echo "predicting field or residual: pred_residual=${PRED_RESIDUALS}"
@@ -219,6 +220,11 @@ REPLAY_ARGS=(
   --replay.max_lead_transition "${REPLAY_MAX_LEAD_TRANSITION}"
   --replay.checkpoint_buffer "${REPLAY_CHECKPOINT_BUFFER}"
 )
+
+REPLAY_REFRESH_TRANSITION_COMPACT="$(echo "${REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION}" | tr -d '[:space:]')"
+if [[ -n "${REPLAY_REFRESH_TRANSITION_COMPACT}" && "${REPLAY_REFRESH_TRANSITION_COMPACT}" != "[]" ]]; then
+  REPLAY_ARGS+=(--replay.refresh_every_n_microbatches_transition "${REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION}")
+fi
 
 DATA_OVERRIDE_ARGS=()
 if [[ -n "${DATA_LOCATION_OVERRIDE}" ]]; then

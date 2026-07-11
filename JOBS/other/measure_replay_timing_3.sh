@@ -74,6 +74,7 @@ PIN_MEM="${PIN_MEM:-true}"
 REPLAY_ENABLED="${REPLAY_ENABLED:-true}"
 REPLAY_BUFFER_SIZE="${REPLAY_BUFFER_SIZE:-32}"
 REPLAY_REFRESH_EVERY_N_MICROBATCHES="${REPLAY_REFRESH_EVERY_N_MICROBATCHES:-8}"
+REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION="${REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION:-[]}"
 REPLAY_STEPS_PER_EPOCH="${REPLAY_STEPS_PER_EPOCH:-8760}"
 REPLAY_MAX_LEAD_STEPS="${REPLAY_MAX_LEAD_STEPS:-[4, 5, 6, 7, 8, 9, 10, 11, 12, 13]}"
 REPLAY_MAX_LEAD_TRANSITION="${REPLAY_MAX_LEAD_TRANSITION:-[6, 11, 16, 21, 26, 31, 36, 41, 46]}"
@@ -83,6 +84,13 @@ echo "read_iters=${READ_ITERS} gpu_iters=${GPU_ITERS} step_iters=${STEP_ITERS} w
 echo "read_threads=${READ_THREADS} batch_size=${BATCH_SIZE} gradient_accumulation_steps=${GRADIENT_ACCUMULATION_STEPS} effective_batch_size=$((BATCH_SIZE * GRADIENT_ACCUMULATION_STEPS))"
 echo "data face=${LLC_FACE} i=[${LLC_I_START}:${LLC_I_END}) j=[${LLC_J_START}:${LLC_J_END})"
 echo "workers=${DATA_NUM_WORKERS} prefetch=${DATA_PREFETCH_FACTOR} blosc_threads=${OCEAN_BLOSC_THREADS} pin_mem=${PIN_MEM}"
+echo "replay refresh_every_n_microbatches=${REPLAY_REFRESH_EVERY_N_MICROBATCHES}, refresh_every_n_microbatches_transition=${REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION}"
+
+REPLAY_REFRESH_ARGS=()
+REPLAY_REFRESH_TRANSITION_COMPACT="$(echo "${REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION}" | tr -d '[:space:]')"
+if [[ -n "${REPLAY_REFRESH_TRANSITION_COMPACT}" && "${REPLAY_REFRESH_TRANSITION_COMPACT}" != "[]" ]]; then
+  REPLAY_REFRESH_ARGS+=(--replay.refresh_every_n_microbatches_transition "${REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION}")
+fi
 
 "${PYTHON_BIN}" -m torch.distributed.run \
   --standalone --nnodes=1 --nproc_per_node=1 \
@@ -102,6 +110,7 @@ echo "workers=${DATA_NUM_WORKERS} prefetch=${DATA_PREFETCH_FACTOR} blosc_threads
   --replay.enabled "${REPLAY_ENABLED}" \
   --replay.buffer_size "${REPLAY_BUFFER_SIZE}" \
   --replay.refresh_every_n_microbatches "${REPLAY_REFRESH_EVERY_N_MICROBATCHES}" \
+  "${REPLAY_REFRESH_ARGS[@]}" \
   --replay.steps_per_epoch "${REPLAY_STEPS_PER_EPOCH}" \
   --replay.max_lead_steps "${REPLAY_MAX_LEAD_STEPS}" \
   --replay.max_lead_transition "${REPLAY_MAX_LEAD_TRANSITION}" \

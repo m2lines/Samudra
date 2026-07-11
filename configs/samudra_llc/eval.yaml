@@ -20,4 +20,4 @@ experiment:
   boundary_vars_key: all
 
 data: !include ../data/llc.yaml
-model: !include model.yaml
+model: !include model_replay_ch_width_normal.yaml

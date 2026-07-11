@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
 #SBATCH -w node4006
-#SBATCH --job-name=2026-07-01-full_yr-llc_patch_cache-face1-2880-4320-j0-1440_trainval_ready--bfloat16-compressed-quad-Agulhas
+#SBATCH --job-name=2026-07-10-full_yr-llc_patch_cache-face1-i_2400-3490-j_560-1650
 #SBATCH -N 1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
@@ -34,10 +34,10 @@ OUTPUT_ROOT="${OUTPUT_ROOT:-/orcd/data/abodner/002/cody/LLC_patch}" # save to st
 #OUTPUT_ROOT="${OUTPUT_ROOT:-/orcd/scratch/codycruz/LLC_patch}" # save to scratch
 
 LLC_FACE="${LLC_FACE:-1}"
-LLC_I_START="${LLC_I_START:-2880}"
-LLC_I_END="${LLC_I_END:-4320}"
-LLC_J_START="${LLC_J_START:-0}"
-LLC_J_END="${LLC_J_END:-1440}"
+LLC_I_START="${LLC_I_START:-2400}"
+LLC_I_END="${LLC_I_END:-3490}"
+LLC_J_START="${LLC_J_START:-560}"
+LLC_J_END="${LLC_J_END:-1650}"
 
 TRAIN_START="${TRAIN_START:-2011-09-13}"
 TRAIN_END="${TRAIN_END:-2012-09-13}"

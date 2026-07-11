@@ -13,6 +13,7 @@ replay:
   enabled: true
   buffer_size: 32
   refresh_every_n_microbatches: 8
+  refresh_every_n_microbatches_transition: []
   steps_per_epoch: 4204
   max_lead_steps: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
   max_lead_transition: [6, 11, 16, 21, 26, 31, 36, 41, 46]

@@ -63,6 +63,7 @@ GPUS="${GPUS:-1}"
 REPLAY_ENABLED="${REPLAY_ENABLED:-false}"
 REPLAY_BUFFER_SIZE="${REPLAY_BUFFER_SIZE:-32}"
 REPLAY_REFRESH_EVERY_N_MICROBATCHES="${REPLAY_REFRESH_EVERY_N_MICROBATCHES:-16}"
+REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION="${REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION:-[]}"
 REPLAY_STEPS_PER_EPOCH="${REPLAY_STEPS_PER_EPOCH:-1024}"
 REPLAY_MAX_LEAD_STEPS="${REPLAY_MAX_LEAD_STEPS:-[3, 5, 7]}"
 REPLAY_MAX_LEAD_TRANSITION="${REPLAY_MAX_LEAD_TRANSITION:-[8, 16]}"
@@ -79,7 +80,7 @@ echo "using ddp_broadcast_buffers=${DDP_BROADCAST_BUFFERS} and ddp_timeout_minut
 echo "using ddp_max_data_workers_per_rank=${DDP_MAX_DATA_WORKERS_PER_RANK}"
 echo "using data.concurrent_compute=${CONCURRENT_COMPUTE}"
 echo "using LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
-echo "using replay: enabled=${REPLAY_ENABLED}, buffer_size=${REPLAY_BUFFER_SIZE}, refresh_every_n_microbatches=${REPLAY_REFRESH_EVERY_N_MICROBATCHES}, steps_per_epoch=${REPLAY_STEPS_PER_EPOCH}, max_lead_steps=${REPLAY_MAX_LEAD_STEPS}, max_lead_transition=${REPLAY_MAX_LEAD_TRANSITION}, checkpoint_buffer=${REPLAY_CHECKPOINT_BUFFER}"
+echo "using replay: enabled=${REPLAY_ENABLED}, buffer_size=${REPLAY_BUFFER_SIZE}, refresh_every_n_microbatches=${REPLAY_REFRESH_EVERY_N_MICROBATCHES}, refresh_every_n_microbatches_transition=${REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION}, steps_per_epoch=${REPLAY_STEPS_PER_EPOCH}, max_lead_steps=${REPLAY_MAX_LEAD_STEPS}, max_lead_transition=${REPLAY_MAX_LEAD_TRANSITION}, checkpoint_buffer=${REPLAY_CHECKPOINT_BUFFER}"
 
 # Optional resume behavior:
 # - RESUME_CKPT_PATH set + FINETUNE=false resumes optimizer/scheduler and starts at ckpt epoch + 1.
@@ -110,6 +111,11 @@ REPLAY_ARGS=(
   --replay.max_lead_transition "${REPLAY_MAX_LEAD_TRANSITION}"
   --replay.checkpoint_buffer "${REPLAY_CHECKPOINT_BUFFER}"
 )
+
+REPLAY_REFRESH_TRANSITION_COMPACT="$(echo "${REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION}" | tr -d '[:space:]')"
+if [[ -n "${REPLAY_REFRESH_TRANSITION_COMPACT}" && "${REPLAY_REFRESH_TRANSITION_COMPACT}" != "[]" ]]; then
+  REPLAY_ARGS+=(--replay.refresh_every_n_microbatches_transition "${REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION}")
+fi
 
 # Forward scheduler signals to torchrun so trainer can write emergency checkpoints.
 TRAIN_PID=""

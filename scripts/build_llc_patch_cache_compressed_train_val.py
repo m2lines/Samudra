@@ -229,8 +229,18 @@ def write_training_ready_in_batches(
     static_ds = ds_out.drop_vars(time_vars)
     time_ds = ds_out[time_vars]
 
+    # Drop coords from the time dataset up front: all coordinates (time, y, x,
+    # channel labels) are written once in phase 1 as part of static_ds. The array
+    # dims are still recorded via _ARRAY_DIMENSIONS, so this is safe.
+    time_skeleton = time_ds.drop_vars(list(time_ds.coords))
+
+    # IMPORTANT: build each encoding dict from the variables actually written in
+    # that phase. time_ds.variables still contains the coordinate variables
+    # (boundary_channel, prognostic_channel, ...) which already exist in the store
+    # after phase 1; passing encoding for them triggers a "variable already exists,
+    # but encoding was provided" error on the append write.
     static_encoding = {k: v for k, v in encoding.items() if k in static_ds.variables}
-    time_encoding = {k: v for k, v in encoding.items() if k in time_ds.variables}
+    time_encoding = {k: v for k, v in encoding.items() if k in time_skeleton.variables}
 
     # Phase 1: write coords + static vars (masks/means/stds) with real values.
     logger.info("Writing coordinates and static variables")
@@ -242,7 +252,6 @@ def write_training_ready_in_batches(
     # compute=False creates the zarr arrays (correct shape/chunks/compressor)
     # but defers the data write, which we intentionally never trigger.
     logger.info("Creating time-varying array skeletons")
-    time_skeleton = time_ds.drop_vars(list(time_ds.coords))
     time_skeleton.to_zarr(
         tmp_path,
         mode="a",

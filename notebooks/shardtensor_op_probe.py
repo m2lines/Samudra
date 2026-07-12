@@ -103,7 +103,8 @@ def setup_distributed():
     local_rank = int(os.environ.get("LOCAL_RANK", getattr(dm, "local_rank", 0)))
     torch.cuda.set_device(local_rank)
     device = getattr(dm, "device", torch.device(f"cuda:{local_rank}"))
-    rank = torch.distributed.get_rank() if torch.distributed.is_initialized() else 0
+    rank = int(os.environ.get("RANK", 0))
+    local_rank = int(os.environ.get("LOCAL_RANK", 0))
     world_size = torch.distributed.get_world_size() if torch.distributed.is_initialized() else 1
     return dm, scatter_tensor, device, rank, world_size
 
@@ -241,7 +242,7 @@ def main() -> int:
     )
 
     def skip_align_op():
-        pads = (1, 2, 0, 1)
+        pads = (1, 1, 2, 2)
         skip = make_input(
             (
                 small_shape[0],

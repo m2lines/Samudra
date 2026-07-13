@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783973275482,
+  "lastUpdate": 1783973282599,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -20599,6 +20599,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.09801598221969927",
             "extra": "mean: 20.093355145800047 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fomobot640@gmail.com",
+            "name": "fomo-bot",
+            "username": "fomo-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "605ff6a56c95e5b718c7a9ab7e2c652eabc2f5b4",
+          "message": "Disable Python user site in Apptainer jobs (#787)\n\n## Summary\n\n- Disable Python user-site packages for Slurm Apptainer train/eval jobs.\n- Export the Apptainer/Singularity environment variables so\n`PYTHONNOUSERSITE=1` is present before Python starts in the container.\n- Re-export `PYTHONNOUSERSITE=1` inside the container shell as a\nbelt-and-suspenders guard.\n\n## Why\n\nApptainer mounts `$HOME` by default. Because the container Python is\n3.12, Python was discovering host packages under\n`~/.local/lib/python3.12/site-packages` inside the container. In ORCD\nH200 debug runs this caused CuPy to import from the host user site and\nwarn about mixed `cupy-cuda12x`/`cupy-cuda13x` installs.\n\nThe container already includes the needed CuPy package, so the harness\nshould keep host user-site packages out of `sys.path`.\n\n## Validation\n\n- `bash -n scripts/slurm_apptainer_train.sbatch`\n- `bash -n scripts/slurm_apptainer_eval.sbatch`\n- Verified with the cached PR777 PhysicsNeMo Apptainer image and\n`PYTHONNOUSERSITE=1`:\n  - `site.ENABLE_USER_SITE` is `False`\n  - `/home/jrusak/.local/...` is not on `sys.path`\n  - `cupy` imports from `/usr/local/lib/python3.12/dist-packages/cupy`\n  - only `cupy-cuda13x==13.6.0` is installed in the visible environment\n  - `dask.array` imports and computes successfully\n- `xarray` opens `/orcd/data/abodner/002/jrusak/om4_onedeg_v3/OM4.zarr`\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2026-07-13T15:54:11-04:00",
+          "tree_id": "23041d64524e1130ba085b045b33cca6010affd8",
+          "url": "https://github.com/m2lines/Samudra/commit/605ff6a56c95e5b718c7a9ab7e2c652eabc2f5b4"
+        },
+        "date": 1783973282360,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1026010845169492,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0003893617804986676",
+            "extra": "mean: 906.946323599982 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.17340212411355369,
+            "unit": "iter/sec",
+            "range": "stddev: 0.030388923352078556",
+            "extra": "mean: 5.766942043600011 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.049995842541218034,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06857148075073254",
+            "extra": "mean: 20.001663121799993 sec\nrounds: 5"
           }
         ]
       }

@@ -797,40 +797,38 @@ def with_depth_value_vars(
 ) -> xr.Dataset:
     """Inverse of `with_level_index_vars`: name 3D variables by depth value.
 
-    Renames ``<var>_<level_index>`` back to the OM4 ``<var>_lev_<depth>`` form
-    (e.g. ``thetao_0`` -> ``thetao_lev_2_5``), using ``dataset_spec.depth_levels``.
-    Per-level mask variables and level-free variables (e.g. ``zos``) are left
-    untouched -- the one asymmetry with the (unscoped) forward, since ``mask_<i>``
-    is otherwise indistinguishable from a prognostic ``<var>_<i>`` by name alone.
+    Renames the depth-resolved prognostic variables (``<var>_<level_index>``)
+    back to the OM4 ``<var>_lev_<depth>`` form (e.g. ``thetao_0`` ->
+    ``thetao_lev_2_5``). Which variables to rename is read directly off
+    ``dataset_spec.prognostic_var_names`` rather than inferred from the data, so
+    per-level masks (``mask_<i>``) and level-free prognostics (e.g. ``zos``) are
+    never mistaken for depth-resolved variables by name alone.
     """
-    data_copy = data.copy()
-    n_depths = len(dataset_spec.depth_levels)
-    mask_vars = set(dataset_spec.mask_vars)
-    for var in data.variables:
-        var_str = str(var)
-        if var_str in mask_vars:
-            continue
-        base, _, idx = var_str.rpartition("_")
-        if base and idx.isdigit() and int(idx) < n_depths:
-            depth = dataset_spec.depth_levels[int(idx)]
-            depth_str = str(depth).replace(".", "_")
-            data_copy = data_copy.rename({var_str: f"{base}_lev_{depth_str}"})
+    renames = {}
+    for var_name in dataset_spec.prognostic_var_names:
+        base, _, idx = var_name.rpartition("_")
+        if not (base and idx.isdigit()):
+            continue  # level-free prognostic variable, e.g. zos
+        depth = dataset_spec.depth_levels[int(idx)]
+        depth_str = str(depth).replace(".", "_")
+        if var_name in data.variables:
+            renames[var_name] = f"{base}_lev_{depth_str}"
 
-    return data_copy
+    return data.rename(renames)
 
 
 def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
     """Standardize dataset coordinates; prefer "lat"/"lon" over "y"/"x"."""
     data_copy = data.copy()
-    # OM4 data carries 2-D geographic lat/lon that would collide with the 1-D
-    # lat/lon dimension names we want, so we drop those and rename the x/y dims.
-    # The cell-bound coordinates (lat_b/lon_b, on y_b/x_b dims) do NOT collide, so
-    # we keep them: eval outputs propagate them downstream for dx/dy reconstruction.
     if "lat" not in data_copy.dims:
-        # Drop unnecessary coordinates and rename dimensions
-        data_copy = data_copy.drop_vars(
-            ["lat", "lon", "dayofyear"], errors="ignore"
-        ).rename({"x": "lon", "y": "lat"})
+        # Preserve the 2-D geographic coords under a non-colliding name, then
+        # rename the x/y dims to the 1-D lat/lon we standardize on.
+        preserve = {n: f"{n}_2d" for n in ("lat", "lon") if n in data_copy.coords}
+        data_copy = (
+            data_copy.drop_vars(["dayofyear"], errors="ignore")
+            .rename(preserve)
+            .rename({"x": "lon", "y": "lat"})
+        )
 
     return data_copy
 

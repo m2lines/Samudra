@@ -93,10 +93,56 @@ def test_writer_output_is_analysis_ready(tmp_path):
     assert out["lat_b"].dims == ("y_b", "x_b")
     assert out["lon_b"].dims == ("y_b", "x_b")
 
-    # 2D lat/lon reconstructed to match the truth layout (broadcast of 1D y/x).
+    # 2D lat/lon reconstructed to match the truth layout. This source carries no
+    # `lat_2d`/`lon_2d`, so the writer falls back to broadcasting the 1D y/x axes.
     assert out["lat"].dims == ("y", "x") and out["lon"].dims == ("y", "x")
     np.testing.assert_allclose(out["lat"].isel(x=0).values, coords["lat"].values)
     np.testing.assert_allclose(out["lon"].isel(y=0).values, coords["lon"].values)
+
+
+def test_writer_prefers_real_2d_lat_lon(tmp_path):
+    """When the source carries real 2D lat/lon, the writer uses them verbatim.
+
+    On a curvilinear grid (e.g. tripolar) lat/lon vary along both dims and cannot
+    be rebuilt by broadcasting the 1D axes. `with_lat_lon_coords` preserves the
+    real coords as `lat_2d`/`lon_2d`; the writer must emit those, not a broadcast.
+    """
+    spec = TEST_FULL_DATASET_SPEC
+    tensor_map = TensorMap(dataset_spec=spec)
+    n_channels = len(tensor_map.prognostic_var_names)
+    ny, nx = 3, 4
+
+    coords = _source_coords(ny, nx)
+    lat1d = coords["lat"].values
+    lon1d = coords["lon"].values
+    # A curvilinear twist: each coordinate varies along BOTH dims, so it differs
+    # from the broadcast of the 1D axes (which the fallback would produce).
+    lat2d = lat1d[:, None] + 0.1 * lon1d[None, :]
+    lon2d = lon1d[None, :] + 0.1 * lat1d[:, None]
+    coords["lat_2d"] = xr.DataArray(lat2d, dims=["lat", "lon"])
+    coords["lon_2d"] = xr.DataArray(lon2d, dims=["lat", "lon"])
+
+    writer = ZarrWriter(
+        tmp_path,
+        coords=coords,
+        hist=0,
+        model_path="dummy.ckpt",
+        time_chunk_size=4,
+        normalize=_NO_NORMALIZE,
+        tensor_map=tensor_map,
+    )
+    writer.buffer = torch.zeros(1, n_channels, ny, nx)
+    writer.time_buffer = xr.DataArray(np.arange(1), dims="time")
+
+    writer.write()
+    out = xr.open_zarr(writer.pred_path)
+
+    # Real coords are emitted as `lat`/`lon` on y/x -- not broadcast, and not under
+    # the transitional `lat_2d`/`lon_2d` names.
+    assert out["lat"].dims == ("y", "x") and out["lon"].dims == ("y", "x")
+    assert "lat_2d" not in out.variables and "lon_2d" not in out.variables
+    np.testing.assert_allclose(out["lat"].values, lat2d)
+    np.testing.assert_allclose(out["lon"].values, lon2d)
 
 
 def test_writer_appends_along_time(tmp_path):
@@ -134,7 +180,7 @@ def test_writer_appends_along_time(tmp_path):
 def test_writer_shallow_spec_slices_depth_metadata(tmp_path):
     """A shallow model spec must not conflict with full-depth source coords.
 
-    A backfilled source carries 19-level `dz`/`ocean_fraction`, but a shallow spec
+    A full-depth source carries 19-level `dz`/`ocean_fraction`, but a shallow spec
     (e.g. thermo_dynamic_5) emits fewer levels. The writer slices the depth-resolved
     coords to the emitted level count instead of raising on a conflicting `lev` dim.
     """

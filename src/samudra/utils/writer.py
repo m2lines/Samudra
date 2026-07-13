@@ -103,31 +103,47 @@ class ZarrWriter:
         self.time_buffer = None
 
     def _output_coords(self) -> dict:
-        """Build CF-aligned output coordinates matching the ground-truth layout.
+        """Build output coordinates that match the ground-truth OM4 dataset layout.
 
-        Uses ``y``/``x`` dims (not 1D ``lat``/``lon``), attaches the depth axis,
-        reconstructs 2D ``lat``/``lon`` for these regular grids, and propagates any
-        grid metadata the source carries (``areacello``, ``dz``, ``ocean_fraction``,
-        cell bounds), renaming its horizontal dims from ``lat``/``lon`` to ``y``/``x``.
+        "Ground-truth layout" means the on-disk shape of the preprocessed OM4 data
+        (the same data the model is scored against), so that predictions and truth
+        can be compared without any reshaping. Concretely that layout uses ``y``/``x``
+        horizontal dims with 2D ``lat``/``lon`` coordinates on top of them (not 1D
+        ``lat``/``lon`` dims), carries the depth axis ``lev``, and keeps the grid
+        metadata needed for physical analysis (``areacello``, ``dz``,
+        ``ocean_fraction``, cell bounds ``lat_b``/``lon_b``).
         """
         src = self.coords
-        y_vals = np.asarray(src["lat"].values)  # latitudes
-        x_vals = np.asarray(src["lon"].values)  # longitudes
+        y_vals = np.asarray(src["lat"].values)  # 1-D latitude axis
+        x_vals = np.asarray(src["lon"].values)  # 1-D longitude axis
         ny, nx = y_vals.size, x_vals.size
 
         spec = self.tensor_map.dataset_spec
         n_levels = spec.num_prognostic_depth_levels
+
+        # 2-D lat/lon on the (y, x) grid, matching the ground-truth layout. Prefer
+        # the real coordinates the source preserved (`lat_2d`/`lon_2d`), which are
+        # correct on any grid; only broadcast the 1-D axes for legacy regular-grid
+        # data that did not carry them. Broadcasting fabricates wrong geometry on a
+        # curvilinear (e.g. tripolar) grid, so it is a fallback, not the default.
+        if "lat_2d" in src and "lon_2d" in src:
+            lat2d = np.asarray(src["lat_2d"].values)
+            lon2d = np.asarray(src["lon_2d"].values)
+        else:
+            lat2d = np.broadcast_to(y_vals[:, None], (ny, nx)).copy()
+            lon2d = np.broadcast_to(x_vals[None, :], (ny, nx)).copy()
+
         coords: dict[str, tuple] = {
             "y": ("y", y_vals),
             "x": ("x", x_vals),
-            "lat": (("y", "x"), np.broadcast_to(y_vals[:, None], (ny, nx)).copy()),
-            "lon": (("y", "x"), np.broadcast_to(x_vals[None, :], (ny, nx)).copy()),
+            "lat": (("y", "x"), lat2d),
+            "lon": (("y", "x"), lon2d),
             "lev": ("lev", np.array(spec.depth_levels[:n_levels])),
         }
 
         rename = {"lat": "y", "lon": "x"}
         for name, da in src.items():
-            if name in ("time", "lat", "lon", "lev", "y", "x"):
+            if name in ("time", "lat", "lon", "lat_2d", "lon_2d", "lev", "y", "x"):
                 continue
             # Keep depth-resolved metadata (dz, ocean_fraction) consistent with the
             # emitted levels. A shallow model spec (e.g. thermo_dynamic_5) predicts

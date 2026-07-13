@@ -43,7 +43,7 @@ def test_level_index_vars_roundtrip(data_source):
     Exercised on the mock OM4 dataset (in ``<var>_<level_index>`` form) in both
     orders, so each function is run against the other's real output.
     """
-    spec = TEST_DATASET_SPEC
+    spec = TEST_FULL_DATASET_SPEC
     ds_idx = data_source.data  # OM4 data named <var>_<level_index>
 
     ds_lev = with_depth_value_vars(ds_idx, spec)
@@ -61,7 +61,7 @@ def test_level_index_vars_roundtrip(data_source):
 @pytest.mark.parametrize("data_source", ["mock-om4"], indirect=True)
 def test_stack_levels(data_source):
     """`stack_levels` reassembles flattened OM4 data into depth-stacked form."""
-    spec = TEST_DATASET_SPEC
+    spec = TEST_FULL_DATASET_SPEC
     ds = data_source.data
     n = len(spec.depth_levels)
 

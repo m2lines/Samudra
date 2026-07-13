@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783974106258,
+  "lastUpdate": 1783974108159,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -20689,6 +20689,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.06857148075073254",
             "extra": "mean: 20.001663121799993 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d5f630a25168ab0f873a62bb062c6a4a6120429d",
+          "message": "Disable flash encoder latent rotary (#789)\n\nDisable the FlashPerceiver encoder's latent rotary embedding by no\nlonger passing `latent_rotary_emb_dim` from Samudra's config builder.\nThis does not seem likely to be super important, since we still add 2D\nFourier features to input patch tokens, and the encoder/decoder still\nadd the physical patch position and scale encodings.\n\nWe want to do this because on ORCD H200 runs, `samudra-multi` is\ncrashing (CUDA memory fault) in FlashAttention's Triton rotary kernel. I\ntried some variants of the configuration which seem to work but I would\nrather just disable and avoid future related trouble given it seems\nunnecessary.\n\n---------\n\nCo-authored-by: fomo-bot <266121006+fomo-bot@users.noreply.github.com>",
+          "timestamp": "2026-07-13T16:07:57-04:00",
+          "tree_id": "f101b4d64e729350ae447f1518dbed3446e5d820",
+          "url": "https://github.com/m2lines/Samudra/commit/d5f630a25168ab0f873a62bb062c6a4a6120429d"
+        },
+        "date": 1783974107878,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1014309560561617,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0003475769491586661",
+            "extra": "mean: 907.909837200009 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.17508193245463327,
+            "unit": "iter/sec",
+            "range": "stddev: 0.022147774455213386",
+            "extra": "mean: 5.711611620799976 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.05013595031339974,
+            "unit": "iter/sec",
+            "range": "stddev: 0.028872545667555205",
+            "extra": "mean: 19.945767333599974 sec\nrounds: 5"
           }
         ]
       }

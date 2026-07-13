@@ -22,6 +22,7 @@ from samudra.utils.data import (
     stack_levels,
     unflatten_masks,
     with_depth_value_vars,
+    with_lat_lon_coords,
     with_level_index_vars,
 )
 from tests.conftest import TEST_DATASET_SPEC, TEST_FULL_DATASET_SPEC
@@ -76,6 +77,42 @@ def test_stack_levels(data_source):
     assert "mask_0" not in stacked.variables
     # Level-free variables are untouched.
     assert "lev" not in stacked["zos"].dims
+
+
+def test_with_lat_lon_coords_preserves_2d_geometry():
+    """Real OM4 layout (y/x dims, 2D lat/lon) becomes 1D lat/lon dims + lat_2d/lon_2d.
+
+    The mock fixtures use lat/lon dims directly, so this is the only coverage of the
+    y/x -> lat/lon rename and the 2D-coordinate preservation that eval relies on to
+    propagate true geometry (essential for curvilinear grids, where the 2D lat/lon
+    cannot be rebuilt by broadcasting).
+    """
+    ny, nx = 3, 4
+    y = np.linspace(-60, 60, ny)
+    x = np.linspace(0, 270, nx)
+    # A curvilinear twist so lat_2d/lon_2d are NOT the outer product of the 1D axes.
+    lat2d = y[:, None] + 0.1 * x[None, :]
+    lon2d = x[None, :] + 0.1 * y[:, None]
+    ds = xr.Dataset(
+        {"thetao_0": (["y", "x"], np.ones((ny, nx)))},
+        coords={
+            "x": ("x", x),
+            "y": ("y", y),
+            "lat": (("y", "x"), lat2d),
+            "lon": (("y", "x"), lon2d),
+        },
+    )
+
+    out = with_lat_lon_coords(ds)
+
+    # x/y dims are renamed to 1D lat/lon dims ...
+    assert out["thetao_0"].dims == ("lat", "lon")
+    np.testing.assert_array_equal(out["lat"].values, y)
+    np.testing.assert_array_equal(out["lon"].values, x)
+    # ... and the real 2D geometry is kept verbatim under non-colliding names.
+    assert out["lat_2d"].dims == ("lat", "lon")
+    np.testing.assert_array_equal(out["lat_2d"].values, lat2d)
+    np.testing.assert_array_equal(out["lon_2d"].values, lon2d)
 
 
 def test_rename_vars():

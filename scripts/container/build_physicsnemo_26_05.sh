@@ -6,11 +6,11 @@
 
 set -euo pipefail
 
-IMAGE_TAG="${IMAGE_TAG:-ocean-emulator:physicsnemo-25.11}"
-DOCKERFILE="${DOCKERFILE:-containers/Dockerfile.physicsnemo-25.11}"
+IMAGE_TAG="${IMAGE_TAG:-ocean-emulator:physicsnemo-26.05}"
+DOCKERFILE="${DOCKERFILE:-containers/Dockerfile.physicsnemo-26.05}"
 BUILD_APPTAINER="${BUILD_APPTAINER:-1}"
 RUN_SMOKE_TEST="${RUN_SMOKE_TEST:-1}"
-SIF_PATH="${SIF_PATH:-dist/ocean-emulator_physicsnemo-25.11.sif}"
+SIF_PATH="${SIF_PATH:-dist/ocean-emulator_physicsnemo-26.05.sif}"
 
 docker_cmd=(docker)
 if ! docker version >/dev/null 2>&1; then

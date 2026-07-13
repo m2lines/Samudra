@@ -15,9 +15,9 @@
 #   sbatch --gres=gpu:rtx6000:1 scripts/slurm_apptainer_eval.sbatch
 #
 # Container selection (pick one):
-#   export IMAGE_REF=ghcr.io/m2lines/ocean-emulator-physicsnemo:25.11-<hash>
-#   export CONTAINER_HASH=<git sha>   # expands to 25.11-<sha>
-#   export CONTAINER_TAG=25.11-latest
+#   export IMAGE_REF=ghcr.io/m2lines/ocean-emulator-physicsnemo:26.05-<hash>
+#   export CONTAINER_HASH=<git sha>   # expands to 26.05-<sha>
+#   export CONTAINER_TAG=26.05-latest
 #
 # Checkpoint selection (pick one):
 #   export TARGET_CHECKPOINT=<path-relative-to-OUTPUT_BASE>
@@ -146,9 +146,9 @@ IMAGE_REF="${IMAGE_REF:-}"
 if [[ -z "${IMAGE_REF}" ]]; then
   if [[ -z "${CONTAINER_TAG}" ]]; then
     if [[ -n "${CONTAINER_HASH}" ]]; then
-      CONTAINER_TAG="25.11-${CONTAINER_HASH}"
+      CONTAINER_TAG="26.05-${CONTAINER_HASH}"
     else
-      CONTAINER_TAG="25.11-latest"
+      CONTAINER_TAG="26.05-latest"
     fi
   fi
   IMAGE_REF="${CONTAINER_REGISTRY}/${CONTAINER_ORG}/${CONTAINER_REPO}:${CONTAINER_TAG}"
@@ -199,6 +199,9 @@ export MKL_NUM_THREADS="${MKL_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export NUMEXPR_NUM_THREADS="${NUMEXPR_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export PYTHONUNBUFFERED=1
+export PYTHONNOUSERSITE="${PYTHONNOUSERSITE:-1}"
+export APPTAINERENV_PYTHONNOUSERSITE="${APPTAINERENV_PYTHONNOUSERSITE:-${PYTHONNOUSERSITE}}"
+export SINGULARITYENV_PYTHONNOUSERSITE="${SINGULARITYENV_PYTHONNOUSERSITE:-${PYTHONNOUSERSITE}}"
 
 # Bind mounts.
 DATA_CACHE_DIR="${DATA_CACHE_DIR:-${REPO_DIR}/.data_cache/${NAME}}"
@@ -232,6 +235,7 @@ srun --ntasks=1 --ntasks-per-node=1 \
     "${SIF_PATH}" \
     bash -lc "
       set -euo pipefail
+      export PYTHONNOUSERSITE=1
       export PYTHONPATH=/workspace/src:\${PYTHONPATH:-}
       if [[ ! -x /workspace/.venv/bin/python ]]; then
         echo \"ERROR: /workspace/.venv/bin/python not found inside container\" >&2

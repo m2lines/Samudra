@@ -65,7 +65,7 @@ from samudra.utils.schedule import SchedulerConfig
 class WandBConfig(BaseConfig):
     mode: Literal["online", "disabled"] = "disabled"
     project: str = "default"
-    entity: str = "samudra"
+    entity: str = "ocean_emulators"
     group: str | None = None
     tags: list[str] | None = None
     notes: str | None = None

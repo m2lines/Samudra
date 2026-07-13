@@ -17,9 +17,9 @@
 #   sbatch --nodes=2 --gres=gpu:rtx6000:8 scripts/slurm_apptainer_train.sbatch
 #
 # Container selection (pick one):
-#   export IMAGE_REF=ghcr.io/m2lines/ocean-emulator-physicsnemo:25.11-<hash>
-#   export CONTAINER_HASH=<git sha>   # expands to 25.11-<sha>
-#   export CONTAINER_TAG=25.11-latest
+#   export IMAGE_REF=ghcr.io/m2lines/ocean-emulator-physicsnemo:26.05-<hash>
+#   export CONTAINER_HASH=<git sha>   # expands to 26.05-<sha>
+#   export CONTAINER_TAG=26.05-latest
 #
 # Private GHCR pulls (if needed):
 #   export GHCR_USERNAME=...
@@ -123,9 +123,9 @@ IMAGE_REF="${IMAGE_REF:-}"
 if [[ -z "${IMAGE_REF}" ]]; then
   if [[ -z "${CONTAINER_TAG}" ]]; then
     if [[ -n "${CONTAINER_HASH}" ]]; then
-      CONTAINER_TAG="25.11-${CONTAINER_HASH}"
+      CONTAINER_TAG="26.05-${CONTAINER_HASH}"
     else
-      CONTAINER_TAG="25.11-latest"
+      CONTAINER_TAG="26.05-latest"
     fi
   fi
   IMAGE_REF="${CONTAINER_REGISTRY}/${CONTAINER_ORG}/${CONTAINER_REPO}:${CONTAINER_TAG}"

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783971404010,
+  "lastUpdate": 1783972440844,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -10205,6 +10205,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.18143416659374254",
             "extra": "mean: 29.04957816100002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f608b2653f6a3d9122faa93f3eb46382864adce7",
+          "message": "Use serial ESMF in xESMF data tests (#788)\n\nForce the conda-forge `nompi` ESMF build in the serial xESMF data-test\nworkflow.\n\nWe are getting\n[intermittent](https://github.com/m2lines/Samudra/actions/runs/29047813316)\n[failures](https://github.com/m2lines/Samudra/actions/runs/29041882608)\nfor these tests which show up as SIGTERMs. I don't believe it's an\nout-of-memory issue (the test data is tiny) and can't reproduce these\nlocally. Running under Valgrind Memcheck in docker environments produced\nmany errors during UCX TCP reachability discovery in:\n\n```text\nuct_tcp_iface_is_reachable_v2\nucp_wireup_select_transport\nMPIDI_UCX_init_local\nMPI_Init_thread\nESMCI::VMK::init\nESMF_Initialize\n```\n\nAs a control, the same MPI initialization under Valgrind with\n`UCX_TLS=self` reported 0 errors. That isolates the finding to\nunnecessary network transport discovery.\n\nPython/glibc allocator-debug stress using `PYTHONMALLOC=debug`,\n`MALLOC_CHECK_=3`, and `MALLOC_PERTURB_` also completed 500 regrids on\nboth builds without detecting heap corruption.\n\nAll together, this is not really proof that the SIGTERM on GH is caused\nby this (since we can't repro locally to get more info) but seems worth\ntrying.",
+          "timestamp": "2026-07-13T15:40:04-04:00",
+          "tree_id": "38fd309214dfea09bdf0489106805aedf9539659",
+          "url": "https://github.com/m2lines/Samudra/commit/f608b2653f6a3d9122faa93f3eb46382864adce7"
+        },
+        "date": 1783972439872,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0909049868848641,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002071407070808203",
+            "extra": "mean: 916.6701151999973 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.16908525365818597,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06387911245324371",
+            "extra": "mean: 5.9141763007999995 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.03541714218523078,
+            "unit": "iter/sec",
+            "range": "stddev: 0.14865988537155655",
+            "extra": "mean: 28.234915024199996 sec\nrounds: 5"
           }
         ]
       }

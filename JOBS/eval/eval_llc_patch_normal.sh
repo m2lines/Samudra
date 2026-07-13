@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p mit_normal_gpu
-#SBATCH --job-name=2026-07-10-eval:Samudra_LLC:rb-Agulhas-pred_field-eager-ckpt20
+#SBATCH --job-name=2026-07-12-eval:Samudra_LLC:rb-Agulhas-pred_resid-eager-ckpt25
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
 #SBATCH -N 1
@@ -8,7 +8,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
 #SBATCH --gres=gpu:1
-#SBATCH --time=00-03:00:00
+#SBATCH --time=00-04:00:00
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 set -euo pipefail
@@ -29,7 +29,7 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
-CKPT_PATH="${CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-07-09:samudra_llc:rb-Agulhas-strides=1-pred_field-eager-2-17560430/saved_nets/ckpt_20.pt}"
+CKPT_PATH="${CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-07-10:samudra_llc:rb-Agulhas-strides=1-pred_resid-eager-2-17608619/saved_nets/ckpt_25.pt}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-/orcd/data/abodner/002/cody/inference_patch}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
@@ -40,7 +40,7 @@ INFERENCE_STRIDE="${INFERENCE_STRIDE:-1}"
 NUM_MODEL_STEPS_FORWARD="${NUM_MODEL_STEPS_FORWARD:-4}"
 MODEL_NORM="${MODEL_NORM:-group}"
 GROUP_NORM_GROUPS="${GROUP_NORM_GROUPS:-32}"
-PRED_RESIDUALS="${PRED_RESIDUALS:-false}"
+PRED_RESIDUALS="${PRED_RESIDUALS:-true}"
 MODEL_PAD="${MODEL_PAD:-constant}"
 NUM_HALO="${NUM_HALO:-4}"
 NUM_SPONGE="${NUM_SPONGE:-12}"

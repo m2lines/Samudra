@@ -19,10 +19,10 @@ replay:
   max_lead_transition: [6, 11, 16, 21, 26, 31, 36, 41, 46]
   checkpoint_buffer: true
 loss:
-  type: [gradient_h, TS-gradient_z]
-  metric: mse_mae
-  lambda_h: 0.1
-  lambda_z: 0.1
+  type: # [gradient_h, TS-gra#dient_z]
+  metric: mse #mse_mae
+  # lambda_h: 0.1
+  # lambda_z: 0.1
 finetune: false
 resume_ckpt_path: null
 reset_optimizer_on_resume: false

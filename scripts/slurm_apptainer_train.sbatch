@@ -207,6 +207,9 @@ export MKL_NUM_THREADS="${MKL_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export NUMEXPR_NUM_THREADS="${NUMEXPR_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export PYTHONUNBUFFERED=1
+export PYTHONNOUSERSITE="${PYTHONNOUSERSITE:-1}"
+export APPTAINERENV_PYTHONNOUSERSITE="${APPTAINERENV_PYTHONNOUSERSITE:-${PYTHONNOUSERSITE}}"
+export SINGULARITYENV_PYTHONNOUSERSITE="${SINGULARITYENV_PYTHONNOUSERSITE:-${PYTHONNOUSERSITE}}"
 
 # Bind mounts.
 DATA_CACHE_DIR="${DATA_CACHE_DIR:-${REPO_DIR}/.data_cache/${NAME}}"
@@ -235,6 +238,7 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
     "${SIF_PATH}" \
     bash -lc "
       set -euo pipefail
+      export PYTHONNOUSERSITE=1
       export PYTHONPATH=/workspace/src:\${PYTHONPATH:-}
       if [[ ! -x /workspace/.venv/bin/python ]]; then
         echo \"ERROR: /workspace/.venv/bin/python not found inside container\" >&2

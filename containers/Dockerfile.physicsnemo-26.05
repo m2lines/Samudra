@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # syntax=docker/dockerfile:1.7
-FROM nvcr.io/nvidia/physicsnemo/physicsnemo:25.11
+FROM nvcr.io/nvidia/physicsnemo/physicsnemo:26.05
 
 WORKDIR /workspace
 
@@ -77,6 +77,21 @@ RUN . .venv/bin/activate \
         --no-install-package nvidia-nvjitlink-cu12 \
         --no-install-package nvidia-nvshmem-cu12 \
         --no-install-package nvidia-nvtx-cu12 \
+        --no-install-package nvidia-cublas \
+        --no-install-package nvidia-cuda-cupti \
+        --no-install-package nvidia-cuda-nvrtc \
+        --no-install-package nvidia-cuda-runtime \
+        --no-install-package nvidia-cudnn-cu13 \
+        --no-install-package nvidia-cufft \
+        --no-install-package nvidia-cufile \
+        --no-install-package nvidia-curand \
+        --no-install-package nvidia-cusolver \
+        --no-install-package nvidia-cusparse \
+        --no-install-package nvidia-cusparselt-cu13 \
+        --no-install-package nvidia-nccl-cu13 \
+        --no-install-package nvidia-nvjitlink \
+        --no-install-package nvidia-nvshmem-cu13 \
+        --no-install-package nvidia-nvtx \
         --no-install-package triton
 
 RUN . .venv/bin/activate \

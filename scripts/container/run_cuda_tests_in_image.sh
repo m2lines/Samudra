@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-IMAGE_TAG="${IMAGE_TAG:-ocean-emulator:physicsnemo-25.11}"
+IMAGE_TAG="${IMAGE_TAG:-ocean-emulator:physicsnemo-26.05}"
 PYTEST_MARK_EXPR="${PYTEST_MARK_EXPR:-cuda and not manual}"
 PYTEST_ARGS="${PYTEST_ARGS:-}"
 

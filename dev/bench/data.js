@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1783971398485,
+  "lastUpdate": 1783971404010,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -20419,6 +20419,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.04550832088723402",
             "extra": "mean: 19.897900077199985 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bc04de9a4ac681e1bb717a35759c0752b848d81d",
+          "message": "Add Empire AI NVL72 training launcher, fix W&B entity (#777)\n\nAdd an example Empire AI Beta NVL72 Slurm launcher for half-degree OM4\ntraining. Updates to latest physics nemo base image.\n\nDrive by: default W&B runs to the `ocean_emulators` entity instead of\nthe stale `samudra` entity.\n\n---------\n\nCo-authored-by: fomo-bot <266121006+fomo-bot@users.noreply.github.com>",
+          "timestamp": "2026-07-13T15:22:08-04:00",
+          "tree_id": "b89f9ce38b57a0c195a487d8004185d1dffec058",
+          "url": "https://github.com/m2lines/Samudra/commit/bc04de9a4ac681e1bb717a35759c0752b848d81d"
+        },
+        "date": 1783971403733,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.048890589650543,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0022993363225727852",
+            "extra": "mean: 953.388284599987 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.16150579075393426,
+            "unit": "iter/sec",
+            "range": "stddev: 0.027201358697969",
+            "extra": "mean: 6.191728453399992 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.047141052598745195,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06906689524854308",
+            "extra": "mean: 21.212933205199967 sec\nrounds: 5"
           }
         ]
       }

@@ -45,11 +45,11 @@ SRC_ROOT = REPO_ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from ocean_emulators.models.modules.activations import CappedGELU  # noqa: E402
+from samudra.models.modules.activations import CappedGELU 
 
 
 # =============================================================================
-# group_norm_manual  (bypasses the fused-kernel guard that blocks >1 sharded dim)
+# group_norm_manual  (custom needed as 2D is not supported by shardtensor right now)
 # =============================================================================
 def group_norm_manual(x, num_groups, weight, bias, eps: float = 1e-5):
     """Functional GroupNorm built from reshape + var_mean + affine.
@@ -58,7 +58,7 @@ def group_norm_manual(x, num_groups, weight, bias, eps: float = 1e-5):
       - reshape splits ONLY the (unsharded) channel dim -> no data crosses a
         shard boundary,
       - var_mean over the sharded spatial dims produces a Partial that is
-        all-reduced via the same path MSE uses (proven working),
+        all-reduced via the same path MSE uses,
       - affine + backward are standard autograd ops (no manual collectives).
 
     Matches nn.GroupNorm semantics: biased variance, eps inside rsqrt.

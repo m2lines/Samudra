@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p mit_normal_gpu
-#SBATCH --job-name=2026-07-12-eval:Samudra_LLC:rb-Agulhas-pred_resid-eager-ckpt25
+#SBATCH --job-name=2026-07-13-eval:Samudra_LLC:rb-Agulhas-pred_resid-reg-ckpt25
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
 #SBATCH -N 1
@@ -29,7 +29,7 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
-CKPT_PATH="${CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-07-10:samudra_llc:rb-Agulhas-strides=1-pred_resid-eager-2-17608619/saved_nets/ckpt_25.pt}"
+CKPT_PATH="${CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-07-12:samudra_llc:rb-Agulhas-strides=1-pred_resid-reg-2-17790472/saved_nets/ckpt_25.pt}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-/orcd/data/abodner/002/cody/inference_patch}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"

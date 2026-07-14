@@ -129,11 +129,20 @@ def test_train_config_allows_cli_override_for_cpu_num_workers(tmp_path):
             str(tmp_path / "outputs"),
             "--data.loading.num_workers",
             "2",
+            "--data.loading.timeout_seconds",
+            "120",
+            "--data.loading.slow_warning_seconds",
+            "10",
+            "--data.loading.traceback_interval_seconds",
+            "60",
         ]
     )
 
     assert isinstance(cfg.data.loading, CpuDataLoadingConfig)
     assert cfg.data.loading.num_workers == 2
+    assert cfg.data.loading.timeout_seconds == 120
+    assert cfg.data.loading.slow_warning_seconds == 10
+    assert cfg.data.loading.traceback_interval_seconds == 60
 
 
 def test_get_pydantic_models_collects_loading_variants():

@@ -222,3 +222,25 @@ def test_data_loaders_disable_persistent_workers_when_num_workers_is_zero(
 
     assert trainer.train_loader._dataloader.persistent_workers is False
     assert trainer.val_loader._dataloader.persistent_workers is False
+
+
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "test/train_default.yaml")],
+    indirect=True,
+)
+def test_data_loaders_apply_cpu_diagnostics(train_config):
+    assert isinstance(train_config.data.loading, CpuDataLoadingConfig)
+    train_config.data.loading.timeout_seconds = 120
+    train_config.data.loading.slow_warning_seconds = 10
+    train_config.data.loading.traceback_interval_seconds = 60
+
+    with MultitonScope():
+        trainer = Trainer(train_config)
+        trainer.init_data_loaders(cur_step=train_config.steps[0])
+
+    assert trainer.train_loader._dataloader.timeout == 120
+    dataset = trainer.train_loader._dataloader.dataset.datasets[0]
+    assert dataset._slow_load_warning_seconds == 10
+    assert dataset._worker_traceback_interval_seconds == 60

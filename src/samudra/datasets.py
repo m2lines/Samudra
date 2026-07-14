@@ -2,11 +2,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import faulthandler
 import logging
+import os
 import time
 from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
-from typing import ClassVar, final
+from pathlib import Path
+from typing import ClassVar, TextIO, final
 
 import numpy as np
 import torch
@@ -446,6 +449,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     # __getitem__ call so that each forked DataLoader worker gets its own
     # clean executor — avoids inheriting fork-corrupted locks from the parent.
     _shared_executor: ClassVar[ThreadPoolExecutor | None] = None
+    _traceback_files: ClassVar[dict[int, TextIO]] = {}
 
     @classmethod
     def _get_executor(cls) -> ThreadPoolExecutor:
@@ -468,6 +472,9 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         masked_fill_value: float,
         stride: int = 1,
         concurrent_compute_: bool = False,
+        slow_load_warning_seconds: float = 0.0,
+        worker_traceback_interval_seconds: int = 0,
+        worker_traceback_dir: Path | None = None,
     ):
         super().__init__()
         self.id = f"{self.__class__.__name__}_{str(id(self))}"
@@ -480,6 +487,9 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.normalize_before_mask: bool = normalize_before_mask
         self.masked_fill_value: float = masked_fill_value
         self._concurrent_compute = concurrent_compute_
+        self._slow_load_warning_seconds = slow_load_warning_seconds
+        self._worker_traceback_interval_seconds = worker_traceback_interval_seconds
+        self._worker_traceback_dir = worker_traceback_dir
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         self.num_boundary_channels: int = (hist + 1) * len(boundary_var_names)
@@ -534,6 +544,20 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()
+        traceback_file = self._arm_worker_traceback(idx)
+        try:
+            return self._load_item(idx, start_time)
+        finally:
+            if traceback_file is not None:
+                faulthandler.cancel_dump_traceback_later()
+            self._log_slow_stage(
+                time.perf_counter() - start_time,
+                idx=idx,
+                step=None,
+                stage="item_total",
+            )
+
+    def _load_item(self, idx: int, start_time: float) -> RawTrainData:
         TD = RawTrainData(self.id)
 
         for step in range(self.steps):
@@ -550,47 +574,138 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             prognostic_selected = [input_selected, label_selected]
 
             if self._concurrent_compute:
-                datasets = prognostic_selected + [boundary_selected]
+                load_start = time.perf_counter()
                 concurrent_compute(
-                    *datasets,
+                    ("input", input_selected),
+                    ("label", label_selected),
+                    ("boundary", boundary_selected),
                     executor=self._get_executor(),
+                    slow_load_warning_seconds=self._slow_load_warning_seconds,
+                    log_context=self._diagnostic_context(idx, step),
+                )
+                self._log_slow_stage(
+                    time.perf_counter() - load_start,
+                    idx=idx,
+                    step=step,
+                    stage="concurrent_compute",
                 )
 
             if "lev" in prognostic_selected[0].dims:
-                prognostics = [
-                    torch.from_numpy(
-                        conditional_rearrange(
-                            selected,
-                            "time (variable lev)=var lat lon",
-                            concat_dim="var",
+                prognostics = []
+                for selected_name, selected in zip(
+                    ("input", "label"), prognostic_selected, strict=True
+                ):
+                    convert_start = time.perf_counter()
+                    prognostics.append(
+                        torch.from_numpy(
+                            conditional_rearrange(
+                                selected,
+                                "time (variable lev)=var lat lon",
+                                concat_dim="var",
+                            )
+                            .rename({"var": "variable"})
+                            .to_numpy()
+                            .astype(np.float32, copy=False)
                         )
-                        .rename({"var": "variable"})
-                        .to_numpy()
-                        .astype(np.float32, copy=False)
                     )
-                    for selected in prognostic_selected
-                ]
+                    self._log_slow_stage(
+                        time.perf_counter() - convert_start,
+                        idx=idx,
+                        step=step,
+                        stage=f"{selected_name}_to_tensor",
+                    )
             else:
-                prognostics = [
-                    torch.from_numpy(
-                        selected.to_array()
-                        .transpose("time", "variable", "lat", "lon")
-                        .to_numpy()
-                        .astype(np.float32, copy=False)
+                prognostics = []
+                for selected_name, selected in zip(
+                    ("input", "label"), prognostic_selected, strict=True
+                ):
+                    convert_start = time.perf_counter()
+                    prognostics.append(
+                        torch.from_numpy(
+                            selected.to_array()
+                            .transpose("time", "variable", "lat", "lon")
+                            .to_numpy()
+                            .astype(np.float32, copy=False)
+                        )
                     )
-                    for selected in prognostic_selected
-                ]
+                    self._log_slow_stage(
+                        time.perf_counter() - convert_start,
+                        idx=idx,
+                        step=step,
+                        stage=f"{selected_name}_to_tensor",
+                    )
+            boundary_start = time.perf_counter()
             boundary = torch.from_numpy(
                 boundary_selected.to_array()
                 .transpose("time", "variable", "lat", "lon")
                 .to_numpy()
                 .astype(np.float32, copy=False)
             )
+            self._log_slow_stage(
+                time.perf_counter() - boundary_start,
+                idx=idx,
+                step=step,
+                stage="boundary_to_tensor",
+            )
             input_, label = prognostics[0], prognostics[-1]
             TD.insert(input_, boundary, label)
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
 
         return TD
+
+    def _diagnostic_context(self, idx: int, step: int | None) -> str:
+        worker_info = torch.utils.data.get_worker_info()
+        worker_id = worker_info.id if worker_info is not None else "main"
+        return (
+            f"rank={os.environ.get('RANK', '0')} worker={worker_id} "
+            f"pid={os.getpid()} dataset={self.id} idx={idx} step={step}"
+        )
+
+    def _log_slow_stage(
+        self,
+        duration: float,
+        *,
+        idx: int,
+        step: int | None,
+        stage: str,
+    ) -> None:
+        threshold = self._slow_load_warning_seconds
+        if threshold > 0 and duration >= threshold:
+            logger.warning(
+                "Slow data load: %s stage=%s duration_seconds=%.3f",
+                self._diagnostic_context(idx, step),
+                stage,
+                duration,
+            )
+
+    def _arm_worker_traceback(self, idx: int) -> TextIO | None:
+        interval = self._worker_traceback_interval_seconds
+        directory = self._worker_traceback_dir
+        if interval <= 0 or directory is None:
+            return None
+
+        pid = os.getpid()
+        traceback_file = self._traceback_files.get(pid)
+        if traceback_file is None:
+            directory.mkdir(parents=True, exist_ok=True)
+            worker_info = torch.utils.data.get_worker_info()
+            worker_id = worker_info.id if worker_info is not None else "main"
+            path = directory / (
+                f"rank-{os.environ.get('RANK', '0')}-worker-{worker_id}-pid-{pid}.log"
+            )
+            traceback_file = path.open("a", buffering=1)
+            self._traceback_files[pid] = traceback_file
+
+        traceback_file.write(
+            f"Arming traceback timer: {self._diagnostic_context(idx, None)} "
+            f"interval_seconds={interval}\n"
+        )
+        faulthandler.dump_traceback_later(
+            interval,
+            repeat=True,
+            file=traceback_file,
+        )
+        return traceback_file
 
     def to_train_data(
         self, raw_train_data: RawTrainData, device: torch.device
@@ -659,16 +774,40 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
 
 def concurrent_compute(
-    *datasets: xr.Dataset,
+    *datasets: tuple[str, xr.Dataset],
     executor: ThreadPoolExecutor,
+    slow_load_warning_seconds: float = 0.0,
+    log_context: str = "",
 ) -> None:
-    def load_variable_data(var: xr.Variable) -> None:
-        var.load()
+    def load_variable_data(
+        dataset_name: str, variable_name: str, var: xr.Variable
+    ) -> None:
+        start_time = time.perf_counter()
+        try:
+            var.load()
+        finally:
+            duration = time.perf_counter() - start_time
+            if slow_load_warning_seconds > 0 and duration >= slow_load_warning_seconds:
+                logger.warning(
+                    "Slow variable load: %s dataset_role=%s variable=%s "
+                    "duration_seconds=%.3f",
+                    log_context,
+                    dataset_name,
+                    variable_name,
+                    duration,
+                )
 
     futures = []
-    for ds in datasets:
-        for var in ds.data_vars.variables.values():
-            futures.append(executor.submit(load_variable_data, var))
+    for dataset_name, ds in datasets:
+        for variable_name, var in ds.data_vars.variables.items():
+            futures.append(
+                executor.submit(
+                    load_variable_data,
+                    dataset_name,
+                    variable_name,
+                    var,
+                )
+            )
 
     wait(futures)
 

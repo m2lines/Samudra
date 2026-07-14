@@ -69,6 +69,7 @@ NAME_SUFFIX="${NAME_SUFFIX:-}"
 ARGS="${ARGS:-}"
 NSYS_ARGS="${NSYS_ARGS:-}"
 REQUEUE_ON_USR1="${REQUEUE_ON_USR1:-0}"
+SOURCE_OVERLAY="${SOURCE_OVERLAY:-}"
 if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then
   NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"
 fi
@@ -159,6 +160,11 @@ fi
 REPO_DIR="${REPO_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}"
 cd "${REPO_DIR}"
 
+if [[ -n "${SOURCE_OVERLAY}" && ! -d "${SOURCE_OVERLAY}/src/samudra" ]]; then
+  echo "SOURCE_OVERLAY must contain src/samudra: ${SOURCE_OVERLAY}" >&2
+  exit 7
+fi
+
 SIF_DIR="${SIF_DIR:-${REPO_DIR}/.apptainer-images}"
 mkdir -p "${SIF_DIR}"
 # Default cache name keys off IMAGE_REF so distinct refs never collide.
@@ -184,6 +190,9 @@ echo "Outputs:    ${OUTPUT_BASE}"
 echo "W&B mode:   ${WANDB_MODE}"
 echo "Image ref:  ${IMAGE_REF}"
 echo "SIF path:   ${SIF_PATH}"
+if [[ -n "${SOURCE_OVERLAY}" ]]; then
+  echo "Source:     ${SOURCE_OVERLAY}/src (read-only overlay)"
+fi
 if [[ -n "${NSYS_ARGS}" ]]; then
   echo "NSYS args:  ${NSYS_ARGS}"
   echo "NSYS out:   ${NSYS_OUTPUT_DIR}"
@@ -244,6 +253,9 @@ binds=(
   "${OUTPUT_BASE}:${OUTPUT_BASE}"
   "${DATA_CACHE_DIR}:/workspace/.data_cache"
 )
+if [[ -n "${SOURCE_OVERLAY}" ]]; then
+  binds+=("${SOURCE_OVERLAY}/src:/workspace/src:ro")
+fi
 BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 
 # Create the run directory after preflight validation so early failures are

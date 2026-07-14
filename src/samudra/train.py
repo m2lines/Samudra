@@ -162,6 +162,11 @@ class Trainer:
 
         data_num_workers = cfg.data.loading.num_pytorch_workers()
         persistent_workers = cfg.data.loading.persistent_pytorch_workers()
+        data_loader_timeout_seconds = cfg.data.loading.pytorch_timeout_seconds()
+        slow_load_warning_seconds = cfg.data.loading.slow_load_warning_seconds()
+        worker_traceback_interval_seconds = (
+            cfg.data.loading.worker_traceback_interval_seconds()
+        )
 
         self.mp_context: BaseContext | None = None
         if data_num_workers > 0:
@@ -330,6 +335,9 @@ class Trainer:
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
         self.num_workers: int = data_num_workers
         self.persistent_workers: bool = persistent_workers
+        self.data_loader_timeout_seconds = data_loader_timeout_seconds
+        self.slow_load_warning_seconds = slow_load_warning_seconds
+        self.worker_traceback_interval_seconds = worker_traceback_interval_seconds
         self.pin_mem: bool = cfg.pin_mem
         self.train_time: config.TimeConfig = cfg.train_time
         self.val_time = cfg.val_time
@@ -417,6 +425,7 @@ class Trainer:
             drop_last=False,
             collate_fn=collate_inference_data,
             multiprocessing_context=self.mp_context,
+            timeout=self.data_loader_timeout_seconds,
         )
 
     def run(self) -> None:
@@ -822,6 +831,11 @@ class Trainer:
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
                 concurrent_compute_=self.concurrent_compute,
+                slow_load_warning_seconds=self.slow_load_warning_seconds,
+                worker_traceback_interval_seconds=(
+                    self.worker_traceback_interval_seconds
+                ),
+                worker_traceback_dir=self.output_dir / "loader-tracebacks",
             )
             for stride in self.data_stride
             for src, dst in srcs
@@ -839,6 +853,11 @@ class Trainer:
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
                 concurrent_compute_=self.concurrent_compute,
+                slow_load_warning_seconds=self.slow_load_warning_seconds,
+                worker_traceback_interval_seconds=(
+                    self.worker_traceback_interval_seconds
+                ),
+                worker_traceback_dir=self.output_dir / "loader-tracebacks",
             )
             for stride in self.data_stride
             for src, dst in srcs
@@ -931,6 +950,7 @@ class Trainer:
             pin_memory=self.pin_mem,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
+            timeout=self.data_loader_timeout_seconds,
         )
 
         val_dataloader = DataLoader(
@@ -941,6 +961,7 @@ class Trainer:
             pin_memory=self.pin_mem,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
+            timeout=self.data_loader_timeout_seconds,
         )
 
         # Wrap dataloaders to handle GPU post-processing

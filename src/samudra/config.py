@@ -163,17 +163,38 @@ class BaseDataLoadingConfig(BaseConfig):
     def persistent_pytorch_workers(self) -> bool:
         raise NotImplementedError
 
+    def pytorch_timeout_seconds(self) -> float:
+        return 0.0
+
+    def slow_load_warning_seconds(self) -> float:
+        return 0.0
+
+    def worker_traceback_interval_seconds(self) -> int:
+        return 0
+
 
 class CpuDataLoadingConfig(BaseDataLoadingConfig):
     type: Literal["cpu"] = "cpu"
     num_workers: int = Field(default=4, ge=0)
     persistent_workers: bool = True
+    timeout_seconds: float = Field(default=0.0, ge=0)
+    slow_warning_seconds: float = Field(default=0.0, ge=0)
+    traceback_interval_seconds: int = Field(default=0, ge=0)
 
     def num_pytorch_workers(self) -> int:
         return self.num_workers
 
     def persistent_pytorch_workers(self) -> bool:
         return self.persistent_workers
+
+    def pytorch_timeout_seconds(self) -> float:
+        return self.timeout_seconds
+
+    def slow_load_warning_seconds(self) -> float:
+        return self.slow_warning_seconds
+
+    def worker_traceback_interval_seconds(self) -> int:
+        return self.traceback_interval_seconds
 
 
 class GpuDataLoadingConfig(BaseDataLoadingConfig):

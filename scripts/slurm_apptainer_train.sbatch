@@ -43,6 +43,17 @@
 
 set -euo pipefail
 
+if ! command -v apptainer >/dev/null 2>&1 \
+  && ! command -v singularity >/dev/null 2>&1; then
+  if [[ -f /etc/profile.d/modules.sh ]]; then
+    # shellcheck source=/etc/profile.d/modules.sh
+    source /etc/profile.d/modules.sh
+  fi
+  if command -v module >/dev/null 2>&1; then
+    module load "${APPTAINER_MODULE:-apptainer}"
+  fi
+fi
+
 if command -v apptainer >/dev/null 2>&1; then
   APPTAINER_BIN=apptainer
 elif command -v singularity >/dev/null 2>&1; then
@@ -57,6 +68,7 @@ NAME="${NAME:-}"
 NAME_SUFFIX="${NAME_SUFFIX:-}"
 ARGS="${ARGS:-}"
 NSYS_ARGS="${NSYS_ARGS:-}"
+REQUEUE_ON_USR1="${REQUEUE_ON_USR1:-0}"
 if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then
   NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"
 fi
@@ -65,6 +77,15 @@ if [[ -z "${CONFIG}" || -z "${NAME}" ]]; then
   echo "Tip: set NAME_SUFFIX to auto-generate NAME as YYYY-MM-DD-<suffix>." >&2
   echo "Example: export NAME_SUFFIX=om4_samudra_baseline" >&2
   exit 2
+fi
+
+if [[ "${REQUEUE_ON_USR1}" == "1" ]]; then
+  handle_requeue() {
+    echo "Received USR1; requeueing Slurm job ${SLURM_JOB_ID}."
+    scontrol requeue "${SLURM_JOB_ID}"
+    exit 0
+  }
+  trap handle_requeue USR1
 fi
 
 # Config path inside the container image. We keep the env var as-is for
@@ -97,9 +118,13 @@ fi
 
 RUN_DIR="${OUTPUT_BASE}/${NAME}"
 if [[ -e "${RUN_DIR}" ]]; then
-  echo "Refusing to run: output dir already exists: ${RUN_DIR}" >&2
-  echo "Pick a unique NAME_SUFFIX." >&2
-  exit 4
+  if (( ${SLURM_RESTART_COUNT:-0} > 0 )); then
+    echo "Requeued job detected; resuming from existing output dir: ${RUN_DIR}"
+  else
+    echo "Refusing to run: output dir already exists: ${RUN_DIR}" >&2
+    echo "Pick a unique NAME_SUFFIX." >&2
+    exit 4
+  fi
 fi
 NSYS_OUTPUT_DIR="${RUN_DIR}/nsys"
 

@@ -133,7 +133,9 @@ class Eval:
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
         self.num_workers = data_num_workers
-        self.inference_time = cfg.inference_time
+        if not self.src.inference_times:
+            raise ValueError(f"Inference time is not configured for {self.src.name}")
+        self.inference_time = self.src.inference_times[0]
         self.num_model_steps_forward = cfg.num_model_steps_forward
         self.save_zarr = cfg.save_zarr
         self.model_path = cfg.ckpt_path

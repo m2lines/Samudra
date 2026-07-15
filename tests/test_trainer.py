@@ -175,6 +175,7 @@ def test_data_loaders_enable_persistent_workers_on_positive_num_workers(
     assert trainer.mp_context.get_start_method() == "spawn"
     assert trainer.train_loader._dataloader.persistent_workers is True
     assert trainer.val_loader._dataloader.persistent_workers is True
+    assert trainer.inference_times == trainer.inference_src.inference_times
 
 
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)

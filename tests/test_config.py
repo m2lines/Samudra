@@ -91,18 +91,33 @@ def test_data_source_time_configs_use_native_types():
         {"start": "2011-09-10", "end": "2011-09-20"}
     )
     llc_time = LlcTimeConfig.model_validate(
-        {"start": "2011-09-10T12:00:00", "end": "2011-09-20T18:00:00"}
+        {"start": "2011-09-10T14:00:00+02:00", "end": "2011-09-20T18:00:00Z"}
     )
 
-    assert isinstance(om4_time.start.datetime, cftime.DatetimeJulian)
+    assert isinstance(om4_time.start.datetime, cftime.datetime)
+    assert om4_time.start.datetime.calendar == "julian"
     assert str(om4_time.start) == "2011-09-10"
     assert isinstance(llc_time.start, np.datetime64)
     assert llc_time.start == np.datetime64("2011-09-10T12:00:00", "ns")
+    assert llc_time.model_dump(mode="json")["start"].endswith("Z")
 
 
-def test_llc_time_config_requires_time_of_day():
-    with pytest.raises(ValidationError, match="must include a time of day"):
+def test_om4_time_config_accepts_julian_leap_day():
+    time = Om4TimeConfig.model_validate({"start": "1900-02-29", "end": "1900-03-01"})
+
+    assert str(time.start) == "1900-02-29"
+
+
+def test_llc_time_config_rejects_date_only():
+    with pytest.raises(ValidationError, match="should have timezone info"):
         LlcTimeConfig.model_validate({"start": "2011-09-10", "end": "2011-09-20"})
+
+
+def test_llc_time_config_requires_utc_offset():
+    with pytest.raises(ValidationError, match="should have timezone info"):
+        LlcTimeConfig.model_validate(
+            {"start": "2011-09-10T12:00:00", "end": "2011-09-20T18:00:00Z"}
+        )
 
 
 def test_data_config_accepts_llc_dataset_type():
@@ -117,13 +132,19 @@ def test_data_config_accepts_llc_dataset_type():
                     "j_start": 30,
                     "j_end": 40,
                     "train_time": {
-                        "start": "2011-09-10T12:00:00",
-                        "end": "2012-09-01T12:00:00",
+                        "start": "2011-09-10T12:00:00Z",
+                        "end": "2012-09-01T12:00:00Z",
                     },
                     "val_time": {
-                        "start": "2012-09-01T12:00:00",
-                        "end": "2012-11-15T12:00:00",
+                        "start": "2012-09-01T12:00:00Z",
+                        "end": "2012-11-15T12:00:00Z",
                     },
+                    "inference_times": [
+                        {
+                            "start": "2012-11-15T12:00:00Z",
+                            "end": "2012-12-15T12:00:00Z",
+                        }
+                    ],
                     "data_location": "data.zarr",
                     "data_means_location": "means.zarr",
                     "data_stds_location": "stds.zarr",
@@ -135,6 +156,7 @@ def test_data_config_accepts_llc_dataset_type():
     source = cfg.sources[0]
     assert isinstance(source, LlcDataSourceConfig)
     assert source.face == 2
+    assert isinstance(source.inference_times[0], LlcTimeConfig)
     assert source.build().prognostic_var_names == ["Theta_0"]
 
 
@@ -148,12 +170,12 @@ def test_data_config_rejects_invalid_llc_crop():
                         "i_start": 20,
                         "i_end": 20,
                         "train_time": {
-                            "start": "2011-09-10T12:00:00",
-                            "end": "2012-09-01T12:00:00",
+                            "start": "2011-09-10T12:00:00Z",
+                            "end": "2012-09-01T12:00:00Z",
                         },
                         "val_time": {
-                            "start": "2012-09-01T12:00:00",
-                            "end": "2012-11-15T12:00:00",
+                            "start": "2012-09-01T12:00:00Z",
+                            "end": "2012-11-15T12:00:00Z",
                         },
                         "data_location": "data.zarr",
                         "data_means_location": "means.zarr",
@@ -192,12 +214,12 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
                     "j_start": 1,
                     "j_end": 3,
                     "train_time": {
-                        "start": "2011-09-10T12:00:00",
-                        "end": "2011-09-11T12:00:00",
+                        "start": "2011-09-10T12:00:00Z",
+                        "end": "2011-09-11T12:00:00Z",
                     },
                     "val_time": {
-                        "start": "2011-09-11T12:00:00",
-                        "end": "2011-09-12T12:00:00",
+                        "start": "2011-09-11T12:00:00Z",
+                        "end": "2011-09-12T12:00:00Z",
                     },
                     "data_location": "data.zarr",
                     "data_means_location": "means.nc",
@@ -220,6 +242,7 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
     assert "j_g" not in source.data.dims
     assert source.data["Theta_0"].shape == (3, 2, 3)
     assert np.issubdtype(source.data.time.dtype, np.datetime64)
+    assert source.inference_times == cfg.sources[0].inference_times
 
     sliced = source.slice(
         LlcTimeConfig(

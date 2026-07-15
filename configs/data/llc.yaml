@@ -12,11 +12,11 @@ sources:
     j_start: 0
     j_end: 720
     train_time:
-      start: "2011-09-10T12:00:00"
-      end: "2012-09-01T12:00:00"
+      start: "2011-09-10T12:00:00Z"
+      end: "2012-09-01T12:00:00Z"
     val_time:
-      start: "2012-09-01T12:00:00"
-      end: "2012-11-15T12:00:00"
+      start: "2012-09-01T12:00:00Z"
+      end: "2012-11-15T12:00:00Z"
     data_location: LLC.zarr
     data_means_location: LLC_means.zarr
     data_stds_location: LLC_stds.zarr

@@ -6,7 +6,7 @@ import dataclasses
 import logging
 import re
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from functools import cached_property
 from typing import TYPE_CHECKING, Literal, Self
 
@@ -86,6 +86,7 @@ class DataSource:
     dataset_spec: DatasetSpec
     train_time: "SourceTimeConfig | None" = None
     val_time: "SourceTimeConfig | None" = None
+    inference_times: list["SourceTimeConfig"] = dataclasses.field(default_factory=list)
 
     @cached_property
     def is_compact(self) -> bool:
@@ -291,6 +292,7 @@ class DataSource:
         boundary_var_names: BoundaryVarNames,
         train_time: "SourceTimeConfig | None" = None,
         val_time: "SourceTimeConfig | None" = None,
+        inference_times: Sequence["SourceTimeConfig"] | None = None,
         static_data_vars: list[str] | None = None,
         name: str = "DataSource",
     ) -> Self:
@@ -313,6 +315,7 @@ class DataSource:
             dataset_spec=dataset_spec,
             train_time=train_time,
             val_time=val_time,
+            inference_times=list(inference_times or ()),
         )
 
 

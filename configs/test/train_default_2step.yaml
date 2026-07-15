@@ -19,9 +19,6 @@ loss: mse
 finetune: false
 resume_ckpt_path: null
 inference_epochs: [-1]
-inference_times:
-  - start: "1975-10-30"
-    end: "1975-12-20"
 data_stride: [1]
 steps: [2]
 step_transition: []
@@ -48,6 +45,9 @@ data:
       val_time:
         start: "1975-10-20"
         end: "1975-11-20"
+      inference_times:
+        - start: "1975-10-30"
+          end: "1975-12-20"
       data_location: data.zarr
       data_means_location: means.nc
       data_stds_location: stds.nc

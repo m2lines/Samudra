@@ -20,9 +20,6 @@
 debug: false
 save_zarr: true
 disk_mode: true
-inference_time:
-  start: "2014-10-05"
-  end: "2015-10-05"
 num_model_steps_forward: 25
 
 experiment:
@@ -47,6 +44,9 @@ data:
       val_time: &val_time
         start: "2013-10-05"
         end: "2014-10-05"
+      inference_times: &inference_times
+        - start: "2014-10-05"
+          end: "2015-10-05"
       data_location: om4_halfdeg_v4/OM4.zarr
       data_means_location: om4_halfdeg_v4/OM4_means.zarr
       data_stds_location: om4_halfdeg_v4/OM4_stds.zarr
@@ -55,6 +55,7 @@ data:
       boundary_vars_key: tau_hfds
       train_time: *train_time
       val_time: *val_time
+      inference_times: *inference_times
       data_location: om4_onedeg_v3/OM4.zarr
       data_means_location: om4_onedeg_v3/OM4_means.zarr
       data_stds_location: om4_onedeg_v3/OM4_stds.zarr
@@ -63,6 +64,7 @@ data:
       boundary_vars_key: tau_hfds
       train_time: *train_time
       val_time: *val_time
+      inference_times: *inference_times
       data_location: om4_quarterdeg_v2/OM4.zarr
       data_means_location: om4_quarterdeg_v2/OM4_means.zarr
       data_stds_location: om4_quarterdeg_v2/OM4_stds.zarr

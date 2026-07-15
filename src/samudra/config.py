@@ -79,13 +79,17 @@ class WandBConfig(BaseConfig):
 
 
 class JulianDate:
-    """A date in the Julian calendar, represented at noon in xarray indexes."""
+    """Represents a Julian date as a cftime.datetime at noon on the relevant day.
 
-    datetime: cftime.DatetimeJulian
+    This is the format the OM4 data uses, so we match that here.
+    TODO(jder): probably worth asserting the date format when opening the data.
+    """
+
+    datetime: cftime.datetime
 
     def __init__(self, value: str):
-        parsed = datetime.date.fromisoformat(value)
-        self.datetime = cftime.DatetimeJulian(parsed.year, parsed.month, parsed.day, 12)
+        parsed = cftime.datetime.strptime(value, "%Y-%m-%d", calendar="julian")
+        self.datetime = parsed.replace(hour=12)
 
     def __str__(self) -> str:
         return self.datetime.strftime("%Y-%m-%d")
@@ -103,17 +107,19 @@ JulianDateConfig = Annotated[
 ]
 
 
+_aware_datetime_adapter = pydantic.TypeAdapter(pydantic.AwareDatetime)
+
+
 def _datetime64_validator(value: str | np.datetime64) -> np.datetime64:
     if isinstance(value, np.datetime64):
         return value.astype("datetime64[ns]")
-    if "T" not in value and " " not in value:
-        raise ValueError("LLC time bounds must include a time of day")
-    datetime.datetime.fromisoformat(value)
-    return np.datetime64(value, "ns")
+    parsed = _aware_datetime_adapter.validate_python(value)
+    utc = parsed.astimezone(datetime.UTC).replace(tzinfo=None)
+    return np.datetime64(utc, "ns")
 
 
 def _serialize_datetime64(value: np.datetime64) -> str:
-    return np.datetime_as_string(value, unit="ns")
+    return np.datetime_as_string(value, unit="ns") + "Z"
 
 
 LlcDatetimeConfig = Annotated[
@@ -222,6 +228,7 @@ class Om4DataSourceConfig(BaseDataSourceConfig):
     type: Literal["om4"] = "om4"
     train_time: Om4TimeConfig
     val_time: Om4TimeConfig
+    inference_times: list[Om4TimeConfig] = Field(default_factory=list)
     prognostic_vars_key: str = "thermo_dynamic_all"
     boundary_vars_key: str = "tau_hfds"
 
@@ -253,6 +260,7 @@ class LlcDataSourceConfig(BaseDataSourceConfig):
     type: Literal["llc"] = "llc"
     train_time: LlcTimeConfig
     val_time: LlcTimeConfig
+    inference_times: list[LlcTimeConfig] = Field(default_factory=list)
     prognostic_vars_key: str = "single_1"
     boundary_vars_key: str = "single_1"
     face: int = Field(default=1, ge=0)
@@ -356,6 +364,7 @@ class DataConfig(BaseConfig):
                 boundary_var_names=dataset_spec.boundary_var_names,
                 train_time=source_cfg.train_time,
                 val_time=source_cfg.val_time,
+                inference_times=source_cfg.inference_times,
                 static_data_vars=self.static_data_vars,
                 name=f"{resolved_data_location}-{turn_on_dask}",
             )
@@ -1195,7 +1204,6 @@ class TrainConfig(TopLevelConfig):
     steps: list[int] = [4]
     step_transition: list[int] = []
     inference_epochs: list[int] = [-1]
-    inference_times: list[SourceTimeConfig] = []
 
     # Config components
     experiment: ExperimentConfig
@@ -1223,9 +1231,6 @@ class EvalConfig(TopLevelConfig):
     backend: EvalBackendConfig = "auto"
 
     # Config components
-    inference_time: SourceTimeConfig = Om4TimeConfig(
-        start=JulianDate("0311-01-01"), end=JulianDate("0351-01-01")
-    )
     experiment: ExperimentConfig
     data: DataConfig
     model: AnyModelConfig

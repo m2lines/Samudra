@@ -14,6 +14,9 @@ sources:
     val_time:
       start: "2013-10-05"
       end: "2014-10-05"
+    inference_times:
+      - start: "2014-10-10"
+        end: "2022-12-24"
     data_location: OM4.zarr
     data_means_location: OM4_means.zarr
     data_stds_location: OM4_stds.zarr

@@ -596,12 +596,12 @@ def _llc_data_config(
                     "j_start": 0,
                     "j_end": 3,
                     "train_time": {
-                        "start": "2011-09-10T12:00:00",
-                        "end": "2011-09-12T12:00:00",
+                        "start": "2011-09-10T12:00:00Z",
+                        "end": "2011-09-12T12:00:00Z",
                     },
                     "val_time": {
-                        "start": "2011-09-12T12:00:00",
-                        "end": "2011-09-13T12:00:00",
+                        "start": "2011-09-12T12:00:00Z",
+                        "end": "2011-09-13T12:00:00Z",
                     },
                     "data_location": "data.zarr",
                     "data_means_location": "means.zarr",

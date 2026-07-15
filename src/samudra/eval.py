@@ -46,8 +46,12 @@ class Eval:
         # Set seeds
         set_seed(cfg.experiment.rand_seed)
 
+        self.data_container = cfg.data.build(
+            cfg.experiment.resolved_data_root,
+        )
+
         # Getting prognostic and boundary variables
-        self.dataset_spec = cfg.data.dataset.build()
+        self.dataset_spec = self.data_container.dataset_spec
         self.prognostic_var_names: PrognosticVarNames = (
             self.dataset_spec.prognostic_var_names
         )
@@ -76,10 +80,6 @@ class Eval:
 
         # Dataloaders
         logger.info(f"Loading data")
-        self.data_container = cfg.data.build(
-            cfg.experiment.resolved_data_root,
-        )
-
         self.src = self.data_container.inference_source
         self.data = self.src.data
         self.static_data = self.data_container.static_data

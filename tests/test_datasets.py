@@ -22,7 +22,7 @@ from hypothesis.extra.numpy import arrays
 from numpy.typing import NDArray
 from torch.utils.data import ConcatDataset, DataLoader
 
-from samudra.config import DataConfig, TimeConfig, TrainConfig, TrainSchedule
+from samudra.config import DataConfig, TrainConfig, TrainSchedule
 from samudra.constants import LoaderVersion
 from samudra.datasets import (
     InferenceDataset,
@@ -91,27 +91,22 @@ def coarsen_masks(masks: Masks) -> Masks:
 @contextlib.contextmanager
 def make_loader(
     cfg: TrainConfig,
-    time_config: TimeConfig | None = None,
     drop_last: bool = True,
     version: LoaderVersion | None = None,
     schedule: TrainSchedule = "standard",
     shuffle: bool = True,
 ) -> Generator[DataLoader | TrainDataLoader, None, None]:
-    if time_config is None:
-        time_config = cfg.train_time
-
     data_config = (
         cfg.data
         if version is None
         else cfg.data.model_copy(update={"loader_version": str(version.value)})
     )
-    dataset_spec = data_config.dataset.build()
-    prognostic = dataset_spec.prognostic_var_names
-    boundary = dataset_spec.boundary_var_names
-
     container = data_config.build(
         cfg.experiment.resolved_data_root,
     )
+    dataset_spec = container.dataset_spec
+    prognostic = dataset_spec.prognostic_var_names
+    boundary = dataset_spec.boundary_var_names
     version = container.loader_version
     src = container.primary_source
     if src.is_compact and version != LoaderVersion.OM4_TORCH:
@@ -136,8 +131,8 @@ def make_loader(
             case LoaderVersion.OM4_TORCH:
                 dataset_list = [
                     TorchTrainDataset(
-                        src=src.slice(time_config),
-                        dst=dst.slice(time_config) if dst else None,
+                        src=src.slice_train(),
+                        dst=dst.slice_train() if dst else None,
                         prognostic_var_names=prognostic,
                         boundary_var_names=boundary,
                         hist=cfg.data.hist,
@@ -327,7 +322,7 @@ def test_loader__data_shape(
     train_config.data.hist = history
 
     with make_loader(train_config, version=loader_version) as loader:
-        dataset_spec = train_config.data.dataset.build()
+        dataset_spec = train_config.data.sources[0].build()
         batch_size = train_config.batch_size
         num_input_timesteps = history + 1
 
@@ -338,7 +333,9 @@ def test_loader__data_shape(
         output_var_dim = len(dataset_spec.prognostic_var_names) * num_input_timesteps
 
         n_samples = calc_num_samples(
-            train_config, train_config.train_time.time_slice, "standard"
+            train_config,
+            train_config.data.sources[0].train_time.time_slice,
+            "standard",
         )
         assert len(loader) == n_samples, (
             f"Current config {train_config} only supports {n_samples} examples; "
@@ -380,7 +377,7 @@ def test_loader__data_shape__across_schedules(
         # Keep grouped-sampler ordering deterministic for resolution coverage.
         shuffle=False,
     ) as loader:
-        dataset_spec = train_config.data.dataset.build()
+        dataset_spec = train_config.data.sources[0].build()
         batch_size = train_config.batch_size
         num_input_timesteps = history + 1
 
@@ -391,7 +388,9 @@ def test_loader__data_shape__across_schedules(
         output_var_dim = len(dataset_spec.prognostic_var_names) * num_input_timesteps
 
         n_samples = calc_num_samples(
-            train_config, train_config.train_time.time_slice, schedule
+            train_config,
+            train_config.data.sources[0].train_time.time_slice,
+            schedule,
         )
         assert len(loader) == n_samples, (
             f"Current config {train_config} only supports {n_samples} examples; "
@@ -454,7 +453,7 @@ def test_loader__data_shape__across_schedules(
 def test_inference__data_shape(inference_loader_pair):
     cfg, loader = inference_loader_pair
 
-    dataset_spec = cfg.data.dataset.build()
+    dataset_spec = cfg.data.sources[0].build()
     batch_size = 1  # Inference always uses batch size 1
     hist = cfg.data.hist + 1
 
@@ -586,18 +585,24 @@ def _llc_data_config(
 ) -> DataConfig:
     return DataConfig.model_validate(
         {
-            "dataset": {
-                "type": "llc",
-                "prognostic_vars_key": prognostic_vars_key,
-                "boundary_vars_key": boundary_vars_key,
-                "face": 1,
-                "i_start": 0,
-                "i_end": 4,
-                "j_start": 0,
-                "j_end": 3,
-            },
             "sources": [
                 {
+                    "type": "llc",
+                    "prognostic_vars_key": prognostic_vars_key,
+                    "boundary_vars_key": boundary_vars_key,
+                    "face": 1,
+                    "i_start": 0,
+                    "i_end": 4,
+                    "j_start": 0,
+                    "j_end": 3,
+                    "train_time": {
+                        "start": "2011-09-10T12:00:00",
+                        "end": "2011-09-12T12:00:00",
+                    },
+                    "val_time": {
+                        "start": "2011-09-12T12:00:00",
+                        "end": "2011-09-13T12:00:00",
+                    },
                     "data_location": "data.zarr",
                     "data_means_location": "means.zarr",
                     "data_stds_location": "stds.zarr",
@@ -647,18 +652,17 @@ def test_llc_train_dataset_loads_raw_zarr_single_channel(tmp_path):
     assert label[0, 0, 0, 0] == config.masked_fill_value
     assert boundary[0, 0, 0, 0] == config.masked_fill_value
 
-    assert prognostic[0, 0, 0, 1] == src.data["Theta_0"].isel(
-        time=0, lat=0, lon=1
-    ).item()
-    assert prognostic[0, 1, 0, 1] == src.data["Theta_0"].isel(
-        time=1, lat=0, lon=1
-    ).item()
-    assert label[0, 0, 0, 1] == src.data["Theta_0"].isel(
-        time=2, lat=0, lon=1
-    ).item()
-    assert boundary[0, 0, 0, 1] == boundary_src.data["oceQnet"].isel(
-        time=0, lat=0, lon=1
-    ).item()
+    assert (
+        prognostic[0, 0, 0, 1] == src.data["Theta_0"].isel(time=0, lat=0, lon=1).item()
+    )
+    assert (
+        prognostic[0, 1, 0, 1] == src.data["Theta_0"].isel(time=1, lat=0, lon=1).item()
+    )
+    assert label[0, 0, 0, 1] == src.data["Theta_0"].isel(time=2, lat=0, lon=1).item()
+    assert (
+        boundary[0, 0, 0, 1]
+        == boundary_src.data["oceQnet"].isel(time=0, lat=0, lon=1).item()
+    )
 
 
 def test_llc_train_dataset_loads_all_raw_variable_families(tmp_path):
@@ -670,7 +674,7 @@ def test_llc_train_dataset_loads_all_raw_variable_families(tmp_path):
 
     train_data = torch_dataset.to_train_data(raw_batch, torch.device("cpu"))
     prognostic, boundary, label = train_data[0]
-    dataset_spec = config.dataset.build()
+    dataset_spec = config.sources[0].build()
 
     assert len(torch_dataset) == 3
     assert prognostic.shape == (1, len(dataset_spec.prognostic_var_names), 3, 4)

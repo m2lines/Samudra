@@ -27,7 +27,6 @@ from torch.utils.data import (
     RandomSampler,
 )
 
-from samudra import config
 from samudra.aggregator import Aggregator, ValidateAggregator
 from samudra.aggregator.loss import (
     get_channel_loss_dict,
@@ -129,8 +128,12 @@ class Trainer:
         # Set seeds
         set_seed(cfg.experiment.rand_seed)
 
+        self.data_container = cfg.data.build(
+            data_root=cfg.experiment.resolved_data_root,
+        )
+
         # Getting prognostic and boundary variables
-        self.dataset_spec = cfg.data.dataset.build()
+        self.dataset_spec = self.data_container.dataset_spec
         self.prognostic_var_names: PrognosticVarNames = (
             self.dataset_spec.prognostic_var_names
         )
@@ -147,9 +150,6 @@ class Trainer:
         self.N_bound = len(self.boundary_var_names)
         self.N_prog = len(self.prognostic_var_names)
 
-        self.data_container = cfg.data.build(
-            data_root=cfg.experiment.resolved_data_root,
-        )
         self.train_schedule: TrainSchedule = cfg.experiment.train_schedule
         if self.train_schedule == "mix" and cfg.model.pred_residuals:
             raise ValueError(
@@ -186,12 +186,6 @@ class Trainer:
 
         # Dataloaders
         logger.info(f"Loading data")
-        if cfg.train_time.overlaps(cfg.val_time):
-            raise ValueError(
-                f"Training time range {cfg.train_time} overlaps "
-                f"with validation time range {cfg.val_time}"
-            )
-
         self.concurrent_compute = cfg.data.concurrent_compute
 
         self.primary_src = self.data_container.primary_source
@@ -328,8 +322,6 @@ class Trainer:
         self.num_workers: int = data_num_workers
         self.persistent_workers: bool = persistent_workers
         self.pin_mem: bool = cfg.pin_mem
-        self.train_time: config.TimeConfig = cfg.train_time
-        self.val_time = cfg.val_time
         self.inference_times = cfg.inference_times
         self.inference_epochs = cfg.inference_epochs
         self.max_train_model_steps_forward = MAX_TRAIN_MODEL_STEPS_FORWARD // (
@@ -809,8 +801,8 @@ class Trainer:
 
         train_datasets = [
             TorchTrainDataset(
-                src=src.slice(self.train_time),
-                dst=dst.slice(self.train_time) if dst else None,
+                src=src.slice_train(),
+                dst=dst.slice_train() if dst else None,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -826,8 +818,8 @@ class Trainer:
 
         val_datasets = [
             TorchTrainDataset(
-                src=src.slice(self.val_time),
-                dst=dst.slice(self.val_time) if dst else None,
+                src=src.slice_val(),
+                dst=dst.slice_val() if dst else None,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,

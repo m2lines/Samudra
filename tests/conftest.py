@@ -16,7 +16,7 @@ import xarray as xr
 from numpy.typing import ArrayLike, NDArray
 
 import samudra.constants as c
-from samudra.config import JulianDate, TrainBackendConfig, TrainConfig, TrainSchedule
+from samudra.config import TrainBackendConfig, TrainConfig, TrainSchedule
 from samudra.train import Trainer
 from samudra.utils.data import DataSource, Masks, _is_compact, compact_dataset
 from samudra.utils.multiton import MultitonScope
@@ -159,7 +159,7 @@ class DataSourceDims:
     days_since_start: NDArray[np.uint32] = dataclasses.field(
         default_factory=lambda: np.array([0, 5, 10], dtype=np.uint32)
     )
-    start_day: cftime.datetime = JulianDate("1969-08-05").datetime
+    start_day: cftime.datetime = cftime.DatetimeJulian(1969, 8, 5, 12)
 
     def __post_init__(self):
         if np.any(self.lat < -90.0) or np.any(self.lat > 90.0):

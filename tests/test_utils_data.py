@@ -4,7 +4,6 @@
 
 import math
 
-import cftime
 import numpy as np
 import pytest
 import torch
@@ -17,7 +16,6 @@ from samudra.utils.data import (
     Masks,
     Normalize,
     OceanData,
-    _convert_llc_time_coord_to_julian,
     canonicalize_llc_datasets,
     compute_anomalies,
     flatten_masks,
@@ -229,24 +227,6 @@ def test_normalize_compact_mixed_depth_and_surface_stats(data_source):
     assert normalize.normalize_tensor_prognostic(prognostic).shape == prognostic.shape
 
 
-def test_convert_llc_time_coord_to_julian_handles_datetime64_values():
-    time_coord = xr.DataArray(
-        np.array(
-            ["2011-09-10T12:00:00", "2011-09-13T18:00:00"],
-            dtype="datetime64[ns]",
-        ),
-        dims=["time"],
-    )
-
-    converted = _convert_llc_time_coord_to_julian(time_coord)
-
-    assert isinstance(converted[0], cftime.DatetimeJulian)
-    assert [value.strftime("%Y-%m-%d %H:%M:%S") for value in converted.tolist()] == [
-        "2011-09-10 12:00:00",
-        "2011-09-13 18:00:00",
-    ]
-
-
 def test_canonicalize_llc_datasets_standardizes_layout():
     data, means, stds = raw_llc_datasets()
     dataset_spec = build_llc_spec(prognostic_vars_key="all", boundary_vars_key="all")
@@ -277,7 +257,7 @@ def test_canonicalize_llc_datasets_standardizes_layout():
     assert llc_data["Theta_0"].dims == ("time", "y", "x")
     assert llc_data["Theta_0"].shape == (3, 2, 3)
     assert llc_data["Theta_0"].isel(time=0, y=0, x=0).item() == expected_theta_0
-    assert isinstance(llc_data.time.values[0], cftime.DatetimeJulian)
+    assert np.issubdtype(llc_data.time.dtype, np.datetime64)
     assert "Theta_0" in llc_means.variables
     assert "Theta_0" in llc_stds.variables
     assert "Theta_lev_0" not in llc_means.variables

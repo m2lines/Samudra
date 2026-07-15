@@ -10,7 +10,6 @@ from collections.abc import Callable
 from functools import cached_property
 from typing import TYPE_CHECKING, Literal, Self
 
-import cftime
 import numpy as np
 import torch
 import xarray as xr
@@ -18,7 +17,7 @@ from einops import rearrange
 from jaxtyping import Bool, Float
 
 if TYPE_CHECKING:
-    from samudra.config import TimeConfig
+    from samudra.config import SourceTimeConfig
 
 from samudra.constants import (
     BatchTimeSeriesOutput,
@@ -42,24 +41,6 @@ from samudra.constants import (
 from samudra.derived_variables import add_derived_variables
 
 logger = logging.getLogger(__name__)
-
-
-def _convert_llc_time_coord_to_julian(time_coord: xr.DataArray) -> np.ndarray:
-    """Convert LLC time coordinates to Julian-calendar cftime datetimes."""
-    values = np.asarray(time_coord.values)
-    if not np.issubdtype(values.dtype, np.datetime64):
-        raise TypeError(
-            "Expected raw LLC time coordinate to use datetime64 values, got "
-            f"{values.dtype}."
-        )
-
-    microseconds = values.astype("datetime64[us]").astype(np.int64)
-    converted = cftime.num2date(
-        microseconds,
-        "microseconds since 1970-01-01",
-        calendar="julian",
-    )
-    return np.asarray(converted, dtype=object)
 
 
 def _var_name_encode_level(var_name: str) -> bool:
@@ -103,6 +84,8 @@ class DataSource:
     stds: xr.Dataset
     masks: Masks
     dataset_spec: DatasetSpec
+    train_time: "SourceTimeConfig | None" = None
+    val_time: "SourceTimeConfig | None" = None
 
     @cached_property
     def is_compact(self) -> bool:
@@ -208,26 +191,36 @@ class DataSource:
         data = func(self.data.copy())
         return dataclasses.replace(self, name=f"{self.name}_{suffix}", data=data)
 
-    def slice(self, time: "TimeConfig") -> Self:
+    def slice(self, time: "SourceTimeConfig") -> Self:
         """Slice the data source to only include the specified time slice."""
-        data_time_min = self.data.time.min().item()
-        data_time_max = self.data.time.max().item()
-        if time.start.datetime > data_time_max or time.end.datetime < data_time_min:
+        data_time_min = self.data.time.values.min()
+        data_time_max = self.data.time.values.max()
+        time_start = time.time_slice.start
+        time_end = time.time_slice.stop
+        if time_start > data_time_max or time_end < data_time_min:
             raise ValueError(
                 f"Time slice {time} is entirely outside the range of the data "
-                f"{data_time_min.strftime('%Y-%m-%d')} to "
-                f"{data_time_max.strftime('%Y-%m-%d')}"
+                f"{str(data_time_min)[:10]} to {str(data_time_max)[:10]}"
             )
 
-        if time.start.datetime < data_time_min or time.end.datetime > data_time_max:
+        if time_start < data_time_min or time_end > data_time_max:
             logger.warning(
                 f"Time slice {time} is partially outside the range of the data "
-                f"{data_time_min.strftime('%Y-%m-%d')} to "
-                f"{data_time_max.strftime('%Y-%m-%d')}"
+                f"{str(data_time_min)[:10]} to {str(data_time_max)[:10]}"
             )
 
         data = self.data.sel(time=time.time_slice)
         return dataclasses.replace(self, name=f"{time=}[{self.name}]", data=data)
+
+    def slice_train(self) -> Self:
+        if self.train_time is None:
+            raise ValueError(f"Training time is not configured for {self.name}")
+        return self.slice(self.train_time)
+
+    def slice_val(self) -> Self:
+        if self.val_time is None:
+            raise ValueError(f"Validation time is not configured for {self.name}")
+        return self.slice(self.val_time)
 
     # TODO(jder): delete this once we've de-duplicated InferenceDataset with TorchTrainDataset
     def normalize(self, fill_nan=True, fill_value=0.0) -> xr.Dataset:
@@ -296,6 +289,8 @@ class DataSource:
         dataset_spec: DatasetSpec,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
+        train_time: "SourceTimeConfig | None" = None,
+        val_time: "SourceTimeConfig | None" = None,
         static_data_vars: list[str] | None = None,
         name: str = "DataSource",
     ) -> Self:
@@ -316,6 +311,8 @@ class DataSource:
             stds=stds,
             masks=masks,
             dataset_spec=dataset_spec,
+            train_time=train_time,
+            val_time=val_time,
         )
 
 
@@ -444,10 +441,6 @@ def canonicalize_llc_datasets(
     }
     if rename_map:
         data_copy = data_copy.rename(rename_map)
-
-    if "time" in data_copy.coords:
-        julian_times = _convert_llc_time_coord_to_julian(data_copy["time"])
-        data_copy = data_copy.assign_coords(time=("time", julian_times))
 
     means_copy = _rename_llc_level_index_vars(means.copy())
     stds_copy = _rename_llc_level_index_vars(stds.copy())

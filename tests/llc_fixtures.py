@@ -22,9 +22,9 @@ def raw_llc_datasets(n_time: int = 3) -> tuple[xr.Dataset, xr.Dataset, xr.Datase
         dtype="datetime64[ns]",
     )
 
-    tracer = np.arange(
-        n_time * n_face * n_lev * n_j * n_i, dtype=np.float32
-    ).reshape(n_time, n_face, n_lev, n_j, n_i)
+    tracer = np.arange(n_time * n_face * n_lev * n_j * n_i, dtype=np.float32).reshape(
+        n_time, n_face, n_lev, n_j, n_i
+    )
     surface = np.arange(n_time * n_face * n_j * n_i, dtype=np.float32).reshape(
         n_time, n_face, n_j, n_i
     )
@@ -36,9 +36,7 @@ def raw_llc_datasets(n_time: int = 3) -> tuple[xr.Dataset, xr.Dataset, xr.Datase
     )
     mask = np.ones((n_face, n_lev, n_j, n_i), dtype=bool)
     mask[:, :, 0, 0] = False
-    grid = np.arange(n_face * n_j * n_i, dtype=np.float32).reshape(
-        n_face, n_j, n_i
-    )
+    grid = np.arange(n_face * n_j * n_i, dtype=np.float32).reshape(n_face, n_j, n_i)
 
     data = xr.Dataset(
         {

@@ -5,21 +5,39 @@
 from pathlib import Path
 
 import cftime
+import numpy as np
 import pytest
 from pydantic import ValidationError
 
 from samudra.config import (
     CpuDataLoadingConfig,
     DataConfig,
-    DataSourceConfig,
     GpuDataLoadingConfig,
-    LlcDatasetConfig,
-    Om4DatasetConfig,
+    JulianDate,
+    LlcDataSourceConfig,
+    LlcTimeConfig,
+    Om4DataSourceConfig,
+    Om4TimeConfig,
     TrainConfig,
 )
 from samudra.config_schema import get_pydantic_models
 from samudra.utils.location import LocalLocation, UnresolvedLocation
 from tests.llc_fixtures import write_raw_llc_datasets
+
+
+def om4_source_config(**kwargs) -> Om4DataSourceConfig:
+    return Om4DataSourceConfig(
+        train_time=Om4TimeConfig(
+            start=JulianDate("1975-01-03"), end=JulianDate("2013-10-05")
+        ),
+        val_time=Om4TimeConfig(
+            start=JulianDate("2013-10-05"), end=JulianDate("2014-10-05")
+        ),
+        data_location=UnresolvedLocation(path="data.zarr"),
+        data_means_location=UnresolvedLocation(path="means.zarr"),
+        data_stds_location=UnresolvedLocation(path="stds.zarr"),
+        **kwargs,
+    )
 
 
 def test_data_config_rejects_legacy_num_workers_field():
@@ -28,6 +46,15 @@ def test_data_config_rejects_legacy_num_workers_field():
             {
                 "sources": [
                     {
+                        "type": "om4",
+                        "train_time": {
+                            "start": "1975-01-03",
+                            "end": "2013-10-05",
+                        },
+                        "val_time": {
+                            "start": "2013-10-05",
+                            "end": "2014-10-05",
+                        },
                         "data_location": "data.zarr",
                         "data_means_location": "means.zarr",
                         "data_stds_location": "stds.zarr",
@@ -39,24 +66,16 @@ def test_data_config_rejects_legacy_num_workers_field():
 
 
 def test_data_config_defaults_to_cpu_loading():
-    cfg = DataConfig(
-        sources=[
-            DataSourceConfig(
-                data_location=UnresolvedLocation(path="data.zarr"),
-                data_means_location=UnresolvedLocation(path="means.zarr"),
-                data_stds_location=UnresolvedLocation(path="stds.zarr"),
-            )
-        ]
-    )
+    cfg = DataConfig(sources=[om4_source_config()])
 
     assert isinstance(cfg.loading, CpuDataLoadingConfig)
     assert cfg.loading.num_workers == 4
     assert cfg.loading.num_pytorch_workers() == 4
-    assert isinstance(cfg.dataset, Om4DatasetConfig)
+    assert isinstance(cfg.sources[0], Om4DataSourceConfig)
 
 
 def test_om4_dataset_config_builds_selected_spec():
-    cfg = Om4DatasetConfig(
+    cfg = om4_source_config(
         prognostic_vars_key="thetao_1",
         boundary_vars_key="hfds",
     )
@@ -67,19 +86,44 @@ def test_om4_dataset_config_builds_selected_spec():
     assert spec.boundary_var_names == ["hfds"]
 
 
+def test_data_source_time_configs_use_native_types():
+    om4_time = Om4TimeConfig.model_validate(
+        {"start": "2011-09-10", "end": "2011-09-20"}
+    )
+    llc_time = LlcTimeConfig.model_validate(
+        {"start": "2011-09-10T12:00:00", "end": "2011-09-20T18:00:00"}
+    )
+
+    assert isinstance(om4_time.start.datetime, cftime.DatetimeJulian)
+    assert str(om4_time.start) == "2011-09-10"
+    assert isinstance(llc_time.start, np.datetime64)
+    assert llc_time.start == np.datetime64("2011-09-10T12:00:00", "ns")
+
+
+def test_llc_time_config_requires_time_of_day():
+    with pytest.raises(ValidationError, match="must include a time of day"):
+        LlcTimeConfig.model_validate({"start": "2011-09-10", "end": "2011-09-20"})
+
+
 def test_data_config_accepts_llc_dataset_type():
     cfg = DataConfig.model_validate(
         {
-            "dataset": {
-                "type": "llc",
-                "face": 2,
-                "i_start": 10,
-                "i_end": 20,
-                "j_start": 30,
-                "j_end": 40,
-            },
             "sources": [
                 {
+                    "type": "llc",
+                    "face": 2,
+                    "i_start": 10,
+                    "i_end": 20,
+                    "j_start": 30,
+                    "j_end": 40,
+                    "train_time": {
+                        "start": "2011-09-10T12:00:00",
+                        "end": "2012-09-01T12:00:00",
+                    },
+                    "val_time": {
+                        "start": "2012-09-01T12:00:00",
+                        "end": "2012-11-15T12:00:00",
+                    },
                     "data_location": "data.zarr",
                     "data_means_location": "means.zarr",
                     "data_stds_location": "stds.zarr",
@@ -88,22 +132,29 @@ def test_data_config_accepts_llc_dataset_type():
         }
     )
 
-    assert isinstance(cfg.dataset, LlcDatasetConfig)
-    assert cfg.dataset.face == 2
-    assert cfg.dataset.build().prognostic_var_names == ["Theta_0"]
+    source = cfg.sources[0]
+    assert isinstance(source, LlcDataSourceConfig)
+    assert source.face == 2
+    assert source.build().prognostic_var_names == ["Theta_0"]
 
 
 def test_data_config_rejects_invalid_llc_crop():
     with pytest.raises(ValidationError, match="i_start < i_end"):
         DataConfig.model_validate(
             {
-                "dataset": {
-                    "type": "llc",
-                    "i_start": 20,
-                    "i_end": 20,
-                },
                 "sources": [
                     {
+                        "type": "llc",
+                        "i_start": 20,
+                        "i_end": 20,
+                        "train_time": {
+                            "start": "2011-09-10T12:00:00",
+                            "end": "2012-09-01T12:00:00",
+                        },
+                        "val_time": {
+                            "start": "2012-09-01T12:00:00",
+                            "end": "2012-11-15T12:00:00",
+                        },
                         "data_location": "data.zarr",
                         "data_means_location": "means.zarr",
                         "data_stds_location": "stds.zarr",
@@ -113,20 +164,41 @@ def test_data_config_rejects_invalid_llc_crop():
         )
 
 
+def test_data_source_rejects_overlapping_time_splits():
+    with pytest.raises(ValidationError, match="Training time range.*overlaps"):
+        Om4DataSourceConfig(
+            train_time=Om4TimeConfig(
+                start=JulianDate("1975-01-03"), end=JulianDate("2013-10-05")
+            ),
+            val_time=Om4TimeConfig(
+                start=JulianDate("2013-01-01"), end=JulianDate("2014-10-05")
+            ),
+            data_location=UnresolvedLocation(path="data.zarr"),
+            data_means_location=UnresolvedLocation(path="means.zarr"),
+            data_stds_location=UnresolvedLocation(path="stds.zarr"),
+        )
+
+
 def test_data_config_builds_llc_source_from_local_files(tmp_path):
     write_raw_llc_datasets(tmp_path)
     cfg = DataConfig.model_validate(
         {
-            "dataset": {
-                "type": "llc",
-                "face": 1,
-                "i_start": 1,
-                "i_end": 4,
-                "j_start": 1,
-                "j_end": 3,
-            },
             "sources": [
                 {
+                    "type": "llc",
+                    "face": 1,
+                    "i_start": 1,
+                    "i_end": 4,
+                    "j_start": 1,
+                    "j_end": 3,
+                    "train_time": {
+                        "start": "2011-09-10T12:00:00",
+                        "end": "2011-09-11T12:00:00",
+                    },
+                    "val_time": {
+                        "start": "2011-09-11T12:00:00",
+                        "end": "2011-09-12T12:00:00",
+                    },
                     "data_location": "data.zarr",
                     "data_means_location": "means.nc",
                     "data_stds_location": "stds.nc",
@@ -147,7 +219,15 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
     assert "i_g" not in source.data.dims
     assert "j_g" not in source.data.dims
     assert source.data["Theta_0"].shape == (3, 2, 3)
-    assert isinstance(source.data.time.values[0], cftime.DatetimeJulian)
+    assert np.issubdtype(source.data.time.dtype, np.datetime64)
+
+    sliced = source.slice(
+        LlcTimeConfig(
+            start=np.datetime64("2011-09-10T12:00:00", "ns"),
+            end=np.datetime64("2011-09-11T12:00:00", "ns"),
+        )
+    )
+    assert sliced.data.sizes["time"] == 2
 
 
 def test_data_config_accepts_gpu_loading():
@@ -155,6 +235,15 @@ def test_data_config_accepts_gpu_loading():
         {
             "sources": [
                 {
+                    "type": "om4",
+                    "train_time": {
+                        "start": "1975-01-03",
+                        "end": "2013-10-05",
+                    },
+                    "val_time": {
+                        "start": "2013-10-05",
+                        "end": "2014-10-05",
+                    },
                     "data_location": "data.zarr",
                     "data_means_location": "means.zarr",
                     "data_stds_location": "stds.zarr",

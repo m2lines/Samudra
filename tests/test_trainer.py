@@ -15,6 +15,7 @@ from samudra.datasets import TrainData
 from samudra.models.base import BaseModel
 from samudra.train import (
     Trainer,
+    _synchronize_cuda_if_needed,
     get_train_batch_progress,
     get_train_batch_throughput_metrics,
     should_log_validation_images,
@@ -360,6 +361,24 @@ def test_get_train_batch_throughput_metrics_uses_batch_seconds():
     assert metrics["throughput/output_grid_cells_per_second"] == 24
     assert metrics["throughput/tensor_bytes_per_second"] == progress.tensor_bytes / 0.5
     assert get_train_batch_throughput_metrics(progress, batch_seconds=0.0) == {}
+
+
+def test_synchronize_cuda_if_needed_only_syncs_cuda_devices(monkeypatch):
+    synced_devices = []
+
+    def synchronize(device):
+        synced_devices.append(device)
+
+    monkeypatch.setattr(torch.cuda, "synchronize", synchronize)
+
+    _synchronize_cuda_if_needed(torch.device("cpu"))
+
+    assert synced_devices == []
+
+    cuda_device = torch.device("cuda")
+    _synchronize_cuda_if_needed(cuda_device)
+
+    assert synced_devices == [cuda_device]
 
 
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)

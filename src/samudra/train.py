@@ -211,6 +211,12 @@ def get_train_batch_throughput_metrics(
     }
 
 
+def _synchronize_cuda_if_needed(device: torch.device) -> None:
+    """Synchronize CUDA kernels before reading wall-clock batch timing."""
+    if device.type == "cuda":
+        torch.cuda.synchronize(device)
+
+
 def should_log_validation_images(epoch: int, frequency: int) -> bool:
     """Return whether to log validation images for a 1-based training epoch."""
     if epoch < 1:
@@ -633,6 +639,7 @@ class Trainer:
                 get_model_summary(self.model, data, self.debug)
 
             batch_progress = get_train_batch_progress(data, self.world_size)
+            _synchronize_cuda_if_needed(self.device)
             batch_start_time = time.perf_counter()
 
             TO: TrainBatchOutput = train_batch(self.model, data, self.loss_fn)
@@ -658,6 +665,7 @@ class Trainer:
                 self.optimizer.step()
                 self.optimizer.zero_grad()
                 self._ema(model=self.model)
+            _synchronize_cuda_if_needed(self.device)
             batch_seconds = time.perf_counter() - batch_start_time
             self.train_progress.update(
                 batch_progress,

@@ -63,6 +63,22 @@ Each task will see all GPUs on the node, but they know how to choose the correct
 
 To learn more about other datasets used during training, please see the [data documentation](data.md).
 
+### W&B progress metrics
+
+Training logs include `progress/*` metrics that can be used as W&B x-axes when comparing runs with different batch sizes,
+GPU counts, gradient accumulation, or grid resolutions. The cumulative counters are:
+
+- `progress/sample_windows_seen`
+- `progress/model_examples_seen`
+- `progress/output_grid_cells_seen`
+- `progress/target_values_seen`
+- `progress/tensor_bytes_seen`
+- `progress/optimizer_steps`
+- `progress/gpu_seconds`
+
+Per-batch companion metrics are also logged under `progress/batch_*`, along with input/output grid dimensions and
+`throughput/*_per_second` rates.
+
 ## Evaluating the model
 
 ```bash

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -17,9 +17,9 @@
 #   sbatch --nodes=2 --gres=gpu:rtx6000:8 scripts/slurm_apptainer_train.sbatch
 #
 # Container selection (pick one):
-#   export IMAGE_REF=ghcr.io/open-athena/ocean-emulator-physicsnemo:25.11-<hash>
-#   export CONTAINER_HASH=<git sha>   # expands to 25.11-<sha>
-#   export CONTAINER_TAG=25.11-latest
+#   export IMAGE_REF=ghcr.io/m2lines/ocean-emulator-physicsnemo:26.05-<hash>
+#   export CONTAINER_HASH=<git sha>   # expands to 26.05-<sha>
+#   export CONTAINER_TAG=26.05-latest
 #
 # Private GHCR pulls (if needed):
 #   export GHCR_USERNAME=...
@@ -43,6 +43,17 @@
 
 set -euo pipefail
 
+if ! command -v apptainer >/dev/null 2>&1 \
+  && ! command -v singularity >/dev/null 2>&1; then
+  if [[ -f /etc/profile.d/modules.sh ]]; then
+    # shellcheck source=/etc/profile.d/modules.sh
+    source /etc/profile.d/modules.sh
+  fi
+  if command -v module >/dev/null 2>&1; then
+    module load "${APPTAINER_MODULE:-apptainer}"
+  fi
+fi
+
 if command -v apptainer >/dev/null 2>&1; then
   APPTAINER_BIN=apptainer
 elif command -v singularity >/dev/null 2>&1; then
@@ -57,6 +68,7 @@ NAME="${NAME:-}"
 NAME_SUFFIX="${NAME_SUFFIX:-}"
 ARGS="${ARGS:-}"
 NSYS_ARGS="${NSYS_ARGS:-}"
+REQUEUE_ON_USR1="${REQUEUE_ON_USR1:-0}"
 if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then
   NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"
 fi
@@ -65,6 +77,15 @@ if [[ -z "${CONFIG}" || -z "${NAME}" ]]; then
   echo "Tip: set NAME_SUFFIX to auto-generate NAME as YYYY-MM-DD-<suffix>." >&2
   echo "Example: export NAME_SUFFIX=om4_samudra_baseline" >&2
   exit 2
+fi
+
+if [[ "${REQUEUE_ON_USR1}" == "1" ]]; then
+  handle_requeue() {
+    echo "Received USR1; requeueing Slurm job ${SLURM_JOB_ID}."
+    scontrol requeue "${SLURM_JOB_ID}"
+    exit 0
+  }
+  trap handle_requeue USR1
 fi
 
 # Config path inside the container image. We keep the env var as-is for
@@ -97,9 +118,13 @@ fi
 
 RUN_DIR="${OUTPUT_BASE}/${NAME}"
 if [[ -e "${RUN_DIR}" ]]; then
-  echo "Refusing to run: output dir already exists: ${RUN_DIR}" >&2
-  echo "Pick a unique NAME_SUFFIX." >&2
-  exit 4
+  if (( ${SLURM_RESTART_COUNT:-0} > 0 )); then
+    echo "Requeued job detected; resuming from existing output dir: ${RUN_DIR}"
+  else
+    echo "Refusing to run: output dir already exists: ${RUN_DIR}" >&2
+    echo "Pick a unique NAME_SUFFIX." >&2
+    exit 4
+  fi
 fi
 NSYS_OUTPUT_DIR="${RUN_DIR}/nsys"
 
@@ -115,7 +140,7 @@ fi
 
 # Container selection (same conventions as scripts/slurm_apptainer_gpu_tests.sbatch).
 CONTAINER_REGISTRY="${CONTAINER_REGISTRY:-ghcr.io}"
-CONTAINER_ORG="${CONTAINER_ORG:-open-athena}"
+CONTAINER_ORG="${CONTAINER_ORG:-m2lines}"
 CONTAINER_REPO="${CONTAINER_REPO:-ocean-emulator-physicsnemo}"
 CONTAINER_HASH="${CONTAINER_HASH:-}"
 CONTAINER_TAG="${CONTAINER_TAG:-}"
@@ -123,9 +148,9 @@ IMAGE_REF="${IMAGE_REF:-}"
 if [[ -z "${IMAGE_REF}" ]]; then
   if [[ -z "${CONTAINER_TAG}" ]]; then
     if [[ -n "${CONTAINER_HASH}" ]]; then
-      CONTAINER_TAG="25.11-${CONTAINER_HASH}"
+      CONTAINER_TAG="26.05-${CONTAINER_HASH}"
     else
-      CONTAINER_TAG="25.11-latest"
+      CONTAINER_TAG="26.05-latest"
     fi
   fi
   IMAGE_REF="${CONTAINER_REGISTRY}/${CONTAINER_ORG}/${CONTAINER_REPO}:${CONTAINER_TAG}"
@@ -207,6 +232,9 @@ export MKL_NUM_THREADS="${MKL_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export NUMEXPR_NUM_THREADS="${NUMEXPR_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export PYTHONUNBUFFERED=1
+export PYTHONNOUSERSITE="${PYTHONNOUSERSITE:-1}"
+export APPTAINERENV_PYTHONNOUSERSITE="${APPTAINERENV_PYTHONNOUSERSITE:-${PYTHONNOUSERSITE}}"
+export SINGULARITYENV_PYTHONNOUSERSITE="${SINGULARITYENV_PYTHONNOUSERSITE:-${PYTHONNOUSERSITE}}"
 
 # Bind mounts.
 DATA_CACHE_DIR="${DATA_CACHE_DIR:-${REPO_DIR}/.data_cache/${NAME}}"
@@ -235,6 +263,7 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
     "${SIF_PATH}" \
     bash -lc "
       set -euo pipefail
+      export PYTHONNOUSERSITE=1
       export PYTHONPATH=/workspace/src:\${PYTHONPATH:-}
       if [[ ! -x /workspace/.venv/bin/python ]]; then
         echo \"ERROR: /workspace/.venv/bin/python not found inside container\" >&2

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -47,4 +47,4 @@ jobs:
         shell: bash -l {0}
         run: |
           cd data/
-          pytest tests -v
+          pytest tests -v --durations=20 --durations-min=1.0

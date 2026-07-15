@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+SPDX-FileCopyrightText: 2026 Samudra Authors
 
 SPDX-License-Identifier: CC-BY-4.0
 -->
@@ -286,7 +286,7 @@ src/samudra/
 
 configs/
 ├── samudra_om4/          # Samudra model configs (train, eval, viz, model)
-├── samudra_multi_om4/    # samudra-multi model configs (incl. train_multiscale.yaml)
+├── samudra_multi_om4/    # samudra-multi model configs
 ├── samudra_mini_om4/     # SamudraMini model configs
 ├── data/                 # Data configuration (om4.yaml)
 ├── test/                 # Minimal test configs

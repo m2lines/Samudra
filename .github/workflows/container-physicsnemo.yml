@@ -1,11 +1,11 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
 # Build the PhysicsNeMo-based container on PRs; on main/manual runs, also publish
 # x86_64 and arm64 images, run x86_64 CPU/GPU container tests, and run arm64
 # CPU-only container tests on a non-GPU ARM runner.
-name: Container PhysicsNeMo 25.11
+name: Container PhysicsNeMo 26.05
 
 on:
   push:
@@ -49,7 +49,7 @@ jobs:
     needs: ec2-build
     runs-on: ${{ needs.ec2-build.outputs.id }}
     env:
-      LOCAL_IMAGE_TAG: ocean-emulator:physicsnemo-25.11-${{ github.sha }}
+      LOCAL_IMAGE_TAG: ocean-emulator:physicsnemo-26.05-${{ github.sha }}
     steps:
       - name: Check out code
         uses: actions/checkout@v6
@@ -76,9 +76,9 @@ jobs:
         run: |
           BUILDKIT_PROGRESS=plain \
           IMAGE_TAG="${LOCAL_IMAGE_TAG}" \
-          DOCKERFILE=containers/Dockerfile.physicsnemo-25.11 \
+          DOCKERFILE=containers/Dockerfile.physicsnemo-26.05 \
           BUILD_APPTAINER=0 \
-          bash scripts/container/build_physicsnemo_25_11.sh
+          bash scripts/container/build_physicsnemo_26_05.sh
 
       - name: Log in to GHCR
         if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
@@ -96,16 +96,16 @@ jobs:
           owner_lower="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
           ghcr_image="ghcr.io/${owner_lower}/ocean-emulator-physicsnemo"
 
-          sha_tag="${ghcr_image}:25.11-${GITHUB_SHA}"
-          arch_sha_tag="${ghcr_image}:25.11-x86_64-${GITHUB_SHA}"
+          sha_tag="${ghcr_image}:26.05-${GITHUB_SHA}"
+          arch_sha_tag="${ghcr_image}:26.05-x86_64-${GITHUB_SHA}"
           docker tag "${LOCAL_IMAGE_TAG}" "${sha_tag}"
           docker tag "${LOCAL_IMAGE_TAG}" "${arch_sha_tag}"
           docker push "${sha_tag}"
           docker push "${arch_sha_tag}"
 
           if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
-            ref_tag="${ghcr_image}:25.11-manual-${GITHUB_REF_NAME//\//-}"
-            arch_ref_tag="${ghcr_image}:25.11-x86_64-manual-${GITHUB_REF_NAME//\//-}"
+            ref_tag="${ghcr_image}:26.05-manual-${GITHUB_REF_NAME//\//-}"
+            arch_ref_tag="${ghcr_image}:26.05-x86_64-manual-${GITHUB_REF_NAME//\//-}"
             docker tag "${LOCAL_IMAGE_TAG}" "${ref_tag}"
             docker tag "${LOCAL_IMAGE_TAG}" "${arch_ref_tag}"
             docker push "${ref_tag}"
@@ -113,8 +113,8 @@ jobs:
           fi
 
           if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF}" = "refs/heads/main" ]; then
-            latest_tag="${ghcr_image}:25.11-latest"
-            arch_latest_tag="${ghcr_image}:25.11-x86_64-latest"
+            latest_tag="${ghcr_image}:26.05-latest"
+            arch_latest_tag="${ghcr_image}:26.05-x86_64-latest"
             docker tag "${LOCAL_IMAGE_TAG}" "${latest_tag}"
             docker tag "${LOCAL_IMAGE_TAG}" "${arch_latest_tag}"
             docker push "${latest_tag}"
@@ -184,7 +184,7 @@ jobs:
         run: |
           set -euo pipefail
           owner_lower="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
-          image="ghcr.io/${owner_lower}/ocean-emulator-physicsnemo:25.11-${GITHUB_SHA}"
+          image="ghcr.io/${owner_lower}/ocean-emulator-physicsnemo:26.05-${GITHUB_SHA}"
           docker pull "${image}"
           echo "TEST_IMAGE=${image}" >> "${GITHUB_ENV}"
 
@@ -199,7 +199,7 @@ jobs:
             "${TEST_IMAGE}" -lc '
               set -euo pipefail
               . .venv/bin/activate
-              python -m pytest -p no:zarr -n 2 -v -m "not manual and not cuda"
+              python -m pytest -p no:zarr -n 2 -v -m "not manual and not cuda" --durations=20 --durations-min=1.0
             '
 
       - name: Run GPU tests in container
@@ -213,7 +213,7 @@ jobs:
             "${TEST_IMAGE}" -lc '
               set -euo pipefail
               . .venv/bin/activate
-              python -m pytest -p no:zarr -v -m "not manual and cuda" -x
+              python -m pytest -p no:zarr -v -m "not manual and cuda" -x --durations=20 --durations-min=1.0
             '
 
   build-test-publish-arm64:
@@ -221,7 +221,7 @@ jobs:
     needs: ec2-arm
     runs-on: ${{ needs.ec2-arm.outputs.id }}
     env:
-      LOCAL_ARM64_IMAGE_TAG: ocean-emulator:physicsnemo-25.11-arm64-${{ github.sha }}
+      LOCAL_ARM64_IMAGE_TAG: ocean-emulator:physicsnemo-26.05-arm64-${{ github.sha }}
     steps:
       - name: Check out code
         uses: actions/checkout@v6
@@ -261,9 +261,9 @@ jobs:
         run: |
           BUILDKIT_PROGRESS=plain \
           IMAGE_TAG="${LOCAL_ARM64_IMAGE_TAG}" \
-          DOCKERFILE=containers/Dockerfile.physicsnemo-25.11 \
+          DOCKERFILE=containers/Dockerfile.physicsnemo-26.05 \
           BUILD_APPTAINER=0 \
-          bash scripts/container/build_physicsnemo_25_11.sh
+          bash scripts/container/build_physicsnemo_26_05.sh
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -279,19 +279,19 @@ jobs:
           owner_lower="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
           ghcr_image="ghcr.io/${owner_lower}/ocean-emulator-physicsnemo"
 
-          sha_tag="${ghcr_image}:25.11-arm64-${GITHUB_SHA}"
+          sha_tag="${ghcr_image}:26.05-arm64-${GITHUB_SHA}"
           docker tag "${LOCAL_ARM64_IMAGE_TAG}" "${sha_tag}"
           docker push "${sha_tag}"
           echo "TEST_ARM64_IMAGE=${sha_tag}" >> "${GITHUB_ENV}"
 
           if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
-            ref_tag="${ghcr_image}:25.11-arm64-manual-${GITHUB_REF_NAME//\//-}"
+            ref_tag="${ghcr_image}:26.05-arm64-manual-${GITHUB_REF_NAME//\//-}"
             docker tag "${LOCAL_ARM64_IMAGE_TAG}" "${ref_tag}"
             docker push "${ref_tag}"
           fi
 
           if [ "${GITHUB_EVENT_NAME}" = "push" ] && [ "${GITHUB_REF}" = "refs/heads/main" ]; then
-            latest_tag="${ghcr_image}:25.11-arm64-latest"
+            latest_tag="${ghcr_image}:26.05-arm64-latest"
             docker tag "${LOCAL_ARM64_IMAGE_TAG}" "${latest_tag}"
             docker push "${latest_tag}"
           fi
@@ -314,7 +314,7 @@ jobs:
               . .venv/bin/activate
               # The smaller arm64 runner is more prone to losing the GitHub runner
               # process under xdist CPU-test load after the local image build.
-              python -m pytest -p no:zarr -v -m "not manual and not cuda"
+              python -m pytest -p no:zarr -v -m "not manual and not cuda" --durations=20 --durations-min=1.0
             '
 
   report-container-test-status:

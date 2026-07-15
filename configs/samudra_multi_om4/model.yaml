@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -15,21 +15,21 @@ patch_extent: [3.0, 5.0]
 
 encoder:
   perceiver:
-    depth: 2  # Reduced from 3
-    latent_dim: 48  # Reduced from 64
-    num_latents: 128  # Reduced from 256
+    depth: 2
+    latent_dim: 64
+    num_latents: 256
 
 decoder:
   perceiver:
-    depth: 2  # Match encoder depth
-    latent_dim: 48  # Match encoder latent_dim
-    num_latents: 128  # Match encoder num_latents
+    depth: 2
+    latent_dim: 64
+    num_latents: 256
   queries_dim: 64  # on the small end, but typical for PercieverIO models (usually in the ~100s-1000s).
   window_patches: 12  # Must evenly divide latent grid (60x72). Enables real spatial windowing.
   context_patches: 1  # Look at this many window_patches around the target patch.
 
 processor:
-  ch_width: [200, 256, 320]  # Reduced from [380, 480, 520]
+  ch_width: [380, 480, 520]
   dilation: [1, 1, 1]
   n_layers: [1, 1, 1]
 
@@ -38,7 +38,7 @@ processor:
     kernel_size: 3
     activation: "capped_gelu"
     upscale_factor: 2
-    norm: "batch"
+    norm: "instance"
     pointwise_linear: true
 
   down_sampling_block: "avg_pool"

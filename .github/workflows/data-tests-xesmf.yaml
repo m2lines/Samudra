@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -35,7 +35,7 @@ jobs:
           cache-downloads: true
           micromamba-version: 'latest'
           create-args: >-
-            python=${{ matrix.python-version }} xesmf
+            python=${{ matrix.python-version }} xesmf esmf=*=nompi_*
       - name: 🌈 Install ocean_preprocessing package
         shell: bash -l {0}
         run: |
@@ -46,5 +46,5 @@ jobs:
         shell: bash -l {0}
         run: |
           cd data
-          pytest tests -v
+          pytest tests -v --durations=20 --durations-min=1.0
           # for now I am running all tests again. We could only cover the preprocessing here to save time.

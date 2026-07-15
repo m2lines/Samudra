@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -46,4 +46,4 @@ jobs:
         run: uv sync --locked --dev
 
       - name: Run pytest
-        run: uv run --locked pytest -n 2 -v -m "not manual and not cuda"
+        run: uv run --locked pytest -n 2 -v -m "not manual and not cuda" --durations=20 --durations-min=1.0

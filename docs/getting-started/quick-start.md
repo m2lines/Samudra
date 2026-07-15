@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+SPDX-FileCopyrightText: 2026 Samudra Authors
 
 SPDX-License-Identifier: CC-BY-4.0
 -->
@@ -17,7 +17,7 @@ uv run -m samudra.train configs/samudra_om4/train.yaml
 The samudra-multi model supports multi-scale training across different resolutions:
 
 ```bash
-uv run -m samudra.train configs/samudra_multi_om4/train_multiscale.yaml
+uv run -m samudra.train configs/samudra_multi_om4/train.yaml
 ```
 
 ### Data Paths

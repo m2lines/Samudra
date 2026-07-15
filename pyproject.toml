@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -42,8 +42,9 @@ dependencies = [
   "scipy>=1.15.2",
   "skypilot[aws,lambda]>=0.10",
   "sqlalchemy>=2",                # skypilot requires sqlalchemy 2.0 but doesn't include that requirement
-  "torch>=2.9.0a0,<2.10",         # Matches PhysicsNeMo 25.11 for Docker build
+  "torch>=2.9.0a0,<2.13",         # Matches PhysicsNeMo container builds
   "torchinfo>=1.8",
+  "typing-extensions>=4.15",
   "wandb>=0.19.8",
   "xarray[io]>=2025.1.2",
   "xarray-einstats[einops]>=0.8",

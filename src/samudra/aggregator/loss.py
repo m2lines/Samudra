@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: 2024 Allen Institute for Artificial Intelligence
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 

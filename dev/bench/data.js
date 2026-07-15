@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784135741729,
+  "lastUpdate": 1784135750274,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -20779,6 +20779,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.028872545667555205",
             "extra": "mean: 19.945767333599974 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fomobot640@gmail.com",
+            "name": "fomo-bot",
+            "username": "fomo-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8fe8b080c7f80210b4f8bc84894abc1152f4e5b4",
+          "message": "Small improvements from running on MIT cluster (#794)\n\n* Loads the configured Apptainer module when neither `apptainer` nor\n`singularity` is already on `PATH`.\n* Allows a requeued Slurm job to reuse its existing run directory and\nresume from its latest checkpoint.\n* Allows re-queueing of the current job on`USR1`.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2026-07-15T13:01:04-04:00",
+          "tree_id": "76492d476d88540821e6f5d6a49d706fa4be270c",
+          "url": "https://github.com/m2lines/Samudra/commit/8fe8b080c7f80210b4f8bc84894abc1152f4e5b4"
+        },
+        "date": 1784135749967,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.083303954509245,
+            "unit": "iter/sec",
+            "range": "stddev: 0.005278968794874799",
+            "extra": "mean: 923.1019565999986 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.16861002746192974,
+            "unit": "iter/sec",
+            "range": "stddev: 0.013032628631966303",
+            "extra": "mean: 5.930845365800019 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.048700284117053357,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11796567358483159",
+            "extra": "mean: 20.53376110899999 sec\nrounds: 5"
           }
         ]
       }

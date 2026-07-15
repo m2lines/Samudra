@@ -361,6 +361,81 @@ struct CompactVariable {
     level_axis: Option<usize>,
 }
 
+struct CompactReadGroup {
+    array: Arc<OpenArray>,
+    time_axis: usize,
+    level_axis: Option<usize>,
+    channels: Vec<(usize, Option<u64>)>,
+}
+
+impl CompactReadGroup {
+    fn retrieve(
+        &self,
+        index: u64,
+        lat: u64,
+        lon: u64,
+        path: &std::path::Path,
+    ) -> anyhow::Result<(u64, Vec<f32>)> {
+        let (first_level, subset, expected_planes) = if let Some(level_axis) = self.level_axis {
+            let first_level = self
+                .channels
+                .iter()
+                .filter_map(|(_, level)| *level)
+                .min()
+                .context("compact OM4 depth group has no selected levels")?;
+            let last_level = self
+                .channels
+                .iter()
+                .filter_map(|(_, level)| *level)
+                .max()
+                .context("compact OM4 depth group has no selected levels")?;
+            let level_count = last_level - first_level + 1;
+            let mut start = vec![0, 0, 0, 0];
+            let mut shape = vec![1, 1, lat, lon];
+            start[self.time_axis] = index;
+            start[level_axis] = first_level;
+            shape[level_axis] = level_count;
+            (
+                first_level,
+                ArraySubset::new_with_start_shape(start, shape)
+                    .context("constructing a grouped compact OM4 depth subset")?,
+                level_count,
+            )
+        } else {
+            (
+                0,
+                ArraySubset::new_with_start_shape(vec![index, 0, 0], vec![1, lat, lon])
+                    .context("constructing a compact OM4 surface subset")?,
+                1,
+            )
+        };
+        let elements = self
+            .array
+            .retrieve_array_subset_elements::<f32>(&subset)
+            .with_context(|| {
+                format!(
+                    "reading {} at time index {index} from {}",
+                    self.array.path(),
+                    path.display()
+                )
+            })?;
+        let expected_elements = expected_planes
+            .checked_mul(lat)
+            .and_then(|count| count.checked_mul(lon))
+            .context("compact OM4 grouped read shape overflows u64")?;
+        let expected_elements = usize::try_from(expected_elements)
+            .context("compact OM4 grouped read shape overflows usize")?;
+        if elements.len() != expected_elements {
+            bail!(
+                "read {} elements from {} at time index {index}; expected {expected_elements}",
+                elements.len(),
+                self.array.path()
+            );
+        }
+        Ok((first_level, elements))
+    }
+}
+
 /// Persistent reader translating canonical OM4 channels into compact arrays.
 #[pyclass]
 struct CompactOm4Reader {
@@ -549,49 +624,54 @@ impl CompactOm4Reader {
                 output.len()
             );
         }
-        let reads = indexes
-            .iter()
-            .flat_map(|index| variables.iter().map(move |variable| (*index, variable)))
-            .collect::<Vec<_>>();
+        // A compact depth array is normally chunked across every level for one time
+        // point. Group logical channels backed by the same physical array so that,
+        // for example, thetao_0 through thetao_4 decompress that chunk once rather
+        // than five times.
+        let mut group_indexes: HashMap<String, usize> = HashMap::new();
+        let mut groups: Vec<CompactReadGroup> = Vec::new();
+        for (channel_index, variable) in variables.iter().enumerate() {
+            let array_path = variable.array.path().to_string();
+            if let Some(group_index) = group_indexes.get(&array_path) {
+                groups[*group_index]
+                    .channels
+                    .push((channel_index, variable.level));
+            } else {
+                group_indexes.insert(array_path, groups.len());
+                groups.push(CompactReadGroup {
+                    array: variable.array.clone(),
+                    time_axis: variable.time_axis,
+                    level_axis: variable.level_axis,
+                    channels: vec![(channel_index, variable.level)],
+                });
+            }
+        }
+        let time_slice_len = variables
+            .len()
+            .checked_mul(plane_len)
+            .context("compact OM4 time-slice shape overflows usize")?;
 
         self.thread_pool.install(|| {
             output
-                .par_chunks_mut(plane_len)
-                .zip(reads.par_iter())
-                .try_for_each(|(target, (index, variable))| -> anyhow::Result<()> {
-                    let subset = if let Some(level) = variable.level {
-                        let mut start = vec![0, 0, 0, 0];
-                        start[variable.time_axis] = *index;
-                        start[variable.level_axis.expect("depth variable has level axis")] = level;
-                        ArraySubset::new_with_start_shape(
-                            start,
-                            vec![1, 1, self.shape[1], self.shape[2]],
-                        )
-                    } else {
-                        ArraySubset::new_with_start_shape(
-                            vec![*index, 0, 0],
-                            vec![1, self.shape[1], self.shape[2]],
-                        )
+                .par_chunks_mut(time_slice_len)
+                .zip(indexes.par_iter())
+                .try_for_each(|(target, index)| -> anyhow::Result<()> {
+                    let reads = groups
+                        .par_iter()
+                        .map(|group| {
+                            group.retrieve(*index, self.shape[1], self.shape[2], &self.path)
+                        })
+                        .collect::<anyhow::Result<Vec<_>>>()?;
+                    for (group, (first_level, elements)) in groups.iter().zip(reads) {
+                        for (channel_index, level) in &group.channels {
+                            let source_plane =
+                                level.map_or(0, |level| level - first_level) as usize;
+                            let source_start = source_plane * plane_len;
+                            let target_start = channel_index * plane_len;
+                            target[target_start..target_start + plane_len]
+                                .copy_from_slice(&elements[source_start..source_start + plane_len]);
+                        }
                     }
-                    .context("constructing a compact OM4 array subset")?;
-                    let elements = variable
-                        .array
-                        .retrieve_array_subset_elements::<f32>(&subset)
-                        .with_context(|| {
-                            format!(
-                                "reading {} at time index {index} from {}",
-                                variable.array.path(),
-                                self.path.display()
-                            )
-                        })?;
-                    if elements.len() != plane_len {
-                        bail!(
-                            "read {} elements from {} at time index {index}; expected {plane_len}",
-                            elements.len(),
-                            variable.array.path()
-                        );
-                    }
-                    target.copy_from_slice(&elements);
                     Ok(())
                 })
         })?;

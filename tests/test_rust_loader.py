@@ -249,12 +249,14 @@ def test_compact_om4_reader_accepts_time_before_level(tmp_path):
         }
     ).to_zarr(path, mode="w", consolidated=False)
 
-    reader = open_compact_reader(path, ["thetao_1"])
+    channels = ["thetao_2", "thetao_0", "thetao_1"]
+    reader = open_compact_reader(path, channels)
 
     assert reader.shape == (2, 2, 2)
+    data = np.arange(24, dtype=np.float32).reshape(2, 3, 2, 2)
     np.testing.assert_array_equal(
-        np.asarray(reader.read([1], ["thetao_1"]))[0, 0],
-        np.arange(24, dtype=np.float32).reshape(2, 3, 2, 2)[1, 1],
+        np.asarray(reader.read([1], channels))[0],
+        data[1, [2, 0, 1]],
     )
 
 

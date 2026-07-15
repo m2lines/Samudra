@@ -89,13 +89,94 @@ source-controlled files.
 
 ## Multi-rank DDP
 
-Pending the matched two-GPU Torch runs from the published commit image. The
-release decision remains **no-go** until rank-local schedule parity, loss parity,
-checkpoint/resume, and clean shutdown pass there.
+The final production qualification used commit `88b28eb6` in the published
+PhysicsNeMo 26.05 image on NYU Torch. Each rank used one RTX6000 GPU; the DDP
+runs used two nodes and two ranks. Data came from the local flat-OM4 production
+store at `/scratch/jr7309/data/om4_onedeg_v3`. Summary timings exclude the
+one-time OCI-to-SIF conversion.
+
+### One-GPU production results
+
+| metric | CPU baseline | Rust | change |
+| --- | ---: | ---: | ---: |
+| qualification wall time | 19.065 s | 11.538 s | 1.65x faster |
+| measured train throughput | 0.746 batch/s | 1.439 batch/s | 1.93x |
+| exposed wait p50 | 0.720 ms | 174.8 ms | higher |
+| exposed wait p95 | 1.946 s | 510.6 ms | 3.81x lower |
+| exposed wait mean | 478.1 ms | 192.9 ms | 2.48x lower |
+| raw load p50 | 1.568 s | 212.1 ms | 7.39x lower |
+| raw load p95 | 1.936 s | 374.9 ms | 5.16x lower |
+| process RSS max | 3.498 GB | 3.226 GB | 272 MB lower |
+| process CPU mean | 23.3% | 37.4% | 14.1 points higher |
+| GPU utilization mean | 2.1% | 3.3% | 1.2 points higher |
+| Torch device allocation max | 1.543 GB | 0.759 GB | 784 MB lower |
+| Torch device reservation max | 2.414 GB | 2.091 GB | 323 MB lower |
+
+The CPU loader's near-zero median exposed wait reflects its worker queue being
+ready for most batches; its expensive work is visible in the separate load-time
+metric and in the long-tail wait. Rust meets the throughput gate and materially
+reduces mean and p95 exposed wait.
+
+### Two-rank production results
+
+Ranges below cover rank 0 and rank 1.
+
+| metric | CPU baseline | Rust | change |
+| --- | ---: | ---: | ---: |
+| qualification wall time | 13.574-13.585 s | 9.301-9.303 s | 1.46x faster |
+| measured train throughput | 0.419-0.425 batch/s | 0.681-0.699 batch/s | 1.60-1.67x |
+| exposed wait p50 | 0.899-0.906 ms | 20.1-136.4 ms | higher |
+| exposed wait p95 | 1.975-2.065 s | 403-557 ms | 3.55-5.12x lower |
+| exposed wait mean | 625-648 ms | 126-216 ms | 2.90-5.13x lower |
+| raw load p50 | 1.537-1.574 s | 181-199 ms | 7.72-8.70x lower |
+| raw load p95 | 1.794-1.857 s | 261-444 ms | 4.04-7.12x lower |
+| process RSS max | 3.403-3.512 GB | 3.269-3.318 GB | lower on both ranks |
+| process CPU mean | 29.8-34.8% | 40.9-88.9% | higher |
+| GPU utilization mean | 3.7-7.6% | 5.8-28.3% | higher |
+
+For both initial epochs, each CPU rank's train and validation schedule hashes
+exactly match the corresponding Rust rank. The two ranks have different hashes,
+confirming that the evidence is rank-local rather than a duplicated rank-0
+record. Maximum initial loss error is `5.56e-5` absolute and `1.93e-5` relative;
+the one-GPU maximum is `7.92e-5` absolute and `4.02e-5` relative.
+
+All four initial jobs crossed the one-to-two-step transition, validated, and
+wrote checkpoints. Matched resume jobs loaded `ckpt.pt`, ran epoch 3 at two
+steps, and wrote `ckpt_3.pt`. Resume schedules match on every rank. Maximum
+resume loss error is `1.34e-5` absolute on one GPU and `2.93e-5` absolute in
+DDP. All eight jobs exited zero without retained workers, prefetch threads, or
+NCCL process-group teardown warnings.
+
+The production Rust pools allocated 115.1 MB for training on every rank and
+68.4-91.8 MB for validation. Every pool ended at zero in-use bytes. Torch's
+device samples and the loader's own pool counters show bounded host and device
+prefetch memory.
+
+The initial Torch jobs were `13854049`, `13855133`, `13855134`, and `13855135`;
+the resume jobs were `13855238` through `13855241`.
+
+## Opt-in configuration and limitations
+
+Select the loader in a data config:
+
+```yaml
+data:
+  loading:
+    type: rust
+    prefetch_batches: 2
+    max_concurrent_reads: 8
+    prefetch_to_device: true
+```
+
+Source checkouts require `uv sync --extra rust`; the published training
+container includes the compiled extension. The current path supports local,
+flat OM4 training and validation only. It intentionally does not support S3,
+OM4-compact, LLC, or inference. Package releases must publish the matching
+platform-native loader wheel alongside the Samudra wheel.
 
 ## Test evidence
 
-- `330 passed, 2 skipped, 71 deselected, 10 xfailed` for
+- `332 passed, 2 skipped, 71 deselected, 10 xfailed` for
   `pytest -m "not manual and not cuda"` with CUDA hidden
 - `30 passed` in the sampler suite
 - `18 passed` in non-CUDA Rust data tests
@@ -105,7 +186,9 @@ checkpoint/resume, and clean shutdown pass there.
 
 ## Release decision
 
-**Current status: no-go pending DDP.** Single-GPU correctness, checkpoint/resume,
-bounded pinned memory, clean shutdown, and overlap gates pass. Update this section
-after the two-rank comparison; do not advertise the Rust extra as production-ready
-until that final gate passes.
+**Go for opt-in local flat-OM4 training release.** Single-GPU and DDP schedule
+and loss parity, validation, step transitions, checkpoint/resume, throughput,
+bounded prefetch memory, CUDA overlap, packaging, and clean-shutdown gates pass.
+Keep the loader opt-in and retain the CPU/GPU paths as immediate fallbacks. The
+format and inference limitations above remain explicit follow-on work rather
+than release blockers for this narrow path.

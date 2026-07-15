@@ -226,6 +226,10 @@ Run the completed flat-OM4 loader through short single-GPU and DDP training jobs
 including validation, checkpoint transitions, and clean shutdown. Keep the Rust path
 opt-in for the first release.
 
+Status: passed on 2026-07-15. See
+[the production qualification report](rust-data-loader-qualification.md) for the
+single-GPU, DDP, resume, memory, throughput, and CUDA-trace evidence.
+
 ### Exit criteria
 
 - A short run matches the current loader's sampled batches and loss trajectory within

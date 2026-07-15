@@ -68,7 +68,7 @@ NAME="${NAME:-}"
 NAME_SUFFIX="${NAME_SUFFIX:-}"
 ARGS="${ARGS:-}"
 NSYS_ARGS="${NSYS_ARGS:-}"
-REQUEUE_ON_USR1="${REQUEUE_ON_USR1:-1}"
+REQUEUE_ON_USR1="${REQUEUE_ON_USR1:-0}"
 if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then
   NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"
 fi

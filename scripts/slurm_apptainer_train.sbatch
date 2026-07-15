@@ -57,6 +57,9 @@ NAME="${NAME:-}"
 NAME_SUFFIX="${NAME_SUFFIX:-}"
 ARGS="${ARGS:-}"
 NSYS_ARGS="${NSYS_ARGS:-}"
+QUALIFICATION_LOADER="${QUALIFICATION_LOADER:-}"
+QUALIFICATION_RUN_LABEL="${QUALIFICATION_RUN_LABEL:-initial}"
+QUALIFICATION_ARGS="${QUALIFICATION_ARGS:-}"
 if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then
   NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"
 fi
@@ -64,6 +67,10 @@ if [[ -z "${CONFIG}" || -z "${NAME}" ]]; then
   echo "Missing required env vars. Need CONFIG and NAME." >&2
   echo "Tip: set NAME_SUFFIX to auto-generate NAME as YYYY-MM-DD-<suffix>." >&2
   echo "Example: export NAME_SUFFIX=om4_samudra_baseline" >&2
+  exit 2
+fi
+if [[ -n "${QUALIFICATION_LOADER}" && "${QUALIFICATION_LOADER}" != "cpu" && "${QUALIFICATION_LOADER}" != "rust" ]]; then
+  echo "QUALIFICATION_LOADER must be 'cpu' or 'rust', got: ${QUALIFICATION_LOADER}" >&2
   exit 2
 fi
 
@@ -162,6 +169,10 @@ echo "SIF path:   ${SIF_PATH}"
 if [[ -n "${NSYS_ARGS}" ]]; then
   echo "NSYS args:  ${NSYS_ARGS}"
   echo "NSYS out:   ${NSYS_OUTPUT_DIR}"
+fi
+if [[ -n "${QUALIFICATION_LOADER}" ]]; then
+  echo "Qualification loader: ${QUALIFICATION_LOADER}"
+  echo "Qualification label:  ${QUALIFICATION_RUN_LABEL}"
 fi
 
 if [[ ! -s "${SIF_PATH}" ]]; then
@@ -273,17 +284,35 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         fi
         echo \"Nsight Systems profiling enabled on proc \${SLURM_PROCID:-unset}.\"
       fi
-      \"\${profiler_cmd[@]}\" /workspace/.venv/bin/python -m torch.distributed.run \
-        --nnodes=${SLURM_NNODES} \
-        --nproc_per_node=${GPUS_PER_NODE} \
-        --master_addr=${MASTER_ADDR} \
-        --master_port=${MASTER_PORT} \
-        --node_rank=\${SLURM_PROCID} \
-        -m samudra.train \"${CONFIG_IN_CONTAINER}\" \
-        --experiment.name=\"${NAME}\" \
-        --experiment.data_root=\"${DATA_ROOT}\" \
-        --experiment.base_output_dir=\"${OUTPUT_BASE}\" \
-        --experiment.wandb.mode=\"${WANDB_MODE}\" \
-        --backend=\"nccl\" \
-        ${ARGS}
+      if [[ -n \"${QUALIFICATION_LOADER}\" ]]; then
+        \"\${profiler_cmd[@]}\" /workspace/.venv/bin/python -m torch.distributed.run \
+          --nnodes=${SLURM_NNODES} \
+          --nproc_per_node=${GPUS_PER_NODE} \
+          --master_addr=${MASTER_ADDR} \
+          --master_port=${MASTER_PORT} \
+          --node_rank=\${SLURM_PROCID} \
+          /workspace/scripts/qualify_rust_loader.py \
+          --config \"${CONFIG_IN_CONTAINER}\" \
+          --loader \"${QUALIFICATION_LOADER}\" \
+          --data-root \"${DATA_ROOT}\" \
+          --output-root \"${OUTPUT_BASE}\" \
+          --name \"${NAME}\" \
+          --run-label \"${QUALIFICATION_RUN_LABEL}\" \
+          --backend nccl \
+          ${QUALIFICATION_ARGS}
+      else
+        \"\${profiler_cmd[@]}\" /workspace/.venv/bin/python -m torch.distributed.run \
+          --nnodes=${SLURM_NNODES} \
+          --nproc_per_node=${GPUS_PER_NODE} \
+          --master_addr=${MASTER_ADDR} \
+          --master_port=${MASTER_PORT} \
+          --node_rank=\${SLURM_PROCID} \
+          -m samudra.train \"${CONFIG_IN_CONTAINER}\" \
+          --experiment.name=\"${NAME}\" \
+          --experiment.data_root=\"${DATA_ROOT}\" \
+          --experiment.base_output_dir=\"${OUTPUT_BASE}\" \
+          --experiment.wandb.mode=\"${WANDB_MODE}\" \
+          --backend=\"nccl\" \
+          ${ARGS}
+      fi
     "

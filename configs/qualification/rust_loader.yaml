@@ -47,9 +47,9 @@ data:
     prognostic_vars_key: thermo_dynamic_5
     boundary_vars_key: tau_hfds
   sources:
-    - data_location: data.zarr
-      data_means_location: means.nc
-      data_stds_location: stds.nc
+    - data_location: OM4.zarr
+      data_means_location: OM4_means.zarr
+      data_stds_location: OM4_stds.zarr
   loading:
     type: cpu
     num_workers: 4

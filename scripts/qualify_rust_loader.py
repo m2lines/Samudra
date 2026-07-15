@@ -348,9 +348,12 @@ def main() -> None:
     setattr(trainer.wandb_logger, "log", recorder.record)
     sampler = SystemSampler(system_path, args.system_sample_seconds, trainer.device)
     epoch_schedules: list[dict[str, Any]] = []
-    validate_one_epoch = trainer.validate_one_epoch
+    validate_one_epoch_ref = weakref.WeakMethod(trainer.validate_one_epoch)
 
     def validate_and_capture_schedule(epoch: int) -> dict[str, float]:
+        validate_one_epoch = validate_one_epoch_ref()
+        if validate_one_epoch is None:
+            raise RuntimeError("Trainer was released before validation completed")
         stats = validate_one_epoch(epoch)
         epoch_schedules.append(
             {

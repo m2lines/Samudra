@@ -44,6 +44,7 @@ COPY src ./src
 COPY configs ./configs
 COPY tests ./tests
 COPY scripts/container ./scripts/container
+COPY scripts/qualify_rust_loader.py ./scripts/qualify_rust_loader.py
 
 # Bind-mount targets used by Slurm harnesses (ensure they exist in the image so
 # Apptainer --bind doesn't fail when mounting into subpaths).

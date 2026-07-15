@@ -23,6 +23,7 @@ import torch
 
 from samudra.config import CpuDataLoadingConfig, RustDataLoadingConfig, TrainConfig
 from samudra.train import Trainer
+from samudra.utils.distributed import destroy_distributed_mode
 from samudra.utils.logging import handle_logging, handle_warnings
 
 
@@ -355,14 +356,16 @@ def main() -> None:
 
     start = time.perf_counter()
     sampler.start()
+    loader_memory: dict[str, Any] = {}
     try:
         trainer.run()
+        loader_memory = _loader_memory_evidence(trainer)
     finally:
         sampler.stop()
         recorder.close()
-    loader_memory = _loader_memory_evidence(trainer)
-    # Release persistent PyTorch workers before measuring clean process exit.
-    del trainer
+        # Release persistent workers before tearing down the process group.
+        del trainer
+        destroy_distributed_mode()
     elapsed = time.perf_counter() - start
     summary = _build_summary(
         recorder,

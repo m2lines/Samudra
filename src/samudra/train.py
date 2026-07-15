@@ -65,6 +65,7 @@ from samudra.utils.data import DataSource, Normalize, get_inference_steps
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import (
     all_reduce_mean,
+    destroy_distributed_mode,
     get_world_size,
     is_main_process,
     set_seed,
@@ -1195,13 +1196,16 @@ def main():
     handle_logging(cfg.debug, cfg.experiment.output_dir)
     handle_warnings()
 
-    trainer = Trainer(cfg)
-
+    trainer = None
     try:
+        trainer = Trainer(cfg)
         trainer.run()
-    except Exception as e:
+    except Exception:
         logger.exception("Training failed with an exception")
-        raise e
+        raise
+    finally:
+        del trainer
+        destroy_distributed_mode()
 
 
 if __name__ == "__main__":

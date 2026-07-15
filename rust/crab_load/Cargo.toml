@@ -19,6 +19,7 @@ ndarray = "0.16.1"
 numpy = "0.25"
 pyo3 = "0.25.0"
 rayon = "1.11.0"
+serde_json = "1.0"
 zarrs = { version = "0.21.2", features = ["filesystem"] }
 
 [features]

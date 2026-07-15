@@ -22,6 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         runner: [ubuntu-latest, ubuntu-24.04-arm]
+        python-version: ["3.12", "3.13"]
     runs-on: ${{ matrix.runner }}
     steps:
       - name: Check out code
@@ -33,7 +34,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -53,8 +54,38 @@ jobs:
 
       - name: Build and test the Python extension
         run: |
-          uv venv --python 3.12
+          uv venv --python ${{ matrix.python-version }}
           uv pip install "maturin>=1.9,<2" "numpy>=1.26.4,<2" pytest xarray "zarr<3"
           source .venv/bin/activate
           maturin develop --manifest-path rust/crab_load/Cargo.toml --features extension-module
           python -m pytest tests/test_rust_loader.py -q
+
+      - name: Build and install the wheel pair
+        run: |
+          mkdir -p dist/native dist/samudra
+          source .venv/bin/activate
+          maturin build --release --manifest-path rust/crab_load/Cargo.toml --features extension-module --out dist/native
+          uv build --wheel --out-dir dist/samudra
+          uv venv --python ${{ matrix.python-version }} .wheel-test
+          uv pip install --python .wheel-test/bin/python --no-deps dist/native/*.whl dist/samudra/*.whl
+          .wheel-test/bin/python - <<'PY'
+          from importlib.metadata import requires, version
+
+          import samudra_rust_loader
+
+          assert version("samudra-rust-loader") == "0.1.0"
+          assert any(
+              requirement.startswith("samudra-rust-loader==0.1")
+              for requirement in requires("samudra") or []
+          )
+          assert samudra_rust_loader.FlatOm4ReadPool(1).max_concurrent_reads == 1
+          PY
+
+      - name: Upload install-tested wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: samudra-rust-wheels-${{ matrix.runner }}-py${{ matrix.python-version }}
+          path: |
+            dist/native/*.whl
+            dist/samudra/*.whl
+          if-no-files-found: error

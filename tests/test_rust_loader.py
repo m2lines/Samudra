@@ -9,6 +9,16 @@ import xarray as xr
 rust_loader = pytest.importorskip("samudra_rust_loader")
 
 
+def open_reader(path, variables, max_concurrent_reads=2):
+    pool = rust_loader.FlatOm4ReadPool(max_concurrent_reads)
+    return rust_loader.FlatOm4Reader(path, variables, pool)
+
+
+def test_flat_om4_read_pool_requires_positive_concurrency():
+    with pytest.raises(RuntimeError, match="must be positive"):
+        rust_loader.FlatOm4ReadPool(0)
+
+
 @pytest.fixture
 def flat_om4_store(tmp_path):
     values = np.arange(4 * 3 * 5, dtype=np.float32).reshape(4, 3, 5)
@@ -26,7 +36,7 @@ def flat_om4_store(tmp_path):
 
 def test_flat_om4_reader_matches_xarray(flat_om4_store):
     path, dataset = flat_om4_store
-    reader = rust_loader.FlatOm4Reader(path, ["first", "second"], 2)
+    reader = open_reader(path, ["first", "second"])
 
     actual = np.asarray(reader.read([3, 0, 2], ["second", "first"]))
     expected = (
@@ -43,7 +53,7 @@ def test_flat_om4_reader_matches_xarray(flat_om4_store):
 
 def test_flat_om4_reader_reads_into_c_contiguous_array(flat_om4_store):
     path, dataset = flat_om4_store
-    reader = rust_loader.FlatOm4Reader(path, ["first", "second"], 2)
+    reader = open_reader(path, ["first", "second"])
     actual = np.empty((3, 2, 3, 5), dtype=np.float32)
 
     reader.read_into([3, 0, 2], ["second", "first"], actual)
@@ -60,7 +70,7 @@ def test_flat_om4_reader_reads_into_c_contiguous_array(flat_om4_store):
 
 def test_flat_om4_reader_rejects_wrong_output_shape(flat_om4_store):
     path, _ = flat_om4_store
-    reader = rust_loader.FlatOm4Reader(path, ["first"], 1)
+    reader = open_reader(path, ["first"])
     output = np.empty((1, 1, 3, 4), dtype=np.float32)
 
     with pytest.raises(RuntimeError, match="output has shape"):
@@ -73,7 +83,7 @@ def test_flat_om4_reader_rejects_wrong_output_shape(flat_om4_store):
 )
 def test_flat_om4_reader_rejects_invalid_index(flat_om4_store, indexes, match):
     path, _ = flat_om4_store
-    reader = rust_loader.FlatOm4Reader(path, ["first"], 1)
+    reader = open_reader(path, ["first"])
 
     with pytest.raises(RuntimeError, match=match):
         reader.read(indexes, ["first"])
@@ -81,7 +91,7 @@ def test_flat_om4_reader_rejects_invalid_index(flat_om4_store, indexes, match):
 
 def test_flat_om4_reader_rejects_variable_not_opened(flat_om4_store):
     path, _ = flat_om4_store
-    reader = rust_loader.FlatOm4Reader(path, ["first"], 1)
+    reader = open_reader(path, ["first"])
 
     with pytest.raises(RuntimeError, match="was not opened"):
         reader.read([0], ["second"])
@@ -94,7 +104,7 @@ def test_flat_om4_reader_rejects_non_float32(tmp_path):
     ).to_zarr(path, mode="w", consolidated=False)
 
     with pytest.raises(RuntimeError, match="requires float32"):
-        rust_loader.FlatOm4Reader(path, ["value"], 1)
+        open_reader(path, ["value"])
 
 
 def test_flat_om4_reader_rejects_non_flat_shape(tmp_path):
@@ -109,4 +119,50 @@ def test_flat_om4_reader_rejects_non_flat_shape(tmp_path):
     ).to_zarr(path, mode="w", consolidated=False)
 
     with pytest.raises(RuntimeError, match=r"expected \(time, lat, lon\)"):
-        rust_loader.FlatOm4Reader(path, ["value"], 1)
+        open_reader(path, ["value"])
+
+
+def test_flat_om4_reader_rejects_zero_sized_spatial_extent(tmp_path):
+    path = tmp_path / "zero-lat.zarr"
+    xr.Dataset(
+        {
+            "value": (
+                ("time", "lat", "lon"),
+                np.zeros((2, 0, 4), dtype=np.float32),
+            )
+        }
+    ).to_zarr(path, mode="w", consolidated=False)
+
+    with pytest.raises(RuntimeError, match="zero-sized extent"):
+        open_reader(path, ["value"])
+
+
+def test_flat_om4_reader_rejects_transposed_spatial_dimensions(tmp_path):
+    path = tmp_path / "transposed.zarr"
+    xr.Dataset(
+        {
+            "value": (
+                ("time", "lon", "lat"),
+                np.zeros((2, 3, 3), dtype=np.float32),
+            )
+        }
+    ).to_zarr(path, mode="w", consolidated=False)
+
+    with pytest.raises(RuntimeError, match="expected \\(time, lat/y, lon/x\\)"):
+        open_reader(path, ["value"])
+
+
+def test_flat_om4_reader_accepts_y_x_dimension_aliases(tmp_path):
+    path = tmp_path / "y-x.zarr"
+    xr.Dataset(
+        {
+            "value": (
+                ("time", "y", "x"),
+                np.arange(24, dtype=np.float32).reshape(2, 3, 4),
+            )
+        }
+    ).to_zarr(path, mode="w", consolidated=False)
+
+    reader = open_reader(path, ["value"])
+
+    assert reader.shape == (2, 3, 4)

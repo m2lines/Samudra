@@ -24,10 +24,11 @@ from samudra.config import (
 from samudra.constants import build_om4_spec
 from samudra.datasets import TorchTrainDataset
 from samudra.rust_data import RustBatchDataset, RustTrainDataLoader
-from samudra.train import Trainer
+from samudra.train import Trainer, _dataset_batch_group_keys
 from samudra.utils.data import DataSource
 from samudra.utils.location import LocalLocation, UnresolvedLocation
 from samudra.utils.multiton import MultitonScope
+from samudra.utils.samplers import DistributedEquivalenceGroupBatchSampler
 from samudra.utils.train import collate_raw_train_data
 
 
@@ -220,6 +221,50 @@ def test_rust_loader_preserves_homogeneous_dataset_id_invariant(flat_om4_source)
         next(iter(loader))
 
 
+def test_distributed_sampler_never_crosses_dataset_ids(flat_om4_source):
+    datasets = [
+        TorchTrainDataset(
+            src=flat_om4_source,
+            dst=None,
+            prognostic_var_names=["thetao_0"],
+            boundary_var_names=["hfds"],
+            hist=0,
+            steps=1,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+            stride=stride,
+        )
+        for stride in (1, 2)
+    ]
+
+    schedules = []
+    group_keys = _dataset_batch_group_keys(datasets)
+    for rank in range(2):
+        sampler = DistributedEquivalenceGroupBatchSampler(
+            datasets=datasets,
+            group_key=lambda dataset: group_keys[dataset.id],
+            batch_size=4,
+            num_replicas=2,
+            rank=rank,
+            shuffle=False,
+            drop_last=False,
+        )
+        loader = RustTrainDataLoader(
+            datasets,
+            sampler,
+            torch.device("cpu"),
+            max_concurrent_reads=1,
+            prefetch_batches=1,
+            pin_memory=False,
+        )
+        schedule = list(sampler)
+        schedules.append(schedule)
+        for batch_indices in schedule:
+            loader._resolve_batch(batch_indices)
+
+    assert len(schedules[0]) == len(schedules[1])
+
+
 def test_rust_batch_uses_physical_indices_after_time_slice(flat_om4_source):
     sliced = flat_om4_source.slice(
         TimeConfig.model_validate({"start": "2000-01-11", "end": "2000-03-01"})
@@ -288,6 +333,7 @@ def test_trainer_selects_rust_loader_with_no_pytorch_workers(flat_om4_source, tm
     )
     config.inference_epochs = []
     config.batch_size = 2
+    config.data_stride = [1, 2]
     config.steps = [1]
     config.step_transition = []
 
@@ -300,6 +346,16 @@ def test_trainer_selects_rust_loader_with_no_pytorch_workers(flat_om4_source, tm
     assert isinstance(trainer.train_loader, RustTrainDataLoader)
     assert isinstance(trainer.val_loader, RustTrainDataLoader)
     assert not hasattr(trainer.train_loader, "_dataloader")
+    assert trainer.train_loader._read_pool is trainer.val_loader._read_pool
+    assert all(
+        dataset.read_pool is trainer.train_loader._read_pool
+        for dataset in trainer.train_loader._batch_datasets
+    )
+    assert len(trainer.train_loader._batch_datasets) == 2
+    for batch_indices in trainer.train_sampler:
+        trainer.train_loader._resolve_batch(batch_indices)
+    for batch_indices in trainer.val_sampler:
+        trainer.val_loader._resolve_batch(batch_indices)
     assert len(batch) == 1
 
 

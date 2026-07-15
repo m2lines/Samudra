@@ -7,12 +7,17 @@ from os import PathLike
 from numpy import float32
 from numpy.typing import NDArray
 
+class FlatOm4ReadPool:
+    def __init__(self, max_concurrent_reads: int) -> None: ...
+    @property
+    def max_concurrent_reads(self) -> int: ...
+
 class FlatOm4Reader:
     def __init__(
         self,
         path: str | PathLike[str],
         variables: list[str],
-        max_concurrent_reads: int = 32,
+        read_pool: FlatOm4ReadPool,
     ) -> None: ...
     @property
     def shape(self) -> tuple[int, int, int]: ...

@@ -19,6 +19,8 @@ type OpenArray = Array<dyn ReadableWritableListableStorageTraits>;
 type ReadShape = (usize, usize, usize, usize);
 type ReadOutput = (ReadShape, Vec<f32>);
 
+const XARRAY_DIMENSIONS_ATTRIBUTE: &str = "_ARRAY_DIMENSIONS";
+
 fn python_error(error: anyhow::Error) -> PyErr {
     PyRuntimeError::new_err(format!("{error:#}"))
 }
@@ -34,26 +36,100 @@ fn validate_index(index: i64, time_len: u64) -> anyhow::Result<u64> {
     Ok(index)
 }
 
+fn dimension_names(array: &OpenArray) -> anyhow::Result<Vec<String>> {
+    if let Some(names) = array.dimension_names() {
+        return names
+            .iter()
+            .map(|name| {
+                name.clone()
+                    .context(format!("array {} has an unnamed dimension", array.path()))
+            })
+            .collect();
+    }
+
+    let names = array
+        .attributes()
+        .get(XARRAY_DIMENSIONS_ATTRIBUTE)
+        .with_context(|| {
+            format!(
+                "array {} has no dimension metadata; expected (time, lat/y, lon/x)",
+                array.path()
+            )
+        })?;
+    serde_json::from_value::<Vec<String>>(names.clone()).with_context(|| {
+        format!(
+            "array {} has invalid {XARRAY_DIMENSIONS_ATTRIBUTE} metadata",
+            array.path()
+        )
+    })
+}
+
+fn validate_flat_om4_dimensions(array: &OpenArray) -> anyhow::Result<()> {
+    let names = dimension_names(array)?;
+    let valid = names.len() == 3
+        && names[0] == "time"
+        && matches!(names[1].as_str(), "lat" | "y")
+        && matches!(names[2].as_str(), "lon" | "x");
+    if !valid {
+        bail!(
+            "array {} has dimensions {names:?}; expected (time, lat/y, lon/x)",
+            array.path()
+        );
+    }
+    Ok(())
+}
+
+/// Shared bounded Rayon pool for every flat-OM4 reader in one training process.
+#[pyclass]
+struct FlatOm4ReadPool {
+    thread_pool: Arc<ThreadPool>,
+    max_concurrent_reads: usize,
+}
+
+#[pymethods]
+impl FlatOm4ReadPool {
+    #[new]
+    fn new(max_concurrent_reads: usize) -> PyResult<Self> {
+        if max_concurrent_reads == 0 {
+            return Err(python_error(anyhow::anyhow!(
+                "max_concurrent_reads must be positive"
+            )));
+        }
+        let thread_pool = ThreadPoolBuilder::new()
+            .num_threads(max_concurrent_reads)
+            .thread_name(|index| format!("samudra-zarr-{index}"))
+            .build()
+            .context("creating the shared Rust Zarr read pool")
+            .map_err(python_error)?;
+        Ok(Self {
+            thread_pool: Arc::new(thread_pool),
+            max_concurrent_reads,
+        })
+    }
+
+    #[getter]
+    fn max_concurrent_reads(&self) -> usize {
+        self.max_concurrent_reads
+    }
+}
+
 /// Persistent reader for local, flat OM4 arrays shaped `(time, lat, lon)`.
 #[pyclass]
 struct FlatOm4Reader {
     path: PathBuf,
     arrays: HashMap<String, Arc<OpenArray>>,
     shape: [u64; 3],
-    thread_pool: ThreadPool,
+    thread_pool: Arc<ThreadPool>,
 }
 
 impl FlatOm4Reader {
     fn open(
         path: PathBuf,
         variables: Vec<String>,
-        max_concurrent_reads: usize,
+        thread_pool: Arc<ThreadPool>,
     ) -> anyhow::Result<Self> {
         if variables.is_empty() {
             bail!("at least one variable is required");
-        }
-        if max_concurrent_reads == 0 {
-            bail!("max_concurrent_reads must be positive");
         }
 
         let store: ReadableWritableListableStorage = Arc::new(
@@ -91,6 +167,18 @@ impl FlatOm4Reader {
                     array.shape()
                 )
             })?;
+            if shape.contains(&0) {
+                bail!(
+                    "variable {variable:?} in {} has a zero-sized extent in shape {shape:?}",
+                    path.display()
+                );
+            }
+            validate_flat_om4_dimensions(&array).with_context(|| {
+                format!(
+                    "validating dimensions for variable {variable:?} in {}",
+                    path.display()
+                )
+            })?;
             if let Some(expected) = common_shape {
                 if shape != expected {
                     bail!(
@@ -103,12 +191,6 @@ impl FlatOm4Reader {
             }
             arrays.insert(variable, Arc::new(array));
         }
-
-        let thread_pool = ThreadPoolBuilder::new()
-            .num_threads(max_concurrent_reads)
-            .thread_name(|index| format!("samudra-zarr-{index}"))
-            .build()
-            .context("creating the Rust Zarr read pool")?;
 
         Ok(Self {
             path,
@@ -219,14 +301,14 @@ impl FlatOm4Reader {
 #[pymethods]
 impl FlatOm4Reader {
     #[new]
-    #[pyo3(signature = (path, variables, max_concurrent_reads=32))]
     fn new(
         py: Python<'_>,
         path: PathBuf,
         variables: Vec<String>,
-        max_concurrent_reads: usize,
+        read_pool: PyRef<'_, FlatOm4ReadPool>,
     ) -> PyResult<Self> {
-        py.allow_threads(|| Self::open(path, variables, max_concurrent_reads))
+        let thread_pool = read_pool.thread_pool.clone();
+        py.allow_threads(|| Self::open(path, variables, thread_pool))
             .map_err(python_error)
     }
 
@@ -284,6 +366,7 @@ impl FlatOm4Reader {
 
 #[pymodule]
 fn samudra_rust_loader(module: &Bound<'_, PyModule>) -> PyResult<()> {
+    module.add_class::<FlatOm4ReadPool>()?;
     module.add_class::<FlatOm4Reader>()?;
     Ok(())
 }

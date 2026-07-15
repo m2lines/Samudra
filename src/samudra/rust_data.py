@@ -25,15 +25,21 @@ from samudra.utils.data import DataSource, LoadStats
 from samudra.utils.location import LocalLocation
 
 
-def _load_extension():
+def _load_extension() -> Any:
     try:
         extension = importlib.import_module("samudra_rust_loader")
     except ModuleNotFoundError as error:
         raise RuntimeError(
-            "Rust data loading requires the optional extension; install it with "
-            "`uv sync --extra rust` or `pip install 'samudra[rust]'`."
+            "Rust data loading requires the optional extension; in a source "
+            "checkout run `uv sync --extra rust`, or install the matching "
+            "samudra-rust-loader platform wheel."
         ) from error
     return extension
+
+
+def create_rust_read_pool(max_concurrent_reads: int) -> Any:
+    """Create the one bounded native read pool shared by a training process."""
+    return _load_extension().FlatOm4ReadPool(max_concurrent_reads)
 
 
 class BatchSampler(Protocol):
@@ -77,7 +83,7 @@ class FlatOm4Store:
         self,
         source: DataSource,
         logical_variables: list[str],
-        max_concurrent_reads: int,
+        read_pool: Any,
     ) -> None:
         if source.is_compact:
             raise ValueError("loading.type='rust' does not yet support OM4-compact")
@@ -114,7 +120,7 @@ class FlatOm4Store:
         self._reader: Any = extension.FlatOm4Reader(
             self.path,
             list(dict.fromkeys(self._physical_by_logical.values())),
-            max_concurrent_reads,
+            read_pool,
         )
         _, physical_lat, physical_lon = self._reader.shape
         self._spatial_shape = (physical_lat, physical_lon)
@@ -161,9 +167,14 @@ class RustBatchDataset:
     """Batch-oriented Rust reader for one existing ``TorchTrainDataset``."""
 
     def __init__(
-        self, dataset: TorchTrainDataset, *, max_concurrent_reads: int
+        self,
+        dataset: TorchTrainDataset,
+        *,
+        max_concurrent_reads: int,
+        read_pool: Any | None = None,
     ) -> None:
         self.dataset = dataset
+        self.read_pool = read_pool or create_rust_read_pool(max_concurrent_reads)
         input_source = dataset.prognostic_srcs[0]
         label_source = dataset.prognostic_srcs[-1]
         self._prognostic_variables = list(input_source.data.data_vars)
@@ -172,7 +183,7 @@ class RustBatchDataset:
         self._input_store = FlatOm4Store(
             input_source,
             self._prognostic_variables + self._boundary_variables,
-            max_concurrent_reads,
+            self.read_pool,
         )
         if (
             isinstance(label_source.data_location, LocalLocation)
@@ -188,7 +199,7 @@ class RustBatchDataset:
             self._label_store = FlatOm4Store(
                 label_source,
                 self._prognostic_variables,
-                max_concurrent_reads,
+                self.read_pool,
             )
 
     @staticmethod
@@ -256,6 +267,7 @@ class RustTrainDataLoader:
         prefetch_batches: int,
         pin_memory: bool,
         prefetch_to_device: bool = False,
+        read_pool: Any | None = None,
     ) -> None:
         if prefetch_batches < 1:
             raise ValueError("prefetch_batches must be positive")
@@ -267,8 +279,13 @@ class RustTrainDataLoader:
             raise TypeError("batch_sampler must be iterable and sized")
 
         self._datasets = datasets
+        self._read_pool = read_pool or create_rust_read_pool(max_concurrent_reads)
         self._batch_datasets = [
-            RustBatchDataset(dataset, max_concurrent_reads=max_concurrent_reads)
+            RustBatchDataset(
+                dataset,
+                max_concurrent_reads=max_concurrent_reads,
+                read_pool=self._read_pool,
+            )
             for dataset in datasets
         ]
         self._batch_sampler = batch_sampler

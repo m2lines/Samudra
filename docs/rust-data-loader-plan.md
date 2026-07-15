@@ -122,12 +122,14 @@ workers.
 Initial configuration should stay small:
 
 - `prefetch_batches`, defaulting to 2;
-- a bounded Rust I/O concurrency setting;
+- a process/rank-wide bounded Rust I/O concurrency setting shared by every store;
 - CUDA device prefetch enabled by default when CUDA and pinned memory are available.
 
 The extension must be importable from a Rust-enabled Samudra development install
-(`uv sync --extra rust`) and from the supported wheel build. The default install does
-not require a Rust toolchain.
+(`uv sync --extra rust`) and from the supported paired wheel build. CI builds and
+install-tests the Samudra and platform-native wheels together. A release must publish
+both artifacts before advertising `pip install 'samudra[rust]'`; the default install
+does not require a Rust toolchain.
 
 ### Exit criteria
 

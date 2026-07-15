@@ -40,6 +40,7 @@ from samudra.config import TrainConfig, TrainSchedule, build_loss_fn
 from samudra.constants import (
     MAX_TRAIN_MODEL_STEPS_FORWARD,
     BoundaryVarNames,
+    GridSize,
     PrognosticVarNames,
     TensorMap,
 )
@@ -52,7 +53,7 @@ from samudra.datasets import (
     TrainDataLoader,
 )
 from samudra.models.base import BaseModel
-from samudra.rust_data import RustTrainDataLoader
+from samudra.rust_data import RustTrainDataLoader, create_rust_read_pool
 from samudra.stepper import (
     TrainBatchOutput,
     ValBatchOutput,
@@ -100,6 +101,19 @@ def should_log_validation_images(epoch: int, frequency: int) -> bool:
             f"Validation image log frequency must be >= 1, got {frequency}"
         )
     return (epoch - 1) % frequency == 0
+
+
+def _dataset_batch_group_keys(
+    datasets: list[TorchTrainDataset],
+) -> dict[str, tuple[int, tuple[GridSize, ...]]]:
+    """Return rank-stable keys that keep every dataset in its own batch group."""
+    return {
+        dataset.id: (
+            dataset_index,
+            tuple(prog.grid_size for prog in dataset.prognostic_srcs),
+        )
+        for dataset_index, dataset in enumerate(datasets)
+    }
 
 
 class Trainer:
@@ -874,17 +888,15 @@ class Trainer:
                 )
 
         # Create batch samplers - branch on distributed vs non-distributed
-        # Group by input AND label resolution to handle all training schedules
-        def group_key(ds):
-            return tuple(prog.grid_size for prog in ds.prognostic_srcs)
-
+        train_group_keys = _dataset_batch_group_keys(train_datasets)
+        val_group_keys = _dataset_batch_group_keys(val_datasets)
         if self.distributed is not None:
             # Distributed training
             assert self.distributed.world_size is not None
             assert self.distributed.rank is not None
             train_batch_sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=train_datasets,
-                group_key=group_key,
+                group_key=lambda ds: train_group_keys[ds.id],
                 batch_size=self.batch_size,
                 num_replicas=self.distributed.world_size,
                 rank=self.distributed.rank,
@@ -894,7 +906,7 @@ class Trainer:
 
             val_batch_sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=val_datasets,
-                group_key=group_key,
+                group_key=lambda ds: val_group_keys[ds.id],
                 batch_size=self.batch_size,
                 num_replicas=self.distributed.world_size,
                 rank=self.distributed.rank,
@@ -905,7 +917,7 @@ class Trainer:
             # Non-distributed training
             train_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
                 datasets=train_datasets,
-                group_key=group_key,
+                group_key=lambda ds: train_group_keys[ds.id],
                 batch_size=self.batch_size,
                 shuffle=True,
                 drop_last=True,
@@ -913,7 +925,7 @@ class Trainer:
 
             val_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
                 datasets=val_datasets,
-                group_key=group_key,
+                group_key=lambda ds: val_group_keys[ds.id],
                 batch_size=self.batch_size,
                 shuffle=True,
                 drop_last=False,
@@ -924,6 +936,7 @@ class Trainer:
         self.val_sampler = val_batch_sampler
 
         if isinstance(self.data_loading, config.RustDataLoadingConfig):
+            read_pool = create_rust_read_pool(self.data_loading.max_concurrent_reads)
             rust_pin_memory = self.pin_mem or (
                 self.device.type == "cuda" and self.data_loading.prefetch_to_device
             )
@@ -940,6 +953,7 @@ class Trainer:
                 prefetch_batches=self.data_loading.prefetch_batches,
                 pin_memory=rust_pin_memory,
                 prefetch_to_device=self.data_loading.prefetch_to_device,
+                read_pool=read_pool,
             )
             self.val_loader = RustTrainDataLoader(
                 val_datasets,
@@ -949,6 +963,7 @@ class Trainer:
                 prefetch_batches=self.data_loading.prefetch_batches,
                 pin_memory=rust_pin_memory,
                 prefetch_to_device=self.data_loading.prefetch_to_device,
+                read_pool=read_pool,
             )
             return
 

@@ -195,7 +195,11 @@ class RustDataLoadingConfig(BaseDataLoadingConfig):
 
     type: Literal["rust"] = "rust"
     prefetch_batches: int = Field(default=2, ge=1)
-    max_concurrent_reads: int = Field(default=32, ge=1)
+    max_concurrent_reads: int = Field(
+        default=32,
+        ge=1,
+        description="Shared native Zarr read concurrency limit for this process/rank.",
+    )
     prefetch_to_device: bool = True
 
     def num_pytorch_workers(self) -> int:

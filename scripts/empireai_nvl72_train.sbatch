@@ -147,6 +147,15 @@ train_args=(
 )
 
 if [[ "${SMOKE}" == "1" ]]; then
+  smoke_sources='[{"type":"om4",'
+  smoke_sources+='"prognostic_vars_key":"thermo_dynamic_all",'
+  smoke_sources+='"boundary_vars_key":"tau_hfds_hfds_anom",'
+  smoke_sources+='"train_time":{"start":"1975-01-03","end":"1975-03-01"},'
+  smoke_sources+='"val_time":{"start":"2013-10-05","end":"2013-11-05"},'
+  smoke_sources+='"inference_times":[{"start":"2014-10-10","end":"2022-12-24"}],'
+  smoke_sources+='"data_location":"OM4.zarr",'
+  smoke_sources+='"data_means_location":"OM4_means.zarr",'
+  smoke_sources+='"data_stds_location":"OM4_stds.zarr"}]'
   train_args+=(
     "--epochs=1"
     "--batch_size=1"
@@ -154,10 +163,7 @@ if [[ "${SMOKE}" == "1" ]]; then
     "--save_freq=1"
     "--steps=[1]"
     "--data_stride=[1]"
-    "--train_time.start=1975-01-03"
-    "--train_time.end=1975-03-01"
-    "--val_time.start=2013-10-05"
-    "--val_time.end=2013-11-05"
+    "--data.sources=${smoke_sources}"
   )
 fi
 

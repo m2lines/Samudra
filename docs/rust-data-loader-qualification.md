@@ -181,6 +181,9 @@ platform-native loader wheel alongside the Samudra wheel.
 - `30 passed` in the sampler suite
 - `18 passed` in non-CUDA Rust data tests
 - `2 passed` in focused CUDA prefetch and pinned-buffer reuse tests
+- [final-image CI run 29451910377](https://github.com/m2lines/Samudra/actions/runs/29451910377)
+  built and import-smoked the Rust extension on x86_64 and arm64, then passed
+  the arm64 CPU and x86_64 CPU/GPU container suites
 - all pre-commit hooks pass, including Ruff, mypy, schema validation, secret
   detection, and REUSE lint
 

@@ -521,6 +521,14 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             input_resolution_cpu=self.prognostic_srcs[0].resolution,
             output_resolution_cpu=self.prognostic_srcs[-1].resolution,
         )
+        # Static normalization tensors, masks, and grid context are identical
+        # for every batch. Cache their device copies in the training process so
+        # CUDA-prefetched batches only transfer the changing ocean fields.
+        self._device_ocean_static: dict[
+            tuple[torch.device, str],
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        ] = {}
+        self._device_ctx: dict[torch.device, GridContext] = {}
 
         self.size: int = (
             time_.size
@@ -604,30 +612,69 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         Returns:
             TrainData with tensors on the target device
         """
+        device_ctx = self._device_ctx.get(device)
+        if device_ctx is None:
+            device_ctx = self.ctx.to(device)
+            self._device_ctx[device] = device_ctx
+
         train_data = TrainData(
             self.num_prognostic_channels,
             self.num_boundary_channels,
-            self.ctx.to(device),
+            device_ctx,
         )
         for input_, boundary, label in raw_train_data.raw_data:
             prog_input, boundary_input, label_tensor = self._to_example(
-                OceanData.from_data_source(
+                self._ocean_data_to_device(
+                    "prognostic_input",
                     input_,
                     self.wet_prognostic[0],
                     self.prognostic_srcs[0],
-                ).to(device=device, non_blocking=True),
-                OceanData.from_data_source(
+                    device,
+                ),
+                self._ocean_data_to_device(
+                    "boundary_input",
                     boundary,
                     self.wet_surface,
                     self.boundary_src,
-                ).to(device=device, non_blocking=True),
-                OceanData.from_data_source(
-                    label, self.wet_prognostic[-1], self.prognostic_srcs[-1]
-                ).to(device=device, non_blocking=True),
+                    device,
+                ),
+                self._ocean_data_to_device(
+                    "prognostic_label",
+                    label,
+                    self.wet_prognostic[-1],
+                    self.prognostic_srcs[-1],
+                    device,
+                ),
             )
             train_data.append(prog_input, boundary_input, label_tensor)
         train_data.load_stats = raw_train_data.load_stats
         return train_data
+
+    def _ocean_data_to_device(
+        self,
+        cache_name: str,
+        data: torch.Tensor,
+        mask: torch.Tensor,
+        source: DataSource,
+        device: torch.device,
+    ) -> OceanData:
+        cache_key = (device, cache_name)
+        static = self._device_ocean_static.get(cache_key)
+        if static is None:
+            # Build static tensors without retaining or copying a real batch.
+            template = OceanData.from_data_source(data[:0], mask, source).to(
+                device=device,
+                non_blocking=True,
+            )
+            static = (template.means, template.stds, template.mask)
+            self._device_ocean_static[cache_key] = static
+        means, stds, device_mask = static
+        return OceanData(
+            data=data.to(device=device, non_blocking=True),
+            means=means,
+            stds=stds,
+            mask=device_mask,
+        )
 
     def _to_example(
         self, input_: OceanData, boundary: OceanData, label: OceanData

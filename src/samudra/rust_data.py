@@ -10,9 +10,10 @@ import importlib
 import time
 from bisect import bisect_right
 from collections import deque
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
+from threading import Lock
 from typing import Any, Protocol
 
 import numpy as np
@@ -46,6 +47,78 @@ class BatchSampler(Protocol):
     def __iter__(self) -> Iterator[list[int]]: ...
 
     def __len__(self) -> int: ...
+
+
+class _PinnedTensorPool:
+    """Reuse pinned tensors after their CUDA consumer event has completed."""
+
+    def __init__(self) -> None:
+        self._free: dict[tuple[int, ...], deque[torch.Tensor]] = {}
+        self._pending: deque[tuple[torch.cuda.Event, torch.Tensor]] = deque()
+        self._lock = Lock()
+        self._allocated_bytes = 0
+        self._in_use_bytes = 0
+        self._peak_in_use_bytes = 0
+        self._allocation_count = 0
+        self._reuse_count = 0
+
+    @staticmethod
+    def _bytes(tensor: torch.Tensor) -> int:
+        return tensor.numel() * tensor.element_size()
+
+    def _reclaim_locked(self) -> None:
+        remaining: deque[tuple[torch.cuda.Event, torch.Tensor]] = deque()
+        while self._pending:
+            event, tensor = self._pending.popleft()
+            if event.query():
+                self._free.setdefault(tuple(tensor.shape), deque()).append(tensor)
+                self._in_use_bytes -= self._bytes(tensor)
+            else:
+                remaining.append((event, tensor))
+        self._pending = remaining
+
+    def acquire(self, shape: tuple[int, ...]) -> torch.Tensor:
+        with self._lock:
+            self._reclaim_locked()
+            free = self._free.get(shape)
+            if free:
+                tensor = free.popleft()
+                self._reuse_count += 1
+            else:
+                tensor = torch.empty(shape, dtype=torch.float32, pin_memory=True)
+                self._allocated_bytes += self._bytes(tensor)
+                self._allocation_count += 1
+            self._in_use_bytes += self._bytes(tensor)
+            self._peak_in_use_bytes = max(self._peak_in_use_bytes, self._in_use_bytes)
+            return tensor
+
+    def release(self, raw: RawTrainData, event: torch.cuda.Event | None = None) -> None:
+        tensors = [tensor for step in raw.raw_data for tensor in step]
+        self.release_tensors(tensors, event)
+
+    def release_tensors(
+        self,
+        tensors: list[torch.Tensor],
+        event: torch.cuda.Event | None = None,
+    ) -> None:
+        with self._lock:
+            if event is None:
+                for tensor in tensors:
+                    self._free.setdefault(tuple(tensor.shape), deque()).append(tensor)
+                    self._in_use_bytes -= self._bytes(tensor)
+            else:
+                self._pending.extend((event, tensor) for tensor in tensors)
+
+    def stats(self) -> dict[str, int]:
+        with self._lock:
+            self._reclaim_locked()
+            return {
+                "allocated_bytes": self._allocated_bytes,
+                "in_use_bytes": self._in_use_bytes,
+                "peak_in_use_bytes": self._peak_in_use_bytes,
+                "allocation_count": self._allocation_count,
+                "reuse_count": self._reuse_count,
+            }
 
 
 def _encode_om4_depth(depth: float) -> str:
@@ -137,6 +210,7 @@ class FlatOm4Store:
         logical_variables: list[str],
         *,
         pin_memory: bool,
+        buffer_factory: Callable[[tuple[int, ...]], torch.Tensor] | None = None,
     ) -> torch.Tensor:
         if physical_time_indices.ndim != 2:
             raise ValueError("Batch time indices must have shape (batch, time)")
@@ -150,7 +224,18 @@ class FlatOm4Store:
             len(logical_variables),
             *self._spatial_shape,
         )
-        tensor = torch.empty(shape, dtype=torch.float32, pin_memory=pin_memory)
+        tensor = (
+            buffer_factory(shape)
+            if buffer_factory is not None
+            else torch.empty(shape, dtype=torch.float32, pin_memory=pin_memory)
+        )
+        if tuple(tensor.shape) != shape or tensor.dtype != torch.float32:
+            raise ValueError(
+                f"Rust read buffer must have shape {shape} and dtype float32; "
+                f"got shape {tuple(tensor.shape)} and dtype {tensor.dtype}"
+            )
+        if pin_memory and not tensor.is_pinned():
+            raise ValueError("Rust read buffer must be pinned when pin_memory=True")
         self._reader.read_into(
             physical_time_indices.reshape(-1).tolist(),
             physical_variables,
@@ -209,46 +294,68 @@ class RustBatchDataset:
         return source.physical_time_indices[relative]
 
     def load_batch(
-        self, indices: list[int], *, pin_memory: bool = False
+        self,
+        indices: list[int],
+        *,
+        pin_memory: bool = False,
+        buffer_pool: _PinnedTensorPool | None = None,
     ) -> RawTrainData:
         if not indices:
             raise ValueError("Cannot load an empty Rust batch")
         start_time = time.perf_counter()
         raw = RawTrainData(self.dataset.id)
+        acquired: list[torch.Tensor] = []
 
-        for step in range(self.dataset.steps):
-            relative = np.stack(
-                [self.dataset._get_x_index(index, step).to_numpy() for index in indices]
-            ).astype(np.int64, copy=False)
-            current = relative[:, : self.dataset.hist + 1]
-            forecast = relative[:, self.dataset.hist + 1 :]
+        def buffer_factory(shape: tuple[int, ...]) -> torch.Tensor:
+            assert buffer_pool is not None
+            tensor = buffer_pool.acquire(shape)
+            acquired.append(tensor)
+            return tensor
 
-            input_indices = self._physical_indices(
-                self.dataset.prognostic_srcs[0], current
-            )
-            boundary_indices = self._physical_indices(
-                self.dataset.boundary_src, current
-            )
-            label_indices = self._physical_indices(
-                self.dataset.prognostic_srcs[-1], forecast
-            )
+        try:
+            for step in range(self.dataset.steps):
+                relative = np.stack(
+                    [
+                        self.dataset._get_x_index(index, step).to_numpy()
+                        for index in indices
+                    ]
+                ).astype(np.int64, copy=False)
+                current = relative[:, : self.dataset.hist + 1]
+                forecast = relative[:, self.dataset.hist + 1 :]
 
-            input_ = self._input_store.read(
-                input_indices,
-                self._prognostic_variables,
-                pin_memory=pin_memory,
-            )
-            boundary = self._input_store.read(
-                boundary_indices,
-                self._boundary_variables,
-                pin_memory=pin_memory,
-            )
-            label = self._label_store.read(
-                label_indices,
-                self._prognostic_variables,
-                pin_memory=pin_memory,
-            )
-            raw.insert(input_, boundary, label)
+                input_indices = self._physical_indices(
+                    self.dataset.prognostic_srcs[0], current
+                )
+                boundary_indices = self._physical_indices(
+                    self.dataset.boundary_src, current
+                )
+                label_indices = self._physical_indices(
+                    self.dataset.prognostic_srcs[-1], forecast
+                )
+
+                input_ = self._input_store.read(
+                    input_indices,
+                    self._prognostic_variables,
+                    pin_memory=pin_memory,
+                    buffer_factory=buffer_factory if buffer_pool else None,
+                )
+                boundary = self._input_store.read(
+                    boundary_indices,
+                    self._boundary_variables,
+                    pin_memory=pin_memory,
+                    buffer_factory=buffer_factory if buffer_pool else None,
+                )
+                label = self._label_store.read(
+                    label_indices,
+                    self._prognostic_variables,
+                    pin_memory=pin_memory,
+                    buffer_factory=buffer_factory if buffer_pool else None,
+                )
+                raw.insert(input_, boundary, label)
+        except BaseException:
+            if buffer_pool is not None:
+                buffer_pool.release_tensors(acquired)
+            raise
 
         raw.load_stats = LoadStats(time.perf_counter() - start_time)
         return raw
@@ -292,6 +399,7 @@ class RustTrainDataLoader:
         self._device = device
         self._prefetch_batches = prefetch_batches
         self._pin_memory = pin_memory
+        self._pinned_pool = _PinnedTensorPool() if pin_memory else None
         self._prefetch_to_device = prefetch_to_device and device.type == "cuda"
         if self._prefetch_to_device and not pin_memory:
             raise ValueError("CUDA device prefetch requires pinned host memory")
@@ -326,9 +434,16 @@ class RustTrainDataLoader:
         self, global_indices: list[int]
     ) -> tuple[TorchTrainDataset, RawTrainData]:
         dataset_index, local_indices = self._resolve_batch(global_indices)
-        raw = self._batch_datasets[dataset_index].load_batch(
-            local_indices, pin_memory=self._pin_memory
-        )
+        if self._pinned_pool is None:
+            raw = self._batch_datasets[dataset_index].load_batch(
+                local_indices, pin_memory=self._pin_memory
+            )
+        else:
+            raw = self._batch_datasets[dataset_index].load_batch(
+                local_indices,
+                pin_memory=True,
+                buffer_pool=self._pinned_pool,
+            )
         return self._datasets[dataset_index], raw
 
     def _prepare_batch(
@@ -336,6 +451,12 @@ class RustTrainDataLoader:
     ) -> TrainData:
         dataset, raw = loaded
         return dataset.to_train_data(raw, self._device)
+
+    def _release_raw(
+        self, raw: RawTrainData, event: torch.cuda.Event | None = None
+    ) -> None:
+        if self._pinned_pool is not None:
+            self._pinned_pool.release(raw, event)
 
     def __iter__(self) -> Iterator[TrainData]:
         # Snapshot sampler RNG and rank scheduling before the producer starts.
@@ -359,6 +480,10 @@ class RustTrainDataLoader:
     @property
     def sampler(self):
         return self._batch_sampler
+
+    @property
+    def pinned_pool_stats(self) -> dict[str, int] | None:
+        return self._pinned_pool.stats() if self._pinned_pool is not None else None
 
 
 class _RustHostPrefetchIterator(Iterator[tuple[TorchTrainDataset, RawTrainData]]):
@@ -416,7 +541,15 @@ class _PreparedIterator(Iterator[TrainData]):
         self._host = host
 
     def __next__(self) -> TrainData:
-        return self._loader._prepare_batch(next(self._host))
+        loaded = next(self._host)
+        event: torch.cuda.Event | None = None
+        try:
+            return self._loader._prepare_batch(loaded)
+        finally:
+            if self._loader._device.type == "cuda":
+                event = torch.cuda.Event()
+                event.record(torch.cuda.current_stream(self._loader._device))
+            self._loader._release_raw(loaded[1], event)
 
     def close(self) -> None:
         self._host.close()
@@ -453,9 +586,13 @@ class _CudaPrefetchIterator(Iterator[TrainData]):
             return
 
         with torch.cuda.stream(self._stream):
-            self._next_data = self._loader._prepare_batch(loaded)
-            self._next_event = torch.cuda.Event()
-            self._next_event.record(self._stream)
+            try:
+                self._next_data = self._loader._prepare_batch(loaded)
+            finally:
+                event = torch.cuda.Event()
+                event.record(self._stream)
+                self._loader._release_raw(loaded[1], event)
+            self._next_event = event
 
     def __next__(self) -> TrainData:
         if self._closed or self._next_data is None or self._next_event is None:

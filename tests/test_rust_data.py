@@ -146,6 +146,37 @@ def test_rust_batch_matches_processed_train_data(
             )
 
 
+def test_train_data_device_preparation_caches_static_tensors(flat_om4_source):
+    dataset = TorchTrainDataset(
+        src=flat_om4_source,
+        dst=None,
+        prognostic_var_names=["thetao_0"],
+        boundary_var_names=["hfds"],
+        hist=0,
+        steps=1,
+        normalize_before_mask=True,
+        masked_fill_value=0.0,
+    )
+    raw = RustBatchDataset(dataset, max_concurrent_reads=1).load_batch([0, 1])
+    device = torch.device("cpu")
+
+    first = dataset.to_train_data(raw, device)
+    cached_static = dict(dataset._device_ocean_static)
+    cached_ctx = dataset._device_ctx[device]
+    second = dataset.to_train_data(raw, device)
+
+    assert first.ctx is cached_ctx
+    assert second.ctx is cached_ctx
+    assert dataset._device_ocean_static.keys() == cached_static.keys()
+    for key, expected in cached_static.items():
+        assert all(
+            actual is expected_tensor
+            for actual, expected_tensor in zip(
+                dataset._device_ocean_static[key], expected
+            )
+        )
+
+
 def test_rust_loader_consumes_existing_batch_schedule(flat_om4_source):
     dataset = TorchTrainDataset(
         src=flat_om4_source,
@@ -497,3 +528,37 @@ def test_rust_loader_prefetches_pinned_batch_on_dedicated_cuda_stream(
                 equal_nan=True,
             )
     iterator.close()
+
+
+@pytest.mark.cuda
+def test_rust_loader_reuses_pinned_buffers_after_cuda_event(flat_om4_source):
+    dataset = TorchTrainDataset(
+        src=flat_om4_source,
+        dst=None,
+        prognostic_var_names=["thetao_0"],
+        boundary_var_names=["hfds"],
+        hist=0,
+        steps=1,
+        normalize_before_mask=True,
+        masked_fill_value=0.0,
+    )
+    loader = RustTrainDataLoader(
+        [dataset],
+        [[index] for index in range(6)],
+        torch.device("cuda"),
+        max_concurrent_reads=1,
+        prefetch_batches=1,
+        pin_memory=True,
+        prefetch_to_device=True,
+    )
+
+    list(loader)
+    torch.cuda.synchronize()
+    stats = loader.pinned_pool_stats
+
+    assert stats is not None
+    assert stats["reuse_count"] > 0
+    assert stats["in_use_bytes"] == 0
+    # Three tensors per batch, with at most the configured one-batch queue plus
+    # the batch currently being prepared alive at once.
+    assert stats["allocation_count"] <= 6

@@ -143,6 +143,7 @@ class Trainer:
 
         # Set seeds
         set_seed(cfg.experiment.rand_seed)
+        self.rand_seed = cfg.experiment.rand_seed
 
         # Getting prognostic and boundary variables
         self.dataset_spec = cfg.data.dataset.build()
@@ -902,6 +903,7 @@ class Trainer:
                 rank=self.distributed.rank,
                 shuffle=True,
                 drop_last=True,
+                seed=self.rand_seed,
             )
 
             val_batch_sampler = DistributedEquivalenceGroupBatchSampler(
@@ -912,6 +914,7 @@ class Trainer:
                 rank=self.distributed.rank,
                 shuffle=False,
                 drop_last=False,
+                seed=self.rand_seed,
             )
         else:
             # Non-distributed training
@@ -921,6 +924,7 @@ class Trainer:
                 batch_size=self.batch_size,
                 shuffle=True,
                 drop_last=True,
+                seed=self.rand_seed,
             )
 
             val_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
@@ -929,6 +933,7 @@ class Trainer:
                 batch_size=self.batch_size,
                 shuffle=True,
                 drop_last=False,
+                seed=self.rand_seed,
             )
 
         # Store samplers for set_epoch calls
@@ -969,6 +974,10 @@ class Trainer:
 
         # Create data loaders (same for both distributed and non-distributed)
         # When using batch_sampler, don't specify batch_size or sampler
+        worker_seed = self.rand_seed
+        if self.distributed is not None:
+            assert self.distributed.rank is not None
+            worker_seed += 2 * self.distributed.rank
         train_dataloader = DataLoader(
             train_data,
             batch_sampler=train_batch_sampler,
@@ -977,6 +986,7 @@ class Trainer:
             pin_memory=self.pin_mem,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
+            generator=torch.Generator().manual_seed(worker_seed),
         )
 
         val_dataloader = DataLoader(
@@ -987,6 +997,7 @@ class Trainer:
             pin_memory=self.pin_mem,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
+            generator=torch.Generator().manual_seed(worker_seed + 1),
         )
 
         # Wrap dataloaders to handle GPU post-processing

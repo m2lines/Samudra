@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: Test Rust loader
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - "**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test-rust-loader:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust/crab_load
+
+      - name: Check Rust
+        run: |
+          cargo fmt --manifest-path rust/crab_load/Cargo.toml -- --check
+          cargo clippy --manifest-path rust/crab_load/Cargo.toml --features extension-module --lib -- -D warnings
+          cargo test --manifest-path rust/crab_load/Cargo.toml --features extension-module --lib
+
+      - name: Build and test the Python extension
+        run: |
+          uv venv --python 3.12
+          uv pip install "maturin>=1.9,<2" "numpy>=1.26.4,<2" pytest xarray "zarr<3"
+          source .venv/bin/activate
+          maturin develop --manifest-path rust/crab_load/Cargo.toml --features extension-module
+          python -m pytest tests/test_rust_loader.py -q

@@ -52,6 +52,7 @@ from samudra.datasets import (
     TrainDataLoader,
 )
 from samudra.models.base import BaseModel
+from samudra.rust_data import RustTrainDataLoader
 from samudra.stepper import (
     TrainBatchOutput,
     ValBatchOutput,
@@ -162,6 +163,7 @@ class Trainer:
 
         data_num_workers = cfg.data.loading.num_pytorch_workers()
         persistent_workers = cfg.data.loading.persistent_pytorch_workers()
+        self.data_loading = cfg.data.loading
 
         self.mp_context: BaseContext | None = None
         if data_num_workers > 0:
@@ -362,8 +364,8 @@ class Trainer:
         self.inference_sampler: DistributedSampler | RandomSampler
 
         # Add type annotations for loaders
-        self.train_loader: TrainDataLoader
-        self.val_loader: TrainDataLoader
+        self.train_loader: TrainDataLoader | RustTrainDataLoader
+        self.val_loader: TrainDataLoader | RustTrainDataLoader
         self.inference_loader: DataLoader[TrainData]
 
     def init_inference_stores(self):
@@ -920,6 +922,35 @@ class Trainer:
         # Store samplers for set_epoch calls
         self.train_sampler = train_batch_sampler
         self.val_sampler = val_batch_sampler
+
+        if isinstance(self.data_loading, config.RustDataLoadingConfig):
+            rust_pin_memory = self.pin_mem or (
+                self.device.type == "cuda" and self.data_loading.prefetch_to_device
+            )
+            logger.info(
+                "Instantiating Rust loaders with %d prefetched batches and no "
+                "PyTorch worker processes",
+                self.data_loading.prefetch_batches,
+            )
+            self.train_loader = RustTrainDataLoader(
+                train_datasets,
+                train_batch_sampler,
+                self.device,
+                max_concurrent_reads=self.data_loading.max_concurrent_reads,
+                prefetch_batches=self.data_loading.prefetch_batches,
+                pin_memory=rust_pin_memory,
+                prefetch_to_device=self.data_loading.prefetch_to_device,
+            )
+            self.val_loader = RustTrainDataLoader(
+                val_datasets,
+                val_batch_sampler,
+                self.device,
+                max_concurrent_reads=self.data_loading.max_concurrent_reads,
+                prefetch_batches=self.data_loading.prefetch_batches,
+                pin_memory=rust_pin_memory,
+                prefetch_to_device=self.data_loading.prefetch_to_device,
+            )
+            return
 
         # Create data loaders (same for both distributed and non-distributed)
         # When using batch_sampler, don't specify batch_size or sampler

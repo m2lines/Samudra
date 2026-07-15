@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from samudra.datasets import TrainData, TrainDataLoader
     from samudra.models.base import BaseModel
+    from samudra.rust_data import RustTrainDataLoader
     from samudra.utils.ctx import GridContext
 
 
@@ -161,7 +162,7 @@ class MetricLogger:
 
     def log_every(
         self,
-        data_loader: "TrainDataLoader",
+        data_loader: "TrainDataLoader | RustTrainDataLoader",
         print_freq,
         header=None,
     ):

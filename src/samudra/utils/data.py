@@ -15,6 +15,7 @@ import torch
 import xarray as xr
 from einops import rearrange
 from jaxtyping import Bool, Float
+from numpy.typing import NDArray
 
 if TYPE_CHECKING:
     from samudra.config import TimeConfig
@@ -85,6 +86,20 @@ class DataSource:
     stds: xr.Dataset
     masks: Masks
     dataset_spec: DatasetSpec
+    data_location: ResolvedLocation | None = None
+    physical_time_indices: NDArray[np.int64] | None = None
+
+    def __post_init__(self) -> None:
+        if "time" not in self.data.dims:
+            return
+        if self.physical_time_indices is None:
+            self.physical_time_indices = np.arange(
+                self.data.sizes["time"], dtype=np.int64
+            )
+        elif len(self.physical_time_indices) != self.data.sizes["time"]:
+            raise ValueError(
+                "physical_time_indices must have one entry per data time coordinate"
+            )
 
     @cached_property
     def is_compact(self) -> bool:
@@ -178,7 +193,12 @@ class DataSource:
         data, means, stds = func(self.data.copy(), self.means.copy(), self.stds.copy())
 
         return dataclasses.replace(
-            self, name=f"{self.name}_{suffix}", data=data, means=means, stds=stds
+            self,
+            name=f"{self.name}_{suffix}",
+            data=data,
+            means=means,
+            stds=stds,
+            physical_time_indices=self._map_physical_time_indices(data),
         )
 
     def map_data(
@@ -188,7 +208,30 @@ class DataSource:
         if suffix is None:
             suffix = func.__qualname__
         data = func(self.data.copy())
-        return dataclasses.replace(self, name=f"{self.name}_{suffix}", data=data)
+        return dataclasses.replace(
+            self,
+            name=f"{self.name}_{suffix}",
+            data=data,
+            physical_time_indices=self._map_physical_time_indices(data),
+        )
+
+    def _map_physical_time_indices(self, data: xr.Dataset) -> NDArray[np.int64] | None:
+        """Carry store offsets through simple time selections.
+
+        Some inference transformations create a two-dimensional time coordinate.
+        Those temporary datasets are not Rust-loadable, so they receive a fresh
+        relative index instead of incorrectly retaining the source mapping.
+        """
+        if "time" not in data.dims or self.physical_time_indices is None:
+            return None
+        source_index = self.data.indexes.get("time")
+        mapped_index = data.indexes.get("time")
+        if source_index is None or mapped_index is None:
+            return None
+        selected_positions = source_index.get_indexer(mapped_index)
+        if np.any(selected_positions < 0):
+            return None
+        return self.physical_time_indices[selected_positions]
 
     def slice(self, time: "TimeConfig") -> Self:
         """Slice the data source to only include the specified time slice."""
@@ -209,7 +252,17 @@ class DataSource:
             )
 
         data = self.data.sel(time=time.time_slice)
-        return dataclasses.replace(self, name=f"{time=}[{self.name}]", data=data)
+        selected_positions = self.data.indexes["time"].get_indexer(data.indexes["time"])
+        if np.any(selected_positions < 0):
+            raise ValueError("Selected times were not found in the source time index")
+        assert self.physical_time_indices is not None
+        physical_time_indices = self.physical_time_indices[selected_positions]
+        return dataclasses.replace(
+            self,
+            name=f"{time=}[{self.name}]",
+            data=data,
+            physical_time_indices=physical_time_indices,
+        )
 
     # TODO(jder): delete this once we've de-duplicated InferenceDataset with TorchTrainDataset
     def normalize(self, fill_nan=True, fill_value=0.0) -> xr.Dataset:
@@ -295,6 +348,7 @@ class DataSource:
             boundary_var_names=boundary_var_names,
             static_data_vars=static_data_vars,
             name=f"{data_location}-{use_dask}",
+            data_location=data_location,
         )
 
     @classmethod
@@ -309,6 +363,7 @@ class DataSource:
         boundary_var_names: BoundaryVarNames,
         static_data_vars: list[str] | None = None,
         name: str = "DataSource",
+        data_location: ResolvedLocation | None = None,
     ) -> Self:
         data, means, stds = validate_data(
             data,
@@ -327,6 +382,7 @@ class DataSource:
             stds=stds,
             masks=masks,
             dataset_spec=dataset_spec,
+            data_location=data_location,
         )
 
 

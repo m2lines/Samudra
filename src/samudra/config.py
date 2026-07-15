@@ -190,8 +190,24 @@ class GpuDataLoadingConfig(BaseDataLoadingConfig):
         return False
 
 
+class RustDataLoadingConfig(BaseDataLoadingConfig):
+    """Configuration for the local Rust Zarr data loader."""
+
+    type: Literal["rust"] = "rust"
+    prefetch_batches: int = Field(default=2, ge=1)
+    max_concurrent_reads: int = Field(default=32, ge=1)
+    prefetch_to_device: bool = True
+
+    def num_pytorch_workers(self) -> int:
+        # Rust owns I/O concurrency, so samples stay in the training process.
+        return 0
+
+    def persistent_pytorch_workers(self) -> bool:
+        return False
+
+
 DataLoadingConfig = Annotated[
-    CpuDataLoadingConfig | GpuDataLoadingConfig,
+    CpuDataLoadingConfig | GpuDataLoadingConfig | RustDataLoadingConfig,
     Field(discriminator="type"),
 ]
 
@@ -259,6 +275,20 @@ class DataConfig(BaseConfig):
                 "loader yet. The dataset-family interface lands in this PR; LLC "
                 "reader support follows in the next slice."
             )
+
+        if isinstance(self.loading, RustDataLoadingConfig):
+            for source in self.sources:
+                for field_name, location in (
+                    ("data_location", source.data_location),
+                    ("data_means_location", source.data_means_location),
+                    ("data_stds_location", source.data_stds_location),
+                ):
+                    resolved = data_root.resolve(location)
+                    if not isinstance(resolved, LocalLocation):
+                        raise ValueError(
+                            "loading.type='rust' currently requires local data, "
+                            f"but {field_name} resolved to {resolved}"
+                        )
 
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH

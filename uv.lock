@@ -4001,6 +4001,9 @@ cuda = [
     { name = "torchvision", version = "0.24.1", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
     { name = "torchvision", version = "0.24.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
 ]
+rust = [
+    { name = "samudra-rust-loader" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -4055,6 +4058,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "requests", specifier = ">=2.32.3" },
     { name = "s3fs", specifier = ">=2025.5.1" },
+    { name = "samudra-rust-loader", marker = "extra == 'rust'", directory = "rust/crab_load" },
     { name = "scipy", specifier = ">=1.15.2" },
     { name = "skypilot", extras = ["aws", "lambda"], specifier = ">=0.10" },
     { name = "sqlalchemy", specifier = ">=2" },
@@ -4070,7 +4074,7 @@ requires-dist = [
     { name = "xesmf", specifier = ">=0.8.10" },
     { name = "zarr", specifier = "<3" },
 ]
-provides-extras = ["cuda"]
+provides-extras = ["cuda", "rust"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -4105,6 +4109,16 @@ docs = [
     { name = "mkdocstrings", extras = ["python"], specifier = ">=0.27" },
     { name = "zensical" },
 ]
+
+[[package]]
+name = "samudra-rust-loader"
+source = { directory = "rust/crab_load" }
+dependencies = [
+    { name = "numpy" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "numpy", specifier = ">=1.26.4,<2" }]
 
 [[package]]
 name = "scalene"

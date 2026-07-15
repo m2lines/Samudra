@@ -28,3 +28,22 @@ class FlatOm4Reader:
         variables: list[str],
         target: NDArray[float32],
     ) -> None: ...
+
+class CompactOm4Reader:
+    def __init__(
+        self,
+        path: str | PathLike[str],
+        logical_variables: list[str],
+        read_pool: FlatOm4ReadPool,
+    ) -> None: ...
+    @property
+    def shape(self) -> tuple[int, int, int]: ...
+    def read(
+        self, indexes: list[int], logical_variables: list[str]
+    ) -> NDArray[float32]: ...
+    def read_into(
+        self,
+        indexes: list[int],
+        logical_variables: list[str],
+        target: NDArray[float32],
+    ) -> None: ...

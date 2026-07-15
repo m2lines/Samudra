@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Compare warm-cache Python and Rust raw-batch loading on local flat OM4."""
+"""Compare warm-cache Python and Rust raw-batch loading on local OM4."""
 
 import argparse
 import statistics
@@ -38,15 +38,16 @@ def main() -> None:
     parser.add_argument("--iterations", type=int, default=12)
     parser.add_argument("--max-concurrent-reads", type=int, default=8)
     args = parser.parse_args()
+    data_root = args.data_root.resolve()
 
     spec = build_om4_spec(
         args.prognostic_vars_key,
         args.boundary_vars_key,
     )
     source = DataSource.from_locations(
-        LocalLocation(path=args.data_root / "data.zarr"),
-        LocalLocation(path=args.data_root / "means.nc"),
-        LocalLocation(path=args.data_root / "stds.nc"),
+        LocalLocation(path=data_root / "data.zarr"),
+        LocalLocation(path=data_root / "means.nc"),
+        LocalLocation(path=data_root / "stds.nc"),
         dataset_spec=spec,
         prognostic_var_names=spec.prognostic_var_names,
         boundary_var_names=spec.boundary_var_names,
@@ -107,6 +108,7 @@ def main() -> None:
 
     python_median = statistics.median(python_times)
     rust_median = statistics.median(rust_times)
+    print(f"layout={'compact' if source.is_compact else 'flat'}")
     print(f"batch_size={args.batch_size}")
     print(f"python_median_ms={python_median * 1000:.3f}")
     print(f"rust_median_ms={rust_median * 1000:.3f}")

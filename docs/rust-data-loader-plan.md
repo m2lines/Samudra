@@ -257,3 +257,37 @@ After the flat-OM4 release passes production qualification:
 
 Each format reuses the reader, batch, prefetch, and device-transfer machinery. Only
 the physical-to-logical translation is format-specific.
+
+### OM4-compact milestone
+
+The first follow-on milestone adds local OM4-compact training and validation to the
+same opt-in `loading.type: rust` path. It translates canonical channels such as
+`thetao_4` directly to the physical `thetao[lev=4]` array plane in Rust; surface
+channels such as `zos` and `hfds` remain rank-three reads. This is format-specific
+reader code, not a canonical-manifest object. Sampling, `dataset_id`, prefetching,
+pinned buffers, device preparation, and the `RawTrainData` contract remain unchanged.
+
+#### C0: native translation and fixture parity
+
+Exit when native reads validate rank, dtype, dimension order, spatial/time shape,
+level bounds, and missing variables; direct channel ordering matches the CPU compact
+path; and raw plus processed batches match for histories 0/1, steps 1/2, strides
+1/2, mixed depth/surface variables, masks, nontrivial statistics, NaNs, and both
+normalization/masking orders.
+
+#### C1: prefetched loader integration and regressions
+
+Exit when compact sources run through the existing opt-in trainer selection and
+bounded host-prefetch path with zero PyTorch workers; lifecycle and producer-error
+tests remain green; and the full non-CUDA suite plus focused CUDA pinned-buffer and
+stream tests show no regression in flat OM4 or the existing CPU loader.
+
+#### C2: production qualification
+
+Exit when matched short CPU-loader and Rust-loader jobs complete on a representative
+local OM4-compact store for single-GPU initial/resume and two-rank DDP initial/resume;
+sample schedules and loss trajectories meet the flat-OM4 tolerances; validation,
+step transitions, checkpoints, clean shutdown, bounded memory, exposed wait, and
+throughput are recorded; and the qualification report makes an explicit opt-in
+release decision. A poor performance result is a no-go or an optimization input,
+not a reason to weaken the correctness gates.

@@ -480,6 +480,11 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.normalize_before_mask: bool = normalize_before_mask
         self.masked_fill_value: float = masked_fill_value
         self._concurrent_compute = concurrent_compute_
+        # Keep the canonical per-channel names alongside the filtered xarray
+        # sources. Compact OM4 sources store depth-resolved channels in rank-four
+        # base variables, so their data_vars alone cannot recover channel order.
+        self.prognostic_var_names = tuple(prognostic_var_names)
+        self.boundary_var_names = tuple(boundary_var_names)
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         self.num_boundary_channels: int = (hist + 1) * len(boundary_var_names)

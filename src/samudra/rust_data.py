@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Local flat-OM4 batch loading through the optional Rust extension."""
+"""Local OM4 batch loading through the optional Rust extension."""
 
 from __future__ import annotations
 
@@ -149,8 +149,8 @@ def _array_metadata_exists(root: Path, variable: str) -> bool:
     return (array_path / ".zarray").is_file() or (array_path / "zarr.json").is_file()
 
 
-class FlatOm4Store:
-    """Logical-variable facade over one persistent Rust flat-OM4 reader."""
+class Om4Store:
+    """Logical-variable facade over one persistent Rust OM4 reader."""
 
     def __init__(
         self,
@@ -158,8 +158,6 @@ class FlatOm4Store:
         logical_variables: list[str],
         read_pool: Any,
     ) -> None:
-        if source.is_compact:
-            raise ValueError("loading.type='rust' does not yet support OM4-compact")
         if not isinstance(source.data_location, LocalLocation):
             raise ValueError(
                 "loading.type='rust' currently requires a local data location"
@@ -168,33 +166,43 @@ class FlatOm4Store:
             raise ValueError("A Rust OM4 store requires at least one variable")
 
         self.path = source.data_location.path
-        self._physical_by_logical: dict[str, str] = {}
-        for logical_name in dict.fromkeys(logical_variables):
-            candidates = _flat_om4_variable_candidates(
-                logical_name, source.dataset_spec
-            )
-            physical_name = next(
-                (
-                    candidate
-                    for candidate in candidates
-                    if _array_metadata_exists(self.path, candidate)
-                ),
-                None,
-            )
-            if physical_name is None:
-                expected = ", ".join(repr(candidate) for candidate in candidates)
-                raise ValueError(
-                    f"Could not find flat-OM4 variable {logical_name!r} in "
-                    f"{self.path}; tried {expected}"
-                )
-            self._physical_by_logical[logical_name] = physical_name
-
         extension = _load_extension()
-        self._reader: Any = extension.FlatOm4Reader(
-            self.path,
-            list(dict.fromkeys(self._physical_by_logical.values())),
-            read_pool,
-        )
+        self._physical_by_logical: dict[str, str] | None
+        if source.is_compact:
+            # CompactOm4Reader performs the canonical `base_level -> base[lev]`
+            # translation and validation natively. Passing canonical channel
+            # names directly keeps this a reader concern rather than introducing
+            # a second manifest/configuration representation.
+            self._physical_by_logical = None
+            self._reader = extension.CompactOm4Reader(
+                self.path, list(dict.fromkeys(logical_variables)), read_pool
+            )
+        else:
+            self._physical_by_logical = {}
+            for logical_name in dict.fromkeys(logical_variables):
+                candidates = _flat_om4_variable_candidates(
+                    logical_name, source.dataset_spec
+                )
+                physical_name = next(
+                    (
+                        candidate
+                        for candidate in candidates
+                        if _array_metadata_exists(self.path, candidate)
+                    ),
+                    None,
+                )
+                if physical_name is None:
+                    expected = ", ".join(repr(candidate) for candidate in candidates)
+                    raise ValueError(
+                        f"Could not find flat-OM4 variable {logical_name!r} in "
+                        f"{self.path}; tried {expected}"
+                    )
+                self._physical_by_logical[logical_name] = physical_name
+            self._reader = extension.FlatOm4Reader(
+                self.path,
+                list(dict.fromkeys(self._physical_by_logical.values())),
+                read_pool,
+            )
         _, physical_lat, physical_lon = self._reader.shape
         self._spatial_shape = (physical_lat, physical_lon)
         if (physical_lat, physical_lon) != source.grid_size:
@@ -214,9 +222,11 @@ class FlatOm4Store:
     ) -> torch.Tensor:
         if physical_time_indices.ndim != 2:
             raise ValueError("Batch time indices must have shape (batch, time)")
-        physical_variables = [
-            self._physical_by_logical[variable] for variable in logical_variables
-        ]
+        reader_variables = (
+            logical_variables
+            if self._physical_by_logical is None
+            else [self._physical_by_logical[variable] for variable in logical_variables]
+        )
         batch_size, time_size = physical_time_indices.shape
         shape = (
             batch_size,
@@ -238,7 +248,7 @@ class FlatOm4Store:
             raise ValueError("Rust read buffer must be pinned when pin_memory=True")
         self._reader.read_into(
             physical_time_indices.reshape(-1).tolist(),
-            physical_variables,
+            reader_variables,
             tensor.reshape(
                 batch_size * time_size,
                 len(logical_variables),
@@ -262,10 +272,10 @@ class RustBatchDataset:
         self.read_pool = read_pool or create_rust_read_pool(max_concurrent_reads)
         input_source = dataset.prognostic_srcs[0]
         label_source = dataset.prognostic_srcs[-1]
-        self._prognostic_variables = list(input_source.data.data_vars)
-        self._boundary_variables = list(dataset.boundary_src.data.data_vars)
+        self._prognostic_variables = list(dataset.prognostic_var_names)
+        self._boundary_variables = list(dataset.boundary_var_names)
 
-        self._input_store = FlatOm4Store(
+        self._input_store = Om4Store(
             input_source,
             self._prognostic_variables + self._boundary_variables,
             self.read_pool,
@@ -281,7 +291,7 @@ class RustBatchDataset:
                 )
             self._label_store = self._input_store
         else:
-            self._label_store = FlatOm4Store(
+            self._label_store = Om4Store(
                 label_source,
                 self._prognostic_variables,
                 self.read_pool,

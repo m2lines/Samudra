@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import dataclasses
 import threading
 import time
 from pathlib import Path
@@ -81,6 +82,90 @@ def flat_om4_source(tmp_path):
     )
 
 
+@pytest.fixture
+def compact_om4_source(tmp_path):
+    prognostic_variables = [
+        "thetao_0",
+        "thetao_1",
+        "thetao_2",
+        "so_0",
+        "so_1",
+        "so_2",
+        "zos",
+    ]
+    spec = dataclasses.replace(
+        build_om4_spec(prognostic_vars_key="thetao_1", boundary_vars_key="hfds"),
+        prognostic_var_names=prognostic_variables,
+    )
+    time_size = 20
+    level_size = len(spec.depth_levels)
+    lat_size, lon_size = 3, 4
+    coords = {
+        "time": xr.date_range(
+            "2000-01-01",
+            periods=time_size,
+            freq="5D",
+            calendar="julian",
+            use_cftime=True,
+        ),
+        "lev": np.asarray(spec.depth_levels),
+        "y": np.linspace(-60, 60, lat_size),
+        "x": np.linspace(0, 270, lon_size),
+    }
+    depth = np.arange(
+        time_size * level_size * lat_size * lon_size, dtype=np.float32
+    ).reshape(time_size, level_size, lat_size, lon_size)
+    thetao = depth * np.float32(0.25) - np.float32(12)
+    salinity = depth * np.float32(0.05) + np.float32(30)
+    surface = np.arange(time_size * lat_size * lon_size, dtype=np.float32).reshape(
+        time_size, lat_size, lon_size
+    )
+    zos = surface * np.float32(0.02) - np.float32(1)
+    boundary = surface * np.float32(-0.5) + np.float32(7)
+    thetao[4, 1, 0, 2] = np.nan
+    salinity[3, 2, 2, 1] = np.nan
+    zos[3, 1, 2] = np.nan
+    wetmask = np.ones((level_size, lat_size, lon_size), dtype=bool)
+    wetmask[0, 0, 0] = False
+    wetmask[1, 1, 1] = False
+    wetmask[2, 2, 2] = False
+    data = xr.Dataset(
+        {
+            "thetao": (
+                ("lev", "time", "y", "x"),
+                thetao.transpose(1, 0, 2, 3),
+            ),
+            "so": (
+                ("lev", "time", "y", "x"),
+                salinity.transpose(1, 0, 2, 3),
+            ),
+            "zos": (("time", "y", "x"), zos),
+            "hfds": (("time", "y", "x"), boundary),
+            "wetmask": (("lev", "y", "x"), wetmask),
+        },
+        coords=coords,
+    )
+    means = data[["thetao", "so", "zos", "hfds"]].mean(("time", "y", "x"))
+    stds = data[["thetao", "so", "zos", "hfds"]].std(("time", "y", "x"))
+    data_path = tmp_path / "compact-data.zarr"
+    means_path = tmp_path / "compact-means.zarr"
+    stds_path = tmp_path / "compact-stds.zarr"
+    data.to_zarr(data_path, mode="w", consolidated=True)
+    means.to_zarr(means_path, mode="w", consolidated=True)
+    stds.to_zarr(stds_path, mode="w", consolidated=True)
+
+    return DataSource.from_locations(
+        LocalLocation(path=data_path),
+        LocalLocation(path=means_path),
+        LocalLocation(path=stds_path),
+        dataset_spec=spec,
+        prognostic_var_names=spec.prognostic_var_names,
+        boundary_var_names=spec.boundary_var_names,
+        static_data_vars=None,
+        use_dask=False,
+    )
+
+
 @pytest.mark.parametrize("hist", [0, 1])
 @pytest.mark.parametrize("steps", [1, 2])
 @pytest.mark.parametrize("stride", [1, 2])
@@ -144,6 +229,121 @@ def test_rust_batch_matches_processed_train_data(
             torch.testing.assert_close(
                 actual_tensor, expected_tensor, rtol=0, atol=0, equal_nan=True
             )
+
+
+@pytest.mark.parametrize("hist", [0, 1])
+@pytest.mark.parametrize("steps", [1, 2])
+@pytest.mark.parametrize("stride", [1, 2])
+@pytest.mark.parametrize("normalize_before_mask", [True, False])
+def test_compact_rust_batch_matches_raw_and_processed_train_data(
+    compact_om4_source, hist, steps, stride, normalize_before_mask
+):
+    dataset = TorchTrainDataset(
+        src=compact_om4_source,
+        dst=None,
+        prognostic_var_names=compact_om4_source.dataset_spec.prognostic_var_names,
+        boundary_var_names=compact_om4_source.dataset_spec.boundary_var_names,
+        hist=hist,
+        steps=steps,
+        normalize_before_mask=normalize_before_mask,
+        masked_fill_value=-1.0,
+        stride=stride,
+    )
+    batch_indices = [0, 1]
+    expected_raw = collate_raw_train_data([dataset[index] for index in batch_indices])
+    actual_raw = RustBatchDataset(dataset, max_concurrent_reads=2).load_batch(
+        batch_indices
+    )
+
+    assert actual_raw.dataset_id == expected_raw.dataset_id
+    for actual_step, expected_step in zip(actual_raw.raw_data, expected_raw.raw_data):
+        for actual_tensor, expected_tensor in zip(actual_step, expected_step):
+            torch.testing.assert_close(
+                actual_tensor, expected_tensor, rtol=0, atol=0, equal_nan=True
+            )
+
+    expected = dataset.to_train_data(expected_raw, torch.device("cpu"))
+    actual = dataset.to_train_data(actual_raw, torch.device("cpu"))
+    for actual_step, expected_step in zip(
+        actual.example_by_step, expected.example_by_step
+    ):
+        for actual_tensor, expected_tensor in zip(actual_step, expected_step):
+            torch.testing.assert_close(
+                actual_tensor, expected_tensor, rtol=0, atol=0, equal_nan=True
+            )
+
+
+def test_compact_rust_batch_uses_canonical_variable_and_level_order(
+    compact_om4_source,
+):
+    logical_variables = compact_om4_source.dataset_spec.prognostic_var_names
+    dataset = TorchTrainDataset(
+        src=compact_om4_source,
+        dst=None,
+        prognostic_var_names=logical_variables,
+        boundary_var_names=compact_om4_source.dataset_spec.boundary_var_names,
+        hist=0,
+        steps=1,
+        normalize_before_mask=True,
+        masked_fill_value=0.0,
+    )
+
+    actual = RustBatchDataset(dataset, max_concurrent_reads=2).load_batch([0])
+    expected_input = torch.from_numpy(
+        np.stack(
+            [
+                compact_om4_source.data.thetao.isel(time=0, lev=0).to_numpy(),
+                compact_om4_source.data.thetao.isel(time=0, lev=1).to_numpy(),
+                compact_om4_source.data.thetao.isel(time=0, lev=2).to_numpy(),
+                compact_om4_source.data.so.isel(time=0, lev=0).to_numpy(),
+                compact_om4_source.data.so.isel(time=0, lev=1).to_numpy(),
+                compact_om4_source.data.so.isel(time=0, lev=2).to_numpy(),
+                compact_om4_source.data.zos.isel(time=0).to_numpy(),
+            ]
+        )
+    ).reshape(1, 1, len(logical_variables), 3, 4)
+
+    torch.testing.assert_close(
+        actual.raw_data[0][0], expected_input, rtol=0, atol=0, equal_nan=True
+    )
+
+
+def test_compact_rust_loader_consumes_existing_prefetch_schedule(
+    compact_om4_source,
+):
+    dataset = TorchTrainDataset(
+        src=compact_om4_source,
+        dst=None,
+        prognostic_var_names=compact_om4_source.dataset_spec.prognostic_var_names,
+        boundary_var_names=compact_om4_source.dataset_spec.boundary_var_names,
+        hist=1,
+        steps=2,
+        normalize_before_mask=True,
+        masked_fill_value=-1.0,
+        stride=2,
+    )
+    schedule = [[3, 1], [0, 2]]
+    loader = RustTrainDataLoader(
+        [dataset],
+        schedule,
+        torch.device("cpu"),
+        max_concurrent_reads=2,
+        prefetch_batches=2,
+        pin_memory=False,
+    )
+
+    for actual, batch_indices in zip(loader, schedule):
+        expected_raw = collate_raw_train_data(
+            [dataset[index] for index in batch_indices]
+        )
+        expected = dataset.to_train_data(expected_raw, torch.device("cpu"))
+        for actual_step, expected_step in zip(
+            actual.example_by_step, expected.example_by_step
+        ):
+            for actual_tensor, expected_tensor in zip(actual_step, expected_step):
+                torch.testing.assert_close(
+                    actual_tensor, expected_tensor, rtol=0, atol=0, equal_nan=True
+                )
 
 
 def test_train_data_device_preparation_caches_static_tensors(flat_om4_source):
@@ -387,6 +587,61 @@ def test_trainer_selects_rust_loader_with_no_pytorch_workers(flat_om4_source, tm
         trainer.train_loader._resolve_batch(batch_indices)
     for batch_indices in trainer.val_sampler:
         trainer.val_loader._resolve_batch(batch_indices)
+    assert len(batch) == 1
+
+
+def test_trainer_selects_rust_loader_for_compact_om4(compact_om4_source, tmp_path):
+    data_root = compact_om4_source.data_location.path.parent
+    config_path = (
+        Path(__file__).resolve().parents[1] / "configs/test/train_default.yaml"
+    )
+    config = TrainConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--experiment.data_root",
+            str(data_root),
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+            "--backend",
+            "cpu",
+        ]
+    )
+    config.data.sources = [
+        DataSourceConfig(
+            data_location=UnresolvedLocation(path="compact-data.zarr"),
+            data_means_location=UnresolvedLocation(path="compact-means.zarr"),
+            data_stds_location=UnresolvedLocation(path="compact-stds.zarr"),
+        )
+    ]
+    config.data.dataset = Om4DatasetConfig(
+        prognostic_vars_key="thetao_1", boundary_vars_key="hfds"
+    )
+    config.data.loading = RustDataLoadingConfig(
+        prefetch_batches=2, max_concurrent_reads=2
+    )
+    config.train_time = TimeConfig.model_validate(
+        {"start": "2000-01-01", "end": "2000-02-10"}
+    )
+    config.val_time = TimeConfig.model_validate(
+        {"start": "2000-02-15", "end": "2000-03-20"}
+    )
+    config.inference_epochs = []
+    config.batch_size = 2
+    config.data_stride = [1, 2]
+    config.steps = [1]
+    config.step_transition = []
+
+    with MultitonScope():
+        trainer = Trainer(config)
+        trainer.init_data_loaders(cur_step=1)
+        batch = next(iter(trainer.train_loader))
+
+    assert isinstance(trainer.train_loader, RustTrainDataLoader)
+    assert isinstance(trainer.val_loader, RustTrainDataLoader)
+    assert all(
+        dataset._input_store._physical_by_logical is None
+        for dataset in trainer.train_loader._batch_datasets
+    )
     assert len(batch) == 1
 
 

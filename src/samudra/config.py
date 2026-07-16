@@ -427,6 +427,14 @@ class DataConfig(BaseConfig):
     masked_fill_value: float = 0.0
     concurrent_compute: bool = False
 
+    @pydantic.model_validator(mode="after")
+    def reject_llc_static_data_vars(self) -> Self:
+        if self.static_data_vars and any(
+            isinstance(source, LlcDataSourceConfig) for source in self.sources
+        ):
+            raise ValueError("LLC data sources do not support static_data_vars")
+        return self
+
     def build(
         self,
         data_root: ResolvedLocation,

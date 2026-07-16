@@ -287,6 +287,8 @@ def test_canonicalize_llc_datasets_selects_requested_vars_from_full_root():
         *llc_spec.mask_vars,
     }
     assert expected_vars.issubset(llc_data.data_vars)
+    assert "XG" not in llc_data.data_vars
+    assert "hFacW" not in llc_data.data_vars
 
 
 @pytest.fixture

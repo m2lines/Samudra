@@ -265,6 +265,7 @@ class BlockConfig(BaseConfig):
             dilation: int,
             n_layers: int,
             pad: str,
+            domain_parallel: bool,
             checkpoint_simple: bool,
         ) -> CoreBlock:
             match self.block_type:
@@ -275,6 +276,7 @@ class BlockConfig(BaseConfig):
                         dilation=dilation,
                         n_layers=n_layers,
                         pad=pad,
+                        domain_parallel=domain_parallel,
                         checkpoint_simple=checkpoint_simple,
                         kernel_size=self.kernel_size,
                         activation=activation,
@@ -286,6 +288,7 @@ class BlockConfig(BaseConfig):
                         dilation=dilation,
                         n_layers=n_layers,
                         pad=pad,
+                        domain_parallel=domain_parallel,
                         checkpoint_simple=checkpoint_simple,
                         kernel_size=self.kernel_size,
                         upscale_factor=self.upscale_factor,
@@ -444,6 +447,7 @@ class UNetBackboneConfig(BaseConfig):
         in_channels: int,
         pad: str,
         checkpointing: Checkpointing | None,
+        domain_parallel: bool = False,
     ) -> UNetBackbone:
         assert len(self.ch_width) == len(self.dilation) == len(self.n_layers), (
             "`ch_width`, `dilation`, and `n_layers` must have the same length."
@@ -482,6 +486,7 @@ class UNetBackboneConfig(BaseConfig):
             downsampling_block=downsampling_block,
             create_upsampling_block=create_upsampling_block,
             checkpointing=checkpointing,
+            domain_parallel=domain_parallel,
         )
 
 
@@ -693,6 +698,7 @@ class SamudraConfig(BaseModelConfig):
         static_data: xr.Dataset | None,
         lat: Lat,
         lon: Lon,
+        domain_parallel: bool = False,
     ) -> Samudra:
         corrector = None
         if self.corrector is not None:
@@ -718,6 +724,7 @@ class SamudraConfig(BaseModelConfig):
                 in_channels=total_in_channels,
                 pad=self.pad,
                 checkpointing=self.checkpointing,
+                domain_parallel=domain_parallel,
             ),
             corrector=corrector,
             pos_channels=self.pos_channels,
@@ -728,6 +735,7 @@ class SamudraConfig(BaseModelConfig):
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
             rollout_noise_injector=rollout_noise_injector,
+            domain_parallel=domain_parallel,
         )
 
 

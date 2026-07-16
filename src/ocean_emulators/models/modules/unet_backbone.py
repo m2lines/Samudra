@@ -54,6 +54,7 @@ class UNetBackbone(nn.Module):
         downsampling_block: nn.Module,
         create_upsampling_block: UpsamplingBlockBuilder,
         checkpointing: "Checkpointing | None",
+        domain_parallel: bool = False,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -64,6 +65,7 @@ class UNetBackbone(nn.Module):
         dilation = dilation.copy()
         n_layers = n_layers.copy()
         self.pad = pad
+        self.domain_parallel = domain_parallel
         self.disable_middle_block = False
         self.unet_skip_mode = "keep"
         self.unet_skip_indices: set[int] = set()
@@ -92,6 +94,7 @@ class UNetBackbone(nn.Module):
                     dilation=dilation[i],
                     n_layers=n_layers[i],
                     pad=pad,
+                    domain_parallel=domain_parallel,
                     checkpoint_simple=checkpoint_simple,
                 )
             )
@@ -107,6 +110,7 @@ class UNetBackbone(nn.Module):
                 dilation=dilation[i],
                 n_layers=n_layers[i],
                 pad=pad,
+                domain_parallel=domain_parallel,
                 checkpoint_simple=checkpoint_simple,
             )
         )
@@ -128,6 +132,7 @@ class UNetBackbone(nn.Module):
                     dilation=dilation[i],
                     n_layers=n_layers[i],
                     pad=pad,
+                    domain_parallel=domain_parallel,
                     checkpoint_simple=checkpoint_simple,
                 )
             )
@@ -141,6 +146,7 @@ class UNetBackbone(nn.Module):
                 dilation=dilation[i],
                 n_layers=n_layers[i],
                 pad=pad,
+                domain_parallel=domain_parallel,
                 checkpoint_simple=checkpoint_simple,
             )
         )
@@ -230,7 +236,8 @@ class UNetBackbone(nn.Module):
                         pads[0] // 2,
                         pads[0] - pads[0] // 2,
                     ]
-                    fts = nn.functional.pad(fts, pads)
+                    if any(pads):
+                        fts = nn.functional.pad(fts, pads)
                     if self._uses_skip_connection(skip_index):
                         fts += skip_inputs[skip_index]
                     count += 1

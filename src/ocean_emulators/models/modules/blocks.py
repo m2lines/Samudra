@@ -117,6 +117,7 @@ class CoreBlock(torch.nn.Module):
         kernel_size: int,
         dilation: int,
         pad: str,
+        domain_parallel: bool = False,
         upscale_factor: int = 1,
         norm: str = "batch",
     ):
@@ -128,6 +129,7 @@ class CoreBlock(torch.nn.Module):
         self.N_in = in_channels
         self.N_pad = int((kernel_size + (kernel_size - 1) * (dilation - 1) - 1) / 2)
         self.pad = pad
+        self.domain_parallel = domain_parallel
         self.upscale_factor = upscale_factor
         self.norm = norm
 
@@ -145,20 +147,33 @@ class ConvBlock(CoreBlock):
         n_layers: int = 1,
         activation: Callable[[], torch.nn.Module] = CappedGELU,
         pad="circular",
+        domain_parallel: bool = False,
         checkpoint_simple: bool = False,
     ):
-        super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
+        super().__init__(
+            in_channels, out_channels, kernel_size, dilation, pad, domain_parallel
+        )
 
         layers: list[torch.nn.Module] = []
         layers.append(
-            torch.nn.Conv2d(in_channels, out_channels, kernel_size, dilation=dilation)
+            torch.nn.Conv2d(
+                in_channels,
+                out_channels,
+                kernel_size,
+                dilation=dilation,
+                padding=self.N_pad if domain_parallel else 0,
+            )
         )
         layers.append(torch.nn.BatchNorm2d(out_channels))
         layers.append(activation())
         for _ in range(n_layers - 1):
             layers.append(
                 torch.nn.Conv2d(
-                    out_channels, out_channels, kernel_size, dilation=dilation
+                    out_channels,
+                    out_channels,
+                    kernel_size,
+                    dilation=dilation,
+                    padding=self.N_pad if domain_parallel else 0,
                 )
             )
             layers.append(torch.nn.BatchNorm2d(out_channels))
@@ -169,7 +184,7 @@ class ConvBlock(CoreBlock):
 
     def forward(self, fts: torch.Tensor) -> torch.Tensor:
         for layer in self.layers:
-            if isinstance(layer, nn.Conv2d):
+            if isinstance(layer, nn.Conv2d) and not self.domain_parallel:
                 fts = apply_spatial_pad(fts, self.N_pad, self.pad)
                 # conv2d layers are expensive so we save their activations,
                 # other (simple) layers are cheap, so we don't save their activations.
@@ -198,12 +213,15 @@ class ConvNeXtBlock(CoreBlock):
         n_layers: int = 1,
         activation: Callable[[], torch.nn.Module] = CappedGELU,
         pad="circular",
+        domain_parallel: bool = False,
         upscale_factor: int = 4,
         norm="batch",
         group_norm_groups: int = 32,
         checkpoint_simple: bool = False,
     ):
-        super().__init__(in_channels, out_channels, kernel_size, dilation, pad)
+        super().__init__(
+            in_channels, out_channels, kernel_size, dilation, pad, domain_parallel
+        )
         assert n_layers == 1, "Can only use a single layer here!"
 
         # Instantiate 1x1 conv to increase/decrease channel depth if necessary
@@ -225,6 +243,7 @@ class ConvNeXtBlock(CoreBlock):
                 out_channels=int(in_channels * upscale_factor),
                 kernel_size=kernel_size,
                 dilation=dilation,
+                padding=self.N_pad if domain_parallel else 0,
             )
         )
         norm_layer = self._build_norm_layer(
@@ -242,6 +261,7 @@ class ConvNeXtBlock(CoreBlock):
                 out_channels=int(in_channels * upscale_factor),
                 kernel_size=kernel_size,
                 dilation=dilation,
+                padding=self.N_pad if domain_parallel else 0,
             )
         )
         norm_layer = self._build_norm_layer(
@@ -293,7 +313,11 @@ class ConvNeXtBlock(CoreBlock):
         # return self.skip_module(x) + self.convblock(x)
         skip = None if self.disable_residual else self.skip_module(x)
         for layer in self.convblock:
-            if isinstance(layer, nn.Conv2d) and layer.kernel_size[0] != 1:
+            if (
+                isinstance(layer, nn.Conv2d)
+                and layer.kernel_size[0] != 1
+                and not self.domain_parallel
+            ):
                 x = apply_spatial_pad(x, self.N_pad, self.pad)
             if self.checkpoint_simple and not isinstance(layer, nn.Conv2d):
                 x = torch.utils.checkpoint.checkpoint(layer, x, use_reentrant=False)
@@ -313,6 +337,7 @@ class CoreBlockBuilder(Protocol):
         dilation: int,
         n_layers: int,
         pad: str,
+        domain_parallel: bool,
         checkpoint_simple: bool,
     ) -> CoreBlock: ...
 

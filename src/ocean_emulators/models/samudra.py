@@ -29,6 +29,7 @@ class Samudra(BaseModel):
         gradient_detach_interval: int,
         use_bfloat16: bool,
         rollout_noise_injector: RolloutNoiseInjector | None = None,
+        domain_parallel: bool = False,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -53,7 +54,19 @@ class Samudra(BaseModel):
 
         self.add_3d_coordinates = add_3d_coordinates
         self.unet = unet
-        self.decoder = nn.Conv2d(unet.out_channels, out_channels, last_kernel_size)
+        if domain_parallel and pad != "constant":
+            raise ValueError(
+                "Domain-parallel Samudra currently requires pad='constant'. "
+                "ShardTensor convolution owns interior halos, while the other "
+                "padding modes need explicit exterior-boundary semantics."
+            )
+        self.domain_parallel = domain_parallel
+        self.decoder = nn.Conv2d(
+            unet.out_channels,
+            out_channels,
+            last_kernel_size,
+            padding=self.N_pad if domain_parallel else 0,
+        )
 
         self.corrector = corrector
         self.use_bfloat16 = use_bfloat16
@@ -73,7 +86,8 @@ class Samudra(BaseModel):
                 fts = self.add_3d_coordinates(fts)
 
             fts = self.unet(fts)
-            fts = apply_spatial_pad(fts, self.N_pad, self.pad)
+            if not self.domain_parallel:
+                fts = apply_spatial_pad(fts, self.N_pad, self.pad)
         # TODO(jder): would be nice to keep inputs in bfloat16 and
         # have the convolution use float32 internally & in output dtype.
         fts = fts.to(torch.float32)

@@ -307,6 +307,26 @@ def test_train_config_allows_cli_override_for_cpu_num_workers(tmp_path):
     assert cfg.data.loading.num_workers == 2
 
 
+def test_train_config_allows_cli_override_for_list_entry():
+    config_path = (
+        Path(__file__).resolve().parents[1] / "configs" / "test" / "train_default.yaml"
+    )
+
+    cfg = TrainConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--data.sources.0.train_time.start=1975-01-03",
+            "--data.sources.0.train_time.end",
+            "1975-03-01",
+        ]
+    )
+
+    source = cfg.data.sources[0]
+    assert str(source.train_time.start) == "1975-01-03"
+    assert str(source.train_time.end) == "1975-03-01"
+    assert source.data_location.path == "data.zarr"
+
+
 def test_get_pydantic_models_collects_loading_variants():
     models = get_pydantic_models(TrainConfig)
 

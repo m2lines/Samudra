@@ -226,6 +226,10 @@ class BaseDataSourceConfig(BaseConfig, abc.ABC):
                     turn_on_dask=True,
                     static_data_vars=static_data_vars,
                 )
+            # TODO: remove multiple inference time ranges altogether
+            assert len(self.inference_times) == 1, (
+                "multiple inference time ranges have been deprecated"
+            )
             inference_source = full_inference_source.slice(self.inference_times[0])
 
         return DataSourceSplits(

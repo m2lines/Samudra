@@ -696,6 +696,32 @@ def test_train_dataset_no_input_change(
     assert torch.equal(bnd1_new, bnd1_orig)
 
 
+@pytest.mark.parametrize("normalize_before_mask", [False])
+@pytest.mark.parametrize("masked_fill_value", [0.0])
+def test_train_dataset_coalesces_shared_prognostic_loads(
+    tiny_dataset_input, monkeypatch, normalize_before_mask, masked_fill_value
+):
+    train_loader, _ = tiny_dataset_input
+    dataset = train_loader.dataset
+    assert isinstance(dataset, TorchTrainDataset)
+    dataset._concurrent_compute = True
+
+    selected_time_lengths = []
+
+    def record_concurrent_compute(*datasets: xr.Dataset, executor):
+        selected_time_lengths.append([ds.sizes["time"] for ds in datasets])
+
+    monkeypatch.setattr(
+        "samudra.datasets.concurrent_compute", record_concurrent_compute
+    )
+
+    raw_data = dataset[0]
+
+    assert selected_time_lengths == [[6, 4]]
+    assert len(raw_data.raw_data) == 2
+    assert torch.equal(raw_data.raw_data[0][2], raw_data.raw_data[1][0])
+
+
 @pytest.mark.parametrize("normalize_before_mask", [True, False])
 @pytest.mark.parametrize("masked_fill_value", [0.0, -1.0])
 def test_train_dataset_normalize_pre_fill(

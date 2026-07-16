@@ -7,6 +7,7 @@ from pathlib import Path
 import cftime
 import numpy as np
 import pytest
+import yaml
 from pydantic import ValidationError
 
 from samudra.config import (
@@ -100,6 +101,19 @@ def test_data_source_time_configs_use_native_types():
     assert isinstance(llc_time.start, np.datetime64)
     assert llc_time.start == np.datetime64("2011-09-10T12:00:00", "ns")
     assert llc_time.model_dump(mode="json")["start"].endswith("Z")
+
+
+def test_llc_time_config_serializes_as_safe_yaml():
+    time = LlcTimeConfig.model_validate(
+        {"start": "2011-09-10T12:00:00Z", "end": "2011-09-20T12:00:00Z"}
+    )
+
+    serialized = yaml.dump(time.model_dump())
+
+    assert yaml.safe_load(serialized) == {
+        "start": "2011-09-10T12:00:00.000000000Z",
+        "end": "2011-09-20T12:00:00.000000000Z",
+    }
 
 
 def test_data_source_time_fields_are_immutable():
@@ -275,6 +289,18 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
         )
     )
     assert sliced.data.sizes["time"] == 2
+
+
+def test_data_config_rejects_multiple_dataset_specs(tmp_path):
+    cfg = DataConfig(
+        sources=[
+            om4_source_config(prognostic_vars_key="thetao_1"),
+            om4_source_config(prognostic_vars_key="thermo_dynamic_all"),
+        ]
+    )
+
+    with pytest.raises(AssertionError, match="same dataset spec"):
+        cfg.build(LocalLocation(path=tmp_path))
 
 
 def test_data_config_accepts_gpu_loading():

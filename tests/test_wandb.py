@@ -29,7 +29,7 @@ class DummyConfig:
 
 
 class DummyDataContainer:
-    sources: list[Any] = []
+    train_sources: list[Any] = []
 
 
 def test_wandb_resume_setup_skips_checkpoint_load_when_disabled(tmp_path, monkeypatch):

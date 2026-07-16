@@ -121,7 +121,7 @@ def _datetime64_validator(value: str | np.datetime64) -> np.datetime64:
 
 
 def _serialize_datetime64(value: np.datetime64) -> str:
-    return np.datetime_as_string(value, unit="ns", timezone="UTC")
+    return str(np.datetime_as_string(value, unit="ns", timezone="UTC"))
 
 
 LlcDatetimeConfig = Annotated[
@@ -433,6 +433,10 @@ class DataConfig(BaseConfig):
     ) -> DataContainer:
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
+        dataset_spec = self.sources[0].dataset_spec
+        assert all(source.dataset_spec == dataset_spec for source in self.sources), (
+            "All data sources must use the same dataset spec"
+        )
 
         source_splits = [
             source_cfg.build(
@@ -458,7 +462,7 @@ class DataConfig(BaseConfig):
             val_sources=val_sources,
             inference_source=source_splits[0].inference,
             loader_version=loader_version,
-            dataset_spec=primary_source.dataset_spec,
+            dataset_spec=dataset_spec,
             static_data=static_data,
         )
 

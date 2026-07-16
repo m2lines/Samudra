@@ -528,6 +528,8 @@ class DataContainer:
     #  deal with multiple resolutions.
     static_data: xr.Dataset | None = None
 
+    # TODO: this is a bit of a footgun now that we have multiple kinds of sources
+    # and should be removed in favor of the appropriate source above.
     @property
     def primary_source(self) -> DataSource:
         return self.train_sources[0]

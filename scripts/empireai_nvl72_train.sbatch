@@ -149,6 +149,7 @@ train_args=(
 if [[ "${SMOKE}" == "1" ]]; then
   train_args+=(
     "--debug=true"
+    "--epochs=1"
     "--batch_size=1"
     "--gradient_accumulation_steps=1"
     "--save_freq=1"

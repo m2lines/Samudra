@@ -125,6 +125,7 @@ HEAT_VAR_NAME = "Theta"
 RHO_0 = 1035.0  # DENSITY_OF_WATER_CM4 kg/m^3
 CP_SW = 3992.0  # SPECIFIC_HEAT_OF_WATER_CM4 J/kg/K
 SECONDS_PER_TIME_STEP = 60 # hourly
+# Would the above be MINUTES per time step? I don't see this wiring in anywhere. Keep note of it though.
 
 PrognosticVarNames = list[str]
 PROGNOSTIC_VARS: dict[str, PrognosticVarNames] = {

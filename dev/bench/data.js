@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784135750274,
+  "lastUpdate": 1784211321434,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -10385,6 +10385,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.12999802774942923",
             "extra": "mean: 28.72681412800001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ad2a06c978c77a0962290f72035ed2680cf8081a",
+          "message": "Always use spawn for data loader workers (#782)\n\nRemoves fork/spawn selection based on data source location and always\nuse `spawn` when data loader workers are enabled.\n\n## Why?\n- We originally used `fork` as a local-data performance optimization. PR\n#295 introduced `supports_fork` so local Zarr paths could use `fork`\nwhile S3-backed paths used `spawn`, since `s3fs` was known not to be\nfork-safe.\n- That storage-based distinction does not cover the failure mode we are\nseeing now: the parent process can already be multithreaded before\nDataLoader workers start, for example under `pytest-xdist`, xarray/zarr,\nCUDA-adjacent setup, or internal executor threads.\n- Python 3.12 now warns explicitly that calling `fork()` from a\nmultithreaded process can deadlock. A [failing GPU CI\njob](https://github.com/Open-Athena/Samudra/actions/runs/27709003173/job/81965517778)\nshowed that warning repeatedly before timing out in a Zarr read. I also\nsee similar behavior locally on my mac for tests sometimes. It is hard\nto prove this is the problem, of course.\n- Real training runs should amortize the extra startup cost through\npersistent DataLoader workers, so defaulting to `spawn` is the safer\npolicy.\n\n## Testing\n- `uv run pytest -m \"not manual and not cuda\" tests/test_trainer.py\ntests/test_config.py -q`",
+          "timestamp": "2026-07-16T09:52:37-04:00",
+          "tree_id": "ada7ea44833c9f81b0e156109e6830ddfd0e3b92",
+          "url": "https://github.com/m2lines/Samudra/commit/ad2a06c978c77a0962290f72035ed2680cf8081a"
+        },
+        "date": 1784211320436,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0719875017303007,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0015588851449729777",
+            "extra": "mean: 932.8466968000043 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.06254429680197728,
+            "unit": "iter/sec",
+            "range": "stddev: 0.27620768559037917",
+            "extra": "mean: 15.9886680502 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.018147426162290047,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1982579064124788",
+            "extra": "mean: 55.10423302220003 sec\nrounds: 5"
           }
         ]
       }

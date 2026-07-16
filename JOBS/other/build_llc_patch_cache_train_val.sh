@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH -w node4006
-#SBATCH --job-name=2026-07-11-full_yr-llc_patch_cache-face1-i_1072-2160-j_1072-2160
+#SBATCH -w node4005
+#SBATCH --job-name=2026-07-15-full_yr-llc_patch_cache-face1-i_2880-3600-j_720-1440-BOUNDARY-ONLY
 #SBATCH -N 1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
@@ -34,10 +34,10 @@ OUTPUT_ROOT="${OUTPUT_ROOT:-/orcd/data/abodner/002/cody/LLC_patch}" # save to st
 #OUTPUT_ROOT="${OUTPUT_ROOT:-/orcd/scratch/codycruz/LLC_patch}" # save to scratch
 
 LLC_FACE="${LLC_FACE:-1}"
-LLC_I_START="${LLC_I_START:-1072}"
-LLC_I_END="${LLC_I_END:-2160}"
-LLC_J_START="${LLC_J_START:-1072}"
-LLC_J_END="${LLC_J_END:-2160}"
+LLC_I_START="${LLC_I_START:-2880}"
+LLC_I_END="${LLC_I_END:-3600}"
+LLC_J_START="${LLC_J_START:-720}"
+LLC_J_END="${LLC_J_END:-1440}"
 
 TRAIN_START="${TRAIN_START:-2011-09-13}"
 TRAIN_END="${TRAIN_END:-2012-09-13}"
@@ -54,7 +54,7 @@ FLOAT_TYPE="${FLOAT_TYPE:-float16}"
 TIME_CHUNK="${TIME_CHUNK:-1}"
 TRAIN_START_TAG="${TRAIN_START//-/}"
 VAL_END_TAG="${VAL_END//-/}"
-OUTPUT_NAME="${OUTPUT_NAME:-LLC4320_face${LLC_FACE}_i${LLC_I_START}-${LLC_I_END}_j${LLC_J_START}-${LLC_J_END}_trainval_ready_${TRAIN_START_TAG}_${VAL_END_TAG}_t${TIME_CHUNK}.zarr}"
+OUTPUT_NAME="${OUTPUT_NAME:-LLC4320_face${LLC_FACE}_i${LLC_I_START}-${LLC_I_END}_j${LLC_J_START}-${LLC_J_END}_trainval_ready_${TRAIN_START_TAG}_${VAL_END_TAG}_t${TIME_CHUNK}-BOUNDARY-ONLY.zarr}"
 OUTPUT_PATH="${OUTPUT_ROOT}/${OUTPUT_NAME}"
 
 OVERWRITE="${OVERWRITE:-false}"
@@ -117,4 +117,5 @@ if [[ "${QUEUE_TRAIN_AFTER_BUILD}" == "true" ]]; then
   echo "queued dependent train job: ${train_submit_output}"
 fi
 
-"${PYTHON_BIN}" scripts/build_llc_patch_cache_compressed_train_val.py "${ARGS[@]}"
+"${PYTHON_BIN}" scripts/build_llc_patch_cache_compressed_train_val-BOUNDARY-ONLY.py "${ARGS[@]}" #  build_llc_patch_cache_compressed_train_val
+ 

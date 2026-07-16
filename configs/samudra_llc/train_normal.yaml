@@ -45,6 +45,12 @@ step_transition: []
 preemptible: false
 
 backend: auto
+domain_parallel:
+  enabled: false
+  cluster_shape: [2, 2]
+  use_fsdp: false
+  leader_scatter: true
+  strict_equivalence: false
 
 experiment:
   name: 2026-06-26:samudra_llc:rb-1-8xbuffer_size_test

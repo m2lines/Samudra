@@ -1,14 +1,14 @@
 #!/bin/bash
 #SBATCH -p mit_normal_gpu
-#SBATCH --job-name=2026-07-15-eval:Samudra_LLC:rb-Agulhas-pred_resid-reg-ckpt40
+#SBATCH --job-name=2026-07-16-eval:Samudra_LLC:rb-Agulhas-pred_resid-reg-ckpt50
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
 #SBATCH -N 1
 #SBATCH --mem=100GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
-#SBATCH --gres=gpu:1
-#SBATCH --time=00-12:00:00
+#SBATCH -G h200:1
+#SBATCH --time=00-2:30:00
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 set -euo pipefail
@@ -29,7 +29,7 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
-CKPT_PATH="${CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-07-14:samudra_llc:rb-Agulhas-strides=1-pred_resid-eager-3-17908870/saved_nets/ckpt_40.pt}"
+CKPT_PATH="${CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-07-15:samudra_llc:rb-Agulhas-strides=1-pred_resid-eager-4-18010034/saved_nets/ckpt_50.pt}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-/orcd/data/abodner/002/cody/inference_patch}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"

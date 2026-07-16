@@ -47,6 +47,12 @@ temporal_stride_transition: []
 preemptible: false
 
 backend: auto
+domain_parallel:
+  enabled: false
+  cluster_shape: [2, 2]
+  use_fsdp: false
+  leader_scatter: true
+  strict_equivalence: false
 
 experiment:
   name: 2026-06-18:samudra_llc:long_curriculum_strides=3_CONT_restart_8

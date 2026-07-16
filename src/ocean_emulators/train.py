@@ -37,7 +37,10 @@ from ocean_emulators.aggregator.loss import (
     get_depth_loss_dict,
     get_variable_loss_dict,
 )
-from ocean_emulators.backend import init_train_backend
+from ocean_emulators.backend import (
+    init_domain_parallel_backend,
+    init_train_backend,
+)
 from ocean_emulators.config import TrainConfig, build_loss_fn
 from ocean_emulators.constants import (
     BOUNDARY_VARS,
@@ -65,6 +68,7 @@ from ocean_emulators.datasets import (
 )
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.replay import ReplayBuffer, ReplayEntry, replay_sidecar_path
+from ocean_emulators.shardtensor import DomainParallelContext, validate_shardable
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
 from ocean_emulators.utils.data import (
     LoadStats,
@@ -116,6 +120,32 @@ class _OffsetBatchSampler(Sampler[list[int]]):
 
     def __len__(self) -> int:
         return max(len(self._batch_sampler) - self._start_batch, 0)
+
+
+class _DomainFollowerLoader:
+    """Yield metadata-only batches on ranks that do not read the global patch.
+
+    The domain leader performs the Phase 2 full-patch read. Followers still
+    enter every training collective in lockstep, but avoid redundant storage
+    reads and host-to-device copies.
+    """
+
+    def __init__(self, num_batches: int, num_prognostic_channels: int):
+        self._num_batches = num_batches
+        self._num_prognostic_channels = num_prognostic_channels
+
+    def __iter__(self):
+        for _ in range(self._num_batches):
+            yield TrainData(self._num_prognostic_channels)
+
+    def __len__(self) -> int:
+        return self._num_batches
+
+    def with_offset(self, start_batch: int) -> "_DomainFollowerLoader":
+        return _DomainFollowerLoader(
+            max(0, self._num_batches - start_batch),
+            self._num_prognostic_channels,
+        )
 
 
 @dataclasses.dataclass
@@ -499,16 +529,54 @@ class _ReplayPrefetchPipeline:
             return prepared
 
 class Trainer:
-    model: BaseModel | nn.parallel.DistributedDataParallel
+    model: nn.Module
 
     def __init__(self, cfg: TrainConfig) -> None:
         cfg.prepare_output_dirs()
         cfg.save_yaml(cfg.experiment.output_dir / "config.yaml")
 
-        # Backend
-        self.device, self.distributed = init_train_backend(
-            cfg.backend, ddp_timeout_minutes=cfg.ddp_timeout_minutes
-        )
+        if cfg.domain_parallel.enabled:
+            if cfg.replay.enabled:
+                raise ValueError(
+                    "Domain-parallel replay is deferred to Phase 4. Set "
+                    "replay.enabled=false for Phase 2 curriculum training."
+                )
+            if cfg.inference_epochs:
+                raise ValueError(
+                    "Domain-parallel rollout inference is deferred to Phase 3. "
+                    "Set inference_epochs=[]; one-step validation is supported."
+                )
+            if not isinstance(cfg.model, config.SamudraConfig):
+                raise ValueError("Domain-parallel Phase 2 supports Samudra only.")
+            if not isinstance(cfg.loss, str) or cfg.loss not in {
+                "mse",
+                "mae",
+                "mse_mae",
+            }:
+                raise ValueError(
+                    "Domain-parallel Phase 2 supports loss='mse', 'mae', or "
+                    "'mse_mae'. Gradient and adaptive losses are later gates."
+                )
+            if not cfg.domain_parallel.leader_scatter:
+                raise ValueError(
+                    "Phase 2 requires domain_parallel.leader_scatter=true. "
+                    "Per-rank spatial reads are deferred to the PatchCatalog phase."
+                )
+            if cfg.domain_parallel.use_fsdp:
+                raise ValueError("FSDP is deferred until multi-cluster Phase 5.")
+
+        # Backend. PhysicsNeMo owns process-group initialization in DP mode;
+        # the ordinary single-GPU/DDP path remains exactly as before.
+        self.dp_ctx: DomainParallelContext | None = None
+        self._physicsnemo_dm = None
+        if cfg.domain_parallel.enabled:
+            self.device, self.distributed, self._physicsnemo_dm = (
+                init_domain_parallel_backend(cfg.backend)
+            )
+        else:
+            self.device, self.distributed = init_train_backend(
+                cfg.backend, ddp_timeout_minutes=cfg.ddp_timeout_minutes
+            )
 
         # Adjust workers and memory pinning based on device
         if not using_gpu():
@@ -552,7 +620,11 @@ class Trainer:
             boundary_var_names=self.boundary_var_names,
         )
 
-        if self.distributed is not None and cfg.data.num_workers > 0:
+        if (
+            self.distributed is not None
+            and not cfg.domain_parallel.enabled
+            and cfg.data.num_workers > 0
+        ):
             world_size = get_world_size()
             scaled_workers = max(1, cfg.data.num_workers // world_size)
             capped_workers = (
@@ -680,22 +752,68 @@ class Trainer:
 
         self.area_weights = self.area_weights.to(self.device)
 
+        if cfg.domain_parallel.enabled:
+            assert self._physicsnemo_dm is not None
+            global_h, global_w = self.wet.shape[-2:]
+            validate_shardable(
+                global_h,
+                global_w,
+                cfg.domain_parallel.cluster_shape,
+                num_downsamples=len(cfg.model.unet.ch_width),
+                max_halo=(
+                    (cfg.model.unet.core_block.kernel_size - 1)
+                    // 2
+                    * max(cfg.model.unet.dilation)
+                ),
+            )
+            self.dp_ctx = DomainParallelContext(
+                cfg.domain_parallel,
+                self._physicsnemo_dm,
+                self.device,
+            )
+
         self.normalize = Normalize.init_instance(
             self.src,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
         )
 
-        self.model = cfg.model.build(
-            in_channels=self.num_in,
-            out_channels=self.num_out,
-            hist=cfg.data.hist,
-            wet=self.wet,
-            area_weights=self.area_weights,
-            static_data=self.static_data,
-            lat=torch.from_numpy(self.data.lat.values),
-            lon=torch.from_numpy(self.data.lon.values),
-        ).to(self.device)
+        model_build_kwargs = {
+            "in_channels": self.num_in,
+            "out_channels": self.num_out,
+            "hist": cfg.data.hist,
+            "wet": self.wet,
+            "area_weights": self.area_weights,
+            "static_data": self.static_data,
+            "lat": torch.from_numpy(self.data.lat.values),
+            "lon": torch.from_numpy(self.data.lon.values),
+        }
+        if isinstance(cfg.model, config.SamudraConfig):
+            model_build_kwargs["domain_parallel"] = self.dp_ctx is not None
+        self.model = cfg.model.build(**model_build_kwargs).to(self.device)
+
+        if self.dp_ctx is not None:
+            self.model = self.dp_ctx.distribute_model(self.model)
+            leader_wet = self.wet if self.dp_ctx.is_domain_leader else None
+            leader_area_weights = (
+                self.area_weights if self.dp_ctx.is_domain_leader else None
+            )
+            self.domain_wet = self.dp_ctx.scatter_spatial(leader_wet, ndim=3)
+            self.domain_model_wet = self.dp_ctx.scatter_spatial(
+                leader_wet.unsqueeze(0) if leader_wet is not None else None,
+                ndim=4,
+            )
+            self.domain_area_weights = self.dp_ctx.scatter_spatial(
+                leader_area_weights, ndim=2
+            )
+            # BaseModel stores wet as a plain attribute rather than a buffer.
+            # Replace it after distribute_module so torch.where sees the same
+            # spatial layout as the model output.
+            self.model.wet = self.domain_model_wet
+        else:
+            self.domain_wet = self.wet
+            self.domain_model_wet = self.wet
+            self.domain_area_weights = self.area_weights
 
         self.nets_dir = cfg.experiment.nets_dir
         self.network = self.model.__class__.__name__
@@ -703,7 +821,7 @@ class Trainer:
         # Loss function
         self.loss_fn: LossFn = build_loss_fn(
             cfg.loss,
-            wet=self.wet,
+            wet=self.domain_wet,
             y_coord=self.data.lat,
             device=self.device,
             num_channels=self.N_prog,
@@ -767,6 +885,12 @@ class Trainer:
         self.start_batch_in_epoch = 0
         loaded_checkpoint = False
         if cfg.resume_ckpt_path is not None:
+            if self.dp_ctx is not None:
+                raise NotImplementedError(
+                    "Resuming optimizer/EMA state from a domain-parallel checkpoint "
+                    "is not validated in Phase 2. Start the smoke run without "
+                    "resume_ckpt_path; dense model checkpoints are still written."
+                )
             if cfg.finetune:
                 self.load_checkpoint(cfg.resume_ckpt_path, finetune=True)
                 self.start_epoch = 1
@@ -830,8 +954,14 @@ class Trainer:
         self._last_completed_batch_in_epoch = -1
         self._finished = False
 
-        # Modify DDP setup based on device
-        if self.distributed is not None:
+        # The DP model was distributed before optimizer/checkpoint/EMA setup so
+        # all of them reference the final DTensor parameters.
+        if self.dp_ctx is not None:
+            logger.info(
+                "Using PhysicsNeMo domain parallelism with cluster_shape=%s",
+                cfg.domain_parallel.cluster_shape,
+            )
+        elif self.distributed is not None:
             ddp_options = {
                 "device_ids": [self.distributed.gpu],
                 "bucket_cap_mb": cfg.ddp_bucket_cap_mb,
@@ -1154,6 +1284,57 @@ class Trainer:
             logger.info(f"Training time {total_time_str}")
             self.finish()
 
+    def _scatter_domain_batch(
+        self,
+        data: TrainData,
+        *,
+        expected_steps: int,
+    ) -> TrainData:
+        """Scatter one leader-owned curriculum batch over the spatial mesh."""
+        if self.dp_ctx is None:
+            return data
+        if self.dp_ctx.is_domain_leader and len(data) != expected_steps:
+            raise ValueError(
+                f"Expected {expected_steps} rollout steps from the domain leader, "
+                f"got {len(data)}."
+            )
+
+        sharded = TrainData(self.num_out)
+        for step in range(expected_steps):
+            input_tensor = data.get_input(step) if self.dp_ctx.is_domain_leader else None
+            label = data.get_label(step) if self.dp_ctx.is_domain_leader else None
+            sharded.append(
+                self.dp_ctx.scatter_spatial(input_tensor, ndim=4),
+                self.dp_ctx.scatter_spatial(label, ndim=4),
+            )
+        if self.dp_ctx.is_domain_leader:
+            sharded.load_stats = data.load_stats
+            sharded.source_indices = list(data.source_indices)
+        return sharded
+
+    def _materialize_train_output(
+        self, output: TrainBatchOutput
+    ) -> TrainBatchOutput:
+        """Gather replicated loss artifacts into ordinary tensors for logging."""
+        if self.dp_ctx is None:
+            return output
+        return TrainBatchOutput(
+            self.dp_ctx.gather(output.loss.detach()),
+            self.dp_ctx.gather(output.loss_per_channel.detach()),
+        )
+
+    def _materialize_val_output(self, output: ValBatchOutput) -> ValBatchOutput:
+        """Gather one-step validation artifacts for the existing aggregators."""
+        if self.dp_ctx is None:
+            return output
+        return ValBatchOutput(
+            self.dp_ctx.gather(output.loss.detach()),
+            self.dp_ctx.gather(output.loss_per_channel.detach()),
+            self.dp_ctx.gather(output.input_data),
+            self.dp_ctx.gather(output.target_data),
+            self.dp_ctx.gather(output.gen_data),
+        )
+
     def train_one_epoch(self, epoch, start_batch_in_epoch: int = 0):
         self.model.train(True)
         train_aggregator = Aggregator.get_train_aggregator()
@@ -1204,6 +1385,11 @@ class Trainer:
         ):
             global_data_iter_step = start_batch_in_epoch + data_iter_step
 
+            data = self._scatter_domain_batch(
+                data,
+                expected_steps=self.current_train_steps,
+            )
+
             if self.debug and (data_iter_step + 1) % 5 == 0:
                 break
 
@@ -1244,7 +1430,8 @@ class Trainer:
                 scaled_loss = TO.loss / r
                 scaled_loss.backward()
 
-            train_aggregator.record_batch(TO)
+            logging_output = self._materialize_train_output(TO)
+            train_aggregator.record_batch(logging_output)
             processed_batches += 1
 
             self.num_batches_seen += 1
@@ -1264,7 +1451,12 @@ class Trainer:
 
             with torch.no_grad():
                 # Reduce losses
-                if sync_gradients:
+                if self.dp_ctx is not None:
+                    # Loss reductions are already global over the spatial mesh.
+                    # Gathering strips the ShardTensor wrapper for log consumers.
+                    loss_value_reduce = logging_output.loss
+                    loss_per_channel_reduce = logging_output.loss_per_channel
+                elif sync_gradients:
                     loss_value_reduce = all_reduce_mean(TO.loss.detach())
                     loss_per_channel_reduce = all_reduce_mean(
                         TO.loss_per_channel.detach()
@@ -1301,7 +1493,7 @@ class Trainer:
                     loss_scale_per_channel = loss_scale_per_channel_fn()
                     # Reshape from time-major channels to [hist, var] and
                     # average along the history dimension.
-                    loss_per_channel = TO.loss_per_channel.reshape(
+                    loss_per_channel = logging_output.loss_per_channel.reshape(
                         -1, loss_scale_per_channel.shape[0]
                     ).mean(dim=0)
 
@@ -1628,8 +1820,12 @@ class Trainer:
         logger.info("Aggregating replay train logs")
         return train_aggregator.get_logs()
 
-    def _train_loader_with_batch_offset(self, start_batch_in_epoch: int) -> TrainDataLoader:
+    def _train_loader_with_batch_offset(
+        self, start_batch_in_epoch: int
+    ) -> TrainDataLoader | _DomainFollowerLoader:
         """Build a train loader that starts at a specific batch index."""
+        if isinstance(self.train_loader, _DomainFollowerLoader):
+            return self.train_loader.with_offset(start_batch_in_epoch)
         raw_loader = self.train_loader._dataloader
         batch_sampler = _OffsetBatchSampler(raw_loader.batch_sampler, start_batch_in_epoch)
         loader_kwargs: dict[str, Any] = {
@@ -2214,9 +2410,12 @@ class Trainer:
                 if self.debug and (data_iter_step + 1) % 5 == 0:
                     break
 
+                data = self._scatter_domain_batch(data, expected_steps=1)
+
                 VO: ValBatchOutput = Stepper.validate_batch(
                     self.model, data, self.loss_fn
                 )
+                VO = self._materialize_val_output(VO)
                 val_aggregator.record_validation_batch(VO)
                 metric_logger.update(loss=VO.loss)
 
@@ -2362,6 +2561,7 @@ class Trainer:
         """
         if cur_temporal_stride is None:
             cur_temporal_stride = self.temporal_stride
+        self.current_train_steps = cur_step
         train_datasets = [
             TorchTrainDataset(
                 src=self.src.slice(self.train_time),
@@ -2414,7 +2614,16 @@ class Trainer:
 
         logger.info("Instantiating torch loaders")
 
-        if self.distributed is not None:
+        if self.dp_ctx is not None:
+            # One logical sample spans the whole cluster. Only the leader reads
+            # it; followers use metadata-only iterators with matching lengths.
+            self.train_sampler = (
+                RandomSampler(train_data)
+                if self.train_shuffle
+                else SequentialSampler(train_data)
+            )
+            self.val_sampler = SequentialSampler(val_data)
+        elif self.distributed is not None:
             self.train_sampler = DistributedSampler(
                 train_data,
                 shuffle=self.train_shuffle,
@@ -2462,14 +2671,23 @@ class Trainer:
             train_loader_kwargs["prefetch_factor"] = self.prefetch_factor
             val_loader_kwargs["prefetch_factor"] = self.prefetch_factor
 
-        train_dataloader = DataLoader(**train_loader_kwargs)
-        val_dataloader = DataLoader(**val_loader_kwargs)
+        if self.dp_ctx is not None and not self.dp_ctx.is_domain_leader:
+            train_batches = len(train_data) // self.batch_size
+            val_batches = (len(val_data) + self.batch_size - 1) // self.batch_size
+            self.train_loader = _DomainFollowerLoader(train_batches, self.num_out)
+            self.val_loader = _DomainFollowerLoader(val_batches, self.num_out)
+        else:
+            train_dataloader = DataLoader(**train_loader_kwargs)
+            val_dataloader = DataLoader(**val_loader_kwargs)
 
-        # Wrap dataloaders to handle GPU post-processing
-        self.train_loader = TrainDataLoader(
-            train_dataloader, train_datasets, self.device
-        )
-        self.val_loader = TrainDataLoader(val_dataloader, val_datasets, self.device)
+            # Wrap dataloaders to handle GPU post-processing on the domain leader
+            # (or on every rank in the ordinary DDP path).
+            self.train_loader = TrainDataLoader(
+                train_dataloader, train_datasets, self.device
+            )
+            self.val_loader = TrainDataLoader(
+                val_dataloader, val_datasets, self.device
+            )
 
     def _install_signal_handlers(self) -> None:
         handled_signals = [signal.SIGTERM, signal.SIGINT]
@@ -2617,22 +2835,27 @@ class Trainer:
     ):
         if for_inference:
             with self._ema_context():
-                model_state_dict = self.model.state_dict()
+                model_state_dict = self._model_state_dict_for_save()
         else:
-            model_state_dict = self.model.state_dict()
+            model_state_dict = self._model_state_dict_for_save()
 
         # Create temporary file in the same directory as the target
         temp_dir = os.path.dirname(checkpoint_path)
         with tempfile.NamedTemporaryFile(dir=temp_dir, delete=False) as tmp:
             temporary_location = tmp.name
+            optimizer_state = self.optimizer.state_dict()
+            ema_state = self._ema.get_state(include_ema_params=not for_inference)
+            if self.dp_ctx is not None:
+                optimizer_state = self._localize_checkpoint_state(optimizer_state)
+                ema_state = self._localize_checkpoint_state(ema_state)
             checkpoint = {
                 "model": model_state_dict,
-                "optimizer": self.optimizer.state_dict(),
+                "optimizer": optimizer_state,
                 "epoch": epoch,
                 "epoch_complete": epoch_complete,
                 "best_val_loss": self.best_val_loss,
                 "best_inf_loss": self.best_inf_loss,
-                "ema": self._ema.get_state(include_ema_params=not for_inference),
+                "ema": ema_state,
                 "num_batches_seen": self.num_batches_seen,
                 "wandb_id": self.wandb_id,
                 "wandb_name": self.wandb_name,
@@ -2652,6 +2875,36 @@ class Trainer:
 
             torch.save(checkpoint, temporary_location)
             os.replace(temporary_location, checkpoint_path)
+
+    def _model_state_dict_for_save(self):
+        """Write portable dense weights when model parameters are replicated DTensors."""
+        state = self.model.state_dict()
+        if self.dp_ctx is None:
+            return state
+
+        dense_state = OrderedDict()
+        for name, value in state.items():
+            local = self.dp_ctx.local_tensor(value)
+            dense_state[name] = local.detach().cpu()
+        if hasattr(state, "_metadata"):
+            dense_state._metadata = state._metadata
+        return dense_state
+
+    def _localize_checkpoint_state(self, value):
+        """Recursively remove DTensor wrappers from optimizer and EMA state."""
+        if isinstance(value, torch.Tensor):
+            assert self.dp_ctx is not None
+            return self.dp_ctx.local_tensor(value).detach().cpu()
+        if isinstance(value, dict):
+            return value.__class__(
+                (key, self._localize_checkpoint_state(item))
+                for key, item in value.items()
+            )
+        if isinstance(value, list):
+            return [self._localize_checkpoint_state(item) for item in value]
+        if isinstance(value, tuple):
+            return tuple(self._localize_checkpoint_state(item) for item in value)
+        return value
 
     def load_checkpoint(self, checkpoint_path, finetune=False):
         logger.info(f"Loading checkpoint from {checkpoint_path}")

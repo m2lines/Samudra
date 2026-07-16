@@ -406,9 +406,10 @@ class TrainData:
 
     def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
         input_ = self.get_input(step)
-        merged = input_.clone()
-        merged[:, : self.num_prognostic_channels] = prognostic
-        return merged
+        # Concatenation is equivalent to clone + slice assignment for ordinary
+        # tensors and remains dispatchable when H/W are ShardTensor dimensions.
+        boundary = input_[:, self.num_prognostic_channels :]
+        return torch.cat((prognostic, boundary), dim=1)
 
     def values(self):
         return self.example_by_step

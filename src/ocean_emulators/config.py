@@ -40,6 +40,7 @@ from ocean_emulators.models.modules import (
 )
 from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
 from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
+from ocean_emulators.shardtensor import DomainParallelConfig
 from ocean_emulators.utils.data import DataContainer, DataSource
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.loss import (
@@ -1093,6 +1094,13 @@ class TrainConfig(TopLevelConfig):
     ema_decay: float = 0.999
     faster_decay_at_start: bool = True
     backend: TrainBackendConfig = "auto"
+    domain_parallel: DomainParallelConfig = Field(
+        default_factory=DomainParallelConfig,
+        description=(
+            "Optional PhysicsNeMo ShardTensor domain parallelism. Phase 2 "
+            "supports one spatial cluster and non-replay curriculum training."
+        ),
+    )
     ddp_bucket_cap_mb: int | None = Field(
         default=50,
         ge=1,

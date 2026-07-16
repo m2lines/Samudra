@@ -17,8 +17,8 @@ per-rank shard reads, variable cluster sizes, replay integration.
 
 from __future__ import annotations
 
-import dataclasses
 import logging
+import pydantic
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -51,8 +51,9 @@ def _import_physicsnemo():
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
-@dataclasses.dataclass
-class DomainParallelConfig:
+class DomainParallelConfig(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(extra="forbid")
+
     enabled: bool = False
     # cluster_shape is the GPU grid a single sample is sharded across.
     # (2, 2) -> 2D spatial sharding (H x W). (1, 2) or (2, 1) -> 1D.
@@ -60,6 +61,19 @@ class DomainParallelConfig:
     use_fsdp: bool = False          # v1: keep False (params replicated)
     leader_scatter: bool = True     # v1: leader loads full sample, scatters
     strict_equivalence: bool = False  # assert-heavy mode for exactness tests
+
+    @pydantic.field_validator("cluster_shape")
+    @classmethod
+    def _validate_cluster_shape(cls, value: tuple[int, int]) -> tuple[int, int]:
+        if len(value) != 2 or any(v < 1 for v in value):
+            raise ValueError(
+                "domain_parallel.cluster_shape must contain two positive integers."
+            )
+        return value
+
+    @pydantic.field_serializer("cluster_shape")
+    def _serialize_cluster_shape(self, value: tuple[int, int]) -> list[int]:
+        return list(value)
 
     @property
     def cluster_size(self) -> int:
@@ -251,6 +265,40 @@ class DomainParallelContext:
         )
         return st
 
+    def spatial_placements(self, ndim: int):
+        """Shard the final H/W axes of a spatial tensor over the 2D mesh."""
+        if ndim < 2:
+            raise ValueError(f"A spatial tensor must have at least 2 dims; got {ndim}.")
+        return (self._Shard(ndim - 2), self._Shard(ndim - 1))
+
+    def scatter_spatial(
+        self,
+        tensor: torch.Tensor | None,
+        *,
+        ndim: int | None = None,
+        global_shape: torch.Size | None = None,
+        dtype: torch.dtype | None = None,
+        requires_grad: bool = False,
+    ):
+        """Leader-scatter any tensor whose final two dimensions are H and W."""
+        inferred_ndim = len(global_shape) if global_shape is not None else (
+            tensor.ndim if tensor is not None else None
+        )
+        ndim = inferred_ndim if ndim is None else ndim
+        if ndim is None:
+            raise ValueError("ndim is required on followers for scatter_spatial.")
+        if inferred_ndim is not None and inferred_ndim != ndim:
+            raise ValueError(
+                f"scatter_spatial ndim={ndim} does not match tensor ndim={inferred_ndim}."
+            )
+        return self.scatter(
+            tensor,
+            placements=self.spatial_placements(ndim),
+            global_shape=global_shape,
+            dtype=dtype,
+            requires_grad=requires_grad,
+        )
+
     def from_local_shard(self, local_tensor: torch.Tensor, *, placements=None):
         """Build a ShardTensor from each rank's own local shard (no scatter).
         Use for real training where each rank reads only its tile."""
@@ -264,6 +312,13 @@ class DomainParallelContext:
         if isinstance(st, self._ShardTensor):
             return st.full_tensor()
         return st
+
+    @staticmethod
+    def local_tensor(value: torch.Tensor) -> torch.Tensor:
+        """Return this rank's plain local value for replicated checkpoint state."""
+        if hasattr(value, "to_local"):
+            return value.to_local()
+        return value
 
     # -- model -----------------------------------------------------------
     @staticmethod
@@ -317,7 +372,7 @@ class DomainParallelContext:
 # ---------------------------------------------------------------------------
 def validate_shardable(
     global_h: int, global_w: int, cluster_shape: tuple[int, int],
-    *, num_downsamples: int = 4,
+    *, num_downsamples: int = 4, max_halo: int = 0,
 ) -> None:
     """Assert per-shard tiles stay integer-sized and UNet-divisible at every level."""
     ch, cw = cluster_shape
@@ -331,6 +386,12 @@ def validate_shardable(
         raise ValueError(
             f"Per-shard tile ({sh}x{sw}) not divisible by 2^{num_downsamples}={m}; "
             f"UNet downsampling would produce non-integer sizes."
+        )
+    deepest_h, deepest_w = sh // m, sw // m
+    if deepest_h < max_halo or deepest_w < max_halo:
+        raise ValueError(
+            f"Deepest per-shard tile ({deepest_h}x{deepest_w}) is smaller than "
+            f"the maximum convolution halo ({max_halo}). Increase the global patch."
         )
     logger.info("Shardable: per-shard tile %sx%s (global %sx%s, cluster %s).",
                 sh, sw, global_h, global_w, cluster_shape)

@@ -123,7 +123,9 @@ def decomposed_mse(
     spatial_weight: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Standard MSE loss (l2) computed per channel."""
-    mse = F.mse_loss(pred, target, reduction="none")
+    # Explicit pointwise arithmetic keeps ShardTensor on its native dispatch
+    # path; F.mse_loss's generic DTensor fallback can introduce Partial layouts.
+    mse = (pred - target).square()
     return _weighted_channel_mean(mse, wet=wet, spatial_weight=spatial_weight)
 
 
@@ -134,7 +136,7 @@ def decomposed_mae(
     spatial_weight: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Standard MAE loss (l1) computed per channel."""
-    mae = F.l1_loss(pred, target, reduction="none")
+    mae = (pred - target).abs()
     return _weighted_channel_mean(mae, wet=wet, spatial_weight=spatial_weight)
 
 
@@ -203,8 +205,9 @@ def decomposed_mse_mae(
     spatial_weight: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Combined MSE and MAE loss."""
-    mse = F.mse_loss(pred, target, reduction="none")
-    mae = F.l1_loss(pred, target, reduction="none")
+    error = pred - target
+    mse = error.square()
+    mae = error.abs()
     combined = (mse + mae) / 2
     return _weighted_channel_mean(combined, wet=wet, spatial_weight=spatial_weight)
 

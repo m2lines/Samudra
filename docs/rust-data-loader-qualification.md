@@ -6,8 +6,9 @@ SPDX-License-Identifier: Apache-2.0
 
 # Rust data loader production qualification
 
-This report records the Stage 5 evidence for the opt-in local flat-OM4 Rust
-loader described in [the shipping plan](rust-data-loader-plan.md).
+This report records the Stage 5 flat-OM4 evidence and the follow-on OM4-compact
+evidence for the opt-in local Rust loader described in
+[the shipping plan](rust-data-loader-plan.md).
 
 ## Acceptance thresholds
 
@@ -155,6 +156,64 @@ prefetch memory.
 The initial Torch jobs were `13854049`, `13855133`, `13855134`, and `13855135`;
 the resume jobs were `13855238` through `13855241`.
 
+## OM4-compact production qualification
+
+The compact qualification used a 1.1 GB, 56-time-point local fixture at
+`/scratch/jr7309/data/om4_compact_qual_af649b01`. Depth arrays are float32 with
+shape `(lev=19, time=56, y=180, x=360)` and chunks `(19, 1, 180, 360)`; surface
+arrays use `(time, y, x)` with one time point per chunk. The Rust reader directly
+maps canonical channels such as `thetao_4` to `thetao[lev=4]`. It does not create
+a canonical-manifest object.
+
+### Correctness, DDP, and resume
+
+Commit `af649b01` completed matched CPU and Rust initial jobs on one GPU and two
+RTX6000 ranks. Every rank-local training and validation schedule hash matched.
+Maximum initial loss error was `2.90e-5` absolute on one GPU and `1.48e-5` in
+DDP. All jobs crossed the one-to-two-step transition, validated, checkpointed,
+and exited zero.
+
+The four matched resume jobs loaded `ckpt.pt`, ran epoch 3 at two steps, and
+wrote `ckpt_3.pt`. Resume schedule hashes matched on every rank; maximum loss
+error was `1.60e-5` on one GPU and `2.93e-5` in DDP. Every Rust training and
+validation pool ended at zero in-use bytes. The initial jobs were `13866404`
+through `13866407`; resume jobs were `13866805` through `13866808`.
+
+### Production performance and grouped depth reads
+
+The first isolated compact run exposed a prototype gap. Because one physical
+chunk contains all 19 levels, reading each of five canonical levels separately
+repeated filesystem operations for the same physical variable and time. Rust
+managed only 0.300 batch/s versus the CPU loader's 1.530 batch/s, so this result
+was treated as a no-go rather than weakening the performance gate.
+
+Commit `4a65b3cb` groups requested logical levels by physical array and reads
+the required level span once per variable and time index. A final sequential,
+same-image comparison ran ten epochs and 60 train batches per loader on one
+RTX6000 with eight CPUs and 64 GB per job:
+
+| metric | CPU baseline | Rust grouped reads | change |
+| --- | ---: | ---: | ---: |
+| qualification wall time | 33.372 s | 15.600 s | 2.14x faster |
+| measured train throughput | 2.263 batch/s | 5.233 batch/s | 2.31x |
+| raw load p50 | 805.9 ms | 71.3 ms | 11.31x lower |
+| raw load p95 | 928.8 ms | 106.0 ms | 8.76x lower |
+| exposed wait p50 | 1.073 ms | 43.2 ms | higher |
+| exposed wait p95 | 1.017 s | 174.7 ms | 5.82x lower |
+| exposed wait mean | 283.0 ms | 61.2 ms | 4.63x lower |
+| process RSS max | 3.574 GB | 3.510 GB | 64 MB lower |
+| process CPU mean | 28.3% | 85.6% | 57.3 points higher |
+| GPU utilization mean | 5.6% | 11.2% | 5.6 points higher |
+
+All 60 schedules matched and maximum loss error was `4.18e-6` absolute and
+`2.31e-6` relative. The Rust pool allocated at most 208.4 MB for training and
+141.5 MB for validation, stayed within the configured bounded queue, and ended
+at zero in-use bytes. The final comparison jobs were `13870309` and `13870310`.
+
+The initial per-level implementation remains useful evidence: it made the
+physical chunk-layout sensitivity visible and established the grouped-read
+optimization as a release requirement, not an optional benchmark improvement.
+
 ## Opt-in configuration and limitations
 
 Select the loader in a data config:
@@ -169,10 +228,10 @@ data:
 ```
 
 Source checkouts require `uv sync --extra rust`; the published training
-container includes the compiled extension. The current path supports local,
-flat OM4 training and validation only. It intentionally does not support S3,
-OM4-compact, LLC, or inference. Package releases must publish the matching
-platform-native loader wheel alongside the Samudra wheel.
+container includes the compiled extension. The current path supports local flat
+and compact OM4 training and validation. It intentionally does not support S3,
+LLC, or inference. Package releases must publish the matching platform-native
+loader wheel alongside the Samudra wheel.
 
 ## Test evidence
 
@@ -187,11 +246,22 @@ platform-native loader wheel alongside the Samudra wheel.
 - all pre-commit hooks pass, including Ruff, mypy, schema validation, secret
   detection, and REUSE lint
 
+OM4-compact follow-on evidence:
+
+- `361 passed, 2 skipped, 71 deselected, 10 xfailed` for the full non-CUDA suite
+  with CUDA hidden
+- `59 passed, 2 deselected` in focused Rust adapter and native integration tests
+- five Rust unit tests and warning-free clippy
+- [grouped-read image CI run 29458419589](https://github.com/m2lines/Samudra/actions/runs/29458419589)
+  built and import-smoked the extension on x86_64, passed the arm64 build and
+  CPU suite, and passed the x86_64 CPU/GPU post-publish suites
+- all pre-commit hooks pass
+
 ## Release decision
 
-**Go for opt-in local flat-OM4 training release.** Single-GPU and DDP schedule
-and loss parity, validation, step transitions, checkpoint/resume, throughput,
-bounded prefetch memory, CUDA overlap, packaging, and clean-shutdown gates pass.
-Keep the loader opt-in and retain the CPU/GPU paths as immediate fallbacks. The
-format and inference limitations above remain explicit follow-on work rather
-than release blockers for this narrow path.
+**Go for opt-in local flat and compact OM4 training release.** Single-GPU and
+DDP schedule and loss parity, validation, step transitions, checkpoint/resume,
+throughput, bounded prefetch memory, CUDA overlap, packaging, and clean-shutdown
+gates pass. Keep the loader opt-in and retain the CPU/GPU paths as immediate
+fallbacks. LLC, remote storage, and inference remain explicit follow-on work
+rather than release blockers for this path.

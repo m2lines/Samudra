@@ -10,7 +10,7 @@ SPDX-License-Identifier: Apache-2.0
 
 Ship an opt-in, local-only `loading.type: rust` training path that:
 
-- reads flat OM4 Zarr stores with Rust;
+- reads flat and compact OM4 Zarr stores with Rust;
 - uses the existing Python batch samplers unchanged;
 - uses no PyTorch data-loading worker processes;
 - loads complete batches matching the `RawTrainData` contract;
@@ -18,8 +18,9 @@ Ship an opt-in, local-only `loading.type: rust` training path that:
 - on CUDA, overlaps pinned-memory transfer and batch preparation with the current
   model step.
 
-The first shipped path is deliberately narrow. It proves end-to-end correctness and
-performance on flat OM4 before adding more physical dataset layouts.
+The initial shipped path was deliberately narrow: it proved end-to-end correctness
+and performance on flat OM4. The first follow-on milestone adds compact OM4 without
+changing the sampler, batch, prefetch, or device-transfer contracts.
 
 ## Design boundaries
 
@@ -34,7 +35,8 @@ performance on flat OM4 before adding more physical dataset layouts.
 ### Rust is responsible for
 
 - keeping local Zarr stores and arrays open across batches;
-- translating logical flat-OM4 variables and time indices to physical Zarr reads;
+- translating logical flat or compact OM4 variables and time indices to physical
+  Zarr reads;
 - issuing bounded concurrent reads;
 - writing directly into complete batch-shaped output buffers; and
 - returning contextual read, shape, dtype, and index errors without panics.
@@ -249,6 +251,7 @@ single-GPU, DDP, resume, memory, throughput, and CUDA-trace evidence.
 After the flat-OM4 release passes production qualification:
 
 1. Add direct OM4-compact variable/level translation and run the same parity gates.
+   Completed on 2026-07-15.
 2. Add direct LLC face selection, cropping, staggered-grid translation, dimension
    renaming, time conversion, statistics-name translation, and level-to-channel
    flattening equivalent to `DatasetConfig.canonicalize_datasets`.
@@ -269,6 +272,8 @@ pinned buffers, device preparation, and the `RawTrainData` contract remain uncha
 
 #### C0: native translation and fixture parity
 
+Status: passed on 2026-07-15.
+
 Exit when native reads validate rank, dtype, dimension order, spatial/time shape,
 level bounds, and missing variables; direct channel ordering matches the CPU compact
 path; and raw plus processed batches match for histories 0/1, steps 1/2, strides
@@ -277,12 +282,19 @@ normalization/masking orders.
 
 #### C1: prefetched loader integration and regressions
 
+Status: passed on 2026-07-15.
+
 Exit when compact sources run through the existing opt-in trainer selection and
 bounded host-prefetch path with zero PyTorch workers; lifecycle and producer-error
 tests remain green; and the full non-CUDA suite plus focused CUDA pinned-buffer and
 stream tests show no regression in flat OM4 or the existing CPU loader.
 
 #### C2: production qualification
+
+Status: passed on 2026-07-15 after grouping logical depth channels into one physical
+array read per variable and time index. The final 60-batch production comparison was
+2.31x faster than the CPU loader. See
+[the production qualification report](rust-data-loader-qualification.md).
 
 Exit when matched short CPU-loader and Rust-loader jobs complete on a representative
 local OM4-compact store for single-GPU initial/resume and two-rank DDP initial/resume;

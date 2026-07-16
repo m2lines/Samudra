@@ -644,7 +644,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             x_index = self._get_x_index(idx, step)
             current_x_index = x_index.isel(time=slice(0, self.hist + 1))
             prognostic_selected = self._prognostic_src.data.isel(time=x_index)
-            boundary_selected = self._boundary_src.data.isel(time=current_x_index)
+            # boundary_selected = self._boundary_src.data.isel(time=current_x_index)
+            boundary_selected = boundary_selected = xr.open_zarr("/orcd/data/abodner/002/cody/LLC_patch/LLC4320_face1_i2880-3600_j720-1440_trainval_ready_20110913_20121014_t1-BOUNDARY-ONLY.zarr", chunks=None)[["boundary"]].isel(boundary_channel=self._boundary_src.data.boundary_channel, time=current_x_index)
 
             if self._executor is not None:
                 concurrent_compute(

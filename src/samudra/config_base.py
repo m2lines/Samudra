@@ -3,9 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
-import json
 import os
-import sys
 import textwrap
 from pathlib import Path
 from typing import Any, Self
@@ -41,55 +39,6 @@ def register_include_constructor():
 
 
 register_include_constructor()
-
-
-def _extract_indexed_overrides(
-    args: list[str],
-) -> tuple[list[str], list[tuple[list[str], str]]]:
-    """Remove numeric dotted-path overrides for application after loading YAML."""
-    remaining_args = []
-    overrides = []
-    index = 0
-    while index < len(args):
-        arg = args[index]
-        flag, separator, inline_value = arg.partition("=")
-        path = flag.removeprefix("--").split(".")
-        if flag.startswith("--") and any(part.isdecimal() for part in path):
-            if separator:
-                value = inline_value
-            else:
-                index += 1
-                if index == len(args):
-                    raise ValueError(f"Missing value for {flag}")
-                value = args[index]
-            overrides.append((path, value))
-        else:
-            remaining_args.append(arg)
-        index += 1
-    return remaining_args, overrides
-
-
-def _apply_indexed_override(
-    values: dict[str, Any], path: list[str], raw_value: str
-) -> None:
-    """Set one value addressed by a dotted path containing a list index."""
-    current: Any = values
-    for part in path[:-1]:
-        if isinstance(current, list):
-            current = current[int(part)]
-        else:
-            current = current[part]
-
-    try:
-        value = json.loads(raw_value)
-    except json.JSONDecodeError:
-        value = raw_value
-
-    final_part = path[-1]
-    if isinstance(current, list):
-        current[int(final_part)] = value
-    else:
-        current[final_part] = value
 
 
 class BaseConfig(BaseModel):
@@ -128,9 +77,6 @@ class TopLevelConfig(BaseSettings):
         args_to_parse: list[str] | None = None,
     ) -> Self:
         """Load config from YAML & CLI with validation."""
-        cli_args, indexed_overrides = _extract_indexed_overrides(
-            args_to_parse if args_to_parse is not None else sys.argv[1:]
-        )
         parser = argparse.ArgumentParser(
             description=cls.__doc__,
             epilog=textwrap.dedent(
@@ -140,8 +86,6 @@ class TopLevelConfig(BaseSettings):
                 You can also replace any JSON argument listed above with a YAML file by
                 specifying it with an @ symbol,
                 eg `--some_param=@configs/data/something.yaml`.
-                List entries can be overridden with a numeric dotted path,
-                eg `--data.sources.0.train_time.start=1975-01-03`.
                 """
             ),
         )
@@ -150,12 +94,13 @@ class TopLevelConfig(BaseSettings):
         cli_source = IncludeYamlCliSettingsSource(
             cls,
             root_parser=parser,
-            cli_parse_args=cli_args,
+            # If args_to_parse is None, we parse argv, which is what `True` does
+            cli_parse_args=args_to_parse if args_to_parse is not None else True,
         )
 
         # We do this after creating CliSettingsSource (which populates the parser)
         # so the help is complete on error.
-        args = parser.parse_args(cli_args)
+        args = parser.parse_args(args_to_parse)
 
         # Then we read the YAML file specified in the CLI
         # Note that by default, YamlConfigSettingsSource will ignore missing files
@@ -165,8 +110,6 @@ class TopLevelConfig(BaseSettings):
                 f"Config file `{args.config}` (full path: {config_path}) not found"
             )
         yaml_values = YamlConfigSettingsSource(cls, yaml_file=config_path)()
-        for path, value in indexed_overrides:
-            _apply_indexed_override(yaml_values, path, value)
 
         return cls(
             _cli_settings_source=cli_source,

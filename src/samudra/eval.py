@@ -46,6 +46,7 @@ class Eval:
         # Set seeds
         set_seed(cfg.experiment.rand_seed)
 
+        logger.info("Loading data")
         self.data_container = cfg.data.build(
             cfg.experiment.resolved_data_root,
         )
@@ -79,7 +80,10 @@ class Eval:
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
 
         # Dataloaders
-        logger.info(f"Loading data")
+        if self.data_container.inference_source is None:
+            raise ValueError(
+                "Inference time is not configured for the first data source"
+            )
         self.src = self.data_container.inference_source
         self.data = self.src.data
         self.static_data = self.data_container.static_data
@@ -101,7 +105,7 @@ class Eval:
             out_channels=self.num_out,
             hist=cfg.data.hist,
             static_data_for_corrector=self.static_data,
-            srcs=self.data_container.sources,
+            srcs=self.data_container.train_sources,
             tensor_map=self.tensor_map,
             normalize=self.normalize,
             dataset_spec=self.dataset_spec,
@@ -133,9 +137,6 @@ class Eval:
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
         self.num_workers = data_num_workers
-        if not self.src.inference_times:
-            raise ValueError(f"Inference time is not configured for {self.src.name}")
-        self.inference_time = self.src.inference_times[0]
         self.num_model_steps_forward = cfg.num_model_steps_forward
         self.save_zarr = cfg.save_zarr
         self.model_path = cfg.ckpt_path
@@ -153,13 +154,12 @@ class Eval:
         self.model.load_state_dict(new_state_dict)
 
     def init_inference_store(self):
-        sliced_src = self.src.slice(self.inference_time)
         self.num_time_steps = get_inference_steps(
-            sliced_src,
+            self.src,
             hist=self.hist,
         )
         self.inference_dataset = InferenceDataset(
-            src=sliced_src,
+            src=self.src,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             hist=self.hist,

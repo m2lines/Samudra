@@ -118,6 +118,7 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
     _, trainer = trainer_pair
 
     hist = trainer.hist
+    assert trainer.inference_src is not None
     resolution = trainer.inference_src.resolution
     wet = trainer.inference_src.masks.prognostic_with_hist(hist)
     ctx = GridContext(wet, resolution, resolution).to(trainer.device)
@@ -175,7 +176,7 @@ def test_data_loaders_enable_persistent_workers_on_positive_num_workers(
     assert trainer.mp_context.get_start_method() == "spawn"
     assert trainer.train_loader._dataloader.persistent_workers is True
     assert trainer.val_loader._dataloader.persistent_workers is True
-    assert trainer.inference_times == trainer.inference_src.inference_times
+    assert trainer.inference_src is not None
 
 
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)

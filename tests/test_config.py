@@ -80,7 +80,7 @@ def test_om4_dataset_config_builds_selected_spec():
         boundary_vars_key="hfds",
     )
 
-    spec = cfg.build()
+    spec = cfg.dataset_spec
 
     assert spec.prognostic_var_names == ["thetao_0"]
     assert spec.boundary_var_names == ["hfds"]
@@ -157,7 +157,7 @@ def test_data_config_accepts_llc_dataset_type():
     assert isinstance(source, LlcDataSourceConfig)
     assert source.face == 2
     assert isinstance(source.inference_times[0], LlcTimeConfig)
-    assert source.build().prognostic_var_names == ["Theta_0"]
+    assert source.dataset_spec.prognostic_var_names == ["Theta_0"]
 
 
 def test_data_config_rejects_invalid_llc_crop():
@@ -221,6 +221,12 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
                         "start": "2011-09-11T12:00:00Z",
                         "end": "2011-09-12T12:00:00Z",
                     },
+                    "inference_times": [
+                        {
+                            "start": "2011-09-10T12:00:00Z",
+                            "end": "2011-09-11T12:00:00Z",
+                        }
+                    ],
                     "data_location": "data.zarr",
                     "data_means_location": "means.nc",
                     "data_stds_location": "stds.nc",
@@ -240,9 +246,12 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
     assert "face" not in source.data.dims
     assert "i_g" not in source.data.dims
     assert "j_g" not in source.data.dims
-    assert source.data["Theta_0"].shape == (3, 2, 3)
+    assert source.data["Theta_0"].shape == (2, 2, 3)
     assert np.issubdtype(source.data.time.dtype, np.datetime64)
-    assert source.inference_times == cfg.sources[0].inference_times
+    assert container.train_sources[0].data.sizes["time"] == 2
+    assert container.val_sources[0].data.sizes["time"] == 2
+    assert container.inference_source is not None
+    assert container.inference_source.data.sizes["time"] == 2
 
     sliced = source.slice(
         LlcTimeConfig(
@@ -305,26 +314,6 @@ def test_train_config_allows_cli_override_for_cpu_num_workers(tmp_path):
 
     assert isinstance(cfg.data.loading, CpuDataLoadingConfig)
     assert cfg.data.loading.num_workers == 2
-
-
-def test_train_config_allows_cli_override_for_list_entry():
-    config_path = (
-        Path(__file__).resolve().parents[1] / "configs" / "test" / "train_default.yaml"
-    )
-
-    cfg = TrainConfig.from_yaml_and_cli(
-        [
-            str(config_path),
-            "--data.sources.0.train_time.start=1975-01-03",
-            "--data.sources.0.train_time.end",
-            "1975-03-01",
-        ]
-    )
-
-    source = cfg.data.sources[0]
-    assert str(source.train_time.start) == "1975-01-03"
-    assert str(source.train_time.end) == "1975-03-01"
-    assert source.data_location.path == "data.zarr"
 
 
 def test_get_pydantic_models_collects_loading_variants():

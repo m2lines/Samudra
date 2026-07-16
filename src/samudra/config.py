@@ -4,6 +4,7 @@
 
 import abc
 import datetime
+from collections.abc import Sequence
 from functools import cached_property
 from pathlib import Path
 from typing import Annotated, Literal, Self, assert_never
@@ -54,6 +55,7 @@ from samudra.models.modules.encoder import patch_from
 from samudra.utils.data import (
     DataContainer,
     DataSource,
+    DataSourceSplits,
     Normalize,
     canonicalize_llc_datasets,
 )
@@ -107,6 +109,7 @@ JulianDateConfig = Annotated[
 ]
 
 
+# We reuse pydantic's AwareDatetime to match JSONSchema's expected RFC3339 format
 _aware_datetime_adapter = pydantic.TypeAdapter(pydantic.AwareDatetime)
 
 
@@ -119,7 +122,7 @@ def _datetime64_validator(value: str | np.datetime64) -> np.datetime64:
 
 
 def _serialize_datetime64(value: np.datetime64) -> str:
-    return np.datetime_as_string(value, unit="ns") + "Z"
+    return np.datetime_as_string(value, unit="ns", timezone="UTC")
 
 
 LlcDatetimeConfig = Annotated[
@@ -172,7 +175,10 @@ LOCATION_DOCS = (
 )
 
 
-class BaseDataSourceConfig(BaseConfig):
+class BaseDataSourceConfig(BaseConfig, abc.ABC):
+    train_time: SourceTimeConfig
+    val_time: SourceTimeConfig
+    inference_times: Sequence[SourceTimeConfig] = ()
     data_location: Location = Field(
         description="Location of the data; " + LOCATION_DOCS
     )
@@ -182,6 +188,89 @@ class BaseDataSourceConfig(BaseConfig):
     data_stds_location: Location = Field(
         description="Location of the data standard deviations; " + LOCATION_DOCS
     )
+
+    @property
+    @abc.abstractmethod
+    def dataset_spec(self) -> DatasetSpec:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def canonicalize_datasets(
+        self,
+        data: xr.Dataset,
+        means: xr.Dataset,
+        stds: xr.Dataset,
+    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+        raise NotImplementedError
+
+    def build(
+        self,
+        data_root: ResolvedLocation,
+        *,
+        use_dask: bool,
+        static_data_vars: list[str] | None,
+        is_primary: bool,
+    ) -> DataSourceSplits:
+        source = self._build_source(
+            data_root,
+            turn_on_dask=use_dask,
+            static_data_vars=static_data_vars,
+        )
+        inference_source = None
+        if is_primary and self.inference_times:
+            if use_dask:
+                full_inference_source = source
+            else:
+                full_inference_source = self._build_source(
+                    data_root,
+                    turn_on_dask=True,
+                    static_data_vars=static_data_vars,
+                )
+            inference_source = full_inference_source.slice(self.inference_times[0])
+
+        return DataSourceSplits(
+            train=source.slice(self.train_time),
+            val=source.slice(self.val_time),
+            inference=inference_source,
+        )
+
+    def _build_source(
+        self,
+        data_root: ResolvedLocation,
+        *,
+        turn_on_dask: bool,
+        static_data_vars: list[str] | None,
+    ) -> DataSource:
+        resolved_locations = [
+            data_root.resolve(location)
+            for location in (
+                self.data_location,
+                self.data_means_location,
+                self.data_stds_location,
+            )
+        ]
+        resolved_data_location, resolved_means_location, resolved_stds_location = (
+            resolved_locations
+        )
+
+        chunks: dict[str, int] | None = {} if turn_on_dask else None
+        data = resolved_data_location.open(chunks)
+        means = resolved_means_location.open(chunks)
+        stds = resolved_stds_location.open(chunks)
+        data, means, stds = self.canonicalize_datasets(data, means, stds)
+        dataset_spec = self.dataset_spec
+
+        source = DataSource.from_datasets(
+            data,
+            means,
+            stds,
+            dataset_spec=dataset_spec,
+            prognostic_var_names=dataset_spec.prognostic_var_names,
+            boundary_var_names=dataset_spec.boundary_var_names,
+            static_data_vars=static_data_vars,
+            name=f"{resolved_data_location}-{turn_on_dask}",
+        )
+        return source
 
 
 class BaseDataLoadingConfig(BaseConfig):
@@ -232,7 +321,8 @@ class Om4DataSourceConfig(BaseDataSourceConfig):
     prognostic_vars_key: str = "thermo_dynamic_all"
     boundary_vars_key: str = "tau_hfds"
 
-    def build(self) -> DatasetSpec:
+    @property
+    def dataset_spec(self) -> DatasetSpec:
         return build_om4_spec(
             self.prognostic_vars_key,
             self.boundary_vars_key,
@@ -269,7 +359,8 @@ class LlcDataSourceConfig(BaseDataSourceConfig):
     j_start: int = Field(default=0, ge=0)
     j_end: int = Field(default=720, gt=0)
 
-    def build(self) -> DatasetSpec:
+    @property
+    def dataset_spec(self) -> DatasetSpec:
         return build_llc_spec(
             self.prognostic_vars_key,
             self.boundary_vars_key,
@@ -307,7 +398,7 @@ class LlcDataSourceConfig(BaseDataSourceConfig):
             i_end=self.i_end,
             j_start=self.j_start,
             j_end=self.j_end,
-            dataset_spec=self.build(),
+            dataset_spec=self.dataset_spec,
         )
 
 
@@ -340,48 +431,18 @@ class DataConfig(BaseConfig):
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
 
-        def make_source(
-            source_cfg: DataSourceConfig,
-            turn_on_dask: bool = use_dask,
-        ) -> DataSource:
-            resolved_data_location = data_root.resolve(source_cfg.data_location)
-            resolved_means_location = data_root.resolve(source_cfg.data_means_location)
-            resolved_stds_location = data_root.resolve(source_cfg.data_stds_location)
-
-            chunks: dict[str, int] | None = {} if turn_on_dask else None
-            data = resolved_data_location.open(chunks)
-            means = resolved_means_location.open(chunks)
-            stds = resolved_stds_location.open(chunks)
-            data, means, stds = source_cfg.canonicalize_datasets(data, means, stds)
-            dataset_spec = source_cfg.build()
-
-            data_source = DataSource.from_datasets(
-                data,
-                means,
-                stds,
-                dataset_spec=dataset_spec,
-                prognostic_var_names=dataset_spec.prognostic_var_names,
-                boundary_var_names=dataset_spec.boundary_var_names,
-                train_time=source_cfg.train_time,
-                val_time=source_cfg.val_time,
-                inference_times=source_cfg.inference_times,
+        source_splits = [
+            source_cfg.build(
+                data_root,
+                use_dask=use_dask,
                 static_data_vars=self.static_data_vars,
-                name=f"{resolved_data_location}-{turn_on_dask}",
+                is_primary=index == 0,
             )
-            return data_source
-
-        sources = []
-        for source_cfg in self.sources:
-            sources.append(make_source(source_cfg))
-
-        primary_source = sources[0]
-        if use_dask:
-            # If we're already using dask, we don't need a second source
-            inference_source = primary_source
-        else:
-            # If we're not using dask for the main source, create a separate one
-            primary = self.sources[0]
-            inference_source = make_source(primary, turn_on_dask=True)
+            for index, source_cfg in enumerate(self.sources)
+        ]
+        train_sources = [splits.train for splits in source_splits]
+        val_sources = [splits.val for splits in source_splits]
+        primary_source = train_sources[0]
 
         static_data = (
             primary_source.data[self.static_data_vars]
@@ -390,8 +451,9 @@ class DataConfig(BaseConfig):
         )
 
         return DataContainer(
-            sources=sources,
-            inference_source=inference_source,
+            train_sources=train_sources,
+            val_sources=val_sources,
+            inference_source=source_splits[0].inference,
             loader_version=loader_version,
             dataset_spec=primary_source.dataset_spec,
             static_data=static_data,

@@ -60,12 +60,7 @@ from samudra.stepper import (
 )
 from samudra.utils.data import DataSource, Normalize, get_inference_steps
 from samudra.utils.device import using_gpu
-from samudra.utils.distributed import (
-    all_reduce_mean,
-    get_world_size,
-    is_main_process,
-    set_seed,
-)
+from samudra.utils.distributed import all_reduce_mean, is_main_process, set_seed
 from samudra.utils.ema import EMATracker
 from samudra.utils.logging import (
     MetricLogger,
@@ -211,7 +206,7 @@ class Trainer:
             hist=cfg.data.hist,
             # TODO(559): This won't work at multiple scales. Refactor as part of src.
             static_data_for_corrector=self.data_container.static_data,
-            srcs=self.data_container.sources,
+            srcs=self.data_container.train_sources,
             tensor_map=self.tensor_map,
             normalize=self.normalize,
             dataset_spec=self.dataset_spec,
@@ -322,7 +317,6 @@ class Trainer:
         self.num_workers: int = data_num_workers
         self.persistent_workers: bool = persistent_workers
         self.pin_mem: bool = cfg.pin_mem
-        self.inference_times = self.inference_src.inference_times
         self.inference_epochs = cfg.inference_epochs
         self.max_train_model_steps_forward = MAX_TRAIN_MODEL_STEPS_FORWARD // (
             self.hist + 1
@@ -339,6 +333,10 @@ class Trainer:
         assert self.tensor_map is not None
 
         if self.inference_epochs:
+            if self.inference_src is None:
+                raise ValueError(
+                    "Inference time is not configured for the first data source"
+                )
             self.init_inference_stores()
 
         # Add type annotations for samplers
@@ -356,37 +354,23 @@ class Trainer:
         self.inference_loader: DataLoader[TrainData]
 
     def init_inference_stores(self):
-        # Determine number of processes based on device
-        if using_gpu():
-            num_splits = get_world_size()
-            logger.info(f"Number of processes: {num_splits}, preferably use 8")
-        else:
-            num_splits = 1
-
-        # Create datasets
-        inference_datasets = []
-        num_steps_inf_set = []
-        for i in range(num_splits):
-            sliced_src = self.inference_src.slice(self.inference_times[i])
-            num_time_steps = get_inference_steps(
-                sliced_src,
-                hist=self.hist,
-            )
-            inference_dataset = InferenceDataset(
-                src=sliced_src,
-                prognostic_var_names=self.prognostic_var_names,
-                boundary_var_names=self.boundary_var_names,
-                hist=self.hist,
-                normalize_before_mask=self.normalize_before_mask,
-                masked_fill_value=self.normalize_fill_value,
-                long_rollout=True,
-            )
-
-            inference_datasets.append(inference_dataset)
-            num_steps_inf_set.append(num_time_steps)
+        assert self.inference_src is not None
+        num_time_steps = get_inference_steps(
+            self.inference_src,
+            hist=self.hist,
+        )
+        inference_dataset = InferenceDataset(
+            src=self.inference_src,
+            prognostic_var_names=self.prognostic_var_names,
+            boundary_var_names=self.boundary_var_names,
+            hist=self.hist,
+            normalize_before_mask=self.normalize_before_mask,
+            masked_fill_value=self.normalize_fill_value,
+            long_rollout=True,
+        )
 
         inference_data_combined = InferenceDatasets(
-            inference_datasets, num_steps_inf_set
+            [inference_dataset], [num_time_steps]
         )
 
         if self.distributed is not None:
@@ -786,23 +770,27 @@ class Trainer:
         Args:
             cur_step: Current training step size
         """
-        scales = self.data_container.sources
-        match self.train_schedule:
-            case "standard":
-                srcs: Iterable[tuple[DataSource, DataSource | None]] = [
-                    (scales[0], None)
-                ]
-            case "match":
-                srcs = [(s, s) for s in scales]
-            case "mix":
-                srcs = list(itertools.product(scales, repeat=2))  # type: ignore
-            case _:
-                assert_never(self.train_schedule)
+
+        def source_pairs(
+            scales: list[DataSource],
+        ) -> Iterable[tuple[DataSource, DataSource | None]]:
+            match self.train_schedule:
+                case "standard":
+                    return [(scales[0], None)]
+                case "match":
+                    return [(source, source) for source in scales]
+                case "mix":
+                    return list(itertools.product(scales, repeat=2))  # type: ignore
+                case _:
+                    assert_never(self.train_schedule)
+
+        train_srcs = source_pairs(self.data_container.train_sources)
+        val_srcs = source_pairs(self.data_container.val_sources)
 
         train_datasets = [
             TorchTrainDataset(
-                src=src.slice_train(),
-                dst=dst.slice_train() if dst else None,
+                src=src,
+                dst=dst,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -813,13 +801,13 @@ class Trainer:
                 concurrent_compute_=self.concurrent_compute,
             )
             for stride in self.data_stride
-            for src, dst in srcs
+            for src, dst in train_srcs
         ]
 
         val_datasets = [
             TorchTrainDataset(
-                src=src.slice_val(),
-                dst=dst.slice_val() if dst else None,
+                src=src,
+                dst=dst,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -830,7 +818,7 @@ class Trainer:
                 concurrent_compute_=self.concurrent_compute,
             )
             for stride in self.data_stride
-            for src, dst in srcs
+            for src, dst in val_srcs
         ]
 
         # Create datasets

@@ -6,7 +6,7 @@ import dataclasses
 import logging
 import re
 from collections import defaultdict
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 from functools import cached_property
 from typing import TYPE_CHECKING, Literal, Self
 
@@ -84,9 +84,6 @@ class DataSource:
     stds: xr.Dataset
     masks: Masks
     dataset_spec: DatasetSpec
-    train_time: "SourceTimeConfig | None" = None
-    val_time: "SourceTimeConfig | None" = None
-    inference_times: list["SourceTimeConfig"] = dataclasses.field(default_factory=list)
 
     @cached_property
     def is_compact(self) -> bool:
@@ -213,16 +210,6 @@ class DataSource:
         data = self.data.sel(time=time.time_slice)
         return dataclasses.replace(self, name=f"{time=}[{self.name}]", data=data)
 
-    def slice_train(self) -> Self:
-        if self.train_time is None:
-            raise ValueError(f"Training time is not configured for {self.name}")
-        return self.slice(self.train_time)
-
-    def slice_val(self) -> Self:
-        if self.val_time is None:
-            raise ValueError(f"Validation time is not configured for {self.name}")
-        return self.slice(self.val_time)
-
     # TODO(jder): delete this once we've de-duplicated InferenceDataset with TorchTrainDataset
     def normalize(self, fill_nan=True, fill_value=0.0) -> xr.Dataset:
         """Normalize input data."""
@@ -290,9 +277,6 @@ class DataSource:
         dataset_spec: DatasetSpec,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
-        train_time: "SourceTimeConfig | None" = None,
-        val_time: "SourceTimeConfig | None" = None,
-        inference_times: Sequence["SourceTimeConfig"] | None = None,
         static_data_vars: list[str] | None = None,
         name: str = "DataSource",
     ) -> Self:
@@ -313,9 +297,6 @@ class DataSource:
             stds=stds,
             masks=masks,
             dataset_spec=dataset_spec,
-            train_time=train_time,
-            val_time=val_time,
-            inference_times=list(inference_times or ()),
         )
 
 
@@ -530,9 +511,17 @@ class OceanData:
 
 
 @dataclasses.dataclass
+class DataSourceSplits:
+    train: DataSource
+    val: DataSource
+    inference: DataSource | None
+
+
+@dataclasses.dataclass
 class DataContainer:
-    sources: list[DataSource]
-    inference_source: DataSource
+    train_sources: list[DataSource]
+    val_sources: list[DataSource]
+    inference_source: DataSource | None
     loader_version: LoaderVersion
     dataset_spec: DatasetSpec
     # TODO(559): static_data should belong to the DataSource, since we now
@@ -541,7 +530,7 @@ class DataContainer:
 
     @property
     def primary_source(self) -> DataSource:
-        return self.sources[0]
+        return self.train_sources[0]
 
 
 def conditional_rearrange(

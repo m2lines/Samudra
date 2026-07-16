@@ -108,7 +108,7 @@ def make_loader(
     prognostic = dataset_spec.prognostic_var_names
     boundary = dataset_spec.boundary_var_names
     version = container.loader_version
-    src = container.primary_source
+    src = container.train_sources[0]
     if src.is_compact and version != LoaderVersion.OM4_TORCH:
         pytest.skip(f"{version} does not support compact data.")
 
@@ -131,8 +131,8 @@ def make_loader(
             case LoaderVersion.OM4_TORCH:
                 dataset_list = [
                     TorchTrainDataset(
-                        src=src.slice_train(),
-                        dst=dst.slice_train() if dst else None,
+                        src=src,
+                        dst=dst,
                         prognostic_var_names=prognostic,
                         boundary_var_names=boundary,
                         hist=cfg.data.hist,
@@ -322,7 +322,7 @@ def test_loader__data_shape(
     train_config.data.hist = history
 
     with make_loader(train_config, version=loader_version) as loader:
-        dataset_spec = train_config.data.sources[0].build()
+        dataset_spec = train_config.data.sources[0].dataset_spec
         batch_size = train_config.batch_size
         num_input_timesteps = history + 1
 
@@ -377,7 +377,7 @@ def test_loader__data_shape__across_schedules(
         # Keep grouped-sampler ordering deterministic for resolution coverage.
         shuffle=False,
     ) as loader:
-        dataset_spec = train_config.data.sources[0].build()
+        dataset_spec = train_config.data.sources[0].dataset_spec
         batch_size = train_config.batch_size
         num_input_timesteps = history + 1
 
@@ -453,7 +453,7 @@ def test_loader__data_shape__across_schedules(
 def test_inference__data_shape(inference_loader_pair):
     cfg, loader = inference_loader_pair
 
-    dataset_spec = cfg.data.sources[0].build()
+    dataset_spec = cfg.data.sources[0].dataset_spec
     batch_size = 1  # Inference always uses batch size 1
     hist = cfg.data.hist + 1
 
@@ -582,6 +582,8 @@ def _llc_data_config(
     *,
     prognostic_vars_key: str = "single_1",
     boundary_vars_key: str = "single_1",
+    train_end: str = "2011-09-12T12:00:00Z",
+    val_end: str = "2011-09-13T12:00:00Z",
 ) -> DataConfig:
     return DataConfig.model_validate(
         {
@@ -597,11 +599,11 @@ def _llc_data_config(
                     "j_end": 3,
                     "train_time": {
                         "start": "2011-09-10T12:00:00Z",
-                        "end": "2011-09-12T12:00:00Z",
+                        "end": train_end,
                     },
                     "val_time": {
-                        "start": "2011-09-12T12:00:00Z",
-                        "end": "2011-09-13T12:00:00Z",
+                        "start": train_end,
+                        "end": val_end,
                     },
                     "data_location": "data.zarr",
                     "data_means_location": "means.zarr",
@@ -620,7 +622,7 @@ def _llc_torch_dataset(config: DataConfig, tmp_path) -> TorchTrainDataset:
     container = config.build(LocalLocation(path=tmp_path))
     dataset_spec = container.dataset_spec
     return TorchTrainDataset(
-        src=container.primary_source,
+        src=container.train_sources[0],
         dst=None,
         prognostic_var_names=dataset_spec.prognostic_var_names,
         boundary_var_names=dataset_spec.boundary_var_names,
@@ -634,7 +636,10 @@ def _llc_torch_dataset(config: DataConfig, tmp_path) -> TorchTrainDataset:
 
 def test_llc_train_dataset_loads_raw_zarr_single_channel(tmp_path):
     write_raw_llc_zarr_datasets(tmp_path, n_time=6)
-    config = _llc_data_config()
+    config = _llc_data_config(
+        train_end="2011-09-15T12:00:00Z",
+        val_end="2011-09-16T12:00:00Z",
+    )
     torch_dataset = _llc_torch_dataset(config, tmp_path)
     raw_batch = collate_raw_train_data([torch_dataset[0], torch_dataset[1]])
 
@@ -667,14 +672,19 @@ def test_llc_train_dataset_loads_raw_zarr_single_channel(tmp_path):
 
 def test_llc_train_dataset_loads_all_raw_variable_families(tmp_path):
     write_raw_llc_zarr_datasets(tmp_path, n_time=4)
-    config = _llc_data_config(prognostic_vars_key="all", boundary_vars_key="all")
+    config = _llc_data_config(
+        prognostic_vars_key="all",
+        boundary_vars_key="all",
+        train_end="2011-09-13T12:00:00Z",
+        val_end="2011-09-14T12:00:00Z",
+    )
     config.hist = 0
     torch_dataset = _llc_torch_dataset(config, tmp_path)
     raw_batch = collate_raw_train_data([torch_dataset[0]])
 
     train_data = torch_dataset.to_train_data(raw_batch, torch.device("cpu"))
     prognostic, boundary, label = train_data[0]
-    dataset_spec = config.sources[0].build()
+    dataset_spec = config.sources[0].dataset_spec
 
     assert len(torch_dataset) == 3
     assert prognostic.shape == (1, len(dataset_spec.prognostic_var_names), 3, 4)

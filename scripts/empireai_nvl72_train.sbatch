@@ -148,16 +148,12 @@ train_args=(
 
 if [[ "${SMOKE}" == "1" ]]; then
   train_args+=(
-    "--epochs=1"
+    "--debug=true"
     "--batch_size=1"
     "--gradient_accumulation_steps=1"
     "--save_freq=1"
     "--steps=[1]"
     "--data_stride=[1]"
-    "--data.sources.0.train_time.start=1975-01-03"
-    "--data.sources.0.train_time.end=1975-03-01"
-    "--data.sources.0.val_time.start=2013-10-05"
-    "--data.sources.0.val_time.end=2013-11-05"
   )
 fi
 

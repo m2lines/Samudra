@@ -165,10 +165,7 @@ class Trainer:
 
         self.mp_context: BaseContext | None = None
         if data_num_workers > 0:
-            if self.data_container.supports_fork:
-                self.mp_context = multiprocessing.get_context("fork")
-            else:
-                self.mp_context = multiprocessing.get_context("spawn")
+            self.mp_context = multiprocessing.get_context("spawn")
 
         self.num_prog_in = int((cfg.data.hist + 1) * self.N_prog)
         self.num_boundary_in = int((cfg.data.hist + 1) * self.N_bound)

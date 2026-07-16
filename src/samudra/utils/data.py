@@ -412,7 +412,6 @@ class DataContainer:
     sources: list[DataSource]
     inference_source: DataSource
     loader_version: LoaderVersion
-    supports_fork: bool
     dataset_spec: DatasetSpec
     # TODO(559): static_data should belong to the DataSource, since we now
     #  deal with multiple resolutions.

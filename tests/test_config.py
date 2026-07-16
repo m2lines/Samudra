@@ -102,6 +102,23 @@ def test_data_source_time_configs_use_native_types():
     assert llc_time.model_dump(mode="json")["start"].endswith("Z")
 
 
+def test_data_source_time_fields_are_immutable():
+    source = om4_source_config(
+        inference_times=[
+            Om4TimeConfig(start=JulianDate("2014-10-10"), end=JulianDate("2014-10-20"))
+        ]
+    )
+    replacement = Om4TimeConfig(
+        start=JulianDate("1980-01-01"), end=JulianDate("1981-01-01")
+    )
+
+    assert isinstance(source.inference_times, tuple)
+    with pytest.raises(ValidationError, match="Field is frozen"):
+        source.train_time = replacement
+    with pytest.raises(ValidationError, match="Instance is frozen"):
+        source.train_time.start = JulianDate("1980-01-01")
+
+
 def test_om4_time_config_accepts_julian_leap_day():
     time = Om4TimeConfig.model_validate({"start": "1900-02-29", "end": "1900-03-01"})
 

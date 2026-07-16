@@ -4,7 +4,6 @@
 
 import abc
 import datetime
-from collections.abc import Sequence
 from functools import cached_property
 from pathlib import Path
 from typing import Annotated, Literal, Self, assert_never
@@ -134,6 +133,8 @@ LlcDatetimeConfig = Annotated[
 
 
 class Om4TimeConfig(BaseConfig):
+    model_config = pydantic.ConfigDict(frozen=True)
+
     start: JulianDateConfig
     end: JulianDateConfig
 
@@ -152,6 +153,8 @@ class Om4TimeConfig(BaseConfig):
 
 
 class LlcTimeConfig(BaseConfig):
+    model_config = pydantic.ConfigDict(frozen=True)
+
     start: LlcDatetimeConfig
     end: LlcDatetimeConfig
 
@@ -175,10 +178,12 @@ LOCATION_DOCS = (
 )
 
 
-class BaseDataSourceConfig(BaseConfig, abc.ABC):
-    train_time: SourceTimeConfig
-    val_time: SourceTimeConfig
-    inference_times: Sequence[SourceTimeConfig] = ()
+class BaseDataSourceConfig[SourceTimeConfigT: (Om4TimeConfig, LlcTimeConfig)](
+    BaseConfig, abc.ABC
+):
+    train_time: SourceTimeConfigT = Field(frozen=True)
+    val_time: SourceTimeConfigT = Field(frozen=True)
+    inference_times: tuple[SourceTimeConfigT, ...] = Field(default=(), frozen=True)
     data_location: Location = Field(
         description="Location of the data; " + LOCATION_DOCS
     )
@@ -317,11 +322,8 @@ DataLoadingConfig = Annotated[
 ]
 
 
-class Om4DataSourceConfig(BaseDataSourceConfig):
+class Om4DataSourceConfig(BaseDataSourceConfig[Om4TimeConfig]):
     type: Literal["om4"] = "om4"
-    train_time: Om4TimeConfig
-    val_time: Om4TimeConfig
-    inference_times: list[Om4TimeConfig] = Field(default_factory=list)
     prognostic_vars_key: str = "thermo_dynamic_all"
     boundary_vars_key: str = "tau_hfds"
 
@@ -350,11 +352,8 @@ class Om4DataSourceConfig(BaseDataSourceConfig):
         return data, means, stds
 
 
-class LlcDataSourceConfig(BaseDataSourceConfig):
+class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
     type: Literal["llc"] = "llc"
-    train_time: LlcTimeConfig
-    val_time: LlcTimeConfig
-    inference_times: list[LlcTimeConfig] = Field(default_factory=list)
     prognostic_vars_key: str = "single_1"
     boundary_vars_key: str = "single_1"
     face: int = Field(default=1, ge=0)

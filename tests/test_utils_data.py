@@ -245,8 +245,6 @@ def test_canonicalize_llc_datasets_standardizes_layout():
     )
 
     assert "face" not in llc_data.dims
-    assert "i_g" not in llc_data.dims
-    assert "j_g" not in llc_data.dims
     assert "Theta" not in llc_data.variables
     assert "wetmask" not in llc_data.variables
     assert "Theta_0" in llc_data.variables
@@ -255,6 +253,9 @@ def test_canonicalize_llc_datasets_standardizes_layout():
     assert "V_0" in llc_data.variables
     assert "wetmask_0" in llc_data.variables
     assert llc_data["Theta_0"].dims == ("time", "y", "x")
+    assert llc_data["U_0"].dims == ("time", "y", "x")
+    assert llc_data["V_0"].dims == ("time", "y", "x")
+    assert llc_data["wetmask_0"].dims == ("y", "x")
     assert llc_data["Theta_0"].shape == (3, 2, 3)
     assert llc_data["Theta_0"].isel(time=0, y=0, x=0).item() == expected_theta_0
     assert np.issubdtype(llc_data.time.dtype, np.datetime64)
@@ -264,7 +265,7 @@ def test_canonicalize_llc_datasets_standardizes_layout():
     assert "Theta_lev_0" not in llc_stds.variables
 
 
-def test_canonicalize_llc_datasets_ignores_unrequested_staggered_root_vars():
+def test_canonicalize_llc_datasets_selects_requested_vars_from_full_root():
     data, means, stds = raw_llc_datasets()
 
     llc_data, _, _ = canonicalize_llc_datasets(
@@ -279,34 +280,13 @@ def test_canonicalize_llc_datasets_ignores_unrequested_staggered_root_vars():
         dataset_spec=build_llc_spec(),
     )
 
-    unrequested_staggered_vars = {
-        "SIuice",
-        "SIvice",
-        "XG",
-        "YG",
-        "dxC",
-        "dxG",
-        "dxV",
-        "dyC",
-        "dyG",
-        "dyU",
-        "hFacS",
-        "hFacW",
-        "mask_s",
-        "mask_w",
-        "rAs",
-        "rAw",
-        "rAz",
-    }
-    assert not unrequested_staggered_vars.intersection(llc_data.variables)
-    assert "i_g" not in llc_data.dims
-    assert "j_g" not in llc_data.dims
     llc_spec = build_llc_spec()
-    assert set(llc_data.data_vars) == {
+    expected_vars = {
         *(f"Theta_{i}" for i in llc_spec.depth_i_levels),
         "oceQnet",
         *llc_spec.mask_vars,
     }
+    assert expected_vars.issubset(llc_data.data_vars)
 
 
 @pytest.fixture

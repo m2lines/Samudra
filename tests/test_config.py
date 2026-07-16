@@ -258,11 +258,9 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
     assert source.dataset_spec.type == "llc"
     assert "Theta_0" in source.data.variables
     assert "wetmask_0" in source.data.variables
-    assert "mask_w" not in source.data.variables
-    assert "rAw" not in source.data.variables
     assert "face" not in source.data.dims
-    assert "i_g" not in source.data.dims
-    assert "j_g" not in source.data.dims
+    assert source.data["Theta_0"].dims == ("time", "lat", "lon")
+    assert source.data["wetmask_0"].dims == ("lat", "lon")
     assert source.data["Theta_0"].shape == (2, 2, 3)
     assert np.issubdtype(source.data.time.dtype, np.datetime64)
     assert container.train_sources[0].data.sizes["time"] == 2

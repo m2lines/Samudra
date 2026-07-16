@@ -37,6 +37,10 @@ def raw_llc_datasets(n_time: int = 3) -> tuple[xr.Dataset, xr.Dataset, xr.Datase
     )
     mask = np.ones((n_face, n_lev, n_j, n_i), dtype=bool)
     mask[:, :, 0, 0] = False
+    mask_w = mask.copy()
+    mask_s = mask.copy()
+    mask_w[:, :, 1, 1] = False
+    mask_s[:, :, 1, 2] = False
     grid = np.arange(n_face * n_j * n_i, dtype=np.float32).reshape(n_face, n_j, n_i)
 
     data = xr.Dataset(
@@ -63,10 +67,10 @@ def raw_llc_datasets(n_time: int = 3) -> tuple[xr.Dataset, xr.Dataset, xr.Datase
             "dyC": (["face", "j_g", "i"], grid + 5_000),
             "dyG": (["face", "j", "i_g"], grid + 6_000),
             "dyU": (["face", "j", "i_g"], grid + 7_000),
-            "hFacS": (["face", "k", "j_g", "i"], mask),
-            "hFacW": (["face", "k", "j", "i_g"], mask),
-            "mask_s": (["face", "k", "j_g", "i"], mask),
-            "mask_w": (["face", "k", "j", "i_g"], mask),
+            "hFacS": (["face", "k", "j_g", "i"], mask_s),
+            "hFacW": (["face", "k", "j", "i_g"], mask_w),
+            "mask_s": (["face", "k", "j_g", "i"], mask_s),
+            "mask_w": (["face", "k", "j", "i_g"], mask_w),
             "rAs": (["face", "j_g", "i"], grid + 8_000),
             "rAw": (["face", "j", "i_g"], mask[:, 0]),
             "rAz": (["face", "j_g", "i_g"], grid + 9_000),

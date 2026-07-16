@@ -288,7 +288,12 @@ class DataSource:
             boundary_var_names=boundary_var_names,
             static_data_vars=static_data_vars,
         )
-        masks = extract_wet_mask(data, prognostic_var_names, dataset_spec=dataset_spec)
+        masks = extract_wet_mask(
+            data,
+            prognostic_var_names,
+            boundary_var_names,
+            dataset_spec=dataset_spec,
+        )
 
         return cls(
             name=name,
@@ -337,6 +342,31 @@ def _flatten_llc_level_vars(
     return data_copy
 
 
+def _var_without_level(var_name: str) -> str:
+    suffix = var_name.rsplit("_", maxsplit=1)[-1]
+    return var_name.rsplit("_", maxsplit=1)[0] if suffix.isdigit() else var_name
+
+
+def _preferred_available_var(
+    data: xr.Dataset, candidates: tuple[str, ...]
+) -> str | None:
+    return next((name for name in candidates if name in data.data_vars), None)
+
+
+def _llc_staggered_mask_vars(
+    data: xr.Dataset,
+    requested_data_vars: set[str],
+) -> set[str]:
+    mask_vars = set()
+    if {"U", "oceTAUX"} & requested_data_vars:
+        if mask_var := _preferred_available_var(data, ("mask_w", "hFacW")):
+            mask_vars.add(mask_var)
+    if {"V", "oceTAUY"} & requested_data_vars:
+        if mask_var := _preferred_available_var(data, ("mask_s", "hFacS")):
+            mask_vars.add(mask_var)
+    return mask_vars
+
+
 def canonicalize_llc_datasets(
     data: xr.Dataset,
     means: xr.Dataset,
@@ -353,9 +383,7 @@ def canonicalize_llc_datasets(
     data_copy = data.copy()
 
     requested_data_vars = {
-        var_name.rsplit("_", maxsplit=1)[0]
-        if var_name.rsplit("_", maxsplit=1)[-1].isdigit()
-        else var_name
+        _var_without_level(var_name)
         for var_name in (
             dataset_spec.prognostic_var_names + dataset_spec.boundary_var_names
         )
@@ -363,6 +391,7 @@ def canonicalize_llc_datasets(
     requested_data_vars.update(
         [dataset_spec.mask_all_levels_var, "mask_c", *dataset_spec.mask_vars]
     )
+    requested_data_vars.update(_llc_staggered_mask_vars(data_copy, requested_data_vars))
     data_copy = data_copy[
         [name for name in data_copy.data_vars if name in requested_data_vars]
     ]
@@ -387,6 +416,10 @@ def canonicalize_llc_datasets(
         "V": {"j_g": "j"},
         "oceTAUX": {"i_g": "i"},
         "oceTAUY": {"j_g": "j"},
+        "mask_w": {"i_g": "i"},
+        "hFacW": {"i_g": "i"},
+        "mask_s": {"j_g": "j"},
+        "hFacS": {"j_g": "j"},
     }
     for var_name, rename_dims in unstagger_map.items():
         if var_name not in data_copy.variables:
@@ -639,49 +672,77 @@ def _flatten(ds: xr.Dataset) -> np.ndarray:
     return np.concatenate(flattened)
 
 
+def _level_index_from_var_name(var_name: str) -> int:
+    suffix = var_name.rsplit("_", maxsplit=1)[-1]
+    return int(suffix) if suffix.isdigit() else 0
+
+
+def _mask_var_for_data_var(
+    data: xr.Dataset,
+    var_name: str,
+    *,
+    dataset_spec: DatasetSpec,
+) -> str:
+    level = _level_index_from_var_name(var_name)
+    base_var = _var_without_level(var_name)
+    llc_staggered_masks = {
+        "U": (f"mask_w_{level}", f"hFacW_{level}"),
+        "oceTAUX": ("mask_w_0", "hFacW_0"),
+        "V": (f"mask_s_{level}", f"hFacS_{level}"),
+        "oceTAUY": ("mask_s_0", "hFacS_0"),
+    }
+    if dataset_spec.type == "llc" and base_var in llc_staggered_masks:
+        if mask_var := _preferred_available_var(
+            data, llc_staggered_masks[base_var]
+        ):
+            return mask_var
+    return dataset_spec.mask_vars[level]
+
+
+def _mask_array_for_data_var(
+    data: xr.Dataset,
+    var_name: str,
+    *,
+    dataset_spec: DatasetSpec,
+) -> np.ndarray:
+    mask = data[_mask_var_for_data_var(data, var_name, dataset_spec=dataset_spec)]
+    if "time" in mask.dims:
+        mask = mask.isel(time=0)
+    return mask.to_numpy()
+
+
 def extract_wet_mask(
     data: xr.Dataset,
     prognostic_var_names: PrognosticVarNames,
+    boundary_var_names: BoundaryVarNames,
     *,
     dataset_spec: DatasetSpec,
 ) -> Masks:
     """A mask for where the oceans are. Water is wet."""
     data_ = flatten_masks(data, dataset_spec=dataset_spec)
-    wet_mask = data_[list(dataset_spec.mask_vars)]
-    if "time" in wet_mask.dims:
-        wet_mask_np = wet_mask.isel(time=0).to_array().to_numpy()
-        wet_surface_mask_np = (
-            wet_mask[dataset_spec.mask_vars[0]].isel(time=0).to_numpy()
-        )
-    else:
-        wet_mask_np = wet_mask.to_array().to_numpy()
-        wet_surface_mask_np = wet_mask[dataset_spec.mask_vars[0]].to_numpy()
-
-    depth_ind = _parse_lev_from_output_var(
-        prognostic_var_names, dataset_spec=dataset_spec
+    wet_inp_np = np.stack(
+        [
+            _mask_array_for_data_var(data_, var_name, dataset_spec=dataset_spec)
+            for var_name in prognostic_var_names
+        ]
+    )
+    boundary_mask_vars = [
+        _mask_var_for_data_var(data_, var_name, dataset_spec=dataset_spec)
+        for var_name in boundary_var_names
+    ]
+    boundary_masks = [
+        _mask_array_for_data_var(data_, var_name, dataset_spec=dataset_spec)
+        for var_name in boundary_var_names
+    ]
+    wet_surface_mask_np = (
+        np.stack(boundary_masks)
+        if len(set(boundary_mask_vars)) > 1
+        else boundary_masks[0]
     )
 
-    wet_inp = torch.from_numpy(wet_mask_np[depth_ind])
+    wet_inp = torch.from_numpy(wet_inp_np)
     wet_surface = torch.from_numpy(wet_surface_mask_np)
     return Masks(wet_inp.bool(), wet_surface.bool())
-
-
-def _parse_lev_from_output_var(
-    prognostic_var_names: PrognosticVarNames,
-    *,
-    dataset_spec: DatasetSpec,
-) -> list[int]:
-    """Parse the `lev` dimension from the output var names. Default: 0 for surface."""
-    depth_inds = []
-    for var_depth_i in prognostic_var_names:
-        # Examples: "so_18", "zos"
-        var_split = var_depth_i.split("_")
-        if len(var_split) == 1:
-            depth_inds.append(0)
-        else:
-            depth_inds.append(int(var_split[-1]))
-
-    return depth_inds
 
 
 def flatten_masks(

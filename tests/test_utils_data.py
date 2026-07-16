@@ -252,10 +252,14 @@ def test_canonicalize_llc_datasets_standardizes_layout():
     assert "U_0" in llc_data.variables
     assert "V_0" in llc_data.variables
     assert "wetmask_0" in llc_data.variables
+    assert "mask_w_0" in llc_data.variables
+    assert "mask_s_0" in llc_data.variables
     assert llc_data["Theta_0"].dims == ("time", "y", "x")
     assert llc_data["U_0"].dims == ("time", "y", "x")
     assert llc_data["V_0"].dims == ("time", "y", "x")
     assert llc_data["wetmask_0"].dims == ("y", "x")
+    assert llc_data["mask_w_0"].dims == ("y", "x")
+    assert llc_data["mask_s_0"].dims == ("y", "x")
     assert llc_data["Theta_0"].shape == (3, 2, 3)
     assert llc_data["Theta_0"].isel(time=0, y=0, x=0).item() == expected_theta_0
     assert np.issubdtype(llc_data.time.dtype, np.datetime64)
@@ -289,6 +293,47 @@ def test_canonicalize_llc_datasets_selects_requested_vars_from_full_root():
     assert expected_vars.issubset(llc_data.data_vars)
     assert "XG" not in llc_data.data_vars
     assert "hFacW" not in llc_data.data_vars
+    assert "mask_w_0" not in llc_data.data_vars
+
+
+def test_llc_all_variable_masks_use_staggered_masks():
+    data, means, stds = raw_llc_datasets()
+    dataset_spec = build_llc_spec(prognostic_vars_key="all", boundary_vars_key="all")
+    llc_data, llc_means, llc_stds = canonicalize_llc_datasets(
+        data,
+        means,
+        stds,
+        face=1,
+        i_start=1,
+        i_end=4,
+        j_start=1,
+        j_end=3,
+        dataset_spec=dataset_spec,
+    )
+
+    source = DataSource.from_datasets(
+        llc_data,
+        llc_means,
+        llc_stds,
+        dataset_spec=dataset_spec,
+        prognostic_var_names=dataset_spec.prognostic_var_names,
+        boundary_var_names=dataset_spec.boundary_var_names,
+    )
+
+    theta_index = dataset_spec.prognostic_var_names.index("Theta_0")
+    u_index = dataset_spec.prognostic_var_names.index("U_0")
+    v_index = dataset_spec.prognostic_var_names.index("V_0")
+    assert bool(source.masks.prognostic[theta_index, 0, 0])
+    assert not bool(source.masks.prognostic[u_index, 0, 0])
+    assert not bool(source.masks.prognostic[v_index, 0, 1])
+
+    tau_x_index = dataset_spec.boundary_var_names.index("oceTAUX")
+    tau_y_index = dataset_spec.boundary_var_names.index("oceTAUY")
+    qnet_index = dataset_spec.boundary_var_names.index("oceQnet")
+    assert source.masks.boundary.shape == (len(dataset_spec.boundary_var_names), 2, 3)
+    assert not bool(source.masks.boundary[tau_x_index, 0, 0])
+    assert not bool(source.masks.boundary[tau_y_index, 0, 1])
+    assert bool(source.masks.boundary[qnet_index, 0, 0])
 
 
 @pytest.fixture

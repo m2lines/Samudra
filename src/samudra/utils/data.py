@@ -692,9 +692,7 @@ def _mask_var_for_data_var(
         "oceTAUY": ("mask_s_0", "hFacS_0"),
     }
     if dataset_spec.type == "llc" and base_var in llc_staggered_masks:
-        if mask_var := _preferred_available_var(
-            data, llc_staggered_masks[base_var]
-        ):
+        if mask_var := _preferred_available_var(data, llc_staggered_masks[base_var]):
             return mask_var
     return dataset_spec.mask_vars[level]
 

@@ -144,12 +144,17 @@ sbatch \
 ### Validated 4x RTX6000 Multi-Resolution Training
 
 One known-working configuration on torch is:
-* The 1, 1/2, and 1/4 degree configuration on `configs/samudra_multi_om4/train.yaml`
-* 4 x RTX6000, 24 CPUs, 800G memory and 2 data load workers (for CPU memory reasons)
-* Using `--preemptible=true` and a 48-hour wall time to make it scheduable.
+
+- The 1, 1/2, and 1/4 degree configuration in
+  `configs/samudra_multi_om4/train.yaml`.
+- 4 x RTX6000, 24 CPUs, 800G memory, and two data-loader workers per rank.
+- `--preemptible=true` with a seven-day walltime. Torch accepts this shape
+  under the `gpu168` QoS, which limits jobs over 48 hours to four GPUs total
+  per user.
 
 The 24-CPU request was sufficient to keep observed data wait near zero, and
-the 2 data load workers kept CPU memory under 800G. Ie something like:
+the two-worker run progressed without an OOM, although it touched the 800G
+cgroup limit under peak loading. For example:
 
 ```bash
 export CONFIG=configs/samudra_multi_om4/train.yaml
@@ -158,7 +163,7 @@ export DATA_ROOT=/scratch/$USER/data
 export OUTPUT_BASE=/scratch/$USER/runs
 export WANDB_MODE=online
 export REQUEUE_ON_USR1=1
-export ARGS="--data.loading.num_workers=4 --preemptible=true"
+export ARGS="--data.loading.num_workers=2 --preemptible=true"
 
 # Pin the exact image rather than depending on mutable wrapper defaults.
 export IMAGE_REF=ghcr.io/<owner>/ocean-emulator-physicsnemo:<pinned-tag>

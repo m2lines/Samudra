@@ -6,6 +6,7 @@ import json
 import logging
 import tempfile
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 import torch
@@ -300,6 +301,32 @@ def test_should_log_validation_images_rejects_invalid_inputs():
 
     with pytest.raises(ValueError, match="Validation image log frequency must be >= 1"):
         should_log_validation_images(1, 0)
+
+
+def test_run_closes_training_and_inference_loaders(monkeypatch):
+    class CloseSpy:
+        def __init__(self):
+            self.closed = False
+
+        def close(self):
+            self.closed = True
+
+    trainer = cast(Any, Trainer.__new__(Trainer))
+    trainer.train_loader = CloseSpy()
+    trainer.val_loader = CloseSpy()
+    trainer.inference_loader = object()
+    trainer._run = lambda: None
+    closed_inference_loaders: list[object] = []
+    monkeypatch.setattr(
+        "samudra.train.close_pytorch_dataloader",
+        closed_inference_loaders.append,
+    )
+
+    trainer.run()
+
+    assert trainer.train_loader.closed
+    assert trainer.val_loader.closed
+    assert closed_inference_loaders == [trainer.inference_loader]
 
 
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)

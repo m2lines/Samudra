@@ -152,6 +152,7 @@ extra-build-dependencies.flash-attn = [ { requirement = "torch", match-runtime =
 extra-build-variables.flash-attn = { FLASH_ATTENTION_SKIP_CUDA_BUILD = "TRUE" }
 
 [tool.uv.sources]
+samudra-rust-loader = { path = "rust/crab_load" }
 flash-attn = [
   # On Arm, we want to support CUDA 13 (PhysicsNeMo's ARM64 image uses it and we want to match as closely as possible),
   # and PyPI has no matching binary wheel so we grab the one direct from github.

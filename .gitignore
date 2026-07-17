@@ -48,3 +48,4 @@ build/
 .claude/
 site/
 profiles/
+rust/crab_load/target/

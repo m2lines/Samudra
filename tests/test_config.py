@@ -19,6 +19,7 @@ from samudra.config import (
     LlcTimeConfig,
     Om4DataSourceConfig,
     Om4TimeConfig,
+    RustDataLoadingConfig,
     TrainConfig,
 )
 from samudra.config_schema import get_pydantic_models
@@ -73,6 +74,42 @@ def test_data_config_defaults_to_cpu_loading():
     assert cfg.loading.num_workers == 4
     assert cfg.loading.num_pytorch_workers() == 4
     assert isinstance(cfg.sources[0], Om4DataSourceConfig)
+
+
+def test_data_config_accepts_rust_loading():
+    cfg = DataConfig(
+        sources=[om4_source_config()],
+        loading=RustDataLoadingConfig(
+            prefetch_batches=3,
+            max_concurrent_reads=12,
+            prefetch_to_device=False,
+        ),
+    )
+
+    assert cfg.loading.prefetch_batches == 3
+    assert cfg.loading.max_concurrent_reads == 12
+    assert cfg.loading.prefetch_to_device is False
+    assert cfg.loading.num_pytorch_workers() == 0
+    assert cfg.loading.persistent_pytorch_workers() is False
+
+
+@pytest.mark.parametrize("field", ["prefetch_batches", "max_concurrent_reads"])
+def test_rust_loading_requires_positive_bounds(field):
+    with pytest.raises(ValidationError, match=field):
+        RustDataLoadingConfig.model_validate({field: 0})
+
+
+def test_rust_loading_rejects_non_local_locations_before_open(tmp_path):
+    source = om4_source_config()
+    source.data_location = {
+        "type": "s3",
+        "bucket": "example",
+        "path": "data.zarr",
+    }
+    cfg = DataConfig(sources=[source], loading=RustDataLoadingConfig())
+
+    with pytest.raises(ValueError, match="requires local data"):
+        cfg.build(LocalLocation(path=tmp_path))
 
 
 def test_om4_dataset_config_retains_selected_variable_keys():

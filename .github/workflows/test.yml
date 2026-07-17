@@ -43,8 +43,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Install dependencies
-        run: uv sync --locked --dev
+        run: uv sync --locked --dev --extra rust
 
       - name: Run pytest
         run: uv run --locked pytest -n 2 -v -m "not manual and not cuda" --durations=20 --durations-min=1.0

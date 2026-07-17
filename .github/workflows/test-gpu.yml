@@ -55,8 +55,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Install dependencies
-        run: uv sync --locked --dev --extra cuda
+        run: uv sync --locked --dev --extra cuda --extra rust
 
       # Each test runs with a 5-minute timeout. The `-x` flag will stop on the first failure or hang.
       - name: Run pytest

@@ -57,8 +57,8 @@ data:
   concurrent_compute: true
   loading:
     type: cpu
-    # Two workers per rank avoided OOMs in the three-resolution, 4-GPU Torch
-    # run with the RTX6000 partition's 800G host-memory limit.
+    # Two workers per rank were validated for the three-resolution, 4-GPU
+    # Torch run with the RTX6000 partition's 800G host-memory limit.
     num_workers: 2
     persistent_workers: true
   sources:

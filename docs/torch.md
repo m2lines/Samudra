@@ -152,9 +152,12 @@ concurrent CPU loading, pinned memory, and two persistent loader workers per
 rank.
 
 On `rtx6000_lzanna`, the validated request is 4 GPUs, 24 CPUs, and 800G host
-memory. The current submit policy rejects a 900G request for 4 GPUs; a 700G run
-exhausted host memory. The 800G run can still touch its cgroup limit under peak
-loading, so monitor `memory.events` and Slurm `MaxRSS`. After both training and
+memory. A four-worker-per-rank run exhausted its 700G allocation, while the
+two-worker-per-rank retry used 800G and progressed successfully. Because both
+worker count and allocated memory changed, this does not show that four workers
+would fail at 800G. The validated 800G run can still touch its cgroup limit
+under peak loading, so monitor `memory.events` and Slurm `MaxRSS`. The current
+submit policy rejects a 900G request for 4 GPUs. After both training and
 validation loaders have been used, persistent loading produces 16 worker
 processes: two workers x two loaders x four ranks.
 

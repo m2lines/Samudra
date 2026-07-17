@@ -82,8 +82,9 @@ Key behavior:
 - Uses the container venv explicitly (`/workspace/.venv/bin/python`) to avoid missing deps.
 - To change training code or YAML configs, rebuild/publish a new container tag and
   point the harness at it (e.g. via `CONTAINER_HASH=<git_sha>`).
-- Keeps the repository working directory, pulled SIF, Apptainer caches, data
-  cache, and Slurm logs under `/scratch/$USER` by default.
+- Uses the Slurm submission directory for the working directory, pulled SIF,
+  data cache, and logs by default. The Torch training examples below override
+  these locations to `/scratch/$USER` so large files do not consume home quota.
 - If `NSYS_ARGS` is set and does not include `-o`/`--output`, reports are written under
   `${OUTPUT_BASE}/${NAME}/nsys/`.
 
@@ -118,8 +119,15 @@ Partition guidance:
 
 ```bash
 export CONFIG=configs/samudra_om4/train.yaml
-export NAME_SUFFIX=om4_samudra_baseline
+export NAME="$(date +%F)-om4-samudra-baseline"
 export ARGS="--batch_size=1"
+export REPO_DIR=/scratch/$USER
+export SIF_DIR=/scratch/$USER/.apptainer-images
+export APPTAINER_CACHEDIR=/scratch/$USER/apptainer-cache
+export SINGULARITY_CACHEDIR=/scratch/$USER/singularity-cache
+export DATA_CACHE_DIR=/scratch/$USER/.data_cache/$NAME
+export NCCL_P2P_DISABLE=1
+export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
 # Optional overrides (defaults are /scratch/$USER/data/om4_onedeg_v3 and /scratch/$USER/runs)
 # export DATA_ROOT=/scratch/$USER/data/om4_onedeg_v3
 # export OUTPUT_BASE=/scratch/$USER/runs
@@ -132,6 +140,9 @@ export CONTAINER_HASH=<git_sha>
 sbatch \
   --account=torch_pr_347_lzanna \
   --partition=rtx6000_lzanna \
+  --chdir=/scratch/$USER \
+  --output=/scratch/$USER/slurm-%j.out \
+  --error=/scratch/$USER/slurm-%j.err \
   --nodes=1 \
   --ntasks-per-node=1 \
   --cpus-per-task=128 \
@@ -164,11 +175,25 @@ export OUTPUT_BASE=/scratch/$USER/runs
 export WANDB_MODE=online
 export REQUEUE_ON_USR1=1
 export ARGS="--data.loading.num_workers=2 --preemptible=true"
+export REPO_DIR=/scratch/$USER
+export SIF_DIR=/scratch/$USER/.apptainer-images
+export APPTAINER_CACHEDIR=/scratch/$USER/apptainer-cache
+export SINGULARITY_CACHEDIR=/scratch/$USER/singularity-cache
+export DATA_CACHE_DIR=/scratch/$USER/.data_cache/$NAME
+export NCCL_P2P_DISABLE=1
+export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
 
 # Pin the exact image rather than depending on mutable wrapper defaults.
 export IMAGE_REF=ghcr.io/<owner>/ocean-emulator-physicsnemo:<pinned-tag>
 
 sbatch \
+  --account=torch_pr_347_lzanna \
+  --partition=rtx6000_lzanna \
+  --chdir=/scratch/$USER \
+  --output=/scratch/$USER/slurm-%j.out \
+  --error=/scratch/$USER/slurm-%j.err \
+  --nodes=1 \
+  --ntasks-per-node=1 \
   --cpus-per-task=24 \
   --mem=800G \
   --gres=gpu:rtx6000:4 \
@@ -178,12 +203,12 @@ sbatch \
   scripts/slurm_apptainer_train.sbatch
 ```
 
-The harness uses append mode because a requeued job keeps the same job ID and
-log paths. The batch-level (`B:`) USR1 signal reaches the harness, which calls
-`scontrol requeue`; on restart, the preemptible training configuration selects
-the run's latest checkpoint. The harness also defaults `NCCL_P2P_DISABLE=1` and
-`TORCH_NCCL_ASYNC_ERROR_HANDLING=1` for RTX6000 jobs; export different values
-before submission when another platform requires them.
+Command-line `sbatch` options override the corresponding directives embedded in
+the harness. The harness uses append mode because a requeued job keeps the same
+job ID and log paths. The batch-level (`B:`) USR1 signal reaches the harness,
+which calls `scontrol requeue`; on restart, the preemptible training
+configuration selects the run's latest checkpoint. The Torch examples set the
+RTX6000 NCCL environment explicitly instead of making it a harness default.
 
 To enable profiling for a run, you typically want something like this:
 
@@ -195,7 +220,8 @@ export NSYS_ARGS="--trace=cuda,nvtx,osrt,nccl --sample=cpu --delay=300 --duratio
 
 After submission:
 
-- Slurm stdout: `slurm-<jobid>.out` in the submission directory (usually the repo root on torch).
+- Slurm stdout: the path passed with `--output` (the examples use
+  `/scratch/$USER/slurm-<jobid>.out`).
 - Training log: `${OUTPUT_BASE}/${NAME:-$(date +%Y-%m-%d)-${NAME_SUFFIX}}/experiment.log`
 
 Useful commands:

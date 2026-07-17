@@ -11,11 +11,10 @@
 #   export NAME_SUFFIX=om4_samudra_baseline   # NAME becomes YYYY-MM-DD-<suffix>
 #   export ARGS="--epochs=2 --batch_size=1"
 #   export WANDB_API_KEY=...   # optional; if unset, wandb is disabled
-#   sbatch scripts/slurm_apptainer_train.sbatch
+#   sbatch --nodes=1 --gres=gpu:rtx6000:8 scripts/slurm_apptainer_train.sbatch
 #
 # Multi-node example (requires enough nodes available):
-#   sbatch --nodes=2 --cpus-per-task=128 --mem=1400G \
-#     --gres=gpu:rtx6000:8 scripts/slurm_apptainer_train.sbatch
+#   sbatch --nodes=2 --gres=gpu:rtx6000:8 scripts/slurm_apptainer_train.sbatch
 #
 # Container selection (pick one):
 #   export IMAGE_REF=ghcr.io/m2lines/ocean-emulator-physicsnemo:26.05-<hash>
@@ -32,11 +31,9 @@
 #   #   ${OUTPUT_BASE}/${NAME}/nsys/
 
 #SBATCH --job-name=oe-train
-#SBATCH --output=/scratch/%u/slurm-%j.out
-#SBATCH --error=/scratch/%u/slurm-%j.err
+#SBATCH --output=slurm-%j.out
 #SBATCH --open-mode=append
-#SBATCH --account=torch_pr_347_lzanna
-#SBATCH --partition=rtx6000_lzanna
+#SBATCH --account=torch_pr_347_courant
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 # For 8-GPU runs on gr102, request full-node CPUs and QOS-capped memory.
@@ -160,13 +157,11 @@ if [[ -z "${IMAGE_REF}" ]]; then
   IMAGE_REF="${CONTAINER_REGISTRY}/${CONTAINER_ORG}/${CONTAINER_REPO}:${CONTAINER_TAG}"
 fi
 
-REPO_DIR="${REPO_DIR:-/scratch/${CURRENT_USER}}"
+REPO_DIR="${REPO_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}"
 cd "${REPO_DIR}"
 
 SIF_DIR="${SIF_DIR:-${REPO_DIR}/.apptainer-images}"
-export APPTAINER_CACHEDIR="${APPTAINER_CACHEDIR:-/scratch/${CURRENT_USER}/apptainer-cache}"
-export SINGULARITY_CACHEDIR="${SINGULARITY_CACHEDIR:-/scratch/${CURRENT_USER}/singularity-cache}"
-mkdir -p "${SIF_DIR}" "${APPTAINER_CACHEDIR}" "${SINGULARITY_CACHEDIR}"
+mkdir -p "${SIF_DIR}"
 # Default cache name keys off IMAGE_REF so distinct refs never collide.
 IMAGE_REF_SAFE="$(echo "${IMAGE_REF}" | tr '/:@' '---')"
 SIF_PATH="${SIF_PATH:-${SIF_DIR}/${IMAGE_REF_SAFE}.sif}"
@@ -238,8 +233,6 @@ export MKL_NUM_THREADS="${MKL_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export OPENBLAS_NUM_THREADS="${OPENBLAS_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export NUMEXPR_NUM_THREADS="${NUMEXPR_NUM_THREADS:-${OMP_NUM_THREADS}}"
 export PYTHONUNBUFFERED=1
-export NCCL_P2P_DISABLE="${NCCL_P2P_DISABLE:-1}"
-export TORCH_NCCL_ASYNC_ERROR_HANDLING="${TORCH_NCCL_ASYNC_ERROR_HANDLING:-1}"
 export PYTHONNOUSERSITE="${PYTHONNOUSERSITE:-1}"
 export APPTAINERENV_PYTHONNOUSERSITE="${APPTAINERENV_PYTHONNOUSERSITE:-${PYTHONNOUSERSITE}}"
 export SINGULARITYENV_PYTHONNOUSERSITE="${SINGULARITYENV_PYTHONNOUSERSITE:-${PYTHONNOUSERSITE}}"

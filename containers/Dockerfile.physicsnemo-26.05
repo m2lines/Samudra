@@ -42,6 +42,7 @@ RUN apt-get update \
     && nsys --version
 
 COPY LICENSE README.md pyproject.toml uv.lock ./
+COPY .cargo ./.cargo
 COPY src ./src
 COPY configs ./configs
 COPY tests ./tests

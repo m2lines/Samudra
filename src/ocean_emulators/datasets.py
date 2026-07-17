@@ -1,4 +1,5 @@
 import dataclasses
+import json
 import logging
 import os
 import time
@@ -563,18 +564,32 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     FLAG = LoaderVersion.OM4_TORCH
 
     @staticmethod
-    def _with_boundary_cache(boundary_src: DataSource) -> DataSource:
+    def _with_boundary_cache(
+        boundary_src: DataSource,
+        boundary_var_names: BoundaryVarNames,
+    ) -> DataSource:
         """Replace a 003 boundary view with the pre-sliced boundary test cache."""
         cache = xr.open_zarr(_BOUNDARY_CACHE_LOCATION, chunks=None)
-        channel_coords = boundary_src.data["boundary_channel"]
+        cache_channel_names = json.loads(cache.attrs["boundary_channel_names_json"])
+        try:
+            cache_channel_indices = [
+                cache_channel_names.index(name) for name in boundary_var_names
+            ]
+        except ValueError as error:
+            raise ValueError(
+                "Boundary cache does not contain all configured boundary variables: "
+                f"requested={list(boundary_var_names)}, "
+                f"available={cache_channel_names}"
+            ) from error
         source_times = boundary_src.data.time.values
         cache_times = (
             source_times
             if np.issubdtype(source_times.dtype, np.datetime64)
             else np.asarray([np.datetime64(str(time)) for time in source_times])
         )
-        cache_boundary = cache.sel(
-            boundary_channel=channel_coords,
+        cache_boundary = cache.isel(
+            boundary_channel=cache_channel_indices,
+        ).sel(
             time=cache_times,
         )
 
@@ -627,7 +642,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         data = src.data
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = self._with_boundary_cache(
-            src.filter(boundary_var_names, prefix="boundary")
+            src.filter(boundary_var_names, prefix="boundary"),
+            boundary_var_names,
         )
 
         # This class will be used only for training and validation

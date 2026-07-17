@@ -86,9 +86,6 @@ Key behavior:
   cache, and Slurm logs under `/scratch/$USER` by default.
 - If `NSYS_ARGS` is set and does not include `-o`/`--output`, reports are written under
   `${OUTPUT_BASE}/${NAME}/nsys/`.
-- Defaults to the validated 4-GPU multi-resolution request on
-  `rtx6000_lzanna`: 24 CPUs, 800G memory, and a 48-hour walltime. Override the
-  `#SBATCH` defaults at submission time for other model or node sizes.
 
 When `preemptible: true`, training detects the latest checkpoint in an existing
 run directory and resumes from it after a Slurm requeue. The requeue hook does
@@ -146,26 +143,13 @@ sbatch \
 
 ### Validated 4x RTX6000 Multi-Resolution Training
 
-The 1, 1/2, and 1/4 degree configuration is
-`configs/samudra_multi_om4/train.yaml`. It uses a matching-resolution schedule,
-concurrent CPU loading, pinned memory, and two persistent loader workers per
-rank.
+One known-working configuration on torch is:
+* The 1, 1/2, and 1/4 degree configuration on `configs/samudra_multi_om4/train.yaml`
+* 4 x RTX6000, 24 CPUs, 800G memory and 2 data load workers (for CPU memory reasons)
+* Using `--preemptible=true` and a 48-hour wall time to make it scheduable.
 
-On `rtx6000_lzanna`, the validated request is 4 GPUs, 24 CPUs, and 800G host
-memory. A four-worker-per-rank run exhausted its 700G allocation, while the
-two-worker-per-rank retry used 800G and progressed successfully. Because both
-worker count and allocated memory changed, this does not show that four workers
-would fail at 800G. The validated 800G run can still touch its cgroup limit
-under peak loading, so monitor `memory.events` and Slurm `MaxRSS`. The current
-submit policy rejects a 900G request for 4 GPUs. After both training and
-validation loaders have been used, persistent loading produces 16 worker
-processes: two workers x two loaders x four ranks.
-
-The 24-CPU request was sufficient to keep observed data wait near zero and can
-start when CPU-only work prevents a 64-CPU request from being placed. These
-resources, scratch-backed execution paths, and append-mode logging are defaults
-in the training harness. The submit command only needs to opt into deadline
-requeueing:
+The 24-CPU request was sufficient to keep observed data wait near zero, and
+the 2 data load workers kept CPU memory under 800G. Ie something like:
 
 ```bash
 export CONFIG=configs/samudra_multi_om4/train.yaml
@@ -174,6 +158,7 @@ export DATA_ROOT=/scratch/$USER/data
 export OUTPUT_BASE=/scratch/$USER/runs
 export WANDB_MODE=online
 export REQUEUE_ON_USR1=1
+export ARGS="--data.loading.num_workers=4 --preemptible=true"
 
 # Pin the exact image rather than depending on mutable wrapper defaults.
 export IMAGE_REF=ghcr.io/<owner>/ocean-emulator-physicsnemo:<pinned-tag>

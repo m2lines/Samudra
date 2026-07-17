@@ -36,7 +36,7 @@ inference_times:
 data_stride: [1]
 steps: [4]
 step_transition: []
-preemptible: true
+preemptible: false
 
 backend: auto
 
@@ -57,10 +57,7 @@ data:
   concurrent_compute: true
   loading:
     type: cpu
-    # Two workers per rank were validated for the three-resolution, 4-GPU
-    # Torch run with the RTX6000 partition's 800G host-memory limit.
-    num_workers: 2
-    persistent_workers: true
+    num_workers: 4
   sources:
     - data_location: om4_quarterdeg_v2/OM4.zarr
       data_means_location: om4_quarterdeg_v2/OM4_means.zarr

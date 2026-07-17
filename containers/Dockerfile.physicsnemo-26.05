@@ -43,6 +43,7 @@ COPY LICENSE README.md pyproject.toml uv.lock ./
 COPY src ./src
 COPY configs ./configs
 COPY tests ./tests
+COPY rust/crab_load ./rust/crab_load
 COPY scripts/container ./scripts/container
 
 # Bind-mount targets used by Slurm harnesses (ensure they exist in the image so
@@ -56,9 +57,13 @@ RUN python scripts/container/verify_image_packages.py
 RUN uv venv .venv --python /usr/bin/python3 --system-site-packages
 
 # Keep torch/torchvision/flash-attn from the base image; install the rest with uv.
-# This is a development container, so include dev dependencies too.
-RUN . .venv/bin/activate \
-    && uv sync --frozen --active --extra cuda \
+# Build the local Rust extension with a pinned, temporary toolchain. This is a
+# development container, so include dev dependencies too.
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+        | sh -s -- -y --profile minimal --default-toolchain 1.88.0 \
+    && . /root/.cargo/env \
+    && . .venv/bin/activate \
+    && uv sync --frozen --active --extra cuda --extra rust \
         --no-install-package torch \
         --no-install-package torchvision \
         --no-install-package flash-attn \
@@ -92,7 +97,8 @@ RUN . .venv/bin/activate \
         --no-install-package nvidia-nvjitlink \
         --no-install-package nvidia-nvshmem-cu13 \
         --no-install-package nvidia-nvtx \
-        --no-install-package triton
+        --no-install-package triton \
+    && rm -rf /root/.cargo /root/.rustup rust/crab_load/target
 
 RUN . .venv/bin/activate \
     && python scripts/container/smoke_test.py

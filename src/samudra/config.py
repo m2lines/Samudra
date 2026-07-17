@@ -190,10 +190,37 @@ class GpuDataLoadingConfig(BaseDataLoadingConfig):
         return False
 
 
+class RustDataLoadingConfig(BaseDataLoadingConfig):
+    """Configuration for the local Rust Zarr data loader."""
+
+    type: Literal["rust"] = "rust"
+    prefetch_batches: int = Field(default=2, ge=1)
+    max_concurrent_reads: int = Field(
+        default=32,
+        ge=1,
+        description="Shared native Zarr read concurrency limit for this process/rank.",
+    )
+    prefetch_to_device: bool = True
+
+    def num_pytorch_workers(self) -> int:
+        # Rust owns I/O concurrency, so samples stay in the training process.
+        return 0
+
+    def persistent_pytorch_workers(self) -> bool:
+        return False
+
+
 DataLoadingConfig = Annotated[
-    CpuDataLoadingConfig | GpuDataLoadingConfig,
+    CpuDataLoadingConfig | GpuDataLoadingConfig | RustDataLoadingConfig,
     Field(discriminator="type"),
 ]
+
+
+class InferenceDataLoadingConfig(BaseConfig):
+    """PyTorch worker policy for inference, independent of training I/O."""
+
+    num_workers: int = Field(default=4, ge=0)
+    persistent_workers: bool = True
 
 
 class Om4DatasetConfig(BaseConfig):
@@ -242,6 +269,9 @@ class DataConfig(BaseConfig):
     )
     static_data_vars: list[str] | None = None
     loading: DataLoadingConfig = Field(default_factory=CpuDataLoadingConfig)
+    inference_loading: InferenceDataLoadingConfig = Field(
+        default_factory=InferenceDataLoadingConfig
+    )
     hist: int = 1
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
     normalize_before_mask: bool = True
@@ -260,6 +290,10 @@ class DataConfig(BaseConfig):
                 "reader support follows in the next slice."
             )
 
+        from samudra.data_backend import build_training_source_backend
+
+        source_backend = build_training_source_backend(self.loading)
+
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
 
@@ -272,7 +306,14 @@ class DataConfig(BaseConfig):
             resolved_data_location = data_root.resolve(data_location)
             resolved_means_location = data_root.resolve(means_location)
             resolved_stds_location = data_root.resolve(stds_location)
-            return CanonicalDataset.from_locations(
+            if not turn_on_dask:
+                source_backend.validate(
+                    data_location=resolved_data_location,
+                    means_location=resolved_means_location,
+                    stds_location=resolved_stds_location,
+                    dataset_spec=dataset_spec,
+                )
+            dataset = CanonicalDataset.from_locations(
                 data_location=resolved_data_location,
                 means_location=resolved_means_location,
                 stds_location=resolved_stds_location,
@@ -282,6 +323,15 @@ class DataConfig(BaseConfig):
                 static_data_vars=self.static_data_vars,
                 use_dask=turn_on_dask,
             )
+            if not turn_on_dask:
+                dataset = source_backend.prepare(
+                    dataset,
+                    data_location=resolved_data_location,
+                    means_location=resolved_means_location,
+                    stds_location=resolved_stds_location,
+                    dataset_spec=dataset_spec,
+                )
+            return dataset
 
         sources = []
         for source_cfg in self.sources:

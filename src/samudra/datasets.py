@@ -382,6 +382,16 @@ class TrainBatchLoader(Protocol):
     def close(self) -> None: ...
 
 
+def close_pytorch_dataloader(dataloader: torch.utils.data.DataLoader) -> None:
+    """Deterministically stop persistent workers created by a PyTorch loader."""
+    iterator = dataloader._iterator
+    if iterator is not None:
+        shutdown_workers = getattr(iterator, "_shutdown_workers", None)
+        if shutdown_workers is not None:
+            shutdown_workers()
+        dataloader._iterator = None
+
+
 @dataclass(frozen=True)
 class BatchReadUse:
     """One canonical source read and its model-facing preparation policy."""
@@ -811,12 +821,7 @@ class TrainDataLoader:
 
     def close(self) -> None:
         """Release persistent PyTorch workers owned by this loader."""
-        iterator = self._dataloader._iterator
-        if iterator is not None:
-            shutdown_workers = getattr(iterator, "_shutdown_workers", None)
-            if shutdown_workers is not None:
-                shutdown_workers()
-            self._dataloader._iterator = None
+        close_pytorch_dataloader(self._dataloader)
 
     def __getitem__(self, index: int) -> TrainData:
         """Access a single item by index, converting RawTrainData to TrainData.

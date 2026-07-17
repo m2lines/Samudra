@@ -4,7 +4,6 @@
 
 import logging
 import time
-from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import ClassVar, final
 
@@ -14,7 +13,6 @@ import xarray as xr
 from einops import rearrange
 from jaxtyping import Float
 from torch.utils.data import Dataset
-from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 
 from samudra.constants import (
     Boundary,
@@ -28,7 +26,12 @@ from samudra.constants import (
     PrognosticVarNames,
 )
 from samudra.utils.ctx import GridContext
-from samudra.utils.data import DataSource, LoadStats, OceanData, conditional_rearrange
+from samudra.utils.data import (
+    CanonicalDataset,
+    CanonicalReadRequest,
+    LoadStats,
+    OceanData,
+)
 from samudra.utils.device import using_gpu
 from samudra.utils.logging import elapsed
 
@@ -52,7 +55,7 @@ class InferenceDataset(Dataset):
     @elapsed
     def __init__(
         self,
-        src: DataSource,
+        src: CanonicalDataset,
         prognostic_var_names,
         boundary_var_names,
         hist,
@@ -68,15 +71,16 @@ class InferenceDataset(Dataset):
         self.hist = hist
 
         self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
-        data = src.data
         self.input_res = src.resolution
-        self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
-        self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
-        self._times = data.time
+        self._prognostic_src = src.select_channels(
+            prognostic_var_names, prefix="prognostic"
+        )
+        self._boundary_src = src.select_channels(boundary_var_names, prefix="boundary")
+        self._times = src.time
         self.normalize_before_mask = normalize_before_mask
         self.masked_fill_value = masked_fill_value
 
-        time_indices = np.arange(data.time.size)
+        time_indices = np.arange(src.time.size)
         indices = xr.DataArray(
             time_indices,
             dims=["time"],
@@ -96,8 +100,8 @@ class InferenceDataset(Dataset):
 
         if long_rollout:
             logger.info(
-                f"Long rollout will use input at time {data.time.values[0]} and produce"
-                f" output at {data.time.values[self.hist + 1]}"
+                f"Long rollout will use input at time {src.time.values[0]} and produce"
+                f" output at {src.time.values[self.hist + 1]}"
             )
 
         self.wet: PrognosticMask = src.masks.prognostic
@@ -197,39 +201,11 @@ class InferenceDataset(Dataset):
         return x_index
 
     def _get_prognostic(self, x_index):
-        data_in_src = self._prognostic_src.map_data(
-            lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.hist + 1))
+        return self._read_and_prepare(
+            self._prognostic_src,
+            x_index.values[:, : self.hist + 1],
+            mask=self.wet,
         )
-        if self.normalize_before_mask:
-            data_in_ds = data_in_src.normalize()
-        else:
-            data_in_ds = data_in_src.data
-
-        if "lev" in data_in_ds.dims:
-            data_in_np: np.ndarray = (
-                conditional_rearrange(
-                    data_in_ds,
-                    "window_dim time (variable lev)=var lat lon",
-                    concat_dim="var",
-                )
-                .rename({"var": "variable"})
-                .to_numpy()
-            )
-        else:
-            data_in_np = (
-                data_in_ds.to_array()
-                .transpose("window_dim", "time", "variable", "lat", "lon")
-                .to_numpy()
-            )
-        data_in: torch.Tensor = torch.from_numpy(data_in_np).float()
-        data_in = torch.where(self.wet, data_in, self.masked_fill_value)
-        if not self.normalize_before_mask:
-            data_in = self._prognostic_src.normalize_with(data_in, variable_axis=2)
-        data_in = rearrange(
-            data_in,
-            "window_dim time variable lat lon -> window_dim (time variable) lat lon",
-        )
-        return data_in
 
     def _get_boundary(self, x_index):
         """
@@ -238,70 +214,37 @@ class InferenceDataset(Dataset):
         With hist > 0, the boundary condition considered is always the last step of
         the input.
         """
-        data_in_boundary_src = self._boundary_src.map_data(
-            lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.hist + 1))
+        return self._read_and_prepare(
+            self._boundary_src,
+            x_index.values[:, : self.hist + 1],
+            mask=self.wet_surface,
         )
-        if self.normalize_before_mask:
-            data_in_boundary_ds = data_in_boundary_src.normalize()
-        else:
-            data_in_boundary_ds = data_in_boundary_src.data
-        data_in_boundary_np: np.ndarray = (
-            data_in_boundary_ds.to_array()
-            .transpose("window_dim", "time", "variable", "lat", "lon")
-            .to_numpy()
-        )
-        data_in_boundary: torch.Tensor = torch.from_numpy(data_in_boundary_np).float()
-        data_in_boundary = torch.where(
-            self.wet_surface, data_in_boundary, self.masked_fill_value
-        )
-        if not self.normalize_before_mask:
-            data_in_boundary = self._boundary_src.normalize_with(
-                data_in_boundary, variable_axis=2
-            )
-        data_in_boundary = rearrange(
-            data_in_boundary,
-            "window_dim time variable lat lon -> window_dim (time variable) lat lon",
-        )
-        return data_in_boundary
 
     def _get_label(self, x_index):
-        label_src = self._prognostic_src.map_data(
-            lambda ds: ds.isel(time=x_index).isel(time=slice(self.hist + 1, None))
+        return self._read_and_prepare(
+            self._prognostic_src,
+            x_index.values[:, self.hist + 1 :],
+            mask=self.wet,
         )
-        if self.normalize_before_mask:
-            label_ds = label_src.normalize()
-        else:
-            label_ds = label_src.data
-        if "lev" in label_ds.dims:
-            label_np: np.ndarray = (
-                conditional_rearrange(
-                    label_ds,
-                    "window_dim time (variable lev)=var lat lon",
-                    concat_dim="var",
-                )
-                .rename({"var": "variable"})
-                .to_numpy()
-            )
-        else:
-            label_np = (
-                label_ds.to_array()
-                .transpose("window_dim", "time", "variable", "lat", "lon")
-                .to_numpy()
-            )
-        label: torch.Tensor = torch.from_numpy(label_np).float()
-        label = torch.where(self.wet, label, self.masked_fill_value)
-        if not self.normalize_before_mask:
-            label = self._prognostic_src.normalize_with(label, variable_axis=2)
-        label = rearrange(
-            label,
+
+    def _read_and_prepare(
+        self,
+        src: CanonicalDataset,
+        time_indices: np.ndarray,
+        *,
+        mask: torch.Tensor,
+    ) -> torch.Tensor:
+        data = torch.from_numpy(src.read(CanonicalReadRequest(time_indices)).values)
+        prepared = OceanData.from_data_source(data, mask, src).normalize_and_mask(
+            self.normalize_before_mask, self.masked_fill_value
+        )
+        return rearrange(
+            prepared,
             "window_dim time variable lat lon -> window_dim (time variable) lat lon",
         )
-        return label
 
     def get_coords_dict(self):
-        return {
-            co: self._prognostic_src.data[co] for co in self._prognostic_src.data.coords
-        }
+        return self._prognostic_src.coordinates()
 
 
 class InferenceDatasets(Dataset):
@@ -458,8 +401,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     @elapsed
     def __init__(
         self,
-        src: DataSource,
-        dst: DataSource | None,
+        src: CanonicalDataset,
+        dst: CanonicalDataset | None,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         hist: int,
@@ -471,7 +414,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     ):
         super().__init__()
         self.id = f"{self.__class__.__name__}_{str(id(self))}"
-        # If the src and dst DataSource are the same, we can do a lot less work.
+        # If the src and dst CanonicalDataset are the same, we can do a lot less work.
         srcs = [src, dst] if dst else [src]
 
         self.hist: int = hist
@@ -483,14 +426,14 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         self.num_boundary_channels: int = (hist + 1) * len(boundary_var_names)
-        assert np.array_equal(srcs[0].data.time, srcs[-1].data.time), (
-            "src and dst DataSource have different time slices!"
+        assert np.array_equal(srcs[0].time, srcs[-1].time), (
+            "src and dst canonical datasets have different time slices!"
         )
-        time_ = src.data.time
+        time_ = src.time
         self.prognostic_srcs = [
-            src.filter(prognostic_var_names, prefix="prog") for src in srcs
+            src.select_channels(prognostic_var_names, prefix="prog") for src in srcs
         ]
-        self.boundary_src = src.filter(boundary_var_names, prefix="boundary")
+        self.boundary_src = src.select_channels(boundary_var_names, prefix="boundary")
 
         # This class will be used only for training and validation
         total_steps: int = 2 * self.hist + 2
@@ -541,52 +484,26 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             current_x_index = x_index.isel(time=slice(0, self.hist + 1))
             forecast_x_index = x_index.isel(time=slice(self.hist + 1, None))
 
-            # Only materialize the time ranges we actually use to reduce memory.
-            input_selected = self.prognostic_srcs[0].data.isel(time=current_x_index)
-            boundary_selected = self.boundary_src.data.isel(time=current_x_index)
-            label_selected = self.prognostic_srcs[-1].data.isel(
-                time=forecast_x_index
-            )  # forecasted data
-            prognostic_selected = [input_selected, label_selected]
-
-            if self._concurrent_compute:
-                datasets = prognostic_selected + [boundary_selected]
-                concurrent_compute(
-                    *datasets,
-                    executor=self._get_executor(),
-                )
-
-            if "lev" in prognostic_selected[0].dims:
-                prognostics = [
-                    torch.from_numpy(
-                        conditional_rearrange(
-                            selected,
-                            "time (variable lev)=var lat lon",
-                            concat_dim="var",
-                        )
-                        .rename({"var": "variable"})
-                        .to_numpy()
-                        .astype(np.float32, copy=False)
-                    )
-                    for selected in prognostic_selected
-                ]
-            else:
-                prognostics = [
-                    torch.from_numpy(
-                        selected.to_array()
-                        .transpose("time", "variable", "lat", "lon")
-                        .to_numpy()
-                        .astype(np.float32, copy=False)
-                    )
-                    for selected in prognostic_selected
-                ]
-            boundary = torch.from_numpy(
-                boundary_selected.to_array()
-                .transpose("time", "variable", "lat", "lon")
-                .to_numpy()
-                .astype(np.float32, copy=False)
+            reads = (
+                (
+                    self.prognostic_srcs[0],
+                    CanonicalReadRequest(current_x_index.values),
+                ),
+                (self.boundary_src, CanonicalReadRequest(current_x_index.values)),
+                (
+                    self.prognostic_srcs[-1],
+                    CanonicalReadRequest(forecast_x_index.values),
+                ),
             )
-            input_, label = prognostics[0], prognostics[-1]
+            if self._concurrent_compute:
+                executor = self._get_executor()
+                futures = [
+                    executor.submit(source.read, request) for source, request in reads
+                ]
+                loaded = [future.result().values for future in futures]
+            else:
+                loaded = [source.read(request).values for source, request in reads]
+            input_, boundary, label = map(torch.from_numpy, loaded)
             TD.insert(input_, boundary, label)
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
 
@@ -656,21 +573,6 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
         window_index = idx + step * (self.hist + 1) * self.stride
         return self.rolling_indices.isel(window=window_index, drop=True)
-
-
-def concurrent_compute(
-    *datasets: xr.Dataset,
-    executor: ThreadPoolExecutor,
-) -> None:
-    def load_variable_data(var: xr.Variable) -> None:
-        var.load()
-
-    futures = []
-    for ds in datasets:
-        for var in ds.data_vars.variables.values():
-            futures.append(executor.submit(load_variable_data, var))
-
-    wait(futures)
 
 
 @final

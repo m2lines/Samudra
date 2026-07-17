@@ -12,7 +12,7 @@ import xarray as xr
 from samudra.aggregator.metrics import area_weighted_sum
 from samudra.derived_variables import compute_global_ocean_heat_content
 from samudra.models.corrector import OceanHeatCorrector, ReLUCorrector
-from samudra.utils.data import DataSource, Masks, Normalize
+from samudra.utils.data import CanonicalDataset, Masks, Normalize
 from samudra.utils.device import get_device
 from tests.conftest import TEST_DATASET_SPEC
 
@@ -67,7 +67,7 @@ def corrector_init():
             self.dz = torch.tensor([1.0, 1.0])
 
     tensor_map = MockTensorMap()
-    test = DataSource(
+    test = CanonicalDataset.from_canonical_datasets(
         "test",
         data,
         data_mean,
@@ -171,7 +171,7 @@ def ocean_heat_init():
     # Create test wet mask
     wet_mask = torch.tensor([[1.0, 0.0], [1.0, 1.0]])
     masks = Masks(prognostic=wet_mask, boundary=wet_mask)
-    test = DataSource(
+    test = CanonicalDataset.from_canonical_datasets(
         "test",
         data,
         data_mean,

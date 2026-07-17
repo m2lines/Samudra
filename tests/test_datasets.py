@@ -30,7 +30,7 @@ from samudra.datasets import (
     TrainData,
     TrainDataLoader,
 )
-from samudra.utils.data import DataSource, Masks, Normalize
+from samudra.utils.data import CanonicalDataset, Masks, Normalize
 from samudra.utils.multiton import MultitonScope
 from samudra.utils.samplers import EquivalenceGroupBatchSampler
 from samudra.utils.train import collate_raw_train_data
@@ -54,15 +54,23 @@ def coarsen_data(ds: xr.Dataset) -> xr.Dataset:
 
 
 def coarsen_source(
-    src: DataSource,
+    src: CanonicalDataset,
     prognostic: list[str],
     boundary: list[str],
-) -> DataSource:
+) -> CanonicalDataset:
     # DEFAULT_CONFIG selects thermo_dynamic_5 plus tau_hfds from the larger mock
     # OM4 source; coarsen only those active variables to avoid extra Zarr reads.
-    coarsen_input = src.filter(prognostic + boundary, prefix="coarsen-input")
-    coarsened_src = coarsen_input.map_data(coarsen_data, suffix="half-size")
-    return dataclasses.replace(coarsened_src, masks=coarsen_masks(src.masks))
+    channels = tuple(prognostic + boundary)
+    coarsen_input = src.select_channels(channels, prefix="coarsen-input")
+    data, means, stds = coarsen_input._xarray_datasets_for_testing()
+    return CanonicalDataset.from_canonical_datasets(
+        name=f"{src.name}_half-size",
+        data=coarsen_data(data[list(channels)]),
+        means=means,
+        stds=stds,
+        masks=coarsen_masks(src.masks),
+        dataset_spec=src.dataset_spec,
+    )
 
 
 def coarsen_masks(masks: Masks) -> Masks:
@@ -112,13 +120,12 @@ def make_loader(
     )
     version = container.loader_version
     src = container.primary_source
-    if src.is_compact and version != LoaderVersion.OM4_TORCH:
-        pytest.skip(f"{version} does not support compact data.")
-
     with MultitonScope():
         match schedule:
             case "standard":
-                srcs: Iterable[tuple[DataSource, DataSource | None]] = [(src, None)]
+                srcs: Iterable[tuple[CanonicalDataset, CanonicalDataset | None]] = [
+                    (src, None)
+                ]
             case "match":
                 coarsened_src = coarsen_source(src, prognostic, boundary)
                 scales = [src, coarsened_src]
@@ -134,8 +141,8 @@ def make_loader(
             case LoaderVersion.OM4_TORCH:
                 dataset_list = [
                     TorchTrainDataset(
-                        src=src.slice(time_config),
-                        dst=dst.slice(time_config) if dst else None,
+                        src=src.slice_time(time_config),
+                        dst=dst.slice_time(time_config) if dst else None,
                         prognostic_var_names=prognostic,
                         boundary_var_names=boundary,
                         hist=cfg.data.hist,
@@ -531,12 +538,12 @@ def assert_equal_samples(original_samples, new_samples):
 # to a local directory of cached data.
 @pytest.mark.parametrize("data_source", ["mock-om4"], indirect=True)
 def test_compact_loader__equals_flat_loader(
-    data_source: DataSource, pytestconfig: pytest.Config
+    data_source: CanonicalDataset, pytestconfig: pytest.Config
 ):
     cache = cache_dir(pytestconfig)
     default_config = str(pytestconfig.rootpath / "configs" / DEFAULT_CONFIG)
 
-    def make_config(src: DataSource):
+    def make_config(src: CanonicalDataset):
         return TrainConfig.from_yaml_and_cli(
             [
                 default_config,
@@ -629,7 +636,7 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
         prognostic=wet,
         boundary=wet_surface,
     )
-    test = DataSource(
+    test = CanonicalDataset.from_canonical_datasets(
         "test",
         data,
         data_mean,

@@ -49,7 +49,7 @@ from samudra.models.modules.augment_input import (
 )
 from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from samudra.models.modules.encoder import patch_from
-from samudra.utils.data import DataContainer, DataSource, Normalize
+from samudra.utils.data import CanonicalDataset, DataContainer, Normalize
 from samudra.utils.location import LocalLocation, Location, ResolvedLocation
 from samudra.utils.loss import (
     DynamicLoss,
@@ -268,11 +268,11 @@ class DataConfig(BaseConfig):
             means_location: Location,
             stds_location: Location,
             turn_on_dask: bool = use_dask,
-        ) -> DataSource:
+        ) -> CanonicalDataset:
             resolved_data_location = data_root.resolve(data_location)
             resolved_means_location = data_root.resolve(means_location)
             resolved_stds_location = data_root.resolve(stds_location)
-            return DataSource.from_locations(
+            return CanonicalDataset.from_locations(
                 data_location=resolved_data_location,
                 means_location=resolved_means_location,
                 stds_location=resolved_stds_location,
@@ -308,7 +308,7 @@ class DataConfig(BaseConfig):
             )
 
         static_data = (
-            primary_source.data[self.static_data_vars]
+            primary_source.read_static(self.static_data_vars)
             if self.static_data_vars is not None
             else None
         )
@@ -734,7 +734,7 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         out_channels: int,
         hist: int,
         static_data_for_corrector: xr.Dataset | None,
-        srcs: list[DataSource],
+        srcs: list[CanonicalDataset],
         tensor_map: TensorMap,
         normalize: Normalize,
         dataset_spec: DatasetSpec,
@@ -761,7 +761,7 @@ class SamudraConfig(BaseModelConfig):
         out_channels: int,
         hist: int,
         static_data_for_corrector: xr.Dataset | None,
-        srcs: list[DataSource],
+        srcs: list[CanonicalDataset],
         tensor_map: TensorMap,
         normalize: Normalize,
         dataset_spec: DatasetSpec,
@@ -834,7 +834,7 @@ class SamudraMultiConfig(BaseModelConfig):
         out_channels: int,
         hist: int,
         static_data_for_corrector: xr.Dataset | None,
-        srcs: list[DataSource],
+        srcs: list[CanonicalDataset],
         tensor_map: TensorMap,
         normalize: Normalize,
         dataset_spec: DatasetSpec,
@@ -932,7 +932,7 @@ class SamudraMiniConfig(BaseModelConfig):
         out_channels: int,
         hist: int,
         static_data_for_corrector: xr.Dataset | None,
-        srcs: list[DataSource],
+        srcs: list[CanonicalDataset],
         tensor_map: TensorMap,
         normalize: Normalize,
         dataset_spec: DatasetSpec,

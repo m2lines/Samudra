@@ -59,7 +59,7 @@ from samudra.stepper import (
     train_batch,
     validate_batch,
 )
-from samudra.utils.data import DataSource, Normalize, get_inference_steps
+from samudra.utils.data import CanonicalDataset, Normalize, get_inference_steps
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import (
     all_reduce_mean,
@@ -375,7 +375,7 @@ class Trainer:
         inference_datasets = []
         num_steps_inf_set = []
         for i in range(num_splits):
-            sliced_src = self.inference_src.slice(self.inference_times[i])
+            sliced_src = self.inference_src.slice_time(self.inference_times[i])
             num_time_steps = get_inference_steps(
                 sliced_src,
                 hist=self.hist,
@@ -797,7 +797,7 @@ class Trainer:
         scales = self.data_container.sources
         match self.train_schedule:
             case "standard":
-                srcs: Iterable[tuple[DataSource, DataSource | None]] = [
+                srcs: Iterable[tuple[CanonicalDataset, CanonicalDataset | None]] = [
                     (scales[0], None)
                 ]
             case "match":
@@ -809,8 +809,8 @@ class Trainer:
 
         train_datasets = [
             TorchTrainDataset(
-                src=src.slice(self.train_time),
-                dst=dst.slice(self.train_time) if dst else None,
+                src=src.slice_time(self.train_time),
+                dst=dst.slice_time(self.train_time) if dst else None,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -826,8 +826,8 @@ class Trainer:
 
         val_datasets = [
             TorchTrainDataset(
-                src=src.slice(self.val_time),
-                dst=dst.slice(self.val_time) if dst else None,
+                src=src.slice_time(self.val_time),
+                dst=dst.slice_time(self.val_time) if dst else None,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,

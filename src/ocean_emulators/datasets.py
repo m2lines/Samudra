@@ -587,10 +587,33 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             if np.issubdtype(source_times.dtype, np.datetime64)
             else np.asarray([np.datetime64(str(time)) for time in source_times])
         )
+        cache_time_index = cache.get_index("time")
+        cache_time_start = int(cache_time_index.get_loc(cache_times[0]))
+        cache_time_stop = cache_time_start + len(cache_times)
+        if not np.array_equal(
+            cache.time.isel(time=slice(cache_time_start, cache_time_stop)).values,
+            cache_times,
+        ):
+            raise ValueError(
+                "Boundary cache does not contain a contiguous time range matching "
+                "the configured 003 source."
+            )
+
+        # The test configuration requests all four adjacent cache channels.  Keep
+        # this as basic slicing so replay-prefetch threads do not use Zarr's slower,
+        # less robust orthogonal/fancy indexing path on every batch.
+        channel_indexer: slice | list[int]
+        if cache_channel_indices == list(
+            range(cache_channel_indices[0], cache_channel_indices[-1] + 1)
+        ):
+            channel_indexer = slice(
+                cache_channel_indices[0], cache_channel_indices[-1] + 1
+            )
+        else:
+            channel_indexer = cache_channel_indices
         cache_boundary = cache.isel(
-            boundary_channel=cache_channel_indices,
-        ).sel(
-            time=cache_times,
+            boundary_channel=channel_indexer,
+            time=slice(cache_time_start, cache_time_stop),
         )
 
         if "boundary" not in cache_boundary:

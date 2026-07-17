@@ -348,6 +348,16 @@ class TrainBatchLoader(Protocol):
     def close(self) -> None: ...
 
 
+def close_pytorch_dataloader(dataloader: torch.utils.data.DataLoader) -> None:
+    """Deterministically stop persistent workers created by a PyTorch loader."""
+    iterator = dataloader._iterator
+    if iterator is not None:
+        shutdown_workers = getattr(iterator, "_shutdown_workers", None)
+        if shutdown_workers is not None:
+            shutdown_workers()
+        dataloader._iterator = None
+
+
 @dataclass(frozen=True)
 class BatchReadUse:
     """One canonical source read and its model-facing preparation policy."""
@@ -554,7 +564,7 @@ class TrainBatchPreparer:
         mean, std, mask = static
 
         def normalize(tensor: torch.Tensor) -> torch.Tensor:
-            return ((tensor - mean) / std).nan_to_num(nan=self.shard.masked_fill_value)
+            return ((tensor - mean) / std).nan_to_num(nan=0.0)
 
         if self.shard.normalize_before_mask:
             data = normalize(data)
@@ -753,12 +763,7 @@ class BatchLoader:
 
     def close(self) -> None:
         """Release persistent PyTorch workers owned by this loader."""
-        iterator = self._host_loader._iterator
-        if iterator is not None:
-            shutdown_workers = getattr(iterator, "_shutdown_workers", None)
-            if shutdown_workers is not None:
-                shutdown_workers()
-            self._host_loader._iterator = None
+        close_pytorch_dataloader(self._host_loader)
 
     def __getitem__(self, index: int) -> ModelBatch:
         """Access a single item by index, converting HostBatch to ModelBatch.

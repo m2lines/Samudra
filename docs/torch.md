@@ -137,7 +137,7 @@ sbatch \
   --cpus-per-task=128 \
   --mem=1400G \
   --gres=gpu:rtx6000:8 \
-  --time=24:00:00 \
+  --time=8:00:00 \
   scripts/slurm_apptainer_train.sbatch
 ```
 
@@ -169,6 +169,10 @@ export ARGS="--data.loading.num_workers=2 --preemptible=true"
 export IMAGE_REF=ghcr.io/<owner>/ocean-emulator-physicsnemo:<pinned-tag>
 
 sbatch \
+  --cpus-per-task=24 \
+  --mem=800G \
+  --gres=gpu:rtx6000:4 \
+  --time=7-00:00:00 \
   --requeue \
   --signal=B:USR1@300 \
   scripts/slurm_apptainer_train.sbatch

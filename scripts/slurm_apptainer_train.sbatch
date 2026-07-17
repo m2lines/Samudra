@@ -39,11 +39,11 @@
 #SBATCH --partition=rtx6000_lzanna
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-# Validated defaults for three-resolution Samudra Multi training.
-#SBATCH --cpus-per-task=24
-#SBATCH --mem=800G
-#SBATCH --gres=gpu:rtx6000:4
-#SBATCH --time=7-00:00:00
+# For 8-GPU runs on gr102, request full-node CPUs and QOS-capped memory.
+#SBATCH --cpus-per-task=128
+#SBATCH --mem=1400G
+#SBATCH --gres=gpu:rtx6000:8
+#SBATCH --time=8:00:00
 
 set -euo pipefail
 

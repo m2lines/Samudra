@@ -238,6 +238,13 @@ class DomainParallelContext:
         if self.is_domain_leader and tensor is None:
             raise ValueError("The domain leader must provide a tensor to scatter.")
 
+        # scatter_tensor broadcasts the source before constructing its local
+        # ShardTensor. NCCL requires that broadcast buffer to be contiguous;
+        # xarray-derived spatial weights are commonly strided views.
+        if self.is_domain_leader:
+            assert tensor is not None
+            tensor = tensor.contiguous()
+
         # PhysicsNeMo's scatter_tensor chooses its metadata-broadcast path from
         # local arguments. Broadcast it here so every rank follows the same
         # collective sequence when only the leader owns the full tensor.

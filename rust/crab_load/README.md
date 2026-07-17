@@ -138,6 +138,32 @@ The current loader is local-filesystem only and supports training and validation
 S3, LLC, and inference remain follow-on work. Python retains the existing
 homogeneous-`dataset_id` batch contract.
 
+## Native code and CPU targets
+
+The extension and its native codec dependencies are built for an explicit
+modern server baseline on Linux:
+
+- x86_64 uses `x86-64-v3` (AVX2, FMA, BMI, and SSE4.2);
+- arm64 uses Neoverse V1 (Armv8.4-A and SVE), which matches the Graviton3
+  container builder and runs on our newer Grace and GB10 hosts.
+
+These settings live in the repository's [Cargo configuration](../../.cargo/config.toml).
+Rust's `target-cpu` controls the extension and Rust dependencies. Target-specific
+`CFLAGS` separately control bundled C/C++ dependencies, including Blosc, LZ4,
+Zstd, zlib, and Snappy.
+
+`zarrs` depends on `blosc-src`; Cargo downloads that crate's source package and
+then compiles its bundled C-Blosc 1.21.6 sources into a static `libblosc.a`.
+It does not download a prebuilt Blosc binary or link a system `libblosc.so`.
+On x86_64, enabling the v3 target also causes `blosc-src` to compile the
+hand-written AVX2 shuffle and bitshuffle routines; C-Blosc selects AVX2 after a
+runtime CPU/OS check. C-Blosc 1.x has no hand-written ARM shuffle implementation,
+so the ARM build uses its generic shuffle and bitshuffle implementation. The
+Neoverse V1 build does emit SVE in BloscLZ decompression and copy loops, but the
+generic bitshuffle loop remains scalar. Even C-Blosc2 currently leaves its NEON
+bitshuffle path disabled because upstream found it slower than the generic path;
+this is worth benchmarking separately if ARM loading becomes a bottleneck.
+
 ## Further work
 
 The remaining rollout stages and deferred work are in

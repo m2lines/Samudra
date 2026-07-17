@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Production hosts are modern GPU servers. Keep the generated Rust code and
+# bundled native codec libraries on a common, explicit CPU baseline rather
+# than Cargo's conservative generic targets.
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "target-cpu=x86-64-v3"]
+
+[target.aarch64-unknown-linux-gnu]
+rustflags = ["-C", "target-cpu=neoverse-v1"]
+
+# `blosc-src` and the compressor libraries it links are compiled by the `cc`
+# crate, so Rust target flags alone do not tune their C code. `cc` recognizes
+# these target-qualified environment variables and passes them to the matching
+# compiler. Neoverse V1 is also the architecture used by our Graviton3 image
+# builder; both Grace and GB10 are supersets of this baseline.
+[env]
+CFLAGS_x86_64_unknown_linux_gnu = "-march=x86-64-v3"
+CFLAGS_aarch64_unknown_linux_gnu = "-mcpu=neoverse-v1"

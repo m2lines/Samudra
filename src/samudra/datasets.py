@@ -4,8 +4,10 @@
 
 import logging
 import time
+from collections.abc import Iterator
 from concurrent.futures.thread import ThreadPoolExecutor
-from typing import ClassVar, final
+from dataclasses import dataclass
+from typing import ClassVar, Protocol, final
 
 import numpy as np
 import torch
@@ -359,6 +361,262 @@ class TrainData:
             )
         return self
 
+    def record_stream(self, stream: torch.cuda.Stream) -> None:
+        """Keep batch storage alive until work queued on ``stream`` completes."""
+        self.ctx.label_mask.record_stream(stream)
+        for prognostic, boundary, label in self.example_by_step:
+            prognostic.record_stream(stream)
+            boundary.record_stream(stream)
+            label.record_stream(stream)
+
+
+class TrainBatchLoader(Protocol):
+    """Training-loop contract shared by Torch and native batch loaders."""
+
+    def __iter__(self) -> Iterator[TrainData]: ...
+
+    def __len__(self) -> int: ...
+
+    def set_epoch(self, epoch: int) -> None: ...
+
+    def close(self) -> None: ...
+
+
+@dataclass(frozen=True)
+class BatchReadUse:
+    """One canonical source read and its model-facing preparation policy."""
+
+    source: CanonicalDataset
+    request: CanonicalReadRequest
+    mask: torch.Tensor
+    cache_name: str
+
+
+@dataclass(frozen=True)
+class BatchReadStep:
+    input: BatchReadUse
+    boundary: BatchReadUse
+    label: BatchReadUse
+
+
+@dataclass(frozen=True)
+class BatchReadPlan:
+    """Storage-independent reads for a homogeneous batch and full rollout."""
+
+    dataset_id: str
+    steps: tuple[BatchReadStep, ...]
+
+
+class TrainingShard:
+    """Immutable-ish training semantics shared by sample and batch readers."""
+
+    def __init__(
+        self,
+        src: CanonicalDataset,
+        dst: CanonicalDataset | None,
+        prognostic_var_names: PrognosticVarNames,
+        boundary_var_names: BoundaryVarNames,
+        hist: int,
+        steps: int,
+        normalize_before_mask: bool,
+        masked_fill_value: float,
+        stride: int,
+        shard_id: str | None = None,
+    ) -> None:
+        self.id = shard_id or f"TrainingShard_{id(self)}"
+        srcs = [src, dst] if dst else [src]
+        self.hist = hist
+        self.steps = steps
+        self.stride = stride
+        self.normalize_before_mask = normalize_before_mask
+        self.masked_fill_value = masked_fill_value
+        self.prognostic_var_names = tuple(prognostic_var_names)
+        self.boundary_var_names = tuple(boundary_var_names)
+        self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
+        self.num_boundary_channels = (hist + 1) * len(boundary_var_names)
+        if not np.array_equal(srcs[0].time, srcs[-1].time):
+            raise ValueError("Source and destination have different time slices")
+
+        self.prognostic_srcs = [
+            source.select_channels(prognostic_var_names, prefix="prog")
+            for source in srcs
+        ]
+        self.boundary_src = src.select_channels(boundary_var_names, prefix="boundary")
+        total_times = 2 * hist + 2
+        num_windows = src.time.size - (total_times - 1) * stride
+        indices = xr.DataArray(np.arange(num_windows), dims=["window"])
+        offsets = xr.DataArray(np.arange(total_times), dims=["time"])
+        self.rolling_indices: Float[xr.DataArray, "window time"] = (
+            indices + stride * offsets
+        )
+        self.wet_prognostic = [source.masks.prognostic for source in srcs]
+        self.wet_surface = src.masks.boundary
+        self.ctx = GridContext(
+            label_mask=self.prognostic_srcs[-1].masks.prognostic_with_hist(hist),
+            input_resolution_cpu=self.prognostic_srcs[0].resolution,
+            output_resolution_cpu=self.prognostic_srcs[-1].resolution,
+        )
+        self.size = src.time.size - steps * (hist + 1) * stride - hist * stride
+
+    def __len__(self) -> int:
+        return self.size
+
+    @property
+    def batch_compatibility_key(self) -> str:
+        """Preserve the current homogeneous dataset-ID batching contract."""
+        return self.id
+
+    def window_indices(self, index: int, step: int) -> np.ndarray:
+        if index < 0:
+            raise IndexError("Negative training-window indices are not supported")
+        if index >= len(self):
+            raise IndexError("Training-window index out of range")
+        window = index + step * (self.hist + 1) * self.stride
+        return self.rolling_indices.isel(window=window, drop=True).to_numpy()
+
+    def window_plan(self, indices: list[int]) -> BatchReadPlan:
+        """Plan all reads for a batch, retaining batch/time index shape."""
+        if not indices:
+            raise ValueError("Cannot plan an empty training batch")
+        planned_steps = []
+        for step in range(self.steps):
+            relative = np.stack(
+                [self.window_indices(index, step) for index in indices]
+            ).astype(np.int64, copy=False)
+            current = relative[:, : self.hist + 1]
+            forecast = relative[:, self.hist + 1 :]
+            planned_steps.append(
+                BatchReadStep(
+                    input=BatchReadUse(
+                        self.prognostic_srcs[0],
+                        CanonicalReadRequest(current),
+                        self.wet_prognostic[0],
+                        "prognostic_input",
+                    ),
+                    boundary=BatchReadUse(
+                        self.boundary_src,
+                        CanonicalReadRequest(current),
+                        self.wet_surface,
+                        "boundary_input",
+                    ),
+                    label=BatchReadUse(
+                        self.prognostic_srcs[-1],
+                        CanonicalReadRequest(forecast),
+                        self.wet_prognostic[-1],
+                        "prognostic_label",
+                    ),
+                )
+            )
+        return BatchReadPlan(self.id, tuple(planned_steps))
+
+
+class TrainBatchPreparer:
+    """Rank-local normalization, masking, shaping, and device-static caches."""
+
+    def __init__(self, shard: TrainingShard) -> None:
+        self.shard = shard
+        self._device_ocean_static: dict[
+            tuple[torch.device, str],
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        ] = {}
+        self._device_ctx: dict[torch.device, GridContext] = {}
+
+    def prepare_raw(
+        self, raw_train_data: RawTrainData, device: torch.device
+    ) -> TrainData:
+        train_data = self.new_train_data(device)
+        policies = (
+            (
+                "prognostic_input",
+                self.shard.wet_prognostic[0],
+                self.shard.prognostic_srcs[0],
+            ),
+            ("boundary_input", self.shard.wet_surface, self.shard.boundary_src),
+            (
+                "prognostic_label",
+                self.shard.wet_prognostic[-1],
+                self.shard.prognostic_srcs[-1],
+            ),
+        )
+        for raw_step in raw_train_data.raw_data:
+            oceans = [
+                self._ocean_data_to_device(name, data, mask, source, device)
+                for data, (name, mask, source) in zip(raw_step, policies)
+            ]
+            train_data.append(*(self._prep_tensor_steps(ocean) for ocean in oceans))
+        train_data.load_stats = raw_train_data.load_stats
+        return train_data
+
+    def new_train_data(self, device: torch.device) -> TrainData:
+        device_ctx = self._device_ctx.get(device)
+        if device_ctx is None:
+            device_ctx = self.shard.ctx.to(device)
+            self._device_ctx[device] = device_ctx
+        return TrainData(
+            self.shard.num_prognostic_channels,
+            self.shard.num_boundary_channels,
+            device_ctx,
+        )
+
+    def normalize_and_mask_device_planes(
+        self,
+        use: BatchReadUse,
+        data: torch.Tensor,
+        device: torch.device,
+    ) -> torch.Tensor:
+        """Prepare unique ``(time, variable, lat, lon)`` planes on device."""
+        if data.device.type != device.type or (
+            device.index is not None and data.device.index != device.index
+        ):
+            raise ValueError(
+                f"Unique ocean planes are on {data.device}; expected {device}"
+            )
+        ocean = self._ocean_data_from_device(
+            use.cache_name, data.unsqueeze(0), use.mask, use.source, device
+        )
+        return ocean.normalize_and_mask(
+            self.shard.normalize_before_mask, self.shard.masked_fill_value
+        ).squeeze(0)
+
+    def _ocean_data_to_device(
+        self,
+        cache_name: str,
+        data: torch.Tensor,
+        mask: torch.Tensor,
+        source: CanonicalDataset,
+        device: torch.device,
+    ) -> OceanData:
+        return self._ocean_data_from_device(
+            cache_name, data.to(device=device, non_blocking=True), mask, source, device
+        )
+
+    def _ocean_data_from_device(
+        self,
+        cache_name: str,
+        data: torch.Tensor,
+        mask: torch.Tensor,
+        source: CanonicalDataset,
+        device: torch.device,
+    ) -> OceanData:
+        cache_key = (device, cache_name)
+        static = self._device_ocean_static.get(cache_key)
+        if static is None:
+            template = OceanData.from_data_source(data[:0], mask, source).to(
+                device=device, non_blocking=True
+            )
+            static = (template.means, template.stds, template.mask)
+            self._device_ocean_static[cache_key] = static
+        means, stds, device_mask = static
+        return OceanData(data=data, means=means, stds=stds, mask=device_mask)
+
+    def _prep_tensor_steps(self, ocean_data: OceanData) -> Input:
+        steps = ocean_data.normalize_and_mask(
+            self.shard.normalize_before_mask, self.shard.masked_fill_value
+        )
+        return rearrange(
+            steps, "batch time variable lat lon -> batch (time variable) lat lon"
+        )
+
 
 @final
 class TorchTrainDataset(Dataset[RawTrainData]):
@@ -411,103 +669,88 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         masked_fill_value: float,
         stride: int = 1,
         concurrent_compute_: bool = False,
+        shard_id: str | None = None,
     ):
         super().__init__()
-        self.id = f"{self.__class__.__name__}_{str(id(self))}"
-        # If the src and dst CanonicalDataset are the same, we can do a lot less work.
-        srcs = [src, dst] if dst else [src]
-
-        self.hist: int = hist
-        self.steps: int = steps
-        self.stride: int = stride
-        self.normalize_before_mask: bool = normalize_before_mask
-        self.masked_fill_value: float = masked_fill_value
+        self.shard = TrainingShard(
+            src=src,
+            dst=dst,
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
+            hist=hist,
+            steps=steps,
+            normalize_before_mask=normalize_before_mask,
+            masked_fill_value=masked_fill_value,
+            stride=stride,
+            shard_id=shard_id,
+        )
+        self.preparer = TrainBatchPreparer(self.shard)
+        self.id = self.shard.id
         self._concurrent_compute = concurrent_compute_
 
-        self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
-        self.num_boundary_channels: int = (hist + 1) * len(boundary_var_names)
-        assert np.array_equal(srcs[0].time, srcs[-1].time), (
-            "src and dst canonical datasets have different time slices!"
-        )
-        time_ = src.time
-        self.prognostic_srcs = [
-            src.select_channels(prognostic_var_names, prefix="prog") for src in srcs
-        ]
-        self.boundary_src = src.select_channels(boundary_var_names, prefix="boundary")
-
-        # This class will be used only for training and validation
-        total_steps: int = 2 * self.hist + 2
-
-        # Calculate the number of windows
-        num_windows = time_.size - (total_steps - 1) * self.stride
-
-        # Create base indices
-        indices = np.arange(num_windows)
-        indices_da = xr.DataArray(indices, dims=["window"])
-
-        # Create window dimension
-        window_dim = xr.DataArray(np.arange(total_steps), dims=["time"])
-
-        # Construct rolling indices
-        self.rolling_indices: Float[xr.DataArray, "window time"] = (
-            indices_da + stride * window_dim
-        )
-
-        # NB(alxmrs): Keep masks on CPU - will be moved to GPU in to_train_data()
-        self.wet_prognostic: list[PrognosticMask] = [
-            src.masks.prognostic for src in srcs
-        ]
-        self.wet_surface: GridMask = src.masks.boundary
-
-        self.ctx = GridContext(
-            label_mask=self.prognostic_srcs[-1].masks.prognostic_with_hist(self.hist),
-            input_resolution_cpu=self.prognostic_srcs[0].resolution,
-            output_resolution_cpu=self.prognostic_srcs[-1].resolution,
-        )
-
-        self.size: int = (
-            time_.size
-            - self.steps * (self.hist + 1) * self.stride
-            - self.hist * self.stride
-        )
-
     def __len__(self) -> int:
-        return self.size
+        return len(self.shard)
+
+    @property
+    def hist(self) -> int:
+        return self.shard.hist
+
+    @property
+    def steps(self) -> int:
+        return self.shard.steps
+
+    @property
+    def stride(self) -> int:
+        return self.shard.stride
+
+    @property
+    def prognostic_srcs(self) -> list[CanonicalDataset]:
+        return self.shard.prognostic_srcs
+
+    @property
+    def boundary_src(self) -> CanonicalDataset:
+        return self.shard.boundary_src
+
+    @property
+    def wet_prognostic(self) -> list[PrognosticMask]:
+        return self.shard.wet_prognostic
+
+    @property
+    def wet_surface(self) -> GridMask:
+        return self.shard.wet_surface
+
+    @property
+    def num_prognostic_channels(self) -> int:
+        return self.shard.num_prognostic_channels
+
+    @property
+    def num_boundary_channels(self) -> int:
+        return self.shard.num_boundary_channels
+
+    @property
+    def batch_compatibility_key(self) -> str:
+        return self.shard.batch_compatibility_key
 
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()
-        TD = RawTrainData(self.id)
-
-        for step in range(self.steps):
-            x_index = self._get_x_index(idx, step)
-            current_x_index = x_index.isel(time=slice(0, self.hist + 1))
-            forecast_x_index = x_index.isel(time=slice(self.hist + 1, None))
-
-            reads = (
-                (
-                    self.prognostic_srcs[0],
-                    CanonicalReadRequest(current_x_index.values),
-                ),
-                (self.boundary_src, CanonicalReadRequest(current_x_index.values)),
-                (
-                    self.prognostic_srcs[-1],
-                    CanonicalReadRequest(forecast_x_index.values),
-                ),
-            )
+        raw = RawTrainData(self.id)
+        plan = self.shard.window_plan([idx])
+        for step in plan.steps:
+            reads = (step.input, step.boundary, step.label)
             if self._concurrent_compute:
                 executor = self._get_executor()
                 futures = [
-                    executor.submit(source.read, request) for source, request in reads
+                    executor.submit(use.source.read, use.request) for use in reads
                 ]
-                loaded = [future.result().values for future in futures]
+                loaded = [future.result().values[0] for future in futures]
             else:
-                loaded = [source.read(request).values for source, request in reads]
+                loaded = [use.source.read(use.request).values[0] for use in reads]
             input_, boundary, label = map(torch.from_numpy, loaded)
-            TD.insert(input_, boundary, label)
-        TD.load_stats = LoadStats(time.perf_counter() - start_time)
+            raw.insert(input_, boundary, label)
+        raw.load_stats = LoadStats(time.perf_counter() - start_time)
 
-        return TD
+        return raw
 
     def to_train_data(
         self, raw_train_data: RawTrainData, device: torch.device
@@ -521,58 +764,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         Returns:
             TrainData with tensors on the target device
         """
-        train_data = TrainData(
-            self.num_prognostic_channels,
-            self.num_boundary_channels,
-            self.ctx.to(device),
-        )
-        for input_, boundary, label in raw_train_data.raw_data:
-            prog_input, boundary_input, label_tensor = self._to_example(
-                OceanData.from_data_source(
-                    input_,
-                    self.wet_prognostic[0],
-                    self.prognostic_srcs[0],
-                ).to(device=device, non_blocking=True),
-                OceanData.from_data_source(
-                    boundary,
-                    self.wet_surface,
-                    self.boundary_src,
-                ).to(device=device, non_blocking=True),
-                OceanData.from_data_source(
-                    label, self.wet_prognostic[-1], self.prognostic_srcs[-1]
-                ).to(device=device, non_blocking=True),
-            )
-            train_data.append(prog_input, boundary_input, label_tensor)
-        train_data.load_stats = raw_train_data.load_stats
-        return train_data
-
-    def _to_example(
-        self, input_: OceanData, boundary: OceanData, label: OceanData
-    ) -> Example:
-        # Input/boundary only include current steps; label only includes forecasted steps.
-        prog_input = self._prep_tensor_steps(input_)
-        boundary_input = self._prep_tensor_steps(boundary)
-        label_tensor = self._prep_tensor_steps(label)
-        return prog_input, boundary_input, label_tensor
-
-    def _prep_tensor_steps(self, ocean_data: OceanData) -> Input:
-        """Normalize, mask, and flatten (time, variable) dims into a channel dim."""
-        steps = ocean_data.normalize_and_mask(
-            self.normalize_before_mask, self.masked_fill_value
-        )
-        return rearrange(
-            steps, "batch time variable lat lon -> batch (time variable) lat lon"
-        )
-
-    def _get_x_index(self, idx: int, step: int) -> xr.DataArray:
-        assert isinstance(idx, int)
-        if idx < 0:
-            raise IndexError("Sorry, negative indexing is not supported!")
-        if idx >= len(self):
-            raise IndexError("Index out of range")
-
-        window_index = idx + step * (self.hist + 1) * self.stride
-        return self.rolling_indices.isel(window=window_index, drop=True)
+        return self.preparer.prepare_raw(raw_train_data, device)
 
 
 @final
@@ -610,6 +802,21 @@ class TrainDataLoader:
 
     def __len__(self) -> int:
         return len(self._dataloader)
+
+    def set_epoch(self, epoch: int) -> None:
+        batch_sampler = self._dataloader.batch_sampler
+        set_epoch = getattr(batch_sampler, "set_epoch", None)
+        if set_epoch is not None:
+            set_epoch(epoch)
+
+    def close(self) -> None:
+        """Release persistent PyTorch workers owned by this loader."""
+        iterator = self._dataloader._iterator
+        if iterator is not None:
+            shutdown_workers = getattr(iterator, "_shutdown_workers", None)
+            if shutdown_workers is not None:
+                shutdown_workers()
+            self._dataloader._iterator = None
 
     def __getitem__(self, index: int) -> TrainData:
         """Access a single item by index, converting RawTrainData to TrainData.

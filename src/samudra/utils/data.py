@@ -103,7 +103,8 @@ class ChannelStatistics:
 class CanonicalReader(Protocol):
     """Narrow storage seam implemented by xarray now and native readers later."""
 
-    channels: tuple[str, ...]
+    @property
+    def channels(self) -> tuple[str, ...]: ...
 
     @property
     def time(self) -> xr.DataArray: ...
@@ -153,7 +154,10 @@ class _XarrayCanonicalReader:
 
     @property
     def statistics(self) -> ChannelStatistics:
-        return ChannelStatistics(_flatten(self.means), _flatten(self.stds))
+        return ChannelStatistics(
+            _flatten(self.means[list(self.channels)]),
+            _flatten(self.stds[list(self.channels)]),
+        )
 
     @property
     def attrs(self) -> Mapping[str, Any]:
@@ -165,8 +169,6 @@ class _XarrayCanonicalReader:
             raise KeyError(f"Canonical channels not found: {sorted(missing)}")
         return dataclasses.replace(
             self,
-            means=self.means[list(channels)],
-            stds=self.stds[list(channels)],
             channels=channels,
         )
 
@@ -294,17 +296,19 @@ class CanonicalDataset:
         Raw OM4 callers should use :meth:`from_datasets`. This factory remains
         useful for focused in-memory tests and named preprocessing stages.
         """
-        channels = tuple(str(name) for name in means.data_vars)
+        channels = tuple(
+            str(name) for name in means.data_vars if name in data.data_vars
+        )
         if any("lev" in dataset.dims for dataset in (data, means, stds)):
             raise ValueError("Canonical datasets cannot expose a 'lev' dimension")
-        if set(channels) - set(data.data_vars) or set(channels) - set(stds.data_vars):
+        if not channels or set(channels) - set(stds.data_vars):
             raise ValueError("Canonical data, means, and stds have different channels")
         return cls(
             name=name,
             _reader=_XarrayCanonicalReader(
                 data,
-                means[list(channels)],
-                stds[list(channels)],
+                means,
+                stds,
                 channels,
                 frozenset(channels),
             ),

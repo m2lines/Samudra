@@ -40,6 +40,15 @@ logger = logging.getLogger(__name__)
 _PIN_MEMORY_WARNING_EMITTED = False
 _PIN_MEMORY_DISABLED = False
 
+# Temporary speed-test source: prognostic fields remain in the configured LLC 003
+# store, while every TorchTrainDataset boundary read is served by this pre-sliced
+# cache instead.
+_BOUNDARY_CACHE_LOCATION = (
+    "/orcd/data/abodner/002/cody/LLC_patch/"
+    "LLC4320_face1_i2880-3600_j720-1440_trainval_ready_"
+    "20110913_20121014_t1-BOUNDARY-ONLY.zarr"
+)
+
 
 def _packed_channel_dim(data_array: xr.DataArray) -> str | None:
     for dim in data_array.dims:
@@ -553,6 +562,39 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
     FLAG = LoaderVersion.OM4_TORCH
 
+    @staticmethod
+    def _with_boundary_cache(boundary_src: DataSource) -> DataSource:
+        """Replace a 003 boundary view with the pre-sliced boundary test cache."""
+        cache = xr.open_zarr(_BOUNDARY_CACHE_LOCATION, chunks=None)
+        channel_coords = boundary_src.data["boundary_channel"]
+        source_times = boundary_src.data.time.values
+        cache_times = (
+            source_times
+            if np.issubdtype(source_times.dtype, np.datetime64)
+            else np.asarray([np.datetime64(str(time)) for time in source_times])
+        )
+        cache_boundary = cache.sel(
+            boundary_channel=channel_coords,
+            time=cache_times,
+        )
+
+        if "boundary" not in cache_boundary:
+            raise ValueError(
+                f"Boundary cache {_BOUNDARY_CACHE_LOCATION} has no boundary field"
+            )
+
+        boundary_mask = torch.from_numpy(
+            cache_boundary["boundary_mask"].to_numpy().astype(bool, copy=False)
+        )
+        return dataclasses.replace(
+            boundary_src,
+            name=f"boundary-cache[{boundary_src.name}]",
+            data=cache_boundary[["boundary"]],
+            means=cache_boundary[["boundary_mean"]],
+            stds=cache_boundary[["boundary_std"]],
+            masks=dataclasses.replace(boundary_src.masks, boundary=boundary_mask),
+        )
+
     @elapsed
     def __init__(
         self,
@@ -584,7 +626,9 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         data = src.data
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
-        self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
+        self._boundary_src = self._with_boundary_cache(
+            src.filter(boundary_var_names, prefix="boundary")
+        )
 
         # This class will be used only for training and validation
         total_steps: int = 2 * self.hist + 2
@@ -645,7 +689,6 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             current_x_index = x_index.isel(time=slice(0, self.hist + 1))
             prognostic_selected = self._prognostic_src.data.isel(time=x_index)
             boundary_selected = self._boundary_src.data.isel(time=current_x_index)
-            # SEPARATE DATA CACHE HOOK boundary_selected = boundary_selected = xr.open_zarr("/orcd/data/abodner/002/cody/LLC_patch/LLC4320_face1_i2880-3600_j720-1440_trainval_ready_20110913_20121014_t1-BOUNDARY-ONLY.zarr", chunks=None)[["boundary"]].isel(boundary_channel=self._boundary_src.data.boundary_channel, time=current_x_index)
 
             if self._executor is not None:
                 concurrent_compute(

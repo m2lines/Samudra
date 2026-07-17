@@ -894,6 +894,10 @@ class Trainer:
 
         # Create data loaders (same for both distributed and non-distributed)
         # When using batch_sampler, don't specify batch_size or sampler
+        worker_seed = self.rand_seed
+        if self.distributed is not None:
+            assert self.distributed.rank is not None
+            worker_seed += 2 * self.distributed.rank
         host_train_loader = DataLoader(
             host_train_dataset,
             batch_sampler=train_batch_sampler,
@@ -902,6 +906,7 @@ class Trainer:
             pin_memory=self.pin_mem,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
+            generator=torch.Generator().manual_seed(worker_seed),
         )
 
         host_val_loader = DataLoader(
@@ -912,6 +917,7 @@ class Trainer:
             pin_memory=self.pin_mem,
             collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
+            generator=torch.Generator().manual_seed(worker_seed + 1),
         )
 
         # Wrap dataloaders to handle GPU post-processing

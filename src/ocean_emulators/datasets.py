@@ -1,5 +1,4 @@
 import dataclasses
-import json
 import logging
 import os
 import time
@@ -40,15 +39,6 @@ blosc.set_nthreads(
 logger = logging.getLogger(__name__)
 _PIN_MEMORY_WARNING_EMITTED = False
 _PIN_MEMORY_DISABLED = False
-
-# Temporary speed-test source: prognostic fields remain in the configured LLC 003
-# store, while every TorchTrainDataset boundary read is served by this pre-sliced
-# cache instead.
-_BOUNDARY_CACHE_LOCATION = (
-    "/orcd/data/abodner/002/cody/LLC_patch/"
-    "LLC4320_face1_i2880-3600_j720-1440_trainval_ready_"
-    "20110913_20121014_t1-BOUNDARY-ONLY.zarr"
-)
 
 
 def _packed_channel_dim(data_array: xr.DataArray) -> str | None:
@@ -563,76 +553,6 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
     FLAG = LoaderVersion.OM4_TORCH
 
-    @staticmethod
-    def _with_boundary_cache(
-        boundary_src: DataSource,
-        boundary_var_names: BoundaryVarNames,
-    ) -> DataSource:
-        """Replace a 003 boundary view with the pre-sliced boundary test cache."""
-        cache = xr.open_zarr(_BOUNDARY_CACHE_LOCATION, chunks=None)
-        cache_channel_names = json.loads(cache.attrs["boundary_channel_names_json"])
-        try:
-            cache_channel_indices = [
-                cache_channel_names.index(name) for name in boundary_var_names
-            ]
-        except ValueError as error:
-            raise ValueError(
-                "Boundary cache does not contain all configured boundary variables: "
-                f"requested={list(boundary_var_names)}, "
-                f"available={cache_channel_names}"
-            ) from error
-        source_times = boundary_src.data.time.values
-        cache_times = (
-            source_times
-            if np.issubdtype(source_times.dtype, np.datetime64)
-            else np.asarray([np.datetime64(str(time)) for time in source_times])
-        )
-        cache_time_index = cache.get_index("time")
-        cache_time_start = int(cache_time_index.get_loc(cache_times[0]))
-        cache_time_stop = cache_time_start + len(cache_times)
-        if not np.array_equal(
-            cache.time.isel(time=slice(cache_time_start, cache_time_stop)).values,
-            cache_times,
-        ):
-            raise ValueError(
-                "Boundary cache does not contain a contiguous time range matching "
-                "the configured 003 source."
-            )
-
-        # The test configuration requests all four adjacent cache channels.  Keep
-        # this as basic slicing so replay-prefetch threads do not use Zarr's slower,
-        # less robust orthogonal/fancy indexing path on every batch.
-        channel_indexer: slice | list[int]
-        if cache_channel_indices == list(
-            range(cache_channel_indices[0], cache_channel_indices[-1] + 1)
-        ):
-            channel_indexer = slice(
-                cache_channel_indices[0], cache_channel_indices[-1] + 1
-            )
-        else:
-            channel_indexer = cache_channel_indices
-        cache_boundary = cache.isel(
-            boundary_channel=channel_indexer,
-            time=slice(cache_time_start, cache_time_stop),
-        )
-
-        if "boundary" not in cache_boundary:
-            raise ValueError(
-                f"Boundary cache {_BOUNDARY_CACHE_LOCATION} has no boundary field"
-            )
-
-        boundary_mask = torch.from_numpy(
-            cache_boundary["boundary_mask"].to_numpy().astype(bool, copy=False)
-        )
-        return dataclasses.replace(
-            boundary_src,
-            name=f"boundary-cache[{boundary_src.name}]",
-            data=cache_boundary[["boundary"]],
-            means=cache_boundary[["boundary_mean"]],
-            stds=cache_boundary[["boundary_std"]],
-            masks=dataclasses.replace(boundary_src.masks, boundary=boundary_mask),
-        )
-
     @elapsed
     def __init__(
         self,
@@ -664,10 +584,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         data = src.data
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
-        self._boundary_src = self._with_boundary_cache(
-            src.filter(boundary_var_names, prefix="boundary"),
-            boundary_var_names,
-        )
+        self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
 
         # This class will be used only for training and validation
         total_steps: int = 2 * self.hist + 2

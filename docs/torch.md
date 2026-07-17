@@ -82,12 +82,13 @@ Key behavior:
 - Uses the container venv explicitly (`/workspace/.venv/bin/python`) to avoid missing deps.
 - To change training code or YAML configs, rebuild/publish a new container tag and
   point the harness at it (e.g. via `CONTAINER_HASH=<git_sha>`).
-- Caches the pulled SIF under `${REPO_DIR}/.apptainer-images/` by default.
+- Keeps the repository working directory, pulled SIF, Apptainer caches, data
+  cache, and Slurm logs under `/scratch/$USER` by default.
 - If `NSYS_ARGS` is set and does not include `-o`/`--output`, reports are written under
   `${OUTPUT_BASE}/${NAME}/nsys/`.
-- Defaults to an 8-hour walltime in `scripts/slurm_apptainer_train.sbatch`.
-- Our 1-degree jobs take around 4-6 hours, so this is safe; you should probably
-  increase it by data size for 1/2-degree (i.e. 4x more data = 4x more time) etc.
+- Defaults to the validated 4-GPU multi-resolution request on
+  `rtx6000_lzanna`: 24 CPUs, 800G memory, and a 48-hour walltime. Override the
+  `#SBATCH` defaults at submission time for other model or node sizes.
 
 When `preemptible: true`, training detects the latest checkpoint in an existing
 run directory and resumes from it after a Slurm requeue. The requeue hook does
@@ -158,8 +159,10 @@ validation loaders have been used, persistent loading produces 16 worker
 processes: two workers x two loaders x four ranks.
 
 The 24-CPU request was sufficient to keep observed data wait near zero and can
-start when CPU-only work prevents a 64-CPU request from being placed. Submit
-with a 48-hour limit and requeue five minutes before the deadline:
+start when CPU-only work prevents a 64-CPU request from being placed. These
+resources, scratch-backed execution paths, and append-mode logging are defaults
+in the training harness. The submit command only needs to opt into deadline
+requeueing:
 
 ```bash
 export CONFIG=configs/samudra_multi_om4/train.yaml
@@ -172,39 +175,18 @@ export REQUEUE_ON_USR1=1
 # Pin the exact image rather than depending on mutable wrapper defaults.
 export IMAGE_REF=ghcr.io/<owner>/ocean-emulator-physicsnemo:<pinned-tag>
 
-# Keep logs, images, and data caches off the home filesystem.
-export REPO_DIR=/scratch/$USER
-export SIF_DIR=/scratch/$USER/.apptainer-images
-export APPTAINER_CACHEDIR=/scratch/$USER/apptainer-cache
-export SINGULARITY_CACHEDIR=/scratch/$USER/singularity-cache
-export DATA_CACHE_DIR=/scratch/$USER/.data_cache/$NAME
-
-export NCCL_P2P_DISABLE=1
-export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
-
 sbatch \
-  --account=torch_pr_347_lzanna \
-  --partition=rtx6000_lzanna \
-  --nodes=1 \
-  --ntasks-per-node=1 \
-  --cpus-per-task=24 \
-  --mem=800G \
-  --gres=gpu:rtx6000:4 \
-  --time=2-00:00:00 \
   --requeue \
   --signal=B:USR1@300 \
-  --open-mode=append \
-  --chdir=/scratch/$USER \
-  --output=/scratch/$USER/slurm-%j.out \
-  --error=/scratch/$USER/slurm-%j.err \
-  --export=ALL \
   scripts/slurm_apptainer_train.sbatch
 ```
 
-Use `--open-mode=append` because a requeued job keeps the same job ID and log
-paths. The batch-level (`B:`) USR1 signal reaches the harness, which calls
+The harness uses append mode because a requeued job keeps the same job ID and
+log paths. The batch-level (`B:`) USR1 signal reaches the harness, which calls
 `scontrol requeue`; on restart, the preemptible training configuration selects
-the run's latest checkpoint.
+the run's latest checkpoint. The harness also defaults `NCCL_P2P_DISABLE=1` and
+`TORCH_NCCL_ASYNC_ERROR_HANDLING=1` for RTX6000 jobs; export different values
+before submission when another platform requires them.
 
 To enable profiling for a run, you typically want something like this:
 

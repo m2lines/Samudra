@@ -580,6 +580,14 @@ These items are intentionally outside the current OM4 hardening slice:
   Linux architecture, then exercise the Rust trainer import and a fixture batch.
 - Add native seasonal-climatology derivation for boundary variables such as
   `hfds_anomalies`. Until then, Rust configuration rejects derived channels early.
+- Add a Grace-optimized ARM artifact for GB200-class nodes. The portable ARM build
+  currently targets Neoverse V1 so it can be built and exercised on the Graviton3
+  container runner; Grace uses Neoverse V2 with SVE2. Build and smoke-test a
+  separate `target-cpu=grace`/Neoverse V2 variant on compatible hardware, then
+  benchmark end-to-end Zarr decoding and Blosc decompression, shuffle, and
+  bit-unshuffle against the V1 artifact. The current C-Blosc ARM bit-unshuffle is
+  scalar, so evaluate a codec-library change only if profiles show that stage is a
+  material bottleneck.
 - Make CUDA-prefetch batches safe to retain beyond the next iterator advance, or
   explicitly narrow and document that lifetime contract.
 - Investigate phase-aware CUDA prefetch scheduling so loader-side normalization,

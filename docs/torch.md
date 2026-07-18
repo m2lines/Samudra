@@ -19,7 +19,7 @@ This repo includes Slurm harness scripts that run training inside the published 
 
 The container build workflow is `.github/workflows/container-physicsnemo.yml`.
 
-- It builds `containers/Dockerfile.physicsnemo-25.11`.
+- It builds `containers/Dockerfile.physicsnemo-26.05`.
 - It publishes to GHCR on:
   - `push` to `main`, or
   - `workflow_dispatch` (manual run).
@@ -27,15 +27,15 @@ The container build workflow is `.github/workflows/container-physicsnemo.yml`.
 Recommended for branch work:
 
 1. Push your code changes to your branch.
-2. Run the workflow manually (Actions UI): `Container PhysicsNeMo 25.11` with `workflow_dispatch` on your branch.
+2. Run the workflow manually (Actions UI): `Container PhysicsNeMo 26.05` with `workflow_dispatch` on your branch.
 3. Use the resulting image tag(s):
-   - `ghcr.io/<owner>/ocean-emulator-physicsnemo:25.11-<git_sha>`
-   - `ghcr.io/<owner>/ocean-emulator-physicsnemo:25.11-manual-<branch-name>`
+   - `ghcr.io/<owner>/ocean-emulator-physicsnemo:26.05-<git_sha>`
+   - `ghcr.io/<owner>/ocean-emulator-physicsnemo:26.05-manual-<branch-name>`
 
 On torch, `scripts/slurm_apptainer_train.sbatch` can pull by:
 
-- `CONTAINER_HASH=<git_sha>` (expands to tag `25.11-<git_sha>`), or
-- `CONTAINER_TAG=25.11-manual-...`, or
+- `CONTAINER_HASH=<git_sha>` (expands to tag `26.05-<git_sha>`), or
+- `CONTAINER_TAG=26.05-manual-...`, or
 - `IMAGE_REF=ghcr.io/...:<tag>` (takes precedence over the two above)
 
 ## Training Harness
@@ -116,8 +116,8 @@ export ARGS="--batch_size=1"
 
 # Container selection (pick one)
 export CONTAINER_HASH=<git_sha>
-# export CONTAINER_TAG=25.11-manual-<branch>
-# export IMAGE_REF=ghcr.io/<owner>/ocean-emulator-physicsnemo:25.11-<git_sha>
+# export CONTAINER_TAG=26.05-manual-<branch>
+# export IMAGE_REF=ghcr.io/<owner>/ocean-emulator-physicsnemo:26.05-<git_sha>
 
 sbatch \
   --account=torch_pr_347_courant \
@@ -244,8 +244,8 @@ export TARGET_CHECKPOINT=2026-02-22-om4_samudra_baseline/saved_nets/ema_ckpt.pt
 
 # Container selection (pick one)
 export CONTAINER_HASH=<git_sha>
-# export CONTAINER_TAG=25.11-manual-<branch>
-# export IMAGE_REF=ghcr.io/<owner>/ocean-emulator-physicsnemo:25.11-<git_sha>
+# export CONTAINER_TAG=26.05-manual-<branch>
+# export IMAGE_REF=ghcr.io/<owner>/ocean-emulator-physicsnemo:26.05-<git_sha>
 
 sbatch \
   --account=torch_pr_347_courant \

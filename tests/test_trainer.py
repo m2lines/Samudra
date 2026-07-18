@@ -15,7 +15,7 @@ from samudra.train import Trainer, should_log_validation_images
 from samudra.utils.ctx import GridContext
 from samudra.utils.loss import DynamicLoss
 from samudra.utils.multiton import MultitonScope
-from tests.conftest import DEFAULT_CONFIG, TrainPair
+from tests.conftest import DEFAULT_CONFIG, SAMUDRA_MULTI_CONFIG, TrainPair
 
 
 @pytest.mark.manual
@@ -186,6 +186,45 @@ def test_should_log_validation_images_rejects_invalid_inputs():
 
     with pytest.raises(ValueError, match="Validation image log frequency must be >= 1"):
         should_log_validation_images(1, 0)
+
+
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", SAMUDRA_MULTI_CONFIG)],
+    indirect=True,
+)
+def test_multiscale_training_validates_primary_source_and_logs_reduced_metrics(
+    train_config,
+):
+    train_config.data.sources.append(train_config.data.sources[0].model_copy(deep=True))
+    train_config.experiment.train_schedule = "match"
+    train_config.data.loading.num_workers = 0
+    train_config.model.perceiver_implementation = "naive"
+    train_config.debug = True
+
+    with MultitonScope():
+        trainer = Trainer(train_config)
+        trainer.init_data_loaders(cur_step=train_config.steps[0])
+
+        assert len(trainer.train_loader._datasets) == 2
+        assert len(trainer.val_loader._datasets) == 1
+        val_dataset = next(iter(trainer.val_loader._datasets.values()))
+        assert len(val_dataset.prognostic_srcs) == 1
+        assert val_dataset.prognostic_srcs[0].grid_size == trainer.primary_src.grid_size
+
+        class PerfectModel(BaseModel):
+            def __init__(self):
+                super().__init__(0, 0, 0, False, 1, "constant", 0)
+
+            def forward(self, batch, loss_fn=None):
+                return [batch.get_label(0)]
+
+        trainer.model = PerfectModel()
+        trainer.test_using_ema = False
+        val_logs = trainer.validate_one_epoch(epoch=1)
+
+    assert any(key.startswith("val/reduced/weighted_rmse/") for key in val_logs)
 
 
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)

@@ -11,7 +11,11 @@ import torch
 
 from samudra.config import CpuDataLoadingConfig, DynamicLossConfig
 from samudra.models.base import BaseModel
-from samudra.train import Trainer, should_log_validation_images
+from samudra.train import (
+    Trainer,
+    _clip_grad_norm_or_raise,
+    should_log_validation_images,
+)
 from samudra.utils.ctx import GridContext
 from samudra.utils.loss import DynamicLoss
 from samudra.utils.multiton import MultitonScope
@@ -186,6 +190,14 @@ def test_should_log_validation_images_rejects_invalid_inputs():
 
     with pytest.raises(ValueError, match="Validation image log frequency must be >= 1"):
         should_log_validation_images(1, 0)
+
+
+def test_clip_grad_norm_fails_on_nan_before_optimizer_step():
+    parameter = torch.nn.Parameter(torch.tensor(1.0))
+    parameter.grad = torch.tensor(float("nan"))
+
+    with pytest.raises(RuntimeError, match="non-finite"):
+        _clip_grad_norm_or_raise([parameter], max_norm=1.0)
 
 
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)

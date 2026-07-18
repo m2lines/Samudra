@@ -11,6 +11,7 @@ from samudra.config import (
     CpuDataLoadingConfig,
     DataConfig,
     DataSourceConfig,
+    DynamicLossConfig,
     GpuDataLoadingConfig,
     LlcDatasetConfig,
     Om4DatasetConfig,
@@ -134,6 +135,28 @@ def test_train_config_allows_cli_override_for_cpu_num_workers(tmp_path):
 
     assert isinstance(cfg.data.loading, CpuDataLoadingConfig)
     assert cfg.data.loading.num_workers == 2
+
+
+def test_multires_train_config_caps_dynamic_loss_weights(tmp_path):
+    config_path = (
+        Path(__file__).resolve().parents[1]
+        / "configs"
+        / "samudra_multi_om4"
+        / "train.yaml"
+    )
+
+    cfg = TrainConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--experiment.data_root",
+            str(tmp_path),
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+        ]
+    )
+
+    assert isinstance(cfg.loss, DynamicLossConfig)
+    assert cfg.loss.limit == 20
 
 
 def test_get_pydantic_models_collects_loading_variants():

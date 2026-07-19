@@ -9,7 +9,8 @@ save_zarr: true
 disk_mode: true
 inference_time:
   start: "2014-10-05"
-  end: "2015-10-05"
+  # 52 five-day timestamps produce exactly 25 autoregressive steps for hist=1.
+  end: "2015-06-17"
 num_model_steps_forward: 25
 
 experiment:

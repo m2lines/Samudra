@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=shardtensor-phase2-smoke
+#SBATCH --job-name=shardtensor-phase2-2x2-TEST4-1EPOCH
 #SBATCH -N 1
 #SBATCH --mem=300GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
 #SBATCH --gres=gpu:4
-#SBATCH --time=02:00:00
+#SBATCH --time=16:00:00
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 
@@ -14,13 +14,7 @@ set -euo pipefail
 
 PROJECT_DIR="/orcd/home/002/codycruz/Ocean_Emulator"
 PYTHON_BIN="${PYTHON_BIN:-${PROJECT_DIR}/.venv/bin/python}"
-MODE="${MODE:-dp}"
-if [[ "${MODE}" != "dp" && "${MODE}" != "dense" ]]; then
-  echo "ERROR: MODE must be 'dp' or 'dense'; got '${MODE}'." >&2
-  exit 1
-fi
-
-# A 320x320 global patch gives four 160x160 local tiles and a 10x10 deepest
+# A 320x320 cluster gives four 160x160 local tiles and a 10x10 deepest
 # tile, large enough for the dilation-8 halo. Override all bounds together.
 LLC_FACE="${LLC_FACE:-1}"
 LLC_I_START="${LLC_I_START:-2880}"
@@ -35,7 +29,7 @@ EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-shardtensor-phase2}-${SLUR
 on_exit() {
   local exit_code=$?
   echo
-  echo "======== Phase 2 ShardTensor job finished (exit=${exit_code}) ========"
+  echo "======== Phase 2 ShardTensor 2x2 job finished (exit=${exit_code}) ========"
 }
 trap on_exit EXIT
 
@@ -61,12 +55,17 @@ export NCCL_DEBUG="${NCCL_DEBUG:-WARN}"
 export TORCH_NCCL_DUMP_ON_TIMEOUT=1
 export TORCH_FR_BUFFER_SIZE="${TORCH_FR_BUFFER_SIZE:-1048576}"
 
-echo "======== ShardTensor Phase 2 curriculum smoke ========"
+echo "======== ShardTensor Phase 2 2x2 curriculum smoke ========"
 echo "started=$(date '+%Y-%m-%d %H:%M:%S %Z')"
 echo "job_id=${SLURM_JOB_ID:-<unset>} host=$(hostname) python=${PYTHON_BIN}"
 echo "patch=face${LLC_FACE} i=[${LLC_I_START}:${LLC_I_END}) j=[${LLC_J_START}:${LLC_J_END})"
-echo "mode=${MODE} cluster_shape=[2,2] epochs=${EPOCHS} debug=${DEBUG} loss=mse"
+echo "mode=domain_parallel cluster_shape=[2,2] epochs=${EPOCHS} debug=${DEBUG} loss=mse"
 nvidia-smi --query-gpu=index,name,memory.total,driver_version --format=csv,noheader
+VISIBLE_GPU_COUNT="$(nvidia-smi --query-gpu=index --format=csv,noheader | wc -l)"
+if [[ "${VISIBLE_GPU_COUNT}" -lt 4 ]]; then
+  echo "ERROR: the 2x2 ShardTensor job requires 4 visible GPUs; found ${VISIBLE_GPU_COUNT}." >&2
+  exit 1
+fi
 "${PYTHON_BIN}" -c "import physicsnemo, torch; print('torch=' + torch.__version__); print('physicsnemo=' + getattr(physicsnemo, '__version__', 'unknown'))"
 
 RUN_ARGS=(
@@ -87,6 +86,7 @@ RUN_ARGS=(
   --model.pad constant
   --model.checkpointing null
   --model.use_bfloat16 false
+  --model.corrector null
   --data.num_workers "${DATA_NUM_WORKERS}"
   --data.llc_face "${LLC_FACE}"
   --data.llc_i_start "${LLC_I_START}"
@@ -94,19 +94,16 @@ RUN_ARGS=(
   --data.llc_j_start "${LLC_J_START}"
   --data.llc_j_end "${LLC_J_END}"
   --experiment.name "${EXPERIMENT_NAME}"
+  --backend nccl
+  --domain_parallel.enabled true
+  --surface_snapshot true
 )
 
-if [[ "${MODE}" == "dp" ]]; then
-  RUN_ARGS+=(--backend nccl --domain_parallel.enabled true)
-  LAUNCH=(
-    "${PYTHON_BIN}" -m torch.distributed.run
-    --standalone --nproc_per_node=4 --tee 3
-    -m ocean_emulators.train
-  )
-else
-  RUN_ARGS+=(--backend cuda --domain_parallel.enabled false)
-  LAUNCH=("${PYTHON_BIN}" -m ocean_emulators.train)
-fi
+LAUNCH=(
+  "${PYTHON_BIN}" -m torch.distributed.run
+  --standalone --nproc_per_node=4 --tee 3
+  -m ocean_emulators.train
+)
 
 printf 'launch:'
 printf ' %q' "${LAUNCH[@]}" "${RUN_ARGS[@]}"

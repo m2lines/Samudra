@@ -35,6 +35,16 @@ The full baseline config was introduced by commit `9992bf52`. The fast configs w
 introduced by `9d5b278e`; pinned x86 image publication is recorded by
 [GitHub Actions run 29691663638](https://github.com/m2lines/Samudra/actions/runs/29691663638).
 
+The best finite validation epoch can be reproduced directly from W&B history with:
+
+```bash
+uv run python scripts/summarize_mse_runs.py \
+  ocean_emulators/default/ty6mwti9
+```
+
+Pass multiple run paths to produce the final comparison table, or add
+`--format=json` for machine-readable output.
+
 All comparisons use four RTX6000 GPUs and effective global batch 32. Slurm requests
 16 CPUs and 128 GiB per four-GPU job, substantially below the generic proportional
 Torch guidance. The dependency chain guarantees that these jobs run sequentially.
@@ -57,16 +67,16 @@ is approximately 0.001 seconds. Peak model-process usage observed so far is abou
 26.5 GiB per GPU and 4.1 GiB CPU RSS per rank; final Slurm MaxRSS will be recorded
 after job completion.
 
-Best validation results through epoch 3 are:
+Best validation results through epoch 4 are:
 
 | Variable group | SamudraMulti | v2 reference | Ratio |
 |---|---:|---:|---:|
-| Temperature | 0.0871 | 0.00149 | 58.4x |
-| Salinity | 0.3019 | 0.00138 | 218.8x |
-| Zonal velocity | 0.5304 | 0.0361 | 14.7x |
-| Meridional velocity | 0.5648 | 0.0565 | 10.0x |
-| SSH | 0.0701 | 0.00239 | 29.3x |
-| All channels | 0.3674 | 0.0236 | 15.6x |
+| Temperature | 0.0764 | 0.00149 | 51.3x |
+| Salinity | 0.2521 | 0.00138 | 182.7x |
+| Zonal velocity | 0.5274 | 0.0361 | 14.6x |
+| Meridional velocity | 0.5636 | 0.0565 | 10.0x |
+| SSH | 0.0647 | 0.00239 | 27.1x |
+| All channels | 0.3513 | 0.0236 | 14.9x |
 
 These are unweighted normalized one-step MSEs. They are interim until all 12 epochs
 finish and the best validation checkpoint is fixed.

@@ -28,8 +28,8 @@ is competitive.
 | Purpose | Config | Container | Slurm | W&B | Status |
 |---|---|---|---:|---|---|
 | Full-data SamudraMulti baseline | `configs/samudra_multi_om4/train_1deg_mse_proxy.yaml` | `26.05-9992bf52a3031442e2875a52fd113131c9162abd` | `14291479` | [ty6mwti9](https://wandb.ai/ocean_emulators/default/runs/ty6mwti9) | Completed |
-| 512-timestamp SamudraMulti screen | `configs/samudra_multi_om4/train_1deg_mse_fast_proxy.yaml` | `26.05-3904ad07a55c5ea19d21bfe017e06d4b5bb8234f` | `14295585` | Pending | Starting |
-| 512-timestamp v2 control | `configs/samudra_om4_v2_highres/train_1deg_mse_fast_proxy.yaml` | `26.05-3904ad07a55c5ea19d21bfe017e06d4b5bb8234f` | `14295587` | Pending | Dependency on fast SamudraMulti |
+| 512-timestamp SamudraMulti screen | `configs/samudra_multi_om4/train_1deg_mse_fast_proxy.yaml` | `26.05-3904ad07a55c5ea19d21bfe017e06d4b5bb8234f` | `14311686` | [j76loxwm](https://wandb.ai/ocean_emulators/default/runs/j76loxwm) | Running |
+| 512-timestamp v2 control | `configs/samudra_om4_v2_highres/train_1deg_mse_fast_proxy.yaml` | `26.05-3904ad07a55c5ea19d21bfe017e06d4b5bb8234f` | `14311687` | Pending | Dependency on fast SamudraMulti |
 
 The immutable config checksums are:
 
@@ -58,6 +58,12 @@ plain-MSE comparison used here.
 All comparisons use four RTX6000 GPUs and effective global batch 32. Slurm requests
 16 CPUs and 128 GiB per four-GPU job, substantially below the generic proportional
 Torch guidance. The dependency chain guarantees that these jobs run sequentially.
+
+The first screen submission (`14295585`) failed before data loading because its
+submit-time data root repeated the `om4_onedeg_v3` directory already present in the
+config's source paths. Its dependent v2 job (`14295587`) was consequently cancelled.
+The replacement chain above uses `/scratch/jr7309/data` as the root; all model,
+training, image, and resource settings are otherwise unchanged.
 
 ## Screening dataset
 

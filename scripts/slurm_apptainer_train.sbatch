@@ -170,8 +170,9 @@ mkdir -p "${SIF_DIR}"
 IMAGE_REF_SAFE="$(echo "${IMAGE_REF}" | tr '/:@' '---')"
 SIF_PATH="${SIF_PATH:-${SIF_DIR}/${IMAGE_REF_SAFE}.sif}"
 
-# Apptainer tmp: keep on node-local /tmp to avoid scratch filesystems that don't support xattrs.
-export APPTAINER_TMPDIR="${APPTAINER_TMPDIR:-/tmp}"
+# Prefer Slurm's large per-job node-local XFS directory. Shared scratch does not
+# support the xattrs needed by Apptainer, while the root-backed /tmp can fill.
+export APPTAINER_TMPDIR="${APPTAINER_TMPDIR:-${SLURM_TMPDIR:-/tmp}}"
 mkdir -p "${APPTAINER_TMPDIR}"
 if [[ -n "${APPTAINER_CACHEDIR:-}" ]]; then
   mkdir -p "${APPTAINER_CACHEDIR}"

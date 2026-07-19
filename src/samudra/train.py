@@ -349,6 +349,7 @@ class Trainer:
         self.pin_mem: bool = cfg.pin_mem
         self.train_time: config.TimeConfig = cfg.train_time
         self.val_time = cfg.val_time
+        self.train_sample_selection = cfg.train_sample_selection
         self.inference_times = cfg.inference_times
         self.inference_epochs = cfg.inference_epochs
         self.max_train_model_steps_forward = MAX_TRAIN_MODEL_STEPS_FORWARD // (
@@ -908,6 +909,16 @@ class Trainer:
                 stride=stride,
                 concurrent_compute_=self.concurrent_compute,
                 shard_id=f"train-{shard_index}",
+                sample_num=(
+                    self.train_sample_selection.num_samples
+                    if self.train_sample_selection is not None
+                    else None
+                ),
+                sample_seed=(
+                    self.train_sample_selection.seed
+                    if self.train_sample_selection is not None
+                    else 0
+                ),
             )
             for shard_index, (stride, src, dst) in enumerate(shard_specs)
         ]

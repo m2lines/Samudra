@@ -138,6 +138,13 @@ class TimeConfig(BaseConfig):
         return f"{self.start} to {self.end}"
 
 
+class StratifiedTimeSampleConfig(BaseConfig):
+    """Select a deterministic number of training windows across decades/seasons."""
+
+    num_samples: int = Field(ge=1)
+    seed: int = 0
+
+
 LOCATION_DOCS = (
     "Use a string relative to the `data_root` or use a structured location "
     "see location.py for possible types."
@@ -1184,6 +1191,7 @@ class TrainConfig(TopLevelConfig):
     val_time: TimeConfig = TimeConfig(
         start=JulianDate("0306-01-01"), end=JulianDate("0311-01-01")
     )
+    train_sample_selection: StratifiedTimeSampleConfig | None = None
     inference_times: list[TimeConfig] = []
 
     # Config components

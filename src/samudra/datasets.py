@@ -40,6 +40,63 @@ from samudra.utils.logging import elapsed
 logger = logging.getLogger(__name__)
 
 
+def season_decade_stratified_indices(
+    time: xr.DataArray,
+    valid_size: int,
+    num_samples: int,
+    seed: int,
+    *,
+    anchor_offset: int = 0,
+) -> np.ndarray:
+    """Select valid window indices evenly across decade/season strata.
+
+    The returned indices refer to window starts. ``anchor_offset`` chooses the
+    timestamp within each window used to assign its stratum, normally the first
+    forecast target. Sampling windows rather than slicing the source preserves
+    contiguous input/target timestamps around every selected example.
+    """
+    if valid_size < 1:
+        raise ValueError("No valid training windows are available.")
+    if num_samples > valid_size:
+        raise ValueError(
+            f"Requested {num_samples} samples from only {valid_size} valid windows."
+        )
+    if anchor_offset < 0 or anchor_offset + valid_size > time.size:
+        raise ValueError("The stratum anchor lies outside the source time coordinate.")
+
+    groups: dict[tuple[int, int], list[int]] = {}
+    anchors = time.values[anchor_offset : anchor_offset + valid_size]
+    for index, timestamp in enumerate(anchors):
+        decade = int(timestamp.year) // 10 * 10
+        season = (int(timestamp.month) - 1) // 3
+        groups.setdefault((decade, season), []).append(index)
+
+    generator = np.random.default_rng(seed)
+    for indices in groups.values():
+        generator.shuffle(indices)
+
+    selected: list[int] = []
+    ordered_groups = sorted(groups)
+    offsets = {key: 0 for key in ordered_groups}
+    while len(selected) < num_samples:
+        made_progress = False
+        for key in ordered_groups:
+            offset = offsets[key]
+            if offset >= len(groups[key]):
+                continue
+            selected.append(groups[key][offset])
+            offsets[key] += 1
+            made_progress = True
+            if len(selected) == num_samples:
+                break
+        if not made_progress:
+            raise AssertionError("Stratified sampling exhausted valid windows early.")
+
+    result = np.asarray(sorted(selected), dtype=np.int64)
+    result.setflags(write=False)
+    return result
+
+
 class InferenceDataset(Dataset):
     """This class is used for inference rollouts.
 
@@ -432,6 +489,8 @@ class TrainingShard:
         masked_fill_value: float,
         stride: int,
         shard_id: str | None = None,
+        sample_num: int | None = None,
+        sample_seed: int = 0,
     ) -> None:
         self.id = shard_id or f"TrainingShard_{id(self)}"
         srcs = [src, dst] if dst else [src]
@@ -466,7 +525,21 @@ class TrainingShard:
             input_resolution_cpu=self.prognostic_srcs[0].resolution,
             output_resolution_cpu=self.prognostic_srcs[-1].resolution,
         )
-        self.size = src.time.size - steps * (hist + 1) * stride - hist * stride
+        full_size = src.time.size - steps * (hist + 1) * stride - hist * stride
+        self.sample_indices = (
+            season_decade_stratified_indices(
+                src.time,
+                full_size,
+                sample_num,
+                sample_seed,
+                anchor_offset=(hist + 1) * stride,
+            )
+            if sample_num is not None
+            else None
+        )
+        self.size = (
+            len(self.sample_indices) if self.sample_indices is not None else full_size
+        )
 
     def __len__(self) -> int:
         return self.size
@@ -481,7 +554,12 @@ class TrainingShard:
             raise IndexError("Negative training-window indices are not supported")
         if index >= len(self):
             raise IndexError("Training-window index out of range")
-        window = index + step * (self.hist + 1) * self.stride
+        window_start = (
+            int(self.sample_indices[index])
+            if self.sample_indices is not None
+            else index
+        )
+        window = window_start + step * (self.hist + 1) * self.stride
         return self.rolling_indices.isel(window=window, drop=True).to_numpy()
 
     def window_plan(self, indices: list[int]) -> BatchReadPlan:
@@ -680,6 +758,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         stride: int = 1,
         concurrent_compute_: bool = False,
         shard_id: str | None = None,
+        sample_num: int | None = None,
+        sample_seed: int = 0,
     ):
         super().__init__()
         self.shard = TrainingShard(
@@ -693,6 +773,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             masked_fill_value=masked_fill_value,
             stride=stride,
             shard_id=shard_id,
+            sample_num=sample_num,
+            sample_seed=sample_seed,
         )
         self.preparer = TrainBatchPreparer(self.shard)
         self.id = self.shard.id

@@ -17,6 +17,7 @@ from samudra.aggregator.validate import MultiScaleValidateAggregator, ValidateAg
 from samudra.aggregator.validate.map import MapAggregator
 from samudra.aggregator.validate.reduced import MeanAggregator
 from samudra.aggregator.validate.snapshot import SnapshotAggregator
+from samudra.aggregator.validate.spatial import NormalizedSpatialDiagnosticsAggregator
 from samudra.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from samudra.constants import BoundaryVarNames, PrognosticVarNames, TensorMap
 from samudra.utils.data import CanonicalDataset, Normalize
@@ -37,6 +38,7 @@ class Aggregator:
         normalize: Normalize,
         *,
         include_image_aggregators: bool = True,
+        patch_size: tuple[int, int] | None = None,
     ) -> ValidateAggregator:
         val_aggregators: dict[str, ValidateSubAggregator] = {
             "reduced": MeanAggregator(area_weights, hist),
@@ -48,6 +50,10 @@ class Aggregator:
                     "mean_map": MapAggregator(metadata, hist),
                 }
             )
+            if patch_size is not None:
+                val_aggregators["spatial"] = NormalizedSpatialDiagnosticsAggregator(
+                    tensor_map, hist, patch_size
+                )
 
         return ValidateAggregator(
             val_aggregators,
@@ -68,6 +74,7 @@ class Aggregator:
         boundary_var_names: BoundaryVarNames,
         *,
         include_image_aggregators: bool = True,
+        patch_extent: tuple[float, float] | None = None,
     ) -> MultiScaleValidateAggregator:
         """Build independent validation diagnostics for each output grid."""
         aggregators: dict[tuple[int, int], tuple[str, ValidateAggregator]] = {}
@@ -81,6 +88,12 @@ class Aggregator:
                 prognostic_var_names=prognostic_var_names,
                 boundary_var_names=boundary_var_names,
             )
+            patch_size = None
+            if patch_extent is not None:
+                patch_size = (
+                    round(patch_extent[0] * grid[0] / 180.0),
+                    round(patch_extent[1] * grid[1] / 360.0),
+                )
             aggregators[grid] = (
                 scale_label,
                 Aggregator.get_validation_aggregator(
@@ -91,6 +104,7 @@ class Aggregator:
                     tensor_map,
                     normalize,
                     include_image_aggregators=include_image_aggregators,
+                    patch_size=patch_size,
                 ),
             )
         return MultiScaleValidateAggregator(aggregators)

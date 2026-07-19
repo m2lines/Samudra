@@ -150,6 +150,10 @@ class Trainer:
             data_root=cfg.experiment.resolved_data_root,
         )
         self.train_schedule: TrainSchedule = cfg.experiment.train_schedule
+        model_patch_extent = getattr(cfg.model, "patch_extent", None)
+        self.model_patch_extent = (
+            tuple(model_patch_extent) if model_patch_extent is not None else None
+        )
         if self.train_schedule == "mix" and cfg.model.pred_residuals:
             raise ValueError(
                 "Residual predictions on a mixed multiscale training schedule is not currently supported."
@@ -748,6 +752,22 @@ class Trainer:
                 self.tensor_map,
                 self.normalize,
                 include_image_aggregators=log_validation_images,
+                patch_size=(
+                    (
+                        round(
+                            self.model_patch_extent[0]
+                            * self.primary_src.grid_size[0]
+                            / 180.0
+                        ),
+                        round(
+                            self.model_patch_extent[1]
+                            * self.primary_src.grid_size[1]
+                            / 360.0
+                        ),
+                    )
+                    if self.model_patch_extent is not None
+                    else None
+                ),
             )
         else:
             val_aggregator = Aggregator.get_multiscale_validation_aggregator(
@@ -758,6 +778,7 @@ class Trainer:
                 self.prognostic_var_names,
                 self.boundary_var_names,
                 include_image_aggregators=log_validation_images,
+                patch_extent=self.model_patch_extent,
             )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"

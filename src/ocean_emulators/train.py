@@ -412,10 +412,11 @@ class _ReplayPrefetchPipeline:
             self._request_queue.put(request)
 
     def _fill_window(self) -> None:
-        while (
-            len(self._planned_requests) < self.horizon
-            and self._next_to_plan < self.total_batches
-        ):
+        while True:
+            local_can_plan = (
+                len(self._planned_requests) < self.horizon
+                and self._next_to_plan < self.total_batches
+            )
             try:
                 request = self.trainer.plan_replay_batch(
                     global_batch_index=self._next_to_plan,
@@ -424,11 +425,14 @@ class _ReplayPrefetchPipeline:
                         self.refresh_every_n_microbatches
                     ),
                     exclude_reserved=self._reserved_indices,
+                    leader_can_plan=local_can_plan,
                 )
             except RuntimeError:
                 if self._planned_requests:
                     break
                 raise
+            if request is None:
+                break
 
             self._reserved_indices.update(request.reserved_indices)
             self._planned_requests[request.request_id] = request
@@ -1978,31 +1982,35 @@ class Trainer:
         max_lead_steps: int,
         refresh_every_n_microbatches: int,
         exclude_reserved: set[int],
-    ) -> ReplayBatchRequest:
+        leader_can_plan: bool = True,
+    ) -> ReplayBatchRequest | None:
         dp_ctx = getattr(self, "dp_ctx", None)
         if dp_ctx is not None:
             envelope: dict[str, Any] | None = None
             if dp_ctx.is_domain_leader:
-                try:
-                    request = self._plan_replay_batch_local(
-                        global_batch_index=global_batch_index,
-                        max_lead_steps=max_lead_steps,
-                        refresh_every_n_microbatches=refresh_every_n_microbatches,
-                        exclude_reserved=exclude_reserved,
-                    )
-                    envelope = {
-                        "status": "ready",
-                        "request": _replay_request_to_dict(request),
-                    }
-                except RuntimeError as exc:
-                    # A large prefetch horizon can temporarily reserve every
-                    # replay slot. Followers must stop planning at the same
-                    # point or their next request broadcast will collide with
-                    # the leader's first tensor-scatter collective.
-                    envelope = {
-                        "status": "blocked",
-                        "message": str(exc),
-                    }
+                if not leader_can_plan:
+                    envelope = {"status": "complete"}
+                else:
+                    try:
+                        request = self._plan_replay_batch_local(
+                            global_batch_index=global_batch_index,
+                            max_lead_steps=max_lead_steps,
+                            refresh_every_n_microbatches=refresh_every_n_microbatches,
+                            exclude_reserved=exclude_reserved,
+                        )
+                        envelope = {
+                            "status": "ready",
+                            "request": _replay_request_to_dict(request),
+                        }
+                    except RuntimeError as exc:
+                        # A large prefetch horizon can temporarily reserve every
+                        # replay slot. Followers must stop planning at the same
+                        # point or their next request broadcast will collide with
+                        # the leader's first tensor-scatter collective.
+                        envelope = {
+                            "status": "blocked",
+                            "message": str(exc),
+                        }
 
             envelope = dp_ctx.broadcast_from_leader(envelope)
             if not isinstance(envelope, dict):
@@ -2011,6 +2019,8 @@ class Trainer:
                     f"{type(envelope).__name__}"
                 )
             status = envelope.get("status")
+            if status == "complete":
+                return None
             if status == "blocked":
                 raise RuntimeError(
                     str(envelope.get("message", "Replay planning is blocked"))
@@ -2022,6 +2032,8 @@ class Trainer:
                 )
             return _replay_request_from_dict(raw_request)
 
+        if not leader_can_plan:
+            return None
         return self._plan_replay_batch_local(
             global_batch_index=global_batch_index,
             max_lead_steps=max_lead_steps,

@@ -595,7 +595,9 @@ def test_domain_follower_prefetch_uses_metadata_without_reader_threads():
     trainer._replay_active_planner_state = None
     trainer.consume_replay_planner_resume_state = lambda: None
     trainer.replay_prefetch_horizon = lambda: 1
-    trainer.plan_replay_batch = lambda **_kwargs: request
+    trainer.plan_replay_batch = lambda **kwargs: (
+        request if kwargs["leader_can_plan"] else None
+    )
 
     pipeline = _ReplayPrefetchPipeline(
         trainer,
@@ -640,6 +642,35 @@ def test_domain_replay_planning_broadcasts_blocked_window(is_leader):
             refresh_every_n_microbatches=8,
             exclude_reserved=set(),
         )
+
+
+@pytest.mark.parametrize("is_leader", [True, False])
+def test_domain_replay_planning_leader_closes_fill_window(is_leader):
+    class CompleteContext:
+        is_domain_leader = is_leader
+
+        def broadcast_from_leader(self, value):
+            if self.is_domain_leader:
+                assert value == {"status": "complete"}
+                return value
+            assert value is None
+            return {"status": "complete"}
+
+    trainer = Trainer.__new__(Trainer)
+    trainer.dp_ctx = CompleteContext()
+
+    def unexpected_plan(**_kwargs):
+        raise AssertionError("The leader must not plan beyond its window")
+
+    trainer._plan_replay_batch_local = unexpected_plan
+
+    assert trainer.plan_replay_batch(
+        global_batch_index=31,
+        max_lead_steps=4,
+        refresh_every_n_microbatches=8,
+        exclude_reserved=set(),
+        leader_can_plan=False,
+    ) is None
 
 
 def test_replay_refresh_schedule_resolves_by_epoch():

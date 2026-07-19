@@ -27,8 +27,8 @@ is competitive.
 
 | Purpose | Config | Container | Slurm | W&B | Status |
 |---|---|---|---:|---|---|
-| Full-data SamudraMulti baseline | `configs/samudra_multi_om4/train_1deg_mse_proxy.yaml` | `26.05-9992bf52a3031442e2875a52fd113131c9162abd` | `14291479` | [ty6mwti9](https://wandb.ai/ocean_emulators/default/runs/ty6mwti9) | Running |
-| 512-timestamp SamudraMulti screen | `configs/samudra_multi_om4/train_1deg_mse_fast_proxy.yaml` | `26.05-3904ad07a55c5ea19d21bfe017e06d4b5bb8234f` | `14295585` | Pending | Dependency on full baseline |
+| Full-data SamudraMulti baseline | `configs/samudra_multi_om4/train_1deg_mse_proxy.yaml` | `26.05-9992bf52a3031442e2875a52fd113131c9162abd` | `14291479` | [ty6mwti9](https://wandb.ai/ocean_emulators/default/runs/ty6mwti9) | Completed |
+| 512-timestamp SamudraMulti screen | `configs/samudra_multi_om4/train_1deg_mse_fast_proxy.yaml` | `26.05-3904ad07a55c5ea19d21bfe017e06d4b5bb8234f` | `14295585` | Pending | Starting |
 | 512-timestamp v2 control | `configs/samudra_om4_v2_highres/train_1deg_mse_fast_proxy.yaml` | `26.05-3904ad07a55c5ea19d21bfe017e06d4b5bb8234f` | `14295587` | Pending | Dependency on fast SamudraMulti |
 
 The immutable config checksums are:
@@ -71,31 +71,44 @@ baseline.
 
 ## Baseline evidence
 
-The full run trains on 353 rank-local microbatches per epoch. Epochs 2 and 3 took
-11:09 and 11:10, respectively, or about 1.90 seconds per microbatch. Logged data wait
-is approximately 0.001 seconds. Peak model-process usage observed so far is about
-26.5 GiB per GPU and 4.1 GiB CPU RSS per rank; final Slurm MaxRSS will be recorded
-after job completion.
+The full run completed all 12 epochs with exit code zero. Training took 2:16:50;
+the complete Slurm allocation took 2:26:32 including container setup. It trained on
+353 rank-local microbatches per epoch. Representative epochs took about 11:10, or
+1.90 seconds per microbatch, with logged data wait near 0.001 seconds.
+
+Peak model-process usage was 26.5 GiB per GPU and 4.2 GiB CPU RSS per rank. Slurm
+reported 87,701,424 KiB (83.6 GiB) MaxRSS for the batch step and 60,518,732 KiB
+(57.7 GiB) for the Apptainer step. Thus the reduced request of 16 CPUs and 128 GiB
+was sufficient without OOM, NCCL, or loader failure.
 
 The full run's validation-selected weights are preserved at
 `2026-07-19-multi-1deg-1step-mse-rust-gbs32-9992bf52/saved_nets/best_validation_ckpt.pt`
-under `/scratch/jr7309/runs`. The file is atomically replaced only when held-out
-one-step validation improves; its final checksum and selected epoch will be recorded
-after training finishes.
+under `/scratch/jr7309/runs`. The file was atomically replaced when held-out
+one-step validation improved and ultimately selected epoch 12.
 
-Best validation results through epoch 4 are:
+| Artifact | SHA-256 |
+|---|---|
+| Resolved `config.yaml` | `00b42980cb5b328d15a22e49a453a8b3d4d8123a80d61b69c41eef5aed0374c1` |
+| `best_validation_ckpt.pt` | `189cda72ce574f1db0421b26f6a5da1a934ecb85734cbb1fb97da17c4dbfefda` |
+| `ckpt.pt` | `00a76668f95544c4a6a8d0d981c7a2a7e9fe0611a6e8103cfca58e096a3f334d` |
+| `ckpt_5.pt` | `1bf957d839c5c66ddb724aa03b1f381dd72e8d2b9817d1f4d310ea421366ed48` |
+| `ckpt_10.pt` | `12e8279cbbfa327aafef62f215e12ffbd152e6457f41a03601b9d677b3dd9005` |
+| `ema_ckpt.pt` | `a7a217a02135845c5f4f83ac560549af9ad6c1af52f2221a20c9d8f36019583e` |
+
+The final held-out one-step results from the validation-selected checkpoint are:
 
 | Variable group | SamudraMulti | v2 reference | Ratio |
 |---|---:|---:|---:|
-| Temperature | 0.0764 | 0.00149 | 51.3x |
-| Salinity | 0.2521 | 0.00138 | 182.7x |
-| Zonal velocity | 0.5274 | 0.0361 | 14.6x |
-| Meridional velocity | 0.5636 | 0.0565 | 10.0x |
-| SSH | 0.0647 | 0.00239 | 27.1x |
-| All channels | 0.3513 | 0.0236 | 14.9x |
+| Temperature | 0.04279 | 0.00149 | 28.7x |
+| Salinity | 0.08267 | 0.00138 | 59.9x |
+| Zonal velocity | 0.50774 | 0.0361 | 14.1x |
+| Meridional velocity | 0.55915 | 0.0565 | 9.9x |
+| SSH | 0.03611 | 0.00239 | 15.1x |
+| All channels | 0.29469 | 0.0236 | 12.5x |
 
-These are unweighted normalized one-step MSEs. They are interim until all 12 epochs
-finish and the best validation checkpoint is fixed.
+These are unweighted normalized one-step MSEs. The all-channel value is above 0.075,
+so this baseline fails the promotion gate and must not be extended to additional
+resolutions.
 
 ## Final screen comparison and decision
 

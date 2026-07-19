@@ -68,12 +68,14 @@ def summarize_trajectory(
 
 def summarize_path(path: Path) -> dict[str, Any]:
     """Load an identity trajectory from a run directory or JSON file."""
-    metrics_path = path / "identity_metrics.json" if path.is_dir() else path
+    is_run_directory = path.is_dir()
+    metrics_path = path / "identity_metrics.json" if is_run_directory else path
     with open(metrics_path) as handle:
         rows = json.load(handle)
     if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
         raise ValueError(f"Expected a list of metric rows in {metrics_path}")
-    return summarize_trajectory(rows, name=metrics_path.parent.name)
+    name = metrics_path.parent.name if is_run_directory else metrics_path.stem
+    return summarize_trajectory(rows, name=name)
 
 
 def markdown_table(summaries: Iterable[Mapping[str, Any]]) -> str:

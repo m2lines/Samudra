@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -63,3 +64,13 @@ def test_markdown_table_contains_identity_evidence():
     assert "identity-1deg" in table
     assert "180x360" in table
     assert "high_wavenumber_ratio" in table
+
+
+def test_summarize_path_names_direct_json_after_file(tmp_path):
+    script = _load_script()
+    metrics_path = tmp_path / "identity_1deg_metrics.json"
+    metrics_path.write_text(json.dumps([_row(1, 0.4)]))
+
+    summary = script.summarize_path(metrics_path)
+
+    assert summary["name"] == "identity_1deg_metrics"

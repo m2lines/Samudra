@@ -20,6 +20,31 @@ from ocean_emulators.train import Trainer, _ReplayPrefetchPipeline
 from ocean_emulators.utils.data import DataSource, Masks
 
 
+class _IdentityDomainContext:
+    is_domain_leader = True
+
+    def scatter_spatial(self, tensor, *, ndim):
+        assert ndim == 4
+        assert tensor is not None
+        return tensor.clone()
+
+    @staticmethod
+    def from_local_spatial(tensor):
+        return tensor
+
+    @staticmethod
+    def local_tensor(tensor):
+        return tensor
+
+    @staticmethod
+    def broadcast_from_leader(value):
+        return value
+
+
+class _FollowerDomainContext(_IdentityDomainContext):
+    is_domain_leader = False
+
+
 class ConstantResidualModel(BaseModel):
     def __init__(self, *, pred_residuals: bool):
         super().__init__(
@@ -314,6 +339,123 @@ def test_prepare_raw_replay_batch_keeps_loss_label_float32_with_bf16_transport()
     assert pred.grad is not None
 
 
+def test_prepare_domain_replay_batch_combines_local_state_with_scattered_gold():
+    dataset = make_replay_dataset(stride=3)
+    cursor = ReplayCursor(
+        dataset_index=0,
+        source_index=0,
+        lead_step=2,
+        stride=dataset.stride,
+        temporal_stride=dataset.temporal_stride,
+    )
+    seed_cursor = ReplayCursor(
+        dataset_index=0,
+        source_index=4,
+        lead_step=0,
+        stride=dataset.stride,
+        temporal_stride=dataset.temporal_stride,
+    )
+    request = ReplayBatchRequest(
+        request_id=1,
+        train_slots=(ReplayBatchSlot(replay_index=0, cursor=cursor),),
+        seed_slots=(
+            ReplaySeedSlot(
+                replay_index=1,
+                cursor=seed_cursor,
+                reason="scheduled",
+            ),
+        ),
+    )
+    raw_batch = SimpleNamespace(
+        request=request,
+        train_transitions=[
+            dataset.get_raw_replay_train_transition(
+                dataset_index=0,
+                source_index=cursor.source_index,
+                lead_step=cursor.lead_step,
+            )
+        ],
+        seed_transitions=[
+            dataset.get_raw_replay_seed_transition(
+                dataset_index=0,
+                source_index=seed_cursor.source_index,
+                lead_step=seed_cursor.lead_step,
+            )
+        ],
+        load_stats=None,
+    )
+
+    trainer = Trainer.__new__(Trainer)
+    trainer.dp_ctx = _IdentityDomainContext()
+    trainer.device = torch.device("cpu")
+    trainer.num_out = dataset.num_prognostic_channels
+    trainer.train_datasets = [dataset]
+    trainer.pin_mem = False
+    trainer.replay_storage_dtype = torch.float32
+    trainer.replay_buffer = ReplayBuffer(
+        buffer_size=2,
+        storage_dtype=torch.float32,
+        generator=torch.Generator(device="cpu"),
+        pin_memory=False,
+    )
+    trainer.replay_buffer.append(
+        ReplayEntry(state=torch.tensor([[[999.0]]]), cursor=cursor)
+    )
+
+    prepared = trainer.prepare_raw_replay_batch(raw_batch, ready_event=None)
+    input, label = prepared.data[0]
+
+    assert input.flatten().tolist() == [999.0, 61.0]
+    assert label.flatten().tolist() == [90.0]
+    assert prepared.seed_entries[1].state.flatten().tolist() == [40.0]
+
+
+def test_domain_replay_update_stores_only_local_prediction_tile():
+    dataset = make_replay_dataset(stride=3)
+    cursor = ReplayCursor(
+        dataset_index=0,
+        source_index=0,
+        lead_step=2,
+        stride=dataset.stride,
+        temporal_stride=dataset.temporal_stride,
+    )
+    request = ReplayBatchRequest(
+        request_id=1,
+        train_slots=(ReplayBatchSlot(replay_index=0, cursor=cursor),),
+        seed_slots=(),
+    )
+    trainer = Trainer.__new__(Trainer)
+    trainer.dp_ctx = _IdentityDomainContext()
+    trainer.device = torch.device("cpu")
+    trainer.domain_wet = torch.ones(1, 1, 1, dtype=torch.bool)
+    trainer.train_datasets = [dataset]
+    trainer.pin_mem = False
+    trainer.replay_storage_dtype = torch.float32
+    trainer.replay_buffer = ReplayBuffer(
+        buffer_size=1,
+        storage_dtype=torch.float32,
+        generator=torch.Generator(device="cpu"),
+        pin_memory=False,
+    )
+    trainer.replay_buffer.append(
+        ReplayEntry(state=torch.tensor([[[999.0]]]), cursor=cursor)
+    )
+    prepared = SimpleNamespace(
+        request=request,
+        seed_entries={},
+    )
+
+    trainer.apply_replay_prefetch_updates(
+        prepared,
+        pred=torch.tensor([[[[123.0]]]]),
+    )
+
+    entry = trainer.replay_buffer.entries[0]
+    assert entry.state.shape == (1, 1, 1)
+    assert entry.state.item() == 123.0
+    assert entry.cursor == cursor.advance()
+
+
 def test_prepare_raw_replay_batch_supports_seed_only_requests():
     dataset = make_replay_dataset(stride=3)
     seed_cursor = ReplayCursor(
@@ -430,6 +572,42 @@ def test_replay_prefetch_pipeline_yields_prepared_batch():
 
     assert input.flatten().tolist() == [999.0, 1.0]
     assert label.flatten().tolist() == [30.0]
+
+
+def test_domain_follower_prefetch_uses_metadata_without_reader_threads():
+    cursor = ReplayCursor(
+        dataset_index=0,
+        source_index=0,
+        lead_step=0,
+        stride=1,
+        temporal_stride=1,
+    )
+    request = ReplayBatchRequest(
+        request_id=0,
+        train_slots=(ReplayBatchSlot(replay_index=0, cursor=cursor),),
+        seed_slots=(),
+    )
+    trainer = Trainer.__new__(Trainer)
+    trainer.dp_ctx = _FollowerDomainContext()
+    trainer.num_workers = 6
+    trainer._replay_active_planner = None
+    trainer._replay_active_planner_state = None
+    trainer.consume_replay_planner_resume_state = lambda: None
+    trainer.replay_prefetch_horizon = lambda: 1
+    trainer.plan_replay_batch = lambda **_kwargs: request
+
+    pipeline = _ReplayPrefetchPipeline(
+        trainer,
+        start_batch_in_epoch=0,
+        total_batches=1,
+        max_lead_steps=1,
+        refresh_every_n_microbatches=99,
+    )
+
+    assert pipeline._worker_threads == []
+    assert pipeline._raw_cache[0].request == request
+    assert pipeline._raw_cache[0].train_transitions == []
+    pipeline.close()
 
 
 def test_replay_refresh_schedule_resolves_by_epoch():

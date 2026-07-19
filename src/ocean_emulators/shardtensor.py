@@ -12,7 +12,7 @@ v1 scope (quick 2x2 test):
     support >1 sharded spatial dim; the functional reshape path does)
 
 Deferred (see plan): FSDP over a replica axis, multi-cluster scatter,
-per-rank shard reads, variable cluster sizes, replay integration.
+per-rank storage reads, variable cluster sizes, and replay sidecar resume.
 """
 
 from __future__ import annotations
@@ -205,6 +205,7 @@ class DomainParallelContext:
 
         # Global rank at this replica's domain coordinate (0, 0) — the leader.
         self._domain_leader_global_rank = int(self.domain_mesh.mesh.flatten()[0].item())
+        self.domain_group = self._dm.get_mesh_group(self.domain_mesh)
 
         logger.info(
             "DomainParallelContext: cluster_shape=%s num_replicas=%s "
@@ -248,7 +249,6 @@ class DomainParallelContext:
         # PhysicsNeMo's scatter_tensor chooses its metadata-broadcast path from
         # local arguments. Broadcast it here so every rank follows the same
         # collective sequence when only the leader owns the full tensor.
-        mesh_group = self._dm.get_mesh_group(self.domain_mesh)
         if self.is_domain_leader:
             assert tensor is not None
             metadata = [
@@ -262,7 +262,7 @@ class DomainParallelContext:
         torch.distributed.broadcast_object_list(
             metadata,
             src=self._domain_leader_global_rank,
-            group=mesh_group,
+            group=self.domain_group,
         )
         global_shape, dtype = metadata[0]
         st = self._scatter_tensor(
@@ -313,6 +313,23 @@ class DomainParallelContext:
         return self._ShardTensor.from_local(
             local_tensor, self.domain_mesh, pl, sharding_shapes="infer",
         )
+
+    def from_local_spatial(self, local_tensor: torch.Tensor):
+        """Promote a rank-local H/W tile to a spatial ShardTensor."""
+        return self.from_local_shard(
+            local_tensor,
+            placements=self.spatial_placements(local_tensor.ndim),
+        )
+
+    def broadcast_from_leader(self, value):
+        """Broadcast a small Python control-plane value within the domain."""
+        payload = [value if self.is_domain_leader else None]
+        torch.distributed.broadcast_object_list(
+            payload,
+            src=self._domain_leader_global_rank,
+            group=self.domain_group,
+        )
+        return payload[0]
 
     def gather(self, st) -> torch.Tensor:
         """Gather a ShardTensor to a full replicated torch.Tensor (logging/val)."""

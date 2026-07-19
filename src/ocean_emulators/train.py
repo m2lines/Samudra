@@ -125,7 +125,7 @@ class _OffsetBatchSampler(Sampler[list[int]]):
 class _DomainFollowerLoader:
     """Yield metadata-only batches on ranks that do not read the global patch.
 
-    The domain leader performs the Phase 2 full-patch read. Followers still
+    The domain leader performs the full-patch read. Followers still
     enter every training collective in lockstep, but avoid redundant storage
     reads and host-to-device copies.
     """
@@ -295,6 +295,8 @@ class _ReplayPrefetchPipeline:
     def _pop_ready_prepared(self) -> _ReplayPreparedBatch | None:
         if not self._prepared_cache:
             return None
+        if getattr(self.trainer, "dp_ctx", None) is not None:
+            return self._prepared_cache.pop(self._next_to_yield, None)
         if self._next_to_yield in self._prepared_cache:
             return self._prepared_cache.pop(self._next_to_yield)
         request_id = next(iter(self._prepared_cache))
@@ -303,6 +305,8 @@ class _ReplayPrefetchPipeline:
     def _pop_ready_raw(self) -> RawReplayBatch | None:
         if not self._raw_cache:
             return None
+        if getattr(self.trainer, "dp_ctx", None) is not None:
+            return self._raw_cache.pop(self._next_to_yield, None)
         if self._next_to_yield in self._raw_cache:
             return self._raw_cache.pop(self._next_to_yield)
         request_id = next(iter(self._raw_cache))
@@ -428,7 +432,20 @@ class _ReplayPrefetchPipeline:
 
             self._reserved_indices.update(request.reserved_indices)
             self._planned_requests[request.request_id] = request
-            self._request_queue.put(request)
+            if (
+                getattr(self.trainer, "dp_ctx", None) is not None
+                and not self.trainer.dp_ctx.is_domain_leader
+            ):
+                # Followers participate in planning collectives but never read the
+                # full patch. Their metadata-only batch is prepared when the leader's
+                # matching request reaches the front of the prefetch window.
+                self._raw_cache[request.request_id] = RawReplayBatch(
+                    request=request,
+                    train_transitions=[],
+                    seed_transitions=[],
+                )
+            else:
+                self._request_queue.put(request)
             self._next_to_plan += 1
 
     def _wait_for_any_raw_batch(self) -> RawReplayBatch:
@@ -437,7 +454,12 @@ class _ReplayPrefetchPipeline:
             if isinstance(result, BaseException):
                 raise result
             raw_batch = result
-            return raw_batch
+            if (
+                getattr(self.trainer, "dp_ctx", None) is None
+                or raw_batch.request.request_id == self._next_to_yield
+            ):
+                return raw_batch
+            self._raw_cache[raw_batch.request.request_id] = raw_batch
 
     def _drain_raw_results_nonblocking(self) -> None:
         while True:
@@ -450,6 +472,11 @@ class _ReplayPrefetchPipeline:
             self._raw_cache[result.request.request_id] = result
 
     def _worker_count(self) -> int:
+        if (
+            getattr(self.trainer, "dp_ctx", None) is not None
+            and not self.trainer.dp_ctx.is_domain_leader
+        ):
+            return 0
         return max(1, self.trainer.num_workers)
 
     def _worker_loop(self) -> None:
@@ -468,6 +495,11 @@ class _ReplayPrefetchPipeline:
                 return
 
     def _load_raw_batch(self, request: ReplayBatchRequest) -> RawReplayBatch:
+        if (
+            getattr(self.trainer, "dp_ctx", None) is not None
+            and not self.trainer.dp_ctx.is_domain_leader
+        ):
+            raise RuntimeError("Domain followers must not read full replay frames")
         start_time = time.perf_counter()
         train_transitions = [
             self._prepare_raw_transition_for_transport(
@@ -515,6 +547,18 @@ class _ReplayPrefetchPipeline:
         return transition
 
     def _prepare_async(self, raw_batch: RawReplayBatch) -> _ReplayPreparedBatch:
+        if getattr(self.trainer, "dp_ctx", None) is not None:
+            # Scatter collectives run on the training stream and in strict request
+            # order. Only the leader owns tensors worth pinning.
+            if (
+                self.trainer.dp_ctx.is_domain_leader
+                and self.trainer.pin_mem
+                and torch.cuda.is_available()
+            ):
+                raw_batch.pin_memory()
+            return self.trainer.prepare_raw_replay_batch(
+                raw_batch, ready_event=None
+            )
         if self.trainer.device.type != "cuda":
             return self.trainer.prepare_raw_replay_batch(raw_batch, ready_event=None)
 
@@ -536,30 +580,40 @@ class Trainer:
         cfg.save_yaml(cfg.experiment.output_dir / "config.yaml")
 
         if cfg.domain_parallel.enabled:
-            if cfg.replay.enabled:
+            if cfg.replay.enabled and cfg.replay.checkpoint_buffer:
                 raise ValueError(
-                    "Domain-parallel replay is deferred to Phase 4. Set "
-                    "replay.enabled=false for Phase 2 curriculum training."
+                    "Domain-parallel replay sidecars/resume are not implemented yet. "
+                    "Set replay.checkpoint_buffer=false for the Phase 3 gate."
+                )
+            if (
+                cfg.replay.enabled
+                and cfg.emergency_checkpoint_interval_minutes > 0
+            ):
+                raise ValueError(
+                    "Periodic emergency checkpoints are not implemented for "
+                    "domain-parallel replay. Set "
+                    "emergency_checkpoint_interval_minutes=0."
                 )
             if cfg.inference_epochs:
                 raise ValueError(
-                    "Domain-parallel rollout inference is deferred to Phase 3. "
+                    "Domain-parallel rollout inference is deferred to a later gate. "
                     "Set inference_epochs=[]; one-step validation is supported."
                 )
             if not isinstance(cfg.model, config.SamudraConfig):
-                raise ValueError("Domain-parallel Phase 2 supports Samudra only.")
+                raise ValueError("Domain-parallel training currently supports Samudra only.")
             if not isinstance(cfg.loss, str) or cfg.loss not in {
                 "mse",
                 "mae",
                 "mse_mae",
             }:
                 raise ValueError(
-                    "Domain-parallel Phase 2 supports loss='mse', 'mae', or "
+                    "Domain-parallel training currently supports loss='mse', 'mae', or "
                     "'mse_mae'. Gradient and adaptive losses are later gates."
                 )
             if not cfg.domain_parallel.leader_scatter:
                 raise ValueError(
-                    "Phase 2 requires domain_parallel.leader_scatter=true. "
+                    "The current domain-parallel path requires "
+                    "domain_parallel.leader_scatter=true. "
                     "Per-rank spatial reads are deferred to the PatchCatalog phase."
                 )
             if cfg.domain_parallel.use_fsdp:
@@ -888,7 +942,7 @@ class Trainer:
             if self.dp_ctx is not None:
                 raise NotImplementedError(
                     "Resuming optimizer/EMA state from a domain-parallel checkpoint "
-                    "is not validated in Phase 2. Start the smoke run without "
+                    "is not validated yet. Start the smoke run without "
                     "resume_ckpt_path; dense model checkpoints are still written."
                 )
             if cfg.finetune:
@@ -1003,7 +1057,12 @@ class Trainer:
             torch.bfloat16 if getattr(cfg.model, "use_bfloat16", False) else torch.float32
         )
         self.replay_generator = torch.Generator(device="cpu")
-        self.replay_generator.manual_seed(cfg.experiment.rand_seed + 104729 * get_rank())
+        replay_seed = (
+            cfg.experiment.rand_seed
+            if self.dp_ctx is not None
+            else cfg.experiment.rand_seed + 104729 * get_rank()
+        )
+        self.replay_generator.manual_seed(replay_seed)
         self.replay_copy_stream = (
             torch.cuda.Stream() if self.device.type == "cuda" else None
         )
@@ -1679,13 +1738,14 @@ class Trainer:
                 scaled_loss = TO.loss / r
                 scaled_loss.backward()
 
+            logging_output = self._materialize_train_output(TO)
             cap_refreshes, scheduled_refreshes = self.apply_replay_prefetch_updates(
                 prepared,
                 pred,
             )
             replay_batches.complete(prepared)
 
-            train_aggregator.record_batch(TO)
+            train_aggregator.record_batch(logging_output)
             processed_batches += 1
 
             self.num_batches_seen += 1
@@ -1703,7 +1763,11 @@ class Trainer:
             )
 
             with torch.no_grad():
-                if sync_gradients:
+                if self.dp_ctx is not None:
+                    # ShardTensor losses already reduce over the full domain.
+                    loss_value_reduce = logging_output.loss
+                    loss_per_channel_reduce = logging_output.loss_per_channel
+                elif sync_gradients:
                     loss_value_reduce = all_reduce_mean(TO.loss.detach())
                     loss_per_channel_reduce = all_reduce_mean(
                         TO.loss_per_channel.detach()
@@ -1749,7 +1813,7 @@ class Trainer:
                     self.loss_fn, "loss_scale_per_channel", None
                 ):
                     loss_scale_per_channel = loss_scale_per_channel_fn()
-                    loss_per_channel = TO.loss_per_channel.reshape(
+                    loss_per_channel = logging_output.loss_per_channel.reshape(
                         -1, loss_scale_per_channel.shape[0]
                     ).mean(dim=0)
 
@@ -1915,6 +1979,40 @@ class Trainer:
         refresh_every_n_microbatches: int,
         exclude_reserved: set[int],
     ) -> ReplayBatchRequest:
+        dp_ctx = getattr(self, "dp_ctx", None)
+        if dp_ctx is not None:
+            request = (
+                self._plan_replay_batch_local(
+                    global_batch_index=global_batch_index,
+                    max_lead_steps=max_lead_steps,
+                    refresh_every_n_microbatches=refresh_every_n_microbatches,
+                    exclude_reserved=exclude_reserved,
+                )
+                if dp_ctx.is_domain_leader
+                else None
+            )
+            raw_request = dp_ctx.broadcast_from_leader(
+                _replay_request_to_dict(request) if request is not None else None
+            )
+            if raw_request is None:
+                raise RuntimeError("Domain leader broadcast an empty replay request")
+            return _replay_request_from_dict(raw_request)
+
+        return self._plan_replay_batch_local(
+            global_batch_index=global_batch_index,
+            max_lead_steps=max_lead_steps,
+            refresh_every_n_microbatches=refresh_every_n_microbatches,
+            exclude_reserved=exclude_reserved,
+        )
+
+    def _plan_replay_batch_local(
+        self,
+        *,
+        global_batch_index: int,
+        max_lead_steps: int,
+        refresh_every_n_microbatches: int,
+        exclude_reserved: set[int],
+    ) -> ReplayBatchRequest:
         if self.replay_buffer is None:
             raise RuntimeError("Replay buffer is not initialized")
 
@@ -1978,6 +2076,11 @@ class Trainer:
     ) -> _ReplayPreparedBatch:
         if self.replay_buffer is None:
             raise RuntimeError("Replay buffer is not initialized")
+        if getattr(self, "dp_ctx", None) is not None:
+            return self._prepare_domain_replay_batch(
+                raw_batch,
+                ready_event=ready_event,
+            )
 
         inputs = []
         labels = []
@@ -2034,12 +2137,110 @@ class Trainer:
             ready_event=ready_event,
         )
 
-    def _raw_replay_train_transition_to_example(
+    def _prepare_domain_replay_batch(
+        self,
+        raw_batch: RawReplayBatch,
+        *,
+        ready_event: torch.cuda.Event | None,
+    ) -> _ReplayPreparedBatch:
+        """Scatter leader-loaded replay gold data and combine it with local state."""
+        assert self.dp_ctx is not None
+        assert self.replay_buffer is not None
+        is_leader = self.dp_ctx.is_domain_leader
+        if is_leader:
+            if len(raw_batch.train_transitions) != len(raw_batch.request.train_slots):
+                raise RuntimeError("Domain leader replay train transition count mismatch")
+            if len(raw_batch.seed_transitions) != len(raw_batch.request.seed_slots):
+                raise RuntimeError("Domain leader replay seed transition count mismatch")
+
+        inputs = []
+        labels = []
+        cursors = []
+        for index, slot in enumerate(raw_batch.request.train_slots):
+            entry = self.replay_buffer.entries[slot.replay_index]
+            if entry.cursor != slot.cursor:
+                raise RuntimeError(
+                    "Replay buffer slot changed while a domain-prefetched request "
+                    "was in flight. This indicates a reservation bug."
+                )
+            dataset = self.train_datasets[slot.cursor.dataset_index]
+            self.validate_replay_cursor(slot.cursor, dataset)
+
+            label = None
+            boundary = None
+            if is_leader:
+                transition = raw_batch.train_transitions[index]
+                label, boundary = self._raw_replay_gold_to_tensors(
+                    dataset,
+                    transition,
+                )
+            sharded_label = self.dp_ctx.scatter_spatial(label, ndim=4)
+            sharded_boundary = self.dp_ctx.scatter_spatial(boundary, ndim=4)
+
+            self._wait_replay_entry_ready(entry)
+            local_state = entry.state
+            if local_state.ndim == 3:
+                local_state = local_state.unsqueeze(0)
+            local_boundary = self.dp_ctx.local_tensor(sharded_boundary)
+            expected_shape = (
+                local_boundary.shape[0],
+                dataset.num_prognostic_channels,
+                *local_boundary.shape[-2:],
+            )
+            if tuple(local_state.shape) != tuple(expected_shape):
+                raise ValueError(
+                    "Rank-local replay state shape does not match its forcing tile: "
+                    f"{tuple(local_state.shape)} vs {tuple(expected_shape)}"
+                )
+            local_state = local_state.to(
+                device=self.device,
+                dtype=local_boundary.dtype,
+                non_blocking=True,
+            )
+            sharded_state = self.dp_ctx.from_local_spatial(local_state)
+            inputs.append(torch.cat((sharded_state, sharded_boundary), dim=1))
+            labels.append(sharded_label)
+            cursors.append(slot.cursor)
+
+        seed_entries: dict[int, ReplayEntry] = {}
+        for index, slot in enumerate(raw_batch.request.seed_slots):
+            dataset = self.train_datasets[slot.cursor.dataset_index]
+            self.validate_replay_cursor(slot.cursor, dataset)
+            state = None
+            if is_leader:
+                state = self._raw_replay_seed_transition_to_state(
+                    dataset,
+                    raw_batch.seed_transitions[index],
+                ).unsqueeze(0)
+            sharded_state = self.dp_ctx.scatter_spatial(state, ndim=4)
+            local_state = self.dp_ctx.local_tensor(sharded_state)[0]
+            seed_entries[slot.replay_index] = self._stage_replay_state_for_buffer(
+                local_state,
+                slot.cursor,
+            )
+
+        train_data = TrainData(self.num_out)
+        if inputs:
+            train_data.append(torch.cat(inputs, dim=0), torch.cat(labels, dim=0))
+        if is_leader:
+            train_data.load_stats = raw_batch.load_stats
+            train_data.source_indices = [
+                slot.cursor.source_index for slot in raw_batch.request.train_slots
+            ]
+        return _ReplayPreparedBatch(
+            request=raw_batch.request,
+            data=train_data,
+            cursors=cursors,
+            seed_entries=seed_entries,
+            load_stats=raw_batch.load_stats if is_leader else None,
+            ready_event=ready_event,
+        )
+
+    def _raw_replay_gold_to_tensors(
         self,
         dataset: TorchTrainDataset,
         transition: RawReplayTransition,
-        entry: ReplayEntry,
-    ):
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         if transition.target_prognostic is None or transition.boundary is None:
             raise RuntimeError("Replay train transition is missing target or boundary")
         label = dataset._prep_tensor_steps(
@@ -2054,6 +2255,15 @@ class Trainer:
                 non_blocking=True,
             )
         )
+        return label, boundary
+
+    def _raw_replay_train_transition_to_example(
+        self,
+        dataset: TorchTrainDataset,
+        transition: RawReplayTransition,
+        entry: ReplayEntry,
+    ):
+        label, boundary = self._raw_replay_gold_to_tensors(dataset, transition)
         self._wait_replay_entry_ready(entry)
         prognostic_state = entry.state
         if prognostic_state.ndim == 3:
@@ -2149,7 +2359,13 @@ class Trainer:
                     continue
 
                 dataset = self.train_datasets[slot.cursor.dataset_index]
-                state = dataset.remask_prognostic_state(pred[batch_index])
+                if getattr(self, "dp_ctx", None) is not None:
+                    state = self._remask_local_replay_state(
+                        self.dp_ctx.local_tensor(pred[batch_index]),
+                        dataset,
+                    )
+                else:
+                    state = dataset.remask_prognostic_state(pred[batch_index])
                 self.replay_buffer.replace(
                     slot.replay_index,
                     self._stage_replay_state_for_buffer(
@@ -2166,6 +2382,33 @@ class Trainer:
                 scheduled_refreshes += 1
 
         return cap_refreshes, scheduled_refreshes
+
+    def _remask_local_replay_state(
+        self,
+        state: torch.Tensor,
+        dataset: TorchTrainDataset,
+    ) -> torch.Tensor:
+        """Apply the prognostic wet mask without gathering a sharded prediction."""
+        if getattr(self, "dp_ctx", None) is None:
+            return dataset.remask_prognostic_state(state)
+        local_wet = self.dp_ctx.local_tensor(self.domain_wet).to(
+            device=state.device,
+            dtype=torch.bool,
+        )
+        if tuple(local_wet.shape) != tuple(state.shape):
+            raise ValueError(
+                "Rank-local replay prediction and wet-mask shapes differ: "
+                f"{tuple(state.shape)} vs {tuple(local_wet.shape)}"
+            )
+        if dataset.normalize_before_mask:
+            fill = torch.full_like(state, dataset.masked_fill_value)
+        else:
+            fill_value = (
+                (dataset.masked_fill_value - dataset.prognostic_means)
+                / dataset.prognostic_stds
+            ).to(device=state.device, dtype=state.dtype)
+            fill = fill_value.view(-1, 1, 1).expand_as(state)
+        return torch.where(local_wet, state, fill)
 
     def init_replay_buffer(self, *, force_reseed: bool = False) -> None:
         if self.replay_buffer is not None and not force_reseed:
@@ -2209,6 +2452,11 @@ class Trainer:
         fresh_per_rank = self.replay_fresh_gold_samples_per_epoch(
             active_refresh_every
         )
+        fresh_global = (
+            fresh_per_rank
+            if self.dp_ctx is not None
+            else fresh_per_rank * get_world_size()
+        )
         logger.info(
             "Replay buffer ready: size=%s storage_dtype=%s refresh_batch_size=%s "
             "steps_per_epoch=%s active_refresh_every_n_microbatches=%s "
@@ -2224,7 +2472,7 @@ class Trainer:
             self.replay_cfg.refresh_every_n_microbatches,
             self.replay_prefetch_horizon(),
             fresh_per_rank,
-            fresh_per_rank * get_world_size(),
+            fresh_global,
         )
 
     def seed_replay_buffer(self) -> None:
@@ -2246,34 +2494,51 @@ class Trainer:
         entries_by_index: dict[int, ReplayEntry] = {}
         while remaining > 0:
             group_size = min(self.batch_size, remaining)
-            seed_slots = []
-            for _ in range(group_size):
-                seed_slots.append(
-                    ReplaySeedSlot(
-                        replay_index=next_replay_index,
-                        cursor=self.sample_replay_seed_cursor(),
-                        reason="seed",
+            request = None
+            dp_ctx = getattr(self, "dp_ctx", None)
+            if dp_ctx is None or dp_ctx.is_domain_leader:
+                seed_slots = []
+                for _ in range(group_size):
+                    seed_slots.append(
+                        ReplaySeedSlot(
+                            replay_index=next_replay_index,
+                            cursor=self.sample_replay_seed_cursor(),
+                            reason="seed",
+                        )
                     )
+                    next_replay_index += 1
+                request = ReplayBatchRequest(
+                    request_id=request_id,
+                    train_slots=(),
+                    seed_slots=tuple(seed_slots),
+                    temporal_bundle_size=1,
                 )
-                next_replay_index += 1
-            request = ReplayBatchRequest(
-                request_id=request_id,
-                train_slots=(),
-                seed_slots=tuple(seed_slots),
-                temporal_bundle_size=1,
-            )
+            if dp_ctx is not None:
+                raw_request = dp_ctx.broadcast_from_leader(
+                    _replay_request_to_dict(request) if request is not None else None
+                )
+                if raw_request is None:
+                    raise RuntimeError("Domain leader broadcast an empty seed request")
+                request = _replay_request_from_dict(raw_request)
+                if not dp_ctx.is_domain_leader:
+                    next_replay_index += group_size
+            assert request is not None
             raw_batch = RawReplayBatch(
                 request=request,
                 train_transitions=[],
-                seed_transitions=[
-                    self.train_datasets[slot.cursor.dataset_index]
-                    .get_raw_replay_seed_transition(
-                        dataset_index=slot.cursor.dataset_index,
-                        source_index=slot.cursor.source_index,
-                        lead_step=slot.cursor.lead_step,
-                    )
-                    for slot in request.seed_slots
-                ],
+                seed_transitions=(
+                    [
+                        self.train_datasets[slot.cursor.dataset_index]
+                        .get_raw_replay_seed_transition(
+                            dataset_index=slot.cursor.dataset_index,
+                            source_index=slot.cursor.source_index,
+                            lead_step=slot.cursor.lead_step,
+                        )
+                        for slot in request.seed_slots
+                    ]
+                    if dp_ctx is None or dp_ctx.is_domain_leader
+                    else []
+                ),
             )
             prepared = self.prepare_raw_seed_batch(raw_batch)
             entries_by_index.update(prepared.seed_entries)
@@ -2287,6 +2552,15 @@ class Trainer:
         ]
 
     def prepare_raw_seed_batch(self, raw_batch: RawReplayBatch) -> _ReplayPreparedBatch:
+        dp_ctx = getattr(self, "dp_ctx", None)
+        if dp_ctx is not None:
+            if (
+                dp_ctx.is_domain_leader
+                and self.pin_mem
+                and torch.cuda.is_available()
+            ):
+                raw_batch.pin_memory()
+            return self.prepare_raw_replay_batch(raw_batch, ready_event=None)
         if self.device.type != "cuda":
             return self.prepare_raw_replay_batch(raw_batch, ready_event=None)
 

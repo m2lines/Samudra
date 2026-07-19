@@ -1097,8 +1097,8 @@ class TrainConfig(TopLevelConfig):
     domain_parallel: DomainParallelConfig = Field(
         default_factory=DomainParallelConfig,
         description=(
-            "Optional PhysicsNeMo ShardTensor domain parallelism. Phase 2 "
-            "supports one spatial cluster and non-replay curriculum training."
+            "Optional PhysicsNeMo ShardTensor domain parallelism. The current "
+            "gate supports one spatial cluster with curriculum or replay training."
         ),
     )
     ddp_bucket_cap_mb: int | None = Field(

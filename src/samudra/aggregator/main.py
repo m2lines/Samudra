@@ -13,13 +13,13 @@ import torch
 
 from samudra.aggregator.inference import InferenceEvaluatorAggregator
 from samudra.aggregator.train import TrainAggregator
-from samudra.aggregator.validate import ValidateAggregator
+from samudra.aggregator.validate import MultiScaleValidateAggregator, ValidateAggregator
 from samudra.aggregator.validate.map import MapAggregator
 from samudra.aggregator.validate.reduced import MeanAggregator
 from samudra.aggregator.validate.snapshot import SnapshotAggregator
 from samudra.aggregator.validate.sub_aggregator import ValidateSubAggregator
-from samudra.constants import TensorMap
-from samudra.utils.data import Normalize
+from samudra.constants import BoundaryVarNames, PrognosticVarNames, TensorMap
+from samudra.utils.data import CanonicalDataset, Normalize
 
 
 class Aggregator:
@@ -55,7 +55,45 @@ class Aggregator:
             num_prognostic_channels=num_prognostic_channels,
             tensor_map=tensor_map,
             normalize=normalize,
+            record_baselines=True,
         )
+
+    @staticmethod
+    def get_multiscale_validation_aggregator(
+        sources: list[CanonicalDataset],
+        hist: int,
+        num_prognostic_channels: int,
+        tensor_map: TensorMap,
+        prognostic_var_names: PrognosticVarNames,
+        boundary_var_names: BoundaryVarNames,
+        *,
+        include_image_aggregators: bool = True,
+    ) -> MultiScaleValidateAggregator:
+        """Build independent validation diagnostics for each output grid."""
+        aggregators: dict[tuple[int, int], tuple[str, ValidateAggregator]] = {}
+        for source in sources:
+            grid = source.grid_size
+            if grid in aggregators:
+                raise ValueError(f"Duplicate validation grid {grid}.")
+            scale_label = f"{grid[0]}x{grid[1]}"
+            normalize = Normalize(
+                source,
+                prognostic_var_names=prognostic_var_names,
+                boundary_var_names=boundary_var_names,
+            )
+            aggregators[grid] = (
+                scale_label,
+                Aggregator.get_validation_aggregator(
+                    source.metadata,
+                    hist,
+                    source.spherical_area_weights,
+                    num_prognostic_channels,
+                    tensor_map,
+                    normalize,
+                    include_image_aggregators=include_image_aggregators,
+                ),
+            )
+        return MultiScaleValidateAggregator(aggregators)
 
     @staticmethod
     def get_inline_inference_aggregator(

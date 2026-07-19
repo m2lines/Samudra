@@ -23,7 +23,11 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, DistributedSampler, RandomSampler
 
 from samudra import config
-from samudra.aggregator import Aggregator, ValidateAggregator
+from samudra.aggregator import (
+    Aggregator,
+    MultiScaleValidateAggregator,
+    ValidateAggregator,
+)
 from samudra.aggregator.loss import (
     get_channel_loss_dict,
     get_channel_loss_scale_dict,
@@ -692,6 +696,7 @@ class Trainer:
             and self.validation_images_enabled
         )
 
+        val_aggregator: ValidateAggregator | MultiScaleValidateAggregator
         if self.train_schedule == "standard":
             # The standard val aggregator only supports a single scale.
             val_aggregator = Aggregator.get_validation_aggregator(
@@ -704,13 +709,14 @@ class Trainer:
                 include_image_aggregators=log_validation_images,
             )
         else:
-            # Create a validation aggregator that handles multiple scales.
-            val_aggregator = ValidateAggregator(
-                {},  # Currently, don't do anything else besides record the training loss.
+            val_aggregator = Aggregator.get_multiscale_validation_aggregator(
+                self.data_container.sources,
                 self.hist,
                 self.num_out,
-                tensor_map=self.tensor_map,
-                normalize=self.normalize,
+                self.tensor_map,
+                self.prognostic_var_names,
+                self.boundary_var_names,
+                include_image_aggregators=log_validation_images,
             )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"

@@ -5,7 +5,11 @@
 import pytest
 import torch
 
-from samudra.aggregator import Aggregator, ValidateAggregator
+from samudra.aggregator import (
+    Aggregator,
+    MultiScaleValidateAggregator,
+    ValidateAggregator,
+)
 from samudra.aggregator.train import TrainAggregator
 from samudra.aggregator.validate.map import MapAggregator
 from samudra.aggregator.validate.snapshot import SnapshotAggregator
@@ -194,6 +198,90 @@ def test_validation_aggregator__reduced_only__omits_image_logs(
     assert any(key.startswith("val/reduced/") for key in val_logs)
     assert not any("/snapshot/" in key for key in val_logs)
     assert not any("/mean_map/" in key for key in val_logs)
+
+
+def test_validation_aggregator__records_plain_mse_and_persistence_baseline(
+    dummy_src: CanonicalDataset,
+):
+    tensor_map = tensor_map_for(dummy_src)
+    normalize = normalize_for(dummy_src, tensor_map)
+    batch = val_batch_of(*dummy_src.grid_size, tensor_map=tensor_map)
+    batch.target_data.fill_(2.0)
+    batch.gen_data.fill_(1.0)
+    batch.input_data[:, : batch.target_data.shape[1]].fill_(0.0)
+    aggregator = ValidateAggregator(
+        {},
+        hist=0,
+        num_prognostic_channels=batch.target_data.shape[1],
+        tensor_map=tensor_map,
+        normalize=normalize,
+        record_baselines=True,
+    )
+
+    aggregator.record_validation_batch(batch)
+    logs = aggregator.get_logs(label="val")
+
+    assert logs["val/unweighted_normalized_mse/mean/loss"] == pytest.approx(1.0)
+    assert logs["val/persistence_normalized_mse/mean/loss"] == pytest.approx(4.0)
+
+
+def test_multiscale_validation_aggregator__routes_and_prefixes_by_grid(
+    dummy_src: CanonicalDataset,
+):
+    tensor_map = tensor_map_for(dummy_src)
+    normalize = normalize_for(dummy_src, tensor_map)
+    small = ValidateAggregator(
+        {},
+        hist=0,
+        num_prognostic_channels=len(tensor_map.prognostic_var_names),
+        tensor_map=tensor_map,
+        normalize=normalize,
+    )
+    large = ValidateAggregator(
+        {},
+        hist=0,
+        num_prognostic_channels=len(tensor_map.prognostic_var_names),
+        tensor_map=tensor_map,
+        normalize=normalize,
+    )
+    aggregator = MultiScaleValidateAggregator(
+        {
+            (4, 8): ("4x8", small),
+            (8, 16): ("8x16", large),
+        }
+    )
+
+    aggregator.record_validation_batch(val_batch_of(4, 8, tensor_map=tensor_map))
+    aggregator.record_validation_batch(val_batch_of(8, 16, tensor_map=tensor_map))
+    logs = aggregator.get_logs(label="val")
+
+    assert "val/resolution/4x8/mean/loss" in logs
+    assert "val/resolution/8x16/mean/loss" in logs
+    assert "val/mean/loss" in logs
+
+
+def test_multiscale_validation_aggregator__rejects_unknown_grid(
+    dummy_src: CanonicalDataset,
+):
+    tensor_map = tensor_map_for(dummy_src)
+    normalize = normalize_for(dummy_src, tensor_map)
+    aggregator = MultiScaleValidateAggregator(
+        {
+            (4, 8): (
+                "4x8",
+                ValidateAggregator(
+                    {},
+                    hist=0,
+                    num_prognostic_channels=len(tensor_map.prognostic_var_names),
+                    tensor_map=tensor_map,
+                    normalize=normalize,
+                ),
+            )
+        }
+    )
+
+    with pytest.raises(ValueError, match="unregistered output grid"):
+        aggregator.record_validation_batch(val_batch_of(8, 16, tensor_map=tensor_map))
 
 
 def test_snapshot_aggregator__non_main_rank__skips_plot_rendering(

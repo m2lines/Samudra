@@ -9,7 +9,8 @@ from samudra.aggregator.train import TrainAggregator
 from samudra.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from samudra.constants import TensorMap
 from samudra.utils.data import Normalize, get_aggregator_dicts
-from samudra.utils.output import ValBatchOutput
+from samudra.utils.loss import loss_fn_from_metric
+from samudra.utils.output import TrainBatchOutput, ValBatchOutput
 from samudra.utils.wandb import Metrics, MetricsDict
 
 
@@ -24,12 +25,18 @@ class ValidateAggregator(TrainAggregator):
         *,
         tensor_map: TensorMap,
         normalize: Normalize,
+        record_baselines: bool = False,
     ):
         super().__init__(tensor_map)
         self._aggregators = aggregators
         self.hist = hist
         self.num_prognostic_channels = num_prognostic_channels
         self.normalize = normalize
+        self._unweighted_mse = TrainAggregator(tensor_map) if record_baselines else None
+        self._persistence_mse = (
+            TrainAggregator(tensor_map) if record_baselines else None
+        )
+        self._mse = loss_fn_from_metric("mse")
 
     # TODO(jder): we could remove this by moving from inheritance
     # to composition with the TrainAggregator functionality.
@@ -41,6 +48,28 @@ class ValidateAggregator(TrainAggregator):
     @torch.no_grad()
     def record_validation_batch(self, batch: ValBatchOutput):
         super().record_batch(batch)  # Record losses
+
+        if self._unweighted_mse is not None and self._persistence_mse is not None:
+            forecast_loss_per_channel = self._mse(
+                batch.gen_data, batch.target_data, batch.ctx
+            )
+            persistence_loss_per_channel = self._mse(
+                batch.input_data[:, : self.num_prognostic_channels],
+                batch.target_data,
+                batch.ctx,
+            )
+            self._unweighted_mse.record_batch(
+                TrainBatchOutput(
+                    forecast_loss_per_channel.mean(),
+                    forecast_loss_per_channel,
+                )
+            )
+            self._persistence_mse.record_batch(
+                TrainBatchOutput(
+                    persistence_loss_per_channel.mean(),
+                    persistence_loss_per_channel,
+                )
+            )
 
         # If there are no log aggregators, omit doing any extra work.
         if not self._aggregators:
@@ -110,8 +139,67 @@ class ValidateAggregator(TrainAggregator):
     @torch.no_grad()
     def get_logs(self, label: str = "train") -> Metrics:
         logs: MetricsDict = dict(super().get_logs(label))
+        if self._unweighted_mse is not None and self._persistence_mse is not None:
+            logs.update(
+                self._unweighted_mse.get_logs(
+                    label=f"{label}/unweighted_normalized_mse"
+                )
+            )
+            logs.update(
+                self._persistence_mse.get_logs(
+                    label=f"{label}/persistence_normalized_mse"
+                )
+            )
         for agg_label in self._aggregators:
             for k, v in self._aggregators[agg_label].get_logs(label=agg_label).items():
                 logs[f"{label}/{k}"] = v
 
+        return logs
+
+
+class MultiScaleValidateAggregator:
+    """Route validation batches to a scale-specific aggregator.
+
+    Multi-scale loaders keep every batch on one homogeneous output grid.  This
+    wrapper preserves that contract while giving each grid independent loss,
+    reduced-metric, and image state.  Pre-registering every grid also makes an
+    unexpected output resolution fail loudly instead of silently pooling it.
+    """
+
+    def __init__(
+        self,
+        aggregators: dict[tuple[int, int], tuple[str, ValidateAggregator]],
+    ) -> None:
+        if not aggregators:
+            raise ValueError("At least one validation grid must be registered.")
+        self._aggregators = aggregators
+        first_aggregator = next(iter(aggregators.values()))[1]
+        self._overall = TrainAggregator(first_aggregator.tensor_map)
+        self._recorded_grids: set[tuple[int, int]] = set()
+
+    @torch.no_grad()
+    def record_validation_batch(self, batch: ValBatchOutput) -> None:
+        grid = (batch.target_data.shape[-2], batch.target_data.shape[-1])
+        if grid not in self._aggregators:
+            raise ValueError(
+                f"Validation batch uses unregistered output grid {grid}; "
+                f"expected one of {sorted(self._aggregators)}."
+            )
+        _, aggregator = self._aggregators[grid]
+        self._overall.record_batch(batch)
+        aggregator.record_validation_batch(batch)
+        self._recorded_grids.add(grid)
+
+    @torch.no_grad()
+    def get_logs(self, label: str = "train") -> Metrics:
+        logs: MetricsDict = dict(self._overall.get_logs(label))
+        for grid in sorted(self._recorded_grids):
+            scale_label, aggregator = self._aggregators[grid]
+            scale_logs = aggregator.get_logs(label=f"{label}/resolution/{scale_label}")
+            overlap = logs.keys() & scale_logs.keys()
+            if overlap:
+                raise ValueError(
+                    f"Duplicate multi-scale validation log keys: {sorted(overlap)}"
+                )
+            logs.update(scale_logs)
         return logs

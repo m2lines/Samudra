@@ -9,9 +9,9 @@ save_zarr: true
 disk_mode: true
 inference_time:
   start: "2014-10-05"
-  # 52 five-day timestamps produce exactly 25 autoregressive steps for hist=1.
-  end: "2015-06-17"
-num_model_steps_forward: 25
+  # Four five-day timestamps produce exactly one prediction for hist=1.
+  end: "2014-10-20"
+num_model_steps_forward: 1
 
 experiment:
   name: samudra_multi_om4_1deg_mse_proxy_eval

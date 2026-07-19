@@ -90,7 +90,7 @@ class SamudraMulti(BaseModel):
                 check_fn=lambda m: isinstance(m, _checkpoint_types),
             )
         elif checkpointing == "selective":
-            # The processor applies block-level `simple` checkpointing itself.
+            # The processor applies checkpointing to its individual layers itself.
             # Checkpoint only the expensive representation heads here so the
             # processor is not wrapped a second time.
             apply_activation_checkpointing(

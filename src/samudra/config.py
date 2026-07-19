@@ -778,8 +778,8 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         top-level layer (CoreBlocks, scaling layers, etc.) in the backward pass.
         If set to 'simple', the model will recompute only cheap layers like scales
         and nonlinearities. SamudraMulti additionally supports 'selective' to
-        checkpoint its representation heads and cheap processor layers without a
-        nested processor wrapper.""",
+        checkpoint its representation heads and individual processor layers without
+        a nested processor wrapper.""",
     )
 
     gradient_detach_interval: int = Field(
@@ -903,6 +903,10 @@ class SamudraMultiConfig(BaseModelConfig):
         description="Use bfloat16 for most layers rather than float32. Required for flash attention.",
     )
 
+    def processor_checkpointing(self) -> LayerCheckpointing | None:
+        """Resolve the processor-local mode without its redundant outer wrapper."""
+        return "all" if self.checkpointing == "selective" else self.checkpointing
+
     def build(
         self,
         prog_channels: int,
@@ -942,13 +946,10 @@ class SamudraMultiConfig(BaseModelConfig):
             max_lon_size,
             impl,
         )
-        processor_checkpointing: LayerCheckpointing | None = (
-            "simple" if self.checkpointing == "selective" else self.checkpointing
-        )
         processor = self.processor.build(
             self.embedding_dim,
             self.pad,
-            processor_checkpointing,
+            self.processor_checkpointing(),
         )
         decoder = self.decoder.build(
             processor.out_channels,

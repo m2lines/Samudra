@@ -220,7 +220,9 @@ def test_get_pydantic_models_collects_loading_variants():
 
 
 def test_selective_checkpointing_is_scoped_to_samudra_multi():
-    assert SamudraMultiConfig(checkpointing="selective").checkpointing == "selective"
+    cfg = SamudraMultiConfig(checkpointing="selective")
+    assert cfg.checkpointing == "selective"
+    assert cfg.processor_checkpointing() == "all"
 
     with pytest.raises(ValidationError, match="checkpointing"):
         SamudraMiniConfig.model_validate({"checkpointing": "selective"})

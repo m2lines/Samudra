@@ -43,7 +43,9 @@ uv run python scripts/summarize_mse_runs.py \
 ```
 
 Pass multiple run paths to produce the final comparison table, or add
-`--format=json` for machine-readable output.
+`--format=json` for machine-readable output. The script rejects dynamic-loss and
+multi-step runs so their weighted dashboard values cannot be mistaken for the
+plain-MSE comparison used here.
 
 All comparisons use four RTX6000 GPUs and effective global batch 32. Slurm requests
 16 CPUs and 128 GiB per four-GPU job, substantially below the generic proportional

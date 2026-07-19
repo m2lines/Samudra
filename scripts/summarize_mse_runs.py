@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Summarize the best one-step normalized-MSE epoch from W&B runs."""
+"""Summarize the best epoch from one-step, plain-MSE W&B runs."""
 
 import argparse
 import json
@@ -24,6 +24,17 @@ METRICS = {
 HISTORY_KEYS = ["epoch", *METRICS.values(), "train/mean/loss", "_step"]
 
 
+def validate_run_config(config: Mapping[str, Any]) -> None:
+    """Reject runs whose logged losses are not comparable plain one-step MSEs."""
+    train_config = config.get("config")
+    if not isinstance(train_config, Mapping):
+        raise ValueError("W&B run does not contain a nested training config")
+    if train_config.get("loss") != "mse":
+        raise ValueError("W&B run is not configured with plain MSE loss")
+    if train_config.get("steps") != [1]:
+        raise ValueError("W&B run is not configured for one-step training")
+
+
 def select_best_row(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
     """Return the finite row with the lowest all-channel validation MSE."""
     valid_rows = []
@@ -38,6 +49,7 @@ def select_best_row(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
 
 def summarize_run(run: Any) -> dict[str, Any]:
     """Fetch and normalize the best validation row for one W&B run."""
+    validate_run_config(run.config)
     row = select_best_row(run.scan_history(keys=HISTORY_KEYS, page_size=1000))
     return {
         "path": run.path,
@@ -70,7 +82,7 @@ def markdown_table(summaries: Iterable[Mapping[str, Any]]) -> str:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Report the best one-step normalized-MSE epoch from W&B runs."
+        description="Report the best epoch from one-step, plain-MSE W&B runs."
     )
     parser.add_argument(
         "runs",

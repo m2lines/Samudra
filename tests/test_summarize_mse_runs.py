@@ -6,7 +6,27 @@ import math
 
 import pytest
 
-from scripts.summarize_mse_runs import markdown_table, select_best_row
+from scripts.summarize_mse_runs import (
+    markdown_table,
+    select_best_row,
+    validate_run_config,
+)
+
+
+def test_validate_run_config_accepts_only_plain_one_step_mse():
+    validate_run_config({"config": {"loss": "mse", "steps": [1]}})
+
+    with pytest.raises(ValueError, match="plain MSE"):
+        validate_run_config(
+            {
+                "config": {
+                    "loss": {"type": "dynamic", "metric": "mse"},
+                    "steps": [1],
+                }
+            }
+        )
+    with pytest.raises(ValueError, match="one-step"):
+        validate_run_config({"config": {"loss": "mse", "steps": [4]}})
 
 
 def test_select_best_row_ignores_missing_and_nonfinite_losses():

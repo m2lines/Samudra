@@ -72,6 +72,62 @@ The run directories are under `/scratch/jr7309/runs/` with names matching the W&
 runs above. Recreate the summary table from copied metric files with
 `scripts/summarize_identity_runs.py`.
 
+## A2 32-sample identity diagnostics
+
+The higher-fidelity identity test used 32 fixed samples for 20 epochs, or 640
+optimizer updates, with the same seed, model, loss, and container. All three cached-
+image runs fit in the reduced one-GPU, four-CPU, 32-GiB allocation:
+
+| Resolution | Slurm | W&B | Elapsed | Apptainer MaxRSS | Status |
+|---|---:|---|---:|---:|---|
+| 1 degree | `14321970` | [1ufunem3](https://wandb.ai/ocean_emulators/default/runs/1ufunem3) | 20:19 | 6.4 GiB | Completed |
+| 1/2 degree | `14322251` | [14qlcx2z](https://wandb.ai/ocean_emulators/default/runs/14qlcx2z) | 20:59 | 9.4 GiB | Completed |
+| 1/4 degree | `14322252` | [qmnbg2q0](https://wandb.ai/ocean_emulators/default/runs/qmnbg2q0) | 23:39 | 22.4 GiB | Completed |
+
+| Resolution | Mean MSE | Temperature | Salinity | Zonal velocity | Meridional velocity | SSH | Mean high-k power ratio | Mean seam ratio |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 1 degree | 0.324229 | 0.057409 | 0.176728 | 0.509057 | 0.566564 | 0.060717 | 0.259720 | 1.15737 |
+| 1/2 degree | 0.315166 | 0.053396 | 0.169834 | 0.497860 | 0.552674 | 0.045485 | 0.269957 | 1.19612 |
+| 1/4 degree | 0.317481 | 0.056496 | 0.178394 | 0.504786 | 0.543059 | 0.059539 | 0.264092 | 1.38213 |
+
+The larger test reaches the same conclusion more clearly. Thermohaline fields and
+SSH learn part of the identity map, while velocity barely improves. Final
+high-wavenumber power ratios by variable are:
+
+| Resolution | Temperature | Salinity | Zonal velocity | Meridional velocity | SSH |
+|---|---:|---:|---:|---:|---:|
+| 1 degree | 0.643921 | 0.351492 | 0.010405 | 0.000381 | 0.880622 |
+| 1/2 degree | 0.660956 | 0.339476 | 0.035433 | 0.000873 | 1.088690 |
+| 1/4 degree | 0.630756 | 0.294928 | 0.089749 | 0.002675 | 0.991035 |
+
+Thus the model reconstructs only 1.0 to 9.0% of zonal-velocity and 0.04 to 0.27%
+of meridional-velocity high-wavenumber power. The 1/4-degree seam ratios are 1.66
+for temperature and salinity and 2.35 for SSH. The close all-channel MSE values do
+not imply resolution-invariant fidelity; they conceal a severe velocity-information
+bottleneck and increasingly structured fine-grid seams.
+
+This evidence justifies a representation-capacity ablation after the isolated
+optimization, normalization, and receptive-field controls. It does not justify
+adding higher-resolution forecast training: the 1-degree forecast-quality gate is
+still closed.
+
+### 32-sample artifact checksums
+
+| Resolution | Artifact | SHA-256 |
+|---|---|---|
+| 1 degree | resolved `config.yaml` | `55c1168b6fafadf44f787f8b78a84d6e8d1b63be0abb669c67e5bdd90ae50ebe` |
+| 1 degree | `identity_metrics.json` | `a41938f5160f4c757218604f4b376ea401b17b25fbfab5603e7a700daa4d9c8c` |
+| 1 degree | `identity_spectra.pt` | `03565c8a9bbd93b5224bedba263bc5a7b6b67fe52df986d8ad965ad4caa4e99f` |
+| 1 degree | `saved_nets/ckpt.pt` | `b47e84c0b93dc196ef776c6ab5180e08be08fc7fc83073a17f5051ea17fd2da3` |
+| 1/2 degree | resolved `config.yaml` | `a8875c17aacbaaceaa3ebea7bb967764c65faed03b6d95703613aa90ed78fb92` |
+| 1/2 degree | `identity_metrics.json` | `c264d5d4523f9310a036ac203861fe6425b2c1445f12cc75095943b62b8ac1a0` |
+| 1/2 degree | `identity_spectra.pt` | `1cfdc362b38d602811105bf1056cd408169c81ce58881d38e4801ba1306ea0fc` |
+| 1/2 degree | `saved_nets/ckpt.pt` | `d0bfcf7460e8c13c18b29d7dd02772a6bdaa056bd6dec1b9f8f2e6e27fbfa013` |
+| 1/4 degree | resolved `config.yaml` | `fdcea235d6d080cdb0854df455f0812f6938c0f46e01d3f8c07379b8e911e457` |
+| 1/4 degree | `identity_metrics.json` | `a91dc665db5f2332a947c54c5d9ede579204e63323e116497acde52bd9e80c86` |
+| 1/4 degree | `identity_spectra.pt` | `3c3f478fb95d191a7090f96bc520840c9a9ffa66f195f9b6db8c43ced0d3c1f3` |
+| 1/4 degree | `saved_nets/ckpt.pt` | `0c92547f36bdfe5cefa24017dba53ed346f5a0630671ef37b42b85d0438b533c` |
+
 ## Torch container bring-up findings
 
 The initial bring-up exposed three image-staging constraints before any model batch

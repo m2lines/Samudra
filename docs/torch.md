@@ -282,9 +282,16 @@ Symptom without the above:
 
 ## Apptainer Caching / Pulling
 
-By default the harness will cache pulled SIFs in SIF_DIR, which
-defaults to `${REPO_DIR}/.apptainer-images`. using a unqiue name
-based on the container you've specified.
+By default the harness caches pulled SIFs in `SIF_DIR`, which defaults to
+`${REPO_DIR}/.apptainer-images`, using a unique name based on the selected
+container. Set `REPO_DIR`, `SIF_DIR`, and `APPTAINER_CACHEDIR` to scratch-backed
+paths when Torch home quota is too small for container images.
+
+Temporary OCI extraction must remain on a filesystem with working xattrs and
+enough free space. The training harness prefers Slurm's large per-job
+`SLURM_TMPDIR` and falls back to `/tmp` only when Slurm does not provide one.
+Do not point `APPTAINER_TMPDIR` at Torch shared scratch: that filesystem does not
+support the xattr operations required during image extraction.
 
 You can also point it directly to a SIF_PATH. If the SIF_PATH does
 not exist, the harness will pull your specified container from GHCR

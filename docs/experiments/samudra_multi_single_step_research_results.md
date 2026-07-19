@@ -72,6 +72,120 @@ The run directories are under `/scratch/jr7309/runs/` with names matching the W&
 runs above. Recreate the summary table from copied metric files with
 `scripts/summarize_identity_runs.py`.
 
+## A3 stratified proxy dataset
+
+The training data interface now selects arbitrary valid forecast windows without
+slicing away the adjacent input/target timestamps each window needs. Selection is
+deterministic and round-robins across `(decade, season)` strata before sorting the
+chosen indices for efficient reads. The pinned proxy selection uses 512 of 2,829
+valid one-step windows, seed `20260719`, and spans 1975 through 2013. Its 20 strata
+contain either 25 or 26 examples each: all four seasons in the 1970s, 1980s, and
+1990s receive 26, while all four seasons in the 2000s and 2010s receive 25. The
+validation interval remains fixed at 2013-10-05 through 2014-10-05.
+
+`tests/test_stratified_samples.py` verifies deterministic balance, different-seed
+behavior, immutability, and contiguous window semantics. The screening configs are
+`train_1deg_mse_stratified_proxy.yaml` and
+`train_1deg_mse_stratified_updates_proxy.yaml`; the latter is the isolated
+optimizer-update scheduler candidate. Actual two-seed screening and three-seed
+finalist calibration remain pending the A5 forecast-path benchmark.
+
+## A5 decoder, checkpoint, and logging microbenchmarks
+
+The A5 screen isolates three avoidable costs on the same four-sample, 30-epoch
+1-degree identity task. Steady-state time is the mean over epochs 2 through 30;
+epoch 1 is excluded because it includes compilation and warm-up. Each cached-image
+run used one RTX6000 GPU, four CPUs, and 32 GiB unless noted. The immutable image is
+`26.05-c79c302fdaf627008041f09d68de8894e167c394`.
+
+| Change from the original path | Slurm | W&B | Mean seconds/epoch | Speedup | Final MSE | Apptainer MaxRSS |
+|---|---:|---|---:|---:|---:|---:|
+| None: one decoder window/call, checkpoint `all`, W&B watch `all` | `14322261` | [yo9gfyiq](https://wandb.ai/ocean_emulators/default/runs/yo9gfyiq) | 6.232 | 1.00x | 0.397866 | 6.4 GiB |
+| Disable W&B model watching | `14322981` | [kyr7ksyv](https://wandb.ai/ocean_emulators/default/runs/kyr7ksyv) | 6.058 | 1.03x | 0.403311 | 6.0 GiB |
+| Batch five decoder windows/call; watch off | `14322986` | [8jzfpul9](https://wandb.ai/ocean_emulators/default/runs/8jzfpul9) | 3.243 | 1.92x | 0.404222 | 5.7 GiB |
+| Batch all decoder windows/call; watch off | `14322987` | [95wgs76b](https://wandb.ai/ocean_emulators/default/runs/95wgs76b) | 2.604 | 2.39x | 0.401563 | 5.6 GiB |
+| Checkpoint `simple`; one window/call; watch off | `14322991` | [ljnr7le0](https://wandb.ai/ocean_emulators/default/runs/ljnr7le0) | 1.927 | 3.23x | 0.398786 | 6.4 GiB |
+| No checkpointing; one window/call; watch off | `14322994` | [cgnwj21e](https://wandb.ai/ocean_emulators/default/runs/cgnwj21e) | 1.874 | 3.33x | 0.404904 | 5.6 GiB |
+| Batch all windows; checkpoint `simple`; watch off | `14323333` | [c1ckf0rw](https://wandb.ai/ocean_emulators/default/runs/c1ckf0rw) | 1.861 | 3.35x | 0.400319 | 5.5 GiB |
+| Batch all windows; no checkpointing; watch off | `14323670` | [vtp3n31g](https://wandb.ai/ocean_emulators/default/runs/vtp3n31g) | 1.648 | 3.78x | 0.403360 | 5.6 GiB |
+
+The largest single saving comes from removing the outer `checkpointing: all`
+wrapper. The underlying processor keeps its intended block-level checkpointing in
+`simple` mode. Once that nested wrapper is gone, batching all 30 decoder windows
+adds only about 3% on this tiny task; it remains worthwhile because the decoder
+outputs are exactly equivalent and larger forecast batches amortize launches more
+effectively. Disabling `wandb.watch` saves a smaller but repeatable 3%.
+Removing the remaining processor checkpointing saves another 11% relative to the
+fully batched `simple` path, subject to the real-forecast GPU-memory check below.
+
+`tests/test_decoder.py` compares sequential and fully batched decoder outputs and
+passes exactly. The focused decoder/config suite reports 23 passing tests, and the
+stratified-sampling, scheduler, and spatial-diagnostic suites report 15 passing
+tests. A broader local run reached 135 passes before being stopped; its 12 setup
+errors were all caused by the development environment lacking the optional
+`flash_perceiver` package, not by these changes. The x86 image CI, including GPU
+tests, passed at the pinned commit.
+
+The 0.398 to 0.405 final-MSE spread is small relative to the identity failure and
+reflects flash-kernel/training-order nondeterminism across independent runs. There
+is no systematic quality penalty associated with the faster paths.
+
+The simple-checkpoint combination is pinned by:
+
+| Artifact | SHA-256 |
+|---|---|
+| Resolved `config.yaml` | `1d296e9db550da1226bcc0783c24958d7819a91861a42fdd801749958801f874` |
+| `identity_metrics.json` | `7145838d1d9168de4c5c899b8b1754762780d1b4f8f1137bb8560ef6992cec90` |
+| `saved_nets/ckpt.pt` | `79ad419e3126f950610f24a4c84936b6dc9880de1277c4fe1ee67756cfe585f6` |
+
+The fully uncheckpointed comparison is pinned by:
+
+| Artifact | SHA-256 |
+|---|---|
+| Resolved `config.yaml` | `106a2254041333b029ca9e343baec4e4e1d6e47fd77e9ca47cd7febe1fa0dad2` |
+| `identity_metrics.json` | `ccb712a5f5275598dab792318503ac2dc353d6dd5630d56e95b9ec5251ebd856` |
+| `saved_nets/ckpt.pt` | `4ea4a019cddbeafe4f3d6de5f75ce21c8acb039bb75766a64208670a3f4217a3` |
+
+### Normal forecast-path benchmark
+
+The identity task understates activation memory, so two one-epoch forecast runs
+used the actual stratified 512-window proxy, plain MSE, one step, batch size two,
+16-step gradient accumulation, and one GPU. Both therefore processed 512 samples
+in 256 microbatches and made 16 optimizer updates, preserving effective global
+batch 32. Both disabled `wandb.watch` and used `checkpointing: simple`.
+
+| Decoder chunk | Slurm | W&B | Allocation | Train seconds | Mean seconds/microbatch | Mean samples/s | Mean data wait | Peak GPU | Apptainer MaxRSS | One-step MSE |
+|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|
+| All 30 windows | `14323887` | [9c39cn6s](https://wandb.ai/ocean_emulators/default/runs/9c39cn6s) | 1 GPU, 4 CPU, 32 GiB | 209.34 | 0.818 | 2.736 | 0.275 s | 74.49 GiB | 31.96 GiB | 0.51819 |
+| Five windows | `14324068` | [qkk1e7rl](https://wandb.ai/ocean_emulators/default/runs/qkk1e7rl) | 1 GPU, 4 CPU, 40 GiB | 173.60 | 0.678 | 3.334 | 0.119 s | 74.49 GiB | 17.50 GiB | 0.51819 |
+
+Chunking does not reduce GPU activation memory under `simple`: all decoder calls
+remain in the autograd graph until backward, so both paths peak at about 74.5 GiB.
+The five-window run's apparent throughput advantage is mostly a warm-cache effect;
+subtracting loader wait leaves about 0.54 to 0.56 seconds of compute per microbatch
+in both runs. Data wait is now measurable, at 18 to 34% of observed iteration time,
+but it is not evidence for repacking the Zarr store: the second run's lower wait and
+the successful four-CPU allocation show that caching/prefetch overlap matters
+first. No data-layout change is justified by this profile.
+
+The 74.5-GiB peak makes both `simple` variants non-portable to 48-GiB RTX6000 nodes
+and rules out a full forecast trial with checkpointing disabled. The legacy
+`checkpointing: all` path is memory-safe but applies nested wrappers to the
+processor. Commit `d9002299` therefore adds an evidence-driven `selective` mode:
+checkpoint the encoder and decoder, retain only block-level `simple` checkpointing
+inside the processor, and never wrap the processor a second time. This mode must
+pass the pinned container tests and a forecast memory/throughput benchmark before
+it is used by A3.
+
+The normal-path artifacts are pinned by:
+
+| Run | Artifact | SHA-256 |
+|---|---|---|
+| All windows | Resolved `config.yaml` | `f89eee3e955f6be6f0b860b2d9c08ad0360acca51239a8f958717c52d450425a` |
+| All windows | `saved_nets/ckpt.pt` | `d6834b15171468df4d637911423d2fdf9c8be627efc480ead341cc078649b44b` |
+| Five windows | Resolved `config.yaml` | `bf8f6959d50ce3bc4cd9d304cbf6e5a9d7aa3e148152c9804d85801c3e8be04c` |
+| Five windows | `saved_nets/ckpt.pt` | `266d407e5b64a0be781e5586655c5e14b6c7244f8512a841759d5fa5d263ca08` |
+
 ## A2 32-sample identity diagnostics
 
 The higher-fidelity identity test used 32 fixed samples for 20 epochs, or 640

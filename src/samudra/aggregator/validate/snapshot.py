@@ -21,8 +21,8 @@ class SnapshotAggregator(ValidateSubAggregator):
             "{name} one step full field for last sample; "
             "(top) generated and (bottom) target [{units}]"
         ),
-        "residual": (
-            "{name} one step residual (prediction - previous time) for last sample; "
+        "increment": (
+            "{name} one step increment (prediction - previous time) for last sample; "
             "(top) generated and (bottom) target [{units}]"
         ),
         "error": (
@@ -92,9 +92,12 @@ class SnapshotAggregator(ValidateSubAggregator):
             images = {}
             images["error"] = [[(gen - target).numpy()]]
             images["full-field"] = [[gen.numpy()], [target.numpy()]]
-            images["residual"] = [[(gen - input).numpy()], [(target - input).numpy()]]
+            images["increment"] = [
+                [(gen - input).numpy()],
+                [(target - input).numpy()],
+            ]
             for key, data in images.items():
-                if key == "error" or key == "residual":
+                if key == "error" or key == "increment":
                     diverging = True
                 else:
                     diverging = False

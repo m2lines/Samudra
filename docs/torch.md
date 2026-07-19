@@ -65,6 +65,8 @@ It expects environment variables:
 - `OUTPUT_BASE` (optional): host output base dir passed to
   `--experiment.base_output_dir` (default: `/scratch/<current_user>/runs`)
 - `ARGS` (optional): extra CLI overrides, e.g. `--batch_size=1`
+- `TRAIN_MODULE` (optional): Python module launched under `torchrun`; defaults to
+  `samudra.train`. Use `samudra.identity` for the fixed-sample identity diagnostic.
 - `NSYS_ARGS` (optional): if set, wrap the training launch with `nsys profile`
 - `WANDB_API_KEY` (optional): if set and `WANDB_MODE` unset, defaults to W&B online
 - `WANDB_MODE` (optional): `online` or `disabled` (if unset, defaults based on
@@ -79,6 +81,8 @@ Key behavior:
 - To change training code or YAML configs, rebuild/publish a new container tag and
   point the harness at it (e.g. via `CONTAINER_HASH=<git_sha>`).
 - Caches the pulled SIF under `${REPO_DIR}/.apptainer-images/` by default.
+- Launches `samudra.train` unless `TRAIN_MODULE` selects another compatible training
+  entry point.
 - If `NSYS_ARGS` is set and does not include `-o`/`--output`, reports are written under
   `${OUTPUT_BASE}/${NAME}/nsys/`.
 - Defaults to a 8-hour walltime in `scripts/slurm_apptainer_train.sbatch`.

@@ -68,6 +68,7 @@ NAME="${NAME:-}"
 NAME_SUFFIX="${NAME_SUFFIX:-}"
 ARGS="${ARGS:-}"
 NSYS_ARGS="${NSYS_ARGS:-}"
+TRAIN_MODULE="${TRAIN_MODULE:-samudra.train}"
 REQUEUE_ON_USR1="${REQUEUE_ON_USR1:-0}"
 if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then
   NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"
@@ -183,6 +184,7 @@ echo "Data root:  ${DATA_ROOT}"
 echo "Outputs:    ${OUTPUT_BASE}"
 echo "W&B mode:   ${WANDB_MODE}"
 echo "Image ref:  ${IMAGE_REF}"
+echo "Module:     ${TRAIN_MODULE}"
 echo "SIF path:   ${SIF_PATH}"
 if [[ -n "${NSYS_ARGS}" ]]; then
   echo "NSYS args:  ${NSYS_ARGS}"
@@ -306,7 +308,7 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         --master_addr=${MASTER_ADDR} \
         --master_port=${MASTER_PORT} \
         --node_rank=\${SLURM_PROCID} \
-        -m samudra.train \"${CONFIG_IN_CONTAINER}\" \
+        -m \"${TRAIN_MODULE}\" \"${CONFIG_IN_CONTAINER}\" \
         --experiment.name=\"${NAME}\" \
         --experiment.data_root=\"${DATA_ROOT}\" \
         --experiment.base_output_dir=\"${OUTPUT_BASE}\" \

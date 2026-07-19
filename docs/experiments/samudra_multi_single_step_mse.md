@@ -28,8 +28,8 @@ is competitive.
 | Purpose | Config | Container | Slurm | W&B | Status |
 |---|---|---|---:|---|---|
 | Full-data SamudraMulti baseline | `configs/samudra_multi_om4/train_1deg_mse_proxy.yaml` | `26.05-9992bf52a3031442e2875a52fd113131c9162abd` | `14291479` | [ty6mwti9](https://wandb.ai/ocean_emulators/default/runs/ty6mwti9) | Completed |
-| 512-timestamp SamudraMulti screen | `configs/samudra_multi_om4/train_1deg_mse_fast_proxy.yaml` | `26.05-3904ad07a55c5ea19d21bfe017e06d4b5bb8234f` | `14311686` | [j76loxwm](https://wandb.ai/ocean_emulators/default/runs/j76loxwm) | Running |
-| 512-timestamp v2 control | `configs/samudra_om4_v2_highres/train_1deg_mse_fast_proxy.yaml` | `26.05-3904ad07a55c5ea19d21bfe017e06d4b5bb8234f` | `14311687` | Pending | Dependency on fast SamudraMulti |
+| 512-timestamp SamudraMulti screen | `configs/samudra_multi_om4/train_1deg_mse_fast_proxy.yaml` | `26.05-3904ad07a55c5ea19d21bfe017e06d4b5bb8234f` | `14311686` | [j76loxwm](https://wandb.ai/ocean_emulators/default/runs/j76loxwm) | Completed |
+| 512-timestamp v2 control | `configs/samudra_om4_v2_highres/train_1deg_mse_fast_proxy.yaml` | `26.05-3904ad07a55c5ea19d21bfe017e06d4b5bb8234f` | `14311687` | [b5pdwp91](https://wandb.ai/ocean_emulators/default/runs/b5pdwp91) | Completed |
 
 The immutable config checksums are:
 
@@ -47,7 +47,9 @@ The best finite validation epoch can be reproduced directly from W&B history wit
 
 ```bash
 uv run python scripts/summarize_mse_runs.py \
-  ocean_emulators/default/ty6mwti9
+  ocean_emulators/default/ty6mwti9 \
+  ocean_emulators/default/j76loxwm \
+  ocean_emulators/default/b5pdwp91
 ```
 
 Pass multiple run paths to produce the final comparison table, or add
@@ -118,6 +120,55 @@ resolutions.
 
 ## Final screen comparison and decision
 
-Final full-data metrics, fast-screen runtime/resource savings, ranking agreement, and
-the next experiment decision will be added after jobs `14291479`, `14295585`, and
-`14295587` complete.
+Both replacement screen jobs completed with exit code zero. Their
+validation-selected epoch-12 metrics are:
+
+| Variable group | SamudraMulti screen | v2 screen | Ratio |
+|---|---:|---:|---:|
+| Temperature | 0.09835 | 0.00692 | 14.2x |
+| Salinity | 0.35394 | 0.00700 | 50.6x |
+| Zonal velocity | 0.53695 | 0.04658 | 11.5x |
+| Meridional velocity | 0.56634 | 0.06476 | 8.7x |
+| SSH | 0.08359 | 0.00805 | 10.4x |
+| All channels | 0.38508 | 0.04287 | 9.0x |
+
+The screen preserves the decisive model ranking. SamudraMulti is 12.5 times worse
+than the supplied v2 reference on the full-data comparison and 9.0 times worse than
+the matched v2 screen. The proxy should therefore be used to reject or rank large
+differences, not to estimate a full-data metric: reducing the training slice changed
+the absolute MSE for both models.
+
+The SamudraMulti cost comparison is:
+
+| Evidence | Full data | 512 timestamps | Saving |
+|---|---:|---:|---:|
+| Rank-local microbatches/epoch | 353 | 63 | 5.6x fewer |
+| Steady-state epoch time | about 11:10 | about 2:00 | 5.6x faster |
+| Training time | 2:16:50 | 0:27:27 | 5.0x faster |
+| Slurm allocation | 2:26:32 | 0:28:19 | 5.2x faster |
+| Four-GPU allocation | 9.77 GPU-hours | 1.89 GPU-hours | 80.7% less |
+| Apptainer MaxRSS | 57.7 GiB | 33.0 GiB | 42.8% less |
+| Per-GPU peak | 26.5 GiB | 26.5 GiB | unchanged |
+
+The v2 control trained in 0:22:55 (0:23:30 allocation), used 23.1 GiB Apptainer
+MaxRSS, and peaked at 3.1 GiB per GPU. Both screens used the requested four GPUs,
+16 CPUs, 128 GiB, Rust loader, effective global batch 32, plain MSE, one step, and
+no `hfds_anomalies`.
+
+The screen artifacts are pinned by these additional checksums:
+
+| Artifact | SHA-256 |
+|---|---|
+| SamudraMulti resolved `config.yaml` | `956e463f0876e870b5958b30bfd9e3565337dd85c03d5179d2d39c69c08f68cd` |
+| SamudraMulti `best_validation_ckpt.pt` | `10cdb4f9981ad32accb795f15f631ff22d773b9dabe371626a4feedf6e01fc04` |
+| v2 resolved `config.yaml` | `797052a4a6ce74dad7309b4d9fcea6e7edf3eaad965ed96029a936ffafc82719` |
+| v2 `best_validation_ckpt.pt` | `d0db895d76e00de61466e0777b21a9ecfe1abf0f2248905a53c0e64a15a1ba5b` |
+
+Do not add another resolution: the full-data baseline is above 0.075 and neither
+comparison is within roughly two times v2. The next bounded experiment should use
+the 512-timestamp SamudraMulti screen with only residual prediction enabled, keeping
+the physical patch extent and all other controls fixed. Promote that candidate to a
+full-data 1-degree run only if its proxy all-channel MSE is at most twice the matched
+v2 screen (approximately 0.08575). If residual prediction remains far above that
+threshold, discuss a representation change before spending more compute. No longer
+autoregressive rollout is part of this decision.

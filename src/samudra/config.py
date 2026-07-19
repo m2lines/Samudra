@@ -671,6 +671,11 @@ class DecoderConfig(BaseConfig):
         description="Number of extra patch rings around each window to include as data context. "
         "Only used when window_patches is set. None = full context (every window sees all latent tokens).",
     )
+    window_batch_size: int | None = Field(
+        default=1,
+        ge=1,
+        description="Number of independent spatial windows vectorized into each decoder call. None batches all windows.",
+    )
 
     def build(
         self,
@@ -689,6 +694,7 @@ class DecoderConfig(BaseConfig):
             ),
             window_patches=self.window_patches,
             context_patches=self.context_patches,
+            window_batch_size=self.window_batch_size,
         )
 
 

@@ -27,6 +27,7 @@ decoder:
   queries_dim: 64  # on the small end, but typical for PercieverIO models (usually in the ~100s-1000s).
   window_patches: 12  # Must evenly divide latent grid (60x72). Enables real spatial windowing.
   context_patches: 1  # Look at this many window_patches around the target patch.
+  window_batch_size: 1  # Baseline-compatible; benchmark larger values before changing.
 
 processor:
   ch_width: [380, 480, 520]

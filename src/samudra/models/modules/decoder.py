@@ -90,6 +90,7 @@ class PerceiverDecoder(nn.Module):
         perceiver_io: nn.Module,
         window_patches: int | None,
         context_patches: int | None,
+        window_batch_size: int | None = 1,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
@@ -101,6 +102,9 @@ class PerceiverDecoder(nn.Module):
             )
         self.window_patches = window_patches
         self.context_patches = context_patches
+        if window_batch_size is not None and window_batch_size < 1:
+            raise ValueError("window_batch_size must be positive or None.")
+        self.window_batch_size = window_batch_size
 
         # TODO(#451): The input to these position and scale linear units could be a hparam.
         # Same pos/scale linear layers as the encoder, but applied *before* the
@@ -218,35 +222,51 @@ class PerceiverDecoder(nn.Module):
         # data_windows shape (when cp is not None):
         #   (B, C, n_blocks_h, n_blocks_w, win_h, win_w)
 
-        # --- Decode each spatial block ---
-        out = data_grid.new_zeros(B, H, W, self.out_channels)
+        # --- Batch independent spatial blocks into fewer PerceiverIO calls ---
+        n_blocks = n_blocks_h * n_blocks_w
+        if cp is None:
+            block_data = full_data.unsqueeze(0).expand(n_blocks, -1, -1, -1)
+        else:
+            block_data = rearrange(
+                data_windows,
+                "b c bh bw h w -> (bh bw) b (h w) c",
+            )
+        block_queries = rearrange(
+            queries_grid,
+            "(bh h) (bw w) d -> (bh bw) (h w) d",
+            bh=n_blocks_h,
+            bw=n_blocks_w,
+            h=block_ph,
+            w=block_pw,
+        )
+        block_queries = block_queries.unsqueeze(1).expand(-1, B, -1, -1)
 
-        for bi in range(n_blocks_h):
-            for bj in range(n_blocks_w):
-                if cp is None:
-                    local_data = full_data
-                else:
-                    local_data = rearrange(
-                        data_windows[:, :, bi, bj], "b c h w -> b (h w) c"
-                    )
-
-                qi_start = bi * block_ph
-                qj_start = bj * block_pw
-                local_queries = queries_grid[
-                    qi_start : qi_start + block_ph,
-                    qj_start : qj_start + block_pw,
-                ]
-                local_queries = rearrange(local_queries, "h w d -> (h w) d")
-
-                local_out = self.perceiver_io(local_data, queries=local_queries)
-                local_out = rearrange(
-                    local_out, "b (h w) c -> b h w c", h=block_ph, w=block_pw
+        blocks_per_call = self.window_batch_size or n_blocks
+        decoded_chunks = []
+        for start in range(0, n_blocks, blocks_per_call):
+            stop = min(start + blocks_per_call, n_blocks)
+            local_data = rearrange(
+                block_data[start:stop], "blocks b n c -> (blocks b) n c"
+            )
+            local_queries = rearrange(
+                block_queries[start:stop], "blocks b n d -> (blocks b) n d"
+            )
+            local_out = self.perceiver_io(local_data, queries=local_queries)
+            decoded_chunks.append(
+                rearrange(
+                    local_out,
+                    "(blocks b) (h w) c -> blocks b h w c",
+                    b=B,
+                    h=block_ph,
+                    w=block_pw,
                 )
-                out[
-                    :,
-                    qi_start : qi_start + block_ph,
-                    qj_start : qj_start + block_pw,
-                    :,
-                ] = local_out
+            )
 
+        output_blocks = torch.cat(decoded_chunks, dim=0)
+        out = rearrange(
+            output_blocks,
+            "(bh bw) b h w c -> b (bh h) (bw w) c",
+            bh=n_blocks_h,
+            bw=n_blocks_w,
+        )
         return rearrange(out, "b h w c -> b c h w")

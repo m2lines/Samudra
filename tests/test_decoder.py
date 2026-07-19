@@ -106,6 +106,7 @@ def make_decoder_with_shared_weights(
         perceiver_io=reference.perceiver_io,
         window_patches=reference.window_patches,
         context_patches=reference.context_patches,
+        window_batch_size=reference.window_batch_size,
     )
     kwargs.update(overrides)
     other = PerceiverDecoder(**kwargs)  # type: ignore
@@ -171,6 +172,25 @@ def test_windowed_decode(resolution, latent_input, decoder_kwargs):
     assert y_hat.shape == (BATCH, OUT_CHANNELS, H, W), (
         f"Windowed decoder should produce full-resolution output, got {y_hat.shape}."
     )
+
+
+@pytest.mark.parametrize("context_patches", [None, 0, 1])
+def test_vectorized_windows_match_sequential_windows(
+    resolution, latent_input, decoder_kwargs, context_patches
+):
+    sequential = PerceiverDecoder(
+        **decoder_kwargs,
+        window_patches=1,
+        context_patches=context_patches,
+        window_batch_size=1,
+    )
+    vectorized = make_decoder_with_shared_weights(sequential, window_batch_size=None)
+
+    with torch.no_grad():
+        expected = sequential(latent_input, resolution)
+        actual = vectorized(latent_input, resolution)
+
+    torch.testing.assert_close(actual, expected, atol=1e-5, rtol=1e-5)
 
 
 def test_windowed_matches_non_windowed(resolution, latent_input, decoder_kwargs):

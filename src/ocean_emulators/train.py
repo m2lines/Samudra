@@ -1981,21 +1981,45 @@ class Trainer:
     ) -> ReplayBatchRequest:
         dp_ctx = getattr(self, "dp_ctx", None)
         if dp_ctx is not None:
-            request = (
-                self._plan_replay_batch_local(
-                    global_batch_index=global_batch_index,
-                    max_lead_steps=max_lead_steps,
-                    refresh_every_n_microbatches=refresh_every_n_microbatches,
-                    exclude_reserved=exclude_reserved,
+            envelope: dict[str, Any] | None = None
+            if dp_ctx.is_domain_leader:
+                try:
+                    request = self._plan_replay_batch_local(
+                        global_batch_index=global_batch_index,
+                        max_lead_steps=max_lead_steps,
+                        refresh_every_n_microbatches=refresh_every_n_microbatches,
+                        exclude_reserved=exclude_reserved,
+                    )
+                    envelope = {
+                        "status": "ready",
+                        "request": _replay_request_to_dict(request),
+                    }
+                except RuntimeError as exc:
+                    # A large prefetch horizon can temporarily reserve every
+                    # replay slot. Followers must stop planning at the same
+                    # point or their next request broadcast will collide with
+                    # the leader's first tensor-scatter collective.
+                    envelope = {
+                        "status": "blocked",
+                        "message": str(exc),
+                    }
+
+            envelope = dp_ctx.broadcast_from_leader(envelope)
+            if not isinstance(envelope, dict):
+                raise RuntimeError(
+                    "Domain leader broadcast an invalid replay-planning payload: "
+                    f"{type(envelope).__name__}"
                 )
-                if dp_ctx.is_domain_leader
-                else None
-            )
-            raw_request = dp_ctx.broadcast_from_leader(
-                _replay_request_to_dict(request) if request is not None else None
-            )
-            if raw_request is None:
-                raise RuntimeError("Domain leader broadcast an empty replay request")
+            status = envelope.get("status")
+            if status == "blocked":
+                raise RuntimeError(
+                    str(envelope.get("message", "Replay planning is blocked"))
+                )
+            raw_request = envelope.get("request")
+            if status != "ready" or not isinstance(raw_request, dict):
+                raise RuntimeError(
+                    "Domain leader broadcast a malformed replay request envelope"
+                )
             return _replay_request_from_dict(raw_request)
 
         return self._plan_replay_batch_local(

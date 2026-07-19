@@ -29,13 +29,14 @@ def test_shardable_validation_rejects_deep_tiles_smaller_than_halo():
     validate_shardable(320, 320, (2, 2), num_downsamples=4, max_halo=8)
 
 
-def test_shardable_validation_allows_uneven_deep_chunks():
-    # 720 -> 45 globally at the deepest level, represented as 23/22 chunks.
-    validate_shardable(720, 720, (2, 2), num_downsamples=4, max_halo=8)
+def test_shardable_validation_requires_each_shard_to_divide_through_unet():
+    validate_shardable(704, 704, (2, 2), num_downsamples=4, max_halo=8)
+    with pytest.raises(ValueError, match=r"Per-shard tile \(360x360\)"):
+        validate_shardable(720, 720, (2, 2), num_downsamples=4, max_halo=8)
 
 
 def test_shardable_validation_rejects_non_divisible_global_unet_shape():
-    with pytest.raises(ValueError, match=r"Global .* not divisible by 2\^4=16"):
+    with pytest.raises(ValueError, match=r"Per-shard tile \(722x722\)"):
         validate_shardable(722, 722, (1, 1), num_downsamples=4)
 
 

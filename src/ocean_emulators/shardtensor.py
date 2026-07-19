@@ -398,12 +398,7 @@ def validate_shardable(
     global_h: int, global_w: int, cluster_shape: tuple[int, int],
     *, num_downsamples: int = 4, max_halo: int = 0,
 ) -> None:
-    """Validate a spatial decomposition through every UNet resolution level.
-
-    The global shape must survive all downsampling stages exactly. Local chunks
-    may become uneven at deeper levels; ShardTensor tracks those sharding shapes
-    explicitly (for example, 720 / 16 = 45 split into 23 and 22 cells).
-    """
+    """Require every initial shard to divide evenly through all UNet levels."""
     ch, cw = cluster_shape
     if global_h % ch or global_w % cw:
         raise ValueError(
@@ -411,22 +406,20 @@ def validate_shardable(
         )
     sh, sw = global_h // ch, global_w // cw
     m = 2 ** num_downsamples
-    if global_h % m or global_w % m:
+    if sh % m or sw % m:
         raise ValueError(
-            f"Global ({global_h}x{global_w}) not divisible by "
-            f"2^{num_downsamples}={m}; UNet downsampling would produce "
-            "non-integer global sizes."
+            f"Per-shard tile ({sh}x{sw}) not divisible by "
+            f"2^{num_downsamples}={m}; choose global dimensions divisible by "
+            f"({ch * m}x{cw * m}) for cluster {cluster_shape}."
         )
-    deepest_global_h, deepest_global_w = global_h // m, global_w // m
-    deepest_h = deepest_global_h // ch
-    deepest_w = deepest_global_w // cw
+    deepest_h, deepest_w = sh // m, sw // m
     if deepest_h < max_halo or deepest_w < max_halo:
         raise ValueError(
-            f"Smallest deepest shard ({deepest_h}x{deepest_w}) is smaller than "
+            f"Deepest per-shard tile ({deepest_h}x{deepest_w}) is smaller than "
             f"the maximum convolution halo ({max_halo}). Increase the global patch."
         )
     logger.info(
-        "Shardable: initial per-shard tile %sx%s; smallest deepest shard %sx%s "
+        "Shardable: per-shard tile %sx%s; deepest per-shard tile %sx%s "
         "(global %sx%s, cluster %s).",
         sh,
         sw,

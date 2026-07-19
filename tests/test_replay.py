@@ -3,6 +3,7 @@ import tempfile
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 import torch
 import xarray as xr
 
@@ -608,6 +609,37 @@ def test_domain_follower_prefetch_uses_metadata_without_reader_threads():
     assert pipeline._raw_cache[0].request == request
     assert pipeline._raw_cache[0].train_transitions == []
     pipeline.close()
+
+
+@pytest.mark.parametrize("is_leader", [True, False])
+def test_domain_replay_planning_broadcasts_blocked_window(is_leader):
+    message = "No unreserved replay slots are available"
+
+    class BlockedContext:
+        is_domain_leader = is_leader
+
+        def broadcast_from_leader(self, value):
+            if self.is_domain_leader:
+                assert value == {"status": "blocked", "message": message}
+                return value
+            assert value is None
+            return {"status": "blocked", "message": message}
+
+    trainer = Trainer.__new__(Trainer)
+    trainer.dp_ctx = BlockedContext()
+
+    def blocked_plan(**_kwargs):
+        raise RuntimeError(message)
+
+    trainer._plan_replay_batch_local = blocked_plan
+
+    with pytest.raises(RuntimeError, match=message):
+        trainer.plan_replay_batch(
+            global_batch_index=0,
+            max_lead_steps=4,
+            refresh_every_n_microbatches=8,
+            exclude_reserved=set(),
+        )
 
 
 def test_replay_refresh_schedule_resolves_by_epoch():

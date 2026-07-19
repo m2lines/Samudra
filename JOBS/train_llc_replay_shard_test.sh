@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=shardtensor-replay-2x2-720-speed
+#SBATCH --job-name=shardtensor-replay-2x2-704-speed
 #SBATCH -N 1
 #SBATCH --mem=300GB
 #SBATCH --ntasks=1
@@ -15,14 +15,14 @@ set -euo pipefail
 PROJECT_DIR="/orcd/home/002/codycruz/Ocean_Emulator"
 PYTHON_BIN="${PYTHON_BIN:-${PROJECT_DIR}/.venv/bin/python}"
 
-# llc_normal.yaml points at a pre-cropped 720x720 patch whose local indices are
-# [0:720). A 2x2 cluster starts with 360x360 tiles. Deeper odd global sizes use
-# ShardTensor's explicit uneven sharding shapes (45 -> 23/22 at level four).
+# llc_normal.yaml points at a pre-cropped 720x720 patch. Select its local
+# [0:704) region so each rank starts with a 352x352 tile and reaches an exact
+# 22x22 tile after four UNet downsampling stages.
 LLC_FACE="${LLC_FACE:-1}"
 LLC_I_START="${LLC_I_START:-0}"
-LLC_I_END="${LLC_I_END:-720}"
+LLC_I_END="${LLC_I_END:-704}"
 LLC_J_START="${LLC_J_START:-0}"
-LLC_J_END="${LLC_J_END:-720}"
+LLC_J_END="${LLC_J_END:-704}"
 
 DEBUG="${DEBUG:-false}"
 EPOCHS="${EPOCHS:-1}"
@@ -64,7 +64,7 @@ export NCCL_DEBUG="${NCCL_DEBUG:-WARN}"
 export TORCH_NCCL_DUMP_ON_TIMEOUT=1
 export TORCH_FR_BUFFER_SIZE="${TORCH_FR_BUFFER_SIZE:-1048576}"
 
-echo "======== ShardTensor 2x2 temporal replay 720 speed comparison ========"
+echo "======== ShardTensor 2x2 temporal replay 704 speed comparison ========"
 echo "started=$(date '+%Y-%m-%d %H:%M:%S %Z')"
 echo "job_id=${SLURM_JOB_ID:-<unset>} host=$(hostname) python=${PYTHON_BIN}"
 echo "patch=face${LLC_FACE} i=[${LLC_I_START}:${LLC_I_END}) j=[${LLC_J_START}:${LLC_J_END})"

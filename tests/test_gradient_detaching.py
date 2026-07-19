@@ -11,7 +11,7 @@ from samudra.config import SamudraConfig, UNetBackboneConfig
 from samudra.constants import TensorMap
 from samudra.datasets import TrainData
 from samudra.utils.ctx import GridContext
-from samudra.utils.data import DataSource, Masks, Normalize
+from samudra.utils.data import CanonicalDataset, Masks, Normalize
 from samudra.utils.multiton import MultitonScope
 from tests.conftest import TEST_DATASET_SPEC
 
@@ -31,26 +31,25 @@ def create_samudra_model():
             # Set up minimal data structures needed by Samudra
             h, w = 8, 8
             coords = {
-                "lev": [0],
                 "lat": (["y"], np.linspace(-90, 90, h)),
                 "lon": (["x"], np.linspace(-180, 180, w)),
             }
             data = xr.Dataset(
                 {
-                    "thetao": (["lev", "y", "x"], np.random.randn(1, h, w)),
+                    "thetao_0": (["y", "x"], np.random.randn(h, w)),
                     "hfds": (["y", "x"], np.random.randn(h, w)),
                 },
                 coords=coords,
             )
             ones = xr.Dataset(
                 {
-                    "thetao": (["lev", "y", "x"], np.ones((1, h, w))),
+                    "thetao_0": (["y", "x"], np.ones((h, w))),
                     "hfds": (["y", "x"], np.ones((h, w))),
                 },
                 coords=coords,
             )
             masks = Masks(torch.ones(h, w), torch.ones(h, w))
-            src = DataSource(
+            src = CanonicalDataset.from_canonical_datasets(
                 name="dummy",
                 data=data,
                 means=data,

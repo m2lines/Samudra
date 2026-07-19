@@ -5,11 +5,13 @@
 import logging
 import tempfile
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 import torch
 
 from samudra.config import CpuDataLoadingConfig, DynamicLossConfig
+from samudra.datasets import TrainDataLoader
 from samudra.models.base import BaseModel
 from samudra.train import Trainer, should_log_validation_images
 from samudra.utils.ctx import GridContext
@@ -188,6 +190,32 @@ def test_should_log_validation_images_rejects_invalid_inputs():
         should_log_validation_images(1, 0)
 
 
+def test_run_closes_training_and_inference_loaders(monkeypatch):
+    class CloseSpy:
+        def __init__(self):
+            self.closed = False
+
+        def close(self):
+            self.closed = True
+
+    trainer = cast(Any, Trainer.__new__(Trainer))
+    trainer.train_loader = CloseSpy()
+    trainer.val_loader = CloseSpy()
+    trainer.inference_loader = object()
+    trainer._run = lambda: None
+    closed_inference_loaders: list[object] = []
+    monkeypatch.setattr(
+        "samudra.train.close_pytorch_dataloader",
+        closed_inference_loaders.append,
+    )
+
+    trainer.run()
+
+    assert trainer.train_loader.closed
+    assert trainer.val_loader.closed
+    assert closed_inference_loaders == [trainer.inference_loader]
+
+
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)
 @pytest.mark.parametrize(
     "data_source,config_name",
@@ -201,6 +229,8 @@ def test_data_loaders_enable_persistent_workers_on_positive_num_workers(
 
     assert trainer.mp_context is not None
     assert trainer.mp_context.get_start_method() == "spawn"
+    assert isinstance(trainer.train_loader, TrainDataLoader)
+    assert isinstance(trainer.val_loader, TrainDataLoader)
     assert trainer.train_loader._dataloader.persistent_workers is True
     assert trainer.val_loader._dataloader.persistent_workers is True
 
@@ -223,5 +253,7 @@ def test_data_loaders_disable_persistent_workers_when_num_workers_is_zero(
         trainer.init_data_loaders(cur_step=train_config.steps[0])
 
     assert trainer.mp_context is None
+    assert isinstance(trainer.train_loader, TrainDataLoader)
+    assert isinstance(trainer.val_loader, TrainDataLoader)
     assert trainer.train_loader._dataloader.persistent_workers is False
     assert trainer.val_loader._dataloader.persistent_workers is False

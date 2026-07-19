@@ -12,7 +12,7 @@ from scipy.stats import pearsonr
 
 from samudra.constants import TensorMap
 from samudra.utils.data import (
-    DataSource,
+    CanonicalDataset,
     Masks,
     Normalize,
     OceanData,
@@ -26,12 +26,15 @@ from tests.conftest import TEST_DATASET_SPEC, TEST_FULL_DATASET_SPEC
 
 
 def test_mask_roundtrip(data_source):
-    data = data_source.data
+    data, _, _ = data_source._xarray_datasets_for_testing()
 
     unflattened = unflatten_masks(data.copy(), dataset_spec=TEST_DATASET_SPEC)
     flattened = flatten_masks(unflattened.copy(), dataset_spec=TEST_DATASET_SPEC)
 
-    assert flattened == data, "Assume a safe roundtrip"
+    xr.testing.assert_equal(
+        flattened[list(TEST_DATASET_SPEC.mask_vars)],
+        data[list(TEST_DATASET_SPEC.mask_vars)],
+    )
 
 
 def test_rename_vars():
@@ -159,7 +162,7 @@ def normalize_input():
 
     # Warning: the 'data' field is not used because this test tries to test
     # normalization which only needs mean and std. Thus, we set it to `data_mean`.
-    test = DataSource(
+    test = CanonicalDataset.from_canonical_datasets(
         "test",
         data_mean,
         data_mean,
@@ -197,10 +200,8 @@ def test_unnormalize_prognostic_tensor(normalize_input, fill_value):
 
 @pytest.mark.parametrize("data_source", ["compact"], indirect=True)
 def test_normalize_compact_mixed_depth_and_surface_stats(data_source):
-    src = DataSource.from_datasets(
-        data_source.data,
-        data_source.means,
-        data_source.stds,
+    src = CanonicalDataset.from_datasets(
+        *data_source._xarray_datasets_for_testing(),
         dataset_spec=TEST_FULL_DATASET_SPEC,
         name="compact-full",
         prognostic_var_names=TEST_FULL_DATASET_SPEC.prognostic_var_names,
@@ -275,7 +276,7 @@ def data_init(hist: int):
     )
     data_mean = data.mean() * 0.0
     data_std = data.std() * 0.0 + 1.0
-    val = DataSource.from_datasets(
+    val = CanonicalDataset.from_datasets(
         data,
         data_mean,
         data_std,

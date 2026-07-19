@@ -7,10 +7,10 @@ import torch
 from samudra.config import SamudraConfig, UNetBackboneConfig
 from samudra.constants import TensorMap
 from samudra.utils.ctx import GridContext
-from samudra.utils.data import DataSource, Normalize
+from samudra.utils.data import CanonicalDataset, Normalize
 
 
-def test_positional_parameters_update(dummy_src: DataSource):
+def test_positional_parameters_update(dummy_src: CanonicalDataset):
     """Verify that positional parameters can learn something in a tiny example."""
     src = dummy_src
     h, w = src.grid_size

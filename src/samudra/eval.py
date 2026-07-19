@@ -15,7 +15,7 @@ from samudra.config import EvalConfig
 from samudra.constants import BoundaryVarNames, Grid, PrognosticVarNames, TensorMap
 from samudra.datasets import InferenceDataset
 from samudra.stepper import run_rollout
-from samudra.utils.data import Normalize, get_inference_steps, spherical_area_weights
+from samudra.utils.data import Normalize, get_inference_steps
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import is_main_process, set_seed
 from samudra.utils.logging import get_model_summary, handle_logging, handle_warnings
@@ -81,11 +81,10 @@ class Eval:
         )
 
         self.src = self.data_container.inference_source
-        self.data = self.src.data
         self.static_data = self.data_container.static_data
         self.metadata = self.src.metadata
         self.wet = self.src.masks.prognostic_with_hist(cfg.data.hist)
-        self.area_weights: Grid = spherical_area_weights(self.data)
+        self.area_weights: Grid = self.src.spherical_area_weights
         self.area_weights = self.area_weights.to(self.device)
 
         self.normalize = Normalize(
@@ -151,7 +150,7 @@ class Eval:
         self.model.load_state_dict(new_state_dict)
 
     def init_inference_store(self):
-        sliced_src = self.src.slice(self.inference_time)
+        sliced_src = self.src.slice_time(self.inference_time)
         self.num_time_steps = get_inference_steps(
             sliced_src,
             hist=self.hist,

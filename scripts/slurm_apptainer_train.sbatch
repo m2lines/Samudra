@@ -198,7 +198,9 @@ fi
 
 # Distributed rendezvous info (shared by all nodes).
 MASTER_ADDR="$(scontrol show hostnames "${SLURM_JOB_NODELIST}" | head -n 1)"
-MASTER_PORT="${MASTER_PORT:-8008}"
+# Keep concurrent jobs sharing nodes from contending for the same rendezvous port.
+# An explicit MASTER_PORT still takes precedence for sites with restricted ranges.
+MASTER_PORT="${MASTER_PORT:-$((15000 + SLURM_JOB_ID % 40000))}"
 export MASTER_ADDR MASTER_PORT
 
 # This harness launches one torchrun per node via srun. Each torchrun spawns one

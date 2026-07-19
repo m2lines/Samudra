@@ -12,7 +12,7 @@ from samudra.datasets import InferenceDataset, TrainData
 from samudra.models.base import BaseModel
 from samudra.stepper import validate_batch
 from samudra.utils.ctx import GridContext
-from samudra.utils.data import DataSource, Normalize
+from samudra.utils.data import CanonicalDataset, Normalize
 from samudra.utils.multiton import MultitonScope
 from tests.conftest import TEST_DATASET_SPEC
 
@@ -65,7 +65,7 @@ def inf_data_init(hist: int):
         )
         data_mean: xr.Dataset = data.mean() * 0.0
         data_std: xr.Dataset = data.std() * 0.0 + 1.0
-        val = DataSource.from_datasets(
+        val = CanonicalDataset.from_datasets(
             data,
             data_mean,
             data_std,

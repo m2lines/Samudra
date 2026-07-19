@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import itertools
-import random
 
 import pytest
 
@@ -17,11 +16,25 @@ from samudra.utils.samplers import (
 class MockDataset:
     """Simple mock dataset for testing samplers."""
 
-    def __init__(self, size: int, grid_size: GridSize = (100, 100)):
+    def __init__(
+        self,
+        size: int,
+        grid_size: GridSize = (100, 100),
+        compatibility_key=None,
+    ):
         self._size = size
         self.input_src = self
         self.label_src = self
         self.grid_size = grid_size
+        self._compatibility_key = compatibility_key
+
+    @property
+    def batch_compatibility_key(self):
+        return (
+            self.grid_size
+            if self._compatibility_key is None
+            else self._compatibility_key
+        )
 
     def __len__(self):
         return self._size
@@ -95,13 +108,13 @@ class TestEquivalenceGroupBatchSampler:
         batches_per_seed = []
 
         for seed in [42, 1337, 9]:
-            random.seed(seed)
             sampler = EquivalenceGroupBatchSampler.from_dataset_sizes(
                 # group 0: indices [0..9], group 1: indices [10..19]
                 dataset_sizes=[10, 10],
                 batch_size=2,
                 shuffle=True,
                 drop_last=False,
+                seed=seed,
             )
             batches = list(sampler)
             batches_per_seed.append(batches)
@@ -114,6 +127,38 @@ class TestEquivalenceGroupBatchSampler:
                     assert all(idx >= 10 for idx in batch), "Batch mixes groups"
 
         assert all(batches_per_seed[0] != batches for batches in batches_per_seed[1:])
+
+    def test_shuffle_is_isolated_from_global_rngs(self):
+        """DataLoader worker seeding must not alter the sampler schedule."""
+        import torch
+
+        sampler = EquivalenceGroupBatchSampler.from_dataset_sizes(
+            dataset_sizes=[10, 10],
+            batch_size=2,
+            shuffle=True,
+            seed=42,
+        )
+        expected = list(sampler)
+
+        torch.manual_seed(999)
+        _ = torch.empty((), dtype=torch.int64).random_().item()
+
+        assert list(sampler) == expected
+
+    def test_set_epoch_changes_ordering(self):
+        sampler = EquivalenceGroupBatchSampler.from_dataset_sizes(
+            dataset_sizes=[10, 10],
+            batch_size=2,
+            shuffle=True,
+            seed=42,
+        )
+
+        sampler.set_epoch(0)
+        epoch_0 = list(sampler)
+        sampler.set_epoch(1)
+        epoch_1 = list(sampler)
+
+        assert epoch_0 != epoch_1
 
     def test_all_indices_covered_exactly_once(self):
         """Each index should appear in exactly one batch (no shuffle, no drop_last)."""
@@ -183,6 +228,48 @@ class TestSamplersFromDatasets:
                 assert all(idx < 10 for idx in batch), "Batch mixes groups"
             else:
                 assert all(idx >= 10 for idx in batch), "Batch mixes groups"
+
+    def test_default_key_preserves_first_seen_group_order(self):
+        datasets = [
+            MockDataset(2, compatibility_key="later-sorting-key"),
+            MockDataset(2, compatibility_key="earlier-sorting-key"),
+        ]
+
+        sampler = EquivalenceGroupBatchSampler.from_datasets(
+            datasets=datasets,
+            batch_size=1,
+            shuffle=False,
+            drop_last=False,
+        )
+
+        assert list(sampler) == [[0], [1], [2], [3]]
+
+    def test_process_local_default_keys_are_rank_schedule_stable(self):
+        """Per-process identities must not reorder DDP equivalence groups."""
+        rank_datasets = [
+            [
+                MockDataset(4, compatibility_key="rank-0-high"),
+                MockDataset(4, compatibility_key="rank-0-low"),
+            ],
+            [
+                MockDataset(4, compatibility_key="rank-1-low"),
+                MockDataset(4, compatibility_key="rank-1-high"),
+            ],
+        ]
+        rank_batches = []
+        for rank, datasets in enumerate(rank_datasets):
+            sampler = DistributedEquivalenceGroupBatchSampler(
+                datasets=datasets,
+                batch_size=1,
+                num_replicas=2,
+                rank=rank,
+                shuffle=False,
+                drop_last=False,
+            )
+            rank_batches.append(list(sampler))
+
+        for rank_0_batch, rank_1_batch in zip(*rank_batches, strict=True):
+            assert (rank_0_batch[0] < 4) == (rank_1_batch[0] < 4)
 
 
 class TestDistributedBatchSamplerDistribution:

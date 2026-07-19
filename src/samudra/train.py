@@ -20,12 +20,7 @@ from typing import Any, assert_never
 import dask
 import torch
 import torch.nn as nn
-from torch.utils.data import (
-    ConcatDataset,
-    DataLoader,
-    DistributedSampler,
-    RandomSampler,
-)
+from torch.utils.data import DataLoader, DistributedSampler, RandomSampler
 
 from samudra import config
 from samudra.aggregator import Aggregator, ValidateAggregator
@@ -46,10 +41,10 @@ from samudra.constants import (
 from samudra.datasets import (
     InferenceDataset,
     InferenceDatasets,
-    RawTrainData,
     TorchTrainDataset,
+    TrainBatchLoader,
     TrainData,
-    TrainDataLoader,
+    close_pytorch_dataloader,
 )
 from samudra.models.base import BaseModel
 from samudra.stepper import (
@@ -59,10 +54,12 @@ from samudra.stepper import (
     train_batch,
     validate_batch,
 )
-from samudra.utils.data import DataSource, Normalize, get_inference_steps
+from samudra.train_data_loader import build_train_batch_loader
+from samudra.utils.data import CanonicalDataset, Normalize, get_inference_steps
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import (
     all_reduce_mean,
+    destroy_distributed_mode,
     get_world_size,
     is_main_process,
     set_seed,
@@ -80,11 +77,7 @@ from samudra.utils.samplers import (
     DistributedEquivalenceGroupBatchSampler,
     EquivalenceGroupBatchSampler,
 )
-from samudra.utils.train import (
-    CheckpointPaths,
-    collate_inference_data,
-    collate_raw_train_data,
-)
+from samudra.utils.train import CheckpointPaths, collate_inference_data
 from samudra.utils.wandb import WandBLogger
 
 logger = logging.getLogger(__name__)
@@ -128,6 +121,7 @@ class Trainer:
 
         # Set seeds
         set_seed(cfg.experiment.rand_seed)
+        self.rand_seed = cfg.experiment.rand_seed
 
         # Getting prognostic and boundary variables
         self.dataset_spec = cfg.data.dataset.build()
@@ -162,10 +156,18 @@ class Trainer:
 
         data_num_workers = cfg.data.loading.num_pytorch_workers()
         persistent_workers = cfg.data.loading.persistent_pytorch_workers()
+        self.data_loading = cfg.data.loading
 
         self.mp_context: BaseContext | None = None
         if data_num_workers > 0:
             self.mp_context = multiprocessing.get_context("spawn")
+        self.inference_num_workers = cfg.data.inference_loading.num_workers
+        self.inference_persistent_workers = (
+            cfg.data.inference_loading.persistent_workers
+        )
+        self.inference_mp_context: BaseContext | None = None
+        if self.inference_num_workers > 0:
+            self.inference_mp_context = multiprocessing.get_context("spawn")
 
         self.num_prog_in = int((cfg.data.hist + 1) * self.N_prog)
         self.num_boundary_in = int((cfg.data.hist + 1) * self.N_bound)
@@ -359,8 +361,8 @@ class Trainer:
         self.inference_sampler: DistributedSampler | RandomSampler
 
         # Add type annotations for loaders
-        self.train_loader: TrainDataLoader
-        self.val_loader: TrainDataLoader
+        self.train_loader: TrainBatchLoader
+        self.val_loader: TrainBatchLoader
         self.inference_loader: DataLoader[TrainData]
 
     def init_inference_stores(self):
@@ -375,7 +377,7 @@ class Trainer:
         inference_datasets = []
         num_steps_inf_set = []
         for i in range(num_splits):
-            sliced_src = self.inference_src.slice(self.inference_times[i])
+            sliced_src = self.inference_src.slice_time(self.inference_times[i])
             num_time_steps = get_inference_steps(
                 sliced_src,
                 hist=self.hist,
@@ -409,14 +411,28 @@ class Trainer:
             inference_data_combined,
             batch_size=1,
             sampler=self.inference_sampler,
-            num_workers=self.num_workers,
+            num_workers=self.inference_num_workers,
+            persistent_workers=(
+                self.inference_persistent_workers and self.inference_num_workers > 0
+            ),
             pin_memory=False,
             drop_last=False,
             collate_fn=collate_inference_data,
-            multiprocessing_context=self.mp_context,
+            multiprocessing_context=self.inference_mp_context,
         )
 
     def run(self) -> None:
+        """Run training and deterministically release loader-owned resources."""
+        try:
+            self._run()
+        finally:
+            if hasattr(self, "train_loader"):
+                self.train_loader.close()
+                self.val_loader.close()
+            if hasattr(self, "inference_loader"):
+                close_pytorch_dataloader(self.inference_loader)
+
+    def _run(self) -> None:
         logger.info(f"Starting training")
 
         self.best_val_loss = 1e8
@@ -432,10 +448,8 @@ class Trainer:
                 cur_step = self.get_current_step(epoch)
                 self.init_data_loaders(cur_step)
 
-            if hasattr(self.train_sampler, "set_epoch"):
-                self.train_sampler.set_epoch(epoch)
-            if hasattr(self.val_sampler, "set_epoch"):
-                self.val_sampler.set_epoch(epoch)
+            self.train_loader.set_epoch(epoch)
+            self.val_loader.set_epoch(epoch)
 
             start_epoch_train_time = time.perf_counter()
             train_stats = self.train_one_epoch(epoch)
@@ -794,10 +808,13 @@ class Trainer:
         Args:
             cur_step: Current training step size
         """
+        if hasattr(self, "train_loader"):
+            self.train_loader.close()
+            self.val_loader.close()
         scales = self.data_container.sources
         match self.train_schedule:
             case "standard":
-                srcs: Iterable[tuple[DataSource, DataSource | None]] = [
+                srcs: Iterable[tuple[CanonicalDataset, CanonicalDataset | None]] = [
                     (scales[0], None)
                 ]
             case "match":
@@ -807,10 +824,13 @@ class Trainer:
             case _:
                 assert_never(self.train_schedule)
 
+        shard_specs = [
+            (stride, src, dst) for stride in self.data_stride for src, dst in srcs
+        ]
         train_datasets = [
             TorchTrainDataset(
-                src=src.slice(self.train_time),
-                dst=dst.slice(self.train_time) if dst else None,
+                src=src.slice_time(self.train_time),
+                dst=dst.slice_time(self.train_time) if dst else None,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -819,15 +839,15 @@ class Trainer:
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
                 concurrent_compute_=self.concurrent_compute,
+                shard_id=f"train-{shard_index}",
             )
-            for stride in self.data_stride
-            for src, dst in srcs
+            for shard_index, (stride, src, dst) in enumerate(shard_specs)
         ]
 
         val_datasets = [
             TorchTrainDataset(
-                src=src.slice(self.val_time),
-                dst=dst.slice(self.val_time) if dst else None,
+                src=src.slice_time(self.val_time),
+                dst=dst.slice_time(self.val_time) if dst else None,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -836,115 +856,84 @@ class Trainer:
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
                 concurrent_compute_=self.concurrent_compute,
+                shard_id=f"val-{shard_index}",
             )
-            for stride in self.data_stride
-            for src, dst in srcs
+            for shard_index, (stride, src, dst) in enumerate(shard_specs)
         ]
 
-        # Create datasets
-        match self.loader_version:
-            case TorchTrainDataset.FLAG:
-                train_data: torch.utils.data.Dataset[RawTrainData] = ConcatDataset(
-                    train_datasets
-                )
-
-                val_data: torch.utils.data.Dataset[RawTrainData] = ConcatDataset(
-                    val_datasets
-                )
-
-            case _:
-                raise NotImplementedError(
-                    f"Loader version {self.loader_version} not supported."
-                )
-
-        logger.info("Instantiating torch loaders")
-
-        match self.loader_version:
-            case TorchTrainDataset.FLAG:
-                collate_fn = collate_raw_train_data
-            case _:
-                raise NotImplementedError(
-                    f"Collate function not defined for loader version "
-                    f"{self.loader_version}"
-                )
+        if self.loader_version != TorchTrainDataset.FLAG:
+            raise NotImplementedError(
+                f"Loader version {self.loader_version} not supported."
+            )
 
         # Create batch samplers - branch on distributed vs non-distributed
-        # Group by input AND label resolution to handle all training schedules
-        def group_key(ds):
-            return tuple(prog.grid_size for prog in ds.prognostic_srcs)
-
         if self.distributed is not None:
             # Distributed training
             assert self.distributed.world_size is not None
             assert self.distributed.rank is not None
             train_batch_sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=train_datasets,
-                group_key=group_key,
                 batch_size=self.batch_size,
                 num_replicas=self.distributed.world_size,
                 rank=self.distributed.rank,
                 shuffle=True,
                 drop_last=True,
+                seed=self.rand_seed,
             )
 
             val_batch_sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=val_datasets,
-                group_key=group_key,
                 batch_size=self.batch_size,
                 num_replicas=self.distributed.world_size,
                 rank=self.distributed.rank,
                 shuffle=False,
                 drop_last=False,
+                seed=self.rand_seed,
             )
         else:
             # Non-distributed training
             train_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
                 datasets=train_datasets,
-                group_key=group_key,
                 batch_size=self.batch_size,
                 shuffle=True,
                 drop_last=True,
+                seed=self.rand_seed,
             )
 
             val_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
                 datasets=val_datasets,
-                group_key=group_key,
                 batch_size=self.batch_size,
                 shuffle=True,
                 drop_last=False,
+                seed=self.rand_seed,
             )
 
         # Store samplers for set_epoch calls
         self.train_sampler = train_batch_sampler
         self.val_sampler = val_batch_sampler
 
-        # Create data loaders (same for both distributed and non-distributed)
-        # When using batch_sampler, don't specify batch_size or sampler
-        train_dataloader = DataLoader(
-            train_data,
-            batch_sampler=train_batch_sampler,
-            num_workers=self.num_workers,
-            persistent_workers=self.persistent_workers and self.num_workers > 0,
+        worker_seed = self.rand_seed
+        if self.distributed is not None:
+            assert self.distributed.rank is not None
+            worker_seed += 2 * self.distributed.rank
+        self.train_loader = build_train_batch_loader(
+            train_datasets,
+            train_batch_sampler,
+            self.device,
+            self.data_loading,
             pin_memory=self.pin_mem,
-            collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
+            worker_seed=worker_seed,
         )
-
-        val_dataloader = DataLoader(
-            val_data,
-            batch_sampler=val_batch_sampler,
-            num_workers=self.num_workers,
-            persistent_workers=self.persistent_workers and self.num_workers > 0,
+        self.val_loader = build_train_batch_loader(
+            val_datasets,
+            val_batch_sampler,
+            self.device,
+            self.data_loading,
             pin_memory=self.pin_mem,
-            collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
+            worker_seed=worker_seed + 1,
         )
-
-        # Wrap dataloaders to handle GPU post-processing
-        self.train_loader = TrainDataLoader(
-            train_dataloader, train_datasets, self.device
-        )
-        self.val_loader = TrainDataLoader(val_dataloader, val_datasets, self.device)
 
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
         with self._test_context():
@@ -1135,13 +1124,16 @@ def main():
     handle_logging(cfg.debug, cfg.experiment.output_dir)
     handle_warnings()
 
-    trainer = Trainer(cfg)
-
+    trainer = None
     try:
+        trainer = Trainer(cfg)
         trainer.run()
-    except Exception as e:
+    except Exception:
         logger.exception("Training failed with an exception")
-        raise e
+        raise
+    finally:
+        del trainer
+        destroy_distributed_mode()
 
 
 if __name__ == "__main__":

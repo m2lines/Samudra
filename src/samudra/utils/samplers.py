@@ -6,15 +6,23 @@ import itertools
 import math
 import random
 from collections.abc import Callable, Hashable
-from typing import TYPE_CHECKING, Self
+from typing import Protocol, Self, TypeVar
 
+from torch import Generator
 from torch.utils.data import BatchSampler, Sampler, SubsetRandomSampler
-
-if TYPE_CHECKING:
-    from samudra.datasets import TorchTrainDataset
 
 type Batch = list[int]
 type DdpStepChunk = tuple[Batch, ...]
+
+
+class BatchCompatibleDataset(Protocol):
+    @property
+    def batch_compatibility_key(self) -> Hashable: ...
+
+    def __len__(self) -> int: ...
+
+
+DatasetT = TypeVar("DatasetT", bound=BatchCompatibleDataset)
 
 
 class _SimpleSubsetSampler(Sampler):
@@ -50,19 +58,22 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
         batch_size: int,
         shuffle: bool = True,
         drop_last: bool = False,
+        seed: int = 0,
     ):
         super().__init__()
         self.groups = groups
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.drop_last = drop_last
+        self.seed = seed
+        self.epoch = 0
 
-        # Choose sampler based on shuffle setting
-        SubsetSampler = SubsetRandomSampler if self.shuffle else _SimpleSubsetSampler
-
+        # Keep a stable, sequential representation for length calculation and
+        # for the distributed sampler's group-wise chunking. Shuffled batch
+        # samplers are constructed per epoch with their own generator below.
         self._samplers = [
             BatchSampler(
-                SubsetSampler(group),
+                _SimpleSubsetSampler(group),
                 batch_size=self.batch_size,
                 drop_last=self.drop_last,
             )
@@ -76,6 +87,7 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
         batch_size: int,
         shuffle: bool = True,
         drop_last: bool = False,
+        seed: int = 0,
     ) -> Self:
         """Create sampler from dataset sizes, treating each as a contiguous group.
 
@@ -85,22 +97,24 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
             batch_size: Number of samples per batch
             shuffle: Whether to shuffle indices within groups and shuffle batches globally
             drop_last: Whether to drop incomplete batches at the end of each group
+            seed: Base seed for deterministic epoch shuffling
         """
         cumsum = 0
         groups = []
         for size in dataset_sizes:
             groups.append(list(range(cumsum, cumsum + size)))
             cumsum += size
-        return cls(groups, batch_size, shuffle, drop_last)
+        return cls(groups, batch_size, shuffle, drop_last, seed)
 
     @classmethod
     def from_datasets(
         cls,
-        datasets: list["TorchTrainDataset"],
-        group_key: Callable[["TorchTrainDataset"], Hashable],
+        datasets: list[DatasetT],
         batch_size: int,
         shuffle: bool,
         drop_last: bool,
+        seed: int = 0,
+        group_key: Callable[[DatasetT], Hashable] | None = None,
     ) -> Self:
         """Create sampler by grouping datasets using a key function.
 
@@ -109,10 +123,12 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
 
         Args:
             datasets: List of TorchTrainDataset instances to group
-            group_key: Callable that extracts grouping key from a dataset.
+            group_key: Optional legacy override for the dataset's public
+                ``batch_compatibility_key``.
             batch_size: Number of samples per batch
             shuffle: Whether to shuffle indices within groups and shuffle batches globally
             drop_last: Whether to drop incomplete batches at the end of each group
+            seed: Base seed for deterministic epoch shuffling
 
         Examples:
                 - lambda ds: (ds._input_src.data.sizes['lat'], ds._input_src.data.sizes['lon'])  # group by resolution
@@ -131,37 +147,46 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
             ...     drop_last=True,
             ... )
         """
-        from collections import defaultdict
-
-        # Group indices by their key
-        groups: dict[Hashable, list[int]] = defaultdict(list)
+        # Dicts preserve first-seen order, which makes the group schedule depend
+        # only on the rank-stable dataset list order. Compatibility keys only
+        # define equality; they need not be comparable or identical objects in
+        # different processes (for example, the current per-shard identity key).
+        groups: dict[Hashable, list[int]] = {}
 
         cumsum = 0
         for ds in datasets:
-            key = group_key(ds)
+            key = group_key(ds) if group_key is not None else ds.batch_compatibility_key
             assert isinstance(key, Hashable), "`group_key` must be hashable."
-            groups[key].extend(range(cumsum, cumsum + len(ds)))
+            groups.setdefault(key, []).extend(range(cumsum, cumsum + len(ds)))
             cumsum += len(ds)
 
-        # Sort by key for deterministic ordering across runs
-        sorted_groups = sorted(groups.items(), key=lambda x: x[0])  # type: ignore
-        group_indices = [indices for _, indices in sorted_groups]
+        return cls(list(groups.values()), batch_size, shuffle, drop_last, seed)
 
-        return cls(group_indices, batch_size, shuffle, drop_last)
+    def set_epoch(self, epoch: int) -> None:
+        """Select the deterministic shuffle schedule for an epoch."""
+        self.epoch = epoch
 
     def __iter__(self):
-        # Create batch samplers for each group
-        batch_sampler = itertools.chain(*self._samplers)
-
         if not self.shuffle:
-            # No global shuffle: return batches in sequential group order
-            yield from batch_sampler
+            all_batches = list(itertools.chain(*self._samplers))
         else:
-            # Shuffle batches globally to avoid sequential group processing
-            # This is regenerated each epoch, giving different orderings
-            all_batches = list(batch_sampler)
-            random.shuffle(all_batches)
-            yield from all_batches
+            # Isolate data-order randomness from the process-global PyTorch and
+            # Python RNGs. In particular, DataLoader consumes random numbers to
+            # seed workers while the Rust loader does not; using dedicated RNGs
+            # keeps the two loader contracts schedule-equivalent.
+            generator = Generator().manual_seed(self.seed + self.epoch)
+            shuffled_samplers = [
+                BatchSampler(
+                    SubsetRandomSampler(group, generator=generator),
+                    batch_size=self.batch_size,
+                    drop_last=self.drop_last,
+                )
+                for group in self.groups
+            ]
+            all_batches = list(itertools.chain(*shuffled_samplers))
+            random.Random(self.seed + self.epoch).shuffle(all_batches)
+
+        yield from all_batches
 
     def __len__(self):
         """Calculate total number of batches across all groups."""
@@ -202,14 +227,14 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[Batch]):
 
     def __init__(
         self,
-        datasets: list["TorchTrainDataset"],
-        group_key: Callable[["TorchTrainDataset"], Hashable],
+        datasets: list[DatasetT],
         batch_size: int,
         num_replicas: int,
         rank: int,
         shuffle: bool = True,
         drop_last: bool = False,
         seed: int = 0,
+        group_key: Callable[[DatasetT], Hashable] | None = None,
     ):
         super().__init__()
         if num_replicas <= 0:
@@ -307,9 +332,12 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[Batch]):
         all_batches: list[Batch] = list(itertools.chain.from_iterable(chunks))
         assert len(all_batches) % self.num_replicas == 0
 
-        # Each worker takes every num_replicas'th batch starting at rank
-        for i in range(self.rank, len(all_batches), self.num_replicas):
-            yield all_batches[i]
+        # Each worker takes every num_replicas'th batch starting at rank.
+        local_batches = [
+            list(all_batches[i])
+            for i in range(self.rank, len(all_batches), self.num_replicas)
+        ]
+        yield from local_batches
 
     def __len__(self):
         """Number of batches for this worker (same for all ranks)."""

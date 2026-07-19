@@ -2,7 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import pytest
 import torch
+from pydantic import ValidationError
 
 from samudra.utils.schedule import (
     CosineSchedulerConfig,
@@ -102,6 +104,23 @@ def test_cosine__larger_target_than_total__stops_early():
         assert short_lr == base_lr, (
             "Shortened schedule should be the same shape as standard LR schedule"
         )
+
+
+def test_cosine_can_use_optimizer_update_units():
+    initial_lr = 0.01
+    config = CosineSchedulerConfig(interval="optimizer_update", target_updates=20)
+
+    history = simulate_lr_history(config, initial_lr, epochs=10)
+    reference = simulate_lr_history(
+        CosineSchedulerConfig(target_epochs=20), initial_lr, epochs=10
+    )
+
+    assert history == reference
+
+
+def test_optimizer_update_schedule_requires_target_updates():
+    with pytest.raises(ValidationError, match="target_updates is required"):
+        CosineSchedulerConfig(interval="optimizer_update")
 
 
 def test_cosine_with_warmup():

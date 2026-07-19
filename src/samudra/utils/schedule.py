@@ -5,20 +5,36 @@
 from typing import Literal
 
 import torch
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 
 class CosineSchedulerConfig(BaseModel):
     """Cosine scheduler; see pytorch CosineAnnealingLR."""
 
     type: Literal["cosine"] = "cosine"
+    interval: Literal["epoch", "optimizer_update"] = "epoch"
     target_epochs: int | None = None
+    target_updates: int | None = None
+
+    @model_validator(mode="after")
+    def validate_interval_target(self):
+        if self.interval == "optimizer_update" and self.target_updates is None:
+            raise ValueError(
+                "target_updates is required for an optimizer-update schedule."
+            )
+        if self.interval == "epoch" and self.target_updates is not None:
+            raise ValueError("target_updates requires interval='optimizer_update'.")
+        return self
 
     def build(
         self, optimizer: torch.optim.Optimizer, epochs: int
     ) -> torch.optim.lr_scheduler.LRScheduler:
-        max_epochs = self.target_epochs if self.target_epochs is not None else epochs
-        return torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_epochs)
+        if self.interval == "optimizer_update":
+            assert self.target_updates is not None
+            max_steps = self.target_updates
+        else:
+            max_steps = self.target_epochs if self.target_epochs is not None else epochs
+        return torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max_steps)
 
 
 class CosineWithTailSchedulerConfig(BaseModel):

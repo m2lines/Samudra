@@ -250,8 +250,10 @@ class Trainer:
 
         # Scheduler
         self.scheduler = None
+        self.scheduler_interval = None
         if cfg.scheduler:
             self.scheduler = cfg.scheduler.build(self.optimizer, cfg.epochs)
+            self.scheduler_interval = getattr(cfg.scheduler, "interval", "epoch")
 
         # Initialize WandB
         self.wandb_logger = WandBLogger.init_instance()
@@ -585,6 +587,11 @@ class Trainer:
                 self.optimizer.zero_grad()
                 self._ema(model=self.model)
                 self.num_optimizer_updates += 1
+                if (
+                    self.scheduler is not None
+                    and self.scheduler_interval == "optimizer_update"
+                ):
+                    self.scheduler.step()
 
             lr = (
                 self.optimizer.param_groups[-1]["lr"]
@@ -691,7 +698,7 @@ class Trainer:
 
             self.profiler.after_batch(self.num_batches_seen)
 
-        if self.scheduler is not None:
+        if self.scheduler is not None and self.scheduler_interval == "epoch":
             self.scheduler.step()
 
         logger.info(f"Aggregating train logs")

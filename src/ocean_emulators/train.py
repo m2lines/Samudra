@@ -313,6 +313,12 @@ class _ReplayPrefetchPipeline:
         return self._raw_cache.pop(request_id)
 
     def _prepare_cached_ready_without_blocking(self) -> None:
+        if getattr(self.trainer, "dp_ctx", None) is not None:
+            # Raw-batch readiness is rank-local: followers receive metadata
+            # immediately, while the leader may still be reading tensors. Starting
+            # a scatter here can therefore race the leader's optimizer collectives.
+            # Keep it cached so every rank enters the scatter from next_prepared().
+            return
         if self._prepared_cache:
             return
         raw_batch = self._pop_ready_raw()

@@ -610,6 +610,15 @@ def test_domain_follower_prefetch_uses_metadata_without_reader_threads():
     assert pipeline._worker_threads == []
     assert pipeline._raw_cache[0].request == request
     assert pipeline._raw_cache[0].train_transitions == []
+
+    def fail_if_prepared(_raw_batch):
+        raise AssertionError("domain collectives must not start from complete()")
+
+    pipeline._prepare_async = fail_if_prepared
+    pipeline._prepare_cached_ready_without_blocking()
+
+    assert pipeline._prepared_cache == {}
+    assert pipeline._raw_cache[0].request == request
     pipeline.close()
 
 

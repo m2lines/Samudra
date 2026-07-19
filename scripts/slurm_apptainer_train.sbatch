@@ -158,6 +158,10 @@ if [[ -z "${IMAGE_REF}" ]]; then
 fi
 
 REPO_DIR="${REPO_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}"
+if [[ ! -d "${REPO_DIR}" ]]; then
+  echo "REPO_DIR directory does not exist: ${REPO_DIR}" >&2
+  exit 7
+fi
 cd "${REPO_DIR}"
 
 SIF_DIR="${SIF_DIR:-${REPO_DIR}/.apptainer-images}"
@@ -168,6 +172,10 @@ SIF_PATH="${SIF_PATH:-${SIF_DIR}/${IMAGE_REF_SAFE}.sif}"
 
 # Apptainer tmp: keep on node-local /tmp to avoid scratch filesystems that don't support xattrs.
 export APPTAINER_TMPDIR="${APPTAINER_TMPDIR:-/tmp}"
+mkdir -p "${APPTAINER_TMPDIR}"
+if [[ -n "${APPTAINER_CACHEDIR:-}" ]]; then
+  mkdir -p "${APPTAINER_CACHEDIR}"
+fi
 
 # GHCR auth (if image is private).
 if [[ -n "${GHCR_USERNAME:-}" ]] && [[ -z "${APPTAINER_DOCKER_USERNAME:-}" ]]; then

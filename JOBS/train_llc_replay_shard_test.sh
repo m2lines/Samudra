@@ -1,13 +1,11 @@
 #!/bin/bash
-#SBATCH -p mit_normal_gpu
-#SBATCH --account=mit_amf_advanced_gpu
-#SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=shardtensor-replay-2x2-DEBUG
+#SBATCH -p pi_abodner
+#SBATCH --job-name=shardtensor-replay-2x2-DEBUG-test1
 #SBATCH -N 1
 #SBATCH --mem=300GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
-#SBATCH -G h200:4
+#SBATCH --gres=gpu:4
 #SBATCH --time=02:00:00
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out

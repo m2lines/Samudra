@@ -15,13 +15,15 @@ set -euo pipefail
 PROJECT_DIR="/orcd/home/002/codycruz/Ocean_Emulator"
 PYTHON_BIN="${PYTHON_BIN:-${PROJECT_DIR}/.venv/bin/python}"
 
-# Keep the first replay gate small but UNet/halo-safe: each rank receives a
-# 160x160 tile, whose deepest 10x10 tile is larger than the dilation-8 halo.
+# llc_normal.yaml points at a pre-cropped 720x720 patch whose local indices are
+# [0:720). Local [0:320) corresponds to global LLC i=[2880:3200) and
+# j=[720:1040). Each rank receives a 160x160 tile, with a halo-safe 10x10
+# deepest tile.
 LLC_FACE="${LLC_FACE:-1}"
-LLC_I_START="${LLC_I_START:-2880}"
-LLC_I_END="${LLC_I_END:-3200}"
-LLC_J_START="${LLC_J_START:-720}"
-LLC_J_END="${LLC_J_END:-1040}"
+LLC_I_START="${LLC_I_START:-0}"
+LLC_I_END="${LLC_I_END:-320}"
+LLC_J_START="${LLC_J_START:-0}"
+LLC_J_END="${LLC_J_END:-320}"
 
 DEBUG="${DEBUG:-true}"
 EPOCHS="${EPOCHS:-1}"
@@ -80,7 +82,7 @@ fi
 "${PYTHON_BIN}" -c "import physicsnemo, torch; from physicsnemo.domain_parallel import ShardTensor; print('torch=' + torch.__version__); print('physicsnemo=' + getattr(physicsnemo, '__version__', 'unknown')); print('ShardTensor OK')"
 
 RUN_ARGS=(
-  configs/samudra_llc/train_replay_shard.yaml
+  configs/samudra_llc/train_replay_shard_test_3.yaml
   --backend nccl
   --domain_parallel.enabled true
   --domain_parallel.cluster_shape "[2, 2]"

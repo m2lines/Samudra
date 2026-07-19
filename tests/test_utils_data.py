@@ -17,6 +17,7 @@ from ocean_emulators.utils.data import (
     DataSource,
     Masks,
     Normalize,
+    _slice_llc_region,
     compute_anomalies,
     flatten_masks,
     get_aggregator_dicts,
@@ -24,6 +25,35 @@ from ocean_emulators.utils.data import (
     with_level_index_vars,
 )
 from ocean_emulators.utils.multiton import MultitonScope
+
+
+def test_slice_llc_region_supports_channel_xy_patch_layout():
+    data = xr.Dataset(
+        {
+            "prognostic": (
+                ("time", "channel", "y", "x"),
+                np.zeros((1, 2, 720, 720)),
+            )
+        },
+        coords={
+            "time": [0],
+            "channel": [0, 1],
+            "x": np.arange(720),
+            "y": np.arange(720),
+        },
+    )
+
+    sliced = _slice_llc_region(
+        data,
+        llc_face=1,
+        llc_i_start=0,
+        llc_i_end=320,
+        llc_j_start=0,
+        llc_j_end=320,
+    )
+
+    assert sliced.sizes["x"] == 320
+    assert sliced.sizes["y"] == 320
 
 
 def test_mask_roundtrip(data_source):

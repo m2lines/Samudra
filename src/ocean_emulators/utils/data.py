@@ -187,6 +187,11 @@ def _slice_llc_region(
     data = _slice_llc_dim(data, dim="j", start=llc_j_start, end=llc_j_end)
     data = _slice_llc_dim(data, dim="i_g", start=llc_i_start, end=llc_i_end)
     data = _slice_llc_dim(data, dim="j_g", start=llc_j_start, end=llc_j_end)
+    # Optimized, pre-cropped LLC stores use channel/x/y dimensions instead of
+    # native LLC variable/i/j dimensions. Their x/y coordinates are local to
+    # the stored patch, so the same configured bounds apply positionally.
+    data = _slice_llc_dim(data, dim="x", start=llc_i_start, end=llc_i_end)
+    data = _slice_llc_dim(data, dim="y", start=llc_j_start, end=llc_j_end)
     return data
 
 

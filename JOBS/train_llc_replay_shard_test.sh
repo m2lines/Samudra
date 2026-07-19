@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=shardtensor-replay-2x2-DEBUG-test1
+#SBATCH --job-name=shardtensor-replay-2x2-DEBUG-test2
 #SBATCH -N 1
 #SBATCH --mem=300GB
 #SBATCH --ntasks=1

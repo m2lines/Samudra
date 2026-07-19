@@ -56,6 +56,66 @@ def test_slice_llc_region_supports_channel_xy_patch_layout():
     assert sliced.sizes["y"] == 320
 
 
+def test_from_locations_crops_packed_data_and_masks():
+    size = 8
+    packed = xr.Dataset(
+        {
+            "prognostic": (
+                ("time", "prognostic_channel", "y", "x"),
+                np.zeros((1, 1, size, size), dtype=np.float32),
+            ),
+            "boundary": (
+                ("time", "boundary_channel", "y", "x"),
+                np.zeros((1, 1, size, size), dtype=np.float32),
+            ),
+            "prognostic_mean": (("prognostic_channel",), np.zeros(1)),
+            "prognostic_std": (("prognostic_channel",), np.ones(1)),
+            "boundary_mean": (("boundary_channel",), np.zeros(1)),
+            "boundary_std": (("boundary_channel",), np.ones(1)),
+            "prognostic_mask": (
+                ("prognostic_channel", "y", "x"),
+                np.ones((1, size, size), dtype=bool),
+            ),
+            "boundary_mask": (
+                ("boundary_channel", "y", "x"),
+                np.ones((1, size, size), dtype=bool),
+            ),
+        },
+        attrs={
+            "cache_format": "llc-train-ready-v1",
+            "prognostic_channel_names_json": '["Theta_0"]',
+            "boundary_channel_names_json": '["oceQnet"]',
+        },
+    )
+
+    class PackedLocation:
+        def open(self, chunks=None):
+            return packed
+
+        def __str__(self):
+            return "packed-test"
+
+    location = PackedLocation()
+    source = DataSource.from_locations(
+        location,
+        location,
+        location,
+        prognostic_var_names=["Theta_0"],
+        boundary_var_names=["oceQnet"],
+        static_data_vars=None,
+        use_dask=False,
+        llc_i_start=1,
+        llc_i_end=5,
+        llc_j_start=2,
+        llc_j_end=6,
+    )
+
+    assert source.data.sizes["lon"] == 4
+    assert source.data.sizes["lat"] == 4
+    assert source.masks.prognostic.shape == (1, 4, 4)
+    assert source.masks.boundary.shape == (1, 4, 4)
+
+
 def test_mask_roundtrip(data_source):
     data = data_source.data
 

@@ -146,7 +146,10 @@ def _slice_llc_dim(data: xr.Dataset, *, dim: str, start: int, end: int) -> xr.Da
     if end <= start:
         raise ValueError(f"Invalid LLC slice for {dim}: [{start}:{end})")
 
-    coord = data.coords.get(dim)
+    # `Dataset.coords.get(dim)` synthesizes a virtual 0..N coordinate even for
+    # dimensions without coordinates. `.sel` then treats the stop as exclusive,
+    # producing an off-by-one crop. Only use label selection for a real coordinate.
+    coord = data.coords[dim] if dim in data.coords else None
     if coord is not None and coord.ndim == 1:
         min_coord = int(np.nanmin(coord.values))
         max_coord = int(np.nanmax(coord.values))
@@ -525,6 +528,18 @@ class DataSource:
         chunks: dict[str, int] | None = {} if use_dask else None
         data = data_location.open(chunks)
 
+        # Apply the configured spatial crop before dispatching to either loader.
+        # Packed train-ready stores return early below, so cropping only in the
+        # native LLC path leaves both their arrays and masks at the cache extent.
+        data = _slice_llc_region(
+            data,
+            llc_face=llc_face,
+            llc_i_start=llc_i_start,
+            llc_i_end=llc_i_end,
+            llc_j_start=llc_j_start,
+            llc_j_end=llc_j_end,
+        )
+
         if _is_packed_train_ready(data):
             return cls.from_packed_dataset(
                 data,
@@ -541,16 +556,6 @@ class DataSource:
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
             static_data_vars=static_data_vars,
-        )
-
-        # LLC specific fixes
-        data = _slice_llc_region(
-            data,
-            llc_face=llc_face,
-            llc_i_start=llc_i_start,
-            llc_i_end=llc_i_end,
-            llc_j_start=llc_j_start,
-            llc_j_end=llc_j_end,
         )
 
         # TEMPORARY BAND-AID: UNSTAGGER HORIZONTAL DIMS

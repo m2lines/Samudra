@@ -85,6 +85,11 @@ def test_checkpoint_ema(train_config, caplog):
     # TODO(jder): would be nice to generalize to testing the whole trainer state,
     # or even running it forward and checking the output is identical
     assert resume_trainer._ema == e2e_trainer._ema
+    assert resume_trainer.num_batches_seen == e2e_trainer.num_batches_seen
+    assert resume_trainer.num_optimizer_updates == e2e_trainer.num_optimizer_updates
+    assert resume_trainer.num_samples_seen == e2e_trainer.num_samples_seen
+    assert resume_trainer.num_optimizer_updates > 0
+    assert resume_trainer.num_samples_seen > 0
 
 
 @pytest.mark.parametrize(

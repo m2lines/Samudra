@@ -8,6 +8,7 @@ import itertools
 import logging
 import multiprocessing
 import os
+import resource
 import tempfile
 import time
 import warnings
@@ -272,21 +273,29 @@ class Trainer:
         )
 
         # Log effective batch size
-        effective_batch_size = cfg.batch_size * cfg.gradient_accumulation_steps
+        world_size = get_world_size()
+        effective_batch_size = (
+            cfg.batch_size * cfg.gradient_accumulation_steps * world_size
+        )
         logger.info(
-            f"Effective batch size: {effective_batch_size} "
+            f"Effective global batch size: {effective_batch_size} "
             f"(batch_size={cfg.batch_size} × "
-            f"gradient_accumulation_steps={cfg.gradient_accumulation_steps})"
+            f"gradient_accumulation_steps={cfg.gradient_accumulation_steps} × "
+            f"world_size={world_size})"
         )
         if self.is_wandb_enabled():
             self.wandb_logger.log(
                 {
                     "config/effective_batch_size": effective_batch_size,
+                    "config/world_size": world_size,
+                    "config/micro_batch_size_per_rank": cfg.batch_size,
                 },
                 step=0,
             )
 
         self.num_batches_seen = 0
+        self.num_optimizer_updates = 0
+        self.num_samples_seen = 0
         loaded_checkpoint = False
         if cfg.resume_ckpt_path is not None:
             if cfg.finetune:
@@ -487,6 +496,9 @@ class Trainer:
                 **val_stats,
                 **inf_stats,
                 "epoch": epoch,
+                "progress/microbatches": self.num_batches_seen,
+                "progress/optimizer_updates": self.num_optimizer_updates,
+                "progress/samples": self.num_samples_seen,
                 "epoch_train_seconds": end_epoch_train_time - start_epoch_train_time,
                 "epoch_validation_seconds": end_epoch_val_time - end_epoch_train_time,
                 "epoch_total_seconds": time_elapsed,
@@ -554,15 +566,20 @@ class Trainer:
             train_aggregator.record_batch(TO)
 
             self.num_batches_seen += 1
+            local_batch_size = data.get_label(0).shape[0]
+            global_batch_size = local_batch_size * get_world_size()
+            self.num_samples_seen += global_batch_size
 
             is_last = data_iter_step + 1 == total_batches
             should_step = (data_iter_step + 1) % self.gradient_accumulation_steps == 0
             # Step optimizer after accumulating enough batches or at the end
-            if should_step or is_last:
+            optimizer_stepped = should_step or is_last
+            if optimizer_stepped:
                 torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
                 self.optimizer.step()
                 self.optimizer.zero_grad()
                 self._ema(model=self.model)
+                self.num_optimizer_updates += 1
 
             lr = (
                 self.optimizer.param_groups[-1]["lr"]
@@ -599,7 +616,28 @@ class Trainer:
                     "train/batch/data_wait_time": metric_logger.meters[
                         "data_wait_time"
                     ].value,
+                    "train/progress/microbatches": self.num_batches_seen,
+                    "train/progress/optimizer_updates": self.num_optimizer_updates,
+                    "train/progress/samples": self.num_samples_seen,
+                    "train/batch/global_batch_size": global_batch_size,
+                    "train/batch/optimizer_stepped": int(optimizer_stepped),
+                    "train/resources/cpu_peak_memory_mib": resource.getrusage(
+                        resource.RUSAGE_SELF
+                    ).ru_maxrss
+                    / 1024.0,
                 }
+
+                if torch.cuda.is_available():
+                    metrics.update(
+                        {
+                            "train/resources/gpu_allocated_memory_mib": torch.cuda.memory_allocated()
+                            / (1024.0**2),
+                            "train/resources/gpu_reserved_memory_mib": torch.cuda.memory_reserved()
+                            / (1024.0**2),
+                            "train/resources/gpu_peak_memory_mib": torch.cuda.max_memory_allocated()
+                            / (1024.0**2),
+                        }
+                    )
 
                 if loss_scale_per_channel_fn := getattr(
                     self.loss_fn, "loss_scale_per_channel", None
@@ -635,6 +673,9 @@ class Trainer:
 
             if (it_time := metric_logger.meters["iter_time"]).count > 0:
                 metrics["train/batch/iter_time"] = it_time.value
+                metrics["train/throughput/samples_per_second"] = (
+                    global_batch_size / it_time.value
+                )
 
             self.wandb_logger.log(metrics, step=self.num_batches_seen)
 
@@ -1015,6 +1056,8 @@ class Trainer:
                 "best_inf_loss": self.best_inf_loss,
                 "ema": self._ema.get_state(include_ema_params=not for_inference),
                 "num_batches_seen": self.num_batches_seen,
+                "num_optimizer_updates": self.num_optimizer_updates,
+                "num_samples_seen": self.num_samples_seen,
                 "wandb_id": self.wandb_id,
                 "wandb_name": self.wandb_name,
             }
@@ -1072,6 +1115,8 @@ class Trainer:
             self.wandb_id = checkpoint.get("wandb_id")
             self.wandb_name = checkpoint.get("wandb_name")
             self.num_batches_seen = checkpoint.get("num_batches_seen", 0)
+            self.num_optimizer_updates = checkpoint.get("num_optimizer_updates", 0)
+            self.num_samples_seen = checkpoint.get("num_samples_seen", 0)
 
             logger.info(f"Start Epoch: {self.start_epoch}")
             logger.info(f"Wandb id: {self.wandb_id}")

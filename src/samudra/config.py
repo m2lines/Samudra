@@ -702,7 +702,8 @@ DownSamplingBlocks = Literal["avg_pool", "max_pool"]
 UpSamplingBlocks = Literal[
     "bilinear_upsample", "transposed_conv", "zonally_periodic_upsample"
 ]
-Checkpointing = Literal["all", "simple"]
+LayerCheckpointing = Literal["all", "simple"]
+Checkpointing = Literal["all", "simple", "selective"]
 
 
 class UNetBackboneConfig(BaseConfig):
@@ -721,7 +722,7 @@ class UNetBackboneConfig(BaseConfig):
         self,
         in_channels: int,
         pad: str,
-        checkpointing: Checkpointing | None,
+        checkpointing: LayerCheckpointing | None,
     ) -> UNetBackbone:
         assert len(self.ch_width) == len(self.dilation) == len(self.n_layers), (
             "`ch_width`, `dilation`, and `n_layers` must have the same length."
@@ -776,7 +777,9 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         (fast but lots of memory). If set to 'all', the model will recompute each
         top-level layer (CoreBlocks, scaling layers, etc.) in the backward pass.
         If set to 'simple', the model will recompute only cheap layers like scales
-        and nonlinearities.""",
+        and nonlinearities. SamudraMulti additionally supports 'selective' to
+        checkpoint its representation heads and cheap processor layers without a
+        nested processor wrapper.""",
     )
 
     gradient_detach_interval: int = Field(
@@ -806,6 +809,14 @@ class BaseModelConfig(BaseConfig, abc.ABC):
 
 
 class SamudraConfig(BaseModelConfig):
+    @pydantic.model_validator(mode="after")
+    def reject_selective_checkpointing(self) -> Self:
+        if self.checkpointing == "selective":
+            raise ValueError(
+                "Selective checkpointing is only supported by SamudraMulti."
+            )
+        return self
+
     unet: UNetBackboneConfig = UNetBackboneConfig()
     corrector: CorrectorConfig | None = None  # None turns all correctors off.
     pos_channels: int = Field(
@@ -849,6 +860,8 @@ class SamudraConfig(BaseModelConfig):
             in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
         )
         add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
+        layer_checkpointing = self.checkpointing
+        assert layer_checkpointing != "selective"
         return Samudra(
             in_channels=total_in_channels,
             out_channels=out_channels,
@@ -858,7 +871,7 @@ class SamudraConfig(BaseModelConfig):
             unet=self.unet.build(
                 in_channels=total_in_channels,
                 pad=self.pad,
-                checkpointing=self.checkpointing,
+                checkpointing=layer_checkpointing,
             ),
             corrector=corrector,
             pos_channels=self.pos_channels,
@@ -929,10 +942,13 @@ class SamudraMultiConfig(BaseModelConfig):
             max_lon_size,
             impl,
         )
+        processor_checkpointing: LayerCheckpointing | None = (
+            "simple" if self.checkpointing == "selective" else self.checkpointing
+        )
         processor = self.processor.build(
             self.embedding_dim,
             self.pad,
-            self.checkpointing,
+            processor_checkpointing,
         )
         decoder = self.decoder.build(
             processor.out_channels,
@@ -960,6 +976,14 @@ class SamudraMultiConfig(BaseModelConfig):
 
 
 class SamudraMiniConfig(BaseModelConfig):
+    @pydantic.model_validator(mode="after")
+    def reject_selective_checkpointing(self) -> Self:
+        if self.checkpointing == "selective":
+            raise ValueError(
+                "Selective checkpointing is only supported by SamudraMulti."
+            )
+        return self
+
     perceiver: PerceiverConfig = PerceiverConfig()
     perceiver_implementation: PerceiverImpl = Field(
         default="auto",

@@ -15,6 +15,8 @@ from samudra.config import (
     LlcDatasetConfig,
     Om4DatasetConfig,
     RustDataLoadingConfig,
+    SamudraMiniConfig,
+    SamudraMultiConfig,
     TrainConfig,
 )
 from samudra.config_schema import get_pydantic_models
@@ -215,3 +217,10 @@ def test_get_pydantic_models_collects_loading_variants():
     assert models["CpuDataLoadingConfig"] is CpuDataLoadingConfig
     assert models["GpuDataLoadingConfig"] is GpuDataLoadingConfig
     assert models["RustDataLoadingConfig"] is RustDataLoadingConfig
+
+
+def test_selective_checkpointing_is_scoped_to_samudra_multi():
+    assert SamudraMultiConfig(checkpointing="selective").checkpointing == "selective"
+
+    with pytest.raises(ValidationError, match="checkpointing"):
+        SamudraMiniConfig.model_validate({"checkpointing": "selective"})

@@ -89,6 +89,14 @@ class SamudraMulti(BaseModel):
                 self,
                 check_fn=lambda m: isinstance(m, _checkpoint_types),
             )
+        elif checkpointing == "selective":
+            # The processor applies block-level `simple` checkpointing itself.
+            # Checkpoint only the expensive representation heads here so the
+            # processor is not wrapped a second time.
+            apply_activation_checkpointing(
+                self,
+                check_fn=lambda m: isinstance(m, (PerceiverEncoder, PerceiverDecoder)),
+            )
 
     def forward_once(
         self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext

@@ -31,6 +31,14 @@ is competitive.
 | 512-timestamp SamudraMulti screen | `configs/samudra_multi_om4/train_1deg_mse_fast_proxy.yaml` | `26.05-3904ad07a55c5ea19d21bfe017e06d4b5bb8234f` | `14295585` | Pending | Dependency on full baseline |
 | 512-timestamp v2 control | `configs/samudra_om4_v2_highres/train_1deg_mse_fast_proxy.yaml` | `26.05-3904ad07a55c5ea19d21bfe017e06d4b5bb8234f` | `14295587` | Pending | Dependency on fast SamudraMulti |
 
+The immutable config checksums are:
+
+| Config | SHA-256 |
+|---|---|
+| Full-data SamudraMulti | `aee0841655c136d4b228f06c722b96e2596f18d0d84104d38b78c12fd8561742` |
+| 512-timestamp SamudraMulti | `ac96148a78e543d92cfd3265a09168bda44f1ca2bb1ff9f9633dd00c2aa8c1db` |
+| 512-timestamp v2 | `67949e5d286fed477c430f1c5a5e3b5d6b6af25229cf760872992c5a47af4de5` |
+
 The full baseline config was introduced by commit `9992bf52`. The fast configs were
 introduced by `9d5b278e`; pinned x86 image publication is recorded by
 [GitHub Actions run 29691663638](https://github.com/m2lines/Samudra/actions/runs/29691663638).
@@ -68,6 +76,12 @@ The full run trains on 353 rank-local microbatches per epoch. Epochs 2 and 3 too
 is approximately 0.001 seconds. Peak model-process usage observed so far is about
 26.5 GiB per GPU and 4.1 GiB CPU RSS per rank; final Slurm MaxRSS will be recorded
 after job completion.
+
+The full run's validation-selected weights are preserved at
+`2026-07-19-multi-1deg-1step-mse-rust-gbs32-9992bf52/saved_nets/best_validation_ckpt.pt`
+under `/scratch/jr7309/runs`. The file is atomically replaced only when held-out
+one-step validation improves; its final checksum and selected epoch will be recorded
+after training finishes.
 
 Best validation results through epoch 4 are:
 

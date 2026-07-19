@@ -398,7 +398,12 @@ def validate_shardable(
     global_h: int, global_w: int, cluster_shape: tuple[int, int],
     *, num_downsamples: int = 4, max_halo: int = 0,
 ) -> None:
-    """Assert per-shard tiles stay integer-sized and UNet-divisible at every level."""
+    """Validate a spatial decomposition through every UNet resolution level.
+
+    The global shape must survive all downsampling stages exactly. Local chunks
+    may become uneven at deeper levels; ShardTensor tracks those sharding shapes
+    explicitly (for example, 720 / 16 = 45 split into 23 and 22 cells).
+    """
     ch, cw = cluster_shape
     if global_h % ch or global_w % cw:
         raise ValueError(
@@ -406,16 +411,28 @@ def validate_shardable(
         )
     sh, sw = global_h // ch, global_w // cw
     m = 2 ** num_downsamples
-    if sh % m or sw % m:
+    if global_h % m or global_w % m:
         raise ValueError(
-            f"Per-shard tile ({sh}x{sw}) not divisible by 2^{num_downsamples}={m}; "
-            f"UNet downsampling would produce non-integer sizes."
+            f"Global ({global_h}x{global_w}) not divisible by "
+            f"2^{num_downsamples}={m}; UNet downsampling would produce "
+            "non-integer global sizes."
         )
-    deepest_h, deepest_w = sh // m, sw // m
+    deepest_global_h, deepest_global_w = global_h // m, global_w // m
+    deepest_h = deepest_global_h // ch
+    deepest_w = deepest_global_w // cw
     if deepest_h < max_halo or deepest_w < max_halo:
         raise ValueError(
-            f"Deepest per-shard tile ({deepest_h}x{deepest_w}) is smaller than "
+            f"Smallest deepest shard ({deepest_h}x{deepest_w}) is smaller than "
             f"the maximum convolution halo ({max_halo}). Increase the global patch."
         )
-    logger.info("Shardable: per-shard tile %sx%s (global %sx%s, cluster %s).",
-                sh, sw, global_h, global_w, cluster_shape)
+    logger.info(
+        "Shardable: initial per-shard tile %sx%s; smallest deepest shard %sx%s "
+        "(global %sx%s, cluster %s).",
+        sh,
+        sw,
+        deepest_h,
+        deepest_w,
+        global_h,
+        global_w,
+        cluster_shape,
+    )

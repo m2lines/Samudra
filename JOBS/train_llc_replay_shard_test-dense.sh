@@ -1,11 +1,11 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=shardtensor-replay-2x2-720-speed
+#SBATCH --job-name=dense-replay-1gpu-720-speed
 #SBATCH -N 1
 #SBATCH --mem=300GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
-#SBATCH --gres=gpu:4
+#SBATCH --gres=gpu:1
 #SBATCH --time=02:00:00
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
@@ -16,8 +16,8 @@ PROJECT_DIR="/orcd/home/002/codycruz/Ocean_Emulator"
 PYTHON_BIN="${PYTHON_BIN:-${PROJECT_DIR}/.venv/bin/python}"
 
 # llc_normal.yaml points at a pre-cropped 720x720 patch whose local indices are
-# [0:720). A 2x2 cluster starts with 360x360 tiles. Deeper odd global sizes use
-# ShardTensor's explicit uneven sharding shapes (45 -> 23/22 at level four).
+# [0:720). This launcher uses the same logical global patch and training
+# settings as the 2x2 launcher, but executes it densely on one GPU.
 LLC_FACE="${LLC_FACE:-1}"
 LLC_I_START="${LLC_I_START:-0}"
 LLC_I_END="${LLC_I_END:-720}"
@@ -64,27 +64,27 @@ export NCCL_DEBUG="${NCCL_DEBUG:-WARN}"
 export TORCH_NCCL_DUMP_ON_TIMEOUT=1
 export TORCH_FR_BUFFER_SIZE="${TORCH_FR_BUFFER_SIZE:-1048576}"
 
-echo "======== ShardTensor 2x2 temporal replay 720 speed comparison ========"
+echo "======== Dense 1-GPU temporal replay 720 speed comparison ========"
 echo "started=$(date '+%Y-%m-%d %H:%M:%S %Z')"
 echo "job_id=${SLURM_JOB_ID:-<unset>} host=$(hostname) python=${PYTHON_BIN}"
 echo "patch=face${LLC_FACE} i=[${LLC_I_START}:${LLC_I_END}) j=[${LLC_J_START}:${LLC_J_END})"
-echo "cluster_shape=[2,2] epochs=${EPOCHS} debug=${DEBUG} loss=mse"
+echo "cluster_shape=[1] epochs=${EPOCHS} debug=${DEBUG} loss=mse"
 echo "replay_buffer_size=${REPLAY_BUFFER_SIZE} replay_steps=${REPLAY_STEPS_PER_EPOCH} refresh_every=${REPLAY_REFRESH_EVERY} max_lead=${REPLAY_MAX_LEAD_STEPS}"
 nvidia-smi --query-gpu=index,name,memory.total,driver_version --format=csv,noheader
 
 VISIBLE_GPU_COUNT="$(nvidia-smi --query-gpu=index --format=csv,noheader | wc -l)"
-if [[ "${VISIBLE_GPU_COUNT}" -ne 4 ]]; then
-  echo "ERROR: the 2x2 replay job requires exactly 4 visible GPUs; found ${VISIBLE_GPU_COUNT}." >&2
+if [[ "${VISIBLE_GPU_COUNT}" -ne 1 ]]; then
+  echo "ERROR: the dense replay baseline requires exactly 1 visible GPU; found ${VISIBLE_GPU_COUNT}." >&2
   exit 1
 fi
 
-"${PYTHON_BIN}" -c "import physicsnemo, torch; from physicsnemo.domain_parallel import ShardTensor; print('torch=' + torch.__version__); print('physicsnemo=' + getattr(physicsnemo, '__version__', 'unknown')); print('ShardTensor OK')"
+"${PYTHON_BIN}" -c "import torch; print('torch=' + torch.__version__); print('cuda=' + str(torch.version.cuda))"
 
 RUN_ARGS=(
   configs/samudra_llc/train_replay_shard_test_3.yaml
   --backend nccl
-  --domain_parallel.enabled true
-  --domain_parallel.cluster_shape "[2, 2]"
+  --domain_parallel.enabled false
+  --domain_parallel.cluster_shape "[1, 1]"
   --domain_parallel.use_fsdp false
   --domain_parallel.leader_scatter true
   --replay.enabled true
@@ -127,7 +127,7 @@ RUN_ARGS=(
 
 LAUNCH=(
   "${PYTHON_BIN}" -m torch.distributed.run
-  --standalone --nnodes=1 --nproc_per_node=4 --tee 3
+  --standalone --nnodes=1 --nproc_per_node=1 --tee 3
   -m ocean_emulators.train
 )
 

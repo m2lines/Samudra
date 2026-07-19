@@ -8,7 +8,12 @@ import torch.nn as nn
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from samudra.models.modules.blocks import ConvNeXtBlock, DropPath, PointwiseLinear
+from samudra.models.modules.blocks import (
+    ChannelLayerNorm,
+    ConvNeXtBlock,
+    DropPath,
+    PointwiseLinear,
+)
 
 
 @given(
@@ -52,6 +57,38 @@ def test_convnext_block_backward_pass(pointwise_linear: bool):
     y.sum().backward()
     assert x.grad is not None
     assert x.grad.shape == x.shape
+
+
+@pytest.mark.parametrize("norm", ["batch", "instance", "layer", "group"])
+def test_convnext_normalizations_preserve_shape_and_gradients(norm: str):
+    block = ConvNeXtBlock(
+        in_channels=10,
+        out_channels=10,
+        upscale_factor=3,
+        norm=norm,
+    )
+    x = torch.randn(2, 10, 8, 12, requires_grad=True)
+
+    output = block(x)
+    output.square().mean().backward()
+
+    assert output.shape == x.shape
+    assert x.grad is not None
+    assert torch.isfinite(x.grad).all()
+
+
+def test_channel_layer_norm_normalizes_channels_per_grid_point():
+    norm = ChannelLayerNorm(5)
+    x = torch.randn(2, 5, 4, 7)
+
+    output = norm(x)
+
+    torch.testing.assert_close(
+        output.mean(dim=1), torch.zeros(2, 4, 7), atol=1e-6, rtol=0
+    )
+    torch.testing.assert_close(
+        output.var(dim=1, unbiased=False), torch.ones(2, 4, 7), atol=1e-3, rtol=0
+    )
 
 
 class TestDropPath:

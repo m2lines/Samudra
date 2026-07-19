@@ -5,6 +5,7 @@
 # SPDX-License-Identifier: MIT
 
 from collections.abc import Callable
+from math import gcd
 from typing import Protocol
 
 import torch
@@ -35,6 +36,17 @@ class PointwiseLinear(torch.nn.Module):
         self, x: Float[torch.Tensor, "B C_in H W"]
     ) -> Float[torch.Tensor, "B C_out H W"]:
         return self.linear(x.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
+
+
+class ChannelLayerNorm(torch.nn.Module):
+    """Apply LayerNorm over channels independently at every grid point."""
+
+    def __init__(self, channels: int):
+        super().__init__()
+        self.norm = torch.nn.LayerNorm(channels)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.norm(x.permute(0, 2, 3, 1)).permute(0, 3, 1, 2)
 
 
 class TransposedConvUpsample(torch.nn.Module):
@@ -260,6 +272,23 @@ def _pointwise(use_linear: bool, in_ch: int, out_ch: int) -> torch.nn.Module:
     return torch.nn.Conv2d(in_ch, out_ch, kernel_size=1, padding="same")
 
 
+def _normalization(norm: str, channels: int) -> torch.nn.Module | None:
+    """Build a spatial-feature normalization without changing NCHW layout."""
+    match norm:
+        case "batch":
+            return torch.nn.BatchNorm2d(channels)
+        case "instance":
+            return torch.nn.InstanceNorm2d(channels)
+        case "layer":
+            return ChannelLayerNorm(channels)
+        case "group":
+            return torch.nn.GroupNorm(gcd(channels, 32), channels)
+        case "nonorm":
+            return None
+        case _:
+            raise ValueError(f"Unknown normalization {norm!r}.")
+
+
 class ConvNeXtBlock(CoreBlock):
     """
     A convolution block as reported in https://github.com/CognitiveModeling/dlwp-hpx/blob/main/src/dlwp-hpx/dlwp/model/modules/blocks.py.
@@ -302,16 +331,9 @@ class ConvNeXtBlock(CoreBlock):
                 dilation=dilation,
             )
         )
-        # BatchNorm
-        if norm == "batch":
-            convblock.append(torch.nn.BatchNorm2d(in_channels * upscale_factor))
-        # Instance Norm
-        elif norm == "instance":
-            convblock.append(torch.nn.InstanceNorm2d(in_channels * upscale_factor))
-        elif norm == "nonorm":
-            pass
-        else:
-            raise NotImplementedError
+        hidden_channels = int(in_channels * upscale_factor)
+        if (normalization := _normalization(norm, hidden_channels)) is not None:
+            convblock.append(normalization)
         if activation is not None:
             convblock.append(activation())
         convblock.append(
@@ -322,16 +344,8 @@ class ConvNeXtBlock(CoreBlock):
                 dilation=dilation,
             )
         )
-        # BatchNorm
-        if norm == "batch":
-            convblock.append(torch.nn.BatchNorm2d(in_channels * upscale_factor))
-        # Instance Norm
-        elif norm == "instance":
-            convblock.append(torch.nn.InstanceNorm2d(in_channels * upscale_factor))
-        elif norm == "nonorm":
-            pass
-        else:
-            raise NotImplementedError
+        if (normalization := _normalization(norm, hidden_channels)) is not None:
+            convblock.append(normalization)
         if activation is not None:
             convblock.append(activation())
         # Linear postprocessing

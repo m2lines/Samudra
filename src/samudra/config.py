@@ -381,7 +381,7 @@ class DataConfig(BaseConfig):
 
 BlockType = Literal["conv_next_block", "conv_block"]
 ActivationType = Literal["relu", "gelu", "capped_gelu"]
-NormType = Literal["batch", "instance", "layer"]
+NormType = Literal["batch", "instance", "layer", "group"]
 
 
 class BlockConfig(BaseConfig):

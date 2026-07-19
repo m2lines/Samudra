@@ -81,3 +81,26 @@ def test_merge_prognostic_and_boundary_uses_dispatchable_cat():
     assert torch.equal(merged[:, :2], prognostic)
     assert torch.equal(merged[:, 2:], original[:, 2:])
     assert torch.equal(data.get_input(0), original)
+
+
+def test_wandb_model_watch_is_skipped_for_domain_parallel_parameters():
+    class FakeWandbLogger:
+        enabled = False
+
+        def __init__(self):
+            self.calls = []
+
+        def watch(self, model, **kwargs):
+            self.calls.append((model, kwargs))
+
+    trainer = Trainer.__new__(Trainer)
+    trainer.model = object()
+    trainer.wandb_logger = FakeWandbLogger()
+    trainer.dp_ctx = object()
+
+    trainer._configure_wandb_model_watch()
+    assert trainer.wandb_logger.calls == []
+
+    trainer.dp_ctx = None
+    trainer._configure_wandb_model_watch()
+    assert trainer.wandb_logger.calls == [(trainer.model, {"log": "all"})]

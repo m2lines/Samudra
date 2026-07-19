@@ -1211,7 +1211,7 @@ class Trainer:
 
         self.best_val_loss = 1e8
         self.best_inf_loss = 1e8
-        self.wandb_logger.watch(self.model, log="all")
+        self._configure_wandb_model_watch()
 
         self.profiler.start()
 
@@ -3283,6 +3283,19 @@ class Trainer:
 
     def is_wandb_enabled(self):
         return self.wandb_logger.enabled and is_main_process()
+
+    def _configure_wandb_model_watch(self) -> None:
+        if self.dp_ctx is not None:
+            # wandb.watch periodically calls .tolist() on parameters. Distributed
+            # model parameters are DTensors, which deliberately do not implement
+            # that conversion. Scalar and channel-level metric logging remains on.
+            if self.is_wandb_enabled():
+                logger.info(
+                    "Skipping wandb model parameter/gradient watching for the "
+                    "domain-parallel model; metric logging remains enabled."
+                )
+            return
+        self.wandb_logger.watch(self.model, log="all")
 
     @contextlib.contextmanager
     def _test_context(self):

@@ -165,10 +165,9 @@ The screen artifacts are pinned by these additional checksums:
 | v2 `best_validation_ckpt.pt` | `d0db895d76e00de61466e0777b21a9ecfe1abf0f2248905a53c0e64a15a1ba5b` |
 
 Do not add another resolution: the full-data baseline is above 0.075 and neither
-comparison is within roughly two times v2. The next bounded experiment should use
-the 512-timestamp SamudraMulti screen with only residual prediction enabled, keeping
-the physical patch extent and all other controls fixed. Promote that candidate to a
-full-data 1-degree run only if its proxy all-channel MSE is at most twice the matched
-v2 screen (approximately 0.08575). If residual prediction remains far above that
-threshold, discuss a representation change before spending more compute. No longer
-autoregressive rollout is part of this decision.
+comparison is within roughly two times v2. Continue with the diagnostics, identity
+tests, and plain-MSE parity/normalization/receptive-field funnel in
+[`samudra_multi_single_step_research_plan.md`](samudra_multi_single_step_research_plan.md).
+Promote a candidate to a full-data 1-degree run only if its proxy all-channel MSE is
+at most twice the matched v2 screen (approximately 0.08575). No longer autoregressive
+rollout is part of this decision.

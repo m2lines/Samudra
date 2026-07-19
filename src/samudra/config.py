@@ -1181,6 +1181,7 @@ class TrainConfig(TopLevelConfig):
     ema_decay: float = 0.999
     faster_decay_at_start: bool = True
     delayed_loss_estimate: bool = False
+    wandb_watch: Literal["all", "gradients", "parameters"] | None = "all"
     backend: TrainBackendConfig = "auto"
 
     # Profiling parameters

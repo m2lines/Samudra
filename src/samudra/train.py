@@ -360,6 +360,7 @@ class Trainer:
         self.normalize_before_mask: bool = cfg.data.normalize_before_mask
         self.normalize_fill_value: float = cfg.data.masked_fill_value
         self.delayed_loss_estimate: bool = cfg.delayed_loss_estimate
+        self.wandb_watch = cfg.wandb_watch
 
         self.profiler = cfg.profiler.build(self.output_dir, self.device)
         self.validation_images_enabled = self._sync_flag_from_main(
@@ -457,7 +458,8 @@ class Trainer:
 
         self.best_val_loss = 1e8
         self.best_inf_loss = 1e8
-        self.wandb_logger.watch(self.model, log="all")
+        if self.wandb_watch is not None:
+            self.wandb_logger.watch(self.model, log=self.wandb_watch)
 
         self.profiler.start()
 

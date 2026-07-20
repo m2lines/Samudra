@@ -104,11 +104,114 @@ def scan_best_row_and_family(run: Any) -> tuple[dict[str, Any], MetricFamily]:
     raise ValueError(f"No finite validation loss found in {expected}")
 
 
-def summarize_run(run: Any) -> dict[str, Any]:
+def _same_selected_epoch(
+    candidate: Mapping[str, Any], selected: Mapping[str, Any]
+) -> bool:
+    """Return whether a history fragment belongs to the selected epoch log."""
+    selected_step = selected.get("_step")
+    candidate_step = candidate.get("_step")
+    if selected_step is not None and candidate_step == selected_step:
+        return True
+    selected_epoch = selected.get("epoch")
+    return selected_epoch is not None and candidate.get("epoch") == selected_epoch
+
+
+def _merge_rows(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
+    """Merge W&B history fragments, retaining non-null values."""
+    merged: dict[str, Any] = {}
+    for row in rows:
+        merged.update({key: value for key, value in row.items() if value is not None})
+    return merged
+
+
+def _is_scalar(value: Any) -> bool:
+    return isinstance(value, (str, int, float, bool)) or value is None
+
+
+def extract_diagnostics(
+    rows: Iterable[Mapping[str, Any]],
+    selected: Mapping[str, Any],
+    family: MetricFamily,
+) -> dict[str, Any]:
+    """Extract comparable terminal diagnostics around a selected validation epoch.
+
+    W&B may split metrics logged at one explicit step across history fragments.
+    This function merges those fragments, then adds the nearest spatial-image
+    epoch at or before the selected checkpoint. Only scalar values are returned;
+    maps and spectra remain pinned in the linked W&B run.
+    """
+    materialized = [dict(row) for row in rows]
+    selected_epoch_rows = [
+        row for row in materialized if _same_selected_epoch(row, selected)
+    ]
+    selected_values = _merge_rows([selected, *selected_epoch_rows])
+
+    metric_prefix = family.metrics["all"].removesuffix("/mean/loss")
+    if "unweighted_normalized_mse" in metric_prefix:
+        persistence_prefix = metric_prefix.replace(
+            "unweighted_normalized_mse", "persistence_normalized_mse"
+        )
+    else:
+        persistence_prefix = "val/persistence_normalized_mse"
+    selected_prefixes = (
+        f"{metric_prefix}/",
+        f"{persistence_prefix}/",
+        "progress/",
+        "train/throughput/",
+        "train/resources/",
+    )
+    diagnostics = {
+        key: value
+        for key, value in selected_values.items()
+        if _is_scalar(value)
+        and (key.startswith(selected_prefixes) or key.startswith("epoch_"))
+    }
+
+    forecast = selected_values.get(f"{metric_prefix}/mean/loss")
+    persistence = selected_values.get(f"{persistence_prefix}/mean/loss")
+    if (
+        isinstance(forecast, (int, float))
+        and isinstance(persistence, (int, float))
+        and math.isfinite(forecast)
+        and math.isfinite(persistence)
+        and persistence > 0
+    ):
+        ratio = forecast / persistence
+        diagnostics["derived/forecast_to_persistence_mse_ratio"] = ratio
+        diagnostics["derived/persistence_mse_reduction_fraction"] = 1.0 - ratio
+
+    selected_epoch = selected.get("epoch")
+    spatial_rows = []
+    for row in materialized:
+        epoch = row.get("epoch")
+        if not isinstance(epoch, (int, float)):
+            continue
+        if isinstance(selected_epoch, (int, float)) and epoch > selected_epoch:
+            continue
+        if any("/spatial/" in key for key in row):
+            spatial_rows.append(row)
+    if spatial_rows:
+        spatial_epoch = max(row["epoch"] for row in spatial_rows)
+        spatial_values = _merge_rows(
+            row for row in spatial_rows if row["epoch"] == spatial_epoch
+        )
+        diagnostics["spatial/epoch"] = spatial_epoch
+        diagnostics.update(
+            {
+                key: value
+                for key, value in spatial_values.items()
+                if "/spatial/" in key and _is_scalar(value)
+            }
+        )
+
+    return dict(sorted(diagnostics.items()))
+
+
+def summarize_run(run: Any, *, include_diagnostics: bool = False) -> dict[str, Any]:
     """Fetch and normalize the best validation row for one W&B run."""
     validate_run_config(run.config)
     row, family = scan_best_row_and_family(run)
-    return {
+    summary = {
         "path": run.path,
         "name": run.name,
         "state": run.state,
@@ -119,6 +222,10 @@ def summarize_run(run: Any) -> dict[str, Any]:
         "train": row.get("train/mean/loss"),
         **{label: row.get(key) for label, key in family.metrics.items()},
     }
+    if include_diagnostics:
+        history = [dict(item) for item in run.scan_history(page_size=1000)]
+        summary["diagnostics"] = extract_diagnostics(history, row, family)
+    return summary
 
 
 def markdown_table(summaries: Iterable[Mapping[str, Any]]) -> str:
@@ -159,13 +266,21 @@ def parse_args() -> argparse.Namespace:
         default=30,
         help="W&B API timeout in seconds (default: 30).",
     )
+    parser.add_argument(
+        "--include-diagnostics",
+        action="store_true",
+        help="Scan full terminal history once for persistence, depth, resource, and spatial diagnostics.",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     api = wandb.Api(timeout=args.timeout)
-    summaries = [summarize_run(api.run(path)) for path in args.runs]
+    summaries = [
+        summarize_run(api.run(path), include_diagnostics=args.include_diagnostics)
+        for path in args.runs
+    ]
     if args.format == "json":
         print(json.dumps(summaries, indent=2, sort_keys=True))
     else:

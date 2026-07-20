@@ -7,6 +7,8 @@ import math
 import pytest
 
 from scripts.summarize_mse_runs import (
+    METRIC_FAMILIES,
+    extract_diagnostics,
     markdown_table,
     scan_best_row_and_family,
     select_best_row,
@@ -106,3 +108,78 @@ def test_markdown_table_links_run_and_formats_metrics():
 
     assert "[baseline](https://example.com/run)" in table
     assert "| 4 | 0.351282 |" in table
+
+
+def test_extract_diagnostics_merges_selected_step_and_nearest_spatial_epoch():
+    family = METRIC_FAMILIES[1]
+    prefix = "val/resolution/180x360"
+    selected = {
+        "epoch": 11,
+        "_step": 3072,
+        f"{prefix}/unweighted_normalized_mse/mean/loss": 0.08,
+    }
+    rows = [
+        {
+            "epoch": 10,
+            f"{prefix}/spatial/high_wavenumber_power_ratio/variable/thetao": 0.75,
+        },
+        {
+            "epoch": 11,
+            "_step": 3072,
+            f"{prefix}/unweighted_normalized_mse/loss/depth/0.5": 0.03,
+            f"{prefix}/persistence_normalized_mse/mean/loss": 0.20,
+            "progress/optimizer_updates": 192,
+            "progress/samples": 6144,
+        },
+        {
+            "epoch": 12,
+            f"{prefix}/spatial/high_wavenumber_power_ratio/variable/thetao": 0.90,
+        },
+    ]
+
+    diagnostics = extract_diagnostics(rows, selected, family)
+
+    assert diagnostics[f"{prefix}/unweighted_normalized_mse/loss/depth/0.5"] == 0.03
+    assert diagnostics["derived/forecast_to_persistence_mse_ratio"] == pytest.approx(
+        0.4
+    )
+    assert diagnostics["derived/persistence_mse_reduction_fraction"] == pytest.approx(
+        0.6
+    )
+    assert diagnostics["progress/optimizer_updates"] == 192
+    assert diagnostics["progress/samples"] == 6144
+    assert diagnostics["spatial/epoch"] == 10
+    assert (
+        diagnostics[f"{prefix}/spatial/high_wavenumber_power_ratio/variable/thetao"]
+        == 0.75
+    )
+
+
+def test_extract_diagnostics_ignores_non_scalar_wandb_media():
+    family = METRIC_FAMILIES[0]
+    selected = {
+        "epoch": 1,
+        "_step": 12,
+        "val/unweighted_normalized_mse/mean/loss": 0.1,
+    }
+    rows = [
+        {
+            "epoch": 1,
+            "_step": 12,
+            "val/spatial/zonal_power_spectrum": {"_type": "image-file"},
+            "val/spatial/patch_seam_jump_ratio/variable/zos": 1.02,
+        }
+    ]
+
+    diagnostics = extract_diagnostics(rows, selected, family)
+
+    assert "val/spatial/zonal_power_spectrum" not in diagnostics
+    assert diagnostics["val/spatial/patch_seam_jump_ratio/variable/zos"] == 1.02
+
+
+def test_extract_diagnostics_does_not_treat_legacy_forecast_as_persistence():
+    selected = {"epoch": 2, "_step": 20, "val/mean/loss": 0.3}
+
+    diagnostics = extract_diagnostics([], selected, METRIC_FAMILIES[2])
+
+    assert "derived/forecast_to_persistence_mse_ratio" not in diagnostics

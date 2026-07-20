@@ -11,6 +11,7 @@ import re
 import sys
 import warnings
 from collections.abc import Iterable
+from pathlib import Path
 from subprocess import PIPE, STDOUT, Popen
 from typing import Any
 
@@ -36,6 +37,7 @@ from samudra.utils.data import (
     spherical_area_weights,
     with_level_index_vars,
 )
+from samudra.utils.location import ResolvedLocation
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +114,23 @@ class PreparedVizGroundtruth:
     time_indices: list[int]
     prediction_coords: dict[str, xr.DataArray]
     wetmask: xr.DataArray
+
+
+@dataclasses.dataclass
+class VizTemplate:
+    # save prepared ground truth
+    dataset_name: str
+    data_root: ResolvedLocation
+    variables: list[str]
+    prepared_groundtruth: PreparedVizGroundtruth
+
+    def instantiate(self, output_path: Path, runs: list[VizRun]) -> "Viz":
+        return Viz(
+            str(output_path),
+            self.dataset_name,
+            runs,
+            prepared_groundtruth=self.prepared_groundtruth,
+        )
 
 
 class Viz:

@@ -179,6 +179,34 @@ Seed 16 is pinned separately by:
 | `saved_nets/best_validation_ckpt.pt` | `3fcf577a88c973b371d24f24ea0e94ca3ee2e223ee5dde534e87f399afe236ea` | 1,215,668,023 |
 | `saved_nets/ckpt.pt` | `2fb528c7ee5b844f92b4f97f66b8d230ebd5e47064869804f67fab8f3a8be291` | 1,215,668,023 |
 
+### Optimizer-update scheduling control
+
+The update-scheduled controls also completed all 12 epochs with exit code zero.
+They made the same 192 optimizer updates as the epoch controls but evaluated the
+cosine schedule against the planned full-data budget of 6,160 updates. Their final
+learning rate was therefore about `0.000599`, preserving sample/update semantics
+instead of compressing a full training schedule into the small proxy.
+
+| Run | All | Temperature | Salinity | Zonal velocity | Meridional velocity | SSH |
+|---|---:|---:|---:|---:|---:|---:|
+| [Update schedule, seed 15](https://wandb.ai/ocean_emulators/default/runs/zy4e7qcc) | 0.385737 | 0.099912 | 0.355364 | 0.536428 | 0.566951 | 0.080649 |
+| [Update schedule, seed 16](https://wandb.ai/ocean_emulators/default/runs/5ol8hchc) | 0.377733 | 0.089240 | 0.335379 | 0.536166 | 0.566817 | 0.073219 |
+
+Their overall MSE is `0.381735` mean, `0.005660` sample standard deviation, and
+`0.008004` range. The mean is `0.002144` lower than the epoch-scheduled mean, while
+the observed two-seed variance is larger. This is quality-neutral at screening
+fidelity and retains the desired update/sample-based semantics, so the B funnel
+uses the update schedule. The v2 controls below still determine whether the proxy
+preserves the expected model ranking.
+
+| Seed | Slurm elapsed | Apptainer MaxRSS | Resolved config SHA-256 | Best-checkpoint SHA-256 | Latest-checkpoint SHA-256 |
+|---:|---:|---:|---|---|---|
+| 15 | 1:07:03 | 12.39 GiB | `bc971b8ed87529b660cb8cca23512b7db6a88f11ebbb99f7812ae542f7a987de` | `1c3bdddd7d1c1d588c5084d9c6beae3ced271018fa3429222c437e2d0907cc21` | `d7d95ae9f315ea81d3ff7f1c9ab257b2deb61d95209da41d240d8024dae4c934` |
+| 16 | 1:04:55 | 11.81 GiB | `276d3f88487edcb34ee9e03f7bd41745f2da6b77018efaf74c8978368696fb17` | `4b29231dfcf85338b193486825f2e0d0592e23846b543bca55692b6c427c9e5f` | `0e70bbff67c5620c7275b0d355fd86fbeca883dfed17adad15fde00afc5f2519` |
+
+Each resolved config is 2,577 bytes and each checkpoint is 1,215,668,023
+bytes. Both runs used one GPU, four CPUs, and a 40-GiB host-memory request.
+
 ## A5 decoder, checkpoint, and logging microbenchmarks
 
 The A5 screen isolates three avoidable costs on the same four-sample, 30-epoch

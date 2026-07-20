@@ -1,0 +1,8 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+[toolchain]
+channel = "1.88.0"
+profile = "minimal"
+components = ["clippy", "rustfmt"]

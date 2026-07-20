@@ -41,7 +41,7 @@ RUN apt-get update \
     && ln -sf /usr/local/bin/nsys /usr/local/cuda/bin/nsys \
     && nsys --version
 
-COPY LICENSE README.md pyproject.toml uv.lock ./
+COPY LICENSE README.md pyproject.toml rust-toolchain.toml uv.lock ./
 COPY .cargo ./.cargo
 COPY src ./src
 COPY configs ./configs
@@ -63,8 +63,9 @@ RUN uv venv .venv --python /usr/bin/python3 --system-site-packages
 # Build the local Rust extension with a pinned, temporary toolchain. This is a
 # development container, so include dev dependencies too.
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
-        | sh -s -- -y --profile minimal --default-toolchain 1.88.0 \
+        | sh -s -- -y --profile minimal --default-toolchain none \
     && . /root/.cargo/env \
+    && rustup toolchain install \
     && . .venv/bin/activate \
     && uv sync --frozen --active --extra cuda --extra rust \
         --no-install-package torch \

@@ -758,6 +758,38 @@ gradient accumulation, preserving effective global batch 32. Slurm `14399789`
 (seed 15) and `14399790` (seed 16) use the same immutable image and began normally;
 their two-seed mean will be compared directly with the `0.08575` promotion gate.
 
+### Spatial-token proxy result
+
+Both spatial-token proxy jobs completed normally at epoch 12. The exact terminal
+unweighted metrics are:
+
+| Seed | All | Temperature | Salinity | Zonal velocity | Meridional velocity | SSH | Persistence |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 15 | 0.151654 | 0.051359 | 0.195287 | 0.135030 | 0.169040 | 0.035632 | 0.084565 |
+| 16 | 0.150076 | 0.051941 | 0.199199 | 0.127790 | 0.169143 | 0.038953 | 0.084565 |
+| Mean | **0.150865** | 0.051650 | 0.197243 | 0.131410 | 0.169092 | 0.037292 | **0.084565** |
+
+The 15-token encoder improves the paired fine-query mean by only 1.19%, from
+`0.152682` to `0.150865`. It remains `1.76x` the `0.08575` gate, `3.56x` the v2
+proxy mean, and `1.78x` persistence. Therefore this representation is not promoted
+to a third seed or full-data training. Salinity remains the largest error.
+
+High-wavenumber power ratios for seed 15/16 are temperature `0.761/0.737`,
+salinity `0.251/0.278`, zonal velocity `0.571/0.565`, meridional velocity
+`0.417/0.397`, and SSH `1.515/1.462`. Variable patch-seam ratios remain between
+`0.977` and `1.082`, again excluding seam amplification as the main error. Each
+run processed 6,144 samples and 192 optimizer updates. Terminal throughput was
+`1.402/1.181` samples per second and peak allocated GPU memory in the training log
+was about 25.1 GiB.
+
+Seed 15 completed in `1:42:26` with 13.08 GiB application MaxRSS; seed 16 completed
+in `1:47:57` with 12.66 GiB MaxRSS. The W&B runs are
+[pb5xt0pf](https://wandb.ai/ocean_emulators/default/runs/pb5xt0pf) and
+[gox02otd](https://wandb.ai/ocean_emulators/default/runs/gox02otd). Resolved
+configs and validation-selected checkpoints are preserved under the corresponding
+Slurm output directories. Both runs use immutable container commit
+`5399a4ee805428c355f4c82330fa5aeb06864741`.
+
 ### One-cell representation controls
 
 The next controlled comparison separates two bottlenecks that the 3-degree by
@@ -797,3 +829,88 @@ formatting, mypy, schema, YAML, secret, and license checks pass. The broader CPU
 suite passes 404 tests with 10 expected failures and 2 skips; six unrelated
 SamudraMulti data tests cannot construct the existing `auto` Perceiver locally
 because CUDA is visible but the optional `flash_perceiver` package is absent.
+
+### One-cell fit and throughput probes
+
+The immutable x86 image for these controls was published by
+[GitHub Actions](https://github.com/m2lines/Samudra/actions/runs/29775735655) from
+commit `0417c48a09795cfbbf298fdee78d5e1c3e971082`. Initial Slurm jobs `14411601`
+and `14411602` were killed while converting the new image under a 40 GiB host-memory
+limit; neither entered model code. Job `14415794` materialized the shared SIF with a
+temporary 120 GiB request, after which all model probes returned to 40 GiB host
+memory.
+
+The direct 1-by-1 projection control fits on one GPU. With four identity samples,
+the checkpoint-all probe (`14416901`) took 47.58 seconds, or `0.0841` samples per
+second, and reached MSE `0.352240` after four updates. The matched selective-
+checkpoint probe (`14421234`) took 52.40 seconds, or `0.0763` samples per second,
+and reached MSE `0.352141`. Their W&B runs are
+[qk7cgmrc](https://wandb.ai/ocean_emulators/default/runs/qk7cgmrc) and
+[wqw35fze](https://wandb.ai/ocean_emulators/default/runs/wqw35fze). The one-cell
+seam ratio is undefined because every grid edge is a patch edge; the resulting NaN
+is expected and the full-field/spectral diagnostics remain applicable.
+
+Keeping 256 Perceiver latents per one-pixel patch is not trainable even on the
+96 GiB RTX6000. Decoder window batches of 16 (`14415794`), 4 (`14416900`), and 1
+(`14420121`) all fail during the first backward pass. The latter two reach 92.87 GiB
+of allocated GPU memory. Selective checkpointing (`14421233`) exposes the root
+cause more directly: the encoder creates 256 latents for each of 64,800 input
+pixels, or 16.6 million latent tokens, and its recomputation requests another
+47.46 GiB after 49.35 GiB is already allocated. The meaningful Perceiver control
+therefore uses one latent for its one input token and one output query; this keeps
+the Perceiver computation present without manufacturing 256 redundant latents per
+cell. A four-sample fit probe is the next gate before any longer identity or proxy
+run.
+
+The one-latent flash implementation (`14422071`) avoids the memory failure but
+aborts on an illegal-memory-access kernel edge case for length-one attention. The
+same architecture with standard attention (`14423956`) completes normally. Its
+four-sample train/eval loop takes 35.89 seconds (`0.1115` samples per second) and
+ends at MSE `0.550016` after four updates; the W&B run is
+[ziilmmu3](https://wandb.ai/ocean_emulators/default/runs/ziilmmu3). This is faster
+than the direct selective-checkpoint smoke, but the initial MSEs are not comparable
+after four updates because the heads initialize differently. Slurm `14424555`
+(one-latent Perceiver) and `14424556` (direct projections) therefore run the same
+32 fixed samples for 10 epochs, evaluating every two epochs on separate one-GPU
+allocations. This is the first quality-bearing comparison between the one-cell
+heads.
+
+Both 10-epoch jobs completed all 320 updates. The direct projections learn the
+fixed identity task; the one-latent Perceiver does not:
+
+| Head | Mean MSE | Temperature | Salinity | Zonal velocity | Meridional velocity | SSH |
+|---|---:|---:|---:|---:|---:|---:|
+| One-latent Perceiver | 0.285467 | 0.043439 | 0.074915 | 0.477047 | 0.558473 | 0.051854 |
+| Direct 1-by-1 projections | **0.005257** | **0.003655** | **0.002985** | **0.006883** | **0.007747** | **0.005073** |
+
+The direct head is 54.3 times better in aggregate and its improvement covers every
+variable. Its final high-wavenumber power ratios are temperature `0.881`, salinity
+`0.946`, zonal velocity `0.912`, meridional velocity `0.978`, and SSH `0.874`.
+The Perceiver retains only `0.026/0.001` for zonal/meridional velocity despite
+reasonable thermohaline ratios (`0.804/0.793`). Steady final-epoch throughput is
+`1.718` samples per second for direct versus `0.945` for Perceiver. The W&B runs
+are [n9a3gne6](https://wandb.ai/ocean_emulators/default/runs/n9a3gne6) and
+[mb5j6ft0](https://wandb.ai/ocean_emulators/default/runs/mb5j6ft0).
+
+The direct control is therefore promoted to paired stratified proxy runs with
+batch size one and 32-step gradient accumulation, retaining effective global batch
+32. Slurm `14425434` (seed 15) and `14425437` (seed 16) use one GPU each. Slurm
+`14425438` separately repeats the Perceiver identity control with four latents so
+the representation conclusion does not depend on the length-one latent case.
+
+The four-latent control completes at MSE `0.285778`, effectively identical to the
+one-latent result. Its variable MSEs are temperature `0.042419`, salinity
+`0.074535`, zonal velocity `0.475744`, meridional velocity `0.561658`, and SSH
+`0.049393`. Velocity high-wavenumber ratios remain near zero (`0.0292/0.0008`).
+Increasing the one-cell Perceiver to four latents therefore adds cost without
+closing the representation gap; no Perceiver proxy is promoted. Its W&B run is
+[yf157jdj](https://wandb.ai/ocean_emulators/default/runs/yf157jdj).
+
+Both direct proxy jobs passed bring-up with effective global batch 32, about 3.7
+GiB peak allocated GPU memory, and roughly 0.5 seconds per training sample. By
+epoch 3, seed 16 had already crossed the promotion threshold with validation MSE
+`0.079`; seed 15 was at `0.086`, within rounding distance of the `0.08575` gate.
+Both continue through the fixed 12-epoch, 192-update schedule before terminal
+selection. Their W&B runs are
+[qapetrfv](https://wandb.ai/ocean_emulators/default/runs/qapetrfv) and
+[gfqs4knn](https://wandb.ai/ocean_emulators/default/runs/gfqs4knn).

@@ -123,15 +123,23 @@ class ZarrWriter:
 
         # 2-D lat/lon on the (y, x) grid, matching the ground-truth layout. Prefer
         # the real coordinates the source preserved (`lat_2d`/`lon_2d`), which are
-        # correct on any grid; only broadcast the 1-D axes for legacy regular-grid
-        # data that did not carry them. Broadcasting fabricates wrong geometry on a
-        # curvilinear (e.g. tripolar) grid, so it is a fallback, not the default.
+        # correct on any grid. When they are absent we may only reconstruct them by
+        # broadcasting the 1-D axes on a "gaussian" (rectilinear) grid, where that is
+        # exact. On a curvilinear grid (e.g. tripolar) broadcasting fabricates wrong
+        # geometry, so we refuse rather than silently emit bad coordinates.
         if "lat_2d" in src and "lon_2d" in src:
             lat2d = np.asarray(src["lat_2d"].values)
             lon2d = np.asarray(src["lon_2d"].values)
-        else:
+        elif spec.grid_type == "gaussian":
             lat2d = np.broadcast_to(y_vals[:, None], (ny, nx)).copy()
             lon2d = np.broadcast_to(x_vals[None, :], (ny, nx)).copy()
+        else:
+            raise ValueError(
+                f"Cannot build 2-D lat/lon for grid_type={spec.grid_type!r}: the "
+                "source coords carry no real 'lat_2d'/'lon_2d', and broadcasting the "
+                "1-D axes is only valid on a 'gaussian' (rectilinear) grid. Preserve "
+                "the true 2-D coordinates through preprocessing for curvilinear grids."
+            )
 
         coords: dict[str, tuple] = {
             "y": ("y", y_vals),

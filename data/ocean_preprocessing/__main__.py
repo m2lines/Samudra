@@ -445,6 +445,11 @@ class CLI:
         ds_input.attrs["m2lines/ocean_emulators_git_hash"] = get_git_url_hash()
         ds_input.attrs["m2lines/date_created"] = datetime.datetime.now().isoformat()
         ds_input.attrs["m2lines/cli_args"] = " ".join(sys.argv)
+        # Horizontal grid geometry: this pipeline conservatively regrids onto a
+        # regular (rectilinear) lat-lon grid, so downstream code may treat the 2-D
+        # lat/lon as separable. Curvilinear (e.g. tripolar) outputs must set this to
+        # the matching grid_type so consumers do not broadcast their geometry.
+        ds_input.attrs["grid_type"] = "gaussian"
         # Label wetmask via attrs
         if len(ds_input["wetmask"].attrs) == 0:
             ds_input["wetmask"].attrs["long_name"] = "ocean mask"

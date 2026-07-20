@@ -20,6 +20,7 @@ from samudra.config_base import BaseConfig, TopLevelConfig
 from samudra.constants import (
     DatasetSpec,
     Grid,
+    GridType,
     LoaderVersion,
     TensorMap,
     build_llc_spec,
@@ -200,11 +201,13 @@ class Om4DatasetConfig(BaseConfig):
     type: Literal["om4"] = "om4"
     prognostic_vars_key: str = "thermo_dynamic_all"
     boundary_vars_key: str = "tau_hfds"
+    grid_type: GridType = "gaussian"
 
     def build(self) -> DatasetSpec:
         return build_om4_spec(
             self.prognostic_vars_key,
             self.boundary_vars_key,
+            grid_type=self.grid_type,
         )
 
 

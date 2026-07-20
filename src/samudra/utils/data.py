@@ -824,11 +824,7 @@ def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
         # Preserve the 2-D geographic coords under a non-colliding name, then
         # rename the x/y dims to the 1-D lat/lon we standardize on.
         preserve = {n: f"{n}_2d" for n in ("lat", "lon") if n in data_copy.coords}
-        data_copy = (
-            data_copy.drop_vars(["dayofyear"], errors="ignore")
-            .rename(preserve)
-            .rename({"x": "lon", "y": "lat"})
-        )
+        data_copy = data_copy.rename(preserve).rename({"x": "lon", "y": "lat"})
 
     return data_copy
 

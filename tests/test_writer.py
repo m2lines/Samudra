@@ -5,6 +5,7 @@
 from typing import cast
 
 import numpy as np
+import pytest
 import torch
 import xarray as xr
 
@@ -225,3 +226,37 @@ def test_writer_shallow_spec_slices_depth_metadata(tmp_path):
     assert out["ocean_fraction"].sizes["lev"] == n_prog
     np.testing.assert_array_equal(out["lev"].values, spec.depth_levels[:n_prog])
     np.testing.assert_array_equal(out["dz"].values, spec.depth_thickness[:n_prog])
+
+
+def test_writer_curvilinear_grid_without_real_coords_raises(tmp_path):
+    """On a curvilinear grid, the writer refuses to fabricate lat/lon by broadcast.
+
+    A tripolar spec whose source coords lack real 2D lat/lon can't have its geometry
+    rebuilt from the 1D axes, so the writer raises rather than emit wrong
+    coordinates. (The gaussian grid broadcasts fine -- see
+    test_writer_output_is_analysis_ready, which drives the same coords.)
+    """
+    spec = build_om4_spec(
+        prognostic_vars_key="thermo_dynamic_all",
+        boundary_vars_key="tau_hfds_hfds_anom",
+        grid_type="tripolar",
+    )
+    tensor_map = TensorMap(dataset_spec=spec)
+    n_channels = len(tensor_map.prognostic_var_names)
+    ny, nx = 3, 4
+
+    coords = _source_coords(ny, nx)  # 1D lat/lon only; no lat_2d/lon_2d
+    writer = ZarrWriter(
+        tmp_path,
+        coords=coords,
+        hist=0,
+        model_path="dummy.ckpt",
+        time_chunk_size=4,
+        normalize=_NO_NORMALIZE,
+        tensor_map=tensor_map,
+    )
+    writer.buffer = torch.zeros(1, n_channels, ny, nx)
+    writer.time_buffer = xr.DataArray(np.arange(1), dims="time")
+
+    with pytest.raises(ValueError, match="grid_type"):
+        writer.write()

@@ -106,6 +106,7 @@ class SamudraMulti(BaseModel):
         # input.  The dual-perceiver encoder that fuses them at the token level
         # (enabling cross-resolution) lands in a follow-up PR.
         fts = torch.cat((prognostic, boundary), dim=1)
+        fine_scale_fts = fts
         with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
             if self.maybe_add_3d_coordinates is not None:
                 fts = self.maybe_add_3d_coordinates(fts, ctx.input_resolution_cpu)
@@ -114,7 +115,11 @@ class SamudraMulti(BaseModel):
 
             # TODO(alxmrs): When the output resolution differs from the input (i.e. in a "mix" schedule), we cannot use
             #  residual predictions (`self.pred_residuals` must be `False`).
-            fts = self.decoder(fts, ctx.output_resolution_cpu)
+            fts = self.decoder(
+                fts,
+                ctx.output_resolution_cpu,
+                fine_scale_features=fine_scale_fts,
+            )
 
         # Convert back to float32
         # TODO(alxmrs): We actually only support float16 when turned on; this kind of tricks us.

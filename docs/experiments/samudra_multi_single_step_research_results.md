@@ -419,7 +419,7 @@ also recorded in `docs/rust-data-loader-plan.md`. Implementing derived-field sup
 would be a separate loader change; until that exists, all matched comparisons retain
 the physical `tauuo`, `tauvo`, and `hfds` inputs selected by `tau_hfds`.
 
-## B2 normalization screen
+## B4 normalization and receptive-field screen
 
 The first B quality screen changes only the processor normalization from the
 selected InstanceNorm control. LayerNorm, GroupNorm, and BatchNorm overrides were
@@ -428,12 +428,165 @@ prediction, the fixed 3-degree by 5-degree physical patch, update-based scheduli
 effective global batch 32, and the selected A5 execution path. Seed 15 runs in a
 serial one-GPU chain:
 
-| Normalization | Slurm | Initial state |
-|---|---:|---|
-| Channel LayerNorm | `14376739` | Running |
-| GroupNorm | `14376740` | After `14376739` |
-| BatchNorm | `14376741` | After `14376740` |
+| Normalization | Slurm | W&B | State | All-channel MSE |
+|---|---:|---|---|---:|
+| InstanceNorm control | `14333939` | [zy4e7qcc](https://wandb.ai/ocean_emulators/default/runs/zy4e7qcc) | Completed | 0.385737 |
+| Channel LayerNorm | `14376739` | [6j9pmvkz](https://wandb.ai/ocean_emulators/default/runs/6j9pmvkz) | Completed | 0.388022 |
+| GroupNorm | `14376740` | [rdxqukj0](https://wandb.ai/ocean_emulators/default/runs/rdxqukj0) | Completed | 0.382284 |
+| BatchNorm | `14376741` | [2de0ng9c](https://wandb.ai/ocean_emulators/default/runs/2de0ng9c) | Completed | 0.381857 |
 
 Each job requests one RTX6000 GPU, four CPUs, and 40 GiB for at most two hours on
 the immutable `c79c302f` image. Results will be compared with the two-seed
 InstanceNorm control above before changing dilation or representation capacity.
+
+LayerNorm completed all 12 epochs with exit code zero in `1:03:45`. Its explicit
+unweighted one-degree MSE was `0.388022`: temperature `0.099937`, salinity
+`0.360853`, zonal velocity `0.539586`, meridional velocity `0.566932`, and SSH
+`0.086209`. This is `0.002285` (0.59%) worse than the paired seed-15 InstanceNorm
+control, so LayerNorm does not displace the control. Peak GPU allocation was about
+26.5 GiB and the Apptainer step MaxRSS was 12.38 GiB.
+
+| LayerNorm artifact | SHA-256 | Bytes |
+|---|---|---:|
+| Resolved `config.yaml` | `0f4f11eff302eaa829ff3e00fb2022f6cdc4d23f48ec00bf72fca70754231e83` | 2,577 |
+| `saved_nets/best_validation_ckpt.pt` | `5189272c505888d83618bf1d041258eef0736429f22c40a64e2cf616ae50849f` | 1,216,083,779 |
+| `saved_nets/ckpt.pt` | `76680a179d9c06fd820ddec72c068ee1dc11c4e6f91273ce8051e9e96087dcf4` | 1,216,083,779 |
+| `saved_nets/ema_ckpt.pt` | `62d5fb7d8518c5ac1c52b12d5258dd8315cb7e295a852a1df67dd5de472ac8b9` | 912,077,015 |
+
+GroupNorm and BatchNorm also completed all 12 epochs with exit code zero in
+`1:03:10` and `1:03:38`, respectively. Their terminal explicit unweighted metrics
+are:
+
+| Normalization | Temperature | Salinity | Zonal velocity | Meridional velocity | SSH | All |
+|---|---:|---:|---:|---:|---:|---:|
+| InstanceNorm control | 0.099912 | 0.355364 | 0.536428 | 0.566951 | 0.080649 | 0.385737 |
+| Channel LayerNorm | 0.099937 | 0.360853 | 0.539586 | 0.566932 | 0.086209 | 0.388022 |
+| GroupNorm | 0.097157 | 0.344761 | 0.535734 | 0.567041 | 0.069605 | 0.382284 |
+| BatchNorm | 0.097506 | 0.342987 | 0.535487 | 0.566356 | 0.081974 | 0.381857 |
+
+BatchNorm is the best paired seed-15 result, improving all-channel MSE by
+`0.003880` (1.01%) relative to InstanceNorm. GroupNorm is only `0.000427` worse
+overall and gives the strongest SSH result. These differences are smaller than the
+two-seed update-control range (`0.008004`), so this is a screening choice rather
+than evidence that BatchNorm is universally superior. The isolated receptive-field
+ablation therefore carries BatchNorm forward while keeping every other control
+fixed; finalist replication will determine whether the combined candidate is
+stable.
+
+| Normalization | Resolved config SHA-256 | Best-checkpoint SHA-256 | Latest-checkpoint SHA-256 | EMA-checkpoint SHA-256 |
+|---|---|---|---|---|
+| GroupNorm | `55fe113b2dfddc8fd76788888b00f240c1b6adfbe1821c894d4502e84c0be152` | `ce3cc873ba4be0dc9f8bab01b78fa70b11da9af528ec4c7a304f1b2f8985cb1f` | `9fb07753780404aca4c75c5959cf71b400be885b1efecb940268b27dc2209bca` | `1669810f57f817c163e45a126b0c7110442ebb0620248e4035308669aabe9ee7` |
+| BatchNorm | `1674e600beb74540ee64601428cbc818a7d73fd920d4eb6b19486d313e71c9f0` | `0ec49e7b051d446086d232b97320e12a3082a5344937f03b2d3427241c651805` | `696d573238e85f789321c4ebb204f4c7980b3a3b40a924e181e3792fedb9ce22` | `8be003497e46a586194475287d1aa393dd0a10ff8f0fff9ad7525c97730347f4` |
+
+GroupNorm's resolved config is 2,577 bytes, its best/latest checkpoints are
+1,216,079,747 bytes, and its EMA checkpoint is 912,073,879 bytes. BatchNorm's
+corresponding sizes are 2,577, 1,216,186,305, and 912,180,331 bytes. Their
+Apptainer-step MaxRSS values were 12.29 and 12.41 GiB; both peaked near 26.5 GiB
+of GPU memory.
+
+### Receptive-field ablation
+
+The isolated receptive-field candidate changes the selected BatchNorm processor
+dilation from `[1,1,1]` to `[1,2,4]`. Config validation confirms that Slurm job
+`14380979` ([j112axvq](https://wandb.ai/ocean_emulators/default/runs/j112axvq))
+otherwise retains the same seed-15 stratified proxy, plain MSE,
+one-step absolute prediction, effective global batch 32, update-based scheduler,
+five-window decoder batching, fixed 3-degree by 5-degree patch extent, and
+immutable `c79c302f` container. It requests one RTX6000 GPU, four CPUs, and 40 GiB
+for at most two hours. The proxy gate remains `0.08575`; no full-data or
+higher-resolution forecast run is authorized by this launch.
+
+User-authorized parallel capacity expanded this into a two-seed 2-by-2 factorial
+screen while preserving one GPU per run and effective global batch 32. Width 128,
+dilation `[1,1,1]`, seed 15 is the completed BatchNorm control (`14376741`), and
+width 128, dilation `[1,2,4]`, seed 15 is `14380979`. The remaining cells are:
+
+| Embedding width | Dilation | Seed | Slurm | W&B |
+|---:|---|---:|---:|---|
+| 128 | `[1,1,1]` | 16 | `14381097` | [tq2ijc44](https://wandb.ai/ocean_emulators/default/runs/tq2ijc44) |
+| 128 | `[1,2,4]` | 16 | `14381098` | [7exmk0d0](https://wandb.ai/ocean_emulators/default/runs/7exmk0d0) |
+| 256 | `[1,1,1]` | 15 | `14381093` | [8hld5gtb](https://wandb.ai/ocean_emulators/default/runs/8hld5gtb) |
+| 256 | `[1,1,1]` | 16 | `14381096` | [bgmibtof](https://wandb.ai/ocean_emulators/default/runs/bgmibtof) |
+| 256 | `[1,2,4]` | 15 | `14381099` | [9lhfpsma](https://wandb.ai/ocean_emulators/default/runs/9lhfpsma) |
+| 256 | `[1,2,4]` | 16 | `14381095` | [7l389bk1](https://wandb.ai/ocean_emulators/default/runs/7l389bk1) |
+
+All six new jobs use the same one-GPU, four-CPU, 40-GiB allocation and immutable
+container. This layout separates seed variance, receptive field, capacity, and
+their interaction without introducing a multi-GPU numerical or BatchNorm change.
+
+All seven jobs completed with exit code zero in 64 to 67 minutes. Terminal
+explicit unweighted one-degree metrics are:
+
+| Width | Dilation | Seed | Temperature | Salinity | Zonal velocity | Meridional velocity | SSH | All |
+|---:|---|---:|---:|---:|---:|---:|---:|---:|
+| 128 | `[1,1,1]` | 15 | 0.097506 | 0.342987 | 0.535487 | 0.566356 | 0.081974 | 0.381857 |
+| 128 | `[1,1,1]` | 16 | 0.099323 | 0.356212 | 0.538805 | 0.566752 | 0.081361 | 0.386325 |
+| 128 | `[1,2,4]` | 15 | 0.096645 | 0.342503 | 0.535654 | 0.566566 | 0.076713 | 0.381491 |
+| 128 | `[1,2,4]` | 16 | 0.096682 | 0.365005 | 0.533023 | 0.567011 | 0.082802 | 0.386429 |
+| 256 | `[1,1,1]` | 15 | 0.095604 | 0.344894 | 0.537880 | 0.566657 | 0.078913 | 0.381871 |
+| 256 | `[1,1,1]` | 16 | 0.098108 | 0.360732 | 0.539096 | 0.567330 | 0.079449 | 0.386918 |
+| 256 | `[1,2,4]` | 15 | 0.094384 | 0.346495 | 0.537243 | 0.566462 | 0.080906 | 0.381802 |
+| 256 | `[1,2,4]` | 16 | 0.096359 | 0.369233 | 0.538737 | 0.567056 | 0.075166 | 0.388449 |
+
+The factorial two-seed summary is:
+
+| Width | Dilation | Mean MSE | Seed range | Change from width-128, `[1,1,1]` |
+|---:|---|---:|---:|---:|
+| 128 | `[1,1,1]` | 0.384091 | 0.004468 | -- |
+| 128 | `[1,2,4]` | 0.383960 | 0.004939 | -0.000131 |
+| 256 | `[1,1,1]` | 0.384394 | 0.005046 | +0.000303 |
+| 256 | `[1,2,4]` | 0.385125 | 0.006647 | +0.001034 |
+
+Restoring multiscale dilation is therefore neutral (a 0.034% mean improvement at
+width 128), while doubling the patch embedding is neutral to worse. Both effects
+are much smaller than seed variation. The BatchNorm width-128, `[1,1,1]` mean is
+also `0.002356` worse than the selected two-seed InstanceNorm update control
+(`0.381735`), reversing the apparent seed-15 BatchNorm win. No normalization,
+receptive-field, or scalar embedding-width candidate is a finalist, and the proxy
+gate remains closed by more than a factor of four. The next quality experiment
+must change how spatial information crosses the encoder/decoder bottleneck rather
+than tune these controls further.
+
+| Width/dilation/seed | Config SHA-256 | Best checkpoint SHA-256 | Latest checkpoint SHA-256 | EMA checkpoint SHA-256 |
+|---|---|---|---|---|
+| 128/124/15 | `85a9a317e871fa2ce8fac66a2c83a60306ace2e12ad481b0c5f53f33ccb4c41d` | `1077e56fa93165f25192097edf2a079f78e21ae274dbb59db28fdc932e6adc5e` | `59ceb5202613d0e875ce87a01cacb290626da567d9833747da9e9a69396c029b` | `2590682f270b9d532476ff277d1aa85d30c84d6591fff00d328a7d11cedcab10` |
+| 128/111/16 | `d10f9f887e0aa2f2e30f15497dfce78e90218e0660ab5fa657877c328365dd05` | `7a15afdf1acbaa33cd2dc367b6154db5a1363dcb667c9b6f08e574169e9129ce` | `b3ba227809877c5dae9f5ff4182196cb594aaf4db7c2a35cf7b31455fff9572e` | `3ecc881a00022727ad0f06cd236f7abd28b688abbe51efda5e8fd843493ec938` |
+| 128/124/16 | `840f8bd046ab153186b02cb063aa77ded507a839748392c4f7cc1fb82517e72a` | `8fbd7a521c80e9a59d6d28fad05546d3fa39d12728cbebca46af647d62cd24d9` | `77e06ff4292223c8fd0fb32f39a226cf7f07c4f397b99c43cfd781dbac257ba2` | `fc64e4153d2524b5f483a18765e0f797ab9dff2742017a86ee0c5eee4293e32b` |
+| 256/111/15 | `67fcd84e2f8ea7f98fe19dff33b45c8d3c09a0322bd3ed8c297fdea1248a61af` | `148ad642e8303017f0a39f8e574d86ecf327d5a2d2af67dbd034886dc8a1116a` | `6e2d40756c7c95a6a164cb1e0f8906040b59156cdedd50d4e7a0d80facc409f8` | `aa105d78d67db2aa59fd3298695b4c1897d3714c7cec1623c257b82a489ab920` |
+| 256/111/16 | `f290456658aae48b860ae25fe58918851b36d62f88939f4e61742c1f3f37f43e` | `9adddd7f99cf0c2f5783605ed7aafe1f61a41bb13f6d5520333a2b3dc2cd1d71` | `716d77f1318e14bed4491ff06c44941a984861921a0a1db71d14a1b7ff3129f7` | `484fc1d4bb0adfa75ffa189b51a65e47dce6206edf1d507727806d24f7bb1eb0` |
+| 256/124/15 | `809c0132ffae5ac481b72eb15bfafe5d7ee516cf9431d1defae821a98afaf513` | `f23f06d3a5c9f83ae122985845c17a5163f42f6215068dac6af964f59c252162` | `c45bf8c201ce0ab20a4e70463b72ed020a9a3db1befc3b7492b8afc7866515a6` | `84b3462ea4637878d20c4d2cbde8e4919ac5698da89132273aaec1c2f100e415` |
+| 256/124/16 | `76c77536c807bfea57b008df1e1b6d19108f2488d4b60dbe9fc91486b53f17b7` | `450448227a99c961a1e24d3fb27d7e78a8da93d711f926ed2cdc4d23404268d3` | `6ec8b964b25de92b32ee686c8c6dc3dbc62ef42e2ecd1c611ea1341d4e8f3da0` | `0f3138afb504dee5c3cbdbce29cdb1d3c34669d2110d897d021f2da830f51aee` |
+
+Width-128 checkpoints are 1,216,186,305 bytes (EMA 912,180,331), while
+width-256 checkpoints are 1,262,727,233 bytes (EMA 947,087,019). All GPU peaks
+were about 26.5 GiB. Apptainer MaxRSS ranged from 12.39 to 12.76 GiB on `gr101`;
+the two dilation jobs placed on `gr102` used 25.40 to 25.75 GiB, still within the
+40-GiB request.
+
+## B2 learned fine-scale decoder queries
+
+The identity evidence and the failed scalar-width ablation justify changing how
+full-resolution information crosses the patch bottleneck. The smallest isolated
+candidate projects the raw prognostic and boundary inputs at every grid cell through
+a zero-initialized learned 1-by-1 projection and adds that representation to the
+decoder's pixel queries. The processor and patch-token path are unchanged. This is
+an encoder-to-decoder feature connection, not residual-field prediction: the model
+still predicts the complete absolute target, `pred_residuals` remains `false`, and
+no input field is added to the output.
+
+The implementation is opt-in through `model.use_fine_scale_queries`, requires the
+input and output grids to match, and preserves the original decoder exactly at
+initialization. Tests cover global and windowed decoders, initial equivalence,
+nonzero learning signal from the zero initialization, input-shape validation, and
+the existing window-vectorization equivalence. The focused decoder, model, and
+configuration suite passes 29 tests; mypy and Ruff pass for all changed Python
+files. CLI validation of the pinned proxy confirms fine-scale queries are enabled
+while retaining plain MSE, one step, absolute prediction, and the 3-degree by
+5-degree patch extent.
+
+The first screen will use the selected two-seed InstanceNorm/update-schedule control
+and change only `model.use_fine_scale_queries`. Independent one-GPU jobs preserve
+effective global batch 32 and normalization behavior while using the authorized
+parallel GPU capacity. A one-degree 32-sample identity diagnostic will run alongside
+the two forecast proxies to measure whether the path improves MSE, high-wavenumber
+power, and patch seams. The proxy promotion threshold remains `0.08575`.

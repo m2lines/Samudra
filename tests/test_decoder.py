@@ -107,6 +107,11 @@ def make_decoder_with_shared_weights(
         window_patches=reference.window_patches,
         context_patches=reference.context_patches,
         window_batch_size=reference.window_batch_size,
+        fine_scale_in_channels=(
+            None
+            if reference.fine_scale_query_embed is None
+            else reference.fine_scale_query_embed.in_channels
+        ),
     )
     kwargs.update(overrides)
     other = PerceiverDecoder(**kwargs)  # type: ignore
@@ -172,6 +177,76 @@ def test_windowed_decode(resolution, latent_input, decoder_kwargs):
     assert y_hat.shape == (BATCH, OUT_CHANNELS, H, W), (
         f"Windowed decoder should produce full-resolution output, got {y_hat.shape}."
     )
+
+
+@pytest.mark.parametrize("window_patches", [None, 1])
+def test_fine_scale_queries_preserve_baseline_at_initialization(
+    resolution, latent_input, decoder_kwargs, window_patches
+):
+    baseline = PerceiverDecoder(
+        **decoder_kwargs,
+        window_patches=window_patches,
+        context_patches=None,
+    )
+    fine_scale = PerceiverDecoder(
+        **decoder_kwargs,
+        window_patches=window_patches,
+        context_patches=None,
+        fine_scale_in_channels=5,
+    )
+    fine_scale.load_state_dict(baseline.state_dict(), strict=False)
+    baseline.eval()
+    fine_scale.eval()
+    inputs = torch.randn(BATCH, 5, H, W)
+
+    with torch.no_grad():
+        expected = baseline(latent_input, resolution)
+        actual = fine_scale(latent_input, resolution, inputs)
+
+    torch.testing.assert_close(actual, expected, atol=1e-5, rtol=1e-5)
+
+
+def test_fine_scale_queries_learn_from_zero_initialization(
+    resolution, latent_input, decoder_kwargs
+):
+    decoder = PerceiverDecoder(
+        **decoder_kwargs,
+        window_patches=1,
+        context_patches=None,
+        fine_scale_in_channels=5,
+    )
+    assert decoder.fine_scale_query_embed is not None
+    inputs = torch.randn(BATCH, 5, H, W)
+
+    initial_output = decoder(latent_input, resolution, inputs)
+    initial_output.square().mean().backward()
+
+    gradient = decoder.fine_scale_query_embed.weight.grad
+    assert gradient is not None
+    assert torch.count_nonzero(gradient) > 0
+
+    with torch.no_grad():
+        decoder.fine_scale_query_embed.weight.add_(gradient, alpha=-0.01)
+        updated_output = decoder(latent_input, resolution, inputs)
+    assert not torch.allclose(updated_output, initial_output)
+
+
+def test_fine_scale_queries_require_matching_features(
+    resolution, latent_input, decoder_kwargs
+):
+    decoder = PerceiverDecoder(
+        **decoder_kwargs,
+        window_patches=None,
+        context_patches=None,
+        fine_scale_in_channels=5,
+    )
+
+    with pytest.raises(ValueError, match="fine_scale_features are required"):
+        decoder(latent_input, resolution)
+    with pytest.raises(
+        ValueError, match="must match the decoder batch and output grid"
+    ):
+        decoder(latent_input, resolution, torch.randn(BATCH, 5, H // 2, W))
 
 
 @pytest.mark.parametrize("context_patches", [None, 0, 1])

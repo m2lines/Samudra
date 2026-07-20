@@ -74,6 +74,9 @@ class PerceiverDecoder(nn.Module):
             Default 1 gives each window one ring of neighboring patches beyond
             its own block.  ``None`` means full context — every window sees all
             latent tokens (windowed queries but global data attention).
+        fine_scale_in_channels: When set, project this many full-resolution input
+            channels into each pixel query. This is a learned feature path around
+            the patch bottleneck, not residual-field prediction.
 
     References:
         [0]: https://github.com/lucidrains/perceiver-pytorch
@@ -91,6 +94,7 @@ class PerceiverDecoder(nn.Module):
         window_patches: int | None,
         context_patches: int | None,
         window_batch_size: int | None = 1,
+        fine_scale_in_channels: int | None = None,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
@@ -115,12 +119,26 @@ class PerceiverDecoder(nn.Module):
         # Embed 3D unit-sphere coordinates into queries_dim for the PerceiverIO decoder head.
         self.query_embed = nn.Linear(3, queries_dim)
 
+        # Optional learned full-resolution feature path. The zero initialization
+        # preserves the coordinate-only decoder at initialization while allowing
+        # training to inject per-pixel input information into the output queries.
+        self.fine_scale_query_embed: nn.Conv2d | None = None
+        if fine_scale_in_channels is not None:
+            self.fine_scale_query_embed = nn.Conv2d(
+                fine_scale_in_channels,
+                queries_dim,
+                kernel_size=1,
+                bias=False,
+            )
+            nn.init.zeros_(self.fine_scale_query_embed.weight)
+
         self.perceiver_io = perceiver_io
 
     def forward(
         self,
         x: Float[torch.Tensor, "batch channels nh nw"],
         resolution: tuple[Lat, Lon],
+        fine_scale_features: torch.Tensor | None = None,
     ) -> Float[torch.Tensor, "batch {self.out_channels} H W"]:
         # nh, nw: number of patches along height and width (the latent grid dims).
         B, C, nh, nw = x.shape
@@ -162,6 +180,23 @@ class PerceiverDecoder(nn.Module):
             queries, "(h w) d -> h w d", h=H, w=W
         )  # (H, W, queries_dim)
 
+        if self.fine_scale_query_embed is not None:
+            if fine_scale_features is None:
+                raise ValueError(
+                    "fine_scale_features are required when fine-scale queries are enabled."
+                )
+            if fine_scale_features.shape[0] != B or fine_scale_features.shape[2:] != (
+                H,
+                W,
+            ):
+                raise ValueError(
+                    "fine_scale_features must match the decoder batch and output grid; "
+                    f"got {tuple(fine_scale_features.shape)}, expected batch={B}, "
+                    f"height={H}, width={W}."
+                )
+            fine_queries = self.fine_scale_query_embed(fine_scale_features)
+            queries = queries + rearrange(fine_queries, "b d h w -> b h w d")
+
         # --- Decode via PerceiverIO with optional spatial windowing ---
         data_grid = rearrange(tokens, "b (nh nw) c -> b nh nw c", nh=nh, nw=nw)
         out = self._decode(data_grid, queries, pos_patch_h, pos_patch_w)
@@ -171,7 +206,7 @@ class PerceiverDecoder(nn.Module):
     def _decode(
         self,
         data_grid: Float[torch.Tensor, "batch nh nw channels"],
-        queries_grid: Float[torch.Tensor, "H W queries_dim"],
+        queries_grid: Float[torch.Tensor, "... H W queries_dim"],
         patch_h: int,
         patch_w: int,
     ) -> Float[torch.Tensor, "batch {self.out_channels} H W"]:
@@ -183,11 +218,14 @@ class PerceiverDecoder(nn.Module):
         keeping cost bounded for large latent grids.
         """
         B, nh, nw, C = data_grid.shape
-        H, W, _ = queries_grid.shape
+        H, W = queries_grid.shape[-3:-1]
 
         if self.window_patches is None:
             data = rearrange(data_grid, "b nh nw c -> b (nh nw) c")
-            queries = rearrange(queries_grid, "h w d -> (h w) d")
+            if queries_grid.ndim == 3:
+                queries = rearrange(queries_grid, "h w d -> (h w) d")
+            else:
+                queries = rearrange(queries_grid, "b h w d -> b (h w) d")
             out = self.perceiver_io(data, queries=queries)  # (B, H*W, out_channels)
             return rearrange(out, "b (h w) c -> b c h w", h=H, w=W)
 
@@ -231,15 +269,25 @@ class PerceiverDecoder(nn.Module):
                 data_windows,
                 "b c bh bw h w -> (bh bw) b (h w) c",
             )
-        block_queries = rearrange(
-            queries_grid,
-            "(bh h) (bw w) d -> (bh bw) (h w) d",
-            bh=n_blocks_h,
-            bw=n_blocks_w,
-            h=block_ph,
-            w=block_pw,
-        )
-        block_queries = block_queries.unsqueeze(1).expand(-1, B, -1, -1)
+        if queries_grid.ndim == 3:
+            block_queries = rearrange(
+                queries_grid,
+                "(bh h) (bw w) d -> (bh bw) (h w) d",
+                bh=n_blocks_h,
+                bw=n_blocks_w,
+                h=block_ph,
+                w=block_pw,
+            )
+            block_queries = block_queries.unsqueeze(1).expand(-1, B, -1, -1)
+        else:
+            block_queries = rearrange(
+                queries_grid,
+                "b (bh h) (bw w) d -> (bh bw) b (h w) d",
+                bh=n_blocks_h,
+                bw=n_blocks_w,
+                h=block_ph,
+                w=block_pw,
+            )
 
         blocks_per_call = self.window_batch_size or n_blocks
         decoded_chunks = []

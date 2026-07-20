@@ -683,6 +683,7 @@ class DecoderConfig(BaseConfig):
         out_channels: int,
         patch_extent: tuple[float, float],
         implementation: PerceiverImpl,
+        fine_scale_in_channels: int | None = None,
     ) -> PerceiverDecoder:
         return PerceiverDecoder(
             in_channels=in_channels,
@@ -695,6 +696,7 @@ class DecoderConfig(BaseConfig):
             window_patches=self.window_patches,
             context_patches=self.context_patches,
             window_batch_size=self.window_batch_size,
+            fine_scale_in_channels=fine_scale_in_channels,
         )
 
 
@@ -898,6 +900,12 @@ class SamudraMultiConfig(BaseModelConfig):
         "Shared by the encoder and decoder for consistent spatial semantics.",
     )
     embedding_dim: int = 128
+    use_fine_scale_queries: bool = Field(
+        default=False,
+        description="Project full-resolution input features into the decoder's pixel "
+        "queries. This provides a learned encoder-to-decoder feature path while "
+        "retaining absolute-field prediction.",
+    )
     use_bfloat16: bool = Field(
         default=True,
         description="Use bfloat16 for most layers rather than float32. Required for flash attention.",
@@ -956,6 +964,7 @@ class SamudraMultiConfig(BaseModelConfig):
             out_channels,
             extent,
             impl,
+            fine_scale_in_channels=in_channels if self.use_fine_scale_queries else None,
         )
 
         add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None

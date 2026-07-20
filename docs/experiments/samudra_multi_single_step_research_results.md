@@ -141,6 +141,27 @@ per epoch (`4.27` samples/second total, approximately `1.07` per GPU). Thus the
 portable path is about `1.7x` more throughput-efficient per GPU while reproducing
 the control curve and reducing the allocation from four GPUs to one.
 
+The epoch-scheduled seed-15 control completed all 12 epochs in `1:05:20` of training
+time. Its validation-selected epoch 12 is:
+
+| Run | All | Temperature | Salinity | Zonal velocity | Meridional velocity | SSH |
+|---|---:|---:|---:|---:|---:|---:|
+| Original contiguous control | 0.385084 | 0.098353 | 0.353942 | 0.536955 | 0.566338 | 0.083592 |
+| [Stratified seed 15](https://wandb.ai/ocean_emulators/default/runs/ec0f03n4) | 0.384732 | 0.098102 | 0.351683 | 0.537368 | 0.566746 | 0.081088 |
+
+The stratified result is `0.000351` lower overall and reproduces every variable
+group closely. It therefore validates the arbitrary-index proxy for this
+representative control. The run's experiment log reports `0.759` for the aliased
+legacy `val/mean/loss`; that value is invalid and is retained only as evidence of
+the diagnosed aggregation bug. Selection uses the independently recomputed
+unweighted result above.
+
+| Artifact | SHA-256 | Bytes |
+|---|---|---:|
+| Resolved `config.yaml` | `84ad2325ed71fb3495d8fe5d20e4824509969033b5613384010a9c803e2558b9` | 2,562 |
+| `saved_nets/best_validation_ckpt.pt` | `94840349b7540b087cce298c8b26f14bea0a9fb11e748b0737df05bb1df08a98` | 1,215,668,023 |
+| `saved_nets/ckpt.pt` | `01d34b68a45023ee6187bd1834b8bd6d3b64786ec6633af101e576bd92257735` | 1,215,668,023 |
+
 ## A5 decoder, checkpoint, and logging microbenchmarks
 
 The A5 screen isolates three avoidable costs on the same four-sample, 30-epoch

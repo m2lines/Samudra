@@ -590,3 +590,56 @@ effective global batch 32 and normalization behavior while using the authorized
 parallel GPU capacity. A one-degree 32-sample identity diagnostic will run alongside
 the two forecast proxies to measure whether the path improves MSE, high-wavenumber
 power, and patch seams. The proxy promotion threshold remains `0.08575`.
+
+### Fine-query identity result
+
+The 32-sample one-degree identity diagnostic completed 20 epochs and 640 optimizer
+updates on seed 15. It changed only the fine-scale-query option relative to the
+previous 32-sample one-degree identity control. The result strongly validates the
+new information path:
+
+| Candidate | Mean MSE | Temperature | Salinity | Zonal velocity | Meridional velocity | SSH | Mean high-k power ratio | Mean seam ratio |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Original patch bottleneck | 0.324229 | 0.057409 | 0.176728 | 0.509057 | 0.566564 | 0.060717 | 0.259720 | 1.15737 |
+| Fine-scale decoder queries | 0.028478 | 0.014306 | 0.047032 | 0.023945 | 0.028633 | 0.013981 | 0.862189 | 1.04379 |
+
+The fine-query path reduces aggregate reconstruction error by `11.39x`. The most
+important change is that both velocity components now learn the identity map rather
+than remaining near their untrained errors. Mean retained high-wavenumber power
+rises from 26% to 86%, and the mean patch-seam ratio moves close to one. Salinity
+is the weakest remaining identity variable, retaining 66% of high-wavenumber power,
+but it is no longer evidence of a catastrophic shared bottleneck.
+
+The first allocation, Slurm `14384170`, requested 40 GiB and failed during the
+one-time OCI-to-SIF conversion before Python started. The cached-image retry,
+Slurm `14384736`, used one GPU, four CPUs, and a 96-GiB host-memory request and
+completed successfully. Its allocation elapsed time was `38:31`, including image
+conversion; the training application took `20:50`, peaked at 6.48 GiB host RSS,
+and the identity loop peaked at about 26.5 GiB GPU memory. The final epoch took
+45.1 seconds for 32 samples. The immutable container is
+`26.05-70baf6f216ad9cefc36ff7d9bfa0825b02e262f2`, built from commit
+`70baf6f216ad9cefc36ff7d9bfa0825b02e262f2`. The run is
+[0p33su9x](https://wandb.ai/ocean_emulators/default/runs/0p33su9x).
+
+| Artifact | SHA-256 | Bytes |
+|---|---|---:|
+| Resolved `config.yaml` | `d59db742762f89dc7304abe17e79da4ad532933e416552808a8a1f822cd69265` | 2,542 |
+| `identity_metrics.json` | `79064637dab5054a94bc80ae09bb253a6599bfe9af667ef164ec4f67bdc24b6c` | 432,618 |
+| `identity_spectra.pt` | `87beaaca42e40d439eb668defcddfe28544ceb3aac6642c3ecbf3e3e41dbbb2c` | 114,477 |
+| `saved_nets/ckpt.pt` | `cbdb9e425f021cbcde012f75cd5aa6cac82a44e948ad4950eafdb41a53edb89c` | 1,215,833,281 |
+
+### Fine-query proxy screen
+
+The paired forecast screen is running concurrently on separate one-GPU
+allocations. Both jobs use the stratified 512-window update-scheduled proxy, plain
+normalized MSE, one-step absolute prediction, batch size two with 16-step gradient
+accumulation, and effective global batch 32.
+
+| Seed | Slurm | W&B | Allocation |
+|---:|---:|---|---|
+| 15 | `14385012` | [wki0obs5](https://wandb.ai/ocean_emulators/default/runs/wki0obs5) | 1 GPU, 4 CPU, 40 GiB |
+| 16 | `14385013` | [vnx6on61](https://wandb.ai/ocean_emulators/default/runs/vnx6on61) | 1 GPU, 4 CPU, 40 GiB |
+
+These runs determine whether repairing identity reconstruction also improves the
+forecast objective. They must complete before the `0.08575` promotion gate is
+evaluated; an identity pass alone is not grounds for full-data training.

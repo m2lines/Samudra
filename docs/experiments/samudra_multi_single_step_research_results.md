@@ -207,6 +207,30 @@ preserves the expected model ranking.
 Each resolved config is 2,577 bytes and each checkpoint is 1,215,668,023
 bytes. Both runs used one GPU, four CPUs, and a 40-GiB host-memory request.
 
+### Matched v2 ranking calibration
+
+The matched stratified v2 controls completed cleanly and reproduce the original v2
+proxy result of `0.04287`. Their validation-selected epoch 12 results are:
+
+| Run | All | Temperature | Salinity | Zonal velocity | Meridional velocity | SSH |
+|---|---:|---:|---:|---:|---:|---:|
+| [v2 seed 15](https://wandb.ai/ocean_emulators/default/runs/c9417mhl) | 0.042446 | 0.006899 | 0.006900 | 0.045959 | 0.063859 | 0.007910 |
+| [v2 seed 16](https://wandb.ai/ocean_emulators/default/runs/eimcfxwz) | 0.042334 | 0.006652 | 0.006760 | 0.045951 | 0.063713 | 0.007754 |
+
+Overall MSE is `0.042390` mean, `0.000079` sample standard deviation, and
+`0.000112` range. The selected SamudraMulti update-scheduled control is 9.00 times
+worse by the two-seed means, so the proxy preserves both the expected ordering and
+the approximate historical gap. A3 is therefore calibrated for the isolated B
+funnel.
+
+| Seed | Slurm elapsed | Apptainer MaxRSS | Resolved config SHA-256 | Best-checkpoint SHA-256 | Latest-checkpoint SHA-256 |
+|---:|---:|---:|---|---|---|
+| 15 | 0:53:23 | 11.99 GiB | `6cc3e24935658bd491f53f2134fb643d0819f2c35866d795a1646d3a987e59f2` | `7d3c992722a54d83e371491acdb7983b1cd54ad7f15d7e7286a6332ec9cae755` | `2b61d9c8a6b5707d503a0e06b6e42bd825f523f1db7af730443e7876b3887caf` |
+| 16 | 0:50:40 | 11.96 GiB | `f913a56ade4bde1117c1b54c56b28a38a543f9773a2f8602664657ae330ff38e` | `b86780a51a0971e018d0f0445e3dee9483eaa73227ddf844d1a54731517e10bc` | `9d831d7800dbac7b1d002b966eecd325f8e903272b8a8c82a36b14016bd6bbca` |
+
+Each resolved config is 2,344 bytes and each checkpoint is 1,344,153,659
+bytes. Both runs used one GPU, four CPUs, and a 40-GiB host-memory request.
+
 ## A5 decoder, checkpoint, and logging microbenchmarks
 
 The A5 screen isolates three avoidable costs on the same four-sample, 30-epoch
@@ -394,3 +418,22 @@ covered by `test_rust_loading_rejects_derived_boundary_variables_before_open` an
 also recorded in `docs/rust-data-loader-plan.md`. Implementing derived-field support
 would be a separate loader change; until that exists, all matched comparisons retain
 the physical `tauuo`, `tauvo`, and `hfds` inputs selected by `tau_hfds`.
+
+## B2 normalization screen
+
+The first B quality screen changes only the processor normalization from the
+selected InstanceNorm control. LayerNorm, GroupNorm, and BatchNorm overrides were
+validated through `TrainConfig`; all retain plain MSE, one-step targets, absolute
+prediction, the fixed 3-degree by 5-degree physical patch, update-based scheduling,
+effective global batch 32, and the selected A5 execution path. Seed 15 runs in a
+serial one-GPU chain:
+
+| Normalization | Slurm | Initial state |
+|---|---:|---|
+| Channel LayerNorm | `14376739` | Running |
+| GroupNorm | `14376740` | After `14376739` |
+| BatchNorm | `14376741` | After `14376740` |
+
+Each job requests one RTX6000 GPU, four CPUs, and 40 GiB for at most two hours on
+the immutable `c79c302f` image. Results will be compared with the two-seed
+InstanceNorm control above before changing dilation or representation capacity.

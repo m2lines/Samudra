@@ -150,7 +150,9 @@ modern server baseline on Linux:
 These settings live in the repository's [Cargo configuration](../../.cargo/config.toml).
 Rust's `target-cpu` controls the extension and Rust dependencies. Target-specific
 `CFLAGS` separately control bundled C/C++ dependencies, including Blosc, LZ4,
-Zstd, zlib, and Snappy.
+Zstd, zlib, and Snappy. The repository's
+[`rust-toolchain.toml`](../../rust-toolchain.toml) pins the compiler and components
+used by local builds, CI, and the training container.
 
 `zarrs` depends on `blosc-src`; Cargo downloads that crate's source package and
 then compiles its bundled C-Blosc 1.21.6 sources into a static `libblosc.a`.

@@ -162,6 +162,32 @@ def test_roundtrip():
     )
 
 
+def test_one_pixel_perceiver_roundtrip():
+    height, width = 4, 8
+    x = torch.randn(2, 10, height, width)
+    patch_extent = (180 / height, 360 / width)
+    resolution = make_resolution(x)
+    encoder = PerceiverEncoder(
+        in_channels=10,
+        out_channels=4,
+        patch_extent=patch_extent,
+        perceiver=make_perceiver_encoder(10, 4),
+    )
+    decoder = PerceiverDecoder(
+        in_channels=4,
+        out_channels=10,
+        patch_extent=patch_extent,
+        queries_dim=QUERIES_DIM,
+        perceiver_io=make_decoder_perceiver_io(4, 10),
+        window_patches=1,
+        context_patches=0,
+    )
+
+    output = decoder(encoder(x, resolution), resolution)
+
+    assert output.shape == x.shape
+
+
 def test_decode(resolution, latent_input, decoder_kwargs):
     decode = PerceiverDecoder(
         **decoder_kwargs, window_patches=None, context_patches=None

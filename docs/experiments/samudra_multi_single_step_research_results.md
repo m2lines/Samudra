@@ -87,8 +87,35 @@ validation interval remains fixed at 2013-10-05 through 2014-10-05.
 behavior, immutability, and contiguous window semantics. The screening configs are
 `train_1deg_mse_stratified_proxy.yaml` and
 `train_1deg_mse_stratified_updates_proxy.yaml`; the latter is the isolated
-optimizer-update scheduler candidate. Actual two-seed screening and three-seed
-finalist calibration remain pending the A5 forecast-path benchmark.
+optimizer-update scheduler candidate.
+
+The two-seed scheduler screen was submitted as a serial dependency chain on the
+validated `c79c302f` image. Each run uses one RTX6000 GPU, four CPUs, 40 GiB of host
+memory, plain MSE, one-step targets, batch size two with 16-step gradient
+accumulation (effective global batch 32), five-window decoder chunks, legacy `all`
+checkpointing, and no `wandb.watch` model logging.
+
+| Schedule | Seed | Slurm | State at launch |
+|---|---:|---:|---|
+| Epoch-based cosine | 15 | `14333937` | Running |
+| Epoch-based cosine | 16 | `14333938` | After `14333937` |
+| Update-based cosine | 15 | `14333939` | After `14333938` |
+| Update-based cosine | 16 | `14333940` | After `14333939` |
+| v2 epoch-based control | 15 | `14334736` | After `14333940` |
+| v2 epoch-based control | 16 | `14334740` | After `14334736` |
+
+This screen will select the scheduling control before normalization, receptive-field,
+or representation ablations. Three-seed finalist calibration remains pending that
+funnel; no candidate will be promoted to full data unless its proxy all-channel MSE
+is at most `0.08575`.
+
+The first stratified SamudraMulti run's held-out MSE was `0.87351` at epoch 3,
+compared with `0.44238` for the original contiguous proxy at the same epoch, while
+their training MSEs were similar (`0.44748` and `0.44904`). This is provisional but
+shows that spreading 512 samples across four decades creates a materially harder
+generalization problem against the 2013--2014 validation year. The matched stratified
+v2 controls above are therefore required before accepting the new proxy as a ranking
+instrument; the final decision will use completed two-seed results.
 
 ## A5 decoder, checkpoint, and logging microbenchmarks
 

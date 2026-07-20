@@ -21,6 +21,7 @@ from samudra.config import (
 )
 from samudra.config_schema import get_pydantic_models
 from samudra.utils.location import LocalLocation, UnresolvedLocation
+from samudra.utils.schedule import CosineSchedulerConfig
 
 
 def test_data_config_rejects_legacy_num_workers_field():
@@ -209,6 +210,39 @@ def test_train_config_allows_cli_override_for_cpu_num_workers(tmp_path):
 
     assert isinstance(cfg.data.loading, CpuDataLoadingConfig)
     assert cfg.data.loading.num_workers == 2
+
+
+def test_full_data_1deg_promotion_config_preserves_baseline_contract(tmp_path):
+    config_path = (
+        Path(__file__).resolve().parents[1]
+        / "configs"
+        / "samudra_multi_om4"
+        / "train_1deg_mse_updates.yaml"
+    )
+
+    cfg = TrainConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--experiment.data_root",
+            str(tmp_path),
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+        ]
+    )
+
+    assert cfg.loss == "mse"
+    assert cfg.steps == [1]
+    assert cfg.train_sample_selection is None
+    assert cfg.batch_size * cfg.gradient_accumulation_steps * 4 == 32
+    assert isinstance(cfg.scheduler, CosineSchedulerConfig)
+    assert cfg.scheduler.interval == "optimizer_update"
+    assert cfg.scheduler.target_updates == 6160
+    assert len(cfg.data.sources) == 1
+    assert "onedeg" in str(cfg.data.sources[0].data_location.path)
+    assert isinstance(cfg.data.loading, RustDataLoadingConfig)
+    assert isinstance(cfg.model, SamudraMultiConfig)
+    assert cfg.model.patch_extent == [3.0, 5.0]
+    assert cfg.model.pred_residuals is False
 
 
 def test_get_pydantic_models_collects_loading_variants():

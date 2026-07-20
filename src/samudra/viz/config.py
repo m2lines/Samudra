@@ -19,6 +19,7 @@ from samudra.viz.core import (
     PreparedVizGroundtruth,
     Viz,
     VizRun,
+    VizTemplate,
     prepare_viz_groundtruth,
 )
 
@@ -50,12 +51,14 @@ VizStep = Annotated[
 ]
 
 
+def default_viz_variables() -> list[str]:
+    return ["thetao", "so", "uo", "vo", "tos", "zos"]
+
+
 class VizRunConfig(BaseModel):
     name: str
     location: Location
-    variables: list[str] = Field(
-        default_factory=lambda: ["thetao", "so", "uo", "vo", "tos", "zos"]
-    )
+    variables: list[str] = Field(default_factory=default_viz_variables)
 
     def build(self, data_root: ResolvedLocation) -> VizRun:
         return VizRun(
@@ -65,11 +68,11 @@ class VizRunConfig(BaseModel):
         )
 
 
-class VizConfig(TopLevelConfig):
+class VizTemplateConfig(TopLevelConfig):
     base_output_dir: Path
-    name: str
     dataset_name: str
-    runs: list[VizRunConfig]
+    # Return a fresh default variable list for each config instance.
+    variables: list[str] = Field(default_factory=default_viz_variables)
     data_root: Location | None = None
     data: DataConfig | None = Field(
         default=None,
@@ -106,10 +109,6 @@ class VizConfig(TopLevelConfig):
     )
     debug: bool = Field(default=False, description="")
 
-    @cached_property
-    def output_path(self) -> Path:
-        return Path(self.base_output_dir) / self.name
-
     def _groundtruth_location(self) -> Location:
         """Ground-truth location: explicit if given, else the primary data source."""
         if self.groundtruth_location is not None:
@@ -141,43 +140,41 @@ class VizConfig(TopLevelConfig):
             self.groundtruth_time_range.time_slice,
         )
 
-    def build(
-        self,
-        default_root: ResolvedLocation,
-        prepared_groundtruth: PreparedVizGroundtruth,
-    ) -> Viz:
+    @property
+    def selected_steps(self) -> list[VizStep]:
+        return [s for s in self.steps or _ordered_steps() if s not in self.not_steps]
+
+    def build_template(self, default_root: ResolvedLocation) -> VizTemplate:
         data_root = self._data_root(default_root)
-        return Viz(
-            # TODO(jder): change to Path
-            str(self.output_path),
-            self.dataset_name,
-            [run.build(data_root) for run in self.runs],
-            prepared_groundtruth=prepared_groundtruth,
-            observations=self.observations,
+        return VizTemplate(
+            dataset_name=self.dataset_name,
             data_root=data_root,
+            variables=self.variables,
+            prepared_groundtruth=self.prepare_groundtruth(default_root),
+            observations=self.observations,
+        )
+
+
+class VizConfig(VizTemplateConfig):
+    name: str
+    runs: list[VizRunConfig]
+
+    @cached_property
+    def output_path(self) -> Path:
+        return Path(self.base_output_dir) / self.name
+
+    def build(self, default_root: ResolvedLocation) -> Viz:
+        template = self.build_template(default_root)
+        return template.instantiate(
+            self.output_path,
+            [run.build(template.data_root) for run in self.runs],
         )
 
 
 logger = logging.getLogger(__name__)
 
 
-def run_with_prepared_groundtruth(
-    cfg: VizConfig,
-    prepared_groundtruth: PreparedVizGroundtruth,
-):
-    cfg.output_path.mkdir(parents=True, exist_ok=True)
-    handle_logging(cfg.debug, cfg.output_path)
-    cfg.save_yaml(cfg.output_path / "config.yaml")
-
-    logger.info(f"Writing results to {cfg.output_path}")
-
-    default_root = LocalLocation(path=Path.cwd())
-    viz = cfg.build(
-        default_root,
-        prepared_groundtruth=prepared_groundtruth,
-    )
-
-    steps = [s for s in cfg.steps or _ordered_steps() if s not in cfg.not_steps]
+def run_steps(viz: Viz, steps: list[VizStep]) -> None:
     logger.info(f"Running steps: {', '.join(steps)}")
 
     # TODO(jder): could use a ProcessPoolExecutor here, but steps currently
@@ -188,9 +185,14 @@ def run_with_prepared_groundtruth(
 
 
 def main(cfg: VizConfig):
-    default_root = LocalLocation(path=Path.cwd())
-    prepared_groundtruth = cfg.prepare_groundtruth(default_root)
-    run_with_prepared_groundtruth(cfg, prepared_groundtruth)
+    cfg.output_path.mkdir(parents=True, exist_ok=True)
+    handle_logging(cfg.debug, cfg.output_path)
+    cfg.save_yaml(cfg.output_path / "config.yaml")
+
+    logger.info(f"Writing results to {cfg.output_path}")
+
+    viz = cfg.build(LocalLocation(path=Path.cwd()))
+    run_steps(viz, cfg.selected_steps)
 
 
 def _run_step(viz: Viz, step: VizStep):

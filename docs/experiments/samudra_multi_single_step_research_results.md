@@ -318,3 +318,13 @@ operations Apptainer needs. Torch provides a large per-job XFS directory through
 harness now prefers that path automatically, validates `REPO_DIR`, and creates
 configured cache/temp directories. The Torch skill and repository guide record the
 same behavior.
+
+## B1 forcing-input decision
+
+No `hfds_anomalies` ablation is scheduled in this funnel. The field is derived rather
+than stored in the physical Zarr boundary planes, and `RustDataBackend` explicitly
+rejects derived boundary variables before opening the dataset. This behavior is
+covered by `test_rust_loading_rejects_derived_boundary_variables_before_open` and is
+also recorded in `docs/rust-data-loader-plan.md`. Implementing derived-field support
+would be a separate loader change; until that exists, all matched comparisons retain
+the physical `tauuo`, `tauvo`, and `hfds` inputs selected by `tau_hfds`.

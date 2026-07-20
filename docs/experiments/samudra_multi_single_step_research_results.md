@@ -158,6 +158,8 @@ batch 32. Both disabled `wandb.watch` and used `checkpointing: simple`.
 |---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|
 | All 30 windows | `14323887` | [9c39cn6s](https://wandb.ai/ocean_emulators/default/runs/9c39cn6s) | 1 GPU, 4 CPU, 32 GiB | 209.34 | 0.818 | 2.736 | 0.275 s | 74.49 GiB | 31.96 GiB | 0.51819 |
 | Five windows | `14324068` | [qkk1e7rl](https://wandb.ai/ocean_emulators/default/runs/qkk1e7rl) | 1 GPU, 4 CPU, 40 GiB | 173.60 | 0.678 | 3.334 | 0.119 s | 74.49 GiB | 17.50 GiB | 0.51819 |
+| Five windows, first selective design | `14324576` | [dyx8cje0](https://wandb.ai/ocean_emulators/default/runs/dyx8cje0) | 1 GPU, 4 CPU, 64 GiB | 213.51 | 0.834 | 2.673 | 0.098 s | 74.57 GiB | 22.91 GiB | 0.51820 |
+| Five windows, legacy `all` | `14333437` | [o6dmocpm](https://wandb.ai/ocean_emulators/default/runs/o6dmocpm) | 1 GPU, 4 CPU, 32 GiB | 302.03 | 1.179 | 1.811 | 0.002 s | 25.86 GiB | 31.96 GiB | 0.51819 |
 
 Chunking does not reduce GPU activation memory under `simple`: all decoder calls
 remain in the autograd graph until backward, so both paths peak at about 74.5 GiB.
@@ -169,13 +171,22 @@ the successful four-CPU allocation show that caching/prefetch overlap matters
 first. No data-layout change is justified by this profile.
 
 The 74.5-GiB peak makes both `simple` variants non-portable to 48-GiB RTX6000 nodes
-and rules out a full forecast trial with checkpointing disabled. The legacy
-`checkpointing: all` path is memory-safe but applies nested wrappers to the
-processor. Commit `d9002299` therefore adds an evidence-driven `selective` mode:
-checkpoint the encoder and decoder, retain only block-level `simple` checkpointing
-inside the processor, and never wrap the processor a second time. This mode must
-pass the pinned container tests and a forecast memory/throughput benchmark before
-it is used by A3.
+and rules out a full forecast trial with checkpointing disabled. The first
+`selective` implementation in `d9002299` confirmed that cheap-layer processor
+checkpointing was insufficient: its peak remained 74.57 GiB. Commit `fb0c173c`
+corrects the design to checkpoint individual processor layers plus the encoder and
+decoder without a redundant outer processor wrapper. Its focused formatting,
+typing, schema, and 25-test suite passes, but a pinned image could not be built
+because GitHub's EC2 runner service repeatedly failed before repository code ran.
+It remains an unpromoted optimization, not part of the baseline.
+
+The robust selection is therefore five-window decoder chunks, legacy
+`checkpointing: all`, and no `wandb.watch` on validated image `c79c302f`. It peaks
+at 25.86 GiB per GPU, fits one GPU/four CPUs/32 GiB, and preserves the exact
+one-epoch validation result. At 1.179 seconds per microbatch, it is 1.62 times
+faster than the original 1.909-second forecast path. Its near-zero data wait on
+`gr102` also confirms that no data-layout change is warranted. A3 will use a
+40-GiB host request for margin while retaining only four CPUs.
 
 The normal-path artifacts are pinned by:
 
@@ -185,6 +196,10 @@ The normal-path artifacts are pinned by:
 | All windows | `saved_nets/ckpt.pt` | `d6834b15171468df4d637911423d2fdf9c8be627efc480ead341cc078649b44b` |
 | Five windows | Resolved `config.yaml` | `bf8f6959d50ce3bc4cd9d304cbf6e5a9d7aa3e148152c9804d85801c3e8be04c` |
 | Five windows | `saved_nets/ckpt.pt` | `266d407e5b64a0be781e5586655c5e14b6c7244f8512a841759d5fa5d263ca08` |
+| First selective design | Resolved `config.yaml` | `bd473e5b6819b7f1ba90f429367577e2012e1d591a1b383097856381eaab31c3` |
+| First selective design | `saved_nets/ckpt.pt` | `1a15347cd7ecef15e1b78e7bc872a79f599c06e265774d3562109705c85c98fa` |
+| Selected legacy `all` | Resolved `config.yaml` | `cf5bb33c84a08b05dd850125635f5804daf36961410a101796b2b27f35f16848` |
+| Selected legacy `all` | `saved_nets/ckpt.pt` | `0b274c79e3b7deeabb1cbd1ba1bdd11f87bd9eed4dbd76d139fc1b00099fbb3c` |
 
 ## A2 32-sample identity diagnostics
 

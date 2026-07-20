@@ -131,8 +131,9 @@ Through epoch 6, the corrected stratified control also reproduces the original
 contiguous SamudraMulti curve closely. The mean absolute difference across the six
 paired validation epochs is `0.00141`, with a maximum of `0.00490`; epochs 1--4
 differ by at most `0.00052`. This supplies an initial representative-control
-calibration for the arbitrary-index interface. Terminal results and the matched v2
-ordering are still required before choosing the proxy for the B funnel.
+calibration for the arbitrary-index interface. The completed two-seed result below
+quantifies terminal seed variance; the matched v2 ordering is still required before
+choosing the proxy for the B funnel.
 
 The same run confirms the selected A5 path at normal proxy fidelity. Its latest
 completed epoch used about `283` training seconds for 512 samples, or `1.81`
@@ -141,28 +142,42 @@ per epoch (`4.27` samples/second total, approximately `1.07` per GPU). Thus the
 portable path is about `1.7x` more throughput-efficient per GPU while reproducing
 the control curve and reducing the allocation from four GPUs to one.
 
-The epoch-scheduled seed-15 control completed all 12 epochs in `1:05:20` of training
-time and `1:06:00` of Slurm allocation time with exit code zero. The one-GPU,
-four-CPU, 40-GiB request used 13.34 GiB Apptainer MaxRSS; W&B recorded 5.25 GiB
-process CPU peak and 25.87 GiB GPU peak. Its validation-selected epoch 12 is:
+Both epoch-scheduled controls completed all 12 epochs with exit code zero. Seed 15
+used `1:05:20` of training time and `1:06:00` of Slurm allocation time; seed 16
+used `1:17:42` and `1:18:15`, respectively. Each requested one GPU, four CPUs, and
+40 GiB. Apptainer MaxRSS was 13.34 GiB for seed 15 and 13.39 GiB for seed 16;
+their GPU peaks were about 25.9 GiB. Their validation-selected epoch 12 results
+are:
 
 | Run | All | Temperature | Salinity | Zonal velocity | Meridional velocity | SSH |
 |---|---:|---:|---:|---:|---:|---:|
 | Original contiguous control | 0.385084 | 0.098353 | 0.353942 | 0.536955 | 0.566338 | 0.083592 |
 | [Stratified seed 15](https://wandb.ai/ocean_emulators/default/runs/ec0f03n4) | 0.384732 | 0.098102 | 0.351683 | 0.537368 | 0.566746 | 0.081088 |
+| [Stratified seed 16](https://wandb.ai/ocean_emulators/default/runs/g4m85ppt) | 0.383026 | 0.090220 | 0.355029 | 0.536380 | 0.566804 | 0.071868 |
 
-The stratified result is `0.000351` lower overall and reproduces every variable
-group closely. It therefore validates the arbitrary-index proxy for this
-representative control. The run's experiment log reports `0.759` for the aliased
-legacy `val/mean/loss`; that value is invalid and is retained only as evidence of
-the diagnosed aggregation bug. Selection uses the independently recomputed
-unweighted result above.
+The seed-15 stratified result is `0.000351` lower overall than the original
+contiguous control and reproduces every variable group closely. Across the two
+stratified seeds, overall MSE is `0.383879` mean, `0.001206` sample standard
+deviation, and `0.001706` range. This validates the arbitrary-index proxy for this
+representative control and quantifies a small screening-scale seed effect. The
+runs' experiment logs report aliased legacy `val/mean/loss` values near twice the
+correct result; those values are invalid and retained only as evidence of the
+diagnosed aggregation bug. Selection uses the independently recomputed unweighted
+results above.
 
 | Artifact | SHA-256 | Bytes |
 |---|---|---:|
 | Resolved `config.yaml` | `84ad2325ed71fb3495d8fe5d20e4824509969033b5613384010a9c803e2558b9` | 2,562 |
 | `saved_nets/best_validation_ckpt.pt` | `94840349b7540b087cce298c8b26f14bea0a9fb11e748b0737df05bb1df08a98` | 1,215,668,023 |
 | `saved_nets/ckpt.pt` | `01d34b68a45023ee6187bd1834b8bd6d3b64786ec6633af101e576bd92257735` | 1,215,668,023 |
+
+Seed 16 is pinned separately by:
+
+| Artifact | SHA-256 | Bytes |
+|---|---|---:|
+| Resolved `config.yaml` | `3fe3ee2a11ec50e789059771bf07993539e462a0c1c68a681601540964da6b34` | 2,562 |
+| `saved_nets/best_validation_ckpt.pt` | `3fcf577a88c973b371d24f24ea0e94ca3ee2e223ee5dde534e87f399afe236ea` | 1,215,668,023 |
+| `saved_nets/ckpt.pt` | `2fb528c7ee5b844f92b4f97f66b8d230ebd5e47064869804f67fab8f3a8be291` | 1,215,668,023 |
 
 ## A5 decoder, checkpoint, and logging microbenchmarks
 

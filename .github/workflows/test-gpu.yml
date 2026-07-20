@@ -55,22 +55,21 @@ jobs:
         with:
           python-version: "3.12"
 
-      # The ephemeral EC2 image does not include rustup. Bootstrap it in a
-      # separate workflow step so GITHUB_PATH is applied before the setup action
-      # resolves rust-toolchain.toml.
-      - name: Bootstrap rustup
-        run: |
-          if ! command -v rustup >/dev/null 2>&1; then
-            curl --proto '=https' --tlsv1.2 --retry 10 --retry-connrefused -fsSL https://sh.rustup.rs \
-              | sh -s -- --default-toolchain none --profile minimal -y
-          fi
-          echo "${CARGO_HOME:-$HOME/.cargo}/bin" >> "$GITHUB_PATH"
-
+      # Use runner-local homes rather than stale root-owned rustup state baked
+      # into the ephemeral EC2 image. With no toolchain argument, rustup resolves
+      # the repository's rust-toolchain.toml.
       - name: Set up Rust
-        uses: actions-rust-lang/setup-rust-toolchain@v1
-        with:
-          cache: false
-          rustflags: ""
+        run: |
+          export CARGO_HOME="$RUNNER_TEMP/cargo"
+          export RUSTUP_HOME="$RUNNER_TEMP/rustup"
+          curl --proto '=https' --tlsv1.2 --retry 10 --retry-connrefused -fsSL https://sh.rustup.rs \
+            | sh -s -- --default-toolchain none --profile minimal -y
+          export PATH="$CARGO_HOME/bin:$PATH"
+          rustup toolchain install
+          rustc --version --verbose
+          echo "$CARGO_HOME/bin" >> "$GITHUB_PATH"
+          echo "CARGO_HOME=$CARGO_HOME" >> "$GITHUB_ENV"
+          echo "RUSTUP_HOME=$RUSTUP_HOME" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         run: uv sync --locked --dev --extra cuda --extra rust

@@ -260,6 +260,34 @@ def test_multiscale_validation_aggregator__routes_and_prefixes_by_grid(
     assert "val/mean/loss" in logs
 
 
+def test_multiscale_validation_aggregator__does_not_alias_overall_and_scale_state(
+    dummy_src: CanonicalDataset,
+):
+    tensor_map = tensor_map_for(dummy_src)
+    normalize = normalize_for(dummy_src, tensor_map)
+    scale = ValidateAggregator(
+        {},
+        hist=0,
+        num_prognostic_channels=len(tensor_map.prognostic_var_names),
+        tensor_map=tensor_map,
+        normalize=normalize,
+    )
+    aggregator = MultiScaleValidateAggregator({(4, 8): ("4x8", scale)})
+    first = val_batch_of(4, 8, tensor_map=tensor_map)
+    first.loss.fill_(1.0)
+    first.loss_per_channel.fill_(1.0)
+    second = val_batch_of(4, 8, tensor_map=tensor_map)
+    second.loss.fill_(3.0)
+    second.loss_per_channel.fill_(3.0)
+
+    aggregator.record_validation_batch(first)
+    aggregator.record_validation_batch(second)
+    logs = aggregator.get_logs(label="val")
+
+    assert logs["val/mean/loss"] == pytest.approx(2.0)
+    assert logs["val/resolution/4x8/mean/loss"] == pytest.approx(2.0)
+
+
 def test_multiscale_validation_aggregator__rejects_unknown_grid(
     dummy_src: CanonicalDataset,
 ):

@@ -28,8 +28,12 @@ class TrainAggregator:
     @torch.no_grad()
     def record_batch(self, batch: TrainBatchOutput):
         if self._n_batches == 0:
-            self._loss = batch.loss
-            self._loss_per_channel = batch.loss_per_channel
+            # Aggregators may record the same batch in parallel (for example,
+            # the overall and resolution-specific validation aggregators).  Own
+            # the accumulation tensors so a later in-place addition in one
+            # aggregator cannot mutate another aggregator's state.
+            self._loss = batch.loss.detach().clone()
+            self._loss_per_channel = batch.loss_per_channel.detach().clone()
         else:
             self._loss += batch.loss
             self._loss_per_channel += batch.loss_per_channel

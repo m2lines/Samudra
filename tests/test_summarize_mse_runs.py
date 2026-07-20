@@ -8,7 +8,9 @@ import pytest
 
 from scripts.summarize_mse_runs import (
     markdown_table,
+    scan_best_row_and_family,
     select_best_row,
+    select_best_row_and_family,
     validate_run_config,
 )
 
@@ -41,8 +43,53 @@ def test_select_best_row_ignores_missing_and_nonfinite_losses():
 
 
 def test_select_best_row_requires_a_finite_validation_loss():
-    with pytest.raises(ValueError, match="No finite"):
+    with pytest.raises(ValueError, match="No finite validation loss"):
         select_best_row([{"val/mean/loss": math.inf}])
+
+
+def test_select_best_row_prefers_explicit_unweighted_metric_family():
+    rows = [
+        {
+            "epoch": 1,
+            "val/mean/loss": 0.4,
+            "val/resolution/180x360/unweighted_normalized_mse/mean/loss": 0.2,
+        },
+        {
+            "epoch": 2,
+            "val/mean/loss": 0.3,
+            "val/resolution/180x360/unweighted_normalized_mse/mean/loss": 0.25,
+        },
+    ]
+
+    row, family = select_best_row_and_family(rows)
+
+    assert row["epoch"] == 1
+    assert family.name == "unweighted_1deg"
+
+
+def test_scan_best_row_checks_mutually_exclusive_metric_families_separately():
+    class FakeRun:
+        def __init__(self):
+            self.requested_keys: list[list[str]] = []
+
+        def scan_history(self, *, keys, page_size):
+            self.requested_keys.append(keys)
+            assert page_size == 1000
+            if "val/resolution/180x360/unweighted_normalized_mse/mean/loss" in keys:
+                return [
+                    {
+                        "epoch": 2,
+                        "val/resolution/180x360/unweighted_normalized_mse/mean/loss": 0.2,
+                    }
+                ]
+            return []
+
+    run = FakeRun()
+    row, family = scan_best_row_and_family(run)
+
+    assert row["epoch"] == 2
+    assert family.name == "unweighted_1deg"
+    assert len(run.requested_keys) == 2
 
 
 def test_markdown_table_links_run_and_formats_metrics():

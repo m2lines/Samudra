@@ -109,13 +109,23 @@ or representation ablations. Three-seed finalist calibration remains pending tha
 funnel; no candidate will be promoted to full data unless its proxy all-channel MSE
 is at most `0.08575`.
 
-The first stratified SamudraMulti run's held-out MSE was `0.87351` at epoch 3,
-compared with `0.44238` for the original contiguous proxy at the same epoch, while
-their training MSEs were similar (`0.44748` and `0.44904`). This is provisional but
-shows that spreading 512 samples across four decades creates a materially harder
-generalization problem against the 2013--2014 validation year. The matched stratified
-v2 controls above are therefore required before accepting the new proxy as a ranking
-instrument; the final decision will use completed two-seed results.
+The first stratified run exposed an A1 diagnostic bug rather than a distribution
+shift. Its legacy `val/mean/loss` was `0.87351` at epoch 3, but the independently
+recomputed
+`val/resolution/180x360/unweighted_normalized_mse/mean/loss` was `0.44290`, nearly
+identical to the original contiguous proxy's `0.44238` at the same epoch; training
+MSEs were likewise `0.44748` and `0.44904`. The overall and resolution-specific
+aggregators had retained aliases to the first batch's loss tensors, so their later
+in-place additions double-counted every batch after the first in the overall value.
+
+`TrainAggregator` now clones its initial accumulation state, and a regression test
+checks that two batches produce identical overall and scale-specific means. The run
+summarizer prefers the explicit unweighted diagnostic when available and falls back
+to legacy plain-MSE keys for older controls. Consequently the in-flight `c79c302f`
+runs remain valid for screening through their independently recomputed unweighted
+keys; their corrupted legacy top-level value is not used for selection or gating.
+The matched stratified v2 controls remain necessary to demonstrate ranking
+consistency, and the final decision will use completed two-seed results.
 
 ## A5 decoder, checkpoint, and logging microbenchmarks
 

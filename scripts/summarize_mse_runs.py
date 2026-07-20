@@ -8,20 +8,47 @@ import argparse
 import json
 import math
 from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from typing import Any
 
 import wandb
 
-VAL_LOSS = "val/mean/loss"
-METRICS = {
-    "all": VAL_LOSS,
-    "temperature": "val/loss/variable/thetao_loss",
-    "salinity": "val/loss/variable/so_loss",
-    "zonal_velocity": "val/loss/variable/uo_loss",
-    "meridional_velocity": "val/loss/variable/vo_loss",
-    "ssh": "val/loss/variable/zos_loss",
-}
-HISTORY_KEYS = ["epoch", *METRICS.values(), "train/mean/loss", "_step"]
+
+@dataclass(frozen=True)
+class MetricFamily:
+    """One internally consistent set of validation metrics."""
+
+    name: str
+    metrics: Mapping[str, str]
+
+
+def metric_family(name: str, prefix: str) -> MetricFamily:
+    return MetricFamily(
+        name=name,
+        metrics={
+            "all": f"{prefix}/mean/loss",
+            "temperature": f"{prefix}/loss/variable/thetao_loss",
+            "salinity": f"{prefix}/loss/variable/so_loss",
+            "zonal_velocity": f"{prefix}/loss/variable/uo_loss",
+            "meridional_velocity": f"{prefix}/loss/variable/vo_loss",
+            "ssh": f"{prefix}/loss/variable/zos_loss",
+        },
+    )
+
+
+# Prefer the explicitly recomputed, unweighted diagnostics. The resolution-prefixed
+# form is emitted by match/multi-scale validation even when only 1 degree is active;
+# the unprefixed form is emitted by the standard single-scale schedule. Legacy runs
+# predate those diagnostics and fall back to their plain-MSE validation loss.
+METRIC_FAMILIES = (
+    metric_family("unweighted", "val/unweighted_normalized_mse"),
+    metric_family(
+        "unweighted_1deg",
+        "val/resolution/180x360/unweighted_normalized_mse",
+    ),
+    metric_family("legacy_plain_mse", "val"),
+)
+METRICS = METRIC_FAMILIES[0].metrics
 
 
 def validate_run_config(config: Mapping[str, Any]) -> None:
@@ -37,29 +64,60 @@ def validate_run_config(config: Mapping[str, Any]) -> None:
 
 def select_best_row(rows: Iterable[Mapping[str, Any]]) -> dict[str, Any]:
     """Return the finite row with the lowest all-channel validation MSE."""
-    valid_rows = []
-    for row in rows:
-        loss = row.get(VAL_LOSS)
-        if isinstance(loss, (int, float)) and math.isfinite(loss):
-            valid_rows.append(dict(row))
-    if not valid_rows:
-        raise ValueError(f"No finite `{VAL_LOSS}` history rows found")
-    return min(valid_rows, key=lambda row: row[VAL_LOSS])
+    row, _ = select_best_row_and_family(rows)
+    return row
+
+
+def select_best_row_and_family(
+    rows: Iterable[Mapping[str, Any]],
+) -> tuple[dict[str, Any], MetricFamily]:
+    """Select one metric family, then its best finite validation row."""
+    materialized = [dict(row) for row in rows]
+    for family in METRIC_FAMILIES:
+        all_key = family.metrics["all"]
+        valid_rows = []
+        for row in materialized:
+            loss = row.get(all_key)
+            if isinstance(loss, (int, float)) and math.isfinite(loss):
+                valid_rows.append(row)
+        if valid_rows:
+            return min(valid_rows, key=lambda row: row[all_key]), family
+    expected = ", ".join(f"`{family.metrics['all']}`" for family in METRIC_FAMILIES)
+    raise ValueError(f"No finite validation loss found in {expected}")
+
+
+def scan_best_row_and_family(run: Any) -> tuple[dict[str, Any], MetricFamily]:
+    """Scan W&B once per family because absent requested keys suppress rows."""
+    for family in METRIC_FAMILIES:
+        keys = ["epoch", *family.metrics.values(), "train/mean/loss", "_step"]
+        rows = [dict(row) for row in run.scan_history(keys=keys, page_size=1000)]
+        all_key = family.metrics["all"]
+        valid_rows = [
+            row
+            for row in rows
+            if isinstance(row.get(all_key), (int, float))
+            and math.isfinite(row[all_key])
+        ]
+        if valid_rows:
+            return min(valid_rows, key=lambda row: row[all_key]), family
+    expected = ", ".join(f"`{family.metrics['all']}`" for family in METRIC_FAMILIES)
+    raise ValueError(f"No finite validation loss found in {expected}")
 
 
 def summarize_run(run: Any) -> dict[str, Any]:
     """Fetch and normalize the best validation row for one W&B run."""
     validate_run_config(run.config)
-    row = select_best_row(run.scan_history(keys=HISTORY_KEYS, page_size=1000))
+    row, family = scan_best_row_and_family(run)
     return {
         "path": run.path,
         "name": run.name,
         "state": run.state,
         "url": run.url,
+        "metric_source": family.name,
         "epoch": row.get("epoch"),
         "step": row.get("_step"),
         "train": row.get("train/mean/loss"),
-        **{label: row.get(key) for label, key in METRICS.items()},
+        **{label: row.get(key) for label, key in family.metrics.items()},
     }
 
 

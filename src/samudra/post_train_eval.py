@@ -11,18 +11,17 @@ import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 import torch
 
-from samudra.config import EvalConfig, TrainConfig
-from samudra.eval import Eval
-from samudra.utils.location import LocalLocation, Location
+from samudra.utils.location import LocalLocation, Location, ResolvedLocation
 from samudra.utils.multiton import MultitonScope
 from samudra.utils.train import CheckpointPaths
-from samudra.viz import VizConfig
-from samudra.viz.config import VizRunConfig, run_with_prepared_groundtruth
-from samudra.viz.core import PreparedVizGroundtruth
+
+if TYPE_CHECKING:
+    from samudra.config import EvalConfig
+    from samudra.viz import VizTemplate
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +74,8 @@ def discover_checkpoints_from_directory(
 ) -> list[CheckpointEvalTarget]:
     if last_n_checkpoints is not None and checkpoints is not None:
         raise ValueError("pass only one of last_n_checkpoints or checkpoints, not both")
+    if last_n_checkpoints is not None and last_n_checkpoints < 1:
+        raise ValueError(f"last_n_checkpoints must be >= 1, got {last_n_checkpoints}")
 
     checkpoint_dir = checkpoint_paths.checkpoint_dir
     periodic: dict[int, Path] = {}
@@ -100,8 +101,11 @@ def discover_checkpoints_from_directory(
             _entry_from_file(path, "periodic", epoch=epoch)
             for epoch, path in sorted(periodic.items())
         ]
+        if last_n_checkpoints is not None:
+            targets = targets[-last_n_checkpoints:]
 
-    # The final EMA checkpoint is always included when present.
+    # The final EMA checkpoint is always included in addition to the selected
+    # periodic checkpoints.
     if checkpoint_paths.ema_checkpoint_path.exists():
         targets.append(
             _entry_from_file(
@@ -111,12 +115,6 @@ def discover_checkpoints_from_directory(
             )
         )
 
-    if last_n_checkpoints is not None:
-        if last_n_checkpoints < 1:
-            raise ValueError(
-                f"last_n_checkpoints must be >= 1, got {last_n_checkpoints}"
-            )
-        targets = targets[-last_n_checkpoints:]
     return targets
 
 
@@ -155,18 +153,37 @@ def _write_summary(results: list[dict[str, object]], sweep_root: Path) -> None:
     )
 
 
+def _load_eval_config(
+    eval_config_path: Path,
+    eval_override_args: tuple[str, ...],
+) -> "EvalConfig":
+    # Imported lazily so config.py can import the built CheckpointSweep type.
+    from samudra.config import EvalConfig
+
+    if eval_override_args:
+        return EvalConfig.from_yaml_and_cli(
+            [str(eval_config_path), *eval_override_args]
+        )
+    return EvalConfig.from_yaml(eval_config_path)
+
+
 def _run_single_checkpoint_eval(
     entry: CheckpointEvalTarget,
-    eval_config_args: tuple[str, ...],
+    eval_config_path: Path,
+    eval_override_args: tuple[str, ...],
     sweep_root: Path,
     data_root: Location | None,
     gpu_index: int | None,
 ) -> dict[str, object]:
+    # Eval imports EvalConfig, so keep it out of this module's import path while
+    # config.py is defining the CheckpointSweep builder.
+    from samudra.eval import Eval
+
     if gpu_index is not None:
         torch.cuda.set_device(gpu_index)
 
     with MultitonScope():
-        cfg = EvalConfig.from_yaml_and_cli(list(eval_config_args))
+        cfg = _load_eval_config(eval_config_path, eval_override_args)
         cfg.ckpt_path = entry.path
         cfg.experiment.base_output_dir = str(sweep_root)
         cfg.experiment.name = checkpoint_label(entry)
@@ -204,10 +221,14 @@ def _run_single_checkpoint_eval(
 
 def _run_single_checkpoint_viz(
     result: dict[str, object],
-    template_cfg: VizConfig,
-    prepared_groundtruth: PreparedVizGroundtruth,
-    viz_dirname: str | None = None,
+    template: "VizTemplate",
+    steps: list[str],
+    viz_dirname: str,
 ) -> dict[str, object]:
+    # Viz config imports TimeConfig, so these need to stay off config.py's
+    # module initialization path.
+    from samudra.viz.config import VizRunConfig, run_steps
+
     label = cast(str, result["label"])
     eval_output_dir = Path(cast(str, result["output_dir"]))
     prediction_path = eval_output_dir / "predictions.zarr"
@@ -216,31 +237,24 @@ def _run_single_checkpoint_viz(
             f"Expected saved predictions at {prediction_path} for post-train viz sweep"
         )
 
-    with MultitonScope():
-        # Build a viz config that points its first run at this checkpoint's predictions,
-        # inheriting variables (and any extra runs) from the template.
-        if viz_dirname is None:
-            viz_dirname = template_cfg.name
-        checkpoint_run = VizRunConfig(
-            name=label,
-            location=LocalLocation(path=prediction_path.resolve()),
-            variables=template_cfg.runs[0].variables,
-        )
-        updated = template_cfg.model_dump(mode="python")
-        updated["base_output_dir"] = eval_output_dir
-        updated["name"] = viz_dirname
-        updated["runs"] = [
-            checkpoint_run.model_dump(mode="python"),
-            *[run.model_dump(mode="python") for run in template_cfg.runs[1:]],
-        ]
-        cfg = VizConfig.model_validate(updated)
+    checkpoint_run = VizRunConfig(
+        name=label,
+        location=LocalLocation(path=prediction_path.resolve()),
+        variables=template.variables,
+    )
+    output_path = eval_output_dir / viz_dirname
+    output_path.mkdir(parents=True, exist_ok=True)
 
-        start = time.perf_counter()
-        run_with_prepared_groundtruth(cfg, prepared_groundtruth)
-        elapsed_seconds = time.perf_counter() - start
+    start = time.perf_counter()
+    viz = template.instantiate(
+        output_path,
+        [checkpoint_run.build(template.data_root)],
+    )
+    run_steps(viz, steps)
+    elapsed_seconds = time.perf_counter() - start
 
     return {
-        "output_dir": str(cfg.output_path),
+        "output_dir": str(output_path),
         "prediction_path": str(prediction_path),
         "elapsed_seconds": elapsed_seconds,
     }
@@ -248,7 +262,8 @@ def _run_single_checkpoint_viz(
 
 def _worker_main(
     entries: list[CheckpointEvalTarget],
-    eval_config_args: tuple[str, ...],
+    eval_config_path: Path,
+    eval_override_args: tuple[str, ...],
     sweep_root: str,
     data_root: Location | None,
     gpu_index: int | None,
@@ -259,7 +274,8 @@ def _worker_main(
             queue.put(
                 _run_single_checkpoint_eval(
                     entry=entry,
-                    eval_config_args=eval_config_args,
+                    eval_config_path=eval_config_path,
+                    eval_override_args=eval_override_args,
                     sweep_root=Path(sweep_root),
                     data_root=data_root,
                     gpu_index=gpu_index,
@@ -270,15 +286,44 @@ def _worker_main(
         raise
 
 
+@dataclass(frozen=True)
+class CheckpointSweep:
+    """Ready-to-run checkpoint sweep built from configuration."""
+
+    eval_config_path: Path
+    checkpoint_paths: CheckpointPaths
+    eval_override_args: tuple[str, ...] = ()
+    data_root: Location | None = None
+    sweep_root: Path | None = None
+    viz_config_path: Path | None = None
+    last_n_checkpoints: int | None = None
+    checkpoints: list[int] | None = None
+    viz_dirname: str = "viz"
+
+    def run(self) -> list[dict[str, object]]:
+        return run_checkpoint_sweep(
+            eval_config_path=self.eval_config_path,
+            checkpoint_paths=self.checkpoint_paths,
+            eval_override_args=self.eval_override_args,
+            data_root=self.data_root,
+            sweep_root=self.sweep_root,
+            viz_config_path=self.viz_config_path,
+            last_n_checkpoints=self.last_n_checkpoints,
+            checkpoints=self.checkpoints,
+            viz_dirname=self.viz_dirname,
+        )
+
+
 def run_checkpoint_sweep(
-    eval_config_args: tuple[str, ...],
+    eval_config_path: Path,
     checkpoint_paths: CheckpointPaths,
+    eval_override_args: tuple[str, ...] = (),
     data_root: Location | None = None,
     sweep_root: Path | None = None,
-    viz_config_args: tuple[str, ...] | None = None,
+    viz_config_path: Path | None = None,
     last_n_checkpoints: int | None = None,
     checkpoints: list[int] | None = None,
-    viz_dirname: str | None = None,
+    viz_dirname: str = "viz",
 ) -> list[dict[str, object]]:
     targets = discover_checkpoints_from_directory(
         checkpoint_paths,
@@ -289,12 +334,12 @@ def run_checkpoint_sweep(
         logger.warning("No checkpoints selected for post-train eval sweep")
         return []
 
-    eval_cfg = EvalConfig.from_yaml_and_cli(list(eval_config_args))
+    eval_cfg = _load_eval_config(eval_config_path, eval_override_args)
     if sweep_root is None:
         sweep_root = checkpoint_paths.checkpoint_dir.parent / eval_cfg.experiment.name
     sweep_root.mkdir(parents=True, exist_ok=True)
 
-    if viz_config_args is not None and not eval_cfg.save_zarr:
+    if viz_config_path is not None and not eval_cfg.save_zarr:
         raise ValueError(
             "post-train viz sweep requires eval.save_zarr = true so predictions.zarr is written"
         )
@@ -314,7 +359,8 @@ def run_checkpoint_sweep(
             results.append(
                 _run_single_checkpoint_eval(
                     entry=entry,
-                    eval_config_args=eval_config_args,
+                    eval_config_path=eval_config_path,
+                    eval_override_args=eval_override_args,
                     sweep_root=sweep_root,
                     data_root=data_root,
                     gpu_index=gpu_index,
@@ -330,7 +376,8 @@ def run_checkpoint_sweep(
                 target=_worker_main,
                 args=(
                     shard,
-                    eval_config_args,
+                    eval_config_path,
+                    eval_override_args,
                     str(sweep_root),
                     data_root,
                     gpu_index,
@@ -369,64 +416,25 @@ def run_checkpoint_sweep(
 
     _write_summary(results, sweep_root)
 
-    if viz_config_args is not None:
+    if viz_config_path is not None:
+        from samudra.viz import VizTemplateConfig
+
         logger.info("Running post-train viz sweep for %d checkpoints", len(results))
-        with MultitonScope():
-            template_cfg = VizConfig.from_yaml_and_cli(list(viz_config_args))
-            if not template_cfg.runs:
-                raise ValueError(
-                    "post-train viz config must define at least one run so variables can be inferred"
-                )
-            prepared_groundtruth = template_cfg.prepare_groundtruth(
-                LocalLocation(path=Path.cwd())
-            )
+        template_cfg = VizTemplateConfig.from_yaml(viz_config_path)
+        default_data_root: ResolvedLocation = LocalLocation(path=Path.cwd())
+        if data_root is not None:
+            default_data_root = default_data_root.resolve(data_root)
+        template = template_cfg.build_template(default_data_root)
         for result in results:
             result["viz"] = _run_single_checkpoint_viz(
                 result,
-                template_cfg,
-                prepared_groundtruth,
+                template,
+                template_cfg.selected_steps,
                 viz_dirname=viz_dirname,
             )
         _write_summary(results, sweep_root)
 
     return results
-
-
-def run_post_train_checkpoint_sweep(
-    train_cfg: TrainConfig, checkpoint_paths: CheckpointPaths
-) -> list[dict[str, object]]:
-    if not train_cfg.post_train_eval.enabled:
-        return []
-
-    if train_cfg.post_train_eval.eval_config_path is None:
-        raise ValueError(
-            "post_train_eval.eval_config_path must be set when post_train_eval.enabled is true"
-        )
-
-    eval_config_path = (
-        Path(train_cfg.post_train_eval.eval_config_path).expanduser().resolve()
-    )
-    viz_config_args = None
-    if train_cfg.post_train_eval.viz_config_path is not None:
-        viz_config_path = (
-            Path(train_cfg.post_train_eval.viz_config_path).expanduser().resolve()
-        )
-        viz_config_args = (str(viz_config_path),)
-    sweep_root = None
-    if train_cfg.post_train_eval.eval_dirname is not None:
-        sweep_root = (
-            train_cfg.experiment.output_dir / train_cfg.post_train_eval.eval_dirname
-        )
-    return run_checkpoint_sweep(
-        eval_config_args=(str(eval_config_path),),
-        checkpoint_paths=checkpoint_paths,
-        data_root=train_cfg.experiment.data_root,
-        sweep_root=sweep_root,
-        viz_config_args=viz_config_args,
-        last_n_checkpoints=train_cfg.post_train_eval.last_n_checkpoints,
-        checkpoints=train_cfg.post_train_eval.checkpoints,
-        viz_dirname=train_cfg.post_train_eval.viz_dirname,
-    )
 
 
 def run_standalone_checkpoint_sweep(
@@ -437,16 +445,14 @@ def run_standalone_checkpoint_sweep(
     last_n_checkpoints: int | None = None,
     checkpoints: list[int] | None = None,
 ) -> list[dict[str, object]]:
-    eval_config_args = (str(eval_config_path), *(eval_override_args or []))
-    viz_config_args = (str(viz_config_path),) if viz_config_path is not None else None
-
-    return run_checkpoint_sweep(
-        eval_config_args=eval_config_args,
+    return CheckpointSweep(
+        eval_config_path=eval_config_path,
         checkpoint_paths=CheckpointPaths(checkpoint_dir),
-        viz_config_args=viz_config_args,
+        eval_override_args=tuple(eval_override_args or []),
+        viz_config_path=viz_config_path,
         last_n_checkpoints=last_n_checkpoints,
         checkpoints=checkpoints,
-    )
+    ).run()
 
 
 def main(argv: list[str] | None = None) -> None:

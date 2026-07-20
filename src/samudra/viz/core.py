@@ -65,6 +65,26 @@ class PreparedVizGroundtruth:
     wetmask: xr.DataArray
 
 
+@dataclasses.dataclass
+class VizTemplate:
+    # save prepared ground truth
+    dataset_name: str
+    data_root: ResolvedLocation
+    variables: list[str]
+    prepared_groundtruth: PreparedVizGroundtruth
+    observations: "ObsMetricsConfig | None" = None
+
+    def instantiate(self, output_path: Path, runs: list[VizRun]) -> "Viz":
+        return Viz(
+            str(output_path),
+            self.dataset_name,
+            runs,
+            prepared_groundtruth=self.prepared_groundtruth,
+            observations=self.observations,
+            data_root=self.data_root,
+        )
+
+
 class Viz:
     """Generates maps, time series, and probability density plots from evaluation outputs."""
 

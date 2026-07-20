@@ -14,7 +14,7 @@ import yaml
 
 from samudra.config import EvalConfig, TrainConfig
 from samudra.search.config import SearchConfig
-from samudra.viz import VizConfig
+from samudra.viz import VizConfig, VizTemplateConfig
 
 
 def get_pydantic_models(
@@ -168,6 +168,7 @@ def main():
     models.update(get_pydantic_models(EvalConfig))
     models.update(get_pydantic_models(VizConfig))
     models.update(get_pydantic_models(SearchConfig))
+    models.update(get_pydantic_models(VizTemplateConfig))
 
     generate_schemas(args.output_dir, models)
 

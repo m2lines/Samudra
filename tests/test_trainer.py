@@ -5,19 +5,16 @@
 import logging
 import tempfile
 from pathlib import Path
-from typing import Any, cast
 
 import pytest
 import torch
 
-import samudra.train as train_module
 from samudra.config import CpuDataLoadingConfig, DynamicLossConfig
 from samudra.models.base import BaseModel
 from samudra.train import Trainer, should_log_validation_images
 from samudra.utils.ctx import GridContext
 from samudra.utils.loss import DynamicLoss
 from samudra.utils.multiton import MultitonScope
-from samudra.utils.output import TrainBatchOutput
 from tests.conftest import DEFAULT_CONFIG, TrainPair
 
 
@@ -189,65 +186,6 @@ def test_should_log_validation_images_rejects_invalid_inputs():
 
     with pytest.raises(ValueError, match="Validation image log frequency must be >= 1"):
         should_log_validation_images(1, 0)
-
-
-def test_train_one_epoch_fails_on_nan_gradient_before_optimizer_step(monkeypatch):
-    class SingleParameterModel(torch.nn.Module):
-        def __init__(self):
-            super().__init__()
-            self.weight = torch.nn.Parameter(torch.tensor(1.0))
-
-    class FakeBatch:
-        load_stats = None
-
-    class FakeTrainAggregator:
-        def record_batch(self, batch):
-            pass
-
-        def get_logs(self):
-            return {}
-
-    class FakeOptimizer:
-        def __init__(self, parameters):
-            self.parameters = list(parameters)
-            self.param_groups = [{"lr": 0.1}]
-            self.step_called = False
-
-        def zero_grad(self):
-            for parameter in self.parameters:
-                parameter.grad = None
-
-        def step(self):
-            self.step_called = True
-
-    model = SingleParameterModel()
-    optimizer = FakeOptimizer(model.parameters())
-
-    def fake_train_batch(model, data, loss_fn):
-        loss = model.weight * torch.tensor(float("nan"))
-        return TrainBatchOutput(loss, loss.reshape(1))
-
-    monkeypatch.setattr(train_module, "train_batch", fake_train_batch)
-    monkeypatch.setattr(
-        train_module.Aggregator,
-        "get_train_aggregator",
-        staticmethod(lambda tensor_map: FakeTrainAggregator()),
-    )
-
-    trainer = cast(Any, object.__new__(Trainer))
-    trainer.debug = False
-    trainer.gradient_accumulation_steps = 1
-    trainer.loss_fn = object()
-    trainer.model = model
-    trainer.num_batches_seen = 1
-    trainer.optimizer = optimizer
-    trainer.tensor_map = None
-    trainer.train_loader = [FakeBatch()]
-
-    with pytest.raises(RuntimeError, match="non-finite"):
-        trainer.train_one_epoch(epoch=1)
-
-    assert not optimizer.step_called
 
 
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)

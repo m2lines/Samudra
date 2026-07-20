@@ -155,7 +155,7 @@ def test_extract_diagnostics_merges_selected_step_and_nearest_spatial_epoch():
     )
 
 
-def test_extract_diagnostics_ignores_non_scalar_wandb_media():
+def test_extract_diagnostics_preserves_wandb_media_reference():
     family = METRIC_FAMILIES[0]
     selected = {
         "epoch": 1,
@@ -174,6 +174,9 @@ def test_extract_diagnostics_ignores_non_scalar_wandb_media():
     diagnostics = extract_diagnostics(rows, selected, family)
 
     assert "val/spatial/zonal_power_spectrum" not in diagnostics
+    assert diagnostics["media/val/spatial/zonal_power_spectrum"] == {
+        "_type": "image-file"
+    }
     assert diagnostics["val/spatial/patch_seam_jump_ratio/variable/zos"] == 1.02
 
 

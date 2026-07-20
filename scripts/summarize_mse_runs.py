@@ -128,6 +128,16 @@ def _is_scalar(value: Any) -> bool:
     return isinstance(value, (str, int, float, bool)) or value is None
 
 
+def _media_reference(value: Any) -> dict[str, Any] | None:
+    """Return a JSON-safe W&B media reference when one is present."""
+    if not isinstance(value, Mapping):
+        return None
+    media_type = value.get("_type")
+    if not isinstance(media_type, str) or "file" not in media_type:
+        return None
+    return {str(key): item for key, item in value.items() if _is_scalar(item)}
+
+
 def extract_diagnostics(
     rows: Iterable[Mapping[str, Any]],
     selected: Mapping[str, Any],
@@ -138,7 +148,7 @@ def extract_diagnostics(
     W&B may split metrics logged at one explicit step across history fragments.
     This function merges those fragments, then adds the nearest spatial-image
     epoch at or before the selected checkpoint. Only scalar values are returned;
-    maps and spectra remain pinned in the linked W&B run.
+    maps and spectra are returned as JSON-safe W&B media references.
     """
     materialized = [dict(row) for row in rows]
     selected_epoch_rows = [
@@ -203,6 +213,13 @@ def extract_diagnostics(
                 if "/spatial/" in key and _is_scalar(value)
             }
         )
+        media_prefixes = ("/mean_map/", "/snapshot/", "/spatial/")
+        for key, value in spatial_values.items():
+            if not any(prefix in key for prefix in media_prefixes):
+                continue
+            media = _media_reference(value)
+            if media is not None:
+                diagnostics[f"media/{key}"] = media
 
     return dict(sorted(diagnostics.items()))
 

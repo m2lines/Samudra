@@ -127,6 +127,20 @@ keys; their corrupted legacy top-level value is not used for selection or gating
 The matched stratified v2 controls remain necessary to demonstrate ranking
 consistency, and the final decision will use completed two-seed results.
 
+Through epoch 6, the corrected stratified control also reproduces the original
+contiguous SamudraMulti curve closely. The mean absolute difference across the six
+paired validation epochs is `0.00141`, with a maximum of `0.00490`; epochs 1--4
+differ by at most `0.00052`. This supplies an initial representative-control
+calibration for the arbitrary-index interface. Terminal results and the matched v2
+ordering are still required before choosing the proxy for the B funnel.
+
+The same run confirms the selected A5 path at normal proxy fidelity. Its latest
+completed epoch used about `283` training seconds for 512 samples, or `1.81`
+samples/second on one GPU. The historical four-GPU proxy took about `120` seconds
+per epoch (`4.27` samples/second total, approximately `1.07` per GPU). Thus the
+portable path is about `1.7x` more throughput-efficient per GPU while reproducing
+the control curve and reducing the allocation from four GPUs to one.
+
 ## A5 decoder, checkpoint, and logging microbenchmarks
 
 The A5 screen isolates three avoidable costs on the same four-sample, 30-epoch

@@ -1,15 +1,12 @@
 #!/bin/bash
-#SBATCH -p mit_normal_gpu
-#SBATCH --job-name=2026-07-20-eval:Samudra_LLC:rb-Agulhas-pred_field-eager-ckpt50-fixed
-#SBATCH --account=mit_amf_advanced_gpu
-#SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH -x node4100,node3401,node3000
+#SBATCH -p pi_abodner
+#SBATCH --job-name=2026-07-20-eval:Samudra_LLC:rb-Agulhas-pred_resid-eager-ckpt50-fixed-3weeks
 #SBATCH -N 1
 #SBATCH --mem=100GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
-#SBATCH -G h200:1
-#SBATCH --time=00-2:30:00
+#SBATCH --gres=gpu:1
+#SBATCH --time=00-3:30:00
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 set -euo pipefail
@@ -30,18 +27,18 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
-CKPT_PATH="${CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-07-18:samudra_llc:rb-Agulhas-strides=1-pred_field-eager-4-LOSS-RESTART-18303864/saved_nets/ckpt_50.pt}"
+CKPT_PATH="${CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-07-18:samudra_llc:rb-Agulhas-strides=1-pred_resid-eager-4-LOSS-RESTART-18303866/saved_nets/ckpt_50.pt}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-/orcd/data/abodner/002/cody/inference_patch}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 
 INFER_START="${INFER_START:-2012-10-14}"
-INFER_END="${INFER_END:-2012-10-28}"
+INFER_END="${INFER_END:-2012-11-5}"
 INFERENCE_STRIDE="${INFERENCE_STRIDE:-1}"
 NUM_MODEL_STEPS_FORWARD="${NUM_MODEL_STEPS_FORWARD:-7}"
 MODEL_NORM="${MODEL_NORM:-group}"
 GROUP_NORM_GROUPS="${GROUP_NORM_GROUPS:-32}"
-PRED_RESIDUALS="${PRED_RESIDUALS:-false}"
+PRED_RESIDUALS="${PRED_RESIDUALS:-true}"
 MODEL_PAD="${MODEL_PAD:-constant}"
 NUM_HALO="${NUM_HALO:-4}"
 NUM_SPONGE="${NUM_SPONGE:-12}"
@@ -56,8 +53,23 @@ LLC_J_END="${LLC_J_END:-1440}" # 2160
 
 
 RAW_PRED_ZARR="${RAW_PRED_ZARR:-${BASE_OUTPUT_DIR}/${EXPERIMENT_NAME}/predictions.zarr}"
-TARGET_ZARR="${TARGET_ZARR:-${BASE_OUTPUT_DIR}/${EXPERIMENT_NAME}/predictions_4d.zarr}"
 REPACK_OVERWRITE="${REPACK_OVERWRITE:-false}"
+# To extend an existing rollout without recomputing it, set this to that
+# rollout's flat predictions.zarr. Keep INFER_START and INFERENCE_STRIDE equal
+# to the original run, and extend only INFER_END. The raw store is appended in
+# place; the default repacked target is a new *_extended-<jobid>.zarr store.
+RESUME_PREDICTION_ZARR="${RESUME_PREDICTION_ZARR:-}"
+
+if [[ -n "${RESUME_PREDICTION_ZARR}" ]]; then
+  if [[ ! -d "${RESUME_PREDICTION_ZARR}" ]]; then
+    echo "Resume prediction zarr not found: ${RESUME_PREDICTION_ZARR}" >&2
+    exit 1
+  fi
+  RAW_PRED_ZARR="${RESUME_PREDICTION_ZARR}"
+  TARGET_ZARR="${TARGET_ZARR:-${RESUME_PREDICTION_ZARR%/predictions.zarr}/predictions_4d_extended-${SLURM_JOB_ID}.zarr}"
+else
+  TARGET_ZARR="${TARGET_ZARR:-${BASE_OUTPUT_DIR}/${EXPERIMENT_NAME}/predictions_4d.zarr}"
+fi
 
 echo "======== evaluating epoch-1 checkpoint on October 2012 ========"
 echo "checkpoint: ${CKPT_PATH}"
@@ -76,6 +88,9 @@ fi
 echo "raw prediction zarr: ${RAW_PRED_ZARR}"
 echo "target repacked zarr: ${TARGET_ZARR}"
 echo "repack overwrite: ${REPACK_OVERWRITE}"
+if [[ -n "${RESUME_PREDICTION_ZARR}" ]]; then
+  echo "resume prediction zarr: ${RESUME_PREDICTION_ZARR}"
+fi
 echo "llc crop: face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
 echo
 echo "Note: dates are parsed as Julian-noon in this codebase; with hist=1 this yields"
@@ -88,6 +103,11 @@ if [[ -n "${MODEL_NORM}" ]]; then
   if [[ "${MODEL_NORM}" == "group" ]]; then
     MODEL_ARGS+=(--model.unet.core_block.group_norm_groups "${GROUP_NORM_GROUPS}")
   fi
+fi
+
+RESUME_ARGS=()
+if [[ -n "${RESUME_PREDICTION_ZARR}" ]]; then
+  RESUME_ARGS+=(--resume_prediction_zarr "${RESUME_PREDICTION_ZARR}")
 fi
 if [[ -n "${MODEL_PAD}" ]]; then
   MODEL_ARGS+=(--model.pad "${MODEL_PAD}")
@@ -115,6 +135,7 @@ fi
   --experiment.prognostic_vars_key all \
   --experiment.boundary_vars_key all \
   --data.data_location "${DATA_LOCATION}" \
+  "${RESUME_ARGS[@]}" \
   "${MODEL_ARGS[@]}" \
   --data.llc_face "${LLC_FACE}" \
   --data.llc_i_start "${LLC_I_START}" \

@@ -1236,6 +1236,16 @@ class EvalConfig(TopLevelConfig):
     num_model_steps_forward: int = 200
     inference_stride: int = 1
     backend: EvalBackendConfig = "auto"
+    resume_prediction_zarr: str | None = Field(
+        default=None,
+        description=(
+            "Existing flat predictions.zarr to extend in place. The stored final "
+            "prediction is used as the autoregressive state; the requested "
+            "inference window must include the complete original window. "
+            "Repacked predictions_4d.zarr stores cannot be used because they "
+            "do not retain every prognostic channel."
+        ),
+    )
 
     # Config components
     inference_time: TimeConfig = TimeConfig(

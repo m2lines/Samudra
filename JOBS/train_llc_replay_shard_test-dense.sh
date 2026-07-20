@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=dense-replay-1gpu-704-speed
+#SBATCH --job-name=dense-replay-1gpu-704-speed-2
 #SBATCH -N 1
 #SBATCH --mem=300GB
 #SBATCH --ntasks=1

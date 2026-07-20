@@ -286,6 +286,47 @@ def test_inference_rollout(inf_data_init, hist, num_steps):
     assert torch.equal(prediction.flatten(), expected_prediction)
 
 
+def test_inference_rollout_continues_from_saved_prediction(inf_data_init):
+    """A saved final rollout state can seed the remaining model steps."""
+    hist = 1
+    inference_dataset, wet = inf_data_init
+    model = MockModel(
+        in_channels=1,
+        out_channels=inference_dataset.num_prognostic_channels,
+        wet=wet,
+        hist=hist,
+        pred_residuals=False,
+        last_kernel_size=3,
+        pad="circular",
+        static_data=None,
+        gradient_detach_interval=0,
+    )
+    model.eval()
+
+    full = model.inference(
+        inference_dataset,
+        inference_dataset.initial_prognostic,
+        num_steps=4,
+        epoch=0,
+    )
+    first_part = model.inference(
+        inference_dataset,
+        inference_dataset.initial_prognostic,
+        num_steps=2,
+        epoch=0,
+    )
+    continued = model.inference(
+        inference_dataset,
+        first_part.prediction[-1].unsqueeze(0),
+        steps_completed=2,
+        num_steps=2,
+        epoch=0,
+    )
+
+    assert torch.equal(continued.prediction, full.prediction[2:])
+    assert torch.equal(continued.target, full.target[2:])
+
+
 # These tests will fail with OHC PR
 @pytest.mark.parametrize("hist", [0, 1, 2, 3, 4])
 @pytest.mark.parametrize("merge_step", [1, 2, 3])

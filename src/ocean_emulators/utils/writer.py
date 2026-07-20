@@ -18,12 +18,22 @@ class ZarrWriter:
         hist: int,
         model_path: str | os.PathLike,
         time_chunk_size: int,
+        prediction_path: str | os.PathLike | None = None,
+        resume: bool = False,
     ):
-        self.pred_path = os.path.join(output_dir, "predictions.zarr")
+        self.pred_path = (
+            os.fspath(prediction_path)
+            if prediction_path is not None
+            else os.path.join(output_dir, "predictions.zarr")
+        )
 
-        if os.path.exists(self.pred_path):
+        if os.path.exists(self.pred_path) and not resume:
             raise FileExistsError(
                 f"Predictions already exist at {self.pred_path}. Please choose a unique experiment name, output directory, or delete the existing predictions."
+            )
+        if resume and not os.path.isdir(self.pred_path):
+            raise FileNotFoundError(
+                f"Cannot resume: prediction zarr does not exist at {self.pred_path}."
             )
 
         self.hist = hist

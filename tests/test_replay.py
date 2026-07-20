@@ -575,6 +575,28 @@ def test_replay_prefetch_pipeline_yields_prepared_batch():
     assert label.flatten().tolist() == [30.0]
 
 
+def test_replay_prefetch_consumes_async_results_in_request_order():
+    pipeline = _ReplayPrefetchPipeline.__new__(_ReplayPrefetchPipeline)
+    pipeline._next_to_yield = 3
+    pipeline._raw_cache = {}
+    pipeline._prepared_cache = {}
+    pipeline._result_queue = queue.Queue()
+
+    request_3 = SimpleNamespace(request_id=3)
+    request_4 = SimpleNamespace(request_id=4)
+    raw_3 = SimpleNamespace(request=request_3)
+    raw_4 = SimpleNamespace(request=request_4)
+    pipeline._result_queue.put(raw_4)
+    pipeline._result_queue.put(raw_3)
+
+    assert pipeline._wait_for_any_raw_batch() is raw_3
+    assert pipeline._raw_cache == {4: raw_4}
+    assert pipeline._pop_ready_raw() is None
+
+    pipeline._next_to_yield = 4
+    assert pipeline._pop_ready_raw() is raw_4
+
+
 def test_domain_follower_prefetch_uses_metadata_without_reader_threads():
     cursor = ReplayCursor(
         dataset_index=0,

@@ -295,22 +295,15 @@ class _ReplayPrefetchPipeline:
     def _pop_ready_prepared(self) -> _ReplayPreparedBatch | None:
         if not self._prepared_cache:
             return None
-        if getattr(self.trainer, "dp_ctx", None) is not None:
-            return self._prepared_cache.pop(self._next_to_yield, None)
-        if self._next_to_yield in self._prepared_cache:
-            return self._prepared_cache.pop(self._next_to_yield)
-        request_id = next(iter(self._prepared_cache))
-        return self._prepared_cache.pop(request_id)
+        # Parallel readers may finish out of order, but replay updates are
+        # stateful. Consume the preplanned sequence deterministically so I/O
+        # timing cannot change the optimizer trajectory.
+        return self._prepared_cache.pop(self._next_to_yield, None)
 
     def _pop_ready_raw(self) -> RawReplayBatch | None:
         if not self._raw_cache:
             return None
-        if getattr(self.trainer, "dp_ctx", None) is not None:
-            return self._raw_cache.pop(self._next_to_yield, None)
-        if self._next_to_yield in self._raw_cache:
-            return self._raw_cache.pop(self._next_to_yield)
-        request_id = next(iter(self._raw_cache))
-        return self._raw_cache.pop(request_id)
+        return self._raw_cache.pop(self._next_to_yield, None)
 
     def _prepare_cached_ready_without_blocking(self) -> None:
         if getattr(self.trainer, "dp_ctx", None) is not None:
@@ -464,10 +457,7 @@ class _ReplayPrefetchPipeline:
             if isinstance(result, BaseException):
                 raise result
             raw_batch = result
-            if (
-                getattr(self.trainer, "dp_ctx", None) is None
-                or raw_batch.request.request_id == self._next_to_yield
-            ):
+            if raw_batch.request.request_id == self._next_to_yield:
                 return raw_batch
             self._raw_cache[raw_batch.request.request_id] = raw_batch
 

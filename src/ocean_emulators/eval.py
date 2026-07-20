@@ -2,8 +2,11 @@ import datetime
 import logging
 import time
 from collections import OrderedDict
+from pathlib import Path
 
+import numpy as np
 import torch
+import xarray as xr
 
 from ocean_emulators.aggregator import Aggregator
 from ocean_emulators.backend import init_eval_backend
@@ -174,6 +177,96 @@ class Eval:
         self.normalize_before_mask = cfg.data.normalize_before_mask
         self.masked_fill_value = cfg.data.masked_fill_value
         self.init_inference_store()
+        self.resume_prediction_zarr = (
+            Path(cfg.resume_prediction_zarr)
+            if cfg.resume_prediction_zarr is not None
+            else None
+        )
+        self.resume_steps = 0
+        self.resume_initial_prognostic: torch.Tensor | None = None
+        if self.resume_prediction_zarr is not None:
+            self.resume_steps, self.resume_initial_prognostic = self.load_resume_state(
+                self.resume_prediction_zarr
+            )
+
+    def load_resume_state(self, prediction_zarr: Path) -> tuple[int, torch.Tensor]:
+        """Load and validate the final state of an existing flat prediction store."""
+        if not prediction_zarr.is_dir():
+            raise FileNotFoundError(
+                f"Resume prediction zarr does not exist: {prediction_zarr}"
+            )
+
+        try:
+            predictions = xr.open_zarr(prediction_zarr, consolidated=True)
+        except (KeyError, ValueError):
+            predictions = xr.open_zarr(prediction_zarr, consolidated=False)
+
+        expected_variables = list(self.prognostic_var_names)
+        missing = [name for name in expected_variables if name not in predictions]
+        if missing:
+            hint = " This looks like a repacked predictions_4d.zarr store." if "Eta" in missing else ""
+            raise ValueError(
+                "Resume requires the flat predictions.zarr store with every "
+                f"prognostic channel; missing {missing[:5]}.{hint}"
+            )
+        if predictions.sizes.get("time", 0) == 0:
+            raise ValueError(f"Resume prediction zarr is empty: {prediction_zarr}")
+
+        saved_prediction_count = int(predictions.sizes["time"])
+        output_times_per_step = self.hist + 1
+        if saved_prediction_count % output_times_per_step != 0:
+            raise ValueError(
+                "Resume prediction zarr ends with an incomplete model output: "
+                f"{saved_prediction_count} saved times is not divisible by "
+                f"hist + 1 ({output_times_per_step})."
+            )
+        resume_steps = saved_prediction_count // output_times_per_step
+        if resume_steps >= len(self.inference_dataset):
+            raise ValueError(
+                "Resume prediction zarr already contains "
+                f"{saved_prediction_count} saved predictions ({resume_steps} model "
+                "steps), but this inference window has only "
+                f"{len(self.inference_dataset)} steps. Increase inference_time.end."
+            )
+
+        expected_times = self.inference_dataset.get_target_time(0, resume_steps)
+        stored_times = predictions.time.values
+        if not np.array_equal(stored_times, expected_times.values):
+            raise ValueError(
+                "Resume prediction times do not match the requested inference "
+                "window. Use the original inference_time.start and stride, and "
+                "only extend inference_time.end."
+            )
+
+        final_history = np.stack(
+            [
+                predictions[name]
+                .isel(time=slice(-output_times_per_step, None))
+                .values
+                for name in expected_variables
+            ],
+            axis=1,
+        )
+        initial_history = torch.from_numpy(final_history).float()
+        initial_history = self.normalize.normalize_tensor_prognostic(
+            initial_history,
+            fill_value=self.masked_fill_value,
+        )
+        initial_history = torch.where(
+            self.inference_dataset.wet,
+            initial_history,
+            self.masked_fill_value,
+        )
+        initial_prognostic = initial_history.unsqueeze(0).flatten(start_dim=1, end_dim=2)
+        logger.info(
+            "Resuming inference from %s after %s saved predictions (%s model "
+            "steps); %s steps remain.",
+            prediction_zarr,
+            saved_prediction_count,
+            resume_steps,
+            len(self.inference_dataset) - resume_steps,
+        )
+        return resume_steps, initial_prognostic
 
     def load_checkpoint(self, ckpt_path: str):
         checkpoint = torch.load(ckpt_path, map_location=torch.device(self.device))
@@ -275,6 +368,9 @@ class Eval:
             model_path=self.model_path,
             num_model_steps_forward=self.num_model_steps_forward,
             save_zarr=self.save_zarr,
+            resume_steps=self.resume_steps,
+            resume_initial_prognostic=self.resume_initial_prognostic,
+            resume_prediction_zarr=self.resume_prediction_zarr,
         )
         logs = inf_aggregator.get_summary_logs()
         return {f"inference/{k}": v for k, v in logs.items()}

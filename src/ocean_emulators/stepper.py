@@ -64,7 +64,19 @@ class Stepper:
         model_path: str | PathLike | None = None,
         num_model_steps_forward: int = 200,
         save_zarr: bool = False,
+        resume_steps: int = 0,
+        resume_initial_prognostic: torch.Tensor | None = None,
+        resume_prediction_zarr: str | PathLike | None = None,
     ) -> None:
+        if resume_steps < 0 or resume_steps > len(dataset):
+            raise ValueError(
+                f"resume_steps must be between 0 and {len(dataset)}, got {resume_steps}."
+            )
+        if (resume_steps == 0) != (resume_initial_prognostic is None):
+            raise ValueError(
+                "resume_steps and resume_initial_prognostic must either both be "
+                "provided or both be omitted."
+            )
         if save_zarr:
             if output_dir is None or model_path is None:
                 raise ValueError(
@@ -81,16 +93,23 @@ class Stepper:
                 hist=inf_aggregator.hist,
                 model_path=model_path,
                 time_chunk_size=chunk_size,
+                prediction_path=resume_prediction_zarr,
+                resume=resume_steps > 0,
             )
         else:
             writer = None
         record_logs = get_record_to_wandb(label="inference")
         logger.info(f"Inference [epoch {epoch}]: processing initial prognostic.")
+        initial_prognostic = (
+            resume_initial_prognostic
+            if resume_initial_prognostic is not None
+            else dataset.initial_prognostic
+        )
         logs = inf_aggregator.record_initial_prognostic(
-            initial_prognostic=dataset.initial_prognostic.to(get_device()),
+            initial_prognostic=initial_prognostic.to(get_device()),
         )
         record_logs(logs)
-        num_model_steps = len(dataset)
+        num_model_steps = len(dataset) - resume_steps
         num_steps_list = []
 
         # If num_model_steps_forward is -1, then we are doing a full forward pass
@@ -108,8 +127,7 @@ class Stepper:
                 num_steps_list = [num_model_steps]
 
         num_loops = len(num_steps_list)
-        initial_prognostic = dataset.initial_prognostic
-        step = 0
+        step = resume_steps
         for loop, num_steps in enumerate(num_steps_list):
             logger.info(
                 f"Inference [epoch {epoch}]: loop {loop} of {num_loops - 1}. "

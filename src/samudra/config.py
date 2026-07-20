@@ -35,6 +35,8 @@ from samudra.models.modules import (
     ConvNeXtBlock,
     CoreBlock,
     CoreBlockBuilder,
+    DirectPatchDecoder,
+    DirectPatchEncoder,
     MaxPool,
     PerceiverDecoder,
     PerceiverEncoder,
@@ -620,6 +622,11 @@ def _flash_import_error() -> ValueError:
 
 
 class EncoderConfig(BaseConfig):
+    direct_projection: bool = Field(
+        default=False,
+        description="Replace the Perceiver encoder with a direct 1x1 projection. "
+        "Only valid when the physical patch extent resolves to one grid cell.",
+    )
     perceiver: PerceiverConfig = PerceiverConfig()
     spatial_query_shape: tuple[int, int] | None = Field(
         default=None,
@@ -646,8 +653,23 @@ class EncoderConfig(BaseConfig):
         max_lat_size: int,
         max_lon_size: int,
         implementation: PerceiverImpl,
-    ) -> PerceiverEncoder:
+    ) -> PerceiverEncoder | DirectPatchEncoder:
         max_patch_size = patch_from(patch_extent, max_lat_size, max_lon_size)
+        if self.direct_projection:
+            if self.spatial_query_shape is not None:
+                raise ValueError(
+                    "direct_projection and spatial_query_shape are mutually exclusive."
+                )
+            if max_patch_size != (1, 1):
+                raise ValueError(
+                    "The direct encoder requires a one-cell patch on every source; "
+                    f"the largest source resolves to {max_patch_size}."
+                )
+            return DirectPatchEncoder(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                patch_extent=patch_extent,
+            )
         if self.spatial_query_shape is not None:
             if any(size <= 0 for size in self.spatial_query_shape):
                 raise ValueError("spatial_query_shape entries must be positive.")
@@ -696,6 +718,11 @@ class DecoderConfig(BaseConfig):
     is large (i.e. fine ``patch_extent``).
     """
 
+    direct_projection: bool = Field(
+        default=False,
+        description="Replace the Perceiver decoder with a direct 1x1 projection. "
+        "Only valid when the processor and output grids match.",
+    )
     perceiver: PerceiverConfig = PerceiverConfig()
     queries_dim: int = Field(
         default=64,
@@ -725,7 +752,17 @@ class DecoderConfig(BaseConfig):
         patch_extent: tuple[float, float],
         implementation: PerceiverImpl,
         fine_scale_in_channels: int | None = None,
-    ) -> PerceiverDecoder:
+    ) -> PerceiverDecoder | DirectPatchDecoder:
+        if self.direct_projection:
+            if fine_scale_in_channels is not None:
+                raise ValueError(
+                    "Direct decoding cannot be combined with fine-scale queries."
+                )
+            return DirectPatchDecoder(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                patch_extent=patch_extent,
+            )
         return PerceiverDecoder(
             in_channels=in_channels,
             out_channels=out_channels,

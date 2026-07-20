@@ -11,6 +11,7 @@ from samudra.config import (
     CpuDataLoadingConfig,
     DataConfig,
     DataSourceConfig,
+    DecoderConfig,
     EncoderConfig,
     GpuDataLoadingConfig,
     LlcDatasetConfig,
@@ -22,6 +23,7 @@ from samudra.config import (
     TrainConfig,
 )
 from samudra.config_schema import get_pydantic_models
+from samudra.models.modules import DirectPatchDecoder, DirectPatchEncoder
 from samudra.utils.location import LocalLocation, UnresolvedLocation
 from samudra.utils.schedule import CosineSchedulerConfig
 
@@ -282,3 +284,38 @@ def test_spatial_query_encoder_expands_processor_channels():
     )
 
     assert encoder.out_channels == 240
+
+
+def test_direct_representation_configs_build_projection_heads():
+    encoder = EncoderConfig(direct_projection=True).build(
+        in_channels=10,
+        out_channels=128,
+        patch_extent=(1.0, 1.0),
+        max_lat_size=180,
+        max_lon_size=360,
+        implementation="naive",
+    )
+    decoder = DecoderConfig(direct_projection=True).build(
+        in_channels=380,
+        out_channels=154,
+        patch_extent=(1.0, 1.0),
+        implementation="naive",
+    )
+
+    assert isinstance(encoder, DirectPatchEncoder)
+    assert encoder.out_channels == 128
+    assert isinstance(decoder, DirectPatchDecoder)
+
+
+def test_direct_encoder_config_rejects_spatial_compression():
+    config = EncoderConfig(direct_projection=True)
+
+    with pytest.raises(ValueError, match="requires a one-cell patch"):
+        config.build(
+            in_channels=10,
+            out_channels=128,
+            patch_extent=(3.0, 5.0),
+            max_lat_size=180,
+            max_lon_size=360,
+            implementation="naive",
+        )

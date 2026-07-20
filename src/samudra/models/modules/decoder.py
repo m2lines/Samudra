@@ -6,15 +6,62 @@
 
 import torch
 import torch.nn.functional as F
-from aurora.model.fourier import pos_expansion, scale_expansion
-from aurora.model.posencoding import pos_scale_enc
 from einops import rearrange
 from jaxtyping import Float
 from torch import nn
 
 from samudra.constants import Lat, Lon
 from samudra.models.modules.augment_input import make_3d_coordinate_grid
-from samudra.models.modules.encoder import patch_from
+from samudra.models.modules.encoder import patch_from, pos_scale_enc_for_grid
+
+
+class DirectPatchDecoder(nn.Module):
+    """Decode processor cells with a direct per-pixel linear projection.
+
+    The decoder is restricted to one-pixel patches and therefore preserves the
+    processor's full physical grid. ``fine_scale_features`` is accepted only to
+    keep the common SamudraMulti decoder interface; this control does not use a
+    skip path.
+    """
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        patch_extent: tuple[float, float],
+    ) -> None:
+        super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.patch_extent = patch_extent
+        self.projection = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+
+    def forward(
+        self,
+        x: Float[torch.Tensor, "batch channels H W"],
+        resolution: tuple[Lat, Lon],
+        fine_scale_features: torch.Tensor | None = None,
+    ) -> Float[torch.Tensor, "batch {self.out_channels} H W"]:
+        del fine_scale_features
+        _, channels, height, width = x.shape
+        if channels != self.in_channels:
+            raise ValueError(
+                f"Expected {self.in_channels} input channels, got {channels}."
+            )
+        lat, lon = resolution
+        output_shape = len(lat), len(lon)
+        if (height, width) != output_shape:
+            raise ValueError(
+                "DirectPatchDecoder requires the processor and output grids to match; "
+                f"got processor grid {(height, width)} and output grid {output_shape}."
+            )
+        patch_size = patch_from(self.patch_extent, height, width)
+        if patch_size != (1, 1):
+            raise ValueError(
+                "DirectPatchDecoder requires one-pixel patches; "
+                f"got patch size {patch_size} for grid {(height, width)}."
+            )
+        return self.projection(x)
 
 
 class PerceiverDecoder(nn.Module):
@@ -151,13 +198,11 @@ class PerceiverDecoder(nn.Module):
         # --- Add pos/scale encoding to latent tokens (before perceiver, unlike encoder) ---
         tokens = rearrange(x, "b c nh nw -> b (nh nw) c")
 
-        pos_encode, scale_encode = pos_scale_enc(
+        pos_encode, scale_encode = pos_scale_enc_for_grid(
             C,
             lat,
             lon,
             (pos_patch_h, pos_patch_w),
-            pos_expansion=pos_expansion,
-            scale_expansion=scale_expansion,
         )
         pos_encoding = self.pos_embed(
             pos_encode.to(dtype=tokens.dtype, device=tokens.device)

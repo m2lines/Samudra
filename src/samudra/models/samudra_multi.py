@@ -14,7 +14,12 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
 
 from samudra.constants import Boundary, Prognostic
 from samudra.models.base import BaseModel
-from samudra.models.modules import PerceiverDecoder, PerceiverEncoder
+from samudra.models.modules import (
+    DirectPatchDecoder,
+    DirectPatchEncoder,
+    PerceiverDecoder,
+    PerceiverEncoder,
+)
 from samudra.models.modules.unet_backbone import UNetBackbone
 from samudra.utils.ctx import GridContext
 from samudra.utils.device import autocast
@@ -29,6 +34,8 @@ _checkpoint_types: tuple[type, ...] = (
     Perceiver,
     PerceiverDecoder,
     PerceiverEncoder,
+    DirectPatchDecoder,
+    DirectPatchEncoder,
     UNetBackbone,
     Attention,
 )
@@ -60,9 +67,9 @@ class SamudraMulti(BaseModel):
         last_kernel_size: int,
         pad: str,
         add_3d_coordinates: nn.Module | None,
-        encoder: PerceiverEncoder,
+        encoder: PerceiverEncoder | DirectPatchEncoder,
         processor: UNetBackbone,
-        decoder: PerceiverDecoder,
+        decoder: PerceiverDecoder | DirectPatchDecoder,
         hist: int,
         checkpointing: "Checkpointing | None",
         gradient_detach_interval: int,
@@ -95,7 +102,15 @@ class SamudraMulti(BaseModel):
             # processor is not wrapped a second time.
             apply_activation_checkpointing(
                 self,
-                check_fn=lambda m: isinstance(m, (PerceiverEncoder, PerceiverDecoder)),
+                check_fn=lambda m: isinstance(
+                    m,
+                    (
+                        PerceiverEncoder,
+                        PerceiverDecoder,
+                        DirectPatchEncoder,
+                        DirectPatchDecoder,
+                    ),
+                ),
             )
 
     def forward_once(

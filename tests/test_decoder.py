@@ -7,7 +7,11 @@ import torch
 from perceiver_pytorch.perceiver_io import PerceiverIO
 from test_encoder import make_resolution  # type: ignore
 
-from samudra.models.modules import PerceiverDecoder, PerceiverEncoder
+from samudra.models.modules import (
+    DirectPatchDecoder,
+    PerceiverDecoder,
+    PerceiverEncoder,
+)
 
 # Small values for fast tests.
 LATENT_DIM = 8
@@ -167,6 +171,32 @@ def test_decode(resolution, latent_input, decoder_kwargs):
     assert y_hat.shape == (BATCH, OUT_CHANNELS, H, W), (
         f"Decoder should produce full-resolution output, got {y_hat.shape}."
     )
+
+
+def test_direct_decoder_preserves_one_pixel_grid(resolution):
+    decoder = DirectPatchDecoder(
+        in_channels=IN_CHANNELS,
+        out_channels=OUT_CHANNELS,
+        patch_extent=(180 / H, 360 / W),
+    )
+    x = torch.randn(BATCH, IN_CHANNELS, H, W, requires_grad=True)
+
+    output = decoder(x, resolution)
+
+    assert output.shape == (BATCH, OUT_CHANNELS, H, W)
+    output.sum().backward()
+    assert decoder.projection.weight.grad is not None
+
+
+def test_direct_decoder_rejects_mismatched_grid(resolution):
+    decoder = DirectPatchDecoder(
+        in_channels=IN_CHANNELS,
+        out_channels=OUT_CHANNELS,
+        patch_extent=(180 / H, 360 / W),
+    )
+
+    with pytest.raises(ValueError, match="processor and output grids to match"):
+        decoder(torch.randn(BATCH, IN_CHANNELS, H // 2, W), resolution)
 
 
 def test_windowed_decode(resolution, latent_input, decoder_kwargs):

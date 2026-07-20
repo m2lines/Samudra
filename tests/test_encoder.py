@@ -2,12 +2,14 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import pytest
 import torch
 from perceiver_pytorch import Perceiver
 from torch import nn
 
 from samudra.constants import Lat, Lon
 from samudra.models.modules.encoder import (
+    DirectPatchEncoder,
     PerceiverEncoder,
     SpatialQueryPerceiver,
     patch_from,
@@ -136,6 +138,33 @@ def test_spatial_queries_pack_ordered_outputs_as_processor_channels():
     assert patches.shape == (2, 60, 2, 2)
     patches.sum().backward()
     assert spatial_perceiver.query_offset.grad is not None
+
+
+def test_direct_encoder_preserves_one_pixel_grid():
+    x = torch.randn(2, 10, 6, 10, requires_grad=True)
+    encoder = DirectPatchEncoder(
+        in_channels=10,
+        out_channels=12,
+        patch_extent=(30, 36),
+    )
+
+    encoded = encoder(x, make_resolution(x))
+
+    assert encoded.shape == (2, 12, 6, 10)
+    encoded.sum().backward()
+    assert encoder.projection.weight.grad is not None
+
+
+def test_direct_encoder_rejects_spatial_compression():
+    x = torch.randn(1, 10, 6, 10)
+    encoder = DirectPatchEncoder(
+        in_channels=10,
+        out_channels=12,
+        patch_extent=(60, 72),
+    )
+
+    with pytest.raises(ValueError, match="requires one-pixel patches"):
+        encoder(x, make_resolution(x))
 
 
 def test_patch_from__full_globe():

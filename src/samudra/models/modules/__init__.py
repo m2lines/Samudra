@@ -15,8 +15,8 @@ from .blocks import (
     UpsamplingBlockBuilder,
     ZonallyPeriodicBilinearUpsample,
 )
-from .decoder import PerceiverDecoder
-from .encoder import PerceiverEncoder, SpatialQueryPerceiver
+from .decoder import DirectPatchDecoder, PerceiverDecoder
+from .encoder import DirectPatchEncoder, PerceiverEncoder, SpatialQueryPerceiver
 from .unet_backbone import UNetBackbone
 
 __all__ = [
@@ -30,6 +30,8 @@ __all__ = [
     "CappedGELU",
     "CappedLeakyReLU",
     "MaxPool",
+    "DirectPatchDecoder",
+    "DirectPatchEncoder",
     "PerceiverDecoder",
     "PerceiverEncoder",
     "SpatialQueryPerceiver",

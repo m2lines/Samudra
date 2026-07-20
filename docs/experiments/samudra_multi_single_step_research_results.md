@@ -757,3 +757,39 @@ The paired forecast screen uses one GPU per seed with batch size two and 16-step
 gradient accumulation, preserving effective global batch 32. Slurm `14399789`
 (seed 15) and `14399790` (seed 16) use the same immutable image and began normally;
 their two-seed mean will be compared directly with the `0.08575` promotion gate.
+
+### One-cell representation controls
+
+The next controlled comparison separates two bottlenecks that the 3-degree by
+5-degree experiments conflate. Both new arms use a 1-degree by 1-degree physical
+patch extent and therefore preserve the native 180 by 360 grid throughout the
+processor:
+
+1. **One-cell Perceiver:** retain the Perceiver encoder and PerceiverIO decoder,
+   but give each encoder patch and decoder target exactly one native grid cell.
+   This removes within-patch spatial compression while retaining the learned
+   latent representation machinery.
+2. **One-cell direct:** replace the encoder and decoder Perceivers with learned
+   1-by-1 channel projections. This removes both within-patch compression and
+   the Perceiver bottleneck while leaving the processor unchanged.
+
+The 3-degree by 5-degree spatial-token arm remains the reference. All arms retain
+one-degree data, one-step absolute-field prediction, plain normalized MSE,
+effective global batch 32, the fixed proxy samples and seeds, and the same
+unweighted validation diagnostics. Identity and throughput screens precede paired
+proxy training because the full-resolution processor is expected to cost materially
+more memory and compute. This user-authorized diagnostic is the explicit exception
+to the promoted setup's fixed 3-degree by 5-degree physical patch rule.
+
+Aurora's scale encoding ordinarily estimates patch area from the minimum and
+maximum pixel centers in each patch. Those values coincide for a one-pixel patch,
+so the first focused test exposed a zero-area assertion. The shared encoder and
+decoder encoding path now infers latitude and longitude cell edges from adjacent
+centers for exactly this case. The direct heads are opt-in through
+`model.encoder.direct_projection` and `model.decoder.direct_projection`, reject
+spatially compressive patch sizes, and do not add a skip or residual path. The
+focused representation/configuration suite passes 45 tests; repository-wide Ruff,
+formatting, mypy, schema, YAML, secret, and license checks pass. The broader CPU
+suite passes 404 tests with 10 expected failures and 2 skips; six unrelated
+SamudraMulti data tests cannot construct the existing `auto` Perceiver locally
+because CUDA is visible but the optional `flash_perceiver` package is absent.

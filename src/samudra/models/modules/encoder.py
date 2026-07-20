@@ -68,8 +68,10 @@ def pos_scale_enc_for_grid(
         raise ValueError("At least two latitude and longitude cells are required.")
 
     lat_midpoints = (lat[:-1] + lat[1:]) / 2
-    lat_lower = torch.cat((lat.new_tensor([-90.0]), lat_midpoints))
-    lat_upper = torch.cat((lat_midpoints, lat.new_tensor([90.0])))
+    lat_lower_edge = torch.clamp(lat[0] - (lat_midpoints[0] - lat[0]), min=-90.0)
+    lat_upper_edge = torch.clamp(lat[-1] + (lat[-1] - lat_midpoints[-1]), max=90.0)
+    lat_lower = torch.cat((lat_lower_edge.unsqueeze(0), lat_midpoints))
+    lat_upper = torch.cat((lat_midpoints, lat_upper_edge.unsqueeze(0)))
     lon_midpoints = (lon[:-1] + lon[1:]) / 2
     lon_lower = torch.cat(
         ((lon[0] - (lon_midpoints[0] - lon[0])).unsqueeze(0), lon_midpoints)
@@ -81,18 +83,20 @@ def pos_scale_enc_for_grid(
     lat_grid, lon_grid = torch.meshgrid(lat, lon, indexing="ij")
     lat_lower_grid, lon_lower_grid = torch.meshgrid(lat_lower, lon_lower, indexing="ij")
     lat_upper_grid, lon_upper_grid = torch.meshgrid(lat_upper, lon_upper, indexing="ij")
-    root_area = torch.sqrt(
-        torch.clamp_min(
-            6371.0**2
-            * torch.pi
-            * (
-                torch.sin(torch.deg2rad(lat_upper_grid))
-                - torch.sin(torch.deg2rad(lat_lower_grid))
-            )
-            * torch.deg2rad(lon_upper_grid - lon_lower_grid),
-            0.0,
+    area = (
+        6371.0**2
+        * torch.pi
+        * (
+            torch.sin(torch.deg2rad(lat_upper_grid))
+            - torch.sin(torch.deg2rad(lat_lower_grid))
         )
+        * torch.deg2rad(lon_upper_grid - lon_lower_grid)
     )
+    if not torch.all(area > 0):
+        raise ValueError(
+            "Latitude and longitude cell edges must define positive areas."
+        )
+    root_area = torch.sqrt(area)
 
     encoded_lat = pos_expansion(lat_grid.reshape(1, -1), encode_dim // 2)
     encoded_lon = pos_expansion(lon_grid.reshape(1, -1), encode_dim // 2)

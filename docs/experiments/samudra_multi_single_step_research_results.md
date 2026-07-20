@@ -773,13 +773,17 @@ processor:
    1-by-1 channel projections. This removes both within-patch compression and
    the Perceiver bottleneck while leaving the processor unchanged.
 
-The 3-degree by 5-degree spatial-token arm remains the reference. All arms retain
-one-degree data, one-step absolute-field prediction, plain normalized MSE,
-effective global batch 32, the fixed proxy samples and seeds, and the same
-unweighted validation diagnostics. Identity and throughput screens precede paired
-proxy training because the full-resolution processor is expected to cost materially
-more memory and compute. This user-authorized diagnostic is the explicit exception
-to the promoted setup's fixed 3-degree by 5-degree physical patch rule.
+The primary patch-size control is the completed 3-degree by 5-degree scalar
+Perceiver baseline: like both one-cell arms, it has 128 processor input channels and
+no fine-scale decoder query path. The running 3-degree by 5-degree spatial-token
+arm is retained as a stronger contemporaneous benchmark, not treated as a
+single-variable control because it has 240 processor input channels and fine-scale
+queries. All arms retain one-degree data, one-step absolute-field prediction, plain
+normalized MSE, effective global batch 32, the fixed proxy samples and seeds, and
+the same unweighted validation diagnostics. Identity and throughput screens precede
+paired proxy training because the full-resolution processor is expected to cost
+materially more memory and compute. This user-authorized diagnostic is the explicit
+exception to the promoted setup's fixed 3-degree by 5-degree physical patch rule.
 
 Aurora's scale encoding ordinarily estimates patch area from the minimum and
 maximum pixel centers in each patch. Those values coincide for a one-pixel patch,

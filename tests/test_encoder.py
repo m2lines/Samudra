@@ -4,9 +4,14 @@
 
 import torch
 from perceiver_pytorch import Perceiver
+from torch import nn
 
 from samudra.constants import Lat, Lon
-from samudra.models.modules.encoder import PerceiverEncoder, patch_from
+from samudra.models.modules.encoder import (
+    PerceiverEncoder,
+    SpatialQueryPerceiver,
+    patch_from,
+)
 
 
 def make_perceiver(in_channels, out_channels, *, num_latents=2, input_axis=2):
@@ -28,6 +33,17 @@ def make_resolution(x: torch.Tensor) -> tuple[Lat, Lon]:
     lat = torch.linspace(start=-90, end=90, steps=x.shape[-2])
     lon = torch.linspace(start=0, end=360, steps=x.shape[-1])
     return lat, lon
+
+
+class QueryProjection(nn.Module):
+    def __init__(self, queries_dim: int, out_channels: int) -> None:
+        super().__init__()
+        self.projection = nn.Linear(queries_dim, out_channels)
+
+    def forward(self, data: torch.Tensor, *, queries: torch.Tensor) -> torch.Tensor:
+        batch_queries = queries.unsqueeze(0).expand(data.shape[0], -1, -1)
+        # Retain a gradient path from every patch input for this lightweight stub.
+        return self.projection(batch_queries) + data.mean() * 0
 
 
 def test_makes_patches():
@@ -93,6 +109,33 @@ def test_makes_patches__more_variables():
     patches = patch_embed(x, make_resolution(x))
 
     assert patches.shape == (1, 4, 1, 2)
+
+
+def test_spatial_queries_pack_ordered_outputs_as_processor_channels():
+    x = torch.randn(2, 10, 6, 10, requires_grad=True)
+    queries_dim = 7
+    channels_per_query = 4
+    spatial_perceiver = SpatialQueryPerceiver(
+        query_shape=(3, 5),
+        queries_dim=queries_dim,
+        channels_per_query=channels_per_query,
+        perceiver_io=QueryProjection(queries_dim, channels_per_query),
+        num_freq_bands=4,
+        max_freq=5,
+    )
+    patch_embed = PerceiverEncoder(
+        in_channels=10,
+        out_channels=spatial_perceiver.out_channels,
+        patch_extent=(90, 180),
+        perceiver=spatial_perceiver,
+    )
+
+    patches = patch_embed(x, make_resolution(x))
+
+    assert spatial_perceiver.out_channels == 60
+    assert patches.shape == (2, 60, 2, 2)
+    patches.sum().backward()
+    assert spatial_perceiver.query_offset.grad is not None
 
 
 def test_patch_from__full_globe():

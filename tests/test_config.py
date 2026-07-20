@@ -11,9 +11,11 @@ from samudra.config import (
     CpuDataLoadingConfig,
     DataConfig,
     DataSourceConfig,
+    EncoderConfig,
     GpuDataLoadingConfig,
     LlcDatasetConfig,
     Om4DatasetConfig,
+    PerceiverConfig,
     RustDataLoadingConfig,
     SamudraMiniConfig,
     SamudraMultiConfig,
@@ -260,3 +262,23 @@ def test_selective_checkpointing_is_scoped_to_samudra_multi():
 
     with pytest.raises(ValidationError, match="checkpointing"):
         SamudraMiniConfig.model_validate({"checkpointing": "selective"})
+
+
+def test_spatial_query_encoder_expands_processor_channels():
+    cfg = EncoderConfig(
+        perceiver=PerceiverConfig(depth=1, latent_dim=8, num_latents=4),
+        spatial_query_shape=(3, 5),
+        spatial_query_channels=16,
+        queries_dim=8,
+    )
+
+    encoder = cfg.build(
+        in_channels=10,
+        out_channels=128,
+        patch_extent=(3.0, 5.0),
+        max_lat_size=180,
+        max_lon_size=360,
+        implementation="naive",
+    )
+
+    assert encoder.out_channels == 240

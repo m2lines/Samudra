@@ -630,8 +630,8 @@ and the identity loop peaked at about 26.5 GiB GPU memory. The final epoch took
 
 ### Fine-query proxy screen
 
-The paired forecast screen is running concurrently on separate one-GPU
-allocations. Both jobs use the stratified 512-window update-scheduled proxy, plain
+The paired forecast screen completed on separate one-GPU allocations. Both jobs
+used the stratified 512-window update-scheduled proxy, plain
 normalized MSE, one-step absolute prediction, batch size two with 16-step gradient
 accumulation, and effective global batch 32.
 
@@ -640,13 +640,49 @@ accumulation, and effective global batch 32.
 | 15 | `14385012` | [wki0obs5](https://wandb.ai/ocean_emulators/default/runs/wki0obs5) | 1 GPU, 4 CPU, 40 GiB |
 | 16 | `14385013` | [vnx6on61](https://wandb.ai/ocean_emulators/default/runs/vnx6on61) | 1 GPU, 4 CPU, 40 GiB |
 
-These runs determine whether repairing identity reconstruction also improves the
-forecast objective. They must complete before the `0.08575` promotion gate is
-evaluated; an identity pass alone is not grounds for full-data training.
+Both jobs completed normally at epoch 12. The fine-query representation materially
+improves the forecast objective relative to the selected InstanceNorm/update control,
+but it does not pass the `0.08575` promotion gate:
 
-The terminal comparison uses the validation-selected epoch from the explicit
+| Seed | All | Temperature | Salinity | Zonal velocity | Meridional velocity | SSH | Persistence |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 15 | 0.153675 | 0.055032 | 0.199370 | 0.133110 | 0.171916 | 0.046324 | 0.084565 |
+| 16 | 0.151690 | 0.050937 | 0.207194 | 0.131776 | 0.168149 | 0.032902 | 0.084565 |
+| Mean | **0.152682** | 0.052985 | 0.203282 | 0.132443 | 0.170032 | 0.039613 | **0.084565** |
+
+The two-seed mean is 60.0% lower than the selected scalar-token control mean of
+`0.381735`, confirming that the decoder-side information path is useful. It remains
+`1.78x` the proxy gate and `3.60x` the v2 proxy mean of `0.042390`, however. It is
+also `1.81x` the one-step persistence error: the absolute-field forecast has not yet
+learned the target increment well enough to beat copying the input. Salinity is now
+the largest variable error, followed by meridional velocity. No third seed or
+full-data run is promoted from this candidate.
+
+The nearest terminal spatial diagnostics are consistent across seeds. High-wavenumber
+power ratios for seed 15/16 are temperature `0.755/0.721`, salinity `0.249/0.258`,
+zonal velocity `0.555/0.574`, meridional velocity `0.388/0.402`, and SSH
+`1.711/1.435`. Thus the learned query path restores considerable temperature and
+velocity structure but still strongly smooths salinity and subsurface velocity.
+Variable patch-seam ratios stay near one (`0.978` to `1.077`), so explicit seam
+amplification is not the primary remaining failure. Each run retains 782 validation
+images covering full-field/error maps and spectra in its linked W&B record.
+
+Seed 15 used 1:45:33 of application time and seed 16 used 1:46:03. Both processed
+6,144 samples and 192 optimizer updates; terminal throughput was about 1.05 samples
+per second, peak allocated GPU memory was about 26.5 GiB, and application MaxRSS was
+13.17/13.16 GiB. The immutable container commit is
+`70baf6f216ad9cefc36ff7d9bfa0825b02e262f2`.
+
+| Seed | Artifact | SHA-256 | Bytes |
+|---:|---|---|---:|
+| 15 | Resolved `config.yaml` | `774fc8d4e92130f398d0f0bd1266e84aacb31841d6a9ecf070922a396f96257a` | 2,596 |
+| 15 | `saved_nets/best_validation_ckpt.pt` | `764281c86056f2abc4949862a2d4944070b36f90b58f8dd67a2dd295a051c0d0` | 1,215,833,537 |
+| 16 | Resolved `config.yaml` | `ae266541a3c503ac23fc305a9b6d952a2e551f8e8f504b17fcbb1c301ca6b308` | 2,596 |
+| 16 | `saved_nets/best_validation_ckpt.pt` | `66924ea72341af7ac7349cef45780e6f2cc613d65311049ece9082569e5b8014` | 1,215,833,537 |
+
+The terminal comparison used the validation-selected epoch from the explicit
 `unweighted_normalized_mse` family, never the dashboard alias. At that same epoch
-the record will include every variable and depth, the persistence MSE (equivalently,
+the record includes every variable and depth, the persistence MSE (equivalently,
 the normalized target-increment MSE), processed samples, optimizer updates,
 throughput, and peak memory. Image-validation epochs also provide mean error and
 full-field maps, zonal spectra, high-wavenumber power ratios, and patch-seam jump
@@ -655,8 +691,8 @@ used when the selected epoch itself is not an image epoch.
 
 ### Contingency: multiple spatial encoder tokens
 
-No contingency implementation or run is promoted before the paired fine-query
-screen completes. If the gate remains closed, the next documented option keeps the
+The paired fine-query screen has closed the gate, so this is the next isolated
+representation experiment. It keeps the
 outer 3-degree by 5-degree physical patch grid at 60 by 72 but replaces the single
 mean-pooled patch vector with spatially queried intra-patch tokens. At one degree,
 a 3-by-5 query grid naturally corresponds to the 15 native cells in each physical
@@ -664,5 +700,17 @@ patch. Packing 16 channels from each query would give the processor 240 explicit
 ordered input channels while leaving its spatial grid, receptive field, decoder
 windowing, target, and loss unchanged. A PerceiverIO-style encoder can produce all
 15 query outputs from one shared latent computation; it avoids running 15 separate
-encoders. The first isolation would add this encoder representation to the
+encoders. The first isolation adds this encoder representation to the
 fine-query candidate and change no other training control.
+
+The implementation is opt-in through `model.encoder.spatial_query_shape`, with
+`spatial_query_channels` controlling the emitted channels per query and
+`queries_dim` controlling the coordinate-conditioned query embedding. The planned
+one-degree isolation uses shape `[3, 5]`, 16 channels per query, and query dimension
+64, producing 240 explicitly ordered processor input channels. Input pixels retain
+their existing intra-patch Fourier coordinates; the 15 outputs share one PerceiverIO
+latent computation and are packed in row-major order. The processor is built from
+the encoder's actual output width, while the original scalar encoder remains the
+default. The real naive PerceiverIO forward/backward path and focused encoder,
+decoder, model, and configuration suite pass 38 tests; the repository-wide Ruff,
+mypy, schema, YAML, secrets, and license checks pass.

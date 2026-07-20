@@ -39,6 +39,7 @@ from samudra.models.modules import (
     PerceiverDecoder,
     PerceiverEncoder,
     ReLU,
+    SpatialQueryPerceiver,
     TransposedConvUpsample,
     UNetBackbone,
 )
@@ -620,6 +621,22 @@ def _flash_import_error() -> ValueError:
 
 class EncoderConfig(BaseConfig):
     perceiver: PerceiverConfig = PerceiverConfig()
+    spatial_query_shape: tuple[int, int] | None = Field(
+        default=None,
+        description="Optional intra-patch query grid. When set, the encoder packs "
+        "one PerceiverIO output per query into processor input channels instead "
+        "of mean-pooling the patch to one vector.",
+    )
+    spatial_query_channels: int = Field(
+        default=16,
+        ge=1,
+        description="Number of processor channels emitted by each spatial query.",
+    )
+    queries_dim: int = Field(
+        default=64,
+        ge=1,
+        description="Embedding dimension of coordinate-conditioned encoder queries.",
+    )
 
     def build(
         self,
@@ -631,6 +648,30 @@ class EncoderConfig(BaseConfig):
         implementation: PerceiverImpl,
     ) -> PerceiverEncoder:
         max_patch_size = patch_from(patch_extent, max_lat_size, max_lon_size)
+        if self.spatial_query_shape is not None:
+            if any(size <= 0 for size in self.spatial_query_shape):
+                raise ValueError("spatial_query_shape entries must be positive.")
+            num_freq_bands = 4
+            fourier_dim = fourier_features_2d_dim(num_freq_bands)
+            spatial_perceiver = SpatialQueryPerceiver(
+                query_shape=self.spatial_query_shape,
+                queries_dim=self.queries_dim,
+                channels_per_query=self.spatial_query_channels,
+                perceiver_io=self.perceiver.build_io(
+                    in_channels + fourier_dim,
+                    self.queries_dim,
+                    self.spatial_query_channels,
+                    implementation,
+                ),
+                num_freq_bands=num_freq_bands,
+                max_freq=max(*max_patch_size),
+            )
+            return PerceiverEncoder(
+                in_channels=in_channels,
+                out_channels=spatial_perceiver.out_channels,
+                patch_extent=patch_extent,
+                perceiver=spatial_perceiver,
+            )
         return PerceiverEncoder(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -955,7 +996,7 @@ class SamudraMultiConfig(BaseModelConfig):
             impl,
         )
         processor = self.processor.build(
-            self.embedding_dim,
+            encoder.out_channels,
             self.pad,
             self.processor_checkpointing(),
         )

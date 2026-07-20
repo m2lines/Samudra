@@ -15,6 +15,7 @@ from jaxtyping import Float
 from torch import nn
 
 from samudra.constants import Input, Lat, Lon
+from samudra.models.modules.augment_input import FourierFeatures2D
 
 
 def patch_from(
@@ -29,6 +30,71 @@ def patch_from(
     patch_w = int(round(patch_extent[1] / lon_spacing))
 
     return patch_h, patch_w
+
+
+class SpatialQueryPerceiver(nn.Module):
+    """Encode one physical patch as an ordered grid of PerceiverIO outputs.
+
+    A regular encoder reduces every patch to one vector. This module instead
+    cross-attends a fixed grid of coordinate-conditioned queries to the same
+    shared Perceiver latents, then packs the query outputs into channels for the
+    spatial processor. The physical patch grid is unchanged.
+    """
+
+    def __init__(
+        self,
+        *,
+        query_shape: tuple[int, int],
+        queries_dim: int,
+        channels_per_query: int,
+        perceiver_io: nn.Module,
+        num_freq_bands: int,
+        max_freq: float,
+    ) -> None:
+        super().__init__()
+        query_h, query_w = query_shape
+        if query_h <= 0 or query_w <= 0:
+            raise ValueError("query_shape entries must be positive.")
+
+        self.query_shape = query_shape
+        self.channels_per_query = channels_per_query
+        self.out_channels = query_h * query_w * channels_per_query
+        if self.out_channels % 4 != 0:
+            raise ValueError(
+                "The packed spatial-query channel count must be divisible by four "
+                "for the processor positional encoding."
+            )
+        self.input_position_features = FourierFeatures2D(
+            num_freq_bands=num_freq_bands,
+            max_freq=max_freq,
+        )
+        self.query_embed = nn.Linear(2, queries_dim)
+        self.query_offset = nn.Parameter(torch.zeros(query_h * query_w, queries_dim))
+        self.perceiver_io = perceiver_io
+
+        query_lat = torch.linspace(-1.0, 1.0, query_h)
+        query_lon = torch.linspace(-1.0, 1.0, query_w)
+        query_positions = torch.stack(
+            torch.meshgrid(query_lat, query_lon, indexing="ij"), dim=-1
+        ).flatten(0, 1)
+        self.register_buffer("query_positions", query_positions, persistent=False)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        data = self.input_position_features(x)
+        data = rearrange(data, "b ph pw v -> b (ph pw) v")
+        queries = self.query_embed(
+            self.query_positions.to(device=x.device, dtype=x.dtype)
+        )
+        queries = queries + self.query_offset.to(dtype=queries.dtype)
+        encoded = self.perceiver_io(data, queries=queries)
+
+        expected = (*queries.shape[:-1], self.channels_per_query)
+        if encoded.shape[1:] != expected:
+            raise ValueError(
+                "Spatial-query Perceiver returned shape "
+                f"{tuple(encoded.shape[1:])}; expected {expected}."
+            )
+        return rearrange(encoded, "b query channel -> b (query channel)")
 
 
 class PerceiverEncoder(nn.Module):

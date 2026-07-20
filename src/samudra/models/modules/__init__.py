@@ -16,7 +16,7 @@ from .blocks import (
     ZonallyPeriodicBilinearUpsample,
 )
 from .decoder import PerceiverDecoder
-from .encoder import PerceiverEncoder
+from .encoder import PerceiverEncoder, SpatialQueryPerceiver
 from .unet_backbone import UNetBackbone
 
 __all__ = [
@@ -32,6 +32,7 @@ __all__ = [
     "MaxPool",
     "PerceiverDecoder",
     "PerceiverEncoder",
+    "SpatialQueryPerceiver",
     "ReLU",
     "UNetBackbone",
 ]

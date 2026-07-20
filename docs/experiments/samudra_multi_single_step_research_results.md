@@ -701,7 +701,7 @@ ordered input channels while leaving its spatial grid, receptive field, decoder
 windowing, target, and loss unchanged. A PerceiverIO-style encoder can produce all
 15 query outputs from one shared latent computation; it avoids running 15 separate
 encoders. The first isolation adds this encoder representation to the
-fine-query candidate and change no other training control.
+fine-query candidate and changes no other training control.
 
 The implementation is opt-in through `model.encoder.spatial_query_shape`, with
 `spatial_query_channels` controlling the emitted channels per query and
@@ -714,3 +714,46 @@ the encoder's actual output width, while the original scalar encoder remains the
 default. The real naive PerceiverIO forward/backward path and focused encoder,
 decoder, model, and configuration suite pass 38 tests; the repository-wide Ruff,
 mypy, schema, YAML, secrets, and license checks pass.
+
+### Spatial-token identity result
+
+The 32-sample one-degree identity diagnostic completed 20 epochs and 640 optimizer
+updates on seed 15. Relative to the fine-query identity control, it changed only the
+encoder representation from one 128-channel mean-pooled patch vector to 15 ordered
+queries with 16 channels each. It retained fine decoder queries, absolute-field
+prediction, plain MSE, and the 3-degree by 5-degree physical patch extent.
+
+| Candidate | Mean MSE | Temperature | Salinity | Zonal velocity | Meridional velocity | SSH |
+|---|---:|---:|---:|---:|---:|---:|
+| Fine decoder queries | 0.028478 | 0.014306 | 0.047032 | 0.023945 | 0.028633 | 0.013981 |
+| Fine queries + 3x5 encoder tokens | **0.026923** | **0.013103** | **0.041771** | **0.022449** | 0.028945 | **0.010139** |
+
+The spatial-token encoder lowers aggregate reconstruction MSE by 5.46%. The largest
+relative gains are SSH (27.5%) and salinity (11.2%); meridional velocity is 1.1%
+worse. Variable high-wavenumber power ratios remain effectively unchanged: the
+fine-query/spatial-token values are temperature `0.883/0.876`, salinity
+`0.663/0.670`, zonal velocity `0.860/0.858`, meridional velocity `0.863/0.873`,
+and SSH `1.043/1.034`. Variable seam ratios remain near one (`0.998` to `1.054`).
+This is a small but broad reconstruction improvement, not evidence by itself that
+the forecast gate will pass.
+
+The immutable x86 image was published successfully by
+[GitHub Actions](https://github.com/m2lines/Samudra/actions/runs/29768664769) from
+commit `5399a4ee805428c355f4c82330fa5aeb06864741`. Slurm `14397453` completed
+normally in `37:40`, including the one-time SIF conversion; the application step
+took `20:26` and peaked at 6.51 GiB MaxRSS. Steady identity epochs fell from about
+45 seconds to 38 seconds and throughput rose from `0.7100` to `0.8429` samples per
+second. The W&B run is
+[ou5hjipa](https://wandb.ai/ocean_emulators/default/runs/ou5hjipa).
+
+| Artifact | SHA-256 | Bytes |
+|---|---|---:|
+| Resolved `config.yaml` | `3b325d02c949c847cc6fc471faf5c4a13d2f70d85fbf85bbd15a6b0216e9d36d` | 2,649 |
+| `identity_metrics.json` | `2a421ae2fa44ab316a068aeab2a415fbab96b7fd5278f3f8e33c48ecac010b94` | 432,584 |
+| `identity_spectra.pt` | `7564f0bf9d3bfb96d149e1f4799883ee1610cf85a28d7733cee7167cb138c782` | 114,477 |
+| `saved_nets/ckpt.pt` | `c6499119c17b94ab03b1a3008588347fb1c73fb86c8ed6eb25ff3bb1dd8974b3` | 1,248,600,239 |
+
+The paired forecast screen uses one GPU per seed with batch size two and 16-step
+gradient accumulation, preserving effective global batch 32. Slurm `14399789`
+(seed 15) and `14399790` (seed 16) use the same immutable image and began normally;
+their two-seed mean will be compared directly with the `0.08575` promotion gate.

@@ -643,3 +643,26 @@ accumulation, and effective global batch 32.
 These runs determine whether repairing identity reconstruction also improves the
 forecast objective. They must complete before the `0.08575` promotion gate is
 evaluated; an identity pass alone is not grounds for full-data training.
+
+The terminal comparison uses the validation-selected epoch from the explicit
+`unweighted_normalized_mse` family, never the dashboard alias. At that same epoch
+the record will include every variable and depth, the persistence MSE (equivalently,
+the normalized target-increment MSE), processed samples, optimizer updates,
+throughput, and peak memory. Image-validation epochs also provide mean error and
+full-field maps, zonal spectra, high-wavenumber power ratios, and patch-seam jump
+ratios. The nearest image-validation epoch at or before the selected checkpoint is
+used when the selected epoch itself is not an image epoch.
+
+### Contingency: multiple spatial encoder tokens
+
+No contingency implementation or run is promoted before the paired fine-query
+screen completes. If the gate remains closed, the next documented option keeps the
+outer 3-degree by 5-degree physical patch grid at 60 by 72 but replaces the single
+mean-pooled patch vector with spatially queried intra-patch tokens. At one degree,
+a 3-by-5 query grid naturally corresponds to the 15 native cells in each physical
+patch. Packing 16 channels from each query would give the processor 240 explicitly
+ordered input channels while leaving its spatial grid, receptive field, decoder
+windowing, target, and loss unchanged. A PerceiverIO-style encoder can produce all
+15 query outputs from one shared latent computation; it avoids running 15 separate
+encoders. The first isolation would add this encoder representation to the
+fine-query candidate and change no other training control.

@@ -142,7 +142,9 @@ portable path is about `1.7x` more throughput-efficient per GPU while reproducin
 the control curve and reducing the allocation from four GPUs to one.
 
 The epoch-scheduled seed-15 control completed all 12 epochs in `1:05:20` of training
-time. Its validation-selected epoch 12 is:
+time and `1:06:00` of Slurm allocation time with exit code zero. The one-GPU,
+four-CPU, 40-GiB request used 13.34 GiB Apptainer MaxRSS; W&B recorded 5.25 GiB
+process CPU peak and 25.87 GiB GPU peak. Its validation-selected epoch 12 is:
 
 | Run | All | Temperature | Salinity | Zonal velocity | Meridional velocity | SSH |
 |---|---:|---:|---:|---:|---:|---:|

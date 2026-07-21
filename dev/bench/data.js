@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784676092548,
+  "lastUpdate": 1784676099305,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -21049,6 +21049,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.7455479283465556",
             "extra": "mean: 48.465021402000005 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "407bde5a80becbc21ac7a821d3cf6846b503af1d",
+          "message": "Updating the format of our rollout (`eval.py`) to make it easier to calculate metrics (true to the original data). (#754)\n\nFixes #508. This makes the three changes in this issue by correcting the\nunderlying data (adding essential coordinate information) and\npropagating that data during eval time. Since this is a data fix along\nwith an eval output fix (IMO, this was the simplest approach), I provide\ntwo data engineering corrections:\n1. I updated the original data engineering script to no longer omit the\nmetadata that we need for evaluation. This way, we won't make the same\nmistake for future datasets.\n2. I've added a script to update the existing datasets in place (they\nshould be safe since we only add new coordinate information; we don't\nhave to re-write any of the existing chunks).\n\nMy plan is that after this PR is reviewed (and merged), I'll run the\ncoordinate update script on the public FOMO data. For good measure, I've\nrun the backup script on this data so we can inspect it:\n`s3://emulators/am16581/data/2025-11/om4_onedeg_v3/OM4.zarr`.",
+          "timestamp": "2026-07-21T15:58:08-07:00",
+          "tree_id": "6bcd9443d058d36761216b4876fe96b083b67eb4",
+          "url": "https://github.com/m2lines/Samudra/commit/407bde5a80becbc21ac7a821d3cf6846b503af1d"
+        },
+        "date": 1784676099037,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0477805976447736,
+            "unit": "iter/sec",
+            "range": "stddev: 0.001152101284815379",
+            "extra": "mean: 954.3982798000116 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.0627570296628267,
+            "unit": "iter/sec",
+            "range": "stddev: 0.059340855037926916",
+            "extra": "mean: 15.934469897200007 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.020642441167567385,
+            "unit": "iter/sec",
+            "range": "stddev: 0.17643551705475136",
+            "extra": "mean: 48.44388276960003 sec\nrounds: 5"
           }
         ]
       }

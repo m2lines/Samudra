@@ -68,7 +68,7 @@ class SamudraMulti(BaseModel):
         pad: str,
         add_3d_coordinates: nn.Module | None,
         encoder: PerceiverEncoder | DirectPatchEncoder,
-        processor: UNetBackbone,
+        processor: nn.Module,
         decoder: PerceiverDecoder | DirectPatchDecoder,
         hist: int,
         checkpointing: "Checkpointing | None",

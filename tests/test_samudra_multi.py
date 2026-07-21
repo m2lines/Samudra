@@ -99,3 +99,39 @@ def test_selective_checkpointing_recognizes_direct_representation_heads(monkeypa
     assert check_fn(encoder)
     assert check_fn(decoder)
     assert not check_fn(processor)
+
+
+def test_identity_processor_is_not_checkpointed(monkeypatch):
+    captured: dict[str, Callable[[nn.Module], bool]] = {}
+
+    def capture_checkpointing(
+        module: nn.Module,
+        check_fn: Callable[[nn.Module], bool],
+    ) -> None:
+        captured["check_fn"] = check_fn
+
+    monkeypatch.setattr(
+        "samudra.models.samudra_multi.apply_activation_checkpointing",
+        capture_checkpointing,
+    )
+    encoder = cast(DirectPatchEncoder, _bare_module(DirectPatchEncoder))
+    processor = nn.Identity()
+    decoder = cast(DirectPatchDecoder, _bare_module(DirectPatchDecoder))
+
+    SamudraMulti(
+        in_channels=2,
+        out_channels=1,
+        pred_residuals=False,
+        last_kernel_size=3,
+        pad="circular",
+        add_3d_coordinates=None,
+        encoder=encoder,
+        processor=processor,
+        decoder=decoder,
+        hist=0,
+        checkpointing="selective",
+        gradient_detach_interval=0,
+        use_bfloat16=True,
+    )
+
+    assert not captured["check_fn"](processor)

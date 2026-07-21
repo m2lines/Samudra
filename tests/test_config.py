@@ -3,9 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
 from pydantic import ValidationError
+from torch import nn
 
 from samudra.config import (
     CpuDataLoadingConfig,
@@ -264,6 +266,56 @@ def test_selective_checkpointing_is_scoped_to_samudra_multi():
 
     with pytest.raises(ValidationError, match="checkpointing"):
         SamudraMiniConfig.model_validate({"checkpointing": "selective"})
+
+
+def test_samudra_multi_accepts_processor_bypass_control():
+    cfg = SamudraMultiConfig(bypass_processor=True)
+
+    assert cfg.bypass_processor
+
+
+def test_naive_perceiver_normalization_controls_replace_lossy_norms():
+    cfg = PerceiverConfig(
+        depth=2,
+        latent_dim=8,
+        num_latents=1,
+        normalize_input_context=False,
+        normalize_encoder_output=False,
+    )
+
+    encoder = cfg.build(
+        in_channels=10,
+        out_channels=12,
+        max_patch_size=(1, 1),
+        implementation="naive",
+    )
+    naive_encoder = cast(Any, cast(nn.Sequential, encoder)[1])
+    assert all(
+        isinstance(cross_attention.norm_context, nn.Identity)
+        for cross_attention, _, _ in naive_encoder.layers
+    )
+    assert isinstance(naive_encoder.to_logits[1], nn.Identity)
+
+    decoder = cfg.build_io(
+        in_channels=12,
+        queries_dim=8,
+        out_channels=10,
+        implementation="naive",
+    )
+    decoder_internal = cast(Any, decoder)
+    assert isinstance(decoder_internal.cross_attend_blocks[0].norm_context, nn.Identity)
+
+
+def test_flash_perceiver_rejects_nondefault_normalization_controls():
+    cfg = PerceiverConfig(normalize_input_context=False)
+
+    with pytest.raises(ValueError, match="require the naive implementation"):
+        cfg.build(
+            in_channels=10,
+            out_channels=12,
+            max_patch_size=(1, 1),
+            implementation="flash",
+        )
 
 
 def test_spatial_query_encoder_expands_processor_channels():

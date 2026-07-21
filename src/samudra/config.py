@@ -5,7 +5,7 @@
 import abc
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, Literal, Self, assert_never
+from typing import Annotated, Any, Literal, Self, assert_never, cast
 
 import cftime
 import pydantic
@@ -495,6 +495,23 @@ class PerceiverConfig(BaseConfig):
         default=512,
         description="The number of latent vectors in the Perceiver. This is the `M` dimension for the Perceiver's `O(M*N)` complexity",
     )
+    normalize_input_context: bool = Field(
+        default=True,
+        description="Apply LayerNorm to data tokens before input cross-attention. "
+        "Disable only for information-preservation diagnostics.",
+    )
+    normalize_encoder_output: bool = Field(
+        default=True,
+        description="Apply LayerNorm after pooling encoder latents and before the "
+        "output projection. Disable only for information-preservation diagnostics.",
+    )
+
+    def _require_default_normalization_for_flash(self) -> None:
+        if not self.normalize_input_context or not self.normalize_encoder_output:
+            raise ValueError(
+                "Perceiver normalization controls currently require the naive "
+                "implementation."
+            )
 
     def build(
         self,
@@ -512,6 +529,7 @@ class PerceiverConfig(BaseConfig):
         # Use the same explicit 2D Fourier features in both implementations so
         # intra-patch positions are encoded equivalently.
         if _use_flash(implementation):
+            self._require_default_normalization_for_flash()
             try:
                 from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
             except ImportError as e:
@@ -534,23 +552,30 @@ class PerceiverConfig(BaseConfig):
                 ),
             )
         elif _use_naive(implementation):
+            naive_perceiver = NaivePerceiver(
+                # Required by perceiver-pytorch even when its internal
+                # Fourier encoding is disabled below.
+                num_freq_bands=num_freq_bands,
+                max_freq=max_freq,
+                depth=self.depth,
+                input_axis=2,
+                input_channels=in_channels + fourier_dim,
+                num_classes=out_channels,
+                latent_dim=self.latent_dim,
+                num_latents=self.num_latents,
+                weight_tie_layers=True,
+                fourier_encode_data=False,
+                self_per_cross_attn=2,
+            )
+            naive_perceiver_internal = cast(Any, naive_perceiver)
+            if not self.normalize_input_context:
+                for cross_attention, _, _ in naive_perceiver_internal.layers:
+                    cross_attention.norm_context = nn.Identity()
+            if not self.normalize_encoder_output:
+                naive_perceiver_internal.to_logits[1] = nn.Identity()
             perceiver = nn.Sequential(
                 FourierFeatures2D(num_freq_bands=num_freq_bands, max_freq=max_freq),
-                NaivePerceiver(
-                    # Required by perceiver-pytorch even when its internal
-                    # Fourier encoding is disabled below.
-                    num_freq_bands=num_freq_bands,
-                    max_freq=max_freq,
-                    depth=self.depth,
-                    input_axis=2,
-                    input_channels=in_channels + fourier_dim,
-                    num_classes=out_channels,
-                    latent_dim=self.latent_dim,
-                    num_latents=self.num_latents,
-                    weight_tie_layers=True,
-                    fourier_encode_data=False,
-                    self_per_cross_attn=2,
-                ),
+                naive_perceiver,
             )
         else:
             raise ValueError(f"Unknown perceiver implementation: {implementation}.")
@@ -566,6 +591,7 @@ class PerceiverConfig(BaseConfig):
     ) -> nn.Module:
         """Build a PerceiverIO (used by the decoder)."""
         if _use_flash(implementation):
+            self._require_default_normalization_for_flash()
             try:
                 from flash_perceiver.perceiver import (  # type: ignore
                     PerceiverIO as FlashPerceiverIO,  # type: ignore
@@ -595,6 +621,11 @@ class PerceiverConfig(BaseConfig):
                 weight_tie_layers=True,
                 decoder_ff=True,
             )
+            if not self.normalize_input_context:
+                perceiver_io_internal = cast(Any, perceiver_io)
+                perceiver_io_internal.cross_attend_blocks[
+                    0
+                ].norm_context = nn.Identity()
         else:
             raise ValueError(f"Unknown perceiver implementation: {implementation}.")
 
@@ -978,6 +1009,11 @@ class SamudraMultiConfig(BaseModelConfig):
         "Shared by the encoder and decoder for consistent spatial semantics.",
     )
     embedding_dim: int = 128
+    bypass_processor: bool = Field(
+        default=False,
+        description="Bypass the spatial processor with an identity mapping. "
+        "This is intended for encoder/decoder reconstruction diagnostics.",
+    )
     use_fine_scale_queries: bool = Field(
         default=False,
         description="Project full-resolution input features into the decoder's pixel "
@@ -1032,13 +1068,18 @@ class SamudraMultiConfig(BaseModelConfig):
             max_lon_size,
             impl,
         )
-        processor = self.processor.build(
-            encoder.out_channels,
-            self.pad,
-            self.processor_checkpointing(),
-        )
+        if self.bypass_processor:
+            processor: nn.Module = nn.Identity()
+            decoder_in_channels = encoder.out_channels
+        else:
+            processor = self.processor.build(
+                encoder.out_channels,
+                self.pad,
+                self.processor_checkpointing(),
+            )
+            decoder_in_channels = processor.out_channels
         decoder = self.decoder.build(
-            processor.out_channels,
+            decoder_in_channels,
             out_channels,
             extent,
             impl,

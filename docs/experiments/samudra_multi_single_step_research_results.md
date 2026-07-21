@@ -1015,10 +1015,80 @@ The code image remains commit `0417c48a09795cfbbf298fdee78d5e1c3e971082`; the
 dedicated checked-in configuration and proxy decision record are on commit
 `059fe1ce`, with the resource-adjusted launch record on `56ce0007`.
 
-The representation decision is therefore clear. A one-cell direct projection can
-learn identity reconstruction and produces a strong full-data forecast; one- and
-four-latent one-cell Perceivers fail the matched identity screen, while preserving
-256 latents per cell is not memory-feasible. The dominant failure in the earlier
-multi-resolution setup was the encoder/decoder representation bottleneck, not the
-one-degree processor's forecasting capacity. No residual prediction, dynamic loss,
+### Pure-autoencoder localization
+
+The one-cell result above still passed data through the full processor, so a
+32-sample pure-autoencoder factorial bypassed the processor and separated the two
+heads. Every arm used seed 15, plain MSE, 10 epochs, 320 updates, and the same fixed
+one-degree samples. The diagnostic controls were published in immutable image
+`307f9b134536531593fa8739f5b7ba22e71a2f74` by
+[GitHub Actions](https://github.com/m2lines/Samudra/actions/runs/29832577268).
+
+| Encoder / decoder | Slurm | All | Temperature | Salinity | Zonal velocity | Meridional velocity | SSH |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Direct / direct | `14481633` | **0.012083** | 0.009244 | 0.008433 | 0.014648 | 0.015996 | 0.019846 |
+| Perceiver / direct | `14482666` | **0.025431** | 0.013312 | 0.016189 | 0.034166 | 0.037758 | 0.019835 |
+| Direct / Perceiver | `14482667` | 0.279303 | 0.040842 | 0.073957 | 0.470026 | 0.544039 | 0.048317 |
+| Perceiver / Perceiver | `14482668` | 0.285353 | 0.043859 | 0.074375 | 0.475765 | 0.558917 | 0.049720 |
+
+The W&B runs are [dqwsd76y](https://wandb.ai/ocean_emulators/default/runs/dqwsd76y),
+[ddya628l](https://wandb.ai/ocean_emulators/default/runs/ddya628l),
+[mfwis08s](https://wandb.ai/ocean_emulators/default/runs/mfwis08s), and
+[xb4o9xjb](https://wandb.ai/ocean_emulators/default/runs/xb4o9xjb), in table order.
+Changing only the encoder adds about `0.0133` MSE, whereas changing only the decoder
+adds about `0.2672`. The full Perceiver result is also effectively identical to the
+earlier processor-present one-cell identity MSE of `0.285467`. The processor is
+therefore neither the source of the failure nor able to repair the decoder.
+
+The decoder geometry explains the result. Its nominal one-latent configuration has
+one learned latent per 12-by-12 output window, not one latent per output query. The
+window presents 196 context cells to that latent and then asks 144 coordinate
+queries to recover different output cells. With only one key, the output-query
+cross-attention softmax is exactly one for every query, so the query coordinates
+cannot select different values. More unanchored latents leave a difficult learned
+spatial-assignment problem rather than providing an identity-aligned route.
+
+Targeted decoder-only controls support this diagnosis:
+
+| Decoder control, direct encoder | All MSE |
+|---|---:|
+| 12-by-12 window, 1 latent | 0.279303 |
+| 12-by-12 window, 16 latents | 0.280127 |
+| 12-by-12 window, 64 latents | 0.267841 |
+| 12-by-12 window, 256 latents | 0.278018 |
+| 12-by-12 window, 64 latents, no input-context norm | 0.276040 |
+| One output cell, 3-by-3 context, 1 latent | 0.133080 |
+| One output cell, one input cell, 1 latent | 0.040990 |
+| One output cell, one input cell, 64 latents, no context norm | 0.038147 |
+| One output cell, one input cell, width 128 | 0.033983 |
+| One output cell, one input cell, width 128, no context norm | **0.030861** |
+| 12-by-12 window, 256 width-128 latents | 0.265364 |
+| 12-by-12 window, 256 latents, 30 epochs | 0.248054 |
+
+Thus latent count, width, input normalization, and three times as much training are
+secondary. Aligning one input cell with one output query closes most of the gap,
+while adding neighboring context without an explicit spatial route makes the task
+worse. The 30-epoch control does improve slowly but remains more than 20 times the
+direct/direct result, excluding ordinary undertraining as the main explanation.
+
+To preserve variable input/output grids without this second latent bottleneck, the
+decoder now offers an opt-in resolution-flexible projection: bilinear resampling of
+the canonical processor grid followed by a learned 1-by-1 channel projection. On a
+matching grid it skips interpolation and is exactly the direct projection path.
+Slurm `14486427` tested it with the Perceiver encoder and processor bypassed; its
+MSE is `0.025430571`, bit-for-reported-precision identical to the Perceiver/direct
+control, with identical variable metrics. The W&B run is
+[yj1m6z35](https://wandb.ai/ocean_emulators/default/runs/yj1m6z35). The implementation
+was published in image `6736cf22f989be81f94d30ca4cb9bac0a2aaeb07` by
+[GitHub Actions](https://github.com/m2lines/Samudra/actions/runs/29837326578).
+
+The revised representation decision is specific. The Perceiver encoder can handle
+the one-degree identity task reasonably well (`0.025431` versus `0.012083` for the
+direct encoder), while the existing Perceiver decoder's unanchored window-level
+latent routing causes nearly the entire surprising gap. A one-cell direct
+projection already produces a strong full-data forecast, and the new resampling
+projection preserves output-resolution and output-channel flexibility without that
+routing problem. The next quality-bearing experiment should therefore retain the
+Perceiver encoder and compare this decoder on the calibrated one-degree proxy
+before revisiting multi-resolution training. No residual prediction, dynamic loss,
 spectral loss, or autoregressive objective was needed for this conclusion.

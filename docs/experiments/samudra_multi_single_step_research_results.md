@@ -954,3 +954,71 @@ changing any scientific control. The immutable image is the same `0417c48a` imag
 used by the proxy jobs; its CLI overrides are semantically equivalent to
 `train_1deg_1cell_direct_mse_updates.yaml` except for the resource-equivalent
 accumulation count, and the resolved run config is the authoritative record.
+
+### Full-data direct one-cell result
+
+Slurm `14440510` completed normally with exit code zero in `08:19:45` (application
+training time `08:19:11`). The validation-selected checkpoint is epoch 53:
+
+| Metric | Direct one-cell | Quoted v2 reference | v2 / direct |
+|---|---:|---:|---:|
+| All channels | **0.015976** | 0.023600 | 1.48x |
+| Temperature | 0.000549 | 0.001490 | 2.71x |
+| Salinity | 0.000573 | 0.001380 | 2.41x |
+| Zonal velocity | 0.017191 | 0.036100 | 2.10x |
+| Meridional velocity | 0.024280 | 0.056500 | 2.33x |
+| SSH | 0.001253 | 0.002390 | 1.91x |
+
+These are unweighted normalized one-step MSEs. The direct model is 78.7% below the
+`0.075` completion threshold, 68.0% below the stronger `0.05` target, and 32.3%
+below the quoted v2 aggregate reference. This is not a rigorously matched parity
+claim, but it establishes that the full-resolution processor can match or exceed
+the practical v2 target when the patch representation bottleneck is removed.
+The linked W&B run is
+[uwzdfu8s](https://wandb.ai/ocean_emulators/default/runs/uwzdfu8s).
+
+The persistence MSE is `0.08456`, equivalently the normalized target-increment MSE.
+The selected forecast is 81.1% lower. At terminal epoch 70 the model remains close
+to the best checkpoint at aggregate MSE `0.01631`; its variable MSEs are temperature
+`0.00052`, salinity `0.00055`, zonal velocity `0.01734`, meridional velocity
+`0.02455`, and SSH `0.00121`. Terminal high-wavenumber power ratios are temperature
+`0.98301`, salinity `0.99389`, zonal velocity `0.83560`, meridional velocity
+`0.88508`, and SSH `0.97269`. Thus the direct model largely preserves thermohaline
+and SSH variance and retains much more velocity energy than the patch-token
+candidates. One-cell seam ratios are undefined by construction rather than evidence
+of a seam artifact. The run retains 2,737 W&B media files with mean-error/full-field
+maps, snapshots, spectra, and the underlying channel diagnostics.
+
+Terminal depth MSEs for levels 0 through 18 are respectively `0.02989`, `0.02486`,
+`0.01643`, `0.01045`, `0.00710`, `0.00548`, `0.00463`, `0.00448`, `0.00440`,
+`0.00434`, `0.00435`, `0.00496`, `0.00619`, `0.00819`, `0.01155`, `0.01626`,
+`0.01954`, `0.01114`, and `0.00261`. The remaining error is concentrated near the
+surface and at levels 15--16, consistent with velocity remaining the hardest
+variable rather than a new deep thermohaline failure.
+
+The run processed 197,680 samples and made 6,230 optimizer updates. The latter is
+70 more than the nominal 6,160-update cosine target: 706 microbatches per epoch
+leave a two-microbatch final accumulation cycle, and the trainer correctly performs
+one final partial optimizer step each epoch. The learning rate therefore reached
+its minimum near the end and moved only negligibly past it; this accounting mismatch
+does not explain the quality gain, but must be retained when reproducing the exact
+schedule. Terminal global throughput was `9.307` samples per second. Per-rank peak
+allocated GPU memory reached about 17.3 GiB during bring-up; application MaxRSS was
+51,854,124 KiB for the two-rank step, while the terminal per-rank CPU peak was about
+4.57 GiB.
+
+The resolved 2,717-byte `config.yaml` has SHA-256
+`6682d6e78677df00e39658c8a41f8f950002a15f2fbe91cf88c529c91f8d7ddd`.
+The 1,188,313,039-byte epoch-53 `best_validation_ckpt.pt` has SHA-256
+`b28761c2f73e4135a21ac503171bff8d4135994de62ad0ffd29f5b55b1850aff`.
+The code image remains commit `0417c48a09795cfbbf298fdee78d5e1c3e971082`; the
+dedicated checked-in configuration and proxy decision record are on commit
+`059fe1ce`, with the resource-adjusted launch record on `56ce0007`.
+
+The representation decision is therefore clear. A one-cell direct projection can
+learn identity reconstruction and produces a strong full-data forecast; one- and
+four-latent one-cell Perceivers fail the matched identity screen, while preserving
+256 latents per cell is not memory-feasible. The dominant failure in the earlier
+multi-resolution setup was the encoder/decoder representation bottleneck, not the
+one-degree processor's forecasting capacity. No residual prediction, dynamic loss,
+spectral loss, or autoregressive objective was needed for this conclusion.

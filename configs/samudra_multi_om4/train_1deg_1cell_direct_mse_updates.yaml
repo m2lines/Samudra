@@ -18,6 +18,8 @@ learning_rate: 0.0006
 scheduler:
   type: cosine
   interval: optimizer_update
+  # Retained for exact run reproduction. Final partial accumulation cycles make
+  # the 70-epoch run take 6,230 updates; use 6,230 for an exact terminal minimum.
   target_updates: 6160
 loss: mse
 finetune: false

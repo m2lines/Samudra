@@ -23,6 +23,8 @@ Metrics = Mapping[str, float | torch.Tensor | WBValue]
 # Same as above but mutable when you're building something up
 MetricsDict = dict[str, float | torch.Tensor | WBValue]
 
+PROVENANCE_CONFIG_KEY = "provenance"
+
 if TYPE_CHECKING:
     from samudra.config import AnyTopLevelConfig
     from samudra.utils.data import DataContainer
@@ -59,7 +61,7 @@ class WandBLogger(Multiton):
             if (value := os.environ.get(env_var))
         }
         if provenance:
-            config["provenance"] = provenance
+            config[PROVENANCE_CONFIG_KEY] = provenance
         return config
 
     def setup_run(

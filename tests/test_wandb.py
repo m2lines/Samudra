@@ -9,7 +9,7 @@ from typing import Any, cast
 import torch
 
 from samudra.utils.multiton import MultitonScope
-from samudra.utils.wandb import WandBLogger
+from samudra.utils.wandb import PROVENANCE_CONFIG_KEY, WandBLogger
 
 
 class DummyWandbConfig:
@@ -51,7 +51,7 @@ def test_wandb_config_reports_code_and_runtime_provenance(tmp_path, monkeypatch)
             cast(Any, DummyConfig(tmp_path)), cast(Any, DummyDataContainer())
         )
 
-    assert config["provenance"] == {
+    assert config[PROVENANCE_CONFIG_KEY] == {
         "code_commit": "code-commit",
         "code_repo_url": "https://example.com/samudra.git",
         "code_layer_sha256": "layer-sha256",

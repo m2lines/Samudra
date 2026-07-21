@@ -136,15 +136,13 @@ def test_checkpoint_resume_matches_continuous_cuda(
     if not torch.cuda.is_available():
         pytest.fail("CUDA test requested but torch.cuda.is_available() is False")
 
-    # See https://github.com/m2lines/Samudra/pull/778#discussion_r3623773768:
-    # eager F.interpolate bilinear CUDA uses PyTorch's deterministic
-    # decomposition under torch.use_deterministic_algorithms(True).
-    assert train_config.model.unet.up_sampling_block == "zonally_periodic_upsample"
-
     cudnn_benchmark = torch.backends.cudnn.benchmark
     cudnn_deterministic = torch.backends.cudnn.deterministic
     deterministic_algorithms = torch.are_deterministic_algorithms_enabled()
     torch.backends.cudnn.benchmark = False
+    # Pytorch docs say that bilinear interpolation (which we use) is not usable
+    # under torch.use_deterministic_algorithms(True) but see
+    # https://github.com/m2lines/Samudra/pull/778#discussion_r3623773768:
     torch.backends.cudnn.deterministic = True
     torch.use_deterministic_algorithms(True)
 

@@ -1082,13 +1082,42 @@ control, with identical variable metrics. The W&B run is
 was published in image `6736cf22f989be81f94d30ca4cb9bac0a2aaeb07` by
 [GitHub Actions](https://github.com/m2lines/Samudra/actions/runs/29837326578).
 
+### Perceiver-encoder/resampling-decoder proxy
+
+The candidate then completed the calibrated one-degree single-step proxy on seeds
+15 and 16. It retained one Perceiver latent per one-degree input cell, the full
+processor, plain normalized MSE, the fixed 512 stratified samples, effective global
+batch 32, and the 6,160-update schedule semantics. Only the original Perceiver
+decoder was replaced by the resampling projection.
+
+| Seed | Slurm | All | Temperature | Salinity | Zonal velocity | Meridional velocity | SSH |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 15 | `14489084` | 0.049906 | 0.009647 | 0.009004 | 0.058899 | 0.078911 | 0.008486 |
+| 16 | `14489085` | 0.053405 | 0.010690 | 0.010807 | 0.062794 | 0.083468 | 0.010035 |
+| Mean |  | **0.051655** | 0.010169 | 0.009905 | 0.060846 | 0.081190 | 0.009260 |
+
+The two W&B runs are [dn9ka17p](https://wandb.ai/ocean_emulators/default/runs/dn9ka17p)
+and [958qmvlf](https://wandb.ai/ocean_emulators/default/runs/958qmvlf). Both jobs
+completed normally in `1:09:29` and `1:15:09`. Peak allocated GPU memory was about
+4.4 GiB during training and 2.9 GiB during validation.
+
+The candidate mean is 86.5% below the original update-scheduled SamudraMulti proxy
+mean of `0.381735`, 39.8% below the `0.08575` promotion gate, and 38.8% below the
+`0.084426` persistence baseline. It is 25.1% worse than the direct-head proxy mean
+and 21.9% worse than the matched v2 proxy mean, which is a reasonably comparable
+screening result rather than parity. Mean high-wavenumber power ratios are
+temperature `0.869`, salinity `0.892`, zonal velocity `0.543`, meridional velocity
+`0.631`, and SSH `0.908`. The remaining gap is concentrated in velocity, but the
+catastrophic decoder failure is gone.
+
 The revised representation decision is specific. The Perceiver encoder can handle
 the one-degree identity task reasonably well (`0.025431` versus `0.012083` for the
 direct encoder), while the existing Perceiver decoder's unanchored window-level
 latent routing causes nearly the entire surprising gap. A one-cell direct
 projection already produces a strong full-data forecast, and the new resampling
 projection preserves output-resolution and output-channel flexibility without that
-routing problem. The next quality-bearing experiment should therefore retain the
-Perceiver encoder and compare this decoder on the calibrated one-degree proxy
+routing problem. Its successful proxy closes the diagnostic loop: the next model
+work should test interpolation behavior at a different output grid and then, if
+that remains sound, promote this exact candidate to full-data one-degree training
 before revisiting multi-resolution training. No residual prediction, dynamic loss,
 spectral loss, or autoregressive objective was needed for this conclusion.

@@ -8,6 +8,12 @@ resolution-markers = [
     "sys_platform != 'linux'",
 ]
 
+[manifest]
+constraints = [
+    { name = "flash-attn", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", specifier = "==2.8.3+cu13torch2.9cxx11abitrue" },
+    { name = "flash-attn", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", specifier = "==2.8.3+cu12torch2.9cxx11abitrue" },
+]
+
 [[package]]
 name = "aiobotocore"
 version = "2.22.0"
@@ -881,29 +887,8 @@ wheels = [
 
 [[package]]
 name = "flash-attn"
-version = "2.8.3"
-source = { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3.post1/flash_attn-2.8.3%2Bcu13torch2.9cxx11abiTRUE-cp312-cp312-linux_aarch64.whl" }
-resolution-markers = [
-    "platform_machine == 'aarch64' and sys_platform == 'linux'",
-]
-dependencies = [
-    { name = "einops", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-    { name = "torch", version = "2.9.1+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-]
-wheels = [
-    { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3.post1/flash_attn-2.8.3%2Bcu13torch2.9cxx11abiTRUE-cp312-cp312-linux_aarch64.whl", hash = "sha256:6cfb6cc0b224355363a060d1e34288d14f25311ca0a8e0e9003347722ee43b5b" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "einops" },
-    { name = "torch" },
-]
-
-[[package]]
-name = "flash-attn"
-version = "2.8.3"
-source = { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3%2Bcu12torch2.9cxx11abiTRUE-cp312-cp312-linux_x86_64.whl" }
+version = "2.8.3+cu12torch2.9cxx11abitrue"
+source = { registry = "https://github.com/Dao-AILab/flash-attention/releases/expanded_assets/v2.8.3" }
 resolution-markers = [
     "platform_machine == 'x86_64' and sys_platform == 'linux'",
 ]
@@ -912,13 +897,22 @@ dependencies = [
     { name = "torch", version = "2.9.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
 ]
 wheels = [
-    { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3%2Bcu12torch2.9cxx11abiTRUE-cp312-cp312-linux_x86_64.whl", hash = "sha256:4e2f9e39313266b1544b68138b15b91ee6221eccf14f7902b7c6620351340810" },
+    { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.9cxx11abiTRUE-cp312-cp312-linux_x86_64.whl" },
 ]
 
-[package.metadata]
-requires-dist = [
-    { name = "einops" },
-    { name = "torch" },
+[[package]]
+name = "flash-attn"
+version = "2.8.3+cu13torch2.9cxx11abitrue"
+source = { registry = "https://github.com/Dao-AILab/flash-attention/releases/expanded_assets/v2.8.3.post1" }
+resolution-markers = [
+    "platform_machine == 'aarch64' and sys_platform == 'linux'",
+]
+dependencies = [
+    { name = "einops", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+    { name = "torch", version = "2.9.1+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+]
+wheels = [
+    { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3.post1/flash_attn-2.8.3+cu13torch2.9cxx11abiTRUE-cp312-cp312-linux_aarch64.whl" },
 ]
 
 [[package]]
@@ -3576,8 +3570,8 @@ dependencies = [
 
 [package.optional-dependencies]
 cuda = [
-    { name = "flash-attn", version = "2.8.3", source = { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3.post1/flash_attn-2.8.3%2Bcu13torch2.9cxx11abiTRUE-cp312-cp312-linux_aarch64.whl" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-    { name = "flash-attn", version = "2.8.3", source = { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3%2Bcu12torch2.9cxx11abiTRUE-cp312-cp312-linux_x86_64.whl" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "flash-attn", version = "2.8.3+cu12torch2.9cxx11abitrue", source = { registry = "https://github.com/Dao-AILab/flash-attention/releases/expanded_assets/v2.8.3" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+    { name = "flash-attn", version = "2.8.3+cu13torch2.9cxx11abitrue", source = { registry = "https://github.com/Dao-AILab/flash-attention/releases/expanded_assets/v2.8.3.post1" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
     { name = "flash-attn", version = "2.8.3.post1", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'linux'" },
     { name = "flash-perceiver" },
     { name = "torchvision", version = "0.24.1", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
@@ -3625,8 +3619,8 @@ requires-dist = [
     { name = "dacite", specifier = ">=1.9.2" },
     { name = "dask", specifier = ">=2025.2" },
     { name = "einops", specifier = ">=0.7" },
-    { name = "flash-attn", marker = "platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'cuda'", url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3.post1/flash_attn-2.8.3%2Bcu13torch2.9cxx11abiTRUE-cp312-cp312-linux_aarch64.whl" },
-    { name = "flash-attn", marker = "platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'cuda'", url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3%2Bcu12torch2.9cxx11abiTRUE-cp312-cp312-linux_x86_64.whl" },
+    { name = "flash-attn", marker = "platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'cuda'", specifier = ">=2.7.4.post1,<3", index = "https://github.com/Dao-AILab/flash-attention/releases/expanded_assets/v2.8.3.post1", conflict = { package = "samudra", extra = "cuda" } },
+    { name = "flash-attn", marker = "platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'cuda'", specifier = ">=2.7.4.post1,<3", index = "https://github.com/Dao-AILab/flash-attention/releases/expanded_assets/v2.8.3", conflict = { package = "samudra", extra = "cuda" } },
     { name = "flash-attn", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'cuda') or (sys_platform != 'linux' and extra == 'cuda')", specifier = ">=2.7.4.post1,<3" },
     { name = "flash-perceiver", marker = "extra == 'cuda'", specifier = ">=0.2" },
     { name = "jaxtyping", specifier = ">=0.3" },

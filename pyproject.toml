@@ -143,6 +143,11 @@ overrides = [
 ]
 
 [tool.uv]
+# The release pages contain several CUDA/PyTorch builds, so select the ABI-compatible wheel explicitly.
+constraint-dependencies = [
+  "flash-attn==2.8.3+cu13torch2.9cxx11abitrue; sys_platform == 'linux' and platform_machine == 'aarch64'",
+  "flash-attn==2.8.3+cu12torch2.9cxx11abitrue; sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
 extra-build-dependencies.flash-attn = [ { requirement = "torch", match-runtime = true } ]
 extra-build-variables.flash-attn = { FLASH_ATTENTION_SKIP_CUDA_BUILD = "TRUE" }
 
@@ -151,9 +156,9 @@ flash-attn = [
   # On Arm, we want to support CUDA 13 (PhysicsNeMo's ARM64 image uses it and we want to match as closely as possible),
   # and PyPI has no matching binary wheel so we grab the one direct from github.
   # NB the PhysicsNeMo container itself has its own build and does not use this.
-  { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3.post1/flash_attn-2.8.3%2Bcu13torch2.9cxx11abiTRUE-cp312-cp312-linux_aarch64.whl", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
+  { index = "flash-attn-cu13", extra = "cuda", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
   # We use CUDA 12 on non-Arm hosts, so grab the upstream CUDA 12/PyTorch 2.9 binary instead.
-  { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3%2Bcu12torch2.9cxx11abiTRUE-cp312-cp312-linux_x86_64.whl", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+  { index = "flash-attn-cu12", extra = "cuda", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
 ]
 torch = [
   { index = "pytorch-cu130", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
@@ -161,6 +166,18 @@ torch = [
 torchvision = [
   { index = "pytorch-cu130", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
 ]
+
+[[tool.uv.index]]
+name = "flash-attn-cu13"
+url = "https://github.com/Dao-AILab/flash-attention/releases/expanded_assets/v2.8.3.post1"
+format = "flat"
+explicit = true
+
+[[tool.uv.index]]
+name = "flash-attn-cu12"
+url = "https://github.com/Dao-AILab/flash-attention/releases/expanded_assets/v2.8.3"
+format = "flat"
+explicit = true
 
 [[tool.uv.index]]
 name = "pytorch-cu130"

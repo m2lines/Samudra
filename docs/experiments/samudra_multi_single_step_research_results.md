@@ -906,11 +906,47 @@ Increasing the one-cell Perceiver to four latents therefore adds cost without
 closing the representation gap; no Perceiver proxy is promoted. Its W&B run is
 [yf157jdj](https://wandb.ai/ocean_emulators/default/runs/yf157jdj).
 
-Both direct proxy jobs passed bring-up with effective global batch 32, about 3.7
-GiB peak allocated GPU memory, and roughly 0.5 seconds per training sample. By
-epoch 3, seed 16 had already crossed the promotion threshold with validation MSE
-`0.079`; seed 15 was at `0.086`, within rounding distance of the `0.08575` gate.
-Both continue through the fixed 12-epoch, 192-update schedule before terminal
-selection. Their W&B runs are
+### Direct one-cell proxy result
+
+All three direct proxy jobs completed normally at epoch 12 and decisively passed
+the promotion gate:
+
+| Seed | All | Temperature | Salinity | Zonal velocity | Meridional velocity | SSH | Persistence |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 15 | 0.042535 | 0.006683 | 0.006366 | 0.047173 | 0.065870 | 0.007645 | 0.084426 |
+| 16 | 0.040106 | 0.005877 | 0.005669 | 0.044818 | 0.061858 | 0.006353 | 0.084426 |
+| 17 | 0.041192 | 0.006107 | 0.006081 | 0.045879 | 0.063761 | 0.006718 | 0.084426 |
+| Mean | **0.041278** | 0.006223 | 0.006039 | 0.045957 | 0.063830 | 0.006905 | **0.084426** |
+
+The three-seed mean is 51.1% below persistence, 51.9% below the `0.08575` gate,
+72.6% below the spatial-token mean, and 2.6% better than the matched v2 proxy mean
+of `0.042390`. Temperature, salinity, and SSH are all around `0.006`; velocity is
+still the hardest group but is no longer catastrophically dominant.
+
+Mean high-wavenumber power ratios are temperature `0.861`, salinity `0.900`, zonal
+velocity `0.599`, meridional velocity `0.677`, and SSH `0.901`. One-cell patch-seam
+ratios are undefined by construction. Each run processed 6,144 samples and 192
+optimizer updates. Terminal throughput was between `2.23` and `3.00` samples per
+second, peak allocated GPU memory was only about 3.7 GiB, and application MaxRSS
+was about 11.2 GiB. The jobs completed in 54--57 minutes. Their W&B runs are
 [qapetrfv](https://wandb.ai/ocean_emulators/default/runs/qapetrfv) and
-[gfqs4knn](https://wandb.ai/ocean_emulators/default/runs/gfqs4knn).
+[gfqs4knn](https://wandb.ai/ocean_emulators/default/runs/gfqs4knn), and
+[407lfafs](https://wandb.ai/ocean_emulators/default/runs/407lfafs).
+
+The saved `config.yaml` SHA-256 values for seeds 15/16/17 are respectively
+`cbffda34ed8f244e2d2327b5e025d3464e2bc3139fab7dc64ef0979b313383cd`,
+`c0897d590a5eafcf46e2f472cf51e61c2f3e0e7752163179b2b0c14076d41142`, and
+`5cebcf04a35ab42e4e01894e4a8f73b1db5b6b02d876387413650adbde1f0f27`.
+The corresponding 1,188,313,039-byte best-checkpoint hashes are
+`25b02da5c3b7e0f35fdbb9aa0f21f33b769e86262da8c8e2cc1679d8bc5cb4d1`,
+`e630cacc84e5a59de3f3c35cb58b94152af4fb9773ead7cc08dd27a67b02b58d`, and
+`5ad1c7f16776aebfda1835f3af394b2635944454d0eb3a78d8a3505b90a40436`.
+
+The third fixed seed confirms that the direct control is a genuine finalist.
+Full-data Slurm job `14437365` therefore promotes the pinned configuration on eight
+GPUs with batch size two per rank, two-step gradient accumulation, effective global
+batch 32, and the fixed 6,160-update cosine schedule. It retains absolute-field,
+single-step normalized MSE and disables parameter watching. The immutable image is
+the same `0417c48a` image used by the proxy jobs; its CLI overrides are semantically
+equivalent to `train_1deg_1cell_direct_mse_updates.yaml`, and the resolved run config
+is the authoritative record.

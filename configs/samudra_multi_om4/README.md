@@ -21,3 +21,8 @@ candidate passes the two-seed proxy gate and a third fixed proxy seed confirms t
 finalist. Independent one-GPU proxy jobs use
 `train_1deg_mse_stratified_updates_proxy.yaml` with gradient accumulation overridden
 to 16.
+
+`train_1deg_1cell_direct_mse_updates.yaml` pins the promoted one-degree direct-head
+baseline. Its defaults assume eight GPUs and effective global batch 32. The paired
+proxy and identity diagnostics must establish the direct heads before promotion;
+the architecture has no residual or encoder-to-decoder skip path.

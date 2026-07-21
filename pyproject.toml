@@ -13,6 +13,7 @@ description = "Train and evaluate ocean model emulators"
 readme = "README.md"
 keywords = [ "climate", "emulation", "machine learning", "ocean" ]
 license = { file = "LICENSE" }
+# We currently only test 3.12
 requires-python = ">=3.12,<3.13"
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -147,9 +148,11 @@ extra-build-variables.flash-attn = { FLASH_ATTENTION_SKIP_CUDA_BUILD = "TRUE" }
 
 [tool.uv.sources]
 flash-attn = [
-  # PhysicsNeMo's ARM64 image uses CUDA 13, and PyPI has no matching binary wheel.
+  # On Arm, we want to support CUDA 13 (PhysicsNeMo's ARM64 image uses it and we want to match as closely as possible),
+  # and PyPI has no matching binary wheel so we grab the one direct from github.
+  # NB the PhysicsNeMo container itself has its own build and does not use this.
   { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3.post1/flash_attn-2.8.3%2Bcu13torch2.9cxx11abiTRUE-cp312-cp312-linux_aarch64.whl", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
-  # Existing x86_64 CUDA jobs need the upstream CUDA 12/PyTorch 2.9 binary instead.
+  # We use CUDA 12 on non-Arm hosts, so grab the upstream CUDA 12/PyTorch 2.9 binary instead.
   { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3%2Bcu12torch2.9cxx11abiTRUE-cp312-cp312-linux_x86_64.whl", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
 ]
 torch = [

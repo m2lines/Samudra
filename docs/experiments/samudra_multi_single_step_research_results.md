@@ -943,10 +943,14 @@ The corresponding 1,188,313,039-byte best-checkpoint hashes are
 `5ad1c7f16776aebfda1835f3af394b2635944454d0eb3a78d8a3505b90a40436`.
 
 The third fixed seed confirms that the direct control is a genuine finalist.
-Full-data Slurm job `14437365` therefore promotes the pinned configuration on eight
-GPUs with batch size two per rank, two-step gradient accumulation, effective global
-batch 32, and the fixed 6,160-update cosine schedule. It retains absolute-field,
-single-step normalized MSE and disables parameter watching. The immutable image is
-the same `0417c48a` image used by the proxy jobs; its CLI overrides are semantically
-equivalent to `train_1deg_1cell_direct_mse_updates.yaml`, and the resolved run config
-is the authoritative record.
+Full-data Slurm job `14440510` therefore promotes the pinned configuration on two
+GPUs with batch size two per rank, eight-step gradient accumulation, effective
+global batch 32, and the fixed 6,160-update cosine schedule. It retains
+absolute-field, single-step normalized MSE and disables parameter watching. Initial
+eight- and four-GPU allocations `14437365` and `14437494` never started model code:
+the former was cancelled after a July 22 resource estimate, and the latter exposed
+the account's lower GPU QoS cap. The two-GPU job started immediately without
+changing any scientific control. The immutable image is the same `0417c48a` image
+used by the proxy jobs; its CLI overrides are semantically equivalent to
+`train_1deg_1cell_direct_mse_updates.yaml` except for the resource-equivalent
+accumulation count, and the resolved run config is the authoritative record.

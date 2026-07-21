@@ -68,16 +68,18 @@ To learn more about other datasets used during training, please see the [data do
 Training logs include `progress/*` metrics that can be used as W&B x-axes when comparing runs with different batch sizes,
 GPU counts, gradient accumulation, or grid resolutions. The cumulative counters are:
 
-- `progress/sample_windows_seen`
-- `progress/model_examples_seen`
-- `progress/output_grid_cells_seen`
-- `progress/target_values_seen`
-- `progress/tensor_bytes_seen`
-- `progress/optimizer_steps`
-- `progress/gpu_seconds`
+- `progress/sample_windows_seen`: global number of train-loader sample windows processed across all workers.
+- `progress/model_examples_seen`: global number of supervised autoregressive training steps; a multi-step rollout contributes
+  multiple model examples for each sample window.
+- `progress/output_grid_cells_seen`: `model_examples_seen` multiplied by output-grid latitude and longitude cells.
+- `progress/target_values_seen`: `output_grid_cells_seen` multiplied by output channels.
+- `progress/optimizer_steps`: optimizer update count after gradient accumulation.
+- `progress/gpu_seconds`: summed batch wall time across workers, measured with CUDA synchronization when training on CUDA.
 
-Per-batch companion metrics are also logged under `progress/batch_*`, along with input/output grid dimensions and
-`throughput/*_per_second` rates.
+Per-batch companion metrics are also logged under `progress/batch_*`, along with `progress/input_grid_*` and
+`progress/output_grid_*` dimensions. The input-grid metrics describe the spatial grid passed to the model at each
+autoregressive step, not the number of rollout input states. Throughput rates are logged for model examples and output
+grid cells under `throughput/*_per_second`.
 
 ## Evaluating the model
 

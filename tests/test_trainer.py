@@ -11,15 +11,8 @@ import pytest
 import torch
 
 from samudra.config import CpuDataLoadingConfig, DynamicLossConfig, TrainConfig
-from samudra.datasets import TrainData
 from samudra.models.base import BaseModel
-from samudra.train import (
-    Trainer,
-    _synchronize_cuda_if_needed,
-    get_train_batch_progress,
-    get_train_batch_throughput_metrics,
-    should_log_validation_images,
-)
+from samudra.train import Trainer, should_log_validation_images
 from samudra.utils.ctx import GridContext
 from samudra.utils.loss import DynamicLoss
 from samudra.utils.multiton import MultitonScope
@@ -244,7 +237,6 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
     trainer.train_progress.model_examples_seen = 4
     trainer.train_progress.output_grid_cells_seen = 24
     trainer.train_progress.target_values_seen = 48
-    trainer.train_progress.tensor_bytes_seen = 256
     trainer.train_progress.optimizer_steps = 3
     trainer.train_progress.gpu_seconds = 12.5
 
@@ -263,7 +255,6 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
     assert trainer.train_progress.model_examples_seen == 4
     assert trainer.train_progress.output_grid_cells_seen == 24
     assert trainer.train_progress.target_values_seen == 48
-    assert trainer.train_progress.tensor_bytes_seen == 256
     assert trainer.train_progress.optimizer_steps == 3
     assert trainer.train_progress.gpu_seconds == 12.5
 
@@ -284,101 +275,6 @@ def test_should_log_validation_images_rejects_invalid_inputs():
 
     with pytest.raises(ValueError, match="Validation image log frequency must be >= 1"):
         should_log_validation_images(1, 0)
-
-
-def test_get_train_batch_progress_counts_global_training_units():
-    batch_size = 2
-    world_size = 4
-    input_channels = 3
-    boundary_channels = 1
-    output_channels = 2
-    input_grid = (3, 4)
-    output_grid = (5, 6)
-    num_model_steps = 2
-
-    ctx = GridContext(
-        label_mask=torch.ones(output_channels, *output_grid, dtype=torch.bool),
-        input_resolution_cpu=(torch.arange(input_grid[0]), torch.arange(input_grid[1])),
-        output_resolution_cpu=(
-            torch.arange(output_grid[0]),
-            torch.arange(output_grid[1]),
-        ),
-    )
-    train_data = TrainData(input_channels, boundary_channels, ctx)
-    for _ in range(num_model_steps):
-        train_data.append(
-            torch.zeros(batch_size, input_channels, *input_grid),
-            torch.zeros(batch_size, boundary_channels, *input_grid),
-            torch.zeros(batch_size, output_channels, *output_grid),
-        )
-
-    progress = get_train_batch_progress(train_data, world_size)
-
-    assert progress.sample_windows == batch_size * world_size
-    assert progress.model_examples == batch_size * world_size * num_model_steps
-    assert (
-        progress.output_grid_cells
-        == batch_size * world_size * num_model_steps * output_grid[0] * output_grid[1]
-    )
-    assert (
-        progress.target_values
-        == batch_size
-        * world_size
-        * num_model_steps
-        * output_channels
-        * output_grid[0]
-        * output_grid[1]
-    )
-    assert progress.tensor_bytes == world_size * sum(
-        tensor.numel() * tensor.element_size()
-        for step in range(len(train_data))
-        for tensor in train_data[step]
-    )
-    assert progress.input_grid_lat == input_grid[0]
-    assert progress.input_grid_lon == input_grid[1]
-    assert progress.output_grid_lat == output_grid[0]
-    assert progress.output_grid_lon == output_grid[1]
-
-
-def test_get_train_batch_throughput_metrics_uses_batch_seconds():
-    batch_size = 1
-    ctx = GridContext(
-        label_mask=torch.ones(1, 2, 3, dtype=torch.bool),
-        input_resolution_cpu=(torch.arange(2), torch.arange(3)),
-        output_resolution_cpu=(torch.arange(2), torch.arange(3)),
-    )
-    train_data = TrainData(1, 1, ctx)
-    train_data.append(
-        torch.zeros(batch_size, 1, 2, 3),
-        torch.zeros(batch_size, 1, 2, 3),
-        torch.zeros(batch_size, 1, 2, 3),
-    )
-    progress = get_train_batch_progress(train_data, world_size=2)
-
-    metrics = get_train_batch_throughput_metrics(progress, batch_seconds=0.5)
-
-    assert metrics["throughput/model_examples_per_second"] == 4
-    assert metrics["throughput/output_grid_cells_per_second"] == 24
-    assert metrics["throughput/tensor_bytes_per_second"] == progress.tensor_bytes / 0.5
-    assert get_train_batch_throughput_metrics(progress, batch_seconds=0.0) == {}
-
-
-def test_synchronize_cuda_if_needed_only_syncs_cuda_devices(monkeypatch):
-    synced_devices = []
-
-    def synchronize(device):
-        synced_devices.append(device)
-
-    monkeypatch.setattr(torch.cuda, "synchronize", synchronize)
-
-    _synchronize_cuda_if_needed(torch.device("cpu"))
-
-    assert synced_devices == []
-
-    cuda_device = torch.device("cuda")
-    _synchronize_cuda_if_needed(cuda_device)
-
-    assert synced_devices == [cuda_device]
 
 
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)

@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import contextlib
-import dataclasses
 import datetime
 import logging
 import multiprocessing
@@ -57,6 +56,7 @@ from samudra.stepper import (
     train_batch,
     validate_batch,
 )
+from samudra.train_progress import TrainProgress
 from samudra.utils.data import Normalize, get_inference_steps
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import all_reduce_mean, is_main_process, set_seed
@@ -81,140 +81,6 @@ from samudra.utils.train import (
 from samudra.utils.wandb import WandBLogger
 
 logger = logging.getLogger(__name__)
-
-
-@dataclasses.dataclass(frozen=True)
-class TrainBatchProgress:
-    """Comparable per-batch progress quantities for W&B logging."""
-
-    sample_windows: int
-    model_examples: int
-    output_grid_cells: int
-    target_values: int
-    tensor_bytes: int
-    input_grid_lat: int
-    input_grid_lon: int
-    output_grid_lat: int
-    output_grid_lon: int
-
-    def to_metrics(self) -> dict[str, int]:
-        return {
-            "progress/batch_sample_windows": self.sample_windows,
-            "progress/batch_model_examples": self.model_examples,
-            "progress/batch_output_grid_cells": self.output_grid_cells,
-            "progress/batch_target_values": self.target_values,
-            "progress/batch_tensor_bytes": self.tensor_bytes,
-            "progress/input_grid_lat": self.input_grid_lat,
-            "progress/input_grid_lon": self.input_grid_lon,
-            "progress/output_grid_lat": self.output_grid_lat,
-            "progress/output_grid_lon": self.output_grid_lon,
-        }
-
-
-@dataclasses.dataclass
-class TrainProgress:
-    """Cumulative training progress counters saved in checkpoints."""
-
-    sample_windows_seen: int = 0
-    model_examples_seen: int = 0
-    output_grid_cells_seen: int = 0
-    target_values_seen: int = 0
-    tensor_bytes_seen: int = 0
-    optimizer_steps: int = 0
-    gpu_seconds: float = 0.0
-
-    def update(
-        self,
-        batch: TrainBatchProgress,
-        *,
-        optimizer_stepped: bool,
-        batch_seconds: float,
-        world_size: int,
-    ) -> None:
-        self.sample_windows_seen += batch.sample_windows
-        self.model_examples_seen += batch.model_examples
-        self.output_grid_cells_seen += batch.output_grid_cells
-        self.target_values_seen += batch.target_values
-        self.tensor_bytes_seen += batch.tensor_bytes
-        if optimizer_stepped:
-            self.optimizer_steps += 1
-        self.gpu_seconds += batch_seconds * world_size
-
-    def to_metrics(self) -> dict[str, int | float]:
-        return {
-            "progress/sample_windows_seen": self.sample_windows_seen,
-            "progress/model_examples_seen": self.model_examples_seen,
-            "progress/output_grid_cells_seen": self.output_grid_cells_seen,
-            "progress/target_values_seen": self.target_values_seen,
-            "progress/tensor_bytes_seen": self.tensor_bytes_seen,
-            "progress/optimizer_steps": self.optimizer_steps,
-            "progress/gpu_seconds": self.gpu_seconds,
-        }
-
-    def state_dict(self) -> dict[str, int | float]:
-        return dataclasses.asdict(self)
-
-    @classmethod
-    def from_state_dict(cls, state: dict[str, Any] | None) -> "TrainProgress":
-        if state is None:
-            return cls()
-        fields = {field.name for field in dataclasses.fields(cls)}
-        return cls(**{key: value for key, value in state.items() if key in fields})
-
-
-def get_train_batch_progress(data: TrainData, world_size: int) -> TrainBatchProgress:
-    """Compute global per-batch progress counts from the actual training tensors."""
-    label = data.get_label(0)
-    local_batch_size, output_channels, output_grid_lat, output_grid_lon = label.shape
-    input_grid_lat = data.ctx.input_resolution_cpu[0].shape[0]
-    input_grid_lon = data.ctx.input_resolution_cpu[1].shape[0]
-
-    sample_windows = local_batch_size * world_size
-    model_examples = sample_windows * len(data)
-    output_grid_cells = model_examples * output_grid_lat * output_grid_lon
-    target_values = output_grid_cells * output_channels
-
-    local_tensor_bytes = 0
-    for step in range(len(data)):
-        for tensor in data[step]:
-            local_tensor_bytes += tensor.numel() * tensor.element_size()
-
-    return TrainBatchProgress(
-        sample_windows=sample_windows,
-        model_examples=model_examples,
-        output_grid_cells=output_grid_cells,
-        target_values=target_values,
-        tensor_bytes=local_tensor_bytes * world_size,
-        input_grid_lat=input_grid_lat,
-        input_grid_lon=input_grid_lon,
-        output_grid_lat=output_grid_lat,
-        output_grid_lon=output_grid_lon,
-    )
-
-
-def get_train_batch_throughput_metrics(
-    batch_progress: TrainBatchProgress, batch_seconds: float
-) -> dict[str, float]:
-    """Compute per-batch global throughput metrics when timing is available."""
-    if batch_seconds <= 0:
-        return {}
-    return {
-        "throughput/model_examples_per_second": (
-            batch_progress.model_examples / batch_seconds
-        ),
-        "throughput/output_grid_cells_per_second": (
-            batch_progress.output_grid_cells / batch_seconds
-        ),
-        "throughput/tensor_bytes_per_second": (
-            batch_progress.tensor_bytes / batch_seconds
-        ),
-    }
-
-
-def _synchronize_cuda_if_needed(device: torch.device) -> None:
-    """Synchronize CUDA kernels before reading wall-clock batch timing."""
-    if device.type == "cuda":
-        torch.cuda.synchronize(device)
 
 
 def should_log_validation_images(epoch: int, frequency: int) -> bool:
@@ -638,41 +504,35 @@ class Trainer:
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
 
-            batch_progress = get_train_batch_progress(data, self.world_size)
-            _synchronize_cuda_if_needed(self.device)
-            batch_start_time = time.perf_counter()
+            with self.train_progress.batch(
+                data, world_size=self.world_size, device=self.device
+            ) as batch_progress:
+                TO: TrainBatchOutput = train_batch(self.model, data, self.loss_fn)
 
-            TO: TrainBatchOutput = train_batch(self.model, data, self.loss_fn)
+                # Scale loss by this accumulation cycle's actual microbatch count.
+                scaled_loss = TO.loss / r
+                scaled_loss.backward()
 
-            # Scale loss by the actual number of microbatches that will be accumulated
-            scaled_loss = TO.loss / r
-            scaled_loss.backward()
+                train_aggregator.record_batch(TO)
 
-            train_aggregator.record_batch(TO)
+                self.num_batches_seen += 1
 
-            self.num_batches_seen += 1
-
-            is_last = data_iter_step + 1 == total_batches
-            should_step = (data_iter_step + 1) % self.gradient_accumulation_steps == 0
-            optimizer_stepped = should_step or is_last
-            # Step optimizer after accumulating enough batches or at the end
-            if optimizer_stepped:
-                torch.nn.utils.clip_grad_norm_(
-                    self.model.parameters(),
-                    1.0,
-                    error_if_nonfinite=True,
-                )
-                self.optimizer.step()
-                self.optimizer.zero_grad()
-                self._ema(model=self.model)
-            _synchronize_cuda_if_needed(self.device)
-            batch_seconds = time.perf_counter() - batch_start_time
-            self.train_progress.update(
-                batch_progress,
-                optimizer_stepped=optimizer_stepped,
-                batch_seconds=batch_seconds,
-                world_size=self.world_size,
-            )
+                is_last = data_iter_step + 1 == total_batches
+                should_step = (
+                    data_iter_step + 1
+                ) % self.gradient_accumulation_steps == 0
+                optimizer_stepped = should_step or is_last
+                batch_progress.optimizer_stepped = optimizer_stepped
+                # Step optimizer after accumulating enough batches or at the end
+                if optimizer_stepped:
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model.parameters(),
+                        1.0,
+                        error_if_nonfinite=True,
+                    )
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
+                    self._ema(model=self.model)
 
             lr = (
                 self.optimizer.param_groups[-1]["lr"]
@@ -690,7 +550,7 @@ class Trainer:
                     "train/batch/ema_cur_decay": self._ema.cur_decay.item(),
                     **batch_progress.to_metrics(),
                     **self.train_progress.to_metrics(),
-                    **get_train_batch_throughput_metrics(batch_progress, batch_seconds),
+                    **batch_progress.to_throughput_metrics(),
                     **get_channel_loss_dict(
                         label="train",
                         loss_per_channel=loss_per_channel_reduce,

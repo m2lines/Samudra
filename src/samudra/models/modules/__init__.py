@@ -15,7 +15,7 @@ from .blocks import (
     UpsamplingBlockBuilder,
     ZonallyPeriodicBilinearUpsample,
 )
-from .decoder import DirectPatchDecoder, PerceiverDecoder
+from .decoder import DirectPatchDecoder, PerceiverDecoder, ResampleProjectionDecoder
 from .encoder import DirectPatchEncoder, PerceiverEncoder, SpatialQueryPerceiver
 from .unet_backbone import UNetBackbone
 
@@ -33,6 +33,7 @@ __all__ = [
     "DirectPatchDecoder",
     "DirectPatchEncoder",
     "PerceiverDecoder",
+    "ResampleProjectionDecoder",
     "PerceiverEncoder",
     "SpatialQueryPerceiver",
     "ReLU",

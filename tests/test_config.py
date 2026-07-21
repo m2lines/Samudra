@@ -25,7 +25,11 @@ from samudra.config import (
     TrainConfig,
 )
 from samudra.config_schema import get_pydantic_models
-from samudra.models.modules import DirectPatchDecoder, DirectPatchEncoder
+from samudra.models.modules import (
+    DirectPatchDecoder,
+    DirectPatchEncoder,
+    ResampleProjectionDecoder,
+)
 from samudra.utils.location import LocalLocation, UnresolvedLocation
 from samudra.utils.schedule import CosineSchedulerConfig
 
@@ -357,6 +361,29 @@ def test_direct_representation_configs_build_projection_heads():
     assert isinstance(encoder, DirectPatchEncoder)
     assert encoder.out_channels == 128
     assert isinstance(decoder, DirectPatchDecoder)
+
+
+def test_resample_projection_decoder_config_supports_different_grids():
+    decoder = DecoderConfig(resample_projection=True).build(
+        in_channels=128,
+        out_channels=154,
+        patch_extent=(3.0, 5.0),
+        implementation="naive",
+    )
+
+    assert isinstance(decoder, ResampleProjectionDecoder)
+
+
+def test_decoder_config_rejects_multiple_projection_controls():
+    config = DecoderConfig(direct_projection=True, resample_projection=True)
+
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        config.build(
+            in_channels=128,
+            out_channels=154,
+            patch_extent=(1.0, 1.0),
+            implementation="naive",
+        )
 
 
 def test_direct_encoder_config_rejects_spatial_compression():

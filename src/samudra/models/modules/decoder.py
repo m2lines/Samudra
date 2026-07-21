@@ -64,6 +64,41 @@ class DirectPatchDecoder(nn.Module):
         return self.projection(x)
 
 
+class ResampleProjectionDecoder(nn.Module):
+    """Resize a canonical feature grid, then project channels per output pixel.
+
+    When the processor and output grids already match, the resize is skipped and
+    this is exactly a shared 1-by-1 projection.
+    """
+
+    def __init__(self, in_channels: int, out_channels: int) -> None:
+        super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.projection = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+
+    def forward(
+        self,
+        x: Float[torch.Tensor, "batch channels H W"],
+        resolution: tuple[Lat, Lon],
+        fine_scale_features: torch.Tensor | None = None,
+    ) -> Float[torch.Tensor, "batch {self.out_channels} H_out W_out"]:
+        del fine_scale_features
+        if x.shape[1] != self.in_channels:
+            raise ValueError(
+                f"Expected {self.in_channels} input channels, got {x.shape[1]}."
+            )
+        output_shape = len(resolution[0]), len(resolution[1])
+        if x.shape[-2:] != output_shape:
+            x = F.interpolate(
+                x,
+                size=output_shape,
+                mode="bilinear",
+                align_corners=False,
+            )
+        return self.projection(x)
+
+
 class PerceiverDecoder(nn.Module):
     """A PerceiverIO-based decoder that maps a latent patch grid to full-resolution output.
 

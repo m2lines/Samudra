@@ -41,6 +41,7 @@ from samudra.models.modules import (
     PerceiverDecoder,
     PerceiverEncoder,
     ReLU,
+    ResampleProjectionDecoder,
     SpatialQueryPerceiver,
     TransposedConvUpsample,
     UNetBackbone,
@@ -754,6 +755,11 @@ class DecoderConfig(BaseConfig):
         description="Replace the Perceiver decoder with a direct 1x1 projection. "
         "Only valid when the processor and output grids match.",
     )
+    resample_projection: bool = Field(
+        default=False,
+        description="Replace the Perceiver decoder with bilinear spatial "
+        "resampling followed by a shared 1x1 channel projection.",
+    )
     perceiver: PerceiverConfig = PerceiverConfig()
     queries_dim: int = Field(
         default=64,
@@ -783,7 +789,11 @@ class DecoderConfig(BaseConfig):
         patch_extent: tuple[float, float],
         implementation: PerceiverImpl,
         fine_scale_in_channels: int | None = None,
-    ) -> PerceiverDecoder | DirectPatchDecoder:
+    ) -> PerceiverDecoder | DirectPatchDecoder | ResampleProjectionDecoder:
+        if self.direct_projection and self.resample_projection:
+            raise ValueError(
+                "direct_projection and resample_projection are mutually exclusive."
+            )
         if self.direct_projection:
             if fine_scale_in_channels is not None:
                 raise ValueError(
@@ -793,6 +803,16 @@ class DecoderConfig(BaseConfig):
                 in_channels=in_channels,
                 out_channels=out_channels,
                 patch_extent=patch_extent,
+            )
+        if self.resample_projection:
+            if fine_scale_in_channels is not None:
+                raise ValueError(
+                    "Resample-projection decoding cannot be combined with "
+                    "fine-scale queries."
+                )
+            return ResampleProjectionDecoder(
+                in_channels=in_channels,
+                out_channels=out_channels,
             )
         return PerceiverDecoder(
             in_channels=in_channels,

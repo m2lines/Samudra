@@ -19,6 +19,7 @@ from samudra.models.modules import (
     DirectPatchEncoder,
     PerceiverDecoder,
     PerceiverEncoder,
+    ResampleProjectionDecoder,
 )
 from samudra.models.modules.unet_backbone import UNetBackbone
 from samudra.utils.ctx import GridContext
@@ -36,6 +37,7 @@ _checkpoint_types: tuple[type, ...] = (
     PerceiverEncoder,
     DirectPatchDecoder,
     DirectPatchEncoder,
+    ResampleProjectionDecoder,
     UNetBackbone,
     Attention,
 )
@@ -69,7 +71,7 @@ class SamudraMulti(BaseModel):
         add_3d_coordinates: nn.Module | None,
         encoder: PerceiverEncoder | DirectPatchEncoder,
         processor: nn.Module,
-        decoder: PerceiverDecoder | DirectPatchDecoder,
+        decoder: PerceiverDecoder | DirectPatchDecoder | ResampleProjectionDecoder,
         hist: int,
         checkpointing: "Checkpointing | None",
         gradient_detach_interval: int,
@@ -109,6 +111,7 @@ class SamudraMulti(BaseModel):
                         PerceiverDecoder,
                         DirectPatchEncoder,
                         DirectPatchDecoder,
+                        ResampleProjectionDecoder,
                     ),
                 ),
             )

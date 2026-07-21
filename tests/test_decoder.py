@@ -11,6 +11,7 @@ from samudra.models.modules import (
     DirectPatchDecoder,
     PerceiverDecoder,
     PerceiverEncoder,
+    ResampleProjectionDecoder,
 )
 
 # Small values for fast tests.
@@ -129,6 +130,31 @@ def make_decoder_with_shared_weights(
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
+
+def test_resample_projection_decoder_preserves_matching_grid():
+    decoder = ResampleProjectionDecoder(in_channels=4, out_channels=3)
+    x = torch.randn(2, 4, 6, 10, requires_grad=True)
+    resolution = make_resolution(x)
+
+    output = decoder(x, resolution)
+
+    torch.testing.assert_close(output, decoder.projection(x))
+    output.sum().backward()
+    assert decoder.projection.weight.grad is not None
+
+
+def test_resample_projection_decoder_changes_output_resolution():
+    decoder = ResampleProjectionDecoder(in_channels=4, out_channels=3)
+    x = torch.randn(2, 4, 3, 5)
+    resolution = (
+        torch.linspace(-90, 90, 6),
+        torch.linspace(0, 360, 10),
+    )
+
+    output = decoder(x, resolution)
+
+    assert output.shape == (2, 3, 6, 10)
 
 
 def test_roundtrip():

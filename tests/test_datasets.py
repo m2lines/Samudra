@@ -124,7 +124,6 @@ def make_loader(
                 dataset_list = [
                     TorchTrainDataset(
                         src=src.slice(time_config),
-                        dst=None,
                         prognostic_var_names=prognostic,
                         boundary_var_names=boundary,
                         hist=cfg.data.hist,
@@ -143,9 +142,7 @@ def make_loader(
                 # Group datasets by resolution, allowing different strides to batch together.
                 batch_sampler = EquivalenceGroupBatchSampler.from_datasets(
                     datasets=dataset_list,
-                    group_key=lambda ds: tuple(
-                        prog.grid_size for prog in ds.prognostic_srcs
-                    ),
+                    group_key=lambda ds: ds.prognostic_src.grid_size,
                     batch_size=cfg.batch_size,
                     drop_last=drop_last,
                     shuffle=shuffle,
@@ -179,9 +176,7 @@ def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
     return np.stack(x_arrays, axis=0), np.stack(y_arrays, axis=0)
 
 
-def calc_num_samples(
-    cfg: TrainConfig, time_slice: slice, source_count: int = 1
-) -> int:
+def calc_num_samples(cfg: TrainConfig, time_slice: slice, source_count: int = 1) -> int:
     primary = cfg.data.sources[0]
     ds = cfg.experiment.resolved_data_root.resolve(primary.data_location).open()
 
@@ -624,7 +619,6 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
         )
         torch_train_dataset = TorchTrainDataset(
             src=test,
-            dst=None,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
             hist=1,

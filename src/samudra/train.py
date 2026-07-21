@@ -791,7 +791,6 @@ class Trainer:
         train_datasets = [
             TorchTrainDataset(
                 src=src.slice(self.train_time),
-                dst=None,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -808,7 +807,6 @@ class Trainer:
         val_datasets = [
             TorchTrainDataset(
                 src=src.slice(self.val_time),
-                dst=None,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -852,7 +850,7 @@ class Trainer:
         # Create batch samplers - branch on distributed vs non-distributed
         # Group by resolution so batches stay homogeneous across configured sources.
         def group_key(ds):
-            return tuple(prog.grid_size for prog in ds.prognostic_srcs)
+            return ds.prognostic_src.grid_size
 
         if self.distributed is not None:
             # Distributed training

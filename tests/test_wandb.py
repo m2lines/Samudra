@@ -32,6 +32,36 @@ class DummyDataContainer:
     sources: list[Any] = []
 
 
+def test_wandb_config_reports_code_and_runtime_provenance(tmp_path, monkeypatch):
+    provenance = {
+        "SAMUDRA_CODE_COMMIT": "code-commit",
+        "SAMUDRA_CODE_REPO_URL": "https://example.com/samudra.git",
+        "SAMUDRA_CODE_LAYER_SHA256": "layer-sha256",
+        "SAMUDRA_RUNTIME_GIT_COMMIT": "runtime-commit",
+        "SAMUDRA_RUNTIME_GIT_REMOTE_URL": "https://example.com/runtime.git",
+        "SAMUDRA_RUNTIME_IMAGE_REF": "ghcr.io/example/runtime@sha256:abc",
+        "SAMUDRA_RUNTIME_SIF_PATH": "/scratch/example/runtime.sif",
+    }
+    for name, value in provenance.items():
+        monkeypatch.setenv(name, value)
+
+    with MultitonScope():
+        logger = WandBLogger.init_instance()
+        config = logger._make_config(
+            cast(Any, DummyConfig(tmp_path)), cast(Any, DummyDataContainer())
+        )
+
+    assert config["provenance"] == {
+        "code_commit": "code-commit",
+        "code_repo_url": "https://example.com/samudra.git",
+        "code_layer_sha256": "layer-sha256",
+        "runtime_git_commit": "runtime-commit",
+        "runtime_git_remote_url": "https://example.com/runtime.git",
+        "runtime_image_ref": "ghcr.io/example/runtime@sha256:abc",
+        "runtime_sif_path": "/scratch/example/runtime.sif",
+    }
+
+
 def test_wandb_resume_setup_skips_checkpoint_load_when_disabled(tmp_path, monkeypatch):
     checkpoint_path = tmp_path / "ckpt.pt"
     checkpoint_path.write_text("not a torch checkpoint")

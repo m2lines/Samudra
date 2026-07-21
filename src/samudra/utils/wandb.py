@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+import os
 from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
@@ -43,6 +44,22 @@ class WandBLogger(Multiton):
             for i, src in enumerate(data_container.sources)
         }
         config.update(config=cfg.model_dump())
+        provenance_env = {
+            "code_commit": "SAMUDRA_CODE_COMMIT",
+            "code_repo_url": "SAMUDRA_CODE_REPO_URL",
+            "code_layer_sha256": "SAMUDRA_CODE_LAYER_SHA256",
+            "runtime_git_commit": "SAMUDRA_RUNTIME_GIT_COMMIT",
+            "runtime_git_remote_url": "SAMUDRA_RUNTIME_GIT_REMOTE_URL",
+            "runtime_image_ref": "SAMUDRA_RUNTIME_IMAGE_REF",
+            "runtime_sif_path": "SAMUDRA_RUNTIME_SIF_PATH",
+        }
+        provenance = {
+            name: value
+            for name, env_var in provenance_env.items()
+            if (value := os.environ.get(env_var))
+        }
+        if provenance:
+            config["provenance"] = provenance
         return config
 
     def setup_run(

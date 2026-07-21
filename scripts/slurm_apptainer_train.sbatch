@@ -20,6 +20,8 @@
 #   export IMAGE_REF=ghcr.io/m2lines/ocean-emulator-physicsnemo:26.05-<hash>
 #   export CONTAINER_HASH=<git sha>   # expands to 26.05-<sha>
 #   export CONTAINER_TAG=26.05-latest
+# Optional code layer built by scripts/build_apptainer_code_layer.sh:
+#   export CODE_LAYER=/scratch/$USER/.apptainer-code-layers/samudra-code-<hash>.img
 #
 # Private GHCR pulls (if needed):
 #   export GHCR_USERNAME=...
@@ -69,6 +71,7 @@ NAME_SUFFIX="${NAME_SUFFIX:-}"
 ARGS="${ARGS:-}"
 NSYS_ARGS="${NSYS_ARGS:-}"
 REQUEUE_ON_USR1="${REQUEUE_ON_USR1:-0}"
+CODE_LAYER="${CODE_LAYER:-}"
 if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then
   NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"
 fi
@@ -86,14 +89,6 @@ if [[ "${REQUEUE_ON_USR1}" == "1" ]]; then
     exit 0
   }
   trap handle_requeue USR1
-fi
-
-# Config path inside the container image. We keep the env var as-is for
-# backwards compatibility, but resolve relative paths under /workspace/
-# (the image's working directory where configs/ is copied).
-CONFIG_IN_CONTAINER="${CONFIG}"
-if [[ "${CONFIG_IN_CONTAINER}" != /* ]]; then
-  CONFIG_IN_CONTAINER="/workspace/${CONFIG_IN_CONTAINER}"
 fi
 
 # Data + outputs (host paths; will be bind-mounted into the container at same paths).
@@ -163,7 +158,14 @@ SIF_DIR="${SIF_DIR:-${REPO_DIR}/.apptainer-images}"
 mkdir -p "${SIF_DIR}"
 # Default cache name keys off IMAGE_REF so distinct refs never collide.
 IMAGE_REF_SAFE="$(echo "${IMAGE_REF}" | tr '/:@' '---')"
+SIF_PATH_INPUT="${SIF_PATH:-}"
 SIF_PATH="${SIF_PATH:-${SIF_DIR}/${IMAGE_REF_SAFE}.sif}"
+RUNTIME_IMAGE_REF="${IMAGE_REF}"
+if [[ -n "${SIF_PATH_INPUT}" && -s "${SIF_PATH_INPUT}" ]]; then
+  # A pre-existing explicit SIF may not correspond to IMAGE_REF. Record its
+  # path and avoid claiming the fallback pull reference as its identity.
+  RUNTIME_IMAGE_REF=""
+fi
 
 # Apptainer tmp: keep on node-local /tmp to avoid scratch filesystems that don't support xattrs.
 export APPTAINER_TMPDIR="${APPTAINER_TMPDIR:-/tmp}"
@@ -177,7 +179,7 @@ if [[ -n "${GHCR_TOKEN:-}" ]] && [[ -z "${APPTAINER_DOCKER_PASSWORD:-}" ]]; then
 fi
 
 echo "Repo dir:   ${REPO_DIR}"
-echo "Config:     ${CONFIG_IN_CONTAINER}"
+echo "Config:     ${CONFIG}"
 echo "Name:       ${NAME}"
 echo "Data root:  ${DATA_ROOT}"
 echo "Outputs:    ${OUTPUT_BASE}"
@@ -195,6 +197,112 @@ if [[ ! -s "${SIF_PATH}" ]]; then
 else
   echo "Using existing SIF."
 fi
+
+# The SIF supplies the heavyweight Python/CUDA environment. An optional code
+# overlay supplies source/configs from a separately pinned git commit.
+RUNTIME_GIT_COMMIT="$(
+  "${APPTAINER_BIN}" exec "${SIF_PATH}" \
+    bash -lc 'printf %s "${SAMUDRA_RUNTIME_GIT_COMMIT:-${WANDB_GIT_COMMIT:-unknown}}"'
+)"
+RUNTIME_GIT_REMOTE_URL="$(
+  "${APPTAINER_BIN}" exec "${SIF_PATH}" \
+    bash -lc 'printf %s "${SAMUDRA_RUNTIME_GIT_REMOTE_URL:-${WANDB_GIT_REMOTE_URL:-unknown}}"'
+)"
+CODE_ROOT=/workspace
+CODE_GIT_COMMIT="${RUNTIME_GIT_COMMIT}"
+CODE_GIT_REMOTE_URL="${RUNTIME_GIT_REMOTE_URL}"
+CODE_LAYER_SHA256=""
+CODE_LAYER_MANIFEST=""
+OVERLAY_ARGS=()
+if [[ -n "${CODE_LAYER}" ]]; then
+  if [[ ! -s "${CODE_LAYER}" ]]; then
+    echo "CODE_LAYER does not exist or is empty: ${CODE_LAYER}" >&2
+    exit 7
+  fi
+  CODE_LAYER="$(realpath "${CODE_LAYER}")"
+  CODE_LAYER_SHA_FILE="${CODE_LAYER}.sha256"
+  CODE_LAYER_MANIFEST="${CODE_LAYER}.json"
+  if [[ ! -s "${CODE_LAYER_SHA_FILE}" || ! -s "${CODE_LAYER_MANIFEST}" ]]; then
+    echo "CODE_LAYER requires sidecars ${CODE_LAYER_SHA_FILE} and ${CODE_LAYER_MANIFEST}." >&2
+    exit 7
+  fi
+  if ! (
+    cd "$(dirname "${CODE_LAYER}")"
+    sha256sum --check --status "$(basename "${CODE_LAYER_SHA_FILE}")"
+  ); then
+    echo "CODE_LAYER checksum verification failed: ${CODE_LAYER}" >&2
+    exit 7
+  fi
+  if ! CODE_METADATA_TEXT="$(python3 -c '
+import json, sys
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+print(manifest["code_commit"])
+print(manifest["code_repo_url"])
+' "${CODE_LAYER_MANIFEST}")"; then
+    echo "Could not parse code-layer manifest: ${CODE_LAYER_MANIFEST}" >&2
+    exit 7
+  fi
+  readarray -t CODE_METADATA <<<"${CODE_METADATA_TEXT}"
+  if [[ "${#CODE_METADATA[@]}" -ne 2 ]]; then
+    echo "Code-layer manifest has invalid commit/repository metadata: ${CODE_LAYER_MANIFEST}" >&2
+    exit 7
+  fi
+  CODE_GIT_COMMIT="${CODE_METADATA[0]}"
+  CODE_GIT_REMOTE_URL="${CODE_METADATA[1]}"
+  CODE_LAYER_SHA256="$(awk 'NR == 1 {print $1}' "${CODE_LAYER_SHA_FILE}")"
+  CODE_ROOT=/opt/samudra-code
+  OVERLAY_ARGS=(--overlay "${CODE_LAYER}:ro")
+  if ! "${APPTAINER_BIN}" exec \
+    "${OVERLAY_ARGS[@]}" \
+    --bind "${CODE_LAYER_MANIFEST}:/tmp/code-layer-manifest.json:ro" \
+    "${SIF_PATH}" \
+    bash -lc '
+      cmp -s /tmp/code-layer-manifest.json /opt/samudra-code/source-manifest.json \
+        && cmp -s /opt/samudra-code/uv.lock /workspace/uv.lock \
+        && cmp -s /opt/samudra-code/pyproject.toml /workspace/pyproject.toml
+    '; then
+    echo "CODE_LAYER manifest or lockfiles do not match the selected runtime SIF." >&2
+    echo "Code layer:  ${CODE_LAYER}" >&2
+    echo "Runtime SIF: ${SIF_PATH}" >&2
+    exit 7
+  fi
+fi
+
+CONFIG_IN_CONTAINER="${CONFIG}"
+if [[ "${CONFIG_IN_CONTAINER}" != /* ]]; then
+  CONFIG_IN_CONTAINER="${CODE_ROOT}/${CONFIG_IN_CONTAINER}"
+fi
+
+echo "Resolved config: ${CONFIG_IN_CONTAINER}"
+echo "Runtime commit: ${RUNTIME_GIT_COMMIT}"
+echo "Code commit:    ${CODE_GIT_COMMIT}"
+if [[ -n "${CODE_LAYER}" ]]; then
+  echo "Code layer:     ${CODE_LAYER}"
+  echo "Code layer SHA: ${CODE_LAYER_SHA256}"
+else
+  echo "Code layer:     none (using source baked into runtime SIF)"
+fi
+
+# W&B's git panel must describe the code being executed, not the commit that
+# happened to build the runtime environment. Keep both identities explicitly.
+export APPTAINERENV_WANDB_GIT_COMMIT="${CODE_GIT_COMMIT}"
+export APPTAINERENV_WANDB_GIT_REMOTE_URL="${CODE_GIT_REMOTE_URL}"
+export APPTAINERENV_SAMUDRA_CODE_COMMIT="${CODE_GIT_COMMIT}"
+export APPTAINERENV_SAMUDRA_CODE_REPO_URL="${CODE_GIT_REMOTE_URL}"
+export APPTAINERENV_SAMUDRA_CODE_LAYER_SHA256="${CODE_LAYER_SHA256}"
+export APPTAINERENV_SAMUDRA_RUNTIME_GIT_COMMIT="${RUNTIME_GIT_COMMIT}"
+export APPTAINERENV_SAMUDRA_RUNTIME_GIT_REMOTE_URL="${RUNTIME_GIT_REMOTE_URL}"
+export APPTAINERENV_SAMUDRA_RUNTIME_IMAGE_REF="${RUNTIME_IMAGE_REF}"
+export APPTAINERENV_SAMUDRA_RUNTIME_SIF_PATH="${SIF_PATH}"
+export SINGULARITYENV_WANDB_GIT_COMMIT="${CODE_GIT_COMMIT}"
+export SINGULARITYENV_WANDB_GIT_REMOTE_URL="${CODE_GIT_REMOTE_URL}"
+export SINGULARITYENV_SAMUDRA_CODE_COMMIT="${CODE_GIT_COMMIT}"
+export SINGULARITYENV_SAMUDRA_CODE_REPO_URL="${CODE_GIT_REMOTE_URL}"
+export SINGULARITYENV_SAMUDRA_CODE_LAYER_SHA256="${CODE_LAYER_SHA256}"
+export SINGULARITYENV_SAMUDRA_RUNTIME_GIT_COMMIT="${RUNTIME_GIT_COMMIT}"
+export SINGULARITYENV_SAMUDRA_RUNTIME_GIT_REMOTE_URL="${RUNTIME_GIT_REMOTE_URL}"
+export SINGULARITYENV_SAMUDRA_RUNTIME_IMAGE_REF="${RUNTIME_IMAGE_REF}"
+export SINGULARITYENV_SAMUDRA_RUNTIME_SIF_PATH="${SIF_PATH}"
 
 # Distributed rendezvous info (shared by all nodes).
 MASTER_ADDR="$(scontrol show hostnames "${SLURM_JOB_NODELIST}" | head -n 1)"
@@ -249,6 +357,35 @@ BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 # Create the run directory after preflight validation so early failures are
 # retryable with the same NAME.
 mkdir -p "${RUN_DIR}"
+if [[ -n "${CODE_LAYER_MANIFEST}" ]]; then
+  cp "${CODE_LAYER_MANIFEST}" "${RUN_DIR}/source-manifest.json"
+fi
+SAMUDRA_PROVENANCE_PATH="${RUN_DIR}/run-provenance.json" \
+SAMUDRA_CODE_COMMIT="${CODE_GIT_COMMIT}" \
+SAMUDRA_CODE_REPO_URL="${CODE_GIT_REMOTE_URL}" \
+SAMUDRA_CODE_LAYER_SHA256="${CODE_LAYER_SHA256}" \
+SAMUDRA_RUNTIME_GIT_COMMIT="${RUNTIME_GIT_COMMIT}" \
+SAMUDRA_RUNTIME_GIT_REMOTE_URL="${RUNTIME_GIT_REMOTE_URL}" \
+SAMUDRA_RUNTIME_IMAGE_REF="${RUNTIME_IMAGE_REF}" \
+SAMUDRA_RUNTIME_SIF_PATH="${SIF_PATH}" \
+python3 - <<'PY'
+import json
+import os
+
+keys = (
+    "SAMUDRA_CODE_COMMIT",
+    "SAMUDRA_CODE_REPO_URL",
+    "SAMUDRA_CODE_LAYER_SHA256",
+    "SAMUDRA_RUNTIME_GIT_COMMIT",
+    "SAMUDRA_RUNTIME_GIT_REMOTE_URL",
+    "SAMUDRA_RUNTIME_IMAGE_REF",
+    "SAMUDRA_RUNTIME_SIF_PATH",
+)
+provenance = {key.removeprefix("SAMUDRA_").lower(): os.environ[key] for key in keys}
+with open(os.environ["SAMUDRA_PROVENANCE_PATH"], "w", encoding="utf-8") as stream:
+    json.dump(provenance, stream, indent=2, sort_keys=True)
+    stream.write("\n")
+PY
 if [[ -n "${NSYS_ARGS}" ]]; then
   mkdir -p "${NSYS_OUTPUT_DIR}"
 fi
@@ -258,20 +395,21 @@ export OE_NSYS_OUTPUT_DIR="${NSYS_OUTPUT_DIR}"
 
 srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
   "${APPTAINER_BIN}" exec --nv \
+    "${OVERLAY_ARGS[@]}" \
     --bind "${BIND_ARG}" \
-    --pwd /workspace \
+    --pwd "${CODE_ROOT}" \
     "${SIF_PATH}" \
     bash -lc "
       set -euo pipefail
       export PYTHONNOUSERSITE=1
-      export PYTHONPATH=/workspace/src:\${PYTHONPATH:-}
+      export PYTHONPATH=${CODE_ROOT}/src:\${PYTHONPATH:-}
       if [[ ! -x /workspace/.venv/bin/python ]]; then
         echo \"ERROR: /workspace/.venv/bin/python not found inside container\" >&2
         exit 1
       fi
       if [[ ! -f \"${CONFIG_IN_CONTAINER}\" ]]; then
         echo \"ERROR: config not found inside container: ${CONFIG_IN_CONTAINER}\" >&2
-        echo \"Hint: rebuild/pull a container tag that includes /workspace/configs.\" >&2
+        echo \"Hint: verify CONFIG and the selected code layer.\" >&2
         exit 2
       fi
       profiler_cmd=()

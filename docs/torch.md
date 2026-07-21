@@ -24,7 +24,11 @@ The container build workflow is `.github/workflows/container-physicsnemo.yml`.
   - `push` to `main`, or
   - `workflow_dispatch` (manual run).
 
-Recommended for branch work:
+Build a new container when the runtime environment changes, including changes to
+`uv.lock`, `pyproject.toml`, the PhysicsNeMo base, or system packages. For source
+and config-only branch work, use a code overlay as described below instead.
+
+Legacy container-per-commit workflow:
 
 1. Push your code changes to your branch.
 2. Run the workflow manually (Actions UI): `Container PhysicsNeMo 26.05` with `workflow_dispatch` on your branch.
@@ -44,14 +48,12 @@ Main script:
 
 - `scripts/slurm_apptainer_train.sbatch`
 
-Typically you will have this repo cloned on a scratch space so you
-can use this script. But note that the actual training run will use the
-**code and configs baked into the container** (under `/workspace/src` and
-`/workspace/configs`). It does **not** bind-mount your host checkout into the container
-for training. This keeps runs pinned to a container tag (and avoids accidental
-drift from host edits).
-This means host-side config file edits are ignored unless they are baked into a new
-container image; for quick, run-specific tweaks, use CLI overrides via `ARGS`.
+By default, the actual training run uses the code and configs baked into the
+container under `/workspace`. Alternatively, `CODE_LAYER` selects a small,
+commit-addressed EXT3 overlay built by `scripts/build_apptainer_code_layer.sh`.
+The overlay is checksum-verified and mounted read-only under
+`/opt/samudra-code`; it is not a live checkout, so later host edits cannot alter
+a queued, running, requeued, or resumed job.
 
 It expects environment variables:
 
@@ -66,6 +68,8 @@ It expects environment variables:
   `--experiment.base_output_dir` (default: `/scratch/<current_user>/runs`)
 - `ARGS` (optional): extra CLI overrides, e.g. `--batch_size=1`
 - `NSYS_ARGS` (optional): if set, wrap the training launch with `nsys profile`
+- `CODE_LAYER` (optional): absolute path to a code overlay produced by
+  `scripts/build_apptainer_code_layer.sh`
 - `WANDB_API_KEY` (optional): if set and `WANDB_MODE` unset, defaults to W&B online
 - `WANDB_MODE` (optional): `online` or `disabled` (if unset, defaults based on
   whether `WANDB_API_KEY` is present)
@@ -76,14 +80,78 @@ Key behavior:
 - Fails early if either `${DATA_ROOT}` or `${OUTPUT_BASE}` does not exist, with
   instructions to set the corresponding env var.
 - Uses the container venv explicitly (`/workspace/.venv/bin/python`) to avoid missing deps.
-- To change training code or YAML configs, rebuild/publish a new container tag and
-  point the harness at it (e.g. via `CONTAINER_HASH=<git_sha>`).
+- Source/config-only changes can use a code overlay without rebuilding the container.
+- Dependency changes require a new container because the overlay builder refuses
+  any `uv.lock` or `pyproject.toml` mismatch with the runtime SIF.
 - Caches the pulled SIF under `${REPO_DIR}/.apptainer-images/` by default.
 - If `NSYS_ARGS` is set and does not include `-o`/`--output`, reports are written under
   `${OUTPUT_BASE}/${NAME}/nsys/`.
 - Defaults to a 8-hour walltime in `scripts/slurm_apptainer_train.sbatch`.
 - Our 1-degree jobs take around 4-6 hours, so this is safe; you should probalby
   increase it by data size for 1/2-degree (i.e. 4x more data = 4x more time) etc.
+
+## Fast Iteration With Commit-Addressed Code Overlays
+
+The code-layer builder fetches an exact 40-character commit from Git, so the
+commit must be pushed first. It does not use or modify a checkout on Torch.
+
+Copy the builder and harness to Torch:
+
+```bash
+scp scripts/build_apptainer_code_layer.sh torch:~/build_apptainer_code_layer.sh
+scp scripts/slurm_apptainer_train.sbatch torch:~/slurm_apptainer_train.sbatch
+```
+
+Choose an existing stable runtime SIF and build the layer on Torch:
+
+```bash
+ssh torch
+export CODE_COMMIT=<full-pushed-git-sha>
+export SIF_PATH=/scratch/$USER/.apptainer-images/<stable-runtime>.sif
+bash ~/build_apptainer_code_layer.sh "${CODE_COMMIT}" "${SIF_PATH}"
+```
+
+The builder performs these checks before publishing anything:
+
+- fetches exactly `CODE_COMMIT`, failing if it is not reachable from the remote;
+- byte-compares the commit's `uv.lock` and `pyproject.toml` with `/workspace`
+  inside `SIF_PATH`;
+- verifies that Python imports `samudra` from the completed overlay;
+- writes SHA-256 and JSON manifest sidecars;
+- publishes the layer under
+  `/scratch/$USER/.apptainer-code-layers/` using an atomic rename.
+
+There is intentionally no option to bypass the lockfile check. Rebuild the
+runtime image/SIF when dependencies change.
+
+Submit using the stable SIF plus the new code layer:
+
+```bash
+export SIF_PATH=/scratch/$USER/.apptainer-images/<stable-runtime>.sif
+export CODE_LAYER=/scratch/$USER/.apptainer-code-layers/samudra-code-${CODE_COMMIT}.img
+export CONFIG=configs/samudra_om4/train.yaml
+export NAME_SUFFIX=my-code-layer-run
+export REPO_DIR=/scratch/$USER
+export SIF_DIR=/scratch/$USER/.apptainer-images
+export DATA_CACHE_DIR=/scratch/$USER/.data_cache/${NAME_SUFFIX}
+export APPTAINER_CACHEDIR=/scratch/$USER/apptainer-cache
+export SINGULARITY_CACHEDIR=/scratch/$USER/singularity-cache
+
+sbatch \
+  --chdir=/scratch/$USER \
+  --output=/scratch/$USER/slurm-%j.out \
+  --error=/scratch/$USER/slurm-%j.err \
+  ~/slurm_apptainer_train.sbatch
+```
+
+At launch, the harness verifies the layer checksum again and mounts it with
+`--overlay <layer>:ro`. It writes `source-manifest.json` and
+`run-provenance.json` into the run directory.
+
+W&B receives the code-layer commit through `WANDB_GIT_COMMIT`, so its Git
+metadata describes the code actually executed. The W&B config also records a
+`provenance` object containing the code commit, code-layer SHA-256, runtime
+container commit, and runtime image reference or SIF path.
 
 ### Example: 1 Node, 8x RTX6000 on the NYU Torch HPC
 
@@ -216,6 +284,8 @@ It expects environment variables:
 - `OUTPUT_BASE` (optional): host output base dir passed to `--experiment.base_output_dir`
   (default: `/scratch/<current_user>/runs`)
 - `ARGS` (optional): extra CLI overrides
+- `CODE_LAYER` (optional): absolute path to a code overlay produced by
+  `scripts/build_apptainer_code_layer.sh`
 - `WANDB_API_KEY` (optional): if set and `WANDB_MODE` unset, defaults to W&B online
 - `WANDB_MODE` (optional): `online` or `disabled` (if unset, defaults based on
   whether `WANDB_API_KEY` is present)

@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 import logging
 import tempfile
 from pathlib import Path
@@ -62,23 +63,19 @@ def test_trainer__samudra_mini_smoke_cuda(trainer_pair: TrainPair, caplog):
     trainer.run()
 
 
-def _copy_resume_parity_config(
+def _resume_parity_config(
     train_config: TrainConfig, tmp_path: Path, run_name: str
 ) -> TrainConfig:
-    cfg = train_config.model_copy(deep=True)
-    cfg.experiment.name = run_name
-    cfg.experiment.base_output_dir = str(tmp_path / "runs")
-    cfg.experiment.__dict__.pop("output_dir", None)
-    cfg.experiment.__dict__.pop("nets_dir", None)
-    cfg.resume_ckpt_path = None
-    return cfg
+    cfg_data = json.loads(train_config.model_dump_json())
+    cfg_data["experiment"]["name"] = run_name
+    cfg_data["experiment"]["base_output_dir"] = str(tmp_path / "runs")
+    cfg_data["resume_ckpt_path"] = None
+    return TrainConfig.model_validate_json(json.dumps(cfg_data))
 
 
 def _run_to_latest_checkpoint(cfg: TrainConfig) -> Path:
     with MultitonScope():
         trainer = Trainer(cfg)
-        torch.backends.cudnn.benchmark = False
-        torch.backends.cudnn.deterministic = True
         if cfg.resume_ckpt_path is None:
             # Match the existing CUDA smoke test: skip the torchinfo summary path,
             # which can OOM on shared CI GPUs even with this small config.
@@ -147,16 +144,14 @@ def test_checkpoint_resume_matches_continuous_cuda(
     torch.use_deterministic_algorithms(True)
 
     try:
-        continuous_cfg = _copy_resume_parity_config(
-            train_config, tmp_path, "continuous"
-        )
+        continuous_cfg = _resume_parity_config(train_config, tmp_path, "continuous")
         continuous_checkpoint = _run_to_latest_checkpoint(continuous_cfg)
 
-        interrupted_cfg = _copy_resume_parity_config(train_config, tmp_path, "resumed")
+        interrupted_cfg = _resume_parity_config(train_config, tmp_path, "resumed")
         interrupted_cfg.epochs = 1
         interrupted_checkpoint = _run_to_latest_checkpoint(interrupted_cfg)
 
-        resume_cfg = _copy_resume_parity_config(train_config, tmp_path, "resumed")
+        resume_cfg = _resume_parity_config(train_config, tmp_path, "resumed")
         resume_cfg.resume_ckpt_path = str(interrupted_checkpoint)
         resumed_checkpoint = _run_to_latest_checkpoint(resume_cfg)
     finally:

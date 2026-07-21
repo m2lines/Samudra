@@ -81,7 +81,9 @@ model:
       norm: "batch"
 
     down_sampling_block: "avg_pool"
-    up_sampling_block: "zonally_periodic_upsample"
+    # Exact checkpoint parity requires deterministic CUDA gradients; bilinear
+    # upsampling gradients are documented as potentially nondeterministic.
+    up_sampling_block: "transposed_conv"
 
   corrector:
     non_negative_corrector_names: null

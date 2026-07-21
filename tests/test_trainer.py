@@ -136,6 +136,8 @@ def test_checkpoint_resume_matches_continuous_cuda(
     if not torch.cuda.is_available():
         pytest.fail("CUDA test requested but torch.cuda.is_available() is False")
 
+    assert train_config.model.unet.up_sampling_block == "transposed_conv"
+
     cudnn_benchmark = torch.backends.cudnn.benchmark
     cudnn_deterministic = torch.backends.cudnn.deterministic
     deterministic_algorithms = torch.are_deterministic_algorithms_enabled()

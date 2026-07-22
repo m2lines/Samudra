@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784684166154,
+  "lastUpdate": 1784684172308,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -21409,6 +21409,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.9547043653680599",
             "extra": "mean: 48.3706609562001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3d00a173dc8eb5b0d59ea195458a3ca9af526200",
+          "message": "Add merge queue triggers to required checks (#812)\n\n## Summary\n\nAdd the `merge_group` event trigger to each workflow that currently runs\nas a pull-request check:\n\n- CPU and GPU tests\n- pre-commit checks\n- standard and xESMF data-test matrices\n- PhysicsNeMo container checks\n\nThis lets the required checks run for GitHub merge queue groups instead\nof remaining pending when a PR enters the queue, see\nhttps://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue#triggering-merge-group-checks-with-github-actions\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>",
+          "timestamp": "2026-07-22T01:12:53Z",
+          "tree_id": "371f849da40c9ae95ec792db55bae9fb8d78cc58",
+          "url": "https://github.com/m2lines/Samudra/commit/3d00a173dc8eb5b0d59ea195458a3ca9af526200"
+        },
+        "date": 1784684172050,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0782713646898312,
+            "unit": "iter/sec",
+            "range": "stddev: 0.005190946058188508",
+            "extra": "mean: 927.4103279999963 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.06293459078095733,
+            "unit": "iter/sec",
+            "range": "stddev: 0.044100131137505",
+            "extra": "mean: 15.889513025999985 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.020648265064887886,
+            "unit": "iter/sec",
+            "range": "stddev: 0.23196035431793102",
+            "extra": "mean: 48.430219045399966 sec\nrounds: 5"
           }
         ]
       }

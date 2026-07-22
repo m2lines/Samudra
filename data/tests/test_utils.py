@@ -22,10 +22,10 @@ def test_assert_mask_match(mask_dtype):
     y = np.arange(0, 3)
     z = np.arange(0, 4)
     data_2d = xr.DataArray(
-        np.random.random([2, 3]), dims=["x", "y"], coords={"x": x, "y": y}
+        np.arange(6).reshape(2, 3), dims=["x", "y"], coords={"x": x, "y": y}
     )
     data_3d = xr.DataArray(
-        np.random.random([2, 3, 4]),
+        np.arange(24).reshape(2, 3, 4),
         dims=["x", "y", "z"],
         coords={"x": x, "y": y, "z": z},
     )

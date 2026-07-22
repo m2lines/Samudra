@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784737423244,
+  "lastUpdate": 1784737430557,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -21589,6 +21589,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.8107468974813288",
             "extra": "mean: 48.426335399799974 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fomobot640@gmail.com",
+            "name": "fomo-bot",
+            "username": "fomo-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "953be72225fc99a080bafdce2ee51c19d992ccf8",
+          "message": "Add checkpoint save/resume parity test, fix epoch setting & shuffle seeding (#778)\n\n## Summary\n\n- Make non-distributed grouped batch sampling deterministic by\nepoch/seed, so resumed training sees the same batch order as\nuninterrupted training.\n- Add sampler coverage for epoch-stable shuffling without crossing group\nboundaries.\n- Add a CUDA-marked v2 checkpoint/resume parity test that builds a tiny\nOM4-shaped Zarr dataset, runs a small\n`configs/samudra_om4_v2/train.yaml` model, checkpoints after epoch 1,\nresumes, and asserts epoch-2 train and validation losses match the\nuninterrupted run.\n\n## Notes\n\n- The test enables deterministic PyTorch algorithms while comparing CUDA\nlosses so numeric drift does not mask checkpoint/resume regressions.\n\n---------\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2026-07-22T16:01:24Z",
+          "tree_id": "294d6fb4230cc6df7c1ed3a82d3bebb70182276d",
+          "url": "https://github.com/m2lines/Samudra/commit/953be72225fc99a080bafdce2ee51c19d992ccf8"
+        },
+        "date": 1784737430307,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0869203041369029,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0009024283044819113",
+            "extra": "mean: 920.030655599976 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.06316063704883876,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03235552549292531",
+            "extra": "mean: 15.832645880799987 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.02074229047332319,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03979779635577167",
+            "extra": "mean: 48.21068344820005 sec\nrounds: 5"
           }
         ]
       }

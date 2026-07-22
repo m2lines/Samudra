@@ -88,6 +88,42 @@ from samudra.utils.wandb import WandBLogger
 logger = logging.getLogger(__name__)
 
 
+def load_model_state_for_finetune(
+    model: nn.Module,
+    state_dict: OrderedDict[str, torch.Tensor],
+    allowed_missing_prefixes: list[str],
+) -> bool:
+    """Load model state, permitting only explicitly allowlisted missing keys.
+
+    Returns whether the load was partial. Unexpected checkpoint keys and missing
+    keys outside the allowlist remain fatal so architecture mistakes fail loudly.
+    """
+    if not allowed_missing_prefixes:
+        model.load_state_dict(state_dict)
+        return False
+    incompatible = model.load_state_dict(state_dict, strict=False)
+    if incompatible.unexpected_keys:
+        raise RuntimeError(
+            "Finetune checkpoint has unexpected model keys: "
+            + ", ".join(incompatible.unexpected_keys)
+        )
+    disallowed_missing = [
+        key
+        for key in incompatible.missing_keys
+        if not any(key.startswith(prefix) for prefix in allowed_missing_prefixes)
+    ]
+    if disallowed_missing:
+        raise RuntimeError(
+            "Finetune checkpoint is missing non-allowlisted model keys: "
+            + ", ".join(disallowed_missing)
+        )
+    logger.info(
+        "Initialized %d allowlisted model tensors outside the finetune checkpoint",
+        len(incompatible.missing_keys),
+    )
+    return True
+
+
 def should_log_validation_images(epoch: int, frequency: int) -> bool:
     """Return whether to log validation images for a 1-based training epoch."""
     if epoch < 1:
@@ -111,6 +147,10 @@ class Trainer:
     def __init__(self, cfg: TrainConfig) -> None:
         cfg.prepare_output_dirs()
         cfg.save_yaml(cfg.experiment.output_dir / "config.yaml")
+        if cfg.finetune_allowed_missing_prefixes and not cfg.finetune:
+            raise ValueError(
+                "finetune_allowed_missing_prefixes requires finetune: true."
+            )
 
         # Backend
         self.device, self.distributed = init_train_backend(cfg.backend)
@@ -247,6 +287,8 @@ class Trainer:
 
         # Optimizer
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
+        self.ema_decay = cfg.ema_decay
+        self.faster_decay_at_start = cfg.faster_decay_at_start
 
         # Scheduler
         self.scheduler = None
@@ -305,7 +347,11 @@ class Trainer:
         loaded_checkpoint = False
         if cfg.resume_ckpt_path is not None:
             if cfg.finetune:
-                self.load_checkpoint(cfg.resume_ckpt_path, finetune=True)
+                self.load_checkpoint(
+                    cfg.resume_ckpt_path,
+                    finetune=True,
+                    allowed_missing_prefixes=cfg.finetune_allowed_missing_prefixes,
+                )
                 self.start_epoch = 1
             else:
                 self.load_checkpoint(cfg.resume_ckpt_path)
@@ -1117,7 +1163,12 @@ class Trainer:
             torch.save(checkpoint, temporary_location)
             os.replace(temporary_location, checkpoint_path)
 
-    def load_checkpoint(self, checkpoint_path, finetune=False):
+    def load_checkpoint(
+        self,
+        checkpoint_path,
+        finetune=False,
+        allowed_missing_prefixes: list[str] | None = None,
+    ):
         logger.info(f"Loading checkpoint from {checkpoint_path}")
         checkpoint = torch.load(checkpoint_path, map_location=torch.device(self.device))
 
@@ -1132,16 +1183,25 @@ class Trainer:
         # Load model state
         model_state_dict = checkpoint["model"]
         new_state_dict = remove_module_prefix(model_state_dict)
-        self.model.load_state_dict(new_state_dict)
+        partial_finetune = load_model_state_for_finetune(
+            self.model, new_state_dict, allowed_missing_prefixes or []
+        )
 
         # Load EMA state
-        model_ema_state_dict = checkpoint["ema"]
-        new_ema_state_dict = remove_module_prefix(model_ema_state_dict)
-        if "ema_params" in new_ema_state_dict:
-            new_ema_state_dict["ema_params"] = remove_module_prefix(
-                new_ema_state_dict["ema_params"], prefix="module"
+        if partial_finetune:
+            self._ema = EMATracker(
+                self.model,
+                decay=self.ema_decay,
+                faster_decay_at_start=self.faster_decay_at_start,
             )
-        self._ema = EMATracker.from_state(new_ema_state_dict, self.model)
+        else:
+            model_ema_state_dict = checkpoint["ema"]
+            new_ema_state_dict = remove_module_prefix(model_ema_state_dict)
+            if "ema_params" in new_ema_state_dict:
+                new_ema_state_dict["ema_params"] = remove_module_prefix(
+                    new_ema_state_dict["ema_params"], prefix="module"
+                )
+            self._ema = EMATracker.from_state(new_ema_state_dict, self.model)
 
         if not finetune:
             self.optimizer.load_state_dict(checkpoint["optimizer"])

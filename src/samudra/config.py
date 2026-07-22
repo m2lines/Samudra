@@ -1441,6 +1441,14 @@ class TrainConfig(TopLevelConfig):
     scheduler: SchedulerConfig | None = None
     loss: Loss = "mse"
     finetune: bool = False
+    finetune_allowed_missing_prefixes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Model-state prefixes that may be absent when explicitly finetuning. "
+            "This supports composing a newly initialized processor with a "
+            "pretrained encoder/decoder while keeping all other mismatches fatal."
+        ),
+    )
     resume_ckpt_path: str | None = None
     debug: bool = False
     test_using_ema: bool = True

@@ -78,6 +78,10 @@ The development prerequisites are now present on this branch:
   and has gradient tests across repeated applications;
 - forecast training can opt into a same-grid zero-depth reconstruction auxiliary
   loss through `zero_depth_reconstruction_weight`; and
+- a zero-depth encoder/decoder checkpoint can initialize a processor-present
+  finetune with `finetune_allowed_missing_prefixes: ["processor.",
+  "processor_geometry."]`; every non-allowlisted missing key and every unexpected
+  checkpoint key remains fatal, and EMA restarts for the composed model; and
 - the synthetic probe now learns its encoder rather than copying target channels
   into the decoder input, uses fresh analytic coefficients and disjoint evaluation
   coefficients, and reports amplitude, bias, and high-wavenumber diagnostics.
@@ -450,6 +454,11 @@ representation; they are not an identity initialization.
 
 After D4, pretrain the selected encoder/decoder at `k=0`, then introduce the
 processor without freezing either head.
+
+Use `finetune: true`, the zero-depth checkpoint path, and the explicit missing-key
+allowlist above. Keep the encoder, decoder, embedding width, and geometry mode
+identical across the checkpoint boundary; only the processor and its optional
+geometry conditioner may be newly initialized.
 
 The first diagnostic uses depths `{0,1,2,4}` and logs a decode at every depth. Keep
 the latent width fixed at the selected canonical width. Use two loss-weight checks:

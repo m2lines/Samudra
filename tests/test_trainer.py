@@ -4,20 +4,54 @@
 
 import logging
 import tempfile
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any, cast
 
 import pytest
 import torch
+from torch import nn
 
 from samudra.config import CpuDataLoadingConfig, DynamicLossConfig
 from samudra.datasets import TrainDataLoader
 from samudra.models.base import BaseModel
-from samudra.train import Trainer, should_log_validation_images
+from samudra.train import (
+    Trainer,
+    load_model_state_for_finetune,
+    should_log_validation_images,
+)
 from samudra.utils.ctx import GridContext
 from samudra.utils.loss import DynamicLoss
 from samudra.utils.multiton import MultitonScope
 from tests.conftest import DEFAULT_CONFIG, TrainPair
+
+
+class _ComposedModel(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.encoder = nn.Linear(2, 3)
+        self.processor = nn.Linear(3, 3)
+
+
+def test_partial_finetune_allows_only_explicit_new_submodules():
+    source = _ComposedModel()
+    destination = _ComposedModel()
+    checkpoint = OrderedDict(
+        (key, value.clone())
+        for key, value in source.state_dict().items()
+        if key.startswith("encoder.")
+    )
+
+    partial = load_model_state_for_finetune(destination, checkpoint, ["processor."])
+
+    assert partial
+    torch.testing.assert_close(destination.encoder.weight, source.encoder.weight)
+    with pytest.raises(RuntimeError, match="non-allowlisted"):
+        load_model_state_for_finetune(destination, OrderedDict(), ["processor."])
+    unexpected = OrderedDict(checkpoint)
+    unexpected["retired.weight"] = torch.ones(1)
+    with pytest.raises(RuntimeError, match="unexpected"):
+        load_model_state_for_finetune(destination, unexpected, ["processor."])
 
 
 @pytest.mark.manual

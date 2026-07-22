@@ -259,6 +259,27 @@ def test_full_data_1deg_promotion_config_preserves_baseline_contract(tmp_path):
     assert cfg.model.pred_residuals is False
 
 
+def test_iterable_inverse_proxy_cycles_supported_processor_depths(tmp_path):
+    config_path = (
+        Path(__file__).resolve().parents[1]
+        / "configs"
+        / "samudra_multi_om4"
+        / "train_1deg_iterable_inverse_masked_mse_stratified_updates_proxy.yaml"
+    )
+
+    cfg = TrainConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--experiment.data_root",
+            str(tmp_path),
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+        ]
+    )
+
+    assert cfg.train_processor_depths == [1, 2, 4]
+
+
 def test_get_pydantic_models_collects_loading_variants():
     models = get_pydantic_models(TrainConfig)
 

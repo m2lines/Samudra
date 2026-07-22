@@ -52,6 +52,7 @@ from samudra.datasets import (
     close_pytorch_dataloader,
 )
 from samudra.models.base import BaseModel
+from samudra.models.samudra_multi import SamudraMulti
 from samudra.stepper import (
     TrainBatchOutput,
     ValBatchOutput,
@@ -133,6 +134,17 @@ def should_log_validation_images(epoch: int, frequency: int) -> bool:
             f"Validation image log frequency must be >= 1, got {frequency}"
         )
     return (epoch - 1) % frequency == 0
+
+
+def training_processor_depth(
+    depths: list[int], epoch: int, batch_index: int, batches_per_epoch: int
+) -> int:
+    """Cycle processor depths continuously and identically on every rank."""
+    if not depths or any(depth <= 0 for depth in depths):
+        raise ValueError("Training processor depths must be positive and non-empty.")
+    if epoch < 1 or batch_index < 0 or batches_per_epoch < 1:
+        raise ValueError("Epoch and batch coordinates must describe a training batch.")
+    return depths[((epoch - 1) * batches_per_epoch + batch_index) % len(depths)]
 
 
 class Trainer:
@@ -392,6 +404,11 @@ class Trainer:
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
+        self.train_processor_depths = cfg.train_processor_depths
+        if self.train_processor_depths is not None:
+            unwrapped_model = getattr(self.model, "module", self.model)
+            if not isinstance(unwrapped_model, SamudraMulti):
+                raise TypeError("train_processor_depths requires a SamudraMulti model.")
         self.num_workers: int = data_num_workers
         self.persistent_workers: bool = persistent_workers
         self.pin_mem: bool = cfg.pin_mem
@@ -613,7 +630,27 @@ class Trainer:
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
 
-            TO: TrainBatchOutput = train_batch(self.model, data, self.loss_fn)
+            training_depth: int | None = None
+            unwrapped_model = getattr(self.model, "module", self.model)
+            if self.train_processor_depths is not None:
+                if not isinstance(unwrapped_model, SamudraMulti):
+                    raise TypeError(
+                        "train_processor_depths requires a SamudraMulti model."
+                    )
+                training_depth = training_processor_depth(
+                    self.train_processor_depths,
+                    epoch,
+                    data_iter_step,
+                    total_batches,
+                )
+                configured_depth = unwrapped_model.processor_iterations
+                unwrapped_model.processor_iterations = training_depth
+                try:
+                    TO = train_batch(self.model, data, self.loss_fn)
+                finally:
+                    unwrapped_model.processor_iterations = configured_depth
+            else:
+                TO = train_batch(self.model, data, self.loss_fn)
 
             # Scale loss by the actual number of microbatches that will be accumulated
             scaled_loss = TO.loss / r
@@ -687,6 +724,8 @@ class Trainer:
                     ).ru_maxrss
                     / 1024.0,
                 }
+                if training_depth is not None:
+                    metrics["train/batch/processor_depth"] = training_depth
 
                 if torch.cuda.is_available():
                     metrics.update(

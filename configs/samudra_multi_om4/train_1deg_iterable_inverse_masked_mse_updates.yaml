@@ -14,6 +14,8 @@ validation_image_log_freq: 10
 epochs: 70
 batch_size: 2
 gradient_accumulation_steps: 2
+# Preserve the processor's 0..N refinement contract during forecast training.
+train_processor_depths: [1, 2, 4]
 learning_rate: 0.0006
 scheduler:
   type: cosine

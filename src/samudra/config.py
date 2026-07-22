@@ -1496,6 +1496,17 @@ class TrainConfig(TopLevelConfig):
     batch_size: int = 2
     learning_rate: float = 2e-4
     gradient_accumulation_steps: int = 1
+    train_processor_depths: (
+        Annotated[list[Annotated[int, Field(ge=1)]], Field(min_length=1)] | None
+    ) = Field(
+        default=None,
+        description=(
+            "Optional positive processor iteration counts cycled evenly across "
+            "training batches. Every distributed rank selects the same depth and "
+            "validation retains the model's configured processor depth. None "
+            "preserves fixed-depth training."
+        ),
+    )
     scheduler: SchedulerConfig | None = None
     loss: Loss = "mse"
     finetune: bool = False
@@ -1545,6 +1556,16 @@ class TrainConfig(TopLevelConfig):
     experiment: ExperimentConfig
     data: DataConfig
     model: AnyModelConfig
+
+    @pydantic.model_validator(mode="after")
+    def validate_train_processor_depths(self) -> Self:
+        if self.train_processor_depths is not None and not isinstance(
+            self.model, SamudraMultiConfig
+        ):
+            raise ValueError(
+                "train_processor_depths is only supported by SamudraMulti."
+            )
+        return self
 
     def prepare_output_dirs(self) -> None:
         self.experiment.nets_dir.mkdir(parents=True, exist_ok=True)

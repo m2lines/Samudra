@@ -32,3 +32,9 @@ to 16.
 baseline. Its defaults assume eight GPUs and effective global batch 32. The paired
 proxy and identity diagnostics must establish the direct heads before promotion;
 the architecture has no residual or encoder-to-decoder skip path.
+
+The iterable-inverse proxy and full-data configs set
+`train_processor_depths: [1, 2, 4]`. This cycles a common one-step forecast target
+across processor refinement depths while leaving validation at the model's
+configured depth. Omit the option to retain fixed-depth training. The depth list is
+an evidence-backed starting point, not a permanent limit on the supported contract.

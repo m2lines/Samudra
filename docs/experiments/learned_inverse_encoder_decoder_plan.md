@@ -879,6 +879,46 @@ the S1 zero-depth contract, and has no material spectral or variable-group
 regression. Prefer the simpler fallback if the hybrid improves aggregate MSE by less
 than 5%.
 
+The first two-seed forecast proxy is complete from the multi-depth S3 checkpoint.
+It used 512 stratified samples per epoch, 12 epochs, 192 optimizer updates, and
+effective global batch 32. Validation selected the terminal epoch in all four runs:
+
+| source-grid zero-depth weight | seed 15 | seed 16 | mean |
+|---:|---:|---:|---:|
+| 0 | 0.0315724 | 0.0315876 | 0.0315800 |
+| 0.05 | 0.0316064 | 0.0315465 | 0.0315765 |
+
+The two weights are forecast-equivalent to 0.011%; both beat the matched v2 proxy
+by 25.5%, the old Perceiver/resampling result by 38.9%, and the direct one-cell
+proxy by about 23.5%. The regularized arm slightly improves velocity high-wavenumber
+power without a material variable-group regression. These are W&B runs `bznwj3is`,
+`h73bbty2`, `4zaqxkwg`, and `gr0pvlvr`.
+
+Post-forecast reconstruction and depth audits expose the remaining failure. On the
+same held-out cross-resolution identity window, the two-seed depth-zero mean is
+`0.0374764` for weight zero and `0.0281127` for weight 0.05. Relative to the
+pre-forecast multi-depth checkpoint's `0.0222023`, those regress by 68.8% and
+26.6%. Thus 0.05 is useful but narrowly misses the provisional 25% preservation
+gate. On a separate true `t+1` target, decoding the same input after successive
+processor calls gives:
+
+| zero-depth weight | depth 0 | depth 1 | depth 2 | depth 4 |
+|---:|---:|---:|---:|---:|
+| 0 | 0.0137334 | 0.0478494 | 0.0968079 | 0.291519 |
+| 0.05 | 0.00631293 | 0.0476432 | 0.0880912 | 0.219623 |
+
+Depth zero is a persistence-like inverse control on this future-target audit; depth
+one is the trained one-step forecast. Applying the processor two or four times
+toward that same refinement target deteriorates sharply. This reproduces the S3
+exposure failure under forecast training and rules out treating successful
+multi-depth autoencoding as a permanent property of the checkpoint. Regular
+training now has a default-off `train_processor_depths` option that cycles positive
+depths continuously and identically on every rank, restores the configured depth
+for validation, and logs the selected depth. The iterable-inverse proxy and full
+configs select `[1, 2, 4]`. The next matched proxy must use this exposure before a
+full-scale launch. Weight 0.2 remains in flight as the planned stronger inverse
+check; its result may revise the selected regularizer.
+
 ### V1. Full-data one-degree run at v2-like scale
 
 Train the promoted candidate on the 1975--2013 one-degree training interval and

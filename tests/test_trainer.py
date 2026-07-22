@@ -19,6 +19,7 @@ from samudra.train import (
     Trainer,
     load_model_state_for_finetune,
     should_log_validation_images,
+    training_processor_depth,
 )
 from samudra.utils.ctx import GridContext
 from samudra.utils.loss import DynamicLoss
@@ -227,6 +228,27 @@ def test_should_log_validation_images_rejects_invalid_inputs():
 
     with pytest.raises(ValueError, match="Validation image log frequency must be >= 1"):
         should_log_validation_images(1, 0)
+
+
+def test_training_processor_depth_cycles_across_epoch_boundaries():
+    selected = [
+        training_processor_depth([1, 2, 4], epoch, batch, batches_per_epoch=4)
+        for epoch in (1, 2)
+        for batch in range(4)
+    ]
+
+    assert selected == [1, 2, 4, 1, 2, 4, 1, 2]
+
+
+@pytest.mark.parametrize(
+    "depths,epoch,batch,batches_per_epoch",
+    [([], 1, 0, 4), ([0], 1, 0, 4), ([1], 0, 0, 4), ([1], 1, -1, 4)],
+)
+def test_training_processor_depth_rejects_invalid_inputs(
+    depths, epoch, batch, batches_per_epoch
+):
+    with pytest.raises(ValueError):
+        training_processor_depth(depths, epoch, batch, batches_per_epoch)
 
 
 def test_run_closes_training_and_inference_loaders(monkeypatch):

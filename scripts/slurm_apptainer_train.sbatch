@@ -30,9 +30,8 @@
 #   # If NSYS_ARGS omits -o/--output, reports are written under:
 #   #   ${OUTPUT_BASE}/${NAME}/nsys/
 #
-# OCI layer caches are node-local by default so repeated large-image builds do
-# not consume shared scratch quota. Set APPTAINER_CACHE_NODE_LOCAL=0 only when a
-# deliberately shared APPTAINER_CACHEDIR is desired.
+# OCI layer caches are node-local so repeated large-image builds do not consume
+# shared scratch quota. The completed keyed SIF remains in SIF_DIR for reuse.
 
 #SBATCH --job-name=oe-train
 #SBATCH --output=slurm-%j.out
@@ -178,18 +177,13 @@ SIF_PATH="${SIF_PATH:-${SIF_DIR}/${IMAGE_REF_SAFE}.sif}"
 # support the xattrs needed by Apptainer, while the root-backed /tmp can fill.
 export APPTAINER_TMPDIR="${APPTAINER_TMPDIR:-${SLURM_TMPDIR:-/tmp}}"
 mkdir -p "${APPTAINER_TMPDIR}"
-APPTAINER_CACHE_NODE_LOCAL="${APPTAINER_CACHE_NODE_LOCAL:-1}"
-if [[ "${APPTAINER_CACHE_NODE_LOCAL}" == "1" ]]; then
-  if [[ -z "${SLURM_TMPDIR:-}" ]]; then
-    echo "APPTAINER_CACHE_NODE_LOCAL=1 requires SLURM_TMPDIR." >&2
-    exit 8
-  fi
-  export APPTAINER_CACHEDIR="${SLURM_TMPDIR}/apptainer-cache"
-  export SINGULARITY_CACHEDIR="${APPTAINER_CACHEDIR}"
+if [[ -z "${SLURM_TMPDIR:-}" ]]; then
+  echo "The Apptainer cache requires Slurm's node-local SLURM_TMPDIR." >&2
+  exit 8
 fi
-if [[ -n "${APPTAINER_CACHEDIR:-}" ]]; then
-  mkdir -p "${APPTAINER_CACHEDIR}"
-fi
+export APPTAINER_CACHEDIR="${SLURM_TMPDIR}/apptainer-cache"
+export SINGULARITY_CACHEDIR="${APPTAINER_CACHEDIR}"
+mkdir -p "${APPTAINER_CACHEDIR}"
 
 # GHCR auth (if image is private).
 if [[ -n "${GHCR_USERNAME:-}" ]] && [[ -z "${APPTAINER_DOCKER_USERNAME:-}" ]]; then

@@ -739,6 +739,9 @@ def train_identity(cfg: IdentityConfig) -> None:
             trajectory.append(metrics)
             trainer.wandb_logger.log(metrics, step=epoch)
             mse = metrics["identity/mean/mse"]
+            is_best = mse <= trainer.best_val_loss
+            if is_best:
+                trainer.best_val_loss = mse
             logger.info(
                 "Identity epoch %d: mse=%.6g, samples=%d, seconds=%.2f",
                 epoch,
@@ -748,6 +751,14 @@ def train_identity(cfg: IdentityConfig) -> None:
             )
 
             if is_main_process():
+                if is_best:
+                    logger.info(
+                        "Saving lowest held-out identity checkpoint to %s",
+                        trainer.ckpt_paths.best_validation_checkpoint_path,
+                    )
+                    trainer.save_checkpoint(
+                        epoch, trainer.ckpt_paths.best_validation_checkpoint_path
+                    )
                 with open(output_dir / "identity_metrics.json", "w") as handle:
                     json.dump(trajectory, handle, indent=2, sort_keys=True)
                 torch.save(
@@ -769,7 +780,6 @@ def train_identity(cfg: IdentityConfig) -> None:
                     output_dir / "identity_spectra.pt",
                 )
         if is_main_process():
-            trainer.best_val_loss = min(row["identity/mean/mse"] for row in trajectory)
             trainer.save_checkpoint(
                 cfg.epochs, trainer.ckpt_paths.latest_checkpoint_path
             )

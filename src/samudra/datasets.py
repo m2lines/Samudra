@@ -472,6 +472,9 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         super().__init__()
         self.id = f"{self.__class__.__name__}_{str(id(self))}"
         # If the src and dst DataSource are the same, we can do a lot less work.
+        # Callers often pass separately sliced instances, so compare DataSource names
+        # rather than object identity.
+        self._shared_prognostic_source = dst is None or src.name == dst.name
         srcs = [src, dst] if dst else [src]
 
         self.hist: int = hist
@@ -536,58 +539,57 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         start_time = time.perf_counter()
         TD = RawTrainData(self.id)
 
-        for step in range(self.steps):
-            x_index = self._get_x_index(idx, step)
-            current_x_index = x_index.isel(time=slice(0, self.hist + 1))
-            forecast_x_index = x_index.isel(time=slice(self.hist + 1, None))
+        self._validate_idx(idx)
+        step_time_count = self.hist + 1
+        shared_prognostic_source = self._shared_prognostic_source
 
-            # Only materialize the time ranges we actually use to reduce memory.
-            input_selected = self.prognostic_srcs[0].data.isel(time=current_x_index)
-            boundary_selected = self.boundary_src.data.isel(time=current_x_index)
-            label_selected = self.prognostic_srcs[-1].data.isel(
-                time=forecast_x_index
-            )  # forecasted data
-            prognostic_selected = [input_selected, label_selected]
-
-            if self._concurrent_compute:
-                datasets = prognostic_selected + [boundary_selected]
-                concurrent_compute(
-                    *datasets,
-                    executor=self._get_executor(),
-                )
-
-            if "lev" in prognostic_selected[0].dims:
-                prognostics = [
-                    torch.from_numpy(
-                        conditional_rearrange(
-                            selected,
-                            "time (variable lev)=var lat lon",
-                            concat_dim="var",
-                        )
-                        .rename({"var": "variable"})
-                        .to_numpy()
-                        .astype(np.float32, copy=False)
-                    )
-                    for selected in prognostic_selected
-                ]
-            else:
-                prognostics = [
-                    torch.from_numpy(
-                        selected.to_array()
-                        .transpose("time", "variable", "lat", "lon")
-                        .to_numpy()
-                        .astype(np.float32, copy=False)
-                    )
-                    for selected in prognostic_selected
-                ]
-            boundary = torch.from_numpy(
-                boundary_selected.to_array()
-                .transpose("time", "variable", "lat", "lon")
-                .to_numpy()
-                .astype(np.float32, copy=False)
+        # Select each contiguous rollout range once, then slice the materialized
+        # tensors into per-step examples. When input and label prognostic sources
+        # are shared, this avoids loading the step-N label again as the step-(N+1)
+        # input.
+        if shared_prognostic_source:
+            prognostic_selected = self.prognostic_srcs[0].data.isel(
+                time=self._get_time_slice(idx, step_count=self.steps + 1)
             )
-            input_, label = prognostics[0], prognostics[-1]
-            TD.insert(input_, boundary, label)
+            label_offset = step_time_count
+            datasets_to_compute = [prognostic_selected]
+        else:
+            input_selected = self.prognostic_srcs[0].data.isel(
+                time=self._get_time_slice(idx, step_count=self.steps)
+            )
+            label_selected = self.prognostic_srcs[-1].data.isel(
+                time=self._get_time_slice(idx, start_step=1, step_count=self.steps)
+            )
+            label_offset = 0
+            datasets_to_compute = [input_selected, label_selected]
+
+        boundary_selected = self.boundary_src.data.isel(
+            time=self._get_time_slice(idx, step_count=self.steps)
+        )
+
+        if self._concurrent_compute:
+            concurrent_compute(
+                *(datasets_to_compute + [boundary_selected]),
+                executor=self._get_executor(),
+            )
+
+        if shared_prognostic_source:
+            input_tensor = self._selected_to_tensor(prognostic_selected)
+            label_tensor = input_tensor
+        else:
+            input_tensor = self._selected_to_tensor(input_selected)
+            label_tensor = self._selected_to_tensor(label_selected)
+        boundary = self._selected_to_tensor(boundary_selected)
+
+        for step in range(self.steps):
+            start = step * step_time_count
+            stop = start + step_time_count
+            label_start = start + label_offset
+            label_stop = stop + label_offset
+            input_ = input_tensor[start:stop]
+            label = label_tensor[label_start:label_stop]
+            boundary_step = boundary[start:stop]
+            TD.insert(input_, boundary_step, label)
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
 
         return TD
@@ -647,12 +649,47 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             steps, "batch time variable lat lon -> batch (time variable) lat lon"
         )
 
-    def _get_x_index(self, idx: int, step: int) -> xr.DataArray:
-        assert isinstance(idx, int)
+    def _selected_to_tensor(
+        self, selected: xr.Dataset
+    ) -> Float[torch.Tensor, "time variable lat lon"]:
+        if "lev" in selected.dims:
+            selected_np = (
+                conditional_rearrange(
+                    selected,
+                    "time (variable lev)=var lat lon",
+                    concat_dim="var",
+                )
+                .rename({"var": "variable"})
+                .to_numpy()
+                .astype(np.float32, copy=False)
+            )
+        else:
+            selected_np = (
+                selected.to_array()
+                .transpose("time", "variable", "lat", "lon")
+                .to_numpy()
+                .astype(np.float32, copy=False)
+            )
+        return torch.from_numpy(selected_np)
+
+    def _validate_idx(self, idx: int) -> None:
         if idx < 0:
             raise IndexError("Sorry, negative indexing is not supported!")
         if idx >= len(self):
             raise IndexError("Index out of range")
+
+    def _get_time_slice(
+        self, idx: int, *, step_count: int, start_step: int = 0
+    ) -> slice:
+        self._validate_idx(idx)
+        step_time_count = self.hist + 1
+        start = idx + start_step * step_time_count * self.stride
+        stop = start + step_count * step_time_count * self.stride
+        return slice(start, stop, self.stride)
+
+    def _get_x_index(self, idx: int, step: int) -> xr.DataArray:
+        assert isinstance(idx, int)
+        self._validate_idx(idx)
 
         window_index = idx + step * (self.hist + 1) * self.stride
         return self.rolling_indices.isel(window=window_index, drop=True)

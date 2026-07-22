@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 import logging
 import tempfile
 from pathlib import Path
@@ -9,7 +10,7 @@ from pathlib import Path
 import pytest
 import torch
 
-from samudra.config import CpuDataLoadingConfig, DynamicLossConfig
+from samudra.config import CpuDataLoadingConfig, DynamicLossConfig, TrainConfig
 from samudra.models.base import BaseModel
 from samudra.train import Trainer, should_log_validation_images
 from samudra.utils.ctx import GridContext
@@ -60,6 +61,109 @@ def test_trainer__samudra_mini_smoke_cuda(trainer_pair: TrainPair, caplog):
     # The torchinfo summary path can OOM on the shared CI GPU despite this tiny config.
     trainer.num_batches_seen = 1
     trainer.run()
+
+
+def _resume_parity_config(
+    train_config: TrainConfig, tmp_path: Path, run_name: str
+) -> TrainConfig:
+    cfg_data = json.loads(train_config.model_dump_json())
+    cfg_data["experiment"]["name"] = run_name
+    cfg_data["experiment"]["base_output_dir"] = str(tmp_path / "runs")
+    cfg_data["resume_ckpt_path"] = None
+    return TrainConfig.model_validate_json(json.dumps(cfg_data))
+
+
+def _run_to_latest_checkpoint(cfg: TrainConfig) -> Path:
+    with MultitonScope():
+        trainer = Trainer(cfg)
+        if cfg.resume_ckpt_path is None:
+            # Match the existing CUDA smoke test: skip the torchinfo summary path,
+            # which can OOM on shared CI GPUs even with this small config.
+            trainer.num_batches_seen = 1
+        trainer.run()
+        checkpoint_path = trainer.ckpt_paths.latest_checkpoint_path
+        del trainer
+    return checkpoint_path
+
+
+def _assert_nested_close(actual, expected, path: str) -> None:
+    if torch.is_tensor(actual) or torch.is_tensor(expected):
+        assert torch.is_tensor(actual) and torch.is_tensor(expected), path
+        torch.testing.assert_close(actual, expected, rtol=1e-6, atol=1e-6)
+    elif isinstance(actual, dict):
+        assert isinstance(expected, dict), path
+        assert actual.keys() == expected.keys(), path
+        for key in actual:
+            _assert_nested_close(actual[key], expected[key], f"{path}[{key!r}]")
+    elif isinstance(actual, (list, tuple)):
+        assert isinstance(expected, type(actual)), path
+        assert len(actual) == len(expected), path
+        for index, (actual_item, expected_item) in enumerate(zip(actual, expected)):
+            _assert_nested_close(actual_item, expected_item, f"{path}[{index}]")
+    elif isinstance(actual, float) or isinstance(expected, float):
+        assert actual == pytest.approx(expected, rel=1e-6, abs=1e-6), path
+    else:
+        assert actual == expected, path
+
+
+def _assert_checkpoints_close(continuous_path: Path, resumed_path: Path) -> None:
+    continuous = torch.load(continuous_path, map_location="cpu")
+    resumed = torch.load(resumed_path, map_location="cpu")
+
+    ignored_keys = {"wandb_name"}
+    assert set(continuous) - ignored_keys == set(resumed) - ignored_keys
+    for key in continuous:
+        if key in ignored_keys:
+            continue
+        _assert_nested_close(resumed[key], continuous[key], f"checkpoint[{key!r}]")
+
+
+@pytest.mark.parametrize(
+    "backend",
+    [pytest.param("cuda", marks=pytest.mark.cuda)],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "test/train_samudra_om4_v2_resume.yaml")],
+    indirect=True,
+)
+def test_checkpoint_resume_matches_continuous_cuda(
+    train_config, tmp_path, caplog, monkeypatch
+):
+    caplog.set_level(logging.INFO)
+    monkeypatch.setenv("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+    if not torch.cuda.is_available():
+        pytest.fail("CUDA test requested but torch.cuda.is_available() is False")
+
+    cudnn_benchmark = torch.backends.cudnn.benchmark
+    cudnn_deterministic = torch.backends.cudnn.deterministic
+    deterministic_algorithms = torch.are_deterministic_algorithms_enabled()
+    torch.backends.cudnn.benchmark = False
+    # Pytorch docs say that bilinear interpolation (which we use) is not usable
+    # under torch.use_deterministic_algorithms(True) but see
+    # https://github.com/m2lines/Samudra/pull/778#discussion_r3623773768:
+    torch.backends.cudnn.deterministic = True
+    torch.use_deterministic_algorithms(True)
+
+    try:
+        continuous_cfg = _resume_parity_config(train_config, tmp_path, "continuous")
+        continuous_checkpoint = _run_to_latest_checkpoint(continuous_cfg)
+
+        interrupted_cfg = _resume_parity_config(train_config, tmp_path, "resumed")
+        interrupted_cfg.epochs = 1
+        interrupted_checkpoint = _run_to_latest_checkpoint(interrupted_cfg)
+
+        resume_cfg = _resume_parity_config(train_config, tmp_path, "resumed")
+        resume_cfg.resume_ckpt_path = str(interrupted_checkpoint)
+        resumed_checkpoint = _run_to_latest_checkpoint(resume_cfg)
+    finally:
+        torch.backends.cudnn.benchmark = cudnn_benchmark
+        torch.backends.cudnn.deterministic = cudnn_deterministic
+        torch.use_deterministic_algorithms(deterministic_algorithms)
+        torch.cuda.empty_cache()
+
+    _assert_checkpoints_close(continuous_checkpoint, resumed_checkpoint)
 
 
 @pytest.mark.parametrize(

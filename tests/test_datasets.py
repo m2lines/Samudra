@@ -146,6 +146,7 @@ def make_loader(
                     batch_size=cfg.batch_size,
                     drop_last=drop_last,
                     shuffle=shuffle,
+                    seed=cfg.experiment.rand_seed,
                 )
 
                 raw_loader = DataLoader(

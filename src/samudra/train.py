@@ -125,7 +125,8 @@ class Trainer:
         dask.config.set(scheduler="synchronous")
 
         # Set seeds
-        set_seed(cfg.experiment.rand_seed)
+        self.rand_seed = cfg.experiment.rand_seed
+        set_seed(self.rand_seed)
 
         # Getting prognostic and boundary variables
         self.dataset_spec = cfg.data.dataset.build()
@@ -269,6 +270,8 @@ class Trainer:
             )
 
         self.num_batches_seen = 0
+        self.best_val_loss = 1e8
+        self.best_inf_loss = 1e8
         loaded_checkpoint = False
         if cfg.resume_ckpt_path is not None:
             if cfg.finetune:
@@ -407,8 +410,6 @@ class Trainer:
     def run(self) -> None:
         logger.info(f"Starting training")
 
-        self.best_val_loss = 1e8
-        self.best_inf_loss = 1e8
         self.wandb_logger.watch(self.model, log="all")
 
         self.profiler.start()
@@ -864,6 +865,7 @@ class Trainer:
                 rank=self.distributed.rank,
                 shuffle=True,
                 drop_last=True,
+                seed=self.rand_seed,
             )
 
             val_batch_sampler = DistributedEquivalenceGroupBatchSampler(
@@ -874,6 +876,7 @@ class Trainer:
                 rank=self.distributed.rank,
                 shuffle=False,
                 drop_last=False,
+                seed=self.rand_seed,
             )
         else:
             # Non-distributed training
@@ -883,6 +886,7 @@ class Trainer:
                 batch_size=self.batch_size,
                 shuffle=True,
                 drop_last=True,
+                seed=self.rand_seed,
             )
 
             val_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
@@ -891,6 +895,7 @@ class Trainer:
                 batch_size=self.batch_size,
                 shuffle=True,
                 drop_last=False,
+                seed=self.rand_seed,
             )
 
         # Store samplers for set_epoch calls

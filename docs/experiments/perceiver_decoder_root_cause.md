@@ -479,6 +479,13 @@ MSEs are `0.00634` and `0.00726`. One-to-half is `0.08839` versus its `0.07900`
 floor. Thus the remaining error is increasingly comparable to the learned
 same-grid projection error, rather than the much larger latent mask-order failure.
 
+At epoch 20, fresh half-to-one MSE is `0.01003`, effectively reproducing the
+checkpoint-only order swap's `0.00997`. Same-grid errors are `0.00509` and
+`0.00588`, one-to-half is `0.08736`, and aggregate MSE is `0.02709`. Agreement
+between the intervention on fixed weights and independent optimization is strong
+evidence that projection-before-channel-masked-resampling addresses the causal
+failure rather than merely favoring one training trajectory.
+
 ## Architecture decision matrix
 
 | Candidate | Same-grid identity | Flexible output grid | Learned nonlocal correction | Evidence-backed decision |

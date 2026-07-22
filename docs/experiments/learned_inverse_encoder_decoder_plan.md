@@ -659,6 +659,12 @@ against its `0.07900` deterministic floor. The corrected ordering therefore keep
 closing both learned-projection and cross-grid excess without trading away the
 same-grid inverse.
 
+At epoch 20, half-to-one reaches `0.01003`, effectively reproducing the
+checkpoint-only order swap's `0.00997` from a fresh initialization. Same-grid MSEs
+are `0.00509` and `0.00588`, one-to-half is `0.08736`, and aggregate MSE is
+`0.02709`. This independent optimization result makes the mask-order conclusion
+robust to the original checkpoint's training path.
+
 After selecting among them, add quarter degree first with `identity_eval_only:
 true`, `finetune: true`, `epochs: 1`, and the selected checkpoint. If zero-shot
 `1/2 <-> 1/4` behavior is finite and geometrically sensible, repeat the balanced

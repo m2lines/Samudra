@@ -526,10 +526,28 @@ projection followed by channel-masked transport, but use conservative or
 antialiased restriction for substantially coarser outputs and bilinear coordinate
 prolongation for finer outputs.
 
+The fixed-checkpoint area diagnostic isolates the restriction effect:
+
+| Route | Bilinear floor MSE | Area floor MSE | Model high-k | Area high-k |
+|---|---:|---:|---:|---:|
+| 1/2 -> 1 | 0.00592 | 0.00741 | 0.888 | 0.997 |
+| 1/4 -> 1/2 | 0.00268 | 0.00399 | 0.874 | 1.010 |
+| 1/4 -> 1 | 0.07933 | 0.01123 | 1.351 | 1.001 |
+
+Area averaging is decisive for 4x restriction: MSE is 86% lower than bilinear and
+high-k power is essentially exact. At 2x it restores high-k power but raises MSE,
+so the production operator should be scale aware. Use a physically weighted
+conservative or antialiased restriction for large ratios; retain bilinear
+prolongation; and test a better low-pass kernel before replacing bilinear at 2x.
+
 The unchunked evaluator took 58 minutes after container setup and held about
-`52 GiB` of GPU memory in a spot check. Output-latitude chunking now bounds the
-four-corner and channel-mask temporaries, eval-only mode performs only the held-out
-pass, and explicit timing plus CUDA peak metrics will quantify the matched rerun.
+`52 GiB` of GPU memory in a spot check. The exact chunked eval-only rerun matches
+all nine route MSEs and aggregate `0.0399052`, takes 1,162.5 seconds for its sole
+held-out pass, and peaks at `10.30 GiB` allocated / `24.43 GiB` reserved CUDA
+memory. Its cold Slurm wall time is 56:20 because SIF construction takes about
+36 minutes; the warm area control completes in 15:54. The bounded-memory flexible-
+resolution path therefore passes its engineering gate. The clean and area jobs
+are Slurm `14574139` / W&B `pod127bl` and Slurm `14579543` / W&B `rqlh7bke`.
 
 ## Architecture decision matrix
 

@@ -689,18 +689,36 @@ Quarter-to-one exposes a separate scale-aware transport issue. Its MSE `0.07040`
 beats the bilinear deterministic reference `0.07933`, but aggregate high-wavenumber
 power is `1.35`, including `1.73` for velocity. The underlying OM4 products were
 conservatively regridded, whereas the current decoder point-samples with bilinear
-interpolation even for a fourfold restriction. Revise the promoted transport to
-use channel-masked conservative or antialiased restriction when output cells are
-substantially coarser, retaining coordinate bilinear interpolation for
-prolongation. Test both operators on the fixed quarter-to-half and quarter-to-one
-samples before quarter-degree training.
+interpolation even for a fourfold restriction. A fixed-checkpoint masked regular-
+index area diagnostic confirms that mechanism while showing the operator must be
+scale aware:
+
+| Route | Bilinear floor MSE | Area floor MSE | Model high-k | Area high-k |
+|---|---:|---:|---:|---:|
+| 1/2 -> 1 | 0.00592 | 0.00741 | 0.888 | 0.997 |
+| 1/4 -> 1/2 | 0.00268 | 0.00399 | 0.874 | 1.010 |
+| 1/4 -> 1 | 0.07933 | 0.01123 | 1.351 | 1.001 |
+
+For the fourfold restriction, area averaging removes 86% of the bilinear floor
+and restores the spectrum. For both twofold restrictions it restores spectral
+power but raises MSE by 25--49%. Revise the promoted transport to use channel-
+masked conservative or antialiased restriction for substantially coarser outputs,
+retaining coordinate bilinear interpolation for prolongation. Do not promote
+regular-index area pooling unchanged at 2x; compare a physically weighted
+conservative operator and a better low-pass kernel on the fixed samples first.
 
 The first unchunked evaluator completed in 58 minutes of model work and held about
-`52 GiB` of GPU memory in a spot check on a 96-GiB RTX PRO 6000. This fails the
-engineering gate even though the metrics are finite. The coordinate resampler now
-chunks output latitudes, eval-only mode skips its redundant training-window pass,
-and subsequent runs record separate training/evaluation timings plus peak allocated
-and reserved CUDA memory. An exact matched rerun is required before promotion.
+`52 GiB` of GPU memory in a spot check on a 96-GiB RTX PRO 6000. The exact chunked
+eval-only rerun reproduces all nine route MSEs and aggregate `0.0399052` exactly.
+Its held-out pass takes 1,162.5 seconds (19:22.5), with peak CUDA allocation
+`10.30 GiB` and reservation `24.43 GiB`; training time is zero. The cold Slurm job
+takes 56:20 because its one-time SIF construction consumes about 36 minutes; the
+warm area-control job completes in 15:54. The bounded-memory evaluator therefore
+passes the engineering gate. A first cold pull also exposed 574 GiB of stale
+shared Apptainer cache; that recoverable cache was removed and the Slurm harness
+now forces OCI layers and build temporaries onto `SLURM_TMPDIR`, while retaining
+the keyed final SIF in shared scratch. The clean rerun is Slurm job `14574139`
+(W&B `pod127bl`); the area diagnostic is job `14579543` (W&B `rqlh7bke`).
 
 After selecting among them, add quarter degree first with `identity_eval_only:
 true`, `finetune: true`, `epochs: 1`, and the selected checkpoint. The completed

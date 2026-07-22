@@ -66,24 +66,32 @@ It expects environment variables:
   `--experiment.base_output_dir` (default: `/scratch/<current_user>/runs`)
 - `ARGS` (optional): extra CLI overrides, e.g. `--batch_size=1`
 - `NSYS_ARGS` (optional): if set, wrap the training launch with `nsys profile`
+- `REQUEUE_ON_USR1` (optional): set to `1` when submitting with
+  `--requeue --signal=B:USR1@300`; the harness requeues the job when Slurm sends
+  the warning signal.
 - `WANDB_API_KEY` (optional): if set and `WANDB_MODE` unset, defaults to W&B online
 - `WANDB_MODE` (optional): `online` or `disabled` (if unset, defaults based on
   whether `WANDB_API_KEY` is present)
 
 Key behavior:
 
-- Refuses to run if `${OUTPUT_BASE}/$NAME` already exists (forces unique run names).
+- Refuses to run if `${OUTPUT_BASE}/$NAME` already exists, except when
+  `SLURM_RESTART_COUNT` indicates that Slurm restarted the same requeued job.
 - Fails early if either `${DATA_ROOT}` or `${OUTPUT_BASE}` does not exist, with
   instructions to set the corresponding env var.
 - Uses the container venv explicitly (`/workspace/.venv/bin/python`) to avoid missing deps.
 - To change training code or YAML configs, rebuild/publish a new container tag and
   point the harness at it (e.g. via `CONTAINER_HASH=<git_sha>`).
-- Caches the pulled SIF under `${REPO_DIR}/.apptainer-images/` by default.
+- Uses the Slurm submission directory for the working directory, pulled SIF,
+  data cache, and logs by default. The Torch training examples below override
+  these locations to `/scratch/$USER` so large files do not consume home quota.
 - If `NSYS_ARGS` is set and does not include `-o`/`--output`, reports are written under
   `${OUTPUT_BASE}/${NAME}/nsys/`.
-- Defaults to a 8-hour walltime in `scripts/slurm_apptainer_train.sbatch`.
-- Our 1-degree jobs take around 4-6 hours, so this is safe; you should probalby
-  increase it by data size for 1/2-degree (i.e. 4x more data = 4x more time) etc.
+
+When `preemptible: true`, training detects the latest checkpoint in an existing
+run directory and resumes from it after a Slurm requeue. The requeue hook does
+not create a checkpoint at signal time, so checkpoint frequently enough that
+restarting from the most recent completed epoch is acceptable.
 
 ### Example: 1 Node, 8x RTX6000 on the NYU Torch HPC
 
@@ -91,25 +99,35 @@ For Torch RTX6000 nodes, size CPU and memory proportionally to GPUs. If you
 request all GPUs on a node, also request the node's full CPU and memory.
 
 Current `gr102` capacity:
+
 - `8` GPUs (`rtx6000`)
 - `128` CPUs total
 - `1,400G` memory available via SLURM
 
 So, sizing rule for this node when using our sbatch script which spawns a process
 per GPU within a task:
+
 - `--cpus-per-task=16 * <num_gpus>`
 - `--mem=175G * <num_gpus>`
 
 ie for an 8-GPU run, use `--cpus-per-task=128 --mem=1400G`.
 
 Partition guidance:
-- Do not set `--partition` by default.
-- Let Slurm place the job unless you have a specific partition requirement.
+
+- Use `--account=torch_pr_347_lzanna --partition=rtx6000_lzanna` for RTX6000
+  training unless another allocation is explicitly required.
 
 ```bash
 export CONFIG=configs/samudra_om4/train.yaml
-export NAME_SUFFIX=om4_samudra_baseline
+export NAME="$(date +%F)-om4-samudra-baseline"
 export ARGS="--batch_size=1"
+export REPO_DIR=/scratch/$USER
+export SIF_DIR=/scratch/$USER/.apptainer-images
+export APPTAINER_CACHEDIR=/scratch/$USER/apptainer-cache
+export SINGULARITY_CACHEDIR=/scratch/$USER/singularity-cache
+export DATA_CACHE_DIR=/scratch/$USER/.data_cache/$NAME
+export NCCL_P2P_DISABLE=1
+export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
 # Optional overrides (defaults are /scratch/$USER/data/om4_onedeg_v3 and /scratch/$USER/runs)
 # export DATA_ROOT=/scratch/$USER/data/om4_onedeg_v3
 # export OUTPUT_BASE=/scratch/$USER/runs
@@ -120,15 +138,77 @@ export CONTAINER_HASH=<git_sha>
 # export IMAGE_REF=ghcr.io/<owner>/ocean-emulator-physicsnemo:26.05-<git_sha>
 
 sbatch \
-  --account=torch_pr_347_courant \
+  --account=torch_pr_347_lzanna \
+  --partition=rtx6000_lzanna \
+  --chdir=/scratch/$USER \
+  --output=/scratch/$USER/slurm-%j.out \
+  --error=/scratch/$USER/slurm-%j.err \
   --nodes=1 \
   --ntasks-per-node=1 \
   --cpus-per-task=128 \
   --mem=1400G \
   --gres=gpu:rtx6000:8 \
-  --time=24:00:00 \
+  --time=8:00:00 \
   scripts/slurm_apptainer_train.sbatch
 ```
+
+### Validated 4x RTX6000 Multi-Resolution Training
+
+One known-working configuration on torch is:
+
+- The 1, 1/2, and 1/4 degree configuration in
+  `configs/samudra_multi_om4/train.yaml`.
+- 4 x RTX6000, 24 CPUs, 800G memory, and two data-loader workers per rank.
+- `--preemptible=true` with a seven-day walltime. Torch accepts this shape
+  under the `gpu168` QoS, which limits jobs over 48 hours to four GPUs total
+  per user.
+
+The 24-CPU request was sufficient to keep observed data wait near zero, and
+the two-worker run progressed without an OOM, although it touched the 800G
+cgroup limit under peak loading. For example:
+
+```bash
+export CONFIG=configs/samudra_multi_om4/train.yaml
+export NAME="$(date +%F)-samudra-multi-om4-multires-4gpu"
+export DATA_ROOT=/scratch/$USER/data
+export OUTPUT_BASE=/scratch/$USER/runs
+export WANDB_MODE=online
+export REQUEUE_ON_USR1=1
+export ARGS="--data.loading.num_workers=2 --preemptible=true"
+export REPO_DIR=/scratch/$USER
+export SIF_DIR=/scratch/$USER/.apptainer-images
+export APPTAINER_CACHEDIR=/scratch/$USER/apptainer-cache
+export SINGULARITY_CACHEDIR=/scratch/$USER/singularity-cache
+export DATA_CACHE_DIR=/scratch/$USER/.data_cache/$NAME
+export NCCL_P2P_DISABLE=1
+export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
+
+# Pin the exact image rather than depending on mutable wrapper defaults.
+export IMAGE_REF=ghcr.io/<owner>/ocean-emulator-physicsnemo:<pinned-tag>
+
+sbatch \
+  --account=torch_pr_347_lzanna \
+  --partition=rtx6000_lzanna \
+  --chdir=/scratch/$USER \
+  --output=/scratch/$USER/slurm-%j.out \
+  --error=/scratch/$USER/slurm-%j.err \
+  --nodes=1 \
+  --ntasks-per-node=1 \
+  --cpus-per-task=24 \
+  --mem=800G \
+  --gres=gpu:rtx6000:4 \
+  --time=7-00:00:00 \
+  --requeue \
+  --signal=B:USR1@300 \
+  scripts/slurm_apptainer_train.sbatch
+```
+
+Command-line `sbatch` options override the corresponding directives embedded in
+the harness. The harness uses append mode because a requeued job keeps the same
+job ID and log paths. The batch-level (`B:`) USR1 signal reaches the harness,
+which calls `scontrol requeue`; on restart, the preemptible training
+configuration selects the run's latest checkpoint. The Torch examples set the
+RTX6000 NCCL environment explicitly instead of making it a harness default.
 
 To enable profiling for a run, you typically want something like this:
 
@@ -140,7 +220,8 @@ export NSYS_ARGS="--trace=cuda,nvtx,osrt,nccl --sample=cpu --delay=300 --duratio
 
 After submission:
 
-- Slurm stdout: `slurm-<jobid>.out` in the submission directory (usually the repo root on torch).
+- Slurm stdout: the path passed with `--output` (the examples use
+  `/scratch/$USER/slurm-<jobid>.out`).
 - Training log: `${OUTPUT_BASE}/${NAME:-$(date +%Y-%m-%d)-${NAME_SUFFIX}}/experiment.log`
 
 Useful commands:
@@ -248,7 +329,7 @@ export CONTAINER_HASH=<git_sha>
 # export IMAGE_REF=ghcr.io/<owner>/ocean-emulator-physicsnemo:26.05-<git_sha>
 
 sbatch \
-  --account=torch_pr_347_courant \
+  --account=torch_pr_347_lzanna \
   --partition=rtx6000_lzanna \
   --nodes=1 \
   --ntasks-per-node=1 \

@@ -639,6 +639,14 @@ floor. This isolates mask ordering as the primary remaining cross-grid cause. A
 fresh matched run is still required to measure how much of the residual `0.00454`
 excess is removable by optimizing with the corrected ordering from initialization.
 
+Fresh-run bring-up agrees with the swap. At epoch 5, half-to-one MSE is `0.02121`
+versus `0.03737` for the common-statistics latent-resampling control at the same
+point; aggregate MSE is `0.03856` versus `0.04350`. Same-grid MSE remains comparable
+(`0.01681`/`0.01883` versus `0.01774`/`0.01971`). Masked-resampling evaluation takes
+about 2.2 times as long (`156` versus `71` seconds for 32 held-out samples), so
+quarter-degree promotion must include a memory/throughput gate rather than using
+accuracy alone.
+
 After selecting among them, add quarter degree first with `identity_eval_only:
 true`, `finetune: true`, `epochs: 1`, and the selected checkpoint. If zero-shot
 `1/2 <-> 1/4` behavior is finite and geometrically sensible, repeat the balanced

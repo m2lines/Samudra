@@ -461,6 +461,13 @@ be reconstructed after latent channel mixing. The remaining `0.00454` excess is
 similar in scale to the learned same-grid projection error and is being tested with
 a fresh matched optimization.
 
+The fresh run has passed its epoch-5 bring-up gate. Half-to-one is already
+`0.02121`, compared with `0.03737` for the common-statistics latent-resampling
+control at epoch 5, while same-grid errors remain comparable. Aggregate MSE improves
+from `0.04350` to `0.03856`. The channel-wise masked evaluator costs `156` seconds
+for 32 held-out samples versus `71` seconds for the control, an observed 2.2x
+evaluation penalty that must be profiled before quarter-degree training.
+
 ## Architecture decision matrix
 
 | Candidate | Same-grid identity | Flexible output grid | Learned nonlocal correction | Evidence-backed decision |

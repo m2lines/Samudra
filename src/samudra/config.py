@@ -50,6 +50,7 @@ from samudra.models.modules.augment_input import (
 )
 from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from samudra.models.modules.encoder import patch_from
+from samudra.post_train_eval import CheckpointSweep
 from samudra.utils.data import DataContainer, DataSource, Normalize
 from samudra.utils.location import LocalLocation, Location, ResolvedLocation
 from samudra.utils.loss import (
@@ -61,6 +62,7 @@ from samudra.utils.loss import (
 )
 from samudra.utils.profiler import Profiler
 from samudra.utils.schedule import SchedulerConfig
+from samudra.utils.train import CheckpointPaths
 
 
 class WandBConfig(BaseConfig):
@@ -1138,6 +1140,9 @@ class TrainConfig(TopLevelConfig):
         start=JulianDate("0306-01-01"), end=JulianDate("0311-01-01")
     )
     inference_times: list[TimeConfig] = []
+    post_train_eval: "PostTrainCheckpointSweepConfig" = Field(
+        default_factory=lambda: PostTrainCheckpointSweepConfig()
+    )
 
     # Config components
     experiment: ExperimentConfig
@@ -1151,6 +1156,62 @@ class TrainConfig(TopLevelConfig):
 
 # See backend.py for how these are turned into concrete devices
 EvalBackendConfig = Literal["cpu", "cuda", "auto"]
+
+
+class PostTrainCheckpointSweepConfig(BaseConfig):
+    enabled: bool = False
+    eval_config_path: str | None = None
+    viz_config_path: str | None = None
+    last_n_checkpoints: int | None = Field(default=None, ge=1)
+    checkpoints: list[int] | None = Field(
+        default=None,
+        description="Explicit list of checkpoint epochs (matching ckpt_<epoch>.pt) "
+        "to evaluate; the final EMA checkpoint is always added. Mutually "
+        "exclusive with last_n_checkpoints.",
+    )
+    eval_dirname: str | None = None
+    # Subdirectory for visualization outputs within each checkpoint evaluation directory.
+    viz_dirname: str = "viz"
+
+    @pydantic.model_validator(mode="after")
+    def _check_checkpoint_selection(self) -> "PostTrainCheckpointSweepConfig":
+        if self.enabled and self.eval_config_path is None:
+            raise ValueError("eval_config_path must be set when enabled is true")
+        if self.last_n_checkpoints is not None and self.checkpoints is not None:
+            raise ValueError(
+                "set only one of last_n_checkpoints or checkpoints, not both"
+            )
+        if self.checkpoints is not None and len(self.checkpoints) == 0:
+            raise ValueError("checkpoints must be a non-empty list when provided")
+        return self
+
+    def build(
+        self,
+        nets_dir: Path,
+        output_dir: Path,
+        data_root: Location | None,
+    ) -> "CheckpointSweep | None":
+        """Build the runtime sweep, or return None when it is disabled."""
+        if not self.enabled:
+            return None
+
+        assert self.eval_config_path is not None  # enforced by the validator
+        return CheckpointSweep(
+            eval_config_path=Path(self.eval_config_path),
+            checkpoint_paths=CheckpointPaths(nets_dir),
+            data_root=data_root,
+            sweep_root=(
+                output_dir / self.eval_dirname
+                if self.eval_dirname is not None
+                else None
+            ),
+            viz_config_path=(
+                Path(self.viz_config_path) if self.viz_config_path is not None else None
+            ),
+            last_n_checkpoints=self.last_n_checkpoints,
+            checkpoints=self.checkpoints,
+            viz_dirname=self.viz_dirname,
+        )
 
 
 class EvalConfig(TopLevelConfig):

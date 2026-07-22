@@ -72,6 +72,20 @@ class TopLevelConfig(BaseSettings):
         return (init_settings,)
 
     @classmethod
+    def from_yaml(cls, config_path: Path | str) -> Self:
+        """Load and validate a YAML config without CLI overrides."""
+        return cls(**cls._load_yaml(config_path))
+
+    @classmethod
+    def _load_yaml(cls, config_path: Path | str) -> dict[str, Any]:
+        resolved_path = Path(config_path).expanduser().resolve()
+        if not resolved_path.exists():
+            raise FileNotFoundError(
+                f"Config file `{config_path}` (full path: {resolved_path}) not found"
+            )
+        return YamlConfigSettingsSource(cls, yaml_file=resolved_path)()
+
+    @classmethod
     def from_yaml_and_cli(
         cls,
         args_to_parse: list[str] | None = None,
@@ -102,18 +116,9 @@ class TopLevelConfig(BaseSettings):
         # so the help is complete on error.
         args = parser.parse_args(args_to_parse)
 
-        # Then we read the YAML file specified in the CLI
-        # Note that by default, YamlConfigSettingsSource will ignore missing files
-        config_path = Path(args.config).expanduser().resolve()
-        if not config_path.exists():
-            raise FileNotFoundError(
-                f"Config file `{args.config}` (full path: {config_path}) not found"
-            )
-        yaml_values = YamlConfigSettingsSource(cls, yaml_file=config_path)()
-
         return cls(
             _cli_settings_source=cli_source,
-            **yaml_values,
+            **cls._load_yaml(args.config),
         )
 
     def save_yaml(self, save_path: Path) -> None:

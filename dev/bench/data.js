@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784748316487,
+  "lastUpdate": 1784748323900,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -21679,6 +21679,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.03979779635577167",
             "extra": "mean: 48.21068344820005 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "00ecc4a5e6ee18c158ef986cb2acf3a082a0b6e0",
+          "message": "Remove data \"schedules\" (#783)\n\nOur [current\nplan](https://docs.google.com/document/d/1Ckf-eGMCvQVYxkgiSHXwsPLN0fkr1wqjePY6TjWtIkk/edit?tab=t.gecl0m4fsarx)\nrequires data sources which fall under the \"match\" or \"standard\"\nschedules but not \"mix\", and it was always a bit unclear what \"mix\"\nschedules would do for autoregression, so we remove them.\n\n---------\n\nCo-authored-by: fomo-bot <266121006+fomo-bot@users.noreply.github.com>",
+          "timestamp": "2026-07-22T19:03:37Z",
+          "tree_id": "ab45adbe5bd4d865016f56c038f490f8329dc756",
+          "url": "https://github.com/m2lines/Samudra/commit/00ecc4a5e6ee18c158ef986cb2acf3a082a0b6e0"
+        },
+        "date": 1784748323632,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0952208425057752,
+            "unit": "iter/sec",
+            "range": "stddev: 0.00017310114558421474",
+            "extra": "mean: 913.0578612000136 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.06330683090755074,
+            "unit": "iter/sec",
+            "range": "stddev: 0.057732213355411795",
+            "extra": "mean: 15.796083703199997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.020592497479363602,
+            "unit": "iter/sec",
+            "range": "stddev: 0.35782936198578785",
+            "extra": "mean: 48.56137537480006 sec\nrounds: 5"
           }
         ]
       }

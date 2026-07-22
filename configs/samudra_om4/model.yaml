@@ -11,7 +11,8 @@ pad: "circular"
 
 unet:
   ch_width: [280, 380, 480, 520]
-  dilation: [1, 2, 4, 8]
+  # Larger dilations make effective receptive fields [3, 17, 33, 33] instead of [3, 5, 9, 17] in Samudra v2.
+  dilation: [1, 8, 16, 16]
   n_layers: [1, 1, 1, 1]
 
   core_block:

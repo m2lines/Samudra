@@ -198,29 +198,48 @@ class SamudraMulti(BaseModel):
         self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
     ) -> Prognostic:
         """Decode the learned representation without applying the processor."""
-        input_lat, input_lon = ctx.input_resolution_cpu
-        output_lat, output_lon = ctx.output_resolution_cpu
-        same_grid = torch.equal(input_lat, output_lat) and torch.equal(
-            input_lon, output_lon
-        )
-        if not same_grid or prognostic.shape[-2:] != ctx.label_mask.shape[-2:]:
-            raise ValueError(
-                "Zero-depth reconstruction loss currently requires identical input "
-                "and output grids so the source mask and target are unambiguous."
+        if ctx.input_mask is None:
+            input_lat, input_lon = ctx.input_resolution_cpu
+            output_lat, output_lon = ctx.output_resolution_cpu
+            same_grid = torch.equal(input_lat, output_lat) and torch.equal(
+                input_lon, output_lon
             )
+            if not same_grid or prognostic.shape[-2:] != ctx.label_mask.shape[-2:]:
+                raise ValueError(
+                    "Cross-grid zero-depth reconstruction requires an input mask "
+                    "so the source-grid objective is unambiguous."
+                )
+            input_mask = ctx.label_mask
+        else:
+            input_mask = ctx.input_mask
+        if prognostic.shape[-2:] != input_mask.shape[-2:]:
+            raise ValueError(
+                "The zero-depth reconstruction mask must match the prognostic "
+                f"source grid; got {tuple(input_mask.shape[-2:])} and "
+                f"{tuple(prognostic.shape[-2:])}."
+            )
+        source_ctx = GridContext(
+            label_mask=input_mask,
+            input_resolution_cpu=ctx.input_resolution_cpu,
+            output_resolution_cpu=ctx.input_resolution_cpu,
+            input_mask=input_mask,
+        )
         with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
-            fts, latent_resolution = self.encode(prognostic, boundary, ctx)
-            return self.decode(fts, latent_resolution, ctx)
+            fts, latent_resolution = self.encode(prognostic, boundary, source_ctx)
+            return self.decode(fts, latent_resolution, source_ctx)
 
     def training_auxiliary_loss(self, train_data, loss_fn):
-        """Apply the optional zero-depth inverse objective once per batch."""
+        """Apply a source-grid zero-depth inverse MSE once per batch."""
         if self.zero_depth_reconstruction_weight == 0:
             return None
+        del loss_fn
         prognostic, boundary = train_data.get_initial_input()
         reconstruction = self.reconstruct_once(prognostic, boundary, train_data.ctx)
-        return self.zero_depth_reconstruction_weight * loss_fn(
-            reconstruction, prognostic
-        )
+        return self.zero_depth_reconstruction_weight * torch.nn.functional.mse_loss(
+            reconstruction,
+            prognostic,
+            reduction="none",
+        ).mean(dim=(0, 2, 3))
 
     def forward_once(
         self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext

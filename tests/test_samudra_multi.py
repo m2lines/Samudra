@@ -336,14 +336,16 @@ def test_training_loss_can_preserve_zero_depth_reconstruction():
     torch.testing.assert_close(model(batch, loss_fn=mse), expected)
 
 
-def test_zero_depth_reconstruction_loss_rejects_cross_grid_batches():
+def test_zero_depth_reconstruction_loss_supports_cross_grid_batches_with_input_mask():
     lat = torch.tensor([-45.0, 45.0])
     input_lon = torch.tensor([45.0, 135.0, 225.0, 315.0])
-    shifted_lon = input_lon + 10
+    output_lat = torch.tensor([0.0])
+    output_lon = torch.tensor([90.0, 270.0])
     ctx = GridContext(
-        label_mask=torch.ones(1, 2, 4, dtype=torch.bool),
+        label_mask=torch.ones(1, 1, 2, dtype=torch.bool),
         input_resolution_cpu=(lat, input_lon),
-        output_resolution_cpu=(lat, shifted_lon),
+        output_resolution_cpu=(output_lat, output_lon),
+        input_mask=torch.ones(1, 2, 4, dtype=torch.bool),
     )
     model = SamudraMulti(
         in_channels=2,
@@ -362,5 +364,43 @@ def test_zero_depth_reconstruction_loss_rejects_cross_grid_batches():
         zero_depth_reconstruction_weight=0.2,
     )
 
-    with pytest.raises(ValueError, match="identical input and output grids"):
-        model.reconstruct_once(torch.randn(2, 1, 2, 4), torch.randn(2, 1, 2, 4), ctx)
+    reconstruction = model.reconstruct_once(
+        torch.randn(2, 1, 2, 4),
+        torch.randn(2, 1, 2, 4),
+        ctx,
+    )
+
+    assert reconstruction.shape == (2, 1, 2, 4)
+
+
+def test_zero_depth_reconstruction_rejects_cross_grid_without_input_mask():
+    lat = torch.tensor([-45.0, 45.0])
+    input_lon = torch.tensor([45.0, 135.0, 225.0, 315.0])
+    ctx = GridContext(
+        label_mask=torch.ones(1, 1, 2, dtype=torch.bool),
+        input_resolution_cpu=(lat, input_lon),
+        output_resolution_cpu=(torch.tensor([0.0]), torch.tensor([90.0, 270.0])),
+    )
+    model = SamudraMulti(
+        in_channels=2,
+        out_channels=1,
+        pred_residuals=False,
+        last_kernel_size=3,
+        pad="circular",
+        add_3d_coordinates=None,
+        encoder=DirectPatchEncoder(2, 4, (90.0, 90.0), geometry_mode="none"),
+        processor=nn.Identity(),
+        decoder=DirectPatchDecoder(4, 1, (90.0, 90.0)),
+        hist=0,
+        checkpointing=None,
+        gradient_detach_interval=0,
+        use_bfloat16=False,
+        zero_depth_reconstruction_weight=0.2,
+    )
+
+    with pytest.raises(ValueError, match="requires an input mask"):
+        model.reconstruct_once(
+            torch.randn(2, 1, 2, 4),
+            torch.randn(2, 1, 2, 4),
+            ctx,
+        )

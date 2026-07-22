@@ -1161,9 +1161,10 @@ class SamudraMultiConfig(BaseModelConfig):
     zero_depth_reconstruction_weight: float = Field(
         default=0.0,
         ge=0.0,
-        description="Weight of a same-grid reconstruction loss that decodes the "
-        "learned encoder representation without applying the processor. Disabled "
-        "by default.",
+        description="Weight of a source-grid MSE that decodes the learned encoder "
+        "representation without applying the processor. The source-grid context "
+        "keeps this objective valid when the forecast target uses another grid. "
+        "Disabled by default.",
     )
     bypass_processor: bool = Field(
         default=False,

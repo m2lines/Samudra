@@ -15,6 +15,7 @@ scheduler: { type: cosine }
 loss:
   type: dynamic
   metric: mse
+  limit: 20
 finetune: false
 resume_ckpt_path: null
 inference_epochs: []

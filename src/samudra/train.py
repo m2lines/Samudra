@@ -541,7 +541,11 @@ class Trainer:
             should_step = (data_iter_step + 1) % self.gradient_accumulation_steps == 0
             # Step optimizer after accumulating enough batches or at the end
             if should_step or is_last:
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.parameters(),
+                    1.0,
+                    error_if_nonfinite=True,
+                )
                 self.optimizer.step()
                 self.optimizer.zero_grad()
                 self._ema(model=self.model)

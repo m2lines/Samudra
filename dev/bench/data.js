@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784682019331,
+  "lastUpdate": 1784683214529,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -10610,6 +10610,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.140559967529503",
             "extra": "mean: 56.96641924619998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ff06605ddcf08623ef3eb48ef45c4a93c61ea0a5",
+          "message": "Avoid single-node torchrun rendezvous port collisions (#805)\n\nThe training harnesses defaulted every job to the same static rendezvous\nport (`8008` or `29500`). Concurrent jobs placed on the same host\ntherefore raced to bind the same TCP port and one failed during\ndistributed initialization.\n\nFor single-node launches, `torchrun --standalone` asks the launcher to\nchoose a free port atomically, removing the shared static default.\nMulti-node launches still require a predetermined endpoint shared by\nevery node.\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>",
+          "timestamp": "2026-07-22T00:57:20Z",
+          "tree_id": "f9774aacdc888faff6101f1620ede941fa6014b7",
+          "url": "https://github.com/m2lines/Samudra/commit/ff06605ddcf08623ef3eb48ef45c4a93c61ea0a5"
+        },
+        "date": 1784683213531,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.09883328108451,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004744554298711927",
+            "extra": "mean: 910.0561633999973 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.06332520189385896,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1056564634966843",
+            "extra": "mean: 15.791501173199993 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.01817204786517181,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6312224288044214",
+            "extra": "mean: 55.029571098400005 sec\nrounds: 5"
           }
         ]
       }

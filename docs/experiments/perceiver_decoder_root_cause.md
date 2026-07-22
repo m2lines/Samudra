@@ -638,7 +638,11 @@ The follow-up real-data control is fully specified by
 2. Do not add the zero-initialized attention residual: neither S2 nor quarter
    zero-shot transfer exposes a residual defect that justifies its cost.
 3. Compose the validation-selected zero-depth checkpoint with the shared processor
-   and verify decoded depths 0, 1, 2, and 4.
+   and verify decoded depths 0, 1, 2, and 4. The first `lambda_0=0.05` smoke run
+   produced MSEs `0.02190`, `0.02241`, `0.03099`, and `0.10745`, respectively.
+   The untouched checkpoint is `0.02457` on the exact same held-out window, so the
+   inverse is preserved through one call. The depth-two/four growth requires the
+   matched longer processor runs before the repeated-dynamics design is promoted.
 4. Benchmark the bounded-memory quarter evaluator and compare conservative or
    antialiased restriction against bilinear point sampling on fine-to-coarse routes.
 5. Run the one-degree proxy and full v2-scale forecast validations only after the

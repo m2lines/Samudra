@@ -747,6 +747,30 @@ prognostic bypass or target leakage. The exact staged config is
 `identity_cross_1_halfdeg_common_stats_masked_processor.yaml`; it initializes only
 `processor.*` and `processor_geometry.*` outside the selected zero-depth checkpoint.
 
+An initial one-GPU bring-up completed successfully as Slurm job `14563629` (W&B
+run `joo4bptt`). It trained the `lambda_0=0.05` candidate for five epochs and 160
+optimizer updates on 32 samples per epoch, then decoded the same held-out latent
+state at all requested depths:
+
+| processor depth | held-out MSE |
+| ---: | ---: |
+| 0 | 0.021896 |
+| 1 | 0.022411 |
+| 2 | 0.030988 |
+| 4 | 0.107452 |
+
+Depth one is only 2.4% worse than depth zero, while depths two and four degrade
+substantially on every resolution route. This is evidence that the interface is
+legal and trainable, but that repeated-processor stability is not obtained merely
+by training a single call. It does not yet distinguish inadequate exposure to
+positive depths from intrinsically unstable processor dynamics. Exact-window
+baseline job `14567329` evaluates the untouched S2 checkpoint at `0.024567` MSE.
+The smoke's depth-zero MSE is therefore 10.9% better, and its depth-one MSE remains
+8.8% better, so the 20% reconstruction-preservation gate passes. Depth two is
+41.5% worse than the smoke's depth zero and depth four is 391% worse. The matched
+longer `lambda_0=0` and `lambda_0=0.05` jobs remain the decision runs; this smoke
+result is not a substitute for them.
+
 For refinement-depth semantics, train positive depths sampled uniformly from
 `{1,2,4}` toward the same one-step target. For physical-time semantics, use the
 corresponding `t+k` targets and forcing sequence. In either case, compare shared

@@ -67,7 +67,8 @@ The development prerequisites are now present on this branch:
 
 - identity diagnostics use disjoint deterministic train and held-out samples;
 - `identity_eval_only: true` loads an explicit finetune checkpoint and evaluates
-  every fixed route without backward passes or optimizer updates;
+  every fixed held-out route once, without a redundant training-window pass,
+  backward passes, or optimizer updates;
 - paired reconstruction can read a destination resolution at the exact input
   timestamps, balance fixed samples across shape-distinct routes, and report both
   learned and deterministic-resampler errors in normalized and physical units;

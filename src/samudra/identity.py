@@ -53,8 +53,8 @@ class IdentityConfig(TrainConfig):
     identity_eval_frequency: int = Field(default=1, ge=1)
     identity_eval_only: bool = Field(
         default=False,
-        description="Load a finetune checkpoint and evaluate fixed routes without "
-        "running backward or updating model parameters.",
+        description="Load a finetune checkpoint and evaluate the fixed held-out "
+        "routes without running backward or updating model parameters.",
     )
     identity_eval_processor_depths: list[int] | None = Field(
         default=None,
@@ -754,14 +754,18 @@ def train_identity(cfg: IdentityConfig) -> None:
             if epoch % cfg.identity_eval_frequency != 0 and epoch != cfg.epochs:
                 continue
             evaluation_start = time.perf_counter()
-            train_metrics, train_spectra = evaluate_identity_routes(
-                trainer,
-                cfg.identity_train_samples,
-                tuple(trainer.model_patch_extent),
-                sample_offset=cfg.identity_train_offset,
-                prefix="identity/train",
-                target_time_mode=cfg.target_time_mode,
-            )
+            if cfg.identity_eval_only:
+                train_metrics: dict[str, float] = {}
+                train_spectra: dict[str, torch.Tensor] = {}
+            else:
+                train_metrics, train_spectra = evaluate_identity_routes(
+                    trainer,
+                    cfg.identity_train_samples,
+                    tuple(trainer.model_patch_extent),
+                    sample_offset=cfg.identity_train_offset,
+                    prefix="identity/train",
+                    target_time_mode=cfg.target_time_mode,
+                )
             heldout_metrics_by_depth: dict[int, dict[str, float]] = {}
             heldout_spectra_by_depth: dict[int, dict[str, torch.Tensor]] = {}
             for depth in evaluation_depths:

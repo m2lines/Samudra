@@ -103,27 +103,37 @@ def coordinate_bilinear_resample(
     )
 
     if valid_mask is not None:
-        if valid_mask.shape != x.shape[-2:]:
+        if valid_mask.ndim not in (2, 3) or valid_mask.shape[-2:] != x.shape[-2:]:
             raise ValueError(
-                "The resampling validity mask must match the source grid; got "
+                "The resampling validity mask must be [H, W] or [C, H, W] and "
+                "match the source grid; got "
                 f"{tuple(valid_mask.shape)} and {tuple(x.shape[-2:])}."
             )
         mask = valid_mask.to(device=device, dtype=torch.float32)
+        if mask.ndim == 2:
+            mask = mask.unsqueeze(0)
+        if mask.shape[0] not in (1, x.shape[1]):
+            raise ValueError(
+                "A channel-wise resampling mask must have one mask per feature "
+                f"channel; got {mask.shape[0]} masks for {x.shape[1]} channels."
+            )
         corner_mask = torch.stack(
             (
-                mask[lower_lat, lower_lon],
-                mask[lower_lat, upper_lon],
-                mask[upper_lat, lower_lon],
-                mask[upper_lat, upper_lon],
+                mask[:, lower_lat, lower_lon],
+                mask[:, lower_lat, upper_lon],
+                mask[:, upper_lat, lower_lon],
+                mask[:, upper_lat, upper_lon],
             ),
             dim=0,
         )
-        weights = weights * corner_mask
+        weights = weights[:, None] * corner_mask
+    else:
+        weights = weights[:, None]
 
     weight_sum = weights.sum(dim=0)
-    output = (corners * weights[:, None, None]).sum(dim=0)
-    output = output / weight_sum.clamp_min(torch.finfo(torch.float32).eps)[None, None]
-    output = torch.where(weight_sum[None, None] > 0, output, 0)
+    output = (corners * weights[:, None]).sum(dim=0)
+    output = output / weight_sum.clamp_min(torch.finfo(torch.float32).eps)[None]
+    output = torch.where(weight_sum[None] > 0, output, 0)
     return output.to(dtype=x.dtype)
 
 

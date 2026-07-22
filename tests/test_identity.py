@@ -9,30 +9,45 @@ from typing import Any, cast
 import pytest
 import torch
 
+import samudra.identity as identity_module
 from samudra.config import SamudraMultiConfig
 from samudra.datasets import TrainData
 from samudra.identity import (
     IdentityConfig,
     _fixed_batches,
+    _identity_routes,
     _processor_depth,
+    evaluate_identity_routes,
     set_identity_target,
 )
 from samudra.models.samudra_multi import SamudraMulti
 from samudra.utils.ctx import GridContext
 
 
-def make_train_data(prognostic_channels=3, label_channels=3, steps=1):
+def make_train_data(
+    prognostic_channels=3,
+    label_channels=3,
+    steps=1,
+    input_grid=(4, 8),
+    output_grid=(4, 8),
+):
     context = GridContext(
-        label_mask=torch.ones(label_channels, 4, 8, dtype=torch.bool),
-        input_resolution_cpu=(torch.arange(4), torch.arange(8)),
-        output_resolution_cpu=(torch.arange(4), torch.arange(8)),
+        label_mask=torch.ones(label_channels, *output_grid, dtype=torch.bool),
+        input_resolution_cpu=(
+            torch.arange(input_grid[0]),
+            torch.arange(input_grid[1]),
+        ),
+        output_resolution_cpu=(
+            torch.arange(output_grid[0]),
+            torch.arange(output_grid[1]),
+        ),
     )
     data = TrainData(prognostic_channels, 2, context)
     for _ in range(steps):
         data.append(
-            torch.randn(2, prognostic_channels, 4, 8),
-            torch.randn(2, 2, 4, 8),
-            torch.randn(2, label_channels, 4, 8),
+            torch.randn(2, prognostic_channels, *input_grid),
+            torch.randn(2, 2, *input_grid),
+            torch.randn(2, label_channels, *output_grid),
         )
     return data
 
@@ -96,6 +111,89 @@ def test_fixed_batches_rejects_unaligned_range():
         list(_fixed_batches(cast(Any, trainer), requested_samples=2, sample_offset=1))
 
 
+def test_fixed_batches_balance_cross_resolution_routes():
+    route_a = [make_train_data() for _ in range(3)]
+    route_b = [
+        make_train_data(input_grid=(4, 8), output_grid=(8, 16)) for _ in range(3)
+    ]
+    trainer = _FixedTrainer([route_a[0], route_b[0], route_a[1], route_b[1]])
+
+    selected = list(
+        _fixed_batches(
+            cast(Any, trainer),
+            requested_samples=4,
+            sample_offset=4,
+            route_count=2,
+        )
+    )
+
+    assert selected == [route_a[1], route_b[1]]
+
+
+def test_identity_routes_expand_mix_schedule_in_stable_order():
+    sources = [
+        SimpleNamespace(grid_size=(180, 360)),
+        SimpleNamespace(grid_size=(360, 720)),
+    ]
+    trainer = SimpleNamespace(
+        data_container=SimpleNamespace(sources=sources), train_schedule="mix"
+    )
+
+    assert _identity_routes(cast(Any, trainer)) == [
+        ("180x360_to_180x360", (180, 360)),
+        ("180x360_to_360x720", (360, 720)),
+        ("360x720_to_180x360", (180, 360)),
+        ("360x720_to_360x720", (360, 720)),
+    ]
+
+
+def test_route_evaluation_forms_equal_route_means(monkeypatch):
+    sources = [
+        SimpleNamespace(grid_size=(180, 360)),
+        SimpleNamespace(grid_size=(360, 720)),
+    ]
+    trainer = SimpleNamespace(
+        data_container=SimpleNamespace(sources=sources), train_schedule="mix"
+    )
+
+    def fake_evaluate(
+        trainer,
+        requested_samples,
+        patch_size,
+        *,
+        sample_offset,
+        prefix,
+        target_time_mode,
+        route_filter,
+    ):
+        del trainer, patch_size, sample_offset, target_time_mode
+        route_index = {
+            "180x360_to_180x360": 0,
+            "180x360_to_360x720": 1,
+            "360x720_to_180x360": 1,
+            "360x720_to_360x720": 2,
+        }[route_filter]
+        return {
+            f"{prefix}/mean/mse": float(route_index),
+            f"{prefix}/actual_samples": float(requested_samples),
+        }, {"target_zonal_power": torch.tensor([route_index])}
+
+    monkeypatch.setattr(identity_module, "evaluate_identity", fake_evaluate)
+
+    logs, spectra = evaluate_identity_routes(
+        cast(Any, trainer),
+        requested_samples=32,
+        patch_extent=(1.0, 1.0),
+        sample_offset=32,
+        prefix="identity/heldout",
+        target_time_mode="current",
+    )
+
+    assert logs["identity/heldout/mean/mse"] == pytest.approx(1.0)
+    assert logs["identity/heldout/actual_samples"] == 32
+    assert len(spectra) == 4
+
+
 def test_identity_config_uses_disjoint_sample_ranges():
     fields = IdentityConfig.model_fields
 
@@ -154,3 +252,28 @@ def test_wide_decoder_identity_config_exposes_true_attention_width(tmp_path):
     assert config.model.bypass_processor
     assert config.model.decoder.perceiver.cross_heads == 2
     assert config.model.decoder.perceiver.cross_dim_head == 64
+
+
+def test_cross_resolution_identity_config_uses_current_paired_targets(tmp_path):
+    config_path = (
+        Path(__file__).resolve().parents[1]
+        / "configs"
+        / "samudra_multi_om4"
+        / "identity_cross_1_halfdeg.yaml"
+    )
+
+    config = IdentityConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--experiment.data_root",
+            str(tmp_path),
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+        ]
+    )
+
+    assert config.target_time_mode == "current"
+    assert config.experiment.train_schedule == "mix"
+    assert len(config.data.sources) == 2
+    assert config.identity_train_samples == 32
+    assert config.identity_eval_samples == 32

@@ -15,6 +15,12 @@ The `identity_*.yaml` configurations run the fixed-sample identity diagnostic wi
 resolution per job and preserve MSE, spectrum, and patch-seam evidence in the run
 output directory.
 
+`identity_cross_1_halfdeg.yaml` exercises one shared encoder/decoder on the four
+same- and cross-resolution routes between the one- and half-degree products. It
+uses current-timestamp destination labels and balances its fixed samples equally
+across routes; the nominal 40 epochs correspond to 1,280 optimizer updates on one
+GPU, so adjust epochs when changing data-parallel world size.
+
 `train_1deg_mse_updates.yaml` is the full-data, single-step promotion config. Its
 defaults assume four GPUs and effective global batch 32. Do not submit it until a
 candidate passes the two-seed proxy gate and a third fixed proxy seed confirms the

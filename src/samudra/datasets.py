@@ -7,7 +7,7 @@ import time
 from collections.abc import Iterator
 from concurrent.futures.thread import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import ClassVar, Protocol, final
+from typing import ClassVar, Literal, Protocol, final
 
 import numpy as np
 import torch
@@ -38,6 +38,8 @@ from samudra.utils.device import using_gpu
 from samudra.utils.logging import elapsed
 
 logger = logging.getLogger(__name__)
+
+TargetTimeMode = Literal["forecast", "current"]
 
 
 def season_decade_stratified_indices(
@@ -491,12 +493,14 @@ class TrainingShard:
         shard_id: str | None = None,
         sample_num: int | None = None,
         sample_seed: int = 0,
+        target_time_mode: TargetTimeMode = "forecast",
     ) -> None:
         self.id = shard_id or f"TrainingShard_{id(self)}"
         srcs = [src, dst] if dst else [src]
         self.hist = hist
         self.steps = steps
         self.stride = stride
+        self.target_time_mode = target_time_mode
         self.normalize_before_mask = normalize_before_mask
         self.masked_fill_value = masked_fill_value
         self.prognostic_var_names = tuple(prognostic_var_names)
@@ -525,14 +529,19 @@ class TrainingShard:
             input_resolution_cpu=self.prognostic_srcs[0].resolution,
             output_resolution_cpu=self.prognostic_srcs[-1].resolution,
         )
-        full_size = src.time.size - steps * (hist + 1) * stride - hist * stride
+        if target_time_mode == "forecast":
+            full_size = src.time.size - steps * (hist + 1) * stride - hist * stride
+            sample_anchor_offset = (hist + 1) * stride
+        else:
+            full_size = src.time.size - ((steps - 1) * (hist + 1) + hist) * stride
+            sample_anchor_offset = hist * stride
         self.sample_indices = (
             season_decade_stratified_indices(
                 src.time,
                 full_size,
                 sample_num,
                 sample_seed,
-                anchor_offset=(hist + 1) * stride,
+                anchor_offset=sample_anchor_offset,
             )
             if sample_num is not None
             else None
@@ -573,6 +582,7 @@ class TrainingShard:
             ).astype(np.int64, copy=False)
             current = relative[:, : self.hist + 1]
             forecast = relative[:, self.hist + 1 :]
+            label = current if self.target_time_mode == "current" else forecast
             planned_steps.append(
                 BatchReadStep(
                     input=BatchReadUse(
@@ -589,7 +599,7 @@ class TrainingShard:
                     ),
                     label=BatchReadUse(
                         self.prognostic_srcs[-1],
-                        CanonicalReadRequest(forecast),
+                        CanonicalReadRequest(label),
                         self.wet_prognostic[-1],
                         "prognostic_label",
                     ),
@@ -760,6 +770,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         shard_id: str | None = None,
         sample_num: int | None = None,
         sample_seed: int = 0,
+        target_time_mode: TargetTimeMode = "forecast",
     ):
         super().__init__()
         self.shard = TrainingShard(
@@ -775,6 +786,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             shard_id=shard_id,
             sample_num=sample_num,
             sample_seed=sample_seed,
+            target_time_mode=target_time_mode,
         )
         self.preparer = TrainBatchPreparer(self.shard)
         self.id = self.shard.id

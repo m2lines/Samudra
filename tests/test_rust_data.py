@@ -328,6 +328,36 @@ def test_training_shard_exposes_shaped_full_rollout_plan(flat_om4_source):
     assert not hasattr(dataset, "_device_ocean_static")
 
 
+def test_training_shard_can_read_destination_at_current_input_times(flat_om4_source):
+    dataset = TorchTrainDataset(
+        src=flat_om4_source,
+        dst=flat_om4_source,
+        prognostic_var_names=["thetao_0"],
+        boundary_var_names=["hfds"],
+        hist=1,
+        steps=2,
+        normalize_before_mask=True,
+        masked_fill_value=0.0,
+        stride=2,
+        target_time_mode="current",
+    )
+
+    plan = dataset.shard.window_plan([2, 0])
+
+    np.testing.assert_array_equal(
+        plan.steps[0].input.request.time_indices, [[2, 4], [0, 2]]
+    )
+    np.testing.assert_array_equal(
+        plan.steps[0].label.request.time_indices, [[2, 4], [0, 2]]
+    )
+    np.testing.assert_array_equal(
+        plan.steps[1].input.request.time_indices, [[6, 8], [4, 6]]
+    )
+    np.testing.assert_array_equal(
+        plan.steps[1].label.request.time_indices, [[6, 8], [4, 6]]
+    )
+
+
 @pytest.mark.parametrize("hist", [0, 1])
 @pytest.mark.parametrize("steps", [1, 2])
 @pytest.mark.parametrize("stride", [1, 2])

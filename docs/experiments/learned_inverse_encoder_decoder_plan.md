@@ -66,6 +66,9 @@ latent route.
 The development prerequisites are now present on this branch:
 
 - identity diagnostics use disjoint deterministic train and held-out samples;
+- paired reconstruction can read a destination resolution at the exact input
+  timestamps, balance fixed samples across shape-distinct routes, and report both
+  learned and deterministic-resampler errors in normalized and physical units;
 - encoder geometry can be additive, absent, or supplied to each processor call as
   a zero-initialized position/scale sidecar;
 - physical-coordinate resampling and the bounded zero-initialized local-attention
@@ -403,8 +406,10 @@ Promotion from S1 requires:
 
 ### S2. Small cross-resolution ocean reconstruction
 
-Develop paired same-timestamp loading for different sources. Start with 32 training
-and 32 held-out timestamps and balance these four routes per optimizer update:
+Paired same-timestamp loading is implemented in `src/samudra/datasets.py` through
+the default-off `target_time_mode: current` option. The identity harness uses it in
+`configs/samudra_multi_om4/identity_cross_1_halfdeg.yaml`, with 32 training and 32
+held-out samples balanced over these four routes in every fixed sample cycle:
 
 ```text
 1 degree   -> 1 degree

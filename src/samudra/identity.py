@@ -27,6 +27,7 @@ from samudra.aggregator.validate.spatial import (
 )
 from samudra.config import SamudraMultiConfig, TrainConfig
 from samudra.datasets import TrainData
+from samudra.models.modules.decoder import coordinate_bilinear_resample
 from samudra.models.samudra_multi import SamudraMulti
 from samudra.stepper import train_batch
 from samudra.train import Trainer
@@ -87,11 +88,30 @@ def set_identity_target(data: TrainData) -> torch.Tensor:
     return prognostic
 
 
+def _route_key(data: TrainData) -> str:
+    """Return a stable spatial-shape key for one paired reconstruction route."""
+    input_lat, input_lon = data.ctx.input_resolution_cpu
+    output_lat, output_lon = data.ctx.output_resolution_cpu
+    return f"{len(input_lat)}x{len(input_lon)}_to_{len(output_lat)}x{len(output_lon)}"
+
+
+def _target_for_mode(data: TrainData, target_time_mode: str) -> torch.Tensor:
+    if target_time_mode == "forecast":
+        return set_identity_target(data)
+    if target_time_mode != "current":
+        raise ValueError(f"Unsupported identity target time mode {target_time_mode!r}")
+    if len(data) != 1:
+        raise ValueError("Identity reconstruction requires exactly one model step.")
+    return data.get_label(0)
+
+
 def _fixed_batches(
     trainer: Trainer,
     requested_samples: int,
     *,
     sample_offset: int,
+    route_count: int = 1,
+    route_filter: str | None = None,
 ):
     """Yield an exact deterministic range from the validation stream.
 
@@ -99,39 +119,62 @@ def _fixed_batches(
     global loader batch. This keeps every distributed rank on the same number of
     batches without slicing ``TrainData`` objects differently across ranks.
     """
+    if requested_samples % route_count or sample_offset % route_count:
+        raise ValueError(
+            "identity sample counts and offsets must divide evenly across "
+            f"{route_count} routes"
+        )
+    requested_per_route = requested_samples // route_count
+    offset_per_route = sample_offset // route_count
     trainer.val_loader.set_epoch(0)
     skipped_samples = 0
     selected_samples = 0
+    skipped_by_route: dict[str, int] = {}
+    selected_by_route: dict[str, int] = {}
     for data in trainer.val_loader:
+        route = _route_key(data)
+        if route_filter is not None and route != route_filter:
+            continue
         batch_samples = data.get_label(0).shape[0] * get_world_size()
-        if skipped_samples < sample_offset:
-            next_skipped = skipped_samples + batch_samples
-            if next_skipped > sample_offset:
+        route_skipped = skipped_by_route.get(route, 0)
+        if route_skipped < offset_per_route:
+            next_skipped = route_skipped + batch_samples
+            if next_skipped > offset_per_route:
                 raise ValueError(
                     "identity sample offsets must align with global loader batches; "
-                    f"offset {sample_offset} falls inside a batch ending at "
-                    f"sample {next_skipped}."
+                    f"per-route offset {offset_per_route} falls inside a {route} "
+                    f"batch ending at sample {next_skipped}."
                 )
-            skipped_samples = next_skipped
+            skipped_by_route[route] = next_skipped
+            skipped_samples += batch_samples
             continue
 
-        next_selected = selected_samples + batch_samples
-        if next_selected > requested_samples:
+        route_selected = selected_by_route.get(route, 0)
+        if route_selected == requested_per_route:
+            continue
+        next_selected = route_selected + batch_samples
+        if next_selected > requested_per_route:
             raise ValueError(
                 "identity sample counts must align with global loader batches; "
-                f"requested {requested_samples} samples but the next batch would "
-                f"select {next_selected}."
+                f"requested {requested_per_route} samples on {route} but the next "
+                f"batch would select {next_selected}."
             )
-        selected_samples = next_selected
+        selected_by_route[route] = next_selected
+        selected_samples += batch_samples
         yield data
         if selected_samples == requested_samples:
             break
 
-    if skipped_samples < sample_offset or selected_samples < requested_samples:
+    if (
+        len(selected_by_route) != route_count
+        or any(value != requested_per_route for value in selected_by_route.values())
+        or selected_samples < requested_samples
+    ):
         raise ValueError(
             "The validation stream is too short for the requested identity sample "
             f"range [{sample_offset}, {sample_offset + requested_samples}); selected "
-            f"{selected_samples} samples after skipping {skipped_samples}."
+            f"{selected_samples} samples over {len(selected_by_route)} routes after "
+            f"skipping {skipped_samples}."
         )
 
 
@@ -150,6 +193,29 @@ def _group_values(
     return logs
 
 
+def _channel_stats_and_mask(
+    trainer: Trainer, grid_shape: tuple[int, int]
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Return prognostic means, scales, and wet masks for one configured grid."""
+    matching = [
+        source
+        for source in trainer.data_container.sources
+        if source.grid_size == grid_shape
+    ]
+    if len(matching) != 1:
+        raise ValueError(
+            f"Expected one source for grid {grid_shape}, found {len(matching)}."
+        )
+    selected = matching[0].select_channels(
+        trainer.tensor_map.prognostic_var_names, prefix="identity_output_stats"
+    )
+    return (
+        torch.as_tensor(selected.statistics.mean, device=trainer.device),
+        torch.as_tensor(selected.statistics.std, device=trainer.device),
+        matching[0].masks.prognostic.to(trainer.device),
+    )
+
+
 @torch.no_grad()
 def evaluate_identity(
     trainer: Trainer,
@@ -158,6 +224,8 @@ def evaluate_identity(
     *,
     sample_offset: int,
     prefix: str,
+    target_time_mode: str = "forecast",
+    route_filter: str | None = None,
 ) -> tuple[dict[str, float], dict[str, torch.Tensor]]:
     """Evaluate fixed-sample identity MSE, spectra, and patch seams."""
     trainer.model.eval()
@@ -170,11 +238,20 @@ def evaluate_identity(
     generated_value_sum: torch.Tensor | None = None
     generated_square_sum: torch.Tensor | None = None
     valid_value_count: torch.Tensor | None = None
+    physical_square_error_sum: torch.Tensor | None = None
+    physical_valid_count: torch.Tensor | None = None
+    resampler_square_error_sum: torch.Tensor | None = None
+    resampler_physical_square_error_sum: torch.Tensor | None = None
     local_samples = 0
     base_channels = len(trainer.tensor_map.prognostic_var_names)
 
-    for data in _fixed_batches(trainer, requested_samples, sample_offset=sample_offset):
-        target = set_identity_target(data)
+    for data in _fixed_batches(
+        trainer,
+        requested_samples,
+        sample_offset=sample_offset,
+        route_filter=route_filter,
+    ):
+        target = _target_for_mode(data, target_time_mode)
         generated = trainer.model(data)[0]
         loss_per_channel = trainer.loss_fn(generated, target, data.ctx)
         batch_size = target.shape[0]
@@ -190,6 +267,49 @@ def evaluate_identity(
         batch_generated_square_sum = (generated_latest.square() * wet).sum(
             dim=(0, 2, 3)
         )
+        input_shape = (
+            len(data.ctx.input_resolution_cpu[0]),
+            len(data.ctx.input_resolution_cpu[1]),
+        )
+        output_shape = (
+            len(data.ctx.output_resolution_cpu[0]),
+            len(data.ctx.output_resolution_cpu[1]),
+        )
+        input_means, input_stds, input_wet = _channel_stats_and_mask(
+            trainer, input_shape
+        )
+        output_means, output_stds, _ = _channel_stats_and_mask(trainer, output_shape)
+        input_means = input_means.to(dtype=target.dtype)
+        input_stds = input_stds.to(dtype=target.dtype)
+        output_means = output_means.to(dtype=target.dtype)
+        output_stds = output_stds.to(dtype=target.dtype)
+        batch_physical_square_error = (
+            (generated_latest - target_latest).square()
+            * output_stds[:, None, None].square()
+            * wet
+        ).sum(dim=(0, 2, 3))
+        input_latest = data.get_initial_input()[0][:, -base_channels:]
+        input_physical = (
+            input_latest * input_stds[:, None, None] + input_means[:, None, None]
+        )
+        resampled_physical = coordinate_bilinear_resample(
+            input_physical,
+            data.ctx.input_resolution_cpu,
+            data.ctx.output_resolution_cpu,
+            valid_mask=input_wet,
+        )
+        target_physical = (
+            target_latest * output_stds[:, None, None] + output_means[:, None, None]
+        )
+        resampled_normalized = (
+            resampled_physical - output_means[:, None, None]
+        ) / output_stds[:, None, None]
+        batch_resampler_square_error = (
+            (resampled_normalized - target_latest).square() * wet
+        ).sum(dim=(0, 2, 3))
+        batch_resampler_physical_square_error = (
+            (resampled_physical - target_physical).square() * wet
+        ).sum(dim=(0, 2, 3))
 
         batch_target_spectrum = zonal_power_spectrum(target_latest) * batch_size
         batch_generated_spectrum = zonal_power_spectrum(generated_latest) * batch_size
@@ -207,6 +327,10 @@ def evaluate_identity(
             generated_value_sum = batch_generated_sum
             generated_square_sum = batch_generated_square_sum
             valid_value_count = batch_valid_count
+            physical_square_error_sum = batch_physical_square_error
+            physical_valid_count = batch_valid_count
+            resampler_square_error_sum = batch_resampler_square_error
+            resampler_physical_square_error_sum = batch_resampler_physical_square_error
         else:
             loss_sum += loss_per_channel * batch_size
             assert target_spectrum_sum is not None
@@ -225,6 +349,14 @@ def evaluate_identity(
             generated_value_sum += batch_generated_sum
             generated_square_sum += batch_generated_square_sum
             valid_value_count += batch_valid_count
+            assert physical_square_error_sum is not None
+            assert physical_valid_count is not None
+            physical_square_error_sum += batch_physical_square_error
+            physical_valid_count += batch_valid_count
+            assert resampler_square_error_sum is not None
+            assert resampler_physical_square_error_sum is not None
+            resampler_square_error_sum += batch_resampler_square_error
+            resampler_physical_square_error_sum += batch_resampler_physical_square_error
         local_samples += batch_size
 
     if (
@@ -238,6 +370,10 @@ def evaluate_identity(
         or generated_value_sum is None
         or generated_square_sum is None
         or valid_value_count is None
+        or physical_square_error_sum is None
+        or physical_valid_count is None
+        or resampler_square_error_sum is None
+        or resampler_physical_square_error_sum is None
     ):
         raise ValueError("The fixed identity sample set was empty.")
 
@@ -255,6 +391,12 @@ def evaluate_identity(
     reduced_generated_value_sum = all_reduce_mean(generated_value_sum)
     reduced_generated_square_sum = all_reduce_mean(generated_square_sum)
     reduced_valid_value_count = all_reduce_mean(valid_value_count)
+    reduced_physical_square_error_sum = all_reduce_mean(physical_square_error_sum)
+    reduced_physical_valid_count = all_reduce_mean(physical_valid_count)
+    reduced_resampler_square_error_sum = all_reduce_mean(resampler_square_error_sum)
+    reduced_resampler_physical_square_error_sum = all_reduce_mean(
+        resampler_physical_square_error_sum
+    )
     safe_value_count = reduced_valid_value_count.clamp_min(1)
     target_mean = reduced_target_value_sum / safe_value_count
     generated_mean = reduced_generated_value_sum / safe_value_count
@@ -272,6 +414,16 @@ def evaluate_identity(
     std_ratio = generated_std / target_std.clamp_min(amplitude_epsilon)
     mean_bias_over_target_std = (generated_mean - target_mean) / target_std.clamp_min(
         amplitude_epsilon
+    )
+    physical_mse = (
+        reduced_physical_square_error_sum / reduced_physical_valid_count.clamp_min(1)
+    )
+    resampler_mse = (
+        reduced_resampler_square_error_sum / reduced_physical_valid_count.clamp_min(1)
+    )
+    resampler_physical_mse = (
+        reduced_resampler_physical_square_error_sum
+        / reduced_physical_valid_count.clamp_min(1)
     )
     high_frequency_ratio = high_wavenumber_power_ratio(
         generated_spectrum, target_spectrum
@@ -294,6 +446,21 @@ def evaluate_identity(
     )
     logs.update(_group_values(f"{prefix}/patch_seam_jump_ratio", seam_ratio, trainer))
     logs.update(_group_values(f"{prefix}/std_ratio", std_ratio, trainer))
+    logs.update(_group_values(f"{prefix}/physical_mse", physical_mse, trainer))
+    logs.update(
+        _group_values(
+            f"{prefix}/deterministic_resampler_normalized_mse",
+            resampler_mse,
+            trainer,
+        )
+    )
+    logs.update(
+        _group_values(
+            f"{prefix}/deterministic_resampler_physical_mse",
+            resampler_physical_mse,
+            trainer,
+        )
+    )
     logs.update(
         _group_values(
             f"{prefix}/mean_bias_over_target_std",
@@ -310,6 +477,97 @@ def evaluate_identity(
     )
 
 
+def _identity_routes(trainer: Trainer) -> list[tuple[str, tuple[int, int]]]:
+    """List the shape-distinct source/target routes in configured schedule order."""
+    grids = [source.grid_size for source in trainer.data_container.sources]
+    if trainer.train_schedule == "standard":
+        pairs = [(grids[0], grids[0])]
+    elif trainer.train_schedule == "match":
+        pairs = [(grid, grid) for grid in grids]
+    else:
+        pairs = [(source, target) for source in grids for target in grids]
+    routes = []
+    for input_grid, output_grid in pairs:
+        key = f"{input_grid[0]}x{input_grid[1]}_to_{output_grid[0]}x{output_grid[1]}"
+        routes.append((key, output_grid))
+    if len({key for key, _ in routes}) != len(routes):
+        raise ValueError(
+            "Identity routes must have distinct input/output grid shapes; duplicate "
+            "shapes cannot be balanced or reported independently."
+        )
+    return routes
+
+
+@torch.no_grad()
+def evaluate_identity_routes(
+    trainer: Trainer,
+    requested_samples: int,
+    patch_extent: tuple[float, float],
+    *,
+    sample_offset: int,
+    prefix: str,
+    target_time_mode: str,
+) -> tuple[dict[str, float], dict[str, torch.Tensor]]:
+    """Evaluate each configured resolution route, then form equal-route means."""
+    routes = _identity_routes(trainer)
+    if len(routes) == 1:
+        output_grid = routes[0][1]
+        patch_size = (
+            round(patch_extent[0] * output_grid[0] / 180.0),
+            round(patch_extent[1] * output_grid[1] / 360.0),
+        )
+        return evaluate_identity(
+            trainer,
+            requested_samples,
+            patch_size,
+            sample_offset=sample_offset,
+            prefix=prefix,
+            target_time_mode=target_time_mode,
+        )
+
+    route_count = len(routes)
+    if requested_samples % route_count or sample_offset % route_count:
+        raise ValueError(
+            "Identity samples and offsets must divide evenly across configured routes."
+        )
+    samples_per_route = requested_samples // route_count
+    offset_per_route = sample_offset // route_count
+    route_logs: list[tuple[str, dict[str, float]]] = []
+    all_spectra: dict[str, torch.Tensor] = {}
+    for route, output_grid in routes:
+        route_prefix = f"{prefix}/route/{route}"
+        patch_size = (
+            round(patch_extent[0] * output_grid[0] / 180.0),
+            round(patch_extent[1] * output_grid[1] / 360.0),
+        )
+        logs, spectra = evaluate_identity(
+            trainer,
+            samples_per_route,
+            patch_size,
+            sample_offset=offset_per_route,
+            prefix=route_prefix,
+            target_time_mode=target_time_mode,
+            route_filter=route,
+        )
+        route_logs.append((route_prefix, logs))
+        all_spectra.update(
+            {f"route_{route}_{name}": value for name, value in spectra.items()}
+        )
+
+    combined: dict[str, float] = {
+        key: value for _, logs in route_logs for key, value in logs.items()
+    }
+    first_prefix, first_logs = route_logs[0]
+    for key in first_logs:
+        suffix = key.removeprefix(first_prefix)
+        values = [logs[f"{route_prefix}{suffix}"] for route_prefix, logs in route_logs]
+        combined_key = f"{prefix}{suffix}"
+        combined[combined_key] = (
+            sum(values) if suffix == "/actual_samples" else sum(values) / route_count
+        )
+    return combined, all_spectra
+
+
 def train_identity(cfg: IdentityConfig) -> None:
     """Fit one deterministic sample set and evaluate a disjoint fixed set."""
     if cfg.loss != "mse":
@@ -320,8 +578,15 @@ def train_identity(cfg: IdentityConfig) -> None:
         raise ValueError("Identity reconstruction does not use residual prediction.")
     if cfg.scheduler is not None:
         raise ValueError("Identity reconstruction expects scheduler: null.")
-    if len(cfg.data.sources) != 1:
-        raise ValueError("Run identity reconstruction on exactly one resolution.")
+    if len(cfg.data.sources) > 1 and cfg.target_time_mode != "current":
+        raise ValueError(
+            "Cross-resolution identity reconstruction requires target_time_mode: "
+            "current so labels come from the paired destination source."
+        )
+    if len(cfg.data.sources) > 1 and cfg.experiment.train_schedule != "mix":
+        raise ValueError(
+            "Cross-resolution identity reconstruction requires train_schedule: mix."
+        )
     if not isinstance(cfg.model, SamudraMultiConfig):
         raise TypeError("Identity reconstruction requires a SamudraMulti model.")
     configured_depth = cfg.model.processor_iterations
@@ -350,6 +615,8 @@ def train_identity(cfg: IdentityConfig) -> None:
         round(trainer.model_patch_extent[0] * grid[0] / 180.0),
         round(trainer.model_patch_extent[1] * grid[1] / 360.0),
     )
+    routes = _identity_routes(trainer)
+    route_count = len(routes)
     world_size = get_world_size()
     batches_per_epoch = math.ceil(
         cfg.identity_train_samples / (cfg.batch_size * world_size)
@@ -376,9 +643,10 @@ def train_identity(cfg: IdentityConfig) -> None:
                     trainer,
                     cfg.identity_train_samples,
                     sample_offset=cfg.identity_train_offset,
+                    route_count=route_count,
                 )
             ):
-                set_identity_target(data)
+                _target_for_mode(data, cfg.target_time_mode)
                 output = train_batch(trainer.model, data, trainer.loss_fn)
                 in_final_cycle = (
                     batch_index + 1 > final_cycle_start and remaining_batches > 0
@@ -409,24 +677,26 @@ def train_identity(cfg: IdentityConfig) -> None:
             elapsed = time.perf_counter() - epoch_start
             if epoch % cfg.identity_eval_frequency != 0 and epoch != cfg.epochs:
                 continue
-            train_metrics, train_spectra = evaluate_identity(
+            train_metrics, train_spectra = evaluate_identity_routes(
                 trainer,
                 cfg.identity_train_samples,
-                patch_size,
+                tuple(trainer.model_patch_extent),
                 sample_offset=cfg.identity_train_offset,
                 prefix="identity/train",
+                target_time_mode=cfg.target_time_mode,
             )
             heldout_metrics_by_depth: dict[int, dict[str, float]] = {}
             heldout_spectra_by_depth: dict[int, dict[str, torch.Tensor]] = {}
             for depth in evaluation_depths:
                 prefix = f"identity/depth/{depth}/heldout"
                 with _processor_depth(trainer, depth):
-                    depth_metrics, depth_spectra = evaluate_identity(
+                    depth_metrics, depth_spectra = evaluate_identity_routes(
                         trainer,
                         cfg.identity_eval_samples,
-                        patch_size,
+                        tuple(trainer.model_patch_extent),
                         sample_offset=cfg.identity_eval_offset,
                         prefix=prefix,
+                        target_time_mode=cfg.target_time_mode,
                     )
                 heldout_metrics_by_depth[depth] = depth_metrics
                 heldout_spectra_by_depth[depth] = depth_spectra
@@ -463,6 +733,7 @@ def train_identity(cfg: IdentityConfig) -> None:
                     "identity/grid_width": float(grid[1]),
                     "identity/patch_height": float(patch_size[0]),
                     "identity/patch_width": float(patch_size[1]),
+                    "identity/route_count": float(route_count),
                 }
             )
             trajectory.append(metrics)

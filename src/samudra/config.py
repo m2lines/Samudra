@@ -1465,6 +1465,14 @@ class TrainConfig(TopLevelConfig):
         start=JulianDate("0306-01-01"), end=JulianDate("0311-01-01")
     )
     train_sample_selection: StratifiedTimeSampleConfig | None = None
+    target_time_mode: Literal["forecast", "current"] = Field(
+        default="forecast",
+        description=(
+            "Whether labels use the normal future window or the destination "
+            "source at the input window. The current mode is intended for "
+            "paired encoder/decoder reconstruction diagnostics."
+        ),
+    )
     inference_times: list[TimeConfig] = []
 
     # Config components

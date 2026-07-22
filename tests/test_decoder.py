@@ -244,6 +244,27 @@ def test_coordinate_resample_renormalizes_valid_neighbors():
     torch.testing.assert_close(output, torch.ones_like(output))
 
 
+def test_coordinate_resample_accepts_distinct_channel_masks():
+    source_lat = torch.tensor([-45.0, 45.0])
+    source_lon = torch.tensor([45.0, 135.0])
+    x = torch.tensor([[[[1.0, 100.0], [1.0, 1.0]], [[100.0, 2.0], [2.0, 2.0]]]])
+    valid = torch.tensor(
+        [
+            [[True, False], [True, True]],
+            [[False, True], [True, True]],
+        ]
+    )
+
+    output = coordinate_bilinear_resample(
+        x,
+        (source_lat, source_lon),
+        (torch.tensor([0.0]), torch.tensor([90.0])),
+        valid,
+    )
+
+    torch.testing.assert_close(output, torch.tensor([[[[1.0]], [[2.0]]]]))
+
+
 def test_hybrid_decoder_starts_as_exact_resampling_base():
     source_resolution = (
         torch.tensor([-67.5, -22.5, 22.5, 67.5]),

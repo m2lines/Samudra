@@ -250,17 +250,9 @@ class BaseDataSourceConfig[SourceTimeConfigT: (Om4TimeConfig, LlcTimeConfig)](
         turn_on_dask: bool,
         static_data_vars: list[str] | None,
     ) -> DataSource:
-        resolved_locations = [
-            data_root.resolve(location)
-            for location in (
-                self.data_location,
-                self.data_means_location,
-                self.data_stds_location,
-            )
-        ]
-        resolved_data_location, resolved_means_location, resolved_stds_location = (
-            resolved_locations
-        )
+        resolved_data_location = data_root.resolve(self.data_location)
+        resolved_means_location = data_root.resolve(self.data_means_location)
+        resolved_stds_location = data_root.resolve(self.data_stds_location)
 
         chunks: dict[str, int] | None = {} if turn_on_dask else None
         data = resolved_data_location.open(chunks)

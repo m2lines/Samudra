@@ -666,6 +666,14 @@ simultaneously. The zero-depth held-out reconstruction MSE may worsen by at most
 from its pretrained value. If it worsens more, first test alternating reconstruction
 and forecast batches before increasing `lambda_0`.
 
+The zero-depth term is now explicitly a source-grid MSE. It builds a reconstruction
+context from `input_resolution_cpu` and the immutable `input_mask`, decodes before
+any processor call, and never uses the batch's possibly different target grid. This
+makes the inverse constraint valid on mixed-resolution forecast batches without a
+prognostic bypass or target leakage. The exact staged config is
+`identity_cross_1_halfdeg_common_stats_masked_processor.yaml`; it initializes only
+`processor.*` and `processor_geometry.*` outside the selected zero-depth checkpoint.
+
 For refinement-depth semantics, train positive depths sampled uniformly from
 `{1,2,4}` toward the same one-step target. For physical-time semantics, use the
 corresponding `t+k` targets and forcing sequence. In either case, compare shared
@@ -698,6 +706,12 @@ Run:
 4. matched v2 reference if its existing result is not directly comparable after
    data or training-loop changes.
 
+The selected inverse candidate is instantiated by
+`train_1deg_iterable_inverse_masked_mse_stratified_updates_proxy.yaml`. Its defaults
+use batch 2, eight ranks, and two accumulation steps for effective global batch 32
+and 192 optimizer updates. Set `model.zero_depth_reconstruction_weight=0` for the
+forecast-only control rather than changing any other architecture or schedule.
+
 The current references are proxy MSE `0.051655` for the Perceiver-encoder/resampling
 decoder, `0.041278` for direct one-cell, and `0.042390` for matched v2. Promote a
 candidate only if its two-seed mean is at most `0.05`, beats persistence, retains
@@ -719,6 +733,11 @@ Train the promoted candidate on the 1975--2013 one-degree training interval and
 - seed 15 first; run seed 16 only if seed 15 passes the gate;
 - evaluate the validation-selected checkpoint and terminal checkpoint;
 - retain zero-depth reconstruction evaluation at every image-validation epoch.
+
+The corresponding checked-in full-data config is
+`train_1deg_iterable_inverse_masked_mse_updates.yaml`; it uses the same learned
+heads, processor sidecar geometry, optimizer-update schedule, and effective global
+batch as the proxy.
 
 This is the requested v2-scale validation: full one-degree data, roughly the
 existing v2/Samudra parameter and update scale, and the same primary metrics. Compare

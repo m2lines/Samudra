@@ -476,6 +476,11 @@ The production and control implementations behind the matrix are:
 - shared zero-to-N encode/process/decode path: `SamudraMulti` in
   `src/samudra/models/samudra_multi.py`.
 
+The same `SamudraMulti.reconstruct_once` path now constructs a source-grid context
+for the zero-depth MSE. Consequently the inverse regularizer is independent of the
+chosen forecast output resolution, while the processor geometry sidecar remains
+outside the encoder and is applied once per processor iteration.
+
 Channel-conditioned queries are not the first remedy. They would multiply query
 count by up to 77 while the current spatial routing failure remains. Producing all
 channels from one spatial query is reasonable once the query/value path is at least

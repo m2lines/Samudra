@@ -586,6 +586,25 @@ physical interpolation everywhere else. The completed model trajectory is
 unaffected. The corrected normalized MSE is `0.005429` for half-to-one;
 one-to-half remains `0.061161`, and both same-grid references are numerical zero.
 
+The native-grid run has already passed its structural gate. At epoch 20 of 40
+(640 of 1,280 updates), held-out same-grid MSE is `0.00531` at one degree and
+`0.00513` at half degree, with mean channel high-wavenumber ratios `0.974` and
+`0.975`. One-to-half MSE is `0.06248`, essentially the physical interpolation
+reference. Half-to-one remains `0.03081`, however, versus the corrected physical
+reference `0.00543`.
+
+That asymmetric remainder motivates a new matched normalization control before
+processor promotion. The encoder and decoder in this candidate are affine 1-by-1
+maps and therefore commute with interpolation. With independently normalized
+sources, one shared map cannot be the identity on both same-grid routes and also
+apply two different source-to-target mean/std transforms. The checked-in
+`identity_cross_1_halfdeg_common_stats.yaml` keeps both native products and masks
+but normalizes every channel using the one-degree scalar statistics. A second
+diagnostic, `source_normalized_resampler_mse`, measures interpolation performed
+directly in each source's normalized coordinates. Select common normalization if
+it closes the half-to-one gap without regressing same-grid reconstruction; add
+learned source/target scale conditioning only if this simpler hypothesis fails.
+
 After selecting among them, add quarter degree first with `identity_eval_only:
 true`, `finetune: true`, `epochs: 1`, and the selected checkpoint. If zero-shot
 `1/2 <-> 1/4` behavior is finite and geometrically sensible, repeat the balanced

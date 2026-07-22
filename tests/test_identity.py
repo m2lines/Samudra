@@ -380,6 +380,39 @@ def test_all_resolution_identity_config_balances_nine_routes(tmp_path):
     assert config.model.embedding_dim == 160
 
 
+def test_common_stats_identity_config_keeps_native_grids_in_one_basis(tmp_path):
+    config_path = (
+        Path(__file__).resolve().parents[1]
+        / "configs"
+        / "samudra_multi_om4"
+        / "identity_cross_1_halfdeg_common_stats.yaml"
+    )
+
+    config = IdentityConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--experiment.data_root",
+            str(tmp_path),
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+        ]
+    )
+
+    assert len(config.data.sources) == 2
+    assert config.data.sources[0].data_location != config.data.sources[1].data_location
+    assert (
+        config.data.sources[0].data_means_location
+        == config.data.sources[1].data_means_location
+    )
+    assert (
+        config.data.sources[0].data_stds_location
+        == config.data.sources[1].data_stds_location
+    )
+    assert isinstance(config.model, SamudraMultiConfig)
+    assert config.model.encoder.native_projection
+    assert not config.model.encoder.canonical_resampling
+
+
 def test_processor_identity_config_evaluates_zero_to_four_calls(tmp_path):
     config_path = (
         Path(__file__).resolve().parents[1]

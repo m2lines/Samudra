@@ -489,6 +489,41 @@ between the intervention on fixed weights and independent optimization is strong
 evidence that projection-before-channel-masked-resampling addresses the causal
 failure rather than merely favoring one training trajectory.
 
+## Quarter-degree zero-shot evidence
+
+The epoch-10 one/half-degree checkpoint was evaluated without optimization on all
+nine routes after adding the unseen quarter-degree grid:
+
+| Route | Model MSE | Deterministic MSE | Excess | High-k ratio |
+|---|---:|---:|---:|---:|
+| 1 -> 1 | 0.00865 | 0.00000 | 0.00865 | 0.899 |
+| 1 -> 1/2 | 0.08824 | 0.08265 | 0.00559 | 0.551 |
+| 1 -> 1/4 | 0.10897 | 0.10903 | -0.00006 | 0.651 |
+| 1/2 -> 1 | 0.01348 | 0.00592 | 0.00756 | 0.888 |
+| 1/2 -> 1/2 | 0.00981 | 0.00000 | 0.00981 | 0.886 |
+| 1/2 -> 1/4 | 0.03747 | 0.02959 | 0.00788 | 0.635 |
+| 1/4 -> 1 | 0.07040 | 0.07933 | -0.00892 | 1.351 |
+| 1/4 -> 1/2 | 0.01158 | 0.00268 | 0.00890 | 0.874 |
+| 1/4 -> 1/4 | 0.01055 | 0.00000 | 0.01055 | 0.848 |
+
+Quarter same-grid error is comparable to the trained resolutions, and the two
+coarse-to-quarter routes remain close to their deterministic floors. The learned
+inverse therefore generalizes to a new native grid without a finest-grid query
+bypass or scale embedding in the encoder.
+
+Quarter-to-one reveals a new transport-specific failure rather than an encoder
+failure. Its aggregate high-k ratio `1.35` includes velocity at `1.73`; bilinear
+point sampling aliases a fourfold restriction, while the target OM4 products were
+conservatively regridded. The promoted architecture should keep native-grid learned
+projection followed by channel-masked transport, but use conservative or
+antialiased restriction for substantially coarser outputs and bilinear coordinate
+prolongation for finer outputs.
+
+The unchunked evaluator took 58 minutes after container setup and held about
+`52 GiB` of GPU memory in a spot check. Output-latitude chunking now bounds the
+four-corner and channel-mask temporaries, eval-only mode performs only the held-out
+pass, and explicit timing plus CUDA peak metrics will quantify the matched rerun.
+
 ## Architecture decision matrix
 
 | Candidate | Same-grid identity | Flexible output grid | Learned nonlocal correction | Evidence-backed decision |

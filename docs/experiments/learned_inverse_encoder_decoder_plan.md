@@ -669,12 +669,39 @@ are `0.00509` and `0.00588`, one-to-half is `0.08736`, and aggregate MSE is
 `0.02709`. This independent optimization result makes the mask-order conclusion
 robust to the original checkpoint's training path.
 
+The epoch-10 checkpoint also completes a zero-shot nine-route evaluation after
+adding the quarter-degree grid. Quarter-degree same-grid MSE is `0.01055`, close to
+the one- and half-degree same-grid errors from the same checkpoint (`0.00865` and
+`0.00981`). One-to-quarter MSE is `0.10897` versus the deterministic interpolation
+floor `0.10903`; half-to-quarter is `0.03747` versus `0.02959`; and quarter-to-half
+is `0.01158` versus `0.00268`. This is strong evidence that the learned native-grid
+inverse generalizes to an unseen resolution and that most upsampling error is the
+unrecoverable physical interpolation floor.
+
+Quarter-to-one exposes a separate scale-aware transport issue. Its MSE `0.07040`
+beats the bilinear deterministic reference `0.07933`, but aggregate high-wavenumber
+power is `1.35`, including `1.73` for velocity. The underlying OM4 products were
+conservatively regridded, whereas the current decoder point-samples with bilinear
+interpolation even for a fourfold restriction. Revise the promoted transport to
+use channel-masked conservative or antialiased restriction when output cells are
+substantially coarser, retaining coordinate bilinear interpolation for
+prolongation. Test both operators on the fixed quarter-to-half and quarter-to-one
+samples before quarter-degree training.
+
+The first unchunked evaluator completed in 58 minutes of model work and held about
+`52 GiB` of GPU memory in a spot check on a 96-GiB RTX PRO 6000. This fails the
+engineering gate even though the metrics are finite. The coordinate resampler now
+chunks output latitudes, eval-only mode skips its redundant training-window pass,
+and subsequent runs record separate training/evaluation timings plus peak allocated
+and reserved CUDA memory. An exact matched rerun is required before promotion.
+
 After selecting among them, add quarter degree first with `identity_eval_only:
-true`, `finetune: true`, `epochs: 1`, and the selected checkpoint. If zero-shot
-`1/2 <-> 1/4` behavior is finite and geometrically sensible, repeat the balanced
-screen with all nine input/output pairs among 1, 1/2, and 1/4 degree for 2,880
-updates. Otherwise diagnose coordinate or capacity failure before training on
-quarter-degree targets.
+true`, `finetune: true`, `epochs: 1`, and the selected checkpoint. The completed
+zero-shot result is finite and geometrically sensible except for the expected
+large-ratio bilinear restriction aliasing above. Validate the bounded-memory and
+scale-aware restriction changes, then repeat the balanced screen with all nine
+input/output pairs among 1, 1/2, and 1/4 degree for 2,880 updates. Diagnose any
+remaining coordinate or capacity failure before training on quarter-degree targets.
 
 The earlier physical-patch and subcell-query ranges are no longer a mandatory
 sweep. Retain them as fallback hypotheses only if the native-grid candidate fails

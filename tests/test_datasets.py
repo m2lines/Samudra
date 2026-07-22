@@ -8,8 +8,7 @@ import contextlib
 import dataclasses
 import datetime
 import itertools
-from collections.abc import Generator, Iterable
-from typing import assert_never
+from collections.abc import Generator
 
 import cftime
 import numpy as np
@@ -22,7 +21,7 @@ from hypothesis.extra.numpy import arrays
 from numpy.typing import NDArray
 from torch.utils.data import ConcatDataset, DataLoader
 
-from samudra.config import TimeConfig, TrainConfig, TrainSchedule
+from samudra.config import TimeConfig, TrainConfig
 from samudra.constants import LoaderVersion
 from samudra.datasets import (
     InferenceDataset,
@@ -92,7 +91,7 @@ def make_loader(
     time_config: TimeConfig | None = None,
     drop_last: bool = True,
     version: LoaderVersion | None = None,
-    schedule: TrainSchedule = "standard",
+    multiscale: bool = False,
     shuffle: bool = True,
 ) -> Generator[DataLoader | TrainDataLoader, None, None]:
     if time_config is None:
@@ -116,26 +115,15 @@ def make_loader(
         pytest.skip(f"{version} does not support compact data.")
 
     with MultitonScope():
-        match schedule:
-            case "standard":
-                srcs: Iterable[tuple[DataSource, DataSource | None]] = [(src, None)]
-            case "match":
-                coarsened_src = coarsen_source(src, prognostic, boundary)
-                scales = [src, coarsened_src]
-                srcs = [(s, s) for s in scales]
-            case "mix":
-                coarsened_src = coarsen_source(src, prognostic, boundary)
-                scales = [src, coarsened_src]
-                srcs = list(itertools.product(scales, repeat=2))  # type: ignore
-            case _:
-                assert_never(schedule)
+        srcs = [src]
+        if multiscale:
+            srcs.append(coarsen_source(src, prognostic, boundary))
 
         match version:
             case LoaderVersion.OM4_TORCH:
                 dataset_list = [
                     TorchTrainDataset(
                         src=src.slice(time_config),
-                        dst=dst.slice(time_config) if dst else None,
                         prognostic_var_names=prognostic,
                         boundary_var_names=boundary,
                         hist=cfg.data.hist,
@@ -144,23 +132,21 @@ def make_loader(
                         masked_fill_value=cfg.data.masked_fill_value,
                         stride=stride,
                     )
-                    for src, dst in srcs
+                    for src in srcs
                     for stride in cfg.data_stride
                 ]
 
                 data: ConcatDataset = ConcatDataset(dataset_list)
                 collate_fn = collate_raw_train_data
 
-                # Group datasets by input AND label resolution, allowing different strides to batch together
-                # This ensures datasets with same (src, dst) resolution pair but different strides can batch
+                # Group datasets by resolution, allowing different strides to batch together.
                 batch_sampler = EquivalenceGroupBatchSampler.from_datasets(
                     datasets=dataset_list,
-                    group_key=lambda ds: tuple(
-                        prog.grid_size for prog in ds.prognostic_srcs
-                    ),
+                    group_key=lambda ds: ds.prognostic_src.grid_size,
                     batch_size=cfg.batch_size,
                     drop_last=drop_last,
                     shuffle=shuffle,
+                    seed=cfg.experiment.rand_seed,
                 )
 
                 raw_loader = DataLoader(
@@ -191,9 +177,7 @@ def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
     return np.stack(x_arrays, axis=0), np.stack(y_arrays, axis=0)
 
 
-def calc_num_samples(
-    cfg: TrainConfig, time_slice: slice, schedule: TrainSchedule
-) -> int:
+def calc_num_samples(cfg: TrainConfig, time_slice: slice, source_count: int = 1) -> int:
     primary = cfg.data.sources[0]
     ds = cfg.experiment.resolved_data_root.resolve(primary.data_location).open()
 
@@ -203,12 +187,7 @@ def calc_num_samples(
     stride = cfg.data_stride[0]
 
     n_samples = data_size - (steps * (cfg.data.hist + 1) * stride) - hist * stride
-    if schedule == "match":
-        n_samples *= 2
-    if schedule == "mix":
-        n_samples *= 4
-
-    return n_samples
+    return n_samples * source_count
 
 
 def vector_of(max_vec_size: int, min_vec_size=1):
@@ -335,9 +314,7 @@ def test_loader__data_shape(
         ) * num_input_timesteps
         output_var_dim = len(dataset_spec.prognostic_var_names) * num_input_timesteps
 
-        n_samples = calc_num_samples(
-            train_config, train_config.train_time.time_slice, "standard"
-        )
+        n_samples = calc_num_samples(train_config, train_config.train_time.time_slice)
         assert len(loader) == n_samples, (
             f"Current config {train_config} only supports {n_samples} examples; "
             f"got {len(loader)}."
@@ -366,15 +343,30 @@ def test_loader__data_shape(
 @pytest.mark.parametrize(
     "data_source,config_name", [("mock", DEFAULT_CONFIG)], indirect=True
 )
-def test_loader__data_shape__across_schedules(
-    train_config: TrainConfig, schedule: TrainSchedule
+@pytest.mark.parametrize(
+    "multiscale,expected_patterns",
+    [
+        (False, {((180, 360), (180, 360))}),
+        (
+            True,
+            {
+                ((180, 360), (180, 360)),
+                ((90, 180), (90, 180)),
+            },
+        ),
+    ],
+)
+def test_loader__data_shape__across_source_counts(
+    train_config: TrainConfig,
+    multiscale: bool,
+    expected_patterns: set[tuple[tuple[int, int], tuple[int, int]]],
 ):
     history = train_config.data.hist
 
     with make_loader(
         train_config,
         version=LoaderVersion.OM4_TORCH,
-        schedule=schedule,
+        multiscale=multiscale,
         # Keep grouped-sampler ordering deterministic for resolution coverage.
         shuffle=False,
     ) as loader:
@@ -389,33 +381,14 @@ def test_loader__data_shape__across_schedules(
         output_var_dim = len(dataset_spec.prognostic_var_names) * num_input_timesteps
 
         n_samples = calc_num_samples(
-            train_config, train_config.train_time.time_slice, schedule
+            train_config,
+            train_config.train_time.time_slice,
+            source_count=2 if multiscale else 1,
         )
         assert len(loader) == n_samples, (
             f"Current config {train_config} only supports {n_samples} examples; "
             f"got {len(loader)}."
         )
-
-        match schedule:
-            case "standard":
-                expected_patterns = {
-                    ((180, 360), (180, 360)),
-                }
-            case "match":
-                expected_patterns = {
-                    ((180, 360), (180, 360)),
-                    ((90, 180), (90, 180)),
-                }
-            case "mix":
-                # In mix mode with 2 scales, multiplex creates pattern: (0,0), (0,1), (1,0), (1,1)
-                expected_patterns = {
-                    ((180, 360), (180, 360)),  # (0,0): full-res input, full-res label
-                    ((180, 360), (90, 180)),  # (0,1): full-res input, half-res label
-                    ((90, 180), (180, 360)),  # (1,0): half-res input, full-res label
-                    ((90, 180), (90, 180)),  # (1,1): half-res input, half-res label
-                }
-            case _:
-                assert_never(schedule)
 
         min_checked_batches = 10
         observed_patterns = set()
@@ -442,7 +415,7 @@ def test_loader__data_shape__across_schedules(
                 break
 
         assert observed_patterns == expected_patterns, (
-            f"Loader did not produce the expected resolution patterns for {schedule=}. "
+            f"Loader did not produce the expected resolution patterns for {multiscale=}. "
             f"Expected: {expected_patterns}, got: {observed_patterns}, "
             f"missing: {expected_patterns - observed_patterns}, "
             f"invalid: {observed_patterns - expected_patterns}"
@@ -566,13 +539,14 @@ def test_compact_loader__equals_flat_loader(
 
 
 @pytest.mark.parametrize("data_source", ["mock-om4"], indirect=True)
-def test_mixed_schedule__has_consistent_collated_batches(
-    train_config: TrainConfig, schedule: TrainSchedule
+@pytest.mark.parametrize("multiscale", [False, True])
+def test_source_count__has_consistent_collated_batches(
+    train_config: TrainConfig, multiscale: bool
 ):
     # Exposes underling consistency issue
     train_config.batch_size = 4
 
-    with make_loader(train_config, schedule=schedule) as loader:
+    with make_loader(train_config, multiscale=multiscale) as loader:
         for _ in itertools.islice(loader, 2):
             pass
 
@@ -646,7 +620,6 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
         )
         torch_train_dataset = TorchTrainDataset(
             src=test,
-            dst=None,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
             hist=1,

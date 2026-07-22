@@ -42,7 +42,7 @@ CONFIG="${CONFIG:-configs/samudra_om4_v2/train.yaml}"
 DATA_ROOT="${DATA_ROOT:-${HOME}/data/om4_halfdeg}"
 OUTPUT_BASE="${OUTPUT_BASE:-${HOME}/runs}"
 DATA_CACHE_DIR="${DATA_CACHE_DIR:-${HOME}/.cache/samudra/${SLURM_JOB_ID:-manual}}"
-MASTER_PORT="${MASTER_PORT:-29500}"
+MASTER_PORT="${MASTER_PORT:-}"
 EXTRA_ARGS="${EXTRA_ARGS:-}"
 WANDB_ENTITY="${WANDB_ENTITY:-ocean_emulators}"
 WANDB_PROJECT="${WANDB_PROJECT:-default}"
@@ -167,7 +167,13 @@ if [[ -n "${EXTRA_ARGS}" ]]; then
 fi
 
 MASTER_ADDR="$(scontrol show hostnames "${SLURM_JOB_NODELIST}" | head -n 1)"
-export MASTER_ADDR MASTER_PORT
+TORCHRUN_STANDALONE=0
+if [[ -z "${MASTER_PORT}" && "${SLURM_NNODES}" == "1" ]]; then
+  TORCHRUN_STANDALONE=1
+elif [[ -z "${MASTER_PORT}" ]]; then
+  MASTER_PORT="$((15000 + SLURM_JOB_ID % 40000))"
+fi
+export MASTER_ADDR MASTER_PORT TORCHRUN_STANDALONE
 
 container_mounts="${DATA_ROOT}:${DATA_ROOT},${OUTPUT_BASE}:${OUTPUT_BASE},${DATA_CACHE_DIR}:/workspace/.data_cache"
 
@@ -176,7 +182,11 @@ echo "Job id:        ${SLURM_JOB_ID}"
 echo "Nodes:         ${SLURM_NNODES}"
 echo "GPUs/node:     ${GPUS_PER_NODE}"
 echo "Total GPUs:    ${TOTAL_GPUS}"
-echo "Master:        ${MASTER_ADDR}:${MASTER_PORT}"
+if [[ "${TORCHRUN_STANDALONE}" == "1" ]]; then
+  echo "Rendezvous:    automatic free port (--standalone)"
+else
+  echo "Rendezvous:    ${MASTER_ADDR}:${MASTER_PORT}"
+fi
 echo "Image:         ${IMAGE_REF}"
 echo "Config:        ${CONFIG_IN_CONTAINER}"
 echo "Data root:     ${DATA_ROOT}"
@@ -211,11 +221,20 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
       echo "ERROR: config not found inside container: $1" >&2
       exit 2
     fi
+    torchrun_args=(
+      --nnodes="${SLURM_NNODES}"
+      --nproc_per_node="${GPUS_PER_NODE}"
+      --node_rank="${SLURM_PROCID}"
+    )
+    if [[ "${TORCHRUN_STANDALONE}" == "1" ]]; then
+      torchrun_args+=(--standalone)
+    else
+      torchrun_args+=(
+        --master_addr="${MASTER_ADDR}"
+        --master_port="${MASTER_PORT}"
+      )
+    fi
     exec /workspace/.venv/bin/python -m torch.distributed.run \
-      --nnodes="${SLURM_NNODES}" \
-      --nproc_per_node="${GPUS_PER_NODE}" \
-      --master_addr="${MASTER_ADDR}" \
-      --master_port="${MASTER_PORT}" \
-      --node_rank="${SLURM_PROCID}" \
+      "${torchrun_args[@]}" \
       -m samudra.train "$@"
   ' bash "${train_args[@]}"

@@ -34,6 +34,7 @@
 
 #SBATCH --job-name=oe-train
 #SBATCH --output=slurm-%j.out
+#SBATCH --open-mode=append
 #SBATCH --account=torch_pr_347_courant
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -306,10 +307,22 @@ export SINGULARITYENV_SAMUDRA_CONTAINER_GIT_REMOTE_URL="${CONTAINER_GIT_REMOTE_U
 export SINGULARITYENV_SAMUDRA_CONTAINER_IMAGE_REF="${CONTAINER_IMAGE_REF}"
 export SINGULARITYENV_SAMUDRA_CONTAINER_SIF_PATH="${SIF_PATH}"
 
-# Distributed rendezvous info (shared by all nodes).
+# Distributed rendezvous info. Let torchrun atomically choose a free port for
+# single-node jobs. Multi-node jobs need a shared, predetermined endpoint.
 MASTER_ADDR="$(scontrol show hostnames "${SLURM_JOB_NODELIST}" | head -n 1)"
-MASTER_PORT="${MASTER_PORT:-8008}"
-export MASTER_ADDR MASTER_PORT
+MASTER_PORT="${MASTER_PORT:-}"
+TORCHRUN_STANDALONE=0
+if [[ -z "${MASTER_PORT}" && "${SLURM_NNODES}" == "1" ]]; then
+  TORCHRUN_STANDALONE=1
+elif [[ -z "${MASTER_PORT}" ]]; then
+  MASTER_PORT="$((15000 + SLURM_JOB_ID % 40000))"
+fi
+export MASTER_ADDR MASTER_PORT TORCHRUN_STANDALONE
+if [[ "${TORCHRUN_STANDALONE}" == "1" ]]; then
+  echo "Rendezvous: automatic free port (--standalone)"
+else
+  echo "Rendezvous: ${MASTER_ADDR}:${MASTER_PORT}"
+fi
 
 # This harness launches one torchrun per node via srun. Each torchrun spawns one
 # process per GPU on that node, and sets RANK/LOCAL_RANK/WORLD_SIZE via env://.
@@ -414,6 +427,19 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         echo \"Hint: verify CONFIG and the selected code layer.\" >&2
         exit 2
       fi
+      torchrun_args=(
+        --nnodes=${SLURM_NNODES}
+        --nproc_per_node=${GPUS_PER_NODE}
+        --node_rank=\${SLURM_PROCID}
+      )
+      if [[ \"\${TORCHRUN_STANDALONE}\" == \"1\" ]]; then
+        torchrun_args+=(--standalone)
+      else
+        torchrun_args+=(
+          --master_addr=\${MASTER_ADDR}
+          --master_port=\${MASTER_PORT}
+        )
+      fi
       profiler_cmd=()
       if [[ -n \"\${OE_NSYS_ARGS:-}\" ]]; then
         if ! command -v nsys >/dev/null 2>&1; then
@@ -439,11 +465,7 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         echo \"Nsight Systems profiling enabled on proc \${SLURM_PROCID:-unset}.\"
       fi
       \"\${profiler_cmd[@]}\" /workspace/.venv/bin/python -m torch.distributed.run \
-        --nnodes=${SLURM_NNODES} \
-        --nproc_per_node=${GPUS_PER_NODE} \
-        --master_addr=${MASTER_ADDR} \
-        --master_port=${MASTER_PORT} \
-        --node_rank=\${SLURM_PROCID} \
+        \"\${torchrun_args[@]}\" \
         -m samudra.train \"${CONFIG_IN_CONTAINER}\" \
         --experiment.name=\"${NAME}\" \
         --experiment.data_root=\"${DATA_ROOT}\" \

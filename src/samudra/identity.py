@@ -274,6 +274,7 @@ def evaluate_identity(
     physical_valid_count: torch.Tensor | None = None
     resampler_square_error_sum: torch.Tensor | None = None
     resampler_physical_square_error_sum: torch.Tensor | None = None
+    source_normalized_resampler_square_error_sum: torch.Tensor | None = None
     local_samples = 0
     base_channels = len(trainer.tensor_map.prognostic_var_names)
 
@@ -343,6 +344,16 @@ def evaluate_identity(
         batch_resampler_physical_square_error = (
             (resampled_physical - target_physical).square() * wet
         ).sum(dim=(0, 2, 3))
+        resampled_source_normalized = _masked_physical_resampler_reference(
+            input_latest,
+            input_wet,
+            data.ctx.input_resolution_cpu,
+            data.ctx.output_resolution_cpu,
+            torch.zeros_like(output_means),
+        )
+        batch_source_normalized_resampler_square_error = (
+            (resampled_source_normalized - target_latest).square() * wet
+        ).sum(dim=(0, 2, 3))
 
         batch_target_spectrum = zonal_power_spectrum(target_latest) * batch_size
         batch_generated_spectrum = zonal_power_spectrum(generated_latest) * batch_size
@@ -364,6 +375,9 @@ def evaluate_identity(
             physical_valid_count = batch_valid_count
             resampler_square_error_sum = batch_resampler_square_error
             resampler_physical_square_error_sum = batch_resampler_physical_square_error
+            source_normalized_resampler_square_error_sum = (
+                batch_source_normalized_resampler_square_error
+            )
         else:
             loss_sum += loss_per_channel * batch_size
             assert target_spectrum_sum is not None
@@ -388,8 +402,12 @@ def evaluate_identity(
             physical_valid_count += batch_valid_count
             assert resampler_square_error_sum is not None
             assert resampler_physical_square_error_sum is not None
+            assert source_normalized_resampler_square_error_sum is not None
             resampler_square_error_sum += batch_resampler_square_error
             resampler_physical_square_error_sum += batch_resampler_physical_square_error
+            source_normalized_resampler_square_error_sum += (
+                batch_source_normalized_resampler_square_error
+            )
         local_samples += batch_size
 
     if (
@@ -407,6 +425,7 @@ def evaluate_identity(
         or physical_valid_count is None
         or resampler_square_error_sum is None
         or resampler_physical_square_error_sum is None
+        or source_normalized_resampler_square_error_sum is None
     ):
         raise ValueError("The fixed identity sample set was empty.")
 
@@ -429,6 +448,9 @@ def evaluate_identity(
     reduced_resampler_square_error_sum = all_reduce_mean(resampler_square_error_sum)
     reduced_resampler_physical_square_error_sum = all_reduce_mean(
         resampler_physical_square_error_sum
+    )
+    reduced_source_normalized_resampler_square_error_sum = all_reduce_mean(
+        source_normalized_resampler_square_error_sum
     )
     safe_value_count = reduced_valid_value_count.clamp_min(1)
     target_mean = reduced_target_value_sum / safe_value_count
@@ -456,6 +478,10 @@ def evaluate_identity(
     )
     resampler_physical_mse = (
         reduced_resampler_physical_square_error_sum
+        / reduced_physical_valid_count.clamp_min(1)
+    )
+    source_normalized_resampler_mse = (
+        reduced_source_normalized_resampler_square_error_sum
         / reduced_physical_valid_count.clamp_min(1)
     )
     high_frequency_ratio = high_wavenumber_power_ratio(
@@ -491,6 +517,13 @@ def evaluate_identity(
         _group_values(
             f"{prefix}/deterministic_resampler_physical_mse",
             resampler_physical_mse,
+            trainer,
+        )
+    )
+    logs.update(
+        _group_values(
+            f"{prefix}/source_normalized_resampler_mse",
+            source_normalized_resampler_mse,
             trainer,
         )
     )

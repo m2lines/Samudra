@@ -71,6 +71,9 @@ The development prerequisites are now present on this branch:
 - paired reconstruction can read a destination resolution at the exact input
   timestamps, balance fixed samples across shape-distinct routes, and report both
   learned and deterministic-resampler errors in normalized and physical units;
+- the diagnostic separately reports interpolation in physical space and directly
+  in the source-normalized coordinate system, exposing cross-resolution errors
+  caused by resolution-specific means and standard deviations;
 - encoder geometry can be additive, absent, or supplied to each processor call as
   a zero-initialized position/scale sidecar;
 - physical-coordinate resampling and the bounded zero-initialized local-attention

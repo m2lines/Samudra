@@ -32,6 +32,7 @@
 
 #SBATCH --job-name=oe-train
 #SBATCH --output=slurm-%j.out
+#SBATCH --open-mode=append
 #SBATCH --account=torch_pr_347_courant
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1

@@ -14,12 +14,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write # Allow updating content on GitHub pages
-  deployments: write # Allow to deploy to GitHub pages
-  id-token: write # This is required for interacting with AWS via OIDC
+  contents: read
 
 jobs:
   ec2:
+    permissions:
+      contents: read
+      id-token: write # Required for interacting with AWS via OIDC
     uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
     with:
       ec2_instance_type: g6.xlarge
@@ -32,24 +33,27 @@ jobs:
   benchmark:
     needs: ec2
     runs-on: ${{ needs.ec2.outputs.id }}
+    permissions:
+      contents: write # Allow updating content on GitHub pages
+      deployments: write # Allow to deploy to GitHub pages
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
 
         # Invalidate the data cache every time the data source changes.
         # If an exact cache isn't found, fall back to previous cache.
       - name: Cache test data
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
         with:
           path: .data_cache/
           key: ${{ runner.os }}-test-data-${{ hashFiles('tests/conftest.py', 'configs/test/*.yaml') }}
 
       - name: Install uv and set the python version
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.12"
 
@@ -65,7 +69,7 @@ jobs:
 
       # gh-pages branch is automatically updated with extracted benchmark data.
       - name: Store benchmark result (CPU)
-        uses: benchmark-action/github-action-benchmark@v1
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba
         with:
           name: Python Benchmark with pytest-benchmark
           tool: "pytest"
@@ -80,7 +84,7 @@ jobs:
 
       # gh-pages branch is automatically updated with extracted benchmark data.
       - name: Store benchmark result (GPU)
-        uses: benchmark-action/github-action-benchmark@v1
+        uses: benchmark-action/github-action-benchmark@52576c92bccf6ac60c8223ec7eb2565637cae9ba
         with:
           name: Python Benchmark with pytest-benchmark (GPU)
           tool: "pytest"

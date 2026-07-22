@@ -4,6 +4,7 @@
 
 import importlib.util
 import json
+import math
 from pathlib import Path
 
 import pytest
@@ -101,3 +102,15 @@ def test_cross_resolution_routes_compare_model_with_resampler():
     table = script.route_markdown_table([summary])
     assert "180x360_to_360x720" in table
     assert "resampler_mse" in table
+
+
+def test_undefined_one_cell_patch_seam_is_reported_as_nan():
+    script = _load_script()
+    row = _row(1, 0.4)
+    for key in list(row):
+        if "patch_seam_jump_ratio" in key:
+            row[key] = float("nan")
+
+    summary = script.summarize_trajectory([row], name="one-cell-patches")
+
+    assert math.isnan(summary["patch_seam_ratio"])

@@ -45,6 +45,14 @@ def _mean_prefix(row: Mapping[str, Any], prefix: str) -> float:
     return sum(values) / len(values)
 
 
+def _optional_mean_prefix(row: Mapping[str, Any], prefix: str) -> float:
+    """Return NaN when a diagnostic is undefined for the configured geometry."""
+    try:
+        return _mean_prefix(row, prefix)
+    except ValueError:
+        return math.nan
+
+
 def _route_summaries(row: Mapping[str, Any]) -> dict[str, dict[str, float]]:
     routes = sorted(
         match.group(1)
@@ -66,7 +74,7 @@ def _route_summaries(row: Mapping[str, Any]) -> dict[str, dict[str, float]]:
             "high_wavenumber_ratio": _mean_prefix(
                 row, f"{route_prefix}/high_wavenumber_power_ratio/channel/"
             ),
-            "patch_seam_ratio": _mean_prefix(
+            "patch_seam_ratio": _optional_mean_prefix(
                 row, f"{route_prefix}/patch_seam_jump_ratio/channel/"
             ),
         }
@@ -91,7 +99,7 @@ def summarize_trajectory(
         "best_mse": _finite_float(best, MSE_KEY),
         "final_mse": _finite_float(final, MSE_KEY),
         "high_wavenumber_ratio": _mean_prefix(final, HIGH_WAVENUMBER_PREFIX),
-        "patch_seam_ratio": _mean_prefix(final, SEAM_PREFIX),
+        "patch_seam_ratio": _optional_mean_prefix(final, SEAM_PREFIX),
         "routes": _route_summaries(final),
         **{label: _finite_float(final, key) for label, key in VARIABLE_KEYS.items()},
     }

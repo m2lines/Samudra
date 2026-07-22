@@ -16,6 +16,7 @@ from samudra.identity import (
     IdentityConfig,
     _fixed_batches,
     _identity_routes,
+    _masked_physical_resampler_reference,
     _processor_depth,
     evaluate_identity_routes,
     set_identity_target,
@@ -63,6 +64,25 @@ def test_set_identity_target_reuses_prognostic_input():
     assert new_prognostic is prognostic
     assert new_boundary is boundary
     assert new_target is prognostic
+
+
+def test_masked_resampler_uses_output_climatology_without_source_support():
+    input_physical = torch.tensor(
+        [[[[1.0, 2.0], [3.0, 4.0]], [[7.0, 8.0], [9.0, 10.0]]]]
+    )
+    input_wet = torch.tensor(
+        [[[False, False], [False, False]], [[True, False], [False, False]]]
+    )
+
+    output = _masked_physical_resampler_reference(
+        input_physical,
+        input_wet,
+        (torch.tensor([0.0, 1.0]), torch.tensor([0.0, 180.0])),
+        (torch.tensor([0.5]), torch.tensor([90.0])),
+        torch.tensor([3.0, 5.0]),
+    )
+
+    torch.testing.assert_close(output, torch.tensor([[[[3.0]], [[7.0]]]]))
 
 
 def test_set_identity_target_rejects_multiple_steps():

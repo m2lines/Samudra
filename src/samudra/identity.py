@@ -26,6 +26,7 @@ from samudra.aggregator.validate.spatial import (
     zonal_power_spectrum,
 )
 from samudra.config import SamudraMultiConfig, TrainConfig
+from samudra.constants import Lat, Lon
 from samudra.datasets import TrainData
 from samudra.models.modules.decoder import coordinate_bilinear_resample
 from samudra.models.samudra_multi import SamudraMulti
@@ -216,6 +217,32 @@ def _channel_stats_and_mask(
     )
 
 
+def _masked_physical_resampler_reference(
+    input_physical: torch.Tensor,
+    input_wet: torch.Tensor,
+    input_resolution: tuple[Lat, Lon],
+    output_resolution: tuple[Lat, Lon],
+    output_means: torch.Tensor,
+) -> torch.Tensor:
+    """Resample wet values and use destination climatology without source support."""
+    resampled = coordinate_bilinear_resample(
+        input_physical,
+        input_resolution,
+        output_resolution,
+        valid_mask=input_wet,
+    )
+    support = coordinate_bilinear_resample(
+        input_wet.to(dtype=input_physical.dtype).unsqueeze(0),
+        input_resolution,
+        output_resolution,
+    )
+    return torch.where(
+        support > 0,
+        resampled,
+        output_means[None, :, None, None],
+    )
+
+
 @torch.no_grad()
 def evaluate_identity(
     trainer: Trainer,
@@ -292,11 +319,12 @@ def evaluate_identity(
         input_physical = (
             input_latest * input_stds[:, None, None] + input_means[:, None, None]
         )
-        resampled_physical = coordinate_bilinear_resample(
+        resampled_physical = _masked_physical_resampler_reference(
             input_physical,
+            input_wet,
             data.ctx.input_resolution_cpu,
             data.ctx.output_resolution_cpu,
-            valid_mask=input_wet,
+            output_means,
         )
         target_physical = (
             target_latest * output_stds[:, None, None] + output_means[:, None, None]

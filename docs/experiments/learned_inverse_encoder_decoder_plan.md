@@ -86,6 +86,13 @@ The checked-in zero-depth controls are
 implementations. Training and evaluation remain to be run, and the candidate set
 and defaults below remain provisional under the selection-logic revision rule.
 
+The completed learned-encoder S0 screen supplies the first revision. At 2,000
+updates and three seeds, physical-coordinate resampling plus projection beat both
+the hybrid and position-only attention on same-grid, downsampled, longitude-shifted,
+and upsampled routes. S1 therefore promotes the simple physical resampler. The
+hybrid remains implemented as a fallback but does not receive a parallel ocean
+sweep unless S1 spectra reveal an error the base cannot represent.
+
 ## Questions to resolve
 
 The experiments are designed to answer six questions separately.
@@ -356,19 +363,24 @@ Common settings:
 First sweep learning rate `{3e-4, 6e-4, 1e-3}` on the current additive-geometry,
 resampling-only control. Freeze the best setting for all structural comparisons.
 
-Then run the six-cell isolation:
+Then run the encoder-geometry isolation on the promoted physical base:
 
-| Encoder geometry | Base only | Base + zero-init correction |
-|---|---:|---:|
-| Current additive position/scale | run | run |
-| No post-encoder position/scale | run | run |
-| Geometry sidecar | same as `none`; do not duplicate | same as `none`; do not duplicate |
+| Encoder geometry | Physical resampling base |
+|---|---:|
+| Current additive position/scale | run |
+| No post-encoder position/scale | run |
+| Geometry sidecar | same as `none` at depth zero; do not duplicate |
 
 This is the primary test of the position/scale concern. Do not conclude that
 position embeddings are harmful from training-set MSE alone. Selection uses held-out
 MSE, spectra, amplitude ratios, and later processor behavior. If `none` wins at
 depth zero, `sidecar` must still be tested with a processor before removing geometry
 from the model.
+
+Run one hybrid ocean guard only if the promoted base passes the S1 reconstruction
+gate but exhibits a repeatable spectral, seam, or variable-group defect. This is a
+deliberate evidence-based reduction from the original six-cell decoder/geometry
+factorial, not a permanent prohibition on the correction.
 
 Run two capacity checks only on the best geometry/decoder pair:
 

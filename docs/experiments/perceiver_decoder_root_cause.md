@@ -228,6 +228,42 @@ This preserves the successful resampling decoder exactly at initialization, keep
 output-grid flexibility, and gives the model a route to learn corrections where
 bilinear interpolation is inadequate.
 
+## Learned-encoder S0 confirmation
+
+The earlier oracle-copy probe placed target channels directly in the decoder input.
+The follow-up S0 screen removes that shortcut: a two-layer pointwise encoder learns
+the 16-to-32-channel representation jointly with each decoder from fresh analytic
+coefficients, and evaluation uses 256 unseen coefficient draws. The table reports
+three-seed held-out means after 2,000 Adam updates at learning rate `3e-3`.
+
+| Decoder | Same 8-to-8 | Down 16-to-8 | Shifted 8-to-8 | Up 8-to-16 |
+|---|---:|---:|---:|---:|
+| Physical-coordinate resampling + projection | **0.000182** | **0.000208** | **0.004716** | **0.003459** |
+| Physical base + zero-init local attention | 0.000301 | 0.000326 | 0.004890 | 0.003487 |
+| Position-anchored attention only | 0.001035 | 0.000652 | 0.005568 | 0.006257 |
+
+The preceding 500-update screen also isolated coordinate semantics. Shape-only
+bilinear interpolation tied physical interpolation on the identical grid, but was
+10.0 times worse when downsampling, 8.7 times worse on the half-cell longitude
+shift, and 3.6 times worse when upscaling. This is direct evidence that the dominant
+flexible-resolution architectural fix is physical-coordinate resampling, not more
+attention capacity.
+
+The longer confirmation revises the earlier hybrid recommendation. Its correction
+helped same-grid and down-grid error at 500 updates, but the simpler learned base
+continued improving and won every route by 2,000 updates. The hybrid was also about
+4--7 times slower on CPU. Under the plan's successive-halving rule, it does not
+advance as a co-equal S1 candidate; its checked-in implementation remains a fallback
+if ocean spectra expose a residual that a pointwise projection cannot learn.
+
+Position-only anchored attention was not rejected because it cannot express the
+desired mapping. It was rejected as the primary renderer because, under the same
+learned-encoder budget, it lost every route, required about 8--10 times the runtime
+of the base, suppressed shifted-grid high-wavenumber power to `0.815`, and amplified
+upscaled high-wavenumber power to `1.264`. It remains an informative control, while
+the zero-initialized hybrid is the safer way to add it if later evidence justifies
+the cost.
+
 ## Architecture decision matrix
 
 | Candidate | Same-grid identity | Flexible output grid | Learned nonlocal correction | Evidence-backed decision |
@@ -235,9 +271,9 @@ bilinear interpolation is inadequate.
 | Current Perceiver IO | Poor at production scale | Yes | Yes | Do not promote unchanged |
 | Wider Perceiver IO | Channel bottleneck reduced | Yes | Yes | Run the matched ocean control; insufficient without spatial anchoring |
 | Direct query-to-token attention | Better at 4x4, slow at 12x12 | Yes | Yes | Useful ablation, not sufficient alone |
-| Position-only anchored attention | Excellent when sharp | Yes in principle | Yes | Reject as sole resampler because identity/interpolation temperature conflicts |
-| Resampling projection | Strong synthetic identity and ocean proxy | Yes | No | Recommended stable baseline |
-| Resampling + zero-init attention residual | Preserves base by construction | Yes | Yes | Recommended research architecture |
+| Position-only anchored attention | Learnable but slower and less accurate | Yes | Yes | Retain as a control; do not promote as sole renderer |
+| Physical-coordinate resampling projection | Best learned-encoder S0 result | Yes | No | Promote as the primary architecture |
+| Resampling + zero-init attention residual | Preserves base at initialization | Yes | Yes | Retain as fallback; S0 does not justify its added cost |
 
 Channel-conditioned queries are not the first remedy. They would multiply query
 count by up to 77 while the current spatial routing failure remains. Producing all

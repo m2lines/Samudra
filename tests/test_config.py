@@ -415,6 +415,23 @@ def test_canonical_resample_encoder_config_uses_configured_finest_grid():
     )
 
 
+def test_native_projection_encoder_config_allows_multi_cell_physical_patch():
+    encoder = EncoderConfig(native_projection=True, geometry_mode="none").build(
+        in_channels=10,
+        out_channels=160,
+        patch_extent=(90.0, 90.0),
+        max_lat_size=360,
+        max_lon_size=720,
+        implementation="naive",
+    )
+
+    assert isinstance(encoder, DirectPatchEncoder)
+    assert not encoder.enforce_one_pixel_patch
+    x = torch.randn(1, 10, 4, 8)
+    resolution = (torch.linspace(-67.5, 67.5, 4), torch.arange(8) * 45.0)
+    assert encoder(x, resolution).shape == (1, 160, 4, 8)
+
+
 def test_encoder_config_can_disable_post_encoder_geometry():
     encoder = EncoderConfig(geometry_mode="none").build(
         in_channels=10,

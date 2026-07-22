@@ -693,6 +693,12 @@ class EncoderConfig(BaseConfig):
         "every input onto the finest configured physical grid. This preserves a "
         "fixed latent grid without pooling multiple native cells into one token.",
     )
+    native_projection: bool = Field(
+        default=False,
+        description="Apply a learned pointwise channel projection at every native "
+        "input cell and keep that native latent grid. The shared processor remains "
+        "fully convolutional; only the decoder changes output resolution.",
+    )
     perceiver: PerceiverConfig = PerceiverConfig()
     spatial_query_shape: tuple[int, int] | None = Field(
         default=None,
@@ -726,13 +732,14 @@ class EncoderConfig(BaseConfig):
             (
                 self.direct_projection,
                 self.canonical_resampling,
+                self.native_projection,
                 self.spatial_query_shape is not None,
             )
         )
         if structural_modes > 1:
             raise ValueError(
-                "direct_projection, canonical_resampling, and spatial_query_shape "
-                "are mutually exclusive."
+                "direct_projection, canonical_resampling, native_projection, and "
+                "spatial_query_shape are mutually exclusive."
             )
         if self.canonical_resampling:
             if canonical_resolution is None:
@@ -756,6 +763,14 @@ class EncoderConfig(BaseConfig):
                 out_channels=out_channels,
                 patch_extent=patch_extent,
                 geometry_mode=self.geometry_mode,
+            )
+        if self.native_projection:
+            return DirectPatchEncoder(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                patch_extent=patch_extent,
+                geometry_mode=self.geometry_mode,
+                enforce_one_pixel_patch=False,
             )
         if self.spatial_query_shape is not None:
             if any(size <= 0 for size in self.spatial_query_shape):

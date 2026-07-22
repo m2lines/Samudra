@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/SamudraMultiConfig.json
+
+# Learned pointwise channel representation on the native input grid. The encoder
+# never changes spatial resolution; the shared decoder alone renders the requested
+# output grid with physical-coordinate interpolation.
+pred_residuals: false
+last_kernel_size: 3
+pad: "circular"
+checkpointing: "selective"
+embedding_dim: 160
+perceiver_implementation: "flash"
+patch_extent: [1.0, 1.0]
+bypass_processor: true
+processor_iterations: 0
+
+encoder:
+  geometry_mode: "none"
+  native_projection: true
+
+decoder:
+  resample_projection: true
+  coordinate_resampling: true
+
+processor:
+  ch_width: [160, 480, 520]
+  dilation: [1, 1, 1]
+  n_layers: [1, 1, 1]
+  core_block:
+    block_type: "conv_next_block"
+    kernel_size: 3
+    activation: "capped_gelu"
+    upscale_factor: 2
+    norm: "instance"
+    pointwise_linear: true
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "zonally_periodic_upsample"

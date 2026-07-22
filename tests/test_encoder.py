@@ -75,6 +75,25 @@ def test_canonical_resample_encoder_uses_fixed_finest_grid_and_has_gradients():
     assert encoder.projection.weight.grad is not None
 
 
+def test_native_projection_preserves_finer_input_grid():
+    encoder = DirectPatchEncoder(
+        in_channels=10,
+        out_channels=8,
+        patch_extent=(90.0, 90.0),
+        geometry_mode="none",
+        enforce_one_pixel_patch=False,
+    )
+    x = torch.randn(2, 10, 4, 8, requires_grad=True)
+    resolution = (torch.linspace(-67.5, 67.5, 4), torch.arange(8) * 45.0)
+
+    encoded = encoder(x, resolution)
+
+    assert encoded.shape == (2, 8, 4, 8)
+    assert encoder.output_resolution(resolution) is resolution
+    encoded.mean().backward()
+    assert x.grad is not None
+
+
 def test_makes_patches():
     x = torch.randn(3, 10, 4, 8)
 

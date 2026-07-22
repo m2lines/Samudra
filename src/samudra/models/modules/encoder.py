@@ -186,6 +186,7 @@ class DirectPatchEncoder(nn.Module):
         out_channels: int,
         patch_extent: tuple[float, float],
         geometry_mode: EncoderGeometryMode = "additive",
+        enforce_one_pixel_patch: bool = True,
     ) -> None:
         super().__init__()
         if out_channels % 4 != 0:
@@ -196,6 +197,7 @@ class DirectPatchEncoder(nn.Module):
         self.out_channels = out_channels
         self.patch_extent = patch_extent
         self.geometry_mode = geometry_mode
+        self.enforce_one_pixel_patch = enforce_one_pixel_patch
         self.projection = nn.Conv2d(in_channels, out_channels, kernel_size=1)
         self.pos_embed: nn.Linear | None = None
         self.scale_embed: nn.Linear | None = None
@@ -216,7 +218,7 @@ class DirectPatchEncoder(nn.Module):
                 f"Expected {self.in_channels} input channels, got {channels}."
             )
         patch_size = patch_from(self.patch_extent, height, width)
-        if patch_size != (1, 1):
+        if self.enforce_one_pixel_patch and patch_size != (1, 1):
             raise ValueError(
                 "DirectPatchEncoder requires one-pixel patches; "
                 f"got patch size {patch_size} for grid {(height, width)}."
@@ -232,7 +234,7 @@ class DirectPatchEncoder(nn.Module):
             self.out_channels,
             lat,
             lon,
-            patch_size,
+            (1, 1),
         )
         assert self.pos_embed is not None
         assert self.scale_embed is not None

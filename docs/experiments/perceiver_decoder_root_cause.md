@@ -569,6 +569,22 @@ do not constrain the encoder or add decoder attention to address this processor-
 specific failure. The runs are Slurm `14581788` / W&B `s8rig9hd` and Slurm
 `14581789` / W&B `u1ki1obr`.
 
+The matched multi-depth test is now complete (Slurm `14590678`, W&B `9yart3ax`):
+
+| training depths | depth 0 | depth 1 | depth 2 | depth 4 |
+|---|---:|---:|---:|---:|
+| fixed `{1}` | 0.021861 | 0.022284 | 0.030805 | 0.113853 |
+| cycled `{1,2,4}` | 0.022202 | 0.021475 | 0.021805 | 0.024028 |
+
+Cycling depths is the only causal change. It removes 29.2% of depth-two error and
+78.9% of depth-four error while changing depth zero by +1.6% and improving depth
+one by 3.6%. Depth four is only 8.2% worse than depth zero, and all four resolution
+routes improve at depth four. The failure was inadequate training support for the
+requested iteration counts, not evidence that the learned encoder must be made
+trivial, that the decoder needs attention, or that the processor requires a global
+residual. Promote this checkpoint to forecasting; retain residualizing the
+processor only as a falsifiable fallback if physical-time training drifts again.
+
 ## Architecture decision matrix
 
 | Candidate | Same-grid identity | Flexible output grid | Learned nonlocal correction | Evidence-backed decision |
@@ -622,8 +638,10 @@ continues to lag after routing is fixed.
   Jacobian because self-attention and value transformations intervene.
 - The production checkpoint swap and fresh run confirm the mask-order mechanism on
   actual OM4 coordinates, periodic longitude, nonuniform latitude, and channel-
-  specific wet masks. Quarter-degree zero-shot scaling is numerically successful;
-  the bounded-memory rerun and scale-aware restriction comparison remain.
+  specific wet masks. Quarter-degree zero-shot scaling and the bounded-memory rerun
+  are complete. The scale-aware restriction comparison establishes that naive area
+  averaging is useful at 4x but not a universal 2x replacement; a physical
+  conservative restriction operator remains future work.
 - The hybrid synthetic control initializes its base projection to copy aligned
   target channels. Real processor features require a learned channel projection.
   The completed ocean resampling proxy is the evidence that such a projection is
@@ -675,10 +693,10 @@ The follow-up real-data control is fully specified by
    geometry, and projection-before-channel-masked-resampling selection.
 2. Do not add the zero-initialized attention residual: neither S2 nor quarter
    zero-shot transfer exposes a residual defect that justifies its cost.
-3. Retain the selected `lambda_0=0.05` processor mixture. It preserves depth zero
-   and improves depths two/four over the matched unregularized run, but depth four
-   remains 5.2x depth zero. Train positive depths sampled from `{1,2,4}` before
-   promoting arbitrary repeated application.
+3. Retain `lambda_0=0.05` and balanced positive-depth training over `{1,2,4}`.
+   The matched run keeps depth zero within 1.6%, improves depths two/four by
+   29.2%/78.9%, and leaves depth four only 8.2% worse than depth zero. Do not add a
+   processor residual without new forecast evidence.
 4. Retain the completed bounded-memory quarter evaluator. Prototype physical
    conservative restriction for 4x downsampling, where area lowers the floor 86%,
    and compare a better low-pass kernel at 2x, where naive area improves spectra

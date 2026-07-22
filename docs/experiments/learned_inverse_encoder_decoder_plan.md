@@ -814,11 +814,31 @@ arbitrary iteration. Before proxy forecasting, train positive depths sampled fro
 `{1, 2, 4}` toward the same refinement target, retain the source-grid depth-zero
 term, and require improvement at depths two/four without regressing depth zero/one.
 
-For refinement-depth semantics, train positive depths sampled uniformly from
-`{1,2,4}` toward the same one-step target. For physical-time semantics, use the
-corresponding `t+k` targets and forcing sequence. In either case, compare shared
-processor weights with the existing single-call processor at matched parameter
-count and optimizer updates.
+That causal test is complete as Slurm job `14590678` / W&B `9yart3ax`. It uses
+the same seed, checkpoint, 1,280 samples, 160 optimizer updates, effective batch
+eight, and `lambda_0=0.05`; the only training change is a deterministic balanced
+cycle over positive depths `{1,2,4}`:
+
+| positive-depth training | depth 0 | depth 1 | depth 2 | depth 4 |
+|---|---:|---:|---:|---:|
+| fixed depth 1 | 0.021861 | 0.022284 | 0.030805 | 0.113853 |
+| cycle `{1,2,4}` | 0.022202 | 0.021475 | 0.021805 | 0.024028 |
+
+Balanced depth exposure improves depths one, two, and four by 3.6%, 29.2%, and
+78.9%, respectively, while depth zero changes by only +1.6% and remains 9.6%
+better than the untouched exact-window checkpoint. Depth four is now only 8.2%
+worse than depth zero rather than 5.2 times worse. Every depth-four route improves:
+the four route MSEs contract from `0.08589--0.14571` to `0.00594--0.07354`, with
+the remaining maximum on the known one-degree-to-half-degree interpolation route.
+This supports inadequate positive-depth exposure as the repeated-iteration root
+cause. Do not add a global processor residual solely to fix this failure; advance
+the multi-depth checkpoint to the forecast proxy and retain residualization only
+as a fallback if forecasting reintroduces iteration drift.
+
+For physical-time semantics, use the corresponding `t+k` targets and forcing
+sequence rather than treating processor depth as refinement depth. The completed
+test establishes the refinement-depth contract at matched parameter count and
+optimizer updates; it does not by itself establish multi-step forecast accuracy.
 
 ## Forecast and full-scale validation
 

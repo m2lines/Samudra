@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784748323900,
+  "lastUpdate": 1784762949862,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -10835,6 +10835,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.16761824081161938",
             "extra": "mean: 55.0892253992 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f500f6bcd1791936d0c7ba9ea794438d07f01263",
+          "message": "Fix FlashAttention wheels across CUDA platforms (#811)\n\n## Summary\n\n- constrain supported Python to 3.12 since that is all we're currently\ntesting\n- select official upstream FlashAttention wheels by Linux architecture\n(see comments for rationale):\n  - CUDA 13 / PyTorch 2.9 for ARM64 PhysicsNeMo hosts\n  - CUDA 12 / PyTorch 2.9 for existing x86_64 CUDA jobs\n- use `perceiver_implementation: auto` in general model configs and\nexplicitly exercise `flash` in the CUDA SamudraMini smoke config\n\nFixes #710 for tests/training runs *outside* containers on ARM hosts\n(e.g. my dev box)\n\n---------\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>",
+          "timestamp": "2026-07-22T22:49:46Z",
+          "tree_id": "2438a19a844dd916b4b6fce3da230644c8c46718",
+          "url": "https://github.com/m2lines/Samudra/commit/f500f6bcd1791936d0c7ba9ea794438d07f01263"
+        },
+        "date": 1784762948852,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.083527708904031,
+            "unit": "iter/sec",
+            "range": "stddev: 0.008086903612082324",
+            "extra": "mean: 922.9113310000002 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.06271410878324951,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08305657811396942",
+            "extra": "mean: 15.945375281599997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.018034465524403864,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3187575105992058",
+            "extra": "mean: 55.44938377279997 sec\nrounds: 5"
           }
         ]
       }

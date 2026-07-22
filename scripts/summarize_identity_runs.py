@@ -7,6 +7,7 @@
 import argparse
 import json
 import math
+import re
 from collections.abc import Iterable, Mapping
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,7 @@ VARIABLE_KEYS = {
     "meridional_velocity": "identity/loss/variable/vo_loss",
     "ssh": "identity/loss/variable/zos_loss",
 }
+ROUTE_MSE_PATTERN = re.compile(r"^identity/route/([^/]+)/mean/mse$")
 
 
 def _finite_float(row: Mapping[str, Any], key: str) -> float:
@@ -43,6 +45,34 @@ def _mean_prefix(row: Mapping[str, Any], prefix: str) -> float:
     return sum(values) / len(values)
 
 
+def _route_summaries(row: Mapping[str, Any]) -> dict[str, dict[str, float]]:
+    routes = sorted(
+        match.group(1)
+        for key in row
+        if (match := ROUTE_MSE_PATTERN.match(key)) is not None
+    )
+    summaries = {}
+    for route in routes:
+        route_prefix = f"identity/route/{route}"
+        model_mse = _finite_float(row, f"{route_prefix}/mean/mse")
+        resampler_mse = _mean_prefix(
+            row,
+            f"{route_prefix}/deterministic_resampler_normalized_mse/channel/",
+        )
+        summaries[route] = {
+            "model_mse": model_mse,
+            "resampler_mse": resampler_mse,
+            "excess_mse": model_mse - resampler_mse,
+            "high_wavenumber_ratio": _mean_prefix(
+                row, f"{route_prefix}/high_wavenumber_power_ratio/channel/"
+            ),
+            "patch_seam_ratio": _mean_prefix(
+                row, f"{route_prefix}/patch_seam_jump_ratio/channel/"
+            ),
+        }
+    return summaries
+
+
 def summarize_trajectory(
     rows: Iterable[Mapping[str, Any]], *, name: str
 ) -> dict[str, Any]:
@@ -62,6 +92,7 @@ def summarize_trajectory(
         "final_mse": _finite_float(final, MSE_KEY),
         "high_wavenumber_ratio": _mean_prefix(final, HIGH_WAVENUMBER_PREFIX),
         "patch_seam_ratio": _mean_prefix(final, SEAM_PREFIX),
+        "routes": _route_summaries(final),
         **{label: _finite_float(final, key) for label, key in VARIABLE_KEYS.items()},
     }
 
@@ -103,6 +134,26 @@ def markdown_table(summaries: Iterable[Mapping[str, Any]]) -> str:
     return "\n".join(lines)
 
 
+def route_markdown_table(summaries: Iterable[Mapping[str, Any]]) -> str:
+    """Render same- and cross-resolution route evidence when it is present."""
+    columns = (
+        "model_mse",
+        "resampler_mse",
+        "excess_mse",
+        "high_wavenumber_ratio",
+        "patch_seam_ratio",
+    )
+    lines = [
+        "| Run | Route | " + " | ".join(columns) + " |",
+        "|---|---|" + "---:|" * len(columns),
+    ]
+    for summary in summaries:
+        for route, route_summary in summary.get("routes", {}).items():
+            values = " | ".join(f"{route_summary[column]:.6g}" for column in columns)
+            lines.append(f"| {summary['name']} | {route} | {values} |")
+    return "\n".join(lines) if len(lines) > 2 else ""
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Summarize fixed-sample SamudraMulti identity diagnostics."
@@ -129,6 +180,9 @@ def main() -> None:
         print(json.dumps(summaries, indent=2, sort_keys=True))
     else:
         print(markdown_table(summaries))
+        route_table = route_markdown_table(summaries)
+        if route_table:
+            print(f"\n{route_table}")
 
 
 if __name__ == "__main__":

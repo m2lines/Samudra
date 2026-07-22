@@ -37,6 +37,17 @@ def _row(epoch: int, mse: float):
     return row
 
 
+def _add_route(row, route: str, mse: float, resampler_mse: float):
+    prefix = f"identity/route/{route}"
+    row[f"{prefix}/mean/mse"] = mse
+    for channel in ("thetao_0", "so_0"):
+        row[f"{prefix}/deterministic_resampler_normalized_mse/channel/{channel}"] = (
+            resampler_mse
+        )
+        row[f"{prefix}/high_wavenumber_power_ratio/channel/{channel}"] = 0.9
+        row[f"{prefix}/patch_seam_jump_ratio/channel/{channel}"] = 1.1
+
+
 def test_summarize_trajectory_reports_best_and_final_rows():
     script = _load_script()
 
@@ -74,3 +85,19 @@ def test_summarize_path_names_direct_json_after_file(tmp_path):
     summary = script.summarize_path(metrics_path)
 
     assert summary["name"] == "identity_1deg_metrics"
+
+
+def test_cross_resolution_routes_compare_model_with_resampler():
+    script = _load_script()
+    row = _row(1, 0.4)
+    _add_route(row, "180x360_to_360x720", 0.3, 0.1)
+
+    summary = script.summarize_trajectory([row], name="cross-resolution")
+    route = summary["routes"]["180x360_to_360x720"]
+
+    assert route["model_mse"] == pytest.approx(0.3)
+    assert route["resampler_mse"] == pytest.approx(0.1)
+    assert route["excess_mse"] == pytest.approx(0.2)
+    table = script.route_markdown_table([summary])
+    assert "180x360_to_360x720" in table
+    assert "resampler_mse" in table

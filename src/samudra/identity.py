@@ -701,6 +701,8 @@ def train_identity(cfg: IdentityConfig) -> None:
         for epoch in range(1, cfg.epochs + 1):
             trainer.model.train(not cfg.identity_eval_only)
             trainer.optimizer.zero_grad()
+            if trainer.device.type == "cuda":
+                torch.cuda.reset_peak_memory_stats(trainer.device)
             epoch_start = time.perf_counter()
             remaining_batches = batches_per_epoch % trainer.gradient_accumulation_steps
             final_cycle_start = (
@@ -815,6 +817,18 @@ def train_identity(cfg: IdentityConfig) -> None:
                     "identity/route_count": float(route_count),
                 }
             )
+            if trainer.device.type == "cuda":
+                gibibyte = 1024**3
+                metrics.update(
+                    {
+                        "identity/max_cuda_memory_allocated_gib": (
+                            torch.cuda.max_memory_allocated(trainer.device) / gibibyte
+                        ),
+                        "identity/max_cuda_memory_reserved_gib": (
+                            torch.cuda.max_memory_reserved(trainer.device) / gibibyte
+                        ),
+                    }
+                )
             trajectory.append(metrics)
             trainer.wandb_logger.log(metrics, step=epoch)
             mse = metrics["identity/mean/mse"]

@@ -369,12 +369,29 @@ Both canonical-grid controls decisively beat the Perceiver encoder at the same
 zero-depth task. Width 160 wins every variable group and is the active matched
 four-route candidate; width 128 remains the lower-cost processor fallback.
 
+The fixed-finest-grid four-route run then provided a useful falsification by epoch
+10. Half-to-half MSE fell from the coarse control's final `0.05737` to `0.00821`,
+and its high-k ratio rose from `0.496` to `0.968`. But one-to-one MSE was `0.03178`
+with high-k ratio `0.446`. Upsampling native one-degree features to a half-degree
+canonical grid and linearly sampling them back is a smoothing operation, not an
+inverse. Because this is a spatial invariant of the fixed-grid transport, the run
+was cancelled after 320 updates rather than completing the remaining 960.
+
+The revised candidate retains the learned pointwise channel representation on the
+native input grid. The shared processor remains fully convolutional and can run the
+same weights zero to N times at any supported input resolution; only the decoder
+resamples to the requested output coordinates. This is target-independent, keeps
+both same-grid spatial paths exact, and avoids both measured bottlenecks. It does
+trade constant processor resolution for native-resolution compute, which quarter-
+degree memory and throughput tests must quantify.
+
 The first deterministic half-to-one baseline was itself invalid: physical zero was
 used where a destination wet cell had no wet source neighbor, yielding normalized
 MSE near 39.4. The corrected diagnostic uses destination climatology at unsupported
 locations while retaining mask-renormalized physical interpolation elsewhere. This
-does not change any learned model result above; the corrected reference is being
-recomputed separately.
+does not change any learned model result above. The corrected normalized references
+are `0.005429` for half-to-one, `0.061161` for one-to-half, and numerical zero for
+same-grid routes.
 
 ## Architecture decision matrix
 

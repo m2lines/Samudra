@@ -546,12 +546,40 @@ processor-width fallback because it is already 64% better than the selected
 Perceiver control; the 160-width gain is 23% and must survive cross-resolution and
 processor tests before becoming permanent.
 
+That first fixed-finest-grid comparison was stopped after epoch 10 because it
+exposed a second deterministic tradeoff:
+
+| Route | Epoch-10 MSE | Mean high-k ratio |
+|---|---:|---:|
+| 1 degree -> 1 degree | 0.03178 | 0.446 |
+| 1 degree -> 1/2 degree | 0.06298 | 0.430 |
+| 1/2 degree -> 1 degree | 0.03208 | 0.629 |
+| 1/2 degree -> 1/2 degree | **0.00821** | **0.968** |
+
+It confirms the spatial diagnosis--half-to-half error falls 86% relative to the
+fully trained coarse-patch control and fine-scale power is restored--but it is not
+a shared inverse. Bilinearly upsampling one-degree latent features to the fixed
+half-degree grid and then decoding back to one degree is a smoothing round trip.
+The job was deliberately cancelled after this invariant was measured instead of
+spending the remaining 960 updates optimizing around it.
+
+The next revision keeps the successful learned pointwise channel projection but
+leaves its spatial grid at the native input resolution. The processor is fully
+convolutional and can apply the same weights zero to N times on either native grid;
+the decoder alone performs physical-coordinate resampling to any requested output.
+This makes both same-grid routes exact in spatial transport, preserves target-
+independent encoding, and avoids both one-degree patch compression and an
+upsample/downsample round trip. The checked-in candidates are
+`model_learned_inverse_native_projection.yaml` and
+`model_iterable_inverse_native_projection.yaml`.
+
 The original deterministic half-to-one reference was invalid because destination
 wet cells without any source-wet interpolation support were filled with physical
 zero, producing normalized MSE near 39.4. The diagnostic now uses the destination
 channel climatology only at unsupported points and retains wet-mask-renormalized
 physical interpolation everywhere else. The completed model trajectory is
-unaffected; its corrected reference will be recomputed separately.
+unaffected. The corrected normalized MSE is `0.005429` for half-to-one;
+one-to-half remains `0.061161`, and both same-grid references are numerical zero.
 
 After selecting among them, add quarter degree in evaluation first, without
 training. If zero-shot `1/2 <-> 1/4` behavior is finite and geometrically sensible,

@@ -326,3 +326,31 @@ def test_all_resolution_identity_config_balances_nine_routes(tmp_path):
     assert isinstance(config.model, SamudraMultiConfig)
     assert config.model.encoder.canonical_resampling
     assert config.model.embedding_dim == 160
+
+
+def test_processor_identity_config_evaluates_zero_to_four_calls(tmp_path):
+    config_path = (
+        Path(__file__).resolve().parents[1]
+        / "configs"
+        / "samudra_multi_om4"
+        / "identity_cross_1_halfdeg_processor.yaml"
+    )
+
+    config = IdentityConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--experiment.data_root",
+            str(tmp_path),
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+        ]
+    )
+
+    assert config.identity_eval_processor_depths == [0, 1, 2, 4]
+    assert isinstance(config.model, SamudraMultiConfig)
+    assert not config.model.bypass_processor
+    assert config.model.processor_iterations == 1
+    assert config.model.encoder.canonical_resampling
+    assert config.model.encoder.geometry_mode == "sidecar"
+    assert config.model.embedding_dim == 160
+    assert config.model.zero_depth_reconstruction_weight == pytest.approx(0.05)

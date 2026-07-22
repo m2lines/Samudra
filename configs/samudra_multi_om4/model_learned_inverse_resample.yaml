@@ -18,10 +18,10 @@ bypass_processor: true
 processor_iterations: 0
 
 encoder:
-  geometry_mode: "additive"
+  geometry_mode: "none"
   perceiver:
     depth: 2
-    latent_dim: 64
+    latent_dim: 128
     num_latents: 1
 
 decoder:

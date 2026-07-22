@@ -14,7 +14,7 @@ save_freq: 40
 epochs: 40
 batch_size: 1
 gradient_accumulation_steps: 1
-learning_rate: 0.0006
+learning_rate: 0.001
 scheduler: null
 loss: mse
 finetune: false

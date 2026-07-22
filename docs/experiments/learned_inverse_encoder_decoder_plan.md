@@ -445,7 +445,25 @@ to test.
 The one-cell patch seam ratio is undefined on the one-degree grid because every
 edge is a patch edge and there are no within-patch edges for its denominator.
 Seams are evaluated on the half-degree and cross-resolution routes in S2 instead.
-Width `{256, 380}` and latent-dimension `128` confirmation runs are in progress.
+
+The promoted geometry/LR pair then produced this capacity result at the best
+held-out epoch:
+
+| Embedding width | Latent dimension | Best epoch | Best MSE | Final MSE | Mean high-k ratio | Mean amplitude ratio | Mean absolute bias / target std |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 128 | 64 | 20 | 0.011844 | 0.011844 | 0.9283 | 0.9758 | **0.0076** |
+| 256 | 64 | 19 | 0.010375 | 0.010903 | 0.9378 | 0.9798 | 0.0223 |
+| 380 | 64 | 20 | 0.009505 | 0.009505 | **0.9703** | **0.9956** | 0.0221 |
+| 128 | 128 | 20 | **0.007937** | **0.007937** | 0.9256 | 0.9707 | 0.0135 |
+
+Increasing internal encoder latent dimension is decisively better than widening
+the external representation. The `128/128` model wins aggregate and every
+variable-group MSE; its per-variable high-k ratios range from `0.889` to `0.987`,
+inside the gate. It also keeps the processor interface at width 128. The selected
+S2 contract is therefore embedding width 128, latent dimension 128, geometry
+`none`, and learning rate `1e-3`. The zero-depth model has about 0.92M parameters;
+the width-380 control only rises to 0.97M there, but requiring every processor
+block to carry 380 channels would be the material downstream cost.
 
 ### S2. Small cross-resolution ocean reconstruction
 

@@ -302,8 +302,24 @@ The selected `0.011844` is consistent with closing the earlier decoder gap, but 
 is not treated as a strict head-to-head improvement over the historical
 direct/direct `0.012083`: the harnesses and held-out sample contracts differ. The
 controlled conclusion comes from the six S1 runs above. Width `{256, 380}` and
-latent-dimension `128` confirmations are still running before the canonical
-processor width is frozen.
+latent-dimension `128` confirmations then isolated whether more internal encoder
+capacity or a wider processor interface was preferable.
+
+| Embedding width | Latent dimension | Best held-out MSE | Final MSE | Mean high-k ratio | Mean amplitude ratio | Mean absolute bias / target std |
+|---:|---:|---:|---:|---:|---:|---:|
+| 128 | 64 | 0.011844 | 0.011844 | 0.9283 | 0.9758 | **0.0076** |
+| 256 | 64 | 0.010375 | 0.010903 | 0.9378 | 0.9798 | 0.0223 |
+| 380 | 64 | 0.009505 | 0.009505 | **0.9703** | **0.9956** | 0.0221 |
+| 128 | 128 | **0.007937** | **0.007937** | 0.9256 | 0.9707 | 0.0135 |
+
+The `128/128` model wins aggregate MSE and every variable group. Its high-k ratios
+are `0.950` for temperature, `0.941` for salinity, `0.889` for zonal velocity,
+`0.919` for meridional velocity, and `0.987` for SSH. This selects extra internal
+encoder capacity rather than a wide external state: the canonical processor
+interface remains 128 channels, while the Perceiver encoder latent dimension rises
+to 128. The zero-depth parameter count changes only from about 0.92M to 0.97M over
+the width sweep, but a 380-channel interface would make every repeated processor
+application substantially wider.
 
 ## Architecture decision matrix
 
@@ -315,6 +331,23 @@ processor width is frozen.
 | Position-only anchored attention | Learnable but slower and less accurate | Yes | Yes | Retain as a control; do not promote as sole renderer |
 | Physical-coordinate resampling projection | Best learned-encoder S0 result | Yes | No | Promote as the primary architecture |
 | Resampling + zero-init attention residual | Preserves base at initialization | Yes | Yes | Retain as fallback; S0 does not justify its added cost |
+
+The production and control implementations behind the matrix are:
+
+- current and widened Perceiver IO: `PerceiverDecoder` in
+  `src/samudra/models/modules/decoder.py`;
+- direct and position-anchored attention controls: `DirectCrossAttentionIO` and
+  `AnchoredCrossAttentionIO` in `scripts/probe_perceiver_decoder.py`;
+- physical-coordinate base: `coordinate_bilinear_resample` and
+  `ResampleProjectionDecoder` in `src/samudra/models/modules/decoder.py`;
+- production hybrid: `LocalCoordinateAttentionCorrection` and
+  `ResampleAttentionResidualDecoder` in that same module;
+- learned encoder geometry modes: `PerceiverEncoder` in
+  `src/samudra/models/modules/encoder.py`;
+- non-destructive processor geometry sidecar: `ProcessorGeometryConditioner` in
+  `src/samudra/models/modules/augment_input.py`; and
+- shared zero-to-N encode/process/decode path: `SamudraMulti` in
+  `src/samudra/models/samudra_multi.py`.
 
 Channel-conditioned queries are not the first remedy. They would multiply query
 count by up to 77 while the current spatial routing failure remains. Producing all
@@ -384,8 +417,8 @@ The follow-up real-data control is fully specified by
 
 ## Recommended follow-up validation
 
-1. Complete only the promoted S1 width and latent-dimension confirmations; the
-   learning-rate by geometry matrix has selected `none + 1e-3`.
+1. Use the completed S1 selection: embedding width 128, latent dimension 128,
+   encoder geometry `none`, and learning rate `1e-3`.
 2. Run the paired one/half-degree S2 reconstruction against the masked deterministic
    coordinate-resampler floor in both normalized and physical units.
 3. Add the zero-initialized attention residual only if S1 or S2 exposes a repeatable

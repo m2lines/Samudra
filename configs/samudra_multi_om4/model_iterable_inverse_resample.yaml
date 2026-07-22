@@ -4,8 +4,11 @@
 
 # yaml-language-server: $schema=../schemas/SamudraMultiConfig.json
 
-# Zero-processor learned-inverse candidate: the physical resampling base plus a
-# bounded, zero-initialized local attention correction.
+# Processor-depth candidate selected by the S0/S1 learned-inverse funnel. The
+# encoder and decoder use the promoted narrow external representation; geometry is
+# supplied separately to every processor call rather than added to reconstructable
+# content. The deeper processor widths retain the existing capacity control while
+# its input/output contract changes from 380 to 128 channels.
 pred_residuals: false
 last_kernel_size: 3
 pad: "circular"
@@ -13,28 +16,22 @@ checkpointing: "selective"
 embedding_dim: 128
 perceiver_implementation: "flash"
 patch_extent: [1.0, 1.0]
-bypass_processor: true
-processor_iterations: 0
+processor_iterations: 1
+zero_depth_reconstruction_weight: 0.05
 
 encoder:
-  geometry_mode: "none"
+  geometry_mode: "sidecar"
   perceiver:
     depth: 2
     latent_dim: 128
     num_latents: 1
 
 decoder:
-  resample_attention_residual: true
-  residual_hidden_dim: 128
-  residual_heads: 2
-  residual_dim_head: 64
-  residual_neighborhood_radius: 1
-  residual_position_bias_strength: 2.0
-  residual_normalize_values: false
-  residual_query_chunk_size: 4096
+  resample_projection: true
+  coordinate_resampling: true
 
 processor:
-  ch_width: [380, 480, 520]
+  ch_width: [128, 480, 520]
   dilation: [1, 1, 1]
   n_layers: [1, 1, 1]
   core_block:

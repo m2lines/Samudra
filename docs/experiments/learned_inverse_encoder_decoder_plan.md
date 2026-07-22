@@ -364,11 +364,21 @@ Common settings:
 | Optimizer | existing Adam, no weight decay |
 | Updates | 640 (`20 epochs x 32 samples`) |
 | Scheduler | none |
-| Precision | production bfloat16/flash path; repeat finalist in float32/naive |
+| Precision | float32/naive on L40S; retest promoted architecture on a validated flash runtime |
 | Seed | 15; add 16 only for finalists |
 
-First sweep learning rate `{3e-4, 6e-4, 1e-3}` on the current additive-geometry,
-resampling-only control. Freeze the best setting for all structural comparisons.
+Torch bring-up on 2026-07-21 isolated an L40S runtime failure: both selective
+checkpointing and checkpointing-disabled bfloat16/flash runs hit a CUDA illegal
+memory access on the first backward, while the otherwise matched
+naive-attention/float32 run completed. S1 therefore uses naive/float32 for every
+cell so the architecture comparison remains controlled. This is an execution
+runtime result, not evidence against the encoder architecture; flash/bfloat16 must
+be revalidated separately before a full-scale promotion run.
+
+Screen the full `{3e-4, 6e-4, 1e-3}` by `{additive, none}` matrix on the
+resampling-only control. This parallelized revision avoids serial public-queue
+latency and reveals any learning-rate/geometry interaction directly. Freeze the
+best setting for subsequent structural comparisons.
 
 Then run the encoder-geometry isolation on the promoted physical base:
 

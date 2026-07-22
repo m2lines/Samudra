@@ -314,6 +314,49 @@ def test_coordinate_resample_accepts_distinct_channel_masks():
     torch.testing.assert_close(output, torch.tensor([[[[1.0]], [[2.0]]]]))
 
 
+def test_coordinate_resample_latitude_chunks_preserve_output_and_gradients():
+    source_lat = torch.tensor([-75.0, -20.0, 15.0, 70.0])
+    source_lon = torch.linspace(30.0, 330.0, 6)
+    target_lat = torch.linspace(-80.0, 80.0, 7)
+    target_lon = torch.linspace(0.0, 360.0 - 360.0 / 11, 11)
+    x = torch.randn(2, 3, 4, 6, requires_grad=True)
+    valid = torch.rand(3, 4, 6) > 0.25
+    valid[:, :, 0] = True
+
+    whole = coordinate_bilinear_resample(
+        x,
+        (source_lat, source_lon),
+        (target_lat, target_lon),
+        valid,
+        output_latitude_chunk_size=len(target_lat),
+    )
+    chunked = coordinate_bilinear_resample(
+        x,
+        (source_lat, source_lon),
+        (target_lat, target_lon),
+        valid,
+        output_latitude_chunk_size=2,
+    )
+
+    torch.testing.assert_close(chunked, whole)
+    chunked.square().mean().backward()
+    assert x.grad is not None
+
+
+def test_coordinate_resample_rejects_empty_latitude_chunks():
+    source_lat = torch.tensor([-45.0, 45.0])
+    source_lon = torch.tensor([45.0, 135.0])
+    x = torch.ones(1, 1, 2, 2)
+
+    with pytest.raises(ValueError, match="chunk size must be positive"):
+        coordinate_bilinear_resample(
+            x,
+            (source_lat, source_lon),
+            (torch.tensor([0.0]), torch.tensor([90.0])),
+            output_latitude_chunk_size=0,
+        )
+
+
 def test_hybrid_decoder_starts_as_exact_resampling_base():
     source_resolution = (
         torch.tensor([-67.5, -22.5, 22.5, 67.5]),

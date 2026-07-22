@@ -20,12 +20,15 @@ def coordinate_bilinear_resample(
     source_resolution: tuple[Lat, Lon],
     output_resolution: tuple[Lat, Lon],
     valid_mask: torch.Tensor | None = None,
+    *,
+    output_latitude_chunk_size: int | None = None,
 ) -> Float[torch.Tensor, "batch channels H_output W_output"]:
     """Interpolate on physical coordinates with periodic longitude.
 
     Latitude is edge-clamped. Longitude wraps with a synthetic copy of the first
     source column at ``lon[0] + 360``. Interpolation accumulates in float32 so the
-    geometry path remains stable when the surrounding model uses bfloat16.
+    geometry path remains stable when the surrounding model uses bfloat16. Output
+    latitudes are chunked to bound high-resolution corner and mask temporaries.
     """
     source_lat_cpu, source_lon_cpu = source_resolution
     output_lat_cpu, output_lon_cpu = output_resolution
@@ -76,32 +79,7 @@ def coordinate_bilinear_resample(
     lon_weight = (wrapped_lon - extended_lon[lon_lower]) / lon_denominator
     lon_upper_wrapped = lon_upper.remainder(len(source_lon))
 
-    values = x.to(dtype=torch.float32)
-    lower_lat = lat_lower[:, None]
-    upper_lat = lat_upper[:, None]
-    lower_lon = lon_lower[None, :]
-    upper_lon = lon_upper_wrapped[None, :]
-    corners = torch.stack(
-        (
-            values[:, :, lower_lat, lower_lon],
-            values[:, :, lower_lat, upper_lon],
-            values[:, :, upper_lat, lower_lon],
-            values[:, :, upper_lat, upper_lon],
-        ),
-        dim=0,
-    )
-    lat_weight_grid = lat_weight[:, None]
-    lon_weight_grid = lon_weight[None, :]
-    weights = torch.stack(
-        (
-            (1 - lat_weight_grid) * (1 - lon_weight_grid),
-            (1 - lat_weight_grid) * lon_weight_grid,
-            lat_weight_grid * (1 - lon_weight_grid),
-            lat_weight_grid * lon_weight_grid,
-        ),
-        dim=0,
-    )
-
+    mask: torch.Tensor | None = None
     if valid_mask is not None:
         if valid_mask.ndim not in (2, 3) or valid_mask.shape[-2:] != x.shape[-2:]:
             raise ValueError(
@@ -117,24 +95,67 @@ def coordinate_bilinear_resample(
                 "A channel-wise resampling mask must have one mask per feature "
                 f"channel; got {mask.shape[0]} masks for {x.shape[1]} channels."
             )
-        corner_mask = torch.stack(
+    output_height = len(output_lat)
+    if output_latitude_chunk_size is not None and output_latitude_chunk_size < 1:
+        raise ValueError("Output latitude chunk size must be positive.")
+    if output_latitude_chunk_size is None:
+        # Bound each four-corner tensor to roughly 128 MiB in float32. The
+        # channel-wise mask weights have comparable size, keeping the main pair
+        # near 256 MiB independently of output grid height.
+        max_corner_elements = 32 * 1024 * 1024
+        elements_per_output_row = 4 * x.shape[0] * x.shape[1] * len(output_lon)
+        output_latitude_chunk_size = max(
+            1,
+            min(output_height, max_corner_elements // elements_per_output_row),
+        )
+
+    values = x.to(dtype=torch.float32)
+    lower_lon = lon_lower[None, :]
+    upper_lon = lon_upper_wrapped[None, :]
+    lon_weight_grid = lon_weight[None, :]
+    output_chunks: list[torch.Tensor] = []
+    for start in range(0, output_height, output_latitude_chunk_size):
+        stop = min(start + output_latitude_chunk_size, output_height)
+        lower_lat = lat_lower[start:stop, None]
+        upper_lat = lat_upper[start:stop, None]
+        corners = torch.stack(
             (
-                mask[:, lower_lat, lower_lon],
-                mask[:, lower_lat, upper_lon],
-                mask[:, upper_lat, lower_lon],
-                mask[:, upper_lat, upper_lon],
+                values[:, :, lower_lat, lower_lon],
+                values[:, :, lower_lat, upper_lon],
+                values[:, :, upper_lat, lower_lon],
+                values[:, :, upper_lat, upper_lon],
             ),
             dim=0,
         )
-        weights = weights[:, None] * corner_mask
-    else:
-        weights = weights[:, None]
+        lat_weight_grid = lat_weight[start:stop, None]
+        weights = torch.stack(
+            (
+                (1 - lat_weight_grid) * (1 - lon_weight_grid),
+                (1 - lat_weight_grid) * lon_weight_grid,
+                lat_weight_grid * (1 - lon_weight_grid),
+                lat_weight_grid * lon_weight_grid,
+            ),
+            dim=0,
+        )
+        if mask is not None:
+            corner_mask = torch.stack(
+                (
+                    mask[:, lower_lat, lower_lon],
+                    mask[:, lower_lat, upper_lon],
+                    mask[:, upper_lat, lower_lon],
+                    mask[:, upper_lat, upper_lon],
+                ),
+                dim=0,
+            )
+            weights = weights[:, None] * corner_mask
+        else:
+            weights = weights[:, None]
 
-    weight_sum = weights.sum(dim=0)
-    output = (corners * weights[:, None]).sum(dim=0)
-    output = output / weight_sum.clamp_min(torch.finfo(torch.float32).eps)[None]
-    output = torch.where(weight_sum[None] > 0, output, 0)
-    return output.to(dtype=x.dtype)
+        weight_sum = weights.sum(dim=0)
+        output = (corners * weights[:, None]).sum(dim=0)
+        output = output / weight_sum.clamp_min(torch.finfo(torch.float32).eps)[None]
+        output_chunks.append(torch.where(weight_sum[None] > 0, output, 0))
+    return torch.cat(output_chunks, dim=-2).to(dtype=x.dtype)
 
 
 class LocalCoordinateAttentionCorrection(nn.Module):

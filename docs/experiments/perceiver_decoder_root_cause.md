@@ -464,9 +464,11 @@ a fresh matched optimization.
 The fresh run has passed its epoch-5 bring-up gate. Half-to-one is already
 `0.02121`, compared with `0.03737` for the common-statistics latent-resampling
 control at epoch 5, while same-grid errors remain comparable. Aggregate MSE improves
-from `0.04350` to `0.03856`. The channel-wise masked evaluator costs `156` seconds
-for 32 held-out samples versus `71` seconds for the control, an observed 2.2x
-evaluation penalty that must be profiled before quarter-degree training.
+from `0.04350` to `0.03856`. At epoch 5, the channel-wise masked training path
+costs `156` seconds for 32 samples versus `71` seconds for the control, an observed
+2.2x training-throughput penalty. `identity/epoch_seconds` excludes the subsequent
+route evaluation, whose cost must be measured separately before quarter-degree
+training.
 
 By epoch 10, half-to-one reaches `0.01352` versus the control's matched `0.03013`;
 same-grid errors are `0.00877` and `0.00993`. Aggregate MSE `0.03063` is already

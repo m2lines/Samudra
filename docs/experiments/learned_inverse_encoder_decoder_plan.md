@@ -642,10 +642,11 @@ excess is removable by optimizing with the corrected ordering from initializatio
 Fresh-run bring-up agrees with the swap. At epoch 5, half-to-one MSE is `0.02121`
 versus `0.03737` for the common-statistics latent-resampling control at the same
 point; aggregate MSE is `0.03856` versus `0.04350`. Same-grid MSE remains comparable
-(`0.01681`/`0.01883` versus `0.01774`/`0.01971`). Masked-resampling evaluation takes
-about 2.2 times as long (`156` versus `71` seconds for 32 held-out samples), so
-quarter-degree promotion must include a memory/throughput gate rather than using
-accuracy alone.
+(`0.01681`/`0.01883` versus `0.01774`/`0.01971`). At epoch 5, the masked-resampling
+training portion takes about 2.2 times as long (`156` versus `71` seconds for 32
+training samples). `identity/epoch_seconds` stops before route evaluation, so this
+is a training-throughput measurement rather than an evaluator timing. Quarter-
+degree promotion must still include independent memory and throughput gates.
 
 At epoch 10, half-to-one improves further to `0.01352`, compared with `0.03013`
 for the matched control. Same-grid MSEs are `0.00877` and `0.00993`, and aggregate

@@ -652,6 +652,13 @@ for the matched control. Same-grid MSEs are `0.00877` and `0.00993`, and aggrega
 MSE `0.03063` has already surpassed the control's final `0.03079` after one quarter
 of the optimizer budget.
 
+At epoch 15, aggregate MSE falls to `0.02830`. Half-to-one reaches `0.01121`
+against the `0.00543` deterministic masked-resampling floor; the one- and
+half-degree same-grid MSEs are `0.00634` and `0.00726`. One-to-half is `0.08839`
+against its `0.07900` deterministic floor. The corrected ordering therefore keeps
+closing both learned-projection and cross-grid excess without trading away the
+same-grid inverse.
+
 After selecting among them, add quarter degree first with `identity_eval_only:
 true`, `finetune: true`, `epochs: 1`, and the selected checkpoint. If zero-shot
 `1/2 <-> 1/4` behavior is finite and geometrically sensible, repeat the balanced

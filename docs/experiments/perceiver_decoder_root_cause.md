@@ -473,6 +473,12 @@ same-grid errors are `0.00877` and `0.00993`. Aggregate MSE `0.03063` is already
 below the latent-resampling control's epoch-40 result `0.03079`, establishing that
 the corrected ordering improves optimization as well as the checkpoint swap.
 
+The epoch-15 result strengthens that conclusion: aggregate MSE is `0.02830`,
+half-to-one is `0.01121` versus its `0.00543` deterministic floor, and same-grid
+MSEs are `0.00634` and `0.00726`. One-to-half is `0.08839` versus its `0.07900`
+floor. Thus the remaining error is increasingly comparable to the learned
+same-grid projection error, rather than the much larger latent mask-order failure.
+
 ## Architecture decision matrix
 
 | Candidate | Same-grid identity | Flexible output grid | Learned nonlocal correction | Evidence-backed decision |

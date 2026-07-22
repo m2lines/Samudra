@@ -321,6 +321,61 @@ to 128. The zero-depth parameter count changes only from about 0.92M to 0.97M ov
 the width sweep, but a 380-channel interface would make every repeated processor
 application substantially wider.
 
+## Multi-resolution root cause: encoder spatial bandwidth
+
+The first balanced one/half-degree ocean control uses one shared Perceiver encoder
+and physical-resampling decoder for all four input/output routes. It completed 40
+epochs (1,280 batch-one updates) with one learned vector per one-degree patch. The
+resolved runtime was naive attention with bfloat16; the run suffix incorrectly says
+`fp32`. Stability through completion shows that bfloat16 alone does not reproduce
+the earlier flash/bfloat16 L40S fault.
+
+| Route | Held-out MSE | Mean high-k ratio | Patch-seam ratio |
+|---|---:|---:|---:|
+| 1 degree -> 1 degree | 0.01954 | 1.158 | undefined |
+| 1 degree -> 1/2 degree | 0.06027 | 0.508 | 0.898 |
+| 1/2 degree -> 1 degree | 0.01832 | 1.066 | undefined |
+| 1/2 degree -> 1/2 degree | 0.05737 | 0.496 | 0.875 |
+
+The failure follows output bandwidth rather than cross-resolution direction. Both
+half-degree outputs retain only about half the target high-wavenumber power,
+including the half-to-half route where decoder source and output coordinates are
+already identical. The one-to-half MSE reaches the deterministic interpolation
+scale while retaining the same coarse spectrum. Thus the physical decoder is doing
+the expected rendering; the encoder has already compressed four native
+half-degree cells into one one-degree token.
+
+This is evidence against spending the next run on decoder attention. It also
+reveals a limitation in the checked-in packed spatial-query encoder: ordered query
+outputs are stored as channels at a coarse patch center, but the shared pointwise
+decoder has no intra-patch coordinate with which to select them. With one internal
+latent, those PerceiverIO output queries are query-blind as well. A viable query
+version must spatially unpack outputs onto a finer canonical grid and use multiple
+or directly anchored encoder tokens.
+
+The simpler control now projects every native input cell into learned latent
+channels and physically resamples those features onto the finest configured grid.
+It uses ordinary learned initialization, carries no prognostic bypass, and fixes
+the latent grid independently of the requested output. It therefore still forms a
+learned representation that can be processed zero to N times.
+
+| One-degree encoder | External width | Held-out MSE | Mean high-k ratio | Mean amplitude ratio | Mean absolute bias / target std |
+|---|---:|---:|---:|---:|---:|
+| Perceiver, latent dim 128 | 128 | 0.007937 | 0.9256 | 0.9707 | 0.0135 |
+| Canonical pointwise/resample | 128 | 0.002857 | 0.9677 | 0.9965 | 0.0020 |
+| Canonical pointwise/resample | 160 | **0.002197** | **0.9728** | **0.9971** | **0.0018** |
+
+Both canonical-grid controls decisively beat the Perceiver encoder at the same
+zero-depth task. Width 160 wins every variable group and is the active matched
+four-route candidate; width 128 remains the lower-cost processor fallback.
+
+The first deterministic half-to-one baseline was itself invalid: physical zero was
+used where a destination wet cell had no wet source neighbor, yielding normalized
+MSE near 39.4. The corrected diagnostic uses destination climatology at unsupported
+locations while retaining mask-renormalized physical interpolation elsewhere. This
+does not change any learned model result above; the corrected reference is being
+recomputed separately.
+
 ## Architecture decision matrix
 
 | Candidate | Same-grid identity | Flexible output grid | Learned nonlocal correction | Evidence-backed decision |

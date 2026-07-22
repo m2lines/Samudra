@@ -493,6 +493,66 @@ learning rate inherited from S1, seed 15, and balanced route sampling. Compare o
 3. current additive geometry plus hybrid as a guard against overfitting the geometry
    conclusion to one degree.
 
+#### S2 coarse-patch control and plan revision
+
+The first four-route control completed 40 epochs using the selected
+Perceiver/resampling architecture. Its resolved config was naive attention with
+bfloat16 (despite an inaccurate `naivefp32` run suffix); this is also evidence that
+the earlier L40S fault requires the flash path rather than bfloat16 alone. The final
+route results are:
+
+| Route | Model MSE | Mean high-k ratio | Patch-seam ratio |
+|---|---:|---:|---:|
+| 1 degree -> 1 degree | 0.01954 | 1.158 | undefined on one-cell patches |
+| 1 degree -> 1/2 degree | 0.06027 | 0.508 | 0.898 |
+| 1/2 degree -> 1 degree | 0.01832 | 1.066 | undefined on one-cell patches |
+| 1/2 degree -> 1/2 degree | 0.05737 | 0.496 | 0.875 |
+
+The defect follows output bandwidth, not cross-grid direction. Both half-degree
+outputs lose about half their high-wavenumber power, including the half-to-half
+route where decoder coordinates already match the target. The one-to-half learned
+MSE also reaches the interpolation reference while remaining spectrally coarse.
+This localizes the new failure upstream of decoder rendering: a single vector per
+one-degree physical patch cannot preserve four native half-degree cells.
+
+This evidence revises the original three-way attention comparison. Do not run the
+hybrid for this defect; decoder attention cannot recover information discarded by
+the encoder. The existing `spatial_query_shape` path is not sufficient unchanged,
+either: it packs ordered query results into channels at one coarse patch center,
+while a shared pointwise resampling decoder has no intra-patch position with which
+to select those channels. With one encoder latent its output queries are also
+query-blind. A future learned-query candidate must spatially unpack queries onto a
+finer canonical grid and use multiple or directly anchored encoder tokens.
+
+The smaller immediate falsification test is the checked-in
+`CanonicalResampleEncoder`: apply an ordinarily initialized learned pointwise
+channel projection at every native cell, then physically resample those latent
+features onto the finest configured grid. The encoder remains learned and receives
+no identity initialization or prognostic bypass. Its latent grid is independent of
+the requested output, so the same state can be processed zero to N times and
+decoded at flexible resolutions.
+
+The one-degree held-out screen strongly supports this route:
+
+| Encoder | External width | Held-out MSE | Mean high-k ratio | Mean amplitude ratio | Mean absolute bias / target std |
+|---|---:|---:|---:|---:|---:|
+| Perceiver, latent dim 128 | 128 | 0.007937 | 0.9256 | 0.9707 | 0.0135 |
+| Canonical pointwise/resample | 128 | 0.002857 | 0.9677 | 0.9965 | 0.0020 |
+| Canonical pointwise/resample | 160 | **0.002197** | **0.9728** | **0.9971** | **0.0018** |
+
+The width-160 candidate wins every variable-group MSE and is now running the
+matched naive/bfloat16 four-route S2 comparison. Width 128 remains the conservative
+processor-width fallback because it is already 64% better than the selected
+Perceiver control; the 160-width gain is 23% and must survive cross-resolution and
+processor tests before becoming permanent.
+
+The original deterministic half-to-one reference was invalid because destination
+wet cells without any source-wet interpolation support were filled with physical
+zero, producing normalized MSE near 39.4. The diagnostic now uses the destination
+channel climatology only at unsupported points and retains wet-mask-renormalized
+physical interpolation everywhere else. The completed model trajectory is
+unaffected; its corrected reference will be recomputed separately.
+
 After selecting among them, add quarter degree in evaluation first, without
 training. If zero-shot `1/2 <-> 1/4` behavior is finite and geometrically sensible,
 repeat the balanced screen with all nine input/output pairs among 1, 1/2, and 1/4

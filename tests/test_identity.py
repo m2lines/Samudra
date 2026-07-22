@@ -16,6 +16,7 @@ from samudra.identity import (
     IdentityConfig,
     _fixed_batches,
     _identity_routes,
+    _masked_area_resampler_reference,
     _masked_physical_resampler_reference,
     _processor_depth,
     evaluate_identity_routes,
@@ -84,6 +85,24 @@ def test_masked_resampler_uses_output_climatology_without_source_support():
     )
 
     torch.testing.assert_close(output, torch.tensor([[[[3.0]], [[7.0]]]]))
+
+
+def test_masked_area_resampler_averages_only_wet_source_cells():
+    input_physical = torch.arange(16, dtype=torch.float32).reshape(1, 1, 4, 4)
+    input_wet = torch.ones(1, 4, 4, dtype=torch.bool)
+    input_wet[0, 0, 0] = False
+
+    output = _masked_area_resampler_reference(
+        input_physical,
+        input_wet,
+        (2, 2),
+        torch.tensor([-1.0]),
+    )
+
+    torch.testing.assert_close(
+        output,
+        torch.tensor([[[[(1.0 + 4.0 + 5.0) / 3.0, 4.5], [10.5, 12.5]]]]),
+    )
 
 
 def test_set_identity_target_rejects_multiple_steps():

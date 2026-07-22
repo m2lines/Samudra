@@ -13,6 +13,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import torch
+import torch.nn.functional as F
 from pydantic import Field
 
 from samudra.aggregator.loss import (
@@ -248,6 +249,33 @@ def _masked_physical_resampler_reference(
     )
 
 
+def _masked_area_resampler_reference(
+    input_physical: torch.Tensor,
+    input_wet: torch.Tensor,
+    output_shape: tuple[int, int],
+    output_means: torch.Tensor,
+) -> torch.Tensor:
+    """Area-average a regular-index control with channel-wise wet normalization.
+
+    This is a restriction diagnostic, not yet the production coordinate operator:
+    it tests whether averaging source-cell support removes the aliasing observed
+    when bilinear point sampling maps quarter degree directly to one degree.
+    """
+    support = input_wet.to(device=input_physical.device, dtype=input_physical.dtype)
+    numerator = F.interpolate(
+        input_physical * support[None], size=output_shape, mode="area"
+    )
+    averaged_support = F.interpolate(support[None], size=output_shape, mode="area")
+    resampled = numerator / averaged_support.clamp_min(
+        torch.finfo(input_physical.dtype).eps
+    )
+    return torch.where(
+        averaged_support > 0,
+        resampled,
+        output_means[None, :, None, None],
+    )
+
+
 @torch.no_grad()
 def evaluate_identity(
     trainer: Trainer,
@@ -275,6 +303,8 @@ def evaluate_identity(
     resampler_square_error_sum: torch.Tensor | None = None
     resampler_physical_square_error_sum: torch.Tensor | None = None
     source_normalized_resampler_square_error_sum: torch.Tensor | None = None
+    area_resampler_square_error_sum: torch.Tensor | None = None
+    area_resampler_spectrum_sum: torch.Tensor | None = None
     local_samples = 0
     base_channels = len(trainer.tensor_map.prognostic_var_names)
 
@@ -355,6 +385,25 @@ def evaluate_identity(
             (resampled_source_normalized - target_latest).square() * wet
         ).sum(dim=(0, 2, 3))
 
+        batch_area_resampler_square_error: torch.Tensor | None = None
+        batch_area_resampler_spectrum: torch.Tensor | None = None
+        if output_shape[0] < input_shape[0] or output_shape[1] < input_shape[1]:
+            area_resampled_physical = _masked_area_resampler_reference(
+                input_physical,
+                input_wet,
+                output_shape,
+                output_means,
+            )
+            area_resampled_normalized = (
+                area_resampled_physical - output_means[:, None, None]
+            ) / output_stds[:, None, None]
+            batch_area_resampler_square_error = (
+                (area_resampled_normalized - target_latest).square() * wet
+            ).sum(dim=(0, 2, 3))
+            batch_area_resampler_spectrum = (
+                zonal_power_spectrum(area_resampled_normalized) * batch_size
+            )
+
         batch_target_spectrum = zonal_power_spectrum(target_latest) * batch_size
         batch_generated_spectrum = zonal_power_spectrum(generated_latest) * batch_size
         batch_seam_ratio = (
@@ -408,6 +457,15 @@ def evaluate_identity(
             source_normalized_resampler_square_error_sum += (
                 batch_source_normalized_resampler_square_error
             )
+        if batch_area_resampler_square_error is not None:
+            assert batch_area_resampler_spectrum is not None
+            if area_resampler_square_error_sum is None:
+                area_resampler_square_error_sum = batch_area_resampler_square_error
+                area_resampler_spectrum_sum = batch_area_resampler_spectrum
+            else:
+                assert area_resampler_spectrum_sum is not None
+                area_resampler_square_error_sum += batch_area_resampler_square_error
+                area_resampler_spectrum_sum += batch_area_resampler_spectrum
         local_samples += batch_size
 
     if (
@@ -487,6 +545,25 @@ def evaluate_identity(
     high_frequency_ratio = high_wavenumber_power_ratio(
         generated_spectrum, target_spectrum
     )
+    area_resampler_mse: torch.Tensor | None = None
+    area_resampler_high_frequency_ratio: torch.Tensor | None = None
+    area_resampler_spectrum: torch.Tensor | None = None
+    if area_resampler_square_error_sum is not None:
+        assert area_resampler_spectrum_sum is not None
+        reduced_area_resampler_square_error_sum = all_reduce_mean(
+            area_resampler_square_error_sum
+        )
+        area_resampler_mse = (
+            reduced_area_resampler_square_error_sum
+            / reduced_physical_valid_count.clamp_min(1)
+        )
+        reduced_area_resampler_spectrum = all_reduce_mean(
+            area_resampler_spectrum_sum / local_samples
+        )
+        area_resampler_spectrum = reduced_area_resampler_spectrum
+        area_resampler_high_frequency_ratio = high_wavenumber_power_ratio(
+            reduced_area_resampler_spectrum, target_spectrum
+        )
 
     logs: dict[str, float] = {
         f"{prefix}/mean/mse": float(loss_per_channel.mean().cpu()),
@@ -534,13 +611,29 @@ def evaluate_identity(
             trainer,
         )
     )
-    return (
-        logs,
-        {
-            "target_zonal_power": target_spectrum.cpu(),
-            "generated_zonal_power": generated_spectrum.cpu(),
-        },
-    )
+    spectra = {
+        "target_zonal_power": target_spectrum.cpu(),
+        "generated_zonal_power": generated_spectrum.cpu(),
+    }
+    if area_resampler_mse is not None:
+        assert area_resampler_high_frequency_ratio is not None
+        assert area_resampler_spectrum is not None
+        logs.update(
+            _group_values(
+                f"{prefix}/deterministic_area_resampler_normalized_mse",
+                area_resampler_mse,
+                trainer,
+            )
+        )
+        logs.update(
+            _group_values(
+                f"{prefix}/deterministic_area_resampler_high_wavenumber_power_ratio",
+                area_resampler_high_frequency_ratio,
+                trainer,
+            )
+        )
+        spectra["area_resampler_zonal_power"] = area_resampler_spectrum.cpu()
+    return logs, spectra
 
 
 def _identity_routes(trainer: Trainer) -> list[tuple[str, tuple[int, int]]]:

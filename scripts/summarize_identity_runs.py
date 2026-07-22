@@ -73,8 +73,16 @@ def _route_summaries(row: Mapping[str, Any]) -> dict[str, dict[str, float]]:
             "model_mse": model_mse,
             "resampler_mse": resampler_mse,
             "excess_mse": model_mse - resampler_mse,
+            "area_resampler_mse": _optional_mean_prefix(
+                row,
+                f"{route_prefix}/deterministic_area_resampler_normalized_mse/channel/",
+            ),
             "high_wavenumber_ratio": _mean_prefix(
                 row, f"{route_prefix}/high_wavenumber_power_ratio/channel/"
+            ),
+            "area_resampler_high_wavenumber_ratio": _optional_mean_prefix(
+                row,
+                f"{route_prefix}/deterministic_area_resampler_high_wavenumber_power_ratio/channel/",
             ),
             "patch_seam_ratio": _optional_mean_prefix(
                 row, f"{route_prefix}/patch_seam_jump_ratio/channel/"
@@ -154,7 +162,9 @@ def route_markdown_table(summaries: Iterable[Mapping[str, Any]]) -> str:
         "model_mse",
         "resampler_mse",
         "excess_mse",
+        "area_resampler_mse",
         "high_wavenumber_ratio",
+        "area_resampler_high_wavenumber_ratio",
         "patch_seam_ratio",
     )
     lines = [

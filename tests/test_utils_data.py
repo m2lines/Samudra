@@ -11,12 +11,6 @@ import xarray as xr
 from scipy.stats import pearsonr
 
 from samudra.constants import TensorMap, build_llc_spec
-from samudra.data.llc import (
-    _flatten_llc_level_vars,
-    _rename_llc_level_index_vars,
-    _var_without_level,
-    canonicalize_llc_datasets,
-)
 from samudra.utils.data import (
     DataSource,
     Masks,
@@ -27,6 +21,12 @@ from samudra.utils.data import (
     get_aggregator_dicts,
     unflatten_masks,
     with_level_index_vars,
+)
+from samudra.utils.llc import (
+    _flatten_llc_level_vars,
+    _rename_llc_level_index_vars,
+    _var_without_level,
+    canonicalize_llc_datasets,
 )
 from tests.conftest import TEST_DATASET_SPEC, TEST_FULL_DATASET_SPEC
 from tests.llc_fixtures import raw_llc_datasets

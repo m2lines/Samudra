@@ -27,7 +27,6 @@ from samudra.constants import (
     build_llc_spec,
     build_om4_spec,
 )
-from samudra.data.llc import canonicalize_llc_datasets
 from samudra.models import Samudra, SamudraMini, SamudraMulti
 from samudra.models.base import BaseModel
 from samudra.models.modules import (
@@ -53,6 +52,7 @@ from samudra.models.modules.augment_input import (
 from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from samudra.models.modules.encoder import patch_from
 from samudra.utils.data import DataContainer, DataSource, DataSourceSplits, Normalize
+from samudra.utils.llc import canonicalize_llc_datasets
 from samudra.utils.location import LocalLocation, Location, ResolvedLocation
 from samudra.utils.loss import (
     DynamicLoss,

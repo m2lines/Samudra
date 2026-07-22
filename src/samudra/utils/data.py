@@ -38,8 +38,8 @@ from samudra.constants import (
     TensorMap,
     construct_metadata,
 )
-from samudra.data.llc import _preferred_available_var, _var_without_level
 from samudra.derived_variables import add_derived_variables
+from samudra.utils.llc import _preferred_available_var, _var_without_level
 
 logger = logging.getLogger(__name__)
 

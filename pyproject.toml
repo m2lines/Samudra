@@ -4,11 +4,10 @@
 
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = [ "setuptools", "wheel" ]
+requires = [ "setuptools", "setuptools-scm>=8", "wheel" ]
 
 [project]
 name = "samudra"
-version = "1.0"
 description = "Train and evaluate ocean model emulators"
 readme = "README.md"
 keywords = [ "climate", "emulation", "machine learning", "ocean" ]
@@ -23,6 +22,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
+dynamic = [ "version" ] # derived from git tags by setuptools-scm
 dependencies = [
   "aiohttp>=3.11.13",
   "cftime>=1.6.4.post1",
@@ -57,6 +57,11 @@ optional-dependencies.cuda = [
   "torchvision>=0.24.0a0",
 ]
 
+urls.Documentation = "https://m2lines.github.io/Samudra/docs/"
+urls.Homepage = "https://m2lines.github.io/Samudra/"
+urls.Issues = "https://github.com/Open-Athena/Samudra/issues"
+urls.Repository = "https://github.com/Open-Athena/Samudra"
+
 [dependency-groups]
 dev = [
   "beartype>=0.20",
@@ -90,6 +95,24 @@ docs = [
   "mkdocstrings[python]>=0.27",
   "zensical",
 ]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+package-data = { samudra = [ "py.typed" ] }
+
+# Pin discovery to src/ so setuptools auto-discovery can't sweep stray
+# top-level dirs (e.g. a stale build/lib/) into the wheel.
+[tool.setuptools.packages.find]
+where = [ "src" ]
+
+# The version comes from git tags (v1.2.3 -> 1.2.3); commits past a tag get a
+# `.devN` suffix. no-local-version drops the `+g<sha>` segment PyPI rejects.
+# fallback_version applies before the first tag exists -- keep it in sync with
+# FALLBACK_VERSION in scripts/package.py.
+
+[tool.setuptools_scm]
+local_scheme = "no-local-version"
+fallback_version = "1.0.0"
 
 [tool.ruff]
 lint.select = [ "B006", "D", "E", "F", "I", "UP", "W" ]

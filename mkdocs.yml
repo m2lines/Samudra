@@ -49,6 +49,7 @@ nav:
       - Torch: torch.md
   - Development:
       - Contributing: contributing.md
+      - Releasing: releasing.md
   - API Reference:
       - Models:
           - Base Model: models/base.md

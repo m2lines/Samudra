@@ -164,10 +164,14 @@ class MetricLogger:
         data_loader: "TrainDataLoader",
         print_freq,
         header=None,
+        start_index: int = 0,
+        total_steps: int | None = None,
     ):
         i = 0
         if not header:
             header = ""
+        if total_steps is None:
+            total_steps = len(data_loader)
         start_time = time.perf_counter()
         end = time.perf_counter()
         iter_time = SmoothedValue(fmt="{value:.3f}({avg:.3f})", window_size=print_freq)
@@ -180,7 +184,7 @@ class MetricLogger:
         self.meters["iter_time"] = iter_time
         self.meters["data_wait_time"] = data_wait_time
         self.meters["data_load_time"] = data_load_time
-        space_fmt = ":" + str(len(str(len(data_loader)))) + "d"
+        space_fmt = ":" + str(len(str(total_steps))) + "d"
         log_msg_list: list[str] = [
             header,
             "[{0" + space_fmt + "}/{1}]",
@@ -199,8 +203,10 @@ class MetricLogger:
                 data_load_time.update(obj.load_stats.load_time_seconds)
             yield obj
             iter_time.update(time.perf_counter() - end)
-            if i % print_freq == 0 or i == len(data_loader) - 1:
-                eta_seconds = iter_time.global_avg * (len(data_loader) - i)
+            display_index = start_index + i
+            if i % print_freq == 0 or display_index == total_steps - 1:
+                remaining_steps = max(total_steps - display_index - 1, 0)
+                eta_seconds = iter_time.global_avg * remaining_steps
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
                 named_metrics = dict(
                     eta=eta_string,
@@ -210,7 +216,7 @@ class MetricLogger:
                 if torch.cuda.is_available():
                     named_metrics["gpu_memory"] = torch.cuda.max_memory_allocated() / MB
 
-                logger.info(log_msg.format(i, len(data_loader), **named_metrics))
+                logger.info(log_msg.format(display_index, total_steps, **named_metrics))
 
                 if torch.cuda.is_available():
                     torch.cuda.reset_peak_memory_stats()
@@ -218,9 +224,11 @@ class MetricLogger:
             end = time.perf_counter()
         total_time = time.perf_counter() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+        iterations = len(data_loader)
+        seconds_per_iteration = total_time / iterations if iterations > 0 else 0.0
         logger.info(
             f"{header} Total time: {total_time_str} "
-            f"({total_time / len(data_loader):.4f} s / it)"
+            f"({seconds_per_iteration:.4f} s / it)"
         )
 
 

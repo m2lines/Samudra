@@ -1099,6 +1099,14 @@ class TrainConfig(TopLevelConfig):
     disk_mode: bool = True
     pin_mem: bool = True
     save_freq: int = 5
+    mid_train_checkpoint_interval_minutes: float = Field(
+        default=0.0,
+        ge=0.0,
+        description=(
+            "How often to overwrite the mid-train checkpoint during an active "
+            "training epoch, in wall-clock minutes. Set to 0 to disable."
+        ),
+    )
     validation_image_log_freq: int = Field(
         default=10,
         ge=1,

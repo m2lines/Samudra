@@ -297,3 +297,32 @@ def test_cross_resolution_identity_config_uses_current_paired_targets(tmp_path):
     assert len(config.data.sources) == 2
     assert config.identity_train_samples == 32
     assert config.identity_eval_samples == 32
+
+
+def test_all_resolution_identity_config_balances_nine_routes(tmp_path):
+    config_path = (
+        Path(__file__).resolve().parents[1]
+        / "configs"
+        / "samudra_multi_om4"
+        / "identity_cross_1_half_quarter.yaml"
+    )
+
+    config = IdentityConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--experiment.data_root",
+            str(tmp_path),
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+        ]
+    )
+
+    assert config.target_time_mode == "current"
+    assert config.experiment.train_schedule == "mix"
+    assert len(config.data.sources) == 3
+    assert config.identity_train_samples == 36
+    assert config.identity_eval_samples == 36
+    assert config.epochs * config.identity_train_samples == 2880
+    assert isinstance(config.model, SamudraMultiConfig)
+    assert config.model.encoder.canonical_resampling
+    assert config.model.embedding_dim == 160

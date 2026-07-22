@@ -4,9 +4,9 @@
 
 # yaml-language-server: $schema=../schemas/SamudraMultiConfig.json
 
-# Learned-inverse control that preserves native information by projecting every
-# input cell into latent channels and resampling onto the finest configured grid.
-# The processor therefore sees one fixed physical latent grid at depth zero or N.
+# Processor-depth candidate after the one/half-degree spatial-bandwidth diagnosis.
+# Native inputs are projected onto the finest configured latent grid, geometry is
+# kept in a sidecar, and one shared processor can be applied zero to N times.
 pred_residuals: false
 last_kernel_size: 3
 pad: "circular"
@@ -14,11 +14,11 @@ checkpointing: "selective"
 embedding_dim: 160
 perceiver_implementation: "flash"
 patch_extent: [1.0, 1.0]
-bypass_processor: true
-processor_iterations: 0
+processor_iterations: 1
+zero_depth_reconstruction_weight: 0.05
 
 encoder:
-  geometry_mode: "none"
+  geometry_mode: "sidecar"
   canonical_resampling: true
 
 decoder:

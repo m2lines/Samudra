@@ -4,11 +4,13 @@
 
 # yaml-language-server: $schema=../schemas/IdentityConfig.json
 
+# Matched 32-sample pure-autoencoder control for the genuinely widened
+# Perceiver IO cross-attention path.
 debug: false
 disk_mode: true
 pin_mem: true
-save_freq: 30
-epochs: 30
+save_freq: 10
+epochs: 10
 batch_size: 1
 gradient_accumulation_steps: 1
 learning_rate: 0.0006
@@ -33,11 +35,12 @@ identity_train_samples: 32
 identity_eval_samples: 32
 identity_train_offset: 0
 identity_eval_offset: 32
+identity_eval_frequency: 2
 
 backend: auto
 
 experiment:
-  name: samudra_multi_identity_quarterdeg
+  name: samudra_multi_identity_1deg_decoder_wide
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:
@@ -58,7 +61,7 @@ data:
     max_concurrent_reads: 4
     prefetch_to_device: true
   sources:
-    - data_location: om4_quarterdeg_v2/OM4.zarr
-      data_means_location: om4_quarterdeg_v2/OM4_means.zarr
-      data_stds_location: om4_quarterdeg_v2/OM4_stds.zarr
-model: !include model.yaml
+    - data_location: om4_onedeg_v3/OM4.zarr
+      data_means_location: om4_onedeg_v3/OM4_means.zarr
+      data_stds_location: om4_onedeg_v3/OM4_stds.zarr
+model: !include model_1cell_decoder_wide.yaml

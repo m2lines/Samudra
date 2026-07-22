@@ -9,10 +9,13 @@ from test_encoder import make_resolution  # type: ignore
 
 from samudra.models.modules import (
     DirectPatchDecoder,
+    LocalCoordinateAttentionCorrection,
     PerceiverDecoder,
     PerceiverEncoder,
+    ResampleAttentionResidualDecoder,
     ResampleProjectionDecoder,
 )
+from samudra.models.modules.decoder import coordinate_bilinear_resample
 
 # Small values for fast tests.
 LATENT_DIM = 8
@@ -112,11 +115,6 @@ def make_decoder_with_shared_weights(
         window_patches=reference.window_patches,
         context_patches=reference.context_patches,
         window_batch_size=reference.window_batch_size,
-        fine_scale_in_channels=(
-            None
-            if reference.fine_scale_query_embed is None
-            else reference.fine_scale_query_embed.in_channels
-        ),
     )
     kwargs.update(overrides)
     other = PerceiverDecoder(**kwargs)  # type: ignore
@@ -155,6 +153,150 @@ def test_resample_projection_decoder_changes_output_resolution():
     output = decoder(x, resolution)
 
     assert output.shape == (2, 3, 6, 10)
+
+
+def test_resample_projection_decoder_uses_physical_coordinates():
+    decoder = ResampleProjectionDecoder(
+        in_channels=1,
+        out_channels=1,
+        coordinate_resampling=True,
+    )
+    with torch.no_grad():
+        decoder.projection.weight.fill_(1)
+        assert decoder.projection.bias is not None
+        decoder.projection.bias.zero_()
+    source_lat = torch.tensor([-80.0, -20.0, 10.0, 75.0])
+    source_lon = torch.tensor([45.0, 135.0, 225.0, 315.0])
+    target_lat = torch.tensor([-50.0, -5.0, 42.5])
+    x = source_lat[None, None, :, None].expand(1, 1, -1, 4)
+
+    output = decoder(
+        x,
+        (target_lat, source_lon),
+        source_resolution=(source_lat, source_lon),
+    )
+
+    expected = target_lat[None, None, :, None].expand(1, 1, -1, 4)
+    torch.testing.assert_close(output, expected)
+
+
+def test_coordinate_resample_is_exact_on_matching_grid():
+    x = torch.randn(2, 3, 4, 8, requires_grad=True)
+    resolution = (
+        torch.linspace(-67.5, 67.5, 4),
+        torch.linspace(22.5, 337.5, 8),
+    )
+
+    output = coordinate_bilinear_resample(x, resolution, resolution)
+
+    assert output is x
+
+
+def test_coordinate_resample_uses_nonuniform_latitude():
+    source_lat = torch.tensor([-80.0, -20.0, 10.0, 75.0])
+    source_lon = torch.tensor([45.0, 135.0, 225.0, 315.0])
+    target_lat = torch.tensor([-50.0, -5.0, 42.5])
+    field = source_lat[:, None].expand(-1, 4)
+    x = field[None, None].requires_grad_()
+
+    output = coordinate_bilinear_resample(
+        x,
+        (source_lat, source_lon),
+        (target_lat, source_lon),
+    )
+
+    expected = target_lat[:, None].expand(-1, 4)[None, None]
+    torch.testing.assert_close(output, expected)
+    output.sum().backward()
+    assert x.grad is not None
+
+
+def test_coordinate_resample_wraps_longitude():
+    source_lat = torch.tensor([-45.0, 45.0])
+    source_lon = torch.tensor([45.0, 135.0, 225.0, 315.0])
+    target_lon = torch.tensor([0.0, 360.0])
+    zonal = torch.cos(torch.deg2rad(source_lon))
+    x = zonal[None, None, None].expand(1, 1, 2, -1)
+
+    output = coordinate_bilinear_resample(
+        x,
+        (source_lat, source_lon),
+        (source_lat, target_lon),
+    )
+
+    expected = torch.full((1, 1, 2, 2), 2**-0.5)
+    torch.testing.assert_close(output, expected)
+
+
+def test_coordinate_resample_renormalizes_valid_neighbors():
+    source_lat = torch.tensor([-45.0, 45.0])
+    source_lon = torch.tensor([45.0, 135.0])
+    x = torch.tensor([[[[1.0, 100.0], [1.0, 1.0]]]])
+    valid = torch.tensor([[True, False], [True, True]])
+
+    output = coordinate_bilinear_resample(
+        x,
+        (source_lat, source_lon),
+        (torch.tensor([0.0]), torch.tensor([90.0])),
+        valid,
+    )
+
+    torch.testing.assert_close(output, torch.ones_like(output))
+
+
+def test_hybrid_decoder_starts_as_exact_resampling_base():
+    source_resolution = (
+        torch.tensor([-67.5, -22.5, 22.5, 67.5]),
+        torch.linspace(22.5, 337.5, 8),
+    )
+    output_resolution = (
+        torch.linspace(-78.75, 78.75, 8),
+        torch.linspace(11.25, 348.75, 16),
+    )
+    base = ResampleProjectionDecoder(4, 3, coordinate_resampling=True)
+    correction = LocalCoordinateAttentionCorrection(
+        in_channels=4,
+        out_channels=3,
+        hidden_dim=8,
+        heads=2,
+        dim_head=4,
+        query_chunk_size=13,
+    )
+    decoder = ResampleAttentionResidualDecoder(base, correction)
+    x = torch.randn(2, 4, 4, 8)
+
+    expected = base(x, output_resolution, source_resolution=source_resolution)
+    actual = decoder(x, output_resolution, source_resolution=source_resolution)
+
+    torch.testing.assert_close(actual, expected)
+
+
+def test_hybrid_decoder_learns_beyond_zero_initialized_output():
+    resolution = (
+        torch.tensor([-67.5, -22.5, 22.5, 67.5]),
+        torch.linspace(22.5, 337.5, 8),
+    )
+    base = ResampleProjectionDecoder(4, 3, coordinate_resampling=True)
+    correction = LocalCoordinateAttentionCorrection(
+        in_channels=4,
+        out_channels=3,
+        hidden_dim=8,
+        heads=2,
+        dim_head=4,
+        query_chunk_size=11,
+    )
+    decoder = ResampleAttentionResidualDecoder(base, correction)
+    optimizer = torch.optim.SGD(decoder.parameters(), lr=0.01)
+    x = torch.randn(2, 4, 4, 8)
+
+    decoder(x, resolution, source_resolution=resolution).square().mean().backward()
+    assert correction.output_projection.weight.grad is not None
+    optimizer.step()
+    optimizer.zero_grad()
+    decoder(x, resolution, source_resolution=resolution).square().mean().backward()
+
+    assert correction.key_projection.weight.grad is not None
+    assert torch.count_nonzero(correction.key_projection.weight.grad) > 0
 
 
 def test_roundtrip():
@@ -259,76 +401,6 @@ def test_windowed_decode(resolution, latent_input, decoder_kwargs):
     assert y_hat.shape == (BATCH, OUT_CHANNELS, H, W), (
         f"Windowed decoder should produce full-resolution output, got {y_hat.shape}."
     )
-
-
-@pytest.mark.parametrize("window_patches", [None, 1])
-def test_fine_scale_queries_preserve_baseline_at_initialization(
-    resolution, latent_input, decoder_kwargs, window_patches
-):
-    baseline = PerceiverDecoder(
-        **decoder_kwargs,
-        window_patches=window_patches,
-        context_patches=None,
-    )
-    fine_scale = PerceiverDecoder(
-        **decoder_kwargs,
-        window_patches=window_patches,
-        context_patches=None,
-        fine_scale_in_channels=5,
-    )
-    fine_scale.load_state_dict(baseline.state_dict(), strict=False)
-    baseline.eval()
-    fine_scale.eval()
-    inputs = torch.randn(BATCH, 5, H, W)
-
-    with torch.no_grad():
-        expected = baseline(latent_input, resolution)
-        actual = fine_scale(latent_input, resolution, inputs)
-
-    torch.testing.assert_close(actual, expected, atol=1e-5, rtol=1e-5)
-
-
-def test_fine_scale_queries_learn_from_zero_initialization(
-    resolution, latent_input, decoder_kwargs
-):
-    decoder = PerceiverDecoder(
-        **decoder_kwargs,
-        window_patches=1,
-        context_patches=None,
-        fine_scale_in_channels=5,
-    )
-    assert decoder.fine_scale_query_embed is not None
-    inputs = torch.randn(BATCH, 5, H, W)
-
-    initial_output = decoder(latent_input, resolution, inputs)
-    initial_output.square().mean().backward()
-
-    gradient = decoder.fine_scale_query_embed.weight.grad
-    assert gradient is not None
-    assert torch.count_nonzero(gradient) > 0
-
-    with torch.no_grad():
-        decoder.fine_scale_query_embed.weight.add_(gradient, alpha=-0.01)
-        updated_output = decoder(latent_input, resolution, inputs)
-    assert not torch.allclose(updated_output, initial_output)
-
-
-def test_fine_scale_queries_require_matching_features(
-    resolution, latent_input, decoder_kwargs
-):
-    decoder = PerceiverDecoder(
-        **decoder_kwargs,
-        window_patches=None,
-        context_patches=None,
-        fine_scale_in_channels=5,
-    )
-
-    with pytest.raises(ValueError, match="fine_scale_features are required"):
-        decoder(latent_input, resolution)
-    with pytest.raises(
-        ValueError, match="must match the decoder batch and output grid"
-    ):
-        decoder(latent_input, resolution, torch.randn(BATCH, 5, H // 2, W))
 
 
 @pytest.mark.parametrize("context_patches", [None, 0, 1])

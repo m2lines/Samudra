@@ -51,6 +51,11 @@ class BaseModel(torch.nn.Module):
     ) -> Prognostic:
         raise NotImplementedError()
 
+    def training_auxiliary_loss(self, train_data: TrainData, loss_fn):
+        """Return an optional per-channel loss added once per training batch."""
+        del train_data, loss_fn
+        return None
+
     def forward(
         self,
         train_data: TrainData,
@@ -90,6 +95,11 @@ class BaseModel(torch.nn.Module):
                     )
 
             outputs.append(pred)
+
+        if loss_fn is not None:
+            auxiliary_loss = self.training_auxiliary_loss(train_data, loss_fn)
+            if auxiliary_loss is not None:
+                loss = loss + auxiliary_loss
 
         if loss_fn is None:
             return outputs

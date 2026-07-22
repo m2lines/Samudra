@@ -4,40 +4,39 @@
 
 # yaml-language-server: $schema=../schemas/SamudraMultiConfig.json
 
-# One spatial processor token per one-degree grid cell. The direct projections
-# deliberately remove the Perceiver representation bottleneck without adding a
-# residual or encoder-to-decoder skip path.
+# Processor-depth candidate. Encoder, every shared processor application, and
+# decoder use one canonical width so the same model can run at depth 0..N.
 pred_residuals: false
 last_kernel_size: 3
 pad: "circular"
 checkpointing: "selective"
-embedding_dim: 128
+embedding_dim: 380
 perceiver_implementation: "flash"
 patch_extent: [1.0, 1.0]
+processor_iterations: 1
+zero_depth_reconstruction_weight: 0.05
 
 encoder:
-  direct_projection: true
+  geometry_mode: "sidecar"
   perceiver:
     depth: 2
     latent_dim: 64
-    num_latents: 256
+    num_latents: 1
 
 decoder:
-  direct_projection: true
-  perceiver:
-    depth: 2
-    latent_dim: 64
-    num_latents: 256
-  queries_dim: 64
-  window_patches: 12
-  context_patches: 1
-  window_batch_size: 1
+  resample_attention_residual: true
+  residual_hidden_dim: 128
+  residual_heads: 2
+  residual_dim_head: 64
+  residual_neighborhood_radius: 1
+  residual_position_bias_strength: 2.0
+  residual_normalize_values: false
+  residual_query_chunk_size: 4096
 
 processor:
   ch_width: [380, 480, 520]
   dilation: [1, 1, 1]
   n_layers: [1, 1, 1]
-
   core_block:
     block_type: "conv_next_block"
     kernel_size: 3
@@ -45,6 +44,5 @@ processor:
     upscale_factor: 2
     norm: "instance"
     pointwise_linear: true
-
   down_sampling_block: "avg_pool"
   up_sampling_block: "zonally_periodic_upsample"

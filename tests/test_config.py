@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import pytest
+import torch
 from pydantic import ValidationError
 from torch import nn
 
@@ -28,6 +29,8 @@ from samudra.config_schema import get_pydantic_models
 from samudra.models.modules import (
     DirectPatchDecoder,
     DirectPatchEncoder,
+    PerceiverEncoder,
+    ResampleAttentionResidualDecoder,
     ResampleProjectionDecoder,
 )
 from samudra.utils.location import LocalLocation, UnresolvedLocation
@@ -310,6 +313,31 @@ def test_naive_perceiver_normalization_controls_replace_lossy_norms():
     assert isinstance(decoder_internal.cross_attend_blocks[0].norm_context, nn.Identity)
 
 
+def test_naive_perceiver_decoder_exposes_cross_attention_width():
+    cfg = PerceiverConfig(
+        depth=1,
+        latent_dim=128,
+        num_latents=4,
+        cross_heads=2,
+        cross_dim_head=64,
+    )
+
+    decoder = cfg.build_io(
+        in_channels=128,
+        queries_dim=128,
+        out_channels=77,
+        implementation="naive",
+    )
+    decoder_internal = cast(Any, decoder)
+    input_attention = decoder_internal.cross_attend_blocks[0].fn
+    output_attention = decoder_internal.decoder_cross_attn.fn
+
+    assert input_attention.heads == 2
+    assert input_attention.to_q.out_features == 128
+    assert output_attention.heads == 2
+    assert output_attention.to_q.out_features == 128
+
+
 def test_flash_perceiver_rejects_nondefault_normalization_controls():
     cfg = PerceiverConfig(normalize_input_context=False)
 
@@ -363,8 +391,40 @@ def test_direct_representation_configs_build_projection_heads():
     assert isinstance(decoder, DirectPatchDecoder)
 
 
+def test_encoder_config_can_disable_post_encoder_geometry():
+    encoder = EncoderConfig(geometry_mode="none").build(
+        in_channels=10,
+        out_channels=128,
+        patch_extent=(1.0, 1.0),
+        max_lat_size=180,
+        max_lon_size=360,
+        implementation="naive",
+    )
+
+    assert isinstance(encoder, PerceiverEncoder)
+    assert encoder.geometry_mode == "none"
+    assert encoder.pos_embed is None
+    assert encoder.scale_embed is None
+
+
+def test_encoder_sidecar_mode_keeps_geometry_out_of_encoder_content():
+    encoder = EncoderConfig(geometry_mode="sidecar").build(
+        in_channels=10,
+        out_channels=128,
+        patch_extent=(1.0, 1.0),
+        max_lat_size=180,
+        max_lon_size=360,
+        implementation="naive",
+    )
+
+    assert isinstance(encoder, PerceiverEncoder)
+    assert encoder.geometry_mode == "sidecar"
+    assert encoder.pos_embed is None
+    assert encoder.scale_embed is None
+
+
 def test_resample_projection_decoder_config_supports_different_grids():
-    decoder = DecoderConfig(resample_projection=True).build(
+    decoder = DecoderConfig(resample_projection=True, coordinate_resampling=True).build(
         in_channels=128,
         out_channels=154,
         patch_extent=(3.0, 5.0),
@@ -372,6 +432,7 @@ def test_resample_projection_decoder_config_supports_different_grids():
     )
 
     assert isinstance(decoder, ResampleProjectionDecoder)
+    assert decoder.coordinate_resampling
 
 
 def test_decoder_config_rejects_multiple_projection_controls():
@@ -384,6 +445,28 @@ def test_decoder_config_rejects_multiple_projection_controls():
             patch_extent=(1.0, 1.0),
             implementation="naive",
         )
+
+
+def test_hybrid_decoder_config_builds_zero_initialized_local_correction():
+    decoder = DecoderConfig(
+        resample_attention_residual=True,
+        residual_hidden_dim=32,
+        residual_heads=2,
+        residual_dim_head=16,
+        residual_neighborhood_radius=2,
+        residual_query_chunk_size=64,
+    ).build(
+        in_channels=128,
+        out_channels=77,
+        patch_extent=(1.0, 1.0),
+        implementation="naive",
+    )
+
+    assert isinstance(decoder, ResampleAttentionResidualDecoder)
+    assert decoder.base.coordinate_resampling
+    assert decoder.correction.neighborhood_radius == 2
+    assert decoder.correction.query_chunk_size == 64
+    assert torch.count_nonzero(decoder.correction.output_projection.weight) == 0
 
 
 def test_direct_encoder_config_rejects_spatial_compression():

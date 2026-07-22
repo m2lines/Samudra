@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# yaml-language-server: $schema=../schemas/TrainConfig.json
+# yaml-language-server: $schema=../schemas/IdentityConfig.json
 
 debug: false
 disk_mode: true
@@ -29,6 +29,10 @@ steps: [1]
 step_transition: []
 preemptible: false
 test_using_ema: false
+identity_train_samples: 32
+identity_eval_samples: 32
+identity_train_offset: 0
+identity_eval_offset: 32
 
 backend: auto
 

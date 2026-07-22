@@ -7,7 +7,7 @@
 # - https://github.com/microsoft/aurora/blob/main/aurora/model/encoder.py
 # - https://github.com/lucidrains/vit-pytorch
 
-from typing import cast
+from typing import Literal, cast
 
 import torch
 from aurora.model.fourier import pos_expansion, scale_expansion
@@ -18,6 +18,8 @@ from torch import nn
 
 from samudra.constants import Input, Lat, Lon
 from samudra.models.modules.augment_input import FourierFeatures2D
+
+EncoderGeometryMode = Literal["additive", "none", "sidecar"]
 
 
 def patch_from(
@@ -183,6 +185,7 @@ class DirectPatchEncoder(nn.Module):
         in_channels: int,
         out_channels: int,
         patch_extent: tuple[float, float],
+        geometry_mode: EncoderGeometryMode = "additive",
     ) -> None:
         super().__init__()
         if out_channels % 4 != 0:
@@ -192,9 +195,17 @@ class DirectPatchEncoder(nn.Module):
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.patch_extent = patch_extent
+        self.geometry_mode = geometry_mode
         self.projection = nn.Conv2d(in_channels, out_channels, kernel_size=1)
-        self.pos_embed = nn.Linear(out_channels, out_channels)
-        self.scale_embed = nn.Linear(out_channels, out_channels)
+        self.pos_embed: nn.Linear | None = None
+        self.scale_embed: nn.Linear | None = None
+        if geometry_mode == "additive":
+            self.pos_embed = nn.Linear(out_channels, out_channels)
+            self.scale_embed = nn.Linear(out_channels, out_channels)
+
+    def output_resolution(self, resolution: tuple[Lat, Lon]) -> tuple[Lat, Lon]:
+        """Return the unchanged grid used by this one-cell encoder."""
+        return resolution
 
     def forward(
         self, x: Input, resolution: tuple[Lat, Lon]
@@ -212,6 +223,9 @@ class DirectPatchEncoder(nn.Module):
             )
 
         encoded = self.projection(x)
+        if self.geometry_mode != "additive":
+            return encoded
+
         tokens = rearrange(encoded, "b c h w -> b (h w) c")
         lat, lon = resolution
         pos_encode, scale_encode = pos_scale_enc_for_grid(
@@ -220,6 +234,8 @@ class DirectPatchEncoder(nn.Module):
             lon,
             patch_size,
         )
+        assert self.pos_embed is not None
+        assert self.scale_embed is not None
         tokens = tokens + self.pos_embed(
             pos_encode.to(dtype=tokens.dtype, device=tokens.device)
         ).unsqueeze(0)
@@ -262,15 +278,33 @@ class PerceiverEncoder(nn.Module):
         out_channels: int,
         patch_extent: tuple[float, float],
         perceiver: nn.Module,
+        geometry_mode: EncoderGeometryMode = "additive",
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
         self.out_channels: int = out_channels  # aka, `embed_dim`.
         self.patch_extent = patch_extent
         self.perceiver = perceiver
+        self.geometry_mode = geometry_mode
         # TODO(#451): The input to these position and scale linear units could be a hparam.
-        self.pos_embed = nn.Linear(self.out_channels, self.out_channels)
-        self.scale_embed = nn.Linear(self.out_channels, self.out_channels)
+        self.pos_embed: nn.Linear | None = None
+        self.scale_embed: nn.Linear | None = None
+        if geometry_mode == "additive":
+            self.pos_embed = nn.Linear(self.out_channels, self.out_channels)
+            self.scale_embed = nn.Linear(self.out_channels, self.out_channels)
+
+    def output_resolution(self, resolution: tuple[Lat, Lon]) -> tuple[Lat, Lon]:
+        """Return physical centers of the encoder's canonical patch grid."""
+        lat, lon = resolution
+        patch_h, patch_w = patch_from(self.patch_extent, len(lat), len(lon))
+        if len(lat) % patch_h or len(lon) % patch_w:
+            raise ValueError(
+                "Input coordinates must divide evenly into encoder patches; got "
+                f"grid {(len(lat), len(lon))} and patch {(patch_h, patch_w)}."
+            )
+        patch_lat = rearrange(lat, "(h ph) -> h ph", ph=patch_h).mean(dim=-1)
+        patch_lon = rearrange(lon, "(w pw) -> w pw", pw=patch_w).mean(dim=-1)
+        return patch_lat, patch_lon
 
     def forward(
         self, x: Input, resolution: tuple[Lat, Lon]
@@ -305,20 +339,23 @@ class PerceiverEncoder(nn.Module):
             w=(W // patch_w),
         )
 
-        # Calculate and add positional + scale encoding
-        pos_encode, scale_encode = pos_scale_enc_for_grid(
-            self.out_channels,  # aka "embed_dim"
-            lat,
-            lon,
-            (patch_h, patch_w),
-        )
-        pos_encoding = self.pos_embed(
-            pos_encode.to(dtype=x.dtype, device=x.device)
-        ).unsqueeze(0)
-        scale_encoding = self.scale_embed(
-            scale_encode.to(dtype=x.dtype, device=x.device)
-        ).unsqueeze(0)
-        x = x + pos_encoding + scale_encoding
+        if self.geometry_mode == "additive":
+            # Calculate and add positional + scale encoding
+            pos_encode, scale_encode = pos_scale_enc_for_grid(
+                self.out_channels,  # aka "embed_dim"
+                lat,
+                lon,
+                (patch_h, patch_w),
+            )
+            assert self.pos_embed is not None
+            assert self.scale_embed is not None
+            pos_encoding = self.pos_embed(
+                pos_encode.to(dtype=x.dtype, device=x.device)
+            ).unsqueeze(0)
+            scale_encoding = self.scale_embed(
+                scale_encode.to(dtype=x.dtype, device=x.device)
+            ).unsqueeze(0)
+            x = x + pos_encoding + scale_encoding
 
         # Unpack spatial channels, move channel dimension to correct location.
         x = rearrange(

@@ -37,10 +37,13 @@ from samudra.models.modules import (
     CoreBlockBuilder,
     DirectPatchDecoder,
     DirectPatchEncoder,
+    LocalCoordinateAttentionCorrection,
     MaxPool,
     PerceiverDecoder,
     PerceiverEncoder,
+    ProcessorGeometryConditioner,
     ReLU,
+    ResampleAttentionResidualDecoder,
     ResampleProjectionDecoder,
     SpatialQueryPerceiver,
     TransposedConvUpsample,
@@ -52,7 +55,7 @@ from samudra.models.modules.augment_input import (
     fourier_features_2d_dim,
 )
 from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
-from samudra.models.modules.encoder import patch_from
+from samudra.models.modules.encoder import EncoderGeometryMode, patch_from
 from samudra.utils.data import CanonicalDataset, DataContainer, Normalize
 from samudra.utils.location import LocalLocation, Location, ResolvedLocation
 from samudra.utils.loss import (
@@ -496,6 +499,16 @@ class PerceiverConfig(BaseConfig):
         default=512,
         description="The number of latent vectors in the Perceiver. This is the `M` dimension for the Perceiver's `O(M*N)` complexity",
     )
+    cross_heads: int = Field(
+        default=1,
+        ge=1,
+        description="Number of heads in the decoder's input and output cross-attention layers.",
+    )
+    cross_dim_head: int = Field(
+        default=64,
+        ge=1,
+        description="Width of each decoder cross-attention head. The total value-path width is cross_heads * cross_dim_head.",
+    )
     normalize_input_context: bool = Field(
         default=True,
         description="Apply LayerNorm to data tokens before input cross-attention. "
@@ -606,6 +619,10 @@ class PerceiverConfig(BaseConfig):
                 proj_dim=out_channels,
                 num_latents=self.num_latents,
                 latent_dim=self.latent_dim,
+                cross_heads=self.cross_heads,
+                cross_head_dim=self.cross_dim_head,
+                query_heads=self.cross_heads,
+                query_head_dim=self.cross_dim_head,
                 use_flash_attn=True,
                 weight_tie_layers=True,
             )
@@ -619,6 +636,8 @@ class PerceiverConfig(BaseConfig):
                 logits_dim=out_channels,
                 num_latents=self.num_latents,
                 latent_dim=self.latent_dim,
+                cross_heads=self.cross_heads,
+                cross_dim_head=self.cross_dim_head,
                 weight_tie_layers=True,
                 decoder_ff=True,
             )
@@ -654,6 +673,14 @@ def _flash_import_error() -> ValueError:
 
 
 class EncoderConfig(BaseConfig):
+    geometry_mode: EncoderGeometryMode = Field(
+        default="additive",
+        description="How source-grid position and scale enter the learned encoder "
+        "representation. 'additive' preserves the existing learned additions; "
+        "'none' leaves the post-Perceiver content representation unchanged; "
+        "'sidecar' does the same in the encoder and injects position/scale only "
+        "before processor applications.",
+    )
     direct_projection: bool = Field(
         default=False,
         description="Replace the Perceiver encoder with a direct 1x1 projection. "
@@ -701,6 +728,7 @@ class EncoderConfig(BaseConfig):
                 in_channels=in_channels,
                 out_channels=out_channels,
                 patch_extent=patch_extent,
+                geometry_mode=self.geometry_mode,
             )
         if self.spatial_query_shape is not None:
             if any(size <= 0 for size in self.spatial_query_shape):
@@ -725,11 +753,13 @@ class EncoderConfig(BaseConfig):
                 out_channels=spatial_perceiver.out_channels,
                 patch_extent=patch_extent,
                 perceiver=spatial_perceiver,
+                geometry_mode=self.geometry_mode,
             )
         return PerceiverEncoder(
             in_channels=in_channels,
             out_channels=out_channels,
             patch_extent=patch_extent,
+            geometry_mode=self.geometry_mode,
             perceiver=self.perceiver.build(
                 in_channels, out_channels, max_patch_size, implementation
             ),
@@ -760,6 +790,24 @@ class DecoderConfig(BaseConfig):
         description="Replace the Perceiver decoder with bilinear spatial "
         "resampling followed by a shared 1x1 channel projection.",
     )
+    resample_attention_residual: bool = Field(
+        default=False,
+        description="Use physical-coordinate resampling plus a zero-initialized "
+        "bounded local-attention correction.",
+    )
+    coordinate_resampling: bool = Field(
+        default=False,
+        description="Use physical latitude/longitude interpolation with periodic "
+        "longitude instead of shape-only bilinear interpolation in the resampling "
+        "projection decoder.",
+    )
+    residual_hidden_dim: int = Field(default=128, ge=1)
+    residual_heads: int = Field(default=2, ge=1)
+    residual_dim_head: int = Field(default=64, ge=1)
+    residual_neighborhood_radius: int = Field(default=1, ge=0)
+    residual_position_bias_strength: float = Field(default=2.0, gt=0)
+    residual_normalize_values: bool = False
+    residual_query_chunk_size: int = Field(default=4096, ge=1)
     perceiver: PerceiverConfig = PerceiverConfig()
     queries_dim: int = Field(
         default=64,
@@ -788,32 +836,54 @@ class DecoderConfig(BaseConfig):
         out_channels: int,
         patch_extent: tuple[float, float],
         implementation: PerceiverImpl,
-        fine_scale_in_channels: int | None = None,
-    ) -> PerceiverDecoder | DirectPatchDecoder | ResampleProjectionDecoder:
-        if self.direct_projection and self.resample_projection:
+    ) -> (
+        PerceiverDecoder
+        | DirectPatchDecoder
+        | ResampleProjectionDecoder
+        | ResampleAttentionResidualDecoder
+    ):
+        projection_modes = sum(
+            (
+                self.direct_projection,
+                self.resample_projection,
+                self.resample_attention_residual,
+            )
+        )
+        if projection_modes > 1:
             raise ValueError(
-                "direct_projection and resample_projection are mutually exclusive."
+                "direct_projection, resample_projection, and "
+                "resample_attention_residual are mutually exclusive."
             )
         if self.direct_projection:
-            if fine_scale_in_channels is not None:
-                raise ValueError(
-                    "Direct decoding cannot be combined with fine-scale queries."
-                )
             return DirectPatchDecoder(
                 in_channels=in_channels,
                 out_channels=out_channels,
                 patch_extent=patch_extent,
             )
         if self.resample_projection:
-            if fine_scale_in_channels is not None:
-                raise ValueError(
-                    "Resample-projection decoding cannot be combined with "
-                    "fine-scale queries."
-                )
             return ResampleProjectionDecoder(
                 in_channels=in_channels,
                 out_channels=out_channels,
+                coordinate_resampling=self.coordinate_resampling,
             )
+        if self.resample_attention_residual:
+            base = ResampleProjectionDecoder(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                coordinate_resampling=True,
+            )
+            correction = LocalCoordinateAttentionCorrection(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                hidden_dim=self.residual_hidden_dim,
+                heads=self.residual_heads,
+                dim_head=self.residual_dim_head,
+                neighborhood_radius=self.residual_neighborhood_radius,
+                position_bias_strength=self.residual_position_bias_strength,
+                normalize_values=self.residual_normalize_values,
+                query_chunk_size=self.residual_query_chunk_size,
+            )
+            return ResampleAttentionResidualDecoder(base, correction)
         return PerceiverDecoder(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -825,7 +895,6 @@ class DecoderConfig(BaseConfig):
             window_patches=self.window_patches,
             context_patches=self.context_patches,
             window_batch_size=self.window_batch_size,
-            fine_scale_in_channels=fine_scale_in_channels,
         )
 
 
@@ -1029,16 +1098,23 @@ class SamudraMultiConfig(BaseModelConfig):
         "Shared by the encoder and decoder for consistent spatial semantics.",
     )
     embedding_dim: int = 128
+    processor_iterations: int = Field(
+        default=1,
+        ge=0,
+        description="Number of times to apply the shared latent processor per model "
+        "call. Counts other than one require equal processor input/output widths.",
+    )
+    zero_depth_reconstruction_weight: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Weight of a same-grid reconstruction loss that decodes the "
+        "learned encoder representation without applying the processor. Disabled "
+        "by default.",
+    )
     bypass_processor: bool = Field(
         default=False,
         description="Bypass the spatial processor with an identity mapping. "
         "This is intended for encoder/decoder reconstruction diagnostics.",
-    )
-    use_fine_scale_queries: bool = Field(
-        default=False,
-        description="Project full-resolution input features into the decoder's pixel "
-        "queries. This provides a learned encoder-to-decoder feature path while "
-        "retaining absolute-field prediction.",
     )
     use_bfloat16: bool = Field(
         default=True,
@@ -1091,6 +1167,7 @@ class SamudraMultiConfig(BaseModelConfig):
         if self.bypass_processor:
             processor: nn.Module = nn.Identity()
             decoder_in_channels = encoder.out_channels
+            processor_geometry = None
         else:
             processor = self.processor.build(
                 encoder.out_channels,
@@ -1098,12 +1175,25 @@ class SamudraMultiConfig(BaseModelConfig):
                 self.processor_checkpointing(),
             )
             decoder_in_channels = processor.out_channels
+            if (
+                self.processor_iterations != 1
+                and encoder.out_channels != processor.out_channels
+            ):
+                raise ValueError(
+                    "Zero or repeated processor applications require equal encoder "
+                    "and processor output widths; got "
+                    f"{encoder.out_channels} and {processor.out_channels}."
+                )
+            processor_geometry = (
+                ProcessorGeometryConditioner(encoder.out_channels)
+                if self.encoder.geometry_mode == "sidecar"
+                else None
+            )
         decoder = self.decoder.build(
             decoder_in_channels,
             out_channels,
             extent,
             impl,
-            fine_scale_in_channels=in_channels if self.use_fine_scale_queries else None,
         )
 
         add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
@@ -1121,6 +1211,9 @@ class SamudraMultiConfig(BaseModelConfig):
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
+            processor_iterations=self.processor_iterations,
+            processor_geometry=processor_geometry,
+            zero_depth_reconstruction_weight=self.zero_depth_reconstruction_weight,
         )
 
 

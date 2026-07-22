@@ -4,6 +4,7 @@
 
 import pytest
 import torch
+from einops import rearrange
 from perceiver_pytorch import Perceiver
 from torch import nn
 
@@ -83,6 +84,22 @@ def test_makes_rectangular_patches():
     )
 
 
+def test_perceiver_encoder_reports_patch_center_coordinates():
+    x = torch.randn(1, 10, 4, 8)
+    encoder = PerceiverEncoder(
+        in_channels=10,
+        out_channels=4,
+        patch_extent=(90, 90),
+        perceiver=make_perceiver(10, 4),
+    )
+    lat, lon = make_resolution(x)
+
+    patch_lat, patch_lon = encoder.output_resolution((lat, lon))
+
+    torch.testing.assert_close(patch_lat, lat.reshape(2, 2).mean(dim=1))
+    torch.testing.assert_close(patch_lon, lon.reshape(4, 2).mean(dim=1))
+
+
 def test_makes_patches__high_res():
     x = torch.randn(1, 10, 14, 21)
 
@@ -153,6 +170,55 @@ def test_direct_encoder_preserves_one_pixel_grid():
     assert encoded.shape == (2, 12, 6, 10)
     encoded.sum().backward()
     assert encoder.projection.weight.grad is not None
+
+
+def test_direct_encoder_can_leave_geometry_out_of_content():
+    x = torch.randn(2, 10, 6, 10)
+    encoder = DirectPatchEncoder(
+        in_channels=10,
+        out_channels=12,
+        patch_extent=(30, 36),
+        geometry_mode="none",
+    )
+
+    encoded = encoder(x, make_resolution(x))
+
+    torch.testing.assert_close(encoded, encoder.projection(x))
+    assert encoder.pos_embed is None
+    assert encoder.scale_embed is None
+
+
+def test_perceiver_encoder_can_leave_geometry_out_of_content():
+    x = torch.randn(2, 10, 4, 8)
+    perceiver = make_perceiver(10, 4)
+    encoder = PerceiverEncoder(
+        in_channels=10,
+        out_channels=4,
+        patch_extent=(180, 180),
+        perceiver=perceiver,
+        geometry_mode="none",
+    )
+    encoder.eval()
+    patch_input = rearrange(
+        x,
+        "b v (h ph) (w pw) -> (b h w) ph pw v",
+        ph=4,
+        pw=4,
+    )
+
+    with torch.no_grad():
+        expected = rearrange(
+            perceiver(patch_input),
+            "(b h w) c -> b c h w",
+            b=2,
+            h=1,
+            w=2,
+        )
+        actual = encoder(x, make_resolution(x))
+
+    torch.testing.assert_close(actual, expected)
+    assert encoder.pos_embed is None
+    assert encoder.scale_embed is None
 
 
 def test_direct_encoder_rejects_spatial_compression():

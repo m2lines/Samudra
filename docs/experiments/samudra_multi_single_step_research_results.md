@@ -565,6 +565,11 @@ the two dilation jobs placed on `gr102` used 25.40 to 25.75 GiB, still within th
 
 ## B2 learned fine-scale decoder queries
 
+> Historical note: the `use_fine_scale_queries` feature evaluated in this section
+> was subsequently removed because it bypassed the latent processor route. These
+> results remain useful evidence about the original representation bottleneck but
+> do not describe an available model option.
+
 The identity evidence and the failed scalar-width ablation justify changing how
 full-resolution information crosses the patch bottleneck. The smallest isolated
 candidate projects the raw prognostic and boundary inputs at every grid cell through

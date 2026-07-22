@@ -4,9 +4,8 @@
 
 # yaml-language-server: $schema=../schemas/SamudraMultiConfig.json
 
-# One spatial processor token per one-degree grid cell. The direct projections
-# deliberately remove the Perceiver representation bottleneck without adding a
-# residual or encoder-to-decoder skip path.
+# Decoder-localization control: a direct one-cell encoder, no processor, and a
+# Perceiver IO decoder whose true input/output cross-attention path is 128 wide.
 pred_residuals: false
 last_kernel_size: 3
 pad: "circular"
@@ -14,21 +13,20 @@ checkpointing: "selective"
 embedding_dim: 128
 perceiver_implementation: "flash"
 patch_extent: [1.0, 1.0]
+bypass_processor: true
+processor_iterations: 0
 
 encoder:
   direct_projection: true
-  perceiver:
-    depth: 2
-    latent_dim: 64
-    num_latents: 256
 
 decoder:
-  direct_projection: true
   perceiver:
     depth: 2
-    latent_dim: 64
+    latent_dim: 128
     num_latents: 256
-  queries_dim: 64
+    cross_heads: 2
+    cross_dim_head: 64
+  queries_dim: 128
   window_patches: 12
   context_patches: 1
   window_batch_size: 1

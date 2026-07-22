@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from .activations import CappedGELU, CappedLeakyReLU, ReLU
+from .augment_input import ProcessorGeometryConditioner
 from .blocks import (
     AvgPool,
     BilinearUpsample,
@@ -15,7 +16,13 @@ from .blocks import (
     UpsamplingBlockBuilder,
     ZonallyPeriodicBilinearUpsample,
 )
-from .decoder import DirectPatchDecoder, PerceiverDecoder, ResampleProjectionDecoder
+from .decoder import (
+    DirectPatchDecoder,
+    LocalCoordinateAttentionCorrection,
+    PerceiverDecoder,
+    ResampleAttentionResidualDecoder,
+    ResampleProjectionDecoder,
+)
 from .encoder import DirectPatchEncoder, PerceiverEncoder, SpatialQueryPerceiver
 from .unet_backbone import UNetBackbone
 
@@ -32,9 +39,12 @@ __all__ = [
     "MaxPool",
     "DirectPatchDecoder",
     "DirectPatchEncoder",
+    "LocalCoordinateAttentionCorrection",
     "PerceiverDecoder",
+    "ResampleAttentionResidualDecoder",
     "ResampleProjectionDecoder",
     "PerceiverEncoder",
+    "ProcessorGeometryConditioner",
     "SpatialQueryPerceiver",
     "ReLU",
     "UNetBackbone",

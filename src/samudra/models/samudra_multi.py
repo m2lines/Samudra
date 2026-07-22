@@ -19,6 +19,8 @@ from samudra.models.modules import (
     DirectPatchEncoder,
     PerceiverDecoder,
     PerceiverEncoder,
+    ProcessorGeometryConditioner,
+    ResampleAttentionResidualDecoder,
     ResampleProjectionDecoder,
 )
 from samudra.models.modules.unet_backbone import UNetBackbone
@@ -38,6 +40,7 @@ _checkpoint_types: tuple[type, ...] = (
     DirectPatchDecoder,
     DirectPatchEncoder,
     ResampleProjectionDecoder,
+    ResampleAttentionResidualDecoder,
     UNetBackbone,
     Attention,
 )
@@ -71,11 +74,19 @@ class SamudraMulti(BaseModel):
         add_3d_coordinates: nn.Module | None,
         encoder: PerceiverEncoder | DirectPatchEncoder,
         processor: nn.Module,
-        decoder: PerceiverDecoder | DirectPatchDecoder | ResampleProjectionDecoder,
+        decoder: (
+            PerceiverDecoder
+            | DirectPatchDecoder
+            | ResampleProjectionDecoder
+            | ResampleAttentionResidualDecoder
+        ),
         hist: int,
         checkpointing: "Checkpointing | None",
         gradient_detach_interval: int,
         use_bfloat16: bool,
+        processor_iterations: int = 1,
+        processor_geometry: ProcessorGeometryConditioner | None = None,
+        zero_depth_reconstruction_weight: float = 0.0,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -92,6 +103,13 @@ class SamudraMulti(BaseModel):
         self.processor = processor
         self.decoder = decoder
         self.use_bfloat16 = use_bfloat16
+        if processor_iterations < 0:
+            raise ValueError("processor_iterations must be non-negative.")
+        self.processor_iterations = processor_iterations
+        self.processor_geometry = processor_geometry
+        if zero_depth_reconstruction_weight < 0:
+            raise ValueError("zero_depth_reconstruction_weight must be non-negative.")
+        self.zero_depth_reconstruction_weight = zero_depth_reconstruction_weight
 
         if checkpointing == "all":
             apply_activation_checkpointing(
@@ -112,35 +130,92 @@ class SamudraMulti(BaseModel):
                         DirectPatchEncoder,
                         DirectPatchDecoder,
                         ResampleProjectionDecoder,
+                        ResampleAttentionResidualDecoder,
                     ),
                 ),
             )
 
-    def forward_once(
+    def encode(
         self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
-    ) -> Prognostic:
+    ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
+        """Encode physical inputs and return content plus its canonical grid."""
         # Prognostic and boundary are carried as separate tensors through the
         # data pipeline, but this encoder still expects a single concatenated
         # input.  The dual-perceiver encoder that fuses them at the token level
         # (enabling cross-resolution) lands in a follow-up PR.
         fts = torch.cat((prognostic, boundary), dim=1)
-        fine_scale_fts = fts
-        with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
-            if self.maybe_add_3d_coordinates is not None:
-                fts = self.maybe_add_3d_coordinates(fts, ctx.input_resolution_cpu)
-            fts = self.encoder(fts, ctx.input_resolution_cpu)
+        if self.maybe_add_3d_coordinates is not None:
+            fts = self.maybe_add_3d_coordinates(fts, ctx.input_resolution_cpu)
+        fts = self.encoder(fts, ctx.input_resolution_cpu)
+        latent_resolution = self.encoder.output_resolution(ctx.input_resolution_cpu)
+        return fts, latent_resolution
+
+    def process(
+        self,
+        fts: torch.Tensor,
+        latent_resolution: tuple[torch.Tensor, torch.Tensor],
+        iterations: int | None = None,
+    ) -> torch.Tensor:
+        """Apply the shared processor zero or more times in latent space."""
+        count = self.processor_iterations if iterations is None else iterations
+        if count < 0:
+            raise ValueError("Processor iteration count must be non-negative.")
+        for _ in range(count):
+            if self.processor_geometry is not None:
+                fts = self.processor_geometry(fts, latent_resolution)
             fts = self.processor(fts)
+        return fts
+
+    def decode(
+        self,
+        fts: torch.Tensor,
+        latent_resolution: tuple[torch.Tensor, torch.Tensor],
+        ctx: GridContext,
+    ) -> Prognostic:
+        """Render latent content on the requested output grid."""
+        fts = self.decoder(
+            fts,
+            ctx.output_resolution_cpu,
+            source_resolution=latent_resolution,
+        )
+        fts = fts.to(torch.float32)
+        return torch.where(ctx.label_mask, fts, 0.0)
+
+    def reconstruct_once(
+        self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
+    ) -> Prognostic:
+        """Decode the learned representation without applying the processor."""
+        input_lat, input_lon = ctx.input_resolution_cpu
+        output_lat, output_lon = ctx.output_resolution_cpu
+        same_grid = torch.equal(input_lat, output_lat) and torch.equal(
+            input_lon, output_lon
+        )
+        if not same_grid or prognostic.shape[-2:] != ctx.label_mask.shape[-2:]:
+            raise ValueError(
+                "Zero-depth reconstruction loss currently requires identical input "
+                "and output grids so the source mask and target are unambiguous."
+            )
+        with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
+            fts, latent_resolution = self.encode(prognostic, boundary, ctx)
+            return self.decode(fts, latent_resolution, ctx)
+
+    def training_auxiliary_loss(self, train_data, loss_fn):
+        """Apply the optional zero-depth inverse objective once per batch."""
+        if self.zero_depth_reconstruction_weight == 0:
+            return None
+        prognostic, boundary = train_data.get_initial_input()
+        reconstruction = self.reconstruct_once(prognostic, boundary, train_data.ctx)
+        return self.zero_depth_reconstruction_weight * loss_fn(
+            reconstruction, prognostic
+        )
+
+    def forward_once(
+        self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
+    ) -> Prognostic:
+        with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
+            fts, latent_resolution = self.encode(prognostic, boundary, ctx)
+            fts = self.process(fts, latent_resolution)
 
             # TODO(alxmrs): When the output resolution differs from the input (i.e. in a "mix" schedule), we cannot use
             #  residual predictions (`self.pred_residuals` must be `False`).
-            fts = self.decoder(
-                fts,
-                ctx.output_resolution_cpu,
-                fine_scale_features=fine_scale_fts,
-            )
-
-        # Convert back to float32
-        # TODO(alxmrs): We actually only support float16 when turned on; this kind of tricks us.
-        fts = fts.to(torch.float32)
-
-        return torch.where(ctx.label_mask, fts, 0.0)
+            return self.decode(fts, latent_resolution, ctx)

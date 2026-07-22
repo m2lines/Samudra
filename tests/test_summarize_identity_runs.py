@@ -35,6 +35,8 @@ def _row(epoch: int, mse: float):
     for channel, high_k, seam in (("thetao_0", 0.8, 1.1), ("so_0", 0.6, 0.9)):
         row[f"identity/high_wavenumber_power_ratio/channel/{channel}"] = high_k
         row[f"identity/patch_seam_jump_ratio/channel/{channel}"] = seam
+        row[f"identity/std_ratio/channel/{channel}"] = 0.95
+        row[f"identity/mean_bias_over_target_std/channel/{channel}"] = 0.02
     return row
 
 

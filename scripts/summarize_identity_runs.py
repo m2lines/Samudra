@@ -15,6 +15,8 @@ from typing import Any
 MSE_KEY = "identity/mean/mse"
 HIGH_WAVENUMBER_PREFIX = "identity/high_wavenumber_power_ratio/channel/"
 SEAM_PREFIX = "identity/patch_seam_jump_ratio/channel/"
+STD_RATIO_PREFIX = "identity/std_ratio/channel/"
+MEAN_BIAS_PREFIX = "identity/mean_bias_over_target_std/channel/"
 VARIABLE_KEYS = {
     "temperature": "identity/loss/variable/thetao_loss",
     "salinity": "identity/loss/variable/so_loss",
@@ -100,6 +102,8 @@ def summarize_trajectory(
         "final_mse": _finite_float(final, MSE_KEY),
         "high_wavenumber_ratio": _mean_prefix(final, HIGH_WAVENUMBER_PREFIX),
         "patch_seam_ratio": _optional_mean_prefix(final, SEAM_PREFIX),
+        "std_ratio": _mean_prefix(final, STD_RATIO_PREFIX),
+        "mean_bias_over_target_std": _mean_prefix(final, MEAN_BIAS_PREFIX),
         "routes": _route_summaries(final),
         **{label: _finite_float(final, key) for label, key in VARIABLE_KEYS.items()},
     }
@@ -128,6 +132,8 @@ def markdown_table(summaries: Iterable[Mapping[str, Any]]) -> str:
         *VARIABLE_KEYS,
         "high_wavenumber_ratio",
         "patch_seam_ratio",
+        "std_ratio",
+        "mean_bias_over_target_std",
     ]
     lines = [
         "| Run | " + " | ".join(columns) + " |",

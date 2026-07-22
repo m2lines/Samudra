@@ -29,7 +29,7 @@ def test_assert_mask_match(mask_dtype):
         dims=["x", "y", "z"],
         coords={"x": x, "y": y, "z": z},
     )
-    mask_3d = data_3d > 0.25
+    mask_3d = data_3d % 3 == 0
     if mask_dtype is not None:
         mask_3d = mask_3d.astype(mask_dtype)
     ds = xr.Dataset({"3d": data_3d, "2d": data_2d})

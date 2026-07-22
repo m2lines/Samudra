@@ -113,6 +113,11 @@ class DropPath(torch.nn.Module):
     expected values. Implemented via ``nn.Dropout`` applied to a per-sample
     mask of ones.
 
+    Supports "early dropout" scheduling [1]: call
+    :meth:`set_progress` each epoch with ``progress = epoch / drop_path_epochs``
+    to linearly decay the drop rate to 0, then keep it off for the rest of
+    training.
+
     References:
         [0]: Rethinking U-net Skip Connections for Biomedical Image Segmentation (https://arxiv.org/abs/2402.08276)
         [1]: Dropout Reduces Underfitting (https://arxiv.org/abs/2303.01500)
@@ -120,7 +125,18 @@ class DropPath(torch.nn.Module):
 
     def __init__(self, drop_prob: float = 0.0):
         super().__init__()
+        self.max_drop_prob = drop_prob
         self.dropout = torch.nn.Dropout(p=drop_prob)
+
+    def set_progress(self, progress: float) -> None:
+        """Update the drop probability based on training progress.
+
+        Args:
+            progress: Fraction of the drop-path phase elapsed, in [0, inf).
+                At 0 the full ``max_drop_prob`` is used; at 1 and beyond
+                the rate is 0 (drop path disabled).
+        """
+        self.dropout.p = self.max_drop_prob * max(1.0 - progress, 0.0)
 
     def forward(
         self, skip_conn: Float[torch.Tensor, "B C H W"]

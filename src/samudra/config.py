@@ -656,6 +656,11 @@ class UNetBackboneConfig(BaseConfig):
         default=0.0,
         description="Shortcut dropout rate. The chance we turn off skip connections in the UNet. Reasonable values are 0.1-0.3. Use 0.0 to disable.",
     )
+    drop_path_epochs: int = Field(
+        default=0,
+        description="Number of epochs over which to linearly decay the drop path rate to 0 (early shortcut dropout). "
+        "0 means drop path is applied at a constant rate for the entire training run.",
+    )
 
     def build(
         self,
@@ -701,6 +706,7 @@ class UNetBackboneConfig(BaseConfig):
             create_upsampling_block=create_upsampling_block,
             checkpointing=checkpointing,
             drop_path_rate=self.drop_path_rate,
+            drop_path_epochs=self.drop_path_epochs,
         )
 
 

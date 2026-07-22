@@ -791,16 +791,40 @@ def with_level_index_vars(
     return data_copy
 
 
+def with_depth_value_vars(
+    data: xr.Dataset,
+    dataset_spec: DatasetSpec,
+) -> xr.Dataset:
+    """Inverse of `with_level_index_vars`: name 3D variables by depth value.
+
+    Renames the depth-resolved prognostic variables (``<var>_<level_index>``)
+    back to the OM4 ``<var>_lev_<depth>`` form (e.g. ``thetao_0`` ->
+    ``thetao_lev_2_5``). Which variables to rename is read directly off
+    ``dataset_spec.prognostic_var_names`` rather than inferred from the data, so
+    per-level masks (``mask_<i>``) and level-free prognostics (e.g. ``zos``) are
+    never mistaken for depth-resolved variables by name alone.
+    """
+    renames = {}
+    for var_name in dataset_spec.prognostic_var_names:
+        base, _, idx = var_name.rpartition("_")
+        if not (base and idx.isdigit()):
+            continue  # level-free prognostic variable, e.g. zos
+        depth = dataset_spec.depth_levels[int(idx)]
+        depth_str = str(depth).replace(".", "_")
+        if var_name in data.variables:
+            renames[var_name] = f"{base}_lev_{depth_str}"
+
+    return data.rename(renames)
+
+
 def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
     """Standardize dataset coordinates; prefer "lat"/"lon" over "y"/"x"."""
     data_copy = data.copy()
-    # OM4 data has coordinates we don't need
-    # We drop them and rename x, y dimensions to lon, lat
     if "lat" not in data_copy.dims:
-        # Drop unnecessary coordinates and rename dimensions
-        data_copy = data_copy.drop_vars(
-            ["lat", "lon", "lat_b", "lon_b", "dayofyear"], errors="ignore"
-        ).rename({"x": "lon", "y": "lat"})
+        # Preserve the 2-D geographic coords under a non-colliding name, then
+        # rename the x/y dims to the 1-D lat/lon we standardize on.
+        preserve = {n: f"{n}_2d" for n in ("lat", "lon") if n in data_copy.coords}
+        data_copy = data_copy.rename(preserve).rename({"x": "lon", "y": "lat"})
 
     return data_copy
 
@@ -980,4 +1004,27 @@ def compact_dataset(ds: xr.Dataset) -> xr.Dataset:
         data[base_var] = da
         data = data.drop_vars(vars_)
 
+    return data
+
+
+def stack_levels(
+    data: xr.Dataset,
+    dataset_spec: DatasetSpec,
+) -> xr.Dataset:
+    """Reassemble a flattened OM4 dataset into analysis-ready, depth-stacked form.
+
+    Inverts the preprocessing flattening so downstream analysis does not have to:
+    per-level prognostic channels (``thetao_0`` ...) become ``thetao(lev, ...)``
+    and the per-level ``mask_i`` become a single stacked ``wetmask``. Grid
+    coordinates are preserved. This is the dataset-level counterpart to the eval
+    writer's reassembly, for putting ground-truth inputs on the same footing as
+    predictions.
+
+    Implemented as the inverse of `with_level_index_vars` followed by the existing
+    `compact_dataset` (stacks the ``_lev_`` form) and `unflatten_masks`.
+    """
+    data = with_depth_value_vars(data, dataset_spec)
+    data = compact_dataset(data)
+    if dataset_spec.mask_vars[0] in data.variables:
+        data = unflatten_masks(data, dataset_spec=dataset_spec)
     return data

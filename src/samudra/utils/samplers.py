@@ -8,7 +8,7 @@ import random
 from collections.abc import Callable, Hashable
 from typing import TYPE_CHECKING, Self
 
-from torch.utils.data import BatchSampler, Sampler, SubsetRandomSampler
+from torch.utils.data import BatchSampler, Sampler
 
 if TYPE_CHECKING:
     from samudra.datasets import TorchTrainDataset
@@ -42,6 +42,7 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
         batch_size: Number of samples per batch
         shuffle: Whether to shuffle indices within groups and shuffle batches globally
         drop_last: Whether to drop incomplete batches at the end of each group
+        seed: Random seed for deterministic shuffling
     """
 
     def __init__(
@@ -50,24 +51,29 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
         batch_size: int,
         shuffle: bool = True,
         drop_last: bool = False,
+        *,
+        seed: int,
     ):
         super().__init__()
         self.groups = groups
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.drop_last = drop_last
-
-        # Choose sampler based on shuffle setting
-        SubsetSampler = SubsetRandomSampler if self.shuffle else _SimpleSubsetSampler
+        self.seed = seed
+        self.epoch = 0
 
         self._samplers = [
             BatchSampler(
-                SubsetSampler(group),
+                _SimpleSubsetSampler(group),
                 batch_size=self.batch_size,
                 drop_last=self.drop_last,
             )
             for group in self.groups
         ]
+
+    def set_epoch(self, epoch: int) -> None:
+        """Set the epoch for deterministic shuffling."""
+        self.epoch = epoch
 
     @classmethod
     def from_dataset_sizes(
@@ -76,6 +82,8 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
         batch_size: int,
         shuffle: bool = True,
         drop_last: bool = False,
+        *,
+        seed: int,
     ) -> Self:
         """Create sampler from dataset sizes, treating each as a contiguous group.
 
@@ -85,13 +93,14 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
             batch_size: Number of samples per batch
             shuffle: Whether to shuffle indices within groups and shuffle batches globally
             drop_last: Whether to drop incomplete batches at the end of each group
+            seed: Random seed for deterministic shuffling
         """
         cumsum = 0
         groups = []
         for size in dataset_sizes:
             groups.append(list(range(cumsum, cumsum + size)))
             cumsum += size
-        return cls(groups, batch_size, shuffle, drop_last)
+        return cls(groups, batch_size, shuffle, drop_last, seed=seed)
 
     @classmethod
     def from_datasets(
@@ -101,6 +110,8 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
         batch_size: int,
         shuffle: bool,
         drop_last: bool,
+        *,
+        seed: int,
     ) -> Self:
         """Create sampler by grouping datasets using a key function.
 
@@ -113,6 +124,7 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
             batch_size: Number of samples per batch
             shuffle: Whether to shuffle indices within groups and shuffle batches globally
             drop_last: Whether to drop incomplete batches at the end of each group
+            seed: Random seed for deterministic shuffling
 
         Examples:
                 - lambda ds: (ds._input_src.data.sizes['lat'], ds._input_src.data.sizes['lon'])  # group by resolution
@@ -125,10 +137,11 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
             >>> # Group datasets by resolution, allowing different strides to be batched together
             >>> sampler = EquivalenceGroupBatchSampler.from_datasets(
             ...     datasets=dataset_list,
-            ...     group_key=lambda ds: tuple(prog.grid_size for prog in ds.prognostic_srcs),
+            ...     group_key=lambda ds: ds.prognostic_src.grid_size,
             ...     batch_size=32,
             ...     shuffle=True,
             ...     drop_last=True,
+            ...     seed=15,
             ... )
         """
         from collections import defaultdict
@@ -147,21 +160,25 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
         sorted_groups = sorted(groups.items(), key=lambda x: x[0])  # type: ignore
         group_indices = [indices for _, indices in sorted_groups]
 
-        return cls(group_indices, batch_size, shuffle, drop_last)
+        return cls(group_indices, batch_size, shuffle, drop_last, seed=seed)
 
     def __iter__(self):
-        # Create batch samplers for each group
-        batch_sampler = itertools.chain(*self._samplers)
+        rng = random.Random(self.seed + self.epoch)
+        all_batches: list[Batch] = []
+        for group in self.groups:
+            indices = list(group)
+            if self.shuffle:
+                rng.shuffle(indices)
 
-        if not self.shuffle:
-            # No global shuffle: return batches in sequential group order
-            yield from batch_sampler
-        else:
-            # Shuffle batches globally to avoid sequential group processing
-            # This is regenerated each epoch, giving different orderings
-            all_batches = list(batch_sampler)
-            random.shuffle(all_batches)
-            yield from all_batches
+            for start in range(0, len(indices), self.batch_size):
+                batch = indices[start : start + self.batch_size]
+                if len(batch) == self.batch_size or not self.drop_last:
+                    all_batches.append(batch)
+
+        if self.shuffle:
+            rng.shuffle(all_batches)
+
+        yield from all_batches
 
     def __len__(self):
         """Calculate total number of batches across all groups."""
@@ -233,6 +250,7 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[Batch]):
             batch_size=batch_size,
             shuffle=False,  # We handle shuffling with seeded RNG
             drop_last=drop_last,
+            seed=seed,
         )
 
     def set_epoch(self, epoch: int) -> None:

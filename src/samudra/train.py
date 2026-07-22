@@ -4,7 +4,6 @@
 
 import contextlib
 import datetime
-import itertools
 import logging
 import multiprocessing
 import os
@@ -12,10 +11,9 @@ import tempfile
 import time
 import warnings
 from collections import OrderedDict
-from collections.abc import Iterable
 from multiprocessing.context import BaseContext
 from pathlib import Path
-from typing import Any, assert_never
+from typing import Any
 
 import dask
 import torch
@@ -36,7 +34,7 @@ from samudra.aggregator.loss import (
     get_variable_loss_dict,
 )
 from samudra.backend import init_train_backend
-from samudra.config import TrainConfig, TrainSchedule, build_loss_fn
+from samudra.config import TrainConfig, build_loss_fn
 from samudra.constants import (
     MAX_TRAIN_MODEL_STEPS_FORWARD,
     BoundaryVarNames,
@@ -59,7 +57,7 @@ from samudra.stepper import (
     train_batch,
     validate_batch,
 )
-from samudra.utils.data import DataSource, Normalize, get_inference_steps
+from samudra.utils.data import Normalize, get_inference_steps
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import (
     all_reduce_mean,
@@ -151,16 +149,6 @@ class Trainer:
         self.data_container = cfg.data.build(
             data_root=cfg.experiment.resolved_data_root,
         )
-        self.train_schedule: TrainSchedule = cfg.experiment.train_schedule
-        if self.train_schedule == "mix" and cfg.model.pred_residuals:
-            raise ValueError(
-                "Residual predictions on a mixed multiscale training schedule is not currently supported."
-            )
-        if self.train_schedule == "mix" and any(step > 1 for step in cfg.steps):
-            raise ValueError(
-                "Step predictions on a mixed multiscale training schedule is not currently supported."
-            )
-
         data_num_workers = cfg.data.loading.num_pytorch_workers()
         persistent_workers = cfg.data.loading.persistent_pytorch_workers()
 
@@ -683,8 +671,8 @@ class Trainer:
             and self.validation_images_enabled
         )
 
-        if self.train_schedule == "standard":
-            # The standard val aggregator only supports a single scale.
+        if len(self.data_container.sources) == 1:
+            # The standard validation aggregator only supports a single scale.
             val_aggregator = Aggregator.get_validation_aggregator(
                 self.primary_src.metadata,
                 self.hist,
@@ -799,23 +787,11 @@ class Trainer:
         Args:
             cur_step: Current training step size
         """
-        scales = self.data_container.sources
-        match self.train_schedule:
-            case "standard":
-                srcs: Iterable[tuple[DataSource, DataSource | None]] = [
-                    (scales[0], None)
-                ]
-            case "match":
-                srcs = [(s, s) for s in scales]
-            case "mix":
-                srcs = list(itertools.product(scales, repeat=2))  # type: ignore
-            case _:
-                assert_never(self.train_schedule)
+        srcs = self.data_container.sources
 
         train_datasets = [
             TorchTrainDataset(
                 src=src.slice(self.train_time),
-                dst=dst.slice(self.train_time) if dst else None,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -826,13 +802,12 @@ class Trainer:
                 concurrent_compute_=self.concurrent_compute,
             )
             for stride in self.data_stride
-            for src, dst in srcs
+            for src in srcs
         ]
 
         val_datasets = [
             TorchTrainDataset(
                 src=src.slice(self.val_time),
-                dst=dst.slice(self.val_time) if dst else None,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -843,7 +818,7 @@ class Trainer:
                 concurrent_compute_=self.concurrent_compute,
             )
             for stride in self.data_stride
-            for src, dst in srcs
+            for src in srcs
         ]
 
         # Create datasets
@@ -874,9 +849,9 @@ class Trainer:
                 )
 
         # Create batch samplers - branch on distributed vs non-distributed
-        # Group by input AND label resolution to handle all training schedules
+        # Group by resolution so batches stay homogeneous across configured sources.
         def group_key(ds):
-            return tuple(prog.grid_size for prog in ds.prognostic_srcs)
+            return ds.prognostic_src.grid_size
 
         if self.distributed is not None:
             # Distributed training

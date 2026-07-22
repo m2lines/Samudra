@@ -4,18 +4,20 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Build a small, read-only-at-runtime Apptainer overlay containing the Samudra
-# source and configs from an exact, pushed git commit. The heavyweight runtime
-# environment remains in a separately cached SIF.
+# Build a small Apptainer overlay containing the Samudra source and configs
+# from a pushed git ref. The heavyweight container environment remains in a
+# separately cached SIF.
 
 set -euo pipefail
 
 usage() {
   cat <<'EOF'
 Usage:
-  build_apptainer_code_layer.sh <40-character-git-commit> <runtime-sif>
+  build_apptainer_code_layer.sh <git-ref> <container-sif>
 
 Environment variables:
+  CODE_REF           Git ref to fetch. Branch names, tags, refs, and full SHAs
+                     are accepted when reachable from CODE_REPO_URL.
   CODE_REPO_URL       Git repository to fetch
                       (default: https://github.com/m2lines/Samudra.git)
   CODE_LAYER_DIR      Destination directory
@@ -23,26 +25,21 @@ Environment variables:
   CODE_LAYER_SIZE_MB  EXT3 overlay capacity in MiB (default: 128)
   APPTAINER_BIN       apptainer or singularity executable (auto-detected)
 
-The runtime SIF's /workspace/uv.lock and /workspace/pyproject.toml must be
-byte-for-byte identical to the requested commit. A dependency change requires
-a new runtime image; there is deliberately no mismatch override.
+The container SIF's /workspace/uv.lock and /workspace/pyproject.toml must be
+byte-for-byte identical to the resolved commit. A dependency change requires a
+new container image; there is deliberately no mismatch override.
 EOF
 }
 
-CODE_COMMIT="${1:-${CODE_COMMIT:-}}"
+CODE_REF="${1:-${CODE_REF:-}}"
 SIF_PATH="${2:-${SIF_PATH:-}}"
-if [[ -z "${CODE_COMMIT}" || -z "${SIF_PATH}" ]]; then
+if [[ -z "${CODE_REF}" || -z "${SIF_PATH}" ]]; then
   usage >&2
   exit 2
 fi
-if [[ ! "${CODE_COMMIT}" =~ ^[0-9a-fA-F]{40}$ ]]; then
-  echo "CODE_COMMIT must be a full 40-character git commit: ${CODE_COMMIT}" >&2
-  exit 2
-fi
-CODE_COMMIT="${CODE_COMMIT,,}"
 
 if [[ ! -s "${SIF_PATH}" ]]; then
-  echo "Runtime SIF does not exist or is empty: ${SIF_PATH}" >&2
+  echo "Container SIF does not exist or is empty: ${SIF_PATH}" >&2
   exit 3
 fi
 SIF_PATH="$(realpath "${SIF_PATH}")"
@@ -79,15 +76,6 @@ fi
 
 mkdir -p "${CODE_LAYER_DIR}"
 CODE_LAYER_DIR="$(realpath "${CODE_LAYER_DIR}")"
-LAYER_BASENAME="samudra-code-${CODE_COMMIT}.img"
-LAYER_PATH="${CODE_LAYER_DIR}/${LAYER_BASENAME}"
-SHA_PATH="${LAYER_PATH}.sha256"
-MANIFEST_PATH="${LAYER_PATH}.json"
-
-# Only one process may publish a layer for a commit. The lock also prevents a
-# reader from observing a partially copied sparse image.
-exec 9>"${CODE_LAYER_DIR}/.${LAYER_BASENAME}.lock"
-flock 9
 
 BUILD_DIR="$(mktemp -d "${TMPDIR:-/tmp}/samudra-code-layer.XXXXXX")"
 cleanup() {
@@ -98,47 +86,55 @@ trap cleanup EXIT
 CHECKOUT_DIR="${BUILD_DIR}/repo"
 git init --quiet "${CHECKOUT_DIR}"
 git -C "${CHECKOUT_DIR}" remote add origin "${CODE_REPO_URL}"
-echo "Fetching pushed commit ${CODE_COMMIT} from ${CODE_REPO_URL}"
-if ! git -C "${CHECKOUT_DIR}" fetch --quiet --no-tags --depth=1 origin "${CODE_COMMIT}"; then
-  echo "Could not fetch ${CODE_COMMIT}; ensure the commit has been pushed and is reachable." >&2
+echo "Fetching pushed ref ${CODE_REF} from ${CODE_REPO_URL}"
+if ! git -C "${CHECKOUT_DIR}" fetch --quiet --no-tags --depth=1 origin "${CODE_REF}"; then
+  echo "Could not fetch ${CODE_REF}; ensure the ref has been pushed and is reachable." >&2
   exit 5
 fi
 RESOLVED_COMMIT="$(git -C "${CHECKOUT_DIR}" rev-parse --verify FETCH_HEAD^{commit})"
-if [[ "${RESOLVED_COMMIT}" != "${CODE_COMMIT}" ]]; then
-  echo "Fetched commit ${RESOLVED_COMMIT}, expected ${CODE_COMMIT}." >&2
-  exit 5
-fi
+CODE_COMMIT="${RESOLVED_COMMIT,,}"
+echo "Resolved ${CODE_REF} to ${CODE_COMMIT}."
 git -C "${CHECKOUT_DIR}" checkout --quiet --detach "${RESOLVED_COMMIT}"
 
 for source_path in src configs pyproject.toml uv.lock; do
   if [[ ! -e "${CHECKOUT_DIR}/${source_path}" ]]; then
-    echo "Required source path is absent from ${CODE_COMMIT}: ${source_path}" >&2
+    echo "Required source path is absent from ${CODE_REF} (${CODE_COMMIT}): ${source_path}" >&2
     exit 6
   fi
 done
 
+LAYER_BASENAME="samudra-code-${CODE_COMMIT}.img"
+LAYER_PATH="${CODE_LAYER_DIR}/${LAYER_BASENAME}"
+SHA_PATH="${LAYER_PATH}.sha256"
+MANIFEST_PATH="${LAYER_PATH}.json"
+
+# Only one process may publish a layer for a commit. The lock also prevents a
+# reader from observing a partially copied sparse image.
+exec 9>"${CODE_LAYER_DIR}/.${LAYER_BASENAME}.lock"
+flock 9
+
 SOURCE_MOUNT=/opt/samudra-layer-source
-compare_runtime_file() {
+compare_container_file() {
   local relative_path="$1"
   if ! "${APPTAINER_BIN}" exec \
     --bind "${CHECKOUT_DIR}:${SOURCE_MOUNT}:ro" \
     "${SIF_PATH}" \
     cmp -s "${SOURCE_MOUNT}/${relative_path}" "/workspace/${relative_path}"; then
-    echo "Runtime environment mismatch: ${relative_path} differs from the runtime SIF." >&2
+    echo "Container environment mismatch: ${relative_path} differs from the container SIF." >&2
     echo "Code commit: ${CODE_COMMIT}" >&2
-    echo "Runtime SIF: ${SIF_PATH}" >&2
-    echo "Rebuild the runtime image/SIF before using this commit." >&2
+    echo "Container SIF: ${SIF_PATH}" >&2
+    echo "Rebuild the container image/SIF before using this commit." >&2
     echo "Source ${relative_path}:" >&2
     sha256sum "${CHECKOUT_DIR}/${relative_path}" >&2
-    echo "Runtime ${relative_path}:" >&2
+    echo "Container ${relative_path}:" >&2
     "${APPTAINER_BIN}" exec "${SIF_PATH}" sha256sum "/workspace/${relative_path}" >&2 || true
     exit 7
   fi
 }
 
-compare_runtime_file uv.lock
-compare_runtime_file pyproject.toml
-echo "Runtime lockfiles match ${CODE_COMMIT}."
+compare_container_file uv.lock
+compare_container_file pyproject.toml
+echo "Container lockfiles match ${CODE_COMMIT}."
 
 verify_existing_layer() {
   if [[ ! -s "${LAYER_PATH}" || ! -s "${SHA_PATH}" || ! -s "${MANIFEST_PATH}" ]]; then
@@ -156,6 +152,8 @@ verify_existing_layer() {
 
 if verify_existing_layer; then
   echo "Using existing verified code layer: ${LAYER_PATH}"
+  echo "CODE_REF=${CODE_REF}"
+  echo "CODE_COMMIT=${CODE_COMMIT}"
   echo "CODE_LAYER=${LAYER_PATH}"
   exit 0
 fi
@@ -169,6 +167,7 @@ SOURCE_UV_LOCK_SHA256="$(sha256sum "${CHECKOUT_DIR}/uv.lock" | awk '{print $1}')
 SOURCE_PYPROJECT_SHA256="$(sha256sum "${CHECKOUT_DIR}/pyproject.toml" | awk '{print $1}')"
 BUILD_MANIFEST="${BUILD_DIR}/source-manifest.json"
 CODE_COMMIT="${CODE_COMMIT}" \
+CODE_REF="${CODE_REF}" \
 CODE_REPO_URL="${CODE_REPO_URL}" \
 BUILD_TIMESTAMP="${BUILD_TIMESTAMP}" \
 SOURCE_UV_LOCK_SHA256="${SOURCE_UV_LOCK_SHA256}" \
@@ -181,6 +180,7 @@ import sys
 manifest = {
     "schema_version": 1,
     "code_commit": os.environ["CODE_COMMIT"],
+    "requested_code_ref": os.environ["CODE_REF"],
     "code_repo_url": os.environ["CODE_REPO_URL"],
     "built_at_utc": os.environ["BUILD_TIMESTAMP"],
     "source_root": "/opt/samudra-code",
@@ -243,4 +243,6 @@ mv "${STAGED_MANIFEST}" "${MANIFEST_PATH}"
 
 echo "Published code layer: ${LAYER_PATH}"
 echo "Layer SHA-256:       ${LAYER_SHA256}"
+echo "CODE_REF=${CODE_REF}"
+echo "CODE_COMMIT=${CODE_COMMIT}"
 echo "CODE_LAYER=${LAYER_PATH}"

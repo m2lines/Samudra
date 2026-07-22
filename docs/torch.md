@@ -24,7 +24,7 @@ The container build workflow is `.github/workflows/container-physicsnemo.yml`.
   - `push` to `main`, or
   - `workflow_dispatch` (manual run).
 
-Build a new container when the runtime environment changes, including changes to
+Build a new container when the container environment changes, including changes to
 `uv.lock`, `pyproject.toml`, the PhysicsNeMo base, or system packages. For source
 and config-only branch work, use a code overlay as described below instead.
 
@@ -42,6 +42,21 @@ On torch, `scripts/slurm_apptainer_train.sbatch` can pull by:
 - `CONTAINER_TAG=26.05-manual-...`, or
 - `IMAGE_REF=ghcr.io/...:<tag>` (takes precedence over the two above)
 
+For predictable startup time, pre-pull the SIF with a CPU-only job before
+submitting GPU train/eval jobs:
+
+```bash
+export SCRATCH_DIR=/scratch/$USER
+export SIF_PATH=/scratch/$USER/.apptainer-images/physicsnemo-26.05-latest.sif
+export CONTAINER_TAG=26.05-latest
+
+sbatch \
+  --chdir=/scratch/$USER \
+  --output=/scratch/$USER/pull-sif-%j.out \
+  --error=/scratch/$USER/pull-sif-%j.err \
+  scripts/slurm_apptainer_pull.sbatch
+```
+
 ## Training Harness
 
 Main script:
@@ -50,7 +65,7 @@ Main script:
 
 By default, the actual training run uses the code and configs baked into the
 container under `/workspace`. Alternatively, `CODE_LAYER` selects a small,
-commit-addressed EXT3 overlay built by `scripts/build_apptainer_code_layer.sh`.
+commit-named EXT3 overlay built by `scripts/build_apptainer_code_layer.sh`.
 The overlay is checksum-verified and mounted read-only under
 `/opt/samudra-code`; it is not a live checkout, so later host edits cannot alter
 a queued, running, requeued, or resumed job.
@@ -68,6 +83,8 @@ It expects environment variables:
   `--experiment.base_output_dir` (default: `/scratch/<current_user>/runs`)
 - `ARGS` (optional): extra CLI overrides, e.g. `--batch_size=1`
 - `NSYS_ARGS` (optional): if set, wrap the training launch with `nsys profile`
+- `SCRATCH_DIR` (optional): host scratch/work directory for default SIF and data
+  caches (default: `/scratch/<current_user>`)
 - `CODE_LAYER` (optional): absolute path to a code overlay produced by
   `scripts/build_apptainer_code_layer.sh`
 - `WANDB_API_KEY` (optional): if set and `WANDB_MODE` unset, defaults to W&B online
@@ -82,38 +99,45 @@ Key behavior:
 - Uses the container venv explicitly (`/workspace/.venv/bin/python`) to avoid missing deps.
 - Source/config-only changes can use a code overlay without rebuilding the container.
 - Dependency changes require a new container because the overlay builder refuses
-  any `uv.lock` or `pyproject.toml` mismatch with the runtime SIF.
-- Caches the pulled SIF under `${REPO_DIR}/.apptainer-images/` by default.
+  any `uv.lock` or `pyproject.toml` mismatch with the container SIF.
+- Caches the pulled SIF under `${SCRATCH_DIR}/.apptainer-images/` by default.
 - If `NSYS_ARGS` is set and does not include `-o`/`--output`, reports are written under
   `${OUTPUT_BASE}/${NAME}/nsys/`.
 - Defaults to a 8-hour walltime in `scripts/slurm_apptainer_train.sbatch`.
 - Our 1-degree jobs take around 4-6 hours, so this is safe; you should probalby
   increase it by data size for 1/2-degree (i.e. 4x more data = 4x more time) etc.
 
-## Fast Iteration With Commit-Addressed Code Overlays
+## Fast Iteration With Ref-Built Code Overlays
 
-The code-layer builder fetches an exact 40-character commit from Git, so the
-commit must be pushed first. It does not use or modify a checkout on Torch.
+The code-layer builder fetches a pushed Git ref, resolves it to a full commit,
+and names the overlay from that resolved SHA. It does not use or modify a
+checkout on Torch.
 
-Copy the builder and harness to Torch:
+Copy the builder and harnesses to Torch:
 
 ```bash
+scp scripts/slurm_apptainer_pull.sbatch torch:~/slurm_apptainer_pull.sbatch
 scp scripts/build_apptainer_code_layer.sh torch:~/build_apptainer_code_layer.sh
 scp scripts/slurm_apptainer_train.sbatch torch:~/slurm_apptainer_train.sbatch
 ```
 
-Choose an existing stable runtime SIF and build the layer on Torch:
+Prepare a stable container SIF, then build the layer on Torch:
 
 ```bash
 ssh torch
-export CODE_COMMIT=<full-pushed-git-sha>
-export SIF_PATH=/scratch/$USER/.apptainer-images/<stable-runtime>.sif
-bash ~/build_apptainer_code_layer.sh "${CODE_COMMIT}" "${SIF_PATH}"
+export SCRATCH_DIR=/scratch/$USER
+export SIF_PATH=/scratch/$USER/.apptainer-images/physicsnemo-26.05-latest.sif
+export CONTAINER_TAG=26.05-latest
+sbatch --chdir=/scratch/$USER ~/slurm_apptainer_pull.sbatch
+
+export CODE_REF=<pushed-branch-tag-or-sha>
+bash ~/build_apptainer_code_layer.sh "${CODE_REF}" "${SIF_PATH}"
 ```
 
 The builder performs these checks before publishing anything:
 
-- fetches exactly `CODE_COMMIT`, failing if it is not reachable from the remote;
+- fetches `CODE_REF` and resolves it to a full commit, failing if it is not
+  reachable from the remote;
 - byte-compares the commit's `uv.lock` and `pyproject.toml` with `/workspace`
   inside `SIF_PATH`;
 - verifies that Python imports `samudra` from the completed overlay;
@@ -122,16 +146,16 @@ The builder performs these checks before publishing anything:
   `/scratch/$USER/.apptainer-code-layers/` using an atomic rename.
 
 There is intentionally no option to bypass the lockfile check. Rebuild the
-runtime image/SIF when dependencies change.
+container image/SIF when dependencies change.
 
 Submit using the stable SIF plus the new code layer:
 
 ```bash
-export SIF_PATH=/scratch/$USER/.apptainer-images/<stable-runtime>.sif
-export CODE_LAYER=/scratch/$USER/.apptainer-code-layers/samudra-code-${CODE_COMMIT}.img
+export SCRATCH_DIR=/scratch/$USER
+export SIF_PATH=/scratch/$USER/.apptainer-images/physicsnemo-26.05-latest.sif
+export CODE_LAYER=/scratch/$USER/.apptainer-code-layers/samudra-code-<resolved-full-sha>.img
 export CONFIG=configs/samudra_om4/train.yaml
 export NAME_SUFFIX=my-code-layer-run
-export REPO_DIR=/scratch/$USER
 export SIF_DIR=/scratch/$USER/.apptainer-images
 export DATA_CACHE_DIR=/scratch/$USER/.data_cache/${NAME_SUFFIX}
 export APPTAINER_CACHEDIR=/scratch/$USER/apptainer-cache
@@ -150,8 +174,8 @@ At launch, the harness verifies the layer checksum again and mounts it with
 
 W&B receives the code-layer commit through `WANDB_GIT_COMMIT`, so its Git
 metadata describes the code actually executed. The W&B config also records a
-`provenance` object containing the code commit, code-layer SHA-256, runtime
-container commit, and runtime image reference or SIF path.
+`provenance` object containing the code commit, code-layer SHA-256, container
+commit, and container image reference or SIF path.
 
 ### Example: 1 Node, 8x RTX6000 on the NYU Torch HPC
 
@@ -284,6 +308,8 @@ It expects environment variables:
 - `OUTPUT_BASE` (optional): host output base dir passed to `--experiment.base_output_dir`
   (default: `/scratch/<current_user>/runs`)
 - `ARGS` (optional): extra CLI overrides
+- `SCRATCH_DIR` (optional): host scratch/work directory for default SIF and data
+  caches (default: `/scratch/<current_user>`)
 - `CODE_LAYER` (optional): absolute path to a code overlay produced by
   `scripts/build_apptainer_code_layer.sh`
 - `WANDB_API_KEY` (optional): if set and `WANDB_MODE` unset, defaults to W&B online
@@ -349,7 +375,7 @@ Symptom without the above:
 ## Apptainer Caching / Pulling
 
 By default the harness will cache pulled SIFs in SIF_DIR, which
-defaults to `${REPO_DIR}/.apptainer-images`. using a unqiue name
+defaults to `${SCRATCH_DIR}/.apptainer-images`, using a unique name
 based on the container you've specified.
 
 You can also point it directly to a SIF_PATH. If the SIF_PATH does

@@ -151,20 +151,22 @@ if [[ -z "${IMAGE_REF}" ]]; then
   IMAGE_REF="${CONTAINER_REGISTRY}/${CONTAINER_ORG}/${CONTAINER_REPO}:${CONTAINER_TAG}"
 fi
 
-REPO_DIR="${REPO_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}"
-cd "${REPO_DIR}"
+SCRATCH_DIR="${SCRATCH_DIR:-/scratch/${CURRENT_USER}}"
+mkdir -p "${SCRATCH_DIR}"
+SCRATCH_DIR="$(realpath "${SCRATCH_DIR}")"
+cd "${SCRATCH_DIR}"
 
-SIF_DIR="${SIF_DIR:-${REPO_DIR}/.apptainer-images}"
+SIF_DIR="${SIF_DIR:-${SCRATCH_DIR}/.apptainer-images}"
 mkdir -p "${SIF_DIR}"
 # Default cache name keys off IMAGE_REF so distinct refs never collide.
 IMAGE_REF_SAFE="$(echo "${IMAGE_REF}" | tr '/:@' '---')"
 SIF_PATH_INPUT="${SIF_PATH:-}"
 SIF_PATH="${SIF_PATH:-${SIF_DIR}/${IMAGE_REF_SAFE}.sif}"
-RUNTIME_IMAGE_REF="${IMAGE_REF}"
+CONTAINER_IMAGE_REF="${IMAGE_REF}"
 if [[ -n "${SIF_PATH_INPUT}" && -s "${SIF_PATH_INPUT}" ]]; then
   # A pre-existing explicit SIF may not correspond to IMAGE_REF. Record its
   # path and avoid claiming the fallback pull reference as its identity.
-  RUNTIME_IMAGE_REF=""
+  CONTAINER_IMAGE_REF=""
 fi
 
 # Apptainer tmp: keep on node-local /tmp to avoid scratch filesystems that don't support xattrs.
@@ -178,7 +180,7 @@ if [[ -n "${GHCR_TOKEN:-}" ]] && [[ -z "${APPTAINER_DOCKER_PASSWORD:-}" ]]; then
   export APPTAINER_DOCKER_PASSWORD="${GHCR_TOKEN}"
 fi
 
-echo "Repo dir:   ${REPO_DIR}"
+echo "Scratch:    ${SCRATCH_DIR}"
 echo "Config:     ${CONFIG}"
 echo "Name:       ${NAME}"
 echo "Data root:  ${DATA_ROOT}"
@@ -200,17 +202,17 @@ fi
 
 # The SIF supplies the heavyweight Python/CUDA environment. An optional code
 # overlay supplies source/configs from a separately pinned git commit.
-RUNTIME_GIT_COMMIT="$(
+CONTAINER_GIT_COMMIT="$(
   "${APPTAINER_BIN}" exec "${SIF_PATH}" \
-    bash -lc 'printf %s "${SAMUDRA_RUNTIME_GIT_COMMIT:-${WANDB_GIT_COMMIT:-unknown}}"'
+    bash -lc 'printf %s "${SAMUDRA_CONTAINER_GIT_COMMIT:-${WANDB_GIT_COMMIT:-unknown}}"'
 )"
-RUNTIME_GIT_REMOTE_URL="$(
+CONTAINER_GIT_REMOTE_URL="$(
   "${APPTAINER_BIN}" exec "${SIF_PATH}" \
-    bash -lc 'printf %s "${SAMUDRA_RUNTIME_GIT_REMOTE_URL:-${WANDB_GIT_REMOTE_URL:-unknown}}"'
+    bash -lc 'printf %s "${SAMUDRA_CONTAINER_GIT_REMOTE_URL:-${WANDB_GIT_REMOTE_URL:-unknown}}"'
 )"
 CODE_ROOT=/workspace
-CODE_GIT_COMMIT="${RUNTIME_GIT_COMMIT}"
-CODE_GIT_REMOTE_URL="${RUNTIME_GIT_REMOTE_URL}"
+CODE_GIT_COMMIT="${CONTAINER_GIT_COMMIT}"
+CODE_GIT_REMOTE_URL="${CONTAINER_GIT_REMOTE_URL}"
 CODE_LAYER_SHA256=""
 CODE_LAYER_MANIFEST=""
 OVERLAY_ARGS=()
@@ -261,9 +263,9 @@ print(manifest["code_repo_url"])
         && cmp -s /opt/samudra-code/uv.lock /workspace/uv.lock \
         && cmp -s /opt/samudra-code/pyproject.toml /workspace/pyproject.toml
     '; then
-    echo "CODE_LAYER manifest or lockfiles do not match the selected runtime SIF." >&2
+    echo "CODE_LAYER manifest or lockfiles do not match the selected container SIF." >&2
     echo "Code layer:  ${CODE_LAYER}" >&2
-    echo "Runtime SIF: ${SIF_PATH}" >&2
+    echo "Container SIF: ${SIF_PATH}" >&2
     exit 7
   fi
 fi
@@ -274,35 +276,35 @@ if [[ "${CONFIG_IN_CONTAINER}" != /* ]]; then
 fi
 
 echo "Resolved config: ${CONFIG_IN_CONTAINER}"
-echo "Runtime commit: ${RUNTIME_GIT_COMMIT}"
+echo "Container commit: ${CONTAINER_GIT_COMMIT}"
 echo "Code commit:    ${CODE_GIT_COMMIT}"
 if [[ -n "${CODE_LAYER}" ]]; then
   echo "Code layer:     ${CODE_LAYER}"
   echo "Code layer SHA: ${CODE_LAYER_SHA256}"
 else
-  echo "Code layer:     none (using source baked into runtime SIF)"
+  echo "Code layer:     none (using source baked into container SIF)"
 fi
 
 # W&B's git panel must describe the code being executed, not the commit that
-# happened to build the runtime environment. Keep both identities explicitly.
+# happened to build the container image. Keep both identities explicitly.
 export APPTAINERENV_WANDB_GIT_COMMIT="${CODE_GIT_COMMIT}"
 export APPTAINERENV_WANDB_GIT_REMOTE_URL="${CODE_GIT_REMOTE_URL}"
 export APPTAINERENV_SAMUDRA_CODE_COMMIT="${CODE_GIT_COMMIT}"
 export APPTAINERENV_SAMUDRA_CODE_REPO_URL="${CODE_GIT_REMOTE_URL}"
 export APPTAINERENV_SAMUDRA_CODE_LAYER_SHA256="${CODE_LAYER_SHA256}"
-export APPTAINERENV_SAMUDRA_RUNTIME_GIT_COMMIT="${RUNTIME_GIT_COMMIT}"
-export APPTAINERENV_SAMUDRA_RUNTIME_GIT_REMOTE_URL="${RUNTIME_GIT_REMOTE_URL}"
-export APPTAINERENV_SAMUDRA_RUNTIME_IMAGE_REF="${RUNTIME_IMAGE_REF}"
-export APPTAINERENV_SAMUDRA_RUNTIME_SIF_PATH="${SIF_PATH}"
+export APPTAINERENV_SAMUDRA_CONTAINER_GIT_COMMIT="${CONTAINER_GIT_COMMIT}"
+export APPTAINERENV_SAMUDRA_CONTAINER_GIT_REMOTE_URL="${CONTAINER_GIT_REMOTE_URL}"
+export APPTAINERENV_SAMUDRA_CONTAINER_IMAGE_REF="${CONTAINER_IMAGE_REF}"
+export APPTAINERENV_SAMUDRA_CONTAINER_SIF_PATH="${SIF_PATH}"
 export SINGULARITYENV_WANDB_GIT_COMMIT="${CODE_GIT_COMMIT}"
 export SINGULARITYENV_WANDB_GIT_REMOTE_URL="${CODE_GIT_REMOTE_URL}"
 export SINGULARITYENV_SAMUDRA_CODE_COMMIT="${CODE_GIT_COMMIT}"
 export SINGULARITYENV_SAMUDRA_CODE_REPO_URL="${CODE_GIT_REMOTE_URL}"
 export SINGULARITYENV_SAMUDRA_CODE_LAYER_SHA256="${CODE_LAYER_SHA256}"
-export SINGULARITYENV_SAMUDRA_RUNTIME_GIT_COMMIT="${RUNTIME_GIT_COMMIT}"
-export SINGULARITYENV_SAMUDRA_RUNTIME_GIT_REMOTE_URL="${RUNTIME_GIT_REMOTE_URL}"
-export SINGULARITYENV_SAMUDRA_RUNTIME_IMAGE_REF="${RUNTIME_IMAGE_REF}"
-export SINGULARITYENV_SAMUDRA_RUNTIME_SIF_PATH="${SIF_PATH}"
+export SINGULARITYENV_SAMUDRA_CONTAINER_GIT_COMMIT="${CONTAINER_GIT_COMMIT}"
+export SINGULARITYENV_SAMUDRA_CONTAINER_GIT_REMOTE_URL="${CONTAINER_GIT_REMOTE_URL}"
+export SINGULARITYENV_SAMUDRA_CONTAINER_IMAGE_REF="${CONTAINER_IMAGE_REF}"
+export SINGULARITYENV_SAMUDRA_CONTAINER_SIF_PATH="${SIF_PATH}"
 
 # Distributed rendezvous info (shared by all nodes).
 MASTER_ADDR="$(scontrol show hostnames "${SLURM_JOB_NODELIST}" | head -n 1)"
@@ -345,7 +347,7 @@ export APPTAINERENV_PYTHONNOUSERSITE="${APPTAINERENV_PYTHONNOUSERSITE:-${PYTHONN
 export SINGULARITYENV_PYTHONNOUSERSITE="${SINGULARITYENV_PYTHONNOUSERSITE:-${PYTHONNOUSERSITE}}"
 
 # Bind mounts.
-DATA_CACHE_DIR="${DATA_CACHE_DIR:-${REPO_DIR}/.data_cache/${NAME}}"
+DATA_CACHE_DIR="${DATA_CACHE_DIR:-${SCRATCH_DIR}/.data_cache/${NAME}}"
 mkdir -p "${DATA_CACHE_DIR}"
 binds=(
   "${DATA_ROOT}:${DATA_ROOT}"
@@ -364,10 +366,10 @@ SAMUDRA_PROVENANCE_PATH="${RUN_DIR}/run-provenance.json" \
 SAMUDRA_CODE_COMMIT="${CODE_GIT_COMMIT}" \
 SAMUDRA_CODE_REPO_URL="${CODE_GIT_REMOTE_URL}" \
 SAMUDRA_CODE_LAYER_SHA256="${CODE_LAYER_SHA256}" \
-SAMUDRA_RUNTIME_GIT_COMMIT="${RUNTIME_GIT_COMMIT}" \
-SAMUDRA_RUNTIME_GIT_REMOTE_URL="${RUNTIME_GIT_REMOTE_URL}" \
-SAMUDRA_RUNTIME_IMAGE_REF="${RUNTIME_IMAGE_REF}" \
-SAMUDRA_RUNTIME_SIF_PATH="${SIF_PATH}" \
+SAMUDRA_CONTAINER_GIT_COMMIT="${CONTAINER_GIT_COMMIT}" \
+SAMUDRA_CONTAINER_GIT_REMOTE_URL="${CONTAINER_GIT_REMOTE_URL}" \
+SAMUDRA_CONTAINER_IMAGE_REF="${CONTAINER_IMAGE_REF}" \
+SAMUDRA_CONTAINER_SIF_PATH="${SIF_PATH}" \
 python3 - <<'PY'
 import json
 import os
@@ -376,10 +378,10 @@ keys = (
     "SAMUDRA_CODE_COMMIT",
     "SAMUDRA_CODE_REPO_URL",
     "SAMUDRA_CODE_LAYER_SHA256",
-    "SAMUDRA_RUNTIME_GIT_COMMIT",
-    "SAMUDRA_RUNTIME_GIT_REMOTE_URL",
-    "SAMUDRA_RUNTIME_IMAGE_REF",
-    "SAMUDRA_RUNTIME_SIF_PATH",
+    "SAMUDRA_CONTAINER_GIT_COMMIT",
+    "SAMUDRA_CONTAINER_GIT_REMOTE_URL",
+    "SAMUDRA_CONTAINER_IMAGE_REF",
+    "SAMUDRA_CONTAINER_SIF_PATH",
 )
 provenance = {key.removeprefix("SAMUDRA_").lower(): os.environ[key] for key in keys}
 with open(os.environ["SAMUDRA_PROVENANCE_PATH"], "w", encoding="utf-8") as stream:

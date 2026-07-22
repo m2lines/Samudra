@@ -50,10 +50,10 @@ class WandBLogger(Multiton):
             "code_commit": "SAMUDRA_CODE_COMMIT",
             "code_repo_url": "SAMUDRA_CODE_REPO_URL",
             "code_layer_sha256": "SAMUDRA_CODE_LAYER_SHA256",
-            "runtime_git_commit": "SAMUDRA_RUNTIME_GIT_COMMIT",
-            "runtime_git_remote_url": "SAMUDRA_RUNTIME_GIT_REMOTE_URL",
-            "runtime_image_ref": "SAMUDRA_RUNTIME_IMAGE_REF",
-            "runtime_sif_path": "SAMUDRA_RUNTIME_SIF_PATH",
+            "container_git_commit": "SAMUDRA_CONTAINER_GIT_COMMIT",
+            "container_git_remote_url": "SAMUDRA_CONTAINER_GIT_REMOTE_URL",
+            "container_image_ref": "SAMUDRA_CONTAINER_IMAGE_REF",
+            "container_sif_path": "SAMUDRA_CONTAINER_SIF_PATH",
         }
         provenance = {
             name: value

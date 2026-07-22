@@ -24,7 +24,11 @@ The container build workflow is `.github/workflows/container-physicsnemo.yml`.
   - `push` to `main`, or
   - `workflow_dispatch` (manual run).
 
-Recommended for branch work:
+Build a new container when the container environment changes, including changes to
+`uv.lock`, `pyproject.toml`, the PhysicsNeMo base, or system packages. For source
+and config-only branch work, use a code overlay as described below instead.
+
+Legacy container-per-commit workflow:
 
 1. Push your code changes to your branch.
 2. Run the workflow manually (Actions UI): `Container PhysicsNeMo 26.05` with `workflow_dispatch` on your branch.
@@ -38,20 +42,33 @@ On torch, `scripts/slurm_apptainer_train.sbatch` can pull by:
 - `CONTAINER_TAG=26.05-manual-...`, or
 - `IMAGE_REF=ghcr.io/...:<tag>` (takes precedence over the two above)
 
+For predictable startup time, pre-pull the SIF with a CPU-only job before
+submitting GPU train/eval jobs:
+
+```bash
+export SCRATCH_DIR=/scratch/$USER
+export SIF_PATH=/scratch/$USER/.apptainer-images/physicsnemo-26.05-latest.sif
+export CONTAINER_TAG=26.05-latest
+
+sbatch \
+  --chdir=/scratch/$USER \
+  --output=/scratch/$USER/pull-sif-%j.out \
+  --error=/scratch/$USER/pull-sif-%j.err \
+  scripts/slurm_apptainer_pull.sbatch
+```
+
 ## Training Harness
 
 Main script:
 
 - `scripts/slurm_apptainer_train.sbatch`
 
-Typically you will have this repo cloned on a scratch space so you
-can use this script. But note that the actual training run will use the
-**code and configs baked into the container** (under `/workspace/src` and
-`/workspace/configs`). It does **not** bind-mount your host checkout into the container
-for training. This keeps runs pinned to a container tag (and avoids accidental
-drift from host edits).
-This means host-side config file edits are ignored unless they are baked into a new
-container image; for quick, run-specific tweaks, use CLI overrides via `ARGS`.
+By default, the actual training run uses the code and configs baked into the
+container under `/workspace`. Alternatively, `CODE_LAYER` selects a small,
+commit-named EXT3 overlay built by `scripts/build_apptainer_code_layer.sh`.
+The overlay is checksum-verified and mounted read-only under
+`/opt/samudra-code`; it is not a live checkout, so later host edits cannot alter
+a queued, running, requeued, or resumed job.
 
 It expects environment variables:
 
@@ -65,29 +82,111 @@ It expects environment variables:
 - `OUTPUT_BASE` (optional): host output base dir passed to
   `--experiment.base_output_dir` (default: `/scratch/<current_user>/runs`)
 - `ARGS` (optional): extra CLI overrides, e.g. `--batch_size=1`
-- `TRAIN_MODULE` (optional): Python module launched under `torchrun`; defaults to
-  `samudra.train`. Use `samudra.identity` for the fixed-sample identity diagnostic.
 - `NSYS_ARGS` (optional): if set, wrap the training launch with `nsys profile`
+- `SCRATCH_DIR` (optional): host scratch/work directory for default SIF and data
+  caches (default: `/scratch/<current_user>`)
+- `CODE_LAYER` (optional): absolute path to a code overlay produced by
+  `scripts/build_apptainer_code_layer.sh`
+- `REQUEUE_ON_USR1` (optional): set to `1` when submitting with
+  `--requeue --signal=B:USR1@300`; the harness requeues the job when Slurm sends
+  the warning signal.
 - `WANDB_API_KEY` (optional): if set and `WANDB_MODE` unset, defaults to W&B online
 - `WANDB_MODE` (optional): `online` or `disabled` (if unset, defaults based on
   whether `WANDB_API_KEY` is present)
 
 Key behavior:
 
-- Refuses to run if `${OUTPUT_BASE}/$NAME` already exists (forces unique run names).
+- Refuses to run if `${OUTPUT_BASE}/$NAME` already exists, except when
+  `SLURM_RESTART_COUNT` indicates that Slurm restarted the same requeued job.
 - Fails early if either `${DATA_ROOT}` or `${OUTPUT_BASE}` does not exist, with
   instructions to set the corresponding env var.
 - Uses the container venv explicitly (`/workspace/.venv/bin/python`) to avoid missing deps.
-- To change training code or YAML configs, rebuild/publish a new container tag and
-  point the harness at it (e.g. via `CONTAINER_HASH=<git_sha>`).
-- Caches the pulled SIF under `${REPO_DIR}/.apptainer-images/` by default.
-- Launches `samudra.train` unless `TRAIN_MODULE` selects another compatible training
-  entry point.
+- Source/config-only changes can use a code overlay without rebuilding the container.
+- Dependency changes require a new container because the overlay builder refuses
+  any `uv.lock` or `pyproject.toml` mismatch with the container SIF.
+- Caches the pulled SIF under `${SCRATCH_DIR}/.apptainer-images/` by default.
+- Lets `torchrun --standalone` choose a free rendezvous port for single-node jobs.
+  Multi-node jobs use a job-derived port unless `MASTER_PORT` is set explicitly.
+- Uses the Slurm submission directory for the working directory, pulled SIF,
+  data cache, and logs by default. The Torch training examples below override
+  these locations to `/scratch/$USER` so large files do not consume home quota.
 - If `NSYS_ARGS` is set and does not include `-o`/`--output`, reports are written under
   `${OUTPUT_BASE}/${NAME}/nsys/`.
-- Defaults to a 8-hour walltime in `scripts/slurm_apptainer_train.sbatch`.
-- Our 1-degree jobs take around 4-6 hours, so this is safe; you should probalby
-  increase it by data size for 1/2-degree (i.e. 4x more data = 4x more time) etc.
+
+When `preemptible: true`, training detects the latest checkpoint in an existing
+run directory and resumes from it after a Slurm requeue. The requeue hook does
+not create a checkpoint at signal time, so checkpoint frequently enough that
+restarting from the most recent completed epoch is acceptable.
+
+## Fast Iteration With Ref-Built Code Overlays
+
+The code-layer builder fetches a pushed Git ref, resolves it to a full commit,
+and names the overlay from that resolved SHA. It does not use or modify a
+checkout on Torch.
+
+Copy the builder and harnesses to Torch:
+
+```bash
+scp scripts/slurm_apptainer_pull.sbatch torch:~/slurm_apptainer_pull.sbatch
+scp scripts/build_apptainer_code_layer.sh torch:~/build_apptainer_code_layer.sh
+scp scripts/slurm_apptainer_train.sbatch torch:~/slurm_apptainer_train.sbatch
+```
+
+Prepare a stable container SIF, then build the layer on Torch:
+
+```bash
+ssh torch
+export SCRATCH_DIR=/scratch/$USER
+export SIF_PATH=/scratch/$USER/.apptainer-images/physicsnemo-26.05-latest.sif
+export CONTAINER_TAG=26.05-latest
+sbatch --chdir=/scratch/$USER ~/slurm_apptainer_pull.sbatch
+
+export CODE_REF=<pushed-branch-tag-or-sha>
+bash ~/build_apptainer_code_layer.sh "${CODE_REF}" "${SIF_PATH}"
+```
+
+The builder performs these checks before publishing anything:
+
+- fetches `CODE_REF` and resolves it to a full commit, failing if it is not
+  reachable from the remote;
+- byte-compares the commit's `uv.lock` and `pyproject.toml` with `/workspace`
+  inside `SIF_PATH`;
+- verifies that Python imports `samudra` from the completed overlay;
+- writes SHA-256 and JSON manifest sidecars;
+- publishes the layer under
+  `/scratch/$USER/.apptainer-code-layers/` using an atomic rename.
+
+There is intentionally no option to bypass the lockfile check. Rebuild the
+container image/SIF when dependencies change.
+
+Submit using the stable SIF plus the new code layer:
+
+```bash
+export SCRATCH_DIR=/scratch/$USER
+export SIF_PATH=/scratch/$USER/.apptainer-images/physicsnemo-26.05-latest.sif
+export CODE_LAYER=/scratch/$USER/.apptainer-code-layers/samudra-code-<resolved-full-sha>.img
+export CONFIG=configs/samudra_om4/train.yaml
+export NAME_SUFFIX=my-code-layer-run
+export SIF_DIR=/scratch/$USER/.apptainer-images
+export DATA_CACHE_DIR=/scratch/$USER/.data_cache/${NAME_SUFFIX}
+export APPTAINER_CACHEDIR=/scratch/$USER/apptainer-cache
+export SINGULARITY_CACHEDIR=/scratch/$USER/singularity-cache
+
+sbatch \
+  --chdir=/scratch/$USER \
+  --output=/scratch/$USER/slurm-%j.out \
+  --error=/scratch/$USER/slurm-%j.err \
+  ~/slurm_apptainer_train.sbatch
+```
+
+At launch, the harness verifies the layer checksum again and mounts it with
+`--overlay <layer>:ro`. It writes `source-manifest.json` and
+`run-provenance.json` into the run directory.
+
+W&B receives the code-layer commit through `WANDB_GIT_COMMIT`, so its Git
+metadata describes the code actually executed. The W&B config also records a
+`provenance` object containing the code commit, code-layer SHA-256, container
+commit, and container image reference or SIF path.
 
 ### Example: 1 Node, 8x RTX6000 on the NYU Torch HPC
 
@@ -95,25 +194,35 @@ For Torch RTX6000 nodes, size CPU and memory proportionally to GPUs. If you
 request all GPUs on a node, also request the node's full CPU and memory.
 
 Current `gr102` capacity:
+
 - `8` GPUs (`rtx6000`)
 - `128` CPUs total
 - `1,400G` memory available via SLURM
 
 So, sizing rule for this node when using our sbatch script which spawns a process
 per GPU within a task:
+
 - `--cpus-per-task=16 * <num_gpus>`
 - `--mem=175G * <num_gpus>`
 
 ie for an 8-GPU run, use `--cpus-per-task=128 --mem=1400G`.
 
 Partition guidance:
-- Do not set `--partition` by default.
-- Let Slurm place the job unless you have a specific partition requirement.
+
+- Use `--account=torch_pr_347_lzanna --partition=rtx6000_lzanna` for RTX6000
+  training unless another allocation is explicitly required.
 
 ```bash
 export CONFIG=configs/samudra_om4/train.yaml
-export NAME_SUFFIX=om4_samudra_baseline
+export NAME="$(date +%F)-om4-samudra-baseline"
 export ARGS="--batch_size=1"
+export REPO_DIR=/scratch/$USER
+export SIF_DIR=/scratch/$USER/.apptainer-images
+export APPTAINER_CACHEDIR=/scratch/$USER/apptainer-cache
+export SINGULARITY_CACHEDIR=/scratch/$USER/singularity-cache
+export DATA_CACHE_DIR=/scratch/$USER/.data_cache/$NAME
+export NCCL_P2P_DISABLE=1
+export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
 # Optional overrides (defaults are /scratch/$USER/data/om4_onedeg_v3 and /scratch/$USER/runs)
 # export DATA_ROOT=/scratch/$USER/data/om4_onedeg_v3
 # export OUTPUT_BASE=/scratch/$USER/runs
@@ -124,15 +233,77 @@ export CONTAINER_HASH=<git_sha>
 # export IMAGE_REF=ghcr.io/<owner>/ocean-emulator-physicsnemo:26.05-<git_sha>
 
 sbatch \
-  --account=torch_pr_347_courant \
+  --account=torch_pr_347_lzanna \
+  --partition=rtx6000_lzanna \
+  --chdir=/scratch/$USER \
+  --output=/scratch/$USER/slurm-%j.out \
+  --error=/scratch/$USER/slurm-%j.err \
   --nodes=1 \
   --ntasks-per-node=1 \
   --cpus-per-task=128 \
   --mem=1400G \
   --gres=gpu:rtx6000:8 \
-  --time=24:00:00 \
+  --time=8:00:00 \
   scripts/slurm_apptainer_train.sbatch
 ```
+
+### Validated 4x RTX6000 Multi-Resolution Training
+
+One known-working configuration on torch is:
+
+- The 1, 1/2, and 1/4 degree configuration in
+  `configs/samudra_multi_om4/train.yaml`.
+- 4 x RTX6000, 24 CPUs, 800G memory, and two data-loader workers per rank.
+- `--preemptible=true` with a seven-day walltime. Torch accepts this shape
+  under the `gpu168` QoS, which limits jobs over 48 hours to four GPUs total
+  per user.
+
+The 24-CPU request was sufficient to keep observed data wait near zero, and
+the two-worker run progressed without an OOM, although it touched the 800G
+cgroup limit under peak loading. For example:
+
+```bash
+export CONFIG=configs/samudra_multi_om4/train.yaml
+export NAME="$(date +%F)-samudra-multi-om4-multires-4gpu"
+export DATA_ROOT=/scratch/$USER/data
+export OUTPUT_BASE=/scratch/$USER/runs
+export WANDB_MODE=online
+export REQUEUE_ON_USR1=1
+export ARGS="--data.loading.num_workers=2 --preemptible=true"
+export REPO_DIR=/scratch/$USER
+export SIF_DIR=/scratch/$USER/.apptainer-images
+export APPTAINER_CACHEDIR=/scratch/$USER/apptainer-cache
+export SINGULARITY_CACHEDIR=/scratch/$USER/singularity-cache
+export DATA_CACHE_DIR=/scratch/$USER/.data_cache/$NAME
+export NCCL_P2P_DISABLE=1
+export TORCH_NCCL_ASYNC_ERROR_HANDLING=1
+
+# Pin the exact image rather than depending on mutable wrapper defaults.
+export IMAGE_REF=ghcr.io/<owner>/ocean-emulator-physicsnemo:<pinned-tag>
+
+sbatch \
+  --account=torch_pr_347_lzanna \
+  --partition=rtx6000_lzanna \
+  --chdir=/scratch/$USER \
+  --output=/scratch/$USER/slurm-%j.out \
+  --error=/scratch/$USER/slurm-%j.err \
+  --nodes=1 \
+  --ntasks-per-node=1 \
+  --cpus-per-task=24 \
+  --mem=800G \
+  --gres=gpu:rtx6000:4 \
+  --time=7-00:00:00 \
+  --requeue \
+  --signal=B:USR1@300 \
+  scripts/slurm_apptainer_train.sbatch
+```
+
+Command-line `sbatch` options override the corresponding directives embedded in
+the harness. The harness uses append mode because a requeued job keeps the same
+job ID and log paths. The batch-level (`B:`) USR1 signal reaches the harness,
+which calls `scontrol requeue`; on restart, the preemptible training
+configuration selects the run's latest checkpoint. The Torch examples set the
+RTX6000 NCCL environment explicitly instead of making it a harness default.
 
 To enable profiling for a run, you typically want something like this:
 
@@ -144,7 +315,8 @@ export NSYS_ARGS="--trace=cuda,nvtx,osrt,nccl --sample=cpu --delay=300 --duratio
 
 After submission:
 
-- Slurm stdout: `slurm-<jobid>.out` in the submission directory (usually the repo root on torch).
+- Slurm stdout: the path passed with `--output` (the examples use
+  `/scratch/$USER/slurm-<jobid>.out`).
 - Training log: `${OUTPUT_BASE}/${NAME:-$(date +%Y-%m-%d)-${NAME_SUFFIX}}/experiment.log`
 
 Useful commands:
@@ -220,6 +392,10 @@ It expects environment variables:
 - `OUTPUT_BASE` (optional): host output base dir passed to `--experiment.base_output_dir`
   (default: `/scratch/<current_user>/runs`)
 - `ARGS` (optional): extra CLI overrides
+- `SCRATCH_DIR` (optional): host scratch/work directory for default SIF and data
+  caches (default: `/scratch/<current_user>`)
+- `CODE_LAYER` (optional): absolute path to a code overlay produced by
+  `scripts/build_apptainer_code_layer.sh`
 - `WANDB_API_KEY` (optional): if set and `WANDB_MODE` unset, defaults to W&B online
 - `WANDB_MODE` (optional): `online` or `disabled` (if unset, defaults based on
   whether `WANDB_API_KEY` is present)
@@ -252,7 +428,7 @@ export CONTAINER_HASH=<git_sha>
 # export IMAGE_REF=ghcr.io/<owner>/ocean-emulator-physicsnemo:26.05-<git_sha>
 
 sbatch \
-  --account=torch_pr_347_courant \
+  --account=torch_pr_347_lzanna \
   --partition=rtx6000_lzanna \
   --nodes=1 \
   --ntasks-per-node=1 \
@@ -282,16 +458,9 @@ Symptom without the above:
 
 ## Apptainer Caching / Pulling
 
-By default the harness caches pulled SIFs in `SIF_DIR`, which defaults to
-`${REPO_DIR}/.apptainer-images`, using a unique name based on the selected
-container. Set `REPO_DIR`, `SIF_DIR`, and `APPTAINER_CACHEDIR` to scratch-backed
-paths when Torch home quota is too small for container images.
-
-Temporary OCI extraction must remain on a filesystem with working xattrs and
-enough free space. The training harness prefers Slurm's large per-job
-`SLURM_TMPDIR` and falls back to `/tmp` only when Slurm does not provide one.
-Do not point `APPTAINER_TMPDIR` at Torch shared scratch: that filesystem does not
-support the xattr operations required during image extraction.
+By default the harness will cache pulled SIFs in SIF_DIR, which
+defaults to `${SCRATCH_DIR}/.apptainer-images`, using a unique name
+based on the container you've specified.
 
 You can also point it directly to a SIF_PATH. If the SIF_PATH does
 not exist, the harness will pull your specified container from GHCR

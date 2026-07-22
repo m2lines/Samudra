@@ -669,6 +669,13 @@ are `0.00509` and `0.00588`, one-to-half is `0.08736`, and aggregate MSE is
 `0.02709`. This independent optimization result makes the mask-order conclusion
 robust to the original checkpoint's training path.
 
+The 40-epoch run finishes at its validation best with aggregate MSE `0.02491`.
+Final route MSEs are `0.00304` for one-to-one, `0.08498` for one-to-half,
+`0.00805` for half-to-one, and `0.00357` for half-to-half. Half-to-one is only
+`0.00262` above its `0.00543` deterministic floor, while the same-grid and
+half-to-one high-wavenumber ratios are `0.936`, `0.938`, and `0.934`. Use this
+validation-selected checkpoint for processor-depth experiments.
+
 The epoch-10 checkpoint also completes a zero-shot nine-route evaluation after
 adding the quarter-degree grid. Quarter-degree same-grid MSE is `0.01055`, close to
 the one- and half-degree same-grid errors from the same checkpoint (`0.00865` and

@@ -489,6 +489,13 @@ between the intervention on fixed weights and independent optimization is strong
 evidence that projection-before-channel-masked-resampling addresses the causal
 failure rather than merely favoring one training trajectory.
 
+The fresh run finishes at its epoch-40 validation best. Aggregate MSE is `0.02491`;
+route MSEs are `0.00304` for one-to-one, `0.08498` for one-to-half, `0.00805` for
+half-to-one, and `0.00357` for half-to-half. Half-to-one is only `0.00262` above
+its `0.00543` deterministic floor. Same-grid and half-to-one high-k ratios are
+`0.936`, `0.938`, and `0.934`, so the accuracy gain does not come from spectral
+smoothing.
+
 ## Quarter-degree zero-shot evidence
 
 The epoch-10 one/half-degree checkpoint was evaluated without optimization on all
@@ -569,26 +576,23 @@ continues to lag after routing is fixed.
 
 ## Limitations and remaining evidence
 
-- The new synthetic probes use the naive Perceiver implementation in float32. The
-  first L40S ocean bring-up isolated a CUDA illegal-memory access in the
-  bfloat16/flash backward both with and without activation checkpointing, while the
-  matched naive/float32 run completed. The S1 architecture matrix therefore uses
-  naive/float32; the promoted model still needs a validated production-precision
-  runtime before full-scale training.
+- The first L40S ocean bring-up isolated a CUDA illegal-memory access in the
+  bfloat16/flash backward both with and without activation checkpointing. The
+  completed fresh ocean run validates naive attention with bfloat16, but the flash
+  backend remains a production-runtime limitation to diagnose separately.
 - The multiplied attention matrices are a routing diagnostic, not an exact model
   Jacobian because self-attention and value transformations intervene.
-- The cross-resolution analytic control uses a regular normalized grid. The
-  production checkpoint swap now confirms the same mask-order mechanism on actual
-  OM4 coordinates, periodic longitude, nonuniform latitude, and channel-specific
-  wet masks. Fresh optimization and quarter-degree scaling are not yet complete.
+- The production checkpoint swap and fresh run confirm the mask-order mechanism on
+  actual OM4 coordinates, periodic longitude, nonuniform latitude, and channel-
+  specific wet masks. Quarter-degree zero-shot scaling is numerically successful;
+  the bounded-memory rerun and scale-aware restriction comparison remain.
 - The hybrid synthetic control initializes its base projection to copy aligned
   target channels. Real processor features require a learned channel projection.
   The completed ocean resampling proxy is the evidence that such a projection is
   trainable in the real model.
-- The prior ocean factorial and forecast proxy remain the completed real-data
-  evidence used above. S1 now confirms the learned-inverse result on real masks and
-  jointly learned ocean representations. S2 must still determine whether it
-  survives independent one/half-degree regridding products.
+- S2 confirms the learned inverse across independently regridded one/half-degree
+  products, and the quarter zero-shot run confirms unseen-resolution transfer.
+  Processor-depth, forecast proxy, and full-scale forecast validation remain.
 
 ## Reproduction
 
@@ -629,12 +633,13 @@ The follow-up real-data control is fully specified by
 
 ## Recommended follow-up validation
 
-1. Use the completed S1 selection: embedding width 128, latent dimension 128,
-   encoder geometry `none`, and learning rate `1e-3`.
-2. Run the paired one/half-degree S2 reconstruction against the masked deterministic
-   coordinate-resampler floor in both normalized and physical units.
-3. Add the zero-initialized attention residual only if S1 or S2 exposes a repeatable
-   defect that the resampling base cannot learn.
-4. Compose the selected zero-depth encoder/decoder checkpoint with the shared
-   processor and verify decoded depths 0, 1, 2, and 4 before proxy and full-scale
-   forecast validation.
+1. Retain the completed width-160 native-grid encoder/decoder, no additive encoder
+   geometry, and projection-before-channel-masked-resampling selection.
+2. Do not add the zero-initialized attention residual: neither S2 nor quarter
+   zero-shot transfer exposes a residual defect that justifies its cost.
+3. Compose the validation-selected zero-depth checkpoint with the shared processor
+   and verify decoded depths 0, 1, 2, and 4.
+4. Benchmark the bounded-memory quarter evaluator and compare conservative or
+   antialiased restriction against bilinear point sampling on fine-to-coarse routes.
+5. Run the one-degree proxy and full v2-scale forecast validations only after the
+   inverse and resource gates pass.

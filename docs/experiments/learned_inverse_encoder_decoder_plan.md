@@ -789,6 +789,14 @@ The smoke's depth-zero MSE is therefore 10.9% better, and its depth-one MSE rema
 longer `lambda_0=0` and `lambda_0=0.05` jobs remain the decision runs; this smoke
 result is not a substitute for them.
 
+The matched decision runs are Slurm jobs `14581788` (`lambda_0=0`) and `14581789`
+(`lambda_0=0.05`). Each uses two RTX PRO 6000 GPUs and accumulation four, preserving
+effective global batch eight, 256 samples and 32 optimizer updates per epoch, and
+1,280 total training samples. They load the same validation-selected S2 checkpoint
+and initialize only the 65 allowlisted processor/geometry tensors. Earlier four-
+L40S duplicates `14562662` and `14562663` were canceled while still pending after
+both RTX jobs passed startup validation; they consumed zero runtime.
+
 For refinement-depth semantics, train positive depths sampled uniformly from
 `{1,2,4}` toward the same one-step target. For physical-time semantics, use the
 corresponding `t+k` targets and forcing sequence. In either case, compare shared

@@ -176,10 +176,20 @@ class SamudraMulti(BaseModel):
         ctx: GridContext,
     ) -> Prognostic:
         """Render latent content on the requested output grid."""
+        source_valid_mask = ctx.input_mask
+        if source_valid_mask is not None:
+            if source_valid_mask.shape[0] < self.decoder.out_channels:
+                raise ValueError(
+                    "Input validity mask has fewer channels than the decoder "
+                    f"output: {source_valid_mask.shape[0]} < "
+                    f"{self.decoder.out_channels}."
+                )
+            source_valid_mask = source_valid_mask[-self.decoder.out_channels :]
         fts = self.decoder(
             fts,
             ctx.output_resolution_cpu,
             source_resolution=latent_resolution,
+            valid_mask=source_valid_mask,
         )
         fts = fts.to(torch.float32)
         return torch.where(ctx.label_mask, fts, 0.0)

@@ -370,11 +370,25 @@ class ResampleAttentionResidualDecoder(nn.Module):
         resolution: tuple[Lat, Lon],
         *,
         source_resolution: tuple[Lat, Lon] | None = None,
+        valid_mask: torch.Tensor | None = None,
     ) -> Float[torch.Tensor, "batch channels_out H_out W_out"]:
         if source_resolution is None:
             raise ValueError("The hybrid decoder requires source-grid coordinates.")
-        base = self.base(x, resolution, source_resolution=source_resolution)
-        correction = self.correction(x, source_resolution, resolution)
+        base = self.base(
+            x,
+            resolution,
+            source_resolution=source_resolution,
+            valid_mask=valid_mask,
+        )
+        correction_mask = valid_mask
+        if correction_mask is not None and correction_mask.ndim == 3:
+            correction_mask = correction_mask.any(dim=0)
+        correction = self.correction(
+            x,
+            source_resolution,
+            resolution,
+            valid_mask=correction_mask,
+        )
         return base + correction
 
 
@@ -403,8 +417,9 @@ class DirectPatchDecoder(nn.Module):
         resolution: tuple[Lat, Lon],
         *,
         source_resolution: tuple[Lat, Lon] | None = None,
+        valid_mask: torch.Tensor | None = None,
     ) -> Float[torch.Tensor, "batch {self.out_channels} H W"]:
-        del source_resolution
+        del source_resolution, valid_mask
         _, channels, height, width = x.shape
         if channels != self.in_channels:
             raise ValueError(
@@ -438,11 +453,18 @@ class ResampleProjectionDecoder(nn.Module):
         in_channels: int,
         out_channels: int,
         coordinate_resampling: bool = False,
+        project_before_resample: bool = False,
     ) -> None:
         super().__init__()
+        if project_before_resample and not coordinate_resampling:
+            raise ValueError(
+                "project_before_resample requires coordinate_resampling so the "
+                "source validity mask can renormalize interpolation."
+            )
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.coordinate_resampling = coordinate_resampling
+        self.project_before_resample = project_before_resample
         self.projection = nn.Conv2d(in_channels, out_channels, kernel_size=1)
 
     def forward(
@@ -451,6 +473,7 @@ class ResampleProjectionDecoder(nn.Module):
         resolution: tuple[Lat, Lon],
         *,
         source_resolution: tuple[Lat, Lon] | None = None,
+        valid_mask: torch.Tensor | None = None,
     ) -> Float[torch.Tensor, "batch {self.out_channels} H_out W_out"]:
         if x.shape[1] != self.in_channels:
             raise ValueError(
@@ -461,6 +484,14 @@ class ResampleProjectionDecoder(nn.Module):
             if source_resolution is None:
                 raise ValueError(
                     "Coordinate resampling requires the processor-grid resolution."
+                )
+            if self.project_before_resample:
+                x = self.projection(x)
+                return coordinate_bilinear_resample(
+                    x,
+                    source_resolution,
+                    resolution,
+                    valid_mask=valid_mask,
                 )
             x = coordinate_bilinear_resample(x, source_resolution, resolution)
         elif x.shape[-2:] != output_shape:
@@ -579,8 +610,9 @@ class PerceiverDecoder(nn.Module):
         resolution: tuple[Lat, Lon],
         *,
         source_resolution: tuple[Lat, Lon] | None = None,
+        valid_mask: torch.Tensor | None = None,
     ) -> Float[torch.Tensor, "batch {self.out_channels} H W"]:
-        del source_resolution
+        del source_resolution, valid_mask
         # nh, nw: number of patches along height and width (the latent grid dims).
         B, C, nh, nw = x.shape
         lat, lon = resolution

@@ -177,7 +177,12 @@ class InferenceDataset(Dataset):
 
         # Inference only currently supports the same output resolution as the input
         # resolution.
-        self.ctx = GridContext(self.wet_label, self.input_res, self.input_res)
+        self.ctx = GridContext(
+            self.wet_label,
+            self.input_res,
+            self.input_res,
+            input_mask=self.wet_label,
+        )
 
     def __len__(self):
         return self.size
@@ -423,6 +428,8 @@ class TrainData:
     def record_stream(self, stream: torch.cuda.Stream) -> None:
         """Keep batch storage alive until work queued on ``stream`` completes."""
         self.ctx.label_mask.record_stream(stream)
+        if self.ctx.input_mask is not None:
+            self.ctx.input_mask.record_stream(stream)
         for prognostic, boundary, label in self.example_by_step:
             prognostic.record_stream(stream)
             boundary.record_stream(stream)
@@ -533,6 +540,7 @@ class TrainingShard:
             label_mask=self.prognostic_srcs[-1].masks.prognostic_with_hist(hist),
             input_resolution_cpu=self.prognostic_srcs[0].resolution,
             output_resolution_cpu=self.prognostic_srcs[-1].resolution,
+            input_mask=self.prognostic_srcs[0].masks.prognostic_with_hist(hist),
         )
         if target_time_mode == "forecast":
             full_size = src.time.size - steps * (hist + 1) * stride - hist * stride

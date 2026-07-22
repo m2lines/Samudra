@@ -586,24 +586,49 @@ physical interpolation everywhere else. The completed model trajectory is
 unaffected. The corrected normalized MSE is `0.005429` for half-to-one;
 one-to-half remains `0.061161`, and both same-grid references are numerical zero.
 
-The native-grid run has already passed its structural gate. At epoch 20 of 40
-(640 of 1,280 updates), held-out same-grid MSE is `0.00531` at one degree and
-`0.00513` at half degree, with mean channel high-wavenumber ratios `0.974` and
-`0.975`. One-to-half MSE is `0.06248`, essentially the physical interpolation
-reference. Half-to-one remains `0.03081`, however, versus the corrected physical
-reference `0.00543`.
+The native-grid run completed all 1,280 updates and passed its structural gate.
+Held-out same-grid MSE is `0.00358` at one degree and `0.00348` at half degree,
+with mean channel high-wavenumber ratios `0.992` and `1.000`. One-to-half MSE is
+`0.06120`, effectively equal to the physical interpolation reference `0.06116`.
+Half-to-one remains `0.02934`, however, or 5.4 times the corrected physical
+reference `0.00543`. The excess survived continued optimization while both
+same-grid errors kept falling, so it is not evidence for more spatial encoder
+capacity.
 
-That asymmetric remainder motivates a new matched normalization control before
+That asymmetric remainder first motivated a matched normalization control before
 processor promotion. The encoder and decoder in this candidate are affine 1-by-1
-maps and therefore commute with interpolation. With independently normalized
-sources, one shared map cannot be the identity on both same-grid routes and also
-apply two different source-to-target mean/std transforms. The checked-in
+maps and therefore commute with unmasked interpolation. With independently
+normalized sources, one shared map cannot be the identity on both same-grid routes
+and also apply two different source-to-target mean/std transforms. The checked-in
 `identity_cross_1_halfdeg_common_stats.yaml` keeps both native products and masks
 but normalizes every channel using the one-degree scalar statistics. A second
 diagnostic, `source_normalized_resampler_mse`, measures interpolation performed
-directly in each source's normalized coordinates. Select common normalization if
-it closes the half-to-one gap without regressing same-grid reconstruction; add
-learned source/target scale conditioning only if this simpler hypothesis fails.
+directly in each source's normalized coordinates.
+
+The epoch-10 common-statistics result improved half-to-one MSE from `0.03459` to
+`0.03013` at the matched point, but did not approach its `0.00543` reference.
+Normalization is therefore a contributor, not a sufficient root cause. The more
+important non-commuting operation is channel-wise masking: the baseline resamples
+160 latent channels after the encoder has mixed prognostic variables with
+different depth-dependent land masks, while the physical reference resamples each
+of 154 prognostic channels using its own wet-neighbor denominator. No shared latent
+mask can reproduce that operation.
+
+The completed checkpoint-only diagnostic reaches the same conclusion without
+training-trajectory ambiguity. On the original independently normalized data,
+direct interpolation in the source-normalized basis gives MSE `0.00971` for
+half-to-one, versus `0.00543` when physical values are transformed into the target
+basis. That roughly `0.00428` normalization penalty explains only a small part of
+the learned model's `0.02391` excess over the physical reference.
+
+The matched `identity_cross_1_halfdeg_common_stats_masked.yaml` control therefore
+projects latent features back to prognostic channels on the native source grid and
+only then applies coordinate resampling with the immutable source wet masks. This
+does not bypass the learned representation or leak targets: the encoder and
+decoder remain learned pointwise maps, the processor still runs zero to N times,
+and the masks carry geometry only. Promote this ordering if it closes the
+half-to-one excess without regressing same-grid reconstruction; revisit scale
+conditioning or learned local correction only if it does not.
 
 After selecting among them, add quarter degree first with `identity_eval_only:
 true`, `finetune: true`, `epochs: 1`, and the selected checkpoint. If zero-shot

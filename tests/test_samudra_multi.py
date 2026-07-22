@@ -15,6 +15,7 @@ from samudra.models.modules import (
     DirectPatchEncoder,
     PerceiverDecoder,
     PerceiverEncoder,
+    ResampleProjectionDecoder,
 )
 from samudra.models.modules.unet_backbone import UNetBackbone
 from samudra.models.samudra_multi import SamudraMulti
@@ -212,6 +213,60 @@ def test_repeated_processor_retains_shared_parameter_gradients(iterations):
     assert features.grad is not None
     assert processor.weight.grad is not None
     assert torch.count_nonzero(processor.weight.grad) > 0
+
+
+def test_decode_uses_current_input_masks_for_channelwise_resampling():
+    source_resolution = (
+        torch.tensor([-45.0, 45.0]),
+        torch.tensor([45.0, 135.0]),
+    )
+    output_resolution = (torch.tensor([0.0]), torch.tensor([90.0]))
+    decoder = ResampleProjectionDecoder(
+        in_channels=2,
+        out_channels=2,
+        coordinate_resampling=True,
+        project_before_resample=True,
+    )
+    with torch.no_grad():
+        decoder.projection.weight.copy_(torch.eye(2)[:, :, None, None])
+        assert decoder.projection.bias is not None
+        decoder.projection.bias.zero_()
+    model = SamudraMulti(
+        in_channels=2,
+        out_channels=2,
+        pred_residuals=False,
+        last_kernel_size=3,
+        pad="circular",
+        add_3d_coordinates=None,
+        encoder=cast(DirectPatchEncoder, _bare_module(DirectPatchEncoder)),
+        processor=nn.Identity(),
+        decoder=decoder,
+        hist=1,
+        checkpointing=None,
+        gradient_detach_interval=0,
+        use_bfloat16=False,
+    )
+    features = torch.tensor([[[[1.0, 100.0], [1.0, 1.0]], [[100.0, 2.0], [2.0, 2.0]]]])
+    # The leading pair represents the older history entry. Only the final
+    # current-state masks correspond to the decoder's two output channels.
+    input_mask = torch.tensor(
+        [
+            [[False, False], [False, False]],
+            [[False, False], [False, False]],
+            [[True, False], [True, True]],
+            [[False, True], [True, True]],
+        ]
+    )
+    ctx = GridContext(
+        label_mask=torch.ones(2, 1, 1, dtype=torch.bool),
+        input_resolution_cpu=source_resolution,
+        output_resolution_cpu=output_resolution,
+        input_mask=input_mask,
+    )
+
+    output = model.decode(features, source_resolution, ctx)
+
+    torch.testing.assert_close(output, torch.tensor([[[[1.0]], [[2.0]]]]))
 
 
 def test_process_rejects_negative_iterations():

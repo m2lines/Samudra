@@ -393,6 +393,57 @@ does not change any learned model result above. The corrected normalized referen
 are `0.005429` for half-to-one, `0.061161` for one-to-half, and numerical zero for
 same-grid routes.
 
+The native-grid candidate then completed all 1,280 matched updates:
+
+| Route | Held-out MSE | Mean high-k ratio | Physical resampler MSE |
+|---|---:|---:|---:|
+| 1 degree -> 1 degree | **0.00358** | 0.992 | 0 |
+| 1 degree -> 1/2 degree | 0.06120 | 0.438 | 0.06116 |
+| 1/2 degree -> 1 degree | 0.02934 | 0.621 | 0.00543 |
+| 1/2 degree -> 1/2 degree | **0.00348** | 1.000 | 0 |
+
+This closes the encoder-bandwidth diagnosis: both same-grid routes reconstruct
+accurately with essentially exact spectral amplitude, and one-to-half reaches its
+irreducible interpolation error. The remaining asymmetric half-to-one error is a
+different contract failure. One contributor is that each product is standardized
+with different scalar channel means and standard deviations, while the native
+encoder and resampling decoder are shared affine 1-by-1 maps. Those maps commute
+with unmasked interpolation but cannot be identity maps in two different
+normalized coordinate systems and also apply a route-dependent source-to-target
+affine transform.
+
+The first matched control therefore uses one common channel-normalization basis
+across native products and also reports a source-normalized interpolation baseline.
+At epoch 10 it reduces half-to-one MSE from `0.03459` to `0.03013`, but remains far
+above the `0.00543` reference. This does not support normalization as the sole root
+cause.
+
+A checkpoint-only decomposition makes the scale of that effect explicit. With
+the original independent statistics, half-to-one interpolation performed directly
+in the source-normalized basis has MSE `0.00971`; the physical-to-target-normalized
+reference is `0.00543`. Thus normalization accounts for about `0.00428`, while the
+trained model is `0.02391` above the physical reference. One-to-half similarly
+changes from `0.06116` in the physical reference to `0.05620` in the
+source-normalized control. The much larger remaining learned error requires a
+second mechanism.
+
+The stronger structural mismatch is mask ordering. The baseline encoder mixes
+prognostic and boundary channels before the decoder interpolates 160 latent
+channels. Ocean validity is instead channel dependent: depth levels and variables
+have different wet masks, and the physical reference independently renormalizes
+the four interpolation weights for each of 154 output channels. Interpolation is
+linear for a fixed mask, but these different per-channel denominators do not
+commute with learned channel mixing. Same-grid routes conceal the problem because
+no interpolation occurs.
+
+The next matched control decodes latent features to prognostic channels on the
+native source grid, then performs physical-coordinate interpolation with the
+immutable channel-wise input masks. It retains a learned representation, does not
+copy prognostic values around the encoder, supports arbitrary output coordinates,
+and leaves the shared processor callable zero to N times. Its implementation is
+the `project_before_resample` path in `ResampleProjectionDecoder`; the data path
+carries source geometry through `GridContext.input_mask`.
+
 ## Architecture decision matrix
 
 | Candidate | Same-grid identity | Flexible output grid | Learned nonlocal correction | Evidence-backed decision |
@@ -403,6 +454,8 @@ same-grid routes.
 | Position-only anchored attention | Learnable but slower and less accurate | Yes | Yes | Retain as a control; do not promote as sole renderer |
 | Physical-coordinate resampling projection | Best learned-encoder S0 result | Yes | No | Promote as the primary architecture |
 | Resampling + zero-init attention residual | Preserves base at initialization | Yes | Yes | Retain as fallback; S0 does not justify its added cost |
+| Native-grid latent resampling + learned projection | Excellent same-grid inverse and spectra | Yes | No | Baseline: cross-grid error exposes normalization and mask-order contracts |
+| Native-grid learned projection + channel-masked resampling | Exact same-grid transport by construction | Yes | No | Primary matched candidate; validate against physical interpolation floor |
 
 The production and control implementations behind the matrix are:
 
@@ -412,6 +465,8 @@ The production and control implementations behind the matrix are:
   `AnchoredCrossAttentionIO` in `scripts/probe_perceiver_decoder.py`;
 - physical-coordinate base: `coordinate_bilinear_resample` and
   `ResampleProjectionDecoder` in `src/samudra/models/modules/decoder.py`;
+- source-mask transport: `GridContext` in `src/samudra/utils/ctx.py`, populated by
+  `TrainingShard` in `src/samudra/datasets.py` and consumed by `SamudraMulti.decode`;
 - production hybrid: `LocalCoordinateAttentionCorrection` and
   `ResampleAttentionResidualDecoder` in that same module;
 - learned encoder geometry modes: `PerceiverEncoder` in

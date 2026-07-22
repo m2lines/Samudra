@@ -180,6 +180,55 @@ def test_resample_projection_decoder_uses_physical_coordinates():
     torch.testing.assert_close(output, expected)
 
 
+def test_resample_projection_decoder_projects_before_masked_resampling():
+    decoder = ResampleProjectionDecoder(
+        in_channels=2,
+        out_channels=2,
+        coordinate_resampling=True,
+        project_before_resample=True,
+    )
+    with torch.no_grad():
+        decoder.projection.weight.copy_(torch.eye(2)[:, :, None, None])
+        assert decoder.projection.bias is not None
+        decoder.projection.bias.zero_()
+    source_resolution = (
+        torch.tensor([-45.0, 45.0]),
+        torch.tensor([45.0, 135.0]),
+    )
+    output_resolution = (torch.tensor([0.0]), torch.tensor([90.0]))
+    x = torch.tensor(
+        [[[[1.0, 100.0], [1.0, 1.0]], [[100.0, 2.0], [2.0, 2.0]]]],
+        requires_grad=True,
+    )
+    valid = torch.tensor(
+        [
+            [[True, False], [True, True]],
+            [[False, True], [True, True]],
+        ]
+    )
+
+    output = decoder(
+        x,
+        output_resolution,
+        source_resolution=source_resolution,
+        valid_mask=valid,
+    )
+
+    torch.testing.assert_close(output, torch.tensor([[[[1.0]], [[2.0]]]]))
+    output.sum().backward()
+    assert decoder.projection.weight.grad is not None
+    assert x.grad is not None
+
+
+def test_project_before_resample_requires_coordinate_resampling():
+    with pytest.raises(ValueError, match="requires coordinate_resampling"):
+        ResampleProjectionDecoder(
+            in_channels=2,
+            out_channels=2,
+            project_before_resample=True,
+        )
+
+
 def test_coordinate_resample_is_exact_on_matching_grid():
     x = torch.randn(2, 3, 4, 8, requires_grad=True)
     resolution = (

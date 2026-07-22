@@ -843,6 +843,12 @@ class DecoderConfig(BaseConfig):
         "longitude instead of shape-only bilinear interpolation in the resampling "
         "projection decoder.",
     )
+    project_before_resample: bool = Field(
+        default=False,
+        description="Decode latent channels on the native source grid before "
+        "mask-renormalized coordinate resampling. This preserves per-prognostic "
+        "wet masks across resolutions.",
+    )
     residual_hidden_dim: int = Field(default=128, ge=1)
     residual_heads: int = Field(default=2, ge=1)
     residual_dim_head: int = Field(default=64, ge=1)
@@ -896,6 +902,11 @@ class DecoderConfig(BaseConfig):
                 "direct_projection, resample_projection, and "
                 "resample_attention_residual are mutually exclusive."
             )
+        if self.project_before_resample and not self.resample_projection:
+            raise ValueError(
+                "project_before_resample is only supported by the resampling "
+                "projection decoder."
+            )
         if self.direct_projection:
             return DirectPatchDecoder(
                 in_channels=in_channels,
@@ -907,6 +918,7 @@ class DecoderConfig(BaseConfig):
                 in_channels=in_channels,
                 out_channels=out_channels,
                 coordinate_resampling=self.coordinate_resampling,
+                project_before_resample=self.project_before_resample,
             )
         if self.resample_attention_residual:
             base = ResampleProjectionDecoder(

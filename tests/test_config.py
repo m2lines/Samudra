@@ -476,6 +476,37 @@ def test_resample_projection_decoder_config_supports_different_grids():
     assert decoder.coordinate_resampling
 
 
+def test_resample_projection_decoder_config_supports_masked_output_projection():
+    decoder = DecoderConfig(
+        resample_projection=True,
+        coordinate_resampling=True,
+        project_before_resample=True,
+    ).build(
+        in_channels=128,
+        out_channels=154,
+        patch_extent=(1.0, 1.0),
+        implementation="naive",
+    )
+
+    assert isinstance(decoder, ResampleProjectionDecoder)
+    assert decoder.project_before_resample
+
+
+def test_project_before_resample_rejects_other_decoder_types():
+    config = DecoderConfig(
+        direct_projection=True,
+        project_before_resample=True,
+    )
+
+    with pytest.raises(ValueError, match="only supported"):
+        config.build(
+            in_channels=128,
+            out_channels=154,
+            patch_extent=(1.0, 1.0),
+            implementation="naive",
+        )
+
+
 def test_decoder_config_rejects_multiple_projection_controls():
     config = DecoderConfig(direct_projection=True, resample_projection=True)
 

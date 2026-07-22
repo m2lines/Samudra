@@ -797,6 +797,23 @@ and initialize only the 65 allowlisted processor/geometry tensors. Earlier four-
 L40S duplicates `14562662` and `14562663` were canceled while still pending after
 both RTX jobs passed startup validation; they consumed zero runtime.
 
+Both matched RTX runs complete successfully (W&B `s8rig9hd` and `u1ki1obr`):
+
+| `lambda_0` | depth 0 | depth 1 | depth 2 | depth 4 |
+|---:|---:|---:|---:|---:|
+| 0 | 0.024406 | 0.022151 | 0.033715 | 0.135192 |
+| 0.05 | 0.021861 | 0.022284 | 0.030805 | 0.113853 |
+
+The untouched exact-window checkpoint is `0.024567`. Thus `lambda_0=0` merely
+preserves it (0.7% better), while `lambda_0=0.05` improves depth zero by 11.0%.
+The regularized arm is only 0.6% worse at depth one and is 8.6% and 15.8% better
+at depths two and four. Promote `lambda_0=0.05`. However, its depth-four MSE is
+still 5.2 times depth zero and is slightly worse than the short smoke's `0.10745`.
+More single-depth exposure therefore does not make the shared map stable for
+arbitrary iteration. Before proxy forecasting, train positive depths sampled from
+`{1, 2, 4}` toward the same refinement target, retain the source-grid depth-zero
+term, and require improvement at depths two/four without regressing depth zero/one.
+
 For refinement-depth semantics, train positive depths sampled uniformly from
 `{1,2,4}` toward the same one-step target. For physical-time semantics, use the
 corresponding `t+k` targets and forcing sequence. In either case, compare shared

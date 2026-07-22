@@ -19,6 +19,7 @@ from samudra.identity import (
     _masked_area_resampler_reference,
     _masked_physical_resampler_reference,
     _processor_depth,
+    _training_processor_depth,
     evaluate_identity_routes,
     set_identity_target,
     train_identity,
@@ -250,6 +251,7 @@ def test_identity_config_uses_disjoint_sample_ranges():
     assert fields["identity_eval_offset"].default == 32
     assert fields["identity_eval_only"].default is False
     assert fields["identity_eval_processor_depths"].default is None
+    assert fields["identity_train_processor_depths"].default is None
     assert fields["identity_area_restriction_diagnostic"].default is False
 
 
@@ -323,6 +325,40 @@ def test_processor_depth_context_rejects_negative_depth():
     with pytest.raises(ValueError, match="non-negative"):
         with _processor_depth(cast(Any, trainer), -1):
             pass
+
+
+def test_training_processor_depth_cycles_across_epoch_boundaries():
+    depths = [1, 2, 4]
+
+    selected = [
+        _training_processor_depth(depths, epoch, batch_index, batches_per_epoch=4)
+        for epoch in (1, 2)
+        for batch_index in range(4)
+    ]
+
+    assert selected == [1, 2, 4, 1, 2, 4, 1, 2]
+
+
+@pytest.mark.parametrize("depths", [[], [0], [1, -1]])
+def test_identity_training_processor_depths_must_be_positive(tmp_path, depths):
+    config_path = (
+        Path(__file__).resolve().parents[1]
+        / "configs"
+        / "samudra_multi_om4"
+        / "identity_1deg_decoder_wide.yaml"
+    )
+    config = IdentityConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--experiment.data_root",
+            str(tmp_path),
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+        ]
+    ).model_copy(update={"identity_train_processor_depths": depths})
+
+    with pytest.raises(ValueError, match="non-empty list of positive integers"):
+        train_identity(config)
 
 
 def test_wide_decoder_identity_config_exposes_true_attention_width(tmp_path):

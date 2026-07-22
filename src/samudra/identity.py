@@ -63,6 +63,12 @@ class IdentityConfig(TrainConfig):
         "checkpoint and held-out reconstruction samples. The configured training "
         "depth is always included.",
     )
+    identity_train_processor_depths: list[int] | None = Field(
+        default=None,
+        description="Optional positive processor iteration counts cycled evenly "
+        "across identity training batches. All distributed ranks use the same "
+        "depth. None retains the configured fixed processor depth.",
+    )
     identity_area_restriction_diagnostic: bool = Field(
         default=False,
         description="Compare masked regular-index area averaging with bilinear "
@@ -84,6 +90,13 @@ def _processor_depth(trainer: Trainer, depth: int) -> Iterator[None]:
         yield
     finally:
         model.processor_iterations = previous_depth
+
+
+def _training_processor_depth(
+    depths: list[int], epoch: int, batch_index: int, batches_per_epoch: int
+) -> int:
+    """Cycle processor depths continuously and identically on every rank."""
+    return depths[((epoch - 1) * batches_per_epoch + batch_index) % len(depths)]
 
 
 def set_identity_target(data: TrainData) -> torch.Tensor:
@@ -767,6 +780,15 @@ def train_identity(cfg: IdentityConfig) -> None:
     if cfg.identity_eval_only and cfg.epochs != 1:
         raise ValueError("identity_eval_only requires epochs: 1.")
     configured_depth = cfg.model.processor_iterations
+    training_depths = cfg.identity_train_processor_depths or [configured_depth]
+    if cfg.identity_train_processor_depths is not None and (
+        not cfg.identity_train_processor_depths
+        or any(depth <= 0 for depth in cfg.identity_train_processor_depths)
+    ):
+        raise ValueError(
+            "Identity training processor depths must be a non-empty list of "
+            "positive integers."
+        )
     evaluation_depths = list(
         dict.fromkeys([configured_depth, *(cfg.identity_eval_processor_depths or [])])
     )
@@ -827,7 +849,11 @@ def train_identity(cfg: IdentityConfig) -> None:
                     )
                 ):
                     _target_for_mode(data, cfg.target_time_mode)
-                    output = train_batch(trainer.model, data, trainer.loss_fn)
+                    training_depth = _training_processor_depth(
+                        training_depths, epoch, batch_index, batches_per_epoch
+                    )
+                    with _processor_depth(trainer, training_depth):
+                        output = train_batch(trainer.model, data, trainer.loss_fn)
                     in_final_cycle = (
                         batch_index + 1 > final_cycle_start and remaining_batches > 0
                     )

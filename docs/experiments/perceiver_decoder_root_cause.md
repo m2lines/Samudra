@@ -549,6 +549,26 @@ memory. Its cold Slurm wall time is 56:20 because SIF construction takes about
 resolution path therefore passes its engineering gate. The clean and area jobs
 are Slurm `14574139` / W&B `pod127bl` and Slurm `14579543` / W&B `rqlh7bke`.
 
+## Processor-depth evidence
+
+Matched 1,280-sample runs compare forecast-only processor training against the
+source-grid inverse regularizer while decoding the same latent at every depth:
+
+| zero-depth weight | depth 0 | depth 1 | depth 2 | depth 4 |
+|---:|---:|---:|---:|---:|
+| 0 | 0.024406 | 0.022151 | 0.033715 | 0.135192 |
+| 0.05 | 0.021861 | 0.022284 | 0.030805 | 0.113853 |
+
+The untouched exact-window checkpoint is `0.024567`. Weight `0.05` improves the
+inverse by 11.0%, is effectively tied at depth one, and improves depths two/four
+by 8.6%/15.8% over weight zero. It is the selected training mixture. But depth
+four remains 5.2x depth zero: training only one processor call, even with eight
+times the smoke's samples, does not teach stable arbitrary iteration. The next
+causal test is shared-weight training with positive depths sampled from `{1,2,4}`;
+do not constrain the encoder or add decoder attention to address this processor-
+specific failure. The runs are Slurm `14581788` / W&B `s8rig9hd` and Slurm
+`14581789` / W&B `u1ki1obr`.
+
 ## Architecture decision matrix
 
 | Candidate | Same-grid identity | Flexible output grid | Learned nonlocal correction | Evidence-backed decision |
@@ -655,12 +675,10 @@ The follow-up real-data control is fully specified by
    geometry, and projection-before-channel-masked-resampling selection.
 2. Do not add the zero-initialized attention residual: neither S2 nor quarter
    zero-shot transfer exposes a residual defect that justifies its cost.
-3. Compose the validation-selected zero-depth checkpoint with the shared processor
-   and verify decoded depths 0, 1, 2, and 4. The first `lambda_0=0.05` smoke run
-   produced MSEs `0.02190`, `0.02241`, `0.03099`, and `0.10745`, respectively.
-   The untouched checkpoint is `0.02457` on the exact same held-out window, so the
-   inverse is preserved through one call. The depth-two/four growth requires the
-   matched longer processor runs before the repeated-dynamics design is promoted.
+3. Retain the selected `lambda_0=0.05` processor mixture. It preserves depth zero
+   and improves depths two/four over the matched unregularized run, but depth four
+   remains 5.2x depth zero. Train positive depths sampled from `{1,2,4}` before
+   promoting arbitrary repeated application.
 4. Retain the completed bounded-memory quarter evaluator. Prototype physical
    conservative restriction for 4x downsampling, where area lowers the floor 86%,
    and compare a better low-pass kernel at 2x, where naive area improves spectra

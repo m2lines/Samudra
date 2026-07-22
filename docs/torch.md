@@ -80,6 +80,8 @@ Key behavior:
 - Fails early if either `${DATA_ROOT}` or `${OUTPUT_BASE}` does not exist, with
   instructions to set the corresponding env var.
 - Uses the container venv explicitly (`/workspace/.venv/bin/python`) to avoid missing deps.
+- Lets `torchrun --standalone` choose a free rendezvous port for single-node jobs.
+  Multi-node jobs use a job-derived port unless `MASTER_PORT` is set explicitly.
 - To change training code or YAML configs, rebuild/publish a new container tag and
   point the harness at it (e.g. via `CONTAINER_HASH=<git_sha>`).
 - Uses the Slurm submission directory for the working directory, pulled SIF,

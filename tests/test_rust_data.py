@@ -357,6 +357,16 @@ def test_training_shard_can_read_destination_at_current_input_times(flat_om4_sou
         plan.steps[1].label.request.time_indices, [[6, 8], [4, 6]]
     )
 
+    last_plan = dataset.shard.window_plan([len(dataset) - 1])
+    np.testing.assert_array_equal(
+        last_plan.steps[-1].input.request.time_indices,
+        [[flat_om4_source.time.size - 3, flat_om4_source.time.size - 1]],
+    )
+    np.testing.assert_array_equal(
+        last_plan.steps[-1].label.request.time_indices,
+        last_plan.steps[-1].input.request.time_indices,
+    )
+
 
 @pytest.mark.parametrize("hist", [0, 1])
 @pytest.mark.parametrize("steps", [1, 2])

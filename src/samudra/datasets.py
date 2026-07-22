@@ -515,7 +515,12 @@ class TrainingShard:
             for source in srcs
         ]
         self.boundary_src = src.select_channels(boundary_var_names, prefix="boundary")
-        total_times = 2 * hist + 2
+        # Forecast reads need one input-history block and one future-label block.
+        # Current-time reconstruction reuses the input block as its label, so
+        # reserving the unused future block would make ``rolling_indices`` shorter
+        # than the valid size advertised below and fail on otherwise valid tail
+        # samples.
+        total_times = hist + 1 if target_time_mode == "current" else 2 * hist + 2
         num_windows = src.time.size - (total_times - 1) * stride
         indices = xr.DataArray(np.arange(num_windows), dims=["window"])
         offsets = xr.DataArray(np.arange(total_times), dims=["time"])

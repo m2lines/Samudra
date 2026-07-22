@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784682011285,
+  "lastUpdate": 1784682019331,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -21229,6 +21229,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.04161443139201603",
             "extra": "mean: 47.376081290399995 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "16a452c1edbf3acc0f06f7312ef2ac9176219c04",
+          "message": "Capture validated Torch multires training defaults (#802)\n\nAdds in some docs for one example multi-res training run configuration\nwhich seems to work on torch, as well as a few missing documentation\nbits.\n\nValidated run: [Weights &\nBiases](https://wandb.ai/ocean_emulators/default/runs/x285qor8).\n\n---------\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>",
+          "timestamp": "2026-07-22T00:37:01Z",
+          "tree_id": "b4ee4d099f8850c2cb86c777cd14d1da2644477f",
+          "url": "https://github.com/m2lines/Samudra/commit/16a452c1edbf3acc0f06f7312ef2ac9176219c04"
+        },
+        "date": 1784682019051,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0720300461377428,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0012230051543671125",
+            "extra": "mean: 932.809675999988 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.06306077281498496,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06820959555086663",
+            "extra": "mean: 15.857718758600004 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.020748983707572895,
+            "unit": "iter/sec",
+            "range": "stddev: 0.14389219181273338",
+            "extra": "mean: 48.195131583000055 sec\nrounds: 5"
           }
         ]
       }

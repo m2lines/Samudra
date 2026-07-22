@@ -26,7 +26,7 @@ from torch.utils.data import (
 )
 
 from samudra import config
-from samudra.aggregator import Aggregator, ValidateAggregator
+from samudra.aggregator import Aggregator
 from samudra.aggregator.loss import (
     get_channel_loss_dict,
     get_channel_loss_scale_dict,
@@ -671,26 +671,15 @@ class Trainer:
             and self.validation_images_enabled
         )
 
-        if len(self.data_container.sources) == 1:
-            # The standard validation aggregator only supports a single scale.
-            val_aggregator = Aggregator.get_validation_aggregator(
-                self.primary_src.metadata,
-                self.hist,
-                self.primary_src.spherical_area_weights.to(self.device),
-                self.num_out,
-                self.tensor_map,
-                self.normalize,
-                include_image_aggregators=log_validation_images,
-            )
-        else:
-            # Create a validation aggregator that handles multiple scales.
-            val_aggregator = ValidateAggregator(
-                {},  # Currently, don't do anything else besides record the training loss.
-                self.hist,
-                self.num_out,
-                tensor_map=self.tensor_map,
-                normalize=self.normalize,
-            )
+        val_aggregator = Aggregator.get_validation_aggregator(
+            self.primary_src.metadata,
+            self.hist,
+            self.primary_src.spherical_area_weights.to(self.device),
+            self.num_out,
+            self.tensor_map,
+            self.normalize,
+            include_image_aggregators=log_validation_images,
+        )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
 
@@ -805,9 +794,12 @@ class Trainer:
             for src in srcs
         ]
 
+        # Validation is always evaluated on the primary source. This keeps the
+        # validation loss and physical-space metrics comparable across epochs,
+        # regardless of the set of resolutions used for training.
         val_datasets = [
             TorchTrainDataset(
-                src=src.slice(self.val_time),
+                src=self.primary_src.slice(self.val_time),
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -818,7 +810,6 @@ class Trainer:
                 concurrent_compute_=self.concurrent_compute,
             )
             for stride in self.data_stride
-            for src in srcs
         ]
 
         # Create datasets

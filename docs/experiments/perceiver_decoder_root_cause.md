@@ -468,6 +468,11 @@ from `0.04350` to `0.03856`. The channel-wise masked evaluator costs `156` secon
 for 32 held-out samples versus `71` seconds for the control, an observed 2.2x
 evaluation penalty that must be profiled before quarter-degree training.
 
+By epoch 10, half-to-one reaches `0.01352` versus the control's matched `0.03013`;
+same-grid errors are `0.00877` and `0.00993`. Aggregate MSE `0.03063` is already
+below the latent-resampling control's epoch-40 result `0.03079`, establishing that
+the corrected ordering improves optimization as well as the checkpoint swap.
+
 ## Architecture decision matrix
 
 | Candidate | Same-grid identity | Flexible output grid | Learned nonlocal correction | Evidence-backed decision |

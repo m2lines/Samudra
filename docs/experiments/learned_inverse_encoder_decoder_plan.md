@@ -647,6 +647,11 @@ about 2.2 times as long (`156` versus `71` seconds for 32 held-out samples), so
 quarter-degree promotion must include a memory/throughput gate rather than using
 accuracy alone.
 
+At epoch 10, half-to-one improves further to `0.01352`, compared with `0.03013`
+for the matched control. Same-grid MSEs are `0.00877` and `0.00993`, and aggregate
+MSE `0.03063` has already surpassed the control's final `0.03079` after one quarter
+of the optimizer budget.
+
 After selecting among them, add quarter degree first with `identity_eval_only:
 true`, `finetune: true`, `epochs: 1`, and the selected checkpoint. If zero-shot
 `1/2 <-> 1/4` behavior is finite and geometrically sensible, repeat the balanced

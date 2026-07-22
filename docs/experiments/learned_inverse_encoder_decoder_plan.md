@@ -66,6 +66,8 @@ latent route.
 The development prerequisites are now present on this branch:
 
 - identity diagnostics use disjoint deterministic train and held-out samples;
+- `identity_eval_only: true` loads an explicit finetune checkpoint and evaluates
+  every fixed route without backward passes or optimizer updates;
 - paired reconstruction can read a destination resolution at the exact input
   timestamps, balance fixed samples across shape-distinct routes, and report both
   learned and deterministic-resampler errors in normalized and physical units;
@@ -581,19 +583,19 @@ physical interpolation everywhere else. The completed model trajectory is
 unaffected. The corrected normalized MSE is `0.005429` for half-to-one;
 one-to-half remains `0.061161`, and both same-grid references are numerical zero.
 
-After selecting among them, add quarter degree in evaluation first, without
-training. If zero-shot `1/2 <-> 1/4` behavior is finite and geometrically sensible,
-repeat the balanced screen with all nine input/output pairs among 1, 1/2, and 1/4
-degree for 2,880 updates. Otherwise diagnose coordinate or capacity failure before
-training on quarter-degree targets.
+After selecting among them, add quarter degree first with `identity_eval_only:
+true`, `finetune: true`, `epochs: 1`, and the selected checkpoint. If zero-shot
+`1/2 <-> 1/4` behavior is finite and geometrically sensible, repeat the balanced
+screen with all nine input/output pairs among 1, 1/2, and 1/4 degree for 2,880
+updates. Otherwise diagnose coordinate or capacity failure before training on
+quarter-degree targets.
 
-For the all-resolution screen, sweep physical patch extent `{1x1, 2x2 degrees}` and
-encoder latent count `{16, 32}` for patches containing multiple native pixels. Keep
-the representation learned. If high-wavenumber loss indicates that one vector per
-physical patch is insufficient, compare the existing coordinate-query encoder with
-`spatial_query_shape=[4,4]`, `spatial_query_channels={8,16}`, and
-`queries_dim={64,128}`. Those queries produce an ordered learned subcell
-representation; they are not an identity initialization.
+The earlier physical-patch and subcell-query ranges are no longer a mandatory
+sweep. Retain them as fallback hypotheses only if the native-grid candidate fails
+or its measured quarter-degree processor cost is unacceptable. In that event,
+start from physical patch extent `{1x1, 2x2 degrees}`, encoder latent count
+`{16, 32}`, and an explicitly spatially unpacked coordinate-query design; revise
+those values using the failure measurement rather than treating them as fixed.
 
 ### S3. Processor-depth contract
 

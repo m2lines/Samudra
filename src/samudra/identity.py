@@ -51,6 +51,11 @@ class IdentityConfig(TrainConfig):
     identity_train_offset: int = Field(default=0, ge=0)
     identity_eval_offset: int = Field(default=32, ge=0)
     identity_eval_frequency: int = Field(default=1, ge=1)
+    identity_eval_only: bool = Field(
+        default=False,
+        description="Load a finetune checkpoint and evaluate fixed routes without "
+        "running backward or updating model parameters.",
+    )
     identity_eval_processor_depths: list[int] | None = Field(
         default=None,
         description="Optional processor iteration counts evaluated on the same "
@@ -617,6 +622,13 @@ def train_identity(cfg: IdentityConfig) -> None:
         )
     if not isinstance(cfg.model, SamudraMultiConfig):
         raise TypeError("Identity reconstruction requires a SamudraMulti model.")
+    if cfg.identity_eval_only and (not cfg.finetune or cfg.resume_ckpt_path is None):
+        raise ValueError(
+            "identity_eval_only requires finetune: true and resume_ckpt_path so "
+            "the diagnostic evaluates an explicit model checkpoint."
+        )
+    if cfg.identity_eval_only and cfg.epochs != 1:
+        raise ValueError("identity_eval_only requires epochs: 1.")
     configured_depth = cfg.model.processor_iterations
     evaluation_depths = list(
         dict.fromkeys([configured_depth, *(cfg.identity_eval_processor_depths or [])])
@@ -654,7 +666,7 @@ def train_identity(cfg: IdentityConfig) -> None:
 
     try:
         for epoch in range(1, cfg.epochs + 1):
-            trainer.model.train(True)
+            trainer.model.train(not cfg.identity_eval_only)
             trainer.optimizer.zero_grad()
             epoch_start = time.perf_counter()
             remaining_batches = batches_per_epoch % trainer.gradient_accumulation_steps
@@ -666,41 +678,42 @@ def train_identity(cfg: IdentityConfig) -> None:
 
             batches_seen = 0
             global_samples = 0
-            for batch_index, data in enumerate(
-                _fixed_batches(
-                    trainer,
-                    cfg.identity_train_samples,
-                    sample_offset=cfg.identity_train_offset,
-                    route_count=route_count,
-                )
-            ):
-                _target_for_mode(data, cfg.target_time_mode)
-                output = train_batch(trainer.model, data, trainer.loss_fn)
-                in_final_cycle = (
-                    batch_index + 1 > final_cycle_start and remaining_batches > 0
-                )
-                accumulation = (
-                    remaining_batches
-                    if in_final_cycle
-                    else trainer.gradient_accumulation_steps
-                )
-                (output.loss / accumulation).backward()
-                batches_seen += 1
-                batch_global_samples = data.get_label(0).shape[0] * world_size
-                global_samples += batch_global_samples
-                trainer.num_batches_seen += 1
-                trainer.num_samples_seen += batch_global_samples
+            if not cfg.identity_eval_only:
+                for batch_index, data in enumerate(
+                    _fixed_batches(
+                        trainer,
+                        cfg.identity_train_samples,
+                        sample_offset=cfg.identity_train_offset,
+                        route_count=route_count,
+                    )
+                ):
+                    _target_for_mode(data, cfg.target_time_mode)
+                    output = train_batch(trainer.model, data, trainer.loss_fn)
+                    in_final_cycle = (
+                        batch_index + 1 > final_cycle_start and remaining_batches > 0
+                    )
+                    accumulation = (
+                        remaining_batches
+                        if in_final_cycle
+                        else trainer.gradient_accumulation_steps
+                    )
+                    (output.loss / accumulation).backward()
+                    batches_seen += 1
+                    batch_global_samples = data.get_label(0).shape[0] * world_size
+                    global_samples += batch_global_samples
+                    trainer.num_batches_seen += 1
+                    trainer.num_samples_seen += batch_global_samples
 
-                should_step = (
-                    batches_seen % trainer.gradient_accumulation_steps == 0
-                    or batches_seen == batches_per_epoch
-                )
-                if should_step:
-                    torch.nn.utils.clip_grad_norm_(trainer.model.parameters(), 1.0)
-                    trainer.optimizer.step()
-                    trainer.optimizer.zero_grad()
-                    trainer._ema(model=trainer.model)
-                    trainer.num_optimizer_updates += 1
+                    should_step = (
+                        batches_seen % trainer.gradient_accumulation_steps == 0
+                        or batches_seen == batches_per_epoch
+                    )
+                    if should_step:
+                        torch.nn.utils.clip_grad_norm_(trainer.model.parameters(), 1.0)
+                        trainer.optimizer.step()
+                        trainer.optimizer.zero_grad()
+                        trainer._ema(model=trainer.model)
+                        trainer.num_optimizer_updates += 1
 
             elapsed = time.perf_counter() - epoch_start
             if epoch % cfg.identity_eval_frequency != 0 and epoch != cfg.epochs:
@@ -779,7 +792,7 @@ def train_identity(cfg: IdentityConfig) -> None:
             )
 
             if is_main_process():
-                if is_best:
+                if is_best and not cfg.identity_eval_only:
                     logger.info(
                         "Saving lowest held-out identity checkpoint to %s",
                         trainer.ckpt_paths.best_validation_checkpoint_path,
@@ -807,7 +820,7 @@ def train_identity(cfg: IdentityConfig) -> None:
                     },
                     output_dir / "identity_spectra.pt",
                 )
-        if is_main_process():
+        if is_main_process() and not cfg.identity_eval_only:
             trainer.save_checkpoint(
                 cfg.epochs, trainer.ckpt_paths.latest_checkpoint_path
             )

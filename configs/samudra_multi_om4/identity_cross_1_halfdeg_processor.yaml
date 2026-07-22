@@ -4,7 +4,7 @@
 
 # yaml-language-server: $schema=../schemas/IdentityConfig.json
 
-# Compose the validation-selected zero-depth canonical checkpoint with a new shared
+# Compose the validation-selected zero-depth native-grid checkpoint with a new shared
 # processor, train the one-step reconstruction at depth one, and evaluate the same
 # learned state after zero, one, two, and four processor applications.
 debug: false
@@ -71,4 +71,4 @@ data:
     - data_location: om4_halfdeg_v4/OM4.zarr
       data_means_location: om4_halfdeg_v4/OM4_means.zarr
       data_stds_location: om4_halfdeg_v4/OM4_stds.zarr
-model: !include model_iterable_inverse_canonical_resample.yaml
+model: !include model_iterable_inverse_native_projection.yaml

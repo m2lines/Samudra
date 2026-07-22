@@ -20,6 +20,7 @@ from samudra.identity import (
     _processor_depth,
     evaluate_identity_routes,
     set_identity_target,
+    train_identity,
 )
 from samudra.models.samudra_multi import SamudraMulti
 from samudra.utils.ctx import GridContext
@@ -221,7 +222,57 @@ def test_identity_config_uses_disjoint_sample_ranges():
     assert fields["identity_eval_samples"].default == 32
     assert fields["identity_train_offset"].default == 0
     assert fields["identity_eval_offset"].default == 32
+    assert fields["identity_eval_only"].default is False
     assert fields["identity_eval_processor_depths"].default is None
+
+
+def test_identity_eval_only_requires_explicit_finetune_checkpoint(tmp_path):
+    config_path = (
+        Path(__file__).resolve().parents[1]
+        / "configs"
+        / "samudra_multi_om4"
+        / "identity_1deg_decoder_wide.yaml"
+    )
+    config = IdentityConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--experiment.data_root",
+            str(tmp_path),
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+        ]
+    ).model_copy(update={"identity_eval_only": True, "epochs": 1})
+
+    with pytest.raises(ValueError, match="explicit model checkpoint"):
+        train_identity(config)
+
+
+def test_identity_eval_only_is_one_pass(tmp_path):
+    config_path = (
+        Path(__file__).resolve().parents[1]
+        / "configs"
+        / "samudra_multi_om4"
+        / "identity_1deg_decoder_wide.yaml"
+    )
+    config = IdentityConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--experiment.data_root",
+            str(tmp_path),
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+        ]
+    ).model_copy(
+        update={
+            "identity_eval_only": True,
+            "finetune": True,
+            "resume_ckpt_path": "checkpoint.pt",
+            "epochs": 2,
+        }
+    )
+
+    with pytest.raises(ValueError, match="epochs: 1"):
+        train_identity(config)
 
 
 def test_processor_depth_context_restores_configured_depth():
@@ -324,7 +375,8 @@ def test_all_resolution_identity_config_balances_nine_routes(tmp_path):
     assert config.identity_eval_samples == 36
     assert config.epochs * config.identity_train_samples == 2880
     assert isinstance(config.model, SamudraMultiConfig)
-    assert config.model.encoder.canonical_resampling
+    assert config.model.encoder.native_projection
+    assert not config.model.encoder.canonical_resampling
     assert config.model.embedding_dim == 160
 
 
@@ -350,7 +402,8 @@ def test_processor_identity_config_evaluates_zero_to_four_calls(tmp_path):
     assert isinstance(config.model, SamudraMultiConfig)
     assert not config.model.bypass_processor
     assert config.model.processor_iterations == 1
-    assert config.model.encoder.canonical_resampling
+    assert config.model.encoder.native_projection
+    assert not config.model.encoder.canonical_resampling
     assert config.model.encoder.geometry_mode == "sidecar"
     assert config.model.embedding_dim == 160
     assert config.model.zero_depth_reconstruction_weight == pytest.approx(0.05)

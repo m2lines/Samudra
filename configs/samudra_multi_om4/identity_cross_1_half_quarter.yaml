@@ -72,4 +72,4 @@ data:
     - data_location: om4_quarterdeg_v2/OM4.zarr
       data_means_location: om4_quarterdeg_v2/OM4_means.zarr
       data_stds_location: om4_quarterdeg_v2/OM4_stds.zarr
-model: !include model_learned_inverse_canonical_resample.yaml
+model: !include model_learned_inverse_native_projection.yaml

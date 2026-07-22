@@ -444,6 +444,23 @@ and leaves the shared processor callable zero to N times. Its implementation is
 the `project_before_resample` path in `ResampleProjectionDecoder`; the data path
 carries source geometry through `GridContext.input_mask`.
 
+That ordering has now been isolated with an exact checkpoint swap:
+
+| Route | Latent-resample baseline | Project then channel-mask resample | Change |
+|---|---:|---:|---:|
+| 1 degree -> 1 degree | 0.00513708 | 0.00513707 | < `4e-9` |
+| 1 degree -> 1/2 degree | 0.0877352 | 0.0867701 | -0.000965 |
+| 1/2 degree -> 1 degree | 0.0260986 | **0.00996908** | **-0.016130** |
+| 1/2 degree -> 1/2 degree | 0.00564119 | 0.00564118 | < `2e-9` |
+
+Both evaluations use the exact epoch-25 common-statistics weights; no optimizer
+step occurs. Relative to the half-to-one physical floor `0.00542936`, the ordering
+change removes 78.0% of excess error while leaving both same-grid functions
+unchanged. This is direct evidence that per-channel wet-mask interpolation cannot
+be reconstructed after latent channel mixing. The remaining `0.00454` excess is
+similar in scale to the learned same-grid projection error and is being tested with
+a fresh matched optimization.
+
 ## Architecture decision matrix
 
 | Candidate | Same-grid identity | Flexible output grid | Learned nonlocal correction | Evidence-backed decision |
@@ -498,9 +515,9 @@ continues to lag after routing is fixed.
 - The multiplied attention matrices are a routing diagnostic, not an exact model
   Jacobian because self-attention and value transformations intervene.
 - The cross-resolution analytic control uses a regular normalized grid. The
-  production implementation now uses actual OM4 coordinates, periodic longitude,
-  nonuniform latitude, and channel-specific wet masks, but its paired one/half-degree
-  ocean experiment is not yet complete.
+  production checkpoint swap now confirms the same mask-order mechanism on actual
+  OM4 coordinates, periodic longitude, nonuniform latitude, and channel-specific
+  wet masks. Fresh optimization and quarter-degree scaling are not yet complete.
 - The hybrid synthetic control initializes its base projection to copy aligned
   target channels. Real processor features require a learned channel projection.
   The completed ocean resampling proxy is the evidence that such a projection is

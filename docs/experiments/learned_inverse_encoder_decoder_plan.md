@@ -630,6 +630,15 @@ and the masks carry geometry only. Promote this ordering if it closes the
 half-to-one excess without regressing same-grid reconstruction; revisit scale
 conditioning or learned local correction only if it does not.
 
+The checkpoint-only decoder-order swap provides the causal result. Using the exact
+epoch-25 common-statistics weights, same-grid MSEs are unchanged to below `4e-9`:
+`0.00513708` at one degree and `0.00564119` at half degree. One-to-half improves
+slightly from `0.0877352` to `0.0867701`. Half-to-one falls from `0.0260986` to
+`0.00996908`, removing 78.0% of the learned excess above the `0.00542936` physical
+floor. This isolates mask ordering as the primary remaining cross-grid cause. A
+fresh matched run is still required to measure how much of the residual `0.00454`
+excess is removable by optimizing with the corrected ordering from initialization.
+
 After selecting among them, add quarter degree first with `identity_eval_only:
 true`, `finetune: true`, `epochs: 1`, and the selected checkpoint. If zero-shot
 `1/2 <-> 1/4` behavior is finite and geometrically sensible, repeat the balanced

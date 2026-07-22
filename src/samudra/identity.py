@@ -751,6 +751,7 @@ def train_identity(cfg: IdentityConfig) -> None:
             elapsed = time.perf_counter() - epoch_start
             if epoch % cfg.identity_eval_frequency != 0 and epoch != cfg.epochs:
                 continue
+            evaluation_start = time.perf_counter()
             train_metrics, train_spectra = evaluate_identity_routes(
                 trainer,
                 cfg.identity_train_samples,
@@ -796,10 +797,14 @@ def train_identity(cfg: IdentityConfig) -> None:
                 **heldout_metrics,
                 **compatibility_metrics,
             }
+            evaluation_elapsed = time.perf_counter() - evaluation_start
             metrics.update(
                 {
                     "identity/epoch": float(epoch),
                     "identity/epoch_seconds": elapsed,
+                    "identity/training_seconds": elapsed,
+                    "identity/evaluation_seconds": evaluation_elapsed,
+                    "identity/total_seconds": elapsed + evaluation_elapsed,
                     "identity/samples_per_second": global_samples / elapsed,
                     "identity/optimizer_updates": float(trainer.num_optimizer_updates),
                     "identity/processed_samples": float(trainer.num_samples_seen),
@@ -817,11 +822,13 @@ def train_identity(cfg: IdentityConfig) -> None:
             if is_best:
                 trainer.best_val_loss = mse
             logger.info(
-                "Identity epoch %d: mse=%.6g, samples=%d, seconds=%.2f",
+                "Identity epoch %d: mse=%.6g, samples=%d, "
+                "training_seconds=%.2f, evaluation_seconds=%.2f",
                 epoch,
                 mse,
                 global_samples,
                 elapsed,
+                evaluation_elapsed,
             )
 
             if is_main_process():

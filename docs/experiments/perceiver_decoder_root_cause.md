@@ -468,7 +468,8 @@ from `0.04350` to `0.03856`. At epoch 5, the channel-wise masked training path
 costs `156` seconds for 32 samples versus `71` seconds for the control, an observed
 2.2x training-throughput penalty. `identity/epoch_seconds` excludes the subsequent
 route evaluation, whose cost must be measured separately before quarter-degree
-training.
+training. Explicit training, evaluation, and total-duration metrics are now emitted
+for subsequent runs.
 
 By epoch 10, half-to-one reaches `0.01352` versus the control's matched `0.03013`;
 same-grid errors are `0.00877` and `0.00993`. Aggregate MSE `0.03063` is already

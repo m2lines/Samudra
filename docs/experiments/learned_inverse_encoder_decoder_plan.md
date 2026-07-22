@@ -647,6 +647,8 @@ training portion takes about 2.2 times as long (`156` versus `71` seconds for 32
 training samples). `identity/epoch_seconds` stops before route evaluation, so this
 is a training-throughput measurement rather than an evaluator timing. Quarter-
 degree promotion must still include independent memory and throughput gates.
+Subsequent runs log `identity/training_seconds`, `identity/evaluation_seconds`, and
+`identity/total_seconds` separately.
 
 At epoch 10, half-to-one improves further to `0.01352`, compared with `0.03013`
 for the matched control. Same-grid MSEs are `0.00877` and `0.00993`, and aggregate

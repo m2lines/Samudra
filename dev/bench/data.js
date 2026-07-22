@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784685085334,
+  "lastUpdate": 1784685090320,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -21499,6 +21499,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.23196035431793102",
             "extra": "mean: 48.430219045399966 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9a62d7f892c54fe660479a871191f19b12ef24b3",
+          "message": "Cap multires dynamic loss and reject non-finite gradients (#806)\n\n## Summary\n\n- cap the Samudra Multi dynamic-loss weight ratio at 20×, matching the\nexisting v2 training configs\n- make gradient clipping raise on a NaN or infinite total norm before\n`optimizer.step()`\n\n## Why\n\n[W&B run\n`x285qor8`](https://wandb.ai/ocean_emulators/default/runs/x285qor8?nw=nwuseroa_jder)\ndiverged at history step 12903 (epoch 13, batch 230). Batch 229 was\nfinite, then every logged loss, unscaled loss, and dynamic loss scale\nbecame NaN and remained non-finite.\n\nThe run used an uncapped dynamic loss. Its largest channel scale reached\nroughly 4,213×. The trainer also used PyTorch's default\n`error_if_nonfinite=False` behavior when clipping gradients, so it could\nstill call `optimizer.step()` after a non-finite total norm and continue\ntraining with contaminated weights.\n\nThis change bounds the affected multires training configuration and\nturns the same failure into an immediate, noisy exception before the\noptimizer update.\n\n---------\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>\nCo-authored-by: fomo-bot <266121006+fomo-bot@users.noreply.github.com>",
+          "timestamp": "2026-07-22T01:28:15Z",
+          "tree_id": "8782304cd07fa377dd81261805aef243256a027b",
+          "url": "https://github.com/m2lines/Samudra/commit/9a62d7f892c54fe660479a871191f19b12ef24b3"
+        },
+        "date": 1784685090053,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0855795551676788,
+            "unit": "iter/sec",
+            "range": "stddev: 0.001520479226503381",
+            "extra": "mean: 921.166942800005 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.06349569032961203,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0076911432612532275",
+            "extra": "mean: 15.749100368999962 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.020649920993281078,
+            "unit": "iter/sec",
+            "range": "stddev: 0.8107468974813288",
+            "extra": "mean: 48.426335399799974 sec\nrounds: 5"
           }
         ]
       }

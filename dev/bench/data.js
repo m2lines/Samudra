@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784681071785,
+  "lastUpdate": 1784681079344,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -21139,6 +21139,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.17643551705475136",
             "extra": "mean: 48.44388276960003 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "44c4cbc41218022b99ccd2f886da93dda9b0c28c",
+          "message": "Harden GitHub Actions workflows and pin actions (#766)\n\n## Summary\n- Narrow workflow and job-level permissions to the minimum required for\neach CI path\n- Pin third-party GitHub Actions to commit SHAs across test, benchmark,\npages, and container workflows\n- Keep benchmark publishing and GHCR publishing permissions scoped to\nthe jobs that need them\n\n## Testing\n- Not run (not requested)",
+          "timestamp": "2026-07-22T00:21:02Z",
+          "tree_id": "0edfa5b65afc06c1b7185b23ea0cfef7eb54f1cb",
+          "url": "https://github.com/m2lines/Samudra/commit/44c4cbc41218022b99ccd2f886da93dda9b0c28c"
+        },
+        "date": 1784681079074,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0994166588658265,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0025086299220315952",
+            "extra": "mean: 909.5732650000173 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.06431346355381726,
+            "unit": "iter/sec",
+            "range": "stddev: 0.005978563148337906",
+            "extra": "mean: 15.548843815000009 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.021107697655918915,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04161443139201603",
+            "extra": "mean: 47.376081290399995 sec\nrounds: 5"
           }
         ]
       }

@@ -11,12 +11,17 @@ import xarray as xr
 from scipy.stats import pearsonr
 
 from samudra.constants import TensorMap, build_llc_spec
+from samudra.data.llc import (
+    _flatten_llc_level_vars,
+    _rename_llc_level_index_vars,
+    _var_without_level,
+    canonicalize_llc_datasets,
+)
 from samudra.utils.data import (
     DataSource,
     Masks,
     Normalize,
     OceanData,
-    canonicalize_llc_datasets,
     compute_anomalies,
     flatten_masks,
     get_aggregator_dicts,
@@ -225,6 +230,56 @@ def test_normalize_compact_mixed_depth_and_surface_stats(data_source):
     lat, lon = src.grid_size
     prognostic = torch.zeros(1, expected_prognostic_channels, lat, lon)
     assert normalize.normalize_tensor_prognostic(prognostic).shape == prognostic.shape
+
+
+def test_rename_llc_level_index_vars():
+    original = xr.Dataset(
+        {
+            "Theta_lev_0": 1.0,
+            "Salt_lev_50": 2.0,
+            "oceQnet": 3.0,
+        }
+    )
+
+    renamed = _rename_llc_level_index_vars(original)
+
+    assert set(renamed.data_vars) == {"Theta_0", "Salt_50", "oceQnet"}
+    assert renamed["Theta_0"].item() == 1.0
+    assert renamed["Salt_50"].item() == 2.0
+    assert "Theta_lev_0" in original.data_vars
+
+
+def test_flatten_llc_level_vars():
+    raw_data, _, _ = raw_llc_datasets()
+    data = raw_data[["Theta"]].isel(face=0, drop=True).rename({"k": "lev"})
+    dataset_spec = build_llc_spec()
+
+    flattened = _flatten_llc_level_vars(data, dataset_spec=dataset_spec)
+
+    assert "Theta" not in flattened.data_vars
+    assert set(flattened.data_vars) == {
+        f"Theta_{level}" for level in dataset_spec.depth_i_levels
+    }
+    xr.testing.assert_identical(
+        flattened["Theta_0"], data["Theta"].isel(lev=0, drop=True).rename("Theta_0")
+    )
+    last_level = dataset_spec.depth_i_levels[-1]
+    xr.testing.assert_identical(
+        flattened[f"Theta_{last_level}"],
+        data["Theta"].isel(lev=-1, drop=True).rename(f"Theta_{last_level}"),
+    )
+
+
+@pytest.mark.parametrize(
+    ("var_name", "expected"),
+    [
+        ("Theta_0", "Theta"),
+        ("Theta_50", "Theta"),
+        ("oceQnet", "oceQnet"),
+    ],
+)
+def test_var_without_level(var_name, expected):
+    assert _var_without_level(var_name) == expected
 
 
 def test_canonicalize_llc_datasets_standardizes_layout():

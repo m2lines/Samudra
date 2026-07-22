@@ -27,6 +27,7 @@ from samudra.constants import (
     build_llc_spec,
     build_om4_spec,
 )
+from samudra.data.llc import canonicalize_llc_datasets
 from samudra.models import Samudra, SamudraMini, SamudraMulti
 from samudra.models.base import BaseModel
 from samudra.models.modules import (
@@ -51,13 +52,7 @@ from samudra.models.modules.augment_input import (
 )
 from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from samudra.models.modules.encoder import patch_from
-from samudra.utils.data import (
-    DataContainer,
-    DataSource,
-    DataSourceSplits,
-    Normalize,
-    canonicalize_llc_datasets,
-)
+from samudra.utils.data import DataContainer, DataSource, DataSourceSplits, Normalize
 from samudra.utils.location import LocalLocation, Location, ResolvedLocation
 from samudra.utils.loss import (
     DynamicLoss,
@@ -169,7 +164,7 @@ class LlcTimeConfig(BaseConfig):
         return f"{self.start} to {self.end}"
 
 
-SourceTimeConfig = Om4TimeConfig | LlcTimeConfig
+TimeConfig = Om4TimeConfig | LlcTimeConfig
 
 
 LOCATION_DOCS = (
@@ -178,9 +173,7 @@ LOCATION_DOCS = (
 )
 
 
-class BaseDataSourceConfig[SourceTimeConfigT: (Om4TimeConfig, LlcTimeConfig)](
-    BaseConfig, abc.ABC
-):
+class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
     train_time: SourceTimeConfigT = Field(frozen=True)
     val_time: SourceTimeConfigT = Field(frozen=True)
     inference_times: tuple[SourceTimeConfigT, ...] = Field(default=(), frozen=True)
@@ -205,6 +198,8 @@ class BaseDataSourceConfig[SourceTimeConfigT: (Om4TimeConfig, LlcTimeConfig)](
         data: xr.Dataset,
         means: xr.Dataset,
         stds: xr.Dataset,
+        *,
+        static_data_vars: list[str] | None,
     ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
         raise NotImplementedError
 
@@ -231,7 +226,7 @@ class BaseDataSourceConfig[SourceTimeConfigT: (Om4TimeConfig, LlcTimeConfig)](
                     turn_on_dask=True,
                     static_data_vars=static_data_vars,
                 )
-            # TODO: remove multiple inference time ranges altogether
+            # TODO: remove multiple inference time ranges altogether (see #813)
             assert len(self.inference_times) == 1, (
                 "multiple inference time ranges have been deprecated"
             )
@@ -258,7 +253,12 @@ class BaseDataSourceConfig[SourceTimeConfigT: (Om4TimeConfig, LlcTimeConfig)](
         data = resolved_data_location.open(chunks)
         means = resolved_means_location.open(chunks)
         stds = resolved_stds_location.open(chunks)
-        data, means, stds = self.canonicalize_datasets(data, means, stds)
+        data, means, stds = self.canonicalize_datasets(
+            data,
+            means,
+            stds,
+            static_data_vars=static_data_vars,
+        )
         dataset_spec = self.dataset_spec
 
         source = DataSource.from_datasets(
@@ -340,7 +340,10 @@ class Om4DataSourceConfig(BaseDataSourceConfig[Om4TimeConfig]):
         data: xr.Dataset,
         means: xr.Dataset,
         stds: xr.Dataset,
+        *,
+        static_data_vars: list[str] | None,
     ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+        # TODO: move OM4 canonicalization in here instead of in validation afte.
         return data, means, stds
 
 
@@ -383,7 +386,11 @@ class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
         data: xr.Dataset,
         means: xr.Dataset,
         stds: xr.Dataset,
+        *,
+        static_data_vars: list[str] | None,
     ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+        if static_data_vars:
+            raise ValueError("LLC data sources do not support static_data_vars")
         return canonicalize_llc_datasets(
             data,
             means,
@@ -418,14 +425,6 @@ class DataConfig(BaseConfig):
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
     concurrent_compute: bool = False
-
-    @pydantic.model_validator(mode="after")
-    def reject_llc_static_data_vars(self) -> Self:
-        if self.static_data_vars and any(
-            isinstance(source, LlcDataSourceConfig) for source in self.sources
-        ):
-            raise ValueError("LLC data sources do not support static_data_vars")
-        return self
 
     def build(
         self,

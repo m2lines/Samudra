@@ -291,29 +291,32 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
     assert sliced.data.sizes["time"] == 2
 
 
-def test_data_config_rejects_llc_static_data_vars():
-    with pytest.raises(ValidationError, match="LLC data sources"):
-        DataConfig.model_validate(
-            {
-                "sources": [
-                    {
-                        "type": "llc",
-                        "train_time": {
-                            "start": "2011-09-10T12:00:00Z",
-                            "end": "2012-09-01T12:00:00Z",
-                        },
-                        "val_time": {
-                            "start": "2012-09-01T12:00:00Z",
-                            "end": "2012-11-15T12:00:00Z",
-                        },
-                        "data_location": "data.zarr",
-                        "data_means_location": "means.zarr",
-                        "data_stds_location": "stds.zarr",
-                    }
-                ],
-                "static_data_vars": ["XG"],
-            }
-        )
+def test_data_config_rejects_llc_static_data_vars(tmp_path):
+    write_raw_llc_datasets(tmp_path)
+    cfg = DataConfig.model_validate(
+        {
+            "sources": [
+                {
+                    "type": "llc",
+                    "train_time": {
+                        "start": "2011-09-10T12:00:00Z",
+                        "end": "2012-09-01T12:00:00Z",
+                    },
+                    "val_time": {
+                        "start": "2012-09-01T12:00:00Z",
+                        "end": "2012-11-15T12:00:00Z",
+                    },
+                    "data_location": "data.zarr",
+                    "data_means_location": "means.nc",
+                    "data_stds_location": "stds.nc",
+                }
+            ],
+            "static_data_vars": ["XG"],
+        }
+    )
+
+    with pytest.raises(ValueError, match="LLC data sources"):
+        cfg.build(LocalLocation(path=tmp_path))
 
 
 def test_data_config_rejects_multiple_dataset_specs(tmp_path):

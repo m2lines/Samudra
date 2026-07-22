@@ -9,7 +9,7 @@ last_kernel_size: 3
 pad: "circular"
 checkpointing: "all"
 embedding_dim: 128  # Reduced from 280
-perceiver_implementation: "flash"
+perceiver_implementation: "auto"
 # TODO(alxmrs): How fine of a resolution should each patch be? This produces a 60x72 latent grid.
 patch_extent: [3.0, 5.0]
 

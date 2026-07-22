@@ -13,14 +13,14 @@ description = "Train and evaluate ocean model emulators"
 readme = "README.md"
 keywords = [ "climate", "emulation", "machine learning", "ocean" ]
 license = { file = "LICENSE" }
-requires-python = ">=3.12"
+# We currently only test 3.12
+requires-python = ">=3.12,<3.13"
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",
   "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
 dependencies = [
@@ -143,16 +143,41 @@ overrides = [
 ]
 
 [tool.uv]
+# The release pages contain several CUDA/PyTorch builds, so select the ABI-compatible wheel explicitly.
+constraint-dependencies = [
+  "flash-attn==2.8.3+cu13torch2.9cxx11abitrue; sys_platform == 'linux' and platform_machine == 'aarch64'",
+  "flash-attn==2.8.3+cu12torch2.9cxx11abitrue; sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
 extra-build-dependencies.flash-attn = [ { requirement = "torch", match-runtime = true } ]
 extra-build-variables.flash-attn = { FLASH_ATTENTION_SKIP_CUDA_BUILD = "TRUE" }
 
 [tool.uv.sources]
+flash-attn = [
+  # On Arm, we want to support CUDA 13 (PhysicsNeMo's ARM64 image uses it and we want to match as closely as possible),
+  # and PyPI has no matching binary wheel so we grab the one direct from github.
+  # NB the PhysicsNeMo container itself has its own build and does not use this.
+  { index = "flash-attn-cu13", extra = "cuda", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
+  # We use CUDA 12 on non-Arm hosts, so grab the upstream CUDA 12/PyTorch 2.9 binary instead.
+  { index = "flash-attn-cu12", extra = "cuda", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+]
 torch = [
   { index = "pytorch-cu130", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
 ]
 torchvision = [
   { index = "pytorch-cu130", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
 ]
+
+[[tool.uv.index]]
+name = "flash-attn-cu13"
+url = "https://github.com/Dao-AILab/flash-attention/releases/expanded_assets/v2.8.3.post1"
+format = "flat"
+explicit = true
+
+[[tool.uv.index]]
+name = "flash-attn-cu12"
+url = "https://github.com/Dao-AILab/flash-attention/releases/expanded_assets/v2.8.3"
+format = "flat"
+explicit = true
 
 [[tool.uv.index]]
 name = "pytorch-cu130"

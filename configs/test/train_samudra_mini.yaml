@@ -60,7 +60,8 @@ model:
   pred_residuals: false
   last_kernel_size: 3
   pad: "circular"
-  perceiver_implementation: "naive"
+  # This is used in a CUDA smoke test, so we want to exercise the FlashAttention backend.
+  perceiver_implementation: "flash"
   embedding_dim: 8
   queries_dim: 8
   coordinate_embedding_dim: 8

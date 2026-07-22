@@ -8,7 +8,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## Prerequisites
 
-- Python 3.12+
+- Python 3.12
 - [uv](https://docs.astral.sh/uv/) package manager
 
 ## Setup

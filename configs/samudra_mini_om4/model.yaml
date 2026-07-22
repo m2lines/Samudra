@@ -8,7 +8,7 @@ pred_residuals: false
 last_kernel_size: 3
 pad: "circular"
 checkpointing: "all"
-perceiver_implementation: "naive"
+perceiver_implementation: "auto"
 embedding_dim: 128
 queries_dim: 128
 coordinate_embedding_dim: 64

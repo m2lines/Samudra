@@ -284,21 +284,25 @@ continues to lag after routing is fixed.
 ## Limitations and remaining evidence
 
 - The new synthetic probes use the naive Perceiver implementation in float32. The
-  production ocean decoder uses flash attention and bfloat16; the checked-in wide
-  ocean autoencoder control is required to quantify implementation-specific gains.
+  first L40S ocean bring-up isolated a CUDA illegal-memory access in the
+  bfloat16/flash backward both with and without activation checkpointing, while the
+  matched naive/float32 run completed. The S1 architecture matrix therefore uses
+  naive/float32; the promoted model still needs a validated production-precision
+  runtime before full-scale training.
 - The multiplied attention matrices are a routing diagnostic, not an exact model
   Jacobian because self-attention and value transformations intervene.
-- The cross-resolution analytic control uses a regular normalized grid. A production
-  residual must use actual OM4 coordinates, periodic longitude, nonuniform latitude,
-  and masks for padded or invalid context tokens.
+- The cross-resolution analytic control uses a regular normalized grid. The
+  production implementation now uses actual OM4 coordinates, periodic longitude,
+  nonuniform latitude, and channel-specific wet masks, but its paired one/half-degree
+  ocean experiment is not yet complete.
 - The hybrid synthetic control initializes its base projection to copy aligned
   target channels. Real processor features require a learned channel projection.
   The completed ocean resampling proxy is the evidence that such a projection is
   trainable in the real model.
-- The prior ocean factorial and forecast proxy are the real-data evidence used in
-  this report. The prepared wide-decoder ocean run is follow-up validation of the
-  measured channel bottleneck, not a prerequisite for the mathematical or
-  synthetic conclusions.
+- The prior ocean factorial and forecast proxy remain the completed real-data
+  evidence used above. The S1 learned-inverse and S2 paired cross-resolution runs
+  will determine whether the synthetic routing result survives real masks,
+  independent regridding products, and jointly learned ocean representations.
 
 ## Reproduction
 
@@ -339,14 +343,13 @@ The follow-up real-data control is fully specified by
 
 ## Recommended follow-up validation
 
-1. Run the checked-in 128-wide cross-attention configuration on the fixed 32-sample
-   ocean autoencoder with the processor bypassed.
-2. Implement the position bias from physical source/query coordinates rather than
-   the square-window index control, including periodic longitude and nonuniform
-   latitude. The current cross-resolution control uses normalized regular-grid
-   coordinates.
-3. Compare the production hybrid with the existing resampling projection on the
-   fixed 32-sample ocean autoencoder.
-4. Promote only candidates that learn fresh synthetic copying, preserve
-   high-wavenumber variance, and materially close the direct-decoder ocean
-   autoencoding gap.
+1. Complete the S1 one-degree learning-rate by encoder-geometry matrix for the
+   physical resampling base and select by held-out error, spectra, amplitude, and
+   seam diagnostics.
+2. Run the paired one/half-degree S2 reconstruction against the masked deterministic
+   coordinate-resampler floor in both normalized and physical units.
+3. Add the zero-initialized attention residual only if S1 or S2 exposes a repeatable
+   defect that the resampling base cannot learn.
+4. Compose the selected zero-depth encoder/decoder checkpoint with the shared
+   processor and verify decoded depths 0, 1, 2, and 4 before proxy and full-scale
+   forecast validation.

@@ -418,6 +418,35 @@ Promotion from S1 requires:
   gain;
 - no NaN, mask leakage, or longitude seam regression.
 
+#### S1 primary-matrix result
+
+The six seed-15 runs completed on Torch L40S using the controlled naive/float32
+runtime described above. Metrics are from the disjoint 32-sample held-out set;
+`best` and `final` are reported separately because the two higher additive learning
+rates bounced after their minima.
+
+| Encoder geometry | LR | Best epoch | Best MSE | Final MSE | Mean high-k ratio | Mean amplitude ratio | Mean absolute bias / target std |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| additive | `3e-4` | 20 | 0.021202 | 0.021202 | 0.8851 | 0.9561 | 0.0092 |
+| additive | `6e-4` | 19 | 0.015452 | 0.020102 | 0.9264 | 0.9784 | 0.0125 |
+| additive | `1e-3` | 19 | 0.013569 | 0.015551 | 0.9325 | 0.9814 | 0.0118 |
+| none | `3e-4` | 20 | 0.020776 | 0.020776 | 0.8372 | 0.9310 | 0.0149 |
+| none | `6e-4` | 20 | 0.013780 | 0.013780 | 0.9247 | 0.9745 | 0.0098 |
+| none | `1e-3` | 20 | **0.011844** | **0.011844** | 0.9283 | 0.9758 | **0.0076** |
+
+`none + 1e-3` wins every variable-group MSE against `additive + 1e-3`. Its
+per-variable high-wavenumber ratios are `0.929` (temperature), `0.953` (salinity),
+`0.894` (zonal velocity), `0.929` (meridional velocity), and `1.094` (SSH), all
+inside the gate. Its amplitude ratios range from `0.960` to `0.994`. The selected
+model therefore removes additive encoder geometry at depth zero; this does not
+remove geometry from the eventual processor, where the sidecar remains mandatory
+to test.
+
+The one-cell patch seam ratio is undefined on the one-degree grid because every
+edge is a patch edge and there are no within-patch edges for its denominator.
+Seams are evaluated on the half-degree and cross-resolution routes in S2 instead.
+Width `{256, 380}` and latent-dimension `128` confirmation runs are in progress.
+
 ### S2. Small cross-resolution ocean reconstruction
 
 Paired same-timestamp loading is implemented in `src/samudra/datasets.py` through

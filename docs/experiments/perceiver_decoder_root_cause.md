@@ -264,6 +264,47 @@ upscaled high-wavenumber power to `1.264`. It remains an informative control, wh
 the zero-initialized hybrid is the safer way to add it if later evidence justifies
 the cost.
 
+## Real-ocean learned-inverse confirmation
+
+S1 tests the promoted physical-coordinate resampling decoder with the production
+two-layer Perceiver encoder on 154-channel, masked one-degree OM4 states. The
+processor is bypassed, but neither the encoder nor the decoder projection is given
+an identity initialization. Every result is measured on 32 held-out states that
+are disjoint from the 32 fixed training states.
+
+| Encoder geometry | LR | Best held-out MSE | Final MSE | Mean high-k ratio | Mean amplitude ratio | Mean absolute bias / target std |
+|---|---:|---:|---:|---:|---:|---:|
+| additive | `3e-4` | 0.021202 | 0.021202 | 0.8851 | 0.9561 | 0.0092 |
+| additive | `6e-4` | 0.015452 | 0.020102 | 0.9264 | 0.9784 | 0.0125 |
+| additive | `1e-3` | 0.013569 | 0.015551 | 0.9325 | 0.9814 | 0.0118 |
+| none | `3e-4` | 0.020776 | 0.020776 | 0.8372 | 0.9310 | 0.0149 |
+| none | `6e-4` | 0.013780 | 0.013780 | 0.9247 | 0.9745 | 0.0098 |
+| none | `1e-3` | **0.011844** | **0.011844** | 0.9283 | 0.9758 | **0.0076** |
+
+At the useful `1e-3` learning rate, omitting post-encoder additive position/scale
+embeddings wins every variable-group MSE and lowers mean absolute normalized bias.
+The selected model's high-wavenumber ratios are `0.929` for temperature, `0.953`
+for salinity, `0.894` for zonal velocity, `0.929` for meridional velocity, and
+`1.094` for SSH; all satisfy the preregistered `[0.85, 1.15]` gate. The low-rate
+result prevents a blanket claim that geometry removal always helps: this is an
+optimization-by-geometry interaction, with a clear advantage at the learning rate
+that best trains both variants.
+
+This result supports a learned inverse, not a dumb encoder. The encoder still must
+compress each masked ocean state into the canonical latent representation. Only
+the decoder's spatial correspondence is anchored by physical-coordinate
+resampling; its channel projection remains learned. Geometry is also retained as
+a sidecar for the processor experiments, where a nonzero-depth latent evolution
+may need it even though adding it directly to depth-zero encoder features hurts
+reconstruction.
+
+The selected `0.011844` is consistent with closing the earlier decoder gap, but it
+is not treated as a strict head-to-head improvement over the historical
+direct/direct `0.012083`: the harnesses and held-out sample contracts differ. The
+controlled conclusion comes from the six S1 runs above. Width `{256, 380}` and
+latent-dimension `128` confirmations are still running before the canonical
+processor width is frozen.
+
 ## Architecture decision matrix
 
 | Candidate | Same-grid identity | Flexible output grid | Learned nonlocal correction | Evidence-backed decision |
@@ -300,9 +341,9 @@ continues to lag after routing is fixed.
   The completed ocean resampling proxy is the evidence that such a projection is
   trainable in the real model.
 - The prior ocean factorial and forecast proxy remain the completed real-data
-  evidence used above. The S1 learned-inverse and S2 paired cross-resolution runs
-  will determine whether the synthetic routing result survives real masks,
-  independent regridding products, and jointly learned ocean representations.
+  evidence used above. S1 now confirms the learned-inverse result on real masks and
+  jointly learned ocean representations. S2 must still determine whether it
+  survives independent one/half-degree regridding products.
 
 ## Reproduction
 
@@ -343,9 +384,8 @@ The follow-up real-data control is fully specified by
 
 ## Recommended follow-up validation
 
-1. Complete the S1 one-degree learning-rate by encoder-geometry matrix for the
-   physical resampling base and select by held-out error, spectra, amplitude, and
-   seam diagnostics.
+1. Complete only the promoted S1 width and latent-dimension confirmations; the
+   learning-rate by geometry matrix has selected `none + 1e-3`.
 2. Run the paired one/half-degree S2 reconstruction against the masked deterministic
    coordinate-resampler floor in both normalized and physical units.
 3. Add the zero-initialized attention residual only if S1 or S2 exposes a repeatable

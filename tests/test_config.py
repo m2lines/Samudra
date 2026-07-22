@@ -27,6 +27,7 @@ from samudra.config import (
 )
 from samudra.config_schema import get_pydantic_models
 from samudra.models.modules import (
+    CanonicalResampleEncoder,
     DirectPatchDecoder,
     DirectPatchEncoder,
     PerceiverEncoder,
@@ -389,6 +390,29 @@ def test_direct_representation_configs_build_projection_heads():
     assert isinstance(encoder, DirectPatchEncoder)
     assert encoder.out_channels == 128
     assert isinstance(decoder, DirectPatchDecoder)
+
+
+def test_canonical_resample_encoder_config_uses_configured_finest_grid():
+    canonical_resolution = (torch.linspace(-89.75, 89.75, 360), torch.arange(720) / 2)
+    encoder = EncoderConfig(canonical_resampling=True, geometry_mode="none").build(
+        in_channels=10,
+        out_channels=128,
+        patch_extent=(1.0, 1.0),
+        max_lat_size=360,
+        max_lon_size=720,
+        implementation="naive",
+        canonical_resolution=canonical_resolution,
+    )
+
+    assert isinstance(encoder, CanonicalResampleEncoder)
+    assert encoder.out_channels == 128
+    assert all(
+        torch.equal(actual, expected)
+        for actual, expected in zip(
+            encoder.output_resolution((torch.empty(0), torch.empty(0))),
+            canonical_resolution,
+        )
+    )
 
 
 def test_encoder_config_can_disable_post_encoder_geometry():

@@ -30,6 +30,7 @@ from samudra.models.base import BaseModel
 from samudra.models.modules import (
     AvgPool,
     BilinearUpsample,
+    CanonicalResampleEncoder,
     CappedGELU,
     ConvBlock,
     ConvNeXtBlock,
@@ -686,6 +687,12 @@ class EncoderConfig(BaseConfig):
         description="Replace the Perceiver encoder with a direct 1x1 projection. "
         "Only valid when the physical patch extent resolves to one grid cell.",
     )
+    canonical_resampling: bool = Field(
+        default=False,
+        description="Apply a learned pointwise channel projection and resample "
+        "every input onto the finest configured physical grid. This preserves a "
+        "fixed latent grid without pooling multiple native cells into one token.",
+    )
     perceiver: PerceiverConfig = PerceiverConfig()
     spatial_query_shape: tuple[int, int] | None = Field(
         default=None,
@@ -712,13 +719,33 @@ class EncoderConfig(BaseConfig):
         max_lat_size: int,
         max_lon_size: int,
         implementation: PerceiverImpl,
-    ) -> PerceiverEncoder | DirectPatchEncoder:
+        canonical_resolution: tuple[torch.Tensor, torch.Tensor] | None = None,
+    ) -> PerceiverEncoder | DirectPatchEncoder | CanonicalResampleEncoder:
         max_patch_size = patch_from(patch_extent, max_lat_size, max_lon_size)
-        if self.direct_projection:
-            if self.spatial_query_shape is not None:
+        structural_modes = sum(
+            (
+                self.direct_projection,
+                self.canonical_resampling,
+                self.spatial_query_shape is not None,
+            )
+        )
+        if structural_modes > 1:
+            raise ValueError(
+                "direct_projection, canonical_resampling, and spatial_query_shape "
+                "are mutually exclusive."
+            )
+        if self.canonical_resampling:
+            if canonical_resolution is None:
                 raise ValueError(
-                    "direct_projection and spatial_query_shape are mutually exclusive."
+                    "canonical_resampling requires a configured canonical grid."
                 )
+            return CanonicalResampleEncoder(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                canonical_resolution=canonical_resolution,
+                geometry_mode=self.geometry_mode,
+            )
+        if self.direct_projection:
             if max_patch_size != (1, 1):
                 raise ValueError(
                     "The direct encoder requires a one-cell patch on every source; "
@@ -1163,6 +1190,9 @@ class SamudraMultiConfig(BaseModelConfig):
             max_lat_size,
             max_lon_size,
             impl,
+            canonical_resolution=max(
+                srcs, key=lambda source: source.grid_size[0] * source.grid_size[1]
+            ).resolution,
         )
         if self.bypass_processor:
             processor: nn.Module = nn.Identity()

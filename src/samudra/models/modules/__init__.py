@@ -23,7 +23,12 @@ from .decoder import (
     ResampleAttentionResidualDecoder,
     ResampleProjectionDecoder,
 )
-from .encoder import DirectPatchEncoder, PerceiverEncoder, SpatialQueryPerceiver
+from .encoder import (
+    CanonicalResampleEncoder,
+    DirectPatchEncoder,
+    PerceiverEncoder,
+    SpatialQueryPerceiver,
+)
 from .unet_backbone import UNetBackbone
 
 __all__ = [
@@ -36,6 +41,7 @@ __all__ = [
     "TransposedConvUpsample",
     "CappedGELU",
     "CappedLeakyReLU",
+    "CanonicalResampleEncoder",
     "MaxPool",
     "DirectPatchDecoder",
     "DirectPatchEncoder",

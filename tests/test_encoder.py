@@ -10,6 +10,7 @@ from torch import nn
 
 from samudra.constants import Lat, Lon
 from samudra.models.modules.encoder import (
+    CanonicalResampleEncoder,
     DirectPatchEncoder,
     PerceiverEncoder,
     SpatialQueryPerceiver,
@@ -47,6 +48,31 @@ class QueryProjection(nn.Module):
         batch_queries = queries.unsqueeze(0).expand(data.shape[0], -1, -1)
         # Retain a gradient path from every patch input for this lightweight stub.
         return self.projection(batch_queries) + data.mean() * 0
+
+
+def test_canonical_resample_encoder_uses_fixed_finest_grid_and_has_gradients():
+    source_resolution = (torch.tensor([-45.0, 45.0]), torch.arange(4) * 90.0)
+    canonical_resolution = (torch.linspace(-67.5, 67.5, 4), torch.arange(8) * 45.0)
+    encoder = CanonicalResampleEncoder(
+        in_channels=10,
+        out_channels=8,
+        canonical_resolution=canonical_resolution,
+        geometry_mode="none",
+    )
+    x = torch.randn(2, 10, 2, 4, requires_grad=True)
+
+    encoded = encoder(x, source_resolution)
+
+    assert encoded.shape == (2, 8, 4, 8)
+    assert all(
+        torch.equal(actual, expected)
+        for actual, expected in zip(
+            encoder.output_resolution(source_resolution), canonical_resolution
+        )
+    )
+    encoded.square().mean().backward()
+    assert x.grad is not None
+    assert encoder.projection.weight.grad is not None
 
 
 def test_makes_patches():

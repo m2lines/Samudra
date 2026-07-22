@@ -15,6 +15,7 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
 from samudra.constants import Boundary, Prognostic
 from samudra.models.base import BaseModel
 from samudra.models.modules import (
+    CanonicalResampleEncoder,
     DirectPatchDecoder,
     DirectPatchEncoder,
     PerceiverDecoder,
@@ -37,6 +38,7 @@ _checkpoint_types: tuple[type, ...] = (
     Perceiver,
     PerceiverDecoder,
     PerceiverEncoder,
+    CanonicalResampleEncoder,
     DirectPatchDecoder,
     DirectPatchEncoder,
     ResampleProjectionDecoder,
@@ -72,7 +74,7 @@ class SamudraMulti(BaseModel):
         last_kernel_size: int,
         pad: str,
         add_3d_coordinates: nn.Module | None,
-        encoder: PerceiverEncoder | DirectPatchEncoder,
+        encoder: PerceiverEncoder | DirectPatchEncoder | CanonicalResampleEncoder,
         processor: nn.Module,
         decoder: (
             PerceiverDecoder
@@ -126,6 +128,7 @@ class SamudraMulti(BaseModel):
                     m,
                     (
                         PerceiverEncoder,
+                        CanonicalResampleEncoder,
                         PerceiverDecoder,
                         DirectPatchEncoder,
                         DirectPatchDecoder,

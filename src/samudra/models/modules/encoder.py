@@ -245,6 +245,85 @@ class DirectPatchEncoder(nn.Module):
         return rearrange(tokens, "b (h w) c -> b c h w", h=height, w=width)
 
 
+class CanonicalResampleEncoder(nn.Module):
+    """Learn channels pointwise, then render them on one configured latent grid."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        canonical_resolution: tuple[Lat, Lon],
+        geometry_mode: EncoderGeometryMode = "none",
+    ) -> None:
+        super().__init__()
+        if out_channels % 4 != 0:
+            raise ValueError(
+                "out_channels must be divisible by four for processor positional encoding."
+            )
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.geometry_mode = geometry_mode
+        self.canonical_resolution_cpu = tuple(
+            coordinate.detach().cpu().clone() for coordinate in canonical_resolution
+        )
+        self.projection = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+        self.pos_embed: nn.Linear | None = None
+        self.scale_embed: nn.Linear | None = None
+        if geometry_mode == "additive":
+            self.pos_embed = nn.Linear(out_channels, out_channels)
+            self.scale_embed = nn.Linear(out_channels, out_channels)
+
+    def output_resolution(self, resolution: tuple[Lat, Lon]) -> tuple[Lat, Lon]:
+        """Return the fixed finest configured grid, independent of input scale."""
+        del resolution
+        lat, lon = self.canonical_resolution_cpu
+        return lat, lon
+
+    def forward(
+        self, x: Input, resolution: tuple[Lat, Lon]
+    ) -> Float[torch.Tensor, "batch {self.out_channels} h w"]:
+        if x.shape[1] != self.in_channels:
+            raise ValueError(
+                f"Expected {self.in_channels} input channels, got {x.shape[1]}."
+            )
+        # Imported lazily because decoder.py also uses patch/geometry helpers from
+        # this module. At execution time both modules are fully initialized.
+        from samudra.models.modules.decoder import coordinate_bilinear_resample
+
+        encoded = self.projection(x)
+        output_resolution = self.output_resolution(resolution)
+        encoded = coordinate_bilinear_resample(
+            encoded,
+            resolution,
+            output_resolution,
+        )
+        if self.geometry_mode != "additive":
+            return encoded
+
+        tokens = rearrange(encoded, "b c h w -> b (h w) c")
+        lat, lon = output_resolution
+        pos_encode, scale_encode = pos_scale_enc_for_grid(
+            self.out_channels,
+            lat,
+            lon,
+            (1, 1),
+        )
+        assert self.pos_embed is not None
+        assert self.scale_embed is not None
+        tokens = tokens + self.pos_embed(
+            pos_encode.to(dtype=tokens.dtype, device=tokens.device)
+        ).unsqueeze(0)
+        tokens = tokens + self.scale_embed(
+            scale_encode.to(dtype=tokens.dtype, device=tokens.device)
+        ).unsqueeze(0)
+        return rearrange(
+            tokens,
+            "b (h w) c -> b c h w",
+            h=len(lat),
+            w=len(lon),
+        )
+
+
 class PerceiverEncoder(nn.Module):
     """A perceiver-based encoder for Samudra's flattened data (a whole column of the ocean, with history).
 

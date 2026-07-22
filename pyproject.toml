@@ -107,12 +107,13 @@ where = [ "src" ]
 
 # The version comes from git tags (v1.2.3 -> 1.2.3); commits past a tag get a
 # `.devN` suffix. no-local-version drops the `+g<sha>` segment PyPI rejects.
-# fallback_version applies before the first tag exists -- keep it in sync with
-# FALLBACK_VERSION in scripts/package.py.
+# fallback_version is the last released version before the first tag exists
+# (0.0.0 = none yet, so builds target 0.0.1); guess-next-dev bumps it. Keep it
+# in sync with FALLBACK_VERSION in scripts/package.py.
 
 [tool.setuptools_scm]
 local_scheme = "no-local-version"
-fallback_version = "1.0.0"
+fallback_version = "0.0.0"
 
 [tool.ruff]
 lint.select = [ "B006", "D", "E", "F", "I", "UP", "W" ]

@@ -61,9 +61,11 @@ PYPI_PACKAGE = "samudra"
 # with non-alphanumerics collapsed to underscores) and skips git entirely.
 SCM_ENV_VAR = "SETUPTOOLS_SCM_PRETEND_VERSION_FOR_SAMUDRA"
 
-# Base used before the first v* tag exists. Keep in sync with `fallback_version`
-# under [tool.setuptools_scm] so tagless dev installs and nightlies agree.
-FALLBACK_VERSION = "1.0.0"
+# Stands in for the last released version before the first v* tag exists (0.0.0
+# = nothing released yet); dev builds then target 0.0.1. Keep in sync with
+# `fallback_version` under [tool.setuptools_scm] so tagless dev installs and
+# nightlies resolve to the same base.
+FALLBACK_VERSION = "0.0.0"
 
 
 # ---------- helpers ----------------------------------------------------------
@@ -105,13 +107,11 @@ def _bump_patch(version: str) -> str:
     return f"{major}.{minor}.{patch + 1}"
 
 
-def _release_base() -> str:
-    """Next patch above the most recent v* tag; FALLBACK_VERSION when untagged.
+def _last_release() -> str:
+    """Most recent v* tag (without the leading 'v'), or FALLBACK_VERSION.
 
-    This is the release setuptools-scm would guess for the next version, computed
-    locally from git so the script carries no build-time dependency. It anchors
-    the synthetic nightly/manual versions to the real release line without ever
-    needing a hand-maintained version field.
+    FALLBACK_VERSION (0.0.0) stands in when no v* tag exists yet, so the first
+    release the tree builds toward is 0.0.1.
     """
     try:
         tag = subprocess.check_output(
@@ -121,8 +121,19 @@ def _release_base() -> str:
             stderr=subprocess.DEVNULL,
         ).strip()
     except subprocess.CalledProcessError:
-        return FALLBACK_VERSION  # no v* tag yet: build toward the first release
-    return _bump_patch(tag.lstrip("v"))
+        return FALLBACK_VERSION
+    return tag.lstrip("v")
+
+
+def _release_base() -> str:
+    """Next patch above the last release -- the version dev builds work toward.
+
+    Mirrors setuptools-scm's guess-next-dev (one patch above the most recent
+    tag), computed locally from git so the script carries no build-time
+    dependency. It anchors the synthetic nightly/manual versions to the real
+    release line without ever needing a hand-maintained version field.
+    """
+    return _bump_patch(_last_release())
 
 
 def resolve_version(mode: str, explicit: str | None) -> str:

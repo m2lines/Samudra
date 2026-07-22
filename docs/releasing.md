@@ -75,10 +75,12 @@ PyPI. To dry-run first, use **Actions → Release → Run workflow → mode: man
 that builds and runs `twine check` without publishing.
 
 !!! note "Before the first tag"
-    The repository has no `v*` tags yet, so builds fall back to `1.0.0`
-    (`fallback_version` in `[tool.setuptools_scm]`, mirrored by `FALLBACK_VERSION`
-    in `scripts/package.py` — keep the two in sync). Cutting `v1.0.0` makes the
-    tag the single source of truth from then on.
+    The repository has no `v*` tags yet, so the "last release" falls back to
+    `0.0.0` (`fallback_version` in `[tool.setuptools_scm]`, mirrored by
+    `FALLBACK_VERSION` in `scripts/package.py` — keep the two in sync). Builds
+    therefore target `0.0.1` (e.g. a nightly is `0.0.1.dev<stamp>`). Cutting the
+    first tag, **`v0.0.1`**, makes the tag the single source of truth from then
+    on.
 
 ## One-time trusted-publisher setup
 

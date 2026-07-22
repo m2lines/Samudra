@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784762956368,
+  "lastUpdate": 1784764298743,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -10880,6 +10880,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.3187575105992058",
             "extra": "mean: 55.44938377279997 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "123735b60e2367458a95144aa75003df204df6d7",
+          "message": "Add commit-addressed Apptainer code overlays (#810)\n\n## Summary\n\n- add a commit-addressed EXT3 code-layer builder that fetches an exact\npushed Git SHA\n- reject overlays when `uv.lock` or `pyproject.toml` differs from the\nruntime SIF\n- verify and atomically publish checksummed, read-only code layers\n- teach the Torch train and eval harnesses to mount code layers and save\nsource/runtime provenance\n- report the executed code commit separately from the reusable runtime\ncommit in W&B\n\n## Why\n\nCode-only changes currently require a full Docker build in GitHub\nActions followed by a large image pull and SIF conversion on Torch. This\nseparates the heavyweight dependency runtime from immutable source\noverlays while retaining reproducibility: jobs consume a pushed commit\nand a checksummed read-only layer, never a mutable checkout.\n\nDependency changes still require a new runtime image. The overlay\nbuilder deliberately has no lockfile-mismatch bypass.\n\n## Validation\n\n- `uv run pytest tests/test_wandb.py -q` — 3 passed\n- repository pre-commit hooks — passed\n- shell syntax checks and `git diff --check` — passed\n- built and verified an overlay on Torch from commit\n`84bdbf85c87fd1327f55340122190b6e60df546d`\n- made and pushed a second code-only commit,\n`431fcaef9c2cd462def79d0dd1530e32d9eb2816`\n- reused the original 12 GB SIF and built the second overlay in 26.5\nseconds without a Docker build, image pull, or SIF conversion\n- verified through\n[W&B](https://wandb.ai/ocean_emulators/default/runs/vx27dum9) that the\nexecuted code commit was `431fcaef...` while the runtime commit remained\n`84bdbf85...`\n- the container workflow's x86_64 build/smoke and ARM64 build/tests\npassed; its final GPU test is still running\n\n---------\n\nCo-authored-by: fomo-bot <266121006+fomo-bot@users.noreply.github.com>",
+          "timestamp": "2026-07-22T23:11:55Z",
+          "tree_id": "24dd2bccd3b06c8a1c2d4f720547a66c45b069db",
+          "url": "https://github.com/m2lines/Samudra/commit/123735b60e2367458a95144aa75003df204df6d7"
+        },
+        "date": 1784764297703,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.083583386959308,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0016782220093031015",
+            "extra": "mean: 922.8639087999909 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.062070430073062816,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3628630017999857",
+            "extra": "mean: 16.110730968400002 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.01811941643936432,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1571932738827749",
+            "extra": "mean: 55.189415362599995 sec\nrounds: 5"
           }
         ]
       }

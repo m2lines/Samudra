@@ -63,6 +63,11 @@ class IdentityConfig(TrainConfig):
         "checkpoint and held-out reconstruction samples. The configured training "
         "depth is always included.",
     )
+    identity_area_restriction_diagnostic: bool = Field(
+        default=False,
+        description="Compare masked regular-index area averaging with bilinear "
+        "point sampling on fine-to-coarse identity routes.",
+    )
 
 
 @contextmanager
@@ -286,6 +291,7 @@ def evaluate_identity(
     prefix: str,
     target_time_mode: str = "forecast",
     route_filter: str | None = None,
+    area_restriction_diagnostic: bool = False,
 ) -> tuple[dict[str, float], dict[str, torch.Tensor]]:
     """Evaluate fixed-sample identity MSE, spectra, and patch seams."""
     trainer.model.eval()
@@ -387,7 +393,9 @@ def evaluate_identity(
 
         batch_area_resampler_square_error: torch.Tensor | None = None
         batch_area_resampler_spectrum: torch.Tensor | None = None
-        if output_shape[0] < input_shape[0] or output_shape[1] < input_shape[1]:
+        if area_restriction_diagnostic and (
+            output_shape[0] < input_shape[0] or output_shape[1] < input_shape[1]
+        ):
             area_resampled_physical = _masked_area_resampler_reference(
                 input_physical,
                 input_wet,
@@ -666,6 +674,7 @@ def evaluate_identity_routes(
     sample_offset: int,
     prefix: str,
     target_time_mode: str,
+    area_restriction_diagnostic: bool = False,
 ) -> tuple[dict[str, float], dict[str, torch.Tensor]]:
     """Evaluate each configured resolution route, then form equal-route means."""
     routes = _identity_routes(trainer)
@@ -682,6 +691,7 @@ def evaluate_identity_routes(
             sample_offset=sample_offset,
             prefix=prefix,
             target_time_mode=target_time_mode,
+            area_restriction_diagnostic=area_restriction_diagnostic,
         )
 
     route_count = len(routes)
@@ -707,6 +717,7 @@ def evaluate_identity_routes(
             prefix=route_prefix,
             target_time_mode=target_time_mode,
             route_filter=route,
+            area_restriction_diagnostic=area_restriction_diagnostic,
         )
         route_logs.append((route_prefix, logs))
         all_spectra.update(
@@ -858,6 +869,9 @@ def train_identity(cfg: IdentityConfig) -> None:
                     sample_offset=cfg.identity_train_offset,
                     prefix="identity/train",
                     target_time_mode=cfg.target_time_mode,
+                    area_restriction_diagnostic=(
+                        cfg.identity_area_restriction_diagnostic
+                    ),
                 )
             heldout_metrics_by_depth: dict[int, dict[str, float]] = {}
             heldout_spectra_by_depth: dict[int, dict[str, torch.Tensor]] = {}
@@ -871,6 +885,9 @@ def train_identity(cfg: IdentityConfig) -> None:
                         sample_offset=cfg.identity_eval_offset,
                         prefix=prefix,
                         target_time_mode=cfg.target_time_mode,
+                        area_restriction_diagnostic=(
+                            cfg.identity_area_restriction_diagnostic
+                        ),
                     )
                 heldout_metrics_by_depth[depth] = depth_metrics
                 heldout_spectra_by_depth[depth] = depth_spectra

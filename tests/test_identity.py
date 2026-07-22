@@ -205,8 +205,15 @@ def test_route_evaluation_forms_equal_route_means(monkeypatch):
         prefix,
         target_time_mode,
         route_filter,
+        area_restriction_diagnostic,
     ):
-        del trainer, patch_size, sample_offset, target_time_mode
+        del (
+            trainer,
+            patch_size,
+            sample_offset,
+            target_time_mode,
+            area_restriction_diagnostic,
+        )
         route_index = {
             "180x360_to_180x360": 0,
             "180x360_to_360x720": 1,
@@ -243,6 +250,7 @@ def test_identity_config_uses_disjoint_sample_ranges():
     assert fields["identity_eval_offset"].default == 32
     assert fields["identity_eval_only"].default is False
     assert fields["identity_eval_processor_depths"].default is None
+    assert fields["identity_area_restriction_diagnostic"].default is False
 
 
 def test_identity_eval_only_requires_explicit_finetune_checkpoint(tmp_path):

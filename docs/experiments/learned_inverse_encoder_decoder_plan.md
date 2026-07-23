@@ -1075,8 +1075,8 @@ two-seed endpoint, zeroing boundary input worsens leads `{1,2,4}` by
 `{4.9%, 14.9%, 30.7%}`, and reversing its time order worsens lead four by 37.7%.
 The two seeds differ by only about 1.3% at each lead, far inside the gap to the
 alternatives. The frozen ReZero design is therefore promoted to full one-degree
-validation; its checked-in selection is commit `d011fce5` and Torch job
-`14629179`.
+validation; its checked-in selection is commit `d011fce5`. Runtime-resume fix
+`4c7365f3` is used by Torch job `14629304`.
 
 Three failed setup jobs contribute no model evidence: `14616135` invoked an
 identity config through the training entry point, `14616181` duplicated the data
@@ -1126,8 +1126,8 @@ mis-specified run and supplies no model-selection evidence. Jobs `14605300` and
 
 The original eight-GPU submission `14626058` made no optimizer step. Node
 fragmentation gave it an estimated start two days later, so the selection-logic
-revision rule replaces it with Torch job `14629179` from exact code overlay
-`d011fce5`. The replacement uses the three immediately available RTX6000s,
+revision rule replaces it with Torch job `14629304` from exact code overlay
+`4c7365f3`. The replacement uses the three immediately available RTX6000s,
 per-rank batch 2, accumulation 5, and 65 epochs: effective batch 30 and about
 6,175 updates, only 0.9% from the requested 6,230-update budget. It resumes the
 same frozen state-only inverse checkpoint and is the requested v2-scale
@@ -1140,12 +1140,16 @@ than its pre-forecast checkpoint.
 
 The first three-GPU launch `14629149` verified world size, effective batch, head
 freeze, ReZero selection, checkpoint provenance, and six optimizer updates, then
-was cancelled. Its measured throughput projected beyond Torch's enforced 24-hour
-limit, and the scheduler rejected a longer allocation. Replacement `14629179`
-uses the identical scientific configuration with epoch checkpoints, Slurm
-requeue, and a five-minute pre-timeout signal so optimizer and scheduler state are
-preserved if a second 24-hour allocation is required. The six-update bring-up is
-startup evidence only and is not included in model metrics.
+was cancelled. Its measured startup throughput projected beyond Torch's enforced
+24-hour limit, and the scheduler rejected a longer allocation. The first
+requeueable replacement, `14629179`, exposed an initialization guard that rejected
+`finetune + preemptible` before optimizer construction and made no update. Commit
+`4c7365f3` revises the clean-break contract: an initial preemptible run may load
+the inverse by finetuning, while a requeue that finds `ckpt.pt` disables
+finetuning and restores full model, optimizer, scheduler, counter, EMA, and W&B
+state. Job `14629304` uses that fix with epoch checkpoints, Slurm requeue, and a
+five-minute pre-timeout signal. The six-update bring-up is startup evidence only
+and is not included in model metrics.
 
 Profile before launch. Existing evidence suggests one RTX6000 is sufficient for
 proxy screening; the completed full direct one-cell run used two GPUs, peaked near

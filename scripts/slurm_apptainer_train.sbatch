@@ -382,7 +382,15 @@ BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 # retryable with the same NAME.
 mkdir -p "${RUN_DIR}"
 if [[ -n "${CODE_LAYER_MANIFEST}" ]]; then
-  cp "${CODE_LAYER_MANIFEST}" "${RUN_DIR}/source-manifest.json"
+  RUN_MANIFEST="${RUN_DIR}/source-manifest.json"
+  if (( ${SLURM_RESTART_COUNT:-0} > 0 )); then
+    if ! cmp -s "${CODE_LAYER_MANIFEST}" "${RUN_MANIFEST}"; then
+      echo "Requeued job code-layer manifest does not match ${RUN_MANIFEST}." >&2
+      exit 7
+    fi
+  else
+    install -m 0644 "${CODE_LAYER_MANIFEST}" "${RUN_MANIFEST}"
+  fi
 fi
 SAMUDRA_PROVENANCE_PATH="${RUN_DIR}/run-provenance.json" \
 SAMUDRA_CODE_COMMIT="${CODE_GIT_COMMIT}" \

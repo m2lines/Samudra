@@ -984,6 +984,37 @@ The corrected V0 sequence is:
    predicted lead beats persistence and the processor is demonstrably sensitive
    to the correctly aligned boundary state.
 
+Corrected V0 execution is now underway on exact, checksum-verified code overlays.
+The first clean-break result is decisive: the state-only one-degree inverse
+(`14616192`, W&B `4xbqyev0`, code `b3f7d823`) reaches held-out MSE `0.000648411`
+after 40 epochs. The prior joint prognostic-plus-boundary inverse reached about
+`0.00304`, so removing boundary fields from the state encoder reduces error by
+78.7%; it does not make the learned representation harder to invert. The fresh
+one/half-degree mix run (`14618325`, W&B `27t8occ3`, code `f4a57cb8`) completes at
+aggregate MSE `0.0210660`, split as `0.00365078` on one-degree outputs and
+`0.0384813` on half-degree outputs. The corresponding deterministic persistence /
+coordinate-resampling baselines are `0.00259272` and `0.0372132`. Route-specific
+and unseen-quarter audits are queued to distinguish same-grid inverse error from
+the irreducible cross-grid resampling term.
+
+A two-epoch physical-time bring-up (`14619138`, W&B `o6gi7wvi`, code
+`455be788`) loaded the state-only inverse, initialized only the boundary encoder
+and processor, and completed the encode-once rollout without decode/re-encode.
+True-lead validation improved from `{0.101246, 0.165935, 0.277784}` after epoch 1
+to `{0.0811572, 0.132833, 0.198276}` after epoch 2 for leads `{1,2,4}`. This is a
+functionality and optimization smoke, not a promotion result. The definitive
+two-seed, three-weight proxy jobs use code `ed7e7cb9` and additionally log a
+lead-matched persistence baseline, masked zero-depth inverse retention, and zeroed,
+batch-shuffled, and time-reversed boundary controls.
+
+Three failed setup jobs contribute no model evidence: `14616135` invoked an
+identity config through the training entry point, `14616181` duplicated the data
+subdirectory in `DATA_ROOT`, and `14616295` exposed the now-fixed cross-grid
+persistence shape bug after training but before completing epoch-one validation.
+The route-audit harness failure `14619195` likewise performed no evaluation; the
+harness now explicitly supports `samudra.identity` and its replacements are pinned
+to the completed cross-resolution checkpoint.
+
 ### V1. Full-data one-degree run at v2-like scale
 
 After corrected V0 promotion, train its winner on the 1975--2013 one-degree

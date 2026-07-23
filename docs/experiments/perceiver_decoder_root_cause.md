@@ -41,8 +41,12 @@ uses the separately encoded boundary state for that step, and depth `N` targets
 controls, but they are not evidence for physical latent autoregression. A full-data
 job using the old semantics was cancelled after one epoch. The corrected state-only
 encoder, per-step boundary encoder, latent carry between inference chunks, and
-true-lead training path are implemented and locally tested; fresh state-only
-autoencoder and physical-time proxy evidence is still required.
+true-lead training path are implemented and locally tested. Fresh state-only
+evidence now strengthens the separation: the one-degree inverse reaches
+`0.000648411`, 78.7% below the prior joint prognostic-plus-boundary inverse's
+approximately `0.00304`. A two-epoch physical-time smoke improves all true leads
+while retaining latent carry. The controlled weight/seed sweep, forcing ablations,
+and full-scale validation remain in progress, so this document is still interim.
 
 ## Objective
 

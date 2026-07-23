@@ -1056,6 +1056,22 @@ and is distinct from the rejected decoder-attention residual. Both controls use
 the same seed-15 windows, 192 updates, and effective batch 32 as V0 and are pending
 behind the matched sweep. Promote neither until the three-weight sweep completes.
 
+The first causal-control validations support both parts of that diagnosis. Frozen
+heads alone preserve zero-depth MSE at `0.000647529` but initially make the
+replacement processor slightly harder to optimize. Adding the zero-initialized
+latent residual preserves the same exact inverse and improves the first seed's
+epoch-one leads from `{0.09990, 0.17186, 0.28307}` to
+`{0.07728, 0.13232, 0.18297}`. Seed 16 independently reproduces the residual arm
+at `{0.07707, 0.13209, 0.18243}`. Its epoch-one high-wavenumber ratios are
+approximately `{0.965, 0.974, 0.944, 0.876, 0.995}` for temperature, salinity,
+zonal velocity, meridional velocity, and SSH. By epoch three, seed 15 improves to
+`{0.05852, 0.09582, 0.13601}` while keeping zero-depth MSE unchanged. Zeroing the
+boundary path then worsens those leads by `{0.9%, 1.9%, 5.5%}`, and reversing the
+forcing order worsens lead four by 3.0%, evidence that the learned residual is
+using per-step forcing rather than only copying persistence. These early values
+are much larger effects than the seed spread, but the full 12-epoch controls and
+the second residual seed still determine promotion.
+
 Three failed setup jobs contribute no model evidence: `14616135` invoked an
 identity config through the training entry point, `14616181` duplicated the data
 subdirectory in `DATA_ROOT`, and `14616295` exposed the now-fixed cross-grid

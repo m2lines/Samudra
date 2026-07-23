@@ -887,12 +887,15 @@ effective global batch 32. Validation selected the terminal epoch in all four ru
 |---:|---:|---:|---:|
 | 0 | 0.0315724 | 0.0315876 | 0.0315800 |
 | 0.05 | 0.0316064 | 0.0315465 | 0.0315765 |
+| 0.2 | 0.0315684 | 0.0316211 | 0.0315947 |
 
-The two weights are forecast-equivalent to 0.011%; both beat the matched v2 proxy
-by 25.5%, the old Perceiver/resampling result by 38.9%, and the direct one-cell
-proxy by about 23.5%. The regularized arm slightly improves velocity high-wavenumber
-power without a material variable-group regression. These are W&B runs `bznwj3is`,
-`h73bbty2`, `4zaqxkwg`, and `gr0pvlvr`.
+All three weights are forecast-equivalent within 0.06%; all beat the matched v2
+proxy by about 25.5%, the old Perceiver/resampling result by 38.8--38.9%, and the
+direct one-cell proxy by about 23.5%. Regularization improves velocity
+high-wavenumber power without a material variable-group regression; weight 0.2
+raises the two-seed zonal ratio to about `0.733`, versus about `0.718` at 0.05.
+The W&B runs are `bznwj3is`, `h73bbty2`, `4zaqxkwg`, `gr0pvlvr`, `fbmv4ccl`,
+and `4mhuysks`.
 
 Post-forecast reconstruction and depth audits expose the remaining failure. On the
 same held-out cross-resolution identity window, the two-seed depth-zero mean is
@@ -916,8 +919,32 @@ training now has a default-off `train_processor_depths` option that cycles posit
 depths continuously and identically on every rank, restores the configured depth
 for validation, and logs the selected depth. The iterable-inverse proxy and full
 configs select `[1, 2, 4]`. The next matched proxy must use this exposure before a
-full-scale launch. Weight 0.2 remains in flight as the planned stronger inverse
-check; its result may revise the selected regularizer.
+full-scale launch.
+
+The weight-0.2 fixed-depth inverse audit passes: its two-seed depth-zero mean is
+`0.0241583`, an 8.8% regression from the pre-forecast `0.0222023`, versus 26.6%
+for weight 0.05. The matched multi-depth rerun therefore used weight 0.2 and the
+same two seeds:
+
+| forecast training depths | seed 15 | seed 16 | mean |
+|---|---:|---:|---:|
+| fixed `{1}` | 0.0315684 | 0.0316211 | 0.0315947 |
+| cycled `{1,2,4}` | 0.0360968 | 0.0361911 | 0.0361440 |
+
+At the deliberately fixed 192-update budget, multi-depth exposure costs 14.4%
+aggregate MSE but still beats matched v2 by 14.7%, direct one-cell by 12.4%, and
+the old Perceiver/resampling proxy by 30.0%. Its two-seed `t+1` depth audit is:
+
+| depth | 0 | 1 | 2 | 4 |
+|---:|---:|---:|---:|---:|
+| mean MSE | 0.00371387 | 0.0413635 | 0.0455987 | 0.0485074 |
+
+Depth four is only 17.3% worse than depth one, compared with roughly 4.6 times
+worse under fixed-depth training. The current-state inverse mean is `0.0246888`,
+only 11.2% worse than the pre-forecast checkpoint. All V0 gates therefore pass,
+and the promoted setting is inverse weight `0.2` with depths `[1,2,4]`. The
+forecast W&B runs are `9i47kib4` and `t7855wfw`; their depth audits are
+`dp1y2chf` and `3yluahc9`; their inverse audits are `142he1n3` and `hufdi48y`.
 
 ### V1. Full-data one-degree run at v2-like scale
 
@@ -938,6 +965,12 @@ The corresponding checked-in full-data config is
 `train_1deg_iterable_inverse_masked_mse_updates.yaml`; it uses the same learned
 heads, processor sidecar geometry, optimizer-update schedule, and effective global
 batch as the proxy.
+
+Seed 15 is running as Slurm job `14605300` from exact code/image commit
+`f5366fdd89dfb82c1e6f42a9d00b17939c440a41`. Cluster fragmentation left no node
+with eight available RTX6000s, so the run uses two GPUs with gradient accumulation
+eight to preserve effective global batch 32 and the exact 6,230-update schedule.
+This resource adaptation changes wall time, not the optimization contract.
 
 This is the requested v2-scale validation: full one-degree data, roughly the
 existing v2/Samudra parameter and update scale, and the same primary metrics. Compare
@@ -1022,6 +1055,8 @@ Each stage should produce:
 
 The final report should update
 `docs/experiments/perceiver_decoder_root_cause.md` rather than replacing its decoder
-diagnosis. The new evidence will determine whether the recommended production model
-is the simple physical resampling decoder or the resampling decoder plus a learned
-local correction, and how encoder geometry should be represented.
+diagnosis. The completed evidence selects the learned native-grid projection plus
+projection-before-channel-masked coordinate resampling, with processor geometry in
+a sidecar and no attention correction. The remaining full-scale runs test whether
+that recommendation and its multi-depth training contract survive realistic
+forecast optimization; contrary evidence should revise the recommendation.

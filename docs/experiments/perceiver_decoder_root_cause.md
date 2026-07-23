@@ -17,13 +17,24 @@ separable mechanisms are supported by controlled evidence:
 3. with multiple latents, spatial correspondence is unanchored, expensive to learn,
    and unnecessary for fixed-set memorization.
 
-The most defensible near-term architecture is the existing resolution-flexible
-resampling projection, upgraded to periodic/coordinate-aware interpolation. The
-best research candidate is that stable path plus a zero-initialized local attention
-residual with relative physical position. Retaining the current Perceiver IO
-decoder would require at minimum a genuinely wider cross-attention path and an
-explicit spatial route; increasing latent count or latent width alone does not
-address the measured causes.
+The selected production architecture is a learned width-160 native-grid channel
+projection encoder followed by projection-before-channel-masked coordinate
+resampling. It keeps latitude/longitude and scale out of the encoded state, passes
+them to the processor through a non-destructive sidecar, and supports arbitrary
+output coordinates without requiring the encoder to approximate an identity. The
+zero-initialized attention residual is no longer recommended: neither the
+cross-grid nor unseen quarter-degree tests expose a residual error that justifies
+it. Retaining the current Perceiver IO decoder would require at minimum a wider
+cross-attention value path and an explicit spatial route; increasing latent count
+or latent width alone does not address the measured causes.
+
+Two additional production causes emerged after the decoder controls. Projecting
+channels after spatial interpolation violates channel-specific wet-mask transport;
+projecting first removes 78% of the half-to-one-degree excess error without changing
+same-grid results. Separately, training the shared processor at only one invocation
+does not teach the requested zero-to-N contract. Cycling positive depths
+`{1,2,4}` during both inverse and forecast training is the causal remedy supported
+by the current experiments.
 
 ## Objective
 
@@ -585,6 +596,77 @@ trivial, that the decoder needs attention, or that the processor requires a glob
 residual. Promote this checkpoint to forecasting; retain residualizing the
 processor only as a falsifiable fallback if physical-time training drifts again.
 
+## Forecast proxy and post-forecast iteration evidence
+
+The first calibrated one-degree forecast proxy starts from that multi-depth
+checkpoint and then trains only processor depth one. Two seeds at each inverse
+weight use the same 512 stratified samples per epoch, 12 epochs, 192 optimizer
+updates, and effective global batch 32:
+
+| zero-depth inverse weight | seed 15 validation MSE | seed 16 validation MSE | mean |
+|---:|---:|---:|---:|
+| 0 | 0.0315724 | 0.0315876 | 0.0315800 |
+| 0.05 | 0.0316064 | 0.0315465 | 0.0315765 |
+| 0.2 | 0.0315684 | 0.0316211 | 0.0315947 |
+
+The regularizer is forecast-neutral: all three means fall within 0.06%. Every arm
+beats the matched v2 proxy `0.042390` by about 25.5%, the historical
+Perceiver/resampling proxy `0.051655` by 38.8--38.9%, and the direct one-cell proxy
+`0.041278` by about 23.5%. Weight 0.2 also gives the best velocity spectral
+retention: its two-seed zonal high-k ratio is about `0.733`, versus about `0.718`
+at 0.05 and `0.703` without the inverse term. This independently supports the
+selected encoder/decoder path as a forecast representation rather than an
+autoencoder-only shortcut.
+
+Fixed-depth forecast training nevertheless erases the 0..N refinement behavior.
+On the same cross-resolution current-state window, post-forecast depth-zero MSE is
+`0.0374764` without the inverse loss and `0.0281127` with weight 0.05, averaged
+over the two seeds. Relative to the pre-forecast checkpoint's `0.0222023`, these
+are regressions of 68.8% and 26.6%. The inverse term is effective but the 0.05 arm
+narrowly misses the provisional 25% preservation gate.
+
+A separate held-out `t+1` audit distinguishes the inverse from forecast semantics:
+
+| zero-depth inverse weight | depth 0 | depth 1 | depth 2 | depth 4 |
+|---:|---:|---:|---:|---:|
+| 0 | 0.0137334 | 0.0478494 | 0.0968079 | 0.291519 |
+| 0.05 | 0.00631293 | 0.0476432 | 0.0880912 | 0.219623 |
+
+Depth zero is a persistence-like control against the future target and depth one
+is the trained one-step prediction. Repeating the processor toward the same
+refinement target degrades at depths two and four for every seed. This is the same
+causal exposure failure found in identity training, now reproduced after forecast
+fine-tuning. It is not evidence against the learned encoder or mask-aware decoder.
+Regular training therefore now supports a default-off `train_processor_depths`
+cycle, and the selected proxy/full configs use `[1,2,4]` while leaving validation
+at configured depth one.
+
+The stronger fixed-depth weight-0.2 inverse audit passes the preservation gate:
+its two-seed depth-zero mean is `0.0241583`, only 8.8% worse than the pre-forecast
+checkpoint. More importantly, the matched multi-depth forecast rerun is complete:
+
+| run | seed 15 | seed 16 | mean |
+|---|---:|---:|---:|
+| fixed depth 1, weight 0.2 | 0.0315684 | 0.0316211 | 0.0315947 |
+| cycled depths `{1,2,4}`, weight 0.2 | 0.0360968 | 0.0361911 | 0.0361440 |
+
+The depth cycle costs 14.4% proxy MSE at the fixed 192-update budget, but the
+result still beats matched v2 by 14.7%, direct one-cell by 12.4%, and the old
+Perceiver/resampling proxy by 30.0%. It also restores the iteration contract on
+the true `t+1` audit:
+
+| multi-depth forecast | depth 0 | depth 1 | depth 2 | depth 4 |
+|---|---:|---:|---:|---:|
+| two-seed mean | 0.00371387 | 0.0413635 | 0.0455987 | 0.0485074 |
+
+Depth four is now only 17.3% worse than depth one rather than roughly 4.6 times
+worse after fixed-depth training. The post-forecast current-state inverse mean is
+`0.0246888`, an 11.2% regression from the pre-forecast checkpoint and comfortably
+inside the 25% gate. The promoted setting is therefore inverse weight `0.2` with
+positive depths `[1,2,4]`. The corresponding W&B runs are `9i47kib4` and
+`t7855wfw`; forecast-depth audits are `dp1y2chf` and `3yluahc9`; inverse audits are
+`142he1n3` and `hufdi48y`.
+
 ## Architecture decision matrix
 
 | Candidate | Same-grid identity | Flexible output grid | Learned nonlocal correction | Evidence-backed decision |
@@ -648,7 +730,8 @@ continues to lag after routing is fixed.
   trainable in the real model.
 - S2 confirms the learned inverse across independently regridded one/half-degree
   products, and the quarter zero-shot run confirms unseen-resolution transfer.
-  Processor-depth, forecast proxy, and full-scale forecast validation remain.
+  The multi-depth forecast proxy now passes both its forecast and inverse gates and
+  repairs the iteration failure. Full-data forecast validation remains in progress.
 
 ## Reproduction
 
@@ -693,13 +776,14 @@ The follow-up real-data control is fully specified by
    geometry, and projection-before-channel-masked-resampling selection.
 2. Do not add the zero-initialized attention residual: neither S2 nor quarter
    zero-shot transfer exposes a residual defect that justifies its cost.
-3. Retain `lambda_0=0.05` and balanced positive-depth training over `{1,2,4}`.
-   The matched run keeps depth zero within 1.6%, improves depths two/four by
-   29.2%/78.9%, and leaves depth four only 8.2% worse than depth zero. Do not add a
-   processor residual without new forecast evidence.
+3. Retain inverse weight `0.2` and balanced positive-depth training over `{1,2,4}`
+   in both reconstruction and forecasting. The matched forecast rerun preserves
+   zero-depth reconstruction within 11.2% and leaves depth four only 17.3% worse
+   than depth one on the true `t+1` audit. Do not add a processor residual without
+   failure of that causal fix at full scale.
 4. Retain the completed bounded-memory quarter evaluator. Prototype physical
    conservative restriction for 4x downsampling, where area lowers the floor 86%,
    and compare a better low-pass kernel at 2x, where naive area improves spectra
    but worsens MSE.
-5. Run the one-degree proxy and full v2-scale forecast validations only after the
-   inverse and resource gates pass.
+5. Complete the running full one-degree v2-scale validation, then use its forecast,
+   inverse, and processor-depth audits to gate the full multi-resolution run.

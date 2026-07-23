@@ -9,6 +9,7 @@
 # Submit with env vars (example):
 #   export CONFIG=configs/.../train.yaml
 #   export NAME_SUFFIX=om4_samudra_baseline   # NAME becomes YYYY-MM-DD-<suffix>
+#   export PYTHON_MODULE=samudra.train         # or samudra.identity
 #   export ARGS="--epochs=2 --batch_size=1"
 #   export WANDB_API_KEY=...   # optional; if unset, wandb is disabled
 #   sbatch --nodes=1 --gres=gpu:rtx6000:8 scripts/slurm_apptainer_train.sbatch
@@ -69,6 +70,7 @@ fi
 CONFIG="${CONFIG:-}"
 NAME="${NAME:-}"
 NAME_SUFFIX="${NAME_SUFFIX:-}"
+PYTHON_MODULE="${PYTHON_MODULE:-samudra.train}"
 ARGS="${ARGS:-}"
 NSYS_ARGS="${NSYS_ARGS:-}"
 REQUEUE_ON_USR1="${REQUEUE_ON_USR1:-0}"
@@ -80,6 +82,12 @@ if [[ -z "${CONFIG}" || -z "${NAME}" ]]; then
   echo "Missing required env vars. Need CONFIG and NAME." >&2
   echo "Tip: set NAME_SUFFIX to auto-generate NAME as YYYY-MM-DD-<suffix>." >&2
   echo "Example: export NAME_SUFFIX=om4_samudra_baseline" >&2
+  exit 2
+fi
+if [[ "${PYTHON_MODULE}" != "samudra.train" \
+  && "${PYTHON_MODULE}" != "samudra.identity" ]]; then
+  echo "Unsupported PYTHON_MODULE: ${PYTHON_MODULE}" >&2
+  echo "Expected samudra.train or samudra.identity." >&2
   exit 2
 fi
 
@@ -183,6 +191,7 @@ fi
 
 echo "Scratch:    ${SCRATCH_DIR}"
 echo "Config:     ${CONFIG}"
+echo "Module:     ${PYTHON_MODULE}"
 echo "Name:       ${NAME}"
 echo "Data root:  ${DATA_ROOT}"
 echo "Outputs:    ${OUTPUT_BASE}"
@@ -466,7 +475,7 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
       fi
       \"\${profiler_cmd[@]}\" /workspace/.venv/bin/python -m torch.distributed.run \
         \"\${torchrun_args[@]}\" \
-        -m samudra.train \"${CONFIG_IN_CONTAINER}\" \
+        -m \"${PYTHON_MODULE}\" \"${CONFIG_IN_CONTAINER}\" \
         --experiment.name=\"${NAME}\" \
         --experiment.data_root=\"${DATA_ROOT}\" \
         --experiment.base_output_dir=\"${OUTPUT_BASE}\" \

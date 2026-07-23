@@ -74,6 +74,8 @@ It expects environment variables:
 
 - `CONFIG` (required): config path inside the container image. Relative paths are
   resolved under `/workspace/`, e.g. `configs/samudra_om4/train.yaml`.
+- `PYTHON_MODULE` (optional): executable module, either `samudra.train` (the
+  default) or `samudra.identity` for fixed-sample reconstruction and route audits.
 - `NAME_SUFFIX` (required): populates the run name by prepending the current date;
   you can also set `NAME` directly if you prefer.
 - `DATA_ROOT` (optional): host data path passed to

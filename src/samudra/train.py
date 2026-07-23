@@ -4,7 +4,6 @@
 
 import contextlib
 import datetime
-import itertools
 import logging
 import multiprocessing
 import os
@@ -12,10 +11,9 @@ import tempfile
 import time
 import warnings
 from collections import OrderedDict
-from collections.abc import Iterable
 from multiprocessing.context import BaseContext
 from pathlib import Path
-from typing import Any, assert_never
+from typing import Any
 
 import dask
 import torch
@@ -27,7 +25,7 @@ from torch.utils.data import (
     RandomSampler,
 )
 
-from samudra.aggregator import Aggregator, ValidateAggregator
+from samudra.aggregator import Aggregator
 from samudra.aggregator.loss import (
     get_channel_loss_dict,
     get_channel_loss_scale_dict,
@@ -35,7 +33,7 @@ from samudra.aggregator.loss import (
     get_variable_loss_dict,
 )
 from samudra.backend import init_train_backend
-from samudra.config import TrainConfig, TrainSchedule, build_loss_fn
+from samudra.config import TrainConfig, build_loss_fn
 from samudra.constants import (
     MAX_TRAIN_MODEL_STEPS_FORWARD,
     BoundaryVarNames,
@@ -58,7 +56,7 @@ from samudra.stepper import (
     train_batch,
     validate_batch,
 )
-from samudra.utils.data import DataSource, Normalize, get_inference_steps
+from samudra.utils.data import Normalize, get_inference_steps
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import all_reduce_mean, is_main_process, set_seed
 from samudra.utils.ema import EMATracker
@@ -121,7 +119,8 @@ class Trainer:
         dask.config.set(scheduler="synchronous")
 
         # Set seeds
-        set_seed(cfg.experiment.rand_seed)
+        self.rand_seed = cfg.experiment.rand_seed
+        set_seed(self.rand_seed)
 
         self.data_container = cfg.data.build(
             data_root=cfg.experiment.resolved_data_root,
@@ -144,16 +143,6 @@ class Trainer:
 
         self.N_bound = len(self.boundary_var_names)
         self.N_prog = len(self.prognostic_var_names)
-
-        self.train_schedule: TrainSchedule = cfg.experiment.train_schedule
-        if self.train_schedule == "mix" and cfg.model.pred_residuals:
-            raise ValueError(
-                "Residual predictions on a mixed multiscale training schedule is not currently supported."
-            )
-        if self.train_schedule == "mix" and any(step > 1 for step in cfg.steps):
-            raise ValueError(
-                "Step predictions on a mixed multiscale training schedule is not currently supported."
-            )
 
         data_num_workers = cfg.data.loading.num_pytorch_workers()
         persistent_workers = cfg.data.loading.persistent_pytorch_workers()
@@ -270,6 +259,8 @@ class Trainer:
             )
 
         self.num_batches_seen = 0
+        self.best_val_loss = 1e8
+        self.best_inf_loss = 1e8
         loaded_checkpoint = False
         if cfg.resume_ckpt_path is not None:
             if cfg.finetune:
@@ -395,8 +386,6 @@ class Trainer:
     def run(self) -> None:
         logger.info(f"Starting training")
 
-        self.best_val_loss = 1e8
-        self.best_inf_loss = 1e8
         self.wandb_logger.watch(self.model, log="all")
 
         self.profiler.start()
@@ -517,7 +506,11 @@ class Trainer:
             should_step = (data_iter_step + 1) % self.gradient_accumulation_steps == 0
             # Step optimizer after accumulating enough batches or at the end
             if should_step or is_last:
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.parameters(),
+                    1.0,
+                    error_if_nonfinite=True,
+                )
                 self.optimizer.step()
                 self.optimizer.zero_grad()
                 self._ema(model=self.model)
@@ -654,26 +647,15 @@ class Trainer:
             and self.validation_images_enabled
         )
 
-        if self.train_schedule == "standard":
-            # The standard val aggregator only supports a single scale.
-            val_aggregator = Aggregator.get_validation_aggregator(
-                self.primary_src.metadata,
-                self.hist,
-                self.primary_src.spherical_area_weights.to(self.device),
-                self.num_out,
-                self.tensor_map,
-                self.normalize,
-                include_image_aggregators=log_validation_images,
-            )
-        else:
-            # Create a validation aggregator that handles multiple scales.
-            val_aggregator = ValidateAggregator(
-                {},  # Currently, don't do anything else besides record the training loss.
-                self.hist,
-                self.num_out,
-                tensor_map=self.tensor_map,
-                normalize=self.normalize,
-            )
+        val_aggregator = Aggregator.get_validation_aggregator(
+            self.primary_src.metadata,
+            self.hist,
+            self.primary_src.spherical_area_weights.to(self.device),
+            self.num_out,
+            self.tensor_map,
+            self.normalize,
+            include_image_aggregators=log_validation_images,
+        )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
 
@@ -770,27 +752,9 @@ class Trainer:
         Args:
             cur_step: Current training step size
         """
-
-        def source_pairs(
-            scales: list[DataSource],
-        ) -> Iterable[tuple[DataSource, DataSource | None]]:
-            match self.train_schedule:
-                case "standard":
-                    return [(scales[0], None)]
-                case "match":
-                    return [(source, source) for source in scales]
-                case "mix":
-                    return list(itertools.product(scales, repeat=2))  # type: ignore
-                case _:
-                    assert_never(self.train_schedule)
-
-        train_srcs = source_pairs(self.data_container.train_sources)
-        val_srcs = source_pairs(self.data_container.val_sources)
-
         train_datasets = [
             TorchTrainDataset(
                 src=src,
-                dst=dst,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -801,13 +765,15 @@ class Trainer:
                 concurrent_compute_=self.concurrent_compute,
             )
             for stride in self.data_stride
-            for src, dst in train_srcs
+            for src in self.data_container.train_sources
         ]
 
+        # Validation is always evaluated on the primary source. This keeps the
+        # validation loss and physical-space metrics comparable across epochs,
+        # regardless of the set of resolutions used for training.
         val_datasets = [
             TorchTrainDataset(
-                src=src,
-                dst=dst,
+                src=self.data_container.val_sources[0],
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -818,7 +784,6 @@ class Trainer:
                 concurrent_compute_=self.concurrent_compute,
             )
             for stride in self.data_stride
-            for src, dst in val_srcs
         ]
 
         # Create datasets
@@ -849,9 +814,9 @@ class Trainer:
                 )
 
         # Create batch samplers - branch on distributed vs non-distributed
-        # Group by input AND label resolution to handle all training schedules
+        # Group by resolution so batches stay homogeneous across configured sources.
         def group_key(ds):
-            return tuple(prog.grid_size for prog in ds.prognostic_srcs)
+            return ds.prognostic_src.grid_size
 
         if self.distributed is not None:
             # Distributed training
@@ -865,6 +830,7 @@ class Trainer:
                 rank=self.distributed.rank,
                 shuffle=True,
                 drop_last=True,
+                seed=self.rand_seed,
             )
 
             val_batch_sampler = DistributedEquivalenceGroupBatchSampler(
@@ -875,6 +841,7 @@ class Trainer:
                 rank=self.distributed.rank,
                 shuffle=False,
                 drop_last=False,
+                seed=self.rand_seed,
             )
         else:
             # Non-distributed training
@@ -884,6 +851,7 @@ class Trainer:
                 batch_size=self.batch_size,
                 shuffle=True,
                 drop_last=True,
+                seed=self.rand_seed,
             )
 
             val_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
@@ -892,6 +860,7 @@ class Trainer:
                 batch_size=self.batch_size,
                 shuffle=True,
                 drop_last=False,
+                seed=self.rand_seed,
             )
 
         # Store samplers for set_epoch calls

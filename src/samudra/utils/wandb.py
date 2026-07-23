@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import logging
+import os
 from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
@@ -21,6 +22,8 @@ Metrics = Mapping[str, float | torch.Tensor | WBValue]
 
 # Same as above but mutable when you're building something up
 MetricsDict = dict[str, float | torch.Tensor | WBValue]
+
+PROVENANCE_CONFIG_KEY = "provenance"
 
 if TYPE_CHECKING:
     from samudra.config import AnyTopLevelConfig
@@ -43,6 +46,22 @@ class WandBLogger(Multiton):
             for i, src in enumerate(data_container.train_sources)
         }
         config.update(config=cfg.model_dump())
+        provenance_env = {
+            "code_commit": "SAMUDRA_CODE_COMMIT",
+            "code_repo_url": "SAMUDRA_CODE_REPO_URL",
+            "code_layer_sha256": "SAMUDRA_CODE_LAYER_SHA256",
+            "container_git_commit": "SAMUDRA_CONTAINER_GIT_COMMIT",
+            "container_git_remote_url": "SAMUDRA_CONTAINER_GIT_REMOTE_URL",
+            "container_image_ref": "SAMUDRA_CONTAINER_IMAGE_REF",
+            "container_sif_path": "SAMUDRA_CONTAINER_SIF_PATH",
+        }
+        provenance = {
+            name: value
+            for name, env_var in provenance_env.items()
+            if (value := os.environ.get(env_var))
+        }
+        if provenance:
+            config[PROVENANCE_CONFIG_KEY] = provenance
         return config
 
     def setup_run(

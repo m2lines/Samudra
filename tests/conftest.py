@@ -16,7 +16,7 @@ import xarray as xr
 from numpy.typing import ArrayLike, NDArray
 
 import samudra.constants as c
-from samudra.config import TrainBackendConfig, TrainConfig, TrainSchedule
+from samudra.config import TrainBackendConfig, TrainConfig
 from samudra.train import Trainer
 from samudra.utils.data import DataSource, Masks, _is_compact, compact_dataset
 from samudra.utils.multiton import MultitonScope
@@ -314,11 +314,6 @@ def history(request: pytest.FixtureRequest) -> int:
     return request.param
 
 
-@pytest.fixture(scope="session", params=["standard", "match", "mix"])
-def schedule(request: pytest.FixtureRequest) -> TrainSchedule:
-    return request.param
-
-
 # Run a test for both CPU and GPU, and allows selecting or skipping CUDA tests.
 @pytest.fixture(
     params=["cpu", pytest.param("cuda", marks=pytest.mark.cuda)], scope="session"
@@ -528,10 +523,11 @@ def extra_config_args(request) -> list[str]:
 _NEXT_TEST_ID = 0
 
 
-def unique_test_name(config_name: str) -> str:
+def unique_test_name(config_name: str, pytestconfig: pytest.Config) -> str:
     global _NEXT_TEST_ID
     _NEXT_TEST_ID += 1
-    return f"test_{config_name}_{_NEXT_TEST_ID}"
+    worker_id = getattr(pytestconfig, "workerinput", {}).get("workerid", "local")
+    return f"test_{worker_id}_{config_name}_{_NEXT_TEST_ID}"
 
 
 @pytest.fixture(scope="function")
@@ -562,7 +558,7 @@ def train_config(
             backend,
             "--experiment.name",
             # we make a unique name to avoid collisions on disk for output files
-            unique_test_name(config_name),
+            unique_test_name(config_name, pytestconfig),
         ]
         + extra_config_args
     )

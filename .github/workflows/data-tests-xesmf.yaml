@@ -11,6 +11,7 @@ on:
   pull_request:
     branches:
       - "**"
+  merge_group:
 
 jobs:
   build:
@@ -25,11 +26,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: 🫙 Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0 # checkout tags (which is not done by default)
       - name: 🔁 Create mamba environment
-        uses: mamba-org/setup-micromamba@v1
+        uses: mamba-org/setup-micromamba@4b9113af4fba0e9e1124b252dd6497a419e7396d
         with:
           environment-name: ci
           cache-downloads: true

@@ -16,8 +16,8 @@ model implements a ConvNeXt U-Net neural network architecture. We have made sign
 support quarter degree (0.25 x 0.25 lat/lng) data emulation. The samudra-multi model has an encoder, processor, and
 decoder structure and aims to emulate ocean physics by first translating data from a physical space to a latent space.
 The samudra-multi model supports training on multiple scales of data all at once (e.g. one
-degree, half degree and quarter degree), either on a "mix" or "match" schedule (i.e. the cross product of each scale for
-input and label, or one input/label scale at a time per batch).
+degree, half degree and quarter degree) by configuring multiple data sources. Each configured source is trained against
+labels from the same source/resolution.
 
 ## Data
 
@@ -307,4 +307,4 @@ notebooks/                # Analysis and preprocessing notebooks
 5. **Cloud Training**: Supports SkyPilot for remote job execution on AWS & Lambda Labs
 6. **Noisy Failure**: Do not swallow errors. If something goes wrong, let it fail loudly.
 7. **Avoid Hacks**: Don't accommodate bad designs by adding more cruft -- refactor separately first then make the nice change.
-8. **Multi-Scale Support**: samudra-multi supports training on multiple data resolutions simultaneously with "mix" or "match" scheduling
+8. **Multi-Scale Support**: samudra-multi supports training on multiple data resolutions simultaneously by configuring multiple matched data sources

@@ -22,6 +22,7 @@ from samudra.config_base import BaseConfig, TopLevelConfig
 from samudra.constants import (
     DatasetSpec,
     Grid,
+    GridType,
     LoaderVersion,
     TensorMap,
     build_llc_spec,
@@ -318,12 +319,14 @@ class Om4DataSourceConfig(BaseDataSourceConfig[Om4TimeConfig]):
     type: Literal["om4"] = "om4"
     prognostic_vars_key: str = "thermo_dynamic_all"
     boundary_vars_key: str = "tau_hfds"
+    grid_type: GridType = "gaussian"
 
     @property
     def dataset_spec(self) -> DatasetSpec:
         return build_om4_spec(
             self.prognostic_vars_key,
             self.boundary_vars_key,
+            grid_type=self.grid_type,
         )
 
     @pydantic.model_validator(mode="after")
@@ -913,7 +916,7 @@ class SamudraConfig(BaseModelConfig):
         corrector = None
         if len(srcs) != 1:
             raise ValueError(
-                'Samudra only supports training at a single scale! Please set `training_schedule="standard"`.'
+                "Samudra only supports training at a single scale! Please configure exactly one data source."
             )
         src = srcs[0]
         if self.corrector is not None:
@@ -1130,9 +1133,6 @@ class DistributedConfig(BaseConfig):
     dist_backend: str | None = None
 
 
-TrainSchedule = Literal["standard", "match", "mix"]
-
-
 class ExperimentConfig(BaseConfig):
     name: str = "cm4_samudra"
     rand_seed: int = 1
@@ -1140,8 +1140,6 @@ class ExperimentConfig(BaseConfig):
     # we require this to be set by the user but have optional here
     # so we can leave it out of config files
     data_root: Location | None = None
-    # Define multi-scale dataloader example schedule. Default: single scale.
-    train_schedule: TrainSchedule = "standard"
     wandb: WandBConfig
 
     @cached_property

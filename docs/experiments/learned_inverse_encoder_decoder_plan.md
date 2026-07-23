@@ -1221,6 +1221,8 @@ and 192 optimizer updates at an eight-GPU effective batch of 32. It freezes the
 selected state-only encoder/decoder inverse and trains only the ReZero processor,
 processor geometry, and separate boundary encoder. It is a constant-learning-rate
 screen against the full 6,160-update scheduler horizon, not a convergence claim.
+The proxy uses the half-degree-tested per-rank microbatch of one and retains zero
+and time-reverse forcing controls; the batch-shuffle control remains covered by V1.
 Commits `92b6347f` and `ebad49e4` report validation losses by exact input/output
 grid route for the aggregate forecast, every physical lead, persistence, zero-depth
 reconstruction, and each forcing ablation. On image-validation epochs they also

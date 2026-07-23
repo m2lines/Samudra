@@ -6,18 +6,18 @@
 
 # Balanced 192-update physical-time proxy for the frozen one/half-degree learned
 # inverse. Four source/target routes each contribute 128 samples per epoch. With
-# eight GPUs, batch two and two accumulation steps give effective global batch 32.
+# eight GPUs, batch one and four accumulation steps give effective global batch 32.
 debug: false
 disk_mode: true
 pin_mem: true
 save_freq: 3
 validation_image_log_freq: 6
 epochs: 12
-batch_size: 2
-gradient_accumulation_steps: 2
+batch_size: 1
+gradient_accumulation_steps: 4
 train_processor_depths: [1, 2, 4]
 validation_processor_depths: [1, 2, 4]
-validation_boundary_ablations: [zero, batch_shuffle, time_reverse]
+validation_boundary_ablations: [zero, time_reverse]
 learning_rate: 0.0006
 scheduler:
   type: cosine

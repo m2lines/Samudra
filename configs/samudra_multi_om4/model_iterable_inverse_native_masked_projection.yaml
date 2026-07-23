@@ -4,9 +4,12 @@
 
 # yaml-language-server: $schema=../schemas/SamudraMultiConfig.json
 
-# Zero-to-N processor candidate using the native-grid learned representation.
+# Selected zero-to-N processor using the native-grid learned representation.
 # Geometry is injected only as a processor sidecar; the encoder remains a learned
 # pointwise content map. Prognostic decoding precedes channel-masked resampling.
+# Each processor invocation predicts a zero-initialized residual in latent space,
+# so depth zero remains the learned encoder/decoder inverse and depth N advances
+# the state by N physical time steps.
 pred_residuals: false
 last_kernel_size: 3
 pad: "circular"
@@ -15,8 +18,8 @@ embedding_dim: 160
 perceiver_implementation: "flash"
 patch_extent: [1.0, 1.0]
 processor_iterations: 1
-processor_residual: false
-zero_depth_reconstruction_weight: 0.05
+processor_residual: true
+zero_depth_reconstruction_weight: 0.0
 # The state encoder receives prognostics only. Each physical processor call gets
 # one aligned boundary state from this separate shared encoder.
 

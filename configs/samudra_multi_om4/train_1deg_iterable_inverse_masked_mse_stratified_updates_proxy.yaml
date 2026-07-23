@@ -4,8 +4,9 @@
 
 # yaml-language-server: $schema=../schemas/TrainConfig.json
 
-# Forecast proxy for the selected learned inverse. With eight GPUs, batch two and
-# two accumulation steps give effective global batch 32 and 192 updates total.
+# Forecast proxy for the selected frozen learned inverse and zero-initialized
+# latent transition residual. With eight GPUs, batch two and two accumulation
+# steps give effective global batch 32 and 192 updates total.
 debug: false
 disk_mode: true
 pin_mem: true
@@ -33,7 +34,7 @@ finetune_allowed_missing_prefixes:
     "boundary_encoder.",
     "processor_residual_scale",
   ]
-frozen_model_prefixes: []
+frozen_model_prefixes: ["encoder.", "decoder."]
 resume_ckpt_path: null
 inference_epochs: []
 train_time:

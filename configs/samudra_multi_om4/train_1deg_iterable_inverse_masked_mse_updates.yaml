@@ -4,8 +4,11 @@
 
 # yaml-language-server: $schema=../schemas/TrainConfig.json
 
-# Full-data one-degree, single-step validation of the selected learned inverse.
-# Defaults assume eight GPUs: batch 2 * eight ranks * two accumulation = batch 32.
+# Full-data one-degree validation of the selected frozen learned inverse and
+# zero-initialized latent transition residual. Defaults assume eight GPUs:
+# batch 2 * eight ranks * two accumulation = batch 32. Larger per-rank batches
+# are intentionally avoided after matched batch 4/8/16 profiles all failed in
+# the first CUDA backward while batch 2 remained stable.
 debug: false
 disk_mode: true
 pin_mem: true
@@ -32,6 +35,7 @@ finetune_allowed_missing_prefixes:
     "boundary_encoder.",
     "processor_residual_scale",
   ]
+frozen_model_prefixes: ["encoder.", "decoder."]
 resume_ckpt_path: null
 inference_epochs: []
 train_time:

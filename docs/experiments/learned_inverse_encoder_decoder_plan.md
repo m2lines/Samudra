@@ -1094,7 +1094,7 @@ training interval and 2013--2014 validation interval:
 - reference budget: 70 epochs at effective global batch 32 for 6,230 realized
   optimizer updates;
 - actual fragmentation-adjusted budget: 65 epochs at effective batch 30 for
-  approximately 6,175 updates;
+  6,110 updates;
 - Adam, initial learning rate `6e-4`, cosine schedule in optimizer-update units;
 - normalized MSE and absolute-field prediction at true physical leads
   `{1,2,4}`, selecting one lead per training batch;
@@ -1129,7 +1129,7 @@ fragmentation gave it an estimated start two days later, so the selection-logic
 revision rule replaces it with Torch job `14629647` from exact code overlay
 `a70410f3`. The replacement uses the three immediately available RTX6000s,
 per-rank batch 2, accumulation 5, and 65 epochs: effective batch 30 and about
-6,175 updates, only 0.9% from the requested 6,230-update budget. It resumes the
+6,110 updates, 1.9% below the requested 6,230-update budget. It resumes the
 same frozen state-only inverse checkpoint and is the requested v2-scale
 validation: full one-degree data, roughly the existing v2/Samudra parameter and
 update scale, and the same primary metrics. Compare
@@ -1157,7 +1157,8 @@ and continues with epoch checkpoints, Slurm requeue, and a five-minute pre-timeo
 signal. The six-update bring-up is startup evidence only and is not included in
 model metrics.
 
-The full-data validation curve descends monotonically. Lead-one MSE falls from
+The full-data validation curve descends monotonically through the useful training
+range. Lead-one MSE falls from
 `0.05116` at epoch one to `0.0250324` at epoch 17, which misses the gate by only
 `3.24e-5`, then passes at epoch 18 with a physical-lead vector of
 `{0.0246967, 0.0413005, 0.0551152}` for `{1,2,4}`. These beat lead-matched
@@ -1166,8 +1167,16 @@ persistence by `{70.5%, 72.7%, 75.4%}`. Zero-depth reconstruction remains exactl
 meridional velocity, and SSH high-wavenumber ratios are
 `{0.967, 0.976, 0.788, 0.793, 0.990}`. Every lead-one variable group is better
 than its quoted v2 value. V1 therefore passes its promotion gate without rounding
-the epoch-17 near miss. Training continues to the planned 65-epoch endpoint so the
-terminal and validation-selected checkpoints can still be compared.
+the epoch-17 near miss.
+
+Job `14629647` completes all 65 epochs in 8 hours 28 minutes. Epoch 58 is the
+validation-selected checkpoint with `{1,2,4}` lead MSE
+`{0.0205191, 0.0343797, 0.0469026}`. The terminal checkpoint is close at
+`{0.0205354, 0.0344690, 0.0472080}`, while zero-depth reconstruction remains
+exactly `0.000647529`. The final image-validation audit at epoch 61 measures
+high-wavenumber ratios `{0.968, 0.983, 0.811, 0.839, 0.991}` for temperature,
+salinity, zonal velocity, meridional velocity, and SSH. The slight late plateau
+supports checkpoint selection but does not change the architecture conclusion.
 
 Profile before launch. Existing evidence suggests one RTX6000 is sufficient for
 proxy screening; the completed full direct one-cell run used two GPUs, peaked near
@@ -1234,7 +1243,13 @@ After V1 passed at epoch 18, Torch job `14635707` was submitted from immutable
 code layer `0fc36dfd` with an `afterok:14629647` dependency. It requests two
 RTX6000s, batch one, and accumulation 16, preserving effective batch 32 and the
 exact 192-update proxy budget. The dependency prevents resource preemption and
-starts V2 only after V1 completes successfully.
+starts V2 only after V1 completes successfully. The dependency releases after V1
+exits successfully, and V2 starts on the same node. Bring-up verifies world size
+two, code commit `0fc36dfd`, code-layer SHA-256
+`9d56424b706ee0eb45d5aaed60b6b7ccc6ad538eddd568c13cf02fe06a28d044`,
+the selected cross-grid inverse checkpoint, four frozen encoder/decoder parameter
+tensors, batch one, accumulation 16, effective global batch 32, and first-epoch
+training plus validation. Its W&B run is `i11mmskt`.
 
 ## Selection logic
 

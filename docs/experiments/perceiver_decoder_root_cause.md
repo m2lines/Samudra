@@ -79,10 +79,13 @@ falls monotonically from `0.05116` at epoch one to `0.0246967`; the correspondin
 `{1,2,4}` lead vector is `{0.0246967, 0.0413005, 0.0551152}`, respectively
 `{70.5%, 72.7%, 75.4%}` below lead-matched persistence. Every lead-one variable
 group is better than its quoted v2 value, while the frozen inverse remains exactly
-`0.000647529`. The epoch-11 high-wavenumber ratios are
-`{0.967, 0.976, 0.788, 0.793, 0.990}` for temperature, salinity, zonal velocity,
-meridional velocity, and SSH. Training continues to the 65-epoch endpoint; V2 is
-queued behind its successful completion, so this remains an interim report.
+`0.000647529`. The run completes all 65 epochs in 8 hours 28 minutes. Epoch 58 is
+validation-selected at `{0.0205191, 0.0343797, 0.0469026}`; the terminal vector is
+only `{0.0205354, 0.0344690, 0.0472080}`, showing a shallow late plateau rather
+than instability. The final epoch-61 spatial audit gives high-wavenumber ratios
+`{0.968, 0.983, 0.811, 0.839, 0.991}` for temperature, salinity, zonal velocity,
+meridional velocity, and SSH. V2 has started successfully on the one/half-degree
+routes, so this remains an interim report.
 
 ## Objective
 
@@ -786,7 +789,7 @@ continues to lag after routing is fixed.
   error, even where the reported allocation estimate is only 4.03 GiB. Batch 2 is
   stable across the scientific runs. Fragmentation moved the full validation to
   three ranks with batch 2 and accumulation 5, for effective batch 30 and about
-  6,175 updates versus the planned 6,230. These failed profiles make no optimizer
+  6,110 updates versus the planned 6,230. These failed profiles make no optimizer
   step and are runtime evidence, not model evidence.
 - The multiplied attention matrices are a routing diagnostic, not an exact model
   Jacobian because self-attention and value transformations intervene.
@@ -803,8 +806,9 @@ continues to lag after routing is fixed.
 - S2 confirms the learned inverse across independently regridded one/half-degree
   products. The corrected state-only inverse now improves every matched route and
   zero-shot quarter same-grid MSE by 87% relative to the earlier joint checkpoint.
-  The corrected physical latent-autoregressive proxy is complete and selects the
-  frozen ReZero transition; full-data one-degree validation is in progress.
+  The corrected physical latent-autoregressive proxy selects the frozen ReZero
+  transition, and the full-data one-degree validation completes with the inverse
+  unchanged. Balanced one/half-degree route validation is in progress.
 
 ## Reproduction
 
@@ -857,8 +861,8 @@ The follow-up real-data control is fully specified by
    conservative restriction for 4x downsampling, where area lowers the floor 86%,
    and compare a better low-pass kernel at 2x, where naive area improves spectra
    but worsens MSE.
-5. Complete the running full one-degree v2-scale validation, then use its gate to
-   launch the balanced one/half-degree proxy. Report every physical route
-   separately, including persistence, spectra, seam/edge diagnostics, and forcing
-   ablations; destination-grid pooled metrics are not sufficient evidence for
-   flexible output resolution.
+5. Complete the running balanced one/half-degree proxy, which was launched after
+   the successful full one-degree gate. Report every physical route separately,
+   including persistence, spectra, seam/edge diagnostics, and forcing ablations;
+   destination-grid pooled metrics are not sufficient evidence for flexible output
+   resolution.

@@ -258,9 +258,17 @@ class Trainer:
             raise ValueError(
                 "Residual predictions on a mixed multiscale training schedule is not currently supported."
             )
-        if self.train_schedule == "mix" and any(step > 1 for step in cfg.steps):
+        physical_latent_autoregression = isinstance(
+            cfg.model, config.SamudraMultiConfig
+        ) and bool(cfg.train_processor_depths)
+        if (
+            self.train_schedule == "mix"
+            and any(step > 1 for step in cfg.steps)
+            and not physical_latent_autoregression
+        ):
             raise ValueError(
-                "Step predictions on a mixed multiscale training schedule is not currently supported."
+                "Step predictions on a mixed multiscale training schedule require "
+                "SamudraMulti physical latent autoregression."
             )
 
         data_num_workers = cfg.data.loading.num_pytorch_workers()

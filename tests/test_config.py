@@ -288,6 +288,37 @@ def test_iterable_inverse_proxy_cycles_supported_processor_depths(tmp_path):
     assert not hasattr(cfg.model, "latent_boundary_encoder")
 
 
+def test_cross_resolution_iterable_inverse_proxy_balances_physical_routes(tmp_path):
+    config_path = (
+        Path(__file__).resolve().parents[1]
+        / "configs"
+        / "samudra_multi_om4"
+        / "train_cross_1_halfdeg_iterable_inverse_masked_mse_stratified_updates_proxy.yaml"
+    )
+
+    cfg = TrainConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--experiment.data_root",
+            str(tmp_path),
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+        ]
+    )
+
+    assert cfg.experiment.train_schedule == "mix"
+    assert cfg.steps == [4]
+    assert cfg.train_processor_depths == [1, 2, 4]
+    assert cfg.validation_processor_depths == [1, 2, 4]
+    assert cfg.train_sample_selection is not None
+    assert cfg.train_sample_selection.num_samples == 128
+    assert len(cfg.data.sources) == 2
+    assert cfg.batch_size * cfg.gradient_accumulation_steps * 8 == 32
+    assert cfg.frozen_model_prefixes == ["encoder.", "decoder."]
+    assert isinstance(cfg.model, SamudraMultiConfig)
+    assert cfg.model.processor_residual
+
+
 def test_get_pydantic_models_collects_loading_variants():
     models = get_pydantic_models(TrainConfig)
 

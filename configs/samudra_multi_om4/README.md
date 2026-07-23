@@ -34,7 +34,11 @@ proxy and identity diagnostics must establish the direct heads before promotion;
 the architecture has no residual or encoder-to-decoder skip path.
 
 The iterable-inverse proxy and full-data configs set
-`train_processor_depths: [1, 2, 4]`. This cycles a common one-step forecast target
-across processor refinement depths while leaving validation at the model's
-configured depth. Omit the option to retain fixed-depth training. The depth list is
-an evidence-backed starting point, not a permanent limit on the supported contract.
+`train_processor_depths: [1, 2, 4]`, `steps: [4]`, and a separate boundary
+encoder. The prognostic state is encoded once. A batch selected at depth N then
+calls the boundary encoder and shared latent processor N times with one aligned
+forcing state per call, and is supervised against the physical `t+N` label. The
+decoder output is never fed back through the state encoder. Validation remains the
+ordinary one-step forecast. Omit the option to retain the legacy decode/re-encode
+training path. The depth list is an initial experiment range, not a permanent
+limit on the supported contract.

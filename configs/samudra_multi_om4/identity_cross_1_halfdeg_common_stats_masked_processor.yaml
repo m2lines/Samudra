@@ -4,8 +4,8 @@
 
 # yaml-language-server: $schema=../schemas/IdentityConfig.json
 
-# Initialize the encoder/decoder from the selected zero-depth checkpoint, add a
-# shared processor, and evaluate the same latent state after 0, 1, 2, and 4 calls.
+# Historical same-target refinement control. It does not test physical t+N latent
+# autoregression; use the forecast proxy config for that contract.
 debug: false
 disk_mode: true
 pin_mem: true
@@ -17,7 +17,8 @@ learning_rate: 0.0006
 scheduler: null
 loss: mse
 finetune: true
-finetune_allowed_missing_prefixes: ["processor.", "processor_geometry."]
+finetune_allowed_missing_prefixes:
+  ["processor.", "processor_geometry.", "boundary_encoder."]
 resume_ckpt_path: null
 inference_epochs: []
 train_time:

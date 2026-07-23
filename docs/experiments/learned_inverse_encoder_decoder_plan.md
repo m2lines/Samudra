@@ -271,11 +271,21 @@ Add equivalence tests for the existing one-processor path and tests for iteratio
 at iteration zero throughout forecast training so the encoder/decoder contract
 cannot regress unnoticed.
 
-Before implementing training targets for `k>1`, decide whether a processor
-application denotes one physical time step or one refinement step. If it is a
-physical step, compare `D(P^k(E(x_t)))` with `x_{t+k}` and supply the matching
-forcing sequence. If it is refinement depth, compare all trained positive depths
-with the same forecast target. Do not mix these semantics in one experiment.
+The processor contract is now settled: one application is one physical time step.
+For step `m`, separately encode exactly one aligned boundary state `b_m`, pass it
+to the shared processor, and keep the prognostic state latent:
+
+```text
+z_0 = E_state(x_t)
+z_m = P(z_{m-1}, E_boundary(b_m), geometry)
+x_hat_{t+m} = D(z_m)
+```
+
+Depth `N` is supervised by `x_{t+N}`. The decoder is an output/supervision head;
+it is never fed back through the state encoder. Inference chunking must carry
+`z_m`, not the last decoded field. Backward checkpoint compatibility is explicitly
+out of scope: retrain the corrected state-only inverse rather than migrating the
+joint state-and-boundary encoder.
 
 ### D5. Add losses without constraining the encoder architecture
 
@@ -835,10 +845,9 @@ cause. Do not add a global processor residual solely to fix this failure; advanc
 the multi-depth checkpoint to the forecast proxy and retain residualization only
 as a fallback if forecasting reintroduces iteration drift.
 
-For physical-time semantics, use the corresponding `t+k` targets and forcing
-sequence rather than treating processor depth as refinement depth. The completed
-test establishes the refinement-depth contract at matched parameter count and
-optimizer updates; it does not by itself establish multi-step forecast accuracy.
+These completed runs establish only a same-target refinement control. They do not
+establish the physical-time contract above and must not be used to promote a
+latent-autoregressive model.
 
 ## Forecast and full-scale validation
 
@@ -847,6 +856,10 @@ stage. The fallback is the learned Perceiver encoder plus physical resampling
 projection without the attention correction.
 
 ### V0. Calibrated one-degree proxy
+
+The results recorded below are historical. Their depth cycling used the same
+`t+1` target at depths one, two, and four. One-step values remain representation
+evidence; the multi-depth values are not physical rollout evidence.
 
 Use the existing stratified 512-window, one-step proxy and matched v2 control:
 
@@ -941,15 +954,37 @@ the old Perceiver/resampling proxy by 30.0%. Its two-seed `t+1` depth audit is:
 
 Depth four is only 17.3% worse than depth one, compared with roughly 4.6 times
 worse under fixed-depth training. The current-state inverse mean is `0.0246888`,
-only 11.2% worse than the pre-forecast checkpoint. All V0 gates therefore pass,
-and the promoted setting is inverse weight `0.2` with depths `[1,2,4]`. The
-forecast W&B runs are `9i47kib4` and `t7855wfw`; their depth audits are
-`dp1y2chf` and `3yluahc9`; their inverse audits are `142he1n3` and `hufdi48y`.
+only 11.2% worse than the pre-forecast checkpoint. Those facts validate the
+same-target refinement control only. They do not pass the corrected physical V0
+gate and do not promote inverse weight `0.2`. The historical forecast W&B runs are
+`9i47kib4` and `t7855wfw`; their depth audits are `dp1y2chf` and `3yluahc9`; their
+inverse audits are `142he1n3` and `hufdi48y`.
+
+The corrected V0 sequence is:
+
+1. Retrain the selected state-only encoder and decoder from scratch on zero-depth
+   autoencoding, first one degree with
+   `identity_1deg_state_only_native_masked_projection.yaml`, then matched
+   one/half-degree routes with
+   `identity_cross_1_halfdeg_common_stats_masked.yaml`.
+2. Confirm same-grid, cross-grid, and unseen quarter-degree reconstruction before
+   introducing a processor. Compare against the prior joint-encoder numbers, but
+   do not load that checkpoint.
+3. Initialize a fresh boundary encoder and processor from the new inverse. Train
+   physical leads `{1,2,4}` with four-step data windows, aligned forcing at every
+   call, and true targets `{t+1,t+2,t+4}`.
+4. Run seeds 15 and 16 at the existing 512-window/12-epoch proxy scale. Sweep
+   zero-depth weight `{0,0.05,0.2}`; use learning rate `6e-4`, effective batch 32,
+   and 192 updates as starting values subject to the selection-logic revision rule.
+5. Audit decoded MSE at each true lead, zero-depth inverse retention, forcing
+   ablations/shuffles, spectra, and latent chunk continuity. Promote only after the
+   predicted lead beats persistence and the processor is demonstrably sensitive
+   to the correctly aligned boundary state.
 
 ### V1. Full-data one-degree run at v2-like scale
 
-Train the promoted candidate on the 1975--2013 one-degree training interval and
-2013--2014 validation interval:
+After corrected V0 promotion, train its winner on the 1975--2013 one-degree
+training interval and 2013--2014 validation interval:
 
 - 70 epochs;
 - effective global batch 32;
@@ -966,14 +1001,26 @@ The corresponding checked-in full-data config is
 heads, processor sidecar geometry, optimizer-update schedule, and effective global
 batch as the proxy.
 
-Seed 15 is running as Slurm job `14605300` from exact code/image commit
+Seed 15 runs from exact code/image commit
 `f5366fdd89dfb82c1e6f42a9d00b17939c440a41`. Cluster fragmentation left no node
-with eight available RTX6000s, so the run uses two GPUs with gradient accumulation
-eight to preserve effective global batch 32 and the exact 6,230-update schedule.
-This resource adaptation changes wall time, not the optimization contract.
+with eight available RTX6000s, so it uses two GPUs with gradient accumulation eight
+to preserve effective global batch 32 and the exact 6,230-update schedule. Initial
+job `14605300` made no optimizer step: both ranks timed out in the first NCCL
+barrier on `gr102`. The first scratch-backed replacement, job `14605887`, also
+made no optimizer step because a silently corrupted SIF copy failed to mount; its
+digest differed despite matching size and a successful copy exit. The SIF was
+rewritten with checksummed `rsync`, verified against SHA-256
+`0667e69d7079823cb2ffda2d15784c282ff176c2494cc18fea3d3a24b4123729`, and passed
+`apptainer inspect`. Job `14607299` was the exact replacement with Torch's
+documented `NCCL_P2P_DISABLE=1` workaround and scratch-backed logs, caches, and
+verified SIF. It completed about 88 updates (one epoch) before being cancelled
+immediately after the physical-time semantics were clarified. It is a
+mis-specified run and supplies no model-selection evidence. Jobs `14605300` and
+`14605887` made zero updates.
 
-This is the requested v2-scale validation: full one-degree data, roughly the
-existing v2/Samudra parameter and update scale, and the same primary metrics. Compare
+The fresh corrected run will be the requested v2-scale validation: full one-degree
+data, roughly the existing v2/Samudra parameter and update scale, and the same
+primary metrics. Compare
 against the quoted v2 full-data MSE `0.023600` and the direct one-cell result
 `0.015976`. Promotion requires all-channel MSE at most `0.025`, no variable group
 more than 25% worse than v2, and zero-depth reconstruction no more than 25% worse
@@ -1057,6 +1104,6 @@ The final report should update
 `docs/experiments/perceiver_decoder_root_cause.md` rather than replacing its decoder
 diagnosis. The completed evidence selects the learned native-grid projection plus
 projection-before-channel-masked coordinate resampling, with processor geometry in
-a sidecar and no attention correction. The remaining full-scale runs test whether
-that recommendation and its multi-depth training contract survive realistic
-forecast optimization; contrary evidence should revise the recommendation.
+a sidecar and no attention correction. The remaining corrected state-only inverse,
+physical-time proxy, and full-scale runs test whether that decoder recommendation
+survives true latent autoregression; contrary evidence should revise it.

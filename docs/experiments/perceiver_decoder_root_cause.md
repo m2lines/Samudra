@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2026 Samudra Authors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# Final report: Perceiver IO decoder root causes
+# Interim report: Perceiver IO decoder root causes
 
 ## Executive conclusion
 
@@ -31,10 +31,18 @@ or latent width alone does not address the measured causes.
 Two additional production causes emerged after the decoder controls. Projecting
 channels after spatial interpolation violates channel-specific wet-mask transport;
 projecting first removes 78% of the half-to-one-degree excess error without changing
-same-grid results. Separately, training the shared processor at only one invocation
-does not teach the requested zero-to-N contract. Cycling positive depths
-`{1,2,4}` during both inverse and forecast training is the causal remedy supported
-by the current experiments.
+same-grid results.
+
+The processor results originally described below used repeated calls as refinement
+depth while supervising every positive depth against the same target. On 2026-07-22
+the intended contract was clarified: processor call `m` is physical time step `m`,
+uses the separately encoded boundary state for that step, and depth `N` targets
+`t + N*dt`. The prior depth-cycle runs are therefore useful refinement/stability
+controls, but they are not evidence for physical latent autoregression. A full-data
+job using the old semantics was cancelled after one epoch. The corrected state-only
+encoder, per-step boundary encoder, latent carry between inference chunks, and
+true-lead training path are implemented and locally tested; fresh state-only
+autoencoder and physical-time proxy evidence is still required.
 
 ## Objective
 
@@ -560,7 +568,11 @@ memory. Its cold Slurm wall time is 56:20 because SIF construction takes about
 resolution path therefore passes its engineering gate. The clean and area jobs
 are Slurm `14574139` / W&B `pod127bl` and Slurm `14579543` / W&B `rqlh7bke`.
 
-## Processor-depth evidence
+## Historical processor-depth evidence (refinement control only)
+
+The numbers in this section predate the physical-time clarification. They compare
+repeated applications against one common current-state/refinement target. Do not
+use them to select a physical latent-autoregressive rollout.
 
 Matched 1,280-sample runs compare forecast-only processor training against the
 source-grid inverse regularizer while decoding the same latent at every depth:
@@ -596,7 +608,11 @@ trivial, that the decoder needs attention, or that the processor requires a glob
 residual. Promote this checkpoint to forecasting; retain residualizing the
 processor only as a falsifiable fallback if physical-time training drifts again.
 
-## Forecast proxy and post-forecast iteration evidence
+## Historical forecast proxy and post-forecast refinement evidence
+
+The one-step forecast comparisons remain evidence that the selected representation
+can support a processor. The repeated-depth comparisons are mis-specified for the
+desired `t+N` contract because depths two and four were also paired with `t+1`.
 
 The first calibrated one-degree forecast proxy starts from that multi-depth
 checkpoint and then trains only processor depth one. Two seeds at each inverse
@@ -662,8 +678,9 @@ the true `t+1` audit:
 Depth four is now only 17.3% worse than depth one rather than roughly 4.6 times
 worse after fixed-depth training. The post-forecast current-state inverse mean is
 `0.0246888`, an 11.2% regression from the pre-forecast checkpoint and comfortably
-inside the 25% gate. The promoted setting is therefore inverse weight `0.2` with
-positive depths `[1,2,4]`. The corresponding W&B runs are `9i47kib4` and
+inside the 25% gate. This historically promoted inverse weight `0.2` with positive
+depths `[1,2,4]` only for the same-target refinement formulation; it is not promoted
+for physical latent autoregression. The corresponding W&B runs are `9i47kib4` and
 `t7855wfw`; forecast-depth audits are `dp1y2chf` and `3yluahc9`; inverse audits are
 `142he1n3` and `hufdi48y`.
 
@@ -696,8 +713,13 @@ The production and control implementations behind the matrix are:
   `src/samudra/models/modules/encoder.py`;
 - non-destructive processor geometry sidecar: `ProcessorGeometryConditioner` in
   `src/samudra/models/modules/augment_input.py`; and
-- shared zero-to-N encode/process/decode path: `SamudraMulti` in
-  `src/samudra/models/samudra_multi.py`.
+- per-step forcing projection/resampling: `BoundaryEncoder` in
+  `src/samudra/models/modules/augment_input.py`;
+- true-lead encode-once training: `SamudraMulti.latent_forecast` in
+  `src/samudra/models/samudra_multi.py`; and
+- model-defined rollout state and latent chunk carry: `BaseModel.initialize_rollout`,
+  `SamudraMulti.inference`, and `run_rollout` in `src/samudra/models/base.py`,
+  `src/samudra/models/samudra_multi.py`, and `src/samudra/stepper.py`.
 
 The same `SamudraMulti.reconstruct_once` path now constructs a source-grid context
 for the zero-depth MSE. Consequently the inverse regularizer is independent of the
@@ -729,9 +751,10 @@ continues to lag after routing is fixed.
   The completed ocean resampling proxy is the evidence that such a projection is
   trainable in the real model.
 - S2 confirms the learned inverse across independently regridded one/half-degree
-  products, and the quarter zero-shot run confirms unseen-resolution transfer.
-  The multi-depth forecast proxy now passes both its forecast and inverse gates and
-  repairs the iteration failure. Full-data forecast validation remains in progress.
+  products, and the quarter zero-shot run confirms unseen-resolution transfer for
+  the earlier jointly encoded state-and-boundary checkpoint. The decoder evidence
+  remains valid, but the corrected state-only inverse must be retrained. Physical
+  latent-autoregressive proxy and full-data validation remain outstanding.
 
 ## Reproduction
 
@@ -776,14 +799,15 @@ The follow-up real-data control is fully specified by
    geometry, and projection-before-channel-masked-resampling selection.
 2. Do not add the zero-initialized attention residual: neither S2 nor quarter
    zero-shot transfer exposes a residual defect that justifies its cost.
-3. Retain inverse weight `0.2` and balanced positive-depth training over `{1,2,4}`
-   in both reconstruction and forecasting. The matched forecast rerun preserves
-   zero-depth reconstruction within 11.2% and leaves depth four only 17.3% worse
-   than depth one on the true `t+1` audit. Do not add a processor residual without
-   failure of that causal fix at full scale.
+3. Retrain the inverse from scratch with a state-only encoder. Then train physical
+   lead depths `{1,2,4}` so depth `N` consumes `N` separately encoded boundary
+   states and is supervised by `t+N`; sweep inverse weight `{0, 0.05, 0.2}` rather
+   than carrying `0.2` forward as a conclusion. Do not infer physical recurrence
+   from the historical same-`t+1` refinement control.
 4. Retain the completed bounded-memory quarter evaluator. Prototype physical
    conservative restriction for 4x downsampling, where area lowers the floor 86%,
    and compare a better low-pass kernel at 2x, where naive area improves spectra
    but worsens MSE.
-5. Complete the running full one-degree v2-scale validation, then use its forecast,
-   inverse, and processor-depth audits to gate the full multi-resolution run.
+5. Run the corrected two-seed proxy before launching a fresh full one-degree
+   v2-scale validation. The old full run was cancelled and supplies no selection
+   evidence.

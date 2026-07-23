@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
 from typing import TYPE_CHECKING
 
 import torch
@@ -15,6 +16,7 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
 from samudra.constants import Boundary, Prognostic
 from samudra.models.base import BaseModel
 from samudra.models.modules import (
+    BoundaryEncoder,
     CanonicalResampleEncoder,
     DirectPatchDecoder,
     DirectPatchEncoder,
@@ -26,10 +28,14 @@ from samudra.models.modules import (
 )
 from samudra.models.modules.unet_backbone import UNetBackbone
 from samudra.utils.ctx import GridContext
-from samudra.utils.device import autocast
+from samudra.utils.device import autocast, get_device
+from samudra.utils.output import ModelInferenceOutput
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from samudra.config import Checkpointing
+    from samudra.datasets import InferenceDataset, TrainData
 
 _checkpoint_types: tuple[type, ...] = (
     nn.LayerNorm,
@@ -88,6 +94,7 @@ class SamudraMulti(BaseModel):
         use_bfloat16: bool,
         processor_iterations: int = 1,
         processor_geometry: ProcessorGeometryConditioner | None = None,
+        boundary_encoder: BoundaryEncoder | None = None,
         zero_depth_reconstruction_weight: float = 0.0,
     ):
         super().__init__(
@@ -109,6 +116,7 @@ class SamudraMulti(BaseModel):
             raise ValueError("processor_iterations must be non-negative.")
         self.processor_iterations = processor_iterations
         self.processor_geometry = processor_geometry
+        self.boundary_encoder = boundary_encoder
         if zero_depth_reconstruction_weight < 0:
             raise ValueError("zero_depth_reconstruction_weight must be non-negative.")
         self.zero_depth_reconstruction_weight = zero_depth_reconstruction_weight
@@ -139,14 +147,14 @@ class SamudraMulti(BaseModel):
             )
 
     def encode(
-        self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
+        self, prognostic: Prognostic, boundary: Boundary | None, ctx: GridContext
     ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor]]:
         """Encode physical inputs and return content plus its canonical grid."""
-        # Prognostic and boundary are carried as separate tensors through the
-        # data pipeline, but this encoder still expects a single concatenated
-        # input.  The dual-perceiver encoder that fuses them at the token level
-        # (enabling cross-resolution) lands in a follow-up PR.
-        fts = torch.cat((prognostic, boundary), dim=1)
+        # Boundary forcing has its own encoder and is injected once per latent
+        # physical-time transition. It must not contaminate the state that the
+        # decoder learns to invert at depth zero.
+        del boundary
+        fts = prognostic
         if self.maybe_add_3d_coordinates is not None:
             fts = self.maybe_add_3d_coordinates(fts, ctx.input_resolution_cpu)
         fts = self.encoder(fts, ctx.input_resolution_cpu)
@@ -158,16 +166,176 @@ class SamudraMulti(BaseModel):
         fts: torch.Tensor,
         latent_resolution: tuple[torch.Tensor, torch.Tensor],
         iterations: int | None = None,
+        boundary: Boundary | None = None,
+        boundary_resolution: tuple[torch.Tensor, torch.Tensor] | None = None,
     ) -> torch.Tensor:
         """Apply the shared processor zero or more times in latent space."""
         count = self.processor_iterations if iterations is None else iterations
         if count < 0:
             raise ValueError("Processor iteration count must be non-negative.")
         for _ in range(count):
+            if self.boundary_encoder is not None:
+                if boundary is None:
+                    raise ValueError(
+                        "Boundary-conditioned processor calls require the forcing "
+                        "for that physical time step."
+                    )
+                if boundary_resolution is None:
+                    raise ValueError(
+                        "Boundary-conditioned processor calls require the boundary "
+                        "grid coordinates."
+                    )
+                boundary_state = boundary[:, -self.boundary_encoder.boundary_channels :]
+                encoded_boundary = self.boundary_encoder(
+                    boundary_state,
+                    boundary_resolution,
+                    latent_resolution,
+                ).to(dtype=fts.dtype)
+                if encoded_boundary.shape != fts.shape:
+                    raise ValueError(
+                        "Encoded boundary forcing and latent state must share shape; "
+                        f"got {tuple(encoded_boundary.shape)} and {tuple(fts.shape)}."
+                    )
+                fts = fts + encoded_boundary
             if self.processor_geometry is not None:
                 fts = self.processor_geometry(fts, latent_resolution)
             fts = self.processor(fts)
         return fts
+
+    def latent_forecast(
+        self, train_data: "TrainData", depths: list[int]
+    ) -> dict[int, Prognostic]:
+        """Encode once, then decode physical forecasts after selected depths.
+
+        Depth ``N`` consumes the boundary forcing for steps ``0..N-1`` and is
+        paired with ``TrainData`` label ``N-1``, i.e. the physical target at
+        ``t + N * dt``. Intermediate processor states remain latent and are not
+        decoded/re-encoded.
+        """
+        if not depths or any(depth <= 0 for depth in depths):
+            raise ValueError("Latent forecast depths must be positive and non-empty.")
+        selected = set(depths)
+        maximum = max(selected)
+        if len(train_data) < maximum:
+            raise ValueError(
+                f"Depth {maximum} requires {maximum} physical steps, but the "
+                f"batch contains {len(train_data)}."
+            )
+
+        prognostic, initial_boundary = train_data.get_initial_input()
+        outputs: dict[int, Prognostic] = {}
+        with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
+            fts, latent_resolution = self.encode(
+                prognostic, initial_boundary, train_data.ctx
+            )
+            for step in range(maximum):
+                _, boundary = train_data.get_input(step)
+                fts = self.process(
+                    fts,
+                    latent_resolution,
+                    iterations=1,
+                    boundary=boundary,
+                    boundary_resolution=train_data.ctx.input_resolution_cpu,
+                )
+                depth = step + 1
+                if depth in selected:
+                    outputs[depth] = self.decode(fts, latent_resolution, train_data.ctx)
+        return outputs
+
+    def initialize_rollout(
+        self, initial_prognostic: Prognostic, ctx: GridContext
+    ) -> torch.Tensor:
+        """Encode the initial physical state once for a latent rollout."""
+        if self.boundary_encoder is None:
+            return super().initialize_rollout(initial_prognostic, ctx)
+        if self.pred_residuals:
+            raise ValueError(
+                "Latent autoregression requires absolute decoder outputs; "
+                "pred_residuals must be false."
+            )
+        with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
+            fts, _ = self.encode(initial_prognostic.to(get_device()), None, ctx)
+        return fts
+
+    def inference(
+        self,
+        dataset: "InferenceDataset",
+        rollout_state: torch.Tensor,
+        steps_completed=0,
+        num_steps=None,
+        epoch=None,
+    ) -> ModelInferenceOutput:
+        """Advance a latent state without decoding/re-encoding between steps."""
+        if self.boundary_encoder is None:
+            return super().inference(
+                dataset,
+                rollout_state,
+                steps_completed=steps_completed,
+                num_steps=num_steps,
+                epoch=epoch,
+            )
+        if num_steps is None or num_steps <= 0:
+            raise ValueError("Latent inference requires a positive num_steps.")
+        if self.processor_iterations != 1:
+            raise ValueError(
+                "Latent physical-time inference requires processor_iterations=1."
+            )
+
+        out_shape = (num_steps, *dataset[0][-1].shape[1:])
+        pred_tensor = torch.zeros(out_shape, device=get_device())
+        fts = rollout_state.to(get_device())
+        latent_resolution = self.encoder.output_resolution(
+            dataset.ctx.input_resolution_cpu
+        )
+
+        with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
+            for step in range(num_steps):
+                physical_step = steps_completed + step
+                logger.info(
+                    f"Inference [epoch {epoch}]: latent rollout step "
+                    f"{physical_step} of {steps_completed + num_steps - 1}."
+                )
+                boundary = dataset.get_boundary(physical_step).to(device=fts.device)
+                fts = self.process(
+                    fts,
+                    latent_resolution,
+                    iterations=1,
+                    boundary=boundary,
+                    boundary_resolution=dataset.ctx.input_resolution_cpu,
+                )
+                pred_tensor[step] = self.decode(fts, latent_resolution, dataset.ctx)[0]
+
+        target_tensor = dataset.inference_target(
+            slice(steps_completed, steps_completed + num_steps)
+        ).to(device=get_device())
+        target_time = dataset.get_target_time(steps_completed, num_steps)
+        return ModelInferenceOutput(
+            pred_tensor,
+            target_tensor,
+            target_time,
+            rollout_state=fts,
+        )
+
+    def forward(
+        self,
+        train_data: "TrainData",
+        loss_fn=None,
+        processor_depth: int | None = None,
+    ) -> torch.Tensor | list[torch.Tensor]:
+        """Use true latent lead-time training when a processor depth is selected."""
+        if processor_depth is None:
+            return super().forward(train_data, loss_fn=loss_fn)
+
+        prediction = self.latent_forecast(train_data, [processor_depth])[
+            processor_depth
+        ]
+        if loss_fn is None:
+            return [prediction]
+        loss = loss_fn(prediction, train_data.get_label(processor_depth - 1))
+        auxiliary_loss = self.training_auxiliary_loss(train_data, loss_fn)
+        if auxiliary_loss is not None:
+            loss = loss + auxiliary_loss
+        return loss
 
     def decode(
         self,
@@ -245,8 +413,19 @@ class SamudraMulti(BaseModel):
         self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
     ) -> Prognostic:
         with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
+            if self.boundary_encoder is not None and self.processor_iterations != 1:
+                raise ValueError(
+                    "A single forward_once call has only one forcing tensor. "
+                    "Use latent_forecast with a boundary sequence for zero-to-N "
+                    "physical-time processor rollout."
+                )
             fts, latent_resolution = self.encode(prognostic, boundary, ctx)
-            fts = self.process(fts, latent_resolution)
+            fts = self.process(
+                fts,
+                latent_resolution,
+                boundary=boundary,
+                boundary_resolution=ctx.input_resolution_cpu,
+            )
 
             # TODO(alxmrs): When the output resolution differs from the input (i.e. in a "mix" schedule), we cannot use
             #  residual predictions (`self.pred_residuals` must be `False`).

@@ -42,7 +42,7 @@ identity_eval_frequency: 5
 backend: auto
 
 experiment:
-  name: samudra_multi_identity_cross_1_halfdeg_common_stats_masked
+  name: samudra_multi_identity_cross_1_halfdeg_common_stats_masked_state_only
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:

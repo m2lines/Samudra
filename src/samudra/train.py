@@ -409,6 +409,25 @@ class Trainer:
             unwrapped_model = getattr(self.model, "module", self.model)
             if not isinstance(unwrapped_model, SamudraMulti):
                 raise TypeError("train_processor_depths requires a SamudraMulti model.")
+            if cfg.target_time_mode != "forecast":
+                raise ValueError(
+                    "train_processor_depths requires physical forecast targets."
+                )
+            if unwrapped_model.pred_residuals:
+                raise ValueError(
+                    "Latent physical-time training requires absolute decoder outputs."
+                )
+            maximum_depth = max(self.train_processor_depths)
+            if any(step < maximum_depth for step in self.steps):
+                raise ValueError(
+                    "Every configured training rollout must contain the maximum "
+                    f"processor depth {maximum_depth}; got steps={self.steps}."
+                )
+            if unwrapped_model.boundary_encoder is None:
+                raise ValueError(
+                    "train_processor_depths requires a separate boundary encoder "
+                    "so every physical step receives aligned forcing."
+                )
         self.num_workers: int = data_num_workers
         self.persistent_workers: bool = persistent_workers
         self.pin_mem: bool = cfg.pin_mem
@@ -631,24 +650,19 @@ class Trainer:
                 get_model_summary(self.model, data, self.debug)
 
             training_depth: int | None = None
-            unwrapped_model = getattr(self.model, "module", self.model)
             if self.train_processor_depths is not None:
-                if not isinstance(unwrapped_model, SamudraMulti):
-                    raise TypeError(
-                        "train_processor_depths requires a SamudraMulti model."
-                    )
                 training_depth = training_processor_depth(
                     self.train_processor_depths,
                     epoch,
                     data_iter_step,
                     total_batches,
                 )
-                configured_depth = unwrapped_model.processor_iterations
-                unwrapped_model.processor_iterations = training_depth
-                try:
-                    TO = train_batch(self.model, data, self.loss_fn)
-                finally:
-                    unwrapped_model.processor_iterations = configured_depth
+                TO = train_batch(
+                    self.model,
+                    data,
+                    self.loss_fn,
+                    processor_depth=training_depth,
+                )
             else:
                 TO = train_batch(self.model, data, self.loss_fn)
 

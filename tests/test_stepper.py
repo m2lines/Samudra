@@ -215,10 +215,10 @@ def test_inference_rollout(inf_data_init, hist, num_steps):
     )
 
     model.eval()
-    initial_prognostic = inference_dataset.initial_prognostic
-    IO = model.inference(
-        inference_dataset, initial_prognostic, num_steps=num_steps, epoch=0
+    rollout_state = model.initialize_rollout(
+        inference_dataset.initial_prognostic, inference_dataset.ctx
     )
+    IO = model.inference(inference_dataset, rollout_state, num_steps=num_steps, epoch=0)
     prediction = IO.prediction
     target = IO.target
 
@@ -250,6 +250,7 @@ def test_inference_rollout(inf_data_init, hist, num_steps):
         expected_prediction = torch.cat((expected_prediction, base))
 
     assert torch.equal(prediction.flatten(), expected_prediction)
+    torch.testing.assert_close(IO.rollout_state, prediction[-1].unsqueeze(0))
 
 
 # These tests will fail with OHC PR

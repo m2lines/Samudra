@@ -30,9 +30,16 @@ logger = logging.getLogger(__name__)
 
 
 def train_batch(
-    model: torch.nn.Module, batch: TrainData, loss_fn: Callable
+    model: torch.nn.Module,
+    batch: TrainData,
+    loss_fn: Callable,
+    processor_depth: int | None = None,
 ) -> TrainBatchOutput:
-    loss_per_channel = model(batch, loss_fn=partial(loss_fn, ctx=batch.ctx))
+    loss_per_channel = model(
+        batch,
+        loss_fn=partial(loss_fn, ctx=batch.ctx),
+        **({"processor_depth": processor_depth} if processor_depth is not None else {}),
+    )
     loss = torch.mean(loss_per_channel)
     return TrainBatchOutput(loss, loss_per_channel)
 
@@ -120,23 +127,24 @@ def run_rollout(
             num_steps_list = [num_model_steps]
 
     num_loops = len(num_steps_list)
-    initial_prognostic = dataset.initial_prognostic
+    dataset.to(get_device())
+    rollout_state = model.initialize_rollout(dataset.initial_prognostic, dataset.ctx)
     step = 0
     for loop, num_steps in enumerate(num_steps_list):
         logger.info(
             f"Inference [epoch {epoch}]: loop {loop} of {num_loops - 1}. "
             f"Stepping {num_steps} steps forward."
         )
-        dataset.to(get_device())
         IO: ModelInferenceOutput = model.inference(
             dataset,
-            initial_prognostic=initial_prognostic,
+            rollout_state=rollout_state,
             steps_completed=step,
             num_steps=num_steps,
             epoch=epoch,
         )
-        # Setting initial prognostic for next loop
-        initial_prognostic = IO.prediction[-1].unsqueeze(0).clone()
+        # Carry model-defined state between output chunks. For SamudraMulti this is
+        # latent, so chunking never introduces a decode/re-encode transition.
+        rollout_state = IO.rollout_state
         if writer:
             logger.info("Writing to zarr...")
             writer.record_batch(IO)

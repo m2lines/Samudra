@@ -278,6 +278,8 @@ def test_iterable_inverse_proxy_cycles_supported_processor_depths(tmp_path):
     )
 
     assert cfg.train_processor_depths == [1, 2, 4]
+    assert cfg.steps == [4]
+    assert not hasattr(cfg.model, "latent_boundary_encoder")
 
 
 def test_get_pydantic_models_collects_loading_variants():

@@ -114,6 +114,47 @@ class ProcessorGeometryConditioner(nn.Module):
         return fts + self.projection(geometry.unsqueeze(0))
 
 
+class BoundaryEncoder(nn.Module):
+    """Encode one boundary state for one physical latent-processor step."""
+
+    def __init__(self, boundary_channels: int, processor_channels: int) -> None:
+        super().__init__()
+        if boundary_channels <= 0 or processor_channels <= 0:
+            raise ValueError("Boundary and processor channels must be positive.")
+        self.boundary_channels = boundary_channels
+        self.out_channels = processor_channels
+        self.projection = nn.Conv2d(
+            boundary_channels, processor_channels, kernel_size=1, bias=False
+        )
+
+    def forward(
+        self,
+        boundary: Float[torch.Tensor, "batch boundary height width"],
+        source_resolution: tuple[Lat, Lon],
+        target_resolution: tuple[Lat, Lon],
+    ) -> Float[torch.Tensor, "batch processor_channel height width"]:
+        if boundary.shape[1] != self.boundary_channels:
+            raise ValueError(
+                f"Expected {self.boundary_channels} boundary channels, "
+                f"got {boundary.shape[1]}."
+            )
+        encoded = self.projection(boundary)
+        source_lat, source_lon = source_resolution
+        target_lat, target_lon = target_resolution
+        if torch.equal(source_lat, target_lat) and torch.equal(source_lon, target_lon):
+            return encoded
+
+        # Imported lazily because decoder.py imports geometry helpers from the
+        # encoder module, which also imports this module.
+        from samudra.models.modules.decoder import coordinate_bilinear_resample
+
+        return coordinate_bilinear_resample(
+            encoded,
+            source_resolution,
+            target_resolution,
+        )
+
+
 class Concat3dCoordinates(nn.Module):
     """Add 3d Cartesian Coordinates on a unit sphere to the channel dimension.
 

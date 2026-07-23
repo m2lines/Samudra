@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from .activations import CappedGELU, CappedLeakyReLU, ReLU
-from .augment_input import ProcessorGeometryConditioner
+from .augment_input import BoundaryEncoder, ProcessorGeometryConditioner
 from .blocks import (
     AvgPool,
     BilinearUpsample,
@@ -34,6 +34,7 @@ from .unet_backbone import UNetBackbone
 __all__ = [
     "AvgPool",
     "BilinearUpsample",
+    "BoundaryEncoder",
     "ZonallyPeriodicBilinearUpsample",
     "ConvBlock",
     "ConvNeXtBlock",

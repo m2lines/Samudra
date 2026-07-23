@@ -109,7 +109,7 @@ class BaseModel(torch.nn.Module):
     def inference(
         self,
         dataset: InferenceDataset,
-        initial_prognostic: torch.Tensor,
+        rollout_state: torch.Tensor,
         steps_completed=0,
         num_steps=None,
         epoch=None,
@@ -118,7 +118,7 @@ class BaseModel(torch.nn.Module):
         out_shape = (num_steps, *dataset[0][-1].shape[1:])
 
         pred_tensor = torch.zeros(out_shape, device=get_device())
-        initial_prognostic = initial_prognostic.to(get_device())
+        rollout_state = rollout_state.to(get_device())
         target_time = dataset.get_target_time(steps_completed, num_steps)
 
         for step in range(num_steps):
@@ -127,7 +127,7 @@ class BaseModel(torch.nn.Module):
                 f"of {steps_completed + num_steps - 1}."
             )
             if step == 0:
-                prog_tensor = initial_prognostic
+                prog_tensor = rollout_state
                 boundary_tensor = dataset.get_boundary(steps_completed).to(
                     device=prog_tensor.device
                 )
@@ -149,5 +149,17 @@ class BaseModel(torch.nn.Module):
             slice(steps_completed, steps_completed + num_steps)
         ).to(device=get_device())
 
-        IO = ModelInferenceOutput(pred_tensor, target_tensor, target_time)
+        IO = ModelInferenceOutput(
+            pred_tensor,
+            target_tensor,
+            target_time,
+            rollout_state=pred_tensor[-1].unsqueeze(0).clone(),
+        )
         return IO
+
+    def initialize_rollout(
+        self, initial_prognostic: Prognostic, ctx: GridContext
+    ) -> torch.Tensor:
+        """Create the model-defined state carried between inference chunks."""
+        del ctx
+        return initial_prognostic.to(get_device())

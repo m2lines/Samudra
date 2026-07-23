@@ -30,6 +30,7 @@ from samudra.models.base import BaseModel
 from samudra.models.modules import (
     AvgPool,
     BilinearUpsample,
+    BoundaryEncoder,
     CanonicalResampleEncoder,
     CappedGELU,
     ConvBlock,
@@ -1208,8 +1209,7 @@ class SamudraMultiConfig(BaseModelConfig):
                 "Please set `use_bfloat16=True` or `perceiver_implementation='naive'`."
             )
 
-        in_channels = prog_channels + boundary_channels
-        total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
+        total_in_channels = prog_channels + (3 if self.add_3d_coordinates else 0)
 
         encoder = self.encoder.build(
             total_in_channels,
@@ -1226,6 +1226,7 @@ class SamudraMultiConfig(BaseModelConfig):
             processor: nn.Module = nn.Identity()
             decoder_in_channels = encoder.out_channels
             processor_geometry = None
+            boundary_encoder = None
         else:
             processor = self.processor.build(
                 encoder.out_channels,
@@ -1246,6 +1247,14 @@ class SamudraMultiConfig(BaseModelConfig):
                 ProcessorGeometryConditioner(encoder.out_channels)
                 if self.encoder.geometry_mode == "sidecar"
                 else None
+            )
+            if boundary_channels % (hist + 1) != 0:
+                raise ValueError(
+                    "Boundary history channels must divide into complete states."
+                )
+            boundary_encoder = BoundaryEncoder(
+                boundary_channels=boundary_channels // (hist + 1),
+                processor_channels=encoder.out_channels,
             )
         decoder = self.decoder.build(
             decoder_in_channels,
@@ -1271,6 +1280,7 @@ class SamudraMultiConfig(BaseModelConfig):
             use_bfloat16=self.use_bfloat16,
             processor_iterations=self.processor_iterations,
             processor_geometry=processor_geometry,
+            boundary_encoder=boundary_encoder,
             zero_depth_reconstruction_weight=self.zero_depth_reconstruction_weight,
         )
 
@@ -1501,10 +1511,11 @@ class TrainConfig(TopLevelConfig):
     ) = Field(
         default=None,
         description=(
-            "Optional positive processor iteration counts cycled evenly across "
-            "training batches. Every distributed rank selects the same depth and "
-            "validation retains the model's configured processor depth. None "
-            "preserves fixed-depth training."
+            "Optional physical forecast lead times cycled evenly across training "
+            "batches. Depth N encodes once, consumes N aligned boundary-forcing "
+            "steps in latent space, and targets t+N. Every rank selects the same "
+            "lead. Requires each configured rollout length to cover the maximum "
+            "depth and SamudraMulti processor boundary conditioning."
         ),
     )
     scheduler: SchedulerConfig | None = None
@@ -1559,11 +1570,29 @@ class TrainConfig(TopLevelConfig):
 
     @pydantic.model_validator(mode="after")
     def validate_train_processor_depths(self) -> Self:
-        if self.train_processor_depths is not None and not isinstance(
-            self.model, SamudraMultiConfig
-        ):
+        if self.train_processor_depths is None:
+            return self
+        if not isinstance(self.model, SamudraMultiConfig):
             raise ValueError(
                 "train_processor_depths is only supported by SamudraMulti."
+            )
+        if self.target_time_mode != "forecast":
+            raise ValueError("train_processor_depths requires forecast targets.")
+        if self.model.pred_residuals:
+            raise ValueError(
+                "Latent physical-time training requires absolute decoder outputs; "
+                "pred_residuals must be false."
+            )
+        maximum_depth = max(self.train_processor_depths)
+        if any(step < maximum_depth for step in self.steps):
+            raise ValueError(
+                "Every training rollout length must cover the maximum processor "
+                f"depth {maximum_depth}; got steps={self.steps}."
+            )
+        if self.model.processor_iterations != 1:
+            raise ValueError(
+                "Latent physical-time training requires processor_iterations=1; "
+                "train_processor_depths selects the t+N lead per batch."
             )
         return self
 

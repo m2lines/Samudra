@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784765842427,
+  "lastUpdate": 1784767848103,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -10970,6 +10970,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.11959507794374953",
             "extra": "mean: 55.288739339799996 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "53fb41ef599aa8169f73ab4d1c4a869315e3d74f",
+          "message": "Make mask matching test deterministic (#814)\n\nThe test built a 24-element mask from random values using `data_3d >\n0.25`. There was a roughly 0.10% chance that every mask element was\n`True`; in that case the unmasked dataset correctly matched the mask and\nthe expected `ValueError` was not raised. This caused [this CI\nfailure](https://github.com/m2lines/Samudra/actions/runs/29930540130/job/88958781028?pr=670).\nWe now use deterministic data.\n\n---------\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>",
+          "timestamp": "2026-07-23T00:09:55Z",
+          "tree_id": "f971227b767b8dc2226d07e56ccba0b1f974ea78",
+          "url": "https://github.com/m2lines/Samudra/commit/53fb41ef599aa8169f73ab4d1c4a869315e3d74f"
+        },
+        "date": 1784767847064,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0964784817482807,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0006326128461753052",
+            "extra": "mean: 912.0106018000001 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.06269238201484513,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2239167572446239",
+            "extra": "mean: 15.9509013354 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.018076547275398664,
+            "unit": "iter/sec",
+            "range": "stddev: 0.46763531457782637",
+            "extra": "mean: 55.32029899099997 sec\nrounds: 5"
           }
         ]
       }

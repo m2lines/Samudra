@@ -1221,11 +1221,13 @@ and 192 optimizer updates at an eight-GPU effective batch of 32. It freezes the
 selected state-only encoder/decoder inverse and trains only the ReZero processor,
 processor geometry, and separate boundary encoder. It is a constant-learning-rate
 screen against the full 6,160-update scheduler horizon, not a convergence claim.
-Commit `92b6347f` also reports validation losses by exact input/output grid route
-for the aggregate forecast, every physical lead, persistence, zero-depth
-reconstruction, and each forcing ablation. Existing overall and destination-grid
-metrics remain available. This closes a measurement ambiguity that would otherwise
-pool one-to-one and half-to-one forecasts under the same output resolution.
+Commits `92b6347f` and `ebad49e4` report validation losses by exact input/output
+grid route for the aggregate forecast, every physical lead, persistence, zero-depth
+reconstruction, and each forcing ablation. On image-validation epochs they also
+isolate route-level spatial spectra, high-wavenumber retention, seam, edge, and
+amplitude diagnostics. Existing overall and destination-grid metrics remain
+available. This closes a measurement ambiguity that would otherwise pool
+one-to-one and half-to-one forecasts under the same output resolution.
 
 ## Selection logic
 

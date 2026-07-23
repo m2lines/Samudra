@@ -963,8 +963,9 @@ inverse audits are `142he1n3` and `hufdi48y`.
 The corrected V0 sequence is:
 
 1. Retrain the selected state-only encoder and decoder from scratch on zero-depth
-   autoencoding, first one degree with
-   `identity_1deg_state_only_native_masked_projection.yaml`, then matched
+   autoencoding, first one degree through the standard trainer with
+   `train_1deg_state_only_autoencoder_proxy.yaml` (the equivalent identity-only
+   diagnostic is `identity_1deg_state_only_native_masked_projection.yaml`), then matched
    one/half-degree routes with
    `identity_cross_1_halfdeg_common_stats_masked.yaml`.
 2. Confirm same-grid, cross-grid, and unseen quarter-degree reconstruction before

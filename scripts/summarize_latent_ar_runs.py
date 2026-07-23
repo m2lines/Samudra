@@ -101,13 +101,25 @@ def summarize_row(row: Mapping[str, Any]) -> dict[str, Any]:
 
 def summarize_run(run: Any) -> dict[str, Any]:
     validate_run_config(run.config)
+    train_config = run.config["config"]
+    configured_ablations = tuple(train_config.get("validation_boundary_ablations", []))
+    unsupported_ablations = set(configured_ablations) - set(BOUNDARY_ABLATIONS)
+    if unsupported_ablations:
+        raise ValueError(
+            "Unsupported validation boundary ablations: "
+            f"{sorted(unsupported_ablations)}"
+        )
     keys = [
         "epoch",
         "_step",
         ZERO_DEPTH_KEY,
         *(lead_key(depth) for depth in LEADS),
         *(persistence_key(depth) for depth in LEADS),
-        *(ablation_key(mode, depth) for mode in BOUNDARY_ABLATIONS for depth in LEADS),
+        *(
+            ablation_key(mode, depth)
+            for mode in configured_ablations
+            for depth in LEADS
+        ),
     ]
     row = select_best_row(run.scan_history(keys=keys, page_size=1000))
     spatial_keys = ["epoch", *(high_wavenumber_key(var) for var in VARIABLES)]

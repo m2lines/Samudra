@@ -110,6 +110,37 @@ def test_summarize_run_uses_latest_available_spatial_metrics():
     assert summary["high_wavenumber_power_ratio_thetao"] == 0.9
 
 
+def test_summarize_run_requests_only_configured_boundary_ablations():
+    requested_history_keys = []
+
+    class FakeRun:
+        config = {
+            "config": {
+                "target_time_mode": "forecast",
+                "train_processor_depths": [1, 2, 4],
+                "validation_processor_depths": [1, 2, 4],
+                "validation_boundary_ablations": ["zero"],
+            }
+        }
+        path = ["entity", "project", "run"]
+        name = "latent-ar"
+        state = "finished"
+        url = "https://example.com"
+
+        def scan_history(self, *, keys, page_size):
+            del page_size
+            if high_wavenumber_key("thetao") in keys:
+                return iter([])
+            requested_history_keys.extend(keys)
+            return iter([{"epoch": 12, lead_key(1): 0.1}])
+
+    summarize_run(FakeRun())
+
+    assert ablation_key("zero", 1) in requested_history_keys
+    assert ablation_key("batch_shuffle", 1) not in requested_history_keys
+    assert ablation_key("time_reverse", 1) not in requested_history_keys
+
+
 def test_markdown_table_links_run():
     table = markdown_table(
         [

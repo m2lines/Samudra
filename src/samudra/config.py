@@ -1163,6 +1163,23 @@ class TrainConfig(TopLevelConfig):
         self.experiment.nets_dir.mkdir(parents=True, exist_ok=True)
         self.experiment.output_dir.mkdir(parents=True, exist_ok=True)
 
+    def build_post_train_sweep(self) -> "CheckpointSweep | None":
+        if self.post_train_sweep is None:
+            return None
+
+        data_root = self.experiment.resolved_data_root
+        evaluator = self.post_train_sweep.eval.build(
+            data=self.data,
+            model=self.model,
+            data_root=data_root,
+        )
+        return self.post_train_sweep.build(
+            evaluator=evaluator,
+            data_root=data_root,
+            nets_dir=self.experiment.nets_dir,
+            output_dir=self.experiment.output_dir,
+        )
+
 
 # See backend.py for how these are turned into concrete devices
 EvalBackendConfig = Literal["cpu", "cuda", "auto"]
@@ -1171,31 +1188,28 @@ EvalBackendConfig = Literal["cpu", "cuda", "auto"]
 class EvalConfig(BaseConfig):
     """Reusable configuration for building an Eval."""
 
-    data_root: Location | None = None
     num_model_steps_forward: int = 200
     inference_time: TimeConfig = TimeConfig(
         start=JulianDate("0311-01-01"), end=JulianDate("0351-01-01")
     )
-    data: DataConfig
-    model: AnyModelConfig
 
-    @cached_property
-    def resolved_data_root(self) -> ResolvedLocation:
-        if self.data_root is None:
-            raise ValueError("data_root must be set, try --eval.data_root=path/to/data")
-        return LocalLocation(path=Path.cwd()).resolve(self.data_root)
-
-    def build(self) -> "Eval":
+    def build(
+        self,
+        *,
+        data: DataConfig,
+        model: AnyModelConfig,
+        data_root: ResolvedLocation,
+    ) -> "Eval":
         from samudra.datasets import InferenceDataset
         from samudra.eval import Eval, InferenceAggregatorFactory
         from samudra.utils.data import get_inference_steps
 
-        data_container = self.data.build(self.resolved_data_root)
+        data_container = data.build(data_root)
         dataset_spec = data_container.dataset_spec
         prognostic_var_names = dataset_spec.prognostic_var_names
         boundary_var_names = dataset_spec.boundary_var_names
-        num_prog_in = (self.data.hist + 1) * len(prognostic_var_names)
-        num_boundary_in = (self.data.hist + 1) * len(boundary_var_names)
+        num_prog_in = (data.hist + 1) * len(prognostic_var_names)
+        num_boundary_in = (data.hist + 1) * len(boundary_var_names)
         tensor_map = TensorMap(dataset_spec=dataset_spec)
         src = data_container.inference_source
         normalize = Normalize(
@@ -1203,11 +1217,11 @@ class EvalConfig(BaseConfig):
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
         )
-        model = self.model.build(
+        built_model = model.build(
             prog_channels=num_prog_in,
             boundary_channels=num_boundary_in,
             out_channels=num_prog_in,
-            hist=self.data.hist,
+            hist=data.hist,
             static_data_for_corrector=data_container.static_data,
             srcs=data_container.sources,
             tensor_map=tensor_map,
@@ -1219,22 +1233,22 @@ class EvalConfig(BaseConfig):
             src=sliced_src,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
-            hist=self.data.hist,
-            normalize_before_mask=self.data.normalize_before_mask,
-            masked_fill_value=self.data.masked_fill_value,
+            hist=data.hist,
+            normalize_before_mask=data.normalize_before_mask,
+            masked_fill_value=data.masked_fill_value,
             long_rollout=True,
         )
         inference_aggregator_factory = InferenceAggregatorFactory(
             src=sliced_src,
-            num_time_steps=get_inference_steps(sliced_src, hist=self.data.hist),
-            hist=self.data.hist,
+            num_time_steps=get_inference_steps(sliced_src, hist=data.hist),
+            hist=data.hist,
             num_out=num_prog_in,
             tensor_map=tensor_map,
             normalize=normalize,
             prognostic_var_names=prognostic_var_names,
         )
         return Eval(
-            model=model,
+            model=built_model,
             inference_dataset=inference_dataset,
             inference_aggregator_factory=inference_aggregator_factory,
             num_model_steps_forward=self.num_model_steps_forward,
@@ -1252,6 +1266,8 @@ class StandaloneEvalConfig(TopLevelConfig):
     ckpt_path: str | None = None
     backend: EvalBackendConfig = "auto"
     experiment: ExperimentConfig
+    data: DataConfig
+    model: AnyModelConfig
     eval: EvalConfig
 
     def prepare_output_dirs(self) -> None:
@@ -1274,7 +1290,11 @@ class StandaloneEvalConfig(TopLevelConfig):
         device = init_eval_backend(self.backend)
         set_seed(self.experiment.rand_seed)
 
-        evaluator = self.eval.build().to(device)
+        evaluator = self.eval.build(
+            data=self.data,
+            model=self.model,
+            data_root=self.experiment.resolved_data_root,
+        ).to(device)
         load_model_checkpoint(evaluator.model, checkpoint_path, device)
         get_model_summary(evaluator.model, None, self.debug)
 
@@ -1324,19 +1344,22 @@ class CheckpointSweepConfig(BaseConfig):
 
     def build(
         self,
+        *,
+        evaluator: "Eval",
+        data_root: ResolvedLocation,
         nets_dir: Path,
         output_dir: Path,
     ) -> "CheckpointSweep":
         """Build the runtime sweep."""
         sweep_root = output_dir / self.eval_dirname
         eval_worker = CheckpointEvalWorker(
-            evaluator=self.eval.build(),
+            evaluator=evaluator,
             backend=self.backend,
         )
         return CheckpointSweep(
             eval_worker=eval_worker,
             checkpoint_paths=CheckpointPaths(nets_dir),
-            data_root=self.eval.resolved_data_root,
+            data_root=data_root,
             sweep_root=sweep_root,
             viz_config_path=(
                 Path(self.viz_config_path) if self.viz_config_path is not None else None
@@ -1351,12 +1374,23 @@ class StandaloneCheckpointSweepConfig(TopLevelConfig):
     """Configuration for evaluating a directory of existing checkpoints."""
 
     checkpoint_dir: Path
+    data_root: Location
+    data: DataConfig
+    model: AnyModelConfig
     checkpoint_sweep: CheckpointSweepConfig
 
     def build(self) -> "CheckpointSweep":
         """Build a sweep for an existing checkpoint directory."""
         checkpoint_dir = self.checkpoint_dir.expanduser().resolve()
+        data_root = LocalLocation(path=Path.cwd()).resolve(self.data_root)
+        evaluator = self.checkpoint_sweep.eval.build(
+            data=self.data,
+            model=self.model,
+            data_root=data_root,
+        )
         return self.checkpoint_sweep.build(
+            evaluator=evaluator,
+            data_root=data_root,
             nets_dir=checkpoint_dir,
             output_dir=checkpoint_dir.parent,
         )

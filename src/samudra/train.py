@@ -112,6 +112,7 @@ class Trainer:
     model: BaseModel | nn.parallel.DistributedDataParallel
 
     def __init__(self, cfg: TrainConfig) -> None:
+        self.cfg = cfg
         cfg.prepare_output_dirs()
         cfg.save_yaml(cfg.experiment.output_dir / "config.yaml")
         # Backend
@@ -306,10 +307,6 @@ class Trainer:
                 nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
                 device_ids=[self.distributed.gpu],
             )
-
-        self.post_train_sweep_config = cfg.post_train_sweep
-        self.post_train_sweep_nets_dir = cfg.experiment.nets_dir
-        self.post_train_sweep_output_dir = cfg.experiment.output_dir
 
         # EMA (must come after DDP setup so parameter names match final self.model)
         if not loaded_checkpoint:
@@ -1137,7 +1134,7 @@ class Trainer:
         # (get_rank() falls back to 0 when distributed is not initialized), which
         # would make all ranks launch the sweep concurrently and collide.
         main_process = is_main_process()
-        if self.post_train_sweep_config is not None:
+        if self.cfg.post_train_sweep is not None:
             self._release_train_state()
         if self.distributed is not None:
             # Make sure every rank has finished training before rank 0 starts the
@@ -1147,11 +1144,9 @@ class Trainer:
             # warning at interpreter shutdown).
             torch.distributed.barrier()
             torch.distributed.destroy_process_group()
-        if main_process and self.post_train_sweep_config is not None:
-            sweep = self.post_train_sweep_config.build(
-                nets_dir=self.post_train_sweep_nets_dir,
-                output_dir=self.post_train_sweep_output_dir,
-            )
+        if main_process and self.cfg.post_train_sweep is not None:
+            sweep = self.cfg.build_post_train_sweep()
+            assert sweep is not None
             sweep.run()
 
     def _release_train_state(self) -> None:

@@ -55,17 +55,24 @@ def test_eval_runs_with_built_dependencies(monkeypatch, tmp_path):
     )
 
 
-def test_eval_config_build_does_not_accept_overrides():
-    assert list(inspect.signature(EvalConfig.build).parameters) == ["self"]
+def test_eval_config_keeps_external_construction_config_out_of_its_fields():
+    assert list(inspect.signature(EvalConfig.build).parameters) == [
+        "self",
+        "data",
+        "model",
+        "data_root",
+    ]
+    assert "data" not in EvalConfig.model_fields
+    assert "model" not in EvalConfig.model_fields
 
 
-def test_standalone_eval_cli_sets_nested_data_root(tmp_path):
+def test_standalone_eval_cli_uses_experiment_data_root(tmp_path):
     config = StandaloneEvalConfig.from_yaml_and_cli(
         [
             "configs/samudra_om4/eval.yaml",
-            "--eval.data_root",
+            "--experiment.data_root",
             str(tmp_path),
         ]
     )
 
-    assert config.eval.resolved_data_root == LocalLocation(path=tmp_path)
+    assert config.experiment.resolved_data_root == LocalLocation(path=tmp_path)

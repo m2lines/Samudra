@@ -24,17 +24,17 @@ def test_checkpoint_sweep_config_has_no_enabled_switch():
     assert "enabled" not in CheckpointSweepConfig.model_fields
 
 
-def test_checkpoint_sweep_config_builds_eval_from_nested_config(monkeypatch, tmp_path):
+def test_checkpoint_sweep_config_accepts_built_eval(tmp_path):
     data_root = LocalLocation(path=tmp_path.resolve())
-    eval_config = EvalConfig.model_construct(data_root=data_root)
     evaluator = MagicMock()
-    monkeypatch.setattr(EvalConfig, "build", MagicMock(return_value=evaluator))
     config = CheckpointSweepConfig(
-        eval=eval_config,
+        eval=EvalConfig(),
         backend="cpu",
     )
 
     sweep = config.build(
+        evaluator=evaluator,
+        data_root=data_root,
         nets_dir=tmp_path / "saved_nets",
         output_dir=tmp_path,
     )

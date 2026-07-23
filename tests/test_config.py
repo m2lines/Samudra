@@ -3,14 +3,17 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from pydantic import ValidationError
 
 from samudra.config import (
+    CheckpointSweepConfig,
     CpuDataLoadingConfig,
     DataConfig,
     DataSourceConfig,
+    EvalConfig,
     GpuDataLoadingConfig,
     LlcDatasetConfig,
     Om4DatasetConfig,
@@ -140,6 +143,33 @@ def test_train_config_disables_post_train_sweep_by_omission():
     cfg = TrainConfig.from_yaml("configs/test/train_default.yaml")
 
     assert cfg.post_train_sweep is None
+
+
+def test_train_config_builds_post_train_eval_from_its_model_and_data(
+    monkeypatch, tmp_path
+):
+    cfg = TrainConfig.from_yaml("configs/test/train_default.yaml")
+    cfg.experiment.data_root = UnresolvedLocation(path=str(tmp_path))
+    cfg.post_train_sweep = CheckpointSweepConfig(eval=EvalConfig())
+    evaluator = object()
+    sweep = object()
+    eval_build = MagicMock(return_value=evaluator)
+    sweep_build = MagicMock(return_value=sweep)
+    monkeypatch.setattr(EvalConfig, "build", eval_build)
+    monkeypatch.setattr(CheckpointSweepConfig, "build", sweep_build)
+
+    assert cfg.build_post_train_sweep() is sweep
+    eval_build.assert_called_once_with(
+        data=cfg.data,
+        model=cfg.model,
+        data_root=cfg.experiment.resolved_data_root,
+    )
+    sweep_build.assert_called_once_with(
+        evaluator=evaluator,
+        data_root=cfg.experiment.resolved_data_root,
+        nets_dir=cfg.experiment.nets_dir,
+        output_dir=cfg.experiment.output_dir,
+    )
 
 
 def test_get_pydantic_models_collects_loading_variants():

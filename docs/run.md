@@ -69,7 +69,7 @@ To learn more about other datasets used during training, please see the [data do
 DATA_PATH=path/to/save/data
 uv run scripts/clone_data.py $DATA_PATH
 # (then put a checkpoint of the model at path/to/checkpoint)
-uv run -m samudra.eval configs/samudra_om4/eval.yaml --ckpt_path path/to/checkpoint --eval.data_root $DATA_PATH --experiment.name <my-experiment-name>-eval
+uv run -m samudra.eval configs/samudra_om4/eval.yaml --ckpt_path path/to/checkpoint --experiment.data_root $DATA_PATH --experiment.name <my-experiment-name>-eval
 ```
 
 This produces a `predictions.zarr` file in the output directory (by default `.LOCAL`) with the rollout of the model.

@@ -245,7 +245,7 @@ srun --ntasks=1 --ntasks-per-node=1 \
       /workspace/.venv/bin/python -m samudra.eval \"${CONFIG_IN_CONTAINER}\" \
         --ckpt_path=\"${CKPT_PATH_HOST}\" \
         --experiment.name=\"${NAME}\" \
-        --eval.data_root=\"${DATA_ROOT}\" \
+        --experiment.data_root=\"${DATA_ROOT}\" \
         --experiment.base_output_dir=\"${OUTPUT_BASE}\" \
         --experiment.wandb.mode=\"${WANDB_MODE}\" \
         --backend=\"${BACKEND}\" \

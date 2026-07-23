@@ -6,17 +6,17 @@
 
 # Full-interval one/half-degree physical latent-autoregression validation for the
 # frozen learned inverse. The four source/target routes are sampled in balance.
-# With eight GPUs, batch one and four accumulation steps give effective global
-# batch 32. Eighteen full-data epochs are expected to realize about 6,354
-# optimizer updates, within 2% of the 6,230-update one-degree reference budget.
+# With six GPUs, batch one and five accumulation steps give effective global
+# batch 30. Seventeen full-data epochs are expected to realize about 6,392
+# optimizer updates, within 3% of the 6,230-update one-degree reference budget.
 debug: false
 disk_mode: true
 pin_mem: true
 save_freq: 1
 validation_image_log_freq: 17
-epochs: 18
+epochs: 17
 batch_size: 1
-gradient_accumulation_steps: 4
+gradient_accumulation_steps: 5
 train_processor_depths: [1, 2, 4]
 validation_processor_depths: [1, 2, 4]
 validation_boundary_ablations: [zero, time_reverse]
@@ -24,7 +24,7 @@ learning_rate: 0.0006
 scheduler:
   type: cosine
   interval: optimizer_update
-  target_updates: 6354
+  target_updates: 6392
 loss: mse
 finetune: true
 finetune_allowed_missing_prefixes:

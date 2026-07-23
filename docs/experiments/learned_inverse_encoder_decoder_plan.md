@@ -1278,8 +1278,8 @@ diagnostics expose rather than pool coarse-to-fine limitations, and boundary
 controls remain causal at lead four. The selection logic therefore promotes the
 architecture to the full one/half-degree budget. The checked-in config
 `train_cross_1_halfdeg_iterable_inverse_masked_mse_updates.yaml` uses the full
-training interval, 18 epochs, effective global batch 32 on eight GPUs, and an
-expected 6,354 optimizer updates, within 2% of the one-degree reference budget.
+training interval, 17 epochs, effective global batch 30 on six GPUs, and an
+expected 6,392 optimizer updates, within 3% of the one-degree reference budget.
 
 ## Selection logic
 

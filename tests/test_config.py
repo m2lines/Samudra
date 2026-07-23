@@ -338,15 +338,15 @@ def test_cross_resolution_iterable_inverse_full_uses_reference_update_scale(tmp_
     )
 
     assert cfg.experiment.train_schedule == "mix"
-    assert cfg.epochs == 18
+    assert cfg.epochs == 17
     assert cfg.train_sample_selection is None
     assert cfg.train_processor_depths == [1, 2, 4]
     assert cfg.validation_processor_depths == [1, 2, 4]
     assert cfg.validation_boundary_ablations == ["zero", "time_reverse"]
-    assert cfg.batch_size * cfg.gradient_accumulation_steps * 8 == 32
+    assert cfg.batch_size * cfg.gradient_accumulation_steps * 6 == 30
     assert isinstance(cfg.scheduler, CosineSchedulerConfig)
     assert cfg.scheduler.interval == "optimizer_update"
-    assert cfg.scheduler.target_updates == 6354
+    assert cfg.scheduler.target_updates == 6392
     assert cfg.preemptible
     assert len(cfg.data.sources) == 2
     assert cfg.frozen_model_prefixes == ["encoder.", "decoder."]

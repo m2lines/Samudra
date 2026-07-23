@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784764304696,
+  "lastUpdate": 1784765835455,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -10925,6 +10925,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.1571932738827749",
             "extra": "mean: 55.189415362599995 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dd0007436e00608cc6bdbcf6c7c59df55f2ca65c",
+          "message": "Restore primary-source validation metrics (#803)\n\nValidating against the primary source only is not ideal, but it seems\nbetter than no validation at all (and is sufficient for several of our\nupcoming goals), so seems like a reasonable step in the right direction.\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>\nCo-authored-by: fomo-bot <266121006+fomo-bot@users.noreply.github.com>",
+          "timestamp": "2026-07-22T23:40:42Z",
+          "tree_id": "5682b4ad4775c0743a0d20a42cf45138d8d108f0",
+          "url": "https://github.com/m2lines/Samudra/commit/dd0007436e00608cc6bdbcf6c7c59df55f2ca65c"
+        },
+        "date": 1784765834431,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.1037862574673514,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0016701990229569875",
+            "extra": "mean: 905.9725044000004 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.06244045849589093,
+            "unit": "iter/sec",
+            "range": "stddev: 0.18103748508387274",
+            "extra": "mean: 16.015257159999997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.01808686564282255,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11959507794374953",
+            "extra": "mean: 55.288739339799996 sec\nrounds: 5"
           }
         ]
       }

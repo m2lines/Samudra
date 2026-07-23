@@ -10,7 +10,7 @@ from samudra.aggregator import (
     MultiScaleValidateAggregator,
     ValidateAggregator,
 )
-from samudra.aggregator.train import TrainAggregator
+from samudra.aggregator.train import RouteTrainAggregator, TrainAggregator
 from samudra.aggregator.validate.map import MapAggregator
 from samudra.aggregator.validate.snapshot import SnapshotAggregator
 from samudra.aggregator.validate.sub_aggregator import ValidateSubAggregator
@@ -28,6 +28,7 @@ def val_batch_of(
     tensor_map: TensorMap,
     hist: int = 0,
     batch_size: int = 1,
+    input_grid: tuple[int, int] | None = None,
 ) -> ValBatchOutput:
     """Create a dummy Validation Batch loss / data from a CanonicalDataset."""
     n_prog_base = len(tensor_map.prognostic_var_names)
@@ -38,17 +39,18 @@ def val_batch_of(
     loss_per_channel = torch.ones(n_prog) * 1.5
     loss = loss_per_channel.sum()
 
+    input_h, input_w = input_grid or (h, w)
     batch = ValBatchOutput(
         loss=loss,
         loss_per_channel=loss_per_channel,
-        input_data=torch.randn(batch_size, n_prog + n_boundary, h, w),
+        input_data=torch.randn(batch_size, n_prog + n_boundary, input_h, input_w),
         target_data=torch.randn(batch_size, n_prog, h, w),
         gen_data=torch.randn(batch_size, n_prog, h, w),
         ctx=GridContext(
             label_mask=torch.ones(n_prog, h, w),
             input_resolution_cpu=(
-                torch.linspace(-90, 90, steps=h),
-                torch.linspace(-180, 180, steps=w),
+                torch.linspace(-90, 90, steps=input_h),
+                torch.linspace(-180, 180, steps=input_w),
             ),
             output_resolution_cpu=(
                 torch.linspace(-90, 90, steps=h),
@@ -297,7 +299,30 @@ def test_multiscale_validation_aggregator__routes_and_prefixes_by_grid(
 
     assert "val/resolution/4x8/mean/loss" in logs
     assert "val/resolution/8x16/mean/loss" in logs
+    assert "val/route/4x8_to_4x8/mean/loss" in logs
+    assert "val/route/8x16_to_8x16/mean/loss" in logs
     assert "val/mean/loss" in logs
+
+
+def test_route_train_aggregator__separates_shared_output_grid(
+    dummy_src: CanonicalDataset,
+):
+    tensor_map = tensor_map_for(dummy_src)
+    aggregator = RouteTrainAggregator(tensor_map)
+    same_grid = val_batch_of(4, 8, tensor_map=tensor_map)
+    cross_grid = val_batch_of(4, 8, tensor_map=tensor_map, input_grid=(8, 16))
+    same_grid.loss.fill_(1.0)
+    same_grid.loss_per_channel.fill_(1.0)
+    cross_grid.loss.fill_(3.0)
+    cross_grid.loss_per_channel.fill_(3.0)
+
+    aggregator.record_batch(same_grid, same_grid.ctx)
+    aggregator.record_batch(cross_grid, cross_grid.ctx)
+    logs = aggregator.get_logs("val/physical_lead_1")
+
+    assert logs["val/physical_lead_1/mean/loss"] == pytest.approx(2.0)
+    assert logs["val/physical_lead_1/route/4x8_to_4x8/mean/loss"] == pytest.approx(1.0)
+    assert logs["val/physical_lead_1/route/8x16_to_4x8/mean/loss"] == pytest.approx(3.0)
 
 
 def test_multiscale_validation_aggregator__does_not_alias_overall_and_scale_state(

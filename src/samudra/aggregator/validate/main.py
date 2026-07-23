@@ -5,7 +5,7 @@
 
 import torch
 
-from samudra.aggregator.train import TrainAggregator
+from samudra.aggregator.train import RouteTrainAggregator, TrainAggregator
 from samudra.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from samudra.constants import TensorMap
 from samudra.models.modules.decoder import coordinate_bilinear_resample
@@ -186,7 +186,7 @@ class MultiScaleValidateAggregator:
             raise ValueError("At least one validation grid must be registered.")
         self._aggregators = aggregators
         first_aggregator = next(iter(aggregators.values()))[1]
-        self._overall = TrainAggregator(first_aggregator.tensor_map)
+        self._overall = RouteTrainAggregator(first_aggregator.tensor_map)
         self._recorded_grids: set[tuple[int, int]] = set()
 
     @torch.no_grad()
@@ -198,7 +198,7 @@ class MultiScaleValidateAggregator:
                 f"expected one of {sorted(self._aggregators)}."
             )
         _, aggregator = self._aggregators[grid]
-        self._overall.record_batch(batch)
+        self._overall.record_batch(batch, batch.ctx)
         aggregator.record_validation_batch(batch)
         self._recorded_grids.add(grid)
 

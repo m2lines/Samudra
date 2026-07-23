@@ -35,7 +35,7 @@ from samudra.aggregator.loss import (
     get_depth_loss_dict,
     get_variable_loss_dict,
 )
-from samudra.aggregator.train import TrainAggregator
+from samudra.aggregator.train import RouteTrainAggregator
 from samudra.backend import init_train_backend
 from samudra.config import TrainConfig, TrainSchedule, build_loss_fn
 from samudra.constants import (
@@ -970,21 +970,21 @@ class Trainer:
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
         lead_aggregators = {
-            depth: TrainAggregator(self.tensor_map)
+            depth: RouteTrainAggregator(self.tensor_map)
             for depth in self.validation_processor_depths or []
         }
         persistence_lead_aggregators = {
-            depth: TrainAggregator(self.tensor_map)
+            depth: RouteTrainAggregator(self.tensor_map)
             for depth in self.validation_processor_depths or []
         }
         zero_depth_aggregator = (
-            TrainAggregator(self.tensor_map)
+            RouteTrainAggregator(self.tensor_map)
             if self.validation_processor_depths is not None
             else None
         )
         boundary_ablation_aggregators = {
             mode: {
-                depth: TrainAggregator(self.tensor_map)
+                depth: RouteTrainAggregator(self.tensor_map)
                 for depth in self.validation_processor_depths or []
             }
             for mode in self.validation_boundary_ablations
@@ -1016,7 +1016,9 @@ class Trainer:
                         lead_batch_outputs[depth] = TrainBatchOutput(
                             torch.mean(loss_per_channel), loss_per_channel
                         )
-                        lead_aggregators[depth].record_batch(lead_batch_outputs[depth])
+                        lead_aggregators[depth].record_batch(
+                            lead_batch_outputs[depth], data.ctx
+                        )
 
                     prognostic, boundary = data.get_initial_input()
                     if zero_depth_aggregator is None:
@@ -1036,7 +1038,8 @@ class Trainer:
                         TrainBatchOutput(
                             torch.mean(reconstruction_loss_per_channel),
                             reconstruction_loss_per_channel,
-                        )
+                        ),
+                        reconstruction_ctx,
                     )
                     persistence = coordinate_bilinear_resample(
                         prognostic,
@@ -1052,7 +1055,8 @@ class Trainer:
                             TrainBatchOutput(
                                 torch.mean(persistence_loss_per_channel),
                                 persistence_loss_per_channel,
-                            )
+                            ),
+                            data.ctx,
                         )
                     lead_one_prediction = forecasts[1]
                     lead_one_target = data.get_label(0)
@@ -1077,7 +1081,8 @@ class Trainer:
                             aggregators[depth].record_batch(
                                 TrainBatchOutput(
                                     torch.mean(loss_per_channel), loss_per_channel
-                                )
+                                ),
+                                data.ctx,
                             )
                 val_aggregator.record_validation_batch(VO)
                 metric_logger.update(loss=VO.loss)

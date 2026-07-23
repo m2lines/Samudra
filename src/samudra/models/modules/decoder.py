@@ -15,6 +15,157 @@ from samudra.models.modules.augment_input import make_3d_coordinate_grid
 from samudra.models.modules.encoder import patch_from, pos_scale_enc_for_grid
 
 
+def _cell_edges_from_centers(centers: torch.Tensor, *, periodic: bool) -> torch.Tensor:
+    """Infer monotonic cell edges from sorted one-dimensional cell centers."""
+    if centers.ndim != 1 or len(centers) < 2:
+        raise ValueError(
+            "Cell centers must be a one-dimensional tensor of length >= 2."
+        )
+    if not torch.all(centers[1:] > centers[:-1]):
+        raise ValueError("Cell centers must be strictly increasing.")
+    interior = (centers[:-1] + centers[1:]) / 2
+    if periodic:
+        seam_gap = centers[0] + 360.0 - centers[-1]
+        if seam_gap <= 0:
+            raise ValueError("Periodic longitude centers must not duplicate the seam.")
+        first = centers[0] - seam_gap / 2
+        last = centers[-1] + seam_gap / 2
+    else:
+        first = (centers[0] - (centers[1] - centers[0]) / 2).clamp_min(-90.0)
+        last = (centers[-1] + (centers[-1] - centers[-2]) / 2).clamp_max(90.0)
+    return torch.cat((first[None], interior, last[None]))
+
+
+def _latitude_overlap_weights(
+    source_centers: torch.Tensor, output_centers: torch.Tensor
+) -> torch.Tensor:
+    """Return spherical-area latitude overlaps for every output/source cell."""
+    source_edges = _cell_edges_from_centers(source_centers, periodic=False)
+    output_edges = _cell_edges_from_centers(output_centers, periodic=False)
+    lower = torch.maximum(output_edges[:-1, None], source_edges[None, :-1])
+    upper = torch.minimum(output_edges[1:, None], source_edges[None, 1:])
+    overlap = (
+        torch.sin(torch.deg2rad(upper)) - torch.sin(torch.deg2rad(lower))
+    ).clamp_min(0)
+    return overlap
+
+
+def _periodic_longitude_overlap_weights(
+    source_centers: torch.Tensor, output_centers: torch.Tensor
+) -> torch.Tensor:
+    """Return periodic longitude overlaps for every output/source cell."""
+    source_edges = _cell_edges_from_centers(source_centers, periodic=True)
+    output_edges = _cell_edges_from_centers(output_centers, periodic=True)
+    output_lower = output_edges[:-1, None]
+    output_upper = output_edges[1:, None]
+    overlap = torch.zeros(
+        (len(output_centers), len(source_centers)),
+        device=source_centers.device,
+        dtype=source_centers.dtype,
+    )
+    for shift in (-360.0, 0.0, 360.0):
+        source_lower = source_edges[None, :-1] + shift
+        source_upper = source_edges[None, 1:] + shift
+        overlap += (
+            torch.minimum(output_upper, source_upper)
+            - torch.maximum(output_lower, source_lower)
+        ).clamp_min(0)
+    return overlap
+
+
+def coordinate_conservative_resample(
+    x: Float[torch.Tensor, "batch channels H_source W_source"],
+    source_resolution: tuple[Lat, Lon],
+    output_resolution: tuple[Lat, Lon],
+    valid_mask: torch.Tensor | None = None,
+    *,
+    output_latitude_chunk_size: int | None = None,
+) -> Float[torch.Tensor, "batch channels H_output W_output"]:
+    """Area-weighted restriction on physical spherical cell coordinates.
+
+    Cell bounds are inferred from cell centers. Latitude overlap is integrated in
+    ``sin(latitude)`` and longitude overlap is periodic. Invalid source cells are
+    removed per channel and the remaining overlap is renormalized. The separable
+    contraction is chunked over output latitude and accumulated in float32.
+    """
+    source_lat_cpu, source_lon_cpu = source_resolution
+    output_lat_cpu, output_lon_cpu = output_resolution
+    if x.ndim != 4:
+        raise ValueError(f"Expected a four-dimensional feature grid, got {x.ndim}D.")
+    if x.shape[-2:] != (len(source_lat_cpu), len(source_lon_cpu)):
+        raise ValueError(
+            "Source coordinates must match the feature grid; got grid "
+            f"{tuple(x.shape[-2:])} and coordinates "
+            f"{(len(source_lat_cpu), len(source_lon_cpu))}."
+        )
+    if len(source_lat_cpu) < 2 or len(source_lon_cpu) < 2:
+        raise ValueError("Coordinate resampling requires at least two cells per axis.")
+    if len(output_lat_cpu) < 2 or len(output_lon_cpu) < 2:
+        raise ValueError(
+            "Conservative output grids require at least two cells per axis."
+        )
+    if (
+        x.shape[-2:] == (len(output_lat_cpu), len(output_lon_cpu))
+        and torch.equal(source_lat_cpu, output_lat_cpu)
+        and torch.equal(source_lon_cpu, output_lon_cpu)
+    ):
+        return x
+
+    device = x.device
+    source_lat = source_lat_cpu.to(device=device, dtype=torch.float32)
+    source_lon = source_lon_cpu.to(device=device, dtype=torch.float32)
+    output_lat = output_lat_cpu.to(device=device, dtype=torch.float32)
+    output_lon = output_lon_cpu.to(device=device, dtype=torch.float32)
+    latitude_weights = _latitude_overlap_weights(source_lat, output_lat)
+    longitude_weights = _periodic_longitude_overlap_weights(source_lon, output_lon)
+
+    if valid_mask is None:
+        support = torch.ones((1, 1, *x.shape[-2:]), device=device, dtype=torch.float32)
+    else:
+        if valid_mask.ndim not in (2, 3) or valid_mask.shape[-2:] != x.shape[-2:]:
+            raise ValueError(
+                "The resampling validity mask must be [H, W] or [C, H, W] and "
+                "match the source grid; got "
+                f"{tuple(valid_mask.shape)} and {tuple(x.shape[-2:])}."
+            )
+        support = valid_mask.to(device=device, dtype=torch.float32)
+        if support.ndim == 2:
+            support = support.unsqueeze(0)
+        if support.shape[0] not in (1, x.shape[1]):
+            raise ValueError(
+                "A channel-wise resampling mask must have one mask per feature "
+                f"channel; got {support.shape[0]} masks for {x.shape[1]} channels."
+            )
+        support = support.unsqueeze(0)
+
+    output_height = len(output_lat)
+    if output_latitude_chunk_size is not None and output_latitude_chunk_size < 1:
+        raise ValueError("Output latitude chunk size must be positive.")
+    if output_latitude_chunk_size is None:
+        max_intermediate_elements = 16 * 1024 * 1024
+        elements_per_output_row = x.shape[0] * x.shape[1] * x.shape[-1]
+        output_latitude_chunk_size = max(
+            1,
+            min(
+                output_height,
+                max_intermediate_elements // elements_per_output_row,
+            ),
+        )
+
+    values = x.to(dtype=torch.float32) * support
+    output_chunks: list[torch.Tensor] = []
+    for start in range(0, output_height, output_latitude_chunk_size):
+        stop = min(start + output_latitude_chunk_size, output_height)
+        latitude_chunk = latitude_weights[start:stop]
+        latitude_numerator = torch.einsum("oh,bchw->bcow", latitude_chunk, values)
+        latitude_support = torch.einsum("oh,bchw->bcow", latitude_chunk, support)
+        numerator = torch.einsum("bcow,pw->bcop", latitude_numerator, longitude_weights)
+        denominator = torch.einsum("bcow,pw->bcop", latitude_support, longitude_weights)
+        output = numerator / denominator.clamp_min(torch.finfo(torch.float32).eps)
+        output_chunks.append(torch.where(denominator > 0, output, 0))
+    return torch.cat(output_chunks, dim=-2).to(dtype=x.dtype)
+
+
 def coordinate_bilinear_resample(
     x: Float[torch.Tensor, "batch channels H_source W_source"],
     source_resolution: tuple[Lat, Lon],
@@ -475,6 +626,7 @@ class ResampleProjectionDecoder(nn.Module):
         out_channels: int,
         coordinate_resampling: bool = False,
         project_before_resample: bool = False,
+        conservative_restriction_min_ratio: float | None = None,
     ) -> None:
         super().__init__()
         if project_before_resample and not coordinate_resampling:
@@ -482,10 +634,21 @@ class ResampleProjectionDecoder(nn.Module):
                 "project_before_resample requires coordinate_resampling so the "
                 "source validity mask can renormalize interpolation."
             )
+        if conservative_restriction_min_ratio is not None:
+            if conservative_restriction_min_ratio <= 1:
+                raise ValueError(
+                    "conservative_restriction_min_ratio must be greater than one."
+                )
+            if not project_before_resample:
+                raise ValueError(
+                    "Conservative restriction requires project_before_resample so "
+                    "prognostic channel masks are available."
+                )
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.coordinate_resampling = coordinate_resampling
         self.project_before_resample = project_before_resample
+        self.conservative_restriction_min_ratio = conservative_restriction_min_ratio
         self.projection = nn.Conv2d(in_channels, out_channels, kernel_size=1)
 
     def forward(
@@ -508,7 +671,17 @@ class ResampleProjectionDecoder(nn.Module):
                 )
             if self.project_before_resample:
                 x = self.projection(x)
-                return coordinate_bilinear_resample(
+                restriction_ratio = min(
+                    len(source_resolution[0]) / len(resolution[0]),
+                    len(source_resolution[1]) / len(resolution[1]),
+                )
+                resample = (
+                    coordinate_conservative_resample
+                    if self.conservative_restriction_min_ratio is not None
+                    and restriction_ratio >= self.conservative_restriction_min_ratio
+                    else coordinate_bilinear_resample
+                )
+                return resample(
                     x,
                     source_resolution,
                     resolution,

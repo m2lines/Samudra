@@ -15,7 +15,10 @@ from samudra.models.modules import (
     ResampleAttentionResidualDecoder,
     ResampleProjectionDecoder,
 )
-from samudra.models.modules.decoder import coordinate_bilinear_resample
+from samudra.models.modules.decoder import (
+    coordinate_bilinear_resample,
+    coordinate_conservative_resample,
+)
 
 # Small values for fast tests.
 LATENT_DIM = 8
@@ -354,6 +357,121 @@ def test_coordinate_resample_rejects_empty_latitude_chunks():
             (source_lat, source_lon),
             (torch.tensor([0.0]), torch.tensor([90.0])),
             output_latitude_chunk_size=0,
+        )
+
+
+def test_coordinate_conservative_resample_uses_spherical_cell_area():
+    source_lat = torch.tensor([-67.5, -22.5, 22.5, 67.5])
+    source_lon = torch.tensor([45.0, 135.0, 225.0, 315.0])
+    output_lat = torch.tensor([-45.0, 45.0])
+    output_lon = torch.tensor([90.0, 270.0])
+    bands = torch.tensor([0.0, 2.0, 4.0, 6.0])
+    x = bands[None, None, :, None].expand(1, 1, 4, 4).requires_grad_()
+
+    output = coordinate_conservative_resample(
+        x,
+        (source_lat, source_lon),
+        (output_lat, output_lon),
+        output_latitude_chunk_size=1,
+    )
+
+    polar_weight = 1 - 2**-0.5
+    equatorial_weight = 2**-0.5
+    expected = torch.tensor(
+        [
+            0.0 * polar_weight + 2.0 * equatorial_weight,
+            4.0 * equatorial_weight + 6.0 * polar_weight,
+        ]
+    )[None, None, :, None].expand_as(output)
+    torch.testing.assert_close(output, expected)
+    output.sum().backward()
+    assert x.grad is not None
+
+
+def test_coordinate_conservative_resample_is_periodic_and_mask_aware():
+    source_lat = torch.tensor([-67.5, -22.5, 22.5, 67.5])
+    source_lon = torch.tensor([45.0, 135.0, 225.0, 315.0])
+    output_lat = torch.tensor([-45.0, 45.0])
+    output_lon = torch.tensor([0.0, 180.0])
+    zonal = torch.tensor([0.0, 1.0, 2.0, 3.0])
+    x = zonal[None, None, None, :].expand(1, 1, 4, 4)
+    valid = torch.ones(1, 4, 4, dtype=torch.bool)
+    valid[:, :, 3] = False
+
+    output = coordinate_conservative_resample(
+        x,
+        (source_lat, source_lon),
+        (output_lat, output_lon),
+        valid,
+    )
+
+    torch.testing.assert_close(
+        output,
+        torch.tensor([[[[0.0, 1.5], [0.0, 1.5]]]]),
+    )
+
+
+def test_resample_projection_selects_conservative_only_for_large_restriction(
+    monkeypatch,
+):
+    import samudra.models.modules.decoder as decoder_module
+
+    decoder = ResampleProjectionDecoder(
+        in_channels=1,
+        out_channels=1,
+        coordinate_resampling=True,
+        project_before_resample=True,
+        conservative_restriction_min_ratio=3.0,
+    )
+    calls = []
+
+    def spy(name):
+        def resample(x, source_resolution, output_resolution, valid_mask=None):
+            del source_resolution, valid_mask
+            calls.append(name)
+            return torch.zeros(
+                x.shape[0],
+                x.shape[1],
+                len(output_resolution[0]),
+                len(output_resolution[1]),
+                device=x.device,
+                dtype=x.dtype,
+            )
+
+        return resample
+
+    monkeypatch.setattr(decoder_module, "coordinate_bilinear_resample", spy("bilinear"))
+    monkeypatch.setattr(
+        decoder_module, "coordinate_conservative_resample", spy("conservative")
+    )
+    source = (
+        torch.linspace(-78.75, 78.75, 8),
+        torch.linspace(22.5, 337.5, 8),
+    )
+    twofold = (
+        torch.linspace(-67.5, 67.5, 4),
+        torch.linspace(45.0, 315.0, 4),
+    )
+    fourfold = (
+        torch.tensor([-45.0, 45.0]),
+        torch.tensor([90.0, 270.0]),
+    )
+    x = torch.randn(1, 1, 8, 8)
+    valid = torch.ones(1, 8, 8, dtype=torch.bool)
+
+    decoder(x, twofold, source_resolution=source, valid_mask=valid)
+    decoder(x, fourfold, source_resolution=source, valid_mask=valid)
+
+    assert calls == ["bilinear", "conservative"]
+
+
+def test_conservative_restriction_requires_project_before_resample():
+    with pytest.raises(ValueError, match="requires project_before_resample"):
+        ResampleProjectionDecoder(
+            in_channels=2,
+            out_channels=2,
+            coordinate_resampling=True,
+            conservative_restriction_min_ratio=3.0,
         )
 
 

@@ -850,6 +850,15 @@ class DecoderConfig(BaseConfig):
         "mask-renormalized coordinate resampling. This preserves per-prognostic "
         "wet masks across resolutions.",
     )
+    conservative_restriction_min_ratio: float | None = Field(
+        default=None,
+        gt=1.0,
+        description=(
+            "When projection-before-resampling restricts both axes by at least "
+            "this ratio, use mask-aware spherical conservative averaging instead "
+            "of bilinear point sampling. Leave unset to retain bilinear routing."
+        ),
+    )
     residual_hidden_dim: int = Field(default=128, ge=1)
     residual_heads: int = Field(default=2, ge=1)
     residual_dim_head: int = Field(default=64, ge=1)
@@ -908,6 +917,13 @@ class DecoderConfig(BaseConfig):
                 "project_before_resample is only supported by the resampling "
                 "projection decoder."
             )
+        if (
+            self.conservative_restriction_min_ratio is not None
+            and not self.project_before_resample
+        ):
+            raise ValueError(
+                "conservative_restriction_min_ratio requires project_before_resample."
+            )
         if self.direct_projection:
             return DirectPatchDecoder(
                 in_channels=in_channels,
@@ -920,6 +936,9 @@ class DecoderConfig(BaseConfig):
                 out_channels=out_channels,
                 coordinate_resampling=self.coordinate_resampling,
                 project_before_resample=self.project_before_resample,
+                conservative_restriction_min_ratio=(
+                    self.conservative_restriction_min_ratio
+                ),
             )
         if self.resample_attention_residual:
             base = ResampleProjectionDecoder(

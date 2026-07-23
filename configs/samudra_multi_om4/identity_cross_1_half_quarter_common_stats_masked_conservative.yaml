@@ -1,0 +1,79 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/IdentityConfig.json
+
+# Checkpoint-only nine-route intervention for scale-aware conservative
+# restriction. Supply --resume_ckpt_path with the selected one/half-degree
+# state-only inverse. The state dictionary is unchanged; this isolates only the
+# quarter-to-one transport operator and retains the regular-index area diagnostic.
+debug: false
+disk_mode: true
+pin_mem: true
+save_freq: 1
+epochs: 1
+batch_size: 1
+gradient_accumulation_steps: 1
+learning_rate: 0.0
+scheduler: null
+loss: mse
+finetune: true
+finetune_allowed_missing_prefixes: []
+resume_ckpt_path: null
+inference_epochs: []
+train_time:
+  start: "1975-01-03"
+  end: "2013-10-05"
+val_time:
+  start: "2013-10-05"
+  end: "2014-10-05"
+inference_times: []
+data_stride: [1]
+steps: [1]
+step_transition: []
+target_time_mode: current
+preemptible: true
+test_using_ema: false
+identity_train_samples: 36
+identity_eval_samples: 36
+identity_train_offset: 0
+identity_eval_offset: 36
+identity_eval_frequency: 1
+identity_eval_only: true
+identity_area_restriction_diagnostic: true
+
+backend: auto
+
+experiment:
+  name: samudra_multi_identity_cross_1_half_quarter_conservative_audit
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: default
+  train_schedule: mix
+data:
+  dataset:
+    type: om4
+    prognostic_vars_key: thermo_dynamic_all
+    boundary_vars_key: tau_hfds
+  static_data_vars: []
+  concurrent_compute: true
+  hist: 1
+  loading:
+    type: rust
+    prefetch_batches: 2
+    max_concurrent_reads: 4
+    prefetch_to_device: true
+  sources:
+    - data_location: om4_onedeg_v3/OM4.zarr
+      data_means_location: om4_onedeg_v3/OM4_means.zarr
+      data_stds_location: om4_onedeg_v3/OM4_stds.zarr
+    - data_location: om4_halfdeg_v4/OM4.zarr
+      data_means_location: om4_onedeg_v3/OM4_means.zarr
+      data_stds_location: om4_onedeg_v3/OM4_stds.zarr
+    - data_location: om4_quarterdeg_v2/OM4.zarr
+      data_means_location: om4_onedeg_v3/OM4_means.zarr
+      data_stds_location: om4_onedeg_v3/OM4_stds.zarr
+model: !include model_learned_inverse_native_masked_conservative_projection.yaml

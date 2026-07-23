@@ -1075,8 +1075,8 @@ two-seed endpoint, zeroing boundary input worsens leads `{1,2,4}` by
 `{4.9%, 14.9%, 30.7%}`, and reversing its time order worsens lead four by 37.7%.
 The two seeds differ by only about 1.3% at each lead, far inside the gap to the
 alternatives. The frozen ReZero design is therefore promoted to full one-degree
-validation; its checked-in selection is commit `d011fce5`. Runtime-resume fix
-`4c7365f3` is used by Torch job `14629304`.
+validation; its checked-in selection is commit `d011fce5`. Runtime-resume fixes
+through `a70410f3` are used by Torch job `14629647`.
 
 Three failed setup jobs contribute no model evidence: `14616135` invoked an
 identity config through the training entry point, `14616181` duplicated the data
@@ -1126,8 +1126,8 @@ mis-specified run and supplies no model-selection evidence. Jobs `14605300` and
 
 The original eight-GPU submission `14626058` made no optimizer step. Node
 fragmentation gave it an estimated start two days later, so the selection-logic
-revision rule replaces it with Torch job `14629304` from exact code overlay
-`4c7365f3`. The replacement uses the three immediately available RTX6000s,
+revision rule replaces it with Torch job `14629647` from exact code overlay
+`a70410f3`. The replacement uses the three immediately available RTX6000s,
 per-rank batch 2, accumulation 5, and 65 epochs: effective batch 30 and about
 6,175 updates, only 0.9% from the requested 6,230-update budget. It resumes the
 same frozen state-only inverse checkpoint and is the requested v2-scale
@@ -1147,9 +1147,24 @@ requeueable replacement, `14629179`, exposed an initialization guard that reject
 `4c7365f3` revises the clean-break contract: an initial preemptible run may load
 the inverse by finetuning, while a requeue that finds `ckpt.pt` disables
 finetuning and restores full model, optimizer, scheduler, counter, EMA, and W&B
-state. Job `14629304` uses that fix with epoch checkpoints, Slurm requeue, and a
-five-minute pre-timeout signal. The six-update bring-up is startup evidence only
-and is not included in model metrics.
+state. Job `14629304` completed epoch one and produced the first full-data metrics,
+then a deliberate requeue exposed a read-only provenance-manifest overwrite in the
+Slurm harness. Commit `d64ca8f4` makes restarts compare the pinned manifest rather
+than overwrite it; `a70410f3` also normalizes the unused finetune allowlist on an
+explicit full-state resume. Job `14629647` loads the epoch-one `ckpt.pt` with
+`Start Epoch: 2`, the saved optimizer learning rate, counters, EMA, and W&B ID,
+and continues with epoch checkpoints, Slurm requeue, and a five-minute pre-timeout
+signal. The six-update bring-up is startup evidence only and is not included in
+model metrics.
+
+The first full-data validation point, after epoch one, is
+`{0.05116, 0.08485, 0.11936}` at physical leads `{1,2,4}`. These beat the
+lead-matched persistence values by 39%, 44%, and 47%, while zero-depth
+reconstruction remains exactly `0.000647529`. Temperature, salinity, zonal
+velocity, meridional velocity, and SSH high-wavenumber ratios are
+`{0.954, 0.966, 0.806, 0.750, 0.982}`. This is consistent with the proxy at a
+comparable update count and confirms scale-up, but it is an early learning-curve
+point rather than the V1 promotion result.
 
 Profile before launch. Existing evidence suggests one RTX6000 is sufficient for
 proxy screening; the completed full direct one-cell run used two GPUs, peaked near

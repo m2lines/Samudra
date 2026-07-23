@@ -74,12 +74,15 @@ promoted to full one-degree validation; the full-scale and subsequent
 multi-resolution validations remain in progress, so this document is still
 interim.
 
-The full-data one-degree run now supplies seven monotonic validation points. Its
-lead-one MSE falls from `0.05116` at epoch one to `0.03121` at epoch seven; the
-latest `{1,2,4}` lead vector is `{0.03121, 0.05259, 0.07084}`, respectively
-`{62.7%, 65.2%, 68.4%}` below lead-matched persistence. The frozen inverse remains
-exactly `0.000647529` throughout. This confirms stable v2-scale optimization but is
-not yet the terminal or validation-selected result.
+The full-data one-degree run passes its promotion gate at epoch 18. Lead-one MSE
+falls monotonically from `0.05116` at epoch one to `0.0246967`; the corresponding
+`{1,2,4}` lead vector is `{0.0246967, 0.0413005, 0.0551152}`, respectively
+`{70.5%, 72.7%, 75.4%}` below lead-matched persistence. Every lead-one variable
+group is better than its quoted v2 value, while the frozen inverse remains exactly
+`0.000647529`. The epoch-11 high-wavenumber ratios are
+`{0.967, 0.976, 0.788, 0.793, 0.990}` for temperature, salinity, zonal velocity,
+meridional velocity, and SSH. Training continues to the 65-epoch endpoint; V2 is
+queued behind its successful completion, so this remains an interim report.
 
 ## Objective
 

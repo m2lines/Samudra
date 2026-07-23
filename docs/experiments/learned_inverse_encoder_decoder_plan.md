@@ -1157,18 +1157,17 @@ and continues with epoch checkpoints, Slurm requeue, and a five-minute pre-timeo
 signal. The six-update bring-up is startup evidence only and is not included in
 model metrics.
 
-The first six full-data validation points descend monotonically. At epochs one
-through six, lead-one MSE is
-`{0.05116, 0.04265, 0.03872, 0.03617, 0.03406, 0.03250}`. The epoch-six lead
-vector is `{0.03250, 0.05477, 0.07398}` at physical leads `{1,2,4}`, beating the
-lead-matched persistence values by `{61.2%, 63.8%, 67.0%}`. Zero-depth
-reconstruction remains exactly `0.000647529` at every point. At epoch one,
-temperature, salinity, zonal velocity, meridional velocity, and SSH
-high-wavenumber ratios are `{0.954, 0.966, 0.806, 0.750, 0.982}`. These results
-confirm stable scale-up; they remain learning-curve evidence rather than the V1
-promotion result. A log-linear extrapolation of only the observed six points
-crosses the `0.025` lead-one gate around epoch 9--11, but the run is not selected
-or stopped on that extrapolation.
+The full-data validation curve descends monotonically. Lead-one MSE falls from
+`0.05116` at epoch one to `0.0250324` at epoch 17, which misses the gate by only
+`3.24e-5`, then passes at epoch 18 with a physical-lead vector of
+`{0.0246967, 0.0413005, 0.0551152}` for `{1,2,4}`. These beat lead-matched
+persistence by `{70.5%, 72.7%, 75.4%}`. Zero-depth reconstruction remains exactly
+`0.000647529` at every point. At epoch 11, temperature, salinity, zonal velocity,
+meridional velocity, and SSH high-wavenumber ratios are
+`{0.967, 0.976, 0.788, 0.793, 0.990}`. Every lead-one variable group is better
+than its quoted v2 value. V1 therefore passes its promotion gate without rounding
+the epoch-17 near miss. Training continues to the planned 65-epoch endpoint so the
+terminal and validation-selected checkpoints can still be compared.
 
 Profile before launch. Existing evidence suggests one RTX6000 is sufficient for
 proxy screening; the completed full direct one-cell run used two GPUs, peaked near
@@ -1230,6 +1229,12 @@ isolate route-level spatial spectra, high-wavenumber retention, seam, edge, and
 amplitude diagnostics. Existing overall and destination-grid metrics remain
 available. This closes a measurement ambiguity that would otherwise pool
 one-to-one and half-to-one forecasts under the same output resolution.
+
+After V1 passed at epoch 18, Torch job `14635707` was submitted from immutable
+code layer `0fc36dfd` with an `afterok:14629647` dependency. It requests two
+RTX6000s, batch one, and accumulation 16, preserving effective batch 32 and the
+exact 192-update proxy budget. The dependency prevents resource preemption and
+starts V2 only after V1 completes successfully.
 
 ## Selection logic
 

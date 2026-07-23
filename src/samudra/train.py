@@ -128,6 +128,41 @@ def load_model_state_for_finetune(
     return True
 
 
+def freeze_model_parameters(model: nn.Module, prefixes: list[str]) -> tuple[int, int]:
+    """Freeze parameters selected by explicit name prefixes.
+
+    Returns the number of frozen parameter tensors and scalar parameters. Each
+    configured prefix must match so a misspelled experimental control cannot run
+    silently.
+    """
+    if not prefixes:
+        return 0, 0
+    if len(set(prefixes)) != len(prefixes):
+        raise ValueError("frozen_model_prefixes must be unique.")
+    if any(not prefix for prefix in prefixes):
+        raise ValueError("frozen_model_prefixes cannot contain an empty prefix.")
+
+    matches = {prefix: 0 for prefix in prefixes}
+    frozen_tensors = 0
+    frozen_parameters = 0
+    for name, parameter in model.named_parameters():
+        matching_prefixes = [prefix for prefix in prefixes if name.startswith(prefix)]
+        if not matching_prefixes:
+            continue
+        parameter.requires_grad_(False)
+        frozen_tensors += 1
+        frozen_parameters += parameter.numel()
+        for prefix in matching_prefixes:
+            matches[prefix] += 1
+
+    unmatched = [prefix for prefix, count in matches.items() if count == 0]
+    if unmatched:
+        raise ValueError(
+            "frozen_model_prefixes matched no parameters: " + ", ".join(unmatched)
+        )
+    return frozen_tensors, frozen_parameters
+
+
 def should_log_validation_images(epoch: int, frequency: int) -> bool:
     """Return whether to log validation images for a 1-based training epoch."""
     if epoch < 1:
@@ -289,6 +324,18 @@ class Trainer:
             dataset_spec=self.dataset_spec,
         ).to(self.device)
 
+        frozen_tensors, frozen_parameters = freeze_model_parameters(
+            self.model, cfg.frozen_model_prefixes
+        )
+        if frozen_tensors:
+            logger.info(
+                "Froze %d model parameter tensors (%d scalar parameters) selected "
+                "by prefixes: %s",
+                frozen_tensors,
+                frozen_parameters,
+                ", ".join(cfg.frozen_model_prefixes),
+            )
+
         self.nets_dir = cfg.experiment.nets_dir
         self.network = self.model.__class__.__name__
 
@@ -301,7 +348,14 @@ class Trainer:
         )
 
         # Optimizer
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
+        trainable_parameters = [
+            parameter
+            for parameter in self.model.parameters()
+            if parameter.requires_grad
+        ]
+        if not trainable_parameters:
+            raise ValueError("At least one model parameter must remain trainable.")
+        self.optimizer = torch.optim.Adam(trainable_parameters, lr=cfg.learning_rate)
         self.ema_decay = cfg.ema_decay
         self.faster_decay_at_start = cfg.faster_decay_at_start
 

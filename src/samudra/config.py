@@ -1549,6 +1549,15 @@ class TrainConfig(TopLevelConfig):
             "pretrained encoder/decoder while keeping all other mismatches fatal."
         ),
     )
+    frozen_model_prefixes: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Parameter-name prefixes to freeze before optimizer construction. "
+            "This supports forecast controls that retain a pretrained learned "
+            "encoder/decoder inverse while fitting only the latent processor and "
+            "boundary encoder. Every prefix must match at least one parameter."
+        ),
+    )
     resume_ckpt_path: str | None = None
     debug: bool = False
     test_using_ema: bool = True

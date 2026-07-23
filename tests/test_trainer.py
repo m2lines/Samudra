@@ -17,6 +17,7 @@ from samudra.datasets import TrainDataLoader
 from samudra.models.base import BaseModel
 from samudra.train import (
     Trainer,
+    freeze_model_parameters,
     load_model_state_for_finetune,
     should_log_validation_images,
     training_processor_depth,
@@ -53,6 +54,23 @@ def test_partial_finetune_allows_only_explicit_new_submodules():
     unexpected["retired.weight"] = torch.ones(1)
     with pytest.raises(RuntimeError, match="unexpected"):
         load_model_state_for_finetune(destination, unexpected, ["processor."])
+
+
+def test_freeze_model_parameters_selects_explicit_prefixes():
+    model = _ComposedModel()
+
+    tensors, parameters = freeze_model_parameters(model, ["encoder."])
+
+    assert tensors == 2
+    assert parameters == model.encoder.weight.numel() + model.encoder.bias.numel()
+    assert not any(parameter.requires_grad for parameter in model.encoder.parameters())
+    assert all(parameter.requires_grad for parameter in model.processor.parameters())
+
+
+@pytest.mark.parametrize("prefixes", [["missing."], ["encoder.", "encoder."], [""]])
+def test_freeze_model_parameters_rejects_invalid_prefixes(prefixes):
+    with pytest.raises(ValueError):
+        freeze_model_parameters(_ComposedModel(), prefixes)
 
 
 @pytest.mark.manual

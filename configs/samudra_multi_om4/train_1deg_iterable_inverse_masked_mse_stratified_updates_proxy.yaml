@@ -28,6 +28,7 @@ loss: mse
 finetune: true
 finetune_allowed_missing_prefixes:
   ["processor.", "processor_geometry.", "boundary_encoder."]
+frozen_model_prefixes: []
 resume_ckpt_path: null
 inference_epochs: []
 train_time:

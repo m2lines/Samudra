@@ -15,6 +15,7 @@ embedding_dim: 160
 perceiver_implementation: "flash"
 patch_extent: [1.0, 1.0]
 processor_iterations: 1
+processor_residual: false
 zero_depth_reconstruction_weight: 0.05
 # The state encoder receives prognostics only. Each physical processor call gets
 # one aligned boundary state from this separate shared encoder.

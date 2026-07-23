@@ -1159,6 +1159,14 @@ class SamudraMultiConfig(BaseModelConfig):
         description="Number of times to apply the shared latent processor per model "
         "call. Counts other than one require equal processor input/output widths.",
     )
+    processor_residual: bool = Field(
+        default=False,
+        description=(
+            "Apply each physical transition as a per-channel zero-initialized "
+            "latent residual. This initializes repeated processing as persistence "
+            "while retaining a learned boundary-conditioned transition."
+        ),
+    )
     zero_depth_reconstruction_weight: float = Field(
         default=0.0,
         ge=0.0,
@@ -1282,6 +1290,7 @@ class SamudraMultiConfig(BaseModelConfig):
             processor_geometry=processor_geometry,
             boundary_encoder=boundary_encoder,
             zero_depth_reconstruction_weight=self.zero_depth_reconstruction_weight,
+            processor_residual=self.processor_residual,
         )
 
 

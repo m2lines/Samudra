@@ -190,6 +190,13 @@ class _IdentityGridDecoder(nn.Module):
         return x
 
 
+class _DoubleProcessor(nn.Module):
+    out_channels = 1
+
+    def forward(self, x):
+        return 2 * x
+
+
 @pytest.mark.parametrize("iterations", [0, 1, 2, 4])
 def test_process_supports_zero_to_multiple_shared_iterations(iterations):
     processor = _CountingProcessor()
@@ -219,6 +226,61 @@ def test_process_supports_zero_to_multiple_shared_iterations(iterations):
     else:
         torch.testing.assert_close(output, torch.full_like(x, iterations))
     assert processor.calls == iterations
+
+
+def test_zero_initialized_processor_residual_starts_as_latent_persistence():
+    model = SamudraMulti(
+        in_channels=1,
+        out_channels=1,
+        pred_residuals=False,
+        last_kernel_size=3,
+        pad="circular",
+        add_3d_coordinates=None,
+        encoder=cast(DirectPatchEncoder, _IdentityGridEncoder()),
+        processor=_DoubleProcessor(),
+        decoder=cast(DirectPatchDecoder, _IdentityGridDecoder()),
+        hist=0,
+        checkpointing=None,
+        gradient_detach_interval=0,
+        use_bfloat16=False,
+        processor_iterations=2,
+        processor_residual=True,
+    )
+    x = torch.ones(1, 1, 2, 3)
+    resolution = (torch.tensor([-45.0, 45.0]), torch.tensor([0.0, 120.0, 240.0]))
+
+    torch.testing.assert_close(model.process(x, resolution), x)
+    assert model.processor_residual_scale is not None
+    with torch.no_grad():
+        model.processor_residual_scale.fill_(0.5)
+    torch.testing.assert_close(model.process(x, resolution), 4 * x)
+
+
+def test_processor_residual_scale_receives_gradient_at_zero_initialization():
+    model = SamudraMulti(
+        in_channels=1,
+        out_channels=1,
+        pred_residuals=False,
+        last_kernel_size=3,
+        pad="circular",
+        add_3d_coordinates=None,
+        encoder=cast(DirectPatchEncoder, _IdentityGridEncoder()),
+        processor=_DoubleProcessor(),
+        decoder=cast(DirectPatchDecoder, _IdentityGridDecoder()),
+        hist=0,
+        checkpointing=None,
+        gradient_detach_interval=0,
+        use_bfloat16=False,
+        processor_residual=True,
+    )
+    x = torch.ones(1, 1, 2, 3)
+    resolution = (torch.tensor([-45.0, 45.0]), torch.tensor([0.0, 120.0, 240.0]))
+
+    model.process(x, resolution).square().mean().backward()
+
+    assert model.processor_residual_scale is not None
+    assert model.processor_residual_scale.grad is not None
+    assert torch.count_nonzero(model.processor_residual_scale.grad) > 0
 
 
 @pytest.mark.parametrize("iterations", [1, 2, 4])

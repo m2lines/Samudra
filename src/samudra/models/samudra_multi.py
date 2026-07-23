@@ -96,6 +96,7 @@ class SamudraMulti(BaseModel):
         processor_geometry: ProcessorGeometryConditioner | None = None,
         boundary_encoder: BoundaryEncoder | None = None,
         zero_depth_reconstruction_weight: float = 0.0,
+        processor_residual: bool = False,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -117,6 +118,23 @@ class SamudraMulti(BaseModel):
         self.processor_iterations = processor_iterations
         self.processor_geometry = processor_geometry
         self.boundary_encoder = boundary_encoder
+        processor_out_channels = getattr(processor, "out_channels", None)
+        if processor_residual:
+            if processor_out_channels is None:
+                raise ValueError(
+                    "A residual processor requires an explicit output channel width."
+                )
+            encoder_out_channels = getattr(encoder, "out_channels", None)
+            if encoder_out_channels != processor_out_channels:
+                raise ValueError(
+                    "A residual processor requires equal state and processor widths; "
+                    f"got {encoder_out_channels} and {processor_out_channels}."
+                )
+            self.processor_residual_scale = nn.Parameter(
+                torch.zeros(1, processor_out_channels, 1, 1)
+            )
+        else:
+            self.register_parameter("processor_residual_scale", None)
         if zero_depth_reconstruction_weight < 0:
             raise ValueError("zero_depth_reconstruction_weight must be non-negative.")
         self.zero_depth_reconstruction_weight = zero_depth_reconstruction_weight
@@ -174,6 +192,7 @@ class SamudraMulti(BaseModel):
         if count < 0:
             raise ValueError("Processor iteration count must be non-negative.")
         for _ in range(count):
+            latent_state = fts
             if self.boundary_encoder is not None:
                 if boundary is None:
                     raise ValueError(
@@ -200,6 +219,9 @@ class SamudraMulti(BaseModel):
             if self.processor_geometry is not None:
                 fts = self.processor_geometry(fts, latent_resolution)
             fts = self.processor(fts)
+            if self.processor_residual_scale is not None:
+                scale = self.processor_residual_scale.to(dtype=fts.dtype)
+                fts = latent_state + scale * fts
         return fts
 
     def latent_forecast(

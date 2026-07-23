@@ -26,7 +26,12 @@ scheduler:
 loss: mse
 finetune: true
 finetune_allowed_missing_prefixes:
-  ["processor.", "processor_geometry.", "boundary_encoder."]
+  [
+    "processor.",
+    "processor_geometry.",
+    "boundary_encoder.",
+    "processor_residual_scale",
+  ]
 resume_ckpt_path: null
 inference_epochs: []
 train_time:

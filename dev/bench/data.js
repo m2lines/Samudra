@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784765835455,
+  "lastUpdate": 1784765842427,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -21949,6 +21949,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.824323818339529",
             "extra": "mean: 48.56265756720004 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "dd0007436e00608cc6bdbcf6c7c59df55f2ca65c",
+          "message": "Restore primary-source validation metrics (#803)\n\nValidating against the primary source only is not ideal, but it seems\nbetter than no validation at all (and is sufficient for several of our\nupcoming goals), so seems like a reasonable step in the right direction.\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>\nCo-authored-by: fomo-bot <266121006+fomo-bot@users.noreply.github.com>",
+          "timestamp": "2026-07-22T23:40:42Z",
+          "tree_id": "5682b4ad4775c0743a0d20a42cf45138d8d108f0",
+          "url": "https://github.com/m2lines/Samudra/commit/dd0007436e00608cc6bdbcf6c7c59df55f2ca65c"
+        },
+        "date": 1784765842205,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0880711316352734,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0035763575827039663",
+            "extra": "mean: 919.0575606000039 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.06328556037883507,
+            "unit": "iter/sec",
+            "range": "stddev: 0.014814686624571654",
+            "extra": "mean: 15.801392829800012 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.020680838304515014,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10393278063359329",
+            "extra": "mean: 48.35393929760001 sec\nrounds: 5"
           }
         ]
       }

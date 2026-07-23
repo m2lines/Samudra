@@ -11,7 +11,6 @@ from samudra.config import (
     CheckpointSweepConfig,
     EvalConfig,
     StandaloneCheckpointSweepConfig,
-    StandaloneEvalConfig,
 )
 from samudra.post_train_eval import (
     CheckpointEvalTarget,
@@ -27,8 +26,7 @@ def test_checkpoint_sweep_config_has_no_enabled_switch():
 
 def test_checkpoint_sweep_config_builds_eval_from_nested_config(monkeypatch, tmp_path):
     data_root = LocalLocation(path=tmp_path.resolve())
-    eval_config = StandaloneEvalConfig.from_yaml("configs/samudra_om4/eval.yaml").eval
-    eval_config.data_root = data_root
+    eval_config = EvalConfig.model_construct(data_root=data_root)
     evaluator = MagicMock()
     monkeypatch.setattr(EvalConfig, "build", MagicMock(return_value=evaluator))
     config = CheckpointSweepConfig(
@@ -41,7 +39,6 @@ def test_checkpoint_sweep_config_builds_eval_from_nested_config(monkeypatch, tmp
         output_dir=tmp_path,
     )
 
-    assert sweep is not None
     assert not hasattr(sweep, "build")
     assert sweep.eval_worker.evaluator is evaluator
     assert sweep.data_root is data_root
@@ -78,6 +75,7 @@ def test_checkpoint_eval_builds_with_sweep_dependencies(tmp_path):
         model_path=Path(entry.path),
         save_zarr=True,
     )
+    assert (sweep_root / "epoch_0003").is_dir()
     assert result["output_dir"] == str(sweep_root / "epoch_0003")
     assert result["metrics"] == {"scalar_tensor": 2.0}
 

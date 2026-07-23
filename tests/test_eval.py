@@ -7,8 +7,9 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import samudra.eval as eval_module
-from samudra.config import EvalConfig
+from samudra.config import EvalConfig, StandaloneEvalConfig
 from samudra.eval import Eval
+from samudra.utils.location import LocalLocation
 
 
 def test_eval_runs_with_built_dependencies(monkeypatch, tmp_path):
@@ -56,3 +57,15 @@ def test_eval_runs_with_built_dependencies(monkeypatch, tmp_path):
 
 def test_eval_config_build_does_not_accept_overrides():
     assert list(inspect.signature(EvalConfig.build).parameters) == ["self"]
+
+
+def test_standalone_eval_cli_sets_nested_data_root(tmp_path):
+    config = StandaloneEvalConfig.from_yaml_and_cli(
+        [
+            "configs/samudra_om4/eval.yaml",
+            "--eval.data_root",
+            str(tmp_path),
+        ]
+    )
+
+    assert config.eval.resolved_data_root == LocalLocation(path=tmp_path)

@@ -15,7 +15,6 @@ from typing import TYPE_CHECKING, cast
 import torch
 
 from samudra.utils.location import LocalLocation, ResolvedLocation
-from samudra.utils.multiton import MultitonScope
 from samudra.utils.train import CheckpointPaths
 
 if TYPE_CHECKING:
@@ -158,37 +157,37 @@ def _run_single_checkpoint_eval(
     sweep: "CheckpointSweep",
     gpu_index: int | None,
 ) -> dict[str, object]:
-    with MultitonScope():
-        output_dir = sweep.sweep_root / checkpoint_label(entry)
-        evaluator = sweep.eval_worker(entry, gpu_index=gpu_index)
-        start = time.perf_counter()
-        metrics = evaluator.standalone_inference(
-            output_dir=output_dir,
-            model_path=Path(entry.path),
-            save_zarr=True,
-        )
-        elapsed_seconds = time.perf_counter() - start
+    output_dir = sweep.sweep_root / checkpoint_label(entry)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    evaluator = sweep.eval_worker(entry, gpu_index=gpu_index)
+    start = time.perf_counter()
+    metrics = evaluator.standalone_inference(
+        output_dir=output_dir,
+        model_path=Path(entry.path),
+        save_zarr=True,
+    )
+    elapsed_seconds = time.perf_counter() - start
 
-        # Serialize metrics to JSON-safe primitives, dropping non-scalar tensors.
-        serialized: dict[str, float | int | str | bool] = {}
-        for key, value in metrics.items():
-            if isinstance(value, torch.Tensor):
-                if value.numel() != 1:
-                    continue
-                serialized[key] = float(value.item())
-            elif isinstance(value, (bool, int, float, str)):
-                serialized[key] = value
+    # Serialize metrics to JSON-safe primitives, dropping non-scalar tensors.
+    serialized: dict[str, float | int | str | bool] = {}
+    for key, value in metrics.items():
+        if isinstance(value, torch.Tensor):
+            if value.numel() != 1:
+                continue
+            serialized[key] = float(value.item())
+        elif isinstance(value, (bool, int, float, str)):
+            serialized[key] = value
 
-        return {
-            "checkpoint_kind": entry.kind,
-            "checkpoint_epoch": entry.epoch,
-            "checkpoint_path": entry.path,
-            "for_inference": entry.for_inference,
-            "label": checkpoint_label(entry),
-            "output_dir": str(output_dir),
-            "elapsed_seconds": elapsed_seconds,
-            "metrics": serialized,
-        }
+    return {
+        "checkpoint_kind": entry.kind,
+        "checkpoint_epoch": entry.epoch,
+        "checkpoint_path": entry.path,
+        "for_inference": entry.for_inference,
+        "label": checkpoint_label(entry),
+        "output_dir": str(output_dir),
+        "elapsed_seconds": elapsed_seconds,
+        "metrics": serialized,
+    }
 
 
 def _run_single_checkpoint_viz(
@@ -258,7 +257,6 @@ class CheckpointEvalWorker:
 
     evaluator: "Eval"
     backend: "EvalBackendConfig"
-    sweep_root: Path
 
     def __call__(
         self,
@@ -271,8 +269,6 @@ class CheckpointEvalWorker:
 
         if gpu_index is not None:
             torch.cuda.set_device(gpu_index)
-        output_dir = self.sweep_root / checkpoint_label(entry)
-        output_dir.mkdir(parents=True, exist_ok=True)
 
         device = init_eval_backend(self.backend)
         self.evaluator.to(device)
@@ -288,7 +284,7 @@ class CheckpointSweep:
     eval_worker: CheckpointEvalWorker
     checkpoint_paths: CheckpointPaths
     sweep_root: Path
-    data_root: ResolvedLocation | None = None
+    data_root: ResolvedLocation
     viz_config_path: Path | None = None
     last_n_checkpoints: int | None = None
     checkpoints: list[int] | None = None
@@ -309,12 +305,6 @@ def run_checkpoint_sweep(
     if not targets:
         logger.warning("No checkpoints selected for post-train eval sweep")
         return []
-
-    # The training process is finished. Keep the architecture for the spawned
-    # workers, but release its GPU allocation before they claim the devices.
-    sweep.eval_worker.evaluator.to(torch.device("cpu"))
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
 
     sweep.sweep_root.mkdir(parents=True, exist_ok=True)
 
@@ -391,8 +381,7 @@ def run_checkpoint_sweep(
 
         logger.info("Running post-train viz sweep for %d checkpoints", len(results))
         template_cfg = VizTemplateConfig.from_yaml(sweep.viz_config_path)
-        default_data_root = sweep.data_root or LocalLocation(path=Path.cwd())
-        template = template_cfg.build_template(default_data_root)
+        template = template_cfg.build_template(sweep.data_root)
         for result in results:
             result["viz"] = _run_single_checkpoint_viz(
                 result,

@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import abc
-import logging
 from functools import cached_property
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Literal, Self, assert_never
@@ -66,8 +65,6 @@ from samudra.utils.train import CheckpointPaths
 
 if TYPE_CHECKING:
     from samudra.eval import Eval, StandaloneEval
-
-logger = logging.getLogger(__name__)
 
 
 class WandBConfig(BaseConfig):
@@ -1300,16 +1297,6 @@ class StandaloneEvalConfig(TopLevelConfig):
         )
 
 
-def _validate_checkpoint_selection(
-    last_n_checkpoints: int | None,
-    checkpoints: list[int] | None,
-) -> None:
-    if last_n_checkpoints is not None and checkpoints is not None:
-        raise ValueError("set only one of last_n_checkpoints or checkpoints, not both")
-    if checkpoints is not None and len(checkpoints) == 0:
-        raise ValueError("checkpoints must be a non-empty list when provided")
-
-
 class CheckpointSweepConfig(BaseConfig):
     eval: EvalConfig
     backend: EvalBackendConfig = "auto"
@@ -1327,7 +1314,12 @@ class CheckpointSweepConfig(BaseConfig):
 
     @pydantic.model_validator(mode="after")
     def _check_checkpoint_selection(self) -> "CheckpointSweepConfig":
-        _validate_checkpoint_selection(self.last_n_checkpoints, self.checkpoints)
+        if self.last_n_checkpoints is not None and self.checkpoints is not None:
+            raise ValueError(
+                "set only one of last_n_checkpoints or checkpoints, not both"
+            )
+        if self.checkpoints is not None and len(self.checkpoints) == 0:
+            raise ValueError("checkpoints must be a non-empty list when provided")
         return self
 
     def build(
@@ -1340,7 +1332,6 @@ class CheckpointSweepConfig(BaseConfig):
         eval_worker = CheckpointEvalWorker(
             evaluator=self.eval.build(),
             backend=self.backend,
-            sweep_root=sweep_root,
         )
         return CheckpointSweep(
             eval_worker=eval_worker,

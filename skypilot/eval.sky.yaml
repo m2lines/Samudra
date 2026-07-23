@@ -111,7 +111,7 @@ run: |
 
   uv run -m samudra.eval "${CONFIG}" \
     --ckpt_path="/outputs/${TARGET_CHECKPOINT}" \
-    --experiment.data_root="${DATA_ROOT}" \
+    --eval.data_root="${DATA_ROOT}" \
     --experiment.wandb.mode=online \
     --experiment.base_output_dir=/outputs/ \
     --experiment.name="${NAME}" \

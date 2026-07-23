@@ -211,7 +211,7 @@ It expects environment variables:
 - One checkpoint selector (required):
   - `TARGET_CHECKPOINT`: checkpoint path relative to `${OUTPUT_BASE}`, or
   - `CKPT_PATH`: absolute checkpoint path on host (relative host paths are also accepted).
-- `DATA_ROOT` (optional): host data path passed to `--experiment.data_root` (default:
+- `DATA_ROOT` (optional): host data path passed to `--eval.data_root` (default:
   `/scratch/<current_user>/data/om4_onedeg_v3`)
 - `OUTPUT_BASE` (optional): host output base dir passed to `--experiment.base_output_dir`
   (default: `/scratch/<current_user>/runs`)

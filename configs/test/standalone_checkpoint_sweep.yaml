@@ -2,6 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+# yaml-language-server: $schema=../schemas/StandaloneCheckpointSweepConfig.json
+
+checkpoint_dir: saved_nets
 checkpoint_sweep:
   eval:
     inference_time:

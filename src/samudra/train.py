@@ -35,6 +35,7 @@ from samudra.aggregator.loss import (
     get_depth_loss_dict,
     get_variable_loss_dict,
 )
+from samudra.aggregator.train import TrainAggregator
 from samudra.backend import init_train_backend
 from samudra.config import TrainConfig, TrainSchedule, build_loss_fn
 from samudra.constants import (
@@ -405,6 +406,7 @@ class Trainer:
         self.batch_size: int = cfg.batch_size
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
         self.train_processor_depths = cfg.train_processor_depths
+        self.validation_processor_depths = cfg.validation_processor_depths
         if self.train_processor_depths is not None:
             unwrapped_model = getattr(self.model, "module", self.model)
             if not isinstance(unwrapped_model, SamudraMulti):
@@ -892,6 +894,10 @@ class Trainer:
             )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
+        lead_aggregators = {
+            depth: TrainAggregator(self.tensor_map)
+            for depth in self.validation_processor_depths or []
+        }
 
         with torch.no_grad(), self._test_context():
             for data_iter_step, data in enumerate(
@@ -900,12 +906,47 @@ class Trainer:
                 if self.debug and (data_iter_step + 1) % 5 == 0:
                     break
 
-                VO: ValBatchOutput = validate_batch(self.model, data, self.loss_fn)
+                if self.validation_processor_depths is None:
+                    VO = validate_batch(self.model, data, self.loss_fn)
+                else:
+                    unwrapped_model = getattr(self.model, "module", self.model)
+                    if not isinstance(unwrapped_model, SamudraMulti):
+                        raise TypeError(
+                            "validation_processor_depths requires a SamudraMulti model."
+                        )
+                    forecasts = unwrapped_model.latent_forecast(
+                        data, self.validation_processor_depths
+                    )
+                    lead_batch_outputs: dict[int, TrainBatchOutput] = {}
+                    for depth, prediction in forecasts.items():
+                        loss_per_channel = self.loss_fn(
+                            prediction, data.get_label(depth - 1), data.ctx
+                        )
+                        lead_batch_outputs[depth] = TrainBatchOutput(
+                            torch.mean(loss_per_channel), loss_per_channel
+                        )
+                        lead_aggregators[depth].record_batch(lead_batch_outputs[depth])
+
+                    prognostic, boundary = data.get_initial_input()
+                    lead_one_prediction = forecasts[1]
+                    lead_one_target = data.get_label(0)
+                    lead_one_output = lead_batch_outputs[1]
+                    VO = ValBatchOutput(
+                        lead_one_output.loss,
+                        lead_one_output.loss_per_channel,
+                        torch.cat((prognostic, boundary), dim=1),
+                        lead_one_target,
+                        lead_one_prediction,
+                        data.ctx,
+                    )
                 val_aggregator.record_validation_batch(VO)
                 metric_logger.update(loss=VO.loss)
 
         logger.info(f"Aggregating validation logs")
-        return val_aggregator.get_logs(label="val")
+        logs = dict(val_aggregator.get_logs(label="val"))
+        for depth, lead_aggregator in lead_aggregators.items():
+            logs.update(lead_aggregator.get_logs(label=f"val/physical_lead_{depth}"))
+        return logs
 
     def inference_one_epoch(self, epoch):
         self.model.eval()
@@ -1040,7 +1081,11 @@ class Trainer:
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
-                steps=1,  # current_step set to 1 for validation
+                steps=(
+                    max(self.validation_processor_depths)
+                    if self.validation_processor_depths is not None
+                    else 1
+                ),
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,

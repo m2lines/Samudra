@@ -1518,6 +1518,16 @@ class TrainConfig(TopLevelConfig):
             "depth and SamudraMulti processor boundary conditioning."
         ),
     )
+    validation_processor_depths: (
+        Annotated[list[Annotated[int, Field(ge=1)]], Field(min_length=1)] | None
+    ) = Field(
+        default=None,
+        description=(
+            "Optional true physical lead times decoded from one latent validation "
+            "rollout and logged separately against t+N. Requires SamudraMulti, "
+            "forecast targets, and lead one for ordinary checkpoint selection."
+        ),
+    )
     scheduler: SchedulerConfig | None = None
     loss: Loss = "mse"
     finetune: bool = False
@@ -1593,6 +1603,23 @@ class TrainConfig(TopLevelConfig):
             raise ValueError(
                 "Latent physical-time training requires processor_iterations=1; "
                 "train_processor_depths selects the t+N lead per batch."
+            )
+        return self
+
+    @pydantic.model_validator(mode="after")
+    def validate_validation_processor_depths(self) -> Self:
+        if self.validation_processor_depths is None:
+            return self
+        if not isinstance(self.model, SamudraMultiConfig):
+            raise ValueError(
+                "validation_processor_depths is only supported by SamudraMulti."
+            )
+        if self.target_time_mode != "forecast":
+            raise ValueError("validation_processor_depths requires forecast targets.")
+        if 1 not in self.validation_processor_depths:
+            raise ValueError(
+                "validation_processor_depths must contain lead one for checkpoint "
+                "selection."
             )
         return self
 

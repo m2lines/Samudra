@@ -17,6 +17,7 @@ gradient_accumulation_steps: 2
 # Depth N is supervised against t+N after consuming N aligned forcing blocks in
 # latent space; one selected lead is trained per batch.
 train_processor_depths: [1, 2, 4]
+validation_processor_depths: [1, 2, 4]
 learning_rate: 0.0006
 scheduler:
   type: cosine

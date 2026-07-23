@@ -21,7 +21,7 @@ on:
         options: [nightly, stable, manual]
         default: manual
       version:
-        description: "Version (required for stable mode, e.g. 1.0.0)"
+        description: "Stable-cut version, e.g. 0.0.1 (required for stable; ignored for nightly/manual)"
         type: string
   schedule:
     - cron: "0 6 * * *"   # 06:00 UTC daily
@@ -68,7 +68,15 @@ jobs:
             echo "input_version=" >> "$GITHUB_OUTPUT"
           elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
             echo "mode=${INPUT_MODE}" >> "$GITHUB_OUTPUT"
-            echo "input_version=${INPUT_VERSION}" >> "$GITHUB_OUTPUT"
+            # The version field is only meaningful for a stable cut. For nightly
+            # and manual dispatches, discard it so the version is always computed
+            # -- otherwise a value left in the field would be stamped verbatim
+            # and published as a bogus "nightly", burning a real PyPI version.
+            if [[ "${INPUT_MODE}" == "stable" ]]; then
+              echo "input_version=${INPUT_VERSION}" >> "$GITHUB_OUTPUT"
+            else
+              echo "input_version=" >> "$GITHUB_OUTPUT"
+            fi
           else
             # pull_request: build-only smoke
             echo "mode=manual" >> "$GITHUB_OUTPUT"

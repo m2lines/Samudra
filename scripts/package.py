@@ -212,9 +212,10 @@ def main() -> None:
         "--version",
         default=None,
         help=(
-            "Explicit version. Required for --mode stable; when set for any mode it "
-            "is used verbatim. CI's resolve job computes the version once and passes "
-            "it here so the build job stamps the identical value."
+            "Explicit version, used verbatim. Required for --mode stable. CI's resolve "
+            "job computes the version once and passes it here so the build job stamps "
+            "the identical value; for nightly/manual it must be a value this script "
+            "would itself produce (a bare release version is rejected for those modes)."
         ),
     )
     parser.add_argument(
@@ -228,6 +229,22 @@ def main() -> None:
     # value the resolve job advertised (a nightly straddling midnight UTC would
     # otherwise recompute a different timestamp here).
     version = args.version if args.version else resolve_version(args.mode, args.version)
+
+    # Defense in depth: nightly and manual are publishing (or would-be
+    # publishing) modes whose versions must carry their synthetic marker. Refuse
+    # a bare release version passed in verbatim -- e.g. an operator leaving a
+    # value in the dispatch version field while selecting nightly -- so it can
+    # never be stamped and published as a bogus release. Only stable stamps a
+    # plain release version.
+    if args.mode == "nightly" and ".dev" not in version:
+        raise SystemExit(
+            f"refusing to build a nightly without a .dev suffix: {version!r}"
+        )
+    if args.mode == "manual" and "+manual" not in version:
+        raise SystemExit(
+            f"refusing to build a manual smoke without a +manual segment: {version!r}"
+        )
+
     print(f"Mode:    {args.mode}\nVersion: {version}")
     _emit_github_output("version", version)
 

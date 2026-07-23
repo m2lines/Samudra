@@ -15,6 +15,10 @@ import wandb
 LEADS = (1, 2, 4)
 BOUNDARY_ABLATIONS = ("zero", "batch_shuffle", "time_reverse")
 ZERO_DEPTH_KEY = "val/zero_depth_reconstruction/mean/loss"
+VARIABLES = ("thetao", "so", "uo", "vo", "zos")
+HIGH_WAVENUMBER_PREFIX = (
+    "val/resolution/180x360/spatial/high_wavenumber_power_ratio/variable"
+)
 
 
 def lead_key(depth: int) -> str:
@@ -27,6 +31,10 @@ def ablation_key(mode: str, depth: int) -> str:
 
 def persistence_key(depth: int) -> str:
     return f"val/physical_lead_{depth}/persistence/mean/loss"
+
+
+def high_wavenumber_key(variable: str) -> str:
+    return f"{HIGH_WAVENUMBER_PREFIX}/{variable}"
 
 
 def validate_run_config(config: Mapping[str, Any]) -> None:
@@ -102,12 +110,35 @@ def summarize_run(run: Any) -> dict[str, Any]:
         *(ablation_key(mode, depth) for mode in BOUNDARY_ABLATIONS for depth in LEADS),
     ]
     row = select_best_row(run.scan_history(keys=keys, page_size=1000))
+    spatial_keys = ["epoch", *(high_wavenumber_key(var) for var in VARIABLES)]
+    spatial_rows = [
+        spatial_row
+        for spatial_row in run.scan_history(keys=spatial_keys, page_size=1000)
+        if any(
+            isinstance(spatial_row.get(high_wavenumber_key(var)), (int, float))
+            and math.isfinite(spatial_row[high_wavenumber_key(var)])
+            for var in VARIABLES
+        )
+    ]
+    spatial_summary: dict[str, Any] = {}
+    if spatial_rows:
+        spatial_row = spatial_rows[-1]
+        spatial_summary["spatial_metric_epoch"] = spatial_row.get("epoch")
+        spatial_summary.update(
+            {
+                f"high_wavenumber_power_ratio_{var}": spatial_row.get(
+                    high_wavenumber_key(var)
+                )
+                for var in VARIABLES
+            }
+        )
     return {
         "path": run.path,
         "name": run.name,
         "state": run.state,
         "url": run.url,
         **summarize_row(row),
+        **spatial_summary,
     }
 
 
@@ -117,6 +148,8 @@ def markdown_table(summaries: Iterable[Mapping[str, Any]]) -> str:
         "zero_depth_reconstruction",
         *(f"lead_{depth}" for depth in LEADS),
         *(f"lead_{depth}_persistence_reduction" for depth in LEADS),
+        "spatial_metric_epoch",
+        *(f"high_wavenumber_power_ratio_{var}" for var in VARIABLES),
         *(
             f"{mode}_lead_{depth}_relative_increase"
             for mode in BOUNDARY_ABLATIONS

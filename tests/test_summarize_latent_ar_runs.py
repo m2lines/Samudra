@@ -7,11 +7,13 @@ import pytest
 from scripts.summarize_latent_ar_runs import (
     ZERO_DEPTH_KEY,
     ablation_key,
+    high_wavenumber_key,
     lead_key,
     markdown_table,
     persistence_key,
     select_best_row,
     summarize_row,
+    summarize_run,
     validate_run_config,
 )
 
@@ -68,6 +70,44 @@ def test_summarize_row_computes_forcing_sensitivity():
     assert summary["lead_1_persistence_reduction"] == pytest.approx(0.5)
     assert summary["batch_shuffle_lead_2_relative_increase"] == pytest.approx(0.25)
     assert summary["time_reverse_lead_4_relative_increase"] == pytest.approx(0.25)
+
+
+def test_high_wavenumber_key_uses_one_degree_validation_route():
+    assert high_wavenumber_key("uo") == (
+        "val/resolution/180x360/spatial/high_wavenumber_power_ratio/variable/uo"
+    )
+
+
+def test_summarize_run_uses_latest_available_spatial_metrics():
+    class FakeRun:
+        config = {
+            "config": {
+                "target_time_mode": "forecast",
+                "train_processor_depths": [1, 2, 4],
+                "validation_processor_depths": [1, 2, 4],
+            }
+        }
+        path = ["entity", "project", "run"]
+        name = "latent-ar"
+        state = "finished"
+        url = "https://example.com"
+
+        def scan_history(self, *, keys, page_size):
+            del page_size
+            if high_wavenumber_key("thetao") in keys:
+                return iter(
+                    [
+                        {"epoch": 1, high_wavenumber_key("thetao"): 0.8},
+                        {"epoch": 7, high_wavenumber_key("thetao"): 0.9},
+                    ]
+                )
+            return iter([{"epoch": 12, lead_key(1): 0.1}])
+
+    summary = summarize_run(FakeRun())
+
+    assert summary["epoch"] == 12
+    assert summary["spatial_metric_epoch"] == 7
+    assert summary["high_wavenumber_power_ratio_thetao"] == 0.9
 
 
 def test_markdown_table_links_run():

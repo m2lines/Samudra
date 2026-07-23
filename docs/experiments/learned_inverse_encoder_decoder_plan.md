@@ -1157,14 +1157,18 @@ and continues with epoch checkpoints, Slurm requeue, and a five-minute pre-timeo
 signal. The six-update bring-up is startup evidence only and is not included in
 model metrics.
 
-The first full-data validation point, after epoch one, is
-`{0.05116, 0.08485, 0.11936}` at physical leads `{1,2,4}`. These beat the
-lead-matched persistence values by 39%, 44%, and 47%, while zero-depth
-reconstruction remains exactly `0.000647529`. Temperature, salinity, zonal
-velocity, meridional velocity, and SSH high-wavenumber ratios are
-`{0.954, 0.966, 0.806, 0.750, 0.982}`. This is consistent with the proxy at a
-comparable update count and confirms scale-up, but it is an early learning-curve
-point rather than the V1 promotion result.
+The first six full-data validation points descend monotonically. At epochs one
+through six, lead-one MSE is
+`{0.05116, 0.04265, 0.03872, 0.03617, 0.03406, 0.03250}`. The epoch-six lead
+vector is `{0.03250, 0.05477, 0.07398}` at physical leads `{1,2,4}`, beating the
+lead-matched persistence values by `{61.2%, 63.8%, 67.0%}`. Zero-depth
+reconstruction remains exactly `0.000647529` at every point. At epoch one,
+temperature, salinity, zonal velocity, meridional velocity, and SSH
+high-wavenumber ratios are `{0.954, 0.966, 0.806, 0.750, 0.982}`. These results
+confirm stable scale-up; they remain learning-curve evidence rather than the V1
+promotion result. A log-linear extrapolation of only the observed six points
+crosses the `0.025` lead-one gate around epoch 9--11, but the run is not selected
+or stopped on that extrapolation.
 
 Profile before launch. Existing evidence suggests one RTX6000 is sufficient for
 proxy screening; the completed full direct one-cell run used two GPUs, peaked near
@@ -1209,6 +1213,19 @@ out timestamps. Promotion requires:
   fallback;
 - no longitude seam, latitude-edge, mask, or grid-shift artifact;
 - stable zero-depth reconstruction throughout processor training.
+
+The checked-in preparatory proxy config
+`train_cross_1_halfdeg_iterable_inverse_masked_mse_stratified_updates_proxy.yaml`
+uses 128 stratified samples for each of the four one/half-degree routes, 12 epochs,
+and 192 optimizer updates at an eight-GPU effective batch of 32. It freezes the
+selected state-only encoder/decoder inverse and trains only the ReZero processor,
+processor geometry, and separate boundary encoder. It is a constant-learning-rate
+screen against the full 6,160-update scheduler horizon, not a convergence claim.
+Commit `92b6347f` also reports validation losses by exact input/output grid route
+for the aggregate forecast, every physical lead, persistence, zero-depth
+reconstruction, and each forcing ablation. Existing overall and destination-grid
+metrics remain available. This closes a measurement ambiguity that would otherwise
+pool one-to-one and half-to-one forecasts under the same output resolution.
 
 ## Selection logic
 

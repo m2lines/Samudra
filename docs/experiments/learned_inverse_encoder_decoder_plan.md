@@ -1030,6 +1030,32 @@ two-seed, three-weight proxy jobs use code `ed7e7cb9` and additionally log a
 lead-matched persistence baseline, masked zero-depth inverse retention, and zeroed,
 batch-shuffled, and time-reversed boundary controls.
 
+Interim corrected-V0 evidence already revises the next step. By epoch ten, the
+seed-15 weight-zero and weight-0.05 arms are forecast-equivalent at lead-one MSE
+`0.04535` and `0.04510`, about 46% below lead-matched persistence. Weight 0.05
+reduces zero-depth MSE from `0.01238` to `0.00928`, but both remain far above the
+pretrained fixed-window inverse's `0.000654`. At matched epoch three, weight 0.2
+improves zero-depth MSE to `0.00708` and slightly improves every physical lead,
+so stronger inverse supervision is Pareto-improving rather than trading against
+forecast skill. Direct checkpoint comparison confirms representation-head drift:
+after epoch nine, the unregularized encoder and decoder move 18.7% and 14.6% in
+relative parameter norm and their composed pointwise map moves 27.3%; weight 0.05
+only reduces the composed-map drift to 25.9%.
+
+That evidence triggers two small causal controls rather than a larger arbitrary
+loss-weight sweep. Commit `2483dd00` adds a fail-loud prefix freeze and job
+`14623982` freezes the already learned `encoder.*` and `decoder.*` while fitting
+only the processor, boundary encoder, and processor geometry. This does not make
+the encoder trivial: it preserves the state-only representation learned above and
+tests whether forecast gradients need to alter its inverse at all. Commit
+`74b6f1de` adds an optional per-channel ReZero transition
+`z[m+1] = z[m] + alpha * F(z[m], b[m])`, with `alpha` initialized to zero. Job
+`14624096` combines that transition with the frozen inverse. It initializes every
+processor call as exact latent persistence, remains iterable from zero to N calls,
+and is distinct from the rejected decoder-attention residual. Both controls use
+the same seed-15 windows, 192 updates, and effective batch 32 as V0 and are pending
+behind the matched sweep. Promote neither until the three-weight sweep completes.
+
 Three failed setup jobs contribute no model evidence: `14616135` invoked an
 identity config through the training entry point, `14616181` duplicated the data
 subdirectory in `DATA_ROOT`, and `14616295` exposed the now-fixed cross-grid

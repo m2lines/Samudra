@@ -1076,7 +1076,7 @@ two-seed endpoint, zeroing boundary input worsens leads `{1,2,4}` by
 The two seeds differ by only about 1.3% at each lead, far inside the gap to the
 alternatives. The frozen ReZero design is therefore promoted to full one-degree
 validation; its checked-in selection is commit `d011fce5` and Torch job
-`14626058`.
+`14629179`.
 
 Three failed setup jobs contribute no model evidence: `14616135` invoked an
 identity config through the training entry point, `14616181` duplicated the data
@@ -1091,10 +1091,10 @@ to the completed cross-resolution checkpoint.
 After corrected V0 promotion, train its winner on the 1975--2013 one-degree
 training interval and 2013--2014 validation interval:
 
-- 70 epochs;
-- effective global batch 32;
-- 6,230 realized optimizer updates, preserving the known final partial
-  accumulation behavior;
+- reference budget: 70 epochs at effective global batch 32 for 6,230 realized
+  optimizer updates;
+- actual fragmentation-adjusted budget: 65 epochs at effective batch 30 for
+  approximately 6,175 updates;
 - Adam, initial learning rate `6e-4`, cosine schedule in optimizer-update units;
 - normalized MSE and absolute-field prediction at true physical leads
   `{1,2,4}`, selecting one lead per training batch;
@@ -1124,15 +1124,28 @@ immediately after the physical-time semantics were clarified. It is a
 mis-specified run and supplies no model-selection evidence. Jobs `14605300` and
 `14605887` made zero updates.
 
-The selected corrected run is queued as Torch job `14626058` from exact code
-overlay `d011fce5`, using eight RTX6000 ranks, per-rank batch 2, accumulation 2,
-and the frozen state-only inverse checkpoint. It is the requested v2-scale
+The original eight-GPU submission `14626058` made no optimizer step. Node
+fragmentation gave it an estimated start two days later, so the selection-logic
+revision rule replaces it with Torch job `14629179` from exact code overlay
+`d011fce5`. The replacement uses the three immediately available RTX6000s,
+per-rank batch 2, accumulation 5, and 65 epochs: effective batch 30 and about
+6,175 updates, only 0.9% from the requested 6,230-update budget. It resumes the
+same frozen state-only inverse checkpoint and is the requested v2-scale
 validation: full one-degree data, roughly the existing v2/Samudra parameter and
 update scale, and the same primary metrics. Compare
 against the quoted v2 full-data MSE `0.023600` and the direct one-cell result
 `0.015976`. Promotion requires all-channel MSE at most `0.025`, no variable group
 more than 25% worse than v2, and zero-depth reconstruction no more than 25% worse
 than its pre-forecast checkpoint.
+
+The first three-GPU launch `14629149` verified world size, effective batch, head
+freeze, ReZero selection, checkpoint provenance, and six optimizer updates, then
+was cancelled. Its measured throughput projected beyond Torch's enforced 24-hour
+limit, and the scheduler rejected a longer allocation. Replacement `14629179`
+uses the identical scientific configuration with epoch checkpoints, Slurm
+requeue, and a five-minute pre-timeout signal so optimizer and scheduler state are
+preserved if a second 24-hour allocation is required. The six-update bring-up is
+startup evidence only and is not included in model metrics.
 
 Profile before launch. Existing evidence suggests one RTX6000 is sufficient for
 proxy screening; the completed full direct one-cell run used two GPUs, peaked near
@@ -1145,9 +1158,8 @@ capacity boundary. Per-rank batches 16 (`14624768`), 8 (`14625028`), and 4
 (`14625151`) all fail in the first backward with a CUDA illegal-address error,
 despite reported total-size estimates falling from 15.25 to 4.03 GiB. No optimizer
 step occurs in any of those runs. Batch 2 is stable across every scientific proxy
-run. The full validation therefore uses eight ranks, batch 2, and accumulation 2
-for effective batch 32; diagnosing the larger-microbatch CUDA kernel is orthogonal
-to the architecture decision.
+run. The full validation therefore retains per-rank batch 2; diagnosing the
+larger-microbatch CUDA kernel is orthogonal to the architecture decision.
 
 ### V2. Full multi-resolution validation
 

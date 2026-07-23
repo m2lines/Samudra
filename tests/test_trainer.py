@@ -17,6 +17,7 @@ from samudra.datasets import TrainDataLoader
 from samudra.models.base import BaseModel
 from samudra.train import (
     Trainer,
+    configure_preemptible_resume,
     freeze_model_parameters,
     load_model_state_for_finetune,
     should_log_validation_images,
@@ -65,6 +66,38 @@ def test_freeze_model_parameters_selects_explicit_prefixes():
     assert parameters == model.encoder.weight.numel() + model.encoder.bias.numel()
     assert not any(parameter.requires_grad for parameter in model.encoder.parameters())
     assert all(parameter.requires_grad for parameter in model.processor.parameters())
+
+
+def test_preemptible_finetune_stays_initial_load_without_latest_checkpoint(
+    tmp_path: Path,
+):
+    cfg = cast(Any, type("Config", (), {})())
+    cfg.preemptible = True
+    cfg.finetune = True
+    cfg.resume_ckpt_path = "inverse.pt"
+
+    resumed = configure_preemptible_resume(cfg, tmp_path / "latest_ckpt.pt")
+
+    assert not resumed
+    assert cfg.finetune
+    assert cfg.resume_ckpt_path == "inverse.pt"
+
+
+def test_preemptible_finetune_becomes_exact_resume_when_checkpoint_exists(
+    tmp_path: Path,
+):
+    latest_checkpoint = tmp_path / "latest_ckpt.pt"
+    latest_checkpoint.touch()
+    cfg = cast(Any, type("Config", (), {})())
+    cfg.preemptible = True
+    cfg.finetune = True
+    cfg.resume_ckpt_path = "inverse.pt"
+
+    resumed = configure_preemptible_resume(cfg, latest_checkpoint)
+
+    assert resumed
+    assert not cfg.finetune
+    assert cfg.resume_ckpt_path == str(latest_checkpoint)
 
 
 @pytest.mark.parametrize("prefixes", [["missing."], ["encoder.", "encoder."], [""]])

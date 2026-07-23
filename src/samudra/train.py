@@ -185,6 +185,18 @@ def training_processor_depth(
     return depths[((epoch - 1) * batches_per_epoch + batch_index) % len(depths)]
 
 
+def configure_preemptible_resume(
+    cfg: TrainConfig, latest_checkpoint_path: str | Path
+) -> bool:
+    """Switch a requeued finetune run to an exact training-state resume."""
+    if not cfg.preemptible or not os.path.isfile(latest_checkpoint_path):
+        return False
+
+    cfg.resume_ckpt_path = str(latest_checkpoint_path)
+    cfg.finetune = False
+    return True
+
+
 class Trainer:
     """Orchestrates the full model training loop.
 
@@ -375,11 +387,11 @@ class Trainer:
         self.ckpt_paths = CheckpointPaths(self.nets_dir)
 
         # Check for preemption
-        if cfg.preemptible:
-            assert not cfg.finetune, "Finetune is not supported with preemptible"
-            preempted = os.path.isfile(self.ckpt_paths.latest_checkpoint_path)
-            if preempted:
-                cfg.resume_ckpt_path = str(self.ckpt_paths.latest_checkpoint_path)
+        if configure_preemptible_resume(cfg, self.ckpt_paths.latest_checkpoint_path):
+            logger.info(
+                "Preempted run detected; resuming full training state from %s.",
+                self.ckpt_paths.latest_checkpoint_path,
+            )
 
         # Set up wandb run
         self.wandb_id, self.wandb_name = self.wandb_logger.setup_run(

@@ -988,15 +988,24 @@ Corrected V0 execution is now underway on exact, checksum-verified code overlays
 The first clean-break result is decisive: the state-only one-degree inverse
 (`14616192`, W&B `4xbqyev0`, code `b3f7d823`) reaches held-out MSE `0.000648411`
 after 40 epochs. The prior joint prognostic-plus-boundary inverse reached about
-`0.00304`, making the fresh number 78.7% lower. Those values use different held-out
-sample sets, however, so the direction is encouraging but the percentage is not
-yet causal evidence; job `14619746` performs the exact fixed-window comparison.
+`0.00304`. The exact fixed-window audit `14619746` confirms the result at
+`0.000654260`, a 78.5% reduction with high-wavenumber power ratio `0.988` and
+standard-deviation ratio `0.999`.
+
 The fresh one/half-degree mix run (`14618325`, W&B `27t8occ3`, code `f4a57cb8`) completes at
 aggregate MSE `0.0210660`, split as `0.00365078` on one-degree outputs and
 `0.0384813` on half-degree outputs. The corresponding deterministic persistence /
-coordinate-resampling baselines are `0.00259272` and `0.0372132`. Route-specific
-and unseen-quarter audits are queued to distinguish same-grid inverse error from
-the irreducible cross-grid resampling term.
+coordinate-resampling baselines are `0.00259272` and `0.0372132`. Its exact
+route audit `14619373` is more informative: relative to the earlier joint encoder,
+aggregate MSE improves from `0.02491` to `0.0218603`; one-to-one from `0.00304`
+to `0.00108228`; one-to-half from `0.08498` to `0.0789610`; half-to-one from
+`0.00805` to `0.00617820`; and half-to-half from `0.00357` to `0.00121959`.
+Every route improves even though the corrected checkpoint trained for 10 rather
+than 40 epochs. One-to-half is fractionally better than its `0.0789996`
+deterministic floor; half-to-one has `0.0007488` excess over its `0.00542936`
+floor, and the same/fine-to-coarse high-wavenumber ratios are `0.979--0.985`.
+This is direct evidence that removing boundary channels from the learned state is
+beneficial, not merely harmless. The unseen-quarter audit remains queued.
 
 A two-epoch physical-time bring-up (`14619138`, W&B `o6gi7wvi`, code
 `455be788`) loaded the state-only inverse, initialized only the boundary encoder

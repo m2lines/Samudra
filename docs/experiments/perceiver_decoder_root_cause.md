@@ -43,12 +43,15 @@ job using the old semantics was cancelled after one epoch. The corrected state-o
 encoder, per-step boundary encoder, latent carry between inference chunks, and
 true-lead training path are implemented and locally tested. Fresh state-only
 evidence now strengthens the separation: the one-degree inverse reaches
-`0.000648411` on the full validation year, numerically 78.7% below the prior joint
-prognostic-plus-boundary inverse's approximately `0.00304` on a fixed diagnostic
-window. An exact same-window audit is queued before interpreting that percentage.
-A two-epoch physical-time smoke improves all true leads while retaining latent
-carry. The controlled weight/seed sweep, forcing ablations, and full-scale
-validation remain in progress, so this document is still interim.
+`0.000648411` on the full validation year and `0.000654260` on the exact fixed
+diagnostic window, 78.5% below the prior joint prognostic-plus-boundary inverse's
+`0.00304`. On the matched four-route audit, state-only encoding improves every
+same- and cross-grid route and lowers aggregate MSE from `0.02491` to `0.0218603`
+despite receiving one quarter as many epochs. This isolates boundary contamination
+as an additional representation error: forcing belongs in the transition, not in
+the persistent state. A two-epoch physical-time smoke improves all true leads
+while retaining latent carry. The controlled weight/seed sweep, forcing ablations,
+and full-scale validation remain in progress, so this document is still interim.
 
 ## Objective
 

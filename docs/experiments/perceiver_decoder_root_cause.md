@@ -54,9 +54,25 @@ the persistent state. Zero-shot quarter reconstruction also improves from
 better than deterministic coordinate resampling. The sole clear exception remains
 4x quarter-to-one restriction: competitive MSE but high-wavenumber ratio `1.502`,
 which calls for scale-aware antialiasing/conservative transport. A two-epoch
-physical-time smoke improves all true leads while retaining latent carry. The
-controlled weight/seed sweep, forcing ablations, and full-scale validation remain
-in progress, so this document is still interim.
+physical-time smoke improves all true leads while retaining latent carry.
+
+The corrected physical-time controls identify a separate forecast-training cause:
+forecast loss constrains `D(P(E(x)))`, not the inverse `D(E(x))`, and the heads
+co-adapt until zero-depth reconstruction degrades. The completed two-seed inverse
+weight sweep leaves physical leads unchanged while improving reconstruction from
+`0.01298` at weight zero to `0.00510` at weight 0.2; that remains 7.9 times worse
+than the frozen inverse. Direct parameter comparison measures 18.7% encoder drift,
+14.6% decoder drift, and 27.3% drift of their composed pointwise map. Freezing the
+learned state-only inverse holds reconstruction exactly at `0.000647529`. Combining
+that freeze with a zero-initialized latent residual transition reaches seed-15
+two-seed mean lead MSE `{0.04019, 0.06704, 0.09109}` at `{1,2,4}` steps,
+improving the unfrozen baseline by 6.6%, 14.5%, and 21.8%. Zeroing aligned
+boundary input worsens those leads by up to 30.7%, while reversing boundary order
+worsens lead four by 37.7%, supporting physical per-step forcing use. The two
+seeds agree within about 1.3% at every lead. This frozen ReZero transition is
+promoted to full one-degree validation; the full-scale and subsequent
+multi-resolution validations remain in progress, so this document is still
+interim.
 
 ## Objective
 
@@ -710,6 +726,7 @@ for physical latent autoregression. The corresponding W&B runs are `9i47kib4` an
 | Resampling + zero-init attention residual | Preserves base at initialization | Yes | Yes | Retain as fallback; S0 does not justify its added cost |
 | Native-grid latent resampling + learned projection | Excellent same-grid inverse and spectra | Yes | No | Baseline: cross-grid error exposes normalization and mask-order contracts |
 | Native-grid learned projection + channel-masked resampling | Exact same-grid transport by construction | Yes | No | Primary matched candidate; validate against physical interpolation floor |
+| Frozen inverse + latent ReZero transition | Preserves the learned inverse exactly during forecast training | Yes | Yes, in the processor | Promote for physical latent autoregression |
 
 The production and control implementations behind the matrix are:
 
@@ -731,6 +748,8 @@ The production and control implementations behind the matrix are:
   `src/samudra/models/modules/augment_input.py`;
 - true-lead encode-once training: `SamudraMulti.latent_forecast` in
   `src/samudra/models/samudra_multi.py`; and
+- zero-initialized latent transition: `SamudraMulti.process` and
+  `processor_residual_scale` in `src/samudra/models/samudra_multi.py`; and
 - model-defined rollout state and latent chunk carry: `BaseModel.initialize_rollout`,
   `SamudraMulti.inference`, and `run_rollout` in `src/samudra/models/base.py`,
   `src/samudra/models/samudra_multi.py`, and `src/samudra/stepper.py`.
@@ -752,6 +771,12 @@ continues to lag after routing is fixed.
   bfloat16/flash backward both with and without activation checkpointing. The
   completed fresh ocean run validates naive attention with bfloat16, but the flash
   backend remains a production-runtime limitation to diagnose separately.
+- Separate RTX6000 profiles of the selected U-Net latent transition fail in the
+  first backward at per-rank batches 4, 8, and 16 with a CUDA illegal-address
+  error, even where the reported allocation estimate is only 4.03 GiB. Batch 2 is
+  stable across the scientific runs, so the full validation keeps batch 2 and
+  reaches effective batch 32 through eight ranks and accumulation 2. These failed
+  profiles make no optimizer step and are runtime evidence, not model evidence.
 - The multiplied attention matrices are a routing diagnostic, not an exact model
   Jacobian because self-attention and value transformations intervene.
 - The production checkpoint swap and fresh run confirm the mask-order mechanism on

@@ -1030,47 +1030,53 @@ two-seed, three-weight proxy jobs use code `ed7e7cb9` and additionally log a
 lead-matched persistence baseline, masked zero-depth inverse retention, and zeroed,
 batch-shuffled, and time-reversed boundary controls.
 
-Interim corrected-V0 evidence already revises the next step. By epoch ten, the
-seed-15 weight-zero and weight-0.05 arms are forecast-equivalent at lead-one MSE
-`0.04535` and `0.04510`, about 46% below lead-matched persistence. Weight 0.05
-reduces zero-depth MSE from `0.01238` to `0.00928`, but both remain far above the
-pretrained fixed-window inverse's `0.000654`. At matched epoch three, weight 0.2
-improves zero-depth MSE to `0.00708` and slightly improves every physical lead,
-so stronger inverse supervision is Pareto-improving rather than trading against
-forecast skill. Direct checkpoint comparison confirms representation-head drift:
-after epoch nine, the unregularized encoder and decoder move 18.7% and 14.6% in
-relative parameter norm and their composed pointwise map moves 27.3%; weight 0.05
-only reduces the composed-map drift to 25.9%.
+The completed two-seed weight sweep isolates representation-head drift rather than
+an inverse-loss tradeoff:
 
-That evidence triggers two small causal controls rather than a larger arbitrary
-loss-weight sweep. Commit `2483dd00` adds a fail-loud prefix freeze and job
-`14623982` freezes the already learned `encoder.*` and `decoder.*` while fitting
-only the processor, boundary encoder, and processor geometry. This does not make
-the encoder trivial: it preserves the state-only representation learned above and
-tests whether forecast gradients need to alter its inverse at all. Commit
-`74b6f1de` adds an optional per-channel ReZero transition
-`z[m+1] = z[m] + alpha * F(z[m], b[m])`, with `alpha` initialized to zero. Job
-`14624096` combines that transition with the frozen inverse. It initializes every
-processor call as exact latent persistence, remains iterable from zero to N calls,
-and is distinct from the rejected decoder-attention residual. Both controls use
-the same seed-15 windows, 192 updates, and effective batch 32 as V0 and are pending
-behind the matched sweep. Promote neither until the three-weight sweep completes.
+| zero-depth weight | zero-depth reconstruction | lead 1 | lead 2 | lead 4 |
+|---:|---:|---:|---:|---:|
+| 0 | `0.0129752` | `0.0430257` | `0.0784274` | `0.116421` |
+| 0.05 | `0.00938407` | `0.0429238` | `0.0783425` | `0.116196` |
+| 0.2 | `0.00510098` | `0.0430606` | `0.0784412` | `0.116427` |
 
-The first causal-control validations support both parts of that diagnosis. Frozen
-heads alone preserve zero-depth MSE at `0.000647529` but initially make the
-replacement processor slightly harder to optimize. Adding the zero-initialized
-latent residual preserves the same exact inverse and improves the first seed's
-epoch-one leads from `{0.09990, 0.17186, 0.28307}` to
-`{0.07728, 0.13232, 0.18297}`. Seed 16 independently reproduces the residual arm
-at `{0.07707, 0.13209, 0.18243}`. Its epoch-one high-wavenumber ratios are
-approximately `{0.965, 0.974, 0.944, 0.876, 0.995}` for temperature, salinity,
-zonal velocity, meridional velocity, and SSH. By epoch three, seed 15 improves to
-`{0.05852, 0.09582, 0.13601}` while keeping zero-depth MSE unchanged. Zeroing the
-boundary path then worsens those leads by `{0.9%, 1.9%, 5.5%}`, and reversing the
-forcing order worsens lead four by 3.0%, evidence that the learned residual is
-using per-step forcing rather than only copying persistence. These early values
-are much larger effects than the seed spread, but the full 12-epoch controls and
-the second residual seed still determine promotion.
+All three weights are forecast-equivalent, and stronger inverse supervision is
+Pareto-improving, but even weight 0.2 leaves reconstruction 7.9 times worse than
+the frozen checkpoint's `0.000647529`. Direct checkpoint comparison supplies the
+mechanism: after epoch nine, the unregularized encoder and decoder move 18.7% and
+14.6% in relative parameter norm and their composed pointwise map moves 27.3%;
+weight 0.05 only reduces the composed-map drift to 25.9%. Forecast loss constrains
+`D(P(E(x)))`, not `D(E(x))`, so co-adaptation can destroy the inverse without
+hurting the supervised objective.
+
+Commit `2483dd00` adds a fail-loud prefix freeze. Job `14623982` freezes the
+already learned `encoder.*` and `decoder.*` while fitting only the processor,
+boundary encoder, and processor geometry. This does not make the encoder trivial:
+it preserves the state-only representation learned above. Its final seed-15
+leads are `{0.04445, 0.07987, 0.11840}` and zero-depth reconstruction remains
+exactly `0.000647529` at every epoch. Freezing is therefore sufficient to preserve
+the inverse, but the replacement-form processor is less well conditioned.
+
+Commit `74b6f1de` adds a per-channel ReZero transition
+`z[m+1] = z[m] + alpha * F(z[m], b[m])`, with `alpha` initialized to zero. This
+initializes every processor call as latent persistence, remains iterable from zero
+to N calls, and is distinct from the rejected decoder-attention residual. Combined
+with the frozen inverse, the two-seed mean is `{0.04019, 0.06704, 0.09109}` for
+leads `{1,2,4}` while retaining the exact `0.000647529` reconstruction in both
+seeds. Relative to the two-seed unfrozen baseline, this improves the three leads
+by 6.6%, 14.5%, and 21.8% despite giving up all head adaptation. The seed-15-only
+frozen replacement control is `{0.04445, 0.07987, 0.11840}`; the residual form
+improves those leads by 9.1%, 15.6%, and 22.6% on the matched seed.
+At the spatial audit, its temperature, salinity, zonal-velocity,
+meridional-velocity, and SSH high-wavenumber ratios are
+`{0.956, 0.968, 0.786, 0.743, 0.990}`.
+
+The forcing controls establish physical use of the separate boundary path. At the
+two-seed endpoint, zeroing boundary input worsens leads `{1,2,4}` by
+`{4.9%, 14.9%, 30.7%}`, and reversing its time order worsens lead four by 37.7%.
+The two seeds differ by only about 1.3% at each lead, far inside the gap to the
+alternatives. The frozen ReZero design is therefore promoted to full one-degree
+validation; its checked-in selection is commit `d011fce5` and Torch job
+`14626058`.
 
 Three failed setup jobs contribute no model evidence: `14616135` invoked an
 identity config through the training entry point, `14616181` duplicated the data
@@ -1090,7 +1096,8 @@ training interval and 2013--2014 validation interval:
 - 6,230 realized optimizer updates, preserving the known final partial
   accumulation behavior;
 - Adam, initial learning rate `6e-4`, cosine schedule in optimizer-update units;
-- plain one-step normalized MSE and absolute-field prediction;
+- normalized MSE and absolute-field prediction at true physical leads
+  `{1,2,4}`, selecting one lead per training batch;
 - seed 15 first; run seed 16 only if seed 15 passes the gate;
 - evaluate the validation-selected checkpoint and terminal checkpoint;
 - retain zero-depth reconstruction evaluation at every image-validation epoch.
@@ -1117,9 +1124,11 @@ immediately after the physical-time semantics were clarified. It is a
 mis-specified run and supplies no model-selection evidence. Jobs `14605300` and
 `14605887` made zero updates.
 
-The fresh corrected run will be the requested v2-scale validation: full one-degree
-data, roughly the existing v2/Samudra parameter and update scale, and the same
-primary metrics. Compare
+The selected corrected run is queued as Torch job `14626058` from exact code
+overlay `d011fce5`, using eight RTX6000 ranks, per-rank batch 2, accumulation 2,
+and the frozen state-only inverse checkpoint. It is the requested v2-scale
+validation: full one-degree data, roughly the existing v2/Samudra parameter and
+update scale, and the same primary metrics. Compare
 against the quoted v2 full-data MSE `0.023600` and the direct one-cell result
 `0.015976`. Promotion requires all-channel MSE at most `0.025`, no variable group
 more than 25% worse than v2, and zero-depth reconstruction no more than 25% worse
@@ -1130,6 +1139,15 @@ proxy screening; the completed full direct one-cell run used two GPUs, peaked ne
 17.3 GiB per rank, and took about 8 hours 20 minutes. The hybrid must demonstrate
 bounded-neighborhood memory scaling in a one-epoch smoke before receiving the full
 budget.
+
+Matched one-GPU throughput profiles exposed a runtime boundary rather than a model
+capacity boundary. Per-rank batches 16 (`14624768`), 8 (`14625028`), and 4
+(`14625151`) all fail in the first backward with a CUDA illegal-address error,
+despite reported total-size estimates falling from 15.25 to 4.03 GiB. No optimizer
+step occurs in any of those runs. Batch 2 is stable across every scientific proxy
+run. The full validation therefore uses eight ranks, batch 2, and accumulation 2
+for effective batch 32; diagnosing the larger-microbatch CUDA kernel is orthogonal
+to the architecture decision.
 
 ### V2. Full multi-resolution validation
 

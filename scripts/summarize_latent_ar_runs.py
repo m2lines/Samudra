@@ -14,6 +14,7 @@ import wandb
 
 LEADS = (1, 2, 4)
 BOUNDARY_ABLATIONS = ("zero", "batch_shuffle", "time_reverse")
+ZERO_DEPTH_KEY = "val/zero_depth_reconstruction/mean/loss"
 
 
 def lead_key(depth: int) -> str:
@@ -57,6 +58,7 @@ def summarize_row(row: Mapping[str, Any]) -> dict[str, Any]:
     summary: dict[str, Any] = {
         "epoch": row.get("epoch"),
         "step": row.get("_step"),
+        "zero_depth_reconstruction": row.get(ZERO_DEPTH_KEY),
     }
     for depth in LEADS:
         aligned = row.get(lead_key(depth))
@@ -94,6 +96,7 @@ def summarize_run(run: Any) -> dict[str, Any]:
     keys = [
         "epoch",
         "_step",
+        ZERO_DEPTH_KEY,
         *(lead_key(depth) for depth in LEADS),
         *(persistence_key(depth) for depth in LEADS),
         *(ablation_key(mode, depth) for mode in BOUNDARY_ABLATIONS for depth in LEADS),
@@ -111,6 +114,7 @@ def summarize_run(run: Any) -> dict[str, Any]:
 def markdown_table(summaries: Iterable[Mapping[str, Any]]) -> str:
     columns = [
         "epoch",
+        "zero_depth_reconstruction",
         *(f"lead_{depth}" for depth in LEADS),
         *(f"lead_{depth}_persistence_reduction" for depth in LEADS),
         *(

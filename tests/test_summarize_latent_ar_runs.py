@@ -5,6 +5,7 @@
 import pytest
 
 from scripts.summarize_latent_ar_runs import (
+    ZERO_DEPTH_KEY,
     ablation_key,
     lead_key,
     markdown_table,
@@ -50,6 +51,7 @@ def test_select_best_row_uses_true_one_step_loss():
 def test_summarize_row_computes_forcing_sensitivity():
     row = {
         "epoch": 3,
+        ZERO_DEPTH_KEY: 0.01,
         lead_key(1): 0.2,
         lead_key(2): 0.4,
         lead_key(4): 0.8,
@@ -61,6 +63,7 @@ def test_summarize_row_computes_forcing_sensitivity():
 
     summary = summarize_row(row)
 
+    assert summary["zero_depth_reconstruction"] == 0.01
     assert summary["zero_lead_1_relative_increase"] == pytest.approx(0.5)
     assert summary["lead_1_persistence_reduction"] == pytest.approx(0.5)
     assert summary["batch_shuffle_lead_2_relative_increase"] == pytest.approx(0.25)
@@ -80,4 +83,4 @@ def test_markdown_table_links_run():
     )
 
     assert "[latent-ar](https://example.com)" in table
-    assert "| 4 | 0.1 |" in table
+    assert "| 4 | None | 0.1 |" in table

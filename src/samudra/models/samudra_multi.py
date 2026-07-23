@@ -362,10 +362,10 @@ class SamudraMulti(BaseModel):
         fts = fts.to(torch.float32)
         return torch.where(ctx.label_mask, fts, 0.0)
 
-    def reconstruct_once(
-        self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
-    ) -> Prognostic:
-        """Decode the learned representation without applying the processor."""
+    def reconstruction_context(
+        self, prognostic: Prognostic, ctx: GridContext
+    ) -> GridContext:
+        """Build the source-grid context used by zero-depth reconstruction."""
         if ctx.input_mask is None:
             input_lat, input_lon = ctx.input_resolution_cpu
             output_lat, output_lon = ctx.output_resolution_cpu
@@ -386,12 +386,18 @@ class SamudraMulti(BaseModel):
                 f"source grid; got {tuple(input_mask.shape[-2:])} and "
                 f"{tuple(prognostic.shape[-2:])}."
             )
-        source_ctx = GridContext(
+        return GridContext(
             label_mask=input_mask,
             input_resolution_cpu=ctx.input_resolution_cpu,
             output_resolution_cpu=ctx.input_resolution_cpu,
             input_mask=input_mask,
         )
+
+    def reconstruct_once(
+        self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
+    ) -> Prognostic:
+        """Decode the learned representation without applying the processor."""
+        source_ctx = self.reconstruction_context(prognostic, ctx)
         with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
             fts, latent_resolution = self.encode(prognostic, boundary, source_ctx)
             return self.decode(fts, latent_resolution, source_ctx)

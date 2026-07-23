@@ -905,6 +905,11 @@ class Trainer:
             depth: TrainAggregator(self.tensor_map)
             for depth in self.validation_processor_depths or []
         }
+        zero_depth_aggregator = (
+            TrainAggregator(self.tensor_map)
+            if self.validation_processor_depths is not None
+            else None
+        )
         boundary_ablation_aggregators = {
             mode: {
                 depth: TrainAggregator(self.tensor_map)
@@ -942,6 +947,25 @@ class Trainer:
                         lead_aggregators[depth].record_batch(lead_batch_outputs[depth])
 
                     prognostic, boundary = data.get_initial_input()
+                    if zero_depth_aggregator is None:
+                        raise RuntimeError(
+                            "Physical-lead validation requires a zero-depth aggregator."
+                        )
+                    reconstruction_ctx = unwrapped_model.reconstruction_context(
+                        prognostic, data.ctx
+                    )
+                    reconstruction = unwrapped_model.reconstruct_once(
+                        prognostic, boundary, data.ctx
+                    )
+                    reconstruction_loss_per_channel = self.loss_fn(
+                        reconstruction, prognostic, reconstruction_ctx
+                    )
+                    zero_depth_aggregator.record_batch(
+                        TrainBatchOutput(
+                            torch.mean(reconstruction_loss_per_channel),
+                            reconstruction_loss_per_channel,
+                        )
+                    )
                     persistence = coordinate_bilinear_resample(
                         prognostic,
                         data.ctx.input_resolution_cpu,
@@ -993,6 +1017,10 @@ class Trainer:
         for depth, lead_aggregator in persistence_lead_aggregators.items():
             logs.update(
                 lead_aggregator.get_logs(label=f"val/physical_lead_{depth}/persistence")
+            )
+        if zero_depth_aggregator is not None:
+            logs.update(
+                zero_depth_aggregator.get_logs(label="val/zero_depth_reconstruction")
             )
         for mode, aggregators in boundary_ablation_aggregators.items():
             for depth, lead_aggregator in aggregators.items():

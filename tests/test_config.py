@@ -319,6 +319,39 @@ def test_cross_resolution_iterable_inverse_proxy_balances_physical_routes(tmp_pa
     assert cfg.model.processor_residual
 
 
+def test_cross_resolution_iterable_inverse_full_uses_reference_update_scale(tmp_path):
+    config_path = (
+        Path(__file__).resolve().parents[1]
+        / "configs"
+        / "samudra_multi_om4"
+        / "train_cross_1_halfdeg_iterable_inverse_masked_mse_updates.yaml"
+    )
+
+    cfg = TrainConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--experiment.data_root",
+            str(tmp_path),
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+        ]
+    )
+
+    assert cfg.experiment.train_schedule == "mix"
+    assert cfg.epochs == 18
+    assert cfg.train_sample_selection is None
+    assert cfg.train_processor_depths == [1, 2, 4]
+    assert cfg.validation_processor_depths == [1, 2, 4]
+    assert cfg.validation_boundary_ablations == ["zero", "time_reverse"]
+    assert cfg.batch_size * cfg.gradient_accumulation_steps * 8 == 32
+    assert isinstance(cfg.scheduler, CosineSchedulerConfig)
+    assert cfg.scheduler.interval == "optimizer_update"
+    assert cfg.scheduler.target_updates == 6354
+    assert cfg.preemptible
+    assert len(cfg.data.sources) == 2
+    assert cfg.frozen_model_prefixes == ["encoder.", "decoder."]
+
+
 def test_get_pydantic_models_collects_loading_variants():
     models = get_pydantic_models(TrainConfig)
 

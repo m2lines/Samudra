@@ -1,0 +1,83 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/TrainConfig.json
+
+# Full-interval one/half-degree physical latent-autoregression validation for the
+# frozen learned inverse. The four source/target routes are sampled in balance.
+# With eight GPUs, batch one and four accumulation steps give effective global
+# batch 32. Eighteen full-data epochs are expected to realize about 6,354
+# optimizer updates, within 2% of the 6,230-update one-degree reference budget.
+debug: false
+disk_mode: true
+pin_mem: true
+save_freq: 1
+validation_image_log_freq: 17
+epochs: 18
+batch_size: 1
+gradient_accumulation_steps: 4
+train_processor_depths: [1, 2, 4]
+validation_processor_depths: [1, 2, 4]
+validation_boundary_ablations: [zero, time_reverse]
+learning_rate: 0.0006
+scheduler:
+  type: cosine
+  interval: optimizer_update
+  target_updates: 6354
+loss: mse
+finetune: true
+finetune_allowed_missing_prefixes:
+  [
+    "processor.",
+    "processor_geometry.",
+    "boundary_encoder.",
+    "processor_residual_scale",
+  ]
+frozen_model_prefixes: ["encoder.", "decoder."]
+resume_ckpt_path: null
+inference_epochs: []
+train_time:
+  start: "1975-01-03"
+  end: "2013-10-05"
+train_sample_selection: null
+val_time:
+  start: "2013-10-05"
+  end: "2014-10-05"
+inference_times: []
+data_stride: [1]
+steps: [4]
+step_transition: []
+preemptible: true
+wandb_watch: null
+
+backend: auto
+
+experiment:
+  name: samudra_multi_om4_cross_1_halfdeg_latent_ar_masked_mse_full
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: default
+  train_schedule: mix
+data:
+  dataset:
+    type: om4
+    prognostic_vars_key: thermo_dynamic_all
+    boundary_vars_key: tau_hfds
+  static_data_vars: []
+  concurrent_compute: true
+  loading:
+    type: rust
+    prefetch_batches: 2
+    max_concurrent_reads: 4
+    prefetch_to_device: true
+  sources:
+    - data_location: om4_onedeg_v3/OM4.zarr
+      data_means_location: om4_onedeg_v3/OM4_means.zarr
+      data_stds_location: om4_onedeg_v3/OM4_stds.zarr
+    - data_location: om4_halfdeg_v4/OM4.zarr
+      data_means_location: om4_onedeg_v3/OM4_means.zarr
+      data_stds_location: om4_onedeg_v3/OM4_stds.zarr
+model: !include model_iterable_inverse_native_masked_projection.yaml

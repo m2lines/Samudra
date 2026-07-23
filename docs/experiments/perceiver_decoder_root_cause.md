@@ -84,8 +84,21 @@ validation-selected at `{0.0205191, 0.0343797, 0.0469026}`; the terminal vector 
 only `{0.0205354, 0.0344690, 0.0472080}`, showing a shallow late plateau rather
 than instability. The final epoch-61 spatial audit gives high-wavenumber ratios
 `{0.968, 0.983, 0.811, 0.839, 0.991}` for temperature, salinity, zonal velocity,
-meridional velocity, and SSH. V2 has started successfully on the one/half-degree
-routes, so this remains an interim report.
+meridional velocity, and SSH. The one/half-degree proxy is complete and its
+full-budget successor remains outstanding, so this is still an interim report.
+
+The completed 192-update balanced one/half-degree proxy improves monotonically
+through epoch 12. Its aggregate `{1,2,4}` lead vector is
+`{0.0629945, 0.0945314, 0.123373}`, respectively `{41.4%, 46.8%, 51.2%}` below
+lead-matched persistence. Every individual route beats its own persistence
+baseline at every lead. Same-grid zero-depth reconstruction remains
+`0.00111017` at one degree and `0.00124296` at half degree. Tracer and SSH
+high-wavenumber ratios span `0.922--1.008`, and all defined route seam ratios
+span `0.843--1.028`. Coarse-to-fine velocity power remains low
+(`0.278/0.125` for zonal/meridional velocity), as expected when deterministic
+prolongation cannot invent fine-grid modes. This proxy establishes trainability
+and route separation, not convergence; it promotes the same architecture to the
+full-interval one/half-degree update budget.
 
 ## Objective
 
@@ -726,6 +739,27 @@ depths `[1,2,4]` only for the same-target refinement formulation; it is not prom
 for physical latent autoregression. The corresponding W&B runs are `9i47kib4` and
 `t7855wfw`; forecast-depth audits are `dp1y2chf` and `3yluahc9`; inverse audits are
 `142he1n3` and `hufdi48y`.
+
+## Full-scale physical latent-autoregression evidence
+
+The full one-degree result is summarized in the executive conclusion. The
+balanced one/half-degree proxy then tests all four physical routes with the same
+frozen inverse and ReZero transition for 192 optimizer updates:
+
+| Route | Lead 1 MSE / persistence reduction | Lead 2 | Lead 4 |
+|---|---:|---:|---:|
+| 1 -> 1 | `0.045609 / 45.5%` | `0.076865 / 49.1%` | `0.103631 / 53.8%` |
+| 1 -> 1/2 | `0.108017 / 22.3%` | `0.134762 / 29.3%` | `0.163326 / 34.5%` |
+| 1/2 -> 1 | `0.041871 / 52.7%` | `0.069580 / 55.4%` | `0.095643 / 58.3%` |
+| 1/2 -> 1/2 | `0.056481 / 52.3%` | `0.096918 / 54.3%` | `0.130894 / 57.4%` |
+
+At lead four, zeroing the boundary raises route MSE by `19.5--33.1%`, while
+reversing boundary order raises it by `14.3--39.7%`. The weaker and occasionally
+negative lead-two time-reversal response means boundary causality should continue
+to be reported rather than treated as uniformly solved. The full run must
+distinguish unresolved processor learning from decoder transport: coarse-to-fine
+velocity spectra are limited by source information, whereas same-grid and
+fine-to-coarse spectra remain close to the target.
 
 ## Architecture decision matrix
 

@@ -1251,6 +1251,36 @@ the selected cross-grid inverse checkpoint, four frozen encoder/decoder paramete
 tensors, batch one, accumulation 16, effective global batch 32, and first-epoch
 training plus validation. Its W&B run is `i11mmskt`.
 
+Job `14635707` completes all 12 epochs and exactly 192 optimizer updates in
+1 hour 34 minutes. Epoch 12 is validation-selected with aggregate `{1,2,4}` lead
+MSE `{0.0629945, 0.0945314, 0.123373}`, beating lead-matched persistence by
+`{41.4%, 46.8%, 51.2%}`. Route-level results are:
+
+| Route | Lead 1 MSE / persistence reduction | Lead 2 | Lead 4 |
+|---|---:|---:|---:|
+| 1 -> 1 | `0.045609 / 45.5%` | `0.076865 / 49.1%` | `0.103631 / 53.8%` |
+| 1 -> 1/2 | `0.108017 / 22.3%` | `0.134762 / 29.3%` | `0.163326 / 34.5%` |
+| 1/2 -> 1 | `0.041871 / 52.7%` | `0.069580 / 55.4%` | `0.095643 / 58.3%` |
+| 1/2 -> 1/2 | `0.056481 / 52.3%` | `0.096918 / 54.3%` | `0.130894 / 57.4%` |
+
+The frozen inverse remains `0.00111017` on one degree and `0.00124296` on half
+degree. At the epoch-seven spatial audit, tracer and SSH high-wavenumber ratios
+are `0.922--1.008`; same-grid velocity ratios are `0.823--0.866`; and all defined
+route seam ratios are `0.843--1.028`. One-to-half velocity ratios are only
+`0.278/0.125` because deterministic prolongation cannot create absent fine-grid
+velocity modes. This is an information-resolution limit, not evidence of query
+blindness or mask-order failure.
+
+The proxy is deliberately too short to compare same-grid forecast MSE with the
+converged one-degree run. Its purpose is satisfied: all routes optimize, every
+route beats its own persistence baseline, the inverse stays fixed, spatial
+diagnostics expose rather than pool coarse-to-fine limitations, and boundary
+controls remain causal at lead four. The selection logic therefore promotes the
+architecture to the full one/half-degree budget. The checked-in config
+`train_cross_1_halfdeg_iterable_inverse_masked_mse_updates.yaml` uses the full
+training interval, 18 epochs, effective global batch 32 on eight GPUs, and an
+expected 6,354 optimizer updates, within 2% of the one-degree reference budget.
+
 ## Selection logic
 
 The plan is intentionally falsifiable and open to revision. New measurements,

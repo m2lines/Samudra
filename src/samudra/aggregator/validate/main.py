@@ -8,6 +8,7 @@ import torch
 from samudra.aggregator.train import TrainAggregator
 from samudra.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from samudra.constants import TensorMap
+from samudra.models.modules.decoder import coordinate_bilinear_resample
 from samudra.utils.data import Normalize, get_aggregator_dicts
 from samudra.utils.loss import loss_fn_from_metric
 from samudra.utils.output import TrainBatchOutput, ValBatchOutput
@@ -49,12 +50,23 @@ class ValidateAggregator(TrainAggregator):
     def record_validation_batch(self, batch: ValBatchOutput):
         super().record_batch(batch)  # Record losses
 
+        # Persistence lives on the input grid. Render it on the target grid before
+        # computing baselines or passing it to map/reduced diagnostics. This is a
+        # deterministic normalized-space baseline; it avoids pretending that two
+        # differently shaped physical tensors are directly comparable.
+        persistence = coordinate_bilinear_resample(
+            batch.input_data[:, : self.num_prognostic_channels],
+            batch.ctx.input_resolution_cpu,
+            batch.ctx.output_resolution_cpu,
+            valid_mask=batch.ctx.input_mask,
+        )
+
         if self._unweighted_mse is not None and self._persistence_mse is not None:
             forecast_loss_per_channel = self._mse(
                 batch.gen_data, batch.target_data, batch.ctx
             )
             persistence_loss_per_channel = self._mse(
-                batch.input_data[:, : self.num_prognostic_channels],
+                persistence,
                 batch.target_data,
                 batch.ctx,
             )
@@ -115,7 +127,7 @@ class ValidateAggregator(TrainAggregator):
             hist=self.hist,
         )
         input_data_dict, input_data_unnorm_dict = get_aggregator_dicts(
-            batch.input_data,
+            persistence,
             normalize=self.normalize,
             tensor_map=self.tensor_map,
             wet=wet,

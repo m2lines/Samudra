@@ -225,6 +225,46 @@ def test_validation_aggregator__records_plain_mse_and_persistence_baseline(
     assert logs["val/persistence_normalized_mse/mean/loss"] == pytest.approx(4.0)
 
 
+def test_validation_aggregator_resamples_cross_grid_persistence(
+    dummy_src: CanonicalDataset,
+):
+    tensor_map = tensor_map_for(dummy_src)
+    normalize = normalize_for(dummy_src, tensor_map)
+    batch = val_batch_of(4, 8, tensor_map=tensor_map)
+    num_prog = batch.target_data.shape[1]
+    num_boundary = batch.input_data.shape[1] - num_prog
+    batch.input_data = torch.zeros(1, num_prog + num_boundary, 2, 4)
+    batch.target_data.fill_(2.0)
+    batch.gen_data.fill_(1.0)
+    batch.ctx = GridContext(
+        label_mask=torch.ones(num_prog, 4, 8, dtype=torch.bool),
+        input_resolution_cpu=(
+            torch.tensor([-45.0, 45.0]),
+            torch.tensor([45.0, 135.0, 225.0, 315.0]),
+        ),
+        output_resolution_cpu=(
+            torch.tensor([-67.5, -22.5, 22.5, 67.5]),
+            torch.arange(8) * 45.0 + 22.5,
+        ),
+        input_mask=torch.ones(num_prog, 2, 4, dtype=torch.bool),
+    )
+    aggregator = ValidateAggregator(
+        {"fake": FakeSubAggregator()},
+        hist=0,
+        num_prognostic_channels=num_prog,
+        tensor_map=tensor_map,
+        normalize=normalize,
+        record_baselines=True,
+    )
+
+    aggregator.record_validation_batch(batch)
+    logs = aggregator.get_logs(label="val")
+
+    assert logs["val/unweighted_normalized_mse/mean/loss"] == pytest.approx(1.0)
+    assert logs["val/persistence_normalized_mse/mean/loss"] == pytest.approx(4.0)
+    assert logs["val/fake/num_recordings"] == 1.0
+
+
 def test_multiscale_validation_aggregator__routes_and_prefixes_by_grid(
     dummy_src: CanonicalDataset,
 ):

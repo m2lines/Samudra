@@ -74,6 +74,13 @@ promoted to full one-degree validation; the full-scale and subsequent
 multi-resolution validations remain in progress, so this document is still
 interim.
 
+The full-data one-degree run now supplies seven monotonic validation points. Its
+lead-one MSE falls from `0.05116` at epoch one to `0.03121` at epoch seven; the
+latest `{1,2,4}` lead vector is `{0.03121, 0.05259, 0.07084}`, respectively
+`{62.7%, 65.2%, 68.4%}` below lead-matched persistence. The frozen inverse remains
+exactly `0.000647529` throughout. This confirms stable v2-scale optimization but is
+not yet the terminal or validation-selected result.
+
 ## Objective
 
 Isolate why the SamudraMulti Perceiver IO decoder performs poorly on identity
@@ -774,9 +781,10 @@ continues to lag after routing is fixed.
 - Separate RTX6000 profiles of the selected U-Net latent transition fail in the
   first backward at per-rank batches 4, 8, and 16 with a CUDA illegal-address
   error, even where the reported allocation estimate is only 4.03 GiB. Batch 2 is
-  stable across the scientific runs, so the full validation keeps batch 2 and
-  reaches effective batch 32 through eight ranks and accumulation 2. These failed
-  profiles make no optimizer step and are runtime evidence, not model evidence.
+  stable across the scientific runs. Fragmentation moved the full validation to
+  three ranks with batch 2 and accumulation 5, for effective batch 30 and about
+  6,175 updates versus the planned 6,230. These failed profiles make no optimizer
+  step and are runtime evidence, not model evidence.
 - The multiplied attention matrices are a routing diagnostic, not an exact model
   Jacobian because self-attention and value transformations intervene.
 - The production checkpoint swap and fresh run confirm the mask-order mechanism on
@@ -792,7 +800,8 @@ continues to lag after routing is fixed.
 - S2 confirms the learned inverse across independently regridded one/half-degree
   products. The corrected state-only inverse now improves every matched route and
   zero-shot quarter same-grid MSE by 87% relative to the earlier joint checkpoint.
-  Physical latent-autoregressive proxy and full-data validation remain outstanding.
+  The corrected physical latent-autoregressive proxy is complete and selects the
+  frozen ReZero transition; full-data one-degree validation is in progress.
 
 ## Reproduction
 
@@ -837,15 +846,16 @@ The follow-up real-data control is fully specified by
    geometry, and projection-before-channel-masked-resampling selection.
 2. Do not add the zero-initialized attention residual: neither S2 nor quarter
    zero-shot transfer exposes a residual defect that justifies its cost.
-3. Retrain the inverse from scratch with a state-only encoder. Then train physical
-   lead depths `{1,2,4}` so depth `N` consumes `N` separately encoded boundary
-   states and is supervised by `t+N`; sweep inverse weight `{0, 0.05, 0.2}` rather
-   than carrying `0.2` forward as a conclusion. Do not infer physical recurrence
-   from the historical same-`t+1` refinement control.
+3. Retain the completed state-only inverse and physical-lead `{1,2,4}` result:
+   freeze the inverse and use a zero-initialized latent transition residual. The
+   inverse-weight sweep shows that a soft reconstruction penalty does not prevent
+   head co-adaptation; do not carry weight `0.2` forward as a conclusion.
 4. Retain the completed bounded-memory quarter evaluator. Prototype physical
    conservative restriction for 4x downsampling, where area lowers the floor 86%,
    and compare a better low-pass kernel at 2x, where naive area improves spectra
    but worsens MSE.
-5. Run the corrected two-seed proxy before launching a fresh full one-degree
-   v2-scale validation. The old full run was cancelled and supplies no selection
-   evidence.
+5. Complete the running full one-degree v2-scale validation, then use its gate to
+   launch the balanced one/half-degree proxy. Report every physical route
+   separately, including persistence, spectra, seam/edge diagnostics, and forcing
+   ablations; destination-grid pooled metrics are not sufficient evidence for
+   flexible output resolution.

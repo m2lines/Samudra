@@ -207,12 +207,10 @@ class Trainer:
     model: BaseModel | nn.parallel.DistributedDataParallel
 
     def __init__(self, cfg: TrainConfig) -> None:
+        if not cfg.finetune:
+            cfg.finetune_allowed_missing_prefixes = []
         cfg.prepare_output_dirs()
         cfg.save_yaml(cfg.experiment.output_dir / "config.yaml")
-        if cfg.finetune_allowed_missing_prefixes and not cfg.finetune:
-            raise ValueError(
-                "finetune_allowed_missing_prefixes requires finetune: true."
-            )
 
         # Backend
         self.device, self.distributed = init_train_backend(cfg.backend)

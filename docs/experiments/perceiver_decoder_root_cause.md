@@ -49,9 +49,14 @@ diagnostic window, 78.5% below the prior joint prognostic-plus-boundary inverse'
 same- and cross-grid route and lowers aggregate MSE from `0.02491` to `0.0218603`
 despite receiving one quarter as many epochs. This isolates boundary contamination
 as an additional representation error: forcing belongs in the transition, not in
-the persistent state. A two-epoch physical-time smoke improves all true leads
-while retaining latent carry. The controlled weight/seed sweep, forcing ablations,
-and full-scale validation remain in progress, so this document is still interim.
+the persistent state. Zero-shot quarter reconstruction also improves from
+`0.01055` to `0.001367`, while the six up/down cross-grid routes remain close to or
+better than deterministic coordinate resampling. The sole clear exception remains
+4x quarter-to-one restriction: competitive MSE but high-wavenumber ratio `1.502`,
+which calls for scale-aware antialiasing/conservative transport. A two-epoch
+physical-time smoke improves all true leads while retaining latent carry. The
+controlled weight/seed sweep, forcing ablations, and full-scale validation remain
+in progress, so this document is still interim.
 
 ## Objective
 
@@ -760,10 +765,9 @@ continues to lag after routing is fixed.
   The completed ocean resampling proxy is the evidence that such a projection is
   trainable in the real model.
 - S2 confirms the learned inverse across independently regridded one/half-degree
-  products, and the quarter zero-shot run confirms unseen-resolution transfer for
-  the earlier jointly encoded state-and-boundary checkpoint. The decoder evidence
-  remains valid, but the corrected state-only inverse must be retrained. Physical
-  latent-autoregressive proxy and full-data validation remain outstanding.
+  products. The corrected state-only inverse now improves every matched route and
+  zero-shot quarter same-grid MSE by 87% relative to the earlier joint checkpoint.
+  Physical latent-autoregressive proxy and full-data validation remain outstanding.
 
 ## Reproduction
 

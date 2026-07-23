@@ -1005,7 +1005,20 @@ than 40 epochs. One-to-half is fractionally better than its `0.0789996`
 deterministic floor; half-to-one has `0.0007488` excess over its `0.00542936`
 floor, and the same/fine-to-coarse high-wavenumber ratios are `0.979--0.985`.
 This is direct evidence that removing boundary channels from the learned state is
-beneficial, not merely harmless. The unseen-quarter audit remains queued.
+beneficial, not merely harmless.
+
+The nine-route audit `14619374` then applies that one/half-trained checkpoint to
+the unseen quarter-degree product. Quarter same-grid MSE is `0.00136714`, versus
+`0.01055` for the earlier joint encoder. One-to-quarter is `0.0974551` versus its
+`0.109031` deterministic floor; half-to-quarter is `0.0260758` versus `0.0295858`;
+and quarter-to-half is `0.00322509` versus `0.00268161`. The same-grid quarter
+high-wavenumber ratio is `0.958`, and quarter-to-half is `0.986`. Thus flexible
+output resolution survives the clean state separation and improves substantially.
+Quarter-to-one remains the known scale-aware restriction exception: MSE `0.0698314`
+beats bilinear resampling's `0.0793258`, but its aggregate high-wavenumber ratio is
+`1.502`. This supports an antialiased/conservative deterministic restriction path
+for large downsampling factors; it does not revive an unstructured attention
+decoder or justify adding the zero-initialized attention residual everywhere.
 
 A two-epoch physical-time bring-up (`14619138`, W&B `o6gi7wvi`, code
 `455be788`) loaded the state-only inverse, initialized only the boundary encoder

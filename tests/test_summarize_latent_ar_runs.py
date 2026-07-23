@@ -8,6 +8,7 @@ from scripts.summarize_latent_ar_runs import (
     ablation_key,
     lead_key,
     markdown_table,
+    persistence_key,
     select_best_row,
     summarize_row,
     validate_run_config,
@@ -52,6 +53,7 @@ def test_summarize_row_computes_forcing_sensitivity():
         lead_key(1): 0.2,
         lead_key(2): 0.4,
         lead_key(4): 0.8,
+        persistence_key(1): 0.4,
         ablation_key("zero", 1): 0.3,
         ablation_key("batch_shuffle", 2): 0.5,
         ablation_key("time_reverse", 4): 1.0,
@@ -60,6 +62,7 @@ def test_summarize_row_computes_forcing_sensitivity():
     summary = summarize_row(row)
 
     assert summary["zero_lead_1_relative_increase"] == pytest.approx(0.5)
+    assert summary["lead_1_persistence_reduction"] == pytest.approx(0.5)
     assert summary["batch_shuffle_lead_2_relative_increase"] == pytest.approx(0.25)
     assert summary["time_reverse_lead_4_relative_increase"] == pytest.approx(0.25)
 

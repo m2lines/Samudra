@@ -53,6 +53,7 @@ from samudra.datasets import (
     close_pytorch_dataloader,
 )
 from samudra.models.base import BaseModel
+from samudra.models.modules.decoder import coordinate_bilinear_resample
 from samudra.models.samudra_multi import SamudraMulti
 from samudra.stepper import (
     TrainBatchOutput,
@@ -900,6 +901,10 @@ class Trainer:
             depth: TrainAggregator(self.tensor_map)
             for depth in self.validation_processor_depths or []
         }
+        persistence_lead_aggregators = {
+            depth: TrainAggregator(self.tensor_map)
+            for depth in self.validation_processor_depths or []
+        }
         boundary_ablation_aggregators = {
             mode: {
                 depth: TrainAggregator(self.tensor_map)
@@ -937,6 +942,22 @@ class Trainer:
                         lead_aggregators[depth].record_batch(lead_batch_outputs[depth])
 
                     prognostic, boundary = data.get_initial_input()
+                    persistence = coordinate_bilinear_resample(
+                        prognostic,
+                        data.ctx.input_resolution_cpu,
+                        data.ctx.output_resolution_cpu,
+                        valid_mask=data.ctx.input_mask,
+                    )
+                    for depth, aggregator in persistence_lead_aggregators.items():
+                        persistence_loss_per_channel = self.loss_fn(
+                            persistence, data.get_label(depth - 1), data.ctx
+                        )
+                        aggregator.record_batch(
+                            TrainBatchOutput(
+                                torch.mean(persistence_loss_per_channel),
+                                persistence_loss_per_channel,
+                            )
+                        )
                     lead_one_prediction = forecasts[1]
                     lead_one_target = data.get_label(0)
                     lead_one_output = lead_batch_outputs[1]
@@ -969,6 +990,10 @@ class Trainer:
         logs = dict(val_aggregator.get_logs(label="val"))
         for depth, lead_aggregator in lead_aggregators.items():
             logs.update(lead_aggregator.get_logs(label=f"val/physical_lead_{depth}"))
+        for depth, lead_aggregator in persistence_lead_aggregators.items():
+            logs.update(
+                lead_aggregator.get_logs(label=f"val/physical_lead_{depth}/persistence")
+            )
         for mode, aggregators in boundary_ablation_aggregators.items():
             for depth, lead_aggregator in aggregators.items():
                 logs.update(

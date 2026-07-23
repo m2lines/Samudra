@@ -24,6 +24,10 @@ def ablation_key(mode: str, depth: int) -> str:
     return f"val/boundary_{mode}/physical_lead_{depth}/mean/loss"
 
 
+def persistence_key(depth: int) -> str:
+    return f"val/physical_lead_{depth}/persistence/mean/loss"
+
+
 def validate_run_config(config: Mapping[str, Any]) -> None:
     train_config = config.get("config")
     if not isinstance(train_config, Mapping):
@@ -56,7 +60,19 @@ def summarize_row(row: Mapping[str, Any]) -> dict[str, Any]:
     }
     for depth in LEADS:
         aligned = row.get(lead_key(depth))
+        persistence = row.get(persistence_key(depth))
         summary[f"lead_{depth}"] = aligned
+        summary[f"persistence_lead_{depth}"] = persistence
+        if (
+            isinstance(aligned, (int, float))
+            and math.isfinite(aligned)
+            and isinstance(persistence, (int, float))
+            and math.isfinite(persistence)
+            and persistence > 0
+        ):
+            summary[f"lead_{depth}_persistence_reduction"] = 1.0 - (
+                aligned / persistence
+            )
         for mode in BOUNDARY_ABLATIONS:
             ablated = row.get(ablation_key(mode, depth))
             summary[f"{mode}_lead_{depth}"] = ablated
@@ -79,6 +95,7 @@ def summarize_run(run: Any) -> dict[str, Any]:
         "epoch",
         "_step",
         *(lead_key(depth) for depth in LEADS),
+        *(persistence_key(depth) for depth in LEADS),
         *(ablation_key(mode, depth) for mode in BOUNDARY_ABLATIONS for depth in LEADS),
     ]
     row = select_best_row(run.scan_history(keys=keys, page_size=1000))
@@ -95,6 +112,7 @@ def markdown_table(summaries: Iterable[Mapping[str, Any]]) -> str:
     columns = [
         "epoch",
         *(f"lead_{depth}" for depth in LEADS),
+        *(f"lead_{depth}_persistence_reduction" for depth in LEADS),
         *(
             f"{mode}_lead_{depth}_relative_increase"
             for mode in BOUNDARY_ABLATIONS

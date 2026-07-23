@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -124,7 +124,7 @@ run: |
     --master_addr=$MASTER_ADDR \
     --master_port=8008 \
     --node_rank=${SKYPILOT_NODE_RANK} \
-    -m ocean_emulators.train "${CONFIG}" \
+    -m samudra.train "${CONFIG}" \
     --experiment.name="${NAME}" \
     --experiment.data_root="${DATA_ROOT}" \
     --experiment.base_output_dir=/outputs/  \

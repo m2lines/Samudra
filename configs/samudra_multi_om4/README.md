@@ -1,0 +1,11 @@
+<!--
+SPDX-FileCopyrightText: 2026 Samudra Authors
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
+# samudra-multi OM4
+
+These configurations are for the samudra-multi (encoder-processor-decoder) model,
+trained on OM4 data. The intent is for this to support heterogeneous
+resolutions and modalities.

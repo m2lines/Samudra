@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -8,8 +8,8 @@ from typing import Any, cast
 
 import torch
 
-from ocean_emulators.utils.multiton import MultitonScope
-from ocean_emulators.utils.wandb import WandBLogger
+from samudra.utils.multiton import MultitonScope
+from samudra.utils.wandb import WandBLogger
 
 
 class DummyWandbConfig:

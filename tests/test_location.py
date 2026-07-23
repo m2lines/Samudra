@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -9,7 +9,7 @@ import pytest
 import xarray as xr
 from pydantic import ValidationError
 
-from ocean_emulators.utils.location import (
+from samudra.utils.location import (
     LocalLocation,
     Location,
     S3Location,

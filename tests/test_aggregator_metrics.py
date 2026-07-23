@@ -1,10 +1,10 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
 import torch
 
-from ocean_emulators.aggregator.metrics import weighted_mean
+from samudra.aggregator.metrics import weighted_mean
 
 
 def test_weighted_mean():

@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -22,14 +22,14 @@ def test_assert_mask_match(mask_dtype):
     y = np.arange(0, 3)
     z = np.arange(0, 4)
     data_2d = xr.DataArray(
-        np.random.random([2, 3]), dims=["x", "y"], coords={"x": x, "y": y}
+        np.arange(6).reshape(2, 3), dims=["x", "y"], coords={"x": x, "y": y}
     )
     data_3d = xr.DataArray(
-        np.random.random([2, 3, 4]),
+        np.arange(24).reshape(2, 3, 4),
         dims=["x", "y", "z"],
         coords={"x": x, "y": y, "z": z},
     )
-    mask_3d = data_3d > 0.25
+    mask_3d = data_3d % 3 == 0
     if mask_dtype is not None:
         mask_3d = mask_3d.astype(mask_dtype)
     ds = xr.Dataset({"3d": data_3d, "2d": data_2d})

@@ -1,16 +1,16 @@
 <!--
-SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+SPDX-FileCopyrightText: 2026 Samudra Authors
 
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# PhysicsNeMo 25.11 Container Flow
+# PhysicsNeMo 26.05 Container Flow
 
-Build a project image on top of NVIDIA PhysicsNeMo `25.11`, verify compatibility of
+Build a project image on top of NVIDIA PhysicsNeMo `26.05`, verify compatibility of
 image-provided heavy packages, and run a smoke test:
 
 ```bash
-scripts/container/build_physicsnemo_25_11.sh
+scripts/container/build_physicsnemo_26_05.sh
 ```
 
 Run CUDA tests in the built image:
@@ -41,7 +41,7 @@ GitHub Actions workflow:
 ```
 
 That scrub runs on the local ARM GPU host, pulls
-`ghcr.io/<owner>/ocean-emulator-physicsnemo:25.11-arm64-latest` from `main`, and
+`ghcr.io/<owner>/ocean-emulator-physicsnemo:26.05-arm64-latest` from `main`, and
 runs the CUDA-marked tests inside the published ARM64 container with:
 
 ```bash
@@ -54,24 +54,24 @@ non-interactive `sudo docker`.
 Published image tags:
 
 ```text
-25.11-<sha>                  # existing x86_64 compatibility tag
-25.11-x86_64-<sha>
-25.11-arm64-<sha>
-25.11-latest                 # existing x86_64 compatibility tag from main
-25.11-x86_64-latest
-25.11-arm64-latest
-25.11-manual-<ref>           # existing x86_64 compatibility tag from workflow_dispatch
-25.11-x86_64-manual-<ref>
-25.11-arm64-manual-<ref>
+26.05-<sha>                  # existing x86_64 compatibility tag
+26.05-x86_64-<sha>
+26.05-arm64-<sha>
+26.05-latest                 # existing x86_64 compatibility tag from main
+26.05-x86_64-latest
+26.05-arm64-latest
+26.05-manual-<ref>           # existing x86_64 compatibility tag from workflow_dispatch
+26.05-x86_64-manual-<ref>
+26.05-arm64-manual-<ref>
 ```
 
 Useful environment variables:
 
 ```bash
-IMAGE_TAG=ocean-emulator:physicsnemo-25.11
-DOCKERFILE=containers/Dockerfile.physicsnemo-25.11
+IMAGE_TAG=ocean-emulator:physicsnemo-26.05
+DOCKERFILE=containers/Dockerfile.physicsnemo-26.05
 BUILD_APPTAINER=1
-SIF_PATH=dist/ocean-emulator_physicsnemo-25.11.sif
+SIF_PATH=dist/ocean-emulator_physicsnemo-26.05.sif
 PYTEST_MARK_EXPR="cuda and not manual"
 PYTEST_ARGS="-k test_trainer"
 ```

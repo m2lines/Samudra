@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+SPDX-FileCopyrightText: 2026 Samudra Authors
 
 SPDX-License-Identifier: CC-BY-4.0
 -->
@@ -209,7 +209,7 @@ ds.attrs["m2lines/cli_args"]                  # Exact arguments used to process 
 ds.attrs["m2lines/ocean_emulators_git_hash"]  # The version of code of the pre-processing codebase, now rebased into data/
 ```
 
-All of our data engineering (for the v2025-11 datasets) was tracked in this GitHub issue: [#450](https://github.com/Open-Athena/Ocean_Emulator/issues/450).
+All of our data engineering (for the v2025-11 datasets) was tracked in this GitHub issue: [#450](https://github.com/m2lines/Samudra/issues/450).
 Below are updated versions of these data engineering scripts that make use of the publically available data.
 
 For each script, we use coiled to manage our dask clusters. To get set up with a coiled cluster, please do the following:

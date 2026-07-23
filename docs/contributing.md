@@ -1,16 +1,16 @@
 <!--
-SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+SPDX-FileCopyrightText: 2026 Samudra Authors
 
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
 # Contributing Guide
 
-Everyone can contribute to Ocean Emulator, and we value everyone's contributions. There are several ways to help,
+Everyone can contribute to Samudra, and we value everyone's contributions. There are several ways to help,
 including:
 
-* Reporting bugs or feature requests in our [issue tracker](https://github.com/Open-Athena/Ocean_Emulator/issues).
-* Contributing PRs to our [code base](https://github.com/Open-Athena/Ocean_Emulator).
+* Reporting bugs or feature requests in our [issue tracker](https://github.com/m2lines/Samudra/issues).
+* Contributing PRs to our [code base](https://github.com/m2lines/Samudra).
 * Writing or editing documentation. (Yes, typo fixes are welcome!)
 
 This project follows the [M2LInES _Code of Conduct_](https://m2lines.github.io/pages/code-of-conduct/).
@@ -21,8 +21,8 @@ This project follows the [M2LInES _Code of Conduct_](https://m2lines.github.io/p
 <summary><strong>TL;DR</strong></summary>
 
 ```shell
-git clone git@github.com:Open-Athena/Ocean_Emulator.git
-cd Ocean_Emulator
+git clone git@github.com:m2lines/Samudra.git
+cd Samudra
 uv sync --dev
 source .venv/bin/activate
 uvx pre-commit install
@@ -44,19 +44,19 @@ git push --force-with-lease
 </details>
 
 1. (If you're not a core maintainer), please fork the repository by clicking the **Fork**
-   button on [the repository page](https://github.com/Open-Athena/Ocean_Emulator).
+   button on [the repository page](https://github.com/m2lines/Samudra).
 
 2. Clone the repository (via [`ssh` recommended](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/adding-a-new-ssh-key-to-your-github-account)!) and change into the root directory.
    ```shell
    # if you're using a fork, make sure to clone your fork's repo
-   git clone https://github.com/Open-Athena/Ocean_Emulator.git
+   git clone https://github.com/m2lines/Samudra.git
    # preferred method, but requires setting up an ssh key with Github.
-   git clone git@github.com:Open-Athena/Ocean_Emulator.git
+   git clone git@github.com:m2lines/Samudra.git
    # or, using the Github CLI
-   gh repo clone Open-Athena/Ocean_Emulator
+   gh repo clone m2lines/Samudra
 
    # then, change directory
-   cd Ocean_Emulator
+   cd Samudra
    ```
 
 3. Install developer dependencies using [`uv`](https://docs.astral.sh/uv/getting-started/):
@@ -71,9 +71,9 @@ git push --force-with-lease
 4. (If forked) Add the original repository as an upstream remote, so you can sync your changes.
    ```shell
    # via http
-   git remote add upstream https://github.com/Open-Athena/Ocean_Emulator.git
+   git remote add upstream https://github.com/m2lines/Samudra.git
    # via ssh
-   git remote add upstream git@github.com:Open-Athena/Ocean_Emulator.git
+   git remote add upstream git@github.com:m2lines/Samudra.git
    ```
 
 5. Check out feature branches where you will develop from:
@@ -91,10 +91,10 @@ git push --force-with-lease
 
    To validate the PhysicsNeMo-based container locally:
    ```shell
-   scripts/container/build_physicsnemo_25_11.sh
+   scripts/container/build_physicsnemo_26_05.sh
    scripts/container/run_cuda_tests_in_image.sh
    ```
-   The corresponding CI workflow is `Container PhysicsNeMo 25.11` in
+   The corresponding CI workflow is `Container PhysicsNeMo 26.05` in
    `.github/workflows/container-physicsnemo.yml` (x86 build + smoke checks, publish, and containerized CPU/GPU tests).
 
    **Recommended**: For convenience, we've collected lint checks as a [pre-commit](https://pre-commit.com/)
@@ -170,12 +170,12 @@ git push --force-with-lease
    git rebase -i <starting-commit>
    ```
 
-10. Celebrate submitting your patch to Ocean Emulator — well done!
+10. Celebrate submitting your patch to Samudra — well done!
 
-## Running Ocean Emulator
+## Running Samudra
 
-Please review the [How to Run](run.md) guide to learn how to train, evaluate, and visualize our emulators. To learn
-how to customize experiments and hyperparameters, please read our [configuration](config.md) guide.
+Please review the [How to Run](https://m2lines.github.io/Samudra/docs/run/) guide to learn how to train, evaluate, and visualize our emulators. To learn
+how to customize experiments and hyperparameters, please read our [configuration](https://m2lines.github.io/Samudra/docs/config/) guide.
 
 ## VS Code Integration
 
@@ -190,7 +190,7 @@ you'll want to configure it to use pyproject.toml, which you can do with a `.vsc
 }
 ```
 
-## Testing Ocean Emulator
+## Testing Samudra
 
 <details>
 <summary><strong>TL;DR</strong></summary>
@@ -243,10 +243,10 @@ pytest -m "not manual and not cuda"
 
 ### Running tests in the PhysicsNeMo container
 
-If you want to run tests using the PhysicsNeMo 25.11-based image, build it first:
+If you want to run tests using the PhysicsNeMo 26.05-based image, build it first:
 
 ```bash
-BUILD_APPTAINER=0 scripts/container/build_physicsnemo_25_11.sh
+BUILD_APPTAINER=0 scripts/container/build_physicsnemo_26_05.sh
 ```
 
 Run the CPU test set (same marker expression as CPU CI) inside the built image:
@@ -255,7 +255,7 @@ Run the CPU test set (same marker expression as CPU CI) inside the built image:
 docker run --rm \
   -v "$PWD":/repo \
   -w /workspace \
-  ocean-emulator:physicsnemo-25.11 \
+  ocean-emulator:physicsnemo-26.05 \
   bash -lc '. .venv/bin/activate && cd /repo && python -m pytest -m "not manual and not cuda"'
 ```
 
@@ -358,13 +358,13 @@ We also have a few other profiling tools available in the environment, including
 
 [py-spy](https://github.com/benfred/py-spy), which captures python + native CPU usage:
 ```shell
-uv run py-spy record --native -o profile.svg -- ./.venv/bin/python  src/ocean_emulators/train.py configs/samudra_vnext/train.yaml
+uv run py-spy record --native -o profile.svg -- ./.venv/bin/python  src/samudra/train.py configs/samudra_vnext/train.yaml
 ```
 
 [memray](https://github.com/bloomberg/memray), which captures peak memory usage:
 
 ```shell
-uv run memray run src/ocean_emulators/train.py --config configs/samudra_vnext/train.yaml
+uv run memray run src/samudra/train.py --config configs/samudra_vnext/train.yaml
 uv run memray flamegraph path/to/memray-output.bin
 ```
 
@@ -372,7 +372,7 @@ And [scalene](https://github.com/joaomdmoura/scalene), which shows per-line pyth
 memory usage and GPU (though the latter is a bit deceptive since it is async wrt the highlighted code).
 
 ```shell
-uv run scalene src/ocean_emulators/train.py configs/samudra_vnext/train.yaml
+uv run scalene src/samudra/train.py configs/samudra_vnext/train.yaml
 ```
 
 ### Profiling CUDA Memory
@@ -381,7 +381,7 @@ You can turn on profiling of CUDA memory by setting the `profiler.cuda_snapshot_
 in the config. eg:
 
 ```shell
-uv run memray run src/ocean_emulators/train.py --config configs/samudra_vnext/train.yaml --profiler.cuda_snapshot_frequency 10
+uv run memray run src/samudra/train.py --config configs/samudra_vnext/train.yaml --profiler.cuda_snapshot_frequency 10
 ```
 
 This will take a snapshot of the CUDA memory every 10 batches in the output directory. These can be visualized with
@@ -389,4 +389,4 @@ https://docs.pytorch.org/memory_viz -- see https://pytorch.org/blog/understandin
 
 ## Data Engineering
 
-To learn about how to access or recreate our datasets, please review our [data guide](data.md).
+To learn about how to access or recreate our datasets, please review our [data guide](https://m2lines.github.io/Samudra/docs/data/).

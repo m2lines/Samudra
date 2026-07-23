@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/SamudraMiniConfig.json
+
+pred_residuals: false
+last_kernel_size: 3
+pad: "circular"
+checkpointing: "all"
+perceiver_implementation: "auto"
+embedding_dim: 128
+queries_dim: 128
+coordinate_embedding_dim: 64
+query_chunk_size: 8192
+
+perceiver:
+  depth: 4
+  latent_dim: 96
+  num_latents: 256

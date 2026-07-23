@@ -1,0 +1,73 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/TrainConfig.json
+
+# A config file to test SamudraMini training shape/plumbing.
+debug: false
+disk_mode: true
+pin_mem: true
+save_freq: 5
+epochs: 2
+batch_size: 1
+preemptible: false
+learning_rate: 0.0001
+scheduler: null
+loss: mse
+finetune: false
+resume_ckpt_path: null
+inference_epochs: [-1]
+train_time:
+  start: "1975-08-15"
+  end: "1975-10-25"
+val_time:
+  start: "1975-10-25"
+  end: "1975-11-25"
+inference_times:
+  - start: "1975-11-25"
+    end: "1975-12-25"
+data_stride: [1]
+steps: [1]
+step_transition: []
+backend: auto
+
+experiment:
+  name: test_samudra_mini
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: ocean-emulators
+    entity: m2lines
+    group: samudra-train-om4
+  data_root: .data_cache/
+data:
+  dataset:
+    type: om4
+    prognostic_vars_key: thermo_dynamic_5
+    boundary_vars_key: tau_hfds
+  sources:
+    - data_location: data.zarr
+      data_means_location: means.nc
+      data_stds_location: stds.nc
+  loading:
+    type: cpu
+    num_workers: 4
+  hist: 0
+
+model:
+  pred_residuals: false
+  last_kernel_size: 3
+  pad: "circular"
+  # This is used in a CUDA smoke test, so we want to exercise the FlashAttention backend.
+  perceiver_implementation: "flash"
+  embedding_dim: 8
+  queries_dim: 8
+  coordinate_embedding_dim: 8
+  query_chunk_size: null
+
+  perceiver:
+    depth: 1
+    latent_dim: 8
+    num_latents: 8

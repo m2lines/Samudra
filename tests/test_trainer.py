@@ -12,7 +12,7 @@ import pytest
 import torch
 from torch import nn
 
-from samudra.config import CpuDataLoadingConfig, DynamicLossConfig
+from samudra.config import CpuDataLoadingConfig, DynamicLossConfig, TrainConfig
 from samudra.datasets import TrainDataLoader
 from samudra.models.base import BaseModel
 from samudra.train import (
@@ -98,6 +98,58 @@ def test_preemptible_finetune_becomes_exact_resume_when_checkpoint_exists(
     assert resumed
     assert not cfg.finetune
     assert cfg.resume_ckpt_path == str(latest_checkpoint)
+
+
+def test_validation_only_requires_checkpoint_before_initialization():
+    config_path = (
+        Path(__file__).resolve().parents[1]
+        / "configs"
+        / "samudra_multi_om4"
+        / "validate_cross_1_halfdeg_iterable_inverse_masked_mse.yaml"
+    )
+    config = TrainConfig.from_yaml_and_cli([str(config_path)])
+
+    with pytest.raises(ValueError, match="explicit model checkpoint"):
+        Trainer(config)
+
+
+def test_validation_only_run_performs_one_validation_pass(monkeypatch):
+    class LoaderSpy:
+        epoch = None
+
+        def set_epoch(self, epoch):
+            self.epoch = epoch
+
+    class WandbSpy:
+        logged = None
+
+        def log(self, metrics, step):
+            self.logged = (metrics, step)
+
+    trainer = cast(Any, Trainer.__new__(Trainer))
+    trainer.num_batches_seen = 17
+    trainer.num_optimizer_updates = 23
+    trainer.num_samples_seen = 29
+    trainer.val_loader = LoaderSpy()
+    trainer.wandb_logger = WandbSpy()
+    trainer.get_current_step = lambda epoch: 4
+    initialized_steps = []
+    trainer.init_data_loaders = lambda step: initialized_steps.append(step)
+    trainer.validate_one_epoch = lambda epoch: {"val/mean/loss": 0.125}
+    finished = []
+    trainer.finish = lambda: finished.append(True)
+    monkeypatch.setattr("samudra.train.is_main_process", lambda: True)
+
+    trainer._run_validation_only()
+
+    assert initialized_steps == [4]
+    assert trainer.val_loader.epoch == 1
+    assert trainer.wandb_logger.logged is not None
+    metrics, step = trainer.wandb_logger.logged
+    assert metrics["val/mean/loss"] == 0.125
+    assert metrics["validation_only"] == 1.0
+    assert step == 17
+    assert finished == [True]
 
 
 @pytest.mark.parametrize("prefixes", [["missing."], ["encoder.", "encoder."], [""]])

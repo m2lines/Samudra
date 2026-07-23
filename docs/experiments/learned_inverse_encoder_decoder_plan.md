@@ -1281,6 +1281,24 @@ architecture to the full one/half-degree budget. The checked-in config
 training interval, 17 epochs, effective global batch 30 on six GPUs, and an
 expected 6,392 optimizer updates, within 3% of the one-degree reference budget.
 
+The full run is Torch job `14666431`, W&B run `2ruaaimh`, launched from immutable
+code layer `122ef519` on six RTX6000s. Bring-up verifies the frozen inverse,
+separate boundary encoder, effective global batch 30, and 376 optimizer updates
+per epoch. Epoch one already beats route-aggregated lead-matched persistence by
+`{44.9%, 49.6%, 53.7%}` at leads `{1,2,4}` while holding zero-depth
+reconstruction at `0.00117656`.
+
+The immutable launch config logs expensive spatial diagnostics at epochs 1 and
+18, but the run ends at epoch 17. Restarting a healthy full-budget run solely to
+change that cadence would discard useful compute. The branch therefore adds a
+general `validation_only` training mode and
+`validate_cross_1_halfdeg_iterable_inverse_masked_mse.yaml`. It loads an explicit
+checkpoint into a separate W&B run, executes one full validation pass with route
+and spatial diagnostics, performs no optimizer step, and writes no checkpoint.
+The checked-in training config now uses a 16-epoch interval so future 17-epoch
+runs naturally audit epochs 1 and 17; job `14666431` will receive the separate
+best/terminal checkpoint audit after completion.
+
 ## Selection logic
 
 The plan is intentionally falsifiable and open to revision. New measurements,

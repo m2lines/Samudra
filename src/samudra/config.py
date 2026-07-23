@@ -1568,6 +1568,15 @@ class TrainConfig(TopLevelConfig):
         ),
     )
     resume_ckpt_path: str | None = None
+    validation_only: bool = Field(
+        default=False,
+        description=(
+            "Load an explicit checkpoint and run exactly one validation pass "
+            "without training or writing checkpoints. Requires finetune=true, "
+            "resume_ckpt_path, and epochs=1 so the audit starts a separate W&B run "
+            "and cannot accidentally resume or mutate the training run."
+        ),
+    )
     debug: bool = False
     test_using_ema: bool = True
     ema_decay: float = 0.999
@@ -1670,6 +1679,19 @@ class TrainConfig(TopLevelConfig):
             raise ValueError(
                 "The batch_shuffle boundary ablation requires batch_size >= 2."
             )
+        return self
+
+    @pydantic.model_validator(mode="after")
+    def validate_validation_only(self) -> Self:
+        if not self.validation_only:
+            return self
+        if not self.finetune:
+            raise ValueError(
+                "validation_only requires finetune=true so the checkpoint audit "
+                "starts a separate run."
+            )
+        if self.epochs != 1:
+            raise ValueError("validation_only requires epochs=1.")
         return self
 
     def prepare_output_dirs(self) -> None:

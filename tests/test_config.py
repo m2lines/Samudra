@@ -54,6 +54,32 @@ def test_data_config_rejects_legacy_num_workers_field():
         )
 
 
+def test_validation_only_requires_explicit_separate_checkpoint_audit():
+    config_path = (
+        Path(__file__).resolve().parents[1]
+        / "configs"
+        / "samudra_multi_om4"
+        / "train_cross_1_halfdeg_iterable_inverse_masked_mse_updates.yaml"
+    )
+    config = TrainConfig.from_yaml_and_cli([str(config_path)])
+    values = config.model_dump()
+    values["validation_only"] = True
+    values["epochs"] = 1
+    values["finetune"] = False
+
+    with pytest.raises(ValidationError, match="separate run"):
+        TrainConfig.model_validate(values)
+
+    values["finetune"] = True
+    validated = TrainConfig.model_validate(values)
+    assert validated.validation_only
+
+    values["resume_ckpt_path"] = "checkpoint.pt"
+    values["epochs"] = 2
+    with pytest.raises(ValidationError, match="epochs=1"):
+        TrainConfig.model_validate(values)
+
+
 def test_data_config_defaults_to_cpu_loading():
     cfg = DataConfig(
         sources=[

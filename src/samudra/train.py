@@ -207,6 +207,11 @@ class Trainer:
     model: BaseModel | nn.parallel.DistributedDataParallel
 
     def __init__(self, cfg: TrainConfig) -> None:
+        if cfg.validation_only and cfg.resume_ckpt_path is None:
+            raise ValueError(
+                "validation_only requires resume_ckpt_path so the audit evaluates "
+                "an explicit model checkpoint."
+            )
         if not cfg.finetune:
             cfg.finetune_allowed_missing_prefixes = []
         cfg.prepare_output_dirs()
@@ -482,6 +487,7 @@ class Trainer:
         self.train_processor_depths = cfg.train_processor_depths
         self.validation_processor_depths = cfg.validation_processor_depths
         self.validation_boundary_ablations = cfg.validation_boundary_ablations
+        self.validation_only = cfg.validation_only
         if self.train_processor_depths is not None:
             unwrapped_model = getattr(self.model, "module", self.model)
             if not isinstance(unwrapped_model, SamudraMulti):
@@ -614,6 +620,10 @@ class Trainer:
                 close_pytorch_dataloader(self.inference_loader)
 
     def _run(self) -> None:
+        if self.validation_only:
+            self._run_validation_only()
+            return
+
         logger.info(f"Starting training")
 
         self.best_val_loss = 1e8
@@ -684,6 +694,34 @@ class Trainer:
         total_time = time.perf_counter() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         logger.info(f"Training time {total_time_str}")
+        self.finish()
+
+    def _run_validation_only(self) -> None:
+        """Evaluate one explicit checkpoint without training or checkpoint writes."""
+        epoch = 1
+        logger.info("Starting checkpoint validation-only audit")
+        self.init_data_loaders(self.get_current_step(epoch))
+        self.val_loader.set_epoch(epoch)
+
+        start_time = time.perf_counter()
+        val_stats = self.validate_one_epoch(epoch)
+        elapsed = time.perf_counter() - start_time
+        log_stats = {
+            **val_stats,
+            "epoch": epoch,
+            "validation_only": 1.0,
+            "epoch_validation_seconds": elapsed,
+            "progress/microbatches": self.num_batches_seen,
+            "progress/optimizer_updates": self.num_optimizer_updates,
+            "progress/samples": self.num_samples_seen,
+        }
+        if is_main_process():
+            self.wandb_logger.log(log_stats, step=self.num_batches_seen)
+
+        logger.info(
+            "Checkpoint validation-only audit completed in %s",
+            str(datetime.timedelta(seconds=int(elapsed))),
+        )
         self.finish()
 
     def train_one_epoch(self, epoch):

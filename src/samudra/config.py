@@ -1528,6 +1528,16 @@ class TrainConfig(TopLevelConfig):
             "forecast targets, and lead one for ordinary checkpoint selection."
         ),
     )
+    validation_boundary_ablations: list[
+        Literal["zero", "batch_shuffle", "time_reverse"]
+    ] = Field(
+        default_factory=list,
+        description=(
+            "Boundary-forcing controls evaluated at each configured physical "
+            "validation lead. These diagnose whether latent transitions use the "
+            "aligned boundary state."
+        ),
+    )
     scheduler: SchedulerConfig | None = None
     loss: Loss = "mse"
     finetune: bool = False
@@ -1620,6 +1630,27 @@ class TrainConfig(TopLevelConfig):
             raise ValueError(
                 "validation_processor_depths must contain lead one for checkpoint "
                 "selection."
+            )
+        return self
+
+    @pydantic.model_validator(mode="after")
+    def validate_validation_boundary_ablations(self) -> Self:
+        if not self.validation_boundary_ablations:
+            return self
+        if self.validation_processor_depths is None:
+            raise ValueError(
+                "validation_boundary_ablations requires validation_processor_depths."
+            )
+        if len(set(self.validation_boundary_ablations)) != len(
+            self.validation_boundary_ablations
+        ):
+            raise ValueError("validation_boundary_ablations must be unique.")
+        if (
+            "batch_shuffle" in self.validation_boundary_ablations
+            and self.batch_size < 2
+        ):
+            raise ValueError(
+                "The batch_shuffle boundary ablation requires batch_size >= 2."
             )
         return self
 

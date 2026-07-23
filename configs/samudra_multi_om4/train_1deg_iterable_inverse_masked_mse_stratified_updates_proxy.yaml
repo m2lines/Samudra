@@ -18,6 +18,7 @@ gradient_accumulation_steps: 2
 # latent space; one selected lead is trained per batch.
 train_processor_depths: [1, 2, 4]
 validation_processor_depths: [1, 2, 4]
+validation_boundary_ablations: [zero, batch_shuffle, time_reverse]
 learning_rate: 0.0006
 scheduler:
   type: cosine

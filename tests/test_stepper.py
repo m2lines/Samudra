@@ -10,7 +10,7 @@ import xarray as xr
 from samudra.constants import TensorMap
 from samudra.datasets import InferenceDataset, TrainData
 from samudra.models.base import BaseModel
-from samudra.stepper import validate_batch
+from samudra.stepper import ablate_boundary_forcing, validate_batch
 from samudra.utils.ctx import GridContext
 from samudra.utils.data import CanonicalDataset, Normalize
 from samudra.utils.multiton import MultitonScope
@@ -149,6 +149,41 @@ def test_validate_batch_uses_absolute_predictions_for_residual_models():
     assert torch.equal(output.gen_data, label)
     assert torch.equal(output.loss_per_channel, torch.zeros(1))
     assert output.loss.item() == 0.0
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [
+        ("zero", [[0.0, 0.0], [0.0, 0.0]]),
+        ("batch_shuffle", [[2.0, 1.0], [4.0, 3.0]]),
+        ("time_reverse", [[3.0, 4.0], [1.0, 2.0]]),
+    ],
+)
+def test_ablate_boundary_forcing_breaks_only_boundary_alignment(mode, expected):
+    wet = torch.ones((1, 1, 1, 1), dtype=torch.bool)
+    grid = torch.zeros(1)
+    ctx = GridContext(wet, (grid, grid), (grid, grid))
+    batch = TrainData(num_prognostic_channels=1, num_boundary_channels=1, ctx=ctx)
+    prognostics = []
+    labels = []
+    for boundary_values in ([1.0, 2.0], [3.0, 4.0]):
+        prognostic = torch.randn(2, 1, 1, 1)
+        label = torch.randn(2, 1, 1, 1)
+        prognostics.append(prognostic)
+        labels.append(label)
+        batch.append(
+            prognostic,
+            torch.tensor(boundary_values).reshape(2, 1, 1, 1),
+            label,
+        )
+
+    ablated = ablate_boundary_forcing(batch, mode)
+
+    for step in range(2):
+        prognostic, boundary, label = ablated[step]
+        assert prognostic is prognostics[step]
+        assert label is labels[step]
+        torch.testing.assert_close(boundary.flatten(), torch.tensor(expected[step]))
 
 
 # These tests will fail with OHC PR

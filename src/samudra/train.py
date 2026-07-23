@@ -57,6 +57,7 @@ from samudra.models.samudra_multi import SamudraMulti
 from samudra.stepper import (
     TrainBatchOutput,
     ValBatchOutput,
+    ablate_boundary_forcing,
     run_rollout,
     train_batch,
     validate_batch,
@@ -407,6 +408,7 @@ class Trainer:
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
         self.train_processor_depths = cfg.train_processor_depths
         self.validation_processor_depths = cfg.validation_processor_depths
+        self.validation_boundary_ablations = cfg.validation_boundary_ablations
         if self.train_processor_depths is not None:
             unwrapped_model = getattr(self.model, "module", self.model)
             if not isinstance(unwrapped_model, SamudraMulti):
@@ -898,6 +900,13 @@ class Trainer:
             depth: TrainAggregator(self.tensor_map)
             for depth in self.validation_processor_depths or []
         }
+        boundary_ablation_aggregators = {
+            mode: {
+                depth: TrainAggregator(self.tensor_map)
+                for depth in self.validation_processor_depths or []
+            }
+            for mode in self.validation_boundary_ablations
+        }
 
         with torch.no_grad(), self._test_context():
             for data_iter_step, data in enumerate(
@@ -939,6 +948,20 @@ class Trainer:
                         lead_one_prediction,
                         data.ctx,
                     )
+                    for mode, aggregators in boundary_ablation_aggregators.items():
+                        ablated_data = ablate_boundary_forcing(data, mode)
+                        ablated_forecasts = unwrapped_model.latent_forecast(
+                            ablated_data, self.validation_processor_depths
+                        )
+                        for depth, prediction in ablated_forecasts.items():
+                            loss_per_channel = self.loss_fn(
+                                prediction, data.get_label(depth - 1), data.ctx
+                            )
+                            aggregators[depth].record_batch(
+                                TrainBatchOutput(
+                                    torch.mean(loss_per_channel), loss_per_channel
+                                )
+                            )
                 val_aggregator.record_validation_batch(VO)
                 metric_logger.update(loss=VO.loss)
 
@@ -946,6 +969,13 @@ class Trainer:
         logs = dict(val_aggregator.get_logs(label="val"))
         for depth, lead_aggregator in lead_aggregators.items():
             logs.update(lead_aggregator.get_logs(label=f"val/physical_lead_{depth}"))
+        for mode, aggregators in boundary_ablation_aggregators.items():
+            for depth, lead_aggregator in aggregators.items():
+                logs.update(
+                    lead_aggregator.get_logs(
+                        label=f"val/boundary_{mode}/physical_lead_{depth}"
+                    )
+                )
         return logs
 
     def inference_one_epoch(self, epoch):

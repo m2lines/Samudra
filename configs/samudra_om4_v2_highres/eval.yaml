@@ -2,15 +2,10 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# yaml-language-server: $schema=../schemas/EvalConfig.json
+# yaml-language-server: $schema=../schemas/StandaloneEvalConfig.json
 
 debug: false
 save_zarr: true
-disk_mode: true
-inference_time:
-  start: "2014-10-10"
-  end: "2022-12-24"
-num_model_steps_forward: 25
 
 experiment:
   name: samudra_om4_v2_highres_eval
@@ -19,5 +14,10 @@ experiment:
   wandb:
     mode: disabled
     project: default
-data: !include ../data/om4.yaml
-model: !include model.yaml
+eval:
+  inference_time:
+    start: "2014-10-10"
+    end: "2022-12-24"
+  num_model_steps_forward: 25
+  data: !include ../data/om4.yaml
+  model: !include model.yaml

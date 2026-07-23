@@ -136,6 +136,12 @@ def test_train_config_allows_cli_override_for_cpu_num_workers(tmp_path):
     assert cfg.data.loading.num_workers == 2
 
 
+def test_train_config_disables_post_train_sweep_by_omission():
+    cfg = TrainConfig.from_yaml("configs/test/train_default.yaml")
+
+    assert cfg.post_train_sweep is None
+
+
 def test_get_pydantic_models_collects_loading_variants():
     models = get_pydantic_models(TrainConfig)
 

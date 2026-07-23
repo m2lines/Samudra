@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+checkpoint_sweep:
+  eval:
+    inference_time:
+      start: "2014-10-10"
+      end: "2022-12-24"
+    num_model_steps_forward: 25
+    data: !include ../data/om4.yaml
+    model: !include ../samudra_om4/model.yaml

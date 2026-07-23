@@ -3,9 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import abc
+import logging
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, Literal, Self, assert_never
+from typing import TYPE_CHECKING, Annotated, Literal, Self, assert_never
 
 import cftime
 import pydantic
@@ -49,7 +50,7 @@ from samudra.models.modules.augment_input import (
 )
 from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from samudra.models.modules.encoder import patch_from
-from samudra.post_train_eval import CheckpointSweep
+from samudra.post_train_eval import CheckpointEvalWorker, CheckpointSweep
 from samudra.utils.data import DataContainer, DataSource, Normalize
 from samudra.utils.location import LocalLocation, Location, ResolvedLocation
 from samudra.utils.loss import (
@@ -62,6 +63,11 @@ from samudra.utils.loss import (
 from samudra.utils.profiler import Profiler
 from samudra.utils.schedule import SchedulerConfig
 from samudra.utils.train import CheckpointPaths
+
+if TYPE_CHECKING:
+    from samudra.eval import Eval, StandaloneEval
+
+logger = logging.getLogger(__name__)
 
 
 class WandBConfig(BaseConfig):
@@ -1149,9 +1155,7 @@ class TrainConfig(TopLevelConfig):
         start=JulianDate("0306-01-01"), end=JulianDate("0311-01-01")
     )
     inference_times: list[TimeConfig] = []
-    post_train_eval: "PostTrainCheckpointSweepConfig" = Field(
-        default_factory=lambda: PostTrainCheckpointSweepConfig()
-    )
+    post_train_sweep: "CheckpointSweepConfig | None" = None
 
     # Config components
     experiment: ExperimentConfig
@@ -1167,9 +1171,148 @@ class TrainConfig(TopLevelConfig):
 EvalBackendConfig = Literal["cpu", "cuda", "auto"]
 
 
-class PostTrainCheckpointSweepConfig(BaseConfig):
-    enabled: bool = False
-    eval_config_path: str | None = None
+class EvalConfig(BaseConfig):
+    """Reusable configuration for building an Eval."""
+
+    data_root: Location | None = None
+    num_model_steps_forward: int = 200
+    inference_time: TimeConfig = TimeConfig(
+        start=JulianDate("0311-01-01"), end=JulianDate("0351-01-01")
+    )
+    data: DataConfig
+    model: AnyModelConfig
+
+    @cached_property
+    def resolved_data_root(self) -> ResolvedLocation:
+        if self.data_root is None:
+            raise ValueError("data_root must be set, try --eval.data_root=path/to/data")
+        return LocalLocation(path=Path.cwd()).resolve(self.data_root)
+
+    def build(self) -> "Eval":
+        from samudra.datasets import InferenceDataset
+        from samudra.eval import Eval, InferenceAggregatorFactory
+        from samudra.utils.data import get_inference_steps
+
+        data_container = self.data.build(self.resolved_data_root)
+        dataset_spec = data_container.dataset_spec
+        prognostic_var_names = dataset_spec.prognostic_var_names
+        boundary_var_names = dataset_spec.boundary_var_names
+        num_prog_in = (self.data.hist + 1) * len(prognostic_var_names)
+        num_boundary_in = (self.data.hist + 1) * len(boundary_var_names)
+        tensor_map = TensorMap(dataset_spec=dataset_spec)
+        src = data_container.inference_source
+        normalize = Normalize(
+            src,
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
+        )
+        model = self.model.build(
+            prog_channels=num_prog_in,
+            boundary_channels=num_boundary_in,
+            out_channels=num_prog_in,
+            hist=self.data.hist,
+            static_data_for_corrector=data_container.static_data,
+            srcs=data_container.sources,
+            tensor_map=tensor_map,
+            normalize=normalize,
+            dataset_spec=dataset_spec,
+        )
+        sliced_src = src.slice(self.inference_time)
+        inference_dataset = InferenceDataset(
+            src=sliced_src,
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
+            hist=self.data.hist,
+            normalize_before_mask=self.data.normalize_before_mask,
+            masked_fill_value=self.data.masked_fill_value,
+            long_rollout=True,
+        )
+        inference_aggregator_factory = InferenceAggregatorFactory(
+            src=sliced_src,
+            num_time_steps=get_inference_steps(sliced_src, hist=self.data.hist),
+            hist=self.data.hist,
+            num_out=num_prog_in,
+            tensor_map=tensor_map,
+            normalize=normalize,
+            prognostic_var_names=prognostic_var_names,
+        )
+        return Eval(
+            model=model,
+            inference_dataset=inference_dataset,
+            inference_aggregator_factory=inference_aggregator_factory,
+            num_model_steps_forward=self.num_model_steps_forward,
+            tensor_map=tensor_map,
+            normalize=normalize,
+            data_container=data_container,
+        )
+
+
+class StandaloneEvalConfig(TopLevelConfig):
+    """Configuration for running one checkpoint through an Eval."""
+
+    debug: bool = False
+    save_zarr: bool = False
+    ckpt_path: str | None = None
+    backend: EvalBackendConfig = "auto"
+    experiment: ExperimentConfig
+    eval: EvalConfig
+
+    def prepare_output_dirs(self) -> None:
+        self.experiment.output_dir.mkdir(parents=True, exist_ok=True)
+
+    def build(self) -> "StandaloneEval":
+        from samudra.backend import init_eval_backend
+        from samudra.eval import StandaloneEval, load_model_checkpoint
+        from samudra.utils.distributed import is_main_process, set_seed
+        from samudra.utils.logging import get_model_summary
+        from samudra.utils.wandb import WandBLogger
+
+        if self.ckpt_path is None:
+            raise ValueError(
+                "ckpt_path must be set; try --ckpt_path=path/to/checkpoint"
+            )
+        checkpoint_path = Path(self.ckpt_path)
+        output_dir = self.experiment.output_dir
+        output_dir.mkdir(parents=True, exist_ok=True)
+        device = init_eval_backend(self.backend)
+        set_seed(self.experiment.rand_seed)
+
+        evaluator = self.eval.build().to(device)
+        load_model_checkpoint(evaluator.model, checkpoint_path, device)
+        get_model_summary(evaluator.model, None, self.debug)
+
+        wandb_logger = WandBLogger.init_instance()
+        wandb_logger.configure(
+            self.experiment.wandb.mode == "online", is_main_process()
+        )
+        wandb_logger.setup_run(
+            None,
+            self,
+            data_container=evaluator.data_container,
+            finetune=False,
+        )
+        return StandaloneEval(
+            evaluator=evaluator,
+            output_dir=output_dir,
+            model_path=checkpoint_path,
+            save_zarr=self.save_zarr,
+            wandb_logger=wandb_logger,
+        )
+
+
+def _validate_checkpoint_selection(
+    last_n_checkpoints: int | None,
+    checkpoints: list[int] | None,
+) -> None:
+    if last_n_checkpoints is not None and checkpoints is not None:
+        raise ValueError("set only one of last_n_checkpoints or checkpoints, not both")
+    if checkpoints is not None and len(checkpoints) == 0:
+        raise ValueError("checkpoints must be a non-empty list when provided")
+
+
+class CheckpointSweepConfig(BaseConfig):
+    eval: EvalConfig
+    backend: EvalBackendConfig = "auto"
     viz_config_path: str | None = None
     last_n_checkpoints: int | None = Field(default=None, ge=1)
     checkpoints: list[int] | None = Field(
@@ -1178,42 +1321,32 @@ class PostTrainCheckpointSweepConfig(BaseConfig):
         "to evaluate; the final EMA checkpoint is always added. Mutually "
         "exclusive with last_n_checkpoints.",
     )
-    eval_dirname: str | None = None
+    eval_dirname: str = "eval"
     # Subdirectory for visualization outputs within each checkpoint evaluation directory.
     viz_dirname: str = "viz"
 
     @pydantic.model_validator(mode="after")
-    def _check_checkpoint_selection(self) -> "PostTrainCheckpointSweepConfig":
-        if self.enabled and self.eval_config_path is None:
-            raise ValueError("eval_config_path must be set when enabled is true")
-        if self.last_n_checkpoints is not None and self.checkpoints is not None:
-            raise ValueError(
-                "set only one of last_n_checkpoints or checkpoints, not both"
-            )
-        if self.checkpoints is not None and len(self.checkpoints) == 0:
-            raise ValueError("checkpoints must be a non-empty list when provided")
+    def _check_checkpoint_selection(self) -> "CheckpointSweepConfig":
+        _validate_checkpoint_selection(self.last_n_checkpoints, self.checkpoints)
         return self
 
     def build(
         self,
         nets_dir: Path,
         output_dir: Path,
-        data_root: Location | None,
-    ) -> "CheckpointSweep | None":
-        """Build the runtime sweep, or return None when it is disabled."""
-        if not self.enabled:
-            return None
-
-        assert self.eval_config_path is not None  # enforced by the validator
+    ) -> "CheckpointSweep":
+        """Build the runtime sweep."""
+        sweep_root = output_dir / self.eval_dirname
+        eval_worker = CheckpointEvalWorker(
+            evaluator=self.eval.build(),
+            backend=self.backend,
+            sweep_root=sweep_root,
+        )
         return CheckpointSweep(
-            eval_config_path=Path(self.eval_config_path),
+            eval_worker=eval_worker,
             checkpoint_paths=CheckpointPaths(nets_dir),
-            data_root=data_root,
-            sweep_root=(
-                output_dir / self.eval_dirname
-                if self.eval_dirname is not None
-                else None
-            ),
+            data_root=self.eval.resolved_data_root,
+            sweep_root=sweep_root,
             viz_config_path=(
                 Path(self.viz_config_path) if self.viz_config_path is not None else None
             ),
@@ -1223,27 +1356,19 @@ class PostTrainCheckpointSweepConfig(BaseConfig):
         )
 
 
-class EvalConfig(TopLevelConfig):
-    # Basic parameters
-    debug: bool = False
-    save_zarr: bool = False
-    disk_mode: bool = True
-    # we require this to be set by the user but have optional here
-    # so we can leave it out of config files
-    ckpt_path: str | None = None
-    num_model_steps_forward: int = 200
-    backend: EvalBackendConfig = "auto"
+class StandaloneCheckpointSweepConfig(TopLevelConfig):
+    """Configuration for evaluating a directory of existing checkpoints."""
 
-    # Config components
-    inference_time: TimeConfig = TimeConfig(
-        start=JulianDate("0311-01-01"), end=JulianDate("0351-01-01")
-    )
-    experiment: ExperimentConfig
-    data: DataConfig
-    model: AnyModelConfig
+    checkpoint_dir: Path
+    checkpoint_sweep: CheckpointSweepConfig
 
-    def prepare_output_dirs(self) -> None:
-        self.experiment.output_dir.mkdir(parents=True, exist_ok=True)
+    def build(self) -> "CheckpointSweep":
+        """Build a sweep for an existing checkpoint directory."""
+        checkpoint_dir = self.checkpoint_dir.expanduser().resolve()
+        return self.checkpoint_sweep.build(
+            nets_dir=checkpoint_dir,
+            output_dir=checkpoint_dir.parent,
+        )
 
 
-AnyTopLevelConfig = TrainConfig | EvalConfig
+AnyTopLevelConfig = TrainConfig | StandaloneEvalConfig

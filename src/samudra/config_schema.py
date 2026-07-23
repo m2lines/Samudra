@@ -12,7 +12,7 @@ from typing import get_args, get_origin
 import pydantic
 import yaml
 
-from samudra.config import EvalConfig, TrainConfig
+from samudra.config import EvalConfig, StandaloneEvalConfig, TrainConfig
 from samudra.viz import VizConfig, VizTemplateConfig
 
 
@@ -165,6 +165,7 @@ def main():
     # Get all available models
     models = get_pydantic_models(TrainConfig)
     models.update(get_pydantic_models(EvalConfig))
+    models.update(get_pydantic_models(StandaloneEvalConfig))
     models.update(get_pydantic_models(VizConfig))
     models.update(get_pydantic_models(VizTemplateConfig))
 

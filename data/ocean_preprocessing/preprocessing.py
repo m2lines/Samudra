@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -388,7 +388,29 @@ def flatten_by_depth_level(ds: xr.Dataset) -> xr.Dataset:
         ds[f"mask_{i}"].attrs["long_name"] = f"ocean mask level-{i}"
         ds[f"mask_{i}"].attrs["units"] = "0 if land, 1 if ocean"
 
-    ds = ds.drop_vars(vars_3d).drop_dims("lev").reset_coords(drop=True)
+    ds = ds.drop_vars(vars_3d)
+
+    # Keep the grid-metadata coordinates needed for downstream physical analysis
+    # (areacello, ocean_fraction, cell bounds, depth axis). Previously these were
+    # discarded here via `.drop_dims("lev").reset_coords(drop=True)`, which forced
+    # eval/analysis to recompute them from external grid files. The stacked
+    # `wetmask` coord has just been flattened into the per-level `mask_i` vars, so
+    # it (and native-grid-only coords like `angle`/`ilev`) are dropped instead.
+    keep_coords = {
+        "lon",
+        "lat",
+        "lon_b",
+        "lat_b",
+        "areacello",
+        "ocean_fraction",
+        "dz",
+        "lev",
+        "x",
+        "y",
+        "time",
+    }
+    drop_coords = [co for co in ds.coords if co not in keep_coords]
+    ds = ds.drop_vars(drop_coords)
 
     return ds
 

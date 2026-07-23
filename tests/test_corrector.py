@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -9,11 +9,11 @@ import pytest
 import torch
 import xarray as xr
 
-from ocean_emulators.aggregator.metrics import area_weighted_sum
-from ocean_emulators.derived_variables import compute_global_ocean_heat_content
-from ocean_emulators.models.corrector import OceanHeatCorrector, ReLUCorrector
-from ocean_emulators.utils.data import DataSource, Masks, Normalize
-from ocean_emulators.utils.device import get_device
+from samudra.aggregator.metrics import area_weighted_sum
+from samudra.derived_variables import compute_global_ocean_heat_content
+from samudra.models.corrector import OceanHeatCorrector, ReLUCorrector
+from samudra.utils.data import DataSource, Masks, Normalize
+from samudra.utils.device import get_device
 from tests.conftest import TEST_DATASET_SPEC
 
 

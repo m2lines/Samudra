@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+SPDX-FileCopyrightText: 2026 Samudra Authors
 
 SPDX-License-Identifier: CC-BY-4.0
 -->
@@ -8,7 +8,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## Prerequisites
 
-- Python 3.12+
+- Python 3.12
 - [uv](https://docs.astral.sh/uv/) package manager
 
 ## Setup
@@ -16,8 +16,8 @@ SPDX-License-Identifier: CC-BY-4.0
 Clone the repository and install dependencies:
 
 ```bash
-git clone https://github.com/Open-Athena/Ocean_Emulator.git
-cd Ocean_Emulator
+git clone https://github.com/m2lines/Samudra.git
+cd Samudra
 uv sync --dev
 source .venv/bin/activate
 ```
@@ -27,5 +27,5 @@ source .venv/bin/activate
 Print the training CLI help to confirm everything is set up correctly:
 
 ```bash
-uv run -m ocean_emulators.train --help
+uv run -m samudra.train --help
 ```

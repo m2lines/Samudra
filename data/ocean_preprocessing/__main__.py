@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -461,6 +461,11 @@ class CLI:
         ds_input.attrs["m2lines/ocean_emulators_git_hash"] = get_git_url_hash()
         ds_input.attrs["m2lines/date_created"] = datetime.datetime.now().isoformat()
         ds_input.attrs["m2lines/cli_args"] = " ".join(sys.argv)
+        # Horizontal grid geometry: this pipeline conservatively regrids onto a
+        # regular (rectilinear) lat-lon grid, so downstream code may treat the 2-D
+        # lat/lon as separable. Curvilinear (e.g. tripolar) outputs must set this to
+        # the matching grid_type so consumers do not broadcast their geometry.
+        ds_input.attrs["grid_type"] = "gaussian"
         # Label wetmask via attrs
         if len(ds_input["wetmask"].attrs) == 0:
             ds_input["wetmask"].attrs["long_name"] = "ocean mask"
@@ -472,10 +477,14 @@ class CLI:
             ds = flatten_by_depth_level(ds_input)
         else:
             ds = ds_input
-            if "lev" in ds.dims:
-                dims_to_keep.append("lev")
-            elif "ilev" in ds.dims:
-                dims_to_keep.append("ilev")
+
+        # Retain the depth axis and cell-bound dims so grid-metadata coordinates
+        # (dz, lev, ocean_fraction, lon_b/lat_b) survive into the written dataset.
+        # `lev` is kept even when flattening, since dz/lev/ocean_fraction remain
+        # indexed by it after the prognostic vars are split out.
+        for extra in ("lev", "ilev", "x_b", "y_b"):
+            if extra in ds.dims:
+                dims_to_keep.append(extra)
 
         logger.info(f"dropping extraneous dimensions (keeping {dims_to_keep}).")
         ds = ds.drop_dims([x for x in list(ds.dims) if x not in dims_to_keep])

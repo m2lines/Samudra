@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -11,6 +11,7 @@ on:
   pull_request:
     branches:
       - "**"
+  merge_group:
 
 jobs:
   build:
@@ -25,17 +26,17 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: 🫙 Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0 # checkout tags (which is not done by default)
       - name: 🔁 Create mamba environment
-        uses: mamba-org/setup-micromamba@v1
+        uses: mamba-org/setup-micromamba@4b9113af4fba0e9e1124b252dd6497a419e7396d
         with:
           environment-name: ci
           cache-downloads: true
           micromamba-version: 'latest'
           create-args: >-
-            python=${{ matrix.python-version }} xesmf
+            python=${{ matrix.python-version }} xesmf esmf=*=nompi_*
       - name: 🌈 Install ocean_preprocessing package
         shell: bash -l {0}
         run: |
@@ -46,5 +47,5 @@ jobs:
         shell: bash -l {0}
         run: |
           cd data
-          pytest tests -v
+          pytest tests -v --durations=20 --durations-min=1.0
           # for now I am running all tests again. We could only cover the preprocessing here to save time.

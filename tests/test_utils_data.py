@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -10,8 +10,8 @@ import torch
 import xarray as xr
 from scipy.stats import pearsonr
 
-from ocean_emulators.constants import TensorMap
-from ocean_emulators.utils.data import (
+from samudra.constants import TensorMap
+from samudra.utils.data import (
     DataSource,
     Masks,
     Normalize,
@@ -19,10 +19,13 @@ from ocean_emulators.utils.data import (
     compute_anomalies,
     flatten_masks,
     get_aggregator_dicts,
+    stack_levels,
     unflatten_masks,
+    with_depth_value_vars,
+    with_lat_lon_coords,
     with_level_index_vars,
 )
-from tests.conftest import TEST_DATASET_SPEC
+from tests.conftest import TEST_DATASET_SPEC, TEST_FULL_DATASET_SPEC
 
 
 def test_mask_roundtrip(data_source):
@@ -32,6 +35,84 @@ def test_mask_roundtrip(data_source):
     flattened = flatten_masks(unflattened.copy(), dataset_spec=TEST_DATASET_SPEC)
 
     assert flattened == data, "Assume a safe roundtrip"
+
+
+@pytest.mark.parametrize("data_source", ["mock-om4"], indirect=True)
+def test_level_index_vars_roundtrip(data_source):
+    """`with_level_index_vars` and `with_depth_value_vars` are mutual inverses.
+
+    Exercised on the mock OM4 dataset (in ``<var>_<level_index>`` form) in both
+    orders, so each function is run against the other's real output.
+    """
+    spec = TEST_FULL_DATASET_SPEC
+    ds_idx = data_source.data  # OM4 data named <var>_<level_index>
+
+    ds_lev = with_depth_value_vars(ds_idx, spec)
+    # The inverse actually renamed the 3D vars to the depth-value form.
+    assert any("_lev_" in str(v) for v in ds_lev.variables)
+
+    # inverse -> forward recovers the index form ...
+    xr.testing.assert_identical(with_level_index_vars(ds_lev, spec), ds_idx)
+    # ... and forward -> inverse recovers the depth-value form.
+    xr.testing.assert_identical(
+        with_depth_value_vars(with_level_index_vars(ds_lev, spec), spec), ds_lev
+    )
+
+
+@pytest.mark.parametrize("data_source", ["mock-om4"], indirect=True)
+def test_stack_levels(data_source):
+    """`stack_levels` reassembles flattened OM4 data into depth-stacked form."""
+    spec = TEST_FULL_DATASET_SPEC
+    ds = data_source.data
+    n = len(spec.depth_levels)
+
+    stacked = stack_levels(ds, spec)
+
+    # 3D vars gain a `lev` dimension; per-level channels are gone.
+    for base in ["thetao", "so", "uo", "vo"]:
+        assert stacked[base].sizes["lev"] == n
+        assert f"{base}_0" not in stacked.variables
+    # Per-level masks collapse into a single stacked wetmask.
+    assert stacked["wetmask"].sizes["lev"] == n
+    assert "mask_0" not in stacked.variables
+    # Level-free variables are untouched.
+    assert "lev" not in stacked["zos"].dims
+
+
+def test_with_lat_lon_coords_preserves_2d_geometry():
+    """Real OM4 layout (y/x dims, 2D lat/lon) becomes 1D lat/lon dims + lat_2d/lon_2d.
+
+    The mock fixtures use lat/lon dims directly, so this is the only coverage of the
+    y/x -> lat/lon rename and the 2D-coordinate preservation that eval relies on to
+    propagate true geometry (essential for curvilinear grids, where the 2D lat/lon
+    cannot be rebuilt by broadcasting).
+    """
+    ny, nx = 3, 4
+    y = np.linspace(-60, 60, ny)
+    x = np.linspace(0, 270, nx)
+    # A curvilinear twist so lat_2d/lon_2d are NOT the outer product of the 1D axes.
+    lat2d = y[:, None] + 0.1 * x[None, :]
+    lon2d = x[None, :] + 0.1 * y[:, None]
+    ds = xr.Dataset(
+        {"thetao_0": (["y", "x"], np.ones((ny, nx)))},
+        coords={
+            "x": ("x", x),
+            "y": ("y", y),
+            "lat": (("y", "x"), lat2d),
+            "lon": (("y", "x"), lon2d),
+        },
+    )
+
+    out = with_lat_lon_coords(ds)
+
+    # x/y dims are renamed to 1D lat/lon dims ...
+    assert out["thetao_0"].dims == ("lat", "lon")
+    np.testing.assert_array_equal(out["lat"].values, y)
+    np.testing.assert_array_equal(out["lon"].values, x)
+    # ... and the real 2D geometry is kept verbatim under non-colliding names.
+    assert out["lat_2d"].dims == ("lat", "lon")
+    np.testing.assert_array_equal(out["lat_2d"].values, lat2d)
+    np.testing.assert_array_equal(out["lon_2d"].values, lon2d)
 
 
 def test_rename_vars():
@@ -193,6 +274,36 @@ def test_unnormalize_prognostic_tensor(normalize_input, fill_value):
     normalized = normalize.normalize_tensor_prognostic(input_data)
     unnormalized = normalize.unnormalize_tensor_prognostic(normalized, fill_value)
     assert (torch.sum(torch.isnan(unnormalized)) > 0) == (math.isnan(fill_value))
+
+
+@pytest.mark.parametrize("data_source", ["compact"], indirect=True)
+def test_normalize_compact_mixed_depth_and_surface_stats(data_source):
+    src = DataSource.from_datasets(
+        data_source.data,
+        data_source.means,
+        data_source.stds,
+        dataset_spec=TEST_FULL_DATASET_SPEC,
+        name="compact-full",
+        prognostic_var_names=TEST_FULL_DATASET_SPEC.prognostic_var_names,
+        boundary_var_names=TEST_FULL_DATASET_SPEC.boundary_var_names,
+    )
+    normalize = Normalize(
+        src,
+        prognostic_var_names=TEST_FULL_DATASET_SPEC.prognostic_var_names,
+        boundary_var_names=TEST_FULL_DATASET_SPEC.boundary_var_names,
+    )
+
+    num_depth = len(TEST_FULL_DATASET_SPEC.depth_levels)
+    expected_prognostic_channels = 4 * num_depth + 1
+    assert expected_prognostic_channels == len(
+        TEST_FULL_DATASET_SPEC.prognostic_var_names
+    )
+    assert normalize._prognostic_mean_np.shape == (expected_prognostic_channels,)
+    assert normalize._prognostic_std_np.shape == (expected_prognostic_channels,)
+
+    lat, lon = src.grid_size
+    prognostic = torch.zeros(1, expected_prognostic_channels, lat, lon)
+    assert normalize.normalize_tensor_prognostic(prognostic).shape == prognostic.shape
 
 
 @pytest.fixture

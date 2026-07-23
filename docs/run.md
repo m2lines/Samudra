@@ -1,10 +1,10 @@
 <!--
-SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+SPDX-FileCopyrightText: 2026 Samudra Authors
 
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# Running Ocean Emulator
+# Running Samudra
 
 ## Training the model
 
@@ -13,11 +13,11 @@ To train the model on a single GPU, you can run:
 ```bash
 DATA_PATH=path/to/save/data
 uv run scripts/clone_data.py $DATA_PATH
-uv run -m ocean_emulators.train configs/samudra_om4/train.yaml --experiment.data_root $DATA_PATH --experiment.name <my-experiment-name>
+uv run -m samudra.train configs/samudra_om4/train.yaml --experiment.data_root $DATA_PATH --experiment.name <my-experiment-name>
 ```
 
 Unless you override `--experiment.output_dir`, this will write to a `.LOCAL` directory.
-You can run `uv run -m ocean_emulators.train --help` to see all the options available.
+You can run `uv run -m samudra.train --help` to see all the options available.
 
 To train on multiple GPUs, you can use skypilot, `torchrun`, or SLURM.
 
@@ -44,7 +44,7 @@ Please read the docstring in the `train.sky.yaml` for more information.
 To use torchrun on a single host with 8 GPUs, use something like:
 
 ```bash
-uv run torchrun --standalone --nnodes=1 --nproc_per_node=8 python -m ocean_emulators.train configs/samudra_om4/train.yaml --experiment.data_root $DATA_PATH
+uv run torchrun --standalone --nnodes=1 --nproc_per_node=8 python -m samudra.train configs/samudra_om4/train.yaml --experiment.data_root $DATA_PATH
 ```
 
 See the [torchrun docs](https://docs.pytorch.org/docs/stable/elastic/run.html) for other examples.
@@ -56,7 +56,7 @@ You want to avoid using `--gpus-per-task` or `--gpu-bind` as it restricts the GP
 prevents cross-GPU communication. So you want something like (for 2 nodes with 4 GPUs each):
 
 ```bash
-srun --nodes=2 --ntasks-per-node=4 --gres=gpu:4 -- uv run python -m ocean_emulators.train configs/samudra_om4/train.yaml --experiment.data_root $DATA_PATH
+srun --nodes=2 --ntasks-per-node=4 --gres=gpu:4 -- uv run python -m samudra.train configs/samudra_om4/train.yaml --experiment.data_root $DATA_PATH
 ```
 
 Each task will see all GPUs on the node, but they know how to choose the correct one for their work.
@@ -69,12 +69,12 @@ To learn more about other datasets used during training, please see the [data do
 DATA_PATH=path/to/save/data
 uv run scripts/clone_data.py $DATA_PATH
 # (then put a checkpoint of the model at path/to/checkpoint)
-uv run -m ocean_emulators.eval configs/samudra_om4/eval.yaml --ckpt_path path/to/checkpoint --experiment.data_root $DATA_PATH --experiment.name <my-experiment-name>-eval
+uv run -m samudra.eval configs/samudra_om4/eval.yaml --ckpt_path path/to/checkpoint --experiment.data_root $DATA_PATH --experiment.name <my-experiment-name>-eval
 ```
 
 This produces a `predictions.zarr` file in the output directory (by default `.LOCAL`) with the rollout of the model.
 
-You can run `uv run -m ocean_emulators.eval --help` to see all the options available.
+You can run `uv run -m samudra.eval --help` to see all the options available.
 
 To learn more about other datasets used during training, please see the [data documentation](data.md).
 
@@ -90,15 +90,15 @@ Please read the `eval.sky.yaml` docstring for more information.
 ## Visualizing outputs from the model
 
 ```bash
-uv run -m ocean_emulators.viz configs/viz_om4.yaml --data_root path/to/data --name <my-experiment-name>-viz --runs='[{"name": "my_experiment", "location": "path/to/<my-experiment-name>-eval/predictions.zarr"}]'
+uv run -m samudra.viz configs/viz_om4.yaml --data_root path/to/data --name <my-experiment-name>-viz --runs='[{"name": "my_experiment", "location": "path/to/<my-experiment-name>-eval/predictions.zarr"}]'
 ```
 
-You can run `uv run -m ocean_emulators.viz --help` to see all the options available.
+You can run `uv run -m samudra.viz --help` to see all the options available.
 
 After making changes to the visualization code, you can run the following command to compare old and new plots:
 
 ```bash
-uv run -m ocean_emulators.utils.compare path/to/old/viz path/to/new/viz
+uv run -m samudra.utils.compare path/to/old/viz path/to/new/viz
 ```
 
 To run a remote viz job with SkyPilot, please use the following command:
@@ -146,9 +146,9 @@ uv run sky autostop --down my-cluster-name -i 30
 
 See the [SkyPilot docs](https://docs.skypilot.co/) for more.
 
-## FOMO Model
+## samudra-multi Model
 
-The FOMO model (in configs/fomo_om4/) requires Flash Attention. Make sure to install the `cuda` extra first, like so:
+The samudra-multi model (in configs/samudra_multi_om4/) requires Flash Attention. Make sure to install the `cuda` extra first, like so:
 
 ```bash
 uv sync --extra cuda
@@ -156,4 +156,4 @@ uv sync --extra cuda
 
 Of course, this will only work on CUDA-enabled machines.
 
-You can then train/eval/etc as described above using the `configs/fomo_om4/*` files.
+You can then train/eval/etc as described above using the `configs/samudra_multi_om4/*` files.

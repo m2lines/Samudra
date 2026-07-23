@@ -50,11 +50,11 @@ def val_batch_of(
             label_mask=torch.ones(n_prog, h, w),
             input_resolution_cpu=(
                 torch.linspace(-90, 90, steps=input_h),
-                torch.linspace(-180, 180, steps=input_w),
+                torch.arange(input_w) * (360.0 / input_w) - 180.0,
             ),
             output_resolution_cpu=(
                 torch.linspace(-90, 90, steps=h),
-                torch.linspace(-180, 180, steps=w),
+                torch.arange(w) * (360.0 / w) - 180.0,
             ),
         ),
     )
@@ -351,6 +351,41 @@ def test_multiscale_validation_aggregator__does_not_alias_overall_and_scale_stat
 
     assert logs["val/mean/loss"] == pytest.approx(2.0)
     assert logs["val/resolution/4x8/mean/loss"] == pytest.approx(2.0)
+
+
+def test_multiscale_validation_aggregator__uses_full_route_aggregators(
+    dummy_src: CanonicalDataset,
+):
+    tensor_map = tensor_map_for(dummy_src)
+    normalize = normalize_for(dummy_src, tensor_map)
+
+    def new_aggregator() -> ValidateAggregator:
+        return ValidateAggregator(
+            {},
+            hist=0,
+            num_prognostic_channels=len(tensor_map.prognostic_var_names),
+            tensor_map=tensor_map,
+            normalize=normalize,
+            record_baselines=True,
+        )
+
+    aggregator = MultiScaleValidateAggregator(
+        {(4, 8): ("4x8", new_aggregator())},
+        {
+            ((4, 8), (4, 8)): ("4x8_to_4x8", new_aggregator()),
+            ((8, 16), (4, 8)): ("8x16_to_4x8", new_aggregator()),
+        },
+    )
+    aggregator.record_validation_batch(val_batch_of(4, 8, tensor_map=tensor_map))
+    aggregator.record_validation_batch(
+        val_batch_of(4, 8, tensor_map=tensor_map, input_grid=(8, 16))
+    )
+    logs = aggregator.get_logs("val")
+
+    assert "val/route/4x8_to_4x8/mean/loss" in logs
+    assert "val/route/8x16_to_4x8/mean/loss" in logs
+    assert "val/route/4x8_to_4x8/persistence_normalized_mse/mean/loss" in logs
+    assert "val/route/8x16_to_4x8/persistence_normalized_mse/mean/loss" in logs
 
 
 def test_multiscale_validation_aggregator__rejects_unknown_grid(

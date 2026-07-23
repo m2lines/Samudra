@@ -9,6 +9,8 @@ The code in this directory is directly inspired by the ACE project by AI2.
 See the original repository at: https://github.com/ai2cm/ace/tree/39133c18524cda85965486ecdc8cb64aac06f4c3/fme/fme/ace/aggregator
 """
 
+import itertools
+
 import torch
 
 from samudra.aggregator.inference import InferenceEvaluatorAggregator
@@ -76,7 +78,7 @@ class Aggregator:
         include_image_aggregators: bool = True,
         patch_extent: tuple[float, float] | None = None,
     ) -> MultiScaleValidateAggregator:
-        """Build independent validation diagnostics for each output grid."""
+        """Build independent diagnostics for every output grid and grid route."""
         aggregators: dict[tuple[int, int], tuple[str, ValidateAggregator]] = {}
         for source in sources:
             grid = source.grid_size
@@ -107,7 +109,39 @@ class Aggregator:
                     patch_size=patch_size,
                 ),
             )
-        return MultiScaleValidateAggregator(aggregators)
+
+        route_aggregators: dict[
+            tuple[tuple[int, int], tuple[int, int]], tuple[str, ValidateAggregator]
+        ] = {}
+        for input_source, output_source in itertools.product(sources, repeat=2):
+            route = (input_source.grid_size, output_source.grid_size)
+            route_label = f"{route[0][0]}x{route[0][1]}_to_{route[1][0]}x{route[1][1]}"
+            normalize = Normalize(
+                output_source,
+                prognostic_var_names=prognostic_var_names,
+                boundary_var_names=boundary_var_names,
+            )
+            route_subaggregators: dict[str, ValidateSubAggregator] = {}
+            if include_image_aggregators and patch_extent is not None:
+                patch_size = (
+                    round(patch_extent[0] * route[1][0] / 180.0),
+                    round(patch_extent[1] * route[1][1] / 360.0),
+                )
+                route_subaggregators["spatial"] = (
+                    NormalizedSpatialDiagnosticsAggregator(tensor_map, hist, patch_size)
+                )
+            route_aggregators[route] = (
+                route_label,
+                ValidateAggregator(
+                    route_subaggregators,
+                    hist=hist,
+                    num_prognostic_channels=num_prognostic_channels,
+                    tensor_map=tensor_map,
+                    normalize=normalize,
+                    record_baselines=True,
+                ),
+            )
+        return MultiScaleValidateAggregator(aggregators, route_aggregators)
 
     @staticmethod
     def get_inline_inference_aggregator(

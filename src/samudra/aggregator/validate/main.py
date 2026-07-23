@@ -181,13 +181,24 @@ class MultiScaleValidateAggregator:
     def __init__(
         self,
         aggregators: dict[tuple[int, int], tuple[str, ValidateAggregator]],
+        route_aggregators: dict[
+            tuple[tuple[int, int], tuple[int, int]], tuple[str, ValidateAggregator]
+        ]
+        | None = None,
     ) -> None:
         if not aggregators:
             raise ValueError("At least one validation grid must be registered.")
         self._aggregators = aggregators
+        self._route_aggregators = route_aggregators
         first_aggregator = next(iter(aggregators.values()))[1]
-        self._overall = RouteTrainAggregator(first_aggregator.tensor_map)
+        self._overall = TrainAggregator(first_aggregator.tensor_map)
+        self._route_losses = (
+            RouteTrainAggregator(first_aggregator.tensor_map)
+            if route_aggregators is None
+            else None
+        )
         self._recorded_grids: set[tuple[int, int]] = set()
+        self._recorded_routes: set[tuple[tuple[int, int], tuple[int, int]]] = set()
 
     @torch.no_grad()
     def record_validation_batch(self, batch: ValBatchOutput) -> None:
@@ -198,13 +209,46 @@ class MultiScaleValidateAggregator:
                 f"expected one of {sorted(self._aggregators)}."
             )
         _, aggregator = self._aggregators[grid]
-        self._overall.record_batch(batch, batch.ctx)
+        self._overall.record_batch(batch)
+        route = RouteTrainAggregator.route(batch.ctx)
+        if self._route_aggregators is None:
+            assert self._route_losses is not None
+            self._route_losses.record_batch(batch, batch.ctx)
+        else:
+            if route not in self._route_aggregators:
+                raise ValueError(
+                    f"Validation batch uses unregistered route {route}; "
+                    f"expected one of {sorted(self._route_aggregators)}."
+                )
+            _, route_aggregator = self._route_aggregators[route]
+            route_aggregator.record_validation_batch(batch)
+            self._recorded_routes.add(route)
         aggregator.record_validation_batch(batch)
         self._recorded_grids.add(grid)
 
     @torch.no_grad()
     def get_logs(self, label: str = "train") -> Metrics:
         logs: MetricsDict = dict(self._overall.get_logs(label))
+        if self._route_aggregators is None:
+            assert self._route_losses is not None
+            route_logs = dict(self._route_losses.get_logs(label))
+            route_logs.pop(f"{label}/mean/loss")
+            route_logs = {
+                key: value for key, value in route_logs.items() if "/route/" in key
+            }
+            logs.update(route_logs)
+        else:
+            for route in sorted(self._recorded_routes):
+                route_label, route_aggregator = self._route_aggregators[route]
+                full_route_logs = route_aggregator.get_logs(
+                    label=f"{label}/route/{route_label}"
+                )
+                overlap = logs.keys() & full_route_logs.keys()
+                if overlap:
+                    raise ValueError(
+                        f"Duplicate multi-scale route log keys: {sorted(overlap)}"
+                    )
+                logs.update(full_route_logs)
         for grid in sorted(self._recorded_grids):
             scale_label, aggregator = self._aggregators[grid]
             scale_logs = aggregator.get_logs(label=f"{label}/resolution/{scale_label}")

@@ -988,9 +988,10 @@ Corrected V0 execution is now underway on exact, checksum-verified code overlays
 The first clean-break result is decisive: the state-only one-degree inverse
 (`14616192`, W&B `4xbqyev0`, code `b3f7d823`) reaches held-out MSE `0.000648411`
 after 40 epochs. The prior joint prognostic-plus-boundary inverse reached about
-`0.00304`, so removing boundary fields from the state encoder reduces error by
-78.7%; it does not make the learned representation harder to invert. The fresh
-one/half-degree mix run (`14618325`, W&B `27t8occ3`, code `f4a57cb8`) completes at
+`0.00304`, making the fresh number 78.7% lower. Those values use different held-out
+sample sets, however, so the direction is encouraging but the percentage is not
+yet causal evidence; job `14619746` performs the exact fixed-window comparison.
+The fresh one/half-degree mix run (`14618325`, W&B `27t8occ3`, code `f4a57cb8`) completes at
 aggregate MSE `0.0210660`, split as `0.00365078` on one-degree outputs and
 `0.0384813` on half-degree outputs. The corresponding deterministic persistence /
 coordinate-resampling baselines are `0.00259272` and `0.0372132`. Route-specific

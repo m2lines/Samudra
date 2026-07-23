@@ -967,7 +967,9 @@ The corrected V0 sequence is:
    `train_1deg_state_only_autoencoder_proxy.yaml` (the equivalent identity-only
    diagnostic is `identity_1deg_state_only_native_masked_projection.yaml`), then matched
    one/half-degree routes with
-   `identity_cross_1_halfdeg_common_stats_masked.yaml`.
+   `train_cross_1_halfdeg_state_only_autoencoder_proxy.yaml` (with
+   `identity_cross_1_halfdeg_common_stats_masked.yaml` retained for detailed route
+   diagnostics).
 2. Confirm same-grid, cross-grid, and unseen quarter-degree reconstruction before
    introducing a processor. Compare against the prior joint-encoder numbers, but
    do not load that checkpoint.

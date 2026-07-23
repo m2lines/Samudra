@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC-BY-4.0
 # Releasing to PyPI
 
 Samudra is published to [PyPI](https://pypi.org/project/samudra/) as a single
-pure-Python wheel by the [`Release`](https://github.com/Open-Athena/Samudra/actions/workflows/release.yml)
+pure-Python wheel by the [`Release`](https://github.com/m2lines/Samudra/actions/workflows/release.yml)
 workflow. It authenticates with [OIDC trusted publishing](https://docs.pypi.org/trusted-publishers/),
 so no API token is stored anywhere.
 
@@ -91,7 +91,7 @@ PyPI (a maintainer with project-owner rights does this once):
    to reserve the name `samudra` before the first upload.
 2. On the project's **Settings → Publishing** page, add a GitHub Actions
    publisher with:
-     - **Owner**: `Open-Athena`
+     - **Owner**: `m2lines`
      - **Repository**: `Samudra`
      - **Workflow name**: `release.yml`
      - **Environment**: `pypi-publish`

@@ -59,8 +59,8 @@ optional-dependencies.cuda = [
 
 urls.Documentation = "https://m2lines.github.io/Samudra/docs/"
 urls.Homepage = "https://m2lines.github.io/Samudra/"
-urls.Issues = "https://github.com/Open-Athena/Samudra/issues"
-urls.Repository = "https://github.com/Open-Athena/Samudra"
+urls.Issues = "https://github.com/m2lines/Samudra/issues"
+urls.Repository = "https://github.com/m2lines/Samudra"
 
 [dependency-groups]
 dev = [

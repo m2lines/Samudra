@@ -16,6 +16,29 @@ Project Phase 6](https://pcmdi.llnl.gov/CMIP6/), which is a large, multi-institu
 OM4 is natively stored in a tripolar grid in the NetCDF format. We have taken steps to make the data easier to work with
 in the machine learning context.
 
+## Available datasets
+
+The processed OM4 datasets used for training live on the NYU OSN pod under the base prefix
+`s3://m2lines-pubs/Samudra/v2026-07/` (public read at
+`https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-07/`). Each `om4_<res>/` directory contains the
+dataset `OM4.zarr` alongside its normalization statistics `OM4_means.zarr` and `OM4_stds.zarr`.
+
+All datasets share the same layout: 4745 five-day timesteps, 19 depth levels, on a regular lat–lon
+(`grid_type = "gaussian"`) grid, with the grid-metadata coordinates needed for physical analysis
+(`areacello`, `dz`, `lev`, 2D `lat`/`lon`, and cell bounds `lat_b`/`lon_b`).
+
+| Directory | Resolution | Grid (y × x) | Spatial filter | Size |
+| --- | --- | --- | --- | --- |
+| `om4_twodeg/` | 2° | 90 × 180 | none | 23 GiB |
+| `om4_onedeg/` | 1° | 180 × 360 | none | 92 GiB |
+| `om4_onedeg_filter/` | 1° | 180 × 360 | 18×18 Gaussian | 92 GiB |
+| `om4_halfdeg/` | 0.5° | 360 × 720 | none | 367 GiB |
+| `om4_quarterdeg/` | 0.25° | 720 × 1440 | none | 1.4 TiB |
+
+> We recommend the non-filtered datasets; `om4_onedeg_filter` is provided for comparison. To copy a
+> dataset (or a time slice) to your cluster/local filesystem for training, see
+> [How to get the data](#how-to-get-the-data).
+
 ## Taking a look at each dataset
 
 Our data is stored in [Zarr](https://zarr.dev) and is canonically opened with [Xarray](https://xarray.dev). Here is a

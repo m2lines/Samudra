@@ -23,7 +23,7 @@ from samudra.config import (
     TrainConfig,
 )
 from samudra.config_schema import get_pydantic_models
-from samudra.utils.location import LocalLocation, UnresolvedLocation
+from samudra.utils.location import LocalLocation, S3Location, UnresolvedLocation
 from tests.llc_fixtures import write_raw_llc_datasets
 
 
@@ -86,6 +86,7 @@ def test_data_config_accepts_rust_loading():
         ),
     )
 
+    assert isinstance(cfg.loading, RustDataLoadingConfig)
     assert cfg.loading.prefetch_batches == 3
     assert cfg.loading.max_concurrent_reads == 12
     assert cfg.loading.prefetch_to_device is False
@@ -101,11 +102,7 @@ def test_rust_loading_requires_positive_bounds(field):
 
 def test_rust_loading_rejects_non_local_locations_before_open(tmp_path):
     source = om4_source_config()
-    source.data_location = {
-        "type": "s3",
-        "bucket": "example",
-        "path": "data.zarr",
-    }
+    source.data_location = S3Location(bucket="example", path="data.zarr")
     cfg = DataConfig(sources=[source], loading=RustDataLoadingConfig())
 
     with pytest.raises(ValueError, match="requires local data"):

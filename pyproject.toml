@@ -56,6 +56,9 @@ optional-dependencies.cuda = [
   "flash-perceiver>=0.2",
   "torchvision>=0.24.0a0",
 ]
+optional-dependencies.rust = [
+  "samudra-rust-loader==0.1",
+]
 
 [dependency-groups]
 dev = [

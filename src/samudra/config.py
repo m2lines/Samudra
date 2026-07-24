@@ -185,6 +185,7 @@ LOCATION_DOCS = (
 
 
 class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
+    type: str
     train_time: SourceTimeConfigT = Field(frozen=True)
     val_time: SourceTimeConfigT = Field(frozen=True)
     inference_times: tuple[SourceTimeConfigT, ...] = Field(default=(), frozen=True)

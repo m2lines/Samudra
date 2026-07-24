@@ -12,6 +12,7 @@ import pytest
 import torch
 
 from samudra.config import CpuDataLoadingConfig, DynamicLossConfig, TrainConfig
+from samudra.datasets import BatchLoader
 from samudra.models.base import BaseModel
 from samudra.train import Trainer, should_log_validation_images
 from samudra.utils.ctx import BatchGrid
@@ -347,6 +348,8 @@ def test_multiscale_training_validates_primary_source_and_logs_reduced_metrics(
         trainer = Trainer(train_config)
         trainer.init_data_loaders(cur_step=train_config.steps[0])
 
+        assert isinstance(trainer.train_loader, BatchLoader)
+        assert isinstance(trainer.val_loader, BatchLoader)
         assert len(trainer.train_loader._datasets) == 2
         assert len(trainer.val_loader._datasets) == 1
         val_dataset = next(iter(trainer.val_loader._datasets.values()))
@@ -379,6 +382,8 @@ def test_data_loaders_enable_persistent_workers_on_positive_num_workers(
 
     assert trainer.mp_context is not None
     assert trainer.mp_context.get_start_method() == "spawn"
+    assert isinstance(trainer.train_loader, BatchLoader)
+    assert isinstance(trainer.val_loader, BatchLoader)
     assert trainer.train_loader._host_loader.persistent_workers is True
     assert trainer.val_loader._host_loader.persistent_workers is True
     assert trainer.inference_source is not None
@@ -402,5 +407,7 @@ def test_data_loaders_disable_persistent_workers_when_num_workers_is_zero(
         trainer.init_data_loaders(cur_step=train_config.steps[0])
 
     assert trainer.mp_context is None
+    assert isinstance(trainer.train_loader, BatchLoader)
+    assert isinstance(trainer.val_loader, BatchLoader)
     assert trainer.train_loader._host_loader.persistent_workers is False
     assert trainer.val_loader._host_loader.persistent_workers is False

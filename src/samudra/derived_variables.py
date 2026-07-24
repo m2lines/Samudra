@@ -7,7 +7,7 @@ from collections.abc import Callable
 import torch
 from jaxtyping import Float
 
-from samudra.constants import CP_SW, RHO_0, Grid, TensorMap
+from samudra.constants import CP_SW, RHO_0, DataLayout, Grid
 
 
 def compute_ocean_heat_content(
@@ -74,16 +74,16 @@ def compute_global_ocean_heat_content(
 def add_derived_variables(
     tensor_out: torch.Tensor,
     *,
-    tensor_map: TensorMap,
+    data_layout: DataLayout,
 ) -> dict[str, torch.Tensor]:
     """
     Add derived variables to the output.
     """
     # Ocean heat content
     derived_vars = {}
-    dz = tensor_map.dz.to(tensor_out.device)
+    dz = data_layout.dz.to(tensor_out.device)
     thetao = tensor_out[
-        :, :, tensor_map.VAR_3D_IDX[tensor_map.data_layout.ocean_heat_temperature_var]
+        :, :, data_layout.variable_indices[data_layout.ocean_heat_temperature_var]
     ]
     ohct = compute_ocean_heat_content(thetao, dz)
     derived_vars["ocean_heat_content"] = ohct

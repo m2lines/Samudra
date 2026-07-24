@@ -10,7 +10,7 @@ from samudra.aggregator.loss import (
     get_depth_loss_dict,
     get_variable_loss_dict,
 )
-from samudra.constants import TensorMap
+from samudra.constants import DataLayout
 from samudra.utils.distributed import all_reduce_mean
 from samudra.utils.output import TrainBatchOutput
 from samudra.utils.wandb import Metrics
@@ -19,8 +19,8 @@ from samudra.utils.wandb import Metrics
 class TrainAggregator:
     """Aggregates train statistics for an epoch."""
 
-    def __init__(self, tensor_map: TensorMap):
-        self.tensor_map = tensor_map
+    def __init__(self, data_layout: DataLayout):
+        self.data_layout = data_layout
         self._n_batches = 0
         self._loss = torch.tensor(torch.nan)
         self._loss_per_channel = torch.tensor(torch.nan)
@@ -41,13 +41,13 @@ class TrainAggregator:
 
         loss_per_channel = self._loss_per_channel / self._n_batches
         depth_loss_dict = get_depth_loss_dict(
-            label, loss_per_channel, tensor_map=self.tensor_map
+            label, loss_per_channel, data_layout=self.data_layout
         )
         var_loss_dict = get_variable_loss_dict(
-            label, loss_per_channel, tensor_map=self.tensor_map
+            label, loss_per_channel, data_layout=self.data_layout
         )
         channel_loss_dict = get_channel_loss_dict(
-            label, loss_per_channel, tensor_map=self.tensor_map
+            label, loss_per_channel, data_layout=self.data_layout
         )
         logs = {
             f"{label}/mean/loss": loss,

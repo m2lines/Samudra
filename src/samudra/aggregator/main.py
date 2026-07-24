@@ -18,14 +18,14 @@ from samudra.aggregator.validate.map import MapAggregator
 from samudra.aggregator.validate.reduced import MeanAggregator
 from samudra.aggregator.validate.snapshot import SnapshotAggregator
 from samudra.aggregator.validate.sub_aggregator import ValidateSubAggregator
-from samudra.constants import TensorMap
-from samudra.utils.data import Normalize
+from samudra.constants import DataLayout
+from samudra.utils.data import BatchPreprocessor
 
 
 class Aggregator:
     @staticmethod
-    def get_train_aggregator(tensor_map: TensorMap) -> TrainAggregator:
-        return TrainAggregator(tensor_map)
+    def get_train_aggregator(data_layout: DataLayout) -> TrainAggregator:
+        return TrainAggregator(data_layout)
 
     @staticmethod
     def get_validation_aggregator(
@@ -33,8 +33,8 @@ class Aggregator:
         hist: int,
         area_weights: torch.Tensor,
         num_prognostic_channels: int,
-        tensor_map: TensorMap,
-        normalize: Normalize,
+        data_layout: DataLayout,
+        preprocessor: BatchPreprocessor,
         *,
         include_image_aggregators: bool = True,
     ) -> ValidateAggregator:
@@ -53,8 +53,8 @@ class Aggregator:
             val_aggregators,
             hist=hist,
             num_prognostic_channels=num_prognostic_channels,
-            tensor_map=tensor_map,
-            normalize=normalize,
+            data_layout=data_layout,
+            preprocessor=preprocessor,
         )
 
     @staticmethod
@@ -65,8 +65,8 @@ class Aggregator:
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
-        tensor_map: TensorMap,
-        normalize: Normalize,
+        data_layout: DataLayout,
+        preprocessor: BatchPreprocessor,
         channel_mean_names: list[str] | None = None,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(
@@ -76,8 +76,8 @@ class Aggregator:
             area_weights=area_weights,
             wet=wet,
             num_prognostic_channels=num_prognostic_channels,
-            normalize=normalize,
-            tensor_map=tensor_map,
+            preprocessor=preprocessor,
+            data_layout=data_layout,
             record_step_20=(n_timesteps > 20),
             log_global_mean_time_series=False,
             log_global_mean_norm_time_series=False,
@@ -92,8 +92,8 @@ class Aggregator:
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
-        tensor_map: TensorMap,
-        normalize: Normalize,
+        data_layout: DataLayout,
+        preprocessor: BatchPreprocessor,
         channel_mean_names: list[str] | None = None,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(
@@ -103,8 +103,8 @@ class Aggregator:
             area_weights=area_weights,
             wet=wet,
             num_prognostic_channels=num_prognostic_channels,
-            normalize=normalize,
-            tensor_map=tensor_map,
+            preprocessor=preprocessor,
+            data_layout=data_layout,
             record_step_20=(n_timesteps > 20),
             log_global_mean_time_series=True,
             log_global_mean_norm_time_series=True,

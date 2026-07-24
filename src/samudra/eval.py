@@ -12,11 +12,11 @@ import torch
 from samudra.aggregator import Aggregator
 from samudra.backend import init_eval_backend
 from samudra.config import EvalConfig, ObsMetricsConfig
-from samudra.constants import BoundaryVarNames, Grid, PrognosticVarNames, TensorMap
+from samudra.constants import BoundaryVarNames, Grid, PrognosticVarNames
 from samudra.datasets import InferenceDataset
 from samudra.metrics.run import open_predictions, run_observation_metrics
 from samudra.stepper import run_rollout
-from samudra.utils.data import Normalize, get_inference_steps, spherical_area_weights
+from samudra.utils.data import BatchPreprocessor, get_inference_steps
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import is_main_process, set_seed
 from samudra.utils.logging import get_model_summary, handle_logging, handle_warnings
@@ -75,7 +75,7 @@ class Eval:
         self.num_in = self.num_prog_in + self.num_boundary_in
         self.num_out = self.num_prog_in
 
-        self.tensor_map = TensorMap(data_layout=self.data_layout).to(self.device)
+        self.data_layout = self.data_layout.to(self.device)
 
         logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
@@ -85,15 +85,14 @@ class Eval:
             raise ValueError(
                 "Inference time is not configured for the first data source"
             )
-        self.src = self.data_bundle.inference_source
-        self.data = self.src.data
-        self.metadata = self.src.metadata
-        self.wet = self.src.masks.prognostic_with_hist(cfg.data.hist)
-        self.area_weights: Grid = spherical_area_weights(self.data)
+        self.source = self.data_bundle.inference_source
+        self.metadata = self.source.metadata
+        self.wet = self.source.masks.prognostic_with_hist(cfg.data.hist)
+        self.area_weights: Grid = self.source.spherical_area_weights
         self.area_weights = self.area_weights.to(self.device)
 
-        self.normalize = Normalize(
-            self.src,
+        self.preprocessor = BatchPreprocessor(
+            self.source,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
         )
@@ -104,7 +103,7 @@ class Eval:
             boundary_channels=self.num_boundary_in,
             out_channels=self.num_out,
             hist=cfg.data.hist,
-            srcs=self.data_bundle.train_sources,
+            grid_sizes=[source.grid_size for source in self.data_bundle.train_sources],
         ).to(self.device)
 
         get_model_summary(self.model, None, cfg.debug)
@@ -154,11 +153,11 @@ class Eval:
 
     def init_inference_store(self):
         self.num_time_steps = get_inference_steps(
-            self.src,
+            self.source,
             hist=self.hist,
         )
         self.inference_dataset = InferenceDataset(
-            src=self.src,
+            source=self.source,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             hist=self.hist,
@@ -206,7 +205,7 @@ class Eval:
             # The ground-truth data the eval already staged. The metric table
             # is only interpretable next to it, so scoring it costs one extra
             # pass over data that is local anyway.
-            baselines["om4"] = self.src.data
+            baselines["om4"] = self.source.to_xarray_dataset()
 
         frame, scalars = run_observation_metrics(
             obs_cfg,
@@ -230,10 +229,10 @@ class Eval:
             self.metadata,
             self.hist,
             self.area_weights,
-            self.src.masks.prognostic.to(self.device),
+            self.source.masks.prognostic.to(self.device),
             self.num_out,
-            self.tensor_map,
-            self.normalize,
+            self.data_layout,
+            self.preprocessor,
             self.prognostic_var_names,
         )
 
@@ -246,8 +245,8 @@ class Eval:
             model_path=self.model_path,
             num_model_steps_forward=self.num_model_steps_forward,
             save_zarr=self.save_zarr,
-            tensor_map=self.tensor_map,
-            normalize=self.normalize,
+            data_layout=self.data_layout,
+            preprocessor=self.preprocessor,
         )
         logs = inf_aggregator.get_summary_logs()
         return {f"inference/{k}": v for k, v in logs.items()}

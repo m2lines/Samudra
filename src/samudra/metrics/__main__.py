@@ -40,7 +40,9 @@ def main() -> None:
     if src is None:
         raise ValueError("Inference time is not configured for the first data source")
 
-    baselines = {"om4": src.data} if "om4" in cfg.observations.baselines else {}
+    baselines = (
+        {"om4": src.to_xarray_dataset()} if "om4" in cfg.observations.baselines else {}
+    )
 
     frame, scalars = run_observation_metrics(
         cfg.observations,

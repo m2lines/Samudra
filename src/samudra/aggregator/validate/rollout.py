@@ -9,7 +9,7 @@ from einops import rearrange
 
 from samudra.aggregator.metrics import area_weighted_rmse
 from samudra.constants import DataLayout, PrognosticVarNames
-from samudra.utils.data import Normalize
+from samudra.utils.data import BatchPreprocessor
 from samudra.utils.device import get_device
 from samudra.utils.distributed import all_reduce_mean
 from samudra.utils.output import ModelInferenceOutput
@@ -78,7 +78,7 @@ def _get_raw_rollout_dict(
     data: torch.Tensor,
     *,
     hist: int,
-    normalize: Normalize,
+    preprocessor: BatchPreprocessor,
     field_names: tuple[str, ...],
 ) -> dict[str, torch.Tensor]:
     data_reshaped = rearrange(
@@ -86,7 +86,7 @@ def _get_raw_rollout_dict(
         "n (hi c) h w -> (n hi) c h w",
         hi=hist + 1,
     ).unsqueeze(0)
-    data_unnorm = normalize.unnormalize_tensor_prognostic(
+    data_unnorm = preprocessor.unnormalize_tensor_prognostic(
         data_reshaped,
         fill_value=float("nan"),
     )
@@ -108,13 +108,13 @@ class RolloutValidationAggregator:
         *,
         hist: int,
         area_weights: torch.Tensor,
-        normalize: Normalize,
+        preprocessor: BatchPreprocessor,
         data_layout: DataLayout,
         prognostic_var_names: PrognosticVarNames,
         distributed_reduce: bool = True,
     ):
         self.hist = hist
-        self._normalize = normalize
+        self._preprocessor = preprocessor
         self._data_layout = data_layout
         self._raw_field_names = tuple(prognostic_var_names)
         self._field_metrics = {
@@ -133,13 +133,13 @@ class RolloutValidationAggregator:
         target_unnorm = _get_raw_rollout_dict(
             data.target,
             hist=self.hist,
-            normalize=self._normalize,
+            preprocessor=self._preprocessor,
             field_names=self._raw_field_names,
         )
         gen_unnorm = _get_raw_rollout_dict(
             data.prediction,
             hist=self.hist,
-            normalize=self._normalize,
+            preprocessor=self._preprocessor,
             field_names=self._raw_field_names,
         )
 

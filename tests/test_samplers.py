@@ -18,8 +18,6 @@ class MockDataset:
 
     def __init__(self, size: int, grid_size: GridSize = (100, 100)):
         self._size = size
-        self.input_src = self
-        self.label_src = self
         self.grid_size = grid_size
 
     def __len__(self):

@@ -53,14 +53,14 @@ class BaseModel(torch.nn.Module):
 
     def forward(
         self,
-        model_batch: ModelBatch,
+        batch: ModelBatch,
         loss_fn=None,
     ) -> torch.Tensor | list[torch.Tensor]:
         outputs: list[torch.Tensor] = []
         loss = torch.tensor(torch.nan)
-        for step in range(len(model_batch)):
+        for step in range(len(batch)):
             if step == 0:
-                prog_tensor, boundary_tensor = model_batch.get_initial_input()
+                prog_tensor, boundary_tensor = batch.get_initial_input()
             else:
                 prev_output = outputs[-1]
                 if (
@@ -68,10 +68,10 @@ class BaseModel(torch.nn.Module):
                     and step % self.gradient_detach_interval == 0
                 ):
                     prev_output = prev_output.detach()
-                _, boundary_tensor = model_batch.get_input(step)
+                _, boundary_tensor = batch.get_input(step)
                 prog_tensor = prev_output
 
-            decodings = self.forward_once(prog_tensor, boundary_tensor, model_batch.ctx)
+            decodings = self.forward_once(prog_tensor, boundary_tensor, batch.ctx)
             if self.pred_residuals:
                 pred = prog_tensor + decodings  # Residual prediction
             else:
@@ -81,12 +81,12 @@ class BaseModel(torch.nn.Module):
                 if step == 0:
                     loss = loss_fn(
                         pred,
-                        model_batch.get_label(step),
+                        batch.get_label(step),
                     )
                 else:
                     loss += loss_fn(
                         pred,
-                        model_batch.get_label(step),
+                        batch.get_label(step),
                     )
 
             outputs.append(pred)
@@ -139,5 +139,5 @@ class BaseModel(torch.nn.Module):
             slice(steps_completed, steps_completed + num_steps)
         ).to(device=get_device())
 
-        IO = ModelInferenceOutput(pred_tensor, target_tensor, target_time)
-        return IO
+        inference_output = ModelInferenceOutput(pred_tensor, target_tensor, target_time)
+        return inference_output

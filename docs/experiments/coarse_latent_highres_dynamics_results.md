@@ -707,3 +707,17 @@ about 72% relative to physical-only. Latent-only is slightly better on one
 route at lead four but is worse at aggregate lead one and on the high-resolution
 routes. The S3 processor and boundary path will be freshly initialized from the
 selected frozen S1 inverse, rather than continuing any proxy processor.
+
+### 2026-07-24: use a causal moment-channel ablation for the OM4 mean-only comparison
+
+The S3 plan originally listed a separately optimized OM4 patch-mean-only model.
+Before spending a second full-run budget, the promoted checkpoint is instead
+evaluated under a stricter within-model intervention: zero all 120 learned
+subpatch-moment channels at the initial state, retain the 40 mean channels, and
+reuse the identical processor, boundary sequence, decoder, and samples. This
+directly tests whether the promoted dynamics use subpatch state without
+confounding processor initialization or optimization. The trained synthetic
+S0-D mean-only arm remains the independent learned negative control. These
+together replace, rather than masquerade as, a separately optimized OM4
+mean-only full run; that additional control should be reopened only if review
+finds the causal intervention insufficient.

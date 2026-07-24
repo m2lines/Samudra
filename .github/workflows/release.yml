@@ -1,0 +1,143 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Builds the pure-Python samudra wheel + sdist and publishes to PyPI via OIDC
+# trusted publishing -- no API token is stored anywhere. Triggers:
+#   schedule          -> nightly dev release (<base>.dev<stamp>)
+#   push tag v*       -> stable release, version from the v<version> tag
+#   workflow_dispatch -> manual cut (nightly / stable / manual)
+#   pull_request      -> build-only smoke when the build script or this
+#                        workflow file changes
+# One-time trusted-publisher setup is documented in docs/releasing.md.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Build mode"
+        type: choice
+        options: [nightly, stable, manual]
+        default: manual
+      version:
+        description: "Stable-cut version, e.g. 0.0.1 (required for stable; ignored for nightly/manual)"
+        type: string
+  schedule:
+    - cron: "0 6 * * *"   # 06:00 UTC daily
+  push:
+    tags:
+      - "v*"
+  pull_request:
+    paths:
+      - "scripts/package.py"
+      - ".github/workflows/release.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false  # don't kill an in-flight publish
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    outputs:
+      mode: ${{ steps.pick.outputs.mode }}
+      version: ${{ steps.resolved.outputs.version }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0  # setuptools-scm + `git describe` need full tag history
+
+      # Hoist user-supplied dispatch inputs into env so they reach the shell as
+      # variables, not as `${{ ... }}` template substitutions -- free-form
+      # inputs interpolated into a shell script are an injection vector.
+      - id: pick
+        env:
+          INPUT_MODE: ${{ github.event.inputs.mode }}
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_EVENT_NAME}" == "push" && "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "mode=stable" >> "$GITHUB_OUTPUT"
+            echo "input_version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          elif [[ "${GITHUB_EVENT_NAME}" == "schedule" ]]; then
+            echo "mode=nightly" >> "$GITHUB_OUTPUT"
+            echo "input_version=" >> "$GITHUB_OUTPUT"
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            echo "mode=${INPUT_MODE}" >> "$GITHUB_OUTPUT"
+            # The version field is only meaningful for a stable cut. For nightly
+            # and manual dispatches, discard it so the version is always computed
+            # -- otherwise a value left in the field would be stamped verbatim
+            # and published as a bogus "nightly", burning a real PyPI version.
+            if [[ "${INPUT_MODE}" == "stable" ]]; then
+              echo "input_version=${INPUT_VERSION}" >> "$GITHUB_OUTPUT"
+            else
+              echo "input_version=" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            # pull_request: build-only smoke
+            echo "mode=manual" >> "$GITHUB_OUTPUT"
+            echo "input_version=" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Resolve the version exactly once for the whole run so the build job
+      # stamps the identical value -- a run straddling midnight UTC would
+      # otherwise compute a different nightly date in build vs resolve.
+      - id: resolved
+        env:
+          MODE: ${{ steps.pick.outputs.mode }}
+          INPUT_VERSION: ${{ steps.pick.outputs.input_version }}
+        run: |
+          python3 scripts/package.py --mode "$MODE" --version "$INPUT_VERSION" --resolve-only
+
+  build:
+    needs: resolve
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0  # setuptools-scm + `git describe` need full tag history
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff
+
+      - name: Build wheel + sdist
+        env:
+          MODE: ${{ needs.resolve.outputs.mode }}
+          VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          python3 scripts/package.py --mode "$MODE" --version "$VERSION"
+
+      # Fail fast on broken metadata before we ever reach the publish step.
+      - name: Check distribution metadata
+        run: uvx twine check dist/*
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: samudra-dist
+          path: dist/*
+          retention-days: 14
+
+  publish:
+    # Manual mode produces local-version identifiers (`X.Y.Z+manual.<sha>`)
+    # which PyPI rejects, so manual cuts -- and every pull_request smoke --
+    # are build-only regardless of how they were triggered.
+    if: |
+      github.event_name != 'pull_request'
+      && needs.resolve.outputs.mode != 'manual'
+    needs: [resolve, build]
+    runs-on: ubuntu-latest
+    environment: pypi-publish
+    permissions:
+      id-token: write   # mint the OIDC token for trusted publishing
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: samudra-dist
+          path: dist
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@ba38be9e461d3875417946c167d0b5f3d385a247
+        with:
+          packages-dir: dist/

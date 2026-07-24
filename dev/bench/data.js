@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784901202026,
+  "lastUpdate": 1784901208764,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -22219,6 +22219,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.08033327152052254",
             "extra": "mean: 48.644283341000026 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e68ca1a816c5528184518e9fa23dd70df720525b",
+          "message": "Add LLC CPU data canonicalization (#670)\n\nAdd LLC data support (preprocessing, etc). Brings time configuration\ndown into the data source since LLC data has different time formats than\nOM4, and we likely want to use different time ranges even for different\nresolutions of OM4 data.\n\nIt looks big but a lot of it is mechanical config changes and tests;\nhappy to walk through live and/or break up further if desired!\n\n---------\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>\nCo-authored-by: fomo-bot <266121006+fomo-bot@users.noreply.github.com>\nCo-authored-by: Alex Merose <alex@openathena.ai>",
+          "timestamp": "2026-07-24T13:16:28Z",
+          "tree_id": "c1a0aae287f3a993f5a4c300e3a56ec57189a06d",
+          "url": "https://github.com/m2lines/Samudra/commit/e68ca1a816c5528184518e9fa23dd70df720525b"
+        },
+        "date": 1784901208501,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.06955238128208,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0008181773791610438",
+            "extra": "mean: 934.9705704000144 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.06442220977126722,
+            "unit": "iter/sec",
+            "range": "stddev: 0.02360287918357754",
+            "extra": "mean: 15.522596998000017 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.02095969701451826,
+            "unit": "iter/sec",
+            "range": "stddev: 0.15491171235423737",
+            "extra": "mean: 47.71061334079995 sec\nrounds: 5"
           }
         ]
       }

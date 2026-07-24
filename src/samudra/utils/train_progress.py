@@ -10,7 +10,7 @@ from typing import Any
 
 import torch
 
-from samudra.datasets import TrainData
+from samudra.datasets import ModelBatch
 
 
 @dataclasses.dataclass
@@ -51,7 +51,7 @@ class TrainBatchProgress:
     batch_seconds: float = 0.0
 
     @classmethod
-    def from_train_data(cls, data: TrainData, world_size: int) -> "TrainBatchProgress":
+    def from_train_data(cls, data: ModelBatch, world_size: int) -> "TrainBatchProgress":
         label = data.get_label(0)
         (
             local_batch_size,
@@ -117,7 +117,7 @@ class TrainProgress:
 
     @contextlib.contextmanager
     def batch(
-        self, data: TrainData, *, world_size: int, device: torch.device
+        self, data: ModelBatch, *, world_size: int, device: torch.device
     ) -> Iterator[TrainBatchProgress]:
         batch = TrainBatchProgress.from_train_data(data, world_size)
         _synchronize_cuda_if_needed(device)

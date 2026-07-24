@@ -24,9 +24,9 @@ from samudra.constants import Boundary, Prognostic
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from samudra.datasets import TrainData, TrainDataLoader
+    from samudra.datasets import BatchLoader, ModelBatch
     from samudra.models.base import BaseModel
-    from samudra.utils.ctx import GridContext
+    from samudra.utils.ctx import BatchGrid
 
 
 def handle_logging(debug: bool, output_dir: Path):
@@ -161,7 +161,7 @@ class MetricLogger:
 
     def log_every(
         self,
-        data_loader: "TrainDataLoader",
+        data_loader: "BatchLoader",
         print_freq,
         header=None,
     ):
@@ -230,7 +230,7 @@ class _ForwardOnceWrapper(torch.nn.Module):
     def __init__(
         self,
         model: "BaseModel | DistributedDataParallel",
-        ctx: "GridContext",
+        ctx: "BatchGrid",
     ) -> None:
         super().__init__()
         self._underlying: BaseModel = getattr(model, "module", model)  # type: ignore
@@ -242,7 +242,7 @@ class _ForwardOnceWrapper(torch.nn.Module):
 
 
 def get_model_summary(
-    model: "BaseModel | DistributedDataParallel", data: "TrainData | None", debug: bool
+    model: "BaseModel | DistributedDataParallel", data: "ModelBatch | None", debug: bool
 ) -> None:
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
@@ -250,7 +250,7 @@ def get_model_summary(
     depth = 10 if debug else 2
     # we pass verbose = 0 because we log the summary ourselves
     if data is not None:
-        # TrainData is a complex wrapper that torchinfo cannot traverse.
+        # ModelBatch is a complex wrapper that torchinfo cannot traverse.
         # Extract the initial prognostic + boundary and wrap the model to
         # use forward_once.
         prog_tensor, boundary_tensor = data.get_initial_input()

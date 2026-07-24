@@ -9,10 +9,10 @@ import pytest
 import torch
 import xarray as xr
 
-from samudra.constants import TensorMap, build_om4_spec
+from samudra.constants import TensorMap, build_om4_layout
 from samudra.utils.data import Normalize
 from samudra.utils.writer import ZarrWriter
-from tests.conftest import TEST_FULL_DATASET_SPEC
+from tests.conftest import TEST_FULL_DATA_LAYOUT
 
 # write() never touches normalization (record_batch does), so these tests drive
 # the writer directly with a buffer and omit a real Normalize.
@@ -23,7 +23,7 @@ def _source_coords(ny, nx):
     """Coords as `get_coords_dict` should be returned: 1D lat/lon dims,
     plus the grid metadata that survives `with_lat_lon_coords` (areacello, dz,
     lev, ocean_fraction)."""
-    spec = TEST_FULL_DATASET_SPEC
+    spec = TEST_FULL_DATA_LAYOUT
     n_lev = spec.num_prognostic_depth_levels
     lat = xr.DataArray(np.linspace(-89, 89, ny), dims="lat")
     lon = xr.DataArray(np.linspace(0, 359, nx), dims="lon")
@@ -44,8 +44,8 @@ def _source_coords(ny, nx):
 
 def test_writer_output_is_analysis_ready(tmp_path):
     """The eval writer emits depth-stacked vars on y/x dims with grid metadata."""
-    spec = TEST_FULL_DATASET_SPEC
-    tensor_map = TensorMap(dataset_spec=spec)
+    spec = TEST_FULL_DATA_LAYOUT
+    tensor_map = TensorMap(data_layout=spec)
     names = list(tensor_map.prognostic_var_names)
     n_channels, n_lev = len(names), spec.num_prognostic_depth_levels
     nt, ny, nx = 2, 3, 4
@@ -108,8 +108,8 @@ def test_writer_prefers_real_2d_lat_lon(tmp_path):
     be rebuilt by broadcasting the 1D axes. `with_lat_lon_coords` preserves the
     real coords as `lat_2d`/`lon_2d`; the writer must emit those, not a broadcast.
     """
-    spec = TEST_FULL_DATASET_SPEC
-    tensor_map = TensorMap(dataset_spec=spec)
+    spec = TEST_FULL_DATA_LAYOUT
+    tensor_map = TensorMap(data_layout=spec)
     n_channels = len(tensor_map.prognostic_var_names)
     ny, nx = 3, 4
 
@@ -148,8 +148,8 @@ def test_writer_prefers_real_2d_lat_lon(tmp_path):
 
 def test_writer_appends_along_time(tmp_path):
     """A second write extends the time axis without disturbing other coords."""
-    spec = TEST_FULL_DATASET_SPEC
-    tensor_map = TensorMap(dataset_spec=spec)
+    spec = TEST_FULL_DATA_LAYOUT
+    tensor_map = TensorMap(data_layout=spec)
     n_channels = len(tensor_map.prognostic_var_names)
     ny, nx = 3, 4
 
@@ -185,10 +185,10 @@ def test_writer_shallow_spec_slices_depth_metadata(tmp_path):
     (e.g. thermo_dynamic_5) emits fewer levels. The writer slices the depth-resolved
     coords to the emitted level count instead of raising on a conflicting `lev` dim.
     """
-    spec = build_om4_spec(
+    spec = build_om4_layout(
         prognostic_vars_key="thermo_dynamic_5", boundary_vars_key="tau_hfds"
     )
-    tensor_map = TensorMap(dataset_spec=spec)
+    tensor_map = TensorMap(data_layout=spec)
     n_prog = spec.num_prognostic_depth_levels  # 5, fewer than the source's 19
     n_channels = len(tensor_map.prognostic_var_names)
     ny, nx, nt = 3, 4, 1
@@ -236,12 +236,12 @@ def test_writer_curvilinear_grid_without_real_coords_raises(tmp_path):
     coordinates. (The gaussian grid broadcasts fine -- see
     test_writer_output_is_analysis_ready, which drives the same coords.)
     """
-    spec = build_om4_spec(
+    spec = build_om4_layout(
         prognostic_vars_key="thermo_dynamic_all",
         boundary_vars_key="tau_hfds_hfds_anom",
         grid_type="tripolar",
     )
-    tensor_map = TensorMap(dataset_spec=spec)
+    tensor_map = TensorMap(data_layout=spec)
     n_channels = len(tensor_map.prognostic_var_names)
     ny, nx = 3, 4
 

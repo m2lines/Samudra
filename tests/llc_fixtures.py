@@ -7,13 +7,13 @@ from pathlib import Path
 import numpy as np
 import xarray as xr
 
-from samudra.constants import build_llc_spec
+from samudra.constants import build_llc_layout
 
 
 def raw_llc_datasets(n_time: int = 3) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
     """A mock LLC dataset with the same structure but (much) smaller."""
     n_face = 2
-    n_lev = len(build_llc_spec().depth_i_levels)
+    n_lev = len(build_llc_layout().depth_i_levels)
     n_j = 4
     n_i = 5
     times = np.arange(

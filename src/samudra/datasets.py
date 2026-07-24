@@ -27,8 +27,13 @@ from samudra.constants import (
     PrognosticMask,
     PrognosticVarNames,
 )
-from samudra.utils.ctx import GridContext
-from samudra.utils.data import DataSource, LoadStats, OceanData, conditional_rearrange
+from samudra.utils.ctx import BatchGrid
+from samudra.utils.data import (
+    CanonicalSource,
+    LoadStats,
+    OceanData,
+    conditional_rearrange,
+)
 from samudra.utils.device import using_gpu
 from samudra.utils.logging import elapsed
 
@@ -52,7 +57,7 @@ class InferenceDataset(Dataset):
     @elapsed
     def __init__(
         self,
-        src: DataSource,
+        src: CanonicalSource,
         prognostic_var_names,
         boundary_var_names,
         hist,
@@ -112,7 +117,7 @@ class InferenceDataset(Dataset):
 
         # Inference only currently supports the same output resolution as the input
         # resolution.
-        self.ctx = GridContext(self.wet_label, self.input_res, self.input_res)
+        self.ctx = BatchGrid(self.wet_label, self.input_res, self.input_res)
 
     def __len__(self):
         return self.size
@@ -316,7 +321,7 @@ class InferenceDatasets(Dataset):
         return (self.datasets[idx], self.lengths[idx])
 
 
-class RawTrainData:
+class HostBatch:
     def __init__(self, dataset_id: "TorchTrainDataset.Id"):
         self.dataset_id: TorchTrainDataset.Id = dataset_id
         self.raw_data: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = []
@@ -353,7 +358,7 @@ class RawTrainData:
         return self
 
 
-class TrainData:
+class ModelBatch:
     """A single batch of training data.
 
     A single batch contains multiple steps worth of ``Example`` entries, each
@@ -363,7 +368,7 @@ class TrainData:
     """
 
     def __init__(
-        self, num_prognostic_channels: int, num_boundary_channels: int, ctx: GridContext
+        self, num_prognostic_channels: int, num_boundary_channels: int, ctx: BatchGrid
     ):
         self.num_prognostic_channels = num_prognostic_channels
         self.num_boundary_channels = num_boundary_channels
@@ -418,7 +423,7 @@ class TrainData:
 
 
 @final
-class TorchTrainDataset(Dataset[RawTrainData]):
+class TorchTrainDataset(Dataset[HostBatch]):
     """
     This class is used for training and validation.
 
@@ -426,7 +431,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     from InferenceDataset, as it creates rolling indices based on stride. By default,
     the sliding window / stride is 1.
 
-    We make use of TrainData class to store a single sample.
+    We make use of ModelBatch class to store a single sample.
 
     For example,
     Hist=0 ; TD: step=0->[0, 1]; step=1->[1, 2]; step=2->[2, 3]; step=3->[3, 4]
@@ -458,7 +463,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     @elapsed
     def __init__(
         self,
-        src: DataSource,
+        src: CanonicalSource,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         hist: int,
@@ -506,7 +511,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.wet_prognostic: PrognosticMask = src.masks.prognostic
         self.wet_surface: GridMask = src.masks.boundary
 
-        self.ctx = GridContext(
+        self.ctx = BatchGrid(
             label_mask=self.prognostic_src.masks.prognostic_with_hist(self.hist),
             input_resolution_cpu=self.prognostic_src.resolution,
             output_resolution_cpu=self.prognostic_src.resolution,
@@ -524,7 +529,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()
-        TD = RawTrainData(self.id)
+        TD = HostBatch(self.id)
 
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step)
@@ -582,24 +587,22 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
         return TD
 
-    def to_train_data(
-        self, raw_train_data: RawTrainData, device: torch.device
-    ) -> TrainData:
-        """Convert RawTrainData to TrainData, moving tensors to the specified device.
+    def to_train_data(self, host_batch: HostBatch, device: torch.device) -> ModelBatch:
+        """Convert HostBatch to ModelBatch, moving tensors to the specified device.
 
         Args:
-            raw_train_data: CPU data from worker process
+            host_batch: CPU data from worker process
             device: Target device (typically GPU) to move tensors to
 
         Returns:
-            TrainData with tensors on the target device
+            ModelBatch with tensors on the target device
         """
-        train_data = TrainData(
+        model_batch = ModelBatch(
             self.num_prognostic_channels,
             self.num_boundary_channels,
             self.ctx.to(device),
         )
-        for input_, boundary, label in raw_train_data.raw_data:
+        for input_, boundary, label in host_batch.raw_data:
             prog_input, boundary_input, label_tensor = self._to_example(
                 OceanData.from_data_source(
                     input_,
@@ -615,9 +618,9 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                     label, self.wet_prognostic, self.prognostic_src
                 ).to(device=device, non_blocking=True),
             )
-            train_data.append(prog_input, boundary_input, label_tensor)
-        train_data.load_stats = raw_train_data.load_stats
-        return train_data
+            model_batch.append(prog_input, boundary_input, label_tensor)
+        model_batch.load_stats = host_batch.load_stats
+        return model_batch
 
     def _to_example(
         self, input_: OceanData, boundary: OceanData, label: OceanData
@@ -664,11 +667,11 @@ def concurrent_compute(
 
 
 @final
-class TrainDataLoader:
+class BatchLoader:
     """Wrapper around a torch DataLoader that handles GPU post-processing.
 
-    This class wraps a DataLoader[RawTrainData] and converts the raw data
-    to TrainData by applying GPU-based normalization and masking. This allows
+    This class wraps a DataLoader[HostBatch] and converts the raw data
+    to ModelBatch by applying GPU-based normalization and masking. This allows
     the data loading process to handle I/O while the main process handles
     GPU operations.
 
@@ -681,7 +684,7 @@ class TrainDataLoader:
 
     def __init__(
         self,
-        dataloader: torch.utils.data.DataLoader[RawTrainData],
+        dataloader: torch.utils.data.DataLoader[HostBatch],
         datasets: list[TorchTrainDataset],
         device: torch.device,
     ):
@@ -690,32 +693,32 @@ class TrainDataLoader:
         self._device = device
 
     def __iter__(self):
-        """Iterate over the dataloader, converting RawTrainData to TrainData."""
-        for raw_train_data in self._dataloader:
-            dataset = self._datasets[raw_train_data.dataset_id]
-            train_data = dataset.to_train_data(raw_train_data, self._device)
-            yield train_data
+        """Iterate over the dataloader, converting HostBatch to ModelBatch."""
+        for host_batch in self._dataloader:
+            dataset = self._datasets[host_batch.dataset_id]
+            model_batch = dataset.to_train_data(host_batch, self._device)
+            yield model_batch
 
     def __len__(self) -> int:
         return len(self._dataloader)
 
-    def __getitem__(self, index: int) -> TrainData:
-        """Access a single item by index, converting RawTrainData to TrainData.
+    def __getitem__(self, index: int) -> ModelBatch:
+        """Access a single item by index, converting HostBatch to ModelBatch.
 
         Note: This bypasses the DataLoader's sampling/batching and directly accesses
         the underlying dataset for test purposes.
         """
         # Access the underlying dataset directly
-        raw_train_data = self._dataloader.dataset[index]
+        host_batch = self._dataloader.dataset[index]
         # Apply the collate function to add batch dimension (expects a list)
         collate_fn = self._dataloader.collate_fn
         if collate_fn is not None:
-            raw_train_data = collate_fn([raw_train_data])
+            host_batch = collate_fn([host_batch])
         # Get the dataset that created this raw data
-        dataset = self._datasets[raw_train_data.dataset_id]
-        # Convert to TrainData
-        train_data = dataset.to_train_data(raw_train_data, self._device)
-        return train_data
+        dataset = self._datasets[host_batch.dataset_id]
+        # Convert to ModelBatch
+        model_batch = dataset.to_train_data(host_batch, self._device)
+        return model_batch
 
     @property
     def dataset(self):

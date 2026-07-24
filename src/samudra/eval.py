@@ -47,17 +47,17 @@ class Eval:
         set_seed(cfg.experiment.rand_seed)
 
         logger.info("Loading data")
-        self.data_container = cfg.data.build(
+        self.data_bundle = cfg.data.build(
             cfg.experiment.resolved_data_root,
         )
 
         # Getting prognostic and boundary variables
-        self.dataset_spec = self.data_container.dataset_spec
+        self.data_layout = self.data_bundle.data_layout
         self.prognostic_var_names: PrognosticVarNames = (
-            self.dataset_spec.prognostic_var_names
+            self.data_layout.prognostic_var_names
         )
-        self.boundary_var_names: BoundaryVarNames = self.dataset_spec.boundary_var_names
-        self.levels = self.dataset_spec.num_prognostic_depth_levels
+        self.boundary_var_names: BoundaryVarNames = self.data_layout.boundary_var_names
+        self.levels = self.data_layout.num_prognostic_depth_levels
 
         str_prognostics = ", ".join([i for i in self.prognostic_var_names])
         str_boundaries = ", ".join([i for i in self.boundary_var_names])
@@ -74,17 +74,17 @@ class Eval:
         self.num_in = self.num_prog_in + self.num_boundary_in
         self.num_out = self.num_prog_in
 
-        self.tensor_map = TensorMap(dataset_spec=self.dataset_spec).to(self.device)
+        self.tensor_map = TensorMap(data_layout=self.data_layout).to(self.device)
 
         logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
 
         # Dataloaders
-        if self.data_container.inference_source is None:
+        if self.data_bundle.inference_source is None:
             raise ValueError(
                 "Inference time is not configured for the first data source"
             )
-        self.src = self.data_container.inference_source
+        self.src = self.data_bundle.inference_source
         self.data = self.src.data
         self.metadata = self.src.metadata
         self.wet = self.src.masks.prognostic_with_hist(cfg.data.hist)
@@ -103,7 +103,7 @@ class Eval:
             boundary_channels=self.num_boundary_in,
             out_channels=self.num_out,
             hist=cfg.data.hist,
-            srcs=self.data_container.train_sources,
+            srcs=self.data_bundle.train_sources,
         ).to(self.device)
 
         get_model_summary(self.model, None, cfg.debug)
@@ -124,7 +124,7 @@ class Eval:
 
         # Set up wandb run
         self.wandb_id, self.wandb_name = self.wandb_logger.setup_run(
-            None, cfg, data_container=self.data_container, finetune=False
+            None, cfg, data_bundle=self.data_bundle, finetune=False
         )
 
         # Eval

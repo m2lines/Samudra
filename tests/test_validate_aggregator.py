@@ -11,8 +11,8 @@ from samudra.aggregator.validate.map import MapAggregator
 from samudra.aggregator.validate.snapshot import SnapshotAggregator
 from samudra.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from samudra.constants import TensorMap
-from samudra.utils.ctx import GridContext
-from samudra.utils.data import DataSource, Normalize
+from samudra.utils.ctx import BatchGrid
+from samudra.utils.data import CanonicalSource, Normalize
 from samudra.utils.output import ValBatchOutput
 from samudra.utils.wandb import Metrics
 
@@ -25,7 +25,7 @@ def val_batch_of(
     hist: int = 0,
     batch_size: int = 1,
 ) -> ValBatchOutput:
-    """Create a dummy Validation Batch loss / data from a DataSource."""
+    """Create a dummy Validation Batch loss / data from a CanonicalSource."""
     n_prog_base = len(tensor_map.prognostic_var_names)
     n_boundary_base = len(tensor_map.boundary_var_names)
     n_prog = (hist + 1) * n_prog_base
@@ -40,7 +40,7 @@ def val_batch_of(
         input_data=torch.randn(batch_size, n_prog + n_boundary, h, w),
         target_data=torch.randn(batch_size, n_prog, h, w),
         gen_data=torch.randn(batch_size, n_prog, h, w),
-        ctx=GridContext(
+        ctx=BatchGrid(
             label_mask=torch.ones(n_prog, h, w),
             input_resolution_cpu=(
                 torch.linspace(-90, 90, steps=h),
@@ -55,11 +55,11 @@ def val_batch_of(
     return batch
 
 
-def tensor_map_for(src: DataSource) -> TensorMap:
-    return TensorMap(dataset_spec=src.dataset_spec)
+def tensor_map_for(src: CanonicalSource) -> TensorMap:
+    return TensorMap(data_layout=src.data_layout)
 
 
-def normalize_for(src: DataSource, tensor_map: TensorMap) -> Normalize:
+def normalize_for(src: CanonicalSource, tensor_map: TensorMap) -> Normalize:
     return Normalize(
         src,
         tensor_map.prognostic_var_names,
@@ -88,7 +88,7 @@ class FakeSubAggregator(ValidateSubAggregator):
         self.num_recordings += 1
 
 
-def test_val_aggregator__no_op__is_same_as_train_aggregator(dummy_src: DataSource):
+def test_val_aggregator__no_op__is_same_as_train_aggregator(dummy_src: CanonicalSource):
     tensor_map = tensor_map_for(dummy_src)
     normalize = normalize_for(dummy_src, tensor_map)
     val_batch = val_batch_of(*dummy_src.grid_size, tensor_map=tensor_map)
@@ -114,7 +114,7 @@ def test_val_aggregator__no_op__is_same_as_train_aggregator(dummy_src: DataSourc
 
 
 def test_train_val_aggregator__with_fake_subagg__is_added_to_logs(
-    dummy_src: DataSource,
+    dummy_src: CanonicalSource,
 ):
     tensor_map = tensor_map_for(dummy_src)
     normalize = normalize_for(dummy_src, tensor_map)
@@ -149,7 +149,7 @@ def test_train_val_aggregator__with_fake_subagg__is_added_to_logs(
 
 
 def test_val_aggregator__hist_gt_0__does_not_require_wetmask_target_shape_match(
-    dummy_src: DataSource,
+    dummy_src: CanonicalSource,
 ):
     tensor_map = tensor_map_for(dummy_src)
     normalize = normalize_for(dummy_src, tensor_map)
@@ -170,7 +170,7 @@ def test_val_aggregator__hist_gt_0__does_not_require_wetmask_target_shape_match(
 
 
 def test_validation_aggregator__reduced_only__omits_image_logs(
-    dummy_src: DataSource,
+    dummy_src: CanonicalSource,
 ):
     tensor_map = tensor_map_for(dummy_src)
     normalize = normalize_for(dummy_src, tensor_map)
@@ -195,7 +195,7 @@ def test_validation_aggregator__reduced_only__omits_image_logs(
 
 
 def test_snapshot_aggregator__non_main_rank__skips_plot_rendering(
-    dummy_src: DataSource, monkeypatch: pytest.MonkeyPatch
+    dummy_src: CanonicalSource, monkeypatch: pytest.MonkeyPatch
 ):
     tensor_map = tensor_map_for(dummy_src)
     val_batch = val_batch_of(*dummy_src.grid_size, tensor_map=tensor_map)
@@ -220,7 +220,7 @@ def test_snapshot_aggregator__non_main_rank__skips_plot_rendering(
 
 
 def test_map_aggregator__non_main_rank__still_reduces_but_skips_plot_rendering(
-    dummy_src: DataSource, monkeypatch: pytest.MonkeyPatch
+    dummy_src: CanonicalSource, monkeypatch: pytest.MonkeyPatch
 ):
     aggregator = MapAggregator(dummy_src.metadata, hist=0)
     reduce_calls: list[torch.Tensor] = []

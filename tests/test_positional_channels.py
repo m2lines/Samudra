@@ -5,11 +5,11 @@
 import torch
 
 from samudra.config import SamudraConfig, UNetBackboneConfig
-from samudra.utils.ctx import GridContext
-from samudra.utils.data import DataSource
+from samudra.utils.ctx import BatchGrid
+from samudra.utils.data import CanonicalSource
 
 
-def test_positional_parameters_update(dummy_src: DataSource):
+def test_positional_parameters_update(dummy_src: CanonicalSource):
     """Verify that positional parameters can learn something in a tiny example."""
     src = dummy_src
     h, w = src.grid_size
@@ -48,7 +48,7 @@ def test_positional_parameters_update(dummy_src: DataSource):
     out = model.forward_once(
         prog,
         boundary,
-        GridContext(masks.prognostic, src.resolution, src.resolution),
+        BatchGrid(masks.prognostic, src.resolution, src.resolution),
     )
     loss = out.sum()
     loss.backward()

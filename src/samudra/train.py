@@ -41,12 +41,12 @@ from samudra.constants import (
     TensorMap,
 )
 from samudra.datasets import (
+    BatchLoader,
+    HostBatch,
     InferenceDataset,
     InferenceDatasets,
-    RawTrainData,
+    ModelBatch,
     TorchTrainDataset,
-    TrainData,
-    TrainDataLoader,
 )
 from samudra.models.base import BaseModel
 from samudra.stepper import (
@@ -128,17 +128,17 @@ class Trainer:
         self.rand_seed = cfg.experiment.rand_seed
         set_seed(self.rand_seed)
 
-        self.data_container = cfg.data.build(
+        self.data_bundle = cfg.data.build(
             data_root=cfg.experiment.resolved_data_root,
         )
 
         # Getting prognostic and boundary variables
-        self.dataset_spec = self.data_container.dataset_spec
+        self.data_layout = self.data_bundle.data_layout
         self.prognostic_var_names: PrognosticVarNames = (
-            self.dataset_spec.prognostic_var_names
+            self.data_layout.prognostic_var_names
         )
-        self.boundary_var_names: BoundaryVarNames = self.dataset_spec.boundary_var_names
-        self.levels = self.dataset_spec.num_prognostic_depth_levels
+        self.boundary_var_names: BoundaryVarNames = self.data_layout.boundary_var_names
+        self.levels = self.data_layout.num_prognostic_depth_levels
 
         str_prognostics = ", ".join([i for i in self.prognostic_var_names])
         str_boundaries = ", ".join([i for i in self.boundary_var_names])
@@ -162,7 +162,7 @@ class Trainer:
         self.num_in = self.num_prog_in + self.num_boundary_in
         self.num_out = self.num_prog_in
 
-        self.tensor_map = TensorMap(dataset_spec=self.dataset_spec).to(self.device)
+        self.tensor_map = TensorMap(data_layout=self.data_layout).to(self.device)
 
         logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
@@ -178,14 +178,14 @@ class Trainer:
         logger.info(f"Loading data")
         self.concurrent_compute = cfg.data.concurrent_compute
 
-        self.primary_src = self.data_container.primary_source
+        self.primary_src = self.data_bundle.primary_source
 
         # We use dask for inference since it has memory issues otherwise.
         # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset
         # see https://github.com/m2lines/Samudra/issues/208
-        self.inference_src = self.data_container.inference_source
+        self.inference_src = self.data_bundle.inference_source
 
-        self.loader_version = self.data_container.loader_version
+        self.loader_version = self.data_bundle.loader_version
 
         # Aggregation still works on the primary source only.
         self.normalize = Normalize(
@@ -199,7 +199,7 @@ class Trainer:
             boundary_channels=self.num_boundary_in,
             out_channels=self.num_out,
             hist=cfg.data.hist,
-            srcs=self.data_container.train_sources,
+            srcs=self.data_bundle.train_sources,
         ).to(self.device)
 
         self.nets_dir = cfg.experiment.nets_dir
@@ -240,7 +240,7 @@ class Trainer:
         self.wandb_id, self.wandb_name = self.wandb_logger.setup_run(
             cfg.resume_ckpt_path,
             cfg,
-            data_container=self.data_container,
+            data_bundle=self.data_bundle,
             finetune=cfg.finetune,
         )
 
@@ -351,9 +351,9 @@ class Trainer:
         self.inference_sampler: DistributedSampler | RandomSampler
 
         # Add type annotations for loaders
-        self.train_loader: TrainDataLoader
-        self.val_loader: TrainDataLoader
-        self.inference_loader: DataLoader[TrainData]
+        self.train_loader: BatchLoader
+        self.val_loader: BatchLoader
+        self.inference_loader: DataLoader[ModelBatch]
 
     def init_inference_stores(self):
         assert self.inference_src is not None
@@ -624,7 +624,7 @@ class Trainer:
         logger.info(f"Aggregating train logs")
         return train_aggregator.get_logs()
 
-    def _maybe_update_loss(self, output: TrainBatchOutput, data: TrainData):
+    def _maybe_update_loss(self, output: TrainBatchOutput, data: ModelBatch):
         if (update := getattr(self.loss_fn, "update", None)) is None:
             return
 
@@ -649,7 +649,7 @@ class Trainer:
             # Run a fresh single-step forward pass so DynamicLoss sees an
             # up-to-date, unscaled loss signal
             with torch.no_grad():
-                single_step_data = TrainData(
+                single_step_data = ModelBatch(
                     data.num_prognostic_channels, data.num_boundary_channels, data.ctx
                 )
                 prog_input, boundary_input, label = data[0]
@@ -787,7 +787,7 @@ class Trainer:
                 concurrent_compute_=self.concurrent_compute,
             )
             for stride in self.data_stride
-            for src in self.data_container.train_sources
+            for src in self.data_bundle.train_sources
         ]
 
         # Validation is always evaluated on the primary source. This keeps the
@@ -795,7 +795,7 @@ class Trainer:
         # regardless of the set of resolutions used for training.
         val_datasets = [
             TorchTrainDataset(
-                src=self.data_container.val_sources[0],
+                src=self.data_bundle.val_sources[0],
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -811,11 +811,11 @@ class Trainer:
         # Create datasets
         match self.loader_version:
             case TorchTrainDataset.FLAG:
-                train_data: torch.utils.data.Dataset[RawTrainData] = ConcatDataset(
+                model_batch: torch.utils.data.Dataset[HostBatch] = ConcatDataset(
                     train_datasets
                 )
 
-                val_data: torch.utils.data.Dataset[RawTrainData] = ConcatDataset(
+                val_data: torch.utils.data.Dataset[HostBatch] = ConcatDataset(
                     val_datasets
                 )
 
@@ -892,7 +892,7 @@ class Trainer:
         # Create data loaders (same for both distributed and non-distributed)
         # When using batch_sampler, don't specify batch_size or sampler
         train_dataloader = DataLoader(
-            train_data,
+            model_batch,
             batch_sampler=train_batch_sampler,
             num_workers=self.num_workers,
             persistent_workers=self.persistent_workers and self.num_workers > 0,
@@ -912,10 +912,8 @@ class Trainer:
         )
 
         # Wrap dataloaders to handle GPU post-processing
-        self.train_loader = TrainDataLoader(
-            train_dataloader, train_datasets, self.device
-        )
-        self.val_loader = TrainDataLoader(val_dataloader, val_datasets, self.device)
+        self.train_loader = BatchLoader(train_dataloader, train_datasets, self.device)
+        self.val_loader = BatchLoader(val_dataloader, val_datasets, self.device)
 
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
         with self._test_context():

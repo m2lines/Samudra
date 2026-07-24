@@ -8,7 +8,7 @@ from perceiver_pytorch.perceiver_io import PerceiverIO
 from test_encoder import make_resolution  # type: ignore
 
 from samudra.models.samudra_mini import SamudraMini
-from samudra.utils.ctx import GridContext
+from samudra.utils.ctx import BatchGrid
 
 
 def make_perceiver_io(
@@ -26,11 +26,11 @@ def make_perceiver_io(
     )
 
 
-def make_ctx(out_channels: int, H: int, W: int) -> GridContext:
+def make_ctx(out_channels: int, H: int, W: int) -> BatchGrid:
     mask = torch.ones(out_channels, H, W, dtype=torch.bool)
     dummy = torch.randn(1, 1, H, W)
     res = make_resolution(dummy)
-    return GridContext(mask, res, res)
+    return BatchGrid(mask, res, res)
 
 
 def make_model(query_chunk_size: int | None) -> SamudraMini:

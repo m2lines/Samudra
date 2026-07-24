@@ -10,9 +10,9 @@ import torch
 import xarray as xr
 from scipy.stats import pearsonr
 
-from samudra.constants import TensorMap, build_llc_spec
+from samudra.constants import TensorMap, build_llc_layout
 from samudra.utils.data import (
-    DataSource,
+    CanonicalSource,
     Masks,
     Normalize,
     OceanData,
@@ -31,15 +31,15 @@ from samudra.utils.llc import (
     _var_without_level,
     canonicalize_llc_datasets,
 )
-from tests.conftest import TEST_DATASET_SPEC, TEST_FULL_DATASET_SPEC
+from tests.conftest import TEST_DATA_LAYOUT, TEST_FULL_DATA_LAYOUT
 from tests.llc_fixtures import raw_llc_datasets
 
 
 def test_mask_roundtrip(data_source):
     data = data_source.data
 
-    unflattened = unflatten_masks(data.copy(), dataset_spec=TEST_DATASET_SPEC)
-    flattened = flatten_masks(unflattened.copy(), dataset_spec=TEST_DATASET_SPEC)
+    unflattened = unflatten_masks(data.copy(), data_layout=TEST_DATA_LAYOUT)
+    flattened = flatten_masks(unflattened.copy(), data_layout=TEST_DATA_LAYOUT)
 
     assert flattened == data, "Assume a safe roundtrip"
 
@@ -51,7 +51,7 @@ def test_level_index_vars_roundtrip(data_source):
     Exercised on the mock OM4 dataset (in ``<var>_<level_index>`` form) in both
     orders, so each function is run against the other's real output.
     """
-    spec = TEST_FULL_DATASET_SPEC
+    spec = TEST_FULL_DATA_LAYOUT
     ds_idx = data_source.data  # OM4 data named <var>_<level_index>
 
     ds_lev = with_depth_value_vars(ds_idx, spec)
@@ -69,7 +69,7 @@ def test_level_index_vars_roundtrip(data_source):
 @pytest.mark.parametrize("data_source", ["mock-om4"], indirect=True)
 def test_stack_levels(data_source):
     """`stack_levels` reassembles flattened OM4 data into depth-stacked form."""
-    spec = TEST_FULL_DATASET_SPEC
+    spec = TEST_FULL_DATA_LAYOUT
     ds = data_source.data
     n = len(spec.depth_levels)
 
@@ -141,7 +141,7 @@ def test_rename_vars():
     )
 
     # Apply rename_vars
-    renamed_ds = with_level_index_vars(ds, dataset_spec=TEST_DATASET_SPEC)
+    renamed_ds = with_level_index_vars(ds, data_layout=TEST_DATA_LAYOUT)
 
     # Test that variables are renamed correctly
     assert "so_11" in renamed_ds.variables  # 1040.0 is OM4 depth index 11
@@ -178,7 +178,7 @@ def test_rename_vars_invalid_depth():
 
     # Should raise ValueError because 9999.0 is not an OM4 depth level
     with pytest.raises(ValueError):
-        with_level_index_vars(ds, dataset_spec=TEST_DATASET_SPEC)
+        with_level_index_vars(ds, data_layout=TEST_DATA_LAYOUT)
 
 
 def test_compute_anomalies():
@@ -247,13 +247,13 @@ def normalize_input():
 
     # Warning: the 'data' field is not used because this test tries to test
     # normalization which only needs mean and std. Thus, we set it to `data_mean`.
-    test = DataSource(
+    test = CanonicalSource(
         "test",
         data_mean,
         data_mean,
         data_std,
         masks=masks,
-        dataset_spec=TEST_DATASET_SPEC,
+        data_layout=TEST_DATA_LAYOUT,
     )
 
     normalize = Normalize(
@@ -285,25 +285,25 @@ def test_unnormalize_prognostic_tensor(normalize_input, fill_value):
 
 @pytest.mark.parametrize("data_source", ["compact"], indirect=True)
 def test_normalize_compact_mixed_depth_and_surface_stats(data_source):
-    src = DataSource.from_datasets(
+    src = CanonicalSource.from_datasets(
         data_source.data,
         data_source.means,
         data_source.stds,
-        dataset_spec=TEST_FULL_DATASET_SPEC,
+        data_layout=TEST_FULL_DATA_LAYOUT,
         name="compact-full",
-        prognostic_var_names=TEST_FULL_DATASET_SPEC.prognostic_var_names,
-        boundary_var_names=TEST_FULL_DATASET_SPEC.boundary_var_names,
+        prognostic_var_names=TEST_FULL_DATA_LAYOUT.prognostic_var_names,
+        boundary_var_names=TEST_FULL_DATA_LAYOUT.boundary_var_names,
     )
     normalize = Normalize(
         src,
-        prognostic_var_names=TEST_FULL_DATASET_SPEC.prognostic_var_names,
-        boundary_var_names=TEST_FULL_DATASET_SPEC.boundary_var_names,
+        prognostic_var_names=TEST_FULL_DATA_LAYOUT.prognostic_var_names,
+        boundary_var_names=TEST_FULL_DATA_LAYOUT.boundary_var_names,
     )
 
-    num_depth = len(TEST_FULL_DATASET_SPEC.depth_levels)
+    num_depth = len(TEST_FULL_DATA_LAYOUT.depth_levels)
     expected_prognostic_channels = 4 * num_depth + 1
     assert expected_prognostic_channels == len(
-        TEST_FULL_DATASET_SPEC.prognostic_var_names
+        TEST_FULL_DATA_LAYOUT.prognostic_var_names
     )
     assert normalize._prognostic_mean_np.shape == (expected_prognostic_channels,)
     assert normalize._prognostic_std_np.shape == (expected_prognostic_channels,)
@@ -333,18 +333,18 @@ def test_rename_llc_level_index_vars():
 def test_flatten_llc_level_vars():
     raw_data, _, _ = raw_llc_datasets()
     data = raw_data[["Theta"]].isel(face=0, drop=True).rename({"k": "lev"})
-    dataset_spec = build_llc_spec()
+    data_layout = build_llc_layout()
 
-    flattened = _flatten_llc_level_vars(data, dataset_spec=dataset_spec)
+    flattened = _flatten_llc_level_vars(data, data_layout=data_layout)
 
     assert "Theta" not in flattened.data_vars
     assert set(flattened.data_vars) == {
-        f"Theta_{level}" for level in dataset_spec.depth_i_levels
+        f"Theta_{level}" for level in data_layout.depth_i_levels
     }
     xr.testing.assert_identical(
         flattened["Theta_0"], data["Theta"].isel(lev=0, drop=True).rename("Theta_0")
     )
-    last_level = dataset_spec.depth_i_levels[-1]
+    last_level = data_layout.depth_i_levels[-1]
     xr.testing.assert_identical(
         flattened[f"Theta_{last_level}"],
         data["Theta"].isel(lev=-1, drop=True).rename(f"Theta_{last_level}"),
@@ -365,7 +365,7 @@ def test_var_without_level(var_name, expected):
 
 def test_canonicalize_llc_datasets_standardizes_layout():
     data, means, stds = raw_llc_datasets()
-    dataset_spec = build_llc_spec(prognostic_vars_key="all", boundary_vars_key="all")
+    data_layout = build_llc_layout(prognostic_vars_key="all", boundary_vars_key="all")
     expected_theta_0 = data["Theta"].isel(time=0, face=1, k=0, j=1, i=1).item()
 
     llc_data, llc_means, llc_stds = canonicalize_llc_datasets(
@@ -377,7 +377,7 @@ def test_canonicalize_llc_datasets_standardizes_layout():
         i_end=4,
         j_start=1,
         j_end=3,
-        dataset_spec=dataset_spec,
+        data_layout=data_layout,
     )
 
     assert "face" not in llc_data.dims
@@ -417,10 +417,10 @@ def test_canonicalize_llc_datasets_selects_requested_vars_from_full_root():
         i_end=4,
         j_start=1,
         j_end=3,
-        dataset_spec=build_llc_spec(),
+        data_layout=build_llc_layout(),
     )
 
-    llc_spec = build_llc_spec()
+    llc_spec = build_llc_layout()
     expected_vars = {
         *(f"Theta_{i}" for i in llc_spec.depth_i_levels),
         "oceQnet",
@@ -434,7 +434,7 @@ def test_canonicalize_llc_datasets_selects_requested_vars_from_full_root():
 
 def test_llc_all_variable_masks_use_staggered_masks():
     data, means, stds = raw_llc_datasets()
-    dataset_spec = build_llc_spec(prognostic_vars_key="all", boundary_vars_key="all")
+    data_layout = build_llc_layout(prognostic_vars_key="all", boundary_vars_key="all")
     llc_data, llc_means, llc_stds = canonicalize_llc_datasets(
         data,
         means,
@@ -444,29 +444,29 @@ def test_llc_all_variable_masks_use_staggered_masks():
         i_end=4,
         j_start=1,
         j_end=3,
-        dataset_spec=dataset_spec,
+        data_layout=data_layout,
     )
 
-    source = DataSource.from_datasets(
+    source = CanonicalSource.from_datasets(
         llc_data,
         llc_means,
         llc_stds,
-        dataset_spec=dataset_spec,
-        prognostic_var_names=dataset_spec.prognostic_var_names,
-        boundary_var_names=dataset_spec.boundary_var_names,
+        data_layout=data_layout,
+        prognostic_var_names=data_layout.prognostic_var_names,
+        boundary_var_names=data_layout.boundary_var_names,
     )
 
-    theta_index = dataset_spec.prognostic_var_names.index("Theta_0")
-    u_index = dataset_spec.prognostic_var_names.index("U_0")
-    v_index = dataset_spec.prognostic_var_names.index("V_0")
+    theta_index = data_layout.prognostic_var_names.index("Theta_0")
+    u_index = data_layout.prognostic_var_names.index("U_0")
+    v_index = data_layout.prognostic_var_names.index("V_0")
     assert bool(source.masks.prognostic[theta_index, 0, 0])
     assert not bool(source.masks.prognostic[u_index, 0, 0])
     assert not bool(source.masks.prognostic[v_index, 0, 1])
 
-    tau_x_index = dataset_spec.boundary_var_names.index("oceTAUX")
-    tau_y_index = dataset_spec.boundary_var_names.index("oceTAUY")
-    qnet_index = dataset_spec.boundary_var_names.index("oceQnet")
-    assert source.masks.boundary.shape == (len(dataset_spec.boundary_var_names), 2, 3)
+    tau_x_index = data_layout.boundary_var_names.index("oceTAUX")
+    tau_y_index = data_layout.boundary_var_names.index("oceTAUY")
+    qnet_index = data_layout.boundary_var_names.index("oceQnet")
+    assert source.masks.boundary.shape == (len(data_layout.boundary_var_names), 2, 3)
     assert not bool(source.masks.boundary[tau_x_index, 0, 0])
     assert not bool(source.masks.boundary[tau_y_index, 0, 1])
     assert bool(source.masks.boundary[qnet_index, 0, 0])
@@ -479,7 +479,7 @@ def data_init(hist: int):
     lons = 3
     total_time_steps = 100
 
-    tensor_map = TensorMap(dataset_spec=TEST_DATASET_SPEC)
+    tensor_map = TensorMap(data_layout=TEST_DATA_LAYOUT)
 
     wet_mask_ = np.array([[1, 0, 1], [0, 1, 0], [1, 0, 1]])
     wet_full = np.tile(wet_mask_, (total_time_steps, levels, 1, 1))
@@ -515,18 +515,18 @@ def data_init(hist: int):
         },
         coords={
             "time": np.arange(total_time_steps),
-            "lev": list(TEST_DATASET_SPEC.depth_levels),
+            "lev": list(TEST_DATA_LAYOUT.depth_levels),
             "lat": np.arange(lats),
             "lon": np.arange(lons),
         },
     )
     data_mean = data.mean() * 0.0
     data_std = data.std() * 0.0 + 1.0
-    val = DataSource.from_datasets(
+    val = CanonicalSource.from_datasets(
         data,
         data_mean,
         data_std,
-        dataset_spec=TEST_DATASET_SPEC,
+        data_layout=TEST_DATA_LAYOUT,
         name="test",
         prognostic_var_names=tensor_map.prognostic_var_names,
         boundary_var_names=tensor_map.boundary_var_names,

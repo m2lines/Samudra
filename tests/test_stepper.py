@@ -8,13 +8,13 @@ import torch
 import xarray as xr
 
 from samudra.constants import TensorMap
-from samudra.datasets import InferenceDataset, TrainData
+from samudra.datasets import InferenceDataset, ModelBatch
 from samudra.models.base import BaseModel
 from samudra.stepper import validate_batch
-from samudra.utils.ctx import GridContext
-from samudra.utils.data import DataSource, Normalize
+from samudra.utils.ctx import BatchGrid
+from samudra.utils.data import CanonicalSource, Normalize
 from samudra.utils.multiton import MultitonScope
-from tests.conftest import TEST_DATASET_SPEC
+from tests.conftest import TEST_DATA_LAYOUT
 
 
 @pytest.fixture
@@ -25,7 +25,7 @@ def inf_data_init(hist: int):
         lons = 1
         total_time_steps = 100
 
-        tensor_map = TensorMap(dataset_spec=TEST_DATASET_SPEC)
+        tensor_map = TensorMap(data_layout=TEST_DATA_LAYOUT)
 
         # Even thetao, odd hfds for every time step
         # Ex, timestep 0: thetao = 0, hfds = 1
@@ -58,18 +58,18 @@ def inf_data_init(hist: int):
             },
             coords={
                 "time": np.arange(total_time_steps),
-                "lev": list(TEST_DATASET_SPEC.depth_levels),
+                "lev": list(TEST_DATA_LAYOUT.depth_levels),
                 "lat": np.arange(lats),
                 "lon": np.arange(lons),
             },
         )
         data_mean: xr.Dataset = data.mean() * 0.0
         data_std: xr.Dataset = data.std() * 0.0 + 1.0
-        val = DataSource.from_datasets(
+        val = CanonicalSource.from_datasets(
             data,
             data_mean,
             data_std,
-            dataset_spec=TEST_DATASET_SPEC,
+            data_layout=TEST_DATA_LAYOUT,
             name="test-data",
             prognostic_var_names=tensor_map.prognostic_var_names,
             boundary_var_names=tensor_map.boundary_var_names,
@@ -101,7 +101,7 @@ class MockModel(BaseModel):
         self,
         prognostic: torch.Tensor,
         boundary: torch.Tensor,
-        ctx: GridContext,
+        ctx: BatchGrid,
     ):
         # Exercises the two streams independently: scale prog, add the last
         # boundary channel.
@@ -112,15 +112,15 @@ class ConstantResidualModel(BaseModel):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def forward_once(self, prognostic, boundary, ctx: GridContext):
+    def forward_once(self, prognostic, boundary, ctx: BatchGrid):
         return torch.ones_like(prognostic)
 
 
 def test_validate_batch_uses_absolute_predictions_for_residual_models():
     wet = torch.ones((1, 1, 1, 1), dtype=torch.bool)
     grid = torch.zeros(1)
-    ctx = GridContext(wet, (grid, grid), (grid, grid))
-    batch = TrainData(num_prognostic_channels=1, num_boundary_channels=1, ctx=ctx)
+    ctx = BatchGrid(wet, (grid, grid), (grid, grid))
+    batch = ModelBatch(num_prognostic_channels=1, num_boundary_channels=1, ctx=ctx)
     prog_input = torch.tensor([[[[10.0]]]])
     boundary_input = torch.tensor([[[[5.0]]]])
     label = torch.tensor([[[[11.0]]]])
@@ -283,7 +283,7 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
     pred = model.forward_once(
         prog_tensor,
         boundary_tensor,
-        GridContext(wet, inference_dataset.input_res, inference_dataset.input_res),
+        BatchGrid(wet, inference_dataset.input_res, inference_dataset.input_res),
     )
     assert pred.shape == (1, num_prognostic_channels, 1, 1)
     expected_pred = torch.tensor(

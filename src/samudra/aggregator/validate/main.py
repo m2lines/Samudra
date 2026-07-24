@@ -46,7 +46,7 @@ class ValidateAggregator(TrainAggregator):
         if not self._aggregators:
             return
 
-        # Translate the GridContext mask by removing history.
+        # Translate the BatchGrid mask by removing history.
         target_data = batch.target_data  # [B, C*(hist+1), H, W]
         wet = batch.ctx.label_mask  # [C*(hist+1), H, W]
         assert wet.shape == target_data.shape[1:], (

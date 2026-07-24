@@ -18,7 +18,7 @@ import torch
 
 from samudra.aggregator import InferenceEvaluatorAggregator
 from samudra.constants import TensorMap
-from samudra.datasets import InferenceDataset, TrainData
+from samudra.datasets import InferenceDataset, ModelBatch
 from samudra.models.base import BaseModel
 from samudra.utils.data import Normalize
 from samudra.utils.device import get_device
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 def train_batch(
-    model: torch.nn.Module, batch: TrainData, loss_fn: Callable
+    model: torch.nn.Module, batch: ModelBatch, loss_fn: Callable
 ) -> TrainBatchOutput:
     loss_per_channel = model(batch, loss_fn=partial(loss_fn, ctx=batch.ctx))
     loss = torch.mean(loss_per_channel)
@@ -40,7 +40,7 @@ def train_batch(
 @torch.no_grad()
 def validate_batch(
     model: BaseModel | torch.nn.parallel.DistributedDataParallel,
-    batch: TrainData,
+    batch: ModelBatch,
     loss_fn: Callable,
 ) -> ValBatchOutput:
     assert len(batch) == 1  # Assert we are using one step of input and output

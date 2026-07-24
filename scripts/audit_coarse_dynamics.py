@@ -16,6 +16,7 @@ from typing import Any
 import torch
 
 from samudra.config import TrainConfig
+from samudra.models.modules.encoder import PatchMomentEncoder
 from samudra.models.samudra_multi import SamudraMulti
 from samudra.stepper import ablate_boundary_forcing
 from samudra.train import Trainer
@@ -172,6 +173,33 @@ def _target_latent(
         return model.encode(data.get_label(depth - 1), None, target_ctx)
 
 
+def _rollout_from_state(
+    model: SamudraMulti,
+    data: Any,
+    initial: torch.Tensor,
+    latent_resolution: tuple[torch.Tensor, torch.Tensor],
+    depths: tuple[int, ...] = DEPTHS,
+) -> dict[int, torch.Tensor]:
+    """Advance a supplied latent state with the batch's aligned boundaries."""
+    selected = set(depths)
+    state = initial
+    states: dict[int, torch.Tensor] = {}
+    with autocast(enabled=model.use_bfloat16, dtype=torch.bfloat16):
+        for step in range(max(depths)):
+            _, boundary = data.get_input(step)
+            state = model.process(
+                state,
+                latent_resolution,
+                iterations=1,
+                boundary=boundary,
+                boundary_resolution=data.ctx.input_resolution_cpu,
+            )
+            depth = step + 1
+            if depth in selected:
+                states[depth] = state
+    return states
+
+
 def _route_datasets(
     trainer: Trainer,
 ) -> dict[tuple[tuple[int, int], tuple[int, int]], Any]:
@@ -227,6 +255,9 @@ def main() -> None:
             raise TypeError("The coarse dynamics audit requires SamudraMulti.")
         if model.processor_residual_scale is None:
             raise TypeError("The audited dynamics model must use a residual processor.")
+        encoder = _unwrap(model.encoder)
+        if not isinstance(encoder, PatchMomentEncoder):
+            raise TypeError("The dynamics audit requires a PatchMomentEncoder.")
         model.eval()
 
         by_route = _route_datasets(trainer)
@@ -256,6 +287,26 @@ def main() -> None:
         }
         cross_output = {
             grid: {depth: _empty_pair_stats() for depth in DEPTHS} for grid in grids
+        }
+        physical_forecast = {
+            grid: {
+                depth: {
+                    variant: _empty_pair_stats()
+                    for variant in ("full", "persistence", "mean_only_initial")
+                }
+                for depth in DEPTHS
+            }
+            for grid in grids
+        }
+        moment_ablation_effect = {
+            grid: {depth: _empty_pair_stats() for depth in DEPTHS} for grid in grids
+        }
+        zero_depth_reconstruction = {
+            grid: {
+                variant: _empty_pair_stats()
+                for variant in ("full", "mean_only_initial")
+            }
+            for grid in grids
         }
 
         try:
@@ -288,6 +339,14 @@ def main() -> None:
                         zero_states, _ = model.latent_rollout(
                             ablate_boundary_forcing(data, "zero"), list(DEPTHS)
                         )
+                        mean_only_initial = initial.clone()
+                        mean_only_initial[:, encoder.mean_channels :] = 0
+                        mean_only_states = _rollout_from_state(
+                            model,
+                            data,
+                            mean_only_initial,
+                            latent_resolution,
+                        )
                         states_by_grid[grid] = {0: initial, **states}
                         resolutions[grid] = latent_resolution
                         if any(
@@ -310,6 +369,37 @@ def main() -> None:
                             data.ctx.input_mask,
                             (initial.shape[-2], initial.shape[-1]),
                         ).to(initial.device)
+                        input_valid = data.ctx.input_mask[None].to(
+                            device=initial.device,
+                            dtype=torch.bool,
+                        )
+                        initial_physical = prognostic[:, -model.decoder.out_channels :]
+                        with autocast(
+                            enabled=model.use_bfloat16,
+                            dtype=torch.bfloat16,
+                        ):
+                            reconstructed = model.decode(
+                                initial,
+                                latent_resolution,
+                                data.ctx,
+                            )
+                            mean_only_reconstructed = model.decode(
+                                mean_only_initial,
+                                latent_resolution,
+                                data.ctx,
+                            )
+                        _update_pair_stats(
+                            zero_depth_reconstruction[grid]["full"],
+                            reconstructed,
+                            initial_physical,
+                            input_valid,
+                        )
+                        _update_pair_stats(
+                            zero_depth_reconstruction[grid]["mean_only_initial"],
+                            mean_only_reconstructed,
+                            initial_physical,
+                            input_valid,
+                        )
                         for depth in DEPTHS:
                             target, target_resolution = _target_latent(
                                 model, data, depth
@@ -336,6 +426,49 @@ def main() -> None:
                                 states[depth],
                                 zero_states[depth],
                                 valid,
+                            )
+                            with autocast(
+                                enabled=model.use_bfloat16,
+                                dtype=torch.bfloat16,
+                            ):
+                                prediction = model.decode(
+                                    states[depth],
+                                    latent_resolution,
+                                    data.ctx,
+                                )
+                                mean_only_prediction = model.decode(
+                                    mean_only_states[depth],
+                                    latent_resolution,
+                                    data.ctx,
+                                )
+                            target = data.get_label(depth - 1)
+                            label_valid = data.ctx.label_mask[None].to(
+                                device=prediction.device,
+                                dtype=torch.bool,
+                            )
+                            _update_pair_stats(
+                                physical_forecast[grid][depth]["full"],
+                                prediction,
+                                target,
+                                label_valid,
+                            )
+                            _update_pair_stats(
+                                physical_forecast[grid][depth]["persistence"],
+                                initial_physical,
+                                target,
+                                label_valid,
+                            )
+                            _update_pair_stats(
+                                physical_forecast[grid][depth]["mean_only_initial"],
+                                mean_only_prediction,
+                                target,
+                                label_valid,
+                            )
+                            _update_pair_stats(
+                                moment_ablation_effect[grid][depth],
+                                prediction,
+                                mean_only_prediction,
+                                label_valid,
                             )
 
                     low_mask = prepared[(low_grid, low_grid)].ctx.input_mask
@@ -435,6 +568,30 @@ def main() -> None:
                     for depth, stats in by_depth.items()
                 }
                 for grid, by_depth in cross_output.items()
+            },
+            "physical_forecast": {
+                _grid_name(grid): {
+                    f"depth_{depth}": {
+                        variant: _finish_pair_stats(stats)
+                        for variant, stats in by_variant.items()
+                    }
+                    for depth, by_variant in by_depth.items()
+                }
+                for grid, by_depth in physical_forecast.items()
+            },
+            "moment_ablation_effect": {
+                _grid_name(grid): {
+                    f"depth_{depth}": _finish_pair_stats(stats)
+                    for depth, stats in by_depth.items()
+                }
+                for grid, by_depth in moment_ablation_effect.items()
+            },
+            "zero_depth_reconstruction": {
+                _grid_name(grid): {
+                    variant: _finish_pair_stats(stats)
+                    for variant, stats in by_variant.items()
+                }
+                for grid, by_variant in zero_depth_reconstruction.items()
             },
         }
         print("DYNAMICS_AUDIT_JSON=" + json.dumps(result, sort_keys=True))

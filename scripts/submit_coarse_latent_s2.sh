@@ -72,22 +72,26 @@ arms=(
   "combined-01:1:0.1"
 )
 
+for specification in "${arms[@]}"; do
+  IFS=: read -r arm _ _ <<<"${specification}"
+  name="${RUN_PREFIX}-${arm}"
+  for run_directory in \
+    "${OUTPUT_BASE}/${name}" \
+    "${OUTPUT_BASE}/${name}-cross-validation"; do
+    if [[ -e "${run_directory}" ]]; then
+      echo "Refusing to reuse existing run directory: ${run_directory}" >&2
+      exit 5
+    fi
+  done
+done
+
 printf \
   'arm\ttrain_job_id\tvalidation_job_id\taudit_job_id\trun_name\tphysical_weight\tlatent_weight\n'
 for specification in "${arms[@]}"; do
   IFS=: read -r arm physical_weight latent_weight <<<"${specification}"
   name="${RUN_PREFIX}-${arm}"
   run_directory="${OUTPUT_BASE}/${name}"
-  if [[ -e "${run_directory}" ]]; then
-    echo "Refusing to reuse existing run directory: ${run_directory}" >&2
-    exit 5
-  fi
   validation_name="${name}-cross-validation"
-  validation_run_directory="${OUTPUT_BASE}/${validation_name}"
-  if [[ -e "${validation_run_directory}" ]]; then
-    echo "Refusing to reuse existing run directory: ${validation_run_directory}" >&2
-    exit 5
-  fi
 
   args=(
     "--resume_ckpt_path=${INVERSE_CHECKPOINT}"

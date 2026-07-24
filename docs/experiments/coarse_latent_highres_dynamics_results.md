@@ -85,6 +85,8 @@ This correction of scope is the reason for S0-R and S0-D.
 | `2026-07-24-coarse-latent-s2-checkpoint-smoke` | S2 integration | `1aa6672a` | Epoch-10 cross-resolution S1 checkpoint, half-degree OM4, one latent-only optimizer update at depth one | Complete (`14726481`) | Partial finetune loaded the frozen inverse exactly, initialized 67 allowlisted processor/boundary tensors, and completed training, physical validation, and checkpoint writes in 70 seconds |
 | `2026-07-24-coarse-latent-s2-audit-smoke-v1` | S2 audit integration | `85eaf914` | Two-batch dynamics audit of the checkpoint-composition smoke | Failed (`14727039`) | The code overlay intentionally excludes `scripts/`; module execution therefore failed before model construction with `No module named scripts.audit_coarse_dynamics` |
 | `2026-07-24-coarse-latent-s2-audit-smoke-v2` | S2 audit integration | `71f3630d` | Same audit with both audit scripts explicitly bind-mounted into the container | Complete (`14728408`) | In 45 seconds, two synchronized batches exercised every depth/route; all 30 frozen inverse tensors were bit-exact, residual scale shape was `[1,160,1,1]`, and every diagnostic was finite |
+| `2026-07-24-coarse-latent-s2-audit-smoke-v3` | S2 audit integration | working tree after `f10ce829` | Adds physical persistence and subpatch-moment ablation diagnostics | Failed (`14728730`) | Selective activation checkpointing wraps the encoder; an overly strict direct type check failed before data evaluation |
+| `2026-07-24-coarse-latent-s2-audit-smoke-v4` | S2 audit integration | working tree after `f10ce829` | Wrapper-aware repeat of the expanded two-batch audit | Complete (`14729100`) | Completed in 58 seconds; full, persistence, and 120-moment-channel-ablation metrics were finite at depths 1/2/4 on both grids |
 
 ## S0-R synthetic reconstruction
 
@@ -451,8 +453,10 @@ The exact implementation/configuration map is:
 - [`audit_coarse_dynamics.py`](../../scripts/audit_coarse_dynamics.py) checks
   frozen-inverse equality, synchronized latent agreement through depths
   `{0,1,2,4}`, latent-teacher error, forcing sensitivity, cross-output
-  patch-mean consistency, and all 160 learned latent-channel residual scales;
-  and
+  patch-mean consistency, all 160 learned latent-channel residual scales,
+  physical error against persistence, and a causal inference ablation that
+  zeros the 120 subpatch-moment channels while retaining the 40 resolved-mean
+  channels; and
 - [`submit_coarse_latent_s2.sh`](../../scripts/submit_coarse_latent_s2.sh)
   submits the four objective arms from one explicitly selected inverse with
   matched seed, data, update budget, resource request, and W&B group, then
@@ -489,6 +493,15 @@ shape `[1,160,1,1]`, and all depth-0/1/2/4 agreement, teacher, boundary, and
 cross-output diagnostics were finite. This verifies the audit mechanism only;
 the audited checkpoint had a single S2 update and is not scientific evidence
 about dynamics quality.
+
+The physical/moment-ablation extension initially exposed another integration
+assumption: selective activation checkpointing wraps `PatchMomentEncoder`, so a
+direct encoder type check rejected the valid model (`14728730`). The
+wrapper-aware replacement (`14729100`) completed in 58 seconds and emitted
+finite full, persistence, and mean-only-initial physical metrics at depths
+`{1,2,4}` on both grids. The same one-update caveat applies. This ablation is a
+causal use test of the promoted model, not a separately optimized mean-only
+architecture; the trained mean-only negative control remains S0-D.
 
 ## S3 full validation
 

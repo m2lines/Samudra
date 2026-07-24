@@ -9,6 +9,7 @@ from scripts.audit_coarse_dynamics import (
     _empty_pair_stats,
     _finish_pair_stats,
     _parameter_summary,
+    _rollout_from_state,
     _update_pair_stats,
 )
 
@@ -49,3 +50,50 @@ def test_parameter_summary_retains_shape_values_and_signs() -> None:
     assert summary["negative_fraction"] == pytest.approx(1 / 3)
     assert summary["near_zero_fraction"] == pytest.approx(1 / 3)
     assert summary["values"] == [-2.0, 0.0, 1.0]
+
+
+def test_rollout_from_state_uses_one_aligned_boundary_per_depth() -> None:
+    class FakeData:
+        class Context:
+            input_resolution_cpu = (torch.arange(1), torch.arange(1))
+
+        ctx = Context()
+
+        @staticmethod
+        def get_input(step: int) -> tuple[None, torch.Tensor]:
+            return None, torch.tensor(float(step + 1))
+
+    class FakeModel:
+        use_bfloat16 = False
+
+        def __init__(self) -> None:
+            self.boundaries: list[float] = []
+
+        def process(
+            self,
+            state: torch.Tensor,
+            _latent_resolution: tuple[torch.Tensor, torch.Tensor],
+            *,
+            iterations: int,
+            boundary: torch.Tensor,
+            boundary_resolution: tuple[torch.Tensor, torch.Tensor],
+        ) -> torch.Tensor:
+            assert iterations == 1
+            assert boundary_resolution is FakeData.ctx.input_resolution_cpu
+            self.boundaries.append(float(boundary))
+            return state + boundary
+
+    model = FakeModel()
+    states = _rollout_from_state(
+        model,  # type: ignore[arg-type]
+        FakeData(),
+        torch.tensor(0.0),
+        (torch.arange(1), torch.arange(1)),
+    )
+
+    assert model.boundaries == [1.0, 2.0, 3.0, 4.0]
+    assert {depth: float(state) for depth, state in states.items()} == {
+        1: 1.0,
+        2: 3.0,
+        4: 10.0,
+    }

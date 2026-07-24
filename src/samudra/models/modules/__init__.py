@@ -17,6 +17,8 @@ from .blocks import (
     ZonallyPeriodicBilinearUpsample,
 )
 from .decoder import (
+    ContinuousCoordinateAttentionCorrection,
+    ContinuousResampleAttentionResidualDecoder,
     DirectPatchDecoder,
     LocalCoordinateAttentionCorrection,
     PerceiverDecoder,
@@ -26,6 +28,7 @@ from .decoder import (
 from .encoder import (
     CanonicalResampleEncoder,
     DirectPatchEncoder,
+    PatchMomentEncoder,
     PerceiverEncoder,
     SpatialQueryPerceiver,
 )
@@ -43,6 +46,8 @@ __all__ = [
     "CappedGELU",
     "CappedLeakyReLU",
     "CanonicalResampleEncoder",
+    "ContinuousCoordinateAttentionCorrection",
+    "ContinuousResampleAttentionResidualDecoder",
     "MaxPool",
     "DirectPatchDecoder",
     "DirectPatchEncoder",
@@ -51,6 +56,7 @@ __all__ = [
     "ResampleAttentionResidualDecoder",
     "ResampleProjectionDecoder",
     "PerceiverEncoder",
+    "PatchMomentEncoder",
     "ProcessorGeometryConditioner",
     "SpatialQueryPerceiver",
     "ReLU",

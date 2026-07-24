@@ -522,6 +522,281 @@ class LocalCoordinateAttentionCorrection(nn.Module):
         )
 
 
+class ContinuousCoordinateAttentionCorrection(nn.Module):
+    """Decode local coarse features at continuous output coordinates.
+
+    Every output query evaluates a learned value function for each neighboring
+    coarse token using the query's offset from that token. Position-anchored
+    attention blends those local predictions. Only continuous absolute
+    coordinates and source/output scale ratios enter the direct query residual,
+    avoiding a discontinuity when the containing coarse patch changes.
+    """
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        hidden_dim: int,
+        heads: int = 4,
+        dim_head: int = 32,
+        neighborhood_radius: int = 1,
+        position_bias_strength: float = 8.0,
+        query_chunk_size: int = 4096,
+        zero_initialize_output: bool = True,
+    ) -> None:
+        super().__init__()
+        if neighborhood_radius < 0:
+            raise ValueError("Neighborhood radius must be non-negative.")
+        if query_chunk_size < 1:
+            raise ValueError("Query chunk size must be positive.")
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.hidden_dim = hidden_dim
+        self.heads = heads
+        self.dim_head = dim_head
+        self.neighborhood_radius = neighborhood_radius
+        self.position_bias_strength = position_bias_strength
+        self.query_chunk_size = query_chunk_size
+        inner_dim = heads * dim_head
+        self.scale = dim_head**-0.5
+        self.content_norm = nn.LayerNorm(in_channels)
+        self.query_key_projection = nn.Linear(5, inner_dim, bias=False)
+        self.query_hidden_projection = nn.Linear(5, hidden_dim)
+        self.key_projection = nn.Linear(in_channels, inner_dim, bias=False)
+        self.value_projection = nn.Sequential(
+            nn.Linear(in_channels + 2, inner_dim),
+            nn.GELU(),
+            nn.Linear(inner_dim, inner_dim),
+        )
+        self.context_projection = nn.Linear(inner_dim, hidden_dim)
+        self.feed_forward = nn.Sequential(
+            nn.LayerNorm(hidden_dim),
+            nn.Linear(hidden_dim, hidden_dim * 2),
+            nn.GELU(),
+            nn.Linear(hidden_dim * 2, hidden_dim),
+        )
+        self.output_projection = nn.Linear(hidden_dim, out_channels)
+        if zero_initialize_output:
+            nn.init.zeros_(self.output_projection.weight)
+            nn.init.zeros_(self.output_projection.bias)
+
+    def _routing(
+        self,
+        source_resolution: tuple[Lat, Lon],
+        output_resolution: tuple[Lat, Lon],
+        *,
+        device: torch.device,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        source_lat, source_lon = (
+            coordinate.to(device=device, dtype=torch.float32)
+            for coordinate in source_resolution
+        )
+        output_lat, output_lon = (
+            coordinate.to(device=device, dtype=torch.float32)
+            for coordinate in output_resolution
+        )
+        if not torch.all(source_lat[1:] > source_lat[:-1]):
+            raise ValueError("Source latitude coordinates must be strictly increasing.")
+        if not torch.all(source_lon[1:] > source_lon[:-1]):
+            raise ValueError(
+                "Source longitude coordinates must be strictly increasing."
+            )
+        lat_spacing = (source_lat[1:] - source_lat[:-1]).median()
+        lon_spacing = (source_lon[1:] - source_lon[:-1]).median()
+        lat_origin = source_lat[0] - lat_spacing / 2
+        lon_origin = source_lon[0] - lon_spacing / 2
+        lat_position = (output_lat - lat_origin) / lat_spacing
+        lon_position = torch.remainder(output_lon - lon_origin, 360.0) / lon_spacing
+        lat_index = lat_position.floor().long().clamp(0, len(source_lat) - 1)
+        lon_index = lon_position.floor().long().remainder(len(source_lon))
+        relative_lat = 2 * (lat_position - lat_index) - 1
+        relative_lon = 2 * (lon_position - lon_index) - 1
+
+        lat_indices, lon_indices = torch.meshgrid(lat_index, lon_index, indexing="ij")
+        relative_lat_grid, relative_lon_grid = torch.meshgrid(
+            relative_lat, relative_lon, indexing="ij"
+        )
+        output_lat_grid, output_lon_grid = torch.meshgrid(
+            output_lat, output_lon, indexing="ij"
+        )
+        offsets = torch.arange(
+            -self.neighborhood_radius,
+            self.neighborhood_radius + 1,
+            device=device,
+        )
+        offset_lat, offset_lon = torch.meshgrid(offsets, offsets, indexing="ij")
+        offset_lat = offset_lat.flatten()
+        offset_lon = offset_lon.flatten()
+        neighbor_lat = (lat_indices[..., None] + offset_lat).clamp(
+            0, len(source_lat) - 1
+        )
+        neighbor_lon = (lon_indices[..., None] + offset_lon).remainder(len(source_lon))
+        neighbor_indices = (neighbor_lat * len(source_lon) + neighbor_lon).flatten(0, 1)
+
+        relative_lat_flat = relative_lat_grid.flatten() / 2
+        relative_lon_flat = relative_lon_grid.flatten() / 2
+        relative_to_neighbor = torch.stack(
+            (
+                relative_lat_flat[:, None] - offset_lat,
+                relative_lon_flat[:, None] - offset_lon,
+            ),
+            dim=-1,
+        )
+        position_bias = -self.position_bias_strength * (
+            relative_to_neighbor.square().sum(dim=-1)
+        )
+        output_lat_radians = torch.deg2rad(output_lat_grid)
+        output_lon_radians = torch.deg2rad(output_lon_grid)
+        output_lat_spacing = 180.0 / len(output_lat)
+        output_lon_spacing = 360.0 / len(output_lon)
+        query_features = torch.stack(
+            (
+                torch.cos(output_lat_radians) * torch.cos(output_lon_radians),
+                torch.cos(output_lat_radians) * torch.sin(output_lon_radians),
+                torch.sin(output_lat_radians),
+                torch.full_like(
+                    output_lat_grid,
+                    float((output_lat_spacing / lat_spacing).item()),
+                ),
+                torch.full_like(
+                    output_lon_grid,
+                    float((output_lon_spacing / lon_spacing).item()),
+                ),
+            ),
+            dim=-1,
+        ).flatten(0, 1)
+        return (
+            neighbor_indices,
+            position_bias,
+            relative_to_neighbor,
+            query_features,
+        )
+
+    def forward(
+        self,
+        x: Float[torch.Tensor, "batch channels H_source W_source"],
+        source_resolution: tuple[Lat, Lon],
+        output_resolution: tuple[Lat, Lon],
+        valid_mask: torch.Tensor | None = None,
+    ) -> Float[torch.Tensor, "batch channels_out H_output W_output"]:
+        batch, channels, source_height, source_width = x.shape
+        if channels != self.in_channels:
+            raise ValueError(f"Expected {self.in_channels} channels, got {channels}.")
+        if (source_height, source_width) != (
+            len(source_resolution[0]),
+            len(source_resolution[1]),
+        ):
+            raise ValueError("Source coordinates must match the correction input grid.")
+        (
+            neighbor_indices,
+            position_bias,
+            relative_to_neighbor,
+            query_features,
+        ) = self._routing(
+            source_resolution,
+            output_resolution,
+            device=x.device,
+        )
+        content = rearrange(x, "b c h w -> b (h w) c")
+        keys = self.key_projection(self.content_norm(content))
+        keys = rearrange(keys, "b n (heads d) -> b heads n d", heads=self.heads)
+        if valid_mask is None:
+            flat_valid = None
+        else:
+            if valid_mask.shape != (source_height, source_width):
+                raise ValueError("Correction validity mask must match the source grid.")
+            flat_valid = valid_mask.to(device=x.device).flatten()
+
+        chunks: list[torch.Tensor] = []
+        for start in range(0, len(query_features), self.query_chunk_size):
+            stop = min(start + self.query_chunk_size, len(query_features))
+            local_indices = neighbor_indices[start:stop]
+            local_keys = keys[:, :, local_indices]
+            local_content = content[:, local_indices]
+            local_offsets = relative_to_neighbor[start:stop].to(dtype=x.dtype)
+            local_offsets = local_offsets[None].expand(batch, -1, -1, -1)
+            local_values = self.value_projection(
+                torch.cat((local_content, local_offsets), dim=-1)
+            )
+            local_values = rearrange(
+                local_values,
+                "b q k (heads d) -> b heads q k d",
+                heads=self.heads,
+            )
+            continuous_query = query_features[start:stop].to(dtype=x.dtype)
+            queries = self.query_key_projection(continuous_query)
+            queries = rearrange(queries, "q (heads d) -> heads q d", heads=self.heads)
+            logits = torch.einsum("hqd,bhqkd->bhqk", queries, local_keys)
+            logits = logits * self.scale
+            logits = logits + position_bias[start:stop][None, None]
+            if flat_valid is not None:
+                local_valid = flat_valid[local_indices]
+                logits = logits.masked_fill(~local_valid[None, None], -torch.inf)
+                all_invalid = ~local_valid.any(dim=-1)
+                logits = torch.where(all_invalid[None, None, :, None], 0, logits)
+            attention = logits.softmax(dim=-1)
+            if flat_valid is not None:
+                attention = torch.where(all_invalid[None, None, :, None], 0, attention)
+            context = torch.einsum("bhqk,bhqkd->bhqd", attention, local_values)
+            context = rearrange(context, "b heads q d -> b q (heads d)")
+            hidden = self.context_projection(context)
+            hidden = hidden + self.query_hidden_projection(continuous_query)[None]
+            hidden = hidden + self.feed_forward(hidden)
+            chunks.append(self.output_projection(hidden))
+
+        output = torch.cat(chunks, dim=1)
+        return rearrange(
+            output,
+            "b (h w) c -> b c h w",
+            h=len(output_resolution[0]),
+            w=len(output_resolution[1]),
+        )
+
+
+class ContinuousResampleAttentionResidualDecoder(nn.Module):
+    """Coordinate-resampling base plus a continuous local attention residual."""
+
+    def __init__(
+        self,
+        base: "ResampleProjectionDecoder",
+        correction: ContinuousCoordinateAttentionCorrection,
+    ) -> None:
+        super().__init__()
+        self.base = base
+        self.correction = correction
+        self.in_channels = base.in_channels
+        self.out_channels = base.out_channels
+
+    def forward(
+        self,
+        x: Float[torch.Tensor, "batch channels H W"],
+        resolution: tuple[Lat, Lon],
+        *,
+        source_resolution: tuple[Lat, Lon] | None = None,
+        valid_mask: torch.Tensor | None = None,
+    ) -> Float[torch.Tensor, "batch channels_out H_out W_out"]:
+        if source_resolution is None:
+            raise ValueError("The hybrid decoder requires source-grid coordinates.")
+        base = self.base(
+            x,
+            resolution,
+            source_resolution=source_resolution,
+            valid_mask=valid_mask,
+        )
+        correction_mask = valid_mask
+        if correction_mask is not None and correction_mask.ndim == 3:
+            correction_mask = correction_mask.any(dim=0)
+        if correction_mask is not None and correction_mask.shape != x.shape[-2:]:
+            correction_mask = None
+        correction = self.correction(
+            x,
+            source_resolution,
+            resolution,
+            valid_mask=correction_mask,
+        )
+        return base + correction
+
+
 class ResampleAttentionResidualDecoder(nn.Module):
     """Physical-coordinate resampling plus a zero-initialized local correction."""
 

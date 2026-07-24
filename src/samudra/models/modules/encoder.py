@@ -447,3 +447,172 @@ class PerceiverEncoder(nn.Module):
         )
 
         return x
+
+
+class PatchMomentEncoder(nn.Module):
+    """Compress each physical patch into resolved means and learned moments.
+
+    The output has one feature vector per fixed-extent physical patch. A
+    latitude-area-weighted mean provides an amplitude-preserving resolved route.
+    Zero-mean anomalies are projected onto several continuous functions of
+    relative within-patch coordinates and packed into the remaining channels.
+    The coordinate basis is shared across input resolutions.
+    """
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        patch_extent: tuple[float, float],
+        *,
+        moment_count: int,
+        mean_channels: int,
+        geometry_mode: EncoderGeometryMode = "none",
+    ) -> None:
+        super().__init__()
+        if moment_count < 1:
+            raise ValueError("PatchMomentEncoder requires at least one moment.")
+        if not 0 < mean_channels < out_channels:
+            raise ValueError(
+                "PatchMomentEncoder mean_channels must be between zero and "
+                "out_channels."
+            )
+        if geometry_mode == "additive":
+            raise ValueError(
+                "PatchMomentEncoder does not add absolute geometry to content; "
+                "use geometry_mode='none' or 'sidecar'."
+            )
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.patch_extent = patch_extent
+        self.moment_count = moment_count
+        self.mean_channels = mean_channels
+        self.geometry_mode = geometry_mode
+        self.mean_projection = nn.Linear(in_channels, mean_channels)
+        self.coordinate_basis = nn.Sequential(
+            nn.Linear(2, 64),
+            nn.GELU(),
+            nn.Linear(64, moment_count),
+        )
+        self.moment_projection = nn.Linear(
+            in_channels * moment_count,
+            out_channels - mean_channels,
+        )
+
+    def output_resolution(self, resolution: tuple[Lat, Lon]) -> tuple[Lat, Lon]:
+        lat, lon = resolution
+        patch_h, patch_w = patch_from(self.patch_extent, len(lat), len(lon))
+        if len(lat) % patch_h or len(lon) % patch_w:
+            raise ValueError(
+                "Input coordinates must divide evenly into moment patches; got "
+                f"grid {(len(lat), len(lon))} and patch {(patch_h, patch_w)}."
+            )
+        return (
+            rearrange(lat, "(h ph) -> h ph", ph=patch_h).mean(dim=-1),
+            rearrange(lon, "(w pw) -> w pw", pw=patch_w).mean(dim=-1),
+        )
+
+    @staticmethod
+    def _relative_coordinates(
+        patch_h: int,
+        patch_w: int,
+        *,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> torch.Tensor:
+        relative_lat = (
+            2 * (torch.arange(patch_h, device=device, dtype=dtype) + 0.5) / patch_h - 1
+        )
+        relative_lon = (
+            2 * (torch.arange(patch_w, device=device, dtype=dtype) + 0.5) / patch_w - 1
+        )
+        lat_grid, lon_grid = torch.meshgrid(relative_lat, relative_lon, indexing="ij")
+        return torch.stack((lat_grid, lon_grid), dim=-1).flatten(0, 1)
+
+    def forward(
+        self, x: Input, resolution: tuple[Lat, Lon]
+    ) -> Float[torch.Tensor, "batch {self.out_channels} h w"]:
+        batch, channels, height, width = x.shape
+        if channels != self.in_channels:
+            raise ValueError(
+                f"Expected {self.in_channels} input channels, got {channels}."
+            )
+        lat, lon = resolution
+        patch_h, patch_w = patch_from(self.patch_extent, height, width)
+        if height % patch_h or width % patch_w:
+            raise ValueError(
+                "Input grid must divide evenly into moment patches; got "
+                f"{(height, width)} and {(patch_h, patch_w)}."
+            )
+        coarse_h = height // patch_h
+        coarse_w = width // patch_w
+        tokens = rearrange(
+            x,
+            "b c (h ph) (w pw) -> (b h w) (ph pw) c",
+            ph=patch_h,
+            pw=patch_w,
+        )
+
+        # For a regular longitude grid, spherical cell area is proportional to
+        # cos(latitude). This retains physical amplitudes without placing a
+        # LayerNorm on the reconstructive value path.
+        latitude_weight = torch.cos(
+            torch.deg2rad(lat.to(device=x.device, dtype=x.dtype))
+        ).clamp_min(torch.finfo(x.dtype).eps)
+        latitude_weight = rearrange(
+            latitude_weight,
+            "(h ph) -> h ph",
+            h=coarse_h,
+        )
+        weights = latitude_weight[:, None, :, None].expand(
+            coarse_h,
+            coarse_w,
+            patch_h,
+            patch_w,
+        )
+        weights = rearrange(weights, "h w ph pw -> (h w) (ph pw)")
+        weights = weights.repeat(batch, 1)
+        denominator = weights.sum(dim=1, keepdim=True).clamp_min(
+            torch.finfo(x.dtype).eps
+        )
+        mean = (tokens * weights[..., None]).sum(dim=1) / denominator
+        anomaly = tokens - mean[:, None]
+
+        coordinates = self._relative_coordinates(
+            patch_h,
+            patch_w,
+            device=x.device,
+            dtype=x.dtype,
+        )
+        basis = self.coordinate_basis(coordinates)
+        weighted_basis_mean = torch.einsum("bn,nm->bm", weights, basis) / denominator
+        centered_basis = basis[None] - weighted_basis_mean[:, None]
+        basis_rms = (
+            ((centered_basis.square() * weights[..., None]).sum(dim=1) / denominator)
+            .sqrt()
+            .clamp_min(1e-6)
+        )
+        centered_basis = centered_basis / basis_rms[:, None]
+        moments = (
+            torch.einsum(
+                "bnc,bnm,bn->bcm",
+                anomaly,
+                centered_basis,
+                weights,
+            )
+            / denominator[:, None]
+        )
+        latent = torch.cat(
+            (
+                self.mean_projection(mean),
+                self.moment_projection(moments.flatten(1)),
+            ),
+            dim=-1,
+        )
+        return rearrange(
+            latent,
+            "(b h w) c -> b c h w",
+            b=batch,
+            h=coarse_h,
+            w=coarse_w,
+        )

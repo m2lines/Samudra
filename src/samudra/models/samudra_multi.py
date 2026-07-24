@@ -18,8 +18,10 @@ from samudra.models.base import BaseModel
 from samudra.models.modules import (
     BoundaryEncoder,
     CanonicalResampleEncoder,
+    ContinuousResampleAttentionResidualDecoder,
     DirectPatchDecoder,
     DirectPatchEncoder,
+    PatchMomentEncoder,
     PerceiverDecoder,
     PerceiverEncoder,
     ProcessorGeometryConditioner,
@@ -45,10 +47,12 @@ _checkpoint_types: tuple[type, ...] = (
     PerceiverDecoder,
     PerceiverEncoder,
     CanonicalResampleEncoder,
+    PatchMomentEncoder,
     DirectPatchDecoder,
     DirectPatchEncoder,
     ResampleProjectionDecoder,
     ResampleAttentionResidualDecoder,
+    ContinuousResampleAttentionResidualDecoder,
     UNetBackbone,
     Attention,
 )
@@ -80,13 +84,19 @@ class SamudraMulti(BaseModel):
         last_kernel_size: int,
         pad: str,
         add_3d_coordinates: nn.Module | None,
-        encoder: PerceiverEncoder | DirectPatchEncoder | CanonicalResampleEncoder,
+        encoder: (
+            PerceiverEncoder
+            | DirectPatchEncoder
+            | CanonicalResampleEncoder
+            | PatchMomentEncoder
+        ),
         processor: nn.Module,
         decoder: (
             PerceiverDecoder
             | DirectPatchDecoder
             | ResampleProjectionDecoder
             | ResampleAttentionResidualDecoder
+            | ContinuousResampleAttentionResidualDecoder
         ),
         hist: int,
         checkpointing: "Checkpointing | None",
@@ -155,11 +165,13 @@ class SamudraMulti(BaseModel):
                     (
                         PerceiverEncoder,
                         CanonicalResampleEncoder,
+                        PatchMomentEncoder,
                         PerceiverDecoder,
                         DirectPatchEncoder,
                         DirectPatchDecoder,
                         ResampleProjectionDecoder,
                         ResampleAttentionResidualDecoder,
+                        ContinuousResampleAttentionResidualDecoder,
                     ),
                 ),
             )

@@ -33,6 +33,8 @@ from samudra.models.modules import (
     BoundaryEncoder,
     CanonicalResampleEncoder,
     CappedGELU,
+    ContinuousCoordinateAttentionCorrection,
+    ContinuousResampleAttentionResidualDecoder,
     ConvBlock,
     ConvNeXtBlock,
     CoreBlock,
@@ -41,6 +43,7 @@ from samudra.models.modules import (
     DirectPatchEncoder,
     LocalCoordinateAttentionCorrection,
     MaxPool,
+    PatchMomentEncoder,
     PerceiverDecoder,
     PerceiverEncoder,
     ProcessorGeometryConditioner,
@@ -700,6 +703,19 @@ class EncoderConfig(BaseConfig):
         "input cell and keep that native latent grid. The shared processor remains "
         "fully convolutional; only the decoder changes output resolution.",
     )
+    patch_moment_count: int | None = Field(
+        default=None,
+        ge=1,
+        description="Compress every fixed-extent physical patch into one token "
+        "containing an area-weighted mean route and this many learned continuous "
+        "relative-coordinate moments.",
+    )
+    patch_mean_channels: int | None = Field(
+        default=None,
+        ge=1,
+        description="Latent channels allocated to the resolved patch-mean route. "
+        "Defaults to one quarter of the encoder output width.",
+    )
     perceiver: PerceiverConfig = PerceiverConfig()
     spatial_query_shape: tuple[int, int] | None = Field(
         default=None,
@@ -727,20 +743,30 @@ class EncoderConfig(BaseConfig):
         max_lon_size: int,
         implementation: PerceiverImpl,
         canonical_resolution: tuple[torch.Tensor, torch.Tensor] | None = None,
-    ) -> PerceiverEncoder | DirectPatchEncoder | CanonicalResampleEncoder:
+    ) -> (
+        PerceiverEncoder
+        | DirectPatchEncoder
+        | CanonicalResampleEncoder
+        | PatchMomentEncoder
+    ):
         max_patch_size = patch_from(patch_extent, max_lat_size, max_lon_size)
         structural_modes = sum(
             (
                 self.direct_projection,
                 self.canonical_resampling,
                 self.native_projection,
+                self.patch_moment_count is not None,
                 self.spatial_query_shape is not None,
             )
         )
         if structural_modes > 1:
             raise ValueError(
-                "direct_projection, canonical_resampling, native_projection, and "
-                "spatial_query_shape are mutually exclusive."
+                "direct_projection, canonical_resampling, native_projection, "
+                "patch_moment_count, and spatial_query_shape are mutually exclusive."
+            )
+        if self.patch_mean_channels is not None and self.patch_moment_count is None:
+            raise ValueError(
+                "patch_mean_channels requires patch_moment_count to be configured."
             )
         if self.canonical_resampling:
             if canonical_resolution is None:
@@ -772,6 +798,15 @@ class EncoderConfig(BaseConfig):
                 patch_extent=patch_extent,
                 geometry_mode=self.geometry_mode,
                 enforce_one_pixel_patch=False,
+            )
+        if self.patch_moment_count is not None:
+            return PatchMomentEncoder(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                patch_extent=patch_extent,
+                moment_count=self.patch_moment_count,
+                mean_channels=self.patch_mean_channels or out_channels // 4,
+                geometry_mode=self.geometry_mode,
             )
         if self.spatial_query_shape is not None:
             if any(size <= 0 for size in self.spatial_query_shape):
@@ -838,6 +873,12 @@ class DecoderConfig(BaseConfig):
         description="Use physical-coordinate resampling plus a zero-initialized "
         "bounded local-attention correction.",
     )
+    continuous_resample_attention_residual: bool = Field(
+        default=False,
+        description="Use coordinate resampling plus a zero-initialized local "
+        "attention correction whose per-neighbor values are conditioned on "
+        "continuous output offsets.",
+    )
     coordinate_resampling: bool = Field(
         default=False,
         description="Use physical latitude/longitude interpolation with periodic "
@@ -899,18 +940,21 @@ class DecoderConfig(BaseConfig):
         | DirectPatchDecoder
         | ResampleProjectionDecoder
         | ResampleAttentionResidualDecoder
+        | ContinuousResampleAttentionResidualDecoder
     ):
         projection_modes = sum(
             (
                 self.direct_projection,
                 self.resample_projection,
                 self.resample_attention_residual,
+                self.continuous_resample_attention_residual,
             )
         )
         if projection_modes > 1:
             raise ValueError(
-                "direct_projection, resample_projection, and "
-                "resample_attention_residual are mutually exclusive."
+                "direct_projection, resample_projection, "
+                "resample_attention_residual, and "
+                "continuous_resample_attention_residual are mutually exclusive."
             )
         if self.project_before_resample and not self.resample_projection:
             raise ValueError(
@@ -958,6 +1002,26 @@ class DecoderConfig(BaseConfig):
                 query_chunk_size=self.residual_query_chunk_size,
             )
             return ResampleAttentionResidualDecoder(base, correction)
+        if self.continuous_resample_attention_residual:
+            base = ResampleProjectionDecoder(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                coordinate_resampling=True,
+            )
+            continuous_correction = ContinuousCoordinateAttentionCorrection(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                hidden_dim=self.residual_hidden_dim,
+                heads=self.residual_heads,
+                dim_head=self.residual_dim_head,
+                neighborhood_radius=self.residual_neighborhood_radius,
+                position_bias_strength=self.residual_position_bias_strength,
+                query_chunk_size=self.residual_query_chunk_size,
+                zero_initialize_output=True,
+            )
+            return ContinuousResampleAttentionResidualDecoder(
+                base, continuous_correction
+            )
         return PerceiverDecoder(
             in_channels=in_channels,
             out_channels=out_channels,

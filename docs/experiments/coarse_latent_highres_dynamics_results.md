@@ -460,7 +460,11 @@ smoke, its numerical losses are not scientific results.
 
 ## S3 full validation
 
-Pending S2 promotion and review.
+Pending S2 objective selection. The prepared
+[`train_cross_1_halfdeg_coarse_latent_dynamics_full.yaml`](../../configs/samudra_multi_om4/train_cross_1_halfdeg_coarse_latent_dynamics_full.yaml)
+uses all four one-/half-degree routes, physical depths `{1,2,4}`, global batch
+32 on eight GPUs, and approximately the same 6,392-update budget as the
+completed native-grid reference. Quarter-degree data are deliberately absent.
 
 ## Decision log
 

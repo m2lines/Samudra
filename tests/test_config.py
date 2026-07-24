@@ -416,6 +416,42 @@ def test_coarse_latent_dynamics_validation_covers_all_cross_routes(tmp_path):
     assert cfg.model.encoder.geometry_mode == "sidecar"
 
 
+def test_coarse_latent_dynamics_full_matches_reference_update_scale(tmp_path):
+    config_path = (
+        Path(__file__).resolve().parents[1]
+        / "configs"
+        / "samudra_multi_om4"
+        / "train_cross_1_halfdeg_coarse_latent_dynamics_full.yaml"
+    )
+
+    cfg = TrainConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--experiment.data_root",
+            str(tmp_path),
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+        ]
+    )
+
+    assert not cfg.validation_only
+    assert cfg.finetune
+    assert cfg.experiment.train_schedule == "mix"
+    assert len(cfg.data.sources) == 2
+    assert cfg.epochs == 18
+    assert cfg.batch_size * cfg.gradient_accumulation_steps * 8 == 32
+    assert isinstance(cfg.scheduler, CosineSchedulerConfig)
+    assert cfg.scheduler.interval == "optimizer_update"
+    assert cfg.scheduler.target_updates == 6392
+    assert cfg.train_processor_depths == [1, 2, 4]
+    assert cfg.validation_processor_depths == [1, 2, 4]
+    assert cfg.frozen_model_prefixes == ["encoder.", "decoder."]
+    assert isinstance(cfg.model, SamudraMultiConfig)
+    assert cfg.model.patch_extent == [3.0, 5.0]
+    assert cfg.model.encoder.patch_moment_count == 16
+    assert cfg.model.encoder.geometry_mode == "sidecar"
+
+
 def test_cross_resolution_iterable_inverse_full_uses_reference_update_scale(tmp_path):
     config_path = (
         Path(__file__).resolve().parents[1]

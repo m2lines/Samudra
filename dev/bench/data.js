@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784767855381,
+  "lastUpdate": 1784857150154,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -11015,6 +11015,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.46763531457782637",
             "extra": "mean: 55.32029899099997 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "d689f92c461b92394eb0ea04450c3c64db6f01a3",
+          "message": "Retry the Zarr write to survive transient blosc -1 read errors (#757)\n\nReading blosc-compressed source chunks over S3 under heavy concurrency\noccasionally returns a truncated buffer, which surfaces as an\nintermittent `RuntimeError: error during blosc decompression: -1`\n(https://github.com/zarr-developers/numcodecs/issues/810) and kills the\nwhole job near completion. The failure is transient -- re-fetching the\nchunk almost always succeeds.\n\nDrive the final to_zarr with `client.compute(...,\nretries=write_retries)` on a distributed cluster (default 5) so a failed\nchunk task is re-run instead of aborting the job. Falls back to a plain\ncompute when running without a cluster. After the retry budget is\nexhausted it still fails loudly.\n\n🤖\n\n---------\n\nCo-authored-by: Claude Opus 4.8 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-07-24T00:58:27Z",
+          "tree_id": "4f4054de61fe9b5782155b9c9ca4729dcd8885d0",
+          "url": "https://github.com/m2lines/Samudra/commit/d689f92c461b92394eb0ea04450c3c64db6f01a3"
+        },
+        "date": 1784857149125,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0978168893917253,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0008197427137056689",
+            "extra": "mean: 910.8987206000052 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.061844035435456676,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2026964439273848",
+            "extra": "mean: 16.1697080884 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.017924219259025452,
+            "unit": "iter/sec",
+            "range": "stddev: 0.25348239085619456",
+            "extra": "mean: 55.79043558599999 sec\nrounds: 5"
           }
         ]
       }

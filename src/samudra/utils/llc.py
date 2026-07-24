@@ -4,7 +4,7 @@
 
 import xarray as xr
 
-from samudra.constants import DatasetSpec
+from samudra.constants import DataLayout
 
 
 def _rename_llc_level_index_vars(ds: xr.Dataset) -> xr.Dataset:
@@ -24,7 +24,7 @@ def _rename_llc_level_index_vars(ds: xr.Dataset) -> xr.Dataset:
 def _flatten_llc_level_vars(
     data: xr.Dataset,
     *,
-    dataset_spec: DatasetSpec,
+    data_layout: DataLayout,
 ) -> xr.Dataset:
     """Flatten LLC level dimensions into level-indexed variables.
 
@@ -39,14 +39,14 @@ def _flatten_llc_level_vars(
             continue
 
         n_levels = data_copy[name].sizes["lev"]
-        expected_levels = len(dataset_spec.depth_i_levels)
+        expected_levels = len(data_layout.depth_i_levels)
         if n_levels != expected_levels:
             raise ValueError(
                 f"Expected {expected_levels} levels for LLC variable {name}, got "
                 f"{n_levels}"
             )
 
-        for index, lev in enumerate(dataset_spec.depth_i_levels):
+        for index, lev in enumerate(data_layout.depth_i_levels):
             data_copy[f"{name}_{lev}"] = data_copy[name].isel(lev=index)
         data_copy = data_copy.drop_vars(name)
 
@@ -102,7 +102,7 @@ def canonicalize_llc_datasets(
     i_end: int,
     j_start: int,
     j_end: int,
-    dataset_spec: DatasetSpec,
+    data_layout: DataLayout,
 ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
     """Standardize raw LLC inputs to the common non-compact loader layout.
 
@@ -115,12 +115,12 @@ def canonicalize_llc_datasets(
     requested_data_vars = {
         _var_without_level(var_name)
         for var_name in (
-            dataset_spec.prognostic_var_names + dataset_spec.boundary_var_names
+            data_layout.prognostic_var_names + data_layout.boundary_var_names
         )
     }
     center_mask_var = _preferred_available_var(data_copy, ("mask_c", "hFacC"))
     requested_data_vars.update(
-        [dataset_spec.mask_all_levels_var, *dataset_spec.mask_vars]
+        [data_layout.mask_all_levels_var, *data_layout.mask_vars]
     )
     if center_mask_var is not None:
         requested_data_vars.add(center_mask_var)
@@ -189,12 +189,12 @@ def canonicalize_llc_datasets(
         or old in data_copy.coords
     }
     if center_mask_var is not None:
-        rename_map[center_mask_var] = dataset_spec.mask_all_levels_var
+        rename_map[center_mask_var] = data_layout.mask_all_levels_var
     if rename_map:
         data_copy = data_copy.rename(rename_map)
 
     means_copy = _rename_llc_level_index_vars(means.copy())
     stds_copy = _rename_llc_level_index_vars(stds.copy())
-    data_copy = _flatten_llc_level_vars(data_copy, dataset_spec=dataset_spec)
+    data_copy = _flatten_llc_level_vars(data_copy, data_layout=data_layout)
 
     return data_copy, means_copy, stds_copy

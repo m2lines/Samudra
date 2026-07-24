@@ -9,7 +9,7 @@ from pathlib import Path
 import torch
 from xarray_einstats.einops import rearrange  # noqa: F401
 
-from samudra.datasets import InferenceDataset, RawTrainData
+from samudra.datasets import HostBatch, InferenceDataset
 from samudra.utils.data import LoadStats
 
 
@@ -20,8 +20,8 @@ def pairwise(iterable):
     return zip(a, b)
 
 
-def collate_raw_train_data(data: Sequence[RawTrainData]) -> RawTrainData:
-    batched_data = RawTrainData(data[0].dataset_id)
+def collate_raw_train_data(data: Sequence[HostBatch]) -> HostBatch:
+    batched_data = HostBatch(data[0].dataset_id)
     assert all(d.dataset_id == batched_data.dataset_id for d in data), (
         "we don't support heterogenous batches yet"
     )

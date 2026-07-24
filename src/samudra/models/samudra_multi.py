@@ -20,7 +20,7 @@ from samudra.models.modules import (
     PerceiverEncoder,
 )
 from samudra.models.modules.unet_backbone import UNetBackbone
-from samudra.utils.ctx import GridContext
+from samudra.utils.ctx import BatchGrid
 from samudra.utils.device import autocast
 
 if TYPE_CHECKING:
@@ -83,7 +83,7 @@ class SamudraMulti(BaseModel):
             )
 
     def forward_once(
-        self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
+        self, prognostic: Prognostic, boundary: Boundary, ctx: BatchGrid
     ) -> Prognostic:
         # Prognostic and boundary are carried as separate tensors through the
         # data pipeline, but this encoder still expects a single concatenated

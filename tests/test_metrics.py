@@ -18,10 +18,10 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from samudra.constants import build_om4_spec
+from samudra.constants import build_om4_layout
 from samudra.metrics import comparisons, kernels, observations, report
 
-OM4_SPEC = build_om4_spec()
+OM4_SPEC = build_om4_layout()
 
 
 def _grid(nlat: int = 9, nlon: int = 12) -> tuple[np.ndarray, np.ndarray]:
@@ -247,9 +247,11 @@ def test_model_grid_adapter_preserves_geometry_and_refuses_curvilinear():
     assert float(observations.model_cell_area(adapted).mean()) == pytest.approx(7.0)
 
     with pytest.raises(NotImplementedError, match="rectilinear"):
-        observations.model_on_latlon_grid(rollout, build_om4_spec(grid_type="tripolar"))
+        observations.model_on_latlon_grid(
+            rollout, build_om4_layout(grid_type="tripolar")
+        )
 
-    # The OM4 baseline arrives via a DataSource, which has already run
+    # The OM4 baseline arrives via a CanonicalSource, which has already run
     # `with_lat_lon_coords`: 1-D lat/lon dims, 2-D geography on lat_2d/lon_2d.
     from samudra.utils.data import with_lat_lon_coords
 
@@ -1176,7 +1178,7 @@ def test_score_rollouts_is_one_pass_both_jobs_can_use(tmp_path):
             rmse_start="2021-01-01", rmse_end="2022-12-31", bootstrap_samples=0
         ),
         rollouts={"model": rollout},
-        dataset_spec=OM4_SPEC,
+        data_layout=OM4_SPEC,
         data_root=resolved,
         primary_label="model",
         output_dir=tmp_path / "out",

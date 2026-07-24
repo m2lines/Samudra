@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING
 import pandas as pd
 import xarray as xr
 
-from samudra.constants import DatasetSpec
+from samudra.constants import DataLayout
 from samudra.metrics import observations, report
 from samudra.utils.data import stack_levels
 from samudra.utils.location import ResolvedLocation
@@ -45,15 +45,15 @@ def open_predictions(output_dir: Path) -> xr.Dataset:
     return xr.open_zarr(path, chunks={})
 
 
-def analysis_ready(data: xr.Dataset, dataset_spec: DatasetSpec) -> xr.Dataset:
+def analysis_ready(data: xr.Dataset, data_layout: DataLayout) -> xr.Dataset:
     """Put a dataset in depth-stacked form, matching the rollout writer's layout."""
     if any(
         name in data.data_vars
         for name in (
-            f"thetao_{i}" for i in range(dataset_spec.num_prognostic_depth_levels)
+            f"thetao_{i}" for i in range(data_layout.num_prognostic_depth_levels)
         )
     ):
-        return stack_levels(data, dataset_spec)
+        return stack_levels(data, data_layout)
     return data
 
 
@@ -76,7 +76,7 @@ def score_rollouts(
     obs_cfg: ObsMetricsConfig,
     *,
     rollouts: dict[str, xr.Dataset],
-    dataset_spec: DatasetSpec,
+    data_layout: DataLayout,
     data_root: ResolvedLocation,
     primary_label: str,
     output_dir: Path | None = None,
@@ -87,7 +87,7 @@ def score_rollouts(
         obs_cfg: Product locations, scoring window, and bootstrap settings.
         rollouts: Datasets to score, keyed by the label they are reported under.
             Depth-stacked or not; either layout is accepted.
-        dataset_spec: Spec of the dataset the rollouts came from.
+        data_layout: Layout of the dataset the rollouts came from.
         data_root: Root the observation locations resolve against.
         primary_label: Which rollout the W&B scalars describe; the others are
             baselines, reported under their own keys.
@@ -104,10 +104,10 @@ def score_rollouts(
     model_dz: dict[str, xr.DataArray] = {}
     for label, data in rollouts.items():
         on_grid = observations.model_on_latlon_grid(
-            analysis_ready(data, dataset_spec), dataset_spec
+            analysis_ready(data, data_layout), data_layout
         )
         prepared[label] = on_grid
-        model_dz[label] = observations.model_depth_thickness(on_grid, dataset_spec)
+        model_dz[label] = observations.model_depth_thickness(on_grid, data_layout)
 
     logger.info(
         "Computing observation metrics over %s to %s for: %s",
@@ -145,7 +145,7 @@ def run_observation_metrics(
     obs_cfg: ObsMetricsConfig,
     *,
     predictions: xr.Dataset,
-    dataset_spec: DatasetSpec,
+    data_layout: DataLayout,
     data_root: ResolvedLocation,
     model_label: str,
     baselines: dict[str, xr.Dataset] | None = None,
@@ -159,7 +159,7 @@ def run_observation_metrics(
     scored = score_rollouts(
         obs_cfg,
         rollouts={model_label: predictions, **(baselines or {})},
-        dataset_spec=dataset_spec,
+        data_layout=data_layout,
         data_root=data_root,
         primary_label=model_label,
         output_dir=output_dir,

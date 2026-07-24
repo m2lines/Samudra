@@ -111,7 +111,7 @@ def test_om4_dataset_config_builds_selected_spec():
         boundary_vars_key="hfds",
     )
 
-    spec = cfg.dataset_spec
+    spec = cfg.data_layout
 
     assert spec.prognostic_var_names == ["thetao_0"]
     assert spec.boundary_var_names == ["hfds"]
@@ -218,7 +218,7 @@ def test_data_config_accepts_llc_dataset_type():
     assert isinstance(source, LlcDataSourceConfig)
     assert source.face == 2
     assert isinstance(source.inference_times[0], LlcTimeConfig)
-    assert source.dataset_spec.prognostic_var_names == ["Theta_0"]
+    assert source.data_layout.prognostic_var_names == ["Theta_0"]
 
 
 def test_data_config_rejects_invalid_llc_crop():
@@ -299,7 +299,7 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
     container = cfg.build(LocalLocation(path=tmp_path))
     source = container.primary_source
 
-    assert source.dataset_spec.type == "llc"
+    assert source.data_layout.type == "llc"
     assert "Theta_0" in source.data.variables
     assert "wetmask_0" in source.data.variables
     assert "face" not in source.data.dims
@@ -321,7 +321,7 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
     assert sliced.data.sizes["time"] == 2
 
 
-def test_data_config_rejects_multiple_dataset_specs(tmp_path):
+def test_data_config_rejects_multiple_data_layouts(tmp_path):
     cfg = DataConfig(
         sources=[
             om4_source_config(prognostic_vars_key="thetao_1"),
@@ -329,7 +329,7 @@ def test_data_config_rejects_multiple_dataset_specs(tmp_path):
         ]
     )
 
-    with pytest.raises(AssertionError, match="same dataset spec"):
+    with pytest.raises(AssertionError, match="same data layout"):
         cfg.build(LocalLocation(path=tmp_path))
 
 

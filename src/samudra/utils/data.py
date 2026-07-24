@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 from samudra.constants import (
     BatchTimeSeriesOutput,
     BoundaryVarNames,
-    DatasetSpec,
+    DataLayout,
     DictSingleChannelVar,
     Grid,
     GridMask,
@@ -76,7 +76,7 @@ class Masks:
 
 
 @dataclasses.dataclass
-class DataSource:
+class CanonicalSource:
     """Data source for the model."""
 
     name: str
@@ -84,7 +84,7 @@ class DataSource:
     means: xr.Dataset
     stds: xr.Dataset
     masks: Masks
-    dataset_spec: DatasetSpec
+    data_layout: DataLayout
 
     @cached_property
     def is_compact(self) -> bool:
@@ -109,7 +109,7 @@ class DataSource:
 
     @cached_property
     def metadata(self) -> dict:
-        return construct_metadata(self.data, self.dataset_spec)
+        return construct_metadata(self.data, self.data_layout)
 
     def filter(
         self,
@@ -127,7 +127,7 @@ class DataSource:
             prefix: Prefix for the new data source name.
 
         Returns:
-            A new `DataSource` only with the filtered variables and levels.
+            A new `CanonicalSource` only with the filtered variables and levels.
         """
         name = f"{prefix}[{self.name}]"
         if self.is_compact:
@@ -184,7 +184,7 @@ class DataSource:
     def map_data(
         self, func: Callable[[xr.Dataset], xr.Dataset], *, suffix: str | None = None
     ) -> Self:
-        """Map the function over just data in DataSource."""
+        """Map the function over just data in CanonicalSource."""
         if suffix is None:
             suffix = func.__qualname__
         data = func(self.data.copy())
@@ -275,23 +275,23 @@ class DataSource:
         means: xr.Dataset,
         stds: xr.Dataset,
         *,
-        dataset_spec: DatasetSpec,
+        data_layout: DataLayout,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
-        name: str = "DataSource",
+        name: str = "CanonicalSource",
     ) -> Self:
         data, means, stds = validate_data(
             data,
             means,
             stds,
-            dataset_spec=dataset_spec,
+            data_layout=data_layout,
             boundary_var_names=boundary_var_names,
         )
         masks = extract_wet_mask(
             data,
             prognostic_var_names,
             boundary_var_names,
-            dataset_spec=dataset_spec,
+            data_layout=data_layout,
         )
 
         return cls(
@@ -300,7 +300,7 @@ class DataSource:
             means=means,
             stds=stds,
             masks=masks,
-            dataset_spec=dataset_spec,
+            data_layout=data_layout,
         )
 
 
@@ -313,7 +313,7 @@ class OceanData:
     representation used when constructing training `Example`s from raw xarray data.
 
     The typical workflow is:
-        1. Load raw data from a `DataSource` via `from_data_source()`
+        1. Load raw data from a `CanonicalSource` via `from_data_source()`
         2. Slice to the desired time range with `with_time()`
         3. Apply normalization and masking with `normalize_and_mask()`
         4. Flatten time/variable dims to create the final `Input` or `Prognostic` tensor
@@ -336,7 +336,7 @@ class OceanData:
         cls,
         data: Float[torch.Tensor, "batch time variable lat lon"],
         mask: Float[torch.Tensor, " variable"],
-        src: DataSource,
+        src: CanonicalSource,
     ) -> Self:
         means_torch = torch.from_numpy(_flatten(src.means))
         stds_torch = torch.from_numpy(_flatten(src.stds))
@@ -382,24 +382,24 @@ class OceanData:
 
 
 @dataclasses.dataclass
-class DataSourceSplits:
-    train: DataSource
-    val: DataSource
-    inference: DataSource | None
+class SourceSplits:
+    train: CanonicalSource
+    val: CanonicalSource
+    inference: CanonicalSource | None
 
 
 @dataclasses.dataclass
-class DataContainer:
-    train_sources: list[DataSource]
-    val_sources: list[DataSource]
-    inference_source: DataSource | None
+class DataBundle:
+    train_sources: list[CanonicalSource]
+    val_sources: list[CanonicalSource]
+    inference_source: CanonicalSource | None
     loader_version: LoaderVersion
-    dataset_spec: DatasetSpec
+    data_layout: DataLayout
 
     # TODO: this is a bit of a footgun now that we have multiple kinds of sources
     # and should be removed in favor of the appropriate source above.
     @property
-    def primary_source(self) -> DataSource:
+    def primary_source(self) -> CanonicalSource:
         return self.train_sources[0]
 
 
@@ -516,7 +516,7 @@ def _mask_var_for_data_var(
     data: xr.Dataset,
     var_name: str,
     *,
-    dataset_spec: DatasetSpec,
+    data_layout: DataLayout,
 ) -> str:
     level = _level_index_from_var_name(var_name)
     base_var = _var_without_level(var_name)
@@ -526,19 +526,19 @@ def _mask_var_for_data_var(
         "V": (f"mask_s_{level}", f"hFacS_{level}"),
         "oceTAUY": ("mask_s_0", "hFacS_0"),
     }
-    if dataset_spec.type == "llc" and base_var in llc_staggered_masks:
+    if data_layout.type == "llc" and base_var in llc_staggered_masks:
         if mask_var := _preferred_available_var(data, llc_staggered_masks[base_var]):
             return mask_var
-    return dataset_spec.mask_vars[level]
+    return data_layout.mask_vars[level]
 
 
 def _mask_array_for_data_var(
     data: xr.Dataset,
     var_name: str,
     *,
-    dataset_spec: DatasetSpec,
+    data_layout: DataLayout,
 ) -> np.ndarray:
-    mask = data[_mask_var_for_data_var(data, var_name, dataset_spec=dataset_spec)]
+    mask = data[_mask_var_for_data_var(data, var_name, data_layout=data_layout)]
     if "time" in mask.dims:
         mask = mask.isel(time=0)
     return mask.to_numpy()
@@ -549,22 +549,22 @@ def extract_wet_mask(
     prognostic_var_names: PrognosticVarNames,
     boundary_var_names: BoundaryVarNames,
     *,
-    dataset_spec: DatasetSpec,
+    data_layout: DataLayout,
 ) -> Masks:
     """A mask for where the oceans are. Water is wet."""
-    data_ = flatten_masks(data, dataset_spec=dataset_spec)
+    data_ = flatten_masks(data, data_layout=data_layout)
     wet_inp_np = np.stack(
         [
-            _mask_array_for_data_var(data_, var_name, dataset_spec=dataset_spec)
+            _mask_array_for_data_var(data_, var_name, data_layout=data_layout)
             for var_name in prognostic_var_names
         ]
     )
     boundary_mask_vars = [
-        _mask_var_for_data_var(data_, var_name, dataset_spec=dataset_spec)
+        _mask_var_for_data_var(data_, var_name, data_layout=data_layout)
         for var_name in boundary_var_names
     ]
     boundary_masks = [
-        _mask_array_for_data_var(data_, var_name, dataset_spec=dataset_spec)
+        _mask_array_for_data_var(data_, var_name, data_layout=data_layout)
         for var_name in boundary_var_names
     ]
     wet_surface_mask_np = (
@@ -580,41 +580,41 @@ def extract_wet_mask(
 
 def flatten_masks(
     data: xr.Dataset,
-    dataset_spec: DatasetSpec,
+    data_layout: DataLayout,
 ) -> xr.Dataset:
     """Adds level-wise mask variables from the stacked wet mask."""
     data_ = data.copy()
-    mask_vars = list(dataset_spec.mask_vars)
+    mask_vars = list(data_layout.mask_vars)
     if mask_vars[0] not in data_.variables:
-        assert dataset_spec.mask_all_levels_var in data_.variables, (
+        assert data_layout.mask_all_levels_var in data_.variables, (
             "Wet mask cannot be constructed without "
             "either the wetmask variable or the level-wise masks"
         )
 
-        wet_mask = data_[dataset_spec.mask_all_levels_var]
+        wet_mask = data_[data_layout.mask_all_levels_var]
         for i, mask_var in enumerate(mask_vars):
             data_[mask_var] = wet_mask.isel(lev=i)
 
-        data_ = data_.drop_vars(dataset_spec.mask_all_levels_var)
+        data_ = data_.drop_vars(data_layout.mask_all_levels_var)
 
     return data_
 
 
 def unflatten_masks(
     data: xr.Dataset,
-    dataset_spec: DatasetSpec,
+    data_layout: DataLayout,
 ) -> xr.Dataset:
     """Adds a stacked wet mask `xarray.DataArray` from level-wise mask variables."""
     data_ = data.copy()
-    mask_vars = list(dataset_spec.mask_vars)
-    if dataset_spec.mask_all_levels_var not in data_.variables:
+    mask_vars = list(data_layout.mask_vars)
+    if data_layout.mask_all_levels_var not in data_.variables:
         assert mask_vars[0] in data_.variables, "Wet mask must have masks as data vars!"
 
         wetmask = data_[mask_vars].to_array(
-            dim="lev", name=dataset_spec.mask_all_levels_var
+            dim="lev", name=data_layout.mask_all_levels_var
         )
 
-        data_[dataset_spec.mask_all_levels_var] = wetmask.assign_coords(lev=data_.lev)
+        data_[data_layout.mask_all_levels_var] = wetmask.assign_coords(lev=data_.lev)
         data_ = data_.drop_vars(mask_vars)
 
     return data_
@@ -671,7 +671,7 @@ def spherical_area(data: xr.Dataset) -> Grid:
     return torch.from_numpy(areas)
 
 
-def get_inference_steps(data_source: DataSource, hist: int = 1):
+def get_inference_steps(data_source: CanonicalSource, hist: int = 1):
     """
     Get the number of inference/rollout steps for the given time configuration.
 
@@ -777,7 +777,7 @@ def compute_anomalies(
 
 def with_level_index_vars(
     data: xr.Dataset,
-    dataset_spec: DatasetSpec,
+    data_layout: DataLayout,
 ) -> xr.Dataset:
     """
     Ensure variable names use a depth level index, not depth level value.
@@ -792,7 +792,7 @@ def with_level_index_vars(
             var_split = var_str.split("_lev_")
             var = var_split[0]
             lev_in_depth = float(var_split[1].replace("_", "."))
-            lev_in_depth_idx = dataset_spec.depth_levels.index(lev_in_depth)
+            lev_in_depth_idx = data_layout.depth_levels.index(lev_in_depth)
             data_copy = data_copy.rename({var_str: f"{var}_{lev_in_depth_idx!s}"})
 
     return data_copy
@@ -800,23 +800,23 @@ def with_level_index_vars(
 
 def with_depth_value_vars(
     data: xr.Dataset,
-    dataset_spec: DatasetSpec,
+    data_layout: DataLayout,
 ) -> xr.Dataset:
     """Inverse of `with_level_index_vars`: name 3D variables by depth value.
 
     Renames the depth-resolved prognostic variables (``<var>_<level_index>``)
     back to the OM4 ``<var>_lev_<depth>`` form (e.g. ``thetao_0`` ->
     ``thetao_lev_2_5``). Which variables to rename is read directly off
-    ``dataset_spec.prognostic_var_names`` rather than inferred from the data, so
+    ``data_layout.prognostic_var_names`` rather than inferred from the data, so
     per-level masks (``mask_<i>``) and level-free prognostics (e.g. ``zos``) are
     never mistaken for depth-resolved variables by name alone.
     """
     renames = {}
-    for var_name in dataset_spec.prognostic_var_names:
+    for var_name in data_layout.prognostic_var_names:
         base, _, idx = var_name.rpartition("_")
         if not (base and idx.isdigit()):
             continue  # level-free prognostic variable, e.g. zos
-        depth = dataset_spec.depth_levels[int(idx)]
+        depth = data_layout.depth_levels[int(idx)]
         depth_str = str(depth).replace(".", "_")
         if var_name in data.variables:
             renames[var_name] = f"{base}_lev_{depth_str}"
@@ -840,7 +840,7 @@ def validate_data(
     data: xr.Dataset,
     means: xr.Dataset,
     stds: xr.Dataset,
-    dataset_spec: DatasetSpec,
+    data_layout: DataLayout,
     boundary_var_names: BoundaryVarNames,
 ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
     """Validate the data such that we have the correct format for training."""
@@ -850,15 +850,15 @@ def validate_data(
         data = with_lat_lon_coords(data)
     else:
         data = (
-            data.pipe(flatten_masks, dataset_spec=dataset_spec)
-            .pipe(with_level_index_vars, dataset_spec=dataset_spec)
+            data.pipe(flatten_masks, data_layout=data_layout)
+            .pipe(with_level_index_vars, data_layout=data_layout)
             .pipe(with_lat_lon_coords)
         )
 
         # Check if data variables are in the right format
         # This check is to ensure we convert data to the correct format
-        means = with_level_index_vars(means, dataset_spec=dataset_spec)
-        stds = with_level_index_vars(stds, dataset_spec=dataset_spec)
+        means = with_level_index_vars(means, data_layout=data_layout)
+        stds = with_level_index_vars(stds, data_layout=data_layout)
 
     # Check if any anomalies are needed to be computed
     anomalies_vars = get_anomalies_vars(boundary_var_names)
@@ -874,7 +874,7 @@ def validate_data(
 class Normalize:
     def __init__(
         self,
-        src: DataSource,
+        src: CanonicalSource,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
     ) -> None:
@@ -970,7 +970,7 @@ class Normalize:
 
 @dataclasses.dataclass
 class LoadStats:
-    """Captures stats about loading a single TrainData object."""
+    """Captures stats about loading a single ModelBatch object."""
 
     load_time_seconds: float
 
@@ -1008,7 +1008,7 @@ def compact_dataset(ds: xr.Dataset) -> xr.Dataset:
 
 def stack_levels(
     data: xr.Dataset,
-    dataset_spec: DatasetSpec,
+    data_layout: DataLayout,
 ) -> xr.Dataset:
     """Reassemble a flattened OM4 dataset into analysis-ready, depth-stacked form.
 
@@ -1022,8 +1022,8 @@ def stack_levels(
     Implemented as the inverse of `with_level_index_vars` followed by the existing
     `compact_dataset` (stacks the ``_lev_`` form) and `unflatten_masks`.
     """
-    data = with_depth_value_vars(data, dataset_spec)
+    data = with_depth_value_vars(data, data_layout)
     data = compact_dataset(data)
-    if dataset_spec.mask_vars[0] in data.variables:
-        data = unflatten_masks(data, dataset_spec=dataset_spec)
+    if data_layout.mask_vars[0] in data.variables:
+        data = unflatten_masks(data, data_layout=data_layout)
     return data

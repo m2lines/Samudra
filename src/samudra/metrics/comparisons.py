@@ -35,7 +35,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from samudra.constants import DatasetSpec
+from samudra.constants import DataLayout
 from samudra.metrics import kernels, observations
 
 logger = logging.getLogger(__name__)
@@ -453,6 +453,6 @@ def ohc_layer(
     )
 
 
-def model_depth_thickness(rollout: xr.Dataset, spec: DatasetSpec) -> xr.DataArray:
+def model_depth_thickness(rollout: xr.Dataset, data_layout: DataLayout) -> xr.DataArray:
     """Re-exported so callers need only this module to build a comparison."""
-    return observations.model_depth_thickness(rollout, spec)
+    return observations.model_depth_thickness(rollout, data_layout)

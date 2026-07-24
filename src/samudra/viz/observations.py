@@ -27,14 +27,14 @@ import pandas as pd
 import xarray as xr
 from cartopy.mpl.geoaxes import GeoAxes  # type: ignore
 
-from samudra.constants import build_om4_spec
+from samudra.constants import build_om4_layout
 from samudra.metrics import comparisons, kernels, spectra
 from samudra.viz.norms import percentile_norm, symmetric_percentile_norm
 
 logger = logging.getLogger(__name__)
 
 # viz assumes OM4 throughout; the observation figures inherit that.
-_OM4_SPEC = build_om4_spec(prognostic_vars_key="thermo_dynamic_all")
+_OM4_SPEC = build_om4_layout(prognostic_vars_key="thermo_dynamic_all")
 
 PROJECTION = ccrs.Robinson(central_longitude=-150)
 PLATE = ccrs.PlateCarree()

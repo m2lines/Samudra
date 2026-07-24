@@ -16,7 +16,7 @@ import logging
 
 from samudra.config import EvalConfig
 from samudra.metrics.run import open_predictions, run_observation_metrics
-from samudra.utils.data import DataContainer
+from samudra.utils.data import DataBundle
 from samudra.utils.logging import handle_logging, handle_warnings
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ def main() -> None:
             "includes it."
         )
 
-    data_container: DataContainer = cfg.data.build(cfg.experiment.resolved_data_root)
+    data_container: DataBundle = cfg.data.build(cfg.experiment.resolved_data_root)
     src = data_container.inference_source
     if src is None:
         raise ValueError("Inference time is not configured for the first data source")
@@ -45,7 +45,7 @@ def main() -> None:
     frame, scalars = run_observation_metrics(
         cfg.observations,
         predictions=open_predictions(cfg.experiment.output_dir),
-        dataset_spec=data_container.dataset_spec,
+        data_layout=data_container.data_layout,
         data_root=cfg.experiment.resolved_data_root,
         model_label=cfg.experiment.name,
         baselines=baselines,

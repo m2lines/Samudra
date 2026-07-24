@@ -11,7 +11,7 @@ from samudra.constants import Lat, Lon, PrognosticMask
 
 
 @dataclasses.dataclass(frozen=True)
-class GridContext:
+class BatchGrid:
     """Grid-level context for model forward passes and loss computation.
 
     Bundles spatial metadata that travels alongside input tensors during training:

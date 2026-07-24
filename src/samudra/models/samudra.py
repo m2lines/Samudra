@@ -9,7 +9,7 @@ import torch.utils.checkpoint
 from samudra.constants import Boundary, GridSize, Prognostic
 from samudra.models.base import BaseModel
 from samudra.models.modules.unet_backbone import UNetBackbone
-from samudra.utils.ctx import GridContext
+from samudra.utils.ctx import BatchGrid
 from samudra.utils.device import autocast
 
 
@@ -58,7 +58,7 @@ class Samudra(BaseModel):
         self.use_bfloat16 = use_bfloat16
 
     def forward_once(
-        self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
+        self, prognostic: Prognostic, boundary: Boundary, ctx: BatchGrid
     ) -> Prognostic:
         # Samudra is a single-scale model; fuse prognostic + boundary into
         # the single channel-stacked input its backbone expects.

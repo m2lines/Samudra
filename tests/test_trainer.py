@@ -23,7 +23,7 @@ from samudra.train import (
     should_log_validation_images,
     should_run_on_epoch_freq,
 )
-from samudra.utils.ctx import GridContext
+from samudra.utils.ctx import BatchGrid
 from samudra.utils.logging import handle_logging
 from samudra.utils.loss import DynamicLoss
 from samudra.utils.multiton import MultitonScope
@@ -338,7 +338,7 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
     assert trainer.inference_src is not None
     resolution = trainer.inference_src.resolution
     wet = trainer.inference_src.masks.prognostic_with_hist(hist)
-    ctx = GridContext(wet, resolution, resolution).to(trainer.device)
+    ctx = BatchGrid(wet, resolution, resolution).to(trainer.device)
     data = trainer.inference_loader.dataset[0]
     inference_dataset, _num_steps = data
     prog, boundary, _label = inference_dataset[0]

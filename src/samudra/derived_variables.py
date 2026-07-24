@@ -83,7 +83,7 @@ def add_derived_variables(
     derived_vars = {}
     dz = tensor_map.dz.to(tensor_out.device)
     thetao = tensor_out[
-        :, :, tensor_map.VAR_3D_IDX[tensor_map.dataset_spec.ocean_heat_temperature_var]
+        :, :, tensor_map.VAR_3D_IDX[tensor_map.data_layout.ocean_heat_temperature_var]
     ]
     ohct = compute_ocean_heat_content(thetao, dz)
     derived_vars["ocean_heat_content"] = ohct

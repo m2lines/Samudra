@@ -85,7 +85,7 @@ class ZarrWriter:
             },
             coords=coords,
         )
-        ds = stack_levels(per_level, self.tensor_map.dataset_spec)
+        ds = stack_levels(per_level, self.tensor_map.data_layout)
         ds = ds.transpose("time", "lev", "y", "x", ...)
         ds.attrs["model_path"] = str(self.model_path)
         ds = ds.chunk({"time": self.time_chunk_size})
@@ -118,7 +118,7 @@ class ZarrWriter:
         x_vals = np.asarray(src["lon"].values)  # 1-D longitude axis
         ny, nx = y_vals.size, x_vals.size
 
-        spec = self.tensor_map.dataset_spec
+        spec = self.tensor_map.data_layout
         n_levels = spec.num_prognostic_depth_levels
 
         # 2-D lat/lon on the (y, x) grid, matching the ground-truth layout. Prefer

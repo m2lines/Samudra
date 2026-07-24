@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import xarray as xr
 
-from samudra.constants import DatasetSpec
+from samudra.constants import DataLayout
 from samudra.metrics import kernels
 from samudra.utils.location import ResolvedLocation
 
@@ -170,7 +170,7 @@ def duacs_velocity(
     )
 
 
-def model_on_latlon_grid(ds: xr.Dataset, dataset_spec: DatasetSpec) -> xr.Dataset:
+def model_on_latlon_grid(ds: xr.Dataset, data_layout: DataLayout) -> xr.Dataset:
     """Present a rollout on `(lat, lon)` dims for comparison with observations.
 
     Our rollouts carry `(y, x)` dims alongside *2-D* `lat`/`lon` coordinates, so
@@ -183,10 +183,10 @@ def model_on_latlon_grid(ds: xr.Dataset, dataset_spec: DatasetSpec) -> xr.Datase
     index space, not degrees, and comparing against observations needs a real
     regridding step (xesmf) that is not implemented here yet.
     """
-    if dataset_spec.grid_type != "gaussian":
+    if data_layout.grid_type != "gaussian":
         raise NotImplementedError(
             f"Observation metrics need a rectilinear model grid, but this dataset "
-            f"has grid_type={dataset_spec.grid_type!r}. On a curvilinear grid the "
+            f"has grid_type={data_layout.grid_type!r}. On a curvilinear grid the "
             "'y'/'x' axes are index space rather than degrees, so comparison "
             "requires conservative regridding (xesmf) onto the observation grid. "
             "See issues #801 and #809."
@@ -209,14 +209,14 @@ def model_on_latlon_grid(ds: xr.Dataset, dataset_spec: DatasetSpec) -> xr.Datase
             ).rename({"y": "lat", "x": "lon"})
             ds = ds.assign_coords(areacello=renamed_area)
     elif {"lat", "lon"} <= dims:
-        # The form a `DataSource` hands back, as the OM4 baseline does:
+        # The form a `CanonicalSource` hands back, as the OM4 baseline does:
         # already 1-D lat/lon, with the 2-D geography on `lat_2d`/`lon_2d`.
         # Drop those so alignment sees only the 1-D axes.
         ds = ds.drop_vars(["lat_2d", "lon_2d", "lat_b", "lon_b"], errors="ignore")
     else:
         raise ValueError(
             "Expected horizontal dimensions ('y', 'x') as written by the eval "
-            "rollout, or ('lat', 'lon') as standardised by a DataSource; found "
+            "rollout, or ('lat', 'lon') as standardised by a CanonicalSource; found "
             f"dims {sorted(dims)}"
         )
 
@@ -244,12 +244,12 @@ def model_cell_area(ds: xr.Dataset) -> xr.DataArray:
     )
 
 
-def model_depth_thickness(ds: xr.Dataset, dataset_spec: DatasetSpec) -> xr.DataArray:
+def model_depth_thickness(ds: xr.Dataset, data_layout: DataLayout) -> xr.DataArray:
     """Exact native layer thicknesses aligned to the rollout's `lev` axis."""
     lev = ds["lev"]
     if "dz" in ds.coords or "dz" in ds:
         return ds["dz"]
-    thickness = np.asarray(dataset_spec.depth_thickness[: lev.size], dtype=float)
+    thickness = np.asarray(data_layout.depth_thickness[: lev.size], dtype=float)
     return xr.DataArray(thickness, dims=["lev"], coords={"lev": lev})
 
 

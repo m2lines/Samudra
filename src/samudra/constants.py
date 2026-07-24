@@ -65,7 +65,7 @@ BoundaryVarNames = list[str]
 
 
 @dataclasses.dataclass(frozen=True)
-class DatasetSpec:
+class DataLayout:
     type: DatasetType
     depth_levels: tuple[float, ...]
     depth_thickness: tuple[float, ...]
@@ -125,12 +125,12 @@ def _select_var_names(
         ) from exc
 
 
-def build_om4_spec(
+def build_om4_layout(
     prognostic_vars_key: str = "thermo_dynamic_all",
     boundary_vars_key: str = "tau_hfds",
     grid_type: GridType = "gaussian",
-) -> DatasetSpec:
-    return DatasetSpec(
+) -> DataLayout:
+    return DataLayout(
         type="om4",
         depth_levels=(
             2.5,
@@ -260,11 +260,11 @@ def build_om4_spec(
     )
 
 
-def build_llc_spec(
+def build_llc_layout(
     prognostic_vars_key: str = "single_1",
     boundary_vars_key: str = "single_1",
-) -> DatasetSpec:
-    return DatasetSpec(
+) -> DataLayout:
+    return DataLayout(
         type="llc",
         depth_levels=(
             0.5,
@@ -443,7 +443,7 @@ def build_llc_spec(
 
 def construct_metadata(
     data: xr.Dataset,
-    dataset_spec: DatasetSpec,
+    data_layout: DataLayout,
 ) -> dict[str, dict[str, str]]:
     metadata = {}
     for var in data.variables:
@@ -453,12 +453,10 @@ def construct_metadata(
                 "units": data[var].units,
             }
         except AttributeError:
-            if var in dataset_spec.default_metadata.keys():
-                metadata[str(var)] = dataset_spec.default_metadata[str(var)]
-            elif (
-                key := str(var).split("_")[0]
-            ) in dataset_spec.default_metadata.keys():
-                metadata[str(var)] = dataset_spec.default_metadata[key]
+            if var in data_layout.default_metadata.keys():
+                metadata[str(var)] = data_layout.default_metadata[str(var)]
+            elif (key := str(var).split("_")[0]) in data_layout.default_metadata.keys():
+                metadata[str(var)] = data_layout.default_metadata[key]
             else:
                 logger.info(f"{var} does not have any default metadata")
                 metadata[str(var)] = {
@@ -476,7 +474,7 @@ class LoaderVersion(enum.Enum):
 class TensorMap:
     def __init__(
         self,
-        dataset_spec: DatasetSpec,
+        data_layout: DataLayout,
     ):
         """
         Maps input variables / depth levels to their indices in the input tensor.
@@ -484,15 +482,15 @@ class TensorMap:
         VAR_3D_IDX maps the input variables to their indices in the input tensor
         DP_3D_IDX maps the depth levels to their indices in the input tensor
         """
-        self.dataset_spec = dataset_spec
+        self.data_layout = data_layout
         self.VAR_3D_IDX: dict[str, torch.Tensor] = {}
         self.DP_3D_IDX: dict[str, torch.Tensor] = {}
 
         self.INPT_BOUNDARY_IDX: dict[str, torch.Tensor] = {}
         self.VAR_SET_2D = []
         self.VAR_SET_3D = []
-        self.prognostic_var_names = dataset_spec.prognostic_var_names
-        self.boundary_var_names = dataset_spec.boundary_var_names
+        self.prognostic_var_names = data_layout.prognostic_var_names
+        self.boundary_var_names = data_layout.boundary_var_names
         for out in self.prognostic_var_names:
             var_split = out.split("_")
             if len(var_split) == 1:
@@ -505,10 +503,10 @@ class TensorMap:
             dict.fromkeys([out.split("_")[0] for out in self.prognostic_var_names])
         )
 
-        levels = dataset_spec.num_prognostic_depth_levels
+        levels = data_layout.num_prognostic_depth_levels
 
-        self.DEPTH_SET = list(dataset_spec.depth_i_levels[:levels])
-        self.dz = torch.tensor(dataset_spec.depth_thickness[:levels])
+        self.DEPTH_SET = list(data_layout.depth_i_levels[:levels])
+        self.dz = torch.tensor(data_layout.depth_thickness[:levels])
 
         self._populate_var_3d_idx()
         self._populate_dp_3d_idx()

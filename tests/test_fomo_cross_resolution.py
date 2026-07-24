@@ -5,6 +5,7 @@ import torch
 from perceiver_pytorch import Perceiver
 from perceiver_pytorch.perceiver_io import PerceiverIO
 
+from ocean_emulators.datasets import InferenceDataset, TorchTrainDataset
 from ocean_emulators.models.fomo import FOMO
 from ocean_emulators.models.modules import (
     PerceiverDecoder,
@@ -18,6 +19,10 @@ from ocean_emulators.models.modules.blocks import (
     CoreBlock,
 )
 from ocean_emulators.utils.ctx import GridContext
+from ocean_emulators.utils.data import Normalize
+from ocean_emulators.utils.multiton import MultitonScope
+from ocean_emulators.utils.train import collate_raw_train_data
+from tests.conftest import build_synthetic_source
 
 LATENT_DIM = 4
 EMBED_DIM = 8
@@ -234,3 +239,138 @@ def test_fomo_autoregressive_mix_schedule(add_3d_coordinates: bool):
     for out in outputs:
         assert out.shape == (1, out_channels, output_h, output_w)
         assert torch.isfinite(out).all(), "Output contains NaN or Inf."
+
+
+def test_fomo_inference_cross_resolution_ar_rollout():
+    """BaseModel.inference runs a multi-step AR rollout with asymmetric sources.
+
+    Prognostics come from a high-res source (¼°-like grid, 8×16) and boundaries
+    from a low-res source (1°-like grid, 2×4), sharing a time axis. This is
+    the KR2 asymmetric-inference path: prognostics stay at the fine grid
+    throughout the rollout while boundary forcings come from a coarser source
+    at every step.
+    """
+    prognostic_var_names = ["prognostic1", "prognostic2"]
+    boundary_var_names = ["boundary1", "boundary2"]
+    high_h, high_w = 8, 16
+    low_h, low_w = 2, 4
+    n_times = 10
+    num_prog, num_boundary = (
+        len(prognostic_var_names),
+        len(boundary_var_names),
+    )
+
+    prog_src = build_synthetic_source(
+        "high_res",
+        h=high_h,
+        w=high_w,
+        n_times=n_times,
+        prognostic_var_names=prognostic_var_names,
+        boundary_var_names=boundary_var_names,
+    )
+    boundary_src = build_synthetic_source(
+        "low_res",
+        h=low_h,
+        w=low_w,
+        n_times=n_times,
+        prognostic_var_names=prognostic_var_names,
+        boundary_var_names=boundary_var_names,
+    )
+
+    model = _make_fomo(
+        prog_channels=num_prog,
+        boundary_channels=num_boundary,
+        out_channels=num_prog,
+    )
+    model.eval()
+
+    with MultitonScope():
+        Normalize.init_instance(
+            prog_src,
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
+        )
+        dataset = InferenceDataset(
+            src=prog_src,
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
+            hist=0,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+            long_rollout=True,
+            boundary_src=boundary_src,
+        )
+        initial_prog = dataset.initial_prognostic
+
+        with torch.no_grad():
+            output = model.inference(
+                dataset=dataset,
+                initial_prognostic=initial_prog,
+                steps_completed=0,
+                num_steps=7,
+            )
+
+    assert output.prediction.shape == (7, num_prog, high_h, high_w)
+    assert torch.isfinite(output.prediction).all(), (
+        "AR rollout prediction contains NaN or Inf."
+    )
+
+
+def test_fomo_training_cross_resolution_ar_rollout():
+    """FOMO training forward works with boundary forcings from a coarser source."""
+    prognostic_var_names = ["prognostic1", "prognostic2"]
+    boundary_var_names = ["boundary1", "boundary2"]
+    high_h, high_w = 8, 16
+    low_h, low_w = 2, 4
+    n_times = 10
+    num_prog, num_boundary = (
+        len(prognostic_var_names),
+        len(boundary_var_names),
+    )
+
+    prog_src = build_synthetic_source(
+        "high_res",
+        h=high_h,
+        w=high_w,
+        n_times=n_times,
+        prognostic_var_names=prognostic_var_names,
+        boundary_var_names=boundary_var_names,
+    )
+    boundary_src = build_synthetic_source(
+        "low_res",
+        h=low_h,
+        w=low_w,
+        n_times=n_times,
+        prognostic_var_names=prognostic_var_names,
+        boundary_var_names=boundary_var_names,
+    )
+
+    model = _make_fomo(
+        prog_channels=num_prog,
+        boundary_channels=num_boundary,
+        out_channels=num_prog,
+    )
+
+    dataset = TorchTrainDataset(
+        src=prog_src,
+        dst=None,
+        boundary_src=boundary_src,
+        prognostic_var_names=prognostic_var_names,
+        boundary_var_names=boundary_var_names,
+        hist=0,
+        steps=2,
+        normalize_before_mask=True,
+        masked_fill_value=0.0,
+        stride=1,
+    )
+    raw = collate_raw_train_data([dataset[0]])
+    train_data = dataset.to_train_data(raw, torch.device("cpu"))
+
+    outputs = model.forward(train_data, loss_fn=None)
+
+    assert len(outputs) == 2
+    for output in outputs:
+        assert output.shape == (1, num_prog, high_h, high_w)
+        assert torch.isfinite(output).all(), (
+            "Training rollout output contains NaN or Inf."
+        )

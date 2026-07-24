@@ -60,6 +60,7 @@ class InferenceDataset(Dataset):
         normalize_before_mask,
         masked_fill_value,
         long_rollout,
+        boundary_src: DataSource | None = None,
     ):
         super().__init__()
         # NOTE: Keep tensors on CPU during initialization. This allows the dataset
@@ -72,7 +73,22 @@ class InferenceDataset(Dataset):
         data = src.data
         self.input_res = src.resolution
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
-        self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
+        # When boundary_src is provided, boundaries come from a different source
+        # (typically a coarser resolution) — enabling cross-resolution rollouts.
+        # The rolling indices are built off the prognostic source's time axis and
+        # reused for both streams, so the two sources must share a time axis.
+        if boundary_src is not None:
+            if not boundary_src.data.time.equals(data.time):
+                raise ValueError(
+                    "Boundary source time axis does not match the prognostic "
+                    "source. Cross-resolution inference requires both sources "
+                    "to share a time axis."
+                )
+            self._boundary_src = boundary_src.filter(
+                boundary_var_names, prefix="boundary"
+            )
+        else:
+            self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
         self._times = data.time
         self.normalize_before_mask = normalize_before_mask
         self.masked_fill_value = masked_fill_value
@@ -102,7 +118,12 @@ class InferenceDataset(Dataset):
             )
 
         self.wet: PrognosticMask = src.masks.prognostic
-        self.wet_surface: GridMask = src.masks.boundary
+        # `wet_surface` is applied to the boundary tensor and must match its grid.
+        self.wet_surface: GridMask = (
+            boundary_src.masks.boundary
+            if boundary_src is not None
+            else src.masks.boundary
+        )
         self.wet_label = src.masks.prognostic_with_hist(self.hist)
         self.size = len(self.rolling_indices)
 
@@ -469,11 +490,13 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         masked_fill_value: float,
         stride: int = 1,
         concurrent_compute_: bool = False,
+        boundary_src: DataSource | None = None,
     ):
         super().__init__()
         self.id = f"{self.__class__.__name__}_{str(id(self))}"
         # If the src and dst DataSource are the same, we can do a lot less work.
         srcs = [src, dst] if dst else [src]
+        boundary_data_src = boundary_src if boundary_src is not None else src
 
         self.hist: int = hist
         self.steps: int = steps
@@ -487,11 +510,18 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         assert np.array_equal(srcs[0].data.time, srcs[-1].data.time), (
             "src and dst DataSource have different time slices!"
         )
+        if not boundary_data_src.data.time.equals(src.data.time):
+            raise ValueError(
+                "Boundary source time axis does not match the prognostic source. "
+                "Cross-resolution training requires both sources to share a time axis."
+            )
         time_ = src.data.time
         self.prognostic_srcs = [
             src.filter(prognostic_var_names, prefix="prog") for src in srcs
         ]
-        self.boundary_src = src.filter(boundary_var_names, prefix="boundary")
+        self.boundary_src = boundary_data_src.filter(
+            boundary_var_names, prefix="boundary"
+        )
 
         # This class will be used only for training and validation
         total_steps: int = 2 * self.hist + 2
@@ -515,7 +545,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.wet_prognostic: list[PrognosticMask] = [
             src.masks.prognostic for src in srcs
         ]
-        self.wet_surface: GridMask = src.masks.boundary
+        self.wet_surface: GridMask = boundary_data_src.masks.boundary
 
         self.ctx = GridContext(
             label_mask=self.prognostic_srcs[-1].masks.prognostic_with_hist(self.hist),

@@ -194,6 +194,17 @@ class DataConfig(BaseConfig):
         ),
         min_length=1,
     )
+    boundary_source: DataSourceConfig | None = Field(
+        default=None,
+        description=(
+            "Optional separate boundary source. When set, training, validation, "
+            "and inference load boundary forcings from this source (typically at "
+            "a coarser resolution than the prognostic source), enabling "
+            "cross-resolution runs such as ¼° prognostics + 1° boundaries. When "
+            "unset, boundaries are loaded from the same source as the "
+            "prognostics (current default behavior)."
+        ),
+    )
     static_data_vars: list[str] | None = None
     loading: DataLoadingConfig = Field(default_factory=CpuDataLoadingConfig)
     hist: int = 1
@@ -249,8 +260,6 @@ class DataConfig(BaseConfig):
             )
             sources.append(src)
             supports_forks.append(fork)
-        supports_fork = all(supports_forks)
-
         primary_source = sources[0]
         if use_dask:
             # If we're already using dask, we don't need a second source
@@ -271,12 +280,35 @@ class DataConfig(BaseConfig):
             else None
         )
 
+        boundary_source: DataSource | None = None
+        inference_boundary_source: DataSource | None = None
+        if self.boundary_source is not None:
+            boundary_source, boundary_fork = make_source(
+                self.boundary_source.data_location,
+                self.boundary_source.data_means_location,
+                self.boundary_source.data_stds_location,
+            )
+            supports_forks.append(boundary_fork)
+            if use_dask:
+                inference_boundary_source = boundary_source
+            else:
+                inference_boundary_source, _ = make_source(
+                    self.boundary_source.data_location,
+                    self.boundary_source.data_means_location,
+                    self.boundary_source.data_stds_location,
+                    turn_on_dask=True,
+                )
+
+        supports_fork = all(supports_forks)
+
         return DataContainer(
             sources,
             inference_source,
             loader_version,
             supports_fork,
             static_data,
+            boundary_source=boundary_source,
+            inference_boundary_source=inference_boundary_source,
         )
 
 

@@ -421,6 +421,11 @@ class DataContainer:
     # TODO(559): static_data should belong to the DataSource, since we now
     #  deal with multiple resolutions.
     static_data: xr.Dataset | None = None
+    # Optional separate source for boundary forcings during training/validation.
+    # When unset, training boundaries come from each prognostic input source.
+    boundary_source: DataSource | None = None
+    # Optional dask-backed boundary source for inference/eval rollouts.
+    inference_boundary_source: DataSource | None = None
 
     @property
     def primary_source(self) -> DataSource:

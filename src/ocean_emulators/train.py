@@ -205,6 +205,7 @@ class Trainer:
         # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset
         # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/208
         self.inference_src = self.data_container.inference_source
+        self.boundary_src = self.data_container.boundary_source
 
         self.loader_version = self.data_container.loader_version
 
@@ -793,10 +794,22 @@ class Trainer:
             case _:
                 assert_never(self.train_schedule)
 
+        train_boundary_src = (
+            self.boundary_src.slice(self.train_time)
+            if self.boundary_src is not None
+            else None
+        )
+        val_boundary_src = (
+            self.boundary_src.slice(self.val_time)
+            if self.boundary_src is not None
+            else None
+        )
+
         train_datasets = [
             TorchTrainDataset(
                 src=src.slice(self.train_time),
                 dst=dst.slice(self.train_time) if dst else None,
+                boundary_src=train_boundary_src,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -814,6 +827,7 @@ class Trainer:
             TorchTrainDataset(
                 src=src.slice(self.val_time),
                 dst=dst.slice(self.val_time) if dst else None,
+                boundary_src=val_boundary_src,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -855,9 +869,12 @@ class Trainer:
                 )
 
         # Create batch samplers - branch on distributed vs non-distributed
-        # Group by input AND label resolution to handle all training schedules
+        # Group by input, boundary, and label resolution so stacked batches have
+        # matching tensor shapes across all training schedules.
         def group_key(ds):
-            return tuple(prog.grid_size for prog in ds.prognostic_srcs)
+            return tuple(prog.grid_size for prog in ds.prognostic_srcs) + (
+                ds.boundary_src.grid_size,
+            )
 
         if self.distributed is not None:
             # Distributed training

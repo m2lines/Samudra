@@ -82,6 +82,7 @@ This correction of scope is the reason for S0-R and S0-D.
 | `local-s1-1deg-bilinear-s0` | S1 | working tree after `6332322c` | Same as local attention proxy, but D0 bilinear decoder only | Complete | Validation MSE 0.208; the continuous anchored hybrid is 29.3% lower at matched updates |
 | `local-s1-1deg-radius0-s0` | S1 | working tree after `6332322c` | Same as local attention proxy, but decoder neighborhood radius zero | Complete | Validation MSE 0.153; one-ring blending improves error 3.9% at identical parameter count |
 | `local-s2-latent-only-realdata-smoke` | S2 integration | working tree after `49c897d4` | One-degree OM4, one optimizer update at depth one, latent-only objective, frozen randomly initialized inverse | Complete | Native loader, 60×72 rollout, target re-encoding, wet-token loss, backward pass, physical validation, and checkpoint writing succeed; integration evidence only |
+| `2026-07-24-coarse-latent-s2-checkpoint-smoke` | S2 integration | `1aa6672a` | Epoch-10 cross-resolution S1 checkpoint, half-degree OM4, one latent-only optimizer update at depth one | Complete (`14726481`) | Partial finetune loaded the frozen inverse exactly, initialized 67 allowlisted processor/boundary tensors, and completed training, physical validation, and checkpoint writes in 70 seconds |
 
 ## S0-R synthetic reconstruction
 
@@ -461,6 +462,14 @@ parameters and trained the 60,850,520-parameter boundary/processor path,
 re-encoded the target on the same \(60\times72\) grid, and wrote a resumable
 checkpoint. Because no S1 checkpoint was loaded for this integration-only
 smoke, its numerical losses are not scientific results.
+
+The corresponding Torch checkpoint-composition smoke then loaded the completed
+epoch-10 S1 inverse, froze the same 30 tensors/536,436 parameters, initialized
+exactly 67 allowlisted tensors belonging to the processor, geometry sidecar,
+boundary encoder, and latent residual scale, and completed a half-degree
+latent-only update plus physical validation. Job `14726481` exited zero after
+70 seconds. This closes the checkpoint-compatibility risk; its losses are also
+not used for model selection.
 
 ## S3 full validation
 

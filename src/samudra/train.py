@@ -56,10 +56,14 @@ from samudra.stepper import (
     train_batch,
     validate_batch,
 )
-from samudra.train_progress import TrainProgress
 from samudra.utils.data import Normalize, get_inference_steps
 from samudra.utils.device import using_gpu
-from samudra.utils.distributed import all_reduce_mean, is_main_process, set_seed
+from samudra.utils.distributed import (
+    all_reduce_mean,
+    get_world_size,
+    is_main_process,
+    set_seed,
+)
 from samudra.utils.ema import EMATracker
 from samudra.utils.logging import (
     MetricLogger,
@@ -78,6 +82,7 @@ from samudra.utils.train import (
     collate_inference_data,
     collate_raw_train_data,
 )
+from samudra.utils.train_progress import TrainProgress
 from samudra.utils.wandb import WandBLogger
 
 logger = logging.getLogger(__name__)

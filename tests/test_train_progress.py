@@ -5,8 +5,8 @@
 import torch
 
 from samudra.datasets import TrainData
-from samudra.train_progress import TrainBatchProgress, TrainProgress
 from samudra.utils.ctx import GridContext
+from samudra.utils.train_progress import TrainBatchProgress, TrainProgress
 
 
 def make_train_data(
@@ -94,7 +94,9 @@ def test_train_progress_batch_context_records_elapsed_progress(monkeypatch):
     train_data = make_train_data(batch_size=1, output_channels=1, output_grid=(2, 3))
     progress = TrainProgress()
     times = iter([10.0, 12.5])
-    monkeypatch.setattr("samudra.train_progress.time.perf_counter", lambda: next(times))
+    monkeypatch.setattr(
+        "samudra.utils.train_progress.time.perf_counter", lambda: next(times)
+    )
 
     with progress.batch(
         train_data, world_size=2, device=torch.device("cpu")

@@ -17,15 +17,26 @@ from samudra.datasets import TrainData
 class TrainBatchProgress:
     """Comparable progress and timing for one global train-loader batch.
 
-    Counts are global across distributed workers. A sample window is one dataset
-    item from the train loader. A model example is one supervised autoregressive
-    training step within that window, so a multi-step rollout contributes
-    multiple model examples per sample window.
+    Counts are global across distributed workers so the resulting ``progress/*``
+    metrics can be used as W&B x-axes when comparing runs with different batch
+    sizes, GPU counts, gradient accumulation, or grid resolutions.
+
+    A sample window is one dataset item from the train loader. A model example
+    is one supervised autoregressive training step within that window, so a
+    multi-step rollout contributes multiple model examples per sample window.
+    Output grid cells are model examples multiplied by output-grid latitude and
+    longitude cells. Target values are output grid cells multiplied by output
+    channels.
 
     Input grid dimensions describe the spatial grid of the tensors presented to
     the model at each autoregressive step. They are not a count of input time
     levels or rollout steps. Output grid dimensions describe the spatial grid of
     each predicted/target field.
+
+    ``TrainProgress`` accumulates the per-batch counts, optimizer update count,
+    and summed batch wall time across workers. CUDA training synchronizes before
+    reading batch wall time so ``progress/gpu_seconds`` and throughput metrics
+    include queued GPU work.
     """
 
     sample_windows: int

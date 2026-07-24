@@ -14,10 +14,12 @@ from samudra.config import (
     GpuDataLoadingConfig,
     LlcDatasetConfig,
     Om4DatasetConfig,
+    OtterConfig,
     TrainConfig,
 )
 from samudra.config_schema import get_pydantic_models
 from samudra.utils.location import UnresolvedLocation
+from samudra.utils.schedule import CosineSchedulerConfig
 
 
 def test_data_config_rejects_legacy_num_workers_field():
@@ -141,3 +143,69 @@ def test_get_pydantic_models_collects_loading_variants():
 
     assert models["CpuDataLoadingConfig"] is CpuDataLoadingConfig
     assert models["GpuDataLoadingConfig"] is GpuDataLoadingConfig
+
+
+@pytest.mark.parametrize(
+    "config_name",
+    [
+        "train_1deg_torch_smoke.yaml",
+        "train_1deg_mse_updates.yaml",
+    ],
+)
+def test_otter_configs_preserve_existing_history_contract(
+    config_name: str, tmp_path: Path
+):
+    config_path = (
+        Path(__file__).resolve().parents[1] / "configs" / "otter_om4" / config_name
+    )
+
+    cfg = TrainConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--experiment.data_root",
+            str(tmp_path),
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+        ]
+    )
+
+    assert isinstance(cfg.model, OtterConfig)
+    assert cfg.data.hist == 1
+    assert cfg.steps == [1]
+    assert cfg.model.pred_residuals
+    assert cfg.model.backbone.patch_size == 3
+    assert cfg.model.backbone.stage_depths == (2, 8, 4)
+
+
+def test_otter_full_config_uses_global_batch_32_on_eight_gpus(tmp_path: Path):
+    config_path = (
+        Path(__file__).resolve().parents[1]
+        / "configs"
+        / "otter_om4"
+        / "train_1deg_mse_updates.yaml"
+    )
+    cfg = TrainConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--experiment.data_root",
+            str(tmp_path),
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+        ]
+    )
+
+    assert cfg.batch_size * 8 * cfg.gradient_accumulation_steps == 32
+    assert isinstance(cfg.scheduler, CosineSchedulerConfig)
+    assert cfg.scheduler.target_epochs == 70
+
+
+def test_otter_config_rejects_incompatible_head_dimension():
+    with pytest.raises(ValidationError, match="head dimension"):
+        OtterConfig.model_validate(
+            {
+                "backbone": {
+                    "token_dim": 40,
+                    "num_heads": 4,
+                }
+            }
+        )

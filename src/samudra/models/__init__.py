@@ -2,8 +2,9 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from .otter import Otter
 from .samudra import Samudra
 from .samudra_mini import SamudraMini
 from .samudra_multi import SamudraMulti
 
-__all__ = ["Samudra", "SamudraMulti", "SamudraMini"]
+__all__ = ["Otter", "Samudra", "SamudraMulti", "SamudraMini"]

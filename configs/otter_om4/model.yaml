@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/OtterConfig.json
+
+checkpointing: all
+pred_residuals: true
+last_kernel_size: 1
+pad: circular
+use_bfloat16: true
+
+backbone:
+  token_dim: 384
+  stage_depths: [2, 8, 4]
+  num_heads: 16
+  window_size: 15
+  # 3 grid cells at 1 degree matches the paper's 3-degree base patch extent.
+  patch_size: 3
+  position_features: 128
+  position_min_scale: 0.1
+  position_max_scale: 720.0
+  hidden_ratio: 2.6666666667
+  ffn_align_to: 128
+  dropout_rate: 0.1
+  drop_path_rate: 0.1

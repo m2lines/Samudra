@@ -17,6 +17,7 @@ from .blocks import (
 )
 from .decoder import PerceiverDecoder
 from .encoder import PerceiverEncoder
+from .otter import OtterBackbone
 from .unet_backbone import UNetBackbone
 
 __all__ = [
@@ -30,6 +31,7 @@ __all__ = [
     "CappedGELU",
     "CappedLeakyReLU",
     "MaxPool",
+    "OtterBackbone",
     "PerceiverDecoder",
     "PerceiverEncoder",
     "ReLU",

@@ -44,6 +44,19 @@ def test_trainer__mini_2step(trainer_pair: TrainPair, caplog):
     trainer.run()
 
 
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "test/train_otter.yaml")],
+    indirect=True,
+)
+def test_trainer__otter_smoke(trainer_pair: TrainPair, caplog):
+    caplog.set_level(logging.INFO)
+    _, trainer = trainer_pair
+
+    trainer.run()
+
+
 @pytest.mark.parametrize(
     "backend",
     [pytest.param("cuda", marks=pytest.mark.cuda)],

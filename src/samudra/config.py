@@ -26,7 +26,7 @@ from samudra.constants import (
     build_llc_spec,
     build_om4_spec,
 )
-from samudra.models import Samudra, SamudraMini, SamudraMulti
+from samudra.models import Otter, Samudra, SamudraMini, SamudraMulti
 from samudra.models.base import BaseModel
 from samudra.models.modules import (
     AvgPool,
@@ -37,6 +37,7 @@ from samudra.models.modules import (
     CoreBlock,
     CoreBlockBuilder,
     MaxPool,
+    OtterBackbone,
     PerceiverDecoder,
     PerceiverEncoder,
     ReLU,
@@ -810,6 +811,124 @@ class SamudraConfig(BaseModelConfig):
         )
 
 
+class OtterBackboneConfig(BaseConfig):
+    token_dim: int = Field(default=384, gt=0)
+    stage_depths: tuple[int, ...] = (2, 8, 4)
+    num_heads: int = Field(default=16, gt=0)
+    window_size: int = Field(default=15, gt=0)
+    patch_size: int = Field(
+        default=3,
+        gt=0,
+        description=(
+            "Square tokenizer kernel and stride in grid cells. A value of 3 on "
+            "the one-degree OM4 grid reproduces Otter's 3-degree patch extent."
+        ),
+    )
+    position_features: int = Field(default=128, gt=0)
+    position_min_scale: float = Field(default=0.1, gt=0)
+    position_max_scale: float = Field(default=720.0, gt=0)
+    hidden_ratio: float = Field(default=8 / 3, gt=0)
+    ffn_align_to: int = Field(default=128, gt=0)
+    dropout_rate: float = Field(default=0.1, ge=0, lt=1)
+    drop_path_rate: float = Field(default=0.1, ge=0, lt=1)
+
+    @pydantic.model_validator(mode="after")
+    def validate_architecture(self) -> Self:
+        if not self.stage_depths or any(depth <= 0 for depth in self.stage_depths):
+            raise ValueError("stage_depths must contain positive depths.")
+        if self.token_dim % self.num_heads:
+            raise ValueError("token_dim must be divisible by num_heads.")
+        if (self.token_dim // self.num_heads) % 4:
+            raise ValueError(
+                "The attention head dimension must be divisible by four for 2D RoPE."
+            )
+        if self.position_features % 4:
+            raise ValueError("position_features must be divisible by four.")
+        if self.position_max_scale <= self.position_min_scale:
+            raise ValueError(
+                "position_max_scale must be greater than position_min_scale."
+            )
+        return self
+
+    def build(
+        self,
+        in_channels: int,
+        out_channels: int,
+        checkpoint_blocks: bool,
+    ) -> OtterBackbone:
+        return OtterBackbone(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            token_dim=self.token_dim,
+            stage_depths=self.stage_depths,
+            num_heads=self.num_heads,
+            window_size=self.window_size,
+            patch_size=self.patch_size,
+            position_features=self.position_features,
+            position_min_scale=self.position_min_scale,
+            position_max_scale=self.position_max_scale,
+            hidden_ratio=self.hidden_ratio,
+            ffn_align_to=self.ffn_align_to,
+            dropout_rate=self.dropout_rate,
+            drop_path_rate=self.drop_path_rate,
+            checkpoint_blocks=checkpoint_blocks,
+        )
+
+
+class OtterConfig(BaseModelConfig):
+    """Otter-inspired model using Samudra's existing blockwise time contract."""
+
+    backbone: OtterBackboneConfig = OtterBackboneConfig()
+    use_bfloat16: bool = Field(
+        default=True,
+        description="Use bfloat16 for the Otter backbone.",
+    )
+
+    @pydantic.model_validator(mode="after")
+    def validate_options(self) -> Self:
+        if self.checkpointing not in (None, "all"):
+            raise ValueError("Otter checkpointing must be null or 'all'.")
+        if self.add_3d_coordinates:
+            raise ValueError(
+                "Otter already injects absolute Fourier position embeddings; "
+                "set add_3d_coordinates=False."
+            )
+        return self
+
+    def build(
+        self,
+        prog_channels: int,
+        boundary_channels: int,
+        out_channels: int,
+        hist: int,
+        static_data_for_corrector: xr.Dataset | None,
+        srcs: list[DataSource],
+        tensor_map: TensorMap,
+        normalize: Normalize,
+        dataset_spec: DatasetSpec,
+    ) -> Otter:
+        if len(srcs) != 1:
+            raise ValueError(
+                "Otter currently supports a single training scale per model."
+            )
+        in_channels = prog_channels + boundary_channels
+        return Otter(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            pred_residuals=self.pred_residuals,
+            last_kernel_size=self.last_kernel_size,
+            pad=self.pad,
+            backbone=self.backbone.build(
+                in_channels,
+                out_channels,
+                checkpoint_blocks=self.checkpointing == "all",
+            ),
+            hist=hist,
+            gradient_detach_interval=self.gradient_detach_interval,
+            use_bfloat16=self.use_bfloat16,
+        )
+
+
 class SamudraMultiConfig(BaseModelConfig):
     encoder: EncoderConfig = EncoderConfig()
     processor: UNetBackboneConfig = UNetBackboneConfig()
@@ -978,7 +1097,7 @@ class SamudraMiniConfig(BaseModelConfig):
         )
 
 
-AnyModelConfig = SamudraConfig | SamudraMultiConfig | SamudraMiniConfig
+AnyModelConfig = OtterConfig | SamudraConfig | SamudraMultiConfig | SamudraMiniConfig
 
 
 class DistributedConfig(BaseConfig):

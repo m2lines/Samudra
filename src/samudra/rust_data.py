@@ -604,7 +604,7 @@ class RustTrainDataLoader:
 
         dataset_indices = {dataset_index for dataset_index, _ in resolved}
         if len(dataset_indices) != 1:
-            # Preserve collate_raw_train_data's existing dataset_id invariant.
+            # Preserve HostBatch collation's existing dataset_id invariant.
             raise AssertionError("we don't support heterogenous batches yet")
         dataset_index = resolved[0][0]
         return dataset_index, [local_index for _, local_index in resolved]

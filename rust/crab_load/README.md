@@ -33,7 +33,7 @@ flowchart LR
     R --> P["Reusable pinned unique-plane buffers"]
     P --> C["One H2D copy per unique plane"]
     C --> N["Normalize and mask unique planes"]
-    N --> G["Device gather into TrainData"]
+    N --> G["Device gather into ModelBatch"]
     G --> M["Current model stream"]
 ```
 
@@ -91,7 +91,7 @@ before copying a decoded plane into its pinned location.
 When the CUDA-prefetch iterator consumes the batch, `Tensor.to(device,
 non_blocking=True)` queues one host-to-device copy per unique read group.
 Normalization and masking run on the unique device planes. `index_select` then
-duplicates processed planes into the existing `TrainData` input, boundary, and
+duplicates processed planes into the existing `ModelBatch` input, boundary, and
 label layout. Thus overlapping rollout values cross PCIe once and are copied
 device-to-device only after preprocessing. The host producer can concurrently
 fill another set of pinned buffers while the model stream works.

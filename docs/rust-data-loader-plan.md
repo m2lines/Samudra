@@ -13,7 +13,7 @@ Ship an opt-in, local-only `loading.type: rust` training path that:
 - reads flat and compact OM4 Zarr stores with Rust;
 - keeps sampling, shuffle order, batching, and DDP partitioning in Python;
 - uses no PyTorch data-loading worker processes;
-- loads complete model-facing `TrainData` batches;
+- loads complete model-facing `ModelBatch` batches;
 - bounds and overlaps host-side batch prefetch with model execution; and
 - on CUDA, overlaps pinned-memory transfer and batch preparation with the current
   model step.
@@ -43,34 +43,37 @@ will continue to use direct, format-specific translation code.
 #### Canonical datasets hide physical storage
 
 Opening and canonicalization form a hard boundary. They return a live, read-capable
-`CanonicalDataset` whose public behavior does not reveal whether its data is backed
+`CanonicalSource` whose public behavior does not reveal whether its data is backed
 by xarray, a native Rust reader, flat OM4, compact OM4, or eventually LLC:
 
 ```python
 @final
-class CanonicalDataset:
+class CanonicalSource:
     name: str
     channels: tuple[str, ...]
     time: TimeAxis
     resolution: Resolution
-    statistics: ChannelStatistics
     masks: ChannelMasks
     metadata: Mapping[str, object]
+    reader: CanonicalReader
 
-    def select_channels(self, names: Sequence[str]) -> CanonicalDataset: ...
-    def slice_time(self, time: TimeConfig) -> CanonicalDataset: ...
-    def read(self, plan: BatchReadPlan) -> LoadedPlanes: ...
+    def statistics(self, channels: Sequence[str]) -> ChannelStatistics: ...
+    def slice_time(self, time: TimeConfig) -> CanonicalSource: ...
+    def read(
+        self, time_indices: np.ndarray, channels: Sequence[str]
+    ) -> np.ndarray: ...
+    def with_reader(self, reader: CanonicalReader) -> CanonicalSource: ...
 ```
 
-The dataset is structurally immutable: channel selection and time slicing return new
-views, while its private reader may mutate file handles, caches, and buffer pools.
+The dataset is structurally immutable: time slicing and reader replacement return
+new views, while its reader may mutate file handles, caches, and buffer pools.
 Tensor-valued masks are shared read-only metadata for efficiency; callers must not
 mutate them in place. Resolution coordinates are returned defensively.
 There is no general post-canonicalization `map()` or `map_data()` escape hatch.
 Named derived or resampling behavior, if needed later, must be implemented as an
 explicit canonicalizer or reader rather than an arbitrary transformation.
 
-Canonical channel names and order come from `DatasetSpec`. Every read exposes
+Canonical channel names and order come from `DataLayout`. Every read exposes
 independent canonical planes such as `thetao_4`, regardless of whether the physical
 store contains `thetao_4(time, y, x)` or `thetao(time, lev, y, x)`. Statistics and
 masks use that same channel order. Depth semantics remain visible; only the physical
@@ -82,13 +85,13 @@ coordinate normalization, statistics translation, and mask construction are priv
 to that boundary. Downstream Python data-loading code must not inspect `lev`, parse
 physical variable names, branch on `is_compact`, or access the raw xarray layout.
 
-The Rust OM4 canonicalizer implements the same operational contract with native
-flat and compact readers. Python and Rust canonicalizers remain direct,
-format-specific code rather than producing a serialized canonical manifest. Backend
-conformance tests compare canonical channels, time, coordinates, statistics, masks,
-and reads so the two implementations cannot silently drift.
+The Rust OM4 backend decorates that semantic source with native flat and compact
+readers and a typed physical-channel mapping. Both paths remain direct,
+format-specific code rather than producing a serialized canonical manifest.
+Backend conformance tests compare canonical channels, time, coordinates, statistics,
+masks, and reads so the two implementations cannot silently drift.
 
-This choice changes source construction, `DataContainer`, training and inference
+This choice changes source construction, `DataBundle`, training and inference
 datasets, normalization setup, static-data extraction, metadata logging, and related
 fixtures. That caller churn is intentional: retaining a public `.data` xarray escape
 hatch would allow the physical distinction to continue leaking. Tools that genuinely
@@ -115,17 +118,17 @@ TrainBatchPreparer
 ├── normalization and masking
 ├── device-static tensor caches
 ├── channel shaping and gathering
-└── TrainData construction
+└── ModelBatch construction
 ```
 
 `TorchTrainDataset` will return to being a CPU/sample-fetch adapter. Rank-local CUDA
 state and batch-level preprocessing will live in `TrainBatchPreparer`, which both
 the Torch and Rust loaders use. Rust's unique-plane representation and deduplicated
 device transfer can remain an internal implementation detail; the initial refactor
-does not require replacing `RawTrainData` with a universal host-batch format.
+does not require replacing `HostBatch` with a universal host-batch format.
 
 This changes dataset construction in `Trainer` and dataset-focused tests, but the
-stepper and model continue to receive the existing `TrainData` contract.
+stepper and model continue to receive the existing `ModelBatch` contract.
 
 #### Loader and runtime ownership
 
@@ -134,7 +137,7 @@ of a union of concrete Torch and Rust loader classes:
 
 ```python
 class TrainBatchLoader(Protocol):
-    def __iter__(self) -> Iterator[TrainData]: ...
+    def __iter__(self) -> Iterator[ModelBatch]: ...
     def __len__(self) -> int: ...
     def set_epoch(self, epoch: int) -> None: ...
     def close(self) -> None: ...
@@ -156,7 +159,7 @@ represented explicitly. Each `TrainingShard` exposes a stable
 `batch_compatibility_key`; samplers consume dataset spans and these public keys
 instead of a Trainer callback that disguises dataset identity as part of a grid
 shape. Initially the key includes shard identity, because the existing collate and
-`TrainData` contracts cannot legally combine dataset IDs.
+`ModelBatch` contracts cannot legally combine dataset IDs.
 
 Changing `dataset_id`, allowing heterogeneous batches, or revisiting cross-source
 mixing remains separate future work. The compatibility-key change may alter batch
@@ -169,7 +172,7 @@ The Rust feature will use typed physical channel selections and a concrete nativ
 runtime/executor rather than raw tuples and an empty read-pool protocol. Pinned host
 buffers will be represented by leases that retain their release obligation until
 the associated CUDA event completes. Iterator cleanup will use an explicit
-`close()`/`try-finally` path rather than depending on destructors, and `TrainData`
+`close()`/`try-finally` path rather than depending on destructors, and `ModelBatch`
 will provide a narrow stream-recording operation so prefetch code does not traverse
 its internals.
 
@@ -202,7 +205,7 @@ only OM4-flat and OM4-compact.
 #### P1: immutable, format-blind Python canonical datasets
 
 Starting from the latest `main`, remove the general `DataSource.map()` and
-`map_data()` API, introduce `CanonicalDataset` and the Python canonical-reader
+`map_data()` API, introduce `CanonicalSource` and the Python canonical-reader
 boundary, and migrate CPU training and inference. Canonicalize OM4-flat and
 OM4-compact into the same ordered channel contract. Replace inference's temporary
 mapped sources with explicit read requests. Provide an in-memory canonical reader or
@@ -288,7 +291,7 @@ backend is expressed through these boundaries.
 ### Refactor implementation status (2026-07-17)
 
 - **P1 is the first independently tested commit:** it introduces the structurally
-  immutable, format-blind Python `CanonicalDataset` on current `main` and migrates
+  immutable, format-blind Python `CanonicalSource` on current `main` and migrates
   CPU training and inference.
 - **P2 is the second independently tested commit:** it isolates sampler and
   DataLoader worker RNGs and makes epoch schedules deterministic without consuming
@@ -365,7 +368,7 @@ GPU compute roughly the same.
 - canonicalizing xarray-backed OM4 sources into ordered logical channels;
 - sampling, shuffle order, epoch seeding, batching, and DDP rank partitioning;
 - translating a global `ConcatDataset` index into a dataset and local index;
-- constructing `TrainData` objects;
+- constructing `ModelBatch` objects;
 - normalization, masking, channel flattening, and PyTorch device/stream semantics;
 - coordinating loader lifetime with the training and validation loops.
 
@@ -392,7 +395,7 @@ it. We will not introduce a canonical-manifest abstraction.
 - linking the Rust extension to libtorch or CUDA;
 - making the Rust path the default before parity and production measurements pass.
 
-The existing `RawTrainData.dataset_id` invariant remains in force: every emitted
+The existing `HostBatch.dataset_id` invariant remains in force: every emitted
 batch must contain samples with the same dataset ID. The Rust loader will check this
 and fail with a useful error. Generalizing that contract is separate work.
 
@@ -411,7 +414,7 @@ existing Python batch sampler
                        PyTorch CUDA prefetch stream
                                       |
                                       v
-                  normalized and masked TrainData
+                  normalized and masked ModelBatch
                                       |
                                       v
                             training stream
@@ -429,7 +432,7 @@ store.
 
 - Fixture cases cover `hist` 0 and 1, `steps` 1 and 2, multiple strides, prognostic
   and boundary variables, and both normalization/masking orders.
-- Tests capture sampler output and the final processed `TrainData`, not only raw
+- Tests capture sampler output and the final processed `ModelBatch`, not only raw
   Zarr values.
 
 ## Stage 1: crate integration and opt-in configuration
@@ -465,7 +468,7 @@ does not require a Rust toolchain.
 Implement a persistent local flat-OM4 reader. Python resolves sampler batches to
 dataset-local indices, deduplicates repeated time/variable planes across the full
 rollout, and asks Rust to fill caller-owned buffers. Python then normalizes, masks,
-and gathers those unique planes into the existing `TrainData` layout.
+and gathers those unique planes into the existing `ModelBatch` layout.
 
 ### Exit criteria
 
@@ -519,7 +522,7 @@ CPU training bypasses this stage and consumes the host-prefetched batch directly
 
 ### Exit criteria
 
-- The loader yields the same `TrainData` contract and values as Stage 2.
+- The loader yields the same `ModelBatch` contract and values as Stage 2.
 - Tests cover stream synchronization and buffer reuse with deliberately delayed
   copies; no batch can observe data from a later buffer fill.
 - H2D copies are non-blocking from pinned memory and occur on the configured prefetch
@@ -548,7 +551,7 @@ The first follow-on milestone adds local OM4-compact training and validation to 
 same opt-in `loading.type: rust` path. The native OM4 canonicalizer privately
 translates canonical channels such as `thetao_4` to typed physical selectors such as
 `("thetao", 4)`. Rust reads those physical array planes without leaking compactness
-or selectors through `CanonicalDataset` or its read plans. Surface channels such as
+or selectors through `CanonicalSource` or its read plans. Surface channels such as
 `zos` and `hfds` use selectors without a level. This remains direct format-specific
 translation rather than a canonical-manifest object.
 

@@ -9,7 +9,7 @@
 debug: false
 disk_mode: true
 pin_mem: true
-save_freq: 5
+save_freq: 1
 validation_image_log_freq: 5
 epochs: 10
 batch_size: 1
@@ -34,7 +34,7 @@ data_stride: [1]
 steps: [1]
 step_transition: []
 target_time_mode: current
-preemptible: false
+preemptible: true
 test_using_ema: false
 wandb_watch: null
 

@@ -213,6 +213,32 @@ Partition guidance:
 
 - Use `--account=torch_pr_347_lzanna --partition=rtx6000_lzanna` for RTX6000
   training unless another allocation is explicitly required.
+- Do not select the generic `h200`, `rtx6000`, or other preemption partitions
+  directly. Torch opts jobs into preemption through the Slurm comment:
+  `--comment="preemption=yes;requeue=true"`. To exclude normal partitions and
+  use only preemption capacity, add
+  `preemption_partitions_only=yes` to that comment.
+- For comment-routed jobs, omit `--partition` and request the GPU family with a
+  constraint such as `--constraint=h200` plus a generic GPU count such as
+  `--gres=gpu:2`.
+
+For example, a two-H200, preemption-only job uses:
+
+```bash
+sbatch \
+  --account=torch_pr_347_courant \
+  --comment="preemption=yes;preemption_partitions_only=yes;requeue=true" \
+  --constraint=h200 \
+  --gres=gpu:2 \
+  --requeue \
+  --signal=B:USR1@300 \
+  scripts/slurm_apptainer_train.sbatch
+```
+
+The Slurm comment controls scheduler admission to preemption capacity.
+`--requeue`, the warning signal, `REQUEUE_ON_USR1=1`, and model
+`preemptible: true` separately make an admitted training job recover from
+preemption.
 
 ```bash
 export CONFIG=configs/samudra_om4/train.yaml

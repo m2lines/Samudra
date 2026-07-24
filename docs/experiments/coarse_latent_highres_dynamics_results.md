@@ -447,7 +447,11 @@ The exact implementation/configuration map is:
 - [`audit_coarse_dynamics.py`](../../scripts/audit_coarse_dynamics.py) checks
   frozen-inverse equality, synchronized latent agreement through depths
   `{0,1,2,4}`, latent-teacher error, forcing sensitivity, cross-output
-  patch-mean consistency, and all 160 learned latent-channel residual scales.
+  patch-mean consistency, and all 160 learned latent-channel residual scales;
+  and
+- [`submit_coarse_latent_s2.sh`](../../scripts/submit_coarse_latent_s2.sh)
+  submits the four objective arms from one explicitly selected inverse with
+  matched seed, data, update budget, resource request, and W&B group.
 
 The four objective arms are `(w_x, lambda_z) = (1,0)`, `(0,1)`, `(1,0.01)`,
 and `(1,0.1)`. The proxy contains 768 optimizer updates, 256 at each depth,

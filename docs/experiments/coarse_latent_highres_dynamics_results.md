@@ -476,8 +476,9 @@ Implementation is complete, and all four matched arms are running from the
 seed-15 epoch-60 inverse selected above. The S2 model keeps the S1
 `PatchMomentEncoder` and
 `ContinuousResampleAttentionResidualDecoder`, changes encoder geometry mode from
-`none` to parameter-free `sidecar`, enables one shared processor invocation per
-physical step, and freezes all `encoder.*` and `decoder.*` parameters.
+`none` to a `sidecar` that learns a zero-initialized projection of deterministic
+position/scale features, enables one shared processor invocation per physical
+step, and freezes all `encoder.*` and `decoder.*` parameters.
 
 For selected depth \(n\), the model now exposes the latent rollout before
 decoding and can optimize

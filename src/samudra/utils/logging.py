@@ -24,7 +24,7 @@ from samudra.constants import Boundary, Prognostic
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from samudra.datasets import BatchLoader, ModelBatch
+    from samudra.datasets import ModelBatch, TrainBatchLoader
     from samudra.models.base import BaseModel
     from samudra.utils.ctx import BatchGrid
 
@@ -161,7 +161,7 @@ class MetricLogger:
 
     def log_every(
         self,
-        data_loader: "BatchLoader",
+        data_loader: "TrainBatchLoader",
         print_freq,
         header=None,
     ):

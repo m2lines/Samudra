@@ -18,12 +18,7 @@ from typing import Any
 import dask
 import torch
 import torch.nn as nn
-from torch.utils.data import (
-    ConcatDataset,
-    DataLoader,
-    DistributedSampler,
-    RandomSampler,
-)
+from torch.utils.data import DataLoader, DistributedSampler, RandomSampler
 
 from samudra.aggregator import Aggregator
 from samudra.aggregator.loss import (
@@ -40,12 +35,12 @@ from samudra.constants import (
     PrognosticVarNames,
 )
 from samudra.datasets import (
-    BatchLoader,
-    HostBatch,
     InferenceDataset,
     InferenceDatasets,
     ModelBatch,
     TorchTrainDataset,
+    TrainBatchLoader,
+    close_pytorch_dataloader,
 )
 from samudra.models.base import BaseModel
 from samudra.stepper import (
@@ -55,6 +50,7 @@ from samudra.stepper import (
     train_batch,
     validate_batch,
 )
+from samudra.train_data_loader import build_train_batch_loader
 from samudra.utils.data import BatchPreprocessor, get_inference_steps
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import (
@@ -76,11 +72,7 @@ from samudra.utils.samplers import (
     DistributedEquivalenceGroupBatchSampler,
     EquivalenceGroupBatchSampler,
 )
-from samudra.utils.train import (
-    CheckpointPaths,
-    collate_host_batches,
-    collate_inference_data,
-)
+from samudra.utils.train import CheckpointPaths, collate_inference_data
 from samudra.utils.train_progress import TrainProgress
 from samudra.utils.wandb import WandBLogger
 
@@ -151,10 +143,18 @@ class Trainer:
 
         data_num_workers = cfg.data.loading.num_pytorch_workers()
         persistent_workers = cfg.data.loading.persistent_pytorch_workers()
+        self.data_loading = cfg.data.loading
 
         self.mp_context: BaseContext | None = None
         if data_num_workers > 0:
             self.mp_context = multiprocessing.get_context("spawn")
+        self.inference_num_workers = cfg.data.inference_loading.num_workers
+        self.inference_persistent_workers = (
+            cfg.data.inference_loading.persistent_workers
+        )
+        self.inference_mp_context: BaseContext | None = None
+        if self.inference_num_workers > 0:
+            self.inference_mp_context = multiprocessing.get_context("spawn")
 
         self.num_prog_in = int((cfg.data.hist + 1) * self.N_prog)
         self.num_boundary_in = int((cfg.data.hist + 1) * self.N_bound)
@@ -350,8 +350,8 @@ class Trainer:
         self.inference_sampler: DistributedSampler | RandomSampler
 
         # Add type annotations for loaders
-        self.train_loader: BatchLoader
-        self.val_loader: BatchLoader
+        self.train_loader: TrainBatchLoader
+        self.val_loader: TrainBatchLoader
         self.inference_loader: DataLoader[ModelBatch]
 
     def init_inference_stores(self):
@@ -386,14 +386,28 @@ class Trainer:
             inference_data_combined,
             batch_size=1,
             sampler=self.inference_sampler,
-            num_workers=self.num_workers,
+            num_workers=self.inference_num_workers,
+            persistent_workers=(
+                self.inference_persistent_workers and self.inference_num_workers > 0
+            ),
             pin_memory=False,
             drop_last=False,
             collate_fn=collate_inference_data,
-            multiprocessing_context=self.mp_context,
+            multiprocessing_context=self.inference_mp_context,
         )
 
     def run(self) -> None:
+        """Run training and deterministically release loader-owned resources."""
+        try:
+            self._run()
+        finally:
+            if hasattr(self, "train_loader"):
+                self.train_loader.close()
+                self.val_loader.close()
+            if hasattr(self, "inference_loader"):
+                close_pytorch_dataloader(self.inference_loader)
+
+    def _run(self) -> None:
         logger.info(f"Starting training")
 
         self.wandb_logger.watch(self.model, log="all")
@@ -775,6 +789,10 @@ class Trainer:
         Args:
             cur_step: Current training step size
         """
+        if hasattr(self, "train_loader"):
+            self.train_loader.close()
+            self.val_loader.close()
+
         train_datasets = [
             TorchTrainDataset(
                 input_source=source,
@@ -787,9 +805,13 @@ class Trainer:
                 masked_fill_value=self.masked_fill_value,
                 stride=stride,
                 concurrent_compute_=self.concurrent_compute,
+                shard_id=f"train-{shard_index}",
             )
-            for stride in self.data_stride
-            for source in self.data_bundle.train_sources
+            for shard_index, (stride, source) in enumerate(
+                (stride, source)
+                for stride in self.data_stride
+                for source in self.data_bundle.train_sources
+            )
         ]
 
         # Validation is always evaluated on the primary source. This keeps the
@@ -807,49 +829,25 @@ class Trainer:
                 masked_fill_value=self.masked_fill_value,
                 stride=stride,
                 concurrent_compute_=self.concurrent_compute,
+                shard_id=f"val-{shard_index}",
             )
-            for stride in self.data_stride
+            for shard_index, stride in enumerate(self.data_stride)
         ]
 
-        # Create datasets
-        match self.loader_version:
-            case TorchTrainDataset.FLAG:
-                host_train_dataset: torch.utils.data.Dataset[HostBatch] = ConcatDataset(
-                    train_datasets
-                )
+        if self.loader_version != TorchTrainDataset.FLAG:
+            raise NotImplementedError(
+                f"Loader version {self.loader_version} not supported."
+            )
 
-                host_val_dataset: torch.utils.data.Dataset[HostBatch] = ConcatDataset(
-                    val_datasets
-                )
-
-            case _:
-                raise NotImplementedError(
-                    f"Loader version {self.loader_version} not supported."
-                )
-
-        logger.info("Instantiating torch loaders")
-
-        match self.loader_version:
-            case TorchTrainDataset.FLAG:
-                collate_fn = collate_host_batches
-            case _:
-                raise NotImplementedError(
-                    f"Collate function not defined for loader version "
-                    f"{self.loader_version}"
-                )
-
-        # Create batch samplers - branch on distributed vs non-distributed
-        # Group by resolution so batches stay homogeneous across configured sources.
-        def group_key(ds):
-            return tuple(source.grid_size for source in ds.sources)
-
+        # Create batch samplers - branch on distributed vs non-distributed.
+        # Dataset compatibility keys keep every batch tied to one preparation
+        # policy, which both Torch collation and the native loader require.
         if self.distributed is not None:
             # Distributed training
             assert self.distributed.world_size is not None
             assert self.distributed.rank is not None
             train_batch_sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=train_datasets,
-                group_key=group_key,
                 batch_size=self.batch_size,
                 num_replicas=self.distributed.world_size,
                 rank=self.distributed.rank,
@@ -860,7 +858,6 @@ class Trainer:
 
             val_batch_sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=val_datasets,
-                group_key=group_key,
                 batch_size=self.batch_size,
                 num_replicas=self.distributed.world_size,
                 rank=self.distributed.rank,
@@ -872,7 +869,6 @@ class Trainer:
             # Non-distributed training
             train_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
                 datasets=train_datasets,
-                group_key=group_key,
                 batch_size=self.batch_size,
                 shuffle=True,
                 drop_last=True,
@@ -881,7 +877,6 @@ class Trainer:
 
             val_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
                 datasets=val_datasets,
-                group_key=group_key,
                 batch_size=self.batch_size,
                 shuffle=True,
                 drop_last=False,
@@ -892,31 +887,28 @@ class Trainer:
         self.train_sampler = train_batch_sampler
         self.val_sampler = val_batch_sampler
 
-        # Create data loaders (same for both distributed and non-distributed)
-        # When using batch_sampler, don't specify batch_size or sampler
-        host_train_loader = DataLoader(
-            host_train_dataset,
-            batch_sampler=train_batch_sampler,
-            num_workers=self.num_workers,
-            persistent_workers=self.persistent_workers and self.num_workers > 0,
+        worker_seed = self.rand_seed
+        if self.distributed is not None:
+            assert self.distributed.rank is not None
+            worker_seed += 2 * self.distributed.rank
+        self.train_loader = build_train_batch_loader(
+            train_datasets,
+            train_batch_sampler,
+            self.device,
+            self.data_loading,
             pin_memory=self.pin_mem,
-            collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
+            worker_seed=worker_seed,
         )
-
-        host_val_loader = DataLoader(
-            host_val_dataset,
-            batch_sampler=val_batch_sampler,
-            num_workers=self.num_workers,
-            persistent_workers=self.persistent_workers and self.num_workers > 0,
+        self.val_loader = build_train_batch_loader(
+            val_datasets,
+            val_batch_sampler,
+            self.device,
+            self.data_loading,
             pin_memory=self.pin_mem,
-            collate_fn=collate_fn,
             multiprocessing_context=self.mp_context,
+            worker_seed=worker_seed + 1,
         )
-
-        # Wrap dataloaders to handle GPU post-processing
-        self.train_loader = BatchLoader(host_train_loader, train_datasets, self.device)
-        self.val_loader = BatchLoader(host_val_loader, val_datasets, self.device)
 
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
         with self._test_context():

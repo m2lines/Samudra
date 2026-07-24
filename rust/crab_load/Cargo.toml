@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+[package]
+name = "samudra-rust-loader"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.97.1"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+name = "samudra_rust_loader"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+anyhow = "1.0.98"
+numpy = "0.25"
+pyo3 = "0.25.0"
+rayon = "1.11.0"
+serde_json = "1.0"
+zarrs = { version = "0.21.2", features = ["filesystem"] }
+
+[features]
+extension-module = ["pyo3/extension-module"]

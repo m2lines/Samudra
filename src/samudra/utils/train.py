@@ -20,18 +20,18 @@ def pairwise(iterable):
     return zip(a, b)
 
 
-def collate_raw_train_data(data: Sequence[HostBatch]) -> HostBatch:
+def collate_host_batches(data: Sequence[HostBatch]) -> HostBatch:
     batched_data = HostBatch(data[0].dataset_id)
     assert all(d.dataset_id == batched_data.dataset_id for d in data), (
         "we don't support heterogenous batches yet"
     )
 
-    steps = len(data[0].raw_data)
+    steps = len(data[0].steps)
     for step in range(steps):
-        input_ = torch.stack([d.raw_data[step][0] for d in data])
-        boundary = torch.stack([d.raw_data[step][1] for d in data])
-        label = torch.stack([d.raw_data[step][2] for d in data])
-        batched_data.insert(input_, boundary, label)
+        input_ = torch.stack([d.steps[step][0] for d in data])
+        boundary = torch.stack([d.steps[step][1] for d in data])
+        label = torch.stack([d.steps[step][2] for d in data])
+        batched_data.append(input_, boundary, label)
 
     stats = LoadStats.accumulated(
         [d.load_stats for d in data if d.load_stats is not None]

@@ -42,8 +42,8 @@ class WandBLogger(Multiton):
 
     def _make_config(self, cfg: "AnyTopLevelConfig", data_bundle: "DataBundle"):
         config = {
-            f"data_{i}/attrs": src.data.attrs
-            for i, src in enumerate(data_bundle.train_sources)
+            f"data_{i}/attrs": dict(source.attrs)
+            for i, source in enumerate(data_bundle.train_sources)
         }
         config.update(config=cfg.model_dump())
         provenance_env = {

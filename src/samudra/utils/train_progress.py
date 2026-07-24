@@ -51,19 +51,21 @@ class TrainBatchProgress:
     batch_seconds: float = 0.0
 
     @classmethod
-    def from_train_data(cls, data: ModelBatch, world_size: int) -> "TrainBatchProgress":
-        label = data.get_label(0)
+    def from_model_batch(
+        cls, batch: ModelBatch, world_size: int
+    ) -> "TrainBatchProgress":
+        label = batch.get_label(0)
         (
             local_batch_size,
             output_channels,
             output_grid_lat,
             output_grid_lon,
         ) = label.shape
-        input_grid_lat = data.ctx.input_resolution_cpu[0].shape[0]
-        input_grid_lon = data.ctx.input_resolution_cpu[1].shape[0]
+        input_grid_lat = batch.ctx.input_resolution_cpu[0].shape[0]
+        input_grid_lon = batch.ctx.input_resolution_cpu[1].shape[0]
 
         sample_windows = local_batch_size * world_size
-        model_examples = sample_windows * len(data)
+        model_examples = sample_windows * len(batch)
         output_grid_cells = model_examples * output_grid_lat * output_grid_lon
         target_values = output_grid_cells * output_channels
 
@@ -117,17 +119,17 @@ class TrainProgress:
 
     @contextlib.contextmanager
     def batch(
-        self, data: ModelBatch, *, world_size: int, device: torch.device
+        self, batch: ModelBatch, *, world_size: int, device: torch.device
     ) -> Iterator[TrainBatchProgress]:
-        batch = TrainBatchProgress.from_train_data(data, world_size)
+        batch_progress = TrainBatchProgress.from_model_batch(batch, world_size)
         _synchronize_cuda_if_needed(device)
         batch_start_time = time.perf_counter()
 
-        yield batch
+        yield batch_progress
 
         _synchronize_cuda_if_needed(device)
-        batch.batch_seconds = time.perf_counter() - batch_start_time
-        self.update(batch, world_size=world_size)
+        batch_progress.batch_seconds = time.perf_counter() - batch_start_time
+        self.update(batch_progress, world_size=world_size)
 
     def update(self, batch: TrainBatchProgress, *, world_size: int) -> None:
         self.sample_windows_seen += batch.sample_windows

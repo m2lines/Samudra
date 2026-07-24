@@ -125,7 +125,7 @@ class Viz:
             }
 
         key1 = runs[0].name
-        # TODO: Support non-OM4 dataset specs in visualization.
+        # TODO: Support non-OM4 data layouts in visualization.
         self.data_layout = build_om4_layout()
         levels = len(self.data_layout.depth_levels)
 
@@ -3906,7 +3906,7 @@ def process_data(
     """
     Get plot ready OM4 data.
     """
-    ds_groundtruth = with_level_index_vars(data, data_layout=data_layout)
+    ds_groundtruth = with_level_index_vars(data, depth_levels=data_layout.depth_levels)
 
     # Store ds_prediction
     copy_dict = deepcopy(pred_dict)

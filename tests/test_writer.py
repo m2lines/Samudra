@@ -9,29 +9,29 @@ import pytest
 import torch
 import xarray as xr
 
-from samudra.constants import TensorMap, build_om4_layout
-from samudra.utils.data import Normalize
+from samudra.constants import build_om4_layout
+from samudra.utils.data import BatchPreprocessor
 from samudra.utils.writer import ZarrWriter
 from tests.conftest import TEST_FULL_DATA_LAYOUT
 
-# write() never touches normalization (record_batch does), so these tests drive
-# the writer directly with a buffer and omit a real Normalize.
-_NO_NORMALIZE = cast(Normalize, None)
+# write() never touches preprocessing (record_batch does), so these tests drive
+# the writer directly with a buffer and omit a real preprocessor.
+_NO_PREPROCESSOR = cast(BatchPreprocessor, None)
 
 
 def _source_coords(ny, nx):
     """Coords as `get_coords_dict` should be returned: 1D lat/lon dims,
     plus the grid metadata that survives `with_lat_lon_coords` (areacello, dz,
     lev, ocean_fraction)."""
-    spec = TEST_FULL_DATA_LAYOUT
-    n_lev = spec.num_prognostic_depth_levels
+    data_layout = TEST_FULL_DATA_LAYOUT
+    n_lev = data_layout.num_prognostic_depth_levels
     lat = xr.DataArray(np.linspace(-89, 89, ny), dims="lat")
     lon = xr.DataArray(np.linspace(0, 359, nx), dims="lon")
     return {
         "lat": lat,
         "lon": lon,
-        "lev": xr.DataArray(list(spec.depth_levels), dims="lev"),
-        "dz": xr.DataArray(list(spec.depth_thickness), dims="lev"),
+        "lev": xr.DataArray(list(data_layout.depth_levels), dims="lev"),
+        "dz": xr.DataArray(list(data_layout.depth_thickness), dims="lev"),
         "areacello": xr.DataArray(np.ones((ny, nx)), dims=["lat", "lon"]),
         "ocean_fraction": xr.DataArray(
             np.ones((n_lev, ny, nx)), dims=["lev", "lat", "lon"]
@@ -44,10 +44,9 @@ def _source_coords(ny, nx):
 
 def test_writer_output_is_analysis_ready(tmp_path):
     """The eval writer emits depth-stacked vars on y/x dims with grid metadata."""
-    spec = TEST_FULL_DATA_LAYOUT
-    tensor_map = TensorMap(data_layout=spec)
-    names = list(tensor_map.prognostic_var_names)
-    n_channels, n_lev = len(names), spec.num_prognostic_depth_levels
+    data_layout = TEST_FULL_DATA_LAYOUT
+    names = list(data_layout.prognostic_var_names)
+    n_channels, n_lev = len(names), data_layout.num_prognostic_depth_levels
     nt, ny, nx = 2, 3, 4
 
     coords = _source_coords(ny, nx)
@@ -57,8 +56,8 @@ def test_writer_output_is_analysis_ready(tmp_path):
         hist=0,
         model_path="dummy.ckpt",
         time_chunk_size=4,
-        normalize=_NO_NORMALIZE,
-        tensor_map=tensor_map,
+        preprocessor=_NO_PREPROCESSOR,
+        data_layout=data_layout,
     )
 
     # buffer[t, c] is uniformly the channel index c, so each reassembled level can
@@ -86,8 +85,8 @@ def test_writer_output_is_analysis_ready(tmp_path):
     assert (out["zos"].values == names.index("zos")).all()
 
     # (#3) grid metadata propagated, with horizontal dims renamed lat/lon -> y/x.
-    np.testing.assert_array_equal(out["lev"].values, spec.depth_levels)
-    np.testing.assert_array_equal(out["dz"].values, spec.depth_thickness)
+    np.testing.assert_array_equal(out["lev"].values, data_layout.depth_levels)
+    np.testing.assert_array_equal(out["dz"].values, data_layout.depth_thickness)
     assert out["areacello"].dims == ("y", "x")
     assert out["ocean_fraction"].dims == ("lev", "y", "x")
     # cell bounds propagate unchanged (enables dx/dy in analysis).
@@ -108,9 +107,8 @@ def test_writer_prefers_real_2d_lat_lon(tmp_path):
     be rebuilt by broadcasting the 1D axes. `with_lat_lon_coords` preserves the
     real coords as `lat_2d`/`lon_2d`; the writer must emit those, not a broadcast.
     """
-    spec = TEST_FULL_DATA_LAYOUT
-    tensor_map = TensorMap(data_layout=spec)
-    n_channels = len(tensor_map.prognostic_var_names)
+    data_layout = TEST_FULL_DATA_LAYOUT
+    n_channels = len(data_layout.prognostic_var_names)
     ny, nx = 3, 4
 
     coords = _source_coords(ny, nx)
@@ -129,8 +127,8 @@ def test_writer_prefers_real_2d_lat_lon(tmp_path):
         hist=0,
         model_path="dummy.ckpt",
         time_chunk_size=4,
-        normalize=_NO_NORMALIZE,
-        tensor_map=tensor_map,
+        preprocessor=_NO_PREPROCESSOR,
+        data_layout=data_layout,
     )
     writer.buffer = torch.zeros(1, n_channels, ny, nx)
     writer.time_buffer = xr.DataArray(np.arange(1), dims="time")
@@ -148,9 +146,8 @@ def test_writer_prefers_real_2d_lat_lon(tmp_path):
 
 def test_writer_appends_along_time(tmp_path):
     """A second write extends the time axis without disturbing other coords."""
-    spec = TEST_FULL_DATA_LAYOUT
-    tensor_map = TensorMap(data_layout=spec)
-    n_channels = len(tensor_map.prognostic_var_names)
+    data_layout = TEST_FULL_DATA_LAYOUT
+    n_channels = len(data_layout.prognostic_var_names)
     ny, nx = 3, 4
 
     coords = _source_coords(ny, nx)
@@ -160,8 +157,8 @@ def test_writer_appends_along_time(tmp_path):
         hist=0,
         model_path="dummy.ckpt",
         time_chunk_size=4,
-        normalize=_NO_NORMALIZE,
-        tensor_map=tensor_map,
+        preprocessor=_NO_PREPROCESSOR,
+        data_layout=data_layout,
     )
 
     def _write(times):
@@ -185,20 +182,19 @@ def test_writer_shallow_spec_slices_depth_metadata(tmp_path):
     (e.g. thermo_dynamic_5) emits fewer levels. The writer slices the depth-resolved
     coords to the emitted level count instead of raising on a conflicting `lev` dim.
     """
-    spec = build_om4_layout(
+    data_layout = build_om4_layout(
         prognostic_vars_key="thermo_dynamic_5", boundary_vars_key="tau_hfds"
     )
-    tensor_map = TensorMap(data_layout=spec)
-    n_prog = spec.num_prognostic_depth_levels  # 5, fewer than the source's 19
-    n_channels = len(tensor_map.prognostic_var_names)
+    n_prog = data_layout.num_prognostic_depth_levels
+    n_channels = len(data_layout.prognostic_var_names)
     ny, nx, nt = 3, 4, 1
 
     # Source coords carry the FULL 19-level depth metadata.
     coords = {
         "lat": xr.DataArray(np.linspace(-89, 89, ny), dims="lat"),
         "lon": xr.DataArray(np.linspace(0, 359, nx), dims="lon"),
-        "lev": xr.DataArray(list(spec.depth_levels), dims="lev"),
-        "dz": xr.DataArray(list(spec.depth_thickness), dims="lev"),
+        "lev": xr.DataArray(list(data_layout.depth_levels), dims="lev"),
+        "dz": xr.DataArray(list(data_layout.depth_thickness), dims="lev"),
         "ocean_fraction": xr.DataArray(
             np.ones((19, ny, nx)), dims=["lev", "lat", "lon"]
         ),
@@ -210,8 +206,8 @@ def test_writer_shallow_spec_slices_depth_metadata(tmp_path):
         hist=0,
         model_path="dummy.ckpt",
         time_chunk_size=4,
-        normalize=_NO_NORMALIZE,
-        tensor_map=tensor_map,
+        preprocessor=_NO_PREPROCESSOR,
+        data_layout=data_layout,
     )
     writer.buffer = torch.zeros(nt, n_channels, ny, nx)
     writer.time_buffer = xr.DataArray(np.arange(nt), dims="time")
@@ -224,8 +220,10 @@ def test_writer_shallow_spec_slices_depth_metadata(tmp_path):
     assert out["thetao"].sizes["lev"] == n_prog
     assert out["dz"].sizes["lev"] == n_prog
     assert out["ocean_fraction"].sizes["lev"] == n_prog
-    np.testing.assert_array_equal(out["lev"].values, spec.depth_levels[:n_prog])
-    np.testing.assert_array_equal(out["dz"].values, spec.depth_thickness[:n_prog])
+    np.testing.assert_array_equal(out["lev"].values, data_layout.depth_levels[:n_prog])
+    np.testing.assert_array_equal(
+        out["dz"].values, data_layout.depth_thickness[:n_prog]
+    )
 
 
 def test_writer_curvilinear_grid_without_real_coords_raises(tmp_path):
@@ -236,13 +234,12 @@ def test_writer_curvilinear_grid_without_real_coords_raises(tmp_path):
     coordinates. (The gaussian grid broadcasts fine -- see
     test_writer_output_is_analysis_ready, which drives the same coords.)
     """
-    spec = build_om4_layout(
+    data_layout = build_om4_layout(
         prognostic_vars_key="thermo_dynamic_all",
         boundary_vars_key="tau_hfds_hfds_anom",
         grid_type="tripolar",
     )
-    tensor_map = TensorMap(data_layout=spec)
-    n_channels = len(tensor_map.prognostic_var_names)
+    n_channels = len(data_layout.prognostic_var_names)
     ny, nx = 3, 4
 
     coords = _source_coords(ny, nx)  # 1D lat/lon only; no lat_2d/lon_2d
@@ -252,8 +249,8 @@ def test_writer_curvilinear_grid_without_real_coords_raises(tmp_path):
         hist=0,
         model_path="dummy.ckpt",
         time_chunk_size=4,
-        normalize=_NO_NORMALIZE,
-        tensor_map=tensor_map,
+        preprocessor=_NO_PREPROCESSOR,
+        data_layout=data_layout,
     )
     writer.buffer = torch.zeros(1, n_channels, ny, nx)
     writer.time_buffer = xr.DataArray(np.arange(1), dims="time")

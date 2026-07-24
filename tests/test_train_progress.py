@@ -9,7 +9,7 @@ from samudra.utils.ctx import BatchGrid
 from samudra.utils.train_progress import TrainBatchProgress, TrainProgress
 
 
-def make_train_data(
+def make_model_batch(
     *,
     batch_size: int = 2,
     input_channels: int = 3,
@@ -27,14 +27,14 @@ def make_train_data(
             torch.arange(output_grid[1]),
         ),
     )
-    model_batch = ModelBatch(input_channels, boundary_channels, ctx)
+    batch = ModelBatch(ctx)
     for _ in range(num_model_steps):
-        model_batch.append(
+        batch.append(
             torch.zeros(batch_size, input_channels, *input_grid),
             torch.zeros(batch_size, boundary_channels, *input_grid),
             torch.zeros(batch_size, output_channels, *output_grid),
         )
-    return model_batch
+    return batch
 
 
 def test_train_batch_progress_counts_global_training_units():
@@ -44,7 +44,7 @@ def test_train_batch_progress_counts_global_training_units():
     input_grid = (3, 4)
     output_grid = (5, 6)
     num_model_steps = 2
-    model_batch = make_train_data(
+    batch = make_model_batch(
         batch_size=batch_size,
         output_channels=output_channels,
         input_grid=input_grid,
@@ -52,7 +52,7 @@ def test_train_batch_progress_counts_global_training_units():
         num_model_steps=num_model_steps,
     )
 
-    progress = TrainBatchProgress.from_train_data(model_batch, world_size)
+    progress = TrainBatchProgress.from_model_batch(batch, world_size)
 
     assert progress.sample_windows == batch_size * world_size
     assert progress.model_examples == batch_size * world_size * num_model_steps
@@ -76,8 +76,8 @@ def test_train_batch_progress_counts_global_training_units():
 
 
 def test_train_batch_progress_throughput_metrics_use_batch_seconds():
-    model_batch = make_train_data(batch_size=1, output_channels=1, output_grid=(2, 3))
-    progress = TrainBatchProgress.from_train_data(model_batch, world_size=2)
+    batch = make_model_batch(batch_size=1, output_channels=1, output_grid=(2, 3))
+    progress = TrainBatchProgress.from_model_batch(batch, world_size=2)
     progress.batch_seconds = 0.5
 
     metrics = progress.to_throughput_metrics()
@@ -91,7 +91,7 @@ def test_train_batch_progress_throughput_metrics_use_batch_seconds():
 
 
 def test_train_progress_batch_context_records_elapsed_progress(monkeypatch):
-    model_batch = make_train_data(batch_size=1, output_channels=1, output_grid=(2, 3))
+    batch = make_model_batch(batch_size=1, output_channels=1, output_grid=(2, 3))
     progress = TrainProgress()
     times = iter([10.0, 12.5])
     monkeypatch.setattr(
@@ -99,7 +99,7 @@ def test_train_progress_batch_context_records_elapsed_progress(monkeypatch):
     )
 
     with progress.batch(
-        model_batch, world_size=2, device=torch.device("cpu")
+        batch, world_size=2, device=torch.device("cpu")
     ) as batch_progress:
         batch_progress.optimizer_stepped = True
 

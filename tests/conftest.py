@@ -16,9 +16,9 @@ import xarray as xr
 from numpy.typing import ArrayLike, NDArray
 
 import samudra.constants as c
-from samudra.config import TrainBackendConfig, TrainConfig
+from samudra.config import Om4DataSourceConfig, TrainBackendConfig, TrainConfig
 from samudra.train import Trainer
-from samudra.utils.data import CanonicalSource, Masks, _is_compact, compact_dataset
+from samudra.utils.data import CanonicalSource, Masks, compact_dataset
 from samudra.utils.multiton import MultitonScope
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
@@ -33,6 +33,20 @@ TEST_FULL_DATA_LAYOUT = c.build_om4_layout(
     prognostic_vars_key="thermo_dynamic_all",
     boundary_vars_key="tau_hfds_hfds_anom",
 )
+
+
+def canonicalize_mock_om4(
+    data: xr.Dataset, means: xr.Dataset, stds: xr.Dataset
+) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+    """Run test OM4 arrays through the production xarray canonicalizer."""
+    canonicalizer = Om4DataSourceConfig.model_construct(
+        prognostic_vars_key="thermo_dynamic_all",
+        boundary_vars_key="hfds",
+    )
+    canonical_data, canonical_means, canonical_stds, _ = (
+        canonicalizer.canonicalize_datasets(data, means, stds)
+    )
+    return canonical_data, canonical_means, canonical_stds
 
 
 def _om4_canonical_var_names(var_names: Iterable[str]) -> list[str]:
@@ -416,8 +430,9 @@ def _uncached_data_source(name: str) -> CanonicalSource:
                 data = compact_dataset(data)
                 means = compact_dataset(means)
                 stds = compact_dataset(stds)
-                prognostic_var_names = var_names_3d
                 boundary_var_names = var_names_2d
+
+            data, means, stds = canonicalize_mock_om4(data, means, stds)
 
             return CanonicalSource.from_datasets(
                 data=data,
@@ -451,23 +466,11 @@ def _maybe_read_cache(
             if v in TEST_FULL_DATA_LAYOUT.boundary_var_names
         ]
 
-        if _is_compact(data, means, stds):
-            prognostic_var_names: list[str] = []
-            for var in data.data_vars:
-                if var in boundary_vars or "mask" in var:
-                    continue
-                if "lev" in data[var].dims:
-                    prognostic_var_names.extend(
-                        f"{var}_{i}" for i in range(len(data.lev))
-                    )
-                else:
-                    prognostic_var_names.append(str(var))
-        else:
-            prognostic_var_names = _om4_canonical_var_names(
-                str(v)
-                for v in data.data_vars
-                if v not in boundary_vars and "mask" not in v
-            )
+        prognostic_var_names = [
+            var
+            for var in TEST_FULL_DATA_LAYOUT.prognostic_var_names
+            if var in data.data_vars
+        ]
 
         return CanonicalSource.from_datasets(
             name=cache_name,
@@ -489,17 +492,19 @@ def _write_cache(cache_root: pathlib.Path, data_source: CanonicalSource) -> None
     this cache while this function is running.
     """
     cache = cache_root / data_source.name
+    data, means, stds = data_source._xarray_datasets_for_testing()
 
     # Turn off compression! Our training datasets currently have compression turned off.
     #  See https://github.com/m2lines/samudra/blob/main/samudra/__main__.py#L240
     assert not (dz := cache / "data.zarr").exists(), "Data already exists in cache"
-    data_source.data.to_zarr(
-        dz, encoding={dv: {"compressor": None} for dv in data_source.data.data_vars}
+    data.to_zarr(
+        dz,
+        encoding={dv: {"compressor": None} for dv in data.data_vars},
     )
     assert not (dm := cache / "means.nc").exists(), "Means already exists in cache"
-    data_source.means.to_netcdf(dm)
+    means.to_netcdf(dm)
     assert not (ds := cache / "stds.nc").exists(), "Stds already exists in cache"
-    data_source.stds.to_netcdf(ds)
+    stds.to_netcdf(ds)
 
 
 @pytest.fixture(scope="session", params=["mock", "mock-om4", "compact"])
@@ -585,18 +590,18 @@ def trainer_pair(
 
 
 @pytest.fixture
-def dummy_src():
+def dummy_source():
     h, w = 4, 8
-    coords = {"lev": [0], "lat": np.arange(h), "lon": np.arange(w)}
+    coords = {"lat": np.arange(h), "lon": np.arange(w)}
     data = xr.Dataset(
         {
-            "thetao": (("lev", "lat", "lon"), np.zeros((1, h, w))),
+            "thetao_0": (("lat", "lon"), np.zeros((h, w))),
             "hfds": (("lat", "lon"), np.zeros((h, w))),
         },
         coords=coords,
     )
     masks = Masks(torch.ones(1, h, w), torch.ones(h, w))
-    src = CanonicalSource(
+    source = CanonicalSource.from_canonical_datasets(
         name="dummy",
         data=data,
         means=data.mean(dim=["lat", "lon"]),
@@ -604,4 +609,4 @@ def dummy_src():
         masks=masks,
         data_layout=TEST_DATA_LAYOUT,
     )
-    yield src
+    yield source

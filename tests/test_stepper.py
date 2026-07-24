@@ -7,14 +7,13 @@ import pytest
 import torch
 import xarray as xr
 
-from samudra.constants import TensorMap
 from samudra.datasets import InferenceDataset, ModelBatch
 from samudra.models.base import BaseModel
 from samudra.stepper import validate_batch
 from samudra.utils.ctx import BatchGrid
-from samudra.utils.data import CanonicalSource, Normalize
+from samudra.utils.data import BatchPreprocessor, CanonicalSource
 from samudra.utils.multiton import MultitonScope
-from tests.conftest import TEST_DATA_LAYOUT
+from tests.conftest import TEST_DATA_LAYOUT, canonicalize_mock_om4
 
 
 @pytest.fixture
@@ -25,7 +24,7 @@ def inf_data_init(hist: int):
         lons = 1
         total_time_steps = 100
 
-        tensor_map = TensorMap(data_layout=TEST_DATA_LAYOUT)
+        data_layout = TEST_DATA_LAYOUT
 
         # Even thetao, odd hfds for every time step
         # Ex, timestep 0: thetao = 0, hfds = 1
@@ -65,25 +64,26 @@ def inf_data_init(hist: int):
         )
         data_mean: xr.Dataset = data.mean() * 0.0
         data_std: xr.Dataset = data.std() * 0.0 + 1.0
+        data, data_mean, data_std = canonicalize_mock_om4(data, data_mean, data_std)
         val = CanonicalSource.from_datasets(
             data,
             data_mean,
             data_std,
             data_layout=TEST_DATA_LAYOUT,
             name="test-data",
-            prognostic_var_names=tensor_map.prognostic_var_names,
-            boundary_var_names=tensor_map.boundary_var_names,
+            prognostic_var_names=data_layout.prognostic_var_names,
+            boundary_var_names=data_layout.boundary_var_names,
         )
 
-        _ = Normalize(
+        _ = BatchPreprocessor(
             val,
-            prognostic_var_names=tensor_map.prognostic_var_names,
-            boundary_var_names=tensor_map.boundary_var_names,
+            prognostic_var_names=data_layout.prognostic_var_names,
+            boundary_var_names=data_layout.boundary_var_names,
         )
         inference_dataset = InferenceDataset(
             val,
-            tensor_map.prognostic_var_names,
-            tensor_map.boundary_var_names,
+            data_layout.prognostic_var_names,
+            data_layout.boundary_var_names,
             hist,
             normalize_before_mask=True,
             masked_fill_value=0.0,
@@ -120,7 +120,7 @@ def test_validate_batch_uses_absolute_predictions_for_residual_models():
     wet = torch.ones((1, 1, 1, 1), dtype=torch.bool)
     grid = torch.zeros(1)
     ctx = BatchGrid(wet, (grid, grid), (grid, grid))
-    batch = ModelBatch(num_prognostic_channels=1, num_boundary_channels=1, ctx=ctx)
+    batch = ModelBatch(ctx)
     prog_input = torch.tensor([[[[10.0]]]])
     boundary_input = torch.tensor([[[[5.0]]]])
     label = torch.tensor([[[[11.0]]]])
@@ -216,11 +216,11 @@ def test_inference_rollout(inf_data_init, hist, num_steps):
 
     model.eval()
     initial_prognostic = inference_dataset.initial_prognostic
-    IO = model.inference(
+    inference_output = model.inference(
         inference_dataset, initial_prognostic, num_steps=num_steps, epoch=0
     )
-    prediction = IO.prediction
-    target = IO.target
+    prediction = inference_output.prediction
+    target = inference_output.target
 
     assert prediction.shape == target.shape
 
@@ -283,7 +283,11 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
     pred = model.forward_once(
         prog_tensor,
         boundary_tensor,
-        BatchGrid(wet, inference_dataset.input_res, inference_dataset.input_res),
+        BatchGrid(
+            wet,
+            inference_dataset.input_resolution,
+            inference_dataset.input_resolution,
+        ),
     )
     assert pred.shape == (1, num_prognostic_channels, 1, 1)
     expected_pred = torch.tensor(

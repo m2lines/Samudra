@@ -30,26 +30,25 @@ def create_samudra_model():
             # Set up minimal data structures needed by Samudra
             h, w = 8, 8
             coords = {
-                "lev": [0],
                 "lat": (["y"], np.linspace(-90, 90, h)),
                 "lon": (["x"], np.linspace(-180, 180, w)),
             }
             data = xr.Dataset(
                 {
-                    "thetao": (["lev", "y", "x"], np.random.randn(1, h, w)),
+                    "thetao_0": (["y", "x"], np.random.randn(h, w)),
                     "hfds": (["y", "x"], np.random.randn(h, w)),
                 },
                 coords=coords,
             )
             ones = xr.Dataset(
                 {
-                    "thetao": (["lev", "y", "x"], np.ones((1, h, w))),
+                    "thetao_0": (["y", "x"], np.ones((h, w))),
                     "hfds": (["y", "x"], np.ones((h, w))),
                 },
                 coords=coords,
             )
             masks = Masks(torch.ones(h, w), torch.ones(h, w))
-            src = CanonicalSource(
+            source = CanonicalSource.from_canonical_datasets(
                 name="dummy",
                 data=data,
                 means=data,
@@ -72,15 +71,13 @@ def create_samudra_model():
                 boundary_channels=1,
                 out_channels=1,
                 hist=1,
-                srcs=[src],
+                grid_sizes=[source.grid_size],
             )
 
             # Create ModelBatch compatible with model dimensions.
             # in_channels=2 splits into 1 prognostic + 1 boundary channel.
             model_batch = ModelBatch(
-                num_prognostic_channels=1,
-                num_boundary_channels=1,
-                ctx=BatchGrid(masks.prognostic, src.resolution, src.resolution),
+                BatchGrid(masks.prognostic, source.resolution, source.resolution)
             )
             for step in range(4):
                 prog_tensor = torch.randn(1, 1, h, w, requires_grad=True)

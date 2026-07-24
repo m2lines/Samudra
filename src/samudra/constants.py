@@ -5,7 +5,7 @@
 import dataclasses
 import enum
 import logging
-from typing import Literal, Self
+from typing import Literal, NamedTuple, Self
 
 logger = logging.getLogger(__name__)
 
@@ -32,9 +32,12 @@ Boundary = Float[Grid, "*batch boundary_vars"]
 # So, we'll leave this default and use symbolic axes locally.
 type Input = Float[Grid, "*batch total_vars"]
 
-Example = tuple[
-    Prognostic, Boundary, Prognostic
-]  # (prognostic_input, boundary_input, label)
+
+class RolloutStep(NamedTuple):
+    prognostic: Prognostic
+    boundary: Boundary
+    label: Prognostic
+
 
 GridMask = Bool[Tensor, "lat lon"]
 PrognosticMask = Bool[GridMask, "prognostic_vars"]
@@ -51,41 +54,96 @@ HistChanneled = Float[Tensor, "batch hist_prognostic_vars lat lon"]
 
 MAX_TRAIN_MODEL_STEPS_FORWARD = 200
 
-DatasetType = Literal["om4", "llc"]
-
 # Horizontal grid geometry. "gaussian" is a regular/rectilinear lat-lon grid whose
 # 2D lat/lon are the outer product of the 1D axes, so they can be reconstructed by
 # broadcasting. "tripolar" is curvilinear: lat/lon vary along both horizontal dims
 # and cannot be rebuilt by broadcasting, so the real 2D coordinates must be carried
 # with the data. Downstream code that reconstructs geometry must branch on this.
 GridType = Literal["gaussian", "tripolar"]
-
 PrognosticVarNames = list[str]
 BoundaryVarNames = list[str]
 
 
 @dataclasses.dataclass(frozen=True)
 class DataLayout:
-    type: DatasetType
+    """Canonical channel layout, physical metadata, and tensor index mappings.
+
+    Raw dataset conventions belong to source-specific canonicalizers, not here.
+    """
+
     depth_levels: tuple[float, ...]
     depth_thickness: tuple[float, ...]
-    mask_vars: tuple[str, ...]
-    mask_all_levels_var: str
-    seconds_per_time_step: int
     prognostic_var_names: PrognosticVarNames
     boundary_var_names: BoundaryVarNames
     default_metadata: dict[str, dict[str, str]]
     ocean_heat_temperature_var: str
-    surface_heat_flux_var: str
     grid_type: GridType = "gaussian"
+    variable_indices: dict[str, torch.Tensor] = dataclasses.field(
+        init=False, repr=False, compare=False
+    )
+    depth_indices: dict[str, torch.Tensor] = dataclasses.field(
+        init=False, repr=False, compare=False
+    )
+    variables: list[str] = dataclasses.field(init=False, compare=False)
+    depths: list[str] = dataclasses.field(init=False, compare=False)
+    dz: torch.Tensor = dataclasses.field(init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         if len(self.depth_levels) != len(self.depth_thickness):
             raise ValueError(
                 "depth_levels and depth_thickness must have the same length"
             )
-        if len(self.depth_levels) != len(self.mask_vars):
-            raise ValueError("depth_levels and mask_vars must have the same length")
+
+        def split_channel(channel: str) -> tuple[str, str | None]:
+            name, separator, suffix = channel.rpartition("_")
+            return (name, suffix) if separator and suffix.isdigit() else (channel, None)
+
+        split_channels = [
+            split_channel(channel) for channel in self.prognostic_var_names
+        ]
+        var_set_2d = [name for name, depth in split_channels if depth is None]
+        var_set = list(dict.fromkeys(name for name, _ in split_channels))
+        depth_set = list(self.depth_i_levels[: self.num_prognostic_depth_levels])
+
+        var_indices = {
+            name: torch.tensor(
+                [
+                    index
+                    for index, (channel_name, _) in enumerate(split_channels)
+                    if name == channel_name
+                ],
+                dtype=torch.int32,
+            )
+            for name in var_set
+        }
+        depth_indices = {
+            depth: torch.tensor(
+                [
+                    index
+                    for index, (_, channel_depth) in enumerate(split_channels)
+                    if channel_depth == depth
+                ],
+                dtype=torch.int32,
+            )
+            for depth in depth_set
+        }
+        if depth_set and var_set_2d:
+            depth_indices[depth_set[0]] = torch.cat(
+                [
+                    depth_indices[depth_set[0]],
+                    *(var_indices[name] for name in var_set_2d),
+                ]
+            )
+
+        object.__setattr__(self, "variable_indices", var_indices)
+        object.__setattr__(self, "depth_indices", depth_indices)
+        object.__setattr__(self, "variables", var_set)
+        object.__setattr__(self, "depths", depth_set)
+        object.__setattr__(
+            self,
+            "dz",
+            torch.tensor(self.depth_thickness[: self.num_prognostic_depth_levels]),
+        )
 
     @property
     def depth_i_levels(self) -> tuple[str, ...]:
@@ -100,6 +158,16 @@ class DataLayout:
                 depth_indices.append(int(suffix))
         return max(depth_indices) + 1 if depth_indices else 1
 
+    def to(self, device: torch.device) -> Self:
+        """Return a copy whose tensor indices live on ``device``."""
+        moved = dataclasses.replace(self)
+        for mapping_name in ("variable_indices", "depth_indices"):
+            mapping = getattr(moved, mapping_name)
+            for key, value in mapping.items():
+                mapping[key] = value.to(device)
+        object.__setattr__(moved, "dz", moved.dz.to(device))
+        return moved
+
 
 # Experiment prognostic and boundary variables
 # Assumption that all 3D variables are appended with depth_i_levels
@@ -112,7 +180,7 @@ CP_SW = 3992.0  # SPECIFIC_HEAT_OF_WATER_CM4 J/kg/K
 def _select_var_names(
     vars_by_key: dict[str, list[str]],
     key: str,
-    dataset_type: DatasetType,
+    dataset_type: str,
     var_kind: str,
 ) -> list[str]:
     try:
@@ -131,7 +199,6 @@ def build_om4_layout(
     grid_type: GridType = "gaussian",
 ) -> DataLayout:
     return DataLayout(
-        type="om4",
         depth_levels=(
             2.5,
             10.0,
@@ -174,9 +241,6 @@ def build_om4_layout(
             1000.0,
             1000.0,
         ),
-        mask_vars=tuple(f"mask_{i}" for i in range(19)),
-        mask_all_levels_var="wetmask",
-        seconds_per_time_step=5 * 24 * 60 * 60,
         prognostic_var_names=_select_var_names(
             {
                 "thetao_1": ["thetao_0"],
@@ -255,7 +319,6 @@ def build_om4_layout(
             },
         },
         ocean_heat_temperature_var="thetao",
-        surface_heat_flux_var="hfds",
         grid_type=grid_type,
     )
 
@@ -265,7 +328,6 @@ def build_llc_layout(
     boundary_vars_key: str = "single_1",
 ) -> DataLayout:
     return DataLayout(
-        type="llc",
         depth_levels=(
             0.5,
             1.57,
@@ -372,9 +434,6 @@ def build_llc_layout(
             45.46,
             54.405,
         ),
-        mask_vars=tuple(f"wetmask_{i}" for i in range(51)),
-        mask_all_levels_var="wetmask",
-        seconds_per_time_step=60,
         prognostic_var_names=_select_var_names(
             {
                 "single_1": ["Theta_0"],
@@ -434,7 +493,6 @@ def build_llc_layout(
             },
         },
         ocean_heat_temperature_var="Theta",
-        surface_heat_flux_var="oceQnet",
         # LLC (lat-lon-cap) is curvilinear, so its 2D geometry can't be broadcast
         # from 1D axes -- same broadcast-unsafe class as the tripolar grid.
         grid_type="tripolar",
@@ -469,100 +527,3 @@ def construct_metadata(
 
 class LoaderVersion(enum.Enum):
     OM4_TORCH = "om4-torch"
-
-
-class TensorMap:
-    def __init__(
-        self,
-        data_layout: DataLayout,
-    ):
-        """
-        Maps input variables / depth levels to their indices in the input tensor.
-
-        VAR_3D_IDX maps the input variables to their indices in the input tensor
-        DP_3D_IDX maps the depth levels to their indices in the input tensor
-        """
-        self.data_layout = data_layout
-        self.VAR_3D_IDX: dict[str, torch.Tensor] = {}
-        self.DP_3D_IDX: dict[str, torch.Tensor] = {}
-
-        self.INPT_BOUNDARY_IDX: dict[str, torch.Tensor] = {}
-        self.VAR_SET_2D = []
-        self.VAR_SET_3D = []
-        self.prognostic_var_names = data_layout.prognostic_var_names
-        self.boundary_var_names = data_layout.boundary_var_names
-        for out in self.prognostic_var_names:
-            var_split = out.split("_")
-            if len(var_split) == 1:
-                self.VAR_SET_2D.append(var_split[0])
-            else:
-                self.VAR_SET_3D.append(var_split[0])
-
-        # Consistent order of variables
-        self.VAR_SET = list(
-            dict.fromkeys([out.split("_")[0] for out in self.prognostic_var_names])
-        )
-
-        levels = data_layout.num_prognostic_depth_levels
-
-        self.DEPTH_SET = list(data_layout.depth_i_levels[:levels])
-        self.dz = torch.tensor(data_layout.depth_thickness[:levels])
-
-        self._populate_var_3d_idx()
-        self._populate_dp_3d_idx()
-        self._populate_boundary_idx()
-
-    def _populate_var_3d_idx(self):
-        for kt in self.VAR_SET:
-            self.VAR_3D_IDX[kt] = torch.tensor([])
-            for i, k in enumerate(self.prognostic_var_names):
-                if kt in k:
-                    self.VAR_3D_IDX[kt] = torch.cat(
-                        [self.VAR_3D_IDX[kt], torch.tensor([i])]
-                    )
-            self.VAR_3D_IDX[kt] = self.VAR_3D_IDX[kt].to(torch.int32)
-
-    def _populate_dp_3d_idx(self):
-        for d in self.DEPTH_SET:
-            self.DP_3D_IDX[d] = torch.tensor([])
-            for i, k in enumerate(self.prognostic_var_names):
-                k_split = k.split("_")
-                if len(k_split) == 1:
-                    continue
-                elif d == k_split[-1]:
-                    self.DP_3D_IDX[d] = torch.cat(
-                        [self.DP_3D_IDX[d], torch.tensor([i])]
-                    )
-            self.DP_3D_IDX[d] = self.DP_3D_IDX[d].to(torch.int32)
-
-        self.DP_3D_IDX[self.DEPTH_SET[0]] = torch.cat(
-            [
-                self.DP_3D_IDX[self.DEPTH_SET[0]],
-                torch.tensor([self.VAR_3D_IDX[var_2D] for var_2D in self.VAR_SET_2D]),
-            ]
-        ).to(torch.int32)
-
-    def _populate_boundary_idx(self):
-        """
-        Populates the indices of the boundary variables in the input tensor.
-
-        We assume the indices INPT_BOUNDARY_IDX will be used after the boundary
-        condition is extracted from the input tensor
-        """
-        for i, k in enumerate(self.boundary_var_names):
-            self.INPT_BOUNDARY_IDX[k] = torch.tensor([i])
-
-    def to(self, device: torch.device) -> Self:
-        """Move all index tensors to the given device.
-
-        Call this once after model initialization so that indexing a GPU tensor
-        with these indices stays on-device and avoids implicit CUDA syncs.
-        """
-        for k in self.VAR_3D_IDX:
-            self.VAR_3D_IDX[k] = self.VAR_3D_IDX[k].to(device)
-        for k in self.DP_3D_IDX:
-            self.DP_3D_IDX[k] = self.DP_3D_IDX[k].to(device)
-        for k in self.INPT_BOUNDARY_IDX:
-            self.INPT_BOUNDARY_IDX[k] = self.INPT_BOUNDARY_IDX[k].to(device)
-        self.dz = self.dz.to(device)
-        return self

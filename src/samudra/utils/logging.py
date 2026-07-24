@@ -242,19 +242,21 @@ class _ForwardOnceWrapper(torch.nn.Module):
 
 
 def get_model_summary(
-    model: "BaseModel | DistributedDataParallel", data: "ModelBatch | None", debug: bool
+    model: "BaseModel | DistributedDataParallel",
+    batch: "ModelBatch | None",
+    debug: bool,
 ) -> None:
     model_parameters = filter(lambda p: p.requires_grad, model.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
     logger.info(f"Number of parameters: {params}")
     depth = 10 if debug else 2
     # we pass verbose = 0 because we log the summary ourselves
-    if data is not None:
+    if batch is not None:
         # ModelBatch is a complex wrapper that torchinfo cannot traverse.
         # Extract the initial prognostic + boundary and wrap the model to
         # use forward_once.
-        prog_tensor, boundary_tensor = data.get_initial_input()
-        wrapper = _ForwardOnceWrapper(model, data.ctx)
+        prog_tensor, boundary_tensor = batch.get_initial_input()
+        wrapper = _ForwardOnceWrapper(model, batch.ctx)
         logger.info(
             summary(
                 wrapper,

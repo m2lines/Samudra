@@ -80,6 +80,322 @@ resolutions. This report combines the completed real-ocean experiments with new
 decoder-only controls; follow-up experiments are explicitly separated from the
 evidence supporting the conclusions.
 
+## Glossary and implementation map
+
+This section defines the experimental shorthand used below. “Selected” means part
+of the recommendation validated by the one/half-degree run. “Retained control”
+means the implementation remains available for comparison but is not part of that
+recommendation. In the equations, \(E_s\) is the state encoder, \(E_b\) the
+boundary encoder, \(P\) the shared processor, \(D\) the decoder, \(z_m\) the
+latent after \(m\) physical steps, and \(R\) a deterministic spatial resampler.
+
+### Selected architecture and training contract
+
+- **Frozen learned inverse (selected).** “Inverse” means the trained composition
+  \(D(E_s(x)) \approx x\); it does **not** mean that either module is an
+  algebraic inverse, that their weights are tied, or that the encoder is an
+  identity. “Frozen” means that after loading the reconstruction checkpoint,
+  parameters whose names begin with `encoder.` or `decoder.` have
+  `requires_grad=False`. Forecast training optimizes the processor, boundary
+  encoder, geometry sidecar, and residual scale without changing \(E_s\) or
+  \(D\). The controls are `finetune: true`, `resume_ckpt_path`, and
+  `frozen_model_prefixes: ["encoder.", "decoder."]` in the
+  [selected forecast config](../../configs/samudra_multi_om4/train_cross_1_halfdeg_iterable_inverse_masked_mse_updates.yaml#L30);
+  the exact prefix matching and freezing is in
+  [`freeze_model_parameters`](../../src/samudra/train.py#L131).
+
+- **Depth zero / zero-step reconstruction / \(S0\) (selected invariant).**
+  Encode and decode without calling the processor:
+  \(\hat{x}^{(0)}=D(E_s(x))\). This is the operation measured when the report
+  quotes reconstruction or “inverse” MSE. The implementation is
+  [`SamudraMulti.reconstruct_once`](../../src/samudra/models/samudra_multi.py#L418).
+  `bypass_processor: true` and `processor_iterations: 0` are reconstruction-run
+  diagnostics; they are not required to call `reconstruct_once`.
+
+- **State-only encoder (selected).** \(E_s\) receives prognostic state channels
+  only. Boundary forcing is deliberately discarded by
+  [`SamudraMulti.encode`](../../src/samudra/models/samudra_multi.py#L167), so
+  the latent that the decoder must reconstruct is not a function of transient
+  forcing. Prognostic and boundary variable sets are selected independently by
+  `data.dataset.prognostic_vars_key` and `boundary_vars_key` in the
+  [training config](../../configs/samudra_multi_om4/train_cross_1_halfdeg_iterable_inverse_masked_mse_updates.yaml#L65).
+
+- **Native-grid learned projection encoder (selected).** With
+  `encoder.native_projection: true`, every source cell is mapped independently,
+  \(z_{cij}=\sum_k W^E_{ck}x_{kij}+b^E_c\), and the source \(H\times W\) grid is
+  retained. There is no pooling or resampling in this encoder. The flag is in the
+  [selected model config](../../configs/samudra_multi_om4/model_iterable_inverse_native_masked_projection.yaml#L26);
+  it builds
+  [`DirectPatchEncoder`](../../src/samudra/models/modules/encoder.py#L175) with
+  its one-cell-patch restriction disabled by
+  [`EncoderConfig.build`](../../src/samudra/config.py#L723).
+
+- **Geometry sidecar (selected).** `encoder.geometry_mode: "sidecar"` means no
+  position or scale embedding is added to \(E_s(x)\). Before each processor
+  invocation, the model instead adds
+  \(W_g[\mathbf r(\phi,\lambda),\widehat{\log A(\phi,\lambda)}]\), where
+  \(\mathbf r\) is the three-dimensional unit-sphere coordinate and \(A\) is
+  spherical cell area. The \(1\times1\) map \(W_g\) is initialized to zero, so
+  enabling the sidecar is initially an exact no-op. See the
+  [selected flag](../../configs/samudra_multi_om4/model_iterable_inverse_native_masked_projection.yaml#L27),
+  [`ProcessorGeometryConditioner`](../../src/samudra/models/modules/augment_input.py#L81),
+  and its construction in
+  [`SamudraMultiConfig.build`](../../src/samudra/config.py#L1273).
+  The other retained modes are `"none"` (geometry enters neither encoder nor
+  processor) and `"additive"` (learned position/scale terms are added directly
+  to the encoder representation).
+
+- **Separate, time-aligned boundary encoder (selected).** One boundary state is
+  used per physical transition:
+  \(q_m=R_{\ell_b\rightarrow\ell_z}(W_b b_m)\), where \(W_b\) is a shared
+  \(1\times1\) projection and \(R\) is physical-coordinate bilinear resampling
+  when the boundary and latent grids differ. It is added only to the corresponding
+  processor input. See
+  [`BoundaryEncoder`](../../src/samudra/models/modules/augment_input.py#L117) and
+  its use in
+  [`SamudraMulti.process`](../../src/samudra/models/samudra_multi.py#L182).
+  There is no separate enable flag: it is constructed for non-bypassed
+  `SamudraMulti` models from `boundary_vars_key`.
+
+- **Latent autoregression / encode once (selected).** The physical state is
+  encoded once, advanced entirely in latent space, and decoded only at requested
+  leads. Depth \(N\) consumes \(b_0,\ldots,b_{N-1}\) and is trained against the
+  state at \(t+N\,dt\), not against \(t+dt\) after \(N\) arbitrary network passes.
+  `train_processor_depths: [1, 2, 4]` cycles training leads and
+  `validation_processor_depths: [1, 2, 4]` audits all three; see the
+  [selected training controls](../../configs/samudra_multi_om4/train_cross_1_halfdeg_iterable_inverse_masked_mse_updates.yaml#L21)
+  and
+  [`SamudraMulti.latent_forecast`](../../src/samudra/models/samudra_multi.py#L227).
+
+- **Latent ReZero transition / zero-initialized latent residual scale
+  (selected).** Here “ReZero” refers to a residual **processor**, not to decoder
+  attention:
+  \[
+  z_m=z_{m-1}+\alpha\odot
+  P\!\left(z_{m-1}+E_b(b_m)+W_g g\right),
+  \qquad \alpha_c=0\ \text{at initialization}.
+  \]
+  `processor_residual: true` enables a learned per-channel \(\alpha\), so a newly
+  attached processor initially predicts latent persistence and can be invoked
+  zero through \(N\) times. See the
+  [selected flag](../../configs/samudra_multi_om4/model_iterable_inverse_native_masked_projection.yaml#L20)
+  and
+  [`SamudraMulti.process`](../../src/samudra/models/samudra_multi.py#L182).
+
+- **Projection-before-channel-masked coordinate resampling (selected
+  decoder).** First decode latent channels on their native grid,
+  \(u_i=W^D z_i+b^D\). Then, independently for each prognostic channel \(c\),
+  render output coordinate \(q\) as
+  \[
+  \hat{x}_c(q)=
+  \frac{\sum_i w_i(q)\,M_{ci}\,u_{ci}}
+       {\max(\epsilon,\sum_i w_i(q)\,M_{ci})}.
+  \]
+  \(w_i(q)\) are physical-coordinate bilinear weights, longitude is periodic,
+  latitude is edge-clamped, and \(M_{ci}\) is that channel’s source wet mask.
+  The three flags are `decoder.resample_projection: true`,
+  `coordinate_resampling: true`, and `project_before_resample: true` in the
+  [selected model config](../../configs/samudra_multi_om4/model_iterable_inverse_native_masked_projection.yaml#L30).
+  The implementation is
+  [`ResampleProjectionDecoder`](../../src/samudra/models/modules/decoder.py#L616)
+  plus
+  [`coordinate_bilinear_resample`](../../src/samudra/models/modules/decoder.py#L169).
+  This selected path contains no LayerNorm: reconstructive values pass only
+  through the learned \(1\times1\) projection and deterministic resampler.
+
+- **Flexible output resolution (selected property).** Decoder weights do not
+  depend on output height or width.
+  [`SamudraMulti.decode`](../../src/samudra/models/samudra_multi.py#L362) passes
+  the requested latitude/longitude arrays to the resampler, so the same
+  \(E_s,P,D\) can render any supplied regular physical grid. Same-grid decoding
+  skips spatial transport and reduces exactly to the learned \(1\times1\)
+  channel map. “Flexible” does not imply that coarse input contains enough
+  information to produce truthful fine-grid modes.
+
+- **Zero-depth auxiliary loss (available, disabled in the selected forecast).**
+  `zero_depth_reconstruction_weight: λ0` adds
+  \(\lambda_0\,\mathrm{MSE}(D(E_s(x_t)),x_t)\) to forecast training using the
+  source grid. Its implementation is
+  [`training_auxiliary_loss`](../../src/samudra/models/samudra_multi.py#L427).
+  It is `0.0` in the
+  [selected model](../../configs/samudra_multi_om4/model_iterable_inverse_native_masked_projection.yaml#L22)
+  because freezing \(E_s,D\) preserves the inverse more strictly than a soft
+  penalty.
+
+- **Common one-degree normalization statistics (selected data contract).** Both
+  one- and half-degree examples use the one-degree channel means and standard
+  deviations, \(x'=(x-\mu_{1^\circ})/\sigma_{1^\circ}\). This prevents a change
+  of resolution from also changing the numerical coordinate system in which the
+  learned inverse operates. The two source entries are explicit in the
+  [selected training config](../../configs/samudra_multi_om4/train_cross_1_halfdeg_iterable_inverse_masked_mse_updates.yaml#L77).
+
+- **Physical-state residual prediction (disabled).** `pred_residuals: false`
+  means the decoder predicts \(\hat{x}_{t+N}\), not
+  \(x_t+\widehat{\Delta x}\). This is independent of
+  `processor_residual: true`, which is the selected residual operation in latent
+  space. Both choices are visible in the
+  [selected model config](../../configs/samudra_multi_om4/model_iterable_inverse_native_masked_projection.yaml#L13).
+
+### Retained alternatives and diagnostic controls
+
+- **Perceiver IO decoder / widened Perceiver IO (retained controls).** Each
+  output **spatial** query is made from latitude/longitude and emits the complete
+  output-channel vector; the query does not embed a target channel. The final
+  cross-attention value width is
+  `decoder.perceiver.cross_heads * decoder.perceiver.cross_dim_head`, while
+  `decoder.queries_dim` is the query embedding width. The production class is
+  [`PerceiverDecoder`](../../src/samudra/models/modules/decoder.py#L701), the
+  exposed capacity controls are in
+  [`PerceiverConfig`](../../src/samudra/config.py#L504), and the matched widened
+  example is
+  [`model_1cell_decoder_wide.yaml`](../../configs/samudra_multi_om4/model_1cell_decoder_wide.yaml#L27).
+
+- **Direct query-to-token attention (retained synthetic control).** This removes
+  the Perceiver’s internal learned latent bank. Each output-position query
+  cross-attends directly to source tokens, retains a query residual, passes
+  through a feed-forward block, and is projected to all output channels. It is
+  selected by `--architecture direct-cross-attention` in
+  [`probe_perceiver_decoder.py`](../../scripts/probe_perceiver_decoder.py#L47)
+  and implemented by
+  [`DirectCrossAttentionIO`](../../scripts/probe_perceiver_decoder.py#L208).
+
+- **Position-query anchored attention (called “position-only anchored
+  attention” below; retained control).** “Position-only” means the **query
+  input** contains only the output coordinate; it does not mean routing ignores
+  source content. The tested local form uses
+  \[
+  \mathrm{softmax}_i\!\left(
+  q(\mathbf r_q)^\top k(z_i)/\sqrt d-\beta\,d_{\rm phys}(q,i)^2
+  \right)v(z_i)
+  \]
+  over a bounded source neighborhood. Thus it combines a physical-distance
+  anchor with learned content keys and values. The runnable probe route is
+  `--architecture anchored-cross-attention`, built by
+  [`CoordinateAttentionDecoder`](../../scripts/probe_perceiver_decoder.py#L338)
+  from
+  [`LocalCoordinateAttentionCorrection`](../../src/samudra/models/modules/decoder.py#L312);
+  its main controls are `--context-patches`,
+  `--position-bias-strength`, `--cross-heads`, and `--cross-dim-head`.
+
+- **Resampling + zero-initialized attention residual / hybrid decoder (retained
+  fallback).** This computes
+  \(D(z)=D_{\rm resample}(z)+C_\theta(z,\mathrm{coordinates})\). The final
+  projection of \(C_\theta\) is zero-initialized, so the module starts exactly as
+  the deterministic resampling base. `residual_normalize_values: false` leaves
+  attention values on a raw-amplitude path; LayerNorm still forms keys and
+  feed-forward features inside the correction, but reconstructive base values do
+  not pass through it. See
+  [`model_iterable_inverse_hybrid.yaml`](../../configs/samudra_multi_om4/model_iterable_inverse_hybrid.yaml#L26),
+  [`ResampleAttentionResidualDecoder`](../../src/samudra/models/modules/decoder.py#L525),
+  and
+  [`LocalCoordinateAttentionCorrection`](../../src/samudra/models/modules/decoder.py#L312).
+  It remains a fallback because the learned-encoder screen did not justify its
+  measured cost.
+
+- **Canonical-resampling encoder (retained control).** With
+  `encoder.canonical_resampling: true`, the model first applies the learned
+  pointwise channel map and then bilinearly moves every input onto the finest
+  configured grid. Unlike native projection, this gives \(P\) one fixed latent
+  grid but may interpolate the representation before processing. See the
+  [example config](../../configs/samudra_multi_om4/model_learned_inverse_canonical_resample.yaml#L20)
+  and
+  [`CanonicalResampleEncoder`](../../src/samudra/models/modules/encoder.py#L250).
+
+- **Direct patch encoder/decoder (retained controls).** These are learned
+  \(1\times1\) channel maps with no attention. `encoder.direct_projection: true`
+  and `decoder.direct_projection: true` require processor and physical grids to
+  match and require the configured physical patch to be one cell. They are
+  implemented by
+  [`DirectPatchEncoder`](../../src/samudra/models/modules/encoder.py#L175) and
+  [`DirectPatchDecoder`](../../src/samudra/models/modules/decoder.py#L567).
+  `native_projection` deliberately reuses the encoder class while relaxing only
+  its one-cell-patch assertion.
+
+- **Packed spatial-query encoder (retained, structurally incomplete control).**
+  `encoder.spatial_query_shape: [h, w]` asks one Perceiver IO call to emit an
+  ordered \(h\times w\) set of vectors, then packs those vectors into the channel
+  axis at one coarse patch center. `encoder.spatial_query_channels` sets the width
+  of each vector. The current pointwise decoder has no intra-patch coordinate with
+  which to unpack those channel groups spatially, and a one-internal-latent
+  Perceiver makes its output queries query-blind. See the fields in
+  [`EncoderConfig`](../../src/samudra/config.py#L704) and
+  [`SpatialQueryPerceiver`](../../src/samudra/models/modules/encoder.py#L110).
+  It is not selected; a future version would need to unpack onto a finer physical
+  grid or use multiple/directly anchored encoder tokens.
+
+- **Perceiver encoder LayerNorm controls (retained diagnostics).**
+  `encoder.perceiver.normalize_input_context: false` removes LayerNorm before
+  encoder input cross-attention, and
+  `encoder.perceiver.normalize_encoder_output: false` removes the LayerNorm after
+  latent pooling and before the output projection. These are information-path
+  diagnostics supported only by the naive attention implementation; see
+  [`PerceiverConfig`](../../src/samudra/config.py#L504). They do not affect the
+  selected native projection encoder, which contains no LayerNorm.
+
+- **Scale-aware conservative restriction (implemented prototype, not selected).**
+  When `decoder.conservative_restriction_min_ratio: r` is set and both axes are
+  reduced by at least \(r\), bilinear point sampling is replaced by
+  mask-renormalized cell-overlap averaging. Latitude overlap is integrated in
+  \(\sin\phi\), and longitude overlap is periodic. The checked-in prototype uses
+  \(r=3\) in
+  [`model_iterable_inverse_native_masked_conservative_projection.yaml`](../../configs/samudra_multi_om4/model_iterable_inverse_native_masked_conservative_projection.yaml#L25);
+  the math is implemented by
+  [`coordinate_conservative_resample`](../../src/samudra/models/modules/decoder.py#L76).
+
+- **Boundary ablations (retained validation controls).**
+  `validation_boundary_ablations` can replace each aligned forcing sequence with
+  `zero`, `batch_shuffle`, or `time_reverse`. A forecast degradation demonstrates
+  that the processor uses the correct boundary values or ordering rather than
+  merely tolerating the boundary path. See the field definition in
+  [`TrainConfig`](../../src/samudra/config.py#L1559) and the selected
+  [zero/time-reverse audit](../../configs/samudra_multi_om4/train_cross_1_halfdeg_iterable_inverse_masked_mse_updates.yaml#L23).
+
+- **Validation-only and identity-eval-only runs (retained audit modes).**
+  `validation_only: true` loads an explicit forecast checkpoint, performs one
+  validation pass, and writes no optimizer or checkpoint state; see
+  [`TrainConfig.validation_only`](../../src/samudra/config.py#L1590).
+  `identity_eval_only: true` is the analogous no-update mode in the identity
+  harness; see
+  [`IdentityConfig`](../../src/samudra/identity.py#L55). These modes audit a
+  checkpoint without silently continuing its training.
+
+- **Removed fine-scale-query feature (not present).** `use_fine_scale_queries`
+  was deleted before these experiments. No selected or retained config depends on
+  it.
+
+### Measurement vocabulary
+
+- **Route `a -> b`.** Input resolution \(a\), requested output/target resolution
+  \(b\). For example, `1 -> 1/2` encodes one-degree state and renders a
+  half-degree target.
+- **Persistence.** The lead-matched no-dynamics baseline: resample \(x_t\) to the
+  target grid and compare it with \(x_{t+N\,dt}\). “Persistence reduction” is
+  \(1-\mathrm{MSE}_{model}/\mathrm{MSE}_{persistence}\).
+- **High-wavenumber power ratio.** Generated zonal Fourier power divided by
+  target power, summed over the upper half of nonzero resolved wavenumbers. One
+  is amplitude-matched, below one is spectrally underpowered, and above one is
+  overpowered. See
+  [`high_wavenumber_power_ratio`](../../src/samudra/aggregator/validate/spatial.py#L33).
+- **Patch-seam jump ratio.** Mean absolute error jump across nominal patch
+  boundaries divided by the corresponding within-patch jump. One means the
+  boundary is no worse than an ordinary neighboring-pixel edge; above one
+  indicates a boundary-aligned artifact. See
+  [`patch_seam_jump_ratio`](../../src/samudra/aggregator/validate/spatial.py#L53).
+- **Query blindness.** Outputs are invariant to changing the output query. In the
+  one-internal-latent Perceiver case, the final attention softmax has length one,
+  so every spatial query receives the same attended value and the query gradient
+  is zero.
+- **Attention value-path width.** The number of scalar features transported by
+  cross-attention, `cross_heads * cross_dim_head`; it is distinct from the
+  encoder/processor channel width, learned-latent width, and query embedding
+  width.
+- **Oracle copy and deterministic floor.** An oracle-copy probe places target
+  channels directly in decoder input, so it isolates rendering without testing a
+  learned encoder. A deterministic floor is the error of the specified geometric
+  resampler on the same source and target fields; it is a reference for information
+  and interpolation error, not a universal lower bound for a learned dynamical
+  model.
+
 ## Prior evidence
 
 The completed 32-sample pure-autoencoder factorial documented in the
@@ -795,33 +1111,15 @@ either component alone. Freezing that learned pair during forecast training make
 processor depth zero the measured inverse, while zero or more shared processor
 calls remain legal and decoding can target any supplied coordinate grid.
 
-The production and control implementations behind the matrix are:
-
-- current and widened Perceiver IO: `PerceiverDecoder` in
-  `src/samudra/models/modules/decoder.py`;
-- direct and position-anchored attention controls: `DirectCrossAttentionIO` and
-  `AnchoredCrossAttentionIO` in `scripts/probe_perceiver_decoder.py`;
-- physical-coordinate base: `coordinate_bilinear_resample` and
-  `ResampleProjectionDecoder` in `src/samudra/models/modules/decoder.py`;
-- deferred scale-aware restriction prototype: `coordinate_conservative_resample`
-  and `conservative_restriction_min_ratio` in that same module;
-- source-mask transport: `GridContext` in `src/samudra/utils/ctx.py`, populated by
-  `TrainingShard` in `src/samudra/datasets.py` and consumed by `SamudraMulti.decode`;
-- production hybrid: `LocalCoordinateAttentionCorrection` and
-  `ResampleAttentionResidualDecoder` in that same module;
-- learned encoder geometry modes: `PerceiverEncoder` in
-  `src/samudra/models/modules/encoder.py`;
-- non-destructive processor geometry sidecar: `ProcessorGeometryConditioner` in
-  `src/samudra/models/modules/augment_input.py`; and
-- per-step forcing projection/resampling: `BoundaryEncoder` in
-  `src/samudra/models/modules/augment_input.py`;
-- true-lead encode-once training: `SamudraMulti.latent_forecast` in
-  `src/samudra/models/samudra_multi.py`; and
-- zero-initialized latent transition: `SamudraMulti.process` and
-  `processor_residual_scale` in `src/samudra/models/samudra_multi.py`; and
-- model-defined rollout state and latent chunk carry: `BaseModel.initialize_rollout`,
-  `SamudraMulti.inference`, and `run_rollout` in `src/samudra/models/base.py`,
-  `src/samudra/models/samudra_multi.py`, and `src/samudra/stepper.py`.
+The glossary above provides the config surface, equations, and direct source links
+for every selected modification and retained control. In particular, the runnable
+`anchored-cross-attention` probe uses `CoordinateAttentionDecoder` backed by
+`LocalCoordinateAttentionCorrection`; `AnchoredCrossAttentionIO` is a retained
+lower-level square-window prototype, not the class selected by that CLI route.
+Rollout ownership and latent chunk carry are implemented by
+[`BaseModel.initialize_rollout`](../../src/samudra/models/base.py),
+[`SamudraMulti.inference`](../../src/samudra/models/samudra_multi.py), and
+[`run_rollout`](../../src/samudra/stepper.py).
 
 The same `SamudraMulti.reconstruct_once` path now constructs a source-grid context
 for the zero-depth MSE. Consequently the inverse regularizer is independent of the

@@ -20,7 +20,6 @@ sources:
     data_location: LLC.zarr
     data_means_location: LLC_means.zarr
     data_stds_location: LLC_stds.zarr
-static_data_vars: []
 concurrent_compute: false
 loading:
   type: cpu

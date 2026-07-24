@@ -31,7 +31,6 @@ experiment:
     project: default
 
 data:
-  static_data_vars: []
   concurrent_compute: true
   sources:
     # First source is used for inference. Reorder to eval a different scale.

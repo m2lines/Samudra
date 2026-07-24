@@ -37,14 +37,10 @@ if __name__ == "__main__":
     # This ensures mean/std calculations only consider ocean points
     ds_masked = ds.copy()
 
-    # Variables that should not be masked (masks themselves, indices, static variables)
+    # Variables that should not be masked (masks themselves and indices)
     skip_vars = set()
     for var in ds.data_vars:
-        if (
-            var.startswith("mask_")
-            or var.startswith("idepth_")
-            or var in ["sea_surface_fraction", "hfgeou"]
-        ):
+        if var.startswith("mask_") or var.startswith("idepth_"):
             skip_vars.add(var)
 
     for var in ds.data_vars:

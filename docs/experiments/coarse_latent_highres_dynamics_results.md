@@ -61,6 +61,15 @@ This correction of scope is the reason for S0-R and S0-D.
 | `local-s0-d-long-s0` | S0-D | working tree | E1/E2 with query-residual D2, 5,000 updates, seed 0 | Complete | E2 remains stable but plateaus; E1 destabilizes after 2,500 updates at LR 0.003 |
 | `local-s0-d-moments-s0` | S0-D | working tree | Resolved plus 12 learned coordinate moments with query-residual D2, 1,500 updates, seed 0 | Complete | Retains subpatch phase strongly, but over-predicts counterfactual response amplitude |
 | `local-s0-confirm` | S0-R/S0-D | working tree | 16 moments plus continuous D3, 1,500 updates, LR 0.003, reconstruction seeds `{0,1}`, dynamics seeds `{0,1}` | Complete | Passes reconstruction, spectral, seam, and counterfactual gates |
+| `2026-07-24-coarse-moment-attn-s1-proxy-s0` | S1 | `6332322c` | OM4 1°/½°, fixed 60×72 latent, width 160, 32 samples, 10 epochs, eight RTX6000 GPUs | Canceled (`14717201`) | Replaced before launch because the Lzanna allocation was at its CPU limit |
+| `2026-07-24-coarse-moment-attn-s1-proxy-h200-s0` | S1 | `6332322c` | OM4 1°/½°, fixed 60×72 latent, width 160, 32 samples, 10 epochs, eight H200 GPUs | Canceled (`14717724`) | Still limited by Courant aggregate GPU quota after bring-up interval; replaced by two-GPU job |
+| `2026-07-24-coarse-moment-attn-s1-proxy-2h200-s0` | S1 | `6332322c` | Same cross-resolution proxy on two H200 GPUs | Canceled (`14718063`) | H200 quota remained saturated; replaced by RTX6000 request |
+| `2026-07-24-coarse-moment-attn-s1-proxy-2rtx-s0` | S1 | `6332322c` | Same cross-resolution proxy on two RTX6000 GPUs, 350 GB | Canceled (`14718370`) | Courant aggregate memory limit; request was much larger than measured need |
+| `2026-07-24-coarse-moment-attn-s1-proxy-2rtx-64g-s0` | S1 | `6332322c` | Same cross-resolution proxy on two RTX6000 GPUs, 64 GB | Queued (`14718372`) | Courant account, no partition override; waiting on aggregate GPU quota |
+| `local-s1-1deg-bringup-s0` | S1 | working tree after `6332322c` | Local OM4 1°, fixed 60×72 latent, one training sample and three validation samples | Complete | 1.62 s training step; 1.23 GB peak GPU memory; full model/data/checkpoint path succeeds |
+| `local-s1-1deg-proxy-s0` | S1 | working tree after `6332322c` | Local OM4 1°, fixed 60×72 latent, width 160, 32 samples, seed 15; 10 epochs then resumed to 60 | Complete | Train/validation normalized MSE 0.058/0.058 after 1,920 updates; no seam spike; retains 62% of target gradient power |
+| `local-s1-1deg-bilinear-s0` | S1 | working tree after `6332322c` | Same as local attention proxy, but D0 bilinear decoder only | Complete | Validation MSE 0.208; the continuous anchored hybrid is 29.3% lower at matched updates |
+| `local-s1-1deg-radius0-s0` | S1 | working tree after `6332322c` | Same as local attention proxy, but decoder neighborhood radius zero | Complete | Validation MSE 0.153; one-ring blending improves error 3.9% at identical parameter count |
 
 ## S0-R synthetic reconstruction
 
@@ -287,6 +296,66 @@ passes, two skips, and ten expected failures; six setup errors are confined to
 the pre-existing `implementation: auto` Perceiver test configuration selecting
 Flash Perceiver in a local environment where `flash_perceiver` is not installed.
 None reaches the new modules. Cluster bring-up remains pending.
+
+### Local one-degree bring-up
+
+The first real-data run compresses each \(180\times360\), 154-channel state to
+a \(160\times60\times72\) latent and reconstructs on the original grid. The
+model has 536,436 trainable parameters. On a local NVIDIA GB10, the first
+training step took 1.62 seconds and used 1.23 GB peak GPU memory; warmed-up
+epochs averaged 0.15--0.19 seconds per update. The full 320-update proxy
+completed in 3 minutes 22 seconds.
+
+Validation normalized MSE decreased monotonically by epoch:
+
+| Epoch | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| MSE | 0.276 | 0.232 | 0.216 | 0.202 | 0.182 | 0.166 | 0.160 | 0.154 | 0.151 | **0.147** |
+
+The candidate was then resumed to epoch 60, or 1,920 optimizer updates. Final
+train and validation normalized MSE are both 0.058. The 50-epoch continuation
+took 18 minutes 26 seconds. This demonstrates that the promoted inverse is
+trainable on actual OM4 and that the local machine is fast enough for
+one-degree ablations. It is not yet a full promotion result because one-degree
+data alone cannot test resolution consistency.
+
+The matched encoder with a bilinear-only decoder reaches validation MSE 0.208
+after the same 320 updates, versus 0.147 for the continuous anchored hybrid:
+a 29.3% relative error reduction. The control has 328,026 parameters versus
+536,436 for the hybrid, so this result establishes the value of the learned
+decoder branch but does not by itself distinguish coordinate routing from added
+capacity. The parameter-matched radius-zero decoder reaches 0.153. The one-ring
+hybrid is therefore 3.9% better at identical capacity, while most of the 29.3%
+gain over bilinear remains attributable to learned coordinate-conditioned
+within-patch unpacking. The synthetic seam metric provides the stronger evidence
+for overlapping neighbor predictions: radius-zero query coordinates are
+piecewise patch-local, whereas the promoted decoder blends continuous
+per-neighbor predictions.
+
+The checkpoint audit uses latitude-area-weighted MSE over wet cells only, so its
+absolute MSE is larger than the training loss, which averages masked zeros over
+the rectangular grid. Update-matched epoch-10 results are:
+
+| Decoder | Wet-cell channel-mean MSE | Median channel MSE | Gradient-power ratio | Seam/all gradient-error ratio | Correction/prediction RMS |
+|---|---:|---:|---:|---:|---:|
+| Bilinear D0 | 0.372 | 0.108 | 0.049 | 0.942 | — |
+| Continuous hybrid, radius 0 | 0.279 | 0.064 | 0.157 | **0.792** | 0.689 |
+| Continuous hybrid, radius 1 | **0.270** | **0.054** | **0.204** | 0.830 | 0.733 |
+
+At matched updates, learned coordinate-conditioned decoding reduces wet-cell
+MSE 27.3% relative to bilinear and retains over four times as much physical-grid
+gradient power. One-ring blending improves wet-cell MSE 3.4% over the
+parameter-matched radius-zero decoder. None has a patch-seam error spike:
+boundary gradient error is below the all-edge average.
+
+At epoch 60, the radius-one candidate reaches wet-cell channel-mean MSE 0.115
+and median channel MSE 0.030. It retains 61.8% of target gradient power, has a
+seam/all gradient-error ratio of 0.798, and the learned correction RMS is 79.5%
+of prediction RMS. Thus the correction is the dominant fine-structure route,
+not a small perturbation of bilinear interpolation. The remaining error is
+strongly channel dependent: the worst channels are deep `vo` and `uo`, with
+wet-cell MSE roughly 0.33--0.44. The principal remaining reconstruction concern
+is gradient attenuation, not patch seams.
 
 ## S2 frozen-inverse latent dynamics
 

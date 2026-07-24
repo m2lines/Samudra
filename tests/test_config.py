@@ -383,6 +383,39 @@ def test_coarse_latent_dynamics_proxy_freezes_selected_inverse(tmp_path):
     assert cfg.model.latent_teacher_loss_weight == pytest.approx(0.0)
 
 
+def test_coarse_latent_dynamics_validation_covers_all_cross_routes(tmp_path):
+    config_path = (
+        Path(__file__).resolve().parents[1]
+        / "configs"
+        / "samudra_multi_om4"
+        / "validate_cross_1_halfdeg_coarse_latent_dynamics.yaml"
+    )
+
+    cfg = TrainConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--experiment.data_root",
+            str(tmp_path),
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+            "--resume_ckpt_path",
+            str(tmp_path / "ckpt.pt"),
+        ]
+    )
+
+    assert cfg.validation_only
+    assert cfg.finetune
+    assert cfg.experiment.train_schedule == "mix"
+    assert len(cfg.data.sources) == 2
+    assert cfg.train_processor_depths == [1, 2, 4]
+    assert cfg.validation_processor_depths == [1, 2, 4]
+    assert cfg.validation_boundary_ablations == ["zero", "time_reverse"]
+    assert isinstance(cfg.model, SamudraMultiConfig)
+    assert cfg.model.patch_extent == [3.0, 5.0]
+    assert cfg.model.encoder.patch_moment_count == 16
+    assert cfg.model.encoder.geometry_mode == "sidecar"
+
+
 def test_cross_resolution_iterable_inverse_full_uses_reference_update_scale(tmp_path):
     config_path = (
         Path(__file__).resolve().parents[1]

@@ -440,7 +440,9 @@ The exact implementation/configuration map is:
   fixes the S2 architecture; and
 - [`train_halfdeg_coarse_latent_dynamics_proxy.yaml`](../../configs/samudra_multi_om4/train_halfdeg_coarse_latent_dynamics_proxy.yaml)
   trains only from half-degree targets at depths `{1,2,4}` for the first causal
-  screen.
+  screen; and
+- [`validate_cross_1_halfdeg_coarse_latent_dynamics.yaml`](../../configs/samudra_multi_om4/validate_cross_1_halfdeg_coarse_latent_dynamics.yaml)
+  evaluates each resulting checkpoint on all four one-/half-degree routes.
 
 The four objective arms are `(w_x, lambda_z) = (1,0)`, `(0,1)`, `(1,0.01)`,
 and `(1,0.1)`. The proxy contains 768 optimizer updates, 256 at each depth,

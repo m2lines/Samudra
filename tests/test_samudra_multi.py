@@ -190,6 +190,20 @@ class _IdentityGridDecoder(nn.Module):
         return x
 
 
+class _RejectingGridDecoder(nn.Module):
+    out_channels = 1
+
+    def forward(
+        self,
+        x,
+        output_resolution,
+        source_resolution=None,
+        valid_mask=None,
+    ):
+        del x, output_resolution, source_resolution, valid_mask
+        raise AssertionError("The latent-only objective must not call the decoder.")
+
+
 class _DoubleProcessor(nn.Module):
     out_channels = 1
 
@@ -378,6 +392,110 @@ def test_latent_forecast_encodes_once_and_aligns_depth_with_time_and_forcing():
     torch.testing.assert_close(
         model(batch, loss_fn=mse, processor_depth=2), torch.zeros(1)
     )
+
+
+def test_latent_teacher_only_loss_skips_decoder_and_masks_dry_tokens():
+    lat = torch.tensor([-45.0, 45.0])
+    lon = torch.tensor([45.0, 135.0])
+    ctx = GridContext(
+        label_mask=torch.tensor([[[True, False], [True, True]]]),
+        input_resolution_cpu=(lat, lon),
+        output_resolution_cpu=(lat, lon),
+        input_mask=torch.ones(1, 2, 2, dtype=torch.bool),
+    )
+    model = SamudraMulti(
+        in_channels=1,
+        out_channels=1,
+        pred_residuals=False,
+        last_kernel_size=3,
+        pad="circular",
+        add_3d_coordinates=None,
+        encoder=cast(DirectPatchEncoder, _IdentityGridEncoder()),
+        processor=_DoubleProcessor(),
+        decoder=cast(DirectPatchDecoder, _RejectingGridDecoder()),
+        hist=0,
+        checkpointing=None,
+        gradient_detach_interval=0,
+        use_bfloat16=False,
+        physical_forecast_loss_weight=0.0,
+        latent_teacher_loss_weight=1.0,
+    )
+    prognostic = torch.tensor([[[[1.0, 2.0], [3.0, 4.0]]]])
+    label = torch.tensor([[[[0.0, 99.0], [4.0, 8.0]]]])
+    batch = TrainData(1, 1, ctx)
+    batch.append(prognostic, torch.zeros_like(prognostic), label)
+
+    def should_not_be_called(pred, target):
+        del pred, target
+        raise AssertionError("The latent-only objective must not call physical loss.")
+
+    loss = model(batch, loss_fn=should_not_be_called, processor_depth=1)
+
+    assert loss.shape == (1,)
+    torch.testing.assert_close(loss, torch.tensor([8.0 / 3.0]))
+
+
+def test_combined_forecast_objective_applies_configured_weights():
+    lat = torch.tensor([-45.0, 45.0])
+    lon = torch.tensor([45.0, 135.0])
+    ctx = GridContext(
+        label_mask=torch.ones(1, 2, 2, dtype=torch.bool),
+        input_resolution_cpu=(lat, lon),
+        output_resolution_cpu=(lat, lon),
+        input_mask=torch.ones(1, 2, 2, dtype=torch.bool),
+    )
+    model = SamudraMulti(
+        in_channels=1,
+        out_channels=1,
+        pred_residuals=False,
+        last_kernel_size=3,
+        pad="circular",
+        add_3d_coordinates=None,
+        encoder=cast(DirectPatchEncoder, _IdentityGridEncoder()),
+        processor=_DoubleProcessor(),
+        decoder=cast(DirectPatchDecoder, _IdentityGridDecoder()),
+        hist=0,
+        checkpointing=None,
+        gradient_detach_interval=0,
+        use_bfloat16=False,
+        physical_forecast_loss_weight=0.5,
+        latent_teacher_loss_weight=0.1,
+    )
+    prognostic = torch.tensor([[[[1.0, 2.0], [3.0, 4.0]]]])
+    label = torch.tensor([[[[0.0, 1.0], [4.0, 8.0]]]])
+    batch = TrainData(1, 1, ctx)
+    batch.append(prognostic, torch.zeros_like(prognostic), label)
+
+    def mse(pred, target):
+        return (pred - target).square().mean(dim=(0, 2, 3))
+
+    error = (2 * prognostic - label).square().mean()
+
+    torch.testing.assert_close(
+        model(batch, loss_fn=mse, processor_depth=1),
+        (0.5 + 0.1) * error[None],
+    )
+
+
+def test_forecast_objective_requires_a_positive_weight():
+    with pytest.raises(ValueError, match="At least one forecast objective"):
+        SamudraMulti(
+            in_channels=1,
+            out_channels=1,
+            pred_residuals=False,
+            last_kernel_size=3,
+            pad="circular",
+            add_3d_coordinates=None,
+            encoder=cast(DirectPatchEncoder, _IdentityGridEncoder()),
+            processor=_DoubleProcessor(),
+            decoder=cast(DirectPatchDecoder, _IdentityGridDecoder()),
+            hist=0,
+            checkpointing=None,
+            gradient_detach_interval=0,
+            use_bfloat16=False,
+            physical_forecast_loss_weight=0.0,
+            latent_teacher_loss_weight=0.0,
+        )
 
 
 class _LatentInferenceDataset:

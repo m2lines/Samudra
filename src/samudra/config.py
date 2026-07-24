@@ -1258,6 +1258,18 @@ class SamudraMultiConfig(BaseModelConfig):
         "keeps this objective valid when the forecast target uses another grid. "
         "Disabled by default.",
     )
+    physical_forecast_loss_weight: float = Field(
+        default=1.0,
+        ge=0.0,
+        description="Weight of decoded physical-space forecast loss when training "
+        "at an explicit processor depth.",
+    )
+    latent_teacher_loss_weight: float = Field(
+        default=0.0,
+        ge=0.0,
+        description="Weight of wet-token latent MSE against a stop-gradient encoding "
+        "of the physical target when training at an explicit processor depth.",
+    )
     bypass_processor: bool = Field(
         default=False,
         description="Bypass the spatial processor with an identity mapping. "
@@ -1374,6 +1386,8 @@ class SamudraMultiConfig(BaseModelConfig):
             boundary_encoder=boundary_encoder,
             zero_depth_reconstruction_weight=self.zero_depth_reconstruction_weight,
             processor_residual=self.processor_residual,
+            physical_forecast_loss_weight=self.physical_forecast_loss_weight,
+            latent_teacher_loss_weight=self.latent_teacher_loss_weight,
         )
 
 

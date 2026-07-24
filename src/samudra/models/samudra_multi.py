@@ -12,6 +12,7 @@ from torch import nn
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
 )
+from torch.nn import functional as F
 
 from samudra.constants import Boundary, Prognostic
 from samudra.models.base import BaseModel
@@ -107,6 +108,8 @@ class SamudraMulti(BaseModel):
         boundary_encoder: BoundaryEncoder | None = None,
         zero_depth_reconstruction_weight: float = 0.0,
         processor_residual: bool = False,
+        physical_forecast_loss_weight: float = 1.0,
+        latent_teacher_loss_weight: float = 0.0,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -148,6 +151,14 @@ class SamudraMulti(BaseModel):
         if zero_depth_reconstruction_weight < 0:
             raise ValueError("zero_depth_reconstruction_weight must be non-negative.")
         self.zero_depth_reconstruction_weight = zero_depth_reconstruction_weight
+        if physical_forecast_loss_weight < 0:
+            raise ValueError("physical_forecast_loss_weight must be non-negative.")
+        if latent_teacher_loss_weight < 0:
+            raise ValueError("latent_teacher_loss_weight must be non-negative.")
+        if physical_forecast_loss_weight == latent_teacher_loss_weight == 0:
+            raise ValueError("At least one forecast objective weight must be positive.")
+        self.physical_forecast_loss_weight = physical_forecast_loss_weight
+        self.latent_teacher_loss_weight = latent_teacher_loss_weight
 
         if checkpointing == "all":
             apply_activation_checkpointing(
@@ -236,10 +247,13 @@ class SamudraMulti(BaseModel):
                 fts = latent_state + scale * fts
         return fts
 
-    def latent_forecast(
+    def latent_rollout(
         self, train_data: "TrainData", depths: list[int]
-    ) -> dict[int, Prognostic]:
-        """Encode once, then decode physical forecasts after selected depths.
+    ) -> tuple[
+        dict[int, torch.Tensor],
+        tuple[torch.Tensor, torch.Tensor],
+    ]:
+        """Encode once and retain latent states after selected physical depths.
 
         Depth ``N`` consumes the boundary forcing for steps ``0..N-1`` and is
         paired with ``TrainData`` label ``N-1``, i.e. the physical target at
@@ -257,7 +271,7 @@ class SamudraMulti(BaseModel):
             )
 
         prognostic, initial_boundary = train_data.get_initial_input()
-        outputs: dict[int, Prognostic] = {}
+        outputs: dict[int, torch.Tensor] = {}
         with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
             fts, latent_resolution = self.encode(
                 prognostic, initial_boundary, train_data.ctx
@@ -273,8 +287,19 @@ class SamudraMulti(BaseModel):
                 )
                 depth = step + 1
                 if depth in selected:
-                    outputs[depth] = self.decode(fts, latent_resolution, train_data.ctx)
-        return outputs
+                    outputs[depth] = fts
+        return outputs, latent_resolution
+
+    def latent_forecast(
+        self, train_data: "TrainData", depths: list[int]
+    ) -> dict[int, Prognostic]:
+        """Decode physical forecasts from selected states of one latent rollout."""
+        latent_states, latent_resolution = self.latent_rollout(train_data, depths)
+        with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
+            return {
+                depth: self.decode(state, latent_resolution, train_data.ctx)
+                for depth, state in latent_states.items()
+            }
 
     def initialize_rollout(
         self, initial_prognostic: Prognostic, ctx: GridContext
@@ -360,16 +385,89 @@ class SamudraMulti(BaseModel):
         if processor_depth is None:
             return super().forward(train_data, loss_fn=loss_fn)
 
-        prediction = self.latent_forecast(train_data, [processor_depth])[
-            processor_depth
-        ]
         if loss_fn is None:
+            prediction = self.latent_forecast(train_data, [processor_depth])[
+                processor_depth
+            ]
             return [prediction]
-        loss = loss_fn(prediction, train_data.get_label(processor_depth - 1))
+
+        latent_states, latent_resolution = self.latent_rollout(
+            train_data, [processor_depth]
+        )
+        predicted_latent = latent_states[processor_depth]
+        if self.physical_forecast_loss_weight > 0:
+            with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
+                prediction = self.decode(
+                    predicted_latent, latent_resolution, train_data.ctx
+                )
+            loss = self.physical_forecast_loss_weight * loss_fn(
+                prediction, train_data.get_label(processor_depth - 1)
+            )
+        else:
+            loss = predicted_latent.new_zeros(
+                self.decoder.out_channels, dtype=torch.float32
+            )
+
+        if self.latent_teacher_loss_weight > 0:
+            latent_loss = self.latent_teacher_loss(
+                predicted_latent,
+                latent_resolution,
+                train_data,
+                processor_depth,
+            )
+            # The training interface reports a vector of physical-channel losses.
+            # Broadcasting the scalar latent objective preserves its exact weight
+            # after the caller averages that vector.
+            loss = loss + self.latent_teacher_loss_weight * latent_loss
+
         auxiliary_loss = self.training_auxiliary_loss(train_data, loss_fn)
         if auxiliary_loss is not None:
             loss = loss + auxiliary_loss
         return loss
+
+    def latent_teacher_loss(
+        self,
+        predicted_latent: torch.Tensor,
+        latent_resolution: tuple[torch.Tensor, torch.Tensor],
+        train_data: "TrainData",
+        processor_depth: int,
+    ) -> torch.Tensor:
+        """Match a forecast latent to a stop-gradient encoding of its target."""
+        target = train_data.get_label(processor_depth - 1)
+        target_ctx = GridContext(
+            label_mask=train_data.ctx.label_mask,
+            input_resolution_cpu=train_data.ctx.output_resolution_cpu,
+            output_resolution_cpu=train_data.ctx.output_resolution_cpu,
+            input_mask=train_data.ctx.label_mask,
+        )
+        with torch.no_grad(), autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
+            target_latent, target_resolution = self.encode(target, None, target_ctx)
+
+        if predicted_latent.shape != target_latent.shape:
+            raise ValueError(
+                "Forecast and teacher latents must share shape; got "
+                f"{tuple(predicted_latent.shape)} and {tuple(target_latent.shape)}."
+            )
+        for forecast_axis, target_axis in zip(
+            latent_resolution, target_resolution, strict=True
+        ):
+            if forecast_axis.shape != target_axis.shape or not torch.allclose(
+                forecast_axis, target_axis
+            ):
+                raise ValueError(
+                    "Forecast and teacher encoders must produce the same latent grid."
+                )
+
+        wet = train_data.ctx.label_mask.any(dim=0, keepdim=True)[None]
+        wet = F.adaptive_max_pool2d(
+            wet.to(dtype=torch.float32),
+            predicted_latent.shape[-2:],
+        ).to(dtype=torch.bool)
+        wet = wet.expand_as(predicted_latent)
+        if not torch.any(wet):
+            raise ValueError("Latent teacher loss requires at least one wet token.")
+        error = predicted_latent.float() - target_latent.float()
+        return error.square().masked_select(wet).mean()
 
     def decode(
         self,

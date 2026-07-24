@@ -345,6 +345,44 @@ def test_cross_resolution_iterable_inverse_proxy_balances_physical_routes(tmp_pa
     assert cfg.model.processor_residual
 
 
+def test_coarse_latent_dynamics_proxy_freezes_selected_inverse(tmp_path):
+    config_path = (
+        Path(__file__).resolve().parents[1]
+        / "configs"
+        / "samudra_multi_om4"
+        / "train_halfdeg_coarse_latent_dynamics_proxy.yaml"
+    )
+
+    cfg = TrainConfig.from_yaml_and_cli(
+        [
+            str(config_path),
+            "--experiment.data_root",
+            str(tmp_path),
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+        ]
+    )
+
+    assert cfg.train_processor_depths == [1, 2, 4]
+    assert cfg.validation_processor_depths == [1, 2, 4]
+    assert cfg.steps == [4]
+    assert cfg.train_sample_selection is not None
+    assert cfg.train_sample_selection.num_samples == 128
+    assert cfg.batch_size == 2
+    assert cfg.gradient_accumulation_steps == 1
+    assert cfg.preemptible
+    assert len(cfg.data.sources) == 1
+    assert "halfdeg" in str(cfg.data.sources[0].data_location.path)
+    assert cfg.frozen_model_prefixes == ["encoder.", "decoder."]
+    assert isinstance(cfg.model, SamudraMultiConfig)
+    assert cfg.model.patch_extent == [3.0, 5.0]
+    assert cfg.model.encoder.patch_moment_count == 16
+    assert cfg.model.encoder.geometry_mode == "sidecar"
+    assert cfg.model.processor_residual
+    assert cfg.model.physical_forecast_loss_weight == pytest.approx(1.0)
+    assert cfg.model.latent_teacher_loss_weight == pytest.approx(0.0)
+
+
 def test_cross_resolution_iterable_inverse_full_uses_reference_update_scale(tmp_path):
     config_path = (
         Path(__file__).resolve().parents[1]
@@ -399,6 +437,16 @@ def test_samudra_multi_accepts_processor_bypass_control():
     cfg = SamudraMultiConfig(bypass_processor=True)
 
     assert cfg.bypass_processor
+
+
+def test_samudra_multi_accepts_forecast_objective_weights():
+    cfg = SamudraMultiConfig(
+        physical_forecast_loss_weight=0.5,
+        latent_teacher_loss_weight=0.1,
+    )
+
+    assert cfg.physical_forecast_loss_weight == pytest.approx(0.5)
+    assert cfg.latent_teacher_loss_weight == pytest.approx(0.1)
 
 
 def test_naive_perceiver_normalization_controls_replace_lossy_norms():

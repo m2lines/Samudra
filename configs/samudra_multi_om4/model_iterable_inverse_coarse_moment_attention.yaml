@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/SamudraMultiConfig.json
+
+# S2 latent-autoregressive continuation of the selected S1 learned inverse.
+# The frozen encoder maps every supported physical grid to 60x72 coarse tokens,
+# and the frozen decoder renders those tokens at arbitrary requested coordinates.
+# Geometry and one aligned boundary state enter each shared processor invocation.
+pred_residuals: false
+last_kernel_size: 3
+pad: "circular"
+checkpointing: "selective"
+embedding_dim: 160
+perceiver_implementation: "flash"
+patch_extent: [3.0, 5.0]
+processor_iterations: 1
+processor_residual: true
+zero_depth_reconstruction_weight: 0.0
+
+# S2 objective arms override these two flags without changing the architecture:
+# physical-only=(1,0), latent-only=(0,1), combined=(1,0.01 or 0.1).
+physical_forecast_loss_weight: 1.0
+latent_teacher_loss_weight: 0.0
+
+encoder:
+  # Reconstruction values remain content-only. Position and grid scale are
+  # injected into the processor as a separate sidecar on every invocation.
+  geometry_mode: "sidecar"
+  patch_moment_count: 16
+  patch_mean_channels: 40
+
+decoder:
+  continuous_resample_attention_residual: true
+  residual_hidden_dim: 160
+  residual_heads: 4
+  residual_dim_head: 32
+  residual_neighborhood_radius: 1
+  residual_position_bias_strength: 8.0
+  residual_query_chunk_size: 4096
+
+processor:
+  ch_width: [160, 480, 520]
+  dilation: [1, 1, 1]
+  n_layers: [1, 1, 1]
+  core_block:
+    block_type: "conv_next_block"
+    kernel_size: 3
+    activation: "capped_gelu"
+    upscale_factor: 2
+    norm: "instance"
+    pointwise_linear: true
+  down_sampling_block: "avg_pool"
+  up_sampling_block: "zonally_periodic_upsample"

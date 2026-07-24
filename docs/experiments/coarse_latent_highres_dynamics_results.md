@@ -18,8 +18,8 @@ stage means that it has not yet run, not that it passed.
 | Plan and harness specification | Complete | Patch-compression reconstruction and counterfactual dynamics probes are implemented and tested |
 | S0-R synthetic reconstruction | Complete | Two seeds promote the 16-moment encoder plus continuous anchored hybrid |
 | S0-D synthetic subgrid closure | Complete | Two seeds show that the promoted pair retains and dynamically uses subpatch phase |
-| S1 OM4 learned inverse | In progress | One-/half-degree bring-up passes; matched 60-epoch convergence, seed, and bilinear-control runs are queued |
-| S2 frozen-inverse dynamics | Pending | — |
+| S1 OM4 learned inverse | In progress | One-/half-degree bring-up and expanded audit pass; matched 60-epoch convergence, seed, and bilinear-control runs are running |
+| S2 frozen-inverse dynamics | Implementation complete; execution pending | Physical-only, latent-teacher-only, and combined frozen-inverse objectives are implemented and tested; launch awaits the matched S1 selection |
 | S3 full validation | Pending | — |
 
 ## Evidence inherited from the decoder investigation
@@ -72,14 +72,16 @@ This correction of scope is the reason for S0-R and S0-D.
 | `2026-07-24-coarse-moment-attn-s1-60ep-s0` | S1 | `2e79511b` | Resume the cross-resolution hybrid seed-15 checkpoint from epoch 10 through epoch 60 on two preemptible H200 GPUs | Canceled (`14724411`) | The two-GPU request remained under `gpu48` with `QOSMaxGRESPerUser`; replaced by a one-GPU, batch-two request with the same global batch and update count |
 | `2026-07-24-coarse-moment-attn-s1-60ep-s1` | S1 | `2e79511b` | Independent cross-resolution hybrid run through epoch 60 with model seed 16 on two preemptible H200 GPUs | Canceled (`14724412`) | Replaced by the matched one-GPU request before launch |
 | `2026-07-24-coarse-moment-bilinear-s1-60ep-s0` | S1 | `2e79511b` | Cross-resolution 16-moment encoder with bilinear-only D0 through epoch 60 on two preemptible H200 GPUs | Canceled (`14724413`) | Replaced by the matched one-GPU request before launch |
-| `2026-07-24-coarse-moment-attn-s1-60ep-s0-1h200` | S1 | `2e79511b` | Resume the hybrid seed-15 checkpoint through epoch 60 on one preemptible H200 with batch size two | Queued (`14724824`) | Preserves global batch two, route-homogeneous batches, and 64 optimizer updates per epoch |
-| `2026-07-24-coarse-moment-attn-s1-60ep-s1-1h200` | S1 | `2e79511b` | Independent hybrid seed 16 through epoch 60 on one preemptible H200 with batch size two | Queued (`14724820`) | Seed-stability run at the full 3,840-update S1 proxy budget |
-| `2026-07-24-coarse-moment-bilinear-s1-60ep-s0-1h200` | S1 | `2e79511b` | Bilinear-only D0 control through epoch 60 on one preemptible H200 with batch size two | Queued (`14724821`) | Matched control for the continuous anchored decoder branch |
-| `2026-07-24-coarse-moment-attn-s1-proxy-preempt-only-s0-audit` | S1 audit | `34b6bbba` | Wet-cell, gradient-power, seam, synchronized-latent, and cross-output patch-mean audit of the completed epoch-10 hybrid | Queued (`14724704`) | One preemptible H200; validates the expanded audit before applying it to epoch-60 checkpoints |
+| `2026-07-24-coarse-moment-attn-s1-60ep-s0-1h200` | S1 | `2e79511b` | Resume the hybrid seed-15 checkpoint through epoch 60 on one preemptible H200 with batch size two | Running (`14724824`) | Preserves global batch two, route-homogeneous batches, and 64 optimizer updates per epoch |
+| `2026-07-24-coarse-moment-attn-s1-60ep-s1-1h200` | S1 | `2e79511b` | Independent hybrid seed 16 through epoch 60 on one preemptible H200 with batch size two | Running (`14724820`) | Seed-stability run at the full 3,840-update S1 proxy budget |
+| `2026-07-24-coarse-moment-bilinear-s1-60ep-s0-1h200` | S1 | `2e79511b` | Bilinear-only D0 control through epoch 60 on one preemptible H200 with batch size two | Running (`14724821`) | Matched control for the continuous anchored decoder branch |
+| `2026-07-24-coarse-moment-attn-s1-proxy-preempt-only-s0-audit-v1` | S1 audit | `34b6bbba` | Wet-cell, gradient-power, seam, synchronized-latent, and cross-output patch-mean audit of the completed epoch-10 hybrid | Failed (`14724704`) | Route diagnostics completed, but the new cross-resolution pass assumed a Python loader attribute absent from the configured Rust loader |
+| `2026-07-24-coarse-moment-attn-s1-proxy-preempt-only-s0-audit-v2` | S1 audit | `49c897d4` | Corrected native-loader-compatible audit of the same epoch-10 checkpoint | Complete (`14725135`) | Four routes audited over 73 batches each; synchronized latent cosine similarity 0.972 and output patch-mean symmetric normalized MSE 0.0158 |
 | `local-s1-1deg-bringup-s0` | S1 | working tree after `6332322c` | Local OM4 1°, fixed 60×72 latent, one training sample and three validation samples | Complete | 1.62 s training step; 1.23 GB peak GPU memory; full model/data/checkpoint path succeeds |
 | `local-s1-1deg-proxy-s0` | S1 | working tree after `6332322c` | Local OM4 1°, fixed 60×72 latent, width 160, 32 samples, seed 15; 10 epochs then resumed to 60 | Complete | Train/validation normalized MSE 0.058/0.058 after 1,920 updates; no seam spike; retains 62% of target gradient power |
 | `local-s1-1deg-bilinear-s0` | S1 | working tree after `6332322c` | Same as local attention proxy, but D0 bilinear decoder only | Complete | Validation MSE 0.208; the continuous anchored hybrid is 29.3% lower at matched updates |
 | `local-s1-1deg-radius0-s0` | S1 | working tree after `6332322c` | Same as local attention proxy, but decoder neighborhood radius zero | Complete | Validation MSE 0.153; one-ring blending improves error 3.9% at identical parameter count |
+| `local-s2-latent-only-realdata-smoke` | S2 integration | working tree after `49c897d4` | One-degree OM4, one optimizer update at depth one, latent-only objective, frozen randomly initialized inverse | Complete | Native loader, 60×72 rollout, target re-encoding, wet-token loss, backward pass, physical validation, and checkpoint writing succeed; integration evidence only |
 
 ## S0-R synthetic reconstruction
 
@@ -328,6 +330,19 @@ full 60-epoch/3,840-update budget. Those runs use one H200 with batch size two,
 which preserves the original global batch and route-homogeneous optimizer
 steps while avoiding a two-GPU queue limit.
 
+The expanded audit of this epoch-10 checkpoint then completed on all 73 held-out
+batches per route. Synchronized one- and half-degree inputs produce coarse
+latents with mean token cosine similarity 0.972 and symmetric normalized MSE
+0.091. Decoding the same latent onto both output grids gives patch-mean
+symmetric normalized MSE 0.0158. Wet-cell channel-mean MSE is 0.236 for
+`1->1`, 0.351 for `1->1/2`, 0.241 for `1/2->1`, and 0.353 for
+`1/2->1/2`. The prediction/target gradient-power ratios are respectively
+0.281, 0.139, 0.275, and 0.137. Seam/all gradient-error ratios remain below
+one on all routes (0.831, 0.904, 0.836, and 0.896), so the early
+cross-resolution weakness is attenuated fine-grid structure rather than a patch
+boundary discontinuity. The epoch-60 audits are required to determine how much
+of that attenuation is optimization-limited.
+
 ### Local one-degree bring-up
 
 The first real-data run compresses each \(180\times360\), 154-channel state to
@@ -390,7 +405,54 @@ is gradient attenuation, not patch seams.
 
 ## S2 frozen-inverse latent dynamics
 
-Pending S1 promotion.
+Implementation is complete and execution awaits the matched S1 checkpoint
+selection. The S2 model keeps the S1 `PatchMomentEncoder` and
+`ContinuousResampleAttentionResidualDecoder`, changes encoder geometry mode from
+`none` to parameter-free `sidecar`, enables one shared processor invocation per
+physical step, and freezes all `encoder.*` and `decoder.*` parameters.
+
+For selected depth \(n\), the model now exposes the latent rollout before
+decoding and can optimize
+
+\[
+w_x L_x+
+\lambda_z
+\frac{\sum_{b,c,i,j}m_{ij}
+\left(z^{\rm forecast}_{bcij}
+-\operatorname{sg}E(x_{t+n})_{bcij}\right)^2}
+{\sum_{b,c,i,j}m_{ij}},
+\]
+
+where \(m\) marks a coarse token wet if any target channel/cell mapped to that
+token is wet. The target encoding is evaluated under `no_grad`. A latent-only
+arm does not invoke the decoder during the training loss, while ordinary
+validation and inference still decode physical forecasts.
+
+The exact implementation/configuration map is:
+
+- `physical_forecast_loss_weight` is \(w_x\);
+- `latent_teacher_loss_weight` is \(\lambda_z\);
+- [`SamudraMulti.latent_rollout`](../../src/samudra/models/samudra_multi.py)
+  applies the processor \(n\) times with the \(m\)-th aligned boundary state;
+- [`SamudraMulti.latent_teacher_loss`](../../src/samudra/models/samudra_multi.py)
+  defines the stop-gradient wet-token objective;
+- [`model_iterable_inverse_coarse_moment_attention.yaml`](../../configs/samudra_multi_om4/model_iterable_inverse_coarse_moment_attention.yaml)
+  fixes the S2 architecture; and
+- [`train_halfdeg_coarse_latent_dynamics_proxy.yaml`](../../configs/samudra_multi_om4/train_halfdeg_coarse_latent_dynamics_proxy.yaml)
+  trains only from half-degree targets at depths `{1,2,4}` for the first causal
+  screen.
+
+The four objective arms are `(w_x, lambda_z) = (1,0)`, `(0,1)`, `(1,0.01)`,
+and `(1,0.1)`. The proxy contains 768 optimizer updates, 256 at each depth,
+with global batch two. Focused model/config tests, full config-schema
+validation, Ruff, and MyPy pass.
+
+A one-degree real-data latent-only smoke test also completed one optimizer
+update and physical validation on the local GPU. It froze all 536,436 inverse
+parameters and trained the 60,850,520-parameter boundary/processor path,
+re-encoded the target on the same \(60\times72\) grid, and wrote a resumable
+checkpoint. Because no S1 checkpoint was loaded for this integration-only
+smoke, its numerical losses are not scientific results.
 
 ## S3 full validation
 

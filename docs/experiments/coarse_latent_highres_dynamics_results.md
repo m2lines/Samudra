@@ -446,8 +446,10 @@ The exact implementation/configuration map is:
 
 The four objective arms are `(w_x, lambda_z) = (1,0)`, `(0,1)`, `(1,0.01)`,
 and `(1,0.1)`. The proxy contains 768 optimizer updates, 256 at each depth,
-with global batch two. Focused model/config tests, full config-schema
-validation, Ruff, and MyPy pass.
+with global batch two. Per-epoch selection uses a fixed disjoint three-month
+half-degree validation interval; the checkpoint-only audit uses the full
+held-out year and all four physical input/output routes. Focused model/config
+tests, full config-schema validation, Ruff, and MyPy pass.
 
 A one-degree real-data latent-only smoke test also completed one optimizer
 update and physical validation on the local GPU. It froze all 536,436 inverse

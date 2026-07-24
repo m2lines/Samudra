@@ -43,7 +43,9 @@ train_sample_selection:
   seed: 20260724
 val_time:
   start: "2013-10-05"
-  end: "2014-10-05"
+  # Keep per-epoch depth/ablation screening bounded. The separate cross-grid
+  # checkpoint audit evaluates the promoted checkpoint over the full year.
+  end: "2014-01-05"
 inference_times: []
 data_stride: [1]
 steps: [4]

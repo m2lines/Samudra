@@ -235,6 +235,12 @@ validation before reviewing the one-/half-degree endpoint.
 
 ## Glossary and implementation map
 
+- **Fixed coarse processor grid.** `patch_extent: [3.0, 5.0]` makes the encoder
+  aggregate \(3\times5\) one-degree cells or \(6\times10\) half-degree cells
+  into each token. Both inputs therefore produce tensors of shape
+  `[B,160,60,72]`; the processor never operates on the requested output grid.
+  The exact patch construction and divisibility checks are in
+  [`PatchMomentEncoder.output_resolution`](../../src/samudra/models/modules/encoder.py).
 - **`PatchMomentEncoder` / learned moments.** The exact equations above are
   implemented in
   [`encoder.py`](../../src/samudra/models/modules/encoder.py). Configuration:
@@ -262,6 +268,13 @@ validation before reviewing the one-/half-degree endpoint.
   continuous query-to-token offset, and adds continuous absolute query/scale
   features directly to the hidden output. See
   [`ContinuousCoordinateAttentionCorrection`](../../src/samudra/models/modules/decoder.py).
+- **Decoder query and channel semantics.** There is one query per requested
+  output coordinate, not one query per target channel. Each query produces the
+  entire prognostic-channel vector, so the selected decoder maps
+  `[B,160,60,72]` to `[B,C_out,H_out,W_out]`; no target-channel identity is
+  embedded in the query. The final
+  [`output_projection`](../../src/samudra/models/modules/decoder.py) performs
+  this hidden-to-\(C_{\rm out}\) mapping.
 - **LayerNorm concern.** `content_norm` normalizes only attention keys. Values
   consume the unnormalized latent token; the bilinear base and resolved-mean
   route are also unnormalized. This keeps a direct amplitude-bearing path while
@@ -279,6 +292,11 @@ validation before reviewing the one-/half-degree endpoint.
   decode selected latent states. A lead \(N\) is not one processor call with
   \(N\) boundary states. Code:
   [`SamudraMulti.latent_rollout`](../../src/samudra/models/samudra_multi.py).
+- **True-depth sampling.** `train_processor_depths: [1,2,4]` selects one true
+  physical lead per training batch. Depth \(N\) consumes labels and ordered
+  boundary states through \(t+N\,dt\); it is not an internal repeated block at a
+  fixed target time. Validation always reports all three depths. Configuration:
+  [`train_cross_1_halfdeg_coarse_latent_dynamics_full.yaml`](../../configs/samudra_multi_om4/train_cross_1_halfdeg_coarse_latent_dynamics_full.yaml).
 - **Processor residual scale \(\alpha\).** A learned tensor of shape
   `[1,160,1,1]` used in \(z+\alpha\odot P(\cdot)\). It is initialized to zero by
   `processor_residual: true`; S2 \((1,0.1)\) has mean absolute value 0.0344.

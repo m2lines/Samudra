@@ -196,7 +196,7 @@ These files live on the OSN pod:
 - Data: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/raw/om4_5daily.zarr
 - Gaussian Grid: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/raw/grids/gaussian_grid_180_by_360.zarr
 - Mosaic File: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/raw/grids/ocean_hgrid.zarr
-- Static Data File: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/raw/ocean_static_no_mask_table.zarr
+- Native Grid File: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/raw/ocean_static_no_mask_table.zarr
 
 These can be directly input to our pre-processing scripts (see usage above).
 

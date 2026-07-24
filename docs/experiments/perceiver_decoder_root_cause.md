@@ -4,101 +4,73 @@ SPDX-FileCopyrightText: 2026 Samudra Authors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# Interim report: Perceiver IO decoder root causes
+# Final report: decoder root causes and inverse architecture
 
 ## Executive conclusion
 
-The observed failure is not one undifferentiated "Perceiver problem." Three
-separable mechanisms are supported by controlled evidence:
+The poor auto-encoding result was not one undifferentiated "Perceiver problem."
+The experiments isolate seven mechanisms, each with a direct intervention:
 
-1. the naive one-latent decoder is exactly query-blind for multi-query windows;
-2. the configured 64-dimensional cross-attention value path is narrower than the
-   77-channel target and independently loses channel information;
-3. with multiple latents, spatial correspondence is unanchored, expensive to learn,
-   and unnecessary for fixed-set memorization.
+| Cause | Decisive evidence | Architectural consequence |
+|---|---|---|
+| One-latent query blindness | Spatial output difference and query-gradient norm are both exactly zero | Do not use a one-latent Perceiver IO decoder for multiple output queries |
+| Narrow attention value path | Widening the actual value path from 64 to 128 lowers held-out one-cell MSE from `0.239298` to `0.021848` | Latent/query width alone is not the relevant capacity control |
+| Unanchored spatial routing | Fixed fields can be memorized at `~1e-3` train MSE while held-out MSE is `1.660140`; physical anchoring removes the scale sensitivity | Give output transport an explicit physical route |
+| Encoder spatial bandwidth loss | Fixed coarse patches discard half-degree subcell structure; a learned native-grid encoder restores it | Keep learned state features on the native input grid |
+| Wet-mask ordering | Projecting before per-channel masked resampling removes 78% of half-to-one excess error on identical weights | Decode physical channels before spatial transport |
+| Boundary contamination | A state-only inverse lowers one-degree reconstruction by 78.5% and improves all four one/half-degree routes | Encode persistent state once; encode one aligned boundary state per processor call |
+| Forecast head co-adaptation | Soft inverse loss leaves 18.7% encoder and 14.6% decoder drift; freezing holds reconstruction exactly | Freeze the learned inverse and train a zero-initialized latent residual transition |
 
-The selected production architecture is a learned width-160 native-grid channel
-projection encoder followed by projection-before-channel-masked coordinate
-resampling. It keeps latitude/longitude and scale out of the encoded state, passes
-them to the processor through a non-destructive sidecar, and supports arbitrary
-output coordinates without requiring the encoder to approximate an identity. The
-zero-initialized attention residual is no longer recommended: neither the
-cross-grid nor unseen quarter-degree tests expose a residual error that justifies
-it. Retaining the current Perceiver IO decoder would require at minimum a wider
-cross-attention value path and an explicit spatial route; increasing latent count
-or latent width alone does not address the measured causes.
+The selected architecture is therefore:
 
-Two additional production causes emerged after the decoder controls. Projecting
-channels after spatial interpolation violates channel-specific wet-mask transport;
-projecting first removes 78% of the half-to-one-degree excess error without changing
-same-grid results.
+```text
+z_0       = E_state(x_t)                         # learned, native-grid state
+q_m       = E_boundary(b_m)                      # one aligned forcing state
+z_m       = z_(m-1) + alpha * P(z_(m-1), q_m, geometry)
+native_y  = pointwise_decode(z_m)                # raw values; no decoder LayerNorm
+x_hat_s,m = channel_masked_resample(native_y, source_grid, output_grid)
+```
 
-The processor results originally described below used repeated calls as refinement
-depth while supervising every positive depth against the same target. On 2026-07-22
-the intended contract was clarified: processor call `m` is physical time step `m`,
-uses the separately encoded boundary state for that step, and depth `N` targets
-`t + N*dt`. The prior depth-cycle runs are therefore useful refinement/stability
-controls, but they are not evidence for physical latent autoregression. A full-data
-job using the old semantics was cancelled after one epoch. The corrected state-only
-encoder, per-step boundary encoder, latent carry between inference chunks, and
-true-lead training path are implemented and locally tested. Fresh state-only
-evidence now strengthens the separation: the one-degree inverse reaches
-`0.000648411` on the full validation year and `0.000654260` on the exact fixed
-diagnostic window, 78.5% below the prior joint prognostic-plus-boundary inverse's
-`0.00304`. On the matched four-route audit, state-only encoding improves every
-same- and cross-grid route and lowers aggregate MSE from `0.02491` to `0.0218603`
-despite receiving one quarter as many epochs. This isolates boundary contamination
-as an additional representation error: forcing belongs in the transition, not in
-the persistent state. Zero-shot quarter reconstruction also improves from
-`0.01055` to `0.001367`, while the six up/down cross-grid routes remain close to or
-better than deterministic coordinate resampling. The sole clear exception remains
-4x quarter-to-one restriction: competitive MSE but high-wavenumber ratio `1.502`,
-which calls for scale-aware antialiasing/conservative transport. A two-epoch
-physical-time smoke improves all true leads while retaining latent carry.
+`alpha` is initialized to zero. Latitude, longitude, and scale do not alter the
+reconstructive state tensor; they enter each processor call through a sidecar and
+the deterministic decoder route. The encoder is not initialized or constrained to
+be an identity. The learned inverse is the composition `D(E_state(x))`, and the
+same latent can be processed zero through `N` times before decoding at a requested
+resolution. A decoder attention residual is not selected: the learned-encoder
+screen found no accuracy or spectral defect that justified its 4--10x cost.
 
-The corrected physical-time controls identify a separate forecast-training cause:
-forecast loss constrains `D(P(E(x)))`, not the inverse `D(E(x))`, and the heads
-co-adapt until zero-depth reconstruction degrades. The completed two-seed inverse
-weight sweep leaves physical leads unchanged while improving reconstruction from
-`0.01298` at weight zero to `0.00510` at weight 0.2; that remains 7.9 times worse
-than the frozen inverse. Direct parameter comparison measures 18.7% encoder drift,
-14.6% decoder drift, and 27.3% drift of their composed pointwise map. Freezing the
-learned state-only inverse holds reconstruction exactly at `0.000647529`. Combining
-that freeze with a zero-initialized latent residual transition reaches seed-15
-two-seed mean lead MSE `{0.04019, 0.06704, 0.09109}` at `{1,2,4}` steps,
-improving the unfrozen baseline by 6.6%, 14.5%, and 21.8%. Zeroing aligned
-boundary input worsens those leads by up to 30.7%, while reversing boundary order
-worsens lead four by 37.7%, supporting physical per-step forcing use. The two
-seeds agree within about 1.3% at every lead. This frozen ReZero transition is
-promoted to full one-degree validation; the full-scale and subsequent
-multi-resolution validations remain in progress, so this document is still
-interim.
+The full one-degree run validates the latent forecast architecture at
+`{1,2,4}`-step MSE `{0.0205191, 0.0343797, 0.0469026}` while keeping the frozen
+inverse exactly at `0.000647529`. The full one/half-degree run then completes all
+6,392 updates in 10h30m. Its validation-selected checkpoint is also terminal, with
+aggregate lead MSE `{0.0398245, 0.0540801, 0.0659528}`, respectively
+`{62.9%, 69.5%, 73.9%}` below lead-matched persistence. Same-grid reconstruction
+remains exactly `0.00111017` at one degree and `0.00124296` at half degree.
+Zeroing the per-step boundary raises the three aggregate leads by
+`{23.4%, 61.1%, 124.7%}`; reversing boundary order raises them by
+`{9.8%, 19.2%, 93.7%}`. This is strong evidence that the separately encoded
+boundary path is used physically rather than ignored.
 
-The full-data one-degree run passes its promotion gate at epoch 18. Lead-one MSE
-falls monotonically from `0.05116` at epoch one to `0.0246967`; the corresponding
-`{1,2,4}` lead vector is `{0.0246967, 0.0413005, 0.0551152}`, respectively
-`{70.5%, 72.7%, 75.4%}` below lead-matched persistence. Every lead-one variable
-group is better than its quoted v2 value, while the frozen inverse remains exactly
-`0.000647529`. The run completes all 65 epochs in 8 hours 28 minutes. Epoch 58 is
-validation-selected at `{0.0205191, 0.0343797, 0.0469026}`; the terminal vector is
-only `{0.0205354, 0.0344690, 0.0472080}`, showing a shallow late plateau rather
-than instability. The final epoch-61 spatial audit gives high-wavenumber ratios
-`{0.968, 0.983, 0.811, 0.839, 0.991}` for temperature, salinity, zonal velocity,
-meridional velocity, and SSH. The one/half-degree proxy is complete and its
-full-budget successor remains outstanding, so this is still an interim report.
+The endpoint spatial audit distinguishes decoder success from processor and
+information limits. Temperature, salinity, and SSH high-wavenumber ratios are
+`0.938--1.025` on every route. Fine-to-coarse velocity ratios are `0.884/0.872`,
+and defined seam ratios span `0.811--1.002`. Half-degree same-grid forecast
+velocity remains underpowered at `0.790/0.751`, while one-to-half velocity is only
+`0.288/0.149`; deterministic prolongation cannot invent modes absent from the
+coarse source. Because the inverse is frozen and unchanged, these forecast-only
+spectral limitations belong to the processor/exposure and source information, not
+to renewed decoder query blindness.
 
-The completed 192-update balanced one/half-degree proxy improves monotonically
-through epoch 12. Its aggregate `{1,2,4}` lead vector is
-`{0.0629945, 0.0945314, 0.123373}`, respectively `{41.4%, 46.8%, 51.2%}` below
-lead-matched persistence. Every individual route beats its own persistence
-baseline at every lead. Same-grid zero-depth reconstruction remains
-`0.00111017` at one degree and `0.00124296` at half degree. Tracer and SSH
-high-wavenumber ratios span `0.922--1.008`, and all defined route seam ratios
-span `0.843--1.028`. Coarse-to-fine velocity power remains low
-(`0.278/0.125` for zonal/meridional velocity), as expected when deterministic
-prolongation cannot invent fine-grid modes. This proxy establishes trainability
-and route separation, not convergence; it promotes the same architecture to the
-full-interval one/half-degree update budget.
+The evidence supports the selected encoder/decoder inverse through one and
+half degree, but it does not yet support a larger quarter-degree training run.
+One-to-one lead-one MSE in the multi-resolution model is `0.0264174`, 28.7% above
+the single-resolution result and just outside the provisional 25% degradation
+gate. The fourfold quarter-to-one zero-shot audit also aliases under bilinear point
+restriction. Retain the selected inverse and latent-AR contract, then review
+whether to increase per-route processor exposure/capacity and validate the
+checked-in scale-aware conservative restriction before spending on quarter-degree
+training. That restriction is unit-tested but empirically unvalidated and is not
+part of the selected architecture in this report.
 
 ## Objective
 
@@ -301,7 +273,10 @@ The production analogue should therefore be:
 
 This preserves the successful resampling decoder exactly at initialization, keeps
 output-grid flexibility, and gives the model a route to learn corrections where
-bilinear interpolation is inadequate.
+bilinear interpolation is inadequate. This was the synthetic-stage recommendation;
+the later wet-mask intervention supersedes steps 1--2 for production by projecting
+physical channels on the native grid before channel-specific resampling, and the
+learned-encoder screen rejects step 3 unless a new residual defect appears.
 
 ## Learned-encoder S0 confirmation
 
@@ -710,8 +685,8 @@ refinement target degrades at depths two and four for every seed. This is the sa
 causal exposure failure found in identity training, now reproduced after forecast
 fine-tuning. It is not evidence against the learned encoder or mask-aware decoder.
 Regular training therefore now supports a default-off `train_processor_depths`
-cycle, and the selected proxy/full configs use `[1,2,4]` while leaving validation
-at configured depth one.
+cycle, and the selected proxy/full configs train and validate physical leads
+`[1,2,4]`.
 
 The stronger fixed-depth weight-0.2 inverse audit passes the preservation gate:
 its two-seed depth-zero mean is `0.0241583`, only 8.8% worse than the pre-forecast
@@ -753,27 +728,72 @@ frozen inverse and ReZero transition for 192 optimizer updates:
 | 1/2 -> 1 | `0.041871 / 52.7%` | `0.069580 / 55.4%` | `0.095643 / 58.3%` |
 | 1/2 -> 1/2 | `0.056481 / 52.3%` | `0.096918 / 54.3%` | `0.130894 / 57.4%` |
 
-At lead four, zeroing the boundary raises route MSE by `19.5--33.1%`, while
+At lead four, zeroing the boundary raises proxy route MSE by `19.5--33.1%`, while
 reversing boundary order raises it by `14.3--39.7%`. The weaker and occasionally
-negative lead-two time-reversal response means boundary causality should continue
-to be reported rather than treated as uniformly solved. The full run must
-distinguish unresolved processor learning from decoder transport: coarse-to-fine
-velocity spectra are limited by source information, whereas same-grid and
-fine-to-coarse spectra remain close to the target.
+negative lead-two time-reversal response was a reason to retain these controls in
+the full run rather than declaring boundary causality solved.
+
+The full-interval run is Slurm job `14666431` and
+[W&B `2ruaaimh`](https://wandb.ai/ocean_emulators/default/runs/2ruaaimh). It
+completes all 17 epochs and 6,392 optimizer updates on six RTX6000s. Epoch 17 is
+both validation-selected and terminal:
+
+| Route | Lead 1 MSE / persistence reduction | Lead 2 | Lead 4 |
+|---|---:|---:|---:|
+| 1 -> 1 | `0.026417 / 68.5%` | `0.042275 / 72.0%` | `0.054706 / 75.6%` |
+| 1 -> 1/2 | `0.083557 / 39.9%` | `0.096616 / 49.3%` | `0.108374 / 56.5%` |
+| 1/2 -> 1 | `0.022313 / 74.8%` | `0.032732 / 79.0%` | `0.041997 / 81.7%` |
+| 1/2 -> 1/2 | `0.027011 / 77.2%` | `0.044697 / 78.9%` | `0.058734 / 80.9%` |
+
+Every route beats its lead-matched persistence baseline at every lead. Unlike the
+proxy, every route also responds in the expected direction to both forcing
+controls at every lead. Aggregate zero-boundary increases are
+`{23.4%, 61.1%, 124.7%}`, and time-reversal increases are
+`{9.8%, 19.2%, 93.7%}`. The frozen same-grid inverse remains bitwise constant
+through training.
+
+Slurm job `14687084` loads that selected checkpoint in validation-only mode and
+performs no optimizer or checkpoint write. Its independent scalar results agree
+within `6e-7`, and [W&B `ke7l2j7a`](https://wandb.ai/ocean_emulators/default/runs/ke7l2j7a)
+records the endpoint route spectra:
+
+| Route | Temperature | Salinity | Zonal velocity | Meridional velocity | SSH | Defined seam range |
+|---|---:|---:|---:|---:|---:|---:|
+| 1 -> 1 | 0.969 | 0.975 | 1.048 | 1.110 | 1.021 | undefined |
+| 1 -> 1/2 | 0.938 | 0.959 | 0.288 | 0.149 | 0.977 | `0.811--1.002` |
+| 1/2 -> 1 | 0.963 | 0.966 | 0.884 | 0.872 | 1.006 | undefined |
+| 1/2 -> 1/2 | 0.963 | 0.978 | 0.790 | 0.751 | 1.025 | `1.000--1.002` |
+
+One-degree outputs have no within-patch edge against which to normalize a seam, so
+that metric is undefined rather than failed. Coarse-to-fine velocity power is an
+input-information limit. The half-degree same-grid velocity deficit and the 28.7%
+one-to-one lead-one regression relative to the single-resolution model are
+processor/exposure limitations to resolve before quarter-degree training; the
+frozen decoder cannot cause their training-time drift.
 
 ## Architecture decision matrix
 
 | Candidate | Same-grid identity | Flexible output grid | Learned nonlocal correction | Evidence-backed decision |
 |---|---|---|---|---|
 | Current Perceiver IO | Poor at production scale | Yes | Yes | Do not promote unchanged |
-| Wider Perceiver IO | Channel bottleneck reduced | Yes | Yes | Run the matched ocean control; insufficient without spatial anchoring |
+| Wider Perceiver IO | Channel bottleneck reduced | Yes | Yes | Do not promote: it fixes only the measured channel bottleneck, not routing |
 | Direct query-to-token attention | Better at 4x4, slow at 12x12 | Yes | Yes | Useful ablation, not sufficient alone |
 | Position-only anchored attention | Learnable but slower and less accurate | Yes | Yes | Retain as a control; do not promote as sole renderer |
-| Physical-coordinate resampling projection | Best learned-encoder S0 result | Yes | No | Promote as the primary architecture |
+| Physical-coordinate resampling projection | Best learned-encoder S0 result | Yes | No | Selected transport base, with projection moved before masked resampling |
 | Resampling + zero-init attention residual | Preserves base at initialization | Yes | Yes | Retain as fallback; S0 does not justify its added cost |
 | Native-grid latent resampling + learned projection | Excellent same-grid inverse and spectra | Yes | No | Baseline: cross-grid error exposes normalization and mask-order contracts |
-| Native-grid learned projection + channel-masked resampling | Exact same-grid transport by construction | Yes | No | Primary matched candidate; validate against physical interpolation floor |
-| Frozen inverse + latent ReZero transition | Preserves the learned inverse exactly during forecast training | Yes | Yes, in the processor | Promote for physical latent autoregression |
+| Native-grid learned projection + channel-masked resampling | Exact same-grid transport by construction | Yes | No | Selected learned inverse decoder |
+| Frozen inverse + latent ReZero transition | Preserves the learned inverse exactly during forecast training | Yes | Yes, in the processor | Selected contract; tune processor exposure before quarter degree |
+
+The selected decoder does not send reconstructive values through LayerNorm.
+`ResampleProjectionDecoder` applies its learned pointwise channel map to raw
+native-grid latent values, then transports each physical output channel with its
+own wet mask. LayerNorm is confined to attention controls that were not selected.
+The learned state encoder is likewise not initialized or constrained to be an
+identity: the reconstruction contract is the composition `D(E_state(x))`, not
+either component alone. Freezing that learned pair during forecast training makes
+processor depth zero the measured inverse, while zero or more shared processor
+calls remain legal and decoding can target any supplied coordinate grid.
 
 The production and control implementations behind the matrix are:
 
@@ -783,6 +803,8 @@ The production and control implementations behind the matrix are:
   `AnchoredCrossAttentionIO` in `scripts/probe_perceiver_decoder.py`;
 - physical-coordinate base: `coordinate_bilinear_resample` and
   `ResampleProjectionDecoder` in `src/samudra/models/modules/decoder.py`;
+- deferred scale-aware restriction prototype: `coordinate_conservative_resample`
+  and `conservative_restriction_min_ratio` in that same module;
 - source-mask transport: `GridContext` in `src/samudra/utils/ctx.py`, populated by
   `TrainingShard` in `src/samudra/datasets.py` and consumed by `SamudraMulti.decode`;
 - production hybrid: `LocalCoordinateAttentionCorrection` and
@@ -820,19 +842,22 @@ continues to lag after routing is fixed.
   backend remains a production-runtime limitation to diagnose separately.
 - Separate RTX6000 profiles of the selected U-Net latent transition fail in the
   first backward at per-rank batches 4, 8, and 16 with a CUDA illegal-address
-  error, even where the reported allocation estimate is only 4.03 GiB. Batch 2 is
-  stable across the scientific runs. Fragmentation moved the full validation to
-  three ranks with batch 2 and accumulation 5, for effective batch 30 and about
-  6,110 updates versus the planned 6,230. These failed profiles make no optimizer
-  step and are runtime evidence, not model evidence.
+  error, even where the reported allocation estimate is only 4.03 GiB. The full
+  one/half-degree validation instead uses six ranks, per-rank batch one, and
+  accumulation five for effective batch 30 and exactly 6,392 scheduled updates.
+  The failed profiles make no optimizer step and are runtime evidence, not model
+  evidence.
 - The multiplied attention matrices are a routing diagnostic, not an exact model
   Jacobian because self-attention and value transformations intervene.
 - The production checkpoint swap and fresh run confirm the mask-order mechanism on
   actual OM4 coordinates, periodic longitude, nonuniform latitude, and channel-
   specific wet masks. Quarter-degree zero-shot scaling and the bounded-memory rerun
-  are complete. The scale-aware restriction comparison establishes that naive area
-  averaging is useful at 4x but not a universal 2x replacement; a physical
-  conservative restriction operator remains future work.
+  are complete. The fixed area reference establishes that restriction must be
+  scale aware: it is decisive at 4x but not a universal 2x replacement. A spherical
+  conservative restriction prototype is checked in and unit-tested, but its
+  checkpoint audit was cancelled before optimization or evaluation when the review
+  boundary moved to the one/half-degree result. It is therefore deferred and must
+  not be treated as selected architecture.
 - The hybrid synthetic control initializes its base projection to copy aligned
   target channels. Real processor features require a learned channel projection.
   The completed ocean resampling proxy is the evidence that such a projection is
@@ -842,7 +867,16 @@ continues to lag after routing is fixed.
   zero-shot quarter same-grid MSE by 87% relative to the earlier joint checkpoint.
   The corrected physical latent-autoregressive proxy selects the frozen ReZero
   transition, and the full-data one-degree validation completes with the inverse
-  unchanged. Balanced one/half-degree route validation is in progress.
+  unchanged. The full one/half-degree validation and selected-checkpoint endpoint
+  audit are complete with the inverse unchanged.
+- Small forecast controls use two seeds, but each full-data promotion run uses one
+  seed. The one/half-degree endpoint is stable and independently reproduced by the
+  audit, but that is checkpoint reproducibility rather than training-seed
+  uncertainty.
+- The full multi-resolution model misses the provisional one-degree same-route
+  degradation gate (`28.7%` versus a `25%` allowance), and half-degree same-grid
+  velocity power is `0.790/0.751`. These are explicit reasons to stop for review
+  rather than promote directly to quarter-degree training.
 
 ## Reproduction
 
@@ -881,6 +915,21 @@ The follow-up real-data control is fully specified by
 `configs/samudra_multi_om4/identity_1deg_decoder_wide.yaml` and runs through
 `python -m samudra.identity`.
 
+Exact true-lead and route metrics from a W&B run can be reproduced without
+destination-grid pooling:
+
+```bash
+uv run python scripts/summarize_latent_ar_runs.py \
+  ocean_emulators/default/<run-id> --format json \
+  --route 180x360_to_180x360 \
+  --route 180x360_to_360x720 \
+  --route 360x720_to_180x360 \
+  --route 360x720_to_360x720
+```
+
+The default selects the lowest lead-one row; add `--selection terminal` to
+reproduce the terminal row separately.
+
 ## Recommended follow-up validation
 
 1. Retain the completed width-160 native-grid encoder/decoder, no additive encoder
@@ -891,12 +940,16 @@ The follow-up real-data control is fully specified by
    freeze the inverse and use a zero-initialized latent transition residual. The
    inverse-weight sweep shows that a soft reconstruction penalty does not prevent
    head co-adaptation; do not carry weight `0.2` forward as a conclusion.
-4. Retain the completed bounded-memory quarter evaluator. Prototype physical
-   conservative restriction for 4x downsampling, where area lowers the floor 86%,
-   and compare a better low-pass kernel at 2x, where naive area improves spectra
-   but worsens MSE.
-5. Complete the running balanced one/half-degree proxy, which was launched after
-   the successful full one-degree gate. Report every physical route separately,
-   including persistence, spectra, seam/edge diagnostics, and forcing ablations;
-   destination-grid pooled metrics are not sufficient evidence for flexible output
-   resolution.
+4. Separate the selected inverse from the processor promotion decision. Before a
+   larger-resolution run, test whether more per-route updates or modest processor
+   capacity recover the one-to-one degradation gate and half-degree velocity
+   spectra while the frozen reconstruction remains exact.
+5. Retain the completed bounded-memory quarter evaluator. After review of this
+   report, validate the deferred scale-aware conservative restriction prototype at
+   4x and compare a better low-pass kernel at 2x; fixed area averaging lowers the
+   4x floor by 86% but improves spectra while worsening MSE at 2x.
+6. Do not begin a larger quarter-degree training run from this report alone. First
+   require the checkpoint-only restriction audit and report every physical route
+   separately, including persistence, spectra, seam/edge diagnostics, and forcing
+   ablations; destination-grid pooled metrics are not sufficient evidence for
+   flexible output resolution.

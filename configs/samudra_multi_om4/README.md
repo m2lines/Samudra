@@ -38,7 +38,8 @@ The iterable-inverse proxy and full-data configs set
 encoder. The prognostic state is encoded once. A batch selected at depth N then
 calls the boundary encoder and shared latent processor N times with one aligned
 forcing state per call, and is supervised against the physical `t+N` label. The
-decoder output is never fed back through the state encoder. Validation remains the
-ordinary one-step forecast. Omit the option to retain the legacy decode/re-encode
-training path. The depth list is an initial experiment range, not a permanent
-limit on the supported contract.
+decoder output is never fed back through the state encoder. Validation reports the
+configured physical leads, currently `[1, 2, 4]`, plus lead-matched persistence
+and forcing ablations. There is no legacy decode/re-encode training path. The depth
+list is an initial experiment range, not a permanent limit on the supported
+contract.

@@ -579,22 +579,23 @@ an encoder-to-decoder feature connection, not residual-field prediction: the mod
 still predicts the complete absolute target, `pred_residuals` remains `false`, and
 no input field is added to the output.
 
-The implementation is opt-in through `model.use_fine_scale_queries`, requires the
-input and output grids to match, and preserves the original decoder exactly at
-initialization. Tests cover global and windowed decoders, initial equivalence,
-nonzero learning signal from the zero initialization, input-shape validation, and
-the existing window-vectorization equivalence. The focused decoder, model, and
-configuration suite passes 29 tests; mypy and Ruff pass for all changed Python
-files. CLI validation of the pinned proxy confirms fine-scale queries are enabled
-while retaining plain MSE, one step, absolute prediction, and the 3-degree by
-5-degree patch extent.
+The removed implementation was opt-in through
+`model.use_fine_scale_queries`, required the input and output grids to match, and
+preserved the original decoder exactly at initialization. At the time, tests
+covered global and windowed decoders, initial equivalence, nonzero learning signal
+from the zero initialization, input-shape validation, and the existing
+window-vectorization equivalence. The focused decoder, model, and configuration
+suite passed 29 tests; mypy and Ruff passed for all changed Python files. CLI
+validation of the pinned historical proxy confirmed fine-scale queries were
+enabled while retaining plain MSE, one step, absolute prediction, and the 3-degree
+by 5-degree patch extent.
 
-The first screen will use the selected two-seed InstanceNorm/update-schedule control
-and change only `model.use_fine_scale_queries`. Independent one-GPU jobs preserve
+The first screen used the selected two-seed InstanceNorm/update-schedule control and
+changed only `model.use_fine_scale_queries`. Independent one-GPU jobs preserved
 effective global batch 32 and normalization behavior while using the authorized
-parallel GPU capacity. A one-degree 32-sample identity diagnostic will run alongside
-the two forecast proxies to measure whether the path improves MSE, high-wavenumber
-power, and patch seams. The proxy promotion threshold remains `0.08575`.
+parallel GPU capacity. A one-degree 32-sample identity diagnostic ran alongside the
+two forecast proxies to measure whether the path improved MSE, high-wavenumber
+power, and patch seams. The proxy promotion threshold was `0.08575`.
 
 ### Fine-query identity result
 

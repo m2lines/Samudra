@@ -20,9 +20,10 @@ the existing encoder is a viable starting point.
 The operational requirement is instead
 
 ```text
-z_0       = E_r(x_t, b_t; g_r)
-z_k       = P^k(z_0; b, g), k = 0, ..., N
-x_hat_s,k = D_s(z_k; g_s)
+z_0       = E_state,r(x_t)
+q_m       = E_boundary,r(b_m), m = 1, ..., N
+z_m       = P(z_{m-1}, q_m, g_r)
+x_hat_s,m = D_s(z_m; g_r, g_s)
 ```
 
 where `r` and `s` denote input and output grids and `g` contains grid geometry. At
@@ -33,17 +34,19 @@ remain usable after any supported processor depth. This is a learned left-invers
 condition on ocean states, not a demand that every latent vector or every encoder
 input (history and forcing included) be recoverable.
 
-The candidate decoder is:
+The selected decoder is:
 
 ```text
-base       = pointwise_decode(coordinate_resample(z_k, source_grid, output_grid))
-correction = zero_output(local_position_attention(z_k, source_grid, output_grid))
-prediction = base + correction
+native_channels = pointwise_decode(z_m)
+prediction      = channel_masked_coordinate_resample(
+                    native_channels, source_grid, output_grid
+                  )
 ```
 
-Only the correction's final output projection is initialized to zero. The encoder
-and base projection use their ordinary learned initialization and train jointly.
-The implementation is:
+The encoder and pointwise projection use ordinary learned initialization and train
+jointly as the zero-depth inverse. The zero-initialized local-attention correction
+remains implemented as a fallback, but the completed screen does not justify its
+cost and it is not part of the selected path. The implementation is:
 
 - production resampling base: `src/samudra/models/modules/decoder.py`,
   `ResampleProjectionDecoder`;
@@ -86,18 +89,19 @@ The development prerequisites are now present on this branch:
   loss through `zero_depth_reconstruction_weight`; and
 - a zero-depth encoder/decoder checkpoint can initialize a processor-present
   finetune with `finetune_allowed_missing_prefixes: ["processor.",
-  "processor_geometry."]`; every non-allowlisted missing key and every unexpected
-  checkpoint key remains fatal, and EMA restarts for the composed model; and
+  "processor_geometry.", "boundary_encoder.", "processor_residual_scale"]`; every
+  non-allowlisted missing key and every unexpected checkpoint key remains fatal,
+  and EMA restarts for the composed model; and
 - the synthetic probe now learns its encoder rather than copying target channels
   into the decoder input, uses fresh analytic coefficients and disjoint evaluation
   coefficients, and reports amplitude, bias, and high-wavenumber diagnostics.
 
-The checked-in zero-depth controls are
-`model_learned_inverse_resample.yaml` and
-`model_learned_inverse_hybrid.yaml`; the processor-present candidate is
-`model_iterable_inverse_hybrid.yaml`. No experiment result is implied by these
-implementations. Training and evaluation remain to be run, and the candidate set
-and defaults below remain provisional under the selection-logic revision rule.
+The checked-in historical zero-depth controls are
+`model_learned_inverse_resample.yaml` and `model_learned_inverse_hybrid.yaml`.
+The selected state-only inverse and physical latent-autoregressive path are
+`model_learned_inverse_native_masked_projection.yaml` and
+`model_iterable_inverse_native_masked_projection.yaml`. The candidate set and
+defaults below remain revisable under the selection-logic rule.
 
 The completed learned-encoder S0 screen supplies the first revision. At 2,000
 updates and three seeds, physical-coordinate resampling plus projection beat both
@@ -1288,6 +1292,15 @@ per epoch. Epoch one already beats route-aggregated lead-matched persistence by
 `{44.9%, 49.6%, 53.7%}` at leads `{1,2,4}` while holding zero-depth
 reconstruction at `0.00117656`.
 
+The job completes all 17 epochs and exactly 6,392 optimizer updates in 10 hours
+30 minutes. Epoch 17 is both validation-selected and terminal, with aggregate
+lead MSE `{0.0398245, 0.0540801, 0.0659528}`, respectively
+`{62.9%, 69.5%, 73.9%}` below lead-matched persistence. Every one/half-degree
+route beats persistence at every lead. Zeroing aligned boundary input raises the
+aggregate leads by `{23.4%, 61.1%, 124.7%}`, while reversing boundary order raises
+them by `{9.8%, 19.2%, 93.7%}`. Same-grid reconstruction remains exactly
+`0.00111017` and `0.00124296`.
+
 The immutable launch config logs expensive spatial diagnostics at epochs 1 and
 18, but the run ends at epoch 17. Restarting a healthy full-budget run solely to
 change that cadence would discard useful compute. The branch therefore adds a
@@ -1296,8 +1309,25 @@ general `validation_only` training mode and
 checkpoint into a separate W&B run, executes one full validation pass with route
 and spatial diagnostics, performs no optimizer step, and writes no checkpoint.
 The checked-in training config now uses a 16-epoch interval so future 17-epoch
-runs naturally audit epochs 1 and 17; job `14666431` will receive the separate
-best/terminal checkpoint audit after completion.
+runs naturally audit epochs 1 and 17. Job `14687084` audits the validation-selected
+checkpoint from immutable code layer `10005b33` and completes in 5 minutes
+48 seconds without an optimizer or checkpoint write. Its scalar metrics reproduce
+the source run within `6e-7`; W&B run `ke7l2j7a` records route-level endpoint
+spectra and seams. Tracer/SSH high-wavenumber ratios are `0.938--1.025` on all
+routes. Fine-to-coarse velocity is `0.884/0.872`; half-degree same-grid velocity
+is `0.790/0.751`; and coarse-to-fine velocity remains information-limited at
+`0.288/0.149`.
+
+The review boundary is the completed one/half-degree run, its selected-checkpoint
+endpoint audit, and the final root-cause report. A proposed scale-aware spherical
+conservative restriction is implemented and unit-tested at commit `10005b33`, but
+the nine-route quarter-degree audit was cancelled before it evaluated a checkpoint
+or made an optimizer update. Quarter-degree validation and training are deliberately
+deferred until after review; the prototype is not a selected result. The full
+multi-resolution processor also misses the provisional one-degree degradation
+gate (`28.7%` versus `25%`), so the report recommends reviewing per-route exposure
+or processor capacity before quarter-degree training while retaining the selected
+frozen inverse architecture.
 
 ## Selection logic
 
@@ -1337,10 +1367,11 @@ Each stage should produce:
 - a short decision record saying which arm advances and which hypothesis was
   falsified.
 
-The final report should update
-`docs/experiments/perceiver_decoder_root_cause.md` rather than replacing its decoder
+The final report updates
+`docs/experiments/perceiver_decoder_root_cause.md` without replacing its decoder
 diagnosis. The completed evidence selects the learned native-grid projection plus
 projection-before-channel-masked coordinate resampling, with processor geometry in
-a sidecar and no attention correction. The remaining corrected state-only inverse,
-physical-time proxy, and full-scale runs test whether that decoder recommendation
-survives true latent autoregression; contrary evidence should revise it.
+a sidecar and no attention correction. The full one/half-degree run and its
+selected-checkpoint endpoint audit confirm that the frozen inverse survives true
+latent autoregression while exposing processor/exposure limitations that stop
+promotion before quarter-degree training.

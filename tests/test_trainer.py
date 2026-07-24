@@ -86,7 +86,12 @@ def _run_to_latest_checkpoint(cfg: TrainConfig) -> Path:
     return checkpoint_path
 
 
-def _assert_nested_close(actual, expected, path: str) -> None:
+def _assert_nested_close(
+    actual, expected, path: str, ignored_paths: set[str] | None = None
+) -> None:
+    if ignored_paths is not None and path in ignored_paths:
+        return
+
     if torch.is_tensor(actual) or torch.is_tensor(expected):
         assert torch.is_tensor(actual) and torch.is_tensor(expected), path
         torch.testing.assert_close(actual, expected, rtol=1e-6, atol=1e-6)
@@ -94,12 +99,22 @@ def _assert_nested_close(actual, expected, path: str) -> None:
         assert isinstance(expected, dict), path
         assert actual.keys() == expected.keys(), path
         for key in actual:
-            _assert_nested_close(actual[key], expected[key], f"{path}[{key!r}]")
+            _assert_nested_close(
+                actual[key],
+                expected[key],
+                f"{path}[{key!r}]",
+                ignored_paths=ignored_paths,
+            )
     elif isinstance(actual, (list, tuple)):
         assert isinstance(expected, type(actual)), path
         assert len(actual) == len(expected), path
         for index, (actual_item, expected_item) in enumerate(zip(actual, expected)):
-            _assert_nested_close(actual_item, expected_item, f"{path}[{index}]")
+            _assert_nested_close(
+                actual_item,
+                expected_item,
+                f"{path}[{index}]",
+                ignored_paths=ignored_paths,
+            )
     elif isinstance(actual, float) or isinstance(expected, float):
         assert actual == pytest.approx(expected, rel=1e-6, abs=1e-6), path
     else:
@@ -111,11 +126,21 @@ def _assert_checkpoints_close(continuous_path: Path, resumed_path: Path) -> None
     resumed = torch.load(resumed_path, map_location="cpu")
 
     ignored_keys = {"wandb_name"}
+    ignored_paths = {
+        # Wall-clock timing is checkpointed and resumed, but not deterministic
+        # across separate continuous and interrupted training runs.
+        "checkpoint['train_progress']['gpu_seconds']",
+    }
     assert set(continuous) - ignored_keys == set(resumed) - ignored_keys
     for key in continuous:
         if key in ignored_keys:
             continue
-        _assert_nested_close(resumed[key], continuous[key], f"checkpoint[{key!r}]")
+        _assert_nested_close(
+            resumed[key],
+            continuous[key],
+            f"checkpoint[{key!r}]",
+            ignored_paths=ignored_paths,
+        )
 
 
 @pytest.mark.parametrize(
@@ -233,6 +258,12 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
     boundary = boundary.to(trainer.device)
     trainer.best_val_loss = 10
     trainer.best_inf_loss = 10
+    trainer.train_progress.sample_windows_seen = 2
+    trainer.train_progress.model_examples_seen = 4
+    trainer.train_progress.output_grid_cells_seen = 24
+    trainer.train_progress.target_values_seen = 48
+    trainer.train_progress.optimizer_steps = 3
+    trainer.train_progress.gpu_seconds = 12.5
 
     model = trainer.model
     assert isinstance(model, BaseModel)
@@ -245,6 +276,12 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
     out2 = model.forward_once(prog, boundary, ctx)
 
     assert torch.allclose(out, out2)
+    assert trainer.train_progress.sample_windows_seen == 2
+    assert trainer.train_progress.model_examples_seen == 4
+    assert trainer.train_progress.output_grid_cells_seen == 24
+    assert trainer.train_progress.target_values_seen == 48
+    assert trainer.train_progress.optimizer_steps == 3
+    assert trainer.train_progress.gpu_seconds == 12.5
 
 
 def test_should_log_validation_images_every_n_epochs():

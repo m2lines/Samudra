@@ -58,7 +58,12 @@ from samudra.stepper import (
 )
 from samudra.utils.data import Normalize, get_inference_steps
 from samudra.utils.device import using_gpu
-from samudra.utils.distributed import all_reduce_mean, is_main_process, set_seed
+from samudra.utils.distributed import (
+    all_reduce_mean,
+    get_world_size,
+    is_main_process,
+    set_seed,
+)
 from samudra.utils.ema import EMATracker
 from samudra.utils.logging import (
     MetricLogger,
@@ -77,6 +82,7 @@ from samudra.utils.train import (
     collate_inference_data,
     collate_raw_train_data,
 )
+from samudra.utils.train_progress import TrainProgress
 from samudra.utils.wandb import WandBLogger
 
 logger = logging.getLogger(__name__)
@@ -243,17 +249,26 @@ class Trainer:
             finetune=cfg.finetune,
         )
 
-        # Log effective batch size
-        effective_batch_size = cfg.batch_size * cfg.gradient_accumulation_steps
+        # Log local and global batch sizes for cross-run comparisons.
+        self.world_size = get_world_size()
+        local_effective_batch_size = cfg.batch_size * cfg.gradient_accumulation_steps
+        global_microbatch_size = cfg.batch_size * self.world_size
+        global_effective_batch_size = local_effective_batch_size * self.world_size
         logger.info(
-            f"Effective batch size: {effective_batch_size} "
+            f"Effective batch size: {global_effective_batch_size} "
             f"(batch_size={cfg.batch_size} × "
-            f"gradient_accumulation_steps={cfg.gradient_accumulation_steps})"
+            f"gradient_accumulation_steps={cfg.gradient_accumulation_steps} × "
+            f"world_size={self.world_size})"
         )
         if self.is_wandb_enabled():
             self.wandb_logger.log(
                 {
-                    "config/effective_batch_size": effective_batch_size,
+                    "config/effective_batch_size": global_effective_batch_size,
+                    "config/local_batch_size": cfg.batch_size,
+                    "config/local_effective_batch_size": local_effective_batch_size,
+                    "config/world_size": self.world_size,
+                    "config/global_microbatch_size": global_microbatch_size,
+                    "config/global_effective_batch_size": global_effective_batch_size,
                 },
                 step=0,
             )
@@ -261,6 +276,7 @@ class Trainer:
         self.num_batches_seen = 0
         self.best_val_loss = 1e8
         self.best_inf_loss = 1e8
+        self.train_progress = TrainProgress()
         loaded_checkpoint = False
         if cfg.resume_ckpt_path is not None:
             if cfg.finetune:
@@ -437,6 +453,7 @@ class Trainer:
                 "epoch_train_seconds": end_epoch_train_time - start_epoch_train_time,
                 "epoch_validation_seconds": end_epoch_val_time - end_epoch_train_time,
                 "epoch_total_seconds": time_elapsed,
+                **self.train_progress.to_metrics(),
             }
 
             if end_epoch_inf_time is not None:
@@ -492,28 +509,35 @@ class Trainer:
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
 
-            TO: TrainBatchOutput = train_batch(self.model, data, self.loss_fn)
+            with self.train_progress.batch(
+                data, world_size=self.world_size, device=self.device
+            ) as batch_progress:
+                TO: TrainBatchOutput = train_batch(self.model, data, self.loss_fn)
 
-            # Scale loss by the actual number of microbatches that will be accumulated
-            scaled_loss = TO.loss / r
-            scaled_loss.backward()
+                # Scale loss by this accumulation cycle's actual microbatch count.
+                scaled_loss = TO.loss / r
+                scaled_loss.backward()
 
-            train_aggregator.record_batch(TO)
+                train_aggregator.record_batch(TO)
 
-            self.num_batches_seen += 1
+                self.num_batches_seen += 1
 
-            is_last = data_iter_step + 1 == total_batches
-            should_step = (data_iter_step + 1) % self.gradient_accumulation_steps == 0
-            # Step optimizer after accumulating enough batches or at the end
-            if should_step or is_last:
-                torch.nn.utils.clip_grad_norm_(
-                    self.model.parameters(),
-                    1.0,
-                    error_if_nonfinite=True,
-                )
-                self.optimizer.step()
-                self.optimizer.zero_grad()
-                self._ema(model=self.model)
+                is_last = data_iter_step + 1 == total_batches
+                should_step = (
+                    data_iter_step + 1
+                ) % self.gradient_accumulation_steps == 0
+                optimizer_stepped = should_step or is_last
+                batch_progress.optimizer_stepped = optimizer_stepped
+                # Step optimizer after accumulating enough batches or at the end
+                if optimizer_stepped:
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model.parameters(),
+                        1.0,
+                        error_if_nonfinite=True,
+                    )
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
+                    self._ema(model=self.model)
 
             lr = (
                 self.optimizer.param_groups[-1]["lr"]
@@ -529,6 +553,9 @@ class Trainer:
                     "train/batch/loss": loss_value_reduce,
                     "train/batch/lr": lr,
                     "train/batch/ema_cur_decay": self._ema.cur_decay.item(),
+                    **batch_progress.to_metrics(),
+                    **self.train_progress.to_metrics(),
+                    **batch_progress.to_throughput_metrics(),
                     **get_channel_loss_dict(
                         label="train",
                         loss_per_channel=loss_per_channel_reduce,
@@ -969,6 +996,7 @@ class Trainer:
                 "best_inf_loss": self.best_inf_loss,
                 "ema": self._ema.get_state(include_ema_params=not for_inference),
                 "num_batches_seen": self.num_batches_seen,
+                "train_progress": self.train_progress.state_dict(),
                 "wandb_id": self.wandb_id,
                 "wandb_name": self.wandb_name,
             }
@@ -1026,6 +1054,9 @@ class Trainer:
             self.wandb_id = checkpoint.get("wandb_id")
             self.wandb_name = checkpoint.get("wandb_name")
             self.num_batches_seen = checkpoint.get("num_batches_seen", 0)
+            self.train_progress = TrainProgress.from_state_dict(
+                checkpoint.get("train_progress")
+            )
 
             logger.info(f"Start Epoch: {self.start_epoch}")
             logger.info(f"Wandb id: {self.wandb_id}")

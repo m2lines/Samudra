@@ -47,8 +47,9 @@ set -euo pipefail
 read -r job_id < "${FAKE_SBATCH_COUNTER}"
 job_id="$((job_id + 1))"
 printf '%s\\n' "${job_id}" > "${FAKE_SBATCH_COUNTER}"
-printf 'SBATCH_ARGS=%q CONFIG=%q NAME=%q TRAIN_ARGS=%q CHECKPOINT=%q\\n' \
+printf 'SBATCH_ARGS=%q CONFIG=%q NAME=%q TRAIN_ARGS=%q CHECKPOINT=%q NCCL_P2P_DISABLE=%q\\n' \
   "$*" "${CONFIG:-}" "${NAME:-}" "${ARGS:-}" "${CHECKPOINT:-}" \
+  "${NCCL_P2P_DISABLE:-}" \
   >> "${FAKE_SBATCH_CALLS}"
 printf '%s\\n' "${job_id}"
 """
@@ -176,3 +177,40 @@ def test_s3_submission_requests_eight_gpus_and_audits_best_checkpoint(
     assert "best_validation_ckpt.pt" in calls[1]
     assert "--dependency=afterok:9001" in calls[2]
     assert "best_validation_ckpt.pt" in calls[2]
+
+
+def test_s3_submission_sizes_rtx6000_and_disables_nccl_p2p(
+    submission_environment: tuple[dict[str, str], list[Path]],
+) -> None:
+    environment, required = submission_environment
+    environment = {
+        **environment,
+        "TRAIN_GPU_FAMILY": "rtx6000",
+    }
+    result = subprocess.run(
+        [
+            REPOSITORY / "scripts/submit_coarse_latent_s3.sh",
+            required[0],
+            "1",
+            "0.1",
+            required[1],
+            required[4],
+        ],
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+    rows = [line.split("\t") for line in result.stdout.splitlines()]
+    assert rows[0][-1] == "gpu_family"
+    assert rows[1][-1] == "rtx6000"
+    calls = Path(environment["FAKE_SBATCH_CALLS"]).read_text().splitlines()
+    assert "--constraint=rtx6000" in calls[0]
+    assert "--cpus-per-task=128" in calls[0]
+    assert "--mem=1400G" in calls[0]
+    assert "NCCL_P2P_DISABLE=1" in calls[0]
+    assert "--constraint=rtx6000" in calls[1]
+    assert "--cpus-per-task=16" in calls[1]
+    assert "--mem=175G" in calls[1]
+    assert "NCCL_P2P_DISABLE=1" in calls[1]

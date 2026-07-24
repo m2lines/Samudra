@@ -41,6 +41,29 @@ VALIDATION_NAME="${RUN_NAME}-best-cross-validation"
 WANDB_GROUP="${WANDB_GROUP:-coarse-latent-s3}"
 TRAIN_NODES="${TRAIN_NODES:-1}"
 TRAIN_GPUS_PER_NODE="${TRAIN_GPUS_PER_NODE:-8}"
+TRAIN_GPU_FAMILY="${TRAIN_GPU_FAMILY:-h200}"
+
+case "${TRAIN_GPU_FAMILY}" in
+  h200)
+    DEFAULT_CPUS_PER_GPU=8
+    DEFAULT_MEMORY_PER_GPU_GB=64
+    DEFAULT_NCCL_P2P_DISABLE=0
+    ;;
+  rtx6000)
+    DEFAULT_CPUS_PER_GPU=16
+    DEFAULT_MEMORY_PER_GPU_GB=175
+    DEFAULT_NCCL_P2P_DISABLE=1
+    ;;
+  *)
+    echo \
+      "TRAIN_GPU_FAMILY must be h200 or rtx6000; got ${TRAIN_GPU_FAMILY}." \
+      >&2
+    exit 2
+    ;;
+esac
+TRAIN_CPUS_PER_GPU="${TRAIN_CPUS_PER_GPU:-${DEFAULT_CPUS_PER_GPU}}"
+TRAIN_MEMORY_PER_GPU_GB="${TRAIN_MEMORY_PER_GPU_GB:-${DEFAULT_MEMORY_PER_GPU_GB}}"
+TRAIN_NCCL_P2P_DISABLE="${TRAIN_NCCL_P2P_DISABLE:-${DEFAULT_NCCL_P2P_DISABLE}}"
 
 for weight in "${PHYSICAL_WEIGHT}" "${LATENT_WEIGHT}"; do
   if [[ ! "${weight}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
@@ -52,7 +75,11 @@ if [[ "${PHYSICAL_WEIGHT}" == "0" && "${LATENT_WEIGHT}" == "0" ]]; then
   echo "At least one loss weight must be nonzero." >&2
   exit 2
 fi
-for count in "${TRAIN_NODES}" "${TRAIN_GPUS_PER_NODE}"; do
+for count in \
+  "${TRAIN_NODES}" \
+  "${TRAIN_GPUS_PER_NODE}" \
+  "${TRAIN_CPUS_PER_GPU}" \
+  "${TRAIN_MEMORY_PER_GPU_GB}"; do
   if [[ ! "${count}" =~ ^[1-9][0-9]*$ ]]; then
     echo "Training node/GPU counts must be positive integers; got ${count}." >&2
     exit 2
@@ -65,8 +92,8 @@ if (( TRAIN_TOTAL_GPUS != 8 )); then
     >&2
   exit 2
 fi
-TRAIN_CPUS_PER_TASK="$((8 * TRAIN_GPUS_PER_NODE))"
-TRAIN_MEMORY="$((64 * TRAIN_GPUS_PER_NODE))G"
+TRAIN_CPUS_PER_TASK="$((TRAIN_CPUS_PER_GPU * TRAIN_GPUS_PER_NODE))"
+TRAIN_MEMORY="$((TRAIN_MEMORY_PER_GPU_GB * TRAIN_GPUS_PER_NODE))G"
 if [[ ! "${AUDIT_MAX_BATCHES}" =~ ^[1-9][0-9]*$ ]]; then
   echo "AUDIT_MAX_BATCHES must be a positive integer." >&2
   exit 2
@@ -131,6 +158,8 @@ train_job_id="$(
   CODE_LAYER="${CODE_LAYER}" \
   WANDB_MODE="online" \
   GPUS_PER_NODE="${TRAIN_GPUS_PER_NODE}" \
+  NCCL_P2P_DISABLE="${TRAIN_NCCL_P2P_DISABLE}" \
+  TORCH_NCCL_ASYNC_ERROR_HANDLING="1" \
   REQUEUE_ON_USR1="1" \
   DATA_CACHE_DIR="${SCRATCH_DIR}/.data_cache/${RUN_NAME}" \
     sbatch \
@@ -140,7 +169,7 @@ train_job_id="$(
       --chdir="${SCRATCH_DIR}" \
       --job-name="oe-s3-full" \
       --account="torch_pr_347_courant" \
-      --constraint="h200" \
+      --constraint="${TRAIN_GPU_FAMILY}" \
       --gres="gpu:${TRAIN_GPUS_PER_NODE}" \
       --cpus-per-task="${TRAIN_CPUS_PER_TASK}" \
       --mem="${TRAIN_MEMORY}" \
@@ -173,6 +202,8 @@ validation_job_id="$(
   CODE_LAYER="${CODE_LAYER}" \
   WANDB_MODE="online" \
   GPUS_PER_NODE="1" \
+  NCCL_P2P_DISABLE="${TRAIN_NCCL_P2P_DISABLE}" \
+  TORCH_NCCL_ASYNC_ERROR_HANDLING="1" \
   REQUEUE_ON_USR1="1" \
   DATA_CACHE_DIR="${SCRATCH_DIR}/.data_cache/${VALIDATION_NAME}" \
     sbatch \
@@ -181,10 +212,10 @@ validation_job_id="$(
       --chdir="${SCRATCH_DIR}" \
       --job-name="oe-s3-val" \
       --account="torch_pr_347_courant" \
-      --constraint="h200" \
+      --constraint="${TRAIN_GPU_FAMILY}" \
       --gres="gpu:1" \
-      --cpus-per-task="8" \
-      --mem="64G" \
+      --cpus-per-task="${TRAIN_CPUS_PER_GPU}" \
+      --mem="${TRAIN_MEMORY_PER_GPU_GB}G" \
       --time="01:00:00" \
       --signal="B:USR1@120" \
       --requeue \
@@ -210,10 +241,10 @@ audit_job_id="$(
       --chdir="${SCRATCH_DIR}" \
       --job-name="oe-s3-audit" \
       --account="torch_pr_347_courant" \
-      --constraint="h200" \
+      --constraint="${TRAIN_GPU_FAMILY}" \
       --gres="gpu:1" \
-      --cpus-per-task="8" \
-      --mem="64G" \
+      --cpus-per-task="${TRAIN_CPUS_PER_GPU}" \
+      --mem="${TRAIN_MEMORY_PER_GPU_GB}G" \
       --time="00:30:00" \
       --requeue \
       --comment="preemption=yes;preemption_partitions_only=yes;requeue=true" \
@@ -223,8 +254,8 @@ audit_job_id="$(
 )"
 
 printf \
-  'train_job_id\tvalidation_job_id\taudit_job_id\trun_name\tphysical_weight\tlatent_weight\tlayout\n'
-printf '%s\t%s\t%s\t%s\t%s\t%s\t%sx%s\n' \
+  'train_job_id\tvalidation_job_id\taudit_job_id\trun_name\tphysical_weight\tlatent_weight\tlayout\tgpu_family\n'
+printf '%s\t%s\t%s\t%s\t%s\t%s\t%sx%s\t%s\n' \
   "${train_job_id}" \
   "${validation_job_id}" \
   "${audit_job_id}" \
@@ -232,4 +263,5 @@ printf '%s\t%s\t%s\t%s\t%s\t%s\t%sx%s\n' \
   "${PHYSICAL_WEIGHT}" \
   "${LATENT_WEIGHT}" \
   "${TRAIN_NODES}" \
-  "${TRAIN_GPUS_PER_NODE}"
+  "${TRAIN_GPUS_PER_NODE}" \
+  "${TRAIN_GPU_FAMILY}"

@@ -18,8 +18,8 @@ stage means that it has not yet run, not that it passed.
 | Plan and harness specification | Complete | Patch-compression reconstruction and counterfactual dynamics probes are implemented and tested |
 | S0-R synthetic reconstruction | Complete | Two seeds promote the 16-moment encoder plus continuous anchored hybrid |
 | S0-D synthetic subgrid closure | Complete | Two seeds show that the promoted pair retains and dynamically uses subpatch phase |
-| S1 OM4 learned inverse | In progress | One-/half-degree bring-up and expanded audit pass; matched 60-epoch convergence, seed, and bilinear-control runs are running |
-| S2 frozen-inverse dynamics | Implementation complete; execution pending | Physical-only, latent-teacher-only, and combined frozen-inverse objectives are implemented and tested; launch awaits the matched S1 selection |
+| S1 OM4 learned inverse | Complete | Two learned-decoder seeds reproduce error and structural fidelity; matched bilinear loses most fine-grid power despite higher latent agreement |
+| S2 frozen-inverse dynamics | Running | Four matched objective arms and their dependent best-checkpoint validations/audits are submitted from the selected seed-15 inverse |
 | S3 full validation | Pending | — |
 
 ## Evidence inherited from the decoder investigation
@@ -72,11 +72,14 @@ This correction of scope is the reason for S0-R and S0-D.
 | `2026-07-24-coarse-moment-attn-s1-60ep-s0` | S1 | `2e79511b` | Resume the cross-resolution hybrid seed-15 checkpoint from epoch 10 through epoch 60 on two preemptible H200 GPUs | Canceled (`14724411`) | The two-GPU request remained under `gpu48` with `QOSMaxGRESPerUser`; replaced by a one-GPU, batch-two request with the same global batch and update count |
 | `2026-07-24-coarse-moment-attn-s1-60ep-s1` | S1 | `2e79511b` | Independent cross-resolution hybrid run through epoch 60 with model seed 16 on two preemptible H200 GPUs | Canceled (`14724412`) | Replaced by the matched one-GPU request before launch |
 | `2026-07-24-coarse-moment-bilinear-s1-60ep-s0` | S1 | `2e79511b` | Cross-resolution 16-moment encoder with bilinear-only D0 through epoch 60 on two preemptible H200 GPUs | Canceled (`14724413`) | Replaced by the matched one-GPU request before launch |
-| `2026-07-24-coarse-moment-attn-s1-60ep-s0-1h200` | S1 | `2e79511b` | Resume the hybrid seed-15 checkpoint through epoch 60 on one preemptible H200 with batch size two | Running (`14724824`) | Preserves global batch two, route-homogeneous batches, and 64 optimizer updates per epoch |
-| `2026-07-24-coarse-moment-attn-s1-60ep-s1-1h200` | S1 | `2e79511b` | Independent hybrid seed 16 through epoch 60 on one preemptible H200 with batch size two | Running (`14724820`) | Seed-stability run at the full 3,840-update S1 proxy budget |
-| `2026-07-24-coarse-moment-bilinear-s1-60ep-s0-1h200` | S1 | `2e79511b` | Bilinear-only D0 control through epoch 60 on one preemptible H200 with batch size two | Running (`14724821`) | Matched control for the continuous anchored decoder branch |
+| `2026-07-24-coarse-moment-attn-s1-60ep-s0-1h200` | S1 | `2e79511b` | Resume the hybrid seed-15 checkpoint through epoch 60 on one preemptible H200 with batch size two | Complete (`14724824`) | Completed in 1h09m with train/validation normalized MSE 0.073/0.073; terminal and best files contain bit-identical model tensors |
+| `2026-07-24-coarse-moment-attn-s1-60ep-s1-1h200` | S1 | `2e79511b` | Independent hybrid seed 16 through epoch 60 on one preemptible H200 with batch size two | Complete (`14724820`) | Completed in 1h26m; best/terminal normalized validation MSE 0.071/0.072 confirms seed stability |
+| `2026-07-24-coarse-moment-bilinear-s1-60ep-s0-1h200` | S1 | `2e79511b` | Bilinear-only D0 control through epoch 60 on one preemptible H200 with batch size two | Complete (`14724821`) | Completed in 1h28m with terminal normalized validation MSE 0.234, 3.2× the selected seed-15 hybrid |
 | `2026-07-24-coarse-moment-attn-s1-proxy-preempt-only-s0-audit-v1` | S1 audit | `34b6bbba` | Wet-cell, gradient-power, seam, synchronized-latent, and cross-output patch-mean audit of the completed epoch-10 hybrid | Failed (`14724704`) | Route diagnostics completed, but the new cross-resolution pass assumed a Python loader attribute absent from the configured Rust loader |
 | `2026-07-24-coarse-moment-attn-s1-proxy-preempt-only-s0-audit-v2` | S1 audit | `49c897d4` | Corrected native-loader-compatible audit of the same epoch-10 checkpoint | Complete (`14725135`) | Four routes audited over 73 batches each; synchronized latent cosine similarity 0.972 and output patch-mean symmetric normalized MSE 0.0158 |
+| `2026-07-24-coarse-moment-attn-s1-60ep-s0-1h200-audit-v2` | S1 audit | `49c897d4` | Matched terminal audit of primary seed 15 | Complete (`14725133`) | Latent cosine 0.961; cross-output patch-mean symmetric NMSE 0.0173--0.0174; gradient-power ratios 0.39--0.70; seam ratios 0.80--0.83; correction/prediction RMS 0.79--0.81 |
+| `2026-07-24-coarse-moment-attn-s1-60ep-s1-1h200-audit-v2` | S1 audit | `49c897d4` | Matched terminal audit of seed 16 | Complete (`14725134`) | Latent cosine 0.959; route MSE 0.098--0.181, gradient-power ratios 0.40--0.71, seam ratios 0.81--0.83, closely reproducing seed 15 |
+| `2026-07-24-coarse-moment-bilinear-s1-60ep-s0-1h200-audit-v2` | S1 audit | `49c897d4` | Matched terminal audit of bilinear D0 | Complete (`14725132`) | Route MSE 0.353--0.482 and gradient-power ratios 0.019--0.056; latent cosine 0.974 is higher because the model discards more resolution-specific subpatch structure |
 | `local-s1-1deg-bringup-s0` | S1 | working tree after `6332322c` | Local OM4 1°, fixed 60×72 latent, one training sample and three validation samples | Complete | 1.62 s training step; 1.23 GB peak GPU memory; full model/data/checkpoint path succeeds |
 | `local-s1-1deg-proxy-s0` | S1 | working tree after `6332322c` | Local OM4 1°, fixed 60×72 latent, width 160, 32 samples, seed 15; 10 epochs then resumed to 60 | Complete | Train/validation normalized MSE 0.058/0.058 after 1,920 updates; no seam spike; retains 62% of target gradient power |
 | `local-s1-1deg-bilinear-s0` | S1 | working tree after `6332322c` | Same as local attention proxy, but D0 bilinear decoder only | Complete | Validation MSE 0.208; the continuous anchored hybrid is 29.3% lower at matched updates |
@@ -87,6 +90,10 @@ This correction of scope is the reason for S0-R and S0-D.
 | `2026-07-24-coarse-latent-s2-audit-smoke-v2` | S2 audit integration | `71f3630d` | Same audit with both audit scripts explicitly bind-mounted into the container | Complete (`14728408`) | In 45 seconds, two synchronized batches exercised every depth/route; all 30 frozen inverse tensors were bit-exact, residual scale shape was `[1,160,1,1]`, and every diagnostic was finite |
 | `2026-07-24-coarse-latent-s2-audit-smoke-v3` | S2 audit integration | working tree after `f10ce829` | Adds physical persistence and subpatch-moment ablation diagnostics | Failed (`14728730`) | Selective activation checkpointing wraps the encoder; an overly strict direct type check failed before data evaluation |
 | `2026-07-24-coarse-latent-s2-audit-smoke-v4` | S2 audit integration | working tree after `f10ce829` | Wrapper-aware repeat of the expanded two-batch audit | Complete (`14729100`) | Completed in 58 seconds; full, persistence, and 120-moment-channel-ablation metrics were finite at depths 1/2/4 on both grids |
+| `2026-07-24-coarse-latent-s2-physical-only` | S2 | `36fe44aa` | Half-degree proxy, `(w_x, lambda_z)=(1,0)`, depths 1/2/4 | Submitted (`14731349`) | Best-checkpoint cross-route validation `14731350` and latent audit `14731351` depend on training success |
+| `2026-07-24-coarse-latent-s2-latent-only` | S2 | `36fe44aa` | Half-degree proxy, `(w_x, lambda_z)=(0,1)`, depths 1/2/4 | Submitted (`14731352`) | Best-checkpoint cross-route validation `14731353` and latent audit `14731354` depend on training success |
+| `2026-07-24-coarse-latent-s2-combined-001` | S2 | `36fe44aa` | Half-degree proxy, `(w_x, lambda_z)=(1,0.01)`, depths 1/2/4 | Submitted (`14731355`) | Best-checkpoint cross-route validation `14731356` and latent audit `14731357` depend on training success |
+| `2026-07-24-coarse-latent-s2-combined-01` | S2 | `36fe44aa` | Half-degree proxy, `(w_x, lambda_z)=(1,0.1)`, depths 1/2/4 | Submitted (`14731358`) | Best-checkpoint cross-route validation `14731359` and latent audit `14731360` depend on training success |
 
 ## S0-R synthetic reconstruction
 
@@ -345,8 +352,60 @@ symmetric normalized MSE 0.0158. Wet-cell channel-mean MSE is 0.236 for
 0.281, 0.139, 0.275, and 0.137. Seam/all gradient-error ratios remain below
 one on all routes (0.831, 0.904, 0.836, and 0.896), so the early
 cross-resolution weakness is attenuated fine-grid structure rather than a patch
-boundary discontinuity. The epoch-60 audits are required to determine how much
-of that attenuation is optimization-limited.
+boundary discontinuity. The epoch-60 comparison below determines how much of
+that attenuation is optimization-limited.
+
+### Matched 60-epoch cross-resolution selection
+
+The two learned-decoder seeds and bilinear control completed the same
+3,840-update budget:
+
+| Decoder | Seed | Best validation MSE | Terminal validation MSE |
+|---|---:|---:|---:|
+| Continuous anchored hybrid | 15 | 0.073 | 0.073 |
+| Continuous anchored hybrid | 16 | **0.071** | **0.072** |
+| Bilinear D0 | 15 | 0.234 | 0.234 |
+
+The selected primary seed-15 hybrid therefore has 68.8% lower terminal error
+than bilinear; seed 16 differs from seed 15 by only 1.4% at the terminal
+checkpoint. Seed 15 was retained for S2 because it was the preregistered primary
+seed and had already passed the complete structural audit, not because it won a
+post-hoc seed comparison. Its best and terminal checkpoint files contain
+bit-identical model tensors.
+
+The seed-15 terminal audit shows that the earlier fine-grid attenuation was
+substantially optimization-limited:
+
+| Route | Wet-cell channel-mean MSE | Gradient-power ratio | Seam/all error | Correction/prediction RMS |
+|---|---:|---:|---:|---:|
+| `1->1` | 0.097 | 0.700 | 0.808 | 0.794 |
+| `1->1/2` | 0.183 | 0.390 | 0.831 | 0.800 |
+| `1/2->1` | 0.106 | 0.695 | 0.805 | 0.800 |
+| `1/2->1/2` | 0.183 | 0.402 | 0.802 | 0.807 |
+
+Relative to epoch 10, same-output-grid gradient power increases by factors of
+2.49--2.93 while every seam ratio remains below one. The learned correction is
+about 80% of prediction RMS on every route, so the gain is not merely a small
+calibration of the bilinear base. Synchronized latent cosine decreases modestly
+from 0.972 to 0.961 and symmetric normalized latent MSE rises from 0.091 to
+0.140, while same-latent cross-output patch-mean NMSE remains low at
+0.0173--0.0174. This is consistent with the encoder learning some
+resolution-specific subpatch content while preserving a strongly shared coarse
+state; it does not support forcing full-latent alignment before dynamics.
+
+Seed 16 independently reproduces the seed-15 structural result: route MSE
+0.098--0.181, gradient-power ratios 0.400--0.712, seam ratios 0.806--0.831,
+and correction/prediction RMS 0.802--0.816. The matched converged bilinear
+control instead has route MSE 0.353--0.482 and retains only 1.9--5.6% of target
+gradient power. Thus the anchored hybrid lowers wet-cell MSE by 61.6--72.4%
+and retains 12.6--21.8 times more gradient power, across both learned seeds.
+
+The bilinear control's latent cosine is higher (0.974) than either learned
+hybrid (0.959--0.961), while its fine-grid physical fidelity is dramatically
+worse. This is direct evidence against treating whole-latent
+cross-resolution agreement as the objective: a representation can become more
+resolution-invariant by discarding exactly the subpatch information that the
+coarse decoder needs.
 
 ### Local one-degree bring-up
 
@@ -410,8 +469,9 @@ is gradient attenuation, not patch seams.
 
 ## S2 frozen-inverse latent dynamics
 
-Implementation is complete and execution awaits the matched S1 checkpoint
-selection. The S2 model keeps the S1 `PatchMomentEncoder` and
+Implementation is complete, and all four matched arms are running from the
+seed-15 epoch-60 inverse selected above. The S2 model keeps the S1
+`PatchMomentEncoder` and
 `ContinuousResampleAttentionResidualDecoder`, changes encoder geometry mode from
 `none` to parameter-free `sidecar`, enables one shared processor invocation per
 physical step, and freezes all `encoder.*` and `decoder.*` parameters.
@@ -548,3 +608,24 @@ residual produces excellent MSE but boundary discontinuities. The candidate
 decoder now conditions each neighbor's value on its own continuous query offset
 and blends overlapping predictions. The zero-initialized hybrid remains a
 candidate because it currently optimizes better than the attention-only form.
+
+### 2026-07-24: do not add latent alignment before the dynamics test
+
+The converged seed-15 inverse already gives synchronized-resolution latent
+cosine 0.961 and same-latent cross-output patch-mean NMSE about 0.017 without an
+alignment objective. Its modest resolution-specific latent divergence appears
+while high-resolution gradient fidelity improves by roughly threefold and is
+therefore plausibly carrying the desired extra subpatch state. Even a
+shared-subspace penalty adds a confound before the central frozen-inverse
+dynamics test. Alignment is deferred unless S2 shows that natural agreement is
+insufficient for a shared processor.
+
+### 2026-07-24: defer width 320 until width 160 dynamics are measured
+
+Width 160 passes the synthetic reconstruction/closure gates, improves
+cross-resolution OM4 reconstruction through 3,840 updates, and beats bilinear
+by 68.8%. Doubling width before measuring latent dynamics would multiply
+processor cost while changing both inverse capacity and transition capacity.
+The width-320 arm is therefore deferred; it should be reopened only if S2/S3
+diagnostics identify representational capacity, rather than transition
+optimization, as the limiting factor.

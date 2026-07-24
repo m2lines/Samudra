@@ -118,9 +118,12 @@ def canonicalize_llc_datasets(
             dataset_spec.prognostic_var_names + dataset_spec.boundary_var_names
         )
     }
+    center_mask_var = _preferred_available_var(data_copy, ("mask_c", "hFacC"))
     requested_data_vars.update(
-        [dataset_spec.mask_all_levels_var, "mask_c", *dataset_spec.mask_vars]
+        [dataset_spec.mask_all_levels_var, *dataset_spec.mask_vars]
     )
+    if center_mask_var is not None:
+        requested_data_vars.add(center_mask_var)
     requested_data_vars.update(_llc_staggered_mask_vars(data_copy, requested_data_vars))
     data_copy = data_copy[
         [name for name in data_copy.data_vars if name in requested_data_vars]
@@ -178,7 +181,6 @@ def canonicalize_llc_datasets(
         old: new
         for old, new in {
             "k": "lev",
-            "mask_c": "wetmask",
             "i": "x",
             "j": "y",
         }.items()
@@ -186,6 +188,8 @@ def canonicalize_llc_datasets(
         or old in data_copy.variables
         or old in data_copy.coords
     }
+    if center_mask_var is not None:
+        rename_map[center_mask_var] = dataset_spec.mask_all_levels_var
     if rename_map:
         data_copy = data_copy.rename(rename_map)
 

@@ -68,7 +68,7 @@ export APPTAINERENV_PYTHONPATH=/opt/samudra-code/src
   --pwd /opt/samudra-code \
   "${SIF_PATH}" \
   /workspace/.venv/bin/python \
-  scripts/audit_coarse_dynamics.py \
+  -m scripts.audit_coarse_dynamics \
   "${CONFIG}" \
   "${CHECKPOINT}" \
   --inverse-checkpoint "${INVERSE_CHECKPOINT}" \

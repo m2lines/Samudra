@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784901208764,
+  "lastUpdate": 1784909675437,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -11105,6 +11105,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.2141980148981941",
             "extra": "mean: 54.606134444199995 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fomobot640@gmail.com",
+            "name": "fomo-bot",
+            "username": "fomo-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "ca7d985eea8c1bcb4380efd9296004fe16afc76e",
+          "message": "Log comparable W&B training progress metrics (#796)\n\n## Summary\n\n- log cumulative W&B `progress/*` counters for sample windows, model\nexamples, output grid cells, target values, tensor bytes, optimizer\nsteps, and GPU seconds\n- log per-batch companion metrics plus global throughput rates and\nexplicit local/global batch-size config values\n- save/load training progress counters in checkpoints and document the\nnew metric names\n\nFixes #795\n\n## Testing\n\n- `uv run --with ruff ruff check src/samudra/train.py\ntests/test_trainer.py`\n- `uv run pytest tests/test_trainer.py -m \"not manual and not cuda\"`\n- `uv run pytest -m \"not manual and not cuda\"` fails in six existing\n`tests/test_datasets.py` `samudra_multi` cases because\n`implementation=auto` selects flash attention but `flash_perceiver` is\nnot installed in this environment; the rest of the run completed with\n`290 passed, 2 skipped, 10 xfailed, 69 deselected`.",
+          "timestamp": "2026-07-24T15:36:03Z",
+          "tree_id": "15a614bd7cf6f90eafedc88f62097875a9e81147",
+          "url": "https://github.com/m2lines/Samudra/commit/ca7d985eea8c1bcb4380efd9296004fe16afc76e"
+        },
+        "date": 1784909673961,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.094363984876985,
+            "unit": "iter/sec",
+            "range": "stddev: 0.001041415596515918",
+            "extra": "mean: 913.7727609999956 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.06542788392169917,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08762643290501387",
+            "extra": "mean: 15.284003395199978 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.018668410446256542,
+            "unit": "iter/sec",
+            "range": "stddev: 0.30671770667854836",
+            "extra": "mean: 53.5664245694 sec\nrounds: 5"
           }
         ]
       }

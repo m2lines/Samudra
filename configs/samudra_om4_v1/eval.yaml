@@ -7,9 +7,6 @@
 debug: false
 save_zarr: true
 disk_mode: true
-inference_time:
-  start: "2014-10-10"
-  end: "2022-12-24"
 num_model_steps_forward: 25
 
 experiment:

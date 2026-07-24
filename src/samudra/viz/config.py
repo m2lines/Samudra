@@ -11,7 +11,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, BeforeValidator, Field, WithJsonSchema
 
-from samudra.config import TimeConfig
+from samudra.config import Om4TimeConfig
 from samudra.config_base import TopLevelConfig
 from samudra.utils.location import LocalLocation, Location, ResolvedLocation
 from samudra.utils.logging import handle_logging
@@ -69,7 +69,7 @@ class VizConfig(TopLevelConfig):
     groundtruth_location: Location
     basins_location: Location
     # TODO(jder): we could extract this from the run data?
-    groundtruth_time_range: TimeConfig = Field(
+    groundtruth_time_range: Om4TimeConfig = Field(
         description="Dates from the rollout (not same as eval *input* dates; these are the dates the output is produced for during eval)"
     )
     steps: list[VizStep] | None = Field(

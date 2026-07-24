@@ -21,7 +21,7 @@ from hypothesis.extra.numpy import arrays
 from numpy.typing import NDArray
 from torch.utils.data import ConcatDataset, DataLoader
 
-from samudra.config import TimeConfig, TrainConfig
+from samudra.config import DataConfig, TrainConfig
 from samudra.constants import LoaderVersion
 from samudra.datasets import (
     InferenceDataset,
@@ -30,6 +30,7 @@ from samudra.datasets import (
     TrainDataLoader,
 )
 from samudra.utils.data import DataSource, Masks, Normalize
+from samudra.utils.location import LocalLocation
 from samudra.utils.multiton import MultitonScope
 from samudra.utils.samplers import EquivalenceGroupBatchSampler
 from samudra.utils.train import collate_raw_train_data
@@ -40,6 +41,7 @@ from tests.conftest import (
     TrainPair,
     cache_dir,
 )
+from tests.llc_fixtures import write_raw_llc_zarr_datasets
 
 
 @pytest.fixture
@@ -88,29 +90,24 @@ def coarsen_masks(masks: Masks) -> Masks:
 @contextlib.contextmanager
 def make_loader(
     cfg: TrainConfig,
-    time_config: TimeConfig | None = None,
     drop_last: bool = True,
     version: LoaderVersion | None = None,
     multiscale: bool = False,
     shuffle: bool = True,
 ) -> Generator[DataLoader | TrainDataLoader, None, None]:
-    if time_config is None:
-        time_config = cfg.train_time
-
     data_config = (
         cfg.data
         if version is None
         else cfg.data.model_copy(update={"loader_version": str(version.value)})
     )
-    dataset_spec = data_config.dataset.build()
-    prognostic = dataset_spec.prognostic_var_names
-    boundary = dataset_spec.boundary_var_names
-
     container = data_config.build(
         cfg.experiment.resolved_data_root,
     )
+    dataset_spec = container.dataset_spec
+    prognostic = dataset_spec.prognostic_var_names
+    boundary = dataset_spec.boundary_var_names
     version = container.loader_version
-    src = container.primary_source
+    src = container.train_sources[0]
     if src.is_compact and version != LoaderVersion.OM4_TORCH:
         pytest.skip(f"{version} does not support compact data.")
 
@@ -123,7 +120,7 @@ def make_loader(
             case LoaderVersion.OM4_TORCH:
                 dataset_list = [
                     TorchTrainDataset(
-                        src=src.slice(time_config),
+                        src=src,
                         prognostic_var_names=prognostic,
                         boundary_var_names=boundary,
                         hist=cfg.data.hist,
@@ -304,7 +301,7 @@ def test_loader__data_shape(
     train_config.data.hist = history
 
     with make_loader(train_config, version=loader_version) as loader:
-        dataset_spec = train_config.data.dataset.build()
+        dataset_spec = train_config.data.sources[0].dataset_spec
         batch_size = train_config.batch_size
         num_input_timesteps = history + 1
 
@@ -314,7 +311,10 @@ def test_loader__data_shape(
         ) * num_input_timesteps
         output_var_dim = len(dataset_spec.prognostic_var_names) * num_input_timesteps
 
-        n_samples = calc_num_samples(train_config, train_config.train_time.time_slice)
+        n_samples = calc_num_samples(
+            train_config,
+            train_config.data.sources[0].train_time.time_slice,
+        )
         assert len(loader) == n_samples, (
             f"Current config {train_config} only supports {n_samples} examples; "
             f"got {len(loader)}."
@@ -370,7 +370,7 @@ def test_loader__data_shape__across_source_counts(
         # Keep grouped-sampler ordering deterministic for resolution coverage.
         shuffle=False,
     ) as loader:
-        dataset_spec = train_config.data.dataset.build()
+        dataset_spec = train_config.data.sources[0].dataset_spec
         batch_size = train_config.batch_size
         num_input_timesteps = history + 1
 
@@ -382,7 +382,7 @@ def test_loader__data_shape__across_source_counts(
 
         n_samples = calc_num_samples(
             train_config,
-            train_config.train_time.time_slice,
+            train_config.data.sources[0].train_time.time_slice,
             source_count=2 if multiscale else 1,
         )
         assert len(loader) == n_samples, (
@@ -425,7 +425,7 @@ def test_loader__data_shape__across_source_counts(
 def test_inference__data_shape(inference_loader_pair):
     cfg, loader = inference_loader_pair
 
-    dataset_spec = cfg.data.dataset.build()
+    dataset_spec = cfg.data.sources[0].dataset_spec
     batch_size = 1  # Inference always uses batch size 1
     hist = cfg.data.hist + 1
 
@@ -549,6 +549,127 @@ def test_source_count__has_consistent_collated_batches(
     with make_loader(train_config, multiscale=multiscale) as loader:
         for _ in itertools.islice(loader, 2):
             pass
+
+
+def _llc_data_config(
+    *,
+    prognostic_vars_key: str = "single_1",
+    boundary_vars_key: str = "single_1",
+    train_end: str = "2011-09-12T12:00:00Z",
+    val_end: str = "2011-09-13T12:00:00Z",
+) -> DataConfig:
+    return DataConfig.model_validate(
+        {
+            "sources": [
+                {
+                    "type": "llc",
+                    "prognostic_vars_key": prognostic_vars_key,
+                    "boundary_vars_key": boundary_vars_key,
+                    "face": 1,
+                    "i_start": 0,
+                    "i_end": 4,
+                    "j_start": 0,
+                    "j_end": 3,
+                    "train_time": {
+                        "start": "2011-09-10T12:00:00Z",
+                        "end": train_end,
+                    },
+                    "val_time": {
+                        "start": train_end,
+                        "end": val_end,
+                    },
+                    "data_location": "data.zarr",
+                    "data_means_location": "means.zarr",
+                    "data_stds_location": "stds.zarr",
+                }
+            ],
+            "hist": 1,
+            "normalize_before_mask": True,
+            "masked_fill_value": -99.0,
+            "loading": {"type": "cpu", "num_workers": 0},
+        }
+    )
+
+
+def _llc_torch_dataset(config: DataConfig, tmp_path) -> TorchTrainDataset:
+    container = config.build(LocalLocation(path=tmp_path))
+    dataset_spec = container.dataset_spec
+    return TorchTrainDataset(
+        src=container.train_sources[0],
+        prognostic_var_names=dataset_spec.prognostic_var_names,
+        boundary_var_names=dataset_spec.boundary_var_names,
+        hist=config.hist,
+        steps=1,
+        normalize_before_mask=config.normalize_before_mask,
+        masked_fill_value=config.masked_fill_value,
+        stride=1,
+    )
+
+
+def test_llc_train_dataset_loads_raw_zarr_single_channel(tmp_path):
+    write_raw_llc_zarr_datasets(tmp_path, n_time=6)
+    config = _llc_data_config(
+        train_end="2011-09-15T12:00:00Z",
+        val_end="2011-09-16T12:00:00Z",
+    )
+    torch_dataset = _llc_torch_dataset(config, tmp_path)
+    raw_batch = collate_raw_train_data([torch_dataset[0], torch_dataset[1]])
+
+    train_data = torch_dataset.to_train_data(raw_batch, torch.device("cpu"))
+    prognostic, boundary, label = train_data[0]
+    src = torch_dataset.prognostic_src
+    boundary_src = torch_dataset.boundary_src
+
+    assert len(torch_dataset) == 3
+    assert prognostic.shape == (2, 2, 3, 4)
+    assert boundary.shape == (2, 2, 3, 4)
+    assert label.shape == (2, 2, 3, 4)
+
+    assert prognostic[0, 0, 0, 0] == config.masked_fill_value
+    assert label[0, 0, 0, 0] == config.masked_fill_value
+    assert boundary[0, 0, 0, 0] == config.masked_fill_value
+
+    assert (
+        prognostic[0, 0, 0, 1] == src.data["Theta_0"].isel(time=0, lat=0, lon=1).item()
+    )
+    assert (
+        prognostic[0, 1, 0, 1] == src.data["Theta_0"].isel(time=1, lat=0, lon=1).item()
+    )
+    assert label[0, 0, 0, 1] == src.data["Theta_0"].isel(time=2, lat=0, lon=1).item()
+    assert (
+        boundary[0, 0, 0, 1]
+        == boundary_src.data["oceQnet"].isel(time=0, lat=0, lon=1).item()
+    )
+
+
+def test_llc_train_dataset_loads_all_raw_variable_families(tmp_path):
+    write_raw_llc_zarr_datasets(tmp_path, n_time=4)
+    config = _llc_data_config(
+        prognostic_vars_key="all",
+        boundary_vars_key="all",
+        train_end="2011-09-13T12:00:00Z",
+        val_end="2011-09-14T12:00:00Z",
+    )
+    config.hist = 0
+    torch_dataset = _llc_torch_dataset(config, tmp_path)
+    raw_batch = collate_raw_train_data([torch_dataset[0]])
+
+    train_data = torch_dataset.to_train_data(raw_batch, torch.device("cpu"))
+    prognostic, boundary, label = train_data[0]
+    dataset_spec = config.sources[0].dataset_spec
+
+    assert len(torch_dataset) == 3
+    assert prognostic.shape == (1, len(dataset_spec.prognostic_var_names), 3, 4)
+    assert boundary.shape == (1, len(dataset_spec.boundary_var_names), 3, 4)
+    assert label.shape == (1, len(dataset_spec.prognostic_var_names), 3, 4)
+
+    src = torch_dataset.prognostic_src
+    assert "Salt_50" in src.data.variables
+    assert "U_0" in src.data.variables
+    assert "V_0" in src.data.variables
+    assert "Eta" in src.data.variables
+    assert "oceTAUX" in torch_dataset.boundary_src.data.variables
+    assert "oceTAUY" in torch_dataset.boundary_src.data.variables
 
 
 @pytest.fixture

@@ -222,6 +222,7 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
     _, trainer = trainer_pair
 
     hist = trainer.hist
+    assert trainer.inference_src is not None
     resolution = trainer.inference_src.resolution
     wet = trainer.inference_src.masks.prognostic_with_hist(hist)
     ctx = GridContext(wet, resolution, resolution).to(trainer.device)
@@ -244,34 +245,6 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
     out2 = model.forward_once(prog, boundary, ctx)
 
     assert torch.allclose(out, out2)
-
-
-@pytest.mark.parametrize(
-    "data_source,config_name,extra_config_args",
-    [
-        (
-            "mock",
-            DEFAULT_CONFIG,
-            [
-                "--train_time.start",
-                "1975-08-01",
-                "--train_time.end",
-                "1975-09-01",
-                "--val_time.start",
-                "1975-08-15",
-                "--val_time.end",
-                "1975-09-01",
-            ],
-        ),
-    ],
-    indirect=True,
-)
-def test_trainer_overlapping_time_ranges_raises_error(train_config, caplog):
-    """Creating a trainer with overlapping train + val times should error."""
-
-    with MultitonScope():
-        with pytest.raises(ValueError, match="Training time range.*"):
-            Trainer(train_config)
 
 
 def test_should_log_validation_images_every_n_epochs():
@@ -344,6 +317,7 @@ def test_data_loaders_enable_persistent_workers_on_positive_num_workers(
     assert trainer.mp_context.get_start_method() == "spawn"
     assert trainer.train_loader._dataloader.persistent_workers is True
     assert trainer.val_loader._dataloader.persistent_workers is True
+    assert trainer.inference_src is not None
 
 
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)

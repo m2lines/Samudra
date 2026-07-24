@@ -10,7 +10,7 @@ import torch
 import xarray as xr
 from scipy.stats import pearsonr
 
-from samudra.constants import TensorMap
+from samudra.constants import TensorMap, build_llc_spec
 from samudra.utils.data import (
     DataSource,
     Masks,
@@ -25,7 +25,14 @@ from samudra.utils.data import (
     with_lat_lon_coords,
     with_level_index_vars,
 )
+from samudra.utils.llc import (
+    _flatten_llc_level_vars,
+    _rename_llc_level_index_vars,
+    _var_without_level,
+    canonicalize_llc_datasets,
+)
 from tests.conftest import TEST_DATASET_SPEC, TEST_FULL_DATASET_SPEC
+from tests.llc_fixtures import raw_llc_datasets
 
 
 def test_mask_roundtrip(data_source):
@@ -304,6 +311,165 @@ def test_normalize_compact_mixed_depth_and_surface_stats(data_source):
     lat, lon = src.grid_size
     prognostic = torch.zeros(1, expected_prognostic_channels, lat, lon)
     assert normalize.normalize_tensor_prognostic(prognostic).shape == prognostic.shape
+
+
+def test_rename_llc_level_index_vars():
+    original = xr.Dataset(
+        {
+            "Theta_lev_0": 1.0,
+            "Salt_lev_50": 2.0,
+            "oceQnet": 3.0,
+        }
+    )
+
+    renamed = _rename_llc_level_index_vars(original)
+
+    assert set(renamed.data_vars) == {"Theta_0", "Salt_50", "oceQnet"}
+    assert renamed["Theta_0"].item() == 1.0
+    assert renamed["Salt_50"].item() == 2.0
+    assert "Theta_lev_0" in original.data_vars
+
+
+def test_flatten_llc_level_vars():
+    raw_data, _, _ = raw_llc_datasets()
+    data = raw_data[["Theta"]].isel(face=0, drop=True).rename({"k": "lev"})
+    dataset_spec = build_llc_spec()
+
+    flattened = _flatten_llc_level_vars(data, dataset_spec=dataset_spec)
+
+    assert "Theta" not in flattened.data_vars
+    assert set(flattened.data_vars) == {
+        f"Theta_{level}" for level in dataset_spec.depth_i_levels
+    }
+    xr.testing.assert_identical(
+        flattened["Theta_0"], data["Theta"].isel(lev=0, drop=True).rename("Theta_0")
+    )
+    last_level = dataset_spec.depth_i_levels[-1]
+    xr.testing.assert_identical(
+        flattened[f"Theta_{last_level}"],
+        data["Theta"].isel(lev=-1, drop=True).rename(f"Theta_{last_level}"),
+    )
+
+
+@pytest.mark.parametrize(
+    ("var_name", "expected"),
+    [
+        ("Theta_0", "Theta"),
+        ("Theta_50", "Theta"),
+        ("oceQnet", "oceQnet"),
+    ],
+)
+def test_var_without_level(var_name, expected):
+    assert _var_without_level(var_name) == expected
+
+
+def test_canonicalize_llc_datasets_standardizes_layout():
+    data, means, stds = raw_llc_datasets()
+    dataset_spec = build_llc_spec(prognostic_vars_key="all", boundary_vars_key="all")
+    expected_theta_0 = data["Theta"].isel(time=0, face=1, k=0, j=1, i=1).item()
+
+    llc_data, llc_means, llc_stds = canonicalize_llc_datasets(
+        data,
+        means,
+        stds,
+        face=1,
+        i_start=1,
+        i_end=4,
+        j_start=1,
+        j_end=3,
+        dataset_spec=dataset_spec,
+    )
+
+    assert "face" not in llc_data.dims
+    assert "Theta" not in llc_data.variables
+    assert "wetmask" not in llc_data.variables
+    assert "Theta_0" in llc_data.variables
+    assert "Theta_50" in llc_data.variables
+    assert "U_0" in llc_data.variables
+    assert "V_0" in llc_data.variables
+    assert "wetmask_0" in llc_data.variables
+    assert "mask_w_0" in llc_data.variables
+    assert "mask_s_0" in llc_data.variables
+    assert llc_data["Theta_0"].dims == ("time", "y", "x")
+    assert llc_data["U_0"].dims == ("time", "y", "x")
+    assert llc_data["V_0"].dims == ("time", "y", "x")
+    assert llc_data["wetmask_0"].dims == ("y", "x")
+    assert llc_data["mask_w_0"].dims == ("y", "x")
+    assert llc_data["mask_s_0"].dims == ("y", "x")
+    assert llc_data["Theta_0"].shape == (3, 2, 3)
+    assert llc_data["Theta_0"].isel(time=0, y=0, x=0).item() == expected_theta_0
+    assert np.issubdtype(llc_data.time.dtype, np.datetime64)
+    assert "Theta_0" in llc_means.variables
+    assert "Theta_0" in llc_stds.variables
+    assert "Theta_lev_0" not in llc_means.variables
+    assert "Theta_lev_0" not in llc_stds.variables
+
+
+def test_canonicalize_llc_datasets_selects_requested_vars_from_full_root():
+    data, means, stds = raw_llc_datasets()
+
+    llc_data, _, _ = canonicalize_llc_datasets(
+        data,
+        means,
+        stds,
+        face=1,
+        i_start=1,
+        i_end=4,
+        j_start=1,
+        j_end=3,
+        dataset_spec=build_llc_spec(),
+    )
+
+    llc_spec = build_llc_spec()
+    expected_vars = {
+        *(f"Theta_{i}" for i in llc_spec.depth_i_levels),
+        "oceQnet",
+        *llc_spec.mask_vars,
+    }
+    assert expected_vars.issubset(llc_data.data_vars)
+    assert "XG" not in llc_data.data_vars
+    assert "hFacW" not in llc_data.data_vars
+    assert "mask_w_0" not in llc_data.data_vars
+
+
+def test_llc_all_variable_masks_use_staggered_masks():
+    data, means, stds = raw_llc_datasets()
+    dataset_spec = build_llc_spec(prognostic_vars_key="all", boundary_vars_key="all")
+    llc_data, llc_means, llc_stds = canonicalize_llc_datasets(
+        data,
+        means,
+        stds,
+        face=1,
+        i_start=1,
+        i_end=4,
+        j_start=1,
+        j_end=3,
+        dataset_spec=dataset_spec,
+    )
+
+    source = DataSource.from_datasets(
+        llc_data,
+        llc_means,
+        llc_stds,
+        dataset_spec=dataset_spec,
+        prognostic_var_names=dataset_spec.prognostic_var_names,
+        boundary_var_names=dataset_spec.boundary_var_names,
+    )
+
+    theta_index = dataset_spec.prognostic_var_names.index("Theta_0")
+    u_index = dataset_spec.prognostic_var_names.index("U_0")
+    v_index = dataset_spec.prognostic_var_names.index("V_0")
+    assert bool(source.masks.prognostic[theta_index, 0, 0])
+    assert not bool(source.masks.prognostic[u_index, 0, 0])
+    assert not bool(source.masks.prognostic[v_index, 0, 1])
+
+    tau_x_index = dataset_spec.boundary_var_names.index("oceTAUX")
+    tau_y_index = dataset_spec.boundary_var_names.index("oceTAUY")
+    qnet_index = dataset_spec.boundary_var_names.index("oceQnet")
+    assert source.masks.boundary.shape == (len(dataset_spec.boundary_var_names), 2, 3)
+    assert not bool(source.masks.boundary[tau_x_index, 0, 0])
+    assert not bool(source.masks.boundary[tau_y_index, 0, 1])
+    assert bool(source.masks.boundary[qnet_index, 0, 0])
 
 
 @pytest.fixture

@@ -25,7 +25,6 @@ from torch.utils.data import (
     RandomSampler,
 )
 
-from samudra import config
 from samudra.aggregator import Aggregator
 from samudra.aggregator.loss import (
     get_channel_loss_dict,
@@ -59,12 +58,7 @@ from samudra.stepper import (
 )
 from samudra.utils.data import Normalize, get_inference_steps
 from samudra.utils.device import using_gpu
-from samudra.utils.distributed import (
-    all_reduce_mean,
-    get_world_size,
-    is_main_process,
-    set_seed,
-)
+from samudra.utils.distributed import all_reduce_mean, is_main_process, set_seed
 from samudra.utils.ema import EMATracker
 from samudra.utils.logging import (
     MetricLogger,
@@ -128,8 +122,12 @@ class Trainer:
         self.rand_seed = cfg.experiment.rand_seed
         set_seed(self.rand_seed)
 
+        self.data_container = cfg.data.build(
+            data_root=cfg.experiment.resolved_data_root,
+        )
+
         # Getting prognostic and boundary variables
-        self.dataset_spec = cfg.data.dataset.build()
+        self.dataset_spec = self.data_container.dataset_spec
         self.prognostic_var_names: PrognosticVarNames = (
             self.dataset_spec.prognostic_var_names
         )
@@ -146,9 +144,6 @@ class Trainer:
         self.N_bound = len(self.boundary_var_names)
         self.N_prog = len(self.prognostic_var_names)
 
-        self.data_container = cfg.data.build(
-            data_root=cfg.experiment.resolved_data_root,
-        )
         data_num_workers = cfg.data.loading.num_pytorch_workers()
         persistent_workers = cfg.data.loading.persistent_pytorch_workers()
 
@@ -175,12 +170,6 @@ class Trainer:
 
         # Dataloaders
         logger.info(f"Loading data")
-        if cfg.train_time.overlaps(cfg.val_time):
-            raise ValueError(
-                f"Training time range {cfg.train_time} overlaps "
-                f"with validation time range {cfg.val_time}"
-            )
-
         self.concurrent_compute = cfg.data.concurrent_compute
 
         self.primary_src = self.data_container.primary_source
@@ -206,7 +195,7 @@ class Trainer:
             hist=cfg.data.hist,
             # TODO(559): This won't work at multiple scales. Refactor as part of src.
             static_data_for_corrector=self.data_container.static_data,
-            srcs=self.data_container.sources,
+            srcs=self.data_container.train_sources,
             tensor_map=self.tensor_map,
             normalize=self.normalize,
             dataset_spec=self.dataset_spec,
@@ -319,9 +308,6 @@ class Trainer:
         self.num_workers: int = data_num_workers
         self.persistent_workers: bool = persistent_workers
         self.pin_mem: bool = cfg.pin_mem
-        self.train_time: config.TimeConfig = cfg.train_time
-        self.val_time = cfg.val_time
-        self.inference_times = cfg.inference_times
         self.inference_epochs = cfg.inference_epochs
         self.max_train_model_steps_forward = MAX_TRAIN_MODEL_STEPS_FORWARD // (
             self.hist + 1
@@ -338,6 +324,10 @@ class Trainer:
         assert self.tensor_map is not None
 
         if self.inference_epochs:
+            if self.inference_src is None:
+                raise ValueError(
+                    "Inference time is not configured for the first data source"
+                )
             self.init_inference_stores()
 
         # Add type annotations for samplers
@@ -355,37 +345,23 @@ class Trainer:
         self.inference_loader: DataLoader[TrainData]
 
     def init_inference_stores(self):
-        # Determine number of processes based on device
-        if using_gpu():
-            num_splits = get_world_size()
-            logger.info(f"Number of processes: {num_splits}, preferably use 8")
-        else:
-            num_splits = 1
-
-        # Create datasets
-        inference_datasets = []
-        num_steps_inf_set = []
-        for i in range(num_splits):
-            sliced_src = self.inference_src.slice(self.inference_times[i])
-            num_time_steps = get_inference_steps(
-                sliced_src,
-                hist=self.hist,
-            )
-            inference_dataset = InferenceDataset(
-                src=sliced_src,
-                prognostic_var_names=self.prognostic_var_names,
-                boundary_var_names=self.boundary_var_names,
-                hist=self.hist,
-                normalize_before_mask=self.normalize_before_mask,
-                masked_fill_value=self.normalize_fill_value,
-                long_rollout=True,
-            )
-
-            inference_datasets.append(inference_dataset)
-            num_steps_inf_set.append(num_time_steps)
+        assert self.inference_src is not None
+        num_time_steps = get_inference_steps(
+            self.inference_src,
+            hist=self.hist,
+        )
+        inference_dataset = InferenceDataset(
+            src=self.inference_src,
+            prognostic_var_names=self.prognostic_var_names,
+            boundary_var_names=self.boundary_var_names,
+            hist=self.hist,
+            normalize_before_mask=self.normalize_before_mask,
+            masked_fill_value=self.normalize_fill_value,
+            long_rollout=True,
+        )
 
         inference_data_combined = InferenceDatasets(
-            inference_datasets, num_steps_inf_set
+            [inference_dataset], [num_time_steps]
         )
 
         if self.distributed is not None:
@@ -776,11 +752,9 @@ class Trainer:
         Args:
             cur_step: Current training step size
         """
-        srcs = self.data_container.sources
-
         train_datasets = [
             TorchTrainDataset(
-                src=src.slice(self.train_time),
+                src=src,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -791,7 +765,7 @@ class Trainer:
                 concurrent_compute_=self.concurrent_compute,
             )
             for stride in self.data_stride
-            for src in srcs
+            for src in self.data_container.train_sources
         ]
 
         # Validation is always evaluated on the primary source. This keeps the
@@ -799,7 +773,7 @@ class Trainer:
         # regardless of the set of resolutions used for training.
         val_datasets = [
             TorchTrainDataset(
-                src=self.primary_src.slice(self.val_time),
+                src=self.data_container.val_sources[0],
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,

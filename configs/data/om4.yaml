@@ -4,13 +4,20 @@
 
 # yaml-language-server: $schema=../schemas/DataConfig.json
 
-dataset:
-  type: om4
-  prognostic_vars_key: thermo_dynamic_all
-  boundary_vars_key: tau_hfds_hfds_anom
-
 sources:
-  - data_location: OM4.zarr
+  - type: om4
+    prognostic_vars_key: thermo_dynamic_all
+    boundary_vars_key: tau_hfds_hfds_anom
+    train_time:
+      start: "1975-01-03"
+      end: "2013-10-05"
+    val_time:
+      start: "2013-10-05"
+      end: "2014-10-05"
+    inference_times:
+      - start: "2014-10-10"
+        end: "2022-12-24"
+    data_location: OM4.zarr
     data_means_location: OM4_means.zarr
     data_stds_location: OM4_stds.zarr
 static_data_vars: []

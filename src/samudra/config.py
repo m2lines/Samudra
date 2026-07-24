@@ -3,11 +3,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import abc
+import datetime
 from functools import cached_property
 from pathlib import Path
 from typing import Annotated, Literal, Self, assert_never
 
 import cftime
+import numpy as np
 import pydantic
 import torch
 import xarray as xr
@@ -50,7 +52,8 @@ from samudra.models.modules.augment_input import (
 )
 from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from samudra.models.modules.encoder import patch_from
-from samudra.utils.data import DataContainer, DataSource, Normalize
+from samudra.utils.data import DataContainer, DataSource, DataSourceSplits, Normalize
+from samudra.utils.llc import canonicalize_llc_datasets
 from samudra.utils.location import LocalLocation, Location, ResolvedLocation
 from samudra.utils.loss import (
     DynamicLoss,
@@ -81,25 +84,19 @@ class JulianDate:
 
     datetime: cftime.datetime
 
-    def __init__(self, s: str):
-        datetime = cftime.datetime.strptime(s, "%Y-%m-%d", calendar="julian")
-        datetime = datetime.replace(hour=12)
-        self.datetime = datetime
+    def __init__(self, value: str):
+        parsed = cftime.datetime.strptime(value, "%Y-%m-%d", calendar="julian")
+        self.datetime = parsed.replace(hour=12)
 
     def __str__(self) -> str:
         return self.datetime.strftime("%Y-%m-%d")
 
 
 def _julian_date_validator(value: str | JulianDate) -> JulianDate:
-    """Pydantic validator which must handle strings or JulianDate objects."""
-    if isinstance(value, str):
-        return JulianDate(value)
-    else:
-        return value
+    return JulianDate(value) if isinstance(value, str) else value
 
 
-"""Represents a Julian date as a string."""
-DateConfig = Annotated[
+JulianDateConfig = Annotated[
     JulianDate,
     PlainValidator(_julian_date_validator),
     PlainSerializer(JulianDate.__str__),
@@ -107,29 +104,41 @@ DateConfig = Annotated[
 ]
 
 
-class TimeConfig(BaseConfig):
-    """Represents a time slice of the data.
+# We reuse pydantic's AwareDatetime to match JSONSchema's expected RFC3339 format
+_aware_datetime_adapter = pydantic.TypeAdapter(pydantic.AwareDatetime)
 
-    Endpoints are Julian dates (not times) but cftime stores them in datetimes.
-    The final endpoint is exclusive.
-    """
 
-    start: DateConfig
-    end: DateConfig
+def _datetime64_validator(value: str | np.datetime64) -> np.datetime64:
+    if isinstance(value, np.datetime64):
+        return value.astype("datetime64[ns]")
+    parsed = _aware_datetime_adapter.validate_python(value)
+    utc = parsed.astimezone(datetime.UTC).replace(tzinfo=None)
+    return np.datetime64(utc, "ns")
+
+
+def _serialize_datetime64(value: np.datetime64) -> str:
+    return str(np.datetime_as_string(value, unit="ns", timezone="UTC"))
+
+
+LlcDatetimeConfig = Annotated[
+    np.datetime64,
+    PlainValidator(_datetime64_validator),
+    PlainSerializer(_serialize_datetime64),
+    WithJsonSchema({"type": "string", "format": "date-time"}),
+]
+
+
+class Om4TimeConfig(BaseConfig):
+    model_config = pydantic.ConfigDict(frozen=True)
+
+    start: JulianDateConfig
+    end: JulianDateConfig
 
     @property
     def time_slice(self) -> slice:
         return slice(self.start.datetime, self.end.datetime)
 
     def overlaps(self, other: Self) -> bool:
-        """Check if this time range overlaps with another time range.
-
-        Args:
-            other: Another TimeConfig to check for overlap
-
-        Returns:
-            True if the time ranges overlap, False otherwise
-        """
         return (
             self.start.datetime < other.end.datetime
             and self.end.datetime > other.start.datetime
@@ -139,13 +148,36 @@ class TimeConfig(BaseConfig):
         return f"{self.start} to {self.end}"
 
 
+class LlcTimeConfig(BaseConfig):
+    model_config = pydantic.ConfigDict(frozen=True)
+
+    start: LlcDatetimeConfig
+    end: LlcDatetimeConfig
+
+    @property
+    def time_slice(self) -> slice:
+        return slice(self.start, self.end)
+
+    def overlaps(self, other: Self) -> bool:
+        return bool(self.start < other.end and self.end > other.start)
+
+    def __str__(self) -> str:
+        return f"{self.start} to {self.end}"
+
+
+TimeConfig = Om4TimeConfig | LlcTimeConfig
+
+
 LOCATION_DOCS = (
     "Use a string relative to the `data_root` or use a structured location "
     "see location.py for possible types."
 )
 
 
-class DataSourceConfig(BaseConfig):
+class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
+    train_time: SourceTimeConfigT = Field(frozen=True)
+    val_time: SourceTimeConfigT = Field(frozen=True)
+    inference_times: tuple[SourceTimeConfigT, ...] = Field(default=(), frozen=True)
     data_location: Location = Field(
         description="Location of the data; " + LOCATION_DOCS
     )
@@ -155,6 +187,92 @@ class DataSourceConfig(BaseConfig):
     data_stds_location: Location = Field(
         description="Location of the data standard deviations; " + LOCATION_DOCS
     )
+
+    @property
+    @abc.abstractmethod
+    def dataset_spec(self) -> DatasetSpec:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def canonicalize_datasets(
+        self,
+        data: xr.Dataset,
+        means: xr.Dataset,
+        stds: xr.Dataset,
+        *,
+        static_data_vars: list[str] | None,
+    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+        raise NotImplementedError
+
+    def build(
+        self,
+        data_root: ResolvedLocation,
+        *,
+        use_dask: bool,
+        static_data_vars: list[str] | None,
+        is_primary: bool,
+    ) -> DataSourceSplits:
+        source = self._build_source(
+            data_root,
+            turn_on_dask=use_dask,
+            static_data_vars=static_data_vars,
+        )
+        inference_source = None
+        if is_primary and self.inference_times:
+            if use_dask:
+                full_inference_source = source
+            else:
+                full_inference_source = self._build_source(
+                    data_root,
+                    turn_on_dask=True,
+                    static_data_vars=static_data_vars,
+                )
+            # TODO: remove multiple inference time ranges altogether (see #813)
+            assert len(self.inference_times) == 1, (
+                "multiple inference time ranges have been deprecated"
+            )
+            inference_source = full_inference_source.slice(self.inference_times[0])
+
+        return DataSourceSplits(
+            train=source.slice(self.train_time),
+            val=source.slice(self.val_time),
+            inference=inference_source,
+        )
+
+    def _build_source(
+        self,
+        data_root: ResolvedLocation,
+        *,
+        turn_on_dask: bool,
+        static_data_vars: list[str] | None,
+    ) -> DataSource:
+        resolved_data_location = data_root.resolve(self.data_location)
+        resolved_means_location = data_root.resolve(self.data_means_location)
+        resolved_stds_location = data_root.resolve(self.data_stds_location)
+
+        chunks: dict[str, int] | None = {} if turn_on_dask else None
+        data = resolved_data_location.open(chunks)
+        means = resolved_means_location.open(chunks)
+        stds = resolved_stds_location.open(chunks)
+        data, means, stds = self.canonicalize_datasets(
+            data,
+            means,
+            stds,
+            static_data_vars=static_data_vars,
+        )
+        dataset_spec = self.dataset_spec
+
+        source = DataSource.from_datasets(
+            data,
+            means,
+            stds,
+            dataset_spec=dataset_spec,
+            prognostic_var_names=dataset_spec.prognostic_var_names,
+            boundary_var_names=dataset_spec.boundary_var_names,
+            static_data_vars=static_data_vars,
+            name=f"{resolved_data_location}-{turn_on_dask}",
+        )
+        return source
 
 
 class BaseDataLoadingConfig(BaseConfig):
@@ -197,45 +315,105 @@ DataLoadingConfig = Annotated[
 ]
 
 
-class Om4DatasetConfig(BaseConfig):
+class Om4DataSourceConfig(BaseDataSourceConfig[Om4TimeConfig]):
     type: Literal["om4"] = "om4"
     prognostic_vars_key: str = "thermo_dynamic_all"
     boundary_vars_key: str = "tau_hfds"
     grid_type: GridType = "gaussian"
 
-    def build(self) -> DatasetSpec:
+    @property
+    def dataset_spec(self) -> DatasetSpec:
         return build_om4_spec(
             self.prognostic_vars_key,
             self.boundary_vars_key,
             grid_type=self.grid_type,
         )
 
+    @pydantic.model_validator(mode="after")
+    def validate_time_splits(self) -> Self:
+        if self.train_time.overlaps(self.val_time):
+            raise ValueError(
+                f"Training time range {self.train_time} overlaps "
+                f"with validation time range {self.val_time}"
+            )
+        return self
 
-class LlcDatasetConfig(BaseConfig):
+    def canonicalize_datasets(
+        self,
+        data: xr.Dataset,
+        means: xr.Dataset,
+        stds: xr.Dataset,
+        *,
+        static_data_vars: list[str] | None,
+    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+        # TODO: move OM4 canonicalization in here instead of in validation afte.
+        return data, means, stds
+
+
+class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
     type: Literal["llc"] = "llc"
     prognostic_vars_key: str = "single_1"
     boundary_vars_key: str = "single_1"
-    face: int = 1
-    i_start: int = 0
-    i_end: int = 720
-    j_start: int = 0
-    j_end: int = 720
+    face: int = Field(default=1, ge=0)
+    i_start: int = Field(default=0, ge=0)
+    i_end: int = Field(default=720, gt=0)
+    j_start: int = Field(default=0, ge=0)
+    j_end: int = Field(default=720, gt=0)
 
-    def build(self) -> DatasetSpec:
+    @property
+    def dataset_spec(self) -> DatasetSpec:
         return build_llc_spec(
             self.prognostic_vars_key,
             self.boundary_vars_key,
         )
 
+    @pydantic.model_validator(mode="after")
+    def validate_time_splits(self) -> Self:
+        if self.train_time.overlaps(self.val_time):
+            raise ValueError(
+                f"Training time range {self.train_time} overlaps "
+                f"with validation time range {self.val_time}"
+            )
+        return self
 
-DatasetConfig = Annotated[
-    Om4DatasetConfig | LlcDatasetConfig,
+    @pydantic.model_validator(mode="after")
+    def validate_crop_bounds(self) -> Self:
+        if self.i_end <= self.i_start:
+            raise ValueError("LLC crop bounds must satisfy i_start < i_end")
+        if self.j_end <= self.j_start:
+            raise ValueError("LLC crop bounds must satisfy j_start < j_end")
+        return self
+
+    def canonicalize_datasets(
+        self,
+        data: xr.Dataset,
+        means: xr.Dataset,
+        stds: xr.Dataset,
+        *,
+        static_data_vars: list[str] | None,
+    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+        if static_data_vars:
+            raise ValueError("LLC data sources do not support static_data_vars")
+        return canonicalize_llc_datasets(
+            data,
+            means,
+            stds,
+            face=self.face,
+            i_start=self.i_start,
+            i_end=self.i_end,
+            j_start=self.j_start,
+            j_end=self.j_end,
+            dataset_spec=self.dataset_spec,
+        )
+
+
+DataSourceConfig = Annotated[
+    Om4DataSourceConfig | LlcDataSourceConfig,
     Field(discriminator="type"),
 ]
 
 
 class DataConfig(BaseConfig):
-    dataset: DatasetConfig = Field(default_factory=Om4DatasetConfig)
     sources: list[DataSourceConfig] = Field(
         description=(
             "Data sources to include, each with explicit data/means/stds "
@@ -255,60 +433,25 @@ class DataConfig(BaseConfig):
         self,
         data_root: ResolvedLocation,
     ) -> DataContainer:
-        dataset_spec = self.dataset.build()
-        if self.dataset.type != "om4":
-            raise NotImplementedError(
-                f"Dataset type {self.dataset.type!r} is not wired into the data "
-                "loader yet. The dataset-family interface lands in this PR; LLC "
-                "reader support follows in the next slice."
-            )
-
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
+        dataset_spec = self.sources[0].dataset_spec
+        assert all(source.dataset_spec == dataset_spec for source in self.sources), (
+            "All data sources must use the same dataset spec"
+        )
 
-        def make_source(
-            data_location: Location,
-            means_location: Location,
-            stds_location: Location,
-            turn_on_dask: bool = use_dask,
-        ) -> DataSource:
-            resolved_data_location = data_root.resolve(data_location)
-            resolved_means_location = data_root.resolve(means_location)
-            resolved_stds_location = data_root.resolve(stds_location)
-            return DataSource.from_locations(
-                data_location=resolved_data_location,
-                means_location=resolved_means_location,
-                stds_location=resolved_stds_location,
-                dataset_spec=dataset_spec,
-                prognostic_var_names=dataset_spec.prognostic_var_names,
-                boundary_var_names=dataset_spec.boundary_var_names,
+        source_splits = [
+            source_cfg.build(
+                data_root,
+                use_dask=use_dask,
                 static_data_vars=self.static_data_vars,
-                use_dask=turn_on_dask,
+                is_primary=index == 0,
             )
-
-        sources = []
-        for source_cfg in self.sources:
-            sources.append(
-                make_source(
-                    source_cfg.data_location,
-                    source_cfg.data_means_location,
-                    source_cfg.data_stds_location,
-                )
-            )
-
-        primary_source = sources[0]
-        if use_dask:
-            # If we're already using dask, we don't need a second source
-            inference_source = primary_source
-        else:
-            # If we're not using dask for the main source, create a separate one
-            primary = self.sources[0]
-            inference_source = make_source(
-                primary.data_location,
-                primary.data_means_location,
-                primary.data_stds_location,
-                turn_on_dask=True,
-            )
+            for index, source_cfg in enumerate(self.sources)
+        ]
+        train_sources = [splits.train for splits in source_splits]
+        val_sources = [splits.val for splits in source_splits]
+        primary_source = train_sources[0]
 
         static_data = (
             primary_source.data[self.static_data_vars]
@@ -317,8 +460,9 @@ class DataConfig(BaseConfig):
         )
 
         return DataContainer(
-            sources=sources,
-            inference_source=inference_source,
+            train_sources=train_sources,
+            val_sources=val_sources,
+            inference_source=source_splits[0].inference,
             loader_version=loader_version,
             dataset_spec=dataset_spec,
             static_data=static_data,
@@ -1126,13 +1270,6 @@ class TrainConfig(TopLevelConfig):
     steps: list[int] = [4]
     step_transition: list[int] = []
     inference_epochs: list[int] = [-1]
-    train_time: TimeConfig = TimeConfig(
-        start=JulianDate("0151-01-06"), end=JulianDate("0306-01-01")
-    )
-    val_time: TimeConfig = TimeConfig(
-        start=JulianDate("0306-01-01"), end=JulianDate("0311-01-01")
-    )
-    inference_times: list[TimeConfig] = []
 
     # Config components
     experiment: ExperimentConfig
@@ -1160,9 +1297,6 @@ class EvalConfig(TopLevelConfig):
     backend: EvalBackendConfig = "auto"
 
     # Config components
-    inference_time: TimeConfig = TimeConfig(
-        start=JulianDate("0311-01-01"), end=JulianDate("0351-01-01")
-    )
     experiment: ExperimentConfig
     data: DataConfig
     model: AnyModelConfig

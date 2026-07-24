@@ -18,7 +18,7 @@ stage means that it has not yet run, not that it passed.
 | Plan and harness specification | Complete | Patch-compression reconstruction and counterfactual dynamics probes are implemented and tested |
 | S0-R synthetic reconstruction | Complete | Two seeds promote the 16-moment encoder plus continuous anchored hybrid |
 | S0-D synthetic subgrid closure | Complete | Two seeds show that the promoted pair retains and dynamically uses subpatch phase |
-| S1 OM4 learned inverse | In progress | Production integration passes; Torch proxy bring-up is next |
+| S1 OM4 learned inverse | In progress | One-/half-degree bring-up passes; matched 60-epoch convergence, seed, and bilinear-control runs are queued |
 | S2 frozen-inverse dynamics | Pending | — |
 | S3 full validation | Pending | — |
 
@@ -68,7 +68,10 @@ This correction of scope is the reason for S0-R and S0-D.
 | `2026-07-24-coarse-moment-attn-s1-proxy-2rtx-64g-s0` | S1 | `6332322c` | Same cross-resolution proxy on two RTX6000 GPUs, 64 GB | Canceled (`14718372`) | Replaced while testing preemptible admission |
 | `2026-07-24-coarse-moment-attn-s1-proxy-prem-s0` | S1 | `2e79511b` | Attempted generic H200/RTX6000 preemptible partitions by setting `--partition` directly | Rejected before submission | The rejection was caused by bypassing Torch's comment-driven preemption routing, not by lack of project authorization |
 | `2026-07-24-coarse-moment-attn-s1-proxy-courant-requeue-s0` | S1 | `2e79511b` | Same proxy on two H200 GPUs, 64 GB, Courant partition | Canceled (`14722730`) | Replaced by the correctly routed preemption-only submission before launch |
-| `2026-07-24-coarse-moment-attn-s1-proxy-preempt-only-s0` | S1 | `2e79511b` | Same proxy on two H200 GPUs, 64 GB; no explicit partition; `h200` constraint and `preemption=yes;preemption_partitions_only=yes;requeue=true` comment | Queued (`14723265`) | Slurm accepted the request and routed it to `h200`; checkpoint every epoch, batch `USR1@300`, harness requeue handling, and config resume detection are enabled |
+| `2026-07-24-coarse-moment-attn-s1-proxy-preempt-only-s0` | S1 | `2e79511b` | Same proxy on two H200 GPUs, 64 GB; no explicit partition; `h200` constraint and `preemption=yes;preemption_partitions_only=yes;requeue=true` comment | Complete (`14723265`) | Ten epochs/320 updates completed in 9m12s with train/validation normalized MSE 0.161/0.161 and checkpoints for every epoch |
+| `2026-07-24-coarse-moment-attn-s1-60ep-s0` | S1 | `2e79511b` | Resume the cross-resolution hybrid seed-15 checkpoint from epoch 10 through epoch 60 on two preemptible H200 GPUs | Queued (`14724411`) | Tests convergence to approximately 1,920 total optimizer updates |
+| `2026-07-24-coarse-moment-attn-s1-60ep-s1` | S1 | `2e79511b` | Independent cross-resolution hybrid run through epoch 60 with model seed 16 on two preemptible H200 GPUs | Queued (`14724412`) | Tests seed stability at the full S1 proxy budget |
+| `2026-07-24-coarse-moment-bilinear-s1-60ep-s0` | S1 | `2e79511b` | Cross-resolution 16-moment encoder with bilinear-only D0 through epoch 60 on two preemptible H200 GPUs | Queued (`14724413`) | Matched control for the continuous anchored decoder branch |
 | `local-s1-1deg-bringup-s0` | S1 | working tree after `6332322c` | Local OM4 1°, fixed 60×72 latent, one training sample and three validation samples | Complete | 1.62 s training step; 1.23 GB peak GPU memory; full model/data/checkpoint path succeeds |
 | `local-s1-1deg-proxy-s0` | S1 | working tree after `6332322c` | Local OM4 1°, fixed 60×72 latent, width 160, 32 samples, seed 15; 10 epochs then resumed to 60 | Complete | Train/validation normalized MSE 0.058/0.058 after 1,920 updates; no seam spike; retains 62% of target gradient power |
 | `local-s1-1deg-bilinear-s0` | S1 | working tree after `6332322c` | Same as local attention proxy, but D0 bilinear decoder only | Complete | Validation MSE 0.208; the continuous anchored hybrid is 29.3% lower at matched updates |

@@ -19,8 +19,8 @@ stage means that it has not yet run, not that it passed.
 | S0-R synthetic reconstruction | Complete | Two seeds promote the 16-moment encoder plus continuous anchored hybrid |
 | S0-D synthetic subgrid closure | Complete | Two seeds show that the promoted pair retains and dynamically uses subpatch phase |
 | S1 OM4 learned inverse | Complete | Two learned-decoder seeds reproduce error and structural fidelity; matched bilinear loses most fine-grid power despite higher latent agreement |
-| S2 frozen-inverse dynamics | Running | Four matched objective arms and their dependent best-checkpoint validations/audits are submitted from the selected seed-15 inverse |
-| S3 full validation | Pending | — |
+| S2 frozen-inverse dynamics | Complete | The combined objective \((w_x,\lambda_z)=(1,0.1)\) wins all aggregate leads and 11/12 exact route/lead losses while preserving the inverse exactly |
+| S3 full validation | Queued | Eight-H200 preemptible job `14734625` promotes the selected combined objective from the seed-15 inverse, with a freshly initialized processor/boundary path |
 
 ## Evidence inherited from the decoder investigation
 
@@ -90,10 +90,11 @@ This correction of scope is the reason for S0-R and S0-D.
 | `2026-07-24-coarse-latent-s2-audit-smoke-v2` | S2 audit integration | `71f3630d` | Same audit with both audit scripts explicitly bind-mounted into the container | Complete (`14728408`) | In 45 seconds, two synchronized batches exercised every depth/route; all 30 frozen inverse tensors were bit-exact, residual scale shape was `[1,160,1,1]`, and every diagnostic was finite |
 | `2026-07-24-coarse-latent-s2-audit-smoke-v3` | S2 audit integration | working tree after `f10ce829` | Adds physical persistence and subpatch-moment ablation diagnostics | Failed (`14728730`) | Selective activation checkpointing wraps the encoder; an overly strict direct type check failed before data evaluation |
 | `2026-07-24-coarse-latent-s2-audit-smoke-v4` | S2 audit integration | working tree after `f10ce829` | Wrapper-aware repeat of the expanded two-batch audit | Complete (`14729100`) | Completed in 58 seconds; full, persistence, and 120-moment-channel-ablation metrics were finite at depths 1/2/4 on both grids |
-| `2026-07-24-coarse-latent-s2-physical-only` | S2 | `36fe44aa` | Half-degree proxy, `(w_x, lambda_z)=(1,0)`, depths 1/2/4 | Submitted (`14731349`) | Best-checkpoint cross-route validation `14731350` and latent audit `14731351` depend on training success |
-| `2026-07-24-coarse-latent-s2-latent-only` | S2 | `36fe44aa` | Half-degree proxy, `(w_x, lambda_z)=(0,1)`, depths 1/2/4 | Submitted (`14731352`) | Best-checkpoint cross-route validation `14731353` and latent audit `14731354` depend on training success |
-| `2026-07-24-coarse-latent-s2-combined-001` | S2 | `36fe44aa` | Half-degree proxy, `(w_x, lambda_z)=(1,0.01)`, depths 1/2/4 | Submitted (`14731355`) | Best-checkpoint cross-route validation `14731356` and latent audit `14731357` depend on training success |
-| `2026-07-24-coarse-latent-s2-combined-01` | S2 | `36fe44aa` | Half-degree proxy, `(w_x, lambda_z)=(1,0.1)`, depths 1/2/4 | Submitted (`14731358`) | Best-checkpoint cross-route validation `14731359` and latent audit `14731360` depend on training success |
+| `2026-07-24-coarse-latent-s2-physical-only` | S2 | `36fe44aa` | Half-degree proxy, `(w_x, lambda_z)=(1,0)`, depths 1/2/4 | Complete (`14731349`; validation `14731350`; audit `14731351`) | Full cross-route aggregate lead-1/2/4 loss 0.1038/0.1322/0.1653; persistence reduction 3.3%/25.5%/34.6%; [W&B](https://wandb.ai/ocean_emulators/default/runs/v4qlymm1) |
+| `2026-07-24-coarse-latent-s2-latent-only` | S2 | `36fe44aa` | Half-degree proxy, `(w_x, lambda_z)=(0,1)`, depths 1/2/4 | Complete (`14731352`; validation `14731353`; audit `14731354`) | Aggregate loss 0.1042/0.1313/0.1620; persistence reduction 2.9%/26.1%/35.8%; best teacher-latent error but weaker physical lead 1; [W&B](https://wandb.ai/ocean_emulators/default/runs/rp9x7g4z) |
+| `2026-07-24-coarse-latent-s2-combined-001` | S2 | `36fe44aa` | Half-degree proxy, `(w_x, lambda_z)=(1,0.01)`, depths 1/2/4 | Complete (`14731355`; validation `14731356`; audit `14731357`) | Aggregate loss 0.1029/0.1308/0.1636; persistence reduction 4.2%/26.3%/35.2%; [W&B](https://wandb.ai/ocean_emulators/default/runs/mctn44tl) |
+| `2026-07-24-coarse-latent-s2-combined-01` | S2 | `36fe44aa` | Half-degree proxy, `(w_x, lambda_z)=(1,0.1)`, depths 1/2/4 | Complete (`14731358`; validation `14731359`; audit `14731360`) | Promoted: aggregate loss 0.1013/0.1283/0.1608 and persistence reduction 5.7%/27.7%/36.3%; wins 11/12 route/lead comparisons; [W&B](https://wandb.ai/ocean_emulators/default/runs/4wjiazt4) |
+| `2026-07-24-coarse-latent-s3-full-wx1-wz0.1` | S3 | `36fe44aa` | Fresh processor/boundary path from the frozen seed-15 inverse; all four one-/half-degree routes; `(w_x, lambda_z)=(1,0.1)`; depths 1/2/4; eight preemptible H200s | Queued (`14734625`) | Best-checkpoint cross-route validation `14734626` and latent audit `14734627` are attached by successful-completion dependency; quarter-degree data are absent |
 
 ## S0-R synthetic reconstruction
 
@@ -563,9 +564,69 @@ finite full, persistence, and mean-only-initial physical metrics at depths
 causal use test of the promoted model, not a separately optimized mean-only
 architecture; the trained mean-only negative control remains S0-D.
 
+### Matched objective screen
+
+All four 768-update proxy trainings, their full held-out-year cross-route
+validations, and their 65-synchronized-batch latent audits completed
+successfully. Each audit verifies that all 30 encoder/decoder tensors are
+bit-identical to the selected S1 checkpoint. Cross-route normalized validation
+losses are:
+
+| Objective \((w_x,\lambda_z)\) | Lead 1 | Lead 2 | Lead 4 | Persistence reduction, lead 1/2/4 |
+|---|---:|---:|---:|---:|
+| Physical only \((1,0)\) | 0.1038 | 0.1322 | 0.1653 | 3.3% / 25.5% / 34.6% |
+| Latent only \((0,1)\) | 0.1042 | 0.1313 | 0.1620 | 2.9% / 26.1% / 35.8% |
+| Combined \((1,0.01)\) | 0.1029 | 0.1308 | 0.1636 | 4.2% / 26.3% / 35.2% |
+| **Combined \((1,0.1)\)** | **0.1013** | **0.1283** | **0.1608** | **5.7% / 27.7% / 36.3%** |
+
+The promoted \((1,0.1)\) arm is best at every aggregate lead and in 11 of the
+12 exact route/lead comparisons:
+
+| Route | Lead 1 | Lead 2 | Lead 4 | Persistence reduction, lead 1/2/4 |
+|---|---:|---:|---:|---:|
+| 1° to 1° | 0.0778 | 0.1043 | 0.1355 | 7.1% / 31.0% / 39.6% |
+| 1° to ½° | 0.1245 | 0.1535 | 0.1884 | 10.4% / 19.5% / 24.4% |
+| ½° to 1° | 0.0801 | 0.1046 | 0.1343 | 9.6% / 33.0% / 41.4% |
+| ½° to ½° | 0.1227 | 0.1508 | 0.1851 | -3.7% / 29.0% / 39.8% |
+
+The single exception is 1° to 1° at lead 4, where latent-only reaches 0.1336
+versus 0.1355. That 1.4% local advantage does not outweigh the combined arm's
+lead-1 and cross-resolution gains. In particular, the combined arm also retains
+aggregate high-wavenumber power ratios of 0.791/0.916/0.336/0.449/0.655 for
+`thetao`/`so`/`uo`/`vo`/`zos`, matching or improving the physical-only spectral
+result.
+
+The latent audit supports the same choice:
+
+- teacher-latent MSE for \((1,0.1)\) is 0.0190/0.0327/0.0515 on the one-degree
+  grid and 0.0181/0.0310/0.0489 on the half-degree grid at leads 1/2/4. It is
+  substantially below physical-only (about 0.037/0.085/0.186) while remaining
+  physically stronger than latent-only;
+- synchronized-resolution latent cosine changes from 0.961 at depth zero to
+  0.965 at depth four. Physical-only reaches the higher 0.972 but has worse
+  physical loss, further evidence that explicit alignment is not the current
+  objective;
+- removing the 120 subpatch-moment channels while retaining the 40 patch-mean
+  channels increases raw physical MSE from 0.136 to 0.391 at one-degree lead 1
+  and from 0.221 to 0.519 at half-degree lead 1. The processor therefore
+  causally uses the learned subpatch state rather than merely propagating patch
+  means;
+- the processor residual scale has shape `[1,160,1,1]`, mean absolute value
+  0.0344, no near-zero channels, and 80% negative entries; and
+- same-latent cross-output patch-mean symmetric normalized MSE remains
+  0.0172--0.0175 through lead four.
+
+Boundary forcing is used, though still weakly: zeroing it increases aggregate
+lead-four error by 4.6%, while reversing its temporal order increases error by
+1.0%. The half-degree lead-one forecast remains 3.7% worse than persistence,
+and velocity high-wavenumber ratios remain only 0.34--0.45. These are explicit
+risks for S3, not reasons to discard the coarse-latent result: every depth-two
+and depth-four route beats persistence, and the subpatch-state ablation shows
+that the learned representation is dynamically consequential.
+
 ## S3 full validation
 
-Pending S2 objective selection. The prepared
+S2 selects \((w_x,\lambda_z)=(1,0.1)\). The prepared
 [`train_cross_1_halfdeg_coarse_latent_dynamics_full.yaml`](../../configs/samudra_multi_om4/train_cross_1_halfdeg_coarse_latent_dynamics_full.yaml)
 uses all four one-/half-degree routes, physical depths `{1,2,4}`, global batch
 32 on eight GPUs, and approximately the same 6,392-update budget as the
@@ -575,6 +636,10 @@ that run on eight preemptible H200s from the selected S1 inverse and objective,
 with preemption-aware checkpoint resumption and dependent best-checkpoint
 cross-route validation and latent audit. Quarter-degree data are deliberately
 absent.
+
+Training job `14734625` is queued on eight H200s with requeue and a two-minute
+preemption signal. Best-checkpoint validation `14734626` and audit `14734627`
+will release only after successful training completion.
 
 ## Decision log
 
@@ -629,3 +694,13 @@ processor cost while changing both inverse capacity and transition capacity.
 The width-320 arm is therefore deferred; it should be reopened only if S2/S3
 diagnostics identify representational capacity, rather than transition
 optimization, as the limiting factor.
+
+### 2026-07-24: promote the combined \(0.1\)-weighted latent objective
+
+The matched S2 screen promotes
+\((w_x,\lambda_z)=(1,0.1)\) for S3. It wins every aggregate lead and 11/12 exact
+route/lead physical losses, while reducing depth-four teacher-latent MSE by
+about 72% relative to physical-only. Latent-only is slightly better on one
+route at lead four but is worse at aggregate lead one and on the high-resolution
+routes. The S3 processor and boundary path will be freshly initialized from the
+selected frozen S1 inverse, rather than continuing any proxy processor.

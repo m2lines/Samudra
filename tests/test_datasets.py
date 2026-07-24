@@ -137,6 +137,11 @@ def make_loader(
                     TorchTrainDataset(
                         src=src.slice(time_config),
                         dst=dst.slice(time_config) if dst else None,
+                        boundary_src=(
+                            container.boundary_source.slice(time_config)
+                            if container.boundary_source is not None
+                            else None
+                        ),
                         prognostic_var_names=prognostic,
                         boundary_var_names=boundary,
                         hist=cfg.data.hist,
@@ -156,8 +161,9 @@ def make_loader(
                 # This ensures datasets with same (src, dst) resolution pair but different strides can batch
                 batch_sampler = EquivalenceGroupBatchSampler.from_datasets(
                     datasets=dataset_list,
-                    group_key=lambda ds: tuple(
-                        prog.grid_size for prog in ds.prognostic_srcs
+                    group_key=lambda ds: (
+                        tuple(prog.grid_size for prog in ds.prognostic_srcs)
+                        + (ds.boundary_src.grid_size,)
                     ),
                     batch_size=cfg.batch_size,
                     drop_last=drop_last,
@@ -811,6 +817,88 @@ def test_inference_dataset__cross_resolution_time_mismatch_raises():
                 long_rollout=True,
                 boundary_src=boundary_src,
             )
+
+
+def test_torch_train_dataset__cross_resolution():
+    """TorchTrainDataset can train with a boundary source on another grid."""
+    prognostic_var_names = ["prognostic1", "prognostic2"]
+    boundary_var_names = ["boundary1", "boundary2"]
+    prog_src = build_synthetic_source(
+        "high_res",
+        h=8,
+        w=16,
+        n_times=10,
+        prognostic_var_names=prognostic_var_names,
+        boundary_var_names=boundary_var_names,
+    )
+    boundary_src = build_synthetic_source(
+        "low_res",
+        h=2,
+        w=4,
+        n_times=10,
+        prognostic_var_names=prognostic_var_names,
+        boundary_var_names=boundary_var_names,
+    )
+
+    dataset = TorchTrainDataset(
+        src=prog_src,
+        dst=None,
+        boundary_src=boundary_src,
+        prognostic_var_names=prognostic_var_names,
+        boundary_var_names=boundary_var_names,
+        hist=0,
+        steps=1,
+        normalize_before_mask=True,
+        masked_fill_value=0.0,
+        stride=1,
+    )
+    raw = collate_raw_train_data([dataset[0]])
+    train_data = dataset.to_train_data(raw, torch.device("cpu"))
+
+    prog, boundary = train_data.get_initial_input()
+    label = train_data.get_label(0)
+
+    assert prog.shape[-2:] == (8, 16)
+    assert boundary.shape[-2:] == (2, 4)
+    assert label.shape[-2:] == (8, 16)
+    assert train_data.ctx.input_resolution_cpu[0].shape == (8,)
+    assert train_data.ctx.output_resolution_cpu[0].shape == (8,)
+
+
+def test_torch_train_dataset__cross_resolution_time_mismatch_raises():
+    """Training sources with different time axes must fail loudly."""
+    prognostic_var_names = ["prognostic1", "prognostic2"]
+    boundary_var_names = ["boundary1", "boundary2"]
+    prog_src = build_synthetic_source(
+        "prog",
+        h=8,
+        w=16,
+        n_times=10,
+        prognostic_var_names=prognostic_var_names,
+        boundary_var_names=boundary_var_names,
+    )
+    boundary_src = build_synthetic_source(
+        "boundary",
+        h=2,
+        w=4,
+        n_times=5,
+        prognostic_var_names=prognostic_var_names,
+        boundary_var_names=boundary_var_names,
+    )
+
+    with pytest.raises(ValueError, match="time axis"):
+        TorchTrainDataset(
+            src=prog_src,
+            dst=None,
+            boundary_src=boundary_src,
+            prognostic_var_names=prognostic_var_names,
+            boundary_var_names=boundary_var_names,
+            hist=0,
+            steps=1,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+            stride=1,
+        )
 
 
 @pytest.mark.manual

@@ -490,11 +490,13 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         masked_fill_value: float,
         stride: int = 1,
         concurrent_compute_: bool = False,
+        boundary_src: DataSource | None = None,
     ):
         super().__init__()
         self.id = f"{self.__class__.__name__}_{str(id(self))}"
         # If the src and dst DataSource are the same, we can do a lot less work.
         srcs = [src, dst] if dst else [src]
+        boundary_data_src = boundary_src if boundary_src is not None else src
 
         self.hist: int = hist
         self.steps: int = steps
@@ -508,11 +510,18 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         assert np.array_equal(srcs[0].data.time, srcs[-1].data.time), (
             "src and dst DataSource have different time slices!"
         )
+        if not boundary_data_src.data.time.equals(src.data.time):
+            raise ValueError(
+                "Boundary source time axis does not match the prognostic source. "
+                "Cross-resolution training requires both sources to share a time axis."
+            )
         time_ = src.data.time
         self.prognostic_srcs = [
             src.filter(prognostic_var_names, prefix="prog") for src in srcs
         ]
-        self.boundary_src = src.filter(boundary_var_names, prefix="boundary")
+        self.boundary_src = boundary_data_src.filter(
+            boundary_var_names, prefix="boundary"
+        )
 
         # This class will be used only for training and validation
         total_steps: int = 2 * self.hist + 2
@@ -536,7 +545,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.wet_prognostic: list[PrognosticMask] = [
             src.masks.prognostic for src in srcs
         ]
-        self.wet_surface: GridMask = src.masks.boundary
+        self.wet_surface: GridMask = boundary_data_src.masks.boundary
 
         self.ctx = GridContext(
             label_mask=self.prognostic_srcs[-1].masks.prognostic_with_hist(self.hist),

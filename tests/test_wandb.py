@@ -28,7 +28,7 @@ class DummyConfig:
         return {}
 
 
-class DummyDataContainer:
+class DummyDataBundle:
     train_sources: list[Any] = []
 
 
@@ -48,7 +48,7 @@ def test_wandb_resume_setup_skips_checkpoint_load_when_disabled(tmp_path, monkey
         assert logger.setup_run(
             str(checkpoint_path),
             cast(Any, DummyConfig(tmp_path)),
-            cast(Any, DummyDataContainer()),
+            cast(Any, DummyDataBundle()),
         ) == (None, None)
 
 
@@ -75,7 +75,7 @@ def test_wandb_resume_setup_loads_metadata_on_cpu(tmp_path, monkeypatch):
         assert logger.setup_run(
             str(checkpoint_path),
             cast(Any, DummyConfig(tmp_path)),
-            cast(Any, DummyDataContainer()),
+            cast(Any, DummyDataBundle()),
         ) == ("run-123", "resume-me")
 
     assert init_kwargs["resume"] == "must"

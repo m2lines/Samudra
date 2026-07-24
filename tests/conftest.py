@@ -16,23 +16,37 @@ import xarray as xr
 from numpy.typing import ArrayLike, NDArray
 
 import samudra.constants as c
-from samudra.config import TrainBackendConfig, TrainConfig
+from samudra.config import Om4DataSourceConfig, TrainBackendConfig, TrainConfig
 from samudra.train import Trainer
-from samudra.utils.data import DataSource, Masks, _is_compact, compact_dataset
+from samudra.utils.data import CanonicalSource, Masks, compact_dataset
 from samudra.utils.multiton import MultitonScope
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
 DEFAULT_CONFIG = "test/train_default.yaml"
 SAMUDRA_MULTI_CONFIG = "test/train_samudra_multi.yaml"
 ALL_CONFIGS = [DEFAULT_CONFIG, "test/train_default_2step.yaml", SAMUDRA_MULTI_CONFIG]
-TEST_DATASET_SPEC = c.build_om4_spec(
+TEST_DATA_LAYOUT = c.build_om4_layout(
     prognostic_vars_key="thetao_1",
     boundary_vars_key="hfds",
 )
-TEST_FULL_DATASET_SPEC = c.build_om4_spec(
+TEST_FULL_DATA_LAYOUT = c.build_om4_layout(
     prognostic_vars_key="thermo_dynamic_all",
     boundary_vars_key="tau_hfds_hfds_anom",
 )
+
+
+def canonicalize_mock_om4(
+    data: xr.Dataset, means: xr.Dataset, stds: xr.Dataset
+) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+    """Run test OM4 arrays through the production xarray canonicalizer."""
+    canonicalizer = Om4DataSourceConfig.model_construct(
+        prognostic_vars_key="thermo_dynamic_all",
+        boundary_vars_key="hfds",
+    )
+    canonical_data, canonical_means, canonical_stds, _ = (
+        canonicalizer.canonicalize_datasets(data, means, stds)
+    )
+    return canonical_data, canonical_means, canonical_stds
 
 
 def _om4_canonical_var_names(var_names: Iterable[str]) -> list[str]:
@@ -44,7 +58,7 @@ def _om4_canonical_var_names(var_names: Iterable[str]) -> list[str]:
 
         base_name, lev_depth = var_name.split("_lev_", maxsplit=1)
         depth_level = float(lev_depth.replace("_", "."))
-        out.append(f"{base_name}_{TEST_DATASET_SPEC.depth_levels.index(depth_level)}")
+        out.append(f"{base_name}_{TEST_DATA_LAYOUT.depth_levels.index(depth_level)}")
     return out
 
 
@@ -205,7 +219,7 @@ class DataSourceDims:
         coords = {
             "lon": xr.DataArray(self.lng, dims=["lon"]),
             "lat": xr.DataArray(self.lat, dims=["lat"]),
-            "lev": xr.DataArray(np.array(TEST_DATASET_SPEC.depth_levels), dims=["lev"]),
+            "lev": xr.DataArray(np.array(TEST_DATA_LAYOUT.depth_levels), dims=["lev"]),
             "time": xr.DataArray(time, dims=["time"]),
         }
         return coords
@@ -322,7 +336,7 @@ def backend(request) -> TrainBackendConfig:
     return request.param
 
 
-def _uncached_data_source(name: str) -> DataSource:
+def _uncached_data_source(name: str) -> CanonicalSource:
     match name:
         case "mock":
             time_range = xr.cftime_range(
@@ -341,22 +355,22 @@ def _uncached_data_source(name: str) -> DataSource:
             vars_3d = {
                 f"{var}_{lev}": dims.encode(len(vars_2d) + i + j * 10)
                 for i, var in enumerate(["so", "thetao", "uo", "vo"])
-                for j, lev in enumerate(TEST_DATASET_SPEC.depth_i_levels)
+                for j, lev in enumerate(TEST_DATA_LAYOUT.depth_i_levels)
             }
             # Mask with a binary circle.
             masks = {
                 f"mask_{lev}": xr.DataArray(
                     np.where(normal > 0.5**lev, 1, 0), dims=["lat", "lon"]
                 )
-                for lev in range(len(TEST_DATASET_SPEC.depth_i_levels))
+                for lev in range(len(TEST_DATA_LAYOUT.depth_i_levels))
             }
             ds = xr.Dataset(vars_2d | vars_3d | masks, coords=coords)
 
-            return DataSource.from_datasets(
+            return CanonicalSource.from_datasets(
                 ds,
                 ds.mean(),
                 ds.std(),
-                dataset_spec=TEST_DATASET_SPEC,
+                data_layout=TEST_DATA_LAYOUT,
                 name=name,
                 prognostic_var_names=list(vars_3d.keys()),
                 boundary_var_names=list(vars_2d.keys()),
@@ -397,7 +411,7 @@ def _uncached_data_source(name: str) -> DataSource:
             vars_3d = {
                 f"{var}_lev_{_fmtl(lev)}": dims.encode(len(vars_2d) + i + j * 10)
                 for i, var in enumerate(var_names_3d)
-                for j, lev in enumerate(TEST_DATASET_SPEC.depth_levels)
+                for j, lev in enumerate(TEST_DATA_LAYOUT.depth_levels)
             }
 
             # zos is an edge case 3d var.
@@ -416,14 +430,15 @@ def _uncached_data_source(name: str) -> DataSource:
                 data = compact_dataset(data)
                 means = compact_dataset(means)
                 stds = compact_dataset(stds)
-                prognostic_var_names = var_names_3d
                 boundary_var_names = var_names_2d
 
-            return DataSource.from_datasets(
+            data, means, stds = canonicalize_mock_om4(data, means, stds)
+
+            return CanonicalSource.from_datasets(
                 data=data,
                 means=means,
                 stds=stds,
-                dataset_spec=TEST_DATASET_SPEC,
+                data_layout=TEST_DATA_LAYOUT,
                 name=name,
                 prognostic_var_names=prognostic_var_names,
                 boundary_var_names=boundary_var_names,
@@ -432,8 +447,10 @@ def _uncached_data_source(name: str) -> DataSource:
             raise ValueError(f"Unknown data source: {name}.")
 
 
-def _maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource | None:
-    """Open a cached DataSource from a cache directory if it exists.
+def _maybe_read_cache(
+    cache_root: pathlib.Path, cache_name: str
+) -> CanonicalSource | None:
+    """Open a cached CanonicalSource from a cache directory if it exists.
 
     The caller must ensure concurrent processes/threads do not change this cache.
     """
@@ -446,33 +463,21 @@ def _maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource |
         boundary_vars = [
             str(v)
             for v in data.data_vars
-            if v in TEST_FULL_DATASET_SPEC.boundary_var_names
+            if v in TEST_FULL_DATA_LAYOUT.boundary_var_names
         ]
 
-        if _is_compact(data, means, stds):
-            prognostic_var_names: list[str] = []
-            for var in data.data_vars:
-                if var in boundary_vars or "mask" in var:
-                    continue
-                if "lev" in data[var].dims:
-                    prognostic_var_names.extend(
-                        f"{var}_{i}" for i in range(len(data.lev))
-                    )
-                else:
-                    prognostic_var_names.append(str(var))
-        else:
-            prognostic_var_names = _om4_canonical_var_names(
-                str(v)
-                for v in data.data_vars
-                if v not in boundary_vars and "mask" not in v
-            )
+        prognostic_var_names = [
+            var
+            for var in TEST_FULL_DATA_LAYOUT.prognostic_var_names
+            if var in data.data_vars
+        ]
 
-        return DataSource.from_datasets(
+        return CanonicalSource.from_datasets(
             name=cache_name,
             data=data,
             means=means,
             stds=stds,
-            dataset_spec=TEST_DATASET_SPEC,
+            data_layout=TEST_DATA_LAYOUT,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_vars,
         )
@@ -480,28 +485,30 @@ def _maybe_read_cache(cache_root: pathlib.Path, cache_name: str) -> DataSource |
         return None
 
 
-def _write_cache(cache_root: pathlib.Path, data_source: DataSource) -> None:
-    """Write a DataSource to a new cache directory.
+def _write_cache(cache_root: pathlib.Path, data_source: CanonicalSource) -> None:
+    """Write a CanonicalSource to a new cache directory.
 
     The caller must ensure concurrent processes/threads do not read or write to
     this cache while this function is running.
     """
     cache = cache_root / data_source.name
+    data, means, stds = data_source._xarray_datasets_for_testing()
 
     # Turn off compression! Our training datasets currently have compression turned off.
     #  See https://github.com/m2lines/samudra/blob/main/samudra/__main__.py#L240
     assert not (dz := cache / "data.zarr").exists(), "Data already exists in cache"
-    data_source.data.to_zarr(
-        dz, encoding={dv: {"compressor": None} for dv in data_source.data.data_vars}
+    data.to_zarr(
+        dz,
+        encoding={dv: {"compressor": None} for dv in data.data_vars},
     )
     assert not (dm := cache / "means.nc").exists(), "Means already exists in cache"
-    data_source.means.to_netcdf(dm)
+    means.to_netcdf(dm)
     assert not (ds := cache / "stds.nc").exists(), "Stds already exists in cache"
-    data_source.stds.to_netcdf(ds)
+    stds.to_netcdf(ds)
 
 
 @pytest.fixture(scope="session", params=["mock", "mock-om4", "compact"])
-def data_source(request, pytestconfig) -> DataSource:
+def data_source(request, pytestconfig) -> CanonicalSource:
     """Returns remote and in-memory `xarray.Dataset`s for tests."""
     our_cache_dir = cache_dir(pytestconfig)
     data_type = request.param
@@ -532,7 +539,7 @@ def unique_test_name(config_name: str, pytestconfig: pytest.Config) -> str:
 
 @pytest.fixture(scope="function")
 def train_config(
-    data_source: DataSource,
+    data_source: CanonicalSource,
     pytestconfig: pytest.Config,
     config_name: str,
     backend: TrainBackendConfig,
@@ -583,23 +590,23 @@ def trainer_pair(
 
 
 @pytest.fixture
-def dummy_src():
+def dummy_source():
     h, w = 4, 8
-    coords = {"lev": [0], "lat": np.arange(h), "lon": np.arange(w)}
+    coords = {"lat": np.arange(h), "lon": np.arange(w)}
     data = xr.Dataset(
         {
-            "thetao": (("lev", "lat", "lon"), np.zeros((1, h, w))),
+            "thetao_0": (("lat", "lon"), np.zeros((h, w))),
             "hfds": (("lat", "lon"), np.zeros((h, w))),
         },
         coords=coords,
     )
     masks = Masks(torch.ones(1, h, w), torch.ones(h, w))
-    src = DataSource(
+    source = CanonicalSource.from_canonical_datasets(
         name="dummy",
         data=data,
         means=data.mean(dim=["lat", "lon"]),
         stds=data.std(dim=["lat", "lon"]),
         masks=masks,
-        dataset_spec=TEST_DATASET_SPEC,
+        data_layout=TEST_DATA_LAYOUT,
     )
-    yield src
+    yield source

@@ -13,7 +13,7 @@ import torch
 from samudra.config import CpuDataLoadingConfig, DynamicLossConfig, TrainConfig
 from samudra.models.base import BaseModel
 from samudra.train import Trainer, should_log_validation_images
-from samudra.utils.ctx import GridContext
+from samudra.utils.ctx import BatchGrid
 from samudra.utils.loss import DynamicLoss
 from samudra.utils.multiton import MultitonScope
 from tests.conftest import DEFAULT_CONFIG, SAMUDRA_MULTI_CONFIG, TrainPair
@@ -247,10 +247,10 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
     _, trainer = trainer_pair
 
     hist = trainer.hist
-    assert trainer.inference_src is not None
-    resolution = trainer.inference_src.resolution
-    wet = trainer.inference_src.masks.prognostic_with_hist(hist)
-    ctx = GridContext(wet, resolution, resolution).to(trainer.device)
+    assert trainer.inference_source is not None
+    resolution = trainer.inference_source.resolution
+    wet = trainer.inference_source.masks.prognostic_with_hist(hist)
+    ctx = BatchGrid(wet, resolution, resolution).to(trainer.device)
     data = trainer.inference_loader.dataset[0]
     inference_dataset, _num_steps = data
     prog, boundary, _label = inference_dataset[0]
@@ -323,7 +323,7 @@ def test_multiscale_training_validates_primary_source_and_logs_reduced_metrics(
         assert len(trainer.train_loader._datasets) == 2
         assert len(trainer.val_loader._datasets) == 1
         val_dataset = next(iter(trainer.val_loader._datasets.values()))
-        assert val_dataset.prognostic_src.grid_size == trainer.primary_src.grid_size
+        assert val_dataset.sources[0].grid_size == trainer.primary_source.grid_size
 
         class PerfectModel(BaseModel):
             def __init__(self):
@@ -352,9 +352,9 @@ def test_data_loaders_enable_persistent_workers_on_positive_num_workers(
 
     assert trainer.mp_context is not None
     assert trainer.mp_context.get_start_method() == "spawn"
-    assert trainer.train_loader._dataloader.persistent_workers is True
-    assert trainer.val_loader._dataloader.persistent_workers is True
-    assert trainer.inference_src is not None
+    assert trainer.train_loader._host_loader.persistent_workers is True
+    assert trainer.val_loader._host_loader.persistent_workers is True
+    assert trainer.inference_source is not None
 
 
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)
@@ -375,5 +375,5 @@ def test_data_loaders_disable_persistent_workers_when_num_workers_is_zero(
         trainer.init_data_loaders(cur_step=train_config.steps[0])
 
     assert trainer.mp_context is None
-    assert trainer.train_loader._dataloader.persistent_workers is False
-    assert trainer.val_loader._dataloader.persistent_workers is False
+    assert trainer.train_loader._host_loader.persistent_workers is False
+    assert trainer.val_loader._host_loader.persistent_workers is False

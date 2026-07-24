@@ -12,10 +12,10 @@ import torch
 from samudra.aggregator import Aggregator
 from samudra.backend import init_eval_backend
 from samudra.config import EvalConfig
-from samudra.constants import BoundaryVarNames, Grid, PrognosticVarNames, TensorMap
+from samudra.constants import BoundaryVarNames, Grid, PrognosticVarNames
 from samudra.datasets import InferenceDataset
 from samudra.stepper import run_rollout
-from samudra.utils.data import Normalize, get_inference_steps, spherical_area_weights
+from samudra.utils.data import BatchPreprocessor, get_inference_steps
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import is_main_process, set_seed
 from samudra.utils.logging import get_model_summary, handle_logging, handle_warnings
@@ -47,17 +47,17 @@ class Eval:
         set_seed(cfg.experiment.rand_seed)
 
         logger.info("Loading data")
-        self.data_container = cfg.data.build(
+        self.data_bundle = cfg.data.build(
             cfg.experiment.resolved_data_root,
         )
 
         # Getting prognostic and boundary variables
-        self.dataset_spec = self.data_container.dataset_spec
+        self.data_layout = self.data_bundle.data_layout
         self.prognostic_var_names: PrognosticVarNames = (
-            self.dataset_spec.prognostic_var_names
+            self.data_layout.prognostic_var_names
         )
-        self.boundary_var_names: BoundaryVarNames = self.dataset_spec.boundary_var_names
-        self.levels = self.dataset_spec.num_prognostic_depth_levels
+        self.boundary_var_names: BoundaryVarNames = self.data_layout.boundary_var_names
+        self.levels = self.data_layout.num_prognostic_depth_levels
 
         str_prognostics = ", ".join([i for i in self.prognostic_var_names])
         str_boundaries = ", ".join([i for i in self.boundary_var_names])
@@ -74,25 +74,24 @@ class Eval:
         self.num_in = self.num_prog_in + self.num_boundary_in
         self.num_out = self.num_prog_in
 
-        self.tensor_map = TensorMap(dataset_spec=self.dataset_spec).to(self.device)
+        self.data_layout = self.data_layout.to(self.device)
 
         logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
 
         # Dataloaders
-        if self.data_container.inference_source is None:
+        if self.data_bundle.inference_source is None:
             raise ValueError(
                 "Inference time is not configured for the first data source"
             )
-        self.src = self.data_container.inference_source
-        self.data = self.src.data
-        self.metadata = self.src.metadata
-        self.wet = self.src.masks.prognostic_with_hist(cfg.data.hist)
-        self.area_weights: Grid = spherical_area_weights(self.data)
+        self.source = self.data_bundle.inference_source
+        self.metadata = self.source.metadata
+        self.wet = self.source.masks.prognostic_with_hist(cfg.data.hist)
+        self.area_weights: Grid = self.source.spherical_area_weights
         self.area_weights = self.area_weights.to(self.device)
 
-        self.normalize = Normalize(
-            self.src,
+        self.preprocessor = BatchPreprocessor(
+            self.source,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
         )
@@ -103,7 +102,7 @@ class Eval:
             boundary_channels=self.num_boundary_in,
             out_channels=self.num_out,
             hist=cfg.data.hist,
-            srcs=self.data_container.train_sources,
+            grid_sizes=[source.grid_size for source in self.data_bundle.train_sources],
         ).to(self.device)
 
         get_model_summary(self.model, None, cfg.debug)
@@ -124,7 +123,7 @@ class Eval:
 
         # Set up wandb run
         self.wandb_id, self.wandb_name = self.wandb_logger.setup_run(
-            None, cfg, data_container=self.data_container, finetune=False
+            None, cfg, data_bundle=self.data_bundle, finetune=False
         )
 
         # Eval
@@ -150,11 +149,11 @@ class Eval:
 
     def init_inference_store(self):
         self.num_time_steps = get_inference_steps(
-            self.src,
+            self.source,
             hist=self.hist,
         )
         self.inference_dataset = InferenceDataset(
-            src=self.src,
+            source=self.source,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             hist=self.hist,
@@ -189,10 +188,10 @@ class Eval:
             self.metadata,
             self.hist,
             self.area_weights,
-            self.src.masks.prognostic.to(self.device),
+            self.source.masks.prognostic.to(self.device),
             self.num_out,
-            self.tensor_map,
-            self.normalize,
+            self.data_layout,
+            self.preprocessor,
             self.prognostic_var_names,
         )
 
@@ -205,8 +204,8 @@ class Eval:
             model_path=self.model_path,
             num_model_steps_forward=self.num_model_steps_forward,
             save_zarr=self.save_zarr,
-            tensor_map=self.tensor_map,
-            normalize=self.normalize,
+            data_layout=self.data_layout,
+            preprocessor=self.preprocessor,
         )
         logs = inf_aggregator.get_summary_logs()
         return {f"inference/{k}": v for k, v in logs.items()}

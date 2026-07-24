@@ -17,10 +17,10 @@ from os import PathLike
 import torch
 
 from samudra.aggregator import InferenceEvaluatorAggregator
-from samudra.constants import TensorMap
-from samudra.datasets import InferenceDataset, TrainData
+from samudra.constants import DataLayout
+from samudra.datasets import InferenceDataset, ModelBatch
 from samudra.models.base import BaseModel
-from samudra.utils.data import Normalize
+from samudra.utils.data import BatchPreprocessor
 from samudra.utils.device import get_device
 from samudra.utils.output import ModelInferenceOutput, TrainBatchOutput, ValBatchOutput
 from samudra.utils.wandb import get_record_to_wandb
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 def train_batch(
-    model: torch.nn.Module, batch: TrainData, loss_fn: Callable
+    model: torch.nn.Module, batch: ModelBatch, loss_fn: Callable
 ) -> TrainBatchOutput:
     loss_per_channel = model(batch, loss_fn=partial(loss_fn, ctx=batch.ctx))
     loss = torch.mean(loss_per_channel)
@@ -40,7 +40,7 @@ def train_batch(
 @torch.no_grad()
 def validate_batch(
     model: BaseModel | torch.nn.parallel.DistributedDataParallel,
-    batch: TrainData,
+    batch: ModelBatch,
     loss_fn: Callable,
 ) -> ValBatchOutput:
     assert len(batch) == 1  # Assert we are using one step of input and output
@@ -67,8 +67,8 @@ def run_rollout(
     model_path: str | PathLike | None = None,
     num_model_steps_forward: int = 200,
     save_zarr: bool = False,
-    tensor_map: TensorMap | None = None,
-    normalize: Normalize | None = None,
+    data_layout: DataLayout | None = None,
+    preprocessor: BatchPreprocessor | None = None,
 ) -> None:
     """Performs inference, which is an auto-regressive rollout."""
     if save_zarr:
@@ -76,9 +76,9 @@ def run_rollout(
             raise ValueError(
                 "output_dir and model_path must be provided if save_zarr is True"
             )
-        if tensor_map is None or normalize is None:
+        if data_layout is None or preprocessor is None:
             raise ValueError(
-                "tensor_map and normalize must be provided if save_zarr is True"
+                "data_layout and preprocessor must be provided if save_zarr is True"
             )
         coords = dataset.get_coords_dict()
         if num_model_steps_forward > 0:
@@ -91,8 +91,8 @@ def run_rollout(
             hist=inf_aggregator.hist,
             model_path=model_path,
             time_chunk_size=chunk_size,
-            normalize=normalize,
-            tensor_map=tensor_map,
+            preprocessor=preprocessor,
+            data_layout=data_layout,
         )
     else:
         writer = None
@@ -128,7 +128,7 @@ def run_rollout(
             f"Stepping {num_steps} steps forward."
         )
         dataset.to(get_device())
-        IO: ModelInferenceOutput = model.inference(
+        inference_output: ModelInferenceOutput = model.inference(
             dataset,
             initial_prognostic=initial_prognostic,
             steps_completed=step,
@@ -136,14 +136,14 @@ def run_rollout(
             epoch=epoch,
         )
         # Setting initial prognostic for next loop
-        initial_prognostic = IO.prediction[-1].unsqueeze(0).clone()
+        initial_prognostic = inference_output.prediction[-1].unsqueeze(0).clone()
         if writer:
             logger.info("Writing to zarr...")
-            writer.record_batch(IO)
+            writer.record_batch(inference_output)
             writer.write()
 
         logger.info("Recording logs...")
-        logs = inf_aggregator.record_batch(IO)
+        logs = inf_aggregator.record_batch(inference_output)
         logger.info("Logging to wandb...")
         record_logs(logs)
         step += num_steps

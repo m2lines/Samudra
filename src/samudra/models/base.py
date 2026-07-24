@@ -9,11 +9,11 @@ import logging
 import torch
 
 from samudra.constants import Boundary, Prognostic
-from samudra.utils.ctx import GridContext
+from samudra.utils.ctx import BatchGrid
 
 logger = logging.getLogger(__name__)
 
-from samudra.datasets import InferenceDataset, TrainData
+from samudra.datasets import InferenceDataset, ModelBatch
 from samudra.utils.device import get_device
 from samudra.utils.output import ModelInferenceOutput
 
@@ -47,20 +47,20 @@ class BaseModel(torch.nn.Module):
         self.gradient_detach_interval = gradient_detach_interval
 
     def forward_once(
-        self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
+        self, prognostic: Prognostic, boundary: Boundary, ctx: BatchGrid
     ) -> Prognostic:
         raise NotImplementedError()
 
     def forward(
         self,
-        train_data: TrainData,
+        batch: ModelBatch,
         loss_fn=None,
     ) -> torch.Tensor | list[torch.Tensor]:
         outputs: list[torch.Tensor] = []
         loss = torch.tensor(torch.nan)
-        for step in range(len(train_data)):
+        for step in range(len(batch)):
             if step == 0:
-                prog_tensor, boundary_tensor = train_data.get_initial_input()
+                prog_tensor, boundary_tensor = batch.get_initial_input()
             else:
                 prev_output = outputs[-1]
                 if (
@@ -68,10 +68,10 @@ class BaseModel(torch.nn.Module):
                     and step % self.gradient_detach_interval == 0
                 ):
                     prev_output = prev_output.detach()
-                _, boundary_tensor = train_data.get_input(step)
+                _, boundary_tensor = batch.get_input(step)
                 prog_tensor = prev_output
 
-            decodings = self.forward_once(prog_tensor, boundary_tensor, train_data.ctx)
+            decodings = self.forward_once(prog_tensor, boundary_tensor, batch.ctx)
             if self.pred_residuals:
                 pred = prog_tensor + decodings  # Residual prediction
             else:
@@ -81,12 +81,12 @@ class BaseModel(torch.nn.Module):
                 if step == 0:
                     loss = loss_fn(
                         pred,
-                        train_data.get_label(step),
+                        batch.get_label(step),
                     )
                 else:
                     loss += loss_fn(
                         pred,
-                        train_data.get_label(step),
+                        batch.get_label(step),
                     )
 
             outputs.append(pred)
@@ -139,5 +139,5 @@ class BaseModel(torch.nn.Module):
             slice(steps_completed, steps_completed + num_steps)
         ).to(device=get_device())
 
-        IO = ModelInferenceOutput(pred_tensor, target_tensor, target_time)
-        return IO
+        inference_output = ModelInferenceOutput(pred_tensor, target_tensor, target_time)
+        return inference_output

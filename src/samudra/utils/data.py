@@ -4,17 +4,17 @@
 
 import dataclasses
 import logging
-import re
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Mapping, Sequence
 from functools import cached_property
-from typing import TYPE_CHECKING, Literal, Self
+from types import MappingProxyType
+from typing import TYPE_CHECKING, Any, Literal, Protocol, Self, final
 
 import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
-from jaxtyping import Bool, Float
+from jaxtyping import Bool
 
 if TYPE_CHECKING:
     from samudra.config import TimeConfig
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 from samudra.constants import (
     BatchTimeSeriesOutput,
     BoundaryVarNames,
-    DatasetSpec,
+    DataLayout,
     DictSingleChannelVar,
     Grid,
     GridMask,
@@ -35,39 +35,30 @@ from samudra.constants import (
     PrognosticMask,
     PrognosticVarNames,
     SingleTimeSeriesOutput,
-    TensorMap,
     construct_metadata,
 )
 from samudra.derived_variables import add_derived_variables
-from samudra.utils.llc import _preferred_available_var, _var_without_level
 
 logger = logging.getLogger(__name__)
 
-
-def _var_name_encode_level(var_name: str) -> bool:
-    """Check if the variable name encodes the level."""
-    var_name_encodes_level = re.compile(r"_[0-9]+")
-    return bool(var_name_encodes_level.search(var_name))
+_CANONICAL_MASK_PREFIX = "mask_"
+_STACKED_WET_MASK_VAR = "wetmask"
 
 
-def _is_compact(data: xr.Dataset, means: xr.Dataset, stds: xr.Dataset) -> bool:
-    return all(
-        not _var_name_encode_level(str(v))
-        for d in [data, means, stds]
-        for v in d.keys()
-    )
-
-
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class Masks:
-    """A collection of masks to expose the ocean and mask land."""
+    """Read-only mask metadata used to expose the ocean and mask land.
+
+    Tensor contents are shared between canonical views for efficiency and must
+    be treated as immutable by callers.
+    """
 
     prognostic: PrognosticMask
     boundary: GridMask
 
     def __post_init__(self):
-        self.prognostic = self.prognostic.bool()
-        self.boundary = self.boundary.bool()
+        object.__setattr__(self, "prognostic", self.prognostic.bool())
+        object.__setattr__(self, "boundary", self.boundary.bool())
 
     def prognostic_with_hist(
         self, hist: int
@@ -75,28 +66,212 @@ class Masks:
         return torch.concat([self.prognostic] * (hist + 1), dim=0)
 
 
-@dataclasses.dataclass
-class DataSource:
-    """Data source for the model."""
+@dataclasses.dataclass(frozen=True)
+class CanonicalReadRequest:
+    """A storage-independent request for canonical ocean-data planes.
 
-    name: str
+    The shape of ``time_indices`` defines the leading dimensions of the returned
+    planes. Keeping this core request to NumPy makes it usable by Python and native
+    readers without importing xarray concepts into the boundary.
+    """
+
+    time_indices: np.ndarray
+    channels: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        indices = np.asarray(self.time_indices)
+        if not np.issubdtype(indices.dtype, np.integer):
+            raise TypeError("Canonical time indices must be integers")
+        immutable_indices = indices.astype(np.int64, copy=True)
+        immutable_indices.setflags(write=False)
+        object.__setattr__(self, "time_indices", immutable_indices)
+        object.__setattr__(self, "channels", tuple(self.channels))
+
+
+@dataclasses.dataclass(frozen=True)
+class ChannelStatistics:
+    """Normalization statistics aligned one-for-one with canonical channels."""
+
+    mean: np.ndarray
+    std: np.ndarray
+
+
+class CanonicalReader(Protocol):
+    """Narrow storage seam implemented by xarray now and native readers later."""
+
+    @property
+    def channels(self) -> tuple[str, ...]: ...
+
+    @property
+    def time(self) -> xr.DataArray: ...
+
+    @property
+    def resolution(self) -> tuple[Lat, Lon]: ...
+
+    def statistics(self, channels: tuple[str, ...]) -> ChannelStatistics: ...
+
+    @property
+    def attrs(self) -> Mapping[str, Any]: ...
+
+    def slice_time(self, time: "TimeConfig") -> Self: ...
+
+    def read(self, request: CanonicalReadRequest) -> np.ndarray: ...
+
+    def coordinates(self) -> Mapping[str, xr.DataArray]: ...
+
+    def metadata(self, data_layout: DataLayout) -> dict: ...
+
+
+@dataclasses.dataclass(frozen=True)
+class _XarrayCanonicalReader:
+    """Private xarray implementation of the canonical read contract."""
+
     data: xr.Dataset
     means: xr.Dataset
     stds: xr.Dataset
-    masks: Masks
-    dataset_spec: DatasetSpec
+    channels: tuple[str, ...]
 
-    @cached_property
-    def is_compact(self) -> bool:
-        """Check if the data source is compact."""
-        return _is_compact(self.data, self.means, self.stds)
+    @property
+    def time(self) -> xr.DataArray:
+        return self.data.time.copy(deep=True)
 
-    @cached_property
+    @property
     def resolution(self) -> tuple[Lat, Lon]:
         return (
-            torch.from_numpy(self.data.lat.values),
-            torch.from_numpy(self.data.lon.values),
+            torch.from_numpy(self.data.lat.values).clone(),
+            torch.from_numpy(self.data.lon.values).clone(),
         )
+
+    def statistics(self, channels: tuple[str, ...]) -> ChannelStatistics:
+        self._validate_channels(channels)
+        return ChannelStatistics(
+            _flatten(self.means[list(channels)]),
+            _flatten(self.stds[list(channels)]),
+        )
+
+    @property
+    def attrs(self) -> Mapping[str, Any]:
+        return MappingProxyType(dict(self.data.attrs))
+
+    def _validate_channels(self, channels: tuple[str, ...]) -> None:
+        missing = set(channels).difference(self.channels)
+        if missing:
+            raise KeyError(f"Canonical channels not found: {sorted(missing)}")
+
+    def slice_time(self, time: "TimeConfig") -> Self:
+        return dataclasses.replace(self, data=self.data.sel(time=time.time_slice))
+
+    def read(self, request: CanonicalReadRequest) -> np.ndarray:
+        self._validate_channels(request.channels)
+        index_dims = [f"index_{i}" for i in range(request.time_indices.ndim)]
+        index = xr.DataArray(request.time_indices, dims=index_dims)
+        selected = self.data[list(request.channels)].isel(time=index)
+
+        # Materialize one combined graph, rather than loading canonical channels
+        # independently. Compact level views share their base-array Dask keys, so
+        # the scheduler can read/decompress each physical chunk once per request.
+        values = (
+            selected.to_array(dim="channel")
+            .transpose(*index_dims, "channel", "lat", "lon")
+            .to_numpy()
+            .astype(np.float32, copy=False)
+        )
+        return values
+
+    def coordinates(self) -> Mapping[str, xr.DataArray]:
+        return MappingProxyType(
+            {
+                str(name): coordinate.copy(deep=True)
+                for name, coordinate in self.data.coords.items()
+            }
+        )
+
+    def metadata(self, data_layout: DataLayout) -> dict:
+        return construct_metadata(self.data, data_layout)
+
+
+@final
+@dataclasses.dataclass(frozen=True)
+class CanonicalSource:
+    """A structurally immutable, read-capable view of canonical ocean data.
+
+    Physical xarray layout is private to the reader. In particular, callers see
+    the same ordered channels for flat and compact OM4 stores. Channel selection
+    and time slicing return new views and never mutate the source. Tensor-valued
+    masks are shared, read-only metadata; mutating their contents is unsupported.
+    """
+
+    name: str
+    _reader: CanonicalReader
+    masks: Masks
+    data_layout: DataLayout
+
+    @property
+    def reader(self) -> CanonicalReader:
+        """Return the storage reader so backends can decorate its read behavior."""
+        return self._reader
+
+    def with_reader(self, reader: CanonicalReader) -> Self:
+        """Return an equivalent source backed by a replacement reader."""
+        if reader.channels != self.channels:
+            raise ValueError(
+                "Replacement reader channels must match the canonical source: "
+                f"expected {self.channels}, got {reader.channels}"
+            )
+        return dataclasses.replace(self, _reader=reader)
+
+    @classmethod
+    def from_canonical_datasets(
+        cls,
+        name: str,
+        data: xr.Dataset,
+        means: xr.Dataset,
+        stds: xr.Dataset,
+        masks: Masks,
+        data_layout: DataLayout,
+    ) -> Self:
+        """Construct from datasets that are already in canonical channel form.
+
+        Raw OM4 callers should use :meth:`from_datasets`. This factory remains
+        useful for focused in-memory tests and named preprocessing stages.
+        """
+        channels = tuple(str(name) for name in means.data_vars)
+        if any("lev" in dataset.dims for dataset in (data, means, stds)):
+            raise ValueError("Canonical datasets cannot expose a 'lev' dimension")
+        if set(channels) - set(data.data_vars) or set(channels) - set(stds.data_vars):
+            raise ValueError("Canonical data, means, and stds have different channels")
+        return cls(
+            name=name,
+            _reader=_XarrayCanonicalReader(
+                data,
+                means[list(channels)],
+                stds[list(channels)],
+                channels,
+            ),
+            masks=masks,
+            data_layout=data_layout,
+        )
+
+    @property
+    def channels(self) -> tuple[str, ...]:
+        return self._reader.channels
+
+    @property
+    def time(self) -> xr.DataArray:
+        return self._reader.time
+
+    def statistics(self, channels: Sequence[str]) -> ChannelStatistics:
+        return self._reader.statistics(tuple(channels))
+
+    @property
+    def attrs(self) -> MappingProxyType[str, Any]:
+        return MappingProxyType(dict(self._reader.attrs))
+
+    @property
+    def resolution(self) -> tuple[Lat, Lon]:
+        # Readers return defensive coordinate tensors. Do not cache and expose a
+        # mutable tensor that could silently alter future callers' grid context.
+        return self._reader.resolution
 
     @cached_property
     def grid_size(self) -> GridSize:
@@ -105,95 +280,18 @@ class DataSource:
 
     @cached_property
     def spherical_area_weights(self) -> Grid:
-        return spherical_area_weights(self.data)
+        lat, lon = self.resolution
+        weights = torch.cos(torch.deg2rad(lat)).repeat(lon.shape[0], 1).t()
+        return weights / weights.sum()
 
     @cached_property
     def metadata(self) -> dict:
-        return construct_metadata(self.data, self.dataset_spec)
+        return self._reader.metadata(self.data_layout)
 
-    def filter(
-        self,
-        var_names: PrognosticVarNames | BoundaryVarNames,
-        *,
-        prefix: str,
-    ) -> Self:
-        """Filter the data source to only include the specified variables (and levels).
-
-        If the dataset is compact, it will also filter the levels based on the
-        variable names (which encode the level in the name).
-
-        Args:
-            var_names: Variable names to filter.
-            prefix: Prefix for the new data source name.
-
-        Returns:
-            A new `DataSource` only with the filtered variables and levels.
-        """
-        name = f"{prefix}[{self.name}]"
-        if self.is_compact:
-            parsed_var_names, levels = [], []
-            for mangled_var_name in var_names:
-                if not _var_name_encode_level(mangled_var_name):
-                    parsed_var_names.append(mangled_var_name)
-                    continue
-                tokens = mangled_var_name.split("_")
-                var_name, level = tokens[0], int(tokens[1])
-
-                parsed_var_names.append(var_name)
-                # Build set of total levels
-                if level not in levels:
-                    levels.append(level)
-
-            data = self.data[parsed_var_names]
-            means = self.means[parsed_var_names]
-            stds = self.stds[parsed_var_names]
-            if levels:
-                data = data.isel(lev=levels)
-                means = means.isel(lev=levels)
-                stds = stds.isel(lev=levels)
-
-            return dataclasses.replace(
-                self, name=name, data=data, means=means, stds=stds
-            )
-
-        data = self.data[var_names]
-        means = self.means[var_names]
-        stds = self.stds[var_names]
-
-        return dataclasses.replace(self, name=name, data=data, means=means, stds=stds)
-
-    def map(
-        self,
-        func: Callable[
-            [xr.Dataset, xr.Dataset, xr.Dataset],
-            tuple[xr.Dataset, xr.Dataset, xr.Dataset],
-        ],
-        *,
-        suffix: str | None = None,
-    ) -> Self:
-        """Map the function over the data source."""
-        if suffix is None:
-            suffix = func.__qualname__
-
-        data, means, stds = func(self.data.copy(), self.means.copy(), self.stds.copy())
-
-        return dataclasses.replace(
-            self, name=f"{self.name}_{suffix}", data=data, means=means, stds=stds
-        )
-
-    def map_data(
-        self, func: Callable[[xr.Dataset], xr.Dataset], *, suffix: str | None = None
-    ) -> Self:
-        """Map the function over just data in DataSource."""
-        if suffix is None:
-            suffix = func.__qualname__
-        data = func(self.data.copy())
-        return dataclasses.replace(self, name=f"{self.name}_{suffix}", data=data)
-
-    def slice(self, time: "TimeConfig") -> Self:
+    def slice_time(self, time: "TimeConfig") -> Self:
         """Slice the data source to only include the specified time slice."""
-        data_time_min = self.data.time.values.min()
-        data_time_max = self.data.time.values.max()
+        data_time_min = self.time.values.min()
+        data_time_max = self.time.values.max()
         time_start = time.time_slice.start
         time_end = time.time_slice.stop
         if time_start > data_time_max or time_end < data_time_min:
@@ -208,65 +306,26 @@ class DataSource:
                 f"{str(data_time_min)[:10]} to {str(data_time_max)[:10]}"
             )
 
-        data = self.data.sel(time=time.time_slice)
-        return dataclasses.replace(self, name=f"{time=}[{self.name}]", data=data)
+        return dataclasses.replace(
+            self,
+            name=f"{time=}[{self.name}]",
+            _reader=self._reader.slice_time(time),
+        )
 
-    # TODO(jder): delete this once we've de-duplicated InferenceDataset with TorchTrainDataset
-    def normalize(self, fill_nan=True, fill_value=0.0) -> xr.Dataset:
-        """Normalize input data."""
-        norm = (self.data - self.means) / self.stds
-        if fill_nan:
-            norm = norm.fillna(fill_value)
-        return norm
+    def read(self, time_indices: np.ndarray, channels: Sequence[str]) -> np.ndarray:
+        """Read canonical channels at integer time indices."""
+        return self._reader.read(CanonicalReadRequest(time_indices, tuple(channels)))
 
-    # TODO(jder): delete this once we've de-duplicated InferenceDataset with TorchTrainDataset
-    def normalize_with(
+    def coordinates(self) -> dict[str, xr.DataArray]:
+        return dict(self._reader.coordinates())
+
+    def _xarray_datasets_for_testing(
         self,
-        data: torch.Tensor,
-        variable_axis: int = 0,
-        fill_nan=True,
-        fill_value=0.0,
-    ) -> torch.Tensor:
-        """Normalize input data treated as torch Tensors."""
-        reshape_vars = [1] * data.ndim
-        reshape_vars[variable_axis] = -1
-
-        # TODO(alxmrs): Do we have to reshape twice?
-        if "lev" in self.means.dims:
-            means_np = (
-                conditional_rearrange(
-                    self.means,
-                    "(variable lev)=var",
-                    concat_dim="var",
-                )
-                .rename({"var": "variable"})
-                .to_numpy()
-                .reshape(-1)
-            )
-        else:
-            means_np = self.means.to_array().to_numpy().reshape(-1)
-        if "lev" in self.stds.dims:
-            stds_np = (
-                conditional_rearrange(
-                    self.stds,
-                    "(variable lev)=var",
-                    concat_dim="var",
-                )
-                .rename({"var": "variable"})
-                .to_numpy()
-                .reshape(-1)
-            )
-        else:
-            stds_np = self.stds.to_array().to_numpy().reshape(-1)
-
-        means = torch.from_numpy(means_np).reshape(reshape_vars)
-        stds = torch.from_numpy(stds_np).reshape(reshape_vars)
-
-        norm = (data - means) / stds
-        if fill_nan:
-            norm = norm.nan_to_num(nan=fill_value)
-        norm = norm.to(data.dtype)
-        return norm
+    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+        """Expose xarray fixtures without making them part of the public contract."""
+        if not isinstance(self._reader, _XarrayCanonicalReader):
+            raise TypeError("This canonical dataset is not backed by xarray")
+        return self._reader.data, self._reader.means, self._reader.stds
 
     @classmethod
     def from_datasets(
@@ -275,236 +334,74 @@ class DataSource:
         means: xr.Dataset,
         stds: xr.Dataset,
         *,
-        dataset_spec: DatasetSpec,
+        data_layout: DataLayout,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
-        name: str = "DataSource",
+        name: str = "CanonicalSource",
     ) -> Self:
-        data, means, stds = validate_data(
-            data,
-            means,
-            stds,
-            dataset_spec=dataset_spec,
-            boundary_var_names=boundary_var_names,
-        )
+        """Build a canonical reader from already-canonicalized xarray datasets."""
+        channels = tuple(dict.fromkeys((*prognostic_var_names, *boundary_var_names)))
+        for dataset in (data, means, stds):
+            level_channels = [
+                name
+                for name in channels
+                if name in dataset and "lev" in dataset[name].dims
+            ]
+            if level_channels:
+                raise ValueError(
+                    "Canonical channels cannot expose a 'lev' dimension: "
+                    f"{level_channels}"
+                )
         masks = extract_wet_mask(
             data,
             prognostic_var_names,
             boundary_var_names,
-            dataset_spec=dataset_spec,
         )
+
+        missing_data = set(channels).difference(data.data_vars)
+        missing_means = set(channels).difference(means.data_vars)
+        missing_stds = set(channels).difference(stds.data_vars)
+        if missing_data or missing_means or missing_stds:
+            raise ValueError(
+                "Canonical channels are missing: "
+                f"data={sorted(missing_data)}, means={sorted(missing_means)}, "
+                f"stds={sorted(missing_stds)}"
+            )
 
         return cls(
             name=name,
-            data=data,
-            means=means,
-            stds=stds,
+            _reader=_XarrayCanonicalReader(
+                data=data,
+                means=means[list(channels)],
+                stds=stds[list(channels)],
+                channels=channels,
+            ),
             masks=masks,
-            dataset_spec=dataset_spec,
+            data_layout=data_layout,
         )
 
 
 @dataclasses.dataclass
-class OceanData:
-    """A slice of ocean data (boundary or prognostic) with normalization statistics.
-
-    This dataclass bundles raw tensor data with the statistics needed to normalize it
-    and the mask needed to handle land/invalid values. It serves as an intermediary
-    representation used when constructing training `Example`s from raw xarray data.
-
-    The typical workflow is:
-        1. Load raw data from a `DataSource` via `from_data_source()`
-        2. Slice to the desired time range with `with_time()`
-        3. Apply normalization and masking with `normalize_and_mask()`
-        4. Flatten time/variable dims to create the final `Input` or `Prognostic` tensor
-
-    Attributes:
-        data: Raw ocean variable values with shape (batch, time, variable, lat, lon).
-        means: Per-variable means for normalization, shape (variable,).
-        stds: Per-variable standard deviations for normalization, shape (variable,).
-        mask: Boolean mask indicating valid ocean points (True) vs land (False),
-            broadcast-compatible with the variable dimension.
-    """
-
-    data: Float[torch.Tensor, "batch time variable lat lon"]
-    means: Float[torch.Tensor, " variable"]
-    stds: Float[torch.Tensor, " variable"]
-    mask: Bool[torch.Tensor, " variable"]
-
-    @classmethod
-    def from_data_source(
-        cls,
-        data: Float[torch.Tensor, "batch time variable lat lon"],
-        mask: Float[torch.Tensor, " variable"],
-        src: DataSource,
-    ) -> Self:
-        means_torch = torch.from_numpy(_flatten(src.means))
-        stds_torch = torch.from_numpy(_flatten(src.stds))
-        return cls(data, means_torch, stds_torch, mask)
-
-    def with_time(self, time_range: slice) -> Self:
-        """Slice data across the time dimension."""
-        return dataclasses.replace(self, data=self.data[:, time_range, :, :, :])
-
-    def _normalize(
-        self,
-        data: Float[torch.Tensor, "batch time var lat lon"],
-        fill_nan: bool = True,
-        fill_value: float = 0.0,
-    ) -> Float[torch.Tensor, "batch time var lat lon"]:
-        """Normalize input data treated as torch Tensors."""
-        norm = (data - self.means.view(1, 1, -1, 1, 1)) / self.stds.view(1, 1, -1, 1, 1)
-        if fill_nan:
-            norm = norm.nan_to_num(nan=fill_value)
-        norm = norm.to(data.dtype)
-        return norm
-
-    def normalize_and_mask(
-        self, normalize_before_mask: bool, masked_fill_value: float
-    ) -> Float[torch.Tensor, "batch time var lat lon"]:
-        """Normalize and mask tensors."""
-        tensor = self.data
-        if normalize_before_mask:
-            tensor = self._normalize(tensor)
-        tensor = torch.where(self.mask, tensor, masked_fill_value)
-        if not normalize_before_mask:
-            tensor = self._normalize(tensor)
-        return tensor
-
-    def to(self, device: torch.device, non_blocking: bool = True) -> Self:
-        return dataclasses.replace(
-            self,
-            data=self.data.to(device, non_blocking=non_blocking),
-            means=self.means.to(device, non_blocking=non_blocking),
-            stds=self.stds.to(device, non_blocking=non_blocking),
-            mask=self.mask.to(device, non_blocking=non_blocking),
-        )
+class SourceSplits:
+    train: CanonicalSource
+    val: CanonicalSource
+    inference: CanonicalSource | None
 
 
 @dataclasses.dataclass
-class DataSourceSplits:
-    train: DataSource
-    val: DataSource
-    inference: DataSource | None
-
-
-@dataclasses.dataclass
-class DataContainer:
-    train_sources: list[DataSource]
-    val_sources: list[DataSource]
-    inference_source: DataSource | None
+class DataBundle:
+    train_sources: list[CanonicalSource]
+    val_sources: list[CanonicalSource]
+    inference_source: CanonicalSource | None
     loader_version: LoaderVersion
-    dataset_spec: DatasetSpec
-
-    # TODO: this is a bit of a footgun now that we have multiple kinds of sources
-    # and should be removed in favor of the appropriate source above.
-    @property
-    def primary_source(self) -> DataSource:
-        return self.train_sources[0]
-
-
-def conditional_rearrange(
-    data: xr.Dataset, pattern: str, except_dim="lev", concat_dim="variable"
-) -> xr.DataArray:
-    """Rearrange a Dataset using an einsum notation with and without a dimension.
-
-    When a dataset has variables with a mixture of dimensions and an einsum-like
-    rearrange is applied on that dataset, it's common that the pattern will combinate
-    one too many variables. Sometimes, it's desirable to apply the rearrange pattern
-    on two versions of the data: one including variables with that dimension and one
-    without, and then concatenate them along a new dimension.
-
-    For example, surface level boundary variables, which only occur at t0, should not be
-    combinatorially rearranged with depth variables that have multiple time steps. In
-    such a situation, this function can be used to apply a standard einsum rearrangement
-    to depth and surface variables, including and excluding variables who have a `time`
-    dimension, respectively.
-
-    This method is stable: even if it creates a new number of dimensions, it will
-    preserve the order of the variables in the original dataset.
-
-    Args:
-        data: The dataset to rearrange.
-        pattern: The einsum pattern to use for rearranging.
-        except_dim: The dimension to exclude from the pattern.
-        concat_dim: The dimension to concatenate along.
-
-    Returns:
-        The combined, rearranged dataset as a `xarray.DataArray`.
-    """
-    assert except_dim in pattern, f"{except_dim} must be in the pattern."
-
-    all_vars = list(data.keys())
-
-    vars_with_dim = [v for v in data if except_dim in data[v].dims]
-    vars_without_dim = [v for v in data if except_dim not in data[v].dims]
-
-    # Some of the `vars_without_dim` may need to appear before or behind `vars_with_dim`
-    # in the final data array. These lists help preserve the correct order of the vars,
-    # even after a rearrangement (i.e. merge to two or more dimensions).
-    back = [
-        v
-        for v in vars_without_dim
-        if all_vars.index(v) > all_vars.index(vars_with_dim[0])
-    ]
-    front = [
-        v
-        for v in vars_without_dim
-        if all_vars.index(v) < all_vars.index(vars_with_dim[-1])
-    ]
-
-    data_with_dim = (
-        data[vars_with_dim]
-        .to_array()
-        .einops.rearrange(pattern, dask="allowed")
-        .drop_vars(concat_dim, errors="ignore")
-    )
-    data_without_dim = (
-        data[vars_without_dim]
-        .to_array()
-        .einops.rearrange(pattern.replace(except_dim, ""), dask="allowed")
-        .drop_vars(concat_dim, errors="ignore")
-    )
-
-    da = xr.concat([data_with_dim, data_without_dim], dim=concat_dim)
-
-    n_front = len(front)  # e.g. n_front=2
-    n_center = data_with_dim.sizes[concat_dim]  # e.g. n_center=10
-    n_back = len(back)  # e.g. n_back=3
-
-    # In the `concat` above, we put all the `data_without_dim` vars at the end. Some of
-    # these need to be moved to the front, and the rest stays at the back. Here, we
-    # compute a list of indices that will sort the data in the correct order.
-    #
-    # e.g. with the example constants above, order would look like:
-    #  array([10, 11,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 12, 13, 14])
-    order = np.concatenate(
-        (
-            # Moves vars to the front
-            np.roll(np.arange((new_front := n_center + n_front)), n_front),
-            np.arange(new_front, new_front + n_back),  # rest of vars
-        )
-    )
-    order_da = xr.DataArray(order, dims=concat_dim)
-
-    return da.sortby(order_da)
+    data_layout: DataLayout
 
 
 def _flatten(ds: xr.Dataset) -> np.ndarray:
-    """Flatten a means/stds dataset into a 1-D array with one entry per channel.
-
-    Variables with a `lev` dim are flattened with `lev` first; variables without
-    a `lev` dim are flattened as-is. This matches the channel layout of the
-    prognostic / boundary tensors, which `to_array().reshape(-1)` would otherwise
-    mis-align by broadcasting surface-only variables across all depth levels.
-    """
-    flattened = []
-    for name in ds.data_vars:
-        var = ds[name]
-        if "lev" in var.dims:
-            var = var.transpose("lev", ...)
-        flattened.append(var.to_numpy().reshape(-1))
-    return np.concatenate(flattened)
+    """Flatten scalar statistics already aligned to canonical channel order."""
+    if "lev" in ds.dims:
+        raise ValueError("Canonical statistics cannot expose a 'lev' dimension")
+    return ds.to_array().to_numpy().reshape(-1)
 
 
 def _level_index_from_var_name(var_name: str) -> int:
@@ -512,11 +409,20 @@ def _level_index_from_var_name(var_name: str) -> int:
     return int(suffix) if suffix.isdigit() else 0
 
 
+def _var_without_level(var_name: str) -> str:
+    suffix = var_name.rsplit("_", maxsplit=1)[-1]
+    return var_name.rsplit("_", maxsplit=1)[0] if suffix.isdigit() else var_name
+
+
+def _preferred_available_var(
+    data: xr.Dataset, candidates: tuple[str, ...]
+) -> str | None:
+    return next((name for name in candidates if name in data.data_vars), None)
+
+
 def _mask_var_for_data_var(
     data: xr.Dataset,
     var_name: str,
-    *,
-    dataset_spec: DatasetSpec,
 ) -> str:
     level = _level_index_from_var_name(var_name)
     base_var = _var_without_level(var_name)
@@ -526,19 +432,17 @@ def _mask_var_for_data_var(
         "V": (f"mask_s_{level}", f"hFacS_{level}"),
         "oceTAUY": ("mask_s_0", "hFacS_0"),
     }
-    if dataset_spec.type == "llc" and base_var in llc_staggered_masks:
+    if base_var in llc_staggered_masks:
         if mask_var := _preferred_available_var(data, llc_staggered_masks[base_var]):
             return mask_var
-    return dataset_spec.mask_vars[level]
+    return f"{_CANONICAL_MASK_PREFIX}{level}"
 
 
 def _mask_array_for_data_var(
     data: xr.Dataset,
     var_name: str,
-    *,
-    dataset_spec: DatasetSpec,
 ) -> np.ndarray:
-    mask = data[_mask_var_for_data_var(data, var_name, dataset_spec=dataset_spec)]
+    mask = data[_mask_var_for_data_var(data, var_name)]
     if "time" in mask.dims:
         mask = mask.isel(time=0)
     return mask.to_numpy()
@@ -548,24 +452,17 @@ def extract_wet_mask(
     data: xr.Dataset,
     prognostic_var_names: PrognosticVarNames,
     boundary_var_names: BoundaryVarNames,
-    *,
-    dataset_spec: DatasetSpec,
 ) -> Masks:
     """A mask for where the oceans are. Water is wet."""
-    data_ = flatten_masks(data, dataset_spec=dataset_spec)
+    data_ = flatten_masks(data)
     wet_inp_np = np.stack(
-        [
-            _mask_array_for_data_var(data_, var_name, dataset_spec=dataset_spec)
-            for var_name in prognostic_var_names
-        ]
+        [_mask_array_for_data_var(data_, var_name) for var_name in prognostic_var_names]
     )
     boundary_mask_vars = [
-        _mask_var_for_data_var(data_, var_name, dataset_spec=dataset_spec)
-        for var_name in boundary_var_names
+        _mask_var_for_data_var(data_, var_name) for var_name in boundary_var_names
     ]
     boundary_masks = [
-        _mask_array_for_data_var(data_, var_name, dataset_spec=dataset_spec)
-        for var_name in boundary_var_names
+        _mask_array_for_data_var(data_, var_name) for var_name in boundary_var_names
     ]
     wet_surface_mask_np = (
         np.stack(boundary_masks)
@@ -580,41 +477,38 @@ def extract_wet_mask(
 
 def flatten_masks(
     data: xr.Dataset,
-    dataset_spec: DatasetSpec,
 ) -> xr.Dataset:
     """Adds level-wise mask variables from the stacked wet mask."""
     data_ = data.copy()
-    mask_vars = list(dataset_spec.mask_vars)
-    if mask_vars[0] not in data_.variables:
-        assert dataset_spec.mask_all_levels_var in data_.variables, (
+    if f"{_CANONICAL_MASK_PREFIX}0" not in data_.variables:
+        assert _STACKED_WET_MASK_VAR in data_.variables, (
             "Wet mask cannot be constructed without "
             "either the wetmask variable or the level-wise masks"
         )
 
-        wet_mask = data_[dataset_spec.mask_all_levels_var]
-        for i, mask_var in enumerate(mask_vars):
-            data_[mask_var] = wet_mask.isel(lev=i)
+        wet_mask = data_[_STACKED_WET_MASK_VAR]
+        for i in range(wet_mask.sizes["lev"]):
+            data_[f"{_CANONICAL_MASK_PREFIX}{i}"] = wet_mask.isel(lev=i)
 
-        data_ = data_.drop_vars(dataset_spec.mask_all_levels_var)
+        data_ = data_.drop_vars(_STACKED_WET_MASK_VAR)
 
     return data_
 
 
 def unflatten_masks(
     data: xr.Dataset,
-    dataset_spec: DatasetSpec,
+    num_levels: int,
 ) -> xr.Dataset:
     """Adds a stacked wet mask `xarray.DataArray` from level-wise mask variables."""
     data_ = data.copy()
-    mask_vars = list(dataset_spec.mask_vars)
-    if dataset_spec.mask_all_levels_var not in data_.variables:
+    mask_vars = [f"{_CANONICAL_MASK_PREFIX}{i}" for i in range(num_levels)]
+    if _STACKED_WET_MASK_VAR not in data_.variables:
         assert mask_vars[0] in data_.variables, "Wet mask must have masks as data vars!"
 
-        wetmask = data_[mask_vars].to_array(
-            dim="lev", name=dataset_spec.mask_all_levels_var
-        )
+        wetmask = data_[mask_vars].to_array(dim="lev", name=_STACKED_WET_MASK_VAR)
 
-        data_[dataset_spec.mask_all_levels_var] = wetmask.assign_coords(lev=data_.lev)
+        lev = data_.coords.get("lev", np.arange(len(mask_vars)))
+        data_[_STACKED_WET_MASK_VAR] = wetmask.assign_coords(lev=lev)
         data_ = data_.drop_vars(mask_vars)
 
     return data_
@@ -671,7 +565,7 @@ def spherical_area(data: xr.Dataset) -> Grid:
     return torch.from_numpy(areas)
 
 
-def get_inference_steps(data_source: DataSource, hist: int = 1):
+def get_inference_steps(data_source: CanonicalSource, hist: int = 1):
     """
     Get the number of inference/rollout steps for the given time configuration.
 
@@ -682,7 +576,7 @@ def get_inference_steps(data_source: DataSource, hist: int = 1):
     Returns:
         num_steps: Total number of rolled-out inferences which fit into the time range
     """
-    num_steps = data_source.data.time.size
+    num_steps = data_source.time.size
 
     # Might have extra remaining days, so we remove them
     mod = num_steps % (hist + 1)
@@ -693,21 +587,21 @@ def get_inference_steps(data_source: DataSource, hist: int = 1):
 def convert_tensor_out_to_dict(
     tensor_out: torch.Tensor,
     *,
-    tensor_map: TensorMap,
+    data_layout: DataLayout,
 ) -> DictSingleChannelVar:
     assert tensor_out.ndim == 5
-    assert tensor_out.shape[2] == len(tensor_map.prognostic_var_names)
+    assert tensor_out.shape[2] == len(data_layout.prognostic_var_names)
     out_dict = {}
-    for i, var in enumerate(tensor_map.prognostic_var_names):
+    for i, var in enumerate(data_layout.prognostic_var_names):
         out_dict[var] = tensor_out[:, :, i]
-    out_dict.update(add_derived_variables(tensor_out, tensor_map=tensor_map))
+    out_dict.update(add_derived_variables(tensor_out, data_layout=data_layout))
     return out_dict
 
 
 def get_aggregator_dicts(
     data: Prognostic | Input,
-    normalize: "Normalize",
-    tensor_map: TensorMap,
+    preprocessor: "BatchPreprocessor",
+    data_layout: DataLayout,
     wet: torch.Tensor,
     long_rollout: bool,
     input_type: Literal["prognostic", "input"] = "prognostic",
@@ -735,13 +629,13 @@ def get_aggregator_dicts(
     # Get normalized dict
     data_normalized = data_reshaped.clone()
     data_normalized = torch.where(wet == 0, float("nan"), data_normalized)
-    data_dict = convert_tensor_out_to_dict(data_normalized, tensor_map=tensor_map)
+    data_dict = convert_tensor_out_to_dict(data_normalized, data_layout=data_layout)
     # Unnormalize
-    data_unnorm = normalize.unnormalize_tensor_prognostic(
+    data_unnorm = preprocessor.unnormalize_tensor_prognostic(
         data_reshaped, fill_value=float("nan")
     )
     # Get unnormalized dict
-    data_unnorm_dict = convert_tensor_out_to_dict(data_unnorm, tensor_map=tensor_map)
+    data_unnorm_dict = convert_tensor_out_to_dict(data_unnorm, data_layout=data_layout)
     return data_dict, data_unnorm_dict
 
 
@@ -777,7 +671,7 @@ def compute_anomalies(
 
 def with_level_index_vars(
     data: xr.Dataset,
-    dataset_spec: DatasetSpec,
+    depth_levels: Sequence[float],
 ) -> xr.Dataset:
     """
     Ensure variable names use a depth level index, not depth level value.
@@ -792,7 +686,7 @@ def with_level_index_vars(
             var_split = var_str.split("_lev_")
             var = var_split[0]
             lev_in_depth = float(var_split[1].replace("_", "."))
-            lev_in_depth_idx = dataset_spec.depth_levels.index(lev_in_depth)
+            lev_in_depth_idx = depth_levels.index(lev_in_depth)
             data_copy = data_copy.rename({var_str: f"{var}_{lev_in_depth_idx!s}"})
 
     return data_copy
@@ -800,23 +694,23 @@ def with_level_index_vars(
 
 def with_depth_value_vars(
     data: xr.Dataset,
-    dataset_spec: DatasetSpec,
+    data_layout: DataLayout,
 ) -> xr.Dataset:
     """Inverse of `with_level_index_vars`: name 3D variables by depth value.
 
     Renames the depth-resolved prognostic variables (``<var>_<level_index>``)
     back to the OM4 ``<var>_lev_<depth>`` form (e.g. ``thetao_0`` ->
     ``thetao_lev_2_5``). Which variables to rename is read directly off
-    ``dataset_spec.prognostic_var_names`` rather than inferred from the data, so
+    ``data_layout.prognostic_var_names`` rather than inferred from the data, so
     per-level masks (``mask_<i>``) and level-free prognostics (e.g. ``zos``) are
     never mistaken for depth-resolved variables by name alone.
     """
     renames = {}
-    for var_name in dataset_spec.prognostic_var_names:
+    for var_name in data_layout.prognostic_var_names:
         base, _, idx = var_name.rpartition("_")
         if not (base and idx.isdigit()):
             continue  # level-free prognostic variable, e.g. zos
-        depth = dataset_spec.depth_levels[int(idx)]
+        depth = data_layout.depth_levels[int(idx)]
         depth_str = str(depth).replace(".", "_")
         if var_name in data.variables:
             renames[var_name] = f"{base}_lev_{depth_str}"
@@ -836,92 +730,117 @@ def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
     return data_copy
 
 
-def validate_data(
-    data: xr.Dataset,
-    means: xr.Dataset,
-    stds: xr.Dataset,
-    dataset_spec: DatasetSpec,
-    boundary_var_names: BoundaryVarNames,
-) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
-    """Validate the data such that we have the correct format for training."""
-    is_compact = _is_compact(data, means, stds)
-
-    if is_compact:
-        data = with_lat_lon_coords(data)
-    else:
-        data = (
-            data.pipe(flatten_masks, dataset_spec=dataset_spec)
-            .pipe(with_level_index_vars, dataset_spec=dataset_spec)
-            .pipe(with_lat_lon_coords)
-        )
-
-        # Check if data variables are in the right format
-        # This check is to ensure we convert data to the correct format
-        means = with_level_index_vars(means, dataset_spec=dataset_spec)
-        stds = with_level_index_vars(stds, dataset_spec=dataset_spec)
-
-    # Check if any anomalies are needed to be computed
-    anomalies_vars = get_anomalies_vars(boundary_var_names)
-    out = (
-        compute_anomalies(data, means, stds, anomalies_vars)
-        if anomalies_vars
-        else (data, means, stds)
-    )
-
-    return out
-
-
-class Normalize:
+class BatchPreprocessor:
     def __init__(
         self,
-        src: DataSource,
-        prognostic_var_names: PrognosticVarNames,
-        boundary_var_names: BoundaryVarNames,
+        source: CanonicalSource,
+        prognostic_var_names: Sequence[str],
+        boundary_var_names: Sequence[str],
+        *,
+        normalize_before_mask: bool = True,
+        masked_fill_value: float = 0.0,
     ) -> None:
-        """Store normalization parameters and pre-compute numpy arrays."""
-        prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
-        boundary_src = src.filter(boundary_var_names, prefix="boundary")
-        self.prognostic_mean = prognostic_src.means
-        self.prognostic_std = prognostic_src.stds
-        self.boundary_mean = boundary_src.means
-        self.boundary_std = boundary_src.stds
-        self.wet_mask = src.masks.prognostic
-        self.wet_mask_surface = src.masks.boundary
+        """Prepare canonical host tensors for models and restore physical values."""
+        self.prognostic_mask = source.masks.prognostic
+        self.boundary_mask = source.masks.boundary
+        self.normalize_before_mask = normalize_before_mask
+        self.masked_fill_value = masked_fill_value
 
-        # Pre-compute numpy arrays for faster access. When a dataset mixes
-        # variables with and without a `lev` dim (e.g. thermo_dynamic_all has
-        # 4 depth-resolved variables plus surface-only `zos`), a plain
-        # `to_array().reshape(-1)` would broadcast the surface variable across
-        # all levels, producing too many channels. `_flatten` flattens each
-        # variable independently, matching the prognostic tensor channel layout.
-        self._prognostic_mean_np = _flatten(self.prognostic_mean)
-        self._prognostic_std_np = _flatten(self.prognostic_std)
-        self._boundary_mean_np = _flatten(self.boundary_mean)
-        self._boundary_std_np = _flatten(self.boundary_std)
-        self._wet_mask_np = self.wet_mask.numpy()
+        # Pre-compute arrays for faster tensor normalization. Canonicalization has
+        # already aligned every scalar statistic to one ordered logical channel.
+        prognostic_statistics = source.statistics(prognostic_var_names)
+        boundary_statistics = source.statistics(boundary_var_names)
+        self._prognostic_mean_np = prognostic_statistics.mean
+        self._prognostic_std_np = prognostic_statistics.std
+        self._boundary_mean_np = boundary_statistics.mean
+        self._boundary_std_np = boundary_statistics.std
+
+    @staticmethod
+    def _reshape_statistics(statistics: torch.Tensor, ndim: int) -> torch.Tensor:
+        shape = [1] * ndim
+        shape[-3] = -1
+        return statistics.reshape(shape)
+
+    @classmethod
+    def _normalize_tensor(
+        cls,
+        data: torch.Tensor,
+        mean: np.ndarray,
+        std: np.ndarray,
+        *,
+        fill_nan: bool = True,
+        fill_value: float = 0.0,
+    ) -> torch.Tensor:
+        if data.shape[-3] != mean.shape[0]:
+            raise ValueError(
+                f"Expected {mean.shape[0]} variable channels, got {data.shape[-3]}"
+            )
+        tensor_mean = cls._reshape_statistics(
+            torch.from_numpy(mean).to(data.device, data.dtype), data.ndim
+        )
+        tensor_std = cls._reshape_statistics(
+            torch.from_numpy(std).to(data.device, data.dtype), data.ndim
+        )
+        normalized = (data - tensor_mean) / tensor_std
+        if fill_nan:
+            normalized = normalized.nan_to_num(nan=fill_value)
+        return normalized.to(data.dtype)
+
+    def _prepare(
+        self,
+        data: torch.Tensor,
+        *,
+        mean: np.ndarray,
+        std: np.ndarray,
+        mask: torch.Tensor,
+        device: torch.device,
+    ) -> Input:
+        tensor = data.to(device, non_blocking=True)
+        if tensor.ndim == 4:
+            tensor = tensor.unsqueeze(0)
+        elif tensor.ndim != 5:
+            raise ValueError(f"Expected 4D or 5D canonical planes, got {tensor.ndim}D")
+        mask = mask.to(device, non_blocking=True)
+        if self.normalize_before_mask:
+            tensor = self._normalize_tensor(tensor, mean, std)
+        tensor = torch.where(mask, tensor, self.masked_fill_value)
+        if not self.normalize_before_mask:
+            tensor = self._normalize_tensor(tensor, mean, std)
+        return rearrange(
+            tensor, "batch time variable lat lon -> batch (time variable) lat lon"
+        )
+
+    def prepare_prognostic(
+        self, data: torch.Tensor, device: torch.device
+    ) -> Prognostic:
+        return self._prepare(
+            data,
+            mean=self._prognostic_mean_np,
+            std=self._prognostic_std_np,
+            mask=self.prognostic_mask,
+            device=device,
+        )
+
+    def prepare_boundary(self, data: torch.Tensor, device: torch.device) -> Input:
+        return self._prepare(
+            data,
+            mean=self._boundary_mean_np,
+            std=self._boundary_std_np,
+            mask=self.boundary_mask,
+            device=device,
+        )
 
     def normalize_tensor_prognostic(
         self, data: torch.Tensor, fill_nan=True, fill_value=0.0
     ) -> torch.Tensor:
-        """Normalize prognostic tensor."""
-        tensor_mean = torch.from_numpy(self._prognostic_mean_np).to(
-            data.device, data.dtype
+        """Normalize a prognostic tensor without masking or flattening."""
+        return self._normalize_tensor(
+            data,
+            self._prognostic_mean_np,
+            self._prognostic_std_np,
+            fill_nan=fill_nan,
+            fill_value=fill_value,
         )
-        tensor_std = torch.from_numpy(self._prognostic_std_np).to(
-            data.device, data.dtype
-        )
-
-        expand_var_dim = [1] * data.ndim
-        expand_var_dim[-3] = -1
-        assert data.shape[-3] == self._prognostic_mean_np.shape[0]
-        tensor_mean = tensor_mean.reshape(expand_var_dim)
-        tensor_std = tensor_std.reshape(expand_var_dim)
-
-        norm = (data - tensor_mean) / tensor_std
-        if fill_nan:
-            norm = norm.nan_to_num(nan=fill_value)
-        norm = norm.to(data.dtype)
-        return norm
 
     def unnormalize_tensor_prognostic(
         self, data: torch.Tensor, fill_value=float("nan")
@@ -941,7 +860,9 @@ class Normalize:
         tensor_std = tensor_std.reshape(expand_var_dim)
 
         unnorm = data * tensor_std + tensor_mean
-        unnorm = torch.where(self.wet_mask.to(data.device) == 0, fill_value, unnorm)
+        unnorm = torch.where(
+            self.prognostic_mask.to(data.device) == 0, fill_value, unnorm
+        )
         unnorm = unnorm.to(data.dtype)
         return unnorm
 
@@ -962,7 +883,7 @@ class Normalize:
 
         unnorm = data * tensor_std + tensor_mean
         unnorm = torch.where(
-            self.wet_mask_surface.to(data.device) == 0, fill_value, unnorm
+            self.boundary_mask.to(data.device) == 0, fill_value, unnorm
         )
         unnorm = unnorm.to(data.dtype)
         return unnorm
@@ -970,7 +891,7 @@ class Normalize:
 
 @dataclasses.dataclass
 class LoadStats:
-    """Captures stats about loading a single TrainData object."""
+    """Captures stats about loading a single ModelBatch object."""
 
     load_time_seconds: float
 
@@ -1008,7 +929,7 @@ def compact_dataset(ds: xr.Dataset) -> xr.Dataset:
 
 def stack_levels(
     data: xr.Dataset,
-    dataset_spec: DatasetSpec,
+    data_layout: DataLayout,
 ) -> xr.Dataset:
     """Reassemble a flattened OM4 dataset into analysis-ready, depth-stacked form.
 
@@ -1022,8 +943,8 @@ def stack_levels(
     Implemented as the inverse of `with_level_index_vars` followed by the existing
     `compact_dataset` (stacks the ``_lev_`` form) and `unflatten_masks`.
     """
-    data = with_depth_value_vars(data, dataset_spec)
+    data = with_depth_value_vars(data, data_layout)
     data = compact_dataset(data)
-    if dataset_spec.mask_vars[0] in data.variables:
-        data = unflatten_masks(data, dataset_spec=dataset_spec)
+    if "mask_0" in data.variables:
+        data = unflatten_masks(data, num_levels=len(data_layout.depth_levels))
     return data

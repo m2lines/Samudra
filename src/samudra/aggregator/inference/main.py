@@ -7,8 +7,8 @@ import torch
 import wandb
 import xarray as xr
 
-from samudra.constants import TensorMap
-from samudra.utils.data import Normalize, get_aggregator_dicts
+from samudra.constants import DataLayout
+from samudra.utils.data import BatchPreprocessor, get_aggregator_dicts
 from samudra.utils.output import ModelInferenceOutput
 from samudra.utils.wandb import Metrics, MetricsDict
 
@@ -30,8 +30,8 @@ class InferenceEvaluatorAggregator:
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
-        normalize: Normalize,
-        tensor_map: TensorMap,
+        preprocessor: BatchPreprocessor,
+        data_layout: DataLayout,
         record_step_20: bool = True,
         log_global_mean_time_series: bool = True,
         log_global_mean_norm_time_series: bool = True,
@@ -47,8 +47,8 @@ class InferenceEvaluatorAggregator:
             area_weights: Area weights for the data.
             wet: Wet mask for the data.
             num_prognostic_channels: Number of prognostic channels in the data.
-            normalize: Normalization helper for prognostic channels.
-            tensor_map: Mapping from prognostic variables to tensor channels.
+            preprocessor: Normalization helper for prognostic channels.
+            data_layout: Mapping from prognostic variables to tensor channels.
             record_step_20: Whether to record the mean of the 20th steps.
             log_global_mean_time_series: Whether to log global mean time series metrics.
             log_global_mean_norm_time_series: Whether to log the normalized global mean
@@ -103,8 +103,8 @@ class InferenceEvaluatorAggregator:
             if name not in ["mean", "mean_norm"]
         }
         self._n_timesteps_seen = 0
-        self._normalize = normalize
-        self._tensor_map = tensor_map
+        self._preprocessor = preprocessor
+        self._data_layout = data_layout
         self.num_prognostic_channels = num_prognostic_channels
         self.hist = hist
         self.wet = wet
@@ -123,8 +123,8 @@ class InferenceEvaluatorAggregator:
         assert data.prediction.shape[0] == total_len // (self.hist + 1)
         target_norm_dict, target_unnorm_dict = get_aggregator_dicts(
             data.target,
-            normalize=self._normalize,
-            tensor_map=self._tensor_map,
+            preprocessor=self._preprocessor,
+            data_layout=self._data_layout,
             wet=self.wet,
             long_rollout=True,
             input_type="prognostic",
@@ -133,8 +133,8 @@ class InferenceEvaluatorAggregator:
         )
         gen_norm_dict, gen_unnorm_dict = get_aggregator_dicts(
             data.prediction,
-            normalize=self._normalize,
-            tensor_map=self._tensor_map,
+            preprocessor=self._preprocessor,
+            data_layout=self._data_layout,
             wet=self.wet,
             long_rollout=True,
             input_type="prognostic",
@@ -177,8 +177,8 @@ class InferenceEvaluatorAggregator:
 
         data_norm_dict, data_unnorm_dict = get_aggregator_dicts(
             initial_prognostic,
-            normalize=self._normalize,
-            tensor_map=self._tensor_map,
+            preprocessor=self._preprocessor,
+            data_layout=self._data_layout,
             wet=self.wet,
             long_rollout=True,
             input_type="input",

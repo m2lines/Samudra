@@ -75,16 +75,14 @@ def test_data_config_defaults_to_cpu_loading():
     assert isinstance(cfg.sources[0], Om4DataSourceConfig)
 
 
-def test_om4_dataset_config_builds_selected_spec():
+def test_om4_dataset_config_retains_selected_variable_keys():
     cfg = om4_source_config(
         prognostic_vars_key="thetao_1",
         boundary_vars_key="hfds",
     )
 
-    spec = cfg.dataset_spec
-
-    assert spec.prognostic_var_names == ["thetao_0"]
-    assert spec.boundary_var_names == ["hfds"]
+    assert cfg.prognostic_vars_key == "thetao_1"
+    assert cfg.boundary_vars_key == "hfds"
 
 
 def test_data_source_time_configs_use_native_types():
@@ -188,7 +186,7 @@ def test_data_config_accepts_llc_dataset_type():
     assert isinstance(source, LlcDataSourceConfig)
     assert source.face == 2
     assert isinstance(source.inference_times[0], LlcTimeConfig)
-    assert source.dataset_spec.prognostic_var_names == ["Theta_0"]
+    assert source.prognostic_vars_key == "single_1"
 
 
 def test_data_config_rejects_invalid_llc_crop():
@@ -267,39 +265,58 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
     )
 
     container = cfg.build(LocalLocation(path=tmp_path))
-    source = container.primary_source
+    source = container.train_sources[0]
+    source_data, _, _ = source._xarray_datasets_for_testing()
 
-    assert source.dataset_spec.type == "llc"
-    assert "Theta_0" in source.data.variables
-    assert "wetmask_0" in source.data.variables
-    assert "face" not in source.data.dims
-    assert source.data["Theta_0"].dims == ("time", "lat", "lon")
-    assert source.data["wetmask_0"].dims == ("lat", "lon")
-    assert source.data["Theta_0"].shape == (2, 2, 3)
-    assert np.issubdtype(source.data.time.dtype, np.datetime64)
-    assert container.train_sources[0].data.sizes["time"] == 2
-    assert container.val_sources[0].data.sizes["time"] == 2
+    assert source.data_layout.prognostic_var_names == ["Theta_0"]
+    assert "Theta_0" in source_data.variables
+    assert "mask_0" in source_data.variables
+    assert "face" not in source_data.dims
+    assert source_data["Theta_0"].dims == ("time", "lat", "lon")
+    assert source_data["mask_0"].dims == ("lat", "lon")
+    assert source_data["Theta_0"].shape == (2, 2, 3)
+    assert np.issubdtype(source.time.dtype, np.datetime64)
+    assert container.train_sources[0].time.size == 2
+    assert container.val_sources[0].time.size == 2
     assert container.inference_source is not None
-    assert container.inference_source.data.sizes["time"] == 2
+    assert container.inference_source.time.size == 2
 
-    sliced = source.slice(
+    sliced = source.slice_time(
         LlcTimeConfig(
             start=np.datetime64("2011-09-10T12:00:00", "ns"),
             end=np.datetime64("2011-09-11T12:00:00", "ns"),
         )
     )
-    assert sliced.data.sizes["time"] == 2
+    assert sliced.time.size == 2
 
 
-def test_data_config_rejects_multiple_dataset_specs(tmp_path):
-    cfg = DataConfig(
-        sources=[
-            om4_source_config(prognostic_vars_key="thetao_1"),
-            om4_source_config(prognostic_vars_key="thermo_dynamic_all"),
-        ]
+def test_data_config_rejects_multiple_data_layouts(tmp_path):
+    write_raw_llc_datasets(tmp_path)
+    source = {
+        "type": "llc",
+        "train_time": {
+            "start": "2011-09-10T12:00:00Z",
+            "end": "2011-09-11T12:00:00Z",
+        },
+        "val_time": {
+            "start": "2011-09-11T12:00:00Z",
+            "end": "2011-09-12T12:00:00Z",
+        },
+        "data_location": "data.zarr",
+        "data_means_location": "means.nc",
+        "data_stds_location": "stds.nc",
+        "prognostic_vars_key": "single_1",
+    }
+    cfg = DataConfig.model_validate(
+        {
+            "sources": [
+                source,
+                source | {"prognostic_vars_key": "all"},
+            ]
+        }
     )
 
-    with pytest.raises(AssertionError, match="same dataset spec"):
+    with pytest.raises(ValueError, match="same data layout"):
         cfg.build(LocalLocation(path=tmp_path))
 
 

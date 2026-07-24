@@ -20,11 +20,11 @@ from torch.nn import GELU
 
 from samudra.config_base import BaseConfig, TopLevelConfig
 from samudra.constants import (
-    DatasetSpec,
+    DataLayout,
+    GridSize,
     GridType,
     LoaderVersion,
-    build_llc_spec,
-    build_om4_spec,
+    build_om4_layout,
 )
 from samudra.models import Samudra, SamudraMini, SamudraMulti
 from samudra.models.base import BaseModel
@@ -50,7 +50,16 @@ from samudra.models.modules.augment_input import (
 )
 from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from samudra.models.modules.encoder import patch_from
-from samudra.utils.data import DataContainer, DataSource, DataSourceSplits
+from samudra.utils.data import (
+    CanonicalSource,
+    DataBundle,
+    SourceSplits,
+    compute_anomalies,
+    flatten_masks,
+    get_anomalies_vars,
+    with_lat_lon_coords,
+    with_level_index_vars,
+)
 from samudra.utils.llc import canonicalize_llc_datasets
 from samudra.utils.location import LocalLocation, Location, ResolvedLocation
 from samudra.utils.loss import (
@@ -186,18 +195,13 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         description="Location of the data standard deviations; " + LOCATION_DOCS
     )
 
-    @property
-    @abc.abstractmethod
-    def dataset_spec(self) -> DatasetSpec:
-        raise NotImplementedError
-
     @abc.abstractmethod
     def canonicalize_datasets(
         self,
         data: xr.Dataset,
         means: xr.Dataset,
         stds: xr.Dataset,
-    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, DataLayout]:
         raise NotImplementedError
 
     def build(
@@ -206,7 +210,7 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         *,
         use_dask: bool,
         is_primary: bool,
-    ) -> DataSourceSplits:
+    ) -> SourceSplits:
         source = self._build_source(
             data_root,
             turn_on_dask=use_dask,
@@ -224,11 +228,11 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
             assert len(self.inference_times) == 1, (
                 "multiple inference time ranges have been deprecated"
             )
-            inference_source = full_inference_source.slice(self.inference_times[0])
+            inference_source = full_inference_source.slice_time(self.inference_times[0])
 
-        return DataSourceSplits(
-            train=source.slice(self.train_time),
-            val=source.slice(self.val_time),
+        return SourceSplits(
+            train=source.slice_time(self.train_time),
+            val=source.slice_time(self.val_time),
             inference=inference_source,
         )
 
@@ -237,7 +241,7 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         data_root: ResolvedLocation,
         *,
         turn_on_dask: bool,
-    ) -> DataSource:
+    ) -> CanonicalSource:
         resolved_data_location = data_root.resolve(self.data_location)
         resolved_means_location = data_root.resolve(self.data_means_location)
         resolved_stds_location = data_root.resolve(self.data_stds_location)
@@ -246,20 +250,18 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         data = resolved_data_location.open(chunks)
         means = resolved_means_location.open(chunks)
         stds = resolved_stds_location.open(chunks)
-        data, means, stds = self.canonicalize_datasets(
+        data, means, stds, data_layout = self.canonicalize_datasets(
             data,
             means,
             stds,
         )
-        dataset_spec = self.dataset_spec
-
-        source = DataSource.from_datasets(
+        source = CanonicalSource.from_datasets(
             data,
             means,
             stds,
-            dataset_spec=dataset_spec,
-            prognostic_var_names=dataset_spec.prognostic_var_names,
-            boundary_var_names=dataset_spec.boundary_var_names,
+            data_layout=data_layout,
+            prognostic_var_names=data_layout.prognostic_var_names,
+            boundary_var_names=data_layout.boundary_var_names,
             name=f"{resolved_data_location}-{turn_on_dask}",
         )
         return source
@@ -311,14 +313,6 @@ class Om4DataSourceConfig(BaseDataSourceConfig[Om4TimeConfig]):
     boundary_vars_key: str = "tau_hfds"
     grid_type: GridType = "gaussian"
 
-    @property
-    def dataset_spec(self) -> DatasetSpec:
-        return build_om4_spec(
-            self.prognostic_vars_key,
-            self.boundary_vars_key,
-            grid_type=self.grid_type,
-        )
-
     @pydantic.model_validator(mode="after")
     def validate_time_splits(self) -> Self:
         if self.train_time.overlaps(self.val_time):
@@ -333,9 +327,44 @@ class Om4DataSourceConfig(BaseDataSourceConfig[Om4TimeConfig]):
         data: xr.Dataset,
         means: xr.Dataset,
         stds: xr.Dataset,
-    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
-        # TODO: move OM4 canonicalization in here instead of in validation afte.
-        return data, means, stds
+    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, DataLayout]:
+        """Convert raw flat or compact OM4 xarray inputs to canonical channels."""
+        data_layout = build_om4_layout(
+            self.prognostic_vars_key,
+            self.boundary_vars_key,
+            grid_type=self.grid_type,
+        )
+        data = data.copy()
+        means = means.copy()
+        stds = stds.copy()
+
+        data = with_lat_lon_coords(data)
+        data = with_level_index_vars(data, depth_levels=data_layout.depth_levels)
+        means = with_level_index_vars(means, depth_levels=data_layout.depth_levels)
+        stds = with_level_index_vars(stds, depth_levels=data_layout.depth_levels)
+        data = flatten_masks(data)
+
+        anomalies_vars = get_anomalies_vars(data_layout.boundary_var_names)
+        if anomalies_vars:
+            data, means, stds = compute_anomalies(data, means, stds, anomalies_vars)
+
+        def expand_levels(dataset: xr.Dataset) -> xr.Dataset:
+            canonical = xr.Dataset(attrs=dataset.attrs)
+            for coord in ("time", "lat", "lon"):
+                if coord in dataset.coords:
+                    canonical = canonical.assign_coords({coord: dataset.coords[coord]})
+            for name, variable in dataset.data_vars.items():
+                if "lev" not in variable.dims:
+                    canonical[str(name)] = variable
+                    continue
+                for level in range(variable.sizes["lev"]):
+                    canonical[f"{name}_{level}"] = variable.isel(lev=level, drop=True)
+            return canonical
+
+        canonical_data = expand_levels(data)
+        canonical_means = expand_levels(means)
+        canonical_stds = expand_levels(stds)
+        return canonical_data, canonical_means, canonical_stds, data_layout
 
 
 class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
@@ -347,13 +376,6 @@ class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
     i_end: int = Field(default=720, gt=0)
     j_start: int = Field(default=0, ge=0)
     j_end: int = Field(default=720, gt=0)
-
-    @property
-    def dataset_spec(self) -> DatasetSpec:
-        return build_llc_spec(
-            self.prognostic_vars_key,
-            self.boundary_vars_key,
-        )
 
     @pydantic.model_validator(mode="after")
     def validate_time_splits(self) -> Self:
@@ -377,7 +399,7 @@ class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
         data: xr.Dataset,
         means: xr.Dataset,
         stds: xr.Dataset,
-    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, DataLayout]:
         return canonicalize_llc_datasets(
             data,
             means,
@@ -387,7 +409,8 @@ class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
             i_end=self.i_end,
             j_start=self.j_start,
             j_end=self.j_end,
-            dataset_spec=self.dataset_spec,
+            prognostic_vars_key=self.prognostic_vars_key,
+            boundary_vars_key=self.boundary_vars_key,
         )
 
 
@@ -415,13 +438,9 @@ class DataConfig(BaseConfig):
     def build(
         self,
         data_root: ResolvedLocation,
-    ) -> DataContainer:
+    ) -> DataBundle:
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
-        dataset_spec = self.sources[0].dataset_spec
-        assert all(source.dataset_spec == dataset_spec for source in self.sources), (
-            "All data sources must use the same dataset spec"
-        )
 
         source_splits = [
             source_cfg.build(
@@ -433,13 +452,17 @@ class DataConfig(BaseConfig):
         ]
         train_sources = [splits.train for splits in source_splits]
         val_sources = [splits.val for splits in source_splits]
+        primary_source = train_sources[0]
+        data_layout = primary_source.data_layout
+        if any(source.data_layout != data_layout for source in train_sources[1:]):
+            raise ValueError("All data sources must use the same data layout")
 
-        return DataContainer(
+        return DataBundle(
             train_sources=train_sources,
             val_sources=val_sources,
             inference_source=source_splits[0].inference,
             loader_version=loader_version,
-            dataset_spec=dataset_spec,
+            data_layout=data_layout,
         )
 
 
@@ -825,7 +848,7 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         boundary_channels: int,
         out_channels: int,
         hist: int,
-        srcs: list[DataSource],
+        grid_sizes: list[GridSize],
     ) -> BaseModel:
         pass
 
@@ -847,13 +870,12 @@ class SamudraConfig(BaseModelConfig):
         boundary_channels: int,
         out_channels: int,
         hist: int,
-        srcs: list[DataSource],
+        grid_sizes: list[GridSize],
     ) -> Samudra:
-        if len(srcs) != 1:
+        if len(grid_sizes) != 1:
             raise ValueError(
                 "Samudra only supports training at a single scale! Please configure exactly one data source."
             )
-        src = srcs[0]
         in_channels = prog_channels + boundary_channels
         total_in_channels = (
             in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
@@ -873,7 +895,7 @@ class SamudraConfig(BaseModelConfig):
             pos_channels=self.pos_channels,
             add_3d_coordinates=add_3d_coordinates,
             hist=hist,
-            grid_size=src.grid_size,
+            grid_size=grid_sizes[0],
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
         )
@@ -905,15 +927,14 @@ class SamudraMultiConfig(BaseModelConfig):
         boundary_channels: int,
         out_channels: int,
         hist: int,
-        srcs: list[DataSource],
+        grid_sizes: list[GridSize],
     ) -> SamudraMulti:
         assert len(self.patch_extent) == 2, "patch_extent must be a pair of floats."
         extent = self.patch_extent[0], self.patch_extent[1]
 
-        all_grid_sizes = [s.grid_size for s in srcs]
         max_lat_size, max_lon_size = (
-            max(g[0] for g in all_grid_sizes),
-            max(g[1] for g in all_grid_sizes),
+            max(g[0] for g in grid_sizes),
+            max(g[1] for g in grid_sizes),
         )
 
         impl = self.perceiver_implementation
@@ -999,7 +1020,7 @@ class SamudraMiniConfig(BaseModelConfig):
         boundary_channels: int,
         out_channels: int,
         hist: int,
-        srcs: list[DataSource],
+        grid_sizes: list[GridSize],
     ) -> SamudraMini:
         if self.add_3d_coordinates:
             raise ValueError(

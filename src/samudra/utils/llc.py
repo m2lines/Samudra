@@ -4,7 +4,7 @@
 
 import xarray as xr
 
-from samudra.constants import DatasetSpec
+from samudra.constants import DataLayout, build_llc_layout
 
 
 def _rename_llc_level_index_vars(ds: xr.Dataset) -> xr.Dataset:
@@ -24,7 +24,7 @@ def _rename_llc_level_index_vars(ds: xr.Dataset) -> xr.Dataset:
 def _flatten_llc_level_vars(
     data: xr.Dataset,
     *,
-    dataset_spec: DatasetSpec,
+    num_levels: int,
 ) -> xr.Dataset:
     """Flatten LLC level dimensions into level-indexed variables.
 
@@ -39,15 +39,13 @@ def _flatten_llc_level_vars(
             continue
 
         n_levels = data_copy[name].sizes["lev"]
-        expected_levels = len(dataset_spec.depth_i_levels)
-        if n_levels != expected_levels:
+        if n_levels != num_levels:
             raise ValueError(
-                f"Expected {expected_levels} levels for LLC variable {name}, got "
-                f"{n_levels}"
+                f"Expected {num_levels} levels for LLC variable {name}, got {n_levels}"
             )
 
-        for index, lev in enumerate(dataset_spec.depth_i_levels):
-            data_copy[f"{name}_{lev}"] = data_copy[name].isel(lev=index)
+        for index in range(num_levels):
+            data_copy[f"{name}_{index}"] = data_copy[name].isel(lev=index)
         data_copy = data_copy.drop_vars(name)
 
     return data_copy
@@ -102,25 +100,25 @@ def canonicalize_llc_datasets(
     i_end: int,
     j_start: int,
     j_end: int,
-    dataset_spec: DatasetSpec,
-) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+    prognostic_vars_key: str,
+    boundary_vars_key: str,
+) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, DataLayout]:
     """Standardize raw LLC inputs to the common non-compact loader layout.
 
     For example, a selected ``Theta(time, face, k, j, i)`` crop becomes
     level-indexed ``Theta_0(time, y, x)``, ``Theta_50(time, y, x)``, and the
     remaining configured levels; statistics names undergo the same renaming.
     """
+    data_layout = build_llc_layout(prognostic_vars_key, boundary_vars_key)
     data_copy = data.copy()
 
     requested_data_vars = {
         _var_without_level(var_name)
         for var_name in (
-            dataset_spec.prognostic_var_names + dataset_spec.boundary_var_names
+            data_layout.prognostic_var_names + data_layout.boundary_var_names
         )
     }
-    requested_data_vars.update(
-        [dataset_spec.mask_all_levels_var, "mask_c", *dataset_spec.mask_vars]
-    )
+    requested_data_vars.update(["wetmask", "mask_c"])
     requested_data_vars.update(_llc_staggered_mask_vars(data_copy, requested_data_vars))
     data_copy = data_copy[
         [name for name in data_copy.data_vars if name in requested_data_vars]
@@ -179,8 +177,8 @@ def canonicalize_llc_datasets(
         for old, new in {
             "k": "lev",
             "mask_c": "wetmask",
-            "i": "x",
-            "j": "y",
+            "i": "lon",
+            "j": "lat",
         }.items()
         if old in data_copy.dims
         or old in data_copy.variables
@@ -191,6 +189,15 @@ def canonicalize_llc_datasets(
 
     means_copy = _rename_llc_level_index_vars(means.copy())
     stds_copy = _rename_llc_level_index_vars(stds.copy())
-    data_copy = _flatten_llc_level_vars(data_copy, dataset_spec=dataset_spec)
+    data_copy = _flatten_llc_level_vars(
+        data_copy, num_levels=len(data_layout.depth_levels)
+    )
+    mask_rename_map = {
+        f"wetmask_{level}": f"mask_{level}"
+        for level in range(len(data_layout.depth_levels))
+        if f"wetmask_{level}" in data_copy
+    }
+    if mask_rename_map:
+        data_copy = data_copy.rename(mask_rename_map)
 
-    return data_copy, means_copy, stds_copy
+    return data_copy, means_copy, stds_copy, data_layout

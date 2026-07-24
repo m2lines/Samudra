@@ -8,11 +8,11 @@ import torch
 import xarray as xr
 
 from samudra.config import SamudraConfig, UNetBackboneConfig
-from samudra.datasets import TrainData
-from samudra.utils.ctx import GridContext
-from samudra.utils.data import DataSource, Masks
+from samudra.datasets import ModelBatch
+from samudra.utils.ctx import BatchGrid
+from samudra.utils.data import CanonicalSource, Masks
 from samudra.utils.multiton import MultitonScope
-from tests.conftest import TEST_DATASET_SPEC
+from tests.conftest import TEST_DATA_LAYOUT
 
 
 @pytest.fixture(params=[0, 1, 2])
@@ -30,32 +30,31 @@ def create_samudra_model():
             # Set up minimal data structures needed by Samudra
             h, w = 8, 8
             coords = {
-                "lev": [0],
                 "lat": (["y"], np.linspace(-90, 90, h)),
                 "lon": (["x"], np.linspace(-180, 180, w)),
             }
             data = xr.Dataset(
                 {
-                    "thetao": (["lev", "y", "x"], np.random.randn(1, h, w)),
+                    "thetao_0": (["y", "x"], np.random.randn(h, w)),
                     "hfds": (["y", "x"], np.random.randn(h, w)),
                 },
                 coords=coords,
             )
             ones = xr.Dataset(
                 {
-                    "thetao": (["lev", "y", "x"], np.ones((1, h, w))),
+                    "thetao_0": (["y", "x"], np.ones((h, w))),
                     "hfds": (["y", "x"], np.ones((h, w))),
                 },
                 coords=coords,
             )
             masks = Masks(torch.ones(h, w), torch.ones(h, w))
-            src = DataSource(
+            source = CanonicalSource.from_canonical_datasets(
                 name="dummy",
                 data=data,
                 means=data,
                 stds=ones,
                 masks=masks,
-                dataset_spec=TEST_DATASET_SPEC,
+                data_layout=TEST_DATA_LAYOUT,
             )
 
             # Create Samudra model with the specified gradient_detach_interval
@@ -72,23 +71,21 @@ def create_samudra_model():
                 boundary_channels=1,
                 out_channels=1,
                 hist=1,
-                srcs=[src],
+                grid_sizes=[source.grid_size],
             )
 
-            # Create TrainData compatible with model dimensions.
+            # Create ModelBatch compatible with model dimensions.
             # in_channels=2 splits into 1 prognostic + 1 boundary channel.
-            train_data = TrainData(
-                num_prognostic_channels=1,
-                num_boundary_channels=1,
-                ctx=GridContext(masks.prognostic, src.resolution, src.resolution),
+            model_batch = ModelBatch(
+                BatchGrid(masks.prognostic, source.resolution, source.resolution)
             )
             for step in range(4):
                 prog_tensor = torch.randn(1, 1, h, w, requires_grad=True)
                 boundary_tensor = torch.randn(1, 1, h, w, requires_grad=True)
                 label_tensor = torch.randn(1, 1, h, w)
-                train_data.append(prog_tensor, boundary_tensor, label_tensor)
+                model_batch.append(prog_tensor, boundary_tensor, label_tensor)
 
-            return model, train_data
+            return model, model_batch
 
     return _create_model_helper
 
@@ -96,10 +93,10 @@ def create_samudra_model():
 def test_samudra_forward_pass(create_samudra_model, gradient_detach_interval):
     """Test Samudra forward pass with various gradient detaching intervals."""
     interval, interval_desc = gradient_detach_interval
-    model, train_data = create_samudra_model(interval)
+    model, model_batch = create_samudra_model(interval)
     loss_fn = torch.nn.MSELoss()
 
-    loss = model(train_data, loss_fn=loss_fn)
+    loss = model(model_batch, loss_fn=loss_fn)
     assert not torch.isnan(loss), (
         f"Loss is NaN for interval={interval} ({interval_desc})"
     )
@@ -111,11 +108,11 @@ def test_samudra_forward_pass(create_samudra_model, gradient_detach_interval):
 def test_samudra_backward_pass(create_samudra_model, gradient_detach_interval):
     """Test Samudra backward pass with various gradient detaching intervals."""
     interval, interval_desc = gradient_detach_interval
-    model, train_data = create_samudra_model(interval)
+    model, model_batch = create_samudra_model(interval)
     loss_fn = torch.nn.MSELoss()
 
     # Forward pass
-    loss = model(train_data, loss_fn=loss_fn)
+    loss = model(model_batch, loss_fn=loss_fn)
 
     # Backward pass
     loss.backward()

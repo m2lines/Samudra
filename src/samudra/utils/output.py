@@ -5,7 +5,7 @@
 import torch
 import xarray as xr
 
-from samudra.utils.ctx import GridContext
+from samudra.utils.ctx import BatchGrid
 
 
 class TrainBatchOutput:
@@ -22,7 +22,7 @@ class ValBatchOutput(TrainBatchOutput):
         input_data: torch.Tensor,
         target_data: torch.Tensor,
         gen_data: torch.Tensor,
-        ctx: GridContext,
+        ctx: BatchGrid,
     ):
         super().__init__(loss, loss_per_channel)
         assert target_data.shape == gen_data.shape

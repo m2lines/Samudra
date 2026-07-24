@@ -127,17 +127,17 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
             seed: Random seed for deterministic shuffling
 
         Examples:
-                - lambda ds: (ds._input_src.data.sizes['lat'], ds._input_src.data.sizes['lon'])  # group by resolution
-                - lambda ds: ds._input_src.data.sizes['lat']  # group by latitude size only
+                - lambda ds: (ds._input_source.data.sizes['lat'], ds._input_source.data.sizes['lon'])  # group by resolution
+                - lambda ds: ds._input_source.data.sizes['lat']  # group by latitude size only
 
         Returns:
             EquivalenceGroupBatchSampler configured to group by the provided key
 
-        Example:
+        RolloutStep:
             >>> # Group datasets by resolution, allowing different strides to be batched together
             >>> sampler = EquivalenceGroupBatchSampler.from_datasets(
             ...     datasets=dataset_list,
-            ...     group_key=lambda ds: ds.prognostic_src.grid_size,
+            ...     group_key=lambda ds: tuple(source.grid_size for source in ds.sources),
             ...     batch_size=32,
             ...     shuffle=True,
             ...     drop_last=True,

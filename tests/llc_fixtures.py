@@ -42,6 +42,9 @@ def raw_llc_datasets(n_time: int = 3) -> tuple[xr.Dataset, xr.Dataset, xr.Datase
     mask_w[:, :, 1, 1] = False
     mask_s[:, :, 1, 2] = False
     grid = np.arange(n_face * n_j * n_i, dtype=np.float32).reshape(n_face, n_j, n_i)
+    lon = 100.0 + grid + 0.01 * np.arange(n_j, dtype=np.float32)[None, :, None]
+    lat = -60.0 + grid + 0.01 * np.arange(n_i, dtype=np.float32)[None, None, :]
+    area = 10_000.0 + grid
 
     data = xr.Dataset(
         {
@@ -53,6 +56,9 @@ def raw_llc_datasets(n_time: int = 3) -> tuple[xr.Dataset, xr.Dataset, xr.Datase
             "oceQnet": (["time", "face", "j", "i"], surface + 500_000),
             "oceTAUX": (["time", "face", "j", "i_g"], surface + 600_000),
             "oceTAUY": (["time", "face", "j_g", "i"], surface + 700_000),
+            "XC": (["face", "j", "i"], lon),
+            "YC": (["face", "j", "i"], lat),
+            "rA": (["face", "j", "i"], area),
             "mask_c": (["face", "k", "j", "i"], mask),
             # The real LLC root includes many grid/static variables that are not
             # part of the configured training variables. These should not force

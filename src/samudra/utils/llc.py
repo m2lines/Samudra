@@ -6,6 +6,10 @@ import xarray as xr
 
 from samudra.constants import DatasetSpec
 
+_LLC_CENTER_LON_CANDIDATES = ("lon", "longitude", "XC")
+_LLC_CENTER_LAT_CANDIDATES = ("lat", "latitude", "YC")
+_LLC_CELL_AREA_CANDIDATES = ("areacello", "rA")
+
 
 def _rename_llc_level_index_vars(ds: xr.Dataset) -> xr.Dataset:
     """Rename LLC statistics variables to the common level-index format.
@@ -70,7 +74,54 @@ def _preferred_available_var(
     For example, candidates ``("mask_w", "hFacW")`` select ``mask_w`` when
     both variables are available.
     """
-    return next((name for name in candidates if name in data.data_vars), None)
+    return next((name for name in candidates if name in data.variables), None)
+
+
+def _available_data_vars(data: xr.Dataset, candidates: tuple[str, ...]) -> set[str]:
+    """Return candidate names that are data variables in the dataset."""
+    return {name for name in candidates if name in data.data_vars}
+
+
+def _llc_grid_coord(
+    data: xr.Dataset, candidates: tuple[str, ...], target_name: str
+) -> xr.DataArray:
+    """Return one required 2D LLC grid coordinate on canonical ``y``/``x`` dims."""
+    source_name = _preferred_available_var(data, candidates)
+    if source_name is None:
+        raise ValueError(
+            "LLC canonicalization requires real grid metadata. Missing one of "
+            f"{candidates} for canonical coordinate {target_name!r}."
+        )
+
+    coord = data[source_name]
+    try:
+        coord = coord.transpose("y", "x")
+    except ValueError as exc:
+        raise ValueError(
+            f"LLC grid metadata variable {source_name!r} must be two-dimensional "
+            f"on y/x after face selection and crop; got dims {coord.dims}."
+        ) from exc
+    return coord.rename(target_name)
+
+
+def _assign_llc_grid_metadata(data: xr.Dataset) -> xr.Dataset:
+    """Attach real LLC geographic coordinates and cell area as coordinates."""
+    coords = {
+        "lon": _llc_grid_coord(data, _LLC_CENTER_LON_CANDIDATES, "lon"),
+        "lat": _llc_grid_coord(data, _LLC_CENTER_LAT_CANDIDATES, "lat"),
+        "areacello": _llc_grid_coord(data, _LLC_CELL_AREA_CANDIDATES, "areacello"),
+    }
+    out = data.assign_coords(coords)
+    raw_metadata_vars = [
+        name
+        for name in [
+            _preferred_available_var(data, _LLC_CENTER_LON_CANDIDATES),
+            _preferred_available_var(data, _LLC_CENTER_LAT_CANDIDATES),
+            _preferred_available_var(data, _LLC_CELL_AREA_CANDIDATES),
+        ]
+        if name not in coords and name in out.data_vars
+    ]
+    return out.drop_vars(raw_metadata_vars)
 
 
 def _llc_staggered_mask_vars(
@@ -122,6 +173,15 @@ def canonicalize_llc_datasets(
         [dataset_spec.mask_all_levels_var, "mask_c", *dataset_spec.mask_vars]
     )
     requested_data_vars.update(_llc_staggered_mask_vars(data_copy, requested_data_vars))
+    requested_data_vars.update(
+        _available_data_vars(data_copy, _LLC_CENTER_LON_CANDIDATES)
+    )
+    requested_data_vars.update(
+        _available_data_vars(data_copy, _LLC_CENTER_LAT_CANDIDATES)
+    )
+    requested_data_vars.update(
+        _available_data_vars(data_copy, _LLC_CELL_AREA_CANDIDATES)
+    )
     data_copy = data_copy[
         [name for name in data_copy.data_vars if name in requested_data_vars]
     ]
@@ -188,6 +248,7 @@ def canonicalize_llc_datasets(
     }
     if rename_map:
         data_copy = data_copy.rename(rename_map)
+    data_copy = _assign_llc_grid_metadata(data_copy)
 
     means_copy = _rename_llc_level_index_vars(means.copy())
     stds_copy = _rename_llc_level_index_vars(stds.copy())

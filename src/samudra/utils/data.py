@@ -626,6 +626,23 @@ def unflatten_masks(
 
 
 def spherical_area_weights(data: xr.Dataset) -> Grid:
+    if "areacello" in data.variables:
+        area = data["areacello"]
+        try:
+            area = area.transpose("lat", "lon")
+        except ValueError as exc:
+            raise ValueError(
+                "`areacello` must be two-dimensional on lat/lon to compute "
+                f"area weights; got dims {area.dims}."
+            ) from exc
+
+        weights = torch.from_numpy(np.asarray(area.to_numpy()))
+        weights = torch.nan_to_num(weights, nan=0.0, posinf=0.0, neginf=0.0)
+        total = weights.sum()
+        if not torch.isfinite(total) or total <= 0:
+            raise ValueError("`areacello` weights must have a positive finite sum")
+        return weights / total
+
     num_lon = data.lon.size
     lats = torch.from_numpy(data.lat.to_numpy())
     weights = torch.cos(torch.deg2rad(lats)).repeat(num_lon, 1).t()

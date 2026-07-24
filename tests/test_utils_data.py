@@ -19,6 +19,7 @@ from samudra.utils.data import (
     compute_anomalies,
     flatten_masks,
     get_aggregator_dicts,
+    spherical_area_weights,
     stack_levels,
     unflatten_masks,
     with_depth_value_vars,
@@ -367,6 +368,9 @@ def test_canonicalize_llc_datasets_standardizes_layout():
     data, means, stds = raw_llc_datasets()
     dataset_spec = build_llc_spec(prognostic_vars_key="all", boundary_vars_key="all")
     expected_theta_0 = data["Theta"].isel(time=0, face=1, k=0, j=1, i=1).item()
+    expected_lon = data["XC"].isel(face=1, j=slice(1, 3), i=slice(1, 4))
+    expected_lat = data["YC"].isel(face=1, j=slice(1, 3), i=slice(1, 4))
+    expected_area = data["rA"].isel(face=1, j=slice(1, 3), i=slice(1, 4))
 
     llc_data, llc_means, llc_stds = canonicalize_llc_datasets(
         data,
@@ -396,8 +400,14 @@ def test_canonicalize_llc_datasets_standardizes_layout():
     assert llc_data["wetmask_0"].dims == ("y", "x")
     assert llc_data["mask_w_0"].dims == ("y", "x")
     assert llc_data["mask_s_0"].dims == ("y", "x")
+    assert llc_data["lon"].dims == ("y", "x")
+    assert llc_data["lat"].dims == ("y", "x")
+    assert llc_data["areacello"].dims == ("y", "x")
     assert llc_data["Theta_0"].shape == (3, 2, 3)
     assert llc_data["Theta_0"].isel(time=0, y=0, x=0).item() == expected_theta_0
+    np.testing.assert_allclose(llc_data["lon"].values, expected_lon.values)
+    np.testing.assert_allclose(llc_data["lat"].values, expected_lat.values)
+    np.testing.assert_allclose(llc_data["areacello"].values, expected_area.values)
     assert np.issubdtype(llc_data.time.dtype, np.datetime64)
     assert "Theta_0" in llc_means.variables
     assert "Theta_0" in llc_stds.variables
@@ -427,7 +437,11 @@ def test_canonicalize_llc_datasets_selects_requested_vars_from_full_root():
         *llc_spec.mask_vars,
     }
     assert expected_vars.issubset(llc_data.data_vars)
+    assert {"lon", "lat", "areacello"}.issubset(llc_data.coords)
     assert "XG" not in llc_data.data_vars
+    assert "XC" not in llc_data.data_vars
+    assert "YC" not in llc_data.data_vars
+    assert "rA" not in llc_data.data_vars
     assert "hFacW" not in llc_data.data_vars
     assert "mask_w_0" not in llc_data.data_vars
 
@@ -470,6 +484,21 @@ def test_llc_all_variable_masks_use_staggered_masks():
     assert not bool(source.masks.boundary[tau_x_index, 0, 0])
     assert not bool(source.masks.boundary[tau_y_index, 0, 1])
     assert bool(source.masks.boundary[qnet_index, 0, 0])
+
+
+def test_spherical_area_weights_prefers_areacello():
+    area = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    ds = xr.Dataset(
+        coords={
+            "lat": [0.0, 80.0],
+            "lon": [0.0, 1.0],
+            "areacello": (("lat", "lon"), area),
+        },
+    )
+
+    weights = spherical_area_weights(ds)
+
+    np.testing.assert_allclose(weights.numpy(), area / area.sum())
 
 
 @pytest.fixture

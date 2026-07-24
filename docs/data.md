@@ -154,6 +154,18 @@ Attributes:
     zos:                               {'cell_measures': 'area: areacello', '...
 ```
 
+## Coordinate conventions
+
+Samudra loaders use `lat` and `lon` as the standardized horizontal tensor axes
+after validation. On rectilinear OM4 data those axes are geographic latitude and
+longitude. On curvilinear sources such as LLC, those one-dimensional axes are
+model-space indices after the configured crop, and real geographic cell centers
+are preserved separately as two-dimensional `lat_2d` and `lon_2d` coordinates.
+
+Area-weighted training, validation, and inference metrics use `areacello` when a
+source carries real cell areas. The cosine-latitude spherical fallback is only
+used for rectilinear datasets without `areacello`.
+
 ## How to get the data
 
 We recommend two methods for acquiring the dataset locally.

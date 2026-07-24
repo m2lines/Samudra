@@ -275,6 +275,27 @@ def test_data_config_builds_llc_source_from_local_files(tmp_path):
     assert "face" not in source.data.dims
     assert source.data["Theta_0"].dims == ("time", "lat", "lon")
     assert source.data["wetmask_0"].dims == ("lat", "lon")
+    assert source.data["lat_2d"].dims == ("lat", "lon")
+    assert source.data["lon_2d"].dims == ("lat", "lon")
+    assert source.data["areacello"].dims == ("lat", "lon")
+    np.testing.assert_array_equal(source.data["lat"].values, [1, 2])
+    np.testing.assert_array_equal(source.data["lon"].values, [1, 2, 3])
+    np.testing.assert_allclose(
+        source.data["areacello"].values,
+        np.array([[10026.0, 10027.0, 10028.0], [10031.0, 10032.0, 10033.0]]),
+    )
+    np.testing.assert_allclose(
+        source.data["lat_2d"].values,
+        np.array([[-33.99, -32.98, -31.97], [-28.99, -27.98, -26.97]]),
+    )
+    np.testing.assert_allclose(
+        source.data["lon_2d"].values,
+        np.array([[126.01, 127.01, 128.01], [131.02, 132.02, 133.02]]),
+    )
+    np.testing.assert_allclose(
+        source.spherical_area_weights.numpy(),
+        source.data["areacello"].values / source.data["areacello"].values.sum(),
+    )
     assert source.data["Theta_0"].shape == (2, 2, 3)
     assert np.issubdtype(source.data.time.dtype, np.datetime64)
     assert container.train_sources[0].data.sizes["time"] == 2

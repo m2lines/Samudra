@@ -20,7 +20,7 @@ stage means that it has not yet run, not that it passed.
 | S0-D synthetic subgrid closure | Complete | Two seeds show that the promoted pair retains and dynamically uses subpatch phase |
 | S1 OM4 learned inverse | Complete | Two learned-decoder seeds reproduce error and structural fidelity; matched bilinear loses most fine-grid power despite higher latent agreement |
 | S2 frozen-inverse dynamics | Complete | The combined objective \((w_x,\lambda_z)=(1,0.1)\) wins all aggregate leads and 11/12 exact route/lead losses while preserving the inverse exactly |
-| S3 full validation | Queued | Eight-H200 preemptible job `14734625` promotes the selected combined objective from the seed-15 inverse, with a freshly initialized processor/boundary path |
+| S3 full validation | Queued | Eight-H200 preemptible job `14734952` promotes the selected combined objective from the seed-15 inverse, with a freshly initialized processor/boundary path |
 
 ## Evidence inherited from the decoder investigation
 
@@ -94,7 +94,9 @@ This correction of scope is the reason for S0-R and S0-D.
 | `2026-07-24-coarse-latent-s2-latent-only` | S2 | `36fe44aa` | Half-degree proxy, `(w_x, lambda_z)=(0,1)`, depths 1/2/4 | Complete (`14731352`; validation `14731353`; audit `14731354`) | Aggregate loss 0.1042/0.1313/0.1620; persistence reduction 2.9%/26.1%/35.8%; best teacher-latent error but weaker physical lead 1; [W&B](https://wandb.ai/ocean_emulators/default/runs/rp9x7g4z) |
 | `2026-07-24-coarse-latent-s2-combined-001` | S2 | `36fe44aa` | Half-degree proxy, `(w_x, lambda_z)=(1,0.01)`, depths 1/2/4 | Complete (`14731355`; validation `14731356`; audit `14731357`) | Aggregate loss 0.1029/0.1308/0.1636; persistence reduction 4.2%/26.3%/35.2%; [W&B](https://wandb.ai/ocean_emulators/default/runs/mctn44tl) |
 | `2026-07-24-coarse-latent-s2-combined-01` | S2 | `36fe44aa` | Half-degree proxy, `(w_x, lambda_z)=(1,0.1)`, depths 1/2/4 | Complete (`14731358`; validation `14731359`; audit `14731360`) | Promoted: aggregate loss 0.1013/0.1283/0.1608 and persistence reduction 5.7%/27.7%/36.3%; wins 11/12 route/lead comparisons; [W&B](https://wandb.ai/ocean_emulators/default/runs/4wjiazt4) |
-| `2026-07-24-coarse-latent-s3-full-wx1-wz0.1` | S3 | `36fe44aa` | Fresh processor/boundary path from the frozen seed-15 inverse; all four one-/half-degree routes; `(w_x, lambda_z)=(1,0.1)`; depths 1/2/4; eight preemptible H200s | Queued (`14734625`) | Best-checkpoint cross-route validation `14734626` and latent audit `14734627` are attached by successful-completion dependency; quarter-degree data are absent |
+| `2026-07-24-coarse-latent-s3-full-wx1-wz0.1-layout-v1` | S3 scheduling | working tree after `b420155c` | Initial 1×8 H200 placement | Canceled before launch (`14734625`; dependents `14734626`/`14734627`) | No run directory was created; briefly replaced while testing whether fragmented GPUs could admit a multinode layout |
+| `2026-07-24-coarse-latent-s3-full-wx1-wz0.1-layout-4x2` | S3 scheduling | working tree after `b420155c` | Same eight ranks placed as four nodes × two H200s | Canceled before launch (`14734814`; dependents `14734815`/`14734816`) | Torch routes multinode jobs to `gpu48`, which was admission-limited by current user usage; scientific configuration was unchanged |
+| `2026-07-24-coarse-latent-s3-full-wx1-wz0.1` | S3 | working tree after `b420155c` | Fresh processor/boundary path from the frozen seed-15 inverse; all four one-/half-degree routes; `(w_x, lambda_z)=(1,0.1)`; depths 1/2/4; eight preemptible H200s on one node | Queued (`14734952`) | Best-checkpoint cross-route validation `14734953` and latent audit `14734954` are attached by successful-completion dependency; quarter-degree data are absent |
 
 ## S0-R synthetic reconstruction
 
@@ -637,8 +639,8 @@ with preemption-aware checkpoint resumption and dependent best-checkpoint
 cross-route validation and latent audit. Quarter-degree data are deliberately
 absent.
 
-Training job `14734625` is queued on eight H200s with requeue and a two-minute
-preemption signal. Best-checkpoint validation `14734626` and audit `14734627`
+Training job `14734952` is queued on eight H200s with requeue and a two-minute
+preemption signal. Best-checkpoint validation `14734953` and audit `14734954`
 will release only after successful training completion.
 
 ## Decision log

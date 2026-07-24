@@ -112,6 +112,37 @@ def test_s2_submission_wires_matched_best_checkpoint_evaluations(
     assert "best_validation_ckpt.pt" in calls[2]
 
 
+def test_s3_submission_supports_two_node_four_gpu_layout(
+    submission_environment: tuple[dict[str, str], list[Path]],
+) -> None:
+    environment, required = submission_environment
+    environment = {
+        **environment,
+        "TRAIN_NODES": "2",
+        "TRAIN_GPUS_PER_NODE": "4",
+    }
+    subprocess.run(
+        [
+            REPOSITORY / "scripts/submit_coarse_latent_s3.sh",
+            required[0],
+            "1",
+            "0.1",
+            required[1],
+            required[4],
+        ],
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+    calls = Path(environment["FAKE_SBATCH_CALLS"]).read_text().splitlines()
+    assert "--nodes=2" in calls[0]
+    assert "--gres=gpu:4" in calls[0]
+    assert "--cpus-per-task=32" in calls[0]
+    assert "--mem=256G" in calls[0]
+
+
 def test_s3_submission_requests_eight_gpus_and_audits_best_checkpoint(
     submission_environment: tuple[dict[str, str], list[Path]],
 ) -> None:

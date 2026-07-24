@@ -39,6 +39,8 @@ OBJECTIVE_TAG="${OBJECTIVE_TAG:-wx${PHYSICAL_WEIGHT}-wz${LATENT_WEIGHT}}"
 RUN_NAME="${RUN_NAME:-${DATE_TAG}-coarse-latent-s3-full-${OBJECTIVE_TAG}}"
 VALIDATION_NAME="${RUN_NAME}-best-cross-validation"
 WANDB_GROUP="${WANDB_GROUP:-coarse-latent-s3}"
+TRAIN_NODES="${TRAIN_NODES:-1}"
+TRAIN_GPUS_PER_NODE="${TRAIN_GPUS_PER_NODE:-8}"
 
 for weight in "${PHYSICAL_WEIGHT}" "${LATENT_WEIGHT}"; do
   if [[ ! "${weight}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
@@ -50,6 +52,21 @@ if [[ "${PHYSICAL_WEIGHT}" == "0" && "${LATENT_WEIGHT}" == "0" ]]; then
   echo "At least one loss weight must be nonzero." >&2
   exit 2
 fi
+for count in "${TRAIN_NODES}" "${TRAIN_GPUS_PER_NODE}"; do
+  if [[ ! "${count}" =~ ^[1-9][0-9]*$ ]]; then
+    echo "Training node/GPU counts must be positive integers; got ${count}." >&2
+    exit 2
+  fi
+done
+TRAIN_TOTAL_GPUS="$((TRAIN_NODES * TRAIN_GPUS_PER_NODE))"
+if (( TRAIN_TOTAL_GPUS != 8 )); then
+  echo \
+    "S3 is calibrated for exactly eight workers; got ${TRAIN_NODES}x${TRAIN_GPUS_PER_NODE}=${TRAIN_TOTAL_GPUS}." \
+    >&2
+  exit 2
+fi
+TRAIN_CPUS_PER_TASK="$((8 * TRAIN_GPUS_PER_NODE))"
+TRAIN_MEMORY="$((64 * TRAIN_GPUS_PER_NODE))G"
 if [[ ! "${AUDIT_MAX_BATCHES}" =~ ^[1-9][0-9]*$ ]]; then
   echo "AUDIT_MAX_BATCHES must be a positive integer." >&2
   exit 2
@@ -113,20 +130,20 @@ train_job_id="$(
   SIF_PATH="${SIF_PATH}" \
   CODE_LAYER="${CODE_LAYER}" \
   WANDB_MODE="online" \
-  GPUS_PER_NODE="8" \
+  GPUS_PER_NODE="${TRAIN_GPUS_PER_NODE}" \
   REQUEUE_ON_USR1="1" \
   DATA_CACHE_DIR="${SCRATCH_DIR}/.data_cache/${RUN_NAME}" \
     sbatch \
       --parsable \
-      --nodes="1" \
+      --nodes="${TRAIN_NODES}" \
       --ntasks-per-node="1" \
       --chdir="${SCRATCH_DIR}" \
       --job-name="oe-s3-full" \
       --account="torch_pr_347_courant" \
       --constraint="h200" \
-      --gres="gpu:8" \
-      --cpus-per-task="64" \
-      --mem="512G" \
+      --gres="gpu:${TRAIN_GPUS_PER_NODE}" \
+      --cpus-per-task="${TRAIN_CPUS_PER_TASK}" \
+      --mem="${TRAIN_MEMORY}" \
       --time="12:00:00" \
       --signal="B:USR1@120" \
       --requeue \
@@ -206,11 +223,13 @@ audit_job_id="$(
 )"
 
 printf \
-  'train_job_id\tvalidation_job_id\taudit_job_id\trun_name\tphysical_weight\tlatent_weight\n'
-printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
+  'train_job_id\tvalidation_job_id\taudit_job_id\trun_name\tphysical_weight\tlatent_weight\tlayout\n'
+printf '%s\t%s\t%s\t%s\t%s\t%s\t%sx%s\n' \
   "${train_job_id}" \
   "${validation_job_id}" \
   "${audit_job_id}" \
   "${RUN_NAME}" \
   "${PHYSICAL_WEIGHT}" \
-  "${LATENT_WEIGHT}"
+  "${LATENT_WEIGHT}" \
+  "${TRAIN_NODES}" \
+  "${TRAIN_GPUS_PER_NODE}"

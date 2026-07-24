@@ -186,6 +186,22 @@ increases aggregate lead-four error by 4.6%, and reversed forcing order by
 1.0%; the boundary path is causal but not yet strongly used in this short
 screen.
 
+The principal forecast comparators have deliberately different scopes:
+
+| Model | Processor grid | Training scope | Lead 1 | Lead 2 | Lead 4 |
+|---|---|---|---:|---:|---:|
+| `main` Perceiver model | \(60\times72\) | full one-degree, historical contract | 0.29469† | — | — |
+| Native-grid learned inverse | input grid | full one-/half-degree, 6,392 updates | 0.03982 | 0.05408 | 0.06595 |
+| Coarse moment/attention S2 | \(60\times72\) | 768-update objective screen | 0.10125 | 0.12831 | 0.16083 |
+| Coarse moment/attention S3 | \(60\times72\) | full one-/half-degree, 6,392 updates | pending | pending | pending |
+
+†The `main` value is its one-degree same-grid lead-one result, not an aggregate
+over four routes. It is useful historical context but not a controlled
+single-factor comparison. The native and S3 runs share the one-/half-degree
+data interval, route schedule, true processor depths, frozen-inverse temporal
+contract, optimizer-update budget, and validation year; their distinct spatial
+latent grids are the intended comparison.
+
 **S3 promoted full-run result:** pending.
 
 ## Discussion and recommendation

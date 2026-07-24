@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# Dependencies needed by the Colab training path. The full project dependency
+# set also includes preprocessing, cloud orchestration, and rich visualization
+# packages that are unnecessary for this notebook.
+
+aiohttp>=3.11.13
+cftime>=1.6.4.post1
+dask[distributed]>=2025.2
+einops>=0.7
+jaxtyping>=0.3
+matplotlib>=3.10.1
+microsoft-aurora>=1.8
+# The full development environment currently pins NumPy 1 for dependencies
+# omitted here. Colab's preinstalled scientific stack requires NumPy 2.
+numpy>=2,<2.6
+perceiver-pytorch>=0.8.8
+pydantic-settings>=2.8.1
+pyyaml>=6.0.2
+requests>=2.32.3
+scipy>=1.15.2
+tenacity>=9
+torch>=2.9.0a0,<2.13
+torchinfo>=1.8
+typing-extensions>=4.15
+wandb>=0.19.8
+xarray[io]>=2025.1.2
+xarray-einstats[einops]>=0.8
+zarr<3

@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/SamudraConfig.json
+
+# Production-width Samudra 2 architecture, using activation checkpointing so it
+# fits on a free-tier Colab T4 (16 GB VRAM).
+checkpointing: all
+pred_residuals: false
+last_kernel_size: 3
+pad: circular
+
+# T4 GPUs do not accelerate bfloat16, so use float32 for this portable example.
+use_bfloat16: false
+
+unet:
+  ch_width: [280, 380, 480, 520]
+  dilation: [1, 2, 4, 8]
+  n_layers: [1, 1, 1, 1]
+
+  core_block:
+    block_type: conv_next_block
+    kernel_size: 3
+    activation: capped_gelu
+    upscale_factor: 2
+    norm: batch
+
+  down_sampling_block: avg_pool
+  up_sampling_block: zonally_periodic_upsample
+
+corrector:
+  non_negative_corrector_names: null
+  ocean_heat_corrector: false

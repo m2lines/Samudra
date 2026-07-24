@@ -14,7 +14,9 @@ for variable_name in \
   INVERSE_CHECKPOINT \
   DATA_ROOT \
   SIF_PATH \
-  CODE_LAYER; do
+  CODE_LAYER \
+  AUDIT_SCRIPT \
+  INVERSE_AUDIT_SCRIPT; do
   if [[ -z "${!variable_name:-}" ]]; then
     echo "Missing required environment variable: ${variable_name}" >&2
     exit 2
@@ -31,7 +33,9 @@ for required_file in \
   "${SIF_PATH}" \
   "${CODE_LAYER}" \
   "${CODE_LAYER}.sha256" \
-  "${CODE_LAYER}.json"; do
+  "${CODE_LAYER}.json" \
+  "${AUDIT_SCRIPT}" \
+  "${INVERSE_AUDIT_SCRIPT}"; do
   if [[ ! -s "${required_file}" ]]; then
     echo "Required audit input is missing or empty: ${required_file}" >&2
     exit 3
@@ -57,7 +61,7 @@ fi
 )
 
 export APPTAINER_TMPDIR="${APPTAINER_TMPDIR:-/tmp}"
-export APPTAINERENV_PYTHONPATH=/opt/samudra-code/src
+export APPTAINERENV_PYTHONPATH=/opt/samudra-code/src:/tmp
 
 "${APPTAINER_BIN}" exec \
   --nv \
@@ -65,10 +69,12 @@ export APPTAINERENV_PYTHONPATH=/opt/samudra-code/src
   --bind "${DATA_ROOT}:${DATA_ROOT}:ro" \
   --bind "${RUN_DIR}:${RUN_DIR}:ro" \
   --bind "$(dirname "${INVERSE_CHECKPOINT}"):$(dirname "${INVERSE_CHECKPOINT}"):ro" \
+  --bind "${AUDIT_SCRIPT}:/tmp/audit_coarse_dynamics.py:ro" \
+  --bind "${INVERSE_AUDIT_SCRIPT}:/tmp/scripts/audit_coarse_inverse.py:ro" \
   --pwd /opt/samudra-code \
   "${SIF_PATH}" \
   /workspace/.venv/bin/python \
-  -m scripts.audit_coarse_dynamics \
+  /tmp/audit_coarse_dynamics.py \
   "${CONFIG}" \
   "${CHECKPOINT}" \
   --inverse-checkpoint "${INVERSE_CHECKPOINT}" \

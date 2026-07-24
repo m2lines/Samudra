@@ -83,6 +83,8 @@ This correction of scope is the reason for S0-R and S0-D.
 | `local-s1-1deg-radius0-s0` | S1 | working tree after `6332322c` | Same as local attention proxy, but decoder neighborhood radius zero | Complete | Validation MSE 0.153; one-ring blending improves error 3.9% at identical parameter count |
 | `local-s2-latent-only-realdata-smoke` | S2 integration | working tree after `49c897d4` | One-degree OM4, one optimizer update at depth one, latent-only objective, frozen randomly initialized inverse | Complete | Native loader, 60×72 rollout, target re-encoding, wet-token loss, backward pass, physical validation, and checkpoint writing succeed; integration evidence only |
 | `2026-07-24-coarse-latent-s2-checkpoint-smoke` | S2 integration | `1aa6672a` | Epoch-10 cross-resolution S1 checkpoint, half-degree OM4, one latent-only optimizer update at depth one | Complete (`14726481`) | Partial finetune loaded the frozen inverse exactly, initialized 67 allowlisted processor/boundary tensors, and completed training, physical validation, and checkpoint writes in 70 seconds |
+| `2026-07-24-coarse-latent-s2-audit-smoke-v1` | S2 audit integration | `85eaf914` | Two-batch dynamics audit of the checkpoint-composition smoke | Failed (`14727039`) | The code overlay intentionally excludes `scripts/`; module execution therefore failed before model construction with `No module named scripts.audit_coarse_dynamics` |
+| `2026-07-24-coarse-latent-s2-audit-smoke-v2` | S2 audit integration | `71f3630d` | Same audit with both audit scripts explicitly bind-mounted into the container | Complete (`14728408`) | In 45 seconds, two synchronized batches exercised every depth/route; all 30 frozen inverse tensors were bit-exact, residual scale shape was `[1,160,1,1]`, and every diagnostic was finite |
 
 ## S0-R synthetic reconstruction
 
@@ -443,7 +445,9 @@ The exact implementation/configuration map is:
   trains only from half-degree targets at depths `{1,2,4}` for the first causal
   screen; and
 - [`validate_cross_1_halfdeg_coarse_latent_dynamics.yaml`](../../configs/samudra_multi_om4/validate_cross_1_halfdeg_coarse_latent_dynamics.yaml)
-  evaluates each resulting checkpoint on all four one-/half-degree routes; and
+  drives a separate validation-only run for each best proxy checkpoint on all
+  four one-/half-degree routes, retaining physical, persistence, and boundary
+  ablation metrics in W&B; and
 - [`audit_coarse_dynamics.py`](../../scripts/audit_coarse_dynamics.py) checks
   frozen-inverse equality, synchronized latent agreement through depths
   `{0,1,2,4}`, latent-teacher error, forcing sensitivity, cross-output
@@ -451,7 +455,8 @@ The exact implementation/configuration map is:
   and
 - [`submit_coarse_latent_s2.sh`](../../scripts/submit_coarse_latent_s2.sh)
   submits the four objective arms from one explicitly selected inverse with
-  matched seed, data, update budget, resource request, and W&B group.
+  matched seed, data, update budget, resource request, and W&B group, then
+  submits dependent best-checkpoint physical validations and latent audits.
 
 The four objective arms are `(w_x, lambda_z) = (1,0)`, `(0,1)`, `(1,0.01)`,
 and `(1,0.1)`. The proxy contains 768 optimizer updates, 256 at each depth,
@@ -475,13 +480,28 @@ latent-only update plus physical validation. Job `14726481` exited zero after
 70 seconds. This closes the checkpoint-compatibility risk; its losses are also
 not used for model selection.
 
+The first dynamics-audit submission (`14727039`) failed before model
+construction because repository code overlays exclude `scripts/`. The corrected
+harness bind-mounts both audit scripts explicitly. Its replacement (`14728408`)
+completed over two synchronized one-/half-degree batches: all 30 inverse tensors
+were bit-identical to the selected S1 checkpoint, the learned residual scale had
+shape `[1,160,1,1]`, and all depth-0/1/2/4 agreement, teacher, boundary, and
+cross-output diagnostics were finite. This verifies the audit mechanism only;
+the audited checkpoint had a single S2 update and is not scientific evidence
+about dynamics quality.
+
 ## S3 full validation
 
 Pending S2 objective selection. The prepared
 [`train_cross_1_halfdeg_coarse_latent_dynamics_full.yaml`](../../configs/samudra_multi_om4/train_cross_1_halfdeg_coarse_latent_dynamics_full.yaml)
 uses all four one-/half-degree routes, physical depths `{1,2,4}`, global batch
 32 on eight GPUs, and approximately the same 6,392-update budget as the
-completed native-grid reference. Quarter-degree data are deliberately absent.
+completed native-grid reference.
+[`submit_coarse_latent_s3.sh`](../../scripts/submit_coarse_latent_s3.sh) launches
+that run on eight preemptible H200s from the selected S1 inverse and objective,
+with preemption-aware checkpoint resumption and dependent best-checkpoint
+cross-route validation and latent audit. Quarter-degree data are deliberately
+absent.
 
 ## Decision log
 

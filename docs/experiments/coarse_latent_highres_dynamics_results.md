@@ -68,10 +68,14 @@ This correction of scope is the reason for S0-R and S0-D.
 | `2026-07-24-coarse-moment-attn-s1-proxy-2rtx-64g-s0` | S1 | `6332322c` | Same cross-resolution proxy on two RTX6000 GPUs, 64 GB | Canceled (`14718372`) | Replaced while testing preemptible admission |
 | `2026-07-24-coarse-moment-attn-s1-proxy-prem-s0` | S1 | `2e79511b` | Attempted generic H200/RTX6000 preemptible partitions by setting `--partition` directly | Rejected before submission | The rejection was caused by bypassing Torch's comment-driven preemption routing, not by lack of project authorization |
 | `2026-07-24-coarse-moment-attn-s1-proxy-courant-requeue-s0` | S1 | `2e79511b` | Same proxy on two H200 GPUs, 64 GB, Courant partition | Canceled (`14722730`) | Replaced by the correctly routed preemption-only submission before launch |
-| `2026-07-24-coarse-moment-attn-s1-proxy-preempt-only-s0` | S1 | `2e79511b` | Same proxy on two H200 GPUs, 64 GB; no explicit partition; `h200` constraint and `preemption=yes;preemption_partitions_only=yes;requeue=true` comment | Complete (`14723265`) | Ten epochs/320 updates completed in 9m12s with train/validation normalized MSE 0.161/0.161 and checkpoints for every epoch |
-| `2026-07-24-coarse-moment-attn-s1-60ep-s0` | S1 | `2e79511b` | Resume the cross-resolution hybrid seed-15 checkpoint from epoch 10 through epoch 60 on two preemptible H200 GPUs | Queued (`14724411`) | Tests convergence to approximately 1,920 total optimizer updates |
-| `2026-07-24-coarse-moment-attn-s1-60ep-s1` | S1 | `2e79511b` | Independent cross-resolution hybrid run through epoch 60 with model seed 16 on two preemptible H200 GPUs | Queued (`14724412`) | Tests seed stability at the full S1 proxy budget |
-| `2026-07-24-coarse-moment-bilinear-s1-60ep-s0` | S1 | `2e79511b` | Cross-resolution 16-moment encoder with bilinear-only D0 through epoch 60 on two preemptible H200 GPUs | Queued (`14724413`) | Matched control for the continuous anchored decoder branch |
+| `2026-07-24-coarse-moment-attn-s1-proxy-preempt-only-s0` | S1 | `2e79511b` | Same proxy on two H200 GPUs, 64 GB; no explicit partition; `h200` constraint and `preemption=yes;preemption_partitions_only=yes;requeue=true` comment | Complete (`14723265`) | Ten epochs/640 updates completed in 9m12s with train/validation normalized MSE 0.161/0.161 and checkpoints for every epoch |
+| `2026-07-24-coarse-moment-attn-s1-60ep-s0` | S1 | `2e79511b` | Resume the cross-resolution hybrid seed-15 checkpoint from epoch 10 through epoch 60 on two preemptible H200 GPUs | Canceled (`14724411`) | The two-GPU request remained under `gpu48` with `QOSMaxGRESPerUser`; replaced by a one-GPU, batch-two request with the same global batch and update count |
+| `2026-07-24-coarse-moment-attn-s1-60ep-s1` | S1 | `2e79511b` | Independent cross-resolution hybrid run through epoch 60 with model seed 16 on two preemptible H200 GPUs | Canceled (`14724412`) | Replaced by the matched one-GPU request before launch |
+| `2026-07-24-coarse-moment-bilinear-s1-60ep-s0` | S1 | `2e79511b` | Cross-resolution 16-moment encoder with bilinear-only D0 through epoch 60 on two preemptible H200 GPUs | Canceled (`14724413`) | Replaced by the matched one-GPU request before launch |
+| `2026-07-24-coarse-moment-attn-s1-60ep-s0-1h200` | S1 | `2e79511b` | Resume the hybrid seed-15 checkpoint through epoch 60 on one preemptible H200 with batch size two | Queued (`14724824`) | Preserves global batch two, route-homogeneous batches, and 64 optimizer updates per epoch |
+| `2026-07-24-coarse-moment-attn-s1-60ep-s1-1h200` | S1 | `2e79511b` | Independent hybrid seed 16 through epoch 60 on one preemptible H200 with batch size two | Queued (`14724820`) | Seed-stability run at the full 3,840-update S1 proxy budget |
+| `2026-07-24-coarse-moment-bilinear-s1-60ep-s0-1h200` | S1 | `2e79511b` | Bilinear-only D0 control through epoch 60 on one preemptible H200 with batch size two | Queued (`14724821`) | Matched control for the continuous anchored decoder branch |
+| `2026-07-24-coarse-moment-attn-s1-proxy-preempt-only-s0-audit` | S1 audit | `34b6bbba` | Wet-cell, gradient-power, seam, synchronized-latent, and cross-output patch-mean audit of the completed epoch-10 hybrid | Queued (`14724704`) | One preemptible H200; validates the expanded audit before applying it to epoch-60 checkpoints |
 | `local-s1-1deg-bringup-s0` | S1 | working tree after `6332322c` | Local OM4 1°, fixed 60×72 latent, one training sample and three validation samples | Complete | 1.62 s training step; 1.23 GB peak GPU memory; full model/data/checkpoint path succeeds |
 | `local-s1-1deg-proxy-s0` | S1 | working tree after `6332322c` | Local OM4 1°, fixed 60×72 latent, width 160, 32 samples, seed 15; 10 epochs then resumed to 60 | Complete | Train/validation normalized MSE 0.058/0.058 after 1,920 updates; no seam spike; retains 62% of target gradient power |
 | `local-s1-1deg-bilinear-s0` | S1 | working tree after `6332322c` | Same as local attention proxy, but D0 bilinear decoder only | Complete | Validation MSE 0.208; the continuous anchored hybrid is 29.3% lower at matched updates |
@@ -281,9 +285,7 @@ Promoted synthetic components:
 - no additive absolute position or scale embeddings in the reconstructive
   latent.
 
-Production implementation and configuration are in progress.
-
-The production modules and proxy configuration are now implemented:
+The production modules and proxy configuration are implemented:
 
 - `PatchMomentEncoder` uses latitude-area-weighted patch means and 16 learned
   continuous relative-coordinate moments;
@@ -301,7 +303,30 @@ validation, and all pre-commit checks pass. The broader CPU suite reports 540
 passes, two skips, and ten expected failures; six setup errors are confined to
 the pre-existing `implementation: auto` Perceiver test configuration selecting
 Flash Perceiver in a local environment where `flash_perceiver` is not installed.
-None reaches the new modules. Cluster bring-up remains pending.
+None reaches the new modules.
+
+### One-/half-degree Torch bring-up
+
+The first synchronized cross-resolution run trained all four `1->1`,
+`1->1/2`, `1/2->1`, and `1/2->1/2` routes on two H200 GPUs with global batch
+size two. Every input was encoded onto the same \(160\times60\times72\) latent.
+The mixed schedule produced 64 optimizer updates per epoch, so ten epochs
+correspond to 640 updates. Training completed without preemption or error in
+9 minutes 12 seconds; peak per-rank GPU memory reported by the training loop
+was approximately 5.5 GB.
+
+Mean normalized MSE decreased monotonically:
+
+| Epoch | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Train | 0.346 | 0.250 | 0.214 | 0.190 | 0.181 | 0.174 | 0.171 | 0.167 | 0.164 | **0.161** |
+| Validation | 0.266 | 0.234 | 0.197 | 0.185 | 0.178 | 0.174 | 0.171 | 0.168 | 0.165 | **0.161** |
+
+This establishes cross-resolution trainability but is not yet the selection
+result: the matched seed, bilinear control, and structural audits require the
+full 60-epoch/3,840-update budget. Those runs use one H200 with batch size two,
+which preserves the original global batch and route-homogeneous optimizer
+steps while avoiding a two-GPU queue limit.
 
 ### Local one-degree bring-up
 

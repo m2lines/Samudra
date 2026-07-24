@@ -18,7 +18,7 @@ import json
 import tempfile
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import torch
 import torch.nn.functional as F
@@ -27,6 +27,7 @@ from samudra.config import TrainConfig
 from samudra.datasets import TrainDataLoader
 from samudra.models.modules import ContinuousResampleAttentionResidualDecoder
 from samudra.models.samudra_multi import SamudraMulti
+from samudra.rust_data import RustTrainDataLoader
 from samudra.train import Trainer
 
 
@@ -168,11 +169,16 @@ def _coarse_patch_means(
 
 def _prepared_dataset_item(loader: Any, dataset: Any, index: int) -> Any:
     """Read one deterministic item from a specific validation route."""
-    raw = dataset[index]
-    collate_fn = loader._dataloader.collate_fn
-    if collate_fn is not None:
-        raw = collate_fn([raw])
-    return dataset.to_train_data(raw, loader._device)
+    if isinstance(loader, TrainDataLoader):
+        raw = dataset[index]
+        collate_fn = loader._dataloader.collate_fn
+        if collate_fn is not None:
+            raw = collate_fn([raw])
+        return dataset.to_train_data(raw, loader._device)
+    if isinstance(loader, RustTrainDataLoader):
+        raw = dataset.load_chunk_batch([index], buffer_pool=None)
+        return loader._prepare_batch((dataset, raw))
+    raise TypeError(f"Unsupported validation loader: {type(loader).__name__}")
 
 
 def _agreement_metrics(
@@ -182,14 +188,23 @@ def _agreement_metrics(
     max_batches: int | None,
 ) -> dict[str, Any]:
     """Compare synchronized encodings and renderings across physical grids."""
-    loader = cast(TrainDataLoader, trainer.val_loader)
-    datasets = list(loader._datasets.values())
+    loader = trainer.val_loader
+    datasets: list[Any]
+    shards: list[Any]
+    if isinstance(loader, TrainDataLoader):
+        datasets = list(loader._datasets.values())
+        shards = [dataset.shard for dataset in datasets]
+    elif isinstance(loader, RustTrainDataLoader):
+        datasets = list(loader._batch_datasets)
+        shards = [dataset.shard for dataset in datasets]
+    else:
+        raise TypeError(f"Unsupported validation loader: {type(loader).__name__}")
     by_route = {
         (
-            dataset.prognostic_srcs[0].grid_size,
-            dataset.prognostic_srcs[-1].grid_size,
+            shard.prognostic_srcs[0].grid_size,
+            shard.prognostic_srcs[-1].grid_size,
         ): dataset
-        for dataset in datasets
+        for dataset, shard in zip(datasets, shards, strict=True)
     }
     grids = sorted({route[0] for route in by_route})
     if len(grids) != 2 or any(
@@ -205,7 +220,7 @@ def _agreement_metrics(
     low_grid, high_grid = grids
     low_dataset = by_route[(low_grid, low_grid)]
     high_dataset = by_route[(high_grid, high_grid)]
-    batches = min(len(low_dataset), len(high_dataset))
+    batches = min(len(low_dataset.shard), len(high_dataset.shard))
     if max_batches is not None:
         batches = min(batches, max_batches)
 

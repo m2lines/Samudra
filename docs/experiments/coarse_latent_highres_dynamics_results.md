@@ -702,7 +702,9 @@ lead:
 | S3 epoch 3 | 0.0881 | 0.1074 | 0.1337 | 18.1% / 39.6% / 47.1% |
 | S3 epoch 4 | 0.0863 | 0.1050 | 0.1309 | 19.7% / 41.0% / 48.2% |
 | S3 epoch 6 | 0.0844 | 0.1024 | 0.1284 | 21.6% / 42.4% / 49.2% |
-| S3 epoch 7 | **0.0838** | **0.1017** | **0.1277** | **22.1% / 42.8% / 49.5%** |
+| S3 epoch 7 | 0.0838 | 0.1017 | 0.1277 | 22.1% / 42.8% / 49.5% |
+| S3 epoch 9 | 0.0831 | 0.1010 | **0.1275** | 22.7% / 43.2% / **49.6%** |
+| S3 epoch 12 | **0.0828** | **0.1009** | 0.1284 | **23.1% / 43.3%** / 49.2% |
 
 By epoch two, all four routes beat persistence at every lead, including a 4.6%
 lead-one reduction on the half-degree same-grid route that was 3.7% worse than
@@ -720,8 +722,16 @@ four. All 12 route/lead cells remain ahead of persistence, with reductions of
 16.2%, and reversing it raises error by 4.5%. Epoch seven improves every
 aggregate lead again; route/lead persistence reductions span 11.3%--55.3%,
 while the aggregate zero-boundary and reversed-boundary lead-four penalties
-reach 16.4% and 4.6%. This is interim optimization evidence, not the promoted
-endpoint. Spatial metrics are intentionally logged only at epochs one and 18.
+reach 16.4% and 4.6%. By epoch 12, lead one and lead two improve further to
+0.0828 and 0.1009, but lead four has moved from its epoch-nine minimum of
+0.1275 to 0.1284. The 12 route/lead cells still beat persistence by
+12.3%--55.0%. Zeroing the boundary raises the aggregate lead-one/two/four
+errors by 7.4%/13.3%/18.7%, and reversing boundary order raises them by
+3.1%/3.1%/4.7%. The longer-lead non-monotonicity is a reason to retain the
+pre-registered best-checkpoint selection and final held-out audit rather than
+promote the last epoch automatically. This is interim optimization evidence,
+not the promoted endpoint. Spatial metrics are intentionally logged only at
+epochs one and 18.
 The epoch-one velocity high-wavenumber ratios remain weak (0.322/0.436 for
 `uo`/`vo`), and scalar patch-seam jump ratios range from 1.14 to 1.31 across
 routes, so the final spatial audit must still resolve or explicitly retain
@@ -776,7 +786,8 @@ epoch-seven checkpoint, eight workers, global batch and scientific
 configuration; only scheduler placement changes. It started earlier than its
 reservation at 16:22 EDT on `gr101`--`gr103`,`gr105`, restored `Start Epoch:
 8`, and passed finite first-batch bring-up. The existing Rust loader reports
-about 12 GiB peak process RSS, far below the original 175 GiB/GPU request.
+about 15.4 GiB peak process RSS through epoch 13, far below the original
+175 GiB/GPU request.
 Future submissions therefore default to 32 GiB/GPU. The original pending
 validation/audit jobs were replaced before launch by `14771778`/`14771779`,
 which retain the same dependency and scientific commands while requesting

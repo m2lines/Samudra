@@ -50,6 +50,7 @@ WANDB_GROUP="${WANDB_GROUP:-coarse-latent-s3}"
 TRAIN_NODES="${TRAIN_NODES:-1}"
 TRAIN_GPUS_PER_NODE="${TRAIN_GPUS_PER_NODE:-8}"
 TRAIN_GPU_FAMILY="${TRAIN_GPU_FAMILY:-h200}"
+SCHEDULING_MODE="${SCHEDULING_MODE:-preemptible}"
 
 case "${TRAIN_GPU_FAMILY}" in
   h200)
@@ -72,6 +73,36 @@ esac
 TRAIN_CPUS_PER_GPU="${TRAIN_CPUS_PER_GPU:-${DEFAULT_CPUS_PER_GPU}}"
 TRAIN_MEMORY_PER_GPU_GB="${TRAIN_MEMORY_PER_GPU_GB:-${DEFAULT_MEMORY_PER_GPU_GB}}"
 TRAIN_NCCL_P2P_DISABLE="${TRAIN_NCCL_P2P_DISABLE:-${DEFAULT_NCCL_P2P_DISABLE}}"
+
+case "${SCHEDULING_MODE}" in
+  preemptible)
+    SBATCH_ACCOUNT="${SBATCH_ACCOUNT:-torch_pr_347_courant}"
+    queue_args=(
+      "--account=${SBATCH_ACCOUNT}"
+      "--constraint=${TRAIN_GPU_FAMILY}"
+      "--comment=preemption=yes;preemption_partitions_only=yes;requeue=true"
+    )
+    ;;
+  normal)
+    if [[ "${TRAIN_GPU_FAMILY}" != "rtx6000" ]]; then
+      echo "Normal S3 scheduling currently supports TRAIN_GPU_FAMILY=rtx6000." >&2
+      exit 2
+    fi
+    SBATCH_ACCOUNT="${SBATCH_ACCOUNT:-torch_pr_347_lzanna}"
+    SBATCH_PARTITION="${SBATCH_PARTITION:-rtx6000_lzanna}"
+    queue_args=(
+      "--account=${SBATCH_ACCOUNT}"
+      "--partition=${SBATCH_PARTITION}"
+      "--constraint=${TRAIN_GPU_FAMILY}"
+    )
+    ;;
+  *)
+    echo \
+      "SCHEDULING_MODE must be preemptible or normal; got ${SCHEDULING_MODE}." \
+      >&2
+    exit 2
+    ;;
+esac
 
 for weight in "${PHYSICAL_WEIGHT}" "${LATENT_WEIGHT}"; do
   if [[ ! "${weight}" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
@@ -178,15 +209,13 @@ train_job_id="$(
       --ntasks-per-node="1" \
       --chdir="${SCRATCH_DIR}" \
       --job-name="oe-s3-full" \
-      --account="torch_pr_347_courant" \
-      --constraint="${TRAIN_GPU_FAMILY}" \
+      "${queue_args[@]}" \
       --gres="gpu:${TRAIN_GPUS_PER_NODE}" \
       --cpus-per-task="${TRAIN_CPUS_PER_TASK}" \
       --mem="${TRAIN_MEMORY}" \
       --time="12:00:00" \
       --signal="B:USR1@120" \
       --requeue \
-      --comment="preemption=yes;preemption_partitions_only=yes;requeue=true" \
       --output="${LOG_DIR}/${RUN_NAME}-%j.out" \
       --error="${LOG_DIR}/${RUN_NAME}-%j.err" \
       "${SBATCH_SCRIPT}"
@@ -221,15 +250,13 @@ validation_job_id="$(
       --dependency="afterok:${train_job_id}" \
       --chdir="${SCRATCH_DIR}" \
       --job-name="oe-s3-val" \
-      --account="torch_pr_347_courant" \
-      --constraint="${TRAIN_GPU_FAMILY}" \
+      "${queue_args[@]}" \
       --gres="gpu:1" \
       --cpus-per-task="${TRAIN_CPUS_PER_GPU}" \
       --mem="${TRAIN_MEMORY_PER_GPU_GB}G" \
       --time="01:00:00" \
       --signal="B:USR1@120" \
       --requeue \
-      --comment="preemption=yes;preemption_partitions_only=yes;requeue=true" \
       --output="${LOG_DIR}/${VALIDATION_NAME}-%j.out" \
       --error="${LOG_DIR}/${VALIDATION_NAME}-%j.err" \
       "${SBATCH_SCRIPT}"
@@ -250,22 +277,20 @@ audit_job_id="$(
       --dependency="afterok:${train_job_id}" \
       --chdir="${SCRATCH_DIR}" \
       --job-name="oe-s3-audit" \
-      --account="torch_pr_347_courant" \
-      --constraint="${TRAIN_GPU_FAMILY}" \
+      "${queue_args[@]}" \
       --gres="gpu:1" \
       --cpus-per-task="${TRAIN_CPUS_PER_GPU}" \
       --mem="${TRAIN_MEMORY_PER_GPU_GB}G" \
       --time="00:30:00" \
       --requeue \
-      --comment="preemption=yes;preemption_partitions_only=yes;requeue=true" \
       --output="${LOG_DIR}/${RUN_NAME}-audit-%j.out" \
       --error="${LOG_DIR}/${RUN_NAME}-audit-%j.err" \
       "${AUDIT_SBATCH_SCRIPT}"
 )"
 
 printf \
-  'train_job_id\tvalidation_job_id\taudit_job_id\trun_name\tphysical_weight\tlatent_weight\tlayout\tgpu_family\ttrain_checkpoint\n'
-printf '%s\t%s\t%s\t%s\t%s\t%s\t%sx%s\t%s\t%s\n' \
+  'train_job_id\tvalidation_job_id\taudit_job_id\trun_name\tphysical_weight\tlatent_weight\tlayout\tgpu_family\tscheduling_mode\ttrain_checkpoint\n'
+printf '%s\t%s\t%s\t%s\t%s\t%s\t%sx%s\t%s\t%s\t%s\n' \
   "${train_job_id}" \
   "${validation_job_id}" \
   "${audit_job_id}" \
@@ -275,4 +300,5 @@ printf '%s\t%s\t%s\t%s\t%s\t%s\t%sx%s\t%s\t%s\n' \
   "${TRAIN_NODES}" \
   "${TRAIN_GPUS_PER_NODE}" \
   "${TRAIN_GPU_FAMILY}" \
+  "${SCHEDULING_MODE}" \
   "${TRAIN_CHECKPOINT}"

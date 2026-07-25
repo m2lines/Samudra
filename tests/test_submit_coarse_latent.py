@@ -204,8 +204,8 @@ def test_s3_submission_sizes_rtx6000_and_disables_nccl_p2p(
     )
 
     rows = [line.split("\t") for line in result.stdout.splitlines()]
-    assert rows[0][-2] == "gpu_family"
-    assert rows[1][-2] == "rtx6000"
+    assert rows[0][-3] == "gpu_family"
+    assert rows[1][-3] == "rtx6000"
     calls = Path(environment["FAKE_SBATCH_CALLS"]).read_text().splitlines()
     assert "--constraint=rtx6000" in calls[0]
     assert "--cpus-per-task=128" in calls[0]
@@ -250,3 +250,37 @@ def test_s3_submission_resumes_full_training_state_but_audits_original_inverse(
     assert str(resume_checkpoint) in calls[0]
     assert "--finetune=false" in calls[0]
     assert f"INVERSE_CHECKPOINT={required[0]}" in calls[2]
+
+
+def test_s3_submission_supports_normal_rtx6000_queue(
+    submission_environment: tuple[dict[str, str], list[Path]],
+) -> None:
+    environment, required = submission_environment
+    environment = {
+        **environment,
+        "SCHEDULING_MODE": "normal",
+        "TRAIN_GPU_FAMILY": "rtx6000",
+    }
+
+    result = subprocess.run(
+        [
+            REPOSITORY / "scripts/submit_coarse_latent_s3.sh",
+            required[0],
+            "1",
+            "0.1",
+            required[1],
+            required[4],
+        ],
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+    rows = [line.split("\t") for line in result.stdout.splitlines()]
+    assert rows[0][-2] == "scheduling_mode"
+    assert rows[1][-2] == "normal"
+    calls = Path(environment["FAKE_SBATCH_CALLS"]).read_text().splitlines()
+    assert "--account=torch_pr_347_lzanna" in calls[0]
+    assert "--partition=rtx6000_lzanna" in calls[0]
+    assert "preemption=yes" not in calls[0]

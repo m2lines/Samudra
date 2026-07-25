@@ -1064,12 +1064,21 @@ Targeted decoder-only controls support this diagnosis:
 | One output cell, one input cell, width 128, no context norm | **0.030861** |
 | 12-by-12 window, 256 width-128 latents | 0.265364 |
 | 12-by-12 window, 256 latents, 30 epochs | 0.248054 |
+| 12-by-12 window, 256 latents, flash backend | 0.319123 |
+| 12-by-12 window, 256 latents, flash backend, 30 epochs | 0.271004 |
 
 Thus latent count, width, input normalization, and three times as much training are
 secondary. Aligning one input cell with one output query closes most of the gap,
 while adding neighboring context without an explicit spatial route makes the task
 worse. The 30-epoch control does improve slowly but remains more than 20 times the
 direct/direct result, excluding ordinary undertraining as the main explanation.
+The production flash backend also does not rescue the default-sized decoder. Its
+matched 10-epoch result is worse than naive (`0.319123` versus `0.278018`), and at
+30 epochs it remains worse (`0.271004` versus `0.248054`). The resolved 30-epoch
+configs differ only by `perceiver_implementation`. Flash jobs `14746318` and
+`14746662` completed normally; their W&B runs are
+[gb9e4qq9](https://wandb.ai/ocean_emulators/default/runs/gb9e4qq9) and
+[6lm9evrn](https://wandb.ai/ocean_emulators/default/runs/6lm9evrn).
 
 To preserve variable input/output grids without this second latent bottleneck, the
 decoder now offers an opt-in resolution-flexible projection: bilinear resampling of

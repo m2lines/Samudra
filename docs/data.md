@@ -16,6 +16,29 @@ Project Phase 6](https://pcmdi.llnl.gov/CMIP6/), which is a large, multi-institu
 OM4 is natively stored in a tripolar grid in the NetCDF format. We have taken steps to make the data easier to work with
 in the machine learning context.
 
+## Available datasets
+
+The processed OM4 datasets used for training live on the NYU OSN pod under the base prefix
+`s3://m2lines-pubs/Samudra/v2026-07/` (public read at
+`https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-07/`). Each `om4_<res>/` directory contains the
+dataset `OM4.zarr` alongside its normalization statistics `OM4_means.zarr` and `OM4_stds.zarr`.
+
+All datasets share the same layout: 4745 five-day timesteps, 19 depth levels, on a regular lat–lon
+(`grid_type = "gaussian"`) grid, with the grid-metadata coordinates needed for physical analysis
+(`areacello`, `dz`, `lev`, 2D `lat`/`lon`, and cell bounds `lat_b`/`lon_b`).
+
+| Directory | Resolution | Grid (y × x) | Spatial filter | Size |
+| --- | --- | --- | --- | --- |
+| `om4_twodeg/` | 2° | 90 × 180 | none | 23 GiB |
+| `om4_onedeg/` | 1° | 180 × 360 | none | 92 GiB |
+| `om4_onedeg_filter/` | 1° | 180 × 360 | 18×18 Gaussian | 92 GiB |
+| `om4_halfdeg/` | 0.5° | 360 × 720 | none | 367 GiB |
+| `om4_quarterdeg/` | 0.25° | 720 × 1440 | none | 1.4 TiB |
+
+> We recommend the non-filtered datasets; `om4_onedeg_filter` is provided for comparison. To copy a
+> dataset (or a time slice) to your cluster/local filesystem for training, see
+> [How to get the data](#how-to-get-the-data).
+
 ## Taking a look at each dataset
 
 Our data is stored in [Zarr](https://zarr.dev) and is canonically opened with [Xarray](https://xarray.dev). Here is a
@@ -25,35 +48,45 @@ quick demonstration on how to open each processed dataset we make available:
 >>> import xarray as xr
 >>> # One degree data with guassian filtering applied
 >>> # > NOTE: We recommend using the non-filtered data (see the next dataset)
->>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/v2025-11/om4_onedeg_filter/OM4.zarr')
+>>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-07/om4_onedeg_filter/OM4.zarr')
 >>> ds
 <xarray.Dataset> Size: 98GB
-Dimensions:    (time: 4745, y: 180, x: 360)
+Dimensions:         (y: 180, x: 360, lev: 19, time: 4745, y_b: 181, x_b: 361)
 Coordinates:
-  * time       (time) object 38kB 1958-01-03 12:00:00 ... 2022-12-29 12:00:00
-  * x          (x) float64 3kB 0.5 1.5 2.5 3.5 4.5 ... 356.5 357.5 358.5 359.5
-  * y          (y) float64 1kB -89.24 -88.25 -87.25 -86.26 ... 87.25 88.25 89.24
+    areacello       (y, x) float64 518kB dask.array<chunksize=(180, 360), meta=np.ndarray>
+    dz              (lev) float64 152B dask.array<chunksize=(19,), meta=np.ndarray>
+    lat             (y, x) float64 518kB dask.array<chunksize=(90, 360), meta=np.ndarray>
+    lat_b           (y_b, x_b) float64 523kB dask.array<chunksize=(91, 361), meta=np.ndarray>
+  * lev             (lev) float64 152B 2.5 10.0 22.5 40.0 ... 4e+03 5e+03 6e+03
+    lon             (y, x) float64 518kB dask.array<chunksize=(90, 360), meta=np.ndarray>
+    lon_b           (y_b, x_b) float64 523kB dask.array<chunksize=(91, 361), meta=np.ndarray>
+    ocean_fraction  (lev, y, x) float64 10MB dask.array<chunksize=(19, 180, 360), meta=np.ndarray>
+  * time            (time) object 38kB 1958-01-03 12:00:00 ... 2022-12-29 12:...
+  * x               (x) float64 3kB 0.5 1.5 2.5 3.5 ... 356.5 357.5 358.5 359.5
+  * y               (y) float64 1kB -89.24 -88.25 -87.25 ... 87.25 88.25 89.24
+Dimensions without coordinates: y_b, x_b
 Data variables: (12/99)
-    hfds       (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
-    mask_0     (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
-    mask_1     (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
-    mask_10    (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
-    mask_11    (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
-    mask_12    (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
-    ...         ...
-    vo_5       (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
-    vo_6       (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
-    vo_7       (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
-    vo_8       (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
-    vo_9       (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
-    zos        (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
-Attributes:
+    hfds            (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
+    mask_0          (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
+    mask_1          (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
+    mask_10         (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
+    mask_11         (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
+    mask_12         (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
+    ...              ...
+    vo_5            (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
+    vo_6            (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
+    vo_7            (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
+    vo_8            (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
+    vo_9            (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
+    zos             (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
+Attributes: (12/13)
+    grid_type:                         gaussian
     hfds:                              {'cell_measures': 'area: areacello', '...
-    m2lines/cli_args:                  /Users/alxmrs/git/ocean_emulators/ocea...
-    m2lines/date_created:              2025-12-03T10:10:28.215668
-    m2lines/ocean_emulators_git_hash:  https://github.com/m2lines/ocean_emula...
+    m2lines/cli_args:                  /scratch/am16581/Samudra/data/ocean_pr...
+    m2lines/date_created:              2026-07-22T19:32:36.956747
+    m2lines/ocean_emulators_git_hash:  https://github.com/Open-Athena/Samudra...
     regrid_method:                     conservative
-    so:                                {'cell_measures': 'area: areacello', '...
+    ...                                ...
     tauuo:                             {'cell_methods': 'yh:mean xq:point tim...
     tauvo:                             {'cell_methods': 'yq:point xh:mean tim...
     thetao:                            {'cell_measures': 'area: areacello', '...
@@ -61,91 +94,137 @@ Attributes:
     vo:                                {'cell_methods': 'z_l:mean yq:point xh...
     zos:                               {'cell_measures': 'area: areacello', '...
 >>> # One degree data with _no_ gaussian filtering (no filter).
->>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/v2025-11/om4_onedeg/OM4.zarr')
+>>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-07/om4_onedeg/OM4.zarr')
 >>> ds
 <xarray.Dataset> Size: 98GB
-Dimensions:    (time: 4745, y: 180, x: 360)
+Dimensions:         (y: 180, x: 360, lev: 19, time: 4745, y_b: 181, x_b: 361)
 Coordinates:
-  * time       (time) object 38kB 1958-01-03 12:00:00 ... 2022-12-29 12:00:00
-  * x          (x) float64 3kB 0.5 1.5 2.5 3.5 4.5 ... 356.5 357.5 358.5 359.5
-  * y          (y) float64 1kB -89.24 -88.25 -87.25 -86.26 ... 87.25 88.25 89.24
+    areacello       (y, x) float64 518kB dask.array<chunksize=(180, 360), meta=np.ndarray>
+    dz              (lev) float64 152B dask.array<chunksize=(19,), meta=np.ndarray>
+    lat             (y, x) float64 518kB dask.array<chunksize=(90, 360), meta=np.ndarray>
+    lat_b           (y_b, x_b) float64 523kB dask.array<chunksize=(91, 361), meta=np.ndarray>
+  * lev             (lev) float64 152B 2.5 10.0 22.5 40.0 ... 4e+03 5e+03 6e+03
+    lon             (y, x) float64 518kB dask.array<chunksize=(90, 360), meta=np.ndarray>
+    lon_b           (y_b, x_b) float64 523kB dask.array<chunksize=(91, 361), meta=np.ndarray>
+    ocean_fraction  (lev, y, x) float64 10MB dask.array<chunksize=(19, 180, 360), meta=np.ndarray>
+  * time            (time) object 38kB 1958-01-03 12:00:00 ... 2022-12-29 12:...
+  * x               (x) float64 3kB 0.5 1.5 2.5 3.5 ... 356.5 357.5 358.5 359.5
+  * y               (y) float64 1kB -89.24 -88.25 -87.25 ... 87.25 88.25 89.24
+Dimensions without coordinates: y_b, x_b
 Data variables: (12/99)
-    hfds       (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
-    mask_0     (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
-    mask_1     (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
-    mask_10    (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
-    mask_11    (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
-    mask_12    (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
-    ...         ...
-    vo_5       (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
-    vo_6       (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
-    vo_7       (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
-    vo_8       (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
-    vo_9       (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
-    zos        (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
-Attributes:
-    m2lines/cli_args:                  /Users/alxmrs/git/ocean_emulators/ocea...
-    m2lines/date_created:              2025-11-26T12:51:52.411906
-    m2lines/ocean_emulators_git_hash:  https://github.com/m2lines/ocean_emula...
+    hfds            (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
+    mask_0          (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
+    mask_1          (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
+    mask_10         (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
+    mask_11         (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
+    mask_12         (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
+    ...              ...
+    vo_5            (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
+    vo_6            (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
+    vo_7            (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
+    vo_8            (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
+    vo_9            (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
+    zos             (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
+Attributes: (12/13)
+    grid_type:                         gaussian
+    hfds:                              {'cell_measures': 'area: areacello', '...
+    m2lines/cli_args:                  /scratch/am16581/Samudra/data/ocean_pr...
+    m2lines/date_created:              2026-07-22T23:47:14.350900
+    m2lines/ocean_emulators_git_hash:  https://github.com/Open-Athena/Samudra...
     regrid_method:                     conservative
+    ...                                ...
+    tauuo:                             {'cell_methods': 'yh:mean xq:point tim...
+    tauvo:                             {'cell_methods': 'yq:point xh:mean tim...
+    thetao:                            {'cell_measures': 'area: areacello', '...
+    uo:                                {'cell_methods': 'z_l:mean yh:mean xq:...
+    vo:                                {'cell_methods': 'z_l:mean yq:point xh...
+    zos:                               {'cell_measures': 'area: areacello', '...
 >>> # Half degree data with no gaussian filtering
->>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/v2025-11/om4_halfdeg/OM4.zarr')
+>>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-07/om4_halfdeg/OM4.zarr')
 >>> ds
 <xarray.Dataset> Size: 394GB
-Dimensions:    (time: 4745, y: 360, x: 720)
+Dimensions:         (y: 360, x: 720, lev: 19, time: 4745, y_b: 361, x_b: 721)
 Coordinates:
-  * time       (time) object 38kB 1958-01-03 12:00:00 ... 2022-12-29 12:00:00
-  * x          (x) float64 6kB 0.25 0.75 1.25 1.75 ... 358.2 358.8 359.2 359.8
-  * y          (y) float64 3kB -89.62 -89.12 -88.62 -88.13 ... 88.62 89.12 89.62
+    areacello       (y, x) float64 2MB dask.array<chunksize=(360, 720), meta=np.ndarray>
+    dz              (lev) float64 152B dask.array<chunksize=(19,), meta=np.ndarray>
+    lat             (y, x) float64 2MB dask.array<chunksize=(90, 360), meta=np.ndarray>
+    lat_b           (y_b, x_b) float64 2MB dask.array<chunksize=(91, 361), meta=np.ndarray>
+  * lev             (lev) float64 152B 2.5 10.0 22.5 40.0 ... 4e+03 5e+03 6e+03
+    lon             (y, x) float64 2MB dask.array<chunksize=(90, 360), meta=np.ndarray>
+    lon_b           (y_b, x_b) float64 2MB dask.array<chunksize=(91, 361), meta=np.ndarray>
+    ocean_fraction  (lev, y, x) float64 39MB dask.array<chunksize=(19, 360, 720), meta=np.ndarray>
+  * time            (time) object 38kB 1958-01-03 12:00:00 ... 2022-12-29 12:...
+  * x               (x) float64 6kB 0.25 0.75 1.25 1.75 ... 358.8 359.2 359.8
+  * y               (y) float64 3kB -89.62 -89.12 -88.62 ... 88.62 89.12 89.62
+Dimensions without coordinates: y_b, x_b
 Data variables: (12/99)
-    hfds       (time, y, x) float32 5GB dask.array<chunksize=(1, 360, 720), meta=np.ndarray>
-    mask_0     (y, x) bool 259kB dask.array<chunksize=(360, 720), meta=np.ndarray>
-    mask_1     (y, x) bool 259kB dask.array<chunksize=(360, 720), meta=np.ndarray>
-    mask_10    (y, x) bool 259kB dask.array<chunksize=(360, 720), meta=np.ndarray>
-    mask_11    (y, x) bool 259kB dask.array<chunksize=(360, 720), meta=np.ndarray>
-    mask_12    (y, x) bool 259kB dask.array<chunksize=(360, 720), meta=np.ndarray>
-    ...         ...
-    vo_5       (time, y, x) float32 5GB dask.array<chunksize=(1, 360, 720), meta=np.ndarray>
-    vo_6       (time, y, x) float32 5GB dask.array<chunksize=(1, 360, 720), meta=np.ndarray>
-    vo_7       (time, y, x) float32 5GB dask.array<chunksize=(1, 360, 720), meta=np.ndarray>
-    vo_8       (time, y, x) float32 5GB dask.array<chunksize=(1, 360, 720), meta=np.ndarray>
-    vo_9       (time, y, x) float32 5GB dask.array<chunksize=(1, 360, 720), meta=np.ndarray>
-    zos        (time, y, x) float32 5GB dask.array<chunksize=(1, 360, 720), meta=np.ndarray>
-Attributes:
-    m2lines/cli_args:                  /Users/alxmrs/git/ocean_emulators/ocea...
-    m2lines/date_created:              2025-11-26T11:46:51.855769
-    m2lines/ocean_emulators_git_hash:  https://github.com/m2lines/ocean_emula...
+    hfds            (time, y, x) float32 5GB dask.array<chunksize=(1, 360, 720), meta=np.ndarray>
+    mask_0          (y, x) bool 259kB dask.array<chunksize=(360, 720), meta=np.ndarray>
+    mask_1          (y, x) bool 259kB dask.array<chunksize=(360, 720), meta=np.ndarray>
+    mask_10         (y, x) bool 259kB dask.array<chunksize=(360, 720), meta=np.ndarray>
+    mask_11         (y, x) bool 259kB dask.array<chunksize=(360, 720), meta=np.ndarray>
+    mask_12         (y, x) bool 259kB dask.array<chunksize=(360, 720), meta=np.ndarray>
+    ...              ...
+    vo_5            (time, y, x) float32 5GB dask.array<chunksize=(1, 360, 720), meta=np.ndarray>
+    vo_6            (time, y, x) float32 5GB dask.array<chunksize=(1, 360, 720), meta=np.ndarray>
+    vo_7            (time, y, x) float32 5GB dask.array<chunksize=(1, 360, 720), meta=np.ndarray>
+    vo_8            (time, y, x) float32 5GB dask.array<chunksize=(1, 360, 720), meta=np.ndarray>
+    vo_9            (time, y, x) float32 5GB dask.array<chunksize=(1, 360, 720), meta=np.ndarray>
+    zos             (time, y, x) float32 5GB dask.array<chunksize=(1, 360, 720), meta=np.ndarray>
+Attributes: (12/13)
+    grid_type:                         gaussian
+    hfds:                              {'cell_measures': 'area: areacello', '...
+    m2lines/cli_args:                  /scratch/am16581/Samudra/data/ocean_pr...
+    m2lines/date_created:              2026-07-22T19:32:13.344718
+    m2lines/ocean_emulators_git_hash:  https://github.com/Open-Athena/Samudra...
     regrid_method:                     conservative
+    ...                                ...
+    tauuo:                             {'cell_methods': 'yh:mean xq:point tim...
+    tauvo:                             {'cell_methods': 'yq:point xh:mean tim...
+    thetao:                            {'cell_measures': 'area: areacello', '...
+    uo:                                {'cell_methods': 'z_l:mean yh:mean xq:...
+    vo:                                {'cell_methods': 'z_l:mean yq:point xh...
+    zos:                               {'cell_measures': 'area: areacello', '...
 >>> # Quarter degree data with no gaussian filtering.
->>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/v2025-11/om4_quarterdeg/OM4.zarr')
+>>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-07/om4_quarterdeg/OM4.zarr')
 >>> ds
 <xarray.Dataset> Size: 2TB
-Dimensions:    (time: 4745, y: 720, x: 1440)
+Dimensions:         (y: 720, x: 1440, lev: 19, time: 4745, y_b: 721, x_b: 1441)
 Coordinates:
-  * time       (time) object 38kB 1958-01-03 12:00:00 ... 2022-12-29 12:00:00
-  * x          (x) float64 12kB 0.125 0.375 0.625 0.875 ... 359.4 359.6 359.9
-  * y          (y) float64 6kB -89.81 -89.56 -89.31 -89.06 ... 89.31 89.56 89.81
+    areacello       (y, x) float64 8MB dask.array<chunksize=(720, 1440), meta=np.ndarray>
+    dz              (lev) float64 152B dask.array<chunksize=(19,), meta=np.ndarray>
+    lat             (y, x) float64 8MB dask.array<chunksize=(180, 360), meta=np.ndarray>
+    lat_b           (y_b, x_b) float64 8MB dask.array<chunksize=(181, 361), meta=np.ndarray>
+  * lev             (lev) float64 152B 2.5 10.0 22.5 40.0 ... 4e+03 5e+03 6e+03
+    lon             (y, x) float64 8MB dask.array<chunksize=(180, 360), meta=np.ndarray>
+    lon_b           (y_b, x_b) float64 8MB dask.array<chunksize=(181, 361), meta=np.ndarray>
+    ocean_fraction  (lev, y, x) float64 158MB dask.array<chunksize=(19, 720, 1440), meta=np.ndarray>
+  * time            (time) object 38kB 1958-01-03 12:00:00 ... 2022-12-29 12:...
+  * x               (x) float64 12kB 0.125 0.375 0.625 ... 359.4 359.6 359.9
+  * y               (y) float64 6kB -89.81 -89.56 -89.31 ... 89.31 89.56 89.81
+Dimensions without coordinates: y_b, x_b
 Data variables: (12/99)
-    hfds       (time, y, x) float32 20GB dask.array<chunksize=(1, 720, 1440), meta=np.ndarray>
-    mask_0     (y, x) bool 1MB dask.array<chunksize=(720, 1440), meta=np.ndarray>
-    mask_1     (y, x) bool 1MB dask.array<chunksize=(720, 1440), meta=np.ndarray>
-    mask_10    (y, x) bool 1MB dask.array<chunksize=(720, 1440), meta=np.ndarray>
-    mask_11    (y, x) bool 1MB dask.array<chunksize=(720, 1440), meta=np.ndarray>
-    mask_12    (y, x) bool 1MB dask.array<chunksize=(720, 1440), meta=np.ndarray>
-    ...         ...
-    vo_5       (time, y, x) float32 20GB dask.array<chunksize=(1, 720, 1440), meta=np.ndarray>
-    vo_6       (time, y, x) float32 20GB dask.array<chunksize=(1, 720, 1440), meta=np.ndarray>
-    vo_7       (time, y, x) float32 20GB dask.array<chunksize=(1, 720, 1440), meta=np.ndarray>
-    vo_8       (time, y, x) float32 20GB dask.array<chunksize=(1, 720, 1440), meta=np.ndarray>
-    vo_9       (time, y, x) float32 20GB dask.array<chunksize=(1, 720, 1440), meta=np.ndarray>
-    zos        (time, y, x) float32 20GB dask.array<chunksize=(1, 720, 1440), meta=np.ndarray>
-Attributes:
+    hfds            (time, y, x) float32 20GB dask.array<chunksize=(1, 720, 1440), meta=np.ndarray>
+    mask_0          (y, x) bool 1MB dask.array<chunksize=(720, 1440), meta=np.ndarray>
+    mask_1          (y, x) bool 1MB dask.array<chunksize=(720, 1440), meta=np.ndarray>
+    mask_10         (y, x) bool 1MB dask.array<chunksize=(720, 1440), meta=np.ndarray>
+    mask_11         (y, x) bool 1MB dask.array<chunksize=(720, 1440), meta=np.ndarray>
+    mask_12         (y, x) bool 1MB dask.array<chunksize=(720, 1440), meta=np.ndarray>
+    ...              ...
+    vo_5            (time, y, x) float32 20GB dask.array<chunksize=(1, 720, 1440), meta=np.ndarray>
+    vo_6            (time, y, x) float32 20GB dask.array<chunksize=(1, 720, 1440), meta=np.ndarray>
+    vo_7            (time, y, x) float32 20GB dask.array<chunksize=(1, 720, 1440), meta=np.ndarray>
+    vo_8            (time, y, x) float32 20GB dask.array<chunksize=(1, 720, 1440), meta=np.ndarray>
+    vo_9            (time, y, x) float32 20GB dask.array<chunksize=(1, 720, 1440), meta=np.ndarray>
+    zos             (time, y, x) float32 20GB dask.array<chunksize=(1, 720, 1440), meta=np.ndarray>
+Attributes: (12/13)
+    grid_type:                         gaussian
     hfds:                              {'cell_measures': 'area: areacello', '...
-    m2lines/cli_args:                  /Users/alxmrs/git/ocean_emulators/ocea...
-    m2lines/date_created:              2025-12-01T15:34:44.338655
-    m2lines/ocean_emulators_git_hash:  https://github.com/m2lines/ocean_emula...
+    m2lines/cli_args:                  /scratch/am16581/Samudra/data/ocean_pr...
+    m2lines/date_created:              2026-07-22T19:32:34.683103
+    m2lines/ocean_emulators_git_hash:  https://github.com/Open-Athena/Samudra...
     regrid_method:                     conservative
-    so:                                {'cell_measures': 'area: areacello', '...
+    ...                                ...
     tauuo:                             {'cell_methods': 'yh:mean xq:point tim...
     tauvo:                             {'cell_methods': 'yq:point xh:mean tim...
     thetao:                            {'cell_measures': 'area: areacello', '...
@@ -212,6 +291,16 @@ ds.attrs["m2lines/ocean_emulators_git_hash"]  # The version of code of the pre-p
 All of our data engineering (for the v2025-11 datasets) was tracked in this GitHub issue: [#450](https://github.com/m2lines/Samudra/issues/450).
 Below are updated versions of these data engineering scripts that make use of the publically available data.
 
+There are two ways to run the pipeline:
+
+- **[NYU Torch HPC (CPU, local Dask)](#reproducing-on-nyu-torch-hpc-cpu-no-cloud-egress)** — *recommended.* Runs on a CPU
+  node whose network is local to the NYU OSN pod, so streaming raw data in and writing processed Zarr back incurs no
+  cloud egress cost.
+- **[Coiled (cloud)](#coiled-cloud)** — convenient managed Dask clusters, but the cluster lives in a cloud region, so
+  moving the multi-TB datasets to/from OSN incurs egress charges.
+
+### Coiled (cloud)
+
 For each script, we use coiled to manage our dask clusters. To get set up with a coiled cluster, please do the following:
 
 1. Make sure coiled in installed. If you've installed all the dev dependencies, then it should be in your local env.
@@ -244,11 +333,11 @@ export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
 export AWS_ACCESS_KEY_ID=...
 export AWS_SECRET_ACCESS_KEY=...
 python -m ocean_preprocessing om4 \
-   "s3://m2lines-pubs/FOMO/raw/om4_5daily.zarr" \
-   "s3://m2lines-pubs/FOMO/raw/ocean_static_no_mask_table.zarr" \
-   "s3://m2lines-pubs/FOMO/raw/grids/ocean_hgrid.zarr" \
-   "s3://m2lines-pubs/FOMO/raw/grids/gaussian_grid_180_by_360.zarr" \
-    --output_path="s3://m2lines-pubs/FOMO/v$(date "+%Y-%m")/om4_ondeg/OM4.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/om4_5daily.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_180_by_360.zarr" \
+    --output_path="s3://m2lines-pubs/Samudra/v$(date "+%Y-%m")/om4_onedeg/OM4.zarr" \
     --skip_spatial_filtering \
     --skip_validation \
     --cluster="coiled" \
@@ -269,11 +358,11 @@ export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
 export AWS_ACCESS_KEY_ID=...
 export AWS_SECRET_ACCESS_KEY=...
 python -m ocean_preprocessing om4 \
-   "s3://m2lines-pubs/FOMO/raw/om4_5daily.zarr" \
-   "s3://m2lines-pubs/FOMO/raw/ocean_static_no_mask_table.zarr" \
-   "s3://m2lines-pubs/FOMO/raw/grids/ocean_hgrid.zarr" \
-   "s3://m2lines-pubs/FOMO/raw/grids/gaussian_grid_180_by_360.zarr" \
-    --output_path="s3://m2lines-pubs/FOMO/v$(date '+%Y-%m')/om4_onedeg_filter/OM4.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/om4_5daily.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_180_by_360.zarr" \
+    --output_path="s3://m2lines-pubs/Samudra/v$(date '+%Y-%m')/om4_onedeg_filter/OM4.zarr" \
     --skip_validation \
     --cluster="coiled" \
     --n_workers=40 \
@@ -292,11 +381,11 @@ export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
 export AWS_ACCESS_KEY_ID=...
 export AWS_SECRET_ACCESS_KEY=...
 python -m ocean_preprocessing om4 \
-   "s3://m2lines-pubs/FOMO/raw/om4_5daily.zarr" \
-   "s3://m2lines-pubs/FOMO/raw/ocean_static_no_mask_table.zarr" \
-   "s3://m2lines-pubs/FOMO/raw/grids/ocean_hgrid.zarr" \
-   "s3://m2lines-pubs/FOMO/raw/grids/gaussian_grid_360_by_720.zarr" \
-    --output_path="s3://m2lines-pubs/FOMO/v$(date '+%Y-%m')/om4_halfdeg/OM4.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/om4_5daily.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_360_by_720.zarr" \
+    --output_path="s3://m2lines-pubs/Samudra/v$(date '+%Y-%m')/om4_halfdeg/OM4.zarr" \
     --skip_spatial_filtering \
     --skip_validation \
     --cluster="coiled" \
@@ -316,11 +405,11 @@ export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
 export AWS_ACCESS_KEY_ID=...
 export AWS_SECRET_ACCESS_KEY=...
 python -m ocean_preprocessing om4 \
-   "s3://m2lines-pubs/FOMO/raw/om4_5daily.zarr" \
-   "s3://m2lines-pubs/FOMO/raw/ocean_static_no_mask_table.zarr" \
-   "s3://m2lines-pubs/FOMO/raw/grids/ocean_hgrid.zarr" \
-   "s3://m2lines-pubs/FOMO/raw/grids/gaussian_grid_720_by_1440.zarr" \
-    --output_path="s3://m2lines-pubs/FOMO/v$(date '+%Y-%m')/om4_quarterdeg/OM4.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/om4_5daily.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_720_by_1440.zarr" \
+    --output_path="s3://m2lines-pubs/Samudra/v$(date '+%Y-%m')/om4_quarterdeg/OM4.zarr" \
     --skip_spatial_filtering \
     --skip_validation \
     --cluster="coiled" \
@@ -337,9 +426,107 @@ export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
 # Check with M2LInES project management for how to get the OSN Access keys.
 export AWS_ACCESS_KEY_ID=...
 export AWS_SECRET_ACCESS_KEY=...
-python ocean_preprocessing/make_norm_datasets.py "s3://m2lines-pubs/FOMO/v$(date "+%Y-%m")/om4_ondeg/OM4.zarr"
+python ocean_preprocessing/make_norm_datasets.py "s3://m2lines-pubs/Samudra/v$(date "+%Y-%m")/om4_onedeg/OM4.zarr"
 # This creates OM4_means.zarr and OM4_stds.zarr in the same directory as the input OM4.zarr.
 ```
 
 This script is designed to run on a large VM in the cloud. It is simple to modify the script to point to a coiled cluster
 or other dask cluster system.
+
+## Reproducing on NYU Torch HPC (CPU, no cloud egress)
+
+This is the recommended way to regenerate the datasets. It runs the exact same `ocean_preprocessing` pipeline, but on a
+Torch CPU node with a **local Dask cluster** (`--cluster=local`) instead of coiled. Because Torch's network is local to
+the NYU OSN pod, reading the raw OM4 data and writing the processed Zarr back stays on the internal network — there is no
+cloud egress charge.
+
+Two Slurm harness scripts drive this:
+
+- [`scripts/slurm_preprocess_om4.sbatch`](../scripts/slurm_preprocess_om4.sbatch) — runs the OM4 pipeline for one
+  resolution.
+- [`scripts/slurm_make_norm_om4.sbatch`](../scripts/slurm_make_norm_om4.sbatch) — builds `OM4_means.zarr` /
+  `OM4_stds.zarr` alongside a processed `OM4.zarr` (used by the metric suite).
+
+### One-time environment setup on `/scratch`
+
+The pipeline needs the conda-only `ocean_preprocessing` env (xESMF is not on PyPI). Install
+[miniforge](https://github.com/conda-forge/miniforge) on `/scratch` once, then create the env from the checked-in
+`data/mamba_env.yaml`:
+
+```bash
+# On a Torch login node:
+cd /scratch/$USER
+curl -L -o miniforge.sh https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+bash miniforge.sh -b -p /scratch/$USER/miniforge3
+source /scratch/$USER/miniforge3/etc/profile.d/conda.sh
+
+# The '-e .' in the env file resolves relative to the current dir, so create from data/:
+cd /scratch/$USER/Samudra/data      # your repo checkout on scratch
+mamba env create -f mamba_env.yaml  # creates env 'ocean_preprocessing'
+```
+
+The harness autodetects conda from `$CONDA_EXE`, `~/miniforge3`, or `/scratch/$USER/miniforge3`; otherwise set
+`CONDA_SH=<miniforge>/etc/profile.d/conda.sh`.
+
+### Credentials
+
+```bash
+export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
+# Write keys for the OSN pod. Check with M2LInES project management to obtain them.
+export AWS_ACCESS_KEY_ID=...
+export AWS_SECRET_ACCESS_KEY=...
+```
+
+### Submitting the jobs
+
+Both the raw **inputs** and the processed **outputs** live under the `Samudra` prefix on the OSN pod: inputs are read
+from `s3://m2lines-pubs/Samudra/raw/...` (`RAW_ROOT`) and results are written under `OUTPUT_BASE`. The raw inputs were
+mirrored there from `FOMO/raw` with a server-side `rclone` copy on the data transfer node.
+
+```bash
+export OUTPUT_BASE="s3://m2lines-pubs/Samudra/v$(date +%Y-%m)"
+
+# Smoke test first: reads real OSN data, writes nothing (--dry_run) on 10 steps.
+RESOLUTION=onedeg EXTRA_ARGS="--small_run --dry_run" \
+  sbatch --cpus-per-task=16 --mem=64G --time=00:30:00 scripts/slurm_preprocess_om4.sbatch
+
+# Then each dataset. All fit on the `cs` partition (128-core, 513 GB) because
+# the pipeline is chunked one timestep at a time.
+RESOLUTION=twodeg        sbatch --cpus-per-task=32  --mem=240G --time=08:00:00   scripts/slurm_preprocess_om4.sbatch
+RESOLUTION=onedeg        sbatch --cpus-per-task=64  --mem=480G --time=12:00:00   scripts/slurm_preprocess_om4.sbatch
+RESOLUTION=onedeg_filter sbatch --cpus-per-task=64  --mem=480G --time=12:00:00   scripts/slurm_preprocess_om4.sbatch
+RESOLUTION=halfdeg       sbatch --cpus-per-task=128 --mem=490G --time=1-00:00:00 scripts/slurm_preprocess_om4.sbatch
+RESOLUTION=quarterdeg N_WORKERS=16 \
+                         sbatch --cpus-per-task=128 --mem=490G --time=2-00:00:00 scripts/slurm_preprocess_om4.sbatch
+
+# Normalization datasets, after each OM4.zarr lands:
+for R in twodeg onedeg onedeg_filter halfdeg quarterdeg; do
+  RESOLUTION=$R sbatch scripts/slurm_make_norm_om4.sbatch
+done
+```
+
+`RESOLUTION` selects the target grid and whether spatial filtering is applied:
+
+| `RESOLUTION`    | target grid                 | spatial filter | output subdir      |
+| --------------- | --------------------------- | -------------- | ------------------ |
+| `twodeg`        | `gaussian_grid_90_by_180`   | skipped        | `om4_twodeg`        |
+| `twodeg_filter` | `gaussian_grid_90_by_180`   | on (scale 36)  | `om4_twodeg_filter` |
+| `onedeg`        | `gaussian_grid_180_by_360`  | skipped        | `om4_onedeg`        |
+| `onedeg_filter` | `gaussian_grid_180_by_360`  | on (scale 18)  | `om4_onedeg_filter` |
+| `halfdeg`       | `gaussian_grid_360_by_720`  | skipped        | `om4_halfdeg`       |
+| `quarterdeg`    | `gaussian_grid_720_by_1440` | skipped        | `om4_quarterdeg`    |
+
+### Partitions
+
+The harness defaults to `--account=torch_pr_347_lzanna --partition=cs`. `cs` nodes (128-core, 513 GB, 184 of them) start
+promptly and handle every resolution. The big-memory `cl` partition (7 nodes, 3 TB) is a **fallback only** for the 0.25°
+run if it hits memory pressure — it is heavily contended and can queue for days, so prefer capping `N_WORKERS` on `cs`
+first.
+
+### Monitoring
+
+```bash
+squeue --me -o '%.10i %.14j %.2t %.10M %.20R'
+tail -f slurm-<jobid>.out
+```
+

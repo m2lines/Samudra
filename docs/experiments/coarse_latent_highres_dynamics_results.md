@@ -104,7 +104,7 @@ This correction of scope is the reason for S0-R and S0-D.
 | `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r3-resume-e4` | S3 recovery scheduling | `1d940ce6` | Exact continuation from the r2 epoch-four checkpoint on one node × eight RTX6000s | Canceled before launch (`14759752`; dependents `14759753`/`14759754`) | A scheduler-only comparison projected 15:17 EDT for this placement versus 13:36 for two nodes × four GPUs; no run directory was created |
 | `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r4-resume-e4-2x4` | S3 recovery | `1d940ce6` | Exact continuation from the r2 epoch-four checkpoint; optimizer, cosine scheduler, EMA, counters, W&B identity, scientific configuration, eight workers, and global batch 32 are retained on two nodes × four RTX6000s | Interrupted (`14760130`; dependents `14760131`/`14760132` canceled) | Epoch seven completed with aggregate lead-1/2/4 loss 0.0838/0.1017/0.1277; Slurm UID 0 delivered a second direct `TERM` during epoch eight with no model exception or USR1 warning ([W&B](https://wandb.ai/ocean_emulators/default/runs/c0smzwtd)) |
 | `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r5-resume-e7-4x2` | S3 recovery scheduling | `1d940ce6` | Exact continuation from the r4 epoch-seven checkpoint on four nodes × two preemptible RTX6000s | Canceled before launch (`14769460`; dependents `14769461`/`14769462`) | Replaced after the normal `rtx6000_lzanna` partition projected an earlier start and avoids the repeated direct preemption terminations; no run directory was created |
-| `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r6-resume-e7-normal-4x2` | S3 recovery | `1d940ce6` | Exact continuation from the r4 epoch-seven checkpoint on four nodes × two non-preemptible RTX6000s; eight workers, global batch 32, optimizer/scheduler/EMA, counters, W&B identity, and scientific configuration retained | Scheduled (`14769980`; validation `14769981`; audit `14769982`) | Routed explicitly to account `torch_pr_347_lzanna`, partition `rtx6000_lzanna`, without a preemption comment; Slurm currently reserves `gr101`--`gr104` for 20:23 EDT. Checkpoint SHA-256 is `2e973b22856eef621b6d1bc5f2e373a85832e059974ca4587739dc1e2527eb61` |
+| `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r6-resume-e7-normal-4x2` | S3 recovery | `1d940ce6` | Exact continuation from the r4 epoch-seven checkpoint on four nodes × two non-preemptible RTX6000s; eight workers, global batch 32, optimizer/scheduler/EMA, counters, W&B identity, and scientific configuration retained | Running (`14769980`; replacement validation `14771778`; replacement audit `14771779`) | Started at 16:22 EDT on `gr101`--`gr103`,`gr105`, restored epoch eight and reached finite per-batch logging. Peak process RSS is about 12 GiB, so pending one-GPU dependents and future S3 submissions now request 32 GiB/GPU instead of 175 GiB/GPU; original dependents `14769981`/`14769982` were canceled before launch. Checkpoint SHA-256 is `2e973b22856eef621b6d1bc5f2e373a85832e059974ca4587739dc1e2527eb61` |
 
 ## S0-R synthetic reconstruction
 
@@ -769,14 +769,18 @@ scientific configuration and eight-worker global batch are unchanged.
 Before that request launched, a normal-queue comparison showed the same 4×2
 placement on `rtx6000_lzanna` at 16:03 EDT, while 1×8 and 2×4 normal layouts
 were projected for the following day. The preemptible chain was therefore
-canceled without creating a run directory. Replacement chain
-`14769980`/`14769981`/`14769982` uses account `torch_pr_347_lzanna` and
+canceled without creating a run directory. The replacement training job
+`14769980` uses account `torch_pr_347_lzanna` and
 partition `rtx6000_lzanna` with no preemption comment. It retains the exact
 epoch-seven checkpoint, eight workers, global batch and scientific
-configuration; only scheduler placement changes. Slurm subsequently assigned
-the request a concrete 20:23 EDT start reservation on `gr101`--`gr104`; a
-fresh test-only request projected later, so retaining this reservation is the
-fastest normal-queue option.
+configuration; only scheduler placement changes. It started earlier than its
+reservation at 16:22 EDT on `gr101`--`gr103`,`gr105`, restored `Start Epoch:
+8`, and passed finite first-batch bring-up. The existing Rust loader reports
+about 12 GiB peak process RSS, far below the original 175 GiB/GPU request.
+Future submissions therefore default to 32 GiB/GPU. The original pending
+validation/audit jobs were replaced before launch by `14771778`/`14771779`,
+which retain the same dependency and scientific commands while requesting
+32 GiB each.
 
 ## Decision log
 

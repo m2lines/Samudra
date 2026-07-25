@@ -142,7 +142,7 @@ def test_s3_submission_supports_two_node_four_gpu_layout(
     assert "--nodes=2" in calls[0]
     assert "--gres=gpu:4" in calls[0]
     assert "--cpus-per-task=32" in calls[0]
-    assert "--mem=256G" in calls[0]
+    assert "--mem=128G" in calls[0]
 
 
 def test_s3_submission_requests_eight_gpus_and_audits_best_checkpoint(
@@ -209,11 +209,11 @@ def test_s3_submission_sizes_rtx6000_and_disables_nccl_p2p(
     calls = Path(environment["FAKE_SBATCH_CALLS"]).read_text().splitlines()
     assert "--constraint=rtx6000" in calls[0]
     assert "--cpus-per-task=128" in calls[0]
-    assert "--mem=1400G" in calls[0]
+    assert "--mem=256G" in calls[0]
     assert "NCCL_P2P_DISABLE=1" in calls[0]
     assert "--constraint=rtx6000" in calls[1]
     assert "--cpus-per-task=16" in calls[1]
-    assert "--mem=175G" in calls[1]
+    assert "--mem=32G" in calls[1]
     assert "NCCL_P2P_DISABLE=1" in calls[1]
 
 

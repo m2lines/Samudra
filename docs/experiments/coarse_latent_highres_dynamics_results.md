@@ -102,7 +102,7 @@ This correction of scope is the reason for S0-R and S0-D.
 | `2026-07-25-coarse-latent-s3-cross-smoke-1d940ce6-v2` | S3 integration | `1d940ce6` | One epoch over four samples from each of the four one-/half-degree routes; depths `1/2/4`; frozen seed-15 inverse; \((w_x,\lambda_z)=(1,0.1)\) | Complete (`14753203`) | Exit 0 in 6m50s; all 16 training and 16 validation batches were finite, and W&B route metrics cover all four mappings ([W&B](https://wandb.ai/ocean_emulators/default/runs/845k94kn)). The repaired comparison therefore passes the real mixed-route gate |
 | `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r2` | S3 | `1d940ce6` | Repaired full run on eight preemptible RTX6000s; all four one-/half-degree routes; global batch 32; depths `1/2/4`; frozen seed-15 inverse; \((w_x,\lambda_z)=(1,0.1)\) | Interrupted (`14753311`; dependents `14753312`/`14753313` canceled) | Epoch four completed with aggregate lead-1/2/4 loss 0.0863/0.1050/0.1309 and every route ahead of persistence ([W&B](https://wandb.ai/ocean_emulators/default/runs/c0smzwtd)). Slurm UID 0 terminated the allocation during epoch five at batch 1,368/1,408; the logs contain no model exception and the job received `TERM`, not the configured advance `USR1`, so it did not requeue |
 | `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r3-resume-e4` | S3 recovery scheduling | `1d940ce6` | Exact continuation from the r2 epoch-four checkpoint on one node × eight RTX6000s | Canceled before launch (`14759752`; dependents `14759753`/`14759754`) | A scheduler-only comparison projected 15:17 EDT for this placement versus 13:36 for two nodes × four GPUs; no run directory was created |
-| `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r4-resume-e4-2x4` | S3 recovery | `1d940ce6` | Exact continuation from the r2 epoch-four checkpoint; optimizer, cosine scheduler, EMA, counters, W&B identity, scientific configuration, eight workers, and global batch 32 are retained on two nodes × four RTX6000s | Queued (`14760130`; validation `14760131`; audit `14760132`) | Resume checkpoint SHA-256 `314def6e806d84cfbfeb5178062d37ff5e026f9723675df62ed75ffce0030e57`; metadata independently records epoch 4, 5,632 microbatches, 1,408 optimizer updates, 45,056 samples, W&B `c0smzwtd`, optimizer/EMA state, and best validation 0.0863417 |
+| `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r4-resume-e4-2x4` | S3 recovery | `1d940ce6` | Exact continuation from the r2 epoch-four checkpoint; optimizer, cosine scheduler, EMA, counters, W&B identity, scientific configuration, eight workers, and global batch 32 are retained on two nodes × four RTX6000s | Running (`14760130`; validation `14760131`; audit `14760132`) | Started at 11:03 EDT on `gr102`/`gr103`; all eight ranks initialized, the log verifies `Start Epoch: 5`, optimizer LR 0.000530988, W&B `c0smzwtd`, and finite epoch-five batches. Resume checkpoint SHA-256 is `314def6e806d84cfbfeb5178062d37ff5e026f9723675df62ed75ffce0030e57` |
 
 ## S0-R synthetic reconstruction
 
@@ -736,7 +736,13 @@ passed `sbatch --test-only` and is routed by the same preemption-only comment to
 the RTX6000 pool with `Requeue=1`. A scheduler-only comparison projected a
 two-node × four-GPU placement at 13:36 EDT versus 15:17 for one node × eight;
 both retain eight workers and global batch 32. The slower single-node request
-was canceled before launch, and the 2×4 recovery is waiting for resources.
+was canceled before launch. The 2×4 recovery started at 11:03 EDT, initialized
+all eight ranks across `gr102` and `gr103`, restored `Start Epoch: 5`, optimizer
+LR 0.000530988, counters and W&B identity `c0smzwtd`, and passed first-batch
+bring-up with finite losses. Because the interrupted process had emitted
+per-batch W&B points after its last completed checkpoint, W&B discards replayed
+steps 5,633--6,997. This does not affect model training, and the epoch-five
+aggregate is logged at step 7,040, above that watermark.
 
 ## Decision log
 

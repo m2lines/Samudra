@@ -103,7 +103,8 @@ This correction of scope is the reason for S0-R and S0-D.
 | `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r2` | S3 | `1d940ce6` | Repaired full run on eight preemptible RTX6000s; all four one-/half-degree routes; global batch 32; depths `1/2/4`; frozen seed-15 inverse; \((w_x,\lambda_z)=(1,0.1)\) | Interrupted (`14753311`; dependents `14753312`/`14753313` canceled) | Epoch four completed with aggregate lead-1/2/4 loss 0.0863/0.1050/0.1309 and every route ahead of persistence ([W&B](https://wandb.ai/ocean_emulators/default/runs/c0smzwtd)). Slurm UID 0 terminated the allocation during epoch five at batch 1,368/1,408; the logs contain no model exception and the job received `TERM`, not the configured advance `USR1`, so it did not requeue |
 | `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r3-resume-e4` | S3 recovery scheduling | `1d940ce6` | Exact continuation from the r2 epoch-four checkpoint on one node × eight RTX6000s | Canceled before launch (`14759752`; dependents `14759753`/`14759754`) | A scheduler-only comparison projected 15:17 EDT for this placement versus 13:36 for two nodes × four GPUs; no run directory was created |
 | `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r4-resume-e4-2x4` | S3 recovery | `1d940ce6` | Exact continuation from the r2 epoch-four checkpoint; optimizer, cosine scheduler, EMA, counters, W&B identity, scientific configuration, eight workers, and global batch 32 are retained on two nodes × four RTX6000s | Interrupted (`14760130`; dependents `14760131`/`14760132` canceled) | Epoch seven completed with aggregate lead-1/2/4 loss 0.0838/0.1017/0.1277; Slurm UID 0 delivered a second direct `TERM` during epoch eight with no model exception or USR1 warning ([W&B](https://wandb.ai/ocean_emulators/default/runs/c0smzwtd)) |
-| `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r5-resume-e7-4x2` | S3 recovery | `1d940ce6` | Exact continuation from the r4 epoch-seven checkpoint on four nodes × two RTX6000s; eight workers, global batch 32, optimizer/scheduler/EMA, counters, W&B identity, and scientific configuration retained | Queued (`14769460`; validation `14769461`; audit `14769462`) | Checkpoint SHA-256 `2e973b22856eef621b6d1bc5f2e373a85832e059974ca4587739dc1e2527eb61`; metadata records epoch 7, 9,856 microbatches, 2,464 optimizer updates, 78,848 samples, W&B `c0smzwtd`, and best validation 0.0838045 |
+| `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r5-resume-e7-4x2` | S3 recovery scheduling | `1d940ce6` | Exact continuation from the r4 epoch-seven checkpoint on four nodes × two preemptible RTX6000s | Canceled before launch (`14769460`; dependents `14769461`/`14769462`) | Replaced after the normal `rtx6000_lzanna` partition projected an earlier start and avoids the repeated direct preemption terminations; no run directory was created |
+| `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r6-resume-e7-normal-4x2` | S3 recovery | `1d940ce6` | Exact continuation from the r4 epoch-seven checkpoint on four nodes × two non-preemptible RTX6000s; eight workers, global batch 32, optimizer/scheduler/EMA, counters, W&B identity, and scientific configuration retained | Queued (`14769980`; validation `14769981`; audit `14769982`) | Routed explicitly to account `torch_pr_347_lzanna`, partition `rtx6000_lzanna`, without a preemption comment; test-only projected 16:03 EDT. Checkpoint SHA-256 is `2e973b22856eef621b6d1bc5f2e373a85832e059974ca4587739dc1e2527eb61` |
 
 ## S0-R synthetic reconstruction
 
@@ -764,6 +765,15 @@ Recovery chain `14769460`/`14769461`/`14769462` resumes it with
 `finetune=false`. A scheduler-only comparison favored four nodes × two
 RTX6000s at 18:36 EDT over one- or two-node layouts on the following day; the
 scientific configuration and eight-worker global batch are unchanged.
+
+Before that request launched, a normal-queue comparison showed the same 4×2
+placement on `rtx6000_lzanna` at 16:03 EDT, while 1×8 and 2×4 normal layouts
+were projected for the following day. The preemptible chain was therefore
+canceled without creating a run directory. Replacement chain
+`14769980`/`14769981`/`14769982` uses account `torch_pr_347_lzanna` and
+partition `rtx6000_lzanna` with no preemption comment. It retains the exact
+epoch-seven checkpoint, eight workers, global batch and scientific
+configuration; only scheduler placement changes.
 
 ## Decision log
 

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784999444116,
+  "lastUpdate": 1784999450093,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -22399,6 +22399,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.1108994016263401",
             "extra": "mean: 46.54426886339998 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3b145d9181099462b52f08321a26364c0285ff4b",
+          "message": "Add Torch HPC CPU preprocessing harness; standardize datasets on Samudra/ prefix (#818)\n\n## Summary\n\nAdds a CPU Slurm harness for running the OM4 preprocessing pipeline on\nthe **NYU Torch HPC** with a local Dask cluster (instead of coiled), and\nstandardizes our dataset storage under the `m2lines-pubs/Samudra/`\nprefix.\n\nThis is the operational counterpart to the eval-usability grid-metadata\nwork (#754): now that those changes are merged, the OM4 datasets need to\nbe **regenerated** so the propagated grid metadata (`areacello`, `dz`,\n`ocean_fraction`, cell bounds, `lev`) lands in the published Zarr\nstores. This harness is how we regenerate them, and it is actively\nproducing the `Samudra/v2026-07/…` datasets now.\n\n## Why a new (local-Dask) harness\n\nThe existing reproduction path uses **coiled**, whose workers run in a\ncloud region — streaming the multi-TB raw OM4 in from the OSN pod and\npushing processed Zarr back out incurs significant **cloud egress**.\nRunning on Torch (same network as the NYU OSN pod) with\n`--cluster=local` keeps all I/O on the internal network. The pipeline\nCLI already supported a `\"local\"` cluster branch; this PR wires it up\nfor Slurm.\n\n## What's in this PR\n\n- **`scripts/slurm_preprocess_om4.sbatch`** — CPU Slurm job that runs\n`python -m ocean_preprocessing om4 … --cluster=local`. `RESOLUTION`\nselects the target grid and filtering: `twodeg | onedeg | halfdeg |\nquarterdeg` (+ `_filter` variants), including the new **2° grid**\n(`gaussian_grid_90_by_180`). Streams raw from OSN; sizes the\nLocalCluster from the Slurm allocation; defaults the OSN endpoint and\nthe `cs` partition/account so submission is a one-liner.\n- **`scripts/slurm_make_norm_om4.sbatch`** — companion CPU job that\nwrites `OM4_means.zarr` / `OM4_stds.zarr` alongside each dataset (wraps\nthe existing `make_norm_datasets.py`, which already uses a local\ncluster).\n- **`docs/data.md`** — new \"Reproducing on NYU Torch HPC (CPU, no cloud\negress)\" section (miniforge env setup, credentials, per-resolution\nsubmission recipe, partition guidance, monitoring); standardizes\ninput/output paths on the `Samudra/` prefix; documents\n`twodeg`/`twodeg_filter`; fixes an `om4_ondeg` → `om4_onedeg` typo.\n- **`data/README.md`** — points the raw-input examples at `Samudra/raw`.\n\nNo changes to the pipeline itself (`data/ocean_preprocessing/*`) — this\nis HPC tooling + docs only. (The small `index.html` redirect is a\npre-existing commit carried on this branch, not part of this work.)\n\n## Storage layout\n\n- Raw inputs were mirrored `FOMO/raw` → `Samudra/raw` (verified\nbyte-for-byte server-side rclone copy on the DTN; no egress), so all\npaths are uniformly under `s3://m2lines-pubs/Samudra/…`.\n- Regenerated datasets →\n`s3://m2lines-pubs/Samudra/v2026-07/om4_<res>/OM4.zarr` (+\n`_means`/`_stds`). The published `FOMO/v2025-11/…` datasets are\nuntouched.\n\n## Validation\n\n- `--small_run --dry_run` smoke test on `cs` exercised the full pipeline\nend-to-end (no write).\n- Generated datasets spot-verified from OSN: correct dims,\ndepth-flattened variables (`thetao_0…`), grid-metadata coords\n(`areacello`, `dz`, `lev`, `lat`/`lon`, `lat_b`/`lon_b`), and\n`grid_type=gaussian`.\n\n## Notes for reviewers\n\n- Defaults target the `cs` CPU partition under `torch_pr_347_lzanna`;\noverride per resolution as documented. Memory is sized modestly (real\npeak ≈ 63 GB at 2°) so jobs backfill onto partially-free nodes rather\nthan waiting for a whole empty node.\n- The branch is behind `main` (base advanced since it was cut); can\nrebase before merge.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_011Lk4HFUwoy6TcuvAnGfVg1\n\n---------\n\nCo-authored-by: Claude Opus 4.8 <noreply@anthropic.com>",
+          "timestamp": "2026-07-25T16:32:24Z",
+          "tree_id": "a2c09c98df2b8de81ef543f343363be05cb115b3",
+          "url": "https://github.com/m2lines/Samudra/commit/3b145d9181099462b52f08321a26364c0285ff4b"
+        },
+        "date": 1784999449820,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.080105457902327,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0018676283124125011",
+            "extra": "mean: 925.8355215999927 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.06485211659839482,
+            "unit": "iter/sec",
+            "range": "stddev: 0.03649703225711071",
+            "extra": "mean: 15.419697188800024 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.02114656176268568,
+            "unit": "iter/sec",
+            "range": "stddev: 0.29721357852066665",
+            "extra": "mean: 47.28901138739998 sec\nrounds: 5"
           }
         ]
       }

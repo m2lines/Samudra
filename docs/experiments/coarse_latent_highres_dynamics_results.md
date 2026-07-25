@@ -100,7 +100,7 @@ This correction of scope is the reason for S0-R and S0-D.
 | `2026-07-24-coarse-latent-s3-full-wx1-wz0.1` | S3 | `36fe44aa` | Scientifically identical S3 request on eight preemptible RTX6000s; one node, 128 CPUs, 1.4 TB; RTX-safe NCCL peer-to-peer disablement | Failed (`14735191`; dependents `14735192`/`14735193` canceled) | The exact selected configuration reached the first logged training batch, then a cross-resolution batch raised `Forecast and teacher encoders must produce the same latent grid`; [W&B](https://wandb.ai/ocean_emulators/default/runs/nd7h5xg8) confirms weights `1/0.1`, depths `1/2/4`, global batch 32, the frozen seed-15 inverse, only one-/half-degree sources, and no scientific result |
 | `2026-07-25-coarse-latent-s3-cross-smoke-1d940ce6` | S3 integration | `1d940ce6` | One-GPU real-data smoke of the repaired four-route objective | Failed before Python (`14753197`) | The remote training harness predated code-layer support and resolved the config under `/workspace`; this was a deployment-harness mismatch, not a model or data failure |
 | `2026-07-25-coarse-latent-s3-cross-smoke-1d940ce6-v2` | S3 integration | `1d940ce6` | One epoch over four samples from each of the four one-/half-degree routes; depths `1/2/4`; frozen seed-15 inverse; \((w_x,\lambda_z)=(1,0.1)\) | Complete (`14753203`) | Exit 0 in 6m50s; all 16 training and 16 validation batches were finite, and W&B route metrics cover all four mappings ([W&B](https://wandb.ai/ocean_emulators/default/runs/845k94kn)). The repaired comparison therefore passes the real mixed-route gate |
-| `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r2` | S3 | `1d940ce6` | Repaired full run on eight preemptible RTX6000s; all four one-/half-degree routes; global batch 32; depths `1/2/4`; frozen seed-15 inverse; \((w_x,\lambda_z)=(1,0.1)\) | Running (`14753311`; validation `14753312`; audit `14753313`) | Epoch three completed and checkpointed with aggregate lead-1/2/4 loss 0.0881/0.1074/0.1337; every route improves again and beats persistence at every lead ([W&B](https://wandb.ai/ocean_emulators/default/runs/c0smzwtd)). Dependent best-checkpoint validation and inverse/dynamics audit remain queued |
+| `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r2` | S3 | `1d940ce6` | Repaired full run on eight preemptible RTX6000s; all four one-/half-degree routes; global batch 32; depths `1/2/4`; frozen seed-15 inverse; \((w_x,\lambda_z)=(1,0.1)\) | Running (`14753311`; validation `14753312`; audit `14753313`) | Epoch four completed and checkpointed with aggregate lead-1/2/4 loss 0.0863/0.1050/0.1309; every route still beats persistence at every lead ([W&B](https://wandb.ai/ocean_emulators/default/runs/c0smzwtd)). Dependent best-checkpoint validation and inverse/dynamics audit remain queued |
 
 ## S0-R synthetic reconstruction
 
@@ -695,7 +695,8 @@ lead:
 | Promoted S2 | 0.1013 | 0.1283 | 0.1608 | 5.7% / 27.7% / 36.3% |
 | S3 epoch 1 | 0.0970 | 0.1203 | 0.1491 | 9.8% / 32.3% / 41.0% |
 | S3 epoch 2 | 0.0910 | 0.1114 | 0.1383 | 15.4% / 37.3% / 45.3% |
-| S3 epoch 3 | **0.0881** | **0.1074** | **0.1337** | **18.1% / 39.6% / 47.1%** |
+| S3 epoch 3 | 0.0881 | 0.1074 | 0.1337 | 18.1% / 39.6% / 47.1% |
+| S3 epoch 4 | **0.0863** | **0.1050** | **0.1309** | **19.7% / 41.0% / 48.2%** |
 
 By epoch two, all four routes beat persistence at every lead, including a 4.6%
 lead-one reduction on the half-degree same-grid route that was 3.7% worse than
@@ -703,12 +704,15 @@ persistence in S2. Epoch three improves all 12 route/lead cells again; the
 half-degree same-grid lead-one reduction reaches 7.2%. Boundary forcing also
 becomes more consequential: at epoch three, zeroing it increases aggregate
 lead-four error by 12.7%, and reversing its order increases error by 3.5%,
-versus 4.6% and 1.0% in S2. This is interim optimization evidence, not the
-promoted endpoint. Spatial metrics are intentionally logged only at epochs one
-and 18. The epoch-one velocity high-wavenumber ratios remain weak (0.322/0.436
-for `uo`/`vo`), and scalar patch-seam jump ratios range from 1.14 to 1.31 across
-routes, so the final spatial audit must still resolve or explicitly retain those
-risks.
+versus 4.6% and 1.0% in S2. Epoch four improves the aggregate leads again;
+all four routes remain ahead of persistence, with reductions of 8.9%--54.0%
+across the 12 route/lead cells. Zeroing boundary forcing now increases
+aggregate lead-four error by 14.3%, while reversing it increases error by 3.9%.
+This is interim optimization evidence, not the promoted endpoint. Spatial
+metrics are intentionally logged only at epochs one and 18. The epoch-one
+velocity high-wavenumber ratios remain weak (0.322/0.436 for `uo`/`vo`), and
+scalar patch-seam jump ratios range from 1.14 to 1.31 across routes, so the
+final spatial audit must still resolve or explicitly retain those risks.
 
 ## Decision log
 

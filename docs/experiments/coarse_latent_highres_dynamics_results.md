@@ -100,7 +100,8 @@ This correction of scope is the reason for S0-R and S0-D.
 | `2026-07-24-coarse-latent-s3-full-wx1-wz0.1` | S3 | `36fe44aa` | Scientifically identical S3 request on eight preemptible RTX6000s; one node, 128 CPUs, 1.4 TB; RTX-safe NCCL peer-to-peer disablement | Failed (`14735191`; dependents `14735192`/`14735193` canceled) | The exact selected configuration reached the first logged training batch, then a cross-resolution batch raised `Forecast and teacher encoders must produce the same latent grid`; [W&B](https://wandb.ai/ocean_emulators/default/runs/nd7h5xg8) confirms weights `1/0.1`, depths `1/2/4`, global batch 32, the frozen seed-15 inverse, only one-/half-degree sources, and no scientific result |
 | `2026-07-25-coarse-latent-s3-cross-smoke-1d940ce6` | S3 integration | `1d940ce6` | One-GPU real-data smoke of the repaired four-route objective | Failed before Python (`14753197`) | The remote training harness predated code-layer support and resolved the config under `/workspace`; this was a deployment-harness mismatch, not a model or data failure |
 | `2026-07-25-coarse-latent-s3-cross-smoke-1d940ce6-v2` | S3 integration | `1d940ce6` | One epoch over four samples from each of the four one-/half-degree routes; depths `1/2/4`; frozen seed-15 inverse; \((w_x,\lambda_z)=(1,0.1)\) | Complete (`14753203`) | Exit 0 in 6m50s; all 16 training and 16 validation batches were finite, and W&B route metrics cover all four mappings ([W&B](https://wandb.ai/ocean_emulators/default/runs/845k94kn)). The repaired comparison therefore passes the real mixed-route gate |
-| `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r2` | S3 | `1d940ce6` | Repaired full run on eight preemptible RTX6000s; all four one-/half-degree routes; global batch 32; depths `1/2/4`; frozen seed-15 inverse; \((w_x,\lambda_z)=(1,0.1)\) | Running (`14753311`; validation `14753312`; audit `14753313`) | Epoch four completed and checkpointed with aggregate lead-1/2/4 loss 0.0863/0.1050/0.1309; every route still beats persistence at every lead ([W&B](https://wandb.ai/ocean_emulators/default/runs/c0smzwtd)). Dependent best-checkpoint validation and inverse/dynamics audit remain queued |
+| `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r2` | S3 | `1d940ce6` | Repaired full run on eight preemptible RTX6000s; all four one-/half-degree routes; global batch 32; depths `1/2/4`; frozen seed-15 inverse; \((w_x,\lambda_z)=(1,0.1)\) | Interrupted (`14753311`; dependents `14753312`/`14753313` canceled) | Epoch four completed with aggregate lead-1/2/4 loss 0.0863/0.1050/0.1309 and every route ahead of persistence ([W&B](https://wandb.ai/ocean_emulators/default/runs/c0smzwtd)). Slurm UID 0 terminated the allocation during epoch five at batch 1,368/1,408; the logs contain no model exception and the job received `TERM`, not the configured advance `USR1`, so it did not requeue |
+| `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r3-resume-e4` | S3 recovery | `1d940ce6` | Exact continuation from the r2 epoch-four checkpoint; optimizer, cosine scheduler, EMA, counters, W&B identity, scientific configuration, and eight-RTX6000 global batch are retained | Queued (`14759752`; validation `14759753`; audit `14759754`) | Resume checkpoint SHA-256 `314def6e806d84cfbfeb5178062d37ff5e026f9723675df62ed75ffce0030e57`; metadata independently records epoch 4, 5,632 microbatches, 1,408 optimizer updates, 45,056 samples, W&B `c0smzwtd`, optimizer/EMA state, and best validation 0.0863417 |
 
 ## S0-R synthetic reconstruction
 
@@ -713,6 +714,26 @@ metrics are intentionally logged only at epochs one and 18. The epoch-one
 velocity high-wavenumber ratios remain weak (0.322/0.436 for `uo`/`vo`), and
 scalar patch-seam jump ratios range from 1.14 to 1.31 across routes, so the
 final spatial audit must still resolve or explicitly retain those risks.
+
+At 09:45 EDT, Slurm canceled job `14753311` as UID 0 while epoch five was 40
+batches from completion. The allocation ended as `CANCELLED` with batch exit
+`0:15`; neither the training nor error log contains a model exception. The
+preemptible harness was configured to requeue on an advance `USR1`, but this
+termination delivered `TERM` directly, so the hook could not act and the
+dependent jobs were canceled. The epoch-four checkpoint is complete and
+readable. Its SHA-256 is
+`314def6e806d84cfbfeb5178062d37ff5e026f9723675df62ed75ffce0030e57`, and
+direct checkpoint inspection verifies epoch 4, 5,632 microbatches, 1,408
+optimizer updates, 45,056 samples, optimizer, cosine-scheduler and EMA state,
+W&B run `c0smzwtd`, and best validation 0.0863417.
+
+Recovery chain `14759752`/`14759753`/`14759754` uses a new output directory but
+loads that checkpoint with `finetune=false`, so training resumes at epoch five
+instead of reinitializing the processor. The frozen-inverse reference passed to
+the final audit remains the original seed-15 S1 checkpoint. The full request
+passed `sbatch --test-only` and is routed by the same preemption-only comment to
+the RTX6000 pool with `Requeue=1`; it is currently waiting for one eight-GPU
+node.
 
 ## Decision log
 

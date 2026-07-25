@@ -20,7 +20,7 @@ stage means that it has not yet run, not that it passed.
 | S0-D synthetic subgrid closure | Complete | Two seeds show that the promoted pair retains and dynamically uses subpatch phase |
 | S1 OM4 learned inverse | Complete | Two learned-decoder seeds reproduce error and structural fidelity; matched bilinear loses most fine-grid power despite higher latent agreement |
 | S2 frozen-inverse dynamics | Complete | The combined objective \((w_x,\lambda_z)=(1,0.1)\) wins all aggregate leads and 11/12 exact route/lead losses while preserving the inverse exactly |
-| S3 full validation | Repair validation | The first eight-RTX6000 attempt exposed an overly strict cross-resolution teacher-grid equality check after one batch; the bounded index-alignment repair passes focused tests and awaits a real mixed-route smoke before resubmission |
+| S3 full validation | Full retry queued | The bounded index-alignment repair completed a real-data four-route smoke with finite training/validation losses; the repaired full eight-RTX6000 chain is queued |
 
 ## Evidence inherited from the decoder investigation
 
@@ -98,6 +98,9 @@ This correction of scope is the reason for S0-R and S0-D.
 | `2026-07-24-coarse-latent-s3-full-wx1-wz0.1-layout-4x2` | S3 scheduling | working tree after `b420155c` | Same eight ranks placed as four nodes × two H200s | Canceled before launch (`14734814`; dependents `14734815`/`14734816`) | Torch routes multinode jobs to `gpu48`, which was admission-limited by current user usage; scientific configuration was unchanged |
 | `2026-07-24-coarse-latent-s3-full-wx1-wz0.1` (H200 placement) | S3 scheduling | working tree after `b420155c` | Fresh processor/boundary path from the frozen seed-15 inverse; all four one-/half-degree routes; `(w_x, lambda_z)=(1,0.1)`; depths 1/2/4; eight preemptible H200s on one node | Canceled before launch (`14734952`; dependents `14734953`/`14734954`) | No H200 node had all eight GPUs free; a scheduler-only comparison projected substantially earlier admission on the preemptible RTX6000 pool, and no run directory had been created |
 | `2026-07-24-coarse-latent-s3-full-wx1-wz0.1` | S3 | `36fe44aa` | Scientifically identical S3 request on eight preemptible RTX6000s; one node, 128 CPUs, 1.4 TB; RTX-safe NCCL peer-to-peer disablement | Failed (`14735191`; dependents `14735192`/`14735193` canceled) | The exact selected configuration reached the first logged training batch, then a cross-resolution batch raised `Forecast and teacher encoders must produce the same latent grid`; [W&B](https://wandb.ai/ocean_emulators/default/runs/nd7h5xg8) confirms weights `1/0.1`, depths `1/2/4`, global batch 32, the frozen seed-15 inverse, only one-/half-degree sources, and no scientific result |
+| `2026-07-25-coarse-latent-s3-cross-smoke-1d940ce6` | S3 integration | `1d940ce6` | One-GPU real-data smoke of the repaired four-route objective | Failed before Python (`14753197`) | The remote training harness predated code-layer support and resolved the config under `/workspace`; this was a deployment-harness mismatch, not a model or data failure |
+| `2026-07-25-coarse-latent-s3-cross-smoke-1d940ce6-v2` | S3 integration | `1d940ce6` | One epoch over four samples from each of the four one-/half-degree routes; depths `1/2/4`; frozen seed-15 inverse; \((w_x,\lambda_z)=(1,0.1)\) | Complete (`14753203`) | Exit 0 in 6m50s; all 16 training and 16 validation batches were finite, and W&B route metrics cover all four mappings ([W&B](https://wandb.ai/ocean_emulators/default/runs/845k94kn)). The repaired comparison therefore passes the real mixed-route gate |
+| `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r2` | S3 | `1d940ce6` | Repaired full run on eight preemptible RTX6000s; all four one-/half-degree routes; global batch 32; depths `1/2/4`; frozen seed-15 inverse; \((w_x,\lambda_z)=(1,0.1)\) | Queued (`14753311`; validation `14753312`; audit `14753313`) | Exact request passed `sbatch --test-only`; training is pending resources, with dependent best-checkpoint cross-route validation and inverse/dynamics audit |
 
 ## S0-R synthetic reconstruction
 
@@ -655,8 +658,26 @@ The repair retains exact shape equality and permits indexwise comparison only
 when every coordinate offset is at most one quarter of the smaller coarse-cell
 spacing. A focused test accepts a realistic cross-resolution patch grid and
 rejects a deliberately misaligned grid. The full `test_samudra_multi.py`,
-coarse-patch, and dynamics-audit suites pass (34 tests). A real-data
-mixed-route Torch smoke is required before replacing the failed full chain.
+coarse-patch, and dynamics-audit suites pass (34 tests).
+
+The real-data mixed-route smoke then completed with exit code zero. It trained
+on four samples from each of the four one-/half-degree mappings and produced
+finite validation metrics for every route:
+
+| Route | Lead-one normalized MSE |
+|---|---:|
+| \(180\times360 \rightarrow 180\times360\) | 0.0995 |
+| \(180\times360 \rightarrow 360\times720\) | 0.1502 |
+| \(360\times720 \rightarrow 180\times360\) | 0.1033 |
+| \(360\times720 \rightarrow 360\times720\) | 0.1495 |
+
+These small-sample values are integration diagnostics, not scientific
+estimates. They establish that the repaired latent-teacher comparison,
+backpropagation, checkpoint writing, and all four validation routes execute
+together. The repaired full chain is job `14753311`, followed after success by
+best-checkpoint validation `14753312` and dynamics/inverse audit `14753313`.
+All three requests use the comment-routed preemptible RTX6000 pool and support
+requeue; no quarter-degree data are present.
 
 ## Decision log
 

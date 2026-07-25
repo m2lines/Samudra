@@ -47,8 +47,9 @@ set -euo pipefail
 read -r job_id < "${FAKE_SBATCH_COUNTER}"
 job_id="$((job_id + 1))"
 printf '%s\\n' "${job_id}" > "${FAKE_SBATCH_COUNTER}"
-printf 'SBATCH_ARGS=%q CONFIG=%q NAME=%q TRAIN_ARGS=%q CHECKPOINT=%q NCCL_P2P_DISABLE=%q\\n' \
+printf 'SBATCH_ARGS=%q CONFIG=%q NAME=%q TRAIN_ARGS=%q CHECKPOINT=%q INVERSE_CHECKPOINT=%q NCCL_P2P_DISABLE=%q\\n' \
   "$*" "${CONFIG:-}" "${NAME:-}" "${ARGS:-}" "${CHECKPOINT:-}" \
+  "${INVERSE_CHECKPOINT:-}" \
   "${NCCL_P2P_DISABLE:-}" \
   >> "${FAKE_SBATCH_CALLS}"
 printf '%s\\n' "${job_id}"
@@ -203,8 +204,8 @@ def test_s3_submission_sizes_rtx6000_and_disables_nccl_p2p(
     )
 
     rows = [line.split("\t") for line in result.stdout.splitlines()]
-    assert rows[0][-1] == "gpu_family"
-    assert rows[1][-1] == "rtx6000"
+    assert rows[0][-2] == "gpu_family"
+    assert rows[1][-2] == "rtx6000"
     calls = Path(environment["FAKE_SBATCH_CALLS"]).read_text().splitlines()
     assert "--constraint=rtx6000" in calls[0]
     assert "--cpus-per-task=128" in calls[0]
@@ -214,3 +215,38 @@ def test_s3_submission_sizes_rtx6000_and_disables_nccl_p2p(
     assert "--cpus-per-task=16" in calls[1]
     assert "--mem=175G" in calls[1]
     assert "NCCL_P2P_DISABLE=1" in calls[1]
+
+
+def test_s3_submission_resumes_full_training_state_but_audits_original_inverse(
+    submission_environment: tuple[dict[str, str], list[Path]],
+) -> None:
+    environment, required = submission_environment
+    resume_checkpoint = Path(environment["SCRATCH_DIR"]) / "resume-epoch-4.pt"
+    resume_checkpoint.write_text("fixture\n")
+    environment = {
+        **environment,
+        "TRAIN_RESUME_CHECKPOINT": str(resume_checkpoint),
+    }
+
+    result = subprocess.run(
+        [
+            REPOSITORY / "scripts/submit_coarse_latent_s3.sh",
+            required[0],
+            "1",
+            "0.1",
+            required[1],
+            required[4],
+        ],
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+    rows = [line.split("\t") for line in result.stdout.splitlines()]
+    assert rows[0][-1] == "train_checkpoint"
+    assert rows[1][-1] == str(resume_checkpoint)
+    calls = Path(environment["FAKE_SBATCH_CALLS"]).read_text().splitlines()
+    assert str(resume_checkpoint) in calls[0]
+    assert "--finetune=false" in calls[0]
+    assert f"INVERSE_CHECKPOINT={required[0]}" in calls[2]

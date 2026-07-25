@@ -24,6 +24,14 @@ PHYSICAL_WEIGHT="$2"
 LATENT_WEIGHT="$3"
 CODE_LAYER="$(realpath "$4")"
 SIF_PATH="$(realpath "$5")"
+TRAIN_RESUME_CHECKPOINT="${TRAIN_RESUME_CHECKPOINT:-}"
+if [[ -n "${TRAIN_RESUME_CHECKPOINT}" ]]; then
+  TRAIN_CHECKPOINT="$(realpath "${TRAIN_RESUME_CHECKPOINT}")"
+  TRAIN_FINETUNE="false"
+else
+  TRAIN_CHECKPOINT="${INVERSE_CHECKPOINT}"
+  TRAIN_FINETUNE="true"
+fi
 CURRENT_USER="${USER:-$(id -un)}"
 SCRATCH_DIR="${SCRATCH_DIR:-/scratch/${CURRENT_USER}}"
 DATA_ROOT="${DATA_ROOT:-${SCRATCH_DIR}/data}"
@@ -101,6 +109,7 @@ fi
 
 for required_file in \
   "${INVERSE_CHECKPOINT}" \
+  "${TRAIN_CHECKPOINT}" \
   "${CODE_LAYER}" \
   "${CODE_LAYER}.sha256" \
   "${CODE_LAYER}.json" \
@@ -138,7 +147,8 @@ VALIDATION_CONFIG="configs/samudra_multi_om4/validate_cross_1_halfdeg_coarse_lat
 run_directory="${OUTPUT_BASE}/${RUN_NAME}"
 best_checkpoint="${run_directory}/saved_nets/best_validation_ckpt.pt"
 train_args=(
-  "--resume_ckpt_path=${INVERSE_CHECKPOINT}"
+  "--resume_ckpt_path=${TRAIN_CHECKPOINT}"
+  "--finetune=${TRAIN_FINETUNE}"
   "--model.physical_forecast_loss_weight=${PHYSICAL_WEIGHT}"
   "--model.latent_teacher_loss_weight=${LATENT_WEIGHT}"
   "--experiment.wandb.group=${WANDB_GROUP}"
@@ -254,8 +264,8 @@ audit_job_id="$(
 )"
 
 printf \
-  'train_job_id\tvalidation_job_id\taudit_job_id\trun_name\tphysical_weight\tlatent_weight\tlayout\tgpu_family\n'
-printf '%s\t%s\t%s\t%s\t%s\t%s\t%sx%s\t%s\n' \
+  'train_job_id\tvalidation_job_id\taudit_job_id\trun_name\tphysical_weight\tlatent_weight\tlayout\tgpu_family\ttrain_checkpoint\n'
+printf '%s\t%s\t%s\t%s\t%s\t%s\t%sx%s\t%s\t%s\n' \
   "${train_job_id}" \
   "${validation_job_id}" \
   "${audit_job_id}" \
@@ -264,4 +274,5 @@ printf '%s\t%s\t%s\t%s\t%s\t%s\t%sx%s\t%s\n' \
   "${LATENT_WEIGHT}" \
   "${TRAIN_NODES}" \
   "${TRAIN_GPUS_PER_NODE}" \
-  "${TRAIN_GPU_FAMILY}"
+  "${TRAIN_GPU_FAMILY}" \
+  "${TRAIN_CHECKPOINT}"

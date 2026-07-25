@@ -4,26 +4,37 @@
 
 # yaml-language-server: $schema=../schemas/TrainConfig.json
 
-# A bounded full-width GPU smoke: eight 5-day training samples and four
-# validation samples on the one-degree grid.
+# Bounded paper-width 1-degree GPU smoke. Each split has six 5-day samples,
+# producing two 4-input/1-output training or validation batches.
 debug: false
 disk_mode: true
 pin_mem: true
-save_freq: 1
+save_freq: 2
+validation_image_log_freq: 2
 epochs: 1
 batch_size: 1
-gradient_accumulation_steps: 1
-learning_rate: 0.0006
-scheduler: null
-loss: mse
+gradient_accumulation_steps: 2
+gradient_clip_norm: 10.0
+learning_rate: 0.0002
+optimizer:
+  type: muon
+  momentum: 0.95
+  weight_decay: 0.15
+scheduler:
+  type: warmup_cosine_updates
+  total_updates: 1
+  warmup_updates: 0
+  min_lr: 0.0
+loss:
+  type: otter_weighted_rmse
 finetune: false
 resume_ckpt_path: null
 inference_epochs: []
 data_stride: [1]
 steps: [1]
 step_transition: []
+step_transition_fraction: []
 preemptible: false
-
 backend: auto
 
 experiment:
@@ -32,7 +43,8 @@ experiment:
   base_output_dir: .LOCAL
   wandb:
     mode: disabled
-    project: default
+    project: ocean-emulators
+
 data:
   sources:
     - type: om4
@@ -40,17 +52,24 @@ data:
       boundary_vars_key: tau_hfds
       train_time:
         start: "1975-01-03"
-        end: "1975-02-12"
+        end: "1975-01-28"
       val_time:
-        start: "1975-02-12"
-        end: "1975-03-04"
+        start: "1975-02-02"
+        end: "1975-02-27"
       inference_times: []
       data_location: OM4.zarr
       data_means_location: OM4_means.zarr
       data_stds_location: OM4_stds.zarr
   concurrent_compute: true
   loading:
-    type: cpu
-    num_workers: 16
-    persistent_workers: true
-model: !include model.yaml
+    type: rust
+    prefetch_batches: 2
+    max_concurrent_reads: 8
+    prefetch_to_device: true
+  hist: 3
+  output_steps: 1
+  time_embedding_num_scales: 16
+  time_embedding_min_hours: 3.0
+  time_embedding_max_hours: 8760.0
+
+model: !include model_paper.yaml

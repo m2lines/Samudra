@@ -102,7 +102,7 @@ This correction of scope is the reason for S0-R and S0-D.
 | `2026-07-25-coarse-latent-s3-cross-smoke-1d940ce6-v2` | S3 integration | `1d940ce6` | One epoch over four samples from each of the four one-/half-degree routes; depths `1/2/4`; frozen seed-15 inverse; \((w_x,\lambda_z)=(1,0.1)\) | Complete (`14753203`) | Exit 0 in 6m50s; all 16 training and 16 validation batches were finite, and W&B route metrics cover all four mappings ([W&B](https://wandb.ai/ocean_emulators/default/runs/845k94kn)). The repaired comparison therefore passes the real mixed-route gate |
 | `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r2` | S3 | `1d940ce6` | Repaired full run on eight preemptible RTX6000s; all four one-/half-degree routes; global batch 32; depths `1/2/4`; frozen seed-15 inverse; \((w_x,\lambda_z)=(1,0.1)\) | Interrupted (`14753311`; dependents `14753312`/`14753313` canceled) | Epoch four completed with aggregate lead-1/2/4 loss 0.0863/0.1050/0.1309 and every route ahead of persistence ([W&B](https://wandb.ai/ocean_emulators/default/runs/c0smzwtd)). Slurm UID 0 terminated the allocation during epoch five at batch 1,368/1,408; the logs contain no model exception and the job received `TERM`, not the configured advance `USR1`, so it did not requeue |
 | `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r3-resume-e4` | S3 recovery scheduling | `1d940ce6` | Exact continuation from the r2 epoch-four checkpoint on one node × eight RTX6000s | Canceled before launch (`14759752`; dependents `14759753`/`14759754`) | A scheduler-only comparison projected 15:17 EDT for this placement versus 13:36 for two nodes × four GPUs; no run directory was created |
-| `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r4-resume-e4-2x4` | S3 recovery | `1d940ce6` | Exact continuation from the r2 epoch-four checkpoint; optimizer, cosine scheduler, EMA, counters, W&B identity, scientific configuration, eight workers, and global batch 32 are retained on two nodes × four RTX6000s | Running (`14760130`; validation `14760131`; audit `14760132`) | Started at 11:03 EDT on `gr102`/`gr103`; all eight ranks initialized, the log verifies `Start Epoch: 5`, optimizer LR 0.000530988, W&B `c0smzwtd`, and finite epoch-five batches. Resume checkpoint SHA-256 is `314def6e806d84cfbfeb5178062d37ff5e026f9723675df62ed75ffce0030e57` |
+| `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r4-resume-e4-2x4` | S3 recovery | `1d940ce6` | Exact continuation from the r2 epoch-four checkpoint; optimizer, cosine scheduler, EMA, counters, W&B identity, scientific configuration, eight workers, and global batch 32 are retained on two nodes × four RTX6000s | Running (`14760130`; validation `14760131`; audit `14760132`) | Epoch six completed with aggregate lead-1/2/4 loss 0.0844/0.1024/0.1284 and persistence reductions 21.6%/42.4%/49.2%; all 12 route/lead cells remain ahead of persistence. Resume checkpoint SHA-256 is `314def6e806d84cfbfeb5178062d37ff5e026f9723675df62ed75ffce0030e57` ([W&B](https://wandb.ai/ocean_emulators/default/runs/c0smzwtd)) |
 
 ## S0-R synthetic reconstruction
 
@@ -698,7 +698,8 @@ lead:
 | S3 epoch 1 | 0.0970 | 0.1203 | 0.1491 | 9.8% / 32.3% / 41.0% |
 | S3 epoch 2 | 0.0910 | 0.1114 | 0.1383 | 15.4% / 37.3% / 45.3% |
 | S3 epoch 3 | 0.0881 | 0.1074 | 0.1337 | 18.1% / 39.6% / 47.1% |
-| S3 epoch 4 | **0.0863** | **0.1050** | **0.1309** | **19.7% / 41.0% / 48.2%** |
+| S3 epoch 4 | 0.0863 | 0.1050 | 0.1309 | 19.7% / 41.0% / 48.2% |
+| S3 epoch 6 | **0.0844** | **0.1024** | **0.1284** | **21.6% / 42.4% / 49.2%** |
 
 By epoch two, all four routes beat persistence at every lead, including a 4.6%
 lead-one reduction on the half-degree same-grid route that was 3.7% worse than
@@ -710,11 +711,15 @@ versus 4.6% and 1.0% in S2. Epoch four improves the aggregate leads again;
 all four routes remain ahead of persistence, with reductions of 8.9%--54.0%
 across the 12 route/lead cells. Zeroing boundary forcing now increases
 aggregate lead-four error by 14.3%, while reversing it increases error by 3.9%.
-This is interim optimization evidence, not the promoted endpoint. Spatial
-metrics are intentionally logged only at epochs one and 18. The epoch-one
-velocity high-wavenumber ratios remain weak (0.322/0.436 for `uo`/`vo`), and
-scalar patch-seam jump ratios range from 1.14 to 1.31 across routes, so the
-final spatial audit must still resolve or explicitly retain those risks.
+After exact-state recovery, epoch six improves every aggregate lead over epoch
+four. All 12 route/lead cells remain ahead of persistence, with reductions of
+10.7%--55.0%; zeroing boundary forcing raises aggregate lead-four error by
+16.2%, and reversing it raises error by 4.5%. This is interim optimization
+evidence, not the promoted endpoint. Spatial metrics are intentionally logged
+only at epochs one and 18. The epoch-one velocity high-wavenumber ratios remain
+weak (0.322/0.436 for `uo`/`vo`), and scalar patch-seam jump ratios range from
+1.14 to 1.31 across routes, so the final spatial audit must still resolve or
+explicitly retain those risks.
 
 At 09:45 EDT, Slurm canceled job `14753311` as UID 0 while epoch five was 40
 batches from completion. The allocation ended as `CANCELLED` with batch exit

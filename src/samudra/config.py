@@ -3,11 +3,13 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import abc
+import datetime
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, Literal, Self, assert_never
+from typing import TYPE_CHECKING, Annotated, Literal, Self, assert_never
 
 import cftime
+import numpy as np
 import pydantic
 import torch
 import xarray as xr
@@ -18,13 +20,11 @@ from torch.nn import GELU
 
 from samudra.config_base import BaseConfig, TopLevelConfig
 from samudra.constants import (
-    DatasetSpec,
-    Grid,
+    DataLayout,
+    GridSize,
     GridType,
     LoaderVersion,
-    TensorMap,
-    build_llc_spec,
-    build_om4_spec,
+    build_om4_layout,
 )
 from samudra.models import Otter, Samudra, SamudraMini, SamudraMulti
 from samudra.models.base import BaseModel
@@ -51,7 +51,17 @@ from samudra.models.modules.augment_input import (
 )
 from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from samudra.models.modules.encoder import patch_from
-from samudra.utils.data import DataContainer, DataSource, Normalize
+from samudra.utils.data import (
+    CanonicalSource,
+    DataBundle,
+    SourceSplits,
+    compute_anomalies,
+    flatten_masks,
+    get_anomalies_vars,
+    with_lat_lon_coords,
+    with_level_index_vars,
+)
+from samudra.utils.llc import canonicalize_llc_datasets
 from samudra.utils.location import LocalLocation, Location, ResolvedLocation
 from samudra.utils.loss import (
     DynamicLoss,
@@ -64,6 +74,9 @@ from samudra.utils.loss import (
 from samudra.utils.optimizer import AdamOptimizerConfig, OptimizerConfig
 from samudra.utils.profiler import Profiler
 from samudra.utils.schedule import SchedulerConfig
+
+if TYPE_CHECKING:
+    from samudra.data_backend import TrainingSourceBackend
 
 
 class WandBConfig(BaseConfig):
@@ -84,25 +97,19 @@ class JulianDate:
 
     datetime: cftime.datetime
 
-    def __init__(self, s: str):
-        datetime = cftime.datetime.strptime(s, "%Y-%m-%d", calendar="julian")
-        datetime = datetime.replace(hour=12)
-        self.datetime = datetime
+    def __init__(self, value: str):
+        parsed = cftime.datetime.strptime(value, "%Y-%m-%d", calendar="julian")
+        self.datetime = parsed.replace(hour=12)
 
     def __str__(self) -> str:
         return self.datetime.strftime("%Y-%m-%d")
 
 
 def _julian_date_validator(value: str | JulianDate) -> JulianDate:
-    """Pydantic validator which must handle strings or JulianDate objects."""
-    if isinstance(value, str):
-        return JulianDate(value)
-    else:
-        return value
+    return JulianDate(value) if isinstance(value, str) else value
 
 
-"""Represents a Julian date as a string."""
-DateConfig = Annotated[
+JulianDateConfig = Annotated[
     JulianDate,
     PlainValidator(_julian_date_validator),
     PlainSerializer(JulianDate.__str__),
@@ -110,29 +117,41 @@ DateConfig = Annotated[
 ]
 
 
-class TimeConfig(BaseConfig):
-    """Represents a time slice of the data.
+# We reuse pydantic's AwareDatetime to match JSONSchema's expected RFC3339 format
+_aware_datetime_adapter = pydantic.TypeAdapter(pydantic.AwareDatetime)
 
-    Endpoints are Julian dates (not times) but cftime stores them in datetimes.
-    The final endpoint is exclusive.
-    """
 
-    start: DateConfig
-    end: DateConfig
+def _datetime64_validator(value: str | np.datetime64) -> np.datetime64:
+    if isinstance(value, np.datetime64):
+        return value.astype("datetime64[ns]")
+    parsed = _aware_datetime_adapter.validate_python(value)
+    utc = parsed.astimezone(datetime.UTC).replace(tzinfo=None)
+    return np.datetime64(utc, "ns")
+
+
+def _serialize_datetime64(value: np.datetime64) -> str:
+    return str(np.datetime_as_string(value, unit="ns", timezone="UTC"))
+
+
+LlcDatetimeConfig = Annotated[
+    np.datetime64,
+    PlainValidator(_datetime64_validator),
+    PlainSerializer(_serialize_datetime64),
+    WithJsonSchema({"type": "string", "format": "date-time"}),
+]
+
+
+class Om4TimeConfig(BaseConfig):
+    model_config = pydantic.ConfigDict(frozen=True)
+
+    start: JulianDateConfig
+    end: JulianDateConfig
 
     @property
     def time_slice(self) -> slice:
         return slice(self.start.datetime, self.end.datetime)
 
     def overlaps(self, other: Self) -> bool:
-        """Check if this time range overlaps with another time range.
-
-        Args:
-            other: Another TimeConfig to check for overlap
-
-        Returns:
-            True if the time ranges overlap, False otherwise
-        """
         return (
             self.start.datetime < other.end.datetime
             and self.end.datetime > other.start.datetime
@@ -142,13 +161,37 @@ class TimeConfig(BaseConfig):
         return f"{self.start} to {self.end}"
 
 
+class LlcTimeConfig(BaseConfig):
+    model_config = pydantic.ConfigDict(frozen=True)
+
+    start: LlcDatetimeConfig
+    end: LlcDatetimeConfig
+
+    @property
+    def time_slice(self) -> slice:
+        return slice(self.start, self.end)
+
+    def overlaps(self, other: Self) -> bool:
+        return bool(self.start < other.end and self.end > other.start)
+
+    def __str__(self) -> str:
+        return f"{self.start} to {self.end}"
+
+
+TimeConfig = Om4TimeConfig | LlcTimeConfig
+
+
 LOCATION_DOCS = (
     "Use a string relative to the `data_root` or use a structured location "
     "see location.py for possible types."
 )
 
 
-class DataSourceConfig(BaseConfig):
+class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
+    type: str
+    train_time: SourceTimeConfigT = Field(frozen=True)
+    val_time: SourceTimeConfigT = Field(frozen=True)
+    inference_times: tuple[SourceTimeConfigT, ...] = Field(default=(), frozen=True)
     data_location: Location = Field(
         description="Location of the data; " + LOCATION_DOCS
     )
@@ -158,6 +201,93 @@ class DataSourceConfig(BaseConfig):
     data_stds_location: Location = Field(
         description="Location of the data standard deviations; " + LOCATION_DOCS
     )
+
+    @abc.abstractmethod
+    def canonicalize_datasets(
+        self,
+        data: xr.Dataset,
+        means: xr.Dataset,
+        stds: xr.Dataset,
+    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, DataLayout]:
+        raise NotImplementedError
+
+    def build(
+        self,
+        data_root: ResolvedLocation,
+        *,
+        use_dask: bool,
+        is_primary: bool,
+        source_backend: "TrainingSourceBackend",
+    ) -> SourceSplits:
+        source = self._build_source(
+            data_root,
+            turn_on_dask=use_dask,
+            source_backend=source_backend,
+        )
+        inference_source = None
+        if is_primary and self.inference_times:
+            if use_dask:
+                full_inference_source = source
+            else:
+                full_inference_source = self._build_source(
+                    data_root,
+                    turn_on_dask=True,
+                    source_backend=source_backend,
+                )
+            # TODO: remove multiple inference time ranges altogether (see #813)
+            assert len(self.inference_times) == 1, (
+                "multiple inference time ranges have been deprecated"
+            )
+            inference_source = full_inference_source.slice_time(self.inference_times[0])
+
+        return SourceSplits(
+            train=source.slice_time(self.train_time),
+            val=source.slice_time(self.val_time),
+            inference=inference_source,
+        )
+
+    def _build_source(
+        self,
+        data_root: ResolvedLocation,
+        *,
+        turn_on_dask: bool,
+        source_backend: "TrainingSourceBackend",
+    ) -> CanonicalSource:
+        resolved_data_location = data_root.resolve(self.data_location)
+        resolved_means_location = data_root.resolve(self.data_means_location)
+        resolved_stds_location = data_root.resolve(self.data_stds_location)
+
+        source_backend.validate_locations(
+            data_location=resolved_data_location,
+            means_location=resolved_means_location,
+            stds_location=resolved_stds_location,
+            source_type=self.type,
+        )
+        chunks: dict[str, int] | None = {} if turn_on_dask else None
+        data = resolved_data_location.open(chunks)
+        means = resolved_means_location.open(chunks)
+        stds = resolved_stds_location.open(chunks)
+        data, means, stds, data_layout = self.canonicalize_datasets(
+            data,
+            means,
+            stds,
+        )
+        source = CanonicalSource.from_datasets(
+            data,
+            means,
+            stds,
+            data_layout=data_layout,
+            prognostic_var_names=data_layout.prognostic_var_names,
+            boundary_var_names=data_layout.boundary_var_names,
+            name=f"{resolved_data_location}-{turn_on_dask}",
+        )
+        if not turn_on_dask:
+            source = source_backend.prepare(
+                source,
+                data_location=resolved_data_location,
+                source_type=self.type,
+            )
+        return source
 
 
 class BaseDataLoadingConfig(BaseConfig):
@@ -194,51 +324,152 @@ class GpuDataLoadingConfig(BaseDataLoadingConfig):
         return False
 
 
+class RustDataLoadingConfig(BaseDataLoadingConfig):
+    """Configuration for the local Rust Zarr data loader."""
+
+    type: Literal["rust"] = "rust"
+    prefetch_batches: int = Field(default=2, ge=1)
+    max_concurrent_reads: int = Field(
+        default=32,
+        ge=1,
+        description="Shared native Zarr read concurrency limit for this process/rank.",
+    )
+    prefetch_to_device: bool = True
+
+    def num_pytorch_workers(self) -> int:
+        return 0
+
+    def persistent_pytorch_workers(self) -> bool:
+        return False
+
+
 DataLoadingConfig = Annotated[
-    CpuDataLoadingConfig | GpuDataLoadingConfig,
+    CpuDataLoadingConfig | GpuDataLoadingConfig | RustDataLoadingConfig,
     Field(discriminator="type"),
 ]
 
 
-class Om4DatasetConfig(BaseConfig):
+class InferenceDataLoadingConfig(BaseConfig):
+    """PyTorch worker policy for inference, independent of training I/O."""
+
+    num_workers: int = Field(default=4, ge=0)
+    persistent_workers: bool = True
+
+
+class Om4DataSourceConfig(BaseDataSourceConfig[Om4TimeConfig]):
     type: Literal["om4"] = "om4"
     prognostic_vars_key: str = "thermo_dynamic_all"
     boundary_vars_key: str = "tau_hfds"
     grid_type: GridType = "gaussian"
 
-    def build(self) -> DatasetSpec:
-        return build_om4_spec(
+    @pydantic.model_validator(mode="after")
+    def validate_time_splits(self) -> Self:
+        if self.train_time.overlaps(self.val_time):
+            raise ValueError(
+                f"Training time range {self.train_time} overlaps "
+                f"with validation time range {self.val_time}"
+            )
+        return self
+
+    def canonicalize_datasets(
+        self,
+        data: xr.Dataset,
+        means: xr.Dataset,
+        stds: xr.Dataset,
+    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, DataLayout]:
+        """Convert raw flat or compact OM4 xarray inputs to canonical channels."""
+        data_layout = build_om4_layout(
             self.prognostic_vars_key,
             self.boundary_vars_key,
             grid_type=self.grid_type,
         )
+        data = data.copy()
+        means = means.copy()
+        stds = stds.copy()
+
+        data = with_lat_lon_coords(data)
+        data = with_level_index_vars(data, depth_levels=data_layout.depth_levels)
+        means = with_level_index_vars(means, depth_levels=data_layout.depth_levels)
+        stds = with_level_index_vars(stds, depth_levels=data_layout.depth_levels)
+        data = flatten_masks(data)
+
+        anomalies_vars = get_anomalies_vars(data_layout.boundary_var_names)
+        if anomalies_vars:
+            data, means, stds = compute_anomalies(data, means, stds, anomalies_vars)
+
+        def expand_levels(dataset: xr.Dataset) -> xr.Dataset:
+            canonical = xr.Dataset(attrs=dataset.attrs)
+            for coord in ("time", "lat", "lon"):
+                if coord in dataset.coords:
+                    canonical = canonical.assign_coords({coord: dataset.coords[coord]})
+            for name, variable in dataset.data_vars.items():
+                if "lev" not in variable.dims:
+                    canonical[str(name)] = variable
+                    continue
+                for level in range(variable.sizes["lev"]):
+                    canonical[f"{name}_{level}"] = variable.isel(lev=level, drop=True)
+            return canonical
+
+        canonical_data = expand_levels(data)
+        canonical_means = expand_levels(means)
+        canonical_stds = expand_levels(stds)
+        return canonical_data, canonical_means, canonical_stds, data_layout
 
 
-class LlcDatasetConfig(BaseConfig):
+class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
     type: Literal["llc"] = "llc"
     prognostic_vars_key: str = "single_1"
     boundary_vars_key: str = "single_1"
-    face: int = 1
-    i_start: int = 0
-    i_end: int = 720
-    j_start: int = 0
-    j_end: int = 720
+    face: int = Field(default=1, ge=0)
+    i_start: int = Field(default=0, ge=0)
+    i_end: int = Field(default=720, gt=0)
+    j_start: int = Field(default=0, ge=0)
+    j_end: int = Field(default=720, gt=0)
 
-    def build(self) -> DatasetSpec:
-        return build_llc_spec(
-            self.prognostic_vars_key,
-            self.boundary_vars_key,
+    @pydantic.model_validator(mode="after")
+    def validate_time_splits(self) -> Self:
+        if self.train_time.overlaps(self.val_time):
+            raise ValueError(
+                f"Training time range {self.train_time} overlaps "
+                f"with validation time range {self.val_time}"
+            )
+        return self
+
+    @pydantic.model_validator(mode="after")
+    def validate_crop_bounds(self) -> Self:
+        if self.i_end <= self.i_start:
+            raise ValueError("LLC crop bounds must satisfy i_start < i_end")
+        if self.j_end <= self.j_start:
+            raise ValueError("LLC crop bounds must satisfy j_start < j_end")
+        return self
+
+    def canonicalize_datasets(
+        self,
+        data: xr.Dataset,
+        means: xr.Dataset,
+        stds: xr.Dataset,
+    ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, DataLayout]:
+        return canonicalize_llc_datasets(
+            data,
+            means,
+            stds,
+            face=self.face,
+            i_start=self.i_start,
+            i_end=self.i_end,
+            j_start=self.j_start,
+            j_end=self.j_end,
+            prognostic_vars_key=self.prognostic_vars_key,
+            boundary_vars_key=self.boundary_vars_key,
         )
 
 
-DatasetConfig = Annotated[
-    Om4DatasetConfig | LlcDatasetConfig,
+DataSourceConfig = Annotated[
+    Om4DataSourceConfig | LlcDataSourceConfig,
     Field(discriminator="type"),
 ]
 
 
 class DataConfig(BaseConfig):
-    dataset: DatasetConfig = Field(default_factory=Om4DatasetConfig)
     sources: list[DataSourceConfig] = Field(
         description=(
             "Data sources to include, each with explicit data/means/stds "
@@ -246,8 +477,10 @@ class DataConfig(BaseConfig):
         ),
         min_length=1,
     )
-    static_data_vars: list[str] | None = None
     loading: DataLoadingConfig = Field(default_factory=CpuDataLoadingConfig)
+    inference_loading: InferenceDataLoadingConfig = Field(
+        default_factory=InferenceDataLoadingConfig
+    )
     hist: int = 1
     output_steps: int | None = Field(
         default=None,
@@ -288,74 +521,35 @@ class DataConfig(BaseConfig):
     def build(
         self,
         data_root: ResolvedLocation,
-    ) -> DataContainer:
-        dataset_spec = self.dataset.build()
-        if self.dataset.type != "om4":
-            raise NotImplementedError(
-                f"Dataset type {self.dataset.type!r} is not wired into the data "
-                "loader yet. The dataset-family interface lands in this PR; LLC "
-                "reader support follows in the next slice."
-            )
-
+    ) -> DataBundle:
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
 
-        def make_source(
-            data_location: Location,
-            means_location: Location,
-            stds_location: Location,
-            turn_on_dask: bool = use_dask,
-        ) -> DataSource:
-            resolved_data_location = data_root.resolve(data_location)
-            resolved_means_location = data_root.resolve(means_location)
-            resolved_stds_location = data_root.resolve(stds_location)
-            return DataSource.from_locations(
-                data_location=resolved_data_location,
-                means_location=resolved_means_location,
-                stds_location=resolved_stds_location,
-                dataset_spec=dataset_spec,
-                prognostic_var_names=dataset_spec.prognostic_var_names,
-                boundary_var_names=dataset_spec.boundary_var_names,
-                static_data_vars=self.static_data_vars,
-                use_dask=turn_on_dask,
+        from samudra.data_backend import build_training_source_backend
+
+        source_backend = build_training_source_backend(self.loading)
+        source_splits = [
+            source_cfg.build(
+                data_root,
+                use_dask=use_dask,
+                is_primary=index == 0,
+                source_backend=source_backend,
             )
+            for index, source_cfg in enumerate(self.sources)
+        ]
+        train_sources = [splits.train for splits in source_splits]
+        val_sources = [splits.val for splits in source_splits]
+        primary_source = train_sources[0]
+        data_layout = primary_source.data_layout
+        if any(source.data_layout != data_layout for source in train_sources[1:]):
+            raise ValueError("All data sources must use the same data layout")
 
-        sources = []
-        for source_cfg in self.sources:
-            sources.append(
-                make_source(
-                    source_cfg.data_location,
-                    source_cfg.data_means_location,
-                    source_cfg.data_stds_location,
-                )
-            )
-
-        primary_source = sources[0]
-        if use_dask:
-            # If we're already using dask, we don't need a second source
-            inference_source = primary_source
-        else:
-            # If we're not using dask for the main source, create a separate one
-            primary = self.sources[0]
-            inference_source = make_source(
-                primary.data_location,
-                primary.data_means_location,
-                primary.data_stds_location,
-                turn_on_dask=True,
-            )
-
-        static_data = (
-            primary_source.data[self.static_data_vars]
-            if self.static_data_vars is not None
-            else None
-        )
-
-        return DataContainer(
-            sources=sources,
-            inference_source=inference_source,
+        return DataBundle(
+            train_sources=train_sources,
+            val_sources=val_sources,
+            inference_source=source_splits[0].inference,
             loader_version=loader_version,
-            dataset_spec=dataset_spec,
-            static_data=static_data,
+            data_layout=data_layout,
         )
 
 
@@ -421,35 +615,6 @@ class BlockConfig(BaseConfig):
                     assert_never(self.block_type)
 
         return create_block
-
-
-class CorrectorConfig(BaseConfig):
-    non_negative_corrector_names: list[str] | None = None
-    ocean_heat_corrector: bool = False
-
-    def build(
-        self,
-        hist: int,
-        area_weights: Grid,
-        static_data: xr.Dataset | None,
-        *,
-        tensor_map: TensorMap,
-        normalize: Normalize,
-        dataset_spec: DatasetSpec,
-    ) -> nn.Module:
-        # This prevents a circular import bug.
-        from samudra.models.corrector import Correctors
-
-        return Correctors(
-            non_negative_corrector_names=self.non_negative_corrector_names,
-            ocean_heat_corrector=self.ocean_heat_corrector,
-            hist=hist,
-            area_weights=area_weights,
-            static_data=static_data,
-            tensor_map=tensor_map,
-            normalize=normalize,
-            dataset_spec=dataset_spec,
-        )
 
 
 PerceiverImpl = Literal["auto", "naive", "flash"]
@@ -770,18 +935,13 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         boundary_channels: int,
         out_channels: int,
         hist: int,
-        static_data_for_corrector: xr.Dataset | None,
-        srcs: list[DataSource],
-        tensor_map: TensorMap,
-        normalize: Normalize,
-        dataset_spec: DatasetSpec,
+        grid_sizes: list[GridSize],
     ) -> BaseModel:
         pass
 
 
 class SamudraConfig(BaseModelConfig):
     unet: UNetBackboneConfig = UNetBackboneConfig()
-    corrector: CorrectorConfig | None = None  # None turns all correctors off.
     pos_channels: int = Field(
         default=0,
         description="""Number of channels used for a learned positional embedding""",
@@ -797,26 +957,11 @@ class SamudraConfig(BaseModelConfig):
         boundary_channels: int,
         out_channels: int,
         hist: int,
-        static_data_for_corrector: xr.Dataset | None,
-        srcs: list[DataSource],
-        tensor_map: TensorMap,
-        normalize: Normalize,
-        dataset_spec: DatasetSpec,
+        grid_sizes: list[GridSize],
     ) -> Samudra:
-        corrector = None
-        if len(srcs) != 1:
+        if len(grid_sizes) != 1:
             raise ValueError(
                 "Samudra only supports training at a single scale! Please configure exactly one data source."
-            )
-        src = srcs[0]
-        if self.corrector is not None:
-            corrector = self.corrector.build(
-                hist,
-                src.spherical_area_weights,
-                static_data_for_corrector,
-                tensor_map=tensor_map,
-                normalize=normalize,
-                dataset_spec=dataset_spec,
             )
         in_channels = prog_channels + boundary_channels
         total_in_channels = (
@@ -834,11 +979,10 @@ class SamudraConfig(BaseModelConfig):
                 pad=self.pad,
                 checkpointing=self.checkpointing,
             ),
-            corrector=corrector,
             pos_channels=self.pos_channels,
             add_3d_coordinates=add_3d_coordinates,
             hist=hist,
-            grid_size=src.grid_size,
+            grid_size=grid_sizes[0],
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
         )
@@ -934,13 +1078,9 @@ class OtterConfig(BaseModelConfig):
         boundary_channels: int,
         out_channels: int,
         hist: int,
-        static_data_for_corrector: xr.Dataset | None,
-        srcs: list[DataSource],
-        tensor_map: TensorMap,
-        normalize: Normalize,
-        dataset_spec: DatasetSpec,
+        grid_sizes: list[GridSize],
     ) -> Otter:
-        if len(srcs) != 1:
+        if len(grid_sizes) != 1:
             raise ValueError(
                 "Otter currently supports a single training scale per model."
             )
@@ -988,19 +1128,14 @@ class SamudraMultiConfig(BaseModelConfig):
         boundary_channels: int,
         out_channels: int,
         hist: int,
-        static_data_for_corrector: xr.Dataset | None,
-        srcs: list[DataSource],
-        tensor_map: TensorMap,
-        normalize: Normalize,
-        dataset_spec: DatasetSpec,
+        grid_sizes: list[GridSize],
     ) -> SamudraMulti:
         assert len(self.patch_extent) == 2, "patch_extent must be a pair of floats."
         extent = self.patch_extent[0], self.patch_extent[1]
 
-        all_grid_sizes = [s.grid_size for s in srcs]
         max_lat_size, max_lon_size = (
-            max(g[0] for g in all_grid_sizes),
-            max(g[1] for g in all_grid_sizes),
+            max(g[0] for g in grid_sizes),
+            max(g[1] for g in grid_sizes),
         )
 
         impl = self.perceiver_implementation
@@ -1086,11 +1221,7 @@ class SamudraMiniConfig(BaseModelConfig):
         boundary_channels: int,
         out_channels: int,
         hist: int,
-        static_data_for_corrector: xr.Dataset | None,
-        srcs: list[DataSource],
-        tensor_map: TensorMap,
-        normalize: Normalize,
-        dataset_spec: DatasetSpec,
+        grid_sizes: list[GridSize],
     ) -> SamudraMini:
         if self.add_3d_coordinates:
             raise ValueError(
@@ -1230,7 +1361,7 @@ def build_loss_fn(
     device: torch.device,
     num_channels: int,
     pad_mode: str,
-    tensor_map: TensorMap | None = None,
+    data_layout: DataLayout | None = None,
 ) -> LossFnWithContext:
     match loss_cfg:
         case str():
@@ -1251,13 +1382,13 @@ def build_loss_fn(
                 pad_mode=pad_mode,
             )
         case OtterWeightedRmseLossConfig(variable_weights=variable_weights):
-            if tensor_map is None:
+            if data_layout is None:
                 raise ValueError(
-                    "Otter weighted RMSE requires a TensorMap to construct "
+                    "Otter weighted RMSE requires a DataLayout to construct "
                     "ocean variable/depth weights."
                 )
             return OtterWeightedRmseLoss(
-                tensor_map=tensor_map,
+                data_layout=data_layout,
                 variable_weights=variable_weights,
             )
         case _:
@@ -1313,13 +1444,6 @@ class TrainConfig(TopLevelConfig):
         ),
     )
     inference_epochs: list[int] = [-1]
-    train_time: TimeConfig = TimeConfig(
-        start=JulianDate("0151-01-06"), end=JulianDate("0306-01-01")
-    )
-    val_time: TimeConfig = TimeConfig(
-        start=JulianDate("0306-01-01"), end=JulianDate("0311-01-01")
-    )
-    inference_times: list[TimeConfig] = []
 
     # Config components
     experiment: ExperimentConfig
@@ -1370,9 +1494,6 @@ class EvalConfig(TopLevelConfig):
     backend: EvalBackendConfig = "auto"
 
     # Config components
-    inference_time: TimeConfig = TimeConfig(
-        start=JulianDate("0311-01-01"), end=JulianDate("0351-01-01")
-    )
     experiment: ExperimentConfig
     data: DataConfig
     model: AnyModelConfig

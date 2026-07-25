@@ -21,31 +21,35 @@ from hypothesis.extra.numpy import arrays
 from numpy.typing import NDArray
 from torch.utils.data import ConcatDataset, DataLoader
 
-from samudra.config import TimeConfig, TrainConfig
-from samudra.constants import LoaderVersion
+from samudra.config import DataConfig, TrainConfig
+from samudra.constants import DataLayout, LoaderVersion
 from samudra.datasets import (
+    BatchLoader,
     InferenceDataset,
+    ModelBatch,
     TorchTrainDataset,
-    TrainData,
-    TrainDataLoader,
 )
-from samudra.utils.data import DataSource, Masks, Normalize
+from samudra.utils.data import BatchPreprocessor, CanonicalSource, Masks
+from samudra.utils.location import LocalLocation
 from samudra.utils.multiton import MultitonScope
 from samudra.utils.samplers import EquivalenceGroupBatchSampler
-from samudra.utils.train import collate_raw_train_data
+from samudra.utils.train import collate_host_batches
 from tests.conftest import (
     DEFAULT_CONFIG,
-    TEST_DATASET_SPEC,
+    TEST_DATA_LAYOUT,
     DataSourceDims,
     TrainPair,
     cache_dir,
 )
+from tests.llc_fixtures import write_raw_llc_zarr_datasets
 
 
 @pytest.fixture
-def inference_loader_pair(trainer_pair: TrainPair) -> tuple[TrainConfig, DataLoader]:
+def inference_loader_pair(
+    trainer_pair: TrainPair,
+) -> tuple[TrainConfig, DataLoader, DataLayout]:
     cfg, trainer = trainer_pair
-    return cfg, trainer.inference_loader
+    return cfg, trainer.inference_loader, trainer.data_layout
 
 
 def coarsen_data(ds: xr.Dataset) -> xr.Dataset:
@@ -53,15 +57,22 @@ def coarsen_data(ds: xr.Dataset) -> xr.Dataset:
 
 
 def coarsen_source(
-    src: DataSource,
+    source: CanonicalSource,
     prognostic: list[str],
     boundary: list[str],
-) -> DataSource:
+) -> CanonicalSource:
     # DEFAULT_CONFIG selects thermo_dynamic_5 plus tau_hfds from the larger mock
     # OM4 source; coarsen only those active variables to avoid extra Zarr reads.
-    coarsen_input = src.filter(prognostic + boundary, prefix="coarsen-input")
-    coarsened_src = coarsen_input.map_data(coarsen_data, suffix="half-size")
-    return dataclasses.replace(coarsened_src, masks=coarsen_masks(src.masks))
+    channels = tuple(prognostic + boundary)
+    data, means, stds = source._xarray_datasets_for_testing()
+    return CanonicalSource.from_canonical_datasets(
+        name=f"{source.name}_half-size",
+        data=coarsen_data(data[list(channels)]),
+        means=means[list(channels)],
+        stds=stds[list(channels)],
+        masks=coarsen_masks(source.masks),
+        data_layout=source.data_layout,
+    )
 
 
 def coarsen_masks(masks: Masks) -> Masks:
@@ -88,42 +99,35 @@ def coarsen_masks(masks: Masks) -> Masks:
 @contextlib.contextmanager
 def make_loader(
     cfg: TrainConfig,
-    time_config: TimeConfig | None = None,
     drop_last: bool = True,
     version: LoaderVersion | None = None,
     multiscale: bool = False,
     shuffle: bool = True,
-) -> Generator[DataLoader | TrainDataLoader, None, None]:
-    if time_config is None:
-        time_config = cfg.train_time
-
+) -> Generator[BatchLoader, None, None]:
     data_config = (
         cfg.data
         if version is None
         else cfg.data.model_copy(update={"loader_version": str(version.value)})
     )
-    dataset_spec = data_config.dataset.build()
-    prognostic = dataset_spec.prognostic_var_names
-    boundary = dataset_spec.boundary_var_names
-
     container = data_config.build(
         cfg.experiment.resolved_data_root,
     )
+    data_layout = container.data_layout
+    prognostic = data_layout.prognostic_var_names
+    boundary = data_layout.boundary_var_names
     version = container.loader_version
-    src = container.primary_source
-    if src.is_compact and version != LoaderVersion.OM4_TORCH:
-        pytest.skip(f"{version} does not support compact data.")
-
+    source = container.train_sources[0]
     with MultitonScope():
-        srcs = [src]
+        sources = [source]
         if multiscale:
-            srcs.append(coarsen_source(src, prognostic, boundary))
+            sources.append(coarsen_source(source, prognostic, boundary))
 
         match version:
             case LoaderVersion.OM4_TORCH:
                 dataset_list = [
                     TorchTrainDataset(
-                        src=src.slice(time_config),
+                        input_source=source,
+                        label_source=None,
                         prognostic_var_names=prognostic,
                         boundary_var_names=boundary,
                         hist=cfg.data.hist,
@@ -132,47 +136,50 @@ def make_loader(
                         masked_fill_value=cfg.data.masked_fill_value,
                         stride=stride,
                     )
-                    for src in srcs
+                    for source in sources
                     for stride in cfg.data_stride
                 ]
 
-                data: ConcatDataset = ConcatDataset(dataset_list)
-                collate_fn = collate_raw_train_data
+                host_dataset: ConcatDataset = ConcatDataset(dataset_list)
+                collate_fn = collate_host_batches
 
-                # Group datasets by resolution, allowing different strides to batch together.
+                # Group datasets by resolution, allowing different strides to batch
+                # together.
                 batch_sampler = EquivalenceGroupBatchSampler.from_datasets(
                     datasets=dataset_list,
-                    group_key=lambda ds: ds.prognostic_src.grid_size,
+                    group_key=lambda ds: tuple(
+                        source.grid_size for source in ds.sources
+                    ),
                     batch_size=cfg.batch_size,
                     drop_last=drop_last,
                     shuffle=shuffle,
                     seed=cfg.experiment.rand_seed,
                 )
 
-                raw_loader = DataLoader(
-                    data,
+                host_loader = DataLoader(
+                    host_dataset,
                     batch_sampler=batch_sampler,
                     collate_fn=collate_fn,
                 )
 
-                loader = TrainDataLoader(raw_loader, dataset_list, torch.device("cpu"))
+                loader = BatchLoader(host_loader, dataset_list, torch.device("cpu"))
                 yield loader
             case _:
                 raise ValueError(f"Unknown loader version: {version}")
 
 
-def extract_sample_arrays(td: TrainData) -> tuple[np.ndarray, np.ndarray]:
-    """Extract underlying X, y pairs from TrainData object.
+def extract_sample_arrays(batch: ModelBatch) -> tuple[np.ndarray, np.ndarray]:
+    """Extract underlying X, y pairs from ModelBatch object.
 
     X is the channel-concatenated (prognostic + boundary) tensor for parity
     with the pre-split-API shape checks these tests do.
     """
-    steps = len(td)
+    steps = len(batch)
     x_arrays = []
     for s in range(steps):
-        prog, boundary = td.get_input(s)
+        prog, boundary = batch.get_input(s)
         x_arrays.append(torch.cat((prog, boundary), dim=1).numpy(force=True))
-    y_arrays = [td.get_label(s).numpy(force=True) for s in range(steps)]
+    y_arrays = [batch.get_label(s).numpy(force=True) for s in range(steps)]
 
     return np.stack(x_arrays, axis=0), np.stack(y_arrays, axis=0)
 
@@ -307,17 +314,19 @@ def test_loader__data_shape(
     train_config.data.hist = history
 
     with make_loader(train_config, version=loader_version) as loader:
-        dataset_spec = train_config.data.dataset.build()
+        dataset = next(iter(loader._datasets.values()))
         batch_size = train_config.batch_size
         num_input_timesteps = history + 1
 
         input_var_dim = (
-            len(dataset_spec.prognostic_var_names)
-            + len(dataset_spec.boundary_var_names)
+            len(dataset.prognostic_var_names) + len(dataset.boundary_var_names)
         ) * num_input_timesteps
-        output_var_dim = len(dataset_spec.prognostic_var_names) * num_input_timesteps
+        output_var_dim = len(dataset.prognostic_var_names) * num_input_timesteps
 
-        n_samples = calc_num_samples(train_config, train_config.train_time.time_slice)
+        n_samples = calc_num_samples(
+            train_config,
+            train_config.data.sources[0].train_time.time_slice,
+        )
         assert len(loader) == n_samples, (
             f"Current config {train_config} only supports {n_samples} examples; "
             f"got {len(loader)}."
@@ -373,19 +382,18 @@ def test_loader__data_shape__across_source_counts(
         # Keep grouped-sampler ordering deterministic for resolution coverage.
         shuffle=False,
     ) as loader:
-        dataset_spec = train_config.data.dataset.build()
+        dataset = next(iter(loader._datasets.values()))
         batch_size = train_config.batch_size
         num_input_timesteps = history + 1
 
         input_var_dim = (
-            len(dataset_spec.prognostic_var_names)
-            + len(dataset_spec.boundary_var_names)
+            len(dataset.prognostic_var_names) + len(dataset.boundary_var_names)
         ) * num_input_timesteps
-        output_var_dim = len(dataset_spec.prognostic_var_names) * num_input_timesteps
+        output_var_dim = len(dataset.prognostic_var_names) * num_input_timesteps
 
         n_samples = calc_num_samples(
             train_config,
-            train_config.train_time.time_slice,
+            train_config.data.sources[0].train_time.time_slice,
             source_count=2 if multiscale else 1,
         )
         assert len(loader) == n_samples, (
@@ -426,16 +434,14 @@ def test_loader__data_shape__across_source_counts(
 
 
 def test_inference__data_shape(inference_loader_pair):
-    cfg, loader = inference_loader_pair
-
-    dataset_spec = cfg.data.dataset.build()
+    cfg, loader, data_layout = inference_loader_pair
     batch_size = 1  # Inference always uses batch size 1
     hist = cfg.data.hist + 1
 
     input_var_dim = (
-        len(dataset_spec.prognostic_var_names) + len(dataset_spec.boundary_var_names)
+        len(data_layout.prognostic_var_names) + len(data_layout.boundary_var_names)
     ) * hist
-    output_var_dim = len(dataset_spec.prognostic_var_names) * hist
+    output_var_dim = len(data_layout.prognostic_var_names) * hist
 
     samples = list(loader)
     assert len(samples) == 1, (
@@ -463,7 +469,7 @@ def test__data_is_not_zeros(train_config):
 
 
 def test_inference__data_is_not_zero(inference_loader_pair):
-    cfg, loader = inference_loader_pair
+    cfg, loader, _ = inference_loader_pair
 
     for sample in loader:
         dataset, n = sample
@@ -507,17 +513,17 @@ def assert_equal_samples(original_samples, new_samples):
 # to a local directory of cached data.
 @pytest.mark.parametrize("data_source", ["mock-om4"], indirect=True)
 def test_compact_loader__equals_flat_loader(
-    data_source: DataSource, pytestconfig: pytest.Config
+    data_source: CanonicalSource, pytestconfig: pytest.Config
 ):
     cache = cache_dir(pytestconfig)
     default_config = str(pytestconfig.rootpath / "configs" / DEFAULT_CONFIG)
 
-    def make_config(src: DataSource):
+    def make_config(source: CanonicalSource):
         return TrainConfig.from_yaml_and_cli(
             [
                 default_config,
                 "--experiment.data_root",
-                str(cache / src.name),
+                str(cache / source.name),
             ]
         )
 
@@ -552,6 +558,121 @@ def test_source_count__has_consistent_collated_batches(
     with make_loader(train_config, multiscale=multiscale) as loader:
         for _ in itertools.islice(loader, 2):
             pass
+
+
+def _llc_data_config(
+    *,
+    prognostic_vars_key: str = "single_1",
+    boundary_vars_key: str = "single_1",
+    train_end: str = "2011-09-12T12:00:00Z",
+    val_end: str = "2011-09-13T12:00:00Z",
+) -> DataConfig:
+    return DataConfig.model_validate(
+        {
+            "sources": [
+                {
+                    "type": "llc",
+                    "prognostic_vars_key": prognostic_vars_key,
+                    "boundary_vars_key": boundary_vars_key,
+                    "face": 1,
+                    "i_start": 0,
+                    "i_end": 4,
+                    "j_start": 0,
+                    "j_end": 3,
+                    "train_time": {
+                        "start": "2011-09-10T12:00:00Z",
+                        "end": train_end,
+                    },
+                    "val_time": {
+                        "start": train_end,
+                        "end": val_end,
+                    },
+                    "data_location": "data.zarr",
+                    "data_means_location": "means.zarr",
+                    "data_stds_location": "stds.zarr",
+                }
+            ],
+            "hist": 1,
+            "normalize_before_mask": True,
+            "masked_fill_value": -99.0,
+            "loading": {"type": "cpu", "num_workers": 0},
+        }
+    )
+
+
+def _llc_torch_dataset(config: DataConfig, tmp_path) -> TorchTrainDataset:
+    container = config.build(LocalLocation(path=tmp_path))
+    data_layout = container.data_layout
+    return TorchTrainDataset(
+        input_source=container.train_sources[0],
+        label_source=None,
+        prognostic_var_names=data_layout.prognostic_var_names,
+        boundary_var_names=data_layout.boundary_var_names,
+        hist=config.hist,
+        steps=1,
+        normalize_before_mask=config.normalize_before_mask,
+        masked_fill_value=config.masked_fill_value,
+        stride=1,
+    )
+
+
+def test_llc_train_dataset_loads_raw_zarr_single_channel(tmp_path):
+    write_raw_llc_zarr_datasets(tmp_path, n_time=6)
+    config = _llc_data_config(
+        train_end="2011-09-15T12:00:00Z",
+        val_end="2011-09-16T12:00:00Z",
+    )
+    torch_dataset = _llc_torch_dataset(config, tmp_path)
+    host_batch = collate_host_batches([torch_dataset[0], torch_dataset[1]])
+
+    model_batch = torch_dataset.to_model_batch(host_batch, torch.device("cpu"))
+    prognostic, boundary, label = model_batch[0]
+    source = torch_dataset.sources[0]
+
+    assert len(torch_dataset) == 3
+    assert prognostic.shape == (2, 2, 3, 4)
+    assert boundary.shape == (2, 2, 3, 4)
+    assert label.shape == (2, 2, 3, 4)
+
+    assert prognostic[0, 0, 0, 0] == config.masked_fill_value
+    assert label[0, 0, 0, 0] == config.masked_fill_value
+    assert boundary[0, 0, 0, 0] == config.masked_fill_value
+
+    source_values = source.read(np.arange(3), torch_dataset.prognostic_var_names)
+    boundary_values = source.read(np.array([0]), torch_dataset.boundary_var_names)
+    assert prognostic[0, 0, 0, 1] == source_values[0, 0, 0, 1]
+    assert prognostic[0, 1, 0, 1] == source_values[1, 0, 0, 1]
+    assert label[0, 0, 0, 1] == source_values[2, 0, 0, 1]
+    assert boundary[0, 0, 0, 1] == boundary_values[0, 0, 0, 1]
+
+
+def test_llc_train_dataset_loads_all_raw_variable_families(tmp_path):
+    write_raw_llc_zarr_datasets(tmp_path, n_time=4)
+    config = _llc_data_config(
+        prognostic_vars_key="all",
+        boundary_vars_key="all",
+        train_end="2011-09-13T12:00:00Z",
+        val_end="2011-09-14T12:00:00Z",
+    )
+    config.hist = 0
+    torch_dataset = _llc_torch_dataset(config, tmp_path)
+    host_batch = collate_host_batches([torch_dataset[0]])
+
+    model_batch = torch_dataset.to_model_batch(host_batch, torch.device("cpu"))
+    prognostic, boundary, label = model_batch[0]
+    data_layout = torch_dataset.sources[0].data_layout
+
+    assert len(torch_dataset) == 3
+    assert prognostic.shape == (1, len(data_layout.prognostic_var_names), 3, 4)
+    assert boundary.shape == (1, len(data_layout.boundary_var_names), 3, 4)
+    assert label.shape == (1, len(data_layout.prognostic_var_names), 3, 4)
+
+    assert "Salt_50" in torch_dataset.prognostic_var_names
+    assert "U_0" in torch_dataset.prognostic_var_names
+    assert "V_0" in torch_dataset.prognostic_var_names
+    assert "Eta" in torch_dataset.prognostic_var_names
+    assert "oceTAUX" in torch_dataset.boundary_var_names
+    assert "oceTAUY" in torch_dataset.boundary_var_names
 
 
 @pytest.fixture
@@ -606,23 +727,24 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
         prognostic=wet,
         boundary=wet_surface,
     )
-    test = DataSource(
+    test = CanonicalSource.from_canonical_datasets(
         "test",
         data,
         data_mean,
         data_std,
         masks=masks,
-        dataset_spec=TEST_DATASET_SPEC,
+        data_layout=TEST_DATA_LAYOUT,
     )
 
     with MultitonScope():
-        _ = Normalize(
+        _ = BatchPreprocessor(
             test,
             prognostic_var_names=["prognostic1", "prognostic2"],
             boundary_var_names=["boundary1", "boundary2"],
         )
         torch_train_dataset = TorchTrainDataset(
-            src=test,
+            input_source=test,
+            label_source=None,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
             hist=1,
@@ -632,7 +754,7 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
             stride=1,
         )
         inference_dataset = InferenceDataset(
-            src=test,
+            source=test,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
             hist=1,
@@ -641,14 +763,14 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
             long_rollout=True,
         )
 
-        # Create a TrainDataLoader wrapper
-        raw_loader = DataLoader(
+        # Create a BatchLoader wrapper
+        host_loader = DataLoader(
             torch_train_dataset,
             batch_size=1,
-            collate_fn=collate_raw_train_data,
+            collate_fn=collate_host_batches,
         )
-        train_loader = TrainDataLoader(
-            raw_loader, [torch_train_dataset], torch.device("cpu")
+        train_loader = BatchLoader(
+            host_loader, [torch_train_dataset], torch.device("cpu")
         )
 
         yield train_loader, inference_dataset
@@ -729,7 +851,7 @@ def test_profile__loader__1gb(train_config, loader_version, benchmark):
     "data_source,config_name", [("mock", DEFAULT_CONFIG)], indirect=True
 )
 def test_profile__inference_loader__1gb(inference_loader_pair, benchmark):
-    cfg, loader = inference_loader_pair
+    cfg, loader, _ = inference_loader_pair
 
     def bench():
         for sample in loader:

@@ -5,18 +5,18 @@
 import pytest
 import torch
 
-from samudra.datasets import TrainData
+from samudra.datasets import ModelBatch
 from samudra.models.modules.otter import OtterBackbone
 from samudra.models.otter import Otter
-from samudra.utils.ctx import GridContext
+from samudra.utils.ctx import BatchGrid
 
 
-def make_context(out_channels: int, height: int, width: int) -> GridContext:
+def make_context(out_channels: int, height: int, width: int) -> BatchGrid:
     mask = torch.ones(out_channels, height, width, dtype=torch.bool)
     latitude = torch.linspace(-80, 80, height)
     longitude = torch.linspace(0, 360 - 360 / width, width)
     resolution = (latitude, longitude)
-    return GridContext(mask, resolution, resolution)
+    return BatchGrid(mask, resolution, resolution)
 
 
 def make_model(
@@ -94,11 +94,7 @@ def test_existing_blockwise_residual_contract_is_unchanged():
     boundary = torch.randn(2, 4, 8, 8)
     label = torch.randn_like(prognostic)
     ctx = make_context(6, 8, 8)
-    batch = TrainData(
-        num_prognostic_channels=6,
-        num_boundary_channels=4,
-        ctx=ctx,
-    )
+    batch = ModelBatch(ctx)
     batch.append(prognostic, boundary, label)
 
     with torch.no_grad():

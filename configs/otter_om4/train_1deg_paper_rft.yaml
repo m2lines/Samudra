@@ -32,13 +32,6 @@ finetune: true
 # Supply the pretraining checkpoint on the command line.
 resume_ckpt_path: null
 inference_epochs: []
-train_time:
-  start: "1975-01-03"
-  end: "2013-10-05"
-val_time:
-  start: "2013-10-05"
-  end: "2014-10-05"
-inference_times: []
 data_stride: [1]
 steps: [4, 5, 6, 7, 8, 9, 10, 11, 12]
 step_transition: []

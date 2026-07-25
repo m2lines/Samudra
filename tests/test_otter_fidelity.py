@@ -8,7 +8,7 @@ import xarray as xr
 
 from samudra.aggregator.inference import InferenceEvaluatorAggregator
 from samudra.config import OtterWeightedRmseLossConfig, build_loss_fn
-from samudra.constants import DatasetSpec, TensorMap
+from samudra.constants import DataLayout
 from samudra.datasets import (
     InferenceDataset,
     TorchTrainDataset,
@@ -17,43 +17,38 @@ from samudra.datasets import (
 from samudra.models.base import BaseModel
 from samudra.models.modules.otter import FourierPositionEmbedding
 from samudra.stepper import run_rollout
-from samudra.utils.ctx import GridContext
-from samudra.utils.data import DataSource, Masks
+from samudra.utils.ctx import BatchGrid
+from samudra.utils.data import CanonicalSource, Masks
 from samudra.utils.loss import OtterWeightedRmseLoss
 from samudra.utils.optimizer import CompositeOptimizer, MuonOptimizerConfig
 from samudra.utils.schedule import WarmupCosineUpdatesConfig
 
 
-def make_spec() -> DatasetSpec:
-    return DatasetSpec(
-        type="om4",
+def make_layout() -> DataLayout:
+    return DataLayout(
         depth_levels=(1.0, 2.0),
         depth_thickness=(1.0, 3.0),
-        mask_vars=("mask_0", "mask_1"),
-        mask_all_levels_var="wetmask",
-        seconds_per_time_step=1,
         prognostic_var_names=["thetao_0", "thetao_1", "zos"],
         boundary_var_names=["hfds"],
         default_metadata={},
         ocean_heat_temperature_var="thetao",
-        surface_heat_flux_var="hfds",
     )
 
 
 def test_otter_weighted_rmse_uses_normalized_thickness_and_sum_reduction():
-    tensor_map = TensorMap(make_spec())
+    data_layout = make_layout()
     loss_fn = build_loss_fn(
         OtterWeightedRmseLossConfig(),
         device=torch.device("cpu"),
         num_channels=3,
         pad_mode="circular",
-        tensor_map=tensor_map,
+        data_layout=data_layout,
     )
     assert isinstance(loss_fn, OtterWeightedRmseLoss)
     pred = torch.ones((1, 3, 1, 1))
     target = torch.zeros_like(pred)
     coordinate = torch.zeros(1)
-    ctx = GridContext(
+    ctx = BatchGrid(
         torch.ones((3, 1, 1), dtype=torch.bool),
         (coordinate, coordinate),
         (coordinate, coordinate),
@@ -66,20 +61,20 @@ def test_otter_weighted_rmse_uses_normalized_thickness_and_sum_reduction():
 
 
 def test_otter_weighted_rmse_has_finite_gradient_at_exact_target():
-    tensor_map = TensorMap(make_spec())
+    data_layout = make_layout()
     loss_fn = build_loss_fn(
         OtterWeightedRmseLossConfig(),
         device=torch.device("cpu"),
         num_channels=3,
         pad_mode="circular",
-        tensor_map=tensor_map,
+        data_layout=data_layout,
     )
     assert isinstance(loss_fn, OtterWeightedRmseLoss)
     pred = torch.zeros((1, 3, 2, 2), requires_grad=True)
     target = torch.zeros_like(pred)
     latitude = torch.tensor([-45.0, 45.0])
     longitude = torch.tensor([0.0, 180.0])
-    ctx = GridContext(
+    ctx = BatchGrid(
         torch.ones((3, 2, 2), dtype=torch.bool),
         (latitude, longitude),
         (latitude, longitude),
@@ -126,7 +121,7 @@ def test_paper_spatial_embedding_uses_128_features_per_coordinate():
     assert embedding.projection.in_features == 256
 
 
-def make_index_source() -> DataSource:
+def make_index_source() -> CanonicalSource:
     time = np.arange(
         np.datetime64("1979-01-01"),
         np.datetime64("1979-01-11"),
@@ -145,22 +140,23 @@ def make_index_source() -> DataSource:
     )
     means = data.mean(("time", "lat", "lon"))
     stds = xr.ones_like(means)
-    return DataSource(
+    return CanonicalSource.from_canonical_datasets(
         name="index",
         data=data,
         means=means,
         stds=stds,
         masks=Masks(torch.ones(3, 1, 1), torch.ones(1, 1)),
-        dataset_spec=make_spec(),
+        data_layout=make_layout(),
     )
 
 
 def test_four_in_one_out_dataset_indices_and_timeline_are_exact():
     source = make_index_source()
     dataset = TorchTrainDataset(
-        src=source,
-        prognostic_var_names=make_spec().prognostic_var_names,
-        boundary_var_names=make_spec().boundary_var_names,
+        input_source=source,
+        label_source=None,
+        prognostic_var_names=make_layout().prognostic_var_names,
+        boundary_var_names=make_layout().boundary_var_names,
         hist=3,
         output_steps=1,
         steps=2,
@@ -170,8 +166,8 @@ def test_four_in_one_out_dataset_indices_and_timeline_are_exact():
 
     assert len(dataset) == 5
     sample = dataset[0]
-    first_input, first_boundary, first_label, _ = sample.raw_data[0]
-    second_input, second_boundary, second_label, _ = sample.raw_data[1]
+    first_input, first_boundary, first_label = sample.steps[0]
+    second_input, second_boundary, second_label = sample.steps[1]
     torch.testing.assert_close(first_input[:, 0, 0, 0], torch.arange(4.0))
     torch.testing.assert_close(first_boundary[:, 0, 0, 0], torch.arange(300.0, 304.0))
     torch.testing.assert_close(first_label[:, 0, 0, 0], torch.tensor([4.0]))
@@ -180,9 +176,9 @@ def test_four_in_one_out_dataset_indices_and_timeline_are_exact():
     torch.testing.assert_close(second_label[:, 0, 0, 0], torch.tensor([5.0]))
 
     inference = InferenceDataset(
-        src=source,
-        prognostic_var_names=make_spec().prognostic_var_names,
-        boundary_var_names=make_spec().boundary_var_names,
+        source=source,
+        prognostic_var_names=make_layout().prognostic_var_names,
+        boundary_var_names=make_layout().boundary_var_names,
         hist=3,
         output_steps=1,
         normalize_before_mask=True,
@@ -248,7 +244,7 @@ class TinyInferenceDataset(InferenceDataset):
     def __init__(self):
         self._initial_prognostic = torch.arange(4.0).reshape(1, 4, 1, 1)
         coordinate = torch.zeros(1)
-        self.ctx = GridContext(
+        self.ctx = BatchGrid(
             torch.ones((1, 1, 1), dtype=torch.bool),
             (coordinate, coordinate),
             (coordinate, coordinate),

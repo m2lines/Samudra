@@ -7,7 +7,7 @@ from torch import nn
 
 from samudra.constants import Boundary, Prognostic
 from samudra.models.base import BaseModel
-from samudra.utils.ctx import GridContext
+from samudra.utils.ctx import BatchGrid
 from samudra.utils.device import autocast
 
 
@@ -39,7 +39,7 @@ class Otter(BaseModel):
         self.use_bfloat16 = use_bfloat16
 
     def forward_once(
-        self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
+        self, prognostic: Prognostic, boundary: Boundary, ctx: BatchGrid
     ) -> Prognostic:
         features = torch.cat((prognostic, boundary), dim=1)
         latitude, longitude = ctx.input_resolution_cpu

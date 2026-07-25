@@ -12,10 +12,10 @@ import torch
 from samudra.aggregator import Aggregator
 from samudra.backend import init_eval_backend
 from samudra.config import EvalConfig
-from samudra.constants import BoundaryVarNames, Grid, PrognosticVarNames, TensorMap
+from samudra.constants import BoundaryVarNames, Grid, PrognosticVarNames
 from samudra.datasets import InferenceDataset
 from samudra.stepper import run_rollout
-from samudra.utils.data import Normalize, spherical_area_weights
+from samudra.utils.data import BatchPreprocessor
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import is_main_process, set_seed
 from samudra.utils.logging import get_model_summary, handle_logging, handle_warnings
@@ -46,13 +46,18 @@ class Eval:
         # Set seeds
         set_seed(cfg.experiment.rand_seed)
 
-        # Getting prognostic and boundary variables
-        self.dataset_spec = cfg.data.dataset.build()
-        self.prognostic_var_names: PrognosticVarNames = (
-            self.dataset_spec.prognostic_var_names
+        logger.info("Loading data")
+        self.data_bundle = cfg.data.build(
+            cfg.experiment.resolved_data_root,
         )
-        self.boundary_var_names: BoundaryVarNames = self.dataset_spec.boundary_var_names
-        self.levels = self.dataset_spec.num_prognostic_depth_levels
+
+        # Getting prognostic and boundary variables
+        self.data_layout = self.data_bundle.data_layout
+        self.prognostic_var_names: PrognosticVarNames = (
+            self.data_layout.prognostic_var_names
+        )
+        self.boundary_var_names: BoundaryVarNames = self.data_layout.boundary_var_names
+        self.levels = self.data_layout.num_prognostic_depth_levels
 
         str_prognostics = ", ".join([i for i in self.prognostic_var_names])
         str_boundaries = ", ".join([i for i in self.boundary_var_names])
@@ -73,27 +78,24 @@ class Eval:
         self.output_hist = self.output_steps - 1
         self.num_out = self.output_steps * self.N_prog
 
-        self.tensor_map = TensorMap(dataset_spec=self.dataset_spec).to(self.device)
+        self.data_layout = self.data_layout.to(self.device)
 
         logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
 
         # Dataloaders
-        logger.info(f"Loading data")
-        self.data_container = cfg.data.build(
-            cfg.experiment.resolved_data_root,
-        )
-
-        self.src = self.data_container.inference_source
-        self.data = self.src.data
-        self.static_data = self.data_container.static_data
-        self.metadata = self.src.metadata
-        self.wet = self.src.masks.prognostic_with_hist(self.output_hist)
-        self.area_weights: Grid = spherical_area_weights(self.data)
+        if self.data_bundle.inference_source is None:
+            raise ValueError(
+                "Inference time is not configured for the first data source"
+            )
+        self.source = self.data_bundle.inference_source
+        self.metadata = self.source.metadata
+        self.wet = self.source.masks.prognostic_with_hist(cfg.data.hist)
+        self.area_weights: Grid = self.source.spherical_area_weights
         self.area_weights = self.area_weights.to(self.device)
 
-        self.normalize = Normalize(
-            self.src,
+        self.preprocessor = BatchPreprocessor(
+            self.source,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
         )
@@ -104,11 +106,7 @@ class Eval:
             boundary_channels=self.num_boundary_in,
             out_channels=self.num_out,
             hist=cfg.data.hist,
-            static_data_for_corrector=self.static_data,
-            srcs=self.data_container.sources,
-            tensor_map=self.tensor_map,
-            normalize=self.normalize,
-            dataset_spec=self.dataset_spec,
+            grid_sizes=[source.grid_size for source in self.data_bundle.train_sources],
         ).to(self.device)
 
         get_model_summary(self.model, None, cfg.debug)
@@ -129,7 +127,7 @@ class Eval:
 
         # Set up wandb run
         self.wandb_id, self.wandb_name = self.wandb_logger.setup_run(
-            None, cfg, data_container=self.data_container, finetune=False
+            None, cfg, data_bundle=self.data_bundle, finetune=False
         )
 
         # Eval
@@ -137,7 +135,6 @@ class Eval:
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
         self.num_workers = data_num_workers
-        self.inference_time = cfg.inference_time
         self.num_model_steps_forward = cfg.num_model_steps_forward
         self.save_zarr = cfg.save_zarr
         self.model_path = cfg.ckpt_path
@@ -158,9 +155,8 @@ class Eval:
         self.model.load_state_dict(new_state_dict)
 
     def init_inference_store(self):
-        sliced_src = self.src.slice(self.inference_time)
         self.inference_dataset = InferenceDataset(
-            src=sliced_src,
+            source=self.source,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             hist=self.hist,
@@ -200,10 +196,10 @@ class Eval:
             self.metadata,
             self.output_hist,
             self.area_weights,
-            self.src.masks.prognostic.to(self.device),
+            self.source.masks.prognostic.to(self.device),
             self.num_out,
-            self.tensor_map,
-            self.normalize,
+            self.data_layout,
+            self.preprocessor,
             self.prognostic_var_names,
             input_hist=self.hist,
             num_input_prognostic_channels=self.num_prog_in,
@@ -218,8 +214,8 @@ class Eval:
             model_path=self.model_path,
             num_model_steps_forward=self.num_model_steps_forward,
             save_zarr=self.save_zarr,
-            tensor_map=self.tensor_map,
-            normalize=self.normalize,
+            data_layout=self.data_layout,
+            preprocessor=self.preprocessor,
         )
         logs = inf_aggregator.get_summary_logs()
         return {f"inference/{k}": v for k, v in logs.items()}

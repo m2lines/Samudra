@@ -9,8 +9,8 @@ import torch
 import torch.nn.functional as F
 from jaxtyping import Float
 
-from samudra.constants import TensorMap
-from samudra.utils.ctx import GridContext
+from samudra.constants import DataLayout
+from samudra.utils.ctx import BatchGrid
 
 LossFn = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 
@@ -20,7 +20,7 @@ class LossFnWithContext(Protocol):
         self,
         pred: torch.Tensor,
         target: torch.Tensor,
-        ctx: GridContext,
+        ctx: BatchGrid,
     ) -> torch.Tensor: ...
 
 
@@ -48,7 +48,7 @@ def loss_fn_from_metric(metric: LossMetric) -> LossFnWithContext:
     def loss_fn_with_ctx(
         pred: torch.Tensor,
         target: torch.Tensor,
-        ctx: GridContext,
+        ctx: BatchGrid,
     ) -> torch.Tensor:
         wet = ctx.label_mask.to(device=pred.device)
         pred = pred * wet
@@ -177,7 +177,7 @@ class DynamicLoss:
         self,
         pred: Float[torch.Tensor, "batch hist*var lat lon"],
         target: Float[torch.Tensor, "batch hist*var lat lon"],
-        ctx: GridContext,
+        ctx: BatchGrid,
     ) -> Float[torch.Tensor, " hist*var"]:
         loss_with_history_channels: Float[torch.Tensor, " hist*var"] = self.loss_fn(
             pred, target, ctx
@@ -256,7 +256,7 @@ class GradientLoss:
         self,
         pred: Float[torch.Tensor, "batch hist*var lat lon"],
         target: Float[torch.Tensor, "batch hist*var lat lon"],
-        ctx: GridContext,
+        ctx: BatchGrid,
     ) -> Float[torch.Tensor, " hist*var"]:
         base_loss = self.loss_fn(pred, target, ctx)
         # Ensure mask is on the same device as pred for gradient computation
@@ -281,36 +281,40 @@ class OtterWeightedRmseLoss:
 
     def __init__(
         self,
-        tensor_map: TensorMap,
+        data_layout: DataLayout,
         *,
         variable_weights: dict[str, float] | None = None,
     ) -> None:
         variable_weights = variable_weights or {}
-        unknown = set(variable_weights) - set(tensor_map.VAR_SET)
+        unknown = set(variable_weights) - set(data_layout.variables)
         if unknown:
             raise ValueError(
                 "Unknown Otter loss variable weights: " + ", ".join(sorted(unknown))
             )
 
-        weights = torch.zeros(len(tensor_map.prognostic_var_names), dtype=torch.float32)
-        for variable in tensor_map.VAR_SET:
-            indices = tensor_map.VAR_3D_IDX[variable].to(dtype=torch.long, device="cpu")
+        weights = torch.zeros(
+            len(data_layout.prognostic_var_names), dtype=torch.float32
+        )
+        for variable in data_layout.variables:
+            indices = data_layout.variable_indices[variable].to(
+                dtype=torch.long, device="cpu"
+            )
             multiplier = variable_weights.get(variable, 1.0)
             if multiplier < 0:
                 raise ValueError("Otter loss variable weights must be non-negative.")
-            if variable in tensor_map.VAR_SET_2D:
+            channel_names = [
+                data_layout.prognostic_var_names[index] for index in indices.tolist()
+            ]
+            if all(not name.rpartition("_")[2].isdigit() for name in channel_names):
                 weights[indices] = multiplier
                 continue
 
             level_indices = [
-                int(tensor_map.prognostic_var_names[index].rsplit("_", 1)[1])
+                int(data_layout.prognostic_var_names[index].rsplit("_", 1)[1])
                 for index in indices.tolist()
             ]
             thickness = torch.tensor(
-                [
-                    tensor_map.dataset_spec.depth_thickness[level]
-                    for level in level_indices
-                ],
+                [data_layout.depth_thickness[level] for level in level_indices],
                 dtype=torch.float32,
             )
             weights[indices] = multiplier * thickness / thickness.sum()
@@ -328,7 +332,7 @@ class OtterWeightedRmseLoss:
         self,
         pred: Float[torch.Tensor, "batch output*var lat lon"],
         target: Float[torch.Tensor, "batch output*var lat lon"],
-        ctx: GridContext,
+        ctx: BatchGrid,
     ) -> Float[torch.Tensor, " output*var"]:
         if pred.shape != target.shape:
             raise ValueError(

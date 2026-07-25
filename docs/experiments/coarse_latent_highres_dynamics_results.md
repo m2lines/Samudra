@@ -20,7 +20,7 @@ stage means that it has not yet run, not that it passed.
 | S0-D synthetic subgrid closure | Complete | Two seeds show that the promoted pair retains and dynamically uses subpatch phase |
 | S1 OM4 learned inverse | Complete | Two learned-decoder seeds reproduce error and structural fidelity; matched bilinear loses most fine-grid power despite higher latent agreement |
 | S2 frozen-inverse dynamics | Complete | The combined objective \((w_x,\lambda_z)=(1,0.1)\) wins all aggregate leads and 11/12 exact route/lead losses while preserving the inverse exactly |
-| S3 full validation | Queued | Eight-RTX6000 preemptible job `14735191` promotes the selected combined objective from the seed-15 inverse, with a freshly initialized processor/boundary path |
+| S3 full validation | Repair validation | The first eight-RTX6000 attempt exposed an overly strict cross-resolution teacher-grid equality check after one batch; the bounded index-alignment repair passes focused tests and awaits a real mixed-route smoke before resubmission |
 
 ## Evidence inherited from the decoder investigation
 
@@ -97,7 +97,7 @@ This correction of scope is the reason for S0-R and S0-D.
 | `2026-07-24-coarse-latent-s3-full-wx1-wz0.1-layout-v1` | S3 scheduling | working tree after `b420155c` | Initial 1×8 H200 placement | Canceled before launch (`14734625`; dependents `14734626`/`14734627`) | No run directory was created; briefly replaced while testing whether fragmented GPUs could admit a multinode layout |
 | `2026-07-24-coarse-latent-s3-full-wx1-wz0.1-layout-4x2` | S3 scheduling | working tree after `b420155c` | Same eight ranks placed as four nodes × two H200s | Canceled before launch (`14734814`; dependents `14734815`/`14734816`) | Torch routes multinode jobs to `gpu48`, which was admission-limited by current user usage; scientific configuration was unchanged |
 | `2026-07-24-coarse-latent-s3-full-wx1-wz0.1` (H200 placement) | S3 scheduling | working tree after `b420155c` | Fresh processor/boundary path from the frozen seed-15 inverse; all four one-/half-degree routes; `(w_x, lambda_z)=(1,0.1)`; depths 1/2/4; eight preemptible H200s on one node | Canceled before launch (`14734952`; dependents `14734953`/`14734954`) | No H200 node had all eight GPUs free; a scheduler-only comparison projected substantially earlier admission on the preemptible RTX6000 pool, and no run directory had been created |
-| `2026-07-24-coarse-latent-s3-full-wx1-wz0.1` | S3 | working tree after `b420155c` | Scientifically identical S3 request on eight preemptible RTX6000s; one node, 128 CPUs, 1.4 TB; RTX-safe NCCL peer-to-peer disablement | Queued (`14735191`) | Best-checkpoint cross-route validation `14735192` and latent audit `14735193` are attached by successful-completion dependency; all jobs have requeue recovery and quarter-degree data are absent |
+| `2026-07-24-coarse-latent-s3-full-wx1-wz0.1` | S3 | `36fe44aa` | Scientifically identical S3 request on eight preemptible RTX6000s; one node, 128 CPUs, 1.4 TB; RTX-safe NCCL peer-to-peer disablement | Failed (`14735191`; dependents `14735192`/`14735193` canceled) | The exact selected configuration reached the first logged training batch, then a cross-resolution batch raised `Forecast and teacher encoders must produce the same latent grid`; [W&B](https://wandb.ai/ocean_emulators/default/runs/nd7h5xg8) confirms weights `1/0.1`, depths `1/2/4`, global batch 32, the frozen seed-15 inverse, only one-/half-degree sources, and no scientific result |
 
 ## S0-R synthetic reconstruction
 
@@ -641,15 +641,34 @@ with preemption-aware checkpoint resumption and dependent best-checkpoint
 cross-route validation and latent audit. Quarter-degree data are deliberately
 absent.
 
-Training job `14735191` is queued on eight RTX6000s with requeue, a two-minute
-preemption signal, and RTX-safe NCCL peer-to-peer disablement. It replaces the
-unstarted eight-H200 placement `14734952` after scheduler-only admission checks
-projected substantially earlier RTX6000 availability. The scientific
-configuration, eight-worker global batch, frozen inverse, initialization, and
-update budget are unchanged. Best-checkpoint validation `14735192` and audit
-`14735193` will release only after successful training completion.
+Training job `14735191` started on eight RTX6000s and reached
+`Training Epoch: [1] [0/1408]`, but failed on the following cross-resolution
+batch. Its latent teacher objective encoded the target on the target
+resolution's coarse coordinates and required those coordinates to be bitwise
+equal to the forecast's source-derived coarse coordinates. Both encodings have
+shape `[B,160,60,72]` and correspond patch-by-patch, but the actual OM4
+one-/half-degree latitude centroids differ by at most \(0.1285^\circ\), or
+4.3% of the roughly \(2.992^\circ\) coarse spacing; longitude centroids are
+identical. This is a coordinate-label mismatch, not a latent shape mismatch.
+
+The repair retains exact shape equality and permits indexwise comparison only
+when every coordinate offset is at most one quarter of the smaller coarse-cell
+spacing. A focused test accepts a realistic cross-resolution patch grid and
+rejects a deliberately misaligned grid. The full `test_samudra_multi.py`,
+coarse-patch, and dynamics-audit suites pass (34 tests). A real-data
+mixed-route Torch smoke is required before replacing the failed full chain.
 
 ## Decision log
+
+### 2026-07-25: compare cross-resolution teacher latents by bounded patch index
+
+The first S3 attempt showed that one- and half-degree OM4 inputs yield the same
+\(60\times72\) patch topology but slightly different latitude centroid labels.
+The latent teacher objective now requires identical tensor and axis shapes,
+then permits indexwise comparison only when coordinate offsets are below one
+quarter of a coarse cell. This preserves the intended shared-patch comparison
+without interpolating learned moment channels or silently accepting a genuinely
+shifted grid. The measured maximum offset is 4.3% of a coarse cell.
 
 ### 2026-07-24: reopen coarse-patch decoder selection
 

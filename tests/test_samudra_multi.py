@@ -15,6 +15,7 @@ from samudra.models.modules import (
     BoundaryEncoder,
     DirectPatchDecoder,
     DirectPatchEncoder,
+    PatchMomentEncoder,
     PerceiverDecoder,
     PerceiverEncoder,
     ResampleProjectionDecoder,
@@ -475,6 +476,71 @@ def test_combined_forecast_objective_applies_configured_weights():
         model(batch, loss_fn=mse, processor_depth=1),
         (0.5 + 0.1) * error[None],
     )
+
+
+def test_latent_teacher_loss_checks_cross_resolution_patch_index_alignment():
+    input_lat = torch.tensor([-67.5, -22.5, 22.5, 67.5])
+    input_lon = torch.tensor([45.0, 135.0, 225.0, 315.0])
+    output_lat = torch.linspace(-80.0, 80.0, 8)
+    output_lon = torch.linspace(22.5, 337.5, 8)
+    ctx = GridContext(
+        label_mask=torch.ones(1, 8, 8, dtype=torch.bool),
+        input_resolution_cpu=(input_lat, input_lon),
+        output_resolution_cpu=(output_lat, output_lon),
+        input_mask=torch.ones(1, 4, 4, dtype=torch.bool),
+    )
+    model = SamudraMulti(
+        in_channels=1,
+        out_channels=1,
+        pred_residuals=False,
+        last_kernel_size=3,
+        pad="circular",
+        add_3d_coordinates=None,
+        encoder=PatchMomentEncoder(
+            1,
+            4,
+            (90.0, 180.0),
+            moment_count=1,
+            mean_channels=2,
+        ),
+        processor=_DoubleProcessor(),
+        decoder=cast(DirectPatchDecoder, _RejectingGridDecoder()),
+        hist=0,
+        checkpointing=None,
+        gradient_detach_interval=0,
+        use_bfloat16=False,
+        physical_forecast_loss_weight=0.0,
+        latent_teacher_loss_weight=1.0,
+    )
+    batch = TrainData(1, 1, ctx)
+    batch.append(
+        torch.zeros(1, 1, 4, 4),
+        torch.zeros(1, 1, 4, 4),
+        torch.zeros(1, 1, 8, 8),
+    )
+
+    loss = model(batch, loss_fn=lambda *_: None, processor_depth=1)
+
+    assert loss.shape == (1,)
+    assert torch.isfinite(loss).all()
+
+    misaligned_ctx = GridContext(
+        label_mask=ctx.label_mask,
+        input_resolution_cpu=ctx.input_resolution_cpu,
+        output_resolution_cpu=(
+            torch.tensor([-80.0, -75.0, -70.0, -65.0, 65.0, 70.0, 75.0, 80.0]),
+            output_lon,
+        ),
+        input_mask=ctx.input_mask,
+    )
+    misaligned_batch = TrainData(1, 1, misaligned_ctx)
+    misaligned_batch.append(*batch[0])
+    with pytest.raises(ValueError, match="not index-aligned"):
+        model(
+            misaligned_batch,
+            loss_fn=lambda *_: None,
+            processor_depth=1,
+        )
 
 
 def test_forecast_objective_requires_a_positive_weight():

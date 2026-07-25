@@ -451,12 +451,29 @@ class SamudraMulti(BaseModel):
         for forecast_axis, target_axis in zip(
             latent_resolution, target_resolution, strict=True
         ):
-            if forecast_axis.shape != target_axis.shape or not torch.allclose(
-                forecast_axis, target_axis
-            ):
+            if forecast_axis.shape != target_axis.shape:
                 raise ValueError(
-                    "Forecast and teacher encoders must produce the same latent grid."
+                    "Forecast and teacher encoders must produce latent grids with "
+                    "the same shape."
                 )
+            if len(forecast_axis) > 1:
+                forecast_spacing = torch.diff(forecast_axis).abs().median()
+                target_spacing = torch.diff(target_axis).abs().median()
+                alignment_tolerance = 0.25 * torch.minimum(
+                    forecast_spacing, target_spacing
+                )
+                maximum_offset = (forecast_axis - target_axis).abs().max()
+                if (
+                    not torch.isfinite(alignment_tolerance)
+                    or not torch.isfinite(maximum_offset)
+                    or maximum_offset > alignment_tolerance
+                ):
+                    raise ValueError(
+                        "Forecast and teacher latent grids are not index-aligned: "
+                        f"maximum coordinate offset {maximum_offset.item():.6g} "
+                        "exceeds quarter-cell tolerance "
+                        f"{alignment_tolerance.item():.6g}."
+                    )
 
         wet = train_data.ctx.label_mask.any(dim=0, keepdim=True)[None]
         wet = F.adaptive_max_pool2d(

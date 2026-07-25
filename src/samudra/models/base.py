@@ -57,6 +57,7 @@ class BaseModel(torch.nn.Module):
         loss_fn=None,
     ) -> torch.Tensor | list[torch.Tensor]:
         outputs: list[torch.Tensor] = []
+        prognostic_context: torch.Tensor | None = None
         loss = torch.tensor(torch.nan)
         for step in range(len(train_data)):
             if step == 0:
@@ -69,11 +70,16 @@ class BaseModel(torch.nn.Module):
                 ):
                     prev_output = prev_output.detach()
                 _, boundary_tensor = train_data.get_input(step)
-                prog_tensor = prev_output
+                assert prognostic_context is not None
+                prog_tensor = self._advance_prognostic_context(
+                    prognostic_context, prev_output
+                )
+            prognostic_context = prog_tensor
 
             decodings = self.forward_once(prog_tensor, boundary_tensor, train_data.ctx)
             if self.pred_residuals:
-                pred = prog_tensor + decodings  # Residual prediction
+                residual_base = prog_tensor[:, -decodings.shape[1] :]
+                pred = residual_base + decodings
             else:
                 pred = decodings  # Absolute prediction
 
@@ -94,7 +100,27 @@ class BaseModel(torch.nn.Module):
         if loss_fn is None:
             return outputs
         else:
+            if getattr(loss_fn, "average_over_rollout", False):
+                loss = loss / len(train_data)
             return loss
+
+    @staticmethod
+    def _advance_prognostic_context(
+        context: Prognostic, prediction: Prognostic
+    ) -> Prognostic:
+        """Roll a many-state context forward with the newly predicted state(s)."""
+        if prediction.shape[1] == context.shape[1]:
+            return prediction
+        if prediction.shape[1] > context.shape[1] or (
+            context.shape[1] % prediction.shape[1]
+        ):
+            raise ValueError(
+                "Prediction channels must either match the prognostic context or "
+                "divide it into complete temporal states; got "
+                f"{prediction.shape[1]} prediction and {context.shape[1]} context "
+                "channels."
+            )
+        return torch.cat((context[:, prediction.shape[1] :], prediction), dim=1)
 
     def inference(
         self,
@@ -109,6 +135,7 @@ class BaseModel(torch.nn.Module):
 
         pred_tensor = torch.zeros(out_shape, device=get_device())
         initial_prognostic = initial_prognostic.to(get_device())
+        prognostic_context = initial_prognostic
         target_time = dataset.get_target_time(steps_completed, num_steps)
 
         for step in range(num_steps):
@@ -117,19 +144,26 @@ class BaseModel(torch.nn.Module):
                 f"of {steps_completed + num_steps - 1}."
             )
             if step == 0:
-                prog_tensor = initial_prognostic
+                prog_tensor = prognostic_context
                 boundary_tensor = dataset.get_boundary(steps_completed).to(
                     device=prog_tensor.device
                 )
             else:
-                prog_tensor = pred_tensor[step - 1].unsqueeze(0)
+                prog_tensor = self._advance_prognostic_context(
+                    prognostic_context,
+                    pred_tensor[step - 1].unsqueeze(0),
+                )
+                prognostic_context = prog_tensor
                 boundary_tensor = dataset.get_boundary(
                     steps_completed + step,
                 ).to(device=prog_tensor.device)
 
             decodings = self.forward_once(prog_tensor, boundary_tensor, dataset.ctx)
             if self.pred_residuals:
-                pred = prog_tensor[0].to(device=get_device()) + decodings
+                pred = (
+                    prog_tensor[:, -decodings.shape[1] :].to(device=get_device())
+                    + decodings
+                )
             else:
                 pred = decodings
 

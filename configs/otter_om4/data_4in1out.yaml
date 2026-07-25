@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/DataConfig.json
+
+dataset:
+  type: om4
+  prognostic_vars_key: thermo_dynamic_all
+  boundary_vars_key: tau_hfds_hfds_anom
+sources:
+  - data_location: OM4.zarr
+    data_means_location: OM4_means.zarr
+    data_stds_location: OM4_stds.zarr
+static_data_vars: []
+concurrent_compute: true
+loading:
+  type: cpu
+  # Eight DDP ranks yield 16 workers total on the 128-CPU Torch node.
+  num_workers: 2
+  persistent_workers: true
+hist: 3
+output_steps: 1
+time_embedding_num_scales: 16
+time_embedding_min_hours: 3.0
+time_embedding_max_hours: 8760.0

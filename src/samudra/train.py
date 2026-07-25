@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import bisect
 import contextlib
 import datetime
 import logging
@@ -57,7 +58,7 @@ from samudra.stepper import (
     train_batch,
     validate_batch,
 )
-from samudra.utils.data import Normalize, get_inference_steps
+from samudra.utils.data import Normalize
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import (
     all_reduce_mean,
@@ -157,9 +158,13 @@ class Trainer:
             self.mp_context = multiprocessing.get_context("spawn")
 
         self.num_prog_in = int((cfg.data.hist + 1) * self.N_prog)
-        self.num_boundary_in = int((cfg.data.hist + 1) * self.N_bound)
+        self.num_boundary_in = int(
+            (cfg.data.hist + 1) * self.N_bound + 2 * cfg.data.time_embedding_num_scales
+        )
         self.num_in = self.num_prog_in + self.num_boundary_in
-        self.num_out = self.num_prog_in
+        self.output_steps = cfg.data.resolved_output_steps
+        self.output_hist = self.output_steps - 1
+        self.num_out = self.output_steps * self.N_prog
 
         self.tensor_map = TensorMap(dataset_spec=self.dataset_spec).to(self.device)
 
@@ -169,7 +174,7 @@ class Trainer:
         assert isinstance(cfg.data_stride, list)
         assert isinstance(cfg.steps, list)
         assert isinstance(cfg.step_transition, list)
-        assert len(cfg.step_transition) == len(cfg.steps) - 1
+        assert isinstance(cfg.step_transition_fraction, list)
         max_steps = str(cfg.steps[-1])
         self.str_video = "steps_" + max_steps + "_" + "_Lateral_Data_025_no_smooth"
 
@@ -221,15 +226,20 @@ class Trainer:
             device=self.device,
             num_channels=self.N_prog,
             pad_mode=cfg.model.pad,
+            tensor_map=self.tensor_map,
         )
 
         # Optimizer
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
+        self.optimizer = cfg.optimizer.build(self.model, cfg.learning_rate)
 
         # Scheduler
         self.scheduler = None
+        self.scheduler_interval: str | None = None
+        self.scheduler_total_updates: int | None = None
         if cfg.scheduler:
             self.scheduler = cfg.scheduler.build(self.optimizer, cfg.epochs)
+            self.scheduler_interval = cfg.scheduler.interval
+            self.scheduler_total_updates = getattr(cfg.scheduler, "total_updates", None)
 
         # Initialize WandB
         self.wandb_logger = WandBLogger.init_instance()
@@ -255,11 +265,15 @@ class Trainer:
         )
 
         # Log effective batch size
-        effective_batch_size = cfg.batch_size * cfg.gradient_accumulation_steps
+        world_size = get_world_size()
+        effective_batch_size = (
+            cfg.batch_size * cfg.gradient_accumulation_steps * world_size
+        )
         logger.info(
             f"Effective batch size: {effective_batch_size} "
             f"(batch_size={cfg.batch_size} × "
-            f"gradient_accumulation_steps={cfg.gradient_accumulation_steps})"
+            f"gradient_accumulation_steps={cfg.gradient_accumulation_steps} × "
+            f"world_size={world_size})"
         )
         if self.is_wandb_enabled():
             self.wandb_logger.log(
@@ -272,6 +286,8 @@ class Trainer:
         self.num_batches_seen = 0
         self.best_val_loss = 1e8
         self.best_inf_loss = 1e8
+        self.ema_decay = cfg.ema_decay
+        self._ema: EMATracker | None = None
         loaded_checkpoint = False
         if cfg.resume_ckpt_path is not None:
             if cfg.finetune:
@@ -293,13 +309,14 @@ class Trainer:
             self.model = nn.parallel.DistributedDataParallel(
                 nn.SyncBatchNorm.convert_sync_batchnorm(self.model),
                 device_ids=[self.distributed.gpu],
+                gradient_as_bucket_view=True,
             )
 
         # EMA (must come after DDP setup so parameter names match final self.model)
-        if not loaded_checkpoint:
+        if not loaded_checkpoint and self.ema_decay is not None:
             self._ema = EMATracker(
                 self.model,
-                decay=cfg.ema_decay,
+                decay=self.ema_decay,
                 faster_decay_at_start=cfg.faster_decay_at_start,
             )
 
@@ -309,6 +326,15 @@ class Trainer:
         self.hist: int = cfg.data.hist
         self.steps = cfg.steps
         self.step_transition = cfg.step_transition
+        self.step_transition_fraction = cfg.step_transition_fraction
+        self.step_transition_updates = (
+            [
+                round(fraction * self.scheduler_total_updates)
+                for fraction in self.step_transition_fraction
+            ]
+            if self.scheduler_total_updates is not None
+            else []
+        )
         self.save_freq = cfg.save_freq
         self.validation_image_log_freq = cfg.validation_image_log_freq
         self.output_dir = cfg.experiment.output_dir
@@ -316,6 +342,7 @@ class Trainer:
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
+        self.gradient_clip_norm = cfg.gradient_clip_norm
         self.num_workers: int = data_num_workers
         self.persistent_workers: bool = persistent_workers
         self.pin_mem: bool = cfg.pin_mem
@@ -328,6 +355,9 @@ class Trainer:
         )
         self.normalize_before_mask: bool = cfg.data.normalize_before_mask
         self.normalize_fill_value: float = cfg.data.masked_fill_value
+        self.time_embedding_num_scales = cfg.data.time_embedding_num_scales
+        self.time_embedding_min_hours = cfg.data.time_embedding_min_hours
+        self.time_embedding_max_hours = cfg.data.time_embedding_max_hours
         self.delayed_loss_estimate: bool = cfg.delayed_loss_estimate
 
         self.profiler = cfg.profiler.build(self.output_dir, self.device)
@@ -367,10 +397,6 @@ class Trainer:
         num_steps_inf_set = []
         for i in range(num_splits):
             sliced_src = self.inference_src.slice(self.inference_times[i])
-            num_time_steps = get_inference_steps(
-                sliced_src,
-                hist=self.hist,
-            )
             inference_dataset = InferenceDataset(
                 src=sliced_src,
                 prognostic_var_names=self.prognostic_var_names,
@@ -379,10 +405,14 @@ class Trainer:
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 long_rollout=True,
+                output_steps=self.output_steps,
+                time_embedding_num_scales=self.time_embedding_num_scales,
+                time_embedding_min_hours=self.time_embedding_min_hours,
+                time_embedding_max_hours=self.time_embedding_max_hours,
             )
 
             inference_datasets.append(inference_dataset)
-            num_steps_inf_set.append(num_time_steps)
+            num_steps_inf_set.append(len(inference_dataset))
 
         inference_data_combined = InferenceDatasets(
             inference_datasets, num_steps_inf_set
@@ -516,6 +546,23 @@ class Trainer:
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
 
+            if self.step_transition_fraction:
+                updates_per_epoch = (
+                    total_batches + self.gradient_accumulation_steps - 1
+                ) // self.gradient_accumulation_steps
+                update_in_epoch = data_iter_step // self.gradient_accumulation_steps
+                update_index = (epoch - 1) * updates_per_epoch + update_in_epoch
+                if self.step_transition_updates:
+                    rollout_index = bisect.bisect_right(
+                        self.step_transition_updates, update_index
+                    )
+                else:
+                    progress = update_index / (self.epochs * updates_per_epoch)
+                    rollout_index = bisect.bisect_right(
+                        self.step_transition_fraction, progress
+                    )
+                data = data.prefix(self.steps[rollout_index])
+
             TO: TrainBatchOutput = train_batch(self.model, data, self.loss_fn)
 
             # Scale loss by the actual number of microbatches that will be accumulated
@@ -532,12 +579,15 @@ class Trainer:
             if should_step or is_last:
                 torch.nn.utils.clip_grad_norm_(
                     self.model.parameters(),
-                    1.0,
+                    self.gradient_clip_norm,
                     error_if_nonfinite=True,
                 )
                 self.optimizer.step()
+                if self.scheduler is not None and self.scheduler_interval == "update":
+                    self.scheduler.step()
                 self.optimizer.zero_grad()
-                self._ema(model=self.model)
+                if self._ema is not None:
+                    self._ema(model=self.model)
 
             lr = (
                 self.optimizer.param_groups[-1]["lr"]
@@ -552,7 +602,6 @@ class Trainer:
                 metrics = {
                     "train/batch/loss": loss_value_reduce,
                     "train/batch/lr": lr,
-                    "train/batch/ema_cur_decay": self._ema.cur_decay.item(),
                     **get_channel_loss_dict(
                         label="train",
                         loss_per_channel=loss_per_channel_reduce,
@@ -575,6 +624,8 @@ class Trainer:
                         "data_wait_time"
                     ].value,
                 }
+                if self._ema is not None:
+                    metrics["train/batch/ema_cur_decay"] = self._ema.cur_decay.item()
 
                 if loss_scale_per_channel_fn := getattr(
                     self.loss_fn, "loss_scale_per_channel", None
@@ -620,7 +671,7 @@ class Trainer:
 
             self.profiler.after_batch(self.num_batches_seen)
 
-        if self.scheduler is not None:
+        if self.scheduler is not None and self.scheduler_interval == "epoch":
             self.scheduler.step()
 
         logger.info(f"Aggregating train logs")
@@ -673,12 +724,14 @@ class Trainer:
 
         val_aggregator = Aggregator.get_validation_aggregator(
             self.primary_src.metadata,
-            self.hist,
+            self.output_hist,
             self.primary_src.spherical_area_weights.to(self.device),
             self.num_out,
             self.tensor_map,
             self.normalize,
             include_image_aggregators=log_validation_images,
+            input_hist=self.hist,
+            num_input_prognostic_channels=self.num_prog_in,
         )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
@@ -706,15 +759,17 @@ class Trainer:
             ):
                 # TODO(alxmrs): Aggregator only supports a single scale.
                 inf_aggregator = Aggregator.get_inline_inference_aggregator(
-                    num_steps,
+                    inference_dataset.num_timeline_steps,
                     self.primary_src.metadata,
-                    self.hist,
+                    self.output_hist,
                     self.primary_src.spherical_area_weights.to(self.device),
                     self.primary_src.masks.prognostic.to(self.device),
                     self.num_out,
                     self.tensor_map,
                     self.normalize,
                     self.prognostic_var_names,
+                    input_hist=self.hist,
+                    num_input_prognostic_channels=self.num_prog_in,
                 )
 
                 # TODO(jder): we need the underlying model so we can use forward_once;
@@ -789,6 +844,10 @@ class Trainer:
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
                 concurrent_compute_=self.concurrent_compute,
+                output_steps=self.output_steps,
+                time_embedding_num_scales=self.time_embedding_num_scales,
+                time_embedding_min_hours=self.time_embedding_min_hours,
+                time_embedding_max_hours=self.time_embedding_max_hours,
             )
             for stride in self.data_stride
             for src in srcs
@@ -808,6 +867,10 @@ class Trainer:
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
                 concurrent_compute_=self.concurrent_compute,
+                output_steps=self.output_steps,
+                time_embedding_num_scales=self.time_embedding_num_scales,
+                time_embedding_min_hours=self.time_embedding_min_hours,
+                time_embedding_max_hours=self.time_embedding_max_hours,
             )
             for stride in self.data_stride
         ]
@@ -921,6 +984,23 @@ class Trainer:
         )
         self.val_loader = TrainDataLoader(val_dataloader, val_datasets, self.device)
 
+        if (
+            not self.debug
+            and self.scheduler_interval == "update"
+            and self.scheduler_total_updates is not None
+        ):
+            updates_per_epoch = (
+                len(self.train_loader) + self.gradient_accumulation_steps - 1
+            ) // self.gradient_accumulation_steps
+            expected_total_updates = self.epochs * updates_per_epoch
+            if self.scheduler_total_updates != expected_total_updates:
+                raise ValueError(
+                    "Update scheduler is configured for "
+                    f"{self.scheduler_total_updates} updates, but the loader, epochs, "
+                    "and gradient accumulation produce "
+                    f"{expected_total_updates} updates."
+                )
+
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
         with self._test_context():
             is_best_val_loss = False
@@ -962,14 +1042,15 @@ class Trainer:
             logger.info(f"Saving per-epoch checkpoint to {path}")
             self.save_checkpoint(epoch, path)
 
-        logger.info(
-            f"Saving latest EMA checkpoint to {self.ckpt_paths.ema_checkpoint_path}"
-        )
-        self.save_checkpoint(
-            epoch,
-            self.ckpt_paths.ema_checkpoint_path,
-            for_inference=True,
-        )
+        if self._ema is not None:
+            logger.info(
+                f"Saving latest EMA checkpoint to {self.ckpt_paths.ema_checkpoint_path}"
+            )
+            self.save_checkpoint(
+                epoch,
+                self.ckpt_paths.ema_checkpoint_path,
+                for_inference=True,
+            )
 
     def save_checkpoint(
         self,
@@ -978,6 +1059,10 @@ class Trainer:
         for_inference: bool = False,
     ):
         if for_inference:
+            if self._ema is None:
+                raise RuntimeError(
+                    "Cannot save an EMA checkpoint when EMA is disabled."
+                )
             with self._ema_context():
                 model_state_dict = self.model.state_dict()
         else:
@@ -993,7 +1078,11 @@ class Trainer:
                 "epoch": epoch,
                 "best_val_loss": self.best_val_loss,
                 "best_inf_loss": self.best_inf_loss,
-                "ema": self._ema.get_state(include_ema_params=not for_inference),
+                "ema": (
+                    self._ema.get_state(include_ema_params=not for_inference)
+                    if self._ema is not None
+                    else None
+                ),
                 "num_batches_seen": self.num_batches_seen,
                 "wandb_id": self.wandb_id,
                 "wandb_name": self.wandb_name,
@@ -1028,13 +1117,22 @@ class Trainer:
         self.model.load_state_dict(new_state_dict)
 
         # Load EMA state
-        model_ema_state_dict = checkpoint["ema"]
-        new_ema_state_dict = remove_module_prefix(model_ema_state_dict)
-        if "ema_params" in new_ema_state_dict:
-            new_ema_state_dict["ema_params"] = remove_module_prefix(
-                new_ema_state_dict["ema_params"], prefix="module"
-            )
-        self._ema = EMATracker.from_state(new_ema_state_dict, self.model)
+        model_ema_state_dict = checkpoint.get("ema")
+        if self.ema_decay is not None:
+            if model_ema_state_dict is None:
+                self._ema = EMATracker(
+                    self.model,
+                    decay=self.ema_decay,
+                )
+            else:
+                new_ema_state_dict = remove_module_prefix(model_ema_state_dict)
+                if "ema_params" in new_ema_state_dict:
+                    new_ema_state_dict["ema_params"] = remove_module_prefix(
+                        new_ema_state_dict["ema_params"], prefix="module"
+                    )
+                self._ema = EMATracker.from_state(new_ema_state_dict, self.model)
+        else:
+            self._ema = None
 
         if not finetune:
             self.optimizer.load_state_dict(checkpoint["optimizer"])
@@ -1081,6 +1179,8 @@ class Trainer:
         `self.test_using_ema` is True.
         """
         if self.test_using_ema:
+            if self._ema is None:
+                raise RuntimeError("test_using_ema is true but EMA is disabled.")
             with self._ema_context():
                 yield
         else:
@@ -1091,6 +1191,8 @@ class Trainer:
         """
         A context where the stepper uses the EMA model.
         """
+        if self._ema is None:
+            raise RuntimeError("EMA is disabled.")
         self._ema.store(parameters=self.model.parameters())
         self._ema.copy_to(model=self.model)
         try:

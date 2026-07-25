@@ -58,8 +58,10 @@ from samudra.utils.loss import (
     GradientLoss,
     LossFnWithContext,
     LossMetric,
+    OtterWeightedRmseLoss,
     loss_fn_from_metric,
 )
+from samudra.utils.optimizer import AdamOptimizerConfig, OptimizerConfig
 from samudra.utils.profiler import Profiler
 from samudra.utils.schedule import SchedulerConfig
 
@@ -247,10 +249,41 @@ class DataConfig(BaseConfig):
     static_data_vars: list[str] | None = None
     loading: DataLoadingConfig = Field(default_factory=CpuDataLoadingConfig)
     hist: int = 1
+    output_steps: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Number of future states emitted by one model call. None preserves the "
+            "legacy blockwise contract of hist + 1 outputs; set to 1 for a "
+            "many-history-to-one-step autoregressive model."
+        ),
+    )
+    time_embedding_num_scales: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Number of log-spaced temporal Fourier scales. Each scale adds sine "
+            "and cosine channels for the newest context timestamp; zero disables it."
+        ),
+    )
+    time_embedding_min_hours: float = Field(default=3.0, gt=0)
+    time_embedding_max_hours: float = Field(default=8760.0, gt=0)
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
     concurrent_compute: bool = False
+
+    @property
+    def resolved_output_steps(self) -> int:
+        return self.hist + 1 if self.output_steps is None else self.output_steps
+
+    @pydantic.model_validator(mode="after")
+    def validate_time_embedding(self) -> Self:
+        if self.time_embedding_max_hours < self.time_embedding_min_hours:
+            raise ValueError(
+                "time_embedding_max_hours must be >= time_embedding_min_hours."
+            )
+        return self
 
     def build(
         self,
@@ -1177,7 +1210,19 @@ class GradientLossConfig(pydantic.BaseModel):
     )
 
 
-Loss = LossMetric | DynamicLossConfig | GradientLossConfig
+class OtterWeightedRmseLossConfig(pydantic.BaseModel):
+    type: Literal["otter_weighted_rmse"] = "otter_weighted_rmse"
+    variable_weights: dict[str, float] = Field(
+        default_factory=dict,
+        description=(
+            "Optional multipliers by physical prognostic variable (for example "
+            "thetao or zos). By default variables receive equal total weight; "
+            "depth channels are distributed by normalized layer thickness."
+        ),
+    )
+
+
+Loss = LossMetric | DynamicLossConfig | GradientLossConfig | OtterWeightedRmseLossConfig
 
 
 def build_loss_fn(
@@ -1185,6 +1230,7 @@ def build_loss_fn(
     device: torch.device,
     num_channels: int,
     pad_mode: str,
+    tensor_map: TensorMap | None = None,
 ) -> LossFnWithContext:
     match loss_cfg:
         case str():
@@ -1203,6 +1249,16 @@ def build_loss_fn(
                 loss_fn=loss_fn,
                 gradient_weight=alpha,
                 pad_mode=pad_mode,
+            )
+        case OtterWeightedRmseLossConfig(variable_weights=variable_weights):
+            if tensor_map is None:
+                raise ValueError(
+                    "Otter weighted RMSE requires a TensorMap to construct "
+                    "ocean variable/depth weights."
+                )
+            return OtterWeightedRmseLoss(
+                tensor_map=tensor_map,
+                variable_weights=variable_weights,
             )
         case _:
             assert_never(loss_cfg)
@@ -1225,14 +1281,19 @@ class TrainConfig(TopLevelConfig):
     preemptible: bool = True
     batch_size: int = 2
     learning_rate: float = 2e-4
+    optimizer: OptimizerConfig = Field(
+        default_factory=AdamOptimizerConfig,
+        discriminator="type",
+    )
     gradient_accumulation_steps: int = 1
+    gradient_clip_norm: float = Field(default=1.0, gt=0.0)
     scheduler: SchedulerConfig | None = None
     loss: Loss = "mse"
     finetune: bool = False
     resume_ckpt_path: str | None = None
     debug: bool = False
     test_using_ema: bool = True
-    ema_decay: float = 0.999
+    ema_decay: float | None = Field(default=0.999, ge=0.0, le=1.0)
     faster_decay_at_start: bool = True
     delayed_loss_estimate: bool = False
     backend: TrainBackendConfig = "auto"
@@ -1244,6 +1305,13 @@ class TrainConfig(TopLevelConfig):
     data_stride: list[int] = [1]
     steps: list[int] = [4]
     step_transition: list[int] = []
+    step_transition_fraction: list[float] = Field(
+        default_factory=list,
+        description=(
+            "Optional fractions of total training progress at which to move to "
+            "the next rollout horizon. This enables sub-epoch curricula."
+        ),
+    )
     inference_epochs: list[int] = [-1]
     train_time: TimeConfig = TimeConfig(
         start=JulianDate("0151-01-06"), end=JulianDate("0306-01-01")
@@ -1257,6 +1325,29 @@ class TrainConfig(TopLevelConfig):
     experiment: ExperimentConfig
     data: DataConfig
     model: AnyModelConfig
+
+    @pydantic.model_validator(mode="after")
+    def validate_rollout_curriculum(self) -> Self:
+        if self.ema_decay is None and self.test_using_ema:
+            raise ValueError("test_using_ema must be false when ema_decay is disabled.")
+        if self.step_transition and self.step_transition_fraction:
+            raise ValueError(
+                "Use either epoch step_transition or step_transition_fraction, not both."
+            )
+        transitions: list[int] | list[float]
+        transitions = (
+            self.step_transition_fraction
+            if self.step_transition_fraction
+            else self.step_transition
+        )
+        if len(transitions) != len(self.steps) - 1:
+            raise ValueError("Rollout transitions must have len(steps) - 1 entries.")
+        if self.step_transition_fraction:
+            if any(not 0 < value < 1 for value in self.step_transition_fraction):
+                raise ValueError("Fractional rollout transitions must be in (0, 1).")
+            if self.step_transition_fraction != sorted(self.step_transition_fraction):
+                raise ValueError("Fractional rollout transitions must be sorted.")
+        return self
 
     def prepare_output_dirs(self) -> None:
         self.experiment.nets_dir.mkdir(parents=True, exist_ok=True)

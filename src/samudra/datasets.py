@@ -8,6 +8,7 @@ from concurrent.futures import wait
 from concurrent.futures.thread import ThreadPoolExecutor
 from typing import ClassVar, final
 
+import cftime
 import numpy as np
 import torch
 import xarray as xr
@@ -35,6 +36,44 @@ from samudra.utils.logging import elapsed
 logger = logging.getLogger(__name__)
 
 
+def temporal_fourier_embedding(
+    times: list[object],
+    *,
+    num_scales: int,
+    min_hours: float,
+    max_hours: float,
+) -> torch.Tensor:
+    """Encode real timestamps exactly as Otter's continuous time embedding."""
+    if num_scales == 0:
+        return torch.empty((len(times), 0), dtype=torch.float32)
+    hours = []
+    for value in times:
+        if isinstance(value, cftime.datetime):
+            hours.append(
+                cftime.date2num(
+                    value,
+                    units="hours since 1979-01-01 00:00:00",
+                    calendar=value.calendar,
+                )
+            )
+        elif isinstance(value, np.datetime64):
+            hours.append(
+                (value - np.datetime64("1979-01-01T00:00:00"))
+                .astype("timedelta64[h]")
+                .astype(int)
+            )
+        else:
+            raise TypeError(f"Unsupported time coordinate type: {type(value)}")
+    scales = torch.logspace(
+        np.log10(min_hours),
+        np.log10(max_hours),
+        num_scales,
+        dtype=torch.float64,
+    )
+    phase = 2 * torch.pi * torch.tensor(hours, dtype=torch.float64)[:, None] / scales
+    return torch.cat((torch.sin(phase), torch.cos(phase)), dim=1).float()
+
+
 class InferenceDataset(Dataset):
     """This class is used for inference rollouts.
 
@@ -59,6 +98,10 @@ class InferenceDataset(Dataset):
         normalize_before_mask,
         masked_fill_value,
         long_rollout,
+        output_steps: int | None = None,
+        time_embedding_num_scales: int = 0,
+        time_embedding_min_hours: float = 3.0,
+        time_embedding_max_hours: float = 8760.0,
     ):
         super().__init__()
         # NOTE: Keep tensors on CPU during initialization. This allows the dataset
@@ -66,6 +109,10 @@ class InferenceDataset(Dataset):
         # using the dataset for inference.
 
         self.hist = hist
+        self.output_steps = hist + 1 if output_steps is None else output_steps
+        self.time_embedding_num_scales = time_embedding_num_scales
+        self.time_embedding_min_hours = time_embedding_min_hours
+        self.time_embedding_max_hours = time_embedding_max_hours
 
         self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
         data = src.data
@@ -77,22 +124,14 @@ class InferenceDataset(Dataset):
         self.masked_fill_value = masked_fill_value
 
         time_indices = np.arange(data.time.size)
-        indices = xr.DataArray(
-            time_indices,
-            dims=["time"],
-            coords={"time": time_indices},
-        )
-        total_steps = 2 * self.hist + 1
-        rolling_indices = indices.rolling(
-            time=len(time_indices) - total_steps, center=False
-        ).construct("window_dim")
-        rolling_indices = rolling_indices.transpose("window_dim", "time").isel(
-            time=slice(len(time_indices) - total_steps - 1, None)
-        )  # Remove first few null indices
-        self.rolling_indices = rolling_indices.isel(
-            window_dim=slice(0, None, self.hist + 1)
-        )  # Skip indices based on history
-        self.rolling_indices = self.rolling_indices.astype(int)
+        input_steps = self.hist + 1
+        total_steps = input_steps + self.output_steps
+        starts = np.arange(0, len(time_indices) - total_steps + 1, self.output_steps)
+        rolling = starts[:, None] + np.arange(total_steps)[None, :]
+        self.rolling_indices = xr.DataArray(
+            rolling,
+            dims=["window_dim", "time"],
+        ).astype(int)
 
         if long_rollout:
             logger.info(
@@ -102,7 +141,7 @@ class InferenceDataset(Dataset):
 
         self.wet: PrognosticMask = src.masks.prognostic
         self.wet_surface: GridMask = src.masks.boundary
-        self.wet_label = src.masks.prognostic_with_hist(self.hist)
+        self.wet_label = src.masks.prognostic_with_hist(self.output_steps - 1)
         self.size = len(self.rolling_indices)
 
         if using_gpu():
@@ -116,6 +155,11 @@ class InferenceDataset(Dataset):
 
     def __len__(self):
         return self.size
+
+    @property
+    def num_timeline_steps(self) -> int:
+        """Physical timesteps recorded: initial context plus every prediction."""
+        return self.hist + 1 + self.size * self.output_steps
 
     def to(self, device: torch.device) -> "InferenceDataset":
         """Move the dataset's context tensors to the specified device.
@@ -145,12 +189,11 @@ class InferenceDataset(Dataset):
     def get_target_time(self, start_step: int, num_steps: int):
         x_index = self._get_x_index(start_step)
         batch_index = x_index.values[0]
-        steps_predicted = len(batch_index) // 2
-        start_target_index = batch_index[steps_predicted]
+        start_target_index = batch_index[self.hist + 1]
 
         return self._times.isel(
             time=slice(
-                start_target_index, start_target_index + num_steps * steps_predicted
+                start_target_index, start_target_index + num_steps * self.output_steps
             )
         )
 
@@ -262,6 +305,18 @@ class InferenceDataset(Dataset):
             data_in_boundary,
             "window_dim time variable lat lon -> window_dim (time variable) lat lon",
         )
+        zero_indices = np.asarray(x_index.isel(time=self.hist)).reshape(-1)
+        zero_times = [self._times.values[int(index)] for index in zero_indices]
+        time_embedding = temporal_fourier_embedding(
+            zero_times,
+            num_scales=self.time_embedding_num_scales,
+            min_hours=self.time_embedding_min_hours,
+            max_hours=self.time_embedding_max_hours,
+        ).to(data_in_boundary.device)
+        time_embedding = time_embedding[:, :, None, None].expand(
+            -1, -1, data_in_boundary.shape[-2], data_in_boundary.shape[-1]
+        )
+        data_in_boundary = torch.cat((data_in_boundary, time_embedding), dim=1)
         return data_in_boundary
 
     def _get_label(self, x_index):
@@ -319,7 +374,9 @@ class InferenceDatasets(Dataset):
 class RawTrainData:
     def __init__(self, dataset_id: "TorchTrainDataset.Id"):
         self.dataset_id: TorchTrainDataset.Id = dataset_id
-        self.raw_data: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = []
+        self.raw_data: list[
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+        ] = []
         self.load_stats: LoadStats | None = None
 
     def insert(
@@ -327,9 +384,12 @@ class RawTrainData:
         input_: torch.Tensor,
         boundary: torch.Tensor,
         label: torch.Tensor,
+        time_embedding: torch.Tensor | None = None,
     ):
         """Add a prognostic input, boundary, and prognostic label as the last step."""
-        self.raw_data.append((input_, boundary, label))
+        if time_embedding is None:
+            time_embedding = torch.empty(0)
+        self.raw_data.append((input_, boundary, label, time_embedding))
 
     def to(self, device: torch.device):
         self.raw_data = [
@@ -337,8 +397,9 @@ class RawTrainData:
                 input_.to(device, non_blocking=True),
                 boundary.to(device, non_blocking=True),
                 label.to(device, non_blocking=True),
+                time_embedding.to(device, non_blocking=True),
             )
-            for input_, boundary, label in self.raw_data
+            for input_, boundary, label, time_embedding in self.raw_data
         ]
 
     def pin_memory(self):
@@ -347,8 +408,9 @@ class RawTrainData:
                 input_.pin_memory(),
                 boundary.pin_memory(),
                 label.pin_memory(),
+                time_embedding.pin_memory(),
             )
-            for input_, boundary, label in self.raw_data
+            for input_, boundary, label, time_embedding in self.raw_data
         ]
         return self
 
@@ -393,6 +455,19 @@ class TrainData:
 
     def __len__(self) -> int:
         return len(self.example_by_step)
+
+    def prefix(self, steps: int) -> "TrainData":
+        """Return a lightweight view containing the first rollout steps."""
+        if not 1 <= steps <= len(self):
+            raise ValueError(f"Expected 1..{len(self)} rollout steps, got {steps}.")
+        result = TrainData(
+            self.num_prognostic_channels,
+            self.num_boundary_channels,
+            self.ctx,
+        )
+        result.example_by_step = self.example_by_step[:steps]
+        result.load_stats = self.load_stats
+        return result
 
     def __iter__(self):
         return iter(range(len(self)))
@@ -467,11 +542,19 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         masked_fill_value: float,
         stride: int = 1,
         concurrent_compute_: bool = False,
+        output_steps: int | None = None,
+        time_embedding_num_scales: int = 0,
+        time_embedding_min_hours: float = 3.0,
+        time_embedding_max_hours: float = 8760.0,
     ):
         super().__init__()
         self.id = f"{self.__class__.__name__}_{str(id(self))}"
 
         self.hist: int = hist
+        self.output_steps = hist + 1 if output_steps is None else output_steps
+        self.time_embedding_num_scales = time_embedding_num_scales
+        self.time_embedding_min_hours = time_embedding_min_hours
+        self.time_embedding_max_hours = time_embedding_max_hours
         self.steps: int = steps
         self.stride: int = stride
         self.normalize_before_mask: bool = normalize_before_mask
@@ -479,13 +562,16 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self._concurrent_compute = concurrent_compute_
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
-        self.num_boundary_channels: int = (hist + 1) * len(boundary_var_names)
+        self.num_boundary_channels: int = (hist + 1) * len(boundary_var_names) + (
+            2 * time_embedding_num_scales
+        )
         time_ = src.data.time
+        self._times = time_
         self.prognostic_src = src.filter(prognostic_var_names, prefix="prog")
         self.boundary_src = src.filter(boundary_var_names, prefix="boundary")
 
         # This class will be used only for training and validation
-        total_steps: int = 2 * self.hist + 2
+        total_steps: int = self.hist + 1 + self.output_steps
 
         # Calculate the number of windows
         num_windows = time_.size - (total_steps - 1) * self.stride
@@ -507,14 +593,16 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.wet_surface: GridMask = src.masks.boundary
 
         self.ctx = GridContext(
-            label_mask=self.prognostic_src.masks.prognostic_with_hist(self.hist),
+            label_mask=self.prognostic_src.masks.prognostic_with_hist(
+                self.output_steps - 1
+            ),
             input_resolution_cpu=self.prognostic_src.resolution,
             output_resolution_cpu=self.prognostic_src.resolution,
         )
 
         self.size: int = (
             time_.size
-            - self.steps * (self.hist + 1) * self.stride
+            - self.steps * self.output_steps * self.stride
             - self.hist * self.stride
         )
 
@@ -577,7 +665,14 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                 .astype(np.float32, copy=False)
             )
             input_, label = prognostics[0], prognostics[-1]
-            TD.insert(input_, boundary, label)
+            zero_index = int(current_x_index.isel(time=-1))
+            time_embedding = temporal_fourier_embedding(
+                [self._times.values[zero_index]],
+                num_scales=self.time_embedding_num_scales,
+                min_hours=self.time_embedding_min_hours,
+                max_hours=self.time_embedding_max_hours,
+            )[0]
+            TD.insert(input_, boundary, label, time_embedding)
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
 
         return TD
@@ -599,7 +694,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             self.num_boundary_channels,
             self.ctx.to(device),
         )
-        for input_, boundary, label in raw_train_data.raw_data:
+        for input_, boundary, label, time_embedding in raw_train_data.raw_data:
             prog_input, boundary_input, label_tensor = self._to_example(
                 OceanData.from_data_source(
                     input_,
@@ -614,17 +709,27 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                 OceanData.from_data_source(
                     label, self.wet_prognostic, self.prognostic_src
                 ).to(device=device, non_blocking=True),
+                time_embedding.to(device=device, non_blocking=True),
             )
             train_data.append(prog_input, boundary_input, label_tensor)
         train_data.load_stats = raw_train_data.load_stats
         return train_data
 
     def _to_example(
-        self, input_: OceanData, boundary: OceanData, label: OceanData
+        self,
+        input_: OceanData,
+        boundary: OceanData,
+        label: OceanData,
+        time_embedding: torch.Tensor,
     ) -> Example:
         # Input/boundary only include current steps; label only includes forecasted steps.
         prog_input = self._prep_tensor_steps(input_)
         boundary_input = self._prep_tensor_steps(boundary)
+        if time_embedding.shape[-1]:
+            expanded_time = time_embedding[:, :, None, None].expand(
+                -1, -1, boundary_input.shape[-2], boundary_input.shape[-1]
+            )
+            boundary_input = torch.cat((boundary_input, expanded_time), dim=1)
         label_tensor = self._prep_tensor_steps(label)
         return prog_input, boundary_input, label_tensor
 
@@ -644,7 +749,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         if idx >= len(self):
             raise IndexError("Index out of range")
 
-        window_index = idx + step * (self.hist + 1) * self.stride
+        window_index = idx + step * self.output_steps * self.stride
         return self.rolling_indices.isel(window=window_index, drop=True)
 
 

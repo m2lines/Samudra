@@ -57,6 +57,40 @@ def test_trainer__otter_smoke(trainer_pair: TrainPair, caplog):
     trainer.run()
 
 
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "test/train_otter_paper.yaml")],
+    indirect=True,
+)
+def test_trainer__otter_paper_fidelity_smoke(trainer_pair: TrainPair, caplog):
+    caplog.set_level(logging.INFO)
+    cfg, trainer = trainer_pair
+
+    assert cfg.data.hist == 3
+    assert cfg.data.resolved_output_steps == 1
+    assert trainer.num_out == trainer.N_prog
+    assert trainer.num_boundary_in == 4 * trainer.N_bound + 32
+    trainer.run()
+
+
+@pytest.mark.parametrize(
+    "backend",
+    [pytest.param("cuda", marks=pytest.mark.cuda)],
+    indirect=True,
+)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "test/train_otter_paper.yaml")],
+    indirect=True,
+)
+def test_trainer__otter_paper_fidelity_smoke_cuda(trainer_pair: TrainPair, caplog):
+    caplog.set_level(logging.INFO)
+    _, trainer = trainer_pair
+    trainer.num_batches_seen = 1
+    trainer.run()
+
+
 @pytest.mark.parametrize(
     "backend",
     [pytest.param("cuda", marks=pytest.mark.cuda)],
@@ -200,6 +234,30 @@ def test_checkpoint_ema(train_config, caplog):
     # TODO(jder): would be nice to generalize to testing the whole trainer state,
     # or even running it forward and checking the output is identical
     assert resume_trainer._ema == e2e_trainer._ema
+
+
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "test/train_default_2step.yaml")],
+    indirect=True,
+)
+def test_checkpoint_without_ema(train_config):
+    train_config.epochs = 1
+    train_config.save_freq = 1
+    train_config.ema_decay = None
+    train_config.test_using_ema = False
+
+    with MultitonScope():
+        trainer = Trainer(train_config)
+        trainer.run()
+        checkpoint = torch.load(
+            trainer.ckpt_paths.latest_checkpoint_path,
+            map_location="cpu",
+        )
+
+    assert trainer._ema is None
+    assert checkpoint["ema"] is None
+    assert not trainer.ckpt_paths.ema_checkpoint_path.exists()
 
 
 @pytest.mark.parametrize(

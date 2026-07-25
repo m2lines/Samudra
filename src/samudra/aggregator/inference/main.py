@@ -37,6 +37,8 @@ class InferenceEvaluatorAggregator:
         log_global_mean_norm_time_series: bool = True,
         time_mean_reference_data: xr.Dataset | None = None,
         channel_mean_names: list[str] | None = None,
+        input_hist: int | None = None,
+        num_input_prognostic_channels: int | None = None,
     ):
         """
         Args:
@@ -44,9 +46,12 @@ class InferenceEvaluatorAggregator:
             metadata: Mapping of variable names their metadata that will
                 used in generating logged image captions.
             hist: Number of timesteps of history.
+            input_hist: Number of context timesteps of history; defaults to hist.
             area_weights: Area weights for the data.
             wet: Wet mask for the data.
             num_prognostic_channels: Number of prognostic channels in the data.
+            num_input_prognostic_channels: Prognostic context channels before
+                stripping boundary/time features; defaults to output channels.
             normalize: Normalization helper for prognostic channels.
             tensor_map: Mapping from prognostic variables to tensor channels.
             record_step_20: Whether to record the mean of the 20th steps.
@@ -107,6 +112,12 @@ class InferenceEvaluatorAggregator:
         self._tensor_map = tensor_map
         self.num_prognostic_channels = num_prognostic_channels
         self.hist = hist
+        self.input_hist = hist if input_hist is None else input_hist
+        self.num_input_prognostic_channels = (
+            num_prognostic_channels
+            if num_input_prognostic_channels is None
+            else num_input_prognostic_channels
+        )
         self.wet = wet
 
     @property
@@ -182,8 +193,8 @@ class InferenceEvaluatorAggregator:
             wet=self.wet,
             long_rollout=True,
             input_type="input",
-            num_prognostic_channels=self.num_prognostic_channels,
-            hist=self.hist,
+            num_prognostic_channels=self.num_input_prognostic_channels,
+            hist=self.input_hist,
         )
         for aggregator_name in ["mean", "mean_norm"]:
             aggregator = self._aggregators.get(aggregator_name)

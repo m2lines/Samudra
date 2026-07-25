@@ -31,7 +31,8 @@ def collate_raw_train_data(data: Sequence[RawTrainData]) -> RawTrainData:
         input_ = torch.stack([d.raw_data[step][0] for d in data])
         boundary = torch.stack([d.raw_data[step][1] for d in data])
         label = torch.stack([d.raw_data[step][2] for d in data])
-        batched_data.insert(input_, boundary, label)
+        time_embedding = torch.stack([d.raw_data[step][3] for d in data])
+        batched_data.insert(input_, boundary, label, time_embedding)
 
     stats = LoadStats.accumulated(
         [d.load_stats for d in data if d.load_stats is not None]

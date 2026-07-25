@@ -24,11 +24,19 @@ class ValidateAggregator(TrainAggregator):
         *,
         tensor_map: TensorMap,
         normalize: Normalize,
+        input_hist: int | None = None,
+        num_input_prognostic_channels: int | None = None,
     ):
         super().__init__(tensor_map)
         self._aggregators = aggregators
         self.hist = hist
+        self.input_hist = hist if input_hist is None else input_hist
         self.num_prognostic_channels = num_prognostic_channels
+        self.num_input_prognostic_channels = (
+            num_prognostic_channels
+            if num_input_prognostic_channels is None
+            else num_input_prognostic_channels
+        )
         self.normalize = normalize
 
     # TODO(jder): we could remove this by moving from inheritance
@@ -92,8 +100,8 @@ class ValidateAggregator(TrainAggregator):
             wet=wet,
             long_rollout=False,
             input_type="input",
-            num_prognostic_channels=self.num_prognostic_channels,
-            hist=self.hist,
+            num_prognostic_channels=self.num_input_prognostic_channels,
+            hist=self.input_hist,
         )
 
         for agg in self._aggregators.values():

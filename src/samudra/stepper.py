@@ -32,8 +32,12 @@ logger = logging.getLogger(__name__)
 def train_batch(
     model: torch.nn.Module, batch: TrainData, loss_fn: Callable
 ) -> TrainBatchOutput:
-    loss_per_channel = model(batch, loss_fn=partial(loss_fn, ctx=batch.ctx))
-    loss = torch.mean(loss_per_channel)
+    bound_loss_fn = partial(loss_fn, ctx=batch.ctx)
+    if getattr(loss_fn, "average_over_rollout", False):
+        setattr(bound_loss_fn, "average_over_rollout", True)
+    loss_per_channel = model(batch, loss_fn=bound_loss_fn)
+    reduce_loss = getattr(loss_fn, "reduce", torch.mean)
+    loss = reduce_loss(loss_per_channel)
     return TrainBatchOutput(loss, loss_per_channel)
 
 
@@ -49,7 +53,8 @@ def validate_batch(
 
     outs = model(batch)[0]
     loss_per_channel = loss_fn(outs, label, batch.ctx)
-    loss = torch.mean(loss_per_channel)
+    reduce_loss = getattr(loss_fn, "reduce", torch.mean)
+    loss = reduce_loss(loss_per_channel)
     # `input_data` in ValBatchOutput is used for val visualization; pass the
     # channel-concatenated tensor for continuity with existing consumers.
     # We don't mix scales across boundary and prognostic during training.
@@ -135,8 +140,15 @@ def run_rollout(
             num_steps=num_steps,
             epoch=epoch,
         )
-        # Setting initial prognostic for next loop
-        initial_prognostic = IO.prediction[-1].unsqueeze(0).clone()
+        # Preserve the entire rolling context when a model emits fewer states
+        # than it consumes (for example Otter's four-in/one-out contract).
+        initial_prognostic = initial_prognostic.to(IO.prediction.device)
+        for prediction in IO.prediction:
+            initial_prognostic = model._advance_prognostic_context(
+                initial_prognostic,
+                prediction.unsqueeze(0),
+            )
+        initial_prognostic = initial_prognostic.clone()
         if writer:
             logger.info("Writing to zarr...")
             writer.record_batch(IO)

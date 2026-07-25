@@ -13,6 +13,7 @@ class CosineSchedulerConfig(BaseModel):
 
     type: Literal["cosine"] = "cosine"
     target_epochs: int | None = None
+    interval: Literal["epoch"] = "epoch"
 
     def build(
         self, optimizer: torch.optim.Optimizer, epochs: int
@@ -26,6 +27,7 @@ class CosineWithTailSchedulerConfig(BaseModel):
 
     type: Literal["cosine_with_tail"] = "cosine_with_tail"
     target_epochs: int | None = None
+    interval: Literal["epoch"] = "epoch"
 
     tail_lr: float
     tail_epochs: int = 10
@@ -54,6 +56,7 @@ class CosineWithWarmupConfig(BaseModel):
 
     type: Literal["cosine_with_warmup"] = "cosine_with_warmup"
     target_epochs: int | None = None
+    interval: Literal["epoch"] = "epoch"
 
     warmup_lr: float = 1e-6
     warmup_epochs: int = 5
@@ -85,6 +88,50 @@ class CosineWithWarmupConfig(BaseModel):
         )
 
 
+class WarmupCosineUpdatesConfig(BaseModel):
+    """Linear update warmup followed by update-wise cosine annealing."""
+
+    type: Literal["warmup_cosine_updates"] = "warmup_cosine_updates"
+    interval: Literal["update"] = "update"
+    total_updates: int
+    warmup_updates: int = 500
+    min_lr: float = 0.0
+
+    def build(
+        self, optimizer: torch.optim.Optimizer, epochs: int
+    ) -> torch.optim.lr_scheduler.LRScheduler:
+        del epochs
+        if self.total_updates <= 0:
+            raise ValueError("total_updates must be positive.")
+        if not 0 <= self.warmup_updates < self.total_updates:
+            raise ValueError("warmup_updates must be in [0, total_updates).")
+        max_lr = optimizer.param_groups[0]["lr"]
+        if not 0 <= self.min_lr <= max_lr:
+            raise ValueError("min_lr must be between zero and the configured LR.")
+        decay_steps = max(1, self.total_updates - self.warmup_updates - 1)
+        cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer,
+            T_max=decay_steps,
+            eta_min=self.min_lr,
+        )
+        if self.warmup_updates == 0:
+            return cosine
+        warmup = torch.optim.lr_scheduler.LinearLR(
+            optimizer,
+            start_factor=1e-10,
+            end_factor=1.0,
+            total_iters=self.warmup_updates,
+        )
+        return torch.optim.lr_scheduler.SequentialLR(
+            optimizer,
+            schedulers=[warmup, cosine],
+            milestones=[self.warmup_updates],
+        )
+
+
 SchedulerConfig = (
-    CosineSchedulerConfig | CosineWithTailSchedulerConfig | CosineWithWarmupConfig
+    CosineSchedulerConfig
+    | CosineWithTailSchedulerConfig
+    | CosineWithWarmupConfig
+    | WarmupCosineUpdatesConfig
 )

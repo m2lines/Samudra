@@ -15,7 +15,7 @@ from samudra.config import EvalConfig
 from samudra.constants import BoundaryVarNames, Grid, PrognosticVarNames, TensorMap
 from samudra.datasets import InferenceDataset
 from samudra.stepper import run_rollout
-from samudra.utils.data import Normalize, get_inference_steps, spherical_area_weights
+from samudra.utils.data import Normalize, spherical_area_weights
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import is_main_process, set_seed
 from samudra.utils.logging import get_model_summary, handle_logging, handle_warnings
@@ -65,9 +65,13 @@ class Eval:
         self.N_prog = len(self.prognostic_var_names)
 
         self.num_prog_in = int((cfg.data.hist + 1) * self.N_prog)
-        self.num_boundary_in = int((cfg.data.hist + 1) * self.N_bound)
+        self.num_boundary_in = int(
+            (cfg.data.hist + 1) * self.N_bound + 2 * cfg.data.time_embedding_num_scales
+        )
         self.num_in = self.num_prog_in + self.num_boundary_in
-        self.num_out = self.num_prog_in
+        self.output_steps = cfg.data.resolved_output_steps
+        self.output_hist = self.output_steps - 1
+        self.num_out = self.output_steps * self.N_prog
 
         self.tensor_map = TensorMap(dataset_spec=self.dataset_spec).to(self.device)
 
@@ -84,7 +88,7 @@ class Eval:
         self.data = self.src.data
         self.static_data = self.data_container.static_data
         self.metadata = self.src.metadata
-        self.wet = self.src.masks.prognostic_with_hist(cfg.data.hist)
+        self.wet = self.src.masks.prognostic_with_hist(self.output_hist)
         self.area_weights: Grid = spherical_area_weights(self.data)
         self.area_weights = self.area_weights.to(self.device)
 
@@ -139,6 +143,9 @@ class Eval:
         self.model_path = cfg.ckpt_path
         self.normalize_before_mask = cfg.data.normalize_before_mask
         self.masked_fill_value = cfg.data.masked_fill_value
+        self.time_embedding_num_scales = cfg.data.time_embedding_num_scales
+        self.time_embedding_min_hours = cfg.data.time_embedding_min_hours
+        self.time_embedding_max_hours = cfg.data.time_embedding_max_hours
         self.init_inference_store()
 
     def load_checkpoint(self, ckpt_path: str):
@@ -152,10 +159,6 @@ class Eval:
 
     def init_inference_store(self):
         sliced_src = self.src.slice(self.inference_time)
-        self.num_time_steps = get_inference_steps(
-            sliced_src,
-            hist=self.hist,
-        )
         self.inference_dataset = InferenceDataset(
             src=sliced_src,
             prognostic_var_names=self.prognostic_var_names,
@@ -164,7 +167,12 @@ class Eval:
             normalize_before_mask=self.normalize_before_mask,
             masked_fill_value=self.masked_fill_value,
             long_rollout=True,
+            output_steps=self.output_steps,
+            time_embedding_num_scales=self.time_embedding_num_scales,
+            time_embedding_min_hours=self.time_embedding_min_hours,
+            time_embedding_max_hours=self.time_embedding_max_hours,
         )
+        self.num_time_steps = self.inference_dataset.num_timeline_steps
 
     def run(self) -> None:
         start_time = time.perf_counter()
@@ -190,13 +198,15 @@ class Eval:
         inf_aggregator = Aggregator.get_standalone_inference_aggregator(
             self.num_time_steps,
             self.metadata,
-            self.hist,
+            self.output_hist,
             self.area_weights,
             self.src.masks.prognostic.to(self.device),
             self.num_out,
             self.tensor_map,
             self.normalize,
             self.prognostic_var_names,
+            input_hist=self.hist,
+            num_input_prognostic_channels=self.num_prog_in,
         )
 
         run_rollout(

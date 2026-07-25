@@ -37,14 +37,22 @@ class Aggregator:
         normalize: Normalize,
         *,
         include_image_aggregators: bool = True,
+        input_hist: int | None = None,
+        num_input_prognostic_channels: int | None = None,
     ) -> ValidateAggregator:
+        input_hist = hist if input_hist is None else input_hist
+        num_input_prognostic_channels = (
+            num_prognostic_channels
+            if num_input_prognostic_channels is None
+            else num_input_prognostic_channels
+        )
         val_aggregators: dict[str, ValidateSubAggregator] = {
             "reduced": MeanAggregator(area_weights, hist),
         }
         if include_image_aggregators:
             val_aggregators.update(
                 {
-                    "snapshot": SnapshotAggregator(metadata, hist),
+                    "snapshot": SnapshotAggregator(metadata, input_hist),
                     "mean_map": MapAggregator(metadata, hist),
                 }
             )
@@ -52,7 +60,9 @@ class Aggregator:
         return ValidateAggregator(
             val_aggregators,
             hist=hist,
+            input_hist=input_hist,
             num_prognostic_channels=num_prognostic_channels,
+            num_input_prognostic_channels=num_input_prognostic_channels,
             tensor_map=tensor_map,
             normalize=normalize,
         )
@@ -68,14 +78,18 @@ class Aggregator:
         tensor_map: TensorMap,
         normalize: Normalize,
         channel_mean_names: list[str] | None = None,
+        input_hist: int | None = None,
+        num_input_prognostic_channels: int | None = None,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(
             n_timesteps=n_timesteps,
             metadata=metadata,
             hist=hist,
+            input_hist=input_hist,
             area_weights=area_weights,
             wet=wet,
             num_prognostic_channels=num_prognostic_channels,
+            num_input_prognostic_channels=num_input_prognostic_channels,
             normalize=normalize,
             tensor_map=tensor_map,
             record_step_20=(n_timesteps > 20),
@@ -95,14 +109,18 @@ class Aggregator:
         tensor_map: TensorMap,
         normalize: Normalize,
         channel_mean_names: list[str] | None = None,
+        input_hist: int | None = None,
+        num_input_prognostic_channels: int | None = None,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(
             n_timesteps=n_timesteps,
             metadata=metadata,
             hist=hist,
+            input_hist=input_hist,
             area_weights=area_weights,
             wet=wet,
             num_prognostic_channels=num_prognostic_channels,
+            num_input_prognostic_channels=num_input_prognostic_channels,
             normalize=normalize,
             tensor_map=tensor_map,
             record_step_20=(n_timesteps > 20),

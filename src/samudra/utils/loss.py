@@ -9,6 +9,7 @@ import torch
 import torch.nn.functional as F
 from jaxtyping import Float
 
+from samudra.constants import TensorMap
 from samudra.utils.ctx import GridContext
 
 LossFn = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
@@ -264,3 +265,107 @@ class GradientLoss:
         target = target * wet
         grad_loss = gradient_l1_loss(pred=pred, target=target, pad_mode=self._pad_mode)
         return base_loss + self._gradient_weight * grad_loss
+
+
+class OtterWeightedRmseLoss:
+    """Otter's latitude-weighted RMSE with ocean-column channel weights.
+
+    Every physical prognostic variable receives equal total default weight.
+    Depth-resolved channels divide that weight according to normalized layer
+    thickness (the ocean analogue of Otter's pressure-level weighting), while
+    surface-only variables receive weight one. Explicit variable multipliers
+    are applied before the weighted channel RMSEs are summed.
+    """
+
+    average_over_rollout = True
+
+    def __init__(
+        self,
+        tensor_map: TensorMap,
+        *,
+        variable_weights: dict[str, float] | None = None,
+    ) -> None:
+        variable_weights = variable_weights or {}
+        unknown = set(variable_weights) - set(tensor_map.VAR_SET)
+        if unknown:
+            raise ValueError(
+                "Unknown Otter loss variable weights: " + ", ".join(sorted(unknown))
+            )
+
+        weights = torch.zeros(len(tensor_map.prognostic_var_names), dtype=torch.float32)
+        for variable in tensor_map.VAR_SET:
+            indices = tensor_map.VAR_3D_IDX[variable].to(dtype=torch.long, device="cpu")
+            multiplier = variable_weights.get(variable, 1.0)
+            if multiplier < 0:
+                raise ValueError("Otter loss variable weights must be non-negative.")
+            if variable in tensor_map.VAR_SET_2D:
+                weights[indices] = multiplier
+                continue
+
+            level_indices = [
+                int(tensor_map.prognostic_var_names[index].rsplit("_", 1)[1])
+                for index in indices.tolist()
+            ]
+            thickness = torch.tensor(
+                [
+                    tensor_map.dataset_spec.depth_thickness[level]
+                    for level in level_indices
+                ],
+                dtype=torch.float32,
+            )
+            weights[indices] = multiplier * thickness / thickness.sum()
+
+        if not torch.any(weights > 0):
+            raise ValueError("At least one Otter loss channel weight must be positive.")
+        self._channel_weights = weights
+
+    @staticmethod
+    def reduce(loss_per_channel: torch.Tensor) -> torch.Tensor:
+        """Match Otter's sum over weighted per-channel RMSE values."""
+        return loss_per_channel.sum()
+
+    def __call__(
+        self,
+        pred: Float[torch.Tensor, "batch output*var lat lon"],
+        target: Float[torch.Tensor, "batch output*var lat lon"],
+        ctx: GridContext,
+    ) -> Float[torch.Tensor, " output*var"]:
+        if pred.shape != target.shape:
+            raise ValueError(
+                f"Prediction and target shapes differ: {pred.shape} != {target.shape}"
+            )
+        num_channels = self._channel_weights.numel()
+        if pred.shape[1] % num_channels:
+            raise ValueError(
+                f"{pred.shape[1]} output channels are not a multiple of the "
+                f"{num_channels} configured prognostic channels."
+            )
+
+        latitude = ctx.output_resolution_cpu[0].to(device=pred.device, dtype=pred.dtype)
+        if latitude.ndim == 1:
+            latitude = latitude[:, None]
+        latitude_weights = torch.cos(torch.deg2rad(latitude)).clamp_min(0)
+
+        wet = ctx.label_mask.to(device=pred.device)
+        if wet.shape[0] != pred.shape[1]:
+            raise ValueError(
+                f"Label mask has {wet.shape[0]} channels but loss has "
+                f"{pred.shape[1]} channels."
+            )
+        spatial_weights = wet * latitude_weights
+        squared_error = (pred - target).square()
+        numerator = (squared_error * spatial_weights).sum(dim=(0, 2, 3))
+        denominator = spatial_weights.sum(dim=(1, 2)) * pred.shape[0]
+        mse = numerator / denominator.clamp_min(1)
+        # Keeping epsilon inside the square root preserves an exact zero while
+        # avoiding the undefined derivative of sqrt(mse) at a perfect forecast.
+        epsilon = 1e-12
+        rmse = torch.sqrt(mse + epsilon) - torch.sqrt(
+            torch.tensor(epsilon, device=mse.device, dtype=mse.dtype)
+        )
+
+        repeats = pred.shape[1] // num_channels
+        channel_weights = self._channel_weights.to(
+            device=pred.device, dtype=pred.dtype
+        ).repeat(repeats)
+        return rmse * channel_weights

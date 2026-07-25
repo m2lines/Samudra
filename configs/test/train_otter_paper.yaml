@@ -1,0 +1,86 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/TrainConfig.json
+
+debug: true
+disk_mode: true
+pin_mem: false
+save_freq: 1
+epochs: 1
+batch_size: 1
+gradient_accumulation_steps: 1
+gradient_clip_norm: 10.0
+preemptible: false
+learning_rate: 0.0002
+optimizer:
+  type: muon
+  momentum: 0.95
+  weight_decay: 0.15
+scheduler:
+  type: warmup_cosine_updates
+  total_updates: 5
+  warmup_updates: 1
+  min_lr: 0.000002
+loss:
+  type: otter_weighted_rmse
+finetune: false
+resume_ckpt_path: null
+inference_epochs: []
+train_time:
+  start: "1975-08-15"
+  end: "1975-10-25"
+val_time:
+  start: "1975-10-25"
+  end: "1975-11-25"
+inference_times: []
+data_stride: [1]
+steps: [1, 2]
+step_transition: []
+step_transition_fraction: [0.5]
+backend: cpu
+
+experiment:
+  name: test_otter_paper
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: ocean-emulators
+  data_root: .data_cache/
+data:
+  dataset:
+    type: om4
+    prognostic_vars_key: thermo_dynamic_5
+    boundary_vars_key: tau_hfds
+  sources:
+    - data_location: data.zarr
+      data_means_location: means.nc
+      data_stds_location: stds.nc
+  loading:
+    type: cpu
+    num_workers: 0
+  hist: 3
+  output_steps: 1
+  time_embedding_num_scales: 16
+
+model:
+  checkpointing: null
+  pred_residuals: true
+  last_kernel_size: 1
+  pad: circular
+  use_bfloat16: false
+  backbone:
+    token_dim: 16
+    stage_depths: [1, 1]
+    num_heads: 4
+    window_size: 2
+    patch_size: 2
+    position_features: 16
+    position_min_scale: 0.1
+    position_max_scale: 720.0
+    hidden_ratio: 2.0
+    ffn_align_to: 8
+    dropout_rate: 0.0
+    drop_path_rate: 0.0

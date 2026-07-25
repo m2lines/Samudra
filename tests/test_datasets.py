@@ -186,7 +186,10 @@ def calc_num_samples(cfg: TrainConfig, time_slice: slice, source_count: int = 1)
     hist = cfg.data.hist
     stride = cfg.data_stride[0]
 
-    n_samples = data_size - (steps * (cfg.data.hist + 1) * stride) - hist * stride
+    output_steps = (
+        cfg.data.hist + 1 if cfg.data.output_steps is None else cfg.data.output_steps
+    )
+    n_samples = data_size - (steps * output_steps * stride) - hist * stride
     return n_samples * source_count
 
 

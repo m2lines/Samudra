@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/TrainConfig.json
+
+debug: false
+disk_mode: true
+pin_mem: true
+save_freq: 2
+validation_image_log_freq: 1
+epochs: 1
+batch_size: 1
+gradient_accumulation_steps: 2
+gradient_clip_norm: 10.0
+test_using_ema: false
+ema_decay: null
+learning_rate: 0.000002
+optimizer:
+  type: muon
+  momentum: 0.95
+  weight_decay: 0.15
+scheduler:
+  type: warmup_cosine_updates
+  # ceil(ceil(2816 / 8 ranks) / 2 accumulation) for a 12-step loader.
+  total_updates: 176
+  warmup_updates: 0
+  min_lr: 0.0
+loss:
+  type: otter_weighted_rmse
+finetune: true
+# Supply the pretraining checkpoint on the command line.
+resume_ckpt_path: null
+inference_epochs: []
+train_time:
+  start: "1975-01-03"
+  end: "2013-10-05"
+val_time:
+  start: "2013-10-05"
+  end: "2014-10-05"
+inference_times: []
+data_stride: [1]
+steps: [4, 5, 6, 7, 8, 9, 10, 11, 12]
+step_transition: []
+# Otter uses floor(176 / 9) = 19 optimizer updates per rollout phase.
+step_transition_fraction:
+  [0.107955, 0.215909, 0.323864, 0.431818, 0.539773, 0.647727, 0.755682, 0.863636]
+preemptible: false
+backend: auto
+
+experiment:
+  name: otter_om4_1deg_paper_rft
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: default
+data: !include data_4in1out.yaml
+model: !include model_paper.yaml

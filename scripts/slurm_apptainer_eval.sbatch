@@ -56,6 +56,7 @@ NAME_SUFFIX="${NAME_SUFFIX:-}"
 ARGS="${ARGS:-}"
 BACKEND="${BACKEND:-cuda}"
 CODE_LAYER="${CODE_LAYER:-}"
+REQUEUE_ON_USR1="${REQUEUE_ON_USR1:-0}"
 if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then
   NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"
 fi
@@ -64,6 +65,15 @@ if [[ -z "${CONFIG}" || -z "${NAME}" ]]; then
   echo "Tip: set NAME_SUFFIX to auto-generate NAME as YYYY-MM-DD-<suffix>." >&2
   echo "Example: export NAME_SUFFIX=om4_samudra_baseline_eval" >&2
   exit 2
+fi
+
+if [[ "${REQUEUE_ON_USR1}" == "1" ]]; then
+  handle_requeue() {
+    echo "Received USR1; requeueing Slurm job ${SLURM_JOB_ID}."
+    scontrol requeue "${SLURM_JOB_ID}"
+    exit 0
+  }
+  trap handle_requeue USR1
 fi
 
 # Data + outputs (host paths; will be bind-mounted into the container at same paths).
@@ -87,6 +97,11 @@ if [[ ! -d "${OUTPUT_BASE}" ]]; then
 fi
 
 RUN_DIR="${OUTPUT_BASE}/${NAME}"
+if [[ -e "${RUN_DIR}" && ${SLURM_RESTART_COUNT:-0} -gt 0 ]]; then
+  NAME="${NAME}-restart${SLURM_RESTART_COUNT}"
+  RUN_DIR="${OUTPUT_BASE}/${NAME}"
+  echo "Requeued evaluation will use fresh output dir: ${RUN_DIR}"
+fi
 if [[ -e "${RUN_DIR}" ]]; then
   echo "Refusing to run: output dir already exists: ${RUN_DIR}" >&2
   echo "Pick a unique NAME_SUFFIX." >&2

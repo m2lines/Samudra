@@ -314,7 +314,7 @@ Promoted synthetic components:
 
 The production modules and proxy configuration are implemented:
 
-- `PatchMomentEncoder` uses latitude-area-weighted patch means and 16 learned
+- `PatchMomentEncoder` uses cosine-latitude-weighted patch means and 16 learned
   continuous relative-coordinate moments;
 - `ContinuousCoordinateAttentionCorrection` chunks output queries, keeps keys
   normalized and values raw, and conditions every local value on its continuous
@@ -455,7 +455,7 @@ for overlapping neighbor predictions: radius-zero query coordinates are
 piecewise patch-local, whereas the promoted decoder blends continuous
 per-neighbor predictions.
 
-The checkpoint audit uses latitude-area-weighted MSE over wet cells only, so its
+The checkpoint audit uses cosine-latitude-weighted MSE over wet cells only, so its
 absolute MSE is larger than the training loss, which averages masked zeros over
 the rectangular grid. Update-matched epoch-10 results are:
 
@@ -829,8 +829,9 @@ which retain the same dependency and scientific commands while requesting
 The terminal checkpoint records 25,344 microbatches, 6,336 optimizer updates,
 and 202,752 samples. Thus the epoch bound stopped 56 updates (0.88%) below the
 configured `target_updates: 6392`; the comparison to the 6,392-update
-native-grid reference is closely but not perfectly update matched. The selected
-checkpoint is epoch 12 with 4,224 updates and validation loss 0.0827667. Its
+native-grid reference is closely but not perfectly matched at the
+procedure-level ceiling. The selected checkpoint is earlier—epoch 12 with
+4,224 updates—and has validation loss 0.0827667. Its
 SHA-256 is
 `e8541e96df6cbcaefc24c2ea99ebddacdb0a22c24a4f30cca7043980a9d05c69`.
 
@@ -936,8 +937,9 @@ Before spending a second full-run budget, the promoted checkpoint is instead
 evaluated under a stricter within-model intervention: zero all 120 learned
 subpatch-moment channels at the initial state, retain the 40 mean channels, and
 reuse the identical processor, boundary sequence, decoder, and samples. This
-directly tests whether the promoted dynamics use subpatch state without
-confounding processor initialization or optimization. The trained synthetic
+tests whether the promoted forecast depends on initial subpatch state without
+confounding processor initialization or optimization, but it does not separate
+the frozen decoder's direct dependence from the processor's dependence. The trained synthetic
 S0-D mean-only arm remains the independent learned negative control. These
 together replace, rather than masquerade as, a separately optimized OM4
 mean-only full run; that additional control should be reopened only if review

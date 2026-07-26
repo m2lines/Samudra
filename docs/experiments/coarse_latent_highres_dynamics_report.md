@@ -24,8 +24,8 @@ learned inverse fixes reconstruction but no longer tests the desired scientific
 regime: a processor state spatially coarser than the observations.
 
 We therefore retain the \(60\times72\) processor grid and replace the
-representation heads with (i) an area-weighted resolved mean plus 16 learned
-continuous within-patch moments and (ii) a coordinate-resampling base plus a
+representation heads with (i) a cosine-latitude-weighted resolved mean plus 16
+learned continuous within-patch moments and (ii) a coordinate-resampling base plus a
 zero-initialized, position-anchored local attention residual. The inverse is
 trained jointly, then frozen. A shared processor advances the latent state once
 per physical time step; a separate boundary encoder supplies exactly one aligned
@@ -36,14 +36,15 @@ four-objective dynamics screen, physical loss plus a \(0.1\)-weighted
 stop-gradient latent-teacher loss wins all aggregate leads and 11 of 12 exact
 route/lead comparisons. Removing the learned subpatch channels after training
 increases lead-one raw physical MSE by factors of 2.4--2.9, demonstrating that
-the processor uses information beyond patch means. The remaining concerns are
-half-degree lead-one skill and weak velocity high-wavenumber power. After 6,336
-updates—within 0.9% of the 6,392-update native reference—the selected S3
-checkpoint reaches aggregate lead-one,
-lead-two, and lead-four normalized MSE of 0.0828/0.1008/0.1281 and beats
-persistence on all 12 route/lead comparisons. This establishes useful
-coarse-latent dynamics, but errors remain 1.9--2.1 times those of the matched
-native-grid model and half-degree velocity spectra remain severely attenuated.
+the S2 forecast depends on information beyond patch means through the frozen
+decoder, processor, or both. The remaining concerns are half-degree lead-one
+skill and weak velocity high-wavenumber power. The S3 training procedure runs
+6,336 updates—within 0.9% of the 6,392-update native reference—and selects its
+epoch-12 checkpoint after 4,224 updates. That checkpoint reaches aggregate
+lead-one, lead-two, and lead-four normalized MSE of 0.0828/0.1008/0.1281 and
+beats persistence on all 12 route/lead comparisons. This establishes useful
+coarse-latent dynamics, but errors remain 1.9--2.1 times those of the native-grid
+model and half-degree velocity spectra remain severely attenuated.
 We therefore retain the new inverse as the preferred coarse-latent research
 architecture, but not as a replacement for the native-grid production
 baseline.
@@ -59,7 +60,7 @@ were inspected on 2026-07-24.
 | Property | `SamudraMulti` on `main` | Coarse moment/attention model |
 |---|---|---|
 | Processor grid | Fixed \(60\times72\) | Fixed \(60\times72\) |
-| Patch encoder | Perceiver compression to one token | Explicit area mean plus learned subpatch moments |
+| Patch encoder | Perceiver compression to one token | Explicit cosine-latitude mean plus learned subpatch moments |
 | Decoder | Perceiver IO learns routing and channels jointly | Coordinate base plus anchored local attention residual |
 | Query role | Position query primarily controls attention | Position anchors logits, conditions values, and enters hidden output directly |
 | Geometry | Added to reconstructive representation | Separate learned processor sidecar |
@@ -68,17 +69,18 @@ were inspected on 2026-07-24.
 | Inverse during dynamics | Jointly trainable | Frozen and bitwise audited |
 | Output resolution | Flexible query grid | Flexible coordinate grid |
 
-For patch \(p\), physical cell \(i\), channel vector \(x_{pi}\), and spherical
-area weight \(a_{pi}\), the encoder first computes
+For patch \(p\), physical cell \(i\), channel vector \(x_{pi}\), and
+cosine-latitude weight \(a_{pi}=\cos(\varphi_{pi})\) evaluated at the cell
+center, the encoder first computes
 
 \[
 \mu_p=\frac{\sum_i a_{pi}x_{pi}}{\sum_i a_{pi}}.
 \]
 
 A coordinate network learns 16 scalar basis functions
-\(\phi_m(r_{pi})\) of normalized within-patch latitude/longitude. Each basis is
-area-centered and RMS-normalized within the actual input-resolution patch,
-giving
+\(\phi_m(r_{pi})\) of evenly spaced, index-normalized within-patch coordinates.
+Each basis is cosine-latitude-weight centered and RMS-normalized within the
+actual input-resolution patch, giving
 
 \[
 q_{pcm}=
@@ -115,10 +117,11 @@ neighborhood of coarse tokens. Its attention logits include a strong
 distance-to-query anchor; its values receive the unnormalized token and the
 continuous query-to-token offset; and a direct query residual carries absolute
 spherical position and source/output scale into the decoded hidden state. Only
-the key route applies LayerNorm. The value route, base route, and explicit
-resolved means therefore retain physical amplitude. The correction output is
-initialized to zero, so optimization begins from \(B\), but the converged
-correction is not constrained to remain small.
+the latent-content input to attention keys is normalized; the correction
+feed-forward block has its own hidden-state LayerNorm. The value route, base
+route, and explicit resolved means retain an unnormalized physical-amplitude
+path. The correction output is initialized to zero, so optimization begins from
+\(B\), but the converged correction is not constrained to remain small.
 
 After inverse training, encoder and decoder parameters are frozen and one
 physical step is
@@ -169,7 +172,8 @@ fine structure, showing why latent agreement alone is not a suitable promotion
 criterion.
 
 S2 froze the selected seed-15 inverse and trained four matched processor
-objectives for 768 updates. Full held-out-year validation gives:
+objectives for 768 updates on the half-degree-only proxy. Subsequent full
+held-out-year transfer validation over all four input/output routes gives:
 
 | Objective \((w_x,\lambda_z)\) | Lead 1 | Lead 2 | Lead 4 | Persistence reduction |
 |---|---:|---:|---:|---:|
@@ -202,14 +206,17 @@ The principal forecast comparators have deliberately different scopes:
 | `main` Perceiver model | \(60\times72\) | full one-degree, historical contract | 0.29469† | — | — |
 | Native-grid learned inverse | input grid | full one-/half-degree, 6,392 updates | 0.03982 | 0.05408 | 0.06595 |
 | Coarse moment/attention S2 | \(60\times72\) | 768-update objective screen | 0.10125 | 0.12831 | 0.16083 |
-| **Coarse moment/attention S3** | \(60\times72\) | full one-/half-degree, 6,336 updates | **0.08275** | **0.10085** | **0.12806** |
+| **Coarse moment/attention S3** | \(60\times72\) | 6,336-update procedure; selected at 4,224 | **0.08275** | **0.10085** | **0.12806** |
 
 †The `main` value is its one-degree same-grid lead-one result, not an aggregate
 over four routes. It is useful historical context but not a controlled
 single-factor comparison. The native and S3 runs share the one-/half-degree
 data interval, route schedule, true processor depths, frozen-inverse temporal
-contract, optimizer-update budget, and validation year; their distinct spatial
-latent grids are the intended comparison.
+contract, approximately matched procedure-level update ceiling, and validation
+year. They differ in latent grid, objective (physical-only native versus
+physical plus \(0.1\) latent teacher), global batch (30 versus 32), and selected
+checkpoint update. This is an architecture/training-package comparison, not a
+controlled latent-grid-only ablation.
 
 The independent selected-checkpoint S3 validation gives:
 
@@ -249,44 +256,52 @@ audit is inferred here.
 The evidence rejects two simple explanations of the original decoder failure.
 It is not primarily a shortage of Perceiver decoder latents: increasing them did
 not resolve the controlled auto-encoding error. It is also not evidence that a
-coarse latent is intrinsically unusable. Rather, a coarse state needs an
+coarse latent is intrinsically unusable. Rather, the evidence supports an
 explicit low-frequency route, learned phase-sensitive subpatch summaries, and a
 decoder whose output query is spatially anchored and directly represented in the
 value/rendering path. The selected decoder is therefore a form of
 position-anchored direct cross-attention, used as a learned residual around a
 stable coordinate route.
 
-The S2 result also argues against adding a latent-alignment penalty now.
+The S2 result also argues against adding an explicit cross-resolution
+latent-agreement penalty now.
 Physical-only training produces the strongest cross-resolution latent agreement
 at lead four but worse forecasts, while the combined objective improves physical
 skill and teacher-latent accuracy without collapsing resolution-specific
-subpatch state. Likewise, the causal moment ablation argues against reverting to
-a mean-only or purely linear restriction.
+subpatch state. Likewise, the forecast-dependence intervention, together with
+the synthetic mean-only control, argues against reverting immediately to a
+mean-only or purely linear restriction; it does not rule out a separately
+optimized mean-only architecture.
 
 S3 resolves the conditional recommendation. Retain the patch-moment encoder,
 continuous position-anchored hybrid decoder, per-step boundary encoder, and
 \(0.1\)-weighted latent teacher as the current coarse-latent architecture.
 They support zero-to-\(N\) processor applications, flexible output grids,
 causal boundary use, and useful four-route skill. Do not replace the completed
-native-grid model: at a budget matched within 0.9%, the coarse model has 2.08,
-1.86, and 1.94 times its lead-one/two/four MSE.
+native-grid model: the selected coarse checkpoint has 2.08, 1.86, and 1.94
+times its lead-one/two/four MSE. Because it was selected earlier and used a
+different objective and global batch, those ratios compare the promoted
+training packages rather than isolate spatial latent resolution.
 
-The next change should target the unresolved representation bottleneck rather
-than revert to Perceiver IO or bilinear decoding. Split the subpatch state into
-variable-grouped coefficient blocks—at minimum scalar and horizontal-velocity
-blocks—whose continuous basis functions are encoded on the physical cells,
-evolved on the same \(60\times72\) grid, and evaluated directly at requested
-output coordinates. Keep the present anchored attention as a residual for
-cross-patch consistency. This preserves flexible resolution while giving
-velocity phase and orientation dedicated capacity instead of forcing all
-variables through one shared 16-basis, 120-channel projection. Pair the inverse
-test with variable-wise gradient/spectral loss and require velocity
-high-wavenumber closure before another full dynamics run.
+The next falsifiable hypothesis should target the unresolved representation
+bottleneck rather than revert to Perceiver IO or bilinear decoding. Test a
+split subpatch state with variable-grouped coefficient blocks—at minimum scalar
+and horizontal-velocity blocks—whose continuous basis functions are encoded on
+the physical cells, evolved on the same \(60\times72\) grid, and evaluated
+directly at requested output coordinates. Keep the present anchored attention
+as a residual for cross-patch consistency. This preserves flexible resolution
+while testing whether dedicated velocity phase/orientation capacity improves on
+the shared 16-basis, 120-channel projection. Processor smoothing, loss
+weighting, and the frozen decoder remain alternative causes because the final
+S3 latent/moment audit is unavailable. Pair the inverse test with variable-wise
+gradient/spectral loss and require velocity high-wavenumber closure before
+another full dynamics run.
 
 Only after that inverse-side gate passes should processor capacity be reopened.
-The current full run improves S2 forecast losses by roughly 18%--21%, proving
-that exposure matters, but the persistent spectral deficit and the
-late-training lead-four drift do not support width alone as the first remedy.
+The full S3 training package improves S2 forecast losses by roughly 18%--21%,
+but route exposure, global batch, initialization, and schedule also changed.
+The persistent spectral deficit and late-training lead-four drift do not
+support width alone as the first remedy.
 Use multi-lead checkpoint selection and report both best and terminal weights.
 Do not start quarter-degree validation before reviewing this one-/half-degree
 endpoint and the scheduler-blocked data audit.
@@ -371,7 +386,9 @@ endpoint and the scheduler-blocked data audit.
 - **Mean-only-initial ablation.** An inference-time causal intervention, not a
   separately optimized OM4 model: zero the 120 moment channels of the initial
   latent, retain the 40 mean channels, then run the same trained processor and
-  boundary sequence. Implementation:
+  boundary sequence. It tests forecast dependence on initial moment channels;
+  it does not distinguish their direct frozen-decoder contribution from their
+  processor contribution. Implementation:
   [`audit_coarse_dynamics.py`](../../scripts/audit_coarse_dynamics.py).
 - **Flexible output resolution.** The decoder accepts requested latitude and
   longitude arrays and evaluates \(B+C\) at those coordinates. Flexibility does
@@ -381,8 +398,9 @@ endpoint and the scheduler-blocked data audit.
   \(s_p=[s_p^{\rm scalar},s_p^u,s_p^v]\), each computed from continuous
   within-patch basis moments and evolved on the same coarse grid. The decoder
   evaluates the corresponding basis block at each requested coordinate before
-  applying the existing anchored attention residual. This is the recommended
-  next experiment, not a flag in the current configuration.
+  applying the existing anchored attention residual. This is a falsifiable
+  next experiment, not an established remedy or a flag in the current
+  configuration.
 - **S1/S2/S3.** S1 trains and audits the inverse; S2 freezes it and selects the
   dynamics objective in a short matched screen; S3 trains a fresh
   processor/boundary path at the full one-/half-degree update budget. The

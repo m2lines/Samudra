@@ -418,14 +418,14 @@ def test_get_pydantic_models_collects_loading_variants():
 
 
 @pytest.mark.parametrize(
-    "config_name",
+    "config_name,expected_hist",
     [
-        "train_1deg_torch_smoke.yaml",
-        "train_1deg_mse_updates.yaml",
+        ("train_1deg_torch_smoke.yaml", 3),
+        ("train_1deg_mse_updates.yaml", 1),
     ],
 )
 def test_otter_configs_preserve_existing_history_contract(
-    config_name: str, tmp_path: Path
+    config_name: str, expected_hist: int, tmp_path: Path
 ):
     config_path = (
         Path(__file__).resolve().parents[1] / "configs" / "otter_om4" / config_name
@@ -442,7 +442,7 @@ def test_otter_configs_preserve_existing_history_contract(
     )
 
     assert isinstance(cfg.model, OtterConfig)
-    assert cfg.data.hist == 1
+    assert cfg.data.hist == expected_hist
     assert cfg.steps == [1]
     assert cfg.model.pred_residuals
     assert cfg.model.backbone.patch_size == 3

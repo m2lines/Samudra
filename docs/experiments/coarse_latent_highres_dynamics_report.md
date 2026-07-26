@@ -7,9 +7,10 @@ SPDX-License-Identifier: CC-BY-4.0
 # Coarse latent states with learned subpatch moments for multi-resolution ocean emulation
 
 > **Draft status (2026-07-25):** S1 reconstruction, S2 objective selection, and
-> the promoted full one-/half-degree S3 training and independent validation are
-> complete. The standalone latent/inverse audit is still being retrieved. No
-> quarter-degree result is included.
+> the promoted full one-/half-degree S3 training, independent validation, and
+> checkpoint-state audit are complete. New Torch jobs are currently
+> scheduler-blocked before process launch, so the final data-dependent latent
+> audit remains unclaimed. No quarter-degree result is included.
 
 ## Abstract
 
@@ -36,8 +37,9 @@ stop-gradient latent-teacher loss wins all aggregate leads and 11 of 12 exact
 route/lead comparisons. Removing the learned subpatch channels after training
 increases lead-one raw physical MSE by factors of 2.4--2.9, demonstrating that
 the processor uses information beyond patch means. The remaining concerns are
-half-degree lead-one skill and weak velocity high-wavenumber power. At the full
-6,392-update budget, the selected S3 checkpoint reaches aggregate lead-one,
+half-degree lead-one skill and weak velocity high-wavenumber power. After 6,336
+updates—within 0.9% of the 6,392-update native reference—the selected S3
+checkpoint reaches aggregate lead-one,
 lead-two, and lead-four normalized MSE of 0.0828/0.1008/0.1281 and beats
 persistence on all 12 route/lead comparisons. This establishes useful
 coarse-latent dynamics, but errors remain 1.9--2.1 times those of the matched
@@ -200,7 +202,7 @@ The principal forecast comparators have deliberately different scopes:
 | `main` Perceiver model | \(60\times72\) | full one-degree, historical contract | 0.29469† | — | — |
 | Native-grid learned inverse | input grid | full one-/half-degree, 6,392 updates | 0.03982 | 0.05408 | 0.06595 |
 | Coarse moment/attention S2 | \(60\times72\) | 768-update objective screen | 0.10125 | 0.12831 | 0.16083 |
-| **Coarse moment/attention S3** | \(60\times72\) | full one-/half-degree, 6,392 updates | **0.08275** | **0.10085** | **0.12806** |
+| **Coarse moment/attention S3** | \(60\times72\) | full one-/half-degree, 6,336 updates | **0.08275** | **0.10085** | **0.12806** |
 
 †The `main` value is its one-degree same-grid lead-one result, not an aggregate
 over four routes. It is useful historical context but not a controlled
@@ -232,6 +234,16 @@ remains the decisive failure. On half-degree outputs, `uo`/`vo` ratios are only
 These losses coexist with good persistence skill and stable patch-seam ratios,
 so aggregate MSE alone would overstate the scientific closure.
 
+Direct checkpoint inspection selects epoch 12 (4,224 updates,
+`best_val_loss=0.0827667`) and verifies all 30 frozen inverse tensors/536,436
+parameters are bit-exact to S1. The terminal epoch-18 checkpoint records 6,336
+updates, 56 short of the configured target because the epoch bound fired first.
+Its late lead-four degradation is therefore real but not the promoted endpoint.
+The final data-dependent latent and moment-intervention audit could not be
+launched after validation: new Torch RTX6000, A100, and CPU control jobs all
+received Slurm signal 53 before stdout/stderr creation. No result from that
+audit is inferred here.
+
 ## Discussion and recommendation
 
 The evidence rejects two simple explanations of the original decoder failure.
@@ -256,8 +268,8 @@ continuous position-anchored hybrid decoder, per-step boundary encoder, and
 \(0.1\)-weighted latent teacher as the current coarse-latent architecture.
 They support zero-to-\(N\) processor applications, flexible output grids,
 causal boundary use, and useful four-route skill. Do not replace the completed
-native-grid model: at matched update budget the coarse model has 2.08, 1.86,
-and 1.94 times its lead-one/two/four MSE.
+native-grid model: at a budget matched within 0.9%, the coarse model has 2.08,
+1.86, and 1.94 times its lead-one/two/four MSE.
 
 The next change should target the unresolved representation bottleneck rather
 than revert to Perceiver IO or bilinear decoding. Split the subpatch state into
@@ -277,7 +289,7 @@ that exposure matters, but the persistent spectral deficit and the
 late-training lead-four drift do not support width alone as the first remedy.
 Use multi-lead checkpoint selection and report both best and terminal weights.
 Do not start quarter-degree validation before reviewing this one-/half-degree
-endpoint and the pending standalone audit.
+endpoint and the scheduler-blocked data audit.
 
 ## Glossary and implementation map
 
@@ -345,7 +357,12 @@ endpoint and the pending standalone audit.
   [`train_cross_1_halfdeg_coarse_latent_dynamics_full.yaml`](../../configs/samudra_multi_om4/train_cross_1_halfdeg_coarse_latent_dynamics_full.yaml).
 - **Processor residual scale \(\alpha\).** A learned tensor of shape
   `[1,160,1,1]` used in \(z+\alpha\odot P(\cdot)\). It is initialized to zero by
-  `processor_residual: true`; S2 \((1,0.1)\) has mean absolute value 0.0344.
+  `processor_residual: true`. In the selected S3 checkpoint its mean absolute
+  value is 0.1019: 0.0901 over the first 40 resolved-mean channels and 0.1058
+  over the 120 subpatch-moment channels. Its sign is not a mixture fraction,
+  because the learned processor output can absorb an arbitrary sign. Exact
+  values and checkpoint comparison are emitted by
+  [`audit_checkpoint_state.py`](../../scripts/audit_checkpoint_state.py).
 - **Physical and latent objectives.** `physical_forecast_loss_weight` is
   \(w_x\); `latent_teacher_loss_weight` is \(\lambda_z\). The target latent is a
   no-gradient encoding of \(x_{t+N}\), masked at wet coarse tokens. See

@@ -20,7 +20,7 @@ stage means that it has not yet run, not that it passed.
 | S0-D synthetic subgrid closure | Complete | Two seeds show that the promoted pair retains and dynamically uses subpatch phase |
 | S1 OM4 learned inverse | Complete | Two learned-decoder seeds reproduce error and structural fidelity; matched bilinear loses most fine-grid power despite higher latent agreement |
 | S2 frozen-inverse dynamics | Complete | The combined objective \((w_x,\lambda_z)=(1,0.1)\) wins all aggregate leads and 11/12 exact route/lead losses while preserving the inverse exactly |
-| S3 full validation | Training and best-checkpoint validation complete; audit pending | The full 6,392-update run completed, every route/lead cell beats persistence, and the selected checkpoint passed independent four-route validation |
+| S3 full validation | Training, best-checkpoint validation, and state audit complete; data audit scheduler-blocked | The run completed 6,336 updates, every route/lead cell beats persistence, the selected checkpoint passed independent four-route validation, and its frozen inverse is bit-exact |
 
 ## Evidence inherited from the decoder investigation
 
@@ -104,7 +104,9 @@ This correction of scope is the reason for S0-R and S0-D.
 | `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r3-resume-e4` | S3 recovery scheduling | `1d940ce6` | Exact continuation from the r2 epoch-four checkpoint on one node × eight RTX6000s | Canceled before launch (`14759752`; dependents `14759753`/`14759754`) | A scheduler-only comparison projected 15:17 EDT for this placement versus 13:36 for two nodes × four GPUs; no run directory was created |
 | `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r4-resume-e4-2x4` | S3 recovery | `1d940ce6` | Exact continuation from the r2 epoch-four checkpoint; optimizer, cosine scheduler, EMA, counters, W&B identity, scientific configuration, eight workers, and global batch 32 are retained on two nodes × four RTX6000s | Interrupted (`14760130`; dependents `14760131`/`14760132` canceled) | Epoch seven completed with aggregate lead-1/2/4 loss 0.0838/0.1017/0.1277; Slurm UID 0 delivered a second direct `TERM` during epoch eight with no model exception or USR1 warning ([W&B](https://wandb.ai/ocean_emulators/default/runs/c0smzwtd)) |
 | `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r5-resume-e7-4x2` | S3 recovery scheduling | `1d940ce6` | Exact continuation from the r4 epoch-seven checkpoint on four nodes × two preemptible RTX6000s | Canceled before launch (`14769460`; dependents `14769461`/`14769462`) | Replaced after the normal `rtx6000_lzanna` partition projected an earlier start and avoids the repeated direct preemption terminations; no run directory was created |
-| `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r6-resume-e7-normal-4x2` | S3 recovery | `1d940ce6` | Exact continuation from the r4 epoch-seven checkpoint on four nodes × two non-preemptible RTX6000s; eight workers, global batch 32, optimizer/scheduler/EMA, counters, W&B identity, and scientific configuration retained | Training and validation complete (`14769980`; validation `14771778`; audit `14771779` pending status retrieval) | The run restored epoch eight, completed epoch 18, and triggered the dependent best-checkpoint validation. That independent validation reports aggregate lead-1/2/4 loss 0.08275/0.10085/0.12806 and all 12 route/lead cells ahead of persistence ([W&B](https://wandb.ai/ocean_emulators/default/runs/7c7npwi6)). Peak process RSS was about 15.4 GiB through epoch 13, so the one-GPU dependents and future S3 submissions request 32 GiB/GPU instead of 175 GiB/GPU; original dependents `14769981`/`14769982` were canceled before launch. Resume-checkpoint SHA-256 is `2e973b22856eef621b6d1bc5f2e373a85832e059974ca4587739dc1e2527eb61` |
+| `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r6-resume-e7-normal-4x2` | S3 recovery | `1d940ce6` | Exact continuation from the r4 epoch-seven checkpoint on four nodes × two non-preemptible RTX6000s; eight workers, global batch 32, optimizer/scheduler/EMA, counters, W&B identity, and scientific configuration retained | Training and validation complete (`14769980`; validation `14771778`; initial audit `14771779` failed before Python) | The run restored epoch eight, completed epoch 18, and triggered the dependent best-checkpoint validation. That independent validation reports aggregate lead-1/2/4 loss 0.08275/0.10085/0.12806 and all 12 route/lead cells ahead of persistence ([W&B](https://wandb.ai/ocean_emulators/default/runs/7c7npwi6)). Peak process RSS was about 15.4 GiB through epoch 13, so the one-GPU dependents and future S3 submissions request 32 GiB/GPU instead of 175 GiB/GPU; original dependents `14769981`/`14769982` were canceled before launch. Resume-checkpoint SHA-256 is `2e973b22856eef621b6d1bc5f2e373a85832e059974ca4587739dc1e2527eb61` |
+| `s3-best-checkpoint-state-audit` | S3 state audit | working tree after `968b4db8` | Direct best/terminal checkpoint metadata, frozen inverse comparison, and processor-residual-scale summary using [`audit_checkpoint_state.py`](../../scripts/audit_checkpoint_state.py) | Complete on Torch DTN | The selected epoch-12 checkpoint contains 4,224 optimizer updates and validation loss 0.0827667; the terminal epoch-18 checkpoint contains 6,336 updates. All 30 frozen inverse tensors/536,436 parameters are bit-exact to the selected S1 checkpoint. Selected-checkpoint SHA-256 is `e8541e96df6cbcaefc24c2ea99ebddacdb0a22c24a4f30cca7043980a9d05c69` |
+| `s3-data-audit-retries` | S3 data audit | `1d940ce6` | Full 148-batch latent, moment-ablation, and cross-output audit of the selected checkpoint | Scheduler-blocked (`14771779`, `14778239`, `14778355`, `14778500`, `14778510`) | The dependent first failed before Python because its stored S1 path was stale. After correcting that path by the recorded SHA-256, new RTX6000 and A100 allocations were killed by Slurm signal 53 before stdout/stderr creation; one-second GPU and CPU hostname controls reproduce the same site failure. No data-audit result is claimed |
 
 ## S0-R synthetic reconstruction
 
@@ -640,7 +642,7 @@ that the learned representation is dynamically consequential.
 S2 selects \((w_x,\lambda_z)=(1,0.1)\). The prepared
 [`train_cross_1_halfdeg_coarse_latent_dynamics_full.yaml`](../../configs/samudra_multi_om4/train_cross_1_halfdeg_coarse_latent_dynamics_full.yaml)
 uses all four one-/half-degree routes, physical depths `{1,2,4}`, global batch
-32 on eight GPUs, and approximately the same 6,392-update budget as the
+32 on eight GPUs, and approximately the same update budget as the
 completed native-grid reference.
 [`submit_coarse_latent_s3.sh`](../../scripts/submit_coarse_latent_s3.sh) launches
 that run on eight preemptible H200s from the selected S1 inverse and objective,
@@ -686,7 +688,7 @@ requeue; no quarter-degree data are present.
 The full retry started on eight RTX6000s at 07:06 EDT on 2026-07-25. Its live
 W&B configuration independently records only the one- and half-degree sources,
 the balanced `mix` schedule, train/validation depths `{1,2,4}`, global batch 32,
-6,392 target optimizer updates, weights \((1,0.1)\), the frozen encoder and
+6,392 configured target optimizer updates, weights \((1,0.1)\), the frozen encoder and
 decoder prefixes, seed 15, and code overlay `1d940ce6`. Epoch one passed 240
 finite batches without reproducing the original failure.
 
@@ -823,6 +825,35 @@ Future submissions therefore default to 32 GiB/GPU. The original pending
 validation/audit jobs were replaced before launch by `14771778`/`14771779`,
 which retain the same dependency and scientific commands while requesting
 32 GiB each.
+
+The terminal checkpoint records 25,344 microbatches, 6,336 optimizer updates,
+and 202,752 samples. Thus the epoch bound stopped 56 updates (0.88%) below the
+configured `target_updates: 6392`; the comparison to the 6,392-update
+native-grid reference is closely but not perfectly update matched. The selected
+checkpoint is epoch 12 with 4,224 updates and validation loss 0.0827667. Its
+SHA-256 is
+`e8541e96df6cbcaefc24c2ea99ebddacdb0a22c24a4f30cca7043980a9d05c69`.
+
+The checkpoint-state audit compares the selected S3 model directly with the
+hash-verified seed-15 S1 inverse. All 30 `encoder.*`/`decoder.*` tensors and
+536,436 parameters are bit-exact; no key is missing and the maximum absolute
+difference is zero. The learned processor residual scale has shape
+`[1,160,1,1]`, mean absolute value 0.1019, median absolute value 0.1052, and no
+near-zero channels. Mean-channel scales (first 40) have mean absolute value
+0.0901; moment-channel scales (remaining 120) have mean absolute value 0.1058.
+Its sign is not a mixture weight: 86.9% of values are negative, but the
+processor output can absorb an arbitrary sign before
+\(z+\alpha\odot P(\cdot)\).
+
+The full data-dependent audit is not yet available. Its original dependent
+failed before Python because the stored S1 path predated the final run-name.
+After resolving the exact inverse by its recorded hash, four new GPU attempts
+across RTX6000 and A100 plus GPU/CPU hostname controls were all terminated by
+Slurm signal 53 before stdout/stderr creation. This is a site-wide launch
+failure for new jobs, not a model exception. The W&B validation already
+provides the full physical, boundary, spatial, and four-route metrics above;
+latent-agreement and final moment-intervention metrics remain explicitly
+unclaimed until scheduling recovers.
 
 ## Decision log
 

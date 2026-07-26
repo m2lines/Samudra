@@ -8,7 +8,9 @@ debug: false
 disk_mode: true
 pin_mem: true
 save_freq: 2
-validation_image_log_freq: 1
+# Distributed map-image reduction is not safe with the uneven 12-step
+# validation shards. Scalar validation metrics and separate evaluation remain.
+validation_image_log_freq: null
 epochs: 1
 batch_size: 1
 gradient_accumulation_steps: 2

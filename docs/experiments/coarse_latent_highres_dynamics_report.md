@@ -6,11 +6,10 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Coarse latent states with learned subpatch moments for multi-resolution ocean emulation
 
-> **Draft status (2026-07-25):** S1 reconstruction, S2 objective selection, and
-> the promoted full one-/half-degree S3 training, independent validation, and
-> checkpoint-state audit are complete. New Torch jobs are currently
-> scheduler-blocked before process launch, so the final data-dependent latent
-> audit remains unclaimed. No quarter-degree result is included.
+> **Final status (2026-07-26):** S1 reconstruction, S2 objective selection, and
+> the promoted full one-/half-degree S3 training, independent validation,
+> checkpoint-state audit, and 65-batch data audit are complete. No
+> quarter-degree result is included.
 
 ## Abstract
 
@@ -25,8 +24,8 @@ regime: a processor state spatially coarser than the observations.
 
 We therefore retain the \(60\times72\) processor grid and replace the
 representation heads with (i) a cosine-latitude-weighted resolved mean plus 16
-learned continuous within-patch moments and (ii) a coordinate-resampling base plus a
-zero-initialized, position-anchored local attention residual. The inverse is
+learned continuous within-patch moments and (ii) a coordinate-resampling base
+plus a zero-initialized, position-anchored local attention residual. The inverse is
 trained jointly, then frozen. A shared processor advances the latent state once
 per physical time step; a separate boundary encoder supplies exactly one aligned
 forcing state to each invocation. At matched one-/half-degree reconstruction
@@ -47,7 +46,10 @@ coarse-latent dynamics, but errors remain 1.9--2.1 times those of the native-gri
 model and half-degree velocity spectra remain severely attenuated.
 We therefore retain the new inverse as the preferred coarse-latent research
 architecture, but not as a replacement for the native-grid production
-baseline.
+baseline. The combined audits isolate two remaining limitations: the frozen
+inverse already loses substantial fine-scale power at depth zero, and
+teacher-latent error grows with lead even as the two input resolutions converge
+toward a common latent trajectory.
 
 For reproducibility, “`main`” denotes `origin/main` commit `d689f92c`, whose
 [`SamudraMulti`](https://github.com/m2lines/Samudra/blob/d689f92c/src/samudra/models/samudra_multi.py#L49-L113)
@@ -246,10 +248,26 @@ Direct checkpoint inspection selects epoch 12 (4,224 updates,
 parameters are bit-exact to S1. The terminal epoch-18 checkpoint records 6,336
 updates, 56 short of the configured target because the epoch bound fired first.
 Its late lead-four degradation is therefore real but not the promoted endpoint.
-The final data-dependent latent and moment-intervention audit could not be
-launched after validation: new Torch RTX6000, A100, and CPU control jobs all
-received Slurm signal 53 before stdout/stderr creation. No result from that
-audit is inferred here.
+The final data audit covers all 65 synchronized validation batches. One- versus
+half-degree latent cosine improves from 0.961 before processing to 0.978 at
+lead four, and cross-output patch-mean symmetric normalized MSE remains
+0.0173--0.0174 at every lead. However, forecast-to-teacher latent symmetric
+normalized MSE grows from 0.097/0.109 at lead one to 0.257/0.278 at lead four
+on one-/half-degree grids. The processor moves the two resolutions toward a
+common trajectory while becoming increasingly inconsistent with the
+corresponding encoded future states.
+
+Zeroing initial moment channels raises raw forecast MSE by factors of
+3.55/2.78/2.14 on the one-degree same-grid path and 2.69/2.27/1.85 on the
+half-degree same-grid path for leads one/two/four. This proves forecast
+dependence on moment channels for the trained model, but does not separate
+their direct frozen-decoder contribution from their processor contribution.
+The declining ratio with lead is consistent with progressive loss of initial
+subpatch information, although it is not sufficient alone to establish that
+mechanism. Zero-boundary latent differences grow approximately fourfold from
+lead one to lead four, independently confirming that forcing magnitude affects
+repeated transitions. The separate time-reversal physical-loss ablation
+supports temporal alignment of that forcing.
 
 ## Discussion and recommendation
 
@@ -293,18 +311,22 @@ as a residual for cross-patch consistency. This preserves flexible resolution
 while testing whether dedicated velocity phase/orientation capacity improves on
 the shared 16-basis, 120-channel projection. Processor smoothing, loss
 weighting, and the frozen decoder remain alternative causes because the final
-S3 latent/moment audit is unavailable. Pair the inverse test with variable-wise
-gradient/spectral loss and require velocity high-wavenumber closure before
-another full dynamics run.
+S3 audit does not isolate those components individually. Pair the inverse test
+with variable-wise gradient/spectral loss and require velocity high-wavenumber
+closure before another full dynamics run.
 
-Only after that inverse-side gate passes should processor capacity be reopened.
+After that inverse-side gate passes, reopen the processor as a separate
+multi-step latent-transition problem. The final audit shows that resolution
+agreement improves while teacher-latent error grows, so test explicit coupled
+updates for resolved-mean and subpatch-coefficient blocks and select on
+multi-lead teacher error as well as decoded physical loss.
 The full S3 training package improves S2 forecast losses by roughly 18%--21%,
 but route exposure, global batch, initialization, and schedule also changed.
 The persistent spectral deficit and late-training lead-four drift do not
 support width alone as the first remedy.
 Use multi-lead checkpoint selection and report both best and terminal weights.
 Do not start quarter-degree validation before reviewing this one-/half-degree
-endpoint and the scheduler-blocked data audit.
+endpoint.
 
 ## Glossary and implementation map
 

@@ -20,7 +20,9 @@ stage means that it has not yet run, not that it passed.
 | S0-D synthetic subgrid closure | Complete | Two seeds show that the promoted pair retains and dynamically uses subpatch phase |
 | S1 OM4 learned inverse | Complete | Two learned-decoder seeds reproduce error and structural fidelity; matched bilinear loses most fine-grid power despite higher latent agreement |
 | S2 frozen-inverse dynamics | Complete | The combined objective \((w_x,\lambda_z)=(1,0.1)\) wins all aggregate leads and 11/12 exact route/lead losses while preserving the inverse exactly |
-| S3 full validation | Training, best-checkpoint validation, and state audit complete; data audit scheduler-blocked | The run completed 6,336 updates, every route/lead cell beats persistence, the selected checkpoint passed independent four-route validation, and its frozen inverse is bit-exact |
+| S3 full validation | Complete | The run completed 6,336 updates, every route/lead cell beats persistence, the selected checkpoint passed independent four-route validation, and the 65-batch data audit verifies the frozen inverse, multi-resolution consistency, and dependence on moment channels |
+| Final report and fact-check | Complete | An independent configuration/result audit verified all reported arithmetic and narrowed three causal claims to the evidence actually tested |
+| Scale review gate | Complete | No quarter-degree experiment was submitted; the next scale remains gated on review of this one-/half-degree endpoint |
 
 ## Evidence inherited from the decoder investigation
 
@@ -106,7 +108,8 @@ This correction of scope is the reason for S0-R and S0-D.
 | `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r5-resume-e7-4x2` | S3 recovery scheduling | `1d940ce6` | Exact continuation from the r4 epoch-seven checkpoint on four nodes × two preemptible RTX6000s | Canceled before launch (`14769460`; dependents `14769461`/`14769462`) | Replaced after the normal `rtx6000_lzanna` partition projected an earlier start and avoids the repeated direct preemption terminations; no run directory was created |
 | `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r6-resume-e7-normal-4x2` | S3 recovery | `1d940ce6` | Exact continuation from the r4 epoch-seven checkpoint on four nodes × two non-preemptible RTX6000s; eight workers, global batch 32, optimizer/scheduler/EMA, counters, W&B identity, and scientific configuration retained | Training and validation complete (`14769980`; validation `14771778`; initial audit `14771779` failed before Python) | The run restored epoch eight, completed epoch 18, and triggered the dependent best-checkpoint validation. That independent validation reports aggregate lead-1/2/4 loss 0.08275/0.10085/0.12806 and all 12 route/lead cells ahead of persistence ([W&B](https://wandb.ai/ocean_emulators/default/runs/7c7npwi6)). Peak process RSS was about 15.4 GiB through epoch 13, so the one-GPU dependents and future S3 submissions request 32 GiB/GPU instead of 175 GiB/GPU; original dependents `14769981`/`14769982` were canceled before launch. Resume-checkpoint SHA-256 is `2e973b22856eef621b6d1bc5f2e373a85832e059974ca4587739dc1e2527eb61` |
 | `s3-best-checkpoint-state-audit` | S3 state audit | working tree after `968b4db8` | Direct best/terminal checkpoint metadata, frozen inverse comparison, and processor-residual-scale summary using [`audit_checkpoint_state.py`](../../scripts/audit_checkpoint_state.py) | Complete on Torch DTN | The selected epoch-12 checkpoint contains 4,224 optimizer updates and validation loss 0.0827667; the terminal epoch-18 checkpoint contains 6,336 updates. All 30 frozen inverse tensors/536,436 parameters are bit-exact to the selected S1 checkpoint. Selected-checkpoint SHA-256 is `e8541e96df6cbcaefc24c2ea99ebddacdb0a22c24a4f30cca7043980a9d05c69` |
-| `s3-data-audit-retries` | S3 data audit | `1d940ce6` | Full 148-batch latent, moment-ablation, and cross-output audit of the selected checkpoint | Scheduler-blocked (`14771779`, `14778239`, `14778355`, `14778500`, `14778510`) | The dependent first failed before Python because its stored S1 path was stale. After correcting that path by the recorded SHA-256, new RTX6000 and A100 allocations were killed by Slurm signal 53 before stdout/stderr creation; one-second GPU and CPU hostname controls reproduce the same site failure. No data-audit result is claimed |
+| `s3-data-audit-retries` | S3 data audit recovery | `1d940ce6` | Full latent, moment-ablation, and cross-output audit of the selected checkpoint | Recovered after launch failures (`14771779`, `14778239`, `14778355`, `14778500`, `14778510`) | The dependent first failed before Python because its stored S1 path was stale. After correcting that path by the recorded SHA-256, a temporary site issue killed new RTX6000, A100, and CPU controls with Slurm signal 53 before stdout/stderr creation. A later CPU control completed, permitting a clean L40S retry |
+| `s3-data-audit-r6` | S3 data audit | `1d940ce6` | Same audit on the complete synchronized validation shard, bounded above by 148 batches | Complete (`14779748`) | All 65 available synchronized batches completed in 7m30s on one preemptible L40S. The inverse is exact, cross-output patch-mean NMSE is 0.0173--0.0174 through lead four, latent cross-resolution cosine improves from 0.961 at depth zero to 0.978 at depth four, and mean-only initialization raises raw forecast MSE by 1.85--3.55× |
 
 ## S0-R synthetic reconstruction
 
@@ -846,15 +849,42 @@ Its sign is not a mixture weight: 86.9% of values are negative, but the
 processor output can absorb an arbitrary sign before
 \(z+\alpha\odot P(\cdot)\).
 
-The full data-dependent audit is not yet available. Its original dependent
-failed before Python because the stored S1 path predated the final run-name.
-After resolving the exact inverse by its recorded hash, four new GPU attempts
-across RTX6000 and A100 plus GPU/CPU hostname controls were all terminated by
-Slurm signal 53 before stdout/stderr creation. This is a site-wide launch
-failure for new jobs, not a model exception. The W&B validation already
-provides the full physical, boundary, spatial, and four-route metrics above;
-latent-agreement and final moment-intervention metrics remain explicitly
-unclaimed until scheduling recovers.
+The full data-dependent audit recovered after the temporary launch failure and
+completed all 65 batches in the synchronized validation shard. Cross-resolution
+latent agreement improves with rollout depth: mean token cosine is
+0.961/0.969/0.973/0.978 at depths zero/one/two/four, while symmetric normalized
+MSE falls from 0.138 to 0.042. The shared processor therefore moves one- and
+half-degree encodings toward a common trajectory rather than allowing
+resolution-dependent drift.
+
+Agreement between the forecast and a fresh target encoding moves in the
+opposite direction. Teacher-latent symmetric normalized MSE grows from
+0.097/0.109 at lead one to 0.257/0.278 at lead four on the one-/half-degree
+grids; token cosine falls from 0.938/0.933 to 0.847/0.841. Thus the two input
+resolutions converge toward a common trajectory while becoming increasingly
+inconsistent with their corresponding encoded future states. This isolates
+multi-step latent transition error as a second limitation beyond the inverse's
+zero-depth spectral loss.
+
+Cross-output patch-mean consistency remains essentially invariant through
+rollout: symmetric normalized MSE is 0.01725--0.01741 and token cosine exceeds
+0.9977 at every depth and source grid. Flexible output resolution therefore
+does not introduce a lead-dependent coarse-mean mismatch.
+
+The mean-only-initial intervention produces a large forecast change at every
+lead. Relative to the full model, raw MSE rises by factors of
+3.55/2.78/2.14 on the one-degree same-grid path and 2.69/2.27/1.85 on the
+half-degree same-grid path for leads one/two/four. The intervention does not
+separate the frozen decoder's direct dependence from the processor's
+dependence, but the effect persisting through four processor applications
+rules out a practically mean-only trajectory for this trained model. Its
+declining ratio with lead is consistent with, but does not by itself prove,
+progressive loss of initial subpatch information.
+
+Zeroing boundary forcing changes latent state increasingly with lead.
+Symmetric normalized MSE between full and zero-boundary states grows from
+0.0176/0.0196 at lead one to 0.0663/0.0696 at lead four on the
+one-/half-degree grids, independently confirming the physical-loss ablations.
 
 ## Decision log
 

@@ -318,6 +318,11 @@ elif [[ -z "${MASTER_PORT}" ]]; then
   MASTER_PORT="$((15000 + SLURM_JOB_ID % 40000))"
 fi
 export MASTER_ADDR MASTER_PORT TORCHRUN_STANDALONE
+# Container login profiles may assign generic MASTER_ADDR/MASTER_PORT variables.
+# Preserve the endpoint resolved above under Samudra-specific names so every
+# node passes the same values to torchrun.
+export SAMUDRA_MASTER_ADDR="${MASTER_ADDR}"
+export SAMUDRA_MASTER_PORT="${MASTER_PORT}"
 if [[ "${TORCHRUN_STANDALONE}" == "1" ]]; then
   echo "Rendezvous: automatic free port (--standalone)"
 else
@@ -436,8 +441,8 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         torchrun_args+=(--standalone)
       else
         torchrun_args+=(
-          --master_addr=\${MASTER_ADDR}
-          --master_port=\${MASTER_PORT}
+          --master_addr=\${SAMUDRA_MASTER_ADDR}
+          --master_port=\${SAMUDRA_MASTER_PORT}
         )
       fi
       profiler_cmd=()

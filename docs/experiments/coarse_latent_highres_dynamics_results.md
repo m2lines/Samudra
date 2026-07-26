@@ -20,7 +20,7 @@ stage means that it has not yet run, not that it passed.
 | S0-D synthetic subgrid closure | Complete | Two seeds show that the promoted pair retains and dynamically uses subpatch phase |
 | S1 OM4 learned inverse | Complete | Two learned-decoder seeds reproduce error and structural fidelity; matched bilinear loses most fine-grid power despite higher latent agreement |
 | S2 frozen-inverse dynamics | Complete | The combined objective \((w_x,\lambda_z)=(1,0.1)\) wins all aggregate leads and 11/12 exact route/lead losses while preserving the inverse exactly |
-| S3 full validation | Full retry running | The bounded index-alignment repair completed a real-data four-route smoke; the repaired full eight-RTX6000 run has passed bring-up and is training |
+| S3 full validation | Training and best-checkpoint validation complete; audit pending | The full 6,392-update run completed, every route/lead cell beats persistence, and the selected checkpoint passed independent four-route validation |
 
 ## Evidence inherited from the decoder investigation
 
@@ -104,7 +104,7 @@ This correction of scope is the reason for S0-R and S0-D.
 | `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r3-resume-e4` | S3 recovery scheduling | `1d940ce6` | Exact continuation from the r2 epoch-four checkpoint on one node × eight RTX6000s | Canceled before launch (`14759752`; dependents `14759753`/`14759754`) | A scheduler-only comparison projected 15:17 EDT for this placement versus 13:36 for two nodes × four GPUs; no run directory was created |
 | `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r4-resume-e4-2x4` | S3 recovery | `1d940ce6` | Exact continuation from the r2 epoch-four checkpoint; optimizer, cosine scheduler, EMA, counters, W&B identity, scientific configuration, eight workers, and global batch 32 are retained on two nodes × four RTX6000s | Interrupted (`14760130`; dependents `14760131`/`14760132` canceled) | Epoch seven completed with aggregate lead-1/2/4 loss 0.0838/0.1017/0.1277; Slurm UID 0 delivered a second direct `TERM` during epoch eight with no model exception or USR1 warning ([W&B](https://wandb.ai/ocean_emulators/default/runs/c0smzwtd)) |
 | `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r5-resume-e7-4x2` | S3 recovery scheduling | `1d940ce6` | Exact continuation from the r4 epoch-seven checkpoint on four nodes × two preemptible RTX6000s | Canceled before launch (`14769460`; dependents `14769461`/`14769462`) | Replaced after the normal `rtx6000_lzanna` partition projected an earlier start and avoids the repeated direct preemption terminations; no run directory was created |
-| `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r6-resume-e7-normal-4x2` | S3 recovery | `1d940ce6` | Exact continuation from the r4 epoch-seven checkpoint on four nodes × two non-preemptible RTX6000s; eight workers, global batch 32, optimizer/scheduler/EMA, counters, W&B identity, and scientific configuration retained | Running (`14769980`; replacement validation `14771778`; replacement audit `14771779`) | Started at 16:22 EDT on `gr101`--`gr103`,`gr105`, restored epoch eight and reached finite per-batch logging. Peak process RSS is about 12 GiB, so pending one-GPU dependents and future S3 submissions now request 32 GiB/GPU instead of 175 GiB/GPU; original dependents `14769981`/`14769982` were canceled before launch. Checkpoint SHA-256 is `2e973b22856eef621b6d1bc5f2e373a85832e059974ca4587739dc1e2527eb61` |
+| `2026-07-25-coarse-latent-s3-full-wx1-wz0.1-r6-resume-e7-normal-4x2` | S3 recovery | `1d940ce6` | Exact continuation from the r4 epoch-seven checkpoint on four nodes × two non-preemptible RTX6000s; eight workers, global batch 32, optimizer/scheduler/EMA, counters, W&B identity, and scientific configuration retained | Training and validation complete (`14769980`; validation `14771778`; audit `14771779` pending status retrieval) | The run restored epoch eight, completed epoch 18, and triggered the dependent best-checkpoint validation. That independent validation reports aggregate lead-1/2/4 loss 0.08275/0.10085/0.12806 and all 12 route/lead cells ahead of persistence ([W&B](https://wandb.ai/ocean_emulators/default/runs/7c7npwi6)). Peak process RSS was about 15.4 GiB through epoch 13, so the one-GPU dependents and future S3 submissions request 32 GiB/GPU instead of 175 GiB/GPU; original dependents `14769981`/`14769982` were canceled before launch. Resume-checkpoint SHA-256 is `2e973b22856eef621b6d1bc5f2e373a85832e059974ca4587739dc1e2527eb61` |
 
 ## S0-R synthetic reconstruction
 
@@ -705,6 +705,8 @@ lead:
 | S3 epoch 7 | 0.0838 | 0.1017 | 0.1277 | 22.1% / 42.8% / 49.5% |
 | S3 epoch 9 | 0.0831 | 0.1010 | **0.1275** | 22.7% / 43.2% / **49.6%** |
 | S3 epoch 12 | **0.0828** | **0.1009** | 0.1284 | **23.1% / 43.3%** / 49.2% |
+| S3 epoch 18 | 0.0831 | 0.1020 | 0.1311 | 22.8% / 42.7% / 48.1% |
+| **Selected checkpoint, independent validation** | **0.0828** | **0.1008** | **0.1281** | **22.9% / 43.2% / 49.3%** |
 
 By epoch two, all four routes beat persistence at every lead, including a 4.6%
 lead-one reduction on the half-degree same-grid route that was 3.7% worse than
@@ -736,6 +738,35 @@ The epoch-one velocity high-wavenumber ratios remain weak (0.322/0.436 for
 `uo`/`vo`), and scalar patch-seam jump ratios range from 1.14 to 1.31 across
 routes, so the final spatial audit must still resolve or explicitly retain
 those risks.
+
+The terminal epoch confirms the late-epoch tradeoff rather than reversing it:
+lead one remains close to its minimum, while lead four degrades to 0.1311.
+The independently launched dependent job evaluates the selected checkpoint on
+the complete held-out year and obtains aggregate lead-one/two/four losses
+0.08275/0.10085/0.12806. Exact route losses are:
+
+| Route | Lead 1 | Lead 2 | Lead 4 | Persistence reduction |
+|---|---:|---:|---:|---:|
+| \(180\times360 \rightarrow 180\times360\) | 0.06064 | 0.07776 | 0.10305 | 27.6% / 48.6% / 54.0% |
+| \(180\times360 \rightarrow 360\times720\) | 0.10411 | 0.12366 | 0.15324 | 25.1% / 35.2% / 38.5% |
+| \(360\times720 \rightarrow 180\times360\) | 0.06245 | 0.07859 | 0.10310 | 29.5% / 49.6% / 55.0% |
+| \(360\times720 \rightarrow 360\times720\) | 0.10381 | 0.12339 | 0.15286 | 12.2% / 41.9% / 50.3% |
+
+Zeroing the aligned per-step boundary states increases aggregate errors by
+7.7%/13.7%/18.9% at leads one/two/four; reversing their temporal order
+increases them by 3.1%/3.1%/4.7%. Boundary forcing is therefore causally used,
+with an effect that grows across processor applications.
+
+The selected checkpoint improves aggregate high-wavenumber power ratios from
+the epoch-one values 0.793/0.917/0.322/0.436/0.658 to
+0.830/0.937/0.380/0.523/0.739 for
+`thetao`/`so`/`uo`/`vo`/`zos`. That is meaningful improvement, but not closure:
+for half-degree outputs, `uo`/`vo` power ratios are only 0.323/0.142 from a
+one-degree input and 0.295/0.130 from a half-degree input. Patch-seam ratios
+remain 0.927--1.309, with the largest scalar ratios on half-degree outputs.
+The flexible decoder preserves scalar structure much better than velocity
+structure, so the spectrum gap remains an architectural limitation rather than
+an optimization-only concern.
 
 At 09:45 EDT, Slurm canceled job `14753311` as UID 0 while epoch five was 40
 batches from completion. The allocation ended as `CANCELLED` with batch exit

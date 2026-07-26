@@ -18,6 +18,7 @@ from samudra.train import Trainer, should_log_validation_images
 from samudra.utils.ctx import BatchGrid
 from samudra.utils.loss import DynamicLoss
 from samudra.utils.multiton import MultitonScope
+from samudra.utils.wandb import WandBLogger
 from tests.conftest import DEFAULT_CONFIG, SAMUDRA_MULTI_CONFIG, TrainPair
 
 
@@ -285,6 +286,49 @@ def test_checkpoint_without_ema(train_config):
     assert trainer._ema is None
     assert checkpoint["ema"] is None
     assert not trainer.ckpt_paths.ema_checkpoint_path.exists()
+
+
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "test/train_default_2step.yaml")],
+    indirect=True,
+)
+def test_preemptible_finetune_resumes_own_checkpoint(
+    train_config, tmp_path, monkeypatch
+):
+    source_cfg = _resume_parity_config(train_config, tmp_path, "source")
+    source_cfg.epochs = 1
+    source_checkpoint = _run_to_latest_checkpoint(source_cfg)
+
+    finetune_cfg = _resume_parity_config(train_config, tmp_path, "finetune")
+    finetune_cfg.epochs = 2
+    finetune_cfg.finetune = True
+    finetune_cfg.preemptible = True
+    finetune_cfg.resume_ckpt_path = str(source_checkpoint)
+
+    with MultitonScope():
+        initial_finetune = Trainer(finetune_cfg)
+        assert initial_finetune.start_epoch == 1
+        initial_finetune.save_checkpoint(
+            1, initial_finetune.ckpt_paths.latest_checkpoint_path
+        )
+        local_checkpoint = initial_finetune.ckpt_paths.latest_checkpoint_path
+        del initial_finetune
+
+    setup_modes = []
+    original_setup_run = WandBLogger.setup_run
+
+    def record_setup_mode(self, *args, **kwargs):
+        setup_modes.append(kwargs["finetune"])
+        return original_setup_run(self, *args, **kwargs)
+
+    monkeypatch.setattr(WandBLogger, "setup_run", record_setup_mode)
+    with MultitonScope():
+        resumed_finetune = Trainer(finetune_cfg)
+
+    assert resumed_finetune.start_epoch == 2
+    assert setup_modes == [False]
+    assert Path(finetune_cfg.resume_ckpt_path) == local_checkpoint
 
 
 @pytest.mark.parametrize(

@@ -239,18 +239,22 @@ class Trainer:
         self.ckpt_paths = CheckpointPaths(self.nets_dir)
 
         # Check for preemption
+        resume_as_finetune = cfg.finetune
         if cfg.preemptible:
-            assert not cfg.finetune, "Finetune is not supported with preemptible"
             preempted = os.path.isfile(self.ckpt_paths.latest_checkpoint_path)
             if preempted:
                 cfg.resume_ckpt_path = str(self.ckpt_paths.latest_checkpoint_path)
+                # A requeued fine-tuning run must restore its optimizer,
+                # scheduler, progress, and W&B state from its own checkpoint.
+                # Only the initial pretrained checkpoint is model-only.
+                resume_as_finetune = False
 
         # Set up wandb run
         self.wandb_id, self.wandb_name = self.wandb_logger.setup_run(
             cfg.resume_ckpt_path,
             cfg,
             data_bundle=self.data_bundle,
-            finetune=cfg.finetune,
+            finetune=resume_as_finetune,
         )
 
         # Log local and global batch sizes for cross-run comparisons.
@@ -285,7 +289,7 @@ class Trainer:
         self._ema: EMATracker | None = None
         loaded_checkpoint = False
         if cfg.resume_ckpt_path is not None:
-            if cfg.finetune:
+            if resume_as_finetune:
                 self.load_checkpoint(cfg.resume_ckpt_path, finetune=True)
                 self.start_epoch = 1
             else:

@@ -1149,9 +1149,7 @@ class TrainConfig(TopLevelConfig):
         start=JulianDate("0306-01-01"), end=JulianDate("0311-01-01")
     )
     inference_times: list[TimeConfig] = []
-    post_train_eval: "PostTrainCheckpointSweepConfig" = Field(
-        default_factory=lambda: PostTrainCheckpointSweepConfig()
-    )
+    post_train_eval: "PostTrainEvalConfig | None" = None
 
     # Config components
     experiment: ExperimentConfig
@@ -1167,58 +1165,43 @@ class TrainConfig(TopLevelConfig):
 EvalBackendConfig = Literal["cpu", "cuda", "auto"]
 
 
-class PostTrainCheckpointSweepConfig(BaseConfig):
-    enabled: bool = False
-    eval_config_path: str | None = None
-    viz_config_path: str | None = None
+class PostTrainEvalConfig(BaseConfig):
+    eval_config_path: Path
+    viz_config_path: Path | None = None
     last_n_checkpoints: int | None = Field(default=None, ge=1)
-    checkpoints: list[int] | None = Field(
+    epochs: list[int] | None = Field(
         default=None,
         description="Explicit list of checkpoint epochs (matching ckpt_<epoch>.pt) "
         "to evaluate; the final EMA checkpoint is always added. Mutually "
         "exclusive with last_n_checkpoints.",
     )
-    eval_dirname: str | None = None
+    eval_dirname: str = "evals"
     # Subdirectory for visualization outputs within each checkpoint evaluation directory.
     viz_dirname: str = "viz"
 
     @pydantic.model_validator(mode="after")
-    def _check_checkpoint_selection(self) -> "PostTrainCheckpointSweepConfig":
-        if self.enabled and self.eval_config_path is None:
-            raise ValueError("eval_config_path must be set when enabled is true")
-        if self.last_n_checkpoints is not None and self.checkpoints is not None:
-            raise ValueError(
-                "set only one of last_n_checkpoints or checkpoints, not both"
-            )
-        if self.checkpoints is not None and len(self.checkpoints) == 0:
-            raise ValueError("checkpoints must be a non-empty list when provided")
+    def _check_checkpoint_selection(self) -> "PostTrainEvalConfig":
+        if self.last_n_checkpoints is not None and self.epochs is not None:
+            raise ValueError("set only one of last_n_checkpoints or epochs, not both")
+        if self.epochs is not None and len(self.epochs) == 0:
+            raise ValueError("epochs must be a non-empty list when provided")
         return self
 
     def build(
         self,
         nets_dir: Path,
         output_dir: Path,
-        data_root: Location | None,
-    ) -> "CheckpointSweep | None":
-        """Build the runtime sweep, or return None when it is disabled."""
-        if not self.enabled:
-            return None
-
-        assert self.eval_config_path is not None  # enforced by the validator
+        data_root: ResolvedLocation,
+    ) -> "CheckpointSweep":
+        """Build the runtime sweep."""
         return CheckpointSweep(
-            eval_config_path=Path(self.eval_config_path),
+            eval_config_path=self.eval_config_path,
             checkpoint_paths=CheckpointPaths(nets_dir),
             data_root=data_root,
-            sweep_root=(
-                output_dir / self.eval_dirname
-                if self.eval_dirname is not None
-                else None
-            ),
-            viz_config_path=(
-                Path(self.viz_config_path) if self.viz_config_path is not None else None
-            ),
+            sweep_root=output_dir / self.eval_dirname,
+            viz_config_path=self.viz_config_path,
             last_n_checkpoints=self.last_n_checkpoints,
-            checkpoints=self.checkpoints,
+            checkpoints=self.epochs,
             viz_dirname=self.viz_dirname,
         )
 

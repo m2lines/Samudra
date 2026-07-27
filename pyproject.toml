@@ -61,6 +61,8 @@ urls.Documentation = "https://m2lines.github.io/Samudra/docs/"
 urls.Homepage = "https://m2lines.github.io/Samudra/"
 urls.Issues = "https://github.com/m2lines/Samudra/issues"
 urls.Repository = "https://github.com/m2lines/Samudra"
+# `samudra train|eval|viz CONFIG` for installed users; mirrors `python -m samudra.train`.
+scripts.samudra = "samudra.cli:main"
 
 [dependency-groups]
 dev = [

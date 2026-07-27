@@ -35,9 +35,10 @@ Three modes:
     stable   -- version is taken verbatim from --version (the release workflow
                 extracts it from the v<version> tag; setuptools-scm would derive
                 the identical value from that same tag).
-    manual   -- version becomes <base>+manual.<sha>; a build-only smoke. PyPI
+    smoke    -- version becomes <base>+smoke.<sha>; a build-only check. PyPI
                 rejects local-version identifiers, so the workflow's publish job
-                declines to run in this mode.
+                declines to run in this mode. ("smoke" names what it does, not
+                how it starts -- every mode can be hand-triggered.)
 
 Usage:
     python scripts/package.py --mode nightly
@@ -141,7 +142,7 @@ def resolve_version(mode: str, explicit: str | None) -> str:
 
     nightly -> <base>.dev<YYYYMMDDhhmm>
     stable  -> <explicit>
-    manual  -> <base>+manual.<sha>
+    smoke   -> <base>+smoke.<sha>
     """
     if mode == "stable":
         if not explicit:
@@ -150,8 +151,8 @@ def resolve_version(mode: str, explicit: str | None) -> str:
     if mode == "nightly":
         stamp = datetime.now(UTC).strftime("%Y%m%d%H%M")
         return f"{_release_base()}.dev{stamp}"
-    if mode == "manual":
-        return f"{_release_base()}+manual.{_git_short_sha()}"
+    if mode == "smoke":
+        return f"{_release_base()}+smoke.{_git_short_sha()}"
     raise SystemExit(f"Unknown mode: {mode}")
 
 
@@ -206,7 +207,7 @@ def main() -> None:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument(
-        "--mode", choices=["nightly", "stable", "manual"], default="nightly"
+        "--mode", choices=["nightly", "stable", "smoke"], default="nightly"
     )
     parser.add_argument(
         "--version",
@@ -230,7 +231,7 @@ def main() -> None:
     # otherwise recompute a different timestamp here).
     version = args.version if args.version else resolve_version(args.mode, args.version)
 
-    # Defense in depth: nightly and manual are publishing (or would-be
+    # Defense in depth: nightly and smoke are publishing (or would-be
     # publishing) modes whose versions must carry their synthetic marker. Refuse
     # a bare release version passed in verbatim -- e.g. an operator leaving a
     # value in the dispatch version field while selecting nightly -- so it can
@@ -240,9 +241,9 @@ def main() -> None:
         raise SystemExit(
             f"refusing to build a nightly without a .dev suffix: {version!r}"
         )
-    if args.mode == "manual" and "+manual" not in version:
+    if args.mode == "smoke" and "+smoke" not in version:
         raise SystemExit(
-            f"refusing to build a manual smoke without a +manual segment: {version!r}"
+            f"refusing to build a smoke without a +smoke segment: {version!r}"
         )
 
     print(f"Mode:    {args.mode}\nVersion: {version}")

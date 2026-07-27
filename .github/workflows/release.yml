@@ -3,13 +3,16 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Builds the pure-Python samudra wheel + sdist and publishes to PyPI via OIDC
-# trusted publishing -- no API token is stored anywhere. Triggers:
-#   schedule          -> nightly dev release (<base>.dev<stamp>)
+# trusted publishing -- no API token is stored anywhere. Publishing runs only
+# after the CPU test suite passes (see the `test` job). Triggers:
+#   schedule          -> weekly nightly dev release (<base>.dev<stamp>)
 #   push tag v*       -> stable release, version from the v<version> tag
-#   workflow_dispatch -> manual cut (nightly / stable / manual)
+#   workflow_dispatch -> hand-triggered cut (mode: nightly / stable / smoke)
 #   pull_request      -> build-only smoke when the build script or this
 #                        workflow file changes
-# One-time trusted-publisher setup is documented in docs/releasing.md.
+# The `smoke` mode is build-only (never publishes); note that every mode can be
+# hand-triggered via workflow_dispatch -- "smoke" names what it does, not how it
+# starts. One-time trusted-publisher setup is documented in docs/releasing.md.
 name: Release
 
 on:
@@ -18,13 +21,13 @@ on:
       mode:
         description: "Build mode"
         type: choice
-        options: [nightly, stable, manual]
-        default: manual
+        options: [nightly, stable, smoke]
+        default: smoke
       version:
-        description: "Stable-cut version, e.g. 0.0.1 (required for stable; ignored for nightly/manual)"
+        description: "Stable-cut version, e.g. 0.0.1 (required for stable; ignored for nightly/smoke)"
         type: string
   schedule:
-    - cron: "0 6 * * *"   # 06:00 UTC daily
+    - cron: "0 6 * * 1"   # 06:00 UTC every Monday
   push:
     tags:
       - "v*"
@@ -79,7 +82,7 @@ jobs:
             fi
           else
             # pull_request: build-only smoke
-            echo "mode=manual" >> "$GITHUB_OUTPUT"
+            echo "mode=smoke" >> "$GITHUB_OUTPUT"
             echo "input_version=" >> "$GITHUB_OUTPUT"
           fi
 
@@ -119,14 +122,24 @@ jobs:
           path: dist/*
           retention-days: 14
 
-  publish:
-    # Manual mode produces local-version identifiers (`X.Y.Z+manual.<sha>`)
-    # which PyPI rejects, so manual cuts -- and every pull_request smoke --
-    # are build-only regardless of how they were triggered.
+  # Gate every publish on the CPU test suite. A tag push doesn't otherwise run
+  # test.yml (it's push-to-main / PR only), so call it here as a required check.
+  test:
+    needs: resolve
     if: |
       github.event_name != 'pull_request'
-      && needs.resolve.outputs.mode != 'manual'
-    needs: [resolve, build]
+      && needs.resolve.outputs.mode != 'smoke'
+    uses: ./.github/workflows/test.yml
+
+  publish:
+    # Smoke mode produces local-version identifiers (`X.Y.Z+smoke.<sha>`) which
+    # PyPI rejects, so smoke cuts -- and every pull_request build -- are
+    # build-only regardless of how they were triggered. Publishing also waits on
+    # the test job, so a red test suite blocks the upload.
+    if: |
+      github.event_name != 'pull_request'
+      && needs.resolve.outputs.mode != 'smoke'
+    needs: [resolve, build, test]
     runs-on: ubuntu-latest
     environment: pypi-publish
     permissions:

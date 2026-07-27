@@ -37,6 +37,19 @@ matching `torch` already present. With `uv` the `[tool.uv]` build settings in
 `pip install --no-build-isolation "samudra[cuda]"` in an environment that
 already has `torch`.
 
+Installing exposes a `samudra` console command that mirrors the module entry
+points, so you don't need a checkout to run a task against your own config:
+
+```bash
+samudra train path/to/train.yaml --experiment.data_root $DATA_PATH
+samudra eval  path/to/eval.yaml  --ckpt_path path/to/checkpoint
+samudra viz   path/to/viz.yaml
+```
+
+The example configs under `configs/` are not yet shipped in the wheel — pass a
+path to your own YAML (or one from a checkout). Packaging the presets so
+`samudra train samudra_om4/train.yaml` resolves them is planned as a follow-up.
+
 ## How versions are cut
 
 The version is owned by [setuptools-scm](https://setuptools-scm.readthedocs.io/):
@@ -48,11 +61,17 @@ the build:
 | Trigger | Mode | Version | Published? |
 | --- | --- | --- | --- |
 | Push a `v*` tag | `stable` | the tag, e.g. `v1.0.0` → `1.0.0` (setuptools-scm) | ✅ PyPI |
-| Daily `schedule` (06:00 UTC) | `nightly` | `<next-patch>.dev<YYYYMMDDhhmm>` | ✅ PyPI |
+| Weekly `schedule` (Mon 06:00 UTC) | `nightly` | `<next-patch>.dev<YYYYMMDDhhmm>` | ✅ PyPI |
 | `workflow_dispatch` → `nightly`/`stable` | as chosen | as above | ✅ PyPI |
-| `workflow_dispatch` → `manual` | `manual` | `<next-patch>+manual.<sha>` | ❌ build-only |
-| Pull request touching the script/workflow | `manual` | — | ❌ build-only |
+| `workflow_dispatch` → `smoke` | `smoke` | `<next-patch>+smoke.<sha>` | ❌ build-only |
+| Pull request touching the script/workflow | `smoke` | — | ❌ build-only |
 | Local editable install (`uv sync`) | — | `<next-patch>.dev<N>` from git | n/a |
+
+The scheduled dev release is weekly rather than daily — Samudra doesn't turn over
+enough in a day to warrant one, and the timestamp still makes each build unique.
+The `smoke` mode is build-only: it names what the build *does* (a no-publish
+check), not how it's triggered — every mode, `smoke` included, can be started by
+hand from **Actions → Release → Run workflow**.
 
 On a tagged commit setuptools-scm derives the version straight from the tag. For
 the two synthetic modes, `scripts/package.py` computes the version and hands it
@@ -62,6 +81,11 @@ tag (or `fallback_version` before the first tag), and its UTC timestamp keeps
 every nightly unique and PEP 440-ordered *above* the last release, so `--pre`
 resolves them.
 
+Every publish (stable **and** nightly) waits on the CPU test suite: the release
+workflow calls `test.yml` as a required `test` job, so a red suite blocks the
+upload. A tag push doesn't otherwise run the tests, which is why the release
+workflow invokes them itself.
+
 ### Cutting a stable release
 
 ```bash
@@ -70,8 +94,8 @@ git tag v1.1.0
 git push origin v1.1.0
 ```
 
-The tag push runs `resolve → build → publish`, uploading `samudra 1.1.0` to
-PyPI. To dry-run first, use **Actions → Release → Run workflow → mode: manual**;
+The tag push runs `resolve → test → build → publish`, uploading `samudra 1.1.0`
+to PyPI. To dry-run first, use **Actions → Release → Run workflow → mode: smoke**;
 that builds and runs `twine check` without publishing.
 
 !!! note "Before the first tag"

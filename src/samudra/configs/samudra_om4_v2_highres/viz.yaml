@@ -10,8 +10,9 @@ dataset_name: "OM4"
 groundtruth_location: "OM4.zarr"
 basins_location:
   type: s3
-  bucket: "emulators"
-  path: "jr7309/basins/basin_masks_original.zarr"
+  anon: true
+  bucket: "m2lines-pubs"
+  path: "Samudra/basins/basin_masks_original.zarr"
   endpoint_url: "https://nyu1.osn.mghpcc.org"
 groundtruth_time_range:
   start: "2014-10-20"

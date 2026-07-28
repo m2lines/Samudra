@@ -44,7 +44,7 @@ Please read the docstring in the `train.sky.yaml` for more information.
 To use torchrun on a single host with 8 GPUs, use something like:
 
 ```bash
-uv run torchrun --standalone --nnodes=1 --nproc_per_node=8 python -m samudra.train src/samudra/configs/samudra_om4/train.yaml --experiment.data_root $DATA_PATH
+uv run torchrun --standalone --nnodes=1 --nproc_per_node=8 -m samudra.train src/samudra/configs/samudra_om4/train.yaml --experiment.data_root $DATA_PATH
 ```
 
 See the [torchrun docs](https://docs.pytorch.org/docs/stable/elastic/run.html) for other examples.
@@ -90,7 +90,7 @@ Please read the `eval.sky.yaml` docstring for more information.
 ## Visualizing outputs from the model
 
 ```bash
-uv run samudra viz src/samudra/configs/viz_om4.yaml --data_root path/to/data --name <my-experiment-name>-viz --runs='[{"name": "my_experiment", "location": "path/to/<my-experiment-name>-eval/predictions.zarr"}]'
+uv run samudra viz src/samudra/configs/samudra_om4/viz.yaml --data_root path/to/data --name <my-experiment-name>-viz --runs='[{"name": "my_experiment", "location": "path/to/<my-experiment-name>-eval/predictions.zarr"}]'
 ```
 
 You can run `uv run samudra viz --help` to see all the options available.

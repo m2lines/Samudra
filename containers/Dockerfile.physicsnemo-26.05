@@ -42,8 +42,9 @@ RUN apt-get update \
     && nsys --version
 
 COPY LICENSE README.md pyproject.toml uv.lock ./
+# Config presets now live under src/samudra/configs, so `COPY src` brings them in;
+# tests/configs holds the (unshipped) test fixtures.
 COPY src ./src
-COPY configs ./configs
 COPY tests ./tests
 COPY scripts/container ./scripts/container
 

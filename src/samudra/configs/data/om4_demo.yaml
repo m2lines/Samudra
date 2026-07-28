@@ -13,6 +13,11 @@
 sources:
   - type: om4
     prognostic_vars_key: thermo_dynamic_all
+    # tau_hfds (tauuo, tauvo, hfds) rather than the samudra_om4 presets'
+    # tau_hfds_hfds_anom: the public 2deg data has no `hfds_anomalies` variable.
+    # This is a self-contained train -> eval -> viz demo (train a fresh model on
+    # this data); its boundary channels differ from the released checkpoints, so
+    # don't eval a preset-trained checkpoint against this source.
     boundary_vars_key: tau_hfds
     train_time:
       start: "1975-01-03"

@@ -4,7 +4,9 @@
 
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = [ "setuptools", "setuptools-scm>=8", "wheel" ]
+# setuptools>=62.3 is required for recursive `**` globs in package-data
+# (configs/**/*.yaml); without it the presets would be silently omitted.
+requires = [ "setuptools>=62.3", "setuptools-scm>=8", "wheel" ]
 
 [project]
 name = "samudra"

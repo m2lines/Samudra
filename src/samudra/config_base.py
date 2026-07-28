@@ -158,6 +158,9 @@ class IncludeYamlCliSettingsSource(CliSettingsSource):
         self, field_name: str, field: FieldInfo, value: Any
     ) -> Any:
         if isinstance(value, str) and value.startswith("@"):
-            with open(value[1:]) as f:
+            # Resolve like the positional config: a real path wins, otherwise
+            # fall back to a bundled preset (so `--data @data/om4_demo.yaml`
+            # works without a checkout).
+            with open(resolve_config_path(value[1:])) as f:
                 return yaml.safe_load(f)
         return super().decode_complex_value(field_name, field, value)

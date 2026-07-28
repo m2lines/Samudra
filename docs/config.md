@@ -64,10 +64,13 @@ For a signed request (`anon: false`, the default) credentials come from the envi
 public bucket — such as the open datasets on OSN — with no credentials at all, which also
 avoids a stale `AWS_ACCESS_KEY_ID` being rejected by a non-AWS endpoint.
 
-`src/samudra/configs/data/om4-demo.yaml` is a ready-made source that streams the public 2°
+`src/samudra/configs/data/om4_demo.yaml` is a ready-made source that streams the public 2°
 OM4 dataset from OSN over S3 with no local download and no credentials. Because its
-locations are absolute, `experiment.data_root` is ignored during resolution but must still
-be set to some value (e.g. `--experiment.data_root .`).
+locations are absolute, `experiment.data_root` is unused and can be omitted entirely:
+
+```bash
+samudra train samudra_om4/train.yaml --data @data/om4_demo.yaml
+```
 
 ## API Reference
 

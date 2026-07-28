@@ -13,11 +13,11 @@ To train the model on a single GPU, you can run:
 ```bash
 DATA_PATH=path/to/save/data
 uv run scripts/clone_data.py $DATA_PATH
-uv run -m samudra.train src/samudra/configs/samudra_om4/train.yaml --experiment.data_root $DATA_PATH --experiment.name <my-experiment-name>
+uv run samudra train src/samudra/configs/samudra_om4/train.yaml --experiment.data_root $DATA_PATH --experiment.name <my-experiment-name>
 ```
 
 Unless you override `--experiment.output_dir`, this will write to a `.LOCAL` directory.
-You can run `uv run -m samudra.train --help` to see all the options available.
+You can run `uv run samudra train --help` to see all the options available.
 
 To train on multiple GPUs, you can use skypilot, `torchrun`, or SLURM.
 
@@ -69,12 +69,12 @@ To learn more about other datasets used during training, please see the [data do
 DATA_PATH=path/to/save/data
 uv run scripts/clone_data.py $DATA_PATH
 # (then put a checkpoint of the model at path/to/checkpoint)
-uv run -m samudra.eval src/samudra/configs/samudra_om4/eval.yaml --ckpt_path path/to/checkpoint --experiment.data_root $DATA_PATH --experiment.name <my-experiment-name>-eval
+uv run samudra eval src/samudra/configs/samudra_om4/eval.yaml --ckpt_path path/to/checkpoint --experiment.data_root $DATA_PATH --experiment.name <my-experiment-name>-eval
 ```
 
 This produces a `predictions.zarr` file in the output directory (by default `.LOCAL`) with the rollout of the model.
 
-You can run `uv run -m samudra.eval --help` to see all the options available.
+You can run `uv run samudra eval --help` to see all the options available.
 
 To learn more about other datasets used during training, please see the [data documentation](data.md).
 
@@ -90,10 +90,10 @@ Please read the `eval.sky.yaml` docstring for more information.
 ## Visualizing outputs from the model
 
 ```bash
-uv run -m samudra.viz src/samudra/configs/viz_om4.yaml --data_root path/to/data --name <my-experiment-name>-viz --runs='[{"name": "my_experiment", "location": "path/to/<my-experiment-name>-eval/predictions.zarr"}]'
+uv run samudra viz src/samudra/configs/viz_om4.yaml --data_root path/to/data --name <my-experiment-name>-viz --runs='[{"name": "my_experiment", "location": "path/to/<my-experiment-name>-eval/predictions.zarr"}]'
 ```
 
-You can run `uv run -m samudra.viz --help` to see all the options available.
+You can run `uv run samudra viz --help` to see all the options available.
 
 After making changes to the visualization code, you can run the following command to compare old and new plots:
 

@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import argparse
+import importlib.resources
 import os
 import textwrap
 from pathlib import Path
@@ -39,6 +40,23 @@ def register_include_constructor():
 
 
 register_include_constructor()
+
+
+def resolve_config_path(config: str) -> Path:
+    """Resolve a config argument to a file on disk.
+
+    A real filesystem path wins, so a checkout behaves exactly as before. If it
+    doesn't exist, fall back to a preset bundled in the installed package (e.g.
+    ``samudra_om4/train.yaml``), so ``samudra train samudra_om4/train.yaml``
+    works with no checkout. The bundled configs install as real co-located
+    files, so their relative ``!include``s resolve unchanged.
+    """
+    path = Path(config).expanduser()
+    if not path.exists():
+        bundled = importlib.resources.files("samudra") / "configs" / config
+        if bundled.is_file():
+            path = Path(str(bundled))
+    return path.resolve()
 
 
 class BaseConfig(BaseModel):
@@ -81,15 +99,21 @@ class TopLevelConfig(BaseSettings):
             description=cls.__doc__,
             epilog=textwrap.dedent(
                 """
+                CONFIG may be a path to a YAML file or, when samudra is installed,
+                the name of a bundled preset such as `samudra_om4/train.yaml`.
                 YAML files can include other YAML files using the !include tag,
-                as in `data: !include configs/data/something.yaml`
-                You can also replace any JSON argument listed above with a YAML file by
-                specifying it with an @ symbol,
-                eg `--some_param=@configs/data/something.yaml`.
+                as in `data: !include ../data/om4.yaml` (resolved relative to the
+                including file). You can also replace any JSON argument listed above
+                with a YAML file by specifying it with an @ symbol,
+                eg `--some_param=@../data/om4.yaml`.
                 """
             ),
         )
-        parser.add_argument("config", type=str, help="Path to config YAML file")
+        parser.add_argument(
+            "config",
+            type=str,
+            help="Path to a config YAML file, or a bundled preset name",
+        )
 
         cli_source = IncludeYamlCliSettingsSource(
             cls,
@@ -102,9 +126,11 @@ class TopLevelConfig(BaseSettings):
         # so the help is complete on error.
         args = parser.parse_args(args_to_parse)
 
-        # Then we read the YAML file specified in the CLI
+        # Then we read the YAML file specified in the CLI. A bare path resolves
+        # against the filesystem; if it's missing we try a preset bundled in the
+        # installed package before giving up.
         # Note that by default, YamlConfigSettingsSource will ignore missing files
-        config_path = Path(args.config).expanduser().resolve()
+        config_path = resolve_config_path(args.config)
         if not config_path.exists():
             raise FileNotFoundError(
                 f"Config file `{args.config}` (full path: {config_path}) not found"

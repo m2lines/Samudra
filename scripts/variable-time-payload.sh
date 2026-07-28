@@ -30,7 +30,7 @@ echo "SLURM_NNODES: $SLURM_NNODES"
 
 # Run the training script
 python src/samudra/train.py \
-     configs/slurm_perlmutter_train_om4.yaml \
+     src/samudra/configs/slurm_perlmutter_train_om4.yaml \
      --experiment.name $SLURM_JOB_NAME
 
 pid=$!

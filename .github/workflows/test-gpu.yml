@@ -43,7 +43,7 @@ jobs:
         uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c
         with:
           path: .data_cache/
-          key: ${{ runner.os }}-test-data-${{ hashFiles('tests/conftest.py', 'configs/test/*.yaml') }}
+          key: ${{ runner.os }}-test-data-${{ hashFiles('tests/conftest.py', 'tests/configs/*.yaml') }}
 
       - name: Install uv and set the python version
         uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff

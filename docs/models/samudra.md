@@ -22,9 +22,9 @@ Samudra 2 widens the U-Net stages by ~40% while reducing the block-internal expa
 
 **Configs:**
 
-- Samudra v1: `configs/samudra_om4_v1/`
-- Samudra 2: `configs/samudra_om4_v2/`
-- Samudra 2 (high-res): `configs/samudra_om4_v2_highres/`
+- Samudra v1: `src/samudra/configs/samudra_om4_v1/`
+- Samudra 2: `src/samudra/configs/samudra_om4_v2/`
+- Samudra 2 (high-res): `src/samudra/configs/samudra_om4_v2_highres/`
 
 ## API Reference
 

@@ -180,7 +180,7 @@ jobs:
         uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c
         with:
           path: .data_cache/
-          key: ${{ runner.os }}-test-data-${{ hashFiles('tests/conftest.py', 'configs/test/*.yaml') }}
+          key: ${{ runner.os }}-test-data-${{ hashFiles('tests/conftest.py', 'tests/configs/*.yaml') }}
 
       - name: Log in to GHCR
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
@@ -267,7 +267,7 @@ jobs:
         uses: actions/cache@6f8efc29b200d32929f49075959781ed54ec270c
         with:
           path: .data_cache/
-          key: ${{ runner.os }}-${{ runner.arch }}-test-data-${{ hashFiles('tests/conftest.py', 'configs/test/*.yaml') }}
+          key: ${{ runner.os }}-${{ runner.arch }}-test-data-${{ hashFiles('tests/conftest.py', 'tests/configs/*.yaml') }}
 
       - name: Show disk before build
         run: |

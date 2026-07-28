@@ -100,7 +100,14 @@ docs = [
 
 [tool.setuptools]
 package-dir = { "" = "src" }
-package-data = { samudra = [ "py.typed" ] }
+# Ship py.typed plus the example config presets so installed users can run
+# `samudra train samudra_om4/train.yaml` without a checkout (resolved by
+# config_base.py). The `!include`s between presets and configs/data are
+# relative, so the whole tree stays self-consistent inside the package. Test
+# fixtures live under tests/, not here, so they never reach the wheel; the JSON
+# schemas under configs/schemas are gitignored generated output and this glob
+# doesn't match them.
+package-data = { samudra = [ "py.typed", "configs/**/*.yaml" ] }
 
 # Pin discovery to src/ so setuptools auto-discovery can't sweep stray
 # top-level dirs (e.g. a stale build/lib/) into the wheel.

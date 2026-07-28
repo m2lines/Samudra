@@ -223,7 +223,7 @@ For vizualization or other long-running tasks:
    * Hierarchical configs with `!include` directives
    * Pydantic models for type safety
    * Command-line overrides supported (see `--help`)
-   * Schemas in `configs/schemas/` for IDE autocomplete
+   * Schemas in `src/samudra/configs/schemas/` for IDE autocomplete
 
 8. **Utilities** (`src/samudra/utils/`)
    * `data.py`: Data utilities and preprocessing (largest utility module)
@@ -282,21 +282,25 @@ src/samudra/
 │   ├── core.py           # Core viz logic
 │   ├── config.py         # Viz configuration
 │   └── __main__.py       # Entry point
-└── utils/                # 16 utility modules (see above)
-
-configs/
-├── samudra_om4/          # Samudra model configs (train, eval, viz, model)
-├── samudra_multi_om4/    # samudra-multi model configs
-├── samudra_mini_om4/     # SamudraMini model configs
-├── data/                 # Data configuration (om4.yaml)
-├── test/                 # Minimal test configs
-└── schemas/              # JSON schemas for validation
+├── utils/                # 16 utility modules (see above)
+└── configs/              # Example config presets, shipped in the wheel
+    ├── samudra_om4/      # Samudra model configs (train, eval, viz, model)
+    ├── samudra_multi_om4/# samudra-multi model configs
+    ├── samudra_mini_om4/ # SamudraMini model configs
+    ├── data/             # Data configuration (om4.yaml)
+    └── schemas/          # JSON schemas for validation (gitignored, generated)
 
 tests/                    # Test suite (16 test files)
+├── configs/              # Minimal test-fixture configs (not shipped)
 scripts/                  # Data cloning, preprocessing, job scripts
 skypilot/                 # SkyPilot cloud training configs (train, eval, viz)
 notebooks/                # Analysis and preprocessing notebooks
 ```
+
+Config presets ship inside the package (`src/samudra/configs/`), so an installed
+user can run `samudra train samudra_om4/train.yaml` by preset name (resolved in
+`config_base.py`, filesystem paths take precedence). Test-only fixture configs
+live under `tests/configs/` and are excluded from the wheel.
 
 ### Important Considerations
 

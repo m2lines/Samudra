@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from pathlib import Path
 
 import cftime
 import numpy as np
@@ -23,6 +22,7 @@ from samudra.config import (
 )
 from samudra.config_schema import get_pydantic_models
 from samudra.utils.location import LocalLocation, UnresolvedLocation
+from tests.conftest import TEST_CONFIGS_DIR
 from tests.llc_fixtures import write_raw_llc_datasets
 
 
@@ -365,9 +365,7 @@ def test_data_config_accepts_gpu_loading():
 
 
 def test_train_config_allows_cli_override_for_cpu_num_workers(tmp_path):
-    config_path = (
-        Path(__file__).resolve().parents[1] / "configs" / "test" / "train_default.yaml"
-    )
+    config_path = TEST_CONFIGS_DIR / "train_default.yaml"
 
     cfg = TrainConfig.from_yaml_and_cli(
         [

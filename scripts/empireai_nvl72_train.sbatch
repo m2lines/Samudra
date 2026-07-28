@@ -38,7 +38,7 @@
 set -euo pipefail
 
 SMOKE="${SMOKE:-0}"
-CONFIG="${CONFIG:-configs/samudra_om4_v2/train.yaml}"
+CONFIG="${CONFIG:-src/samudra/configs/samudra_om4_v2/train.yaml}"
 DATA_ROOT="${DATA_ROOT:-${HOME}/data/om4_halfdeg}"
 OUTPUT_BASE="${OUTPUT_BASE:-${HOME}/runs}"
 DATA_CACHE_DIR="${DATA_CACHE_DIR:-${HOME}/.cache/samudra/${SLURM_JOB_ID:-manual}}"

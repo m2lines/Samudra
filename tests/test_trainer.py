@@ -34,7 +34,7 @@ def test_trainer__mini_benchmark(trainer_pair: TrainPair, caplog, benchmark):
 
 @pytest.mark.parametrize(
     "data_source,config_name",
-    [("mock-om4", "test/train_default_2step.yaml")],
+    [("mock-om4", "train_default_2step.yaml")],
     indirect=True,
 )
 def test_trainer__mini_2step(trainer_pair: TrainPair, caplog):
@@ -51,7 +51,7 @@ def test_trainer__mini_2step(trainer_pair: TrainPair, caplog):
 )
 @pytest.mark.parametrize(
     "data_source,config_name",
-    [("mock-om4", "test/train_samudra_mini.yaml")],
+    [("mock-om4", "train_samudra_mini.yaml")],
     indirect=True,
 )
 def test_trainer__samudra_mini_smoke_cuda(trainer_pair: TrainPair, caplog):
@@ -150,7 +150,7 @@ def _assert_checkpoints_close(continuous_path: Path, resumed_path: Path) -> None
 )
 @pytest.mark.parametrize(
     "data_source,config_name",
-    [("mock-om4", "test/train_samudra_om4_v2_resume.yaml")],
+    [("mock-om4", "train_samudra_om4_v2_resume.yaml")],
     indirect=True,
 )
 def test_checkpoint_resume_matches_continuous_cuda(
@@ -193,7 +193,7 @@ def test_checkpoint_resume_matches_continuous_cuda(
 
 @pytest.mark.parametrize(
     "data_source,config_name",
-    [("mock-om4", "test/train_default_2step.yaml")],
+    [("mock-om4", "train_default_2step.yaml")],
     indirect=True,
 )
 def test_checkpoint_ema(train_config, caplog):
@@ -216,7 +216,7 @@ def test_checkpoint_ema(train_config, caplog):
 
 @pytest.mark.parametrize(
     "data_source,config_name",
-    [("mock-om4", "test/train_default_2step.yaml")],
+    [("mock-om4", "train_default_2step.yaml")],
     indirect=True,
 )
 def test_checkpoint_dynamic_loss_state(train_config, caplog):
@@ -239,7 +239,7 @@ def test_checkpoint_dynamic_loss_state(train_config, caplog):
 
 @pytest.mark.parametrize(
     "data_source,config_name",
-    [("mock-om4", "test/train_default_2step.yaml")],
+    [("mock-om4", "train_default_2step.yaml")],
     indirect=True,
 )
 def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
@@ -342,7 +342,7 @@ def test_multiscale_training_validates_primary_source_and_logs_reduced_metrics(
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)
 @pytest.mark.parametrize(
     "data_source,config_name",
-    [("mock-om4", "test/train_default.yaml")],
+    [("mock-om4", "train_default.yaml")],
     indirect=True,
 )
 def test_data_loaders_enable_persistent_workers_on_positive_num_workers(
@@ -360,7 +360,7 @@ def test_data_loaders_enable_persistent_workers_on_positive_num_workers(
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)
 @pytest.mark.parametrize(
     "data_source,config_name",
-    [("mock-om4", "test/train_default.yaml")],
+    [("mock-om4", "train_default.yaml")],
     indirect=True,
 )
 def test_data_loaders_disable_persistent_workers_when_num_workers_is_zero(

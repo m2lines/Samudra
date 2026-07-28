@@ -8,7 +8,7 @@
 # `skypilot/eval.sky.yaml` and `scripts/slurm_apptainer_train.sbatch`.
 #
 # Submit with env vars (example):
-#   export CONFIG=configs/samudra_om4/eval.yaml
+#   export CONFIG=src/samudra/configs/samudra_om4/eval.yaml
 #   export NAME_SUFFIX=om4_samudra_baseline_eval  # NAME becomes YYYY-MM-DD-<suffix>
 #   export TARGET_CHECKPOINT=2026-02-22-om4_samudra_baseline/saved_nets/ema_ckpt.pt
 #   export ARGS="--num_model_steps_forward=25"

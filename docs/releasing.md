@@ -38,17 +38,21 @@ matching `torch` already present. With `uv` the `[tool.uv]` build settings in
 already has `torch`.
 
 Installing exposes a `samudra` console command that mirrors the module entry
-points, so you don't need a checkout to run a task against your own config:
+points, so you don't need a checkout to run a task:
 
 ```bash
-samudra train path/to/train.yaml --experiment.data_root $DATA_PATH
+# Bundled preset by name (the example configs ship in the wheel):
+samudra train samudra_om4/train.yaml --experiment.data_root $DATA_PATH
+# Or a path to your own YAML:
 samudra eval  path/to/eval.yaml  --ckpt_path path/to/checkpoint
 samudra viz   path/to/viz.yaml
 ```
 
-The example configs under `configs/` are not yet shipped in the wheel — pass a
-path to your own YAML (or one from a checkout). Packaging the presets so
-`samudra train samudra_om4/train.yaml` resolves them is planned as a follow-up.
+The example presets under `src/samudra/configs/` are packaged with the wheel, so a
+`CONFIG` argument may be either a bundled preset name (e.g. `samudra_om4/train.yaml`)
+or a filesystem path — a real path always wins, and a bare name that isn't found on
+disk falls back to the bundled preset. Test-fixture configs under `tests/configs/`
+are dev-only and excluded from the wheel.
 
 ## How versions are cut
 
@@ -90,37 +94,10 @@ workflow invokes them itself.
 
 ```bash
 # Just tag and push — no version bump anywhere:
-git tag v1.1.0
-git push origin v1.1.0
+git tag -a v0.0.1 -m "Initial Release"
+git push origin v0.0.1
 ```
 
-The tag push runs `resolve → test → build → publish`, uploading `samudra 1.1.0`
+The tag push runs `resolve → test → build → publish`, uploading `samudra 0.0.1`
 to PyPI. To dry-run first, use **Actions → Release → Run workflow → mode: smoke**;
 that builds and runs `twine check` without publishing.
-
-!!! note "Before the first tag"
-    The repository has no `v*` tags yet, so the "last release" falls back to
-    `0.0.0` (`fallback_version` in `[tool.setuptools_scm]`, mirrored by
-    `FALLBACK_VERSION` in `scripts/package.py` — keep the two in sync). Builds
-    therefore target `0.0.1` (e.g. a nightly is `0.0.1.dev<stamp>`). Cutting the
-    first tag, **`v0.0.1`**, makes the tag the single source of truth from then
-    on.
-
-## One-time trusted-publisher setup
-
-Before the first publish, register the repository as a trusted publisher on
-PyPI (a maintainer with project-owner rights does this once):
-
-1. Create the project on PyPI, or use [pending publishers](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/)
-   to reserve the name `samudra` before the first upload.
-2. On the project's **Settings → Publishing** page, add a GitHub Actions
-   publisher with:
-     - **Owner**: `m2lines`
-     - **Repository**: `Samudra`
-     - **Workflow name**: `release.yml`
-     - **Environment**: `pypi-publish`
-3. In the GitHub repo, create an environment named `pypi-publish`
-   (**Settings → Environments**). Optionally add required reviewers so stable
-   releases need an approval before the publish job runs.
-
-No secrets are needed — the publish job mints a short-lived OIDC token per run.

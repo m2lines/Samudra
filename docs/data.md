@@ -39,6 +39,22 @@ All datasets share the same layout: 4745 five-day timesteps, 19 depth levels, on
 > dataset (or a time slice) to your cluster/local filesystem for training, see
 > [How to get the data](#how-to-get-the-data).
 
+### Basin masks
+
+The ocean-basin masks used by the visualization step (`samudra viz`) for basin-averaged plots live
+under `s3://m2lines-pubs/Samudra/basins/` (public read at
+`https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/basins/`):
+
+| Store | Grid | Notes |
+| --- | --- | --- |
+| `basin_masks_original.zarr` | 1° (180 × 360) | Default; referenced by the `samudra_om4*` viz configs. |
+| `basin_masks_regridded.zarr` | 0.5° (360 × 720) | Half-degree regridded variant. |
+| `basin_masks_quarterdeg.zarr` | 0.25° (720 × 1440) | For quarter-degree runs. |
+
+Each store has the masks `basin_atlantic`, `basin_pacific`, `basin_indian`, `basin_southern`, and
+`basin_arctic` (the source NetCDFs are alongside them). The bucket is public, so the viz configs read
+it anonymously (`anon: true`) — no credentials needed.
+
 ## Taking a look at each dataset
 
 Our data is stored in [Zarr](https://zarr.dev) and is canonically opened with [Xarray](https://xarray.dev). Here is a

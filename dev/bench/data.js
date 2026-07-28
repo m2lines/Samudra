@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785279165011,
+  "lastUpdate": 1785279171354,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -22579,6 +22579,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.1101578216806203",
             "extra": "mean: 46.92516088000002 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c13c1c5e56c11ffbd0ea85da3f816fe95a4d6dc7",
+          "message": "Ship config presets in the wheel and a runnable zero-credential demo (#826)\n\n## Summary\n\nBuilds on the PyPI release work (#817) to do two things:\n\n1. **Ship the example config presets inside the `samudra` wheel** and\nresolve them **by name**, so an installed user runs a task with no\ncheckout.\n2. **Make a zero-credential demo runnable** end-to-end from a bare\ninstall — a bundled 2° dataset and the basin masks are streamed\nanonymously from public OSN storage, and one flag points every command\nat them:\n\n```bash\nuvx samudra train samudra_om4/train.yaml --data @data/om4_demo.yaml\nuvx samudra eval  samudra_om4/eval.yaml  --data @data/om4_demo.yaml\nuvx samudra viz   samudra_om4/viz.yaml   --data @data/om4_demo.yaml\n```\n\n## Config presets in the wheel\n\nThe config tree moves under the package: `configs/` →\n**`src/samudra/configs/`**. Because the package installs unpacked, the\nbundled configs are real co-located files, so the relative `!include`s\nbetween a preset and `configs/data/*.yaml` resolve **unchanged**.\n\n`config_base.py` gains `resolve_config_path()`, wired into\n`from_yaml_and_cli` (so both `python -m samudra.train` and the `samudra`\nconsole script benefit): a real filesystem path always wins; a bare name\nthat isn't on disk falls back to `importlib.resources.files(\"samudra\") /\n\"configs\" / <name>`. The same fallback applies to `--key @file`\noverrides, so `--data @data/om4_demo.yaml` resolves the bundled preset\ntoo.\n\n**Packaging.** `package-data` ships `configs/**/*.yaml`. Test-fixture\nconfigs move to `tests/configs/` (out of the package) rather than being\nexcluded from it — `exclude-package-data` can't override the\n`setuptools_scm` file-finder, which pulls in every tracked file under\nthe package. The wheel contains only presets + `configs/data` (no\n`test/`, no `schemas/`). CI cache-key paths, `.gitignore`,\n`config_schema.py` defaults, and the test constants (`TEST_CONFIGS_DIR`)\nfollow the move.\n\n## Zero-credential demo\n\n- **Bundled dataset.** `src/samudra/configs/data/om4_demo.yaml` streams\nthe public 2° OM4 dataset (`OM4.zarr` + means/stds) straight from\n`m2lines-pubs` on OSN.\n- **Anonymous S3.** The bucket is public and non-AWS, so signed requests\nare rejected. `S3Location` gains an `anon` field that flows into the\nfsspec storage options and is preserved across `resolve()`; the demo\nconfig sets `anon: true`.\n- **Unified `--data`.** Train and eval already took `--data`; viz named\nits ground truth via a standalone `groundtruth_location`. `VizConfig`\ngains an optional `data: DataConfig`, and `groundtruth_location` becomes\noptional, defaulting to the primary source's `data_location` — so one\n`--data` works across all three. Explicit `groundtruth_location` still\nwins; with neither, viz fails loudly.\n\n## Public data sources\n\nSo the demo (and cloud runs) don't need the private `emulators` bucket:\n\n- **Basin masks published** to `s3://m2lines-pubs/Samudra/basins/`\n(public/anonymous read; `basin_masks_original` + `_regridded` +\n`_quarterdeg`). All four `samudra_om4*/viz.yaml` presets point there\nwith `anon: true` — previously viz always opened the private basins and\nwould fail in the zero-credential flow (flagged by review).\n- **Skypilot** `train`/`eval`/`viz` now pull basins from the public path\nand default `OSN_DATA_PATH` to the public\n`m2lines-pubs/Samudra/v2026-07/om4_halfdeg` (verified present). `git\ngrep emulators skypilot/` is now empty. (`OUTPUTS_BUCKET` stays private\n— it's the run-output write target, not a data source.)\n- **`docs/data.md`** gains a \"Basin masks\" subsection (public location,\nthree grid variants with verified dims, the five mask variables,\nanon-read note).\n\n## CLI ergonomics\n\n`samudra` / `samudra --help` now print a real help screen (what the\npackage is, what each subcommand does, examples) to stdout and exit 0;\nan unknown command prints an error plus help to stderr and exits 2.\n`samudra <cmd> --help` still routes to that command's own parser.\n\n## Behavior / contract changes worth a review look\n\n- **`experiment.data_root` is now optional.** `resolved_data_root`\npreviously raised when unset; it now defaults to the current directory,\nso an all-absolute config (the demo) runs flagless. Relative locations\nstill resolve against cwd and fail loudly at `open()`.\n- **`viz` preset contract.** `groundtruth_location` is optional and\n`samudra_om4/viz.yaml` now derives ground truth from `data:`. Anyone\nrunning that preset standalone with `--data_root` will need `--data` (or\nan explicit `--groundtruth_location`).\n- **Skypilot default data** switches from the private `emulators` copy\nto the public `v2026-07/om4_halfdeg`; overridable via\n`OSN_DATA_PATH`/`OSN_DATA_PATHS`.\n\n## Container\n\n`COPY configs ./configs` in `containers/Dockerfile.physicsnemo-26.05`\nand the `configs` handling in `scripts/build_apptainer_code_layer.sh`\n(require-loop, manifest, copy, verify) broke once the tree moved under\n`src/`. Dropped the standalone `configs` handling — `src` already\ncarries the presets — and the apptainer verify now checks\n`src/samudra/configs`.\n\n## Docs & cleanup\n\n- README \"How to run\", quick start, and\n`run`/`torch`/`config`/`contributing`/`models` + `AGENTS.md` use the new\nlocations and the `samudra <cmd>` / `--data` forms. `config.md` gains a\n\"Data locations\" section (relative vs. structured `s3`/`local`,\n`endpoint_url`, `anon`); `releasing.md` flips to shipped.\n- Fixed two broken `run.md` commands (a malformed `torchrun … python -m`\ninvocation and a stale `viz_om4.yaml` path).\n- Removed a junk top-level `index.html`; fixed README trailing\nwhitespace and a mypy `union-attr` in the new test.\n\n## Verification\n\n- **Clean wheel**: presets + `data` only, no `test/`/`schemas/` leakage;\n`twine check` PASSED.\n- **Demo, `AWS_*` unset**: all three commands resolve the bundled demo\nsource; viz opens both ground truth (from `--data`) and the public\nbasins anonymously (2° grid, all five masks). Public basins/dataset\nreachability confirmed over HTTP + anon S3.\n- **Console script**: help/exit-code/routing behavior all correct.\n- **Tests**: `test_config`, `test_location` (incl. `anon`), new\n`test_viz_config`, and existing trainer/dataset tests pass against\nrelocated fixtures.\n- **Lint/types**: `ruff` + `ruff format --check` + `mypy` clean; `git\ndiff --check` clean.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\n---------\n\nCo-authored-by: Claude Opus 4.8 <noreply@anthropic.com>",
+          "timestamp": "2026-07-28T22:15:27Z",
+          "tree_id": "86cebdeda5dc105424915d734f9fa040e9e0c5f9",
+          "url": "https://github.com/m2lines/Samudra/commit/c13c1c5e56c11ffbd0ea85da3f816fe95a4d6dc7"
+        },
+        "date": 1785279171077,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.07175957579953,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0017120047029009556",
+            "extra": "mean: 933.0450807999568 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06501484253916201,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0909009521044079",
+            "extra": "mean: 15.381103159599979 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.021224549465892518,
+            "unit": "iter/sec",
+            "range": "stddev: 0.07187204393621374",
+            "extra": "mean: 47.11525215679997 sec\nrounds: 5"
           }
         ]
       }

@@ -21,6 +21,7 @@ def test_groundtruth_defaults_to_primary_data_source():
     loc = cfg._groundtruth_location()
 
     assert isinstance(loc, S3Location)
+    assert cfg.data is not None
     assert loc == cfg.data.sources[0].data_location
 
 

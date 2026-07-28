@@ -24,7 +24,7 @@ We are actively and openly developing this emulator to support new tasks and dat
 Given [`uv`](https://docs.astral.sh/uv/) is installed:
 
 ```
-# Launch a training run with the default Samudra configuration 
+# Launch a training run with the default Samudra configuration
 uvx samudra train samudra_om4/train.yaml --data @data/om4_demo.yaml
 
 # Run a long autoregressive rollout against ground-truth data, collecting metrics.

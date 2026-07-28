@@ -60,6 +60,13 @@ Generate maps, time series, and probability density plots from evaluation output
 uv run -m samudra.viz samudra_om4/viz.yaml
 ```
 
+Viz takes the same `--data` flag as train and eval — it names the ground-truth
+source to compare the rollout against (its `runs` come from the eval output):
+
+```bash
+uv run -m samudra.viz samudra_om4/viz.yaml --data @data/om4_demo.yaml
+```
+
 ## Configuration
 
 All commands accept `--help` for available options:

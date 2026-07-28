@@ -66,10 +66,14 @@ avoids a stale `AWS_ACCESS_KEY_ID` being rejected by a non-AWS endpoint.
 
 `src/samudra/configs/data/om4_demo.yaml` is a ready-made source that streams the public 2°
 OM4 dataset from OSN over S3 with no local download and no credentials. Because its
-locations are absolute, `experiment.data_root` is unused and can be omitted entirely:
+locations are absolute, `experiment.data_root` is unused and can be omitted entirely. The
+same `--data` flag works across train, eval, and viz — for viz it names the ground-truth
+source (`groundtruth_location` defaults to the source's `data_location`):
 
 ```bash
 samudra train samudra_om4/train.yaml --data @data/om4_demo.yaml
+samudra eval  samudra_om4/eval.yaml  --data @data/om4_demo.yaml
+samudra viz   samudra_om4/viz.yaml   --data @data/om4_demo.yaml
 ```
 
 ## API Reference

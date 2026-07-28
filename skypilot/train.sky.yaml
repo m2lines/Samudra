@@ -99,7 +99,7 @@ setup: |
   fi
 
   mkdir -p ~/basins/
-  rclone copy --progress nyu-osn:emulators/jr7309/basins ~/basins
+  rclone copy --progress nyu-osn:m2lines-pubs/Samudra/basins ~/basins
 
 #### End of shared setup ####
 

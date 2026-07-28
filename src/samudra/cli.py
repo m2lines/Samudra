@@ -15,14 +15,42 @@ import sys
 
 _COMMANDS = ("train", "eval", "viz")
 
+_HELP = """\
+samudra — train and evaluate emulators of ocean physics
+
+Samudra is a PyTorch package for models that auto-regressively predict future
+ocean states — temperature, salinity, horizontal currents, sea-surface height,
+and surface heat flux — learned from the OM4 ocean model at 1°, 1/2°, and 1/4°
+resolution. See https://arxiv.org/abs/2412.03795 for the method.
+
+Usage:
+  samudra <command> CONFIG [--KEY VALUE ...]
+
+Commands:
+  train   Train a model from a config (checkpointing, W&B logging, multi-GPU).
+  eval    Roll a trained model out autoregressively and collect metrics.
+  viz     Render maps, time series, and PDFs from evaluation outputs.
+
+CONFIG is a path to a YAML file or the name of a bundled preset such as
+`samudra_om4/train.yaml`. Any config key can be overridden inline (e.g.
+`--epochs 100`); run `samudra <command> --help` for a command's full options.
+
+Examples:
+  samudra train samudra_om4/train.yaml --experiment.data_root ./data
+  samudra eval  samudra_om4/eval.yaml  --ckpt_path ./checkpoint.pt
+
+Docs: https://m2lines.github.io/Samudra/docs/
+"""
+
 
 def main() -> None:
     """Dispatch ``samudra <command> ...`` to the matching task entry point."""
     argv = sys.argv[1:]
-    if not argv or argv[0] not in _COMMANDS:
-        sys.stderr.write(
-            f"usage: samudra {{{'|'.join(_COMMANDS)}}} CONFIG [OVERRIDES...]\n"
-        )
+    if not argv or argv[0] in ("-h", "--help"):
+        sys.stdout.write(_HELP)
+        raise SystemExit(0)
+    if argv[0] not in _COMMANDS:
+        sys.stderr.write(f"samudra: unknown command {argv[0]!r}\n\n{_HELP}")
         raise SystemExit(2)
 
     command, rest = argv[0], argv[1:]

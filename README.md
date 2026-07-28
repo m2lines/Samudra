@@ -25,13 +25,13 @@ Given [`uv`](https://docs.astral.sh/uv/) is installed:
 
 ```
 # Launch a training run with the default Samudra configuration 
-uvx samudra train samudra_om4/train.yaml
+uvx samudra train samudra_om4/train.yaml --data @data/om4_demo.yaml
 
 # Run a long autoregressive rollout against ground-truth data, collecting metrics.
-uvx samudra eval samudra_om4/eval.yaml
+uvx samudra eval samudra_om4/eval.yaml --data @data/om4_demo.yaml
 
 # Generate maps, time series, and probability density plots from eval outputs.
-uvx samudra viz samudra_om4/viz.yaml
+uvx samudra viz samudra_om4/viz.yaml --data @data/om4_demo.yaml
 ```
 
 To learn more, check out the [installation](https://m2lines.github.io/Samudra/docs/getting-started/installation/) and [quick start](https://m2lines.github.io/Samudra/docs/getting-started/quick-start/) guides.

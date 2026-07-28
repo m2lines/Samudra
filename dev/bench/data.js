@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1784999450093,
+  "lastUpdate": 1785259273636,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -11195,6 +11195,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.3984015129214298",
             "extra": "mean: 54.203774617 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b8b487d75310622f26e2412b272f16337b39c480",
+          "message": "Add PyPI release workflow with weekly and stable channels (#817)\n\n## Summary\n\nPublishes `samudra` to [PyPI](https://pypi.org/project/samudra/) as a\nsingle pure-Python wheel via a new **Release** workflow, modeled on\n[marin's release\nworkflow](https://github.com/marin-community/marin/blob/main/.github/workflows/marin-release-libs-wheels.yaml)\n(`resolve → build → publish`) and adapted to a single-package repo.\nPublishing is **gated on the CPU test suite**.\n\n### Release channels\n\n| Trigger | Mode | Version | Published? |\n| --- | --- | --- | --- |\n| Push a `v*` tag | stable | the tag, e.g. `v0.0.1` → `0.0.1` | ✅ PyPI |\n| `schedule` (Mon 06:00 UTC, weekly) | nightly |\n`<next-patch>.dev<YYYYMMDDhhmm>` | ✅ PyPI |\n| `workflow_dispatch` | nightly / stable / smoke | computed\n(nightly/smoke) or the version input (stable only) | ✅ (not smoke) |\n| Pull request touching the script/workflow | smoke | — | ❌ build-only |\n\nThe scheduled dev release is **weekly** rather than daily — the repo\ndoesn't turn over enough in a day to warrant one, and the timestamp\nstill makes each build unique. A hand-triggered **nightly** is\nsupported: choose `mode: nightly` and leave the version field blank to\nbuild and publish a real `0.0.1.dev<stamp>`. The `smoke` mode is a\nbuild-only check (no publish); it names what the build *does*, not how\nit's triggered — every mode can be started by hand from **Actions →\nRelease → Run workflow**.\n\n### Test-gated publishing\n\nEvery publish (stable **and** nightly) waits on the CPU test suite.\n`test.yml` was made reusable (`workflow_call`), and the release\nworkflow's `publish` job `needs` a `test` job that invokes it — so a red\nsuite blocks the upload. A tag push doesn't otherwise run `test.yml`,\nwhich is why the release workflow calls it itself. (Branch-protection\nrequired-checks are intentionally left untouched; the in-workflow gate\ncovers the release path.)\n\n### `samudra` console script\n\nInstalling now exposes a `samudra` command (`[project.scripts]` →\n`samudra.cli:main`) that dispatches `samudra train|eval|viz CONFIG ...`\nto the same entry points as `python -m samudra.train`, so an installed\nuser can run a task against **their own** config without a checkout. The\nexample presets under `configs/` are **not yet shipped** in the wheel\n(our src-layout only packages files under `src/samudra/`); relocating\nthe `configs/` tree so `samudra train samudra_om4/train.yaml` resolves\n*by name* is a self-contained refactor left as a documented follow-up.\n\n### Versioning (setuptools-scm, hybrid)\n\nVersion is delegated to **setuptools-scm**: a git tag *is* the version,\nso there's no `version =` field to maintain and `samudra.__version__`\nworks at runtime. `scripts/package.py` only computes the two synthetic\nversions (timestamped nightly, `+smoke` build) and injects them through\nscm's own `SETUPTOOLS_SCM_PRETEND_VERSION_FOR_SAMUDRA` override — it\nnever mutates a tracked file.\n\nThe timestamped nightly guarantees a unique, PEP 440-ordered dev release\n**even on weeks with no new commits**, which setuptools-scm's\ncommit-distance schemes cannot provide. (Cutting the timestamp logic\n*into* a custom `version_scheme` would either reintroduce same-commit\ncollisions or break scm's same-commit-→-same-version determinism, so it\nstays in the script.)\n\nBefore the first tag, the \"last release\" falls back to `0.0.0`\n(`fallback_version` in `[tool.setuptools_scm]`, mirrored by\n`FALLBACK_VERSION` in the script), so builds target `0.0.1`.\n\n### Publish safety\n\nA dispatched **nightly**/**smoke** run ignores the version input field —\nonly a stable cut consumes it. This closes a footgun where a stray value\nleft in the field would otherwise be stamped verbatim and published as a\nbogus non-dev release, permanently burning a PyPI version. As a\nbackstop, the script also refuses to build a nightly without a `.dev`\nsuffix or a smoke without a `+smoke` segment, failing loudly before\nanything is emitted or published.\n\n### CPU vs GPU\n\nSamudra is pure Python, so **one universal `py3-none-any` wheel serves\neveryone**. CPU is the default (`pip install samudra`); the GPU custom\nkernels (flash-attn, flash-perceiver, torchvision) stay in the existing\n`cuda` extra and compile on the user's machine — nothing GPU-specific\nenters the wheel.\n\n## Security / hardening (per #766)\n\n- **OIDC trusted publishing** — no PyPI token stored; publish job scoped\nto the `pypi-publish` environment.\n- All actions **pinned to full commit SHAs**.\n- Top-level `permissions: contents: read`; `id-token: write` scoped\n**only** to the publish job.\n\n## Also included\n\n- Pin package discovery to `src/` so setuptools auto-discovery can't\nsweep a stale `build/lib/` into the wheel (this was really happening in\nlocal builds); ship `py.typed`; add `[project.urls]`.\n- Docs: new `docs/releasing.md` (process, CPU/GPU install, `samudra`\nCLI, one-time trusted-publisher setup) and a PyPI install section in\n`docs/getting-started/installation.md`.\n\n## Verification\n\n- `resolve` for all modes, real builds (nightly/stable/smoke), and a\nplain untagged build — all produce a single `samudra` wheel, `twine\ncheck` PASSED, no stray `ocean_emulators`.\n- Console script: `samudra` with no/unknown command exits 2 with usage;\n`samudra train --help` routes through the real `TrainConfig` parser; the\nbuilt wheel registers `samudra = samudra.cli:main`.\n- Publish-safety: a nightly/smoke run with a stray version input is\nrejected (exit 1, nothing emitted); a blank-version nightly dispatch\nresolves to `0.0.1.dev<stamp>`.\n- Local editable install derives `0.0.1.dev<N>` from git automatically.\n- `pre-commit` passes on all changed files (`ruff`, `ruff-format`,\n`mypy`, `check-yaml`, `pyproject-fmt`, schemas).\n\n## Follow-up\n\n- **Ship example configs in the wheel** so `samudra train\nsamudra_om4/train.yaml` resolves presets by name (relocate `configs/`\nunder `src/samudra/`) — separate PR.\n\n### Before first publish (maintainer, one-time)\n\n1. Register the repo as a PyPI **trusted publisher** (Owner `m2lines`,\nRepo `Samudra`, Workflow `release.yml`, Environment `pypi-publish`) —\nuse the pending-publisher flow to reserve the free `samudra` name.\n2. Create the `pypi-publish` GitHub environment (optionally with\nrequired reviewers).\n3. Tag `v0.0.1` to cut the first stable release. Steps documented in\n`docs/releasing.md`.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_01V9qeRacC2ZdJ4DCbs6SM8t\n\n---------\n\nCo-authored-by: Claude Opus 4.8 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-07-28T16:37:11Z",
+          "tree_id": "0d91a32f479adb85e2b691bf8e72d39e170e2eef",
+          "url": "https://github.com/m2lines/Samudra/commit/b8b487d75310622f26e2412b272f16337b39c480"
+        },
+        "date": 1785259272533,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 1.0762800644925197,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002214552879332031",
+            "extra": "mean: 929.1261939999913 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.0645981727575896,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12088101638837245",
+            "extra": "mean: 15.480314029200008 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-test/train_default.yaml]",
+            "value": 0.018470630784013193,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6123489138145981",
+            "extra": "mean: 54.140002672000016 sec\nrounds: 5"
           }
         ]
       }

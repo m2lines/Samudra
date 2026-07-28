@@ -48,3 +48,6 @@ build/
 .claude/
 site/
 profiles/
+
+# Build artifacts
+dist/

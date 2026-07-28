@@ -3536,7 +3536,6 @@ wheels = [
 
 [[package]]
 name = "samudra"
-version = "1.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },

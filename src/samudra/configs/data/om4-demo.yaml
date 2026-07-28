@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/DataConfig.json
+
+# Two-degree (2°) OM4 demo data source that streams straight from the public
+# m2lines-pubs bucket on OSN over S3 — no local download or credentials needed
+# (anon: true reads the public bucket anonymously). Because the locations below
+# are absolute (type: s3), they are read as-is and any `experiment.data_root`
+# you pass is ignored; the code still requires the flag to be set to some value,
+# e.g. `--experiment.data_root .`.
+
+sources:
+  - type: om4
+    prognostic_vars_key: thermo_dynamic_all
+    boundary_vars_key: tau_hfds_hfds_anom
+    train_time:
+      start: "1975-01-03"
+      end: "2013-10-05"
+    val_time:
+      start: "2013-10-05"
+      end: "2014-10-05"
+    inference_times:
+      - start: "2014-10-10"
+        end: "2022-12-24"
+    data_location:
+      type: s3
+      endpoint_url: "https://nyu1.osn.mghpcc.org"
+      anon: true
+      bucket: m2lines-pubs
+      path: Samudra/v2026-07/om4_twodeg/OM4.zarr
+    data_means_location:
+      type: s3
+      endpoint_url: "https://nyu1.osn.mghpcc.org"
+      anon: true
+      bucket: m2lines-pubs
+      path: Samudra/v2026-07/om4_twodeg/OM4_means.zarr
+    data_stds_location:
+      type: s3
+      endpoint_url: "https://nyu1.osn.mghpcc.org"
+      anon: true
+      bucket: m2lines-pubs
+      path: Samudra/v2026-07/om4_twodeg/OM4_stds.zarr
+static_data_vars: []
+concurrent_compute: true
+loading:
+  type: cpu

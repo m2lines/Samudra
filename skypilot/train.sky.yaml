@@ -43,8 +43,8 @@ envs:
   # If you still hit permission issues, consider making a dedicated SkyPilot IAM via these docs:
   # https://docs.skypilot.co/en/latest/cloud-setup/cloud-permissions/aws.html#dedicated-skypilot-iam-user
 
-  OSN_KEY_ID: null
-  OSN_KEY_SECRET: null
+  OSN_KEY_ID: ""
+  OSN_KEY_SECRET: ""
   OSN_DATA_PATH: m2lines-pubs/Samudra/v2026-07/om4_halfdeg # Tip: Don't add a trailing `/`!
   # Comma-separated list of OSN paths. If unset, defaults to OSN_DATA_PATH.
   OSN_DATA_PATHS: ""
@@ -71,7 +71,14 @@ setup: |
   # Ensure CUDA dependencies are installed
   uv sync --extra cuda
 
-  rclone config create nyu-osn s3 provider=AWS endpoint=https://nyu1.osn.mghpcc.org/ access_key_id="$OSN_KEY_ID" secret_access_key="$OSN_KEY_SECRET"
+  # OSN inputs (data + basins) default to the public m2lines-pubs bucket, so read
+  # the OSN pod anonymously. Set OSN_KEY_ID/OSN_KEY_SECRET only to reach a private
+  # path (e.g. an emulators/... OSN_DATA_PATH override).
+  if [ -z "$OSN_KEY_ID" ] || [ "$OSN_KEY_ID" = "null" ]; then
+    rclone config create nyu-osn s3 provider=AWS endpoint=https://nyu1.osn.mghpcc.org/ anonymous=true
+  else
+    rclone config create nyu-osn s3 provider=AWS endpoint=https://nyu1.osn.mghpcc.org/ access_key_id="$OSN_KEY_ID" secret_access_key="$OSN_KEY_SECRET"
+  fi
 
   mkdir -p ~/data/
 

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785279171354,
+  "lastUpdate": 1785283424652,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -11285,6 +11285,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.1758748076631866",
             "extra": "mean: 53.92981455359997 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fomobot640@gmail.com",
+            "name": "fomo-bot",
+            "username": "fomo-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4c205e642029474e0bf76f67ab9b2676cd16f023",
+          "message": "Fix README images on PyPI (#828)\n\n## Summary\n- Use absolute raw GitHub URLs for README GIF/logo assets so PyPI can\nrender them outside the repository URL context.\n- Add descriptive alt text for the SST comparison GIF while touching the\nimage reference.\n\n## Validation\n- `curl -I -L` returns `200` image responses for all four README asset\nURLs.\n- `uv build --out-dir /tmp/samudra-readme-dist-827`\n- `uvx twine check /tmp/samudra-readme-dist-827/*`\n- `uvx pre-commit run --files README.md`\n\nRefs #827",
+          "timestamp": "2026-07-28T23:24:42Z",
+          "tree_id": "8a00f08f56c7368c59bee062db91e982378879b0",
+          "url": "https://github.com/m2lines/Samudra/commit/4c205e642029474e0bf76f67ab9b2676cd16f023"
+        },
+        "date": 1785283423538,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.1030247657149397,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0070603036829657104",
+            "extra": "mean: 906.597957800011 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.0619703631991847,
+            "unit": "iter/sec",
+            "range": "stddev: 0.28183237835847347",
+            "extra": "mean: 16.136745831000006 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.017175176358354048,
+            "unit": "iter/sec",
+            "range": "stddev: 3.0598758349225017",
+            "extra": "mean: 58.223565169599986 sec\nrounds: 5"
           }
         ]
       }

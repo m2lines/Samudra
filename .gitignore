@@ -40,7 +40,7 @@ output.log
 .hypothesis/
 .vscode/
 .data_cache/
-configs/schemas/
+src/samudra/configs/schemas/
 /playpen
 *.env
 build/
@@ -48,3 +48,6 @@ build/
 .claude/
 site/
 profiles/
+
+# Build artifacts
+dist/

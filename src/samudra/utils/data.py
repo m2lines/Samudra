@@ -39,7 +39,7 @@ from samudra.constants import (
     construct_metadata,
 )
 from samudra.derived_variables import add_derived_variables
-from samudra.utils.location import ResolvedLocation
+from samudra.utils.llc import _preferred_available_var, _var_without_level
 
 logger = logging.getLogger(__name__)
 
@@ -192,20 +192,20 @@ class DataSource:
 
     def slice(self, time: "TimeConfig") -> Self:
         """Slice the data source to only include the specified time slice."""
-        data_time_min = self.data.time.min().item()
-        data_time_max = self.data.time.max().item()
-        if time.start.datetime > data_time_max or time.end.datetime < data_time_min:
+        data_time_min = self.data.time.values.min()
+        data_time_max = self.data.time.values.max()
+        time_start = time.time_slice.start
+        time_end = time.time_slice.stop
+        if time_start > data_time_max or time_end < data_time_min:
             raise ValueError(
                 f"Time slice {time} is entirely outside the range of the data "
-                f"{data_time_min.strftime('%Y-%m-%d')} to "
-                f"{data_time_max.strftime('%Y-%m-%d')}"
+                f"{str(data_time_min)[:10]} to {str(data_time_max)[:10]}"
             )
 
-        if time.start.datetime < data_time_min or time.end.datetime > data_time_max:
+        if time_start < data_time_min or time_end > data_time_max:
             logger.warning(
                 f"Time slice {time} is partially outside the range of the data "
-                f"{data_time_min.strftime('%Y-%m-%d')} to "
-                f"{data_time_max.strftime('%Y-%m-%d')}"
+                f"{str(data_time_min)[:10]} to {str(data_time_max)[:10]}"
             )
 
         data = self.data.sel(time=time.time_slice)
@@ -269,35 +269,6 @@ class DataSource:
         return norm
 
     @classmethod
-    def from_locations(
-        cls,
-        data_location: ResolvedLocation,
-        means_location: ResolvedLocation,
-        stds_location: ResolvedLocation,
-        *,
-        dataset_spec: DatasetSpec,
-        prognostic_var_names: PrognosticVarNames,
-        boundary_var_names: BoundaryVarNames,
-        static_data_vars: list[str] | None,
-        use_dask: bool,
-    ) -> Self:
-        chunks: dict[str, int] | None = {} if use_dask else None
-        data = data_location.open(chunks)
-        means = means_location.open(chunks)
-        stds = stds_location.open(chunks)
-
-        return cls.from_datasets(
-            data,
-            means,
-            stds,
-            dataset_spec=dataset_spec,
-            prognostic_var_names=prognostic_var_names,
-            boundary_var_names=boundary_var_names,
-            static_data_vars=static_data_vars,
-            name=f"{data_location}-{use_dask}",
-        )
-
-    @classmethod
     def from_datasets(
         cls,
         data: xr.Dataset,
@@ -318,7 +289,12 @@ class DataSource:
             boundary_var_names=boundary_var_names,
             static_data_vars=static_data_vars,
         )
-        masks = extract_wet_mask(data, prognostic_var_names, dataset_spec=dataset_spec)
+        masks = extract_wet_mask(
+            data,
+            prognostic_var_names,
+            boundary_var_names,
+            dataset_spec=dataset_spec,
+        )
 
         return cls(
             name=name,
@@ -408,18 +384,28 @@ class OceanData:
 
 
 @dataclasses.dataclass
+class DataSourceSplits:
+    train: DataSource
+    val: DataSource
+    inference: DataSource | None
+
+
+@dataclasses.dataclass
 class DataContainer:
-    sources: list[DataSource]
-    inference_source: DataSource
+    train_sources: list[DataSource]
+    val_sources: list[DataSource]
+    inference_source: DataSource | None
     loader_version: LoaderVersion
     dataset_spec: DatasetSpec
     # TODO(559): static_data should belong to the DataSource, since we now
     #  deal with multiple resolutions.
     static_data: xr.Dataset | None = None
 
+    # TODO: this is a bit of a footgun now that we have multiple kinds of sources
+    # and should be removed in favor of the appropriate source above.
     @property
     def primary_source(self) -> DataSource:
-        return self.sources[0]
+        return self.train_sources[0]
 
 
 def conditional_rearrange(
@@ -526,49 +512,75 @@ def _flatten(ds: xr.Dataset) -> np.ndarray:
     return np.concatenate(flattened)
 
 
+def _level_index_from_var_name(var_name: str) -> int:
+    suffix = var_name.rsplit("_", maxsplit=1)[-1]
+    return int(suffix) if suffix.isdigit() else 0
+
+
+def _mask_var_for_data_var(
+    data: xr.Dataset,
+    var_name: str,
+    *,
+    dataset_spec: DatasetSpec,
+) -> str:
+    level = _level_index_from_var_name(var_name)
+    base_var = _var_without_level(var_name)
+    llc_staggered_masks = {
+        "U": (f"mask_w_{level}", f"hFacW_{level}"),
+        "oceTAUX": ("mask_w_0", "hFacW_0"),
+        "V": (f"mask_s_{level}", f"hFacS_{level}"),
+        "oceTAUY": ("mask_s_0", "hFacS_0"),
+    }
+    if dataset_spec.type == "llc" and base_var in llc_staggered_masks:
+        if mask_var := _preferred_available_var(data, llc_staggered_masks[base_var]):
+            return mask_var
+    return dataset_spec.mask_vars[level]
+
+
+def _mask_array_for_data_var(
+    data: xr.Dataset,
+    var_name: str,
+    *,
+    dataset_spec: DatasetSpec,
+) -> np.ndarray:
+    mask = data[_mask_var_for_data_var(data, var_name, dataset_spec=dataset_spec)]
+    if "time" in mask.dims:
+        mask = mask.isel(time=0)
+    return mask.to_numpy()
+
+
 def extract_wet_mask(
     data: xr.Dataset,
     prognostic_var_names: PrognosticVarNames,
+    boundary_var_names: BoundaryVarNames,
     *,
     dataset_spec: DatasetSpec,
 ) -> Masks:
     """A mask for where the oceans are. Water is wet."""
     data_ = flatten_masks(data, dataset_spec=dataset_spec)
-    wet_mask = data_[list(dataset_spec.mask_vars)]
-    if "time" in wet_mask.dims:
-        wet_mask_np = wet_mask.isel(time=0).to_array().to_numpy()
-        wet_surface_mask_np = (
-            wet_mask[dataset_spec.mask_vars[0]].isel(time=0).to_numpy()
-        )
-    else:
-        wet_mask_np = wet_mask.to_array().to_numpy()
-        wet_surface_mask_np = wet_mask[dataset_spec.mask_vars[0]].to_numpy()
-
-    depth_ind = _parse_lev_from_output_var(
-        prognostic_var_names, dataset_spec=dataset_spec
+    wet_inp_np = np.stack(
+        [
+            _mask_array_for_data_var(data_, var_name, dataset_spec=dataset_spec)
+            for var_name in prognostic_var_names
+        ]
+    )
+    boundary_mask_vars = [
+        _mask_var_for_data_var(data_, var_name, dataset_spec=dataset_spec)
+        for var_name in boundary_var_names
+    ]
+    boundary_masks = [
+        _mask_array_for_data_var(data_, var_name, dataset_spec=dataset_spec)
+        for var_name in boundary_var_names
+    ]
+    wet_surface_mask_np = (
+        np.stack(boundary_masks)
+        if len(set(boundary_mask_vars)) > 1
+        else boundary_masks[0]
     )
 
-    wet_inp = torch.from_numpy(wet_mask_np[depth_ind])
+    wet_inp = torch.from_numpy(wet_inp_np)
     wet_surface = torch.from_numpy(wet_surface_mask_np)
     return Masks(wet_inp.bool(), wet_surface.bool())
-
-
-def _parse_lev_from_output_var(
-    prognostic_var_names: PrognosticVarNames,
-    *,
-    dataset_spec: DatasetSpec,
-) -> list[int]:
-    """Parse the `lev` dimension from the output var names. Default: 0 for surface."""
-    depth_inds = []
-    for var_depth_i in prognostic_var_names:
-        # Examples: "so_18", "zos"
-        var_split = var_depth_i.split("_")
-        if len(var_split) == 1:
-            depth_inds.append(0)
-        else:
-            depth_inds.append(int(var_split[-1]))
-
-    return depth_inds
 
 
 def flatten_masks(
@@ -791,16 +803,40 @@ def with_level_index_vars(
     return data_copy
 
 
+def with_depth_value_vars(
+    data: xr.Dataset,
+    dataset_spec: DatasetSpec,
+) -> xr.Dataset:
+    """Inverse of `with_level_index_vars`: name 3D variables by depth value.
+
+    Renames the depth-resolved prognostic variables (``<var>_<level_index>``)
+    back to the OM4 ``<var>_lev_<depth>`` form (e.g. ``thetao_0`` ->
+    ``thetao_lev_2_5``). Which variables to rename is read directly off
+    ``dataset_spec.prognostic_var_names`` rather than inferred from the data, so
+    per-level masks (``mask_<i>``) and level-free prognostics (e.g. ``zos``) are
+    never mistaken for depth-resolved variables by name alone.
+    """
+    renames = {}
+    for var_name in dataset_spec.prognostic_var_names:
+        base, _, idx = var_name.rpartition("_")
+        if not (base and idx.isdigit()):
+            continue  # level-free prognostic variable, e.g. zos
+        depth = dataset_spec.depth_levels[int(idx)]
+        depth_str = str(depth).replace(".", "_")
+        if var_name in data.variables:
+            renames[var_name] = f"{base}_lev_{depth_str}"
+
+    return data.rename(renames)
+
+
 def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
     """Standardize dataset coordinates; prefer "lat"/"lon" over "y"/"x"."""
     data_copy = data.copy()
-    # OM4 data has coordinates we don't need
-    # We drop them and rename x, y dimensions to lon, lat
     if "lat" not in data_copy.dims:
-        # Drop unnecessary coordinates and rename dimensions
-        data_copy = data_copy.drop_vars(
-            ["lat", "lon", "lat_b", "lon_b", "dayofyear"], errors="ignore"
-        ).rename({"x": "lon", "y": "lat"})
+        # Preserve the 2-D geographic coords under a non-colliding name, then
+        # rename the x/y dims to the 1-D lat/lon we standardize on.
+        preserve = {n: f"{n}_2d" for n in ("lat", "lon") if n in data_copy.coords}
+        data_copy = data_copy.rename(preserve).rename({"x": "lon", "y": "lat"})
 
     return data_copy
 
@@ -980,4 +1016,27 @@ def compact_dataset(ds: xr.Dataset) -> xr.Dataset:
         data[base_var] = da
         data = data.drop_vars(vars_)
 
+    return data
+
+
+def stack_levels(
+    data: xr.Dataset,
+    dataset_spec: DatasetSpec,
+) -> xr.Dataset:
+    """Reassemble a flattened OM4 dataset into analysis-ready, depth-stacked form.
+
+    Inverts the preprocessing flattening so downstream analysis does not have to:
+    per-level prognostic channels (``thetao_0`` ...) become ``thetao(lev, ...)``
+    and the per-level ``mask_i`` become a single stacked ``wetmask``. Grid
+    coordinates are preserved. This is the dataset-level counterpart to the eval
+    writer's reassembly, for putting ground-truth inputs on the same footing as
+    predictions.
+
+    Implemented as the inverse of `with_level_index_vars` followed by the existing
+    `compact_dataset` (stacks the ``_lev_`` form) and `unflatten_masks`.
+    """
+    data = with_depth_value_vars(data, dataset_spec)
+    data = compact_dataset(data)
+    if dataset_spec.mask_vars[0] in data.variables:
+        data = unflatten_masks(data, dataset_spec=dataset_spec)
     return data

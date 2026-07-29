@@ -187,6 +187,9 @@ class CLI:
             Useful for testing pipeline configuration. Default is False.
         small_run: If True, limits processing to the first 10 time steps only. Useful
             for quick testing and development. Default is False (processes all time steps).
+        write_retries: Number of times the distributed scheduler retries a failed task
+            during the final Zarr write. Guards against transient failures. Only applies
+             when running on a cluster. Default 5.
         cluster: Type of Dask cluster to use for distributed computation. Options are:
             'off' (no cluster, single-threaded), 'local' (LocalCluster), 'kube'
             (KubeCluster), 'slurm' (SlurmCluster), 'coiled' (Coiled cluster).
@@ -205,6 +208,7 @@ class CLI:
         account_for_partial_depths: bool = False,
         dry_run: bool = False,
         small_run: bool = False,
+        write_retries: int = 5,
         cluster: Cluster = "off",
         **cluster_opts,
     ):
@@ -217,6 +221,7 @@ class CLI:
         self.account_for_partial_depths = account_for_partial_depths
         self.dry_run = dry_run
         self.small_run = small_run
+        self.write_retries = write_retries
         self.dask_client = init_cluster(cluster, **cluster_opts)
 
     def _collect(self, ds: xr.Dataset):
@@ -236,15 +241,26 @@ class CLI:
 
         logger.info(f"writing dataset to {self.output_path}")
 
-        ds.to_zarr(
+        delayed = ds.to_zarr(
             self.output_path,
             mode="w",
             consolidated=True,
             encoding={
                 var_name: {"compressor": None} for var_name in ds.data_vars.keys()
             },  # Compression turned off
-            compute=True,
+            compute=False,
         )
+        # Reading blosc-compressed source chunks over S3 occasionally returns a
+        # truncated buffer, surfacing as an intermittent
+        # `RuntimeError: error during blosc decompression: -1` (numcodecs#810) that
+        # otherwise kills the whole job near completion. The failure is transient --
+        # re-fetching the chunk almost always succeeds -- so retry the failed task
+        # rather than abort. `retries` is a distributed-scheduler feature; fall back
+        # to a plain compute when running without a cluster.
+        if self.dask_client is not None:
+            self.dask_client.compute(delayed, retries=self.write_retries, sync=True)
+        else:
+            delayed.compute()
         logger.info("zarr write complete")
 
     def om4(
@@ -445,6 +461,11 @@ class CLI:
         ds_input.attrs["m2lines/ocean_emulators_git_hash"] = get_git_url_hash()
         ds_input.attrs["m2lines/date_created"] = datetime.datetime.now().isoformat()
         ds_input.attrs["m2lines/cli_args"] = " ".join(sys.argv)
+        # Horizontal grid geometry: this pipeline conservatively regrids onto a
+        # regular (rectilinear) lat-lon grid, so downstream code may treat the 2-D
+        # lat/lon as separable. Curvilinear (e.g. tripolar) outputs must set this to
+        # the matching grid_type so consumers do not broadcast their geometry.
+        ds_input.attrs["grid_type"] = "gaussian"
         # Label wetmask via attrs
         if len(ds_input["wetmask"].attrs) == 0:
             ds_input["wetmask"].attrs["long_name"] = "ocean mask"
@@ -456,10 +477,14 @@ class CLI:
             ds = flatten_by_depth_level(ds_input)
         else:
             ds = ds_input
-            if "lev" in ds.dims:
-                dims_to_keep.append("lev")
-            elif "ilev" in ds.dims:
-                dims_to_keep.append("ilev")
+
+        # Retain the depth axis and cell-bound dims so grid-metadata coordinates
+        # (dz, lev, ocean_fraction, lon_b/lat_b) survive into the written dataset.
+        # `lev` is kept even when flattening, since dz/lev/ocean_fraction remain
+        # indexed by it after the prognostic vars are split out.
+        for extra in ("lev", "ilev", "x_b", "y_b"):
+            if extra in ds.dims:
+                dims_to_keep.append(extra)
 
         logger.info(f"dropping extraneous dimensions (keeping {dims_to_keep}).")
         ds = ds.drop_dims([x for x in list(ds.dims) if x not in dims_to_keep])

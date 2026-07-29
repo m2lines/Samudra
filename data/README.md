@@ -48,10 +48,10 @@ Example: Test out this CLI on a small, dry run (this will process a small portio
 export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
 # Then, run the standard OM4 processing pipeline:
 python -m ocean_preprocessing om4 \
-   "s3://m2lines-pubs/FOMO/raw/om4_5daily.zarr" \
-   "s3://m2lines-pubs/FOMO/raw/ocean_static_no_mask_table.zarr" \
-   "s3://m2lines-pubs/FOMO/raw/grids/ocean_hgrid.zarr" \
-   "s3://m2lines-pubs/FOMO/raw/grids/gaussian_grid_360_by_720.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/om4_5daily.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_360_by_720.zarr" \
     --output_path="./local_om4_test.zarr" \
     --dry_run \
     --small_run
@@ -78,11 +78,11 @@ export AWS_ACCESS_KEY_ID=...
 export AWS_SECRET_ACCESS_KEY=...
 # Then, run the standard OM4 processing pipeline:
 python -m ocean_preprocessing om4 \
-   "s3://m2lines-pubs/FOMO/raw/om4_5daily.zarr" \
-   "s3://m2lines-pubs/FOMO/raw/ocean_static_no_mask_table.zarr" \
-   "s3://m2lines-pubs/FOMO/raw/grids/ocean_hgrid.zarr" \
-   "s3://m2lines-pubs/FOMO/raw/grids/gaussian_grid_360_by_720.zarr" \
-    --output_path="s3://m2lines-pubs/FOMO/v$(date "+%Y-%m")/om4_halfdeg/OM4.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/om4_5daily.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_360_by_720.zarr" \
+    --output_path="s3://m2lines-pubs/Samudra/v$(date "+%Y-%m")/om4_halfdeg/OM4.zarr" \
     --cluster="coiled" \
     --wait_for_workers=True
 ```
@@ -193,10 +193,10 @@ prediction_data_test(ds_prediction, ds_truth)
 The preprocessing files are the inputs to create curated emulator dataseets for machine learning.
 These files live on the OSN pod:
 
-- Data: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/raw/om4_5daily.zarr
-- Gaussian Grid: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/raw/grids/gaussian_grid_180_by_360.zarr
-- Mosaic File: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/raw/grids/ocean_hgrid.zarr
-- Static Data File: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/raw/ocean_static_no_mask_table.zarr
+- Data: https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/om4_5daily.zarr
+- Gaussian Grid: https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/grids/gaussian_grid_180_by_360.zarr
+- Mosaic File: https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr
+- Static Data File: https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr
 
 These can be directly input to our pre-processing scripts (see usage above).
 

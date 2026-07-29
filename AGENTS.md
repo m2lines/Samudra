@@ -16,8 +16,8 @@ model implements a ConvNeXt U-Net neural network architecture. We have made sign
 support quarter degree (0.25 x 0.25 lat/lng) data emulation. The samudra-multi model has an encoder, processor, and
 decoder structure and aims to emulate ocean physics by first translating data from a physical space to a latent space.
 The samudra-multi model supports training on multiple scales of data all at once (e.g. one
-degree, half degree and quarter degree), either on a "mix" or "match" schedule (i.e. the cross product of each scale for
-input and label, or one input/label scale at a time per batch).
+degree, half degree and quarter degree) by configuring multiple data sources. Each configured source is trained against
+labels from the same source/resolution.
 
 ## Data
 
@@ -223,7 +223,7 @@ For vizualization or other long-running tasks:
    * Hierarchical configs with `!include` directives
    * Pydantic models for type safety
    * Command-line overrides supported (see `--help`)
-   * Schemas in `configs/schemas/` for IDE autocomplete
+   * Schemas in `src/samudra/configs/schemas/` for IDE autocomplete
 
 8. **Utilities** (`src/samudra/utils/`)
    * `data.py`: Data utilities and preprocessing (largest utility module)
@@ -282,21 +282,25 @@ src/samudra/
 │   ├── core.py           # Core viz logic
 │   ├── config.py         # Viz configuration
 │   └── __main__.py       # Entry point
-└── utils/                # 16 utility modules (see above)
-
-configs/
-├── samudra_om4/          # Samudra model configs (train, eval, viz, model)
-├── samudra_multi_om4/    # samudra-multi model configs
-├── samudra_mini_om4/     # SamudraMini model configs
-├── data/                 # Data configuration (om4.yaml)
-├── test/                 # Minimal test configs
-└── schemas/              # JSON schemas for validation
+├── utils/                # 16 utility modules (see above)
+└── configs/              # Example config presets, shipped in the wheel
+    ├── samudra_om4/      # Samudra model configs (train, eval, viz, model)
+    ├── samudra_multi_om4/# samudra-multi model configs
+    ├── samudra_mini_om4/ # SamudraMini model configs
+    ├── data/             # Data configuration (om4.yaml)
+    └── schemas/          # JSON schemas for validation (gitignored, generated)
 
 tests/                    # Test suite (16 test files)
+├── configs/              # Minimal test-fixture configs (not shipped)
 scripts/                  # Data cloning, preprocessing, job scripts
 skypilot/                 # SkyPilot cloud training configs (train, eval, viz)
 notebooks/                # Analysis and preprocessing notebooks
 ```
+
+Config presets ship inside the package (`src/samudra/configs/`), so an installed
+user can run `samudra train samudra_om4/train.yaml` by preset name (resolved in
+`config_base.py`, filesystem paths take precedence). Test-only fixture configs
+live under `tests/configs/` and are excluded from the wheel.
 
 ### Important Considerations
 
@@ -307,4 +311,4 @@ notebooks/                # Analysis and preprocessing notebooks
 5. **Cloud Training**: Supports SkyPilot for remote job execution on AWS & Lambda Labs
 6. **Noisy Failure**: Do not swallow errors. If something goes wrong, let it fail loudly.
 7. **Avoid Hacks**: Don't accommodate bad designs by adding more cruft -- refactor separately first then make the nice change.
-8. **Multi-Scale Support**: samudra-multi supports training on multiple data resolutions simultaneously with "mix" or "match" scheduling
+8. **Multi-Scale Support**: samudra-multi supports training on multiple data resolutions simultaneously by configuring multiple matched data sources

@@ -459,7 +459,6 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     def __init__(
         self,
         src: DataSource,
-        dst: DataSource | None,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         hist: int,
@@ -471,8 +470,6 @@ class TorchTrainDataset(Dataset[RawTrainData]):
     ):
         super().__init__()
         self.id = f"{self.__class__.__name__}_{str(id(self))}"
-        # If the src and dst DataSource are the same, we can do a lot less work.
-        srcs = [src, dst] if dst else [src]
 
         self.hist: int = hist
         self.steps: int = steps
@@ -483,13 +480,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         self.num_boundary_channels: int = (hist + 1) * len(boundary_var_names)
-        assert np.array_equal(srcs[0].data.time, srcs[-1].data.time), (
-            "src and dst DataSource have different time slices!"
-        )
         time_ = src.data.time
-        self.prognostic_srcs = [
-            src.filter(prognostic_var_names, prefix="prog") for src in srcs
-        ]
+        self.prognostic_src = src.filter(prognostic_var_names, prefix="prog")
         self.boundary_src = src.filter(boundary_var_names, prefix="boundary")
 
         # This class will be used only for training and validation
@@ -511,15 +503,13 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         )
 
         # NB(alxmrs): Keep masks on CPU - will be moved to GPU in to_train_data()
-        self.wet_prognostic: list[PrognosticMask] = [
-            src.masks.prognostic for src in srcs
-        ]
+        self.wet_prognostic: PrognosticMask = src.masks.prognostic
         self.wet_surface: GridMask = src.masks.boundary
 
         self.ctx = GridContext(
-            label_mask=self.prognostic_srcs[-1].masks.prognostic_with_hist(self.hist),
-            input_resolution_cpu=self.prognostic_srcs[0].resolution,
-            output_resolution_cpu=self.prognostic_srcs[-1].resolution,
+            label_mask=self.prognostic_src.masks.prognostic_with_hist(self.hist),
+            input_resolution_cpu=self.prognostic_src.resolution,
+            output_resolution_cpu=self.prognostic_src.resolution,
         )
 
         self.size: int = (
@@ -542,9 +532,9 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             forecast_x_index = x_index.isel(time=slice(self.hist + 1, None))
 
             # Only materialize the time ranges we actually use to reduce memory.
-            input_selected = self.prognostic_srcs[0].data.isel(time=current_x_index)
+            input_selected = self.prognostic_src.data.isel(time=current_x_index)
             boundary_selected = self.boundary_src.data.isel(time=current_x_index)
-            label_selected = self.prognostic_srcs[-1].data.isel(
+            label_selected = self.prognostic_src.data.isel(
                 time=forecast_x_index
             )  # forecasted data
             prognostic_selected = [input_selected, label_selected]
@@ -613,8 +603,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             prog_input, boundary_input, label_tensor = self._to_example(
                 OceanData.from_data_source(
                     input_,
-                    self.wet_prognostic[0],
-                    self.prognostic_srcs[0],
+                    self.wet_prognostic,
+                    self.prognostic_src,
                 ).to(device=device, non_blocking=True),
                 OceanData.from_data_source(
                     boundary,
@@ -622,7 +612,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                     self.boundary_src,
                 ).to(device=device, non_blocking=True),
                 OceanData.from_data_source(
-                    label, self.wet_prognostic[-1], self.prognostic_srcs[-1]
+                    label, self.wet_prognostic, self.prognostic_src
                 ).to(device=device, non_blocking=True),
             )
             train_data.append(prog_input, boundary_input, label_tensor)

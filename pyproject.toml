@@ -4,25 +4,27 @@
 
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = [ "setuptools", "wheel" ]
+# setuptools>=62.3 is required for recursive `**` globs in package-data
+# (configs/**/*.yaml); without it the presets would be silently omitted.
+requires = [ "setuptools>=62.3", "setuptools-scm>=8", "wheel" ]
 
 [project]
 name = "samudra"
-version = "1.0"
 description = "Train and evaluate ocean model emulators"
 readme = "README.md"
 keywords = [ "climate", "emulation", "machine learning", "ocean" ]
 license = { file = "LICENSE" }
-requires-python = ">=3.12"
+# We currently only test 3.12
+requires-python = ">=3.12,<3.13"
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",
   "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
+dynamic = [ "version" ] # derived from git tags by setuptools-scm
 dependencies = [
   "aiohttp>=3.11.13",
   "cftime>=1.6.4.post1",
@@ -57,6 +59,13 @@ optional-dependencies.cuda = [
   "torchvision>=0.24.0a0",
 ]
 
+urls.Documentation = "https://m2lines.github.io/Samudra/docs/"
+urls.Homepage = "https://m2lines.github.io/Samudra/"
+urls.Issues = "https://github.com/m2lines/Samudra/issues"
+urls.Repository = "https://github.com/m2lines/Samudra"
+# `samudra train|eval|viz CONFIG` for installed users; mirrors `python -m samudra.train`.
+scripts.samudra = "samudra.cli:main"
+
 [dependency-groups]
 dev = [
   "beartype>=0.20",
@@ -90,6 +99,32 @@ docs = [
   "mkdocstrings[python]>=0.27",
   "zensical",
 ]
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+# Ship py.typed plus the example config presets so installed users can run
+# `samudra train samudra_om4/train.yaml` without a checkout (resolved by
+# config_base.py). The `!include`s between presets and configs/data are
+# relative, so the whole tree stays self-consistent inside the package. Test
+# fixtures live under tests/, not here, so they never reach the wheel; the JSON
+# schemas under configs/schemas are gitignored generated output and this glob
+# doesn't match them.
+package-data = { samudra = [ "py.typed", "configs/**/*.yaml" ] }
+
+# Pin discovery to src/ so setuptools auto-discovery can't sweep stray
+# top-level dirs (e.g. a stale build/lib/) into the wheel.
+[tool.setuptools.packages.find]
+where = [ "src" ]
+
+# The version comes from git tags (v1.2.3 -> 1.2.3); commits past a tag get a
+# `.devN` suffix. no-local-version drops the `+g<sha>` segment PyPI rejects.
+# fallback_version is the last released version before the first tag exists
+# (0.0.0 = none yet, so builds target 0.0.1); guess-next-dev bumps it. Keep it
+# in sync with FALLBACK_VERSION in scripts/package.py.
+
+[tool.setuptools_scm]
+local_scheme = "no-local-version"
+fallback_version = "0.0.0"
 
 [tool.ruff]
 lint.select = [ "B006", "D", "E", "F", "I", "UP", "W" ]
@@ -143,16 +178,41 @@ overrides = [
 ]
 
 [tool.uv]
+# The release pages contain several CUDA/PyTorch builds, so select the ABI-compatible wheel explicitly.
+constraint-dependencies = [
+  "flash-attn==2.8.3+cu13torch2.9cxx11abitrue; sys_platform == 'linux' and platform_machine == 'aarch64'",
+  "flash-attn==2.8.3+cu12torch2.9cxx11abitrue; sys_platform == 'linux' and platform_machine == 'x86_64'",
+]
 extra-build-dependencies.flash-attn = [ { requirement = "torch", match-runtime = true } ]
 extra-build-variables.flash-attn = { FLASH_ATTENTION_SKIP_CUDA_BUILD = "TRUE" }
 
 [tool.uv.sources]
+flash-attn = [
+  # On Arm, we want to support CUDA 13 (PhysicsNeMo's ARM64 image uses it and we want to match as closely as possible),
+  # and PyPI has no matching binary wheel so we grab the one direct from github.
+  # NB the PhysicsNeMo container itself has its own build and does not use this.
+  { index = "flash-attn-cu13", extra = "cuda", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
+  # We use CUDA 12 on non-Arm hosts, so grab the upstream CUDA 12/PyTorch 2.9 binary instead.
+  { index = "flash-attn-cu12", extra = "cuda", marker = "sys_platform == 'linux' and platform_machine == 'x86_64'" },
+]
 torch = [
   { index = "pytorch-cu130", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
 ]
 torchvision = [
   { index = "pytorch-cu130", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
 ]
+
+[[tool.uv.index]]
+name = "flash-attn-cu13"
+url = "https://github.com/Dao-AILab/flash-attention/releases/expanded_assets/v2.8.3.post1"
+format = "flat"
+explicit = true
+
+[[tool.uv.index]]
+name = "flash-attn-cu12"
+url = "https://github.com/Dao-AILab/flash-attention/releases/expanded_assets/v2.8.3"
+format = "flat"
+explicit = true
 
 [[tool.uv.index]]
 name = "pytorch-cu130"

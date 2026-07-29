@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/DataConfig.json
+
+sources:
+  - type: llc
+    face: 1
+    i_start: 0
+    i_end: 720
+    j_start: 0
+    j_end: 720
+    train_time:
+      start: "2011-09-10T12:00:00Z"
+      end: "2012-09-01T12:00:00Z"
+    val_time:
+      start: "2012-09-01T12:00:00Z"
+      end: "2012-11-15T12:00:00Z"
+    data_location: LLC.zarr
+    data_means_location: LLC_means.zarr
+    data_stds_location: LLC_stds.zarr
+static_data_vars: []
+concurrent_compute: false
+loading:
+  type: cpu
+  num_workers: 4

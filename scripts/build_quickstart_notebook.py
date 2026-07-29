@@ -23,21 +23,22 @@ INTRO_MD = """\
 
 ## Goal
 
-Train a Samudra 2 ocean emulator on a public slice of 1° OM4 data using a
-free-tier Google Colab GPU. This is an onboarding smoke test, not a
-production-quality or scientifically useful model.
+Train a Samudra 2 ocean emulator on public 2° OM4 data using a free-tier Google
+Colab GPU. This is an onboarding smoke test, not a production-quality or
+scientifically useful model.
 
 No HPC system, local installation, cloud credentials, or Weights & Biases
-account is required.
+account is required. Samudra is installed from PyPI, and the data is streamed
+directly from the public S3 store instead of being copied into Colab.
 
-**Expected runtime:** approximately 20–40 minutes, depending mostly on download
-and GPU speed. The filtered data slice uses approximately 2–2.5 GB of disk.
+**Expected runtime:** depends on the Colab GPU and public S3 throughput. There
+is no multi-gigabyte download step; training reads only the requested samples.
 
 You will:
 
 1. Check the Colab runtime.
-2. Install the training-only dependencies.
-3. Download three and a half years of public 1° OM4 data.
+2. Install the latest stable Samudra release from PyPI.
+3. Inspect the public 2° data stream and configure a compact run.
 4. Train a Samudra 2 model.
 5. Compare one prediction with ground truth.
 """
@@ -48,19 +49,18 @@ RUNTIME_MD = """\
 ### 1. Check the runtime
 
 Choose **Runtime → Change runtime type → T4 GPU** before continuing. Samudra
-requires Python 3.12 or newer; the explicit check below gives a useful error
+currently supports Python 3.12; the explicit check below gives a useful error
 before any project module is imported.
 """
 
 RUNTIME_PY = """\
 import sys
 
-MIN_PYTHON = (3, 12)
-if sys.version_info < MIN_PYTHON:
+SUPPORTED_PYTHON = (3, 12)
+if sys.version_info[:2] != SUPPORTED_PYTHON:
     raise RuntimeError(
-        "Samudra requires Python 3.12+, but this runtime is "
-        f"Python {sys.version.split()[0]}. Select Colab's latest runtime "
-        "version before running this notebook."
+        "The current Samudra package supports Python 3.12, but this runtime is "
+        f"Python {sys.version.split()[0]}. Select Colab's latest runtime."
     )
 
 print(f"Python: {sys.version.split()[0]}")
@@ -70,79 +70,53 @@ print(f"Python: {sys.version.split()[0]}")
 INSTALL_MD = """\
 ### 2. Install Samudra 2
 
-The repository is public, so the notebook clones it directly from
-`m2lines/Samudra`. The slim requirements file avoids preprocessing and cloud
-orchestration packages that this example does not use. The revision field is
-shown as a compact Colab form; keep its default value when running this version
-of the notebook.
-"""
+This installs the latest stable `samudra` release from PyPI—there is
+intentionally no version pin. The resolved version is printed below so each run
+remains diagnosable.
 
-CHECKOUT_PY = """\
-import subprocess
-from pathlib import Path
-
-REPO_DIR = Path("/content/Samudra")
-REPO_REF = "colab-quickstart"  # @param {"type":"string"}
-
-if not (REPO_DIR / ".git").is_dir():
-    subprocess.run(
-        ["git", "clone", "--depth", "1", "--branch", REPO_REF,
-         "https://github.com/m2lines/Samudra.git", str(REPO_DIR)],
-        check=True,
-    )
-else:
-    subprocess.run(
-        ["git", "-C", str(REPO_DIR), "fetch", "--depth", "1", "origin", REPO_REF],
-        check=True,
-    )
-    subprocess.run(
-        ["git", "-C", str(REPO_DIR), "checkout", "--quiet", "--detach", "FETCH_HEAD"],
-        check=True,
-    )
-"""
-
-INSTALL_DEPENDENCIES_MD = """\
-Install the dependencies and expose the repository's `src` directory to this
-kernel. A failed install stops the cell immediately.
+The wheel is installed without its full infrastructure dependency set, then
+the small runtime subset used by this notebook is added explicitly. This keeps
+Colab's working NumPy and CUDA-enabled PyTorch stack intact.
 """
 
 INSTALL_PY = """\
+import subprocess
 import sys
 
-%cd {REPO_DIR}
-requirements_path = REPO_DIR / "requirements-quickstart.txt"
-if not requirements_path.is_file():
-    raise FileNotFoundError(
-        f"{REPO_REF!r} does not contain {requirements_path.name}."
-    )
+RUNTIME_DEPENDENCIES = (
+    "cftime>=1.6.4.post1",
+    "dacite>=1.9.2",
+    "dask>=2025.2",
+    "einops>=0.7",
+    "jaxtyping>=0.3",
+    "microsoft-aurora>=1.8",
+    "perceiver-pytorch>=0.8.8",
+    "pydantic-settings>=2.8.1",
+    "s3fs>=2025.5.1",
+    "torchinfo>=1.8",
+    "wandb>=0.19.8",
+    "xarray>=2025.1.2",
+    "xarray-einstats>=0.8",
+    "zarr<3",
+)
 subprocess.run(
-    [sys.executable, "-m", "pip", "install", "--quiet", "--requirement",
-     str(requirements_path)],
+    [sys.executable, "-m", "pip", "install", "--quiet", "--upgrade",
+     "--no-deps", "samudra"],
     check=True,
 )
-sys.path.insert(0, str(REPO_DIR / "src"))
+subprocess.run(
+    [sys.executable, "-m", "pip", "install", "--quiet", *RUNTIME_DEPENDENCIES],
+    check=True,
+)
 """
 
 VERIFY_INSTALL_MD = """\
-Confirm that the Samudra 2 source tree is importable and PyTorch can use the
-selected GPU. This check restores the source path explicitly, so it does not
-depend on editable-install state from an earlier cell.
+Confirm that Samudra came from the installed PyPI package and PyTorch can use
+the selected GPU.
 """
 
 VERIFY_INSTALL_PY = """\
-import importlib
-import sys
-from pathlib import Path
-
-source_dir = Path("/content/Samudra/src")
-if not (source_dir / "samudra").is_dir():
-    raise FileNotFoundError(
-        "Samudra source was not found. Rerun the repository checkout cell."
-    )
-source_path = str(source_dir)
-if source_path not in sys.path:
-    sys.path.insert(0, source_path)
-importlib.invalidate_caches()
+from importlib.metadata import version
 
 import samudra
 import torch
@@ -152,6 +126,7 @@ if not torch.cuda.is_available():
         "PyTorch cannot see a GPU. Select Runtime → Change runtime type → T4 GPU."
     )
 
+print(f"Samudra: {version('samudra')} (PyPI)")
 print(f"Samudra import: {samudra.__file__}")
 print(f"PyTorch: {torch.__version__}")
 print(f"GPU: {torch.cuda.get_device_name(0)}")
@@ -160,80 +135,143 @@ print(f"GPU: {torch.cuda.get_device_name(0)}")
 DATA_MD = """\
 ## Steps
 
-### 3. Download a public OM4 slice
+### 3. Configure and inspect the public OM4 stream
 
-The repository's `clone_data.py` script defaults to the public, unfiltered 1°
-OM4 release at
-`https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/v2025-11/om4_onedeg/`.
-No S3 credentials are needed.
+PyPI ships the production Samudra 2 model preset and a zero-credential 2° OM4
+data preset. The data preset points to `OM4.zarr`, `OM4_means.zarr`, and
+`OM4_stds.zarr` in the public
+`s3://m2lines-pubs/Samudra/v2026-07/om4_twodeg/` directory.
 
-The following cell downloads indices 0–249: the minimum five-day window needed
-to cover training and validation from January 1958 through June 1961. Before
-transferring chunks, it selects only the five upper-ocean levels and variables
-used by this tutorial. Ten-time-step output chunks reduce filesystem overhead.
-The helper reuses a completed download and safely cleans up partial data before
-a retry.
+The cell below starts from those bundled presets, then narrows the tutorial to
+five upper-ocean levels, 16 training times, seven validation times, one-step
+prediction, and five epochs. It opens the remote Zarr metadata and reads one
+value as a connectivity check; it does not copy the stores to Colab.
 """
 
 DATA_PY = """\
-import subprocess
-import sys
-from pathlib import Path
+from samudra.config import TrainConfig
 
-DATA_DIR = Path("/content/data_cache")
-subprocess.run(
-    [sys.executable, "scripts/download_quickstart_data.py", str(DATA_DIR)],
-    check=True,
+base_cfg = TrainConfig.from_yaml_and_cli(
+    ["samudra_om4/train.yaml", "--data", "@data/om4_demo.yaml"]
 )
-"""
 
-DATA_CHECK_MD = """\
-Verify that the download has the expected time range and variables:
+quickstart = base_cfg.model_dump(mode="json")
+# The Location union currently serializes structured S3 locations through its
+# string-path variant. Restore the validated location objects before rebuilding
+# the config so the public endpoint, bucket, and anonymous-access flag survive.
+for quickstart_source, base_source in zip(
+    quickstart["data"]["sources"], base_cfg.data.sources, strict=True
+):
+    for location_field in (
+        "data_location",
+        "data_means_location",
+        "data_stds_location",
+    ):
+        quickstart_source[location_field] = getattr(base_source, location_field)
+
+quickstart.update(
+    epochs=5,
+    batch_size=4,
+    backend="cuda",
+    save_freq=5,
+    steps=[1],
+    step_transition=[],
+    inference_epochs=[],
+    preemptible=False,
+)
+quickstart["experiment"].update(
+    name="samudra_quickstart",
+    base_output_dir="/content/samudra_outputs",
+)
+quickstart["data"].update(
+    hist=0,
+    loading={"type": "cpu", "num_workers": 0, "persistent_workers": False},
+)
+quickstart["data"]["sources"][0].update(
+    prognostic_vars_key="thermo_dynamic_5",
+    boundary_vars_key="tau_hfds",
+    train_time={"start": "1975-01-03", "end": "1975-03-19"},
+    val_time={"start": "1975-03-24", "end": "1975-04-23"},
+    inference_times=[],
+)
+cfg = TrainConfig.model_validate(quickstart)
+
+# The Python model class keeps the historical name `Samudra`; the default
+# architecture selected here is Samudra 2.
+assert cfg.model.unet.ch_width == [280, 380, 480, 520]
+assert cfg.model.unet.core_block.upscale_factor == 2
+assert cfg.model.unet.up_sampling_block == "zonally_periodic_upsample"
+print("Default model: Samudra 2")
 """
 
 DATA_CHECK_PY = """\
-import xarray as xr
-
-from samudra.constants import build_om4_spec
-
-ds = xr.open_zarr(DATA_DIR / "OM4.zarr")
-dataset_spec = build_om4_spec("thermo_dynamic_5", "tau_hfds")
+source = cfg.data.sources[0]
+ds = source.data_location.open()
+window = ds.sel(
+    time=slice(source.train_time.start.datetime, source.val_time.end.datetime)
+)
+dataset_spec = source.dataset_spec
 expected_variables = set(
     dataset_spec.prognostic_var_names + dataset_spec.boundary_var_names
 )
+lat_dim = "lat" if "lat" in ds.dims else "y"
+lon_dim = "lon" if "lon" in ds.dims else "x"
 
-assert ds.sizes["time"] == 250
+assert (ds.sizes[lat_dim], ds.sizes[lon_dim]) == (90, 180)
 assert expected_variables.issubset(ds.data_vars)
-print(f"Downloaded {ds.sizes['time']} time steps and {len(ds.data_vars)} variables.")
-print(f"Time range: {ds.time.values[0]} → {ds.time.values[-1]}")
+assert window.sizes["time"] == 23
+logical_bytes = sum(window[name].nbytes for name in expected_variables)
+probe = window["zos"].isel(time=0, **{lat_dim: 0, lon_dim: 0}).load()
+
+print(f"Streaming from: {source.data_location}")
+print(f"Grid: {ds.sizes[lat_dim]} × {ds.sizes[lon_dim]} (2°)")
+print(f"Quickstart window: {window.time.values[0]} → {window.time.values[-1]}")
+print(f"Selected model fields: {logical_bytes / 2**20:.1f} MiB before compression")
+print(f"Connectivity probe (zos): {probe.item()}")
+print("No local data copy was created.")
+ds.close()
 """
 
 TRAIN_MD = """\
 ### 4. Train a Samudra 2 model
 
-`configs/quickstart/train.yaml` uses the production Samudra 2 channel widths,
-ConvNeXt expansion factor, zonally periodic upsampling, and dynamic
-variance-weighted loss. To keep the tutorial practical, it uses five depth
-levels rather than nineteen, one-step training, `batch_size=1`, and five epochs.
-Training and validation still go through the normal `Trainer`, including
-normalization, masking, EMA, metrics, and checkpointing.
+The bundled `samudra_om4` preset supplies the production Samudra 2 channel
+widths, ConvNeXt expansion factor, zonally periodic upsampling, and dynamic
+variance-weighted loss. Training and validation still go through the normal
+`Trainer`, including normalization, masking, EMA, metrics, and checkpointing.
+
+The cell keeps Colab output concise: it prints when training and validation
+start for each epoch, while warnings and errors remain visible.
 """
 
 TRAIN_PY = """\
-from samudra.config import TrainConfig
+import logging
+
 from samudra.train import Trainer
 from samudra.utils.multiton import MultitonScope
 
-cfg = TrainConfig.from_yaml_and_cli(
-    [
-        "configs/quickstart/train.yaml",
-        "--experiment.data_root",
-        str(DATA_DIR),
-    ]
-)
+samudra_logger = logging.getLogger("samudra")
+for handler in tuple(samudra_logger.handlers):
+    if handler.get_name() == "samudra-colab-progress":
+        samudra_logger.removeHandler(handler)
+        handler.close()
+samudra_logger.setLevel(logging.WARNING)
 
+
+class ColabTrainer(Trainer):
+    def train_one_epoch(self, epoch):
+        print(f"Training epoch {epoch}/{self.epochs}")
+        return super().train_one_epoch(epoch)
+
+    def validate_one_epoch(self, epoch):
+        print(f"Validating epoch {epoch}/{self.epochs}")
+        return super().validate_one_epoch(epoch)
+
+
+epoch_word = "epoch" if cfg.epochs == 1 else "epochs"
+print(f"Preparing to train for {cfg.epochs} {epoch_word}.")
 with MultitonScope():
-    trainer = Trainer(cfg)
+    trainer = ColabTrainer(cfg)
     trainer.run()
 
 print("Training complete.")
@@ -261,7 +299,7 @@ with torch.no_grad():
     prediction = trainer.model(batch)[0]
 target = batch.get_label(0)
 
-prognostic_names = cfg.data.dataset.build().prognostic_var_names
+prognostic_names = cfg.data.sources[0].dataset_spec.prognostic_var_names
 zos_index = prognostic_names.index("zos")
 predicted_zos = prediction[0, zos_index].cpu().numpy()
 target_zos = target[0, zos_index].cpu().numpy()
@@ -270,7 +308,7 @@ fig, axes = plt.subplots(1, 3, figsize=(14, 3.5))
 for ax, field, title in zip(
     axes,
     [target_zos, predicted_zos, predicted_zos - target_zos],
-    ["Ground truth", "Prediction", "Prediction − truth"],
+    ["Ground truth", "Prediction", "Bias (prediction − truth)"],
     strict=True,
 ):
     image = ax.imshow(field, origin="lower", cmap="RdBu_r")
@@ -286,9 +324,10 @@ plt.show()
 NEXT_MD = """\
 ## Next steps
 
-- Use `configs/samudra_om4_v2/` for full-depth, multi-step Samudra 2 training.
-- Use `python -m samudra.eval` for long autoregressive rollouts.
-- Explore `configs/samudra_multi_om4/` for multi-resolution training.
+- Use `samudra train samudra_om4/train.yaml --data @data/om4_demo.yaml` for the
+  full-depth bundled demo.
+- Use `samudra eval ...` for long autoregressive rollouts.
+- Explore the bundled `samudra_multi_om4` preset for multi-resolution training.
 - Read the [Samudra documentation](https://m2lines.github.io/Samudra/docs/).
 
 If a setup or data step fails, please open a GitHub issue and include the
@@ -320,14 +359,11 @@ def build_notebook() -> nbf.NotebookNode:
         _markdown_cell(RUNTIME_MD, "runtime"),
         _code_cell(RUNTIME_PY, "runtime-code"),
         _markdown_cell(INSTALL_MD, "install"),
-        _code_cell(CHECKOUT_PY, "checkout-code", colab_form=True),
-        _markdown_cell(INSTALL_DEPENDENCIES_MD, "install-dependencies"),
         _code_cell(INSTALL_PY, "install-code"),
         _markdown_cell(VERIFY_INSTALL_MD, "verify-install"),
         _code_cell(VERIFY_INSTALL_PY, "verify-install-code"),
         _markdown_cell(DATA_MD, "data"),
         _code_cell(DATA_PY, "data-code"),
-        _markdown_cell(DATA_CHECK_MD, "data-check"),
         _code_cell(DATA_CHECK_PY, "data-check-code"),
         _markdown_cell(TRAIN_MD, "train"),
         _code_cell(TRAIN_PY, "train-code"),

@@ -9,10 +9,11 @@ SPDX-License-Identifier: CC-BY-4.0
 ## Run in Google Colab
 
 The [Colab quickstart](https://colab.research.google.com/github/m2lines/Samudra/blob/main/notebooks/quickstart.ipynb)
-trains a Samudra 2 model on a public slice of 1° OM4 data using a free-tier
-GPU runtime. It requires no local installation, HPC access, or data credentials.
-The notebook is an onboarding smoke test rather than a scientifically useful
-training run.
+installs the latest stable Samudra release from PyPI and trains a Samudra 2
+model on public 2° OM4 data using a free-tier GPU runtime. It streams the data
+directly from S3, so it requires no local installation, bulk data download, HPC
+access, or cloud credentials. The notebook is an onboarding smoke test rather
+than a scientifically useful training run.
 
 ## Training a Model
 

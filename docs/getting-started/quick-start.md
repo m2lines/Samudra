@@ -9,11 +9,16 @@ SPDX-License-Identifier: CC-BY-4.0
 ## Run in Google Colab
 
 The [Colab quickstart](https://colab.research.google.com/github/m2lines/Samudra/blob/main/notebooks/quickstart.ipynb)
-installs the latest stable Samudra release from PyPI and trains a Samudra 2
-model on public 2° OM4 data using a free-tier GPU runtime. It streams the data
-directly from S3, so it requires no local installation, bulk data download, HPC
-access, or cloud credentials. The notebook is an onboarding smoke test rather
-than a scientifically useful training run.
+installs the latest stable Samudra release from PyPI and walks through a
+complete, YAML-configured training run on a free-tier GPU. It writes and
+displays an editable configuration, trains and validates Samudra 2 on public
+2° OM4 data with live batch progress, saves a checkpoint, and plots one
+held-out sea-surface-height prediction.
+
+PyPI installation, public S3 streaming, and a Colab GPU provide a
+browser-based workflow from configuration through visualization. The same
+editable YAML is a starting point for longer runs, more variables, and
+higher-resolution experiments.
 
 ## Training a Model
 

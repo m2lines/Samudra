@@ -15,8 +15,12 @@ SPDX-License-Identifier: CC-BY-4.0
 
 Samudra is a global ocean emulator described in ["Samudra: An AI Global Ocean Emulator for Climate"](https://arxiv.org/abs/2412.03795) and updated in ["Samudra 2: Scaling Ocean Emulators across Resolutions"](https://m2lines.github.io/Samudra/samudra2/). Samudra efficiently emulates the ocean component of a state-of-the-art climate model, accurately reproducing key ocean variables including sea surface height, horizontal velocities, temperature, and salinity, across their full depth.
 
-To try the complete Samudra 2 training workflow in a browser without HPC access or cloud
-credentials, open the [free-tier Colab quickstart](https://colab.research.google.com/github/m2lines/Samudra/blob/main/notebooks/quickstart.ipynb).
+To configure, train, validate, and visualize Samudra 2 in a browser on public
+data with a Colab GPU, open the
+[free-tier Colab quickstart](https://colab.research.google.com/github/m2lines/Samudra/blob/main/notebooks/quickstart.ipynb).
+It runs from an editable YAML configuration, streams public 2° OM4 data, shows
+live batch progress, saves a checkpoint, and visualizes one held-out
+sea-surface-height prediction.
 
 ![Sea Surface Temperature of the Tropical Pacific: Ground Truth vs Samudra v2](https://raw.githubusercontent.com/m2lines/Samudra/main/docs/static/assets/sst_tropical_pacific_ultra_small.gif "Sea Surface Temperature of the Tropical Pacific: Ground Truth vs Samudra v2")
 

@@ -396,7 +396,9 @@ keys = (
     "SAMUDRA_CONTAINER_IMAGE_REF",
     "SAMUDRA_CONTAINER_SIF_PATH",
 )
-provenance = {key.removeprefix("SAMUDRA_").lower(): os.environ[key] for key in keys}
+# Keep this compatible with the host Python 3.6 available on ORCD.
+prefix = "SAMUDRA_"
+provenance = {key[len(prefix) :].lower(): os.environ[key] for key in keys}
 with open(os.environ["SAMUDRA_PROVENANCE_PATH"], "w", encoding="utf-8") as stream:
     json.dump(provenance, stream, indent=2, sort_keys=True)
     stream.write("\n")

@@ -73,7 +73,7 @@ a queued, running, requeued, or resumed job.
 It expects environment variables:
 
 - `CONFIG` (required): config path inside the container image. Relative paths are
-  resolved under `/workspace/`, e.g. `configs/samudra_om4/train.yaml`.
+  resolved under `/workspace/`, e.g. `src/samudra/configs/samudra_om4/train.yaml`.
 - `NAME_SUFFIX` (required): populates the run name by prepending the current date;
   you can also set `NAME` directly if you prefer.
 - `DATA_ROOT` (optional): host data path passed to
@@ -165,7 +165,7 @@ Submit using the stable SIF plus the new code layer:
 export SCRATCH_DIR=/scratch/$USER
 export SIF_PATH=/scratch/$USER/.apptainer-images/physicsnemo-26.05-latest.sif
 export CODE_LAYER=/scratch/$USER/.apptainer-code-layers/samudra-code-<resolved-full-sha>.img
-export CONFIG=configs/samudra_om4/train.yaml
+export CONFIG=src/samudra/configs/samudra_om4/train.yaml
 export NAME_SUFFIX=my-code-layer-run
 export SIF_DIR=/scratch/$USER/.apptainer-images
 export DATA_CACHE_DIR=/scratch/$USER/.data_cache/${NAME_SUFFIX}
@@ -213,7 +213,7 @@ Partition guidance:
   training unless another allocation is explicitly required.
 
 ```bash
-export CONFIG=configs/samudra_om4/train.yaml
+export CONFIG=src/samudra/configs/samudra_om4/train.yaml
 export NAME="$(date +%F)-om4-samudra-baseline"
 export ARGS="--batch_size=1"
 export REPO_DIR=/scratch/$USER
@@ -252,7 +252,7 @@ sbatch \
 One known-working configuration on torch is:
 
 - The 1, 1/2, and 1/4 degree configuration in
-  `configs/samudra_multi_om4/train.yaml`.
+  `src/samudra/configs/samudra_multi_om4/train.yaml`.
 - 4 x RTX6000, 24 CPUs, 800G memory, and two data-loader workers per rank.
 - `--preemptible=true` with a seven-day walltime. Torch accepts this shape
   under the `gpu168` QoS, which limits jobs over 48 hours to four GPUs total
@@ -263,7 +263,7 @@ the two-worker run progressed without an OOM, although it touched the 800G
 cgroup limit under peak loading. For example:
 
 ```bash
-export CONFIG=configs/samudra_multi_om4/train.yaml
+export CONFIG=src/samudra/configs/samudra_multi_om4/train.yaml
 export NAME="$(date +%F)-samudra-multi-om4-multires-4gpu"
 export DATA_ROOT=/scratch/$USER/data
 export OUTPUT_BASE=/scratch/$USER/runs
@@ -381,7 +381,7 @@ python -m samudra.eval <CONFIG> ...
 It expects environment variables:
 
 - `CONFIG` (required): eval config path inside the container image. Relative paths
-  resolve under `/workspace/`, e.g. `configs/samudra_om4/eval.yaml`.
+  resolve under `/workspace/`, e.g. `src/samudra/configs/samudra_om4/eval.yaml`.
 - `NAME_SUFFIX` (required): populates the eval run name by prepending the current date;
   you can also set `NAME` directly if you prefer.
 - One checkpoint selector (required):
@@ -413,7 +413,7 @@ Key behavior:
 ### Example: 1 Node, 1x RTX6000 Eval
 
 ```bash
-export CONFIG=configs/samudra_om4/eval.yaml
+export CONFIG=src/samudra/configs/samudra_om4/eval.yaml
 export NAME_SUFFIX=om4_samudra_baseline_eval
 export TARGET_CHECKPOINT=2026-02-22-om4_samudra_baseline/saved_nets/ema_ckpt.pt
 # Optional overrides (defaults are /scratch/$USER/data/om4_onedeg_v3 and /scratch/$USER/runs)

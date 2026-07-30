@@ -36,6 +36,7 @@ from samudra.utils.samplers import EquivalenceGroupBatchSampler
 from samudra.utils.train import collate_raw_train_data
 from tests.conftest import (
     DEFAULT_CONFIG,
+    TEST_CONFIGS_DIR,
     TEST_DATASET_SPEC,
     DataSourceDims,
     TrainPair,
@@ -507,7 +508,7 @@ def test_compact_loader__equals_flat_loader(
     data_source: DataSource, pytestconfig: pytest.Config
 ):
     cache = cache_dir(pytestconfig)
-    default_config = str(pytestconfig.rootpath / "configs" / DEFAULT_CONFIG)
+    default_config = str(TEST_CONFIGS_DIR / DEFAULT_CONFIG)
 
     def make_config(src: DataSource):
         return TrainConfig.from_yaml_and_cli(

@@ -1069,11 +1069,13 @@ class ExperimentConfig(BaseConfig):
 
     @cached_property
     def resolved_data_root(self) -> ResolvedLocation:
-        if self.data_root is None:
-            raise ValueError(
-                "data_root must be set, try --experiment.data_root=path/to/data"
-            )
+        # Default to the current directory when no data_root is given. Absolute
+        # data locations (e.g. an s3:// demo source) ignore the root entirely, so
+        # they run flagless; relative locations resolve against cwd and still
+        # fail loudly at open() if the data isn't there.
         default_root = LocalLocation(path=Path.cwd())
+        if self.data_root is None:
+            return default_root
         return default_root.resolve(self.data_root)
 
 

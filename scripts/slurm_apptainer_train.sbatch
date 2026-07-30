@@ -7,7 +7,7 @@
 # Slurm + Apptainer harness for distributed training, modeled after `skypilot/train.sky.yaml`.
 #
 # Submit with env vars (example):
-#   export CONFIG=configs/.../train.yaml
+#   export CONFIG=src/samudra/configs/.../train.yaml
 #   export NAME_SUFFIX=om4_samudra_baseline   # NAME becomes YYYY-MM-DD-<suffix>
 #   export ARGS="--epochs=2 --batch_size=1"
 #   export WANDB_API_KEY=...   # optional; if unset, wandb is disabled

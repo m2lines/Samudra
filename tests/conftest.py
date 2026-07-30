@@ -22,9 +22,12 @@ from samudra.utils.data import DataSource, Masks, _is_compact, compact_dataset
 from samudra.utils.multiton import MultitonScope
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
-DEFAULT_CONFIG = "test/train_default.yaml"
-SAMUDRA_MULTI_CONFIG = "test/train_samudra_multi.yaml"
-ALL_CONFIGS = [DEFAULT_CONFIG, "test/train_default_2step.yaml", SAMUDRA_MULTI_CONFIG]
+# Test-only config fixtures live alongside the tests (they aren't shipped in the
+# wheel, unlike the presets under src/samudra/configs).
+TEST_CONFIGS_DIR = pathlib.Path(__file__).parent / "configs"
+DEFAULT_CONFIG = "train_default.yaml"
+SAMUDRA_MULTI_CONFIG = "train_samudra_multi.yaml"
+ALL_CONFIGS = [DEFAULT_CONFIG, "train_default_2step.yaml", SAMUDRA_MULTI_CONFIG]
 TEST_DATASET_SPEC = c.build_om4_spec(
     prognostic_vars_key="thetao_1",
     boundary_vars_key="hfds",
@@ -551,7 +554,7 @@ def train_config(
     train_config = TrainConfig.from_yaml_and_cli(
         [
             # file to read
-            str(pytestconfig.rootpath / "configs" / config_name),
+            str(TEST_CONFIGS_DIR / config_name),
             "--experiment.data_root",
             str(cache / data_source.name),
             "--backend",

@@ -96,7 +96,7 @@ CODE_COMMIT="${RESOLVED_COMMIT,,}"
 echo "Resolved ${CODE_REF} to ${CODE_COMMIT}."
 git -C "${CHECKOUT_DIR}" checkout --quiet --detach "${RESOLVED_COMMIT}"
 
-for source_path in src configs pyproject.toml uv.lock; do
+for source_path in src pyproject.toml uv.lock; do
   if [[ ! -e "${CHECKOUT_DIR}/${source_path}" ]]; then
     echo "Required source path is absent from ${CODE_REF} (${CODE_COMMIT}): ${source_path}" >&2
     exit 6
@@ -186,7 +186,7 @@ manifest = {
     "source_root": "/opt/samudra-code",
     "uv_lock_sha256": os.environ["SOURCE_UV_LOCK_SHA256"],
     "pyproject_sha256": os.environ["SOURCE_PYPROJECT_SHA256"],
-    "included_paths": ["src", "configs", "pyproject.toml", "uv.lock"],
+    "included_paths": ["src", "pyproject.toml", "uv.lock"],
 }
 with open(sys.argv[1], "w", encoding="utf-8") as stream:
     json.dump(manifest, stream, indent=2, sort_keys=True)
@@ -209,7 +209,6 @@ echo "Creating ${CODE_LAYER_SIZE_MB} MiB sparse EXT3 code layer."
   bash -lc '
     set -euo pipefail
     cp -a /opt/samudra-layer-source/src /opt/samudra-code/src
-    cp -a /opt/samudra-layer-source/configs /opt/samudra-code/configs
     cp -a /opt/samudra-layer-source/pyproject.toml /opt/samudra-code/pyproject.toml
     cp -a /opt/samudra-layer-source/uv.lock /opt/samudra-code/uv.lock
     cp /tmp/samudra-source-manifest.json /opt/samudra-code/source-manifest.json
@@ -223,7 +222,7 @@ echo "Creating ${CODE_LAYER_SIZE_MB} MiB sparse EXT3 code layer."
   bash -lc '
     set -euo pipefail
     export PYTHONPATH=/opt/samudra-code/src
-    test -d /opt/samudra-code/configs
+    test -d /opt/samudra-code/src/samudra/configs
     test -f /opt/samudra-code/src/samudra/__init__.py
     /workspace/.venv/bin/python -c \
       "import pathlib, samudra; assert pathlib.Path(samudra.__file__).is_relative_to(pathlib.Path(\"/opt/samudra-code\"))"

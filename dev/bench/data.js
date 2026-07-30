@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785445671437,
+  "lastUpdate": 1785452644530,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -11420,6 +11420,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.36958049973242385",
             "extra": "mean: 54.44668978939999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fomobot640@gmail.com",
+            "name": "fomo-bot",
+            "username": "fomo-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9fe59af7f999c0b2e8e71e6476d4a7e6d7b16568",
+          "message": "Delete correctors and static-data plumbing (#822)\n\n## Summary\n- delete the Samudra corrector module and remove the corrector hook from\nthe Samudra model\n- remove static-data plumbing from data config/building, model\nconstruction, configs, and tests\n- remove OM4 preprocessing support for merging corrector-only static\nvariables while preserving the native grid input\n\nCloses #816\n\n## Tests\n- `uv run pytest tests/test_config.py tests/test_gradient_detaching.py\ntests/test_positional_channels.py tests/test_derived_variables.py`\n- `cd data && uv run --with pytest pytest tests/test_preprocessing.py\ntests/test_utils.py`\n- `CUDA_VISIBLE_DEVICES=\"\" uv run pytest -m \"not manual and not cuda\"`\n- `uvx pre-commit run --all-files`\n\nCo-authored-by: Alex Merose <alex@openathena.ai>",
+          "timestamp": "2026-07-30T22:26:38Z",
+          "tree_id": "6df1c8495b4c202b0b88a2a56ef703832ec9a8c3",
+          "url": "https://github.com/m2lines/Samudra/commit/9fe59af7f999c0b2e8e71e6476d4a7e6d7b16568"
+        },
+        "date": 1785452643354,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.0751395243932873,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004975090398794055",
+            "extra": "mean: 930.111838800002 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06435556423124851,
+            "unit": "iter/sec",
+            "range": "stddev: 0.046310588732404",
+            "extra": "mean: 15.5386719384 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.018486890537694048,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1693467742618012",
+            "extra": "mean: 54.092384977400016 sec\nrounds: 5"
           }
         ]
       }

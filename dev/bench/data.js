@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785445663247,
+  "lastUpdate": 1785445671437,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -22849,6 +22849,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.26237611224968127",
             "extra": "mean: 47.887606016400014 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "afbe39444d6089330e74d33c52cb00e7f8058199",
+          "message": "Fix LLC center-mask fallback and fixture schema (#820)\n\n## Summary\n\n- align the tiny LLC test fixture with the live LLC4320 root's complete\nvariable/coordinate set, dimension layouts, and mask dtypes\n- preserve `mask_c` as the preferred center mask while falling back to\n`hFacC` when `mask_c` is absent\n- add regression coverage for the production schema and the unresolved\n`hFacC` fallback from PR #670\n\n## Root cause\n\nLLC canonicalization hard-coded `mask_c` in its retained-variable\nwhitelist. The test fixture omitted `hFacC`, so it could not expose that\nstores containing only the standard MITgcm center-cell fraction would\ndrop their only center wet mask before canonicalization.\n\nThe live LLC4320 root contains both `mask_c` and `hFacC`; the fixture\nnow models both accurately, including fractional `float32` `hFac*`\narrays.\n\n## Validation\n\n- `uv run pytest tests/test_utils_data.py -k llc` — 7 passed\n- `uv run pytest tests/test_config.py tests/test_datasets.py -k llc` — 9\npassed\n- pre-commit Ruff and mypy hooks passed; Ruff formatting was applied\n- the remaining schema hook was interrupted on the slow shared host;\nGitHub CI should complete the full suite\n\nReview context:\nhttps://github.com/m2lines/Samudra/pull/670#discussion_r3634786286",
+          "timestamp": "2026-07-30T20:29:24Z",
+          "tree_id": "762f4433e220f644ae8389a15aa40b1ddda0e155",
+          "url": "https://github.com/m2lines/Samudra/commit/afbe39444d6089330e74d33c52cb00e7f8058199"
+        },
+        "date": 1785445671212,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.0638658423264886,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0013756965083813262",
+            "extra": "mean: 939.9681428000122 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06447003389720429,
+            "unit": "iter/sec",
+            "range": "stddev: 0.05572153900359286",
+            "extra": "mean: 15.511082274200021 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.021010114909394736,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6578195370626582",
+            "extra": "mean: 47.596122358799995 sec\nrounds: 5"
           }
         ]
       }

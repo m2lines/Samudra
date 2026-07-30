@@ -330,6 +330,20 @@ def test_rename_llc_level_index_vars():
     assert "Theta_lev_0" in original.data_vars
 
 
+def test_raw_llc_fixture_uses_production_layout():
+    data, _, _ = raw_llc_datasets()
+
+    assert data["Theta"].dims == ("time", "k", "face", "j", "i")
+    assert data["W"].dims == ("time", "k_p1", "face", "j", "i")
+    assert data["hFacC"].dims == ("k", "face", "j", "i")
+    assert data["hFacW"].dims == ("k", "face", "j", "i_g")
+    assert data["hFacS"].dims == ("k", "face", "j_g", "i")
+    assert data["dxV"].dims == ("face", "j_g", "i_g")
+    assert data["dyU"].dims == ("face", "j_g", "i_g")
+    assert data["hFacC"].dtype == np.dtype("float32")
+    assert data["mask_c"].dtype == np.dtype("bool")
+
+
 def test_flatten_llc_level_vars():
     raw_data, _, _ = raw_llc_datasets()
     data = raw_data[["Theta"]].isel(face=0, drop=True).rename({"k": "lev"})
@@ -394,6 +408,7 @@ def test_canonicalize_llc_datasets_standardizes_layout():
     assert llc_data["U_0"].dims == ("time", "y", "x")
     assert llc_data["V_0"].dims == ("time", "y", "x")
     assert llc_data["wetmask_0"].dims == ("y", "x")
+    assert llc_data["wetmask_0"].dtype == np.dtype("bool")
     assert llc_data["mask_w_0"].dims == ("y", "x")
     assert llc_data["mask_s_0"].dims == ("y", "x")
     assert llc_data["Theta_0"].shape == (3, 2, 3)
@@ -403,6 +418,33 @@ def test_canonicalize_llc_datasets_standardizes_layout():
     assert "Theta_0" in llc_stds.variables
     assert "Theta_lev_0" not in llc_means.variables
     assert "Theta_lev_0" not in llc_stds.variables
+
+
+def test_canonicalize_llc_datasets_uses_hfacc_without_mask_c():
+    data, means, stds = raw_llc_datasets()
+    data = data.drop_vars("mask_c")
+    expected = (
+        data["hFacC"]
+        .sel(face=1, drop=True)
+        .isel(k=0, j=slice(1, 3), i=slice(1, 4), drop=True)
+        .rename({"j": "y", "i": "x"})
+        .rename("wetmask_0")
+    )
+
+    llc_data, _, _ = canonicalize_llc_datasets(
+        data,
+        means,
+        stds,
+        face=1,
+        i_start=1,
+        i_end=4,
+        j_start=1,
+        j_end=3,
+        dataset_spec=build_llc_spec(),
+    )
+
+    assert "hFacC" not in llc_data.variables
+    xr.testing.assert_identical(llc_data["wetmask_0"], expected)
 
 
 def test_canonicalize_llc_datasets_selects_requested_vars_from_full_root():

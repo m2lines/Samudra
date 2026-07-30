@@ -26,6 +26,7 @@ from samudra.constants import (
     build_llc_spec,
     build_om4_spec,
 )
+from samudra.metrics.config import ObsMetricsConfig
 from samudra.models import Samudra, SamudraMini, SamudraMulti
 from samudra.models.base import BaseModel
 from samudra.models.modules import (
@@ -1219,6 +1220,22 @@ class EvalConfig(TopLevelConfig):
     experiment: ExperimentConfig
     data: DataConfig
     model: AnyModelConfig
+    observations: ObsMetricsConfig = Field(
+        default_factory=ObsMetricsConfig,
+        description="Observation-based metrics computed after the rollout finishes.",
+    )
+
+    @pydantic.model_validator(mode="after")
+    def _observations_need_a_saved_rollout(self) -> Self:
+        # Caught here rather than after the rollout: observation metrics score a
+        # rollout read back from disk, and discovering the misconfiguration at
+        # the end would waste the whole job.
+        if self.observations.enabled and not self.save_zarr:
+            raise ValueError(
+                "observations.enabled requires save_zarr=true: the metrics are "
+                "computed from the predictions.zarr the rollout writes."
+            )
+        return self
 
     def prepare_output_dirs(self) -> None:
         self.experiment.output_dir.mkdir(parents=True, exist_ok=True)

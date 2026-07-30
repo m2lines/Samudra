@@ -18,3 +18,15 @@ experiment:
     project: default
 data: !include ../data/om4.yaml
 model: !include model.yaml
+observations:
+  # Scored against DUACS, OISST and ARGO-IAP once the rollout is on disk.
+  # Paths resolve against experiment.data_root; the skypilot eval job stages
+  # them under ~/data/obs/.
+  enabled: true
+  duacs_location: obs/duacs.zarr
+  oisst_location: obs/oisst.zarr
+  argo_iap_location: obs/argo-iap.zarr
+  # Eight complete calendar years, so the score and its block bootstrap share
+  # equal-weight blocks.
+  rmse_start: "2015-01-01"
+  rmse_end: "2022-12-31"

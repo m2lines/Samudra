@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785283431406,
+  "lastUpdate": 1785445589792,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -11330,6 +11330,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 3.0598758349225017",
             "extra": "mean: 58.223565169599986 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1ed1a37aee7b9d2337f7a64ef420cf12e725b6f6",
+          "message": "Support Python 3.6 in Slurm provenance writers (#824)\n\n## Summary\n\n- keep the Apptainer train and eval provenance writers compatible with\nORCD's host Python 3.6\n- replace `str.removeprefix` with equivalent prefix slicing in both\nSlurm harnesses\n- document why the older-Python-compatible form is required\n\n## Root cause\n\nThe Slurm harness writes `run-provenance.json` with the host `python3`\nbefore launching Apptainer. ORCD currently provides Python 3.6.8 on the\nhost, where `str.removeprefix` is unavailable. As a result, H200\nsmoke-test job `18753331` pulled the correct container successfully but\nexited before `srun` launched training.\n\n## Impact\n\nTraining and evaluation jobs can now write provenance metadata and\nproceed to their container launch on ORCD's host Python.\n\n## Checks\n\n- `bash -n scripts/slurm_apptainer_train.sbatch\nscripts/slurm_apptainer_eval.sbatch`\n- executed each harness's embedded provenance writer with ORCD host\nPython 3.6.8 and verified the expected JSON keys\n- `git diff --check`",
+          "timestamp": "2026-07-30T20:27:43Z",
+          "tree_id": "e1668ded184003093e7b56f46a347500b3976153",
+          "url": "https://github.com/m2lines/Samudra/commit/1ed1a37aee7b9d2337f7a64ef420cf12e725b6f6"
+        },
+        "date": 1785445588716,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.0992243053939286,
+            "unit": "iter/sec",
+            "range": "stddev: 0.013252856019411131",
+            "extra": "mean: 909.7324314000048 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06323987288655117,
+            "unit": "iter/sec",
+            "range": "stddev: 0.08523501882160801",
+            "extra": "mean: 15.812808507600016 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.018211458462092156,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2247593954098655",
+            "extra": "mean: 54.91048408239999 sec\nrounds: 5"
           }
         ]
       }

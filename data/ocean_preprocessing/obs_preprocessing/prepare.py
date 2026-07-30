@@ -204,6 +204,27 @@ def _chunk_for_write(ds: xr.Dataset) -> xr.Dataset:
     return ds.chunk(chunks)
 
 
+# Attributes that identify a single input *file*. Combining thousands of daily
+# files keeps the first file's values, which then misdescribe the whole store --
+# e.g. `time_coverage_start` naming one day of a multi-year record. They are
+# rebuilt from the combined data, or dropped where they have no aggregate
+# meaning. The provider's descriptive attrs (title, references, institution,
+# license, DOI) are deliberately kept: that is the attribution travelling with
+# the data.
+_PER_FILE_ATTRS = (
+    "id",
+    "date_created",
+    "date_modified",
+    "history",
+    "time_coverage_start",
+    "time_coverage_end",
+    "time_coverage_duration",
+    "time_coverage_resolution",
+    "start_time",
+    "stop_time",
+)
+
+
 def _with_provenance(
     ds: xr.Dataset,
     product: str,
@@ -212,6 +233,13 @@ def _with_provenance(
     om4_path: str | None = None,
 ) -> xr.Dataset:
     ds = ds.copy()
+    for attr in _PER_FILE_ATTRS:
+        ds.attrs.pop(attr, None)
+    if "time" in ds.coords and ds.sizes.get("time", 0):
+        times = pd.DatetimeIndex(ds["time"].values)
+        ds.attrs["time_coverage_start"] = times.min().isoformat()
+        ds.attrs["time_coverage_end"] = times.max().isoformat()
+
     ds.attrs.update(PROVENANCE[product])
     ds.attrs["m2lines/date_created"] = datetime.datetime.now().isoformat()
     ds.attrs["m2lines/cli_args"] = " ".join(sys.argv)

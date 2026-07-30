@@ -25,6 +25,7 @@ Two conventions run through the module:
 from __future__ import annotations
 
 import dataclasses
+from typing import cast
 
 import numpy as np
 import pandas as pd
@@ -161,7 +162,9 @@ def complete_calendar_years(
     target_count = int(counts.max())
     step_days = median_time_step_days(index)
     boundary_tolerance = (
-        pd.Timedelta(days=1.5 * step_days) if np.isfinite(step_days) else pd.Timedelta(0)
+        pd.Timedelta(days=1.5 * step_days)
+        if np.isfinite(step_days)
+        else pd.Timedelta(0)
     )
     years = []
     for year, count in counts.items():
@@ -173,7 +176,7 @@ def complete_calendar_years(
             and year_index.max() >= year_end - boundary_tolerance
         )
         if covers_calendar and count >= min_sample_fraction * target_count:
-            years.append(int(year))
+            years.append(int(str(year)))
     return years
 
 
@@ -318,7 +321,7 @@ def area_weighted_pattern_corr(
     covariance = (weights * model_anomaly * obs_anomaly).sum(skipna=True)
     model_variance = (weights * model_anomaly**2).sum(skipna=True)
     obs_variance = (weights * obs_anomaly**2).sum(skipna=True)
-    denominator = np.sqrt(model_variance * obs_variance)
+    denominator = cast(xr.DataArray, np.sqrt(model_variance * obs_variance))
     denominator_value = float(denominator.values)
     if not np.isfinite(denominator_value) or denominator_value <= 0.0:
         return float("nan")
@@ -332,7 +335,10 @@ def field_rmse_over_time(
     sim_aligned, obs_aligned = xr.align(sim, obs, join="inner")
     if sim_aligned.sizes.get("time", 0) == 0:
         raise ValueError(f"No common time samples for {context} RMSE")
-    return np.sqrt(((sim_aligned - obs_aligned) ** 2).mean("time", skipna=True))
+    return cast(
+        xr.DataArray,
+        np.sqrt(((sim_aligned - obs_aligned) ** 2).mean("time", skipna=True)),
+    )
 
 
 # --------------------------------------------------------------------------
@@ -427,9 +433,14 @@ def ohc_per_area_layer_maps(
             native_dz=native_dz,
         )
         temp_layer = temp_field.where(overlap_dz > 0)
-        valid = np.isfinite(temp_layer).any(depth_name)
+        # np.isfinite on a DataArray returns a DataArray, but the numpy stubs
+        # widen it to ndarray, which has no `dim=` keyword.
+        finite = cast(xr.DataArray, np.isfinite(temp_layer))
+        valid = finite.any(dim=depth_name)
         ohc = (
-            (temp_layer * overlap_dz * RHO * CP).sum(depth_name, skipna=True).where(valid)
+            (temp_layer * overlap_dz * RHO * CP)
+            .sum(depth_name, skipna=True)
+            .where(valid)
         )
         out[layer.label] = ohc
     return out
@@ -463,7 +474,10 @@ def has_repeated_calendar_months(index: pd.DatetimeIndex) -> bool:
 
 def _use_pentad_climatology(index: pd.DatetimeIndex) -> bool:
     """Whether the sampling is fine enough, and repeats enough, for pentad bins."""
-    if not np.isfinite(median_time_step_days(index)) or median_time_step_days(index) > 10:
+    if (
+        not np.isfinite(median_time_step_days(index))
+        or median_time_step_days(index) > 10
+    ):
         return False
     counts = pd.Series(pentad_index(index)).value_counts()
     return bool((counts >= 2).sum() >= 24)
@@ -527,9 +541,7 @@ def detrended_deseasonalized(
     return detrend_linear_dataarray(deseasonalized, time_dim=time_dim)
 
 
-def residual_variance_map(
-    field: xr.DataArray, time_dim: str = "time"
-) -> xr.DataArray:
+def residual_variance_map(field: xr.DataArray, time_dim: str = "time") -> xr.DataArray:
     """Variance of the detrended, deseasonalized residual at each grid cell.
 
     Population variance (`ddof=0`), matching the reference implementation.
@@ -556,12 +568,13 @@ def series_without_seasonal_cycle(series: pd.Series) -> pd.Series:
 def series_without_linear_trend(series: pd.Series) -> pd.Series:
     """Remove a least-squares linear trend from a scalar time series."""
     values = series.astype(float)
-    finite = np.isfinite(values.values)
+    raw = np.asarray(values.to_numpy(), dtype=float)
+    finite = np.isfinite(raw)
     if finite.sum() < 2:
         return values - values.mean()
 
     x = np.arange(len(values), dtype=float)
-    slope, intercept = np.polyfit(x[finite], values.values[finite], 1)
+    slope, intercept = np.polyfit(x[finite], raw[finite], 1)
     trend = pd.Series(slope * x + intercept, index=values.index)
     return values - trend
 
@@ -569,12 +582,13 @@ def series_without_linear_trend(series: pd.Series) -> pd.Series:
 def series_linear_trend_per_year(series: pd.Series) -> float:
     """Ordinary-least-squares slope in units per year."""
     values = series.astype(float)
-    finite = np.isfinite(values.values)
+    raw = np.asarray(values.to_numpy(), dtype=float)
+    finite = np.isfinite(raw)
     if values.empty or finite.sum() < 2:
         return float("nan")
     index = pd.DatetimeIndex(values.index)
     x = (index - index[0]).days.to_numpy(dtype=float) / 365.25
-    slope, _ = np.polyfit(x[finite], values.values[finite], 1)
+    slope, _ = np.polyfit(x[finite], raw[finite], 1)
     return float(slope)
 
 

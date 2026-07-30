@@ -4,8 +4,8 @@
 
 """CLI for fetching and preparing observation products.
 
-    python -m ocean_preprocessing.obs_preprocessing download oisst --output_dir=...
-    python -m ocean_preprocessing.obs_preprocessing prepare all --raw_root=... --output_root=...
+python -m ocean_preprocessing.obs_preprocessing download oisst --output_dir=...
+python -m ocean_preprocessing.obs_preprocessing prepare all --raw_root=... --output_root=...
 """
 
 import logging
@@ -172,13 +172,17 @@ class Prepare:
     ) -> None:
         """Build every store the observation metrics need."""
         Path(output_root).mkdir(parents=True, exist_ok=True)
-        self.oisst(raw_root, output_root, om4_path, start_date, end_date, dry_run=dry_run)
+        self.oisst(
+            raw_root, output_root, om4_path, start_date, end_date, dry_run=dry_run
+        )
         self.argo_iap(raw_root, output_root, dry_run=dry_run)
-        self.duacs(raw_root, output_root, om4_path, start_date, end_date, dry_run=dry_run)
+        self.duacs(
+            raw_root, output_root, om4_path, start_date, end_date, dry_run=dry_run
+        )
 
 
 class CLI:
-    """Fetch and prepare observation products for emulator evaluation.
+    r"""Fetch and prepare observation products for emulator evaluation.
 
     Two stages, run in order:
 

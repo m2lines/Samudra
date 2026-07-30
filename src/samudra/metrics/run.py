@@ -45,7 +45,9 @@ def analysis_ready(data: xr.Dataset, dataset_spec: DatasetSpec) -> xr.Dataset:
     """Put a dataset in depth-stacked form, matching the rollout writer's layout."""
     if any(
         name in data.data_vars
-        for name in (f"thetao_{i}" for i in range(dataset_spec.num_prognostic_depth_levels))
+        for name in (
+            f"thetao_{i}" for i in range(dataset_spec.num_prognostic_depth_levels)
+        )
     ):
         return stack_levels(data, dataset_spec)
     return data
@@ -78,7 +80,9 @@ def run_observation_metrics(
     start = time.perf_counter()
     products = obs_cfg.open_products(data_root)
 
-    rollouts = {model_label: observations.model_on_latlon_grid(predictions, dataset_spec)}
+    rollouts = {
+        model_label: observations.model_on_latlon_grid(predictions, dataset_spec)
+    }
     model_dz = {
         model_label: observations.model_depth_thickness(
             rollouts[model_label], dataset_spec

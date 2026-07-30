@@ -13,7 +13,7 @@ import xarray as xr
 from pydantic import BaseModel, Field, model_validator
 
 from samudra.metrics import kernels, observations
-from samudra.utils.location import Location, ResolvedLocation
+from samudra.utils.location import Location, ResolvedLocation, UnresolvedLocation
 
 logger = logging.getLogger(__name__)
 
@@ -30,15 +30,15 @@ class ObsMetricsConfig(BaseModel):
         description="Compute observation metrics after the rollout finishes.",
     )
     duacs_location: Location = Field(
-        default="obs/duacs.zarr",
+        default=UnresolvedLocation(path="obs/duacs.zarr"),
         description="DUACS surface geostrophic velocity, on its native grid.",
     )
     oisst_location: Location = Field(
-        default="obs/oisst.zarr",
+        default=UnresolvedLocation(path="obs/oisst.zarr"),
         description="OISST sea-surface temperature, on its native grid.",
     )
     argo_iap_location: Location = Field(
-        default="obs/argo-iap.zarr",
+        default=UnresolvedLocation(path="obs/argo-iap.zarr"),
         description="ARGO-IAP gridded temperature, on its native grid.",
     )
     rmse_start: str = Field(
@@ -74,7 +74,7 @@ class ObsMetricsConfig(BaseModel):
     )
 
     @model_validator(mode="after")
-    def _check(self) -> "ObsMetricsConfig":
+    def _check(self) -> ObsMetricsConfig:
         if self.velocity_kind not in observations.DUACS_VELOCITY_COMPONENTS:
             raise ValueError(
                 f"velocity_kind must be one of "

@@ -124,7 +124,9 @@ def _fetch(
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             if tmp.exists():
                 tmp.unlink()
-            logger.debug("  attempt %d/%d failed for %s: %s", attempt, retries, url, exc)
+            logger.debug(
+                "  attempt %d/%d failed for %s: %s", attempt, retries, url, exc
+            )
             if attempt < retries:
                 time.sleep(retry_wait)
     return False
@@ -177,7 +179,11 @@ def oisst(
         for day in range(1, calendar.monthrange(year, month)[1] + 1)
     ]
     logger.info(
-        "OISST: %d daily files, %d-%d -> %s", len(days), start_year, end_year, output_dir
+        "OISST: %d daily files, %d-%d -> %s",
+        len(days),
+        start_year,
+        end_year,
+        output_dir,
     )
 
     def worker(day: date) -> tuple[bool, str]:
@@ -232,7 +238,9 @@ def argo_iap(
     output_dir = Path(output_dir)
     unknown = set(fields) - set(ARGO_FIELDS)
     if unknown:
-        raise ValueError(f"Unknown ARGO fields {sorted(unknown)}; expected {sorted(ARGO_FIELDS)}")
+        raise ValueError(
+            f"Unknown ARGO fields {sorted(unknown)}; expected {sorted(ARGO_FIELDS)}"
+        )
 
     months = [
         (field, year, month)

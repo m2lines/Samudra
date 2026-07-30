@@ -70,7 +70,9 @@ def test_area_weighting_follows_cell_area_not_cell_count():
         coords={"lat": lat, "lon": lon},
     )
     assert kernels.area_weighted_pattern_corr(field, field, area) == pytest.approx(1.0)
-    assert kernels.area_weighted_pattern_corr(field, -field, area) == pytest.approx(-1.0)
+    assert kernels.area_weighted_pattern_corr(field, -field, area) == pytest.approx(
+        -1.0
+    )
 
 
 def test_ohc_layers_partition_the_column_at_the_depth_boundary():
@@ -179,9 +181,7 @@ def test_model_grid_adapter_preserves_geometry_and_refuses_curvilinear():
     assert float(observations.model_cell_area(adapted).mean()) == pytest.approx(7.0)
 
     with pytest.raises(NotImplementedError, match="rectilinear"):
-        observations.model_on_latlon_grid(
-            rollout, build_om4_spec(grid_type="tripolar")
-        )
+        observations.model_on_latlon_grid(rollout, build_om4_spec(grid_type="tripolar"))
 
 
 def _synthetic_case(seed: int = 0):
@@ -208,8 +208,14 @@ def _synthetic_case(seed: int = 0):
         coords={
             "y": mlat,
             "x": mlon,
-            "lat": (("y", "x"), np.broadcast_to(mlat[:, None], (mlat.size, mlon.size)).copy()),
-            "lon": (("y", "x"), np.broadcast_to(mlon[None, :], (mlat.size, mlon.size)).copy()),
+            "lat": (
+                ("y", "x"),
+                np.broadcast_to(mlat[:, None], (mlat.size, mlon.size)).copy(),
+            ),
+            "lon": (
+                ("y", "x"),
+                np.broadcast_to(mlon[None, :], (mlat.size, mlon.size)).copy(),
+            ),
             "lev": levs,
             "areacello": (("y", "x"), np.full((mlat.size, mlon.size), 1e10)),
             "time": time,
@@ -231,7 +237,9 @@ def _synthetic_case(seed: int = 0):
         },
         time,
     )
-    oisst = product({"sst": (("time", "lat", "lon"), 10 + rng.normal(size=shape))}, time)
+    oisst = product(
+        {"sst": (("time", "lat", "lon"), 10 + rng.normal(size=shape))}, time
+    )
 
     adepth = np.array([5.0, 50.0, 150.0, 400.0, 800.0, 1400.0, 1900.0])
     argo = product(
@@ -290,10 +298,13 @@ def test_driver_reports_every_headline_metric_as_a_plain_float():
     assert all(isinstance(value, float) for value in scalars.values())
 
     # Every RMSE metric carries a bootstrap interval that brackets its estimate.
+    # MetricsDict admits W&B media types too, so narrow to float for comparison.
     for key in expected:
         if not key.endswith("total_rmse"):
             continue
-        assert scalars[f"{key}_ci_low"] <= scalars[key] <= scalars[f"{key}_ci_high"]
+        low = float(scalars[f"{key}_ci_low"])  # type: ignore[arg-type]
+        high = float(scalars[f"{key}_ci_high"])  # type: ignore[arg-type]
+        assert low <= float(scalars[key]) <= high  # type: ignore[arg-type]
 
 
 def test_incomplete_calendar_years_are_rejected():

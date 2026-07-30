@@ -310,8 +310,11 @@ def _ohc_metrics(
     model_dz: xr.DataArray,
 ) -> list[dict[str, Any]]:
     """Per-area OHC RMSE by layer, plus upper-700 m residual-variance diagnostics."""
-    obs_temp = argo[observations.find_var_name(argo, observations.ARGO_TEMPERATURE_ALIASES)]
+    obs_temp = argo[
+        observations.find_var_name(argo, observations.ARGO_TEMPERATURE_ALIASES)
+    ]
     obs_depth = observations.find_coord_name(obs_temp, observations.DEPTH_ALIASES)
+    assert obs_depth is not None  # find_coord_name raises when required
     area = argo["area"]
 
     obs_layers = kernels.ohc_per_area_layer_maps(obs_temp, depth_name=obs_depth)
@@ -371,7 +374,9 @@ def compute_observation_metrics(
         rollouts: Label to rollout dataset, already on `(lat, lon)` dims via
             `observations.model_on_latlon_grid`. Typically the model under
             evaluation plus an OM4 baseline.
-        duacs, oisst, argo: Standardized observation products.
+        duacs: Standardized DUACS product, for velocity and EKE.
+        oisst: Standardized OISST product, for SST.
+        argo: Standardized ARGO-IAP product, for ocean heat content.
         model_dz: Label to native layer thickness, for exact OHC integration.
         window: Inclusive start/end of the primary evaluation period.
         bootstrap_samples: Calendar-year block-bootstrap draws; 0 disables.
@@ -443,7 +448,9 @@ def to_wandb(frame: pd.DataFrame, primary_model: str) -> MetricsDict:
     shadows the thing being evaluated.
     """
     metrics: MetricsDict = {}
-    scored = frame[frame["period_kind"].isin(["primary_complete_years", "full_overlap"])]
+    scored = frame[
+        frame["period_kind"].isin(["primary_complete_years", "full_overlap"])
+    ]
 
     for _, row in scored.iterrows():
         depth = row["depth"] if isinstance(row["depth"], str) else None

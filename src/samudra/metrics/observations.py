@@ -26,6 +26,7 @@ dims the observation grids use.
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 
 import numpy as np
 import xarray as xr
@@ -64,7 +65,7 @@ ARGO_TEMPERATURE_ALIASES = ["thetao", "temp", "temperature", "T"]
 
 
 def find_coord_name(
-    obj: xr.Dataset | xr.DataArray, candidates: list[str], required: bool = True
+    obj: xr.Dataset | xr.DataArray, candidates: Sequence[str], required: bool = True
 ) -> str | None:
     """First of `candidates` present as a coordinate or dimension."""
     for name in candidates:
@@ -78,14 +79,13 @@ def find_coord_name(
     return None
 
 
-def find_var_name(ds: xr.Dataset, candidates: list[str]) -> str:
+def find_var_name(ds: xr.Dataset, candidates: Sequence[str]) -> str:
     """First of `candidates` present as a data variable."""
     for name in candidates:
         if name in ds.data_vars:
             return name
     raise KeyError(
-        f"Could not find a variable among {candidates}. "
-        f"Available: {list(ds.data_vars)}"
+        f"Could not find a variable among {candidates}. Available: {list(ds.data_vars)}"
     )
 
 
@@ -148,7 +148,9 @@ def open_product(location: ResolvedLocation, name: str) -> xr.Dataset:
     return ds
 
 
-def duacs_velocity(ds: xr.Dataset, kind: str = "absolute") -> tuple[xr.DataArray, xr.DataArray]:
+def duacs_velocity(
+    ds: xr.Dataset, kind: str = "absolute"
+) -> tuple[xr.DataArray, xr.DataArray]:
     """The DUACS eastward/northward geostrophic velocity pair, equator masked."""
     if kind not in DUACS_VELOCITY_COMPONENTS:
         raise ValueError(
@@ -186,17 +188,20 @@ def model_on_latlon_grid(ds: xr.Dataset, dataset_spec: DatasetSpec) -> xr.Datase
             "See issues #801 and #809."
         )
 
-    missing = {"y", "x"} - set(ds.dims)
+    dims = {str(dim) for dim in ds.dims}
+    missing = {"y", "x"} - dims
     if missing:
         raise ValueError(
             f"Rollout is missing expected horizontal dimensions {sorted(missing)}; "
-            f"found dims {sorted(ds.dims)}"
+            f"found dims {sorted(dims)}"
         )
 
     # Preserve the real geometry before the 2-D coords are dropped: `areacello`
     # is the model's own cell area and is more accurate than anything we could
     # re-derive from the axes.
-    areacello = ds["areacello"] if "areacello" in ds.coords or "areacello" in ds else None
+    areacello = (
+        ds["areacello"] if "areacello" in ds.coords or "areacello" in ds else None
+    )
 
     ds = ds.drop_vars(["lat", "lon", "lat_b", "lon_b"], errors="ignore")
     ds = ds.rename({"y": "lat", "x": "lon"})

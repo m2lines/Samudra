@@ -230,11 +230,18 @@ def _write(ds: xr.Dataset, output_path: str, dry_run: bool) -> None:
         logger.info("dry run, not writing %s:\n%s", output_path, ds)
         return
     logger.info("writing %s", output_path)
-    _chunk_for_write(ds).to_zarr(output_path, mode="w", consolidated=True)
-    logger.info("wrote %s", output_path)
+    # Zarr v2 explicitly, not whatever the installed zarr defaults to. The
+    # consumer of these stores (`samudra.metrics`) pins zarr<3 and cannot open a
+    # v3 store at all, and this subproject currently resolves zarr 3.x.
+    _chunk_for_write(ds).to_zarr(
+        output_path, mode="w", consolidated=True, zarr_format=2
+    )
+    logger.info("wrote %s (zarr v2)", output_path)
 
 
-ALIGNED = "centered 5-day rolling mean (min_periods=5) sampled on the OM4 5-day timestamps"
+ALIGNED = (
+    "centered 5-day rolling mean (min_periods=5) sampled on the OM4 5-day timestamps"
+)
 RAW_DAILY = "none; daily values as distributed"
 MONTHLY = "none; monthly values as distributed"
 
@@ -249,7 +256,9 @@ def duacs(
     """Build the 5-day aligned DUACS store from the per-year raw archive."""
     stores = sorted(Path(raw_dir).glob("duacs_*.zarr"))
     if not stores:
-        raise FileNotFoundError(f"No raw DUACS year stores (duacs_*.zarr) under {raw_dir}")
+        raise FileNotFoundError(
+            f"No raw DUACS year stores (duacs_*.zarr) under {raw_dir}"
+        )
     logger.info("DUACS: combining %d yearly stores", len(stores))
 
     ds = xr.concat(
@@ -274,7 +283,11 @@ def duacs(
         )
     )
     ds = _align_centered_5day(ds, target_times)
-    _write(_with_provenance(ds, "duacs", alignment=ALIGNED, om4_path=om4_path), output_path, dry_run)
+    _write(
+        _with_provenance(ds, "duacs", alignment=ALIGNED, om4_path=om4_path),
+        output_path,
+        dry_run,
+    )
 
 
 def _open_oisst(raw_dir: str, dates: pd.DatetimeIndex) -> xr.Dataset:
@@ -303,7 +316,11 @@ def oisst(
         freq="D",
     )
     ds = _align_centered_5day(_open_oisst(raw_dir, dates), target_times)
-    _write(_with_provenance(ds, "oisst", alignment=ALIGNED, om4_path=om4_path), output_path, dry_run)
+    _write(
+        _with_provenance(ds, "oisst", alignment=ALIGNED, om4_path=om4_path),
+        output_path,
+        dry_run,
+    )
 
 
 def oisst_daily(
@@ -314,7 +331,11 @@ def oisst_daily(
     dry_run: bool = False,
 ) -> None:
     """Build the unsmoothed daily OISST store, used for temporal spectra."""
-    dates = pd.date_range(pd.Timestamp(start_date).normalize(), pd.Timestamp(end_date).normalize(), freq="D")
+    dates = pd.date_range(
+        pd.Timestamp(start_date).normalize(),
+        pd.Timestamp(end_date).normalize(),
+        freq="D",
+    )
     ds = _open_oisst(raw_dir, dates)
     _write(_with_provenance(ds, "oisst", alignment=RAW_DAILY), output_path, dry_run)
 
@@ -365,7 +386,9 @@ def argo_iap(
     """Build the monthly ARGO-IAP store with temperature and, when present, salinity."""
     ds_temp = _open_argo_field(raw_dir, "temperature")
     if ds_temp is None:
-        raise FileNotFoundError(f"No ARGO-IAP temperature files under {raw_dir}/temperature")
+        raise FileNotFoundError(
+            f"No ARGO-IAP temperature files under {raw_dir}/temperature"
+        )
     temp_name = _find_var(ds_temp, ARGO_TEMP_ALIASES)
     if temp_name is None:
         raise KeyError(
@@ -380,7 +403,9 @@ def argo_iap(
     else:
         salt_name = _find_var(ds_salt, ARGO_SALT_ALIASES)
         if salt_name is None:
-            raise KeyError(f"No recognised salinity variable in {list(ds_salt.data_vars)}")
+            raise KeyError(
+                f"No recognised salinity variable in {list(ds_salt.data_vars)}"
+            )
         if not pd.DatetimeIndex(ds_temp.time.values).equals(
             pd.DatetimeIndex(ds_salt.time.values)
         ):

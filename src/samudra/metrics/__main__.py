@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Score an existing rollout against observations, without rerunning it.
+r"""Score an existing rollout against observations, without rerunning it.
 
     python -m samudra.metrics configs/samudra_om4_v2/eval.yaml \\
         --experiment.name=my_past_eval --observations.enabled=true

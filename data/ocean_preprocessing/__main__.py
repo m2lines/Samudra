@@ -269,7 +269,6 @@ class CLI:
         native_grid_path: str,
         nc_mosaic_path: str,
         target_grid_path: str,
-        ocean_static_path: str | None = None,
         spatial_filter_scale: None | int = None,
     ) -> None:
         """Process the OM4 oceans dataset (the ocean component of CMIP).
@@ -279,16 +278,15 @@ class CLI:
         1. Model-specific preprocessing (interpolate velocities to tracer grid)
         2. Account for partial depths (if --account-for-partial-depths)
         3. Validation of preprocessed dataset (unless --skip-validation)
-        4. Optionally merge static ocean variables (if ocean_static_path provided)
-        5. Vector rotation to zonal/meridional coordinates
-        6. QC plots for rotated vectors (unless --skip-plots)
-        7. Spatial filtering with Gaussian kernel (unless --skip-spatial-filtering)
-        8. Horizontal regridding to target resolution (unless --skip-regridding)
-        9. Type conversion to float32
-        10. Restore variable attributes and add provenance metadata
-        11. Optionally flatten 3D variables by depth level (unless --skip-flattening)
-        12. Drop extraneous dimensions (we only need 'x', 'y', 'time' and maybe 'lev').
-        13. Write output to Zarr store in Zarr v2 format.
+        4. Vector rotation to zonal/meridional coordinates
+        5. QC plots for rotated vectors (unless --skip-plots)
+        6. Spatial filtering with Gaussian kernel (unless --skip-spatial-filtering)
+        7. Horizontal regridding to target resolution (unless --skip-regridding)
+        8. Type conversion to float32
+        9. Restore variable attributes and add provenance metadata
+        10. Optionally flatten 3D variables by depth level (unless --skip-flattening)
+        11. Drop extraneous dimensions (we only need 'x', 'y', 'time' and maybe 'lev').
+        12. Write output to Zarr store in Zarr v2 format.
 
         > NOTE: We pre-determine the spatial filtering scale based on the target grid!
         > We make informed guesses for what the scale should be. If you'd like to
@@ -313,10 +311,6 @@ class CLI:
                 'gaussian_grid_360_by_720.zarr'). This file defines the output grid resolution
                 and is used for horizontal regridding (unless --skip-regridding). The basename
                 is also used to determine the appropriate spatial filter scale.
-            ocean_static_path: Optional path to a Zarr file containing static ocean variables
-                on the native grid. If provided, variables 'wet' (renamed to 'sea_surface_fraction')
-                and 'hfgeou' (geothermal heat flux) will be added to the processed dataset.
-                Default is None (no static variables added).
             spatial_filter_scale: Optional integer to override the automatic spatial filter
                 scale determination. When spatial filtering is performed (not --skip-spatial-filtering),
                 this value will be used instead of the scale inferred from the target grid name.
@@ -342,19 +336,6 @@ class CLI:
         if not self.skip_validation:
             logger.info("validating preprocessing.")
             ds_processed_validate(ds_processed, deep=True)
-
-        if ocean_static_path is not None:
-            logger.info("adding static variables.")
-            ocean_static_names = ["wet", "hfgeou"]
-            ocean_static_renaming = {
-                "xh": "x",
-                "yh": "y",
-                "wet": "sea_surface_fraction",
-            }
-            ds_static = xr.open_zarr(ocean_static_path, consolidated=True, chunks={})[
-                ocean_static_names
-            ].rename(ocean_static_renaming)
-            ds_processed = xr.merge([ds_processed, ds_static])
 
         saved_attrs = {}
         for var in ds_processed.data_vars:

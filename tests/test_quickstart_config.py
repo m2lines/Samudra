@@ -44,6 +44,8 @@ def test_quickstart_notebook_is_valid_and_current():
     assert "Scientific question" not in sources
     intro_source = cells_by_id["intro"].source
     assert "The workflow runs entirely in Colab" in intro_source
+    assert "By the end of this notebook, you will be able to:" in intro_source
+    assert "interpret its bias" in intro_source
     assert "No HPC system" not in intro_source
     assert "There is no bulk download" not in intro_source
 
@@ -74,6 +76,13 @@ def test_quickstart_notebook_is_valid_and_current():
     assert "epochs: 1" in sources
     assert "batch_size: 8" in sources
     assert "two full batches per epoch" in sources
+    assert "Samudra presets commonly use" in sources
+    assert "70 epochs" in sources
+    assert "Autoregressive forecast steps" in sources
+    assert "steps: [1, 4]" in sources
+    assert "Number of additional past ocean states" in sources
+    assert "Channels per stage control model capacity" in sources
+    assert "broader spatial context" in sources
     assert "backend: cuda" in sources
     assert "Bias (prediction − truth)" in sources
     assert "class ColabTrainer(Trainer)" in sources
@@ -84,11 +93,14 @@ def test_quickstart_notebook_is_valid_and_current():
     assert 'desc=f"Validating epoch {epoch}/{self.epochs}"' in sources
     assert "progress.set_postfix" in sources
     assert "leave=True" in sources
+    assert "with tqdm(" in sources
+    assert "progress.close()" not in sources
     assert "### Training complete" in sources
     assert "Latest checkpoint" in sources
     assert "good first issues" in sources
 
     assert "s3://m2lines-pubs/Samudra/v2026-07/om4_twodeg/" in sources
+    assert "data/om4_demo.yaml" in sources
     assert "source.data_location.open()" in sources
     for location_field in (
         "data_location",
@@ -137,7 +149,10 @@ def test_quickstart_python_cells_compile():
 
 def test_quickstart_yaml_config_validates(tmp_path):
     config_path = tmp_path / "train.yaml"
-    config_path.write_text(render_quickstart_yaml())
+    quickstart_yaml = render_quickstart_yaml()
+    assert "static_data_vars:" not in quickstart_yaml
+    assert "corrector:" not in quickstart_yaml
+    config_path.write_text(quickstart_yaml)
     cfg = TrainConfig.from_yaml_and_cli([str(config_path)])
 
     assert cfg.experiment.name == "samudra_quickstart"

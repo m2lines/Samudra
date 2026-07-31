@@ -36,13 +36,13 @@ controls visible in YAML and local checkpoint output ready for follow-up work.
 Training and validation use short, explicit date windows and stream only the
 requested chunks.
 
-You will:
+By the end of this notebook, you will be able to:
 
-1. Check the Colab runtime and install Samudra.
-2. Write and load one readable YAML training configuration.
-3. Inspect the public 2° OM4 data selected by the configuration.
-4. Train Samudra 2 with live batch progress.
-5. Compare one held-out prediction with ground truth.
+1. Read and edit the YAML controls for a Samudra training run.
+2. Select and inspect public 2° OM4 data without downloading a local copy.
+3. Train and validate Samudra 2, then locate the saved checkpoint.
+4. Compare a held-out prediction with ground truth and interpret its bias.
+5. Identify the controls to extend the run with more data, epochs, or variables.
 """
 
 RUNTIME_MD = """\
@@ -166,6 +166,8 @@ debug: false
 disk_mode: true
 pin_mem: true
 save_freq: 1
+# One epoch keeps this instructional run short. Samudra presets commonly use
+# 70 epochs; also extend the date windows for a substantive experiment.
 epochs: 1
 # Batch 8 keeps this quickstart comfortable on a free-tier Colab GPU.
 batch_size: 8
@@ -180,8 +182,12 @@ loss:
 finetune: false
 resume_ckpt_path: null
 inference_epochs: []
+# Temporal spacing between input and target frames; 1 uses consecutive frames.
 data_stride: [1]
+# Autoregressive forecast steps used at each training-curriculum stage.
 steps: [1]
+# Epochs at which training switches to the next value in `steps`.
+# For example: steps: [1, 4] with step_transition: [20].
 step_transition: []
 preemptible: false
 backend: cuda
@@ -195,8 +201,9 @@ experiment:
     project: samudra_quickstart
 
 data:
+  # Number of additional past ocean states supplied with the current state.
+  # Zero means that the model sees only the current timestep.
   hist: 0
-  static_data_vars: []
   concurrent_compute: true
   loading:
     type: cpu
@@ -204,6 +211,7 @@ data:
     persistent_workers: false
   sources:
     - type: om4
+      # This is the bundled data/om4_demo.yaml source narrowed for the quickstart.
       # Five upper-ocean levels keep the free-tier run compact.
       prognostic_vars_key: thermo_dynamic_5
       boundary_vars_key: tau_hfds
@@ -236,13 +244,19 @@ data:
         path: Samudra/v2026-07/om4_twodeg/OM4_stds.zarr
 
 model:
+  # Recompute U-Net layers during backpropagation to reduce GPU memory use.
   checkpointing: all
   pred_residuals: false
   last_kernel_size: 3
+  # Longitude is periodic, so circular padding avoids a seam at 0°/360°.
   pad: circular
   unet:
-    dilation: [1, 2, 4, 8]
+    # Each list entry describes one U-Net resolution stage.
+    # Channels per stage control model capacity.
     ch_width: [280, 380, 480, 520]
+    # Wider sampling gaps give deeper stages broader spatial context.
+    dilation: [1, 2, 4, 8]
+    # ConvNeXt blocks per stage control depth.
     n_layers: [1, 1, 1, 1]
     core_block:
       block_type: conv_next_block
@@ -250,11 +264,10 @@ model:
       activation: capped_gelu
       upscale_factor: 2
       norm: batch
+    # Average pooling reduces the spatial grid between encoder stages.
     down_sampling_block: avg_pool
+    # Periodic upsampling reconstructs the grid without a longitude seam.
     up_sampling_block: zonally_periodic_upsample
-  corrector:
-    non_negative_corrector_names: null
-    ocean_heat_corrector: false
 """
 
 
@@ -294,6 +307,11 @@ public `s3://m2lines-pubs/Samudra/v2026-07/om4_twodeg/` directory. The cell
 opens remote metadata, selects the exact train and validation windows, and
 loads one sea-surface-height value as a connectivity check. Only the selected
 chunks stream into Colab.
+
+These locations match Samudra's bundled
+[`data/om4_demo.yaml`](https://github.com/m2lines/Samudra/blob/main/src/samudra/configs/data/om4_demo.yaml).
+They remain explicit here because the quickstart selects shorter date ranges
+and five upper-ocean levels.
 
 The displayed table connects each observed value to the YAML control that
 changes it, so you can turn this example into a new experiment.
@@ -368,42 +386,40 @@ samudra_logger.setLevel(logging.WARNING)
 class ColabTrainer(Trainer):
     def train_one_epoch(self, epoch):
         original_loader = self.train_loader
-        progress = tqdm(
-            original_loader,
-            total=len(original_loader),
-            desc=f"Training epoch {epoch}/{self.epochs}",
-            unit="batch",
-            dynamic_ncols=True,
-            leave=True,
-        )
-        self.train_loader = progress
         try:
-            stats = super().train_one_epoch(epoch)
-            self.quickstart_train_loss = float(stats["train/mean/loss"])
-            progress.set_postfix(loss=f"{self.quickstart_train_loss:.4f}")
-            return stats
+            with tqdm(
+                original_loader,
+                total=len(original_loader),
+                desc=f"Training epoch {epoch}/{self.epochs}",
+                unit="batch",
+                dynamic_ncols=True,
+                leave=True,
+            ) as progress:
+                self.train_loader = progress
+                stats = super().train_one_epoch(epoch)
+                self.quickstart_train_loss = float(stats["train/mean/loss"])
+                progress.set_postfix(loss=f"{self.quickstart_train_loss:.4f}")
+                return stats
         finally:
-            progress.close()
             self.train_loader = original_loader
 
     def validate_one_epoch(self, epoch):
         original_loader = self.val_loader
-        progress = tqdm(
-            original_loader,
-            total=len(original_loader),
-            desc=f"Validating epoch {epoch}/{self.epochs}",
-            unit="batch",
-            dynamic_ncols=True,
-            leave=True,
-        )
-        self.val_loader = progress
         try:
-            stats = super().validate_one_epoch(epoch)
-            self.quickstart_val_loss = float(stats["val/mean/loss"])
-            progress.set_postfix(loss=f"{self.quickstart_val_loss:.4f}")
-            return stats
+            with tqdm(
+                original_loader,
+                total=len(original_loader),
+                desc=f"Validating epoch {epoch}/{self.epochs}",
+                unit="batch",
+                dynamic_ncols=True,
+                leave=True,
+            ) as progress:
+                self.val_loader = progress
+                stats = super().validate_one_epoch(epoch)
+                self.quickstart_val_loss = float(stats["val/mean/loss"])
+                progress.set_postfix(loss=f"{self.quickstart_val_loss:.4f}")
+                return stats
         finally:
-            progress.close()
             self.val_loader = original_loader
 
 

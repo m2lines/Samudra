@@ -288,6 +288,15 @@ def _velocity_metrics(
         bootstrap_samples=bootstrap_samples,
     )
 
+    # EKE is quadratic, and these velocities are already on the observation
+    # grid, so in principle this has the same ordering hazard as the residual
+    # variance maps: regridding before a quadratic reduction damps the result.
+    # It is harmless here and kept deliberately, for two reasons. DUACS is
+    # 0.125 degrees -- finer than any model we run -- so the interpolation
+    # upsamples and blends nothing away; and this matches the reference
+    # implementation, which is what makes the metric comparable to published
+    # numbers. Revisit if a model finer than DUACS is ever evaluated: that
+    # would downsample, and EKE would come out biased low.
     sim_eke = kernels.instantaneous_surface_eke(sim_u, sim_v)
     obs_eke = kernels.instantaneous_surface_eke(obs_u, obs_v)
     eke_rows, _ = _rows_for_metric(

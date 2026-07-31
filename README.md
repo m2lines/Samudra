@@ -6,6 +6,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Samudra
 
+[![Open Quickstart in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/m2lines/Samudra/blob/main/notebooks/quickstart.ipynb)
+
 [![Pre-commit](https://github.com/m2lines/Samudra/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/m2lines/Samudra/actions/workflows/pre-commit.yml)
 [![Test CPU](https://github.com/m2lines/Samudra/actions/workflows/test.yml/badge.svg)](https://github.com/m2lines/Samudra/actions/workflows/test.yml)
 [![Benchmark CPU](https://github.com/m2lines/Samudra/actions/workflows/benchmarks.yml/badge.svg)](https://github.com/m2lines/Samudra/actions/workflows/benchmarks.yml)
@@ -20,6 +22,10 @@ Samudra is a global ocean emulator described in ["Samudra: An AI Global Ocean Em
 We are actively and openly developing this emulator to support new tasks and data sources with the goal of building a broadly useful foundation model for ocean and climate. Please see [our docs](https://m2lines.github.io/Samudra/docs/) for more or [our contributing guide](https://m2lines.github.io/Samudra/docs/contributing/) to join in!
 
 ## How to run
+
+To configure, train, validate, and visualize Samudra 2 in a browser on public
+data with a Colab GPU, open the
+[free-tier Colab quickstart](https://colab.research.google.com/github/m2lines/Samudra/blob/main/notebooks/quickstart.ipynb).
 
 Given [`uv`](https://docs.astral.sh/uv/) is installed:
 

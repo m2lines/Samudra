@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785452651118,
+  "lastUpdate": 1785541168476,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -11465,6 +11465,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.1693467742618012",
             "extra": "mean: 54.092384977400016 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "940545897@qq.com",
+            "name": "Yuan Yuan",
+            "username": "YuanYuan98"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a5906a2f3392f282ff11e56d64f35155a5227614",
+          "message": "Add PyPI-backed Samudra 2 Colab quickstart (#722)\n\n## Summary\n\nAdds a browser-based Google Colab quickstart for **Samudra 2** that\ninstalls the latest stable `samudra` release from PyPI and trains from\nscratch on public 2° OM4 data using a free-tier CUDA runtime.\n\nThe notebook is an onboarding smoke test rather than a scientifically\nuseful pretrained model. It requires no repository checkout, HPC access,\ncloud credentials, Weights & Biases account, or bulk data download.\n\n## Changes\n\n- Add generated `notebooks/quickstart.ipynb` plus its reviewable source\nin `scripts/build_quickstart_notebook.py`\n- Use the config presets bundled in the PyPI wheel and stream the public\nanonymous 2° OM4 Zarr stores directly from S3\n- Configure a five-level, one-step run with `batch_size=4`, explicit\nCUDA, and a bounded train/validation window\n- Preserve structured S3 data, means, and standard-deviation locations\nacross the Pydantic config customization round-trip\n- Show concise Colab stages for preparation, training epoch, validation\nepoch, completion, and checkpoint output while retaining warnings and\nerrors\n- Compare normalized sea-surface-height ground truth, prediction, and\n`Bias (prediction − truth)`\n- Add README and documentation entry points plus focused\nnotebook-currentness and compilation tests\n\n## Root cause addressed\n\nThe package's `Location` union currently serializes structured\n`S3Location` objects through the unresolved string-path variant during\n`model_dump`. Re-validating that dump loses the S3 endpoint, bucket, and\n`anon=True`, causing `UnresolvedLocation.open()` to fail. The notebook\nrestores all three validated location objects before rebuilding the\ncustomized config.\n\n## User impact\n\nA new user can open the notebook in Colab, select a GPU, install Samudra\nfrom PyPI, verify the public data stream, train a small smoke-test\nmodel, inspect epoch stages, save a checkpoint, and compare one held-out\nprediction without local setup.\n\n## Validation\n\n- `.venv/bin/python -m pytest tests/test_quickstart_config.py -q` — **2\npassed**\n- `.venv/bin/python scripts/build_quickstart_notebook.py --check` —\nnotebook current\n- `git diff --check` — clean\n- Executed the corrected configuration cell against merged `main`;\nverified `batch_size=4`, `backend=\"cuda\"`, and intact anonymous S3\ndata/statistics locations\n- Executed the data-check logic with a shape-accurate lazy 90×180,\n23-timestep dataset stand-in\n- Live Colab review confirmed anonymous data access and CUDA trainer\ninitialization\n\nA full production-quality model evaluation is intentionally out of\nscope; the notebook trains a smoke-test checkpoint from scratch.\n\n---------\n\nCo-authored-by: Codex <codex@openai.com>\nCo-authored-by: copilot-swe-agent[bot] <198982749+Copilot@users.noreply.github.com>",
+          "timestamp": "2026-07-31T18:04:20Z",
+          "tree_id": "aa0424bd23e89399dbe352d4ff34e676d24d9dca",
+          "url": "https://github.com/m2lines/Samudra/commit/a5906a2f3392f282ff11e56d64f35155a5227614"
+        },
+        "date": 1785541167363,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.081193939727981,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0029608441039199697",
+            "extra": "mean: 924.9034453999911 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06123421994745921,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5449606933844597",
+            "extra": "mean: 16.330737957600014 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.01639733382311296,
+            "unit": "iter/sec",
+            "range": "stddev: 0.9785555146561852",
+            "extra": "mean: 60.98552428019999 sec\nrounds: 5"
           }
         ]
       }

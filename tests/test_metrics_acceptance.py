@@ -86,7 +86,9 @@ def test_om4_reproduces_published_observation_metrics():
         window=PRIMARY,
     )
 
-    scored = frame[frame["period_kind"].isin(["primary_complete_years", "full_overlap"])]
+    scored = frame[
+        frame["period_kind"].isin(["primary_complete_years", "full_overlap"])
+    ]
     for metric, depth, expected in PUBLISHED:
         rows = scored[
             (scored["metric"] == metric)

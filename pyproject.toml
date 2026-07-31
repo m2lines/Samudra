@@ -162,6 +162,7 @@ ini_options.addopts = "--jaxtyping-packages=data,datasets,beartype.beartype --st
 
 [tool.mypy]
 check_untyped_defs = true
+explicit_package_bases = true
 exclude = [ "^data/" ]
 overrides = [
   { module = [

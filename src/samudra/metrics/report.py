@@ -192,23 +192,51 @@ def _aligned(
     window: tuple[pd.Timestamp, pd.Timestamp] | None,
     context: str,
 ) -> tuple[xr.DataArray, xr.DataArray]:
-    """Restrict both fields to a window and require their timestamps to match.
+    """Restrict both fields to their common span and require timestamps to match.
 
-    A `None` window means the full common overlap of the two fields, which is
-    what the residual-variance diagnostics use: they characterise variability
-    over the whole rollout rather than over the primary scoring years.
+    The requested window is intersected with the span the two products actually
+    share, then exact agreement is required *within* that overlap. Products
+    legitimately end at different dates -- DUACS's last centered 5-day mean
+    predates OM4's final timestamp, for instance -- and demanding identical
+    spans would make the caller responsible for knowing every product's exact
+    coverage. Trimming the edges is safe; a disagreement anywhere inside the
+    overlap is still an error, which is the property that actually matters.
+
+    A `None` window means the full shared span, which is what the
+    residual-variance diagnostics use: they characterise variability over the
+    whole rollout rather than over the primary scoring years.
     """
-    if window is None:
-        window = (
-            max(
-                pd.Timestamp(model_field["time"].values.min()),
-                pd.Timestamp(obs_field["time"].values.min()),
-            ),
-            min(
-                pd.Timestamp(model_field["time"].values.max()),
-                pd.Timestamp(obs_field["time"].values.max()),
-            ),
+    shared = (
+        max(
+            pd.Timestamp(model_field["time"].values.min()),
+            pd.Timestamp(obs_field["time"].values.min()),
+        ),
+        min(
+            pd.Timestamp(model_field["time"].values.max()),
+            pd.Timestamp(obs_field["time"].values.max()),
+        ),
+    )
+    if window is not None:
+        requested = window
+        window = (max(shared[0], window[0]), min(shared[1], window[1]))
+        if window != requested:
+            logger.info(
+                "  %s: window trimmed to shared coverage %s..%s (requested %s..%s)",
+                context,
+                f"{window[0]:%Y-%m-%d}",
+                f"{window[1]:%Y-%m-%d}",
+                f"{requested[0]:%Y-%m-%d}",
+                f"{requested[1]:%Y-%m-%d}",
+            )
+    else:
+        window = shared
+
+    if window[0] > window[1]:
+        raise ValueError(
+            f"{context}: model and observation coverage do not overlap "
+            f"inside the requested window"
         )
+
     model_field = model_field.sel(time=_window_slice(window))
     obs_field = obs_field.sel(time=_window_slice(window))
     if model_field.sizes.get("time", 0) == 0 or obs_field.sizes.get("time", 0) == 0:

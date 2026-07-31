@@ -156,6 +156,32 @@ def test_misaligned_timestamps_raise_instead_of_interpolating():
     # Identical axes pass without complaint.
     kernels.require_exact_time_match(model, model.copy(), "sst")
 
+    # Products legitimately end on different dates, so the driver trims to the
+    # shared span rather than demanding identical coverage...
+    stamps = pd.to_datetime(["2020-01-01", "2020-01-06", "2020-01-11", "2020-01-16"])
+    long_model = xr.DataArray(
+        [1.0, 2.0, 3.0, 4.0], dims=["time"], coords={"time": stamps}
+    )
+    short_obs = long_model.isel(time=slice(0, 3))
+    trimmed_model, trimmed_obs = report._aligned(
+        long_model,
+        short_obs,
+        (pd.Timestamp("2020-01-01"), pd.Timestamp("2020-02-01")),
+        "sst",
+    )
+    assert trimmed_model.sizes["time"] == trimmed_obs.sizes["time"] == 3
+
+    # ...but a gap *inside* the shared span is still an error, since that is a
+    # genuine misalignment rather than a coverage difference.
+    gapped_obs = long_model.isel(time=[0, 2, 3])
+    with pytest.raises(ValueError, match="must match exactly"):
+        report._aligned(
+            long_model,
+            gapped_obs,
+            (pd.Timestamp("2020-01-01"), pd.Timestamp("2020-02-01")),
+            "sst",
+        )
+
 
 def test_model_grid_adapter_preserves_geometry_and_refuses_curvilinear():
     """The rollout layout must convert to lat/lon without losing real geometry.

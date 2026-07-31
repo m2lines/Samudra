@@ -45,7 +45,7 @@ COLUMNS = [
     "annual_std",
     "ci_low",
     "ci_high",
-    "block_aggregate_rmse",
+    "map_weighted_rmse",
     "n_years",
     "n_bootstrap",
     "uncertainty_method",
@@ -86,7 +86,18 @@ def _rows_for_metric(
         context,
         bootstrap_samples=bootstrap_samples,
     )
-    total = kernels.area_weighted_map_rmse(rmse_map, area)
+    # Report the equal-year block estimate, which is the quantity the bootstrap
+    # interval is built from, so the headline number and its interval are
+    # consistent by construction.
+    #
+    # The alternative -- area-weighting the year-mean RMSE map -- is the same
+    # pair of linear averages in the opposite order, and agrees exactly when the
+    # finite-cell mask is the same every year. It diverges when an observation
+    # product's coverage varies between years, and then the interval no longer
+    # brackets the value printed beside it. Both readings fit "the square root
+    # of the equal-year mean annual MSE"; this one is self-consistent.
+    total = float(summary["block_aggregate_rmse"])
+    map_weighted_total = kernels.area_weighted_map_rmse(rmse_map, area)
     time_index = pd.DatetimeIndex(error_squared["time"].values)
 
     primary = {
@@ -101,15 +112,13 @@ def _rows_for_metric(
         "year": np.nan,
         "n_time_samples": int(time_index.size),
         "grid_shape": _grid_shape(rmse_map),
+        # Kept alongside so the two aggregations stay comparable: a gap between
+        # this and `value` means the observation coverage varied by year.
+        "map_weighted_rmse": map_weighted_total,
         **summary,
     }
-    # `value` is area-weighted over the cells finite in the year-mean map, while
-    # the interval is built from `annual_rmse`, which normalises by each year's
-    # own finite mask. They coincide only when that mask is year-invariant, so
-    # `block_aggregate_rmse` -- the point estimate the CI actually brackets --
-    # is kept rather than discarded, making any divergence inspectable instead
-    # of silently producing an interval that misses its own value.
     primary.pop("primary_aggregation_method", None)
+    primary.pop("block_aggregate_rmse", None)  # now reported as `value`
 
     rows = [primary]
     for year, value in annual.items():
@@ -276,11 +285,14 @@ def _velocity_metrics(
     sim_u, sim_v = kernels.geostrophic_velocity_from_zos(
         rollout["zos"], lat_dim="lat", lon_dim="lon"
     )
-    sim_u, obs_u = _aligned(sim_u, obs_u, window, f"{model} eastward velocity")
-    sim_v, obs_v = _aligned(sim_v, obs_v, window, f"{model} northward velocity")
+    sim_u_native, obs_u = _aligned(sim_u, obs_u, window, f"{model} eastward velocity")
+    sim_v_native, obs_v = _aligned(sim_v, obs_v, window, f"{model} northward velocity")
 
-    sim_u = kernels.model_field_on_obs_grid(sim_u, obs_u)
-    sim_v = kernels.model_field_on_obs_grid(sim_v, obs_v)
+    # Velocity RMSE is a difference, which is linear, so regridding first is
+    # exact -- and unavoidable, since the two fields must share a grid before
+    # they can be subtracted.
+    sim_u = kernels.model_field_on_obs_grid(sim_u_native, obs_u)
+    sim_v = kernels.model_field_on_obs_grid(sim_v_native, obs_v)
 
     rows, _ = _rows_for_metric(
         metric="surface_geostrophic_velocity_vector_total_rmse",
@@ -293,17 +305,20 @@ def _velocity_metrics(
         bootstrap_samples=bootstrap_samples,
     )
 
-    # EKE is quadratic, and these velocities are already on the observation
-    # grid, so in principle this has the same ordering hazard as the residual
-    # variance maps: regridding before a quadratic reduction damps the result.
-    # It is harmless here and kept deliberately, for two reasons. DUACS is
-    # 0.125 degrees -- finer than any model we run -- so the interpolation
-    # upsamples and blends nothing away; and this matches the reference
-    # implementation, which is what makes the metric comparable to published
-    # numbers. Revisit if a model finer than DUACS is ever evaluated: that
-    # would downsample, and EKE would come out biased low.
-    sim_eke = kernels.instantaneous_surface_eke(sim_u, sim_v)
+    # EKE is quadratic, so it follows the same reduce-before-regrid rule as the
+    # residual-variance maps: computed on the model's native grid, with only the
+    # resulting EKE field interpolated. Regridding the velocities first would
+    # smooth them and damp the energy, by an amount that depends on the
+    # resolution ratio rather than on the model.
+    #
+    # This is a deliberate departure from the reference implementation, which
+    # computes EKE from already-regridded velocities. The difference is small
+    # today because DUACS (0.125 degrees) is finer than any model we run, so the
+    # interpolation upsamples; it would grow into a real bias for a model finer
+    # than DUACS.
+    sim_eke_native = kernels.instantaneous_surface_eke(sim_u_native, sim_v_native)
     obs_eke = kernels.instantaneous_surface_eke(obs_u, obs_v)
+    sim_eke = kernels.model_field_on_obs_grid(sim_eke_native, obs_eke)
     eke_rows, _ = _rows_for_metric(
         metric="instantaneous_surface_eke_total_rmse",
         model=model,

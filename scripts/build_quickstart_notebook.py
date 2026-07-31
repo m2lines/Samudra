@@ -276,9 +276,7 @@ def render_quickstart_yaml() -> str:
     return QUICKSTART_YAML
 
 
-CONFIG_YAML_CELL = (
-    "%%writefile /content/samudra_quickstart.yaml\n" + QUICKSTART_YAML
-)
+CONFIG_YAML_CELL = "%%writefile /content/samudra_quickstart.yaml\n" + QUICKSTART_YAML
 
 
 CONFIG_LOAD_PY = """\

@@ -135,5 +135,5 @@ set -x
 python -m ocean_preprocessing.obs_preprocessing prepare "${PRODUCT}" \
   --raw_root="${RAW_ROOT}" \
   --output_root="${OUTPUT_ROOT}" \
-  "${date_flags[@]}" \
+  ${date_flags[@]+"${date_flags[@]}"} \
   ${EXTRA_ARGS:-}

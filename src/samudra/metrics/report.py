@@ -45,6 +45,7 @@ COLUMNS = [
     "annual_std",
     "ci_low",
     "ci_high",
+    "block_aggregate_rmse",
     "n_years",
     "n_bootstrap",
     "uncertainty_method",
@@ -102,7 +103,12 @@ def _rows_for_metric(
         "grid_shape": _grid_shape(rmse_map),
         **summary,
     }
-    primary.pop("block_aggregate_rmse", None)
+    # `value` is area-weighted over the cells finite in the year-mean map, while
+    # the interval is built from `annual_rmse`, which normalises by each year's
+    # own finite mask. They coincide only when that mask is year-invariant, so
+    # `block_aggregate_rmse` -- the point estimate the CI actually brackets --
+    # is kept rather than discarded, making any divergence inspectable instead
+    # of silently producing an interval that misses its own value.
     primary.pop("primary_aggregation_method", None)
 
     rows = [primary]

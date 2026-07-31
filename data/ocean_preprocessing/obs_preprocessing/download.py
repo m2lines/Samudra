@@ -343,15 +343,21 @@ def duacs(
 
     for first, last in ranges:
         final = output_dir / f"duacs_{first:%Y%m%d}_{last:%Y%m%d}.zarr"
+        # Download to a temporary name and rename on success, so an interrupted
+        # year is never mistaken for a complete one on the next run.
+        tmp = final.with_suffix(".tmp.zarr")
+        # Clear any leftover partial *before* the skip check, not after. A year
+        # interrupted on one run and completed on the next would otherwise keep
+        # its stale tmp store forever, and the prepare stage would concatenate
+        # that partial data alongside the good year.
+        if not dry_run and tmp.exists():
+            logger.info("  discarding stale partial download: %s", tmp.name)
+            shutil.rmtree(tmp)
+
         if final.exists() and not overwrite and not dry_run:
             logger.info("  exists, skipping: %s", final.name)
             continue
 
-        # Download to a temporary name and rename on success, so an interrupted
-        # year is never mistaken for a complete one on the next run.
-        tmp = final.with_suffix(".tmp.zarr")
-        if not dry_run and tmp.exists():
-            shutil.rmtree(tmp)
         if not dry_run and overwrite and final.exists():
             shutil.rmtree(final)
 

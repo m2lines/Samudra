@@ -278,7 +278,16 @@ def duacs(
     dry_run: bool = False,
 ) -> None:
     """Build the 5-day aligned DUACS store from the per-year raw archive."""
-    stores = sorted(Path(raw_dir).glob("duacs_*.zarr"))
+    # Exclude `*.tmp.zarr`: the downloader writes each year under a temporary
+    # name and renames on success, so a surviving tmp store is a partial
+    # download. It matches `duacs_*.zarr`, and concatenating one alongside the
+    # completed year would inject duplicate, ragged timestamps that survive
+    # `sortby("time")` and silently corrupt the centered rolling mean.
+    stores = sorted(
+        path
+        for path in Path(raw_dir).glob("duacs_*.zarr")
+        if not path.name.endswith(".tmp.zarr")
+    )
     if not stores:
         raise FileNotFoundError(
             f"No raw DUACS year stores (duacs_*.zarr) under {raw_dir}"

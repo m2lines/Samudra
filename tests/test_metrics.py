@@ -210,6 +210,22 @@ def test_model_grid_adapter_preserves_geometry_and_refuses_curvilinear():
     with pytest.raises(NotImplementedError, match="rectilinear"):
         observations.model_on_latlon_grid(rollout, build_om4_spec(grid_type="tripolar"))
 
+    # The OM4 baseline does not arrive in the rollout layout: a DataSource has
+    # already run it through `with_lat_lon_coords`, which renames y/x to 1-D
+    # lat/lon and parks the 2-D geography on lat_2d/lon_2d. Rejecting that shape
+    # crashed every eval with observations enabled, at the end of the rollout.
+    from samudra.utils.data import with_lat_lon_coords
+
+    standardized = with_lat_lon_coords(rollout)
+    assert set(standardized.dims) == {"time", "lat", "lon"}
+    from_source = observations.model_on_latlon_grid(standardized, OM4_SPEC)
+    assert set(from_source["zos"].dims) == {"time", "lat", "lon"}
+    assert float(observations.model_cell_area(from_source).mean()) == pytest.approx(7.0)
+    # Both entry paths must land on the same grid, or model and baseline would
+    # be scored against different geometry.
+    assert from_source["lat"].equals(adapted["lat"])
+    assert from_source["lon"].equals(adapted["lon"])
+
 
 def test_cftime_rollouts_become_comparable():
     """A cftime time axis must be normalised, or window selection cannot happen.
@@ -251,8 +267,11 @@ def _synthetic_case(seed: int = 0):
     months = pd.date_range("2021-01-01", "2022-12-01", freq="MS")
     mlat, mlon = _grid(9, 12)
     olat, olon = _grid(13, 18)
-    nlev = 12
-    levs = np.array(OM4_SPEC.depth_levels[:nlev])
+    # The full depth axis, not a truncated one: the OHC layers integrate to
+    # 2000 m, and a shallower column would silently compare a partial integral
+    # against the observation product's full one.
+    nlev = len(OM4_SPEC.depth_levels)
+    levs = np.array(OM4_SPEC.depth_levels)
 
     rollout = xr.Dataset(
         {

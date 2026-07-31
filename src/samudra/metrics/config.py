@@ -93,7 +93,19 @@ class ObsMetricsConfig(BaseModel):
 
     @property
     def window(self) -> tuple[pd.Timestamp, pd.Timestamp]:
-        return pd.Timestamp(self.rmse_start), pd.Timestamp(self.rmse_end)
+        """The scoring window, with a date-only end bound taken to end-of-day.
+
+        OM4 samples are stamped at 12:00, so a bare `2022-12-31` end bound would
+        exclude that day's sample. Currently masked because the observation
+        products end earlier and the window gets trimmed to the shared span, but
+        it becomes a silent one-sample loss the moment coverage extends past
+        `rmse_end` -- and the 7.5-day tolerance in the complete-calendar-year
+        check is far too loose to notice.
+        """
+        end = pd.Timestamp(self.rmse_end)
+        if end == end.normalize():
+            end = end + pd.Timedelta(days=1) - pd.Timedelta(1, "ns")
+        return pd.Timestamp(self.rmse_start), end
 
     def open_products(self, data_root: ResolvedLocation) -> dict[str, xr.Dataset]:
         """Open and standardize the three observation products."""

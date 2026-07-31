@@ -430,6 +430,22 @@ def ohc_per_area_layer_maps(
             layer.max_depth,
             native_dz=native_dz,
         )
+        # A depth axis that stops short of the layer would integrate only the
+        # levels it has, while the other product integrates the full column --
+        # producing an OHC difference dominated by missing water rather than by
+        # model error, with no outward sign. A shallow prognostic variable set
+        # (say `thermo_dynamic_5`, which reaches 65 m) hits this against the
+        # 0-700 m layer.
+        covered = float(overlap_dz.sum())
+        nominal = layer.max_depth - layer.min_depth
+        if not np.isclose(covered, nominal, rtol=1e-6):
+            raise ValueError(
+                f"Depth axis {depth_name!r} covers {covered:.1f} m of the "
+                f"{nominal:.1f} m layer [{layer.min_depth:g}, {layer.max_depth:g}) "
+                f"('{layer.label}'). OHC over a partial column is not comparable "
+                "against a product that spans the full layer; use a variable set "
+                "that reaches the layer bottom, or disable the OHC metrics."
+            )
         temp_layer = temp_field.where(overlap_dz > 0)
         # np.isfinite on a DataArray returns a DataArray, but the numpy stubs
         # widen it to ndarray, which has no `dim=` keyword.

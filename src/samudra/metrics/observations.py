@@ -189,27 +189,35 @@ def model_on_latlon_grid(ds: xr.Dataset, dataset_spec: DatasetSpec) -> xr.Datase
         )
 
     dims = {str(dim) for dim in ds.dims}
-    missing = {"y", "x"} - dims
-    if missing:
-        raise ValueError(
-            f"Rollout is missing expected horizontal dimensions {sorted(missing)}; "
-            f"found dims {sorted(dims)}"
+    if {"y", "x"} <= dims:
+        # The eval writer's rollout layout: `(y, x)` dims carrying *2-D*
+        # lat/lon coordinates. Those coords must go before `y`/`x` can take
+        # their names, or the rename collides. `areacello` is preserved
+        # separately -- it is the model's own cell area, and more accurate
+        # than anything re-derived from the axes.
+        areacello = (
+            ds["areacello"] if "areacello" in ds.coords or "areacello" in ds else None
         )
-
-    # Preserve the real geometry before the 2-D coords are dropped: `areacello`
-    # is the model's own cell area and is more accurate than anything we could
-    # re-derive from the axes.
-    areacello = (
-        ds["areacello"] if "areacello" in ds.coords or "areacello" in ds else None
-    )
-
-    ds = ds.drop_vars(["lat", "lon", "lat_b", "lon_b"], errors="ignore")
-    ds = ds.rename({"y": "lat", "x": "lon"})
-    if areacello is not None:
-        renamed_area = areacello.drop_vars(
-            ["lat", "lon", "lat_b", "lon_b"], errors="ignore"
-        ).rename({"y": "lat", "x": "lon"})
-        ds = ds.assign_coords(areacello=renamed_area)
+        ds = ds.drop_vars(["lat", "lon", "lat_b", "lon_b"], errors="ignore")
+        ds = ds.rename({"y": "lat", "x": "lon"})
+        if areacello is not None:
+            renamed_area = areacello.drop_vars(
+                ["lat", "lon", "lat_b", "lon_b"], errors="ignore"
+            ).rename({"y": "lat", "x": "lon"})
+            ds = ds.assign_coords(areacello=renamed_area)
+    elif {"lat", "lon"} <= dims:
+        # Already standardised by `utils.data.with_lat_lon_coords`, which is
+        # the form a `DataSource` hands back: 1-D lat/lon dims, with the 2-D
+        # geography kept as `lat_2d`/`lon_2d`. This is how the OM4 baseline
+        # arrives. Nothing to rename; drop the 2-D copies so downstream
+        # alignment sees only the 1-D axes.
+        ds = ds.drop_vars(["lat_2d", "lon_2d", "lat_b", "lon_b"], errors="ignore")
+    else:
+        raise ValueError(
+            "Expected horizontal dimensions ('y', 'x') as written by the eval "
+            "rollout, or ('lat', 'lon') as standardised by a DataSource; found "
+            f"dims {sorted(dims)}"
+        )
 
     ds = kernels.normalize_lon(ds, "lon").sortby("lat").sortby("lon")
 

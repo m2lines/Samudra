@@ -143,9 +143,17 @@ def _variance_map_rows(
     has the right *amount* of residual variability; the pattern correlation says
     whether it puts that variability in the right *places*. A model can score
     well on one and badly on the other.
+
+    `model_field` must be on the model's **native** grid. Variance is computed
+    there and only the resulting variance map is regridded, because horizontal
+    interpolation is linear while variance is quadratic: interpolating first
+    smooths the field and systematically damps the variance. The effect scales
+    with how much the regrid coarsens -- negligible for SST (quarter degree to
+    quarter degree) but a ~6% underestimate for OHC (quarter to half degree).
     """
     model_var = kernels.residual_variance_map(model_field)
     obs_var = kernels.residual_variance_map(obs_field)
+    model_var = kernels.model_field_on_obs_grid(model_var, obs_var)
     model_var, obs_var = xr.align(model_var, obs_var, join="inner")
 
     computed = xr.Dataset({"model": model_var, "obs": obs_var}).compute()
@@ -322,7 +330,7 @@ def _sst_metrics(
         metric_prefix="surface_sst",
         model=model,
         units="degC2",
-        model_field=kernels.model_field_on_obs_grid(sim_full, obs_full),
+        model_field=sim_full,  # native grid; variance is regridded, not the field
         obs_field=obs_full,
         area=area,
     )
@@ -378,7 +386,7 @@ def _ohc_metrics(
                 metric_prefix="ohc_upper700_per_area",
                 model=model,
                 units="(J m-2)2",
-                model_field=kernels.model_field_on_obs_grid(sim_full, obs_full),
+                model_field=sim_full,  # native grid; variance is regridded, not the field
                 obs_field=obs_full,
                 area=area,
             )

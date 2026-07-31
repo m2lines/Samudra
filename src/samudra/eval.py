@@ -86,7 +86,6 @@ class Eval:
             )
         self.src = self.data_container.inference_source
         self.data = self.src.data
-        self.static_data = self.data_container.static_data
         self.metadata = self.src.metadata
         self.wet = self.src.masks.prognostic_with_hist(cfg.data.hist)
         self.area_weights: Grid = spherical_area_weights(self.data)
@@ -104,11 +103,7 @@ class Eval:
             boundary_channels=self.num_boundary_in,
             out_channels=self.num_out,
             hist=cfg.data.hist,
-            static_data_for_corrector=self.static_data,
             srcs=self.data_container.train_sources,
-            tensor_map=self.tensor_map,
-            normalize=self.normalize,
-            dataset_spec=self.dataset_spec,
         ).to(self.device)
 
         get_model_summary(self.model, None, cfg.debug)

@@ -278,7 +278,6 @@ class DataSource:
         dataset_spec: DatasetSpec,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
-        static_data_vars: list[str] | None = None,
         name: str = "DataSource",
     ) -> Self:
         data, means, stds = validate_data(
@@ -287,7 +286,6 @@ class DataSource:
             stds,
             dataset_spec=dataset_spec,
             boundary_var_names=boundary_var_names,
-            static_data_vars=static_data_vars,
         )
         masks = extract_wet_mask(
             data,
@@ -397,9 +395,6 @@ class DataContainer:
     inference_source: DataSource | None
     loader_version: LoaderVersion
     dataset_spec: DatasetSpec
-    # TODO(559): static_data should belong to the DataSource, since we now
-    #  deal with multiple resolutions.
-    static_data: xr.Dataset | None = None
 
     # TODO: this is a bit of a footgun now that we have multiple kinds of sources
     # and should be removed in favor of the appropriate source above.
@@ -847,17 +842,9 @@ def validate_data(
     stds: xr.Dataset,
     dataset_spec: DatasetSpec,
     boundary_var_names: BoundaryVarNames,
-    static_data_vars: list[str] | None = None,
 ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
     """Validate the data such that we have the correct format for training."""
     is_compact = _is_compact(data, means, stds)
-    if static_data_vars is not None:
-        for var in static_data_vars:
-            assert var in data.variables, (
-                f"Static data variable {var} not found in data"
-            )
-            if "time" in data[var].dims:
-                data[var] = data[var].isel(time=0)
 
     if is_compact:
         data = with_lat_lon_coords(data)

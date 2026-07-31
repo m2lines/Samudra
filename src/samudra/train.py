@@ -187,7 +187,7 @@ class Trainer:
 
         self.loader_version = self.data_container.loader_version
 
-        # This is used by both the aggregator and corrector. It only works at a single scale.
+        # Aggregation still works on the primary source only.
         self.normalize = Normalize(
             self.primary_src,
             prognostic_var_names=self.prognostic_var_names,
@@ -199,12 +199,7 @@ class Trainer:
             boundary_channels=self.num_boundary_in,
             out_channels=self.num_out,
             hist=cfg.data.hist,
-            # TODO(559): This won't work at multiple scales. Refactor as part of src.
-            static_data_for_corrector=self.data_container.static_data,
             srcs=self.data_container.train_sources,
-            tensor_map=self.tensor_map,
-            normalize=self.normalize,
-            dataset_spec=self.dataset_spec,
         ).to(self.device)
 
         self.nets_dir = cfg.experiment.nets_dir

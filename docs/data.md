@@ -545,4 +545,3 @@ first.
 squeue --me -o '%.10i %.14j %.2t %.10M %.20R'
 tail -f slurm-<jobid>.out
 ```
-

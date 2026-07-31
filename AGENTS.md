@@ -183,7 +183,6 @@ For vizualization or other long-running tasks:
    * `samudra_multi.py`: samudra-multi encoder → processor → decoder architecture supporting multi-scale training
    * `samudra_mini.py`: SamudraMini single PerceiverIO model for lightweight training-shape experiments
    * `base.py`: Abstract base model class with common functionality (residual predictions, masking, gradient detaching)
-   * `corrector.py`: Optional corrector network for error correction (will likely be deprecated soon)
    * `modules/`: Reusable building blocks including `unet_backbone.py`, `encoder.py` (PerceiverEncoder), `blocks.py` (ConvNext blocks), `activations.py`, and `augment_input.py`
 
 2. **Time Stepping** (`src/samudra/stepper.py`)
@@ -196,7 +195,7 @@ For vizualization or other long-running tasks:
    * `TrainData` and `InferenceDataset` classes for training/eval
    * Supports time-based train/validation splits
    * Variables include temperature (`thetao`), salinity (`so`), u/v velocities, sea surface height (`zos`), and surface heat flux (`hfds`)
-   * Data normalization via the `Normalize` multiton (only used in the Corrector and Aggregator, should be deprecated)
+   * Data normalization via the `Normalize` multiton for aggregation and output utilities
 
 4. **Training Loop** (`src/samudra/train.py`)
    * Distributed training support via PyTorch DDP
@@ -268,7 +267,6 @@ src/samudra/
 │   ├── samudra.py        # Samudra (ConvNeXt U-Net)
 │   ├── samudra_multi.py  # samudra-multi (encoder-processor-decoder)
 │   ├── samudra_mini.py   # SamudraMini (single PerceiverIO)
-│   ├── corrector.py      # Corrector network
 │   └── modules/          # Reusable blocks (unet_backbone, encoder, blocks, activations)
 ├── aggregator/
 │   ├── main.py           # Base Aggregator class

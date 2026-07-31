@@ -9,6 +9,7 @@ area-weighting error, a depth-boundary error, a seasonal/trend removal error, a
 silent time-misalignment, and a break in the end-to-end contract.
 """
 
+import cftime
 import numpy as np
 import pandas as pd
 import pytest
@@ -182,6 +183,39 @@ def test_model_grid_adapter_preserves_geometry_and_refuses_curvilinear():
 
     with pytest.raises(NotImplementedError, match="rectilinear"):
         observations.model_on_latlon_grid(rollout, build_om4_spec(grid_type="tripolar"))
+
+
+def test_cftime_rollouts_become_comparable():
+    """A cftime time axis must be normalised, or window selection cannot happen.
+
+    Regression test: OM4 stores time as `cftime.DatetimeJulian`, and every
+    rollout inherits it. Selecting a window with pandas timestamps then raises
+    "cannot compare ... different calendars", which broke real eval runs while
+    synthetic datetime64 fixtures passed.
+    """
+    lat, lon = _grid(6, 6)
+    times = [cftime.DatetimeJulian(2021, 1, 1 + 5 * i, 12) for i in range(4)]
+    rollout = xr.Dataset(
+        {"zos": (("time", "y", "x"), np.zeros((4, 6, 6)))},
+        coords={
+            "y": lat,
+            "x": lon,
+            "lat": (("y", "x"), np.broadcast_to(lat[:, None], (6, 6)).copy()),
+            "lon": (("y", "x"), np.broadcast_to(lon[None, :], (6, 6)).copy()),
+            "time": times,
+        },
+    )
+    assert not np.issubdtype(rollout["time"].dtype, np.datetime64)
+
+    adapted = observations.model_on_latlon_grid(rollout, OM4_SPEC)
+    assert np.issubdtype(adapted["time"].dtype, np.datetime64)
+    # The operation that actually failed in production: a pandas-timestamp
+    # window. Samples sit at 12:00, so the end bound is taken past that hour to
+    # include the third of the four timestamps.
+    selected = adapted.sel(
+        time=slice(pd.Timestamp("2021-01-01"), pd.Timestamp("2021-01-12"))
+    )
+    assert selected.sizes["time"] == 3
 
 
 def _synthetic_case(seed: int = 0):

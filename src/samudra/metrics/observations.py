@@ -212,6 +212,14 @@ def model_on_latlon_grid(ds: xr.Dataset, dataset_spec: DatasetSpec) -> xr.Datase
         ds = ds.assign_coords(areacello=renamed_area)
 
     ds = kernels.normalize_lon(ds, "lon").sortby("lat").sortby("lon")
+
+    # OM4 (and therefore every rollout derived from it) carries a cftime axis,
+    # which cannot be compared against the pandas timestamps the metrics select
+    # windows with -- `.sel(time=slice(...))` raises "different calendars".
+    # Normalise here, at the single entry point into comparison form, so callers
+    # never have to think about which calendar a store happened to use.
+    if "time" in ds.coords:
+        ds = ds.assign_coords(time=kernels.coerce_datetime_values(ds["time"].values))
     return ds
 
 

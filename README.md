@@ -6,12 +6,13 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Samudra
 
-[![Open Quickstart in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/m2lines/Samudra/blob/main/notebooks/quickstart.ipynb)
 
+[![Open Quickstart in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/m2lines/Samudra/blob/main/notebooks/quickstart.ipynb)
 [![Pre-commit](https://github.com/m2lines/Samudra/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/m2lines/Samudra/actions/workflows/pre-commit.yml)
 [![Test CPU](https://github.com/m2lines/Samudra/actions/workflows/test.yml/badge.svg)](https://github.com/m2lines/Samudra/actions/workflows/test.yml)
 [![Benchmark CPU](https://github.com/m2lines/Samudra/actions/workflows/benchmarks.yml/badge.svg)](https://github.com/m2lines/Samudra/actions/workflows/benchmarks.yml)
 [Benchmark Results](https://m2lines.github.io/Samudra/dev/bench/)
+
 
 Samudra is a global ocean emulator described in ["Samudra: An AI Global Ocean Emulator for Climate"](https://arxiv.org/abs/2412.03795) and updated in ["Samudra 2: Scaling Ocean Emulators across Resolutions"](https://m2lines.github.io/Samudra/samudra2/). Samudra efficiently emulates the ocean component of a state-of-the-art climate model, accurately reproducing key ocean variables including sea surface height, horizontal velocities, temperature, and salinity, across their full depth.
 

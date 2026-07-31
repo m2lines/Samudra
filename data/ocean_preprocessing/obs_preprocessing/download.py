@@ -1,12 +1,8 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
 """Download the raw observation products, as distributed by their providers.
-
-Ported from `YuanYuan98/Ocean_Emulator:viz_jupyter/download_{duacs,oisst,argo_iap}.py`
-at commit `33d4ae2e608f57e357ba8529b747eb27be2eb041`.
 
 Every downloader is restartable: a file that already exists at a plausible size
 is skipped, and partial downloads land on a `.part` path that is only renamed

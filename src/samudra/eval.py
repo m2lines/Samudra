@@ -197,7 +197,7 @@ class Eval:
         logger.info("Computing observation metrics")
         baselines = {}
         if "om4" in self.observations.baselines:
-            # The ground-truth data the eval already staged. Yuan's metric table
+            # The ground-truth data the eval already staged. The metric table
             # is only interpretable next to it, so scoring it costs one extra
             # pass over data that is local anyway.
             baselines["om4"] = self.src.data

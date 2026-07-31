@@ -1,19 +1,15 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
 """Build analysis-ready observation stores from the raw archive.
 
-Ported from `YuanYuan98/Ocean_Emulator:viz_jupyter/prepare_obs_5day_aligned.py`
-at commit `33d4ae2e608f57e357ba8529b747eb27be2eb041`, with one deliberate
-change: the target timestamps come from the published **OM4 dataset** rather
-than from a particular model rollout.
-
-Yuan's script read the time axis out of one `predictions.zarr`, which welded the
-resulting product to that run. OM4's 5-day cadence is the thing every Samudra
-rollout inherits, so aligning to OM4 directly yields a product that serves any
-rollout on that calendar, and makes the store reproducible from public inputs.
+The target timestamps come from the published **OM4 dataset** rather than from a
+particular model rollout. Reading the time axis out of one `predictions.zarr`
+would weld the resulting product to that run; OM4's 5-day cadence is the thing
+every Samudra rollout inherits, so aligning to OM4 directly yields a product that
+serves any rollout on that calendar, and makes the store reproducible from public
+inputs.
 
 Two properties are preserved exactly, because the metrics depend on them:
 

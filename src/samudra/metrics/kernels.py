@@ -1,13 +1,11 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
 """Pure metric kernels for observation-based evaluation.
 
-Ported from `YuanYuan98/Ocean_Emulator:viz_jupyter/obs_evaluation.py` at commit
-`33d4ae2e608f57e357ba8529b747eb27be2eb041` (2026-07-22), which is the revision
-that incorporates the scientific review of the metrics document: instantaneous
+Implements the observation-evaluation metrics as specified in the metrics
+document, at the revision incorporating its scientific review: instantaneous
 (not time-mean) EKE, exact OHC layer-overlap weights, the exact-timestamp guard,
 and calendar-year block-bootstrap uncertainty.
 

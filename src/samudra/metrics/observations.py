@@ -42,7 +42,8 @@ EARTH_RADIUS_M = kernels.EARTH_RADIUS_M
 LAT_ALIASES = ["lat", "latitude", "y", "nav_lat"]
 LON_ALIASES = ["lon", "longitude", "x", "nav_lon"]
 TIME_ALIASES = ["time", "valid_time"]
-DEPTH_ALIASES = ["depth", "lev", "level", "z", "DEPTH", "depth_0", "z_t"]
+# `depth_std` is what the IAP/ARGO product calls its standard-level depth axis.
+DEPTH_ALIASES = ["depth", "depth_std", "lev", "level", "z", "DEPTH", "depth_0", "z_t"]
 
 # DUACS ships both absolute geostrophic velocity (from absolute dynamic
 # topography) and the anomaly (from sea-level anomaly). The model derives

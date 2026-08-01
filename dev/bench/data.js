@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1785545474099,
+  "lastUpdate": 1785545480962,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -23119,6 +23119,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 1.234864406288922",
             "extra": "mean: 52.532843438600004 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "a87ddd2370741c2cec2cd6c1e59ad0f87db594b0",
+          "message": "Fixed colab badge (aligned with other badges) in README (#830)\n\nThis is what the README will look like after this change: \n\n<img width=\"750\" height=\"62\" alt=\"Screenshot 2026-07-31 at 4 16 36 PM\"\nsrc=\"https://github.com/user-attachments/assets/8e06b8a1-e8b3-4e33-a2e9-cff82e500f1a\"\n/>",
+          "timestamp": "2026-08-01T00:11:27Z",
+          "tree_id": "6a9b43d33c6c84b71b954df6a46909dbb4778b5d",
+          "url": "https://github.com/m2lines/Samudra/commit/a87ddd2370741c2cec2cd6c1e59ad0f87db594b0"
+        },
+        "date": 1785545480688,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.1073431359206927,
+            "unit": "iter/sec",
+            "range": "stddev: 0.005078206060088236",
+            "extra": "mean: 903.0624452000211 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06359024793549185,
+            "unit": "iter/sec",
+            "range": "stddev: 0.027965972284690627",
+            "extra": "mean: 15.725681727400001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.020885001613907536,
+            "unit": "iter/sec",
+            "range": "stddev: 0.15521948752143488",
+            "extra": "mean: 47.881250788800024 sec\nrounds: 5"
           }
         ]
       }

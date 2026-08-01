@@ -4,27 +4,29 @@
 
 """Download the raw observation products, as distributed by their providers.
 
-Every downloader is restartable: a file that already exists at a plausible size
-is skipped, and partial downloads land on a `.part` path that is only renamed
-into place once complete. That matters because these are long jobs over
-thousands of files, and a job that has to start from zero after a network blip
-will never finish.
+Every downloader is restartable: files already present at a plausible size are
+never requested, and anything that arrives truncated is deleted rather than
+left to look complete. That matters because these are long jobs over thousands
+of files, and one that has to start from zero after a network blip will never
+finish.
+
+Transfers go through `pypdl`, which fetches several files at once and splits
+each across connections. Segmenting matters most for the IAP archive, whose
+~40 MB monthly files arrive at a few MB/s over a single connection.
 """
 
 from __future__ import annotations
 
-import calendar
 import dataclasses
 import logging
 import os
 import shutil
 import subprocess
-import time
-import urllib.error
-import urllib.request
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, timedelta
 from pathlib import Path
+
+import xarray as xr
+from pypdl import Pypdl
 
 logger = logging.getLogger("ocean_preprocessing.obs")
 
@@ -90,59 +92,58 @@ def _is_complete(path: Path, min_bytes: int) -> bool:
     return path.exists() and path.stat().st_size >= min_bytes
 
 
-def _fetch(
-    url: str,
-    target: Path,
+def _download_batch(
+    tasks: list[tuple[str, Path]],
     *,
-    timeout: float,
+    workers: int,
+    segments: int,
     retries: int,
-    retry_wait: float,
     min_bytes: int,
-) -> bool:
-    """Fetch one URL to `target` atomically. Returns True on success."""
-    target.parent.mkdir(parents=True, exist_ok=True)
-    tmp = target.with_suffix(target.suffix + ".part")
-    if tmp.exists():
-        tmp.unlink()
+    label: str,
+) -> set[str]:
+    """Download `(url, target)` pairs concurrently. Returns the URLs that failed.
 
-    for attempt in range(1, retries + 1):
-        try:
-            with urllib.request.urlopen(url, timeout=timeout) as response:
-                if getattr(response, "status", 200) >= 400:
-                    return False
-                with tmp.open("wb") as out:
-                    shutil.copyfileobj(response, out)
-            size = tmp.stat().st_size
-            if size < min_bytes:
-                raise OSError(f"downloaded file is implausibly small: {size} bytes")
-            tmp.replace(target)
-            return True
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            if tmp.exists():
-                tmp.unlink()
-            logger.debug(
-                "  attempt %d/%d failed for %s: %s", attempt, retries, url, exc
-            )
-            if attempt < retries:
-                time.sleep(retry_wait)
-    return False
+    Uses pypdl, which downloads several files at once *and* splits each file
+    across connections. The second part is what matters for the slower
+    providers: the IAP archive delivers ~40 MB monthly files at a few MB/s on a
+    single connection, so segmenting a file is a bigger win there than adding
+    more concurrent files.
 
+    Success is not taken on trust. A truncated file that pypdl reports as
+    complete would be skipped forever by the size check on the next run, so
+    every target is re-checked afterwards and anything implausibly small is
+    deleted and reported as failed.
+    """
+    if not tasks:
+        return set()
+    for _, target in tasks:
+        target.parent.mkdir(parents=True, exist_ok=True)
 
-def _run_pool(tasks, worker, workers: int, label: str) -> tuple[int, list[str]]:
-    """Run `worker` over `tasks` concurrently, returning (successes, failures)."""
-    done, failed = 0, []
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(worker, task): task for task in tasks}
-        for future in as_completed(futures):
-            ok, name = future.result()
-            if ok:
-                done += 1
-            else:
-                failed.append(name)
-            total = done + len(failed)
-            if total % 250 == 0:
-                logger.info("  %s: %d/%d", label, total, len(tasks))
-    return done, failed
+    downloader = Pypdl(max_concurrent=workers)
+    downloader.start(
+        tasks=[{"url": url, "file_path": str(target)} for url, target in tasks],
+        segments=segments,
+        retries=retries,
+        display=False,
+        block=True,
+        overwrite=True,
+    )
+
+    failed = set()
+    for entry in downloader.failed or []:
+        # pypdl reports failures as the task dicts it was given.
+        failed.add(entry["url"] if isinstance(entry, dict) else str(entry))
+
+    for url, target in tasks:
+        if url in failed:
+            continue
+        if not _is_complete(target, min_bytes):
+            logger.debug("  %s: implausible result for %s", label, target.name)
+            target.unlink(missing_ok=True)
+            failed.add(url)
+
+    logger.info("  %s: %d/%d fetched", label, len(tasks) - len(failed), len(tasks))
+    return failed
 
 
 def oisst(
@@ -150,9 +151,8 @@ def oisst(
     start_year: int = 1982,
     end_year: int = 2022,
     workers: int = 8,
-    timeout: float = 120.0,
+    segments: int = 4,
     retries: int = 4,
-    retry_wait: float = 5.0,
     overwrite: bool = False,
 ) -> None:
     """Download NOAA OISST v2.1 daily NetCDF files.
@@ -161,19 +161,13 @@ def oisst(
         output_dir: Directory to fill with `oisst-avhrr-v02r01.YYYYMMDD.nc`.
         start_year: First calendar year to fetch.
         end_year: Last calendar year to fetch, inclusive.
-        workers: Concurrent downloads.
-        timeout: Per-request timeout in seconds.
+        workers: Files fetched concurrently.
+        segments: Connections per file.
         retries: Attempts per file before giving up.
-        retry_wait: Seconds between attempts.
         overwrite: Re-download files that already look complete.
     """
     output_dir = Path(output_dir)
-    days = [
-        date(year, month, day)
-        for year in range(start_year, end_year + 1)
-        for month in range(1, 13)
-        for day in range(1, calendar.monthrange(year, month)[1] + 1)
-    ]
+    days = xr.date_range(f"{start_year}-01-01", f"{end_year}-12-31", freq="D")
     logger.info(
         "OISST: %d daily files, %d-%d -> %s",
         len(days),
@@ -182,28 +176,32 @@ def oisst(
         output_dir,
     )
 
-    def worker(day: date) -> tuple[bool, str]:
+    # Filter before handing work to the downloader rather than relying on its
+    # own overwrite handling, so restart behaviour stays explicit: a file that
+    # is already present at a plausible size is simply never requested.
+    pending = []
+    for day in days:
         filename = OISST_FILENAME.format(date=day)
         target = output_dir / filename
         if _is_complete(target, MIN_PLAUSIBLE_BYTES) and not overwrite:
-            return True, filename
-        url = f"{OISST_BASE_URL}/{day:%Y%m}/{filename}"
-        ok = _fetch(
-            url,
-            target,
-            timeout=timeout,
-            retries=retries,
-            retry_wait=retry_wait,
-            min_bytes=MIN_PLAUSIBLE_BYTES,
-        )
-        return ok, filename
+            continue
+        pending.append((f"{OISST_BASE_URL}/{day:%Y%m}/{filename}", target))
 
-    done, failed = _run_pool(days, worker, workers, "OISST")
-    logger.info("OISST: %d present, %d failed", done, len(failed))
+    logger.info(
+        "OISST: %d already present, %d to fetch", len(days) - len(pending), len(pending)
+    )
+    failed = _download_batch(
+        pending,
+        workers=workers,
+        segments=segments,
+        retries=retries,
+        min_bytes=MIN_PLAUSIBLE_BYTES,
+        label="OISST",
+    )
     if failed:
         raise RuntimeError(
-            f"{len(failed)} OISST files could not be downloaded, e.g. {failed[:5]}. "
-            "Re-run to retry only the missing days."
+            f"{len(failed)} OISST files could not be downloaded, e.g. "
+            f"{sorted(failed)[:3]}. Re-run to retry only the missing days."
         )
 
 
@@ -213,22 +211,27 @@ def argo_iap(
     end_year: int = 2022,
     fields: tuple[str, ...] = ("temperature", "salinity"),
     workers: int = 4,
-    timeout: float = 300.0,
+    segments: int = 8,
     retries: int = 3,
-    retry_wait: float = 5.0,
     overwrite: bool = False,
 ) -> None:
     """Download ARGO-IAP monthly gridded temperature and salinity.
+
+    The IAP archive serves the same files from two hosts under inconsistent
+    capitalisation, so each month is attempted against one naming candidate at
+    a time: everything still missing after a round is retried with the next
+    spelling. Batching by candidate rather than looping per file keeps the
+    downloads concurrent while preserving the fallback.
 
     Args:
         output_dir: Directory to fill with the monthly NetCDF files.
         start_year: First calendar year to fetch.
         end_year: Last calendar year to fetch, inclusive.
         fields: Which of `temperature`, `salinity` to fetch.
-        workers: Concurrent downloads. Kept low; the IAP hosts are modest.
-        timeout: Per-request timeout in seconds.
-        retries: Attempts per mirror/spelling before moving on.
-        retry_wait: Seconds between attempts.
+        workers: Files fetched concurrently. Kept low; the IAP hosts are modest.
+        segments: Connections per file. Worth more here than extra workers --
+            these are ~40 MB files from a slow origin.
+        retries: Attempts per file within a candidate round.
         overwrite: Re-download files that already look complete.
     """
     output_dir = Path(output_dir)
@@ -238,56 +241,88 @@ def argo_iap(
             f"Unknown ARGO fields {sorted(unknown)}; expected {sorted(ARGO_FIELDS)}"
         )
 
-    months = [
-        (field, year, month)
-        for field in fields
-        for year in range(start_year, end_year + 1)
-        for month in range(1, 13)
-    ]
-    logger.info("ARGO-IAP: %d monthly files -> %s", len(months), output_dir)
-
-    def worker(task: tuple[str, int, int]) -> tuple[bool, str]:
-        field_name, year, month = task
+    outstanding: dict[Path, tuple[ArgoField, int, int]] = {}
+    total = 0
+    for field_name in fields:
         config = ARGO_FIELDS[field_name]
-        canonical = config.filename_templates[0].format(year=year, month=month)
-        target = output_dir / field_name / canonical
-        if _is_complete(target, MIN_PLAUSIBLE_BYTES) and not overwrite:
-            return True, canonical
-        # Try every mirror/spelling combination; providers are inconsistent and a
-        # miss on one spelling does not mean the month is unavailable.
-        for base_url in config.base_urls:
-            for template in config.filename_templates:
-                url = f"{base_url}/{template.format(year=year, month=month)}"
-                if _fetch(
-                    url,
-                    target,
-                    timeout=timeout,
-                    retries=retries,
-                    retry_wait=retry_wait,
-                    min_bytes=MIN_PLAUSIBLE_BYTES,
-                ):
-                    return True, canonical
-        return False, canonical
+        for year in range(start_year, end_year + 1):
+            for month in range(1, 13):
+                total += 1
+                canonical = config.filename_templates[0].format(year=year, month=month)
+                target = output_dir / field_name / canonical
+                if _is_complete(target, MIN_PLAUSIBLE_BYTES) and not overwrite:
+                    continue
+                outstanding[target] = (config, year, month)
 
-    done, failed = _run_pool(months, worker, workers, "ARGO-IAP")
-    logger.info("ARGO-IAP: %d present, %d failed", done, len(failed))
-    if failed:
+    logger.info(
+        "ARGO-IAP: %d monthly files, %d already present, %d to fetch -> %s",
+        total,
+        total - len(outstanding),
+        len(outstanding),
+        output_dir,
+    )
+
+    candidates = [
+        (base, template)
+        for config in (ARGO_FIELDS[f] for f in fields)
+        for base in config.base_urls
+        for template in config.filename_templates
+    ]
+    seen: set[tuple[str, str]] = set()
+    rounds = [c for c in candidates if not (c in seen or seen.add(c))]
+
+    for base_url, template in rounds:
+        if not outstanding:
+            break
+        tasks = []
+        for target, (config, year, month) in outstanding.items():
+            if (
+                base_url not in config.base_urls
+                or template not in config.filename_templates
+            ):
+                continue
+            tasks.append(
+                (f"{base_url}/{template.format(year=year, month=month)}", target)
+            )
+        if not tasks:
+            continue
+        failed = _download_batch(
+            tasks,
+            workers=workers,
+            segments=segments,
+            retries=retries,
+            min_bytes=MIN_PLAUSIBLE_BYTES,
+            label=f"ARGO-IAP [{template.split('_year_')[0]}]",
+        )
+        for url, target in tasks:
+            if url not in failed:
+                outstanding.pop(target, None)
+
+    if outstanding:
+        names = sorted(p.name for p in outstanding)[:3]
         raise RuntimeError(
-            f"{len(failed)} ARGO-IAP files could not be downloaded, e.g. {failed[:5]}. "
-            "Re-run to retry only the missing months."
+            f"{len(outstanding)} ARGO-IAP files could not be downloaded from any "
+            f"mirror, e.g. {names}. Re-run to retry only the missing months."
         )
 
 
 def _yearly_ranges(start: str, end: str) -> list[tuple[date, date]]:
-    start_date, end_date = date.fromisoformat(start), date.fromisoformat(end)
-    if start_date > end_date:
+    """Split `[start, end]` into per-calendar-year spans, clamped at both ends."""
+    first, last = date.fromisoformat(start), date.fromisoformat(end)
+    if first > last:
         raise ValueError(f"Invalid date range: {start} > {end}")
-    ranges, current = [], start_date
-    while current <= end_date:
-        year_end = min(date(current.year, 12, 31), end_date)
-        ranges.append((current, year_end))
-        current = year_end + timedelta(days=1)
-    return ranges
+    # The interior boundaries are the January 1sts inside the span; the first
+    # and last spans are clamped to the dates actually requested, so a range
+    # starting mid-October yields a short first year.
+    edges = [first] + [
+        stamp.date()
+        for stamp in xr.date_range(start, end, freq="YS")
+        if stamp.date() > first
+    ]
+    return [
+        (edge, edges[i + 1] - timedelta(days=1) if i + 1 < len(edges) else last)
+        for i, edge in enumerate(edges)
+    ]
 
 
 def duacs(

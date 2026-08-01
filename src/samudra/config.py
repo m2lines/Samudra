@@ -10,11 +10,18 @@ from typing import Annotated, Literal, Self, assert_never
 
 import cftime
 import numpy as np
+import pandas as pd
 import pydantic
 import torch
 import xarray as xr
 from perceiver_pytorch import Perceiver as NaivePerceiver
-from pydantic import Field, PlainSerializer, PlainValidator, WithJsonSchema
+from pydantic import (
+    Field,
+    PlainSerializer,
+    PlainValidator,
+    WithJsonSchema,
+    model_validator,
+)
 from torch import nn
 from torch.nn import GELU
 
@@ -26,7 +33,7 @@ from samudra.constants import (
     build_llc_spec,
     build_om4_spec,
 )
-from samudra.metrics.config import ObsMetricsConfig
+from samudra.metrics import kernels, observations
 from samudra.models import Samudra, SamudraMini, SamudraMulti
 from samudra.models.base import BaseModel
 from samudra.models.modules import (
@@ -53,7 +60,12 @@ from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from samudra.models.modules.encoder import patch_from
 from samudra.utils.data import DataContainer, DataSource, DataSourceSplits
 from samudra.utils.llc import canonicalize_llc_datasets
-from samudra.utils.location import LocalLocation, Location, ResolvedLocation
+from samudra.utils.location import (
+    LocalLocation,
+    Location,
+    ResolvedLocation,
+    UnresolvedLocation,
+)
 from samudra.utils.loss import (
     DynamicLoss,
     GradientLoss,
@@ -1199,6 +1211,96 @@ class TrainConfig(TopLevelConfig):
     def prepare_output_dirs(self) -> None:
         self.experiment.nets_dir.mkdir(parents=True, exist_ok=True)
         self.experiment.output_dir.mkdir(parents=True, exist_ok=True)
+
+
+class ObsMetricsConfig(BaseConfig):
+    """Where the observation products live, and over what period to score.
+
+    Disabled by default. Enabling it makes an eval job compare its rollout
+    against DUACS, OISST, and ARGO-IAP once the rollout is on disk.
+    """
+
+    enabled: bool = Field(
+        default=False,
+        description="Compute observation metrics after the rollout finishes.",
+    )
+    duacs_location: Location = Field(
+        default=UnresolvedLocation(path="obs/duacs.zarr"),
+        description="DUACS surface geostrophic velocity, on its native grid.",
+    )
+    oisst_location: Location = Field(
+        default=UnresolvedLocation(path="obs/oisst.zarr"),
+        description="OISST sea-surface temperature, on its native grid.",
+    )
+    argo_iap_location: Location = Field(
+        default=UnresolvedLocation(path="obs/argo-iap.zarr"),
+        description="ARGO-IAP gridded temperature, on its native grid.",
+    )
+    rmse_start: str = Field(
+        default="2015-01-01",
+        description=(
+            "Start of the primary scoring window. Must begin a complete calendar "
+            "year: the score and its bootstrap both use equal-year blocks."
+        ),
+    )
+    rmse_end: str = Field(
+        default="2022-12-31",
+        description="End of the primary scoring window; must end a complete calendar year.",
+    )
+    bootstrap_samples: int = Field(
+        default=kernels.DEFAULT_BOOTSTRAP_SAMPLES,
+        ge=0,
+        description="Calendar-year block-bootstrap draws for the 95% CI; 0 disables.",
+    )
+    velocity_kind: str = Field(
+        default="absolute",
+        description=(
+            "Which DUACS geostrophic velocity to compare against. 'absolute' "
+            "matches the model velocity derived from zos."
+        ),
+    )
+    baselines: list[str] = Field(
+        default_factory=lambda: ["om4"],
+        description=(
+            "Reference rollouts scored alongside the model. 'om4' scores the "
+            "ground-truth OM4 data already staged for the eval, which is what "
+            "makes the model's own numbers interpretable."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _check(self) -> "ObsMetricsConfig":
+        if self.velocity_kind not in observations.DUACS_VELOCITY_COMPONENTS:
+            raise ValueError(
+                f"velocity_kind must be one of "
+                f"{sorted(observations.DUACS_VELOCITY_COMPONENTS)}, "
+                f"got {self.velocity_kind!r}"
+            )
+        unknown = set(self.baselines) - {"om4"}
+        if unknown:
+            raise ValueError(f"Unknown baselines {sorted(unknown)}; supported: ['om4']")
+        if self.window[0] > self.window[1]:
+            raise ValueError(
+                f"rmse_start ({self.rmse_start}) must not be after rmse_end "
+                f"({self.rmse_end})"
+            )
+        return self
+
+    @property
+    def window(self) -> tuple[pd.Timestamp, pd.Timestamp]:
+        """The scoring window, with a date-only end bound taken to end-of-day.
+
+        OM4 samples are stamped at 12:00, so a bare `2022-12-31` end bound would
+        exclude that day's sample. Currently masked because the observation
+        products end earlier and the window gets trimmed to the shared span, but
+        it becomes a silent one-sample loss the moment coverage extends past
+        `rmse_end` -- and the 7.5-day tolerance in the complete-calendar-year
+        check is far too loose to notice.
+        """
+        end = pd.Timestamp(self.rmse_end)
+        if end == end.normalize():
+            end = end + pd.Timedelta(days=1) - pd.Timedelta(1, "ns")
+        return pd.Timestamp(self.rmse_start), end
 
 
 # See backend.py for how these are turned into concrete devices

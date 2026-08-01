@@ -239,7 +239,7 @@ def _with_provenance(
     ds.attrs.update(PROVENANCE[product])
     ds.attrs["m2lines/date_created"] = datetime.datetime.now().isoformat()
     ds.attrs["m2lines/cli_args"] = " ".join(sys.argv)
-    ds.attrs["m2lines/ocean_emulators_git_hash"] = get_git_url_hash()
+    ds.attrs["m2lines/samudra_git_hash"] = get_git_url_hash()
     ds.attrs["m2lines/time_alignment"] = alignment
     if om4_path is not None:
         ds.attrs["m2lines/time_axis_source"] = om4_path
@@ -294,12 +294,10 @@ def duacs(
         )
     logger.info("DUACS: combining %d yearly stores", len(stores))
 
-    ds = xr.concat(
-        [xr.open_zarr(store, chunks={}) for store in stores],
-        dim="time",
-        coords="minimal",
-        compat="override",
-    ).sortby("time")
+    # `open_mfdataset` orders by coordinate itself, so the explicit `sortby`
+    # a manual concat needs goes away. Verified to produce identical values and
+    # an identical time axis on out-of-order yearly stores.
+    ds = xr.open_mfdataset(stores, engine="zarr", combine="by_coords", chunks={})
 
     keep = [name for name in DUACS_KEEP_VARS if name in ds.data_vars]
     missing = sorted(set(DUACS_KEEP_VARS) - set(keep))

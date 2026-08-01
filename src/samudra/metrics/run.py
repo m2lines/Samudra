@@ -14,16 +14,19 @@ from __future__ import annotations
 import logging
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pandas as pd
 import xarray as xr
 
 from samudra.constants import DatasetSpec
 from samudra.metrics import observations, report
-from samudra.metrics.config import ObsMetricsConfig
 from samudra.utils.data import stack_levels
 from samudra.utils.location import ResolvedLocation
 from samudra.utils.wandb import MetricsDict
+
+if TYPE_CHECKING:
+    from samudra.config import ObsMetricsConfig
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +81,7 @@ def run_observation_metrics(
         The tidy metrics frame, and the flattened scalars for W&B.
     """
     start = time.perf_counter()
-    products = obs_cfg.open_products(data_root)
+    products = observations.open_products(obs_cfg, data_root)
 
     rollouts = {
         model_label: observations.model_on_latlon_grid(predictions, dataset_spec)

@@ -15,7 +15,8 @@ The pieces:
 - `kernels`: pure functions over `xr.DataArray`. No I/O, no plotting, no state.
 - `observations`: loaders for the DUACS / OISST / ARGO-IAP products.
 - `report`: the driver, producing one tidy `pandas.DataFrame` of metric rows.
-- `config`: `ObsMetricsConfig`, embedded in `EvalConfig`.
+
+`ObsMetricsConfig` lives in `samudra.config` with the other task configs.
 
 `samudra.eval` calls `report` for the scalars it logs to W&B; `samudra.viz`
 calls the same `kernels` when it draws the corresponding figures, so a number on

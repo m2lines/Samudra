@@ -120,9 +120,11 @@ python -m ocean_preprocessing.obs_preprocessing download duacs    --output_dir=$
 On Torch these run as batch jobs — `PRODUCT=oisst sbatch scripts/slurm_obs_download.sbatch` — since compute nodes there
 do have internet egress.
 
-All three downloaders are restartable: a file that already exists at a plausible size is skipped, and partial downloads
-land on a `.part` path that is only renamed into place once complete. Re-run after an interruption and only the missing
-files are fetched.
+All three downloaders are restartable: files already present at a plausible size are never requested, and anything
+that arrives truncated is deleted rather than left looking complete. Re-run after an interruption and only the missing
+files are fetched. Transfers go through [`pypdl`](https://github.com/mjishnu/pypdl), which fetches several files at once
+and splits each across connections — the latter matters most for the IAP archive, whose ~40 MB monthly files arrive
+slowly over a single connection.
 
 ### Stage 2: derive the analysis-ready stores
 
@@ -134,6 +136,9 @@ python -m ocean_preprocessing.obs_preprocessing prepare all \
 or, on Torch, `sbatch scripts/slurm_obs_prepare.sbatch` (see the header of that file for the environment variables).
 
 Both stages write **Zarr v2** explicitly, because `samudra.metrics` pins `zarr<3` and cannot open a v3 store.
+
+Credentials are only needed when writing to the NYU OSN pod (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and
+`FSSPEC_S3_ENDPOINT_URL`); reading the public inputs, including the OM4 time axis, is anonymous.
 
 Two properties of the output matter downstream, and the metrics depend on both:
 

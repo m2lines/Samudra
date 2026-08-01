@@ -439,7 +439,7 @@ class CLI:
         for var, attr in saved_attrs.items():
             ds_input.attrs[var] = attr
         # Add provenance hash and metadata
-        ds_input.attrs["m2lines/ocean_emulators_git_hash"] = get_git_url_hash()
+        ds_input.attrs["m2lines/samudra_git_hash"] = get_git_url_hash()
         ds_input.attrs["m2lines/date_created"] = datetime.datetime.now().isoformat()
         ds_input.attrs["m2lines/cli_args"] = " ".join(sys.argv)
         # Horizontal grid geometry: this pipeline conservatively regrids onto a

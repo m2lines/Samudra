@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 import numpy as np
 import xarray as xr
@@ -33,6 +34,9 @@ import xarray as xr
 from samudra.constants import DatasetSpec
 from samudra.metrics import kernels
 from samudra.utils.location import ResolvedLocation
+
+if TYPE_CHECKING:
+    from samudra.config import ObsMetricsConfig
 
 logger = logging.getLogger(__name__)
 
@@ -252,3 +256,14 @@ def model_depth_thickness(ds: xr.Dataset, dataset_spec: DatasetSpec) -> xr.DataA
         return ds["dz"]
     thickness = np.asarray(dataset_spec.depth_thickness[: lev.size], dtype=float)
     return xr.DataArray(thickness, dims=["lev"], coords={"lev": lev})
+
+
+def open_products(
+    cfg: ObsMetricsConfig, data_root: ResolvedLocation
+) -> dict[str, xr.Dataset]:
+    """Open and standardize the three observation products."""
+    return {
+        "duacs": open_product(data_root.resolve(cfg.duacs_location), "DUACS"),
+        "oisst": open_product(data_root.resolve(cfg.oisst_location), "OISST"),
+        "argo": open_product(data_root.resolve(cfg.argo_iap_location), "ARGO-IAP"),
+    }

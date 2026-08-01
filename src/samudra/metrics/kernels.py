@@ -5,9 +5,11 @@
 """Pure metric kernels for observation-based evaluation.
 
 Implements the observation-evaluation metrics as specified in the metrics
-document, at the revision incorporating its scientific review: instantaneous
+document [1], at the revision incorporating its scientific review: instantaneous
 (not time-mean) EKE, exact OHC layer-overlap weights, the exact-timestamp guard,
 and calendar-year block-bootstrap uncertainty.
+
+[1]: https://docs.google.com/document/d/1cWzIrcajfW-gvoMzV3PU0JDAouVt5xerRmEiBIUbV1s
 
 Every function here is pure: it takes arrays and returns arrays or floats. No
 file access, no plotting, no module-level mutable state, no `argparse`. That is

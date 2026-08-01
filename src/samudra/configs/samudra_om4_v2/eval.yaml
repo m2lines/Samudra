@@ -18,32 +18,4 @@ experiment:
     project: default
 data: !include ../data/om4.yaml
 model: !include model.yaml
-observations:
-  # Scored against DUACS, OISST and ARGO-IAP once the rollout is on disk.
-  #
-  # These point at the public, anonymously-readable stores, so an eval run needs
-  # no credentials and no staging step. They were produced from the providers by
-  # `python -m ocean_preprocessing.obs_preprocessing` (see data/README.md), and
-  # each store records its own source, attribution and provenance in its attrs.
-  #
-  # To read a locally staged copy instead -- worth it on repeat runs, since DUACS
-  # alone is 46 GB -- set OSN_OBS_PATH in the skypilot eval job and override
-  # these to the relative paths `obs/duacs.zarr` and so on, which resolve against
-  # experiment.data_root.
-  enabled: true
-  duacs_location: &obs_s3
-    type: s3
-    bucket: m2lines-pubs
-    path: Samudra/v2026-07/obs/duacs.zarr
-    endpoint_url: https://nyu1.osn.mghpcc.org
-    anon: true
-  oisst_location:
-    <<: *obs_s3
-    path: Samudra/v2026-07/obs/oisst.zarr
-  argo_iap_location:
-    <<: *obs_s3
-    path: Samudra/v2026-07/obs/argo-iap.zarr
-  # Eight complete calendar years, so the score and its block bootstrap share
-  # equal-weight blocks.
-  rmse_start: "2015-01-01"
-  rmse_end: "2022-12-31"
+observations: !include ../data/obs.yaml

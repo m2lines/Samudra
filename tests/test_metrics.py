@@ -260,6 +260,72 @@ def test_cftime_rollouts_become_comparable():
     assert selected.sizes["time"] == 3
 
 
+def test_partial_edge_months_and_seam_are_handled():
+    """Two silent-corruption paths that only show up on real-shaped inputs.
+
+    A month at the edge of a record is partial, but reduces to the same single
+    monthly label as a full month on the other side. And a global longitude
+    derivative taken without wrapping differences the seam meridians against
+    the wrong neighbour.
+    """
+    # A rollout that starts mid-October and stops on 24 December: both edge
+    # months are short and must not be compared against full months.
+    time = pd.date_range("2014-10-20 12:00", "2022-12-24 12:00", freq="5D")
+    series = xr.DataArray(np.ones(len(time)), dims=["time"], coords={"time": time})
+    kept = pd.DatetimeIndex(
+        kernels.monthly_mean_of_complete_months(series)["time"].values
+    )
+    assert kept[0].strftime("%Y-%m") == "2014-11"
+    assert kept[-1].strftime("%Y-%m") == "2022-11"
+
+    # A monthly product must survive intact: one sample *is* the whole month.
+    months = pd.date_range("2015-01-01", "2022-12-01", freq="MS")
+    monthly = xr.DataArray(np.ones(len(months)), dims=["time"], coords={"time": months})
+    assert kernels.monthly_mean_of_complete_months(monthly).sizes["time"] == len(months)
+
+    # On a global grid the seam is an interior point, so a periodic field
+    # differentiates exactly there.
+    lon = np.arange(0.0, 360.0, 10.0)
+    field = xr.DataArray(
+        np.cos(np.deg2rad(lon))[None, :],
+        dims=["y", "x"],
+        coords={"y": [30.0], "x": lon},
+    )
+    analytic = -np.sin(np.deg2rad(lon)) * np.pi / 180
+    wrapped = kernels._differentiate_lon(field, "x").values[0]
+    assert wrapped[0] == pytest.approx(analytic[0], abs=1e-12)
+    # A regional grid genuinely has edges, and must be left alone.
+    regional = field.isel(x=slice(0, 8))
+    assert np.allclose(
+        kernels._differentiate_lon(regional, "x").values,
+        regional.differentiate("x").values,
+    )
+
+
+def test_a_year_without_coverage_is_refused_not_dropped():
+    """An empty year must fail, not silently shrink the equal-year block set."""
+    values = np.array([0.5, np.inf, 0.6, 0.7])
+    summary = kernels.interannual_rmse_summary(values, bootstrap_samples=0)
+    # The summary itself still filters -- which is exactly why the caller has to
+    # catch the empty year before it reaches here.
+    assert summary["n_years"] == 3
+
+    lat, lon = _grid(8, 12)
+    area = _area(lat, lon)
+    time = pd.date_range("2021-01-01", "2022-12-31", freq="5D")
+    err = xr.DataArray(
+        np.ones((len(time), lat.size, lon.size)),
+        dims=["time", "lat", "lon"],
+        coords={"time": time, "lat": lat, "lon": lon},
+    )
+    # Blank 2022 entirely: no finite paired cell that year.
+    err = err.where(err["time"].dt.year != 2022)
+    with pytest.raises(ValueError, match="no finite paired cells"):
+        kernels.rmse_map_with_uncertainty(
+            err, area, ("lat", "lon"), "ctx", bootstrap_samples=0
+        )
+
+
 def _synthetic_case(seed: int = 0):
     """A tiny but complete model/observation set spanning two calendar years."""
     rng = np.random.default_rng(seed)

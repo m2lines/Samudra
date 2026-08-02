@@ -40,6 +40,20 @@ DEFAULT_START = "2014-10-20"
 DEFAULT_END = "2022-12-24"
 
 
+def _store(root: str, name: str) -> str:
+    """Join a store name onto a root that may be a local path or a URL.
+
+    `pathlib` collapses the double slash in `s3://bucket/...` to `s3:/...`,
+    which fsspec then reads as a *local* path — so an OSN output root would
+    silently write hundreds of GB into a directory literally named `s3:` under
+    the job's working directory, and report success.
+    """
+    root = str(root)
+    if "://" in root:
+        return f"{root.rstrip('/')}/{name}"
+    return str(Path(root) / name)
+
+
 class Download:
     """Fill the raw observation archive. Restartable: complete files are skipped."""
 
@@ -118,7 +132,7 @@ class Prepare:
         times = self._times(om4_path, start_date, end_date)
         prepare_mod.duacs(
             str(Path(raw_root) / "duacs"),
-            str(Path(output_root) / "duacs.zarr"),
+            _store(output_root, "duacs.zarr"),
             times,
             om4_path=om4_path,
             dry_run=dry_run,
@@ -139,7 +153,7 @@ class Prepare:
         raw_dir = str(Path(raw_root) / "oisst")
         prepare_mod.oisst(
             raw_dir,
-            str(Path(output_root) / "oisst.zarr"),
+            _store(output_root, "oisst.zarr"),
             times,
             om4_path=om4_path,
             dry_run=dry_run,
@@ -147,7 +161,7 @@ class Prepare:
         if include_daily:
             prepare_mod.oisst_daily(
                 raw_dir,
-                str(Path(output_root) / "oisst_daily.zarr"),
+                _store(output_root, "oisst_daily.zarr"),
                 start_date=start_date,
                 end_date=end_date,
                 dry_run=dry_run,
@@ -157,7 +171,7 @@ class Prepare:
         """Build the monthly ARGO-IAP store."""
         prepare_mod.argo_iap(
             str(Path(raw_root) / "argo-iap"),
-            str(Path(output_root) / "argo-iap.zarr"),
+            _store(output_root, "argo-iap.zarr"),
             dry_run=dry_run,
         )
 
@@ -171,7 +185,8 @@ class Prepare:
         dry_run: bool = False,
     ) -> None:
         """Build every store the observation metrics need."""
-        Path(output_root).mkdir(parents=True, exist_ok=True)
+        if "://" not in str(output_root):
+            Path(output_root).mkdir(parents=True, exist_ok=True)
         self.oisst(
             raw_root, output_root, om4_path, start_date, end_date, dry_run=dry_run
         )

@@ -25,11 +25,14 @@ Two conventions run through the module:
 from __future__ import annotations
 
 import dataclasses
+import logging
 from typing import cast
 
 import numpy as np
 import pandas as pd
 import xarray as xr
+
+logger = logging.getLogger(__name__)
 
 # Seawater properties used for ocean heat content. Held here rather than read
 # from data so that OHC values are reproducible against externally published
@@ -192,9 +195,22 @@ def require_complete_calendar_years(time: xr.DataArray, context: str) -> list[in
     complete = complete_calendar_years(time)
     if complete != present_years:
         incomplete = sorted(set(present_years) - set(complete))
+        # This fires only after the rollout, so the message has to carry the fix
+        # rather than leave the reader to work out which bound is wrong. The
+        # usual cause is an observation product ending days short of the year:
+        # the shipped window clears the tolerance by about half a day, so one
+        # extra 6-day step in a rebuilt archive is enough to trip it.
+        usable = [year for year in complete if year not in incomplete]
+        suggestion = (
+            f" The last fully covered year is {max(usable)}, so "
+            f'rmse_end="{max(usable)}-12-31" would score {len(usable)} years.'
+            if usable
+            else ""
+        )
         raise ValueError(
             f"{context}: uncertainty-enabled primary RMSE requires complete calendar "
-            f"years; incomplete years={incomplete}. Adjust the configured RMSE window."
+            f"years, but {incomplete} {'is' if len(incomplete) == 1 else 'are'} only "
+            f"partly covered (data ends {index.max():%Y-%m-%d}).{suggestion}"
         )
     return complete
 
@@ -328,6 +344,45 @@ def area_weighted_pattern_corr(
     return float((covariance / denominator).values)
 
 
+def monthly_mean_of_complete_months(
+    field: xr.DataArray, time_dim: str = "time"
+) -> xr.DataArray:
+    """Monthly mean, keeping only months the source actually covers end to end.
+
+    The month at either edge of a record is usually partial. A rollout that
+    stops on the 24th contributes 24 days to December while a monthly
+    observation product contributes all 31, yet both reduce to a single
+    December label -- so the comparison silently pits different quantities
+    against each other, and every downstream check counts it as one good month.
+
+    A month is kept when it holds at least as many samples as its length allows
+    at the source's own cadence, which admits every month of a monthly product
+    and rejects only genuinely short ones in a finer series.
+    """
+    index = pd.DatetimeIndex(field[time_dim].values)
+    monthly = field.resample({time_dim: "MS"}).mean()
+    step = median_time_step_days(index)
+    if not np.isfinite(step) or step <= 0:
+        return monthly
+
+    counts = pd.Series(1, index=index).resample("MS").sum()
+    keep = []
+    for label in pd.DatetimeIndex(monthly[time_dim].values):
+        days = label.days_in_month
+        expected = max(1, int(days // step))
+        keep.append(int(counts.get(label, 0)) >= expected)
+
+    kept = np.array(keep, dtype=bool)
+    if not kept.all():
+        dropped = [
+            f"{stamp:%Y-%m}"
+            for stamp, ok in zip(pd.DatetimeIndex(monthly[time_dim].values), kept)
+            if not ok
+        ]
+        logger.info("  dropping partially covered month(s): %s", ", ".join(dropped))
+    return monthly.isel({time_dim: kept})
+
+
 def field_rmse_over_time(
     sim: xr.DataArray, obs: xr.DataArray, context: str = "field"
 ) -> xr.DataArray:
@@ -358,6 +413,33 @@ def apply_equatorial_mask(
     return da.where(eq_mask_da)
 
 
+def _differentiate_lon(field: xr.DataArray, lon_dim: str) -> xr.DataArray:
+    """Longitude derivative, wrapping across the 0/360 seam on a global grid.
+
+    `xarray.differentiate` falls back to a one-sided difference at the first and
+    last index, which on a global grid means the two meridians beside the seam
+    are differenced against the wrong neighbour rather than across it. That
+    error propagates into the geostrophic velocity and from there into both the
+    velocity RMSE and EKE. Padding one column from the opposite edge makes the
+    seam an interior point.
+
+    Regional grids are differentiated as-is: their edges really are edges.
+    """
+    lon = field[lon_dim]
+    values = np.asarray(lon.values, dtype=float)
+    if values.size < 2:
+        return field.differentiate(lon_dim)
+    spacing = float(np.median(np.diff(values)))
+    spans_globe = np.isclose(values[-1] - values[0] + spacing, 360.0, atol=abs(spacing))
+    if not spans_globe:
+        return field.differentiate(lon_dim)
+
+    left = field.isel({lon_dim: [-1]}).assign_coords({lon_dim: [values[-1] - 360.0]})
+    right = field.isel({lon_dim: [0]}).assign_coords({lon_dim: [values[0] + 360.0]})
+    padded = xr.concat([left, field, right], dim=lon_dim)
+    return padded.differentiate(lon_dim).isel({lon_dim: slice(1, -1)})
+
+
 def geostrophic_velocity_from_zos(
     zos: xr.DataArray,
     lat_dim: str = "y",
@@ -376,7 +458,7 @@ def geostrophic_velocity_from_zos(
     coslat = np.cos(np.deg2rad(lat_da))
 
     deta_dy = zos.differentiate(lat_dim) * deg_per_m
-    deta_dx = zos.differentiate(lon_dim) * deg_per_m / coslat
+    deta_dx = _differentiate_lon(zos, lon_dim) * deg_per_m / coslat
 
     # `f` vanishes at the equator and `coslat` at the poles, so both quotients
     # blow up there; the equatorial mask below removes the band that matters and
@@ -742,7 +824,26 @@ def rmse_map_with_uncertainty(
     weight_sum = area.where(finite).sum(spatial_dims, skipna=True)
     annual_rmse = np.sqrt(weighted_sum / weight_sum)
 
-    computed = xr.Dataset({"rmse_map": rmse_map, "annual_rmse": annual_rmse}).compute()
+    computed = xr.Dataset(
+        {"rmse_map": rmse_map, "annual_rmse": annual_rmse, "weight_sum": weight_sum}
+    ).compute()
+    # A year with no finite cell divides by zero and yields inf, which
+    # `interannual_rmse_summary` would then filter out -- quietly scoring fewer
+    # years than requested and undoing the equal-year invariant that
+    # `require_complete_calendar_years` exists to enforce. Refuse instead.
+    empty = [
+        int(year)
+        for year, weight in zip(years, computed["weight_sum"].values, strict=True)
+        if not weight > 0
+    ]
+    if empty:
+        raise ValueError(
+            f"{context}: no finite paired cells in year(s) {empty}. Every year in "
+            "the window must contribute, since the score and its bootstrap weight "
+            "years equally. Narrow the window, or check the observation product's "
+            "coverage for those years."
+        )
+
     annual_values = np.asarray(computed["annual_rmse"].values, dtype=float)
     return (
         computed["rmse_map"],

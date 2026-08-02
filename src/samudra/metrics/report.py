@@ -390,10 +390,12 @@ def _ohc_metrics(
     rows: list[dict[str, Any]] = []
     upper_label = kernels.OHC_LAYERS[0].label
     for layer in kernels.OHC_LAYERS:
-        # Monthly averaging is an explicit, documented reduction (ARGO-IAP is a
-        # monthly product), unlike temporal interpolation which stays forbidden.
-        sim_all = sim_layers[layer.label].resample(time="MS").mean()
-        obs_all = obs_layers[layer.label].resample(time="MS").mean()
+        # Monthly averaging is an explicit, documented reduction (ARGO-IAP is
+        # a monthly product), unlike temporal interpolation which stays
+        # forbidden. Partially covered months are dropped rather than compared
+        # against a full month on the other side.
+        sim_all = kernels.monthly_mean_of_complete_months(sim_layers[layer.label])
+        obs_all = kernels.monthly_mean_of_complete_months(obs_layers[layer.label])
 
         sim, obs = _aligned(sim_all, obs_all, window, f"{model} OHC {layer.label}")
         layer_rows, _ = _rows_for_metric(

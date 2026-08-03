@@ -25,6 +25,7 @@ import subprocess
 from datetime import date, timedelta
 from pathlib import Path
 
+import pandas as pd
 import xarray as xr
 from pypdl import Pypdl
 
@@ -311,18 +312,12 @@ def _yearly_ranges(start: str, end: str) -> list[tuple[date, date]]:
     first, last = date.fromisoformat(start), date.fromisoformat(end)
     if first > last:
         raise ValueError(f"Invalid date range: {start} > {end}")
-    # The interior boundaries are the January 1sts inside the span; the first
-    # and last spans are clamped to the dates actually requested, so a range
-    # starting mid-October yields a short first year.
-    edges = [first] + [
-        stamp.date()
-        for stamp in xr.date_range(start, end, freq="YS")
-        if stamp.date() > first
-    ]
-    return [
-        (edge, edges[i + 1] - timedelta(days=1) if i + 1 < len(edges) else last)
-        for i, edge in enumerate(edges)
-    ]
+    # `YS` gives the January 1sts in the span, which are the interior
+    # boundaries. `first` leads because the range may open mid-year, and
+    # `unique` drops the duplicate when it opens exactly on one.
+    starts = pd.DatetimeIndex([first, *xr.date_range(start, end, freq="YS")]).unique()
+    ends = [stamp.date() - timedelta(days=1) for stamp in starts[1:]] + [last]
+    return list(zip([stamp.date() for stamp in starts], ends, strict=True))
 
 
 def duacs(

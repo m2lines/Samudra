@@ -239,7 +239,15 @@ def _with_provenance(
     ds.attrs.update(PROVENANCE[product])
     ds.attrs["m2lines/date_created"] = datetime.datetime.now().isoformat()
     ds.attrs["m2lines/cli_args"] = " ".join(sys.argv)
-    ds.attrs["m2lines/samudra_git_hash"] = get_git_url_hash()
+    # Write both provenance keys during the rename. `ocean_emulators_git_hash`
+    # is the established name -- it is documented in AGENTS.md and docs/data.md
+    # and every already-published store carries it -- so dropping it outright
+    # would break anything that looks it up. `samudra_git_hash` is the name the
+    # project actually goes by now. Retire the old key once the documentation
+    # and the published stores have caught up.
+    git_hash = get_git_url_hash()
+    ds.attrs["m2lines/ocean_emulators_git_hash"] = git_hash
+    ds.attrs["m2lines/samudra_git_hash"] = git_hash
     ds.attrs["m2lines/time_alignment"] = alignment
     if om4_path is not None:
         ds.attrs["m2lines/time_axis_source"] = om4_path

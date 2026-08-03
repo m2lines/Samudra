@@ -283,6 +283,27 @@ def test_partial_edge_months_and_seam_are_handled():
     monthly = xr.DataArray(np.ones(len(months)), dims=["time"], coords={"time": months})
     assert kernels.monthly_mean_of_complete_months(monthly).sizes["time"] == len(months)
 
+    # A global model grid's outermost centers sit inside the observation
+    # product's, so plain interpolation would call those observation columns
+    # out of bounds and silently drop them from every reduction.
+    model_lon = np.arange(0.125, 360.0, 0.25)
+    obs_lon = np.arange(0.0625, 360.0, 0.125)
+    rows = np.array([-1.0, 1.0])
+    model = xr.DataArray(
+        np.ones((2, model_lon.size)),
+        dims=["lat", "lon"],
+        coords={"lat": rows, "lon": model_lon},
+    )
+    obs = xr.DataArray(
+        np.ones((2, obs_lon.size)),
+        dims=["lat", "lon"],
+        coords={"lat": rows, "lon": obs_lon},
+    )
+    assert not np.isnan(kernels.model_field_on_obs_grid(model, obs).values).any()
+    # A regional grid has real edges, so it must pass through untouched.
+    regional = model.isel(lon=slice(0, 40))
+    assert kernels._wrap_lon(regional, "lon").equals(regional)
+
     # On a global grid the seam is an interior point, so a periodic field
     # differentiates exactly there.
     lon = np.arange(0.0, 360.0, 10.0)

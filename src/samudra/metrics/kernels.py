@@ -413,6 +413,17 @@ def apply_equatorial_mask(
     return da.where(eq_mask_da)
 
 
+def _spans_globe(lon_values: np.ndarray) -> bool:
+    """Whether a longitude axis wraps the globe, so its ends are neighbours."""
+    values = np.asarray(lon_values, dtype=float)
+    if values.size < 2:
+        return False
+    spacing = float(np.median(np.diff(values)))
+    if not np.isfinite(spacing) or spacing <= 0:
+        return False
+    return bool(np.isclose(values[-1] - values[0] + spacing, 360.0, atol=abs(spacing)))
+
+
 def _differentiate_lon(field: xr.DataArray, lon_dim: str) -> xr.DataArray:
     """Longitude derivative, wrapping across the 0/360 seam on a global grid.
 
@@ -425,13 +436,8 @@ def _differentiate_lon(field: xr.DataArray, lon_dim: str) -> xr.DataArray:
 
     Regional grids are differentiated as-is: their edges really are edges.
     """
-    lon = field[lon_dim]
-    values = np.asarray(lon.values, dtype=float)
-    if values.size < 2:
-        return field.differentiate(lon_dim)
-    spacing = float(np.median(np.diff(values)))
-    spans_globe = np.isclose(values[-1] - values[0] + spacing, 360.0, atol=abs(spacing))
-    if not spans_globe:
+    values = np.asarray(field[lon_dim].values, dtype=float)
+    if not _spans_globe(values):
         return field.differentiate(lon_dim)
 
     left = field.isel({lon_dim: [-1]}).assign_coords({lon_dim: [values[-1] - 360.0]})
@@ -705,6 +711,20 @@ def series_residual_variance(series: pd.Series) -> float:
 # --------------------------------------------------------------------------
 
 
+def _wrap_lon(field: xr.DataArray, lon_dim: str = "lon") -> xr.DataArray:
+    """Pad a global longitude axis with its wrapped neighbours, or pass through.
+
+    Regional grids are returned untouched: their edges are real boundaries, and
+    inventing data beyond them would be worse than dropping a column.
+    """
+    values = np.asarray(field[lon_dim].values, dtype=float)
+    if not _spans_globe(values):
+        return field
+    left = field.isel({lon_dim: [-1]}).assign_coords({lon_dim: [values[-1] - 360.0]})
+    right = field.isel({lon_dim: [0]}).assign_coords({lon_dim: [values[0] + 360.0]})
+    return xr.concat([left, field, right], dim=lon_dim)
+
+
 def model_field_on_obs_grid(
     model_field: xr.DataArray,
     obs_field: xr.DataArray,
@@ -722,6 +742,13 @@ def model_field_on_obs_grid(
     if rename:
         model_field = model_field.rename(rename)
     model_field = normalize_lon(model_field, "lon").sortby("lat").sortby("lon")
+    # A global model grid has no true longitude edge, but its first and last
+    # centers still sit inside the observation product's outermost centers --
+    # DUACS starts at 0.0625 where quarter-degree OM4 starts at 0.125. Plain
+    # interpolation calls those observation columns out of bounds and drops
+    # them from every reduction, so the metric quietly depends on grid
+    # alignment. Wrapping one column from each end makes the seam interior.
+    model_field = _wrap_lon(model_field, "lon")
     interpolated = model_field.interp(
         lat=obs_field["lat"],
         lon=obs_field["lon"],

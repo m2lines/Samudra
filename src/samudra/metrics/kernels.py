@@ -440,9 +440,14 @@ def _differentiate_lon(field: xr.DataArray, lon_dim: str) -> xr.DataArray:
     if not _spans_globe(values):
         return field.differentiate(lon_dim)
 
-    left = field.isel({lon_dim: [-1]}).assign_coords({lon_dim: [values[-1] - 360.0]})
-    right = field.isel({lon_dim: [0]}).assign_coords({lon_dim: [values[0] + 360.0]})
-    padded = xr.concat([left, field, right], dim=lon_dim)
+    padded = _wrap_lon(field, lon_dim)
+    # Concatenating single-column pads leaves 1-wide dask chunks at each edge,
+    # and `np.gradient` needs at least two points per chunk. Rechunking the
+    # padded axis into one block is safe here: it is a single row of longitudes,
+    # and the alternative -- a partially rechunked axis -- would reintroduce the
+    # same failure at whatever new boundary it created.
+    if padded.chunks is not None:
+        padded = padded.chunk({lon_dim: -1})
     return padded.differentiate(lon_dim).isel({lon_dim: slice(1, -1)})
 
 

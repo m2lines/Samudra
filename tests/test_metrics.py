@@ -300,6 +300,10 @@ def test_partial_edge_months_and_seam_are_handled():
         coords={"lat": rows, "lon": obs_lon},
     )
     assert not np.isnan(kernels.model_field_on_obs_grid(model, obs).values).any()
+    chunked_model = model.chunk({"lon": 360})
+    assert not np.isnan(
+        kernels.model_field_on_obs_grid(chunked_model, obs).compute().values
+    ).any()
     # A regional grid has real edges, so it must pass through untouched.
     regional = model.isel(lon=slice(0, 40))
     assert kernels._wrap_lon(regional, "lon").equals(regional)
@@ -315,6 +319,12 @@ def test_partial_edge_months_and_seam_are_handled():
     analytic = -np.sin(np.deg2rad(lon)) * np.pi / 180
     wrapped = kernels._differentiate_lon(field, "x").values[0]
     assert wrapped[0] == pytest.approx(analytic[0], abs=1e-12)
+
+    # Dask-backed too. Padding leaves 1-wide chunks at the edges and
+    # `np.gradient` requires two points per chunk, so a numpy-only test passes
+    # while every real rollout -- which is always chunked -- raises.
+    chunked = kernels._differentiate_lon(field.chunk({"x": 12}), "x").compute()
+    assert chunked.values[0][0] == pytest.approx(analytic[0], abs=1e-12)
     # A regional grid genuinely has edges, and must be left alone.
     regional = field.isel(x=slice(0, 8))
     assert np.allclose(

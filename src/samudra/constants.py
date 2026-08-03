@@ -53,6 +53,13 @@ MAX_TRAIN_MODEL_STEPS_FORWARD = 200
 
 DatasetType = Literal["om4", "llc"]
 
+# Horizontal grid geometry. "gaussian" is a regular/rectilinear lat-lon grid whose
+# 2D lat/lon are the outer product of the 1D axes, so they can be reconstructed by
+# broadcasting. "tripolar" is curvilinear: lat/lon vary along both horizontal dims
+# and cannot be rebuilt by broadcasting, so the real 2D coordinates must be carried
+# with the data. Downstream code that reconstructs geometry must branch on this.
+GridType = Literal["gaussian", "tripolar"]
+
 PrognosticVarNames = list[str]
 BoundaryVarNames = list[str]
 
@@ -70,6 +77,7 @@ class DatasetSpec:
     default_metadata: dict[str, dict[str, str]]
     ocean_heat_temperature_var: str
     surface_heat_flux_var: str
+    grid_type: GridType = "gaussian"
 
     def __post_init__(self) -> None:
         if len(self.depth_levels) != len(self.depth_thickness):
@@ -120,6 +128,7 @@ def _select_var_names(
 def build_om4_spec(
     prognostic_vars_key: str = "thermo_dynamic_all",
     boundary_vars_key: str = "tau_hfds",
+    grid_type: GridType = "gaussian",
 ) -> DatasetSpec:
     return DatasetSpec(
         type="om4",
@@ -247,6 +256,7 @@ def build_om4_spec(
         },
         ocean_heat_temperature_var="thetao",
         surface_heat_flux_var="hfds",
+        grid_type=grid_type,
     )
 
 
@@ -425,6 +435,9 @@ def build_llc_spec(
         },
         ocean_heat_temperature_var="Theta",
         surface_heat_flux_var="oceQnet",
+        # LLC (lat-lon-cap) is curvilinear, so its 2D geometry can't be broadcast
+        # from 1D axes -- same broadcast-unsafe class as the tripolar grid.
+        grid_type="tripolar",
     )
 
 

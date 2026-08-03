@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/TrainConfig.json
+
+debug: false
+disk_mode: true
+pin_mem: true
+save_freq: 5
+epochs: 70
+batch_size: 4
+learning_rate: 0.0006
+gradient_accumulation_steps: 1
+scheduler: { type: cosine }
+loss:
+  type: dynamic
+  metric: mse
+finetune: false
+resume_ckpt_path: null
+inference_epochs: []
+data_stride: [1]
+steps: [4]
+step_transition: []
+preemptible: false
+
+backend: auto
+
+experiment:
+  name: samudra_om4
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: default
+data: !include ../data/om4.yaml
+model: !include model.yaml

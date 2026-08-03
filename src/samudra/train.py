@@ -4,7 +4,6 @@
 
 import contextlib
 import datetime
-import itertools
 import logging
 import multiprocessing
 import os
@@ -12,10 +11,9 @@ import tempfile
 import time
 import warnings
 from collections import OrderedDict
-from collections.abc import Iterable
 from multiprocessing.context import BaseContext
 from pathlib import Path
-from typing import Any, NamedTuple, assert_never
+from typing import Any, NamedTuple
 
 import dask
 import numpy as np
@@ -28,8 +26,7 @@ from torch.utils.data import (
     RandomSampler,
 )
 
-from samudra import config
-from samudra.aggregator import Aggregator, ValidateAggregator
+from samudra.aggregator import Aggregator
 from samudra.aggregator.loss import (
     get_channel_loss_dict,
     get_channel_loss_scale_dict,
@@ -38,7 +35,7 @@ from samudra.aggregator.loss import (
 )
 from samudra.aggregator.validate.rollout import RolloutValidationAggregator
 from samudra.backend import init_train_backend
-from samudra.config import TrainConfig, TrainSchedule, build_loss_fn
+from samudra.config import TrainConfig, build_loss_fn
 from samudra.constants import (
     MAX_TRAIN_MODEL_STEPS_FORWARD,
     BoundaryVarNames,
@@ -62,7 +59,7 @@ from samudra.stepper import (
     validate_batch,
     validate_rollout,
 )
-from samudra.utils.data import DataSource, Normalize, get_inference_steps
+from samudra.utils.data import Normalize, get_inference_steps
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import (
     all_reduce_mean,
@@ -88,6 +85,7 @@ from samudra.utils.train import (
     collate_inference_data,
     collate_raw_train_data,
 )
+from samudra.utils.train_progress import TrainProgress
 from samudra.utils.wandb import WandBLogger
 
 logger = logging.getLogger(__name__)
@@ -195,10 +193,15 @@ class Trainer:
         dask.config.set(scheduler="synchronous")
 
         # Set seeds
-        set_seed(cfg.experiment.rand_seed)
+        self.rand_seed = cfg.experiment.rand_seed
+        set_seed(self.rand_seed)
+
+        self.data_container = cfg.data.build(
+            data_root=cfg.experiment.resolved_data_root,
+        )
 
         # Getting prognostic and boundary variables
-        self.dataset_spec = cfg.data.dataset.build()
+        self.dataset_spec = self.data_container.dataset_spec
         self.prognostic_var_names: PrognosticVarNames = (
             self.dataset_spec.prognostic_var_names
         )
@@ -215,28 +218,12 @@ class Trainer:
         self.N_bound = len(self.boundary_var_names)
         self.N_prog = len(self.prognostic_var_names)
 
-        self.data_container = cfg.data.build(
-            data_root=cfg.experiment.resolved_data_root,
-        )
-        self.train_schedule: TrainSchedule = cfg.experiment.train_schedule
-        if self.train_schedule == "mix" and cfg.model.pred_residuals:
-            raise ValueError(
-                "Residual predictions on a mixed multiscale training schedule is not currently supported."
-            )
-        if self.train_schedule == "mix" and any(step > 1 for step in cfg.steps):
-            raise ValueError(
-                "Step predictions on a mixed multiscale training schedule is not currently supported."
-            )
-
         data_num_workers = cfg.data.loading.num_pytorch_workers()
         persistent_workers = cfg.data.loading.persistent_pytorch_workers()
 
         self.mp_context: BaseContext | None = None
         if data_num_workers > 0:
-            if self.data_container.supports_fork:
-                self.mp_context = multiprocessing.get_context("fork")
-            else:
-                self.mp_context = multiprocessing.get_context("spawn")
+            self.mp_context = multiprocessing.get_context("spawn")
 
         self.num_prog_in = int((cfg.data.hist + 1) * self.N_prog)
         self.num_boundary_in = int((cfg.data.hist + 1) * self.N_bound)
@@ -257,12 +244,6 @@ class Trainer:
 
         # Dataloaders
         logger.info(f"Loading data")
-        if cfg.train_time.overlaps(cfg.val_time):
-            raise ValueError(
-                f"Training time range {cfg.train_time} overlaps "
-                f"with validation time range {cfg.val_time}"
-            )
-
         self.concurrent_compute = cfg.data.concurrent_compute
 
         self.primary_src = self.data_container.primary_source
@@ -274,7 +255,7 @@ class Trainer:
 
         self.loader_version = self.data_container.loader_version
 
-        # This is used by both the aggregator and corrector. It only works at a single scale.
+        # Aggregation still works on the primary source only.
         self.normalize = Normalize(
             self.primary_src,
             prognostic_var_names=self.prognostic_var_names,
@@ -286,12 +267,7 @@ class Trainer:
             boundary_channels=self.num_boundary_in,
             out_channels=self.num_out,
             hist=cfg.data.hist,
-            # TODO(559): This won't work at multiple scales. Refactor as part of src.
-            static_data_for_corrector=self.data_container.static_data,
-            srcs=self.data_container.sources,
-            tensor_map=self.tensor_map,
-            normalize=self.normalize,
-            dataset_spec=self.dataset_spec,
+            srcs=self.data_container.train_sources,
         ).to(self.device)
 
         self.nets_dir = cfg.experiment.nets_dir
@@ -336,22 +312,34 @@ class Trainer:
             finetune=cfg.finetune,
         )
 
-        # Log effective batch size
-        effective_batch_size = cfg.batch_size * cfg.gradient_accumulation_steps
+        # Log local and global batch sizes for cross-run comparisons.
+        self.world_size = get_world_size()
+        local_effective_batch_size = cfg.batch_size * cfg.gradient_accumulation_steps
+        global_microbatch_size = cfg.batch_size * self.world_size
+        global_effective_batch_size = local_effective_batch_size * self.world_size
         logger.info(
-            f"Effective batch size: {effective_batch_size} "
+            f"Effective batch size: {global_effective_batch_size} "
             f"(batch_size={cfg.batch_size} × "
-            f"gradient_accumulation_steps={cfg.gradient_accumulation_steps})"
+            f"gradient_accumulation_steps={cfg.gradient_accumulation_steps} × "
+            f"world_size={self.world_size})"
         )
         if self.is_wandb_enabled():
             self.wandb_logger.log(
                 {
-                    "config/effective_batch_size": effective_batch_size,
+                    "config/effective_batch_size": global_effective_batch_size,
+                    "config/local_batch_size": cfg.batch_size,
+                    "config/local_effective_batch_size": local_effective_batch_size,
+                    "config/world_size": self.world_size,
+                    "config/global_microbatch_size": global_microbatch_size,
+                    "config/global_effective_batch_size": global_effective_batch_size,
                 },
                 step=0,
             )
 
         self.num_batches_seen = 0
+        self.best_val_loss = 1e8
+        self.best_inf_loss = 1e8
+        self.train_progress = TrainProgress()
         loaded_checkpoint = False
         if cfg.resume_ckpt_path is not None:
             if cfg.finetune:
@@ -404,9 +392,6 @@ class Trainer:
         self.num_workers: int = data_num_workers
         self.persistent_workers: bool = persistent_workers
         self.pin_mem: bool = cfg.pin_mem
-        self.train_time: config.TimeConfig = cfg.train_time
-        self.val_time = cfg.val_time
-        self.inference_times = cfg.inference_times
         self.inference_epochs = cfg.inference_epochs
         self.max_train_model_steps_forward = MAX_TRAIN_MODEL_STEPS_FORWARD // (
             self.hist + 1
@@ -423,6 +408,10 @@ class Trainer:
         assert self.tensor_map is not None
 
         if self.inference_epochs:
+            if self.inference_src is None:
+                raise ValueError(
+                    "Inference time is not configured for the first data source"
+                )
             self.init_inference_stores()
 
         # Add type annotations for samplers
@@ -440,37 +429,23 @@ class Trainer:
         self.inference_loader: DataLoader[TrainData]
 
     def init_inference_stores(self):
-        # Determine number of processes based on device
-        if using_gpu():
-            num_splits = get_world_size()
-            logger.info(f"Number of processes: {num_splits}, preferably use 8")
-        else:
-            num_splits = 1
-
-        # Create datasets
-        inference_datasets = []
-        num_steps_inf_set = []
-        for i in range(num_splits):
-            sliced_src = self.inference_src.slice(self.inference_times[i])
-            num_time_steps = get_inference_steps(
-                sliced_src,
-                hist=self.hist,
-            )
-            inference_dataset = InferenceDataset(
-                src=sliced_src,
-                prognostic_var_names=self.prognostic_var_names,
-                boundary_var_names=self.boundary_var_names,
-                hist=self.hist,
-                normalize_before_mask=self.normalize_before_mask,
-                masked_fill_value=self.normalize_fill_value,
-                long_rollout=True,
-            )
-
-            inference_datasets.append(inference_dataset)
-            num_steps_inf_set.append(num_time_steps)
+        assert self.inference_src is not None
+        num_time_steps = get_inference_steps(
+            self.inference_src,
+            hist=self.hist,
+        )
+        inference_dataset = InferenceDataset(
+            src=self.inference_src,
+            prognostic_var_names=self.prognostic_var_names,
+            boundary_var_names=self.boundary_var_names,
+            hist=self.hist,
+            normalize_before_mask=self.normalize_before_mask,
+            masked_fill_value=self.normalize_fill_value,
+            long_rollout=True,
+        )
 
         inference_data_combined = InferenceDatasets(
-            inference_datasets, num_steps_inf_set
+            [inference_dataset], [num_time_steps]
         )
 
         if self.distributed is not None:
@@ -495,8 +470,6 @@ class Trainer:
     def run(self) -> None:
         logger.info(f"Starting training")
 
-        self.best_val_loss = 1e8
-        self.best_inf_loss = 1e8
         self.wandb_logger.watch(self.model, log="all")
 
         self.profiler.start()
@@ -556,6 +529,7 @@ class Trainer:
                 "epoch_train_seconds": end_epoch_train_time - start_epoch_train_time,
                 "epoch_validation_seconds": end_epoch_val_time - end_epoch_train_time,
                 "epoch_total_seconds": time_elapsed,
+                **self.train_progress.to_metrics(),
             }
 
             if end_epoch_rollout_val_time is not None:
@@ -621,24 +595,35 @@ class Trainer:
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, data, self.debug)
 
-            TO: TrainBatchOutput = train_batch(self.model, data, self.loss_fn)
+            with self.train_progress.batch(
+                data, world_size=self.world_size, device=self.device
+            ) as batch_progress:
+                TO: TrainBatchOutput = train_batch(self.model, data, self.loss_fn)
 
-            # Scale loss by the actual number of microbatches that will be accumulated
-            scaled_loss = TO.loss / r
-            scaled_loss.backward()
+                # Scale loss by this accumulation cycle's actual microbatch count.
+                scaled_loss = TO.loss / r
+                scaled_loss.backward()
 
-            train_aggregator.record_batch(TO)
+                train_aggregator.record_batch(TO)
 
-            self.num_batches_seen += 1
+                self.num_batches_seen += 1
 
-            is_last = data_iter_step + 1 == total_batches
-            should_step = (data_iter_step + 1) % self.gradient_accumulation_steps == 0
-            # Step optimizer after accumulating enough batches or at the end
-            if should_step or is_last:
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
-                self.optimizer.step()
-                self.optimizer.zero_grad()
-                self._ema(model=self.model)
+                is_last = data_iter_step + 1 == total_batches
+                should_step = (
+                    data_iter_step + 1
+                ) % self.gradient_accumulation_steps == 0
+                optimizer_stepped = should_step or is_last
+                batch_progress.optimizer_stepped = optimizer_stepped
+                # Step optimizer after accumulating enough batches or at the end
+                if optimizer_stepped:
+                    torch.nn.utils.clip_grad_norm_(
+                        self.model.parameters(),
+                        1.0,
+                        error_if_nonfinite=True,
+                    )
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
+                    self._ema(model=self.model)
 
             lr = (
                 self.optimizer.param_groups[-1]["lr"]
@@ -654,6 +639,9 @@ class Trainer:
                     "train/batch/loss": loss_value_reduce,
                     "train/batch/lr": lr,
                     "train/batch/ema_cur_decay": self._ema.cur_decay.item(),
+                    **batch_progress.to_metrics(),
+                    **self.train_progress.to_metrics(),
+                    **batch_progress.to_throughput_metrics(),
                     **get_channel_loss_dict(
                         label="train",
                         loss_per_channel=loss_per_channel_reduce,
@@ -772,26 +760,15 @@ class Trainer:
             and self.validation_images_enabled
         )
 
-        if self.train_schedule == "standard":
-            # The standard val aggregator only supports a single scale.
-            val_aggregator = Aggregator.get_validation_aggregator(
-                self.primary_src.metadata,
-                self.hist,
-                self.primary_src.spherical_area_weights.to(self.device),
-                self.num_out,
-                self.tensor_map,
-                self.normalize,
-                include_image_aggregators=log_validation_images,
-            )
-        else:
-            # Create a validation aggregator that handles multiple scales.
-            val_aggregator = ValidateAggregator(
-                {},  # Currently, don't do anything else besides record the training loss.
-                self.hist,
-                self.num_out,
-                tensor_map=self.tensor_map,
-                normalize=self.normalize,
-            )
+        val_aggregator = Aggregator.get_validation_aggregator(
+            self.primary_src.metadata,
+            self.hist,
+            self.primary_src.spherical_area_weights.to(self.device),
+            self.num_out,
+            self.tensor_map,
+            self.normalize,
+            include_image_aggregators=log_validation_images,
+        )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
 
@@ -842,10 +819,10 @@ class Trainer:
             yield False
 
     def validate_rollout_one_epoch(self, epoch):
-        if self.train_schedule != "standard":
+        if len(self.data_container.train_sources) > 1:
             logger.info(
                 "Skipping rollout validation because it currently supports only "
-                "the standard single-scale training schedule."
+                "single-source training."
             )
             return {}
 
@@ -854,7 +831,7 @@ class Trainer:
                 return {}
 
             self.model.eval()
-            rollout_src = self.primary_src.slice(self.val_time)
+            rollout_src = self.data_container.val_sources[0]
             rollout_dataset = InferenceDataset(
                 src=rollout_src,
                 prognostic_var_names=self.prognostic_var_names,
@@ -1044,23 +1021,9 @@ class Trainer:
         Args:
             cur_step: Current training step size
         """
-        scales = self.data_container.sources
-        match self.train_schedule:
-            case "standard":
-                srcs: Iterable[tuple[DataSource, DataSource | None]] = [
-                    (scales[0], None)
-                ]
-            case "match":
-                srcs = [(s, s) for s in scales]
-            case "mix":
-                srcs = list(itertools.product(scales, repeat=2))  # type: ignore
-            case _:
-                assert_never(self.train_schedule)
-
         train_datasets = [
             TorchTrainDataset(
-                src=src.slice(self.train_time),
-                dst=dst.slice(self.train_time) if dst else None,
+                src=src,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -1071,13 +1034,15 @@ class Trainer:
                 concurrent_compute_=self.concurrent_compute,
             )
             for stride in self.data_stride
-            for src, dst in srcs
+            for src in self.data_container.train_sources
         ]
 
+        # Validation is always evaluated on the primary source. This keeps the
+        # validation loss and physical-space metrics comparable across epochs,
+        # regardless of the set of resolutions used for training.
         val_datasets = [
             TorchTrainDataset(
-                src=src.slice(self.val_time),
-                dst=dst.slice(self.val_time) if dst else None,
+                src=self.data_container.val_sources[0],
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -1088,7 +1053,6 @@ class Trainer:
                 concurrent_compute_=self.concurrent_compute,
             )
             for stride in self.data_stride
-            for src, dst in srcs
         ]
 
         # Create datasets
@@ -1119,9 +1083,9 @@ class Trainer:
                 )
 
         # Create batch samplers - branch on distributed vs non-distributed
-        # Group by input AND label resolution to handle all training schedules
+        # Group by resolution so batches stay homogeneous across configured sources.
         def group_key(ds):
-            return tuple(prog.grid_size for prog in ds.prognostic_srcs)
+            return ds.prognostic_src.grid_size
 
         if self.distributed is not None:
             # Distributed training
@@ -1135,6 +1099,7 @@ class Trainer:
                 rank=self.distributed.rank,
                 shuffle=True,
                 drop_last=True,
+                seed=self.rand_seed,
             )
 
             val_batch_sampler = DistributedEquivalenceGroupBatchSampler(
@@ -1145,6 +1110,7 @@ class Trainer:
                 rank=self.distributed.rank,
                 shuffle=False,
                 drop_last=False,
+                seed=self.rand_seed,
             )
         else:
             # Non-distributed training
@@ -1154,6 +1120,7 @@ class Trainer:
                 batch_size=self.batch_size,
                 shuffle=True,
                 drop_last=True,
+                seed=self.rand_seed,
             )
 
             val_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
@@ -1162,6 +1129,7 @@ class Trainer:
                 batch_size=self.batch_size,
                 shuffle=True,
                 drop_last=False,
+                seed=self.rand_seed,
             )
 
         # Store samplers for set_epoch calls
@@ -1270,6 +1238,7 @@ class Trainer:
                 "best_inf_loss": self.best_inf_loss,
                 "ema": self._ema.get_state(include_ema_params=not for_inference),
                 "num_batches_seen": self.num_batches_seen,
+                "train_progress": self.train_progress.state_dict(),
                 "wandb_id": self.wandb_id,
                 "wandb_name": self.wandb_name,
             }
@@ -1327,6 +1296,9 @@ class Trainer:
             self.wandb_id = checkpoint.get("wandb_id")
             self.wandb_name = checkpoint.get("wandb_name")
             self.num_batches_seen = checkpoint.get("num_batches_seen", 0)
+            self.train_progress = TrainProgress.from_state_dict(
+                checkpoint.get("train_progress")
+            )
 
             logger.info(f"Start Epoch: {self.start_epoch}")
             logger.info(f"Wandb id: {self.wandb_id}")

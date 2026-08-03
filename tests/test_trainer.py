@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import json
 import logging
 import tempfile
 from pathlib import Path
@@ -9,13 +10,13 @@ from pathlib import Path
 import pytest
 import torch
 
-from samudra.config import CpuDataLoadingConfig, DynamicLossConfig
+from samudra.config import CpuDataLoadingConfig, DynamicLossConfig, TrainConfig
 from samudra.models.base import BaseModel
 from samudra.train import Trainer, should_log_validation_images
 from samudra.utils.ctx import GridContext
 from samudra.utils.loss import DynamicLoss
 from samudra.utils.multiton import MultitonScope
-from tests.conftest import DEFAULT_CONFIG, TrainPair
+from tests.conftest import DEFAULT_CONFIG, SAMUDRA_MULTI_CONFIG, TrainPair
 
 
 @pytest.mark.manual
@@ -33,7 +34,7 @@ def test_trainer__mini_benchmark(trainer_pair: TrainPair, caplog, benchmark):
 
 @pytest.mark.parametrize(
     "data_source,config_name",
-    [("mock-om4", "test/train_default_2step.yaml")],
+    [("mock-om4", "train_default_2step.yaml")],
     indirect=True,
 )
 def test_trainer__mini_2step(trainer_pair: TrainPair, caplog):
@@ -50,7 +51,7 @@ def test_trainer__mini_2step(trainer_pair: TrainPair, caplog):
 )
 @pytest.mark.parametrize(
     "data_source,config_name",
-    [("mock-om4", "test/train_samudra_mini.yaml")],
+    [("mock-om4", "train_samudra_mini.yaml")],
     indirect=True,
 )
 def test_trainer__samudra_mini_smoke_cuda(trainer_pair: TrainPair, caplog):
@@ -62,9 +63,137 @@ def test_trainer__samudra_mini_smoke_cuda(trainer_pair: TrainPair, caplog):
     trainer.run()
 
 
+def _resume_parity_config(
+    train_config: TrainConfig, tmp_path: Path, run_name: str
+) -> TrainConfig:
+    cfg_data = json.loads(train_config.model_dump_json())
+    cfg_data["experiment"]["name"] = run_name
+    cfg_data["experiment"]["base_output_dir"] = str(tmp_path / "runs")
+    cfg_data["resume_ckpt_path"] = None
+    return TrainConfig.model_validate_json(json.dumps(cfg_data))
+
+
+def _run_to_latest_checkpoint(cfg: TrainConfig) -> Path:
+    with MultitonScope():
+        trainer = Trainer(cfg)
+        if cfg.resume_ckpt_path is None:
+            # Match the existing CUDA smoke test: skip the torchinfo summary path,
+            # which can OOM on shared CI GPUs even with this small config.
+            trainer.num_batches_seen = 1
+        trainer.run()
+        checkpoint_path = trainer.ckpt_paths.latest_checkpoint_path
+        del trainer
+    return checkpoint_path
+
+
+def _assert_nested_close(
+    actual, expected, path: str, ignored_paths: set[str] | None = None
+) -> None:
+    if ignored_paths is not None and path in ignored_paths:
+        return
+
+    if torch.is_tensor(actual) or torch.is_tensor(expected):
+        assert torch.is_tensor(actual) and torch.is_tensor(expected), path
+        torch.testing.assert_close(actual, expected, rtol=1e-6, atol=1e-6)
+    elif isinstance(actual, dict):
+        assert isinstance(expected, dict), path
+        assert actual.keys() == expected.keys(), path
+        for key in actual:
+            _assert_nested_close(
+                actual[key],
+                expected[key],
+                f"{path}[{key!r}]",
+                ignored_paths=ignored_paths,
+            )
+    elif isinstance(actual, (list, tuple)):
+        assert isinstance(expected, type(actual)), path
+        assert len(actual) == len(expected), path
+        for index, (actual_item, expected_item) in enumerate(zip(actual, expected)):
+            _assert_nested_close(
+                actual_item,
+                expected_item,
+                f"{path}[{index}]",
+                ignored_paths=ignored_paths,
+            )
+    elif isinstance(actual, float) or isinstance(expected, float):
+        assert actual == pytest.approx(expected, rel=1e-6, abs=1e-6), path
+    else:
+        assert actual == expected, path
+
+
+def _assert_checkpoints_close(continuous_path: Path, resumed_path: Path) -> None:
+    continuous = torch.load(continuous_path, map_location="cpu")
+    resumed = torch.load(resumed_path, map_location="cpu")
+
+    ignored_keys = {"wandb_name"}
+    ignored_paths = {
+        # Wall-clock timing is checkpointed and resumed, but not deterministic
+        # across separate continuous and interrupted training runs.
+        "checkpoint['train_progress']['gpu_seconds']",
+    }
+    assert set(continuous) - ignored_keys == set(resumed) - ignored_keys
+    for key in continuous:
+        if key in ignored_keys:
+            continue
+        _assert_nested_close(
+            resumed[key],
+            continuous[key],
+            f"checkpoint[{key!r}]",
+            ignored_paths=ignored_paths,
+        )
+
+
+@pytest.mark.parametrize(
+    "backend",
+    [pytest.param("cuda", marks=pytest.mark.cuda)],
+    indirect=True,
+)
 @pytest.mark.parametrize(
     "data_source,config_name",
-    [("mock-om4", "test/train_default_2step.yaml")],
+    [("mock-om4", "train_samudra_om4_v2_resume.yaml")],
+    indirect=True,
+)
+def test_checkpoint_resume_matches_continuous_cuda(
+    train_config, tmp_path, caplog, monkeypatch
+):
+    caplog.set_level(logging.INFO)
+    monkeypatch.setenv("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+    if not torch.cuda.is_available():
+        pytest.fail("CUDA test requested but torch.cuda.is_available() is False")
+
+    cudnn_benchmark = torch.backends.cudnn.benchmark
+    cudnn_deterministic = torch.backends.cudnn.deterministic
+    deterministic_algorithms = torch.are_deterministic_algorithms_enabled()
+    torch.backends.cudnn.benchmark = False
+    # Pytorch docs say that bilinear interpolation (which we use) is not usable
+    # under torch.use_deterministic_algorithms(True) but see
+    # https://github.com/m2lines/Samudra/pull/778#discussion_r3623773768:
+    torch.backends.cudnn.deterministic = True
+    torch.use_deterministic_algorithms(True)
+
+    try:
+        continuous_cfg = _resume_parity_config(train_config, tmp_path, "continuous")
+        continuous_checkpoint = _run_to_latest_checkpoint(continuous_cfg)
+
+        interrupted_cfg = _resume_parity_config(train_config, tmp_path, "resumed")
+        interrupted_cfg.epochs = 1
+        interrupted_checkpoint = _run_to_latest_checkpoint(interrupted_cfg)
+
+        resume_cfg = _resume_parity_config(train_config, tmp_path, "resumed")
+        resume_cfg.resume_ckpt_path = str(interrupted_checkpoint)
+        resumed_checkpoint = _run_to_latest_checkpoint(resume_cfg)
+    finally:
+        torch.backends.cudnn.benchmark = cudnn_benchmark
+        torch.backends.cudnn.deterministic = cudnn_deterministic
+        torch.use_deterministic_algorithms(deterministic_algorithms)
+        torch.cuda.empty_cache()
+
+    _assert_checkpoints_close(continuous_checkpoint, resumed_checkpoint)
+
+
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "train_default_2step.yaml")],
     indirect=True,
 )
 def test_checkpoint_ema(train_config, caplog):
@@ -87,7 +216,7 @@ def test_checkpoint_ema(train_config, caplog):
 
 @pytest.mark.parametrize(
     "data_source,config_name",
-    [("mock-om4", "test/train_default_2step.yaml")],
+    [("mock-om4", "train_default_2step.yaml")],
     indirect=True,
 )
 def test_checkpoint_dynamic_loss_state(train_config, caplog):
@@ -110,7 +239,7 @@ def test_checkpoint_dynamic_loss_state(train_config, caplog):
 
 @pytest.mark.parametrize(
     "data_source,config_name",
-    [("mock-om4", "test/train_default_2step.yaml")],
+    [("mock-om4", "train_default_2step.yaml")],
     indirect=True,
 )
 def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
@@ -118,6 +247,7 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
     _, trainer = trainer_pair
 
     hist = trainer.hist
+    assert trainer.inference_src is not None
     resolution = trainer.inference_src.resolution
     wet = trainer.inference_src.masks.prognostic_with_hist(hist)
     ctx = GridContext(wet, resolution, resolution).to(trainer.device)
@@ -128,6 +258,12 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
     boundary = boundary.to(trainer.device)
     trainer.best_val_loss = 10
     trainer.best_inf_loss = 10
+    trainer.train_progress.sample_windows_seen = 2
+    trainer.train_progress.model_examples_seen = 4
+    trainer.train_progress.output_grid_cells_seen = 24
+    trainer.train_progress.target_values_seen = 48
+    trainer.train_progress.optimizer_steps = 3
+    trainer.train_progress.gpu_seconds = 12.5
 
     model = trainer.model
     assert isinstance(model, BaseModel)
@@ -140,34 +276,12 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
     out2 = model.forward_once(prog, boundary, ctx)
 
     assert torch.allclose(out, out2)
-
-
-@pytest.mark.parametrize(
-    "data_source,config_name,extra_config_args",
-    [
-        (
-            "mock",
-            DEFAULT_CONFIG,
-            [
-                "--train_time.start",
-                "1975-08-01",
-                "--train_time.end",
-                "1975-09-01",
-                "--val_time.start",
-                "1975-08-15",
-                "--val_time.end",
-                "1975-09-01",
-            ],
-        ),
-    ],
-    indirect=True,
-)
-def test_trainer_overlapping_time_ranges_raises_error(train_config, caplog):
-    """Creating a trainer with overlapping train + val times should error."""
-
-    with MultitonScope():
-        with pytest.raises(ValueError, match="Training time range.*"):
-            Trainer(train_config)
+    assert trainer.train_progress.sample_windows_seen == 2
+    assert trainer.train_progress.model_examples_seen == 4
+    assert trainer.train_progress.output_grid_cells_seen == 24
+    assert trainer.train_progress.target_values_seen == 48
+    assert trainer.train_progress.optimizer_steps == 3
+    assert trainer.train_progress.gpu_seconds == 12.5
 
 
 def test_should_log_validation_images_every_n_epochs():
@@ -191,7 +305,44 @@ def test_should_log_validation_images_rejects_invalid_inputs():
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)
 @pytest.mark.parametrize(
     "data_source,config_name",
-    [("mock-om4", "test/train_default.yaml")],
+    [("mock-om4", SAMUDRA_MULTI_CONFIG)],
+    indirect=True,
+)
+def test_multiscale_training_validates_primary_source_and_logs_reduced_metrics(
+    train_config,
+):
+    train_config.data.sources.append(train_config.data.sources[0].model_copy(deep=True))
+    train_config.data.loading.num_workers = 0
+    train_config.model.perceiver_implementation = "naive"
+    train_config.debug = True
+
+    with MultitonScope():
+        trainer = Trainer(train_config)
+        trainer.init_data_loaders(cur_step=train_config.steps[0])
+
+        assert len(trainer.train_loader._datasets) == 2
+        assert len(trainer.val_loader._datasets) == 1
+        val_dataset = next(iter(trainer.val_loader._datasets.values()))
+        assert val_dataset.prognostic_src.grid_size == trainer.primary_src.grid_size
+
+        class PerfectModel(BaseModel):
+            def __init__(self):
+                super().__init__(0, 0, 0, False, 1, "constant", 0)
+
+            def forward(self, batch, loss_fn=None):
+                return [batch.get_label(0)]
+
+        trainer.model = PerfectModel()
+        trainer.test_using_ema = False
+        val_logs = trainer.validate_one_epoch(epoch=1)
+
+    assert any(key.startswith("val/reduced/weighted_rmse/") for key in val_logs)
+
+
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "train_default.yaml")],
     indirect=True,
 )
 def test_data_loaders_enable_persistent_workers_on_positive_num_workers(
@@ -199,14 +350,17 @@ def test_data_loaders_enable_persistent_workers_on_positive_num_workers(
 ):
     _, trainer = trainer_pair
 
+    assert trainer.mp_context is not None
+    assert trainer.mp_context.get_start_method() == "spawn"
     assert trainer.train_loader._dataloader.persistent_workers is True
     assert trainer.val_loader._dataloader.persistent_workers is True
+    assert trainer.inference_src is not None
 
 
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)
 @pytest.mark.parametrize(
     "data_source,config_name",
-    [("mock-om4", "test/train_default.yaml")],
+    [("mock-om4", "train_default.yaml")],
     indirect=True,
 )
 def test_data_loaders_disable_persistent_workers_when_num_workers_is_zero(
@@ -220,5 +374,6 @@ def test_data_loaders_disable_persistent_workers_when_num_workers_is_zero(
         trainer = Trainer(train_config)
         trainer.init_data_loaders(cur_step=train_config.steps[0])
 
+    assert trainer.mp_context is None
     assert trainer.train_loader._dataloader.persistent_workers is False
     assert trainer.val_loader._dataloader.persistent_workers is False

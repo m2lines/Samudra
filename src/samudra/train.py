@@ -395,6 +395,7 @@ class Trainer:
         self.rollout_validation_days = cfg.rollout_validation_days
         self.rollout_validation_steps_forward = cfg.rollout_validation_steps_forward
         self.rollout_validation_freq = cfg.rollout_validation_freq
+        self._rollout_validation_pg: torch.distributed.ProcessGroup | None = None
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
         self.data_stride: list[int] = cfg.data_stride
@@ -814,17 +815,30 @@ class Trainer:
         )
         return enabled and should_run_on_epoch_freq(epoch, self.rollout_validation_freq)
 
+    def _get_rollout_validation_process_group(self):
+        # The rollout on rank 0 can take much longer than the default NCCL
+        # collective timeout, which would abort training while the other ranks
+        # wait. Waiting in a CPU (gloo) barrier with an explicit long timeout
+        # keeps the NCCL watchdog out of the picture.
+        if self._rollout_validation_pg is None:
+            self._rollout_validation_pg = torch.distributed.new_group(
+                backend="gloo", timeout=datetime.timedelta(hours=12)
+            )
+        return self._rollout_validation_pg
+
     @contextlib.contextmanager
     def _rank0_rollout_validation_context(self):
+        if self.distributed is None:
+            yield is_main_process()
+            return
+        group = self._get_rollout_validation_process_group()
         if is_main_process():
             try:
                 yield True
             finally:
-                if self.distributed is not None:
-                    torch.distributed.barrier()
+                torch.distributed.barrier(group=group)
         else:
-            if self.distributed is not None:
-                torch.distributed.barrier()
+            torch.distributed.barrier(group=group)
             yield False
 
     def validate_rollout_one_epoch(self, epoch):

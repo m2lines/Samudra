@@ -1141,6 +1141,14 @@ class TrainConfig(TopLevelConfig):
             "synchronization overhead but increase target materialization memory."
         ),
     )
+    rollout_validation_freq: int = Field(
+        default=1,
+        ge=1,
+        description=(
+            "How often to run rollout validation, in epochs. Epochs are 1-based, "
+            "so a value of 10 runs on epochs 1, 11, 21, ..."
+        ),
+    )
     epochs: int = 120
     preemptible: bool = True
     batch_size: int = 2

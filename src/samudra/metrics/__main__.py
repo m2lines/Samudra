@@ -5,7 +5,7 @@
 r"""Score an existing rollout against observations, without rerunning it.
 
     python -m samudra.metrics configs/samudra_om4_v2/eval.yaml \\
-        --experiment.name=my_past_eval --observations.enabled=true
+        --experiment.name=my_past_eval
 
 Takes the same `EvalConfig` as `samudra.eval` and reads the `predictions.zarr`
 that job already wrote, so iterating on a metric costs minutes rather than the
@@ -28,10 +28,11 @@ def main() -> None:
     handle_logging(cfg.debug, cfg.experiment.output_dir)
     handle_warnings()
 
-    if not cfg.observations.enabled:
+    if cfg.observations is None:
         raise ValueError(
-            "Observation metrics are disabled for this config; rerun with "
-            "--observations.enabled=true"
+            "This config has no `observations` block, so there is nothing to "
+            "score. Add one (see configs/data/obs.yaml) or use a config that "
+            "includes it."
         )
 
     data_container: DataContainer = cfg.data.build(cfg.experiment.resolved_data_root)

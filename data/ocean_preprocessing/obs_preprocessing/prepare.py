@@ -94,21 +94,35 @@ def _coerce_time(values: np.ndarray) -> pd.DatetimeIndex:
     return pd.to_datetime(flat.astype(str))
 
 
-def open_zarr(path: str, storage_options: dict | None = None) -> xr.Dataset:
-    """Open a zarr store, reaching public S3 anonymously when no keys are set.
+# The public inputs live on the NYU OSN pod, not AWS. s3fs defaults to AWS, so
+# a bare `s3://m2lines-pubs/...` read fails with a confusing Forbidden unless
+# the endpoint is supplied -- which the sbatch harnesses export but a direct CLI
+# invocation does not. Default it for the buckets we know live there.
+OSN_ENDPOINT = "https://nyu1.osn.mghpcc.org"
+OSN_BUCKETS = ("m2lines-pubs", "emulators")
 
-    The published observation inputs live in a public bucket, so the pipeline
-    should be reproducible by someone with no credentials at all. When keys are
-    present (as on the cluster) they are used instead, since the same bucket is
-    readable either way.
+
+def open_zarr(path: str, storage_options: dict | None = None) -> xr.Dataset:
+    """Open a zarr store, filling in OSN's endpoint and anonymous access.
+
+    The published inputs are readable by anyone, so the pipeline should work
+    with no credentials and no environment setup at all. Explicit
+    `storage_options`, `FSSPEC_S3_ENDPOINT_URL`, and real AWS keys each take
+    precedence over the defaults inferred here.
     """
-    if storage_options is None and str(path).startswith("s3://"):
-        if not os.environ.get("AWS_ACCESS_KEY_ID"):
-            storage_options = {"anon": True}
-            logger.info("No AWS credentials found; reading %s anonymously", path)
-    if storage_options:
+    path = str(path)
+    if storage_options is not None or not path.startswith("s3://"):
         return xr.open_zarr(path, chunks={}, storage_options=storage_options)
-    return xr.open_zarr(path, chunks={})
+
+    options: dict = {}
+    bucket = path.removeprefix("s3://").split("/", 1)[0]
+    if bucket in OSN_BUCKETS and not os.environ.get("FSSPEC_S3_ENDPOINT_URL"):
+        options["endpoint_url"] = OSN_ENDPOINT
+        logger.info("Reading %s via the OSN endpoint %s", path, OSN_ENDPOINT)
+    if not os.environ.get("AWS_ACCESS_KEY_ID"):
+        options["anon"] = True
+        logger.info("No AWS credentials found; reading %s anonymously", path)
+    return xr.open_zarr(path, chunks={}, storage_options=options or None)
 
 
 def om4_target_times(

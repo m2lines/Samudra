@@ -11,7 +11,7 @@ import torch
 
 from samudra.aggregator import Aggregator
 from samudra.backend import init_eval_backend
-from samudra.config import EvalConfig
+from samudra.config import EvalConfig, ObsMetricsConfig
 from samudra.constants import BoundaryVarNames, Grid, PrognosticVarNames, TensorMap
 from samudra.datasets import InferenceDataset
 from samudra.metrics.run import open_predictions, run_observation_metrics
@@ -184,26 +184,26 @@ class Eval:
         # phase reads the rollout back off disk and can fail on data problems
         # that have nothing to do with the model. When it does, it should raise
         # loudly without also costing us the rollout results already computed.
-        if self.observations.enabled and is_main_process():
-            self.report_observation_metrics()
+        if self.observations is not None and is_main_process():
+            self.report_observation_metrics(self.observations)
 
         total_time = time.perf_counter() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         logger.info(f"Eval time (Including wandb logging) {total_time_str}")
         self.finish()
 
-    def report_observation_metrics(self) -> None:
+    def report_observation_metrics(self, obs_cfg: ObsMetricsConfig) -> None:
         """Score the finished rollout against observation products."""
         logger.info("Computing observation metrics")
         baselines = {}
-        if "om4" in self.observations.baselines:
+        if "om4" in obs_cfg.baselines:
             # The ground-truth data the eval already staged. The metric table
             # is only interpretable next to it, so scoring it costs one extra
             # pass over data that is local anyway.
             baselines["om4"] = self.src.data
 
         frame, scalars = run_observation_metrics(
-            self.observations,
+            obs_cfg,
             predictions=open_predictions(self.output_dir),
             dataset_spec=self.dataset_spec,
             data_root=self.resolved_data_root,

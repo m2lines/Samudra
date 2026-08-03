@@ -22,6 +22,7 @@ import logging
 import os
 import shutil
 import subprocess
+import tempfile
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -136,7 +137,12 @@ def _download_batch(
         failed.add(entry["url"] if isinstance(entry, dict) else str(entry))
 
     for url, target in tasks:
+        # A failed task may still have written a partial file, and one above the
+        # size threshold would be treated as complete on every future run --
+        # skipped forever, and silently poisoning the prepared store. So a
+        # failure means the target goes, not just that it is reported.
         if url in failed:
+            target.unlink(missing_ok=True)
             continue
         if not _is_complete(target, min_bytes):
             logger.debug("  %s: implausible result for %s", label, target.name)
@@ -373,23 +379,9 @@ def duacs(
 
     for first, last in ranges:
         final = output_dir / f"duacs_{first:%Y%m%d}_{last:%Y%m%d}.zarr"
-        # Download to a temporary name and rename on success, so an interrupted
-        # year is never mistaken for a complete one on the next run.
-        tmp = final.with_suffix(".tmp.zarr")
-        # Clear any leftover partial *before* the skip check, not after. A year
-        # interrupted on one run and completed on the next would otherwise keep
-        # its stale tmp store forever, and the prepare stage would concatenate
-        # that partial data alongside the good year.
-        if not dry_run and tmp.exists():
-            logger.info("  discarding stale partial download: %s", tmp.name)
-            shutil.rmtree(tmp)
-
         if final.exists() and not overwrite and not dry_run:
             logger.info("  exists, skipping: %s", final.name)
             continue
-
-        if not dry_run and overwrite and final.exists():
-            shutil.rmtree(final)
 
         cmd = [
             "copernicusmarine",
@@ -402,29 +394,40 @@ def duacs(
             last.isoformat(),
             "--file-format",
             "zarr",
-            "--output-directory",
-            str(output_dir),
             "--output-filename",
-            final.name if dry_run else tmp.name,
+            final.name,
             "--disable-progress-bar",
+            "--overwrite",
         ]
         for variable in wanted:
             cmd.extend(["-v", variable])
         if credentials_file is not None:
             cmd.extend(["--credentials-file", str(credentials_file)])
         if dry_run:
-            cmd.append("--dry-run")
-        else:
-            cmd.append("--overwrite")
+            cmd.extend(["--output-directory", str(output_dir), "--dry-run"])
+            logger.info("  %s", " ".join(cmd))
+            subprocess.run(cmd, check=True)
+            continue
 
-        logger.info("  %s", " ".join(cmd))
-        subprocess.run(cmd, check=True)
-
-        if not dry_run:
-            if not tmp.exists():
-                raise FileNotFoundError(f"Copernicus Marine wrote no output at {tmp}")
-            tmp.rename(final)
-            logger.info("  wrote %s", final.name)
+        # Download into a temporary directory and move into place on success,
+        # so an interrupted year can never be mistaken for a complete one.
+        # `TemporaryDirectory` removes the partial for us on any exit path,
+        # including an exception. It is created beside the output so the move
+        # is a rename within one filesystem rather than a multi-GB copy.
+        with tempfile.TemporaryDirectory(
+            dir=output_dir, prefix=".duacs-download-"
+        ) as staging:
+            logger.info("  %s", " ".join(cmd))
+            subprocess.run(cmd + ["--output-directory", staging], check=True)
+            produced = Path(staging) / final.name
+            if not produced.exists():
+                raise FileNotFoundError(
+                    f"Copernicus Marine wrote no output at {produced}"
+                )
+            if final.exists():
+                shutil.rmtree(final)
+            produced.rename(final)
+        logger.info("  wrote %s", final.name)
 
     logger.info("DUACS: done")
 

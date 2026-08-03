@@ -1216,14 +1216,11 @@ class TrainConfig(TopLevelConfig):
 class ObsMetricsConfig(BaseConfig):
     """Where the observation products live, and over what period to score.
 
-    Disabled by default. Enabling it makes an eval job compare its rollout
-    against DUACS, OISST, and ARGO-IAP once the rollout is on disk.
+    Supplying this block is what turns observation metrics on: an eval job then
+    compares its rollout against DUACS, OISST and ARGO-IAP once the rollout is
+    on disk. Omit it (or pass `--observations=null`) to skip that phase.
     """
 
-    enabled: bool = Field(
-        default=False,
-        description="Compute observation metrics after the rollout finishes.",
-    )
     duacs_location: Location = Field(
         default=UnresolvedLocation(path="obs/duacs.zarr"),
         description="DUACS surface geostrophic velocity, on its native grid.",
@@ -1322,9 +1319,12 @@ class EvalConfig(TopLevelConfig):
     experiment: ExperimentConfig
     data: DataConfig
     model: AnyModelConfig
-    observations: ObsMetricsConfig = Field(
-        default_factory=ObsMetricsConfig,
-        description="Observation-based metrics computed after the rollout finishes.",
+    observations: ObsMetricsConfig | None = Field(
+        default=None,
+        description=(
+            "Observation-based metrics computed after the rollout finishes. "
+            "Present means enabled; omit to skip the phase."
+        ),
     )
 
     @pydantic.model_validator(mode="after")
@@ -1332,10 +1332,10 @@ class EvalConfig(TopLevelConfig):
         # Caught here rather than after the rollout: observation metrics score a
         # rollout read back from disk, and discovering the misconfiguration at
         # the end would waste the whole job.
-        if self.observations.enabled and not self.save_zarr:
+        if self.observations is not None and not self.save_zarr:
             raise ValueError(
-                "observations.enabled requires save_zarr=true: the metrics are "
-                "computed from the predictions.zarr the rollout writes."
+                "observations requires save_zarr=true: the metrics are computed "
+                "from the predictions.zarr the rollout writes."
             )
         return self
 

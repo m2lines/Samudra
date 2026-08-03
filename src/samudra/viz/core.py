@@ -37,7 +37,7 @@ from samudra.utils.data import (
     spherical_area_weights,
     with_level_index_vars,
 )
-from samudra.utils.location import ResolvedLocation
+from samudra.utils.location import Location, ResolvedLocation
 from samudra.viz import observations as obs_figures
 from samudra.viz.norms import percentile_norm, symmetric_percentile_norm
 
@@ -83,6 +83,19 @@ class VizTemplate:
             observations=self.observations,
             data_root=self.data_root,
         )
+
+    def instantiate_run(
+        self,
+        output_path: Path,
+        name: str,
+        location: Location,
+    ) -> "Viz":
+        run = VizRun(
+            name=name,
+            data=self.data_root.resolve(location).open(chunks={}),
+            variables=self.variables,
+        )
+        return self.instantiate(output_path, [run])
 
 
 class Viz:

@@ -1383,7 +1383,7 @@ class PostTrainEvalConfig(BaseConfig):
             eval_config_path=self.eval_config_path,
             checkpoint_paths=CheckpointPaths(nets_dir),
             data_root=data_root,
-            sweep_root=output_dir / self.eval_dirname,
+            sweep_output_dir=output_dir / self.eval_dirname,
             viz_config_path=self.viz_config_path,
             last_n_checkpoints=self.last_n_checkpoints,
             checkpoints=self.epochs,

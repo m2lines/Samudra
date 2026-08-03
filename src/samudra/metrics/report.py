@@ -270,6 +270,38 @@ def _aligned(
     return model_field, obs_field
 
 
+def _whole_years(
+    model_field: xr.DataArray, obs_field: xr.DataArray, context: str
+) -> tuple[xr.DataArray, xr.DataArray]:
+    """Restrict a monthly pair to the calendar years both cover in full.
+
+    Equal-year blocks are what make the score and its bootstrap comparable, so
+    a year missing a month has to go rather than be silently down-weighted.
+    Dropping it here -- where the shortfall is visible and attributable --
+    beats failing later in the kernel, which can only report that some year is
+    ragged without knowing why.
+    """
+    months = pd.DatetimeIndex(model_field["time"].values)
+    counts = pd.Series(1, index=months).groupby(months.year).sum()
+    whole = sorted(int(year) for year, n in counts.items() if n == 12)
+    if not whole:
+        raise ValueError(
+            f"{context}: no calendar year is covered by twelve whole months "
+            f"(months available: {months.min():%Y-%m} to {months.max():%Y-%m})"
+        )
+    dropped = sorted(set(int(y) for y in counts.index) - set(whole))
+    if dropped:
+        logger.info(
+            "  %s: scoring %d-%d; dropped partly covered year(s) %s",
+            context,
+            whole[0],
+            whole[-1],
+            dropped,
+        )
+    keep = slice(f"{whole[0]}-01-01", f"{whole[-1]}-12-31")
+    return model_field.sel(time=keep), obs_field.sel(time=keep)
+
+
 def _velocity_metrics(
     model: str,
     rollout: xr.Dataset,
@@ -398,6 +430,13 @@ def _ohc_metrics(
         obs_all = kernels.monthly_mean_of_complete_months(obs_layers[layer.label])
 
         sim, obs = _aligned(sim_all, obs_all, window, f"{model} OHC {layer.label}")
+        # Trim to whole calendar years of the *monthly* series. A rollout that
+        # ends on 24 December contributes no December at all once partial
+        # months are dropped, so its final year is genuinely incomplete -- and
+        # scoring it would mean comparing an 11-month year against 12-month
+        # ones. The RMSE metrics on 5-day products are unaffected; only OHC
+        # reduces to months, and only its last year is ever short.
+        sim, obs = _whole_years(sim, obs, f"{model} OHC {layer.label}")
         layer_rows, _ = _rows_for_metric(
             metric="ohc_per_area_total_rmse",
             model=model,

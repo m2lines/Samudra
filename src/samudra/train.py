@@ -113,10 +113,14 @@ class Trainer:
     def __init__(self, cfg: TrainConfig) -> None:
         cfg.prepare_output_dirs()
         cfg.save_yaml(cfg.experiment.output_dir / "config.yaml")
-        self.post_train_sweep: CheckpointSweep | None = cfg.post_train_eval.build(
-            nets_dir=cfg.experiment.nets_dir,
-            output_dir=cfg.experiment.output_dir,
-            data_root=cfg.experiment.data_root,
+        self.post_train_sweep: CheckpointSweep | None = (
+            cfg.post_train_eval.build(
+                nets_dir=cfg.experiment.nets_dir,
+                output_dir=cfg.experiment.output_dir,
+                data_root=cfg.experiment.resolved_data_root,
+            )
+            if cfg.post_train_eval is not None
+            else None
         )
         # Backend
         self.device, self.distributed = init_train_backend(cfg.backend)

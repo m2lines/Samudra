@@ -431,6 +431,35 @@ def _synthetic_case(seed: int = 0):
     return rollout, duacs, oisst, argo
 
 
+def test_ohc_scores_only_whole_calendar_years():
+    """A year missing a month must be dropped, not scored against full years.
+
+    Dropping partial edge months means a rollout ending 24 December contributes
+    no December at all, so its final year is genuinely incomplete. Scoring it
+    would put an 11-month year in the same equal-weight block set as 12-month
+    ones -- and the year guard downstream can only report that *some* year is
+    ragged, not which month is missing.
+    """
+    months = pd.date_range("2021-01-01", "2022-12-01", freq="MS")
+    full = xr.DataArray(np.ones(len(months)), dims=["time"], coords={"time": months})
+    kept, _ = report._whole_years(full, full, "full coverage")
+    assert kept.sizes["time"] == 24
+
+    # Same series without its final December: 2022 goes, 2021 survives intact.
+    short = full.isel(time=slice(0, -1))
+    trimmed, _ = report._whole_years(short, short, "missing december")
+    labels = pd.DatetimeIndex(trimmed["time"].values)
+    assert trimmed.sizes["time"] == 12
+    assert labels[0].year == labels[-1].year == 2021
+
+    # No complete year at all is an error, not an empty result that would
+    # surface later as an unexplained division by zero.
+    partial = pd.date_range("2021-06-01", "2021-09-01", freq="MS")
+    stub = xr.DataArray(np.ones(len(partial)), dims=["time"], coords={"time": partial})
+    with pytest.raises(ValueError, match="twelve whole months"):
+        report._whole_years(stub, stub, "no complete year")
+
+
 def test_driver_reports_every_headline_metric_as_a_plain_float():
     """End-to-end: the driver emits the full headline set, with a namespaced baseline.
 

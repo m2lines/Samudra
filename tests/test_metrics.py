@@ -353,7 +353,9 @@ def test_a_year_without_coverage_is_refused_not_dropped():
     )
     # Blank 2022 entirely: no finite paired cell that year.
     err = err.where(err["time"].dt.year != 2022)
-    with pytest.raises(ValueError, match="no finite paired cells"):
+    # Subsumed by the stronger coverage check: a year with no finite cell is
+    # simply the 0% case of "too little paired data".
+    with pytest.raises(ValueError, match="too little paired data"):
         kernels.rmse_map_with_uncertainty(
             err, area, ("lat", "lon"), "ctx", bootstrap_samples=0
         )
@@ -504,10 +506,15 @@ def test_driver_reports_every_headline_metric_as_a_plain_float():
     assert {key.replace("obs/", "obs/om4/") for key in expected} <= set(scalars)
     assert all(isinstance(value, float) for value in scalars.values())
 
-    # Every RMSE metric carries a bootstrap interval that brackets its estimate.
-    # MetricsDict admits W&B media types too, so narrow to float for comparison.
+    # This case spans two calendar years, which is below the block count a
+    # percentile bootstrap needs to say anything -- so no interval is offered,
+    # and the frame records why rather than labelling a two-point spread a 95%
+    # CI. Where an interval *is* present it must bracket its own estimate.
+    primary = frame[frame["period_kind"] == "primary_complete_years"]
+    assert (primary["uncertainty_method"] == "insufficient_blocks").all()
+    assert primary["ci_low"].isna().all()
     for key in expected:
-        if not key.endswith("total_rmse"):
+        if f"{key}_ci_low" not in scalars:
             continue
         low = float(scalars[f"{key}_ci_low"])  # type: ignore[arg-type]
         high = float(scalars[f"{key}_ci_high"])  # type: ignore[arg-type]
@@ -530,14 +537,6 @@ def test_incomplete_calendar_years_are_rejected():
             window=(pd.Timestamp("2021-01-01"), pd.Timestamp("2022-06-30")),
             bootstrap_samples=0,
         )
-
-
-# ---------------------------------------------------------------------------
-# Known gaps.
-#
-# These fail today. Each asserts a guarantee the code documents but does not
-# enforce, so the gap is visible in the suite rather than only in review.
-# ---------------------------------------------------------------------------
 
 
 def test_whole_years_drops_the_years_it_reports_dropping(caplog):

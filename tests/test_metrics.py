@@ -9,6 +9,8 @@ area-weighting error, a depth-boundary error, a seasonal/trend removal error, a
 silent time-misalignment, and a break in the end-to-end contract.
 """
 
+import logging
+
 import cftime
 import numpy as np
 import pandas as pd
@@ -528,3 +530,214 @@ def test_incomplete_calendar_years_are_rejected():
             window=(pd.Timestamp("2021-01-01"), pd.Timestamp("2022-06-30")),
             bootstrap_samples=0,
         )
+
+
+# ---------------------------------------------------------------------------
+# Known gaps.
+#
+# These fail today. Each asserts a guarantee the code documents but does not
+# enforce, so the gap is visible in the suite rather than only in review.
+# ---------------------------------------------------------------------------
+
+
+def test_whole_years_drops_the_years_it_reports_dropping(caplog):
+    """A ragged year in the middle of the record must go, not just be logged.
+
+    `_whole_years` promises that "a year missing a month has to go rather than
+    be silently down-weighted", but it only narrows the outer bound, so an
+    interior ragged year survives underneath a log line announcing its removal.
+    """
+    months = pd.DatetimeIndex(
+        list(pd.date_range("2021-01-01", "2021-12-01", freq="MS"))
+        # 2022 is missing May and June.
+        + [
+            stamp
+            for stamp in pd.date_range("2022-01-01", "2022-12-01", freq="MS")
+            if stamp.month not in (5, 6)
+        ]
+        + list(pd.date_range("2023-01-01", "2023-12-01", freq="MS"))
+    )
+    series = xr.DataArray(np.ones(len(months)), dims=["time"], coords={"time": months})
+
+    with caplog.at_level(logging.INFO, logger="samudra.metrics.report"):
+        kept, _ = report._whole_years(series, series, "interior gap")
+
+    assert "dropped partly covered year(s) [2022]" in caplog.text
+    assert set(pd.DatetimeIndex(kept["time"].values).year) == {2021, 2023}
+
+
+def test_an_equal_year_block_needs_data_not_only_timestamps():
+    """A year has to carry data to earn its block, not just keep its stamps.
+
+    The empty-year guard fires only when a year has *no* finite paired cell.
+    A year that keeps all 73 timestamps but carries data at four of them still
+    counts as one full-weight calendar block, which is exactly the silent
+    down-weighting `require_complete_calendar_years` exists to prevent. The
+    products make this reachable: one missing DUACS day NaNs five consecutive
+    5-day means everywhere, via `min_periods=5` in the rolling alignment.
+    """
+    lat, lon = _grid(8, 12)
+    time = pd.date_range("2021-01-03 12:00", "2022-12-29 12:00", freq="5D")
+    error_squared = xr.DataArray(
+        np.ones((len(time), lat.size, lon.size)),
+        dims=["time", "lat", "lon"],
+        coords={"time": time, "lat": lat, "lon": lon},
+    )
+    in_2022 = error_squared["time"].dt.year == 2022
+    first_four = xr.DataArray(
+        np.isin(np.arange(len(time)), np.where(in_2022.values)[0][:4]),
+        dims=["time"],
+        coords={"time": time},
+    )
+    # 2022 keeps every timestamp; only four of them carry a (badly wrong) value.
+    sparse = xr.where(in_2022 & first_four, 100.0, error_squared.where(~in_2022))
+
+    with pytest.raises(ValueError, match="finite paired cells"):
+        kernels.rmse_map_with_uncertainty(
+            sparse, _area(lat, lon), ("lat", "lon"), "sparse year", bootstrap_samples=0
+        )
+
+
+def test_a_calendar_year_missing_a_fortnight_is_not_complete():
+    """ "Complete" has to mean complete, or equal-year blocks are not equal.
+
+    `min_sample_fraction=0.95` on a 73-sample year tolerates three missing
+    steps, and the `1.5 * step` edge tolerance allows about 7.5 more days at
+    each end -- so a "complete" year can be missing a month of samples and
+    still be weighted identically to a full one.
+    """
+    time = pd.date_range("2021-01-03 12:00", "2022-12-29 12:00", freq="5D")
+    hole_start = np.where(time.year == 2022)[0][36]
+    keep = np.ones(len(time), dtype=bool)
+    keep[hole_start : hole_start + 3] = False  # a 15-day hole mid-2022
+    ragged = time[keep]
+
+    years = kernels.complete_calendar_years(
+        xr.DataArray(ragged, dims=["time"], coords={"time": ragged})
+    )
+    assert years == [2021]
+
+
+def test_an_undersampled_cell_has_no_residual_variance_rather_than_zero():
+    """Too few samples must give NaN, not a perfectly quiescent ocean point.
+
+    Deseasonalising subtracts a per-bin climatology, so a cell whose valid
+    samples fall one per bin is compared against itself and residualises to
+    exactly 0.0 -- indistinguishable from real quiescence. It then flows into
+    the variance-map RMSE and the pattern correlation as model error. Twelve
+    valid monthly samples is enough to trigger it, so this is not a degenerate
+    one-or-two-sample corner.
+    """
+    months = pd.date_range("2015-01-01", "2022-12-01", freq="MS")
+    rng = np.random.default_rng(1)
+    field = xr.DataArray(
+        rng.normal(scale=3.0, size=(len(months), 2, 2)),
+        dims=["time", "lat", "lon"],
+        coords={"time": months, "lat": [0.0, 1.0], "lon": [0.0, 1.0]},
+    )
+    seen: set[int] = set()
+    one_per_calendar_month = []
+    for stamp in months:
+        one_per_calendar_month.append(stamp.month not in seen)
+        seen.add(stamp.month)
+    valid = np.ones((len(months), 2, 2), dtype=bool)
+    valid[:, 0, 0] = one_per_calendar_month
+
+    variance = kernels.residual_variance_map(
+        field.where(xr.DataArray(valid, dims=field.dims, coords=field.coords))
+    )
+    assert float(variance[1, 1]) > 0.0  # the well-sampled neighbour
+    assert np.isnan(float(variance[0, 0]))
+
+
+def test_uncertainty_is_withheld_when_there_are_too_few_blocks():
+    """Two calendar years cannot support a 95% interval, so none should be given.
+
+    With two blocks the percentile bootstrap degenerates to [min, max] of the
+    two annual RMSEs, which is still reported as a 10,000-draw 95% CI.
+    """
+    summary = kernels.interannual_rmse_summary(np.array([1.0, 2.0]))
+
+    assert summary["n_years"] == 2
+    assert np.isnan(summary["ci_low"])
+    assert np.isnan(summary["ci_high"])
+
+
+def test_the_scored_window_is_reported_per_metric():
+    """OHC and SST can score different spans, so one `n_years` scalar cannot serve.
+
+    Dropping partial months costs OHC its final year while the 5-day metrics
+    keep theirs, and `to_wandb` collapses that to `max()` -- so W&B advertises
+    the span of whichever metric scored the most years.
+    """
+    frame = pd.DataFrame(
+        [
+            {
+                "metric": "surface_sst_total_rmse",
+                "model": "m",
+                "depth": None,
+                "value": 0.8,
+                "period_kind": "primary_complete_years",
+                "n_years": 8.0,
+            },
+            {
+                "metric": "ohc_per_area_total_rmse",
+                "model": "m",
+                "depth": kernels.OHC_LAYERS[0].label,
+                "value": 3.0e9,
+                "period_kind": "primary_complete_years",
+                "n_years": 7.0,
+            },
+        ]
+    )
+
+    scalars = report.to_wandb(frame, "m")
+    per_metric = {
+        key: value for key, value in scalars.items() if key.endswith("_n_years")
+    }
+    assert per_metric == {
+        "obs/sst/total_rmse_n_years": 8.0,
+        "obs/ohc_0_700/per_area_total_rmse_n_years": 7.0,
+    }, f"got {per_metric} alongside obs/n_years={scalars.get('obs/n_years')}"
+
+
+def test_regridding_coverage_does_not_depend_on_model_resolution():
+    """The scored ocean must be the same one whatever the model's grid spacing.
+
+    `model_field_on_obs_grid` interpolates linearly, so an observation cell
+    whose model-grid neighbours include land becomes NaN and leaves every
+    reduction. The eroded band is one *model* cell wide, so a coarser model is
+    scored on a smaller, coastline-free -- and therefore easier -- subset of
+    the ocean. That is a bias with a sign, not just an incomparability.
+    """
+    obs_lat = np.arange(-89.875, 90.0, 0.25)
+    obs_lon = np.arange(0.125, 360.0, 0.25)
+
+    def land(lon: np.ndarray, lat: np.ndarray) -> np.ndarray:
+        continent = (lon > 60) & (lon < 160) & (lat > -40) & (lat < 60)
+        return continent | (np.abs(lat) > 85)
+
+    lon_2d, lat_2d = np.meshgrid(obs_lon, obs_lat)
+    obs = xr.DataArray(
+        np.where(land(lon_2d, lat_2d), np.nan, 1.0),
+        dims=["lat", "lon"],
+        coords={"lat": obs_lat, "lon": obs_lon},
+    )
+    obs_ocean = int(np.isfinite(obs).sum())
+
+    dropped = {}
+    for spacing in (1.0, 0.5, 0.25):
+        model_lat = np.arange(-90.0 + spacing / 2, 90.0, spacing)
+        model_lon = np.arange(spacing / 2, 360.0, spacing)
+        mlon_2d, mlat_2d = np.meshgrid(model_lon, model_lat)
+        model = xr.DataArray(
+            np.where(land(mlon_2d, mlat_2d), np.nan, 1.0),
+            dims=["lat", "lon"],
+            coords={"lat": model_lat, "lon": model_lon},
+        )
+        paired = int(np.isfinite(kernels.model_field_on_obs_grid(model, obs)).sum())
+        dropped[spacing] = (obs_ocean - paired) / obs_ocean
+
+    assert max(dropped.values()) < 1e-3, (
+        f"ocean cells lost to coastal erosion by model spacing: {dropped}"
+    )

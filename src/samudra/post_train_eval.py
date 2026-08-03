@@ -7,9 +7,10 @@ import json
 import logging
 import multiprocessing
 import queue as queue_module
-import re
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass
+from multiprocessing.process import BaseProcess
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -24,66 +25,31 @@ if TYPE_CHECKING:
     from samudra.viz import VizTemplate
 
 logger = logging.getLogger(__name__)
+WORKER_TIMEOUT_SECONDS = 6 * 60 * 60
 
 
-@dataclass(frozen=True)
-class CheckpointEvalTarget:
-    epoch: int
-    kind: str
-    path: str
-    for_inference: bool
-
-
-def checkpoint_label(entry: CheckpointEvalTarget) -> str:
-    match entry.kind:
-        case "periodic":
-            return f"epoch_{entry.epoch:04d}"
-        case "ema_latest":
-            return "final_ema"
-        case _:
-            return f"{entry.kind}_epoch_{entry.epoch:04d}"
-
-
-def _entry_from_file(
-    checkpoint_path: Path,
-    kind: str,
-    *,
-    epoch: int | None = None,
-    for_inference: bool = False,
-) -> CheckpointEvalTarget:
-    if epoch is None:
-        # Read epoch from the checkpoint file itself.
-        checkpoint = torch.load(checkpoint_path, map_location="cpu")
-        epoch = checkpoint.get("epoch")
-        if not isinstance(epoch, int):
-            raise ValueError(
-                f"Checkpoint at {checkpoint_path} is missing integer epoch"
-            )
-    return CheckpointEvalTarget(
-        epoch=epoch,
-        kind=kind,
-        path=str(checkpoint_path),
-        for_inference=for_inference,
-    )
+def checkpoint_label(checkpoint_path: Path) -> str:
+    """Return the output label for a supported checkpoint filename."""
+    if checkpoint_path.name == CheckpointPaths.EMA_CHECKPOINT_NAME:
+        return "ema_latest"
+    epoch = CheckpointPaths.periodic_checkpoint_epoch(checkpoint_path)
+    if epoch is not None:
+        return f"epoch_{epoch:04d}"
+    raise ValueError(f"Unsupported checkpoint filename: {checkpoint_path.name}")
 
 
 def discover_checkpoints_from_directory(
     checkpoint_paths: CheckpointPaths,
     last_n_checkpoints: int | None = None,
     checkpoints: list[int] | None = None,
-) -> list[CheckpointEvalTarget]:
+) -> list[Path]:
     if last_n_checkpoints is not None and checkpoints is not None:
         raise ValueError("pass only one of last_n_checkpoints or checkpoints, not both")
     if last_n_checkpoints is not None and last_n_checkpoints < 1:
         raise ValueError(f"last_n_checkpoints must be >= 1, got {last_n_checkpoints}")
 
     checkpoint_dir = checkpoint_paths.checkpoint_dir
-    periodic: dict[int, Path] = {}
-    for path in checkpoint_dir.iterdir():
-        if not path.is_file():
-            continue
-        if match := re.match(r"^ckpt_(\d+)\.pt$", path.name):
-            periodic[int(match.group(1))] = path
+    periodic = checkpoint_paths.periodic_checkpoint_paths()
 
     if checkpoints is not None:
         # Evaluate exactly the requested epochs; fail loudly if any are missing.
@@ -92,45 +58,33 @@ def discover_checkpoints_from_directory(
             raise ValueError(
                 f"requested checkpoint epochs not found in {checkpoint_dir}: {missing}"
             )
-        targets = [
-            _entry_from_file(periodic[epoch], "periodic", epoch=epoch)
-            for epoch in sorted(set(checkpoints))
-        ]
+        targets = [periodic[epoch] for epoch in sorted(set(checkpoints))]
     else:
-        targets = [
-            _entry_from_file(path, "periodic", epoch=epoch)
-            for epoch, path in sorted(periodic.items())
-        ]
+        targets = [path for _, path in sorted(periodic.items())]
         if last_n_checkpoints is not None:
             targets = targets[-last_n_checkpoints:]
 
     # The final EMA checkpoint is always included in addition to the selected
     # periodic checkpoints.
     if checkpoint_paths.ema_checkpoint_path.exists():
-        targets.append(
-            _entry_from_file(
-                checkpoint_paths.ema_checkpoint_path,
-                "ema_latest",
-                for_inference=True,
-            )
-        )
+        targets.append(checkpoint_paths.ema_checkpoint_path)
 
     return targets
 
 
 def partition_checkpoint_work(
-    entries: list[CheckpointEvalTarget],
+    entries: list[Path],
     worker_count: int,
-) -> list[list[CheckpointEvalTarget]]:
+) -> list[list[Path]]:
     if worker_count < 1:
         raise ValueError("worker_count must be at least 1")
     return [entries[i::worker_count] for i in range(worker_count)]
 
 
-def _resolve_worker_count(
+def _resolve_workers(
     backend: str,
     num_checkpoints: int,
-) -> tuple[int, list[int]]:
+) -> list[torch.device]:
     wants_gpu = backend in {"auto", "cuda"}
     available_gpus = (
         torch.cuda.device_count() if wants_gpu and torch.cuda.is_available() else 0
@@ -139,14 +93,14 @@ def _resolve_worker_count(
         raise RuntimeError("post-train eval requested CUDA but no GPUs are available")
     if available_gpus == 0:
         logger.info("No GPUs available for post-train eval; falling back to serial CPU")
-        return 1, []
+        return [torch.device("cpu")]
 
     worker_count = max(1, min(num_checkpoints, available_gpus))
-    return worker_count, list(range(worker_count))
+    return [torch.device("cuda", index) for index in range(worker_count)]
 
 
-def _write_summary(results: list[dict[str, object]], sweep_root: Path) -> None:
-    summary_path = sweep_root / "summary.json"
+def _write_summary(results: list[dict[str, object]], sweep_output_dir: Path) -> None:
+    summary_path = sweep_output_dir / "summary.json"
     summary_path.write_text(
         json.dumps(results, indent=2, sort_keys=True),
         encoding="utf-8",
@@ -168,28 +122,26 @@ def _load_eval_config(
 
 
 def _run_single_checkpoint_eval(
-    entry: CheckpointEvalTarget,
+    checkpoint_path: Path,
     eval_config_path: Path,
     eval_override_args: tuple[str, ...],
-    sweep_root: Path,
-    data_root: Location | None,
-    gpu_index: int | None,
+    sweep_output_dir: Path,
+    data_root: ResolvedLocation,
+    device: torch.device,
 ) -> dict[str, object]:
     # Eval imports EvalConfig, so keep it out of this module's import path while
     # config.py is defining the CheckpointSweep builder.
     from samudra.eval import Eval
 
-    if gpu_index is not None:
-        torch.cuda.set_device(gpu_index)
+    if device.type == "cuda":
+        torch.cuda.set_device(device)
 
     with MultitonScope():
         cfg = _load_eval_config(eval_config_path, eval_override_args)
-        cfg.ckpt_path = entry.path
-        cfg.experiment.base_output_dir = str(sweep_root)
-        cfg.experiment.name = checkpoint_label(entry)
-        if data_root is not None:
-            cfg.experiment.data_root = data_root
-        cfg.experiment.wandb.mode = "disabled"
+        cfg.ckpt_path = str(checkpoint_path)
+        cfg.experiment.base_output_dir = str(sweep_output_dir)
+        cfg.experiment.name = checkpoint_label(checkpoint_path)
+        cfg.experiment.data_root = cast(Location, data_root)
 
         evaluator = Eval(cfg)
         start = time.perf_counter()
@@ -208,11 +160,8 @@ def _run_single_checkpoint_eval(
                 serialized[key] = value
 
         return {
-            "checkpoint_kind": entry.kind,
-            "checkpoint_epoch": entry.epoch,
-            "checkpoint_path": entry.path,
-            "for_inference": entry.for_inference,
-            "label": checkpoint_label(entry),
+            "checkpoint_path": str(checkpoint_path),
+            "label": checkpoint_label(checkpoint_path),
             "output_dir": str(cfg.experiment.output_dir),
             "elapsed_seconds": elapsed_seconds,
             "metrics": serialized,
@@ -220,35 +169,30 @@ def _run_single_checkpoint_eval(
 
 
 def _run_single_checkpoint_viz(
-    result: dict[str, object],
+    label: str,
+    eval_output_dir: Path,
     template: "VizTemplate",
     steps: list[str],
     viz_dirname: str,
 ) -> dict[str, object]:
     # Viz config imports TimeConfig, so these need to stay off config.py's
     # module initialization path.
-    from samudra.viz.config import VizRunConfig, run_steps
+    from samudra.viz.config import run_steps
 
-    label = cast(str, result["label"])
-    eval_output_dir = Path(cast(str, result["output_dir"]))
     prediction_path = eval_output_dir / "predictions.zarr"
     if not prediction_path.exists():
         raise FileNotFoundError(
             f"Expected saved predictions at {prediction_path} for post-train viz sweep"
         )
 
-    checkpoint_run = VizRunConfig(
-        name=label,
-        location=LocalLocation(path=prediction_path.resolve()),
-        variables=template.variables,
-    )
     output_path = eval_output_dir / viz_dirname
     output_path.mkdir(parents=True, exist_ok=True)
 
     start = time.perf_counter()
-    viz = template.instantiate(
+    viz = template.instantiate_run(
         output_path,
-        [checkpoint_run.build(template.data_root)],
+        label,
+        LocalLocation(path=prediction_path.resolve()),
     )
     run_steps(viz, steps)
     elapsed_seconds = time.perf_counter() - start
@@ -261,44 +205,67 @@ def _run_single_checkpoint_viz(
 
 
 def _worker_main(
-    entries: list[CheckpointEvalTarget],
+    entries: list[Path],
     eval_config_path: Path,
     eval_override_args: tuple[str, ...],
-    sweep_root: str,
-    data_root: Location | None,
-    gpu_index: int | None,
+    sweep_output_dir: Path,
+    data_root: ResolvedLocation,
+    device: torch.device,
     queue: multiprocessing.Queue,
 ) -> None:
     try:
-        for entry in entries:
+        for checkpoint_path in entries:
             queue.put(
                 _run_single_checkpoint_eval(
-                    entry=entry,
+                    checkpoint_path=checkpoint_path,
                     eval_config_path=eval_config_path,
                     eval_override_args=eval_override_args,
-                    sweep_root=Path(sweep_root),
+                    sweep_output_dir=sweep_output_dir,
                     data_root=data_root,
-                    gpu_index=gpu_index,
+                    device=device,
                 )
             )
     except Exception as exc:
-        queue.put({"error": str(exc), "gpu_index": gpu_index})
+        exc.add_note(
+            f"checkpoint sweep worker on {device} failed for {checkpoint_path}"
+        )
+        queue.put(exc)
         raise
+
+
+def _terminate_workers(processes: Sequence[BaseProcess]) -> None:
+    for process in processes:
+        if process.is_alive():
+            process.terminate()
+    for process in processes:
+        process.join()
 
 
 @dataclass(frozen=True)
 class CheckpointSweep:
-    """Ready-to-run checkpoint sweep built from configuration."""
+    """Configuration for running a checkpoint evaluation sweep."""
 
     eval_config_path: Path
     checkpoint_paths: CheckpointPaths
+    data_root: ResolvedLocation
+    sweep_output_dir: Path
     eval_override_args: tuple[str, ...] = ()
-    data_root: Location | None = None
-    sweep_root: Path | None = None
     viz_config_path: Path | None = None
     last_n_checkpoints: int | None = None
     checkpoints: list[int] | None = None
     viz_dirname: str = "viz"
+
+    def __post_init__(self) -> None:
+        eval_cfg = _load_eval_config(self.eval_config_path, self.eval_override_args)
+        if self.viz_config_path is not None:
+            if not eval_cfg.save_zarr:
+                raise ValueError(
+                    "post-train viz sweep requires eval.save_zarr = true so "
+                    "predictions.zarr is written"
+                )
+            from samudra.viz import VizTemplateConfig
+
+            VizTemplateConfig.from_yaml(self.viz_config_path)
 
     def run(self) -> list[dict[str, object]]:
         return run_checkpoint_sweep(
@@ -306,7 +273,7 @@ class CheckpointSweep:
             checkpoint_paths=self.checkpoint_paths,
             eval_override_args=self.eval_override_args,
             data_root=self.data_root,
-            sweep_root=self.sweep_root,
+            sweep_output_dir=self.sweep_output_dir,
             viz_config_path=self.viz_config_path,
             last_n_checkpoints=self.last_n_checkpoints,
             checkpoints=self.checkpoints,
@@ -317,9 +284,9 @@ class CheckpointSweep:
 def run_checkpoint_sweep(
     eval_config_path: Path,
     checkpoint_paths: CheckpointPaths,
+    data_root: ResolvedLocation,
+    sweep_output_dir: Path,
     eval_override_args: tuple[str, ...] = (),
-    data_root: Location | None = None,
-    sweep_root: Path | None = None,
     viz_config_path: Path | None = None,
     last_n_checkpoints: int | None = None,
     checkpoints: list[int] | None = None,
@@ -335,104 +302,84 @@ def run_checkpoint_sweep(
         return []
 
     eval_cfg = _load_eval_config(eval_config_path, eval_override_args)
-    if sweep_root is None:
-        sweep_root = checkpoint_paths.checkpoint_dir.parent / eval_cfg.experiment.name
-    sweep_root.mkdir(parents=True, exist_ok=True)
+    sweep_output_dir.mkdir(parents=True, exist_ok=True)
 
-    if viz_config_path is not None and not eval_cfg.save_zarr:
-        raise ValueError(
-            "post-train viz sweep requires eval.save_zarr = true so predictions.zarr is written"
-        )
-
-    worker_count, gpu_indices = _resolve_worker_count(eval_cfg.backend, len(targets))
+    worker_devices = _resolve_workers(eval_cfg.backend, len(targets))
 
     logger.info(
         "Running checkpoint sweep for %d checkpoints with %d worker(s)",
         len(targets),
-        worker_count,
+        len(worker_devices),
     )
 
+    ctx = multiprocessing.get_context("spawn")
+    queue: multiprocessing.Queue = ctx.Queue()
+    processes = []
+    shards = partition_checkpoint_work(targets, len(worker_devices))
+    for device, shard in zip(worker_devices, shards, strict=True):
+        process = ctx.Process(
+            target=_worker_main,
+            args=(
+                shard,
+                eval_config_path,
+                eval_override_args,
+                sweep_output_dir,
+                data_root,
+                device,
+                queue,
+            ),
+        )
+        process.start()
+        processes.append(process)
+
     results: list[dict[str, object]] = []
-    if worker_count == 1:
-        gpu_index = gpu_indices[0] if gpu_indices else None
-        for entry in targets:
-            results.append(
-                _run_single_checkpoint_eval(
-                    entry=entry,
-                    eval_config_path=eval_config_path,
-                    eval_override_args=eval_override_args,
-                    sweep_root=sweep_root,
-                    data_root=data_root,
-                    gpu_index=gpu_index,
-                )
+    deadline = time.monotonic() + WORKER_TIMEOUT_SECONDS
+    while len(results) < len(targets):
+        remaining_seconds = deadline - time.monotonic()
+        if remaining_seconds <= 0:
+            _terminate_workers(processes)
+            raise TimeoutError(
+                f"checkpoint sweep exceeded {WORKER_TIMEOUT_SECONDS} seconds"
             )
-    else:
-        ctx = multiprocessing.get_context("spawn")
-        queue: multiprocessing.Queue = ctx.Queue()
-        processes = []
-        shards = partition_checkpoint_work(targets, worker_count)
-        for gpu_index, shard in zip(gpu_indices, shards, strict=True):
-            process = ctx.Process(
-                target=_worker_main,
-                args=(
-                    shard,
-                    eval_config_path,
-                    eval_override_args,
-                    str(sweep_root),
-                    data_root,
-                    gpu_index,
-                    queue,
-                ),
+        try:
+            item = queue.get(timeout=min(30, remaining_seconds))
+        except queue_module.Empty:
+            for process in processes:
+                if process.exitcode not in {None, 0}:
+                    _terminate_workers(processes)
+                    raise RuntimeError(
+                        f"checkpoint sweep worker exited with status {process.exitcode}"
+                    )
+            continue
+        if isinstance(item, Exception):
+            _terminate_workers(processes)
+            raise item
+        results.append(item)
+
+    for process in processes:
+        process.join()
+        if process.exitcode != 0:
+            raise RuntimeError(
+                f"checkpoint sweep worker exited with status {process.exitcode}"
             )
-            process.start()
-            processes.append(process)
 
-        while len(results) < len(targets):
-            try:
-                item = queue.get(timeout=30)
-            except queue_module.Empty:
-                for process in processes:
-                    if process.exitcode not in {None, 0}:
-                        raise RuntimeError(
-                            f"checkpoint sweep worker exited with status {process.exitcode}"
-                        )
-                continue
-            if "error" in item:
-                for process in processes:
-                    if process.is_alive():
-                        process.terminate()
-                    process.join()
-                raise RuntimeError(
-                    f"checkpoint sweep worker failed on gpu {item['gpu_index']}: {item['error']}"
-                )
-            results.append(item)
-
-        for process in processes:
-            process.join()
-            if process.exitcode != 0:
-                raise RuntimeError(
-                    f"checkpoint sweep worker exited with status {process.exitcode}"
-                )
-
-    _write_summary(results, sweep_root)
+    _write_summary(results, sweep_output_dir)
 
     if viz_config_path is not None:
         from samudra.viz import VizTemplateConfig
 
         logger.info("Running post-train viz sweep for %d checkpoints", len(results))
         template_cfg = VizTemplateConfig.from_yaml(viz_config_path)
-        default_data_root: ResolvedLocation = LocalLocation(path=Path.cwd())
-        if data_root is not None:
-            default_data_root = default_data_root.resolve(data_root)
-        template = template_cfg.build_template(default_data_root)
+        template = template_cfg.build_template(data_root)
         for result in results:
             result["viz"] = _run_single_checkpoint_viz(
-                result,
+                cast(str, result["label"]),
+                Path(cast(str, result["output_dir"])),
                 template,
                 template_cfg.selected_steps,
                 viz_dirname=viz_dirname,
             )
-        _write_summary(results, sweep_root)
+        _write_summary(results, sweep_output_dir)
 
     return results
 
@@ -440,14 +387,18 @@ def run_checkpoint_sweep(
 def run_standalone_checkpoint_sweep(
     eval_config_path: Path,
     checkpoint_dir: Path,
+    output_dir: Path,
     eval_override_args: list[str] | None = None,
     viz_config_path: Path | None = None,
     last_n_checkpoints: int | None = None,
     checkpoints: list[int] | None = None,
 ) -> list[dict[str, object]]:
+    eval_cfg = _load_eval_config(eval_config_path, tuple(eval_override_args or []))
     return CheckpointSweep(
         eval_config_path=eval_config_path,
         checkpoint_paths=CheckpointPaths(checkpoint_dir),
+        data_root=eval_cfg.experiment.resolved_data_root,
+        sweep_output_dir=output_dir,
         eval_override_args=tuple(eval_override_args or []),
         viz_config_path=viz_config_path,
         last_n_checkpoints=last_n_checkpoints,
@@ -473,6 +424,11 @@ def main(argv: list[str] | None = None) -> None:
         help="Path to a saved_nets directory from an old run",
     )
     parser.add_argument(
+        "--output_dir",
+        required=True,
+        help="Directory for checkpoint evaluation outputs and summary.json",
+    )
+    parser.add_argument(
         "--last_n_checkpoints",
         type=int,
         help="Optional limit to only evaluate the last N discovered checkpoints",
@@ -486,15 +442,11 @@ def main(argv: list[str] | None = None) -> None:
     )
     args, eval_override_args = parser.parse_known_args(argv)
 
-    # Expand ~ in user-provided config paths before resolving them to absolute paths.
-    viz_config_path = (
-        Path(args.viz_config).expanduser().resolve()
-        if args.viz_config is not None
-        else None
-    )
+    viz_config_path = Path(args.viz_config) if args.viz_config is not None else None
     run_standalone_checkpoint_sweep(
-        eval_config_path=Path(args.config).expanduser().resolve(),
+        eval_config_path=Path(args.config),
         checkpoint_dir=Path(args.checkpoint_dir).expanduser().resolve(),
+        output_dir=Path(args.output_dir).expanduser().resolve(),
         eval_override_args=eval_override_args,
         viz_config_path=viz_config_path,
         last_n_checkpoints=args.last_n_checkpoints,

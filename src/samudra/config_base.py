@@ -96,7 +96,7 @@ class TopLevelConfig(BaseSettings):
 
     @classmethod
     def _load_yaml(cls, config_path: Path | str) -> dict[str, Any]:
-        resolved_path = Path(config_path).expanduser().resolve()
+        resolved_path = resolve_config_path(str(config_path))
         if not resolved_path.exists():
             raise FileNotFoundError(
                 f"Config file `{config_path}` (full path: {resolved_path}) not found"

@@ -37,7 +37,7 @@ from samudra.utils.data import (
     spherical_area_weights,
     with_level_index_vars,
 )
-from samudra.utils.location import ResolvedLocation
+from samudra.utils.location import Location, ResolvedLocation
 
 logger = logging.getLogger(__name__)
 
@@ -131,6 +131,19 @@ class VizTemplate:
             runs,
             prepared_groundtruth=self.prepared_groundtruth,
         )
+
+    def instantiate_run(
+        self,
+        output_path: Path,
+        name: str,
+        location: Location,
+    ) -> "Viz":
+        run = VizRun(
+            name=name,
+            data=self.data_root.resolve(location).open(chunks={}),
+            variables=self.variables,
+        )
+        return self.instantiate(output_path, [run])
 
 
 class Viz:

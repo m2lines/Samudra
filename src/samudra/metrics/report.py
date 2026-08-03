@@ -283,13 +283,13 @@ def _whole_years(
     """
     months = pd.DatetimeIndex(model_field["time"].values)
     counts = pd.Series(1, index=months).groupby(months.year).sum()
-    whole = sorted(int(year) for year, n in counts.items() if n == 12)
+    whole = sorted(int(str(year)) for year, n in counts.items() if n == 12)
     if not whole:
         raise ValueError(
             f"{context}: no calendar year is covered by twelve whole months "
             f"(months available: {months.min():%Y-%m} to {months.max():%Y-%m})"
         )
-    dropped = sorted(set(int(y) for y in counts.index) - set(whole))
+    dropped = sorted({int(str(year)) for year in counts.index} - set(whole))
     if dropped:
         logger.info(
             "  %s: scoring %d-%d; dropped partly covered year(s) %s",

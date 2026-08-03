@@ -50,6 +50,8 @@ COLUMNS = [
     "n_bootstrap",
     "uncertainty_method",
     "grid_shape",
+    "n_paired_cells",
+    "paired_ocean_fraction",
 ]
 
 SPATIAL_DIMS = ("lat", "lon")
@@ -61,6 +63,27 @@ def _window_slice(window: tuple[pd.Timestamp, pd.Timestamp]) -> slice:
 
 def _grid_shape(field: xr.DataArray) -> str:
     return f"{field.sizes.get('lat', 0)}x{field.sizes.get('lon', 0)}"
+
+
+def _pairing(model_field: xr.DataArray, obs_field: xr.DataArray) -> dict[str, float]:
+    """How much of the observation ocean survived pairing with the model.
+
+    Linear interpolation makes an observation cell NaN whenever its model-grid
+    neighbours include land, so the comparison set is eroded by a band one
+    model cell wide -- all of it coastal, which is where model error is
+    largest. The eroded fraction therefore scales with model resolution: a
+    coarse run is scored on a smaller and easier subset of the ocean than a
+    fine one. Recording it makes that visible instead of leaving cross-
+    resolution comparison merely "not comparable" in prose.
+    """
+    obs_ocean = int(np.isfinite(obs_field).sum())
+    paired = int((np.isfinite(obs_field) & np.isfinite(model_field)).sum())
+    return {
+        "n_paired_cells": float(paired),
+        "paired_ocean_fraction": float(paired / obs_ocean)
+        if obs_ocean
+        else float("nan"),
+    }
 
 
 def _rows_for_metric(
@@ -298,7 +321,10 @@ def _whole_years(
             whole[-1],
             dropped,
         )
-    keep = slice(f"{whole[0]}-01-01", f"{whole[-1]}-12-31")
+    # Select by year membership, not a slice: a slice only trims the ends, so
+    # a ragged year in the *interior* would survive while the log above claims
+    # it was dropped.
+    keep = model_field["time"].dt.year.isin(whole)
     return model_field.sel(time=keep), obs_field.sel(time=keep)
 
 
@@ -570,14 +596,16 @@ def to_wandb(frame: pd.DataFrame, primary_model: str) -> MetricsDict:
             value = row.get(column)
             if value is not None and np.isfinite(value):
                 metrics[f"{prefix}/{suffix}_{column}"] = float(value)
+        # Per metric, not once per run: metrics scored different spans (OHC
+        # drops a year whose December is partial), so a single figure would
+        # describe whichever one happened to score the most.
+        n_years = row.get("n_years")
+        if n_years is not None and np.isfinite(n_years):
+            metrics[f"{prefix}/{suffix}_n_years"] = float(n_years)
 
     # The evaluation window itself stays in the table and the CSV rather than
-    # becoming a scalar: W&B scalars are floats, and a date is not one.
-    primary_rows = scored[scored["model"] == primary_model]
-    if not primary_rows.empty:
-        n_years = primary_rows["n_years"].dropna()
-        if not n_years.empty:
-            metrics["obs/n_years"] = float(n_years.max())
+    # becoming a scalar: W&B scalars are floats, and a date is not one. There is
+    # deliberately no single `obs/n_years` -- see the per-metric keys above.
     return metrics
 
 

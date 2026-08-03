@@ -184,13 +184,19 @@ class Eval:
         # phase reads the rollout back off disk and can fail on data problems
         # that have nothing to do with the model. When it does, it should raise
         # loudly without also costing us the rollout results already computed.
-        if self.observations is not None and is_main_process():
-            self.report_observation_metrics(self.observations)
-
-        total_time = time.perf_counter() - start_time
-        total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        logger.info(f"Eval time (Including wandb logging) {total_time_str}")
-        self.finish()
+        try:
+            if self.observations is not None and is_main_process():
+                self.report_observation_metrics(self.observations)
+        finally:
+            # The observation phase reads ~65 GB back off remote storage, so it
+            # can fail for reasons unrelated to the model. It should still
+            # raise -- but not by skipping `finish()`, which would leave the run
+            # marked crashed in W&B with the rollout's own metrics stranded
+            # inside it.
+            total_time = time.perf_counter() - start_time
+            total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+            logger.info(f"Eval time (Including wandb logging) {total_time_str}")
+            self.finish()
 
     def report_observation_metrics(self, obs_cfg: ObsMetricsConfig) -> None:
         """Score the finished rollout against observation products."""

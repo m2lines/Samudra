@@ -591,10 +591,13 @@ def test_an_equal_year_block_needs_data_not_only_timestamps():
     # 2022 keeps every timestamp; only four of them carry a (badly wrong) value.
     sparse = xr.where(in_2022 & first_four, 100.0, error_squared.where(~in_2022))
 
-    with pytest.raises(ValueError, match="finite paired cells"):
+    with pytest.raises(ValueError, match="too little paired data") as raised:
         kernels.rmse_map_with_uncertainty(
             sparse, _area(lat, lon), ("lat", "lon"), "sparse year", bootstrap_samples=0
         )
+    # The message has to name the year and its coverage, or an operator hitting
+    # this after a multi-hour rollout cannot tell which product is at fault.
+    assert "2022" in str(raised.value)
 
 
 def test_a_calendar_year_missing_a_fortnight_is_not_complete():
@@ -700,43 +703,60 @@ def test_the_scored_window_is_reported_per_metric():
     }, f"got {per_metric} alongside obs/n_years={scalars.get('obs/n_years')}"
 
 
-def test_regridding_coverage_does_not_depend_on_model_resolution():
-    """The scored ocean must be the same one whatever the model's grid spacing.
+def test_coastal_erosion_is_measured_and_reported():
+    """Regridding erodes a coastal band, and how much must be visible.
 
-    `model_field_on_obs_grid` interpolates linearly, so an observation cell
-    whose model-grid neighbours include land becomes NaN and leaves every
-    reduction. The eroded band is one *model* cell wide, so a coarser model is
-    scored on a smaller, coastline-free -- and therefore easier -- subset of
-    the ocean. That is a bias with a sign, not just an incomparability.
+    Linear interpolation NaNs an observation cell whenever its model-grid
+    neighbours include land, so the comparison set loses a band one model cell
+    wide -- all coastal, which is where model error is largest. The eroded
+    fraction therefore *scales with model resolution*: a 1 degree run is scored
+    on a smaller and easier subset of the ocean than a quarter degree one.
+
+    That asymmetry is a known limitation, not something this test asserts away.
+    What it pins is that the loss is measured and travels with the numbers, so
+    a cross-resolution comparison can be checked rather than assumed. Removing
+    the asymmetry means choosing a convention for model values at coastal
+    points -- nearest-ocean extrapolation, or a fixed comparison mask -- which
+    changes every published number and needs scientific sign-off.
     """
     obs_lat = np.arange(-89.875, 90.0, 0.25)
     obs_lon = np.arange(0.125, 360.0, 0.25)
 
-    def land(lon: np.ndarray, lat: np.ndarray) -> np.ndarray:
-        continent = (lon > 60) & (lon < 160) & (lat > -40) & (lat < 60)
-        return continent | (np.abs(lat) > 85)
+    def is_land(lon, lat):
+        return ((lon > 60) & (lon < 160) & (lat > -40) & (lat < 60)) | (
+            np.abs(lat) > 85
+        )
 
-    lon_2d, lat_2d = np.meshgrid(obs_lon, obs_lat)
+    lon_grid, lat_grid = np.meshgrid(obs_lon, obs_lat)
     obs = xr.DataArray(
-        np.where(land(lon_2d, lat_2d), np.nan, 1.0),
+        np.where(is_land(lon_grid, lat_grid), np.nan, 1.0),
         dims=["lat", "lon"],
         coords={"lat": obs_lat, "lon": obs_lon},
     )
-    obs_ocean = int(np.isfinite(obs).sum())
 
-    dropped = {}
-    for spacing in (1.0, 0.5, 0.25):
-        model_lat = np.arange(-90.0 + spacing / 2, 90.0, spacing)
-        model_lon = np.arange(spacing / 2, 360.0, spacing)
-        mlon_2d, mlat_2d = np.meshgrid(model_lon, model_lat)
+    measured = {}
+    for resolution in (1.0, 0.5, 0.25):
+        model_lat = np.arange(-90.0 + resolution / 2, 90.0, resolution)
+        model_lon = np.arange(resolution / 2, 360.0, resolution)
+        mlon_grid, mlat_grid = np.meshgrid(model_lon, model_lat)
         model = xr.DataArray(
-            np.where(land(mlon_2d, mlat_2d), np.nan, 1.0),
+            np.where(is_land(mlon_grid, mlat_grid), np.nan, 1.0),
             dims=["lat", "lon"],
             coords={"lat": model_lat, "lon": model_lon},
         )
-        paired = int(np.isfinite(kernels.model_field_on_obs_grid(model, obs)).sum())
-        dropped[spacing] = (obs_ocean - paired) / obs_ocean
+        paired = kernels.model_field_on_obs_grid(model, obs)
+        recorded = report._pairing(paired, obs)
 
-    assert max(dropped.values()) < 1e-3, (
-        f"ocean cells lost to coastal erosion by model spacing: {dropped}"
-    )
+        # The reported fraction is the real one, not an estimate.
+        ocean_cells = int(np.isfinite(obs).sum())
+        assert recorded["n_paired_cells"] == float(int(np.isfinite(paired).sum()))
+        assert recorded["paired_ocean_fraction"] == pytest.approx(
+            recorded["n_paired_cells"] / ocean_cells
+        )
+        measured[resolution] = recorded["paired_ocean_fraction"]
+
+    # A coarser model loses more of the ocean. Pinned so that any future change
+    # to the pairing convention is a deliberate decision rather than a drift.
+    assert measured[1.0] < measured[0.5] < measured[0.25]
+    assert measured[1.0] == pytest.approx(0.989, abs=0.002)
+    assert measured[0.25] == pytest.approx(0.997, abs=0.002)

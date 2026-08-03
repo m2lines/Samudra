@@ -51,6 +51,23 @@ EQUATORIAL_MASK_DEG = 5.0
 
 DEFAULT_BOOTSTRAP_SAMPLES = 10_000
 
+# Least area-weighted fraction of a year's paired cells that must carry data
+# before the year may contribute an equal-weight block. Set well below the
+# coverage a healthy product gives, so it catches a genuinely starved year
+# rather than ordinary gaps.
+MIN_YEAR_COVERAGE = 0.5
+
+# Fewest valid samples a cell needs before its residual variance means
+# anything. Deseasonalizing removes a per-bin climatology, so a cell with about
+# one sample per bin residualizes to exactly zero however variable it truly is.
+# 24 admits two years of monthly data; the pentad path has 73 bins a year, so
+# any cell that survives at all clears this comfortably.
+MIN_RESIDUAL_SAMPLES = 24
+
+# Fewest calendar-year blocks before a percentile bootstrap interval is worth
+# reporting. With two blocks it degenerates to the min and max of two numbers.
+MIN_BOOTSTRAP_BLOCKS = 5
+
 
 @dataclasses.dataclass(frozen=True)
 class DepthLayer:
@@ -155,31 +172,47 @@ def median_time_step_days(index: pd.DatetimeIndex) -> float:
 
 
 def complete_calendar_years(
-    time: xr.DataArray, min_sample_fraction: float = 0.95
+    time: xr.DataArray, max_gap_steps: float = 2.5
 ) -> list[int]:
-    """Years that span the full calendar and carry a full complement of samples."""
+    """Years that span the full calendar with no unexplained hole in the middle.
+
+    Completeness is judged by the largest gap between consecutive samples, not
+    by a sample count. A count tolerance has to be loose enough to absorb the
+    cadence variation a real product has -- OM4's 5-day calendar carries
+    occasional 6-day steps -- and that same looseness then admits a fortnight
+    of genuinely missing data. A gap threshold separates the two: it accepts a
+    6-day step and rejects a 15-day hole, which is what "complete" is meant to
+    mean.
+
+    Args:
+        time: The time coordinate to inspect.
+        max_gap_steps: Largest interior gap to tolerate, in multiples of the
+            median step.
+    """
     index = pd.DatetimeIndex(time.values)
     if index.empty:
         return []
-    counts = pd.Series(index.year).value_counts().sort_index()
-    target_count = int(counts.max())
     step_days = median_time_step_days(index)
-    boundary_tolerance = (
-        pd.Timedelta(days=1.5 * step_days)
-        if np.isfinite(step_days)
-        else pd.Timedelta(0)
-    )
+    if not np.isfinite(step_days) or step_days <= 0:
+        return []
+    # The year boundary will not land on a sample, so allow the record to start
+    # and end up to one-and-a-half steps inside the calendar year.
+    boundary_tolerance = pd.Timedelta(days=1.5 * step_days)
+    max_gap = pd.Timedelta(days=max_gap_steps * step_days)
+
     years = []
-    for year, count in counts.items():
-        year_index = index[index.year == year]
-        year_start = pd.Timestamp(f"{year}-01-01")
-        year_end = pd.Timestamp(f"{year}-12-31 23:59:59.999999999")
+    for year in sorted({int(y) for y in index.year}):
+        year_index = index[index.year == year].sort_values()
+        if year_index.size < 2:
+            continue
         covers_calendar = (
-            year_index.min() <= year_start + boundary_tolerance
-            and year_index.max() >= year_end - boundary_tolerance
+            year_index.min() <= pd.Timestamp(f"{year}-01-01") + boundary_tolerance
+            and year_index.max()
+            >= pd.Timestamp(f"{year}-12-31 23:59:59.999999999") - boundary_tolerance
         )
-        if covers_calendar and count >= min_sample_fraction * target_count:
-            years.append(int(str(year)))
+        largest_gap = pd.Timedelta(np.diff(year_index.values).max())
+        if covers_calendar and largest_gap <= max_gap:
+            years.append(year)
     return years
 
 
@@ -269,8 +302,15 @@ def layer_overlap_thickness(
             raise ValueError(
                 f"Expected a 1D native depth coordinate, got dimensions {depth.dims}"
             )
-        lower = depth - 0.5 * native_dz
-        upper = depth + 0.5 * native_dz
+        # Accumulate thicknesses from the surface rather than assuming each
+        # center sits at its cell's midpoint. The two agree on OM4, whose levels
+        # tile exactly, but a uniform edge shift on some other vertical grid
+        # would preserve the summed thickness while getting every boundary
+        # weight wrong -- so the sum is not a check that would catch it.
+        thickness = np.asarray(native_dz.values, dtype=float)
+        edges = np.concatenate([[0.0], np.cumsum(thickness)])
+        lower = xr.DataArray(edges[:-1], dims=depth.dims, coords=depth.coords)
+        upper = xr.DataArray(edges[1:], dims=depth.dims, coords=depth.coords)
 
     clipped_lower = xr.where(lower > min_depth, lower, min_depth)
     clipped_upper = xr.where(upper < max_depth, upper, max_depth)
@@ -599,11 +639,14 @@ def detrend_linear_dataarray(
     if field.sizes.get(time_dim, 0) < 2:
         return field - field.mean(time_dim, skipna=True)
 
-    x = xr.DataArray(
-        np.arange(field.sizes[time_dim], dtype=float),
-        dims=[time_dim],
-        coords={time_dim: field[time_dim]},
-    )
+    # Elapsed days, not sample index. The two agree only on a uniform axis, and
+    # the axis is not uniform once `monthly_mean_of_complete_months` drops a
+    # month -- at which point an index regression silently treats the gap as if
+    # no time had passed. `series_linear_trend_per_year` already uses elapsed
+    # time; these two must not disagree.
+    stamps = pd.DatetimeIndex(field[time_dim].values)
+    elapsed = (stamps - stamps[0]).days.to_numpy(dtype=float)
+    x = xr.DataArray(elapsed, dims=[time_dim], coords={time_dim: field[time_dim]})
     finite = np.isfinite(field)
     x_mean = x.where(finite).mean(time_dim, skipna=True)
     y_mean = field.mean(time_dim, skipna=True)
@@ -650,13 +693,25 @@ def detrended_deseasonalized(
     return detrend_linear_dataarray(deseasonalized, time_dim=time_dim)
 
 
-def residual_variance_map(field: xr.DataArray, time_dim: str = "time") -> xr.DataArray:
+def residual_variance_map(
+    field: xr.DataArray, time_dim: str = "time", min_samples: int = MIN_RESIDUAL_SAMPLES
+) -> xr.DataArray:
     """Variance of the detrended, deseasonalized residual at each grid cell.
 
     Population variance (`ddof=0`), matching the reference implementation.
+
+    Cells with too few valid samples return NaN rather than a number. Removing
+    a per-bin climatology from a cell that holds roughly one sample per bin
+    leaves exactly zero by construction, and detrending cannot raise it -- so
+    an undersampled cell would otherwise report "perfectly still ocean",
+    indistinguishable from a genuinely quiescent point. That zero then enters
+    the map RMSE and the pattern correlation as though the model's real
+    variability there were pure error.
     """
     residual = detrended_deseasonalized(field, time_dim=time_dim)
-    return residual.var(time_dim, skipna=True, ddof=0)
+    variance = residual.var(time_dim, skipna=True, ddof=0)
+    valid = cast(xr.DataArray, np.isfinite(field)).sum(time_dim)
+    return variance.where(valid >= min_samples)
 
 
 def series_without_seasonal_cycle(series: pd.Series) -> pd.Series:
@@ -795,7 +850,11 @@ def interannual_rmse_summary(
     annual_mse = values**2
     block_aggregate_rmse = float(np.sqrt(annual_mse.mean()))
     annual_std = float(np.std(values, ddof=1)) if values.size > 1 else np.nan
-    if values.size < 2 or bootstrap_samples <= 0:
+    # Below a handful of blocks a percentile bootstrap is not an interval in any
+    # useful sense -- with two years it returns exactly [min, max] of two
+    # numbers -- so report no interval rather than one whose label overstates
+    # what it knows.
+    if values.size < MIN_BOOTSTRAP_BLOCKS or bootstrap_samples <= 0:
         ci_low = ci_high = np.nan
         n_bootstrap = 0
     else:
@@ -815,7 +874,9 @@ def interannual_rmse_summary(
         "ci_high": float(ci_high),
         "n_years": int(values.size),
         "n_bootstrap": n_bootstrap,
-        "uncertainty_method": "calendar_year_block_bootstrap",
+        "uncertainty_method": (
+            "calendar_year_block_bootstrap" if n_bootstrap else "insufficient_blocks"
+        ),
         "block_aggregate_rmse": block_aggregate_rmse,
         "primary_aggregation_method": "root_mean_annual_mse_equal_calendar_years",
     }
@@ -827,6 +888,7 @@ def rmse_map_with_uncertainty(
     spatial_dims: tuple[str, str],
     context: str,
     bootstrap_samples: int = DEFAULT_BOOTSTRAP_SAMPLES,
+    min_year_coverage: float = MIN_YEAR_COVERAGE,
 ) -> tuple[xr.DataArray, dict[int, float], dict[str, float | int | str]]:
     """Per-cell RMSE map, per-year total RMSE, and the uncertainty summary.
 
@@ -836,6 +898,8 @@ def rmse_map_with_uncertainty(
         spatial_dims: The two horizontal dim names to reduce over.
         context: Human-readable label used in error messages.
         bootstrap_samples: Block-bootstrap draws; 0 disables the interval.
+        min_year_coverage: Least area-weighted fraction of a year's paired
+            cells that must carry data for that year to contribute a block.
 
     Returns:
         The RMSE map, a mapping of year to that year's area-weighted total
@@ -848,6 +912,21 @@ def rmse_map_with_uncertainty(
     annual_mse_maps = (
         error_squared.groupby("time.year").mean("time", skipna=True).sel(year=years)
     )
+    # Coverage is measured on the *data*, not the time axis. A year can keep
+    # every timestamp and still be almost entirely NaN -- one missing DUACS day
+    # NaNs five consecutive 5-day means everywhere, and ARGO/OISST coverage is
+    # genuinely patchy at high latitude and at depth. Counting stamps would let
+    # such a year carry a full equal-weight block, which is exactly the
+    # invariant the block design rests on.
+    finite_samples = (
+        cast(xr.DataArray, np.isfinite(error_squared))
+        .groupby("time.year")
+        .sum()
+        .sel(year=years)
+    )
+    total_samples = (
+        xr.ones_like(error_squared).groupby("time.year").sum().sel(year=years)
+    )
     # The map, the scalar score, and the bootstrap all rest on the same
     # equal-year blocks, so the headline number is the one the interval covers.
     rmse_map = np.sqrt(annual_mse_maps.mean("year", skipna=True))
@@ -856,24 +935,36 @@ def rmse_map_with_uncertainty(
     weight_sum = area.where(finite).sum(spatial_dims, skipna=True)
     annual_rmse = np.sqrt(weighted_sum / weight_sum)
 
+    # Area-weighted fraction of the paired cells that actually carry data,
+    # per year. Weighting by area matters: losing a band of tropical cells is a
+    # bigger loss of information than the same count near the pole.
+    covered = (finite_samples * area).sum(spatial_dims) / (
+        (total_samples * area).sum(spatial_dims)
+    )
+
     computed = xr.Dataset(
-        {"rmse_map": rmse_map, "annual_rmse": annual_rmse, "weight_sum": weight_sum}
+        {
+            "rmse_map": rmse_map,
+            "annual_rmse": annual_rmse,
+            "weight_sum": weight_sum,
+            "covered": covered,
+        }
     ).compute()
-    # A year with no finite cell divides by zero and yields inf, which
-    # `interannual_rmse_summary` would then filter out -- quietly scoring fewer
-    # years than requested and undoing the equal-year invariant that
-    # `require_complete_calendar_years` exists to enforce. Refuse instead.
-    empty = [
-        int(year)
-        for year, weight in zip(years, computed["weight_sum"].values, strict=True)
-        if not weight > 0
-    ]
-    if empty:
+
+    coverage = dict(
+        zip(years, (float(v) for v in computed["covered"].values), strict=True)
+    )
+    starved = {
+        year: frac for year, frac in coverage.items() if not frac >= min_year_coverage
+    }
+    if starved:
+        detail = ", ".join(f"{year}: {frac:.1%}" for year, frac in starved.items())
         raise ValueError(
-            f"{context}: no finite paired cells in year(s) {empty}. Every year in "
-            "the window must contribute, since the score and its bootstrap weight "
-            "years equally. Narrow the window, or check the observation product's "
-            "coverage for those years."
+            f"{context}: year(s) with too little paired data to carry an "
+            f"equal-weight block ({detail}; require "
+            f"{min_year_coverage:.0%}). The score and its bootstrap weight years "
+            "equally, so a sparse year would distort both. Narrow the window, or "
+            "check the observation product's coverage for those years."
         )
 
     annual_values = np.asarray(computed["annual_rmse"].values, dtype=float)

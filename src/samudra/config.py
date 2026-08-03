@@ -33,7 +33,6 @@ from samudra.constants import (
     build_llc_spec,
     build_om4_spec,
 )
-from samudra.metrics import kernels, observations
 from samudra.models import Samudra, SamudraMini, SamudraMulti
 from samudra.models.base import BaseModel
 from samudra.models.modules import (
@@ -1245,11 +1244,11 @@ class ObsMetricsConfig(BaseConfig):
         description="End of the primary scoring window; must end a complete calendar year.",
     )
     bootstrap_samples: int = Field(
-        default=kernels.DEFAULT_BOOTSTRAP_SAMPLES,
+        default=10_000,
         ge=0,
         description="Calendar-year block-bootstrap draws for the 95% CI; 0 disables.",
     )
-    velocity_kind: str = Field(
+    velocity_kind: Literal["absolute", "anomaly"] = Field(
         default="absolute",
         description=(
             "Which DUACS geostrophic velocity to compare against. 'absolute' "
@@ -1267,12 +1266,6 @@ class ObsMetricsConfig(BaseConfig):
 
     @model_validator(mode="after")
     def _check(self) -> "ObsMetricsConfig":
-        if self.velocity_kind not in observations.DUACS_VELOCITY_COMPONENTS:
-            raise ValueError(
-                f"velocity_kind must be one of "
-                f"{sorted(observations.DUACS_VELOCITY_COMPONENTS)}, "
-                f"got {self.velocity_kind!r}"
-            )
         unknown = set(self.baselines) - {"om4"}
         if unknown:
             raise ValueError(f"Unknown baselines {sorted(unknown)}; supported: ['om4']")

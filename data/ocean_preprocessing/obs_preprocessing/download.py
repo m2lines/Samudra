@@ -85,9 +85,13 @@ ARGO_FIELDS = {
     ),
 }
 
-# A truncated NetCDF is worse than a missing one: it opens, and then poisons the
-# derived product silently. Anything below this is treated as a failed download.
-MIN_PLAUSIBLE_BYTES = 1_000_000
+# A truncated NetCDF is worse than a missing one: it opens, and then poisons
+# the derived product silently. The floor is per product, because one threshold
+# across both would have to sit below the smaller file and so would wave
+# through a badly truncated larger one: an IAP monthly cut off at 1.1 MB is 3%
+# of its real size, but clears any bound that also admits a 1.6 MB OISST daily.
+MIN_BYTES_OISST = 1_000_000  # dailies run ~1.5 MB
+MIN_BYTES_ARGO = 10_000_000  # monthlies run ~40 MB
 
 
 def _is_complete(path: Path, min_bytes: int) -> bool:
@@ -190,7 +194,7 @@ def oisst(
     for day in days:
         filename = OISST_FILENAME.format(date=day)
         target = output_dir / filename
-        if _is_complete(target, MIN_PLAUSIBLE_BYTES) and not overwrite:
+        if _is_complete(target, MIN_BYTES_OISST) and not overwrite:
             continue
         pending.append((f"{OISST_BASE_URL}/{day:%Y%m}/{filename}", target))
 
@@ -202,7 +206,7 @@ def oisst(
         workers=workers,
         segments=segments,
         retries=retries,
-        min_bytes=MIN_PLAUSIBLE_BYTES,
+        min_bytes=MIN_BYTES_OISST,
         label="OISST",
     )
     if failed:
@@ -257,7 +261,7 @@ def argo_iap(
                 total += 1
                 canonical = config.filename_templates[0].format(year=year, month=month)
                 target = output_dir / field_name / canonical
-                if _is_complete(target, MIN_PLAUSIBLE_BYTES) and not overwrite:
+                if _is_complete(target, MIN_BYTES_ARGO) and not overwrite:
                     continue
                 outstanding[target] = (config, year, month)
 
@@ -298,7 +302,7 @@ def argo_iap(
             workers=workers,
             segments=segments,
             retries=retries,
-            min_bytes=MIN_PLAUSIBLE_BYTES,
+            min_bytes=MIN_BYTES_ARGO,
             label=f"ARGO-IAP [{template.split('_year_')[0]}]",
         )
         for url, target in tasks:

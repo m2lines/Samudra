@@ -196,6 +196,19 @@ def _align_centered_5day(ds: xr.Dataset, target_times: pd.DatetimeIndex) -> xr.D
     rather than a mean over fewer days -- a partial average is not the same
     quantity and would bias the comparison.
     """
+    # `rolling` is positional, so it assumes consecutive samples are one day
+    # apart. A missing day would silently widen a window to six days without
+    # tripping `min_periods`, quietly changing what the "5-day mean" means.
+    days = pd.DatetimeIndex(ds["time"].values)
+    gaps = np.unique(
+        np.diff(days.normalize().values).astype("timedelta64[D]").astype(int)
+    )
+    if gaps.size and not set(gaps.tolist()) <= {1}:
+        raise ValueError(
+            "The daily source has gaps, so a positional 5-day rolling mean would "
+            f"silently span more than five days (day-steps present: {sorted(gaps.tolist())}). "
+            "Re-run the download to fill the missing days."
+        )
     rolled = ds.rolling(time=5, center=True, min_periods=5).mean()
     rolled = rolled.assign_coords(
         time=("time", pd.DatetimeIndex(rolled.time.values).normalize())
@@ -300,11 +313,12 @@ def duacs(
     dry_run: bool = False,
 ) -> None:
     """Build the 5-day aligned DUACS store from the per-year raw archive."""
-    # Exclude `*.tmp.zarr`: the downloader writes each year under a temporary
-    # name and renames on success, so a surviving tmp store is a partial
-    # download. It matches `duacs_*.zarr`, and concatenating one alongside the
-    # completed year would inject duplicate, ragged timestamps that survive
-    # `sortby("time")` and silently corrupt the centered rolling mean.
+    # Exclude `*.tmp.zarr`. The downloader now stages into a temporary
+    # directory, so it can no longer produce one -- but archives built by the
+    # earlier version can still hold a partial store under that name, and
+    # concatenating one would inject duplicate, ragged timestamps that survive
+    # `sortby("time")`. Kept as cleanup for those; delete once no such archive
+    # remains.
     stores = sorted(
         path
         for path in Path(raw_dir).glob("duacs_*.zarr")

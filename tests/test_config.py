@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+import pathlib
+
 import cftime
 import numpy as np
 import pytest
@@ -12,6 +14,7 @@ from pydantic import ValidationError
 from samudra.config import (
     CpuDataLoadingConfig,
     DataConfig,
+    EvalConfig,
     GpuDataLoadingConfig,
     JulianDate,
     LlcDataSourceConfig,
@@ -360,3 +363,24 @@ def test_get_pydantic_models_collects_loading_variants():
 
     assert models["CpuDataLoadingConfig"] is CpuDataLoadingConfig
     assert models["GpuDataLoadingConfig"] is GpuDataLoadingConfig
+
+
+@pytest.mark.parametrize(
+    "preset",
+    sorted(
+        path
+        for path in (pathlib.Path(__file__).parents[1] / "src/samudra/configs").glob(
+            "*/eval.yaml"
+        )
+    ),
+    ids=lambda path: path.parent.name,
+)
+def test_shipped_eval_presets_load(preset: pathlib.Path):
+    """Every shipped eval preset must parse and satisfy its own validators.
+
+    The presets are what an installed user runs by name, and they carry
+    cross-field rules -- an `observations` block requires `save_zarr` -- that
+    nothing else exercises. Without this, a preset could stop validating and
+    only a real eval job would notice.
+    """
+    EvalConfig.from_yaml_and_cli([str(preset)])

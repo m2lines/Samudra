@@ -11,9 +11,10 @@ import torch
 
 from samudra.aggregator import Aggregator
 from samudra.backend import init_eval_backend
-from samudra.config import EvalConfig
+from samudra.config import EvalConfig, ObsMetricsConfig
 from samudra.constants import BoundaryVarNames, Grid, PrognosticVarNames, TensorMap
 from samudra.datasets import InferenceDataset
+from samudra.metrics.run import open_predictions, run_observation_metrics
 from samudra.stepper import run_rollout
 from samudra.utils.data import Normalize, get_inference_steps, spherical_area_weights
 from samudra.utils.device import using_gpu
@@ -137,6 +138,9 @@ class Eval:
         self.model_path = cfg.ckpt_path
         self.normalize_before_mask = cfg.data.normalize_before_mask
         self.masked_fill_value = cfg.data.masked_fill_value
+        self.observations = cfg.observations
+        self.resolved_data_root = cfg.experiment.resolved_data_root
+        self.experiment_name = cfg.experiment.name
         self.init_inference_store()
 
     def load_checkpoint(self, ckpt_path: str):
@@ -176,10 +180,47 @@ class Eval:
         if is_main_process():
             self.wandb_logger.log(log_stats, step=None)
 
-        total_time = time.perf_counter() - start_time
-        total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        logger.info(f"Eval time (Including wandb logging) {total_time_str}")
-        self.finish()
+        # Logged after the rollout's own metrics, deliberately: the observation
+        # phase reads the rollout back off disk and can fail on data problems
+        # that have nothing to do with the model. When it does, it should raise
+        # loudly without also costing us the rollout results already computed.
+        try:
+            if self.observations is not None and is_main_process():
+                self.report_observation_metrics(self.observations)
+        finally:
+            # The observation phase reads ~65 GB back off remote storage, so it
+            # can fail for reasons unrelated to the model. It should still
+            # raise -- but not by skipping `finish()`, which would leave the run
+            # marked crashed in W&B with the rollout's own metrics stranded
+            # inside it.
+            total_time = time.perf_counter() - start_time
+            total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+            logger.info(f"Eval time (Including wandb logging) {total_time_str}")
+            self.finish()
+
+    def report_observation_metrics(self, obs_cfg: ObsMetricsConfig) -> None:
+        """Score the finished rollout against observation products."""
+        logger.info("Computing observation metrics")
+        baselines = {}
+        if "om4" in obs_cfg.baselines:
+            # The ground-truth data the eval already staged. The metric table
+            # is only interpretable next to it, so scoring it costs one extra
+            # pass over data that is local anyway.
+            baselines["om4"] = self.src.data
+
+        frame, scalars = run_observation_metrics(
+            obs_cfg,
+            predictions=open_predictions(self.output_dir),
+            dataset_spec=self.dataset_spec,
+            data_root=self.resolved_data_root,
+            model_label=self.experiment_name,
+            baselines=baselines,
+            output_dir=self.output_dir,
+        )
+        self.wandb_logger.log(
+            {**scalars, "obs/metrics_table": self.wandb_logger.Table(dataframe=frame)},
+            step=None,
+        )
 
     @torch.no_grad()
     def standalone_inference(self):

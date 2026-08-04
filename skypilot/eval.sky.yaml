@@ -49,6 +49,10 @@ envs:
   OSN_DATA_PATH: m2lines-pubs/Samudra/v2026-07/om4_halfdeg # Tip: Don't add a trailing `/`!
   # Comma-separated list of OSN paths. If unset, defaults to OSN_DATA_PATH.
   OSN_DATA_PATHS: ""
+  # Observation products (DUACS, OISST, ARGO-IAP) for the post-rollout metrics,
+  # staged into ~/data/obs/ where `observations.*_location` in the eval config
+  # resolves. Leave empty when the config sets `observations.enabled: false`.
+  OSN_OBS_PATH: ""
 
   CONFIG: null
   OUTPUTS_BUCKET: oa-fomo-outputs
@@ -108,6 +112,15 @@ setup: |
 
   mkdir -p ~/basins/
   rclone copy --progress nyu-osn:m2lines-pubs/Samudra/basins ~/basins
+
+  # Observation products for the post-rollout metrics. Copied locally rather
+  # than streamed: the RMSE maps sweep the full multi-year record, so repeated
+  # remote reads would dominate the metrics runtime.
+  if [ -n "$OSN_OBS_PATH" ] && [ "$OSN_OBS_PATH" != "null" ]; then
+    mkdir -p ~/data/obs/
+    echo "Copying observation products from $OSN_OBS_PATH to ~/data/obs/"
+    rclone copy --progress nyu-osn:${OSN_OBS_PATH}/ ~/data/obs/ --ignore-existing --transfers=32
+  fi
 
 #### End of shared setup ####
 

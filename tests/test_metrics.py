@@ -107,14 +107,15 @@ def test_ohc_layers_partition_the_column_at_the_depth_boundary():
     assert float((upper + lower).sum()) == pytest.approx(2000.0)
 
 
-def test_ohc_drops_columns_that_run_out_before_the_layer_does():
-    """A column shallower than the layer must not book its missing water as error.
+def test_ohc_integrates_short_columns_and_reports_the_exposure():
+    """A shallow column contributes what water it has, and the risk is measured.
 
-    `sum(skipna=True)` treats a masked level as zero heat, so a cell where the
-    model and observation bathymetry disagree by one level would contribute a
-    deficit the size of the metric itself -- about 2e9 J m^-2 for 50 m. The
-    axis-level guard cannot see this: it fires when the whole grid is too
-    shallow, while this is a single column running out early.
+    `skipna` treats a level a product lacks as zero heat, so where model and
+    observation bathymetry *disagree* the extra water reads as a deficit. The
+    tempting fix -- require whole columns -- cannot tell that disagreement from
+    a shelf both products agree is shallow, so it discards every shelf and moves
+    the layer totals by more than 20%. This pins the behaviour the published
+    numbers were computed with, and pins that the exposure is quantified.
     """
     centers = np.array(OM4_SPEC.depth_levels)
     dz = xr.DataArray(
@@ -125,13 +126,21 @@ def test_ohc_drops_columns_that_run_out_before_the_layer_does():
         dims=["lev", "lat", "lon"],
         coords={"lev": centers, "lat": [0.0], "lon": [0.0, 1.0]},
     )
-    # The first column stops at 650 m; the second spans the full grid.
+    # One column stops at 650 m, the other spans the grid.
     field = field.where((field["lev"] < 650) | (field["lon"] > 0.5))
 
-    ohc = kernels.ohc_per_area_layer_maps(field, native_dz=dz, depth_name="lev")
-    surface = ohc[kernels.OHC_LAYERS[0].label]
-    assert np.isnan(float(surface.values[0, 0]))
-    assert float(surface.values[0, 1]) > 0
+    surface = kernels.ohc_per_area_layer_maps(field, native_dz=dz, depth_name="lev")[
+        kernels.OHC_LAYERS[0].label
+    ]
+    shallow, full = float(surface.values[0, 0]), float(surface.values[0, 1])
+    # The short column still contributes -- it has water -- but less of it.
+    assert np.isfinite(shallow) and shallow < full
+
+    # And the share of cells exposed to a bathymetry disagreement is reported.
+    exposed = kernels.partial_column_fraction(
+        field, kernels.OHC_LAYERS[0], native_dz=dz, depth_name="lev"
+    )
+    assert exposed == pytest.approx(0.5)
 
 
 def test_residual_variance_removes_an_exact_seasonal_cycle():

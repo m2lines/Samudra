@@ -562,6 +562,34 @@ def mean_surface_eke(u: xr.DataArray, v: xr.DataArray) -> xr.DataArray:
 # --------------------------------------------------------------------------
 
 
+def partial_column_fraction(
+    temp_field: xr.DataArray,
+    layer: DepthLayer,
+    native_dz: xr.DataArray | None = None,
+    depth_name: str = "depth",
+) -> float:
+    """Fraction of wet cells whose column stops before the layer bottom.
+
+    `ohc_per_area_layer_maps` integrates whatever levels a cell has, so where
+    two products disagree about bathymetry the missing water reads as a
+    deficit. This measures how much of the comparison is exposed to that,
+    rather than leaving the risk as an assertion.
+    """
+    overlap_dz = layer_overlap_thickness(
+        temp_field[depth_name], layer.min_depth, layer.max_depth, native_dz=native_dz
+    )
+    wanted = overlap_dz > 0
+    finite = cast(xr.DataArray, np.isfinite(temp_field.where(wanted)))
+    present = finite.sum(depth_name)
+    if "time" in present.dims:
+        present = present.max("time")
+    wet = present > 0
+    if not bool(wet.any()):
+        return float("nan")
+    complete = present >= int(wanted.sum())
+    return float(1.0 - (complete & wet).sum() / wet.sum())
+
+
 def ohc_per_area_layer_maps(
     temp_field: xr.DataArray,
     layers: tuple[DepthLayer, ...] = OHC_LAYERS,
@@ -602,20 +630,26 @@ def ohc_per_area_layer_maps(
         # np.isfinite on a DataArray returns a DataArray, but the numpy stubs
         # widen it to ndarray, which has no `dim=` keyword.
         finite = cast(xr.DataArray, np.isfinite(temp_layer))
-        # Completeness is required per *cell*, not just per axis.
-        # `sum(skipna=True)` treats a masked level as zero heat, so a column
-        # whose model and observation bathymetry disagree by one level reports
-        # the missing water as a deficit -- about 2e9 J m^-2 for 50 m, which is
-        # the size of the metric itself. The axis guard above cannot catch it:
-        # that fires when the whole *grid* is too shallow, while this is a
-        # single column running out early. Such cells are dropped rather than
-        # entering the comparison as fictitious model error.
-        wanted = overlap_dz > 0
-        complete = (finite & wanted).sum(depth_name) == wanted.sum(depth_name)
+        # A cell contributes if it has water anywhere in the layer, and the sum
+        # skips the levels it lacks. This is deliberate, and it is what the
+        # published numbers were computed with.
+        #
+        # The known limitation: `skipna` treats a level a product lacks as zero
+        # heat, so where model and observation bathymetry *disagree* the extra
+        # water shows up as a deficit -- roughly 2e9 J m^-2 per 50 m, the size
+        # of the metric itself. Requiring whole columns instead is not the fix:
+        # it cannot tell disagreement from a shelf both products agree is
+        # shallow, so it discards every shelf and high-latitude column and moves
+        # the layer totals by more than 20%. A real fix has to compare the two
+        # products' valid depth ranges per cell, which means regridding the
+        # model in depth onto the observation axis first -- a change to the
+        # comparison itself, needing scientific sign-off rather than a patch.
+        # `partial_column_fraction` below measures the exposure meanwhile.
+        valid = finite.any(dim=depth_name)
         ohc = (
             (temp_layer * overlap_dz * RHO * CP)
             .sum(depth_name, skipna=True)
-            .where(complete)
+            .where(valid)
         )
         out[layer.label] = ohc
     return out

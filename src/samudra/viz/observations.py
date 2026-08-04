@@ -555,7 +555,7 @@ def variance_map_figures(
         save(
             map_panels(
                 ohc_maps,
-                f"Upper-700 m OHC residual-anomaly variance vs ARGO-IAP",
+                "Upper-700 m OHC residual-anomaly variance vs ARGO-IAP",
                 "(J m-2)2",
                 ohc_notes,
                 cmap="cividis",

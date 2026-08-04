@@ -135,6 +135,9 @@ local_scheme = "no-local-version"
 fallback_version = "0.0.0"
 
 [tool.ruff]
+# tests/reference holds code copied verbatim from the implementation the port is
+# compared against. Reformatting it, even harmlessly, stops it being a copy.
+extend-exclude = [ "tests/reference" ]
 lint.select = [ "B006", "D", "E", "F", "I", "UP", "W" ]
 # F722: https://docs.kidger.site/jaxtyping/faq/#flake8-or-ruff-are-throwing-an-error
 lint.ignore = [

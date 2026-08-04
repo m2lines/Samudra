@@ -76,7 +76,7 @@ class Comparison:
     def time(self) -> xr.DataArray:
         return self.obs["time"]
 
-    def trimmed(self, window: slice) -> "Comparison":
+    def trimmed(self, window: slice) -> Comparison:
         """The same comparison over a narrower span."""
         return Comparison(
             self.label,
@@ -127,7 +127,7 @@ class VelocityComparison:
     def time(self) -> xr.DataArray:
         return self.eastward.obs["time"]
 
-    def trimmed(self, window: slice) -> "VelocityComparison":
+    def trimmed(self, window: slice) -> VelocityComparison:
         """The same pair over a narrower span.
 
         Trimming has to happen here rather than on a derived quantity: the

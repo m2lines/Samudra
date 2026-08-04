@@ -47,6 +47,11 @@ SERIES_COLOURS = ("#000000", "#0072b2", "#d55e00", "#009e73", "#cc79a7")
 # trims and let the shared coverage decide.
 _FULL_SPAN = (pd.Timestamp.min, pd.Timestamp.max)
 
+# Steps a calendar year needs before it contributes to an interannual band.
+# Twelve is roughly two months at the 5-day cadence: enough for an annual mean
+# not to be one season.
+MIN_STEPS_PER_YEAR = 12
+
 
 def save(figure: plt.Figure, directory: str, name: str) -> str:
     """Write a figure as PDF and close it. Returns the path."""
@@ -191,7 +196,7 @@ def spectra_panel(
             axis.text(
                 0.5,
                 0.5,
-                "region too small\nto transform",
+                "no spectrum:\nbox too small or\nnot fully observed",
                 ha="center",
                 va="center",
                 transform=axis.transAxes,
@@ -240,7 +245,7 @@ def interannual_spectra_panel(
             axis.text(
                 0.5,
                 0.5,
-                "region too small\nto transform",
+                "no spectrum:\nbox too small or\nnot fully observed",
                 ha="center",
                 va="center",
                 transform=axis.transAxes,
@@ -702,7 +707,7 @@ def spectra_figures(
             spectra_panel(
                 eke_curves,
                 "Surface EKE spatial spectra vs DUACS",
-                "wavenumber (cycles km-1)",
+                "wavenumber (rad km-1)",
                 "k x PSD",
                 _curve_scores(eke_curves, "DUACS"),
             ),
@@ -713,21 +718,21 @@ def spectra_figures(
 
     # --- SST anomaly, spatial ------------------------------------------------
     obs_sst = oisst[observations.find_var_name(oisst, observations.SST_ALIASES)]
-    obs_ssta = obs_sst - obs_sst.mean("time", skipna=True)
+    obs_ssta = kernels.calendar_day_anomaly(obs_sst)
     ssta_curves = {"OISST": _region_curves(obs_ssta, spectra.SPATIAL_REGIONS)}
     for model, rollout in rollouts.items():
         native, obs = _paired(
             rollout["thetao"].isel(lev=0), obs_sst, _FULL_SPAN, regrid=True
         )
         ssta_curves[model] = _region_curves(
-            native - native.mean("time", skipna=True), spectra.SPATIAL_REGIONS
+            kernels.calendar_day_anomaly(native), spectra.SPATIAL_REGIONS
         )
     written.append(
         save(
             spectra_panel(
                 ssta_curves,
                 "SST anomaly spatial spectra vs OISST",
-                "wavenumber (cycles km-1)",
+                "wavenumber (rad km-1)",
                 "k x PSD",
                 _curve_scores(ssta_curves, "OISST"),
             ),
@@ -776,7 +781,7 @@ def spectra_figures(
             interannual_spectra_panel(
                 eke_bands,
                 "Interannual surface EKE spatial spectra",
-                "wavenumber (cycles km-1)",
+                "wavenumber (rad km-1)",
                 "k x PSD",
             ),
             directory,
@@ -784,19 +789,100 @@ def spectra_figures(
         )
     )
 
+    ssta_bands = {"OISST": _yearly_bands(_anomaly_by_year(obs_ssta))}
+    for model, rollout in rollouts.items():
+        native, _ = _paired(
+            rollout["thetao"].isel(lev=0), obs_sst, _FULL_SPAN, regrid=True
+        )
+        ssta_bands[model] = _yearly_bands(
+            _anomaly_by_year(kernels.calendar_day_anomaly(native))
+        )
+    written.append(
+        save(
+            interannual_spectra_panel(
+                ssta_bands,
+                "Interannual SST anomaly spatial spectra",
+                "wavenumber (rad km-1)",
+                "k x PSD",
+            ),
+            directory,
+            "ssta_spatial_spectra_interannual",
+        )
+    )
+
+    ke_bands = {"DUACS": _yearly_temporal_bands(obs_ke)}
+    for model, rollout in rollouts.items():
+        sim_u, sim_v = kernels.geostrophic_velocity_from_zos(
+            rollout["zos"], lat_dim="lat", lon_dim="lon"
+        )
+        u_model, _ = _paired(sim_u, obs_u, _FULL_SPAN)
+        v_model, _ = _paired(sim_v, obs_v, _FULL_SPAN)
+        ke_bands[model] = _yearly_temporal_bands(0.5 * (u_model**2 + v_model**2))
+    written.append(
+        save(
+            interannual_spectra_panel(
+                ke_bands,
+                "Interannual surface geostrophic KE temporal spectra",
+                "frequency (cycles yr-1)",
+                "PSD",
+            ),
+            directory,
+            "ke_temporal_spectra_interannual",
+        )
+    )
+
     return written
 
 
+def _anomaly_by_year(anomaly: xr.DataArray) -> dict[int, xr.DataArray]:
+    """Split an anomaly field into calendar years, keeping the time axis.
+
+    The anomaly must already be taken about the whole record's climatology, so
+    that every year shares one baseline and the band shows real year-to-year
+    spread rather than each year's deviation from itself.
+    """
+    years = sorted({int(y) for y in pd.DatetimeIndex(anomaly["time"].values).year})
+    by_year = {}
+    for year in years:
+        annual = anomaly.sel(time=slice(f"{year}-01-01", f"{year}-12-31"))
+        if annual.sizes.get("time", 0) >= MIN_STEPS_PER_YEAR:
+            by_year[year] = annual
+    return by_year
+
+
+def _yearly_temporal_bands(field: xr.DataArray) -> dict[str, tuple]:
+    """Welch PSD of each calendar year, aggregated into a per-region band."""
+    bands = {}
+    for name, lon, lat in spectra.TEMPORAL_REGIONS:
+        series = spectra.region_mean_series(field, lon, lat)
+        stamps = pd.DatetimeIndex(series.index)
+        curves = []
+        for year in sorted({int(y) for y in stamps.year}):
+            annual = series[stamps.year == year]
+            if annual.size < MIN_STEPS_PER_YEAR:
+                continue
+            frequencies, power = spectra.welch_psd(annual)
+            if np.asarray(frequencies).size:
+                curves.append((np.asarray(frequencies), np.asarray(power)))
+        bands[name] = spectra.interannual_band(curves)
+    return bands
+
+
 def obs_eke_by_year(u: xr.DataArray, v: xr.DataArray) -> dict[int, xr.DataArray]:
-    """Time-mean EKE for each complete calendar year in the record."""
+    """Annual-mean EKE maps, all sharing one multi-year velocity mean.
+
+    The eddy anomaly is taken about the mean of the whole record, not of each
+    year: a per-year mean would absorb the year-to-year change in the mean flow,
+    which is the variability these bands exist to show.
+    """
+    eke = kernels.instantaneous_surface_eke(u, v)
     years = sorted({int(y) for y in pd.DatetimeIndex(u["time"].values).year})
     per_year = {}
     for year in years:
-        window = slice(f"{year}-01-01", f"{year}-12-31")
-        u_year, v_year = u.sel(time=window), v.sel(time=window)
-        if u_year.sizes.get("time", 0) < 12:
+        annual = eke.sel(time=slice(f"{year}-01-01", f"{year}-12-31"))
+        if annual.sizes.get("time", 0) < MIN_STEPS_PER_YEAR:
             continue
-        per_year[year] = kernels.mean_surface_eke(u_year, v_year)
+        per_year[year] = annual.mean("time", skipna=True)
     return per_year
 
 

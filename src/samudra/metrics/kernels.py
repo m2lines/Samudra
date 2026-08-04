@@ -1045,3 +1045,22 @@ def rmse_map_with_uncertainty(
         dict(zip(years, (float(v) for v in annual_values), strict=True)),
         interannual_rmse_summary(annual_values, bootstrap_samples=bootstrap_samples),
     )
+
+
+def calendar_day_anomaly(field: xr.DataArray, time_dim: str = "time") -> xr.DataArray:
+    """Subtract the calendar-day climatology, leaving the anomaly.
+
+    Grouping on month-day rather than day-of-year keeps the climatology aligned
+    across leap and non-leap years. Removing the seasonal cycle this way rather
+    than removing the time mean matters wherever the seasonal cycle dominates
+    the variance, as it does for SST.
+    """
+    times = coerce_datetime_values(field[time_dim].values)
+    calendar_day = xr.DataArray(
+        np.asarray([f"{stamp.month:02d}-{stamp.day:02d}" for stamp in times]),
+        dims=[time_dim],
+        coords={time_dim: field[time_dim]},
+        name="calendar_day",
+    )
+    grouped = field.assign_coords(calendar_day=calendar_day).groupby("calendar_day")
+    return (grouped - grouped.mean(time_dim, skipna=True)).drop_vars("calendar_day")

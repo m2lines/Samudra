@@ -21,14 +21,25 @@ Implements the spectral metrics of the metrics document [1].
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 import pandas as pd
 import xarray as xr
 from scipy import signal
 
+logger = logging.getLogger(__name__)
+
 # Wavenumber bins per spatial spectrum, as a fraction of the shorter grid side.
-# Four keeps every bin populated enough to average meaningfully.
-DEFAULT_BIN_FACTOR = 4
+DEFAULT_BIN_FACTOR = 2
+
+# Smallest region side a spatial spectrum is computed for.
+MIN_REGION_SIDE = 8
+
+METRES_PER_DEGREE = 111_320.0
+
+# Cycles per metre to radians per kilometre.
+RADIANS_PER_KM = 2.0 * np.pi * 1000.0
 
 # Welch segment length. Long enough to resolve the seasonal cycle at 5-day
 # sampling, short enough to leave several independent segments in an 8-year
@@ -50,7 +61,7 @@ TEMPORAL_REGIONS: tuple[tuple[str, slice, slice], ...] = (
 
 
 def _periodic_hann(size: int) -> np.ndarray:
-    """Hann window with no repeated endpoint, matching scipy's ."""
+    """Hann window with no repeated endpoint (scipy's "sym=False")."""
     return 0.5 - 0.5 * np.cos(2.0 * np.pi * np.arange(size) / size)
 
 
@@ -86,12 +97,16 @@ def isotropic_spectrum(
         dx: Grid spacing along the last axis, in the units the wavenumber
             should be reciprocal to.
         dy: Grid spacing along the second-to-last axis.
-        num_bins: Wavenumber bins; defaults to the shorter side over four.
+        num_bins: Wavenumber bins across the full Fourier plane, before the
+            bins above the lower Nyquist are dropped; defaults to the shorter
+            side over `DEFAULT_BIN_FACTOR`. Fewer bins come back than are asked
+            for, which is why the returned wavenumbers must be used rather than
+            assumed.
         detrend: Remove a 2-D plane before windowing.
 
     Returns:
-        Bin-center wavenumbers and the isotropic spectrum, the latter shaped
-        `(num_bins,)` or `(n, num_bins)` to match the input.
+        Bin-center wavenumbers and the isotropic spectrum, in cycles per unit
+        of `dx`, the latter shaped `(bins,)` or `(n, bins)` to match the input.
 
     The spectrum is multiplied by its bin-center wavenumber, so a flat line on
     log-log axes means equal energy per octave and the area under the curve is
@@ -137,11 +152,21 @@ def isotropic_spectrum(
     # last bit, which moves those modes between neighbouring bins.
     k_magnitude = np.sqrt(grid_x**2 + grid_y**2)
 
-    # Bin only out to the lower Nyquist. Beyond it the two axes disagree about
-    # what is resolved, and the corner modes of the Fourier plane would
-    # contaminate the highest retained bin.
-    k_max = min(k_magnitude.max(), 1.0 / (2.0 * dx), 1.0 / (2.0 * dy))
-    edges = np.linspace(0.0, k_max, num_bins + 1)
+    # Bins span the whole Fourier plane out to its corner, and those beyond the
+    # lower Nyquist are then dropped. Sizing the bins to the corner rather than
+    # to the Nyquist is what keeps bin width independent of how much of the
+    # plane survives truncation. Nothing above the lower Nyquist is retained:
+    # past it the two axes disagree about what is resolved.
+    nyquist = min(1.0 / (2.0 * dx), 1.0 / (2.0 * dy))
+    edges = np.linspace(0.0, float(k_magnitude.max()), num_bins + 1)
+    edges = edges[edges < nyquist]
+    num_bins = edges.size - 1
+    if num_bins < 2:
+        raise ValueError(
+            f"A {height}x{width} region is too small for a spectrum; it yields "
+            f"{max(num_bins, 0)} wavenumber bin(s) below the Nyquist, and a "
+            f"single bin describes no slope"
+        )
     centers = 0.5 * (edges[:-1] + edges[1:])
 
     flat_k = k_magnitude.ravel()
@@ -161,20 +186,17 @@ def isotropic_spectrum(
     return centers, isotropic if stacked else isotropic[0]
 
 
-def _fill_for_spectrum(field: xr.DataArray, dims: tuple[str, str]) -> np.ndarray | None:
-    """Fill missing cells with the region mean, or give up if too few remain.
+def _open_ocean_block(field: xr.DataArray, dims: tuple[str, str]) -> np.ndarray | None:
+    """Return the region's values, or None if any cell is missing.
 
-    An FFT cannot take NaN, and a region that is mostly land has no spectrum
-    worth reporting. Filling the remainder with the mean adds no power at any
-    scale, which is the least-wrong way to make the transform defined.
+    A 2-D FFT assumes a complete rectangle. Filling land or missing cells puts
+    step changes in the interior of the box, which a window cannot taper away
+    and which leak power across every wavenumber -- so the spectral regions are
+    curated open-ocean boxes and a box that is not fully observed gets no
+    spectrum at all.
     """
     values = np.asarray(field.transpose(*dims).values, dtype=float)
-    finite = np.isfinite(values)
-    if finite.mean() < 0.5:
-        return None
-    if not finite.all():
-        values = np.where(finite, values, values[finite].mean())
-    return values
+    return values if np.isfinite(values).all() else None
 
 
 def region_spectrum(
@@ -186,43 +208,68 @@ def region_spectrum(
 ) -> tuple[np.ndarray, np.ndarray]:
     """Isotropic spectrum of a region, averaged over time if the field has it.
 
-    Wavenumbers come back in cycles per kilometre, so regions at different
-    latitudes stay comparable.
+    Returns wavenumbers in radians per kilometre, so a curve reads directly as
+    wavelengths (2*pi/k) and regions at different latitudes stay comparable.
+    Returns empty arrays, and logs why, for a region that is too small or not
+    fully observed -- the caller draws the panel as unavailable rather than
+    showing a spectrum built from filled-in land.
     """
     region = field.sel({lon_dim: lon_range, lat_dim: lat_range})
-    if region.sizes[lat_dim] < 8 or region.sizes[lon_dim] < 8:
+    if (
+        region.sizes[lat_dim] < MIN_REGION_SIDE
+        or region.sizes[lon_dim] < MIN_REGION_SIDE
+    ):
+        logger.info(
+            "no spectrum for %s: box is %dx%d, below the %dx%d minimum",
+            lon_range,
+            region.sizes[lat_dim],
+            region.sizes[lon_dim],
+            MIN_REGION_SIDE,
+            MIN_REGION_SIDE,
+        )
         return np.array([]), np.array([])
 
-    # Degrees to kilometres at the region's mid-latitude. Using one factor for
-    # the box keeps the transform on a regular grid; the boxes are small enough
+    # Degrees to metres at the region's mid-latitude. One factor for the whole
+    # box keeps the transform on a regular grid; the boxes are small enough
     # that the cosine varies little across them.
     lat = np.asarray(region[lat_dim].values, dtype=float)
     lon = np.asarray(region[lon_dim].values, dtype=float)
-    km_per_degree = 111.32
-    dy = abs(float(np.median(np.diff(lat)))) * km_per_degree
+    dy = abs(float(np.median(np.diff(lat)))) * METRES_PER_DEGREE
     dx = (
         abs(float(np.median(np.diff(lon))))
-        * km_per_degree
+        * METRES_PER_DEGREE
         * float(np.cos(np.deg2rad(lat.mean())))
     )
     if not (dx > 0 and dy > 0):
+        logger.info("no spectrum for %s: grid spacing is not positive", lon_range)
         return np.array([]), np.array([])
 
     if "time" in region.dims:
+        # Every step or none: averaging over whichever steps happened to be
+        # fully observed would weight the result towards those conditions.
         stack = []
         for step in range(region.sizes["time"]):
-            filled = _fill_for_spectrum(region.isel(time=step), (lat_dim, lon_dim))
-            if filled is not None:
-                stack.append(filled)
+            block = _open_ocean_block(region.isel(time=step), (lat_dim, lon_dim))
+            if block is None:
+                logger.info(
+                    "no spectrum for %s: step %d has land or missing cells",
+                    lon_range,
+                    step,
+                )
+                return np.array([]), np.array([])
+            stack.append(block)
         if not stack:
+            logger.info("no spectrum for %s: no time steps", lon_range)
             return np.array([]), np.array([])
         centers, spectra = isotropic_spectrum(np.stack(stack), dx=dx, dy=dy)
-        return centers, spectra.mean(axis=0)
+        return centers * RADIANS_PER_KM, spectra.mean(axis=0)
 
-    filled = _fill_for_spectrum(region, (lat_dim, lon_dim))
-    if filled is None:
+    block = _open_ocean_block(region, (lat_dim, lon_dim))
+    if block is None:
+        logger.info("no spectrum for %s: box contains land or missing cells", lon_range)
         return np.array([]), np.array([])
-    return isotropic_spectrum(filled, dx=dx, dy=dy)
+    centers, spectrum = isotropic_spectrum(block, dx=dx, dy=dy)
+    return centers * RADIANS_PER_KM, spectrum
 
 
 def region_mean_series(

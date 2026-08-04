@@ -201,3 +201,35 @@ def test_curve_scores_are_zero_against_the_reference_itself():
     scores = figures._curve_scores(curves, "DUACS")
     assert scores["model"]["Gulf Stream"] == pytest.approx(0.0, abs=1e-12)
     assert "DUACS" not in scores, "the reference is not scored against itself"
+
+
+def test_interannual_eke_maps_share_one_velocity_baseline():
+    """Annual EKE maps must be taken about the whole record's mean flow.
+
+    Re-deriving the mean within each year would absorb the year-to-year change
+    in the mean flow, and the interannual band -- whose whole purpose is to show
+    that spread -- would collapse to zero width no matter the data.
+    """
+    time = pd.date_range("2020-01-03", "2022-12-29", freq="5D")
+    lat, lon = np.linspace(-10.0, 10.0, 12), np.linspace(0.0, 20.0, 12)
+
+    # The same eddy field every year, on a mean flow that differs between them.
+    # The three offsets are deliberately unequal about their own mean: with two
+    # symmetric years the squares would coincide and prove nothing.
+    eddy = np.sin(np.linspace(0, 6 * np.pi, time.size))[:, None, None] * np.ones(
+        (1, lat.size, lon.size)
+    )
+    offsets = {2020: 1.0, 2021: 2.0, 2022: 5.0}
+    mean_flow = np.array([offsets[year] for year in time.year])[:, None, None]
+    coords = {"time": time, "lat": lat, "lon": lon}
+    u = xr.DataArray(eddy + mean_flow, dims=("time", "lat", "lon"), coords=coords)
+    v = xr.DataArray(np.zeros_like(u.values), dims=u.dims, coords=coords)
+
+    by_year = figures.obs_eke_by_year(u, v)
+    assert set(by_year) == {2020, 2021, 2022}
+
+    # A per-year baseline cancels the offset entirely and leaves the same eddy
+    # variance in all three years, so the spread has to be large, not merely
+    # non-zero -- a near-equal spread is exactly the failure being excluded.
+    levels = [float(by_year[year].mean()) for year in (2020, 2021, 2022)]
+    assert max(levels) / min(levels) > 2.0

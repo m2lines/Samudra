@@ -205,6 +205,7 @@ def region_spectrum(
     lat_range: slice,
     lat_dim: str = "lat",
     lon_dim: str = "lon",
+    name: str = "region",
 ) -> tuple[np.ndarray, np.ndarray]:
     """Isotropic spectrum of a region, averaged over time if the field has it.
 
@@ -221,7 +222,7 @@ def region_spectrum(
     ):
         logger.info(
             "no spectrum for %s: box is %dx%d, below the %dx%d minimum",
-            lon_range,
+            name,
             region.sizes[lat_dim],
             region.sizes[lon_dim],
             MIN_REGION_SIDE,
@@ -241,7 +242,7 @@ def region_spectrum(
         * float(np.cos(np.deg2rad(lat.mean())))
     )
     if not (dx > 0 and dy > 0):
-        logger.info("no spectrum for %s: grid spacing is not positive", lon_range)
+        logger.info("no spectrum for %s: grid spacing is not positive", name)
         return np.array([]), np.array([])
 
     if "time" in region.dims:
@@ -253,20 +254,20 @@ def region_spectrum(
             if block is None:
                 logger.info(
                     "no spectrum for %s: step %d has land or missing cells",
-                    lon_range,
+                    name,
                     step,
                 )
                 return np.array([]), np.array([])
             stack.append(block)
         if not stack:
-            logger.info("no spectrum for %s: no time steps", lon_range)
+            logger.info("no spectrum for %s: no time steps", name)
             return np.array([]), np.array([])
         centers, spectra = isotropic_spectrum(np.stack(stack), dx=dx, dy=dy)
         return centers * RADIANS_PER_KM, spectra.mean(axis=0)
 
     block = _open_ocean_block(region, (lat_dim, lon_dim))
     if block is None:
-        logger.info("no spectrum for %s: box contains land or missing cells", lon_range)
+        logger.info("no spectrum for %s: box contains land or missing cells", name)
         return np.array([]), np.array([])
     centers, spectrum = isotropic_spectrum(block, dx=dx, dy=dy)
     return centers * RADIANS_PER_KM, spectrum

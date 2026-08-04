@@ -3813,8 +3813,28 @@ class Viz:
         self._obs_cache = (rollouts, products, frame)
         return self._obs_cache
 
+    def _observations_configured(self, step: str) -> bool:
+        """Whether there is anything for the observation steps to draw against.
+
+        The observation steps are part of the default run, so a preset without
+        an `observations` block has to skip them rather than fail: most presets
+        do not configure one, and `VizConfig.observations` says omitting it
+        skips these steps.
+        """
+        if self.observations is None or self.obs_data_root is None:
+            logger.info(
+                "Skipping %s: no `observations` block in this viz config "
+                "(see src/samudra/configs/data/obs.yaml).",
+                step,
+            )
+            return False
+        return True
+
     def step_obs_rmse_maps(self):
         """Per-cell RMSE maps for velocity, EKE, SST and both OHC layers."""
+        if not self._observations_configured("obs_rmse_maps"):
+            return
+
         from samudra.viz import observations as obs_figures
 
         rollouts, products, frame = self._obs_inputs()
@@ -3825,6 +3845,9 @@ class Viz:
 
     def step_obs_annual_rmse(self):
         """Per-year totals behind each headline score, with its interval."""
+        if not self._observations_configured("obs_annual_rmse"):
+            return
+
         from samudra.viz import observations as obs_figures
 
         _, _, frame = self._obs_inputs()
@@ -3836,6 +3859,9 @@ class Viz:
 
     def step_obs_variance_maps(self):
         """Residual-anomaly variance maps for SST and upper-700 m OHC."""
+        if not self._observations_configured("obs_variance_maps"):
+            return
+
         from samudra.viz import observations as obs_figures
 
         rollouts, products, frame = self._obs_inputs()
@@ -3843,6 +3869,9 @@ class Viz:
 
     def step_obs_timeseries(self):
         """Global-mean SST, EKE and OHC series, with trends and residuals."""
+        if not self._observations_configured("obs_timeseries"):
+            return
+
         from samudra.viz import observations as obs_figures
 
         rollouts, products, _ = self._obs_inputs()
@@ -3850,6 +3879,9 @@ class Viz:
 
     def step_obs_spectra(self):
         """Spatial and temporal spectra, and their interannual bands."""
+        if not self._observations_configured("obs_spectra"):
+            return
+
         from samudra.viz import observations as obs_figures
 
         rollouts, products, _ = self._obs_inputs()

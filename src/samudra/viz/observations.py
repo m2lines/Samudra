@@ -481,6 +481,17 @@ def _paired(
     return model_field, obs_field
 
 
+def _common_span(
+    model_fields: Iterable[xr.DataArray], obs_field: xr.DataArray
+) -> tuple[pd.Timestamp, pd.Timestamp]:
+    """The period every run and the observations all cover."""
+    fields = [*model_fields, obs_field]
+    return (
+        max(pd.Timestamp(f["time"].values.min()) for f in fields),
+        min(pd.Timestamp(f["time"].values.max()) for f in fields),
+    )
+
+
 def variance_map_figures(
     rollouts: dict[str, xr.Dataset],
     products: dict[str, xr.Dataset],
@@ -492,6 +503,10 @@ def variance_map_figures(
     Variance is computed on each model's native grid and only the resulting map
     regridded. Interpolating the field first would smooth it and damp the
     variance by an amount set by the resolution ratio.
+
+    Every panel covers the period all runs and the observations share, so the
+    reference is not a longer record drawn beside shorter ones on a common
+    colour scale -- and it matches the span behind the annotated numbers.
     """
     written: list[str] = []
     oisst, argo = products["oisst"], products["argo"]
@@ -505,13 +520,13 @@ def variance_map_figures(
         return "" if rows.empty else _annotate(float(rows.iloc[0]["value"]), units)
 
     obs_sst = oisst[observations.find_var_name(oisst, observations.SST_ALIASES)]
-    obs_sst_variance = kernels.residual_variance_map(obs_sst)
+    sst_fields = {m: r["thetao"].isel(lev=0) for m, r in rollouts.items()}
+    sst_span = _common_span(sst_fields.values(), obs_sst)
+    obs_sst_variance = kernels.residual_variance_map(obs_sst.sel(time=slice(*sst_span)))
     sst_maps = {"OISST": obs_sst_variance}
     sst_notes = {"OISST": ""}
-    for model, rollout in rollouts.items():
-        native, _ = _paired(
-            rollout["thetao"].isel(lev=0), obs_sst, _FULL_SPAN, regrid=False
-        )
+    for model, sst_field in sst_fields.items():
+        native, _ = _paired(sst_field, obs_sst, sst_span, regrid=False)
         # Regrid against the observation *variance map*, not the field: the
         # reference must already be reduced over time or the time axis
         # broadcasts back into the result.
@@ -545,18 +560,22 @@ def variance_map_figures(
         kernels.ohc_per_area_layer_maps(obs_temp, depth_name=obs_depth)[upper.label]
     )
 
-    obs_ohc_variance = kernels.residual_variance_map(obs_ohc)
-    ohc_maps = {"ARGO-IAP": obs_ohc_variance}
-    ohc_notes = {"ARGO-IAP": ""}
-    for model, rollout in rollouts.items():
-        sim = kernels.monthly_mean_of_complete_months(
+    ohc_fields = {
+        model: kernels.monthly_mean_of_complete_months(
             kernels.ohc_per_area_layer_maps(
                 rollout["thetao"],
                 native_dz=observations.model_depth_thickness(rollout, _OM4_SPEC),
                 depth_name="lev",
             )[upper.label]
         )
-        native, _ = _paired(sim, obs_ohc, _FULL_SPAN, regrid=False)
+        for model, rollout in rollouts.items()
+    }
+    ohc_span = _common_span(ohc_fields.values(), obs_ohc)
+    obs_ohc_variance = kernels.residual_variance_map(obs_ohc.sel(time=slice(*ohc_span)))
+    ohc_maps = {"ARGO-IAP": obs_ohc_variance}
+    ohc_notes = {"ARGO-IAP": ""}
+    for model, sim in ohc_fields.items():
+        native, _ = _paired(sim, obs_ohc, ohc_span, regrid=False)
         ohc_maps[model] = kernels.model_field_on_obs_grid(
             kernels.residual_variance_map(native), obs_ohc_variance
         )
@@ -904,7 +923,8 @@ def _region_curves(
     field: xr.DataArray, regions: tuple[tuple[str, slice, slice], ...]
 ) -> dict[str, tuple[np.ndarray, np.ndarray]]:
     return {
-        name: spectra.region_spectrum(field, lon, lat) for name, lon, lat in regions
+        name: spectra.region_spectrum(field, lon, lat, name=name)
+        for name, lon, lat in regions
     }
 
 
@@ -923,7 +943,8 @@ def _yearly_bands(
     bands = {}
     for name, lon, lat in spectra.SPATIAL_REGIONS:
         curves = [
-            spectra.region_spectrum(field, lon, lat) for field in per_year.values()
+            spectra.region_spectrum(field, lon, lat, name=f"{name} {year}")
+            for year, field in per_year.items()
         ]
         bands[name] = spectra.interannual_band(
             [(x, y) for x, y in curves if getattr(x, "size", 0)]

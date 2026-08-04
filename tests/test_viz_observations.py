@@ -9,6 +9,8 @@ printed on a figure is the number logged to W&B. These check that, and that
 each figure builder produces files on data shaped like the real thing.
 """
 
+from types import SimpleNamespace
+
 import matplotlib
 import numpy as np
 import pandas as pd
@@ -233,3 +235,25 @@ def test_interannual_eke_maps_share_one_velocity_baseline():
     # non-zero -- a near-equal spread is exactly the failure being excluded.
     levels = [float(by_year[year].mean()) for year in (2020, 2021, 2022)]
     assert max(levels) / min(levels) > 2.0
+
+
+def test_the_observation_steps_skip_when_no_products_are_configured():
+    """Every preset without an `observations` block must still run.
+
+    These steps are part of the default run, so raising here breaks `samudra
+    viz` for the presets that do not configure observations -- which is most of
+    them -- and contradicts `VizConfig.observations`, which says omitting the
+    block skips these steps.
+    """
+    from samudra.viz.config import _ordered_steps
+    from samudra.viz.core import Viz
+
+    observation_steps = [step for step in _ordered_steps() if step.startswith("obs_")]
+    assert observation_steps, "no observation steps found to check"
+
+    unconfigured = SimpleNamespace(observations=None, obs_data_root=None)
+    unconfigured._observations_configured = Viz._observations_configured.__get__(
+        unconfigured
+    )
+    for step in observation_steps:
+        getattr(Viz, f"step_{step}")(unconfigured)

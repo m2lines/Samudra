@@ -18,7 +18,7 @@ import xarray as xr
 matplotlib.use("Agg")
 
 from samudra.constants import build_om4_spec  # noqa: E402
-from samudra.metrics import kernels, observations, report  # noqa: E402
+from samudra.metrics import observations, report  # noqa: E402
 from samudra.viz import observations as figures  # noqa: E402
 
 OM4_SPEC = build_om4_spec(prognostic_vars_key="thermo_dynamic_all")
@@ -42,7 +42,10 @@ def synthetic():
         {
             "thetao": (
                 ("time", "lev", "y", "x"),
-                10 + rng.normal(size=(len(time), levels.size, model_lat.size, model_lon.size)),
+                10
+                + rng.normal(
+                    size=(len(time), levels.size, model_lat.size, model_lon.size)
+                ),
             ),
             "zos": (
                 ("time", "y", "x"),
@@ -52,8 +55,18 @@ def synthetic():
         coords={
             "y": model_lat,
             "x": model_lon,
-            "lat": (("y", "x"), np.broadcast_to(model_lat[:, None], (model_lat.size, model_lon.size)).copy()),
-            "lon": (("y", "x"), np.broadcast_to(model_lon[None, :], (model_lat.size, model_lon.size)).copy()),
+            "lat": (
+                ("y", "x"),
+                np.broadcast_to(
+                    model_lat[:, None], (model_lat.size, model_lon.size)
+                ).copy(),
+            ),
+            "lon": (
+                ("y", "x"),
+                np.broadcast_to(
+                    model_lon[None, :], (model_lat.size, model_lon.size)
+                ).copy(),
+            ),
             "lev": levels,
             "areacello": (("y", "x"), np.full((model_lat.size, model_lon.size), 1e10)),
             "time": time,
@@ -83,7 +96,10 @@ def synthetic():
         {
             "temp": (
                 ("time", "depth", "lat", "lon"),
-                10 + rng.normal(size=(len(months), depths.size, obs_lat.size, obs_lon.size)),
+                10
+                + rng.normal(
+                    size=(len(months), depths.size, obs_lat.size, obs_lon.size)
+                ),
             )
         },
         months,
@@ -114,9 +130,7 @@ def test_a_figure_reports_the_number_that_was_logged(synthetic, tmp_path):
     rollouts, products, frame = synthetic
     scalars = report.to_wandb(frame, "model")
 
-    written = figures.rmse_map_figures(
-        rollouts, products, frame, WINDOW, str(tmp_path)
-    )
+    written = figures.rmse_map_figures(rollouts, products, frame, WINDOW, str(tmp_path))
     assert written, "no RMSE maps were produced"
 
     # The map the figure draws and the scalar W&B receives come from one
@@ -125,9 +139,9 @@ def test_a_figure_reports_the_number_that_was_logged(synthetic, tmp_path):
         (frame["metric"] == "surface_sst_total_rmse")
         & (frame["period_kind"] == "primary_complete_years")
     ].iloc[0]
-    assert float(row["value"]) == pytest.approx(
-        float(scalars["obs/sst/total_rmse"])
-    )
+    logged = scalars["obs/sst/total_rmse"]
+    assert isinstance(logged, float), "W&B scalars must be plain floats"
+    assert float(row["value"]) == pytest.approx(logged)
 
     # And the annotation renders that same number rather than recomputing it.
     assert f"{float(row['value']):.4g}" in figures._annotate(
@@ -148,9 +162,7 @@ def test_every_figure_builder_writes_files(synthetic, tmp_path):
     produced += figures.rmse_map_figures(
         rollouts, products, frame, WINDOW, str(tmp_path)
     )
-    produced += figures.variance_map_figures(
-        rollouts, products, frame, str(tmp_path)
-    )
+    produced += figures.variance_map_figures(rollouts, products, frame, str(tmp_path))
     produced += figures.timeseries_figures(rollouts, products, str(tmp_path))
     produced.append(
         figures.save(

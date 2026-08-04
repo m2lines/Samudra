@@ -21,11 +21,11 @@ from collections.abc import Callable, Iterable
 
 import cartopy.crs as ccrs  # type: ignore
 import cartopy.feature as cfeature  # type: ignore
-import cmocean as cm  # type: ignore
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import xarray as xr
+from cartopy.mpl.geoaxes import GeoAxes  # type: ignore
 
 from samudra.constants import build_om4_spec
 from samudra.metrics import kernels, observations, spectra
@@ -71,7 +71,7 @@ def _annotate(value: float, units: str, row: pd.Series | None = None) -> str:
     return text
 
 
-def _map_axes(axis: plt.Axes) -> None:
+def _map_axes(axis: GeoAxes) -> None:
     axis.add_feature(cfeature.LAND, facecolor="0.85", zorder=2)
     axis.coastlines(linewidth=0.3, color="0.4", zorder=3)
     axis.set_global()
@@ -188,9 +188,16 @@ def spectra_panel(
         if axis.get_legend_handles_labels()[0]:
             axis.legend(fontsize=8)
         else:
-            axis.text(0.5, 0.5, "region too small\nto transform",
-                      ha="center", va="center", transform=axis.transAxes,
-                      fontsize=9, color="0.5")
+            axis.text(
+                0.5,
+                0.5,
+                "region too small\nto transform",
+                ha="center",
+                va="center",
+                transform=axis.transAxes,
+                fontsize=9,
+                color="0.5",
+            )
     axes.flat[0].set_ylabel(ylabel)
     figure.suptitle(title, fontsize=12)
     return figure
@@ -230,9 +237,16 @@ def interannual_spectra_panel(
         if axis.get_legend_handles_labels()[0]:
             axis.legend(fontsize=8)
         else:
-            axis.text(0.5, 0.5, "region too small\nto transform",
-                      ha="center", va="center", transform=axis.transAxes,
-                      fontsize=9, color="0.5")
+            axis.text(
+                0.5,
+                0.5,
+                "region too small\nto transform",
+                ha="center",
+                va="center",
+                transform=axis.transAxes,
+                fontsize=9,
+                color="0.5",
+            )
     axes.flat[0].set_ylabel(ylabel)
     figure.suptitle(title, fontsize=12)
     return figure
@@ -260,7 +274,12 @@ def annual_rmse_panel(frame: pd.DataFrame, title: str) -> plt.Figure:
         ):
             group = group.sort_values("year")
             axis.plot(
-                group["year"], group["value"], marker="o", color=colour, label=name, lw=1.2
+                group["year"],
+                group["value"],
+                marker="o",
+                color=colour,
+                label=name,
+                lw=1.2,
             )
             head = primary[
                 (primary["model"] == name)
@@ -340,9 +359,8 @@ def rmse_map_figures(
         )
         u_model, u_obs = _paired(sim_u, obs_u, window)
         v_model, v_obs = _paired(sim_v, obs_v, window)
-        return np.sqrt(
-            ((u_model - u_obs) ** 2 + (v_model - v_obs) ** 2).mean("time", skipna=True)
-        )
+        squared = (u_model - u_obs) ** 2 + (v_model - v_obs) ** 2
+        return squared.mean("time", skipna=True) ** 0.5
 
     def eke_map(_model: str, rollout: xr.Dataset) -> xr.DataArray:
         sim_u, sim_v = kernels.geostrophic_velocity_from_zos(
@@ -392,6 +410,7 @@ def rmse_map_figures(
     obs_layers = kernels.ohc_per_area_layer_maps(obs_temp, depth_name=obs_depth)
 
     for layer in kernels.OHC_LAYERS:
+
         def ohc_map(_model: str, rollout: xr.Dataset, layer=layer) -> xr.DataArray:
             sim_layers = kernels.ohc_per_area_layer_maps(
                 rollout["thetao"],
@@ -522,7 +541,9 @@ def variance_map_figures(
         ohc_maps[model] = kernels.model_field_on_obs_grid(
             kernels.residual_variance_map(native), obs_ohc_variance
         )
-        rmse = note("ohc_upper700_per_area_residual_variance_map_rmse", model, "(J m-2)2")
+        rmse = note(
+            "ohc_upper700_per_area_residual_variance_map_rmse", model, "(J m-2)2"
+        )
         corr = note("ohc_upper700_per_area_residual_variance_pattern_corr", model, "")
         ohc_notes[model] = f"map RMSE {rmse}; corr {corr}"
     written.append(
@@ -565,7 +586,9 @@ def timeseries_figures(
             )
             for name, values in series.items()
         }
-        written.append(save(series_panel(series, title, units, trends), directory, slug))
+        written.append(
+            save(series_panel(series, title, units, trends), directory, slug)
+        )
 
         residuals = {
             name: kernels.series_without_linear_trend(
@@ -595,7 +618,11 @@ def timeseries_figures(
     draw(sst, "global_sst", "Global mean SST", "degC")
 
     obs_u, obs_v = observations.duacs_velocity(duacs)
-    eke = {"DUACS": _global_mean(kernels.instantaneous_surface_eke(obs_u, obs_v), duacs["area"])}
+    eke = {
+        "DUACS": _global_mean(
+            kernels.instantaneous_surface_eke(obs_u, obs_v), duacs["area"]
+        )
+    }
     for model, rollout in rollouts.items():
         sim_u, sim_v = kernels.geostrophic_velocity_from_zos(
             rollout["zos"], lat_dim="lat", lon_dim="lon"
@@ -760,9 +787,7 @@ def spectra_figures(
     return written
 
 
-def obs_eke_by_year(
-    u: xr.DataArray, v: xr.DataArray
-) -> dict[int, xr.DataArray]:
+def obs_eke_by_year(u: xr.DataArray, v: xr.DataArray) -> dict[int, xr.DataArray]:
     """Time-mean EKE for each complete calendar year in the record."""
     years = sorted({int(y) for y in pd.DatetimeIndex(u["time"].values).year})
     per_year = {}
@@ -811,13 +836,16 @@ def _curve_scores(
 ) -> dict[str, dict[str, float]]:
     """log10 RMSE of each run's spectrum against the reference, per region."""
     baseline = curves.get(reference, {})
-    return {
-        name: {
-            region: spectra.log10_rmse_between_curves(
-                *baseline.get(region, (np.array([]), np.array([]))), *curve
+    empty = (np.array([]), np.array([]))
+
+    scores: dict[str, dict[str, float]] = {}
+    for name, per_region in curves.items():
+        if name == reference:
+            continue
+        scores[name] = {}
+        for region, (wavenumber, power) in per_region.items():
+            reference_wavenumber, reference_power = baseline.get(region, empty)
+            scores[name][region] = spectra.log10_rmse_between_curves(
+                reference_wavenumber, reference_power, wavenumber, power
             )
-            for region, curve in per_region.items()
-        }
-        for name, per_region in curves.items()
-        if name != reference
-    }
+    return scores

@@ -144,3 +144,58 @@ def test_region_spectrum_uses_physical_wavenumbers():
     # A region smaller than the transform needs comes back empty, not raising.
     tiny, _ = spectra.region_spectrum(field, slice(300, 301), slice(25, 26))
     assert tiny.size == 0
+
+
+def test_isotropic_spectrum_reproduces_the_reference_implementation():
+    """Pin the transform against the reference suite it was ported from.
+
+    The analytic tests above check that the spectrum is *a* correct spectrum;
+    they pass under either Hann convention (symmetric or periodic) and either
+    bin-edge convention, both of which shift power between neighbouring bins by
+    a percent or so. Only fixed values from the reference pin those choices.
+
+    Values come from `compute_isotropic_spectrum_torch` in the reference suite
+    (`YuanYuan98/Ocean_Emulator:viz_jupyter/obs_evaluation.py` @ 33d4ae2e) on
+    the field built below. The field is closed-form rather than random so the
+    numbers do not depend on a generator implementation.
+    """
+    height, width = 120, 240
+    dy = 0.125 * 111.32  # a 1/8 degree box, the DUACS grid
+    dx = dy * np.cos(np.deg2rad(37.5))
+
+    row, col = np.meshgrid(np.arange(height), np.arange(width), indexing="ij")
+    field = (
+        np.sin(2 * np.pi * col / 40.0) * np.cos(2 * np.pi * row / 25.0)
+        + 0.5 * np.sin(2 * np.pi * (col + 2 * row) / 13.0)
+        + 0.25 * np.cos(2 * np.pi * col / 7.0)
+        + 0.01 * col
+        - 0.02 * row
+        + 3.0
+    )
+
+    wavenumber, power = spectra.isotropic_spectrum(field, dx=dx, dy=dy)
+    assert wavenumber.size == 30
+
+    sampled = [0, 5, 11, 17, 23, 29]
+    assert wavenumber[sampled] == pytest.approx(
+        [
+            5.988741166607e-04,
+            6.587615283267e-03,
+            1.377410468320e-02,
+            2.096059408312e-02,
+            2.814708348305e-02,
+            3.533357288298e-02,
+        ],
+        rel=1e-10,
+    )
+    assert power[sampled] == pytest.approx(
+        [
+            1.196306065060e-03,
+            7.967024230853e-05,
+            9.022928974890e00,
+            2.611986120510e-07,
+            6.063952055457e-09,
+            7.589644107118e-10,
+        ],
+        rel=1e-9,
+    )

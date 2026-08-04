@@ -49,6 +49,11 @@ TEMPORAL_REGIONS: tuple[tuple[str, slice, slice], ...] = (
 )
 
 
+def _periodic_hann(size: int) -> np.ndarray:
+    """Hann window with no repeated endpoint, matching scipy's ."""
+    return 0.5 - 0.5 * np.cos(2.0 * np.pi * np.arange(size) / size)
+
+
 def remove_plane(field: np.ndarray) -> np.ndarray:
     """Subtract a least-squares 2-D plane from the last two axes.
 
@@ -117,14 +122,20 @@ def isotropic_spectrum(
     # A Hann window in both directions suppresses the discontinuity at the box
     # edges, which would otherwise ring across all wavenumbers. Dividing by the
     # mean squared window restores the variance the taper removes.
-    window = np.outer(np.hanning(height), np.hanning(width))
+    # Periodic ("DFT-even") Hann, not the symmetric np.hanning: an FFT treats
+    # the box as one period, so the window must not repeat its endpoint.
+    window = np.outer(_periodic_hann(height), _periodic_hann(width))
     correction = float(np.mean(window**2))
     power = np.abs(np.fft.rfft2(array * window, norm="forward")) ** 2
     spectrum_2d = power / correction * (width * dx) * (height * dy)
 
     k_x: np.ndarray = np.fft.rfftfreq(width, d=dx)
     k_y: np.ndarray = np.fft.fftfreq(height, d=dy)
-    k_magnitude = np.hypot(*np.meshgrid(k_x, k_y, indexing="xy")[::-1])
+    grid_y, grid_x = np.meshgrid(k_y, k_x, indexing="ij")
+    # sqrt of the sum of squares rather than np.hypot: on a regular grid many
+    # modes fall exactly on a bin edge, and the two formulas disagree in the
+    # last bit, which moves those modes between neighbouring bins.
+    k_magnitude = np.sqrt(grid_x**2 + grid_y**2)
 
     # Bin only out to the lower Nyquist. Beyond it the two axes disagree about
     # what is resolved, and the corner modes of the Fourier plane would
@@ -135,7 +146,10 @@ def isotropic_spectrum(
 
     flat_k = k_magnitude.ravel()
     retained = flat_k <= edges[-1]
-    index = np.digitize(flat_k[retained], edges[1:-1], right=True)
+    # right=False here: a mode landing exactly on a bin edge belongs to the
+    # bin above it. The opposite convention shifts every such mode down one
+    # bin, and on a regular grid exact edge hits are common rather than rare.
+    index = np.digitize(flat_k[retained], edges[1:-1], right=False)
     flat_psd = spectrum_2d.reshape(n, -1)[:, retained]
 
     totals = np.zeros((n, num_bins))

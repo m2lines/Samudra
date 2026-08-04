@@ -10,13 +10,14 @@ rollouts (``run_rollout``).
 """
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from functools import partial
 from os import PathLike
 
 import torch
 
 from samudra.aggregator import InferenceEvaluatorAggregator
+from samudra.aggregator.validate.rollout import RolloutValidationAggregator
 from samudra.constants import TensorMap
 from samudra.datasets import InferenceDataset, TrainData
 from samudra.models.base import BaseModel
@@ -55,6 +56,107 @@ def validate_batch(
     # We don't mix scales across boundary and prognostic during training.
     input_data = torch.cat((prognostic, boundary), dim=1)
     return ValBatchOutput(loss, loss_per_channel, input_data, label, outs, batch.ctx)
+
+
+def _get_rollout_step_chunks(
+    *,
+    total_steps: int,
+    num_model_steps_forward: int,
+    boundaries: tuple[int, ...] = (),
+) -> list[int]:
+    if total_steps <= 0:
+        return []
+    if num_model_steps_forward <= 0:
+        num_model_steps_forward = total_steps
+
+    boundary_steps = sorted(
+        boundary for boundary in set(boundaries) if 0 < boundary < total_steps
+    )
+    chunks = []
+    step = 0
+    while step < total_steps:
+        next_step = min(step + num_model_steps_forward, total_steps)
+        for boundary in boundary_steps:
+            if step < boundary < next_step:
+                next_step = boundary
+                break
+        chunks.append(next_step - step)
+        step = next_step
+    return chunks
+
+
+def _rollout_horizon_boundaries(
+    aggregators_by_step: Mapping[int, RolloutValidationAggregator],
+    total_steps: int,
+) -> tuple[int, ...]:
+    return tuple(step for step in aggregators_by_step if 0 < step < total_steps)
+
+
+def _record_rollout_horizon_batch(
+    *,
+    aggregators_by_step: Mapping[int, RolloutValidationAggregator],
+    step: int,
+    num_steps: int,
+    output: ModelInferenceOutput,
+) -> None:
+    chunk_end = step + num_steps
+    for horizon_steps, aggregator in aggregators_by_step.items():
+        if chunk_end <= horizon_steps:
+            aggregator.record_batch(output)
+
+
+@torch.no_grad()
+def validate_rollout(
+    model: BaseModel,
+    dataset: InferenceDataset,
+    aggregators_by_step: Mapping[int, RolloutValidationAggregator],
+    epoch: int,
+    *,
+    num_model_steps: int,
+    num_model_steps_forward: int,
+) -> None:
+    """Run a bounded autoregressive validation rollout and record RMSE metrics.
+
+    ``aggregators_by_step`` maps a rollout horizon, in model steps, to the
+    aggregator that should record metrics for that horizon.
+    """
+    if not aggregators_by_step:
+        raise ValueError("At least one rollout validation aggregator is required")
+
+    dataset.to(get_device())
+    num_model_steps = min(num_model_steps, len(dataset))
+    horizon_boundaries = _rollout_horizon_boundaries(
+        aggregators_by_step,
+        num_model_steps,
+    )
+    chunks = _get_rollout_step_chunks(
+        total_steps=num_model_steps,
+        num_model_steps_forward=num_model_steps_forward,
+        boundaries=horizon_boundaries,
+    )
+
+    initial_prognostic = dataset.initial_prognostic
+    step = 0
+    for loop, num_steps in enumerate(chunks):
+        logger.info(
+            f"Rollout validation [epoch {epoch}]: loop {loop} of "
+            f"{len(chunks) - 1}. Stepping {num_steps} steps forward."
+        )
+        output = model.inference(
+            dataset,
+            initial_prognostic=initial_prognostic,
+            steps_completed=step,
+            num_steps=num_steps,
+            epoch=epoch,
+        )
+        initial_prognostic = output.prediction[-1].unsqueeze(0).clone()
+        _record_rollout_horizon_batch(
+            aggregators_by_step=aggregators_by_step,
+            step=step,
+            num_steps=num_steps,
+            output=output,
+        )
+        step += num_steps
 
 
 @torch.no_grad()
@@ -103,21 +205,10 @@ def run_rollout(
     )
     record_logs(logs)
     num_model_steps = len(dataset)
-    num_steps_list = []
-
-    # If num_model_steps_forward is -1, then we are doing a full forward pass
-    if num_model_steps_forward == -1:
-        num_steps_list = [num_model_steps]
-    else:
-        # Windows of partial forward passes
-        num_loops = num_model_steps // num_model_steps_forward
-        if num_loops > 0:
-            num_steps_list = [num_model_steps_forward] * num_loops
-            last_model_steps_forward = num_model_steps % num_model_steps_forward
-            if last_model_steps_forward > 0:
-                num_steps_list = num_steps_list + [last_model_steps_forward]
-        else:
-            num_steps_list = [num_model_steps]
+    num_steps_list = _get_rollout_step_chunks(
+        total_steps=num_model_steps,
+        num_model_steps_forward=num_model_steps_forward,
+    )
 
     num_loops = len(num_steps_list)
     initial_prognostic = dataset.initial_prognostic

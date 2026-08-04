@@ -172,7 +172,7 @@ def median_time_step_days(index: pd.DatetimeIndex) -> float:
 
 
 def complete_calendar_years(
-    time: xr.DataArray, max_gap_steps: float = 2.5
+    time: xr.DataArray, max_gap_steps: float = 2.5, min_sample_ratio: float = 0.75
 ) -> list[int]:
     """Years that span the full calendar with no unexplained hole in the middle.
 
@@ -188,6 +188,8 @@ def complete_calendar_years(
         time: The time coordinate to inspect.
         max_gap_steps: Largest interior gap to tolerate, in multiples of the
             median step.
+        min_sample_ratio: Fewest samples a year may hold, as a fraction of the
+            busiest year in the record.
     """
     index = pd.DatetimeIndex(time.values)
     if index.empty:
@@ -200,10 +202,20 @@ def complete_calendar_years(
     boundary_tolerance = pd.Timedelta(days=1.5 * step_days)
     max_gap = pd.Timedelta(days=max_gap_steps * step_days)
 
+    # A gap threshold alone cannot see *thinning*: a year keeping every second
+    # sample has gaps of exactly two median steps throughout and would pass,
+    # then carry the same equal-weight block as a year with twice the data. So
+    # the count is checked too, relative to the busiest year rather than to an
+    # assumed cadence.
+    counts = pd.Series(1, index=index).groupby(index.year).sum()
+    busiest = int(counts.max())
+
     years = []
     for year in sorted({int(y) for y in index.year}):
         year_index = index[index.year == year].sort_values()
         if year_index.size < 2:
+            continue
+        if year_index.size < min_sample_ratio * busiest:
             continue
         covers_calendar = (
             year_index.min() <= pd.Timestamp(f"{year}-01-01") + boundary_tolerance
@@ -461,7 +473,12 @@ def _spans_globe(lon_values: np.ndarray) -> bool:
     spacing = float(np.median(np.diff(values)))
     if not np.isfinite(spacing) or spacing <= 0:
         return False
-    return bool(np.isclose(values[-1] - values[0] + spacing, 360.0, atol=abs(spacing)))
+    # A tolerance of one whole cell is precisely the width at which "global"
+    # and "one column short of global" stop being distinguishable, and treating
+    # a basin as periodic would pad its western edge with eastern-edge data.
+    return bool(
+        np.isclose(values[-1] - values[0] + spacing, 360.0, atol=1e-6 * abs(spacing))
+    )
 
 
 def _differentiate_lon(field: xr.DataArray, lon_dim: str) -> xr.DataArray:
@@ -585,11 +602,20 @@ def ohc_per_area_layer_maps(
         # np.isfinite on a DataArray returns a DataArray, but the numpy stubs
         # widen it to ndarray, which has no `dim=` keyword.
         finite = cast(xr.DataArray, np.isfinite(temp_layer))
-        valid = finite.any(dim=depth_name)
+        # Completeness is required per *cell*, not just per axis.
+        # `sum(skipna=True)` treats a masked level as zero heat, so a column
+        # whose model and observation bathymetry disagree by one level reports
+        # the missing water as a deficit -- about 2e9 J m^-2 for 50 m, which is
+        # the size of the metric itself. The axis guard above cannot catch it:
+        # that fires when the whole *grid* is too shallow, while this is a
+        # single column running out early. Such cells are dropped rather than
+        # entering the comparison as fictitious model error.
+        wanted = overlap_dz > 0
+        complete = (finite & wanted).sum(depth_name) == wanted.sum(depth_name)
         ohc = (
             (temp_layer * overlap_dz * RHO * CP)
             .sum(depth_name, skipna=True)
-            .where(valid)
+            .where(complete)
         )
         out[layer.label] = ohc
     return out
@@ -737,7 +763,13 @@ def series_without_linear_trend(series: pd.Series) -> pd.Series:
     if finite.sum() < 2:
         return values - values.mean()
 
-    x = np.arange(len(values), dtype=float)
+    # Elapsed days, matching `detrend_linear_dataarray` and
+    # `series_linear_trend_per_year`. On a gappy axis -- which is exactly what
+    # `monthly_mean_of_complete_months` produces -- regressing on sample index
+    # treats a missing month as though no time passed, so the scalar and map
+    # paths would return different residuals for the same series.
+    stamps = pd.DatetimeIndex(values.index)
+    x = (stamps - stamps[0]).days.to_numpy(dtype=float)
     slope, intercept = np.polyfit(x[finite], raw[finite], 1)
     trend = pd.Series(slope * x + intercept, index=values.index)
     return values - trend
@@ -785,6 +817,24 @@ def _wrap_lon(field: xr.DataArray, lon_dim: str = "lon") -> xr.DataArray:
     return xr.concat([left, field, right], dim=lon_dim)
 
 
+def _clamped_to(model_lat: np.ndarray, target_lat: xr.DataArray) -> xr.DataArray:
+    """Target latitudes pulled inside the model's range, keeping their labels.
+
+    Interpolation leaves NaN wherever the target sits outside the model's
+    convex hull. Unlike longitude there is nothing to wrap to at a pole, so the
+    choice is between dropping those rows -- by an amount that depends on model
+    resolution -- and carrying the nearest model row outward. The gap is at
+    most half a model cell, and dropping them silently changes which ocean the
+    metric describes.
+    """
+    clamped = np.clip(
+        np.asarray(target_lat.values, dtype=float),
+        float(model_lat.min()),
+        float(model_lat.max()),
+    )
+    return xr.DataArray(clamped, dims=target_lat.dims, coords=target_lat.coords)
+
+
 def model_field_on_obs_grid(
     model_field: xr.DataArray,
     obs_field: xr.DataArray,
@@ -809,11 +859,22 @@ def model_field_on_obs_grid(
     # them from every reduction, so the metric quietly depends on grid
     # alignment. Wrapping one column from each end makes the seam interior.
     model_field = _wrap_lon(model_field, "lon")
+    # Latitude has the same geometry and no wrap to exploit: a 1 degree model
+    # tops out at +-89.5 where OISST reaches +-89.875, so the outermost
+    # observation rows would fall outside the model's range and be dropped by
+    # exactly the resolution-dependent amount the paragraph above rejects.
+    # Clamping the *target* pulls those rows onto the model's end row, which
+    # extends it poleward rather than inventing a value.
+    lat_target = _clamped_to(
+        np.asarray(model_field["lat"].values, dtype=float), obs_field["lat"]
+    )
     interpolated = model_field.interp(
-        lat=obs_field["lat"],
+        lat=lat_target,
         lon=obs_field["lon"],
         kwargs={"fill_value": np.nan},
     )
+    # `interp` labels the result with the clamped values; restore the real ones.
+    interpolated = interpolated.assign_coords(lat=obs_field["lat"])
     return interpolated.where(np.isfinite(obs_field))
 
 
@@ -924,9 +985,19 @@ def rmse_map_with_uncertainty(
         .sum()
         .sel(year=years)
     )
-    total_samples = (
-        xr.ones_like(error_squared).groupby("time.year").sum().sel(year=years)
+    # The denominator is the cells that are *ever* comparable, not every cell
+    # on the globe. Land is permanently NaN on these grids, as is the equatorial
+    # band the geostrophic mask blanks, so counting them as missing data would
+    # score a flawless DUACS year at roughly the ocean fraction of the planet
+    # and fail it against any sensible threshold.
+    comparable = cast(xr.DataArray, np.isfinite(error_squared)).any("time")
+    stamps_per_year = (
+        xr.ones_like(error_squared.isel({d: 0 for d in spatial_dims}, drop=True))
+        .groupby("time.year")
+        .sum()
+        .sel(year=years)
     )
+    total_samples = comparable * stamps_per_year
     # The map, the scalar score, and the bootstrap all rest on the same
     # equal-year blocks, so the headline number is the one the interval covers.
     rmse_map = np.sqrt(annual_mse_maps.mean("year", skipna=True))
@@ -935,9 +1006,9 @@ def rmse_map_with_uncertainty(
     weight_sum = area.where(finite).sum(spatial_dims, skipna=True)
     annual_rmse = np.sqrt(weighted_sum / weight_sum)
 
-    # Area-weighted fraction of the paired cells that actually carry data,
-    # per year. Weighting by area matters: losing a band of tropical cells is a
-    # bigger loss of information than the same count near the pole.
+    # Area-weighted fraction of the comparable cells that carry data, per year.
+    # Weighting by area matters: losing a band of tropical cells is a bigger
+    # loss of information than the same count near the pole.
     covered = (finite_samples * area).sum(spatial_dims) / (
         (total_samples * area).sum(spatial_dims)
     )

@@ -95,6 +95,7 @@ def _rows_for_metric(
     area: xr.DataArray,
     bootstrap_samples: int,
     depth: str | None = None,
+    pairing: dict[str, float] | None = None,
 ) -> tuple[list[dict[str, Any]], xr.DataArray]:
     """Reduce a squared-error field to primary and per-year metric rows.
 
@@ -138,6 +139,7 @@ def _rows_for_metric(
         # Kept alongside so the two aggregations stay comparable: a gap between
         # this and `value` means the observation coverage varied by year.
         "map_weighted_rmse": map_weighted_total,
+        **(pairing or {}),
         **summary,
     }
     primary.pop("primary_aggregation_method", None)
@@ -159,6 +161,7 @@ def _rows_for_metric(
                 "year": int(year),
                 "n_time_samples": int(year_index.size),
                 "grid_shape": _grid_shape(rmse_map),
+                **(pairing or {}),
             }
         )
     logger.info("  %s = %.6g %s", context, total, units)
@@ -208,6 +211,7 @@ def _variance_map_rows(
         "year": np.nan,
         "n_time_samples": int(time_index.size),
         "grid_shape": _grid_shape(model_var),
+        **_pairing(model_var, obs_var),
     }
     logger.info(
         "  %s residual variance: map rmse = %.6g, pattern corr = %.4f",
@@ -361,6 +365,7 @@ def _velocity_metrics(
         error_squared=(sim_u - obs_u) ** 2 + (sim_v - obs_v) ** 2,
         area=area,
         bootstrap_samples=bootstrap_samples,
+        pairing=_pairing(sim_u, obs_u),
     )
 
     # EKE is quadratic, so it follows the same reduce-before-regrid rule as the
@@ -384,6 +389,7 @@ def _velocity_metrics(
         error_squared=(sim_eke - obs_eke) ** 2,
         area=area,
         bootstrap_samples=bootstrap_samples,
+        pairing=_pairing(sim_eke, obs_eke),
     )
     return rows + eke_rows
 
@@ -408,6 +414,7 @@ def _sst_metrics(
         error_squared=(kernels.model_field_on_obs_grid(sim, obs) - obs) ** 2,
         area=area,
         bootstrap_samples=bootstrap_samples,
+        pairing=_pairing(kernels.model_field_on_obs_grid(sim, obs), obs),
     )
 
     # Residual variance characterises variability across the whole rollout, not
@@ -471,6 +478,7 @@ def _ohc_metrics(
             area=area,
             bootstrap_samples=bootstrap_samples,
             depth=layer.label,
+            pairing=_pairing(kernels.model_field_on_obs_grid(sim, obs), obs),
         )
         rows += layer_rows
 

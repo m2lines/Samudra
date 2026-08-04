@@ -18,9 +18,11 @@ The pieces:
 
 `ObsMetricsConfig` lives in `samudra.config` with the other task configs.
 
-`samudra.eval` calls `report` for the scalars it logs to W&B; `samudra.viz`
-calls the same `kernels` when it draws the corresponding figures, so a number on
-a figure cannot drift from the scalar logged next to it.
+`samudra.eval` calls `report` for the scalars it logs to W&B. The kernels are
+written to be shared with `samudra.viz`, so that a number on a figure cannot
+drift from the scalar logged beside it -- but that integration is a follow-up,
+and today `eval` is the only caller. Several kernels exist for it and are not
+yet reachable from this driver.
 
 One rule is easy to get wrong and worth stating up front: **reduce before you
 regrid, whenever the reduction is nonlinear.** Horizontal interpolation is a

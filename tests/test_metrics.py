@@ -10,6 +10,7 @@ silent time-misalignment, and a break in the end-to-end contract.
 """
 
 import logging
+from typing import cast
 
 import cftime
 import numpy as np
@@ -104,6 +105,33 @@ def test_ohc_layers_partition_the_column_at_the_depth_boundary():
 
     # Together the layers tile [0, 2000) without double counting.
     assert float((upper + lower).sum()) == pytest.approx(2000.0)
+
+
+def test_ohc_drops_columns_that_run_out_before_the_layer_does():
+    """A column shallower than the layer must not book its missing water as error.
+
+    `sum(skipna=True)` treats a masked level as zero heat, so a cell where the
+    model and observation bathymetry disagree by one level would contribute a
+    deficit the size of the metric itself -- about 2e9 J m^-2 for 50 m. The
+    axis-level guard cannot see this: it fires when the whole grid is too
+    shallow, while this is a single column running out early.
+    """
+    centers = np.array(OM4_SPEC.depth_levels)
+    dz = xr.DataArray(
+        np.array(OM4_SPEC.depth_thickness), dims=["lev"], coords={"lev": centers}
+    )
+    field = xr.DataArray(
+        np.full((centers.size, 1, 2), 10.0),
+        dims=["lev", "lat", "lon"],
+        coords={"lev": centers, "lat": [0.0], "lon": [0.0, 1.0]},
+    )
+    # The first column stops at 650 m; the second spans the full grid.
+    field = field.where((field["lev"] < 650) | (field["lon"] > 0.5))
+
+    ohc = kernels.ohc_per_area_layer_maps(field, native_dz=dz, depth_name="lev")
+    surface = ohc[kernels.OHC_LAYERS[0].label]
+    assert np.isnan(float(surface.values[0, 0]))
+    assert float(surface.values[0, 1]) > 0
 
 
 def test_residual_variance_removes_an_exact_seasonal_cycle():
@@ -760,3 +788,227 @@ def test_coastal_erosion_is_measured_and_reported():
     assert measured[1.0] < measured[0.5] < measured[0.25]
     assert measured[1.0] == pytest.approx(0.989, abs=0.002)
     assert measured[0.25] == pytest.approx(0.997, abs=0.002)
+
+
+def test_year_coverage_measures_missing_data_not_land():
+    """The coverage guard must divide by the pairable ocean, not the whole globe.
+
+    `rmse_map_with_uncertainty` documents `covered` as the "area-weighted
+    fraction of the *paired* cells that actually carry data" and raises "too
+    little paired data" below 50%. It divides by `xr.ones_like(error_squared)`
+    instead -- every cell on the grid, land included -- so the number it tests
+    is the finite fraction of the *planet*.
+
+    The observation grids are global, and land is simply NaN on them: roughly
+    29% of a lat/lon grid by area, plus the +-5 degree band
+    `apply_equatorial_mask` blanks for DUACS, plus every shelf and marginal sea
+    for the 700-2000 m OHC layer. A DUACS velocity year with perfect coverage
+    therefore scores around 0.6 against a 0.50 threshold, and the deep OHC
+    layer lower still. The guard is one masked marginal sea away from failing
+    an eval, after the whole rollout has been paid for, because the Earth has
+    continents.
+
+    The opposite direction -- a year that keeps its timestamps but carries
+    almost no data must still fail -- is already pinned by
+    `test_an_equal_year_block_needs_data_not_only_timestamps`, so this asserts
+    only the false positive.
+    """
+    lat, lon = _grid(9, 12)
+    area = _area(lat, lon)
+    time = pd.date_range("2021-01-01", "2022-12-31", freq="5D")
+    error_squared = xr.DataArray(
+        np.ones((len(time), lat.size, lon.size)),
+        dims=["time", "lat", "lon"],
+        coords={"time": time, "lat": lat, "lon": lon},
+    )
+
+    # Land is not missing data. Every ocean cell here carries a value at every
+    # timestamp of both years; the only thing "missing" is the 58% of the grid
+    # that is permanently dry.
+    land = xr.DataArray(np.arange(lon.size) < 7, dims=["lon"], coords={"lon": lon})
+    rmse_map, annual, _ = kernels.rmse_map_with_uncertainty(
+        error_squared.where(~land), area, ("lat", "lon"), "land", bootstrap_samples=0
+    )
+    assert set(annual) == {2021, 2022}
+    assert np.isfinite(rmse_map).any()
+
+
+def test_regridding_keeps_the_polar_rows_it_keeps_the_seam_columns_for():
+    """Latitude needs the treatment longitude got, or the loss is silent.
+
+    `model_field_on_obs_grid` carries a paragraph explaining that a global model
+    grid's outermost longitude centers sit inside the observation product's, so
+    plain interpolation "calls those observation columns out of bounds and drops
+    them from every reduction, so the metric quietly depends on grid alignment".
+    The fix -- `_wrap_lon` -- applies to longitude only.
+
+    Latitude has the same geometry and no wrap to exploit: a 1 degree model's
+    outermost row sits at -89.5, OISST's at -89.875. Four quarter-degree
+    observation rows fall outside the model's convex hull and are NaN'd out of
+    every RMSE, variance map and pattern correlation -- silently, and by an
+    amount that depends on the model's resolution, which is exactly the
+    "quietly depends on grid alignment" failure the longitude comment rejects.
+    Clamping the interpolation at the poles fixes it; nothing here does.
+
+    `test_partial_edge_months_and_seam_are_handled` covers the longitude half of
+    this on a two-row grid, where latitude cannot be out of bounds.
+    """
+    obs_lat = np.arange(-89.875, 90.0, 0.25)
+    obs_lon = np.arange(0.125, 360.0, 0.25)
+    obs = xr.DataArray(
+        np.ones((obs_lat.size, obs_lon.size)),
+        dims=["lat", "lon"],
+        coords={"lat": obs_lat, "lon": obs_lon},
+    )
+
+    lost = {}
+    for resolution in (1.0, 0.25):
+        model_lat = np.arange(-90.0 + resolution / 2, 90.0, resolution)
+        model_lon = np.arange(resolution / 2, 360.0, resolution)
+        model = xr.DataArray(
+            np.full((model_lat.size, model_lon.size), 3.0),
+            dims=["lat", "lon"],
+            coords={"lat": model_lat, "lon": model_lon},
+        )
+        paired = kernels.model_field_on_obs_grid(model, obs)
+        # Rows of the observation grid that lost every single cell.
+        missing = cast(xr.DataArray, ~np.isfinite(paired))
+        lost[resolution] = int(missing.all("lon").sum())
+
+    assert lost == {1.0: 0, 0.25: 0}, (
+        f"whole observation latitude rows dropped, by model resolution: {lost}"
+    )
+
+
+def test_the_pairing_diagnostic_reaches_the_emitted_frame():
+    """`_pairing` is dead code, so its two columns are always NaN.
+
+    `report.COLUMNS` is called "the contract", and it declares `n_paired_cells`
+    and `paired_ocean_fraction`. `_pairing` computes them, and its docstring
+    explains why they matter: regridding erodes a coastal band whose width
+    scales with model resolution, so "a coarse run is scored on a smaller and
+    easier subset of the ocean than a fine one. Recording it makes that visible
+    instead of leaving cross-resolution comparison merely 'not comparable' in
+    prose."
+
+    Nothing in the driver ever calls `_pairing`. Both columns are back-filled
+    with NaN by `compute_observation_metrics`, so the CSV and the W&B table
+    carry two empty columns and the erosion stays as invisible as before.
+    `test_coastal_erosion_is_measured_and_reported` above calls the helper
+    directly, so the suite stays green while the property that docstring claims
+    -- that the loss travels with the numbers -- is false.
+    """
+    rollout, duacs, oisst, argo = _synthetic_case()
+    model = observations.model_on_latlon_grid(rollout, OM4_SPEC)
+
+    frame = report.compute_observation_metrics(
+        {"model": model},
+        duacs=duacs,
+        oisst=oisst,
+        argo=argo,
+        model_dz={"model": observations.model_depth_thickness(model, OM4_SPEC)},
+        window=(pd.Timestamp("2021-01-01"), pd.Timestamp("2022-12-31")),
+        bootstrap_samples=0,
+    )
+
+    primary = frame[frame["period_kind"] == "primary_complete_years"]
+    assert not primary.empty
+    assert primary["n_paired_cells"].notna().all(), (
+        "n_paired_cells is declared in COLUMNS but never populated"
+    )
+    assert primary["paired_ocean_fraction"].notna().all()
+
+
+def test_scalar_and_map_detrending_agree_on_a_non_uniform_axis():
+    """The two detrending paths must not disagree; the code says so explicitly.
+
+    `detrend_linear_dataarray` regresses on elapsed days, and its comment gives
+    the reason: "The two agree only on a uniform axis, and the axis is not
+    uniform once `monthly_mean_of_complete_months` drops a month -- at which
+    point an index regression silently treats the gap as if no time had passed.
+    `series_linear_trend_per_year` already uses elapsed time; these two must not
+    disagree."
+
+    `series_without_linear_trend` -- the one `series_residual_variance` actually
+    calls -- regresses on `np.arange(len(values))`. So on the very axis that
+    comment describes, the map path and the scalar path remove different trends
+    from the same data. Here the series is linear in elapsed time, so both
+    residuals must be zero; the index regression leaves a sawtooth at the gap
+    and reports it as residual variance the model failed to reproduce.
+    """
+    months = pd.DatetimeIndex(
+        [
+            stamp
+            for stamp in pd.date_range("2021-01-01", "2022-12-01", freq="MS")
+            # The gap `monthly_mean_of_complete_months` is documented to create.
+            if stamp.month not in (5, 6)
+        ]
+    )
+    elapsed_years = (months - months[0]).days.to_numpy(dtype=float) / 365.25
+    values = 2.0 + 0.5 * elapsed_years
+
+    gridded = kernels.detrend_linear_dataarray(
+        xr.DataArray(values, dims=["time"], coords={"time": months})
+    )
+    scalar = kernels.series_without_linear_trend(pd.Series(values, index=months))
+
+    assert float(np.abs(gridded.values).max()) == pytest.approx(0.0, abs=1e-9)
+    assert float(np.abs(scalar.to_numpy()).max()) == pytest.approx(0.0, abs=1e-9)
+
+
+def test_a_grid_one_cell_short_of_global_is_not_treated_as_periodic():
+    """`_spans_globe`'s tolerance is a whole grid cell, so it wraps regional grids.
+
+    `_wrap_lon` promises that "regional grids are returned untouched: their
+    edges are real boundaries, and inventing data beyond them would be worse
+    than dropping a column." The test it rests on is
+
+        isclose(values[-1] - values[0] + spacing, 360.0, atol=abs(spacing))
+
+    whose absolute tolerance is one full cell -- exactly the resolution at which
+    "global" and "one cell short of global" stop being distinguishable. A basin
+    that stops one column short is declared periodic, its western edge is padded
+    with data from its eastern edge, and `_differentiate_lon` then takes a
+    derivative across a boundary that does not exist.
+
+    The regional grids in `test_partial_edge_months_and_seam_are_handled` span a
+    fraction of the globe, so they exercise `_wrap_lon`'s pass-through but never
+    the predicate that decides it. This pins the predicate at its boundary.
+    """
+    spacing = 5.0
+    regional = np.arange(0.0, 351.0, spacing)  # 0..350: a full cell short of 360
+    assert not kernels._spans_globe(regional)
+
+    field = xr.DataArray(
+        np.cos(np.deg2rad(regional))[None, :],
+        dims=["lat", "lon"],
+        coords={"lat": [30.0], "lon": regional},
+    )
+    assert kernels._wrap_lon(field, "lon").equals(field)
+
+
+def test_a_year_that_keeps_half_its_samples_is_not_a_complete_year():
+    """ "Complete" is judged against the record's own cadence, with no floor.
+
+    `require_complete_calendar_years` exists so that "equal-year blocks are what
+    make the primary score and its bootstrap comparable" -- a ragged year has to
+    be an error "rather than a silently down-weighted block".
+
+    But completeness is decided by `largest_gap <= 2.5 * median_step`, and that
+    median is taken over the whole record. A year that drops every second sample
+    has gaps of exactly two median steps, so it passes -- and then carries the
+    same weight in the score and in the block bootstrap as a year holding twice
+    the data. That is the silent down-weighting, unchanged.
+
+    `test_a_calendar_year_missing_a_fortnight_is_not_complete` pins the case the
+    gap threshold does catch -- data missing in one lump. Thinning is the case
+    it cannot see, because thinning never produces a large gap.
+    """
+    dense = pd.date_range("2021-01-03 12:00", "2021-12-29 12:00", freq="5D")
+    halved = pd.date_range("2022-01-03 12:00", "2022-12-29 12:00", freq="5D")[::2]
+    time = dense.append(halved)
+
+    years = kernels.complete_calendar_years(
+        xr.DataArray(time, dims=["time"], coords={"time": time})
+    )
+    assert years == [2021], f"2022 holds {len(halved)} of {len(dense)} samples"

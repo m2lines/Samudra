@@ -82,9 +82,9 @@ def test_area_weighting_follows_cell_area_not_cell_count():
 def test_ohc_layers_partition_the_column_at_the_depth_boundary():
     """Depth layers must prorate the cell straddling 700 m, not include or drop it.
 
-    Regression test: selecting layers by center depth made a nominal "0-700 m"
-    integral actually cover 0-650 m on the OM4 grid, where the cell centered at
-    775 m spans 650-900 m.
+    Selecting layers by center depth instead would make a nominal "0-700 m"
+    integral cover 0-650 m on the OM4 grid, where the cell centered at 775 m
+    spans 650-900 m.
     """
     centers = np.array(OM4_SPEC.depth_levels)
     thickness = np.array(OM4_SPEC.depth_thickness)
@@ -249,10 +249,8 @@ def test_model_grid_adapter_preserves_geometry_and_refuses_curvilinear():
     with pytest.raises(NotImplementedError, match="rectilinear"):
         observations.model_on_latlon_grid(rollout, build_om4_spec(grid_type="tripolar"))
 
-    # The OM4 baseline does not arrive in the rollout layout: a DataSource has
-    # already run it through `with_lat_lon_coords`, which renames y/x to 1-D
-    # lat/lon and parks the 2-D geography on lat_2d/lon_2d. Rejecting that shape
-    # crashed every eval with observations enabled, at the end of the rollout.
+    # The OM4 baseline arrives via a DataSource, which has already run
+    # `with_lat_lon_coords`: 1-D lat/lon dims, 2-D geography on lat_2d/lon_2d.
     from samudra.utils.data import with_lat_lon_coords
 
     standardized = with_lat_lon_coords(rollout)
@@ -269,10 +267,9 @@ def test_model_grid_adapter_preserves_geometry_and_refuses_curvilinear():
 def test_cftime_rollouts_become_comparable():
     """A cftime time axis must be normalised, or window selection cannot happen.
 
-    Regression test: OM4 stores time as `cftime.DatetimeJulian`, and every
-    rollout inherits it. Selecting a window with pandas timestamps then raises
-    "cannot compare ... different calendars", which broke real eval runs while
-    synthetic datetime64 fixtures passed.
+    OM4 stores time as `cftime.DatetimeJulian` and every rollout inherits it,
+    so selecting a window with pandas timestamps raises "cannot compare ...
+    different calendars" unless the axis is normalised first.
     """
     lat, lon = _grid(6, 6)
     times = [cftime.DatetimeJulian(2021, 1, 1 + 5 * i, 12) for i in range(4)]
@@ -290,9 +287,8 @@ def test_cftime_rollouts_become_comparable():
 
     adapted = observations.model_on_latlon_grid(rollout, OM4_SPEC)
     assert np.issubdtype(adapted["time"].dtype, np.datetime64)
-    # The operation that actually failed in production: a pandas-timestamp
-    # window. Samples sit at 12:00, so the end bound is taken past that hour to
-    # include the third of the four timestamps.
+    # Samples sit at 12:00, so the end bound goes past that hour to include
+    # the third of the four timestamps.
     selected = adapted.sel(
         time=slice(pd.Timestamp("2021-01-01"), pd.Timestamp("2021-01-12"))
     )
@@ -359,9 +355,8 @@ def test_partial_edge_months_and_seam_are_handled():
     wrapped = kernels._differentiate_lon(field, "x").values[0]
     assert wrapped[0] == pytest.approx(analytic[0], abs=1e-12)
 
-    # Dask-backed too. Padding leaves 1-wide chunks at the edges and
-    # `np.gradient` requires two points per chunk, so a numpy-only test passes
-    # while every real rollout -- which is always chunked -- raises.
+    # Dask-backed too: padding leaves 1-wide edge chunks, and `np.gradient`
+    # requires two points per chunk.
     chunked = kernels._differentiate_lon(field.chunk({"x": 12}), "x").compute()
     assert chunked.values[0][0] == pytest.approx(analytic[0], abs=1e-12)
     # A regional grid genuinely has edges, and must be left alone.

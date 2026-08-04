@@ -313,12 +313,9 @@ def duacs(
     dry_run: bool = False,
 ) -> None:
     """Build the 5-day aligned DUACS store from the per-year raw archive."""
-    # Exclude `*.tmp.zarr`. The downloader now stages into a temporary
-    # directory, so it can no longer produce one -- but archives built by the
-    # earlier version can still hold a partial store under that name, and
-    # concatenating one would inject duplicate, ragged timestamps that survive
-    # `sortby("time")`. Kept as cleanup for those; delete once no such archive
-    # remains.
+    # Exclude `*.tmp.zarr`: a partial download left by an older downloader.
+    # Concatenating one injects duplicate, ragged timestamps that survive
+    # `sortby("time")`.
     stores = sorted(
         path
         for path in Path(raw_dir).glob("duacs_*.zarr")

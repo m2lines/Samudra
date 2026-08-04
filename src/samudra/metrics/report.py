@@ -110,16 +110,10 @@ def _rows_for_metric(
         context,
         bootstrap_samples=bootstrap_samples,
     )
-    # Report the equal-year block estimate, which is the quantity the bootstrap
-    # interval is built from, so the headline number and its interval are
-    # consistent by construction.
-    #
-    # The alternative -- area-weighting the year-mean RMSE map -- is the same
-    # pair of linear averages in the opposite order, and agrees exactly when the
-    # finite-cell mask is the same every year. It diverges when an observation
-    # product's coverage varies between years, and then the interval no longer
-    # brackets the value printed beside it. Both readings fit "the square root
-    # of the equal-year mean annual MSE"; this one is self-consistent.
+    # The equal-year block estimate, which is what the bootstrap interval is
+    # built from, so a value can never fall outside its own interval. The
+    # alternative below is the same two averages in the opposite order; they
+    # diverge when a product's coverage varies by year.
     total = float(summary["block_aggregate_rmse"])
     map_weighted_total = kernels.area_weighted_map_rmse(rmse_map, area)
     time_index = pd.DatetimeIndex(error_squared["time"].values)
@@ -325,9 +319,8 @@ def _whole_years(
             whole[-1],
             dropped,
         )
-    # Select by year membership, not a slice: a slice only trims the ends, so
-    # a ragged year in the *interior* would survive while the log above claims
-    # it was dropped.
+    # By year membership, not a slice: a slice would only trim the ends and
+    # leave a ragged interior year in place.
     keep = model_field["time"].dt.year.isin(whole)
     return model_field.sel(time=keep), obs_field.sel(time=keep)
 
@@ -350,9 +343,7 @@ def _velocity_metrics(
     sim_u_native, obs_u = _aligned(sim_u, obs_u, window, f"{model} eastward velocity")
     sim_v_native, obs_v = _aligned(sim_v, obs_v, window, f"{model} northward velocity")
 
-    # Velocity RMSE is a difference, which is linear, so regridding first is
-    # exact -- and unavoidable, since the two fields must share a grid before
-    # they can be subtracted.
+    # A difference is linear, so regridding first is exact here.
     sim_u = kernels.model_field_on_obs_grid(sim_u_native, obs_u)
     sim_v = kernels.model_field_on_obs_grid(sim_v_native, obs_v)
 
@@ -368,17 +359,9 @@ def _velocity_metrics(
         pairing=_pairing(sim_u, obs_u),
     )
 
-    # EKE is quadratic, so it follows the same reduce-before-regrid rule as the
-    # residual-variance maps: computed on the model's native grid, with only the
-    # resulting EKE field interpolated. Regridding the velocities first would
-    # smooth them and damp the energy, by an amount that depends on the
-    # resolution ratio rather than on the model.
-    #
-    # This is a deliberate departure from the reference implementation, which
-    # computes EKE from already-regridded velocities. The difference is small
-    # today because DUACS (0.125 degrees) is finer than any model we run, so the
-    # interpolation upsamples; it would grow into a real bias for a model finer
-    # than DUACS.
+    # EKE is quadratic, so it is computed on the native grid and only the
+    # result interpolated. Regridding the velocities first would damp the energy
+    # by an amount set by the resolution ratio rather than by the model.
     sim_eke_native = kernels.instantaneous_surface_eke(sim_u_native, sim_v_native)
     obs_eke = kernels.instantaneous_surface_eke(obs_u, obs_v)
     sim_eke = kernels.model_field_on_obs_grid(sim_eke_native, obs_eke)
@@ -417,8 +400,7 @@ def _sst_metrics(
         pairing=_pairing(kernels.model_field_on_obs_grid(sim, obs), obs),
     )
 
-    # Residual variance characterises variability across the whole rollout, not
-    # only the complete-calendar-year scoring window.
+    # Residual variance uses the whole rollout, not the scoring window.
     sim_full, obs_full = _aligned(sim_all, obs_all, None, f"{model} SST variance")
     rows += _variance_map_rows(
         metric_prefix="surface_sst",
@@ -455,20 +437,15 @@ def _ohc_metrics(
     rows: list[dict[str, Any]] = []
     upper_label = kernels.OHC_LAYERS[0].label
     for layer in kernels.OHC_LAYERS:
-        # Monthly averaging is an explicit, documented reduction (ARGO-IAP is
-        # a monthly product), unlike temporal interpolation which stays
-        # forbidden. Partially covered months are dropped rather than compared
-        # against a full month on the other side.
+        # ARGO-IAP is monthly, so both sides reduce to months. Partially
+        # covered months are dropped rather than compared against full ones.
         sim_all = kernels.monthly_mean_of_complete_months(sim_layers[layer.label])
         obs_all = kernels.monthly_mean_of_complete_months(obs_layers[layer.label])
 
         sim, obs = _aligned(sim_all, obs_all, window, f"{model} OHC {layer.label}")
-        # Trim to whole calendar years of the *monthly* series. A rollout that
-        # ends on 24 December contributes no December at all once partial
-        # months are dropped, so its final year is genuinely incomplete -- and
-        # scoring it would mean comparing an 11-month year against 12-month
-        # ones. The RMSE metrics on 5-day products are unaffected; only OHC
-        # reduces to months, and only its last year is ever short.
+        # Trim to whole calendar years of the monthly series: a rollout ending
+        # 24 December contributes no December once partial months are dropped,
+        # so scoring its final year would weigh 11 months against 12.
         sim, obs = _whole_years(sim, obs, f"{model} OHC {layer.label}")
         layer_rows, _ = _rows_for_metric(
             metric="ohc_per_area_total_rmse",
@@ -604,16 +581,15 @@ def to_wandb(frame: pd.DataFrame, primary_model: str) -> MetricsDict:
             value = row.get(column)
             if value is not None and np.isfinite(value):
                 metrics[f"{prefix}/{suffix}_{column}"] = float(value)
-        # Per metric, not once per run: metrics scored different spans (OHC
-        # drops a year whose December is partial), so a single figure would
-        # describe whichever one happened to score the most.
+        # Per metric: they score different spans, so one figure would describe
+        # whichever scored the most years.
         n_years = row.get("n_years")
         if n_years is not None and np.isfinite(n_years):
             metrics[f"{prefix}/{suffix}_n_years"] = float(n_years)
 
-    # The evaluation window itself stays in the table and the CSV rather than
-    # becoming a scalar: W&B scalars are floats, and a date is not one. There is
-    # deliberately no single `obs/n_years` -- see the per-metric keys above.
+    # The window stays in the table and CSV: W&B scalars are floats, and a date
+    # is not one. There is no single `obs/n_years` -- metrics score different
+    # spans, so it is reported per metric above.
     return metrics
 
 

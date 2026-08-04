@@ -202,11 +202,8 @@ def complete_calendar_years(
     boundary_tolerance = pd.Timedelta(days=1.5 * step_days)
     max_gap = pd.Timedelta(days=max_gap_steps * step_days)
 
-    # A gap threshold alone cannot see *thinning*: a year keeping every second
-    # sample has gaps of exactly two median steps throughout and would pass,
-    # then carry the same equal-weight block as a year with twice the data. So
-    # the count is checked too, relative to the busiest year rather than to an
-    # assumed cadence.
+    # A gap threshold alone cannot see thinning: dropping every second sample
+    # leaves gaps of exactly two median steps. Check the count as well.
     counts = pd.Series(1, index=index).groupby(index.year).sum()
     busiest = int(counts.max())
 
@@ -314,11 +311,9 @@ def layer_overlap_thickness(
             raise ValueError(
                 f"Expected a 1D native depth coordinate, got dimensions {depth.dims}"
             )
-        # Accumulate thicknesses from the surface rather than assuming each
-        # center sits at its cell's midpoint. The two agree on OM4, whose levels
-        # tile exactly, but a uniform edge shift on some other vertical grid
-        # would preserve the summed thickness while getting every boundary
-        # weight wrong -- so the sum is not a check that would catch it.
+        # Accumulate from the surface rather than assuming centers are cell
+        # midpoints. A uniform edge shift would preserve the summed thickness
+        # while getting every boundary weight wrong.
         thickness = np.asarray(native_dz.values, dtype=float)
         edges = np.concatenate([[0.0], np.cumsum(thickness)])
         lower = xr.DataArray(edges[:-1], dims=depth.dims, coords=depth.coords)
@@ -473,9 +468,8 @@ def _spans_globe(lon_values: np.ndarray) -> bool:
     spacing = float(np.median(np.diff(values)))
     if not np.isfinite(spacing) or spacing <= 0:
         return False
-    # A tolerance of one whole cell is precisely the width at which "global"
-    # and "one column short of global" stop being distinguishable, and treating
-    # a basin as periodic would pad its western edge with eastern-edge data.
+    # Tight tolerance: one whole cell is the width at which "global" and "one
+    # column short" stop being distinguishable.
     return bool(
         np.isclose(values[-1] - values[0] + spacing, 360.0, atol=1e-6 * abs(spacing))
     )
@@ -601,6 +595,14 @@ def ohc_per_area_layer_maps(
     Temperature is integrated relative to 0 degrees C (see `OHC_REFERENCE`), so
     these are not IAP anomalies; comparing against published OHC numbers means
     matching both the reference and the volumetric heat capacity.
+
+    A cell contributes if it has water anywhere in the layer, and levels it
+    lacks are skipped. Where two products agree a column is shallow this is
+    exact, but where their bathymetry *disagrees* the deeper product integrates
+    water the other lacks and the difference reads as a heat deficit -- roughly
+    2e9 J m^-2 per 50 m. Use `partial_column_fraction` to measure how much of a
+    comparison is exposed to this. Removing it requires masking each cell to the
+    depth range both products share.
     """
     out = {}
     for layer in layers:
@@ -610,12 +612,9 @@ def ohc_per_area_layer_maps(
             layer.max_depth,
             native_dz=native_dz,
         )
-        # A depth axis that stops short of the layer would integrate only the
-        # levels it has, while the other product integrates the full column --
-        # producing an OHC difference dominated by missing water rather than by
-        # model error, with no outward sign. A shallow prognostic variable set
-        # (say `thermo_dynamic_5`, which reaches 65 m) hits this against the
-        # 0-700 m layer.
+        # An axis stopping short of the layer would integrate less water than
+        # the other product, giving a difference dominated by missing water
+        # rather than model error. `thermo_dynamic_5` reaches only 65 m.
         covered = float(overlap_dz.sum())
         nominal = layer.max_depth - layer.min_depth
         if not np.isclose(covered, nominal, rtol=1e-6):
@@ -630,21 +629,8 @@ def ohc_per_area_layer_maps(
         # np.isfinite on a DataArray returns a DataArray, but the numpy stubs
         # widen it to ndarray, which has no `dim=` keyword.
         finite = cast(xr.DataArray, np.isfinite(temp_layer))
-        # A cell contributes if it has water anywhere in the layer, and the sum
-        # skips the levels it lacks. This is deliberate, and it is what the
-        # published numbers were computed with.
-        #
-        # The known limitation: `skipna` treats a level a product lacks as zero
-        # heat, so where model and observation bathymetry *disagree* the extra
-        # water shows up as a deficit -- roughly 2e9 J m^-2 per 50 m, the size
-        # of the metric itself. Requiring whole columns instead is not the fix:
-        # it cannot tell disagreement from a shelf both products agree is
-        # shallow, so it discards every shelf and high-latitude column and moves
-        # the layer totals by more than 20%. A real fix has to compare the two
-        # products' valid depth ranges per cell, which means regridding the
-        # model in depth onto the observation axis first -- a change to the
-        # comparison itself, needing scientific sign-off rather than a patch.
-        # `partial_column_fraction` below measures the exposure meanwhile.
+        # A cell contributes whatever water it has; `skipna` treats levels it
+        # lacks as zero heat. See the docstring for when that matters.
         valid = finite.any(dim=depth_name)
         ohc = (
             (temp_layer * overlap_dz * RHO * CP)
@@ -699,11 +685,9 @@ def detrend_linear_dataarray(
     if field.sizes.get(time_dim, 0) < 2:
         return field - field.mean(time_dim, skipna=True)
 
-    # Elapsed days, not sample index. The two agree only on a uniform axis, and
-    # the axis is not uniform once `monthly_mean_of_complete_months` drops a
-    # month -- at which point an index regression silently treats the gap as if
-    # no time had passed. `series_linear_trend_per_year` already uses elapsed
-    # time; these two must not disagree.
+    # Elapsed days, not sample index: the axis is not uniform once
+    # `monthly_mean_of_complete_months` drops a month, and an index regression
+    # would treat the gap as though no time had passed.
     stamps = pd.DatetimeIndex(field[time_dim].values)
     elapsed = (stamps - stamps[0]).days.to_numpy(dtype=float)
     x = xr.DataArray(elapsed, dims=[time_dim], coords={time_dim: field[time_dim]})
@@ -797,11 +781,8 @@ def series_without_linear_trend(series: pd.Series) -> pd.Series:
     if finite.sum() < 2:
         return values - values.mean()
 
-    # Elapsed days, matching `detrend_linear_dataarray` and
-    # `series_linear_trend_per_year`. On a gappy axis -- which is exactly what
-    # `monthly_mean_of_complete_months` produces -- regressing on sample index
-    # treats a missing month as though no time passed, so the scalar and map
-    # paths would return different residuals for the same series.
+    # Elapsed days, matching `detrend_linear_dataarray`, so the scalar and map
+    # paths return the same residual for the same series.
     stamps = pd.DatetimeIndex(values.index)
     x = (stamps - stamps[0]).days.to_numpy(dtype=float)
     slope, intercept = np.polyfit(x[finite], raw[finite], 1)
@@ -886,19 +867,13 @@ def model_field_on_obs_grid(
     if rename:
         model_field = model_field.rename(rename)
     model_field = normalize_lon(model_field, "lon").sortby("lat").sortby("lon")
-    # A global model grid has no true longitude edge, but its first and last
-    # centers still sit inside the observation product's outermost centers --
-    # DUACS starts at 0.0625 where quarter-degree OM4 starts at 0.125. Plain
-    # interpolation calls those observation columns out of bounds and drops
-    # them from every reduction, so the metric quietly depends on grid
-    # alignment. Wrapping one column from each end makes the seam interior.
+    # A global grid has no true longitude edge, but its outermost centers still
+    # sit inside the observation product's, so plain interpolation would drop
+    # the seam columns. Wrapping one column from each end makes them interior.
     model_field = _wrap_lon(model_field, "lon")
-    # Latitude has the same geometry and no wrap to exploit: a 1 degree model
-    # tops out at +-89.5 where OISST reaches +-89.875, so the outermost
-    # observation rows would fall outside the model's range and be dropped by
-    # exactly the resolution-dependent amount the paragraph above rejects.
-    # Clamping the *target* pulls those rows onto the model's end row, which
-    # extends it poleward rather than inventing a value.
+    # Latitude cannot wrap, so clamp the target instead: a 1 degree model tops
+    # out at +-89.5 where OISST reaches +-89.875, and those rows would otherwise
+    # be dropped by an amount that depends on model resolution.
     lat_target = _clamped_to(
         np.asarray(model_field["lat"].values, dtype=float), obs_field["lat"]
     )
@@ -945,16 +920,13 @@ def interannual_rmse_summary(
     annual_mse = values**2
     block_aggregate_rmse = float(np.sqrt(annual_mse.mean()))
     annual_std = float(np.std(values, ddof=1)) if values.size > 1 else np.nan
-    # Below a handful of blocks a percentile bootstrap is not an interval in any
-    # useful sense -- with two years it returns exactly [min, max] of two
-    # numbers -- so report no interval rather than one whose label overstates
-    # what it knows.
+    # With two blocks a percentile bootstrap returns exactly [min, max] of two
+    # numbers. Report no interval rather than one that overstates itself.
     if values.size < MIN_BOOTSTRAP_BLOCKS or bootstrap_samples <= 0:
         ci_low = ci_high = np.nan
         n_bootstrap = 0
     else:
-        # Fixed seed: the confidence interval is a property of the metric, and
-        # should not shift between two runs scoring identical data.
+        # Fixed seed so identical data gives an identical interval.
         rng = np.random.default_rng(0)
         sampled = rng.choice(
             annual_mse, size=(bootstrap_samples, values.size), replace=True
@@ -1007,23 +979,18 @@ def rmse_map_with_uncertainty(
     annual_mse_maps = (
         error_squared.groupby("time.year").mean("time", skipna=True).sel(year=years)
     )
-    # Coverage is measured on the *data*, not the time axis. A year can keep
-    # every timestamp and still be almost entirely NaN -- one missing DUACS day
-    # NaNs five consecutive 5-day means everywhere, and ARGO/OISST coverage is
-    # genuinely patchy at high latitude and at depth. Counting stamps would let
-    # such a year carry a full equal-weight block, which is exactly the
-    # invariant the block design rests on.
+    # Coverage is measured on the data, not the time axis: a year can keep
+    # every timestamp and still be mostly NaN, and would then carry a full
+    # equal-weight block.
     finite_samples = (
         cast(xr.DataArray, np.isfinite(error_squared))
         .groupby("time.year")
         .sum()
         .sel(year=years)
     )
-    # The denominator is the cells that are *ever* comparable, not every cell
-    # on the globe. Land is permanently NaN on these grids, as is the equatorial
-    # band the geostrophic mask blanks, so counting them as missing data would
-    # score a flawless DUACS year at roughly the ocean fraction of the planet
-    # and fail it against any sensible threshold.
+    # Denominator is the cells that are ever comparable. Land and the blanked
+    # equatorial band are permanently NaN, so counting them would score a
+    # flawless year at roughly the ocean fraction of the planet.
     comparable = cast(xr.DataArray, np.isfinite(error_squared)).any("time")
     stamps_per_year = (
         xr.ones_like(error_squared.isel({d: 0 for d in spatial_dims}, drop=True))

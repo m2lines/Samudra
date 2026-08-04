@@ -194,11 +194,10 @@ def model_on_latlon_grid(ds: xr.Dataset, dataset_spec: DatasetSpec) -> xr.Datase
 
     dims = {str(dim) for dim in ds.dims}
     if {"y", "x"} <= dims:
-        # The eval writer's rollout layout: `(y, x)` dims carrying *2-D*
-        # lat/lon coordinates. Those coords must go before `y`/`x` can take
-        # their names, or the rename collides. `areacello` is preserved
-        # separately -- it is the model's own cell area, and more accurate
-        # than anything re-derived from the axes.
+        # The eval writer's layout: `(y, x)` dims under 2-D lat/lon coords.
+        # Those coords must go before `y`/`x` can take their names, or the
+        # rename collides. `areacello` is kept -- it is the model's own cell
+        # area, better than anything re-derived from the axes.
         areacello = (
             ds["areacello"] if "areacello" in ds.coords or "areacello" in ds else None
         )
@@ -210,11 +209,9 @@ def model_on_latlon_grid(ds: xr.Dataset, dataset_spec: DatasetSpec) -> xr.Datase
             ).rename({"y": "lat", "x": "lon"})
             ds = ds.assign_coords(areacello=renamed_area)
     elif {"lat", "lon"} <= dims:
-        # Already standardised by `utils.data.with_lat_lon_coords`, which is
-        # the form a `DataSource` hands back: 1-D lat/lon dims, with the 2-D
-        # geography kept as `lat_2d`/`lon_2d`. This is how the OM4 baseline
-        # arrives. Nothing to rename; drop the 2-D copies so downstream
-        # alignment sees only the 1-D axes.
+        # The form a `DataSource` hands back, as the OM4 baseline does:
+        # already 1-D lat/lon, with the 2-D geography on `lat_2d`/`lon_2d`.
+        # Drop those so alignment sees only the 1-D axes.
         ds = ds.drop_vars(["lat_2d", "lon_2d", "lat_b", "lon_b"], errors="ignore")
     else:
         raise ValueError(
@@ -225,11 +222,9 @@ def model_on_latlon_grid(ds: xr.Dataset, dataset_spec: DatasetSpec) -> xr.Datase
 
     ds = kernels.normalize_lon(ds, "lon").sortby("lat").sortby("lon")
 
-    # OM4 (and therefore every rollout derived from it) carries a cftime axis,
-    # which cannot be compared against the pandas timestamps the metrics select
-    # windows with -- `.sel(time=slice(...))` raises "different calendars".
-    # Normalise here, at the single entry point into comparison form, so callers
-    # never have to think about which calendar a store happened to use.
+    # OM4 and its rollouts carry a cftime axis, which cannot be compared
+    # against the pandas timestamps used to select windows. Normalise at this
+    # single entry point so callers need not know the store's calendar.
     if "time" in ds.coords:
         ds = ds.assign_coords(time=kernels.coerce_datetime_values(ds["time"].values))
     return ds

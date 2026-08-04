@@ -47,7 +47,9 @@ def test_a_spatial_wave_lands_in_its_own_wavenumber_bin():
 
 def test_a_flat_field_has_no_spectrum_and_a_tiny_region_is_refused():
     """Constant input carries no power, and a region too small to transform fails."""
-    wavenumber, power = spectra.isotropic_spectrum(np.full((64, 64), 3.0), dx=1.0, dy=1.0)
+    wavenumber, power = spectra.isotropic_spectrum(
+        np.full((64, 64), 3.0), dx=1.0, dy=1.0
+    )
     assert np.allclose(power, 0.0, atol=1e-20)
     assert (wavenumber > 0).all()
 
@@ -101,9 +103,7 @@ def test_log10_curve_rmse_measures_multiplicative_error():
 
     # Non-overlapping domains have no answer rather than a wrong one.
     assert np.isnan(
-        spectra.log10_rmse_between_curves(
-            wavenumber, power, wavenumber * 1e6, power
-        )
+        spectra.log10_rmse_between_curves(wavenumber, power, wavenumber * 1e6, power)
     )
 
 
@@ -135,9 +135,7 @@ def test_region_spectrum_uses_physical_wavenumbers():
         coords={"lat": lat, "lon": lon},
     )
 
-    wavenumber, power = spectra.region_spectrum(
-        field, slice(300, 320), slice(25, 45)
-    )
+    wavenumber, power = spectra.region_spectrum(field, slice(300, 320), slice(25, 45))
     assert wavenumber.size and power.size
     # Degrees would put the first bin near 0.01; kilometres put it far lower.
     assert wavenumber.max() < 0.1

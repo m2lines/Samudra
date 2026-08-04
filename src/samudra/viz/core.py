@@ -13,7 +13,7 @@ import warnings
 from collections.abc import Iterable
 from copy import deepcopy
 from subprocess import PIPE, STDOUT, Popen
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import cartopy.crs as ccrs  # type: ignore
 import cartopy.feature as cfeature  # type: ignore
@@ -37,6 +37,10 @@ from samudra.utils.data import (
     spherical_area_weights,
     with_level_index_vars,
 )
+from samudra.utils.location import ResolvedLocation
+
+if TYPE_CHECKING:
+    from samudra.config import ObsMetricsConfig
 
 logger = logging.getLogger(__name__)
 
@@ -115,6 +119,8 @@ class Viz:
         basins: xr.Dataset,
         groundtruth_rollout: xr.Dataset,
         time_range: slice,
+        observations: "ObsMetricsConfig | None" = None,
+        data_root: ResolvedLocation | None = None,
     ):
         pred_dict: dict[str, dict[str, Any]] = {}
         for run in runs:
@@ -248,6 +254,16 @@ class Viz:
         self.levels: int = levels
         self.key1: str = key1
         self.output_path: str = output_path
+
+        # The observation steps work from the rollouts as written, not from the
+        # `pred_dict` the other steps share: they reduce through
+        # `samudra.metrics`, which needs the same input `samudra.eval` gets if
+        # the figures are to carry the same numbers.
+        self.observations = observations
+        self.obs_data_root = data_root
+        self.raw_runs: list[VizRun] = list(runs)
+        self.obs_path = os.path.join(output_path, "Figures_observations")
+        self._obs_cache: tuple | None = None
 
     def step_timeseries_plots(self):
         ### Plotting timeseries for each variable for each level
@@ -3742,6 +3758,103 @@ class Viz:
                 overwrite_existing=True,
             )
 
+    # Observation comparison
+    #
+    # These recompute through `samudra.metrics` rather than reading anything
+    # `samudra.eval` wrote, so viz runs against any rollout on its own. Sharing
+    # the kernels is what keeps the numbers on the figures equal to the numbers
+    # in W&B.
+    # ------------------------------------------------------------------
+
+    def _obs_inputs(self):
+        """Observation products, rollouts on the observation grid, and the frame.
+
+        Computed once and cached: the metric frame costs a full reduction over
+        the record, and every observation step wants the same one.
+        """
+        if getattr(self, "_obs_cache", None) is not None:
+            return self._obs_cache
+        if self.observations is None or self.obs_data_root is None:
+            raise ValueError(
+                "This viz config has no `observations` block, so there is "
+                "nothing to compare against. Add one (see "
+                "src/samudra/configs/data/obs.yaml)."
+            )
+
+        from samudra.metrics import observations as obs_loaders
+        from samudra.metrics import report as obs_report
+
+        products = obs_loaders.open_products(self.observations, self.obs_data_root)
+        rollouts = {
+            run.name: obs_loaders.model_on_latlon_grid(run.data, self.dataset_spec)
+            for run in self.raw_runs
+        }
+        thickness = {
+            name: obs_loaders.model_depth_thickness(rollout, self.dataset_spec)
+            for name, rollout in rollouts.items()
+        }
+
+        logger.info("Computing observation metrics for %s", ", ".join(rollouts))
+        frame = obs_report.compute_observation_metrics(
+            rollouts,
+            duacs=products["duacs"],
+            oisst=products["oisst"],
+            argo=products["argo"],
+            model_dz=thickness,
+            window=self.observations.window,
+            bootstrap_samples=self.observations.bootstrap_samples,
+            velocity_kind=self.observations.velocity_kind,
+        )
+        os.makedirs(self.obs_path, exist_ok=True)
+        frame.to_csv(
+            os.path.join(self.obs_path, "observation_metrics.csv"), index=False
+        )
+
+        self._obs_cache = (rollouts, products, frame)
+        return self._obs_cache
+
+    def step_obs_rmse_maps(self):
+        """Per-cell RMSE maps for velocity, EKE, SST and both OHC layers."""
+        from samudra.viz import observations as obs_figures
+
+        rollouts, products, frame = self._obs_inputs()
+        assert self.observations is not None  # established by _obs_inputs
+        obs_figures.rmse_map_figures(
+            rollouts, products, frame, self.observations.window, self.obs_path
+        )
+
+    def step_obs_annual_rmse(self):
+        """Per-year totals behind each headline score, with its interval."""
+        from samudra.viz import observations as obs_figures
+
+        _, _, frame = self._obs_inputs()
+        obs_figures.save(
+            obs_figures.annual_rmse_panel(frame, "Annual total RMSE vs observations"),
+            self.obs_path,
+            "annual_total_rmse_vs_observations",
+        )
+
+    def step_obs_variance_maps(self):
+        """Residual-anomaly variance maps for SST and upper-700 m OHC."""
+        from samudra.viz import observations as obs_figures
+
+        rollouts, products, frame = self._obs_inputs()
+        obs_figures.variance_map_figures(rollouts, products, frame, self.obs_path)
+
+    def step_obs_timeseries(self):
+        """Global-mean SST, EKE and OHC series, with trends and residuals."""
+        from samudra.viz import observations as obs_figures
+
+        rollouts, products, _ = self._obs_inputs()
+        obs_figures.timeseries_figures(rollouts, products, self.obs_path)
+
+    def step_obs_spectra(self):
+        """Spatial and temporal spectra, and their interannual bands."""
+        from samudra.viz import observations as obs_figures
+
+        rollouts, products, _ = self._obs_inputs()
+        obs_figures.spectra_figures(rollouts, products, self.obs_path)
+
 
 def isnan(x: xr.DataArray) -> xr.DataArray:
     """Wrapped around np.isnan which correctly reflects the type we use it on."""
@@ -4008,3 +4121,5 @@ def get_basin_datasets(ds, basin_masks, data):
         "Arctic",
         "Global",
     ]
+
+    # ------------------------------------------------------------------

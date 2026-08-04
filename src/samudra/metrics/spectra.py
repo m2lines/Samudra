@@ -60,9 +60,7 @@ def remove_plane(field: np.ndarray) -> np.ndarray:
     y = np.linspace(-1.0, 1.0, height)
     x = np.linspace(-1.0, 1.0, width)
     grid_y, grid_x = np.meshgrid(y, x, indexing="ij")
-    design = np.stack(
-        [grid_x.ravel(), grid_y.ravel(), np.ones(grid_x.size)], axis=1
-    )
+    design = np.stack([grid_x.ravel(), grid_y.ravel(), np.ones(grid_x.size)], axis=1)
     flat = field.reshape(-1, height * width)
     coefficients, *_ = np.linalg.lstsq(design, flat.T, rcond=None)
     plane = (design @ coefficients).T.reshape(-1, height, width)
@@ -110,18 +108,22 @@ def isotropic_spectrum(
             f"{num_bins} wavenumber bin(s), and a single bin describes no slope"
         )
 
-    array = remove_plane(array) if detrend else array - array.mean(axis=(-2, -1), keepdims=True)
+    array = (
+        remove_plane(array)
+        if detrend
+        else array - array.mean(axis=(-2, -1), keepdims=True)
+    )
 
     # A Hann window in both directions suppresses the discontinuity at the box
     # edges, which would otherwise ring across all wavenumbers. Dividing by the
     # mean squared window restores the variance the taper removes.
     window = np.outer(np.hanning(height), np.hanning(width))
     correction = float(np.mean(window**2))
-    spectrum_2d = np.abs(np.fft.rfft2(array * window, norm="forward")) ** 2
-    spectrum_2d = spectrum_2d / correction * (width * dx) * (height * dy)
+    power = np.abs(np.fft.rfft2(array * window, norm="forward")) ** 2
+    spectrum_2d = power / correction * (width * dx) * (height * dy)
 
-    k_x = np.fft.rfftfreq(width, d=dx)
-    k_y = np.fft.fftfreq(height, d=dy)
+    k_x: np.ndarray = np.fft.rfftfreq(width, d=dx)
+    k_y: np.ndarray = np.fft.fftfreq(height, d=dy)
     k_magnitude = np.hypot(*np.meshgrid(k_x, k_y, indexing="xy")[::-1])
 
     # Bin only out to the lower Nyquist. Beyond it the two axes disagree about
@@ -137,7 +139,8 @@ def isotropic_spectrum(
     flat_psd = spectrum_2d.reshape(n, -1)[:, retained]
 
     totals = np.zeros((n, num_bins))
-    np.add.at(totals, (slice(None), index), flat_psd)
+    for row, values in zip(totals, flat_psd, strict=True):
+        np.add.at(row, index, values)
     counts = np.bincount(index, minlength=num_bins).astype(float)
     isotropic = totals / np.clip(counts, 1.0, None) * centers
 
@@ -194,9 +197,7 @@ def region_spectrum(
     if "time" in region.dims:
         stack = []
         for step in range(region.sizes["time"]):
-            filled = _fill_for_spectrum(
-                region.isel(time=step), (lat_dim, lon_dim)
-            )
+            filled = _fill_for_spectrum(region.isel(time=step), (lat_dim, lon_dim))
             if filled is not None:
                 stack.append(filled)
         if not stack:

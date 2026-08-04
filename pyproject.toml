@@ -170,8 +170,13 @@ ini_options.addopts = "--jaxtyping-packages=data,datasets,beartype.beartype --st
 
 [tool.mypy]
 check_untyped_defs = true
-exclude = [ "^data/" ]
+# tests/reference holds code copied verbatim from the implementation being
+# compared against; it is checked by running it, not by type-checking it.
+exclude = [ "^data/", "^tests/reference/" ]
 overrides = [
+  # Copied verbatim from the implementation under comparison; rewriting it to
+  # satisfy a type checker would stop it being that implementation.
+  { module = [ "tests.reference.*" ], ignore_errors = true },
   { module = [
     "cftime.*",
     "scipy.*",

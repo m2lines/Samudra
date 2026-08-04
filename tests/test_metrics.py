@@ -19,7 +19,7 @@ import pytest
 import xarray as xr
 
 from samudra.constants import build_om4_spec
-from samudra.metrics import kernels, observations, report
+from samudra.metrics import comparisons, kernels, observations, report
 
 OM4_SPEC = build_om4_spec()
 
@@ -202,7 +202,7 @@ def test_misaligned_timestamps_raise_instead_of_interpolating():
         [1.0, 2.0, 3.0, 4.0], dims=["time"], coords={"time": stamps}
     )
     short_obs = long_model.isel(time=slice(0, 3))
-    trimmed_model, trimmed_obs = report._aligned(
+    trimmed_model, trimmed_obs = comparisons.align(
         long_model,
         short_obs,
         (pd.Timestamp("2020-01-01"), pd.Timestamp("2020-02-01")),
@@ -214,7 +214,7 @@ def test_misaligned_timestamps_raise_instead_of_interpolating():
     # genuine misalignment rather than a coverage difference.
     gapped_obs = long_model.isel(time=[0, 2, 3])
     with pytest.raises(ValueError, match="must match exactly"):
-        report._aligned(
+        comparisons.align(
             long_model,
             gapped_obs,
             (pd.Timestamp("2020-01-01"), pd.Timestamp("2020-02-01")),
@@ -478,12 +478,12 @@ def test_ohc_scores_only_whole_calendar_years():
     """
     months = pd.date_range("2021-01-01", "2022-12-01", freq="MS")
     full = xr.DataArray(np.ones(len(months)), dims=["time"], coords={"time": months})
-    kept, _ = report.whole_years(full, full, "full coverage")
+    kept, _ = comparisons.whole_years(full, full, "full coverage")
     assert kept.sizes["time"] == 24
 
     # Same series without its final December: 2022 goes, 2021 survives intact.
     short = full.isel(time=slice(0, -1))
-    trimmed, _ = report.whole_years(short, short, "missing december")
+    trimmed, _ = comparisons.whole_years(short, short, "missing december")
     labels = pd.DatetimeIndex(trimmed["time"].values)
     assert trimmed.sizes["time"] == 12
     assert labels[0].year == labels[-1].year == 2021
@@ -493,7 +493,7 @@ def test_ohc_scores_only_whole_calendar_years():
     partial = pd.date_range("2021-06-01", "2021-09-01", freq="MS")
     stub = xr.DataArray(np.ones(len(partial)), dims=["time"], coords={"time": partial})
     with pytest.raises(ValueError, match="twelve whole months"):
-        report.whole_years(stub, stub, "no complete year")
+        comparisons.whole_years(stub, stub, "no complete year")
 
 
 def test_driver_reports_every_headline_metric_as_a_plain_float():
@@ -590,8 +590,8 @@ def test_whole_years_drops_the_years_it_reports_dropping(caplog):
     )
     series = xr.DataArray(np.ones(len(months)), dims=["time"], coords={"time": months})
 
-    with caplog.at_level(logging.INFO, logger="samudra.metrics.report"):
-        kept, _ = report.whole_years(series, series, "interior gap")
+    with caplog.at_level(logging.INFO, logger="samudra.metrics.comparisons"):
+        kept, _ = comparisons.whole_years(series, series, "interior gap")
 
     assert "dropped partly covered year(s) [2022]" in caplog.text
     assert set(pd.DatetimeIndex(kept["time"].values).year) == {2021, 2023}
@@ -777,7 +777,9 @@ def test_coastal_erosion_is_measured_and_reported():
             coords={"lat": model_lat, "lon": model_lon},
         )
         paired = kernels.model_field_on_obs_grid(model, obs)
-        recorded = report._pairing(paired, obs)
+        recorded = comparisons.Comparison(
+            "coastal erosion", model, obs, _area(obs.lat.values, obs.lon.values)
+        ).pairing
 
         # The reported fraction is the real one, not an estimate.
         ocean_cells = int(np.isfinite(obs).sum())

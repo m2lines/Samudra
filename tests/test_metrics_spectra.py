@@ -12,9 +12,11 @@ drifted.
 import numpy as np
 import pandas as pd
 import pytest
+import torch
 import xarray as xr
 
 from samudra.metrics import spectra
+from tests.reference import obs_evaluation_spectra as reference
 
 
 def test_a_spatial_wave_lands_in_its_own_wavenumber_bin():
@@ -147,68 +149,89 @@ def test_region_spectrum_uses_physical_wavenumbers():
 
 
 def test_isotropic_spectrum_reproduces_the_reference_implementation():
-    """Pin the transform against the reference suite it was ported from.
+    """Run the implementation this was ported from and compare, shape by shape.
 
-    The analytic tests above check that the spectrum is *a* correct spectrum;
-    they pass under either Hann convention (symmetric or periodic) and either
-    bin-edge convention, both of which shift power between neighbouring bins by
-    a percent or more. Only fixed values from the reference pin those choices.
+    The analytic tests above check that the spectrum is *a* correct spectrum:
+    they pass under either Hann convention (symmetric or periodic), either
+    bin-edge convention, and either bin-count, each of which shifts power
+    between neighbouring bins by a percent or more. Only the reference pins
+    those choices, and it is called here the way its spectral figures call it --
+    `n_factor=2` and `cutoff_before_bins=False`, which are not its defaults.
 
-    Values come from `compute_isotropic_spectrum_torch` in the reference suite
-    (`YuanYuan98/Ocean_Emulator:viz_jupyter/obs_evaluation.py` @ 33d4ae2e) as
-    its spectral figures call it, on the field built below. The field is
-    closed-form rather than random so the numbers do not depend on a generator
-    implementation.
+    Fields are closed-form rather than random so a failure is reproducible, and
+    the grids include the shapes where this actually bit: non-square, unequal
+    spacing, and a realistic region box.
 
-    That reference is outside this repository, so these numbers cannot be
-    regenerated from a clean checkout. `tests/reference/regenerate_spectral_
-    golden.py` reproduces them given a copy of that file, and records the exact
-    call parameters used -- which are the reference's figure call sites, not its
-    function defaults.
-
-    The tolerance is loose because a bin edge and a mode wavenumber can be
-    equal in exact arithmetic but differ in the last bit once computed, which
-    moves a handful of modes between adjacent bins. On this grid that affects
-    two bins of thirty-seven by about half a percent; everything else agrees to
-    machine precision.
+    A bin edge and a mode wavenumber can be equal in exact arithmetic yet differ
+    in the last bit once computed, which moves a handful of modes between
+    adjacent bins. That is the only disagreement tolerated here.
     """
-    height, width = 120, 240
-    dy = 0.125 * spectra.METRES_PER_DEGREE  # a 1/8 degree box, the DUACS grid
-    dx = dy * np.cos(np.deg2rad(37.5))
+    degree = spectra.METRES_PER_DEGREE
+    cases = [
+        # (height, width, dx, dy)
+        (64, 64, degree, degree),
+        (120, 240, 0.125 * degree * np.cos(np.deg2rad(37.5)), 0.125 * degree),
+        (96, 128, 0.25 * degree, 0.25 * degree),
+        (90, 150, 0.25 * degree * np.cos(np.deg2rad(-40.0)), 0.25 * degree),
+        (72, 72, 0.5 * degree, 0.125 * degree),
+    ]
 
-    row, col = np.meshgrid(np.arange(height), np.arange(width), indexing="ij")
-    field = (
-        np.sin(2 * np.pi * col / 40.0) * np.cos(2 * np.pi * row / 25.0)
-        + 0.5 * np.sin(2 * np.pi * (col + 2 * row) / 13.0)
-        + 0.25 * np.cos(2 * np.pi * col / 7.0)
-        + 0.01 * col
-        - 0.02 * row
-        + 3.0
-    )
+    for height, width, dx, dy in cases:
+        row, col = np.meshgrid(np.arange(height), np.arange(width), indexing="ij")
+        field = (
+            np.sin(2 * np.pi * col / 40.0) * np.cos(2 * np.pi * row / 25.0)
+            + 0.5 * np.sin(2 * np.pi * (col + 2 * row) / 13.0)
+            + 0.25 * np.cos(2 * np.pi * col / 7.0)
+            + 0.01 * col
+            - 0.02 * row
+            + 3.0
+        )
 
-    wavenumber, power = spectra.isotropic_spectrum(field, dx=dx, dy=dy)
-    assert wavenumber.size == 37
+        reference_k, reference_power = reference.compute_isotropic_spectrum_torch(
+            torch.tensor(field, dtype=torch.float64),
+            dx=dx,
+            dy=dy,
+            n_factor=2,
+            detrend="linear",
+            window="hann",
+            cutoff_before_bins=False,
+        )
+        expected_k = reference_k.numpy() * spectra.RADIANS_PER_KM
+        expected_power = reference_power.numpy()
 
-    sampled = [0, 7, 15, 22, 28, 36]
-    assert wavenumber[sampled] * spectra.RADIANS_PER_KM == pytest.approx(
-        [
-            3.027149616268e-03,
-            4.540724424402e-02,
-            9.384163810430e-02,
-            1.362217327320e-01,
-            1.725475281273e-01,
-            2.209819219875e-01,
-        ],
-        rel=1e-10,
+        wavenumber, power = spectra.isotropic_spectrum(field, dx=dx, dy=dy)
+        wavenumber = wavenumber * spectra.RADIANS_PER_KM
+
+        where = f"{height}x{width}, dx={dx:.0f} m, dy={dy:.0f} m"
+        assert wavenumber.shape == expected_k.shape, where
+        assert wavenumber == pytest.approx(expected_k, rel=1e-12), where
+
+        # Assert the *shape* of the disagreement, not a blanket tolerance. Edge
+        # ties move a couple of bins and nothing else; every convention this
+        # test exists to pin moves all of them. Measured: 2 bins here against
+        # 37 of 37 under a symmetric window.
+        relative = np.abs(power - expected_power) / np.abs(expected_power)
+        assert int((relative > 1e-9).sum()) <= 3, where
+        assert relative.max() < 1e-2, where
+
+
+def test_isotropic_spectrum_matches_the_reference_on_a_stack():
+    """A stack of fields must reduce exactly as one field at a time does."""
+    rng = np.random.default_rng(0)
+    stack = rng.normal(size=(4, 64, 96))
+    dx = dy = 0.25 * spectra.METRES_PER_DEGREE
+
+    expected_k, expected_power = reference.compute_isotropic_spectrum_torch(
+        torch.tensor(stack, dtype=torch.float64),
+        dx=dx,
+        dy=dy,
+        n_factor=2,
+        detrend="linear",
+        window="hann",
+        cutoff_before_bins=False,
     )
-    assert power[sampled] == pytest.approx(
-        [
-            1.365895408886e00,
-            2.550728183756e-02,
-            4.485457471581e00,
-            1.767014781605e-04,
-            9.309961775224e-06,
-            9.342251409054e-07,
-        ],
-        rel=1e-3,
-    )
+    wavenumber, power = spectra.isotropic_spectrum(stack, dx=dx, dy=dy)
+
+    assert wavenumber == pytest.approx(expected_k.numpy(), rel=1e-12)
+    relative = np.abs(power - expected_power.numpy()) / np.abs(expected_power.numpy())
+    assert relative.max() < 1e-2

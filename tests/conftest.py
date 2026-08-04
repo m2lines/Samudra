@@ -16,15 +16,18 @@ import xarray as xr
 from numpy.typing import ArrayLike, NDArray
 
 import samudra.constants as c
-from samudra.config import JulianDate, TrainBackendConfig, TrainConfig, TrainSchedule
+from samudra.config import TrainBackendConfig, TrainConfig
 from samudra.train import Trainer
 from samudra.utils.data import DataSource, Masks, _is_compact, compact_dataset
 from samudra.utils.multiton import MultitonScope
 
 REMOTE_DATA = "https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/"
-DEFAULT_CONFIG = "test/train_default.yaml"
-SAMUDRA_MULTI_CONFIG = "test/train_samudra_multi.yaml"
-ALL_CONFIGS = [DEFAULT_CONFIG, "test/train_default_2step.yaml", SAMUDRA_MULTI_CONFIG]
+# Test-only config fixtures live alongside the tests (they aren't shipped in the
+# wheel, unlike the presets under src/samudra/configs).
+TEST_CONFIGS_DIR = pathlib.Path(__file__).parent / "configs"
+DEFAULT_CONFIG = "train_default.yaml"
+SAMUDRA_MULTI_CONFIG = "train_samudra_multi.yaml"
+ALL_CONFIGS = [DEFAULT_CONFIG, "train_default_2step.yaml", SAMUDRA_MULTI_CONFIG]
 TEST_DATASET_SPEC = c.build_om4_spec(
     prognostic_vars_key="thetao_1",
     boundary_vars_key="hfds",
@@ -159,7 +162,7 @@ class DataSourceDims:
     days_since_start: NDArray[np.uint32] = dataclasses.field(
         default_factory=lambda: np.array([0, 5, 10], dtype=np.uint32)
     )
-    start_day: cftime.datetime = JulianDate("1969-08-05").datetime
+    start_day: cftime.datetime = cftime.DatetimeJulian(1969, 8, 5, 12)
 
     def __post_init__(self):
         if np.any(self.lat < -90.0) or np.any(self.lat > 90.0):
@@ -311,11 +314,6 @@ def loader_version(request: pytest.FixtureRequest) -> c.LoaderVersion:
 
 @pytest.fixture(scope="session", params=[0, 1], ids=lambda x: f"hist{x}")
 def history(request: pytest.FixtureRequest) -> int:
-    return request.param
-
-
-@pytest.fixture(scope="session", params=["standard", "match", "mix"])
-def schedule(request: pytest.FixtureRequest) -> TrainSchedule:
     return request.param
 
 
@@ -528,10 +526,11 @@ def extra_config_args(request) -> list[str]:
 _NEXT_TEST_ID = 0
 
 
-def unique_test_name(config_name: str) -> str:
+def unique_test_name(config_name: str, pytestconfig: pytest.Config) -> str:
     global _NEXT_TEST_ID
     _NEXT_TEST_ID += 1
-    return f"test_{config_name}_{_NEXT_TEST_ID}"
+    worker_id = getattr(pytestconfig, "workerinput", {}).get("workerid", "local")
+    return f"test_{worker_id}_{config_name}_{_NEXT_TEST_ID}"
 
 
 @pytest.fixture(scope="function")
@@ -555,14 +554,14 @@ def train_config(
     train_config = TrainConfig.from_yaml_and_cli(
         [
             # file to read
-            str(pytestconfig.rootpath / "configs" / config_name),
+            str(TEST_CONFIGS_DIR / config_name),
             "--experiment.data_root",
             str(cache / data_source.name),
             "--backend",
             backend,
             "--experiment.name",
             # we make a unique name to avoid collisions on disk for output files
-            unique_test_name(config_name),
+            unique_test_name(config_name, pytestconfig),
         ]
         + extra_config_args
     )

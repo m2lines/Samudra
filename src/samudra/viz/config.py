@@ -11,7 +11,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, BeforeValidator, Field, WithJsonSchema
 
-from samudra.config import TimeConfig
+from samudra.config import DataConfig, Om4TimeConfig
 from samudra.config_base import TopLevelConfig
 from samudra.utils.location import LocalLocation, Location, ResolvedLocation
 from samudra.utils.logging import handle_logging
@@ -74,10 +74,21 @@ class VizTemplateConfig(TopLevelConfig):
     # Return a fresh default variable list for each config instance.
     variables: list[str] = Field(default_factory=default_viz_variables)
     data_root: Location | None = None
-    groundtruth_location: Location
+    data: DataConfig | None = Field(
+        default=None,
+        description="Optional data source, matching train/eval. When set, ground "
+        "truth defaults to its primary source's data_location, so "
+        "`--data @data/om4_demo.yaml` works the same across train, eval, and viz. "
+        "An explicit `groundtruth_location` overrides it.",
+    )
+    groundtruth_location: Location | None = Field(
+        default=None,
+        description="Ground-truth rollout data. Optional when `data` is set (then it "
+        "defaults to that source's data_location); otherwise required.",
+    )
     basins_location: Location
     # TODO(jder): we could extract this from the run data?
-    groundtruth_time_range: TimeConfig = Field(
+    groundtruth_time_range: Om4TimeConfig = Field(
         description="Dates from the rollout (not same as eval *input* dates; these are the dates the output is produced for during eval)"
     )
     steps: list[VizStep] | None = Field(
@@ -95,12 +106,23 @@ class VizTemplateConfig(TopLevelConfig):
             return default_root
         return default_root.resolve(self.data_root)
 
+    def _groundtruth_location(self) -> Location:
+        """Ground-truth location: explicit if given, else the primary data source."""
+        if self.groundtruth_location is not None:
+            return self.groundtruth_location
+        if self.data is not None:
+            return self.data.sources[0].data_location
+        raise ValueError(
+            "viz needs ground-truth data: set `groundtruth_location`, or pass a "
+            "data source (e.g. --data @data/om4_demo.yaml)."
+        )
+
     def prepare_groundtruth(
         self,
         default_root: ResolvedLocation,
     ) -> PreparedVizGroundtruth:
         data_root = self._data_root(default_root)
-        groundtruth_rollout = data_root.resolve(self.groundtruth_location).open(
+        groundtruth_rollout = data_root.resolve(self._groundtruth_location()).open(
             chunks={}
         )
         return prepare_viz_groundtruth(

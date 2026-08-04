@@ -150,13 +150,13 @@ def main():
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("configs/schemas"),
+        default=Path("src/samudra/configs/schemas"),
         help="Directory to save the generated schemas",
     )
     parser.add_argument(
         "--validate-dir",
         type=Path,
-        default=Path("configs"),
+        default=Path("src/samudra/configs"),
         help="Directory of config files to validate",
     )
 

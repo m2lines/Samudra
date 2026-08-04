@@ -52,16 +52,16 @@ class ResolvedLocation(ABC):
     def resolve(self, location: "Location") -> "ResolvedLocation":
         pass
 
-    @abstractmethod
-    def supports_fork(self) -> bool:
-        pass
-
     def __truediv__(self, other: "Location") -> "ResolvedLocation":
         return self.resolve(other)
 
 
 class S3Location(ResolvedLocation, BaseModel):
     """An S3 bucket, assuming credentials in your environment.
+
+    Set ``anon: true`` to read a public bucket without credentials (e.g. the
+    open datasets on OSN); leave it false to sign requests with the usual
+    ``AWS_*`` environment variables.
 
     For example:
     ```yaml
@@ -74,16 +74,20 @@ class S3Location(ResolvedLocation, BaseModel):
 
     type: Literal["s3"] = "s3"
     endpoint_url: str | None = None
+    anon: bool = False
     bucket: str
     path: str
 
     def open(self, chunks: dict[str, int] | None = None) -> xr.Dataset:
         # TODO(jder): could consider passing credentials here
         # rather than relying on the environment
+        storage_options: dict[str, Any] = {"endpoint_url": self.endpoint_url}
+        if self.anon:
+            storage_options["anon"] = True
 
         return xr.open_dataset(
             self.url(),
-            backend_kwargs={"storage_options": {"endpoint_url": self.endpoint_url}},
+            backend_kwargs={"storage_options": storage_options},
             engine="zarr",
             chunks=chunks,
         )
@@ -97,13 +101,11 @@ class S3Location(ResolvedLocation, BaseModel):
         if isinstance(location, UnresolvedLocation):
             return S3Location(
                 endpoint_url=self.endpoint_url,
+                anon=self.anon,
                 bucket=self.bucket,
                 path=urljoin(self.path + "/", location.path),
             )
         return location
-
-    def supports_fork(self) -> bool:
-        return False  # s3fs does not support forking
 
     def __str__(self) -> str:
         return self.url()
@@ -142,9 +144,6 @@ class LocalLocation(ResolvedLocation, BaseModel):
         if isinstance(location, UnresolvedLocation):
             return LocalLocation(path=self.path / location.path)
         return location
-
-    def supports_fork(self) -> bool:
-        return True
 
     def __str__(self) -> str:
         return str(self.path)

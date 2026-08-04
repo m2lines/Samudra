@@ -10,7 +10,7 @@ import torch
 import xarray as xr
 from scipy.stats import pearsonr
 
-from samudra.constants import TensorMap
+from samudra.constants import TensorMap, build_llc_spec
 from samudra.utils.data import (
     DataSource,
     Masks,
@@ -19,10 +19,20 @@ from samudra.utils.data import (
     compute_anomalies,
     flatten_masks,
     get_aggregator_dicts,
+    stack_levels,
     unflatten_masks,
+    with_depth_value_vars,
+    with_lat_lon_coords,
     with_level_index_vars,
 )
+from samudra.utils.llc import (
+    _flatten_llc_level_vars,
+    _rename_llc_level_index_vars,
+    _var_without_level,
+    canonicalize_llc_datasets,
+)
 from tests.conftest import TEST_DATASET_SPEC, TEST_FULL_DATASET_SPEC
+from tests.llc_fixtures import raw_llc_datasets
 
 
 def test_mask_roundtrip(data_source):
@@ -32,6 +42,84 @@ def test_mask_roundtrip(data_source):
     flattened = flatten_masks(unflattened.copy(), dataset_spec=TEST_DATASET_SPEC)
 
     assert flattened == data, "Assume a safe roundtrip"
+
+
+@pytest.mark.parametrize("data_source", ["mock-om4"], indirect=True)
+def test_level_index_vars_roundtrip(data_source):
+    """`with_level_index_vars` and `with_depth_value_vars` are mutual inverses.
+
+    Exercised on the mock OM4 dataset (in ``<var>_<level_index>`` form) in both
+    orders, so each function is run against the other's real output.
+    """
+    spec = TEST_FULL_DATASET_SPEC
+    ds_idx = data_source.data  # OM4 data named <var>_<level_index>
+
+    ds_lev = with_depth_value_vars(ds_idx, spec)
+    # The inverse actually renamed the 3D vars to the depth-value form.
+    assert any("_lev_" in str(v) for v in ds_lev.variables)
+
+    # inverse -> forward recovers the index form ...
+    xr.testing.assert_identical(with_level_index_vars(ds_lev, spec), ds_idx)
+    # ... and forward -> inverse recovers the depth-value form.
+    xr.testing.assert_identical(
+        with_depth_value_vars(with_level_index_vars(ds_lev, spec), spec), ds_lev
+    )
+
+
+@pytest.mark.parametrize("data_source", ["mock-om4"], indirect=True)
+def test_stack_levels(data_source):
+    """`stack_levels` reassembles flattened OM4 data into depth-stacked form."""
+    spec = TEST_FULL_DATASET_SPEC
+    ds = data_source.data
+    n = len(spec.depth_levels)
+
+    stacked = stack_levels(ds, spec)
+
+    # 3D vars gain a `lev` dimension; per-level channels are gone.
+    for base in ["thetao", "so", "uo", "vo"]:
+        assert stacked[base].sizes["lev"] == n
+        assert f"{base}_0" not in stacked.variables
+    # Per-level masks collapse into a single stacked wetmask.
+    assert stacked["wetmask"].sizes["lev"] == n
+    assert "mask_0" not in stacked.variables
+    # Level-free variables are untouched.
+    assert "lev" not in stacked["zos"].dims
+
+
+def test_with_lat_lon_coords_preserves_2d_geometry():
+    """Real OM4 layout (y/x dims, 2D lat/lon) becomes 1D lat/lon dims + lat_2d/lon_2d.
+
+    The mock fixtures use lat/lon dims directly, so this is the only coverage of the
+    y/x -> lat/lon rename and the 2D-coordinate preservation that eval relies on to
+    propagate true geometry (essential for curvilinear grids, where the 2D lat/lon
+    cannot be rebuilt by broadcasting).
+    """
+    ny, nx = 3, 4
+    y = np.linspace(-60, 60, ny)
+    x = np.linspace(0, 270, nx)
+    # A curvilinear twist so lat_2d/lon_2d are NOT the outer product of the 1D axes.
+    lat2d = y[:, None] + 0.1 * x[None, :]
+    lon2d = x[None, :] + 0.1 * y[:, None]
+    ds = xr.Dataset(
+        {"thetao_0": (["y", "x"], np.ones((ny, nx)))},
+        coords={
+            "x": ("x", x),
+            "y": ("y", y),
+            "lat": (("y", "x"), lat2d),
+            "lon": (("y", "x"), lon2d),
+        },
+    )
+
+    out = with_lat_lon_coords(ds)
+
+    # x/y dims are renamed to 1D lat/lon dims ...
+    assert out["thetao_0"].dims == ("lat", "lon")
+    np.testing.assert_array_equal(out["lat"].values, y)
+    np.testing.assert_array_equal(out["lon"].values, x)
+    # ... and the real 2D geometry is kept verbatim under non-colliding names.
+    assert out["lat_2d"].dims == ("lat", "lon")
+    np.testing.assert_array_equal(out["lat_2d"].values, lat2d)
+    np.testing.assert_array_equal(out["lon_2d"].values, lon2d)
 
 
 def test_rename_vars():
@@ -223,6 +311,207 @@ def test_normalize_compact_mixed_depth_and_surface_stats(data_source):
     lat, lon = src.grid_size
     prognostic = torch.zeros(1, expected_prognostic_channels, lat, lon)
     assert normalize.normalize_tensor_prognostic(prognostic).shape == prognostic.shape
+
+
+def test_rename_llc_level_index_vars():
+    original = xr.Dataset(
+        {
+            "Theta_lev_0": 1.0,
+            "Salt_lev_50": 2.0,
+            "oceQnet": 3.0,
+        }
+    )
+
+    renamed = _rename_llc_level_index_vars(original)
+
+    assert set(renamed.data_vars) == {"Theta_0", "Salt_50", "oceQnet"}
+    assert renamed["Theta_0"].item() == 1.0
+    assert renamed["Salt_50"].item() == 2.0
+    assert "Theta_lev_0" in original.data_vars
+
+
+def test_raw_llc_fixture_uses_production_layout():
+    data, _, _ = raw_llc_datasets()
+
+    assert data["Theta"].dims == ("time", "k", "face", "j", "i")
+    assert data["W"].dims == ("time", "k_p1", "face", "j", "i")
+    assert data["hFacC"].dims == ("k", "face", "j", "i")
+    assert data["hFacW"].dims == ("k", "face", "j", "i_g")
+    assert data["hFacS"].dims == ("k", "face", "j_g", "i")
+    assert data["dxV"].dims == ("face", "j_g", "i_g")
+    assert data["dyU"].dims == ("face", "j_g", "i_g")
+    assert data["hFacC"].dtype == np.dtype("float32")
+    assert data["mask_c"].dtype == np.dtype("bool")
+
+
+def test_flatten_llc_level_vars():
+    raw_data, _, _ = raw_llc_datasets()
+    data = raw_data[["Theta"]].isel(face=0, drop=True).rename({"k": "lev"})
+    dataset_spec = build_llc_spec()
+
+    flattened = _flatten_llc_level_vars(data, dataset_spec=dataset_spec)
+
+    assert "Theta" not in flattened.data_vars
+    assert set(flattened.data_vars) == {
+        f"Theta_{level}" for level in dataset_spec.depth_i_levels
+    }
+    xr.testing.assert_identical(
+        flattened["Theta_0"], data["Theta"].isel(lev=0, drop=True).rename("Theta_0")
+    )
+    last_level = dataset_spec.depth_i_levels[-1]
+    xr.testing.assert_identical(
+        flattened[f"Theta_{last_level}"],
+        data["Theta"].isel(lev=-1, drop=True).rename(f"Theta_{last_level}"),
+    )
+
+
+@pytest.mark.parametrize(
+    ("var_name", "expected"),
+    [
+        ("Theta_0", "Theta"),
+        ("Theta_50", "Theta"),
+        ("oceQnet", "oceQnet"),
+    ],
+)
+def test_var_without_level(var_name, expected):
+    assert _var_without_level(var_name) == expected
+
+
+def test_canonicalize_llc_datasets_standardizes_layout():
+    data, means, stds = raw_llc_datasets()
+    dataset_spec = build_llc_spec(prognostic_vars_key="all", boundary_vars_key="all")
+    expected_theta_0 = data["Theta"].isel(time=0, face=1, k=0, j=1, i=1).item()
+
+    llc_data, llc_means, llc_stds = canonicalize_llc_datasets(
+        data,
+        means,
+        stds,
+        face=1,
+        i_start=1,
+        i_end=4,
+        j_start=1,
+        j_end=3,
+        dataset_spec=dataset_spec,
+    )
+
+    assert "face" not in llc_data.dims
+    assert "Theta" not in llc_data.variables
+    assert "wetmask" not in llc_data.variables
+    assert "Theta_0" in llc_data.variables
+    assert "Theta_50" in llc_data.variables
+    assert "U_0" in llc_data.variables
+    assert "V_0" in llc_data.variables
+    assert "wetmask_0" in llc_data.variables
+    assert "mask_w_0" in llc_data.variables
+    assert "mask_s_0" in llc_data.variables
+    assert llc_data["Theta_0"].dims == ("time", "y", "x")
+    assert llc_data["U_0"].dims == ("time", "y", "x")
+    assert llc_data["V_0"].dims == ("time", "y", "x")
+    assert llc_data["wetmask_0"].dims == ("y", "x")
+    assert llc_data["wetmask_0"].dtype == np.dtype("bool")
+    assert llc_data["mask_w_0"].dims == ("y", "x")
+    assert llc_data["mask_s_0"].dims == ("y", "x")
+    assert llc_data["Theta_0"].shape == (3, 2, 3)
+    assert llc_data["Theta_0"].isel(time=0, y=0, x=0).item() == expected_theta_0
+    assert np.issubdtype(llc_data.time.dtype, np.datetime64)
+    assert "Theta_0" in llc_means.variables
+    assert "Theta_0" in llc_stds.variables
+    assert "Theta_lev_0" not in llc_means.variables
+    assert "Theta_lev_0" not in llc_stds.variables
+
+
+def test_canonicalize_llc_datasets_uses_hfacc_without_mask_c():
+    data, means, stds = raw_llc_datasets()
+    data = data.drop_vars("mask_c")
+    expected = (
+        data["hFacC"]
+        .sel(face=1, drop=True)
+        .isel(k=0, j=slice(1, 3), i=slice(1, 4), drop=True)
+        .rename({"j": "y", "i": "x"})
+        .rename("wetmask_0")
+    )
+
+    llc_data, _, _ = canonicalize_llc_datasets(
+        data,
+        means,
+        stds,
+        face=1,
+        i_start=1,
+        i_end=4,
+        j_start=1,
+        j_end=3,
+        dataset_spec=build_llc_spec(),
+    )
+
+    assert "hFacC" not in llc_data.variables
+    xr.testing.assert_identical(llc_data["wetmask_0"], expected)
+
+
+def test_canonicalize_llc_datasets_selects_requested_vars_from_full_root():
+    data, means, stds = raw_llc_datasets()
+
+    llc_data, _, _ = canonicalize_llc_datasets(
+        data,
+        means,
+        stds,
+        face=1,
+        i_start=1,
+        i_end=4,
+        j_start=1,
+        j_end=3,
+        dataset_spec=build_llc_spec(),
+    )
+
+    llc_spec = build_llc_spec()
+    expected_vars = {
+        *(f"Theta_{i}" for i in llc_spec.depth_i_levels),
+        "oceQnet",
+        *llc_spec.mask_vars,
+    }
+    assert expected_vars.issubset(llc_data.data_vars)
+    assert "XG" not in llc_data.data_vars
+    assert "hFacW" not in llc_data.data_vars
+    assert "mask_w_0" not in llc_data.data_vars
+
+
+def test_llc_all_variable_masks_use_staggered_masks():
+    data, means, stds = raw_llc_datasets()
+    dataset_spec = build_llc_spec(prognostic_vars_key="all", boundary_vars_key="all")
+    llc_data, llc_means, llc_stds = canonicalize_llc_datasets(
+        data,
+        means,
+        stds,
+        face=1,
+        i_start=1,
+        i_end=4,
+        j_start=1,
+        j_end=3,
+        dataset_spec=dataset_spec,
+    )
+
+    source = DataSource.from_datasets(
+        llc_data,
+        llc_means,
+        llc_stds,
+        dataset_spec=dataset_spec,
+        prognostic_var_names=dataset_spec.prognostic_var_names,
+        boundary_var_names=dataset_spec.boundary_var_names,
+    )
+
+    theta_index = dataset_spec.prognostic_var_names.index("Theta_0")
+    u_index = dataset_spec.prognostic_var_names.index("U_0")
+    v_index = dataset_spec.prognostic_var_names.index("V_0")
+    assert bool(source.masks.prognostic[theta_index, 0, 0])
+    assert not bool(source.masks.prognostic[u_index, 0, 0])
+    assert not bool(source.masks.prognostic[v_index, 0, 1])
+
+    tau_x_index = dataset_spec.boundary_var_names.index("oceTAUX")
+    tau_y_index = dataset_spec.boundary_var_names.index("oceTAUY")
+    qnet_index = dataset_spec.boundary_var_names.index("oceQnet")
+    assert source.masks.boundary.shape == (len(dataset_spec.boundary_var_names), 2, 3)
+    assert not bool(source.masks.boundary[tau_x_index, 0, 0])
+    assert not bool(source.masks.boundary[tau_y_index, 0, 1])
+    assert bool(source.masks.boundary[qnet_index, 0, 0])
 
 
 @pytest.fixture

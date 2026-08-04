@@ -6,17 +6,47 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Samudra
 
+
+[![Open Quickstart in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/m2lines/Samudra/blob/main/notebooks/quickstart.ipynb)
 [![Pre-commit](https://github.com/m2lines/Samudra/actions/workflows/pre-commit.yml/badge.svg)](https://github.com/m2lines/Samudra/actions/workflows/pre-commit.yml)
 [![Test CPU](https://github.com/m2lines/Samudra/actions/workflows/test.yml/badge.svg)](https://github.com/m2lines/Samudra/actions/workflows/test.yml)
 [![Benchmark CPU](https://github.com/m2lines/Samudra/actions/workflows/benchmarks.yml/badge.svg)](https://github.com/m2lines/Samudra/actions/workflows/benchmarks.yml)
 [Benchmark Results](https://m2lines.github.io/Samudra/dev/bench/)
 
+
 Samudra is a global ocean emulator described in ["Samudra: An AI Global Ocean Emulator for Climate"](https://arxiv.org/abs/2412.03795) and updated in ["Samudra 2: Scaling Ocean Emulators across Resolutions"](https://m2lines.github.io/Samudra/samudra2/). Samudra efficiently emulates the ocean component of a state-of-the-art climate model, accurately reproducing key ocean variables including sea surface height, horizontal velocities, temperature, and salinity, across their full depth.
+
+![Sea Surface Temperature of the Tropical Pacific: Ground Truth vs Samudra v2](https://raw.githubusercontent.com/m2lines/Samudra/main/docs/static/assets/sst_tropical_pacific_ultra_small.gif "Sea Surface Temperature of the Tropical Pacific: Ground Truth vs Samudra v2")
+
+> Ground truth (left) vs. Samudra 2 prediction (right) for sea surface temperature in the tropical Pacific.
 
 We are actively and openly developing this emulator to support new tasks and data sources with the goal of building a broadly useful foundation model for ocean and climate. Please see [our docs](https://m2lines.github.io/Samudra/docs/) for more or [our contributing guide](https://m2lines.github.io/Samudra/docs/contributing/) to join in!
 
-## Sea Surface Temperature (SST) Emulation
+## How to run
 
-![](/docs/static/assets/sst_tropical_pacific_ultra_small.gif "Sea Surface Temperature of the Tropical Pacific: Ground Truth vs Samudra v2")
+To configure, train, validate, and visualize Samudra 2 in a browser on public
+data with a Colab GPU, open the
+[free-tier Colab quickstart](https://colab.research.google.com/github/m2lines/Samudra/blob/main/notebooks/quickstart.ipynb).
 
-> Ground truth (left) vs. Samudra 2 prediction (right) for sea surface temperature in the tropical Pacific.
+Given [`uv`](https://docs.astral.sh/uv/) is installed:
+
+```
+# Launch a training run with the default Samudra configuration
+uvx samudra train samudra_om4/train.yaml --data @data/om4_demo.yaml
+
+# Run a long autoregressive rollout against ground-truth data, collecting metrics.
+uvx samudra eval samudra_om4/eval.yaml --data @data/om4_demo.yaml
+
+# Generate maps, time series, and probability density plots from eval outputs.
+uvx samudra viz samudra_om4/viz.yaml --data @data/om4_demo.yaml
+```
+
+To learn more, check out the [installation](https://m2lines.github.io/Samudra/docs/getting-started/installation/) and [quick start](https://m2lines.github.io/Samudra/docs/getting-started/quick-start/) guides.
+
+<p>
+  <a href="https://www.nyu.edu/"><img src="https://raw.githubusercontent.com/m2lines/Samudra/main/docs/static/assets/nyu-logo.png" alt="NYU" /></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://www.princeton.edu/"><img src="https://raw.githubusercontent.com/m2lines/Samudra/main/docs/static/assets/princeton-university-logo.png" alt="Princeton University" /></a>
+  &nbsp;&nbsp;&nbsp;&nbsp;
+  <a href="https://openathena.ai/"><img src="https://raw.githubusercontent.com/m2lines/Samudra/main/docs/static/assets/open-athena-logo.png" alt="Open Athena" /></a>
+</p>

@@ -478,12 +478,12 @@ def test_ohc_scores_only_whole_calendar_years():
     """
     months = pd.date_range("2021-01-01", "2022-12-01", freq="MS")
     full = xr.DataArray(np.ones(len(months)), dims=["time"], coords={"time": months})
-    kept, _ = report._whole_years(full, full, "full coverage")
+    kept, _ = report.whole_years(full, full, "full coverage")
     assert kept.sizes["time"] == 24
 
     # Same series without its final December: 2022 goes, 2021 survives intact.
     short = full.isel(time=slice(0, -1))
-    trimmed, _ = report._whole_years(short, short, "missing december")
+    trimmed, _ = report.whole_years(short, short, "missing december")
     labels = pd.DatetimeIndex(trimmed["time"].values)
     assert trimmed.sizes["time"] == 12
     assert labels[0].year == labels[-1].year == 2021
@@ -493,7 +493,7 @@ def test_ohc_scores_only_whole_calendar_years():
     partial = pd.date_range("2021-06-01", "2021-09-01", freq="MS")
     stub = xr.DataArray(np.ones(len(partial)), dims=["time"], coords={"time": partial})
     with pytest.raises(ValueError, match="twelve whole months"):
-        report._whole_years(stub, stub, "no complete year")
+        report.whole_years(stub, stub, "no complete year")
 
 
 def test_driver_reports_every_headline_metric_as_a_plain_float():
@@ -574,7 +574,7 @@ def test_incomplete_calendar_years_are_rejected():
 def test_whole_years_drops_the_years_it_reports_dropping(caplog):
     """A ragged year in the middle of the record must go, not just be logged.
 
-    `_whole_years` promises that "a year missing a month has to go rather than
+    `whole_years` promises that "a year missing a month has to go rather than
     be silently down-weighted", but it only narrows the outer bound, so an
     interior ragged year survives underneath a log line announcing its removal.
     """
@@ -591,7 +591,7 @@ def test_whole_years_drops_the_years_it_reports_dropping(caplog):
     series = xr.DataArray(np.ones(len(months)), dims=["time"], coords={"time": months})
 
     with caplog.at_level(logging.INFO, logger="samudra.metrics.report"):
-        kept, _ = report._whole_years(series, series, "interior gap")
+        kept, _ = report.whole_years(series, series, "interior gap")
 
     assert "dropped partly covered year(s) [2022]" in caplog.text
     assert set(pd.DatetimeIndex(kept["time"].values).year) == {2021, 2023}
@@ -1053,3 +1053,98 @@ def test_the_rmse_map_aggregates_the_same_way_its_scalar_does():
         np.sqrt(kernels.area_weighted_mean(error_squared.mean("time"), area))
     )
     assert by_sample_count != pytest.approx(scalar, rel=1e-4)
+
+
+def test_paired_cell_counts_are_cell_counts_in_every_row():
+    """`n_paired_cells` has to mean one thing across the frame it is emitted in.
+
+    `_pairing` sums `isfinite` over every dimension its arguments carry. The
+    variance rows hand it two-dimensional maps and get a cell count; every RMSE
+    row hands it the time-varying field and gets cells times timesteps, which
+    on a real run is a factor of several hundred. Both land in the same
+    `n_paired_cells` column of the same CSV, and `paired_ocean_fraction` --
+    documented as the fraction of the observation ocean that survived pairing
+    -- is derived from whichever of the two the row happened to produce.
+
+    A cell count cannot exceed the number of cells on the grid, so that is what
+    is checked here rather than an exact number.
+    """
+    rollout, duacs, oisst, argo = _synthetic_case()
+    model = observations.model_on_latlon_grid(rollout, OM4_SPEC)
+
+    frame = report.compute_observation_metrics(
+        {"model": model},
+        duacs=duacs,
+        oisst=oisst,
+        argo=argo,
+        model_dz={"model": observations.model_depth_thickness(model, OM4_SPEC)},
+        window=(pd.Timestamp("2021-01-01"), pd.Timestamp("2022-12-31")),
+        bootstrap_samples=0,
+    )
+
+    # All three products share a grid in this fixture, so one bound covers the
+    # whole frame.
+    grid_cells = int(oisst.sizes["lat"] * oisst.sizes["lon"])
+    counted = frame[frame["n_paired_cells"].notna()]
+    assert not counted.empty
+    over = counted[counted["n_paired_cells"] > grid_cells]
+    assert over.empty, (
+        f"{len(over)} row(s) report more paired cells than the {grid_cells}-cell "
+        f"grid holds, e.g. {over.iloc[0]['metric']} = "
+        f"{over.iloc[0]['n_paired_cells']:.0f}: these count cells times "
+        "timesteps, while the residual-variance rows in the same column count "
+        "cells"
+    )
+
+
+def _om4_pentad_axis(years: tuple[int, ...]) -> pd.DatetimeIndex:
+    """OM4's time axis: 73 samples every calendar year, whatever its length.
+
+    A leap year therefore carries one six-day step, which shifts the calendar
+    dates of every sample after it relative to a common year.
+    """
+    stamps: list[pd.Timestamp] = []
+    for year in years:
+        start = pd.Timestamp(f"{year}-01-03")
+        length = 366 if pd.Timestamp(f"{year}-12-31").is_leap_year else 365
+        stamps += [
+            start + pd.Timedelta(days=round(i * length / 73.0)) for i in range(73)
+        ]
+    return pd.DatetimeIndex(stamps)
+
+
+def test_seasonal_removal_does_not_depend_on_leap_year_alignment():
+    """A climatological bin has to be reachable by more than one year's samples.
+
+    `without_seasonal_cycle` must not group on the literal month-day label. OM4
+    places 73 samples in every calendar year, so a leap year's six-day step
+    moves every later sample onto month-days no common year visits. Over a
+    window holding a single leap year those labels are unique, the
+    "climatology" for them is the one sample itself, and the anomaly is exactly
+    zero -- a whole timestep of ocean reported as having no anomaly at all,
+    feeding the SST spectra as a field of zeros.
+
+    Pentad bins do not have this property, which is why the rest of the module
+    uses them. On the axis below they leave no dead timestep where a month-day
+    grouping leaves 25 of 292. A second leap year in the window does not fix
+    that grouping, only softens it: the labels then carry two samples each.
+    """
+    time = _om4_pentad_axis((2018, 2019, 2020, 2021))  # 2020 is the leap year
+    lat, lon = _grid(4, 4)
+    rng = np.random.default_rng(0)
+    seasonal = np.cos(2 * np.pi * time.dayofyear.to_numpy() / 365.25)
+    field = xr.DataArray(
+        seasonal[:, None, None]
+        + rng.normal(scale=0.5, size=(time.size, lat.size, lon.size)),
+        dims=["time", "lat", "lon"],
+        coords={"time": time, "lat": lat, "lon": lon},
+    )
+
+    anomaly = kernels.without_seasonal_cycle(field)
+    per_step = np.abs(anomaly.values).mean(axis=(1, 2))
+    dead = time[per_step < 1e-12]
+    assert dead.empty, (
+        f"{dead.size} of {time.size} timesteps have an identically zero anomaly "
+        f"(first: {dead[0]:%Y-%m-%d}), because no other year in the window "
+        "visits that month-day"
+    )

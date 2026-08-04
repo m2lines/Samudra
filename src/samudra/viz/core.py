@@ -4153,5 +4153,3 @@ def get_basin_datasets(ds, basin_masks, data):
         "Arctic",
         "Global",
     ]
-
-    # ------------------------------------------------------------------

@@ -160,6 +160,12 @@ def test_isotropic_spectrum_reproduces_the_reference_implementation():
     closed-form rather than random so the numbers do not depend on a generator
     implementation.
 
+    That reference is outside this repository, so these numbers cannot be
+    regenerated from a clean checkout. `tests/reference/regenerate_spectral_
+    golden.py` reproduces them given a copy of that file, and records the exact
+    call parameters used -- which are the reference's figure call sites, not its
+    function defaults.
+
     The tolerance is loose because a bin edge and a mode wavenumber can be
     equal in exact arithmetic but differ in the last bit once computed, which
     moves a handful of modes between adjacent bins. On this grid that affects

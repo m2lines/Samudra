@@ -701,14 +701,18 @@ def detrend_linear_dataarray(
     return field - (slope * x + intercept)
 
 
-def detrended_deseasonalized(
-    field: xr.DataArray, time_dim: str = "time"
-) -> xr.DataArray:
-    """Remove the seasonal cycle and then a linear trend, per grid cell.
+def without_seasonal_cycle(field: xr.DataArray, time_dim: str = "time") -> xr.DataArray:
+    """Subtract a climatology, leaving the anomaly, per grid cell.
 
-    The residual is the quantity of interest: it isolates the variability a
-    model either reproduces or smooths away, with the trend and seasonal cycle,
-    which are easy to get right, taken out first.
+    Bins into pentads where the sampling supports it, then calendar months,
+    then falls back to the record mean. Pentads rather than literal calendar
+    dates: OM4 puts 73 samples in every calendar year, so a leap year carries
+    one six-day step and every later sample lands on a date no common year
+    visits. Grouping on the date itself would give those samples a climatology
+    made of themselves, and an anomaly of zero.
+
+    This is the field counterpart of `series_without_seasonal_cycle`, and the
+    deseasonalizing half of `detrended_deseasonalized`.
     """
     if field.sizes.get(time_dim, 0) == 0:
         return field
@@ -722,19 +726,29 @@ def detrended_deseasonalized(
             name="pentad",
         )
         with_pentad = field.assign_coords(pentad=pentad)
-        deseasonalized = with_pentad.groupby("pentad") - with_pentad.groupby(
-            "pentad"
-        ).mean(time_dim, skipna=True)
-        if "pentad" in deseasonalized.coords:
-            deseasonalized = deseasonalized.drop_vars("pentad")
-    elif has_repeated_calendar_months(time_index):
-        deseasonalized = field.groupby(f"{time_dim}.month") - field.groupby(
+        anomaly = with_pentad.groupby("pentad") - with_pentad.groupby("pentad").mean(
+            time_dim, skipna=True
+        )
+        return anomaly.drop_vars("pentad") if "pentad" in anomaly.coords else anomaly
+    if has_repeated_calendar_months(time_index):
+        return field.groupby(f"{time_dim}.month") - field.groupby(
             f"{time_dim}.month"
         ).mean(time_dim, skipna=True)
-    else:
-        deseasonalized = field - field.mean(time_dim, skipna=True)
+    return field - field.mean(time_dim, skipna=True)
 
-    return detrend_linear_dataarray(deseasonalized, time_dim=time_dim)
+
+def detrended_deseasonalized(
+    field: xr.DataArray, time_dim: str = "time"
+) -> xr.DataArray:
+    """Remove the seasonal cycle and then a linear trend, per grid cell.
+
+    The residual is the quantity of interest: it isolates the variability a
+    model either reproduces or smooths away, with the trend and seasonal cycle,
+    which are easy to get right, taken out first.
+    """
+    return detrend_linear_dataarray(
+        without_seasonal_cycle(field, time_dim=time_dim), time_dim=time_dim
+    )
 
 
 def residual_variance_map(
@@ -1045,22 +1059,3 @@ def rmse_map_with_uncertainty(
         dict(zip(years, (float(v) for v in annual_values), strict=True)),
         interannual_rmse_summary(annual_values, bootstrap_samples=bootstrap_samples),
     )
-
-
-def calendar_day_anomaly(field: xr.DataArray, time_dim: str = "time") -> xr.DataArray:
-    """Subtract the calendar-day climatology, leaving the anomaly.
-
-    Grouping on month-day rather than day-of-year keeps the climatology aligned
-    across leap and non-leap years. Removing the seasonal cycle this way rather
-    than removing the time mean matters wherever the seasonal cycle dominates
-    the variance, as it does for SST.
-    """
-    times = coerce_datetime_values(field[time_dim].values)
-    calendar_day = xr.DataArray(
-        np.asarray([f"{stamp.month:02d}-{stamp.day:02d}" for stamp in times]),
-        dims=[time_dim],
-        coords={time_dim: field[time_dim]},
-        name="calendar_day",
-    )
-    grouped = field.assign_coords(calendar_day=calendar_day).groupby("calendar_day")
-    return (grouped - grouped.mean(time_dim, skipna=True)).drop_vars("calendar_day")

@@ -257,3 +257,244 @@ def test_the_observation_steps_skip_when_no_products_are_configured():
     )
     for step in observation_steps:
         getattr(Viz, f"step_{step}")(unconfigured)
+
+
+def _shared_grid_case(
+    model_time: pd.DatetimeIndex,
+    obs_time: pd.DatetimeIndex,
+    argo_months: pd.DatetimeIndex,
+    *,
+    sst_profile: np.ndarray | None = None,
+    model_land: np.ndarray | None = None,
+) -> tuple[dict, dict]:
+    """A rollout and three products on one grid, so only masking and span differ.
+
+    Sharing the grid removes regridding from the picture: anything the figures
+    then disagree about is the figures' doing.
+
+    Args:
+        model_time: Rollout timestamps.
+        obs_time: DUACS/OISST timestamps; must contain `model_time`.
+        argo_months: ARGO-IAP month starts.
+        sst_profile: Per-latitude SST, broadcast over longitude and time.
+            Random noise when omitted.
+        model_land: Boolean latitude mask; True where the rollout has no water.
+    """
+    rng = np.random.default_rng(0)
+    lat = np.linspace(-79.0, 79.0, 20)
+    lon = np.arange(5.0, 360.0, 10.0)
+    levels = np.array(OM4_SPEC.depth_levels)
+    shape = (obs_time.size, lat.size, lon.size)
+
+    if sst_profile is None:
+        sst = 10 + rng.normal(size=shape)
+    else:
+        sst = np.broadcast_to(np.asarray(sst_profile)[None, :, None], shape).copy()
+
+    def product(data_vars, stamps, extra=None):
+        coords = {"lat": lat, "lon": lon, "time": stamps}
+        coords.update(extra or {})
+        return observations.with_cell_area(
+            observations.standardize(xr.Dataset(data_vars, coords=coords))
+        )
+
+    duacs = product(
+        {
+            "ugos": (("time", "lat", "lon"), rng.normal(scale=0.2, size=shape)),
+            "vgos": (("time", "lat", "lon"), rng.normal(scale=0.2, size=shape)),
+        },
+        obs_time,
+    )
+    oisst = product({"sst": (("time", "lat", "lon"), sst)}, obs_time)
+    depths = np.array([5.0, 50.0, 150.0, 400.0, 800.0, 1400.0, 1900.0])
+    argo = product(
+        {
+            "temp": (
+                ("time", "depth", "lat", "lon"),
+                10
+                + rng.normal(size=(argo_months.size, depths.size, lat.size, lon.size)),
+            )
+        },
+        argo_months,
+        {"depth": depths},
+    )
+
+    # The rollout reproduces the observations exactly, wherever it has water.
+    overlap = np.isin(obs_time.values, model_time.values)
+    model_sst = sst[overlap]
+    if model_land is not None:
+        model_sst[:, np.asarray(model_land), :] = np.nan
+    thetao = np.broadcast_to(
+        model_sst[:, None, :, :], (model_time.size, levels.size, lat.size, lon.size)
+    ).copy()
+
+    rollout = xr.Dataset(
+        {
+            "thetao": (("time", "lev", "y", "x"), thetao),
+            "zos": (
+                ("time", "y", "x"),
+                rng.normal(scale=0.1, size=(model_time.size, lat.size, lon.size)),
+            ),
+        },
+        coords={
+            "y": lat,
+            "x": lon,
+            "lat": (
+                ("y", "x"),
+                np.broadcast_to(lat[:, None], (lat.size, lon.size)).copy(),
+            ),
+            "lon": (
+                ("y", "x"),
+                np.broadcast_to(lon[None, :], (lat.size, lon.size)).copy(),
+            ),
+            "lev": levels,
+            "areacello": (("y", "x"), np.full((lat.size, lon.size), 1e10)),
+            "time": model_time,
+        },
+    )
+    rollouts = {"model": observations.model_on_latlon_grid(rollout, OM4_SPEC)}
+    return rollouts, {"duacs": duacs, "oisst": oisst, "argo": argo}
+
+
+def test_every_scored_metric_gets_the_map_that_explains_it(tmp_path):
+    """A metric with a headline scalar must also produce its RMSE map.
+
+    `report` reduces the monthly OHC series to the calendar years it covers in
+    full before scoring, because a monthly observation product routinely stops
+    part-way through a year. `rmse_map_figures` does not, so the same data
+    reaches `rmse_map_with_uncertainty` with a ragged final year, which is an
+    error there. The error is caught and logged at warning level, and both OHC
+    maps -- two of the five this PR adds -- vanish from the output directory
+    while their scalars sit in the CSV and in W&B.
+    """
+    model_time = pd.date_range("2020-01-01", "2022-12-31", freq="5D")
+    # ARGO-IAP lags: its last month is not December, which is the case
+    # `report._whole_years` exists to handle.
+    rollouts, products = _shared_grid_case(
+        model_time, model_time, pd.date_range("2020-01-01", "2022-10-01", freq="MS")
+    )
+    window = (pd.Timestamp("2020-01-01"), pd.Timestamp("2022-12-31 23:59:59"))
+    frame = report.compute_observation_metrics(
+        rollouts,
+        duacs=products["duacs"],
+        oisst=products["oisst"],
+        argo=products["argo"],
+        model_dz={
+            "model": observations.model_depth_thickness(rollouts["model"], OM4_SPEC)
+        },
+        window=window,
+        bootstrap_samples=0,
+    )
+
+    scored = set(
+        frame[frame["period_kind"] == "primary_complete_years"]["metric"].unique()
+    )
+    assert "ohc_per_area_total_rmse" in scored, "fixture no longer scores OHC"
+
+    written = figures.rmse_map_figures(rollouts, products, frame, window, str(tmp_path))
+    names = [path.rsplit("/", 1)[-1] for path in written]
+    missing = [name for name in names if "ohc" in name]
+    assert missing, (
+        "OHC has a scalar in the frame but no RMSE map figure was written; "
+        f"only {names} were produced"
+    )
+
+
+def test_the_global_mean_series_are_built_from_the_same_cells(tmp_path):
+    """A run that reproduces the observations exactly must not look biased.
+
+    The observation curve is an area-weighted mean over every cell the product
+    has; each run's curve covers only the cells that survived pairing, which
+    excludes the run's own land and the band that regridding erodes around it.
+    The gap between the two curves is then a property of the masks, and the
+    figure presents it as a mean-state bias.
+    """
+    model_time = pd.date_range("2021-01-03", "2022-12-29", freq="5D")
+    # Warm at the equator, cold at the poles, and the run treats the tropics as
+    # land -- an exaggerated stand-in for the coastal band regridding removes.
+    lat = np.linspace(-79.0, 79.0, 20)
+    rollouts, products = _shared_grid_case(
+        model_time,
+        model_time,
+        pd.date_range("2021-01-01", "2022-12-01", freq="MS"),
+        sst_profile=28.0 - 30.0 * np.sin(np.deg2rad(lat)) ** 2,
+        model_land=np.abs(lat) < 20.0,
+    )
+
+    drawn: dict[str, dict[str, pd.Series]] = {}
+    original = figures.series_panel
+
+    def capture(series, title, ylabel, annotations=None):
+        drawn.setdefault(title, series)
+        return original(series, title, ylabel, annotations)
+
+    figures.series_panel = capture
+    try:
+        figures.timeseries_figures(rollouts, products, str(tmp_path))
+    finally:
+        figures.series_panel = original
+
+    sst = drawn["Global mean SST"]
+    reference, run = sst["OISST"].mean(), sst["model"].mean()
+    assert run == pytest.approx(reference, abs=0.05), (
+        f"the run reproduces every cell it has, yet its global mean sits "
+        f"{run - reference:+.2f} degC from the observed one, because the two "
+        "means are taken over different sets of cells"
+    )
+
+
+def test_observation_curves_cover_the_record_the_runs_do(tmp_path):
+    """The reference must be reduced over the span the runs cover, not its own.
+
+    Every observation product outlives the rollout it is scored against --
+    OISST starts in 1982, DUACS in 1993. `variance_map_figures` now trims the
+    reference to the shared span; `timeseries_figures` and `spectra_figures`
+    still reduce it over the store's whole record, then draw it beside the runs
+    and annotate each with a trend, a residual variance and a year count.
+    Those annotations are the quantitative content of both figures, and they
+    are computed over different records.
+    """
+    obs_time = pd.date_range("2019-01-03", "2022-12-29", freq="5D")
+    model_time = obs_time[obs_time >= pd.Timestamp("2021-01-01")]
+    rollouts, products = _shared_grid_case(
+        model_time, obs_time, pd.date_range("2019-01-01", "2022-12-01", freq="MS")
+    )
+
+    series: dict[str, dict[str, pd.Series]] = {}
+    bands: dict[str, dict[str, dict]] = {}
+    original_series = figures.series_panel
+    original_bands = figures.interannual_spectra_panel
+
+    def capture_series(values, title, ylabel, annotations=None):
+        series.setdefault(title, values)
+        return original_series(values, title, ylabel, annotations)
+
+    def capture_bands(values, title, xlabel, ylabel):
+        bands.setdefault(title, values)
+        return original_bands(values, title, xlabel, ylabel)
+
+    figures.series_panel = capture_series
+    figures.interannual_spectra_panel = capture_bands
+    try:
+        figures.timeseries_figures(rollouts, products, str(tmp_path))
+        figures.spectra_figures(rollouts, products, str(tmp_path))
+    finally:
+        figures.series_panel = original_series
+        figures.interannual_spectra_panel = original_bands
+
+    sst = series["Global mean SST"]
+    assert sst["OISST"].index.min() == sst["model"].index.min(), (
+        f"the OISST curve starts {sst['OISST'].index.min():%Y-%m-%d} while the "
+        f"run starts {sst['model'].index.min():%Y-%m-%d}, so the trend and "
+        "residual variance annotated on each describe different records"
+    )
+
+    # `interannual_band` returns (x, mean, lower, upper, n_years); the panel
+    # prints that year count in the legend beside each curve.
+    temporal = bands["Interannual surface geostrophic KE temporal spectra"]
+    assert temporal["DUACS"]["Global"][4] == temporal["model"]["Global"][4], (
+        "the observed band aggregates "
+        f"{temporal['DUACS']['Global'][4]} years against the run's "
+        f"{temporal['model']['Global'][4]}, and the panel labels both as a "
+        "band of yearly spectra"
+    )

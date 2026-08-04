@@ -18,6 +18,7 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Callable, Iterable
+from typing import cast
 
 import cartopy.crs as ccrs  # type: ignore
 import cartopy.feature as cfeature  # type: ignore
@@ -28,7 +29,7 @@ import xarray as xr
 from cartopy.mpl.geoaxes import GeoAxes  # type: ignore
 
 from samudra.constants import build_om4_spec
-from samudra.metrics import kernels, observations, spectra
+from samudra.metrics import kernels, observations, report, spectra
 
 logger = logging.getLogger(__name__)
 
@@ -42,10 +43,6 @@ PLATE = ccrs.PlateCarree()
 # the most common colour-vision deficiencies.
 SERIES_COLOURS = ("#000000", "#0072b2", "#d55e00", "#009e73", "#cc79a7")
 
-# The residual-variance and spectral diagnostics characterise the whole
-# rollout rather than the scoring window, so they pass a span that never
-# trims and let the shared coverage decide.
-_FULL_SPAN = (pd.Timestamp.min, pd.Timestamp.max)
 
 # Steps a calendar year needs before it contributes to an interannual band.
 # Twelve is roughly two months at the 5-day cadence: enough for an annual mean
@@ -346,6 +343,7 @@ def rmse_map_figures(
     ) -> None:
         maps, notes = {}, {}
         for model, rollout in rollouts.items():
+            row = scalar(metric, model, depth)
             try:
                 error_squared, area = build(model, rollout)
                 # Reduce through the same kernel `eval` scores with, so the map
@@ -360,9 +358,17 @@ def rmse_map_figures(
                     bootstrap_samples=0,
                 )[0]
             except (ValueError, KeyError) as error:
-                logger.warning("  %s: no %s map (%s)", model, metric, error)
+                # A metric that was scored must get the map that explains it:
+                # dropping the figure while its scalar goes to W&B leaves a
+                # number nobody can check. A metric the frame never scored has
+                # nothing to draw, and saying so is enough.
+                if row is not None:
+                    raise ValueError(
+                        f"{model}: {metric} has a scalar in the metric frame "
+                        f"but its RMSE map could not be built"
+                    ) from error
+                logger.info("  %s: %s was not scored, so no map", model, metric)
                 continue
-            row = scalar(metric, model, depth)
             notes[model] = (
                 _annotate(float(row["value"]), units, row) if row is not None else ""
             )
@@ -439,6 +445,11 @@ def rmse_map_figures(
             model = kernels.monthly_mean_of_complete_months(sim_layers[layer.label])
             obs = kernels.monthly_mean_of_complete_months(obs_layers[layer.label])
             model, obs = _paired(model, obs, window)
+            # The same whole-year trim `report` scores with. A monthly product
+            # routinely stops part-way through a year, and without this the
+            # map's reduction rejects the ragged year and the figure is lost
+            # while its scalar is still logged.
+            model, obs = report.whole_years(model, obs, f"OHC {layer.label} map")
             return (model - obs) ** 2, argo["area"]
 
         slug = layer.label.split("(")[-1].strip(") ").replace("-", "_")
@@ -475,10 +486,46 @@ def _paired(
     )
     model_field = model_field.sel(time=slice(*shared))
     obs_field = obs_field.sel(time=slice(*shared))
+    # Two empty time axes compare equal, so the exact-match check passes and
+    # the emptiness only surfaces further down as "no time samples".
+    if model_field.sizes.get("time", 0) == 0 or obs_field.sizes.get("time", 0) == 0:
+        raise ValueError(
+            f"figure: model and observations share no samples between "
+            f"{shared[0]:%Y-%m-%d} and {shared[1]:%Y-%m-%d}"
+        )
     kernels.require_exact_time_match(model_field, obs_field, "figure")
     if regrid:
         model_field = kernels.model_field_on_obs_grid(model_field, obs_field)
     return model_field, obs_field
+
+
+def _ever_finite(field: xr.DataArray) -> xr.DataArray:
+    """A cell mask: true where the field carries data at any time."""
+    finite = cast(xr.DataArray, np.isfinite(field))
+    return finite.any("time") if "time" in field.dims else finite
+
+
+def _on_common_cells(
+    reference: xr.DataArray, runs: dict[str, xr.DataArray]
+) -> tuple[xr.DataArray, dict[str, xr.DataArray]]:
+    """Restrict the reference and every run to the cells they all carry.
+
+    A run covers only the observation cells that survived pairing: its own land,
+    plus the band regridding erodes around it, which is coastal and so is where
+    the energy and the error both are. Reducing the reference over every cell
+    the product has and each run over its own subset makes the gap between the
+    curves a property of the masks, which a mean-state plot then presents as
+    bias.
+    """
+    mask = None
+    for field in runs.values():
+        ever = _ever_finite(field)
+        mask = ever if mask is None else (mask & ever)
+    if mask is None:
+        return reference, runs
+    return reference.where(mask), {
+        name: field.where(mask) for name, field in runs.items()
+    }
 
 
 def _common_span(
@@ -647,30 +694,39 @@ def timeseries_figures(
         )
 
     obs_sst = oisst[observations.find_var_name(oisst, observations.SST_ALIASES)]
-    sst = {"OISST": _global_mean(obs_sst, oisst["area"])}
-    for model, rollout in rollouts.items():
-        native, obs = _paired(
-            rollout["thetao"].isel(lev=0), obs_sst, _FULL_SPAN, regrid=True
-        )
-        sst[model] = _global_mean(native, oisst["area"])
+    sources = {m: r["thetao"].isel(lev=0) for m, r in rollouts.items()}
+    span = _common_span(sources.values(), obs_sst)
+    runs = {
+        model: _paired(field, obs_sst, span, regrid=True)[0]
+        for model, field in sources.items()
+    }
+    reference, runs = _on_common_cells(obs_sst.sel(time=slice(*span)), runs)
+    sst = {"OISST": _global_mean(reference, oisst["area"])}
+    sst.update({m: _global_mean(f, oisst["area"]) for m, f in runs.items()})
     draw(sst, "global_sst", "Global mean SST", "degC")
 
     obs_u, obs_v = observations.duacs_velocity(duacs)
-    eke = {
-        "DUACS": _global_mean(
-            kernels.instantaneous_surface_eke(obs_u, obs_v), duacs["area"]
-        )
-    }
-    for model, rollout in rollouts.items():
+    zos = {m: r["zos"] for m, r in rollouts.items()}
+    span = _common_span(zos.values(), obs_u)
+    runs = {}
+    for model, field in zos.items():
         sim_u, sim_v = kernels.geostrophic_velocity_from_zos(
-            rollout["zos"], lat_dim="lat", lon_dim="lon"
+            field, lat_dim="lat", lon_dim="lon"
         )
-        u_native, u_obs = _paired(sim_u, obs_u, _FULL_SPAN, regrid=False)
-        v_native, _ = _paired(sim_v, obs_v, _FULL_SPAN, regrid=False)
-        model_eke = kernels.model_field_on_obs_grid(
+        u_native, u_obs = _paired(sim_u, obs_u, span, regrid=False)
+        v_native, _ = _paired(sim_v, obs_v, span, regrid=False)
+        runs[model] = kernels.model_field_on_obs_grid(
             kernels.instantaneous_surface_eke(u_native, v_native), u_obs
         )
-        eke[model] = _global_mean(model_eke, duacs["area"])
+    # The observed EKE has to be built from the shared span too: the anomaly is
+    # taken about the mean of whatever record it is handed, so a 30-year mean
+    # flow and an 8-year one are not the same quantity.
+    obs_eke = kernels.instantaneous_surface_eke(
+        obs_u.sel(time=slice(*span)), obs_v.sel(time=slice(*span))
+    )
+    reference, runs = _on_common_cells(obs_eke, runs)
+    eke = {"DUACS": _global_mean(reference, duacs["area"])}
+    eke.update({m: _global_mean(f, duacs["area"]) for m, f in runs.items()})
     draw(eke, "global_surface_eke", "Global mean surface EKE", "m2 s-2")
 
     obs_temp = argo[
@@ -682,17 +738,24 @@ def timeseries_figures(
     obs_ohc = kernels.monthly_mean_of_complete_months(
         kernels.ohc_per_area_layer_maps(obs_temp, depth_name=obs_depth)[upper.label]
     )
-    ohc = {"ARGO-IAP": _global_mean(obs_ohc, argo["area"])}
-    for model, rollout in rollouts.items():
-        sim = kernels.monthly_mean_of_complete_months(
+    sources = {
+        model: kernels.monthly_mean_of_complete_months(
             kernels.ohc_per_area_layer_maps(
                 rollout["thetao"],
                 native_dz=observations.model_depth_thickness(rollout, _OM4_SPEC),
                 depth_name="lev",
             )[upper.label]
         )
-        model_ohc, _ = _paired(sim, obs_ohc, _FULL_SPAN, regrid=True)
-        ohc[model] = _global_mean(model_ohc, argo["area"])
+        for model, rollout in rollouts.items()
+    }
+    span = _common_span(sources.values(), obs_ohc)
+    runs = {
+        model: _paired(field, obs_ohc, span, regrid=True)[0]
+        for model, field in sources.items()
+    }
+    reference, runs = _on_common_cells(obs_ohc.sel(time=slice(*span)), runs)
+    ohc = {"ARGO-IAP": _global_mean(reference, argo["area"])}
+    ohc.update({m: _global_mean(f, argo["area"]) for m, f in runs.items()})
     draw(ohc, "global_ohc_upper700", "Global mean upper-700 m OHC per area", "J m-2")
 
     return written
@@ -723,14 +786,22 @@ def spectra_figures(
     obs_u, obs_v = observations.duacs_velocity(duacs)
 
     # --- surface EKE, spatial ------------------------------------------------
-    obs_eke = kernels.mean_surface_eke(obs_u, obs_v)
+    # Every observation curve is built from the span the runs share. The eddy
+    # anomaly is taken about the mean of whatever record it is handed, so a
+    # reference reduced over the product's full archive is not the same
+    # quantity as a run reduced over eight years of it.
+    zos = {m: r["zos"] for m, r in rollouts.items()}
+    span = _common_span(zos.values(), obs_u)
+    obs_eke = kernels.mean_surface_eke(
+        obs_u.sel(time=slice(*span)), obs_v.sel(time=slice(*span))
+    )
     eke_curves = {"DUACS": _region_curves(obs_eke, spectra.SPATIAL_REGIONS)}
-    for model, rollout in rollouts.items():
+    for model, field in zos.items():
         sim_u, sim_v = kernels.geostrophic_velocity_from_zos(
-            rollout["zos"], lat_dim="lat", lon_dim="lon"
+            field, lat_dim="lat", lon_dim="lon"
         )
-        u_native, u_obs = _paired(sim_u, obs_u, _FULL_SPAN, regrid=False)
-        v_native, _ = _paired(sim_v, obs_v, _FULL_SPAN, regrid=False)
+        u_native, u_obs = _paired(sim_u, obs_u, span, regrid=False)
+        v_native, _ = _paired(sim_v, obs_v, span, regrid=False)
         model_eke = kernels.model_field_on_obs_grid(
             kernels.mean_surface_eke(u_native, v_native), obs_eke
         )
@@ -751,14 +822,14 @@ def spectra_figures(
 
     # --- SST anomaly, spatial ------------------------------------------------
     obs_sst = oisst[observations.find_var_name(oisst, observations.SST_ALIASES)]
-    obs_ssta = kernels.calendar_day_anomaly(obs_sst)
+    sst_sources = {m: r["thetao"].isel(lev=0) for m, r in rollouts.items()}
+    sst_span = _common_span(sst_sources.values(), obs_sst)
+    obs_ssta = kernels.without_seasonal_cycle(obs_sst.sel(time=slice(*sst_span)))
     ssta_curves = {"OISST": _region_curves(obs_ssta, spectra.SPATIAL_REGIONS)}
-    for model, rollout in rollouts.items():
-        native, obs = _paired(
-            rollout["thetao"].isel(lev=0), obs_sst, _FULL_SPAN, regrid=True
-        )
+    for model, field in sst_sources.items():
+        native, _ = _paired(field, obs_sst, sst_span, regrid=True)
         ssta_curves[model] = _region_curves(
-            kernels.calendar_day_anomaly(native), spectra.SPATIAL_REGIONS
+            kernels.without_seasonal_cycle(native), spectra.SPATIAL_REGIONS
         )
     written.append(
         save(
@@ -775,17 +846,26 @@ def spectra_figures(
     )
 
     # --- surface KE, temporal ------------------------------------------------
-    obs_ke = 0.5 * (obs_u**2 + obs_v**2)
-    ke_curves = {"DUACS": _temporal_curves(obs_ke, spectra.TEMPORAL_REGIONS)}
-    for model, rollout in rollouts.items():
+    obs_ke = 0.5 * (
+        obs_u.sel(time=slice(*span)) ** 2 + obs_v.sel(time=slice(*span)) ** 2
+    )
+    ke_runs = {}
+    for model, field in zos.items():
         sim_u, sim_v = kernels.geostrophic_velocity_from_zos(
-            rollout["zos"], lat_dim="lat", lon_dim="lon"
+            field, lat_dim="lat", lon_dim="lon"
         )
-        u_model, u_obs = _paired(sim_u, obs_u, _FULL_SPAN)
-        v_model, _ = _paired(sim_v, obs_v, _FULL_SPAN)
-        ke_curves[model] = _temporal_curves(
-            0.5 * (u_model**2 + v_model**2), spectra.TEMPORAL_REGIONS
+        # KE on the native grid, then regrid: squaring after interpolation
+        # damps the result by an amount set by the resolution ratio.
+        u_native, u_obs = _paired(sim_u, obs_u, span, regrid=False)
+        v_native, _ = _paired(sim_v, obs_v, span, regrid=False)
+        ke_runs[model] = kernels.model_field_on_obs_grid(
+            0.5 * (u_native**2 + v_native**2), u_obs
         )
+    obs_ke, ke_runs = _on_common_cells(obs_ke, ke_runs)
+    ke_curves = {"DUACS": _temporal_curves(obs_ke, spectra.TEMPORAL_REGIONS)}
+    ke_curves.update(
+        {m: _temporal_curves(f, spectra.TEMPORAL_REGIONS) for m, f in ke_runs.items()}
+    )
     written.append(
         save(
             spectra_panel(
@@ -801,13 +881,17 @@ def spectra_figures(
     )
 
     # --- interannual bands ---------------------------------------------------
-    eke_bands = {"DUACS": _yearly_bands(obs_eke_by_year(obs_u, obs_v))}
-    for model, rollout in rollouts.items():
-        sim_u, sim_v = kernels.geostrophic_velocity_from_zos(
-            rollout["zos"], lat_dim="lat", lon_dim="lon"
+    eke_bands = {
+        "DUACS": _yearly_bands(
+            obs_eke_by_year(obs_u.sel(time=slice(*span)), obs_v.sel(time=slice(*span)))
         )
-        u_native, _ = _paired(sim_u, obs_u, _FULL_SPAN, regrid=False)
-        v_native, _ = _paired(sim_v, obs_v, _FULL_SPAN, regrid=False)
+    }
+    for model, field in zos.items():
+        sim_u, sim_v = kernels.geostrophic_velocity_from_zos(
+            field, lat_dim="lat", lon_dim="lon"
+        )
+        u_native, _ = _paired(sim_u, obs_u, span, regrid=False)
+        v_native, _ = _paired(sim_v, obs_v, span, regrid=False)
         eke_bands[model] = _yearly_bands(obs_eke_by_year(u_native, v_native))
     written.append(
         save(
@@ -823,12 +907,10 @@ def spectra_figures(
     )
 
     ssta_bands = {"OISST": _yearly_bands(_anomaly_by_year(obs_ssta))}
-    for model, rollout in rollouts.items():
-        native, _ = _paired(
-            rollout["thetao"].isel(lev=0), obs_sst, _FULL_SPAN, regrid=True
-        )
+    for model, field in sst_sources.items():
+        native, _ = _paired(field, obs_sst, sst_span, regrid=True)
         ssta_bands[model] = _yearly_bands(
-            _anomaly_by_year(kernels.calendar_day_anomaly(native))
+            _anomaly_by_year(kernels.without_seasonal_cycle(native))
         )
     written.append(
         save(
@@ -844,13 +926,8 @@ def spectra_figures(
     )
 
     ke_bands = {"DUACS": _yearly_temporal_bands(obs_ke)}
-    for model, rollout in rollouts.items():
-        sim_u, sim_v = kernels.geostrophic_velocity_from_zos(
-            rollout["zos"], lat_dim="lat", lon_dim="lon"
-        )
-        u_model, _ = _paired(sim_u, obs_u, _FULL_SPAN)
-        v_model, _ = _paired(sim_v, obs_v, _FULL_SPAN)
-        ke_bands[model] = _yearly_temporal_bands(0.5 * (u_model**2 + v_model**2))
+    for model, field in ke_runs.items():
+        ke_bands[model] = _yearly_temporal_bands(field)
     written.append(
         save(
             interannual_spectra_panel(

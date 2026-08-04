@@ -18,7 +18,7 @@ per-cell map plus per-year totals, and area-weight the map to one scalar.
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import pandas as pd
@@ -65,6 +65,12 @@ def _grid_shape(field: xr.DataArray) -> str:
     return f"{field.sizes.get('lat', 0)}x{field.sizes.get('lon', 0)}"
 
 
+def _ever_finite(field: xr.DataArray) -> xr.DataArray:
+    """A cell mask: true where the field carries data at any time."""
+    finite = cast(xr.DataArray, np.isfinite(field))
+    return finite.any("time") if "time" in field.dims else finite
+
+
 def _pairing(model_field: xr.DataArray, obs_field: xr.DataArray) -> dict[str, float]:
     """How much of the observation ocean survived pairing with the model.
 
@@ -76,8 +82,13 @@ def _pairing(model_field: xr.DataArray, obs_field: xr.DataArray) -> dict[str, fl
     fine one. Recording it makes that visible instead of leaving cross-
     resolution comparison merely "not comparable" in prose.
     """
-    obs_ocean = int(np.isfinite(obs_field).sum())
-    paired = int((np.isfinite(obs_field) & np.isfinite(model_field)).sum())
+    # Collapse time first. Summing over every dim would count cell-timesteps
+    # for the fields that carry a time axis and cells for the variance maps
+    # that do not, putting two different quantities in one column.
+    obs_mask = _ever_finite(obs_field)
+    paired_mask = obs_mask & _ever_finite(model_field)
+    obs_ocean = int(obs_mask.sum())
+    paired = int(paired_mask.sum())
     return {
         "n_paired_cells": float(paired),
         "paired_ocean_fraction": float(paired / obs_ocean)
@@ -291,7 +302,7 @@ def _aligned(
     return model_field, obs_field
 
 
-def _whole_years(
+def whole_years(
     model_field: xr.DataArray, obs_field: xr.DataArray, context: str
 ) -> tuple[xr.DataArray, xr.DataArray]:
     """Restrict a monthly pair to the calendar years both cover in full.
@@ -390,14 +401,16 @@ def _sst_metrics(
     sim_all = rollout["thetao"].isel(lev=0)
 
     sim, obs = _aligned(sim_all, obs_all, window, f"{model} SST")
+    # One interpolation of the record, used for both the error and the pairing.
+    on_obs_grid = kernels.model_field_on_obs_grid(sim, obs)
     rows, _ = _rows_for_metric(
         metric="surface_sst_total_rmse",
         model=model,
         units="degC",
-        error_squared=(kernels.model_field_on_obs_grid(sim, obs) - obs) ** 2,
+        error_squared=(on_obs_grid - obs) ** 2,
         area=area,
         bootstrap_samples=bootstrap_samples,
-        pairing=_pairing(kernels.model_field_on_obs_grid(sim, obs), obs),
+        pairing=_pairing(on_obs_grid, obs),
     )
 
     # Residual variance uses the whole rollout, not the scoring window.
@@ -446,16 +459,17 @@ def _ohc_metrics(
         # Trim to whole calendar years of the monthly series: a rollout ending
         # 24 December contributes no December once partial months are dropped,
         # so scoring its final year would weigh 11 months against 12.
-        sim, obs = _whole_years(sim, obs, f"{model} OHC {layer.label}")
+        sim, obs = whole_years(sim, obs, f"{model} OHC {layer.label}")
+        on_obs_grid = kernels.model_field_on_obs_grid(sim, obs)
         layer_rows, _ = _rows_for_metric(
             metric="ohc_per_area_total_rmse",
             model=model,
             units="J m-2",
-            error_squared=(kernels.model_field_on_obs_grid(sim, obs) - obs) ** 2,
+            error_squared=(on_obs_grid - obs) ** 2,
             area=area,
             bootstrap_samples=bootstrap_samples,
             depth=layer.label,
-            pairing=_pairing(kernels.model_field_on_obs_grid(sim, obs), obs),
+            pairing=_pairing(on_obs_grid, obs),
         )
         rows += layer_rows
 

@@ -181,7 +181,12 @@ def isotropic_spectrum(
     for row, values in zip(totals, flat_psd, strict=True):
         np.add.at(row, index, values)
     counts = np.bincount(index, minlength=num_bins).astype(float)
-    isotropic = totals / np.clip(counts, 1.0, None) * centers
+    # A bin no mode fell into has no answer, not an answer of zero: zero would
+    # drop silently off a log axis and out of a log-space curve comparison,
+    # making "nothing sampled here" indistinguishable from "no energy here".
+    with np.errstate(invalid="ignore"):
+        isotropic = np.where(counts > 0, totals / np.maximum(counts, 1.0), np.nan)
+    isotropic = isotropic * centers
 
     return centers, isotropic if stacked else isotropic[0]
 
@@ -249,16 +254,23 @@ def region_spectrum(
         # Every step or none: averaging over whichever steps happened to be
         # fully observed would weight the result towards those conditions.
         stack = []
+        unobserved = []
         for step in range(region.sizes["time"]):
             block = _open_ocean_block(region.isel(time=step), (lat_dim, lon_dim))
             if block is None:
-                logger.info(
-                    "no spectrum for %s: step %d has land or missing cells",
-                    name,
-                    step,
-                )
-                return np.array([]), np.array([])
+                unobserved.append(step)
+                continue
             stack.append(block)
+        if unobserved:
+            logger.info(
+                "no spectrum for %s: %d of %d steps have land or missing cells "
+                "(first at index %d)",
+                name,
+                len(unobserved),
+                region.sizes["time"],
+                unobserved[0],
+            )
+            return np.array([]), np.array([])
         if not stack:
             logger.info("no spectrum for %s: no time steps", name)
             return np.array([]), np.array([])

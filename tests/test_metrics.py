@@ -1016,3 +1016,40 @@ def test_a_year_that_keeps_half_its_samples_is_not_a_complete_year():
         xr.DataArray(time, dims=["time"], coords={"time": time})
     )
     assert years == [2021], f"2022 holds {len(halved)} of {len(dense)} samples"
+
+
+def test_the_rmse_map_aggregates_the_same_way_its_scalar_does():
+    """Reducing the map must reproduce the scalar, or a figure contradicts W&B.
+
+    The scalar weights calendar years equally. A map built from a plain time
+    mean instead weights them by sample count, which is not the same thing the
+    moment two years hold different numbers of samples -- a leap year at a
+    5-day cadence is enough. The two then disagree by a few tenths of a percent
+    while appearing on the same panel.
+    """
+    lat, lon = _grid(9, 12)
+    area = _area(lat, lon)
+    # 2019 is 73 steps at this cadence and 2020, a leap year, is 74.
+    time = pd.date_range("2019-01-01", "2020-12-31", freq="5D")
+    squared = np.where((time.year == 2020)[:, None, None], 9.0, 1.0) * np.ones(
+        (1, lat.size, lon.size)
+    )
+    error_squared = xr.DataArray(
+        squared,
+        dims=["time", "lat", "lon"],
+        coords={"time": time, "lat": lat, "lon": lon},
+    )
+
+    rmse_map, _, summary = kernels.rmse_map_with_uncertainty(
+        error_squared, area, ("lat", "lon"), "map", bootstrap_samples=0
+    )
+    scalar = float(summary["block_aggregate_rmse"])
+    assert kernels.area_weighted_map_rmse(rmse_map, area) == pytest.approx(
+        scalar, rel=1e-12
+    )
+    # Equal years give sqrt((1 + 9) / 2); weighting by sample count does not.
+    assert scalar == pytest.approx(np.sqrt(5.0), rel=1e-12)
+    by_sample_count = float(
+        np.sqrt(kernels.area_weighted_mean(error_squared.mean("time"), area))
+    )
+    assert by_sample_count != pytest.approx(scalar, rel=1e-4)

@@ -52,6 +52,10 @@ _FULL_SPAN = (pd.Timestamp.min, pd.Timestamp.max)
 # not to be one season.
 MIN_STEPS_PER_YEAR = 12
 
+# What an RMSE-map builder hands back: squared error over time, and the cell
+# areas to weight it by.
+_SquaredError = tuple[xr.DataArray, xr.DataArray]
+
 
 def save(figure: plt.Figure, directory: str, name: str) -> str:
     """Write a figure as PDF and close it. Returns the path."""
@@ -336,14 +340,25 @@ def rmse_map_figures(
         metric: str,
         title: str,
         units: str,
-        build: Callable[[str, xr.Dataset], xr.DataArray],
+        build: Callable[[str, xr.Dataset], tuple[xr.DataArray, xr.DataArray]],
         depth: str | None = None,
         cmap: str = "magma",
     ) -> None:
         maps, notes = {}, {}
         for model, rollout in rollouts.items():
             try:
-                maps[model] = build(model, rollout)
+                error_squared, area = build(model, rollout)
+                # Reduce through the same kernel `eval` scores with, so the map
+                # and the total annotated on it are one calculation. A plain
+                # time mean here would weight years by their sample count while
+                # the annotated total weights them equally.
+                maps[model] = kernels.rmse_map_with_uncertainty(
+                    error_squared,
+                    area,
+                    ("lat", "lon"),
+                    f"{model} {metric}",
+                    bootstrap_samples=0,
+                )[0]
             except (ValueError, KeyError) as error:
                 logger.warning("  %s: no %s map (%s)", model, metric, error)
                 continue
@@ -358,16 +373,16 @@ def rmse_map_figures(
 
     obs_u, obs_v = observations.duacs_velocity(duacs)
 
-    def velocity_map(_model: str, rollout: xr.Dataset) -> xr.DataArray:
+    def velocity_map(_model: str, rollout: xr.Dataset) -> _SquaredError:
         sim_u, sim_v = kernels.geostrophic_velocity_from_zos(
             rollout["zos"], lat_dim="lat", lon_dim="lon"
         )
         u_model, u_obs = _paired(sim_u, obs_u, window)
         v_model, v_obs = _paired(sim_v, obs_v, window)
         squared = (u_model - u_obs) ** 2 + (v_model - v_obs) ** 2
-        return squared.mean("time", skipna=True) ** 0.5
+        return squared, duacs["area"]
 
-    def eke_map(_model: str, rollout: xr.Dataset) -> xr.DataArray:
+    def eke_map(_model: str, rollout: xr.Dataset) -> _SquaredError:
         sim_u, sim_v = kernels.geostrophic_velocity_from_zos(
             rollout["zos"], lat_dim="lat", lon_dim="lon"
         )
@@ -376,14 +391,13 @@ def rmse_map_figures(
         model_eke = kernels.model_field_on_obs_grid(
             kernels.instantaneous_surface_eke(u_native, v_native), u_obs
         )
-        return kernels.field_rmse_over_time(
-            model_eke, kernels.instantaneous_surface_eke(u_obs, v_obs), "EKE"
-        )
+        obs_eke = kernels.instantaneous_surface_eke(u_obs, v_obs)
+        return (model_eke - obs_eke) ** 2, duacs["area"]
 
-    def sst_map(_model: str, rollout: xr.Dataset) -> xr.DataArray:
+    def sst_map(_model: str, rollout: xr.Dataset) -> _SquaredError:
         obs_sst = oisst[observations.find_var_name(oisst, observations.SST_ALIASES)]
         model, obs = _paired(rollout["thetao"].isel(lev=0), obs_sst, window)
-        return kernels.field_rmse_over_time(model, obs, "SST")
+        return (model - obs) ** 2, oisst["area"]
 
     emit(
         "surface_geostrophic_velocity_rmse_vs_duacs",
@@ -416,7 +430,7 @@ def rmse_map_figures(
 
     for layer in kernels.OHC_LAYERS:
 
-        def ohc_map(_model: str, rollout: xr.Dataset, layer=layer) -> xr.DataArray:
+        def ohc_map(_model: str, rollout: xr.Dataset, layer=layer) -> _SquaredError:
             sim_layers = kernels.ohc_per_area_layer_maps(
                 rollout["thetao"],
                 native_dz=observations.model_depth_thickness(rollout, _OM4_SPEC),
@@ -425,7 +439,7 @@ def rmse_map_figures(
             model = kernels.monthly_mean_of_complete_months(sim_layers[layer.label])
             obs = kernels.monthly_mean_of_complete_months(obs_layers[layer.label])
             model, obs = _paired(model, obs, window)
-            return kernels.field_rmse_over_time(model, obs, f"OHC {layer.label}")
+            return (model - obs) ** 2, argo["area"]
 
         slug = layer.label.split("(")[-1].strip(") ").replace("-", "_")
         emit(

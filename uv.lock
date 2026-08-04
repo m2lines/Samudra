@@ -3577,6 +3577,11 @@ cuda = [
     { name = "torchvision", version = "0.24.1", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
     { name = "torchvision", version = "0.24.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
 ]
+viz = [
+    { name = "cartopy" },
+    { name = "cmocean" },
+    { name = "tqdm" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -3615,7 +3620,9 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.11.13" },
+    { name = "cartopy", marker = "extra == 'viz'", specifier = ">=0.24.1" },
     { name = "cftime", specifier = ">=1.6.4.post1" },
+    { name = "cmocean", marker = "extra == 'viz'", specifier = ">=4.0.3" },
     { name = "dacite", specifier = ">=1.9.2" },
     { name = "dask", specifier = ">=2025.2" },
     { name = "einops", specifier = ">=0.7" },
@@ -3642,6 +3649,7 @@ requires-dist = [
     { name = "torchinfo", specifier = ">=1.8" },
     { name = "torchvision", marker = "platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'cuda'", specifier = ">=0.24.0a0", index = "https://download.pytorch.org/whl/cu130" },
     { name = "torchvision", marker = "(platform_machine != 'aarch64' and extra == 'cuda') or (sys_platform != 'linux' and extra == 'cuda')", specifier = ">=0.24.0a0" },
+    { name = "tqdm", marker = "extra == 'viz'", specifier = ">=4.67.1" },
     { name = "typing-extensions", specifier = ">=4.15" },
     { name = "wandb", specifier = ">=0.19.8" },
     { name = "xarray", extras = ["io"], specifier = ">=2025.1.2" },
@@ -3649,7 +3657,7 @@ requires-dist = [
     { name = "xesmf", specifier = ">=0.8.10" },
     { name = "zarr", specifier = "<3" },
 ]
-provides-extras = ["cuda"]
+provides-extras = ["cuda", "viz"]
 
 [package.metadata.requires-dev]
 dev = [

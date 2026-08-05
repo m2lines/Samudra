@@ -3539,7 +3539,9 @@ name = "samudra"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
+    { name = "cartopy" },
     { name = "cftime" },
+    { name = "cmocean" },
     { name = "dacite" },
     { name = "dask" },
     { name = "einops" },
@@ -3560,6 +3562,7 @@ dependencies = [
     { name = "torch", version = "2.9.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
     { name = "torch", version = "2.9.1+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
     { name = "torchinfo" },
+    { name = "tqdm" },
     { name = "typing-extensions" },
     { name = "wandb" },
     { name = "xarray", extra = ["io"] },
@@ -3577,17 +3580,10 @@ cuda = [
     { name = "torchvision", version = "0.24.1", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
     { name = "torchvision", version = "0.24.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
 ]
-viz = [
-    { name = "cartopy" },
-    { name = "cmocean" },
-    { name = "tqdm" },
-]
 
 [package.dev-dependencies]
 dev = [
     { name = "beartype" },
-    { name = "cartopy" },
-    { name = "cmocean" },
     { name = "coiled" },
     { name = "filelock" },
     { name = "fsspec" },
@@ -3606,7 +3602,6 @@ dev = [
     { name = "scalene" },
     { name = "snakeviz" },
     { name = "tenacity" },
-    { name = "tqdm" },
     { name = "types-pyyaml" },
     { name = "types-tqdm" },
     { name = "xarrayutils" },
@@ -3620,9 +3615,9 @@ docs = [
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.11.13" },
-    { name = "cartopy", marker = "extra == 'viz'", specifier = ">=0.24.1" },
+    { name = "cartopy", specifier = ">=0.24.1" },
     { name = "cftime", specifier = ">=1.6.4.post1" },
-    { name = "cmocean", marker = "extra == 'viz'", specifier = ">=4.0.3" },
+    { name = "cmocean", specifier = ">=4.0.3" },
     { name = "dacite", specifier = ">=1.9.2" },
     { name = "dask", specifier = ">=2025.2" },
     { name = "einops", specifier = ">=0.7" },
@@ -3649,7 +3644,7 @@ requires-dist = [
     { name = "torchinfo", specifier = ">=1.8" },
     { name = "torchvision", marker = "platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'cuda'", specifier = ">=0.24.0a0", index = "https://download.pytorch.org/whl/cu130" },
     { name = "torchvision", marker = "(platform_machine != 'aarch64' and extra == 'cuda') or (sys_platform != 'linux' and extra == 'cuda')", specifier = ">=0.24.0a0" },
-    { name = "tqdm", marker = "extra == 'viz'", specifier = ">=4.67.1" },
+    { name = "tqdm", specifier = ">=4.67.1" },
     { name = "typing-extensions", specifier = ">=4.15" },
     { name = "wandb", specifier = ">=0.19.8" },
     { name = "xarray", extras = ["io"], specifier = ">=2025.1.2" },
@@ -3657,13 +3652,11 @@ requires-dist = [
     { name = "xesmf", specifier = ">=0.8.10" },
     { name = "zarr", specifier = "<3" },
 ]
-provides-extras = ["cuda", "viz"]
+provides-extras = ["cuda"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "beartype", specifier = ">=0.20" },
-    { name = "cartopy", specifier = ">=0.24.1" },
-    { name = "cmocean", specifier = ">=4.0.3" },
     { name = "coiled", specifier = ">=1.99" },
     { name = "filelock", specifier = ">=3.17" },
     { name = "fsspec", specifier = ">=2025.3" },
@@ -3682,7 +3675,6 @@ dev = [
     { name = "scalene", specifier = ">=1.5.51" },
     { name = "snakeviz", specifier = ">=2.2.2" },
     { name = "tenacity", specifier = ">=9" },
-    { name = "tqdm", specifier = ">=4.67.1" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20241230" },
     { name = "types-tqdm", specifier = ">=4.67.0.20250516" },
     { name = "xarrayutils", specifier = ">=2.0.1" },

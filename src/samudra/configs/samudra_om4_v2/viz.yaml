@@ -20,4 +20,3 @@ groundtruth_time_range:
 runs:
   - name: "samudra_om4_v2_eval"
     location: ".LOCAL/samudra_om4_v2_eval/predictions.zarr"
-observations: !include ../data/obs.yaml

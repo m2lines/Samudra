@@ -26,10 +26,6 @@ pip install samudra
 uv add "samudra[cuda]"
 pip install "samudra[cuda]"
 
-# Figures — needed by `samudra viz`, which imports cartopy at module load
-uv add "samudra[viz]"
-pip install "samudra[viz]"
-
 # Latest nightly dev build
 uv add samudra --prerelease=allow
 pip install --pre samudra
@@ -40,10 +36,6 @@ matching `torch` already present. With `uv` the `[tool.uv]` build settings in
 `pyproject.toml` handle this automatically; with plain `pip` you typically want
 `pip install --no-build-isolation "samudra[cuda]"` in an environment that
 already has `torch`.
-
-`samudra viz` imports `cartopy`, `cmocean` and `tqdm` when the module loads, so
-without the `viz` extra it fails on import rather than at first use. `train` and
-`eval` do not need it.
 
 Installing exposes a `samudra` console command that mirrors the module entry
 points, so you don't need a checkout to run a task:

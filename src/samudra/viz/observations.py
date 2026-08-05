@@ -29,7 +29,7 @@ from cartopy.mpl.geoaxes import GeoAxes  # type: ignore
 
 from samudra.constants import build_om4_spec
 from samudra.metrics import comparisons, kernels, spectra
-from samudra.viz.core import percentile_norm, symmetric_percentile_norm
+from samudra.viz.norms import percentile_norm, symmetric_percentile_norm
 
 logger = logging.getLogger(__name__)
 

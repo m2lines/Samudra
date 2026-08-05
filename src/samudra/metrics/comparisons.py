@@ -76,12 +76,12 @@ class Comparison:
     def time(self) -> xr.DataArray:
         return self.obs["time"]
 
-    def trimmed(self, window: slice) -> Comparison:
+    def trimmed(self, time_slice: slice) -> Comparison:
         """The same comparison over a narrower span."""
         return Comparison(
             self.label,
-            self.native.sel(time=window),
-            self.obs.sel(time=window),
+            self.native.sel(time=time_slice),
+            self.obs.sel(time=time_slice),
             self.area,
         )
 
@@ -127,7 +127,7 @@ class VelocityComparison:
     def time(self) -> xr.DataArray:
         return self.eastward.obs["time"]
 
-    def trimmed(self, window: slice) -> VelocityComparison:
+    def trimmed(self, time_slice: slice) -> VelocityComparison:
         """The same pair over a narrower span.
 
         Trimming has to happen here rather than on a derived quantity: the
@@ -135,7 +135,7 @@ class VelocityComparison:
         the wrong record and cannot be corrected afterwards.
         """
         return VelocityComparison(
-            self.eastward.trimmed(window), self.northward.trimmed(window)
+            self.eastward.trimmed(time_slice), self.northward.trimmed(time_slice)
         )
 
     @functools.cached_property

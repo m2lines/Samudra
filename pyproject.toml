@@ -27,7 +27,9 @@ classifiers = [
 dynamic = [ "version" ] # derived from git tags by setuptools-scm
 dependencies = [
   "aiohttp>=3.11.13",
+  "cartopy>=0.24.1",              # `samudra viz` imports it at module load
   "cftime>=1.6.4.post1",
+  "cmocean>=4.0.3",
   "dacite>=1.9.2",
   "dask>=2025.2",
   "einops>=0.7",
@@ -47,6 +49,7 @@ dependencies = [
   "sqlalchemy>=2",                # skypilot requires sqlalchemy 2.0 but doesn't include that requirement
   "torch>=2.9.0a0,<2.13",         # Matches PhysicsNeMo container builds
   "torchinfo>=1.8",
+  "tqdm>=4.67.1",
   "typing-extensions>=4.15",
   "wandb>=0.19.8",
   "xarray[io]>=2025.1.2",
@@ -59,13 +62,6 @@ optional-dependencies.cuda = [
   "flash-perceiver>=0.2",
   "torchvision>=0.24.0a0",
 ]
-# `samudra viz` ships in the wheel and imports these at module load, so an
-# install without this extra fails on import rather than at first use.
-optional-dependencies.viz = [
-  "cartopy>=0.24.1",
-  "cmocean>=4.0.3",
-  "tqdm>=4.67.1",
-]
 
 urls.Documentation = "https://m2lines.github.io/Samudra/docs/"
 urls.Homepage = "https://m2lines.github.io/Samudra/"
@@ -77,8 +73,6 @@ scripts.samudra = "samudra.cli:main"
 [dependency-groups]
 dev = [
   "beartype>=0.20",
-  "cartopy>=0.24.1",
-  "cmocean>=4.0.3",
   "coiled>=1.99",
   "filelock>=3.17",
   "fsspec>=2025.3",
@@ -97,7 +91,6 @@ dev = [
   "scalene>=1.5.51",
   "snakeviz>=2.2.2",
   "tenacity>=9",
-  "tqdm>=4.67.1",
   "types-pyyaml>=6.0.12.20241230",
   "types-tqdm>=4.67.0.20250516",
   "xarrayutils>=2.0.1",

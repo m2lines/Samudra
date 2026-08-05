@@ -12,6 +12,7 @@ import sys
 import warnings
 from collections.abc import Iterable
 from copy import deepcopy
+from pathlib import Path
 from subprocess import PIPE, STDOUT, Popen
 from typing import TYPE_CHECKING, Any
 
@@ -27,78 +28,24 @@ from dask.array.core import Array as DaskArray
 from dask.base import compute
 from dask.delayed import delayed
 from dask.diagnostics.progress import ProgressBar
-from matplotlib import colors
 from matplotlib.ticker import FixedLocator, MaxNLocator, ScalarFormatter
 from tqdm.auto import tqdm
 
 from samudra.constants import DatasetSpec, build_om4_spec
+from samudra.metrics.run import score_rollouts
 from samudra.utils.data import (
     spherical_area,
     spherical_area_weights,
     with_level_index_vars,
 )
 from samudra.utils.location import ResolvedLocation
+from samudra.viz import observations as obs_figures
+from samudra.viz.norms import percentile_norm, symmetric_percentile_norm
 
 if TYPE_CHECKING:
     from samudra.config import ObsMetricsConfig
 
 logger = logging.getLogger(__name__)
-
-
-def _flatten_for_norm(data: Any) -> np.ndarray:
-    if isinstance(data, xr.DataArray):
-        arr = data.data
-    elif isinstance(data, np.ndarray):
-        arr = data
-    elif isinstance(data, DaskArray):
-        arr = data
-    elif isinstance(data, Iterable) and not isinstance(data, (str, bytes)):
-        arrays = [_flatten_for_norm(item) for item in data]
-        if arrays:
-            return np.concatenate(arrays)
-        return np.array([], dtype=float)
-    else:
-        arr = data
-
-    if isinstance(arr, DaskArray):
-        arr = arr.compute()
-    return np.asarray(arr).ravel()
-
-
-def symmetric_percentile_norm(
-    data: Any, percentile: float = 98.0, fallback: float = 1.0
-) -> colors.Normalize:
-    flat = _flatten_for_norm(data)
-    flat = flat[~np.isnan(flat)]
-    if flat.size == 0:
-        max_abs = fallback
-    else:
-        max_abs = np.percentile(np.abs(flat), percentile)
-        if not np.isfinite(max_abs) or max_abs == 0:
-            max_abs = fallback
-    return colors.Normalize(vmin=-max_abs, vmax=max_abs)
-
-
-def percentile_norm(
-    data: Any, lower: float = 2.0, upper: float = 98.0, fallback: float = 1.0
-) -> colors.Normalize:
-    flat = _flatten_for_norm(data)
-    flat = flat[~np.isnan(flat)]
-    if flat.size == 0:
-        vmin = 0.0
-        vmax = fallback
-    else:
-        vmin = np.percentile(flat, lower)
-        vmax = np.percentile(flat, upper)
-        if not np.isfinite(vmin) or not np.isfinite(vmax):
-            vmin = 0.0
-            vmax = fallback
-        elif vmin == vmax:
-            vmin = vmin - fallback
-            vmax = vmax + fallback
-        elif vmin > vmax:
-            vmin, vmax = vmax, vmin
-    return colors.Normalize(vmin=vmin, vmax=vmax)
 
 
 @dataclasses.dataclass
@@ -3785,10 +3732,6 @@ class Viz:
                 "src/samudra/configs/data/obs.yaml)."
             )
 
-        from pathlib import Path
-
-        from samudra.metrics.run import score_rollouts
-
         runs = {run.name: run.data for run in self.raw_runs}
         scored = score_rollouts(
             self.observations,
@@ -3823,8 +3766,6 @@ class Viz:
         if not self._observations_configured("obs_rmse_maps"):
             return
 
-        from samudra.viz import observations as obs_figures
-
         rollouts, products, frame = self._obs_inputs()
         assert self.observations is not None  # established by _obs_inputs
         obs_figures.rmse_map_figures(
@@ -3835,8 +3776,6 @@ class Viz:
         """Per-year totals behind each headline score, with its interval."""
         if not self._observations_configured("obs_annual_rmse"):
             return
-
-        from samudra.viz import observations as obs_figures
 
         _, _, frame = self._obs_inputs()
         obs_figures.save(
@@ -3850,8 +3789,6 @@ class Viz:
         if not self._observations_configured("obs_variance_maps"):
             return
 
-        from samudra.viz import observations as obs_figures
-
         rollouts, products, frame = self._obs_inputs()
         obs_figures.variance_map_figures(rollouts, products, frame, self.obs_path)
 
@@ -3860,8 +3797,6 @@ class Viz:
         if not self._observations_configured("obs_timeseries"):
             return
 
-        from samudra.viz import observations as obs_figures
-
         rollouts, products, _ = self._obs_inputs()
         obs_figures.timeseries_figures(rollouts, products, self.obs_path)
 
@@ -3869,8 +3804,6 @@ class Viz:
         """Spatial and temporal spectra, and their interannual bands."""
         if not self._observations_configured("obs_spectra"):
             return
-
-        from samudra.viz import observations as obs_figures
 
         rollouts, products, _ = self._obs_inputs()
         obs_figures.spectra_figures(rollouts, products, self.obs_path)

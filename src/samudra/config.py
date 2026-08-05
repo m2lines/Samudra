@@ -1300,6 +1300,13 @@ class SamudraMultiConfig(BaseModelConfig):
         description="Bypass the spatial processor with an identity mapping. "
         "This is intended for encoder/decoder reconstruction diagnostics.",
     )
+    latent_autoregression: bool = Field(
+        default=False,
+        description="Roll the latent state forward during inference instead of "
+        "decoding and re-encoding a physical state at every step. This only "
+        "matches training when training also runs the latent-depth contract, so "
+        "it must not be enabled until that contract trains the model.",
+    )
     use_bfloat16: bool = Field(
         default=True,
         description="Use bfloat16 for most layers rather than float32. Required for flash attention.",
@@ -1409,6 +1416,7 @@ class SamudraMultiConfig(BaseModelConfig):
             processor_residual=self.processor_residual,
             physical_forecast_loss_weight=self.physical_forecast_loss_weight,
             latent_teacher_loss_weight=self.latent_teacher_loss_weight,
+            latent_autoregression=self.latent_autoregression,
         )
 
 

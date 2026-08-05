@@ -909,6 +909,10 @@ class ResampleProjectionDecoder(nn.Module):
                 "project_before_resample requires coordinate_resampling so the "
                 "source validity mask can renormalize interpolation."
             )
+        # Callers must supply the per-channel source mask whenever transport
+        # actually happens; without it this silently degrades to unmasked
+        # interpolation and land values bleed into ocean cells.
+        self.requires_source_mask = project_before_resample
         if conservative_restriction_min_ratio is not None:
             if conservative_restriction_min_ratio <= 1:
                 raise ValueError(

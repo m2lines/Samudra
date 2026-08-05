@@ -110,6 +110,7 @@ class SamudraMulti(BaseModel):
         processor_residual: bool = False,
         physical_forecast_loss_weight: float = 1.0,
         latent_teacher_loss_weight: float = 0.0,
+        latent_autoregression: bool = False,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -131,6 +132,12 @@ class SamudraMulti(BaseModel):
         self.processor_iterations = processor_iterations
         self.processor_geometry = processor_geometry
         self.boundary_encoder = boundary_encoder
+        # Latent autoregression changes what `inference` computes: the state is
+        # encoded once and advanced in latent space, rather than decoded and
+        # re-encoded at every step. That only matches training when training also
+        # runs the latent-depth contract, so it stays opt-in and defaults to the
+        # physical-space rollout that `BaseModel` provides.
+        self.latent_autoregression = latent_autoregression
         processor_out_channels = getattr(processor, "out_channels", None)
         if processor_residual:
             if processor_out_channels is None:
@@ -305,7 +312,7 @@ class SamudraMulti(BaseModel):
         self, initial_prognostic: Prognostic, ctx: GridContext
     ) -> torch.Tensor:
         """Encode the initial physical state once for a latent rollout."""
-        if self.boundary_encoder is None:
+        if not self.latent_autoregression or self.boundary_encoder is None:
             return super().initialize_rollout(initial_prognostic, ctx)
         if self.pred_residuals:
             raise ValueError(
@@ -325,7 +332,7 @@ class SamudraMulti(BaseModel):
         epoch=None,
     ) -> ModelInferenceOutput:
         """Advance a latent state without decoding/re-encoding between steps."""
-        if self.boundary_encoder is None:
+        if not self.latent_autoregression or self.boundary_encoder is None:
             return super().inference(
                 dataset,
                 rollout_state,
@@ -494,6 +501,26 @@ class SamudraMulti(BaseModel):
     ) -> Prognostic:
         """Render latent content on the requested output grid."""
         source_valid_mask = ctx.input_mask
+        if source_valid_mask is None and getattr(
+            self.decoder, "requires_source_mask", False
+        ):
+            source_lat, source_lon = latent_resolution
+            output_lat, output_lon = ctx.output_resolution_cpu
+            transports = not (
+                torch.equal(source_lat, output_lat)
+                and torch.equal(source_lon, output_lon)
+            )
+            # Same-grid decoding reduces exactly to the learned 1x1 channel map,
+            # so no interpolation weights need renormalizing. Any other route
+            # does interpolate, and doing that unmasked would quietly mix land
+            # into ocean cells.
+            if transports:
+                raise ValueError(
+                    "This decoder renders prognostic channels before spatial "
+                    "transport and needs the per-channel source wet mask, but "
+                    "GridContext.input_mask is unset. Cross-grid decoding "
+                    "without it would interpolate across land."
+                )
         if source_valid_mask is not None:
             if source_valid_mask.shape[0] < self.decoder.out_channels:
                 raise ValueError(

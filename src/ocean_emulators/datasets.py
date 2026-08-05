@@ -566,6 +566,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         stride: int = 1,
         temporal_stride: int = 1,
         executor: ThreadPoolExecutor | None = None,
+        append_spatial_features_to_inputs: bool = False,
     ):
         super().__init__()
         self.id = f"{self.__class__.__name__}_{str(id(self))}"
@@ -580,6 +581,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.normalize_before_mask: bool = normalize_before_mask
         self.masked_fill_value: float = masked_fill_value
         self._executor = executor
+        self.append_spatial_features_to_inputs = append_spatial_features_to_inputs
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         data = src.data
@@ -837,6 +839,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         label = self._prep_tensor_steps(
             prognostic_all[:, self.hist + 1 :, :, :, :]
         ).to(dtype=torch.float32)
+        if self.append_spatial_features_to_inputs:
+            total_input = self.append_spatial_features(total_input)
         return total_input, label
 
     def _prep_tensor_steps(
@@ -879,6 +883,19 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             self.wet_surface,
         )
         return self._flatten_steps(boundary_steps)
+
+    def append_spatial_features(self, input: torch.Tensor) -> torch.Tensor:
+        """Append this patch's fixed geographic features to a replay input."""
+        features = self._prognostic_src.spatial_features
+        if features is None:
+            return input
+        if tuple(features.shape[-2:]) != tuple(input.shape[-2:]):
+            raise ValueError(
+                "Spatial feature shape does not match replay input: "
+                f"{tuple(features.shape)} vs {tuple(input.shape)}"
+            )
+        features = features.to(device=input.device, dtype=input.dtype).unsqueeze(0)
+        return torch.cat((input, features.expand(input.shape[0], -1, -1, -1)), dim=1)
 
     def _normalize_and_mask_steps(
         self,

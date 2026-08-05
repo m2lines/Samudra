@@ -237,6 +237,16 @@ def extract_xy_coords(ds: xr.Dataset) -> tuple[np.ndarray, np.ndarray]:
     return np.arange(y_size, dtype=np.int32), np.arange(x_size, dtype=np.int32)
 
 
+def extract_spatial_grid(ds: xr.Dataset, name: str) -> xr.DataArray:
+    """Preserve a static LLC grid field in the packed cache's y/x layout."""
+    if name not in ds:
+        raise KeyError(f"Source dataset is missing required spatial field {name}")
+    value = standardize_spatial_dims(ds[name])
+    if "time" in value.dims:
+        value = value.isel(time=0, drop=True)
+    return value.transpose("y", "x").astype(np.float32)
+
+
 def get_numpy_float_type(float_type_str: str) -> type:
     """Convert float type string to numpy dtype."""
     type_map = {
@@ -400,6 +410,9 @@ def build_training_ready_dataset(
 ) -> xr.Dataset:
     data, train_count, val_count = select_train_val_times(data, args)
     y_coords, x_coords = extract_xy_coords(data)
+    xc = extract_spatial_grid(data, "XC")
+    yc = extract_spatial_grid(data, "YC")
+    area = extract_spatial_grid(data, "rA")
 
     prognostic = build_packed_data_array(
         data,
@@ -461,6 +474,9 @@ def build_training_ready_dataset(
             "boundary_std": boundary_std,
             "prognostic_mask": prognostic_mask,
             "boundary_mask": boundary_mask,
+            "XC": xc,
+            "YC": yc,
+            "rA": area,
         },
         coords={
             "time": prognostic.time,
@@ -541,6 +557,9 @@ def build_encoding(ds_out: xr.Dataset, args: argparse.Namespace) -> dict[str, di
             "compressor": None,
             "chunks": (bound_channels, y_size, x_size),
         },
+        "XC": {"compressor": None, "chunks": (y_size, x_size)},
+        "YC": {"compressor": None, "chunks": (y_size, x_size)},
+        "rA": {"compressor": None, "chunks": (y_size, x_size)},
         "time": {"compressor": None, "chunks": (min(time_size, 1024),)},
         "prognostic_channel": {"compressor": None, "chunks": (prog_channels,)},
         "boundary_channel": {"compressor": None, "chunks": (bound_channels,)},
@@ -599,7 +618,10 @@ def main() -> None:
     if "mask_c" not in data.data_vars and "wetmask" not in data.data_vars:
         raise KeyError("Source dataset is missing mask_c/wetmask.")
 
-    selected_vars = sorted((required_vars | {"mask_c", "wetmask"}) & set(data.data_vars))
+    selected_vars = sorted(
+        (required_vars | {"mask_c", "wetmask", "XC", "YC", "rA"})
+        & set(data.data_vars)
+    )
     data = data[selected_vars]
     logger.info(
         "Slicing source to face=%d i=[%d:%d) j=[%d:%d)",

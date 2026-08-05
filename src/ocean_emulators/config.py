@@ -149,6 +149,14 @@ class DataConfig(BaseConfig):
     data_stds_location: Location = Field(
         description="Location of the data standard deviations; " + LOCATION_DOCS
     )
+    replay_data_locations: list[Location] = Field(
+        default_factory=list,
+        description=(
+            "Additional spatially distinct LLC packed caches used only by replay "
+            "training. When this list is non-empty, replay trains across the primary "
+            "data_location plus every listed cache and requires XC, YC, and rA."
+        ),
+    )
     static_data_vars: list[str] | None = None
     num_workers: int = 4
     prefetch_factor: int = 2
@@ -226,12 +234,31 @@ class DataConfig(BaseConfig):
                 stds_location,
             ]
         )
+        replay_sources = [source]
+        for replay_location in self.replay_data_locations:
+            replay_sources.append(
+                DataSource.from_locations(
+                    data_location=data_root.resolve(replay_location),
+                    means_location=means_location,
+                    stds_location=stds_location,
+                    prognostic_var_names=prognostic_var_names,
+                    boundary_var_names=boundary_var_names,
+                    static_data_vars=self.static_data_vars,
+                    use_dask=use_dask,
+                    llc_face=self.llc_face,
+                    llc_i_start=self.llc_i_start,
+                    llc_i_end=self.llc_i_end,
+                    llc_j_start=self.llc_j_start,
+                    llc_j_end=self.llc_j_end,
+                )
+            )
         return DataContainer(
             source,
             source_using_dask,
             loader_version,
             supports_fork,
             static_data,
+            replay_sources,
         )
 
 

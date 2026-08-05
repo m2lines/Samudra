@@ -102,6 +102,48 @@ def _packed_channel_indices(
     return [index_by_name[name] for name in requested_names], list(requested_names)
 
 
+def _packed_spatial_features(data: xr.Dataset) -> torch.Tensor | None:
+    """Build [unit-sphere position, reference-scaled log-area] from an LLC cache."""
+    required = ("XC", "YC", "rA")
+    missing = [name for name in required if name not in data]
+    if missing:
+        return None
+
+    def grid(name: str) -> np.ndarray:
+        value = data[name]
+        if "time" in value.dims:
+            value = value.isel(time=0, drop=True)
+        spatial_dims = ("lat", "lon") if "lat" in value.dims else ("y", "x")
+        return np.asarray(value.transpose(*spatial_dims).to_numpy(), dtype=np.float32)
+
+    lon = np.deg2rad(grid("XC"))
+    lat = np.deg2rad(grid("YC"))
+    area = grid("rA")
+    if (
+        not np.isfinite(lon).all()
+        or not np.isfinite(lat).all()
+        or not np.isfinite(area).all()
+    ):
+        raise ValueError("Packed LLC spatial fields XC, YC, and rA must be finite")
+    if np.any(area <= 0):
+        raise ValueError("Packed LLC cell-area field rA must be strictly positive")
+
+    # Use one physical reference area rather than normalizing each patch by its
+    # own statistics: per-patch normalization would erase the scale difference
+    # that makes rA useful when patches come from different latitudes/faces.
+    log_area = np.log(area / 1_000_000.0)
+    features = np.stack(
+        [
+            np.cos(lat) * np.cos(lon),
+            np.cos(lat) * np.sin(lon),
+            np.sin(lat),
+            log_area,
+        ],
+        axis=0,
+    )
+    return torch.from_numpy(features.astype(np.float32, copy=False))
+
+
 def _flatten_dataset_channel_values(data: xr.Dataset) -> np.ndarray:
     """Flatten dataset values in logical channel order without broadcasting surface vars.
 
@@ -283,6 +325,7 @@ class DataSource:
     stds: xr.Dataset
     masks: Masks
     packed_channel_names: dict[str, list[str]] | None = None
+    spatial_features: torch.Tensor | None = None
 
     @cached_property
     def is_compact(self) -> bool:
@@ -654,6 +697,8 @@ class DataSource:
             }
         )
 
+        spatial_features = _packed_spatial_features(data)
+
         prognostic_mask = torch.from_numpy(
             data["prognostic_mask"]
             .isel(prognostic_channel=prognostic_indices)
@@ -678,6 +723,7 @@ class DataSource:
                 "prognostic": prognostic_names,
                 "boundary": boundary_names,
             },
+            spatial_features=spatial_features,
         )
 
     @classmethod
@@ -717,6 +763,7 @@ class DataContainer:
     loader_version: LoaderVersion
     supports_fork: bool
     static_data: xr.Dataset | None = None
+    replay_sources: list[DataSource] | None = None
 
 
 def conditional_rearrange(

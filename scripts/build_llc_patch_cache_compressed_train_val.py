@@ -201,6 +201,9 @@ def build_encoding(
             "compressor": None,
             "chunks": (bound_channels, y_size, x_size),
         },
+        "XC": {"compressor": None, "chunks": (y_size, x_size)},
+        "YC": {"compressor": None, "chunks": (y_size, x_size)},
+        "rA": {"compressor": None, "chunks": (y_size, x_size)},
         "time": {"compressor": None, "chunks": (min(time_size, 1024),)},
         "prognostic_channel": {"compressor": None, "chunks": (prog_channels,)},
         "boundary_channel": {"compressor": None, "chunks": (bound_channels,)},
@@ -327,7 +330,8 @@ def main() -> None:
         raise KeyError("Source dataset is missing mask_c/wetmask.")
 
     selected_vars = sorted(
-        (required_vars | {"mask_c", "wetmask"}) & set(data.data_vars)
+        (required_vars | {"mask_c", "wetmask", "XC", "YC", "rA"})
+        & set(data.data_vars)
     )
     data = data[selected_vars]
     logger.info(

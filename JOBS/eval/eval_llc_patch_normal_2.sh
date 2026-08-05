@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-07-20-eval:Samudra_LLC:rb-Agulhas-pred_resid-eager-ckpt50-fixed-3weeks
+#SBATCH --job-name=2026-07-20-eval:Samudra_LLC:rb-Agulhas-pred_resid-eager-ckpt50-fixed-1MONTH
 #SBATCH -N 1
 #SBATCH --mem=100GB
 #SBATCH --ntasks=1

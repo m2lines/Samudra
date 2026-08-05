@@ -708,7 +708,41 @@ class Trainer:
             else:
                 self.mp_context = multiprocessing.get_context("spawn")
 
-        self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound))
+        self.replay_spatial_features = len(cfg.data.replay_data_locations) > 0
+        if self.replay_spatial_features:
+            if not cfg.replay.enabled:
+                raise ValueError(
+                    "data.replay_data_locations is supported only with replay.enabled=true"
+                )
+            if cfg.domain_parallel.enabled:
+                raise ValueError(
+                    "Multi-patch replay spatial features are not supported with domain_parallel"
+                )
+            if cfg.inference_epochs:
+                raise ValueError(
+                    "Multi-patch replay does not yet support inference_epochs; "
+                    "validation is supported."
+                )
+            replay_sources = self.data_container.replay_sources or []
+            if len(replay_sources) < 2 or any(
+                source.spatial_features is None for source in replay_sources
+            ):
+                raise ValueError(
+                    "Multi-patch replay requires every packed cache to contain XC, YC, and rA"
+                )
+            spatial_shapes = {
+                tuple(source.spatial_features.shape[-2:])
+                for source in replay_sources
+                if source.spatial_features is not None
+            }
+            if len(spatial_shapes) != 1:
+                raise ValueError(
+                    "Multi-patch replay currently requires all packed caches to "
+                    "have the same spatial shape."
+                )
+        self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound)) + (
+            4 if self.replay_spatial_features else 0
+        )
         self.num_out = int((cfg.data.hist + 1) * self.N_prog)
 
         self.tensor_map = TensorMap.init_instance(
@@ -716,6 +750,8 @@ class Trainer:
         )
 
         logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
+        if self.replay_spatial_features:
+            logger.info("Replay multi-patch spatial inputs enabled: sphere_xyz + log_rA")
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
 
         assert isinstance(cfg.data_stride, list)
@@ -2311,6 +2347,8 @@ class Trainer:
             non_blocking=True,
         )
         input = torch.cat((prognostic_state, boundary), dim=1)
+        if getattr(self, "replay_spatial_features", False):
+            input = dataset.append_spatial_features(input)
         return input, label
 
     def _wait_replay_entry_ready(self, entry: ReplayEntry) -> None:
@@ -2620,12 +2658,18 @@ class Trainer:
                 f"{cursor.temporal_stride} vs {dataset.temporal_stride}"
             )
 
-    def replay_dataset_signature(self) -> list[dict[str, int]]:
+    def replay_dataset_signature(self) -> list[dict[str, Any]]:
         return [
             {
+                "source": dataset._prognostic_src.name,
                 "stride": dataset.stride,
                 "temporal_stride": dataset.temporal_stride,
                 "length": len(dataset),
+                "spatial_feature_shape": (
+                    list(dataset._prognostic_src.spatial_features.shape)
+                    if dataset._prognostic_src.spatial_features is not None
+                    else None
+                ),
             }
             for dataset in self.train_datasets
         ]
@@ -2868,9 +2912,15 @@ class Trainer:
         if cur_temporal_stride is None:
             cur_temporal_stride = self.temporal_stride
         self.current_train_steps = cur_step
+        replay_sources = (
+            self.data_container.replay_sources
+            if self.replay_enabled and self.replay_spatial_features
+            else [self.src]
+        )
+        assert replay_sources is not None
         train_datasets = [
             TorchTrainDataset(
-                src=self.src.slice(self.train_time),
+                src=source.slice(self.train_time),
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -2880,7 +2930,9 @@ class Trainer:
                 stride=stride,
                 temporal_stride=cur_temporal_stride,
                 executor=self.executor,
+                append_spatial_features_to_inputs=self.replay_spatial_features,
             )
+            for source in replay_sources
             for stride in self.data_stride
         ]
         self.train_datasets = train_datasets
@@ -2897,6 +2949,7 @@ class Trainer:
                 stride=stride,
                 temporal_stride=cur_temporal_stride,
                 executor=self.executor,
+                append_spatial_features_to_inputs=self.replay_spatial_features,
             )
             for stride in self.data_stride
         ]

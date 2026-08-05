@@ -37,6 +37,7 @@ from ocean_emulators.utils.data import (
     DataSource,
     Masks,
     Normalize,
+    _packed_spatial_features,
 )
 from ocean_emulators.utils.multiton import MultitonScope
 from ocean_emulators.utils.train import collate_raw_train_data
@@ -324,6 +325,29 @@ def test_torch_train_dataset_compact_llc_like_loader_matches_flat() -> None:
 
     np.testing.assert_allclose(compact_input, flat_input)
     np.testing.assert_allclose(compact_label, flat_label)
+
+
+def test_packed_llc_spatial_features_use_sphere_coordinates_and_area() -> None:
+    data = xr.Dataset(
+        {
+            "XC": (("lat", "lon"), np.array([[0.0, 90.0]], dtype=np.float32)),
+            "YC": (("lat", "lon"), np.array([[0.0, 0.0]], dtype=np.float32)),
+            "rA": (("lat", "lon"), np.array([[1.0, np.e]], dtype=np.float32)),
+        }
+    )
+
+    features = _packed_spatial_features(data)
+
+    assert features is not None
+    assert features.shape == (4, 1, 2)
+    torch.testing.assert_close(features[:3, 0, 0], torch.tensor([1.0, 0.0, 0.0]))
+    torch.testing.assert_close(features[:3, 0, 1], torch.tensor([0.0, 1.0, 0.0]))
+    torch.testing.assert_close(
+        features[3, 0],
+        torch.tensor(
+            [-np.log(1_000_000.0), 1.0 - np.log(1_000_000.0)], dtype=torch.float32
+        ),
+    )
 
 
 def test_torch_train_dataset_packed_llc_like_loader_matches_flat() -> None:

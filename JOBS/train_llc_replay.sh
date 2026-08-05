@@ -156,8 +156,21 @@ echo "using data location: LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END})
 echo "using padding: pad=${PAD}, num_halo=${NUM_HALO}, num_sponge=${NUM_SPONGE}"
 echo "predicting field or residual: pred_residual=${PRED_RESIDUALS}"
 echo "using batch_size=${BATCH_SIZE}, gradient_accumulation_steps=${GRADIENT_ACCUMULATION_STEPS}, effective_batch_size=$((BATCH_SIZE * GRADIENT_ACCUMULATION_STEPS))"
+LLC_CROP_ARGS=(
+  --data.llc_face "${LLC_FACE}"
+  --data.llc_i_start "${LLC_I_START}"
+  --data.llc_i_end "${LLC_I_END}"
+  --data.llc_j_start "${LLC_J_START}"
+  --data.llc_j_end "${LLC_J_END}"
+)
 if [[ -n "${DATA_LOCATION_OVERRIDE}" ]]; then
   echo "overriding data.data_location=${DATA_LOCATION_OVERRIDE}"
+  # A JSON/YAML list or a directory denotes multi-cache mode. The loader must
+  # use each cache's full stored extent, not one global LLC i/j crop.
+  if [[ "${DATA_LOCATION_OVERRIDE}" == \[* ]] || [[ -d "${DATA_LOCATION_OVERRIDE}" ]]; then
+    LLC_CROP_ARGS=()
+    echo "multi-cache data location: LLC face/i/j overrides are disabled"
+  fi
 fi
 
 RESUME_ARGS=()
@@ -268,11 +281,7 @@ trap 'forward_signal INT' INT
   --data.prefetch_factor "${DATA_PREFETCH_FACTOR}" \
   --data.concurrent_compute "${CONCURRENT_COMPUTE}" \
   --pin_mem "${PIN_MEM}" \
-  --data.llc_face "${LLC_FACE}" \
-  --data.llc_i_start "${LLC_I_START}" \
-  --data.llc_i_end "${LLC_I_END}" \
-  --data.llc_j_start "${LLC_J_START}" \
-  --data.llc_j_end "${LLC_J_END}" \
+  "${LLC_CROP_ARGS[@]}" \
   --experiment.data_root "/orcd/data/abodner/" \
   "${DATA_OVERRIDE_ARGS[@]}" \
   "${RESUME_ARGS[@]}" \

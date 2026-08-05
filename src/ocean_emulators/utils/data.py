@@ -567,6 +567,7 @@ class DataSource:
         llc_i_end: int = 720,
         llc_j_start: int = 0,
         llc_j_end: int = 720,
+        apply_llc_crop: bool = True,
     ) -> Self:
         chunks: dict[str, int] | None = {} if use_dask else None
         data = data_location.open(chunks)
@@ -574,14 +575,15 @@ class DataSource:
         # Apply the configured spatial crop before dispatching to either loader.
         # Packed train-ready stores return early below, so cropping only in the
         # native LLC path leaves both their arrays and masks at the cache extent.
-        data = _slice_llc_region(
-            data,
-            llc_face=llc_face,
-            llc_i_start=llc_i_start,
-            llc_i_end=llc_i_end,
-            llc_j_start=llc_j_start,
-            llc_j_end=llc_j_end,
-        )
+        if apply_llc_crop:
+            data = _slice_llc_region(
+                data,
+                llc_face=llc_face,
+                llc_i_start=llc_i_start,
+                llc_i_end=llc_i_end,
+                llc_j_start=llc_j_start,
+                llc_j_end=llc_j_end,
+            )
 
         if _is_packed_train_ready(data):
             return cls.from_packed_dataset(

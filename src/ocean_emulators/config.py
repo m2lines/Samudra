@@ -140,22 +140,17 @@ LOCATION_DOCS = (
 
 
 class DataConfig(BaseConfig):
-    data_location: Location = Field(
-        description="Location of the data; " + LOCATION_DOCS
+    data_location: Location | list[Location] = Field(
+        description=(
+            "One cache, a list of caches, or a local directory containing .zarr "
+            "caches; " + LOCATION_DOCS
+        )
     )
     data_means_location: Location = Field(
         description="Location of the data means; " + LOCATION_DOCS
     )
     data_stds_location: Location = Field(
         description="Location of the data standard deviations; " + LOCATION_DOCS
-    )
-    replay_data_locations: list[Location] = Field(
-        default_factory=list,
-        description=(
-            "Additional spatially distinct LLC packed caches used only by replay "
-            "training. When this list is non-empty, replay trains across the primary "
-            "data_location plus every listed cache and requires XC, YC, and rA."
-        ),
     )
     static_data_vars: list[str] | None = None
     num_workers: int = 4
@@ -181,44 +176,48 @@ class DataConfig(BaseConfig):
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
 
-        data_location = data_root.resolve(self.data_location)
+        configured_locations = (
+            self.data_location
+            if isinstance(self.data_location, list)
+            else [self.data_location]
+        )
+        data_locations = [data_root.resolve(location) for location in configured_locations]
+        expanded_locations: list[ResolvedLocation] = []
+        for location in data_locations:
+            if isinstance(location, LocalLocation) and location.path.is_dir():
+                children = sorted(
+                    child for child in location.path.iterdir() if child.suffix == ".zarr"
+                )
+                if children:
+                    expanded_locations.extend(LocalLocation(path=child) for child in children)
+                    continue
+            expanded_locations.append(location)
+        if not expanded_locations:
+            raise ValueError("data_location did not resolve to any caches")
+        multi_cache = len(expanded_locations) > 1
+        data_location = expanded_locations[0]
         means_location = data_root.resolve(self.data_means_location)
         stds_location = data_root.resolve(self.data_stds_location)
 
-        source = DataSource.from_locations(
-            data_location=data_location,
-            means_location=means_location,
-            stds_location=stds_location,
-            prognostic_var_names=prognostic_var_names,
-            boundary_var_names=boundary_var_names,
-            static_data_vars=self.static_data_vars,
-            use_dask=use_dask,
-            llc_face=self.llc_face,
-            llc_i_start=self.llc_i_start,
-            llc_i_end=self.llc_i_end,
-            llc_j_start=self.llc_j_start,
-            llc_j_end=self.llc_j_end,
-        )
+        def load(location: ResolvedLocation, *, dask: bool) -> DataSource:
+            return DataSource.from_locations(
+                data_location=location, means_location=means_location,
+                stds_location=stds_location, prognostic_var_names=prognostic_var_names,
+                boundary_var_names=boundary_var_names, static_data_vars=self.static_data_vars,
+                use_dask=dask, llc_face=self.llc_face, llc_i_start=self.llc_i_start,
+                llc_i_end=self.llc_i_end, llc_j_start=self.llc_j_start,
+                llc_j_end=self.llc_j_end, apply_llc_crop=not multi_cache,
+            )
+
+        replay_sources = [load(location, dask=use_dask) for location in expanded_locations]
+        source = replay_sources[0]
 
         if use_dask:
             # If we're already using dask, we don't need a second source
             source_using_dask = source
         else:
             # If we're not using dask for the main source, create a separate one
-            source_using_dask = DataSource.from_locations(
-                data_location=data_location,
-                means_location=means_location,
-                stds_location=stds_location,
-                prognostic_var_names=prognostic_var_names,
-                boundary_var_names=boundary_var_names,
-                static_data_vars=self.static_data_vars,
-                use_dask=True,
-                llc_face=self.llc_face,
-                llc_i_start=self.llc_i_start,
-                llc_i_end=self.llc_i_end,
-                llc_j_start=self.llc_j_start,
-                llc_j_end=self.llc_j_end,
-            )
+            source_using_dask = load(data_location, dask=True)
 
         static_data = (
             source.data[self.static_data_vars]
@@ -229,29 +228,11 @@ class DataConfig(BaseConfig):
         supports_fork = all(
             location is None or location.supports_fork
             for location in [
-                data_location,
+                *expanded_locations,
                 means_location,
                 stds_location,
             ]
         )
-        replay_sources = [source]
-        for replay_location in self.replay_data_locations:
-            replay_sources.append(
-                DataSource.from_locations(
-                    data_location=data_root.resolve(replay_location),
-                    means_location=means_location,
-                    stds_location=stds_location,
-                    prognostic_var_names=prognostic_var_names,
-                    boundary_var_names=boundary_var_names,
-                    static_data_vars=self.static_data_vars,
-                    use_dask=use_dask,
-                    llc_face=self.llc_face,
-                    llc_i_start=self.llc_i_start,
-                    llc_i_end=self.llc_i_end,
-                    llc_j_start=self.llc_j_start,
-                    llc_j_end=self.llc_j_end,
-                )
-            )
         return DataContainer(
             source,
             source_using_dask,

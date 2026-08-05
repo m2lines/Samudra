@@ -708,11 +708,11 @@ class Trainer:
             else:
                 self.mp_context = multiprocessing.get_context("spawn")
 
-        self.replay_spatial_features = len(cfg.data.replay_data_locations) > 0
+        self.replay_spatial_features = len(self.data_container.replay_sources or []) > 1
         if self.replay_spatial_features:
             if not cfg.replay.enabled:
                 raise ValueError(
-                    "data.replay_data_locations is supported only with replay.enabled=true"
+                    "Multiple data_location caches are supported only with replay.enabled=true"
                 )
             if cfg.domain_parallel.enabled:
                 raise ValueError(
@@ -1979,26 +1979,30 @@ class Trainer:
     def sample_replay_seed_cursor(self) -> ReplayCursor:
         if not self.train_datasets:
             raise RuntimeError("Cannot seed replay buffer before train datasets exist")
-        dataset_lengths = [len(dataset) for dataset in self.train_datasets]
-        total_length = sum(dataset_lengths)
-        if total_length == 0:
+        eligible_datasets = [
+            (index, dataset)
+            for index, dataset in enumerate(self.train_datasets)
+            if len(dataset) > 0
+        ]
+        if not eligible_datasets:
             raise RuntimeError("Cannot seed replay buffer from empty datasets")
-        flat_source_index = int(
+        # Pick a cache/stride dataset uniformly, then a time window uniformly
+        # within it. This avoids longer caches monopolising replay seeds while
+        # still leaving every row fill independently random.
+        choice = int(
             torch.randint(
-                total_length,
+                len(eligible_datasets),
                 (1,),
                 generator=self.replay_generator,
                 device="cpu",
             ).item()
         )
-        dataset_index = 0
-        source_index = flat_source_index
-        for candidate_index, dataset_length in enumerate(dataset_lengths):
-            if source_index < dataset_length:
-                dataset_index = candidate_index
-                break
-            source_index -= dataset_length
-        dataset = self.train_datasets[dataset_index]
+        dataset_index, dataset = eligible_datasets[choice]
+        source_index = int(
+            torch.randint(
+                len(dataset), (1,), generator=self.replay_generator, device="cpu"
+            ).item()
+        )
         return ReplayCursor(
             dataset_index=dataset_index,
             source_index=source_index,
@@ -2914,7 +2918,7 @@ class Trainer:
         self.current_train_steps = cur_step
         replay_sources = (
             self.data_container.replay_sources
-            if self.replay_enabled and self.replay_spatial_features
+            if self.replay_enabled
             else [self.src]
         )
         assert replay_sources is not None
@@ -2937,9 +2941,10 @@ class Trainer:
         ]
         self.train_datasets = train_datasets
 
+        validation_sources = replay_sources if self.replay_enabled else [self.src]
         val_datasets = [
             TorchTrainDataset(
-                src=self.src.slice(self.val_time),
+                src=source.slice(self.val_time),
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
@@ -2951,6 +2956,7 @@ class Trainer:
                 executor=self.executor,
                 append_spatial_features_to_inputs=self.replay_spatial_features,
             )
+            for source in validation_sources
             for stride in self.data_stride
         ]
         self.val_datasets = val_datasets
@@ -3018,7 +3024,9 @@ class Trainer:
         }
         val_loader_kwargs: dict[str, Any] = {
             "dataset": val_data,
-            "batch_size": self.batch_size,
+            # ConcatDataset can otherwise form a heterogeneous batch at a cache
+            # boundary, which collate_raw_train_data deliberately rejects.
+            "batch_size": 1 if self.replay_spatial_features else self.batch_size,
             "sampler": self.val_sampler,
             "num_workers": self.num_workers,
             "pin_memory": self.pin_mem,

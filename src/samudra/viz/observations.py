@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import logging
 import os
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 
 import cartopy.crs as ccrs  # type: ignore
 import cartopy.feature as cfeature  # type: ignore
@@ -29,6 +29,7 @@ from cartopy.mpl.geoaxes import GeoAxes  # type: ignore
 
 from samudra.constants import build_om4_spec
 from samudra.metrics import comparisons, kernels, spectra
+from samudra.viz.core import percentile_norm, symmetric_percentile_norm
 
 logger = logging.getLogger(__name__)
 
@@ -82,20 +83,6 @@ def _map_axes(axis: GeoAxes) -> None:
     axis.set_global()
 
 
-def _robust_limits(fields: Iterable[xr.DataArray], diverging: bool = False):
-    """Percentile colour limits, so one outlier cell cannot flatten a map."""
-    pooled = np.concatenate(
-        [np.asarray(f.values).ravel() for f in fields] or [np.array([np.nan])]
-    )
-    pooled = pooled[np.isfinite(pooled)]
-    if pooled.size == 0:
-        return 0.0, 1.0
-    if diverging:
-        limit = float(np.percentile(np.abs(pooled), 98))
-        return -limit, limit
-    return float(np.percentile(pooled, 2)), float(np.percentile(pooled, 98))
-
-
 def map_panels(
     fields: dict[str, xr.DataArray],
     title: str,
@@ -113,7 +100,11 @@ def map_panels(
         subplot_kw={"projection": PROJECTION},
         squeeze=False,
     )
-    vmin, vmax = _robust_limits(fields.values(), diverging=diverging)
+    # Shared percentile limits, so one outlier cell cannot flatten every panel.
+    # `viz.core` already computes these, including the degenerate cases a
+    # constant or all-NaN field produces.
+    pooled = list(fields.values())
+    norm = symmetric_percentile_norm(pooled) if diverging else percentile_norm(pooled)
 
     mesh = None
     for axis, name in zip(axes.flat, names, strict=True):
@@ -124,8 +115,7 @@ def map_panels(
             field.values,
             transform=PLATE,
             cmap=cmap,
-            vmin=vmin,
-            vmax=vmax,
+            norm=norm,
             shading="auto",
         )
         _map_axes(axis)

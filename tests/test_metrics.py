@@ -1150,3 +1150,49 @@ def test_seasonal_removal_does_not_depend_on_leap_year_alignment():
         f"(first: {dead[0]:%Y-%m-%d}), because no other year in the window "
         "visits that month-day"
     )
+
+
+def test_score_rollouts_is_one_pass_both_jobs_can_use(tmp_path):
+    """The seam `eval` and `viz` share must return what each of them needs.
+
+    `eval` takes the scalars, `viz` takes the products and the prepared
+    rollouts to draw from, and both take the frame and the CSV. Nothing else
+    exercised this function, so a name that only resolves on the real path --
+    which is every path through it -- would have reached production.
+    """
+    from samudra.config import ObsMetricsConfig
+    from samudra.metrics.run import score_rollouts
+    from samudra.utils.location import LocalLocation
+
+    rollout, duacs, oisst, argo = _synthetic_case()
+    root = tmp_path / "obs"
+    for name, product in (("duacs", duacs), ("oisst", oisst), ("argo-iap", argo)):
+        product.to_zarr(root / f"{name}.zarr", mode="w", zarr_format=2)
+
+    resolved = LocalLocation(path=tmp_path)
+    scored = score_rollouts(
+        ObsMetricsConfig(
+            rmse_start="2021-01-01", rmse_end="2022-12-31", bootstrap_samples=0
+        ),
+        rollouts={"model": rollout},
+        dataset_spec=OM4_SPEC,
+        data_root=resolved,
+        primary_label="model",
+        output_dir=tmp_path / "out",
+    )
+
+    assert set(scored.products) == {"duacs", "oisst", "argo"}
+    assert set(scored.rollouts) == {"model"}
+    assert not scored.frame.empty
+    # `viz` draws from these, so they have to be on the observation grid.
+    assert {"lat", "lon"} <= set(scored.rollouts["model"].dims)
+    # `eval` logs these, and they must be plain floats.
+    assert scored.scalars["obs/sst/total_rmse"] == pytest.approx(
+        float(
+            scored.frame[
+                (scored.frame["metric"] == "surface_sst_total_rmse")
+                & (scored.frame["period_kind"] == "primary_complete_years")
+            ].iloc[0]["value"]
+        )
+    )
+    assert (tmp_path / "out" / "observation_metrics.csv").exists()

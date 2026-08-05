@@ -3769,8 +3769,12 @@ class Viz:
     def _obs_inputs(self):
         """Observation products, rollouts on the observation grid, and the frame.
 
-        Computed once and cached: the metric frame costs a full reduction over
-        the record, and every observation step wants the same one.
+        The same pass `samudra.eval` runs, so the CSV beside these figures is the
+        one the eval job would have written and the numbers annotated on them are
+        the ones it would have logged.
+
+        Computed once and cached: it costs a full reduction over the record, and
+        every observation step wants the same one.
         """
         if getattr(self, "_obs_cache", None) is not None:
             return self._obs_cache
@@ -3781,36 +3785,20 @@ class Viz:
                 "src/samudra/configs/data/obs.yaml)."
             )
 
-        from samudra.metrics import observations as obs_loaders
-        from samudra.metrics import report as obs_report
+        from pathlib import Path
 
-        products = obs_loaders.open_products(self.observations, self.obs_data_root)
-        rollouts = {
-            run.name: obs_loaders.model_on_latlon_grid(run.data, self.dataset_spec)
-            for run in self.raw_runs
-        }
-        thickness = {
-            name: obs_loaders.model_depth_thickness(rollout, self.dataset_spec)
-            for name, rollout in rollouts.items()
-        }
+        from samudra.metrics.run import score_rollouts
 
-        logger.info("Computing observation metrics for %s", ", ".join(rollouts))
-        frame = obs_report.compute_observation_metrics(
-            rollouts,
-            duacs=products["duacs"],
-            oisst=products["oisst"],
-            argo=products["argo"],
-            model_dz=thickness,
-            window=self.observations.window,
-            bootstrap_samples=self.observations.bootstrap_samples,
-            velocity_kind=self.observations.velocity_kind,
+        runs = {run.name: run.data for run in self.raw_runs}
+        scored = score_rollouts(
+            self.observations,
+            rollouts=runs,
+            dataset_spec=self.dataset_spec,
+            data_root=self.obs_data_root,
+            primary_label=next(iter(runs)),
+            output_dir=Path(self.obs_path),
         )
-        os.makedirs(self.obs_path, exist_ok=True)
-        frame.to_csv(
-            os.path.join(self.obs_path, "observation_metrics.csv"), index=False
-        )
-
-        self._obs_cache = (rollouts, products, frame)
+        self._obs_cache = (scored.rollouts, scored.products, scored.frame)
         return self._obs_cache
 
     def _observations_configured(self, step: str) -> bool:

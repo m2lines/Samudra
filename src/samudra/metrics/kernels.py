@@ -430,19 +430,6 @@ def monthly_mean_of_complete_months(
     return monthly.isel({time_dim: kept})
 
 
-def field_rmse_over_time(
-    sim: xr.DataArray, obs: xr.DataArray, context: str = "field"
-) -> xr.DataArray:
-    """Per-grid-cell RMSE across the shared time samples."""
-    sim_aligned, obs_aligned = xr.align(sim, obs, join="inner")
-    if sim_aligned.sizes.get("time", 0) == 0:
-        raise ValueError(f"No common time samples for {context} RMSE")
-    return cast(
-        xr.DataArray,
-        np.sqrt(((sim_aligned - obs_aligned) ** 2).mean("time", skipna=True)),
-    )
-
-
 # --------------------------------------------------------------------------
 # Velocity, EKE
 # --------------------------------------------------------------------------

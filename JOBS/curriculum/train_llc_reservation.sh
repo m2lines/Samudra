@@ -72,8 +72,6 @@ fi
 GPUS="${GPUS:-4}"
 DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-2}"
 PAD="${PAD:-constant}"
-NUM_HALO="${NUM_HALO:-4}"
-NUM_SPONGE="${NUM_SPONGE:-12}"
 
 # DDP
 PIN_MEM="${PIN_MEM:-false}"
@@ -148,7 +146,7 @@ echo "using lr multipliers: lr_multipliers=${LR_MULTIPLIERS}, lr_multiplier_tran
 echo "using curriculum: data_stride=${DATA_STRIDE}, temporal_stride=${TEMPORAL_STRIDE}, steps=${STEPS}, step_transition=${STEP_TRANSITION}, temporal_stride_transition=${TEMPORAL_STRIDE_TRANSITION}, hist=${HIST}, grad-detach=${GRADIENT_DETACH_INTERVAL}"
 echo "using replay: enabled=${REPLAY_ENABLED}, buffer_size=${REPLAY_BUFFER_SIZE}, refresh_every_n_microbatches=${REPLAY_REFRESH_EVERY_N_MICROBATCHES}, refresh_every_n_microbatches_transition=${REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION}, steps_per_epoch=${REPLAY_STEPS_PER_EPOCH}, max_lead_steps=${REPLAY_MAX_LEAD_STEPS}, max_lead_transition=${REPLAY_MAX_LEAD_TRANSITION}, checkpoint_buffer=${REPLAY_CHECKPOINT_BUFFER}"
 echo "using data location: LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
-echo "using padding: pad=${PAD}, num_halo=${NUM_HALO}, num_sponge=${NUM_SPONGE}"
+echo "using padding: pad=${PAD}"
 
 # Optional resume behavior:
 # - RESUME_CKPT_PATH set + FINETUNE=false resumes optimizer/scheduler and starts at ckpt epoch + 1.
@@ -253,8 +251,6 @@ trap 'forward_signal INT' INT
   "${CURRICULUM_ARGS[@]}" \
   "${REPLAY_ARGS[@]}" \
   --model.pad "${PAD}" \
-  --model.num_halo "${NUM_HALO}" \
-  --model.num_sponge "${NUM_SPONGE}" \
   --model.gradient_detach_interval "${GRADIENT_DETACH_INTERVAL}" \
   --gradient_accumulation_steps 4 \
   --ddp_bucket_cap_mb 25 \

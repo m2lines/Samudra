@@ -916,8 +916,6 @@ class Trainer:
             device=self.device,
             num_channels=self.N_prog,
             pad_mode=cfg.model.pad,
-            num_halo=getattr(cfg.model, "num_halo", 0),
-            num_sponge=getattr(cfg.model, "num_sponge", 0),
         )
 
         # Optimizer

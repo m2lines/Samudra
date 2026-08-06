@@ -87,8 +87,6 @@ CONCURRENT_COMPUTE="${CONCURRENT_COMPUTE:-false}"
 
 # MODEL
 PAD="${PAD:-constant}"
-NUM_HALO="${NUM_HALO:-4}"
-NUM_SPONGE="${NUM_SPONGE:-12}"
 PRED_RESIDUALS="${PRED_RESIDUALS:-true}"
 
 # DDP
@@ -153,7 +151,7 @@ echo "using lr multipliers: lr_multipliers=${LR_MULTIPLIERS}, lr_multiplier_tran
 echo "using replay data: data_stride=${DATA_STRIDE}, temporal_stride=${TEMPORAL_STRIDE}, temporal_stride_transition=${TEMPORAL_STRIDE_TRANSITION}, hist=${HIST}"
 echo "using replay: enabled=${REPLAY_ENABLED}, buffer_size=${REPLAY_BUFFER_SIZE}, refresh_every_n_microbatches=${REPLAY_REFRESH_EVERY_N_MICROBATCHES}, refresh_every_n_microbatches_transition=${REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION}, steps_per_epoch=${REPLAY_STEPS_PER_EPOCH}, max_lead_steps=${REPLAY_MAX_LEAD_STEPS}, max_lead_transition=${REPLAY_MAX_LEAD_TRANSITION}, checkpoint_buffer=${REPLAY_CHECKPOINT_BUFFER}"
 echo "using data location: LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
-echo "using padding: pad=${PAD}, num_halo=${NUM_HALO}, num_sponge=${NUM_SPONGE}"
+echo "using padding: pad=${PAD}"
 echo "predicting field or residual: pred_residual=${PRED_RESIDUALS}"
 echo "using batch_size=${BATCH_SIZE}, gradient_accumulation_steps=${GRADIENT_ACCUMULATION_STEPS}, effective_batch_size=$((BATCH_SIZE * GRADIENT_ACCUMULATION_STEPS))"
 if [[ -n "${DATA_LOCATION_OVERRIDE}" ]]; then
@@ -253,8 +251,6 @@ trap 'forward_signal INT' INT
   "${REPLAY_DATA_ARGS[@]}" \
   "${REPLAY_ARGS[@]}" \
   --model.pad "${PAD}" \
-  --model.num_halo "${NUM_HALO}" \
-  --model.num_sponge "${NUM_SPONGE}" \
   --model.pred_residuals "${PRED_RESIDUALS}" \
   --batch_size "${BATCH_SIZE}" \
   --gradient_accumulation_steps "${GRADIENT_ACCUMULATION_STEPS}" \

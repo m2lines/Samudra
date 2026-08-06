@@ -58,46 +58,6 @@ def loss_fn_from_metric(
     return loss_fn
 
 
-def build_halo_sponge_spatial_weight(
-    wet: torch.Tensor,
-    *,
-    num_halo: int,
-    num_sponge: int,
-) -> torch.Tensor:
-    """Build a simple edge weighting mask for the loaded LLC patch.
-
-    The intended LLC workflow is:
-    - the outer `num_halo` cells receive zero weight
-    - the next `num_sponge` cells ramp linearly from low weight toward one
-    - the remaining interior stays fully weighted
-    """
-    h, w = wet.shape[-2:]
-    y = torch.arange(h, device=wet.device)
-    x = torch.arange(w, device=wet.device)
-
-    dist_y = torch.minimum(y, h - 1 - y).view(h, 1)
-    dist_x = torch.minimum(x, w - 1 - x).view(1, w)
-    boundary_distance = torch.minimum(dist_y, dist_x)
-
-    spatial_weight = torch.ones((h, w), device=wet.device, dtype=torch.float32)
-    if num_halo > 0:
-        spatial_weight = torch.where(
-            boundary_distance < num_halo,
-            torch.zeros_like(spatial_weight),
-            spatial_weight,
-        )
-    if num_sponge > 0:
-        sponge_mask = (boundary_distance >= num_halo) & (
-            boundary_distance < num_halo + num_sponge
-        )
-        sponge_weight = (
-            boundary_distance.to(torch.float32) - num_halo + 1
-        ) / (num_sponge + 1)
-        spatial_weight = torch.where(sponge_mask, sponge_weight, spatial_weight)
-
-    return spatial_weight.unsqueeze(0).expand_as(wet)
-
-
 def _weighted_channel_mean(
     loss: torch.Tensor,
     *,
@@ -217,8 +177,7 @@ def _spatial_gradients(
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Compute forward differences along y and x axes with configurable x padding."""
     grad_y = tensor[:, :, 1:, :] - tensor[:, :, :-1, :]
-    grad_y_pad_mode = "replicate" if pad_mode == "halo_sponge" else "constant"
-    grad_y = F.pad(grad_y, (0, 0, 0, 1), mode=grad_y_pad_mode)
+    grad_y = F.pad(grad_y, (0, 0, 0, 1), mode="constant")
 
     padded_x = F.pad(tensor, (0, 1, 0, 0), mode=resolved_x_pad_mode(pad_mode))
     grad_x = padded_x[:, :, :, 1:] - padded_x[:, :, :, :-1]

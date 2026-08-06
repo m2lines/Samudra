@@ -49,7 +49,6 @@ from ocean_emulators.utils.loss import (
     LossFn,
     LossMetric,
     WeightedLoss,
-    build_halo_sponge_spatial_weight,
     loss_fn_from_metric,
 )
 from ocean_emulators.utils.profiler import Profiler
@@ -246,7 +245,7 @@ class DataConfig(BaseConfig):
 BlockType = Literal["conv_next_block", "conv_block"]
 ActivationType = Literal["relu", "gelu", "capped_gelu"]
 NormType = Literal["batch", "instance", "group", "nonorm", "layer"]
-PadType = Literal["circular", "constant", "reflect", "replicate", "halo_sponge"]
+PadType = Literal["circular", "constant", "reflect", "replicate"]
 
 
 class BlockConfig(BaseConfig):
@@ -672,22 +671,6 @@ class BaseModelConfig(BaseConfig, abc.ABC):
 class SamudraConfig(BaseModelConfig):
     unet: UNetBackboneConfig = UNetBackboneConfig()
     corrector: CorrectorConfig | None = None  # None turns all correctors off.
-    num_halo: int = Field(
-        default=4,
-        ge=0,
-        description=(
-            "Outer-edge boundary width used when `pad == \"halo_sponge\"`. "
-            "Pixels in this band receive zero loss weight."
-        ),
-    )
-    num_sponge: int = Field(
-        default=12,
-        ge=0,
-        description=(
-            "Width of the linearly increasing sponge region just inside the halo "
-            "when `pad == \"halo_sponge\"`."
-        ),
-    )
     pos_channels: int = Field(
         default=0,
         description="""Number of channels used for a learned positional embedding""",
@@ -988,18 +971,8 @@ def build_loss_fn(
     device: torch.device,
     num_channels: int,
     pad_mode: str,
-    num_halo: int = 0,
-    num_sponge: int = 0,
 ) -> LossFn:
-    spatial_weight = (
-        build_halo_sponge_spatial_weight(
-            wet=wet,
-            num_halo=num_halo,
-            num_sponge=num_sponge,
-        )
-        if pad_mode == "halo_sponge"
-        else None
-    )
+    spatial_weight = None
     match loss_cfg:
         case str():
             return loss_fn_from_metric(

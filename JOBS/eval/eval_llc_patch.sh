@@ -41,8 +41,6 @@ MODEL_NORM="${MODEL_NORM:-group}"
 GROUP_NORM_GROUPS="${GROUP_NORM_GROUPS:-32}"
 PRED_RESIDUALS="${PRED_RESIDUALS:-true}"
 MODEL_PAD="${MODEL_PAD:-constant}"
-NUM_HALO="${NUM_HALO:-4}"
-NUM_SPONGE="${NUM_SPONGE:-12}"
 
 DATA_ROOT="${DATA_ROOT:-/orcd/data/abodner/}"
 DATA_LOCATION="${DATA_LOCATION:-/orcd/data/abodner/003/LLC4320/LLC4320}"
@@ -66,7 +64,7 @@ if [[ -n "${MODEL_NORM}" ]]; then
   echo "model norm override: ${MODEL_NORM} (group_norm_groups=${GROUP_NORM_GROUPS})"
 fi
 if [[ -n "${MODEL_PAD}" ]]; then
-  echo "model pad override: ${MODEL_PAD} (num_halo=${NUM_HALO}, num_sponge=${NUM_SPONGE})"
+  echo "model pad override: ${MODEL_PAD}"
 fi
 if [[ -n "${PRED_RESIDUALS}" ]]; then
   echo "pred_residuals override: ${PRED_RESIDUALS}"
@@ -89,10 +87,6 @@ if [[ -n "${MODEL_NORM}" ]]; then
 fi
 if [[ -n "${MODEL_PAD}" ]]; then
   MODEL_ARGS+=(--model.pad "${MODEL_PAD}")
-  if [[ "${MODEL_PAD}" == "halo_sponge" ]]; then
-    MODEL_ARGS+=(--model.num_halo "${NUM_HALO}")
-    MODEL_ARGS+=(--model.num_sponge "${NUM_SPONGE}")
-  fi
 fi
 if [[ -n "${PRED_RESIDUALS}" ]]; then
   MODEL_ARGS+=(--model.pred_residuals "${PRED_RESIDUALS}")

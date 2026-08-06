@@ -105,8 +105,6 @@ RUN_ARGS=(
   --temporal_stride 1
   --steps "[1]"
   --model.pad constant
-  --model.num_halo 0
-  --model.num_sponge 0
   --model.pred_residuals false
   --model.checkpointing null
   --model.use_bfloat16 false

@@ -2,14 +2,14 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-07-18:samudra_llc:rb-Agulhas-strides=1-pred_field-eager-4-LOSS-RESTART
+#SBATCH --job-name=2026-08-05:samudra_rb_llc:multi_cache_test-1
 #SBATCH -x node4100,node3401,node3000
 #SBATCH -N 1
 #SBATCH --mem=254GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
 #SBATCH -G h200:1
-#SBATCH --time=48:00:00
+#SBATCH --time=2:00:00
 #SBATCH --signal=B:USR1@300
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
@@ -89,7 +89,7 @@ CONCURRENT_COMPUTE="${CONCURRENT_COMPUTE:-false}"
 PAD="${PAD:-constant}"
 NUM_HALO="${NUM_HALO:-4}"
 NUM_SPONGE="${NUM_SPONGE:-12}"
-PRED_RESIDUALS="${PRED_RESIDUALS:-false}"
+PRED_RESIDUALS="${PRED_RESIDUALS:-true}"
 
 # DDP
 DDP_BROADCAST_BUFFERS="${DDP_BROADCAST_BUFFERS:-false}"
@@ -97,19 +97,19 @@ DDP_TIMEOUT_MINUTES="${DDP_TIMEOUT_MINUTES:-300}"
 DDP_MAX_DATA_WORKERS_PER_RANK="${DDP_MAX_DATA_WORKERS_PER_RANK:-12}"
 
 # DATA
-LLC_FACE="${LLC_FACE:-1}"
-LLC_I_START="${LLC_I_START:-2880}"
-LLC_I_END="${LLC_I_END:-3600}"
-LLC_J_START="${LLC_J_START:-720}"
-LLC_J_END="${LLC_J_END:-1440}"
-DATA_LOCATION_OVERRIDE="${DATA_LOCATION_OVERRIDE:-}"
+# LLC_FACE="${LLC_FACE:-1}"
+# LLC_I_START="${LLC_I_START:-2880}"
+# LLC_I_END="${LLC_I_END:-3600}"
+# LLC_J_START="${LLC_J_START:-720}"
+# LLC_J_END="${LLC_J_END:-1440}"
+DATA_LOCATION_OVERRIDE="${DATA_LOCATION_OVERRIDE:-/orcd/data/abodner/002/cody/LLC_patch/100-200-partial-test}"
 DATA_STRIDE="${DATA_STRIDE:-[1]}"
 TEMPORAL_STRIDE="${TEMPORAL_STRIDE:-1}"
 TEMPORAL_STRIDE_TRANSITION="${TEMPORAL_STRIDE_TRANSITION:-[]}"
 HIST="${HIST:-0}"
 
 # CHECKPOINTING / RESUME
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-07-16:samudra_llc:rb-Agulhas-strides=1-pred_field-eager-3-LOSS-RESTART-18075108/saved_nets/ckpt_emergency.pt}"
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-}"
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
@@ -152,7 +152,7 @@ echo "using optimization: learning_rate=${LEARNING_RATE}, scheduler_mode=${SCHED
 echo "using lr multipliers: lr_multipliers=${LR_MULTIPLIERS}, lr_multiplier_transition=${LR_MULTIPLIER_TRANSITION}"
 echo "using replay data: data_stride=${DATA_STRIDE}, temporal_stride=${TEMPORAL_STRIDE}, temporal_stride_transition=${TEMPORAL_STRIDE_TRANSITION}, hist=${HIST}"
 echo "using replay: enabled=${REPLAY_ENABLED}, buffer_size=${REPLAY_BUFFER_SIZE}, refresh_every_n_microbatches=${REPLAY_REFRESH_EVERY_N_MICROBATCHES}, refresh_every_n_microbatches_transition=${REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION}, steps_per_epoch=${REPLAY_STEPS_PER_EPOCH}, max_lead_steps=${REPLAY_MAX_LEAD_STEPS}, max_lead_transition=${REPLAY_MAX_LEAD_TRANSITION}, checkpoint_buffer=${REPLAY_CHECKPOINT_BUFFER}"
-echo "using data location: LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
+# echo "using data location: LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
 echo "using padding: pad=${PAD}, num_halo=${NUM_HALO}, num_sponge=${NUM_SPONGE}"
 echo "predicting field or residual: pred_residual=${PRED_RESIDUALS}"
 echo "using batch_size=${BATCH_SIZE}, gradient_accumulation_steps=${GRADIENT_ACCUMULATION_STEPS}, effective_batch_size=$((BATCH_SIZE * GRADIENT_ACCUMULATION_STEPS))"

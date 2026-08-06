@@ -322,6 +322,9 @@ def main() -> None:
         "oceTAUX",
         "oceTAUY",
         "oceQnet",
+        "XC",
+        "YC",
+        "rA",
     }
     missing = sorted(required_vars - set(data.data_vars))
     if missing:

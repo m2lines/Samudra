@@ -392,6 +392,17 @@ class SamudraMulti(BaseModel):
         if processor_depth is None:
             return super().forward(train_data, loss_fn=loss_fn)
 
+        if self.pred_residuals:
+            # `BaseModel.forward` adds the input state back when predicting
+            # residuals; the latent path decodes an absolute state and compares
+            # it directly to the label. Training one and rolling out the other
+            # would fit a function inference never evaluates. `initialize_rollout`
+            # already refuses this combination -- keep the two sides symmetric.
+            raise ValueError(
+                "Latent lead-time training requires absolute decoder outputs; "
+                "pred_residuals must be false."
+            )
+
         if loss_fn is None:
             prediction = self.latent_forecast(train_data, [processor_depth])[
                 processor_depth

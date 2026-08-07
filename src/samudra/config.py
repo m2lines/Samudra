@@ -1312,6 +1312,30 @@ class SamudraMultiConfig(BaseModelConfig):
         description="Use bfloat16 for most layers rather than float32. Required for flash attention.",
     )
 
+    @pydantic.model_validator(mode="after")
+    def reject_unreachable_latent_objectives(self) -> Self:
+        """Refuse weights that only the (unported) latent-depth training path reads.
+
+        `physical_forecast_loss_weight` and `latent_teacher_loss_weight` are
+        consumed on the `processor_depth` branch of `SamudraMulti.forward`, and
+        nothing calls that yet. Silently accepting
+        `physical_forecast_loss_weight: 0.0` would run ordinary full-weight
+        physical-loss training and report nothing.
+        """
+        if self.physical_forecast_loss_weight != 1.0:
+            raise ValueError(
+                "physical_forecast_loss_weight only affects latent lead-time "
+                "training, which is not wired into the training loop yet. Leave "
+                "it at 1.0 until train_processor_depths lands."
+            )
+        if self.latent_teacher_loss_weight != 0.0:
+            raise ValueError(
+                "latent_teacher_loss_weight only affects latent lead-time "
+                "training, which is not wired into the training loop yet. Leave "
+                "it at 0.0 until train_processor_depths lands."
+            )
+        return self
+
     def processor_checkpointing(self) -> LayerCheckpointing | None:
         """Resolve the processor-local mode without its redundant outer wrapper."""
         return "all" if self.checkpointing == "selective" else self.checkpointing

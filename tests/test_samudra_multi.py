@@ -99,6 +99,20 @@ def test_rollout_state_matches_the_step_function_it_was_trained_with(
         )
 
 
+def test_latent_depth_training_refuses_residual_prediction():
+    """The depth path decodes an absolute state; residual mode would add the input back.
+
+    `initialize_rollout` already refuses this pairing, so training must too, or
+    the two sides fit and evaluate different functions.
+    """
+    torch.manual_seed(0)
+    model = _build(latent_autoregression=False)
+    model.pred_residuals = True
+
+    with pytest.raises(ValueError, match="pred_residuals must be false"):
+        model.forward(train_data=None, loss_fn=None, processor_depth=1)
+
+
 def test_cross_grid_decode_refuses_to_interpolate_without_the_channel_mask():
     """`project_before_resample` promises per-channel masked transport.
 

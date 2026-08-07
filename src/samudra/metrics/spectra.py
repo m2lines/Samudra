@@ -274,14 +274,26 @@ def region_spectrum(
         if not stack:
             logger.info("no spectrum for %s: no time steps", name)
             return np.array([]), np.array([])
-        centers, spectra = isotropic_spectrum(np.stack(stack), dx=dx, dy=dy)
+        try:
+            centers, spectra = isotropic_spectrum(np.stack(stack), dx=dx, dy=dy)
+        except ValueError as error:
+            logger.info("no spectrum for %s: %s", name, error)
+            return np.array([]), np.array([])
         return centers * RADIANS_PER_KM, spectra.mean(axis=0)
 
     block = _open_ocean_block(region, (lat_dim, lon_dim))
     if block is None:
         logger.info("no spectrum for %s: box contains land or missing cells", name)
         return np.array([]), np.array([])
-    centers, spectrum = isotropic_spectrum(block, dx=dx, dy=dy)
+    try:
+        centers, spectrum = isotropic_spectrum(block, dx=dx, dy=dy)
+    except ValueError as error:
+        # A box can pass the side-length check and still leave too few bins
+        # below the lower Nyquist once the spacings are strongly anisotropic.
+        # The caller draws that as unavailable, like any other region it cannot
+        # transform, rather than losing the whole figure.
+        logger.info("no spectrum for %s: %s", name, error)
+        return np.array([]), np.array([])
     return centers * RADIANS_PER_KM, spectrum
 
 

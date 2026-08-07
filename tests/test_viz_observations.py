@@ -20,7 +20,7 @@ import xarray as xr
 matplotlib.use("Agg")
 
 from samudra.constants import build_om4_spec  # noqa: E402
-from samudra.metrics import observations, report  # noqa: E402
+from samudra.metrics import comparisons, observations, report, spectra  # noqa: E402
 from samudra.viz import observations as figures  # noqa: E402
 
 OM4_SPEC = build_om4_spec(prognostic_vars_key="thermo_dynamic_all")
@@ -498,3 +498,63 @@ def test_observation_curves_cover_the_record_the_runs_do(tmp_path):
         f"{temporal['model']['Global'][4]}, and the panel labels both as a "
         "band of yearly spectra"
     )
+
+
+def test_energies_are_derived_after_the_window_is_settled():
+    """EKE has to be built from the trimmed velocity, not trimmed afterwards.
+
+    The anomaly is taken about the mean of whatever record it is handed, so
+    deriving first and trimming second leaves each curve on a different
+    baseline -- and on a record with any drift in the mean flow that is not a
+    rounding difference.
+    """
+    time = pd.date_range("2015-01-03", "2022-12-29", freq="5D")
+    lat, lon = np.linspace(-40.0, 40.0, 12), np.linspace(0.0, 350.0, 18)
+    rng = np.random.default_rng(0)
+    coords = {"time": time, "lat": lat, "lon": lon}
+
+    drift = np.linspace(0.0, 0.4, time.size)[:, None, None]
+    u = xr.DataArray(
+        drift + rng.normal(scale=0.2, size=(time.size, lat.size, lon.size)),
+        dims=("time", "lat", "lon"),
+        coords=coords,
+    )
+    v = xr.DataArray(rng.normal(scale=0.2, size=u.shape), dims=u.dims, coords=coords)
+    area = xr.DataArray(
+        np.ones((lat.size, lon.size)),
+        dims=("lat", "lon"),
+        coords={"lat": lat, "lon": lon},
+    )
+    velocity = comparisons.VelocityComparison(
+        comparisons.Comparison("u", u, u, area),
+        comparisons.Comparison("v", v, v, area),
+    )
+    window = slice(pd.Timestamp("2020-01-01"), pd.Timestamp("2022-12-31"))
+
+    derive_then_trim = float(velocity.eddy_kinetic_energy().trimmed(window).obs.mean())
+    trim_then_derive = float(velocity.trimmed(window).eddy_kinetic_energy().obs.mean())
+    assert derive_then_trim != pytest.approx(trim_then_derive, rel=0.05), (
+        "the fixture no longer separates the two orders, so it cannot show "
+        "that the order matters"
+    )
+
+
+def test_a_region_too_anisotropic_to_transform_is_skipped_not_fatal():
+    """Too few bins below the Nyquist must lose the panel, not the figure.
+
+    A box can pass the side-length check and still leave fewer than two
+    wavenumber bins once the spacings are strongly anisotropic, which
+    `isotropic_spectrum` raises on. `region_spectrum` promises empty arrays for
+    a region it cannot transform, and the callers draw that as unavailable.
+    """
+    lat = np.linspace(80.0, 82.0, 9)  # a high-latitude box: dx << dy
+    lon = np.linspace(0.0, 40.0, 9)
+    field = xr.DataArray(
+        np.random.default_rng(0).normal(size=(lat.size, lon.size)),
+        dims=["lat", "lon"],
+        coords={"lat": lat, "lon": lon},
+    )
+    wavenumber, power = spectra.region_spectrum(
+        field, slice(0, 40), slice(80, 82), name="polar sliver"
+    )
+    assert wavenumber.size == power.size

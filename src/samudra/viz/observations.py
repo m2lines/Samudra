@@ -302,6 +302,7 @@ def rmse_map_figures(
     frame: pd.DataFrame,
     window: tuple[pd.Timestamp, pd.Timestamp],
     directory: str,
+    velocity_kind: str = "absolute",
 ) -> list[str]:
     """Per-cell RMSE maps for every metric that produces one.
 
@@ -366,14 +367,23 @@ def rmse_map_figures(
                 save(map_panels(maps, title, units, notes, cmap=cmap), directory, name)
             )
 
+    # Derived once per model: the velocity pair costs a geostrophic derivation
+    # and an alignment over the whole window, and both maps below want it.
+    velocities: dict[str, comparisons.VelocityComparison] = {}
+
+    def velocity_of(model: str, rollout: xr.Dataset) -> comparisons.VelocityComparison:
+        if model not in velocities:
+            velocities[model] = comparisons.surface_velocity(
+                rollout, duacs, window, model, velocity_kind
+            )
+        return velocities[model]
+
     def velocity_map(model: str, rollout: xr.Dataset) -> _SquaredError:
-        velocity = comparisons.surface_velocity(rollout, duacs, window, model)
+        velocity = velocity_of(model, rollout)
         return velocity.vector_error_squared, velocity.area
 
     def eke_map(model: str, rollout: xr.Dataset) -> _SquaredError:
-        eke = comparisons.surface_velocity(
-            rollout, duacs, window, model
-        ).eddy_kinetic_energy()
+        eke = velocity_of(model, rollout).eddy_kinetic_energy()
         return eke.error_squared, eke.area
 
     def sst_map(model: str, rollout: xr.Dataset) -> _SquaredError:
@@ -488,13 +498,24 @@ def variance_map_figures(
     written: list[str] = []
     oisst, argo = products["oisst"], products["argo"]
 
-    def note(metric: str, model: str, units: str) -> str:
+    def note(metric: str, model: str, units: str, drawn: tuple[str, str]) -> str:
         rows = frame[
             (frame["metric"] == metric)
             & (frame["model"] == model)
             & (frame["period_kind"] == "full_overlap")
         ]
-        return "" if rows.empty else _annotate(float(rows.iloc[0]["value"]), units)
+        if rows.empty:
+            return ""
+        row = rows.iloc[0]
+        text = _annotate(float(row["value"]), units)
+        # `report` scores each run over its own overlap with the product, while
+        # the panels share one window so they can share a colour scale. With
+        # runs of equal coverage those agree; when they do not, say so rather
+        # than print a number for a period the map does not cover.
+        scored = (str(row["period_start"]), str(row["period_end"]))
+        if scored != drawn:
+            text += f" (scored {scored[0]}..{scored[1]})"
+        return text
 
     def draw(
         items: dict[str, comparisons.Comparison],
@@ -506,6 +527,8 @@ def variance_map_figures(
         corr_metric: str,
     ) -> None:
         reference, items = _over_one_window(items)
+        stamps = pd.DatetimeIndex(reference["time"].values)
+        drawn = (f"{stamps.min():%Y-%m-%d}", f"{stamps.max():%Y-%m-%d}")
         obs_variance = kernels.residual_variance_map(reference)
         maps = {reference_name: obs_variance}
         notes = {reference_name: ""}
@@ -514,11 +537,21 @@ def variance_map_figures(
                 kernels.residual_variance_map(item.native), obs_variance
             )
             notes[model] = (
-                f"map RMSE {note(rmse_metric, model, units)}; "
-                f"corr {note(corr_metric, model, '')}"
+                f"map RMSE {note(rmse_metric, model, units, drawn)}; "
+                f"corr {note(corr_metric, model, '', drawn)}"
             )
         written.append(
-            save(map_panels(maps, title, units, notes, cmap="cividis"), directory, slug)
+            save(
+                map_panels(
+                    maps,
+                    f"{title}, {drawn[0]} to {drawn[1]}",
+                    units,
+                    notes,
+                    cmap="cividis",
+                ),
+                directory,
+                slug,
+            )
         )
 
     draw(
@@ -562,6 +595,7 @@ def timeseries_figures(
     rollouts: dict[str, xr.Dataset],
     products: dict[str, xr.Dataset],
     directory: str,
+    velocity_kind: str = "absolute",
 ) -> list[str]:
     """Global-mean series: the trend, the seasonal cycle, and what is left.
 
@@ -573,13 +607,20 @@ def timeseries_figures(
     duacs, oisst, argo = products["duacs"], products["oisst"], products["argo"]
 
     def draw(
-        items: dict[str, comparisons.Comparison],
+        items,
         reference_name: str,
         slug: str,
         title: str,
         units: str,
+        derive=None,
     ) -> None:
         reference, items = _over_one_window(items)
+        if derive is not None:
+            # Anything reducing over time has to be derived after the window is
+            # settled: an eddy anomaly is taken about the mean of whatever
+            # record it is handed, and trimming afterwards cannot undo that.
+            items = {name: derive(item) for name, item in items.items()}
+            reference = next(iter(items.values())).obs
         area = next(iter(items.values())).area
         reference, runs = _on_common_cells(
             reference, {name: item.on_obs_grid for name, item in items.items()}
@@ -629,14 +670,15 @@ def timeseries_figures(
     draw(
         {
             model: comparisons.surface_velocity(
-                rollout, duacs, None, model
-            ).eddy_kinetic_energy()
+                rollout, duacs, None, model, velocity_kind
+            )
             for model, rollout in rollouts.items()
         },
         "DUACS",
         "global_surface_eke",
         "Global mean surface EKE",
         "m2 s-2",
+        derive=lambda velocity: velocity.eddy_kinetic_energy(),
     )
     upper = kernels.OHC_LAYERS[0]
     draw(
@@ -673,6 +715,7 @@ def spectra_figures(
     rollouts: dict[str, xr.Dataset],
     products: dict[str, xr.Dataset],
     directory: str,
+    velocity_kind: str = "absolute",
 ) -> list[str]:
     """Spatial and temporal spectra: at which scales the model is wrong.
 
@@ -692,7 +735,9 @@ def spectra_figures(
     # taken before the span is settled is a mean of the wrong record.
     _, velocity = _over_one_window(
         {
-            model: comparisons.surface_velocity(rollout, duacs, None, model)
+            model: comparisons.surface_velocity(
+                rollout, duacs, None, model, velocity_kind
+            )
             for model, rollout in rollouts.items()
         }
     )
@@ -708,7 +753,11 @@ def spectra_figures(
     obs_eke = next(iter(mean_eke.values())).obs
     eke_curves = {"DUACS": _region_curves(obs_eke, spectra.SPATIAL_REGIONS)}
     for model, item in mean_eke.items():
-        eke_curves[model] = _region_curves(item.on_obs_grid, spectra.SPATIAL_REGIONS)
+        # The model's own grid, like every other spectrum here. Interpolating
+        # onto the finer observation grid is a low-pass filter, so it damps the
+        # high wavenumbers this figure exists to compare -- and the wavenumbers
+        # come back in rad/km either way, so the curves stay comparable.
+        eke_curves[model] = _region_curves(item.native, spectra.SPATIAL_REGIONS)
     written.append(
         save(
             spectra_panel(

@@ -3732,7 +3732,20 @@ class Viz:
                 "src/samudra/configs/data/obs.yaml)."
             )
 
-        runs = {run.name: run.data for run in self.raw_runs}
+        # Copied because `process_data` writes stacked variables back into these
+        # same objects during construction; scoring what was read keeps this
+        # independent of whatever the other steps have done to them.
+        runs = {run.name: run.data.copy() for run in self.raw_runs}
+        if self.observations.baselines:
+            # `baselines` adds the ground-truth comparison to an eval job, which
+            # scores whatever it was handed. viz draws the runs its config
+            # lists, so the key has no effect here; saying so beats a figure
+            # quietly missing a panel the CSV beside it would have had.
+            logger.info(
+                "Ignoring observations.baselines=%s: viz draws the runs in its "
+                "own `runs:` list. Add the baseline there to see it.",
+                self.observations.baselines,
+            )
         scored = score_rollouts(
             self.observations,
             rollouts=runs,
@@ -3769,7 +3782,12 @@ class Viz:
         rollouts, products, frame = self._obs_inputs()
         assert self.observations is not None  # established by _obs_inputs
         obs_figures.rmse_map_figures(
-            rollouts, products, frame, self.observations.window, self.obs_path
+            rollouts,
+            products,
+            frame,
+            self.observations.window,
+            self.obs_path,
+            self.observations.velocity_kind,
         )
 
     def step_obs_annual_rmse(self):
@@ -3798,7 +3816,10 @@ class Viz:
             return
 
         rollouts, products, _ = self._obs_inputs()
-        obs_figures.timeseries_figures(rollouts, products, self.obs_path)
+        assert self.observations is not None  # established by _obs_inputs
+        obs_figures.timeseries_figures(
+            rollouts, products, self.obs_path, self.observations.velocity_kind
+        )
 
     def step_obs_spectra(self):
         """Spatial and temporal spectra, and their interannual bands."""
@@ -3806,7 +3827,10 @@ class Viz:
             return
 
         rollouts, products, _ = self._obs_inputs()
-        obs_figures.spectra_figures(rollouts, products, self.obs_path)
+        assert self.observations is not None  # established by _obs_inputs
+        obs_figures.spectra_figures(
+            rollouts, products, self.obs_path, self.observations.velocity_kind
+        )
 
 
 def isnan(x: xr.DataArray) -> xr.DataArray:

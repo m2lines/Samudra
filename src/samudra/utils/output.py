@@ -38,8 +38,13 @@ class ModelInferenceOutput:
         prediction: torch.Tensor,
         target: torch.Tensor,
         time: xr.DataArray,
+        rollout_state: torch.Tensor,
     ):
         assert prediction.shape == target.shape
         self.prediction = prediction
         self.target = target
         self.time = time
+        # State carried between inference chunks. This is deliberately model-defined:
+        # physical-space models carry their final prediction, while latent models
+        # carry the final latent without decoding and re-encoding it.
+        self.rollout_state = rollout_state

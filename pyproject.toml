@@ -27,7 +27,9 @@ classifiers = [
 dynamic = [ "version" ] # derived from git tags by setuptools-scm
 dependencies = [
   "aiohttp>=3.11.13",
+  "cartopy>=0.24.1",              # `samudra viz` imports it at module load
   "cftime>=1.6.4.post1",
+  "cmocean>=4.0.3",
   "dacite>=1.9.2",
   "dask>=2025.2",
   "einops>=0.7",
@@ -47,6 +49,7 @@ dependencies = [
   "sqlalchemy>=2",                # skypilot requires sqlalchemy 2.0 but doesn't include that requirement
   "torch>=2.9.0a0,<2.13",         # Matches PhysicsNeMo container builds
   "torchinfo>=1.8",
+  "tqdm>=4.67.1",
   "typing-extensions>=4.15",
   "wandb>=0.19.8",
   "xarray[io]>=2025.1.2",
@@ -70,8 +73,6 @@ scripts.samudra = "samudra.cli:main"
 [dependency-groups]
 dev = [
   "beartype>=0.20",
-  "cartopy>=0.24.1",
-  "cmocean>=4.0.3",
   "coiled>=1.99",
   "filelock>=3.17",
   "fsspec>=2025.3",
@@ -90,7 +91,6 @@ dev = [
   "scalene>=1.5.51",
   "snakeviz>=2.2.2",
   "tenacity>=9",
-  "tqdm>=4.67.1",
   "types-pyyaml>=6.0.12.20241230",
   "types-tqdm>=4.67.0.20250516",
   "xarrayutils>=2.0.1",
@@ -128,6 +128,9 @@ local_scheme = "no-local-version"
 fallback_version = "0.0.0"
 
 [tool.ruff]
+# tests/reference holds code copied verbatim from the implementation the port is
+# compared against. Reformatting it, even harmlessly, stops it being a copy.
+extend-exclude = [ "tests/reference" ]
 lint.select = [ "B006", "D", "E", "F", "I", "UP", "W" ]
 # F722: https://docs.kidger.site/jaxtyping/faq/#flake8-or-ruff-are-throwing-an-error
 lint.ignore = [
@@ -163,8 +166,13 @@ ini_options.addopts = "--jaxtyping-packages=data,datasets,beartype.beartype --st
 
 [tool.mypy]
 check_untyped_defs = true
-exclude = [ "^data/" ]
+# tests/reference holds code copied verbatim from the implementation being
+# compared against; it is checked by running it, not by type-checking it.
+exclude = [ "^data/", "^tests/reference/" ]
 overrides = [
+  # Copied verbatim from the implementation under comparison; rewriting it to
+  # satisfy a type checker would stop it being that implementation.
+  { module = [ "tests.reference.*" ], ignore_errors = true },
   { module = [
     "cftime.*",
     "scipy.*",

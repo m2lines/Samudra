@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -56,6 +57,90 @@ def analysis_ready(data: xr.Dataset, dataset_spec: DatasetSpec) -> xr.Dataset:
     return data
 
 
+@dataclass
+class ObservationRun:
+    """Everything one observation pass produces.
+
+    `eval` wants the scalars, `viz` wants the products and the rollouts to draw
+    from; both want the frame. Returning all of it means the pass happens once
+    per job rather than once per consumer.
+    """
+
+    products: dict[str, xr.Dataset]
+    rollouts: dict[str, xr.Dataset]
+    frame: pd.DataFrame
+    scalars: MetricsDict
+
+
+def score_rollouts(
+    obs_cfg: ObsMetricsConfig,
+    *,
+    rollouts: dict[str, xr.Dataset],
+    dataset_spec: DatasetSpec,
+    data_root: ResolvedLocation,
+    primary_label: str,
+    output_dir: Path | None = None,
+) -> ObservationRun:
+    """Open the observation products and score every rollout against them.
+
+    Args:
+        obs_cfg: Product locations, scoring window, and bootstrap settings.
+        rollouts: Datasets to score, keyed by the label they are reported under.
+            Depth-stacked or not; either layout is accepted.
+        dataset_spec: Spec of the dataset the rollouts came from.
+        data_root: Root the observation locations resolve against.
+        primary_label: Which rollout the W&B scalars describe; the others are
+            baselines, reported under their own keys.
+        output_dir: When given, the full frame is written here as CSV.
+
+    Returns:
+        The products, the rollouts on the observation grid, the tidy frame, and
+        the flattened scalars for W&B.
+    """
+    start = time.perf_counter()
+    products = observations.open_products(obs_cfg, data_root)
+
+    prepared: dict[str, xr.Dataset] = {}
+    model_dz: dict[str, xr.DataArray] = {}
+    for label, data in rollouts.items():
+        on_grid = observations.model_on_latlon_grid(
+            analysis_ready(data, dataset_spec), dataset_spec
+        )
+        prepared[label] = on_grid
+        model_dz[label] = observations.model_depth_thickness(on_grid, dataset_spec)
+
+    logger.info(
+        "Computing observation metrics over %s to %s for: %s",
+        obs_cfg.rmse_start,
+        obs_cfg.rmse_end,
+        ", ".join(prepared),
+    )
+    frame = report.compute_observation_metrics(
+        prepared,
+        duacs=products["duacs"],
+        oisst=products["oisst"],
+        argo=products["argo"],
+        model_dz=model_dz,
+        window=obs_cfg.window,
+        bootstrap_samples=obs_cfg.bootstrap_samples,
+        velocity_kind=obs_cfg.velocity_kind,
+    )
+
+    if output_dir is not None:
+        output_dir = Path(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        csv_path = output_dir / METRICS_CSV_NAME
+        frame.to_csv(csv_path, index=False)
+        logger.info("Wrote %d metric rows to %s", len(frame), csv_path)
+
+    elapsed = time.perf_counter() - start
+    logger.info("Observation metrics took %.1f s", elapsed)
+
+    scalars = report.to_wandb(frame, primary_label)
+    scalars["obs/seconds"] = elapsed
+    return ObservationRun(products, prepared, frame, scalars)
+
+
 def run_observation_metrics(
     obs_cfg: ObsMetricsConfig,
     *,
@@ -68,61 +153,15 @@ def run_observation_metrics(
 ) -> tuple[pd.DataFrame, MetricsDict]:
     """Score a rollout against observations and return the frame plus W&B scalars.
 
-    Args:
-        obs_cfg: Product locations, scoring window, and bootstrap settings.
-        predictions: The rollout, in the writer's depth-stacked layout.
-        dataset_spec: Spec of the dataset the rollout came from.
-        data_root: Root the observation locations resolve against.
-        model_label: Name for the model under evaluation, used in W&B keys.
-        baselines: Extra rollouts to score alongside it, keyed by label.
-        output_dir: When given, the full frame is written here as CSV.
-
-    Returns:
-        The tidy metrics frame, and the flattened scalars for W&B.
+    The eval-facing shape of `score_rollouts`, which `viz` uses directly because
+    it also needs the products and the prepared rollouts to draw from.
     """
-    start = time.perf_counter()
-    products = observations.open_products(obs_cfg, data_root)
-
-    rollouts = {
-        model_label: observations.model_on_latlon_grid(predictions, dataset_spec)
-    }
-    model_dz = {
-        model_label: observations.model_depth_thickness(
-            rollouts[model_label], dataset_spec
-        )
-    }
-    for label, data in (baselines or {}).items():
-        prepared = observations.model_on_latlon_grid(
-            analysis_ready(data, dataset_spec), dataset_spec
-        )
-        rollouts[label] = prepared
-        model_dz[label] = observations.model_depth_thickness(prepared, dataset_spec)
-
-    logger.info(
-        "Computing observation metrics over %s to %s for: %s",
-        obs_cfg.rmse_start,
-        obs_cfg.rmse_end,
-        ", ".join(rollouts),
+    scored = score_rollouts(
+        obs_cfg,
+        rollouts={model_label: predictions, **(baselines or {})},
+        dataset_spec=dataset_spec,
+        data_root=data_root,
+        primary_label=model_label,
+        output_dir=output_dir,
     )
-    frame = report.compute_observation_metrics(
-        rollouts,
-        duacs=products["duacs"],
-        oisst=products["oisst"],
-        argo=products["argo"],
-        model_dz=model_dz,
-        window=obs_cfg.window,
-        bootstrap_samples=obs_cfg.bootstrap_samples,
-        velocity_kind=obs_cfg.velocity_kind,
-    )
-
-    if output_dir is not None:
-        csv_path = Path(output_dir) / METRICS_CSV_NAME
-        frame.to_csv(csv_path, index=False)
-        logger.info("Wrote %d metric rows to %s", len(frame), csv_path)
-
-    elapsed = time.perf_counter() - start
-    logger.info("Observation metrics took %.1f s", elapsed)
-
-    scalars = report.to_wandb(frame, model_label)
-    scalars["obs/seconds"] = elapsed
-    return frame, scalars
+    return scored.frame, scored.scalars

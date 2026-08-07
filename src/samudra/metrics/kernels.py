@@ -430,19 +430,6 @@ def monthly_mean_of_complete_months(
     return monthly.isel({time_dim: kept})
 
 
-def field_rmse_over_time(
-    sim: xr.DataArray, obs: xr.DataArray, context: str = "field"
-) -> xr.DataArray:
-    """Per-grid-cell RMSE across the shared time samples."""
-    sim_aligned, obs_aligned = xr.align(sim, obs, join="inner")
-    if sim_aligned.sizes.get("time", 0) == 0:
-        raise ValueError(f"No common time samples for {context} RMSE")
-    return cast(
-        xr.DataArray,
-        np.sqrt(((sim_aligned - obs_aligned) ** 2).mean("time", skipna=True)),
-    )
-
-
 # --------------------------------------------------------------------------
 # Velocity, EKE
 # --------------------------------------------------------------------------
@@ -701,14 +688,18 @@ def detrend_linear_dataarray(
     return field - (slope * x + intercept)
 
 
-def detrended_deseasonalized(
-    field: xr.DataArray, time_dim: str = "time"
-) -> xr.DataArray:
-    """Remove the seasonal cycle and then a linear trend, per grid cell.
+def without_seasonal_cycle(field: xr.DataArray, time_dim: str = "time") -> xr.DataArray:
+    """Subtract a climatology, leaving the anomaly, per grid cell.
 
-    The residual is the quantity of interest: it isolates the variability a
-    model either reproduces or smooths away, with the trend and seasonal cycle,
-    which are easy to get right, taken out first.
+    Bins into pentads where the sampling supports it, then calendar months,
+    then falls back to the record mean. Pentads rather than literal calendar
+    dates: OM4 puts 73 samples in every calendar year, so a leap year carries
+    one six-day step and every later sample lands on a date no common year
+    visits. Grouping on the date itself would give those samples a climatology
+    made of themselves, and an anomaly of zero.
+
+    This is the field counterpart of `series_without_seasonal_cycle`, and the
+    deseasonalizing half of `detrended_deseasonalized`.
     """
     if field.sizes.get(time_dim, 0) == 0:
         return field
@@ -722,19 +713,29 @@ def detrended_deseasonalized(
             name="pentad",
         )
         with_pentad = field.assign_coords(pentad=pentad)
-        deseasonalized = with_pentad.groupby("pentad") - with_pentad.groupby(
-            "pentad"
-        ).mean(time_dim, skipna=True)
-        if "pentad" in deseasonalized.coords:
-            deseasonalized = deseasonalized.drop_vars("pentad")
-    elif has_repeated_calendar_months(time_index):
-        deseasonalized = field.groupby(f"{time_dim}.month") - field.groupby(
+        anomaly = with_pentad.groupby("pentad") - with_pentad.groupby("pentad").mean(
+            time_dim, skipna=True
+        )
+        return anomaly.drop_vars("pentad") if "pentad" in anomaly.coords else anomaly
+    if has_repeated_calendar_months(time_index):
+        return field.groupby(f"{time_dim}.month") - field.groupby(
             f"{time_dim}.month"
         ).mean(time_dim, skipna=True)
-    else:
-        deseasonalized = field - field.mean(time_dim, skipna=True)
+    return field - field.mean(time_dim, skipna=True)
 
-    return detrend_linear_dataarray(deseasonalized, time_dim=time_dim)
+
+def detrended_deseasonalized(
+    field: xr.DataArray, time_dim: str = "time"
+) -> xr.DataArray:
+    """Remove the seasonal cycle and then a linear trend, per grid cell.
+
+    The residual is the quantity of interest: it isolates the variability a
+    model either reproduces or smooths away, with the trend and seasonal cycle,
+    which are easy to get right, taken out first.
+    """
+    return detrend_linear_dataarray(
+        without_seasonal_cycle(field, time_dim=time_dim), time_dim=time_dim
+    )
 
 
 def residual_variance_map(

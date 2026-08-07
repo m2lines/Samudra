@@ -13,16 +13,20 @@ the whole multi-year time series in hand.
 The pieces:
 
 - `kernels`: pure functions over `xr.DataArray`. No I/O, no plotting, no state.
+- `spectra`: the same, for the transforms that answer *at which scales* a model
+  is wrong rather than by how much.
 - `observations`: loaders for the DUACS / OISST / ARGO-IAP products.
+- `comparisons`: model and observation fields aligned and put on one grid, which
+  is everything scoring and drawing have in common.
 - `report`: the driver, producing one tidy `pandas.DataFrame` of metric rows.
+- `run`: one observation pass, returning the products, the prepared rollouts,
+  the frame and the W&B scalars.
 
 `ObsMetricsConfig` lives in `samudra.config` with the other task configs.
 
-`samudra.eval` calls `report` for the scalars it logs to W&B. The kernels are
-written to be shared with `samudra.viz`, so that a number on a figure cannot
-drift from the scalar logged beside it -- but that integration is a follow-up,
-and today `eval` is the only caller. Several kernels exist for it and are not
-yet reachable from this driver.
+`samudra.eval` takes the scalars from `run` and logs them; `samudra.viz` takes
+the same pass and draws it. Both reduce through `kernels`, so a number on a
+figure cannot drift from the scalar logged beside it: they are one calculation.
 
 One rule is easy to get wrong and worth stating up front: **reduce before you
 regrid, whenever the reduction is nonlinear.** Horizontal interpolation is a

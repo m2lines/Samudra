@@ -22,6 +22,7 @@ import xarray as xr
 from dask.array.core import Array as DaskArray
 from matplotlib import colors
 
+
 def _flatten_for_norm(data: Any) -> np.ndarray:
     if isinstance(data, xr.DataArray):
         arr = data.data

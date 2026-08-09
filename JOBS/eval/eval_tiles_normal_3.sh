@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p mit_normal_gpu
-#SBATCH --job-name=2026-08-09-eval:Samudra_LLC:4-tile-blend=false
+#SBATCH --job-name=2026-08-09-eval:Samudra_LLC:4-tile-blend=true,quintic,pre-blend_summary
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
 #SBATCH -x node4100,node3401,node3000
@@ -56,7 +56,7 @@ PRED_RESIDUALS="${PRED_RESIDUALS:-true}"
 # ============== BLENDING ==============
 # BLEND=false is the hard-crop control: tiles step independently and are simply
 # cut and stitched. That is rung 2 of the ladder; BLEND=true is rung 3.
-BLEND="${BLEND:-false}"
+BLEND="${BLEND:-true}"
 # WINDOW=quintic  -> smootherstep partition of unity (our operator, the default)
 # WINDOW=kbd      -> Kaiser-Bessel-derived, STRATA's window
 WINDOW="${WINDOW:-quintic}"
@@ -70,7 +70,7 @@ RAMP_WIDTH="${RAMP_WIDTH:-}"
 # summary -> preblend.zarr with RMS |delta_A - delta_B| per channel per offset
 #            across each seam. Small; this is what notebook 2 reads.
 # full    -> additionally store the raw overlap-band residual differences. Large.
-PREBLEND_MODE="${PREBLEND_MODE:-none}"
+PREBLEND_MODE="${PREBLEND_MODE:-summary}"
 
 # ============== DIAGNOSTIC: FAR-FIELD PERTURBATION (default off) ==============
 # Perturbs a box far from the seam and records the induced one-step response, to

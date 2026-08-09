@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p mit_normal_gpu
-#SBATCH --job-name=2026-08-09-eval:Samudra_LLC:4-tile-blend=false
+#SBATCH --job-name=2026-08-09-eval:Samudra_LLC:4-tile-blend=true,quintic,far-field-perturbation
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
 #SBATCH -x node4100,node3401,node3000
@@ -56,7 +56,7 @@ PRED_RESIDUALS="${PRED_RESIDUALS:-true}"
 # ============== BLENDING ==============
 # BLEND=false is the hard-crop control: tiles step independently and are simply
 # cut and stitched. That is rung 2 of the ladder; BLEND=true is rung 3.
-BLEND="${BLEND:-false}"
+BLEND="${BLEND:-true}"
 # WINDOW=quintic  -> smootherstep partition of unity (our operator, the default)
 # WINDOW=kbd      -> Kaiser-Bessel-derived, STRATA's window
 WINDOW="${WINDOW:-quintic}"
@@ -78,7 +78,7 @@ PREBLEND_MODE="${PREBLEND_MODE:-none}"
 # coupling (a flat floor). Doubles the model calls and writes perturbation.zarr.
 # Run this as its OWN job: the perturbed branch is a probe, not the trajectory,
 # but keeping it in a separate experiment name keeps the products unambiguous.
-PERTURBATION="${PERTURBATION:-false}"
+PERTURBATION="${PERTURBATION:-true}"
 PERTURBATION_AMPLITUDE="${PERTURBATION_AMPLITUDE:-1.0}"
 PERTURBATION_BOX="${PERTURBATION_BOX:-32}"
 PERTURBATION_CHANNEL="${PERTURBATION_CHANNEL:-0}"

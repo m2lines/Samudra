@@ -770,6 +770,11 @@ class DataContainer:
     supports_fork: bool
     static_data: xr.Dataset | None = None
     replay_sources: list[DataSource] | None = None
+    #: The resolved location behind each replay source, in the same order.
+    #: A loaded DataSource keeps only prognostic/boundary under lat/lon dims, so
+    #: anything needing the cache's own grid arrays or attrs -- the tile catalog
+    #: and its overlap gate -- has to reopen the store from here.
+    replay_locations: list["ResolvedLocation"] | None = None
 
 
 def conditional_rearrange(

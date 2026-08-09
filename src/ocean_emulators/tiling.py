@@ -322,12 +322,16 @@ def build_tile_catalog(
 
     specs: list[TileSpec] = []
     for position, data in enumerate(datasets):
-        missing = [name for name in ("x", "y") if name not in data.coords]
-        if missing:
+        # A raw packed cache stores absolute LLC indices as x/y, but
+        # `with_lat_lon_coords` renames those dims to lon/lat when a DataSource
+        # loads one. The values are the same integers either way.
+        index_coords = _absolute_index_coords(data)
+        if index_coords is None:
             raise ValueError(
-                f"Cache at position {position} is missing coordinate(s) {missing}; "
-                "the catalog is built from absolute LLC x/y indices."
+                f"Cache at position {position} is missing coordinate(s) x/y "
+                "(or lon/lat); the catalog is built from absolute LLC indices."
             )
+        x_values, y_values = index_coords
         face = (
             faces[position]
             if faces is not None
@@ -342,11 +346,32 @@ def build_tile_catalog(
                     dataset_indices[position] if dataset_indices is not None else position
                 ),
                 face=face,
-                x=data.coords["x"].to_numpy(),
-                y=data.coords["y"].to_numpy(),
+                x=x_values,
+                y=y_values,
             )
         )
     return specs
+
+
+def _spatial_dim_names(data: xr.Dataset) -> tuple[str, str]:
+    """Return ``(j_dim, i_dim)``, which a loaded DataSource renames to lat/lon."""
+    for j_name, i_name in (("y", "x"), ("lat", "lon")):
+        if j_name in data.sizes and i_name in data.sizes:
+            return j_name, i_name
+    raise ValueError(
+        f"Dataset has no y/x or lat/lon dimensions; found {sorted(data.sizes)}"
+    )
+
+
+def _absolute_index_coords(data: xr.Dataset) -> tuple[np.ndarray, np.ndarray] | None:
+    """Return ``(i, j)`` index arrays under either the x/y or lon/lat names."""
+    for i_name, j_name in (("x", "y"), ("lon", "lat")):
+        if i_name in data.coords and j_name in data.coords:
+            return (
+                data.coords[i_name].to_numpy(),
+                data.coords[j_name].to_numpy(),
+            )
+    return None
 
 
 # --------------------------------------------------------------------------
@@ -397,10 +422,11 @@ def validate_tile_group(
     reference_times = reference["time"].to_numpy()
     for tile, data in by_tile.items():
         height, width = tile.shape
-        if (data.sizes.get("y"), data.sizes.get("x")) != (height, width):
+        j_dim, i_dim = _spatial_dim_names(data)
+        if (data.sizes[j_dim], data.sizes[i_dim]) != (height, width):
             raise ValueError(
                 f"Tile {tile.tile_id} declares shape {(height, width)} but its "
-                f"cache is {(data.sizes.get('y'), data.sizes.get('x'))}"
+                f"cache is {(data.sizes[j_dim], data.sizes[i_dim])}"
             )
         times = data["time"].to_numpy()
         if times.shape != reference_times.shape or not np.array_equal(
@@ -440,6 +466,7 @@ def _validate_overlap_agreement(
     grid_vars: Sequence[str] = ("XC", "YC", "rA"),
 ) -> None:
     tiles = list(by_tile)
+    compared = 0
     for position, tile in enumerate(tiles):
         for other in tiles[position + 1 :]:
             if other.face != tile.face:
@@ -450,9 +477,19 @@ def _validate_overlap_agreement(
             i1 = min(tile.i_end, other.i_end)
             if j1 <= j0 or i1 <= i0:
                 continue
-            for name in grid_vars:
-                if name not in by_tile[tile] or name not in by_tile[other]:
-                    continue
+            shared = [
+                name
+                for name in grid_vars
+                if name in by_tile[tile] and name in by_tile[other]
+            ]
+            if not shared:
+                raise ValueError(
+                    f"Tiles {tile.tile_id} and {other.tile_id} share no grid "
+                    f"variable from {list(grid_vars)}, so their claimed overlap "
+                    "cannot be verified. Validate against the raw packed caches, "
+                    "which carry XC/YC/rA; a loaded DataSource does not."
+                )
+            for name in shared:
                 left = _crop_absolute(by_tile[tile][name], tile, j0, j1, i0, i1)
                 right = _crop_absolute(by_tile[other][name], other, j0, j1, i0, i1)
                 if not np.array_equal(left, right, equal_nan=True):
@@ -463,15 +500,25 @@ def _validate_overlap_agreement(
                         f"j[{j0}:{j1}) i[{i0}:{i1}) (max |diff| {worst}). "
                         "They are not the neighbours the catalog thinks they are."
                     )
+                compared += 1
+
+    if len(tiles) > 1 and compared == 0:
+        raise ValueError(
+            "No overlap was verified for a multi-tile group. Either the catalog "
+            "found no adjacency, or no comparable grid variable was present."
+        )
 
 
 def _crop_absolute(
     array: xr.DataArray, tile: TileSpec, j0: int, j1: int, i0: int, i1: int
 ) -> np.ndarray:
+    j_dim, i_dim = _spatial_dim_names(array.to_dataset(name="_"))
     return np.asarray(
         array.isel(
-            y=slice(j0 - tile.j_start, j1 - tile.j_start),
-            x=slice(i0 - tile.i_start, i1 - tile.i_start),
+            {
+                j_dim: slice(j0 - tile.j_start, j1 - tile.j_start),
+                i_dim: slice(i0 - tile.i_start, i1 - tile.i_start),
+            }
         ).to_numpy(),
         dtype=np.float64,
     )

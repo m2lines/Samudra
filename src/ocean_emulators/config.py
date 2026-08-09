@@ -239,6 +239,7 @@ class DataConfig(BaseConfig):
             supports_fork,
             static_data,
             replay_sources,
+            expanded_locations,
         )
 
 
@@ -1206,6 +1207,76 @@ class EvalAblationConfig(BaseConfig):
     )
 
 
+class TiledInferenceConfig(BaseConfig):
+    """Options for the 2x2 blended rollout in `ocean_emulators.tiled_eval`.
+
+    Inert for plain `Eval`; only `TiledEval` reads them.
+    """
+
+    window: Literal["quintic", "kbd"] = Field(
+        default="quintic",
+        description=(
+            "Blend window. 'quintic' is the smootherstep partition of unity; "
+            "'kbd' is the Kaiser-Bessel-derived window STRATA stitches with."
+        ),
+    )
+    kbd_beta: float = Field(
+        default=6.0, description="Kaiser shape parameter, used only by window='kbd'."
+    )
+    ramp_width: int | None = Field(
+        default=None,
+        description=(
+            "Taper width in cells. Defaults to the overlap width. Set larger to "
+            "window a whole tile the way STRATA does rather than just the seam."
+        ),
+    )
+    blend: bool = Field(
+        default=True,
+        description=(
+            "Blend overlaps each step. Set false for the hard-crop control run, "
+            "which is the baseline the blended runs are measured against."
+        ),
+    )
+    preblend_mode: Literal["none", "summary", "full"] = Field(
+        default="none",
+        description=(
+            "Write pre-blend tile-to-tile disagreement to a separate zarr. "
+            "'summary' stores RMS disagreement per channel per offset across "
+            "each seam (small); 'full' additionally stores the raw overlap-band "
+            "residuals (large)."
+        ),
+    )
+    perturbation: bool = Field(
+        default=False,
+        description=(
+            "Run the far-field perturbation probe: each step, re-predict from a "
+            "state perturbed inside a box far from the seam and record the "
+            "induced response. Doubles the model calls; writes its own zarr."
+        ),
+    )
+    perturbation_amplitude: float = Field(
+        default=1.0,
+        description="Perturbation size in normalized units (state is z-scored).",
+    )
+    perturbation_box: int = Field(
+        default=32, description="Side length in cells of the perturbed box."
+    )
+    perturbation_centre: tuple[int, int] | None = Field(
+        default=None,
+        description=(
+            "Local (j, i) centre of the perturbed box. Defaults to the tile "
+            "centre, which is as far from every seam as a tile allows."
+        ),
+    )
+    perturbation_channel: int = Field(
+        default=0,
+        description="Prognostic channel whose full response map is written, for plots.",
+    )
+    response_bins: int = Field(
+        default=32, description="Distance bins for the perturbation response curve."
+    )
+
+
 class EvalConfig(TopLevelConfig):
     # Basic parameters
     debug: bool = False
@@ -1243,6 +1314,7 @@ class EvalConfig(TopLevelConfig):
         start=JulianDate("0311-01-01"), end=JulianDate("0351-01-01")
     )
     ablation: EvalAblationConfig = EvalAblationConfig()
+    tiling: TiledInferenceConfig = TiledInferenceConfig()
     experiment: ExperimentConfig
     data: DataConfig
     model: AnyModelConfig = SamudraConfig()

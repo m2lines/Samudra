@@ -180,3 +180,63 @@ def test_appending_nothing_is_a_no_op(builder, store):
     result = xr.open_zarr(store, consolidated=True)
     assert result["time"].to_numpy().size == 4
     assert "test_time_count" not in result.attrs
+
+
+def test_append_preserves_the_stores_own_attrs(builder, store):
+    """The store's identity attrs must survive an append untouched.
+
+    They are also what validate_append_compatible compares, so clobbering them
+    on the way in makes a valid append look incompatible -- and clobbering them
+    on the way out leaves a store that no longer describes itself.
+    """
+    import zarr
+
+    handle = zarr.open(str(store), mode="a")
+    handle.attrs.update({"train_time_count": 4, "float_type": "float16"})
+    zarr.consolidate_metadata(str(store))
+
+    builder.append_time_window(
+        store, make_store_dataset(LATER), time_batch=2, label="test"
+    )
+
+    result = xr.open_zarr(store, consolidated=True)
+    assert result.attrs["prognostic_channel_names_json"] == '["a", "b"]'
+    assert result.attrs["boundary_channel_names_json"] == '["f"]'
+    assert result.attrs["train_time_count"] == 4
+    assert result.attrs["float_type"] == "float16"
+    assert result.attrs["test_time_count"] == 4  # and the new window is recorded
+
+
+def test_main_append_path_reaches_the_compatibility_check_with_attrs(builder, monkeypatch, store, tmp_path):
+    """Regression: main() used to strip ds_out's attrs before validating, which
+    made every real append fail on 'channel_names_json differs'."""
+    seen = {}
+
+    def capture(output_path, ds_new, *, time_batch, label):
+        seen["attrs"] = dict(ds_new.attrs)
+
+    monkeypatch.setattr(builder, "append_time_window", capture)
+    monkeypatch.setattr(
+        builder, "build_training_ready_dataset",
+        lambda data, means, stds, args: make_store_dataset(LATER),
+    )
+    monkeypatch.setattr(builder, "build_output_path", lambda args: store)
+    monkeypatch.setattr(builder, "slice_patch", lambda data, args: data)
+    monkeypatch.setattr(
+        builder.xr, "open_zarr",
+        lambda *a, **k: xr.Dataset(
+            {name: (("y", "x"), np.zeros((2, 2))) for name in
+             ("U", "V", "Theta", "Salt", "Eta", "oceTAUX", "oceTAUY", "oceQnet",
+              "XC", "YC", "rA", "mask_c")}
+        ),
+    )
+    monkeypatch.setattr(
+        sys, "argv",
+        ["build", "--append", "--append-start", "2012-10-05",
+         "--append-end", "2012-10-08", "--output-root", str(tmp_path)],
+    )
+
+    builder.main()
+    assert seen["attrs"].get("prognostic_channel_names_json") == '["a", "b"]', (
+        "main() must hand the compatibility check a dataset that still has its attrs"
+    )

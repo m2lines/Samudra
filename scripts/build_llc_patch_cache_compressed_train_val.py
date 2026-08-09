@@ -401,6 +401,11 @@ def append_time_window(
     # Everything except `time` already exists in the store and must not be
     # re-sent, or xarray tries to append along a dimension they do not have.
     time_ds = time_ds.drop_vars([c for c in time_ds.coords if c != "time"])
+    # xarray rewrites the root group's attrs on every append and offers no way
+    # to opt out, so hand it the store's existing attrs to write back unchanged.
+    # An empty dict here would erase the store's identity -- channel names,
+    # train/val counts, geometry -- and the next append would then reject it.
+    time_ds.attrs = dict(existing.attrs)
 
     total = int(time_ds.sizes["time"])
     n_batches = (total + time_batch - 1) // time_batch
@@ -570,8 +575,8 @@ def main() -> None:
     if args.append:
         # Only the time-varying arrays are appended; masks, stats, XC/YC/rA and
         # the encoding all stay as the store already has them, which is exactly
-        # why validate_append_compatible checks they would have matched.
-        ds_out.attrs.clear()
+        # why validate_append_compatible checks they would have matched. The
+        # attrs must reach that check intact -- they are what it compares.
         append_time_window(
             output_path,
             ds_out,

@@ -88,6 +88,26 @@ def _dataset_to_numpy(selected: xr.Dataset, leading_dims: tuple[str, ...]) -> np
     return np.concatenate(arrays, axis=len(leading_dims))
 
 
+def _append_spatial_features(
+    input: torch.Tensor,
+    features: torch.Tensor | None,
+) -> torch.Tensor:
+    """Append a patch's fixed geographic features to a model input.
+
+    Shared by the replay/train and inference datasets so both assemble the
+    input channels in the same order: [prognostic | boundary | spatial].
+    """
+    if features is None:
+        return input
+    if tuple(features.shape[-2:]) != tuple(input.shape[-2:]):
+        raise ValueError(
+            "Spatial feature shape does not match model input: "
+            f"{tuple(features.shape)} vs {tuple(input.shape)}"
+        )
+    features = features.to(device=input.device, dtype=input.dtype).unsqueeze(0)
+    return torch.cat((input, features.expand(input.shape[0], -1, -1, -1)), dim=1)
+
+
 class InferenceDataset(Dataset):
     """This class is used for inference rollouts.
 
@@ -115,11 +135,13 @@ class InferenceDataset(Dataset):
         masked_fill_value,
         long_rollout,
         inference_stride: int = 1,
+        append_spatial_features_to_inputs: bool = False,
     ):
         super().__init__()
         self.device = get_device()
 
         self.hist = hist
+        self.append_spatial_features_to_inputs = append_spatial_features_to_inputs
         if inference_stride < 1:
             raise ValueError("inference_stride must be >= 1")
         self.inference_stride = inference_stride
@@ -133,6 +155,14 @@ class InferenceDataset(Dataset):
         data = src.data
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
+        if (
+            self.append_spatial_features_to_inputs
+            and self._prognostic_src.spatial_features is None
+        ):
+            raise ValueError(
+                "append_spatial_features_to_inputs=True but this source has no "
+                "spatial features. Packed caches must contain XC, YC, and rA."
+            )
         self._times = data.time
         self.normalize_before_mask = normalize_before_mask
         self.masked_fill_value = masked_fill_value
@@ -199,11 +229,17 @@ class InferenceDataset(Dataset):
             )
         )
 
+    def append_spatial_features(self, input: torch.Tensor) -> torch.Tensor:
+        """Append this patch's fixed geographic features to an inference input."""
+        if not self.append_spatial_features_to_inputs:
+            return input
+        return _append_spatial_features(input, self._prognostic_src.spatial_features)
+
     def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
         x_index = self._get_x_index(step)
         boundary = self._get_boundary(x_index).to(prognostic.device)
         data = torch.cat((prognostic, boundary), dim=1)
-        return data
+        return self.append_spatial_features(data)
 
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx):
@@ -211,6 +247,7 @@ class InferenceDataset(Dataset):
         data_in = self._get_prognostic(x_index)
         data_in_boundary = self._get_boundary(x_index)
         data_in = torch.cat((data_in, data_in_boundary), dim=1)
+        data_in = self.append_spatial_features(data_in)
         label = self._get_label(x_index)
         return (data_in, label)
 
@@ -886,16 +923,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
     def append_spatial_features(self, input: torch.Tensor) -> torch.Tensor:
         """Append this patch's fixed geographic features to a replay input."""
-        features = self._prognostic_src.spatial_features
-        if features is None:
-            return input
-        if tuple(features.shape[-2:]) != tuple(input.shape[-2:]):
-            raise ValueError(
-                "Spatial feature shape does not match replay input: "
-                f"{tuple(features.shape)} vs {tuple(input.shape)}"
-            )
-        features = features.to(device=input.device, dtype=input.dtype).unsqueeze(0)
-        return torch.cat((input, features.expand(input.shape[0], -1, -1, -1)), dim=1)
+        return _append_spatial_features(input, self._prognostic_src.spatial_features)
 
     def _normalize_and_mask_steps(
         self,

@@ -24,6 +24,7 @@ from ocean_emulators.datasets import InferenceDataset
 from ocean_emulators.models.modules import ConvNeXtBlock, UNetBackbone
 from ocean_emulators.stepper import Stepper
 from ocean_emulators.utils.data import (
+    SPATIAL_FEATURE_CHANNELS,
     Normalize,
     get_inference_steps,
     spherical_area_weights,
@@ -105,7 +106,6 @@ class Eval:
             cfg.experiment.prognostic_vars_key, cfg.experiment.boundary_vars_key
         )
 
-        logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
 
         # Dataloaders
@@ -117,6 +117,24 @@ class Eval:
         )
 
         self.src = self.data_container.source_using_dask
+
+        # Multi-patch replay training appends four fixed geographic channels to
+        # every input, so a checkpoint trained that way needs them here too.
+        # Default to whatever the cache can supply; an explicit config value wins.
+        has_spatial_features = self.src.spatial_features is not None
+        if cfg.spatial_features is None:
+            self.spatial_features = has_spatial_features
+        else:
+            self.spatial_features = cfg.spatial_features
+            if self.spatial_features and not has_spatial_features:
+                raise ValueError(
+                    "spatial_features=True but this cache has no XC, YC, and rA."
+                )
+        if self.spatial_features:
+            self.num_in += SPATIAL_FEATURE_CHANNELS
+            logger.info("Spatial inputs enabled: sphere_xyz + log_rA")
+
+        logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
         self.data = self.src.data
         self.static_data = self.data_container.static_data
         self.metadata = construct_metadata(self.data)
@@ -275,7 +293,27 @@ class Eval:
         for k, v in model_state_dict.items():
             name = k.removeprefix("module.")
             new_state_dict[name] = v
+        self._check_checkpoint_input_channels(new_state_dict)
         self.model.load_state_dict(new_state_dict)
+
+    def _check_checkpoint_input_channels(self, state_dict: dict) -> None:
+        """Fail with an actionable message instead of a raw shape mismatch.
+
+        The input channel count depends on whether the checkpoint was trained
+        with the four appended spatial channels, which is easy to get wrong and
+        otherwise surfaces as an opaque strict-load error deep in the backbone.
+        """
+        for name, expected in self.model.state_dict().items():
+            saved = state_dict.get(name)
+            if saved is None or tuple(saved.shape) == tuple(expected.shape):
+                continue
+            raise ValueError(
+                f"Checkpoint parameter '{name}' has shape {tuple(saved.shape)} but "
+                f"this model was built with {tuple(expected.shape)}. Eval is using "
+                f"num_in={self.num_in} (spatial_features={self.spatial_features}); "
+                f"set the `spatial_features` eval config field explicitly to match "
+                f"how the checkpoint was trained."
+            )
 
     def apply_ablation(self, cfg: EvalAblationConfig) -> None:
         skip_indices = parse_skip_indices(cfg.unet_skip_indices)
@@ -326,6 +364,7 @@ class Eval:
             masked_fill_value=self.masked_fill_value,
             long_rollout=True,
             inference_stride=self.inference_stride,
+            append_spatial_features_to_inputs=self.spatial_features,
         )
 
     def run(self) -> None:

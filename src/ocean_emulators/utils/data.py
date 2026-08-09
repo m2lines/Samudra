@@ -102,6 +102,10 @@ def _packed_channel_indices(
     return [index_by_name[name] for name in requested_names], list(requested_names)
 
 
+# sphere_x, sphere_y, sphere_z, log_rA -- see _packed_spatial_features below.
+SPATIAL_FEATURE_CHANNELS = 4
+
+
 def _packed_spatial_features(data: xr.Dataset) -> torch.Tensor | None:
     """Build [unit-sphere position, reference-scaled log-area] from an LLC cache."""
     required = ("XC", "YC", "rA")

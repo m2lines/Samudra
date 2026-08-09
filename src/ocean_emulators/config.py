@@ -1217,6 +1217,16 @@ class EvalConfig(TopLevelConfig):
     num_model_steps_forward: int = 200
     inference_stride: int = 1
     backend: EvalBackendConfig = "auto"
+    spatial_features: bool | None = Field(
+        default=None,
+        description=(
+            "Append the packed cache's fixed geographic channels (sphere_xyz + "
+            "log_rA) to every model input, matching multi-patch replay training. "
+            "Defaults to auto: enabled when the cache provides XC, YC, and rA. "
+            "Set explicitly to evaluate a checkpoint whose input channel count "
+            "disagrees with the cache."
+        ),
+    )
     resume_prediction_zarr: str | None = Field(
         default=None,
         description=(

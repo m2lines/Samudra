@@ -71,6 +71,7 @@ from ocean_emulators.replay import ReplayBuffer, ReplayEntry, replay_sidecar_pat
 from ocean_emulators.shardtensor import DomainParallelContext, validate_shardable
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
 from ocean_emulators.utils.data import (
+    SPATIAL_FEATURE_CHANNELS,
     LoadStats,
     Normalize,
     get_inference_steps,
@@ -741,7 +742,7 @@ class Trainer:
                     "have the same spatial shape."
                 )
         self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound)) + (
-            4 if self.replay_spatial_features else 0
+            SPATIAL_FEATURE_CHANNELS if self.replay_spatial_features else 0
         )
         self.num_out = int((cfg.data.hist + 1) * self.N_prog)
 
@@ -1202,6 +1203,7 @@ class Trainer:
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 long_rollout=True,
+                append_spatial_features_to_inputs=self.replay_spatial_features,
             )
 
             inference_datasets.append(inference_dataset)

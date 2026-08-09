@@ -982,3 +982,139 @@ def test_profile__inference_loader__1gb(inference_loader_pair, benchmark):
             dataset, n = sample
             for X, y in dataset:
                 _, _ = X, y
+
+
+def _spatial_feature_source(features: torch.Tensor | None) -> tuple[DataSource, list, list]:
+    """A 2x2, 6-timestep source, optionally carrying fixed geographic features."""
+    coords = {"time": range(6), "lat": range(2), "lon": range(2)}
+    # Encode the time index in the values so channel identity is checkable.
+    values = torch.arange(6 * 4 * 2 * 2, dtype=torch.float32).reshape(4, 6, 2, 2)
+    names = ["prognostic1", "prognostic2", "boundary1", "boundary2"]
+    data = xr.Dataset(
+        {
+            name: xr.DataArray(values[i], dims=["time", "lat", "lon"], coords=coords)
+            for i, name in enumerate(names)
+        }
+    )
+    stats_coords = {"lat": [0], "lon": [0]}
+    data_mean = xr.Dataset({name: 0.0 for name in names}, coords=stats_coords)
+    data_std = xr.Dataset({name: 1.0 for name in names}, coords=stats_coords)
+    masks = Masks(prognostic=torch.ones(2, 2, 2), boundary=torch.ones(2, 2))
+    src = DataSource(
+        "spatial-test",
+        data,
+        data_mean,
+        data_std,
+        masks=masks,
+        spatial_features=features,
+    )
+    return src, ["prognostic1", "prognostic2"], ["boundary1", "boundary2"]
+
+
+def _make_inference_dataset(src, prognostic, boundary, *, append: bool):
+    return InferenceDataset(
+        src=src,
+        prognostic_var_names=prognostic,
+        boundary_var_names=boundary,
+        hist=0,
+        normalize_before_mask=True,
+        masked_fill_value=0.0,
+        long_rollout=False,
+        append_spatial_features_to_inputs=append,
+    )
+
+
+def test_inference_dataset_appends_spatial_features_to_both_input_paths() -> None:
+    features = torch.arange(4 * 2 * 2, dtype=torch.float32).reshape(4, 2, 2)
+    src, prognostic, boundary = _spatial_feature_source(features)
+
+    with MultitonScope():
+        Normalize.init_instance(
+            src, prognostic_var_names=prognostic, boundary_var_names=boundary
+        )
+        plain = _make_inference_dataset(src, prognostic, boundary, append=False)
+        augmented = _make_inference_dataset(src, prognostic, boundary, append=True)
+
+        # __getitem__ is the path behind get_initial_input().
+        plain_input, _ = plain[0]
+        augmented_input, _ = augmented[0]
+        assert plain_input.shape[1] == 4
+        assert augmented_input.shape[1] == 4 + 4
+        torch.testing.assert_close(augmented_input[:, :4], plain_input)
+        torch.testing.assert_close(augmented_input[0, 4:], features)
+
+        # merge_prognostic_and_boundary is the path used every rollout step.
+        prognostic_state = torch.zeros(1, 2, 2, 2)
+        plain_merged = plain.merge_prognostic_and_boundary(prognostic_state, step=0)
+        augmented_merged = augmented.merge_prognostic_and_boundary(
+            prognostic_state, step=0
+        )
+        assert augmented_merged.shape[1] == plain_merged.shape[1] + 4
+        torch.testing.assert_close(
+            augmented_merged[:, : plain_merged.shape[1]], plain_merged
+        )
+        torch.testing.assert_close(augmented_merged[0, plain_merged.shape[1] :], features)
+
+
+def test_inference_and_train_datasets_append_spatial_features_identically() -> None:
+    features = torch.arange(4 * 2 * 2, dtype=torch.float32).reshape(4, 2, 2)
+    src, prognostic, boundary = _spatial_feature_source(features)
+
+    with MultitonScope():
+        Normalize.init_instance(
+            src, prognostic_var_names=prognostic, boundary_var_names=boundary
+        )
+        inference = _make_inference_dataset(src, prognostic, boundary, append=True)
+        train = TorchTrainDataset(
+            src=src,
+            prognostic_var_names=prognostic,
+            boundary_var_names=boundary,
+            hist=0,
+            steps=1,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+            stride=1,
+            temporal_stride=1,
+            append_spatial_features_to_inputs=True,
+        )
+
+        base = torch.zeros(1, 3, 2, 2)
+        torch.testing.assert_close(
+            inference.append_spatial_features(base),
+            train.append_spatial_features(base),
+        )
+
+
+def test_inference_dataset_without_spatial_features_leaves_inputs_untouched() -> None:
+    src, prognostic, boundary = _spatial_feature_source(None)
+
+    with MultitonScope():
+        Normalize.init_instance(
+            src, prognostic_var_names=prognostic, boundary_var_names=boundary
+        )
+        dataset = _make_inference_dataset(src, prognostic, boundary, append=False)
+        assert dataset[0][0].shape[1] == 4
+
+
+def test_inference_dataset_rejects_append_without_spatial_features() -> None:
+    src, prognostic, boundary = _spatial_feature_source(None)
+
+    with MultitonScope():
+        Normalize.init_instance(
+            src, prognostic_var_names=prognostic, boundary_var_names=boundary
+        )
+        with pytest.raises(ValueError, match="no spatial features"):
+            _make_inference_dataset(src, prognostic, boundary, append=True)
+
+
+def test_append_spatial_features_rejects_shape_mismatch() -> None:
+    features = torch.zeros(4, 3, 3)
+    src, prognostic, boundary = _spatial_feature_source(features)
+
+    with MultitonScope():
+        Normalize.init_instance(
+            src, prognostic_var_names=prognostic, boundary_var_names=boundary
+        )
+        dataset = _make_inference_dataset(src, prognostic, boundary, append=True)
+        with pytest.raises(ValueError, match="Spatial feature shape"):
+            dataset.append_spatial_features(torch.zeros(1, 4, 2, 2))

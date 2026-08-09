@@ -32,6 +32,7 @@ import sys
 from pathlib import Path
 import zarr
 
+import numpy as np
 import xarray as xr
 from numcodecs import Blosc
 
@@ -80,6 +81,32 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--train-end", default="2012-09-13")
     parser.add_argument("--val-start", default="2012-09-14")
     parser.add_argument("--val-end", default="2012-10-14")
+
+    parser.add_argument(
+        "--append",
+        action="store_true",
+        help=(
+            "Extend an existing store with a later time window instead of "
+            "rebuilding it. Requires --append-start/--append-end, and the new "
+            "window must start after the last time already stored: zarr appends "
+            "by concatenation, so out-of-order times would corrupt the axis."
+        ),
+    )
+    parser.add_argument(
+        "--append-start",
+        default=None,
+        help="First timestamp of the window to append (inclusive).",
+    )
+    parser.add_argument(
+        "--append-end",
+        default=None,
+        help="Last timestamp of the window to append (inclusive).",
+    )
+    parser.add_argument(
+        "--append-label",
+        default="test",
+        help="Name recorded in the store attrs for the appended window, e.g. 'test'.",
+    )
 
     parser.add_argument(
         "--float-type",
@@ -283,6 +310,142 @@ def write_training_ready_in_batches(
     zarr.consolidate_metadata(str(tmp_path))
 
 
+def validate_append_compatible(existing: xr.Dataset, ds_new: xr.Dataset) -> None:
+    """Refuse to append anything the existing store cannot absorb cleanly.
+
+    Appending along time leaves every other array untouched, so the new window
+    silently inherits the store's geometry, masks, and normalization. If any of
+    those actually differ the result is a cache that looks fine and trains wrong,
+    which is far worse than a failed build.
+    """
+    for name in ("x", "y"):
+        if name not in existing.coords or name not in ds_new.coords:
+            raise ValueError(f"Both stores must carry the {name} index coordinate")
+        if not np.array_equal(
+            existing.coords[name].to_numpy(), ds_new.coords[name].to_numpy()
+        ):
+            raise ValueError(
+                f"Append refused: {name} index coordinate differs, so the new "
+                "window covers a different patch than the store."
+            )
+
+    for attr in ("prognostic_channel_names_json", "boundary_channel_names_json"):
+        if existing.attrs.get(attr) != ds_new.attrs.get(attr):
+            raise ValueError(f"Append refused: {attr} differs from the store.")
+
+    for name in ("prognostic_mean", "prognostic_std", "boundary_mean", "boundary_std"):
+        if name not in existing or name not in ds_new:
+            continue
+        if not np.allclose(
+            np.asarray(existing[name].to_numpy(), dtype=np.float64),
+            np.asarray(ds_new[name].to_numpy(), dtype=np.float64),
+            equal_nan=True,
+        ):
+            raise ValueError(
+                f"Append refused: {name} differs, so the appended window would "
+                "be normalized differently from the rest of the store."
+            )
+
+    for name in ("prognostic_mask", "boundary_mask"):
+        if name not in existing or name not in ds_new:
+            continue
+        if not np.array_equal(
+            np.asarray(existing[name].to_numpy()), np.asarray(ds_new[name].to_numpy())
+        ):
+            raise ValueError(f"Append refused: {name} differs from the store.")
+
+    for name in ("prognostic", "boundary"):
+        if existing[name].dtype != ds_new[name].dtype:
+            raise ValueError(
+                f"Append refused: {name} dtype {ds_new[name].dtype} does not match "
+                f"the store's {existing[name].dtype}; pass a matching --float-type."
+            )
+
+
+def append_time_window(
+    output_path: Path,
+    ds_new: xr.Dataset,
+    *,
+    time_batch: int,
+    label: str,
+) -> None:
+    """Concatenate a later time window onto an existing training-ready store."""
+    existing = xr.open_zarr(output_path, consolidated=True)
+    validate_append_compatible(existing, ds_new)
+
+    existing_times = existing["time"].to_numpy()
+    new_times = ds_new["time"].to_numpy()
+
+    already = np.isin(new_times, existing_times)
+    if already.all():
+        logger.info("Every requested time is already in the store; nothing to do.")
+        return
+    if already.any():
+        logger.info(
+            "Dropping %d requested time(s) already present in the store",
+            int(already.sum()),
+        )
+        ds_new = ds_new.isel(time=np.flatnonzero(~already))
+        new_times = ds_new["time"].to_numpy()
+
+    if new_times.min() <= existing_times.max():
+        raise ValueError(
+            f"Append refused: the new window starts at {new_times.min()} but the "
+            f"store already runs to {existing_times.max()}. Zarr appends by "
+            "concatenation rather than merging, so an overlapping or earlier "
+            "window would leave the time axis unsorted. Rebuild instead."
+        )
+
+    time_vars = [name for name, var in ds_new.data_vars.items() if "time" in var.dims]
+    time_ds = ds_new[time_vars]
+    # Everything except `time` already exists in the store and must not be
+    # re-sent, or xarray tries to append along a dimension they do not have.
+    time_ds = time_ds.drop_vars([c for c in time_ds.coords if c != "time"])
+
+    total = int(time_ds.sizes["time"])
+    n_batches = (total + time_batch - 1) // time_batch
+    logger.info(
+        "Appending %d timestamps (%s -> %s) in %d batch(es)",
+        total,
+        new_times.min(),
+        new_times.max(),
+        n_batches,
+    )
+    for index, start in enumerate(range(0, total, time_batch)):
+        stop = min(start + time_batch, total)
+        logger.info("Appending batch %d/%d: time[%d:%d)", index + 1, n_batches, start, stop)
+        time_ds.isel(time=slice(start, stop)).to_zarr(
+            output_path,
+            mode="a",
+            append_dim="time",
+            consolidated=False,
+        )
+
+    store = zarr.open(str(output_path), mode="a")
+    store.attrs.update(
+        {
+            f"{label}_start": str(np.datetime_as_string(new_times.min(), unit="D")),
+            f"{label}_end": str(np.datetime_as_string(new_times.max(), unit="D")),
+            f"{label}_time_count": total,
+        }
+    )
+    logger.info("Consolidating metadata")
+    zarr.consolidate_metadata(str(output_path))
+
+    check = xr.open_zarr(output_path, consolidated=True)
+    times = check["time"].to_numpy()
+    if not np.all(np.diff(times.astype("datetime64[ns]")) > np.timedelta64(0)):
+        raise RuntimeError(
+            "Append produced a non-monotonic time axis; the store is corrupt."
+        )
+    logger.info(
+        "Store now covers %s -> %s (%d timestamps)",
+        np.datetime_as_string(times.min(), unit="s"),
+        np.datetime_as_string(times.max(), unit="s"),
+        times.size,
+    )
+
+
 def main() -> None:
     args = parse_args()
     if args.time_chunk <= 0:
@@ -292,19 +455,42 @@ def main() -> None:
     if args.j_end <= args.j_start:
         raise ValueError("j-end must be greater than j-start")
 
+    # The store name encodes the ORIGINAL train/val window, so resolve it before
+    # the append window overrides those args below.
     output_path = build_output_path(args)
     tmp_path = output_path.with_name(f"{output_path.name}.tmp")
-    if output_path.exists() and not args.overwrite:
-        raise FileExistsError(
-            f"{output_path} already exists. Pass --overwrite to replace it."
+
+    if args.append:
+        if not args.append_start or not args.append_end:
+            raise ValueError("--append requires --append-start and --append-end")
+        if not output_path.exists():
+            raise FileNotFoundError(
+                f"--append needs an existing store, but {output_path} is missing. "
+                "Build it first, or drop --append to create it."
+            )
+        logger.info(
+            "Append mode: extending %s with %s -> %s",
+            output_path,
+            args.append_start,
+            args.append_end,
         )
-    if tmp_path.exists() and not args.overwrite:
+        # select_train_val_times concatenates and de-duplicates its two windows,
+        # so pointing both at the append window yields exactly that window once.
+        args.train_start = args.val_start = args.append_start
+        args.train_end = args.val_end = args.append_end
+    elif output_path.exists() and not args.overwrite:
         raise FileExistsError(
-            f"{tmp_path} already exists. Pass --overwrite to replace it."
+            f"{output_path} already exists. Pass --overwrite to replace it, or "
+            "--append with --append-start/--append-end to extend it in place."
         )
-    if args.overwrite:
-        remove_store(output_path)
-        remove_store(tmp_path)
+    if not args.append:
+        if tmp_path.exists() and not args.overwrite:
+            raise FileExistsError(
+                f"{tmp_path} already exists. Pass --overwrite to replace it."
+            )
+        if args.overwrite:
+            remove_store(output_path)
+            remove_store(tmp_path)
 
     logger.info("Opening source dataset: %s", args.source)
     data = xr.open_zarr(args.source, chunks={})
@@ -380,6 +566,19 @@ def main() -> None:
 
     if args.time_batch <= 0:
         raise ValueError("time-batch must be positive")
+
+    if args.append:
+        # Only the time-varying arrays are appended; masks, stats, XC/YC/rA and
+        # the encoding all stay as the store already has them, which is exactly
+        # why validate_append_compatible checks they would have matched.
+        ds_out.attrs.clear()
+        append_time_window(
+            output_path,
+            ds_out,
+            time_batch=args.time_batch,
+            label=args.append_label,
+        )
+        return
 
     encoding = build_encoding(ds_out, args)
     logger.info(

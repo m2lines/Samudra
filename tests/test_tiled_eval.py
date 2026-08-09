@@ -280,3 +280,27 @@ def test_advance_state_preserves_shape(blend) -> None:
         inputs, residuals, blender=blender, tile_wet=wet, num_out=2, blend=blend
     )
     assert state.shape == (4, 2, TILE, TILE)
+
+
+def test_unnormalizing_per_tile_then_stitching_equals_stitching_then_unnormalizing() -> None:
+    """Why the canonical write unnormalizes before it stitches.
+
+    Normalize carries a single tile's wet mask, so it cannot be applied to a
+    720x720 canonical frame at all. Doing it per tile first is valid because
+    unnormalization is affine per channel and the blend is a weighted mean whose
+    weights sum to one, so the two commute exactly.
+    """
+    layout = make_layout()
+    blender = TileBlender(layout, dtype=torch.float64)
+    torch.manual_seed(4)
+
+    normalized = torch.randn(4, 3, TILE, TILE, dtype=torch.float64)
+    mean = torch.randn(3, 1, 1, dtype=torch.float64)
+    std = torch.rand(3, 1, 1, dtype=torch.float64) + 0.5
+
+    def unnormalize(x):
+        return x * std + mean
+
+    per_tile_first = blender.to_canonical(unnormalize(normalized).unsqueeze(0))[0]
+    stitch_first = unnormalize(blender.to_canonical(normalized.unsqueeze(0))[0])
+    torch.testing.assert_close(per_tile_first, stitch_first)

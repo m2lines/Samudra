@@ -438,8 +438,17 @@ class TiledEval:
             )
             state = [next_state[index : index + 1] for index in range(len(state))]
 
+            # Unnormalize per tile, then stitch. Normalize's wet mask is a single
+            # tile's, so it cannot be applied to a canonical frame; and because
+            # unnormalization is affine per channel while the blend is a weighted
+            # mean with weights summing to one, the two commute. (The tile masks
+            # were verified to agree exactly in every overlap, so a land cell is
+            # never averaged against a live one.)
+            unnormalized = self.normalize.unnormalize_tensor_prognostic(
+                next_state.cpu(), fill_value=0.0
+            )
             canonical_frames.append(
-                self.blender.to_canonical(next_state.unsqueeze(0))[0].cpu().numpy()
+                self.blender.to_canonical(unnormalized.unsqueeze(0))[0].numpy()
             )
             times.append(self.datasets[0].get_target_time(step, 1))
 
@@ -505,8 +514,7 @@ class TiledEval:
     def _write_canonical(
         self, frames: list[np.ndarray], times: list[xr.DataArray]
     ) -> None:
-        stacked = torch.from_numpy(np.stack(frames))
-        stacked = self.normalize.unnormalize_tensor_prognostic(stacked, fill_value=0.0)
+        stacked = torch.from_numpy(np.stack(frames))  # already unnormalized
         coords = self._canonical_coords()
         dataset = xr.Dataset(
             {

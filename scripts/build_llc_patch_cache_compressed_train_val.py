@@ -356,6 +356,14 @@ def main() -> None:
             "compression_target_vars": "prognostic,boundary",
             "prognostic_channel_count": len(DEFAULT_PROGNOSTIC_CHANNELS),
             "boundary_channel_count": len(DEFAULT_BOUNDARY_CHANNELS),
+            # A global LLC coordinate is (face, i, j), but only i and j survive
+            # in the x/y index arrays. Record the face so a tile catalog never
+            # has to parse it back out of the filename.
+            "llc_face": args.face,
+            "llc_i_start": args.i_start,
+            "llc_i_end": args.i_end,
+            "llc_j_start": args.j_start,
+            "llc_j_end": args.j_end,
         }
     )
     logger.info("Output path: %s", output_path)

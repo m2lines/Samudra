@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-08-09-eval:Samudra_LLC:4-tile-blend=false
+#SBATCH --job-name=2026-08-10-eval:Samudra_LLC:4-tile-blend=false-ckpt7
 #SBATCH -x node4100,node3401,node3000
 #SBATCH -N 1
 #SBATCH --mem=100GB
@@ -29,7 +29,7 @@ export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
 # ============== CHECKPOINT AND OUTPUT ==============
-CKPT_PATH="${CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-08-06:samudra_rb_llc:4-tile-base-experiment-19805916/saved_nets/ckpt_50.pt}"
+CKPT_PATH="${CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-08-10:samudra_rb_llc:4-tile-base-experiment-data_fix-20093377/saved_nets/ckpt.pt}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-/orcd/data/abodner/002/cody/inference_patch}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
@@ -41,7 +41,7 @@ DATA_ROOT="${DATA_ROOT:-/orcd/data/abodner/002/cody/LLC_patch}"
 DATA_LOCATION="${DATA_LOCATION:-720-div-4-test}"
 
 INFER_START="${INFER_START:-2012-10-14}"
-INFER_END="${INFER_END:-2012-10-17}"
+INFER_END="${INFER_END:-2012-10-15}"
 INFERENCE_STRIDE="${INFERENCE_STRIDE:-1}"
 
 # ============== MODEL ==============

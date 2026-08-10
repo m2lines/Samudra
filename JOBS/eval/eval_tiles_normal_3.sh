@@ -1,14 +1,12 @@
 #!/bin/bash
-#SBATCH -p mit_normal_gpu
+#SBATCH -p pi_abodner
 #SBATCH --job-name=2026-08-09-eval:Samudra_LLC:4-tile-blend=true,quintic,pre-blend_summary
-#SBATCH --account=mit_amf_advanced_gpu
-#SBATCH --qos=mit_amf_advanced_gpu
 #SBATCH -x node4100,node3401,node3000
 #SBATCH -N 1
 #SBATCH --mem=100GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
-#SBATCH -G h200:1
+#SBATCH -G h100:1
 #SBATCH --time=00-2:30:00
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
@@ -71,6 +69,18 @@ RAMP_WIDTH="${RAMP_WIDTH:-}"
 #            across each seam. Small; this is what notebook 2 reads.
 # full    -> additionally store the raw overlap-band residual differences. Large.
 PREBLEND_MODE="${PREBLEND_MODE:-summary}"
+
+# ============== DIAGNOSTIC: FAR-FIELD PERTURBATION (default off) ==============
+# Perturbs a box far from the seam and records the induced one-step response, to
+# separate receptive-field coupling (decays with distance) from GroupNorm
+# coupling (a flat floor). Doubles the model calls and writes perturbation.zarr.
+# Run this as its OWN job: the perturbed branch is a probe, not the trajectory,
+# but keeping it in a separate experiment name keeps the products unambiguous.
+PERTURBATION="${PERTURBATION:-false}"
+PERTURBATION_AMPLITUDE="${PERTURBATION_AMPLITUDE:-1.0}"
+PERTURBATION_BOX="${PERTURBATION_BOX:-32}"
+PERTURBATION_CHANNEL="${PERTURBATION_CHANNEL:-0}"
+RESPONSE_BINS="${RESPONSE_BINS:-32}"
 
 # ============== REPACK TO 4D ==============
 # The rollout writes flat channels (Theta_0 ... Theta_50) because that is the

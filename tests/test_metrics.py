@@ -783,11 +783,12 @@ def test_coastal_erosion_is_measured_and_reported():
 
         # The reported fraction is the real one, not an estimate.
         ocean_cells = int(np.isfinite(obs).sum())
-        assert recorded["n_paired_cells"] == float(int(np.isfinite(paired).sum()))
-        assert recorded["paired_ocean_fraction"] == pytest.approx(
-            recorded["n_paired_cells"] / ocean_cells
+        assert recorded.n_paired_cells == int(np.isfinite(paired).sum())
+        assert recorded.n_observed_cells == ocean_cells
+        assert recorded.paired_ocean_fraction == pytest.approx(
+            recorded.n_paired_cells / ocean_cells
         )
-        measured[resolution] = recorded["paired_ocean_fraction"]
+        measured[resolution] = recorded.paired_ocean_fraction
 
     # A coarser model loses more of the ocean. Pinned so that any future change
     # to the pairing convention is a deliberate decision rather than a drift.

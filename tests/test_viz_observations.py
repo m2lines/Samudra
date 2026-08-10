@@ -531,8 +531,8 @@ def test_energies_are_derived_after_the_window_is_settled():
     )
     window = slice(pd.Timestamp("2020-01-01"), pd.Timestamp("2022-12-31"))
 
-    derive_then_trim = float(velocity.eddy_kinetic_energy().trimmed(window).obs.mean())
-    trim_then_derive = float(velocity.trimmed(window).eddy_kinetic_energy().obs.mean())
+    derive_then_trim = float(velocity.eddy_kinetic_energy().slice(window).obs.mean())
+    trim_then_derive = float(velocity.slice(window).eddy_kinetic_energy().obs.mean())
     assert derive_then_trim != pytest.approx(trim_then_derive, rel=0.05), (
         "the fixture no longer separates the two orders, so it cannot show "
         "that the order matters"

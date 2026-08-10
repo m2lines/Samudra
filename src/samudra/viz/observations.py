@@ -473,7 +473,7 @@ def _over_one_window(items):
     starts = [pd.Timestamp(c.time.values.min()) for c in items.values()]
     ends = [pd.Timestamp(c.time.values.max()) for c in items.values()]
     window = slice(max(starts), min(ends))
-    trimmed = {name: c.trimmed(window) for name, c in items.items()}
+    trimmed = {name: c.slice(window) for name, c in items.items()}
     first = next(iter(trimmed.values()))
     reference = first.obs if hasattr(first, "obs") else first.eastward.obs
     return reference, trimmed

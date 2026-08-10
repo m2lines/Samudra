@@ -25,10 +25,11 @@ resolution ratio rather than by the model.
 
 from __future__ import annotations
 
+import dataclasses
 import functools
 import logging
 from dataclasses import dataclass
-from typing import cast
+from typing import Self, cast
 
 import numpy as np
 import pandas as pd
@@ -46,6 +47,37 @@ def ever_finite(field: xr.DataArray) -> xr.DataArray:
     """A cell mask: true where the field carries data at any time."""
     finite = cast(xr.DataArray, np.isfinite(field))
     return finite.any("time") if "time" in field.dims else finite
+
+
+@dataclass(frozen=True)
+class Pairing:
+    """How much of the observation ocean survived pairing with a model.
+
+    Linear interpolation makes an observation cell NaN whenever its model-grid
+    neighbours include land, so the comparison set is eroded by a band one model
+    cell wide -- all of it coastal, which is where model error is largest. The
+    eroded fraction therefore scales with model resolution: a coarse run is
+    scored on a smaller and easier subset of the ocean than a fine one.
+    Recording it makes that visible instead of leaving cross-resolution
+    comparison merely "not comparable" in prose.
+    """
+
+    n_paired_cells: int
+    n_observed_cells: int
+
+    @property
+    def paired_ocean_fraction(self) -> float:
+        """The share of the product's ocean the model reaches."""
+        if not self.n_observed_cells:
+            return float("nan")
+        return self.n_paired_cells / self.n_observed_cells
+
+    def as_row(self) -> dict[str, float]:
+        """The metric-frame columns this contributes."""
+        return {
+            "n_paired_cells": float(self.n_paired_cells),
+            "paired_ocean_fraction": self.paired_ocean_fraction,
+        }
 
 
 @dataclass
@@ -76,36 +108,28 @@ class Comparison:
     def time(self) -> xr.DataArray:
         return self.obs["time"]
 
-    def trimmed(self, time_slice: slice) -> Comparison:
-        """The same comparison over a narrower span."""
-        return Comparison(
-            self.label,
-            self.native.sel(time=time_slice),
-            self.obs.sel(time=time_slice),
-            self.area,
+    def slice(self, time_slice: slice) -> Self:
+        """Restrict the comparison to a time slice, as `DataSource.slice` does.
+
+        Takes the slice rather than a `TimeConfig`: these spans are derived from
+        the data -- the period several runs and a product have in common -- not
+        read from configuration, and a `TimeConfig` would assert a calendar the
+        observation products do not share.
+        """
+        return dataclasses.replace(
+            self,
+            native=self.native.sel(time=time_slice),
+            obs=self.obs.sel(time=time_slice),
         )
 
     @property
-    def pairing(self) -> dict[str, float]:
-        """How much of the observation ocean survived pairing with the model.
-
-        Linear interpolation makes an observation cell NaN whenever its
-        model-grid neighbours include land, so the comparison set is eroded by a
-        band one model cell wide -- all of it coastal, which is where model
-        error is largest. The eroded fraction therefore scales with model
-        resolution: a coarse run is scored on a smaller and easier subset of the
-        ocean than a fine one. Recording it makes that visible instead of
-        leaving cross-resolution comparison merely "not comparable" in prose.
-        """
+    def pairing(self) -> Pairing:
+        """How much of the observation ocean this model reaches."""
         obs_mask = ever_finite(self.obs)
-        paired = int((obs_mask & ever_finite(self.on_obs_grid)).sum())
-        obs_ocean = int(obs_mask.sum())
-        return {
-            "n_paired_cells": float(paired),
-            "paired_ocean_fraction": float(paired / obs_ocean)
-            if obs_ocean
-            else float("nan"),
-        }
+        return Pairing(
+            n_paired_cells=int((obs_mask & ever_finite(self.on_obs_grid)).sum()),
+            n_observed_cells=int(obs_mask.sum()),
+        )
 
 
 @dataclass
@@ -127,15 +151,17 @@ class VelocityComparison:
     def time(self) -> xr.DataArray:
         return self.eastward.obs["time"]
 
-    def trimmed(self, time_slice: slice) -> VelocityComparison:
-        """The same pair over a narrower span.
+    def slice(self, time_slice: slice) -> Self:
+        """Restrict both components to a time slice.
 
-        Trimming has to happen here rather than on a derived quantity: the
-        energies reduce over time, so a mean taken before the trim is a mean of
+        Slicing has to happen here rather than on a derived quantity: the
+        energies reduce over time, so a mean taken before the slice is a mean of
         the wrong record and cannot be corrected afterwards.
         """
-        return VelocityComparison(
-            self.eastward.trimmed(time_slice), self.northward.trimmed(time_slice)
+        return dataclasses.replace(
+            self,
+            eastward=self.eastward.slice(time_slice),
+            northward=self.northward.slice(time_slice),
         )
 
     @functools.cached_property

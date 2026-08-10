@@ -70,7 +70,7 @@ def _rows_for_metric(
     area: xr.DataArray,
     bootstrap_samples: int,
     depth: str | None = None,
-    pairing: dict[str, float] | None = None,
+    pairing: comparisons.Pairing | None = None,
 ) -> tuple[list[dict[str, Any]], xr.DataArray]:
     """Reduce a squared-error field to primary and per-year metric rows.
 
@@ -108,7 +108,7 @@ def _rows_for_metric(
         # Kept alongside so the two aggregations stay comparable: a gap between
         # this and `value` means the observation coverage varied by year.
         "map_weighted_rmse": map_weighted_total,
-        **(pairing or {}),
+        **(pairing.as_row() if pairing else {}),
         **summary,
     }
     primary.pop("primary_aggregation_method", None)
@@ -130,7 +130,7 @@ def _rows_for_metric(
                 "year": int(year),
                 "n_time_samples": int(year_index.size),
                 "grid_shape": _grid_shape(rmse_map),
-                **(pairing or {}),
+                **(pairing.as_row() if pairing else {}),
             }
         )
     logger.info("  %s = %.6g %s", context, total, units)
@@ -180,7 +180,9 @@ def _variance_map_rows(
         "year": np.nan,
         "n_time_samples": int(time_index.size),
         "grid_shape": _grid_shape(model_var),
-        **comparisons.Comparison(metric_prefix, model_var, obs_var, area).pairing,
+        **comparisons.Comparison(
+            metric_prefix, model_var, obs_var, area
+        ).pairing.as_row(),
     }
     logger.info(
         "  %s residual variance: map rmse = %.6g, pattern corr = %.4f",

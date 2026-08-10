@@ -84,6 +84,17 @@ PERTURBATION_BOX="${PERTURBATION_BOX:-32}"
 PERTURBATION_CHANNEL="${PERTURBATION_CHANNEL:-0}"
 RESPONSE_BINS="${RESPONSE_BINS:-32}"
 
+# ============== REPACK TO 4D ==============
+# The rollout writes flat channels (Theta_0 ... Theta_50) because that is the
+# model's own layout. Repacking to Theta(time, k, lat, lon) is what makes the
+# output loadable by the emulator-comparison notebooks. Roughly doubles the
+# footprint, so set REPACK=false to skip, or narrow REPACK_FIELDS.
+# Note: Eta has no depth index and so does not survive the repack; read it from
+# the flat predictions.zarr, which is kept either way.
+REPACK="${REPACK:-true}"
+REPACK_FIELDS="${REPACK_FIELDS:-U V Theta Salt}"
+REPACK_OVERWRITE="${REPACK_OVERWRITE:-false}"
+
 echo "======== tiled (2x2) blended rollout ========"
 echo "checkpoint:         ${CKPT_PATH}"
 echo "tile cache dir:     ${DATA_ROOT}/${DATA_LOCATION}"
@@ -134,8 +145,39 @@ fi
   "${TILING_ARGS[@]}"
 
 OUT_DIR="${BASE_OUTPUT_DIR}/${EXPERIMENT_NAME}"
+RAW_PRED_ZARR="${OUT_DIR}/predictions.zarr"
+TARGET_ZARR="${TARGET_ZARR:-${OUT_DIR}/predictions_4d.zarr}"
+
+if [[ "${REPACK}" == "true" ]]; then
+  if [[ ! -d "${RAW_PRED_ZARR}" ]]; then
+    echo "Expected raw prediction zarr not found: ${RAW_PRED_ZARR}" >&2
+    exit 1
+  fi
+  if [[ -e "${TARGET_ZARR}" && "${REPACK_OVERWRITE}" != "true" ]]; then
+    echo "Target zarr already exists: ${TARGET_ZARR}" >&2
+    echo "Delete it, set TARGET_ZARR, or set REPACK_OVERWRITE=true." >&2
+    exit 1
+  fi
+
+  REPACK_ARGS=(
+    --input-zarr "${RAW_PRED_ZARR}"
+    --output-zarr "${TARGET_ZARR}"
+    --fields ${REPACK_FIELDS}
+  )
+  if [[ "${REPACK_OVERWRITE}" == "true" ]]; then
+    REPACK_ARGS+=(--overwrite)
+  fi
+
+  echo
+  echo "Repacking flat channels into 4D fields: ${TARGET_ZARR}"
+  "${PYTHON_BIN}" scripts/repack_flat_prediction_zarr.py "${REPACK_ARGS[@]}"
+fi
+
 echo
-echo "Done. Canonical stitched predictions: ${OUT_DIR}/predictions.zarr"
+echo "Done. Canonical stitched predictions: ${RAW_PRED_ZARR}"
+if [[ "${REPACK}" == "true" ]]; then
+  echo "Repacked 4D fields:                   ${TARGET_ZARR}"
+fi
 if [[ "${PREBLEND_MODE}" != "none" ]]; then
   echo "Pre-blend disagreement:               ${OUT_DIR}/preblend.zarr"
 fi

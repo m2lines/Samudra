@@ -83,6 +83,21 @@ def remove_plane(field: np.ndarray) -> np.ndarray:
     return (flat.reshape(-1, height, width) - plane).reshape(*lead, height, width)
 
 
+def bin_index(values: np.ndarray, edges: np.ndarray) -> np.ndarray:
+    """Which bin each value falls in, given the full edge array.
+
+    A value landing exactly on an edge belongs to the bin *above* it. On a
+    regular grid that is not a corner case: whole rows of the mode lattice can
+    coincide with edges, and the opposite convention moves every one of them
+    down a bin.
+
+    `right=False` is the numpy spelling of the reference's
+    `torch.bucketize(..., right=True)`; the two libraries use the flag to mean
+    opposite things, which is easy to port backwards.
+    """
+    return np.digitize(values, edges[1:-1], right=False)
+
+
 def isotropic_spectrum(
     field: np.ndarray,
     dx: float = 1.0,
@@ -171,10 +186,7 @@ def isotropic_spectrum(
 
     flat_k = k_magnitude.ravel()
     retained = flat_k <= edges[-1]
-    # right=False here: a mode landing exactly on a bin edge belongs to the
-    # bin above it. The opposite convention shifts every such mode down one
-    # bin, and on a regular grid exact edge hits are common rather than rare.
-    index = np.digitize(flat_k[retained], edges[1:-1], right=False)
+    index = bin_index(flat_k[retained], edges)
     flat_psd = spectrum_2d.reshape(n, -1)[:, retained]
 
     totals = np.zeros((n, num_bins))

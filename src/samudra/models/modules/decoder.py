@@ -488,6 +488,17 @@ class LocalCoordinateAttentionCorrection(nn.Module):
         else:
             flat_valid = None
 
+        # Attend in chunks of output pixels. Every output cell attends only to a
+        # bounded neighborhood of source cells, so the full attention matrix is
+        # [output_cells, neighborhood] rather than [output_cells, source_cells] --
+        # but at quarter degree that is still a million-row matrix, and
+        # materializing its logits at once is what exhausts memory. Chunking the
+        # query axis bounds peak memory to chunk_size rows while leaving the
+        # result identical: each chunk's softmax is over its own neighborhood
+        # and independent of the others. `local_indices` selects each query's
+        # neighbors, `position_bias` is the precomputed distance penalty for the
+        # same slice, and the all-invalid branch keeps land-only neighborhoods
+        # from producing NaN when softmax sees every logit masked to -inf.
         chunks: list[torch.Tensor] = []
         for start in range(0, len(query_coordinates), self.query_chunk_size):
             stop = min(start + self.query_chunk_size, len(query_coordinates))

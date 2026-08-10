@@ -30,12 +30,19 @@ def make_3d_coordinate_grid(lat: Lat, lon: Lon) -> Float[torch.Tensor, "3 H W"]:
     return torch.stack([x, y, z], dim=0).float()  # [3, H, W]
 
 
-def make_position_scale_grid(lat: Lat, lon: Lon) -> Float[torch.Tensor, "4 H W"]:
-    """Return unit-sphere position and a normalized physical cell-area feature.
+def normalized_log_cell_area(lat: Lat, lon: Lon) -> Float[torch.Tensor, "H W"]:
+    """Return per-cell spherical area as a zero-mean, unit-RMS log feature.
 
-    This representation is intended for processor conditioning. It keeps grid
-    geometry separate from encoder content while still exposing both position
-    and resolution to every processor application.
+    This is the same quantity as `aurora.model.posencoding.patch_root_area`
+    (verified equal to float32 rounding), but for cell centers on separable 1-D
+    coordinates rather than explicit patch corners, and normalized rather than
+    in km. Because the result is standardized, every constant factor -- Earth
+    radius included -- cancels; only the latitudinal variation carries signal.
+
+    Kept separate from `make_position_scale_grid` because this is the part that
+    assumes a separable lat/lon grid. Curvilinear grids need `lat`/`lon` as 2-D
+    matrices, at which point `aurora.area.compute_patch_areas` computes real
+    spherical-polygon areas and should replace this body.
     """
     if lat.ndim != 1 or lon.ndim != 1:
         raise ValueError("Position/scale conditioning requires vector coordinates.")
@@ -74,16 +81,36 @@ def make_position_scale_grid(lat: Lat, lon: Lon) -> Float[torch.Tensor, "4 H W"]
 
     log_area = torch.log(area)
     log_area = log_area - log_area.mean()
-    log_area = log_area / log_area.square().mean().sqrt().clamp_min(1e-6)
+    return log_area / log_area.square().mean().sqrt().clamp_min(1e-6)
+
+
+def make_position_scale_grid(lat: Lat, lon: Lon) -> Float[torch.Tensor, "4 H W"]:
+    """Return unit-sphere position and a normalized physical cell-area feature.
+
+    This representation is intended for processor conditioning. It keeps grid
+    geometry separate from encoder content while still exposing both position
+    and resolution to every processor application.
+    """
+    log_area = normalized_log_cell_area(lat, lon)
     return torch.cat((make_3d_coordinate_grid(lat, lon), log_area.unsqueeze(0)), dim=0)
 
 
 class ProcessorGeometryConditioner(nn.Module):
     """Inject source-grid geometry before each shared processor application.
 
-    The zero-initialized projection makes enabling this sidecar an exact no-op
-    at initialization. Geometry can then be learned by the processor without
-    contaminating the encoder representation that the decoder must invert.
+    Unlike the concatenating helpers in this module, this one is a `Module`
+    because it owns weights. The four geometry channels are projected into the
+    processor's own width by a 1x1 convolution and *added* to the latent, rather
+    than concatenated onto it. Three things follow, and together they are the
+    reason geometry lives here instead of in the encoder:
+
+    - The processor's input width does not depend on whether geometry is on, so
+      the same weights can be applied zero or N times in a row.
+    - The projection is zero-initialized, so enabling the sidecar is an exact
+      no-op at initialization and cannot perturb an already-trained inverse.
+    - Geometry never enters the representation the decoder has to invert. Adding
+      position and scale directly to encoder output measurably hurt
+      reconstruction; supplying it per processor call did not.
     """
 
     def __init__(self, channels: int) -> None:

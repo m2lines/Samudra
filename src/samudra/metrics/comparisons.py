@@ -109,13 +109,7 @@ class Comparison:
         return self.obs["time"]
 
     def slice(self, time_slice: slice) -> Self:
-        """Restrict the comparison to a time slice, as `DataSource.slice` does.
-
-        Takes the slice rather than a `TimeConfig`: these spans are derived from
-        the data -- the period several runs and a product have in common -- not
-        read from configuration, and a `TimeConfig` would assert a calendar the
-        observation products do not share.
-        """
+        """Restrict the comparison to a time slice."""
         return dataclasses.replace(
             self,
             native=self.native.sel(time=time_slice),

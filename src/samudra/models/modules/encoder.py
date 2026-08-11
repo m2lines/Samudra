@@ -17,7 +17,6 @@ from jaxtyping import Float
 from torch import nn
 
 from samudra.constants import Input, Lat, Lon
-from samudra.models.modules.augment_input import FourierFeatures2D
 
 EncoderGeometryMode = Literal["additive", "none", "sidecar"]
 
@@ -107,86 +106,21 @@ def pos_scale_enc_for_grid(
     return pos_encoding, scale_encoding
 
 
-class SpatialQueryPerceiver(nn.Module):
-    """Encode one physical patch as an ordered grid of PerceiverIO outputs.
+class NativeProjectionEncoder(nn.Module):
+    """Learn one latent vector per native input cell.
 
-    A regular encoder reduces every patch to one vector. This module instead
-    cross-attends a fixed grid of coordinate-conditioned queries to the same
-    shared Perceiver latents, then packs the query outputs into channels for the
-    spatial processor. The physical patch grid is unchanged.
-    """
-
-    def __init__(
-        self,
-        *,
-        query_shape: tuple[int, int],
-        queries_dim: int,
-        channels_per_query: int,
-        perceiver_io: nn.Module,
-        num_freq_bands: int,
-        max_freq: float,
-    ) -> None:
-        super().__init__()
-        query_h, query_w = query_shape
-        if query_h <= 0 or query_w <= 0:
-            raise ValueError("query_shape entries must be positive.")
-
-        self.query_shape = query_shape
-        self.channels_per_query = channels_per_query
-        self.out_channels = query_h * query_w * channels_per_query
-        if self.out_channels % 4 != 0:
-            raise ValueError(
-                "The packed spatial-query channel count must be divisible by four "
-                "for the processor positional encoding."
-            )
-        self.input_position_features = FourierFeatures2D(
-            num_freq_bands=num_freq_bands,
-            max_freq=max_freq,
-        )
-        self.query_embed = nn.Linear(2, queries_dim)
-        self.query_offset = nn.Parameter(torch.zeros(query_h * query_w, queries_dim))
-        self.perceiver_io = perceiver_io
-
-        query_lat = torch.linspace(-1.0, 1.0, query_h)
-        query_lon = torch.linspace(-1.0, 1.0, query_w)
-        query_positions = torch.stack(
-            torch.meshgrid(query_lat, query_lon, indexing="ij"), dim=-1
-        ).flatten(0, 1)
-        self.register_buffer("query_positions", query_positions, persistent=False)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        data = self.input_position_features(x)
-        data = rearrange(data, "b ph pw v -> b (ph pw) v")
-        queries = self.query_embed(
-            self.query_positions.to(device=x.device, dtype=x.dtype)
-        )
-        queries = queries + self.query_offset.to(dtype=queries.dtype)
-        encoded = self.perceiver_io(data, queries=queries)
-
-        expected = (*queries.shape[:-1], self.channels_per_query)
-        if encoded.shape[1:] != expected:
-            raise ValueError(
-                "Spatial-query Perceiver returned shape "
-                f"{tuple(encoded.shape[1:])}; expected {expected}."
-            )
-        return rearrange(encoded, "b query channel -> b (query channel)")
-
-
-class DirectPatchEncoder(nn.Module):
-    """Project one physical grid cell directly into processor channels.
-
-    This intentionally small representation head is a diagnostic control for
-    the Perceiver patch encoder. It is restricted to one-pixel patches so it
-    cannot silently introduce spatial compression.
+    A pointwise channel map, applied at every source cell, with no pooling or
+    resampling: the latent grid is the input grid. This is what removes the
+    spatial compression that a fixed-extent patch encoder performs before the
+    decoder ever runs, and it leaves all spatial mixing to the processor, which
+    is fully convolutional and therefore indifferent to grid size.
     """
 
     def __init__(
         self,
         in_channels: int,
         out_channels: int,
-        patch_extent: tuple[float, float],
         geometry_mode: EncoderGeometryMode = "additive",
-        enforce_one_pixel_patch: bool = True,
     ) -> None:
         super().__init__()
         if out_channels % 4 != 0:
@@ -195,9 +129,7 @@ class DirectPatchEncoder(nn.Module):
             )
         self.in_channels = in_channels
         self.out_channels = out_channels
-        self.patch_extent = patch_extent
         self.geometry_mode = geometry_mode
-        self.enforce_one_pixel_patch = enforce_one_pixel_patch
         self.projection = nn.Conv2d(in_channels, out_channels, kernel_size=1)
         self.pos_embed: nn.Linear | None = None
         self.scale_embed: nn.Linear | None = None
@@ -206,7 +138,7 @@ class DirectPatchEncoder(nn.Module):
             self.scale_embed = nn.Linear(out_channels, out_channels)
 
     def output_resolution(self, resolution: tuple[Lat, Lon]) -> tuple[Lat, Lon]:
-        """Return the unchanged grid used by this one-cell encoder."""
+        """Return the input grid unchanged: this encoder does not resample."""
         return resolution
 
     def forward(
@@ -217,13 +149,6 @@ class DirectPatchEncoder(nn.Module):
             raise ValueError(
                 f"Expected {self.in_channels} input channels, got {channels}."
             )
-        patch_size = patch_from(self.patch_extent, height, width)
-        if self.enforce_one_pixel_patch and patch_size != (1, 1):
-            raise ValueError(
-                "DirectPatchEncoder requires one-pixel patches; "
-                f"got patch size {patch_size} for grid {(height, width)}."
-            )
-
         encoded = self.projection(x)
         if self.geometry_mode != "additive":
             return encoded
@@ -245,85 +170,6 @@ class DirectPatchEncoder(nn.Module):
             scale_encode.to(dtype=tokens.dtype, device=tokens.device)
         ).unsqueeze(0)
         return rearrange(tokens, "b (h w) c -> b c h w", h=height, w=width)
-
-
-class CanonicalResampleEncoder(nn.Module):
-    """Learn channels pointwise, then render them on one configured latent grid."""
-
-    def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        canonical_resolution: tuple[Lat, Lon],
-        geometry_mode: EncoderGeometryMode = "none",
-    ) -> None:
-        super().__init__()
-        if out_channels % 4 != 0:
-            raise ValueError(
-                "out_channels must be divisible by four for processor positional encoding."
-            )
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.geometry_mode = geometry_mode
-        self.canonical_resolution_cpu = tuple(
-            coordinate.detach().cpu().clone() for coordinate in canonical_resolution
-        )
-        self.projection = nn.Conv2d(in_channels, out_channels, kernel_size=1)
-        self.pos_embed: nn.Linear | None = None
-        self.scale_embed: nn.Linear | None = None
-        if geometry_mode == "additive":
-            self.pos_embed = nn.Linear(out_channels, out_channels)
-            self.scale_embed = nn.Linear(out_channels, out_channels)
-
-    def output_resolution(self, resolution: tuple[Lat, Lon]) -> tuple[Lat, Lon]:
-        """Return the fixed finest configured grid, independent of input scale."""
-        del resolution
-        lat, lon = self.canonical_resolution_cpu
-        return lat, lon
-
-    def forward(
-        self, x: Input, resolution: tuple[Lat, Lon]
-    ) -> Float[torch.Tensor, "batch {self.out_channels} h w"]:
-        if x.shape[1] != self.in_channels:
-            raise ValueError(
-                f"Expected {self.in_channels} input channels, got {x.shape[1]}."
-            )
-        # Imported lazily because decoder.py also uses patch/geometry helpers from
-        # this module. At execution time both modules are fully initialized.
-        from samudra.models.modules.decoder import coordinate_bilinear_resample
-
-        encoded = self.projection(x)
-        output_resolution = self.output_resolution(resolution)
-        encoded = coordinate_bilinear_resample(
-            encoded,
-            resolution,
-            output_resolution,
-        )
-        if self.geometry_mode != "additive":
-            return encoded
-
-        tokens = rearrange(encoded, "b c h w -> b (h w) c")
-        lat, lon = output_resolution
-        pos_encode, scale_encode = pos_scale_enc_for_grid(
-            self.out_channels,
-            lat,
-            lon,
-            (1, 1),
-        )
-        assert self.pos_embed is not None
-        assert self.scale_embed is not None
-        tokens = tokens + self.pos_embed(
-            pos_encode.to(dtype=tokens.dtype, device=tokens.device)
-        ).unsqueeze(0)
-        tokens = tokens + self.scale_embed(
-            scale_encode.to(dtype=tokens.dtype, device=tokens.device)
-        ).unsqueeze(0)
-        return rearrange(
-            tokens,
-            "b (h w) c -> b c h w",
-            h=len(lat),
-            w=len(lon),
-        )
 
 
 class PerceiverEncoder(nn.Module):
@@ -447,172 +293,3 @@ class PerceiverEncoder(nn.Module):
         )
 
         return x
-
-
-class PatchMomentEncoder(nn.Module):
-    """Compress each physical patch into resolved means and learned moments.
-
-    The output has one feature vector per fixed-extent physical patch. A
-    latitude-area-weighted mean provides an amplitude-preserving resolved route.
-    Zero-mean anomalies are projected onto several continuous functions of
-    relative within-patch coordinates and packed into the remaining channels.
-    The coordinate basis is shared across input resolutions.
-    """
-
-    def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        patch_extent: tuple[float, float],
-        *,
-        moment_count: int,
-        mean_channels: int,
-        geometry_mode: EncoderGeometryMode = "none",
-    ) -> None:
-        super().__init__()
-        if moment_count < 1:
-            raise ValueError("PatchMomentEncoder requires at least one moment.")
-        if not 0 < mean_channels < out_channels:
-            raise ValueError(
-                "PatchMomentEncoder mean_channels must be between zero and "
-                "out_channels."
-            )
-        if geometry_mode == "additive":
-            raise ValueError(
-                "PatchMomentEncoder does not add absolute geometry to content; "
-                "use geometry_mode='none' or 'sidecar'."
-            )
-        self.in_channels = in_channels
-        self.out_channels = out_channels
-        self.patch_extent = patch_extent
-        self.moment_count = moment_count
-        self.mean_channels = mean_channels
-        self.geometry_mode = geometry_mode
-        self.mean_projection = nn.Linear(in_channels, mean_channels)
-        self.coordinate_basis = nn.Sequential(
-            nn.Linear(2, 64),
-            nn.GELU(),
-            nn.Linear(64, moment_count),
-        )
-        self.moment_projection = nn.Linear(
-            in_channels * moment_count,
-            out_channels - mean_channels,
-        )
-
-    def output_resolution(self, resolution: tuple[Lat, Lon]) -> tuple[Lat, Lon]:
-        lat, lon = resolution
-        patch_h, patch_w = patch_from(self.patch_extent, len(lat), len(lon))
-        if len(lat) % patch_h or len(lon) % patch_w:
-            raise ValueError(
-                "Input coordinates must divide evenly into moment patches; got "
-                f"grid {(len(lat), len(lon))} and patch {(patch_h, patch_w)}."
-            )
-        return (
-            rearrange(lat, "(h ph) -> h ph", ph=patch_h).mean(dim=-1),
-            rearrange(lon, "(w pw) -> w pw", pw=patch_w).mean(dim=-1),
-        )
-
-    @staticmethod
-    def _relative_coordinates(
-        patch_h: int,
-        patch_w: int,
-        *,
-        device: torch.device,
-        dtype: torch.dtype,
-    ) -> torch.Tensor:
-        relative_lat = (
-            2 * (torch.arange(patch_h, device=device, dtype=dtype) + 0.5) / patch_h - 1
-        )
-        relative_lon = (
-            2 * (torch.arange(patch_w, device=device, dtype=dtype) + 0.5) / patch_w - 1
-        )
-        lat_grid, lon_grid = torch.meshgrid(relative_lat, relative_lon, indexing="ij")
-        return torch.stack((lat_grid, lon_grid), dim=-1).flatten(0, 1)
-
-    def forward(
-        self, x: Input, resolution: tuple[Lat, Lon]
-    ) -> Float[torch.Tensor, "batch {self.out_channels} h w"]:
-        batch, channels, height, width = x.shape
-        if channels != self.in_channels:
-            raise ValueError(
-                f"Expected {self.in_channels} input channels, got {channels}."
-            )
-        lat, lon = resolution
-        patch_h, patch_w = patch_from(self.patch_extent, height, width)
-        if height % patch_h or width % patch_w:
-            raise ValueError(
-                "Input grid must divide evenly into moment patches; got "
-                f"{(height, width)} and {(patch_h, patch_w)}."
-            )
-        coarse_h = height // patch_h
-        coarse_w = width // patch_w
-        tokens = rearrange(
-            x,
-            "b c (h ph) (w pw) -> (b h w) (ph pw) c",
-            ph=patch_h,
-            pw=patch_w,
-        )
-
-        # For a regular longitude grid, spherical cell area is proportional to
-        # cos(latitude). This retains physical amplitudes without placing a
-        # LayerNorm on the reconstructive value path.
-        latitude_weight = torch.cos(
-            torch.deg2rad(lat.to(device=x.device, dtype=x.dtype))
-        ).clamp_min(torch.finfo(x.dtype).eps)
-        latitude_weight = rearrange(
-            latitude_weight,
-            "(h ph) -> h ph",
-            h=coarse_h,
-        )
-        weights = latitude_weight[:, None, :, None].expand(
-            coarse_h,
-            coarse_w,
-            patch_h,
-            patch_w,
-        )
-        weights = rearrange(weights, "h w ph pw -> (h w) (ph pw)")
-        weights = weights.repeat(batch, 1)
-        denominator = weights.sum(dim=1, keepdim=True).clamp_min(
-            torch.finfo(x.dtype).eps
-        )
-        mean = (tokens * weights[..., None]).sum(dim=1) / denominator
-        anomaly = tokens - mean[:, None]
-
-        coordinates = self._relative_coordinates(
-            patch_h,
-            patch_w,
-            device=x.device,
-            dtype=x.dtype,
-        )
-        basis = self.coordinate_basis(coordinates)
-        weighted_basis_mean = torch.einsum("bn,nm->bm", weights, basis) / denominator
-        centered_basis = basis[None] - weighted_basis_mean[:, None]
-        basis_rms = (
-            ((centered_basis.square() * weights[..., None]).sum(dim=1) / denominator)
-            .sqrt()
-            .clamp_min(1e-6)
-        )
-        centered_basis = centered_basis / basis_rms[:, None]
-        moments = (
-            torch.einsum(
-                "bnc,bnm,bn->bcm",
-                anomaly,
-                centered_basis,
-                weights,
-            )
-            / denominator[:, None]
-        )
-        latent = torch.cat(
-            (
-                self.mean_projection(mean),
-                self.moment_projection(moments.flatten(1)),
-            ),
-            dim=-1,
-        )
-        return rearrange(
-            latent,
-            "(b h w) c -> b c h w",
-            b=batch,
-            h=coarse_h,
-            w=coarse_w,
-        )

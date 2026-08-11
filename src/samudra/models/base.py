@@ -51,11 +51,6 @@ class BaseModel(torch.nn.Module):
     ) -> Prognostic:
         raise NotImplementedError()
 
-    def training_auxiliary_loss(self, train_data: TrainData, loss_fn):
-        """Return an optional per-channel loss added once per training batch."""
-        del train_data, loss_fn
-        return None
-
     def forward(
         self,
         train_data: TrainData,
@@ -96,11 +91,6 @@ class BaseModel(torch.nn.Module):
 
             outputs.append(pred)
 
-        if loss_fn is not None:
-            auxiliary_loss = self.training_auxiliary_loss(train_data, loss_fn)
-            if auxiliary_loss is not None:
-                loss = loss + auxiliary_loss
-
         if loss_fn is None:
             return outputs
         else:
@@ -109,7 +99,7 @@ class BaseModel(torch.nn.Module):
     def inference(
         self,
         dataset: InferenceDataset,
-        rollout_state: torch.Tensor,
+        initial_prognostic: torch.Tensor,
         steps_completed=0,
         num_steps=None,
         epoch=None,
@@ -118,7 +108,7 @@ class BaseModel(torch.nn.Module):
         out_shape = (num_steps, *dataset[0][-1].shape[1:])
 
         pred_tensor = torch.zeros(out_shape, device=get_device())
-        rollout_state = rollout_state.to(get_device())
+        initial_prognostic = initial_prognostic.to(get_device())
         target_time = dataset.get_target_time(steps_completed, num_steps)
 
         for step in range(num_steps):
@@ -127,7 +117,7 @@ class BaseModel(torch.nn.Module):
                 f"of {steps_completed + num_steps - 1}."
             )
             if step == 0:
-                prog_tensor = rollout_state
+                prog_tensor = initial_prognostic
                 boundary_tensor = dataset.get_boundary(steps_completed).to(
                     device=prog_tensor.device
                 )
@@ -149,17 +139,5 @@ class BaseModel(torch.nn.Module):
             slice(steps_completed, steps_completed + num_steps)
         ).to(device=get_device())
 
-        IO = ModelInferenceOutput(
-            pred_tensor,
-            target_tensor,
-            target_time,
-            rollout_state=pred_tensor[-1].unsqueeze(0).clone(),
-        )
+        IO = ModelInferenceOutput(pred_tensor, target_tensor, target_time)
         return IO
-
-    def initialize_rollout(
-        self, initial_prognostic: Prognostic, ctx: GridContext
-    ) -> torch.Tensor:
-        """Create the model-defined state carried between inference chunks."""
-        del ctx
-        return initial_prognostic.to(get_device())

@@ -16,22 +16,8 @@ from .blocks import (
     UpsamplingBlockBuilder,
     ZonallyPeriodicBilinearUpsample,
 )
-from .decoder import (
-    ContinuousCoordinateAttentionCorrection,
-    ContinuousResampleAttentionResidualDecoder,
-    DirectPatchDecoder,
-    LocalCoordinateAttentionCorrection,
-    PerceiverDecoder,
-    ResampleAttentionResidualDecoder,
-    ResampleProjectionDecoder,
-)
-from .encoder import (
-    CanonicalResampleEncoder,
-    DirectPatchEncoder,
-    PatchMomentEncoder,
-    PerceiverEncoder,
-    SpatialQueryPerceiver,
-)
+from .decoder import PerceiverDecoder, ResampleProjectionDecoder
+from .encoder import NativeProjectionEncoder, PerceiverEncoder
 from .unet_backbone import UNetBackbone
 
 __all__ = [
@@ -45,20 +31,12 @@ __all__ = [
     "TransposedConvUpsample",
     "CappedGELU",
     "CappedLeakyReLU",
-    "CanonicalResampleEncoder",
-    "ContinuousCoordinateAttentionCorrection",
-    "ContinuousResampleAttentionResidualDecoder",
     "MaxPool",
-    "DirectPatchDecoder",
-    "DirectPatchEncoder",
-    "LocalCoordinateAttentionCorrection",
+    "NativeProjectionEncoder",
     "PerceiverDecoder",
-    "ResampleAttentionResidualDecoder",
     "ResampleProjectionDecoder",
     "PerceiverEncoder",
-    "PatchMomentEncoder",
     "ProcessorGeometryConditioner",
-    "SpatialQueryPerceiver",
     "ReLU",
     "UNetBackbone",
 ]

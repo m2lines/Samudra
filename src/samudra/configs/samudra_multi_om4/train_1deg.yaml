@@ -1,0 +1,71 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/TrainConfig.json
+
+# Single-scale one-degree training for the native-grid arrangement.
+#
+# This is the configuration to run first: the multi-resolution routes are only
+# worth spending GPU time on once single-scale skill is competitive with
+# Samudra 2, which is the gate the original patch-compressing model failed
+# (one-step all-channel MSE 0.29469 against a 0.0236 reference).
+#
+# Plain MSE rather than the dynamic variance-weighted loss, so numbers here are
+# directly comparable with the recorded single-step baselines. The schedule
+# follows the recorded run: batch 2 per rank with two accumulation steps, which
+# reached global batch 32 on eight ranks. Larger per-rank batches are avoided
+# deliberately -- matched batch 4/8/16 profiles all failed in the first CUDA
+# backward while batch 2 stayed stable.
+debug: false
+disk_mode: true
+pin_mem: true
+save_freq: 5
+epochs: 70
+batch_size: 2
+gradient_accumulation_steps: 2
+learning_rate: 0.0006
+scheduler:
+  type: cosine
+  interval: optimizer_update
+  target_updates: 6160
+loss: mse
+finetune: false
+resume_ckpt_path: null
+inference_epochs: []
+data_stride: [1]
+steps: [4]
+step_transition: []
+preemptible: false
+
+backend: auto
+
+experiment:
+  name: samudra_multi_om4_1deg
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: disabled
+    project: default
+data:
+  concurrent_compute: true
+  loading:
+    type: cpu
+    num_workers: 4
+  sources:
+    - type: om4
+      prognostic_vars_key: thermo_dynamic_all
+      boundary_vars_key: tau_hfds
+      train_time:
+        start: "1975-01-03"
+        end: "2013-10-05"
+      val_time:
+        start: "2013-10-05"
+        end: "2014-10-05"
+      inference_times:
+        - start: "2014-10-05"
+          end: "2015-10-05"
+      data_location: om4_onedeg_v3/OM4.zarr
+      data_means_location: om4_onedeg_v3/OM4_means.zarr
+      data_stds_location: om4_onedeg_v3/OM4_stds.zarr
+model: !include model.yaml

@@ -29,39 +29,10 @@ from samudra.utils.writer import ZarrWriter
 logger = logging.getLogger(__name__)
 
 
-def ablate_boundary_forcing(batch: TrainData, mode: str) -> TrainData:
-    """Copy a batch while breaking boundary alignment in a controlled way."""
-    if mode not in {"zero", "batch_shuffle", "time_reverse"}:
-        raise ValueError(f"Unknown boundary-forcing ablation: {mode}")
-
-    ablated = TrainData(
-        batch.num_prognostic_channels,
-        batch.num_boundary_channels,
-        batch.ctx,
-    )
-    for step in range(len(batch)):
-        prognostic, _, label = batch[step]
-        boundary_step = len(batch) - step - 1 if mode == "time_reverse" else step
-        _, boundary = batch.get_input(boundary_step)
-        if mode == "zero":
-            boundary = torch.zeros_like(boundary)
-        elif mode == "batch_shuffle":
-            boundary = torch.roll(boundary, shifts=1, dims=0)
-        ablated.append(prognostic, boundary, label)
-    return ablated
-
-
 def train_batch(
-    model: torch.nn.Module,
-    batch: TrainData,
-    loss_fn: Callable,
-    processor_depth: int | None = None,
+    model: torch.nn.Module, batch: TrainData, loss_fn: Callable
 ) -> TrainBatchOutput:
-    loss_per_channel = model(
-        batch,
-        loss_fn=partial(loss_fn, ctx=batch.ctx),
-        **({"processor_depth": processor_depth} if processor_depth is not None else {}),
-    )
+    loss_per_channel = model(batch, loss_fn=partial(loss_fn, ctx=batch.ctx))
     loss = torch.mean(loss_per_channel)
     return TrainBatchOutput(loss, loss_per_channel)
 
@@ -149,24 +120,23 @@ def run_rollout(
             num_steps_list = [num_model_steps]
 
     num_loops = len(num_steps_list)
-    dataset.to(get_device())
-    rollout_state = model.initialize_rollout(dataset.initial_prognostic, dataset.ctx)
+    initial_prognostic = dataset.initial_prognostic
     step = 0
     for loop, num_steps in enumerate(num_steps_list):
         logger.info(
             f"Inference [epoch {epoch}]: loop {loop} of {num_loops - 1}. "
             f"Stepping {num_steps} steps forward."
         )
+        dataset.to(get_device())
         IO: ModelInferenceOutput = model.inference(
             dataset,
-            rollout_state=rollout_state,
+            initial_prognostic=initial_prognostic,
             steps_completed=step,
             num_steps=num_steps,
             epoch=epoch,
         )
-        # Carry model-defined state between output chunks. For SamudraMulti this is
-        # latent, so chunking never introduces a decode/re-encode transition.
-        rollout_state = IO.rollout_state
+        # Setting initial prognostic for next loop
+        initial_prognostic = IO.prediction[-1].unsqueeze(0).clone()
         if writer:
             logger.info("Writing to zarr...")
             writer.record_batch(IO)

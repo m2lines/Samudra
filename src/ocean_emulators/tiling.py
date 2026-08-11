@@ -566,6 +566,89 @@ def _probe_nonfinite(
 # --------------------------------------------------------------------------
 
 
+@dataclasses.dataclass(frozen=True)
+class ReplayGroup:
+    """The set of training datasets that one replay row advances together.
+
+    ``layout``/``blender`` are ``None`` for an ungrouped row. That is not a
+    degenerate case to be tidied away later -- it is what keeps single-cache
+    replay bit-identical, since a one-tile group has no overlap to reconcile and
+    every code path collapses to exactly what it did before.
+    """
+
+    group_id: int
+    dataset_indices: tuple[int, ...]
+    layout: TileGroupLayout | None = None
+    blender: "TileBlender | None" = None
+
+    @property
+    def num_tiles(self) -> int:
+        return len(self.dataset_indices)
+
+    @property
+    def is_grouped(self) -> bool:
+        return self.layout is not None and self.num_tiles > 1
+
+
+def build_replay_groups(
+    *,
+    num_sources: int,
+    num_strides: int,
+    grouped: bool,
+    tiles: Sequence[TileSpec] | None = None,
+    window: WindowKind = "quintic",
+    ramp_width: int | None = None,
+    dtype: torch.dtype = torch.float32,
+) -> list[ReplayGroup]:
+    """Map replay rows onto training datasets.
+
+    ``train_datasets`` is the flattened cross product ``[source x stride]``, so
+    dataset index is ``source_index * num_strides + stride_index``. A group is
+    therefore taken across sources *at a fixed stride*: tiles of one cluster must
+    advance on one cursor, and two strides are two different clocks.
+
+    When ``grouped`` is false the result is one single-tile group per dataset, in
+    dataset order, so a group index and a dataset index are the same number and
+    nothing downstream can tell the difference.
+    """
+    if num_sources < 1 or num_strides < 1:
+        raise ValueError("num_sources and num_strides must both be >= 1")
+
+    if not grouped or num_sources == 1:
+        # Identity mapping: group i is dataset i.
+        return [
+            ReplayGroup(group_id=index, dataset_indices=(index,))
+            for index in range(num_sources * num_strides)
+        ]
+
+    if tiles is None or len(tiles) != num_sources:
+        raise ValueError(
+            f"Grouped replay needs one TileSpec per source; got "
+            f"{0 if tiles is None else len(tiles)} for {num_sources} sources."
+        )
+
+    groups: list[ReplayGroup] = []
+    for stride_index in range(num_strides):
+        members = tuple(
+            dataclasses.replace(
+                tile, dataset_index=position * num_strides + stride_index
+            )
+            for position, tile in enumerate(tiles)
+        )
+        layout = build_group_layout(members, group_id=stride_index)
+        groups.append(
+            ReplayGroup(
+                group_id=stride_index,
+                dataset_indices=tuple(tile.dataset_index for tile in members),
+                layout=layout,
+                blender=TileBlender(
+                    layout, window=window, ramp_width=ramp_width, dtype=dtype
+                ),
+            )
+        )
+    return groups
+
+
 class TileBlender(torch.nn.Module):
     r"""Reconcile per-tile predictions in their overlaps.
 

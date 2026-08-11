@@ -525,6 +525,9 @@ class RawReplayTransition:
     lead_step: int
     current_time_index: int
     target_time_index: int
+    #: Position within its replay group, in canonical tile order. Always 0 for an
+    #: ungrouped row, which is what keeps single-cache replay unchanged.
+    tile_index: int = 0
     target_prognostic: torch.Tensor | None = None
     seed_prognostic: torch.Tensor | None = None
     boundary: torch.Tensor | None = None

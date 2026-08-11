@@ -144,6 +144,18 @@ LR_MULTIPLIER_TRANSITION="${LR_MULTIPLIER_TRANSITION:-[]}"
 # REPLAY BUFFER
 REPLAY_ENABLED="${REPLAY_ENABLED:-true}"
 REPLAY_BUFFER_SIZE="${REPLAY_BUFFER_SIZE:-32}"
+# GROUPED_REPLAY=true  -> every tile of the cluster advances on ONE shared cursor
+#                         and their overlaps are reconciled before the state is
+#                         written back, so the next step reads one field.
+# GROUPED_REPLAY=false -> the older behaviour: each tile is an independent replay
+#                         row drifting on its own cursor. This is what the
+#                         2026-08-10 data-fix run is training, so set it false to
+#                         reproduce that job exactly.
+# Inert with a single cache: one tile per group is the identity.
+GROUPED_REPLAY="${GROUPED_REPLAY:-true}"
+# Overlap window used to reconcile grouped tiles: quintic (partition of unity)
+# or kbd (Kaiser-Bessel-derived, STRATA's).
+REPLAY_BLEND_WINDOW="${REPLAY_BLEND_WINDOW:-quintic}"
 REPLAY_REFRESH_EVERY_N_MICROBATCHES="${REPLAY_REFRESH_EVERY_N_MICROBATCHES:-[8,12,16,20,24,28,32,36,40,44]}"
 REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION="${REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION:-[6, 11, 16, 21, 26, 31, 36, 41, 46]}"
 REPLAY_STEPS_PER_EPOCH="${REPLAY_STEPS_PER_EPOCH:-8760}"
@@ -164,7 +176,7 @@ echo "using ddp_broadcast_buffers=${DDP_BROADCAST_BUFFERS}, ddp_timeout_minutes=
 echo "using optimization: learning_rate=${LEARNING_RATE}, scheduler_mode=${SCHEDULER_MODE}, scheduler_target_epochs=${SCHEDULER_TARGET_EPOCHS:-<default>}"
 echo "using lr multipliers: lr_multipliers=${LR_MULTIPLIERS}, lr_multiplier_transition=${LR_MULTIPLIER_TRANSITION}"
 echo "using replay data: data_stride=${DATA_STRIDE}, temporal_stride=${TEMPORAL_STRIDE}, temporal_stride_transition=${TEMPORAL_STRIDE_TRANSITION}, hist=${HIST}"
-echo "using replay: enabled=${REPLAY_ENABLED}, buffer_size=${REPLAY_BUFFER_SIZE}, refresh_every_n_microbatches=${REPLAY_REFRESH_EVERY_N_MICROBATCHES}, refresh_every_n_microbatches_transition=${REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION}, steps_per_epoch=${REPLAY_STEPS_PER_EPOCH}, max_lead_steps=${REPLAY_MAX_LEAD_STEPS}, max_lead_transition=${REPLAY_MAX_LEAD_TRANSITION}, checkpoint_buffer=${REPLAY_CHECKPOINT_BUFFER}"
+echo "using replay: enabled=${REPLAY_ENABLED}, grouped=${GROUPED_REPLAY} (window=${REPLAY_BLEND_WINDOW}), buffer_size=${REPLAY_BUFFER_SIZE}, refresh_every_n_microbatches=${REPLAY_REFRESH_EVERY_N_MICROBATCHES}, refresh_every_n_microbatches_transition=${REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION}, steps_per_epoch=${REPLAY_STEPS_PER_EPOCH}, max_lead_steps=${REPLAY_MAX_LEAD_STEPS}, max_lead_transition=${REPLAY_MAX_LEAD_TRANSITION}, checkpoint_buffer=${REPLAY_CHECKPOINT_BUFFER}"
 # echo "using data location: LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
 echo "using padding: pad=${PAD}"
 echo "predicting field or residual: pred_residual=${PRED_RESIDUALS}"
@@ -240,6 +252,8 @@ fi
 REPLAY_ARGS=(
   --replay.enabled "${REPLAY_ENABLED}"
   --replay.buffer_size "${REPLAY_BUFFER_SIZE}"
+  --replay.grouped "${GROUPED_REPLAY}"
+  --replay.blend_window "${REPLAY_BLEND_WINDOW}"
   --replay.refresh_every_n_microbatches "${REPLAY_REFRESH_EVERY_N_MICROBATCHES}"
   --replay.steps_per_epoch "${REPLAY_STEPS_PER_EPOCH}"
   --replay.max_lead_steps "${REPLAY_MAX_LEAD_STEPS}"

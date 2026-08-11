@@ -850,7 +850,25 @@ class ReplayConfig(BaseConfig):
     buffer_size: int = Field(
         default=32,
         ge=1,
-        description="Number of rank-local prognostic states kept in replay memory.",
+        description=(
+            "Number of rank-local replay rows. A row holds one tile when "
+            "grouped=false, or a whole synchronized tile group when grouped=true."
+        ),
+    )
+    grouped: bool = Field(
+        default=True,
+        description=(
+            "Advance every tile of a cluster together on one shared cursor and "
+            "reconcile their overlaps before writing the state back, so the next "
+            "step reads one consistent field. Set false for the older behaviour, "
+            "where each tile is an independent replay row drifting on its own "
+            "cursor. Inert with a single cache: one tile per group is the "
+            "identity, and that path stays bit-identical."
+        ),
+    )
+    blend_window: Literal["quintic", "kbd"] = Field(
+        default="quintic",
+        description="Overlap window used to reconcile grouped tiles. See tiling.py.",
     )
     refresh_every_n_microbatches: int | list[int] = Field(
         default=16,

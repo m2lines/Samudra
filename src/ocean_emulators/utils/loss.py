@@ -81,12 +81,15 @@ def decomposed_mse(
     target: torch.Tensor,
     wet: torch.Tensor,
     spatial_weight: torch.Tensor | None = None,
+    sample_weight: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Standard MSE loss (l2) computed per channel."""
     # Explicit pointwise arithmetic keeps ShardTensor on its native dispatch
     # path; F.mse_loss's generic DTensor fallback can introduce Partial layouts.
     mse = (pred - target).square()
-    return _weighted_channel_mean(mse, wet=wet, spatial_weight=spatial_weight)
+    return _weighted_channel_mean(
+        mse, wet=wet, spatial_weight=spatial_weight, extra_weight=sample_weight
+    )
 
 
 def decomposed_mae(
@@ -94,10 +97,13 @@ def decomposed_mae(
     target: torch.Tensor,
     wet: torch.Tensor,
     spatial_weight: torch.Tensor | None = None,
+    sample_weight: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Standard MAE loss (l1) computed per channel."""
     mae = (pred - target).abs()
-    return _weighted_channel_mean(mae, wet=wet, spatial_weight=spatial_weight)
+    return _weighted_channel_mean(
+        mae, wet=wet, spatial_weight=spatial_weight, extra_weight=sample_weight
+    )
 
 
 # TODO(alxmrs): This used to assume that hist=1; it may need to be fixed in the future.
@@ -106,6 +112,7 @@ def decomposed_mse_diff_weighted(
     target: torch.Tensor,
     wet: torch.Tensor,
     spatial_weight: torch.Tensor | None = None,
+    sample_weight: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """MSE loss with weighted differences."""
     pred = pred * wet
@@ -125,7 +132,7 @@ def decomposed_mse_diff_weighted(
     # Combine losses
     combined_loss = torch.cat([mse[:, :1], diff_mse], dim=1)
     return _weighted_channel_mean(
-        combined_loss, wet=wet, spatial_weight=spatial_weight
+        combined_loss, wet=wet, spatial_weight=spatial_weight, extra_weight=sample_weight
     )
 
 
@@ -163,13 +170,16 @@ def decomposed_mse_mae(
     target: torch.Tensor,
     wet: torch.Tensor,
     spatial_weight: torch.Tensor | None = None,
+    sample_weight: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Combined MSE and MAE loss."""
     error = pred - target
     mse = error.square()
     mae = error.abs()
     combined = (mse + mae) / 2
-    return _weighted_channel_mean(combined, wet=wet, spatial_weight=spatial_weight)
+    return _weighted_channel_mean(
+        combined, wet=wet, spatial_weight=spatial_weight, extra_weight=sample_weight
+    )
 
 
 def _spatial_gradients(
@@ -191,6 +201,7 @@ def gradient_h_l1_loss(
     wet: torch.Tensor,
     pad_mode: str,
     spatial_weight: torch.Tensor | None = None,
+    sample_weight: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """L1 loss on horizontal spatial gradients, averaged per channel."""
     pred = pred * wet
@@ -203,8 +214,18 @@ def gradient_h_l1_loss(
     grad_loss_x = F.l1_loss(pred_grad_x, target_grad_x, reduction="none")
 
     grad_loss = (
-        _weighted_channel_mean(grad_loss_y, wet=wet, spatial_weight=spatial_weight)
-        + _weighted_channel_mean(grad_loss_x, wet=wet, spatial_weight=spatial_weight)
+        _weighted_channel_mean(
+            grad_loss_y,
+            wet=wet,
+            spatial_weight=spatial_weight,
+            extra_weight=sample_weight,
+        )
+        + _weighted_channel_mean(
+            grad_loss_x,
+            wet=wet,
+            spatial_weight=spatial_weight,
+            extra_weight=sample_weight,
+        )
     ) / 2
     return grad_loss
 
@@ -214,6 +235,7 @@ def ts_gradient_z_l1_loss(
     target: torch.Tensor,
     wet: torch.Tensor,
     spatial_weight: torch.Tensor | None = None,
+    sample_weight: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """L1 loss on normalized vertical T/S differences, averaged per channel."""
     tensor_map = TensorMap.get_instance()
@@ -265,10 +287,19 @@ def ts_gradient_z_l1_loss(
                 spatial_weight_by_time[:, lower],
             ).to(dtype=pred.dtype)
 
-        valid_cells = midpoint_weight.sum(dim=(2, 3))
+        # Carrying the per-sample weight into BOTH sums is what keeps this a
+        # weighted mean. With sample_weight=None the batch weight is 1, so
+        # `weight` sums to `valid_cells * batch` and this is exactly the
+        # unweighted formula it replaces.
+        weight = midpoint_weight.unsqueeze(0)
+        if sample_weight is not None:
+            weight = weight * sample_weight.reshape(
+                sample_weight.shape[0], 1, 1, *sample_weight.shape[-2:]
+            ).to(dtype=weight.dtype)
+        valid_cells = weight.sum(dim=(0, 3, 4))
         valid_pair = valid_cells > 0
-        numerator = (grad_loss * midpoint_weight.unsqueeze(0)).sum(dim=(0, 3, 4))
-        denominator = valid_cells.clamp_min(1e-8) * pred.shape[0]
+        numerator = (grad_loss * weight).sum(dim=(0, 3, 4))
+        denominator = valid_cells.clamp_min(1e-8)
         pair_loss = torch.where(valid_pair, numerator / denominator, 0.0)
 
         loss_by_time.index_add_(1, lower, pair_loss)
@@ -471,8 +502,19 @@ class GradientLoss:
         self,
         pred: Float[torch.Tensor, "batch hist*var lat lon"],
         target: Float[torch.Tensor, "batch hist*var lat lon"],
+        sample_weight: torch.Tensor | None = None,
     ) -> Float[torch.Tensor, " hist*var"]:
-        base_loss = self.loss_fn(pred, target)
+        """`sample_weight` is a per-sample `[batch, ..., lat, lon]` mask.
+
+        It exists because a batch can now mix tiles with different land: the
+        wet mask is a property of the sample, not of the run, and scoring one
+        tile's ocean against another tile's mask is simply wrong.
+        """
+        base_loss = (
+            self.loss_fn(pred, target)
+            if sample_weight is None
+            else self.loss_fn(pred, target, sample_weight=sample_weight)
+        )
         total_loss = base_loss
         if self._lambda_h > 0:
             grad_h_loss = gradient_h_l1_loss(
@@ -481,6 +523,7 @@ class GradientLoss:
                 wet=self._wet,
                 pad_mode=self._pad_mode,
                 spatial_weight=self._spatial_weight,
+                sample_weight=sample_weight,
             )
             total_loss = total_loss + self._lambda_h * grad_h_loss
         if self._lambda_z > 0:
@@ -489,6 +532,7 @@ class GradientLoss:
                 target=target,
                 wet=self._wet,
                 spatial_weight=self._spatial_weight,
+                sample_weight=sample_weight,
             )
             total_loss = total_loss + self._lambda_z * grad_z_loss
         return total_loss

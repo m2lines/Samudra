@@ -77,6 +77,14 @@ from ocean_emulators.datasets import (
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.replay import ReplayBuffer, ReplayEntry, replay_sidecar_path
 from ocean_emulators.shardtensor import DomainParallelContext, validate_shardable
+from ocean_emulators.tiling import (
+    ReplayGroup,
+    TileSpec,
+    build_group_layout,
+    build_replay_groups,
+    build_tile_catalog,
+    validate_tile_group,
+)
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
 from ocean_emulators.utils.data import (
     SPATIAL_FEATURE_CHANNELS,
@@ -542,27 +550,39 @@ class _ReplayPrefetchPipeline:
         ):
             raise RuntimeError("Domain followers must not read full replay frames")
         start_time = time.perf_counter()
-        train_transitions = [
-            self._prepare_raw_transition_for_transport(
-                self.trainer.train_datasets[slot.cursor.dataset_index]
-                .get_raw_replay_train_transition(
-                    dataset_index=slot.cursor.dataset_index,
+
+        # One slot yields one transition per tile in its group, emitted
+        # slot-major so the flat list can be re-chunked downstream. Every tile of
+        # a slot reads the SAME source_index and lead_step -- that shared cursor
+        # is the whole point of grouping.
+        def load(slot, *, seed: bool):
+            group = self.trainer.replay_group_for(slot.cursor)
+            loaded = []
+            for tile_index, dataset_index in enumerate(group.dataset_indices):
+                dataset = self.trainer.train_datasets[dataset_index]
+                reader = (
+                    dataset.get_raw_replay_seed_transition
+                    if seed
+                    else dataset.get_raw_replay_train_transition
+                )
+                transition = reader(
+                    dataset_index=dataset_index,
                     source_index=slot.cursor.source_index,
                     lead_step=slot.cursor.lead_step,
                 )
-            )
+                transition.tile_index = tile_index
+                loaded.append(self._prepare_raw_transition_for_transport(transition))
+            return loaded
+
+        train_transitions = [
+            transition
             for slot in request.train_slots
+            for transition in load(slot, seed=False)
         ]
         seed_transitions = [
-            self._prepare_raw_transition_for_transport(
-                self.trainer.train_datasets[slot.cursor.dataset_index]
-                .get_raw_replay_seed_transition(
-                    dataset_index=slot.cursor.dataset_index,
-                    source_index=slot.cursor.source_index,
-                    lead_step=slot.cursor.lead_step,
-                )
-            )
+            transition
             for slot in request.seed_slots
+            for transition in load(slot, seed=True)
         ]
         return RawReplayBatch(
             request=request,
@@ -781,6 +801,27 @@ class Trainer:
                     "Multi-patch replay currently requires all packed caches to "
                     "have the same spatial shape."
                 )
+
+        # Grouped replay advances every tile of a cluster on one cursor and
+        # reconciles their overlaps before writeback. It is meaningful only with
+        # more than one cache; with a single cache a "group" is one tile, which
+        # is exactly the ungrouped path.
+        self.replay_grouped = bool(cfg.replay.grouped) and self.replay_spatial_features
+        self.tile_catalog: list[TileSpec] | None = None
+        if self.replay_grouped:
+            self.tile_catalog = self._build_tile_catalog()
+            logger.info(
+                "Grouped replay enabled: %d tiles advance on one cursor, "
+                "overlaps reconciled with the %r window",
+                len(self.tile_catalog),
+                cfg.replay.blend_window,
+            )
+        elif self.replay_spatial_features:
+            logger.info(
+                "Grouped replay DISABLED: each tile is an independent replay row "
+                "drifting on its own cursor (replay.grouped=false)."
+            )
+
         self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound)) + (
             SPATIAL_FEATURE_CHANNELS if self.replay_spatial_features else 0
         )
@@ -879,6 +920,31 @@ class Trainer:
 
         self.metadata = construct_metadata(self.data)
         self.wet = self.src.masks.prognostic_with_hist(cfg.data.hist).to(self.device)
+        # Tiles do not share a land mask -- in the live 2x2 group only one tile
+        # has land at all. The model output mask has to be the UNION, or a wet
+        # cell in one tile gets zeroed because a different tile calls it land;
+        # the per-tile masks are then applied where they belong, in the loss and
+        # in the replay writeback.
+        self.tile_wet_masks: torch.Tensor | None = None
+        replay_sources = self.data_container.replay_sources or []
+        if len(replay_sources) > 1:
+            per_tile = torch.stack(
+                [
+                    source.masks.prognostic_with_hist(cfg.data.hist).to(self.device)
+                    for source in replay_sources
+                ]
+            ).bool()
+            union = per_tile.any(dim=0)
+            differing = int((per_tile != union.unsqueeze(0)).sum())
+            if differing:
+                self.tile_wet_masks = per_tile
+                self.wet = union
+                logger.info(
+                    "Per-tile wet masks differ in %d channel-cells; the model "
+                    "masks with their union and the loss weights each sample by "
+                    "its own tile's mask.",
+                    differing,
+                )
         self.area_weights: Grid = spherical_area_weights(self.data)
 
         self.area_weights = self.area_weights.to(self.device)
@@ -1854,7 +1920,11 @@ class Trainer:
                 outputs = self.model(data)
                 pred = outputs[0]
                 label = data.get_label(0)
-                loss_per_channel = self.loss_fn(pred, label)
+                loss_per_channel = self.loss_fn(
+                    pred,
+                    label,
+                    sample_weight=self._batch_wet_weight(prepared.request.train_slots),
+                )
                 loss = torch.mean(loss_per_channel)
                 TO = TrainBatchOutput(loss, loss_per_channel)
                 scaled_loss = TO.loss / r
@@ -2065,16 +2135,22 @@ class Trainer:
     def sample_replay_seed_cursor(self) -> ReplayCursor:
         if not self.train_datasets:
             raise RuntimeError("Cannot seed replay buffer before train datasets exist")
+        # A group is the unit a replay row addresses. Ungrouped, every group is
+        # one dataset, so this is the original per-dataset draw unchanged.
+        groups = getattr(self, "replay_groups", None) or [
+            ReplayGroup(group_id=index, dataset_indices=(index,))
+            for index in range(len(self.train_datasets))
+        ]
         eligible_datasets = [
-            (index, dataset)
-            for index, dataset in enumerate(self.train_datasets)
-            if len(dataset) > 0
+            (group.group_id, self.train_datasets[group.dataset_indices[0]])
+            for group in groups
+            if len(self.train_datasets[group.dataset_indices[0]]) > 0
         ]
         if not eligible_datasets:
             raise RuntimeError("Cannot seed replay buffer from empty datasets")
-        # Pick a cache/stride dataset uniformly, then a time window uniformly
-        # within it. This avoids longer caches monopolising replay seeds while
-        # still leaving every row fill independently random.
+        # Pick a group uniformly, then a time window uniformly within it. This
+        # avoids longer caches monopolising replay seeds while still leaving
+        # every row fill independently random.
         choice = int(
             torch.randint(
                 len(eligible_datasets),
@@ -2243,10 +2319,8 @@ class Trainer:
         inputs = []
         labels = []
         cursors = []
-        for slot, transition in zip(
-            raw_batch.request.train_slots,
-            raw_batch.train_transitions,
-            strict=True,
+        for slot, transitions in self._transitions_per_slot(
+            raw_batch.request.train_slots, raw_batch.train_transitions
         ):
             entry = self.replay_buffer.entries[slot.replay_index]
             if entry.cursor != slot.cursor:
@@ -2254,28 +2328,33 @@ class Trainer:
                     "Replay buffer slot changed while a prefetched request was "
                     "in flight. This indicates a reservation bug."
                 )
-            dataset = self.train_datasets[slot.cursor.dataset_index]
-            self.validate_replay_cursor(slot.cursor, dataset)
-            input, label = self._raw_replay_train_transition_to_example(
-                dataset,
-                transition,
-                entry,
-            )
-            inputs.append(input)
-            labels.append(label)
+            datasets = self.datasets_for(slot.cursor)
+            self.validate_replay_cursor(slot.cursor, datasets[0])
+            # entry.state is [T, C, H, W]; tile t of the row pairs with tile t of
+            # the group, which the slot-major transition order guarantees.
+            states = self._entry_states(entry, len(datasets))
+            for dataset, transition, state in zip(
+                datasets, transitions, states, strict=True
+            ):
+                input, label = self._raw_replay_train_transition_to_example(
+                    dataset, transition, entry, prognostic_state=state
+                )
+                inputs.append(input)
+                labels.append(label)
             cursors.append(slot.cursor)
 
         seed_entries: dict[int, ReplayEntry] = {}
-        for slot, transition in zip(
-            raw_batch.request.seed_slots,
-            raw_batch.seed_transitions,
-            strict=True,
+        for slot, transitions in self._transitions_per_slot(
+            raw_batch.request.seed_slots, raw_batch.seed_transitions
         ):
-            dataset = self.train_datasets[slot.cursor.dataset_index]
-            self.validate_replay_cursor(slot.cursor, dataset)
-            state = self._raw_replay_seed_transition_to_state(dataset, transition)
+            datasets = self.datasets_for(slot.cursor)
+            self.validate_replay_cursor(slot.cursor, datasets[0])
+            tile_states = [
+                self._raw_replay_seed_transition_to_state(dataset, transition)
+                for dataset, transition in zip(datasets, transitions, strict=True)
+            ]
             seed_entries[slot.replay_index] = self._stage_replay_state_for_buffer(
-                state,
+                self._stack_tile_states(tile_states),
                 slot.cursor,
             )
 
@@ -2415,15 +2494,98 @@ class Trainer:
         )
         return label, boundary
 
+    def _transitions_per_slot(self, slots, transitions):
+        """Re-chunk a slot-major transition list back into one list per slot.
+
+        `_load_raw_batch` emits one transition per tile per slot, in canonical
+        tile order. The `tile_index` each carries is checked rather than assumed:
+        a mis-ordered load would otherwise pair a tile's state with a neighbour's
+        gold target and train on a silently shifted field.
+        """
+        chunks = []
+        offset = 0
+        for slot in slots:
+            count = self.replay_group_for(slot.cursor).num_tiles
+            chunk = transitions[offset : offset + count]
+            if len(chunk) != count:
+                raise RuntimeError(
+                    f"Replay slot expected {count} transition(s) but the loader "
+                    f"supplied {len(chunk)}."
+                )
+            for expected, transition in enumerate(chunk):
+                if transition.tile_index != expected:
+                    raise RuntimeError(
+                        "Replay transitions arrived out of tile order "
+                        f"(expected {expected}, got {transition.tile_index})."
+                    )
+            chunks.append((slot, chunk))
+            offset += count
+        if offset != len(transitions):
+            raise RuntimeError(
+                f"Replay batch carried {len(transitions)} transitions but its "
+                f"slots account for {offset}."
+            )
+        return chunks
+
+    def _seed_transitions_for_slot(self, slot) -> list[RawReplayTransition]:
+        """Gold seed reads for every tile of a slot's group, in canonical order."""
+        transitions = []
+        group = self.replay_group_for(slot.cursor)
+        for tile_index, dataset_index in enumerate(group.dataset_indices):
+            transition = self.train_datasets[
+                dataset_index
+            ].get_raw_replay_seed_transition(
+                dataset_index=dataset_index,
+                source_index=slot.cursor.source_index,
+                lead_step=slot.cursor.lead_step,
+            )
+            transition.tile_index = tile_index
+            transitions.append(transition)
+        return transitions
+
+    @staticmethod
+    def _stack_tile_states(tile_states: list[torch.Tensor]) -> torch.Tensor:
+        """Pack per-tile states into a replay row.
+
+        A one-tile row keeps its bare `[C, H, W]` shape rather than gaining a
+        length-1 tile axis, so ungrouped rows -- and the sidecars holding them --
+        are byte-for-byte what they were before grouping existed.
+        """
+        if len(tile_states) == 1:
+            return tile_states[0]
+        return torch.stack(tile_states)
+
+    def _entry_states(self, entry: ReplayEntry, num_tiles: int) -> list[torch.Tensor]:
+        """Split a replay row into one `[1, C, H, W]` state per tile.
+
+        A row is `[T, C, H, W]`. Older sidecars hold `[C, H, W]` from before
+        grouping existed; those are a single-tile row, so accept them.
+        """
+        state = entry.state
+        if state.ndim == 3:
+            states = [state.unsqueeze(0)]
+        elif state.ndim == 4:
+            states = [state[index : index + 1] for index in range(state.shape[0])]
+        else:
+            raise ValueError(f"Replay entry state has unexpected shape {state.shape}")
+        if len(states) != num_tiles:
+            raise ValueError(
+                f"Replay row holds {len(states)} tile state(s) but its group has "
+                f"{num_tiles}. The buffer and the layout have diverged; a layout "
+                "change must force a reseed via replay_dataset_signature."
+            )
+        return states
+
     def _raw_replay_train_transition_to_example(
         self,
         dataset: TorchTrainDataset,
         transition: RawReplayTransition,
         entry: ReplayEntry,
+        prognostic_state: torch.Tensor | None = None,
     ):
         label, boundary = self._raw_replay_gold_to_tensors(dataset, transition)
         self._wait_replay_entry_ready(entry)
-        prognostic_state = entry.state
+        prognostic_state = entry.state if prognostic_state is None else prognostic_state
         if prognostic_state.ndim == 3:
             prognostic_state = prognostic_state.unsqueeze(0)
         if prognostic_state.shape[1:] != (dataset.num_prognostic_channels, *boundary.shape[-2:]):
@@ -2497,6 +2659,63 @@ class Trainer:
         )
         return dataset.remask_prognostic_state(state)[0]
 
+    def _batch_wet_weight(self, train_slots) -> torch.Tensor | None:
+        """Per-sample wet mask for a `[B*T, C, H, W]` microbatch, or None.
+
+        None whenever every tile shares a mask -- which is every single-cache run
+        and most multi-tile ones -- so the common path allocates nothing and the
+        loss behaves exactly as it did before.
+        """
+        if self.tile_wet_masks is None:
+            return None
+        indices = [
+            dataset_index
+            for slot in train_slots
+            for dataset_index in self.replay_group_for(slot.cursor).dataset_indices
+        ]
+        # dataset index is source-major over strides; the mask is per source.
+        num_strides = max(1, len(self.data_stride))
+        source_indices = torch.tensor(
+            [index // num_strides for index in indices],
+            device=self.tile_wet_masks.device,
+        )
+        return self.tile_wet_masks[source_indices].to(dtype=torch.float32)
+
+    def _reconcile_group_prediction(
+        self,
+        tile_predictions: torch.Tensor,
+        group: ReplayGroup,
+        prepared: _ReplayPreparedBatch,
+        slot,
+    ) -> torch.Tensor:
+        """Turn a group's raw per-tile predictions into one consistent state.
+
+        The tiles disagree in their overlaps -- they were predicted from
+        differently-padded inputs -- so writing them back untouched would hand the
+        next step a field that reads differently depending on which tile you ask.
+        Blending the *residuals* fixes that, and is equivalent to blending the
+        full fields precisely because the current state already agrees everywhere
+        the tiles share (seeds come from truth, and this scatter-back preserves it).
+        """
+        if not group.is_grouped or group.blender is None:
+            return tile_predictions
+
+        current = prepared.data.get_input(0)[
+            slice(*self._slot_input_span(prepared, slot))
+        ][:, : self.num_out]
+        residual = tile_predictions - current
+        return current + group.blender.blend(residual)
+
+    def _slot_input_span(self, prepared: _ReplayPreparedBatch, slot) -> tuple[int, int]:
+        """Where a slot's tiles sit in the flattened `[B*T, ...]` microbatch."""
+        offset = 0
+        for candidate in prepared.request.train_slots:
+            count = self.replay_group_for(candidate.cursor).num_tiles
+            if candidate is slot:
+                return offset, offset + count
+            offset += count
+        raise RuntimeError("Slot is not part of this prepared batch")
+
     def apply_replay_prefetch_updates(
         self,
         prepared: _ReplayPreparedBatch,
@@ -2511,21 +2730,40 @@ class Trainer:
             slot.replay_index: slot.reason for slot in prepared.request.seed_slots
         }
         with torch.no_grad():
-            for batch_index, slot in enumerate(prepared.request.train_slots):
+            # pred is [B*T, C, H, W] in slot-major, canonical-tile order.
+            offset = 0
+            for slot in prepared.request.train_slots:
+                group = self.replay_group_for(slot.cursor)
+                tiles = slice(offset, offset + group.num_tiles)
+                offset += group.num_tiles
+
                 seed_entry = prepared.seed_entries.get(slot.replay_index)
                 if seed_entry is not None and seed_reasons[slot.replay_index] == "cap":
                     self.replay_buffer.replace(slot.replay_index, seed_entry)
                     cap_refreshes += 1
                     continue
 
-                dataset = self.train_datasets[slot.cursor.dataset_index]
-                if getattr(self, "dp_ctx", None) is not None:
-                    state = self._remask_local_replay_state(
-                        self.dp_ctx.local_tensor(pred[batch_index]),
-                        dataset,
-                    )
-                else:
-                    state = dataset.remask_prognostic_state(pred[batch_index])
+                datasets = self.datasets_for(slot.cursor)
+                reconciled = self._reconcile_group_prediction(
+                    pred[tiles], group, prepared, slot
+                )
+                # Collect rather than assign in place: under domain parallelism
+                # the stored state is this rank's shard, which is smaller than
+                # the tile it came from.
+                tile_states = []
+                for tile_index, dataset in enumerate(datasets):
+                    if getattr(self, "dp_ctx", None) is not None:
+                        tile_states.append(
+                            self._remask_local_replay_state(
+                                self.dp_ctx.local_tensor(reconciled[tile_index]),
+                                dataset,
+                            )
+                        )
+                    else:
+                        tile_states.append(
+                            dataset.remask_prognostic_state(reconciled[tile_index])
+                        )
+                state = self._stack_tile_states(tile_states)
                 self.replay_buffer.replace(
                     slot.replay_index,
                     self._stage_replay_state_for_buffer(
@@ -2688,13 +2926,9 @@ class Trainer:
                 train_transitions=[],
                 seed_transitions=(
                     [
-                        self.train_datasets[slot.cursor.dataset_index]
-                        .get_raw_replay_seed_transition(
-                            dataset_index=slot.cursor.dataset_index,
-                            source_index=slot.cursor.source_index,
-                            lead_step=slot.cursor.lead_step,
-                        )
+                        transition
                         for slot in request.seed_slots
+                        for transition in self._seed_transitions_for_slot(slot)
                     ]
                     if dp_ctx is None or dp_ctx.is_domain_leader
                     else []
@@ -2749,7 +2983,7 @@ class Trainer:
             )
 
     def replay_dataset_signature(self) -> list[dict[str, Any]]:
-        return [
+        signature = [
             {
                 "source": dataset._prognostic_src.name,
                 "stride": dataset.stride,
@@ -2763,6 +2997,17 @@ class Trainer:
             }
             for dataset in self.train_datasets
         ]
+        # The grouping is part of what a stored row *means*: a row saved under a
+        # different layout holds a different number of tile states, so resuming
+        # across a layout change must reseed rather than silently mis-pair them.
+        signature.append(
+            {
+                "replay_groups": [
+                    list(group.dataset_indices) for group in self.replay_groups
+                ]
+            }
+        )
+        return signature
 
     def save_replay_buffer_sidecars_for_epoch(self, epoch: int) -> None:
         if not self.replay_cfg.checkpoint_buffer:
@@ -3233,6 +3478,72 @@ class Trainer:
         )
         return Subset(val_data, indices)
 
+    def _build_tile_catalog(self) -> list[TileSpec]:
+        """Recover tile geometry from the raw packed caches.
+
+        A loaded DataSource keeps only prognostic/boundary under renamed lat/lon
+        dims and drops XC/YC/rA, so the catalog and its overlap gate have to read
+        the stores themselves. The gate compares XC/YC directly, which validates
+        adjacency without trusting the (face, i, j) indices at all.
+        """
+        locations = self.data_container.replay_locations
+        if not locations:
+            raise ValueError(
+                "Grouped replay needs the resolved cache locations to rebuild "
+                "tile geometry, but the data container did not record them."
+            )
+        raw = [location.open() for location in locations]
+        names = [str(getattr(location, "path", location)) for location in locations]
+        catalog = build_tile_catalog(raw, names=names)
+        layout = build_group_layout(catalog)
+        report = validate_tile_group(
+            layout, raw, probe_times=(0,), probe_vars=("prognostic",)
+        )
+        if not report.is_clean:
+            logger.warning(
+                "Tile group has non-finite values at time index/indices %s; "
+                "these must not be used as replay seed times.",
+                report.nonfinite_times,
+            )
+        logger.info(
+            "Tile catalog: %d tiles, canonical %s at origin %s, overlaps %s",
+            layout.num_tiles,
+            layout.canonical_shape,
+            layout.canonical_origin,
+            sorted(set(layout.overlaps.values())),
+        )
+        return catalog
+
+    def replay_group_for(self, cursor: ReplayCursor) -> ReplayGroup:
+        """The group a cursor addresses. Ungrouped, this is dataset `i` as group `i`.
+
+        Falls back to the identity when no layout has been built -- which is both
+        the single-cache case and any caller that wires `train_datasets` directly
+        without going through `init_data_loaders`.
+        """
+        groups = getattr(self, "replay_groups", None)
+        if not groups:
+            return ReplayGroup(
+                group_id=cursor.dataset_index,
+                dataset_indices=(cursor.dataset_index,),
+            )
+        return groups[cursor.dataset_index]
+
+    def datasets_for(self, cursor: ReplayCursor) -> list[TorchTrainDataset]:
+        """Every dataset a replay row advances together, in canonical tile order."""
+        return [
+            self.train_datasets[index]
+            for index in self.replay_group_for(cursor).dataset_indices
+        ]
+
+    def representative_dataset(self, cursor: ReplayCursor) -> TorchTrainDataset:
+        """The dataset that defines a row's clock: length, stride, temporal stride.
+
+        Every tile of a group is validated to share these, so the first tile
+        speaks for all of them.
+        """
+        return self.train_datasets[self.replay_group_for(cursor).dataset_indices[0]]
+
     def init_data_loaders(
         self,
         cur_step: int,
@@ -3271,6 +3582,31 @@ class Trainer:
             for stride in self.data_stride
         ]
         self.train_datasets = train_datasets
+
+        # Replay rows address groups, not datasets. Ungrouped, the mapping is the
+        # identity, so `cursor.dataset_index` keeps its old meaning exactly.
+        self.replay_groups = build_replay_groups(
+            num_sources=len(replay_sources),
+            num_strides=len(self.data_stride),
+            grouped=getattr(self, "replay_grouped", False),
+            tiles=getattr(self, "tile_catalog", None),
+            window=getattr(self.replay_cfg, "blend_window", "quintic"),
+            dtype=torch.float32,
+        )
+        for group in self.replay_groups:
+            if group.blender is not None:
+                group.blender.to(self.device)
+        lengths = {
+            len(self.train_datasets[index])
+            for group in self.replay_groups
+            for index in group.dataset_indices
+        }
+        if self.replay_grouped and len(lengths) != 1:
+            raise ValueError(
+                f"Grouped replay needs every tile to serve the same windows, but "
+                f"dataset lengths differ: {sorted(lengths)}. One cursor cannot "
+                "address rows of different length."
+            )
 
         validation_sources = replay_sources if self.replay_enabled else [self.src]
         val_datasets = [

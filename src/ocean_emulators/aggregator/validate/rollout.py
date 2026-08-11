@@ -62,21 +62,24 @@ def plan_rollout_windows(
     num_runs: int,
     seed: int,
 ) -> RolloutValidationPlan:
-    """Lay out non-overlapping autoregressive validation runs inside val_time.
+    """Lay out autoregressive validation runs inside val_time.
 
-    The validation range is cut into `num_runs` equal blocks and one run is
-    placed at a random offset inside its own block. That keeps runs from
-    overlapping each other and from reading past the end of val_time, while
-    still spreading the initial conditions around rather than pinning them to
-    block starts.
+    When the runs fit without overlapping, the validation range is cut into
+    `num_runs` equal blocks and one run is placed at a random offset inside its
+    own block. That spreads the initial conditions around rather than pinning
+    them to block starts, and the offsets come from an explicitly seeded
+    generator, so the same initial conditions are scored every epoch. That is
+    what makes the per-epoch mean loss comparable across epochs for checkpoint
+    selection, and what lets the per-epoch RMSE-vs-step curves be read as one
+    series.
 
-    The offsets come from an explicitly seeded generator, so the same initial
-    conditions are scored every epoch. That is what makes the per-epoch mean
-    loss comparable across epochs for checkpoint selection, and what lets the
-    per-epoch RMSE-vs-step curves be read as one series.
+    When they do not fit, all `num_runs` runs are still scored: their starts are
+    spread evenly from the beginning of val_time to the latest start that still
+    ends at its end. That overlaps the runs, which is a better trade than
+    dropping validation, but it does mean their errors are partly correlated.
 
-    `num_runs` -- and, as a last resort, `num_steps` -- are reduced with a
-    warning when val_time is too short to honour both.
+    `num_steps` is shortened, with a warning, only when val_time cannot fit even
+    a single run.
 
     Args:
         label: Name of this validation, used only in log messages.
@@ -120,33 +123,35 @@ def plan_rollout_windows(
         span = span_for(num_steps)
         max_runs = 1
 
-    runs = min(num_runs, max_runs)
-    if runs < num_runs:
+    if num_runs <= max_runs:
+        rng = random.Random(seed)
+        block = total_timesteps // num_runs
+        slack = block - span
+        starts = [run * block + rng.randint(0, slack) for run in range(num_runs)]
+    else:
+        # No room to keep them apart, so spread them from the first possible
+        # start to the last one that still ends at the end of val_time.
+        last_start = total_timesteps - span
+        # Deduplicated: when a run already fills val_time there is only one
+        # window to score, and repeating it would score the same rollout twice.
+        starts = sorted(
+            {round(run * last_start / (num_runs - 1)) for run in range(num_runs)}
+        )
         logger.warning(
             f"{label} autoregressive validation requested {num_runs} runs of "
-            f"{num_steps} steps, but only {runs} non-overlapping run(s) fit in the "
-            f"{total_timesteps} timesteps of val_time. Using {runs}. Widen "
-            f"val_time to score more initial conditions."
+            f"{num_steps} steps, but only {max_runs} fit without overlapping in "
+            f"the {total_timesteps} timesteps of val_time. Running {len(starts)} "
+            f"with overlap; widen val_time to keep them independent."
         )
 
-    rng = random.Random(seed)
-    block = total_timesteps // runs
-    slack = block - span
-    windows = []
-    for run in range(runs):
-        offset = rng.randint(0, slack)
-        windows.append(
-            RolloutWindow(start_index=run * block + offset, num_timesteps=span)
-        )
-
+    windows = tuple(
+        RolloutWindow(start_index=start, num_timesteps=span) for start in starts
+    )
     logger.info(
-        f"{label} autoregressive validation plan: {runs} run(s) of {num_steps} "
-        f"steps, starting at val_time indices "
-        f"{[window.start_index for window in windows]}."
+        f"{label} autoregressive validation plan: {len(windows)} run(s) of "
+        f"{num_steps} steps, starting at val_time indices {starts}."
     )
-    return RolloutValidationPlan(
-        label=label, num_steps=num_steps, windows=tuple(windows)
-    )
+    return RolloutValidationPlan(label=label, num_steps=num_steps, windows=windows)
 
 
 class RolloutValidationAggregator:

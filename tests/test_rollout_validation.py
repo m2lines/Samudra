@@ -44,12 +44,26 @@ def test_plan_rollout_windows_accounts_for_history():
     assert plan.windows[-1].start_index + 33 <= 744
 
 
-def test_plan_rollout_windows_reduces_runs_that_do_not_fit(caplog):
+def test_plan_rollout_windows_overlaps_runs_that_do_not_fit(caplog):
     plan = _plan(num_steps=480, num_runs=2)
 
     assert plan.num_steps == 480
-    assert len(plan.windows) == 1
-    assert "only 1 non-overlapping run(s) fit" in caplog.text
+    # Both runs still happen: the first starts at the beginning of val_time and
+    # the second ends at its end, which is the least overlap available.
+    assert [window.start_index for window in plan.windows] == [0, 744 - 481]
+    assert plan.windows[-1].start_index + plan.windows[-1].num_timesteps == 744
+    assert "only 1 fit without overlapping" in caplog.text
+
+
+def test_plan_rollout_windows_spreads_more_overlapping_runs_evenly():
+    plan = _plan(num_steps=480, num_runs=3)
+
+    last_start = 744 - 481
+    assert [window.start_index for window in plan.windows] == [
+        0,
+        round(last_start / 2),
+        last_start,
+    ]
 
 
 def test_plan_rollout_windows_shortens_horizon_that_does_not_fit(caplog):

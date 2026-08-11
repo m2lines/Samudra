@@ -133,6 +133,11 @@ class GracefulStopRequested(RuntimeError):
     """Raised when training should stop after writing an emergency checkpoint."""
 
 
+#: Weight of the one-step loss in the combined checkpoint-selection score. The
+#: rollout weights live on their specs; together the three sum to 1.
+ONE_STEP_VAL_WEIGHT = 0.25
+
+
 @dataclasses.dataclass(frozen=True)
 class AutoregressiveValSpec:
     """One of the two independent autoregressive rollout validations."""
@@ -141,6 +146,7 @@ class AutoregressiveValSpec:
     num_steps: int
     num_runs: int
     seed_offset: int
+    weight: float
 
 
 class _OffsetBatchSampler(Sampler[list[int]]):
@@ -1155,12 +1161,14 @@ class Trainer:
                 num_steps=cfg.short_autoregressive_val_length,
                 num_runs=cfg.short_autoregressive_val_num,
                 seed_offset=SHORT_AUTOREGRESSIVE_VAL_SEED_OFFSET,
+                weight=0.35,
             ),
             AutoregressiveValSpec(
                 label="long",
                 num_steps=cfg.long_autoregressive_val_length,
                 num_runs=cfg.long_autoregressive_val_num,
                 seed_offset=LONG_AUTOREGRESSIVE_VAL_SEED_OFFSET,
+                weight=0.40,
             ),
         )
         self._autoregressive_val_group: torch.distributed.ProcessGroup | None = None
@@ -2857,26 +2865,27 @@ class Trainer:
     def combined_validation_loss(
         self, one_step_loss: float, autoregressive_val_stats: MetricsDict
     ) -> tuple[float, MetricsDict]:
-        """Average the validation losses into the score checkpointing uses.
+        """Combine the validation losses into the score checkpointing uses.
 
         The three validations answer different questions -- initialization
         quality, short-horizon skill, long-horizon error compounding -- so the
         best checkpoint is the one that is good at all three, not the one that
-        wins any single mean. All three use the same loss function on normalized
-        fields, so an unweighted average is meaningful.
+        wins any single mean. They are weighted towards the longer horizons,
+        since autoregressive skill is what the model is for.
 
         Validations that are disabled, or that val_time was too short to run,
-        simply drop out of the average.
+        drop out and their weight is redistributed over the rest.
 
         Returns the score and the metrics to log alongside it.
         """
-        components = [float(one_step_loss)]
+        weighted = [(ONE_STEP_VAL_WEIGHT, float(one_step_loss))]
         for spec in self.autoregressive_val_specs:
             key = f"val/mean/{spec.label}-autoregressive-loss"
             if key in autoregressive_val_stats:
-                components.append(float(autoregressive_val_stats[key]))
+                weighted.append((spec.weight, float(autoregressive_val_stats[key])))
 
-        combined = sum(components) / len(components)
+        total_weight = sum(weight for weight, _ in weighted)
+        combined = sum(weight * loss for weight, loss in weighted) / total_weight
         return combined, {"val/mean/combined-loss": combined}
 
     def _autoregressive_val_barrier_group(self):

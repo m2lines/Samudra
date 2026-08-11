@@ -29,8 +29,13 @@ class TrainAggregator:
         self._n_batches += 1
 
     @torch.no_grad()
+    def mean_loss(self) -> torch.Tensor:
+        """The epoch's mean loss, before reduction across ranks."""
+        return self._loss / self._n_batches
+
+    @torch.no_grad()
     def get_logs(self, label: str = "train") -> Metrics:
-        loss = self._loss / self._n_batches
+        loss = self.mean_loss()
 
         loss_per_channel = self._loss_per_channel / self._n_batches
         depth_loss_dict = get_depth_loss_dict(label, loss_per_channel)

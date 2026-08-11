@@ -102,6 +102,41 @@ def plot_paneled_data(
     return wandb_image
 
 
+def plot_metric_by_rollout_step(
+    values: np.ndarray,
+    *,
+    title: str,
+    ylabel: str = "area-weighted RMSE (normalized)",
+    caption: str | None = None,
+):
+    """Plot one metric against autoregressive rollout step as a line plot.
+
+    Logging this under a fixed key gives a wandb media panel with the usual
+    step slider, so each epoch's curve can be viewed on its own.
+    """
+    steps = np.arange(1, len(values) + 1)
+
+    fig = Figure(figsize=(6.0, 4.0))
+    ax = fig.add_subplot(1, 1, 1)
+    ax.plot(steps, values, color="tab:blue", linewidth=1.5)
+    ax.set_xlabel("autoregressive step")
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    ax.grid(True, alpha=0.3)
+    ax.set_xlim(1, max(len(values), 2))
+    fig.tight_layout()
+
+    wandb = WandBLogger.get_instance()
+    wandb_image = wandb.Image(fig, caption=caption)
+    plt.close(fig)
+
+    # necessary to avoid CUDA error in some contexts
+    # see https://github.com/ai2cm/full-model/issues/740#issuecomment-2086546187
+    gc.collect()
+
+    return wandb_image
+
+
 def _stitch_data_panels(data: list[list[np.ndarray]], fill_value) -> np.ndarray:
     for row in data:
         if len(row) != len(data[0]):

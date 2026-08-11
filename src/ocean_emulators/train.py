@@ -6,6 +6,7 @@ import logging
 import multiprocessing
 import os
 import queue
+import random
 import signal
 import tempfile
 import threading
@@ -27,6 +28,7 @@ from torch.utils.data import (
     RandomSampler,
     Sampler,
     SequentialSampler,
+    Subset,
 )
 
 from ocean_emulators import config
@@ -36,6 +38,12 @@ from ocean_emulators.aggregator.loss import (
     get_channel_loss_scale_dict,
     get_depth_loss_dict,
     get_variable_loss_dict,
+)
+from ocean_emulators.aggregator.validate.main import ONE_STEP_LOSS_KEY
+from ocean_emulators.aggregator.validate.rollout import (
+    RolloutValidationAggregator,
+    RolloutValidationPlan,
+    plan_rollout_windows,
 )
 from ocean_emulators.backend import (
     init_domain_parallel_backend,
@@ -72,6 +80,7 @@ from ocean_emulators.shardtensor import DomainParallelContext, validate_shardabl
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
 from ocean_emulators.utils.data import (
     SPATIAL_FEATURE_CHANNELS,
+    DataSource,
     LoadStats,
     Normalize,
     get_inference_steps,
@@ -100,13 +109,38 @@ from ocean_emulators.utils.train import (
     collate_inference_data,
     collate_raw_train_data,
 )
-from ocean_emulators.utils.wandb import WandBLogger
+from ocean_emulators.utils.wandb import MetricsDict, WandBLogger
 
 logger = logging.getLogger(__name__)
+
+#: Offsets that keep the seeded validation draws independent of each other.
+#: They are added to ``experiment.rand_seed``, so a run always scores the same
+#: initial conditions but different runs sample differently.
+ONE_STEP_VAL_SEED_OFFSET = 7919
+SHORT_AUTOREGRESSIVE_VAL_SEED_OFFSET = 15485863
+LONG_AUTOREGRESSIVE_VAL_SEED_OFFSET = 32452843
+
+#: How long non-main ranks wait in a CPU barrier while rank 0 runs the
+#: autoregressive validation rollouts.
+AUTOREGRESSIVE_VAL_BARRIER_TIMEOUT = datetime.timedelta(hours=12)
+
+#: Which score `best_val_loss` holds. Stamped into checkpoints so a resume can
+#: tell that an older checkpoint's value is on a different scale.
+BEST_VAL_LOSS_METRIC = "one_step_and_autoregressive_mean"
 
 
 class GracefulStopRequested(RuntimeError):
     """Raised when training should stop after writing an emergency checkpoint."""
+
+
+@dataclasses.dataclass(frozen=True)
+class AutoregressiveValSpec:
+    """One of the two independent autoregressive rollout validations."""
+
+    label: str
+    num_steps: int
+    num_runs: int
+    seed_offset: int
 
 
 class _OffsetBatchSampler(Sampler[list[int]]):
@@ -1108,6 +1142,29 @@ class Trainer:
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
         self.surface_snapshot: bool = cfg.surface_snapshot
+
+        # Validation
+        self.rand_seed: int = cfg.experiment.rand_seed
+        self.one_step_val_num: int = cfg.one_step_val_num
+        self.autoregressive_val_steps_forward: int = (
+            cfg.autoregressive_val_steps_forward
+        )
+        self.autoregressive_val_specs: tuple[AutoregressiveValSpec, ...] = (
+            AutoregressiveValSpec(
+                label="short",
+                num_steps=cfg.short_autoregressive_val_length,
+                num_runs=cfg.short_autoregressive_val_num,
+                seed_offset=SHORT_AUTOREGRESSIVE_VAL_SEED_OFFSET,
+            ),
+            AutoregressiveValSpec(
+                label="long",
+                num_steps=cfg.long_autoregressive_val_length,
+                num_runs=cfg.long_autoregressive_val_num,
+                seed_offset=LONG_AUTOREGRESSIVE_VAL_SEED_OFFSET,
+            ),
+        )
+        self._autoregressive_val_group: torch.distributed.ProcessGroup | None = None
+
         self.data_stride: list[int] = cfg.data_stride
         self.temporal_strides: list[int] = temporal_strides
         self.temporal_stride_transition: list[int] = cfg.temporal_stride_transition
@@ -1314,6 +1371,11 @@ class Trainer:
                 val_stats = self.validate_one_epoch(epoch)
                 end_epoch_val_time = time.perf_counter()
 
+                autoregressive_val_stats = self.validate_autoregressive_one_epoch(
+                    epoch
+                )
+                end_epoch_autoregressive_val_time = time.perf_counter()
+
                 if -1 in self.inference_epochs or epoch in self.inference_epochs:
                     inf_stats = self.inference_one_epoch(epoch)
                     end_epoch_inf_time = time.perf_counter()
@@ -1322,13 +1384,24 @@ class Trainer:
                     end_epoch_inf_time = None
 
                 train_loss = train_stats["train/mean/loss"]
-                v_loss = val_stats["val/mean/loss"]
+                one_step_loss = val_stats[ONE_STEP_LOSS_KEY]
+                v_loss, v_loss_stats = self.combined_validation_loss(
+                    one_step_loss, autoregressive_val_stats
+                )
                 inf_loss = inf_stats.get(
                     "inference/time_mean_norm/rmse/channel_mean", None
                 )
 
                 logger.info(f"Achieved Train Loss = {train_loss:.3f}")
-                logger.info(f"Achieved Validation Loss = {v_loss:.3f}")
+                logger.info(f"Achieved One-Step Validation Loss = {one_step_loss:.3f}")
+                for label in ("short", "long"):
+                    key = f"val/mean/{label}-autoregressive-loss"
+                    if key in autoregressive_val_stats:
+                        logger.info(
+                            f"Achieved {label.capitalize()} Autoregressive "
+                            f"Validation Loss = {autoregressive_val_stats[key]:.3f}"
+                        )
+                logger.info(f"Achieved Combined Validation Loss = {v_loss:.3f}")
                 if inf_loss is not None:
                     logger.info(f"Achieved Inference Loss = {inf_loss:.3f}")
 
@@ -1342,6 +1415,8 @@ class Trainer:
                 log_stats = {
                     **train_stats,
                     **val_stats,
+                    **autoregressive_val_stats,
+                    **v_loss_stats,
                     **inf_stats,
                     "epoch": epoch,
                     "lr_multiplier": (
@@ -1353,12 +1428,15 @@ class Trainer:
                     - start_epoch_train_time,
                     "epoch_validation_seconds": end_epoch_val_time
                     - end_epoch_train_time,
+                    "epoch_autoregressive_validation_seconds": (
+                        end_epoch_autoregressive_val_time - end_epoch_val_time
+                    ),
                     "epoch_total_seconds": time_elapsed,
                 }
 
                 if end_epoch_inf_time is not None:
                     log_stats["epoch_inference_seconds"] = (
-                        end_epoch_inf_time - end_epoch_val_time
+                        end_epoch_inf_time - end_epoch_autoregressive_val_time
                     )
 
                 if is_main_process():
@@ -2776,6 +2854,220 @@ class Trainer:
         logger.info(f"Aggregating validation logs")
         return val_aggregator.get_logs(label="val")
 
+    def combined_validation_loss(
+        self, one_step_loss: float, autoregressive_val_stats: MetricsDict
+    ) -> tuple[float, MetricsDict]:
+        """Average the validation losses into the score checkpointing uses.
+
+        The three validations answer different questions -- initialization
+        quality, short-horizon skill, long-horizon error compounding -- so the
+        best checkpoint is the one that is good at all three, not the one that
+        wins any single mean. All three use the same loss function on normalized
+        fields, so an unweighted average is meaningful.
+
+        Validations that are disabled, or that val_time was too short to run,
+        simply drop out of the average.
+
+        Returns the score and the metrics to log alongside it.
+        """
+        components = [float(one_step_loss)]
+        for spec in self.autoregressive_val_specs:
+            key = f"val/mean/{spec.label}-autoregressive-loss"
+            if key in autoregressive_val_stats:
+                components.append(float(autoregressive_val_stats[key]))
+
+        combined = sum(components) / len(components)
+        return combined, {"val/mean/combined-loss": combined}
+
+    def _autoregressive_val_barrier_group(self):
+        """A long-timeout CPU process group for the rank-0-only rollouts.
+
+        The rollouts can take far longer than the NCCL collective timeout, which
+        would abort the run while the other ranks wait. Parking them in a gloo
+        barrier with an explicit long timeout keeps the NCCL watchdog out of it.
+
+        Must be called by every rank: `new_group` is itself collective.
+        """
+        if self._autoregressive_val_group is None:
+            self._autoregressive_val_group = torch.distributed.new_group(
+                backend="gloo", timeout=AUTOREGRESSIVE_VAL_BARRIER_TIMEOUT
+            )
+        return self._autoregressive_val_group
+
+    @contextlib.contextmanager
+    def _main_process_only_rollout(self):
+        """Yield True on the main process, and hold the other ranks until it is done."""
+        if self.distributed is None:
+            yield is_main_process()
+            return
+
+        group = self._autoregressive_val_barrier_group()
+        if is_main_process():
+            try:
+                yield True
+            finally:
+                torch.distributed.barrier(group=group)
+        else:
+            torch.distributed.barrier(group=group)
+            yield False
+
+    def autoregressive_val_sources(self) -> list[DataSource]:
+        """The data sources autoregressive validation rolls out over.
+
+        These are the same sources one-step validation scores, sliced to
+        val_time. With multiple replay caches, runs are spread across them so
+        every patch gets rolled out.
+        """
+        sources = (
+            self.data_container.replay_sources
+            if self.replay_enabled
+            else [self.src]
+        )
+        assert sources is not None
+        return [source.slice(self.val_time) for source in sources]
+
+    def validate_autoregressive_one_epoch(self, epoch) -> MetricsDict:
+        """Run the short and long autoregressive rollout validations.
+
+        These are independent of one-step validation and of each other: each one
+        picks its own non-overlapping initial conditions inside val_time, rolls
+        the model forward from each, and reports its own mean loss and
+        RMSE-vs-rollout-step curve.
+
+        The rollouts run on the main process only -- they are inherently
+        sequential, so there is nothing for the other ranks to do -- and the
+        returned metrics are therefore rank-0 values. That is all wandb logging
+        and checkpoint selection need, since both already run there.
+        """
+        specs = [
+            spec
+            for spec in self.autoregressive_val_specs
+            if spec.num_steps > 0 and spec.num_runs > 0
+        ]
+        if not specs:
+            return {}
+        if self.dp_ctx is not None:
+            logger.info(
+                "Skipping autoregressive validation: it rolls out on one rank, "
+                "which the domain-parallel model does not support."
+            )
+            return {}
+
+        logs: MetricsDict = {}
+        with self._main_process_only_rollout() as should_validate:
+            if not should_validate:
+                return {}
+
+            self.model.eval()
+            # TODO(jder): we need the underlying model so we can use forward_once;
+            # see https://github.com/suryadheeshjith/Ocean_Emulator/issues/51
+            model = (
+                self.model.module
+                if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
+                else self.model
+            )
+            sources = self.autoregressive_val_sources()
+            with torch.no_grad(), self._test_context():
+                for spec in specs:
+                    logs.update(
+                        self._run_autoregressive_validation(
+                            model, spec, sources, epoch
+                        )
+                    )
+
+        return logs
+
+    def _plan_autoregressive_validation(
+        self, spec: AutoregressiveValSpec, sources: list[DataSource]
+    ) -> RolloutValidationPlan:
+        # Every source must be able to serve every window, so the shortest one
+        # bounds the plan.
+        total_timesteps = min(source.data.time.size for source in sources)
+        return plan_rollout_windows(
+            label=spec.label,
+            total_timesteps=total_timesteps,
+            hist=self.hist,
+            num_steps=spec.num_steps,
+            num_runs=spec.num_runs,
+            seed=self.rand_seed + spec.seed_offset,
+        )
+
+    def _run_autoregressive_validation(
+        self,
+        model: BaseModel,
+        spec: AutoregressiveValSpec,
+        sources: list[DataSource],
+        epoch: int,
+    ) -> MetricsDict:
+        plan = self._plan_autoregressive_validation(spec, sources)
+        if not plan.enabled:
+            return {}
+
+        num_steps = plan.num_steps
+        if self.debug:
+            num_steps = min(num_steps, 2)
+        aggregator = RolloutValidationAggregator(
+            num_steps=num_steps,
+            area_weights=self.area_weights,
+            wet=self.wet,
+            loss_fn=self.loss_fn,
+            device=self.device,
+        )
+
+        for run, window in enumerate(plan.windows):
+            # Spread runs over the validation sources so multi-cache replay
+            # rolls out every patch rather than only the first.
+            source_index = run % len(sources)
+            source = sources[source_index]
+            window_src = source.map_data(
+                lambda ds, window=window: ds.isel(
+                    time=slice(
+                        window.start_index,
+                        window.start_index + window.num_timesteps,
+                    )
+                ),
+                suffix=f"{spec.label}_rollout_val_t{window.start_index}",
+            )
+            rollout_dataset = InferenceDataset(
+                src=window_src,
+                prognostic_var_names=self.prognostic_var_names,
+                boundary_var_names=self.boundary_var_names,
+                hist=self.hist,
+                normalize_before_mask=self.normalize_before_mask,
+                masked_fill_value=self.normalize_fill_value,
+                long_rollout=True,
+                append_spatial_features_to_inputs=self.replay_spatial_features,
+            )
+            if len(rollout_dataset) < num_steps:
+                raise RuntimeError(
+                    f"{spec.label} autoregressive validation planned {num_steps} "
+                    f"steps from val_time index {window.start_index}, but the "
+                    f"window only supports {len(rollout_dataset)}."
+                )
+            log_prefix = (
+                f"{spec.label.capitalize()} autoregressive validation "
+                f"[run {run + 1} of {len(plan.windows)}]"
+            )
+            logger.info(
+                f"{log_prefix}: rolling out {num_steps} steps from val_time "
+                f"index {window.start_index} of source {source_index}."
+            )
+            Stepper.validate_rollout(
+                model=model,
+                dataset=rollout_dataset,
+                aggregator=aggregator,
+                epoch=epoch,
+                num_steps=num_steps,
+                num_model_steps_forward=self.autoregressive_val_steps_forward,
+                log_prefix=log_prefix,
+            )
+
+        logger.info(
+            f"Aggregating {spec.label} autoregressive validation logs over "
+            f"{aggregator.n_runs} run(s)"
+        )
+        return dict(aggregator.get_logs(label=spec.label))
+
     def inference_one_epoch(self, epoch):
         self.model.eval()
 
@@ -2902,6 +3194,36 @@ class Trainer:
             * self.batch_size
         )
 
+    def _subsample_one_step_val_data(
+        self, val_data: ConcatDataset
+    ) -> torch.utils.data.Dataset[RawTrainData]:
+        """Restrict one-step validation to a bounded draw of initial conditions.
+
+        One-step validation measures how well the model initializes an
+        autoregressive rollout, and a few hundred initial conditions estimate
+        that mean about as well as the whole validation range does. Bounding it
+        is what leaves room in the epoch for the rollout validations.
+
+        The draw is seeded, so the same initial conditions are scored every
+        epoch and across resumes. That keeps the epoch-to-epoch loss comparable,
+        which matters because it feeds checkpoint selection.
+
+        Indices are kept sorted so a batch still lands inside one underlying
+        dataset, which `collate_raw_train_data` requires.
+        """
+        total = len(val_data)
+        if self.one_step_val_num <= 0 or self.one_step_val_num >= total:
+            logger.info(f"One-step validation uses all {total} val windows")
+            return val_data
+
+        rng = random.Random(self.rand_seed + ONE_STEP_VAL_SEED_OFFSET)
+        indices = sorted(rng.sample(range(total), self.one_step_val_num))
+        logger.info(
+            f"One-step validation uses {self.one_step_val_num} of {total} val "
+            f"windows (one_step_val_num={self.one_step_val_num})"
+        )
+        return Subset(val_data, indices)
+
     def init_data_loaders(
         self,
         cur_step: int,
@@ -2968,8 +3290,8 @@ class Trainer:
                     train_datasets
                 )
 
-                val_data: torch.utils.data.Dataset[RawTrainData] = ConcatDataset(
-                    val_datasets
+                val_data: torch.utils.data.Dataset[RawTrainData] = (
+                    self._subsample_one_step_val_data(ConcatDataset(val_datasets))
                 )
 
             case _:
@@ -3221,6 +3543,7 @@ class Trainer:
                 "epoch": epoch,
                 "epoch_complete": epoch_complete,
                 "best_val_loss": self.best_val_loss,
+                "best_val_loss_metric": BEST_VAL_LOSS_METRIC,
                 "best_inf_loss": self.best_inf_loss,
                 "ema": ema_state,
                 "num_batches_seen": self.num_batches_seen,
@@ -3329,7 +3652,21 @@ class Trainer:
             logger.info(f"Wandb name: {self.wandb_name}")
             logger.info(f"Optimizer LR: {self.optimizer.param_groups[-1]['lr']}")
 
-            self.best_val_loss = checkpoint["best_val_loss"]
+            if checkpoint.get("best_val_loss_metric") == BEST_VAL_LOSS_METRIC:
+                self.best_val_loss = checkpoint["best_val_loss"]
+            else:
+                # Pre-rollout-validation checkpoints stored a one-step-only
+                # score. The combined score averages in the rollout losses and
+                # so sits on a different scale; carrying the old value over
+                # would suppress best-validation checkpoints for the rest of the
+                # run. Start the comparison over instead.
+                logger.warning(
+                    "Checkpoint stores a "
+                    f"'{checkpoint.get('best_val_loss_metric', 'one_step')}' best "
+                    f"validation loss ({checkpoint['best_val_loss']:.3f}), not "
+                    f"'{BEST_VAL_LOSS_METRIC}'. Resetting the best-validation-loss "
+                    "comparison; the next epoch will write a new best checkpoint."
+                )
             self.best_inf_loss = checkpoint["best_inf_loss"]
 
     def is_wandb_enabled(self):

@@ -87,10 +87,24 @@ GPUS="${GPUS:-1}"
 DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-6}"
 DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-6}"
 TRAIN_SHUFFLE="${TRAIN_SHUFFLE:-true}"
-SURFACE_SNAPSHOT="${SURFACE_SNAPSHOT:-true}"
 PAD="${PAD:-constant}"
 PRED_RESIDUALS="${PRED_RESIDUALS:-true}"
 BATCH_SIZE="${BATCH_SIZE:-1}"
+
+# VALIDATION
+SURFACE_SNAPSHOT="${SURFACE_SNAPSHOT:-true}"
+# Randomly drawn (but seeded, so fixed across epochs) initial conditions scored
+# by one-step validation. 0 scores every window in val_time.
+ONE_STEP_VAL_NUM="${ONE_STEP_VAL_NUM:-200}"
+# Autoregressive rollout validation. Runs never overlap and never read past the
+# end of val_time; *_NUM is reduced automatically if val_time is too short.
+# Set a length or a num to 0 to disable that rollout validation.
+SHORT_AR_VAL_LENGTH="${SHORT_AR_VAL_LENGTH:-72}"
+SHORT_AR_VAL_NUM="${SHORT_AR_VAL_NUM:-5}"
+LONG_AR_VAL_LENGTH="${LONG_AR_VAL_LENGTH:-480}"
+LONG_AR_VAL_NUM="${LONG_AR_VAL_NUM:-2}"
+# Rollout steps per chunk. Bounds how much prediction/target is held at once.
+AR_VAL_STEPS_FORWARD="${AR_VAL_STEPS_FORWARD:-12}"
 
 # DDP
 PIN_MEM="${PIN_MEM:-true}"
@@ -159,7 +173,8 @@ if [[ "${GPUS}" -gt 0 ]]; then
   echo "effective workers per rank (after trainer scaling): $((DATA_NUM_WORKERS / GPUS))"
 fi
 echo "using data.prefetch_factor=${DATA_PREFETCH_FACTOR} and data.train_shuffle=${TRAIN_SHUFFLE}"
-echo "using validation surface_snapshot=${SURFACE_SNAPSHOT}"
+echo "using validation surface_snapshot=${SURFACE_SNAPSHOT}, one_step_val_num=${ONE_STEP_VAL_NUM}"
+echo "using autoregressive validation: short=${SHORT_AR_VAL_NUM}x${SHORT_AR_VAL_LENGTH} steps, long=${LONG_AR_VAL_NUM}x${LONG_AR_VAL_LENGTH} steps, steps_forward=${AR_VAL_STEPS_FORWARD}"
 echo "using ddp_broadcast_buffers=${DDP_BROADCAST_BUFFERS} and ddp_timeout_minutes=${DDP_TIMEOUT_MINUTES}"
 echo "using ddp_max_data_workers_per_rank=${DDP_MAX_DATA_WORKERS_PER_RANK}"
 echo "using data.concurrent_compute=${CONCURRENT_COMPUTE}"
@@ -293,6 +308,12 @@ trap 'forward_signal INT' INT
   --ddp_timeout_minutes "${DDP_TIMEOUT_MINUTES}" \
   --ddp_max_data_workers_per_rank "${DDP_MAX_DATA_WORKERS_PER_RANK}" \
   --surface_snapshot "${SURFACE_SNAPSHOT}" \
+  --one_step_val_num "${ONE_STEP_VAL_NUM}" \
+  --short_autoregressive_val_length "${SHORT_AR_VAL_LENGTH}" \
+  --short_autoregressive_val_num "${SHORT_AR_VAL_NUM}" \
+  --long_autoregressive_val_length "${LONG_AR_VAL_LENGTH}" \
+  --long_autoregressive_val_num "${LONG_AR_VAL_NUM}" \
+  --autoregressive_val_steps_forward "${AR_VAL_STEPS_FORWARD}" \
   --data.num_workers "${DATA_NUM_WORKERS}" \
   --data.prefetch_factor "${DATA_PREFETCH_FACTOR}" \
   --data.train_shuffle "${TRAIN_SHUFFLE}" \

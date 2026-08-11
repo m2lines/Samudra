@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 import torch
 
 from ocean_emulators.aggregator import InferenceEvaluatorAggregator
+from ocean_emulators.aggregator.validate.rollout import RolloutValidationAggregator
 from ocean_emulators.datasets import InferenceDataset, TrainData
 from ocean_emulators.models.base import BaseModel
 from ocean_emulators.utils.device import get_device
@@ -19,9 +20,74 @@ from ocean_emulators.utils.wandb import get_record_to_wandb
 from ocean_emulators.utils.writer import ZarrWriter
 
 
+def get_rollout_step_chunks(*, total_steps: int, num_model_steps_forward: int) -> list[int]:
+    """Split a rollout into chunk lengths of at most `num_model_steps_forward`.
+
+    A non-positive `num_model_steps_forward` (e.g. the -1 sentinel) means one
+    chunk covering the whole rollout.
+    """
+    if total_steps <= 0:
+        return []
+    if num_model_steps_forward <= 0:
+        num_model_steps_forward = total_steps
+
+    chunks = []
+    step = 0
+    while step < total_steps:
+        next_step = min(step + num_model_steps_forward, total_steps)
+        chunks.append(next_step - step)
+        step = next_step
+    return chunks
+
+
 class Stepper:
     def __init__(self):
         pass
+
+    @staticmethod
+    @torch.no_grad()
+    def validate_rollout(
+        model: BaseModel,
+        dataset: InferenceDataset,
+        aggregator: RolloutValidationAggregator,
+        epoch: int,
+        *,
+        num_steps: int,
+        num_model_steps_forward: int,
+        log_prefix: str = "Autoregressive validation",
+    ) -> None:
+        """Roll one autoregressive validation window forward and record metrics.
+
+        The rollout is chunked so only `num_model_steps_forward` predictions and
+        targets are materialized at a time; a several-hundred-step rollout of the
+        full prognostic stack does not fit in memory otherwise. Chunking does not
+        change the trajectory: each chunk resumes from the previous chunk's last
+        prediction, exactly as `Stepper.inference` does.
+        """
+        chunks = get_rollout_step_chunks(
+            total_steps=num_steps,
+            num_model_steps_forward=num_model_steps_forward,
+        )
+        if not chunks:
+            raise ValueError(f"num_steps must be >= 1, got {num_steps}")
+
+        initial_prognostic = dataset.initial_prognostic
+        step = 0
+        for chunk_steps in chunks:
+            IO: ModelInferenceOutput = model.inference(
+                dataset,
+                initial_prognostic=initial_prognostic,
+                steps_completed=step,
+                num_steps=chunk_steps,
+                epoch=epoch,
+                log_prefix=log_prefix,
+                log_every=chunk_steps,
+            )
+            # Setting initial prognostic for next chunk
+            initial_prognostic = IO.prediction[-1].unsqueeze(0).clone()
+            aggregator.record_run(IO, step_offset=step)
+            step += chunk_steps
+        aggregator.finish_run()
 
     @staticmethod
     def train_batch(
@@ -110,21 +176,10 @@ class Stepper:
         )
         record_logs(logs)
         num_model_steps = len(dataset) - resume_steps
-        num_steps_list = []
-
-        # If num_model_steps_forward is -1, then we are doing a full forward pass
-        if num_model_steps_forward == -1:
-            num_steps_list = [num_model_steps]
-        else:
-            # Windows of partial forward passes
-            num_loops = num_model_steps // num_model_steps_forward
-            if num_loops > 0:
-                num_steps_list = [num_model_steps_forward] * num_loops
-                last_model_steps_forward = num_model_steps % num_model_steps_forward
-                if last_model_steps_forward > 0:
-                    num_steps_list = num_steps_list + [last_model_steps_forward]
-            else:
-                num_steps_list = [num_model_steps]
+        num_steps_list = get_rollout_step_chunks(
+            total_steps=num_model_steps,
+            num_model_steps_forward=num_model_steps_forward,
+        )
 
         num_loops = len(num_steps_list)
         step = resume_steps

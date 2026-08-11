@@ -7,6 +7,7 @@ from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
 from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from ocean_emulators.constants import DEPTH_I_LEVELS
 from ocean_emulators.utils.data import Normalize, get_aggregator_dicts
+from ocean_emulators.utils.distributed import all_reduce_mean
 from ocean_emulators.utils.output import ValBatchOutput
 from ocean_emulators.utils.wandb import Metrics, MetricsDict
 
@@ -17,6 +18,9 @@ SURFACE_SNAPSHOT_NAMES = (
     f"V_{DEPTH_I_LEVELS[0]}",
     "Eta",
 )
+
+ONE_STEP_LOSS_KEY = "val/mean/one-step-loss"
+"""The canonical one-step validation loss, used for checkpoint selection."""
 
 
 class ValidateAggregator(TrainAggregator):
@@ -40,11 +44,16 @@ class ValidateAggregator(TrainAggregator):
                 hist,
                 include_names=snapshot_names,
             ),
-            "reduced": MeanAggregator(area_weights, hist),
         }
+        # In surface-snapshot mode, one-step validation reports only its mean
+        # loss and the surface snapshots. The reduced/per-channel/per-depth and
+        # mean-map families are what autoregressive rollout validation now
+        # covers, so keeping them here just crowds the wandb validation panel.
         if not surface_snapshot:
+            val_aggregators["reduced"] = MeanAggregator(area_weights, hist)
             val_aggregators["mean_map"] = MapAggregator(metadata, hist)
         self._aggregators = val_aggregators
+        self.surface_snapshot = surface_snapshot
         self.normalize = Normalize.get_instance()
         self.hist = hist
         self.num_prognostic_channels = num_prognostic_channels
@@ -106,7 +115,19 @@ class ValidateAggregator(TrainAggregator):
 
     @torch.no_grad()
     def get_logs(self, label: str = "train") -> Metrics:
-        logs: MetricsDict = dict(super().get_logs(label))
+        logs: MetricsDict = {}
+        if self.surface_snapshot:
+            mean_loss = float(
+                all_reduce_mean(self.mean_loss().detach()).cpu().numpy()
+            )
+        else:
+            # Full-diagnostics mode keeps every legacy key, `val/mean/loss`
+            # included, so existing dashboards for those runs are unchanged.
+            logs.update(super().get_logs(label))
+            mean_loss = logs[f"{label}/mean/loss"]
+        # `one-step-loss` names what this actually measures now that rollout
+        # validation reports its own mean losses alongside it.
+        logs[f"{label}/mean/one-step-loss"] = mean_loss
         for agg_label in self._aggregators:
             for k, v in self._aggregators[agg_label].get_logs(label=agg_label).items():
                 logs[f"{label}/{k}"] = v

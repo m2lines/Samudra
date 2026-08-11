@@ -1068,8 +1068,65 @@ class TrainConfig(TopLevelConfig):
         default=False,
         description=(
             "If true, validation only logs surface snapshot images for "
-            "Theta_0, Salt_0, U_0, V_0, and Eta, and skips mean-map figures "
-            "to reduce validation aggregation time."
+            "Theta_0, Salt_0, U_0, V_0, and Eta, plus the one-step mean loss. "
+            "It skips mean-map figures and the reduced/per-channel/per-depth "
+            "metric families to reduce validation aggregation time and keep "
+            "the wandb validation panel readable."
+        ),
+    )
+    one_step_val_num: int = Field(
+        default=200,
+        ge=0,
+        description=(
+            "Number of randomly drawn initial conditions to score with one-step "
+            "validation each epoch. Use 0 to score every window in val_time. "
+            "The draw is seeded from experiment.rand_seed, so the same initial "
+            "conditions are scored every epoch and the loss stays comparable "
+            "across epochs for checkpoint selection."
+        ),
+    )
+    short_autoregressive_val_length: int = Field(
+        default=72,
+        ge=0,
+        description=(
+            "Autoregressive steps per run for short rollout validation. "
+            "Use 0 to disable short rollout validation."
+        ),
+    )
+    short_autoregressive_val_num: int = Field(
+        default=5,
+        ge=0,
+        description=(
+            "Number of non-overlapping initial conditions to roll out for short "
+            "rollout validation. Use 0 to disable short rollout validation. "
+            "Reduced automatically when val_time is too short to fit them all."
+        ),
+    )
+    long_autoregressive_val_length: int = Field(
+        default=480,
+        ge=0,
+        description=(
+            "Autoregressive steps per run for long rollout validation. "
+            "Use 0 to disable long rollout validation."
+        ),
+    )
+    long_autoregressive_val_num: int = Field(
+        default=2,
+        ge=0,
+        description=(
+            "Number of non-overlapping initial conditions to roll out for long "
+            "rollout validation. Use 0 to disable long rollout validation. "
+            "Reduced automatically when val_time is too short to fit them all."
+        ),
+    )
+    autoregressive_val_steps_forward: int = Field(
+        default=12,
+        ge=1,
+        description=(
+            "Autoregressive validation steps to run per chunk before recording "
+            "metrics. Chunking bounds how many predictions and targets are "
+            "materialized at once; it does not change the trajectory. Raise it "
+            "to cut per-chunk overhead, lower it if a rollout runs out of memory."
         ),
     )
     test_using_ema: bool = True

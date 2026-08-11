@@ -34,6 +34,18 @@ REPLAY_REFRESH_EVERY="${REPLAY_REFRESH_EVERY:-8}"
 REPLAY_MAX_LEAD_STEPS="${REPLAY_MAX_LEAD_STEPS:-[4]}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-shardtensor-replay}-${SLURM_JOB_ID:-manual}}"
 
+# VALIDATION
+SURFACE_SNAPSHOT="${SURFACE_SNAPSHOT:-true}"
+# Randomly drawn (but seeded, so fixed across epochs) initial conditions scored
+# by one-step validation. 0 scores every window in val_time.
+ONE_STEP_VAL_NUM="${ONE_STEP_VAL_NUM:-200}"
+# Autoregressive rollout validation is off here: it rolls out on one rank, which
+# the domain-parallel model does not support, so the trainer skips it anyway.
+SHORT_AR_VAL_LENGTH="${SHORT_AR_VAL_LENGTH:-0}"
+SHORT_AR_VAL_NUM="${SHORT_AR_VAL_NUM:-0}"
+LONG_AR_VAL_LENGTH="${LONG_AR_VAL_LENGTH:-0}"
+LONG_AR_VAL_NUM="${LONG_AR_VAL_NUM:-0}"
+
 on_exit() {
   local exit_code=$?
   echo
@@ -70,6 +82,7 @@ echo "job_id=${SLURM_JOB_ID:-<unset>} host=$(hostname) python=${PYTHON_BIN}"
 echo "patch=face${LLC_FACE} i=[${LLC_I_START}:${LLC_I_END}) j=[${LLC_J_START}:${LLC_J_END})"
 echo "cluster_shape=[1] epochs=${EPOCHS} debug=${DEBUG} loss=mse"
 echo "replay_buffer_size=${REPLAY_BUFFER_SIZE} replay_steps=${REPLAY_STEPS_PER_EPOCH} refresh_every=${REPLAY_REFRESH_EVERY} max_lead=${REPLAY_MAX_LEAD_STEPS}"
+echo "validation surface_snapshot=${SURFACE_SNAPSHOT} one_step_val_num=${ONE_STEP_VAL_NUM} short_ar=${SHORT_AR_VAL_NUM}x${SHORT_AR_VAL_LENGTH} long_ar=${LONG_AR_VAL_NUM}x${LONG_AR_VAL_LENGTH}"
 nvidia-smi --query-gpu=index,name,memory.total,driver_version --format=csv,noheader
 
 VISIBLE_GPU_COUNT="$(nvidia-smi --query-gpu=index --format=csv,noheader | wc -l)"
@@ -109,7 +122,12 @@ RUN_ARGS=(
   --model.checkpointing null
   --model.use_bfloat16 false
   --model.corrector null
-  --surface_snapshot true
+  --surface_snapshot "${SURFACE_SNAPSHOT}"
+  --one_step_val_num "${ONE_STEP_VAL_NUM}"
+  --short_autoregressive_val_length "${SHORT_AR_VAL_LENGTH}"
+  --short_autoregressive_val_num "${SHORT_AR_VAL_NUM}"
+  --long_autoregressive_val_length "${LONG_AR_VAL_LENGTH}"
+  --long_autoregressive_val_num "${LONG_AR_VAL_NUM}"
   --data.num_workers "${DATA_NUM_WORKERS}"
   --data.prefetch_factor "${DATA_PREFETCH_FACTOR}"
   --data.concurrent_compute false

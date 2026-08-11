@@ -109,7 +109,15 @@ class BaseModel(torch.nn.Module):
         steps_completed=0,
         num_steps=None,
         epoch=None,
+        log_prefix: str = "Inference",
+        log_every: int = 1,
     ) -> ModelInferenceOutput:
+        """Roll the model forward `num_steps` times from `initial_prognostic`.
+
+        `log_prefix` and `log_every` only affect the per-step progress logging;
+        rollout validation uses them to keep hundreds of short steps from
+        flooding the log.
+        """
         out_shape = (num_steps, *dataset[0][1].shape[1:])
 
         pred_tensor = torch.zeros(out_shape, device=get_device())
@@ -117,10 +125,12 @@ class BaseModel(torch.nn.Module):
         target_time = dataset.get_target_time(steps_completed, num_steps)
 
         for step in range(num_steps):
-            logger.info(
-                f"Inference [epoch {epoch}]: Rollout step {steps_completed + step} "
-                f"of {steps_completed + num_steps - 1}."
-            )
+            if step % max(log_every, 1) == 0:
+                logger.info(
+                    f"{log_prefix} [epoch {epoch}]: Rollout step "
+                    f"{steps_completed + step} of "
+                    f"{steps_completed + num_steps - 1}."
+                )
             if step == 0:
                 input_tensor = dataset.merge_prognostic_and_boundary(
                     prognostic=initial_prognostic,

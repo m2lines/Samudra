@@ -18,9 +18,11 @@ the surrounding SamudraMulti architecture?
 All runs use the anonymous public stores under
 `s3://m2lines-pubs/Samudra/v2026-07/om4_twodeg/`, the same train/validation
 dates, `thermo_dynamic_all` prognostics, `tau_hfds` forcing, seed 15, plain
-normalized MSE, one forecast target (`steps: [4]`), batch size 8, four-step
-gradient accumulation, learning rate 0.0006 without a scheduler, and 12 epochs.
-The effective batch is 32 on one GPU.
+normalized MSE, one forecast target (`steps: [4]`), learning rate 0.0006
+without a scheduler, and 12 epochs. The three Perceiver runs use microbatch 1
+with 32-step gradient accumulation after the initial microbatch-8 preflight
+exceeded 95 GiB of GPU memory. The direct and U-Net controls retain microbatch
+8 with four-step accumulation. The effective batch is 32 on one GPU throughout.
 
 The 90x180 grid cannot pass through the presets' full-depth U-Nets without an
 odd-size mismatch. Every experimental model therefore uses one downsampling
@@ -55,6 +57,22 @@ Primary quality is validation unweighted normalized MSE overall and by variable
 group. Also record wall time, samples/second, peak GPU memory, predicted/target
 spectral power where available, Slurm job ID, W&B run ID, resolved config, Git
 commit, and checkpoint hashes.
+
+## Preflight ledger
+
+The first tracked smoke pass ran five train and five validation batches. It
+established that 16 CPUs and 175 GiB of host memory were unnecessary: the
+successful Direct run peaked below 8 GiB host memory. Subsequent jobs request
+4 CPUs and 32 GiB. These smoke runs are diagnostic and must not be compared as
+trained models.
+
+| Role | Slurm | W&B ID | Result |
+| --- | ---: | --- | --- |
+| Main Multi | 15655375 | none | Failed before W&B: optional `flash_perceiver` unavailable; retry with built-in naive backend |
+| Native SDPA PIO | 15655376 | `63ywsas9` | OOM above 95 GiB at microbatch 8; retry at microbatch 1 |
+| Perceiver candidate | 15655377 | `i5fjyehv` | OOM above 95 GiB at microbatch 8; retry at microbatch 1 |
+| Samudra Direct | 15655378 | `7uuxmov0` | Completed; peak GPU memory about 12 GiB |
+| Samudra U-Net | 15655379 | `736ti5gx` | Pending completion at time of entry |
 
 ## Run ledger
 

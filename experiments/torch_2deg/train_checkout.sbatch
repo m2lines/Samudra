@@ -8,8 +8,10 @@
 #SBATCH --partition=rtx6000_lzanna
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
-#SBATCH --mem=175G
+# The 2-degree jobs use two loader workers and stayed below 8 GiB of host RAM
+# during the preflight. Keep the request small enough for Slurm backfill.
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=32G
 #SBATCH --gres=gpu:rtx6000:1
 #SBATCH --time=04:00:00
 
@@ -44,6 +46,7 @@ export SAMUDRA_CODE_COMMIT="${CODE_COMMIT}"
 export WANDB_GIT_COMMIT="${CODE_COMMIT}"
 export WANDB_MODE=online
 export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
+export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
 export DATA_CACHE_DIR="/scratch/${CURRENT_USER}/.data_cache/${NAME}"
 read -r -a extra_args <<< "${ARGS:-}"
 

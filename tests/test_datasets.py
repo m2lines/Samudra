@@ -11,6 +11,7 @@ import numpy as np
 import pytest
 import torch
 import xarray as xr
+from einops import rearrange as einops_rearrange
 from hypothesis import example, given, settings
 from hypothesis import strategies as st
 from hypothesis.extra.numpy import arrays
@@ -31,6 +32,7 @@ from ocean_emulators.datasets import (
     TorchTrainDataset,
     TrainData,
     TrainDataLoader,
+    _dataset_to_numpy,
 )
 from ocean_emulators.utils.data import (
     PACKED_CACHE_FORMAT,
@@ -1118,3 +1120,348 @@ def test_append_spatial_features_rejects_shape_mismatch() -> None:
         dataset = _make_inference_dataset(src, prognostic, boundary, append=True)
         with pytest.raises(ValueError, match="Spatial feature shape"):
             dataset.append_spatial_features(torch.zeros(1, 4, 2, 2))
+
+
+# ---------------------------------------------------------------------------
+# InferenceDataset read path
+#
+# The rollout reads through this class once per tile per step, so how it
+# addresses the time axis dominates autoregressive validation and inference. A
+# 2-D indexer over time costs seconds per call: xarray broadcasts it against the
+# whole (channel, lat, lon) shape and zarr falls back to point selection. These
+# pin the read down to basic slices covering exactly the requested steps.
+# ---------------------------------------------------------------------------
+
+PACKED_PROGNOSTIC = ["U_0", "U_1", "Theta_0"]
+PACKED_BOUNDARY = ["oceTAUX", "oceQnet"]
+
+
+def _packed_float16_source(*, timesteps: int = 24, lats: int = 2, lons: int = 3):
+    """A packed train-ready source shaped like the real caches: float16 throughout.
+
+    The caches store data, means, and stds as float16, which is what makes the
+    normalization dtype observable.
+    """
+    rng = np.random.default_rng(0)
+    shape = (timesteps, len(PACKED_PROGNOSTIC), lats, lons)
+    prognostic = (rng.normal(3.0, 7.0, shape)).astype(np.float16)
+    boundary = (
+        rng.normal(-2.0, 5.0, (timesteps, len(PACKED_BOUNDARY), lats, lons))
+    ).astype(np.float16)
+    packed = xr.Dataset(
+        {
+            "prognostic": (
+                ["time", "prognostic_channel", "lat", "lon"],
+                prognostic,
+            ),
+            "boundary": (["time", "boundary_channel", "lat", "lon"], boundary),
+            "prognostic_mean": (
+                ["prognostic_channel"],
+                np.array([0.3, -1.7, 2.9], dtype=np.float16),
+            ),
+            "prognostic_std": (
+                ["prognostic_channel"],
+                np.array([1.3, 0.7, 3.1], dtype=np.float16),
+            ),
+            "boundary_mean": (
+                ["boundary_channel"],
+                np.array([0.9, -0.4], dtype=np.float16),
+            ),
+            "boundary_std": (
+                ["boundary_channel"],
+                np.array([2.1, 0.6], dtype=np.float16),
+            ),
+            "prognostic_mask": (
+                ["prognostic_channel", "lat", "lon"],
+                np.ones((len(PACKED_PROGNOSTIC), lats, lons), dtype=bool),
+            ),
+            "boundary_mask": (
+                ["boundary_channel", "lat", "lon"],
+                np.ones((len(PACKED_BOUNDARY), lats, lons), dtype=bool),
+            ),
+        },
+        coords={
+            "time": np.arange(timesteps),
+            "lat": np.arange(lats, dtype=np.float32),
+            "lon": np.arange(lons, dtype=np.float32),
+        },
+        attrs={
+            "cache_format": PACKED_CACHE_FORMAT,
+            "prognostic_channel_names_json": json.dumps(PACKED_PROGNOSTIC),
+            "boundary_channel_names_json": json.dumps(PACKED_BOUNDARY),
+        },
+    )
+    return DataSource.from_packed_dataset(
+        packed,
+        prognostic_var_names=PACKED_PROGNOSTIC,
+        boundary_var_names=PACKED_BOUNDARY,
+        name="packed_f16",
+    )
+
+
+@contextlib.contextmanager
+def _packed_inference_dataset(*, hist: int = 0, normalize_before_mask: bool = True):
+    src = _packed_float16_source()
+    with MultitonScope():
+        Normalize.init_instance(
+            src,
+            prognostic_var_names=PACKED_PROGNOSTIC,
+            boundary_var_names=PACKED_BOUNDARY,
+        )
+        yield InferenceDataset(
+            src=src,
+            prognostic_var_names=PACKED_PROGNOSTIC,
+            boundary_var_names=PACKED_BOUNDARY,
+            hist=hist,
+            normalize_before_mask=normalize_before_mask,
+            masked_fill_value=0.0,
+            long_rollout=False,
+        )
+
+
+@contextlib.contextmanager
+def _recorded_time_indexers(monkeypatch):
+    """Capture every `time` indexer handed to `Dataset.isel`."""
+    seen: list[object] = []
+    original = xr.Dataset.isel
+
+    def spy(self, indexers=None, **kwargs):
+        merged = dict(indexers or {})
+        merged.update(
+            {
+                key: value
+                for key, value in kwargs.items()
+                if key not in {"drop", "missing_dims"}
+            }
+        )
+        if "time" in merged:
+            seen.append(merged["time"])
+        return original(self, indexers, **kwargs)
+
+    monkeypatch.setattr(xr.Dataset, "isel", spy)
+    yield seen
+    monkeypatch.undo()
+
+
+def _vectorized_reference(dataset: InferenceDataset, idx: int, field: str):
+    """The pre-rewrite read: a 2-D time indexer, normalized inside xarray.
+
+    Kept here rather than in the library so the rewrite has something to be
+    equivalent to. It is also what makes the float16 rounding visible: the
+    arithmetic below runs in the dtype of the stored data.
+    """
+    rolling = dataset.rolling_indices.isel(window_dim=slice(idx, idx + 1))
+    x_index = xr.Variable(["window_dim", "time"], rolling)
+    hist = dataset.hist
+    if field == "boundary":
+        source, mask, steps = dataset._boundary_src, dataset.wet_surface, slice(
+            None, hist + 1
+        )
+    else:
+        source, mask = dataset._prognostic_src, dataset.wet
+        steps = slice(hist + 1, None) if field == "label" else slice(None, hist + 1)
+
+    selected = source.map_data(
+        lambda ds: ds.isel(time=x_index).isel(time=steps),
+        suffix=f"reference_{field}",
+    )
+    array = _dataset_to_numpy(selected.normalize(), ("window_dim", "time"))
+    tensor = torch.from_numpy(array).float()
+    tensor = torch.where(mask, tensor, dataset.masked_fill_value)
+    return einops_rearrange(
+        tensor,
+        "window_dim time variable lat lon -> window_dim (time variable) lat lon",
+    )
+
+
+def _float64_reference(dataset: InferenceDataset, idx: int, field: str):
+    """The same read in float64, to score both paths against."""
+    hist = dataset.hist
+    window = dataset._windows[idx]
+    if field == "boundary":
+        source, times = dataset._boundary_src, window[: hist + 1]
+        mean_var, std_var = "boundary_mean", "boundary_std"
+    else:
+        source = dataset._prognostic_src
+        times = window[hist + 1 :] if field == "label" else window[: hist + 1]
+        mean_var, std_var = "prognostic_mean", "prognostic_std"
+
+    raw = source.data.isel(time=slice(int(times[0]), int(times[-1]) + 1))
+    values = np.asarray(next(iter(raw.data_vars.values())).to_numpy(), dtype=np.float64)
+    mean = np.asarray(source.means[mean_var].to_numpy(), dtype=np.float64)
+    std = np.asarray(source.stds[std_var].to_numpy(), dtype=np.float64)
+    normalized = (values - mean[None, :, None, None]) / std[None, :, None, None]
+    return torch.from_numpy(normalized.reshape(1, -1, *values.shape[-2:]))
+
+
+@pytest.mark.parametrize("hist", [0, 1, 2])
+def test_inference_dataset_reads_only_basic_time_slices(monkeypatch, hist) -> None:
+    """The guard on the rewrite: no indexer over time may exceed one dimension.
+
+    A `[window, step]` table handed to `isel` is a 2-D indexer, which is what
+    made a single rollout step cost seconds per tile.
+    """
+    with _packed_inference_dataset(hist=hist) as dataset:
+        with _recorded_time_indexers(monkeypatch) as seen:
+            dataset.rollout_boundary_and_target(3)
+            dataset[3]
+            dataset.initial_prognostic
+            dataset.inference_target(slice(2, 5))
+
+        assert seen, "expected the read path to index the time axis"
+        for indexer in seen:
+            assert isinstance(indexer, slice) or np.ndim(indexer) == 0, (
+                f"time was indexed with {indexer!r}; basic slices only"
+            )
+
+
+@pytest.mark.parametrize("hist", [0, 1, 2])
+def test_inference_dataset_reads_each_timestep_once(monkeypatch, hist) -> None:
+    """One rollout step must not read the steps it is about to discard.
+
+    The old path selected the whole `2 * (hist + 1)` window and sliced it down
+    afterwards, so every rollout step paid for twice the timesteps it used.
+    """
+    with _packed_inference_dataset(hist=hist) as dataset:
+        with _recorded_time_indexers(monkeypatch) as seen:
+            dataset.rollout_boundary_and_target(3)
+
+        spans = [indexer for indexer in seen if isinstance(indexer, slice)]
+        assert len(spans) == 2, "expected one read for boundary and one for truth"
+        for span in spans:
+            assert span.stop - span.start == hist + 1
+
+
+@pytest.mark.parametrize("hist", [0, 1, 2])
+@pytest.mark.parametrize("field", ["prognostic", "boundary", "label"])
+def test_inference_dataset_matches_vectorized_reference(hist, field) -> None:
+    """Same values as the path it replaces, to float16 tolerance.
+
+    The residual difference is the old path's own rounding: it normalized inside
+    xarray, so the arithmetic ran in the stored float16 rather than float32.
+    """
+    with _packed_inference_dataset(hist=hist) as dataset:
+        readers = {
+            "prognostic": dataset._get_prognostic,
+            "boundary": dataset._get_boundary,
+            "label": dataset._get_label,
+        }
+        actual = readers[field](4)
+        reference = _vectorized_reference(dataset, 4, field)
+
+        assert actual.shape == reference.shape
+        torch.testing.assert_close(actual, reference, rtol=2e-3, atol=2e-3)
+
+
+@pytest.mark.parametrize("field", ["prognostic", "boundary", "label"])
+def test_inference_dataset_normalizes_in_float32(field) -> None:
+    """Normalizing in torch is not just faster, it is the more accurate path.
+
+    Both are scored against the same read done in float64. The old path cannot
+    beat float16 spacing; this one should be exact to float32.
+    """
+    with _packed_inference_dataset(hist=0) as dataset:
+        readers = {
+            "prognostic": dataset._get_prognostic,
+            "boundary": dataset._get_boundary,
+            "label": dataset._get_label,
+        }
+        exact = _float64_reference(dataset, 4, field)
+        new_error = (readers[field](4).double() - exact).abs().max().item()
+        old_error = (
+            (_vectorized_reference(dataset, 4, field).double() - exact)
+            .abs()
+            .max()
+            .item()
+        )
+
+        assert new_error < 1e-6, f"float32 normalization should be exact, got {new_error}"
+        assert old_error > new_error, (
+            "expected the float16 xarray path to be the less accurate one "
+            f"(new={new_error}, old={old_error})"
+        )
+
+
+@pytest.mark.parametrize("hist", [0, 1, 2])
+def test_inference_dataset_windows_agree_with_rolling_indices(hist) -> None:
+    """`_windows` is the integer view of `rolling_indices`, and rows are contiguous."""
+    with _packed_inference_dataset(hist=hist) as dataset:
+        np.testing.assert_array_equal(
+            dataset._windows, dataset.rolling_indices.to_numpy()
+        )
+        assert dataset._windows.shape[1] == 2 * (hist + 1)
+        for row in dataset._windows:
+            np.testing.assert_array_equal(row, np.arange(row[0], row[0] + row.size))
+
+        # Consecutive windows abut, which is what lets a window slice stay one read.
+        inputs = dataset._windows_for(slice(0, 3))[:, : hist + 1]
+        assert dataset._contiguous_span(inputs) == (
+            int(inputs[0][0]),
+            int(inputs[0][0]) + inputs.size,
+        )
+
+
+def test_inference_target_slice_matches_per_step_labels() -> None:
+    """`BaseModel.inference` asks for a whole chunk of targets in one call."""
+    with _packed_inference_dataset(hist=1) as dataset:
+        batched = dataset.inference_target(slice(2, 6))
+        per_step = torch.cat(
+            [dataset.inference_target(step) for step in range(2, 6)], dim=0
+        )
+        torch.testing.assert_close(batched, per_step)
+
+
+def test_inference_dataset_rejects_strided_window_slices() -> None:
+    """A strided request is not contiguous, so it cannot be one basic slice."""
+    with _packed_inference_dataset(hist=0) as dataset:
+        with pytest.raises(ValueError, match="not contiguous"):
+            dataset.inference_target(slice(0, 6, 2))
+
+
+@pytest.mark.parametrize("normalize_before_mask", [True, False])
+def test_inference_dataset_preserves_mask_and_normalize_order(
+    normalize_before_mask,
+) -> None:
+    """The two orderings fill land differently, and the rewrite keeps both.
+
+    Masking after normalizing writes the fill value straight into normalized
+    space; masking first fills in physical units and then normalizes that, so
+    land ends up at `(fill - mean) / std`. Either way land is one constant per
+    channel and the live cell is untouched.
+    """
+    src = _packed_float16_source()
+    land = torch.zeros_like(src.masks.prognostic, dtype=torch.bool)
+    land[:, 0, 0] = True  # exactly one live cell
+    src = dataclasses.replace(
+        src, masks=dataclasses.replace(src.masks, prognostic=land)
+    )
+    with MultitonScope():
+        Normalize.init_instance(
+            src,
+            prognostic_var_names=PACKED_PROGNOSTIC,
+            boundary_var_names=PACKED_BOUNDARY,
+        )
+        dataset = InferenceDataset(
+            src=src,
+            prognostic_var_names=PACKED_PROGNOSTIC,
+            boundary_var_names=PACKED_BOUNDARY,
+            hist=0,
+            normalize_before_mask=normalize_before_mask,
+            masked_fill_value=0.0,
+            long_rollout=False,
+        )
+        label = dataset._get_label(4)
+        mean = torch.from_numpy(
+            src.means["prognostic_mean"].to_numpy().astype(np.float32)
+        )
+        std = torch.from_numpy(src.stds["prognostic_std"].to_numpy().astype(np.float32))
+        expected_land = (
+            torch.zeros_like(mean) if normalize_before_mask else (0.0 - mean) / std
+        )
+
+        land_cells = label[0, :, 0, 1:]  # every cell but the one live one
+        torch.testing.assert_close(
+            land_cells, expected_land.unsqueeze(1).expand_as(land_cells)
+        )
+        live = label[0, :, 0, 0]
+        assert not torch.allclose(live, expected_land), "the live cell was masked"

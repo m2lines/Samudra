@@ -186,6 +186,18 @@ class InferenceDataset(Dataset):
         )  # Skip indices based on history
         self.rolling_indices = self.rolling_indices.astype(int)
 
+        # The read paths address windows through this small integer table rather
+        # than an xarray indexer built from it; see `_read_window_steps` for why.
+        self._windows: np.ndarray = np.ascontiguousarray(
+            self.rolling_indices.to_numpy(), dtype=np.int64
+        )
+        expected_steps = 2 * (self.hist + 1)
+        if self._windows.ndim != 2 or self._windows.shape[1] != expected_steps:
+            raise ValueError(
+                f"Expected each window to span {expected_steps} timesteps at "
+                f"hist={self.hist}, got shape {self._windows.shape}."
+            )
+
         if long_rollout and log_long_rollout:
             logger.info(
                 f"Long rollout will use input at time {data.time.values[0]} and produce"
@@ -205,24 +217,18 @@ class InferenceDataset(Dataset):
 
     @property
     def initial_prognostic(self):
-        x_index = self._get_x_index(0)
-        data_in = self._get_prognostic(x_index)
-        return data_in
+        return self._get_prognostic(0)
 
     def inference_target(self, step: int | slice):
-        x_index = self._get_x_index(step)
-        label = self._get_label(x_index)
-        return label
+        return self._get_label(step)
 
     def get_initial_input(self):
         data = self.__getitem__(0)[0]
         return data
 
     def get_target_time(self, start_step: int, num_steps: int):
-        x_index = self._get_x_index(start_step)
-        batch_index = x_index.values[0]
-        steps_predicted = len(batch_index) // 2
-        start_target_index = batch_index[steps_predicted]
+        steps_predicted = self.hist + 1
+        start_target_index = int(self._windows[start_step][steps_predicted])
 
         return self._times.isel(
             time=slice(
@@ -243,8 +249,7 @@ class InferenceDataset(Dataset):
         boundary: torch.Tensor | None = None,
     ):
         if boundary is None:
-            x_index = self._get_x_index(step)
-            boundary = self._get_boundary(x_index)
+            boundary = self._get_boundary(step)
         boundary = boundary.to(prognostic.device)
         data = torch.cat((prognostic, boundary), dim=1)
         return self.append_spatial_features(data)
@@ -257,20 +262,19 @@ class InferenceDataset(Dataset):
         CUDA thread. Keeping the I/O side-effect free makes that concurrency
         safe and avoids reading either field twice.
         """
-        x_index = self._get_x_index(step)
-        return self._get_boundary(x_index), self._get_label(x_index)
+        return self._get_boundary(step), self._get_label(step)
 
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx):
-        x_index = self._get_x_index(idx)
-        data_in = self._get_prognostic(x_index)
-        data_in_boundary = self._get_boundary(x_index)
+        data_in = self._get_prognostic(idx)
+        data_in_boundary = self._get_boundary(idx)
         data_in = torch.cat((data_in, data_in_boundary), dim=1)
         data_in = self.append_spatial_features(data_in)
-        label = self._get_label(x_index)
+        label = self._get_label(idx)
         return (data_in, label)
 
-    def _get_x_index(self, idx):
+    def _normalize_window_index(self, idx: int | slice) -> slice:
+        """Coerce a window request into an explicit, non-negative slice."""
         if isinstance(idx, slice):
             if (
                 (idx.start is not None and idx.start < 0)
@@ -278,96 +282,103 @@ class InferenceDataset(Dataset):
                 or (idx.step is not None and idx.step < 0)
             ):
                 raise IndexError("Sorry, negative indexing is not supported!")
-            if idx.step is None:
-                idx = slice(idx.start, idx.stop, 1)
-            if idx.start is None and idx.stop is None:
-                idx = slice(0, self.size, idx.step)
-            elif idx.start is None:
-                idx = slice(0, idx.stop, idx.step)
-            elif idx.stop is None:
-                idx = slice(idx.start, self.size, idx.step)
-        elif isinstance(idx, int):
-            if idx < 0:
-                raise IndexError("Sorry, negative indexing is not supported!")
-            elif idx >= self.size:
-                raise IndexError(f"Index {idx} out of range with size {self.size}")
-            idx = slice(idx, idx + 1, 1)
+            return slice(
+                0 if idx.start is None else idx.start,
+                self.size if idx.stop is None else idx.stop,
+                1 if idx.step is None else idx.step,
+            )
+        if idx < 0:
+            raise IndexError("Sorry, negative indexing is not supported!")
+        if idx >= self.size:
+            raise IndexError(f"Index {idx} out of range with size {self.size}")
+        return slice(idx, idx + 1, 1)
 
-        rolling_idx = self.rolling_indices.isel(window_dim=idx)
-        x_index = xr.Variable(["window_dim", "time"], rolling_idx)
+    def _windows_for(self, idx: int | slice) -> np.ndarray:
+        """Absolute time indices of the requested window(s), `[window, step]`.
 
-        return x_index
+        The first `hist + 1` steps of a window are its input, the rest its label.
+        """
+        return self._windows[self._normalize_window_index(idx)]
 
-    def _get_prognostic(self, x_index):
-        data_in_src = self._prognostic_src.map_data(
-            lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.hist + 1))
-        )
+    def _contiguous_span(self, times: np.ndarray) -> tuple[int, int]:
+        """The `[start, stop)` one basic slice needs to cover `times`.
+
+        Each window is a contiguous run of timesteps and consecutive windows
+        abut, so any unit-step request reduces to a single slice.
+        """
+        flat = times.reshape(-1)
+        if flat.size == 0:
+            raise ValueError("An empty window request has no timesteps to read.")
+        start = int(flat[0])
+        stop = start + flat.size
+        if not np.array_equal(flat, np.arange(start, stop)):
+            raise ValueError(
+                "InferenceDataset reads whole contiguous spans, but the "
+                f"requested timesteps {flat.tolist()} are not contiguous. "
+                "Window slices must have step 1."
+            )
+        return start, stop
+
+    def _read_window_steps(
+        self,
+        source: DataSource,
+        times: np.ndarray,
+        mask: torch.Tensor,
+    ) -> torch.Tensor:
+        """Read exactly the timesteps `times` addresses, shaped for the model.
+
+        Basic slicing, deliberately. Selecting the time axis with a 2-D indexer
+        -- which is what a `[window, step]` table becomes if handed to `isel` --
+        makes xarray broadcast that indexer against the whole
+        `(channel, lat, lon)` shape and pushes zarr onto its point-selection
+        path: measured at ~6.7s per tile per rollout step against these caches,
+        against ~0.25s for the slice below. The old path also selected the full
+        window and sliced afterwards, so it read every timestep twice.
+
+        Normalization runs in torch rather than xarray so that it runs in
+        float32. The packed caches store means and stds as float16, so doing the
+        arithmetic inside xarray rounded the result to float16 precision --
+        unlike the training path, which has always normalized in float32.
+        """
+        start, stop = self._contiguous_span(times)
+        selected = source.data.isel(time=slice(start, stop))
+        array = _dataset_to_numpy(selected, ("time",))
+        # [window, time, variable, lat, lon]
+        tensor = torch.from_numpy(array).float().unflatten(0, (times.shape[0], -1))
         if self.normalize_before_mask:
-            data_in_ds = data_in_src.normalize()
+            tensor = source.normalize_with(tensor, variable_axis=2)
+            tensor = torch.where(mask, tensor, self.masked_fill_value)
         else:
-            data_in_ds = data_in_src.data
-
-        data_in_np = _dataset_to_numpy(data_in_ds, ("window_dim", "time"))
-        data_in: torch.Tensor = torch.from_numpy(data_in_np).float()
-        data_in = torch.where(self.wet, data_in, self.masked_fill_value)
-        if not self.normalize_before_mask:
-            data_in = self._prognostic_src.normalize_with(data_in, variable_axis=2)
-        data_in = rearrange(
-            data_in,
+            tensor = torch.where(mask, tensor, self.masked_fill_value)
+            tensor = source.normalize_with(tensor, variable_axis=2)
+        return rearrange(
+            tensor,
             "window_dim time variable lat lon -> window_dim (time variable) lat lon",
         )
-        return data_in
 
-    def _get_boundary(self, x_index):
+    def _get_prognostic(self, idx: int | slice) -> torch.Tensor:
+        windows = self._windows_for(idx)
+        return self._read_window_steps(
+            self._prognostic_src, windows[:, : self.hist + 1], self.wet
+        )
+
+    def _get_boundary(self, idx: int | slice) -> torch.Tensor:
         """
         This function returns the boundary condition for the current time step.
 
         With hist > 0, the boundary condition considered is always the last step of
         the input.
         """
-        data_in_boundary_src = self._boundary_src.map_data(
-            lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.hist + 1))
+        windows = self._windows_for(idx)
+        return self._read_window_steps(
+            self._boundary_src, windows[:, : self.hist + 1], self.wet_surface
         )
-        if self.normalize_before_mask:
-            data_in_boundary_ds = data_in_boundary_src.normalize()
-        else:
-            data_in_boundary_ds = data_in_boundary_src.data
-        data_in_boundary_np = _dataset_to_numpy(
-            data_in_boundary_ds,
-            ("window_dim", "time"),
-        )
-        data_in_boundary: torch.Tensor = torch.from_numpy(data_in_boundary_np).float()
-        data_in_boundary = torch.where(
-            self.wet_surface, data_in_boundary, self.masked_fill_value
-        )
-        if not self.normalize_before_mask:
-            data_in_boundary = self._boundary_src.normalize_with(
-                data_in_boundary, variable_axis=2
-            )
-        data_in_boundary = rearrange(
-            data_in_boundary,
-            "window_dim time variable lat lon -> window_dim (time variable) lat lon",
-        )
-        return data_in_boundary
 
-    def _get_label(self, x_index):
-        label_src = self._prognostic_src.map_data(
-            lambda ds: ds.isel(time=x_index).isel(time=slice(self.hist + 1, None))
+    def _get_label(self, idx: int | slice) -> torch.Tensor:
+        windows = self._windows_for(idx)
+        return self._read_window_steps(
+            self._prognostic_src, windows[:, self.hist + 1 :], self.wet
         )
-        if self.normalize_before_mask:
-            label_ds = label_src.normalize()
-        else:
-            label_ds = label_src.data
-        label_np = _dataset_to_numpy(label_ds, ("window_dim", "time"))
-        label: torch.Tensor = torch.from_numpy(label_np).float()
-        label = torch.where(self.wet, label, self.masked_fill_value)
-        if not self.normalize_before_mask:
-            label = self._prognostic_src.normalize_with(label, variable_axis=2)
-        label = rearrange(
-            label,
-            "window_dim time variable lat lon -> window_dim (time variable) lat lon",
-        )
-        return label
 
     def get_coords_dict(self):
         return {

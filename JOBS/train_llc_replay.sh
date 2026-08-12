@@ -2,7 +2,7 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-08-10:samudra_rb_llc:4-tile-base-experiment-data_fix
+#SBATCH --job-name=2026-08-11:samudra_rb_llc:4-tile_group-experiment
 #SBATCH -x node4100,node3401,node3000
 #SBATCH -N 1
 #SBATCH --mem=254GB
@@ -147,7 +147,7 @@ REPLAY_BUFFER_SIZE="${REPLAY_BUFFER_SIZE:-32}"
 # GROUPED_REPLAY=true  -> every tile of the cluster advances on ONE shared cursor
 #                         and their overlaps are reconciled before the state is
 #                         written back, so the next step reads one field.
-# GROUPED_REPLAY=false -> the older behaviour: each tile is an independent replay
+# GROUPED_REPLAY=false -> each tile is an independent replay
 #                         row drifting on its own cursor. This is what the
 #                         2026-08-10 data-fix run is training, so set it false to
 #                         reproduce that job exactly.

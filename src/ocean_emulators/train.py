@@ -83,9 +83,11 @@ from ocean_emulators.tiling import (
     build_group_layout,
     build_replay_groups,
     build_tile_catalog,
+    ownership_masks,
     validate_tile_group,
 )
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
+from ocean_emulators.utils.output import ModelInferenceOutput
 from ocean_emulators.utils.data import (
     SPATIAL_FEATURE_CHANNELS,
     DataSource,
@@ -3074,7 +3076,132 @@ class Trainer:
         logger.info("Loaded replay buffer sidecar from %s", sidecar_path)
         return True
 
+    # ------------------------------------------------------------------
+    # Grouped validation
+    # ------------------------------------------------------------------
+
+    def _primary_replay_group(self) -> ReplayGroup | None:
+        """The group validation scores, or None when there is nothing to group.
+
+        Validation uses one stride, so it takes the first grouped layout; the
+        others differ only in which time windows they address.
+        """
+        for group in getattr(self, "replay_groups", []) or []:
+            if group.is_grouped:
+                return group
+        return None
+
+    def _grouped_val_weight(self, group: ReplayGroup) -> torch.Tensor:
+        """`[T, C, H, W]` loss weight: each tile's own land, its own cells only.
+
+        Two corrections in one tensor. Land is per tile, so scoring one tile's
+        ocean against another's mask is wrong; and tiles overlap, so without the
+        ownership term the shared cells would count twice and pull every metric
+        toward the seams.
+        """
+        ownership = ownership_masks(group.layout).to(self.device)
+        wet = self.tile_wet_masks
+        if wet is None:
+            return ownership.expand(-1, self.num_out, -1, -1).contiguous()
+        num_strides = max(1, len(self.data_stride))
+        sources = torch.tensor(
+            [index // num_strides for index in group.dataset_indices],
+            device=wet.device,
+        )
+        return wet[sources].to(dtype=torch.float32) * ownership
+
+    def _grouped_val_datasets(self, group: ReplayGroup) -> list[TorchTrainDataset]:
+        return [self.val_datasets[index] for index in group.dataset_indices]
+
+    def _blend_group(
+        self, group: ReplayGroup, input: torch.Tensor, prediction: torch.Tensor
+    ) -> torch.Tensor:
+        """Reconcile a group's overlaps, exactly as replay writeback does."""
+        current = input[:, : self.num_out]
+        return current + group.blender.blend(prediction - current)
+
+    @torch.no_grad()
+    def validate_one_epoch_grouped(self, epoch, group: ReplayGroup) -> MetricsDict:
+        """One-step validation stepped across the whole cluster at once.
+
+        Scoring the tiles independently would measure a task the model is not
+        being asked to do: at inference the overlaps are reconciled before
+        anything reads them, so validation has to reconcile them too.
+        """
+        self.model.eval()
+        model = (
+            self.model.module
+            if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
+            else self.model
+        )
+        datasets = self._grouped_val_datasets(group)
+        weight = self._grouped_val_weight(group)
+
+        val_aggregator = Aggregator.get_validation_aggregator(
+            self.metadata,
+            self.hist,
+            self.area_weights,
+            self.src.masks.prognostic.to(self.device),
+            self.num_out,
+            surface_snapshot=self.surface_snapshot,
+        )
+        metric_logger = MetricLogger(delimiter="  ")
+        header = f"One-Step Grouped Validation Epoch: [{epoch}]"
+
+        indices = self._grouped_val_indices(len(datasets[0]))
+        with self._test_context():
+            for step, index in enumerate(
+                metric_logger.log_every(indices, 1, header)
+            ):
+                if self.debug and (step + 1) % 5 == 0:
+                    break
+                input, label = self._grouped_val_example(datasets, index)
+                prediction = model.predict_step(input)
+                blended = self._blend_group(group, input, prediction)
+
+                loss_per_channel = self.loss_fn(blended, label, sample_weight=weight)
+                VO = ValBatchOutput(
+                    torch.mean(loss_per_channel),
+                    loss_per_channel,
+                    input,
+                    label,
+                    blended,
+                )
+                VO = self._materialize_val_output(VO)
+                val_aggregator.record_validation_batch(VO)
+                metric_logger.update(loss=VO.loss)
+
+        logger.info("Aggregating grouped validation logs")
+        return val_aggregator.get_logs(label="val")
+
+    def _grouped_val_indices(self, total: int) -> list[int]:
+        """Seeded draw of validation windows, shared by every tile of the group.
+
+        Seeded rather than random per epoch, for the same reason the ungrouped
+        path is: the epoch-to-epoch loss has to be comparable because it feeds
+        checkpoint selection.
+        """
+        if self.one_step_val_num <= 0 or self.one_step_val_num >= total:
+            return list(range(total))
+        rng = random.Random(self.rand_seed + ONE_STEP_VAL_SEED_OFFSET)
+        return sorted(rng.sample(range(total), self.one_step_val_num))
+
+    def _grouped_val_example(
+        self, datasets: list[TorchTrainDataset], index: int
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """One synchronized `[T, C, H, W]` input/label pair across the group."""
+        inputs, labels = [], []
+        for dataset in datasets:
+            data = dataset.to_train_data(collate_raw_train_data([dataset[index]]))
+            inputs.append(data.get_input(0))
+            labels.append(data.get_label(0))
+        return torch.cat(inputs, dim=0), torch.cat(labels, dim=0)
+
     def validate_one_epoch(self, epoch):
+        group = self._primary_replay_group()
+        if group is not None:
+            return self.validate_one_epoch_grouped(epoch, group)
+
         self.model.eval()
 
         val_aggregator = Aggregator.get_validation_aggregator(
@@ -3221,13 +3348,21 @@ class Trainer:
                 else self.model
             )
             sources = self.autoregressive_val_sources()
+            group = self._primary_replay_group()
             with torch.no_grad(), self._test_context():
                 for spec in specs:
-                    logs.update(
-                        self._run_autoregressive_validation(
-                            model, spec, sources, epoch
+                    if group is not None:
+                        logs.update(
+                            self._run_grouped_autoregressive_validation(
+                                model, spec, sources, group, epoch
+                            )
                         )
-                    )
+                    else:
+                        logs.update(
+                            self._run_autoregressive_validation(
+                                model, spec, sources, epoch
+                            )
+                        )
 
         return logs
 
@@ -3245,6 +3380,134 @@ class Trainer:
             num_runs=spec.num_runs,
             seed=self.rand_seed + spec.seed_offset,
         )
+
+    def _run_grouped_autoregressive_validation(
+        self,
+        model: BaseModel,
+        spec: AutoregressiveValSpec,
+        sources: list[DataSource],
+        group: ReplayGroup,
+        epoch: int,
+    ) -> MetricsDict:
+        """Roll the whole cluster forward together, reconciling every step.
+
+        This replaces rolling one tile in isolation, which measured a different
+        task: a tile alone never receives its neighbours' reconciled state, so
+        its drift is not the drift the deployed model would have. One run here
+        also covers the full canonical domain rather than a quarter of it.
+        """
+        plan = self._plan_autoregressive_validation(spec, sources)
+        if not plan.enabled:
+            return {}
+
+        num_steps = plan.num_steps
+        if self.debug:
+            num_steps = min(num_steps, 2)
+        group_sources = [sources[index] for index in group.dataset_indices]
+        weight = self._grouped_val_weight(group)
+        aggregator = RolloutValidationAggregator(
+            num_steps=num_steps,
+            area_weights=self.area_weights,
+            wet=self.wet,
+            loss_fn=self.loss_fn,
+            device=self.device,
+            ownership=weight,
+        )
+
+        for run, window in enumerate(plan.windows):
+            datasets = [
+                InferenceDataset(
+                    src=source.map_data(
+                        lambda ds, window=window: ds.isel(
+                            time=slice(
+                                window.start_index,
+                                window.start_index + window.num_timesteps,
+                            )
+                        ),
+                        suffix=f"{spec.label}_grouped_rollout_t{window.start_index}",
+                    ),
+                    prognostic_var_names=self.prognostic_var_names,
+                    boundary_var_names=self.boundary_var_names,
+                    hist=self.hist,
+                    normalize_before_mask=self.normalize_before_mask,
+                    masked_fill_value=self.normalize_fill_value,
+                    long_rollout=True,
+                    append_spatial_features_to_inputs=self.replay_spatial_features,
+                )
+                for source in group_sources
+            ]
+            if min(len(dataset) for dataset in datasets) < num_steps:
+                raise RuntimeError(
+                    f"{spec.label} grouped autoregressive validation planned "
+                    f"{num_steps} steps from val_time index {window.start_index}, "
+                    "but the window is shorter than that."
+                )
+            logger.info(
+                "%s grouped autoregressive validation [run %d of %d]: rolling "
+                "out %d steps from val_time index %d over %d tiles.",
+                spec.label.capitalize(),
+                run + 1,
+                len(plan.windows),
+                num_steps,
+                window.start_index,
+                len(datasets),
+            )
+            self._record_grouped_rollout(
+                model, datasets, group, aggregator, num_steps=num_steps
+            )
+
+        logger.info(
+            f"Aggregating {spec.label} grouped autoregressive validation logs "
+            f"over {aggregator.n_runs} run(s)"
+        )
+        return dict(aggregator.get_logs(label=spec.label))
+
+    @torch.no_grad()
+    def _record_grouped_rollout(
+        self,
+        model: BaseModel,
+        datasets: list[InferenceDataset],
+        group: ReplayGroup,
+        aggregator: RolloutValidationAggregator,
+        *,
+        num_steps: int,
+    ) -> None:
+        """Advance every tile in lockstep, reconciling overlaps between steps."""
+        state = [dataset.initial_prognostic.to(self.device) for dataset in datasets]
+        predictions, targets = [], []
+
+        for step in range(num_steps):
+            inputs = torch.cat(
+                [
+                    dataset.merge_prognostic_and_boundary(
+                        prognostic=state[index], step=step
+                    ).to(self.device)
+                    for index, dataset in enumerate(datasets)
+                ],
+                dim=0,
+            )
+            blended = self._blend_group(group, inputs, model.predict_step(inputs))
+            # Remask per tile before the state becomes the next step's context.
+            for index, dataset in enumerate(datasets):
+                blended[index] = torch.where(
+                    dataset.wet.to(self.device), blended[index], 0.0
+                )
+            predictions.append(blended)
+            targets.append(
+                torch.cat(
+                    [dataset.inference_target(step) for dataset in datasets], dim=0
+                ).to(self.device)
+            )
+            state = [blended[index : index + 1] for index in range(len(datasets))]
+
+        aggregator.record_run(
+            ModelInferenceOutput(
+                prediction=torch.stack(predictions),
+                target=torch.stack(targets),
+                time=datasets[0].get_target_time(0, num_steps),
+            )
+        )
+        aggregator.finish_run()
 
     def _run_autoregressive_validation(
         self,

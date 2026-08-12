@@ -321,3 +321,84 @@ def test_per_sample_weight_follows_the_source_not_the_stride() -> None:
     slots = [ReplayBatchSlot(replay_index=0, cursor=ReplayCursor(1, 0, 0, 1, 1))]
     weight = trainer._batch_wet_weight(slots)
     assert [float(weight[t].max()) for t in range(4)] == [1.0, 2.0, 3.0, 4.0]
+
+
+# --------------------------------------------------------------------------
+# Grouped validation weighting
+# --------------------------------------------------------------------------
+
+
+def test_validation_weight_counts_every_cell_exactly_once() -> None:
+    """The whole point of the ownership term: without it the shared cells are
+    scored twice and every domain metric leans toward the seams."""
+    groups = build_replay_groups(
+        num_sources=4, num_strides=1, grouped=True, tiles=make_tiles()
+    )
+    trainer = make_trainer(groups)
+    trainer.num_out = 3
+    trainer.tile_wet_masks = None
+
+    weight = trainer._grouped_val_weight(groups[0])
+    assert weight.shape == (4, 3, TILE, TILE)
+    # One channel's worth of weight must equal the canonical cell count.
+    assert float(weight[:, 0].sum()) == float(CANONICAL * CANONICAL)
+
+
+def test_validation_weight_also_carries_each_tile_s_own_land() -> None:
+    """Land is per tile, so a shared mask would score one tile's ocean against
+    another tile's coastline."""
+    groups = build_replay_groups(
+        num_sources=4, num_strides=1, grouped=True, tiles=make_tiles()
+    )
+    trainer = make_trainer(groups)
+    trainer.num_out = 2
+    wet = torch.ones(4, 2, TILE, TILE, dtype=torch.bool)
+    wet[3, :, -1, -1] = False  # a dry cell tile 3 owns
+    trainer.tile_wet_masks = wet
+
+    weight = trainer._grouped_val_weight(groups[0])
+    assert float(weight[3, 0, -1, -1]) == 0.0
+    # Exactly that one owned cell (per channel) is removed from the total.
+    assert float(weight[:, 0].sum()) == float(CANONICAL * CANONICAL - 1)
+
+
+def test_a_perfect_prediction_scores_zero_under_the_ownership_weight() -> None:
+    """Sanity floor: the weighting must not invent error where there is none."""
+    from ocean_emulators.utils.loss import decomposed_mse_mae
+
+    groups = build_replay_groups(
+        num_sources=4, num_strides=1, grouped=True, tiles=make_tiles()
+    )
+    trainer = make_trainer(groups)
+    trainer.num_out = 2
+    trainer.tile_wet_masks = None
+    weight = trainer._grouped_val_weight(groups[0])
+
+    truth = torch.randn(4, 2, TILE, TILE)
+    wet = torch.ones(2, TILE, TILE, dtype=torch.bool)
+    loss = decomposed_mse_mae(truth, truth, wet=wet, sample_weight=weight)
+    assert float(loss.abs().max()) == 0.0
+
+
+def test_disowned_cells_cannot_affect_the_score() -> None:
+    """Error placed only in cells another tile owns must not register, or the
+    overlap would be contributing twice through the back door."""
+    from ocean_emulators.utils.loss import decomposed_mse_mae
+
+    groups = build_replay_groups(
+        num_sources=4, num_strides=1, grouped=True, tiles=make_tiles()
+    )
+    trainer = make_trainer(groups)
+    trainer.num_out = 2
+    trainer.tile_wet_masks = None
+    weight = trainer._grouped_val_weight(groups[0])
+
+    truth = torch.zeros(4, 2, TILE, TILE)
+    corrupted = truth.clone()
+    # Tile 0 is exterior on its low sides, so its disowned band is the high edge.
+    disowned = weight[0, 0] == 0
+    corrupted[0, :, disowned] = 1000.0
+
+    wet = torch.ones(2, TILE, TILE, dtype=torch.bool)
+    loss = decomposed_mse_mae(corrupted, truth, wet=wet, sample_weight=weight)
+    assert float(loss.abs().max()) == 0.0

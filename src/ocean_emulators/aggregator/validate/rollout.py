@@ -173,13 +173,22 @@ class RolloutValidationAggregator:
         wet: torch.Tensor,
         loss_fn: LossFn,
         device: torch.device,
+        ownership: torch.Tensor | None = None,
     ):
+        """`ownership` is a `[tile, 1, lat, lon]` indicator for grouped rollouts.
+
+        A group's tiles overlap, so scoring each of them in full would weight the
+        shared cells twice and bias every metric toward the seams. The indicator
+        gives each cell exactly one owner. Without it a rollout is a single
+        field, and everything here behaves exactly as it did before.
+        """
         if num_steps <= 0:
             raise ValueError(f"num_steps must be >= 1, got {num_steps}")
         self._num_steps = num_steps
         self._area_weights = area_weights
         self._wet = wet.bool()
         self._loss_fn = loss_fn
+        self._ownership = ownership
         self._loss_sum = torch.zeros(num_steps, device=device)
         self._rmse_sum = torch.zeros(num_steps, device=device)
         self._n_runs = 0
@@ -211,10 +220,19 @@ class RolloutValidationAggregator:
             )
 
         for step in range(num_steps):
-            # Keep the batch dimension: `loss_fn` broadcasts its wet mask over it.
-            gen = prediction[step : step + 1]
-            label = target[step : step + 1]
-            loss = torch.mean(self._loss_fn(gen, label)).detach()
+            # A grouped rollout carries a tile axis, so the step slice is already
+            # a batch of tiles. Ungrouped, keep the batch dimension: `loss_fn`
+            # broadcasts its wet mask over it.
+            if prediction.ndim == 5:
+                gen = prediction[step]
+                label = target[step]
+                loss = torch.mean(
+                    self._loss_fn(gen, label, sample_weight=self._ownership)
+                ).detach()
+            else:
+                gen = prediction[step : step + 1]
+                label = target[step : step + 1]
+                loss = torch.mean(self._loss_fn(gen, label)).detach()
             self._loss_sum[step_offset + step] += loss.to(self._loss_sum.device)
             rmse = self._area_weighted_rmse(gen, label)
             self._rmse_sum[step_offset + step] += rmse.to(self._rmse_sum.device)
@@ -233,7 +251,24 @@ class RolloutValidationAggregator:
         it does not dilute the ocean error, matching how the one-step
         aggregators build their dicts.
         """
-        squared_error = (gen - target).square().squeeze(0)
+        squared_error = (gen - target).square()
+        if self._ownership is not None and squared_error.shape[0] > 1:
+            # Every cell has one owner, so summing the owned parts of each tile
+            # covers the domain exactly once. Disowned cells go to NaN alongside
+            # land so neither dilutes the mean.
+            owned = self._ownership.to(squared_error.device) > 0
+            squared_error = torch.where(
+                self._wet.unsqueeze(0) & owned, squared_error, torch.nan
+            )
+            rmse_per_channel = torch.stack(
+                [
+                    weighted_mean(squared_error[tile], self._area_weights)
+                    for tile in range(squared_error.shape[0])
+                ]
+            ).nanmean(dim=0).sqrt()
+            return rmse_per_channel.nanmean().detach()
+
+        squared_error = squared_error.squeeze(0)
         squared_error = torch.where(self._wet, squared_error, torch.nan)
         rmse_per_channel = weighted_mean(squared_error, self._area_weights).sqrt()
         return rmse_per_channel.nanmean().detach()

@@ -15,7 +15,7 @@ from .blocks import (
     UpsamplingBlockBuilder,
     ZonallyPeriodicBilinearUpsample,
 )
-from .decoder import PerceiverDecoder
+from .decoder import DirectCrossAttentionIO, PerceiverDecoder
 from .encoder import PerceiverEncoder
 from .perceiver import Attention, FeedForward, Perceiver, PerceiverIO, PreNorm
 from .unet_backbone import UNetBackbone
@@ -32,6 +32,7 @@ __all__ = [
     "CappedLeakyReLU",
     "MaxPool",
     "PerceiverDecoder",
+    "DirectCrossAttentionIO",
     "PerceiverEncoder",
     "Attention",
     "FeedForward",

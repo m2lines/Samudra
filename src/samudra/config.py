@@ -42,6 +42,7 @@ from samudra.models.modules import (
     ConvNeXtBlock,
     CoreBlock,
     CoreBlockBuilder,
+    DirectCrossAttentionIO,
     MaxPool,
     Perceiver,
     PerceiverDecoder,
@@ -540,6 +541,26 @@ class PerceiverConfig(BaseConfig):
         default=512,
         description="The number of latent vectors in the Perceiver. This is the `M` dimension for the Perceiver's `O(M*N)` complexity",
     )
+    cross_heads: int = Field(
+        default=1,
+        ge=1,
+        description="Number of heads in Perceiver input/output cross-attention.",
+    )
+    latent_heads: int = Field(
+        default=8,
+        ge=1,
+        description="Number of heads in latent self-attention.",
+    )
+    cross_dim_head: int = Field(
+        default=64,
+        ge=1,
+        description="Width of each cross-attention head. The transported value width is cross_heads * cross_dim_head.",
+    )
+    latent_dim_head: int = Field(
+        default=64,
+        ge=1,
+        description="Width of each latent self-attention head.",
+    )
 
     def build(
         self,
@@ -569,6 +590,10 @@ class PerceiverConfig(BaseConfig):
                 num_classes=out_channels,
                 latent_dim=self.latent_dim,
                 num_latents=self.num_latents,
+                cross_heads=self.cross_heads,
+                latent_heads=self.latent_heads,
+                cross_dim_head=self.cross_dim_head,
+                latent_dim_head=self.latent_dim_head,
                 weight_tie_layers=True,
                 fourier_encode_data=False,
                 self_per_cross_attn=2,
@@ -591,6 +616,10 @@ class PerceiverConfig(BaseConfig):
             logits_dim=out_channels,
             num_latents=self.num_latents,
             latent_dim=self.latent_dim,
+            cross_heads=self.cross_heads,
+            latent_heads=self.latent_heads,
+            cross_dim_head=self.cross_dim_head,
+            latent_dim_head=self.latent_dim_head,
             weight_tie_layers=True,
             decoder_ff=True,
             attention_backend=_attention_backend(implementation),
@@ -634,6 +663,9 @@ class EncoderConfig(BaseConfig):
         )
 
 
+DecoderArchitecture = Literal["perceiver_io", "direct_cross_attention"]
+
+
 class DecoderConfig(BaseConfig):
     """A PerceiverIO-based decoder configuration.
 
@@ -649,6 +681,10 @@ class DecoderConfig(BaseConfig):
     """
 
     perceiver: PerceiverConfig = PerceiverConfig()
+    architecture: DecoderArchitecture = Field(
+        default="perceiver_io",
+        description="Decoder core. 'direct_cross_attention' applies only the Perceiver IO decode stage to processor tokens, avoiding a second latent bottleneck.",
+    )
     queries_dim: int = Field(
         default=64,
         description="Embedding dimension for pixel-position queries in the PerceiverIO decoder head.",
@@ -672,14 +708,25 @@ class DecoderConfig(BaseConfig):
         patch_extent: tuple[float, float],
         implementation: PerceiverImpl,
     ) -> PerceiverDecoder:
+        if self.architecture == "perceiver_io":
+            decoder_core = self.perceiver.build_io(
+                in_channels, self.queries_dim, out_channels, implementation
+            )
+        else:
+            decoder_core = DirectCrossAttentionIO(
+                input_dim=in_channels,
+                queries_dim=self.queries_dim,
+                output_dim=out_channels,
+                heads=self.perceiver.cross_heads,
+                dim_head=self.perceiver.cross_dim_head,
+            )
+
         return PerceiverDecoder(
             in_channels=in_channels,
             out_channels=out_channels,
             patch_extent=patch_extent,
             queries_dim=self.queries_dim,
-            perceiver_io=self.perceiver.build_io(
-                in_channels, self.queries_dim, out_channels, implementation
-            ),
+            perceiver_io=decoder_core,
             window_patches=self.window_patches,
             context_patches=self.context_patches,
         )

@@ -20,11 +20,21 @@ encoder:
     num_latents: 256
 
 decoder:
+  # Apply the Perceiver IO decode cross-attention directly to the spatial
+  # processor state. A complete PerceiverIO here would introduce a second,
+  # unordered latent bottleneck after the model has already encoded and
+  # processed its latent state.
+  architecture: direct_cross_attention
   perceiver:
     depth: 2
     latent_dim: 64
     num_latents: 256
-  queries_dim: 64  # on the small end, but typical for PercieverIO models (usually in the ~100s-1000s).
+    # The transported value width is heads * dim_head = 128. Jesse's controlled
+    # copy task showed that widening this path, rather than latent_dim alone,
+    # removes the channel-information bottleneck.
+    cross_heads: 2
+    cross_dim_head: 64
+  queries_dim: 128
   window_patches: 12  # Must evenly divide latent grid (60x72). Enables real spatial windowing.
   context_patches: 1  # Look at this many window_patches around the target patch.
 

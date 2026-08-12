@@ -10,11 +10,79 @@ from aurora.model.fourier import pos_expansion, scale_expansion
 from aurora.model.posencoding import pos_scale_enc
 from einops import rearrange
 from jaxtyping import Float
+from perceiver_pytorch.perceiver_io import Attention, FeedForward, PreNorm
 from torch import nn
 
 from samudra.constants import Lat, Lon
 from samudra.models.modules.augment_input import make_3d_coordinate_grid
 from samudra.models.modules.encoder import patch_from
+
+
+class DirectCrossAttentionIO(nn.Module):
+    """Apply the Perceiver IO decode stage directly to processor tokens.
+
+    ``SamudraMulti`` already has a Perceiver encoder followed by a spatial latent
+    processor. Running a complete ``PerceiverIO`` inside the decoder constructs a
+    second learned latent array and first compresses the processor tokens into it.
+    This module keeps the Perceiver IO output-query interface but removes that
+    redundant encode/process stage: output queries cross-attend directly to the
+    processor tokens.
+
+    The query residual is intentional. Without it, attention over a single context
+    token is independent of the query because its softmax has length one. Keeping
+    the residual matches the general Perceiver cross-attention block and guarantees
+    that spatial output queries retain a path to the decoded representation.
+    """
+
+    def __init__(
+        self,
+        *,
+        input_dim: int,
+        queries_dim: int,
+        output_dim: int,
+        heads: int,
+        dim_head: int,
+    ) -> None:
+        super().__init__()
+        if heads < 1:
+            raise ValueError("heads must be positive.")
+        if dim_head < 1:
+            raise ValueError("dim_head must be positive.")
+        self.cross_attn = PreNorm(
+            queries_dim,
+            Attention(
+                queries_dim,
+                input_dim,
+                heads=heads,
+                dim_head=dim_head,
+            ),
+            context_dim=input_dim,
+        )
+        self.feed_forward = PreNorm(queries_dim, FeedForward(queries_dim))
+        self.to_logits = nn.Linear(queries_dim, output_dim)
+
+    def forward(
+        self,
+        data: torch.Tensor,
+        *,
+        queries: torch.Tensor,
+    ) -> torch.Tensor:
+        if queries.ndim == 2:
+            queries = queries.unsqueeze(0).expand(data.shape[0], -1, -1)
+        if queries.ndim != 3:
+            raise ValueError(
+                "queries must have shape [outputs, channels] or "
+                f"[batch, outputs, channels], got {tuple(queries.shape)}."
+            )
+        if queries.shape[0] != data.shape[0]:
+            raise ValueError(
+                "Batched queries and data must have the same batch size, got "
+                f"{queries.shape[0]} and {data.shape[0]}."
+            )
+
+        decoded = queries + self.cross_attn(queries, context=data)
+        decoded = decoded + self.feed_forward(decoded)
+        return self.to_logits(decoded)
 
 
 class PerceiverDecoder(nn.Module):

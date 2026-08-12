@@ -10,12 +10,17 @@ from aurora.model.fourier import pos_expansion, scale_expansion
 from aurora.model.posencoding import pos_scale_enc
 from einops import rearrange
 from jaxtyping import Float
-from perceiver_pytorch.perceiver_io import Attention, FeedForward, PreNorm
 from torch import nn
 
 from samudra.constants import Lat, Lon
 from samudra.models.modules.augment_input import make_3d_coordinate_grid
 from samudra.models.modules.encoder import patch_from
+from samudra.models.modules.perceiver import (
+    Attention,
+    AttentionBackend,
+    FeedForward,
+    PreNorm,
+)
 
 
 class DirectCrossAttentionIO(nn.Module):
@@ -42,6 +47,7 @@ class DirectCrossAttentionIO(nn.Module):
         output_dim: int,
         heads: int,
         dim_head: int,
+        attention_backend: AttentionBackend = "auto",
     ) -> None:
         super().__init__()
         if heads < 1:
@@ -55,6 +61,7 @@ class DirectCrossAttentionIO(nn.Module):
                 input_dim,
                 heads=heads,
                 dim_head=dim_head,
+                backend=attention_backend,
             ),
             context_dim=input_dim,
         )
@@ -144,7 +151,7 @@ class PerceiverDecoder(nn.Module):
             latent tokens (windowed queries but global data attention).
 
     References:
-        [0]: https://github.com/lucidrains/perceiver-pytorch
+        [0]: https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html
         [1]: https://ar5iv.labs.arxiv.org/html/2405.13063#A2.SS4
         [2]: https://ar5iv.labs.arxiv.org/html/2107.14795
     """

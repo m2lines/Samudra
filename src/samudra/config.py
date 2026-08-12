@@ -14,7 +14,6 @@ import pandas as pd
 import pydantic
 import torch
 import xarray as xr
-from perceiver_pytorch import Perceiver as NaivePerceiver
 from pydantic import (
     Field,
     PlainSerializer,
@@ -45,8 +44,10 @@ from samudra.models.modules import (
     CoreBlockBuilder,
     DirectCrossAttentionIO,
     MaxPool,
+    Perceiver,
     PerceiverDecoder,
     PerceiverEncoder,
+    PerceiverIO,
     ReLU,
     TransposedConvUpsample,
     UNetBackbone,
@@ -520,7 +521,7 @@ class BlockConfig(BaseConfig):
         return create_block
 
 
-PerceiverImpl = Literal["auto", "naive", "flash"]
+PerceiverImpl = Literal["auto", "sdpa", "naive", "flash"]
 
 
 class PerceiverConfig(BaseConfig):
@@ -574,68 +575,27 @@ class PerceiverConfig(BaseConfig):
 
         num_freq_bands = 4
         fourier_dim = fourier_features_2d_dim(num_freq_bands)
-        # Use the same explicit 2D Fourier features in both implementations so
-        # intra-patch positions are encoded equivalently.
-        if _use_flash(implementation):
-            if (
-                self.cross_heads != 1
-                or self.latent_heads != 8
-                or self.cross_dim_head != 64
-                or self.latent_dim_head != 64
-            ):
-                raise ValueError(
-                    "flash-perceiver does not expose attention head counts or "
-                    "head widths. Use perceiver_implementation='naive' to tune "
-                    "these capacity controls."
-                )
-            try:
-                from flash_perceiver import Perceiver as FlashPerceiver  # type: ignore
-            except ImportError as e:
-                raise _flash_import_error() from e
-            from einops.layers.torch import Rearrange
-
-            perceiver: nn.Module = nn.Sequential(
-                FourierFeatures2D(num_freq_bands=num_freq_bands, max_freq=max_freq),
-                Rearrange("b ph pw v -> b (ph pw) v"),
-                FlashPerceiver(
-                    depth=self.depth,
-                    input_dim=in_channels + fourier_dim,
-                    output_dim=out_channels,
-                    output_mode="average",
-                    latent_dim=self.latent_dim,
-                    num_latents=self.num_latents,
-                    use_flash_attn=True,
-                    weight_tie_layers=True,
-                    self_per_cross_attn=2,
-                ),
-            )
-        elif _use_naive(implementation):
-            perceiver = nn.Sequential(
-                FourierFeatures2D(num_freq_bands=num_freq_bands, max_freq=max_freq),
-                NaivePerceiver(
-                    # Required by perceiver-pytorch even when its internal
-                    # Fourier encoding is disabled below.
-                    num_freq_bands=num_freq_bands,
-                    max_freq=max_freq,
-                    depth=self.depth,
-                    input_axis=2,
-                    input_channels=in_channels + fourier_dim,
-                    num_classes=out_channels,
-                    latent_dim=self.latent_dim,
-                    num_latents=self.num_latents,
-                    cross_heads=self.cross_heads,
-                    latent_heads=self.latent_heads,
-                    cross_dim_head=self.cross_dim_head,
-                    latent_dim_head=self.latent_dim_head,
-                    weight_tie_layers=True,
-                    fourier_encode_data=False,
-                    self_per_cross_attn=2,
-                ),
-            )
-        else:
-            raise ValueError(f"Unknown perceiver implementation: {implementation}.")
-
-        return perceiver
+        return nn.Sequential(
+            FourierFeatures2D(num_freq_bands=num_freq_bands, max_freq=max_freq),
+            Perceiver(
+                num_freq_bands=num_freq_bands,
+                max_freq=max_freq,
+                depth=self.depth,
+                input_axis=2,
+                input_channels=in_channels + fourier_dim,
+                num_classes=out_channels,
+                latent_dim=self.latent_dim,
+                num_latents=self.num_latents,
+                cross_heads=self.cross_heads,
+                latent_heads=self.latent_heads,
+                cross_dim_head=self.cross_dim_head,
+                latent_dim_head=self.latent_dim_head,
+                weight_tie_layers=True,
+                fourier_encode_data=False,
+                self_per_cross_attn=2,
+                attention_backend=_attention_backend(implementation),
+            ),
+        )
 
     def build_io(
         self,
@@ -645,75 +605,35 @@ class PerceiverConfig(BaseConfig):
         implementation: PerceiverImpl,
     ) -> nn.Module:
         """Build a PerceiverIO (used by the decoder)."""
-        if _use_flash(implementation):
-            if (
-                self.cross_heads != 1
-                or self.latent_heads != 8
-                or self.cross_dim_head != 64
-                or self.latent_dim_head != 64
-            ):
-                raise ValueError(
-                    "flash-perceiver does not expose attention head counts or "
-                    "head widths. Use perceiver_implementation='naive' to tune "
-                    "these capacity controls."
-                )
-            try:
-                from flash_perceiver.perceiver import (  # type: ignore
-                    PerceiverIO as FlashPerceiverIO,  # type: ignore
-                )
-            except ImportError as e:
-                raise _flash_import_error() from e
-            perceiver_io: nn.Module = FlashPerceiverIO(
-                depth=self.depth,
-                input_dim=in_channels,
-                query_dim=queries_dim,
-                proj_dim=out_channels,
-                num_latents=self.num_latents,
-                latent_dim=self.latent_dim,
-                use_flash_attn=True,
-                weight_tie_layers=True,
-            )
-        elif _use_naive(implementation):
-            from perceiver_pytorch.perceiver_io import PerceiverIO as NaivePerceiverIO
-
-            perceiver_io = NaivePerceiverIO(
-                depth=self.depth,
-                dim=in_channels,
-                queries_dim=queries_dim,
-                logits_dim=out_channels,
-                num_latents=self.num_latents,
-                latent_dim=self.latent_dim,
-                cross_heads=self.cross_heads,
-                latent_heads=self.latent_heads,
-                cross_dim_head=self.cross_dim_head,
-                latent_dim_head=self.latent_dim_head,
-                weight_tie_layers=True,
-                decoder_ff=True,
-            )
-        else:
-            raise ValueError(f"Unknown perceiver implementation: {implementation}.")
-
-        return perceiver_io
+        return PerceiverIO(
+            depth=self.depth,
+            dim=in_channels,
+            queries_dim=queries_dim,
+            logits_dim=out_channels,
+            num_latents=self.num_latents,
+            latent_dim=self.latent_dim,
+            cross_heads=self.cross_heads,
+            latent_heads=self.latent_heads,
+            cross_dim_head=self.cross_dim_head,
+            latent_dim_head=self.latent_dim_head,
+            weight_tie_layers=True,
+            decoder_ff=True,
+            attention_backend=_attention_backend(implementation),
+        )
 
 
-def _use_flash(implementation: PerceiverImpl) -> bool:
-    return (
-        implementation == "auto" and torch.cuda.is_available()
-    ) or implementation == "flash"
-
-
-def _use_naive(implementation: PerceiverImpl) -> bool:
-    return (
-        implementation == "auto" and not torch.cuda.is_available()
-    ) or implementation == "naive"
-
-
-def _flash_import_error() -> ValueError:
-    return ValueError(
-        "`implementation==flash` or flash was automatically chosen for `implementation==auto`, "
-        "but the flash attention dependencies could not be imported. "
-        "Please run `uv sync --extra cuda` or specify the `naive` attention implementation."
-    )
+def _attention_backend(
+    implementation: PerceiverImpl,
+) -> Literal["auto", "math", "flash"]:
+    match implementation:
+        case "auto" | "sdpa":
+            return "auto"
+        case "naive":
+            return "math"
+        case "flash":
+            return "flash"
+        case _:
+            assert_never(implementation)
 
 
 class EncoderConfig(BaseConfig):
@@ -795,6 +715,7 @@ class DecoderConfig(BaseConfig):
                 output_dim=out_channels,
                 heads=self.perceiver.cross_heads,
                 dim_head=self.perceiver.cross_dim_head,
+                attention_backend=_attention_backend(implementation),
             )
 
         return PerceiverDecoder(
@@ -967,7 +888,8 @@ class SamudraMultiConfig(BaseModelConfig):
     perceiver_implementation: PerceiverImpl = Field(
         default="auto",
         description="Perceiver attention implementation shared by the encoder and decoder. "
-        "'auto' selects flash attention when CUDA is available, otherwise naive.",
+        "'auto' lets PyTorch SDPA select the best available kernel; 'naive' forces "
+        "the math kernel and 'flash' forces PyTorch FlashAttention.",
     )
     patch_extent: list[float] = Field(
         default=[6.0, 10.0],
@@ -998,7 +920,7 @@ class SamudraMultiConfig(BaseModelConfig):
         )
 
         impl = self.perceiver_implementation
-        if _use_flash(impl) and not self.use_bfloat16:
+        if impl == "flash" and not self.use_bfloat16:
             raise ValueError(
                 "Perceiver implementation resolves to flash attention. "
                 "Please set `use_bfloat16=True` or `perceiver_implementation='naive'`."
@@ -1050,7 +972,8 @@ class SamudraMiniConfig(BaseModelConfig):
     perceiver_implementation: PerceiverImpl = Field(
         default="auto",
         description="Perceiver attention implementation for the single PerceiverIO model. "
-        "'auto' selects flash attention when CUDA is available, otherwise naive.",
+        "'auto' lets PyTorch SDPA select the best available kernel; 'naive' forces "
+        "the math kernel and 'flash' forces PyTorch FlashAttention.",
     )
     embedding_dim: int = Field(
         default=128,
@@ -1089,7 +1012,7 @@ class SamudraMiniConfig(BaseModelConfig):
             )
 
         impl = self.perceiver_implementation
-        if _use_flash(impl) and not self.use_bfloat16:
+        if impl == "flash" and not self.use_bfloat16:
             raise ValueError(
                 "Perceiver implementation resolves to flash attention. "
                 "Please set `use_bfloat16=True` or `perceiver_implementation='naive'`."

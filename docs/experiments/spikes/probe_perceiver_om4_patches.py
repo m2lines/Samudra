@@ -22,11 +22,9 @@ import numpy as np
 import torch
 import xarray as xr
 from einops import rearrange
-from perceiver_pytorch import Perceiver
-from perceiver_pytorch.perceiver_io import PerceiverIO
 from torch import nn
 
-from samudra.models.modules import DirectCrossAttentionIO
+from samudra.models.modules import DirectCrossAttentionIO, Perceiver, PerceiverIO
 from samudra.models.modules.augment_input import make_3d_coordinate_grid
 
 DEFAULT_SOURCE = (

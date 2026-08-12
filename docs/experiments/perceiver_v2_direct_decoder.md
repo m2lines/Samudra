@@ -25,9 +25,18 @@ SamudraMulti OM4 preset selects `direct_cross_attention`, uses 128-dimensional
 output queries, and transports 128 values per output cross-attention operation
 (two heads of width 64).
 
+The Perceiver blocks are owned by Samudra and use
+`torch.nn.functional.scaled_dot_product_attention`. With `auto`, PyTorch
+selects FlashAttention, memory-efficient attention, or its math implementation
+for the current device, dtype, and tensor shapes. The former
+`perceiver-pytorch`, `flash-perceiver`, and external `flash-attn` dependencies
+are not required. The `naive` and `flash` configuration values remain as
+backward-compatible aliases that force PyTorch's math and FlashAttention
+backends respectively; new configurations should normally use `auto`.
+
 ## Laptop probe
 
-`scripts/probe_perceiver_om4_patches.py` compares both decoders with the same
+`docs/experiments/spikes/probe_perceiver_om4_patches.py` compares both decoders with the same
 original-Perceiver encoder, random seed, optimization schedule, and real OM4
 samples. The diagnostic uses 3x5 patches containing all 77 prognostic channels
 from the public 2-degree source. Eight timestamps are used for fitting and four

@@ -101,7 +101,7 @@ INSTALL_PY = """\
 !pip install --quiet --upgrade --no-warn-conflicts --progress-bar off \\
     "numpy>=1.26.4,<2" "matplotlib>=3.10.1" \\
     "cftime>=1.6.4.post1" "dacite>=1.9.2" "dask>=2025.2,<2026" "einops>=0.7" \\
-    "jaxtyping>=0.3" "microsoft-aurora>=1.8" "perceiver-pytorch>=0.8.8" \\
+    "jaxtyping>=0.3" "microsoft-aurora>=1.8" \\
     "pydantic-settings>=2.8.1" "pyyaml>=6.0.2" "s3fs==2025.5.1" \\
     "torchinfo>=1.8" "tqdm>=4.67.1" "typing-extensions>=4.15" \\
     "wandb>=0.19.8" "xarray>=2025.1.2" \\

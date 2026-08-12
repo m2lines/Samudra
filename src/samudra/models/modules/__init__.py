@@ -17,6 +17,7 @@ from .blocks import (
 )
 from .decoder import DirectCrossAttentionIO, PerceiverDecoder
 from .encoder import PerceiverEncoder
+from .perceiver import Attention, FeedForward, Perceiver, PerceiverIO, PreNorm
 from .unet_backbone import UNetBackbone
 
 __all__ = [
@@ -33,6 +34,11 @@ __all__ = [
     "PerceiverDecoder",
     "DirectCrossAttentionIO",
     "PerceiverEncoder",
+    "Attention",
+    "FeedForward",
+    "Perceiver",
+    "PerceiverIO",
+    "PreNorm",
     "ReLU",
     "UNetBackbone",
 ]

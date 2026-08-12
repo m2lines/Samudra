@@ -8,12 +8,6 @@ resolution-markers = [
     "sys_platform != 'linux'",
 ]
 
-[manifest]
-constraints = [
-    { name = "flash-attn", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", specifier = "==2.8.3+cu13torch2.9cxx11abitrue" },
-    { name = "flash-attn", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'", specifier = "==2.8.3+cu12torch2.9cxx11abitrue" },
-]
-
 [[package]]
 name = "aiobotocore"
 version = "2.22.0"
@@ -883,62 +877,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/dc/9c/0b15fb47b464e1b663b1acd1253a062aa5feecb07d4e597daea542ebd2b5/filelock-3.17.0.tar.gz", hash = "sha256:ee4e77401ef576ebb38cd7f13b9b28893194acc20a8e68e18730ba9c0e54660e", size = 18027, upload-time = "2025-01-21T20:04:49.099Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/89/ec/00d68c4ddfedfe64159999e5f8a98fb8442729a63e2077eb9dcd89623d27/filelock-3.17.0-py3-none-any.whl", hash = "sha256:533dc2f7ba78dc2f0f531fc6c4940addf7b70a481e269a5a3b93be94ffbe8338", size = 16164, upload-time = "2025-01-21T20:04:47.734Z" },
-]
-
-[[package]]
-name = "flash-attn"
-version = "2.8.3+cu12torch2.9cxx11abitrue"
-source = { registry = "https://github.com/Dao-AILab/flash-attention/releases/expanded_assets/v2.8.3" }
-resolution-markers = [
-    "platform_machine == 'x86_64' and sys_platform == 'linux'",
-]
-dependencies = [
-    { name = "einops", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "torch", version = "2.9.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-]
-wheels = [
-    { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3+cu12torch2.9cxx11abiTRUE-cp312-cp312-linux_x86_64.whl" },
-]
-
-[[package]]
-name = "flash-attn"
-version = "2.8.3+cu13torch2.9cxx11abitrue"
-source = { registry = "https://github.com/Dao-AILab/flash-attention/releases/expanded_assets/v2.8.3.post1" }
-resolution-markers = [
-    "platform_machine == 'aarch64' and sys_platform == 'linux'",
-]
-dependencies = [
-    { name = "einops", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-    { name = "torch", version = "2.9.1+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-]
-wheels = [
-    { url = "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3.post1/flash_attn-2.8.3+cu13torch2.9cxx11abiTRUE-cp312-cp312-linux_aarch64.whl" },
-]
-
-[[package]]
-name = "flash-attn"
-version = "2.8.3.post1"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "platform_machine != 'aarch64' and platform_machine != 'x86_64' and sys_platform == 'linux'",
-    "sys_platform != 'linux'",
-]
-dependencies = [
-    { name = "einops", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'linux'" },
-    { name = "torch", version = "2.9.1", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'linux'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/01/7a/92a46e7cd6bbb4d7b2855a457c3b855df54a97af5656d98fc92e58e61065/flash_attn-2.8.3.post1.tar.gz", hash = "sha256:55d5103ed846da8b56e0797acf4bde07dee4b1c7e8907fcfc6699c203030c348", size = 8451657, upload-time = "2026-06-11T04:35:21.318Z" }
-
-[[package]]
-name = "flash-perceiver"
-version = "0.2.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "einops" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/d2/29/84bd431c43f70c70744d37c25ddd3f08e214d5d9d1f79f02869e32217ef1/flash_perceiver-0.2.0.tar.gz", hash = "sha256:aa77ff64c64b4379de013bf1aa055442ea9a4b55c4f483292721c10aecc0d43c", size = 17808, upload-time = "2023-10-08T20:09:59.465Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/eb/72/9d739576f410b9cddc2fcddca6fd217b1e726bec96d5086301307c7956dd/flash_perceiver-0.2.0-py3-none-any.whl", hash = "sha256:8b60421882aedd6e320732efb2499ff71dcdb1a718cfea3c189db52f875b6154", size = 15639, upload-time = "2023-10-08T20:09:57.693Z" },
 ]
 
 [[package]]
@@ -2769,20 +2707,6 @@ wheels = [
 ]
 
 [[package]]
-name = "perceiver-pytorch"
-version = "0.8.8"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "einops" },
-    { name = "torch", version = "2.9.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
-    { name = "torch", version = "2.9.1+cu130", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/4b/09/ef394378b5744cb3fdfaa958d564b3b61fdddf9bf87bfd94a989156deeb0/perceiver-pytorch-0.8.8.tar.gz", hash = "sha256:b88af6b4446b8bab2fc2de1104c49c72c20d06015ddd29f24834c85f9efcf329", size = 9201, upload-time = "2023-08-22T18:46:35.649Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ef/52/a99e79b6fc97dc7f7bc48810a4b9b22ce07cd9958ba8ccfc6d416b6aa57c/perceiver_pytorch-0.8.8-py3-none-any.whl", hash = "sha256:4e7802ff652bee91cf5be49849deb625ad247db85c2014c79fbe89e50f31a5f2", size = 12506, upload-time = "2023-08-22T18:46:34.011Z" },
-]
-
-[[package]]
 name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3548,7 +3472,6 @@ dependencies = [
     { name = "microsoft-aurora" },
     { name = "numpy" },
     { name = "pandas" },
-    { name = "perceiver-pytorch" },
     { name = "pydantic-settings" },
     { name = "pytest-xdist", extra = ["psutil"] },
     { name = "pyyaml" },
@@ -3570,10 +3493,6 @@ dependencies = [
 
 [package.optional-dependencies]
 cuda = [
-    { name = "flash-attn", version = "2.8.3+cu12torch2.9cxx11abitrue", source = { registry = "https://github.com/Dao-AILab/flash-attention/releases/expanded_assets/v2.8.3" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "flash-attn", version = "2.8.3+cu13torch2.9cxx11abitrue", source = { registry = "https://github.com/Dao-AILab/flash-attention/releases/expanded_assets/v2.8.3.post1" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
-    { name = "flash-attn", version = "2.8.3.post1", source = { registry = "https://pypi.org/simple" }, marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64') or sys_platform != 'linux'" },
-    { name = "flash-perceiver" },
     { name = "torchvision", version = "0.24.1", source = { registry = "https://download.pytorch.org/whl/cu130" }, marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
     { name = "torchvision", version = "0.24.1", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
 ]
@@ -3619,16 +3538,11 @@ requires-dist = [
     { name = "dacite", specifier = ">=1.9.2" },
     { name = "dask", specifier = ">=2025.2" },
     { name = "einops", specifier = ">=0.7" },
-    { name = "flash-attn", marker = "platform_machine == 'aarch64' and sys_platform == 'linux' and extra == 'cuda'", specifier = ">=2.7.4.post1,<3", index = "https://github.com/Dao-AILab/flash-attention/releases/expanded_assets/v2.8.3.post1", conflict = { package = "samudra", extra = "cuda" } },
-    { name = "flash-attn", marker = "platform_machine == 'x86_64' and sys_platform == 'linux' and extra == 'cuda'", specifier = ">=2.7.4.post1,<3", index = "https://github.com/Dao-AILab/flash-attention/releases/expanded_assets/v2.8.3", conflict = { package = "samudra", extra = "cuda" } },
-    { name = "flash-attn", marker = "(platform_machine != 'aarch64' and platform_machine != 'x86_64' and extra == 'cuda') or (sys_platform != 'linux' and extra == 'cuda')", specifier = ">=2.7.4.post1,<3" },
-    { name = "flash-perceiver", marker = "extra == 'cuda'", specifier = ">=0.2" },
     { name = "jaxtyping", specifier = ">=0.3" },
     { name = "matplotlib", specifier = ">=3.10.1" },
     { name = "microsoft-aurora", specifier = ">=1.8" },
     { name = "numpy", specifier = ">=1.26.4,<2" },
     { name = "pandas", specifier = ">=2.2" },
-    { name = "perceiver-pytorch", specifier = ">=0.8.8" },
     { name = "pydantic-settings", specifier = ">=2.8.1" },
     { name = "pytest-xdist", extras = ["psutil"], specifier = ">=3.6.1" },
     { name = "pyyaml", specifier = ">=6.0.2" },

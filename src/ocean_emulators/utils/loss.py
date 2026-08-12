@@ -288,14 +288,36 @@ def ts_gradient_z_l1_loss(
             ).to(dtype=pred.dtype)
 
         # Carrying the per-sample weight into BOTH sums is what keeps this a
-        # weighted mean. With sample_weight=None the batch weight is 1, so
-        # `weight` sums to `valid_cells * batch` and this is exactly the
-        # unweighted formula it replaces.
-        weight = midpoint_weight.unsqueeze(0)
+        # weighted mean. The expand is load-bearing rather than cosmetic: the
+        # denominator sums over the batch axis, so a size-1 axis here would
+        # divide a batch-summed numerator by a single sample's cell count and
+        # silently scale the whole term by the batch size. It is a free view.
+        weight = midpoint_weight.unsqueeze(0).expand(
+            pred.shape[0], -1, -1, -1, -1
+        )
         if sample_weight is not None:
-            weight = weight * sample_weight.reshape(
-                sample_weight.shape[0], 1, 1, *sample_weight.shape[-2:]
-            ).to(dtype=weight.dtype)
+            # A per-channel weight has to be split by depth pair exactly as the
+            # wet mask is: a vertical difference spans two levels, so it is
+            # valid only where BOTH of them are, hence the pairwise minimum.
+            # A single-channel weight is a surface field and broadcasts as is.
+            sample = sample_weight.to(dtype=weight.dtype)
+            channels = sample.shape[1]
+            if channels == num_times * num_vars:
+                sample = sample.reshape(
+                    sample.shape[0], num_times, num_vars, *sample.shape[-2:]
+                )
+                sample = torch.minimum(sample[:, :, upper], sample[:, :, lower])
+            elif channels == 1:
+                sample = sample.reshape(
+                    sample.shape[0], 1, 1, *sample.shape[-2:]
+                )
+            else:
+                raise ValueError(
+                    f"sample_weight has {channels} channels; TS-gradient_z needs "
+                    f"either {num_times * num_vars} (one per prognostic channel) "
+                    "or 1 (a surface field to broadcast)."
+                )
+            weight = weight * sample
         valid_cells = weight.sum(dim=(0, 3, 4))
         valid_pair = valid_cells > 0
         numerator = (grad_loss * weight).sum(dim=(0, 3, 4))

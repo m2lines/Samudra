@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Console-script entry point: ``samudra <train|eval|viz> CONFIG [OVERRIDES...]``.
+"""Console entry point for Samudra's training, evaluation, and search tasks.
 
 Installed as the ``samudra`` command (see ``[project.scripts]`` in
 pyproject.toml), so a user who ``pip install samudra`` can run
@@ -13,7 +13,7 @@ subcommand forwards to the same ``main`` the module entry points use
 
 import sys
 
-_COMMANDS = ("train", "eval", "viz")
+_COMMANDS = ("train", "eval", "viz", "search")
 
 _HELP = """\
 samudra — train and evaluate emulators of ocean physics
@@ -24,20 +24,23 @@ and surface heat flux — learned from the OM4 ocean model at 1°, 1/2°, and 1/
 resolution. See https://arxiv.org/abs/2412.03795 for the method.
 
 Usage:
-  samudra <command> CONFIG [--KEY VALUE ...]
+  samudra <command> [ARGS ...]
 
 Commands:
   train   Train a model from a config (checkpointing, W&B logging, multi-GPU).
   eval    Roll a trained model out autoregressively and collect metrics.
   viz     Render maps, time series, and PDFs from evaluation outputs.
+  search  Plan and run successive-halving architecture searches on Slurm.
 
-CONFIG is a path to a YAML file or the name of a bundled preset such as
-`samudra_om4/train.yaml`. Any config key can be overridden inline (e.g.
-`--epochs 100`); run `samudra <command> --help` for a command's full options.
+For train, eval, and viz, CONFIG is a YAML path or bundled preset such as
+`samudra_om4/train.yaml`, with inline config overrides such as `--epochs 100`.
+Search has its own `plan`, `start`, `run-task`, and `advance` subcommands. Run
+`samudra <command> --help` for details.
 
 Examples:
   samudra train samudra_om4/train.yaml --experiment.data_root ./data
   samudra eval  samudra_om4/eval.yaml  --ckpt_path ./checkpoint.pt
+  samudra search plan search.yaml
 
 Docs: https://m2lines.github.io/Samudra/docs/
 """
@@ -66,11 +69,15 @@ def main() -> None:
         from samudra.eval import main as eval_main
 
         eval_main()
-    else:  # viz
+    elif command == "viz":
         from samudra.viz.config import VizConfig
         from samudra.viz.config import main as viz_main
 
         viz_main(VizConfig.from_yaml_and_cli())
+    else:  # search
+        from samudra.search import main as search_main
+
+        search_main()
 
 
 if __name__ == "__main__":

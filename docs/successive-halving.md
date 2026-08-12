@@ -6,11 +6,14 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Successive-halving architecture searches
 
-`scripts/successive_halving.py` allocates progressively larger epoch budgets to
-promising model configurations. It implements one asynchronous Slurm-backed
-successive-halving bracket. It is a useful foundation for Hyperband, but it does
-not yet launch the multiple brackets with different initial budgets that define
-the full Hyperband algorithm.
+`samudra search` allocates progressively larger epoch budgets to promising model
+configurations. Its search models, validation, ranking, state transitions, and
+CLI live in `samudra.search`. The small
+`scripts/successive_halving_worker.sbatch` file is only the deployment adapter
+between Slurm and the package. The system implements one synchronous,
+Slurm-backed successive-halving bracket. It is a useful foundation for
+Hyperband, but does not yet launch the multiple brackets with different initial
+budgets that define the full Hyperband algorithm.
 
 Each candidate is an immutable training environment: a config plus either a
 commit-built Apptainer code layer or a pinned container image. Each array task
@@ -19,8 +22,12 @@ epoch, Samudra atomically writes `training_summary.json` beside the run. The
 promotion job reads those summaries from the shared filesystem, ranks only
 complete finite results, and submits the next array.
 
-W&B remains the place for curves and interactive analysis. Promotion does not
-depend on W&B or its network availability.
+W&B remains the place for curves and interactive analysis. A candidate keeps
+the same W&B run when promoted, because its checkpoint carries the W&B ID. The
+W&B config records the search name, manifest checksum, orchestrator and
+candidate commits, candidate name, rung, target budget, and parent checkpoint;
+numeric rung and target-budget markers are also logged. Promotion itself reads
+the local summary and therefore does not depend on W&B or network availability.
 
 ## Search lifecycle
 
@@ -54,28 +61,40 @@ Important fields:
 - `max_concurrent` limits simultaneous array tasks; Slurm may run fewer.
 - `time_by_rung` supplies a walltime for each rung; anchors use the final one.
 - `runtime.train_harness` and all layer/config paths must exist on the cluster.
+- `runtime.worker_harness` is the thin Slurm adapter; it is copied into the
+  immutable search bundle before submission.
 - `args` are ordinary Samudra CLI overrides. The controller owns `epochs`,
   `resume_ckpt_path`, output name, and W&B group.
 
 Validate and preview the maximum population at each rung:
 
 ```bash
-uv run python scripts/successive_halving.py plan search.yaml
+samudra search plan search.yaml
 ```
 
 Perform a submission dry run. This creates a self-contained state bundle and
 prints the `sbatch` commands without submitting them:
 
 ```bash
-uv run python scripts/successive_halving.py start search.yaml \
+samudra search start search.yaml \
   --state-root=/scratch/$USER/searches \
   --dry-run
 ```
 
 Launch the search by omitting `--dry-run`. The bundle contains an immutable
-manifest copy, controller and worker scripts, `state.json`, Slurm logs, and one
-CSV leaderboard per completed rung. Re-running `advance` for an already
+manifest copy, controller snapshot and checksum, worker, `state.json`, Slurm
+logs, and one CSV leaderboard per completed rung. The state records the
+orchestrator Git commit, package version, dirty status, controller/worker hashes,
+candidate commits, checkpoint lineage, Slurm job IDs, optimizer steps, and W&B
+IDs. By default `start` refuses a controller checkout with tracked changes.
+`--allow-dirty` exists for deliberate development probes, but the bundle hash
+makes that weaker provenance explicit. Re-running `advance` for an already
 advanced rung fails loudly so a retry cannot duplicate promotions.
+
+The bundled controller is what delayed promotion jobs execute, so a checkout or
+package update cannot silently change a running search. For a wheel or container
+without Git metadata, set `SAMUDRA_CODE_COMMIT` to the immutable package commit;
+otherwise `start` refuses to launch.
 
 ## Experimental use
 

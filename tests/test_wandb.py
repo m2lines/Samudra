@@ -82,3 +82,23 @@ def test_wandb_resume_setup_loads_metadata_on_cpu(tmp_path, monkeypatch):
     assert init_kwargs["id"] == "run-123"
     assert init_kwargs["name"] == "resume-me"
     assert init_kwargs["dir"] == tmp_path
+
+
+def test_wandb_config_records_search_identity(tmp_path, monkeypatch):
+    monkeypatch.setenv("SAMUDRA_SEARCH_NAME", "perceiver-search")
+    monkeypatch.setenv("SAMUDRA_SEARCH_MANIFEST_SHA256", "manifest-hash")
+    monkeypatch.setenv("SAMUDRA_SEARCH_CANDIDATE", "direct-query")
+    monkeypatch.setenv("SAMUDRA_SEARCH_RUNG", "2")
+
+    with MultitonScope():
+        logger = WandBLogger.init_instance()
+        config = logger._make_config(
+            cast(Any, DummyConfig(tmp_path)), cast(Any, DummyDataContainer())
+        )
+
+    assert config["search"] == {
+        "name": "perceiver-search",
+        "manifest_sha256": "manifest-hash",
+        "candidate": "direct-query",
+        "rung": "2",
+    }

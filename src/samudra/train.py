@@ -253,17 +253,19 @@ class Trainer:
             f"world_size={self.world_size})"
         )
         if self.is_wandb_enabled():
-            self.wandb_logger.log(
-                {
-                    "config/effective_batch_size": global_effective_batch_size,
-                    "config/local_batch_size": cfg.batch_size,
-                    "config/local_effective_batch_size": local_effective_batch_size,
-                    "config/world_size": self.world_size,
-                    "config/global_microbatch_size": global_microbatch_size,
-                    "config/global_effective_batch_size": global_effective_batch_size,
-                },
-                step=0,
-            )
+            initial_metrics: dict[str, int] = {
+                "config/effective_batch_size": global_effective_batch_size,
+                "config/local_batch_size": cfg.batch_size,
+                "config/local_effective_batch_size": local_effective_batch_size,
+                "config/world_size": self.world_size,
+                "config/global_microbatch_size": global_microbatch_size,
+                "config/global_effective_batch_size": global_effective_batch_size,
+            }
+            if rung := os.environ.get("SAMUDRA_SEARCH_RUNG"):
+                initial_metrics["search/rung"] = int(rung)
+            if target_epochs := os.environ.get("SAMUDRA_SEARCH_TARGET_EPOCHS"):
+                initial_metrics["search/target_epochs"] = int(target_epochs)
+            self.wandb_logger.log(initial_metrics, step=0)
 
         self.num_batches_seen = 0
         self.best_val_loss = 1e8
@@ -470,6 +472,47 @@ class Trainer:
                         "progress": self.train_progress.state_dict(),
                         "wandb_id": self.wandb_id,
                         "wandb_name": self.wandb_name,
+                        "search": {
+                            "name": os.environ.get("SAMUDRA_SEARCH_NAME"),
+                            "manifest_sha256": os.environ.get(
+                                "SAMUDRA_SEARCH_MANIFEST_SHA256"
+                            ),
+                            "orchestrator_commit": os.environ.get(
+                                "SAMUDRA_SEARCH_ORCHESTRATOR_COMMIT"
+                            ),
+                            "candidate": os.environ.get("SAMUDRA_SEARCH_CANDIDATE"),
+                            "candidate_commit": os.environ.get(
+                                "SAMUDRA_SEARCH_CANDIDATE_COMMIT"
+                            ),
+                            "rung": os.environ.get("SAMUDRA_SEARCH_RUNG"),
+                            "target_epochs": os.environ.get(
+                                "SAMUDRA_SEARCH_TARGET_EPOCHS"
+                            ),
+                            "parent_checkpoint": os.environ.get(
+                                "SAMUDRA_SEARCH_PARENT_CHECKPOINT"
+                            ),
+                            "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
+                            "slurm_array_job_id": os.environ.get("SLURM_ARRAY_JOB_ID"),
+                            "slurm_array_task_id": os.environ.get(
+                                "SLURM_ARRAY_TASK_ID"
+                            ),
+                        },
+                        "provenance": {
+                            "code_commit": os.environ.get("SAMUDRA_CODE_COMMIT"),
+                            "code_repo_url": os.environ.get("SAMUDRA_CODE_REPO_URL"),
+                            "code_layer_sha256": os.environ.get(
+                                "SAMUDRA_CODE_LAYER_SHA256"
+                            ),
+                            "container_git_commit": os.environ.get(
+                                "SAMUDRA_CONTAINER_GIT_COMMIT"
+                            ),
+                            "container_image_ref": os.environ.get(
+                                "SAMUDRA_CONTAINER_IMAGE_REF"
+                            ),
+                            "container_sif_path": os.environ.get(
+                                "SAMUDRA_CONTAINER_SIF_PATH"
+                            ),
+                        },
                     },
                 )
 

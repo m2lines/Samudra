@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -11,6 +9,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import importlib.metadata
 import json
 import math
 import os
@@ -77,7 +76,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
         _die("metric must be a non-empty training-summary key")
 
     runtime = _require(manifest, "runtime", dict)
-    for key in ("output_base", "train_harness"):
+    for key in ("output_base", "train_harness", "worker_harness"):
         _require(runtime, key, str)
     slurm = _require(manifest, "slurm", dict)
     for key in ("account", "partition"):
@@ -109,9 +108,7 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
         if not isinstance(args, list) or any(not isinstance(arg, str) for arg in args):
             _die(f"Candidate {name!r} args must be a list of strings")
         commit = candidate.get("code_commit")
-        if commit is not None and (
-            not isinstance(commit, str) or re.fullmatch(r"[0-9a-f]{40}", commit) is None
-        ):
+        if not isinstance(commit, str) or re.fullmatch(r"[0-9a-f]{40}", commit) is None:
             _die(f"Candidate {name!r} code_commit must be a full 40-character SHA")
     if all(candidate.get("fixed") for candidate in candidates):
         _die("At least one non-fixed candidate is required for promotion")
@@ -139,6 +136,76 @@ def _load_state(path: Path) -> dict[str, Any]:
 
 def _manifest_hash(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _file_hash(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _orchestrator_provenance(*, allow_dirty: bool) -> dict[str, Any]:
+    """Identify the exact search controller source being snapshotted."""
+    environment_commit = os.environ.get("SAMUDRA_CODE_COMMIT")
+    try:
+        root = subprocess.run(
+            [
+                "git",
+                "-C",
+                str(Path(__file__).resolve().parent),
+                "rev-parse",
+                "--show-toplevel",
+            ],
+            check=True,
+            text=True,
+            capture_output=True,
+        ).stdout.strip()
+        commit = subprocess.run(
+            ["git", "-C", root, "rev-parse", "HEAD"],
+            check=True,
+            text=True,
+            capture_output=True,
+        ).stdout.strip()
+        dirty = bool(
+            subprocess.run(
+                ["git", "-C", root, "status", "--porcelain", "--untracked-files=no"],
+                check=True,
+                text=True,
+                capture_output=True,
+            ).stdout.strip()
+        )
+        if dirty and not allow_dirty:
+            _die(
+                "The Samudra checkout containing the search controller has tracked "
+                "changes. Commit them or pass --allow-dirty; the bundle still "
+                "records a source checksum when dirty execution is intentional."
+            )
+        if environment_commit is not None and environment_commit != commit:
+            _die(
+                f"SAMUDRA_CODE_COMMIT={environment_commit} does not match the "
+                f"controller checkout at {commit}"
+            )
+        return {
+            "commit": commit,
+            "git_commit": commit,
+            "git_root": root,
+            "dirty": dirty,
+            "package_version": importlib.metadata.version("samudra"),
+        }
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        if (
+            environment_commit is None
+            or re.fullmatch(r"[0-9a-f]{40}", environment_commit) is None
+        ):
+            _die(
+                "Could not identify the search controller Git commit. Run from a "
+                "checkout or set SAMUDRA_CODE_COMMIT to the immutable package commit."
+            )
+        return {
+            "commit": environment_commit,
+            "git_commit": None,
+            "git_root": None,
+            "dirty": None,
+            "package_version": importlib.metadata.version("samudra"),
+        }
 
 
 def _candidate_map(manifest: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -178,7 +245,7 @@ def _submit_rung(
     slurm = _load_yaml(manifest_path)["slurm"]
     bundle_dir = state_path.parent
     worker = bundle_dir / "successive_halving_worker.sbatch"
-    script = bundle_dir / "successive_halving.py"
+    controller = bundle_dir / "search_controller.py"
     python = str(slurm.get("python", sys.executable))
     maximum = int(slurm.get("max_concurrent", len(active)))
     array = f"0-{len(active) - 1}%{max(1, maximum)}"
@@ -193,7 +260,7 @@ def _submit_rung(
         (
             "ALL",
             f"HALVING_PYTHON={python}",
-            f"HALVING_SCRIPT={script}",
+            f"HALVING_SCRIPT={controller}",
             f"HALVING_MANIFEST={manifest_path}",
             f"HALVING_STATE={state_path}",
             f"HALVING_RUNG={rung_index}",
@@ -225,7 +292,7 @@ def _submit_rung(
     advance = shlex.join(
         [
             python,
-            str(script),
+            str(controller),
             "advance",
             str(manifest_path),
             str(state_path),
@@ -278,7 +345,7 @@ def _submit_anchors(
         (
             "ALL",
             f"HALVING_PYTHON={python}",
-            f"HALVING_SCRIPT={bundle_dir / 'successive_halving.py'}",
+            f"HALVING_SCRIPT={bundle_dir / 'search_controller.py'}",
             f"HALVING_MANIFEST={manifest_path}",
             f"HALVING_STATE={state_path}",
             f"HALVING_RUNG={len(manifest['rungs']) - 1}",
@@ -312,18 +379,32 @@ def _submit_anchors(
     _atomic_json(state_path, state)
 
 
-def start(manifest_source: Path, state_root: Path, *, dry_run: bool) -> Path:
+def start(
+    manifest_source: Path,
+    state_root: Path,
+    *,
+    dry_run: bool,
+    allow_dirty: bool = False,
+) -> Path:
     manifest = _load_yaml(manifest_source)
     validate_manifest(manifest)
+    provenance = _orchestrator_provenance(allow_dirty=allow_dirty)
+    worker_source = Path(manifest["runtime"]["worker_harness"])
+    if not worker_source.is_file():
+        _die(f"Worker harness does not exist: {worker_source}")
     search_dir = state_root / _slug(manifest["name"])
     if search_dir.exists():
         _die(f"Search state already exists: {search_dir}")
     search_dir.mkdir(parents=True)
     manifest_path = search_dir / "manifest.yaml"
     shutil.copy2(manifest_source, manifest_path)
-    shutil.copy2(Path(__file__), search_dir / "successive_halving.py")
-    shutil.copy2(
-        Path(__file__).with_name("successive_halving_worker.sbatch"), search_dir
+    controller_path = search_dir / "search_controller.py"
+    worker_path = search_dir / "successive_halving_worker.sbatch"
+    shutil.copy2(Path(__file__), controller_path)
+    shutil.copy2(worker_source, worker_path)
+    provenance.update(
+        controller_sha256=_file_hash(controller_path),
+        worker_sha256=_file_hash(worker_path),
     )
     state_path = search_dir / "state.json"
     initial = [
@@ -340,6 +421,7 @@ def start(manifest_source: Path, state_root: Path, *, dry_run: bool) -> Path:
         "schema_version": SCHEMA_VERSION,
         "name": manifest["name"],
         "manifest_sha256": _manifest_hash(manifest_path),
+        "orchestrator": provenance,
         "status": "prepared",
         "anchors": {"candidates": anchors, "results": []},
         "rungs": [
@@ -405,8 +487,16 @@ def run_task(
             "NAME": output_dir.name,
             "OUTPUT_BASE": str(output_dir.parent),
             "WANDB_MODE": str(runtime.get("wandb_mode", "online")),
+            "SAMUDRA_SEARCH_NAME": manifest["name"],
+            "SAMUDRA_SEARCH_MANIFEST_SHA256": state["manifest_sha256"],
+            "SAMUDRA_SEARCH_ORCHESTRATOR_COMMIT": str(state["orchestrator"]["commit"]),
+            "SAMUDRA_SEARCH_CANDIDATE": candidate_name,
+            "SAMUDRA_SEARCH_RUNG": str(rung_index),
+            "SAMUDRA_SEARCH_TARGET_EPOCHS": str(epoch),
         }
     )
+    if commit := candidate.get("code_commit"):
+        environment["SAMUDRA_SEARCH_CANDIDATE_COMMIT"] = commit
     for key in (
         "data_root",
         "scratch_dir",
@@ -434,6 +524,7 @@ def run_task(
         if not checkpoint.is_file():
             _die(f"Promotion checkpoint does not exist: {checkpoint}")
         overrides.append(f"--resume_ckpt_path={checkpoint}")
+        environment["SAMUDRA_SEARCH_PARENT_CHECKPOINT"] = str(checkpoint)
     environment["ARGS"] = shlex.join(overrides)
     print(
         f"candidate={candidate_name} rung={rung_index} epochs={epoch} "
@@ -471,7 +562,21 @@ def _read_results(
                 _die("ranking metric is not finite")
             if not (output / CHECKPOINT_RELATIVE_PATH).is_file():
                 _die("latest checkpoint is missing")
+            actual_commit = summary.get("provenance", {}).get("code_commit")
+            expected_commit = _candidate_map(manifest)[name]["code_commit"]
+            if actual_commit != expected_commit:
+                _die(
+                    f"completed run reports code commit {actual_commit!r}, "
+                    f"expected {expected_commit}"
+                )
             result.update(eligible=True, score=float(score))
+            result.update(
+                wandb_id=summary.get("wandb_id"),
+                wandb_name=summary.get("wandb_name"),
+                slurm_job_id=summary.get("search", {}).get("slurm_job_id"),
+                parent_checkpoint=summary.get("search", {}).get("parent_checkpoint"),
+                optimizer_steps=summary.get("progress", {}).get("optimizer_steps"),
+            )
         except (
             OSError,
             KeyError,
@@ -507,6 +612,11 @@ def _write_leaderboard(path: Path, results: list[dict[str, Any]]) -> None:
                 "eligible",
                 "output_dir",
                 "summary",
+                "wandb_id",
+                "wandb_name",
+                "slurm_job_id",
+                "parent_checkpoint",
+                "optimizer_steps",
                 "error",
             ),
             extrasaction="ignore",
@@ -604,6 +714,7 @@ def parse_args() -> argparse.Namespace:
     start_parser.add_argument("manifest", type=Path)
     start_parser.add_argument("--state-root", type=Path, required=True)
     start_parser.add_argument("--dry-run", action="store_true")
+    start_parser.add_argument("--allow-dirty", action="store_true")
     run_parser = subparsers.add_parser("run-task")
     run_parser.add_argument("manifest", type=Path)
     run_parser.add_argument("state", type=Path)
@@ -623,7 +734,14 @@ def main() -> None:
     if args.command == "plan":
         plan(args.manifest)
     elif args.command == "start":
-        print(start(args.manifest, args.state_root, dry_run=args.dry_run))
+        print(
+            start(
+                args.manifest,
+                args.state_root,
+                dry_run=args.dry_run,
+                allow_dirty=args.allow_dirty,
+            )
+        )
     elif args.command == "run-task":
         run_task(
             args.manifest,

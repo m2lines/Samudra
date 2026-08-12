@@ -4,7 +4,8 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Resource directives are supplied by successive_halving.py.
+# Thin Slurm adapter. Resource directives and immutable controller paths are
+# supplied by `samudra search start` when it snapshots the search bundle.
 set -euo pipefail
 
 : "${HALVING_PYTHON:?Missing HALVING_PYTHON}"

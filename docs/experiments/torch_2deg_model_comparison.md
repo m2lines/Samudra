@@ -74,6 +74,13 @@ trained models.
 | Samudra Direct | 15655378 | `7uuxmov0` | Completed; peak GPU memory about 12 GiB |
 | Samudra U-Net | 15655379 | `736ti5gx` | Pending completion at time of entry |
 
+The reduced requests allowed the three retry jobs to start together on node
+`gr102`. That exposed a launcher issue: each job inherited port 40000 for its
+single-process distributed group. Jobs 15655627 and 15655629 collided; the
+harness now derives a distinct `MASTER_PORT` from the Slurm job ID. Job
+15655628 retained the port and continued, so the collided jobs are retried
+without treating this as a model result.
+
 ## Run ledger
 
 | Role | Commit | Slurm | W&B | State | Best validation MSE |

@@ -47,6 +47,9 @@ export WANDB_GIT_COMMIT="${CODE_COMMIT}"
 export WANDB_MODE=online
 export OMP_NUM_THREADS="${SLURM_CPUS_PER_TASK}"
 export PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True"
+# Torch may pack several single-GPU jobs onto one node. Avoid their process
+# groups all attempting to bind Samudra's default port 40000.
+export MASTER_PORT="$((10000 + SLURM_JOB_ID % 50000))"
 export DATA_CACHE_DIR="/scratch/${CURRENT_USER}/.data_cache/${NAME}"
 read -r -a extra_args <<< "${ARGS:-}"
 

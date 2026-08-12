@@ -12,7 +12,11 @@ import torch
 
 from samudra.config import CpuDataLoadingConfig, DynamicLossConfig, TrainConfig
 from samudra.models.base import BaseModel
-from samudra.train import Trainer, should_run_on_epoch_freq
+from samudra.train import (
+    Trainer,
+    should_log_validation_images,
+    should_run_on_epoch_freq,
+)
 from samudra.utils.ctx import GridContext
 from samudra.utils.loss import DynamicLoss
 from samudra.utils.multiton import MultitonScope
@@ -282,6 +286,23 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
     assert trainer.train_progress.target_values_seen == 48
     assert trainer.train_progress.optimizer_steps == 3
     assert trainer.train_progress.gpu_seconds == 12.5
+
+
+def test_should_log_validation_images_every_n_epochs():
+    assert [
+        epoch for epoch in range(1, 26) if should_log_validation_images(epoch, 10)
+    ] == [1, 11, 21]
+
+
+def test_should_log_validation_images_rejects_invalid_inputs():
+    with pytest.raises(ValueError, match="Epoch must be >= 1"):
+        should_log_validation_images(0, 10)
+
+    with pytest.raises(ValueError, match="Frequency must be >= 1"):
+        should_run_on_epoch_freq(1, 0)
+
+    with pytest.raises(ValueError, match="Validation image log frequency"):
+        should_log_validation_images(1, 0)
 
 
 def test_should_run_on_epoch_freq_every_n_epochs():

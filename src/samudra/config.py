@@ -1093,6 +1093,66 @@ class ProfilerConfig(BaseConfig):
         return Profiler(output_dir, self.cuda_snapshot_frequency)
 
 
+class RolloutValidationConfig(BaseConfig):
+    """Configuration for expensive autoregressive validation during training."""
+
+    model_steps: int = Field(
+        default=-1,
+        ge=-1,
+        description=(
+            "Number of autoregressive model steps to run over val_time for "
+            "raw-field rollout validation. Use -1 to use the full validation "
+            "period. Set rollout_validation to null to disable this path. "
+            "Ignored when days is set."
+        ),
+    )
+    days: list[int] = Field(
+        default_factory=list,
+        description=(
+            "Forecast-day horizons to run over val_time for raw-field rollout "
+            "validation, e.g. [30, 90, 180, 360]. Takes precedence over "
+            "model_steps."
+        ),
+    )
+    steps_forward: int = Field(
+        default=1,
+        ge=1,
+        description=(
+            "Number of autoregressive model steps to run per rollout validation "
+            "chunk before recording metrics. Higher values reduce CPU/GPU "
+            "synchronization overhead but increase target materialization memory."
+        ),
+    )
+    frequency: int = Field(
+        default=1,
+        ge=1,
+        description=(
+            "How often to run rollout validation, in epochs. Epochs are 1-based, "
+            "so a value of 10 runs on epochs 1, 11, 21, ..."
+        ),
+    )
+
+    @pydantic.field_validator("model_steps")
+    @classmethod
+    def _model_steps_must_enable_rollout(cls, model_steps: int) -> int:
+        if model_steps == 0:
+            raise ValueError(
+                "rollout_validation.model_steps must be positive or -1; set "
+                "rollout_validation to null to disable rollout validation"
+            )
+        return model_steps
+
+    @pydantic.field_validator("days")
+    @classmethod
+    def _days_must_be_positive(cls, days: list[int]) -> list[int]:
+        invalid_days = [day for day in days if day <= 0]
+        if invalid_days:
+            raise ValueError(
+                f"rollout_validation.days must be positive, got {invalid_days}"
+            )
+        return days
+
+
 # See backend.py for how these are turned into concrete devices
 TrainBackendConfig = Literal["cpu", "cuda", "nccl", "auto"]
 
@@ -1165,40 +1225,7 @@ class TrainConfig(TopLevelConfig):
             "a value of 10 logs on epochs 1, 11, 21, ..."
         ),
     )
-    rollout_validation_steps: int = Field(
-        default=0,
-        ge=-1,
-        description=(
-            "Number of autoregressive model steps to run over val_time for "
-            "raw-field rollout validation. Use 0 to disable and -1 to use the "
-            "full validation period. Ignored when rollout_validation_days is set."
-        ),
-    )
-    rollout_validation_days: list[int] = Field(
-        default=[],
-        description=(
-            "Forecast-day horizons to run over val_time for raw-field rollout "
-            "validation, e.g. [30, 90, 180, 360]. Takes precedence over "
-            "rollout_validation_steps."
-        ),
-    )
-    rollout_validation_steps_forward: int = Field(
-        default=1,
-        ge=1,
-        description=(
-            "Number of autoregressive model steps to run per rollout validation "
-            "chunk before recording metrics. Higher values reduce CPU/GPU "
-            "synchronization overhead but increase target materialization memory."
-        ),
-    )
-    rollout_validation_freq: int = Field(
-        default=1,
-        ge=1,
-        description=(
-            "How often to run rollout validation, in epochs. Epochs are 1-based, "
-            "so a value of 10 runs on epochs 1, 11, 21, ..."
-        ),
-    )
+    rollout_validation: RolloutValidationConfig | None = None
     epochs: int = 120
     preemptible: bool = True
     batch_size: int = 2

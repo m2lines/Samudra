@@ -5,10 +5,11 @@
 import re
 
 import torch
+from einops import rearrange
 
 from samudra.aggregator.metrics import area_weighted_rmse
-from samudra.constants import TensorMap
-from samudra.utils.data import Normalize, get_aggregator_dicts
+from samudra.constants import DatasetSpec, PrognosticVarNames
+from samudra.utils.data import Normalize
 from samudra.utils.device import get_device
 from samudra.utils.distributed import all_reduce_mean
 from samudra.utils.output import ModelInferenceOutput
@@ -56,10 +57,10 @@ def _split_depth_name(name: str) -> tuple[str, str | None]:
     return match.group("base"), match.group("depth")
 
 
-def _depth_band(depth_index: int | None, tensor_map: TensorMap) -> str:
+def _depth_band(depth_index: int | None, dataset_spec: DatasetSpec) -> str:
     if depth_index is None:
         return "surface"
-    depth = tensor_map.dataset_spec.depth_levels[depth_index]
+    depth = dataset_spec.depth_levels[depth_index]
     if depth < 700:
         return "upper"
     if depth < 2000:
@@ -67,10 +68,36 @@ def _depth_band(depth_index: int | None, tensor_map: TensorMap) -> str:
     return "deep"
 
 
-def _depth_weight(depth_index: int | None, tensor_map: TensorMap) -> float:
+def _depth_weight(depth_index: int | None, dataset_spec: DatasetSpec) -> float:
     if depth_index is None:
         return 1.0
-    return float(tensor_map.dataset_spec.depth_thickness[depth_index])
+    return float(dataset_spec.depth_thickness[depth_index])
+
+
+def _get_raw_rollout_dict(
+    data: torch.Tensor,
+    *,
+    hist: int,
+    normalize: Normalize,
+    field_names: tuple[str, ...],
+) -> dict[str, torch.Tensor]:
+    data_reshaped = rearrange(
+        data,
+        "n (hi c) h w -> (n hi) c h w",
+        hi=hist + 1,
+    ).unsqueeze(0)
+    data_unnorm = normalize.unnormalize_tensor_prognostic(
+        data_reshaped,
+        fill_value=float("nan"),
+    )
+    if data_unnorm.shape[2] != len(field_names):
+        raise RuntimeError(
+            f"Expected {len(field_names)} prognostic channels, got "
+            f"{data_unnorm.shape[2]}"
+        )
+    return {
+        name: data_unnorm[:, :, channel] for channel, name in enumerate(field_names)
+    }
 
 
 class RolloutValidationAggregator:
@@ -81,18 +108,15 @@ class RolloutValidationAggregator:
         *,
         hist: int,
         area_weights: torch.Tensor,
-        wet: torch.Tensor,
-        num_prognostic_channels: int,
         normalize: Normalize,
-        tensor_map: TensorMap,
+        dataset_spec: DatasetSpec,
+        prognostic_var_names: PrognosticVarNames,
         distributed_reduce: bool = True,
     ):
         self.hist = hist
-        self._wet = wet
-        self._num_prognostic_channels = num_prognostic_channels
         self._normalize = normalize
-        self._tensor_map = tensor_map
-        self._raw_field_names = tuple(tensor_map.prognostic_var_names)
+        self._dataset_spec = dataset_spec
+        self._raw_field_names = tuple(prognostic_var_names)
         self._field_metrics = {
             name: _MeanStepAreaWeightedRmse(
                 area_weights, distributed_reduce=distributed_reduce
@@ -106,25 +130,17 @@ class RolloutValidationAggregator:
         if len(data.target) == 0:
             raise ValueError("No target values in data")
 
-        _, target_unnorm = get_aggregator_dicts(
+        target_unnorm = _get_raw_rollout_dict(
             data.target,
-            normalize=self._normalize,
-            tensor_map=self._tensor_map,
-            wet=self._wet,
-            long_rollout=True,
-            input_type="prognostic",
-            num_prognostic_channels=self._num_prognostic_channels,
             hist=self.hist,
+            normalize=self._normalize,
+            field_names=self._raw_field_names,
         )
-        _, gen_unnorm = get_aggregator_dicts(
+        gen_unnorm = _get_raw_rollout_dict(
             data.prediction,
-            normalize=self._normalize,
-            tensor_map=self._tensor_map,
-            wet=self._wet,
-            long_rollout=True,
-            input_type="prognostic",
-            num_prognostic_channels=self._num_prognostic_channels,
             hist=self.hist,
+            normalize=self._normalize,
+            field_names=self._raw_field_names,
         )
 
         for name in self._raw_field_names:
@@ -143,8 +159,8 @@ class RolloutValidationAggregator:
             rmse = metric.rmse()
             base_var, depth = _split_depth_name(name)
             depth_index = int(depth) if depth is not None else None
-            band = _depth_band(depth_index, self._tensor_map)
-            weight = _depth_weight(depth_index, self._tensor_map)
+            band = _depth_band(depth_index, self._dataset_spec)
+            weight = _depth_weight(depth_index, self._dataset_spec)
             values_by_base_var.setdefault(base_var, []).append(rmse)
             values_by_depth_band.setdefault(base_var, {}).setdefault(band, []).append(
                 (rmse, weight)

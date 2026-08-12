@@ -12,6 +12,7 @@ rollouts (``run_rollout``).
 import logging
 from collections.abc import Callable, Mapping
 from functools import partial
+from itertools import batched, pairwise
 from os import PathLike
 
 import torch
@@ -72,16 +73,12 @@ def _get_rollout_step_chunks(
     boundary_steps = sorted(
         boundary for boundary in set(boundaries) if 0 < boundary < total_steps
     )
-    chunks = []
-    step = 0
-    while step < total_steps:
-        next_step = min(step + num_model_steps_forward, total_steps)
-        for boundary in boundary_steps:
-            if step < boundary < next_step:
-                next_step = boundary
-                break
-        chunks.append(next_step - step)
-        step = next_step
+    chunks: list[int] = []
+    for start, stop in pairwise((0, *boundary_steps, total_steps)):
+        chunks.extend(
+            len(step_batch)
+            for step_batch in batched(range(start, stop), num_model_steps_forward)
+        )
     return chunks
 
 

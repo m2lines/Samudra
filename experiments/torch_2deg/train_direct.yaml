@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+debug: false
+disk_mode: true
+pin_mem: true
+save_freq: 4
+epochs: 12
+batch_size: 8
+gradient_accumulation_steps: 4
+learning_rate: 0.0006
+scheduler: null
+loss: mse
+finetune: false
+resume_ckpt_path: null
+inference_epochs: []
+data_stride: [1]
+steps: [4]
+step_transition: []
+preemptible: false
+backend: auto
+experiment:
+  name: torch-2deg-samudra-direct-seed15
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: online
+    entity: ocean_emulators
+    project: default
+    group: torch-2deg-perceiver-20260812
+    tags: [torch-hpc, om4-2deg, full-data, seed15, samudra-direct, native-grid]
+    notes: Jesse native-grid direct encoder/decoder reference with the matched 2-degree budget.
+data: !include public_data.yaml
+model: !include model_direct.yaml

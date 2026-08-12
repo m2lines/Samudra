@@ -24,6 +24,7 @@ Metrics = Mapping[str, float | torch.Tensor | WBValue]
 MetricsDict = dict[str, float | torch.Tensor | WBValue]
 
 PROVENANCE_CONFIG_KEY = "provenance"
+SEARCH_CONFIG_KEY = "search"
 
 if TYPE_CHECKING:
     from samudra.config import AnyTopLevelConfig
@@ -62,6 +63,23 @@ class WandBLogger(Multiton):
         }
         if provenance:
             config[PROVENANCE_CONFIG_KEY] = provenance
+        search_env = {
+            "name": "SAMUDRA_SEARCH_NAME",
+            "manifest_sha256": "SAMUDRA_SEARCH_MANIFEST_SHA256",
+            "orchestrator_commit": "SAMUDRA_SEARCH_ORCHESTRATOR_COMMIT",
+            "candidate": "SAMUDRA_SEARCH_CANDIDATE",
+            "candidate_commit": "SAMUDRA_SEARCH_CANDIDATE_COMMIT",
+            "rung": "SAMUDRA_SEARCH_RUNG",
+            "target_epochs": "SAMUDRA_SEARCH_TARGET_EPOCHS",
+            "parent_checkpoint": "SAMUDRA_SEARCH_PARENT_CHECKPOINT",
+        }
+        search = {
+            name: value
+            for name, env_var in search_env.items()
+            if (value := os.environ.get(env_var))
+        }
+        if search:
+            config[SEARCH_CONFIG_KEY] = search
         return config
 
     def setup_run(

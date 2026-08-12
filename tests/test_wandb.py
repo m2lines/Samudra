@@ -89,6 +89,7 @@ def test_wandb_config_records_search_identity(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUDRA_SEARCH_MANIFEST_SHA256", "manifest-hash")
     monkeypatch.setenv("SAMUDRA_SEARCH_CANDIDATE", "direct-query")
     monkeypatch.setenv("SAMUDRA_SEARCH_RUNG", "2")
+    monkeypatch.setenv("SAMUDRA_SEARCH_COMPUTE_BACKEND", "local")
 
     with MultitonScope():
         logger = WandBLogger.init_instance()
@@ -101,4 +102,5 @@ def test_wandb_config_records_search_identity(tmp_path, monkeypatch):
         "manifest_sha256": "manifest-hash",
         "candidate": "direct-query",
         "rung": "2",
+        "compute_backend": "local",
     }

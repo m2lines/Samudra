@@ -208,8 +208,12 @@ class MetricLogger:
         MB = 1024.0 * 1024.0
         for obj in data_loader:
             data_wait_time.update(time.perf_counter() - end)
-            if obj.load_stats is not None:
-                data_load_time.update(obj.load_stats.load_time_seconds)
+            # `load_stats` is an optional extra metric, so this logs progress over
+            # any iterable rather than only over TrainData. Requiring the
+            # attribute turned every other kind of caller into an AttributeError.
+            load_stats = getattr(obj, "load_stats", None)
+            if load_stats is not None:
+                data_load_time.update(load_stats.load_time_seconds)
             yield obj
             iter_time.update(time.perf_counter() - end)
             display_index = start_index + i

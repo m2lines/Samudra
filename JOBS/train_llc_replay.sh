@@ -2,7 +2,7 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-08-11:samudra_rb_llc:4-tile_group-experiment
+#SBATCH --job-name=2026-08-11:samudra_rb_llc:4-tile_group-experiment-faster
 #SBATCH -x node4100,node3401,node3000
 #SBATCH -N 1
 #SBATCH --mem=254GB
@@ -75,8 +75,8 @@ fi
 
 # GPUS / DATA WORKERS
 GPUS="${GPUS:-1}"
-DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-6}"
-DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-6}"
+DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-12}"
+DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-8}"
 BLOSC_THREADS="${BLOSC_THREADS:-1}"
 export OCEAN_BLOSC_THREADS="${OCEAN_BLOSC_THREADS:-${BLOSC_THREADS}}"
 BATCH_SIZE="${BATCH_SIZE:-2}"

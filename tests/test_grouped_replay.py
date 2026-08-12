@@ -402,3 +402,35 @@ def test_disowned_cells_cannot_affect_the_score() -> None:
     wet = torch.ones(2, TILE, TILE, dtype=torch.bool)
     loss = decomposed_mse_mae(corrupted, truth, wet=wet, sample_weight=weight)
     assert float(loss.abs().max()) == 0.0
+
+
+# --------------------------------------------------------------------------
+# Progress logging over a non-loader iterable
+# --------------------------------------------------------------------------
+
+
+def test_log_every_accepts_a_plain_iterable() -> None:
+    """Regression: grouped one-step validation iterates val *indices*, not
+    TrainData. Requiring a `load_stats` attribute made the first validation of
+    every grouped run die with AttributeError on an int."""
+    from ocean_emulators.utils.logging import MetricLogger
+
+    logger = MetricLogger(delimiter="  ")
+    assert list(logger.log_every([3, 5, 7], 1, "plain ints")) == [3, 5, 7]
+
+
+def test_log_every_still_records_load_stats_when_present() -> None:
+    """The tolerant lookup must not quietly stop reporting loader timings."""
+    from types import SimpleNamespace
+
+    from ocean_emulators.utils.logging import MetricLogger
+
+    logger = MetricLogger(delimiter="  ")
+    items = [
+        SimpleNamespace(load_stats=SimpleNamespace(load_time_seconds=1.5)),
+        SimpleNamespace(load_stats=SimpleNamespace(load_time_seconds=2.5)),
+    ]
+    consumed = list(logger.log_every(items, 1, "with stats"))
+
+    assert consumed == items
+    assert logger.meters["data_load_time"].total == pytest.approx(4.0)

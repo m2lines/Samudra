@@ -136,6 +136,7 @@ class InferenceDataset(Dataset):
         long_rollout,
         inference_stride: int = 1,
         append_spatial_features_to_inputs: bool = False,
+        log_long_rollout: bool = True,
     ):
         super().__init__()
         self.device = get_device()
@@ -185,7 +186,7 @@ class InferenceDataset(Dataset):
         )  # Skip indices based on history
         self.rolling_indices = self.rolling_indices.astype(int)
 
-        if long_rollout:
+        if long_rollout and log_long_rollout:
             logger.info(
                 f"Long rollout will use input at time {data.time.values[0]} and produce"
                 f" output at {data.time.values[self.hist + 1]}"

@@ -138,6 +138,10 @@ AUTOREGRESSIVE_VAL_BARRIER_TIMEOUT = datetime.timedelta(hours=12)
 #: tell that an older checkpoint's value is on a different scale.
 BEST_VAL_LOSS_METRIC = "one_step_and_autoregressive_mean"
 
+#: Grouped rollouts can run for hundreds of full-resolution steps. Log enough
+#: progress to expose a slow data path or memory problem without flooding stdout.
+GROUPED_AUTOREGRESSIVE_VAL_LOG_EVERY = 12
+
 
 class GracefulStopRequested(RuntimeError):
     """Raised when training should stop after writing an emergency checkpoint."""
@@ -3415,6 +3419,17 @@ class Trainer:
         )
 
         for run, window in enumerate(plan.windows):
+            log_prefix = (
+                f"{spec.label.capitalize()} grouped autoregressive validation "
+                f"[run {run + 1} of {len(plan.windows)}]"
+            )
+            logger.info(
+                "%s: rolling out %d steps from val_time index %d over %d tiles.",
+                log_prefix,
+                num_steps,
+                window.start_index,
+                len(group_sources),
+            )
             datasets = [
                 InferenceDataset(
                     src=source.map_data(
@@ -3433,6 +3448,9 @@ class Trainer:
                     masked_fill_value=self.normalize_fill_value,
                     long_rollout=True,
                     append_spatial_features_to_inputs=self.replay_spatial_features,
+                    # The grouped-run line above is the useful summary. Avoid
+                    # repeating the same local timestamp once per tile.
+                    log_long_rollout=False,
                 )
                 for source in group_sources
             ]
@@ -3442,18 +3460,13 @@ class Trainer:
                     f"{num_steps} steps from val_time index {window.start_index}, "
                     "but the window is shorter than that."
                 )
-            logger.info(
-                "%s grouped autoregressive validation [run %d of %d]: rolling "
-                "out %d steps from val_time index %d over %d tiles.",
-                spec.label.capitalize(),
-                run + 1,
-                len(plan.windows),
-                num_steps,
-                window.start_index,
-                len(datasets),
-            )
             self._record_grouped_rollout(
-                model, datasets, group, aggregator, num_steps=num_steps
+                model,
+                datasets,
+                group,
+                aggregator,
+                num_steps=num_steps,
+                log_prefix=log_prefix,
             )
 
         logger.info(
@@ -3471,10 +3484,11 @@ class Trainer:
         aggregator: RolloutValidationAggregator,
         *,
         num_steps: int,
+        log_prefix: str,
     ) -> None:
         """Advance every tile in lockstep, reconciling overlaps between steps."""
         state = [dataset.initial_prognostic.to(self.device) for dataset in datasets]
-        predictions, targets = [], []
+        start_time = time.perf_counter()
 
         for step in range(num_steps):
             inputs = torch.cat(
@@ -3492,21 +3506,60 @@ class Trainer:
                 blended[index] = torch.where(
                     dataset.wet.to(self.device), blended[index], 0.0
                 )
-            predictions.append(blended)
-            targets.append(
+            target = (
                 torch.cat(
                     [dataset.inference_target(step) for dataset in datasets], dim=0
                 ).to(self.device)
             )
-            state = [blended[index : index + 1] for index in range(len(datasets))]
 
-        aggregator.record_run(
-            ModelInferenceOutput(
-                prediction=torch.stack(predictions),
-                target=torch.stack(targets),
-                time=datasets[0].get_target_time(0, num_steps),
+            # Record one step now rather than retaining every full-resolution
+            # prediction and target until the end of a 72/480-step rollout.
+            # `record_run` supports chunked input, and this one-step chunk is
+            # discarded as soon as its loss and RMSE have been accumulated.
+            aggregator.record_run(
+                ModelInferenceOutput(
+                    prediction=blended.unsqueeze(0),
+                    target=target.unsqueeze(0),
+                    time=datasets[0].get_target_time(step, 1),
+                ),
+                step_offset=step,
             )
-        )
+            state = [blended[index : index + 1] for index in range(len(datasets))]
+            # `state` deliberately keeps only the latest prediction for the
+            # next autoregressive step; all other full-domain tensors are done.
+            del inputs, target, blended
+
+            completed_steps = step + 1
+            if (
+                completed_steps % GROUPED_AUTOREGRESSIVE_VAL_LOG_EVERY == 0
+                or completed_steps == num_steps
+            ):
+                if self.device.type == "cuda":
+                    # Make elapsed time include the preceding asynchronous GPU
+                    # work, so the ETA describes actual wall-clock progress.
+                    torch.cuda.synchronize(self.device)
+                    allocated_gib = torch.cuda.memory_allocated(self.device) / 2**30
+                    reserved_gib = torch.cuda.memory_reserved(self.device) / 2**30
+                    memory = (
+                        "cuda allocated/reserved="
+                        f"{allocated_gib:.1f}/{reserved_gib:.1f} GiB"
+                    )
+                else:
+                    memory = "cuda unavailable"
+                elapsed = time.perf_counter() - start_time
+                seconds_per_step = elapsed / completed_steps
+                eta = seconds_per_step * (num_steps - completed_steps)
+                logger.info(
+                    "%s: step %d/%d; elapsed=%s; %.2f s/step; eta=%s; %s",
+                    log_prefix,
+                    completed_steps,
+                    num_steps,
+                    datetime.timedelta(seconds=round(elapsed)),
+                    seconds_per_step,
+                    datetime.timedelta(seconds=round(eta)),
+                    memory,
+                )
+
         aggregator.finish_run()
 
     def _run_autoregressive_validation(

@@ -162,6 +162,30 @@ def test_rollout_aggregator_records_chunks_at_their_step_offset():
     )
 
 
+def test_rollout_aggregator_records_grouped_one_step_chunks():
+    aggregator = RolloutValidationAggregator(
+        num_steps=2,
+        area_weights=torch.ones(2, 2),
+        wet=torch.ones(1, 2, 2, dtype=torch.bool),
+        loss_fn=lambda gen, target, sample_weight: (gen - target).square().mean(
+            dim=(0, 2, 3)
+        ),
+        device=torch.device("cpu"),
+        ownership=torch.ones(2, 1, 2, 2),
+    )
+    target = torch.zeros(1, 2, 1, 2, 2)
+
+    for step, error in enumerate((1.0, 2.0)):
+        prediction = torch.full((1, 2, 1, 2, 2), error)
+        aggregator.record_run(_output(prediction, target), step_offset=step)
+    aggregator.finish_run()
+
+    torch.testing.assert_close(aggregator.loss_by_step(), torch.tensor([1.0, 4.0]))
+    torch.testing.assert_close(
+        aggregator.rmse_by_step(), torch.tensor([1.0, 2.0])
+    )
+
+
 def test_rollout_aggregator_masks_land():
     wet = torch.tensor([[[True, False], [True, True]]])
     aggregator = RolloutValidationAggregator(

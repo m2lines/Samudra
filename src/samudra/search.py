@@ -19,8 +19,9 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar, NoReturn, cast
 
 import yaml
 
@@ -29,7 +30,81 @@ SUMMARY_NAME = "training_summary.json"
 CHECKPOINT_RELATIVE_PATH = Path("saved_nets/ckpt.pt")
 
 
-def _die(message: str) -> None:
+class ComputeBackend(ABC):
+    """Submission boundary between the search algorithm and a compute system."""
+
+    type_name: ClassVar[str]
+
+    def __init__(self, manifest_path: Path, state_path: Path):
+        self.manifest_path = manifest_path
+        self.state_path = state_path
+        self.manifest = _load_yaml(manifest_path)
+        self.config = self.manifest["compute"]
+
+    @classmethod
+    @abstractmethod
+    def validate_config(cls, config: dict[str, Any], rungs: list[int]) -> None:
+        """Validate backend-specific manifest fields."""
+
+    def snapshot(self, bundle_dir: Path) -> dict[str, str]:
+        """Copy backend adapters into a bundle and return their checksums."""
+        return {}
+
+    @abstractmethod
+    def submit_anchors(self, state: dict[str, Any], *, dry_run: bool) -> None:
+        """Submit fixed reference candidates at the maximum budget."""
+
+    @abstractmethod
+    def submit_rung(
+        self, state: dict[str, Any], rung_index: int, *, dry_run: bool
+    ) -> None:
+        """Submit one rung and arrange for its eventual promotion."""
+
+
+_COMPUTE_BACKENDS: dict[str, type[ComputeBackend]] = {}
+COMPUTE_BACKEND_ENTRY_POINT = "samudra.search.compute_backends"
+
+
+def register_compute_backend(
+    name: str, backend: type[ComputeBackend]
+) -> type[ComputeBackend]:
+    """Register a compute backend, primarily for site-specific integrations."""
+    if not name or name in _COMPUTE_BACKENDS:
+        _die(f"Compute backend {name!r} is already registered or invalid")
+    _COMPUTE_BACKENDS[name] = backend
+    return backend
+
+
+def _compute_backend_type(manifest: dict[str, Any]) -> type[ComputeBackend]:
+    config = _require(manifest, "compute", dict)
+    name = _require(config, "type", str)
+    if backend := _COMPUTE_BACKENDS.get(name):
+        return backend
+    matches = list(
+        importlib.metadata.entry_points().select(
+            group=COMPUTE_BACKEND_ENTRY_POINT, name=name
+        )
+    )
+    if len(matches) == 1:
+        loaded = matches[0].load()
+        required = ("validate_config", "snapshot", "submit_anchors", "submit_rung")
+        if isinstance(loaded, type) and all(hasattr(loaded, item) for item in required):
+            backend = cast(type[ComputeBackend], loaded)
+            _COMPUTE_BACKENDS[name] = backend
+            return backend
+        _die(f"Compute backend entry point {name!r} does not implement the interface")
+    if len(matches) > 1:
+        _die(f"Multiple compute backend entry points are named {name!r}")
+    available = ", ".join(sorted(_COMPUTE_BACKENDS))
+    _die(f"Unknown compute backend {name!r}; available built-ins: {available}")
+
+
+def _compute_backend(manifest_path: Path, state_path: Path) -> ComputeBackend:
+    manifest = _load_yaml(manifest_path)
+    return _compute_backend_type(manifest)(manifest_path, state_path)
+
+
+def _die(message: str) -> NoReturn:
     raise ValueError(message)
 
 
@@ -76,18 +151,10 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
         _die("metric must be a non-empty training-summary key")
 
     runtime = _require(manifest, "runtime", dict)
-    for key in ("output_base", "train_harness", "worker_harness"):
+    for key in ("output_base", "train_harness"):
         _require(runtime, key, str)
-    slurm = _require(manifest, "slurm", dict)
-    for key in ("account", "partition"):
-        _require(slurm, key, str)
-    time_by_rung = slurm.get("time_by_rung")
-    if time_by_rung is not None and (
-        not isinstance(time_by_rung, list)
-        or len(time_by_rung) != len(rungs)
-        or any(not isinstance(value, str) or not value for value in time_by_rung)
-    ):
-        _die("slurm.time_by_rung must contain one walltime string per rung")
+    compute_type = _compute_backend_type(manifest)
+    compute_type.validate_config(manifest["compute"], rungs)
 
     candidates = _require(manifest, "candidates", list)
     if not candidates:
@@ -233,150 +300,211 @@ def _sbatch_output(args: list[str], *, dry_run: bool) -> str:
     return result.stdout.strip().split(";")[0]
 
 
-def _submit_rung(
-    manifest_path: Path,
-    state_path: Path,
-    state: dict[str, Any],
-    rung_index: int,
-    *,
-    dry_run: bool,
-) -> None:
-    active = state["rungs"][rung_index]["candidates"]
-    slurm = _load_yaml(manifest_path)["slurm"]
-    bundle_dir = state_path.parent
-    worker = bundle_dir / "successive_halving_worker.sbatch"
-    controller = bundle_dir / "search_controller.py"
-    python = str(slurm.get("python", sys.executable))
-    maximum = int(slurm.get("max_concurrent", len(active)))
-    array = f"0-{len(active) - 1}%{max(1, maximum)}"
-    walltime = (
-        slurm["time_by_rung"][rung_index]
-        if slurm.get("time_by_rung")
-        else slurm.get("time", "04:00:00")
-    )
-    logs = bundle_dir / "logs"
-    logs.mkdir(exist_ok=True)
-    exports = ",".join(
-        (
+class SlurmBackend(ComputeBackend):
+    """Submit candidate arrays and promotion callbacks through Slurm."""
+
+    type_name = "slurm"
+
+    @classmethod
+    def validate_config(cls, config: dict[str, Any], rungs: list[int]) -> None:
+        for key in ("account", "partition", "worker_harness"):
+            _require(config, key, str)
+        time_by_rung = config.get("time_by_rung")
+        if time_by_rung is not None and (
+            not isinstance(time_by_rung, list)
+            or len(time_by_rung) != len(rungs)
+            or any(not isinstance(value, str) or not value for value in time_by_rung)
+        ):
+            _die("compute.time_by_rung must contain one walltime string per rung")
+
+    def snapshot(self, bundle_dir: Path) -> dict[str, str]:
+        source = Path(self.config["worker_harness"])
+        if not source.is_file():
+            _die(f"Slurm worker harness does not exist: {source}")
+        destination = bundle_dir / "successive_halving_worker.sbatch"
+        shutil.copy2(source, destination)
+        return {"worker_sha256": _file_hash(destination)}
+
+    def _walltime(self, rung_index: int) -> str:
+        if values := self.config.get("time_by_rung"):
+            return str(values[rung_index])
+        return str(self.config.get("time", "04:00:00"))
+
+    def _worker_exports(self, rung_index: int, *, anchor: bool = False) -> str:
+        values = [
             "ALL",
-            f"HALVING_PYTHON={python}",
-            f"HALVING_SCRIPT={controller}",
-            f"HALVING_MANIFEST={manifest_path}",
-            f"HALVING_STATE={state_path}",
+            f"HALVING_PYTHON={self.config.get('python', sys.executable)}",
+            f"HALVING_SCRIPT={self.state_path.parent / 'search_controller.py'}",
+            f"HALVING_MANIFEST={self.manifest_path}",
+            f"HALVING_STATE={self.state_path}",
             f"HALVING_RUNG={rung_index}",
-        )
-    )
-    command = [
-        "sbatch",
-        "--parsable",
-        f"--job-name={_slug(state['name'])}-r{rung_index}",
-        f"--array={array}",
-        f"--account={slurm['account']}",
-        f"--partition={slurm['partition']}",
-        "--nodes=1",
-        "--ntasks=1",
-        f"--cpus-per-task={slurm.get('cpus_per_task', 4)}",
-        f"--mem={slurm.get('memory', '32G')}",
-        f"--gres={slurm.get('gres', 'gpu:rtx6000:1')}",
-        f"--time={walltime}",
-        f"--output={logs}/r{rung_index}-%A_%a.out",
-        f"--error={logs}/r{rung_index}-%A_%a.err",
-        f"--export={exports}",
-        str(worker),
-    ]
-    array_job = _sbatch_output(command, dry_run=dry_run)
-    state["rungs"][rung_index]["array_job_id"] = array_job
-    state["status"] = "running"
-    _atomic_json(state_path, state)
-
-    advance = shlex.join(
-        [
-            python,
-            str(controller),
-            "advance",
-            str(manifest_path),
-            str(state_path),
-            str(rung_index),
         ]
-    )
-    dependency = f"afterany:{array_job}"
-    if rung_index == len(state["rungs"]) - 1 and state["anchors"].get("array_job_id"):
-        dependency += f":{state['anchors']['array_job_id']}"
-    controller_command = [
-        "sbatch",
-        "--parsable",
-        f"--job-name={_slug(state['name'])}-promote-r{rung_index}",
-        f"--dependency={dependency}",
-        f"--account={slurm.get('controller_account', slurm['account'])}",
-        f"--partition={slurm.get('controller_partition', 'cs')}",
-        "--nodes=1",
-        "--ntasks=1",
-        "--cpus-per-task=1",
-        "--mem=2G",
-        "--time=00:10:00",
-        f"--output={logs}/promote-r{rung_index}-%j.out",
-        f"--error={logs}/promote-r{rung_index}-%j.err",
-        f"--wrap={advance}",
-    ]
-    controller_job = _sbatch_output(controller_command, dry_run=dry_run)
-    state = _load_state(state_path)
-    state["rungs"][rung_index]["controller_job_id"] = controller_job
-    _atomic_json(state_path, state)
+        if anchor:
+            values.append("HALVING_ANCHOR=1")
+        return ",".join(values)
 
+    def _array_command(
+        self,
+        *,
+        name: str,
+        count: int,
+        rung_index: int,
+        output: str,
+        anchor: bool = False,
+    ) -> list[str]:
+        maximum = min(count, int(self.config.get("max_concurrent", count)))
+        logs = self.state_path.parent / "logs"
+        logs.mkdir(exist_ok=True)
+        return [
+            "sbatch",
+            "--parsable",
+            f"--job-name={name}",
+            f"--array=0-{count - 1}%{max(1, maximum)}",
+            f"--account={self.config['account']}",
+            f"--partition={self.config['partition']}",
+            "--nodes=1",
+            "--ntasks=1",
+            f"--cpus-per-task={self.config.get('cpus_per_task', 4)}",
+            f"--mem={self.config.get('memory', '32G')}",
+            f"--gres={self.config.get('gres', 'gpu:rtx6000:1')}",
+            f"--time={self._walltime(rung_index)}",
+            f"--output={logs}/{output}.out",
+            f"--error={logs}/{output}.err",
+            f"--export={self._worker_exports(rung_index, anchor=anchor)}",
+            str(self.state_path.parent / "successive_halving_worker.sbatch"),
+        ]
 
-def _submit_anchors(
-    manifest_path: Path,
-    state_path: Path,
-    state: dict[str, Any],
-    *,
-    dry_run: bool,
-) -> None:
-    anchors = state["anchors"]["candidates"]
-    if not anchors:
-        return
-    manifest = _load_yaml(manifest_path)
-    slurm = manifest["slurm"]
-    bundle_dir = state_path.parent
-    logs = bundle_dir / "logs"
-    logs.mkdir(exist_ok=True)
-    maximum = min(len(anchors), int(slurm.get("max_concurrent", len(anchors))))
-    python = str(slurm.get("python", sys.executable))
-    exports = ",".join(
-        (
-            "ALL",
-            f"HALVING_PYTHON={python}",
-            f"HALVING_SCRIPT={bundle_dir / 'search_controller.py'}",
-            f"HALVING_MANIFEST={manifest_path}",
-            f"HALVING_STATE={state_path}",
-            f"HALVING_RUNG={len(manifest['rungs']) - 1}",
-            "HALVING_ANCHOR=1",
+    def submit_anchors(self, state: dict[str, Any], *, dry_run: bool) -> None:
+        anchors = state["anchors"]["candidates"]
+        if not anchors:
+            return
+        rung_index = len(self.manifest["rungs"]) - 1
+        command = self._array_command(
+            name=f"{_slug(state['name'])}-anchors",
+            count=len(anchors),
+            rung_index=rung_index,
+            output="anchors-%A_%a",
+            anchor=True,
         )
-    )
-    walltime = (
-        slurm["time_by_rung"][-1]
-        if slurm.get("time_by_rung")
-        else slurm.get("time", "04:00:00")
-    )
-    command = [
-        "sbatch",
-        "--parsable",
-        f"--job-name={_slug(state['name'])}-anchors",
-        f"--array=0-{len(anchors) - 1}%{max(1, maximum)}",
-        f"--account={slurm['account']}",
-        f"--partition={slurm['partition']}",
-        "--nodes=1",
-        "--ntasks=1",
-        f"--cpus-per-task={slurm.get('cpus_per_task', 4)}",
-        f"--mem={slurm.get('memory', '32G')}",
-        f"--gres={slurm.get('gres', 'gpu:rtx6000:1')}",
-        f"--time={walltime}",
-        f"--output={logs}/anchors-%A_%a.out",
-        f"--error={logs}/anchors-%A_%a.err",
-        f"--export={exports}",
-        str(bundle_dir / "successive_halving_worker.sbatch"),
-    ]
-    state["anchors"]["array_job_id"] = _sbatch_output(command, dry_run=dry_run)
-    _atomic_json(state_path, state)
+        job_id = _sbatch_output(command, dry_run=dry_run)
+        state["anchors"]["job_id"] = job_id
+        _atomic_json(self.state_path, state)
+
+    def submit_rung(
+        self, state: dict[str, Any], rung_index: int, *, dry_run: bool
+    ) -> None:
+        active = state["rungs"][rung_index]["candidates"]
+        command = self._array_command(
+            name=f"{_slug(state['name'])}-r{rung_index}",
+            count=len(active),
+            rung_index=rung_index,
+            output=f"r{rung_index}-%A_%a",
+        )
+        job_id = _sbatch_output(command, dry_run=dry_run)
+        state["rungs"][rung_index]["job_id"] = job_id
+        state["status"] = "running"
+        _atomic_json(self.state_path, state)
+
+        python = str(self.config.get("python", sys.executable))
+        advance_command = shlex.join(
+            [
+                python,
+                str(self.state_path.parent / "search_controller.py"),
+                "advance",
+                str(self.manifest_path),
+                str(self.state_path),
+                str(rung_index),
+            ]
+        )
+        dependency = f"afterany:{job_id}"
+        anchor_job = state["anchors"].get("job_id")
+        if rung_index == len(state["rungs"]) - 1 and anchor_job:
+            dependency += f":{anchor_job}"
+        logs = self.state_path.parent / "logs"
+        controller_command = [
+            "sbatch",
+            "--parsable",
+            f"--job-name={_slug(state['name'])}-promote-r{rung_index}",
+            f"--dependency={dependency}",
+            f"--account={self.config.get('controller_account', self.config['account'])}",
+            f"--partition={self.config.get('controller_partition', 'cs')}",
+            "--nodes=1",
+            "--ntasks=1",
+            "--cpus-per-task=1",
+            "--mem=2G",
+            "--time=00:10:00",
+            f"--output={logs}/promote-r{rung_index}-%j.out",
+            f"--error={logs}/promote-r{rung_index}-%j.err",
+            f"--wrap={advance_command}",
+        ]
+        controller_job = _sbatch_output(controller_command, dry_run=dry_run)
+        current = _load_state(self.state_path)
+        current["rungs"][rung_index]["controller_job_id"] = controller_job
+        _atomic_json(self.state_path, current)
+
+
+class LocalBackend(ComputeBackend):
+    """Run candidates synchronously on the machine hosting the controller."""
+
+    type_name = "local"
+
+    @classmethod
+    def validate_config(cls, config: dict[str, Any], rungs: list[int]) -> None:
+        if "python" in config and not isinstance(config["python"], str):
+            _die("compute.python must be a string")
+
+    def _run_task_command(
+        self, rung_index: int, task_index: int, *, anchor: bool
+    ) -> list[str]:
+        command = [
+            str(self.config.get("python", sys.executable)),
+            str(self.state_path.parent / "search_controller.py"),
+            "run-task",
+            str(self.manifest_path),
+            str(self.state_path),
+            str(rung_index),
+            str(task_index),
+        ]
+        if anchor:
+            command.append("--anchor")
+        return command
+
+    def _run_tasks(
+        self, count: int, rung_index: int, *, anchor: bool, dry_run: bool
+    ) -> None:
+        for task_index in range(count):
+            command = self._run_task_command(rung_index, task_index, anchor=anchor)
+            print(shlex.join(command))
+            if not dry_run:
+                subprocess.run(command, check=True)
+
+    def submit_anchors(self, state: dict[str, Any], *, dry_run: bool) -> None:
+        anchors = state["anchors"]["candidates"]
+        if not anchors:
+            return
+        state["anchors"]["job_id"] = "local-dry-run" if dry_run else "local"
+        _atomic_json(self.state_path, state)
+        self._run_tasks(
+            len(anchors),
+            len(self.manifest["rungs"]) - 1,
+            anchor=True,
+            dry_run=dry_run,
+        )
+
+    def submit_rung(
+        self, state: dict[str, Any], rung_index: int, *, dry_run: bool
+    ) -> None:
+        active = state["rungs"][rung_index]["candidates"]
+        state["rungs"][rung_index]["job_id"] = "local-dry-run" if dry_run else "local"
+        state["status"] = "prepared" if dry_run else "running"
+        _atomic_json(self.state_path, state)
+        self._run_tasks(len(active), rung_index, anchor=False, dry_run=dry_run)
+        if not dry_run:
+            advance(self.manifest_path, self.state_path, rung_index, dry_run=False)
+
+
+register_compute_backend(SlurmBackend.type_name, SlurmBackend)
+register_compute_backend(LocalBackend.type_name, LocalBackend)
 
 
 def start(
@@ -389,9 +517,6 @@ def start(
     manifest = _load_yaml(manifest_source)
     validate_manifest(manifest)
     provenance = _orchestrator_provenance(allow_dirty=allow_dirty)
-    worker_source = Path(manifest["runtime"]["worker_harness"])
-    if not worker_source.is_file():
-        _die(f"Worker harness does not exist: {worker_source}")
     search_dir = state_root / _slug(manifest["name"])
     if search_dir.exists():
         _die(f"Search state already exists: {search_dir}")
@@ -399,14 +524,14 @@ def start(
     manifest_path = search_dir / "manifest.yaml"
     shutil.copy2(manifest_source, manifest_path)
     controller_path = search_dir / "search_controller.py"
-    worker_path = search_dir / "successive_halving_worker.sbatch"
     shutil.copy2(Path(__file__), controller_path)
-    shutil.copy2(worker_source, worker_path)
+    state_path = search_dir / "state.json"
+    backend = _compute_backend(manifest_path, state_path)
     provenance.update(
         controller_sha256=_file_hash(controller_path),
-        worker_sha256=_file_hash(worker_path),
+        compute_backend=backend.type_name,
+        **backend.snapshot(search_dir),
     )
-    state_path = search_dir / "state.json"
     initial = [
         candidate["name"]
         for candidate in manifest["candidates"]
@@ -437,9 +562,9 @@ def start(
         ],
     }
     _atomic_json(state_path, state)
-    _submit_anchors(manifest_path, state_path, state, dry_run=dry_run)
+    backend.submit_anchors(state, dry_run=dry_run)
     state = _load_state(state_path)
-    _submit_rung(manifest_path, state_path, state, 0, dry_run=dry_run)
+    backend.submit_rung(state, 0, dry_run=dry_run)
     return state_path
 
 
@@ -493,6 +618,10 @@ def run_task(
             "SAMUDRA_SEARCH_CANDIDATE": candidate_name,
             "SAMUDRA_SEARCH_RUNG": str(rung_index),
             "SAMUDRA_SEARCH_TARGET_EPOCHS": str(epoch),
+            "SAMUDRA_SEARCH_COMPUTE_BACKEND": manifest["compute"]["type"],
+            "SAMUDRA_SEARCH_COMPUTE_JOB_ID": os.environ.get(
+                "SLURM_JOB_ID", manifest["compute"]["type"]
+            ),
         }
     )
     if commit := candidate.get("code_commit"):
@@ -573,6 +702,8 @@ def _read_results(
             result.update(
                 wandb_id=summary.get("wandb_id"),
                 wandb_name=summary.get("wandb_name"),
+                compute_backend=summary.get("search", {}).get("compute_backend"),
+                compute_job_id=summary.get("search", {}).get("compute_job_id"),
                 slurm_job_id=summary.get("search", {}).get("slurm_job_id"),
                 parent_checkpoint=summary.get("search", {}).get("parent_checkpoint"),
                 optimizer_steps=summary.get("progress", {}).get("optimizer_steps"),
@@ -614,6 +745,8 @@ def _write_leaderboard(path: Path, results: list[dict[str, Any]]) -> None:
                 "summary",
                 "wandb_id",
                 "wandb_name",
+                "compute_backend",
+                "compute_job_id",
                 "slurm_job_id",
                 "parent_checkpoint",
                 "optimizer_steps",
@@ -689,7 +822,9 @@ def advance(
         _die("No candidate was promoted")
     state["rungs"][next_index]["candidates"] = promoted
     _atomic_json(state_path, state)
-    _submit_rung(manifest_path, state_path, state, next_index, dry_run=dry_run)
+    _compute_backend(manifest_path, state_path).submit_rung(
+        state, next_index, dry_run=dry_run
+    )
 
 
 def plan(manifest_path: Path) -> None:

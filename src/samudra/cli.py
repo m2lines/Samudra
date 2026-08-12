@@ -30,7 +30,7 @@ Commands:
   train   Train a model from a config (checkpointing, W&B logging, multi-GPU).
   eval    Roll a trained model out autoregressively and collect metrics.
   viz     Render maps, time series, and PDFs from evaluation outputs.
-  search  Plan and run successive-halving architecture searches on Slurm.
+  search  Plan and run successive-halving architecture searches.
 
 For train, eval, and viz, CONFIG is a YAML path or bundled preset such as
 `samudra_om4/train.yaml`, with inline config overrides such as `--epochs 100`.

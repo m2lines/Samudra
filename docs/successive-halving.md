@@ -10,10 +10,12 @@ SPDX-License-Identifier: CC-BY-4.0
 configurations. Its search models, validation, ranking, state transitions, and
 CLI live in `samudra.search`. The small
 `scripts/successive_halving_worker.sbatch` file is only the deployment adapter
-between Slurm and the package. The system implements one synchronous,
-Slurm-backed successive-halving bracket. It is a useful foundation for
-Hyperband, but does not yet launch the multiple brackets with different initial
-budgets that define the full Hyperband algorithm.
+between Slurm and the package. Compute submission is selected by the manifest:
+the `slurm` backend uses arrays and dependent promotion jobs, while the `local`
+backend runs tasks synchronously on the controller machine. The system
+implements one synchronous successive-halving bracket. It is a useful
+foundation for Hyperband, but does not yet launch the multiple brackets with
+different initial budgets that define the full Hyperband algorithm.
 
 Each candidate is an immutable training environment: a config plus either a
 commit-built Apptainer code layer or a pinned container image. Each array task
@@ -58,10 +60,12 @@ Important fields:
 - `rungs` are cumulative total epochs, not additional epochs.
 - `promotion_fraction` applies only to non-fixed candidates.
 - `metric` names a finite numeric top-level field in `training_summary.json`.
-- `max_concurrent` limits simultaneous array tasks; Slurm may run fewer.
-- `time_by_rung` supplies a walltime for each rung; anchors use the final one.
+- `compute.type` selects a compute backend. Built-ins are `slurm` and `local`.
+- Slurm's `max_concurrent` limits simultaneous array tasks; Slurm may run fewer.
+- Slurm's `time_by_rung` supplies a walltime for each rung; anchors use the
+  final one.
 - `runtime.train_harness` and all layer/config paths must exist on the cluster.
-- `runtime.worker_harness` is the thin Slurm adapter; it is copied into the
+- `compute.worker_harness` is the thin Slurm adapter; it is copied into the
   immutable search bundle before submission.
 - `args` are ordinary Samudra CLI overrides. The controller owns `epochs`,
   `resume_ckpt_path`, output name, and W&B group.
@@ -82,11 +86,12 @@ samudra search start search.yaml \
 ```
 
 Launch the search by omitting `--dry-run`. The bundle contains an immutable
-manifest copy, controller snapshot and checksum, worker, `state.json`, Slurm
+manifest copy, controller snapshot and checksum, backend adapters, `state.json`,
 logs, and one CSV leaderboard per completed rung. The state records the
-orchestrator Git commit, package version, dirty status, controller/worker hashes,
-candidate commits, checkpoint lineage, Slurm job IDs, optimizer steps, and W&B
-IDs. By default `start` refuses a controller checkout with tracked changes.
+orchestrator Git commit, package version, dirty status, controller/adapter
+hashes, candidate commits, checkpoint lineage, compute job IDs, optimizer
+steps, and W&B IDs. By default `start` refuses a controller checkout with
+tracked changes.
 `--allow-dirty` exists for deliberate development probes, but the bundle hash
 makes that weaker provenance explicit. Re-running `advance` for an already
 advanced rung fails loudly so a retry cannot duplicate promotions.
@@ -95,6 +100,51 @@ The bundled controller is what delayed promotion jobs execute, so a checkout or
 package update cannot silently change a running search. For a wheel or container
 without Git metadata, set `SAMUDRA_CODE_COMMIT` to the immutable package commit;
 otherwise `start` refuses to launch.
+
+## Compute backends
+
+The search algorithm does not construct scheduler commands. A `ComputeBackend`
+validates its own manifest section, snapshots any deployment adapters, submits
+fixed anchors, and submits each rung with a completion callback. Site-specific
+backends can implement that interface and register a unique name through the
+`samudra.search.compute_backends` Python entry-point group (or directly through
+`register_compute_backend` in an embedding application). Search state and
+leaderboards use scheduler-neutral `job_id`, `compute_backend`, and
+`compute_job_id` fields; Slurm identifiers are also retained when available for
+cluster diagnostics.
+
+The local backend is deliberately synchronous and sequential. It is useful for
+laptop experiments, CI, and validating a new training harness without a queue:
+
+```yaml
+compute:
+  type: local
+  python: /path/to/venv/bin/python  # optional
+```
+
+It invokes the same immutable controller snapshot and performs promotion only
+after every task in a rung exits successfully. Its `runtime.train_harness` can
+be any executable that honors the environment contract used by the Slurm
+Apptainer harness.
+
+The Slurm backend owns accounts, partitions, resources, arrays, dependencies,
+and its worker adapter:
+
+```yaml
+compute:
+  type: slurm
+  account: my-account
+  partition: gpu
+  worker_harness: scripts/successive_halving_worker.sbatch
+  gres: gpu:1
+```
+
+SkyPilot is intentionally not a built-in backend yet. Its Python SDK can launch
+each rung in a simple loop and query managed-job status, so submission is not
+the obstacle. We first need to choose between managed jobs with an object-store
+mount for checkpoints and summaries, or `sky.exec` on a persistent cluster with
+a shared filesystem. Once that storage/lifecycle contract is selected, it can
+implement the same backend interface without changing the search algorithm.
 
 ## Experimental use
 

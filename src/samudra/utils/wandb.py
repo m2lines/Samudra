@@ -72,6 +72,8 @@ class WandBLogger(Multiton):
             "rung": "SAMUDRA_SEARCH_RUNG",
             "target_epochs": "SAMUDRA_SEARCH_TARGET_EPOCHS",
             "parent_checkpoint": "SAMUDRA_SEARCH_PARENT_CHECKPOINT",
+            "compute_backend": "SAMUDRA_SEARCH_COMPUTE_BACKEND",
+            "compute_job_id": "SAMUDRA_SEARCH_COMPUTE_JOB_ID",
         }
         search = {
             name: value

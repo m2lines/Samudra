@@ -13,13 +13,14 @@ mode: min
 runtime:
   output_base: /scratch/USER/runs/example-2deg-architecture-search
   train_harness: /scratch/USER/Samudra/scripts/slurm_apptainer_train.sbatch
-  worker_harness: /scratch/USER/Samudra/scripts/successive_halving_worker.sbatch
   data_root: /scratch/USER
   scratch_dir: /scratch/USER
   sif_path: /scratch/USER/.apptainer-images/physicsnemo-26.05-latest.sif
   wandb_mode: online
 
-slurm:
+compute:
+  type: slurm
+  worker_harness: /scratch/USER/Samudra/scripts/successive_halving_worker.sbatch
   account: torch_pr_347_lzanna
   partition: rtx6000_lzanna
   controller_partition: cs

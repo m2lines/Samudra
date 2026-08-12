@@ -7,10 +7,10 @@ disk_mode: true
 pin_mem: true
 save_freq: 4
 epochs: 12
-# Preflight peak memory exceeded 95 GiB at microbatch 8. Preserve the
-# effective batch of 32 with accumulation while making activation memory fit.
-batch_size: 1
-gradient_accumulation_steps: 32
+# Microbatch 2 peaked near 77.5 GiB on an RTX6000 Ada. Preserve the effective
+# batch of 32 with accumulation while leaving headroom below 96 GiB.
+batch_size: 2
+gradient_accumulation_steps: 16
 learning_rate: 0.0006
 scheduler: null
 loss: mse

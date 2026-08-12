@@ -19,10 +19,11 @@ All runs use the anonymous public stores under
 `s3://m2lines-pubs/Samudra/v2026-07/om4_twodeg/`, the same train/validation
 dates, `thermo_dynamic_all` prognostics, `tau_hfds` forcing, seed 15, plain
 normalized MSE, one forecast target (`steps: [4]`), learning rate 0.0006
-without a scheduler, and 12 epochs. The three Perceiver runs use microbatch 1
-with 32-step gradient accumulation after the initial microbatch-8 preflight
-exceeded 95 GiB of GPU memory. The direct and U-Net controls retain microbatch
-8 with four-step accumulation. The effective batch is 32 on one GPU throughout.
+without a scheduler, and 12 epochs. The historical Perceiver uses microbatch 1
+with 32-step accumulation. The two native-SDPA Perceivers use microbatch 2 with
+16-step accumulation after preflight showed a roughly 77 GiB peak. The Direct
+and U-Net controls retain microbatch 8 with four-step accumulation. The
+effective batch is 32 on one GPU throughout.
 
 The 90x180 grid cannot pass through the presets' full-depth U-Nets without an
 odd-size mismatch. Every experimental model therefore uses one downsampling
@@ -97,15 +98,33 @@ batches: accumulation-32 runs have made no optimizer update, while the
 accumulation-4 controls have made one. They exist only to verify execution and
 bound memory.
 
+Native-SDPA microbatch-2 checks 15655828 (`hbs5xhtl`) and 15655829
+(`vvhl7gts`) also completed, peaking at 77.5 and 77.0 GiB respectively. They
+verify the selected batch shape but remain non-training diagnostics.
+
 ## Evaluation protocol
 
-Use short-horizon held-out normalized MSE during training for rapid optimization
-feedback. After all 12-epoch runs finish, evaluate the same selected checkpoint
-from every architecture over the same 2015--2022 rollout and enable the durable
-observation metrics against the shared OM4 baseline. Those metrics test
-geostrophic velocity, instantaneous EKE, SST error and residual variability,
-and 0--700 m / 700--2000 m heat content. They are important because MSE alone
-can prefer an over-smoothed predictor with weak variability.
+Use three fidelity levels for architecture iteration:
+
+1. A five-batch smoke checks construction, forward/backward execution, memory,
+   and throughput. It produces no model-quality ranking.
+2. A one-epoch probe gives every configuration about 88 optimizer updates at
+   effective batch 32. Rank these primarily by one-step normalized validation
+   MSE and by 30/90-day autoregressive raw-field RMSE from the rollout-validation
+   work in PR 770. Record per-variable/depth values, finite-rollout status,
+   throughput, and peak memory; do not combine raw-unit variables into one
+   arbitrary score. Extend only promising candidates to three epochs and a
+   360-day rollout. Use one seed for screening and multiple seeds for finalists.
+3. After the 12-epoch finalist runs finish, evaluate the same selected
+   checkpoint from every architecture over the same 2015--2022 rollout and
+   enable the durable observation metrics against the shared OM4 baseline.
+
+The durable metrics test geostrophic velocity, instantaneous EKE, SST error and
+residual variability, and 0--700 m / 700--2000 m heat content. They are
+important because MSE alone can prefer an over-smoothed predictor with weak
+variability. PR 770's horizon metric is the mean of per-step area-weighted RMSE
+through each horizon, rather than endpoint-only RMSE; this makes it a useful
+stability/trajectory score but should be labelled accordingly.
 
 Do not run the durable metrics on the debug checkpoints. Besides their unequal
 optimizer-update counts, the current one-year inference fixture does not cover

@@ -17,6 +17,12 @@ schema of the main one:
 * ``predictions.zarr``  -- the canonical stitched state, always written.
 * ``preblend.zarr``     -- pre-blend tile-to-tile disagreement (opt-in).
 * ``perturbation.zarr`` -- far-field perturbation response (opt-in).
+
+Every store is written incrementally, appending along ``time`` once every
+``num_model_steps_forward`` steps, exactly as `Stepper.inference` does for the
+single-tile path. Holding a whole rollout would be hopeless: one canonical frame
+of the full prognostic stack is 205 x 720 x 720 float32 = 425 MB, so a month at
+hourly stride is ~178 GB.
 """
 
 import dataclasses
@@ -69,6 +75,45 @@ class _SeamPair:
     left_slice: tuple[slice, slice]
     right_slice: tuple[slice, slice]
     width: int
+
+
+@dataclasses.dataclass
+class _RolloutBuffers:
+    """One write-chunk's worth of frames, held only until the next flush.
+
+    Every list is keyed by the same time axis, so `times` alone measures how many
+    steps are pending.
+    """
+
+    canonical: list[np.ndarray] = dataclasses.field(default_factory=list)
+    times: list[xr.DataArray] = dataclasses.field(default_factory=list)
+    preblend: list[np.ndarray] = dataclasses.field(default_factory=list)
+    preblend_full: list[dict[str, np.ndarray]] = dataclasses.field(default_factory=list)
+    response_curves: list[np.ndarray] = dataclasses.field(default_factory=list)
+    response_maps: list[np.ndarray] = dataclasses.field(default_factory=list)
+
+    def __len__(self) -> int:
+        return len(self.times)
+
+    def clear(self) -> None:
+        self.canonical.clear()
+        self.times.clear()
+        self.preblend.clear()
+        self.preblend_full.clear()
+        self.response_curves.clear()
+        self.response_maps.clear()
+
+
+def resolve_steps_per_write(num_model_steps_forward: int, total_steps: int) -> int:
+    """How many steps to buffer before appending to zarr.
+
+    Matches `get_rollout_step_chunks`: a non-positive value (the -1 sentinel)
+    means one chunk covering the whole rollout, which for a tiled run is only
+    ever viable for a short window.
+    """
+    if num_model_steps_forward <= 0:
+        return max(total_steps, 1)
+    return min(num_model_steps_forward, max(total_steps, 1))
 
 
 def _seam_pairs(layout) -> list[_SeamPair]:
@@ -328,6 +373,8 @@ class TiledEval:
 
         self.output_dir = Path(cfg.experiment.output_dir)
         self.tile_shape = self.layout.tiles[0].shape
+        self._created_stores: set[str] = set()
+        self._frames_written = 0
 
     # ------------------------------------------------------------------
     # setup helpers
@@ -394,15 +441,16 @@ class TiledEval:
             dataset.initial_prognostic.to(self.device) for dataset in self.datasets
         ]
         num_steps = min(self.num_steps, len(self.datasets[0]))
-        logger.info("Rolling out %d steps over %d tiles", num_steps, len(state))
+        steps_per_write = resolve_steps_per_write(cfg.num_model_steps_forward, num_steps)
+        logger.info(
+            "Rolling out %d steps over %d tiles, appending to zarr every %d steps",
+            num_steps,
+            len(state),
+            steps_per_write,
+        )
+        self._check_stores_are_writable()
 
-        canonical_frames: list[np.ndarray] = []
-        times: list[xr.DataArray] = []
-        preblend_frames: list[np.ndarray] = []
-        preblend_full: list[np.ndarray] = []
-        response_curves: list[np.ndarray] = []
-        response_maps: list[np.ndarray] = []
-
+        buffers = _RolloutBuffers()
         perturb_centre = self._perturbation_centre()
 
         for step in range(num_steps):
@@ -417,16 +465,16 @@ class TiledEval:
                     self.seam_pairs,
                     include_bands=cfg.tiling.preblend_mode == "full",
                 )
-                preblend_frames.append(summary)
+                buffers.preblend.append(summary)
                 if cfg.tiling.preblend_mode == "full":
-                    preblend_full.append(bands)
+                    buffers.preblend_full.append(bands)
 
             if cfg.tiling.perturbation:
                 curve, response_map = self._perturbation_response(
                     inputs, residuals, centre=perturb_centre
                 )
-                response_curves.append(curve)
-                response_maps.append(response_map)
+                buffers.response_curves.append(curve)
+                buffers.response_maps.append(response_map)
 
             next_state = advance_state(
                 inputs,
@@ -447,21 +495,66 @@ class TiledEval:
             unnormalized = self.normalize.unnormalize_tensor_prognostic(
                 next_state.cpu(), fill_value=0.0
             )
-            canonical_frames.append(
+            buffers.canonical.append(
                 self.blender.to_canonical(unnormalized.unsqueeze(0))[0].numpy()
             )
-            times.append(self.datasets[0].get_target_time(step, 1))
+            buffers.times.append(self.datasets[0].get_target_time(step, 1))
 
-        self._write_canonical(canonical_frames, times)
-        if preblend_frames:
-            self._write_preblend(preblend_frames, preblend_full, times)
-        if response_curves:
-            self._write_perturbation(
-                response_curves, response_maps, times, centre=perturb_centre
-            )
+            if len(buffers) >= steps_per_write:
+                self._flush(buffers, centre=perturb_centre)
+
+        # The rollout length need not divide the write interval; the tail is a
+        # short chunk rather than a lost one.
+        self._flush(buffers, centre=perturb_centre)
 
         elapsed = str(datetime.timedelta(seconds=int(time.perf_counter() - started)))
-        logger.info("Tiled inference finished in %s", elapsed)
+        logger.info(
+            "Tiled inference finished in %s; %d frames written",
+            elapsed,
+            self._frames_written,
+        )
+
+    # ------------------------------------------------------------------
+    # flushing
+    # ------------------------------------------------------------------
+
+    def _flush(self, buffers: _RolloutBuffers, *, centre: tuple[int, int]) -> None:
+        """Append the buffered frames to every store, then drop them."""
+        if not buffers.times:
+            return
+        first = self._frames_written
+        logger.info("Writing to zarr: frames %d-%d", first, first + len(buffers) - 1)
+        self._write_canonical(buffers.canonical, buffers.times)
+        if buffers.preblend:
+            self._write_preblend(buffers.preblend, buffers.preblend_full, buffers.times)
+        if buffers.response_curves:
+            self._write_perturbation(
+                buffers.response_curves,
+                buffers.response_maps,
+                buffers.times,
+                centre=centre,
+            )
+        self._frames_written += len(buffers)
+        buffers.clear()
+
+    def _store_names(self) -> list[str]:
+        """The stores this configuration will write, in the order they appear."""
+        names = ["predictions.zarr"]
+        if self.cfg.tiling.preblend_mode != "none":
+            names.append("preblend.zarr")
+        if self.cfg.tiling.perturbation:
+            names.append("perturbation.zarr")
+        return names
+
+    def _check_stores_are_writable(self) -> None:
+        """Fail before the rollout rather than after the first chunk of it."""
+        for name in self._store_names():
+            path = self.output_dir / name
+            if path.exists():
+                raise FileExistsError(
+                    f"{path} already exists. Choose a unique experiment name or "
+                    "delete it first."
+                )
 
     # ------------------------------------------------------------------
     # diagnostics
@@ -514,11 +607,11 @@ class TiledEval:
     def _write_canonical(
         self, frames: list[np.ndarray], times: list[xr.DataArray]
     ) -> None:
-        stacked = torch.from_numpy(np.stack(frames))  # already unnormalized
+        stacked = np.stack(frames)  # already unnormalized
         coords = self._canonical_coords()
         dataset = xr.Dataset(
             {
-                name: (["time", "lat", "lon"], stacked[:, index].numpy())
+                name: (["time", "lat", "lon"], stacked[:, index])
                 for index, name in enumerate(self.tensor_map.prognostic_var_names)
             },
             coords={
@@ -620,14 +713,23 @@ class TiledEval:
         self._to_zarr(dataset, "perturbation.zarr")
 
     def _to_zarr(self, dataset: xr.Dataset, name: str) -> None:
+        """Create the store on the first flush, append along time on the rest.
+
+        The chunk shape is taken from the first flush, so the on-disk time chunk
+        is the write interval; a short tail chunk partially fills the last one.
+        """
         path = self.output_dir / name
+        if name in self._created_stores:
+            dataset.to_zarr(path, mode="a", append_dim="time")
+            return
         if path.exists():
             raise FileExistsError(
                 f"{path} already exists. Choose a unique experiment name or "
                 "delete it first."
             )
         dataset.to_zarr(path, mode="w")
-        logger.info("Wrote %s", path)
+        self._created_stores.add(name)
+        logger.info("Created %s", path)
 
 
 def main() -> None:

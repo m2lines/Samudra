@@ -4,15 +4,21 @@ These cover the pieces that decide whether a blended inference run is
 trustworthy, without standing up a checkpoint or a data pipeline.
 """
 
+import types
+
 import numpy as np
 import pytest
 import torch
+import xarray as xr
 
 from ocean_emulators.tiled_eval import (
+    TiledEval,
+    _RolloutBuffers,
     _seam_pairs,
     advance_state,
     apply_perturbation,
     preblend_disagreement,
+    resolve_steps_per_write,
 )
 from ocean_emulators.tiling import TileBlender, TileSpec, build_group_layout
 
@@ -280,6 +286,121 @@ def test_advance_state_preserves_shape(blend) -> None:
         inputs, residuals, blender=blender, tile_wet=wet, num_out=2, blend=blend
     )
     assert state.shape == (4, 2, TILE, TILE)
+
+
+# --------------------------------------------------------------------------
+# Chunked writing
+#
+# A canonical frame of the full prognostic stack is 205 x 720 x 720 float32 =
+# 425 MB, so a rollout that buffers every frame is ~178 GB and dies to the OOM
+# killer partway through. These pin the flush cadence and the append.
+# --------------------------------------------------------------------------
+
+
+def bare_evaluator(tmp_path, **attrs):
+    """A TiledEval with only the writer's attributes, no model or data."""
+    evaluator = object.__new__(TiledEval)
+    evaluator.output_dir = tmp_path
+    evaluator._created_stores = set()
+    evaluator._frames_written = 0
+    for name, value in attrs.items():
+        setattr(evaluator, name, value)
+    return evaluator
+
+
+def frame_dataset(t0, num_steps):
+    return xr.Dataset(
+        {"Theta_0": (["time", "lat", "lon"], np.zeros((num_steps, 4, 4), "float32"))},
+        coords={
+            "time": np.arange(t0, t0 + num_steps),
+            "lat": np.arange(4),
+            "lon": np.arange(4),
+        },
+    )
+
+
+@pytest.mark.parametrize(
+    ("configured", "total", "expected"),
+    [
+        (7, 419, 7),
+        (7, 3, 3),  # never buffer more steps than the rollout has
+        (-1, 419, 419),  # the sentinel means one chunk, as in get_rollout_step_chunks
+        (0, 419, 419),
+    ],
+)
+def test_resolve_steps_per_write(configured, total, expected) -> None:
+    assert resolve_steps_per_write(configured, total) == expected
+
+
+def test_to_zarr_creates_then_appends_along_time(tmp_path) -> None:
+    """Repeated flushes must extend one store rather than rewrite or refuse it."""
+    evaluator = bare_evaluator(tmp_path)
+    evaluator._to_zarr(frame_dataset(0, 7), "predictions.zarr")
+    evaluator._to_zarr(frame_dataset(7, 7), "predictions.zarr")
+    evaluator._to_zarr(frame_dataset(14, 3), "predictions.zarr")  # short tail
+
+    written = xr.open_zarr(tmp_path / "predictions.zarr")
+    assert written.sizes["time"] == 17
+    np.testing.assert_array_equal(written.time.values, np.arange(17))
+    # The on-disk time chunk is the write interval, set by the first flush.
+    assert written["Theta_0"].encoding["chunks"][0] == 7
+
+
+def test_to_zarr_still_refuses_a_store_left_by_another_run(tmp_path) -> None:
+    """Only stores this run created may be appended to; a pre-existing one would
+    otherwise be silently extended with a different trajectory."""
+    frame_dataset(0, 2).to_zarr(tmp_path / "predictions.zarr", mode="w")
+    with pytest.raises(FileExistsError):
+        bare_evaluator(tmp_path)._to_zarr(frame_dataset(0, 7), "predictions.zarr")
+
+
+def test_check_stores_are_writable_covers_the_enabled_diagnostics(tmp_path) -> None:
+    """The guard has to run before the rollout, so it cannot rely on the writers."""
+    cfg = types.SimpleNamespace(
+        tiling=types.SimpleNamespace(preblend_mode="summary", perturbation=False)
+    )
+    evaluator = bare_evaluator(tmp_path, cfg=cfg)
+    assert evaluator._store_names() == ["predictions.zarr", "preblend.zarr"]
+
+    evaluator._check_stores_are_writable()  # nothing exists yet
+    (tmp_path / "preblend.zarr").mkdir()
+    with pytest.raises(FileExistsError, match="preblend.zarr"):
+        evaluator._check_stores_are_writable()
+
+
+def test_flush_writes_every_enabled_product_then_releases_the_frames() -> None:
+    """The point of flushing is that the buffers do not survive it."""
+    calls = []
+
+    evaluator = object.__new__(TiledEval)
+    evaluator._frames_written = 0
+    evaluator._write_canonical = lambda frames, times: calls.append(
+        ("canonical", len(frames), len(times))
+    )
+    evaluator._write_preblend = lambda summaries, full, times: calls.append(
+        ("preblend", len(summaries), len(times))
+    )
+    evaluator._write_perturbation = lambda curves, maps, times, *, centre: calls.append(
+        ("perturbation", len(curves), len(times))
+    )
+
+    buffers = _RolloutBuffers()
+    for step in range(7):
+        buffers.canonical.append(np.zeros((2, 4, 4)))
+        buffers.times.append(xr.DataArray([step], dims="time"))
+        buffers.preblend.append(np.zeros((4, 2, 2)))
+    assert len(buffers) == 7
+
+    evaluator._flush(buffers, centre=(2, 2))
+    assert calls == [("canonical", 7, 7), ("preblend", 7, 7)]
+    assert len(buffers) == 0
+    assert not buffers.canonical and not buffers.preblend
+    assert evaluator._frames_written == 7
+
+    # An empty tail flush must not write a zero-length chunk.
+    evaluator._flush(buffers, centre=(2, 2))
+    assert len(calls) == 2
+    assert evaluator._frames_written == 7
 
 
 def test_unnormalizing_per_tile_then_stitching_equals_stitching_then_unnormalizing() -> None:

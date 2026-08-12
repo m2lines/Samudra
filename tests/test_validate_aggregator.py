@@ -7,6 +7,7 @@ from ocean_emulators.aggregator.validate.main import (
 from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
 from ocean_emulators.constants import TensorMap
 from ocean_emulators.utils.multiton import MultitonScope
+from ocean_emulators.utils.output import ValBatchOutput
 
 
 def _field(value: float) -> torch.Tensor:
@@ -46,6 +47,44 @@ def test_validate_aggregator_full_mode_keeps_mean_map(monkeypatch):
     )
 
     assert set(agg._aggregators.keys()) == {"snapshot", "mean_map", "reduced"}
+
+
+def test_surface_snapshot_can_defer_full_field_diagnostics(monkeypatch):
+    monkeypatch.setattr(
+        "ocean_emulators.aggregator.validate.main.Normalize.get_instance",
+        lambda: object(),
+    )
+    calls = []
+    monkeypatch.setattr(
+        "ocean_emulators.aggregator.validate.main.get_aggregator_dicts",
+        lambda *args, **kwargs: (calls.append(args[0]) or ({}, {})),
+    )
+    agg = ValidateAggregator(
+        metadata={},
+        hist=0,
+        area_weights=torch.ones(1, 1),
+        wet=torch.ones(1, 1, 1, dtype=torch.bool),
+        num_prognostic_channels=1,
+        surface_snapshot=True,
+    )
+    field = torch.zeros(1, 1, 1, 1)
+    batch = ValBatchOutput(
+        loss=torch.tensor(2.0),
+        loss_per_channel=torch.tensor([2.0]),
+        input_data=field,
+        target_data=field,
+        gen_data=field,
+    )
+
+    agg.record_validation_batch(batch, record_diagnostics=False)
+
+    assert agg._n_batches == 1
+    assert calls == []
+
+    agg.record_validation_batch(batch, record_diagnostics=True)
+
+    assert agg._n_batches == 2
+    assert len(calls) == 3
 
 
 def test_validate_aggregator_reports_one_step_loss(monkeypatch):

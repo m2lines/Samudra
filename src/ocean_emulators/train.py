@@ -3153,13 +3153,22 @@ class Trainer:
         header = f"One-Step Grouped Validation Epoch: [{epoch}]"
 
         indices = self._grouped_val_indices(len(datasets[0]))
-        with self._test_context():
+        # Grouped validation has to read one truth window from every tile. The
+        # ordinary validation loader already does this I/O in worker processes;
+        # do the equivalent here while keeping GPU normalization and inference
+        # on the main thread.
+        workers = min(len(datasets), max(self.num_workers, 1))
+        with ThreadPoolExecutor(
+            max_workers=workers, thread_name_prefix="grouped_val_read"
+        ) as read_executor, self._test_context():
             for step, index in enumerate(
                 metric_logger.log_every(indices, 1, header)
             ):
                 if self.debug and (step + 1) % 5 == 0:
                     break
-                input, label = self._grouped_val_example(datasets, index)
+                input, label = self._grouped_val_example(
+                    datasets, index, read_executor=read_executor
+                )
                 prediction = model.predict_step(input)
                 blended = self._blend_group(group, input, prediction)
 
@@ -3172,7 +3181,13 @@ class Trainer:
                     blended,
                 )
                 VO = self._materialize_val_output(VO)
-                val_aggregator.record_validation_batch(VO)
+                val_aggregator.record_validation_batch(
+                    VO,
+                    # SnapshotAggregator retains only the final batch. In
+                    # surface-snapshot mode, avoid converting every preceding
+                    # full-domain input/prediction/target solely to overwrite it.
+                    record_diagnostics=self.debug or step == len(indices) - 1,
+                )
                 metric_logger.update(loss=VO.loss)
 
         logger.info("Aggregating grouped validation logs")
@@ -3191,12 +3206,26 @@ class Trainer:
         return sorted(rng.sample(range(total), self.one_step_val_num))
 
     def _grouped_val_example(
-        self, datasets: list[TorchTrainDataset], index: int
+        self,
+        datasets: list[TorchTrainDataset],
+        index: int,
+        *,
+        read_executor: ThreadPoolExecutor | None = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """One synchronized `[T, C, H, W]` input/label pair across the group."""
+        if read_executor is None:
+            raw_tiles = [dataset[index] for dataset in datasets]
+        else:
+            # `TorchTrainDataset.__getitem__` is CPU/Zarr work. Preserve tile
+            # order while overlapping independent cache reads; the subsequent
+            # GPU preparation remains serialized on the main CUDA context.
+            raw_tiles = list(
+                read_executor.map(lambda dataset: dataset[index], datasets)
+            )
+
         inputs, labels = [], []
-        for dataset in datasets:
-            data = dataset.to_train_data(collate_raw_train_data([dataset[index]]))
+        for dataset, raw_tile in zip(datasets, raw_tiles, strict=True):
+            data = dataset.to_train_data(collate_raw_train_data([raw_tile]))
             inputs.append(data.get_input(0))
             labels.append(data.get_label(0))
         return torch.cat(inputs, dim=0), torch.cat(labels, dim=0)
@@ -3232,7 +3261,12 @@ class Trainer:
                     self.model, data, self.loss_fn
                 )
                 VO = self._materialize_val_output(VO)
-                val_aggregator.record_validation_batch(VO)
+                val_aggregator.record_validation_batch(
+                    VO,
+                    record_diagnostics=(
+                        self.debug or data_iter_step == len(self.val_loader) - 1
+                    ),
+                )
                 metric_logger.update(loss=VO.loss)
 
         logger.info(f"Aggregating validation logs")
@@ -3490,75 +3524,93 @@ class Trainer:
         state = [dataset.initial_prognostic.to(self.device) for dataset in datasets]
         start_time = time.perf_counter()
 
-        for step in range(num_steps):
-            inputs = torch.cat(
-                [
-                    dataset.merge_prognostic_and_boundary(
-                        prognostic=state[index], step=step
-                    ).to(self.device)
-                    for index, dataset in enumerate(datasets)
-                ],
-                dim=0,
-            )
-            blended = self._blend_group(group, inputs, model.predict_step(inputs))
-            # Remask per tile before the state becomes the next step's context.
-            for index, dataset in enumerate(datasets):
-                blended[index] = torch.where(
-                    dataset.wet.to(self.device), blended[index], 0.0
-                )
-            target = (
-                torch.cat(
-                    [dataset.inference_target(step) for dataset in datasets], dim=0
-                ).to(self.device)
-            )
-
-            # Record one step now rather than retaining every full-resolution
-            # prediction and target until the end of a 72/480-step rollout.
-            # `record_run` supports chunked input, and this one-step chunk is
-            # discarded as soon as its loss and RMSE have been accumulated.
-            aggregator.record_run(
-                ModelInferenceOutput(
-                    prediction=blended.unsqueeze(0),
-                    target=target.unsqueeze(0),
-                    time=datasets[0].get_target_time(step, 1),
-                ),
-                step_offset=step,
-            )
-            state = [blended[index : index + 1] for index in range(len(datasets))]
-            # `state` deliberately keeps only the latest prediction for the
-            # next autoregressive step; all other full-domain tensors are done.
-            del inputs, target, blended
-
-            completed_steps = step + 1
-            if (
-                completed_steps % GROUPED_AUTOREGRESSIVE_VAL_LOG_EVERY == 0
-                or completed_steps == num_steps
-            ):
-                if self.device.type == "cuda":
-                    # Make elapsed time include the preceding asynchronous GPU
-                    # work, so the ETA describes actual wall-clock progress.
-                    torch.cuda.synchronize(self.device)
-                    allocated_gib = torch.cuda.memory_allocated(self.device) / 2**30
-                    reserved_gib = torch.cuda.memory_reserved(self.device) / 2**30
-                    memory = (
-                        "cuda allocated/reserved="
-                        f"{allocated_gib:.1f}/{reserved_gib:.1f} GiB"
+        workers = min(len(datasets), max(self.num_workers, 1))
+        with ThreadPoolExecutor(
+            max_workers=workers, thread_name_prefix="grouped_rollout_read"
+        ) as read_executor:
+            for step in range(num_steps):
+                # Each cache is independent. Read its forcing and truth in
+                # parallel, then keep all CUDA work on the main thread.
+                step_data = list(
+                    read_executor.map(
+                        lambda dataset: dataset.rollout_boundary_and_target(step),
+                        datasets,
                     )
-                else:
-                    memory = "cuda unavailable"
-                elapsed = time.perf_counter() - start_time
-                seconds_per_step = elapsed / completed_steps
-                eta = seconds_per_step * (num_steps - completed_steps)
-                logger.info(
-                    "%s: step %d/%d; elapsed=%s; %.2f s/step; eta=%s; %s",
-                    log_prefix,
-                    completed_steps,
-                    num_steps,
-                    datetime.timedelta(seconds=round(elapsed)),
-                    seconds_per_step,
-                    datetime.timedelta(seconds=round(eta)),
-                    memory,
                 )
+                inputs = torch.cat(
+                    [
+                        dataset.merge_prognostic_and_boundary(
+                            prognostic=state[index],
+                            step=step,
+                            boundary=step_data[index][0],
+                        ).to(self.device)
+                        for index, dataset in enumerate(datasets)
+                    ],
+                    dim=0,
+                )
+                blended = self._blend_group(group, inputs, model.predict_step(inputs))
+                # Remask per tile before the state becomes the next step's context.
+                for index, dataset in enumerate(datasets):
+                    blended[index] = torch.where(
+                        dataset.wet.to(self.device), blended[index], 0.0
+                    )
+                target = torch.cat(
+                    [tile_target for _, tile_target in step_data], dim=0
+                ).to(self.device)
+
+                # Record one step now rather than retaining every full-resolution
+                # prediction and target until the end of a 72/480-step rollout.
+                # `record_run` supports chunked input, and this one-step chunk is
+                # discarded as soon as its loss and RMSE have been accumulated.
+                aggregator.record_run(
+                    ModelInferenceOutput(
+                        prediction=blended.unsqueeze(0),
+                        target=target.unsqueeze(0),
+                        time=datasets[0].get_target_time(step, 1),
+                    ),
+                    step_offset=step,
+                )
+                state = [
+                    blended[index : index + 1] for index in range(len(datasets))
+                ]
+                # `state` deliberately keeps only the latest prediction for the
+                # next autoregressive step; all other full-domain tensors are done.
+                del inputs, target, blended
+
+                completed_steps = step + 1
+                if (
+                    completed_steps % GROUPED_AUTOREGRESSIVE_VAL_LOG_EVERY == 0
+                    or completed_steps == num_steps
+                ):
+                    if self.device.type == "cuda":
+                        # Make elapsed time include the preceding asynchronous GPU
+                        # work, so the ETA describes actual wall-clock progress.
+                        torch.cuda.synchronize(self.device)
+                        allocated_gib = (
+                            torch.cuda.memory_allocated(self.device) / 2**30
+                        )
+                        reserved_gib = (
+                            torch.cuda.memory_reserved(self.device) / 2**30
+                        )
+                        memory = (
+                            "cuda allocated/reserved="
+                            f"{allocated_gib:.1f}/{reserved_gib:.1f} GiB"
+                        )
+                    else:
+                        memory = "cuda unavailable"
+                    elapsed = time.perf_counter() - start_time
+                    seconds_per_step = elapsed / completed_steps
+                    eta = seconds_per_step * (num_steps - completed_steps)
+                    logger.info(
+                        "%s: step %d/%d; elapsed=%s; %.2f s/step; eta=%s; %s",
+                        log_prefix,
+                        completed_steps,
+                        num_steps,
+                        datetime.timedelta(seconds=round(elapsed)),
+                        seconds_per_step,
+                        datetime.timedelta(seconds=round(eta)),
+                        memory,
+                    )
 
         aggregator.finish_run()
 

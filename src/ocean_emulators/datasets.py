@@ -236,11 +236,29 @@ class InferenceDataset(Dataset):
             return input
         return _append_spatial_features(input, self._prognostic_src.spatial_features)
 
-    def merge_prognostic_and_boundary(self, prognostic: torch.Tensor, step: int):
-        x_index = self._get_x_index(step)
-        boundary = self._get_boundary(x_index).to(prognostic.device)
+    def merge_prognostic_and_boundary(
+        self,
+        prognostic: torch.Tensor,
+        step: int,
+        boundary: torch.Tensor | None = None,
+    ):
+        if boundary is None:
+            x_index = self._get_x_index(step)
+            boundary = self._get_boundary(x_index)
+        boundary = boundary.to(prognostic.device)
         data = torch.cat((prognostic, boundary), dim=1)
         return self.append_spatial_features(data)
+
+    def rollout_boundary_and_target(self, step: int) -> tuple[torch.Tensor, torch.Tensor]:
+        """Load one rollout step's forcing and truth on the CPU.
+
+        Grouped rollouts call this independently for each tile from reader
+        threads, then transfer and combine the returned tensors on the main
+        CUDA thread. Keeping the I/O side-effect free makes that concurrency
+        safe and avoids reading either field twice.
+        """
+        x_index = self._get_x_index(step)
+        return self._get_boundary(x_index), self._get_label(x_index)
 
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx):

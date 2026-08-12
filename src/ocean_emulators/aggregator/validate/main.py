@@ -67,8 +67,20 @@ class ValidateAggregator(TrainAggregator):
         )
 
     @torch.no_grad()
-    def record_validation_batch(self, batch: ValBatchOutput):
+    def record_validation_batch(
+        self, batch: ValBatchOutput, *, record_diagnostics: bool = True
+    ):
+        """Accumulate one-step loss and, when needed, full-field diagnostics.
+
+        Surface-snapshot mode retains only the final validation batch. Callers
+        can therefore skip its expensive full-field conversions for earlier
+        batches without changing either the mean loss or the reported images.
+        Full diagnostic mode always processes every batch.
+        """
         super().record_batch(batch)  # Record losses
+
+        if self.surface_snapshot and not record_diagnostics:
+            return
 
         if len(batch.target_data) == 0:
             raise ValueError("No data in target_data")

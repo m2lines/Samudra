@@ -483,6 +483,12 @@ class Trainer:
                             "parent_checkpoint": os.environ.get(
                                 "SAMUDRA_SEARCH_PARENT_CHECKPOINT"
                             ),
+                            "compute_backend": os.environ.get(
+                                "SAMUDRA_SEARCH_COMPUTE_BACKEND"
+                            ),
+                            "compute_job_id": os.environ.get(
+                                "SAMUDRA_SEARCH_COMPUTE_JOB_ID"
+                            ),
                             "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
                             "slurm_array_job_id": os.environ.get("SLURM_ARRAY_JOB_ID"),
                             "slurm_array_task_id": os.environ.get(

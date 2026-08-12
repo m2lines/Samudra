@@ -439,7 +439,15 @@ class CLI:
         for var, attr in saved_attrs.items():
             ds_input.attrs[var] = attr
         # Add provenance hash and metadata
-        ds_input.attrs["m2lines/ocean_emulators_git_hash"] = get_git_url_hash()
+        # Write both provenance keys during the rename. `ocean_emulators_git_hash`
+        # is the established name -- it is documented in AGENTS.md and docs/data.md
+        # and every already-published store carries it -- so dropping it outright
+        # would break anything that looks it up. `samudra_git_hash` is the name the
+        # project actually goes by now. Retire the old key once the documentation
+        # and the published stores have caught up.
+        git_hash = get_git_url_hash()
+        ds_input.attrs["m2lines/ocean_emulators_git_hash"] = git_hash
+        ds_input.attrs["m2lines/samudra_git_hash"] = git_hash
         ds_input.attrs["m2lines/date_created"] = datetime.datetime.now().isoformat()
         ds_input.attrs["m2lines/cli_args"] = " ".join(sys.argv)
         # Horizontal grid geometry: this pipeline conservatively regrids onto a

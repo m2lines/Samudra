@@ -18,3 +18,4 @@ experiment:
     project: default
 data: !include ../data/om4.yaml
 model: !include model.yaml
+observations: !include ../data/obs.yaml

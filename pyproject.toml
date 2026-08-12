@@ -35,6 +35,7 @@ dependencies = [
   "matplotlib>=3.10.1",
   "microsoft-aurora>=1.8",
   "numpy>=1.26.4,<2",             # There is some incompatibility between a dependency and numpy 2+
+  "pandas>=2.2",                  # tidy metric frames are part of samudra.metrics' API
   "perceiver-pytorch>=0.8.8",
   "pydantic-settings>=2.8.1",
   "pytest-xdist[psutil]>=3.6.1",

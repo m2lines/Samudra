@@ -90,6 +90,67 @@ python -m ocean_preprocessing om4 \
 That's how you can run this package as a command-line utility! Beyond this, `ocean_preprocessing` can be used a library
 in a script or notebook. Continue reading to get a better understanding of this package's capabilities.
 
+## Observation products
+
+Emulator evaluation compares rollouts against observations, not just against OM4. A second CLI fetches and prepares the
+three products that `samudra.metrics` scores against:
+
+| Product | Source | Used for | Credentials |
+| --- | --- | --- | --- |
+| DUACS | Copernicus Marine (CMEMS) | surface geostrophic velocity, EKE | free account required |
+| OISST | NOAA NCEI | sea-surface temperature | none |
+| ARGO-IAP | IAP, Chinese Academy of Sciences | ocean heat content | none |
+
+```bash
+python -m ocean_preprocessing.obs_preprocessing -- --help
+```
+
+### Stage 1: fill the raw archive
+
+```bash
+RAW=/scratch/$USER/data/obs_raw
+python -m ocean_preprocessing.obs_preprocessing download oisst    --output_dir=$RAW/oisst
+python -m ocean_preprocessing.obs_preprocessing download argo_iap --output_dir=$RAW/argo-iap
+
+# DUACS needs a free account from https://data.marine.copernicus.eu/register
+export COPERNICUSMARINE_SERVICE_USERNAME=... COPERNICUSMARINE_SERVICE_PASSWORD=...
+python -m ocean_preprocessing.obs_preprocessing download duacs    --output_dir=$RAW/duacs
+```
+
+On Torch these run as batch jobs — `PRODUCT=oisst sbatch scripts/slurm_obs_download.sbatch` — since compute nodes there
+do have internet egress.
+
+All three downloaders are restartable: files already present at a plausible size are never requested, and anything
+that arrives truncated is deleted rather than left looking complete. Re-run after an interruption and only the missing
+files are fetched. Transfers go through [`pypdl`](https://github.com/mjishnu/pypdl), which fetches several files at once
+and splits each across connections — the latter matters most for the IAP archive, whose ~40 MB monthly files arrive
+slowly over a single connection.
+
+### Stage 2: derive the analysis-ready stores
+
+```bash
+python -m ocean_preprocessing.obs_preprocessing prepare all \
+    --raw_root=$RAW --output_root=/scratch/$USER/data/obs
+```
+
+or, on Torch, `sbatch scripts/slurm_obs_prepare.sbatch` (see the header of that file for the environment variables).
+
+Both stages write **Zarr v2** explicitly, because `samudra.metrics` pins `zarr<3` and cannot open a v3 store.
+
+Credentials are only needed when writing to the NYU OSN pod (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and
+`FSSPEC_S3_ENDPOINT_URL`); reading the public inputs, including the OM4 time axis, is anonymous.
+
+Two properties of the output matter downstream, and the metrics depend on both:
+
+- **Each product stays on its own native grid.** Nothing is spatially resampled here. The metrics interpolate the *model*
+  onto the observation grid instead, so the observations are never smoothed before being used as truth.
+- **Time alignment is a centered 5-day rolling mean**, sampled on the OM4 5-day timestamps — not an interpolation.
+  `samudra.metrics` refuses to interpolate in time (it would deflate model variance and inflate RMSE), so the stored
+  timestamps must match the model's exactly.
+
+The target timestamps come from the published OM4 store rather than from any particular model rollout, which is what
+makes these products reusable across runs. That store is public, so the prepare stage needs no credentials either.
+
 ## Preprocessing steps
 
 1. Interpolation of variables at the cell boundaries to the cell centers

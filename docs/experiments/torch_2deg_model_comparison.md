@@ -1,0 +1,67 @@
+<!--
+SPDX-FileCopyrightText: 2026 Samudra Authors
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
+# Torch full-data 2-degree model comparison
+
+## Question
+
+Can the native-SDPA Perceiver encoder plus direct output-query decoder become a
+competitive single-scale predictor before multi-scale training? Which remaining
+gap comes from the attention implementation, the Perceiver representation, or
+the surrounding SamudraMulti architecture?
+
+## Controlled budget
+
+All runs use the anonymous public stores under
+`s3://m2lines-pubs/Samudra/v2026-07/om4_twodeg/`, the same train/validation
+dates, `thermo_dynamic_all` prognostics, `tau_hfds` forcing, seed 15, plain
+normalized MSE, one forecast target (`steps: [4]`), batch size 8, four-step
+gradient accumulation, learning rate 0.0006 without a scheduler, and 12 epochs.
+The effective batch is 32 on one GPU.
+
+The 90x180 grid cannot pass through the presets' full-depth U-Nets without an
+odd-size mismatch. Every experimental model therefore uses one downsampling
+stage. The Perceiver models use 3x5-cell patches (6x10 degrees), producing a
+30x36 processor grid, and six-patch decoder windows. Samudra Direct retains one
+latent per native 2-degree cell.
+
+## Matrix
+
+| Role | Experiment branch | Config | Primary contrast |
+| --- | --- | --- | --- |
+| Main Multi | `experiment/main-baselines-2deg` | `train_multi_main.yaml` | Historical full PerceiverIO control |
+| Native SDPA PIO | `experiment/perceiver-2deg-hpc` | `train_pio.yaml` | Attention implementation/runtime only |
+| Perceiver candidate | `experiment/perceiver-2deg-hpc` | `train_direct_query.yaml` | Remove the second latent decoder bank and widen output transport |
+| Samudra Direct | `experiment/direct-2deg` | `train_direct.yaml` | Native-grid learned representation and deterministic decoder transport |
+| Samudra U-Net | `experiment/main-baselines-2deg` | `train_samudra.yaml` | Established non-multi architecture reference |
+
+All W&B runs use entity `ocean_emulators`, project `default`, and group
+`torch-2deg-perceiver-20260812`.
+
+## Interpretation
+
+- Native SDPA PIO versus Main Multi tests numerical/optimization parity and
+  runtime after removing the external Perceiver implementations.
+- The candidate versus Native SDPA PIO isolates the decoder intervention.
+- The candidate versus Samudra Direct tests whether a Perceiver bottleneck is
+  already competitive with a native-grid representation at this scale.
+- Samudra U-Net is a capability reference, not a parameter-matched causal
+  ablation.
+
+Primary quality is validation unweighted normalized MSE overall and by variable
+group. Also record wall time, samples/second, peak GPU memory, predicted/target
+spectral power where available, Slurm job ID, W&B run ID, resolved config, Git
+commit, and checkpoint hashes.
+
+## Run ledger
+
+| Role | Commit | Slurm | W&B | State | Best validation MSE |
+| --- | --- | ---: | --- | --- | ---: |
+| Main Multi | pending | pending | pending | Prepared | pending |
+| Native SDPA PIO | pending | pending | pending | Prepared | pending |
+| Perceiver candidate | pending | pending | pending | Prepared | pending |
+| Samudra Direct | pending | pending | pending | Prepared | pending |
+| Samudra U-Net | pending | pending | pending | Prepared | pending |

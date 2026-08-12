@@ -7,7 +7,12 @@ import torch
 from perceiver_pytorch.perceiver_io import PerceiverIO
 from test_encoder import make_resolution  # type: ignore
 
-from samudra.models.modules import PerceiverDecoder, PerceiverEncoder
+from samudra.config import DecoderConfig
+from samudra.models.modules import (
+    DirectCrossAttentionIO,
+    PerceiverDecoder,
+    PerceiverEncoder,
+)
 
 # Small values for fast tests.
 LATENT_DIM = 8
@@ -54,6 +59,16 @@ def make_decoder_perceiver_io(in_channels=IN_CHANNELS, out_channels=OUT_CHANNELS
         latent_dim=LATENT_DIM,
         weight_tie_layers=True,
         decoder_ff=True,
+    )
+
+
+def make_direct_cross_attention_io(in_channels=IN_CHANNELS, out_channels=OUT_CHANNELS):
+    return DirectCrossAttentionIO(
+        input_dim=in_channels,
+        queries_dim=QUERIES_DIM,
+        output_dim=out_channels,
+        heads=2,
+        dim_head=8,
     )
 
 
@@ -266,3 +281,51 @@ def test_context_patches_without_window_patches_raises():
             window_patches=None,
             context_patches=1,
         )
+
+
+def test_direct_cross_attention_retains_query_dependence_with_one_context_token():
+    decoder = make_direct_cross_attention_io(in_channels=4, out_channels=3)
+    data = torch.randn(2, 1, 4)
+    queries = torch.randn(5, QUERIES_DIM, requires_grad=True)
+
+    output = decoder(data, queries=queries)
+    output.sum().backward()
+
+    assert output.shape == (2, 5, 3)
+    assert not torch.equal(output[:, 0], output[:, 1])
+    assert queries.grad is not None
+    assert queries.grad.norm() > 0
+
+
+def test_direct_cross_attention_decoder_supports_windowing(
+    resolution, latent_input, decoder_kwargs
+):
+    decoder_kwargs["perceiver_io"] = make_direct_cross_attention_io()
+    decoder = PerceiverDecoder(
+        **decoder_kwargs,
+        window_patches=1,
+        context_patches=1,
+    )
+
+    output = decoder(latent_input, resolution)
+
+    assert output.shape == (BATCH, OUT_CHANNELS, H, W)
+
+
+def test_decoder_config_builds_direct_cross_attention():
+    config = DecoderConfig.model_validate(
+        {
+            "architecture": "direct_cross_attention",
+            "queries_dim": QUERIES_DIM,
+            "perceiver": {"cross_heads": 2, "cross_dim_head": 8},
+        }
+    )
+
+    decoder = config.build(
+        in_channels=IN_CHANNELS,
+        out_channels=OUT_CHANNELS,
+        patch_extent=(1.0, 1.0),
+        implementation="naive",
+    )
+
+    assert isinstance(decoder.perceiver_io, DirectCrossAttentionIO)

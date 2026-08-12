@@ -566,6 +566,53 @@ def _probe_nonfinite(
 # --------------------------------------------------------------------------
 
 
+def ownership_boxes(layout: TileGroupLayout) -> tuple[tuple[int, int, int, int], ...]:
+    """Local ``(j0, j1, i0, i1)`` of the cells each tile alone is scored on.
+
+    Overlapping tiles cover some cells twice, so scoring every tile in full would
+    weight those cells double and quietly bias any domain-wide metric toward the
+    seams. Splitting each shared band down the middle gives every cell exactly one
+    owner: the boxes tile the canonical grid with no gap and no overlap.
+
+    Only sides that actually have a neighbour are trimmed -- an exterior side has
+    nobody to hand its cells to, and trimming it would drop real domain.
+    """
+    boxes = []
+    for tile in layout.tiles:
+        height, width = tile.shape
+        # A shared band of width W splits at its midpoint: the low tile keeps
+        # W - W//2 of it and the high tile keeps W//2, which sums to W.
+        j0 = layout.overlaps.get((tile.tile_id, "jlo"), 0)
+        j0 -= j0 // 2
+        j1 = height - layout.overlaps.get((tile.tile_id, "jhi"), 0) // 2
+        i0 = layout.overlaps.get((tile.tile_id, "ilo"), 0)
+        i0 -= i0 // 2
+        i1 = width - layout.overlaps.get((tile.tile_id, "ihi"), 0) // 2
+        if j1 <= j0 or i1 <= i0:
+            raise ValueError(
+                f"Tile {tile.tile_id} owns nothing after trimming its overlaps; "
+                "the tiles overlap by more than their own extent."
+            )
+        boxes.append((j0, j1, i0, i1))
+    return tuple(boxes)
+
+
+def ownership_masks(
+    layout: TileGroupLayout, *, dtype: torch.dtype = torch.float32
+) -> torch.Tensor:
+    """``[T, 1, H, W]`` indicator of each tile's owned cells.
+
+    Zeroing the loss weight outside the owned box counts every physical cell once
+    while leaving the tensors tile-shaped, so masks, area weights and metadata all
+    stay exactly as they are.
+    """
+    height, width = layout.tiles[0].shape
+    masks = torch.zeros(len(layout.tiles), 1, height, width, dtype=dtype)
+    for index, (j0, j1, i0, i1) in enumerate(ownership_boxes(layout)):
+        masks[index, :, j0:j1, i0:i1] = 1.0
+    return masks
+
+
 @dataclasses.dataclass(frozen=True)
 class ReplayGroup:
     """The set of training datasets that one replay row advances together.

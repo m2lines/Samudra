@@ -11,6 +11,8 @@ from ocean_emulators.tiling import (
     TileSpec,
     build_group_layout,
     build_tile_catalog,
+    ownership_boxes,
+    ownership_masks,
     ramp_profile,
     resolve_face,
     tile_spec_from_coords,
@@ -527,3 +529,77 @@ def test_colliding_ramps_are_rejected() -> None:
     TileBlender(layout, ramp_width=TILE // 2, dtype=torch.float64)  # fits
     with pytest.raises(ValueError, match="collide"):
         TileBlender(layout, ramp_width=TILE, dtype=torch.float64)
+
+
+# --------------------------------------------------------------------------
+# Ownership: who scores which cell
+# --------------------------------------------------------------------------
+
+
+def test_ownership_boxes_partition_the_canonical_grid_exactly() -> None:
+    """Every cell owned once: no gap (something unscored) and no overlap
+    (something scored twice, biasing any domain metric toward the seams)."""
+    layout = make_layout()
+    counts = np.zeros(layout.canonical_shape, dtype=int)
+    for tile, (j0, j1, i0, i1) in zip(layout.tiles, ownership_boxes(layout)):
+        counts[
+            tile.j_start + j0 : tile.j_start + j1,
+            tile.i_start + i0 : tile.i_start + i1,
+        ] += 1
+    assert counts.min() == 1 and counts.max() == 1
+
+
+def test_ownership_trims_only_sides_that_have_a_neighbour() -> None:
+    """An exterior side has nobody to hand its cells to; trimming it would drop
+    real domain off the edge of the analysis."""
+    layout = make_layout()
+    boxes = dict(zip((t.tile_id for t in layout.tiles), ownership_boxes(layout)))
+
+    # Tile 0 is exterior on jlo/ilo and interior on jhi/ihi.
+    j0, j1, i0, i1 = boxes[0]
+    assert (j0, i0) == (0, 0)
+    assert (j1, i1) == (TILE - OVERLAP // 2, TILE - OVERLAP // 2)
+
+    # Tile 3 is the mirror image.
+    j0, j1, i0, i1 = boxes[3]
+    assert (j0, i0) == (OVERLAP - OVERLAP // 2, OVERLAP - OVERLAP // 2)
+    assert (j1, i1) == (TILE, TILE)
+
+
+def test_a_single_tile_owns_all_of_itself() -> None:
+    tile = TileSpec(
+        tile_id=0, dataset_index=0, face=1,
+        i_start=0, i_end=TILE, j_start=0, j_end=TILE, owned=(0, TILE, 0, TILE),
+    )
+    layout = build_group_layout([tile])
+    assert ownership_boxes(layout) == ((0, TILE, 0, TILE),)
+
+
+@pytest.mark.parametrize("overlap", [1, 2, 3, 4, 7])
+def test_odd_and_even_overlaps_both_partition_exactly(overlap) -> None:
+    """An odd band cannot be split evenly, so the halves must be chosen to still
+    sum to the whole rather than leaving a cell unowned or doubly owned."""
+    tile, stride = 16, 16 - overlap
+    tiles = [
+        TileSpec(
+            tile_id=k, dataset_index=k, face=1,
+            i_start=i0, i_end=i0 + tile, j_start=j0, j_end=j0 + tile,
+            owned=(0, tile, 0, tile),
+        )
+        for k, (j0, i0) in enumerate([(0, 0), (0, stride), (stride, 0), (stride, stride)])
+    ]
+    layout = build_group_layout(tiles)
+    counts = np.zeros(layout.canonical_shape, dtype=int)
+    for spec, (j0, j1, i0, i1) in zip(layout.tiles, ownership_boxes(layout)):
+        counts[spec.j_start + j0 : spec.j_start + j1,
+               spec.i_start + i0 : spec.i_start + i1] += 1
+    assert counts.min() == 1 and counts.max() == 1
+
+
+def test_ownership_masks_are_tile_shaped_and_sum_to_the_canonical_area() -> None:
+    """Tile-shaped is the point: masks, area weights and metadata stay untouched
+    while every cell still counts exactly once."""
+    layout = make_layout()
+    masks = ownership_masks(layout)
+    assert masks.shape == (4, 1, TILE, TILE)
+    assert float(masks.sum()) == float(np.prod(layout.canonical_shape))

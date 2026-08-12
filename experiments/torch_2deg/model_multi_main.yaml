@@ -7,7 +7,9 @@ last_kernel_size: 3
 pad: circular
 checkpointing: null
 embedding_dim: 128
-perceiver_implementation: auto
+# The historical branch's optional flash-perceiver package is unavailable in
+# the shared Torch environment. Use its built-in reference implementation.
+perceiver_implementation: naive
 patch_extent: [6.0, 10.0]
 encoder:
   perceiver:

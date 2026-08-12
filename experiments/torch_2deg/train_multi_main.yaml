@@ -7,8 +7,10 @@ disk_mode: true
 pin_mem: true
 save_freq: 4
 epochs: 12
-batch_size: 8
-gradient_accumulation_steps: 4
+# Match the Perceiver experiments' effective batch while bounding activation
+# memory for the historical implementation.
+batch_size: 1
+gradient_accumulation_steps: 32
 learning_rate: 0.0006
 scheduler: null
 loss: mse

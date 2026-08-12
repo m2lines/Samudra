@@ -47,6 +47,7 @@ nav:
       - Data: data.md
       - How to Run: run.md
       - Torch: torch.md
+      - Architecture Searches: successive-halving.md
   - Development:
       - Contributing: contributing.md
       - Releasing: releasing.md

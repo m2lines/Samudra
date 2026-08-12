@@ -90,6 +90,7 @@ from samudra.utils.train import (
     collate_raw_train_data,
 )
 from samudra.utils.train_progress import TrainProgress
+from samudra.utils.training_summary import write_training_summary
 from samudra.utils.wandb import WandBLogger
 
 logger = logging.getLogger(__name__)
@@ -443,10 +444,34 @@ class Trainer:
             if inf_loss is not None:
                 logger.info(f"Achieved Inference Loss = {inf_loss:.3f}")
 
+            time_elapsed = time.perf_counter() - start_epoch_train_time
             if is_main_process():
                 self.save_all_checkpoints(epoch, v_loss, inf_loss)
-
-            time_elapsed = time.perf_counter() - start_epoch_train_time
+                write_training_summary(
+                    self.output_dir,
+                    {
+                        "epoch": epoch,
+                        "target_epochs": self.epochs,
+                        "complete": epoch == self.epochs,
+                        "train_loss": float(train_loss),
+                        "validation_loss": float(v_loss),
+                        "best_validation_loss": float(self.best_val_loss),
+                        "inference_loss": (
+                            float(inf_loss) if inf_loss is not None else None
+                        ),
+                        "best_inference_loss": float(self.best_inf_loss),
+                        "epoch_train_seconds": (
+                            end_epoch_train_time - start_epoch_train_time
+                        ),
+                        "epoch_validation_seconds": (
+                            end_epoch_val_time - end_epoch_train_time
+                        ),
+                        "epoch_total_seconds": time_elapsed,
+                        "progress": self.train_progress.state_dict(),
+                        "wandb_id": self.wandb_id,
+                        "wandb_name": self.wandb_name,
+                    },
+                )
 
             log_stats = {
                 **train_stats,

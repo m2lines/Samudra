@@ -77,9 +77,42 @@ trained models.
 The reduced requests allowed the three retry jobs to start together on node
 `gr102`. That exposed a launcher issue: each job inherited port 40000 for its
 single-process distributed group. Jobs 15655627 and 15655629 collided; the
-harness now derives a distinct `MASTER_PORT` from the Slurm job ID. Job
+harness now sets `MASTER_ADDR` and derives a distinct `MASTER_PORT` from the
+Slurm job ID. (Samudra requires both variables before using `env://`.) Job
 15655628 retained the port and continued, so the collided jobs are retried
 without treating this as a model result.
+
+The corrected microbatch-1 smoke runs all completed:
+
+| Role | Slurm | W&B ID | Peak GPU memory | Diagnostic validation MSE |
+| --- | ---: | --- | ---: | ---: |
+| Main Multi (naive backend) | 15655686 | `25xojbcg` | 95.1 GiB | 0.600 |
+| Native SDPA PIO | 15655628 | `yh3jrgei` | 39.4 GiB | 0.600 |
+| Perceiver candidate | 15655687 | `kiu1eg22` | 38.8 GiB | 0.645 |
+| Samudra Direct | 15655378 | `7uuxmov0` | 12.1 GiB | 0.621 |
+| Samudra U-Net | 15655379 | `736ti5gx` | 83.0 GiB first batch | 0.650 |
+
+These losses are not model-quality results. Debug mode stops after five train
+batches: accumulation-32 runs have made no optimizer update, while the
+accumulation-4 controls have made one. They exist only to verify execution and
+bound memory.
+
+## Evaluation protocol
+
+Use short-horizon held-out normalized MSE during training for rapid optimization
+feedback. After all 12-epoch runs finish, evaluate the same selected checkpoint
+from every architecture over the same 2015--2022 rollout and enable the durable
+observation metrics against the shared OM4 baseline. Those metrics test
+geostrophic velocity, instantaneous EKE, SST error and residual variability,
+and 0--700 m / 700--2000 m heat content. They are important because MSE alone
+can prefer an over-smoothed predictor with weak variability.
+
+Do not run the durable metrics on the debug checkpoints. Besides their unequal
+optimizer-update counts, the current one-year inference fixture does not cover
+the complete 2015--2022 calendar-year scoring window required by the metrics.
+At most, use one trained checkpoint for an early end-to-end eval-pipeline probe;
+the final comparison should score every fully trained model with the identical
+rollout configuration.
 
 ## Run ledger
 

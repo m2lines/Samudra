@@ -311,6 +311,42 @@ To enable profiling for a run, you typically want something like this:
 export NSYS_ARGS="--trace=cuda,nvtx,osrt,nccl --sample=cpu --delay=300 --duration=120"
 ```
 
+### Small 2-Degree Model-Comparison Runs
+
+Do not apply the full-node proportional resource rule mechanically to small
+single-GPU experiments. In the August 2026 public OM4 2-degree preflight, a
+request of 4 CPUs, 32 GiB host memory, one RTX6000, and two data-loader workers
+scheduled promptly. The successful Direct model stayed below 8 GiB host memory
+and used about 12 GiB GPU memory.
+
+GPU memory still depends on architecture and microbatch size rather than grid
+size alone. Both Perceiver variants exceeded 95 GiB at microbatch 8 because an
+autoregressive training batch retains activations across forecast steps. Their
+retry used microbatch 1 and 32 gradient-accumulation steps to preserve an
+effective batch of 32. Measure each architecture instead of assuming that a
+small spatial grid guarantees a small activation footprint.
+
+When Slurm packs independent jobs onto one node, each distributed process group
+must use a distinct rendezvous port. Prefer `torchrun --standalone`; a custom
+launcher can alternatively derive a port from the job ID, for example:
+
+```bash
+export MASTER_ADDR=127.0.0.1
+export MASTER_PORT="$((10000 + SLURM_JOB_ID % 50000))"
+```
+
+Track even short smoke jobs in W&B, but prefix their names with `smoke-` and do
+not compare their metrics as trained-model results. W&B is useful for live loss,
+throughput, and memory diagnostics. After training, compare all checkpoints with
+the same evaluation/visualization configuration and rollout horizons; treat
+that common metrics pass as the authoritative quality comparison.
+
+Remote public Zarr startup can dominate the first batch and produce irregular
+data-wait times. Estimate full-run duration only after several steady-state
+batches. The exact model matrix, failures, run IDs, and controlled settings for
+this study are recorded in
+[`docs/experiments/torch_2deg_model_comparison.md`](experiments/torch_2deg_model_comparison.md).
+
 ### Monitoring
 
 After submission:

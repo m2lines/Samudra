@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+# yaml-language-server: $schema=../schemas/SearchConfig.json
+
+name: example-2deg-search
+algorithm:
+  type: successive_halving
+  rungs: [1, 3, 6, 12]
+  promotion_fraction: 0.5
+  minimum_promoted: 1
+objective: { metric: validation_loss, mode: min }
+metrics: [validation_loss, train_loss, best_validation_loss]
+
+# Swap this include for local.yaml to run sequentially on the current machine.
+executor: !include torch.yaml
+
+candidates:
+  - name: reference
+    fixed: true
+    config: samudra_multi_om4/train.yaml
+    args:
+      - --data=@data/om4_demo.yaml
+      - --batch_size=2
+      - --gradient_accumulation_steps=16
+  - name: smaller-batch
+    config: samudra_multi_om4/train.yaml
+    args:
+      - --data=@data/om4_demo.yaml
+      - --batch_size=1
+      - --gradient_accumulation_steps=32
+  - name: larger-learning-rate
+    config: samudra_multi_om4/train.yaml
+    args:
+      - --data=@data/om4_demo.yaml
+      - --batch_size=2
+      - --gradient_accumulation_steps=16
+      - --learning_rate=0.001

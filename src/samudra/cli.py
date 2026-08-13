@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Console entry point for Samudra's training, evaluation, and search tasks.
+"""Console-script entry point: ``samudra <train|eval|viz> CONFIG [OVERRIDES...]``.
 
 Installed as the ``samudra`` command (see ``[project.scripts]`` in
 pyproject.toml), so a user who ``pip install samudra`` can run
@@ -13,7 +13,7 @@ subcommand forwards to the same ``main`` the module entry points use
 
 import sys
 
-_COMMANDS = ("train", "eval", "viz", "search")
+_COMMANDS = ("train", "eval", "viz")
 
 _HELP = """\
 samudra — train and evaluate emulators of ocean physics
@@ -30,17 +30,14 @@ Commands:
   train   Train a model from a config (checkpointing, W&B logging, multi-GPU).
   eval    Roll a trained model out autoregressively and collect metrics.
   viz     Render maps, time series, and PDFs from evaluation outputs.
-  search  Plan and run successive-halving architecture searches.
 
 For train, eval, and viz, CONFIG is a YAML path or bundled preset such as
 `samudra_om4/train.yaml`, with inline config overrides such as `--epochs 100`.
-Search has its own `plan`, `start`, `run-task`, and `advance` subcommands. Run
-`samudra <command> --help` for details.
+Run `samudra <command> --help` for details.
 
 Examples:
   samudra train samudra_om4/train.yaml --experiment.data_root ./data
   samudra eval  samudra_om4/eval.yaml  --ckpt_path ./checkpoint.pt
-  samudra search plan search.yaml
 
 Docs: https://m2lines.github.io/Samudra/docs/
 """
@@ -74,10 +71,6 @@ def main() -> None:
         from samudra.viz.config import main as viz_main
 
         viz_main(VizConfig.from_yaml_and_cli())
-    else:  # search
-        from samudra.search import main as search_main
-
-        search_main()
 
 
 if __name__ == "__main__":

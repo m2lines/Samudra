@@ -16,6 +16,10 @@ metrics: [validation_loss, train_loss, best_validation_loss]
 # Swap this include for local.yaml to run sequentially on the current machine.
 executor: !include torch.yaml
 
+# Opt in to publishing an agent-inspectable copy. Credentials stay in the
+# environment; uncomment after configuring write access on the compute system.
+# artifacts: !include osn-artifacts.yaml
+
 candidates:
   - name: reference
     fixed: true

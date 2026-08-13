@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import datetime
 import importlib.metadata
 import json
 import math
@@ -20,6 +21,7 @@ import pandas as pd
 import yaml
 
 from samudra.config import SearchRunConfig, TrainConfig
+from samudra.search.artifacts import ArtifactPublisher, atomic_parquet
 from samudra.search.config import CandidateConfig, SearchConfig, SlurmExecutorConfig
 from samudra.search.executors import Executor, LocalExecutor, SlurmExecutor
 from samudra.train import Trainer
@@ -94,23 +96,36 @@ class SuccessiveHalving:
         self.config_path = self.search_dir / "config.yaml"
         self.state_path = self.search_dir / "state.json"
         self.results_path = self.search_dir / "results.csv"
+        self.results_parquet_path = self.search_dir / "results.parquet"
+        self.checkpoint = CHECKPOINT
         self.rungs = config.algorithm.rungs
         self.executor = EXECUTORS[config.executor.type](self)
+        self.publisher = (
+            ArtifactPublisher(self, config.artifacts)
+            if config.artifacts is not None
+            else None
+        )
 
     def start(self) -> Path:
         if self.search_dir.exists():
             raise ValueError(f"Search output already exists: {self.search_dir}")
+        if self.publisher is not None:
+            self.publisher.prepare()
         competing = [item.name for item in self.config.candidates if not item.fixed]
         anchors = [item.name for item in self.config.candidates if item.fixed]
         provenance = _git_provenance(allow_dirty=self.config.allow_dirty)
+        code_layer_metadata: dict[str, Any] | None = None
         if isinstance(self.config.executor, SlurmExecutorConfig):
             code_layer = self.config.executor.code_layer
             if code_layer is not None:
                 metadata_path = Path(f"{code_layer}.json")
-                metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
-                if metadata.get("code_commit") != provenance["commit"]:
+                loaded_metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                if not isinstance(loaded_metadata, dict):
+                    raise ValueError(f"Invalid code-layer manifest: {metadata_path}")
+                code_layer_metadata = loaded_metadata
+                if code_layer_metadata.get("code_commit") != provenance["commit"]:
                     raise ValueError(
-                        f"Code layer contains {metadata.get('code_commit')!r}; "
+                        f"Code layer contains {code_layer_metadata.get('code_commit')!r}; "
                         f"search controller is {provenance['commit']!r}"
                     )
         resolved_candidates = [
@@ -121,6 +136,8 @@ class SuccessiveHalving:
             for candidate in self.config.candidates
         ]
         self.search_dir.mkdir(parents=True)
+        if code_layer_metadata is not None:
+            _atomic_json(self.search_dir / "code-layer.json", code_layer_metadata)
         candidate_dir = self.search_dir / "candidates"
         candidate_dir.mkdir()
         for candidate, train_config in resolved_candidates:
@@ -137,6 +154,7 @@ class SuccessiveHalving:
         )
         state = {
             "name": self.config.name,
+            "created_at": datetime.datetime.now(datetime.UTC).isoformat(),
             "status": "prepared",
             "provenance": provenance,
             "anchors": {"candidates": anchors, "results": []},
@@ -153,6 +171,9 @@ class SuccessiveHalving:
             ],
         }
         self.write_state(state)
+        self.publish(state)
+        if self.publisher is not None and is_main_process():
+            print(f"Published search record: {self.publisher.root}", flush=True)
         self.executor.submit_anchors(state)
         self.executor.submit_rung(self.read_state(), 0)
         return self.state_path
@@ -165,6 +186,10 @@ class SuccessiveHalving:
 
     def write_state(self, state: dict[str, Any]) -> None:
         _atomic_json(self.state_path, state)
+
+    def publish(self, state: dict[str, Any]) -> None:
+        if self.publisher is not None:
+            self.publisher.publish(state)
 
     def candidate(self, name: str) -> CandidateConfig:
         return next(item for item in self.config.candidates if item.name == name)
@@ -211,6 +236,10 @@ class SuccessiveHalving:
                 "SAMUDRA_CODE_COMMIT",
                 state.get("provenance", {}).get("commit"),
             ),
+            code_layer_sha256=os.environ.get("SAMUDRA_CODE_LAYER_SHA256"),
+            container_image_ref=os.environ.get("SAMUDRA_CONTAINER_IMAGE_REF"),
+            container_git_commit=os.environ.get("SAMUDRA_CONTAINER_GIT_COMMIT"),
+            artifacts_uri=(self.publisher.root if self.publisher is not None else None),
             job_id=os.environ.get("SLURM_JOB_ID", self.config.executor.type),
             parent_checkpoint=(
                 str(parent_checkpoint) if parent_checkpoint is not None else None
@@ -263,6 +292,16 @@ class SuccessiveHalving:
                 wandb_name=summary.get("wandb_name"),
                 executor=summary.get("executor"),
                 job_id=summary.get("job_id"),
+                code_layer_sha256=summary.get("code_layer_sha256"),
+                container_image_ref=summary.get("container_image_ref"),
+                container_git_commit=summary.get("container_git_commit"),
+                hostname=summary.get("hostname"),
+                torch_version=summary.get("torch_version"),
+                device=summary.get("device"),
+                cuda_device_name=summary.get("cuda_device_name"),
+                world_size=summary.get("world_size"),
+                completed_at=summary.get("completed_at"),
+                artifacts_uri=summary.get("artifacts_uri"),
                 parent_checkpoint=summary.get("parent_checkpoint"),
                 train_seconds=summary.get("epoch_train_seconds"),
                 validation_seconds=summary.get("epoch_validation_seconds"),
@@ -279,9 +318,9 @@ class SuccessiveHalving:
         return result
 
     def _write_results(self, state: dict[str, Any]) -> None:
-        rows = [
-            result for rung in state["rungs"] for result in rung.get("results", [])
-        ] + state["anchors"].get("results", [])
+        rows = self.result_rows(state)
+        frame = pd.DataFrame(rows)
+        atomic_parquet(frame, self.results_parquet_path)
         with tempfile.NamedTemporaryFile(
             mode="w",
             dir=self.search_dir,
@@ -290,10 +329,16 @@ class SuccessiveHalving:
             delete=False,
         ) as stream:
             temporary = Path(stream.name)
-            pd.DataFrame(rows).to_csv(stream, index=False)
+            frame.to_csv(stream, index=False)
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, self.results_path)
+
+    @staticmethod
+    def result_rows(state: dict[str, Any]) -> list[dict[str, Any]]:
+        return [
+            result for rung in state["rungs"] for result in rung.get("results", [])
+        ] + state["anchors"].get("results", [])
 
     def advance(self, rung: int) -> None:
         state = self.read_state()
@@ -307,7 +352,17 @@ class SuccessiveHalving:
                 )
         current = state["rungs"][rung]
         if current["advanced"]:
-            raise ValueError(f"Rung {rung} was already advanced")
+            # Publication and scheduler submission are external operations. A
+            # controller retry must be able to finish either after a transient
+            # upload/submission failure without recomputing the ranking.
+            self._write_results(state)
+            self.publish(state)
+            next_rung = rung + 1
+            if next_rung == len(self.rungs):
+                return
+            if "job_id" not in state["rungs"][next_rung]:
+                self.executor.submit_rung(state, next_rung)
+            return
         results = [self._result(name, rung) for name in current["candidates"]]
         eligible = pd.DataFrame([row for row in results if row["eligible"]])
         if eligible.empty:
@@ -315,6 +370,7 @@ class SuccessiveHalving:
             state["status"] = "failed"
             self.write_state(state)
             self._write_results(state)
+            self.publish(state)
             raise ValueError(f"No candidate completed rung {rung}")
         ascending = self.config.objective.mode == "min"
         ranked = eligible.sort_values(self.config.objective.metric, ascending=ascending)
@@ -335,12 +391,14 @@ class SuccessiveHalving:
             state["status"] = "complete"
             self.write_state(state)
             self._write_results(state)
+            self.publish(state)
             if is_main_process():
                 print(f"Search complete: {self.results_path}", flush=True)
             return
         state["rungs"][next_rung]["candidates"] = promoted
         self.write_state(state)
         self._write_results(state)
+        self.publish(state)
         self.executor.submit_rung(state, next_rung)
 
 

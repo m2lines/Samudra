@@ -1199,14 +1199,17 @@ def test_score_rollouts_is_one_pass_both_jobs_can_use(tmp_path):
     assert (tmp_path / "out" / "observation_metrics.csv").exists()
 
 
-def test_the_bathymetry_caveat_is_reported_beside_the_score_it_qualifies():
+def test_the_bathymetry_caveat_is_measured_not_bounded():
     """`ohc_per_area_layer_maps` names a risk; the frame has to measure it.
 
     Integrating whatever levels a cell has is exact where two products agree a
     column is shallow, and wrong where their bathymetry disagrees -- by roughly
-    2e9 J m^-2 per 50 m, which is the size of the whole 0-700 m score. The
-    docstring points at `partial_column_fraction` for the exposure, so a run
-    that never computes it leaves the caveat as prose.
+    2e9 J m^-2 per 50 m, which is the size of the whole 0-700 m score.
+
+    Counting each side's incomplete columns separately only bounds that: the
+    shallow cells may be the same ones or different ones, and two fractions
+    cannot tell those apart. The reported number differences the metres of
+    water each side integrates, per cell, so it says what the exposure *is*.
     """
     rollout, duacs, oisst, argo = _synthetic_case()
     model = observations.model_on_latlon_grid(rollout, OM4_SPEC)
@@ -1221,16 +1224,66 @@ def test_the_bathymetry_caveat_is_reported_beside_the_score_it_qualifies():
         bootstrap_samples=0,
     )
 
-    for metric in (
-        "ohc_partial_column_fraction",
-        "ohc_observed_partial_column_fraction",
+    layers = {layer.label for layer in kernels.OHC_LAYERS}
+    for metric, ceiling in (
+        ("ohc_bathymetry_disagreement", 2000.0),
+        ("ohc_partial_column_fraction", 1.0),
     ):
         rows = frame[frame["metric"] == metric]
-        # One per layer, each a fraction and each attributable to its layer.
-        assert set(rows["depth"]) == {layer.label for layer in kernels.OHC_LAYERS}
+        assert set(rows["depth"]) == layers
         for value in rows["value"]:
-            assert np.isnan(value) or 0.0 <= value <= 1.0
+            assert np.isnan(value) or 0.0 <= value <= ceiling
 
-    # The model's exposure reaches W&B, where a run-to-run change is visible.
+    # It reaches W&B, where a change between runs is visible.
     scalars = report.to_wandb(frame, "model")
-    assert "obs/ohc_0_700/partial_column_fraction" in scalars
+    assert "obs/ohc_0_700/bathymetry_disagreement_m" in scalars
+
+
+def test_two_products_shallow_in_different_places_disagree_more():
+    """The measure has to separate cases the per-side fractions cannot.
+
+    Two products can each stop early in a tenth of their columns and either
+    agree completely about which tenth, or disagree completely. The fractions
+    are identical in both cases; the exposure is nil in the first and doubled
+    in the second.
+    """
+    centres = np.array(OM4_SPEC.depth_levels)
+    dz = xr.DataArray(
+        np.array(OM4_SPEC.depth_thickness), dims=["lev"], coords={"lev": centres}
+    )
+    lat, lon = np.array([0.0]), np.arange(10.0)
+    layer = kernels.OHC_LAYERS[0]
+
+    def column(shallow_at: set[int]) -> xr.DataArray:
+        field = xr.DataArray(
+            np.full((centres.size, lat.size, lon.size), 10.0),
+            dims=["lev", "lat", "lon"],
+            coords={"lev": centres, "lat": lat, "lon": lon},
+        )
+        # The listed columns stop at 650 m; the rest span the layer.
+        stops = xr.DataArray(
+            np.isin(lon, sorted(shallow_at)), dims=["lon"], coords={"lon": lon}
+        )
+        return field.where(~(stops & (field["lev"] >= 650)))
+
+    first, second, elsewhere = {0}, {0}, {5}
+    metres = lambda f: kernels.integrated_layer_thickness(  # noqa: E731
+        f, layer, native_dz=dz, depth_name="lev"
+    )
+
+    agreeing = float(np.abs(metres(column(first)) - metres(column(second))).mean())
+    disagreeing = float(
+        np.abs(metres(column(first)) - metres(column(elsewhere))).mean()
+    )
+
+    # Same fraction of shallow columns on every side of both comparisons.
+    assert kernels.partial_column_fraction(
+        column(first), layer, native_dz=dz, depth_name="lev"
+    ) == pytest.approx(
+        kernels.partial_column_fraction(
+            column(elsewhere), layer, native_dz=dz, depth_name="lev"
+        )
+    )
+    # Yet one pair integrates the same water and the other does not.
+    assert agreeing == pytest.approx(0.0)
+    assert disagreeing > 0.0

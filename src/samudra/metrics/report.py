@@ -301,9 +301,13 @@ def _ohc_metrics(
         rows += layer_rows
         # Emitted as rows rather than columns: they qualify the layer score
         # without being one, and a tidy frame is the place for that.
-        for metric, value in (
-            ("ohc_partial_column_fraction", scored.model_partial_columns),
-            ("ohc_observed_partial_column_fraction", scored.observed_partial_columns),
+        for metric, value, units in (
+            (
+                "ohc_bathymetry_disagreement",
+                scored.bathymetry_disagreement_m,
+                "m",
+            ),
+            ("ohc_partial_column_fraction", scored.model_partial_columns, ""),
         ):
             rows.append(
                 {
@@ -311,7 +315,7 @@ def _ohc_metrics(
                     "model": model,
                     "depth": layer.label,
                     "value": value,
-                    "units": "",
+                    "units": units,
                     "period_kind": "full_overlap",
                     "period_start": layer_rows[0]["period_start"],
                     "period_end": layer_rows[0]["period_end"],
@@ -400,6 +404,14 @@ _WANDB_KEYS = {
         "ohc_per_area_total_rmse",
         kernels.OHC_LAYERS[1].label,
     ): "ohc_700_2000/per_area_total_rmse",
+    (
+        "ohc_bathymetry_disagreement",
+        kernels.OHC_LAYERS[0].label,
+    ): "ohc_0_700/bathymetry_disagreement_m",
+    (
+        "ohc_bathymetry_disagreement",
+        kernels.OHC_LAYERS[1].label,
+    ): "ohc_700_2000/bathymetry_disagreement_m",
     (
         "ohc_partial_column_fraction",
         kernels.OHC_LAYERS[0].label,

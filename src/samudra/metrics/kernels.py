@@ -543,6 +543,33 @@ def mean_surface_eke(u: xr.DataArray, v: xr.DataArray) -> xr.DataArray:
 # --------------------------------------------------------------------------
 
 
+def integrated_layer_thickness(
+    temp_field: xr.DataArray,
+    layer: DepthLayer,
+    native_dz: xr.DataArray | None = None,
+    depth_name: str = "depth",
+) -> xr.DataArray:
+    """Metres of water each cell actually contributes to a layer.
+
+    `ohc_per_area_layer_maps` integrates whatever levels a cell has, so this is
+    the weight behind that integral: the layer's nominal thickness where the
+    column is complete, less wherever it stops early. Differencing it between
+    two products is what turns "their bathymetry disagrees" into a number, and
+    metres of water convert to the heat the deeper product counted and the
+    other did not.
+
+    Thickness is linear, so unlike the heat content itself this may be
+    interpolated onto another grid before differencing.
+    """
+    overlap_dz = layer_overlap_thickness(
+        temp_field[depth_name], layer.min_depth, layer.max_depth, native_dz=native_dz
+    )
+    finite = cast(xr.DataArray, np.isfinite(temp_field))
+    if "time" in finite.dims:
+        finite = finite.any("time")
+    return (overlap_dz * finite).sum(depth_name)
+
+
 def partial_column_fraction(
     temp_field: xr.DataArray,
     layer: DepthLayer,

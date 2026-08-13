@@ -141,12 +141,18 @@ class LayerComparison(Comparison):
     products agree a column is shallow that is exact; where their bathymetry
     *disagrees* the deeper one integrates water the other lacks, and the
     difference reads as a heat deficit of roughly 2e9 J m^-2 per 50 m -- the
-    size of the whole 0-700 m score. These two fractions bound how much of the
-    comparison is exposed to that, one per side.
+    size of the whole 0-700 m score.
+
+    `bathymetry_disagreement_m` measures that directly, as the area-weighted
+    metres of water the two sides differ by. Counting each side's incomplete
+    columns separately would only bound it: two products can be shallow in the
+    same places, or in different ones, and the fractions cannot tell those
+    apart. `model_partial_columns` is kept beside it to say which side is the
+    shallow one.
     """
 
+    bathymetry_disagreement_m: float = float("nan")
     model_partial_columns: float = float("nan")
-    observed_partial_columns: float = float("nan")
 
 
 @dataclass
@@ -419,18 +425,30 @@ def ohc_layer(
         # months are dropped, so scoring its final year would weigh 11 months
         # against 12.
         sim, obs = whole_years(sim, obs, label)
+    # Bathymetry does not change with time, so one step answers these and
+    # spares a pass over the whole record.
+    model_column = rollout["thetao"].isel(time=0)
+    observed_column = obs_temp.isel(time=0)
+    model_metres = kernels.integrated_layer_thickness(
+        model_column, layer, native_dz=model_dz, depth_name="lev"
+    )
+    observed_metres = kernels.integrated_layer_thickness(
+        observed_column, layer, depth_name=obs_depth
+    )
     return LayerComparison(
         label,
         sim,
         obs,
         argo["area"],
-        # Bathymetry does not change with time, so one step answers this and
-        # spares a pass over the whole record.
-        model_partial_columns=kernels.partial_column_fraction(
-            rollout["thetao"].isel(time=0), layer, native_dz=model_dz, depth_name="lev"
+        bathymetry_disagreement_m=kernels.area_weighted_mean(
+            abs(
+                kernels.model_field_on_obs_grid(model_metres, observed_metres)
+                - observed_metres
+            ),
+            argo["area"],
         ),
-        observed_partial_columns=kernels.partial_column_fraction(
-            obs_temp.isel(time=0), layer, depth_name=obs_depth
+        model_partial_columns=kernels.partial_column_fraction(
+            model_column, layer, native_dz=model_dz, depth_name="lev"
         ),
     )
 

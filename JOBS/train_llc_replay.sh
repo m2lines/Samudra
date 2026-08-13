@@ -2,7 +2,7 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-08-11:samudra_rb_llc:4-tile_group-experiment-faster
+#SBATCH --job-name=2026-08-12:samudra_rb_llc:4-tile_group-experiment
 #SBATCH -x node4100,node3401,node3000
 #SBATCH -N 1
 #SBATCH --mem=254GB
@@ -43,7 +43,7 @@ export NCCL_DEBUG=INFO
 
 # PROFILING
 NSYS_ENABLE="${NSYS_ENABLE:-false}"
-export NSYS_ARGS="${NSYS_ARGS:---trace=cuda,nvtx,osrt --sample=cpu --delay=360 --duration=600 --force-overwrite=true}"
+export NSYS_ARGS="${NSYS_ARGS:---trace=cuda,nvtx,osrt --sample=cpu --delay=180 --duration=600 --force-overwrite=true}"
 NSYS_OUTPUT_DIR="/orcd/home/002/codycruz/Ocean_Emulator/logs/nsys"
 mkdir -p "${NSYS_OUTPUT_DIR}"
 PROFILER_CMD=()
@@ -92,16 +92,16 @@ PRED_RESIDUALS="${PRED_RESIDUALS:-true}"
 SURFACE_SNAPSHOT="${SURFACE_SNAPSHOT:-true}"
 # Randomly drawn (but seeded, so fixed across epochs) initial conditions scored
 # by one-step validation. 0 scores every window in val_time.
-ONE_STEP_VAL_NUM="${ONE_STEP_VAL_NUM:-200}"
+ONE_STEP_VAL_NUM="${ONE_STEP_VAL_NUM:-100}"
 # Autoregressive rollout validation. Runs never overlap and never read past the
 # end of val_time; *_NUM is reduced automatically if val_time is too short.
 # Set a length or a num to 0 to disable that rollout validation.
 SHORT_AR_VAL_LENGTH="${SHORT_AR_VAL_LENGTH:-72}"
-SHORT_AR_VAL_NUM="${SHORT_AR_VAL_NUM:-5}"
+SHORT_AR_VAL_NUM="${SHORT_AR_VAL_NUM:-3}"
 LONG_AR_VAL_LENGTH="${LONG_AR_VAL_LENGTH:-480}"
-LONG_AR_VAL_NUM="${LONG_AR_VAL_NUM:-2}"
+LONG_AR_VAL_NUM="${LONG_AR_VAL_NUM:-1}"
 # Rollout steps per chunk. Bounds how much prediction/target is held at once.
-AR_VAL_STEPS_FORWARD="${AR_VAL_STEPS_FORWARD:-12}"
+AR_VAL_STEPS_FORWARD="${AR_VAL_STEPS_FORWARD:-8}"
 
 # DDP
 DDP_BROADCAST_BUFFERS="${DDP_BROADCAST_BUFFERS:-false}"
@@ -158,7 +158,7 @@ GROUPED_REPLAY="${GROUPED_REPLAY:-true}"
 REPLAY_BLEND_WINDOW="${REPLAY_BLEND_WINDOW:-quintic}"
 REPLAY_REFRESH_EVERY_N_MICROBATCHES="${REPLAY_REFRESH_EVERY_N_MICROBATCHES:-[8,12,16,20,24,28,32,36,40,44]}"
 REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION="${REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION:-[6, 11, 16, 21, 26, 31, 36, 41, 46]}"
-REPLAY_STEPS_PER_EPOCH="${REPLAY_STEPS_PER_EPOCH:-8760}"
+REPLAY_STEPS_PER_EPOCH="${REPLAY_STEPS_PER_EPOCH:-8760}" #8760
 REPLAY_MAX_LEAD_STEPS="${REPLAY_MAX_LEAD_STEPS:-[4, 8, 12, 16, 20, 24, 28, 32, 34, 40]}"
 REPLAY_MAX_LEAD_TRANSITION="${REPLAY_MAX_LEAD_TRANSITION:-[6, 11, 16, 21, 26, 31, 36, 41, 46]}"
 REPLAY_CHECKPOINT_BUFFER="${REPLAY_CHECKPOINT_BUFFER:-true}"

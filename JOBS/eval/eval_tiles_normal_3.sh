@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-08-09-eval:Samudra_LLC:4-tile-blend=true,quintic,pre-blend_summary
+#SBATCH --job-name=2026-08-12-eval:Samudra_LLC:4-tile-blend=true,quintic,pre-blend_summary
 #SBATCH -x node4100,node3401,node3000
 #SBATCH -N 1
 #SBATCH --mem=100GB
@@ -29,7 +29,7 @@ export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
 # ============== CHECKPOINT AND OUTPUT ==============
-CKPT_PATH="${CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-08-06:samudra_rb_llc:4-tile-base-experiment-19805916/saved_nets/ckpt_50.pt}"
+CKPT_PATH="${CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-08-10:samudra_rb_llc:4-tile-base-experiment-data_fix-20093377/saved_nets/ckpt_50.pt}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-/orcd/data/abodner/002/cody/inference_patch}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
@@ -41,8 +41,12 @@ DATA_ROOT="${DATA_ROOT:-/orcd/data/abodner/002/cody/LLC_patch}"
 DATA_LOCATION="${DATA_LOCATION:-720-div-4-test}"
 
 INFER_START="${INFER_START:-2012-10-14}"
-INFER_END="${INFER_END:-2012-10-17}"
+INFER_END="${INFER_END:-2012-11-14}"
 INFERENCE_STRIDE="${INFERENCE_STRIDE:-1}"
+# Predictions are buffered in memory and appended to the zarr every this many
+# steps. One canonical frame of the full prognostic stack is ~425 MB, so a whole
+# month held at once is ~178 GB; 7 matches the single-tile eval jobs.
+NUM_MODEL_STEPS_FORWARD="${NUM_MODEL_STEPS_FORWARD:-7}"
 
 # ============== MODEL ==============
 # These must match how the checkpoint was trained. The live 4-tile run used the
@@ -97,6 +101,7 @@ echo "======== tiled (2x2) blended rollout ========"
 echo "checkpoint:         ${CKPT_PATH}"
 echo "tile cache dir:     ${DATA_ROOT}/${DATA_LOCATION}"
 echo "inference window:   ${INFER_START} -> ${INFER_END} (stride ${INFERENCE_STRIDE})"
+echo "steps per zarr write: ${NUM_MODEL_STEPS_FORWARD}"
 echo "blend:              ${BLEND} (window=${WINDOW}, ramp_width=${RAMP_WIDTH:-overlap})"
 echo "preblend_mode:      ${PREBLEND_MODE}"
 echo "perturbation:       ${PERTURBATION}"
@@ -130,6 +135,7 @@ fi
   --backend cuda \
   --ckpt_path "${CKPT_PATH}" \
   --inference_stride "${INFERENCE_STRIDE}" \
+  --num_model_steps_forward "${NUM_MODEL_STEPS_FORWARD}" \
   --inference_time.start "${INFER_START}" \
   --inference_time.end "${INFER_END}" \
   --experiment.name "${EXPERIMENT_NAME}" \

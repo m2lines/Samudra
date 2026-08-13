@@ -17,6 +17,10 @@ SURFACE_SNAPSHOT_NAMES = (
     f"U_{DEPTH_I_LEVELS[0]}",
     f"V_{DEPTH_I_LEVELS[0]}",
     "Eta",
+    # W_0 is the free surface, where vertical velocity is ~0 by the kinematic
+    # boundary condition, so snapshot the level below. Names absent from the run
+    # are filtered out, making this inert when W is off.
+    f"W_{DEPTH_I_LEVELS[1]}",
 )
 
 ONE_STEP_LOSS_KEY = "val/mean/one-step-loss"

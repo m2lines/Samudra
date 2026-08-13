@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
 #SBATCH -w node2905
-#SBATCH --job-name=2026-08-13-full_yr-llc_patch_cache-face1-i_2880-3600-j_720-1440,add-W
+#SBATCH --job-name=2026-08-13-full_yr-llc_patch_cache-face1-i_2880-3600-j_720-1440,add-W-TEST
 #SBATCH -N 1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
@@ -30,7 +30,7 @@ export NUMEXPR_NUM_THREADS="${NUMEXPR_NUM_THREADS:-1}"
 SOURCE_ZARR="${SOURCE_ZARR:-/orcd/data/abodner/003/LLC4320/LLC4320}"
 MEANS_ZARR="${MEANS_ZARR:-/orcd/data/abodner/002/cody/LLC_means_stds/var_96_LLC_means.zarr}"
 STDS_ZARR="${STDS_ZARR:-/orcd/data/abodner/002/cody/LLC_means_stds/var_96_LLC_stds.zarr}"
-OUTPUT_ROOT="${OUTPUT_ROOT:-/orcd/data/abodner/002/cody/LLC_patch/720-div-4-test}" # save to storage
+OUTPUT_ROOT="${OUTPUT_ROOT:-/orcd/data/abodner/002/cody/LLC_patch/}" # save to storage
 #OUTPUT_ROOT="${OUTPUT_ROOT:-/orcd/scratch/codycruz/LLC_patch}" # save to scratch
 
 LLC_FACE="${LLC_FACE:-1}"
@@ -44,26 +44,47 @@ LLC_I_END="${LLC_I_END:-3600}"
 LLC_J_START="${LLC_J_START:-720}"
 LLC_J_END="${LLC_J_END:-1440}"
 
-TRAIN_START="${TRAIN_START:-2011-09-13}"
-TRAIN_END="${TRAIN_END:-2012-09-13}"
-VAL_START="${VAL_START:-2012-09-14}"
-VAL_END="${VAL_END:-2012-10-14}"
+# FULL TRAIN-VAL
+# TRAIN_START="${TRAIN_START:-2011-09-13}"
+# TRAIN_END="${TRAIN_END:-2012-09-13}"
+# VAL_START="${VAL_START:-2012-09-14}"
+# VAL_END="${VAL_END:-2012-10-14}"
 
+# ONE WEEK TRAIN, TWO DAYS VAL
 # TRAIN_START="${TRAIN_START:-2011-09-13}"
 # TRAIN_END="${TRAIN_END:-2011-09-20}"
 # VAL_START="${VAL_START:-2011-09-20}"
 # VAL_END="${VAL_END:-2011-09-22}"
+
+# TWO DAYS TRAIN AND VAL
+TRAIN_START="${TRAIN_START:-2011-09-13}"
+TRAIN_END="${TRAIN_END:-2011-09-14}"
+VAL_START="${VAL_START:-2011-09-20}"
+VAL_END="${VAL_END:-2011-09-21}"
 
 FLOAT_TYPE="${FLOAT_TYPE:-float16}"
 
 TIME_CHUNK="${TIME_CHUNK:-1}"
 TRAIN_START_TAG="${TRAIN_START//-/}"
 VAL_END_TAG="${VAL_END//-/}"
-OUTPUT_NAME="${OUTPUT_NAME:-LLC4320_face${LLC_FACE}_i${LLC_I_START}-${LLC_I_END}_j${LLC_J_START}-${LLC_J_END}_trainval_ready_${TRAIN_START_TAG}_${VAL_END_TAG}_t${TIME_CHUNK}_add-W.zarr}"
+OUTPUT_NAME="${OUTPUT_NAME:-LLC4320_face${LLC_FACE}_i${LLC_I_START}-${LLC_I_END}_j${LLC_J_START}-${LLC_J_END}_trainval_ready_${TRAIN_START_TAG}_${VAL_END_TAG}_t${TIME_CHUNK}_add-W-TEST.zarr}"
 OUTPUT_PATH="${OUTPUT_ROOT}/${OUTPUT_NAME}"
 
 OVERWRITE="${OVERWRITE:-false}"
 DRY_RUN="${DRY_RUN:-false}"
+
+# MODE=full          rebuild the whole cache (default)
+# MODE=add-channels  add CHANNELS_TO_ADD to the cache at OUTPUT_PATH, in place.
+#                    Reads only those variables and grows the store along the
+#                    channel axis, so adding W costs one pass over W instead of
+#                    a full rebuild. New channels go on the end; everything
+#                    already in the store keeps its index and its bytes.
+#                    The cache at OUTPUT_PATH must already exist.
+#
+#   MODE=add-channels CHANNELS_TO_ADD=W sbatch build_llc_patch_cache_train_val.sh
+#
+MODE="${MODE:-full}"
+CHANNELS_TO_ADD="${CHANNELS_TO_ADD:-W}"
 QUEUE_TRAIN_AFTER_BUILD="${QUEUE_TRAIN_AFTER_BUILD:-false}"
 TRAIN_JOB_SCRIPT="${TRAIN_JOB_SCRIPT:-JOBS/train_llc.sh}"
 
@@ -77,6 +98,10 @@ echo "output_path=${OUTPUT_PATH}"
 echo "face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
 echo "train=[${TRAIN_START}:${TRAIN_END}], val=[${VAL_START}:${VAL_END}]"
 echo "time_chunk=${TIME_CHUNK}"
+echo "mode=${MODE}"
+if [[ "${MODE}" == "add-channels" ]]; then
+  echo "channels_to_add=${CHANNELS_TO_ADD} (appended in place, existing channels untouched)"
+fi
 echo "overwrite=${OVERWRITE}, dry_run=${DRY_RUN}"
 echo "queue_train_after_build=${QUEUE_TRAIN_AFTER_BUILD}"
 echo "note: this writes packed prognostic/boundary arrays plus embedded stats/masks"
@@ -100,6 +125,10 @@ ARGS=(
   --time-chunk "${TIME_CHUNK}"
 )
 
+if [[ "${MODE}" == "add-channels" ]]; then
+  # shellcheck disable=SC2206  # word splitting is how multiple channels arrive
+  ARGS+=(--add-channels --channels ${CHANNELS_TO_ADD})
+fi
 if [[ "${OVERWRITE}" == "true" ]]; then
   ARGS+=(--overwrite)
 fi

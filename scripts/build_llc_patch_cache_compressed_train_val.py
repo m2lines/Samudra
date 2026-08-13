@@ -26,6 +26,7 @@ extra bytes.
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import shutil
 import sys
@@ -49,7 +50,12 @@ from scripts.build_llc_patch_cache_uncompressed_train_val import (  # noqa: E402
     DEFAULT_SOURCE,
     DEFAULT_STDS,
     SUPPORTED_FLOAT_TYPES,
+    build_flat_masks,
+    build_flat_stats,
+    build_packed_data_array,
     build_training_ready_dataset,
+    extract_xy_coords,
+    get_numpy_float_type,
     remove_store,
     slice_patch,
 )
@@ -106,6 +112,32 @@ def parse_args() -> argparse.Namespace:
         "--append-label",
         default="test",
         help="Name recorded in the store attrs for the appended window, e.g. 'test'.",
+    )
+
+    parser.add_argument(
+        "--add-channels",
+        action="store_true",
+        help=(
+            "Add prognostic channels to an existing store instead of rebuilding "
+            "it. Reads only the variables named by --channels and grows the store "
+            "in place, so adding W costs one pass over W rather than a full "
+            "rebuild. New channels go on the end, leaving every existing channel "
+            "index untouched."
+        ),
+    )
+    parser.add_argument(
+        "--channels",
+        nargs="+",
+        default=["W"],
+        help="Variable(s) to add with --add-channels, e.g. W. Expanded to one "
+        "channel per depth level.",
+    )
+    parser.add_argument(
+        "--channel-levels",
+        type=int,
+        default=None,
+        help="Depth levels per added variable. Defaults to the level count the "
+        "store already uses.",
     )
 
     parser.add_argument(
@@ -310,6 +342,204 @@ def write_training_ready_in_batches(
     zarr.consolidate_metadata(str(tmp_path))
 
 
+def infer_level_count(channel_names: list[str]) -> int:
+    """How many depth levels the store uses per 3D variable.
+
+    Read off the store's own channel names rather than imported from
+    constants.py, so this builder stays a standalone tool: what to add is a
+    command line knob, not a thing to be inferred from the training config.
+    """
+    levels = {
+        int(name.rsplit("_", 1)[1])
+        for name in channel_names
+        if "_" in name and name.rsplit("_", 1)[1].isdigit()
+    }
+    if not levels or levels != set(range(max(levels) + 1)):
+        raise ValueError(
+            f"Could not infer a contiguous level count from the store's channel "
+            f"names; got levels {sorted(levels)}. Pass --channel-levels."
+        )
+    return max(levels) + 1
+
+
+def plan_channel_append(
+    existing: xr.Dataset, var_names: list[str], levels: int | None
+) -> tuple[list[str], list[str]]:
+    """Expand the requested variables into channel names to append.
+
+    New channels always go on the END of the packed axis, which is what makes
+    this safe to do in place: every channel already in the store keeps its
+    index, so existing tile catalogs and checkpoints stay valid.
+
+    The order here does not have to match PROGNOSTIC_VARS. The loader resolves
+    packed channels by name (see _packed_channel_indices in utils/data.py) and
+    reorders to whatever the training config asks for, so a store ending in
+    `..., Eta, W_0, ... W_50` works no matter where W sits in constants.py.
+    """
+    stored = json.loads(existing.attrs["prognostic_channel_names_json"])
+    level_count = levels or infer_level_count(stored)
+    new = [f"{var}_{level}" for var in var_names for level in range(level_count)]
+
+    clashes = [name for name in new if name in stored]
+    if clashes:
+        raise ValueError(
+            f"Append refused: {len(clashes)} channel(s) are already in the store, "
+            f"e.g. {clashes[:5]}. Nothing to add for those variables."
+        )
+    return stored, new
+
+
+def append_prognostic_channels(
+    output_path: Path,
+    data: xr.Dataset,
+    means: xr.Dataset,
+    stds: xr.Dataset,
+    args: argparse.Namespace,
+    *,
+    new_channels: list[str],
+    stored_channels: list[str],
+    time_batch: int,
+) -> None:
+    """Extend an existing store's prognostic arrays with extra channels.
+
+    Written through zarr rather than xarray's `append_dim` because we need to
+    grow four arrays along `prognostic_channel` and then fill only the new
+    channel slice of the big `prognostic` array in time batches. Growing a zarr
+    array keeps every existing chunk byte-for-byte; the new channels land in a
+    fresh chunk beyond the old extent, so none of the data already in the store
+    is rewritten. That is the whole point -- it costs one read of the new
+    variables instead of a full rebuild.
+    """
+    existing = xr.open_zarr(output_path, consolidated=True)
+    n_old = len(stored_channels)
+    n_new = len(new_channels)
+    n_total = n_old + n_new
+    store_times = existing["time"].to_numpy()
+
+    logger.info(
+        "Appending %d channel(s) to %s: %s",
+        n_new,
+        output_path,
+        new_channels if n_new <= 6 else f"{new_channels[:3]} ... {new_channels[-1]}",
+    )
+
+    # The new channels must cover exactly the store's existing time axis, or the
+    # packed array would be ragged: same variable, different times per channel.
+    data = data.sel(time=slice(str(store_times.min()), str(store_times.max())))
+    src_times = data["time"].to_numpy()
+    if not np.array_equal(src_times, store_times):
+        raise ValueError(
+            f"Append refused: the source has {src_times.size} timestamps in the "
+            f"store's window but the store has {store_times.size}. The new "
+            "channels have to line up with the existing time axis exactly."
+        )
+
+    y_coords, x_coords = extract_xy_coords(data)
+    if not np.array_equal(y_coords, existing["y"].to_numpy()) or not np.array_equal(
+        x_coords, existing["x"].to_numpy()
+    ):
+        raise ValueError(
+            "Append refused: the source patch does not match the store's y/x "
+            "coordinates. Check --face/--i-start/--i-end/--j-start/--j-end."
+        )
+
+    float_dtype = get_numpy_float_type(args.float_type)
+    packed = build_packed_data_array(
+        data,
+        new_channels,
+        dim_name="prognostic_channel",
+        y_coords=y_coords,
+        x_coords=x_coords,
+        time_chunk=args.time_chunk,
+        float_type=args.float_type,
+    )
+    new_mean = build_flat_stats(
+        means, new_channels, dim_name="prognostic_channel", float_type=args.float_type
+    )
+    new_std = build_flat_stats(
+        stds, new_channels, dim_name="prognostic_channel", float_type=args.float_type
+    )
+    new_mask, _ = build_flat_masks(
+        data, new_channels, [], y_coords=y_coords, x_coords=x_coords
+    )
+
+    if args.dry_run:
+        logger.info(
+            "Dry run: would grow prognostic_channel %d -> %d and fill %s",
+            n_old,
+            n_total,
+            new_channels,
+        )
+        logger.info(
+            "  first new channel mean=%s std=%s",
+            float(new_mean[0]),
+            float(new_std[0]),
+        )
+        return
+
+    store = zarr.open(str(output_path), mode="a")
+    if int(store["prognostic"].shape[1]) != n_old:
+        raise ValueError(
+            f"Store's prognostic array has {store['prognostic'].shape[1]} channels "
+            f"but its attrs name {n_old}; refusing to touch an inconsistent store."
+        )
+
+    # Grow first, then fill. A crash between the two leaves fill-valued channels
+    # beyond the old extent, which the name/count attrs written last would not
+    # yet advertise -- so a partial run is detectable rather than silently wrong.
+    logger.info("Growing prognostic arrays along channel: %d -> %d", n_old, n_total)
+    store["prognostic"].resize(store["prognostic"].shape[0], n_total, *store["prognostic"].shape[2:])
+    store["prognostic_mean"].resize(n_total)
+    store["prognostic_std"].resize(n_total)
+    store["prognostic_mask"].resize(n_total, *store["prognostic_mask"].shape[1:])
+    store["prognostic_channel"].resize(n_total)
+
+    store["prognostic_mean"][n_old:] = new_mean.to_numpy().astype(float_dtype)
+    store["prognostic_std"][n_old:] = new_std.to_numpy().astype(float_dtype)
+    store["prognostic_mask"][n_old:] = new_mask.to_numpy()
+    store["prognostic_channel"][n_old:] = np.arange(n_old, n_total, dtype=np.int32)
+
+    time_size = int(packed.sizes["time"])
+    n_batches = (time_size + time_batch - 1) // time_batch
+    for index, start in enumerate(range(0, time_size, time_batch)):
+        stop = min(start + time_batch, time_size)
+        logger.info(
+            "Filling channels %d:%d for time[%d:%d) -- batch %d/%d",
+            n_old,
+            n_total,
+            start,
+            stop,
+            index + 1,
+            n_batches,
+        )
+        block = packed.isel(time=slice(start, stop)).to_numpy().astype(float_dtype)
+        store["prognostic"][start:stop, n_old:] = block
+
+    # Attrs last: they are what declares the new channels real.
+    store.attrs.update(
+        {
+            "prognostic_channel_names_json": json.dumps(stored_channels + new_channels),
+            "prognostic_channel_count": n_total,
+        }
+    )
+    logger.info("Consolidating metadata")
+    zarr.consolidate_metadata(str(output_path))
+
+    check = xr.open_zarr(output_path, consolidated=True)
+    if int(check.sizes["prognostic_channel"]) != n_total:
+        raise RuntimeError("Channel append did not take; the store is inconsistent.")
+    if json.loads(check.attrs["prognostic_channel_names_json"]) != (
+        stored_channels + new_channels
+    ):
+        raise RuntimeError("Channel names in the store do not match what we wrote.")
+    logger.info(
+        "Store now has %d prognostic channels (%s ... %s)",
+        n_total,
+        check.attrs and json.loads(check.attrs["prognostic_channel_names_json"])[0],
+        json.loads(check.attrs["prognostic_channel_names_json"])[-1],
+    )
+
+
 def validate_append_compatible(existing: xr.Dataset, ds_new: xr.Dataset) -> None:
     """Refuse to append anything the existing store cannot absorb cleanly.
 
@@ -465,7 +695,22 @@ def main() -> None:
     output_path = build_output_path(args)
     tmp_path = output_path.with_name(f"{output_path.name}.tmp")
 
-    if args.append:
+    if args.append and args.add_channels:
+        raise ValueError(
+            "--append extends the time axis and --add-channels extends the "
+            "channel axis; run them one at a time."
+        )
+
+    if args.add_channels:
+        if not output_path.exists():
+            raise FileNotFoundError(
+                f"--add-channels needs an existing store, but {output_path} is "
+                "missing. Build it first, or drop --add-channels to create it."
+            )
+        logger.info(
+            "Add-channels mode: extending %s with %s", output_path, args.channels
+        )
+    elif args.append:
         if not args.append_start or not args.append_end:
             raise ValueError("--append requires --append-start and --append-end")
         if not output_path.exists():
@@ -488,7 +733,7 @@ def main() -> None:
             f"{output_path} already exists. Pass --overwrite to replace it, or "
             "--append with --append-start/--append-end to extend it in place."
         )
-    if not args.append:
+    if not args.append and not args.add_channels:
         if tmp_path.exists() and not args.overwrite:
             raise FileExistsError(
                 f"{tmp_path} already exists. Pass --overwrite to replace it."
@@ -518,6 +763,9 @@ def main() -> None:
         "YC",
         "rA",
     }
+    if args.add_channels:
+        # Whatever was asked for has to survive the selection below.
+        required_vars |= set(args.channels)
     missing = sorted(required_vars - set(data.data_vars))
     if missing:
         raise KeyError(f"Source dataset is missing required vars: {missing}")
@@ -538,6 +786,25 @@ def main() -> None:
         args.j_end,
     )
     data = slice_patch(data, args)
+
+    if args.add_channels:
+        if args.time_batch <= 0:
+            raise ValueError("time-batch must be positive")
+        existing = xr.open_zarr(output_path, consolidated=True)
+        stored_channels, new_channels = plan_channel_append(
+            existing, args.channels, args.channel_levels
+        )
+        append_prognostic_channels(
+            output_path,
+            data,
+            means,
+            stds,
+            args,
+            new_channels=new_channels,
+            stored_channels=stored_channels,
+            time_batch=args.time_batch,
+        )
+        return
 
     ds_out = build_training_ready_dataset(data, means, stds, args)
     ds_out.attrs.update(

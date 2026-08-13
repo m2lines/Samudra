@@ -52,6 +52,10 @@ DEFAULT_PROGNOSTIC_CHANNELS = PROGNOSTIC_VARS["all"]
 DEFAULT_BOUNDARY_CHANNELS = BOUNDARY_VARS["all"]
 DEFAULT_FLOAT_TYPE = "float16"
 SUPPORTED_FLOAT_TYPES = {"float16", "float32", "float64"}
+# Vertical dimension names a source variable may carry, most specific first.
+# `k` is cell centres, `k_p1` is cell interfaces (W lives there), `lev` is what
+# standardize_spatial_dims renames whichever one it finds to.
+VERTICAL_DIMS = ("k", "k_p1", "k_l", "k_u", "lev")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -189,10 +193,23 @@ def select_train_val_times(ds: xr.Dataset, args: argparse.Namespace) -> tuple[xr
     return combined, int(train.sizes["time"]), int(val.sizes["time"])
 
 
+def vertical_dim_of(da_in: xr.DataArray) -> str | None:
+    """The vertical dimension of `da_in`, or None for a surface field.
+
+    LLC4320 staggers the vertical: tracers and horizontal velocities sit on `k`
+    (cell centres) while W sits on `k_p1` (cell interfaces, one longer). So the
+    dimension has to be looked up rather than assumed to be `k`.
+    """
+    for dim in VERTICAL_DIMS:
+        if dim in da_in.dims:
+            return dim
+    return None
+
+
 def standardize_spatial_dims(da_in: xr.DataArray) -> xr.DataArray:
     rename_map = {}
-    if "k" in da_in.dims:
-        rename_map["k"] = "lev"
+    if (lev_dim := vertical_dim_of(da_in)) is not None:
+        rename_map[lev_dim] = "lev"
     if "j" in da_in.dims:
         rename_map["j"] = "y"
     if "j_g" in da_in.dims:
@@ -214,7 +231,12 @@ def extract_channel(ds: xr.Dataset, channel_name: str) -> xr.DataArray:
         if base_name not in ds.data_vars:
             raise KeyError(f"Missing source variable for channel {channel_name}")
         source_da = ds[base_name]
-        lev_dim = "k" if "k" in source_da.dims else "lev"
+        lev_dim = vertical_dim_of(source_da)
+        if lev_dim is None:
+            raise KeyError(
+                f"{base_name} has no vertical dimension, so it cannot supply "
+                f"channel {channel_name}; expected one of {VERTICAL_DIMS}."
+            )
         da_out = source_da.isel({lev_dim: int(level)})
 
     da_out = standardize_spatial_dims(da_out)
@@ -328,7 +350,7 @@ def extract_mask_cube(ds: xr.Dataset) -> np.ndarray:
     if "time" in mask.dims:
         mask = mask.isel(time=0, drop=True)
 
-    lev_dim = "lev" if "lev" in mask.dims else "k"
+    lev_dim = vertical_dim_of(mask) or "k"
     return mask.transpose(lev_dim, "y", "x").to_numpy().astype(bool, copy=False)
 
 
@@ -347,14 +369,32 @@ def build_flat_masks(
     for channel_name in prognostic_channel_names:
         if "_" in channel_name:
             _, level = channel_name.rsplit("_", 1)
+            # The source only ships a cell-centre wet mask, so an interface
+            # variable (W on k_p1) borrows the mask of the cell below its face:
+            # W at the top of cell i exists exactly where cell i is wet. That is
+            # the right call for the top face and off by one cell at the sea
+            # floor, where W is zero anyway.
+            if int(level) >= mask_cube.shape[0]:
+                raise IndexError(
+                    f"Channel {channel_name} wants mask level {level} but the "
+                    f"source mask only has {mask_cube.shape[0]} levels."
+                )
             prognostic_masks.append(mask_cube[int(level)])
         else:
             prognostic_masks.append(surface_mask)
 
     boundary_masks = [surface_mask for _ in boundary_channel_names]
 
+    def stacked(masks: list[np.ndarray]) -> np.ndarray:
+        # np.stack refuses an empty list, and either channel list is legitimately
+        # empty when only one of the two groups is being built (adding channels
+        # to an existing cache touches the prognostic side alone).
+        if masks:
+            return np.stack(masks, axis=0)
+        return np.empty((0, len(y_coords), len(x_coords)), dtype=bool)
+
     prognostic_mask_da = xr.DataArray(
-        np.stack(prognostic_masks, axis=0),
+        stacked(prognostic_masks),
         dims=("prognostic_channel", "y", "x"),
         coords={
             "prognostic_channel": np.arange(
@@ -365,7 +405,7 @@ def build_flat_masks(
         },
     )
     boundary_mask_da = xr.DataArray(
-        np.stack(boundary_masks, axis=0),
+        stacked(boundary_masks),
         dims=("boundary_channel", "y", "x"),
         coords={
             "boundary_channel": np.arange(len(boundary_channel_names), dtype=np.int32),

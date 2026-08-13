@@ -558,3 +558,70 @@ def test_a_region_too_anisotropic_to_transform_is_skipped_not_fatal():
         field, slice(0, 40), slice(80, 82), name="polar sliver"
     )
     assert wavenumber.size == power.size
+
+
+def test_a_partly_covered_year_does_not_enter_an_interannual_band():
+    """A band aggregates whole years, or its spread is partly a sampling artefact.
+
+    The default rollout starts on 20 October, so its first calendar year holds
+    about fifteen five-day samples -- all of one season. Counting that as a year
+    skews both the band and the year count printed beside it.
+    """
+    time = pd.date_range("2014-10-20", "2016-12-29", freq="5D")
+    lat, lon = np.linspace(-30.0, 30.0, 10), np.linspace(0.0, 350.0, 12)
+    coords = {"time": time, "lat": lat, "lon": lon}
+    rng = np.random.default_rng(0)
+    u = xr.DataArray(
+        rng.normal(size=(time.size, lat.size, lon.size)),
+        dims=("time", "lat", "lon"),
+        coords=coords,
+    )
+    v = xr.DataArray(rng.normal(size=u.shape), dims=u.dims, coords=coords)
+
+    assert int((time.year == 2014).sum()) > 12, "2014 no longer clears a count cutoff"
+    assert set(figures.obs_eke_by_year(u, v)) == {2015, 2016}
+    assert set(figures._anomaly_by_year(u)) == {2015, 2016}
+
+
+def test_the_model_velocity_is_an_anomaly_when_the_product_is():
+    """Against DUACS's anomaly product the model's time mean has to come off.
+
+    The model's geostrophic velocity from `zos` is absolute either way, so
+    leaving it absolute compares an anomaly against a mean flow. Kinetic energy
+    is quadratic, so no later detrend of the energy series recovers it.
+    """
+    time = pd.date_range("2021-01-03", "2022-12-29", freq="5D")
+    lat, lon = np.linspace(-30.0, 30.0, 10), np.linspace(0.0, 350.0, 12)
+    coords = {"time": time, "lat": lat, "lon": lon}
+    rng = np.random.default_rng(0)
+    mean_flow = 0.8
+    field = xr.DataArray(
+        mean_flow + rng.normal(scale=0.1, size=(time.size, lat.size, lon.size)),
+        dims=("time", "lat", "lon"),
+        coords=coords,
+    )
+    area = xr.DataArray(
+        np.ones((lat.size, lon.size)),
+        dims=("lat", "lon"),
+        coords={"lat": lat, "lon": lon},
+    )
+    pair = comparisons.VelocityComparison(
+        comparisons.Comparison("u", field, field, area),
+        comparisons.Comparison("v", field, field, area),
+        kind="anomaly",
+    )._rebased()
+
+    assert float(np.abs(pair.eastward.native.mean("time")).max()) < 1e-12
+    # The observed side is already an anomaly product; it is left alone.
+    assert float(pair.eastward.obs.mean()) == pytest.approx(mean_flow, abs=0.02)
+
+    # Slicing rebases, so a narrower window is an anomaly about that window.
+    window = slice(pd.Timestamp("2022-01-01"), pd.Timestamp("2022-12-31"))
+    assert float(np.abs(pair.slice(window).eastward.native.mean("time")).max()) < 1e-12
+
+    # And the absolute kind keeps the mean flow it was given.
+    absolute = comparisons.VelocityComparison(
+        comparisons.Comparison("u", field, field, area),
+        comparisons.Comparison("v", field, field, area),
+    )._rebased()
+    assert float(absolute.eastward.native.mean()) == pytest.approx(mean_flow, abs=0.02)

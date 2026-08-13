@@ -44,11 +44,6 @@ PLATE = ccrs.PlateCarree()
 SERIES_COLOURS = ("#000000", "#0072b2", "#d55e00", "#009e73", "#cc79a7")
 
 
-# Steps a calendar year needs before it contributes to an interannual band.
-# Twelve is roughly two months at the 5-day cadence: enough for an annual mean
-# not to be one season.
-MIN_STEPS_PER_YEAR = 12
-
 # What an RMSE-map builder hands back: squared error over time, and the cell
 # areas to weight it by.
 _SquaredError = tuple[xr.DataArray, xr.DataArray]
@@ -878,33 +873,28 @@ def spectra_figures(
 
 
 def _anomaly_by_year(anomaly: xr.DataArray) -> dict[int, xr.DataArray]:
-    """Split an anomaly field into calendar years, keeping the time axis.
+    """Split an anomaly field into complete calendar years, keeping the time axis.
 
     The anomaly must already be taken about the whole record's climatology, so
     that every year shares one baseline and the band shows real year-to-year
     spread rather than each year's deviation from itself.
     """
-    years = sorted({int(y) for y in pd.DatetimeIndex(anomaly["time"].values).year})
-    by_year = {}
-    for year in years:
-        annual = anomaly.sel(time=slice(f"{year}-01-01", f"{year}-12-31"))
-        if annual.sizes.get("time", 0) >= MIN_STEPS_PER_YEAR:
-            by_year[year] = annual
-    return by_year
+    return {
+        year: anomaly.sel(time=slice(f"{year}-01-01", f"{year}-12-31"))
+        for year in kernels.complete_calendar_years(anomaly["time"])
+    }
 
 
 def _yearly_temporal_bands(field: xr.DataArray) -> dict[str, tuple]:
-    """Welch PSD of each calendar year, aggregated into a per-region band."""
+    """Welch PSD of each complete calendar year, aggregated into a per-region band."""
+    years = kernels.complete_calendar_years(field["time"])
     bands = {}
     for name, lon, lat in spectra.TEMPORAL_REGIONS:
         series = spectra.region_mean_series(field, lon, lat)
         stamps = pd.DatetimeIndex(series.index)
         curves = []
-        for year in sorted({int(y) for y in stamps.year}):
-            annual = series[stamps.year == year]
-            if annual.size < MIN_STEPS_PER_YEAR:
-                continue
-            frequencies, power = spectra.welch_psd(annual)
+        for year in years:
+            frequencies, power = spectra.welch_psd(series[stamps.year == year])
             if np.asarray(frequencies).size:
                 curves.append((np.asarray(frequencies), np.asarray(power)))
         bands[name] = spectra.interannual_band(curves)
@@ -912,21 +902,23 @@ def _yearly_temporal_bands(field: xr.DataArray) -> dict[str, tuple]:
 
 
 def obs_eke_by_year(u: xr.DataArray, v: xr.DataArray) -> dict[int, xr.DataArray]:
-    """Annual-mean EKE maps, all sharing one multi-year velocity mean.
+    """Annual-mean EKE maps for each complete calendar year.
+
+    A year the record only partly covers is dropped rather than averaged: the
+    default rollout starts on 20 October, so its first year holds fifteen
+    samples of one season and would enter the band as if it were a year.
 
     The eddy anomaly is taken about the mean of the whole record, not of each
     year: a per-year mean would absorb the year-to-year change in the mean flow,
     which is the variability these bands exist to show.
     """
     eke = kernels.instantaneous_surface_eke(u, v)
-    years = sorted({int(y) for y in pd.DatetimeIndex(u["time"].values).year})
-    per_year = {}
-    for year in years:
-        annual = eke.sel(time=slice(f"{year}-01-01", f"{year}-12-31"))
-        if annual.sizes.get("time", 0) < MIN_STEPS_PER_YEAR:
-            continue
-        per_year[year] = annual.mean("time", skipna=True)
-    return per_year
+    return {
+        year: eke.sel(time=slice(f"{year}-01-01", f"{year}-12-31")).mean(
+            "time", skipna=True
+        )
+        for year in kernels.complete_calendar_years(u["time"])
+    }
 
 
 def _region_curves(

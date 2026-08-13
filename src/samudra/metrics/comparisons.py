@@ -49,6 +49,13 @@ def ever_finite(field: xr.DataArray) -> xr.DataArray:
     return finite.any("time") if "time" in field.dims else finite
 
 
+def _without_time_mean(component: Comparison) -> Comparison:
+    """The model side of a comparison, as an anomaly about its own time mean."""
+    return dataclasses.replace(
+        component, native=component.native - component.native.mean("time")
+    )
+
+
 @dataclass(frozen=True)
 class Pairing:
     """How much of the observation ocean survived pairing with a model.
@@ -136,10 +143,32 @@ class VelocityComparison:
 
     eastward: Comparison
     northward: Comparison
+    kind: str = "absolute"
 
     @property
     def area(self) -> xr.DataArray:
         return self.eastward.area
+
+    def _rebased(self) -> Self:
+        """Put the model on the same footing as the observed velocity.
+
+        DUACS reports either an absolute geostrophic velocity or an anomaly
+        about its own reference period, and the model's velocity derived from
+        `zos` is always absolute. Against the anomaly product the model's time
+        mean has to come off, or the two are not the same quantity.
+
+        It cannot be left to a detrend further downstream: kinetic energy is
+        quadratic, so a retained mean flow contributes a constant *and* a cross
+        term with the eddies, and no linear detrend of the energy series
+        removes either.
+        """
+        if self.kind != "anomaly":
+            return self
+        return dataclasses.replace(
+            self,
+            eastward=_without_time_mean(self.eastward),
+            northward=_without_time_mean(self.northward),
+        )
 
     @property
     def time(self) -> xr.DataArray:
@@ -152,11 +181,13 @@ class VelocityComparison:
         energies reduce over time, so a mean taken before the slice is a mean of
         the wrong record and cannot be corrected afterwards.
         """
+        # Rebased after slicing, not before: for the anomaly kind the mean has
+        # to be the one over the span actually being compared.
         return dataclasses.replace(
             self,
             eastward=self.eastward.slice(time_slice),
             northward=self.northward.slice(time_slice),
-        )
+        )._rebased()
 
     @functools.cached_property
     def vector_error_squared(self) -> xr.DataArray:
@@ -319,7 +350,8 @@ def surface_velocity(
     return VelocityComparison(
         eastward=Comparison(f"{context} eastward velocity", sim_u, obs_u, area),
         northward=Comparison(f"{context} northward velocity", sim_v, obs_v, area),
-    )
+        kind=velocity_kind,
+    )._rebased()
 
 
 def sea_surface_temperature(

@@ -1020,6 +1020,10 @@ class SearchRunConfig(BaseConfig):
     objective: str
     executor: str
     code_commit: str | None = None
+    code_layer_sha256: str | None = None
+    container_image_ref: str | None = None
+    container_git_commit: str | None = None
+    artifacts_uri: str | None = None
     job_id: str | None = None
     parent_checkpoint: str | None = None
 

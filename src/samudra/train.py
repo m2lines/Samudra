@@ -7,6 +7,7 @@ import datetime
 import logging
 import multiprocessing
 import os
+import socket
 import tempfile
 import time
 import warnings
@@ -90,7 +91,7 @@ from samudra.utils.train import (
     collate_raw_train_data,
 )
 from samudra.utils.train_progress import TrainProgress
-from samudra.utils.training_summary import write_training_summary
+from samudra.utils.training_summary import write_search_metrics, write_training_summary
 from samudra.utils.wandb import WandBLogger
 
 logger = logging.getLogger(__name__)
@@ -496,6 +497,19 @@ class Trainer:
                 )
 
             if is_main_process():
+                if self.search_run is not None:
+                    write_search_metrics(
+                        self.output_dir,
+                        {
+                            **self.search_run.model_dump(),
+                            "train_loss": float(train_loss),
+                            "validation_loss": float(v_loss),
+                            "inference_loss": (
+                                float(inf_loss) if inf_loss is not None else None
+                            ),
+                            **log_stats,
+                        },
+                    )
                 self.wandb_logger.log(log_stats, step=self.num_batches_seen)
 
         total_time = time.perf_counter() - start_time
@@ -530,6 +544,14 @@ class Trainer:
             "optimizer_steps": self.train_progress.optimizer_steps,
             "wandb_id": self.wandb_id,
             "wandb_name": self.wandb_name,
+            "hostname": socket.gethostname(),
+            "torch_version": torch.__version__,
+            "device": str(self.device),
+            "cuda_device_name": (
+                torch.cuda.get_device_name(self.device) if using_gpu() else None
+            ),
+            "world_size": self.world_size,
+            "completed_at": datetime.datetime.now(datetime.UTC).isoformat(),
             **self.search_run.model_dump(),
         }
 

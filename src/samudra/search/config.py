@@ -10,6 +10,7 @@ from typing import Annotated, Literal, Self
 from pydantic import Field, model_validator
 
 from samudra.config_base import BaseConfig, TopLevelConfig
+from samudra.utils.location import LocalLocation, S3Location
 
 
 class ObjectiveConfig(BaseConfig):
@@ -73,6 +74,19 @@ ExecutorConfig = Annotated[
 ]
 AlgorithmConfig = SuccessiveHalvingConfig
 
+ArtifactDestination = Annotated[
+    LocalLocation | S3Location,
+    Field(discriminator="type"),
+]
+
+
+class ArtifactConfig(BaseConfig):
+    """Durable, executor-independent publication of a search record."""
+
+    destination: ArtifactDestination
+    checkpoints: Literal["none", "final", "all"] = "final"
+    public_url: str | None = None
+
 
 class SearchConfig(TopLevelConfig):
     """Compare training configurations using adaptive resource allocation."""
@@ -83,6 +97,7 @@ class SearchConfig(TopLevelConfig):
     metrics: list[str] = Field(default_factory=lambda: ["validation_loss"])
     candidates: list[CandidateConfig] = Field(min_length=1)
     executor: ExecutorConfig
+    artifacts: ArtifactConfig | None = None
     allow_dirty: bool = False
 
     @model_validator(mode="after")

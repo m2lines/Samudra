@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+type: slurm
+output_dir: /scratch/USER/searches
+harness: /scratch/USER/Samudra/scripts/slurm_apptainer_train.sbatch
+account: torch_pr_347_lzanna
+partition: rtx6000_lzanna
+controller_partition: cs
+python: /scratch/USER/samudra-venv/bin/python
+cpus_per_task: 4
+memory: 32G
+gres: gpu:rtx6000:1
+time_by_rung: ["02:00:00", "04:00:00", "06:00:00", "12:00:00"]
+max_concurrent: 8
+data_root: /scratch/USER
+scratch_dir: /scratch/USER
+sif_path: /scratch/USER/.apptainer-images/physicsnemo-26.05-latest.sif
+# Build this from the same committed revision that launches the search.
+code_layer: /scratch/USER/.apptainer-code-layers/samudra-code-COMMIT.img

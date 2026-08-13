@@ -7,6 +7,7 @@ import datetime
 import logging
 import multiprocessing
 import os
+import socket
 import tempfile
 import time
 import warnings
@@ -83,6 +84,7 @@ from samudra.utils.train import (
     collate_raw_train_data,
 )
 from samudra.utils.train_progress import TrainProgress
+from samudra.utils.training_summary import write_search_metrics, write_training_summary
 from samudra.utils.wandb import WandBLogger
 
 logger = logging.getLogger(__name__)
@@ -256,17 +258,20 @@ class Trainer:
             f"world_size={self.world_size})"
         )
         if self.is_wandb_enabled():
-            self.wandb_logger.log(
-                {
-                    "config/effective_batch_size": global_effective_batch_size,
-                    "config/local_batch_size": cfg.batch_size,
-                    "config/local_effective_batch_size": local_effective_batch_size,
-                    "config/world_size": self.world_size,
-                    "config/global_microbatch_size": global_microbatch_size,
-                    "config/global_effective_batch_size": global_effective_batch_size,
-                },
-                step=0,
-            )
+            initial_metrics: dict[str, int] = {
+                "config/effective_batch_size": global_effective_batch_size,
+                "config/local_batch_size": cfg.batch_size,
+                "config/local_effective_batch_size": local_effective_batch_size,
+                "config/world_size": self.world_size,
+                "config/global_microbatch_size": global_microbatch_size,
+                "config/global_effective_batch_size": global_effective_batch_size,
+            }
+            if cfg.experiment.search is not None:
+                initial_metrics["search/rung"] = cfg.experiment.search.rung
+                initial_metrics["search/target_epochs"] = (
+                    cfg.experiment.search.target_epochs
+                )
+            self.wandb_logger.log(initial_metrics, step=0)
 
         self.num_batches_seen = 0
         self.best_val_loss = 1e8
@@ -312,6 +317,7 @@ class Trainer:
         self.save_freq = cfg.save_freq
         self.validation_image_log_freq = cfg.validation_image_log_freq
         self.output_dir = cfg.experiment.output_dir
+        self.search_run = cfg.experiment.search
         self.debug = cfg.debug
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size
@@ -435,10 +441,25 @@ class Trainer:
             if inf_loss is not None:
                 logger.info(f"Achieved Inference Loss = {inf_loss:.3f}")
 
+            time_elapsed = time.perf_counter() - start_epoch_train_time
             if is_main_process():
                 self.save_all_checkpoints(epoch, v_loss, inf_loss)
-
-            time_elapsed = time.perf_counter() - start_epoch_train_time
+                if self.search_run is not None:
+                    write_training_summary(
+                        self.output_dir,
+                        self._search_summary(
+                            epoch,
+                            train_loss=float(train_loss),
+                            validation_loss=float(v_loss),
+                            inference_loss=(
+                                float(inf_loss) if inf_loss is not None else None
+                            ),
+                            train_seconds=end_epoch_train_time - start_epoch_train_time,
+                            validation_seconds=end_epoch_val_time
+                            - end_epoch_train_time,
+                            total_seconds=time_elapsed,
+                        ),
+                    )
 
             log_stats = {
                 **train_stats,
@@ -457,12 +478,63 @@ class Trainer:
                 )
 
             if is_main_process():
+                if self.search_run is not None:
+                    write_search_metrics(
+                        self.output_dir,
+                        {
+                            **self.search_run.model_dump(),
+                            "train_loss": float(train_loss),
+                            "validation_loss": float(v_loss),
+                            "inference_loss": (
+                                float(inf_loss) if inf_loss is not None else None
+                            ),
+                            **log_stats,
+                        },
+                    )
                 self.wandb_logger.log(log_stats, step=self.num_batches_seen)
 
         total_time = time.perf_counter() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         logger.info(f"Training time {total_time_str}")
         self.finish()
+
+    def _search_summary(
+        self,
+        epoch: int,
+        *,
+        train_loss: float,
+        validation_loss: float,
+        inference_loss: float | None,
+        train_seconds: float,
+        validation_seconds: float,
+        total_seconds: float,
+    ) -> dict[str, Any]:
+        """Build the small local result consumed by an active search."""
+        assert self.search_run is not None
+        return {
+            "epoch": epoch,
+            "complete": epoch == self.epochs,
+            "train_loss": train_loss,
+            "validation_loss": validation_loss,
+            "best_validation_loss": float(self.best_val_loss),
+            "inference_loss": inference_loss,
+            "best_inference_loss": float(self.best_inf_loss),
+            "epoch_train_seconds": train_seconds,
+            "epoch_validation_seconds": validation_seconds,
+            "epoch_total_seconds": total_seconds,
+            "optimizer_steps": self.train_progress.optimizer_steps,
+            "wandb_id": self.wandb_id,
+            "wandb_name": self.wandb_name,
+            "hostname": socket.gethostname(),
+            "torch_version": torch.__version__,
+            "device": str(self.device),
+            "cuda_device_name": (
+                torch.cuda.get_device_name(self.device) if using_gpu() else None
+            ),
+            "world_size": self.world_size,
+            "completed_at": datetime.datetime.now(datetime.UTC).isoformat(),
+            **self.search_run.model_dump(),
+        }
 
     def train_one_epoch(self, epoch):
         self.model.train(True)

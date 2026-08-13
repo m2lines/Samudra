@@ -7,10 +7,16 @@ import logging
 import tempfile
 from pathlib import Path
 
+import pandas as pd
 import pytest
 import torch
 
-from samudra.config import CpuDataLoadingConfig, DynamicLossConfig, TrainConfig
+from samudra.config import (
+    CpuDataLoadingConfig,
+    DynamicLossConfig,
+    SearchRunConfig,
+    TrainConfig,
+)
 from samudra.models.base import BaseModel
 from samudra.train import Trainer, should_log_validation_images
 from samudra.utils.ctx import GridContext
@@ -37,11 +43,47 @@ def test_trainer__mini_benchmark(trainer_pair: TrainPair, caplog, benchmark):
     [("mock-om4", "train_default_2step.yaml")],
     indirect=True,
 )
-def test_trainer__mini_2step(trainer_pair: TrainPair, caplog):
+def test_trainer__mini_2step(trainer_pair: TrainPair, caplog, monkeypatch):
     caplog.set_level(logging.INFO)
     _, trainer = trainer_pair
+    monkeypatch.setattr(
+        "samudra.train.write_training_summary",
+        lambda *args, **kwargs: pytest.fail(
+            "ordinary training must not emit search summaries"
+        ),
+    )
 
     trainer.run()
+
+
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "train_default_2step.yaml")],
+    indirect=True,
+)
+def test_search_training_persists_full_epoch_history(trainer_pair: TrainPair):
+    _, trainer = trainer_pair
+    trainer.epochs = 2
+    history_path = trainer.output_dir / "search_metrics.parquet"
+    history_path.unlink(missing_ok=True)
+    trainer.search_run = SearchRunConfig(
+        name="agent-observable-search",
+        candidate="perceiver",
+        rung=0,
+        target_epochs=2,
+        objective="validation_loss",
+        executor="local",
+        code_commit="f" * 40,
+    )
+
+    trainer.run()
+
+    history = pd.read_parquet(history_path)
+    assert history["epoch"].tolist() == [1, 2]
+    assert history["candidate"].unique().tolist() == ["perceiver"]
+    assert history["train_loss"].notna().all()
+    assert history["validation_loss"].notna().all()
+    assert "val/mean/loss" in history
 
 
 @pytest.mark.parametrize(

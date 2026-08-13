@@ -1054,6 +1054,25 @@ class DistributedConfig(BaseConfig):
     dist_backend: str | None = None
 
 
+class SearchRunConfig(BaseConfig):
+    """Identity of a training run managed by an architecture search."""
+
+    name: str
+    run_id: str | None = None
+    candidate: str
+    rung: int = Field(ge=0)
+    target_epochs: int = Field(ge=1)
+    objective: str
+    executor: str
+    code_commit: str | None = None
+    code_layer_sha256: str | None = None
+    container_image_ref: str | None = None
+    container_git_commit: str | None = None
+    artifacts_uri: str | None = None
+    job_id: str | None = None
+    parent_checkpoint: str | None = None
+
+
 class ExperimentConfig(BaseConfig):
     name: str = "cm4_samudra"
     rand_seed: int = 1
@@ -1062,6 +1081,7 @@ class ExperimentConfig(BaseConfig):
     # so we can leave it out of config files
     data_root: Location | None = None
     wandb: WandBConfig
+    search: SearchRunConfig | None = None
 
     @cached_property
     def output_dir(self) -> Path:

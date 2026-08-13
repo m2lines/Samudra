@@ -45,8 +45,13 @@ The search directory contains:
 - `config.yaml`: the fully resolved, validated search configuration;
 - `candidates/`: one fully resolved training configuration per candidate;
 - `state.json`: internal resumable scheduler state;
-- `results.csv`: one analysis-ready row per candidate and rung, including all
-  requested metrics, timing, checkpoint lineage, W&B identity, and job ID;
+- `results.csv` and `results.parquet`: one analysis-ready row per candidate and
+  rung, including all requested metrics, timing, checkpoint lineage, W&B
+  identity, and job ID;
+- `epochs.parquet`: full epoch-level training, validation, inference, timing,
+  throughput, and variable/depth/channel metrics from every completed run;
+- `artifacts.parquet`: hashes, sizes, media types, and public/queryable locations
+  for every published artifact;
 - `logs/`: scheduler output when using Slurm.
 
 `results.csv` is deliberately denormalized and readable directly with pandas:
@@ -57,6 +62,89 @@ import pandas as pd
 results = pd.read_csv("/scratch/USER/searches/my-search/results.csv")
 print(results.sort_values(["rung", "validation_loss"]))
 ```
+
+## Publish an inspectable research record
+
+Artifact publication is opt-in and independent of the executor. Local and
+Slurm searches first create the same record on their working filesystem, then
+an optional publisher mirrors it to another local directory or any
+S3-compatible object store. This keeps compute scheduling separate from where
+research results are retained.
+
+For the public m2lines OSN pod, uncomment the following line in a copied search
+config:
+
+```yaml
+artifacts: !include osn-artifacts.yaml
+```
+
+The packaged template publishes under
+`s3://m2lines-pubs/FOMO/experiments/searches/<search-name>/`. It does not contain
+credentials. On every machine that may run the search controller, provide
+write credentials through the normal environment:
+
+```bash
+export AWS_ACCESS_KEY_ID=...
+export AWS_SECRET_ACCESS_KEY=...
+# Only when the credentials are temporary:
+export AWS_SESSION_TOKEN=...
+```
+
+Slurm submissions inherit these variables; secrets are neither embedded in
+the search config nor written to its artifacts. The S3 destination carries the
+OSN endpoint explicitly. Publication is required once configured: an upload
+failure stops promotion loudly instead of silently creating an incomplete
+public record.
+
+The published record includes resolved search and training configs, Git
+provenance, scheduler state, per-rung outcomes (including failures), full epoch
+histories, experiment/error logs, W&B identities, and an SHA-256 inventory.
+Search-level or per-run analysis hooks have a simple artifact contract: write
+their tables, reports, or figures beneath an `analysis/` directory and the
+publisher includes them automatically with their hashes and locations. This
+keeps future diagnostics independent of Local versus Slurm execution.
+Checkpoint publication is configurable:
+
+- `none` publishes no model weights;
+- `final` (the default) publishes the best-validation checkpoint from each
+  successful final-rung run and fixed baseline (falling back to its latest
+  checkpoint when necessary);
+- `all` publishes every saved checkpoint from every completed rung.
+
+The local filesystem always retains the checkpoints required for promotion.
+`final` is normally enough to reproduce a promising model and run deferred
+rollout diagnostics without paying object-storage costs for every eliminated
+candidate.
+
+The Parquet tables can be queried in place by agents or collaborators. For a
+public HTTP endpoint, DuckDB needs no local download:
+
+```sql
+SELECT candidate, rung, epochs, validation_loss, error
+FROM read_parquet(
+  'https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/my-search/results.parquet'
+)
+ORDER BY rung, validation_loss;
+```
+
+`epochs.parquet` supports deeper questions such as which model learned fastest,
+which variable or depth stalled, whether throughput or optimizer-step counts
+differed, and where divergence began. `artifacts.parquet` lets an agent locate
+and verify the exact config, logs, or checkpoint behind any row.
+
+### Deferred model diagnostics
+
+Search currently records and publishes the inputs needed for a later analysis
+stage rather than coupling training to a particular scientific metric suite.
+The next useful analysis implementation is finalist evaluation: load each
+published final checkpoint, generate a matched validation rollout, then apply
+the observation metrics and figures from `samudra.metrics` and `samudra.viz`.
+Those tools operate on completed rollout datasets, so running them as a
+separate post-search job keeps cheap promotion decisions fast while still
+producing maps, spectra, and time series that explain *why* a finalist worked
+or failed. The publisher is the executor-independent boundary where those
+analysis artifacts will be added once the first Perceiver searches establish
+the most useful diagnostic subset.
 
 ## Configure candidates and metrics
 
@@ -104,7 +192,8 @@ for short architecture comparisons.
 Each candidate uses the search name as its W&B group and receives the tags
 `search`, the search name, and the candidate name. This makes runs filterable by
 group or tag in W&B. Search identity, rung, objective, epoch budget, executor,
-job ID, and parent checkpoint are stored under `config.experiment.search`.
+job ID, parent checkpoint, and the public artifact root are stored under
+`config.experiment.search`.
 Promoted rungs resume the same W&B run from the checkpoint, preserving one
 continuous learning curve per candidate.
 

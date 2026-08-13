@@ -101,6 +101,8 @@ class SlurmExecutor(Executor):
         self.search.write_state(state)
 
     def submit_rung(self, state: dict[str, Any], rung: int) -> None:
+        logs = self.search.search_dir / "logs"
+        logs.mkdir(exist_ok=True)
         job_id = self._array(state, rung, anchor=False)
         state["rungs"][rung]["job_id"] = job_id
         state["status"] = "running"
@@ -131,6 +133,9 @@ class SlurmExecutor(Executor):
                 "--cpus-per-task=1",
                 "--mem=2G",
                 "--time=00:10:00",
+                "--export=ALL",
+                f"--output={logs}/advance-r{rung}-%j.out",
+                f"--error={logs}/advance-r{rung}-%j.err",
                 f"--wrap={command}",
             ]
         )

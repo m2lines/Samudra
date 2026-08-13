@@ -5,11 +5,14 @@
 import json
 from pathlib import Path
 
+import pandas as pd
 import pytest
 from pydantic import ValidationError
 
 from samudra.search import SearchConfig, build_search
+from samudra.search.config import ArtifactConfig
 from samudra.search.executors import LocalExecutor, SlurmExecutor
+from samudra.utils.training_summary import write_search_metrics
 
 
 def config(tmp_path: Path, *, executor: str = "local") -> SearchConfig:
@@ -84,6 +87,123 @@ def test_start_snapshots_resolved_candidate_configs(tmp_path, monkeypatch):
     assert state_path.is_file()
     assert all(not candidate.args for candidate in bundled.candidates)
     assert all(Path(candidate.config).is_file() for candidate in bundled.candidates)
+
+
+def test_local_artifact_publisher_writes_queryable_research_record(
+    tmp_path, monkeypatch
+):
+    search_config = config(tmp_path)
+    search_config.executor.dry_run = True
+    search_config.artifacts = ArtifactConfig.model_validate(
+        {
+            "destination": {"type": "local", "path": tmp_path / "published"},
+            "checkpoints": "final",
+            "public_url": "https://example.test/experiments",
+        }
+    )
+    source = str(Path("tests/configs/train_default.yaml").resolve())
+    for candidate in search_config.candidates:
+        candidate.config = source
+    monkeypatch.setattr(
+        "samudra.search.successive_halving._git_provenance",
+        lambda allow_dirty: {
+            "commit": "f" * 40,
+            "dirty": False,
+            "package_version": "1.0",
+        },
+    )
+    search = build_search(search_config)
+    search.start()
+    output = search.output_dir("a", 1)
+    (output / "saved_nets").mkdir(parents=True)
+    (output / "saved_nets/ckpt.pt").write_bytes(b"checkpoint")
+    (output / "config.yaml").write_text("epochs: 3\n", encoding="utf-8")
+    (output / "experiment.log").write_text("trained\n", encoding="utf-8")
+    (output / "analysis").mkdir()
+    (output / "analysis/loss.png").write_bytes(b"figure")
+    write_search_metrics(output, {"candidate": "a", "epoch": 1, "loss": 0.5})
+    write_search_metrics(output, {"candidate": "a", "epoch": 2, "loss": 0.25})
+    state = search.read_state()
+    state["rungs"][1]["results"] = [
+        {
+            "candidate": "a",
+            "rung": 1,
+            "eligible": True,
+            "output_dir": str(output),
+        }
+    ]
+    search._write_results(state)
+
+    search.publish(state)
+
+    published = tmp_path / "published/test-search"
+    assert (published / "results.parquet").is_file()
+    assert (published / "epochs.parquet").is_file()
+    assert (published / f"runs/{output.name}/saved_nets/ckpt.pt").is_file()
+    epochs = pd.read_parquet(published / "epochs.parquet")
+    assert epochs[["epoch", "loss"]].to_dict("records") == [
+        {"epoch": 1, "loss": 0.5},
+        {"epoch": 2, "loss": 0.25},
+    ]
+    catalog = pd.read_parquet(published / "artifacts.parquet")
+    checkpoint = catalog[catalog["artifact"].str.endswith("ckpt.pt")].iloc[0]
+    assert checkpoint["sha256"]
+    assert checkpoint["public_url"].startswith(
+        "https://example.test/experiments/test-search/"
+    )
+    figure = catalog[catalog["artifact"].str.endswith("loss.png")].iloc[0]
+    assert figure["kind"] == "figure"
+    assert figure["candidate"] == "a"
+
+
+def test_s3_publication_is_executor_independent_and_uses_configured_endpoint(
+    tmp_path, monkeypatch
+):
+    search_config = config(tmp_path)
+    search_config.executor.dry_run = True
+    search_config.artifacts = ArtifactConfig.model_validate(
+        {
+            "destination": {
+                "type": "s3",
+                "endpoint_url": "https://osn.example.test",
+                "bucket": "public",
+                "path": "experiments/searches",
+                "anon": False,
+            },
+            "checkpoints": "none",
+        }
+    )
+    source = str(Path("tests/configs/train_default.yaml").resolve())
+    for candidate in search_config.candidates:
+        candidate.config = source
+    monkeypatch.setattr(
+        "samudra.search.successive_halving._git_provenance",
+        lambda allow_dirty: {
+            "commit": "f" * 40,
+            "dirty": False,
+            "package_version": "1.0",
+        },
+    )
+    uploaded = []
+
+    class FakeS3:
+        def exists(self, path):
+            assert path == "public/experiments/searches/test-search"
+            return False
+
+        def put_file(self, source, destination):
+            uploaded.append(destination)
+
+    fake = FakeS3()
+    monkeypatch.setattr(
+        "samudra.search.artifacts.ArtifactPublisher._s3",
+        staticmethod(lambda destination: fake),
+    )
+
+    build_search(search_config).start()
+
+    assert "public/experiments/searches/test-search/config.yaml" in uploaded
+    assert "public/experiments/searches/test-search/artifacts.parquet" in uploaded
 
 
 def write_result(search, name: str, rung: int, validation: float) -> None:
@@ -187,8 +307,41 @@ def test_local_executor_runs_tasks_then_advances(tmp_path, monkeypatch):
     ]
 
 
+def test_advance_retry_finishes_publication_and_submission(tmp_path, monkeypatch):
+    search = build_search(config(tmp_path))
+    search.search_dir.mkdir(parents=True)
+    state = {
+        "status": "running",
+        "anchors": {"candidates": [], "results": []},
+        "rungs": [
+            {
+                "advanced": True,
+                "results": [{"candidate": "a"}],
+                "candidates": ["a"],
+            },
+            {"advanced": False, "results": [], "candidates": ["a"]},
+        ],
+    }
+    search.write_state(state)
+    events: list[object] = []
+    monkeypatch.setattr(search, "_write_results", lambda state: events.append("write"))
+    monkeypatch.setattr(search, "publish", lambda state: events.append("publish"))
+    monkeypatch.setattr(
+        search.executor,
+        "submit_rung",
+        lambda state, rung: events.append(("submit", rung)),
+    )
+
+    search.advance(0)
+
+    assert events == ["write", "publish", ("submit", 1)]
+
+
 def test_task_builds_train_config_and_calls_trainer_directly(tmp_path, monkeypatch):
     search_config = config(tmp_path)
+    search_config.artifacts = ArtifactConfig.model_validate(
+        {"destination": {"type": "local", "path": tmp_path / "published"}}
+    )
     search_config.candidates = [
         search_config.candidates[1].model_copy(
             update={"config": str(Path("tests/configs/train_default.yaml").resolve())}
@@ -225,6 +378,9 @@ def test_task_builds_train_config_and_calls_trainer_directly(tmp_path, monkeypat
     train_config = received[0]
     assert train_config.epochs == 1
     assert train_config.experiment.search.candidate == "a"
+    assert train_config.experiment.search.artifacts_uri == str(
+        tmp_path / "published/test-search"
+    )
     assert train_config.experiment.wandb.group == "test-search"
     assert "search" in train_config.experiment.wandb.tags
     assert received[1] == "run"
@@ -256,4 +412,5 @@ def test_slurm_executor_submits_array_and_automatic_advance(tmp_path, monkeypatc
 
     assert "--array=0-1%2" in commands[0]
     assert any(value.startswith("--dependency=afterany:1") for value in commands[1])
+    assert "--export=ALL" in commands[1]
     assert "samudra.search.worker" in commands[1][-1]

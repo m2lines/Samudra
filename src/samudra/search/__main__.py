@@ -4,12 +4,12 @@
 
 """Run one configured architecture search."""
 
-from samudra.search import SearchConfig, build_search
+from samudra.search import SearchConfig
 
 
 def main() -> None:
     config = SearchConfig.from_yaml_and_cli()
-    search = build_search(config)
+    search = config.build()
     competing = sum(not candidate.fixed for candidate in config.candidates)
     anchors = len(config.candidates) - competing
     print(

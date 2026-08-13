@@ -8,7 +8,7 @@ import argparse
 import os
 from pathlib import Path
 
-from samudra.search import SearchConfig, build_search
+from samudra.search import SearchConfig
 
 
 def main() -> None:
@@ -27,7 +27,7 @@ def main() -> None:
     args = parser.parse_args()
 
     config = SearchConfig.from_yaml_and_cli([str(args.config)])
-    search = build_search(config)
+    search = config.build()
     if search.state_path != args.state:
         raise ValueError(f"State path mismatch: {search.state_path} != {args.state}")
     if args.command == "task":

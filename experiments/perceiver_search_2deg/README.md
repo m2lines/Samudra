@@ -28,7 +28,7 @@ export SIF_PATH=/scratch/$USER/.apptainer-images/physicsnemo-26.05-COMMIT.sif
 export CODE_LAYER=/scratch/$USER/.apptainer-code-layers/samudra-code-COMMIT.img
 
 experiments/perceiver_search_2deg/container_python.sh \
-  -m samudra.search experiments/perceiver_search_2deg/search.yaml \
+  -m samudra.search perceiver_search_2deg/search.yaml \
   --executor.sif_path=/scratch/$USER/.apptainer-images/physicsnemo-26.05-COMMIT.sif \
   --executor.code_layer=/scratch/$USER/.apptainer-code-layers/samudra-code-COMMIT.img
 ```

@@ -31,7 +31,7 @@ class SlurmExecutor(Executor):
             "ALL": None,
             "CONFIG": str(self.search.config_path),
             "OUTPUT_BASE": str(self.config.output_dir),
-            "NAME": f"{self.search.slug}-r{rung}",
+            "NAME": f"{self.search.run_id}-r{rung}",
             "SAMUDRA_MODULE": "samudra.search.worker",
             "SAMUDRA_MODULE_ARGS": shlex.join(
                 [
@@ -75,7 +75,7 @@ class SlurmExecutor(Executor):
             [
                 "sbatch",
                 "--parsable",
-                f"--job-name={self.search.slug}-{label}",
+                f"--job-name={self.search.run_id}-{label}",
                 f"--array=0-{len(candidates) - 1}%{maximum}",
                 f"--account={self.config.account}",
                 f"--partition={self.config.partition}",
@@ -126,7 +126,7 @@ class SlurmExecutor(Executor):
             [
                 "sbatch",
                 "--parsable",
-                f"--job-name={self.search.slug}-advance-r{rung}",
+                f"--job-name={self.search.run_id}-advance-r{rung}",
                 f"--dependency={dependency}",
                 f"--account={self.config.account}",
                 f"--partition={self.config.controller_partition}",

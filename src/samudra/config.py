@@ -1066,6 +1066,7 @@ class SearchRunConfig(BaseConfig):
     """Identity of a training run managed by an architecture search."""
 
     name: str
+    run_id: str | None = None
     candidate: str
     rung: int = Field(ge=0)
     target_epochs: int = Field(ge=1)

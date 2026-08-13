@@ -45,6 +45,7 @@ COPY LICENSE README.md pyproject.toml uv.lock ./
 COPY src ./src
 COPY tests ./tests
 COPY scripts/container ./scripts/container
+COPY scripts/build_quickstart_notebook.py ./scripts/build_quickstart_notebook.py
 
 # Bind-mount targets used by Slurm harnesses (ensure they exist in the image so
 # Apptainer --bind doesn't fail when mounting into subpaths).

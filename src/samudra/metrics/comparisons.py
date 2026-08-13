@@ -134,6 +134,22 @@ class Comparison:
 
 
 @dataclass
+class LayerComparison(Comparison):
+    """An ocean-heat-content layer, with the caveat that qualifies it.
+
+    `ohc_per_area_layer_maps` integrates whatever levels a cell has. Where two
+    products agree a column is shallow that is exact; where their bathymetry
+    *disagrees* the deeper one integrates water the other lacks, and the
+    difference reads as a heat deficit of roughly 2e9 J m^-2 per 50 m -- the
+    size of the whole 0-700 m score. These two fractions bound how much of the
+    comparison is exposed to that, one per side.
+    """
+
+    model_partial_columns: float = float("nan")
+    observed_partial_columns: float = float("nan")
+
+
+@dataclass
 class VelocityComparison:
     """The two geostrophic velocity components, aligned together.
 
@@ -374,7 +390,7 @@ def ohc_layer(
     context: str,
     model_dz: xr.DataArray,
     complete_years_only: bool = True,
-) -> Comparison:
+) -> LayerComparison:
     """Per-area ocean heat content over a depth layer, against ARGO-IAP.
 
     ARGO-IAP is monthly, so both sides reduce to months and partially covered
@@ -403,7 +419,20 @@ def ohc_layer(
         # months are dropped, so scoring its final year would weigh 11 months
         # against 12.
         sim, obs = whole_years(sim, obs, label)
-    return Comparison(label, sim, obs, argo["area"])
+    return LayerComparison(
+        label,
+        sim,
+        obs,
+        argo["area"],
+        # Bathymetry does not change with time, so one step answers this and
+        # spares a pass over the whole record.
+        model_partial_columns=kernels.partial_column_fraction(
+            rollout["thetao"].isel(time=0), layer, native_dz=model_dz, depth_name="lev"
+        ),
+        observed_partial_columns=kernels.partial_column_fraction(
+            obs_temp.isel(time=0), layer, depth_name=obs_depth
+        ),
+    )
 
 
 def model_depth_thickness(rollout: xr.Dataset, spec: DatasetSpec) -> xr.DataArray:

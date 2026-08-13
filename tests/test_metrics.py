@@ -1197,3 +1197,40 @@ def test_score_rollouts_is_one_pass_both_jobs_can_use(tmp_path):
         )
     )
     assert (tmp_path / "out" / "observation_metrics.csv").exists()
+
+
+def test_the_bathymetry_caveat_is_reported_beside_the_score_it_qualifies():
+    """`ohc_per_area_layer_maps` names a risk; the frame has to measure it.
+
+    Integrating whatever levels a cell has is exact where two products agree a
+    column is shallow, and wrong where their bathymetry disagrees -- by roughly
+    2e9 J m^-2 per 50 m, which is the size of the whole 0-700 m score. The
+    docstring points at `partial_column_fraction` for the exposure, so a run
+    that never computes it leaves the caveat as prose.
+    """
+    rollout, duacs, oisst, argo = _synthetic_case()
+    model = observations.model_on_latlon_grid(rollout, OM4_SPEC)
+
+    frame = report.compute_observation_metrics(
+        {"model": model},
+        duacs=duacs,
+        oisst=oisst,
+        argo=argo,
+        model_dz={"model": observations.model_depth_thickness(model, OM4_SPEC)},
+        window=(pd.Timestamp("2021-01-01"), pd.Timestamp("2022-12-31")),
+        bootstrap_samples=0,
+    )
+
+    for metric in (
+        "ohc_partial_column_fraction",
+        "ohc_observed_partial_column_fraction",
+    ):
+        rows = frame[frame["metric"] == metric]
+        # One per layer, each a fraction and each attributable to its layer.
+        assert set(rows["depth"]) == {layer.label for layer in kernels.OHC_LAYERS}
+        for value in rows["value"]:
+            assert np.isnan(value) or 0.0 <= value <= 1.0
+
+    # The model's exposure reaches W&B, where a run-to-run change is visible.
+    scalars = report.to_wandb(frame, "model")
+    assert "obs/ohc_0_700/partial_column_fraction" in scalars

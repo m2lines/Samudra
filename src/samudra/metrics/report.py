@@ -299,6 +299,25 @@ def _ohc_metrics(
             pairing=scored.pairing,
         )
         rows += layer_rows
+        # Emitted as rows rather than columns: they qualify the layer score
+        # without being one, and a tidy frame is the place for that.
+        for metric, value in (
+            ("ohc_partial_column_fraction", scored.model_partial_columns),
+            ("ohc_observed_partial_column_fraction", scored.observed_partial_columns),
+        ):
+            rows.append(
+                {
+                    "metric": metric,
+                    "model": model,
+                    "depth": layer.label,
+                    "value": value,
+                    "units": "",
+                    "period_kind": "full_overlap",
+                    "period_start": layer_rows[0]["period_start"],
+                    "period_end": layer_rows[0]["period_end"],
+                    "grid_shape": layer_rows[0]["grid_shape"],
+                }
+            )
 
         if layer.label == upper_label:
             full = comparisons.ohc_layer(
@@ -381,6 +400,14 @@ _WANDB_KEYS = {
         "ohc_per_area_total_rmse",
         kernels.OHC_LAYERS[1].label,
     ): "ohc_700_2000/per_area_total_rmse",
+    (
+        "ohc_partial_column_fraction",
+        kernels.OHC_LAYERS[0].label,
+    ): "ohc_0_700/partial_column_fraction",
+    (
+        "ohc_partial_column_fraction",
+        kernels.OHC_LAYERS[1].label,
+    ): "ohc_700_2000/partial_column_fraction",
     (
         "surface_sst_residual_variance_map_rmse",
         None,

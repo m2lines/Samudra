@@ -587,9 +587,10 @@ def ohc_per_area_layer_maps(
     lacks are skipped. Where two products agree a column is shallow this is
     exact, but where their bathymetry *disagrees* the deeper product integrates
     water the other lacks and the difference reads as a heat deficit -- roughly
-    2e9 J m^-2 per 50 m. Use `partial_column_fraction` to measure how much of a
-    comparison is exposed to this. Removing it requires masking each cell to the
-    depth range both products share.
+    2e9 J m^-2 per 50 m. `partial_column_fraction` measures how much of a
+    comparison is exposed to this, and `report` emits it beside every layer
+    score. Removing the effect, rather than measuring it, would require masking
+    each cell to the depth range both products share.
     """
     out = {}
     for layer in layers:

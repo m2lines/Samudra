@@ -114,6 +114,35 @@ NEXT_DEPTH_LEVEL = 1000#900.135#1000
 # Depth thicknesses
 DEPTH_THICKNESS = [n - p for p, n in zip(DEPTH_LEVELS, DEPTH_LEVELS[1:] + [NEXT_DEPTH_LEVEL])]
 
+
+def _depth_interfaces(centers: list[float]) -> list[float]:
+    """Depth of every cell face, derived from the cell centres.
+
+    A centre is halfway between its two faces, so pinning the surface at 0 gives
+    the rest: face[i+1] = 2*centre[i] - face[i]. This reproduces LLC4320's own
+    layer thicknesses (1.00, 1.14, 1.30, 1.49 ... m) exactly.
+    """
+    faces = [0.0]
+    for center in centers:
+        faces.append(2.0 * center - faces[-1])
+    return faces
+
+
+DEPTH_INTERFACES = _depth_interfaces(DEPTH_LEVELS)
+
+# Variables on cell faces (`k_p1`) rather than cell centres (`k`). W_i is the
+# top face of cell i, so consecutive W levels are one layer thickness apart, not
+# one centre-to-centre spacing -- tens of metres different at depth.
+INTERFACE_VARS = frozenset({"W"})
+
+
+def depth_of_channel(channel_name: str) -> float:
+    """Depth in metres of a 3D channel such as `Theta_7` or `W_7`."""
+    base, level = channel_name.rsplit("_", 1)
+    table = DEPTH_INTERFACES if base in INTERFACE_VARS else DEPTH_LEVELS
+    return float(table[int(level)])
+
+
 N = len(DEPTH_LEVELS)
 DEPTH_I_LEVELS = [str(i) for i in range(N)]
 MASK_VARS = [f"wetmask_{i}" for i in range(N)]
@@ -139,7 +168,11 @@ PROGNOSTIC_VARS: dict[str, PrognosticVarNames] = {
     "all": [
         k + str(j) for k in ["U_", "V_", "Theta_", "Salt_"] for j in DEPTH_I_LEVELS
     ]
-    + ["Eta"],
+    + ["Eta"]
+    # Add "W_" below to train with vertical velocity. It goes last so the
+    # existing channel indices do not move. Needs W_lev_* in the means/stds and
+    # W channels in the patch cache.
+    + [k + str(j) for k in [] for j in DEPTH_I_LEVELS],
 }
 
 BoundaryVarNames = list[str]
@@ -260,15 +293,14 @@ class TensorMap(Multiton):
         self.boundary_var_names = BOUNDARY_VARS[boundary_vars_key]
         self.dz = torch.tensor(DEPTH_THICKNESS[:levels])
 
-        # Depth centre of every prognostic channel, NaN for the 2D channels
-        # which do not have one. Anything that differences adjacent levels
-        # needs this rather than the level index: the levels are not evenly
-        # spaced, so an index is not a unit of depth.
+        # Depth of every prognostic channel, NaN for the 2D channels which do
+        # not have one. Anything that differences adjacent levels needs this
+        # rather than the level index: the levels are not evenly spaced, so an
+        # index is not a unit of depth. Face variables (W) resolve to their
+        # interface depth, so their spacing is the layer thickness.
         self.channel_depth_centers: Float[Tensor, " prognostic_vars"] = torch.tensor(
             [
-                DEPTH_LEVELS[int(name.rsplit("_", 1)[-1])]
-                if "_" in name
-                else float("nan")
+                depth_of_channel(name) if "_" in name else float("nan")
                 for name in self.prognostic_var_names
             ],
             dtype=torch.float32,

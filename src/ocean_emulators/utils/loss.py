@@ -492,7 +492,7 @@ class WeightedLoss:
         weights = []
         for channel_name in tensor_map.prognostic_var_names:
             var_name = channel_name.split("_")[0]
-            if var_name in {"U", "V"}:
+            if var_name in {"U", "V", "W"}:
                 weights.append(1.0)
             elif var_name in {"Theta", "Salt", "Eta"}:
                 weights.append(1.5)

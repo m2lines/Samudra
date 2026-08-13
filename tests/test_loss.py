@@ -173,33 +173,51 @@ def test_gradient_z_covers_every_3d_variable():
         torch.testing.assert_close(loss[eta], torch.zeros_like(loss[eta]))
 
 
-def test_gradient_z_picks_up_a_newly_added_3d_variable(monkeypatch):
-    """The variable list is read off the tensor map rather than hard-coded, so a
-    new 3D variable -- vertical velocity, say -- joins the penalty without any
-    change to the loss."""
+def test_gradient_z_picks_up_vertical_velocity(monkeypatch):
+    """Adding W to PROGNOSTIC_VARS is the only edit needed: the variable list is
+    read off the tensor map, so W joins the penalty with no change to the loss.
+
+    It also has to be weighted by W's OWN spacing. W sits on cell faces, so its
+    levels are one layer thickness apart while the cell-centred variables are one
+    centre-to-centre spacing apart -- scoring W against Theta's dz would misweight
+    the whole column.
+    """
     monkeypatch.setitem(
         PROGNOSTIC_VARS,
-        "with_w_51",
-        [
-            f"{name}_{level}"
-            for name in ("U", "V", "Theta", "Salt", "W")
-            for level in DEPTH_I_LEVELS
-        ]
-        + ["Eta"],
+        "all",
+        PROGNOSTIC_VARS["all"] + [f"W_{level}" for level in DEPTH_I_LEVELS],
     )
     with MultitonScope():
-        tensor_map = TensorMap.init_instance("with_w_51", "all")
+        tensor_map = TensorMap.init_instance("all", "all")
         num_channels = len(tensor_map.prognostic_var_names)
-        torch.manual_seed(0)
-        pred = torch.randn(1, num_channels, 2, 2)
-        target = torch.randn(1, num_channels, 2, 2)
-        wet = torch.ones((num_channels, 2, 2), dtype=torch.float32)
-
-        loss = gradient_z_l1_loss(pred, target, wet)
-
-        assert "W" in tensor_map.VAR_SET_3D
         vertical_velocity = tensor_map.VAR_3D_IDX["W"].long()
+        wet = torch.ones((num_channels, 2, 2), dtype=torch.float32)
+        torch.manual_seed(0)
+
+        loss = gradient_z_l1_loss(
+            torch.randn(1, num_channels, 2, 2),
+            torch.randn(1, num_channels, 2, 2),
+            wet,
+        )
+        assert "W" in tensor_map.VAR_SET_3D
         assert (loss[vertical_velocity] > 0).all()
+
+        # An error at one W level costs the pair weight built from W's spacing.
+        spacing = tensor_map.vertical_spacing("W")
+        pair_weight = spacing.reciprocal()
+        pair_weight = pair_weight / pair_weight.mean()
+        delta = 0.25
+        target = torch.zeros(1, num_channels, 2, 2)
+        pred = target.clone()
+        pred[:, vertical_velocity[0]] = delta
+
+        surface = gradient_z_l1_loss(pred, target, wet)[vertical_velocity[0]]
+        torch.testing.assert_close(surface, delta * pair_weight[0])
+        # Which is a different number than Theta's dz would have produced.
+        theta_spacing = tensor_map.vertical_spacing("Theta")
+        theta_weight = theta_spacing.reciprocal()
+        theta_weight = theta_weight / theta_weight.mean()
+        assert not torch.isclose(surface, delta * theta_weight[0])
 
 
 def test_gradient_z_divides_by_level_spacing():

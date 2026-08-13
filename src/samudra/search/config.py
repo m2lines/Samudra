@@ -5,12 +5,15 @@
 """Validated configuration for architecture searches."""
 
 from pathlib import Path
-from typing import Annotated, Literal, Self
+from typing import TYPE_CHECKING, Annotated, Literal, Self
 
 from pydantic import Field, model_validator
 
 from samudra.config_base import BaseConfig, TopLevelConfig
 from samudra.utils.location import LocalLocation, S3Location
+
+if TYPE_CHECKING:
+    from samudra.search.successive_halving import SuccessiveHalving
 
 
 class ObjectiveConfig(BaseConfig):
@@ -100,6 +103,14 @@ class SearchConfig(TopLevelConfig):
     executor: ExecutorConfig
     artifacts: ArtifactConfig | None = None
     allow_dirty: bool = False
+
+    def build(self) -> "SuccessiveHalving":
+        """Build the configured search algorithm."""
+        from samudra.search.successive_halving import SuccessiveHalving
+
+        if self.algorithm.type == "successive_halving":
+            return SuccessiveHalving(self)
+        raise AssertionError(f"Unhandled search algorithm: {self.algorithm.type}")
 
     @model_validator(mode="after")
     def _validate_search(self) -> Self:

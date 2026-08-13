@@ -411,10 +411,3 @@ class SuccessiveHalving:
         self._write_results(state)
         self.publish(state)
         self.executor.submit_rung(state, next_rung)
-
-
-def build_search(config: SearchConfig) -> SuccessiveHalving:
-    """Build the configured algorithm; add future algorithms at this boundary."""
-    if config.algorithm.type == "successive_halving":
-        return SuccessiveHalving(config)
-    raise AssertionError(f"Unhandled search algorithm: {config.algorithm.type}")

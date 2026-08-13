@@ -214,8 +214,8 @@ training summary so temporary W&B or network failures do not control scheduling.
 
 ## Python API
 
-`SearchConfig.from_yaml_and_cli()` loads and validates configuration.
-`build_search()` selects the configured search algorithm, and `search.start()`
+`SearchConfig.from_yaml_and_cli()` loads and validates configuration,
+`config.build()` selects the configured search algorithm, and `search.start()`
 submits or runs it. Internal worker entry points are implementation details used
 by executors.
 

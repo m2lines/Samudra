@@ -230,19 +230,36 @@ def gradient_h_l1_loss(
     return grad_loss
 
 
-def ts_gradient_z_l1_loss(
+def gradient_z_l1_loss(
     pred: torch.Tensor,
     target: torch.Tensor,
     wet: torch.Tensor,
     spatial_weight: torch.Tensor | None = None,
     sample_weight: torch.Tensor | None = None,
 ) -> torch.Tensor:
-    """L1 loss on normalized vertical T/S differences, averaged per channel."""
+    """L1 loss on normalized vertical derivatives, averaged per channel.
+
+    Every 3D prognostic variable is penalized, taken from the tensor map rather
+    than a hard-coded list, so adding one (W, say) to `PROGNOSTIC_VARS` pulls it
+    into this term with no change here. 2D variables have no depth column and
+    drop out on their own.
+
+    Each level-to-level difference is divided by that pair's centre-to-centre
+    spacing, making this a penalty on d/dz rather than on a bare per-level jump.
+    That division is not cosmetic on LLC4320: the levels range from 1.07 m apart
+    at the surface to 45.5 m apart at depth, so without it the same physical
+    stratification error is charged 42x more where the grid is coarse, and the
+    tightly stacked near-surface levels -- the ones free to drift apart -- come
+    out the least constrained channels in the column. The 1/dz weights are then
+    rescaled to average one, which leaves the relative weighting across depth
+    intact while holding the size of the whole term, and so the meaning of
+    `lambda_z`, where it was before.
+    """
     tensor_map = TensorMap.get_instance()
     num_vars = len(tensor_map.prognostic_var_names)
     if pred.shape[1] % num_vars != 0:
         raise ValueError(
-            "TS-gradient_z expected time-major channels to be a multiple of "
+            "gradient_z expected time-major channels to be a multiple of "
             f"{num_vars}, got {pred.shape[1]}."
         )
 
@@ -263,9 +280,7 @@ def ts_gradient_z_l1_loss(
     )
     count_by_time = torch.zeros_like(loss_by_time)
 
-    for variable in ("Theta", "Salt"):
-        if variable not in tensor_map.VAR_3D_IDX:
-            continue
+    for variable in tensor_map.VAR_SET_3D:
         indices = tensor_map.VAR_3D_IDX[variable].to(
             device=pred.device, dtype=torch.long
         )
@@ -274,13 +289,31 @@ def ts_gradient_z_l1_loss(
 
         lower = indices[:-1]
         upper = indices[1:]
-        pred_grad_z = pred_by_time[:, :, upper] - pred_by_time[:, :, lower]
-        target_grad_z = target_by_time[:, :, upper] - target_by_time[:, :, lower]
-        grad_loss = F.l1_loss(pred_grad_z, target_grad_z, reduction="none")
+        # Weight each pair by the reciprocal of its spacing, rescaled so the
+        # weights average exactly one. The reciprocal is what turns a per-level
+        # jump into a d/dz; the rescaling is what keeps `lambda_z` on the scale
+        # it already had, since 1/dz averages well above 1 in metres and would
+        # otherwise inflate the whole term several-fold on its own.
+        spacing = tensor_map.vertical_spacing(variable).to(
+            device=pred.device, dtype=pred.dtype
+        )
+        pair_weight = spacing.reciprocal()
+        pair_weight = (pair_weight / pair_weight.mean()).view(1, 1, -1, 1, 1)
 
-        midpoint_weight = (
-            wet_by_time[:, upper] & wet_by_time[:, lower]
-        ).to(dtype=pred.dtype)
+        pred_grad_z = (
+            pred_by_time[:, :, upper] - pred_by_time[:, :, lower]
+        ) * pair_weight
+        target_grad_z = (
+            target_by_time[:, :, upper] - target_by_time[:, :, lower]
+        ) * pair_weight
+        # Explicit pointwise arithmetic rather than F.l1_loss, for the reason
+        # given in decomposed_mse: it keeps ShardTensor on its native dispatch
+        # path under domain parallelism.
+        grad_loss = (pred_grad_z - target_grad_z).abs()
+
+        midpoint_weight = (wet_by_time[:, upper] & wet_by_time[:, lower]).to(
+            dtype=pred.dtype
+        )
         if spatial_weight_by_time is not None:
             midpoint_weight = midpoint_weight * torch.minimum(
                 spatial_weight_by_time[:, upper],
@@ -292,9 +325,7 @@ def ts_gradient_z_l1_loss(
         # denominator sums over the batch axis, so a size-1 axis here would
         # divide a batch-summed numerator by a single sample's cell count and
         # silently scale the whole term by the batch size. It is a free view.
-        weight = midpoint_weight.unsqueeze(0).expand(
-            pred.shape[0], -1, -1, -1, -1
-        )
+        weight = midpoint_weight.unsqueeze(0).expand(pred.shape[0], -1, -1, -1, -1)
         if sample_weight is not None:
             # A per-channel weight has to be split by depth pair exactly as the
             # wet mask is: a vertical difference spans two levels, so it is
@@ -308,12 +339,10 @@ def ts_gradient_z_l1_loss(
                 )
                 sample = torch.minimum(sample[:, :, upper], sample[:, :, lower])
             elif channels == 1:
-                sample = sample.reshape(
-                    sample.shape[0], 1, 1, *sample.shape[-2:]
-                )
+                sample = sample.reshape(sample.shape[0], 1, 1, *sample.shape[-2:])
             else:
                 raise ValueError(
-                    f"sample_weight has {channels} channels; TS-gradient_z needs "
+                    f"sample_weight has {channels} channels; gradient_z needs "
                     f"either {num_times * num_vars} (one per prognostic channel) "
                     "or 1 (a surface field to broadcast)."
                 )
@@ -335,9 +364,6 @@ def ts_gradient_z_l1_loss(
         loss_by_time / count_by_time.clamp_min(1.0),
         loss_by_time,
     ).reshape(-1)
-
-
-gradient_l1_loss = gradient_h_l1_loss
 
 
 def decomposed_mae_gradient_weighted(
@@ -500,7 +526,7 @@ class GradientLoss:
     """Combine a base loss with optional gradient matching penalties.
 
     Applies the provided per-channel loss metric, then optionally adds
-    horizontal gradient_h and normalized T/S TS-gradient_z penalties.
+    horizontal gradient_h and normalized vertical gradient_z penalties.
     """
 
     def __init__(
@@ -549,7 +575,7 @@ class GradientLoss:
             )
             total_loss = total_loss + self._lambda_h * grad_h_loss
         if self._lambda_z > 0:
-            grad_z_loss = ts_gradient_z_l1_loss(
+            grad_z_loss = gradient_z_l1_loss(
                 pred=pred,
                 target=target,
                 wet=self._wet,

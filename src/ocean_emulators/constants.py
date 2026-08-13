@@ -226,14 +226,19 @@ class TensorMap(Multiton):
         self.DP_3D_IDX: dict[str, torch.Tensor] = {}
 
         self.INPT_BOUNDARY_IDX: dict[str, torch.Tensor] = {}
-        self.VAR_SET_2D = []
-        self.VAR_SET_3D = []
+        var_set_2d: list[str] = []
+        var_set_3d: list[str] = []
         for out in PROGNOSTIC_VARS[prognostic_vars_key]:
             var_split = out.split("_")
             if len(var_split) == 1:
-                self.VAR_SET_2D.append(var_split[0])
+                var_set_2d.append(var_split[0])
             else:
-                self.VAR_SET_3D.append(var_split[0])
+                var_set_3d.append(var_split[0])
+
+        # One entry per variable rather than one per channel: callers iterate
+        # these to reach a variable's whole depth column through VAR_3D_IDX.
+        self.VAR_SET_2D = list(dict.fromkeys(var_set_2d))
+        self.VAR_SET_3D = list(dict.fromkeys(var_set_3d))
 
         # Consistent order of variables
         self.VAR_SET = list(
@@ -255,9 +260,50 @@ class TensorMap(Multiton):
         self.boundary_var_names = BOUNDARY_VARS[boundary_vars_key]
         self.dz = torch.tensor(DEPTH_THICKNESS[:levels])
 
+        # Depth centre of every prognostic channel, NaN for the 2D channels
+        # which do not have one. Anything that differences adjacent levels
+        # needs this rather than the level index: the levels are not evenly
+        # spaced, so an index is not a unit of depth.
+        self.channel_depth_centers: Float[Tensor, " prognostic_vars"] = torch.tensor(
+            [
+                DEPTH_LEVELS[int(name.rsplit("_", 1)[-1])]
+                if "_" in name
+                else float("nan")
+                for name in self.prognostic_var_names
+            ],
+            dtype=torch.float32,
+        )
+
         self._populate_var_3d_idx()
         self._populate_dp_3d_idx()
         self._populate_boundary_idx()
+
+    def vertical_spacing(self, variable: str) -> Float[Tensor, " levels"]:
+        """Centre-to-centre depth spacing, in metres, between a variable's levels.
+
+        Returns one value per adjacent pair of levels, so a variable with `n`
+        levels yields `n - 1` spacings. On LLC4320 these run from ~1.07 m at the
+        surface to ~45.5 m at depth, a factor of 42, which is why a vertical
+        difference has to be divided by them to mean anything comparable across
+        depth.
+        """
+        if variable not in self.VAR_3D_IDX:
+            raise ValueError(
+                f"{variable} is not a prognostic variable of this tensor map."
+            )
+        depths = self.channel_depth_centers[self.VAR_3D_IDX[variable].long()]
+        if depths.numel() < 2 or bool(torch.isnan(depths).any()):
+            raise ValueError(
+                f"{variable} does not span at least two depth levels, so it has "
+                "no vertical spacing."
+            )
+        spacing = depths[1:] - depths[:-1]
+        if not bool((spacing > 0).all()):
+            raise ValueError(
+                f"{variable} channels are not ordered by increasing depth; "
+                f"got centres {depths.tolist()}."
+            )
+        return spacing
 
     def _populate_var_3d_idx(self):
         for kt in self.VAR_SET:

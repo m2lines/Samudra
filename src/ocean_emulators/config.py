@@ -928,7 +928,7 @@ class WeightedLossConfig(pydantic.BaseModel):
     metric: LossMetric = "mse"
 
 
-GradientLossType = Literal["gradient_h", "TS-gradient_z"]
+GradientLossType = Literal["gradient_h", "gradient_z"]
 
 
 class GradientLossConfig(pydantic.BaseModel):
@@ -940,7 +940,7 @@ class GradientLossConfig(pydantic.BaseModel):
         ge=0.0,
     )
     lambda_z: float = Field(
-        description="Scaling factor for the normalized T/S TS-gradient_z penalty term.",
+        description="Scaling factor for the normalized vertical gradient_z penalty term.",
         default=0.1,
         ge=0.0,
     )
@@ -952,12 +952,17 @@ class GradientLossConfig(pydantic.BaseModel):
             return values
         values = dict(values)
 
+        # `TS-gradient_z` is the name the vertical term had while it only covered
+        # temperature and salinity; it now covers every 3D variable. Configs and
+        # run records on disk still use the old spellings.
+        legacy_loss_types = {
+            "gradient": "gradient_h",
+            "gradient_v": "gradient_z",
+            "TS-gradient_z": "gradient_z",
+        }
+
         def normalize_loss_type(loss_type):
-            if loss_type == "gradient":
-                return "gradient_h"
-            if loss_type == "gradient_v":
-                return "TS-gradient_z"
-            return loss_type
+            return legacy_loss_types.get(loss_type, loss_type)
 
         if isinstance(values.get("type"), list):
             values["type"] = [normalize_loss_type(t) for t in values["type"]]
@@ -1045,7 +1050,7 @@ def build_loss_fn(
                 loss_fn=loss_fn,
                 wet=wet,
                 lambda_h=lambda_h if "gradient_h" in gradient_types else 0.0,
-                lambda_z=lambda_z if "TS-gradient_z" in gradient_types else 0.0,
+                lambda_z=lambda_z if "gradient_z" in gradient_types else 0.0,
                 pad_mode=pad_mode,
                 spatial_weight=spatial_weight,
             )

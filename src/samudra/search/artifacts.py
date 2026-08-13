@@ -11,16 +11,13 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any, Protocol
 
 import pandas as pd
 import s3fs
 
 from samudra.search.config import ArtifactConfig
 from samudra.utils.location import LocalLocation, S3Location, UnresolvedLocation
-
-if TYPE_CHECKING:
-    from samudra.search.successive_halving import SuccessiveHalving
 
 CATALOG_NAME = "artifacts.parquet"
 EPOCHS_NAME = "epochs.parquet"
@@ -41,7 +38,28 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def atomic_parquet(frame: pd.DataFrame, path: Path) -> None:
+class ArtifactSearchConfig(Protocol):
+    """Configuration fields shared by publishable search algorithms."""
+
+    name: str
+
+
+class ArtifactSearch(Protocol):
+    """Search-algorithm surface required by artifact publication."""
+
+    @property
+    def config(self) -> ArtifactSearchConfig: ...
+
+    run_id: str
+    search_dir: Path
+    checkpoint: Path
+
+    @staticmethod
+    def result_rows(state: dict[str, Any]) -> list[dict[str, Any]]: ...
+
+
+def atomic_local_parquet(frame: pd.DataFrame, path: Path) -> None:
+    """Atomically replace one local Parquet snapshot used for publication."""
     path.parent.mkdir(parents=True, exist_ok=True)
     descriptor, temporary_name = tempfile.mkstemp(
         dir=path.parent, prefix=f".{path.name}.", suffix=".parquet"
@@ -58,11 +76,11 @@ def atomic_parquet(frame: pd.DataFrame, path: Path) -> None:
 class ArtifactPublisher:
     """Materialize and mirror the complete inspectable record of a search."""
 
-    def __init__(self, search: SuccessiveHalving, config: ArtifactConfig) -> None:
+    def __init__(self, search: ArtifactSearch, config: ArtifactConfig) -> None:
         self.search = search
         self.config = config
         self.destination = config.destination.resolve(
-            UnresolvedLocation(path=self.search.slug)
+            UnresolvedLocation(path=self.search.run_id)
         )
 
     def prepare(self) -> None:
@@ -80,7 +98,7 @@ class ArtifactPublisher:
     @property
     def root(self) -> str:
         if self.config.public_url is not None:
-            return f"{self.config.public_url.rstrip('/')}/{self.search.slug}"
+            return f"{self.config.public_url.rstrip('/')}/{self.search.run_id}"
         return str(self.destination)
 
     def publish(self, state: dict[str, Any]) -> None:
@@ -88,12 +106,13 @@ class ArtifactPublisher:
         self._write_epochs(files)
         files = self._files(state)
         catalog = pd.DataFrame(self._catalog_rows(files, state))
-        atomic_parquet(catalog, self.search.search_dir / CATALOG_NAME)
+        atomic_local_parquet(catalog, self.search.search_dir / CATALOG_NAME)
         files.append((self.search.search_dir / CATALOG_NAME, CATALOG_NAME))
         for source, relative in files:
             self._put(source, relative)
 
     def _files(self, state: dict[str, Any]) -> list[tuple[Path, str]]:
+        """List local search files to publish and their destination-relative keys."""
         files: list[tuple[Path, str]] = []
         for name in (
             "config.yaml",
@@ -153,7 +172,7 @@ class ArtifactPublisher:
             if path.name == "search_metrics.parquet":
                 frames.append(pd.read_parquet(path))
         if frames:
-            atomic_parquet(
+            atomic_local_parquet(
                 pd.concat(frames, ignore_index=True),
                 self.search.search_dir / EPOCHS_NAME,
             )
@@ -171,6 +190,7 @@ class ArtifactPublisher:
             rows.append(
                 {
                     "search": self.search.config.name,
+                    "search_run": self.search.run_id,
                     "artifact": relative,
                     "kind": self._kind(relative),
                     "candidate": run.get("candidate") if run else None,
@@ -216,7 +236,7 @@ class ArtifactPublisher:
     def _public_url(self, relative: str) -> str | None:
         if self.config.public_url is None:
             return None
-        return f"{self.config.public_url.rstrip('/')}/{self.search.slug}/{relative}"
+        return f"{self.config.public_url.rstrip('/')}/{self.search.run_id}/{relative}"
 
     def _put(self, source: Path, relative: str) -> None:
         destination = self.destination.resolve(UnresolvedLocation(path=relative))

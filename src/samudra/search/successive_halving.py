@@ -21,7 +21,7 @@ import pandas as pd
 import yaml
 
 from samudra.config import SearchRunConfig, TrainConfig
-from samudra.search.artifacts import ArtifactPublisher, atomic_parquet
+from samudra.search.artifacts import ArtifactPublisher, atomic_local_parquet
 from samudra.search.config import CandidateConfig, SearchConfig, SlurmExecutorConfig
 from samudra.search.executors import Executor, LocalExecutor, SlurmExecutor
 from samudra.train import Trainer
@@ -41,6 +41,11 @@ def _slug(value: str) -> str:
     if not slug:
         raise ValueError(f"Name has no usable characters: {value!r}")
     return slug
+
+
+def _new_run_id(name: str) -> str:
+    timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%S.%fZ")
+    return f"{_slug(name)}--{timestamp}"
 
 
 def _atomic_json(path: Path, value: dict[str, Any]) -> None:
@@ -92,7 +97,10 @@ class SuccessiveHalving:
     def __init__(self, config: SearchConfig) -> None:
         self.config = config
         self.slug = _slug(config.name)
-        self.search_dir = config.executor.output_dir / self.slug
+        if config.run_id is None:
+            config.run_id = _new_run_id(config.name)
+        self.run_id = _slug(config.run_id)
+        self.search_dir = config.executor.output_dir / self.run_id
         self.config_path = self.search_dir / "config.yaml"
         self.state_path = self.search_dir / "state.json"
         self.results_path = self.search_dir / "results.csv"
@@ -154,6 +162,7 @@ class SuccessiveHalving:
         )
         state = {
             "name": self.config.name,
+            "run_id": self.run_id,
             "created_at": datetime.datetime.now(datetime.UTC).isoformat(),
             "status": "prepared",
             "provenance": provenance,
@@ -196,7 +205,7 @@ class SuccessiveHalving:
 
     def output_dir(self, candidate: str, rung: int) -> Path:
         return self.config.executor.output_dir / (
-            f"{self.slug}--{_slug(candidate)}--e{self.rungs[rung]}"
+            f"{self.run_id}--{_slug(candidate)}--e{self.rungs[rung]}"
         )
 
     def train_task(self, rung: int, task: int, *, anchor: bool) -> None:
@@ -227,6 +236,7 @@ class SuccessiveHalving:
             train_config.resume_ckpt_path = str(parent_checkpoint)
         train_config.experiment.search = SearchRunConfig(
             name=self.config.name,
+            run_id=self.run_id,
             candidate=name,
             rung=rung,
             target_epochs=self.rungs[rung],
@@ -245,10 +255,10 @@ class SuccessiveHalving:
                 str(parent_checkpoint) if parent_checkpoint is not None else None
             ),
         )
-        train_config.experiment.wandb.group = self.config.name
+        train_config.experiment.wandb.group = self.run_id
         tags = train_config.experiment.wandb.tags or []
         train_config.experiment.wandb.tags = list(
-            dict.fromkeys([*tags, "search", self.slug, _slug(name)])
+            dict.fromkeys([*tags, "search", self.slug, self.run_id, _slug(name)])
         )
         train_config.prepare_output_dirs()
         handle_logging(train_config.debug, train_config.experiment.output_dir)
@@ -260,6 +270,7 @@ class SuccessiveHalving:
         output = self.output_dir(name, rung)
         result: dict[str, Any] = {
             "search": self.config.name,
+            "search_run": self.run_id,
             "candidate": name,
             "rung": rung,
             "epochs": self.rungs[rung],
@@ -320,7 +331,7 @@ class SuccessiveHalving:
     def _write_results(self, state: dict[str, Any]) -> None:
         rows = self.result_rows(state)
         frame = pd.DataFrame(rows)
-        atomic_parquet(frame, self.results_parquet_path)
+        atomic_local_parquet(frame, self.results_parquet_path)
         with tempfile.NamedTemporaryFile(
             mode="w",
             dir=self.search_dir,

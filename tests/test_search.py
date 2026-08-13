@@ -89,6 +89,25 @@ def test_search_generates_a_readable_run_id_once(tmp_path, monkeypatch):
     assert search.search_dir.name == search.run_id
 
 
+def test_immutable_environment_uses_verified_commit_provenance(monkeypatch):
+    from samudra.search.successive_halving import _git_provenance
+
+    monkeypatch.setenv("SAMUDRA_CODE_COMMIT", "A" * 40)
+    provenance = _git_provenance(allow_dirty=False)
+
+    assert provenance["commit"] == "a" * 40
+    assert provenance["dirty"] is False
+
+
+def test_immutable_environment_rejects_ambiguous_commit(monkeypatch):
+    from samudra.search.successive_halving import _git_provenance
+
+    monkeypatch.setenv("SAMUDRA_CODE_COMMIT", "main")
+
+    with pytest.raises(ValueError, match="full 40-character Git SHA"):
+        _git_provenance(allow_dirty=False)
+
+
 def test_start_snapshots_resolved_candidate_configs(tmp_path, monkeypatch):
     search_config = config(tmp_path)
     search_config.executor.dry_run = True

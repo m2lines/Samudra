@@ -11,6 +11,7 @@ import importlib.metadata
 import json
 import math
 import os
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -59,6 +60,16 @@ def _atomic_json(path: Path, value: dict[str, Any]) -> None:
 
 
 def _git_provenance(*, allow_dirty: bool) -> dict[str, Any]:
+    immutable_commit = os.environ.get("SAMUDRA_CODE_COMMIT")
+    if immutable_commit is not None:
+        if re.fullmatch(r"[0-9a-fA-F]{40}", immutable_commit) is None:
+            raise ValueError("SAMUDRA_CODE_COMMIT must be a full 40-character Git SHA")
+        return {
+            "commit": immutable_commit.lower(),
+            "dirty": False,
+            "package_version": importlib.metadata.version("samudra"),
+        }
+
     root = subprocess.run(
         ["git", "-C", str(Path(__file__).parent), "rev-parse", "--show-toplevel"],
         check=True,

@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+debug: false
+disk_mode: true
+pin_mem: true
+save_freq: 1
+epochs: 12
+batch_size: 1
+gradient_accumulation_steps: 32
+learning_rate: 0.0006
+scheduler: null
+loss: mse
+finetune: false
+resume_ckpt_path: null
+inference_epochs: []
+data_stride: [1]
+steps: [4]
+step_transition: []
+preemptible: false
+backend: auto
+experiment:
+  name: perceiver-search-candidate
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: online
+    entity: ocean_emulators
+    project: default
+    tags: [torch-hpc, om4-2deg, perceiver-v2-search, native-sdpa]
+    notes: Successive-halving candidate for the single-scale Perceiver v2 architecture search.
+data: !include data.yaml
+model: !include model.yaml

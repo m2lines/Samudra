@@ -1,0 +1,120 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+# yaml-language-server: $schema=../../src/samudra/configs/schemas/SearchConfig.json
+
+name: perceiver-v2-2deg-architecture
+algorithm:
+  type: successive_halving
+  rungs: [1, 3, 6, 12]
+  promotion_fraction: 0.5
+  minimum_promoted: 2
+objective: {metric: validation_loss, mode: min}
+metrics: [validation_loss, train_loss, best_validation_loss]
+
+executor:
+  type: slurm
+  output_dir: /scratch/am16581/searches
+  harness: /scratch/am16581/Samudra/scripts/slurm_apptainer_train.sbatch
+  account: torch_pr_347_lzanna
+  partition: rtx6000_lzanna
+  controller_partition: cs
+  python: /scratch/am16581/Samudra/experiments/perceiver_search_2deg/container_python.sh
+  cpus_per_task: 4
+  memory: 32G
+  gres: gpu:rtx6000:1
+  time_by_rung: ["04:00:00", "08:00:00", "12:00:00", "24:00:00"]
+  max_concurrent: 8
+  data_root: /scratch/am16581
+  scratch_dir: /scratch/am16581
+
+artifacts:
+  destination:
+    type: s3
+    endpoint_url: https://nyu1.osn.mghpcc.org
+    bucket: m2lines-pubs
+    path: FOMO/experiments/searches
+    anon: false
+  public_url: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches
+  checkpoints: final
+
+# Nine causal architecture hypotheses, each screened at two learning rates.
+# All other optimization, data, seed, and processor settings remain fixed.
+candidates:
+  - name: direct-control-lr4
+    config: experiments/perceiver_search_2deg/train.yaml
+    args: [--learning_rate=0.0004]
+  - name: direct-control-lr8
+    config: experiments/perceiver_search_2deg/train.yaml
+    args: [--learning_rate=0.0008]
+
+  - name: direct-enc64-lr4
+    config: experiments/perceiver_search_2deg/train.yaml
+    args: [--learning_rate=0.0004, --model.encoder.perceiver.num_latents=64]
+  - name: direct-enc64-lr8
+    config: experiments/perceiver_search_2deg/train.yaml
+    args: [--learning_rate=0.0008, --model.encoder.perceiver.num_latents=64]
+
+  - name: direct-transport64-lr4
+    config: experiments/perceiver_search_2deg/train.yaml
+    args: [--learning_rate=0.0004, --model.decoder.perceiver.cross_heads=1]
+  - name: direct-transport64-lr8
+    config: experiments/perceiver_search_2deg/train.yaml
+    args: [--learning_rate=0.0008, --model.decoder.perceiver.cross_heads=1]
+
+  - name: direct-transport256-lr4
+    config: experiments/perceiver_search_2deg/train.yaml
+    args: [--learning_rate=0.0004, --model.decoder.perceiver.cross_heads=4]
+  - name: direct-transport256-lr8
+    config: experiments/perceiver_search_2deg/train.yaml
+    args: [--learning_rate=0.0008, --model.decoder.perceiver.cross_heads=4]
+
+  - name: direct-no-context-lr4
+    config: experiments/perceiver_search_2deg/train.yaml
+    args: [--learning_rate=0.0004, --model.decoder.context_patches=0]
+  - name: direct-no-context-lr8
+    config: experiments/perceiver_search_2deg/train.yaml
+    args: [--learning_rate=0.0008, --model.decoder.context_patches=0]
+
+  - name: direct-context2-lr4
+    config: experiments/perceiver_search_2deg/train.yaml
+    args: [--learning_rate=0.0004, --model.decoder.context_patches=2]
+  - name: direct-context2-lr8
+    config: experiments/perceiver_search_2deg/train.yaml
+    args: [--learning_rate=0.0008, --model.decoder.context_patches=2]
+
+  - name: direct-coarse-patch-lr4
+    config: experiments/perceiver_search_2deg/train.yaml
+    args: [--learning_rate=0.0004, "--model.patch_extent=[10.0,20.0]"]
+  - name: direct-coarse-patch-lr8
+    config: experiments/perceiver_search_2deg/train.yaml
+    args: [--learning_rate=0.0008, "--model.patch_extent=[10.0,20.0]"]
+
+  - name: pio-lean-lr4
+    config: experiments/perceiver_search_2deg/train.yaml
+    args:
+      - --learning_rate=0.0004
+      - --model.decoder.architecture=perceiver_io
+      - --model.decoder.perceiver.num_latents=64
+      - --model.decoder.queries_dim=128
+  - name: pio-lean-lr8
+    config: experiments/perceiver_search_2deg/train.yaml
+    args:
+      - --learning_rate=0.0008
+      - --model.decoder.architecture=perceiver_io
+      - --model.decoder.perceiver.num_latents=64
+      - --model.decoder.queries_dim=128
+
+  - name: pio-control-lr4
+    config: experiments/perceiver_search_2deg/train.yaml
+    args:
+      - --learning_rate=0.0004
+      - --model.decoder.architecture=perceiver_io
+      - --model.decoder.queries_dim=64
+  - name: pio-control-lr8
+    config: experiments/perceiver_search_2deg/train.yaml
+    args:
+      - --learning_rate=0.0008
+      - --model.decoder.architecture=perceiver_io
+      - --model.decoder.queries_dim=64

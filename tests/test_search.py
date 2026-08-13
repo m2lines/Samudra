@@ -9,7 +9,7 @@ import pandas as pd
 import pytest
 from pydantic import ValidationError
 
-from samudra.search import SearchConfig, build_search
+from samudra.search import SearchConfig
 from samudra.search.config import ArtifactConfig
 from samudra.search.executors import LocalExecutor, SlurmExecutor
 from samudra.utils.training_summary import write_search_metrics
@@ -59,8 +59,8 @@ def test_config_validates_objective_and_rungs(tmp_path):
 
 
 def test_executor_dictionary_is_an_explicit_extension_point(tmp_path):
-    local = build_search(config(tmp_path))
-    slurm = build_search(config(tmp_path, executor="slurm"))
+    local = config(tmp_path).build()
+    slurm = config(tmp_path, executor="slurm").build()
     assert isinstance(local.executor, LocalExecutor)
     assert isinstance(slurm.executor, SlurmExecutor)
 
@@ -73,7 +73,7 @@ def test_search_generates_a_readable_run_id_once(tmp_path, monkeypatch):
         lambda name: f"{name}--20260813T192612.123456Z",
     )
 
-    search = build_search(search_config)
+    search = search_config.build()
 
     assert search.run_id == "test-search--20260813T192612.123456Z"
     assert search_config.run_id == search.run_id
@@ -95,7 +95,7 @@ def test_start_snapshots_resolved_candidate_configs(tmp_path, monkeypatch):
             "package_version": "1.0",
         },
     )
-    search = build_search(search_config)
+    search = search_config.build()
 
     state_path = search.start()
 
@@ -128,7 +128,7 @@ def test_local_artifact_publisher_writes_queryable_research_record(
             "package_version": "1.0",
         },
     )
-    search = build_search(search_config)
+    search = search_config.build()
     search.start()
     output = search.output_dir("a", 1)
     (output / "saved_nets").mkdir(parents=True)
@@ -216,7 +216,7 @@ def test_s3_publication_is_executor_independent_and_uses_configured_endpoint(
         staticmethod(lambda destination: fake),
     )
 
-    build_search(search_config).start()
+    search_config.build().start()
 
     assert "public/experiments/searches/test-search--run/config.yaml" in uploaded
     assert "public/experiments/searches/test-search--run/artifacts.parquet" in uploaded
@@ -246,7 +246,7 @@ def test_successive_halving_promotes_with_dataframe_and_reports_metrics(
     tmp_path, monkeypatch
 ):
     search_config = config(tmp_path)
-    search = build_search(search_config)
+    search = search_config.build()
     search.search_dir.mkdir(parents=True)
     search.config_path.write_text("test", encoding="utf-8")
     state = {
@@ -296,7 +296,7 @@ def test_successive_halving_promotes_with_dataframe_and_reports_metrics(
 
 
 def test_local_executor_runs_tasks_then_advances(tmp_path, monkeypatch):
-    search = build_search(config(tmp_path))
+    search = config(tmp_path).build()
     search.search_dir.mkdir(parents=True)
     state = {
         "status": "prepared",
@@ -324,7 +324,7 @@ def test_local_executor_runs_tasks_then_advances(tmp_path, monkeypatch):
 
 
 def test_advance_retry_finishes_publication_and_submission(tmp_path, monkeypatch):
-    search = build_search(config(tmp_path))
+    search = config(tmp_path).build()
     search.search_dir.mkdir(parents=True)
     state = {
         "status": "running",
@@ -363,7 +363,7 @@ def test_task_builds_train_config_and_calls_trainer_directly(tmp_path, monkeypat
             update={"config": str(Path("tests/configs/train_default.yaml").resolve())}
         )
     ]
-    search = build_search(search_config)
+    search = search_config.build()
     search.search_dir.mkdir(parents=True)
     search.write_state(
         {
@@ -403,7 +403,7 @@ def test_task_builds_train_config_and_calls_trainer_directly(tmp_path, monkeypat
 
 
 def test_slurm_executor_submits_array_and_automatic_advance(tmp_path, monkeypatch):
-    search = build_search(config(tmp_path, executor="slurm"))
+    search = config(tmp_path, executor="slurm").build()
     search.search_dir.mkdir(parents=True)
     state = {
         "name": "test-search",

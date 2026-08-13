@@ -4,6 +4,7 @@
 
 """Validated configuration for architecture searches."""
 
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Literal, Self
 
@@ -14,6 +15,14 @@ from samudra.utils.location import LocalLocation, S3Location
 
 if TYPE_CHECKING:
     from samudra.search.successive_halving import SuccessiveHalving
+
+
+def resource_slug(value: str) -> str:
+    """Convert a display name to the identifier used for search resources."""
+    slug = re.sub(r"[^a-zA-Z0-9_.-]+", "-", value).strip("-.")
+    if not slug:
+        raise ValueError(f"Name has no usable characters: {value!r}")
+    return slug
 
 
 class ObjectiveConfig(BaseConfig):
@@ -117,6 +126,9 @@ class SearchConfig(TopLevelConfig):
         names = [candidate.name for candidate in self.candidates]
         if len(names) != len(set(names)):
             raise ValueError("candidate names must be unique")
+        slugs = [resource_slug(name) for name in names]
+        if len(slugs) != len(set(slugs)):
+            raise ValueError("candidate names must be unique after slug normalization")
         if all(candidate.fixed for candidate in self.candidates):
             raise ValueError("at least one candidate must participate in promotion")
         if self.objective.metric not in self.metrics:

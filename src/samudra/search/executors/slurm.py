@@ -104,9 +104,6 @@ class SlurmExecutor(Executor):
         logs = self.search.search_dir / "logs"
         logs.mkdir(exist_ok=True)
         job_id = self._array(state, rung, anchor=False)
-        state["rungs"][rung]["job_id"] = job_id
-        state["status"] = "running"
-        self.search.write_state(state)
         dependency = f"afterany:{job_id}"
         anchor_job = state["anchors"].get("job_id")
         if rung == len(self.search.rungs) - 1 and anchor_job:
@@ -140,5 +137,7 @@ class SlurmExecutor(Executor):
             ]
         )
         state = self.search.read_state()
+        state["rungs"][rung]["job_id"] = job_id
         state["rungs"][rung]["controller_job_id"] = controller_job
+        state["status"] = "running"
         self.search.write_state(state)

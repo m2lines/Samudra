@@ -58,6 +58,15 @@ def test_config_validates_objective_and_rungs(tmp_path):
         SearchConfig.model_validate(value)
 
 
+def test_config_rejects_candidate_names_with_colliding_resource_slugs(tmp_path):
+    value = config(tmp_path).model_dump(mode="json")
+    value["candidates"][1]["name"] = "same name"
+    value["candidates"][2]["name"] = "same-name"
+
+    with pytest.raises(ValidationError, match="unique after slug normalization"):
+        SearchConfig.model_validate(value)
+
+
 def test_executor_dictionary_is_an_explicit_extension_point(tmp_path):
     local = config(tmp_path).build()
     slurm = config(tmp_path, executor="slurm").build()
@@ -335,7 +344,12 @@ def test_advance_retry_finishes_publication_and_submission(tmp_path, monkeypatch
                 "results": [{"candidate": "a"}],
                 "candidates": ["a"],
             },
-            {"advanced": False, "results": [], "candidates": ["a"]},
+            {
+                "advanced": False,
+                "results": [],
+                "candidates": ["a"],
+                "job_id": "orphaned-array",
+            },
         ],
     }
     search.write_state(state)
@@ -430,3 +444,36 @@ def test_slurm_executor_submits_array_and_automatic_advance(tmp_path, monkeypatc
     assert any(value.startswith("--dependency=afterany:1") for value in commands[1])
     assert "--export=ALL" in commands[1]
     assert "samudra.search.worker" in commands[1][-1]
+    saved = search.read_state()["rungs"][0]
+    assert saved["job_id"] == "1"
+    assert saved["controller_job_id"] == "2"
+
+
+def test_slurm_does_not_persist_array_without_controller(tmp_path, monkeypatch):
+    search = config(tmp_path, executor="slurm").build()
+    search.search_dir.mkdir(parents=True)
+    state = {
+        "name": "test-search",
+        "status": "prepared",
+        "anchors": {"candidates": []},
+        "rungs": [{"candidates": ["a"]}],
+    }
+    search.write_state(state)
+    submissions = 0
+
+    def submit(command):
+        nonlocal submissions
+        submissions += 1
+        if submissions == 2:
+            raise RuntimeError("controller submission failed")
+        return "array-job"
+
+    monkeypatch.setattr(search.executor, "_submit", submit)
+
+    with pytest.raises(RuntimeError, match="controller submission failed"):
+        search.executor.submit_rung(state, 0)
+
+    saved = search.read_state()
+    assert saved["status"] == "prepared"
+    assert "job_id" not in saved["rungs"][0]
+    assert "controller_job_id" not in saved["rungs"][0]

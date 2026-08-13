@@ -30,6 +30,7 @@ def config(tmp_path: Path, *, executor: str = "local") -> SearchConfig:
     return SearchConfig.model_validate(
         {
             "name": "test-search",
+            "run_id": "test-search--run",
             "algorithm": {"type": "successive_halving", "rungs": [1, 3]},
             "objective": {"metric": "validation_loss", "mode": "min"},
             "metrics": ["validation_loss", "train_loss"],
@@ -62,6 +63,21 @@ def test_executor_dictionary_is_an_explicit_extension_point(tmp_path):
     slurm = build_search(config(tmp_path, executor="slurm"))
     assert isinstance(local.executor, LocalExecutor)
     assert isinstance(slurm.executor, SlurmExecutor)
+
+
+def test_search_generates_a_readable_run_id_once(tmp_path, monkeypatch):
+    search_config = config(tmp_path)
+    search_config.run_id = None
+    monkeypatch.setattr(
+        "samudra.search.successive_halving._new_run_id",
+        lambda name: f"{name}--20260813T192612.123456Z",
+    )
+
+    search = build_search(search_config)
+
+    assert search.run_id == "test-search--20260813T192612.123456Z"
+    assert search_config.run_id == search.run_id
+    assert search.search_dir.name == search.run_id
 
 
 def test_start_snapshots_resolved_candidate_configs(tmp_path, monkeypatch):
@@ -136,7 +152,7 @@ def test_local_artifact_publisher_writes_queryable_research_record(
 
     search.publish(state)
 
-    published = tmp_path / "published/test-search"
+    published = tmp_path / "published/test-search--run"
     assert (published / "results.parquet").is_file()
     assert (published / "epochs.parquet").is_file()
     assert (published / f"runs/{output.name}/saved_nets/ckpt.pt").is_file()
@@ -149,7 +165,7 @@ def test_local_artifact_publisher_writes_queryable_research_record(
     checkpoint = catalog[catalog["artifact"].str.endswith("ckpt.pt")].iloc[0]
     assert checkpoint["sha256"]
     assert checkpoint["public_url"].startswith(
-        "https://example.test/experiments/test-search/"
+        "https://example.test/experiments/test-search--run/"
     )
     figure = catalog[catalog["artifact"].str.endswith("loss.png")].iloc[0]
     assert figure["kind"] == "figure"
@@ -188,7 +204,7 @@ def test_s3_publication_is_executor_independent_and_uses_configured_endpoint(
 
     class FakeS3:
         def exists(self, path):
-            assert path == "public/experiments/searches/test-search"
+            assert path == "public/experiments/searches/test-search--run"
             return False
 
         def put_file(self, source, destination):
@@ -202,8 +218,8 @@ def test_s3_publication_is_executor_independent_and_uses_configured_endpoint(
 
     build_search(search_config).start()
 
-    assert "public/experiments/searches/test-search/config.yaml" in uploaded
-    assert "public/experiments/searches/test-search/artifacts.parquet" in uploaded
+    assert "public/experiments/searches/test-search--run/config.yaml" in uploaded
+    assert "public/experiments/searches/test-search--run/artifacts.parquet" in uploaded
 
 
 def write_result(search, name: str, rung: int, validation: float) -> None:
@@ -379,9 +395,9 @@ def test_task_builds_train_config_and_calls_trainer_directly(tmp_path, monkeypat
     assert train_config.epochs == 1
     assert train_config.experiment.search.candidate == "a"
     assert train_config.experiment.search.artifacts_uri == str(
-        tmp_path / "published/test-search"
+        tmp_path / "published/test-search--run"
     )
-    assert train_config.experiment.wandb.group == "test-search"
+    assert train_config.experiment.wandb.group == "test-search--run"
     assert "search" in train_config.experiment.wandb.tags
     assert received[1] == "run"
 

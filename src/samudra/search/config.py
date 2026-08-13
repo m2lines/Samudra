@@ -92,6 +92,7 @@ class SearchConfig(TopLevelConfig):
     """Compare training configurations using adaptive resource allocation."""
 
     name: str
+    run_id: str | None = None
     algorithm: AlgorithmConfig
     objective: ObjectiveConfig = Field(default_factory=ObjectiveConfig)
     metrics: list[str] = Field(default_factory=lambda: ["validation_loss"])

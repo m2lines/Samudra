@@ -36,11 +36,18 @@ python -m samudra.search path/to/search.yaml
 
 The runner submits the first rung and fixed baselines. On Slurm, dependent
 controller jobs automatically rank completed candidates and submit each later
-rung; users do not manually advance the search. For a local laptop run, include
-`search/local.yaml` instead of `search/torch.yaml`; candidates then run
-sequentially in the current environment.
+rung; users do not manually advance the search. For a local laptop or Colab
+notebook run, include `search/local.yaml` instead of `search/torch.yaml`;
+candidates then run sequentially in the current environment.
 
-The search directory contains:
+Every invocation gets a readable instance identifier such as
+`perceiver-2deg--20260813T192612.123456Z`. The stable `name` describes the
+experiment design; this generated `run_id` names its filesystem, object-store,
+Slurm, and W&B resources so repeated trials cannot collide. Set `run_id`
+explicitly only when an external system needs to allocate the identity. The
+runner still refuses to overwrite an existing local or published instance.
+
+The uniquely named search directory contains:
 
 - `config.yaml`: the fully resolved, validated search configuration;
 - `candidates/`: one fully resolved training configuration per candidate;
@@ -59,7 +66,9 @@ The search directory contains:
 ```python
 import pandas as pd
 
-results = pd.read_csv("/scratch/USER/searches/my-search/results.csv")
+results = pd.read_csv(
+    "/scratch/USER/searches/my-search--20260813T192612.123456Z/results.csv"
+)
 print(results.sort_values(["rung", "validation_loss"]))
 ```
 
@@ -79,7 +88,7 @@ artifacts: !include osn-artifacts.yaml
 ```
 
 The packaged template publishes under
-`s3://m2lines-pubs/FOMO/experiments/searches/<search-name>/`. It does not contain
+`s3://m2lines-pubs/FOMO/experiments/searches/<run-id>/`. It does not contain
 credentials. On every machine that may run the search controller, provide
 write credentials through the normal environment:
 
@@ -122,7 +131,7 @@ public HTTP endpoint, DuckDB needs no local download:
 ```sql
 SELECT candidate, rung, epochs, validation_loss, error
 FROM read_parquet(
-  'https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/my-search/results.parquet'
+  'https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/my-search--20260813T192612.123456Z/results.parquet'
 )
 ORDER BY rung, validation_loss;
 ```
@@ -132,19 +141,21 @@ which variable or depth stalled, whether throughput or optimizer-step counts
 differed, and where divergence began. `artifacts.parquet` lets an agent locate
 and verify the exact config, logs, or checkpoint behind any row.
 
+These tables are intentionally single Parquet files, not shards. Their row
+counts grow with candidates times rungs or candidates times epochs, rather than
+with the ocean dataset, and are expected to remain small compared with one
+checkpoint. A future search large enough to need sharding can publish a
+partitioned Parquet dataset with the same columns and query interface; no
+current workload benefits from that complexity.
+
 ### Deferred model diagnostics
 
-Search currently records and publishes the inputs needed for a later analysis
-stage rather than coupling training to a particular scientific metric suite.
-The next useful analysis implementation is finalist evaluation: load each
-published final checkpoint, generate a matched validation rollout, then apply
-the observation metrics and figures from `samudra.metrics` and `samudra.viz`.
-Those tools operate on completed rollout datasets, so running them as a
-separate post-search job keeps cheap promotion decisions fast while still
-producing maps, spectra, and time series that explain *why* a finalist worked
-or failed. The publisher is the executor-independent boundary where those
-analysis artifacts will be added once the first Perceiver searches establish
-the most useful diagnostic subset.
+Search currently records and publishes the inputs needed for later analysis
+rather than coupling training to a particular scientific metric suite. Future
+post-search jobs can load published checkpoints, generate matched validation
+rollouts, and write tables or figures beneath `analysis/`. Keeping that work
+separate preserves fast promotion decisions while leaving room to add the most
+informative diagnostics after experience with real searches.
 
 ## Configure candidates and metrics
 
@@ -189,11 +200,12 @@ for short architecture comparisons.
 
 ## W&B
 
-Each candidate uses the search name as its W&B group and receives the tags
-`search`, the search name, and the candidate name. This makes runs filterable by
-group or tag in W&B. Search identity, rung, objective, epoch budget, executor,
-job ID, parent checkpoint, and the public artifact root are stored under
-`config.experiment.search`.
+Each candidate uses the unique search run ID as its W&B group and receives the
+tags `search`, the stable search name, the run ID, and the candidate name. This
+makes repeated trials separately filterable while preserving a stable tag for
+cross-run comparisons. Search identity, rung, objective, epoch budget,
+executor, job ID, parent checkpoint, and the public artifact root are stored
+under `config.experiment.search`.
 Promoted rungs resume the same W&B run from the checkpoint, preserving one
 continuous learning curve per candidate.
 
@@ -211,8 +223,12 @@ Compute-specific logic lives in `samudra.search.executors`. Built-in executor
 classes are selected by a small dictionary in `successive_halving.py`. Adding a
 future Empire AI executor requires implementing the same `submit_anchors` and
 `submit_rung` interface and adding one dictionary entry; no plugin registration
-system is imposed today. The search algorithm similarly has a single factory
-boundary where another strategy can be added later.
+system is imposed today. The search algorithm has a separate typed-config and
+factory boundary. A future Hyperband implementation can coordinate several
+successive-halving brackets through the existing executor submissions and use
+the algorithm-neutral artifact publisher. A scheduler that is not rung-based
+may require broadening the executor task interface; the current API does not
+pretend every possible explore/exploit strategy already fits it.
 
 ::: samudra.search
 

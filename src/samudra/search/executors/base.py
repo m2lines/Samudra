@@ -19,6 +19,7 @@ class SearchController(Protocol):
     state_path: Path
     search_dir: Path
     slug: str
+    run_id: str
     rungs: list[int]
 
     def write_state(self, state: dict[str, Any]) -> None: ...

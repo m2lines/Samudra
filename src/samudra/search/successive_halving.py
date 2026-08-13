@@ -11,7 +11,6 @@ import importlib.metadata
 import json
 import math
 import os
-import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -22,7 +21,12 @@ import yaml
 
 from samudra.config import SearchRunConfig, TrainConfig
 from samudra.search.artifacts import ArtifactPublisher, atomic_local_parquet
-from samudra.search.config import CandidateConfig, SearchConfig, SlurmExecutorConfig
+from samudra.search.config import (
+    CandidateConfig,
+    SearchConfig,
+    SlurmExecutorConfig,
+    resource_slug,
+)
 from samudra.search.executors import Executor, LocalExecutor, SlurmExecutor
 from samudra.train import Trainer
 from samudra.utils.distributed import is_main_process
@@ -36,16 +40,9 @@ EXECUTORS: dict[str, type[Executor]] = {
 }
 
 
-def _slug(value: str) -> str:
-    slug = re.sub(r"[^a-zA-Z0-9_.-]+", "-", value).strip("-.")
-    if not slug:
-        raise ValueError(f"Name has no usable characters: {value!r}")
-    return slug
-
-
 def _new_run_id(name: str) -> str:
     timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%S.%fZ")
-    return f"{_slug(name)}--{timestamp}"
+    return f"{resource_slug(name)}--{timestamp}"
 
 
 def _atomic_json(path: Path, value: dict[str, Any]) -> None:
@@ -96,10 +93,10 @@ class SuccessiveHalving:
 
     def __init__(self, config: SearchConfig) -> None:
         self.config = config
-        self.slug = _slug(config.name)
+        self.slug = resource_slug(config.name)
         if config.run_id is None:
             config.run_id = _new_run_id(config.name)
-        self.run_id = _slug(config.run_id)
+        self.run_id = resource_slug(config.run_id)
         self.search_dir = config.executor.output_dir / self.run_id
         self.config_path = self.search_dir / "config.yaml"
         self.state_path = self.search_dir / "state.json"
@@ -149,7 +146,7 @@ class SuccessiveHalving:
         candidate_dir = self.search_dir / "candidates"
         candidate_dir.mkdir()
         for candidate, train_config in resolved_candidates:
-            destination = candidate_dir / f"{_slug(candidate.name)}.yaml"
+            destination = candidate_dir / f"{resource_slug(candidate.name)}.yaml"
             destination.write_text(
                 yaml.safe_dump(train_config.model_dump(mode="json"), sort_keys=False),
                 encoding="utf-8",
@@ -205,7 +202,7 @@ class SuccessiveHalving:
 
     def output_dir(self, candidate: str, rung: int) -> Path:
         return self.config.executor.output_dir / (
-            f"{self.run_id}--{_slug(candidate)}--e{self.rungs[rung]}"
+            f"{self.run_id}--{resource_slug(candidate)}--e{self.rungs[rung]}"
         )
 
     def train_task(self, rung: int, task: int, *, anchor: bool) -> None:
@@ -258,7 +255,9 @@ class SuccessiveHalving:
         train_config.experiment.wandb.group = self.run_id
         tags = train_config.experiment.wandb.tags or []
         train_config.experiment.wandb.tags = list(
-            dict.fromkeys([*tags, "search", self.slug, self.run_id, _slug(name)])
+            dict.fromkeys(
+                [*tags, "search", self.slug, self.run_id, resource_slug(name)]
+            )
         )
         train_config.prepare_output_dirs()
         handle_logging(train_config.debug, train_config.experiment.output_dir)
@@ -371,7 +370,7 @@ class SuccessiveHalving:
             next_rung = rung + 1
             if next_rung == len(self.rungs):
                 return
-            if "job_id" not in state["rungs"][next_rung]:
+            if "controller_job_id" not in state["rungs"][next_rung]:
                 self.executor.submit_rung(state, next_rung)
             return
         results = [self._result(name, rung) for name in current["candidates"]]

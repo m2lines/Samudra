@@ -507,6 +507,7 @@ def main() -> None:
     required_vars = {
         "U",
         "V",
+        "W", # add W
         "Theta",
         "Salt",
         "Eta",

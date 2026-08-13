@@ -265,10 +265,11 @@ class Trainer:
                 "config/global_microbatch_size": global_microbatch_size,
                 "config/global_effective_batch_size": global_effective_batch_size,
             }
-            if rung := os.environ.get("SAMUDRA_SEARCH_RUNG"):
-                initial_metrics["search/rung"] = int(rung)
-            if target_epochs := os.environ.get("SAMUDRA_SEARCH_TARGET_EPOCHS"):
-                initial_metrics["search/target_epochs"] = int(target_epochs)
+            if cfg.experiment.search is not None:
+                initial_metrics["search/rung"] = cfg.experiment.search.rung
+                initial_metrics["search/target_epochs"] = (
+                    cfg.experiment.search.target_epochs
+                )
             self.wandb_logger.log(initial_metrics, step=0)
 
         self.num_batches_seen = 0
@@ -315,6 +316,7 @@ class Trainer:
         self.save_freq = cfg.save_freq
         self.validation_image_log_freq = cfg.validation_image_log_freq
         self.output_dir = cfg.experiment.output_dir
+        self.search_run = cfg.experiment.search
         self.debug = cfg.debug
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size
@@ -441,78 +443,22 @@ class Trainer:
             time_elapsed = time.perf_counter() - start_epoch_train_time
             if is_main_process():
                 self.save_all_checkpoints(epoch, v_loss, inf_loss)
-                write_training_summary(
-                    self.output_dir,
-                    {
-                        "epoch": epoch,
-                        "target_epochs": self.epochs,
-                        "complete": epoch == self.epochs,
-                        "train_loss": float(train_loss),
-                        "validation_loss": float(v_loss),
-                        "best_validation_loss": float(self.best_val_loss),
-                        "inference_loss": (
-                            float(inf_loss) if inf_loss is not None else None
+                if self.search_run is not None:
+                    write_training_summary(
+                        self.output_dir,
+                        self._search_summary(
+                            epoch,
+                            train_loss=float(train_loss),
+                            validation_loss=float(v_loss),
+                            inference_loss=(
+                                float(inf_loss) if inf_loss is not None else None
+                            ),
+                            train_seconds=end_epoch_train_time - start_epoch_train_time,
+                            validation_seconds=end_epoch_val_time
+                            - end_epoch_train_time,
+                            total_seconds=time_elapsed,
                         ),
-                        "best_inference_loss": float(self.best_inf_loss),
-                        "epoch_train_seconds": (
-                            end_epoch_train_time - start_epoch_train_time
-                        ),
-                        "epoch_validation_seconds": (
-                            end_epoch_val_time - end_epoch_train_time
-                        ),
-                        "epoch_total_seconds": time_elapsed,
-                        "progress": self.train_progress.state_dict(),
-                        "wandb_id": self.wandb_id,
-                        "wandb_name": self.wandb_name,
-                        "search": {
-                            "name": os.environ.get("SAMUDRA_SEARCH_NAME"),
-                            "manifest_sha256": os.environ.get(
-                                "SAMUDRA_SEARCH_MANIFEST_SHA256"
-                            ),
-                            "orchestrator_commit": os.environ.get(
-                                "SAMUDRA_SEARCH_ORCHESTRATOR_COMMIT"
-                            ),
-                            "candidate": os.environ.get("SAMUDRA_SEARCH_CANDIDATE"),
-                            "candidate_commit": os.environ.get(
-                                "SAMUDRA_SEARCH_CANDIDATE_COMMIT"
-                            ),
-                            "rung": os.environ.get("SAMUDRA_SEARCH_RUNG"),
-                            "target_epochs": os.environ.get(
-                                "SAMUDRA_SEARCH_TARGET_EPOCHS"
-                            ),
-                            "parent_checkpoint": os.environ.get(
-                                "SAMUDRA_SEARCH_PARENT_CHECKPOINT"
-                            ),
-                            "compute_backend": os.environ.get(
-                                "SAMUDRA_SEARCH_COMPUTE_BACKEND"
-                            ),
-                            "compute_job_id": os.environ.get(
-                                "SAMUDRA_SEARCH_COMPUTE_JOB_ID"
-                            ),
-                            "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
-                            "slurm_array_job_id": os.environ.get("SLURM_ARRAY_JOB_ID"),
-                            "slurm_array_task_id": os.environ.get(
-                                "SLURM_ARRAY_TASK_ID"
-                            ),
-                        },
-                        "provenance": {
-                            "code_commit": os.environ.get("SAMUDRA_CODE_COMMIT"),
-                            "code_repo_url": os.environ.get("SAMUDRA_CODE_REPO_URL"),
-                            "code_layer_sha256": os.environ.get(
-                                "SAMUDRA_CODE_LAYER_SHA256"
-                            ),
-                            "container_git_commit": os.environ.get(
-                                "SAMUDRA_CONTAINER_GIT_COMMIT"
-                            ),
-                            "container_image_ref": os.environ.get(
-                                "SAMUDRA_CONTAINER_IMAGE_REF"
-                            ),
-                            "container_sif_path": os.environ.get(
-                                "SAMUDRA_CONTAINER_SIF_PATH"
-                            ),
-                        },
-                    },
-                )
+                    )
 
             log_stats = {
                 **train_stats,
@@ -537,6 +483,36 @@ class Trainer:
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         logger.info(f"Training time {total_time_str}")
         self.finish()
+
+    def _search_summary(
+        self,
+        epoch: int,
+        *,
+        train_loss: float,
+        validation_loss: float,
+        inference_loss: float | None,
+        train_seconds: float,
+        validation_seconds: float,
+        total_seconds: float,
+    ) -> dict[str, Any]:
+        """Build the small local result consumed by an active search."""
+        assert self.search_run is not None
+        return {
+            "epoch": epoch,
+            "complete": epoch == self.epochs,
+            "train_loss": train_loss,
+            "validation_loss": validation_loss,
+            "best_validation_loss": float(self.best_val_loss),
+            "inference_loss": inference_loss,
+            "best_inference_loss": float(self.best_inf_loss),
+            "epoch_train_seconds": train_seconds,
+            "epoch_validation_seconds": validation_seconds,
+            "epoch_total_seconds": total_seconds,
+            "optimizer_steps": self.train_progress.optimizer_steps,
+            "wandb_id": self.wandb_id,
+            "wandb_name": self.wandb_name,
+            **self.search_run.model_dump(),
+        }
 
     def train_one_epoch(self, epoch):
         self.model.train(True)

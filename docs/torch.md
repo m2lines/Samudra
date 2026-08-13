@@ -314,7 +314,7 @@ export NSYS_ARGS="--trace=cuda,nvtx,osrt,nccl --sample=cpu --delay=300 --duratio
 ### Monitoring
 
 For Slurm-array architecture searches that promote candidates through larger
-epoch budgets, see [Successive-halving architecture searches](successive-halving.md).
+epoch budgets, see [Architecture search](search.md).
 
 After submission:
 

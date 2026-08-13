@@ -423,15 +423,29 @@ def append_prognostic_channels(
         new_channels if n_new <= 6 else f"{new_channels[:3]} ... {new_channels[-1]}",
     )
 
-    # The new channels must cover exactly the store's existing time axis, or the
-    # packed array would be ragged: same variable, different times per channel.
-    data = data.sel(time=slice(str(store_times.min()), str(store_times.max())))
+    # Match the store's exact timestamps, not the span between its first and
+    # last: the axis is a train window concatenated with a val window, so it has
+    # a hole in it whenever those two are not adjacent.
+    source_times = data["time"].to_numpy()
+    positions = np.flatnonzero(np.isin(source_times, store_times))
+    if positions.size != store_times.size:
+        absent = np.setdiff1d(store_times, source_times)
+        raise ValueError(
+            f"Append refused: {absent.size} of the store's {store_times.size} "
+            "timestamps are not in the source, e.g. "
+            f"{np.datetime_as_string(absent[:3], unit='h')}."
+        )
+    # Keep a contiguous run a slice; only a gapped axis needs fancy indexing.
+    if positions[-1] - positions[0] + 1 == positions.size:
+        data = data.isel(time=slice(int(positions[0]), int(positions[-1]) + 1))
+    else:
+        data = data.isel(time=positions)
+
     src_times = data["time"].to_numpy()
     if not np.array_equal(src_times, store_times):
         raise ValueError(
-            f"Append refused: the source has {src_times.size} timestamps in the "
-            f"store's window but the store has {store_times.size}. The new "
-            "channels have to line up with the existing time axis exactly."
+            f"Append refused: selected {src_times.size} source timestamps but the "
+            f"store has {store_times.size}, and they do not line up."
         )
 
     y_coords, x_coords = extract_xy_coords(data)

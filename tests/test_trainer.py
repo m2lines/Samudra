@@ -41,9 +41,15 @@ def test_trainer__mini_benchmark(trainer_pair: TrainPair, caplog, benchmark):
     [("mock-om4", "train_default_2step.yaml")],
     indirect=True,
 )
-def test_trainer__mini_2step(trainer_pair: TrainPair, caplog):
+def test_trainer__mini_2step(trainer_pair: TrainPair, caplog, monkeypatch):
     caplog.set_level(logging.INFO)
     _, trainer = trainer_pair
+    monkeypatch.setattr(
+        "samudra.train.write_training_summary",
+        lambda *args, **kwargs: pytest.fail(
+            "ordinary training must not emit search summaries"
+        ),
+    )
 
     trainer.run()
 

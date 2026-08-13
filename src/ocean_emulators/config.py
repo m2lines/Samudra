@@ -1137,6 +1137,16 @@ class TrainConfig(TopLevelConfig):
             "Reduced automatically when val_time is too short to fit them all."
         ),
     )
+    long_autoregressive_val_start_epoch: int = Field(
+        default=20,
+        ge=1,
+        description=(
+            "First 1-based epoch that runs long rollout validation. Earlier "
+            "epochs skip it: a model that cannot yet hold a hundreds-of-steps "
+            "rollout together only produces a diverged loss, so computing it is "
+            "wasted validation time. Use 1 to run it from the first epoch."
+        ),
+    )
     autoregressive_val_steps_forward: int = Field(
         default=12,
         ge=1,

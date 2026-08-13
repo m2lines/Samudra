@@ -1,3 +1,6 @@
+import dataclasses
+import math
+
 import numpy as np
 import pytest
 import torch
@@ -8,6 +11,11 @@ from ocean_emulators.aggregator.validate.rollout import (
     plan_rollout_windows,
 )
 from ocean_emulators.stepper import get_rollout_step_chunks
+from ocean_emulators.train import (
+    INITIAL_BEST_VAL_LOSS,
+    AutoregressiveValSpec,
+    Trainer,
+)
 from ocean_emulators.utils.output import ModelInferenceOutput
 
 
@@ -209,3 +217,146 @@ def test_rollout_aggregator_rejects_recording_past_the_plan():
 
     with pytest.raises(ValueError, match="exceeds the planned 2 rollout steps"):
         aggregator.record_run(_output(prediction, prediction))
+
+
+class _FakeTrainer:
+    """Just enough Trainer for the pure combined-loss / spec-gating logic."""
+
+    def __init__(self, long_start_epoch: int = 20):
+        self.autoregressive_val_specs = (
+            AutoregressiveValSpec(
+                label="short",
+                num_steps=72,
+                num_runs=3,
+                seed_offset=0,
+                weight=0.35,
+            ),
+            AutoregressiveValSpec(
+                label="long",
+                num_steps=480,
+                num_runs=1,
+                seed_offset=1,
+                weight=0.40,
+                start_epoch=long_start_epoch,
+            ),
+        )
+        self._combined_loss_contributors = frozenset()
+        self.best_val_loss = INITIAL_BEST_VAL_LOSS
+
+    combined_validation_loss = Trainer.combined_validation_loss
+    _note_combined_loss_contributors = Trainer._note_combined_loss_contributors
+    due_autoregressive_val_specs = Trainer.due_autoregressive_val_specs
+
+
+def _ar_stats(short: float | None = None, long: float | None = None) -> dict:
+    stats = {}
+    if short is not None:
+        stats["val/mean/short-autoregressive-loss"] = short
+    if long is not None:
+        stats["val/mean/long-autoregressive-loss"] = long
+    return stats
+
+
+def test_combined_loss_weights_all_three():
+    combined, logs = _FakeTrainer().combined_validation_loss(
+        1.0, _ar_stats(short=2.0, long=3.0)
+    )
+
+    expected = 0.25 * 1.0 + 0.35 * 2.0 + 0.40 * 3.0
+    assert combined == pytest.approx(expected)
+    assert logs["val/mean/combined-loss"] == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_combined_loss_drops_non_finite_long(bad, caplog):
+    trainer = _FakeTrainer()
+    combined, _ = trainer.combined_validation_loss(1.0, _ar_stats(short=2.0, long=bad))
+
+    # Long drops out; the remaining weights are renormalized, not left short.
+    expected = (0.25 * 1.0 + 0.35 * 2.0) / (0.25 + 0.35)
+    assert combined == pytest.approx(expected)
+    assert math.isfinite(combined)
+    assert (
+        "long-autoregressive val loss is nan, combined-loss is computed on "
+        "one-step and short-autoregressive with weights 0.25 and 0.35"
+    ) in caplog.text
+
+
+def test_combined_loss_drops_two_non_finite_losses(caplog):
+    trainer = _FakeTrainer()
+    nan = float("nan")
+    combined, _ = trainer.combined_validation_loss(1.0, _ar_stats(short=nan, long=nan))
+
+    # Only one-step survives, so it is the score outright.
+    assert combined == pytest.approx(1.0)
+    assert "with weights 0.25" in caplog.text
+
+
+def test_combined_loss_is_nan_only_when_nothing_is_finite(caplog):
+    nan = float("nan")
+    combined, logs = _FakeTrainer().combined_validation_loss(
+        nan, _ar_stats(short=nan, long=nan)
+    )
+
+    assert math.isnan(combined)
+    assert math.isnan(logs["val/mean/combined-loss"])
+    assert "no best-validation checkpoint will be saved" in caplog.text
+    # A nan score must never look like an improvement.
+    assert not (combined <= INITIAL_BEST_VAL_LOSS)
+
+
+def test_combined_loss_resets_best_when_a_validation_joins():
+    trainer = _FakeTrainer()
+
+    # Epochs before the long start epoch: only one-step and short contribute.
+    trainer.combined_validation_loss(1.0, _ar_stats(short=2.0))
+    trainer.best_val_loss = 1.35
+    trainer.combined_validation_loss(1.0, _ar_stats(short=2.0))
+    assert trainer.best_val_loss == 1.35
+
+    # Long joins and shifts the scale, so the stale best must not stand.
+    trainer.combined_validation_loss(1.0, _ar_stats(short=2.0, long=900.0))
+    assert trainer.best_val_loss == INITIAL_BEST_VAL_LOSS
+
+
+def test_combined_loss_does_not_reset_best_when_a_loss_goes_nan():
+    trainer = _FakeTrainer()
+    trainer.combined_validation_loss(1.0, _ar_stats(short=2.0, long=900.0))
+    trainer.best_val_loss = 361.0
+
+    # A transient nan drops long for one epoch; that is not a scale change.
+    trainer.combined_validation_loss(1.0, _ar_stats(short=2.0, long=float("nan")))
+    assert trainer.best_val_loss == 361.0
+
+    # Nor is long coming back, since it already contributed once.
+    trainer.combined_validation_loss(1.0, _ar_stats(short=2.0, long=800.0))
+    assert trainer.best_val_loss == 361.0
+
+
+@pytest.mark.parametrize(
+    ("epoch", "expected"),
+    [(1, ["short"]), (19, ["short"]), (20, ["short", "long"]), (21, ["short", "long"])],
+)
+def test_due_specs_gate_long_on_its_start_epoch(epoch, expected):
+    trainer = _FakeTrainer(long_start_epoch=20)
+
+    labels = [spec.label for spec in trainer.due_autoregressive_val_specs(epoch)]
+    assert labels == expected
+
+
+def test_due_specs_start_epoch_one_runs_long_immediately():
+    trainer = _FakeTrainer(long_start_epoch=1)
+
+    assert [s.label for s in trainer.due_autoregressive_val_specs(1)] == [
+        "short",
+        "long",
+    ]
+
+
+def test_due_specs_still_respects_disabled_rollouts():
+    trainer = _FakeTrainer(long_start_epoch=1)
+    trainer.autoregressive_val_specs = tuple(
+        dataclasses.replace(spec, num_runs=0) for spec in trainer.autoregressive_val_specs
+    )
+
+    assert trainer.due_autoregressive_val_specs(50) == []

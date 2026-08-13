@@ -100,6 +100,9 @@ SHORT_AR_VAL_LENGTH="${SHORT_AR_VAL_LENGTH:-72}"
 SHORT_AR_VAL_NUM="${SHORT_AR_VAL_NUM:-3}"
 LONG_AR_VAL_LENGTH="${LONG_AR_VAL_LENGTH:-480}"
 LONG_AR_VAL_NUM="${LONG_AR_VAL_NUM:-1}"
+# First epoch that runs long AR val. Earlier epochs skip it: the model
+# cannot hold a hundreds-of-steps rollout together yet, so it is wasted time.
+LONG_AR_VAL_START_EPOCH="${LONG_AR_VAL_START_EPOCH:-20}"
 # Rollout steps per chunk. Bounds how much prediction/target is held at once.
 AR_VAL_STEPS_FORWARD="${AR_VAL_STEPS_FORWARD:-8}"
 
@@ -172,7 +175,7 @@ if [[ "${GPUS}" -gt 0 ]]; then
   echo "effective workers per rank (after trainer scaling): $((DATA_NUM_WORKERS / GPUS))"
 fi
 echo "using validation surface_snapshot=${SURFACE_SNAPSHOT}, one_step_val_num=${ONE_STEP_VAL_NUM}"
-echo "using autoregressive validation: short=${SHORT_AR_VAL_NUM}x${SHORT_AR_VAL_LENGTH} steps, long=${LONG_AR_VAL_NUM}x${LONG_AR_VAL_LENGTH} steps, steps_forward=${AR_VAL_STEPS_FORWARD}"
+echo "using autoregressive validation: short=${SHORT_AR_VAL_NUM}x${SHORT_AR_VAL_LENGTH} steps, long=${LONG_AR_VAL_NUM}x${LONG_AR_VAL_LENGTH} steps, steps_forward=${AR_VAL_STEPS_FORWARD}, long_start_epoch=${LONG_AR_VAL_START_EPOCH}"
 echo "using ddp_broadcast_buffers=${DDP_BROADCAST_BUFFERS}, ddp_timeout_minutes=${DDP_TIMEOUT_MINUTES}, ddp_max_data_workers_per_rank=${DDP_MAX_DATA_WORKERS_PER_RANK}"
 echo "using optimization: learning_rate=${LEARNING_RATE}, scheduler_mode=${SCHEDULER_MODE}, scheduler_target_epochs=${SCHEDULER_TARGET_EPOCHS:-<default>}"
 echo "using lr multipliers: lr_multipliers=${LR_MULTIPLIERS}, lr_multiplier_transition=${LR_MULTIPLIER_TRANSITION}"
@@ -308,6 +311,7 @@ trap 'forward_signal INT' INT
   --short_autoregressive_val_num "${SHORT_AR_VAL_NUM}" \
   --long_autoregressive_val_length "${LONG_AR_VAL_LENGTH}" \
   --long_autoregressive_val_num "${LONG_AR_VAL_NUM}" \
+  --long_autoregressive_val_start_epoch "${LONG_AR_VAL_START_EPOCH}" \
   --autoregressive_val_steps_forward "${AR_VAL_STEPS_FORWARD}" \
   --data.num_workers "${DATA_NUM_WORKERS}" \
   --data.prefetch_factor "${DATA_PREFETCH_FACTOR}" \

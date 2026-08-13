@@ -3,6 +3,7 @@ import dataclasses
 import datetime
 import itertools
 import logging
+import math
 import multiprocessing
 import os
 import queue
@@ -147,9 +148,19 @@ class GracefulStopRequested(RuntimeError):
     """Raised when training should stop after writing an emergency checkpoint."""
 
 
+def _and_join(names: list[str]) -> str:
+    """Join names for a log message: 'a', 'a and b', 'a, b and c'."""
+    if len(names) <= 2:
+        return " and ".join(names)
+    return f"{', '.join(names[:-1])} and {names[-1]}"
+
+
 #: Weight of the one-step loss in the combined checkpoint-selection score. The
 #: rollout weights live on their specs; together the three sum to 1.
 ONE_STEP_VAL_WEIGHT = 0.25
+
+#: Starting value for the best-validation-loss comparison.
+INITIAL_BEST_VAL_LOSS = 1e8
 
 
 @dataclasses.dataclass(frozen=True)
@@ -161,6 +172,8 @@ class AutoregressiveValSpec:
     num_runs: int
     seed_offset: int
     weight: float
+    start_epoch: int = 1
+    """First 1-based epoch this rollout runs on. Earlier epochs skip it."""
 
 
 class _OffsetBatchSampler(Sampler[list[int]]):
@@ -1241,9 +1254,11 @@ class Trainer:
                 num_runs=cfg.long_autoregressive_val_num,
                 seed_offset=LONG_AUTOREGRESSIVE_VAL_SEED_OFFSET,
                 weight=0.40,
+                start_epoch=cfg.long_autoregressive_val_start_epoch,
             ),
         )
         self._autoregressive_val_group: torch.distributed.ProcessGroup | None = None
+        self._combined_loss_contributors: frozenset[str] = frozenset()
 
         self.data_stride: list[int] = cfg.data_stride
         self.temporal_strides: list[int] = temporal_strides
@@ -1372,7 +1387,7 @@ class Trainer:
     def run(self) -> None:
         logger.info(f"Starting training")
 
-        self.best_val_loss = 1e8
+        self.best_val_loss = INITIAL_BEST_VAL_LOSS
         self.best_inf_loss = 1e8
         self._configure_wandb_model_watch()
 
@@ -3283,20 +3298,72 @@ class Trainer:
         wins any single mean. They are weighted towards the longer horizons,
         since autoregressive skill is what the model is for.
 
-        Validations that are disabled, or that val_time was too short to run,
-        drop out and their weight is redistributed over the rest.
+        Validations that are disabled, that have not started yet, that val_time
+        was too short to run, or whose loss came back non-finite drop out, and
+        their weight is redistributed over the rest. A diverged long rollout
+        early in training is expected, and must not turn the whole score -- and
+        with it checkpoint selection -- into nan.
 
         Returns the score and the metrics to log alongside it.
         """
-        weighted = [(ONE_STEP_VAL_WEIGHT, float(one_step_loss))]
+        named = [("one-step", ONE_STEP_VAL_WEIGHT, float(one_step_loss))]
         for spec in self.autoregressive_val_specs:
             key = f"val/mean/{spec.label}-autoregressive-loss"
             if key in autoregressive_val_stats:
-                weighted.append((spec.weight, float(autoregressive_val_stats[key])))
+                named.append(
+                    (
+                        f"{spec.label}-autoregressive",
+                        spec.weight,
+                        float(autoregressive_val_stats[key]),
+                    )
+                )
 
-        total_weight = sum(weight for weight, _ in weighted)
-        combined = sum(weight * loss for weight, loss in weighted) / total_weight
+        usable = [entry for entry in named if math.isfinite(entry[2])]
+        nan_names = [name for name, _, loss in named if not math.isfinite(loss)]
+        if nan_names:
+            if not usable:
+                logger.warning(
+                    f"{_and_join(nan_names)} val loss is nan, and no validation "
+                    "loss is finite. combined-loss is nan and no "
+                    "best-validation checkpoint will be saved this epoch."
+                )
+                nan = float("nan")
+                return nan, {"val/mean/combined-loss": nan}
+            logger.warning(
+                f"{_and_join(nan_names)} val loss is nan, combined-loss is "
+                f"computed on {_and_join([name for name, _, _ in usable])} with "
+                f"weights {_and_join([f'{w:.2f}' for _, w, _ in usable])}"
+            )
+
+        self._note_combined_loss_contributors([name for name, _, _ in usable])
+        total_weight = sum(weight for _, weight, _ in usable)
+        combined = sum(weight * loss for _, weight, loss in usable) / total_weight
         return combined, {"val/mean/combined-loss": combined}
+
+    def _note_combined_loss_contributors(self, names: list[str]) -> None:
+        """Restart the best-loss comparison when a validation joins the score.
+
+        The combined loss shifts scale when a new term starts contributing --
+        long rollout validation switching on at its start epoch is the expected
+        case. Without this, the pre-shift best would stand forever and no
+        further best-validation checkpoint would ever be written.
+
+        Only additions reset it. A term dropping out for one epoch because its
+        loss went nan is transient and must not keep clearing the best.
+        """
+        contributors = frozenset(names)
+        joined = contributors - self._combined_loss_contributors
+        if joined and self._combined_loss_contributors:
+            logger.warning(
+                f"{_and_join(sorted(joined))} val loss now contributes to "
+                "combined-loss, which changes its scale. Resetting the "
+                "best-validation-loss comparison so the new scale sets its own "
+                "best."
+            )
+            self.best_val_loss = INITIAL_BEST_VAL_LOSS
+        self._combined_loss_contributors = (
+            self._combined_loss_contributors | contributors
+        )
 
     def _autoregressive_val_barrier_group(self):
         """A long-timeout CPU process group for the rank-0-only rollouts.
@@ -3345,6 +3412,28 @@ class Trainer:
         assert sources is not None
         return [source.slice(self.val_time) for source in sources]
 
+    def due_autoregressive_val_specs(
+        self, epoch: int
+    ) -> list[AutoregressiveValSpec]:
+        """The rollout validations that are enabled and have reached their start epoch.
+
+        Depends only on the config and the epoch, so every rank resolves the
+        same list. The collectives in `validate_autoregressive_one_epoch` rely
+        on that agreement.
+        """
+        due = []
+        for spec in self.autoregressive_val_specs:
+            if spec.num_steps <= 0 or spec.num_runs <= 0:
+                continue
+            if epoch < spec.start_epoch:
+                logger.info(
+                    f"Skipping {spec.label} autoregressive validation until epoch "
+                    f"{spec.start_epoch} (currently epoch {epoch})."
+                )
+                continue
+            due.append(spec)
+        return due
+
     def validate_autoregressive_one_epoch(self, epoch) -> MetricsDict:
         """Run the short and long autoregressive rollout validations.
 
@@ -3358,11 +3447,7 @@ class Trainer:
         returned metrics are therefore rank-0 values. That is all wandb logging
         and checkpoint selection need, since both already run there.
         """
-        specs = [
-            spec
-            for spec in self.autoregressive_val_specs
-            if spec.num_steps > 0 and spec.num_runs > 0
-        ]
+        specs = self.due_autoregressive_val_specs(epoch)
         if not specs:
             return {}
         if self.dp_ctx is not None:

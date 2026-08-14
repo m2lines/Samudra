@@ -20,20 +20,11 @@ sources:
       - start: "2014-10-05"
         end: "2015-10-05"
     data_location:
-      type: s3
-      endpoint_url: https://nyu1.osn.mghpcc.org
-      anon: true
-      bucket: m2lines-pubs
-      path: Samudra/v2026-07/om4_twodeg/OM4.zarr
+      type: local
+      path: /scratch/am16581/data/Samudra/v2026-07/om4_twodeg/OM4.zarr
     data_means_location:
-      type: s3
-      endpoint_url: https://nyu1.osn.mghpcc.org
-      anon: true
-      bucket: m2lines-pubs
-      path: Samudra/v2026-07/om4_twodeg/OM4_means.zarr
+      type: local
+      path: /scratch/am16581/data/Samudra/v2026-07/om4_twodeg/OM4_means.zarr
     data_stds_location:
-      type: s3
-      endpoint_url: https://nyu1.osn.mghpcc.org
-      anon: true
-      bucket: m2lines-pubs
-      path: Samudra/v2026-07/om4_twodeg/OM4_stds.zarr
+      type: local
+      path: /scratch/am16581/data/Samudra/v2026-07/om4_twodeg/OM4_stds.zarr

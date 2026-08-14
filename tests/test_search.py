@@ -7,14 +7,18 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+import yaml
 from pydantic import ValidationError
 
 from samudra.config import TrainConfig
 from samudra.search import SearchConfig
-from samudra.search.config import ArtifactConfig
+from samudra.search.config import ArtifactConfig, SlurmExecutorConfig
 from samudra.search.executors import LocalExecutor, SlurmExecutor
 from samudra.utils.location import S3Location
-from samudra.utils.training_summary import write_search_metrics
+from samudra.utils.training_summary import (
+    write_search_metrics,
+    write_search_worker_status,
+)
 
 
 def config(tmp_path: Path, *, executor: str = "local") -> SearchConfig:
@@ -139,7 +143,20 @@ def test_start_snapshots_resolved_candidate_configs(tmp_path, monkeypatch):
 def test_start_snapshot_preserves_structured_s3_locations(tmp_path, monkeypatch):
     search_config = config(tmp_path)
     search_config.executor.dry_run = True
-    source = str(Path("src/samudra/configs/perceiver_search_2deg/train.yaml").resolve())
+    train_config = TrainConfig.from_yaml_and_cli(
+        [str(Path("src/samudra/configs/perceiver_search_2deg/train.yaml").resolve())]
+    )
+    train_config.data.sources[0].data_location = S3Location(
+        endpoint_url="https://osn.example.test",
+        anon=True,
+        bucket="public",
+        path="data/test.zarr",
+    )
+    source_path = tmp_path / "s3-train.yaml"
+    source_path.write_text(
+        yaml.safe_dump(train_config.model_dump(mode="json")), encoding="utf-8"
+    )
+    source = str(source_path)
     for candidate in search_config.candidates:
         candidate.config = source
     monkeypatch.setattr(
@@ -523,6 +540,8 @@ def test_task_builds_train_config_and_calls_trainer_directly(tmp_path, monkeypat
     class FakeTrainer:
         def __init__(self, train_config):
             received.append(train_config)
+            self.num_batches_seen = 0
+            self.train_progress = type("Progress", (), {"optimizer_steps": 0})()
 
         def run(self):
             received.append("run")
@@ -614,3 +633,127 @@ def test_slurm_does_not_persist_array_without_controller(tmp_path, monkeypatch):
     assert saved["status"] == "prepared"
     assert "job_id" not in saved["rungs"][0]
     assert "controller_job_id" not in saved["rungs"][0]
+
+
+def test_slurm_probe_gates_first_rung_array(tmp_path, monkeypatch):
+    search_config = config(tmp_path, executor="slurm")
+    assert isinstance(search_config.executor, SlurmExecutorConfig)
+    search_config.executor.rung0_probe = True
+    search = search_config.build()
+    search.search_dir.mkdir(parents=True)
+    state = {
+        "name": "test-search",
+        "status": "prepared",
+        "anchors": {"candidates": []},
+        "rungs": [{"candidates": ["a", "b"]}],
+    }
+    search.write_state(state)
+    commands = []
+
+    def submit(command):
+        commands.append(command)
+        return str(len(commands))
+
+    monkeypatch.setattr(search.executor, "_submit", submit)
+
+    search.executor.submit_rung(state, 0)
+
+    assert len(commands) == 2
+    assert "--array=0-0%1" in commands[0]
+    assert "r0-probe" in next(
+        value for value in commands[0] if value.startswith("--output=")
+    )
+    assert "SAMUDRA_MODULE_ARGS=probe " in next(
+        value for value in commands[0] if value.startswith("--export=")
+    )
+    assert "release-probe" in commands[1][-1]
+    saved = search.read_state()
+    assert saved["status"] == "validating"
+    assert saved["rungs"][0]["probe"] == {
+        "candidate": "a",
+        "job_id": "1",
+        "controller_job_id": "2",
+        "status": "submitted",
+    }
+
+
+def test_successful_probe_releases_full_rung(tmp_path, monkeypatch):
+    search = config(tmp_path, executor="slurm").build()
+    search.search_dir.mkdir(parents=True)
+    state = {
+        "name": "test-search",
+        "status": "validating",
+        "provenance": {"commit": "f" * 40},
+        "anchors": {"candidates": []},
+        "rungs": [
+            {
+                "candidates": ["a", "b"],
+                "probe": {"candidate": "a", "status": "submitted"},
+            }
+        ],
+    }
+    search.write_state(state)
+    output = search.search_dir / "probe/a"
+    output.mkdir(parents=True)
+    write_search_worker_status(
+        output,
+        "completed",
+        optimizer_steps=1,
+        batches_seen=32,
+    )
+    released = []
+    monkeypatch.setattr(
+        "samudra.search.successive_halving._git_provenance",
+        lambda allow_dirty: {"commit": "f" * 40},
+    )
+    monkeypatch.setattr(
+        search.executor,
+        "submit_validated_rung",
+        lambda state, rung: released.append((state, rung)),
+    )
+
+    search.release_probe(0)
+
+    updated = search.read_state()
+    assert updated["rungs"][0]["probe"]["status"] == "complete"
+    assert updated["rungs"][0]["probe"]["optimizer_steps"] == 1
+    assert released[0][1] == 0
+
+
+def test_failed_probe_terminates_search_before_array(tmp_path, monkeypatch):
+    search = config(tmp_path, executor="slurm").build()
+    search.search_dir.mkdir(parents=True)
+    state = {
+        "name": "test-search",
+        "created_at": "now",
+        "status": "validating",
+        "provenance": {"commit": "f" * 40},
+        "anchors": {"candidates": [], "results": []},
+        "rungs": [
+            {
+                "index": 0,
+                "epochs": 1,
+                "candidates": ["a", "b"],
+                "results": [],
+                "promoted": [],
+                "probe": {"candidate": "a", "status": "submitted"},
+            }
+        ],
+    }
+    search.write_state(state)
+    output = search.search_dir / "probe/a"
+    output.mkdir(parents=True)
+    write_search_worker_status(output, "failed", error="bad data")
+    monkeypatch.setattr(
+        "samudra.search.successive_halving._git_provenance",
+        lambda allow_dirty: {"commit": "f" * 40},
+    )
+    monkeypatch.setattr(search, "publish", lambda state: None)
+
+    with pytest.raises(ValueError, match="probe failed"):
+        search.release_probe(0)
+
+    updated = search.read_state()
+    assert updated["status"] == "failed"
+    assert updated["failure"]["stage"] == "rung_probe"
+    assert updated["rungs"][0]["probe"]["status"] == "failed"

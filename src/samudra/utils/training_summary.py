@@ -18,6 +18,44 @@ import torch
 TRAINING_SUMMARY_NAME = "training_summary.json"
 TRAINING_SUMMARY_SCHEMA_VERSION = 1
 SEARCH_METRICS_NAME = "search_metrics.parquet"
+SEARCH_WORKER_STATUS_NAME = "search_worker_status.json"
+SEARCH_WORKER_STATUS_SCHEMA_VERSION = 1
+
+
+def write_search_worker_status(output_dir: Path, stage: str, **details: Any) -> Path:
+    """Atomically record durable lifecycle evidence for a search worker."""
+    path = output_dir / SEARCH_WORKER_STATUS_NAME
+    recorded_at = datetime.datetime.now(datetime.UTC).isoformat()
+    history: list[dict[str, Any]] = []
+    if path.is_file():
+        previous = json.loads(path.read_text(encoding="utf-8"))
+        loaded_history = previous.get("history", [])
+        if not isinstance(loaded_history, list):
+            raise ValueError(f"Invalid worker status history: {path}")
+        history = loaded_history
+    event = {"stage": stage, "recorded_at": recorded_at, **details}
+    history.append(event)
+    payload = {
+        "schema_version": SEARCH_WORKER_STATUS_SCHEMA_VERSION,
+        "stage": stage,
+        "updated_at": recorded_at,
+        "history": history,
+        **details,
+    }
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        dir=output_dir,
+        prefix=f".{SEARCH_WORKER_STATUS_NAME}.",
+        delete=False,
+        encoding="utf-8",
+    ) as stream:
+        temporary_path = Path(stream.name)
+        json.dump(payload, stream, indent=2, sort_keys=True, allow_nan=False)
+        stream.write("\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary_path, path)
+    return path
 
 
 def write_training_summary(output_dir: Path, summary: dict[str, Any]) -> Path:

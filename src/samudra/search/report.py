@@ -53,6 +53,17 @@ def write_search_report(search: SuccessiveHalving, state: dict[str, Any]) -> Pat
         f"- Created: {_markdown(state.get('created_at'))}",
         "",
     ]
+    if failure := state.get("failure"):
+        lines.extend(
+            [
+                "## Search failure",
+                "",
+                f"- Stage: `{_markdown(failure.get('stage'))}`",
+                f"- Type: `{_markdown(failure.get('type'))}`",
+                f"- Message: {_markdown(failure.get('message'))}",
+                "",
+            ]
+        )
     if winner is not None:
         lines.extend(
             [
@@ -122,8 +133,8 @@ def write_search_report(search: SuccessiveHalving, state: dict[str, Any]) -> Pat
     if failures:
         lines.extend(
             [
-                "| Candidate | Rung | Epochs | Reason |",
-                "|---|---:|---:|---|",
+                "| Candidate | Rung | Epochs | Last worker stage | Reason |",
+                "|---|---:|---:|---|---|",
             ]
         )
         for row in sorted(failures, key=lambda item: str(item["candidate"])):
@@ -131,7 +142,10 @@ def write_search_report(search: SuccessiveHalving, state: dict[str, Any]) -> Pat
                 f"`{_markdown(row['candidate'])}`",
                 row["rung"],
                 row.get("epochs"),
-                row.get("scheduler_stderr_tail") or row.get("error", "unknown"),
+                row.get("worker_stage"),
+                row.get("worker_error")
+                or row.get("scheduler_stderr_tail")
+                or row.get("error", "unknown"),
             ]
             lines.append("| " + " | ".join(_markdown(value) for value in values) + " |")
     else:

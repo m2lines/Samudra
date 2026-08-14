@@ -68,6 +68,25 @@ The uniquely named search directory contains:
   winner (once complete), and explicit candidate failures;
 - `logs/`: scheduler output when using Slurm.
 
+### Fail-fast worker probes
+
+For costly Slurm searches, set `executor.rung0_probe: true`. Before releasing
+the first candidate array, the executor runs the first candidate through the
+real data loader, model forward/backward path, and one optimizer update with
+W&B disabled. The bulk array is submitted only when the probe records a finite
+training batch and at least one optimizer step. A missing or failed probe marks
+the search terminal, publishes its diagnostics, and consumes no candidate
+array allocation.
+
+Every search-managed training process atomically maintains
+`search_worker_status.json` with its lifecycle history:
+`launched`, `initialized`, `first_batch`, `optimizer_step`, and
+`completed` or `failed`. Events include batch/optimizer counts, loss and loader
+timings when available, Slurm identity, and a traceback on failure. These files
+are copied into the public research record, and their latest stage is included
+in failed result rows and reports. A scheduler process merely starting is
+therefore not treated as evidence that training occurred.
+
 `results.csv` is deliberately denormalized and readable directly with pandas:
 
 ```python

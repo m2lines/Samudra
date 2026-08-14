@@ -24,6 +24,7 @@ EPOCHS_NAME = "epochs.parquet"
 RUN_FILES = (
     "config.yaml",
     "training_summary.json",
+    "search_worker_status.json",
     "search_metrics.parquet",
     "experiment.log",
     "error.log",
@@ -131,6 +132,10 @@ class ArtifactPublisher:
             if path.is_file():
                 files.append((path, f"logs/{path.name}"))
         for path in sorted((self.search.search_dir / "analysis").rglob("*")):
+            if path.is_file():
+                relative = path.relative_to(self.search.search_dir)
+                files.append((path, str(relative)))
+        for path in sorted((self.search.search_dir / "probe").rglob("*")):
             if path.is_file():
                 relative = path.relative_to(self.search.search_dir)
                 files.append((path, str(relative)))

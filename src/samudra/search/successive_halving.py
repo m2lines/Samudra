@@ -14,6 +14,7 @@ import os
 import re
 import subprocess
 import tempfile
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -33,8 +34,10 @@ from samudra.search.report import write_search_report
 from samudra.train import Trainer
 from samudra.utils.distributed import is_main_process
 from samudra.utils.logging import handle_logging, handle_warnings
+from samudra.utils.training_summary import write_search_worker_status
 
 SUMMARY_NAME = "training_summary.json"
+WORKER_STATUS_NAME = "search_worker_status.json"
 CHECKPOINT = Path("saved_nets/ckpt.pt")
 SCHEDULER_LOG_TAIL_BYTES = 16 * 1024
 EXECUTORS: dict[str, type[Executor]] = {
@@ -238,7 +241,9 @@ class SuccessiveHalving:
             f"{self.run_id}--{resource_slug(candidate)}--e{self.rungs[rung]}"
         )
 
-    def train_task(self, rung: int, task: int, *, anchor: bool) -> None:
+    def train_task(
+        self, rung: int, task: int, *, anchor: bool, probe: bool = False
+    ) -> None:
         state = self.read_state()
         candidates = (
             state["anchors"]["candidates"]
@@ -250,7 +255,13 @@ class SuccessiveHalving:
         except IndexError as error:
             raise ValueError(f"Task {task} is outside this rung") from error
         candidate = self.candidate(name)
-        output = self.output_dir(name, rung)
+        if probe and anchor:
+            raise ValueError("Fixed anchors cannot be used as rung probes")
+        output = (
+            self.search_dir / "probe" / resource_slug(name)
+            if probe
+            else self.output_dir(name, rung)
+        )
         if output.exists() and "RANK" not in os.environ:
             raise ValueError(f"Refusing to overwrite {output}")
         args = [candidate.config, *candidate.args]
@@ -259,7 +270,7 @@ class SuccessiveHalving:
         train_config.experiment.name = output.name
         train_config.experiment.base_output_dir = str(output.parent)
         parent_checkpoint: Path | None = None
-        if rung > 0 and not anchor:
+        if rung > 0 and not anchor and not probe:
             parent_checkpoint = self.output_dir(name, rung - 1) / CHECKPOINT
             if not parent_checkpoint.is_file():
                 raise ValueError(f"Missing promotion checkpoint: {parent_checkpoint}")
@@ -286,6 +297,8 @@ class SuccessiveHalving:
             ),
         )
         train_config.experiment.wandb.group = self.run_id
+        if probe:
+            train_config.experiment.wandb.mode = "disabled"
         tags = train_config.experiment.wandb.tags or []
         train_config.experiment.wandb.tags = list(
             dict.fromkeys(
@@ -295,8 +308,95 @@ class SuccessiveHalving:
         train_config.prepare_output_dirs()
         handle_logging(train_config.debug, train_config.experiment.output_dir)
         handle_warnings()
-        trainer = Trainer(train_config)
-        trainer.run()
+        status_details = {
+            "candidate": name,
+            "rung": rung,
+            "target_epochs": self.rungs[rung],
+            "job_id": os.environ.get("SLURM_JOB_ID", self.config.executor.type),
+            "array_task_id": os.environ.get("SLURM_ARRAY_TASK_ID"),
+            "probe": probe,
+        }
+        if is_main_process():
+            write_search_worker_status(output, "launched", **status_details)
+        try:
+            trainer = Trainer(train_config)
+            if is_main_process():
+                write_search_worker_status(output, "initialized", **status_details)
+            if probe:
+                trainer.probe_optimizer_step()
+            else:
+                trainer.run()
+        except Exception as error:
+            if is_main_process():
+                write_search_worker_status(
+                    output,
+                    "failed",
+                    **status_details,
+                    error_type=type(error).__name__,
+                    error=str(error),
+                    traceback=traceback.format_exc(),
+                )
+            raise
+        if is_main_process():
+            write_search_worker_status(
+                output,
+                "completed",
+                **status_details,
+                batches_seen=trainer.num_batches_seen,
+                optimizer_steps=trainer.train_progress.optimizer_steps,
+            )
+
+    def release_probe(self, rung: int) -> None:
+        """Release a Slurm rung only after its probe proves an optimizer update."""
+        state = self.read_state()
+        controller = _git_provenance(allow_dirty=False)
+        expected_commit = state.get("provenance", {}).get("commit")
+        if controller["commit"] != expected_commit:
+            raise ValueError(
+                f"Search was started at {expected_commit}; probe controller "
+                f"is running {controller['commit']}"
+            )
+        current = state["rungs"][rung]
+        probe = current.get("probe")
+        if not isinstance(probe, dict):
+            raise ValueError(f"Rung {rung} has no configured probe")
+        name = probe["candidate"]
+        status_path = (
+            self.search_dir / "probe" / resource_slug(name) / WORKER_STATUS_NAME
+        )
+        try:
+            status = json.loads(status_path.read_text(encoding="utf-8"))
+            if status.get("stage") != "completed":
+                raise ValueError(
+                    f"worker stopped at stage {status.get('stage')!r}: "
+                    f"{status.get('error', 'no worker error recorded')}"
+                )
+            if int(status.get("optimizer_steps", 0)) < 1:
+                raise ValueError("worker completed without an optimizer update")
+        except (OSError, TypeError, ValueError, json.JSONDecodeError) as error:
+            state["status"] = "failed"
+            state["failure"] = {
+                "stage": "rung_probe",
+                "type": type(error).__name__,
+                "message": str(error),
+                "candidate": name,
+                "failed_at": datetime.datetime.now(datetime.UTC).isoformat(),
+            }
+            probe["status"] = "failed"
+            self.write_state(state)
+            self._write_results(state)
+            self.publish(state)
+            raise ValueError(f"Rung {rung} probe failed: {error}") from error
+        probe.update(
+            status="complete",
+            optimizer_steps=status["optimizer_steps"],
+            batches_seen=status.get("batches_seen"),
+            validated_at=datetime.datetime.now(datetime.UTC).isoformat(),
+        )
+        self.write_state(state)
+        assert isinstance(self.executor, SlurmExecutor)
+        self.executor.submit_validated_rung(state, rung)
+        self.publish(self.read_state())
 
     def _result(self, name: str, rung: int) -> dict[str, Any]:
         output = self.output_dir(name, rung)
@@ -359,6 +459,18 @@ class SuccessiveHalving:
         ) as error:
             result["error"] = str(error)
             result.update(self._scheduler_failure_context(name, rung))
+        status_path = output / WORKER_STATUS_NAME
+        if status_path.is_file():
+            worker_status = json.loads(status_path.read_text(encoding="utf-8"))
+            result.update(
+                worker_stage=worker_status.get("stage"),
+                worker_updated_at=worker_status.get("updated_at"),
+                worker_optimizer_steps=worker_status.get("optimizer_steps"),
+                worker_batches_seen=worker_status.get("batches_seen"),
+                worker_error_type=worker_status.get("error_type"),
+                worker_error=worker_status.get("error"),
+                worker_status_log=str(status_path.relative_to(self.search_dir.parent)),
+            )
         return result
 
     def _scheduler_failure_context(self, name: str, rung: int) -> dict[str, Any]:

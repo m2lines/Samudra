@@ -26,6 +26,7 @@ executor:
   gres: gpu:rtx6000:1
   time_by_rung: ["04:00:00", "08:00:00", "12:00:00", "24:00:00"]
   max_concurrent: 8
+  rung0_probe: true
   data_root: /scratch/am16581
   scratch_dir: /scratch/am16581
   apptainer_module: singularity-ce/4.3.3

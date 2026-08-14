@@ -408,6 +408,7 @@ class SuccessiveHalving:
             "epochs": self.rungs[rung],
             "fixed": self.candidate(name).fixed,
             "eligible": False,
+            "error": None,
             "output_dir": str(output),
             "code_commit": self.read_state().get("provenance", {}).get("commit"),
         }

@@ -255,7 +255,7 @@ SELECT
     round(train_seconds / 60, 2) AS train_minutes,
     round(validation_seconds / 60, 2) AS validation_minutes,
     worker_stage,
-    error
+    worker_error AS error
 FROM read_parquet(
     'https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/perceiver-v2-2deg-architecture--20260814T171003.874785Z/results.parquet'
 )
@@ -460,9 +460,13 @@ SELECT
     family,
     round(lr_4e_4, 6) AS lr_4e_4,
     round(lr_8e_4, 6) AS lr_8e_4,
-    round(mean_validation_loss, 6) AS two_rate_mean,
+    round(family_summary.mean_validation_loss, 6) AS two_rate_mean,
     round(
-        100 * (mean_validation_loss / control.mean_validation_loss - 1),
+        100 * (
+            family_summary.mean_validation_loss
+                / control.mean_validation_loss
+                - 1
+        ),
         1
     ) AS percent_from_direct_control,
     round(mean_train_minutes, 1) AS mean_train_minutes

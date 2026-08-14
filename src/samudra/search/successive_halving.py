@@ -191,8 +191,28 @@ class SuccessiveHalving:
         self.publish(state)
         if self.publisher is not None and is_main_process():
             print(f"Published search record: {self.publisher.root}", flush=True)
-        self.executor.submit_anchors(state)
-        self.executor.submit_rung(self.read_state(), 0)
+        try:
+            self.executor.submit_anchors(state)
+            self.executor.submit_rung(self.read_state(), 0)
+        except Exception as error:
+            state = self.read_state()
+            state["status"] = "failed"
+            state["failure"] = {
+                "stage": "submission",
+                "type": type(error).__name__,
+                "message": str(error),
+                "failed_at": datetime.datetime.now(datetime.UTC).isoformat(),
+            }
+            self.write_state(state)
+            try:
+                self.publish(state)
+            except Exception as publication_error:
+                error.add_note(
+                    "Failed to publish the terminal search state: "
+                    f"{publication_error!r}"
+                )
+            raise
+        self.publish(self.read_state())
         return self.state_path
 
     def read_state(self) -> dict[str, Any]:

@@ -158,6 +158,9 @@ def test_local_artifact_publisher_writes_queryable_research_record(
     )
     search = search_config.build()
     search.start()
+    published = tmp_path / "published/test-search--run"
+    published_state = json.loads((published / "state.json").read_text(encoding="utf-8"))
+    assert published_state["status"] == "running"
     output = search.output_dir("a", 1)
     (output / "saved_nets").mkdir(parents=True)
     (output / "saved_nets/ckpt.pt").write_bytes(b"checkpoint")
@@ -180,7 +183,6 @@ def test_local_artifact_publisher_writes_queryable_research_record(
 
     search.publish(state)
 
-    published = tmp_path / "published/test-search--run"
     assert (published / "results.parquet").is_file()
     assert (published / "epochs.parquet").is_file()
     assert (published / f"runs/{output.name}/saved_nets/ckpt.pt").is_file()
@@ -198,6 +200,45 @@ def test_local_artifact_publisher_writes_queryable_research_record(
     figure = catalog[catalog["artifact"].str.endswith("loss.png")].iloc[0]
     assert figure["kind"] == "figure"
     assert figure["candidate"] == "a"
+
+
+def test_start_records_and_publishes_submission_failure(tmp_path, monkeypatch):
+    search_config = config(tmp_path)
+    search_config.executor.dry_run = True
+    search_config.artifacts = ArtifactConfig.model_validate(
+        {"destination": {"type": "local", "path": tmp_path / "published"}}
+    )
+    source = str(Path("tests/configs/train_default.yaml").resolve())
+    for candidate in search_config.candidates:
+        candidate.config = source
+    monkeypatch.setattr(
+        "samudra.search.successive_halving._git_provenance",
+        lambda allow_dirty: {
+            "commit": "f" * 40,
+            "dirty": False,
+            "package_version": "1.0",
+        },
+    )
+    search = search_config.build()
+    monkeypatch.setattr(search.executor, "submit_anchors", lambda state: None)
+
+    def fail_submission(state, rung):
+        raise RuntimeError("scheduler unavailable")
+
+    monkeypatch.setattr(search.executor, "submit_rung", fail_submission)
+
+    with pytest.raises(RuntimeError, match="scheduler unavailable"):
+        search.start()
+
+    local_state = search.read_state()
+    published_state = json.loads(
+        (tmp_path / "published/test-search--run/state.json").read_text(encoding="utf-8")
+    )
+    assert local_state["status"] == "failed"
+    assert local_state["failure"]["stage"] == "submission"
+    assert local_state["failure"]["type"] == "RuntimeError"
+    assert local_state["failure"]["message"] == "scheduler unavailable"
+    assert published_state == local_state
 
 
 def test_s3_publication_is_executor_independent_and_uses_configured_endpoint(

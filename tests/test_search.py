@@ -9,9 +9,11 @@ import pandas as pd
 import pytest
 from pydantic import ValidationError
 
+from samudra.config import TrainConfig
 from samudra.search import SearchConfig
 from samudra.search.config import ArtifactConfig
 from samudra.search.executors import LocalExecutor, SlurmExecutor
+from samudra.utils.location import S3Location
 from samudra.utils.training_summary import write_search_metrics
 
 
@@ -132,6 +134,30 @@ def test_start_snapshots_resolved_candidate_configs(tmp_path, monkeypatch):
     assert state_path.is_file()
     assert all(not candidate.args for candidate in bundled.candidates)
     assert all(Path(candidate.config).is_file() for candidate in bundled.candidates)
+
+
+def test_start_snapshot_preserves_structured_s3_locations(tmp_path, monkeypatch):
+    search_config = config(tmp_path)
+    search_config.executor.dry_run = True
+    source = str(Path("src/samudra/configs/perceiver_search_2deg/train.yaml").resolve())
+    for candidate in search_config.candidates:
+        candidate.config = source
+    monkeypatch.setattr(
+        "samudra.search.successive_halving._git_provenance",
+        lambda allow_dirty: {
+            "commit": "f" * 40,
+            "dirty": False,
+            "package_version": "1.0",
+        },
+    )
+    search = search_config.build()
+
+    search.start()
+
+    bundled = SearchConfig.from_yaml_and_cli([str(search.config_path)])
+    train_config = TrainConfig.from_yaml_and_cli([bundled.candidates[0].config])
+    assert isinstance(train_config.data.sources[0].data_location, S3Location)
+    assert train_config.data.sources[0].data_location.anon is True
 
 
 def test_local_artifact_publisher_writes_queryable_research_record(

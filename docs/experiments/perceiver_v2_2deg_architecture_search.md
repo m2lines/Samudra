@@ -415,6 +415,64 @@ durable controller-validated record.
 | `pio-lean` | [0.403511](https://wandb.ai/ocean_emulators/default/runs/ywymchma) | [0.400348](https://wandb.ai/ocean_emulators/default/runs/g6nw1n4d) | 0.401929 | +10.4% | 40.8 min |
 | `pio-control` | [0.421770](https://wandb.ai/ocean_emulators/default/runs/zfi0l44s) | [0.415711](https://wandb.ai/ocean_emulators/default/runs/gwim0j07) | 0.418740 | +15.0% | 38.4 min |
 
+<details>
+
+<summary>DuckDB query to reproduce this table</summary>
+
+This query will work after the controller validates rung zero and publishes
+`results.parquet`.
+
+```sql
+WITH rung_zero AS (
+    SELECT
+        regexp_replace(candidate, '-lr[48]$', '') AS family,
+        CASE
+            WHEN candidate LIKE '%-lr4' THEN '4e-4'
+            WHEN candidate LIKE '%-lr8' THEN '8e-4'
+        END AS learning_rate,
+        validation_loss,
+        train_seconds
+    FROM read_parquet(
+        'https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/perceiver-v2-2deg-architecture--20260814T171003.874785Z/results.parquet'
+    )
+    WHERE rung = 0 AND eligible
+),
+family_summary AS (
+    SELECT
+        family,
+        max(validation_loss) FILTER (
+            WHERE learning_rate = '4e-4'
+        ) AS lr_4e_4,
+        max(validation_loss) FILTER (
+            WHERE learning_rate = '8e-4'
+        ) AS lr_8e_4,
+        avg(validation_loss) AS mean_validation_loss,
+        avg(train_seconds) / 60 AS mean_train_minutes
+    FROM rung_zero
+    GROUP BY family
+),
+control AS (
+    SELECT mean_validation_loss
+    FROM family_summary
+    WHERE family = 'direct-control'
+)
+SELECT
+    family,
+    round(lr_4e_4, 6) AS lr_4e_4,
+    round(lr_8e_4, 6) AS lr_8e_4,
+    round(mean_validation_loss, 6) AS two_rate_mean,
+    round(
+        100 * (mean_validation_loss / control.mean_validation_loss - 1),
+        1
+    ) AS percent_from_direct_control,
+    round(mean_train_minutes, 1) AS mean_train_minutes
+FROM family_summary
+CROSS JOIN control
+ORDER BY mean_validation_loss;
+```
+
+</details>
+
 The two-rate mean is a sensitivity summary, not a replicate mean: each cell has
 one seed, and the two members differ by learning rate rather than random seed.
 The primary ranking remains each candidate's validation loss at a completed

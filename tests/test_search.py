@@ -599,6 +599,7 @@ def test_slurm_executor_submits_array_and_automatic_advance(tmp_path, monkeypatc
     assert any(value.startswith("--dependency=afterany:1") for value in commands[1])
     assert f"--chdir={tmp_path / 'runs'}" in commands[1]
     assert "--export=ALL" in commands[1]
+    assert "module load singularity-ce/4.3.3" in commands[1][-1]
     assert "samudra.search.worker" in commands[1][-1]
     saved = search.read_state()["rungs"][0]
     assert saved["job_id"] == "1"
@@ -666,6 +667,7 @@ def test_slurm_probe_gates_first_rung_array(tmp_path, monkeypatch):
     assert "SAMUDRA_MODULE_ARGS=probe " in next(
         value for value in commands[0] if value.startswith("--export=")
     )
+    assert "module load singularity-ce/4.3.3" in commands[1][-1]
     assert "release-probe" in commands[1][-1]
     saved = search.read_state()
     assert saved["status"] == "validating"

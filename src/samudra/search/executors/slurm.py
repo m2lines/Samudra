@@ -26,6 +26,14 @@ class SlurmExecutor(Executor):
         result = subprocess.run(command, check=True, text=True, capture_output=True)
         return result.stdout.strip().split(";")[0]
 
+    def _controller_command(self, *args: str) -> str:
+        """Build a controller command with the worker's container runtime."""
+        command = shlex.join([self.config.python, *args])
+        if self.config.apptainer_module is None:
+            return command
+        module = shlex.quote(self.config.apptainer_module)
+        return shlex.join(["bash", "-lc", f"module load {module} && {command}"])
+
     def _exports(self, rung: int, *, anchor: bool, worker_command: str = "task") -> str:
         values = {
             "ALL": None,
@@ -138,16 +146,13 @@ class SlurmExecutor(Executor):
             label=f"r{rung}-probe",
             worker_command="probe",
         )
-        command = shlex.join(
-            [
-                self.config.python,
-                "-m",
-                "samudra.search.worker",
-                "release-probe",
-                str(self.search.config_path),
-                str(self.search.state_path),
-                str(rung),
-            ]
+        command = self._controller_command(
+            "-m",
+            "samudra.search.worker",
+            "release-probe",
+            str(self.search.config_path),
+            str(self.search.state_path),
+            str(rung),
         )
         logs = self.search.search_dir / "logs"
         working_directory = self.config.scratch_dir or self.config.output_dir
@@ -187,16 +192,13 @@ class SlurmExecutor(Executor):
         anchor_job = state["anchors"].get("job_id")
         if rung == len(self.search.rungs) - 1 and anchor_job:
             dependency += f":{anchor_job}"
-        command = shlex.join(
-            [
-                self.config.python,
-                "-m",
-                "samudra.search.worker",
-                "advance",
-                str(self.search.config_path),
-                str(self.search.state_path),
-                str(rung),
-            ]
+        command = self._controller_command(
+            "-m",
+            "samudra.search.worker",
+            "advance",
+            str(self.search.config_path),
+            str(self.search.state_path),
+            str(rung),
         )
         working_directory = self.config.scratch_dir or self.config.output_dir
         controller_job = self._submit(

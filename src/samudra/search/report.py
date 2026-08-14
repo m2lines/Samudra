@@ -131,7 +131,7 @@ def write_search_report(search: SuccessiveHalving, state: dict[str, Any]) -> Pat
                 f"`{_markdown(row['candidate'])}`",
                 row["rung"],
                 row.get("epochs"),
-                row.get("error", "unknown"),
+                row.get("scheduler_stderr_tail") or row.get("error", "unknown"),
             ]
             lines.append("| " + " | ".join(_markdown(value) for value in values) + " |")
     else:

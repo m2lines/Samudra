@@ -36,6 +36,7 @@ from samudra.utils.logging import handle_logging, handle_warnings
 
 SUMMARY_NAME = "training_summary.json"
 CHECKPOINT = Path("saved_nets/ckpt.pt")
+SCHEDULER_LOG_TAIL_BYTES = 16 * 1024
 EXECUTORS: dict[str, type[Executor]] = {
     "local": LocalExecutor,
     "slurm": SlurmExecutor,
@@ -357,7 +358,33 @@ class SuccessiveHalving:
             json.JSONDecodeError,
         ) as error:
             result["error"] = str(error)
+            result.update(self._scheduler_failure_context(name, rung))
         return result
+
+    def _scheduler_failure_context(self, name: str, rung: int) -> dict[str, Any]:
+        """Locate the bounded task logs that explain an ineligible result."""
+        state = self.read_state()
+        fixed = self.candidate(name).fixed
+        group = state["anchors"] if fixed else state["rungs"][rung]
+        candidates = group.get("candidates", [])
+        job_id = group.get("job_id")
+        if job_id is None or name not in candidates:
+            return {}
+        task = candidates.index(name)
+        label = "anchors" if fixed else f"r{rung}"
+        context: dict[str, Any] = {"scheduler_task_id": f"{job_id}_{task}"}
+        for suffix, field in (("out", "stdout"), ("err", "stderr")):
+            path = self.search_dir / "logs" / f"{label}-{job_id}_{task}.{suffix}"
+            if not path.is_file():
+                continue
+            context[f"scheduler_{field}_log"] = str(path.relative_to(self.search_dir))
+            with path.open("rb") as stream:
+                stream.seek(max(0, path.stat().st_size - SCHEDULER_LOG_TAIL_BYTES))
+                tail = (
+                    stream.read().decode("utf-8", errors="replace").replace("\x00", "")
+                )
+            context[f"scheduler_{field}_tail"] = tail
+        return context
 
     def _write_results(self, state: dict[str, Any]) -> None:
         rows = self.result_rows(state)

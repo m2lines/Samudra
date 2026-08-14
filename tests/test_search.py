@@ -317,6 +317,41 @@ def write_result(search, name: str, rung: int, validation: float) -> None:
     )
 
 
+def test_ineligible_result_captures_bounded_scheduler_context(tmp_path):
+    search = config(tmp_path).build()
+    search.search_dir.mkdir(parents=True)
+    logs = search.search_dir / "logs"
+    logs.mkdir()
+    search.write_state(
+        {
+            "provenance": {"commit": "f" * 40},
+            "anchors": {"candidates": ["anchor"], "results": []},
+            "rungs": [
+                {
+                    "candidates": ["a", "b", "c"],
+                    "job_id": "123",
+                    "results": [],
+                },
+                {"candidates": [], "results": []},
+            ],
+        }
+    )
+    (logs / "r0-123_1.out").write_text("starting\n", encoding="utf-8")
+    (logs / "r0-123_1.err").write_text(
+        "container runtime unavailable\n", encoding="utf-8"
+    )
+
+    result = search._result("b", 0)
+
+    assert result["eligible"] is False
+    assert "training_summary.json" in result["error"]
+    assert result["scheduler_task_id"] == "123_1"
+    assert result["scheduler_stdout_log"] == "logs/r0-123_1.out"
+    assert result["scheduler_stdout_tail"] == "starting\n"
+    assert result["scheduler_stderr_log"] == "logs/r0-123_1.err"
+    assert result["scheduler_stderr_tail"] == "container runtime unavailable\n"
+
+
 def test_successive_halving_promotes_with_dataframe_and_reports_metrics(
     tmp_path, monkeypatch
 ):

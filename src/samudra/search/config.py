@@ -77,6 +77,7 @@ class SlurmExecutorConfig(BaseConfig):
     sif_path: Path | None = None
     image_ref: str | None = None
     code_layer: Path | None = None
+    apptainer_module: str | None = None
     dry_run: bool = False
 
 

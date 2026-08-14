@@ -26,6 +26,14 @@ class SlurmExecutor(Executor):
         result = subprocess.run(command, check=True, text=True, capture_output=True)
         return result.stdout.strip().split(";")[0]
 
+    def _controller_command(self, *args: str) -> str:
+        """Build a controller command with the worker's container runtime."""
+        command = shlex.join([self.config.python, *args])
+        if self.config.apptainer_module is None:
+            return command
+        module = shlex.quote(self.config.apptainer_module)
+        return shlex.join(["bash", "-lc", f"module load {module} && {command}"])
+
     def _exports(self, rung: int, *, anchor: bool) -> str:
         values = {
             "ALL": None,
@@ -50,6 +58,7 @@ class SlurmExecutor(Executor):
             "SIF_PATH": self.config.sif_path,
             "IMAGE_REF": self.config.image_ref,
             "CODE_LAYER": self.config.code_layer,
+            "APPTAINER_MODULE": self.config.apptainer_module,
         }
         values.update({key: str(value) for key, value in optional.items() if value})
         return ",".join(
@@ -108,16 +117,13 @@ class SlurmExecutor(Executor):
         anchor_job = state["anchors"].get("job_id")
         if rung == len(self.search.rungs) - 1 and anchor_job:
             dependency += f":{anchor_job}"
-        command = shlex.join(
-            [
-                self.config.python,
-                "-m",
-                "samudra.search.worker",
-                "advance",
-                str(self.search.config_path),
-                str(self.search.state_path),
-                str(rung),
-            ]
+        command = self._controller_command(
+            "-m",
+            "samudra.search.worker",
+            "advance",
+            str(self.search.config_path),
+            str(self.search.state_path),
+            str(rung),
         )
         controller_job = self._submit(
             [

@@ -11,7 +11,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, BeforeValidator, Field, WithJsonSchema
 
-from samudra.config import DataConfig, Om4TimeConfig
+from samudra.config import DataConfig, ObsMetricsConfig, Om4TimeConfig
 from samudra.config_base import TopLevelConfig
 from samudra.utils.location import LocalLocation, Location, ResolvedLocation
 from samudra.utils.logging import handle_logging
@@ -83,6 +83,14 @@ class VizConfig(TopLevelConfig):
     groundtruth_time_range: Om4TimeConfig = Field(
         description="Dates from the rollout (not same as eval *input* dates; these are the dates the output is produced for during eval)"
     )
+    observations: ObsMetricsConfig | None = Field(
+        default=None,
+        description=(
+            "Observation products to draw figures against. The same block "
+            "`samudra.eval` takes, so one file configures both and the two "
+            "agree by construction. Omit it to skip the observation steps."
+        ),
+    )
     steps: list[VizStep] | None = Field(
         default=None,
         description=f"Which steps to run; leave empty to run all steps. Possible values are: {', '.join(_ordered_steps())}",
@@ -126,6 +134,8 @@ class VizConfig(TopLevelConfig):
             data_root.resolve(self.basins_location).open(),
             groundtruth_rollout,
             self.groundtruth_time_range.time_slice,
+            observations=self.observations,
+            data_root=data_root,
         )
 
 

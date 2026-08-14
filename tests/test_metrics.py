@@ -19,7 +19,7 @@ import pytest
 import xarray as xr
 
 from samudra.constants import build_om4_spec
-from samudra.metrics import kernels, observations, report
+from samudra.metrics import comparisons, kernels, observations, report
 
 OM4_SPEC = build_om4_spec()
 
@@ -202,7 +202,7 @@ def test_misaligned_timestamps_raise_instead_of_interpolating():
         [1.0, 2.0, 3.0, 4.0], dims=["time"], coords={"time": stamps}
     )
     short_obs = long_model.isel(time=slice(0, 3))
-    trimmed_model, trimmed_obs = report._aligned(
+    trimmed_model, trimmed_obs = comparisons.align(
         long_model,
         short_obs,
         (pd.Timestamp("2020-01-01"), pd.Timestamp("2020-02-01")),
@@ -214,7 +214,7 @@ def test_misaligned_timestamps_raise_instead_of_interpolating():
     # genuine misalignment rather than a coverage difference.
     gapped_obs = long_model.isel(time=[0, 2, 3])
     with pytest.raises(ValueError, match="must match exactly"):
-        report._aligned(
+        comparisons.align(
             long_model,
             gapped_obs,
             (pd.Timestamp("2020-01-01"), pd.Timestamp("2020-02-01")),
@@ -478,12 +478,12 @@ def test_ohc_scores_only_whole_calendar_years():
     """
     months = pd.date_range("2021-01-01", "2022-12-01", freq="MS")
     full = xr.DataArray(np.ones(len(months)), dims=["time"], coords={"time": months})
-    kept, _ = report._whole_years(full, full, "full coverage")
+    kept, _ = comparisons.whole_years(full, full, "full coverage")
     assert kept.sizes["time"] == 24
 
     # Same series without its final December: 2022 goes, 2021 survives intact.
     short = full.isel(time=slice(0, -1))
-    trimmed, _ = report._whole_years(short, short, "missing december")
+    trimmed, _ = comparisons.whole_years(short, short, "missing december")
     labels = pd.DatetimeIndex(trimmed["time"].values)
     assert trimmed.sizes["time"] == 12
     assert labels[0].year == labels[-1].year == 2021
@@ -493,7 +493,7 @@ def test_ohc_scores_only_whole_calendar_years():
     partial = pd.date_range("2021-06-01", "2021-09-01", freq="MS")
     stub = xr.DataArray(np.ones(len(partial)), dims=["time"], coords={"time": partial})
     with pytest.raises(ValueError, match="twelve whole months"):
-        report._whole_years(stub, stub, "no complete year")
+        comparisons.whole_years(stub, stub, "no complete year")
 
 
 def test_driver_reports_every_headline_metric_as_a_plain_float():
@@ -574,7 +574,7 @@ def test_incomplete_calendar_years_are_rejected():
 def test_whole_years_drops_the_years_it_reports_dropping(caplog):
     """A ragged year in the middle of the record must go, not just be logged.
 
-    `_whole_years` promises that "a year missing a month has to go rather than
+    `whole_years` promises that "a year missing a month has to go rather than
     be silently down-weighted", but it only narrows the outer bound, so an
     interior ragged year survives underneath a log line announcing its removal.
     """
@@ -590,8 +590,8 @@ def test_whole_years_drops_the_years_it_reports_dropping(caplog):
     )
     series = xr.DataArray(np.ones(len(months)), dims=["time"], coords={"time": months})
 
-    with caplog.at_level(logging.INFO, logger="samudra.metrics.report"):
-        kept, _ = report._whole_years(series, series, "interior gap")
+    with caplog.at_level(logging.INFO, logger="samudra.metrics.comparisons"):
+        kept, _ = comparisons.whole_years(series, series, "interior gap")
 
     assert "dropped partly covered year(s) [2022]" in caplog.text
     assert set(pd.DatetimeIndex(kept["time"].values).year) == {2021, 2023}
@@ -777,15 +777,18 @@ def test_coastal_erosion_is_measured_and_reported():
             coords={"lat": model_lat, "lon": model_lon},
         )
         paired = kernels.model_field_on_obs_grid(model, obs)
-        recorded = report._pairing(paired, obs)
+        recorded = comparisons.Comparison(
+            "coastal erosion", model, obs, _area(obs.lat.values, obs.lon.values)
+        ).pairing
 
         # The reported fraction is the real one, not an estimate.
         ocean_cells = int(np.isfinite(obs).sum())
-        assert recorded["n_paired_cells"] == float(int(np.isfinite(paired).sum()))
-        assert recorded["paired_ocean_fraction"] == pytest.approx(
-            recorded["n_paired_cells"] / ocean_cells
+        assert recorded.n_paired_cells == int(np.isfinite(paired).sum())
+        assert recorded.n_observed_cells == ocean_cells
+        assert recorded.paired_ocean_fraction == pytest.approx(
+            recorded.n_paired_cells / ocean_cells
         )
-        measured[resolution] = recorded["paired_ocean_fraction"]
+        measured[resolution] = recorded.paired_ocean_fraction
 
     # A coarser model loses more of the ocean. Pinned so that any future change
     # to the pairing convention is a deliberate decision rather than a drift.
@@ -1016,3 +1019,271 @@ def test_a_year_that_keeps_half_its_samples_is_not_a_complete_year():
         xr.DataArray(time, dims=["time"], coords={"time": time})
     )
     assert years == [2021], f"2022 holds {len(halved)} of {len(dense)} samples"
+
+
+def test_the_rmse_map_aggregates_the_same_way_its_scalar_does():
+    """Reducing the map must reproduce the scalar, or a figure contradicts W&B.
+
+    The scalar weights calendar years equally. A map built from a plain time
+    mean instead weights them by sample count, which is not the same thing the
+    moment two years hold different numbers of samples -- a leap year at a
+    5-day cadence is enough. The two then disagree by a few tenths of a percent
+    while appearing on the same panel.
+    """
+    lat, lon = _grid(9, 12)
+    area = _area(lat, lon)
+    # 2019 is 73 steps at this cadence and 2020, a leap year, is 74.
+    time = pd.date_range("2019-01-01", "2020-12-31", freq="5D")
+    squared = np.where((time.year == 2020)[:, None, None], 9.0, 1.0) * np.ones(
+        (1, lat.size, lon.size)
+    )
+    error_squared = xr.DataArray(
+        squared,
+        dims=["time", "lat", "lon"],
+        coords={"time": time, "lat": lat, "lon": lon},
+    )
+
+    rmse_map, _, summary = kernels.rmse_map_with_uncertainty(
+        error_squared, area, ("lat", "lon"), "map", bootstrap_samples=0
+    )
+    scalar = float(summary["block_aggregate_rmse"])
+    assert kernels.area_weighted_map_rmse(rmse_map, area) == pytest.approx(
+        scalar, rel=1e-12
+    )
+    # Equal years give sqrt((1 + 9) / 2); weighting by sample count does not.
+    assert scalar == pytest.approx(np.sqrt(5.0), rel=1e-12)
+    by_sample_count = float(
+        np.sqrt(kernels.area_weighted_mean(error_squared.mean("time"), area))
+    )
+    assert by_sample_count != pytest.approx(scalar, rel=1e-4)
+
+
+def test_paired_cell_counts_are_cell_counts_in_every_row():
+    """`n_paired_cells` has to mean one thing across the frame it is emitted in.
+
+    `_pairing` sums `isfinite` over every dimension its arguments carry. The
+    variance rows hand it two-dimensional maps and get a cell count; every RMSE
+    row hands it the time-varying field and gets cells times timesteps, which
+    on a real run is a factor of several hundred. Both land in the same
+    `n_paired_cells` column of the same CSV, and `paired_ocean_fraction` --
+    documented as the fraction of the observation ocean that survived pairing
+    -- is derived from whichever of the two the row happened to produce.
+
+    A cell count cannot exceed the number of cells on the grid, so that is what
+    is checked here rather than an exact number.
+    """
+    rollout, duacs, oisst, argo = _synthetic_case()
+    model = observations.model_on_latlon_grid(rollout, OM4_SPEC)
+
+    frame = report.compute_observation_metrics(
+        {"model": model},
+        duacs=duacs,
+        oisst=oisst,
+        argo=argo,
+        model_dz={"model": observations.model_depth_thickness(model, OM4_SPEC)},
+        window=(pd.Timestamp("2021-01-01"), pd.Timestamp("2022-12-31")),
+        bootstrap_samples=0,
+    )
+
+    # All three products share a grid in this fixture, so one bound covers the
+    # whole frame.
+    grid_cells = int(oisst.sizes["lat"] * oisst.sizes["lon"])
+    counted = frame[frame["n_paired_cells"].notna()]
+    assert not counted.empty
+    over = counted[counted["n_paired_cells"] > grid_cells]
+    assert over.empty, (
+        f"{len(over)} row(s) report more paired cells than the {grid_cells}-cell "
+        f"grid holds, e.g. {over.iloc[0]['metric']} = "
+        f"{over.iloc[0]['n_paired_cells']:.0f}: these count cells times "
+        "timesteps, while the residual-variance rows in the same column count "
+        "cells"
+    )
+
+
+def _om4_pentad_axis(years: tuple[int, ...]) -> pd.DatetimeIndex:
+    """OM4's time axis: 73 samples every calendar year, whatever its length.
+
+    A leap year therefore carries one six-day step, which shifts the calendar
+    dates of every sample after it relative to a common year.
+    """
+    stamps: list[pd.Timestamp] = []
+    for year in years:
+        start = pd.Timestamp(f"{year}-01-03")
+        length = 366 if pd.Timestamp(f"{year}-12-31").is_leap_year else 365
+        stamps += [
+            start + pd.Timedelta(days=round(i * length / 73.0)) for i in range(73)
+        ]
+    return pd.DatetimeIndex(stamps)
+
+
+def test_seasonal_removal_does_not_depend_on_leap_year_alignment():
+    """A climatological bin has to be reachable by more than one year's samples.
+
+    `without_seasonal_cycle` must not group on the literal month-day label. OM4
+    places 73 samples in every calendar year, so a leap year's six-day step
+    moves every later sample onto month-days no common year visits. Over a
+    window holding a single leap year those labels are unique, the
+    "climatology" for them is the one sample itself, and the anomaly is exactly
+    zero -- a whole timestep of ocean reported as having no anomaly at all,
+    feeding the SST spectra as a field of zeros.
+
+    Pentad bins do not have this property, which is why the rest of the module
+    uses them. On the axis below they leave no dead timestep where a month-day
+    grouping leaves 25 of 292. A second leap year in the window does not fix
+    that grouping, only softens it: the labels then carry two samples each.
+    """
+    time = _om4_pentad_axis((2018, 2019, 2020, 2021))  # 2020 is the leap year
+    lat, lon = _grid(4, 4)
+    rng = np.random.default_rng(0)
+    seasonal = np.cos(2 * np.pi * time.dayofyear.to_numpy() / 365.25)
+    field = xr.DataArray(
+        seasonal[:, None, None]
+        + rng.normal(scale=0.5, size=(time.size, lat.size, lon.size)),
+        dims=["time", "lat", "lon"],
+        coords={"time": time, "lat": lat, "lon": lon},
+    )
+
+    anomaly = kernels.without_seasonal_cycle(field)
+    per_step = np.abs(anomaly.values).mean(axis=(1, 2))
+    dead = time[per_step < 1e-12]
+    assert dead.empty, (
+        f"{dead.size} of {time.size} timesteps have an identically zero anomaly "
+        f"(first: {dead[0]:%Y-%m-%d}), because no other year in the window "
+        "visits that month-day"
+    )
+
+
+def test_score_rollouts_is_one_pass_both_jobs_can_use(tmp_path):
+    """The seam `eval` and `viz` share must return what each of them needs.
+
+    `eval` takes the scalars, `viz` takes the products and the prepared
+    rollouts to draw from, and both take the frame and the CSV. Nothing else
+    exercised this function, so a name that only resolves on the real path --
+    which is every path through it -- would have reached production.
+    """
+    from samudra.config import ObsMetricsConfig
+    from samudra.metrics.run import score_rollouts
+    from samudra.utils.location import LocalLocation
+
+    rollout, duacs, oisst, argo = _synthetic_case()
+    root = tmp_path / "obs"
+    for name, product in (("duacs", duacs), ("oisst", oisst), ("argo-iap", argo)):
+        product.to_zarr(root / f"{name}.zarr", mode="w", zarr_format=2)
+
+    resolved = LocalLocation(path=tmp_path)
+    scored = score_rollouts(
+        ObsMetricsConfig(
+            rmse_start="2021-01-01", rmse_end="2022-12-31", bootstrap_samples=0
+        ),
+        rollouts={"model": rollout},
+        dataset_spec=OM4_SPEC,
+        data_root=resolved,
+        primary_label="model",
+        output_dir=tmp_path / "out",
+    )
+
+    assert set(scored.products) == {"duacs", "oisst", "argo"}
+    assert set(scored.rollouts) == {"model"}
+    assert not scored.frame.empty
+    # `viz` draws from these, so they have to be on the observation grid.
+    assert {"lat", "lon"} <= set(scored.rollouts["model"].dims)
+    # `eval` logs these, and they must be plain floats.
+    assert scored.scalars["obs/sst/total_rmse"] == pytest.approx(
+        float(
+            scored.frame[
+                (scored.frame["metric"] == "surface_sst_total_rmse")
+                & (scored.frame["period_kind"] == "primary_complete_years")
+            ].iloc[0]["value"]
+        )
+    )
+    assert (tmp_path / "out" / "observation_metrics.csv").exists()
+
+
+def test_the_bathymetry_caveat_is_measured_not_bounded():
+    """`ohc_per_area_layer_maps` names a risk; the frame has to measure it.
+
+    Integrating whatever levels a cell has is exact where two products agree a
+    column is shallow, and wrong where their bathymetry disagrees -- by roughly
+    2e9 J m^-2 per 50 m, which is the size of the whole 0-700 m score.
+
+    Counting each side's incomplete columns separately only bounds that: the
+    shallow cells may be the same ones or different ones, and two fractions
+    cannot tell those apart. The reported number differences the metres of
+    water each side integrates, per cell, so it says what the exposure *is*.
+    """
+    rollout, duacs, oisst, argo = _synthetic_case()
+    model = observations.model_on_latlon_grid(rollout, OM4_SPEC)
+
+    frame = report.compute_observation_metrics(
+        {"model": model},
+        duacs=duacs,
+        oisst=oisst,
+        argo=argo,
+        model_dz={"model": observations.model_depth_thickness(model, OM4_SPEC)},
+        window=(pd.Timestamp("2021-01-01"), pd.Timestamp("2022-12-31")),
+        bootstrap_samples=0,
+    )
+
+    layers = {layer.label for layer in kernels.OHC_LAYERS}
+    for metric, ceiling in (
+        ("ohc_bathymetry_disagreement", 2000.0),
+        ("ohc_partial_column_fraction", 1.0),
+    ):
+        rows = frame[frame["metric"] == metric]
+        assert set(rows["depth"]) == layers
+        for value in rows["value"]:
+            assert np.isnan(value) or 0.0 <= value <= ceiling
+
+    # It reaches W&B, where a change between runs is visible.
+    scalars = report.to_wandb(frame, "model")
+    assert "obs/ohc_0_700/bathymetry_disagreement_m" in scalars
+
+
+def test_two_products_shallow_in_different_places_disagree_more():
+    """The measure has to separate cases the per-side fractions cannot.
+
+    Two products can each stop early in a tenth of their columns and either
+    agree completely about which tenth, or disagree completely. The fractions
+    are identical in both cases; the exposure is nil in the first and doubled
+    in the second.
+    """
+    centres = np.array(OM4_SPEC.depth_levels)
+    dz = xr.DataArray(
+        np.array(OM4_SPEC.depth_thickness), dims=["lev"], coords={"lev": centres}
+    )
+    lat, lon = np.array([0.0]), np.arange(10.0)
+    layer = kernels.OHC_LAYERS[0]
+
+    def column(shallow_at: set[int]) -> xr.DataArray:
+        field = xr.DataArray(
+            np.full((centres.size, lat.size, lon.size), 10.0),
+            dims=["lev", "lat", "lon"],
+            coords={"lev": centres, "lat": lat, "lon": lon},
+        )
+        # The listed columns stop at 650 m; the rest span the layer.
+        stops = xr.DataArray(
+            np.isin(lon, sorted(shallow_at)), dims=["lon"], coords={"lon": lon}
+        )
+        return field.where(~(stops & (field["lev"] >= 650)))
+
+    first, second, elsewhere = {0}, {0}, {5}
+    metres = lambda f: kernels.integrated_layer_thickness(  # noqa: E731
+        f, layer, native_dz=dz, depth_name="lev"
+    )
+
+    agreeing = float(np.abs(metres(column(first)) - metres(column(second))).mean())
+    disagreeing = float(
+        np.abs(metres(column(first)) - metres(column(elsewhere))).mean()
+    )
+
+    # Same fraction of shallow columns on every side of both comparisons.
+    assert kernels.partial_column_fraction(
+        column(first), layer, native_dz=dz, depth_name="lev"
+    ) == pytest.approx(
+        kernels.partial_column_fraction(
+            column(elsewhere), layer, native_dz=dz, depth_name="lev"
+        )
+    )
+    # Yet one pair integrates the same water and the other does not.
+    assert agreeing == pytest.approx(0.0)
+    assert disagreeing > 0.0

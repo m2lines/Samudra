@@ -24,7 +24,7 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from samudra.metrics import kernels, observations
+from samudra.metrics import comparisons, kernels
 from samudra.utils.wandb import MetricsDict
 
 logger = logging.getLogger(__name__)
@@ -57,33 +57,8 @@ COLUMNS = [
 SPATIAL_DIMS = ("lat", "lon")
 
 
-def _window_slice(window: tuple[pd.Timestamp, pd.Timestamp]) -> slice:
-    return slice(window[0], window[1])
-
-
 def _grid_shape(field: xr.DataArray) -> str:
     return f"{field.sizes.get('lat', 0)}x{field.sizes.get('lon', 0)}"
-
-
-def _pairing(model_field: xr.DataArray, obs_field: xr.DataArray) -> dict[str, float]:
-    """How much of the observation ocean survived pairing with the model.
-
-    Linear interpolation makes an observation cell NaN whenever its model-grid
-    neighbours include land, so the comparison set is eroded by a band one
-    model cell wide -- all of it coastal, which is where model error is
-    largest. The eroded fraction therefore scales with model resolution: a
-    coarse run is scored on a smaller and easier subset of the ocean than a
-    fine one. Recording it makes that visible instead of leaving cross-
-    resolution comparison merely "not comparable" in prose.
-    """
-    obs_ocean = int(np.isfinite(obs_field).sum())
-    paired = int((np.isfinite(obs_field) & np.isfinite(model_field)).sum())
-    return {
-        "n_paired_cells": float(paired),
-        "paired_ocean_fraction": float(paired / obs_ocean)
-        if obs_ocean
-        else float("nan"),
-    }
 
 
 def _rows_for_metric(
@@ -95,7 +70,7 @@ def _rows_for_metric(
     area: xr.DataArray,
     bootstrap_samples: int,
     depth: str | None = None,
-    pairing: dict[str, float] | None = None,
+    pairing: comparisons.Pairing | None = None,
 ) -> tuple[list[dict[str, Any]], xr.DataArray]:
     """Reduce a squared-error field to primary and per-year metric rows.
 
@@ -133,7 +108,7 @@ def _rows_for_metric(
         # Kept alongside so the two aggregations stay comparable: a gap between
         # this and `value` means the observation coverage varied by year.
         "map_weighted_rmse": map_weighted_total,
-        **(pairing or {}),
+        **(pairing.as_row() if pairing else {}),
         **summary,
     }
     primary.pop("primary_aggregation_method", None)
@@ -155,7 +130,7 @@ def _rows_for_metric(
                 "year": int(year),
                 "n_time_samples": int(year_index.size),
                 "grid_shape": _grid_shape(rmse_map),
-                **(pairing or {}),
+                **(pairing.as_row() if pairing else {}),
             }
         )
     logger.info("  %s = %.6g %s", context, total, units)
@@ -205,7 +180,9 @@ def _variance_map_rows(
         "year": np.nan,
         "n_time_samples": int(time_index.size),
         "grid_shape": _grid_shape(model_var),
-        **_pairing(model_var, obs_var),
+        **comparisons.Comparison(
+            metric_prefix, model_var, obs_var, area
+        ).pairing.as_row(),
     }
     logger.info(
         "  %s residual variance: map rmse = %.6g, pattern corr = %.4f",
@@ -229,102 +206,6 @@ def _variance_map_rows(
     ]
 
 
-def _aligned(
-    model_field: xr.DataArray,
-    obs_field: xr.DataArray,
-    window: tuple[pd.Timestamp, pd.Timestamp] | None,
-    context: str,
-) -> tuple[xr.DataArray, xr.DataArray]:
-    """Restrict both fields to their common span and require timestamps to match.
-
-    The requested window is intersected with the span the two products actually
-    share, then exact agreement is required *within* that overlap. Products
-    legitimately end at different dates -- DUACS's last centered 5-day mean
-    predates OM4's final timestamp, for instance -- and demanding identical
-    spans would make the caller responsible for knowing every product's exact
-    coverage. Trimming the edges is safe; a disagreement anywhere inside the
-    overlap is still an error, which is the property that actually matters.
-
-    A `None` window means the full shared span, which is what the
-    residual-variance diagnostics use: they characterise variability over the
-    whole rollout rather than over the primary scoring years.
-    """
-    shared = (
-        max(
-            pd.Timestamp(model_field["time"].values.min()),
-            pd.Timestamp(obs_field["time"].values.min()),
-        ),
-        min(
-            pd.Timestamp(model_field["time"].values.max()),
-            pd.Timestamp(obs_field["time"].values.max()),
-        ),
-    )
-    if window is not None:
-        requested = window
-        window = (max(shared[0], window[0]), min(shared[1], window[1]))
-        if window != requested:
-            logger.info(
-                "  %s: window trimmed to shared coverage %s..%s (requested %s..%s)",
-                context,
-                f"{window[0]:%Y-%m-%d}",
-                f"{window[1]:%Y-%m-%d}",
-                f"{requested[0]:%Y-%m-%d}",
-                f"{requested[1]:%Y-%m-%d}",
-            )
-    else:
-        window = shared
-
-    if window[0] > window[1]:
-        raise ValueError(
-            f"{context}: model and observation coverage do not overlap "
-            f"inside the requested window"
-        )
-
-    model_field = model_field.sel(time=_window_slice(window))
-    obs_field = obs_field.sel(time=_window_slice(window))
-    if model_field.sizes.get("time", 0) == 0 or obs_field.sizes.get("time", 0) == 0:
-        raise ValueError(
-            f"{context}: no samples inside the requested window "
-            f"{window[0]:%Y-%m-%d} to {window[1]:%Y-%m-%d}"
-        )
-    kernels.require_exact_time_match(model_field, obs_field, context)
-    return model_field, obs_field
-
-
-def _whole_years(
-    model_field: xr.DataArray, obs_field: xr.DataArray, context: str
-) -> tuple[xr.DataArray, xr.DataArray]:
-    """Restrict a monthly pair to the calendar years both cover in full.
-
-    Equal-year blocks are what make the score and its bootstrap comparable, so
-    a year missing a month has to go rather than be silently down-weighted.
-    Dropping it here -- where the shortfall is visible and attributable --
-    beats failing later in the kernel, which can only report that some year is
-    ragged without knowing why.
-    """
-    months = pd.DatetimeIndex(model_field["time"].values)
-    counts = pd.Series(1, index=months).groupby(months.year).sum()
-    whole = sorted(int(str(year)) for year, n in counts.items() if n == 12)
-    if not whole:
-        raise ValueError(
-            f"{context}: no calendar year is covered by twelve whole months "
-            f"(months available: {months.min():%Y-%m} to {months.max():%Y-%m})"
-        )
-    dropped = sorted({int(str(year)) for year in counts.index} - set(whole))
-    if dropped:
-        logger.info(
-            "  %s: scoring %d-%d; dropped partly covered year(s) %s",
-            context,
-            whole[0],
-            whole[-1],
-            dropped,
-        )
-    # By year membership, not a slice: a slice would only trim the ends and
-    # leave a ragged interior year in place.
-    keep = model_field["time"].dt.year.isin(whole)
-    return model_field.sel(time=keep), obs_field.sel(time=keep)
-
-
 def _velocity_metrics(
     model: str,
     rollout: xr.Dataset,
@@ -334,45 +215,28 @@ def _velocity_metrics(
     velocity_kind: str,
 ) -> list[dict[str, Any]]:
     """Surface geostrophic velocity vector RMSE and instantaneous EKE RMSE vs DUACS."""
-    obs_u, obs_v = observations.duacs_velocity(duacs, velocity_kind)
-    area = duacs["area"]
-
-    sim_u, sim_v = kernels.geostrophic_velocity_from_zos(
-        rollout["zos"], lat_dim="lat", lon_dim="lon"
+    velocity = comparisons.surface_velocity(
+        rollout, duacs, window, model, velocity_kind
     )
-    sim_u_native, obs_u = _aligned(sim_u, obs_u, window, f"{model} eastward velocity")
-    sim_v_native, obs_v = _aligned(sim_v, obs_v, window, f"{model} northward velocity")
-
-    # A difference is linear, so regridding first is exact here.
-    sim_u = kernels.model_field_on_obs_grid(sim_u_native, obs_u)
-    sim_v = kernels.model_field_on_obs_grid(sim_v_native, obs_v)
-
     rows, _ = _rows_for_metric(
         metric="surface_geostrophic_velocity_vector_total_rmse",
         model=model,
         units="m s-1",
-        # Vector RMSE combines both components before the time reduction, so a
-        # cell is penalised for getting the direction wrong, not just the speed.
-        error_squared=(sim_u - obs_u) ** 2 + (sim_v - obs_v) ** 2,
-        area=area,
+        error_squared=velocity.vector_error_squared,
+        area=velocity.area,
         bootstrap_samples=bootstrap_samples,
-        pairing=_pairing(sim_u, obs_u),
+        pairing=velocity.eastward.pairing,
     )
 
-    # EKE is quadratic, so it is computed on the native grid and only the
-    # result interpolated. Regridding the velocities first would damp the energy
-    # by an amount set by the resolution ratio rather than by the model.
-    sim_eke_native = kernels.instantaneous_surface_eke(sim_u_native, sim_v_native)
-    obs_eke = kernels.instantaneous_surface_eke(obs_u, obs_v)
-    sim_eke = kernels.model_field_on_obs_grid(sim_eke_native, obs_eke)
+    eke = velocity.eddy_kinetic_energy()
     eke_rows, _ = _rows_for_metric(
         metric="instantaneous_surface_eke_total_rmse",
         model=model,
         units="m2 s-2",
-        error_squared=(sim_eke - obs_eke) ** 2,
-        area=area,
+        error_squared=eke.error_squared,
+        area=eke.area,
         bootstrap_samples=bootstrap_samples,
-        pairing=_pairing(sim_eke, obs_eke),
+        pairing=eke.pairing,
     )
     return rows + eke_rows
 
@@ -385,30 +249,28 @@ def _sst_metrics(
     bootstrap_samples: int,
 ) -> list[dict[str, Any]]:
     """SST RMSE and residual-variance map diagnostics vs OISST."""
-    obs_all = oisst[observations.find_var_name(oisst, observations.SST_ALIASES)]
-    area = oisst["area"]
-    sim_all = rollout["thetao"].isel(lev=0)
-
-    sim, obs = _aligned(sim_all, obs_all, window, f"{model} SST")
+    scored = comparisons.sea_surface_temperature(rollout, oisst, window, model)
     rows, _ = _rows_for_metric(
         metric="surface_sst_total_rmse",
         model=model,
         units="degC",
-        error_squared=(kernels.model_field_on_obs_grid(sim, obs) - obs) ** 2,
-        area=area,
+        error_squared=scored.error_squared,
+        area=scored.area,
         bootstrap_samples=bootstrap_samples,
-        pairing=_pairing(kernels.model_field_on_obs_grid(sim, obs), obs),
+        pairing=scored.pairing,
     )
 
     # Residual variance uses the whole rollout, not the scoring window.
-    sim_full, obs_full = _aligned(sim_all, obs_all, None, f"{model} SST variance")
+    full = comparisons.sea_surface_temperature(
+        rollout, oisst, None, f"{model} SST variance"
+    )
     rows += _variance_map_rows(
         metric_prefix="surface_sst",
         model=model,
         units="degC2",
-        model_field=sim_full,  # native grid; variance is regridded, not the field
-        obs_field=obs_full,
-        area=area,
+        model_field=full.native,  # native grid; variance is regridded, not the field
+        obs_field=full.obs,
+        area=full.area,
     )
     return rows
 
@@ -422,54 +284,62 @@ def _ohc_metrics(
     model_dz: xr.DataArray,
 ) -> list[dict[str, Any]]:
     """Per-area OHC RMSE by layer, plus upper-700 m residual-variance diagnostics."""
-    obs_temp = argo[
-        observations.find_var_name(argo, observations.ARGO_TEMPERATURE_ALIASES)
-    ]
-    obs_depth = observations.find_coord_name(obs_temp, observations.DEPTH_ALIASES)
-    assert obs_depth is not None  # find_coord_name raises when required
-    area = argo["area"]
-
-    obs_layers = kernels.ohc_per_area_layer_maps(obs_temp, depth_name=obs_depth)
-    sim_layers = kernels.ohc_per_area_layer_maps(
-        rollout["thetao"], native_dz=model_dz, depth_name="lev"
-    )
-
     rows: list[dict[str, Any]] = []
     upper_label = kernels.OHC_LAYERS[0].label
     for layer in kernels.OHC_LAYERS:
-        # ARGO-IAP is monthly, so both sides reduce to months. Partially
-        # covered months are dropped rather than compared against full ones.
-        sim_all = kernels.monthly_mean_of_complete_months(sim_layers[layer.label])
-        obs_all = kernels.monthly_mean_of_complete_months(obs_layers[layer.label])
-
-        sim, obs = _aligned(sim_all, obs_all, window, f"{model} OHC {layer.label}")
-        # Trim to whole calendar years of the monthly series: a rollout ending
-        # 24 December contributes no December once partial months are dropped,
-        # so scoring its final year would weigh 11 months against 12.
-        sim, obs = _whole_years(sim, obs, f"{model} OHC {layer.label}")
+        scored = comparisons.ohc_layer(rollout, argo, layer, window, model, model_dz)
         layer_rows, _ = _rows_for_metric(
             metric="ohc_per_area_total_rmse",
             model=model,
             units="J m-2",
-            error_squared=(kernels.model_field_on_obs_grid(sim, obs) - obs) ** 2,
-            area=area,
+            error_squared=scored.error_squared,
+            area=scored.area,
             bootstrap_samples=bootstrap_samples,
             depth=layer.label,
-            pairing=_pairing(kernels.model_field_on_obs_grid(sim, obs), obs),
+            pairing=scored.pairing,
         )
         rows += layer_rows
+        # Emitted as rows rather than columns: they qualify the layer score
+        # without being one, and a tidy frame is the place for that.
+        for metric, value, units in (
+            (
+                "ohc_bathymetry_disagreement",
+                scored.bathymetry_disagreement_m,
+                "m",
+            ),
+            ("ohc_partial_column_fraction", scored.model_partial_columns, ""),
+        ):
+            rows.append(
+                {
+                    "metric": metric,
+                    "model": model,
+                    "depth": layer.label,
+                    "value": value,
+                    "units": units,
+                    "period_kind": "full_overlap",
+                    "period_start": layer_rows[0]["period_start"],
+                    "period_end": layer_rows[0]["period_end"],
+                    "grid_shape": layer_rows[0]["grid_shape"],
+                }
+            )
 
         if layer.label == upper_label:
-            sim_full, obs_full = _aligned(
-                sim_all, obs_all, None, f"{model} OHC {layer.label} variance"
+            full = comparisons.ohc_layer(
+                rollout,
+                argo,
+                layer,
+                None,
+                f"{model} variance",
+                model_dz,
+                complete_years_only=False,
             )
             rows += _variance_map_rows(
                 metric_prefix="ohc_upper700_per_area",
                 model=model,
                 units="(J m-2)2",
-                model_field=sim_full,  # native grid; variance is regridded, not the field
-                obs_field=obs_full,
-                area=area,
+                model_field=full.native,  # native grid; variance is regridded
+                obs_field=full.obs,
+                area=full.area,
             )
     return rows
 
@@ -534,6 +404,22 @@ _WANDB_KEYS = {
         "ohc_per_area_total_rmse",
         kernels.OHC_LAYERS[1].label,
     ): "ohc_700_2000/per_area_total_rmse",
+    (
+        "ohc_bathymetry_disagreement",
+        kernels.OHC_LAYERS[0].label,
+    ): "ohc_0_700/bathymetry_disagreement_m",
+    (
+        "ohc_bathymetry_disagreement",
+        kernels.OHC_LAYERS[1].label,
+    ): "ohc_700_2000/bathymetry_disagreement_m",
+    (
+        "ohc_partial_column_fraction",
+        kernels.OHC_LAYERS[0].label,
+    ): "ohc_0_700/partial_column_fraction",
+    (
+        "ohc_partial_column_fraction",
+        kernels.OHC_LAYERS[1].label,
+    ): "ohc_700_2000/partial_column_fraction",
     (
         "surface_sst_residual_variance_map_rmse",
         None,

@@ -13,22 +13,31 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## Install from PyPI
 
-Samudra is pure Python, so one wheel covers every platform. The GPU custom
-kernels are opt-in:
+Samudra is pure Python, so one wheel covers every platform. PyTorch dispatches
+scaled dot product attention to an optimized CUDA kernel when supported:
 
 ```bash
 # Install with `uv` (recommended)
 uv add samudra                    # CPU (default)
-uv add "samudra[cuda]"            # adds flash-attn, flash-perceiver, torchvision
+uv add "samudra[cuda]"            # adds torchvision
 uv add samudra --prerelease=allow # latest nightly dev build
 # Install with `pip`
 pip install samudra               # CPU (default)
-pip install "samudra[cuda]"       # adds flash-attn, flash-perceiver, torchvision
+pip install "samudra[cuda]"       # adds torchvision
 pip install --pre samudra         # latest nightly dev build
 ```
 
-The `cuda` extra compiles native kernels against your local CUDA + `torch`; see
-[Releasing to PyPI](../releasing.md#installing-the-package) for the details.
+The `cuda` extra adds torchvision. Perceiver attention uses PyTorch's native
+SDPA dispatcher and does not require a separately compiled attention package.
+The CUDA kernels are compiled into the CUDA-enabled PyTorch distribution. On
+supported NVIDIA hardware, `auto` selects a fused kernel when its dtype and
+tensor shapes are eligible and otherwise falls back safely. Selecting `flash`
+forces PyTorch FlashAttention and fails loudly when that kernel is unavailable.
+
+The PhysicsNeMo container inherits its PyTorch and CUDA binaries from NVIDIA.
+Its build-time smoke test verifies that this CUDA-enabled PyTorch reports
+compiled FlashAttention support, while GPU CI forces that backend through a
+forward and backward pass.
 
 ## Development setup
 

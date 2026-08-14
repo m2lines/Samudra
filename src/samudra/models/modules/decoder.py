@@ -76,7 +76,7 @@ class PerceiverDecoder(nn.Module):
             latent tokens (windowed queries but global data attention).
 
     References:
-        [0]: https://github.com/lucidrains/perceiver-pytorch
+        [0]: https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.scaled_dot_product_attention.html
         [1]: https://ar5iv.labs.arxiv.org/html/2405.13063#A2.SS4
         [2]: https://ar5iv.labs.arxiv.org/html/2107.14795
     """

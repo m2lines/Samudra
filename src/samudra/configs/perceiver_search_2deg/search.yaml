@@ -19,7 +19,7 @@ executor:
   harness: /scratch/am16581/Samudra/scripts/slurm_apptainer_train.sbatch
   account: torch_pr_347_lzanna
   partition: rtx6000_lzanna
-  controller_partition: cs
+  controller_partition: cpu_short
   python: /scratch/am16581/Samudra/experiments/perceiver_search_2deg/container_python.sh
   cpus_per_task: 4
   memory: 32G

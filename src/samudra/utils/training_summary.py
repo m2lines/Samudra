@@ -27,12 +27,18 @@ def write_search_worker_status(output_dir: Path, stage: str, **details: Any) -> 
     path = output_dir / SEARCH_WORKER_STATUS_NAME
     recorded_at = datetime.datetime.now(datetime.UTC).isoformat()
     history: list[dict[str, Any]] = []
+    retained: dict[str, Any] = {}
     if path.is_file():
         previous = json.loads(path.read_text(encoding="utf-8"))
         loaded_history = previous.get("history", [])
         if not isinstance(loaded_history, list):
             raise ValueError(f"Invalid worker status history: {path}")
         history = loaded_history
+        retained = {
+            key: value
+            for key, value in previous.items()
+            if key not in {"schema_version", "stage", "updated_at", "history"}
+        }
     event = {"stage": stage, "recorded_at": recorded_at, **details}
     history.append(event)
     payload = {
@@ -40,6 +46,7 @@ def write_search_worker_status(output_dir: Path, stage: str, **details: Any) -> 
         "stage": stage,
         "updated_at": recorded_at,
         "history": history,
+        **retained,
         **details,
     }
     with tempfile.NamedTemporaryFile(

@@ -26,6 +26,7 @@ def config(tmp_path: Path, *, executor: str = "local") -> SearchConfig:
             "harness": harness,
             "account": "account",
             "partition": "gpu",
+            "apptainer_module": "singularity-ce/4.3.3",
         }
     return SearchConfig.model_validate(
         {
@@ -547,6 +548,9 @@ def test_slurm_executor_submits_array_and_automatic_advance(tmp_path, monkeypatc
 
     assert "--array=0-1%2" in commands[0]
     assert f"--chdir={tmp_path / 'runs'}" in commands[0]
+    assert "APPTAINER_MODULE=singularity-ce/4.3.3" in next(
+        value for value in commands[0] if value.startswith("--export=")
+    )
     assert any(value.startswith("--dependency=afterany:1") for value in commands[1])
     assert f"--chdir={tmp_path / 'runs'}" in commands[1]
     assert "--export=ALL" in commands[1]

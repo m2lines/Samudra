@@ -28,6 +28,7 @@ executor:
   max_concurrent: 8
   data_root: /scratch/am16581
   scratch_dir: /scratch/am16581
+  apptainer_module: singularity-ce/4.3.3
 
 artifacts:
   destination:

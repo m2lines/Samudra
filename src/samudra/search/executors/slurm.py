@@ -50,6 +50,7 @@ class SlurmExecutor(Executor):
             "SIF_PATH": self.config.sif_path,
             "IMAGE_REF": self.config.image_ref,
             "CODE_LAYER": self.config.code_layer,
+            "APPTAINER_MODULE": self.config.apptainer_module,
         }
         values.update({key: str(value) for key, value in optional.items() if value})
         return ",".join(

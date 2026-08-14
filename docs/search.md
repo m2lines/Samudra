@@ -59,6 +59,8 @@ The uniquely named search directory contains:
   throughput, and variable/depth/channel metrics from every completed run;
 - `artifacts.parquet`: hashes, sizes, media types, and public/queryable locations
   for every published artifact;
+- `analysis/report.md`: a continuously updated leaderboard, rung history,
+  winner (once complete), and explicit candidate failures;
 - `logs/`: scheduler output when using Slurm.
 
 `results.csv` is deliberately denormalized and readable directly with pandas:
@@ -106,8 +108,9 @@ failure stops promotion loudly instead of silently creating an incomplete
 public record.
 
 The published record includes resolved search and training configs, Git
-provenance, scheduler state, per-rung outcomes (including failures), full epoch
-histories, experiment/error logs, W&B identities, and an SHA-256 inventory.
+provenance, scheduler state, per-rung outcomes (including failures), a Markdown
+summary report, full epoch histories, experiment/error logs, W&B identities,
+and an SHA-256 inventory.
 Search-level or per-run analysis hooks have a simple artifact contract: write
 their tables, reports, or figures beneath an `analysis/` directory and the
 publisher includes them automatically with their hashes and locations. This

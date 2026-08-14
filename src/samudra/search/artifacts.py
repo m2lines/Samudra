@@ -209,6 +209,8 @@ class ArtifactPublisher:
     def _kind(relative: str) -> str:
         if relative.endswith("ckpt.pt"):
             return "checkpoint"
+        if Path(relative).suffix == ".md":
+            return "report"
         if Path(relative).suffix in {".pdf", ".png", ".svg"}:
             return "figure"
         if relative.endswith(".log") or relative.startswith("logs/"):
@@ -225,6 +227,7 @@ class ArtifactPublisher:
             ".csv": "text/csv",
             ".json": "application/json",
             ".log": "text/plain",
+            ".md": "text/markdown",
             ".parquet": "application/vnd.apache.parquet",
             ".pt": "application/x-pytorch",
             ".yaml": "application/yaml",

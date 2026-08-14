@@ -175,7 +175,10 @@ def test_local_artifact_publisher_writes_queryable_research_record(
         {
             "candidate": "a",
             "rung": 1,
+            "epochs": 3,
             "eligible": True,
+            "validation_loss": 0.25,
+            "train_loss": 0.2,
             "output_dir": str(output),
         }
     ]
@@ -200,6 +203,9 @@ def test_local_artifact_publisher_writes_queryable_research_record(
     figure = catalog[catalog["artifact"].str.endswith("loss.png")].iloc[0]
     assert figure["kind"] == "figure"
     assert figure["candidate"] == "a"
+    report = catalog[catalog["artifact"] == "analysis/report.md"].iloc[0]
+    assert report["kind"] == "report"
+    assert report["media_type"] == "text/markdown"
 
 
 def test_start_records_and_publishes_submission_failure(tmp_path, monkeypatch):
@@ -362,6 +368,10 @@ def test_successive_halving_promotes_with_dataframe_and_reports_metrics(
     report = search.results_path.read_text(encoding="utf-8")
     assert "validation_loss" in report
     assert "train_loss" in report
+    markdown = (search.search_dir / "analysis/report.md").read_text(encoding="utf-8")
+    assert "## Latest eligible result per candidate" in markdown
+    assert "`b` | 0 | 1 | 0.1" in markdown
+    assert "`b`, `c`" in markdown
 
 
 def test_local_executor_runs_tasks_then_advances(tmp_path, monkeypatch):

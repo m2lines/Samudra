@@ -29,6 +29,7 @@ from samudra.search.config import (
     resource_slug,
 )
 from samudra.search.executors import Executor, LocalExecutor, SlurmExecutor
+from samudra.search.report import write_search_report
 from samudra.train import Trainer
 from samudra.utils.distributed import is_main_process
 from samudra.utils.logging import handle_logging, handle_warnings
@@ -374,6 +375,7 @@ class SuccessiveHalving:
             stream.flush()
             os.fsync(stream.fileno())
         os.replace(temporary, self.results_path)
+        write_search_report(self, state)
 
     @staticmethod
     def result_rows(state: dict[str, Any]) -> list[dict[str, Any]]:

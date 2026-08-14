@@ -10,9 +10,10 @@ SPDX-License-Identifier: CC-BY-4.0
 
 This is a living lab notebook for the first full-training search over the
 Perceiver v2 SamudraMulti architecture. The search is running on the public
-2-degree OM4 dataset. This document records the questions, hypotheses, and
-experimental design before inspecting the validation results. Results,
-discussion, conclusions, and future work will be completed after the search.
+2-degree OM4 dataset. The questions, hypotheses, and experimental design below
+were recorded before inspecting validation results. Preliminary epoch-one
+results are now recorded separately; conclusions and final discussion remain
+open until successive halving and checkpoint diagnostics complete.
 
 The immutable run is
 `perceiver-v2-2deg-architecture--20260814T171003.874785Z`. Its code revision is
@@ -393,17 +394,112 @@ ORDER BY kind, candidate, rung, artifact;
 
 ## Results
 
-_Pending completion of the search._
+### Preliminary rung zero
+
+All 18 W&B workers completed epoch one and 89 optimizer updates. The values in
+this section were read from their finished W&B summaries on 2026-08-14. At that
+time, the public controller state still reported `running`, contained no validated
+rung results, and had not published `results.parquet` or `epochs.parquet`.
+Consequently, these are worker-reported preliminary results rather than the
+durable controller-validated record.
+
+| Architecture family | LR `4e-4` | LR `8e-4` | Two-rate mean | Change from direct-control mean | Mean train time |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `direct-coarse-patch` | [0.342571](https://wandb.ai/ocean_emulators/default/runs/oitxuuuu) | [0.324788](https://wandb.ai/ocean_emulators/default/runs/a04sz1f5) | **0.333679** | **-8.3%** | 20.3 min |
+| `direct-transport256` | [0.354275](https://wandb.ai/ocean_emulators/default/runs/oj6rkd03) | [0.319645](https://wandb.ai/ocean_emulators/default/runs/rvv5lvh9) | **0.336960** | **-7.4%** | 27.6 min |
+| `direct-enc64` | [0.363536](https://wandb.ai/ocean_emulators/default/runs/l8q3isnz) | [0.321942](https://wandb.ai/ocean_emulators/default/runs/ftjt32xh) | 0.342739 | -5.8% | 23.0 min |
+| `direct-no-context` | [0.356488](https://wandb.ai/ocean_emulators/default/runs/9a1vcecr) | [0.332763](https://wandb.ai/ocean_emulators/default/runs/xn2e6a5j) | 0.344625 | -5.3% | 26.7 min |
+| `direct-transport64` | [0.365438](https://wandb.ai/ocean_emulators/default/runs/otyae5f0) | [0.345617](https://wandb.ai/ocean_emulators/default/runs/02pi4nme) | 0.355527 | -2.3% | 27.5 min |
+| `direct-context2` | [0.383464](https://wandb.ai/ocean_emulators/default/runs/65429i8w) | [0.344039](https://wandb.ai/ocean_emulators/default/runs/zzzzbej1) | 0.363752 | -0.1% | 27.2 min |
+| `direct-control` | [0.366762](https://wandb.ai/ocean_emulators/default/runs/gd21xu96) | [0.361208](https://wandb.ai/ocean_emulators/default/runs/x3i0h8a6) | 0.363985 | control | 27.0 min |
+| `pio-lean` | [0.403511](https://wandb.ai/ocean_emulators/default/runs/ywymchma) | [0.400348](https://wandb.ai/ocean_emulators/default/runs/g6nw1n4d) | 0.401929 | +10.4% | 40.8 min |
+| `pio-control` | [0.421770](https://wandb.ai/ocean_emulators/default/runs/zfi0l44s) | [0.415711](https://wandb.ai/ocean_emulators/default/runs/gwim0j07) | 0.418740 | +15.0% | 38.4 min |
+
+The two-rate mean is a sensitivity summary, not a replicate mean: each cell has
+one seed, and the two members differ by learning rate rather than random seed.
+The primary ranking remains each candidate's validation loss at a completed
+cumulative budget.
 
 ## Discussion
 
-_Pending analysis of completed-rung results, learning curves, and diagnostic
-artifacts._
+### H1: direct output queries
+
+H1 receives strong preliminary support. Every direct-decoder candidate is better
+than both full Perceiver IO candidates. The direct-control family mean is 13.1%
+lower than the PIO-control mean, and direct decoding takes substantially less
+training time. This agrees with the prior diagnosis that the second learned
+decoder latent bank creates an unnecessary routing bottleneck. Later rungs must
+show whether the gap persists rather than merely reflecting faster early
+optimization.
+
+### H2: encoder latent count
+
+The rung-zero result contradicts H2's expected direction. Reducing the patch
+encoder from 256 to 64 latents improves the two-rate mean by 5.8% and reduces
+training time by about four minutes per epoch. This does not show that aggressive
+spatial compression is harmless: both variants mean-pool their internal latent
+bank to one processor vector per patch. It says that internal latent count alone
+is not the limiting capacity measure at this budget.
+
+### H3: decoder transport width
+
+The 256-wide transport candidate is the best individual run and second-best
+family mean, consistent with the hypothesized output value-path bottleneck. The
+64, 128, and 256 results are not monotonic, however: width 64 is better than the
+128-wide control at `8e-4` and effectively tied at `4e-4`. More epochs and
+variable-wise losses are needed before interpreting width 256 as a channel-
+information result rather than general optimization capacity.
+
+### H4: decoder context
+
+The preliminary result contradicts the expectation that at least one context
+ring is necessary. Zero context improves the family mean by 5.3%, while two rings
+are tied with the one-ring control and substantially slower to optimize at the
+lower rate. This is consistent with prior evidence that unanchored neighboring
+tokens compete with the correct spatial route. It motivates testing physical
+position anchoring rather than concluding that ocean predictions never need
+neighbor context.
+
+### H5: patch granularity
+
+The rung-zero validation result contradicts H5: the coarse-patch family has the
+lowest two-rate mean and trains about 25% faster than the direct control. Its
+processor grid has only 324 tokens instead of 1,080, so this may be an efficient
+architecture or a model rewarded for producing smoother predictions. Aggregate
+MSE cannot distinguish those explanations. Velocity/depth errors, high-wavenumber
+power, amplitude ratios, and patch-edge diagnostics are required before this arm
+can be treated as the scientific winner.
+
+### H6: learning-rate robustness
+
+The strongest effects are reasonably stable but not identical across rates.
+Coarse patch and transport width 256 are top-three candidates at both rates;
+encoder-64 joins them at `8e-4`, while no-context joins them at `4e-4`. More
+importantly, `8e-4` beats `4e-4` in all nine families. The current range may be
+below the fastest useful optimization regime, so a later search should include a
+higher rate or perform a short range test before multiplying learning rates across
+the full architecture matrix.
+
+### Search-system observation
+
+The disagreement between 18 terminal W&B workers and the unadvanced public rung
+is an observability defect even if the delayed controller eventually reconciles
+it. A future search should expose “workers complete, controller pending” as a
+first-class state, publish a periodic worker-completion manifest, and alert if all
+workers are terminal without promotion or failure after a bounded grace period.
 
 ## Conclusions
 
-_Pending._
+The epoch-one evidence favors the direct decoder, wider 256-value transport,
+smaller internal encoder latent banks, and a smaller processor grid. It disfavors
+the full Perceiver IO decoder and additional unanchored context. These are
+screening conclusions only; final architecture selection remains pending later
+rungs and diagnostic evaluation.
 
 ## Future work
 
-_Pending._
+The mechanistic implications and proposed next search are developed in
+[`perceiver_v2_next_round_synthesis.md`](perceiver_v2_next_round_synthesis.md).
+The immediate tasks are to finish successive halving, publish the durable result
+tables, and evaluate the promoted checkpoints for variable/depth error, spectra,
+amplitude, bias, and patch seams.

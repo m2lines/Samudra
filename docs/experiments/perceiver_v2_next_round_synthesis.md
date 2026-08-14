@@ -461,8 +461,27 @@ the remaining gap simply by adding more latents, heads, or epochs.
 
 ## Results and discussion
 
-_Update after the current search controller publishes validated rung results and
-the promoted checkpoints receive spatial/variable diagnostics._
+The preliminary result changes the next-round priorities in six concrete ways:
+
+| Current finding | Planning consequence |
+| --- | --- |
+| Every direct decoder beats both full Perceiver IO families | Remove full Perceiver IO from the primary path if the gap persists beyond rung zero; retain one arm as a diagnostic control |
+| Transport width 256 is the best individual candidate | Carry a wide value path forward, then separate total width from head count and inspect variable-wise gains |
+| Zero context beats one or two unanchored rings | Test physically anchored context rather than sweeping still larger unanchored neighborhoods |
+| Encoder 64 beats encoder 256 | Stop treating generic latent count as the principal encoder-capacity knob; test spatially structured outputs |
+| Coarse patches win early loss and throughput | Require spectra, velocity/depth losses, amplitude, and seam diagnostics before promotion |
+| `8e-4` wins every learning-rate pair | Calibrate the upper learning-rate range before the next expensive architecture matrix |
+
+These decisions are provisional because epoch-one successive-halving comparisons
+favor fast starters, have one seed per cell, and do not yet include spatial
+diagnostics. The strongest conclusion is topological rather than numerical: the
+full decoder latent bank is consistently worse, while where and how spatial
+information is compressed remains unresolved.
+
+The controller/publication lag is also part of the experimental result. W&B
+proves that workers trained, but durable search consumers cannot yet rank them.
+The next search-system iteration should make terminal-worker reconciliation and
+publication health directly queryable.
 
 ## Next-round decision record
 

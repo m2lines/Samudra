@@ -41,6 +41,23 @@
 
 set -euo pipefail
 
+if ! command -v apptainer >/dev/null 2>&1 \
+  && ! command -v singularity >/dev/null 2>&1; then
+  if [[ -f /etc/profile.d/modules.sh ]]; then
+    # shellcheck source=/etc/profile.d/modules.sh
+    source /etc/profile.d/modules.sh
+  fi
+  if command -v module >/dev/null 2>&1; then
+    if [[ -n "${APPTAINER_MODULE:-}" ]]; then
+      module load "${APPTAINER_MODULE}"
+    else
+      module load apptainer >/dev/null 2>&1 \
+        || module load singularity-ce >/dev/null 2>&1 \
+        || true
+    fi
+  fi
+fi
+
 if command -v apptainer >/dev/null 2>&1; then
   APPTAINER_BIN=apptainer
 elif command -v singularity >/dev/null 2>&1; then

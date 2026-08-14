@@ -47,6 +47,11 @@ set `executor.apptainer_module` to the exact loadable module name (for example,
 `singularity-ce/4.3.3` on Torch). The resolved value is exported to every worker
 and retained in the search configuration.
 
+Clusters that expose the container runtime through environment modules should
+set `executor.apptainer_module` to the exact loadable module name (for example,
+`singularity-ce/4.3.3` on Torch). The resolved value is exported to every worker
+and retained in the search configuration.
+
 Every invocation gets a readable instance identifier such as
 `perceiver-2deg--20260813T192612.123456Z`. The stable `name` describes the
 experiment design; this generated `run_id` names its filesystem, object-store,

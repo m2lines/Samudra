@@ -71,11 +71,13 @@ class SlurmExecutor(Executor):
         label = "anchors" if anchor else f"r{rung}"
         logs = self.search.search_dir / "logs"
         logs.mkdir(exist_ok=True)
+        working_directory = self.config.scratch_dir or self.config.output_dir
         return self._submit(
             [
                 "sbatch",
                 "--parsable",
                 f"--job-name={self.search.run_id}-{label}",
+                f"--chdir={working_directory}",
                 f"--array=0-{len(candidates) - 1}%{maximum}",
                 f"--account={self.config.account}",
                 f"--partition={self.config.partition}",
@@ -119,11 +121,13 @@ class SlurmExecutor(Executor):
                 str(rung),
             ]
         )
+        working_directory = self.config.scratch_dir or self.config.output_dir
         controller_job = self._submit(
             [
                 "sbatch",
                 "--parsable",
                 f"--job-name={self.search.run_id}-advance-r{rung}",
+                f"--chdir={working_directory}",
                 f"--dependency={dependency}",
                 f"--account={self.config.account}",
                 f"--partition={self.config.controller_partition}",

@@ -93,6 +93,8 @@ It expects environment variables:
 - `WANDB_API_KEY` (optional): if set and `WANDB_MODE` unset, defaults to W&B online
 - `WANDB_MODE` (optional): `online` or `disabled` (if unset, defaults based on
   whether `WANDB_API_KEY` is present)
+- `APPTAINER_MODULE` (optional): exact environment-module name for the container
+  runtime. When unset, the harness tries both `apptainer` and `singularity-ce`.
 
 Key behavior:
 

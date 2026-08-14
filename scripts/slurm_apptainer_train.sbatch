@@ -53,7 +53,15 @@ if ! command -v apptainer >/dev/null 2>&1 \
     source /etc/profile.d/modules.sh
   fi
   if command -v module >/dev/null 2>&1; then
-    module load "${APPTAINER_MODULE:-apptainer}"
+    if [[ -n "${APPTAINER_MODULE:-}" ]]; then
+      module load "${APPTAINER_MODULE}"
+    else
+      # Cluster module names are not standardized. NYU Torch, for example,
+      # provides Apptainer compatibility through SingularityCE.
+      module load apptainer >/dev/null 2>&1 \
+        || module load singularity-ce >/dev/null 2>&1 \
+        || true
+    fi
   fi
 fi
 

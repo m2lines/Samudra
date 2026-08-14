@@ -511,7 +511,9 @@ def test_slurm_executor_submits_array_and_automatic_advance(tmp_path, monkeypatc
     search.executor.submit_rung(state, 0)
 
     assert "--array=0-1%2" in commands[0]
+    assert f"--chdir={tmp_path / 'runs'}" in commands[0]
     assert any(value.startswith("--dependency=afterany:1") for value in commands[1])
+    assert f"--chdir={tmp_path / 'runs'}" in commands[1]
     assert "--export=ALL" in commands[1]
     assert "samudra.search.worker" in commands[1][-1]
     saved = search.read_state()["rungs"][0]

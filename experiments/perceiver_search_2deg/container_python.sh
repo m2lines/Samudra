@@ -24,7 +24,15 @@ SAMUDRA_CODE_COMMIT="$(
 
 exec apptainer exec \
   --overlay "${CODE_LAYER}:ro" \
+  --bind /opt/slurm:/opt/slurm:ro \
+  --bind /usr/lib64/libmunge.so.2:/usr/lib64/libmunge.so.2:ro \
+  --bind /usr/lib64/libmunge.so.2.0.0:/usr/lib64/libmunge.so.2.0.0:ro \
+  --bind /run/munge:/run/munge:ro \
+  --bind /etc/passwd:/etc/passwd:ro \
+  --bind /etc/group:/etc/group:ro \
   --pwd /opt/samudra-code \
+  --env PATH=/opt/slurm/bin:/workspace/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin \
+  --env LD_LIBRARY_PATH=/opt/slurm/lib64/slurm:/usr/lib64 \
   --env PYTHONPATH=/opt/samudra-code/src \
   --env "SAMUDRA_CODE_COMMIT=${SAMUDRA_CODE_COMMIT}" \
   "${SIF_PATH}" \

@@ -472,7 +472,7 @@ SELECT
     round(mean_train_minutes, 1) AS mean_train_minutes
 FROM family_summary
 CROSS JOIN control
-ORDER BY mean_validation_loss;
+ORDER BY family_summary.mean_validation_loss;
 ```
 
 </details>

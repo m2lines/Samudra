@@ -19,7 +19,7 @@ replay:
   max_lead_transition: [8, 16]
   checkpoint_buffer: true
 loss:
-  type: [gradient_h, TS-gradient_z] # gradient_h # 
+  type: [gradient_h, gradient_z] # gradient_h # 
   metric: mse_mae
   lambda_h: 0.1
   lambda_z: 0.1

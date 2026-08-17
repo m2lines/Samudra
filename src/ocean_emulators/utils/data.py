@@ -106,6 +106,25 @@ def _packed_channel_indices(
 SPATIAL_FEATURE_CHANNELS = 4
 
 
+def _packed_grid_field(data: xr.Dataset, name: str) -> np.ndarray:
+    """Read a static [y, x] grid field out of a packed cache."""
+    value = data[name]
+    if "time" in value.dims:
+        value = value.isel(time=0, drop=True)
+    spatial_dims = ("lat", "lon") if "lat" in value.dims else ("y", "x")
+    return np.asarray(value.transpose(*spatial_dims).to_numpy(), dtype=np.float32)
+
+
+def _packed_cell_area(data: xr.Dataset) -> torch.Tensor | None:
+    """The grid's own per-cell area, for area-weighted metrics."""
+    if "rA" not in data:
+        return None
+    area = _packed_grid_field(data, "rA")
+    if not np.isfinite(area).all() or np.any(area <= 0):
+        raise ValueError("Packed LLC cell-area field rA must be finite and positive")
+    return torch.from_numpy(area)
+
+
 def _packed_spatial_features(data: xr.Dataset) -> torch.Tensor | None:
     """Build [unit-sphere position, reference-scaled log-area] from an LLC cache."""
     required = ("XC", "YC", "rA")
@@ -114,11 +133,7 @@ def _packed_spatial_features(data: xr.Dataset) -> torch.Tensor | None:
         return None
 
     def grid(name: str) -> np.ndarray:
-        value = data[name]
-        if "time" in value.dims:
-            value = value.isel(time=0, drop=True)
-        spatial_dims = ("lat", "lon") if "lat" in value.dims else ("y", "x")
-        return np.asarray(value.transpose(*spatial_dims).to_numpy(), dtype=np.float32)
+        return _packed_grid_field(data, name)
 
     lon = np.deg2rad(grid("XC"))
     lat = np.deg2rad(grid("YC"))
@@ -330,6 +345,8 @@ class DataSource:
     masks: Masks
     packed_channel_names: dict[str, list[str]] | None = None
     spatial_features: torch.Tensor | None = None
+    #: Per-cell area [lat, lon] from the grid's own rA, when the cache has one.
+    cell_area: torch.Tensor | None = None
 
     @cached_property
     def is_compact(self) -> bool:
@@ -730,6 +747,7 @@ class DataSource:
                 "boundary": boundary_names,
             },
             spatial_features=spatial_features,
+            cell_area=_packed_cell_area(data),
         )
 
     @classmethod
@@ -932,11 +950,49 @@ def unflatten_masks(data: xr.Dataset) -> xr.Dataset:
 
 
 def spherical_area_weights(data: xr.Dataset) -> Grid:
+    """Latitude-band area weights for a RECTILINEAR grid.
+
+    Only valid when `lat` really is degrees. Curvilinear grids have no latitude
+    vector to build weights from -- use `cell_area_weights`, which prefers the
+    grid's own cell areas.
+    """
     num_lon = data.lon.size
     lats = torch.from_numpy(data.lat.to_numpy())
     weights = torch.cos(torch.deg2rad(lats)).repeat(num_lon, 1).t()
     weights /= weights.sum()
     return weights
+
+
+def cell_area_weights(src: "DataSource") -> Grid:
+    """Normalized per-cell area weights for area-weighted metrics.
+
+    Uses the grid's own cell areas (rA) when the cache carries them. This is the
+    only correct source on a curvilinear grid: an LLC cache's `lat`/`lon` are
+    integer i/j indices, and cos(deg2rad(index)) is not a latitude weight -- it
+    swings negative every 180 rows, which makes a weighted mean of squared error
+    negative and its square root NaN.
+    """
+    if src.cell_area is not None:
+        weights = src.cell_area.to(dtype=torch.float32)
+        return weights / weights.sum()
+
+    latitudes = np.asarray(src.data.lat.to_numpy(), dtype=np.float64)
+    if np.abs(latitudes).max() > 90.0:
+        logger.warning(
+            "AREA WEIGHTS: cache %r has no rA, and its `lat` coordinate spans "
+            "%.0f..%.0f -- those are grid indices, not degrees, so cosine "
+            "weighting would be meaningless (negative for half the domain). "
+            "Falling back to UNIFORM weights: area-weighted metrics are plain "
+            "unweighted means. Rebuild the cache with XC/YC/rA for true "
+            "area weighting.",
+            src.name,
+            latitudes.min(),
+            latitudes.max(),
+        )
+        shape = (int(src.data.lat.size), int(src.data.lon.size))
+        return torch.full(shape, 1.0 / (shape[0] * shape[1]), dtype=torch.float32)
+
+    return spherical_area_weights(src.data)
 
 
 def get_inference_steps(

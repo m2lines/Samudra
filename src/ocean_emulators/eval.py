@@ -26,8 +26,8 @@ from ocean_emulators.stepper import Stepper
 from ocean_emulators.utils.data import (
     SPATIAL_FEATURE_CHANNELS,
     Normalize,
+    cell_area_weights,
     get_inference_steps,
-    spherical_area_weights,
 )
 from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.distributed import is_main_process, set_seed
@@ -139,7 +139,7 @@ class Eval:
         self.static_data = self.data_container.static_data
         self.metadata = construct_metadata(self.data)
         self.wet = self.src.masks.prognostic_with_hist(cfg.data.hist)
-        self.area_weights: Grid = spherical_area_weights(self.data)
+        self.area_weights: Grid = cell_area_weights(self.src)
         self.area_weights = self.area_weights.to(self.device)
 
         self.normalize = Normalize.init_instance(

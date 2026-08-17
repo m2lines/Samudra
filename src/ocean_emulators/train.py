@@ -94,8 +94,8 @@ from ocean_emulators.utils.data import (
     DataSource,
     LoadStats,
     Normalize,
+    cell_area_weights,
     get_inference_steps,
-    spherical_area_weights,
 )
 from ocean_emulators.utils.device import using_gpu
 from ocean_emulators.utils.distributed import (
@@ -788,28 +788,53 @@ class Trainer:
             else:
                 self.mp_context = multiprocessing.get_context("spawn")
 
-        self.replay_spatial_features = len(self.data_container.replay_sources or []) > 1
-        if self.replay_spatial_features:
+        replay_sources = self.data_container.replay_sources or []
+        # Two separate things used to share one flag. `multi_cache` is how many
+        # patches a run spans, and drives grouping and batch composition.
+        # `spatial_features` is whether inputs carry location and cell area, which
+        # every run wants: a single tile still varies ~18% in cell area across
+        # itself, and multitask training over mixed patches needs every sample to
+        # say where it came from.
+        self.multi_cache = len(replay_sources) > 1
+        if self.multi_cache:
             if not cfg.replay.enabled:
                 raise ValueError(
                     "Multiple data_location caches are supported only with replay.enabled=true"
                 )
             if cfg.domain_parallel.enabled:
                 raise ValueError(
-                    "Multi-patch replay spatial features are not supported with domain_parallel"
+                    "Multi-patch replay is not supported with domain_parallel"
                 )
             if cfg.inference_epochs:
                 raise ValueError(
                     "Multi-patch replay does not yet support inference_epochs; "
                     "validation is supported."
                 )
-            replay_sources = self.data_container.replay_sources or []
-            if len(replay_sources) < 2 or any(
-                source.spatial_features is None for source in replay_sources
-            ):
-                raise ValueError(
-                    "Multi-patch replay requires every packed cache to contain XC, YC, and rA"
-                )
+
+        without_features = [
+            source.name for source in replay_sources if source.spatial_features is None
+        ]
+        if without_features:
+            logger.warning(
+                "SPATIAL FEATURES DISABLED: %d of %d cache(s) have no XC/YC/rA. "
+                "Training WITHOUT location or cell-area inputs, so the model cannot "
+                "tell where a patch sits or how large its cells are. Rebuild those "
+                "caches with XC/YC/rA to enable it. Missing: %s",
+                len(without_features),
+                len(replay_sources),
+                without_features[:4],
+            )
+            self.spatial_features = False
+        elif cfg.domain_parallel.enabled:
+            # The features are one full-grid [4, H, W] tensor, and domain
+            # parallelism shards H/W, so concatenating them would not line up.
+            logger.warning(
+                "SPATIAL FEATURES DISABLED: domain_parallel shards the spatial "
+                "dims, which the full-grid feature tensor does not follow."
+            )
+            self.spatial_features = False
+        else:
+            self.spatial_features = True
             spatial_shapes = {
                 tuple(source.spatial_features.shape[-2:])
                 for source in replay_sources
@@ -817,15 +842,15 @@ class Trainer:
             }
             if len(spatial_shapes) != 1:
                 raise ValueError(
-                    "Multi-patch replay currently requires all packed caches to "
-                    "have the same spatial shape."
+                    "Spatial features require all packed caches to have the same "
+                    f"spatial shape; got {sorted(spatial_shapes)}."
                 )
 
         # Grouped replay advances every tile of a cluster on one cursor and
         # reconciles their overlaps before writeback. It is meaningful only with
         # more than one cache; with a single cache a "group" is one tile, which
         # is exactly the ungrouped path.
-        self.replay_grouped = bool(cfg.replay.grouped) and self.replay_spatial_features
+        self.replay_grouped = bool(cfg.replay.grouped) and self.multi_cache
         self.tile_catalog: list[TileSpec] | None = None
         if self.replay_grouped:
             self.tile_catalog = self._build_tile_catalog()
@@ -835,14 +860,14 @@ class Trainer:
                 len(self.tile_catalog),
                 cfg.replay.blend_window,
             )
-        elif self.replay_spatial_features:
+        elif self.multi_cache:
             logger.info(
                 "Grouped replay DISABLED: each tile is an independent replay row "
                 "drifting on its own cursor (replay.grouped=false)."
             )
 
         self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound)) + (
-            SPATIAL_FEATURE_CHANNELS if self.replay_spatial_features else 0
+            SPATIAL_FEATURE_CHANNELS if self.spatial_features else 0
         )
         self.num_out = int((cfg.data.hist + 1) * self.N_prog)
 
@@ -851,8 +876,13 @@ class Trainer:
         )
 
         logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
-        if self.replay_spatial_features:
-            logger.info("Replay multi-patch spatial inputs enabled: sphere_xyz + log_rA")
+        if self.spatial_features:
+            logger.info(
+                "Spatial inputs enabled across %d cache(s): sphere_xyz + log_rA "
+                "(+%d channels)",
+                len(replay_sources),
+                SPATIAL_FEATURE_CHANNELS,
+            )
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
 
         assert isinstance(cfg.data_stride, list)
@@ -964,7 +994,7 @@ class Trainer:
                     "its own tile's mask.",
                     differing,
                 )
-        self.area_weights: Grid = spherical_area_weights(self.data)
+        self.area_weights: Grid = cell_area_weights(self.src)
 
         self.area_weights = self.area_weights.to(self.device)
 
@@ -1355,7 +1385,7 @@ class Trainer:
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 long_rollout=True,
-                append_spatial_features_to_inputs=self.replay_spatial_features,
+                append_spatial_features_to_inputs=self.spatial_features,
             )
 
             inference_datasets.append(inference_dataset)
@@ -2620,7 +2650,7 @@ class Trainer:
             non_blocking=True,
         )
         input = torch.cat((prognostic_state, boundary), dim=1)
-        if getattr(self, "replay_spatial_features", False):
+        if getattr(self, "spatial_features", False):
             input = dataset.append_spatial_features(input)
         return input, label
 
@@ -3566,7 +3596,7 @@ class Trainer:
                     normalize_before_mask=self.normalize_before_mask,
                     masked_fill_value=self.normalize_fill_value,
                     long_rollout=True,
-                    append_spatial_features_to_inputs=self.replay_spatial_features,
+                    append_spatial_features_to_inputs=self.spatial_features,
                     # The grouped-run line above is the useful summary. Avoid
                     # repeating the same local timestamp once per tile.
                     log_long_rollout=False,
@@ -3743,7 +3773,7 @@ class Trainer:
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 long_rollout=True,
-                append_spatial_features_to_inputs=self.replay_spatial_features,
+                append_spatial_features_to_inputs=self.spatial_features,
             )
             if len(rollout_dataset) < num_steps:
                 raise RuntimeError(
@@ -4029,7 +4059,7 @@ class Trainer:
                 stride=stride,
                 temporal_stride=cur_temporal_stride,
                 executor=self.executor,
-                append_spatial_features_to_inputs=self.replay_spatial_features,
+                append_spatial_features_to_inputs=self.spatial_features,
             )
             for source in replay_sources
             for stride in self.data_stride
@@ -4074,7 +4104,7 @@ class Trainer:
                 stride=stride,
                 temporal_stride=cur_temporal_stride,
                 executor=self.executor,
-                append_spatial_features_to_inputs=self.replay_spatial_features,
+                append_spatial_features_to_inputs=self.spatial_features,
             )
             for source in validation_sources
             for stride in self.data_stride
@@ -4145,8 +4175,9 @@ class Trainer:
         val_loader_kwargs: dict[str, Any] = {
             "dataset": val_data,
             # ConcatDataset can otherwise form a heterogeneous batch at a cache
-            # boundary, which collate_raw_train_data deliberately rejects.
-            "batch_size": 1 if self.replay_spatial_features else self.batch_size,
+            # boundary, which collate_raw_train_data deliberately rejects. Note
+            # this is the VALIDATION loader only; training keeps self.batch_size.
+            "batch_size": 1 if self.multi_cache else self.batch_size,
             "sampler": self.val_sampler,
             "num_workers": self.num_workers,
             "pin_memory": self.pin_mem,
@@ -4154,6 +4185,13 @@ class Trainer:
             "collate_fn": collate_fn,
             "multiprocessing_context": self.mp_context,
         }
+        if self.multi_cache and self.batch_size != 1:
+            logger.info(
+                "Validation loader batch_size forced to 1 (train stays at %d): a "
+                "multi-cache ConcatDataset would otherwise batch across a cache "
+                "boundary. Grouped runs do not use this loader at all.",
+                self.batch_size,
+            )
         if self.num_workers > 0:
             train_loader_kwargs["prefetch_factor"] = self.prefetch_factor
             val_loader_kwargs["prefetch_factor"] = self.prefetch_factor

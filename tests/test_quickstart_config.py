@@ -55,9 +55,9 @@ def test_quickstart_notebook_is_valid_and_current():
     assert '"s3fs==2025.5.1"' in install_source
     assert "--no-warn-conflicts" in install_source
     assert "--progress-bar off" in install_source
-    assert "--no-deps --no-warn-conflicts" in install_source
+    assert "--no-deps" not in install_source
     assert install_source.find('"s3fs==2025.5.1"') < install_source.rfind("samudra")
-    assert install_source.count("!pip install") == 2
+    assert install_source.count("!pip install") == 1
     assert "from importlib" not in install_source
     assert "RuntimeError" not in install_source
     assert "restart" not in install_source
@@ -65,6 +65,8 @@ def test_quickstart_notebook_is_valid_and_current():
     assert "loaded_numpy_version != installed_numpy_version" in restart_source
     assert "os.kill(os.getpid(), signal.SIGKILL)" in restart_source
     assert "Runtime → Run all once more" in restart_source
+    assert "torch.cuda.is_available()" in restart_source
+    assert "torch.backends.cuda.is_flash_attention_available()" in restart_source
     assert "runtime.restart_session()" not in sources
     assert "subprocess" not in sources
     assert "samudra==" not in sources

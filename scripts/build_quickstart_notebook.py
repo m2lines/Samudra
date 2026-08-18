@@ -74,22 +74,18 @@ INSTALL_MD = """\
 
 This tracks and installs the latest stable `samudra` release from PyPI.
 
-Why two commands? The package currently declares both its core runtime and
-HPC/infrastructure dependencies. A normal `pip install samudra` resolves that
-entire set, including tools such as SkyPilot and xESMF, and can replace
-Colab's working CUDA-enabled PyTorch stack. The first command installs the
-bounded notebook runtime; the second installs the Samudra wheel with dependency
-resolution disabled.
+Samudra's Perceiver uses PyTorch's native scaled dot product attention, so it
+does not need separately compiled `flash-attn`, `flash-perceiver`, or
+`perceiver-pytorch` packages. One resolver invocation can therefore install
+Samudra and the bounded notebook runtime. Pip retains Colab's CUDA-enabled
+PyTorch when it satisfies Samudra's supported version range; the following cell
+verifies CUDA and PyTorch's compiled FlashAttention support before training.
 
 Samudra declares NumPy `>=1.26.4,<2` as its supported range. The explicit
-runtime subset applies that constraint, installs Matplotlib `>=3.10.1` and a
-matching `s3fs`/`fsspec` pair, and preserves Colab's CUDA-enabled PyTorch.
-Colab also includes unrelated `datasets` and `gcsfs` packages that pin an older
-`fsspec`; `--no-warn-conflicts` keeps setup output focused on the selected
-notebook runtime.
-
-The explicit list is a temporary compatibility measure until the package
-dependencies are split into smaller optional groups.
+constraints also select Matplotlib `>=3.10.1` and a matching `s3fs`/`fsspec`
+pair. Colab includes unrelated `datasets` and `gcsfs` packages that pin an older
+`fsspec`; `--no-warn-conflicts` keeps setup output focused on this notebook's
+runtime.
 
 Colab may have already loaded NumPy 2 before this installation replaces it.
 The following cell detects that one-time mismatch and restarts the Python
@@ -105,9 +101,7 @@ INSTALL_PY = """\
     "pydantic-settings>=2.8.1" "pyyaml>=6.0.2" "s3fs==2025.5.1" \\
     "torchinfo>=1.8" "tqdm>=4.67.1" "typing-extensions>=4.15" \\
     "wandb>=0.19.8" "xarray>=2025.1.2" \\
-    "xarray-einstats>=0.8" "zarr<3"
-!pip install --quiet --upgrade --no-deps --no-warn-conflicts \\
-    --progress-bar off samudra
+    "xarray-einstats>=0.8" "zarr<3" samudra
 """
 
 RESTART_PY = """\
@@ -139,6 +133,20 @@ if (
     os.kill(os.getpid(), signal.SIGKILL)
 else:
     print(f"Python environment ready (NumPy {installed_numpy_version}).")
+
+import torch
+
+if not torch.cuda.is_available():
+    raise RuntimeError(
+        "The installed PyTorch cannot access CUDA. Select a Colab GPU runtime "
+        "and rerun setup."
+    )
+
+print(f"PyTorch: {torch.__version__} (CUDA {torch.version.cuda})")
+print(
+    "PyTorch FlashAttention compiled: "
+    f"{torch.backends.cuda.is_flash_attention_available()}"
+)
 """
 
 CONFIG_MD = """\

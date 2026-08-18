@@ -7,12 +7,18 @@ from pathlib import Path
 
 import pandas as pd
 import pytest
+import yaml
 from pydantic import ValidationError
 
+from samudra.config import TrainConfig
 from samudra.search import SearchConfig
-from samudra.search.config import ArtifactConfig
+from samudra.search.config import ArtifactConfig, SlurmExecutorConfig
 from samudra.search.executors import LocalExecutor, SlurmExecutor
-from samudra.utils.training_summary import write_search_metrics
+from samudra.utils.location import S3Location
+from samudra.utils.training_summary import (
+    write_search_metrics,
+    write_search_worker_status,
+)
 
 
 def config(tmp_path: Path, *, executor: str = "local") -> SearchConfig:
@@ -90,6 +96,25 @@ def test_search_generates_a_readable_run_id_once(tmp_path, monkeypatch):
     assert search.search_dir.name == search.run_id
 
 
+def test_immutable_environment_uses_verified_commit_provenance(monkeypatch):
+    from samudra.search.successive_halving import _git_provenance
+
+    monkeypatch.setenv("SAMUDRA_CODE_COMMIT", "A" * 40)
+    provenance = _git_provenance(allow_dirty=False)
+
+    assert provenance["commit"] == "a" * 40
+    assert provenance["dirty"] is False
+
+
+def test_immutable_environment_rejects_ambiguous_commit(monkeypatch):
+    from samudra.search.successive_halving import _git_provenance
+
+    monkeypatch.setenv("SAMUDRA_CODE_COMMIT", "main")
+
+    with pytest.raises(ValueError, match="full 40-character Git SHA"):
+        _git_provenance(allow_dirty=False)
+
+
 def test_start_snapshots_resolved_candidate_configs(tmp_path, monkeypatch):
     search_config = config(tmp_path)
     search_config.executor.dry_run = True
@@ -113,6 +138,43 @@ def test_start_snapshots_resolved_candidate_configs(tmp_path, monkeypatch):
     assert state_path.is_file()
     assert all(not candidate.args for candidate in bundled.candidates)
     assert all(Path(candidate.config).is_file() for candidate in bundled.candidates)
+
+
+def test_start_snapshot_preserves_structured_s3_locations(tmp_path, monkeypatch):
+    search_config = config(tmp_path)
+    search_config.executor.dry_run = True
+    train_config = TrainConfig.from_yaml_and_cli(
+        [str(Path("tests/configs/train_default.yaml").resolve())]
+    )
+    train_config.data.sources[0].data_location = S3Location(
+        endpoint_url="https://osn.example.test",
+        anon=True,
+        bucket="public",
+        path="data/test.zarr",
+    )
+    source_path = tmp_path / "s3-train.yaml"
+    source_path.write_text(
+        yaml.safe_dump(train_config.model_dump(mode="json")), encoding="utf-8"
+    )
+    source = str(source_path)
+    for candidate in search_config.candidates:
+        candidate.config = source
+    monkeypatch.setattr(
+        "samudra.search.successive_halving._git_provenance",
+        lambda allow_dirty: {
+            "commit": "f" * 40,
+            "dirty": False,
+            "package_version": "1.0",
+        },
+    )
+    search = search_config.build()
+
+    search.start()
+
+    bundled = SearchConfig.from_yaml_and_cli([str(search.config_path)])
+    train_config = TrainConfig.from_yaml_and_cli([bundled.candidates[0].config])
+    assert isinstance(train_config.data.sources[0].data_location, S3Location)
+    assert train_config.data.sources[0].data_location.anon is True
 
 
 def test_local_artifact_publisher_writes_queryable_research_record(
@@ -140,6 +202,12 @@ def test_local_artifact_publisher_writes_queryable_research_record(
     )
     search = search_config.build()
     search.start()
+    published = tmp_path / "published/test-search--run"
+    published_state = json.loads((published / "state.json").read_text(encoding="utf-8"))
+    assert published_state["status"] == "running"
+    initial_results = pd.read_parquet(published / "results.parquet")
+    assert initial_results.empty
+    assert {"candidate", "rung", "validation_loss"}.issubset(initial_results.columns)
     output = search.output_dir("a", 1)
     (output / "saved_nets").mkdir(parents=True)
     (output / "saved_nets/ckpt.pt").write_bytes(b"checkpoint")
@@ -154,7 +222,10 @@ def test_local_artifact_publisher_writes_queryable_research_record(
         {
             "candidate": "a",
             "rung": 1,
+            "epochs": 3,
             "eligible": True,
+            "validation_loss": 0.25,
+            "train_loss": 0.2,
             "output_dir": str(output),
         }
     ]
@@ -162,7 +233,6 @@ def test_local_artifact_publisher_writes_queryable_research_record(
 
     search.publish(state)
 
-    published = tmp_path / "published/test-search--run"
     assert (published / "results.parquet").is_file()
     assert (published / "epochs.parquet").is_file()
     assert (published / f"runs/{output.name}/saved_nets/ckpt.pt").is_file()
@@ -180,6 +250,48 @@ def test_local_artifact_publisher_writes_queryable_research_record(
     figure = catalog[catalog["artifact"].str.endswith("loss.png")].iloc[0]
     assert figure["kind"] == "figure"
     assert figure["candidate"] == "a"
+    report = catalog[catalog["artifact"] == "analysis/report.md"].iloc[0]
+    assert report["kind"] == "report"
+    assert report["media_type"] == "text/markdown"
+
+
+def test_start_records_and_publishes_submission_failure(tmp_path, monkeypatch):
+    search_config = config(tmp_path)
+    search_config.executor.dry_run = True
+    search_config.artifacts = ArtifactConfig.model_validate(
+        {"destination": {"type": "local", "path": tmp_path / "published"}}
+    )
+    source = str(Path("tests/configs/train_default.yaml").resolve())
+    for candidate in search_config.candidates:
+        candidate.config = source
+    monkeypatch.setattr(
+        "samudra.search.successive_halving._git_provenance",
+        lambda allow_dirty: {
+            "commit": "f" * 40,
+            "dirty": False,
+            "package_version": "1.0",
+        },
+    )
+    search = search_config.build()
+    monkeypatch.setattr(search.executor, "submit_anchors", lambda state: None)
+
+    def fail_submission(state, rung):
+        raise RuntimeError("scheduler unavailable")
+
+    monkeypatch.setattr(search.executor, "submit_rung", fail_submission)
+
+    with pytest.raises(RuntimeError, match="scheduler unavailable"):
+        search.start()
+
+    local_state = search.read_state()
+    published_state = json.loads(
+        (tmp_path / "published/test-search--run/state.json").read_text(encoding="utf-8")
+    )
+    assert local_state["status"] == "failed"
+    assert local_state["failure"]["stage"] == "submission"
+    assert local_state["failure"]["type"] == "RuntimeError"
+    assert local_state["failure"]["message"] == "scheduler unavailable"
+    assert published_state == local_state
 
 
 def test_s3_publication_is_executor_independent_and_uses_configured_endpoint(
@@ -252,6 +364,41 @@ def write_result(search, name: str, rung: int, validation: float) -> None:
     )
 
 
+def test_ineligible_result_captures_bounded_scheduler_context(tmp_path):
+    search = config(tmp_path).build()
+    search.search_dir.mkdir(parents=True)
+    logs = search.search_dir / "logs"
+    logs.mkdir()
+    search.write_state(
+        {
+            "provenance": {"commit": "f" * 40},
+            "anchors": {"candidates": ["anchor"], "results": []},
+            "rungs": [
+                {
+                    "candidates": ["a", "b", "c"],
+                    "job_id": "123",
+                    "results": [],
+                },
+                {"candidates": [], "results": []},
+            ],
+        }
+    )
+    (logs / "r0-123_1.out").write_text("starting\n", encoding="utf-8")
+    (logs / "r0-123_1.err").write_text(
+        "container runtime unavailable\n", encoding="utf-8"
+    )
+
+    result = search._result("b", 0)
+
+    assert result["eligible"] is False
+    assert "training_summary.json" in result["error"]
+    assert result["scheduler_task_id"] == "123_1"
+    assert result["scheduler_stdout_log"] == "logs/r0-123_1.out"
+    assert result["scheduler_stdout_tail"] == "starting\n"
+    assert result["scheduler_stderr_log"] == "logs/r0-123_1.err"
+    assert result["scheduler_stderr_tail"] == "container runtime unavailable\n"
+
+
 def test_successive_halving_promotes_with_dataframe_and_reports_metrics(
     tmp_path, monkeypatch
 ):
@@ -303,6 +450,10 @@ def test_successive_halving_promotes_with_dataframe_and_reports_metrics(
     report = search.results_path.read_text(encoding="utf-8")
     assert "validation_loss" in report
     assert "train_loss" in report
+    markdown = (search.search_dir / "analysis/report.md").read_text(encoding="utf-8")
+    assert "## Latest eligible result per candidate" in markdown
+    assert "`b` | 0 | 1 | 0.1" in markdown
+    assert "`b`, `c`" in markdown
 
 
 def test_local_executor_runs_tasks_then_advances(tmp_path, monkeypatch):
@@ -368,6 +519,48 @@ def test_advance_retry_finishes_publication_and_submission(tmp_path, monkeypatch
     assert events == ["write", "publish", ("submit", 1)]
 
 
+def test_final_rung_with_failed_jobs_is_partial_not_complete(tmp_path):
+    search = config(tmp_path).build()
+    search.search_dir.mkdir(parents=True)
+    search.config_path.write_text("test", encoding="utf-8")
+    state = {
+        "name": "test-search",
+        "created_at": "now",
+        "status": "running",
+        "provenance": {"commit": "f" * 40},
+        "anchors": {"candidates": [], "results": []},
+        "rungs": [
+            {
+                "index": 0,
+                "epochs": 1,
+                "candidates": ["a", "b"],
+                "results": [],
+                "promoted": ["a", "b"],
+                "advanced": True,
+            },
+            {
+                "index": 1,
+                "epochs": 3,
+                "candidates": ["a", "b"],
+                "results": [],
+                "promoted": [],
+                "advanced": False,
+            },
+        ],
+    }
+    search.write_state(state)
+    write_result(search, "a", 1, 0.1)
+
+    search.advance(1)
+
+    updated = search.read_state()
+    assert updated["status"] == "partial"
+    assert updated["rungs"][1]["results"][0]["eligible"] is True
+    assert updated["rungs"][1]["results"][1]["eligible"] is False
+    report = (search.search_dir / "analysis/report.md").read_text(encoding="utf-8")
+    assert "Best completed finalist" in report
+
+
 def test_task_builds_train_config_and_calls_trainer_directly(tmp_path, monkeypatch):
     search_config = config(tmp_path)
     search_config.artifacts = ArtifactConfig.model_validate(
@@ -392,6 +585,8 @@ def test_task_builds_train_config_and_calls_trainer_directly(tmp_path, monkeypat
     class FakeTrainer:
         def __init__(self, train_config):
             received.append(train_config)
+            self.num_batches_seen = 0
+            self.train_progress = type("Progress", (), {"optimizer_steps": 0})()
 
         def run(self):
             received.append("run")
@@ -442,7 +637,12 @@ def test_slurm_executor_submits_array_and_automatic_advance(tmp_path, monkeypatc
     search.executor.submit_rung(state, 0)
 
     assert "--array=0-1%2" in commands[0]
+    assert f"--chdir={tmp_path / 'runs'}" in commands[0]
+    assert "APPTAINER_MODULE=singularity-ce/4.3.3" in next(
+        value for value in commands[0] if value.startswith("--export=")
+    )
     assert any(value.startswith("--dependency=afterany:1") for value in commands[1])
+    assert f"--chdir={tmp_path / 'runs'}" in commands[1]
     assert "--export=ALL" in commands[1]
     assert "module load singularity-ce/4.3.3" in commands[1][-1]
     assert "samudra.search.worker" in commands[1][-1]
@@ -479,3 +679,128 @@ def test_slurm_does_not_persist_array_without_controller(tmp_path, monkeypatch):
     assert saved["status"] == "prepared"
     assert "job_id" not in saved["rungs"][0]
     assert "controller_job_id" not in saved["rungs"][0]
+
+
+def test_slurm_probe_gates_first_rung_array(tmp_path, monkeypatch):
+    search_config = config(tmp_path, executor="slurm")
+    assert isinstance(search_config.executor, SlurmExecutorConfig)
+    search_config.executor.rung0_probe = True
+    search = search_config.build()
+    search.search_dir.mkdir(parents=True)
+    state = {
+        "name": "test-search",
+        "status": "prepared",
+        "anchors": {"candidates": []},
+        "rungs": [{"candidates": ["a", "b"]}],
+    }
+    search.write_state(state)
+    commands = []
+
+    def submit(command):
+        commands.append(command)
+        return str(len(commands))
+
+    monkeypatch.setattr(search.executor, "_submit", submit)
+
+    search.executor.submit_rung(state, 0)
+
+    assert len(commands) == 2
+    assert "--array=0-0%1" in commands[0]
+    assert "r0-probe" in next(
+        value for value in commands[0] if value.startswith("--output=")
+    )
+    assert "SAMUDRA_MODULE_ARGS=probe " in next(
+        value for value in commands[0] if value.startswith("--export=")
+    )
+    assert "module load singularity-ce/4.3.3" in commands[1][-1]
+    assert "release-probe" in commands[1][-1]
+    saved = search.read_state()
+    assert saved["status"] == "validating"
+    assert saved["rungs"][0]["probe"] == {
+        "candidate": "a",
+        "job_id": "1",
+        "controller_job_id": "2",
+        "status": "submitted",
+    }
+
+
+def test_successful_probe_releases_full_rung(tmp_path, monkeypatch):
+    search = config(tmp_path, executor="slurm").build()
+    search.search_dir.mkdir(parents=True)
+    state = {
+        "name": "test-search",
+        "status": "validating",
+        "provenance": {"commit": "f" * 40},
+        "anchors": {"candidates": []},
+        "rungs": [
+            {
+                "candidates": ["a", "b"],
+                "probe": {"candidate": "a", "status": "submitted"},
+            }
+        ],
+    }
+    search.write_state(state)
+    output = search.search_dir / "probe/a"
+    output.mkdir(parents=True)
+    write_search_worker_status(
+        output,
+        "completed",
+        optimizer_steps=1,
+        batches_seen=32,
+    )
+    released = []
+    monkeypatch.setattr(
+        "samudra.search.successive_halving._git_provenance",
+        lambda allow_dirty: {"commit": "f" * 40},
+    )
+    monkeypatch.setattr(
+        search.executor,
+        "submit_validated_rung",
+        lambda state, rung: released.append((state, rung)),
+    )
+
+    search.release_probe(0)
+
+    updated = search.read_state()
+    assert updated["rungs"][0]["probe"]["status"] == "complete"
+    assert updated["rungs"][0]["probe"]["optimizer_steps"] == 1
+    assert released[0][1] == 0
+
+
+def test_failed_probe_terminates_search_before_array(tmp_path, monkeypatch):
+    search = config(tmp_path, executor="slurm").build()
+    search.search_dir.mkdir(parents=True)
+    state = {
+        "name": "test-search",
+        "created_at": "now",
+        "status": "validating",
+        "provenance": {"commit": "f" * 40},
+        "anchors": {"candidates": [], "results": []},
+        "rungs": [
+            {
+                "index": 0,
+                "epochs": 1,
+                "candidates": ["a", "b"],
+                "results": [],
+                "promoted": [],
+                "probe": {"candidate": "a", "status": "submitted"},
+            }
+        ],
+    }
+    search.write_state(state)
+    output = search.search_dir / "probe/a"
+    output.mkdir(parents=True)
+    write_search_worker_status(output, "failed", error="bad data")
+    monkeypatch.setattr(
+        "samudra.search.successive_halving._git_provenance",
+        lambda allow_dirty: {"commit": "f" * 40},
+    )
+    monkeypatch.setattr(search, "publish", lambda state: None)
+
+    with pytest.raises(ValueError, match="probe failed"):
+        search.release_probe(0)
+
+    updated = search.read_state()
+    assert updated["status"] == "failed"
+    assert updated["failure"]["stage"] == "rung_probe"
+    assert updated["rungs"][0]["probe"]["status"] == "failed"

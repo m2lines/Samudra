@@ -88,6 +88,10 @@ def test_search_training_persists_full_epoch_history(trainer_pair: TrainPair):
     assert history["train_loss"].notna().all()
     assert history["validation_loss"].notna().all()
     assert "val/mean/loss" in history
+    summary = json.loads(
+        (trainer.output_dir / "training_summary.json").read_text(encoding="utf-8")
+    )
+    assert summary["val/mean/loss"] == pytest.approx(history.iloc[-1]["val/mean/loss"])
 
 
 @pytest.mark.parametrize(

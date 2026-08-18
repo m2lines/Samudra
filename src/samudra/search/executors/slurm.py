@@ -34,7 +34,7 @@ class SlurmExecutor(Executor):
         module = shlex.quote(self.config.apptainer_module)
         return shlex.join(["bash", "-lc", f"module load {module} && {command}"])
 
-    def _exports(self, rung: int, *, anchor: bool) -> str:
+    def _exports(self, rung: int, *, anchor: bool, worker_command: str = "task") -> str:
         values = {
             "ALL": None,
             "CONFIG": str(self.search.config_path),
@@ -43,11 +43,11 @@ class SlurmExecutor(Executor):
             "SAMUDRA_MODULE": "samudra.search.worker",
             "SAMUDRA_MODULE_ARGS": shlex.join(
                 [
-                    "task",
+                    worker_command,
                     str(self.search.config_path),
                     str(self.search.state_path),
                     str(rung),
-                    *(["--anchor"] if anchor else []),
+                    *(["--anchor"] if anchor and worker_command == "task" else []),
                 ]
             ),
             "SAMUDRA_MANAGE_RUN_DIR": "0",
@@ -65,27 +65,46 @@ class SlurmExecutor(Executor):
             key if value is None else f"{key}={value}" for key, value in values.items()
         )
 
-    def _array(self, state: dict[str, Any], rung: int, *, anchor: bool) -> str:
+    def _array(
+        self,
+        state: dict[str, Any],
+        rung: int,
+        *,
+        anchor: bool,
+        task_start: int = 0,
+        task_end: int | None = None,
+        label: str | None = None,
+        worker_command: str = "task",
+    ) -> str:
         candidates = (
             state["anchors"]["candidates"]
             if anchor
             else state["rungs"][rung]["candidates"]
         )
-        maximum = min(len(candidates), self.config.max_concurrent)
+        if task_end is None:
+            task_end = len(candidates) - 1
+        if not 0 <= task_start <= task_end < len(candidates):
+            raise ValueError(
+                f"Invalid task range {task_start}-{task_end} for "
+                f"{len(candidates)} candidates"
+            )
+        maximum = min(task_end - task_start + 1, self.config.max_concurrent)
         walltime = (
             self.config.time_by_rung[rung]
             if self.config.time_by_rung is not None
             else self.config.time
         )
-        label = "anchors" if anchor else f"r{rung}"
+        label = label or ("anchors" if anchor else f"r{rung}")
         logs = self.search.search_dir / "logs"
         logs.mkdir(exist_ok=True)
+        working_directory = self.config.scratch_dir or self.config.output_dir
         return self._submit(
             [
                 "sbatch",
                 "--parsable",
                 f"--job-name={self.search.run_id}-{label}",
-                f"--array=0-{len(candidates) - 1}%{maximum}",
+                f"--chdir={working_directory}",
+                f"--array={task_start}-{task_end}%{maximum}",
                 f"--account={self.config.account}",
                 f"--partition={self.config.partition}",
                 "--nodes=1",
@@ -96,7 +115,7 @@ class SlurmExecutor(Executor):
                 f"--time={walltime}",
                 f"--output={logs}/{label}-%A_%a.out",
                 f"--error={logs}/{label}-%A_%a.err",
-                f"--export={self._exports(rung, anchor=anchor)}",
+                f"--export={self._exports(rung, anchor=anchor, worker_command=worker_command)}",
                 str(self.config.harness),
             ]
         )
@@ -110,6 +129,62 @@ class SlurmExecutor(Executor):
         self.search.write_state(state)
 
     def submit_rung(self, state: dict[str, Any], rung: int) -> None:
+        if rung == 0 and self.config.rung0_probe:
+            self._submit_probe(state, rung)
+            return
+        self.submit_validated_rung(state, rung)
+
+    def _submit_probe(self, state: dict[str, Any], rung: int) -> None:
+        """Gate the expensive first array on one real optimizer update."""
+        candidate = state["rungs"][rung]["candidates"][0]
+        job_id = self._array(
+            state,
+            rung,
+            anchor=False,
+            task_start=0,
+            task_end=0,
+            label=f"r{rung}-probe",
+            worker_command="probe",
+        )
+        command = self._controller_command(
+            "-m",
+            "samudra.search.worker",
+            "release-probe",
+            str(self.search.config_path),
+            str(self.search.state_path),
+            str(rung),
+        )
+        logs = self.search.search_dir / "logs"
+        working_directory = self.config.scratch_dir or self.config.output_dir
+        controller_job = self._submit(
+            [
+                "sbatch",
+                "--parsable",
+                f"--job-name={self.search.run_id}-release-r{rung}",
+                f"--chdir={working_directory}",
+                f"--dependency=afterany:{job_id}",
+                f"--account={self.config.account}",
+                f"--partition={self.config.controller_partition}",
+                "--cpus-per-task=1",
+                "--mem=2G",
+                "--time=00:10:00",
+                "--export=ALL",
+                f"--output={logs}/release-r{rung}-%j.out",
+                f"--error={logs}/release-r{rung}-%j.err",
+                f"--wrap={command}",
+            ]
+        )
+        state = self.search.read_state()
+        state["rungs"][rung]["probe"] = {
+            "candidate": candidate,
+            "job_id": job_id,
+            "controller_job_id": controller_job,
+            "status": "submitted",
+        }
+        state["status"] = "validating"
+        self.search.write_state(state)
+
+    def submit_validated_rung(self, state: dict[str, Any], rung: int) -> None:
         logs = self.search.search_dir / "logs"
         logs.mkdir(exist_ok=True)
         job_id = self._array(state, rung, anchor=False)
@@ -125,11 +200,13 @@ class SlurmExecutor(Executor):
             str(self.search.state_path),
             str(rung),
         )
+        working_directory = self.config.scratch_dir or self.config.output_dir
         controller_job = self._submit(
             [
                 "sbatch",
                 "--parsable",
                 f"--job-name={self.search.run_id}-advance-r{rung}",
+                f"--chdir={working_directory}",
                 f"--dependency={dependency}",
                 f"--account={self.config.account}",
                 f"--partition={self.config.controller_partition}",

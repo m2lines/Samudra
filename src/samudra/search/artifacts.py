@@ -24,6 +24,7 @@ EPOCHS_NAME = "epochs.parquet"
 RUN_FILES = (
     "config.yaml",
     "training_summary.json",
+    "search_worker_status.json",
     "search_metrics.parquet",
     "experiment.log",
     "error.log",
@@ -134,6 +135,10 @@ class ArtifactPublisher:
             if path.is_file():
                 relative = path.relative_to(self.search.search_dir)
                 files.append((path, str(relative)))
+        for path in sorted((self.search.search_dir / "probe").rglob("*")):
+            if path.is_file():
+                relative = path.relative_to(self.search.search_dir)
+                files.append((path, str(relative)))
 
         rows = self.search.result_rows(state)
         for row in rows:
@@ -209,6 +214,8 @@ class ArtifactPublisher:
     def _kind(relative: str) -> str:
         if relative.endswith("ckpt.pt"):
             return "checkpoint"
+        if Path(relative).suffix == ".md":
+            return "report"
         if Path(relative).suffix in {".pdf", ".png", ".svg"}:
             return "figure"
         if relative.endswith(".log") or relative.startswith("logs/"):
@@ -225,6 +232,7 @@ class ArtifactPublisher:
             ".csv": "text/csv",
             ".json": "application/json",
             ".log": "text/plain",
+            ".md": "text/markdown",
             ".parquet": "application/vnd.apache.parquet",
             ".pt": "application/x-pytorch",
             ".yaml": "application/yaml",

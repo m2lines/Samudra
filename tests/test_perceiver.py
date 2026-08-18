@@ -91,6 +91,27 @@ def test_perceiver_io_supports_shared_and_batched_queries():
     assert torch.allclose(shared_output, batched_output)
 
 
+def test_perceiver_io_preserves_legacy_decoder_without_query_residual():
+    model = PerceiverIO(
+        depth=1,
+        dim=7,
+        queries_dim=6,
+        num_latents=4,
+        latent_dim=8,
+        decoder_ff=False,
+    ).eval()
+    for parameter in model.decoder_cross_attn.parameters():
+        torch.nn.init.zeros_(parameter)
+
+    data = torch.randn(2, 9, 7)
+    queries = torch.randn(2, 11, 6)
+
+    with torch.no_grad():
+        output = model(data, queries=queries)
+
+    assert torch.equal(output, torch.zeros_like(output))
+
+
 @pytest.mark.parametrize(
     ("implementation", "backend"),
     [("auto", "auto"), ("sdpa", "auto"), ("naive", "math"), ("flash", "flash")],

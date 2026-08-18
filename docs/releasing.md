@@ -30,11 +30,9 @@ uv add samudra --prerelease=allow
 pip install --pre samudra
 ```
 
-The `cuda` extra builds native kernels, so it needs a CUDA toolchain and a
-matching `torch` already present. With `uv` the `[tool.uv]` build settings in
-`pyproject.toml` handle this automatically; with plain `pip` you typically want
-`pip install --no-build-isolation "samudra[cuda]"` in an environment that
-already has `torch`.
+The `cuda` extra does not compile attention extensions. PyTorch's SDPA dispatcher
+selects an available optimized CUDA kernel at runtime, with no additional
+FlashAttention package or CUDA build toolchain required by Samudra.
 
 Installing exposes a `samudra` console command that mirrors the module entry
 points, so you don't need a checkout to run a task:

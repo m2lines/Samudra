@@ -1082,8 +1082,8 @@ def test_inference_and_train_datasets_append_spatial_features_identically() -> N
 
         base = torch.zeros(1, 3, 2, 2)
         torch.testing.assert_close(
-            inference.append_spatial_features(base),
-            train.append_spatial_features(base),
+            inference.append_static_channels(base),
+            train.append_static_channels(base),
         )
 
 
@@ -1105,7 +1105,7 @@ def test_inference_dataset_rejects_append_without_spatial_features() -> None:
         Normalize.init_instance(
             src, prognostic_var_names=prognostic, boundary_var_names=boundary
         )
-        with pytest.raises(ValueError, match="no spatial features"):
+        with pytest.raises(ValueError, match="XC, YC, and rA"):
             _make_inference_dataset(src, prognostic, boundary, append=True)
 
 
@@ -1118,8 +1118,8 @@ def test_append_spatial_features_rejects_shape_mismatch() -> None:
             src, prognostic_var_names=prognostic, boundary_var_names=boundary
         )
         dataset = _make_inference_dataset(src, prognostic, boundary, append=True)
-        with pytest.raises(ValueError, match="Spatial feature shape"):
-            dataset.append_spatial_features(torch.zeros(1, 4, 2, 2))
+        with pytest.raises(ValueError, match="Static channel shape"):
+            dataset.append_static_channels(torch.zeros(1, 4, 2, 2))
 
 
 # ---------------------------------------------------------------------------

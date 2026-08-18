@@ -866,8 +866,13 @@ class Trainer:
                 "drifting on its own cursor (replay.grouped=false)."
             )
 
-        self.num_in = int((cfg.data.hist + 1) * (self.N_prog + self.N_bound)) + (
-            SPATIAL_FEATURE_CHANNELS if self.spatial_features else 0
+        # One extra channel marking real cells, so the network can tell the ring
+        # it pads in from genuine land -- both are 0 in every other channel.
+        self.valid_mask = bool(cfg.data.valid_mask)
+        self.num_in = (
+            int((cfg.data.hist + 1) * (self.N_prog + self.N_bound))
+            + (SPATIAL_FEATURE_CHANNELS if self.spatial_features else 0)
+            + (1 if self.valid_mask else 0)
         )
         self.num_out = int((cfg.data.hist + 1) * self.N_prog)
 
@@ -883,6 +888,10 @@ class Trainer:
                 len(replay_sources),
                 SPATIAL_FEATURE_CHANNELS,
             )
+        logger.info(
+            "Valid-mask input channel: %s",
+            "ENABLED (+1 channel)" if self.valid_mask else "disabled",
+        )
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
 
         assert isinstance(cfg.data_stride, list)
@@ -1386,6 +1395,7 @@ class Trainer:
                 masked_fill_value=self.normalize_fill_value,
                 long_rollout=True,
                 append_spatial_features_to_inputs=self.spatial_features,
+                append_valid_mask=self.valid_mask,
             )
 
             inference_datasets.append(inference_dataset)
@@ -2650,8 +2660,7 @@ class Trainer:
             non_blocking=True,
         )
         input = torch.cat((prognostic_state, boundary), dim=1)
-        if getattr(self, "spatial_features", False):
-            input = dataset.append_spatial_features(input)
+        input = dataset.append_static_channels(input)
         return input, label
 
     def _wait_replay_entry_ready(self, entry: ReplayEntry) -> None:
@@ -3597,6 +3606,7 @@ class Trainer:
                     masked_fill_value=self.normalize_fill_value,
                     long_rollout=True,
                     append_spatial_features_to_inputs=self.spatial_features,
+                    append_valid_mask=self.valid_mask,
                     # The grouped-run line above is the useful summary. Avoid
                     # repeating the same local timestamp once per tile.
                     log_long_rollout=False,
@@ -3774,6 +3784,7 @@ class Trainer:
                 masked_fill_value=self.normalize_fill_value,
                 long_rollout=True,
                 append_spatial_features_to_inputs=self.spatial_features,
+                append_valid_mask=self.valid_mask,
             )
             if len(rollout_dataset) < num_steps:
                 raise RuntimeError(
@@ -4060,6 +4071,7 @@ class Trainer:
                 temporal_stride=cur_temporal_stride,
                 executor=self.executor,
                 append_spatial_features_to_inputs=self.spatial_features,
+                append_valid_mask=self.valid_mask,
             )
             for source in replay_sources
             for stride in self.data_stride
@@ -4105,6 +4117,7 @@ class Trainer:
                 temporal_stride=cur_temporal_stride,
                 executor=self.executor,
                 append_spatial_features_to_inputs=self.spatial_features,
+                append_valid_mask=self.valid_mask,
             )
             for source in validation_sources
             for stride in self.data_stride

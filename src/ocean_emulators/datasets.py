@@ -88,20 +88,52 @@ def _dataset_to_numpy(selected: xr.Dataset, leading_dims: tuple[str, ...]) -> np
     return np.concatenate(arrays, axis=len(leading_dims))
 
 
-def _append_spatial_features(
+def _static_input_channels(
+    spatial_features: torch.Tensor | None,
+    *,
+    include_spatial: bool,
+    include_valid_mask: bool,
+    grid_shape: tuple[int, int],
+) -> torch.Tensor | None:
+    """The fixed per-patch channels appended to every model input.
+
+    The order is [spatial | valid] and must stay stable: it is baked into the
+    input channel count of every checkpoint trained with it.
+    """
+    channels: list[torch.Tensor] = []
+    if include_spatial:
+        if spatial_features is None:
+            raise ValueError(
+                "Spatial features requested but this source has none. Packed "
+                "caches must contain XC, YC, and rA."
+            )
+        channels.append(spatial_features.to(dtype=torch.float32))
+    if include_valid_mask:
+        # Ones over the extent this patch actually holds. Constant on the input,
+        # which is the point: the network pads with zeros, so after padding the
+        # channel reads 1 on real cells and 0 on the padded ring. Without it a
+        # padded cell and a land cell are both 0 in every channel, and the model
+        # cannot tell "outside the tile" from "this is land".
+        channels.append(torch.ones((1, *grid_shape), dtype=torch.float32))
+    if not channels:
+        return None
+    return torch.cat(channels, dim=0)
+
+
+def _append_static_channels(
     input: torch.Tensor,
     features: torch.Tensor | None,
 ) -> torch.Tensor:
-    """Append a patch's fixed geographic features to a model input.
+    """Append a patch's fixed channels to a model input.
 
-    Shared by the replay/train and inference datasets so both assemble the
-    input channels in the same order: [prognostic | boundary | spatial].
+    Shared by the replay/train and inference datasets so both assemble the input
+    channels in the same order: [prognostic | boundary | spatial | valid].
     """
     if features is None:
         return input
     if tuple(features.shape[-2:]) != tuple(input.shape[-2:]):
         raise ValueError(
-            "Spatial feature shape does not match model input: "
+            "Static channel shape does not match model input: "
             f"{tuple(features.shape)} vs {tuple(input.shape)}"
         )
     features = features.to(device=input.device, dtype=input.dtype).unsqueeze(0)
@@ -136,6 +168,7 @@ class InferenceDataset(Dataset):
         long_rollout,
         inference_stride: int = 1,
         append_spatial_features_to_inputs: bool = False,
+        append_valid_mask: bool = False,
         log_long_rollout: bool = True,
     ):
         super().__init__()
@@ -143,6 +176,7 @@ class InferenceDataset(Dataset):
 
         self.hist = hist
         self.append_spatial_features_to_inputs = append_spatial_features_to_inputs
+        self.append_valid_mask = append_valid_mask
         if inference_stride < 1:
             raise ValueError("inference_stride must be >= 1")
         self.inference_stride = inference_stride
@@ -156,14 +190,12 @@ class InferenceDataset(Dataset):
         data = src.data
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
-        if (
-            self.append_spatial_features_to_inputs
-            and self._prognostic_src.spatial_features is None
-        ):
-            raise ValueError(
-                "append_spatial_features_to_inputs=True but this source has no "
-                "spatial features. Packed caches must contain XC, YC, and rA."
-            )
+        self._static_channels = _static_input_channels(
+            self._prognostic_src.spatial_features,
+            include_spatial=self.append_spatial_features_to_inputs,
+            include_valid_mask=self.append_valid_mask,
+            grid_shape=tuple(src.masks.prognostic.shape[-2:]),
+        )
         self._times = data.time
         self.normalize_before_mask = normalize_before_mask
         self.masked_fill_value = masked_fill_value
@@ -236,11 +268,9 @@ class InferenceDataset(Dataset):
             )
         )
 
-    def append_spatial_features(self, input: torch.Tensor) -> torch.Tensor:
-        """Append this patch's fixed geographic features to an inference input."""
-        if not self.append_spatial_features_to_inputs:
-            return input
-        return _append_spatial_features(input, self._prognostic_src.spatial_features)
+    def append_static_channels(self, input: torch.Tensor) -> torch.Tensor:
+        """Append this patch's fixed channels to an inference input."""
+        return _append_static_channels(input, self._static_channels)
 
     def merge_prognostic_and_boundary(
         self,
@@ -252,7 +282,7 @@ class InferenceDataset(Dataset):
             boundary = self._get_boundary(step)
         boundary = boundary.to(prognostic.device)
         data = torch.cat((prognostic, boundary), dim=1)
-        return self.append_spatial_features(data)
+        return self.append_static_channels(data)
 
     def rollout_boundary_and_target(self, step: int) -> tuple[torch.Tensor, torch.Tensor]:
         """Load one rollout step's forcing and truth on the CPU.
@@ -269,7 +299,7 @@ class InferenceDataset(Dataset):
         data_in = self._get_prognostic(idx)
         data_in_boundary = self._get_boundary(idx)
         data_in = torch.cat((data_in, data_in_boundary), dim=1)
-        data_in = self.append_spatial_features(data_in)
+        data_in = self.append_static_channels(data_in)
         label = self._get_label(idx)
         return (data_in, label)
 
@@ -637,6 +667,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         temporal_stride: int = 1,
         executor: ThreadPoolExecutor | None = None,
         append_spatial_features_to_inputs: bool = False,
+        append_valid_mask: bool = False,
     ):
         super().__init__()
         self.id = f"{self.__class__.__name__}_{str(id(self))}"
@@ -652,11 +683,18 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.masked_fill_value: float = masked_fill_value
         self._executor = executor
         self.append_spatial_features_to_inputs = append_spatial_features_to_inputs
+        self.append_valid_mask = append_valid_mask
 
         self.num_prognostic_channels: int = (hist + 1) * len(prognostic_var_names)
         data = src.data
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
+        self._static_channels = _static_input_channels(
+            self._prognostic_src.spatial_features,
+            include_spatial=self.append_spatial_features_to_inputs,
+            include_valid_mask=self.append_valid_mask,
+            grid_shape=tuple(src.masks.prognostic.shape[-2:]),
+        )
 
         # This class will be used only for training and validation
         total_steps: int = 2 * self.hist + 2
@@ -909,8 +947,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         label = self._prep_tensor_steps(
             prognostic_all[:, self.hist + 1 :, :, :, :]
         ).to(dtype=torch.float32)
-        if self.append_spatial_features_to_inputs:
-            total_input = self.append_spatial_features(total_input)
+        total_input = self.append_static_channels(total_input)
         return total_input, label
 
     def _prep_tensor_steps(
@@ -954,9 +991,9 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         )
         return self._flatten_steps(boundary_steps)
 
-    def append_spatial_features(self, input: torch.Tensor) -> torch.Tensor:
-        """Append this patch's fixed geographic features to a replay input."""
-        return _append_spatial_features(input, self._prognostic_src.spatial_features)
+    def append_static_channels(self, input: torch.Tensor) -> torch.Tensor:
+        """Append this patch's fixed channels to a replay input."""
+        return _append_static_channels(input, self._static_channels)
 
     def _normalize_and_mask_steps(
         self,

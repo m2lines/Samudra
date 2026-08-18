@@ -159,6 +159,16 @@ class DataConfig(BaseConfig):
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
+    valid_mask: bool = Field(
+        default=True,
+        description=(
+            "Append a valid-mask input channel: 1 on cells the patch actually "
+            "holds, 0 on the ring the network pads in. Without it a padded cell "
+            "and a land cell are both 0 in every channel, so the model cannot "
+            "tell 'outside the patch' from 'this is land'. Adds one input "
+            "channel, so a checkpoint trained with it must be evaluated with it."
+        ),
+    )
     concurrent_compute: bool = False
     llc_face: int = 1
     llc_i_start: int = 0

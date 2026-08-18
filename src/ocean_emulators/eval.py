@@ -134,6 +134,13 @@ class Eval:
             self.num_in += SPATIAL_FEATURE_CHANNELS
             logger.info("Spatial inputs enabled: sphere_xyz + log_rA")
 
+        # Must match the checkpoint: training appends this channel by default, so
+        # evaluating a valid-mask checkpoint without it is a channel mismatch.
+        self.valid_mask = bool(cfg.data.valid_mask)
+        if self.valid_mask:
+            self.num_in += 1
+            logger.info("Valid-mask input channel enabled (+1 channel)")
+
         logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
         self.data = self.src.data
         self.static_data = self.data_container.static_data
@@ -365,6 +372,7 @@ class Eval:
             long_rollout=True,
             inference_stride=self.inference_stride,
             append_spatial_features_to_inputs=self.spatial_features,
+            append_valid_mask=self.valid_mask,
         )
 
     def run(self) -> None:

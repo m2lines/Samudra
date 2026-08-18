@@ -700,6 +700,11 @@ class DecoderConfig(BaseConfig):
         description="Number of extra patch rings around each window to include as data context. "
         "Only used when window_patches is set. None = full context (every window sees all latent tokens).",
     )
+    output_overlap_patches: int = Field(
+        default=0,
+        ge=0,
+        description="Number of output-query patch rings decoded on each side of a window and cosine-blended with neighboring windows. Zero preserves hard assembly.",
+    )
 
     def build(
         self,
@@ -729,6 +734,7 @@ class DecoderConfig(BaseConfig):
             perceiver_io=decoder_core,
             window_patches=self.window_patches,
             context_patches=self.context_patches,
+            output_overlap_patches=self.output_overlap_patches,
         )
 
 

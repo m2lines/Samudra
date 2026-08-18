@@ -36,7 +36,7 @@ from samudra.aggregator.loss import (
 )
 from samudra.aggregator.validate.rollout import RolloutValidationAggregator
 from samudra.backend import init_train_backend
-from samudra.config import TrainConfig, build_loss_fn
+from samudra.config import SamudraMultiConfig, TrainConfig, build_loss_fn
 from samudra.constants import (
     MAX_TRAIN_MODEL_STEPS_FORWARD,
     BoundaryVarNames,
@@ -52,6 +52,7 @@ from samudra.datasets import (
     TrainDataLoader,
 )
 from samudra.models.base import BaseModel
+from samudra.models.modules.encoder import patch_from
 from samudra.stepper import (
     TrainBatchOutput,
     ValBatchOutput,
@@ -182,6 +183,18 @@ class Trainer:
         self.concurrent_compute = cfg.data.concurrent_compute
 
         self.primary_src = self.data_container.primary_source
+        self.validation_seam_spacings: dict[str, tuple[int, int]] | None = None
+        if isinstance(cfg.model, SamudraMultiConfig):
+            patch = patch_from(
+                (cfg.model.patch_extent[0], cfg.model.patch_extent[1]),
+                *self.primary_src.grid_size,
+            )
+            window = cfg.model.decoder.window_patches
+            if window is not None:
+                self.validation_seam_spacings = {
+                    "patch": patch,
+                    "window": (patch[0] * window, patch[1] * window),
+                }
 
         # We use dask for inference since it has memory issues otherwise.
         # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset
@@ -587,6 +600,7 @@ class Trainer:
             ),
             "world_size": self.world_size,
             "completed_at": datetime.datetime.now(datetime.UTC).isoformat(),
+            **scalar_diagnostics,
             **self.search_run.model_dump(),
         }
 
@@ -830,6 +844,7 @@ class Trainer:
             self.tensor_map,
             self.normalize,
             include_image_aggregators=log_validation_images,
+            seam_spacings=self.validation_seam_spacings,
         )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"

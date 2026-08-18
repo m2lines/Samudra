@@ -120,6 +120,7 @@ def make_decoder_with_shared_weights(
         perceiver_io=reference.perceiver_io,
         window_patches=reference.window_patches,
         context_patches=reference.context_patches,
+        output_overlap_patches=reference.output_overlap_patches,
     )
     kwargs.update(overrides)
     other = PerceiverDecoder(**kwargs)  # type: ignore
@@ -309,6 +310,70 @@ def test_direct_cross_attention_decoder_supports_windowing(
     output = decoder(latent_input, resolution)
 
     assert output.shape == (BATCH, OUT_CHANNELS, H, W)
+
+
+def test_overlapping_decoder_supports_backward_and_periodic_longitude(
+    resolution, latent_input, decoder_kwargs
+):
+    decoder_kwargs["perceiver_io"] = make_direct_cross_attention_io()
+    decoder = PerceiverDecoder(
+        **decoder_kwargs,
+        window_patches=2,
+        context_patches=1,
+        output_overlap_patches=1,
+    )
+    latent_input.requires_grad_()
+
+    output = decoder(latent_input, resolution)
+    output.square().mean().backward()
+
+    assert output.shape == (BATCH, OUT_CHANNELS, H, W)
+    assert latent_input.grad is not None
+    assert torch.isfinite(latent_input.grad).all()
+
+
+def test_overlapping_full_context_matches_non_windowed(
+    resolution, latent_input, decoder_kwargs
+):
+    full = PerceiverDecoder(**decoder_kwargs, window_patches=None, context_patches=None)
+    overlapping = make_decoder_with_shared_weights(
+        full,
+        window_patches=2,
+        context_patches=None,
+        output_overlap_patches=1,
+    )
+
+    with torch.no_grad():
+        expected = full(latent_input, resolution)
+        actual = overlapping(latent_input, resolution)
+
+    assert torch.allclose(actual, expected, atol=1e-5)
+
+
+def test_overlap_requires_window_and_fits_inside_core():
+    with pytest.raises(ValueError, match="window_patches must be set"):
+        PerceiverDecoder(
+            in_channels=IN_CHANNELS,
+            out_channels=OUT_CHANNELS,
+            patch_extent=PATCH_EXTENT,
+            queries_dim=QUERIES_DIM,
+            perceiver_io=make_decoder_perceiver_io(),
+            window_patches=None,
+            context_patches=None,
+            output_overlap_patches=1,
+        )
+
+    with pytest.raises(ValueError, match="must not exceed half"):
+        PerceiverDecoder(
+            in_channels=IN_CHANNELS,
+            out_channels=OUT_CHANNELS,
+            patch_extent=PATCH_EXTENT,
+            queries_dim=QUERIES_DIM,
+            perceiver_io=make_decoder_perceiver_io(),
+            window_patches=2,
+            context_patches=0,
+            output_overlap_patches=2,
+        )
 
 
 def test_decoder_config_builds_direct_cross_attention():

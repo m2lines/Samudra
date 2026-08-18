@@ -215,8 +215,21 @@ Initial Slurm submissions are:
 - real-data optimizer-step probe `15974993`; and
 - probe-release controller `15974996`.
 
-Both anchors and the probe entered `RUNNING` state immediately. The five-member
-first-rung array remains gated on the probe recording a real optimizer update.
+Both anchors and the probe entered `RUNNING` state immediately. The probe loaded
+the real staged dataset, processed 32 microbatches, and recorded one optimizer
+step without error. The release controller then submitted first-rung array
+`15975206` and promotion controller `15975207`. The first overlap-add worker
+subsequently recorded a real first batch on an RTX6000, exercising the new
+forward path under the production CUDA/container environment.
+
+The initial W&B runs include:
+
+- [`hard-no-context`](https://wandb.ai/ocean_emulators/default/runs/q1mtpbny);
+- [`full-context`](https://wandb.ai/ocean_emulators/default/runs/wzl40byo); and
+- [`blend1-no-context`](https://wandb.ai/ocean_emulators/default/runs/syy4iy9g).
+
+Additional candidate links can be joined from `wandb_id` in the public result
+tables as their workers start.
 
 ## Planned analysis
 

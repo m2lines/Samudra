@@ -72,6 +72,7 @@ class SlurmExecutorConfig(BaseConfig):
     time: str = "04:00:00"
     time_by_rung: list[str] | None = None
     max_concurrent: int = Field(default=8, ge=1)
+    rung0_probe: bool = False
     data_root: Path | None = None
     scratch_dir: Path | None = None
     sif_path: Path | None = None

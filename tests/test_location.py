@@ -255,6 +255,44 @@ class TestLocationValidation:
         model = TestModel(location=unresolved)
         assert model.location == unresolved
 
+    @pytest.mark.parametrize(
+        "location, expected",
+        [
+            (UnresolvedLocation(path="data/test.zarr"), "data/test.zarr"),
+            (
+                S3Location(
+                    endpoint_url="https://s3.example.test",
+                    anon=True,
+                    bucket="bucket",
+                    path="data/test.zarr",
+                ),
+                {
+                    "type": "s3",
+                    "endpoint_url": "https://s3.example.test",
+                    "anon": True,
+                    "bucket": "bucket",
+                    "path": "data/test.zarr",
+                },
+            ),
+            (
+                LocalLocation(path=Path("/data/test.zarr")),
+                {"type": "local", "path": "/data/test.zarr"},
+            ),
+        ],
+    )
+    def test_location_union_serialization_round_trips(self, location, expected):
+        """Union serialization must not apply the string branch to S3/local data."""
+        from pydantic import BaseModel
+
+        class TestModel(BaseModel):
+            location: Location
+
+        model = TestModel(location=location)
+        dumped = model.model_dump(mode="json")
+
+        assert dumped["location"] == expected
+        assert TestModel.model_validate(dumped).location == location
+
 
 class TestLocationIntegration:
     """Integration tests for the location system."""

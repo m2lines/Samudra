@@ -40,6 +40,11 @@ rung; users do not manually advance the search. For a local laptop or Colab
 notebook run, include `search/local.yaml` instead of `search/torch.yaml`;
 candidates then run sequentially in the current environment.
 
+Clusters that expose the container runtime through environment modules should
+set `executor.apptainer_module` to the exact loadable module name (for example,
+`singularity-ce/4.3.3` on Torch). The resolved value is exported to every worker
+and retained in the search configuration.
+
 Every invocation gets a readable instance identifier such as
 `perceiver-2deg--20260813T192612.123456Z`. The stable `name` describes the
 experiment design; this generated `run_id` names its filesystem, object-store,
@@ -59,7 +64,28 @@ The uniquely named search directory contains:
   throughput, and variable/depth/channel metrics from every completed run;
 - `artifacts.parquet`: hashes, sizes, media types, and public/queryable locations
   for every published artifact;
+- `analysis/report.md`: a continuously updated leaderboard, rung history,
+  outcome (once available), and explicit candidate failures;
 - `logs/`: scheduler output when using Slurm.
+
+### Fail-fast worker probes
+
+For costly Slurm searches, set `executor.rung0_probe: true`. Before releasing
+the first candidate array, the executor runs the first candidate through the
+real data loader, model forward/backward path, and one optimizer update with
+W&B disabled. The bulk array is submitted only when the probe records a finite
+training batch and at least one optimizer step. A missing or failed probe marks
+the search terminal, publishes its diagnostics, and consumes no candidate
+array allocation.
+
+Every search-managed training process atomically maintains
+`search_worker_status.json` with its lifecycle history:
+`launched`, `initialized`, `first_batch`, `optimizer_step`, and
+`completed` or `failed`. Events include batch/optimizer counts, loss and loader
+timings when available, Slurm identity, and a traceback on failure. These files
+are copied into the public research record, and their latest stage is included
+in failed result rows and reports. A scheduler process merely starting is
+therefore not treated as evidence that training occurred.
 
 `results.csv` is deliberately denormalized and readable directly with pandas:
 
@@ -106,8 +132,12 @@ failure stops promotion loudly instead of silently creating an incomplete
 public record.
 
 The published record includes resolved search and training configs, Git
-provenance, scheduler state, per-rung outcomes (including failures), full epoch
-histories, experiment/error logs, W&B identities, and an SHA-256 inventory.
+provenance, scheduler state, per-rung outcomes (including failures), a Markdown
+summary report, full epoch histories, experiment/error logs, W&B identities,
+and an SHA-256 inventory.
+`results.parquet` is created and published with a stable empty schema before
+jobs are submitted, so its public URL can be queried immediately rather than
+returning 404 while rung zero is running.
 Search-level or per-run analysis hooks have a simple artifact contract: write
 their tables, reports, or figures beneath an `analysis/` directory and the
 publisher includes them automatically with their hashes and locations. This
@@ -187,9 +217,17 @@ candidates:
 ```
 
 The objective is the single metric used for promotion. `metrics` controls the
-additional columns collected in `results.csv`. A missing or non-finite metric,
-an incomplete epoch budget, or a missing checkpoint makes that result
+additional columns collected in `results.csv`. Any finite scalar emitted by
+training, validation, or inference can be named here, including namespaced
+diagnostics such as `val/seam/window_jump_ratio/zos`. A missing or non-finite
+metric, an incomplete epoch budget, or a missing checkpoint makes that result
 ineligible.
+
+A final rung is `complete` only when every finalist and fixed anchor finishes
+successfully. If at least one finalist is eligible but another final job fails,
+the terminal status is `partial`; the report identifies the best completed
+finalist without presenting it as an uncontested winner. A rung with no
+eligible candidates is `failed`.
 
 Candidates marked `fixed` are reference baselines. They run independently at
 the largest budget and do not consume promotion slots. Rung budgets are total

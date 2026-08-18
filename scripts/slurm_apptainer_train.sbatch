@@ -53,7 +53,15 @@ if ! command -v apptainer >/dev/null 2>&1 \
     source /etc/profile.d/modules.sh
   fi
   if command -v module >/dev/null 2>&1; then
-    module load "${APPTAINER_MODULE:-apptainer}"
+    if [[ -n "${APPTAINER_MODULE:-}" ]]; then
+      module load "${APPTAINER_MODULE}"
+    else
+      # Cluster module names are not standardized. NYU Torch, for example,
+      # provides Apptainer compatibility through SingularityCE.
+      module load apptainer >/dev/null 2>&1 \
+        || module load singularity-ce >/dev/null 2>&1 \
+        || true
+    fi
   fi
 fi
 
@@ -315,10 +323,17 @@ export SINGULARITYENV_SAMUDRA_CONTAINER_SIF_PATH="${SIF_PATH}"
 MASTER_ADDR="$(scontrol show hostnames "${SLURM_JOB_NODELIST}" | head -n 1)"
 MASTER_PORT="${MASTER_PORT:-}"
 TORCHRUN_STANDALONE=0
-if [[ -z "${MASTER_PORT}" && "${SLURM_NNODES}" == "1" ]]; then
+# Slurm sites may inject one allocation-wide MASTER_PORT. It is unsafe for
+# colocated array elements, which are independent jobs and would all try to
+# listen on the same node/port. Single-node jobs always use torchrun's atomic
+# free-port selection, regardless of an inherited scheduler environment.
+if [[ "${SLURM_NNODES}" == "1" ]]; then
   TORCHRUN_STANDALONE=1
+  MASTER_PORT=""
 elif [[ -z "${MASTER_PORT}" ]]; then
-  MASTER_PORT="$((15000 + SLURM_JOB_ID % 40000))"
+  RENDEZVOUS_JOB_ID="${SLURM_ARRAY_JOB_ID:-${SLURM_JOB_ID}}"
+  RENDEZVOUS_TASK_ID="${SLURM_ARRAY_TASK_ID:-0}"
+  MASTER_PORT="$((15000 + (RENDEZVOUS_JOB_ID + RENDEZVOUS_TASK_ID) % 40000))"
 fi
 export MASTER_ADDR MASTER_PORT TORCHRUN_STANDALONE
 if [[ "${TORCHRUN_STANDALONE}" == "1" ]]; then

@@ -5,6 +5,7 @@
 import contextlib
 import datetime
 import logging
+import math
 import multiprocessing
 import os
 import socket
@@ -84,7 +85,11 @@ from samudra.utils.train import (
     collate_raw_train_data,
 )
 from samudra.utils.train_progress import TrainProgress
-from samudra.utils.training_summary import write_search_metrics, write_training_summary
+from samudra.utils.training_summary import (
+    write_search_metrics,
+    write_search_worker_status,
+    write_training_summary,
+)
 from samudra.utils.wandb import WandBLogger
 
 logger = logging.getLogger(__name__)
@@ -458,6 +463,7 @@ class Trainer:
                             validation_seconds=end_epoch_val_time
                             - end_epoch_train_time,
                             total_seconds=time_elapsed,
+                            diagnostics={**train_stats, **val_stats, **inf_stats},
                         ),
                     )
 
@@ -498,6 +504,23 @@ class Trainer:
         logger.info(f"Training time {total_time_str}")
         self.finish()
 
+    def probe_optimizer_step(self) -> None:
+        """Exercise the real loader and training path through one optimizer update."""
+        logger.info("Starting optimizer-step probe")
+        current_step = self.get_current_step(self.start_epoch)
+        self.init_data_loaders(current_step)
+        if hasattr(self.train_sampler, "set_epoch"):
+            self.train_sampler.set_epoch(self.start_epoch)
+        starting_steps = self.train_progress.optimizer_steps
+        self.train_one_epoch(
+            self.start_epoch,
+            max_optimizer_steps=starting_steps + 1,
+        )
+        if self.train_progress.optimizer_steps <= starting_steps:
+            raise RuntimeError("Probe completed without an optimizer update")
+        logger.info("Optimizer-step probe completed")
+        self.finish()
+
     def _search_summary(
         self,
         epoch: int,
@@ -508,10 +531,22 @@ class Trainer:
         train_seconds: float,
         validation_seconds: float,
         total_seconds: float,
+        diagnostics: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """Build the small local result consumed by an active search."""
         assert self.search_run is not None
+        scalar_diagnostics: dict[str, int | float] = {}
+        for name, value in (diagnostics or {}).items():
+            if isinstance(value, torch.Tensor):
+                if value.numel() != 1:
+                    continue
+                value = value.item()
+            if isinstance(value, bool):
+                continue
+            if isinstance(value, (int, float)) and math.isfinite(float(value)):
+                scalar_diagnostics[name] = value
         return {
+            **scalar_diagnostics,
             "epoch": epoch,
             "complete": epoch == self.epochs,
             "train_loss": train_loss,
@@ -536,7 +571,7 @@ class Trainer:
             **self.search_run.model_dump(),
         }
 
-    def train_one_epoch(self, epoch):
+    def train_one_epoch(self, epoch, *, max_optimizer_steps: int | None = None):
         self.model.train(True)
         train_aggregator = Aggregator.get_train_aggregator(self.tensor_map)
         metric_logger = MetricLogger(delimiter="  ")
@@ -683,12 +718,36 @@ class Trainer:
 
             self.wandb_logger.log(metrics, step=self.num_batches_seen)
 
+            if self.search_run is not None and is_main_process():
+                status_metrics = {
+                    "batches_seen": self.num_batches_seen,
+                    "optimizer_steps": self.train_progress.optimizer_steps,
+                    "loss": float(loss_value_reduce),
+                    "data_load_seconds": metric_logger.meters["data_load_time"].value,
+                    "data_wait_seconds": metric_logger.meters["data_wait_time"].value,
+                    "batch_seconds": batch_progress.batch_seconds,
+                }
+                if self.num_batches_seen == 1:
+                    write_search_worker_status(
+                        self.output_dir, "first_batch", **status_metrics
+                    )
+                if batch_progress.optimizer_stepped:
+                    write_search_worker_status(
+                        self.output_dir, "optimizer_step", **status_metrics
+                    )
+
             metric_logger.update(loss=loss_value_reduce.item())
             metric_logger.update(lr=lr)
 
             self._maybe_update_loss(TO, data)
 
             self.profiler.after_batch(self.num_batches_seen)
+
+            if (
+                max_optimizer_steps is not None
+                and self.train_progress.optimizer_steps >= max_optimizer_steps
+            ):
+                break
 
         if self.scheduler is not None:
             self.scheduler.step()

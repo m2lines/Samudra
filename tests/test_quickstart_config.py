@@ -50,13 +50,9 @@ def test_quickstart_notebook_is_valid_and_current():
     assert "There is no bulk download" not in intro_source
 
     install_source = cells_by_id["install-code"].source
-    assert '"numpy>=1.26.4,<2"' in install_source
-    assert '"matplotlib>=3.10.1"' in install_source
-    assert '"s3fs==2025.5.1"' in install_source
-    assert "--no-warn-conflicts" in install_source
+    assert '"samudra[cuda]"' in install_source
     assert "--progress-bar off" in install_source
     assert "--no-deps" not in install_source
-    assert install_source.find('"s3fs==2025.5.1"') < install_source.rfind("samudra")
     assert install_source.count("!pip install") == 1
     assert "from importlib" not in install_source
     assert "RuntimeError" not in install_source

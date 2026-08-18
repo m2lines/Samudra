@@ -76,16 +76,11 @@ This tracks and installs the latest stable `samudra` release from PyPI.
 
 Samudra's Perceiver uses PyTorch's native scaled dot product attention, so it
 does not need separately compiled `flash-attn`, `flash-perceiver`, or
-`perceiver-pytorch` packages. One resolver invocation can therefore install
-Samudra and the bounded notebook runtime. Pip retains Colab's CUDA-enabled
-PyTorch when it satisfies Samudra's supported version range; the following cell
+`perceiver-pytorch` packages. The published `cuda` extra now describes the
+complete GPU-capable installation, including torchvision, while PyTorch itself
+supplies the compiled attention kernels. Pip retains Colab's CUDA-enabled
+PyTorch when it satisfies Samudra's supported version range. The following cell
 verifies CUDA and PyTorch's compiled FlashAttention support before training.
-
-Samudra declares NumPy `>=1.26.4,<2` as its supported range. The explicit
-constraints also select Matplotlib `>=3.10.1` and a matching `s3fs`/`fsspec`
-pair. Colab includes unrelated `datasets` and `gcsfs` packages that pin an older
-`fsspec`; `--no-warn-conflicts` keeps setup output focused on this notebook's
-runtime.
 
 Colab may have already loaded NumPy 2 before this installation replaces it.
 The following cell detects that one-time mismatch and restarts the Python
@@ -94,14 +89,7 @@ more to continue automatically through the remaining cells.
 """
 
 INSTALL_PY = """\
-!pip install --quiet --upgrade --no-warn-conflicts --progress-bar off \\
-    "numpy>=1.26.4,<2" "matplotlib>=3.10.1" \\
-    "cftime>=1.6.4.post1" "dacite>=1.9.2" "dask>=2025.2,<2026" "einops>=0.7" \\
-    "jaxtyping>=0.3" "microsoft-aurora>=1.8" \\
-    "pydantic-settings>=2.8.1" "pyyaml>=6.0.2" "s3fs==2025.5.1" \\
-    "torchinfo>=1.8" "tqdm>=4.67.1" "typing-extensions>=4.15" \\
-    "wandb>=0.19.8" "xarray>=2025.1.2" \\
-    "xarray-einstats>=0.8" "zarr<3" samudra
+!pip install --quiet --progress-bar off "samudra[cuda]"
 """
 
 RESTART_PY = """\

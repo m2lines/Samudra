@@ -165,6 +165,7 @@ class PerceiverDecoder(nn.Module):
         perceiver_io: nn.Module,
         window_patches: int | None,
         context_patches: int | None,
+        output_overlap_patches: int = 0,
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
@@ -176,6 +177,17 @@ class PerceiverDecoder(nn.Module):
             )
         self.window_patches = window_patches
         self.context_patches = context_patches
+        if output_overlap_patches < 0:
+            raise ValueError("output_overlap_patches must be non-negative.")
+        if window_patches is None and output_overlap_patches:
+            raise ValueError(
+                "window_patches must be set when output_overlap_patches is nonzero."
+            )
+        if window_patches is not None and output_overlap_patches > window_patches // 2:
+            raise ValueError(
+                "output_overlap_patches must not exceed half of window_patches."
+            )
+        self.output_overlap_patches = output_overlap_patches
 
         # TODO(#451): The input to these position and scale linear units could be a hparam.
         # Same pos/scale linear layers as the encoder, but applied *before* the
@@ -269,6 +281,9 @@ class PerceiverDecoder(nn.Module):
             f"Latent grid ({nh}, {nw}) must be divisible by window_patches={wp}"
         )
 
+        if self.output_overlap_patches:
+            return self._decode_overlapping(data_grid, queries_grid, patch_h, patch_w)
+
         n_blocks_h = nh // wp
         n_blocks_w = nw // wp
         block_ph = wp * patch_h  # pixel height per query block
@@ -325,3 +340,134 @@ class PerceiverDecoder(nn.Module):
                 ] = local_out
 
         return rearrange(out, "b h w c -> b c h w")
+
+    def _decode_overlapping(
+        self,
+        data_grid: Float[torch.Tensor, "batch nh nw channels"],
+        queries_grid: Float[torch.Tensor, "H W queries_dim"],
+        patch_h: int,
+        patch_w: int,
+    ) -> Float[torch.Tensor, "batch {self.out_channels} H W"]:
+        """Decode query halos and combine repeated predictions smoothly.
+
+        Input context remains centered on each ``window_patches`` core. The
+        overlap changes only output support: pixels around every core are
+        predicted by neighboring windows and cosine blended. Longitude wraps
+        periodically; latitude halos stop at the physical domain boundaries.
+        """
+        B, nh, nw, _ = data_grid.shape
+        H, W, _ = queries_grid.shape
+        wp = self.window_patches
+        cp = self.context_patches
+        op = self.output_overlap_patches
+        assert wp is not None and op > 0
+        assert wp + 2 * op <= nw, (
+            "An overlapping longitude window must not wrap over itself."
+        )
+
+        weighted = data_grid.new_zeros(B, H, W, self.out_channels)
+        weight_sum = data_grid.new_zeros(H, W, 1)
+        n_blocks_h = nh // wp
+        n_blocks_w = nw // wp
+        halo_h = op * patch_h
+        halo_w = op * patch_w
+
+        if cp is None:
+            full_data = rearrange(data_grid, "b nh nw c -> b (nh nw) c")
+        elif cp == 0:
+            data = rearrange(data_grid, "b nh nw c -> b c nh nw")
+            data_windows = data.unfold(2, wp, wp).unfold(3, wp, wp)
+        else:
+            data = rearrange(data_grid, "b nh nw c -> b c nh nw")
+            data = F.pad(data, (cp, cp, 0, 0), mode="circular")
+            data = F.pad(data, (0, 0, cp, cp), mode="constant", value=0)
+            window_size = wp + 2 * cp
+            data_windows = data.unfold(2, window_size, wp).unfold(3, window_size, wp)
+
+        for bi in range(n_blocks_h):
+            core_patch_i0 = bi * wp
+            core_patch_i1 = (bi + 1) * wp
+            query_i0 = max(0, (core_patch_i0 - op) * patch_h)
+            query_i1 = min(H, (core_patch_i1 + op) * patch_h)
+            lat_indices = torch.arange(query_i0, query_i1, device=data_grid.device)
+            lat_weights = self._overlap_weights(
+                len(lat_indices),
+                halo_h,
+                fade_start=bi > 0,
+                fade_end=bi + 1 < n_blocks_h,
+                device=data_grid.device,
+                dtype=data_grid.dtype,
+            )
+
+            for bj in range(n_blocks_w):
+                core_patch_j0 = bj * wp
+                core_patch_j1 = (bj + 1) * wp
+                query_j0 = (core_patch_j0 - op) * patch_w
+                query_j1 = (core_patch_j1 + op) * patch_w
+                lon_indices = torch.arange(
+                    query_j0, query_j1, device=data_grid.device
+                ).remainder(W)
+
+                if cp is None:
+                    local_data = full_data
+                else:
+                    local_data = rearrange(
+                        data_windows[:, :, bi, bj], "b c h w -> b (h w) c"
+                    )
+
+                local_queries = queries_grid.index_select(0, lat_indices)
+                local_queries = local_queries.index_select(1, lon_indices)
+                local_queries = rearrange(local_queries, "h w d -> (h w) d")
+                local_out = self.perceiver_io(local_data, queries=local_queries)
+                local_out = rearrange(
+                    local_out,
+                    "b (h w) c -> b h w c",
+                    h=len(lat_indices),
+                    w=len(lon_indices),
+                )
+
+                lon_weights = self._overlap_weights(
+                    len(lon_indices),
+                    halo_w,
+                    fade_start=True,
+                    fade_end=True,
+                    device=data_grid.device,
+                    dtype=data_grid.dtype,
+                )
+                weights = lat_weights[:, None] * lon_weights[None, :]
+                weighted[:, lat_indices[:, None], lon_indices[None, :], :] += (
+                    local_out * weights[None, :, :, None]
+                )
+                weight_sum[lat_indices[:, None], lon_indices[None, :], :] += weights[
+                    :, :, None
+                ]
+
+        if not torch.all(weight_sum > 0):
+            raise RuntimeError("Overlapping decoder left output pixels uncovered.")
+        return rearrange(weighted / weight_sum, "b h w c -> b c h w")
+
+    @staticmethod
+    def _overlap_weights(
+        length: int,
+        halo: int,
+        *,
+        fade_start: bool,
+        fade_end: bool,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> torch.Tensor:
+        weights = torch.ones(length, device=device, dtype=dtype)
+        ramp_length = 2 * halo
+        if ramp_length == 0:
+            return weights
+        if ramp_length > length:
+            raise ValueError("Overlap ramp is longer than the decoded window.")
+        phase = (torch.arange(ramp_length, device=device, dtype=dtype) + 0.5) / (
+            ramp_length
+        )
+        ramp = 0.5 - 0.5 * torch.cos(torch.pi * phase)
+        if fade_start:
+            weights[:ramp_length] = ramp
+        if fade_end:
+            weights[-ramp_length:] = ramp.flip(0)
+        return weights

@@ -1,0 +1,87 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+# yaml-language-server: $schema=../schemas/SearchConfig.json
+
+name: perceiver-seam-removal-2deg
+algorithm:
+  type: successive_halving
+  rungs: [1, 3, 6]
+  promotion_fraction: 0.5
+  minimum_promoted: 3
+objective: {metric: validation_loss, mode: min}
+metrics:
+  - validation_loss
+  - train_loss
+  - best_validation_loss
+  - val/seam/window_jump_ratio/zos
+  - val/seam/window_jump_ratio/channel_mean
+  - val/seam/patch_jump_ratio/zos
+  - val/seam/patch_jump_ratio/channel_mean
+
+executor:
+  type: slurm
+  output_dir: /scratch/am16581/searches
+  harness: /scratch/am16581/Samudra/scripts/slurm_apptainer_train.sbatch
+  account: torch_pr_347_lzanna
+  partition: rtx6000_lzanna
+  controller_partition: cpu_short
+  python: /scratch/am16581/Samudra/experiments/perceiver_search_2deg/container_python.sh
+  cpus_per_task: 4
+  memory: 32G
+  gres: gpu:rtx6000:1
+  time_by_rung: ["08:00:00", "12:00:00", "20:00:00"]
+  max_concurrent: 7
+  rung0_probe: true
+  data_root: /scratch/am16581
+  scratch_dir: /scratch/am16581
+  apptainer_module: singularity-ce/4.3.3
+
+artifacts:
+  destination:
+    type: s3
+    endpoint_url: https://nyu1.osn.mghpcc.org
+    bucket: m2lines-pubs
+    path: FOMO/experiments/searches
+    anon: false
+  public_url: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches
+  checkpoints: final
+
+candidates:
+  - name: hard-no-context
+    config: perceiver_seam_search_2deg/train.yaml
+    fixed: true
+    args: []
+
+  - name: hard-context1
+    config: perceiver_seam_search_2deg/train.yaml
+    args: [--model.decoder.context_patches=1]
+
+  - name: full-context
+    config: perceiver_seam_search_2deg/train.yaml
+    fixed: true
+    args: [--model.decoder.context_patches=null]
+
+  - name: blend1-no-context
+    config: perceiver_seam_search_2deg/train.yaml
+    args: [--model.decoder.output_overlap_patches=1]
+
+  - name: blend1-context1
+    config: perceiver_seam_search_2deg/train.yaml
+    args:
+      - --model.decoder.context_patches=1
+      - --model.decoder.output_overlap_patches=1
+
+  - name: blend2-context1
+    config: perceiver_seam_search_2deg/train.yaml
+    args:
+      - --model.decoder.context_patches=1
+      - --model.decoder.output_overlap_patches=2
+
+  - name: blend1-context1-residual
+    config: perceiver_seam_search_2deg/train.yaml
+    args:
+      - --model.pred_residuals=true
+      - --model.decoder.context_patches=1
+      - --model.decoder.output_overlap_patches=1

@@ -16,6 +16,7 @@ from samudra.aggregator.train import TrainAggregator
 from samudra.aggregator.validate import ValidateAggregator
 from samudra.aggregator.validate.map import MapAggregator
 from samudra.aggregator.validate.reduced import MeanAggregator
+from samudra.aggregator.validate.seam import SeamAggregator
 from samudra.aggregator.validate.snapshot import SnapshotAggregator
 from samudra.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from samudra.constants import TensorMap
@@ -37,10 +38,13 @@ class Aggregator:
         normalize: Normalize,
         *,
         include_image_aggregators: bool = True,
+        seam_spacings: dict[str, tuple[int, int]] | None = None,
     ) -> ValidateAggregator:
         val_aggregators: dict[str, ValidateSubAggregator] = {
             "reduced": MeanAggregator(area_weights, hist),
         }
+        if seam_spacings is not None:
+            val_aggregators["seam"] = SeamAggregator(seam_spacings, hist)
         if include_image_aggregators:
             val_aggregators.update(
                 {

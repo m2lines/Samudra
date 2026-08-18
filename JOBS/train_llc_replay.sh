@@ -2,7 +2,7 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-08-15:samudra_rb_llc:4-tile_group-experiment
+#SBATCH --job-name=2026-08-18:samudra_rb_llc:4-tile_group-experiment-2
 #SBATCH -x node4100,node3401,node3000
 #SBATCH -N 1
 #SBATCH --mem=254GB
@@ -123,8 +123,15 @@ TEMPORAL_STRIDE="${TEMPORAL_STRIDE:-1}"
 TEMPORAL_STRIDE_TRANSITION="${TEMPORAL_STRIDE_TRANSITION:-[]}"
 HIST="${HIST:-0}"
 
+# Valid-mask input channel: 1 on cells the patch holds, 0 on the ring the
+# network pads in, so the model can tell padding from land (both are 0 in
+# every other channel). Adds one input channel, so it changes num_in and a
+# checkpoint is only resumable/evaluable with the same setting. Kept false
+# here so in-flight jobs stay resumable; set true for new runs.
+VALID_MASK="${VALID_MASK:-false}"
+
 # CHECKPOINTING / RESUME
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-}"
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-08-15:samudra_rb_llc:4-tile_group-experiment-20537273/saved_nets/ckpt_emergency.pt}"
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
@@ -174,6 +181,7 @@ if [[ "${GPUS}" -gt 0 ]]; then
   echo "effective workers per rank (after trainer scaling): $((DATA_NUM_WORKERS / GPUS))"
 fi
 echo "using validation surface_snapshot=${SURFACE_SNAPSHOT}, one_step_val_num=${ONE_STEP_VAL_NUM}"
+echo "using valid_mask=${VALID_MASK} (adds 1 input channel when true)"
 echo "using autoregressive validation: short=${SHORT_AR_VAL_NUM}x${SHORT_AR_VAL_LENGTH} steps, long=${LONG_AR_VAL_NUM}x${LONG_AR_VAL_LENGTH} steps, steps_forward=${AR_VAL_STEPS_FORWARD}, long_start_epoch=${LONG_AR_VAL_START_EPOCH}"
 echo "using ddp_broadcast_buffers=${DDP_BROADCAST_BUFFERS}, ddp_timeout_minutes=${DDP_TIMEOUT_MINUTES}, ddp_max_data_workers_per_rank=${DDP_MAX_DATA_WORKERS_PER_RANK}"
 echo "using optimization: learning_rate=${LEARNING_RATE}, scheduler_mode=${SCHEDULER_MODE}, scheduler_target_epochs=${SCHEDULER_TARGET_EPOCHS:-<default>}"
@@ -239,6 +247,7 @@ REPLAY_DATA_ARGS=(
   --data_stride "${DATA_STRIDE}"
   --temporal_stride "${TEMPORAL_STRIDE}"
   --data.hist "${HIST}"
+  --data.valid_mask "${VALID_MASK}"
   --lr_multipliers "${LR_MULTIPLIERS}"
 )
 

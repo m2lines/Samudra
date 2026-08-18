@@ -14,8 +14,12 @@ the search or inspecting any candidate results. The experiment will train on
 the public 2-degree OM4 dataset and publish W&B runs, scalar histories, worker
 state, scheduler logs, resolved configs, and finalist checkpoints.
 
-The immutable run ID, code revision, Slurm job IDs, and public artifact URL will
-be added immediately after submission.
+The search was submitted on 2026-08-18 as
+`perceiver-seam-removal-2deg--20260818T210753.565365Z` from immutable code
+revision
+[`f3eaead6`](https://github.com/m2lines/Samudra/tree/f3eaead66a77ee0a05b5724c86f9dbd68d6f251b).
+Its live and eventual final artifacts are published under the
+[`m2lines-pubs` search directory](https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/perceiver-seam-removal-2deg--20260818T210753.565365Z/).
 
 ## Motivation and prior observation
 
@@ -197,6 +201,23 @@ configuration, and immutable code provenance. The search also publishes
 Parquet result and epoch tables, lifecycle status, Slurm logs, resolved configs,
 and final checkpoints under the public `m2lines-pubs` search prefix.
 
+### Launch record
+
+The immutable source is mounted through code overlay
+`samudra-code-f3eaead66a77ee0a05b5724c86f9dbd68d6f251b.img`, whose SHA-256 is
+`04fe2962a8d101f4b5bbe811bd2ad9db6bc8d471b3d145ab791bef15161f27f9`.
+It uses the stable `physicsnemo-26.05-b73ca826.sif`; its dependency lockfiles
+were byte-identical to the experiment commit.
+
+Initial Slurm submissions are:
+
+- fixed anchor array `15974992`;
+- real-data optimizer-step probe `15974993`; and
+- probe-release controller `15974996`.
+
+Both anchors and the probe entered `RUNNING` state immediately. The five-member
+first-rung array remains gated on the probe recording a real optimizer update.
+
 ## Planned analysis
 
 The conclusions will distinguish three outcomes:
@@ -215,8 +236,7 @@ path that can plausibly scale beyond 2-degree data.
 
 ## Reproducing the results with DuckDB
 
-Replace `<RUN_ID>` after launch. These queries intentionally remain useful
-while the run is active.
+These queries intentionally remain useful while the run is active.
 
 <details>
 
@@ -238,7 +258,7 @@ SELECT
     worker_stage,
     worker_error
 FROM read_parquet(
-    'https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/<RUN_ID>/results.parquet'
+    'https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/perceiver-seam-removal-2deg--20260818T210753.565365Z/results.parquet'
 )
 ORDER BY rung DESC, eligible DESC, validation_loss ASC NULLS LAST;
 ```
@@ -260,7 +280,7 @@ SELECT
     round(epoch_train_seconds / 60, 2) AS train_minutes,
     round(epoch_validation_seconds / 60, 2) AS validation_minutes
 FROM read_parquet(
-    'https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/<RUN_ID>/epochs.parquet'
+    'https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/perceiver-seam-removal-2deg--20260818T210753.565365Z/epochs.parquet'
 )
 ORDER BY candidate, epoch;
 ```
@@ -277,7 +297,7 @@ WITH latest AS (
         PARTITION BY candidate ORDER BY epoch DESC
     ) AS recency
     FROM read_parquet(
-        'https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/<RUN_ID>/epochs.parquet'
+        'https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/perceiver-seam-removal-2deg--20260818T210753.565365Z/epochs.parquet'
     )
 )
 SELECT

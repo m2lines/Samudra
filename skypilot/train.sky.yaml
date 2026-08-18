@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -43,9 +43,9 @@ envs:
   # If you still hit permission issues, consider making a dedicated SkyPilot IAM via these docs:
   # https://docs.skypilot.co/en/latest/cloud-setup/cloud-permissions/aws.html#dedicated-skypilot-iam-user
 
-  OSN_KEY_ID: null
-  OSN_KEY_SECRET: null
-  OSN_DATA_PATH: emulators/jr7309/data/om4_halfdeg # Tip: Don't add a trailing `/`!
+  OSN_KEY_ID: ""
+  OSN_KEY_SECRET: ""
+  OSN_DATA_PATH: m2lines-pubs/Samudra/v2026-07/om4_halfdeg # Tip: Don't add a trailing `/`!
   # Comma-separated list of OSN paths. If unset, defaults to OSN_DATA_PATH.
   OSN_DATA_PATHS: ""
 
@@ -71,7 +71,14 @@ setup: |
   # Ensure CUDA dependencies are installed
   uv sync --extra cuda
 
-  rclone config create nyu-osn s3 provider=AWS endpoint=https://nyu1.osn.mghpcc.org/ access_key_id="$OSN_KEY_ID" secret_access_key="$OSN_KEY_SECRET"
+  # OSN inputs (data + basins) default to the public m2lines-pubs bucket, so read
+  # the OSN pod anonymously. Set OSN_KEY_ID/OSN_KEY_SECRET only to reach a private
+  # path (e.g. an emulators/... OSN_DATA_PATH override).
+  if [ -z "$OSN_KEY_ID" ] || [ "$OSN_KEY_ID" = "null" ]; then
+    rclone config create nyu-osn s3 provider=AWS endpoint=https://nyu1.osn.mghpcc.org/ anonymous=true
+  else
+    rclone config create nyu-osn s3 provider=AWS endpoint=https://nyu1.osn.mghpcc.org/ access_key_id="$OSN_KEY_ID" secret_access_key="$OSN_KEY_SECRET"
+  fi
 
   mkdir -p ~/data/
 
@@ -99,7 +106,7 @@ setup: |
   fi
 
   mkdir -p ~/basins/
-  rclone copy --progress nyu-osn:emulators/jr7309/basins ~/basins
+  rclone copy --progress nyu-osn:m2lines-pubs/Samudra/basins ~/basins
 
 #### End of shared setup ####
 
@@ -124,7 +131,7 @@ run: |
     --master_addr=$MASTER_ADDR \
     --master_port=8008 \
     --node_rank=${SKYPILOT_NODE_RANK} \
-    -m ocean_emulators.train "${CONFIG}" \
+    -m samudra.train "${CONFIG}" \
     --experiment.name="${NAME}" \
     --experiment.data_root="${DATA_ROOT}" \
     --experiment.base_output_dir=/outputs/  \

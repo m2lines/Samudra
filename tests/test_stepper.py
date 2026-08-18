@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -7,13 +7,13 @@ import pytest
 import torch
 import xarray as xr
 
-from ocean_emulators.constants import TensorMap
-from ocean_emulators.datasets import InferenceDataset, TrainData
-from ocean_emulators.models.base import BaseModel
-from ocean_emulators.stepper import validate_batch
-from ocean_emulators.utils.ctx import GridContext
-from ocean_emulators.utils.data import DataSource, Normalize
-from ocean_emulators.utils.multiton import MultitonScope
+from samudra.constants import TensorMap
+from samudra.datasets import InferenceDataset, TrainData
+from samudra.models.base import BaseModel
+from samudra.stepper import validate_batch
+from samudra.utils.ctx import GridContext
+from samudra.utils.data import DataSource, Normalize
+from samudra.utils.multiton import MultitonScope
 from tests.conftest import TEST_DATASET_SPEC
 
 

@@ -1,11 +1,15 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
 import pytest
 import xarray as xr
-from ocean_preprocessing.preprocessing import horizontal_regrid, rotate_vectors
+from ocean_preprocessing.preprocessing import (
+    flatten_by_depth_level,
+    horizontal_regrid,
+    rotate_vectors,
+)
 
 from tests import requires_xesmf
 from tests.data import (
@@ -18,7 +22,66 @@ except ImportError:
     pass
 
 
-#############################
+def test_flatten_by_depth_level_preserves_grid_coords():
+    """Flattening splits 3D vars by level but must retain grid-metadata coords.
+
+    Regression guard for the eval-usability fix: areacello/ocean_fraction/cell
+    bounds/depth axis used to be discarded here, forcing analysis to recompute
+    them. The stacked `wetmask` becomes per-level `mask_i`, and native-only coords
+    (`angle`, `ilev`) are dropped.
+    """
+    n_lev, ny, nx = 3, 2, 2
+    lev = xr.DataArray([2.5, 10.0, 22.5][:n_lev], dims="lev")
+    base3d = np.ones((1, n_lev, ny, nx), dtype="float32")
+    base2d = np.ones((1, ny, nx), dtype="float32")
+    ds = xr.Dataset(
+        {v: (["time", "lev", "y", "x"], base3d) for v in ["so", "thetao", "uo", "vo"]}
+        | {v: (["time", "y", "x"], base2d) for v in ["zos", "hfds", "tauuo", "tauvo"]},
+        coords={
+            "time": [0],
+            "lev": lev,
+            "x": np.arange(nx, dtype="float64"),
+            "y": np.arange(ny, dtype="float64"),
+            "x_b": np.arange(nx + 1, dtype="float64"),
+            "y_b": np.arange(ny + 1, dtype="float64"),
+            "lon": (["y", "x"], np.zeros((ny, nx))),
+            "lat": (["y", "x"], np.zeros((ny, nx))),
+            "lon_b": (["y_b", "x_b"], np.zeros((ny + 1, nx + 1))),
+            "lat_b": (["y_b", "x_b"], np.zeros((ny + 1, nx + 1))),
+            "areacello": (["y", "x"], np.ones((ny, nx))),
+            "ocean_fraction": (["lev", "y", "x"], np.ones((n_lev, ny, nx))),
+            "dz": (["lev"], np.array([5.0, 10.0, 15.0][:n_lev])),
+            "wetmask": (["lev", "y", "x"], np.ones((n_lev, ny, nx), dtype=bool)),
+            "angle": (["y", "x"], np.zeros((ny, nx))),
+            "ilev": (["ilev"], np.arange(n_lev + 1, dtype="float64")),
+        },
+    )
+
+    out = flatten_by_depth_level(ds)
+
+    # 3D vars are split per level; 2D vars and per-level masks remain as data vars.
+    assert not ({"so", "thetao", "uo", "vo"} & set(out.data_vars))
+    assert {f"thetao_{i}" for i in range(n_lev)} <= set(out.data_vars)
+    assert {f"mask_{i}" for i in range(n_lev)} <= set(out.data_vars)
+
+    # Grid-metadata coords survive (the point of the fix).
+    assert {
+        "areacello",
+        "ocean_fraction",
+        "lon",
+        "lat",
+        "lon_b",
+        "lat_b",
+        "dz",
+        "lev",
+    } <= set(out.coords)
+
+    # Stacked wetmask (now mask_i) and native-only coords are gone.
+    assert "wetmask" not in out.coords
+    assert "angle" not in out.coords
+    assert "ilev" not in out.variables
+
+
 def test_infer_vertical_cell_extent_missing(input_data):
     ds = input_data
     ds = ds.drop("zos")

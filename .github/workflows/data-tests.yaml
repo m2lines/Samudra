@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -11,6 +11,7 @@ on:
   pull_request:
     branches:
       - "**"
+  merge_group:
 
 jobs:
   build:
@@ -25,12 +26,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: 🫙 Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           fetch-depth: 0 # checkout tags (which is not done by default)
       - name: 🔁 Setup Python
         id: setup-python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -47,4 +48,4 @@ jobs:
         shell: bash -l {0}
         run: |
           cd data/
-          pytest tests -v
+          pytest tests -v --durations=20 --durations-min=1.0

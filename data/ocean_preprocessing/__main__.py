@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -187,6 +187,9 @@ class CLI:
             Useful for testing pipeline configuration. Default is False.
         small_run: If True, limits processing to the first 10 time steps only. Useful
             for quick testing and development. Default is False (processes all time steps).
+        write_retries: Number of times the distributed scheduler retries a failed task
+            during the final Zarr write. Guards against transient failures. Only applies
+             when running on a cluster. Default 5.
         cluster: Type of Dask cluster to use for distributed computation. Options are:
             'off' (no cluster, single-threaded), 'local' (LocalCluster), 'kube'
             (KubeCluster), 'slurm' (SlurmCluster), 'coiled' (Coiled cluster).
@@ -205,6 +208,7 @@ class CLI:
         account_for_partial_depths: bool = False,
         dry_run: bool = False,
         small_run: bool = False,
+        write_retries: int = 5,
         cluster: Cluster = "off",
         **cluster_opts,
     ):
@@ -217,6 +221,7 @@ class CLI:
         self.account_for_partial_depths = account_for_partial_depths
         self.dry_run = dry_run
         self.small_run = small_run
+        self.write_retries = write_retries
         self.dask_client = init_cluster(cluster, **cluster_opts)
 
     def _collect(self, ds: xr.Dataset):
@@ -236,15 +241,26 @@ class CLI:
 
         logger.info(f"writing dataset to {self.output_path}")
 
-        ds.to_zarr(
+        delayed = ds.to_zarr(
             self.output_path,
             mode="w",
             consolidated=True,
             encoding={
                 var_name: {"compressor": None} for var_name in ds.data_vars.keys()
             },  # Compression turned off
-            compute=True,
+            compute=False,
         )
+        # Reading blosc-compressed source chunks over S3 occasionally returns a
+        # truncated buffer, surfacing as an intermittent
+        # `RuntimeError: error during blosc decompression: -1` (numcodecs#810) that
+        # otherwise kills the whole job near completion. The failure is transient --
+        # re-fetching the chunk almost always succeeds -- so retry the failed task
+        # rather than abort. `retries` is a distributed-scheduler feature; fall back
+        # to a plain compute when running without a cluster.
+        if self.dask_client is not None:
+            self.dask_client.compute(delayed, retries=self.write_retries, sync=True)
+        else:
+            delayed.compute()
         logger.info("zarr write complete")
 
     def om4(
@@ -253,7 +269,6 @@ class CLI:
         native_grid_path: str,
         nc_mosaic_path: str,
         target_grid_path: str,
-        ocean_static_path: str | None = None,
         spatial_filter_scale: None | int = None,
     ) -> None:
         """Process the OM4 oceans dataset (the ocean component of CMIP).
@@ -263,16 +278,15 @@ class CLI:
         1. Model-specific preprocessing (interpolate velocities to tracer grid)
         2. Account for partial depths (if --account-for-partial-depths)
         3. Validation of preprocessed dataset (unless --skip-validation)
-        4. Optionally merge static ocean variables (if ocean_static_path provided)
-        5. Vector rotation to zonal/meridional coordinates
-        6. QC plots for rotated vectors (unless --skip-plots)
-        7. Spatial filtering with Gaussian kernel (unless --skip-spatial-filtering)
-        8. Horizontal regridding to target resolution (unless --skip-regridding)
-        9. Type conversion to float32
-        10. Restore variable attributes and add provenance metadata
-        11. Optionally flatten 3D variables by depth level (unless --skip-flattening)
-        12. Drop extraneous dimensions (we only need 'x', 'y', 'time' and maybe 'lev').
-        13. Write output to Zarr store in Zarr v2 format.
+        4. Vector rotation to zonal/meridional coordinates
+        5. QC plots for rotated vectors (unless --skip-plots)
+        6. Spatial filtering with Gaussian kernel (unless --skip-spatial-filtering)
+        7. Horizontal regridding to target resolution (unless --skip-regridding)
+        8. Type conversion to float32
+        9. Restore variable attributes and add provenance metadata
+        10. Optionally flatten 3D variables by depth level (unless --skip-flattening)
+        11. Drop extraneous dimensions (we only need 'x', 'y', 'time' and maybe 'lev').
+        12. Write output to Zarr store in Zarr v2 format.
 
         > NOTE: We pre-determine the spatial filtering scale based on the target grid!
         > We make informed guesses for what the scale should be. If you'd like to
@@ -297,10 +311,6 @@ class CLI:
                 'gaussian_grid_360_by_720.zarr'). This file defines the output grid resolution
                 and is used for horizontal regridding (unless --skip-regridding). The basename
                 is also used to determine the appropriate spatial filter scale.
-            ocean_static_path: Optional path to a Zarr file containing static ocean variables
-                on the native grid. If provided, variables 'wet' (renamed to 'sea_surface_fraction')
-                and 'hfgeou' (geothermal heat flux) will be added to the processed dataset.
-                Default is None (no static variables added).
             spatial_filter_scale: Optional integer to override the automatic spatial filter
                 scale determination. When spatial filtering is performed (not --skip-spatial-filtering),
                 this value will be used instead of the scale inferred from the target grid name.
@@ -326,19 +336,6 @@ class CLI:
         if not self.skip_validation:
             logger.info("validating preprocessing.")
             ds_processed_validate(ds_processed, deep=True)
-
-        if ocean_static_path is not None:
-            logger.info("adding static variables.")
-            ocean_static_names = ["wet", "hfgeou"]
-            ocean_static_renaming = {
-                "xh": "x",
-                "yh": "y",
-                "wet": "sea_surface_fraction",
-            }
-            ds_static = xr.open_zarr(ocean_static_path, consolidated=True, chunks={})[
-                ocean_static_names
-            ].rename(ocean_static_renaming)
-            ds_processed = xr.merge([ds_processed, ds_static])
 
         saved_attrs = {}
         for var in ds_processed.data_vars:
@@ -442,9 +439,22 @@ class CLI:
         for var, attr in saved_attrs.items():
             ds_input.attrs[var] = attr
         # Add provenance hash and metadata
-        ds_input.attrs["m2lines/ocean_emulators_git_hash"] = get_git_url_hash()
+        # Write both provenance keys during the rename. `ocean_emulators_git_hash`
+        # is the established name -- it is documented in AGENTS.md and docs/data.md
+        # and every already-published store carries it -- so dropping it outright
+        # would break anything that looks it up. `samudra_git_hash` is the name the
+        # project actually goes by now. Retire the old key once the documentation
+        # and the published stores have caught up.
+        git_hash = get_git_url_hash()
+        ds_input.attrs["m2lines/ocean_emulators_git_hash"] = git_hash
+        ds_input.attrs["m2lines/samudra_git_hash"] = git_hash
         ds_input.attrs["m2lines/date_created"] = datetime.datetime.now().isoformat()
         ds_input.attrs["m2lines/cli_args"] = " ".join(sys.argv)
+        # Horizontal grid geometry: this pipeline conservatively regrids onto a
+        # regular (rectilinear) lat-lon grid, so downstream code may treat the 2-D
+        # lat/lon as separable. Curvilinear (e.g. tripolar) outputs must set this to
+        # the matching grid_type so consumers do not broadcast their geometry.
+        ds_input.attrs["grid_type"] = "gaussian"
         # Label wetmask via attrs
         if len(ds_input["wetmask"].attrs) == 0:
             ds_input["wetmask"].attrs["long_name"] = "ocean mask"
@@ -456,10 +466,14 @@ class CLI:
             ds = flatten_by_depth_level(ds_input)
         else:
             ds = ds_input
-            if "lev" in ds.dims:
-                dims_to_keep.append("lev")
-            elif "ilev" in ds.dims:
-                dims_to_keep.append("ilev")
+
+        # Retain the depth axis and cell-bound dims so grid-metadata coordinates
+        # (dz, lev, ocean_fraction, lon_b/lat_b) survive into the written dataset.
+        # `lev` is kept even when flattening, since dz/lev/ocean_fraction remain
+        # indexed by it after the prognostic vars are split out.
+        for extra in ("lev", "ilev", "x_b", "y_b"):
+            if extra in ds.dims:
+                dims_to_keep.append(extra)
 
         logger.info(f"dropping extraneous dimensions (keeping {dims_to_keep}).")
         ds = ds.drop_dims([x for x in list(ds.dims) if x not in dims_to_keep])

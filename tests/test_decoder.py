@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -7,7 +7,7 @@ import torch
 from perceiver_pytorch.perceiver_io import PerceiverIO
 from test_encoder import make_resolution  # type: ignore
 
-from ocean_emulators.models.modules import PerceiverDecoder, PerceiverEncoder
+from samudra.models.modules import PerceiverDecoder, PerceiverEncoder
 
 # Small values for fast tests.
 LATENT_DIM = 8

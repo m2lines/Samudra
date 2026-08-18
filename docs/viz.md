@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+SPDX-FileCopyrightText: 2026 Samudra Authors
 
 SPDX-License-Identifier: CC-BY-4.0
 -->
@@ -8,8 +8,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## Core
 
-::: ocean_emulators.viz.core
+::: samudra.viz.core
 
 ## Config
 
-::: ocean_emulators.viz.config
+::: samudra.viz.config

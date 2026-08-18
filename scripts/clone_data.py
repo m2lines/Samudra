@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -15,11 +15,11 @@
 #   "numcodecs>=0.15",
 #   "distributed",
 #   "tenacity",
-#   "ocean-emulators",
+#   "samudra",
 # ]
 #
 # [tool.uv.sources]
-# ocean-emulators = { path = "../" }
+# samudra = { path = "../" }
 # ///
 
 import argparse
@@ -32,7 +32,7 @@ import xarray as xr
 from dask.distributed import LocalCluster
 from tenacity import retry
 
-from ocean_emulators.utils.data import compact_dataset
+from samudra.utils.data import compact_dataset
 
 DEFAULT_DATA_ROOT = "https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/v2025-11/om4_onedeg/"
 

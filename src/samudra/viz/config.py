@@ -1,0 +1,173 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+import functools
+import logging
+import time
+from functools import cached_property
+from pathlib import Path
+from typing import Annotated
+
+from pydantic import BaseModel, BeforeValidator, Field, WithJsonSchema
+
+from samudra.config import DataConfig, ObsMetricsConfig, Om4TimeConfig
+from samudra.config_base import TopLevelConfig
+from samudra.utils.location import LocalLocation, Location, ResolvedLocation
+from samudra.utils.logging import handle_logging
+from samudra.viz.core import Viz, VizRun
+
+
+@functools.cache
+def _all_steps() -> set[str]:
+    return set(_ordered_steps())
+
+
+@functools.cache
+def _ordered_steps() -> list[str]:
+    return list(
+        name.removeprefix("step_") for name in Viz.__dict__ if name.startswith("step_")
+    )
+
+
+def _check_step(v: str) -> str:
+    if v not in _all_steps():
+        raise ValueError(
+            f"Invalid step: '{v}', expected one of: {', '.join(_ordered_steps())}"
+        )
+    return v
+
+
+VizStep = Annotated[
+    str,
+    BeforeValidator(_check_step),
+    WithJsonSchema({"type": "string", "enum": _ordered_steps()}),
+]
+
+
+class VizRunConfig(BaseModel):
+    name: str
+    location: Location
+    variables: list[str] = Field(
+        default_factory=lambda: ["thetao", "so", "uo", "vo", "tos", "zos"]
+    )
+
+    def build(self, data_root: ResolvedLocation) -> VizRun:
+        return VizRun(
+            name=self.name,
+            data=data_root.resolve(self.location).open(chunks={}),
+            variables=self.variables,
+        )
+
+
+class VizConfig(TopLevelConfig):
+    base_output_dir: Path
+    name: str
+    dataset_name: str
+    runs: list[VizRunConfig]
+    data_root: Location | None = None
+    data: DataConfig | None = Field(
+        default=None,
+        description="Optional data source, matching train/eval. When set, ground "
+        "truth defaults to its primary source's data_location, so "
+        "`--data @data/om4_demo.yaml` works the same across train, eval, and viz. "
+        "An explicit `groundtruth_location` overrides it.",
+    )
+    groundtruth_location: Location | None = Field(
+        default=None,
+        description="Ground-truth rollout data. Optional when `data` is set (then it "
+        "defaults to that source's data_location); otherwise required.",
+    )
+    basins_location: Location
+    # TODO(jder): we could extract this from the run data?
+    groundtruth_time_range: Om4TimeConfig = Field(
+        description="Dates from the rollout (not same as eval *input* dates; these are the dates the output is produced for during eval)"
+    )
+    observations: ObsMetricsConfig | None = Field(
+        default=None,
+        description=(
+            "Observation products to draw figures against. The same block "
+            "`samudra.eval` takes, so one file configures both and the two "
+            "agree by construction. Omit it to skip the observation steps."
+        ),
+    )
+    steps: list[VizStep] | None = Field(
+        default=None,
+        description=f"Which steps to run; leave empty to run all steps. Possible values are: {', '.join(_ordered_steps())}",
+    )
+    not_steps: list[VizStep] = Field(
+        default_factory=lambda: [],
+        description="Steps to *not* run, takes precedence over `steps` (see that key for possible steps).",
+    )
+    debug: bool = Field(default=False, description="")
+
+    @cached_property
+    def output_path(self) -> Path:
+        return Path(self.base_output_dir) / self.name
+
+    def _groundtruth_location(self) -> Location:
+        """Ground-truth location: explicit if given, else the primary data source."""
+        if self.groundtruth_location is not None:
+            return self.groundtruth_location
+        if self.data is not None:
+            return self.data.sources[0].data_location
+        raise ValueError(
+            "viz needs ground-truth data: set `groundtruth_location`, or pass a "
+            "data source (e.g. --data @data/om4_demo.yaml)."
+        )
+
+    def build(self, default_root: ResolvedLocation) -> Viz:
+        if self.data_root is None:
+            data_root = default_root
+        else:
+            data_root = default_root.resolve(self.data_root)
+
+        groundtruth_rollout = data_root.resolve(self._groundtruth_location()).open(
+            chunks={}
+        )
+
+        return Viz(
+            # TODO(jder): change to Path
+            str(self.output_path),
+            self.dataset_name,
+            [run.build(data_root) for run in self.runs],
+            data_root.resolve(self.basins_location).open(),
+            groundtruth_rollout,
+            self.groundtruth_time_range.time_slice,
+            observations=self.observations,
+            data_root=data_root,
+        )
+
+
+logger = logging.getLogger(__name__)
+
+
+def main(cfg: VizConfig):
+    cfg.output_path.mkdir(parents=True, exist_ok=True)
+    handle_logging(cfg.debug, cfg.output_path)
+    cfg.save_yaml(cfg.output_path / "config.yaml")
+
+    logger.info(f"Writing results to {cfg.output_path}")
+
+    viz = cfg.build(LocalLocation(path=Path.cwd()))
+
+    steps = [s for s in cfg.steps or _ordered_steps() if s not in cfg.not_steps]
+    logger.info(f"Running steps: {', '.join(steps)}")
+
+    # TODO(jder): could use a ProcessPoolExecutor here, but steps currently
+    # are not exactly independent (some write to pred_dict which others read,
+    # there's some appending to a metrics file.)
+    for step in steps:
+        _run_step(viz, step)
+
+
+def _run_step(viz: Viz, step: VizStep):
+    logger.info(f"Running step {step}")
+    start = time.perf_counter()
+    try:
+        getattr(viz, f"step_{step}")()
+        end = time.perf_counter()
+        logger.info(f"Step {step} took {end - start:.2f} seconds")
+    except Exception as e:
+        logger.error(f"Step {step} failed: {e}")
+        raise

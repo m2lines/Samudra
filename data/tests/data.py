@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -8,63 +8,114 @@ import pytest
 import xarray as xr
 from ocean_preprocessing.utils import apply_mask
 
+PROCESSED_TIME_SIZE = 10
+PROCESSED_LEVEL_SIZE = 19
+PROCESSED_Y_SIZE = 1080
+PROCESSED_X_SIZE = 1440
+PROCESSED_CHUNKS_2D = (270, 360)
+PROCESSED_CHUNKS_3D = (1, 270, 360)
+PROCESSED_CHUNKS_4D = (1, PROCESSED_LEVEL_SIZE, 270, 360)
+
 
 @pytest.fixture
 def processed_data():
     coords = {
         "wetmask": xr.DataArray(
-            np.random.rand(19, 1080, 1440), dims=["lev", "y", "x"]
-        ).astype(bool),
-        "lon_b": xr.DataArray(np.random.rand(1081, 1441), dims=["y_b", "x_b"]).astype(
-            "float64"
+            dsa.random.random(
+                (PROCESSED_LEVEL_SIZE, PROCESSED_Y_SIZE, PROCESSED_X_SIZE),
+                chunks=PROCESSED_CHUNKS_3D,
+            )
+            > 0.25,
+            dims=["lev", "y", "x"],
         ),
-        "lat_b": xr.DataArray(np.random.rand(1081, 1441), dims=["y_b", "x_b"]).astype(
-            "float64"
-        ),
-        "lon": xr.DataArray(np.random.rand(1080, 1440), dims=["y", "x"]).astype(
-            "float64"
-        ),
-        "lat": xr.DataArray(np.random.rand(1080, 1440), dims=["y", "x"]).astype(
-            "float64"
-        ),
-        "angle": xr.DataArray(np.random.rand(1080, 1440), dims=["y", "x"]).astype(
-            "float64"
-        ),
-        "areacello": xr.DataArray(np.random.rand(1080, 1440), dims=["y", "x"]).astype(
-            "float64"
-        ),
+        "lon_b": xr.DataArray(
+            dsa.random.random(
+                (PROCESSED_Y_SIZE + 1, PROCESSED_X_SIZE + 1),
+                chunks=PROCESSED_CHUNKS_2D,
+            ),
+            dims=["y_b", "x_b"],
+        ).astype("float64"),
+        "lat_b": xr.DataArray(
+            dsa.random.random(
+                (PROCESSED_Y_SIZE + 1, PROCESSED_X_SIZE + 1),
+                chunks=PROCESSED_CHUNKS_2D,
+            ),
+            dims=["y_b", "x_b"],
+        ).astype("float64"),
+        "lon": xr.DataArray(
+            dsa.random.random(
+                (PROCESSED_Y_SIZE, PROCESSED_X_SIZE), chunks=PROCESSED_CHUNKS_2D
+            ),
+            dims=["y", "x"],
+        ).astype("float64"),
+        "lat": xr.DataArray(
+            dsa.random.random(
+                (PROCESSED_Y_SIZE, PROCESSED_X_SIZE), chunks=PROCESSED_CHUNKS_2D
+            ),
+            dims=["y", "x"],
+        ).astype("float64"),
+        "angle": xr.DataArray(
+            dsa.random.random(
+                (PROCESSED_Y_SIZE, PROCESSED_X_SIZE), chunks=PROCESSED_CHUNKS_2D
+            ),
+            dims=["y", "x"],
+        ).astype("float64"),
+        "areacello": xr.DataArray(
+            dsa.random.random(
+                (PROCESSED_Y_SIZE, PROCESSED_X_SIZE), chunks=PROCESSED_CHUNKS_2D
+            ),
+            dims=["y", "x"],
+        ).astype("float64"),
         "dz": xr.DataArray(
             np.random.rand(
-                19,
+                PROCESSED_LEVEL_SIZE,
             ),
             dims=["lev"],
         ).astype("float64"),
         "lev": xr.DataArray(
             np.random.rand(
-                19,
+                PROCESSED_LEVEL_SIZE,
             ),
             dims=["lev"],
         ).astype("float64"),
         "ilev": xr.DataArray(
             np.random.rand(
-                20,
+                PROCESSED_LEVEL_SIZE + 1,
             ),
             dims=["ilev"],
         ).astype("float64"),
-        "x": xr.DataArray(np.random.rand(1440), dims=["x"]).astype("float64"),
-        "y": xr.DataArray(np.random.rand(1080), dims=["y"]).astype("float64"),
-        "time": xr.DataArray(range(10), dims=["time"]),
+        "x": xr.DataArray(np.random.rand(PROCESSED_X_SIZE), dims=["x"]).astype(
+            "float64"
+        ),
+        "y": xr.DataArray(np.random.rand(PROCESSED_Y_SIZE), dims=["y"]).astype(
+            "float64"
+        ),
+        "time": xr.DataArray(range(PROCESSED_TIME_SIZE), dims=["time"]),
     }
     ds = xr.Dataset(
         {
             v: xr.DataArray(
-                np.ones([10, 1080, 1440], dtype="float32"), dims=["time", "y", "x"]
+                dsa.ones(
+                    (PROCESSED_TIME_SIZE, PROCESSED_Y_SIZE, PROCESSED_X_SIZE),
+                    chunks=PROCESSED_CHUNKS_3D,
+                    dtype="float32",
+                ),
+                dims=["time", "y", "x"],
             )
             for v in ["hfds", "tauuo", "tauvo", "zos"]
         }
         | {
             v: xr.DataArray(
-                np.ones([10, 19, 1080, 1440], dtype="float32"),
+                dsa.ones(
+                    (
+                        PROCESSED_TIME_SIZE,
+                        PROCESSED_LEVEL_SIZE,
+                        PROCESSED_Y_SIZE,
+                        PROCESSED_X_SIZE,
+                    ),
+                    chunks=PROCESSED_CHUNKS_4D,
+                    dtype="float32",
+                ),
                 dims=["time", "lev", "y", "x"],
             )
             for v in ["so", "thetao", "uo", "vo"]

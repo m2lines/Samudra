@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -37,10 +37,13 @@ classifiers = [
 dependencies = [
   "bokeh>=3.1",
   "cartopy>=0.23",
+  "copernicusmarine>=2", # DUACS downloads; needs a free Copernicus Marine account
   "fire>=0.7.1",
-  "gcm-filters",     # to avoid https://stackoverflow.com/questions/7446187/no-module-named-pkg-resources which seemed to have https://github.com/m2lines/ocean_emulators/actions/runs/10392595642/job/28778202015?pr=53
+  "gcm-filters",         # to avoid https://stackoverflow.com/questions/7446187/no-module-named-pkg-resources which seemed to have https://github.com/m2lines/ocean_emulators/actions/runs/10392595642/job/28778202015?pr=53
   "gcsfs>=2025.10",
   "h5netcdf>=1.7.3",
+  "h5py",                # h5netcdf's backend for the HDF5-based OISST/ARGO NetCDF files
+  "pypdl>=1.5",          # concurrent, segmented downloads of the observation archives
   "s3fs>=2025.10",
   "setuptools",
   "xarray",

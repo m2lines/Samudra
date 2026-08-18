@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -8,11 +8,7 @@ import torch.nn as nn
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from ocean_emulators.models.modules.blocks import (
-    ConvNeXtBlock,
-    DropPath,
-    PointwiseLinear,
-)
+from samudra.models.modules.blocks import ConvNeXtBlock, DropPath, PointwiseLinear
 
 
 @given(

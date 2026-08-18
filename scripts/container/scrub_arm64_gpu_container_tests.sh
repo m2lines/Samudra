@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -10,7 +10,7 @@ set -euo pipefail
 PYTEST_MARK_EXPR="${PYTEST_MARK_EXPR:-cuda and not manual}"
 PYTEST_ARGS="${PYTEST_ARGS:--x}"
 IMAGE_TAG="${IMAGE_TAG:-}"
-DOCKER_REPO="${DOCKER_REPO:-ghcr.io/Open-Athena}"
+DOCKER_REPO="${DOCKER_REPO:-ghcr.io/m2lines}"
 
 if [[ "$(uname -m)" != "aarch64" ]]; then
   echo "This scrub must run on an ARM64/aarch64 host; got $(uname -m)." >&2
@@ -39,7 +39,7 @@ fi
 
 if [[ -z "${IMAGE_TAG}" ]]; then
   docker_repo_lower="$(echo "${DOCKER_REPO}" | tr '[:upper:]' '[:lower:]')"
-  IMAGE_TAG="${docker_repo_lower}/ocean-emulator-physicsnemo:25.11-arm64-latest"
+  IMAGE_TAG="${docker_repo_lower}/ocean-emulator-physicsnemo:26.05-arm64-latest"
 fi
 
 login_token="${GHCR_TOKEN:-${GITHUB_TOKEN:-${GH_TOKEN:-}}}"

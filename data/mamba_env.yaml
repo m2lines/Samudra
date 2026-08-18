@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -19,6 +19,8 @@ dependencies:
     - xesmf
     - bokeh
     - h5netcdf
+    - h5py  # h5netcdf backend for the HDF5-based OISST/ARGO-IAP NetCDF files
+    - copernicusmarine  # DUACS downloads; needs a free Copernicus Marine account
     - matplotlib
     - coiled
     - distributed

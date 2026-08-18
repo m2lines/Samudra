@@ -1,0 +1,65 @@
+# SPDX-FileCopyrightText: 2023 Matthias Karlbauer, Nathaniel Cresswell-Clay, Thorsten Kurth
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+# SPDX-License-Identifier: MIT
+
+# TODO: Enable setting parameters for activation functions
+import torch
+
+
+class ReLU(torch.nn.Module):
+    """
+    Implements a ReLU.
+    """
+
+    def __init__(self, **kwargs):
+        """
+        :param kwargs: passed to torch.nn.ReLU
+        """
+        super().__init__()
+        self.relu = torch.nn.ReLU(**kwargs)
+
+    def forward(self, inputs):
+        x = self.relu(inputs)
+        return x
+
+
+class CappedLeakyReLU(torch.nn.Module):
+    """
+    Implements a ReLU with capped maximum value.
+    """
+
+    def __init__(self, cap_value=10.0, **kwargs):
+        """
+        :param cap_value: float: value at which to clip activation
+        :param kwargs: passed to torch.nn.LeadyReLU
+        """
+        super().__init__()
+        self.relu = torch.nn.LeakyReLU(**kwargs)
+        self.cap = torch.nn.Buffer(torch.tensor(cap_value, dtype=torch.float32))
+
+    def forward(self, inputs):
+        x = self.relu(inputs)
+        x = torch.clamp(x, max=self.cap)
+        return x
+
+
+class CappedGELU(torch.nn.Module):
+    """
+    Implements a ReLU with capped maximum value.
+    """
+
+    def __init__(self, cap_value=10.0, **kwargs):
+        """
+        :param cap_value: float: value at which to clip activation
+        :param kwargs: passed to torch.nn.LeadyReLU
+        """
+        super().__init__()
+        self.gelu = torch.nn.GELU(**kwargs)
+        self.cap = torch.nn.Buffer(torch.tensor(cap_value, dtype=torch.float32))
+
+    def forward(self, inputs):
+        x = self.gelu(inputs)
+        x = torch.clamp(x, max=self.cap)
+        return x

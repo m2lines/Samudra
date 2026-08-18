@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -29,7 +29,7 @@ echo "SLURM_NTASKS_PER_NODE: $SLURM_NTASKS_PER_NODE"
 echo "SLURM_NNODES: $SLURM_NNODES"
 
 # Run the training script
-python src/ocean_emulators/train.py \
+python src/samudra/train.py \
      configs/slurm_perlmutter_train_om4.yaml \
      --experiment.name $SLURM_JOB_NAME
 

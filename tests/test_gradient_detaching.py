@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -7,12 +7,11 @@ import pytest
 import torch
 import xarray as xr
 
-from ocean_emulators.config import SamudraConfig, UNetBackboneConfig
-from ocean_emulators.constants import TensorMap
-from ocean_emulators.datasets import TrainData
-from ocean_emulators.utils.ctx import GridContext
-from ocean_emulators.utils.data import DataSource, Masks, Normalize
-from ocean_emulators.utils.multiton import MultitonScope
+from samudra.config import SamudraConfig, UNetBackboneConfig
+from samudra.datasets import TrainData
+from samudra.utils.ctx import GridContext
+from samudra.utils.data import DataSource, Masks
+from samudra.utils.multiton import MultitonScope
 from tests.conftest import TEST_DATASET_SPEC
 
 
@@ -59,14 +58,6 @@ def create_samudra_model():
                 dataset_spec=TEST_DATASET_SPEC,
             )
 
-            # Initialize TensorMap and Normalize
-            tensor_map = TensorMap(dataset_spec=TEST_DATASET_SPEC)
-            normalize = Normalize(
-                src,
-                tensor_map.prognostic_var_names,
-                tensor_map.boundary_var_names,
-            )
-
             # Create Samudra model with the specified gradient_detach_interval
             model = SamudraConfig(
                 unet=UNetBackboneConfig(
@@ -81,11 +72,7 @@ def create_samudra_model():
                 boundary_channels=1,
                 out_channels=1,
                 hist=1,
-                static_data_for_corrector=None,
                 srcs=[src],
-                tensor_map=tensor_map,
-                normalize=normalize,
-                dataset_spec=src.dataset_spec,
             )
 
             # Create TrainData compatible with model dimensions.

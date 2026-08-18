@@ -1,20 +1,20 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
 import pytest
 import torch
 
-from ocean_emulators.aggregator import Aggregator, ValidateAggregator
-from ocean_emulators.aggregator.train import TrainAggregator
-from ocean_emulators.aggregator.validate.map import MapAggregator
-from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
-from ocean_emulators.aggregator.validate.sub_aggregator import ValidateSubAggregator
-from ocean_emulators.constants import TensorMap
-from ocean_emulators.utils.ctx import GridContext
-from ocean_emulators.utils.data import DataSource, Normalize
-from ocean_emulators.utils.output import ValBatchOutput
-from ocean_emulators.utils.wandb import Metrics
+from samudra.aggregator import Aggregator, ValidateAggregator
+from samudra.aggregator.train import TrainAggregator
+from samudra.aggregator.validate.map import MapAggregator
+from samudra.aggregator.validate.snapshot import SnapshotAggregator
+from samudra.aggregator.validate.sub_aggregator import ValidateSubAggregator
+from samudra.constants import TensorMap
+from samudra.utils.ctx import GridContext
+from samudra.utils.data import DataSource, Normalize
+from samudra.utils.output import ValBatchOutput
+from samudra.utils.wandb import Metrics
 
 
 def val_batch_of(
@@ -202,7 +202,7 @@ def test_snapshot_aggregator__non_main_rank__skips_plot_rendering(
     aggregator = SnapshotAggregator(dummy_src.metadata, hist=0)
 
     monkeypatch.setattr(
-        "ocean_emulators.aggregator.validate.snapshot.is_main_process",
+        "samudra.aggregator.validate.snapshot.is_main_process",
         lambda: False,
     )
 
@@ -226,7 +226,7 @@ def test_map_aggregator__non_main_rank__still_reduces_but_skips_plot_rendering(
     reduce_calls: list[torch.Tensor] = []
 
     monkeypatch.setattr(
-        "ocean_emulators.aggregator.validate.map.is_main_process",
+        "samudra.aggregator.validate.map.is_main_process",
         lambda: False,
     )
 
@@ -235,7 +235,7 @@ def test_map_aggregator__non_main_rank__still_reduces_but_skips_plot_rendering(
         return tensor
 
     monkeypatch.setattr(
-        "ocean_emulators.aggregator.validate.map.all_reduce_mean",
+        "samudra.aggregator.validate.map.all_reduce_mean",
         fake_all_reduce_mean,
     )
 

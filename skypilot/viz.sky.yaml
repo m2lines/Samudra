@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -14,7 +14,7 @@
 # To create or re-use a cluster:
 # ```
 # export WANDB_API_KEY=<my-key>  # Get your key at https://wandb.ai/authorize
-# sky launch -c fomo-cluster viz.sky.yaml --env-file <my-env>.env --env WANDB_API_KEY --env RUNS='[{"name": "my_eval_job", "location": "/inputs/my_eval_job/predictions.zarr"}, …]'
+# sky launch -c samudra-cluster viz.sky.yaml --env-file <my-env>.env --env WANDB_API_KEY --env RUNS='[{"name": "my_eval_job", "location": "/inputs/my_eval_job/predictions.zarr"}, …]'
 # ```
 # Any location starting with /inputs will automatically be copied from the OUTPUTS_BUCKET
 # in order to access previous jobs' outputs.
@@ -42,9 +42,9 @@ envs:
   # Run `sky check aws -v` to verify that AWS storage is properly set up.
   # If you still hit permission issues, consider making a dedicated SkyPilot IAM via these docs:
   # https://docs.skypilot.co/en/latest/cloud-setup/cloud-permissions/aws.html#dedicated-skypilot-iam-user
-  OSN_KEY_ID: null
-  OSN_KEY_SECRET: null
-  OSN_DATA_PATH: emulators/jr7309/data/om4_halfdeg # Tip: Don't add a trailing `/`!
+  OSN_KEY_ID: ""
+  OSN_KEY_SECRET: ""
+  OSN_DATA_PATH: m2lines-pubs/Samudra/v2026-07/om4_halfdeg # Tip: Don't add a trailing `/`!
   # Comma-separated list of OSN paths. If unset, defaults to OSN_DATA_PATH.
   OSN_DATA_PATHS: ""
 
@@ -70,7 +70,14 @@ setup: |
   set -ex
 
   rclone config create s3-source s3 provider=AWS env_auth=true
-  rclone config create nyu-osn s3 provider=AWS endpoint=https://nyu1.osn.mghpcc.org/ access_key_id="$OSN_KEY_ID" secret_access_key="$OSN_KEY_SECRET"
+  # OSN inputs (data + basins) default to the public m2lines-pubs bucket, so read
+  # the OSN pod anonymously. Set OSN_KEY_ID/OSN_KEY_SECRET only to reach a private
+  # path (e.g. an emulators/... OSN_DATA_PATH override).
+  if [ -z "$OSN_KEY_ID" ] || [ "$OSN_KEY_ID" = "null" ]; then
+    rclone config create nyu-osn s3 provider=AWS endpoint=https://nyu1.osn.mghpcc.org/ anonymous=true
+  else
+    rclone config create nyu-osn s3 provider=AWS endpoint=https://nyu1.osn.mghpcc.org/ access_key_id="$OSN_KEY_ID" secret_access_key="$OSN_KEY_SECRET"
+  fi
 
   mkdir -p ~/data/
   # Handle data copying with backwards compatibility:
@@ -97,7 +104,7 @@ setup: |
   fi
 
   mkdir -p ~/basins/
-  rclone copy --progress nyu-osn:emulators/jr7309/basins ~/basins
+  rclone copy --progress nyu-osn:m2lines-pubs/Samudra/basins ~/basins
 
   sudo mkdir -p /inputs
   sudo chown $USER /inputs
@@ -159,7 +166,7 @@ run: |
   DATA_ROOT=$(realpath ~/data)
   BASINS_ROOT=$(realpath ~/basins)
 
-  uv run -m ocean_emulators.viz "${CONFIG}" \
+  uv run -m samudra.viz "${CONFIG}" \
     --data_root="${DATA_ROOT}" \
     --base_output_dir=/outputs/ \
     --name="${NAME}" \

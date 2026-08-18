@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+# SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
 
@@ -9,7 +9,7 @@ import pytest
 import xarray as xr
 from pydantic import ValidationError
 
-from ocean_emulators.utils.location import (
+from samudra.utils.location import (
     LocalLocation,
     Location,
     S3Location,
@@ -199,6 +199,15 @@ class TestS3Location:
         assert isinstance(resolved, S3Location)
 
         assert resolved.endpoint_url == "https://s3.example.com"
+
+    def test_resolve_preserves_anon(self):
+        """Resolving a relative path keeps the anonymous-access flag."""
+        base = S3Location(bucket="test-bucket", path="base/path", anon=True)
+
+        resolved = base.resolve(UnresolvedLocation(path="subdir/file.zarr"))
+
+        assert isinstance(resolved, S3Location)
+        assert resolved.anon is True
 
     def test_resolve_resolved_location(self):
         """Test resolving a ResolvedLocation returns it unchanged."""

@@ -12,10 +12,11 @@ This is the lab notebook for the first full-training search over the Perceiver
 v2 SamudraMulti architecture on the public 2-degree OM4 dataset. The questions,
 hypotheses, and experimental design below were recorded before inspecting
 validation results. Successive halving completed through its 12-epoch budget,
-although a cluster-side cancellation interrupted two of the three finalists.
-The completed 12-epoch result and all recoverable intermediate evidence are
-recorded below; comparisons involving the interrupted finalists remain
-right-censored rather than being treated as model failures.
+although a cluster-side cancellation initially interrupted two of the three
+finalists. Both interrupted runs were subsequently resumed from their last
+complete checkpoints and reached epoch 12. The controller and public artifacts
+were reconciled on 2026-08-18, so all three finalists now have directly
+comparable results at the full budget.
 
 The immutable run is
 `perceiver-v2-2deg-architecture--20260814T171003.874785Z`. Its code revision is
@@ -489,27 +490,26 @@ cumulative budget.
 Nine candidates advanced to three epochs, five advanced to six epochs, and
 three advanced to the nominal 12-epoch rung. Validation loss decreased
 monotonically for every promoted candidate. The table shows each candidate's
-observed loss at promotion boundaries and, for interrupted finalists, the last
-fully validated checkpoint.
+observed loss at promotion boundaries and the completed finalist ranking.
 
 | Candidate | Epoch 1 | Epoch 3 | Epoch 6 | Latest later result | Outcome |
 | --- | ---: | ---: | ---: | ---: | --- |
-| `direct-transport256-lr8` | 0.319645 | **0.263441** | **0.231851** | **0.201974 (epoch 12)** | Completed; selected winner |
-| `direct-enc64-lr8` | 0.321942 | 0.265365 | 0.236658 | 0.207627 (epoch 11) | Interrupted by scheduler |
+| `direct-no-context-lr4` | 0.356488 | 0.272234 | 0.234455 | **0.198794 (epoch 12)** | Recovered; selected winner |
+| `direct-transport256-lr8` | 0.319645 | **0.263441** | **0.231851** | 0.201974 (epoch 12) | Completed; second |
+| `direct-enc64-lr8` | 0.321942 | 0.265365 | 0.236658 | 0.203297 (epoch 12) | Recovered; third |
 | `direct-coarse-patch-lr8` | 0.324788 | 0.267757 | 0.237423 | — | Pruned after epoch 6 |
-| `direct-no-context-lr4` | 0.356488 | 0.272234 | 0.234455 | 0.208374 (epoch 10) | Interrupted by scheduler |
 | `direct-transport256-lr4` | 0.354275 | 0.272753 | 0.237599 | — | Pruned after epoch 6 |
 | `direct-no-context-lr8` | 0.332763 | 0.274045 | — | — | Pruned after epoch 3 |
 | `direct-context2-lr8` | 0.344039 | 0.276251 | — | — | Pruned after epoch 3 |
 | `direct-coarse-patch-lr4` | 0.342571 | 0.282131 | — | — | Pruned after epoch 3 |
 | `direct-transport64-lr8` | 0.345617 | 0.285886 | — | — | Pruned after epoch 3 |
 
-The final comparison is incomplete but informative. At the common epoch-10
-boundary, `direct-no-context-lr4` led the eventual winner by 0.001397
-(0.208374 versus 0.209771). At epoch 11, `direct-transport256-lr8` led
-`direct-enc64-lr8` by 0.001979 (0.205648 versus 0.207627). Consequently, the
-completed 12-epoch loss identifies the search system's winner, but does not
-prove that it would beat both other finalists at the same budget.
+The final comparison is now complete. `direct-no-context-lr4` reached 0.198794,
+1.6% lower than `direct-transport256-lr8` and 2.2% lower than
+`direct-enc64-lr8`. It also had the lowest epoch-12 train loss, 0.810475 versus
+0.840199 and 0.844502. The advantage was not an isolated final validation:
+no-context led at epoch 10, epoch 11, and epoch 12, and its validation margin
+over transport widened from 0.001397 to 0.003180 across those boundaries.
 
 The two interrupted jobs were making normal optimizer progress when Slurm
 cancelled them simultaneously on `gr101` at 2026-08-15 03:00 UTC. Accounting
@@ -518,7 +518,11 @@ out-of-memory condition. `direct-no-context-lr4` retained an epoch-10
 checkpoint, while `direct-enc64-lr8` retained an epoch-11 checkpoint. The
 search controller correctly kept their incomplete results in the durable table
 as ineligible, but incorrectly summarized the overall run as simply
-`complete` once one finalist succeeded.
+`complete` once one finalist succeeded. On 2026-08-18, recovery jobs `15959944`
+and `15959945` resumed the exact optimizer states. Encoder-64 completed its
+remaining epoch in 23 minutes, while no-context completed two epochs in 53
+minutes. The reconciled controller now marks all finalists eligible and the
+public Parquet tables contain the complete comparison.
 
 <details>
 
@@ -550,6 +554,43 @@ ORDER BY coalesce(epoch_12, epoch_11, epoch_10, epoch_6, epoch_3) NULLS LAST;
 
 </details>
 
+## Analysis: why the no-context model won
+
+The result supports a routing explanation more strongly than a raw-capacity
+explanation. The winning decoder presents each output query with the 36 tokens
+from its own six-by-six processor window. The one-context-ring alternatives
+present 64 tokens, adding 28 neighboring tokens without an explicit relative
+position that identifies how each neighbor should contribute to the queried
+cell. Removing those tokens reduces the attention search space by 44% and
+eliminates spatially plausible but incorrectly routed values.
+
+This decoder is not globally context-free. Before decoding, the ConvNeXt U-Net
+processor has already mixed information across the spatial latent grid. The
+zero-context intervention only prevents the final cross-attention operation
+from reintroducing anonymous neighboring patch tokens. A plausible mechanism is
+therefore:
+
+1. The encoder and processor construct spatially contextualized features.
+2. The direct decoder queries the processed tokens assigned to its own output
+   window.
+3. Extra unanchored tokens make the final routing problem harder without adding
+   reliably identifiable information.
+
+The learning curve adds an optimization qualification. Wider transport at
+`8e-4` learned fastest and led through epoch 6, while no-context at `4e-4`
+started poorly but overtook it before epoch 10 and continued improving. Its
+lower final train and validation losses suggest the win is not merely reduced
+validation overfitting. It may combine a simpler routing problem with a learning
+rate that is slower initially but better late in this short schedule.
+
+This search does not isolate those two effects at epoch 12: the finalists differ
+in both context and learning rate, and the no-context `8e-4` arm was pruned after
+epoch 3. Nor does one seed establish statistical stability. The most informative
+follow-up is a factorial comparison of context rings zero and one, transport
+widths 128 and 256, and both learning rates, with enough budget to avoid pruning
+the slower-starting no-context family. Explicit relative-position context should
+then test the proposed routing mechanism directly.
+
 ## Discussion
 
 ### H1: direct output queries
@@ -574,37 +615,37 @@ grids.
 The result contradicts H2's expected direction. Reducing the patch encoder from
 256 to 64 latents improved the rung-zero two-rate mean by 5.8%, reduced training
 time by about four minutes per epoch, survived every promotion boundary, and
-reached a validation loss of 0.207627 at epoch 11. At that common budget it was
-only 0.001979 behind the wider-transport winner.
+reached a validation loss of 0.203297 at epoch 12. It finished 0.001324 behind
+the wider-transport candidate and 0.004504 behind the no-context winner.
 
 This does not show that aggressive spatial compression is harmless: both
-variants mean-pool their internal latent bank to one processor vector per patch,
-and the 64-latent finalist was cancelled before its final epoch. It does show
-that internal encoder latent count is not the limiting capacity measure in this
-experiment and makes the smaller encoder a strong candidate for follow-up work.
+variants mean-pool their internal latent bank to one processor vector per patch.
+It does show that internal encoder latent count is not the limiting capacity
+measure in this experiment and makes the smaller encoder a strong candidate for
+follow-up work, especially given its lower cost.
 
 ### H3: decoder transport width
 
-H3 has the strongest positive architectural evidence after H1. The
-256-transport, `8e-4` candidate ranked first at epochs 3 and 6 and was the only
-finalist to complete epoch 12, reaching 0.201974. Both learning-rate members of
-the 256-transport family survived to epoch 6, whereas the surviving
-64-transport candidate was pruned at epoch 3.
+H3 receives partial support. The
+256-transport, `8e-4` candidate ranked first at epochs 3 and 6 and finished
+second at epoch 12 with 0.201974. Both learning-rate members of the
+256-transport family survived to epoch 6, whereas the surviving 64-transport
+candidate was pruned at epoch 3.
 
 The evidence is not a clean monotonic width sweep: width 64 beat the 128-wide
-control at `8e-4` in epoch one, only one seed was used, and the two other
-finalists did not finish epoch 12. Wider transport is therefore the best current
-default, but variable-wise diagnostics and repeated seeds are still needed to
-establish that it specifically relieves a 77-channel information bottleneck.
+control at `8e-4` in epoch one, only one seed was used, and the narrower
+no-context model ultimately won. Wider transport remains a promising early-
+learning intervention, not the best current default. A zero-context plus
+256-transport combination and variable-wise diagnostics are needed to establish
+whether width specifically relieves an output information bottleneck.
 
 ### H4: decoder context
 
 H4 is contradicted. The zero-context `4e-4` candidate became a finalist and was
-slightly ahead of the eventual winner at their last common epoch, epoch 10
-(0.208374 versus 0.209771). The zero-context `8e-4` member also survived epoch
-one, while the two-context-ring candidate was pruned after epoch 3. This is
-consistent with prior evidence that unanchored neighboring tokens can compete
-with the correct spatial route.
+the best model at epochs 10, 11, and 12, finishing at 0.198794. The zero-context
+`8e-4` member also survived epoch one, while the two-context-ring candidate was
+pruned after epoch 3. This is consistent with prior evidence that unanchored
+neighboring tokens can compete with the correct spatial route.
 
 This result does not imply that ocean prediction needs no neighboring context.
 The spatial processor already mixes information before decoding, and the
@@ -631,10 +672,10 @@ required before carrying this intervention to higher-resolution training.
 H6 receives mixed evidence. `8e-4` beat `4e-4` in all nine families at epoch
 one, and three of the five epoch-6 candidates used `8e-4`, making it the strong
 default for rapid screening. However, the `4e-4` no-context candidate became a
-finalist and led the `8e-4` winner at their common epoch-10 boundary. Learning
-rate therefore interacts with architecture rather than providing one universal
-ordering. A follow-up should retain rate sensitivity for the best families and
-consider a short range test before expanding another full matrix.
+finalist and won the full epoch-12 comparison. Learning rate therefore
+interacts with architecture rather than providing one universal ordering. A
+follow-up should retain rate sensitivity for the best families and consider a
+short range test before expanding another full matrix.
 
 ### Search-system observation
 
@@ -651,29 +692,31 @@ rungs, and the launcher has since been corrected. Second, public controller
 state lagged completed workers long enough to obscure whether promotion was
 stuck. Third, Slurm simultaneously cancelled two healthy final workers, yet the
 controller reported the overall search as simply `complete` because one finalist
-succeeded. A robust search should expose “workers complete, controller pending,”
-distinguish complete from partial-final-rung completion, and automatically retry
-or requeue workers whose scheduler termination is consistent with preemption.
+succeeded. Manual checkpoint recovery obtained the missing results, but the
+controller had to be reconciled and republished explicitly afterward. A robust
+search should expose “workers complete, controller pending,” distinguish
+complete from partial-final-rung completion, and automatically retry or requeue
+workers whose scheduler termination is consistent with preemption.
 
 ## Conclusions
 
-The provisional architecture winner is `direct-transport256-lr8`: the
-patch-local Perceiver encoder, direct query decoder, 256-value decoder transport,
-256 encoder latents, one context ring, 6 x 10 degree patches, and learning rate
-`8e-4`. Its validation loss fell from 0.319645 at epoch one to 0.201974 at epoch
-12, a 36.8% reduction, over 1,068 optimizer updates.
+The search winner is `direct-no-context-lr4`: the patch-local Perceiver
+encoder, direct query decoder, 128-value decoder transport, 256 encoder latents,
+zero context rings, 6 x 10 degree patches, and learning rate `4e-4`. Its
+validation loss fell from 0.356488 at epoch one to 0.198794 at epoch 12, a 44.2%
+reduction, over 1,068 optimizer updates.
 
 The most durable architectural conclusion is broader than that exact winner:
 direct query decoding is substantially more effective and compute-efficient
 than the tested full Perceiver IO decoder. Wider output transport is the best
-supported positive intervention. A 64-latent encoder and zero-context decoder
-are unexpectedly competitive, while coarse patches offer a promising
-loss-versus-cost tradeoff. Additional anonymous decoder context is not supported.
+supported early-learning capacity intervention, but removing decoder context is
+the best final-budget intervention. A 64-latent encoder is also competitive,
+while coarse patches offer a promising loss-versus-cost tradeoff. Additional
+anonymous decoder context is not supported.
 
-The winner remains provisional because this search used one seed, validation
-MSE alone, and did not obtain equal 12-epoch observations for two very close
-finalists. The scheduler cancellations are right-censoring, not evidence that
-those architectures failed.
+The winner remains provisional because this search used one seed and validation
+MSE alone. The completed comparison removes the earlier right-censoring but does
+not separate the winner's context intervention from its learning rate.
 
 ## Future work
 
@@ -681,17 +724,16 @@ The mechanistic implications and proposed next search are developed in
 [`perceiver_v2_next_round_synthesis.md`](perceiver_v2_next_round_synthesis.md).
 The immediate priorities are:
 
-1. Resume `direct-enc64-lr8` and `direct-no-context-lr4` from their retained
-   checkpoints to obtain a fair epoch-12 finalist comparison.
-2. Run the durable ocean metrics and visualization suite on the finalists,
+1. Run the durable ocean metrics and visualization suite on the finalists,
    including variable/depth error, spectra, amplitude, bias, patch seams, and a
    short rollout-stability probe.
-3. Repeat the strongest configurations with multiple seeds before adopting a
+2. Repeat the strongest configurations with multiple seeds before adopting a
    default architecture.
-4. Test combinations suggested by this search: direct decoding, 256-wide
-   transport, the smaller encoder, and physically anchored decoder context.
-5. Improve the harness with explicit partial-completion state, automatic retry
+3. Run a matched factorial test of zero versus one context ring, transport
+   widths 128 versus 256, and both learning rates; include the smaller encoder
+   and physically anchored context as targeted follow-ups.
+4. Improve the harness with explicit partial-completion state, automatic retry
    of preempted workers, bounded controller-lag alerts, and reliable monotonic
    W&B resume logging.
-6. Confirm the selected design on a second resolution before treating
+5. Confirm the selected design on a second resolution before treating
    single-scale gains as evidence of resolution-sharing ability.

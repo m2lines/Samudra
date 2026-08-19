@@ -7,28 +7,35 @@
 from __future__ import annotations
 
 import hashlib
-import os
+import json
 import shutil
-import tempfile
 from pathlib import Path
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 import s3fs
 
 from samudra.search.config import ArtifactConfig
+from samudra.utils.atomic import atomic_path
 from samudra.utils.location import LocalLocation, S3Location, UnresolvedLocation
+from samudra.utils.training_summary import (
+    SEARCH_METRICS_NAME,
+    SEARCH_WORKER_STATUS_NAME,
+    TRAINING_SUMMARY_NAME,
+)
 
 CATALOG_NAME = "artifacts.parquet"
 EPOCHS_NAME = "epochs.parquet"
+PUBLISHED_MANIFEST_NAME = ".published-artifacts.json"
 RUN_FILES = (
     "config.yaml",
-    "training_summary.json",
-    "search_worker_status.json",
-    "search_metrics.parquet",
-    "experiment.log",
-    "error.log",
+    TRAINING_SUMMARY_NAME,
+    SEARCH_WORKER_STATUS_NAME,
+    SEARCH_METRICS_NAME,
 )
+
+if TYPE_CHECKING:
+    from samudra.search.successive_halving import SuccessiveHalving
 
 
 def _sha256(path: Path) -> str:
@@ -39,45 +46,16 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-class ArtifactSearchConfig(Protocol):
-    """Configuration fields shared by publishable search algorithms."""
-
-    name: str
-
-
-class ArtifactSearch(Protocol):
-    """Search-algorithm surface required by artifact publication."""
-
-    @property
-    def config(self) -> ArtifactSearchConfig: ...
-
-    run_id: str
-    search_dir: Path
-    checkpoint: Path
-
-    @staticmethod
-    def result_rows(state: dict[str, Any]) -> list[dict[str, Any]]: ...
-
-
 def atomic_local_parquet(frame: pd.DataFrame, path: Path) -> None:
     """Atomically replace one local Parquet snapshot used for publication."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary_name = tempfile.mkstemp(
-        dir=path.parent, prefix=f".{path.name}.", suffix=".parquet"
-    )
-    os.close(descriptor)
-    temporary = Path(temporary_name)
-    try:
+    with atomic_path(path, suffix=".parquet") as temporary:
         frame.to_parquet(temporary, index=False)
-        os.replace(temporary, path)
-    finally:
-        temporary.unlink(missing_ok=True)
 
 
 class ArtifactPublisher:
     """Materialize and mirror the complete inspectable record of a search."""
 
-    def __init__(self, search: ArtifactSearch, config: ArtifactConfig) -> None:
+    def __init__(self, search: SuccessiveHalving, config: ArtifactConfig) -> None:
         self.search = search
         self.config = config
         self.destination = config.destination.resolve(
@@ -89,7 +67,8 @@ class ArtifactPublisher:
         if isinstance(self.destination, LocalLocation):
             exists = self.destination.path.exists()
         else:
-            assert isinstance(self.destination, S3Location)
+            if not isinstance(self.destination, S3Location):
+                raise TypeError(f"Unsupported artifact destination: {self.destination}")
             exists = self._s3(self.destination).exists(
                 f"{self.destination.bucket}/{self.destination.path}"
             )
@@ -106,11 +85,33 @@ class ArtifactPublisher:
         files = self._files(state)
         self._write_epochs(files)
         files = self._files(state)
-        catalog = pd.DataFrame(self._catalog_rows(files, state))
+        catalog_rows = self._catalog_rows(files, state)
+        catalog = pd.DataFrame(catalog_rows)
         atomic_local_parquet(catalog, self.search.search_dir / CATALOG_NAME)
         files.append((self.search.search_dir / CATALOG_NAME, CATALOG_NAME))
+        hashes = {row["artifact"]: row["sha256"] for row in catalog_rows}
+        hashes[CATALOG_NAME] = _sha256(self.search.search_dir / CATALOG_NAME)
+        manifest_path = self.search.search_dir / PUBLISHED_MANIFEST_NAME
+        published = (
+            json.loads(manifest_path.read_text(encoding="utf-8"))
+            if manifest_path.is_file()
+            else {}
+        )
         for source, relative in files:
+            if published.get(relative) == hashes[relative]:
+                continue
             self._put(source, relative)
+            published[relative] = hashes[relative]
+            self._write_manifest(manifest_path, published)
+
+    @staticmethod
+    def _write_manifest(path: Path, manifest: dict[str, str]) -> None:
+        """Atomically retain hashes of objects successfully published."""
+        with atomic_path(path) as temporary:
+            temporary.write_text(
+                json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
 
     def _files(self, state: dict[str, Any]) -> list[tuple[Path, str]]:
         """List local search files to publish and their destination-relative keys."""
@@ -128,9 +129,10 @@ class ArtifactPublisher:
                 files.append((path, name))
         for path in sorted((self.search.search_dir / "candidates").glob("*.yaml")):
             files.append((path, f"candidates/{path.name}"))
-        for path in sorted((self.search.search_dir / "logs").glob("*")):
-            if path.is_file():
-                files.append((path, f"logs/{path.name}"))
+        if self.config.logs == "all":
+            for path in sorted((self.search.search_dir / "logs").glob("*")):
+                if path.is_file():
+                    files.append((path, f"logs/{path.name}"))
         for path in sorted((self.search.search_dir / "analysis").rglob("*")):
             if path.is_file():
                 relative = path.relative_to(self.search.search_dir)
@@ -148,6 +150,11 @@ class ArtifactPublisher:
                 path = output / name
                 if path.is_file():
                     files.append((path, f"{prefix}/{name}"))
+            if self.config.logs == "all":
+                for name in ("experiment.log", "error.log"):
+                    path = output / name
+                    if path.is_file():
+                        files.append((path, f"{prefix}/{name}"))
             for path in sorted((output / "analysis").rglob("*")):
                 if path.is_file():
                     relative = path.relative_to(output)
@@ -174,7 +181,7 @@ class ArtifactPublisher:
     def _write_epochs(self, files: list[tuple[Path, str]]) -> None:
         frames = []
         for path, _ in files:
-            if path.name == "search_metrics.parquet":
+            if path.name == SEARCH_METRICS_NAME:
                 frames.append(pd.read_parquet(path))
         if frames:
             atomic_local_parquet(
@@ -252,7 +259,8 @@ class ArtifactPublisher:
             destination.path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(source, destination.path)
             return
-        assert isinstance(destination, S3Location)
+        if not isinstance(destination, S3Location):
+            raise TypeError(f"Unsupported artifact destination: {destination}")
         filesystem = self._s3(destination)
         filesystem.put_file(source, f"{destination.bucket}/{destination.path}")
 

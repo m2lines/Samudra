@@ -13,8 +13,6 @@ import math
 import os
 import re
 import subprocess
-import tempfile
-import traceback
 from pathlib import Path
 from typing import Any
 
@@ -31,15 +29,18 @@ from samudra.search.config import (
 )
 from samudra.search.executors import Executor, LocalExecutor, SlurmExecutor
 from samudra.search.report import write_search_report
+from samudra.search.state import SearchState
 from samudra.train import Trainer
+from samudra.utils.atomic import atomic_path
 from samudra.utils.distributed import is_main_process
 from samudra.utils.logging import handle_logging, handle_warnings
-from samudra.utils.training_summary import write_search_worker_status
+from samudra.utils.training_summary import (
+    SEARCH_WORKER_STATUS_NAME,
+    TRAINING_SUMMARY_NAME,
+    write_search_worker_status,
+)
 
-SUMMARY_NAME = "training_summary.json"
-WORKER_STATUS_NAME = "search_worker_status.json"
 CHECKPOINT = Path("saved_nets/ckpt.pt")
-SCHEDULER_LOG_TAIL_BYTES = 16 * 1024
 EXECUTORS: dict[str, type[Executor]] = {
     "local": LocalExecutor,
     "slurm": SlurmExecutor,
@@ -52,16 +53,11 @@ def _new_run_id(name: str) -> str:
 
 
 def _atomic_json(path: Path, value: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        mode="w", dir=path.parent, prefix=f".{path.name}.", delete=False
-    ) as stream:
-        temporary = Path(stream.name)
-        json.dump(value, stream, indent=2, sort_keys=True, allow_nan=False)
-        stream.write("\n")
-        stream.flush()
-        os.fsync(stream.fileno())
-    os.replace(temporary, path)
+    with atomic_path(path) as temporary:
+        temporary.write_text(
+            json.dumps(value, indent=2, sort_keys=True, allow_nan=False) + "\n",
+            encoding="utf-8",
+        )
 
 
 def _git_provenance(*, allow_dirty: bool) -> dict[str, Any]:
@@ -200,7 +196,12 @@ class SuccessiveHalving:
         if self.publisher is not None and is_main_process():
             print(f"Published search record: {self.publisher.root}", flush=True)
         try:
-            self.executor.submit_anchors(state)
+            gate_anchors = (
+                isinstance(self.config.executor, SlurmExecutorConfig)
+                and self.config.executor.rung0_probe
+            )
+            if not gate_anchors:
+                self.executor.submit_anchors(state)
             self.executor.submit_rung(self.read_state(), 0)
         except Exception as error:
             state = self.read_state()
@@ -225,12 +226,20 @@ class SuccessiveHalving:
 
     def read_state(self) -> dict[str, Any]:
         value = json.loads(self.state_path.read_text(encoding="utf-8"))
-        if not isinstance(value, dict):
-            raise ValueError(f"Invalid search state: {self.state_path}")
-        return value
+        state = SearchState.model_validate(value)
+        if state.name != self.config.name or state.run_id != self.run_id:
+            raise ValueError("Search state identity does not match its configuration")
+        if [item.epochs for item in state.rungs] != self.rungs or [
+            item.index for item in state.rungs
+        ] != list(range(len(self.rungs))):
+            raise ValueError("Search state rungs do not match its configuration")
+        return state.model_dump(mode="json", exclude_none=True)
 
     def write_state(self, state: dict[str, Any]) -> None:
-        _atomic_json(self.state_path, state)
+        validated = SearchState.model_validate(state)
+        _atomic_json(
+            self.state_path, validated.model_dump(mode="json", exclude_none=True)
+        )
 
     def publish(self, state: dict[str, Any]) -> None:
         if self.publisher is not None:
@@ -265,11 +274,19 @@ class SuccessiveHalving:
             if probe
             else self.output_dir(name, rung)
         )
-        if output.exists() and "RANK" not in os.environ:
+        if output.exists() and int(os.environ.get("RANK", "0")) == 0:
             raise ValueError(f"Refusing to overwrite {output}")
         args = [candidate.config, *candidate.args]
         train_config = TrainConfig.from_yaml_and_cli(args)
         train_config.epochs = self.rungs[rung]
+        if (
+            train_config.scheduler is not None
+            and train_config.scheduler.target_epochs is None
+        ):
+            # Every rung and fixed anchor must share one LR horizon. Otherwise
+            # restoring a scheduler checkpoint also restores the short rung's
+            # T_max and corrupts the promoted candidate's learning rate.
+            train_config.scheduler.target_epochs = self.rungs[-1]
         train_config.experiment.name = output.name
         train_config.experiment.base_output_dir = str(output.parent)
         parent_checkpoint: Path | None = None
@@ -337,7 +354,6 @@ class SuccessiveHalving:
                     **status_details,
                     error_type=type(error).__name__,
                     error=str(error),
-                    traceback=traceback.format_exc(),
                 )
             raise
         if is_main_process():
@@ -352,12 +368,12 @@ class SuccessiveHalving:
     def release_probe(self, rung: int) -> None:
         """Release a Slurm rung only after its probe proves an optimizer update."""
         state = self.read_state()
-        controller = _git_provenance(allow_dirty=False)
+        controller_commit = os.environ.get("SAMUDRA_CODE_COMMIT")
         expected_commit = state.get("provenance", {}).get("commit")
-        if controller["commit"] != expected_commit:
+        if controller_commit != expected_commit:
             raise ValueError(
                 f"Search was started at {expected_commit}; probe controller "
-                f"is running {controller['commit']}"
+                f"reports {controller_commit!r}"
             )
         current = state["rungs"][rung]
         probe = current.get("probe")
@@ -365,7 +381,7 @@ class SuccessiveHalving:
             raise ValueError(f"Rung {rung} has no configured probe")
         name = probe["candidate"]
         status_path = (
-            self.search_dir / "probe" / resource_slug(name) / WORKER_STATUS_NAME
+            self.search_dir / "probe" / resource_slug(name) / SEARCH_WORKER_STATUS_NAME
         )
         try:
             status = json.loads(status_path.read_text(encoding="utf-8"))
@@ -397,7 +413,9 @@ class SuccessiveHalving:
             validated_at=datetime.datetime.now(datetime.UTC).isoformat(),
         )
         self.write_state(state)
-        assert isinstance(self.executor, SlurmExecutor)
+        if not isinstance(self.executor, SlurmExecutor):
+            raise TypeError("Rung probes are only supported by the Slurm executor")
+        self.executor.submit_anchors(state)
         self.executor.submit_validated_rung(state, rung)
         self.publish(self.read_state())
 
@@ -416,7 +434,9 @@ class SuccessiveHalving:
             "code_commit": self.read_state().get("provenance", {}).get("commit"),
         }
         try:
-            summary = json.loads((output / SUMMARY_NAME).read_text(encoding="utf-8"))
+            summary = json.loads(
+                (output / TRAINING_SUMMARY_NAME).read_text(encoding="utf-8")
+            )
             if summary["epoch"] != self.rungs[rung] or not summary["complete"]:
                 raise ValueError("target epoch was not completed")
             expected_commit = self.read_state().get("provenance", {}).get("commit")
@@ -463,7 +483,7 @@ class SuccessiveHalving:
         ) as error:
             result["error"] = str(error)
             result.update(self._scheduler_failure_context(name, rung))
-        status_path = output / WORKER_STATUS_NAME
+        status_path = output / SEARCH_WORKER_STATUS_NAME
         if status_path.is_file():
             worker_status = json.loads(status_path.read_text(encoding="utf-8"))
             result.update(
@@ -473,7 +493,7 @@ class SuccessiveHalving:
                 worker_batches_seen=worker_status.get("batches_seen"),
                 worker_error_type=worker_status.get("error_type"),
                 worker_error=worker_status.get("error"),
-                worker_status_log=str(status_path.relative_to(self.search_dir.parent)),
+                worker_status_log=f"runs/{output.name}/{SEARCH_WORKER_STATUS_NAME}",
             )
         return result
 
@@ -494,12 +514,6 @@ class SuccessiveHalving:
             if not path.is_file():
                 continue
             context[f"scheduler_{field}_log"] = str(path.relative_to(self.search_dir))
-            with path.open("rb") as stream:
-                stream.seek(max(0, path.stat().st_size - SCHEDULER_LOG_TAIL_BYTES))
-                tail = (
-                    stream.read().decode("utf-8", errors="replace").replace("\x00", "")
-                )
-            context[f"scheduler_{field}_tail"] = tail
         return context
 
     def _write_results(self, state: dict[str, Any]) -> None:
@@ -524,18 +538,8 @@ class SuccessiveHalving:
         )
         frame = pd.DataFrame(rows, columns=columns)
         atomic_local_parquet(frame, self.results_parquet_path)
-        with tempfile.NamedTemporaryFile(
-            mode="w",
-            dir=self.search_dir,
-            prefix=".results.",
-            suffix=".csv",
-            delete=False,
-        ) as stream:
-            temporary = Path(stream.name)
-            frame.to_csv(stream, index=False)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, self.results_path)
+        with atomic_path(self.results_path, suffix=".csv") as temporary:
+            frame.to_csv(temporary, index=False)
         write_search_report(self, state)
 
     @staticmethod
@@ -547,12 +551,12 @@ class SuccessiveHalving:
     def advance(self, rung: int) -> None:
         state = self.read_state()
         if isinstance(self.config.executor, SlurmExecutorConfig):
-            controller = _git_provenance(allow_dirty=False)
+            controller_commit = os.environ.get("SAMUDRA_CODE_COMMIT")
             expected_commit = state.get("provenance", {}).get("commit")
-            if controller["commit"] != expected_commit:
+            if controller_commit != expected_commit:
                 raise ValueError(
                     f"Search was started at {expected_commit}; promotion controller "
-                    f"is running {controller['commit']}"
+                    f"reports {controller_commit!r}"
                 )
         current = state["rungs"][rung]
         if current["advanced"]:
@@ -572,6 +576,12 @@ class SuccessiveHalving:
         if eligible.empty:
             current["results"] = results
             state["status"] = "failed"
+            state["failure"] = {
+                "stage": f"rung_{rung}",
+                "type": "NoEligibleCandidates",
+                "message": f"No candidate completed rung {rung}",
+                "failed_at": datetime.datetime.now(datetime.UTC).isoformat(),
+            }
             self.write_state(state)
             self._write_results(state)
             self.publish(state)
@@ -592,10 +602,10 @@ class SuccessiveHalving:
             state["anchors"]["results"] = [
                 self._result(name, rung) for name in state["anchors"]["candidates"]
             ]
-            final_results = [*results, *state["anchors"]["results"]]
+            all_results = self.result_rows(state)
             state["status"] = (
                 "complete"
-                if all(result["eligible"] for result in final_results)
+                if all(result["eligible"] for result in all_results)
                 else "partial"
             )
             self.write_state(state)

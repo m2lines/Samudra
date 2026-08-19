@@ -16,7 +16,8 @@ class SlurmExecutor(Executor):
     @property
     def config(self) -> SlurmExecutorConfig:
         config = self.search.config.executor
-        assert isinstance(config, SlurmExecutorConfig)
+        if not isinstance(config, SlurmExecutorConfig):
+            raise TypeError("SlurmExecutor requires a SlurmExecutorConfig")
         return config
 
     def _submit(self, command: list[str]) -> str:
@@ -123,6 +124,8 @@ class SlurmExecutor(Executor):
     def submit_anchors(self, state: dict[str, Any]) -> None:
         if not state["anchors"]["candidates"]:
             return
+        if "job_id" in state["anchors"]:
+            return
         state["anchors"]["job_id"] = self._array(
             state, len(self.search.rungs) - 1, anchor=True
         )
@@ -146,6 +149,14 @@ class SlurmExecutor(Executor):
             label=f"r{rung}-probe",
             worker_command="probe",
         )
+        state = self.search.read_state()
+        state["rungs"][rung]["probe"] = {
+            "candidate": candidate,
+            "job_id": job_id,
+            "status": "array_submitted",
+        }
+        state["status"] = "validating"
+        self.search.write_state(state)
         command = self._controller_command(
             "-m",
             "samudra.search.worker",
@@ -165,29 +176,31 @@ class SlurmExecutor(Executor):
                 f"--dependency=afterany:{job_id}",
                 f"--account={self.config.account}",
                 f"--partition={self.config.controller_partition}",
-                "--cpus-per-task=1",
-                "--mem=2G",
-                "--time=00:10:00",
-                "--export=ALL",
+                f"--cpus-per-task={self.config.controller_cpus_per_task}",
+                f"--mem={self.config.controller_memory}",
+                f"--time={self.config.controller_time}",
+                f"--export=ALL,SAMUDRA_CODE_COMMIT={state['provenance']['commit']}",
                 f"--output={logs}/release-r{rung}-%j.out",
                 f"--error={logs}/release-r{rung}-%j.err",
                 f"--wrap={command}",
             ]
         )
         state = self.search.read_state()
-        state["rungs"][rung]["probe"] = {
-            "candidate": candidate,
-            "job_id": job_id,
-            "controller_job_id": controller_job,
-            "status": "submitted",
-        }
-        state["status"] = "validating"
+        state["rungs"][rung]["probe"]["controller_job_id"] = controller_job
+        state["rungs"][rung]["probe"]["status"] = "submitted"
         self.search.write_state(state)
 
     def submit_validated_rung(self, state: dict[str, Any], rung: int) -> None:
         logs = self.search.search_dir / "logs"
         logs.mkdir(exist_ok=True)
-        job_id = self._array(state, rung, anchor=False)
+        current = state["rungs"][rung]
+        job_id = current.get("job_id")
+        if job_id is None:
+            job_id = self._array(state, rung, anchor=False)
+            current["job_id"] = job_id
+            current["submission_stage"] = "array_submitted"
+            state["status"] = "running"
+            self.search.write_state(state)
         dependency = f"afterany:{job_id}"
         anchor_job = state["anchors"].get("job_id")
         if rung == len(self.search.rungs) - 1 and anchor_job:
@@ -210,10 +223,10 @@ class SlurmExecutor(Executor):
                 f"--dependency={dependency}",
                 f"--account={self.config.account}",
                 f"--partition={self.config.controller_partition}",
-                "--cpus-per-task=1",
-                "--mem=2G",
-                "--time=00:10:00",
-                "--export=ALL",
+                f"--cpus-per-task={self.config.controller_cpus_per_task}",
+                f"--mem={self.config.controller_memory}",
+                f"--time={self.config.controller_time}",
+                f"--export=ALL,SAMUDRA_CODE_COMMIT={state['provenance']['commit']}",
                 f"--output={logs}/advance-r{rung}-%j.out",
                 f"--error={logs}/advance-r{rung}-%j.err",
                 f"--wrap={command}",
@@ -222,5 +235,6 @@ class SlurmExecutor(Executor):
         state = self.search.read_state()
         state["rungs"][rung]["job_id"] = job_id
         state["rungs"][rung]["controller_job_id"] = controller_job
+        state["rungs"][rung]["submission_stage"] = "controller_submitted"
         state["status"] = "running"
         self.search.write_state(state)

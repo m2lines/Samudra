@@ -24,16 +24,16 @@ and surface heat flux — learned from the OM4 ocean model at 1°, 1/2°, and 1/
 resolution. See https://arxiv.org/abs/2412.03795 for the method.
 
 Usage:
-  samudra <command> [ARGS ...]
+  samudra <command> CONFIG [--KEY VALUE ...]
 
 Commands:
   train   Train a model from a config (checkpointing, W&B logging, multi-GPU).
   eval    Roll a trained model out autoregressively and collect metrics.
   viz     Render maps, time series, and PDFs from evaluation outputs.
 
-For train, eval, and viz, CONFIG is a YAML path or bundled preset such as
-`samudra_om4/train.yaml`, with inline config overrides such as `--epochs 100`.
-Run `samudra <command> --help` for details.
+CONFIG is a path to a YAML file or the name of a bundled preset such as
+`samudra_om4/train.yaml`. Any config key can be overridden inline (e.g.
+`--epochs 100`); run `samudra <command> --help` for a command's full options.
 
 Examples:
   samudra train samudra_om4/train.yaml --experiment.data_root ./data
@@ -66,7 +66,7 @@ def main() -> None:
         from samudra.eval import main as eval_main
 
         eval_main()
-    elif command == "viz":
+    else:  # viz
         from samudra.viz.config import VizConfig
         from samudra.viz.config import main as viz_main
 

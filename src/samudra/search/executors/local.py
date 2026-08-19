@@ -4,9 +4,13 @@
 
 """Synchronous local search execution."""
 
+import gc
 from typing import Any
 
+import torch
+
 from samudra.search.executors.base import Executor
+from samudra.utils.multiton import MultitonScope
 
 
 class LocalExecutor(Executor):
@@ -17,7 +21,7 @@ class LocalExecutor(Executor):
         if self.search.config.executor.dry_run:
             return
         for task, _ in enumerate(candidates):
-            self.search.train_task(len(self.search.rungs) - 1, task, anchor=True)
+            self._run_task(len(self.search.rungs) - 1, task, anchor=True)
 
     def submit_rung(self, state: dict[str, Any], rung: int) -> None:
         candidates = state["rungs"][rung]["candidates"]
@@ -27,5 +31,15 @@ class LocalExecutor(Executor):
         if self.search.config.executor.dry_run:
             return
         for task, _ in enumerate(candidates):
-            self.search.train_task(rung, task, anchor=False)
+            self._run_task(rung, task, anchor=False)
         self.search.advance(rung)
+
+    def _run_task(self, rung: int, task: int, *, anchor: bool) -> None:
+        """Run one candidate with isolated process-global training state."""
+        try:
+            with MultitonScope():
+                self.search.train_task(rung, task, anchor=anchor)
+        finally:
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()

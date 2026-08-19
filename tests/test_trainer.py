@@ -24,9 +24,26 @@ from samudra.train import (
     should_run_on_epoch_freq,
 )
 from samudra.utils.ctx import GridContext
+from samudra.utils.logging import handle_logging
 from samudra.utils.loss import DynamicLoss
 from samudra.utils.multiton import MultitonScope
 from tests.conftest import DEFAULT_CONFIG, SAMUDRA_MULTI_CONFIG, TrainPair
+
+
+def test_handle_logging_replaces_handlers_between_local_jobs(tmp_path):
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+
+    handle_logging(False, first)
+    logging.getLogger().info("first candidate")
+    handle_logging(False, second)
+    logging.getLogger().info("second candidate")
+
+    assert "first candidate" in (first / "experiment.log").read_text()
+    assert "second candidate" not in (first / "experiment.log").read_text()
+    assert (second / "experiment.log").read_text().count("second candidate") == 1
 
 
 @pytest.mark.manual
@@ -70,6 +87,7 @@ def test_search_training_persists_full_epoch_history(trainer_pair: TrainPair):
     trainer.epochs = 2
     history_path = trainer.output_dir / "search_metrics.parquet"
     history_path.unlink(missing_ok=True)
+    (trainer.output_dir / "search_worker_status.json").unlink(missing_ok=True)
     trainer.search_run = SearchRunConfig(
         name="agent-observable-search",
         candidate="perceiver",
@@ -92,6 +110,26 @@ def test_search_training_persists_full_epoch_history(trainer_pair: TrainPair):
         (trainer.output_dir / "training_summary.json").read_text(encoding="utf-8")
     )
     assert summary["val/mean/loss"] == pytest.approx(history.iloc[-1]["val/mean/loss"])
+    worker_status = json.loads(
+        (trainer.output_dir / "search_worker_status.json").read_text(encoding="utf-8")
+    )
+    stages = [event["stage"] for event in worker_status["history"]]
+    assert stages.count("first_batch") == 1
+    assert stages.count("optimizer_step") == 1
+
+
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", "train_default_2step.yaml")],
+    indirect=True,
+)
+def test_sequential_trainers_construct_in_isolated_multiton_scopes(train_config):
+    """Local searches can initialize more than one real Trainer per process."""
+    for _ in range(2):
+        with MultitonScope():
+            trainer = Trainer(train_config.model_copy(deep=True))
+            trainer.finish()
 
 
 @pytest.mark.parametrize(

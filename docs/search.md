@@ -38,7 +38,9 @@ The runner submits the first rung and fixed baselines. On Slurm, dependent
 controller jobs automatically rank completed candidates and submit each later
 rung; users do not manually advance the search. For a local laptop or Colab
 notebook run, include `search/local.yaml` instead of `search/torch.yaml`;
-candidates then run sequentially in the current environment.
+candidates then run sequentially in the current environment. Each local task
+gets a fresh multiton scope and releases cached CUDA memory before the next
+candidate, so W&B and normalization state cannot leak between models.
 
 Clusters that expose the container runtime through environment modules should
 set `executor.apptainer_module` to the exact loadable module name (for example,
@@ -75,16 +77,17 @@ the first candidate array, the executor runs the first candidate through the
 real data loader, model forward/backward path, and one optimizer update with
 W&B disabled. The bulk array is submitted only when the probe records a finite
 training batch and at least one optimizer step. A missing or failed probe marks
-the search terminal, publishes its diagnostics, and consumes no candidate
-array allocation.
+the search terminal, publishes its diagnostics, and consumes no candidate or
+fixed-anchor array allocation. Fixed anchors are submitted only after the same
+probe succeeds.
 
 Every search-managed training process atomically maintains
 `search_worker_status.json` with its lifecycle history:
-`launched`, `initialized`, `first_batch`, `optimizer_step`, and
+`launched`, `initialized`, `first_batch`, first `optimizer_step`, and
 `completed` or `failed`. Events include batch/optimizer counts, loss and loader
-timings when available, Slurm identity, and a traceback on failure. These files
-are copied into the public research record, and their latest stage is included
-in failed result rows and reports. A scheduler process merely starting is
+timings when available, Slurm identity, and an error type/message on failure.
+These files are copied into the public research record, and their latest stage
+is included in failed result rows and reports. A scheduler process merely starting is
 therefore not treated as evidence that training occurred.
 
 `results.csv` is deliberately denormalized and readable directly with pandas:
@@ -133,7 +136,7 @@ public record.
 
 The published record includes resolved search and training configs, Git
 provenance, scheduler state, per-rung outcomes (including failures), a Markdown
-summary report, full epoch histories, experiment/error logs, W&B identities,
+summary report, full epoch histories, structured worker status, W&B identities,
 and an SHA-256 inventory.
 `results.parquet` is created and published with a stable empty schema before
 jobs are submitted, so its public URL can be queried immediately rather than
@@ -149,6 +152,13 @@ Checkpoint publication is configurable:
   successful final-rung run and fixed baseline (falling back to its latest
   checkpoint when necessary);
 - `all` publishes every saved checkpoint from every completed rung.
+
+Raw scheduler stdout/stderr and `experiment.log`/`error.log` are excluded from
+artifact publication by default because jobs inherit credentials and arbitrary
+process output is not safe to mirror into a public bucket. Set
+`artifacts.logs: all` only for a destination with an appropriate access policy
+and after auditing the workload's logging. Structured worker errors redact
+credential-like environment values before publication.
 
 The local filesystem always retains the checkpoints required for promotion.
 `final` is normally enough to reproduce a promising model and run deferred
@@ -223,18 +233,31 @@ diagnostics such as `val/seam/window_jump_ratio/zos`. A missing or non-finite
 metric, an incomplete epoch budget, or a missing checkpoint makes that result
 ineligible.
 
-A final rung is `complete` only when every finalist and fixed anchor finishes
-successfully. If at least one finalist is eligible but another final job fails,
-the terminal status is `partial`; the report identifies the best completed
-finalist without presenting it as an uncontested winner. A rung with no
-eligible candidates is `failed`.
+A search is `complete` only when every scheduled candidate result across all
+rungs and fixed anchors is eligible. If the search can continue after one or
+more worker failures, its terminal status is `partial`; the report identifies
+the best completed finalist without presenting it as an uncontested winner. A
+rung with no eligible candidates is `failed`.
 
 Candidates marked `fixed` are reference baselines. They run independently at
 the largest budget and do not consume promotion slots. Rung budgets are total
 epochs, not extra epochs: a survivor resumes its complete checkpoint from epoch
-1 to epoch 3, then from epoch 3 to epoch 6. Use a scheduler whose meaning does
-not change when the target epoch increases; `scheduler: null` is appropriate
-for short architecture comparisons.
+1 to epoch 3, then from epoch 3 to epoch 6. When a candidate's scheduler omits
+`target_epochs`, the search snapshots the largest rung as the common scheduler
+horizon for every rung and fixed anchor. This prevents a resumed cosine
+scheduler from restoring the first rung's short `T_max`. An explicitly
+configured `target_epochs` is preserved.
+
+Controller jobs inherit the verified search commit explicitly rather than
+requiring an editable Git checkout in the controller environment. Their
+partition, CPU count, memory, and walltime are configurable with
+`controller_partition`, `controller_cpus_per_task`, `controller_memory`, and
+`controller_time`. Published-object hashes are recorded locally after each
+successful upload, so retries skip unchanged multi-gigabyte checkpoints.
+
+The resumable `state.json` contract is versioned and validated on every read
+and write. A malformed or stale state therefore fails at the controller
+boundary with a schema error instead of producing a later key error.
 
 ## W&B
 

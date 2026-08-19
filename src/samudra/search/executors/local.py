@@ -5,28 +5,28 @@
 """Synchronous local search execution."""
 
 import gc
+from typing import Any
 
 import torch
 
 from samudra.search.executors.base import Executor
-from samudra.search.state import SearchState, SearchStatus
 from samudra.utils.multiton import MultitonScope
 
 
 class LocalExecutor(Executor):
-    def submit_anchors(self, state: SearchState) -> None:
-        candidates = state.anchors.candidates
-        state.anchors.job_id = "local"
+    def submit_anchors(self, state: dict[str, Any]) -> None:
+        candidates = state["anchors"]["candidates"]
+        state["anchors"]["job_id"] = "local"
         self.search.write_state(state)
         if self.search.config.executor.dry_run:
             return
         for task, _ in enumerate(candidates):
             self._run_task(len(self.search.rungs) - 1, task, anchor=True)
 
-    def submit_rung(self, state: SearchState, rung: int) -> None:
-        candidates = state.rungs[rung].candidates
-        state.rungs[rung].job_id = "local"
-        state.transition(SearchStatus.RUNNING)
+    def submit_rung(self, state: dict[str, Any], rung: int) -> None:
+        candidates = state["rungs"][rung]["candidates"]
+        state["rungs"][rung]["job_id"] = "local"
+        state["status"] = "running"
         self.search.write_state(state)
         if self.search.config.executor.dry_run:
             return

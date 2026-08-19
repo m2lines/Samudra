@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from samudra.search.state import SearchState, SearchStatus
 from samudra.utils.atomic import atomic_path
 
 if TYPE_CHECKING:
@@ -23,7 +24,7 @@ def _markdown(value: Any) -> str:
     return str(value).replace("|", "\\|").replace("\n", " ")
 
 
-def write_search_report(search: SuccessiveHalving, state: dict[str, Any]) -> Path:
+def write_search_report(search: SuccessiveHalving, state: SearchState) -> Path:
     """Atomically write a compact account of outcomes and rung progression."""
     rows = search.result_rows(state)
     latest: dict[str, dict[str, Any]] = {}
@@ -42,7 +43,7 @@ def write_search_report(search: SuccessiveHalving, state: dict[str, Any]) -> Pat
     finalists = [row for row in eligible if int(row["rung"]) == final_rung]
     outcome = (
         finalists[0]
-        if state.get("status") in {"complete", "partial"} and finalists
+        if state.status in {SearchStatus.COMPLETE, SearchStatus.PARTIAL} and finalists
         else None
     )
 
@@ -50,27 +51,29 @@ def write_search_report(search: SuccessiveHalving, state: dict[str, Any]) -> Pat
         f"# {search.config.name}",
         "",
         f"- Search run: `{search.run_id}`",
-        f"- Status: **{_markdown(state.get('status'))}**",
+        f"- Status: **{_markdown(state.status)}**",
         f"- Objective: `{search.config.objective.metric}` "
         f"({search.config.objective.mode})",
-        f"- Code commit: `{_markdown(state.get('provenance', {}).get('commit'))}`",
-        f"- Created: {_markdown(state.get('created_at'))}",
+        f"- Code commit: `{_markdown(state.provenance.commit)}`",
+        f"- Created: {_markdown(state.created_at)}",
         "",
     ]
-    if failure := state.get("failure"):
+    if failure := state.failure:
         lines.extend(
             [
                 "## Search failure",
                 "",
-                f"- Stage: `{_markdown(failure.get('stage'))}`",
-                f"- Type: `{_markdown(failure.get('type'))}`",
-                f"- Message: {_markdown(failure.get('message'))}",
+                f"- Stage: `{_markdown(failure.stage)}`",
+                f"- Type: `{_markdown(failure.type)}`",
+                f"- Message: {_markdown(failure.message)}",
                 "",
             ]
         )
     if outcome is not None:
         label = (
-            "Winner" if state.get("status") == "complete" else "Best completed finalist"
+            "Winner"
+            if state.status == SearchStatus.COMPLETE
+            else "Best completed finalist"
         )
         lines.extend(
             [
@@ -118,18 +121,16 @@ def write_search_report(search: SuccessiveHalving, state: dict[str, Any]) -> Pat
             "|---:|---:|---:|---:|---|",
         ]
     )
-    for rung in state["rungs"]:
-        promoted = ", ".join(f"`{_markdown(name)}`" for name in rung["promoted"])
+    for rung in state.rungs:
+        promoted = ", ".join(f"`{_markdown(name)}`" for name in rung.promoted)
         lines.append(
             "| "
             + " | ".join(
                 [
-                    _markdown(rung["index"]),
-                    _markdown(rung["epochs"]),
-                    _markdown(len(rung["candidates"])),
-                    _markdown(
-                        sum(bool(row.get("eligible")) for row in rung["results"])
-                    ),
+                    _markdown(rung.index),
+                    _markdown(rung.epochs),
+                    _markdown(len(rung.candidates)),
+                    _markdown(sum(result.eligible for result in rung.results)),
                     promoted or "—",
                 ]
             )

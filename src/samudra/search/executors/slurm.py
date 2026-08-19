@@ -6,10 +6,16 @@
 
 import shlex
 import subprocess
-from typing import Any
 
 from samudra.search.config import SlurmExecutorConfig
 from samudra.search.executors.base import Executor
+from samudra.search.state import (
+    ProbeState,
+    ProbeStatus,
+    SearchState,
+    SearchStatus,
+    SubmissionStage,
+)
 
 
 class SlurmExecutor(Executor):
@@ -68,7 +74,7 @@ class SlurmExecutor(Executor):
 
     def _array(
         self,
-        state: dict[str, Any],
+        state: SearchState,
         rung: int,
         *,
         anchor: bool,
@@ -78,9 +84,7 @@ class SlurmExecutor(Executor):
         worker_command: str = "task",
     ) -> str:
         candidates = (
-            state["anchors"]["candidates"]
-            if anchor
-            else state["rungs"][rung]["candidates"]
+            state.anchors.candidates if anchor else state.rungs[rung].candidates
         )
         if task_end is None:
             task_end = len(candidates) - 1
@@ -121,25 +125,25 @@ class SlurmExecutor(Executor):
             ]
         )
 
-    def submit_anchors(self, state: dict[str, Any]) -> None:
-        if not state["anchors"]["candidates"]:
+    def submit_anchors(self, state: SearchState) -> None:
+        if not state.anchors.candidates:
             return
-        if "job_id" in state["anchors"]:
+        if state.anchors.job_id is not None:
             return
-        state["anchors"]["job_id"] = self._array(
+        state.anchors.job_id = self._array(
             state, len(self.search.rungs) - 1, anchor=True
         )
         self.search.write_state(state)
 
-    def submit_rung(self, state: dict[str, Any], rung: int) -> None:
+    def submit_rung(self, state: SearchState, rung: int) -> None:
         if rung == 0 and self.config.rung0_probe:
             self._submit_probe(state, rung)
             return
         self.submit_validated_rung(state, rung)
 
-    def _submit_probe(self, state: dict[str, Any], rung: int) -> None:
+    def _submit_probe(self, state: SearchState, rung: int) -> None:
         """Gate the expensive first array on one real optimizer update."""
-        candidate = state["rungs"][rung]["candidates"][0]
+        candidate = state.rungs[rung].candidates[0]
         job_id = self._array(
             state,
             rung,
@@ -150,12 +154,12 @@ class SlurmExecutor(Executor):
             worker_command="probe",
         )
         state = self.search.read_state()
-        state["rungs"][rung]["probe"] = {
-            "candidate": candidate,
-            "job_id": job_id,
-            "status": "array_submitted",
-        }
-        state["status"] = "validating"
+        state.rungs[rung].probe = ProbeState(
+            candidate=candidate,
+            job_id=job_id,
+            status=ProbeStatus.ARRAY_SUBMITTED,
+        )
+        state.transition(SearchStatus.VALIDATING)
         self.search.write_state(state)
         command = self._controller_command(
             "-m",
@@ -179,30 +183,33 @@ class SlurmExecutor(Executor):
                 f"--cpus-per-task={self.config.controller_cpus_per_task}",
                 f"--mem={self.config.controller_memory}",
                 f"--time={self.config.controller_time}",
-                f"--export=ALL,SAMUDRA_CODE_COMMIT={state['provenance']['commit']}",
+                f"--export=ALL,SAMUDRA_CODE_COMMIT={state.provenance.commit}",
                 f"--output={logs}/release-r{rung}-%j.out",
                 f"--error={logs}/release-r{rung}-%j.err",
                 f"--wrap={command}",
             ]
         )
         state = self.search.read_state()
-        state["rungs"][rung]["probe"]["controller_job_id"] = controller_job
-        state["rungs"][rung]["probe"]["status"] = "submitted"
+        probe = state.rungs[rung].probe
+        if probe is None:
+            raise RuntimeError(f"Rung {rung} lost its persisted probe state")
+        probe.controller_job_id = controller_job
+        probe.status = ProbeStatus.SUBMITTED
         self.search.write_state(state)
 
-    def submit_validated_rung(self, state: dict[str, Any], rung: int) -> None:
+    def submit_validated_rung(self, state: SearchState, rung: int) -> None:
         logs = self.search.search_dir / "logs"
         logs.mkdir(exist_ok=True)
-        current = state["rungs"][rung]
-        job_id = current.get("job_id")
+        current = state.rungs[rung]
+        job_id = current.job_id
         if job_id is None:
             job_id = self._array(state, rung, anchor=False)
-            current["job_id"] = job_id
-            current["submission_stage"] = "array_submitted"
-            state["status"] = "running"
+            current.job_id = job_id
+            current.submission_stage = SubmissionStage.ARRAY_SUBMITTED
+            state.transition(SearchStatus.RUNNING)
             self.search.write_state(state)
         dependency = f"afterany:{job_id}"
-        anchor_job = state["anchors"].get("job_id")
+        anchor_job = state.anchors.job_id
         if rung == len(self.search.rungs) - 1 and anchor_job:
             dependency += f":{anchor_job}"
         command = self._controller_command(
@@ -226,15 +233,17 @@ class SlurmExecutor(Executor):
                 f"--cpus-per-task={self.config.controller_cpus_per_task}",
                 f"--mem={self.config.controller_memory}",
                 f"--time={self.config.controller_time}",
-                f"--export=ALL,SAMUDRA_CODE_COMMIT={state['provenance']['commit']}",
+                f"--export=ALL,SAMUDRA_CODE_COMMIT={state.provenance.commit}",
                 f"--output={logs}/advance-r{rung}-%j.out",
                 f"--error={logs}/advance-r{rung}-%j.err",
                 f"--wrap={command}",
             ]
         )
         state = self.search.read_state()
-        state["rungs"][rung]["job_id"] = job_id
-        state["rungs"][rung]["controller_job_id"] = controller_job
-        state["rungs"][rung]["submission_stage"] = "controller_submitted"
-        state["status"] = "running"
+        current = state.rungs[rung]
+        current.job_id = job_id
+        current.controller_job_id = controller_job
+        current.submission_stage = SubmissionStage.CONTROLLER_SUBMITTED
+        if state.status != SearchStatus.RUNNING:
+            state.transition(SearchStatus.RUNNING)
         self.search.write_state(state)

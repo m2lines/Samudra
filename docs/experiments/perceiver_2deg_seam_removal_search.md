@@ -21,13 +21,13 @@ revision
 Its live and eventual final artifacts are published under the
 [`m2lines-pubs` search directory](https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/perceiver-seam-removal-2deg--20260818T210753.565365Z/).
 
-As of 2026-08-19 00:35 UTC, rung zero is complete and all five competing
-candidates produced eligible results. `blend1-context1-residual`,
-`blend1-no-context`, and `blend1-context1` were promoted to the three-epoch
-rung. The first two have completed that rung; `blend1-context1` has completed
-epoch two and remains healthy in Slurm task `15981375_2`. Promotion controller
-`15981376` is waiting on that final task. Both six-epoch fixed anchors have
-also completed. No worker failure has been recorded.
+The search is complete. All seven candidates produced eligible results without
+worker failures. The five competing candidates were screened at one epoch;
+`blend1-context1-residual`, `blend1-no-context`, and `blend1-context1` advanced
+through the three- and six-epoch rungs. Both fixed anchors completed their
+six-epoch budgets. The final public controller state, result tables, resolved
+configs, logs, and checkpoints are available from the artifact directory
+linked above.
 
 ## Motivation and prior observation
 
@@ -337,102 +337,172 @@ ORDER BY zos_window_jump_ratio, validation_loss;
 
 ## Results
 
-### Preliminary results through the three-epoch rung
+### Final six-epoch ranking
 
-These values were read from the live W&B summaries on 2026-08-19 00:35 UTC.
-The public Parquet snapshot still contains rung-zero results because the
-immutable experiment code publishes at controller/rung boundaries; it will be
-refreshed after the last three-epoch worker completes.
+All three promoted candidates and both fixed anchors completed six epochs. The
+validation-loss winner is `blend1-context1-residual`, with a loss more than
+three times lower than any absolute-prediction candidate. Ratios near one mean
+that jumps at the known boundary are comparable to matched interior jumps.
 
-| Candidate | Role/state | Latest epoch | Validation loss | `zos` window jump ratio | Channel-mean window jump ratio | Train minutes in latest epoch |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| `blend1-context1-residual` | promoted; rung complete | 3 | **0.07531** | **0.989** | **1.045** | 32.4 |
-| `hard-no-context` | fixed anchor; complete | 6 | 0.23835 | 2.744 | 2.130 | 25.4 |
-| `full-context` | fixed anchor; complete | 6 | 0.27227 | 1.196 | 1.084 | 24.8 |
-| `blend1-no-context` | promoted; rung complete | 3 | 0.27685 | 1.334 | 1.179 | 27.2 |
-| `blend1-context1` | promoted; training | 2 | 0.29778 | 1.320 | 1.184 | 31.2 |
+| Candidate | Role | Validation loss | Train loss | `zos` window jump ratio | Channel-mean window jump ratio | `zos` patch jump ratio | Channel-mean patch jump ratio |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| `blend1-context1-residual` | Promoted winner | **0.07291** | **0.54969** | **0.994** | **1.048** | 1.065 | **1.024** |
+| `blend1-no-context` | Promoted | 0.23530 | 0.96908 | 1.281 | 1.126 | 1.135 | 1.064 |
+| `blend1-context1` | Promoted | 0.23729 | 0.98057 | 1.264 | 1.132 | 1.131 | 1.065 |
+| `hard-no-context` | Fixed anchor | 0.23835 | 0.97746 | 2.744 | 2.130 | 1.351 | 1.229 |
+| `full-context` | Fixed anchor | 0.27227 | 1.10494 | 1.196 | 1.084 | 1.105 | 1.081 |
 
 At the one-epoch screening boundary, the eliminated `hard-context1` candidate
-had `zos` window jump ratio 3.958, while eliminated `blend2-context1` reached
-1.219. Their validation losses were 0.37808 and 0.38039, respectively. Thus,
-the wider two-patch overlap was already smooth but did not earn promotion under
-the validation-loss objective.
+had validation loss 0.37808, `zos` window ratio 3.958, and channel-mean window
+ratio 2.763. The eliminated `blend2-context1` candidate had validation loss
+0.38039, `zos` window ratio 1.219, and channel-mean window ratio 1.159. The
+two-ring model was already smooth, but was not promoted by the
+validation-loss objective; this experiment therefore does not measure its
+longer-budget attainable skill.
 
-### W&B image sanity check
+The residual winner's validation loss continued to improve at every recorded
+epoch, from 0.07549 after epoch one to 0.07291 after epoch six. Its aggregate
+`zos` and channel-mean seam ratios remained close to one throughout training,
+rather than improving only at the final checkpoint.
 
-The latest W&B `val/snapshot/image-error/zos` image was inspected for every
-promoted candidate and compared with both fixed anchors and the hard-context
-candidate. This visual check supports the seam metrics:
+### W&B image and channel-level sanity check
 
-- `blend1-context1-residual` has a low-amplitude error map with no visible
-  repeated decoder-window grid at epoch three;
-- `blend1-no-context` at epoch three and `blend1-context1` at epoch two retain
-  coherent current-, basin-, and coast-following error structure, but neither
-  shows the conspicuous rectilinear patchwork of the hard decoder;
-- `hard-no-context` retains repeated horizontal/rectilinear banding at epoch
-  six, consistent with its `zos` jump ratio of 2.744; and
-- `full-context` is visually smooth, consistent with its much lower ratio of
-  1.196 and the hypothesis that discontinuously changing attention support is
-  responsible for the hard-window artifact.
+The final W&B one-step error images were inspected for every finalist. The
+`zos` images support the aggregate seam metrics: the hard decoder retains
+conspicuous repeated rectilinear banding, both overlap-add absolute models are
+substantially smoother, and the residual winner has no comparable `zos` grid.
+The globally shared-context anchor is also smooth, supporting the diagnosis
+that abruptly changing attention support causes the hard-window artifact.
 
-The W&B renderings are a qualitative safeguard rather than an independent
-metric: their small rendered size and plotting color scale can hide weak
-boundaries. Final judgment should combine the six-epoch scalar ratios, matched
-error images, and validation skill.
+Alex Merose's manual inspection identified an important limitation of that
+aggregate result. Although `zos` is clean, the residual winner retains red and
+blue block structure in
+[`thetao_15`](https://wandb.ai/ocean_emulators/default/runs/jl31vvpv?nw=nwuseralxmrs&panelDisplayName=val%2Fsnapshot%2Fimage-error%2Fthetao_15&panelSectionName=val%2Fsnapshot%2Fimage-error)
+and
+[`so_14`](https://wandb.ai/ocean_emulators/default/runs/jl31vvpv?nw=nwuseralxmrs&panelDisplayName=val%2Fsnapshot%2Fimage-error%2Fso_14&panelSectionName=val%2Fsnapshot%2Fimage-error)
+at W&B step 8463. The corresponding per-channel metrics confirm that this is
+not merely visual interpretation:
 
-### Preliminary manual inspection
+| Channel | Window jump ratio | Encoder-patch jump ratio |
+| --- | ---: | ---: |
+| `thetao_15` | 1.515 | 1.021 |
+| `so_14` | 1.518 | 1.082 |
+| `so_10` | 1.250 | 1.017 |
+| `zos` | 0.994 | 1.065 |
 
-`__author__ = "Alex Merose"` + <agent analysis goes here>
+These values point more specifically to decoder output-window boundaries than
+encoder patch boundaries. They also show that a channel mean can hide
+scientifically relevant failures in individual deep-ocean channels.
 
-I looked at the wandb image error plots for the leading experiment: blend1-context1-residual. I noticed that while zos
-error outputs are indeed significantly reduced, there is a weird unphysical patching artifact in thetao outputs:
-
-https://wandb.ai/ocean_emulators/default/runs/jl31vvpv?nw=nwuseralxmrs&panelDisplayName=val%2Fsnapshot%2Fimage-error%2Fthetao_15&panelSectionName=val%2Fsnapshot%2Fimage-error
-
-These weird blue or red blocks also appear in salinity: https://wandb.ai/ocean_emulators/default/runs/jl31vvpv?nw=nwuseralxmrs&panelDisplayName=val%2Fsnapshot%2Fimage-error%2Fso_14&panelSectionName=val%2Fsnapshot%2Fimage-error
-
-I wonder why these two types of variables have these patching artifacts at step 8463.
-
-TAL as the full field snapshot of salinity: https://wandb.ai/ocean_emulators/default/runs/jl31vvpv?nw=nwuseralxmrs&panelDisplayName=val%2Fsnapshot%2Fimage-full-field%2Fso_10&panelSectionName=val%2Fsnapshot%2Fimage-full-field
-
-It becomes apparent that for these variables, the patching artifacts may be really subtle. Note that the image error ranges are -0.1263 to 0.1263 (vmin and vmax).
-
-
+The apparent visual severity needs a second qualification: W&B autoscales
+each error image independently. At the final checkpoint, the residual model's
+plotted ranges were approximately +/-0.261 degrees C for `thetao_15` and
++/-0.030 psu for `so_14`. For `blend1-no-context`, they were approximately
++/-6.86 degrees C and +/-1.80 psu. Residual prediction therefore has much
+smaller physical errors even though autoscaling makes its remaining spatial
+structure conspicuous. The +/-0.1263 range recorded during manual inspection
+belongs to `so_10` at step 8463.
 
 ## Analysis and discussion
 
-The preliminary evidence strongly supports H1 and H2. Input context without
-output blending produced the worst measured window discontinuity, whereas
-each overlap-add candidate reduced it substantially. This isolates hard output
-assembly, rather than insufficient input halo alone, as the important
-intervention. The globally shared-context anchor also reduces the seam without
-overlap, which independently supports the attention-support diagnosis.
+### Hypothesis assessment
 
-The residual overlap model is the most promising result so far: its `zos`
-window ratio is effectively at the interior-jump baseline of one, and its
-validation loss is far below every absolute-prediction model. That comparison
-is not yet a clean attribution of blending alone, because residual prediction
-changes the learning target and gives the network an identity-like baseline.
-Its advantage must persist through the six-epoch rung and later rollout
-evaluation before it is treated as the preferred architecture.
+- **H1 is strongly supported.** `hard-no-context` has a final `zos` window
+  ratio of 2.744, and adding context without blending made the one-epoch ratio
+  worse, at 3.958. Input halo alone does not reconcile independently decoded
+  outputs.
+- **H2 is strongly supported.** One-ring overlap-add reduced the final
+  absolute-model `zos` ratio to 1.26--1.28. It addresses the intended decoder
+  seam directly and does not require residual prediction.
+- **H3 is only partially tested.** The two-ring candidate was smooth after one
+  epoch, but its early validation loss prevented promotion. No conclusion about
+  its final skill is justified.
+- **H4 is not supported.** With one-ring blending, input context had no
+  meaningful seam advantage and slightly worsened final validation loss
+  relative to no context.
+- **H5 is strongly supported for one-step skill, but not as a complete seam
+  cure.** Residual prediction wins decisively on loss and aggregate seam
+  metrics, while `thetao_15` and `so_14` retain elevated window jumps.
+- **H6 is supported as a diagnostic.** Shared global context is smooth but has
+  the worst final validation loss among six-epoch candidates and does not offer
+  a scalable solution for finer grids.
 
-Among absolute-prediction models, overlap trades a large seam reduction for
-mixed short-budget loss. One-ring overlap without input context is currently
-slightly better by loss than overlap with context, while their seam ratios are
-similar. The two-ring candidate was smoother after one epoch but learned too
-slowly to advance. This is consistent with the expected diminishing-return and
-compute-cost tradeoff, although a longer controlled run would be required to
-separate learning speed from final attainable skill.
+### Interpretation
+
+Hard output assembly, rather than insufficient input context, is the dominant
+cause of the original large `zos` grid. Overlap-add should therefore be carried
+forward as the scalable decoder assembly mechanism. The nearly identical
+absolute-model results with and without context suggest omitting context unless
+a later experiment demonstrates a channel- or rollout-specific benefit.
+
+Residual prediction is not the only way to address patching artifacts: the
+absolute overlap candidates already reduce the major `zos` window seam by more
+than half. Instead, residual prediction changes the learning problem by giving
+the model an identity-like baseline and asking it to predict a smaller ocean
+tendency. This produces dramatically smaller physical errors, but it can make
+low-amplitude structured errors easier to see under per-image autoscaling. The
+current result supports residual prediction as the best one-step parameterization;
+it does not establish that residual prediction removes every boundary mode.
+
+The remaining deep-channel structure also exposes an observability weakness in
+the search objective. Promotion used validation loss, while the headline seam
+diagnostic used `zos` and a channel mean. Both favor the residual model, but
+neither reports its worst channels. Future searches should retain per-channel
+metrics and summarize their upper quantiles or maximum in addition to their
+mean. Image comparisons should use matched physical color limits across
+candidates so that visual amplitude is comparable.
+
+Finally, one-step validation cannot answer whether a small systematic boundary
+bias accumulates during autoregressive inference. The residual pathway may
+remain stable because its errors are small, or coherent window errors may
+compound with lead time. That is an open rollout question, not evidence against
+the completed one-step ranking.
 
 ## Conclusions
 
-Pending.
+1. Replace hard decoder-window assembly with one-ring overlap-add for the next
+   scalable Perceiver generation.
+2. Use residual prediction as the leading one-step model parameterization. Its
+   final validation loss is 0.07291 versus 0.23530 for the best absolute
+   overlap model.
+3. Do not interpret the aggregate result as complete artifact removal.
+   `thetao_15` and `so_14` retain measurable decoder-window structure.
+4. Do not add input context by default: it did not improve the blended absolute
+   model in this experiment.
+5. Require rollout and channel-tail diagnostics before selecting the production
+   multiscale decoder.
 
 ## Future work
 
-Pending.
+The highest-value follow-up is a small factorial experiment that separates
+prediction parameterization from output reconstruction:
 
-Alex's thoughts:
-- Are residual predictions the only way to address patching artifacts?
-- Do residual predictions merely make the patching artifacts less severe, rather than totally address them? For example, will patching come back on long rollouts?
-- Can we try the patching addressment that was written about in the NVIDIA paper (pre-print not committed)? Would that solve the problem for both full and residual preditions?
+- compare hard and overlap-add assembly under otherwise identical residual
+  prediction, which was missing from this search;
+- compare any new seam intervention under both absolute and residual
+  prediction so its effect is not confounded with the identity baseline;
+- evaluate one-step and short 5-, 10-, and 20-step rollouts using validation
+  loss, physical-unit RMSE, and per-channel window and patch jump ratios;
+- add worst-channel or upper-quantile seam summaries to the promotion report;
+  and
+- render matched-scale error maps and seam-aligned transects for finalists.
+
+Alex proposed adapting the pixel-space de-aliasing intervention from a locally
+supplied NVIDIA preprint. The manuscript is confidential and is intentionally
+not committed or linked here. It attributes rollout checkerboards to an
+unstable patch-scale mode and refines full-resolution outputs using continuous
+upsampling followed by local convolution. It also argues that tendency
+prediction can be less spectrally stable than state prediction, making the
+residual model's long-rollout behavior particularly important to measure.
+
+That intervention should not yet be assumed to solve the artifact found here.
+The manuscript addresses tokenization-scale checkerboards, whereas this
+experiment's strongest signal occurs at decoder output-window boundaries;
+`thetao_15` and `so_14` have elevated window ratios but near-baseline encoder
+patch ratios. Samudra's direct-query Perceiver decoder also does not use the
+same unpatchify path. A useful adaptation would apply a lightweight
+full-resolution spatial refinement after Perceiver decoding and compare it
+under both absolute and residual prediction. Its success criteria should
+separately measure encoder-patch, decoder-window, and rollout-amplified modes.
+A public citation should replace this internal description before this
+notebook is merged into a public branch.

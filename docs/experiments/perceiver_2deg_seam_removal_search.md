@@ -21,6 +21,14 @@ revision
 Its live and eventual final artifacts are published under the
 [`m2lines-pubs` search directory](https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/perceiver-seam-removal-2deg--20260818T210753.565365Z/).
 
+As of 2026-08-19 00:35 UTC, rung zero is complete and all five competing
+candidates produced eligible results. `blend1-context1-residual`,
+`blend1-no-context`, and `blend1-context1` were promoted to the three-epoch
+rung. The first two have completed that rung; `blend1-context1` has completed
+epoch two and remains healthy in Slurm task `15981375_2`. Promotion controller
+`15981376` is waiting on that final task. Both six-epoch fixed anchors have
+also completed. No worker failure has been recorded.
+
 ## Motivation and prior observation
 
 The first search selected `direct-no-context-lr4` by validation MSE, but its
@@ -329,11 +337,73 @@ ORDER BY zos_window_jump_ratio, validation_loss;
 
 ## Results
 
-Pending.
+### Preliminary results through the three-epoch rung
+
+These values were read from the live W&B summaries on 2026-08-19 00:35 UTC.
+The public Parquet snapshot still contains rung-zero results because the
+immutable experiment code publishes at controller/rung boundaries; it will be
+refreshed after the last three-epoch worker completes.
+
+| Candidate | Role/state | Latest epoch | Validation loss | `zos` window jump ratio | Channel-mean window jump ratio | Train minutes in latest epoch |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| `blend1-context1-residual` | promoted; rung complete | 3 | **0.07531** | **0.989** | **1.045** | 32.4 |
+| `hard-no-context` | fixed anchor; complete | 6 | 0.23835 | 2.744 | 2.130 | 25.4 |
+| `full-context` | fixed anchor; complete | 6 | 0.27227 | 1.196 | 1.084 | 24.8 |
+| `blend1-no-context` | promoted; rung complete | 3 | 0.27685 | 1.334 | 1.179 | 27.2 |
+| `blend1-context1` | promoted; training | 2 | 0.29778 | 1.320 | 1.184 | 31.2 |
+
+At the one-epoch screening boundary, the eliminated `hard-context1` candidate
+had `zos` window jump ratio 3.958, while eliminated `blend2-context1` reached
+1.219. Their validation losses were 0.37808 and 0.38039, respectively. Thus,
+the wider two-patch overlap was already smooth but did not earn promotion under
+the validation-loss objective.
+
+### W&B image sanity check
+
+The latest W&B `val/snapshot/image-error/zos` image was inspected for every
+promoted candidate and compared with both fixed anchors and the hard-context
+candidate. This visual check supports the seam metrics:
+
+- `blend1-context1-residual` has a low-amplitude error map with no visible
+  repeated decoder-window grid at epoch three;
+- `blend1-no-context` at epoch three and `blend1-context1` at epoch two retain
+  coherent current-, basin-, and coast-following error structure, but neither
+  shows the conspicuous rectilinear patchwork of the hard decoder;
+- `hard-no-context` retains repeated horizontal/rectilinear banding at epoch
+  six, consistent with its `zos` jump ratio of 2.744; and
+- `full-context` is visually smooth, consistent with its much lower ratio of
+  1.196 and the hypothesis that discontinuously changing attention support is
+  responsible for the hard-window artifact.
+
+The W&B renderings are a qualitative safeguard rather than an independent
+metric: their small rendered size and plotting color scale can hide weak
+boundaries. Final judgment should combine the six-epoch scalar ratios, matched
+error images, and validation skill.
 
 ## Analysis and discussion
 
-Pending.
+The preliminary evidence strongly supports H1 and H2. Input context without
+output blending produced the worst measured window discontinuity, whereas
+each overlap-add candidate reduced it substantially. This isolates hard output
+assembly, rather than insufficient input halo alone, as the important
+intervention. The globally shared-context anchor also reduces the seam without
+overlap, which independently supports the attention-support diagnosis.
+
+The residual overlap model is the most promising result so far: its `zos`
+window ratio is effectively at the interior-jump baseline of one, and its
+validation loss is far below every absolute-prediction model. That comparison
+is not yet a clean attribution of blending alone, because residual prediction
+changes the learning target and gives the network an identity-like baseline.
+Its advantage must persist through the six-epoch rung and later rollout
+evaluation before it is treated as the preferred architecture.
+
+Among absolute-prediction models, overlap trades a large seam reduction for
+mixed short-budget loss. One-ring overlap without input context is currently
+slightly better by loss than overlap with context, while their seam ratios are
+similar. The two-ring candidate was smoother after one epoch but learned too
+slowly to advance. This is consistent with the expected diminishing-return and
+compute-cost tradeoff, although a longer controlled run would be required to
+separate learning speed from final attainable skill.
 
 ## Conclusions
 

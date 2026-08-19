@@ -3,7 +3,7 @@
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
 #SBATCH --job-name=2026-08-18:samudra_rb_llc:4-tile_group-experiment-2
-#SBATCH -x node4100,node3401,node3000
+#SBATCH -x node4100,node3401,node3000,node3400
 #SBATCH -N 1
 #SBATCH --mem=254GB
 #SBATCH --ntasks=1

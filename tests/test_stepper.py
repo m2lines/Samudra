@@ -10,7 +10,7 @@ import xarray as xr
 from samudra.constants import TensorMap
 from samudra.datasets import InferenceDataset, TrainData
 from samudra.models.base import BaseModel
-from samudra.stepper import validate_batch
+from samudra.stepper import _get_rollout_step_chunks, validate_batch
 from samudra.utils.ctx import GridContext
 from samudra.utils.data import DataSource, Normalize
 from samudra.utils.multiton import MultitonScope
@@ -149,6 +149,22 @@ def test_validate_batch_uses_absolute_predictions_for_residual_models():
     assert torch.equal(output.gen_data, label)
     assert torch.equal(output.loss_per_channel, torch.zeros(1))
     assert output.loss.item() == 0.0
+
+
+def test_get_rollout_step_chunks_splits_by_forward_window():
+    assert _get_rollout_step_chunks(total_steps=10, num_model_steps_forward=4) == [
+        4,
+        4,
+        2,
+    ]
+
+
+def test_get_rollout_step_chunks_respects_horizon_boundaries():
+    assert _get_rollout_step_chunks(
+        total_steps=10,
+        num_model_steps_forward=4,
+        boundaries=(3, 8),
+    ) == [3, 4, 1, 2]
 
 
 # These tests will fail with OHC PR

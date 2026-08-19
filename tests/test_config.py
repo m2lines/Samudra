@@ -21,11 +21,12 @@ from samudra.config import (
     LlcTimeConfig,
     Om4DataSourceConfig,
     Om4TimeConfig,
+    RolloutValidationConfig,
     TrainConfig,
 )
 from samudra.config_schema import get_pydantic_models
 from samudra.utils.location import LocalLocation, UnresolvedLocation
-from tests.conftest import TEST_CONFIGS_DIR
+from tests.conftest import DEFAULT_CONFIG, TEST_CONFIGS_DIR
 from tests.llc_fixtures import write_raw_llc_datasets
 
 
@@ -67,6 +68,32 @@ def test_data_config_rejects_legacy_num_workers_field():
                 "num_workers": 4,
             }
         )
+
+
+def test_rollout_validation_config_disables_via_null_train_field():
+    with open(TEST_CONFIGS_DIR / DEFAULT_CONFIG) as f:
+        cfg = TrainConfig.model_validate(yaml.safe_load(f))
+
+    assert cfg.rollout_validation is None
+
+
+def test_rollout_validation_config_rejects_zero_model_steps():
+    with pytest.raises(ValidationError, match="rollout_validation.model_steps"):
+        RolloutValidationConfig(model_steps=0)
+
+
+def test_rollout_validation_config_accepts_nested_horizon_options():
+    cfg = RolloutValidationConfig(
+        days=[30, 90],
+        model_steps=12,
+        steps_forward=3,
+        frequency=5,
+    )
+
+    assert cfg.days == [30, 90]
+    assert cfg.model_steps == 12
+    assert cfg.steps_forward == 3
+    assert cfg.frequency == 5
 
 
 def test_data_config_defaults_to_cpu_loading():

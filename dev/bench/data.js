@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1786725918415,
+  "lastUpdate": 1787099732518,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -11645,6 +11645,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.5483374046710511",
             "extra": "mean: 57.18550849999999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "018a6a7453bd2b600daffcc971af964102ab90a1",
+          "message": "Fix z_l->lev rename for OM4 snapshot sources (#756)\n\nThe 5-daily snapshot source (1958-2022.OM4p25_5daily_snapshots) exposes\nthe depth-center coordinate as z_l but has no z_i. The old rename gated\nthe z_l->lev rename on z_i being present, so z_l was left intact and\ndownstream rechunking on \"lev\" failed with a ValueError (issue #450).\n\nExtract normalize_vertical_coords() to rename z_l->lev and z_i->ilev\nindependently, and key the interface-info branch on ilev rather than\nz_i. Behavior is unchanged for the averaged sources (which carry z_i).\n\n🤖\n\nCo-authored-by: Claude Opus 4.8 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-08-18T23:55:39Z",
+          "tree_id": "eea2da2ad86135cb158460c27239f5e976dc2a03",
+          "url": "https://github.com/m2lines/Samudra/commit/018a6a7453bd2b600daffcc971af964102ab90a1"
+        },
+        "date": 1787099731175,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.1902019775755148,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002708174828556045",
+            "extra": "mean: 840.1935292000076 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06572325781155654,
+            "unit": "iter/sec",
+            "range": "stddev: 0.06506011904910948",
+            "extra": "mean: 15.215313928399997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.018594511216042414,
+            "unit": "iter/sec",
+            "range": "stddev: 0.6935780730064508",
+            "extra": "mean: 53.77931091500002 sec\nrounds: 5"
           }
         ]
       }

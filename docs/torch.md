@@ -93,6 +93,8 @@ It expects environment variables:
 - `WANDB_API_KEY` (optional): if set and `WANDB_MODE` unset, defaults to W&B online
 - `WANDB_MODE` (optional): `online` or `disabled` (if unset, defaults based on
   whether `WANDB_API_KEY` is present)
+- `APPTAINER_MODULE` (optional): exact environment-module name for the container
+  runtime. When unset, the harness tries both `apptainer` and `singularity-ce`.
 
 Key behavior:
 
@@ -105,8 +107,10 @@ Key behavior:
 - Dependency changes require a new container because the overlay builder refuses
   any `uv.lock` or `pyproject.toml` mismatch with the container SIF.
 - Caches the pulled SIF under `${SCRATCH_DIR}/.apptainer-images/` by default.
-- Lets `torchrun --standalone` choose a free rendezvous port for single-node jobs.
-  Multi-node jobs use a job-derived port unless `MASTER_PORT` is set explicitly.
+- Always lets `torchrun --standalone` choose a free rendezvous port for
+  single-node jobs, ignoring scheduler-inherited ports that would collide
+  between colocated array elements. Multi-node jobs use an array-task-specific,
+  job-derived port unless `MASTER_PORT` is set explicitly.
 - Uses the Slurm submission directory for the working directory, pulled SIF,
   data cache, and logs by default. The Torch training examples below override
   these locations to `/scratch/$USER` so large files do not consume home quota.
@@ -312,6 +316,9 @@ export NSYS_ARGS="--trace=cuda,nvtx,osrt,nccl --sample=cpu --delay=300 --duratio
 ```
 
 ### Monitoring
+
+For Slurm-array architecture searches that promote candidates through larger
+epoch budgets, see [Architecture search](search.md).
 
 After submission:
 

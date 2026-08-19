@@ -22,6 +22,7 @@ from torchinfo import summary
 from samudra.constants import Boundary, Prognostic
 
 logger = logging.getLogger(__name__)
+_SAMUDRA_HANDLER = "_samudra_managed_handler"
 
 if TYPE_CHECKING:
     from samudra.datasets import TrainData, TrainDataLoader
@@ -35,8 +36,17 @@ def handle_logging(debug: bool, output_dir: Path):
     logger.setLevel(logging.DEBUG if debug else logging.INFO)
     fmt = logging.Formatter("%(asctime)s - %(levelname)s - %(module)s - %(message)s")
 
+    # Local searches execute multiple training jobs in one process. Replace the
+    # handlers installed for the previous job so logs are neither duplicated nor
+    # written through file descriptors belonging to another candidate.
+    for handler in list(logger.handlers):
+        if getattr(handler, _SAMUDRA_HANDLER, False):
+            logger.removeHandler(handler)
+            handler.close()
+
     # STDOUT handler
     stdout_handler = logging.StreamHandler(sys.stdout)
+    setattr(stdout_handler, _SAMUDRA_HANDLER, True)
     stdout_handler.setLevel(logging.DEBUG if debug else logging.INFO)
     stdout_handler.setFormatter(fmt)
     logger.addHandler(stdout_handler)
@@ -44,7 +54,7 @@ def handle_logging(debug: bool, output_dir: Path):
     # Add experiment log file handler
     experiment_log_path = output_dir / "experiment.log"
     experiment_handler = logging.FileHandler(experiment_log_path)
-    experiment_handler = logging.FileHandler(experiment_log_path)
+    setattr(experiment_handler, _SAMUDRA_HANDLER, True)
     experiment_handler.setLevel(logging.INFO)  # Capture info and above
     experiment_handler.setFormatter(fmt)
     logger.addHandler(experiment_handler)
@@ -52,6 +62,7 @@ def handle_logging(debug: bool, output_dir: Path):
     # Add separate error log file handler
     error_log_path = output_dir / "error.log"
     error_handler = logging.FileHandler(error_log_path)
+    setattr(error_handler, _SAMUDRA_HANDLER, True)
     error_handler.setLevel(logging.WARNING)  # Capture warnings and errors
     error_handler.setFormatter(fmt)
     logger.addHandler(error_handler)

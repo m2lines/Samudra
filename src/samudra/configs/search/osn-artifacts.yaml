@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+destination:
+  type: s3
+  endpoint_url: https://nyu1.osn.mghpcc.org
+  bucket: m2lines-pubs
+  path: FOMO/experiments/searches
+  anon: false
+public_url: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches
+checkpoints: final

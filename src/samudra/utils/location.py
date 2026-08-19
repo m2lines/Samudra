@@ -11,6 +11,8 @@ import xarray as xr
 from pydantic import (
     BaseModel,
     BeforeValidator,
+    PlainSerializer,
+    SerializationInfo,
     WithJsonSchema,
     model_serializer,
     model_validator,
@@ -157,9 +159,17 @@ def string_to_unresolved(data: Any) -> Any:
     return data
 
 
+def serialize_location(location: Any, info: SerializationInfo) -> Any:
+    """Preserve structured locations when serializing a Location union."""
+    if isinstance(location, UnresolvedLocation):
+        return location.path
+    return location.model_dump(mode=info.mode)
+
+
 Location = Annotated[
     Annotated[UnresolvedLocation, WithJsonSchema({"type": "string"})]
     | S3Location
     | LocalLocation,
     BeforeValidator(string_to_unresolved),
+    PlainSerializer(serialize_location),
 ]

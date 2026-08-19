@@ -53,7 +53,15 @@ if ! command -v apptainer >/dev/null 2>&1 \
     source /etc/profile.d/modules.sh
   fi
   if command -v module >/dev/null 2>&1; then
-    module load "${APPTAINER_MODULE:-apptainer}"
+    if [[ -n "${APPTAINER_MODULE:-}" ]]; then
+      module load "${APPTAINER_MODULE}"
+    else
+      # Cluster module names are not standardized. NYU Torch, for example,
+      # provides Apptainer compatibility through SingularityCE.
+      module load apptainer >/dev/null 2>&1 \
+        || module load singularity-ce >/dev/null 2>&1 \
+        || true
+    fi
   fi
 fi
 
@@ -73,6 +81,9 @@ ARGS="${ARGS:-}"
 NSYS_ARGS="${NSYS_ARGS:-}"
 REQUEUE_ON_USR1="${REQUEUE_ON_USR1:-0}"
 CODE_LAYER="${CODE_LAYER:-}"
+SAMUDRA_MODULE="${SAMUDRA_MODULE:-samudra.train}"
+SAMUDRA_MODULE_ARGS="${SAMUDRA_MODULE_ARGS:-}"
+SAMUDRA_MANAGE_RUN_DIR="${SAMUDRA_MANAGE_RUN_DIR:-1}"
 if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then
   NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"
 fi
@@ -113,7 +124,7 @@ if [[ ! -d "${OUTPUT_BASE}" ]]; then
 fi
 
 RUN_DIR="${OUTPUT_BASE}/${NAME}"
-if [[ -e "${RUN_DIR}" ]]; then
+if [[ "${SAMUDRA_MANAGE_RUN_DIR}" == "1" && -e "${RUN_DIR}" ]]; then
   if (( ${SLURM_RESTART_COUNT:-0} > 0 )); then
     echo "Requeued job detected; resuming from existing output dir: ${RUN_DIR}"
   else
@@ -312,10 +323,17 @@ export SINGULARITYENV_SAMUDRA_CONTAINER_SIF_PATH="${SIF_PATH}"
 MASTER_ADDR="$(scontrol show hostnames "${SLURM_JOB_NODELIST}" | head -n 1)"
 MASTER_PORT="${MASTER_PORT:-}"
 TORCHRUN_STANDALONE=0
-if [[ -z "${MASTER_PORT}" && "${SLURM_NNODES}" == "1" ]]; then
+# Slurm sites may inject one allocation-wide MASTER_PORT. It is unsafe for
+# colocated array elements, which are independent jobs and would all try to
+# listen on the same node/port. Single-node jobs always use torchrun's atomic
+# free-port selection, regardless of an inherited scheduler environment.
+if [[ "${SLURM_NNODES}" == "1" ]]; then
   TORCHRUN_STANDALONE=1
+  MASTER_PORT=""
 elif [[ -z "${MASTER_PORT}" ]]; then
-  MASTER_PORT="$((15000 + SLURM_JOB_ID % 40000))"
+  RENDEZVOUS_JOB_ID="${SLURM_ARRAY_JOB_ID:-${SLURM_JOB_ID}}"
+  RENDEZVOUS_TASK_ID="${SLURM_ARRAY_TASK_ID:-0}"
+  MASTER_PORT="$((15000 + (RENDEZVOUS_JOB_ID + RENDEZVOUS_TASK_ID) % 40000))"
 fi
 export MASTER_ADDR MASTER_PORT TORCHRUN_STANDALONE
 if [[ "${TORCHRUN_STANDALONE}" == "1" ]]; then
@@ -360,7 +378,11 @@ export APPTAINERENV_PYTHONNOUSERSITE="${APPTAINERENV_PYTHONNOUSERSITE:-${PYTHONN
 export SINGULARITYENV_PYTHONNOUSERSITE="${SINGULARITYENV_PYTHONNOUSERSITE:-${PYTHONNOUSERSITE}}"
 
 # Bind mounts.
-DATA_CACHE_DIR="${DATA_CACHE_DIR:-${SCRATCH_DIR}/.data_cache/${NAME}}"
+CACHE_NAME="${NAME}"
+if [[ "${SAMUDRA_MANAGE_RUN_DIR}" != "1" ]]; then
+  CACHE_NAME="${CACHE_NAME}-${SLURM_ARRAY_JOB_ID:-local}-${SLURM_ARRAY_TASK_ID:-0}"
+fi
+DATA_CACHE_DIR="${DATA_CACHE_DIR:-${SCRATCH_DIR}/.data_cache/${CACHE_NAME}}"
 mkdir -p "${DATA_CACHE_DIR}"
 binds=(
   "${DATA_ROOT}:${DATA_ROOT}"
@@ -371,10 +393,13 @@ BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 
 # Create the run directory after preflight validation so early failures are
 # retryable with the same NAME.
-mkdir -p "${RUN_DIR}"
-if [[ -n "${CODE_LAYER_MANIFEST}" ]]; then
+if [[ "${SAMUDRA_MANAGE_RUN_DIR}" == "1" ]]; then
+  mkdir -p "${RUN_DIR}"
+fi
+if [[ "${SAMUDRA_MANAGE_RUN_DIR}" == "1" && -n "${CODE_LAYER_MANIFEST}" ]]; then
   cp "${CODE_LAYER_MANIFEST}" "${RUN_DIR}/source-manifest.json"
 fi
+if [[ "${SAMUDRA_MANAGE_RUN_DIR}" == "1" ]]; then
 SAMUDRA_PROVENANCE_PATH="${RUN_DIR}/run-provenance.json" \
 SAMUDRA_CODE_COMMIT="${CODE_GIT_COMMIT}" \
 SAMUDRA_CODE_REPO_URL="${CODE_GIT_REMOTE_URL}" \
@@ -403,6 +428,7 @@ with open(os.environ["SAMUDRA_PROVENANCE_PATH"], "w", encoding="utf-8") as strea
     json.dump(provenance, stream, indent=2, sort_keys=True)
     stream.write("\n")
 PY
+fi
 if [[ -n "${NSYS_ARGS}" ]]; then
   mkdir -p "${NSYS_OUTPUT_DIR}"
 fi
@@ -466,13 +492,21 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         fi
         echo \"Nsight Systems profiling enabled on proc \${SLURM_PROCID:-unset}.\"
       fi
+      if [[ \"${SAMUDRA_MODULE}\" == \"samudra.train\" ]]; then
+        module_args=(
+          \"${CONFIG_IN_CONTAINER}\"
+          --experiment.name=\"${NAME}\"
+          --experiment.data_root=\"${DATA_ROOT}\"
+          --experiment.base_output_dir=\"${OUTPUT_BASE}\"
+          --experiment.wandb.mode=\"${WANDB_MODE}\"
+          --backend=\"nccl\"
+        )
+        read -r -a extra_args <<< \"${ARGS}\"
+        module_args+=(\"\${extra_args[@]}\")
+      else
+        read -r -a module_args <<< \"${SAMUDRA_MODULE_ARGS}\"
+      fi
       \"\${profiler_cmd[@]}\" /workspace/.venv/bin/python -m torch.distributed.run \
         \"\${torchrun_args[@]}\" \
-        -m samudra.train \"${CONFIG_IN_CONTAINER}\" \
-        --experiment.name=\"${NAME}\" \
-        --experiment.data_root=\"${DATA_ROOT}\" \
-        --experiment.base_output_dir=\"${OUTPUT_BASE}\" \
-        --experiment.wandb.mode=\"${WANDB_MODE}\" \
-        --backend=\"nccl\" \
-        ${ARGS}
+        -m \"${SAMUDRA_MODULE}\" \"\${module_args[@]}\"
     "

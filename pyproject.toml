@@ -39,6 +39,7 @@ dependencies = [
   "numpy>=1.26.4,<2",             # There is some incompatibility between a dependency and numpy 2+
   "pandas>=2.2",                  # tidy metric frames are part of samudra.metrics' API
   "perceiver-pytorch>=0.8.8",
+  "pyarrow>=18",                  # portable Parquet experiment catalogs
   "pydantic-settings>=2.8.1",
   "pytest-xdist[psutil]>=3.6.1",
   "pyyaml>=6.0.2",
@@ -177,6 +178,7 @@ overrides = [
     "cftime.*",
     "scipy.*",
     "fsspec.*",
+    "s3fs.*",
     "perceiver_pytorch.*",
     "aurora.*",
   ], follow_untyped_imports = true },

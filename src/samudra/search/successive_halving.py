@@ -29,7 +29,15 @@ from samudra.search.config import (
 )
 from samudra.search.executors import Executor, LocalExecutor, SlurmExecutor
 from samudra.search.report import write_search_report
-from samudra.search.state import SearchState
+from samudra.search.state import (
+    AnchorState,
+    CandidateResult,
+    ProbeStatus,
+    ProvenanceState,
+    RungState,
+    SearchState,
+    SearchStatus,
+)
 from samudra.train import Trainer
 from samudra.utils.atomic import atomic_path
 from samudra.utils.distributed import is_main_process
@@ -60,16 +68,16 @@ def _atomic_json(path: Path, value: dict[str, Any]) -> None:
         )
 
 
-def _git_provenance(*, allow_dirty: bool) -> dict[str, Any]:
+def _git_provenance(*, allow_dirty: bool) -> ProvenanceState:
     immutable_commit = os.environ.get("SAMUDRA_CODE_COMMIT")
     if immutable_commit is not None:
         if re.fullmatch(r"[0-9a-fA-F]{40}", immutable_commit) is None:
             raise ValueError("SAMUDRA_CODE_COMMIT must be a full 40-character Git SHA")
-        return {
-            "commit": immutable_commit.lower(),
-            "dirty": False,
-            "package_version": importlib.metadata.version("samudra"),
-        }
+        return ProvenanceState(
+            commit=immutable_commit.lower(),
+            dirty=False,
+            package_version=importlib.metadata.version("samudra"),
+        )
 
     root = subprocess.run(
         ["git", "-C", str(Path(__file__).parent), "rev-parse", "--show-toplevel"],
@@ -93,11 +101,11 @@ def _git_provenance(*, allow_dirty: bool) -> dict[str, Any]:
     )
     if dirty and not allow_dirty:
         raise ValueError("Commit tracked changes or set allow_dirty=true")
-    return {
-        "commit": commit,
-        "dirty": dirty,
-        "package_version": importlib.metadata.version("samudra"),
-    }
+    return ProvenanceState(
+        commit=commit,
+        dirty=dirty,
+        package_version=importlib.metadata.version("samudra"),
+    )
 
 
 class SuccessiveHalving:
@@ -140,10 +148,10 @@ class SuccessiveHalving:
                 if not isinstance(loaded_metadata, dict):
                     raise ValueError(f"Invalid code-layer manifest: {metadata_path}")
                 code_layer_metadata = loaded_metadata
-                if code_layer_metadata.get("code_commit") != provenance["commit"]:
+                if code_layer_metadata.get("code_commit") != provenance.commit:
                     raise ValueError(
                         f"Code layer contains {code_layer_metadata.get('code_commit')!r}; "
-                        f"search controller is {provenance['commit']!r}"
+                        f"search controller is {provenance.commit!r}"
                     )
         resolved_candidates = [
             (
@@ -169,25 +177,25 @@ class SuccessiveHalving:
             yaml.safe_dump(self.config.model_dump(mode="json"), sort_keys=False),
             encoding="utf-8",
         )
-        state = {
-            "name": self.config.name,
-            "run_id": self.run_id,
-            "created_at": datetime.datetime.now(datetime.UTC).isoformat(),
-            "status": "prepared",
-            "provenance": provenance,
-            "anchors": {"candidates": anchors, "results": []},
-            "rungs": [
-                {
-                    "index": index,
-                    "epochs": epochs,
-                    "candidates": competing if index == 0 else [],
-                    "results": [],
-                    "promoted": [],
-                    "advanced": False,
-                }
+        state = SearchState(
+            name=self.config.name,
+            run_id=self.run_id,
+            created_at=datetime.datetime.now(datetime.UTC),
+            status=SearchStatus.PREPARED,
+            provenance=provenance,
+            anchors=AnchorState(candidates=anchors, results=[]),
+            rungs=[
+                RungState(
+                    index=index,
+                    epochs=epochs,
+                    candidates=competing if index == 0 else [],
+                    results=[],
+                    promoted=[],
+                    advanced=False,
+                )
                 for index, epochs in enumerate(self.rungs)
             ],
-        }
+        )
         self.write_state(state)
         # Publish stable, queryable schemas immediately. Without these files,
         # the public results URL returns 404 until the first rung completes.
@@ -205,13 +213,7 @@ class SuccessiveHalving:
             self.executor.submit_rung(self.read_state(), 0)
         except Exception as error:
             state = self.read_state()
-            state["status"] = "failed"
-            state["failure"] = {
-                "stage": "submission",
-                "type": type(error).__name__,
-                "message": str(error),
-                "failed_at": datetime.datetime.now(datetime.UTC).isoformat(),
-            }
+            state.fail(stage="submission", error=error)
             self.write_state(state)
             try:
                 self.publish(state)
@@ -224,7 +226,7 @@ class SuccessiveHalving:
         self.publish(self.read_state())
         return self.state_path
 
-    def read_state(self) -> dict[str, Any]:
+    def read_state(self) -> SearchState:
         value = json.loads(self.state_path.read_text(encoding="utf-8"))
         state = SearchState.model_validate(value)
         if state.name != self.config.name or state.run_id != self.run_id:
@@ -233,15 +235,17 @@ class SuccessiveHalving:
             item.index for item in state.rungs
         ] != list(range(len(self.rungs))):
             raise ValueError("Search state rungs do not match its configuration")
-        return state.model_dump(mode="json", exclude_none=True)
+        return state
 
-    def write_state(self, state: dict[str, Any]) -> None:
-        validated = SearchState.model_validate(state)
+    def write_state(self, state: SearchState) -> None:
+        # Revalidate the complete object because nested list mutations are not
+        # intercepted by Pydantic assignment validation.
+        validated = SearchState.model_validate(state.model_dump(mode="python"))
         _atomic_json(
             self.state_path, validated.model_dump(mode="json", exclude_none=True)
         )
 
-    def publish(self, state: dict[str, Any]) -> None:
+    def publish(self, state: SearchState) -> None:
         if self.publisher is not None:
             self.publisher.publish(state)
 
@@ -258,9 +262,7 @@ class SuccessiveHalving:
     ) -> None:
         state = self.read_state()
         candidates = (
-            state["anchors"]["candidates"]
-            if anchor
-            else state["rungs"][rung]["candidates"]
+            state.anchors.candidates if anchor else state.rungs[rung].candidates
         )
         try:
             name = candidates[task]
@@ -305,7 +307,7 @@ class SuccessiveHalving:
             executor=self.config.executor.type,
             code_commit=os.environ.get(
                 "SAMUDRA_CODE_COMMIT",
-                state.get("provenance", {}).get("commit"),
+                state.provenance.commit,
             ),
             code_layer_sha256=os.environ.get("SAMUDRA_CODE_LAYER_SHA256"),
             container_image_ref=os.environ.get("SAMUDRA_CONTAINER_IMAGE_REF"),
@@ -369,17 +371,17 @@ class SuccessiveHalving:
         """Release a Slurm rung only after its probe proves an optimizer update."""
         state = self.read_state()
         controller_commit = os.environ.get("SAMUDRA_CODE_COMMIT")
-        expected_commit = state.get("provenance", {}).get("commit")
+        expected_commit = state.provenance.commit
         if controller_commit != expected_commit:
             raise ValueError(
                 f"Search was started at {expected_commit}; probe controller "
                 f"reports {controller_commit!r}"
             )
-        current = state["rungs"][rung]
-        probe = current.get("probe")
-        if not isinstance(probe, dict):
+        current = state.rungs[rung]
+        probe = current.probe
+        if probe is None:
             raise ValueError(f"Rung {rung} has no configured probe")
-        name = probe["candidate"]
+        name = probe.candidate
         status_path = (
             self.search_dir / "probe" / resource_slug(name) / SEARCH_WORKER_STATUS_NAME
         )
@@ -393,25 +395,16 @@ class SuccessiveHalving:
             if int(status.get("optimizer_steps", 0)) < 1:
                 raise ValueError("worker completed without an optimizer update")
         except (OSError, TypeError, ValueError, json.JSONDecodeError) as error:
-            state["status"] = "failed"
-            state["failure"] = {
-                "stage": "rung_probe",
-                "type": type(error).__name__,
-                "message": str(error),
-                "candidate": name,
-                "failed_at": datetime.datetime.now(datetime.UTC).isoformat(),
-            }
-            probe["status"] = "failed"
+            state.fail(stage="rung_probe", error=error, candidate=name)
+            probe.status = ProbeStatus.FAILED
             self.write_state(state)
             self._write_results(state)
             self.publish(state)
             raise ValueError(f"Rung {rung} probe failed: {error}") from error
-        probe.update(
-            status="complete",
-            optimizer_steps=status["optimizer_steps"],
-            batches_seen=status.get("batches_seen"),
-            validated_at=datetime.datetime.now(datetime.UTC).isoformat(),
-        )
+        probe.status = ProbeStatus.COMPLETE
+        probe.optimizer_steps = status["optimizer_steps"]
+        probe.batches_seen = status.get("batches_seen")
+        probe.validated_at = datetime.datetime.now(datetime.UTC)
         self.write_state(state)
         if not isinstance(self.executor, SlurmExecutor):
             raise TypeError("Rung probes are only supported by the Slurm executor")
@@ -419,7 +412,7 @@ class SuccessiveHalving:
         self.executor.submit_validated_rung(state, rung)
         self.publish(self.read_state())
 
-    def _result(self, name: str, rung: int) -> dict[str, Any]:
+    def _result(self, name: str, rung: int) -> CandidateResult:
         output = self.output_dir(name, rung)
         result: dict[str, Any] = {
             "search": self.config.name,
@@ -431,7 +424,7 @@ class SuccessiveHalving:
             "eligible": False,
             "error": None,
             "output_dir": str(output),
-            "code_commit": self.read_state().get("provenance", {}).get("commit"),
+            "code_commit": self.read_state().provenance.commit,
         }
         try:
             summary = json.loads(
@@ -439,7 +432,7 @@ class SuccessiveHalving:
             )
             if summary["epoch"] != self.rungs[rung] or not summary["complete"]:
                 raise ValueError("target epoch was not completed")
-            expected_commit = self.read_state().get("provenance", {}).get("commit")
+            expected_commit = self.read_state().provenance.commit
             if summary.get("code_commit") != expected_commit:
                 raise ValueError(
                     f"training commit {summary.get('code_commit')!r} does not match "
@@ -495,15 +488,15 @@ class SuccessiveHalving:
                 worker_error=worker_status.get("error"),
                 worker_status_log=f"runs/{output.name}/{SEARCH_WORKER_STATUS_NAME}",
             )
-        return result
+        return CandidateResult.model_validate(result)
 
     def _scheduler_failure_context(self, name: str, rung: int) -> dict[str, Any]:
         """Locate the bounded task logs that explain an ineligible result."""
         state = self.read_state()
         fixed = self.candidate(name).fixed
-        group = state["anchors"] if fixed else state["rungs"][rung]
-        candidates = group.get("candidates", [])
-        job_id = group.get("job_id")
+        group = state.anchors if fixed else state.rungs[rung]
+        candidates = group.candidates
+        job_id = group.job_id
         if job_id is None or name not in candidates:
             return {}
         task = candidates.index(name)
@@ -516,7 +509,7 @@ class SuccessiveHalving:
             context[f"scheduler_{field}_log"] = str(path.relative_to(self.search_dir))
         return context
 
-    def _write_results(self, state: dict[str, Any]) -> None:
+    def _write_results(self, state: SearchState) -> None:
         rows = self.result_rows(state)
         columns = list(
             dict.fromkeys(
@@ -543,23 +536,21 @@ class SuccessiveHalving:
         write_search_report(self, state)
 
     @staticmethod
-    def result_rows(state: dict[str, Any]) -> list[dict[str, Any]]:
-        return [
-            result for rung in state["rungs"] for result in rung.get("results", [])
-        ] + state["anchors"].get("results", [])
+    def result_rows(state: SearchState) -> list[dict[str, Any]]:
+        return [result.row() for result in state.results()]
 
     def advance(self, rung: int) -> None:
         state = self.read_state()
         if isinstance(self.config.executor, SlurmExecutorConfig):
             controller_commit = os.environ.get("SAMUDRA_CODE_COMMIT")
-            expected_commit = state.get("provenance", {}).get("commit")
+            expected_commit = state.provenance.commit
             if controller_commit != expected_commit:
                 raise ValueError(
                     f"Search was started at {expected_commit}; promotion controller "
                     f"reports {controller_commit!r}"
                 )
-        current = state["rungs"][rung]
-        if current["advanced"]:
+        current = state.rungs[rung]
+        if current.advanced:
             # Publication and scheduler submission are external operations. A
             # controller retry must be able to finish either after a transient
             # upload/submission failure without recomputing the ranking.
@@ -568,24 +559,19 @@ class SuccessiveHalving:
             next_rung = rung + 1
             if next_rung == len(self.rungs):
                 return
-            if "controller_job_id" not in state["rungs"][next_rung]:
+            if state.rungs[next_rung].controller_job_id is None:
                 self.executor.submit_rung(state, next_rung)
             return
-        results = [self._result(name, rung) for name in current["candidates"]]
-        eligible = pd.DataFrame([row for row in results if row["eligible"]])
+        results = [self._result(name, rung) for name in current.candidates]
+        eligible = pd.DataFrame([result.row() for result in results if result.eligible])
         if eligible.empty:
-            current["results"] = results
-            state["status"] = "failed"
-            state["failure"] = {
-                "stage": f"rung_{rung}",
-                "type": "NoEligibleCandidates",
-                "message": f"No candidate completed rung {rung}",
-                "failed_at": datetime.datetime.now(datetime.UTC).isoformat(),
-            }
+            current.results = results
+            error = ValueError(f"No candidate completed rung {rung}")
+            state.fail(stage=f"rung_{rung}", error=error)
             self.write_state(state)
             self._write_results(state)
             self.publish(state)
-            raise ValueError(f"No candidate completed rung {rung}")
+            raise error
         ascending = self.config.objective.mode == "min"
         ranked = eligible.sort_values(self.config.objective.metric, ascending=ascending)
         keep = min(
@@ -596,25 +582,27 @@ class SuccessiveHalving:
             ),
         )
         promoted = ranked.head(keep)["candidate"].tolist()
-        current.update(results=results, promoted=promoted, advanced=True)
+        current.results = results
+        current.promoted = promoted
+        current.advanced = True
         next_rung = rung + 1
         if next_rung == len(self.rungs):
-            state["anchors"]["results"] = [
-                self._result(name, rung) for name in state["anchors"]["candidates"]
+            state.anchors.results = [
+                self._result(name, rung) for name in state.anchors.candidates
             ]
-            all_results = self.result_rows(state)
-            state["status"] = (
-                "complete"
-                if all(result["eligible"] for result in all_results)
-                else "partial"
+            terminal_status = (
+                SearchStatus.COMPLETE
+                if all(result.eligible for result in state.results())
+                else SearchStatus.PARTIAL
             )
+            state.transition(terminal_status)
             self.write_state(state)
             self._write_results(state)
             self.publish(state)
             if is_main_process():
-                print(f"Search {state['status']}: {self.results_path}", flush=True)
+                print(f"Search {state.status}: {self.results_path}", flush=True)
             return
-        state["rungs"][next_rung]["candidates"] = promoted
+        state.rungs[next_rung].candidates = promoted
         self.write_state(state)
         self._write_results(state)
         self.publish(state)

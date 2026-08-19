@@ -5,7 +5,9 @@
 """Compute executor interface used by search algorithms."""
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
+
+from samudra.search.state import SearchState
 
 if TYPE_CHECKING:
     from samudra.search.successive_halving import SuccessiveHalving
@@ -18,7 +20,7 @@ class Executor(ABC):
         self.search = search
 
     @abstractmethod
-    def submit_anchors(self, state: dict[str, Any]) -> None: ...
+    def submit_anchors(self, state: SearchState) -> None: ...
 
     @abstractmethod
-    def submit_rung(self, state: dict[str, Any], rung: int) -> None: ...
+    def submit_rung(self, state: SearchState, rung: int) -> None: ...

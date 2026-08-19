@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787099732518,
+  "lastUpdate": 1787099739701,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -23389,6 +23389,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.3904529418098209",
             "extra": "mean: 50.710829032799985 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "018a6a7453bd2b600daffcc971af964102ab90a1",
+          "message": "Fix z_l->lev rename for OM4 snapshot sources (#756)\n\nThe 5-daily snapshot source (1958-2022.OM4p25_5daily_snapshots) exposes\nthe depth-center coordinate as z_l but has no z_i. The old rename gated\nthe z_l->lev rename on z_i being present, so z_l was left intact and\ndownstream rechunking on \"lev\" failed with a ValueError (issue #450).\n\nExtract normalize_vertical_coords() to rename z_l->lev and z_i->ilev\nindependently, and key the interface-info branch on ilev rather than\nz_i. Behavior is unchanged for the averaged sources (which carry z_i).\n\n🤖\n\nCo-authored-by: Claude Opus 4.8 (1M context) <noreply@anthropic.com>",
+          "timestamp": "2026-08-18T23:55:39Z",
+          "tree_id": "eea2da2ad86135cb158460c27239f5e976dc2a03",
+          "url": "https://github.com/m2lines/Samudra/commit/018a6a7453bd2b600daffcc971af964102ab90a1"
+        },
+        "date": 1787099739300,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.186371774337973,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0007010821004002738",
+            "extra": "mean: 842.9060954000079 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06626624815902922,
+            "unit": "iter/sec",
+            "range": "stddev: 0.05020709105353764",
+            "extra": "mean: 15.090638564599999 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.02099370380404717,
+            "unit": "iter/sec",
+            "range": "stddev: 0.04720551407064606",
+            "extra": "mean: 47.63332898920007 sec\nrounds: 5"
           }
         ]
       }

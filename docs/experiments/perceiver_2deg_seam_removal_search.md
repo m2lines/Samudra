@@ -380,6 +380,25 @@ metric: their small rendered size and plotting color scale can hide weak
 boundaries. Final judgment should combine the six-epoch scalar ratios, matched
 error images, and validation skill.
 
+### Preliminary manual inspection
+
+`__author__ = "Alex Merose"` + <agent analysis goes here>
+
+I looked at the wandb image error plots for the leading experiment: blend1-context1-residual. I noticed that while zos
+error outputs are indeed significantly reduced, there is a weird unphysical patching artifact in thetao outputs:
+
+https://wandb.ai/ocean_emulators/default/runs/jl31vvpv?nw=nwuseralxmrs&panelDisplayName=val%2Fsnapshot%2Fimage-error%2Fthetao_15&panelSectionName=val%2Fsnapshot%2Fimage-error
+
+These weird blue or red blocks also appear in salinity: https://wandb.ai/ocean_emulators/default/runs/jl31vvpv?nw=nwuseralxmrs&panelDisplayName=val%2Fsnapshot%2Fimage-error%2Fso_14&panelSectionName=val%2Fsnapshot%2Fimage-error
+
+I wonder why these two types of variables have these patching artifacts at step 8463.
+
+TAL as the full field snapshot of salinity: https://wandb.ai/ocean_emulators/default/runs/jl31vvpv?nw=nwuseralxmrs&panelDisplayName=val%2Fsnapshot%2Fimage-full-field%2Fso_10&panelSectionName=val%2Fsnapshot%2Fimage-full-field
+
+It becomes apparent that for these variables, the patching artifacts may be really subtle. Note that the image error ranges are -0.1263 to 0.1263 (vmin and vmax).
+
+
+
 ## Analysis and discussion
 
 The preliminary evidence strongly supports H1 and H2. Input context without

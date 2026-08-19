@@ -731,7 +731,10 @@ class Trainer:
                     write_search_worker_status(
                         self.output_dir, "first_batch", **status_metrics
                     )
-                if batch_progress.optimizer_stepped:
+                if (
+                    batch_progress.optimizer_stepped
+                    and self.train_progress.optimizer_steps == 1
+                ):
                     write_search_worker_status(
                         self.output_dir, "optimizer_step", **status_metrics
                     )

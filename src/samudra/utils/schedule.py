@@ -72,9 +72,11 @@ class CosineWithWarmupConfig(BaseModel):
             total_iters=self.warmup_epochs,
         )
 
-        assert self.warmup_epochs <= epochs, (
-            "'warmup_epochs' is too big; it must be smaller than 'epochs'."
-        )
+        if self.warmup_epochs > max_epochs:
+            raise ValueError(
+                "'warmup_epochs' is too big; it must be smaller than the "
+                "scheduler target epochs."
+            )
         cosine = torch.optim.lr_scheduler.CosineAnnealingLR(
             optimizer, T_max=max_epochs - self.warmup_epochs
         )

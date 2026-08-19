@@ -65,6 +65,9 @@ class SlurmExecutorConfig(BaseConfig):
     account: str
     partition: str
     controller_partition: str = "cs"
+    controller_cpus_per_task: int = Field(default=1, ge=1)
+    controller_memory: str = "4G"
+    controller_time: str = "01:00:00"
     python: str = "python"
     cpus_per_task: int = Field(default=4, ge=1)
     memory: str = "32G"
@@ -99,6 +102,7 @@ class ArtifactConfig(BaseConfig):
 
     destination: ArtifactDestination
     checkpoints: Literal["none", "final", "all"] = "final"
+    logs: Literal["none", "all"] = "none"
     public_url: str | None = None
 
 
@@ -119,9 +123,7 @@ class SearchConfig(TopLevelConfig):
         """Build the configured search algorithm."""
         from samudra.search.successive_halving import SuccessiveHalving
 
-        if self.algorithm.type == "successive_halving":
-            return SuccessiveHalving(self)
-        raise AssertionError(f"Unhandled search algorithm: {self.algorithm.type}")
+        return SuccessiveHalving(self)
 
     @model_validator(mode="after")
     def _validate_search(self) -> Self:
@@ -141,4 +143,9 @@ class SearchConfig(TopLevelConfig):
             and len(self.executor.time_by_rung) != len(self.algorithm.rungs)
         ):
             raise ValueError("executor.time_by_rung must have one value per rung")
+        if isinstance(self.executor, SlurmExecutorConfig) and self.allow_dirty:
+            raise ValueError(
+                "allow_dirty is only supported by the local executor; Slurm "
+                "searches require immutable code provenance"
+            )
         return self

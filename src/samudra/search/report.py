@@ -6,10 +6,10 @@
 
 from __future__ import annotations
 
-import os
-import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+
+from samudra.utils.atomic import atomic_path
 
 if TYPE_CHECKING:
     from samudra.search.successive_halving import SuccessiveHalving
@@ -150,9 +150,7 @@ def write_search_report(search: SuccessiveHalving, state: dict[str, Any]) -> Pat
                 row["rung"],
                 row.get("epochs"),
                 row.get("worker_stage"),
-                row.get("worker_error")
-                or row.get("scheduler_stderr_tail")
-                or row.get("error", "unknown"),
+                row.get("worker_error") or row.get("error", "unknown"),
             ]
             lines.append("| " + " | ".join(_markdown(value) for value in values) + " |")
     else:
@@ -173,16 +171,6 @@ def write_search_report(search: SuccessiveHalving, state: dict[str, Any]) -> Pat
         ]
     )
     report = search.search_dir / "analysis/report.md"
-    report.parent.mkdir(parents=True, exist_ok=True)
-    with tempfile.NamedTemporaryFile(
-        mode="w",
-        dir=report.parent,
-        prefix=f".{report.name}.",
-        delete=False,
-    ) as stream:
-        temporary = Path(stream.name)
-        stream.write("\n".join(lines))
-        stream.flush()
-        os.fsync(stream.fileno())
-    os.replace(temporary, report)
+    with atomic_path(report) as temporary:
+        temporary.write_text("\n".join(lines), encoding="utf-8")
     return report

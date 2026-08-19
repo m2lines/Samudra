@@ -24,14 +24,20 @@ def test_write_training_summary_atomically_replaces_latest_epoch(tmp_path):
     assert path == tmp_path / TRAINING_SUMMARY_NAME
     assert json.loads(path.read_text()) == {
         "schema_version": TRAINING_SUMMARY_SCHEMA_VERSION,
+        "nonfinite_metrics": [],
         **second,
     }
     assert list(tmp_path.iterdir()) == [path]
 
 
-def test_write_training_summary_rejects_nonfinite_values(tmp_path):
-    with pytest.raises(ValueError):
-        write_training_summary(tmp_path, {"validation_loss": float("nan")})
+def test_write_training_summary_records_nonfinite_values(tmp_path):
+    path = write_training_summary(tmp_path, {"validation_loss": float("nan")})
+
+    assert json.loads(path.read_text()) == {
+        "schema_version": TRAINING_SUMMARY_SCHEMA_VERSION,
+        "validation_loss": None,
+        "nonfinite_metrics": ["validation_loss"],
+    }
 
 
 def test_write_search_worker_status_preserves_lifecycle_history(tmp_path):
@@ -51,3 +57,24 @@ def test_write_search_worker_status_preserves_lifecycle_history(tmp_path):
         "launched",
         "optimizer_step",
     ]
+
+
+def test_write_search_worker_status_redacts_environment_secrets(tmp_path, monkeypatch):
+    monkeypatch.setenv("WANDB_API_KEY", "super-secret-value")
+
+    path = write_search_worker_status(
+        tmp_path,
+        "failed",
+        error="WANDB_API_KEY=super-secret-value",
+    )
+
+    text = path.read_text()
+    assert "super-secret-value" not in text
+    assert "[REDACTED]" in text
+
+
+def test_failed_atomic_write_removes_temporary_file(tmp_path):
+    with pytest.raises(TypeError):
+        write_search_worker_status(tmp_path, "failed", unsupported={"a", "set"})
+
+    assert list(tmp_path.iterdir()) == []

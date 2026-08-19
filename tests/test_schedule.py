@@ -104,6 +104,23 @@ def test_cosine__larger_target_than_total__stops_early():
         )
 
 
+def test_cosine_resume_preserves_full_search_horizon():
+    """A promoted rung resumes without restoring a short cosine horizon."""
+    parameter = torch.nn.Parameter(torch.tensor(0.0))
+    first_optimizer = torch.optim.SGD([parameter], lr=1e-3)
+    config = CosineSchedulerConfig(target_epochs=3)
+    first = config.build(first_optimizer, epochs=1)
+    first_optimizer.step()
+    first.step()
+
+    resumed_parameter = torch.nn.Parameter(torch.tensor(0.0))
+    resumed_optimizer = torch.optim.SGD([resumed_parameter], lr=1e-3)
+    resumed = config.build(resumed_optimizer, epochs=3)
+    resumed.load_state_dict(first.state_dict())
+
+    assert resumed.state_dict()["T_max"] == 3
+
+
 def test_cosine_with_warmup():
     """Test for linearly increasing "warmup" before cosine annealing learning rate."""
     warmup_lr = 0.001

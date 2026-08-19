@@ -431,3 +431,8 @@ Pending.
 ## Future work
 
 Pending.
+
+Alex's thoughts:
+- Are residual predictions the only way to address patching artifacts?
+- Do residual predictions merely make the patching artifacts less severe, rather than totally address them? For example, will patching come back on long rollouts?
+- Can we try the patching addressment that was written about in the NVIDIA paper (pre-print not committed)? Would that solve the problem for both full and residual preditions?

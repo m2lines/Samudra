@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import datetime
 import json
 from pathlib import Path
 
@@ -15,16 +14,6 @@ from samudra.config import TrainConfig
 from samudra.search import SearchConfig
 from samudra.search.config import ArtifactConfig, SlurmExecutorConfig
 from samudra.search.executors import LocalExecutor, SlurmExecutor
-from samudra.search.state import (
-    AnchorState,
-    CandidateResult,
-    ProbeState,
-    ProbeStatus,
-    ProvenanceState,
-    RungState,
-    SearchState,
-    SearchStatus,
-)
 from samudra.utils.location import S3Location
 from samudra.utils.schedule import CosineSchedulerConfig
 from samudra.utils.training_summary import (
@@ -66,57 +55,31 @@ def config(tmp_path: Path, *, executor: str = "local") -> SearchConfig:
     )
 
 
-def provenance_state() -> ProvenanceState:
-    return ProvenanceState(
-        commit="f" * 40,
-        dirty=False,
-        package_version="1.0",
-    )
-
-
-def search_state(search, *, status: SearchStatus = SearchStatus.RUNNING) -> SearchState:
+def search_state(search, *, status="running") -> dict:
     """Build the complete durable state shape used by production controllers."""
-    return SearchState(
-        name=search.config.name,
-        run_id=search.run_id,
-        created_at=datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC),
-        status=status,
-        provenance=provenance_state(),
-        anchors=AnchorState(candidates=[], results=[]),
-        rungs=[
-            RungState(
-                index=index,
-                epochs=epochs,
-                candidates=[],
-                results=[],
-                promoted=[],
-                advanced=False,
-            )
+    return {
+        "name": search.config.name,
+        "run_id": search.run_id,
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "status": status,
+        "provenance": {
+            "commit": "f" * 40,
+            "dirty": False,
+            "package_version": "1.0",
+        },
+        "anchors": {"candidates": [], "results": []},
+        "rungs": [
+            {
+                "index": index,
+                "epochs": epochs,
+                "candidates": [],
+                "results": [],
+                "promoted": [],
+                "advanced": False,
+            }
             for index, epochs in enumerate(search.rungs)
         ],
-    )
-
-
-def candidate_result(
-    search,
-    name: str,
-    rung: int,
-    *,
-    eligible: bool,
-    error: str | None = None,
-) -> CandidateResult:
-    return CandidateResult(
-        search=search.config.name,
-        search_run=search.run_id,
-        candidate=name,
-        rung=rung,
-        epochs=search.rungs[rung],
-        fixed=search.candidate(name).fixed,
-        eligible=eligible,
-        error=error,
-        output_dir=search.output_dir(name, rung),
-        code_commit="f" * 40,
-    )
+    }
 
 
 def test_config_validates_objective_and_rungs(tmp_path):
@@ -176,8 +139,8 @@ def test_immutable_environment_uses_verified_commit_provenance(monkeypatch):
     monkeypatch.setenv("SAMUDRA_CODE_COMMIT", "A" * 40)
     provenance = _git_provenance(allow_dirty=False)
 
-    assert provenance.commit == "a" * 40
-    assert provenance.dirty is False
+    assert provenance["commit"] == "a" * 40
+    assert provenance["dirty"] is False
 
 
 def test_immutable_environment_rejects_ambiguous_commit(monkeypatch):
@@ -198,7 +161,11 @@ def test_start_snapshots_resolved_candidate_configs(tmp_path, monkeypatch):
         candidate.args = ["--batch_size=1"]
     monkeypatch.setattr(
         "samudra.search.successive_halving._git_provenance",
-        lambda allow_dirty: provenance_state(),
+        lambda allow_dirty: {
+            "commit": "f" * 40,
+            "dirty": False,
+            "package_version": "1.0",
+        },
     )
     search = search_config.build()
 
@@ -220,16 +187,19 @@ def test_slurm_probe_gates_fixed_anchors_at_search_start(tmp_path, monkeypatch):
         candidate.config = source
     monkeypatch.setattr(
         "samudra.search.successive_halving._git_provenance",
-        lambda allow_dirty: provenance_state(),
+        lambda allow_dirty: {
+            "commit": "f" * 40,
+            "dirty": False,
+            "package_version": "1.0",
+        },
     )
 
     search = search_config.build()
     search.start()
 
     state = search.read_state()
-    assert state.anchors.job_id is None
-    assert state.rungs[0].probe is not None
-    assert state.rungs[0].probe.status == ProbeStatus.SUBMITTED
+    assert "job_id" not in state["anchors"]
+    assert state["rungs"][0]["probe"]["status"] == "submitted"
 
 
 def test_start_snapshot_preserves_structured_s3_locations(tmp_path, monkeypatch):
@@ -253,7 +223,11 @@ def test_start_snapshot_preserves_structured_s3_locations(tmp_path, monkeypatch)
         candidate.config = source
     monkeypatch.setattr(
         "samudra.search.successive_halving._git_provenance",
-        lambda allow_dirty: provenance_state(),
+        lambda allow_dirty: {
+            "commit": "f" * 40,
+            "dirty": False,
+            "package_version": "1.0",
+        },
     )
     search = search_config.build()
 
@@ -282,7 +256,11 @@ def test_local_artifact_publisher_writes_queryable_research_record(
         candidate.config = source
     monkeypatch.setattr(
         "samudra.search.successive_halving._git_provenance",
-        lambda allow_dirty: provenance_state(),
+        lambda allow_dirty: {
+            "commit": "f" * 40,
+            "dirty": False,
+            "package_version": "1.0",
+        },
     )
     search = search_config.build()
     search.start()
@@ -302,10 +280,16 @@ def test_local_artifact_publisher_writes_queryable_research_record(
     write_search_metrics(output, {"candidate": "a", "epoch": 1, "loss": 0.5})
     write_search_metrics(output, {"candidate": "a", "epoch": 2, "loss": 0.25})
     state = search.read_state()
-    state.rungs[1].results = [
-        candidate_result(search, "a", 1, eligible=True).model_copy(
-            update={"validation_loss": 0.25, "train_loss": 0.2}
-        )
+    state["rungs"][1]["results"] = [
+        {
+            "candidate": "a",
+            "rung": 1,
+            "epochs": 3,
+            "eligible": True,
+            "validation_loss": 0.25,
+            "train_loss": 0.2,
+            "output_dir": str(output),
+        }
     ]
     search._write_results(state)
 
@@ -344,7 +328,11 @@ def test_start_records_and_publishes_submission_failure(tmp_path, monkeypatch):
         candidate.config = source
     monkeypatch.setattr(
         "samudra.search.successive_halving._git_provenance",
-        lambda allow_dirty: provenance_state(),
+        lambda allow_dirty: {
+            "commit": "f" * 40,
+            "dirty": False,
+            "package_version": "1.0",
+        },
     )
     search = search_config.build()
     monkeypatch.setattr(search.executor, "submit_anchors", lambda state: None)
@@ -361,12 +349,11 @@ def test_start_records_and_publishes_submission_failure(tmp_path, monkeypatch):
     published_state = json.loads(
         (tmp_path / "published/test-search--run/state.json").read_text(encoding="utf-8")
     )
-    assert local_state.status == SearchStatus.FAILED
-    assert local_state.failure is not None
-    assert local_state.failure.stage == "submission"
-    assert local_state.failure.type == "RuntimeError"
-    assert local_state.failure.message == "scheduler unavailable"
-    assert published_state == local_state.model_dump(mode="json", exclude_none=True)
+    assert local_state["status"] == "failed"
+    assert local_state["failure"]["stage"] == "submission"
+    assert local_state["failure"]["type"] == "RuntimeError"
+    assert local_state["failure"]["message"] == "scheduler unavailable"
+    assert published_state == local_state
 
 
 def test_s3_publication_is_executor_independent_and_uses_configured_endpoint(
@@ -391,7 +378,11 @@ def test_s3_publication_is_executor_independent_and_uses_configured_endpoint(
         candidate.config = source
     monkeypatch.setattr(
         "samudra.search.successive_halving._git_provenance",
-        lambda allow_dirty: provenance_state(),
+        lambda allow_dirty: {
+            "commit": "f" * 40,
+            "dirty": False,
+            "package_version": "1.0",
+        },
     )
     uploaded = []
 
@@ -441,9 +432,8 @@ def test_ineligible_result_captures_bounded_scheduler_context(tmp_path):
     logs = search.search_dir / "logs"
     logs.mkdir()
     state = search_state(search)
-    state.anchors.candidates = ["anchor"]
-    state.rungs[0].candidates = ["a", "b", "c"]
-    state.rungs[0].job_id = "123"
+    state["anchors"]["candidates"] = ["anchor"]
+    state["rungs"][0].update(candidates=["a", "b", "c"], job_id="123")
     search.write_state(state)
     (logs / "r0-123_1.out").write_text("starting\n", encoding="utf-8")
     (logs / "r0-123_1.err").write_text(
@@ -452,20 +442,18 @@ def test_ineligible_result_captures_bounded_scheduler_context(tmp_path):
 
     result = search._result("b", 0)
 
-    assert result.eligible is False
-    assert result.error is not None
-    assert "training_summary.json" in result.error
-    row = result.row()
-    assert row["scheduler_task_id"] == "123_1"
-    assert row["scheduler_stdout_log"] == "logs/r0-123_1.out"
-    assert row["scheduler_stderr_log"] == "logs/r0-123_1.err"
+    assert result["eligible"] is False
+    assert "training_summary.json" in result["error"]
+    assert result["scheduler_task_id"] == "123_1"
+    assert result["scheduler_stdout_log"] == "logs/r0-123_1.out"
+    assert result["scheduler_stderr_log"] == "logs/r0-123_1.err"
 
 
 def test_nonfinite_metric_is_reported_as_divergence_not_missing_summary(tmp_path):
     search = config(tmp_path).build()
     search.search_dir.mkdir(parents=True)
     state = search_state(search)
-    state.rungs[0].candidates = ["a"]
+    state["rungs"][0]["candidates"] = ["a"]
     search.write_state(state)
     output = search.output_dir("a", 0)
     (output / "saved_nets").mkdir(parents=True)
@@ -483,8 +471,8 @@ def test_nonfinite_metric_is_reported_as_divergence_not_missing_summary(tmp_path
 
     result = search._result("a", 0)
 
-    assert result.eligible is False
-    assert result.error == "metric 'validation_loss' is not finite"
+    assert result["eligible"] is False
+    assert result["error"] == "metric 'validation_loss' is not finite"
 
 
 def test_worker_status_path_matches_published_catalog_key(tmp_path):
@@ -495,19 +483,20 @@ def test_worker_status_path_matches_published_catalog_key(tmp_path):
     search = search_config.build()
     search.search_dir.mkdir(parents=True)
     state = search_state(search)
-    state.rungs[0].candidates = ["a"]
+    state["rungs"][0]["candidates"] = ["a"]
     search.write_state(state)
     write_result(search, "a", 0, 0.1)
     output = search.output_dir("a", 0)
     write_search_worker_status(output, "completed", optimizer_steps=10)
 
     result = search._result("a", 0)
-    state.rungs[0].results = [result]
-    worker_status_log = result.row()["worker_status_log"]
-    assert worker_status_log == f"runs/{output.name}/search_worker_status.json"
+    state["rungs"][0]["results"] = [result]
+    assert result["worker_status_log"] == (
+        f"runs/{output.name}/search_worker_status.json"
+    )
     assert search.publisher is not None
     published_keys = {relative for _, relative in search.publisher._files(state)}
-    assert worker_status_log in published_keys
+    assert result["worker_status_log"] in published_keys
 
 
 def test_public_artifacts_exclude_raw_logs_by_default(tmp_path):
@@ -564,8 +553,8 @@ def test_successive_halving_promotes_with_dataframe_and_reports_metrics(
     search.search_dir.mkdir(parents=True)
     search.config_path.write_text("test", encoding="utf-8")
     state = search_state(search)
-    state.anchors.candidates = ["anchor"]
-    state.rungs[0].candidates = ["a", "b", "c"]
+    state["anchors"]["candidates"] = ["anchor"]
+    state["rungs"][0]["candidates"] = ["a", "b", "c"]
     search.write_state(state)
     for name, score in {"a": 0.3, "b": 0.1, "c": 0.2}.items():
         write_result(search, name, 0, score)
@@ -573,13 +562,15 @@ def test_successive_halving_promotes_with_dataframe_and_reports_metrics(
     monkeypatch.setattr(
         search.executor,
         "submit_rung",
-        lambda state, rung: submitted.append((rung, state.rungs[rung].candidates)),
+        lambda state, rung: submitted.append(
+            (rung, state["rungs"][rung]["candidates"])
+        ),
     )
 
     search.advance(0)
 
     updated = search.read_state()
-    assert updated.rungs[0].promoted == ["b", "c"]
+    assert updated["rungs"][0]["promoted"] == ["b", "c"]
     assert submitted == [(1, ["b", "c"])]
     report = search.results_path.read_text(encoding="utf-8")
     assert "validation_loss" in report
@@ -593,8 +584,8 @@ def test_successive_halving_promotes_with_dataframe_and_reports_metrics(
 def test_local_executor_runs_tasks_then_advances(tmp_path, monkeypatch):
     search = config(tmp_path).build()
     search.search_dir.mkdir(parents=True)
-    state = search_state(search, status=SearchStatus.PREPARED)
-    state.rungs[0].candidates = ["a", "b"]
+    state = search_state(search, status="prepared")
+    state["rungs"][0]["candidates"] = ["a", "b"]
     search.write_state(state)
     events: list[tuple[object, ...]] = []
     monkeypatch.setattr(
@@ -619,12 +610,13 @@ def test_advance_retry_finishes_publication_and_submission(tmp_path, monkeypatch
     search = config(tmp_path).build()
     search.search_dir.mkdir(parents=True)
     state = search_state(search)
-    state.rungs[0].candidates = ["a"]
-    state.rungs[0].results = [candidate_result(search, "a", 0, eligible=True)]
-    state.rungs[0].promoted = ["a"]
-    state.rungs[0].advanced = True
-    state.rungs[1].candidates = ["a"]
-    state.rungs[1].job_id = "orphaned-array"
+    state["rungs"][0].update(
+        advanced=True,
+        results=[{"candidate": "a"}],
+        candidates=["a"],
+        promoted=["a"],
+    )
+    state["rungs"][1].update(candidates=["a"], job_id="orphaned-array")
     search.write_state(state)
     events: list[object] = []
     monkeypatch.setattr(search, "_write_results", lambda state: events.append("write"))
@@ -645,22 +637,17 @@ def test_final_rung_with_failed_jobs_is_partial_not_complete(tmp_path):
     search.search_dir.mkdir(parents=True)
     search.config_path.write_text("test", encoding="utf-8")
     state = search_state(search)
-    state.rungs[0].candidates = ["a", "b"]
-    state.rungs[0].results = [
-        candidate_result(search, name, 0, eligible=True) for name in ("a", "b")
-    ]
-    state.rungs[0].promoted = ["a", "b"]
-    state.rungs[0].advanced = True
-    state.rungs[1].candidates = ["a", "b"]
+    state["rungs"][0].update(candidates=["a", "b"], promoted=["a", "b"], advanced=True)
+    state["rungs"][1]["candidates"] = ["a", "b"]
     search.write_state(state)
     write_result(search, "a", 1, 0.1)
 
     search.advance(1)
 
     updated = search.read_state()
-    assert updated.status == SearchStatus.PARTIAL
-    assert updated.rungs[1].results[0].eligible is True
-    assert updated.rungs[1].results[1].eligible is False
+    assert updated["status"] == "partial"
+    assert updated["rungs"][1]["results"][0]["eligible"] is True
+    assert updated["rungs"][1]["results"][1]["eligible"] is False
     report = (search.search_dir / "analysis/report.md").read_text(encoding="utf-8")
     assert "Best completed finalist" in report
 
@@ -670,20 +657,22 @@ def test_intermediate_worker_failure_makes_terminal_search_partial(tmp_path):
     search.search_dir.mkdir(parents=True)
     search.config_path.write_text("test", encoding="utf-8")
     state = search_state(search)
-    state.rungs[0].candidates = ["a", "b"]
-    state.rungs[0].promoted = ["a"]
-    state.rungs[0].advanced = True
-    state.rungs[0].results = [
-        candidate_result(search, "a", 0, eligible=True),
-        candidate_result(search, "b", 0, eligible=False, error="OOM"),
-    ]
-    state.rungs[1].candidates = ["a"]
+    state["rungs"][0].update(
+        candidates=["a", "b"],
+        promoted=["a"],
+        advanced=True,
+        results=[
+            {"candidate": "a", "rung": 0, "eligible": True},
+            {"candidate": "b", "rung": 0, "eligible": False, "error": "OOM"},
+        ],
+    )
+    state["rungs"][1]["candidates"] = ["a"]
     search.write_state(state)
     write_result(search, "a", 1, 0.1)
 
     search.advance(1)
 
-    assert search.read_state().status == SearchStatus.PARTIAL
+    assert search.read_state()["status"] == "partial"
     report = (search.search_dir / "analysis/report.md").read_text(encoding="utf-8")
     assert "Best completed finalist" in report
 
@@ -692,7 +681,7 @@ def test_rank_zero_refuses_to_overwrite_existing_worker_output(tmp_path, monkeyp
     search = config(tmp_path).build()
     search.search_dir.mkdir(parents=True)
     state = search_state(search)
-    state.rungs[0].candidates = ["a"]
+    state["rungs"][0]["candidates"] = ["a"]
     search.write_state(state)
     search.output_dir("a", 0).mkdir(parents=True)
     monkeypatch.setenv("RANK", "0")
@@ -704,52 +693,14 @@ def test_rank_zero_refuses_to_overwrite_existing_worker_output(tmp_path, monkeyp
 def test_state_schema_rejects_incomplete_persistent_state(tmp_path):
     search = config(tmp_path).build()
     search.search_dir.mkdir(parents=True)
-    malformed = search_state(search).model_dump(mode="json")
-    malformed["rungs"] = [{"candidates": ["a"]}]
-    search.state_path.write_text(json.dumps(malformed), encoding="utf-8")
 
     with pytest.raises(ValidationError, match="rungs.0.epochs"):
-        search.read_state()
-
-
-def test_state_schema_rejects_impossible_rung_progress(tmp_path):
-    search = config(tmp_path).build()
-    state = search_state(search)
-    state.rungs[0].candidates = ["a"]
-    state.rungs[0].promoted = ["a"]
-    state.rungs[0].advanced = True
-
-    with pytest.raises(ValidationError, match="one result per candidate"):
-        SearchState.model_validate(state.model_dump(mode="python"))
-
-
-def test_terminal_search_state_cannot_resume(tmp_path):
-    search = config(tmp_path).build()
-    state = search_state(search)
-    state.fail(stage="test", error=RuntimeError("stopped"))
-
-    with pytest.raises(ValueError, match="failed -> running"):
-        state.transition(SearchStatus.RUNNING)
-
-
-def test_state_schema_rejects_unknown_future_version(tmp_path):
-    search = config(tmp_path).build()
-    value = search_state(search).model_dump(mode="json")
-    value["schema_version"] = 2
-
-    with pytest.raises(ValidationError, match="schema_version"):
-        SearchState.model_validate(value)
-
-
-def test_state_schema_reads_pre_versioned_search_records(tmp_path):
-    search = config(tmp_path).build()
-    value = search_state(search).model_dump(mode="json")
-    del value["schema_version"]
-
-    loaded = SearchState.model_validate(value)
-
-    assert loaded.schema_version == 1
-    assert loaded.run_id == search.run_id
+        search.write_state(
+            {
+                **search_state(search),
+                "rungs": [{"candidates": ["a"]}],
+            }
+        )
 
 
 def test_task_builds_train_config_and_calls_trainer_directly(tmp_path, monkeypatch):
@@ -771,7 +722,7 @@ def test_task_builds_train_config_and_calls_trainer_directly(tmp_path, monkeypat
     search = search_config.build()
     search.search_dir.mkdir(parents=True)
     state = search_state(search)
-    state.rungs[0].candidates = ["a"]
+    state["rungs"][0]["candidates"] = ["a"]
     search.write_state(state)
     received = []
 
@@ -810,8 +761,8 @@ def test_task_builds_train_config_and_calls_trainer_directly(tmp_path, monkeypat
 def test_slurm_executor_submits_array_and_automatic_advance(tmp_path, monkeypatch):
     search = config(tmp_path, executor="slurm").build()
     search.search_dir.mkdir(parents=True)
-    state = search_state(search, status=SearchStatus.PREPARED)
-    state.rungs[0].candidates = ["a", "b"]
+    state = search_state(search, status="prepared")
+    state["rungs"][0]["candidates"] = ["a", "b"]
     search.write_state(state)
     commands = []
 
@@ -837,9 +788,9 @@ def test_slurm_executor_submits_array_and_automatic_advance(tmp_path, monkeypatc
     assert f"--export=ALL,SAMUDRA_CODE_COMMIT={'f' * 40}" in commands[1]
     assert "module load singularity-ce/4.3.3" in commands[1][-1]
     assert "samudra.search.worker" in commands[1][-1]
-    saved = search.read_state().rungs[0]
-    assert saved.job_id == "1"
-    assert saved.controller_job_id == "2"
+    saved = search.read_state()["rungs"][0]
+    assert saved["job_id"] == "1"
+    assert saved["controller_job_id"] == "2"
 
 
 def test_slurm_reuses_array_when_controller_submission_is_retried(
@@ -847,8 +798,8 @@ def test_slurm_reuses_array_when_controller_submission_is_retried(
 ):
     search = config(tmp_path, executor="slurm").build()
     search.search_dir.mkdir(parents=True)
-    state = search_state(search, status=SearchStatus.PREPARED)
-    state.rungs[0].candidates = ["a"]
+    state = search_state(search, status="prepared")
+    state["rungs"][0]["candidates"] = ["a"]
     search.write_state(state)
     submissions = 0
 
@@ -865,16 +816,16 @@ def test_slurm_reuses_array_when_controller_submission_is_retried(
         search.executor.submit_rung(state, 0)
 
     saved = search.read_state()
-    assert saved.status == SearchStatus.RUNNING
-    assert saved.rungs[0].job_id == "array-job"
-    assert saved.rungs[0].controller_job_id is None
+    assert saved["status"] == "running"
+    assert saved["rungs"][0]["job_id"] == "array-job"
+    assert "controller_job_id" not in saved["rungs"][0]
 
     search.executor.submit_rung(saved, 0)
 
     assert submissions == 3
     saved = search.read_state()
-    assert saved.rungs[0].job_id == "array-job"
-    assert saved.rungs[0].controller_job_id == "array-job"
+    assert saved["rungs"][0]["job_id"] == "array-job"
+    assert saved["rungs"][0]["controller_job_id"] == "array-job"
 
 
 def test_slurm_probe_gates_first_rung_array(tmp_path, monkeypatch):
@@ -883,8 +834,8 @@ def test_slurm_probe_gates_first_rung_array(tmp_path, monkeypatch):
     search_config.executor.rung0_probe = True
     search = search_config.build()
     search.search_dir.mkdir(parents=True)
-    state = search_state(search, status=SearchStatus.PREPARED)
-    state.rungs[0].candidates = ["a", "b"]
+    state = search_state(search, status="prepared")
+    state["rungs"][0]["candidates"] = ["a", "b"]
     search.write_state(state)
     commands = []
 
@@ -907,26 +858,28 @@ def test_slurm_probe_gates_first_rung_array(tmp_path, monkeypatch):
     assert "module load singularity-ce/4.3.3" in commands[1][-1]
     assert "release-probe" in commands[1][-1]
     saved = search.read_state()
-    assert saved.status == SearchStatus.VALIDATING
-    assert saved.rungs[0].probe == ProbeState(
-        candidate="a",
-        job_id="1",
-        controller_job_id="2",
-        status=ProbeStatus.SUBMITTED,
-    )
+    assert saved["status"] == "validating"
+    assert saved["rungs"][0]["probe"] == {
+        "candidate": "a",
+        "job_id": "1",
+        "controller_job_id": "2",
+        "status": "submitted",
+    }
 
 
 def test_successful_probe_releases_full_rung(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUDRA_CODE_COMMIT", "f" * 40)
     search = config(tmp_path, executor="slurm").build()
     search.search_dir.mkdir(parents=True)
-    state = search_state(search, status=SearchStatus.VALIDATING)
-    state.rungs[0].candidates = ["a", "b"]
-    state.rungs[0].probe = ProbeState(
-        candidate="a",
-        job_id="1",
-        controller_job_id="2",
-        status=ProbeStatus.SUBMITTED,
+    state = search_state(search, status="validating")
+    state["rungs"][0].update(
+        candidates=["a", "b"],
+        probe={
+            "candidate": "a",
+            "job_id": "1",
+            "controller_job_id": "2",
+            "status": "submitted",
+        },
     )
     search.write_state(state)
     output = search.search_dir / "probe/a"
@@ -952,9 +905,8 @@ def test_successful_probe_releases_full_rung(tmp_path, monkeypatch):
     search.release_probe(0)
 
     updated = search.read_state()
-    assert updated.rungs[0].probe is not None
-    assert updated.rungs[0].probe.status == ProbeStatus.COMPLETE
-    assert updated.rungs[0].probe.optimizer_steps == 1
+    assert updated["rungs"][0]["probe"]["status"] == "complete"
+    assert updated["rungs"][0]["probe"]["optimizer_steps"] == 1
     assert released == ["anchors", ("rung", 0)]
 
 
@@ -962,13 +914,15 @@ def test_failed_probe_terminates_search_before_array(tmp_path, monkeypatch):
     monkeypatch.setenv("SAMUDRA_CODE_COMMIT", "f" * 40)
     search = config(tmp_path, executor="slurm").build()
     search.search_dir.mkdir(parents=True)
-    state = search_state(search, status=SearchStatus.VALIDATING)
-    state.rungs[0].candidates = ["a", "b"]
-    state.rungs[0].probe = ProbeState(
-        candidate="a",
-        job_id="1",
-        controller_job_id="2",
-        status=ProbeStatus.SUBMITTED,
+    state = search_state(search, status="validating")
+    state["rungs"][0].update(
+        candidates=["a", "b"],
+        probe={
+            "candidate": "a",
+            "job_id": "1",
+            "controller_job_id": "2",
+            "status": "submitted",
+        },
     )
     search.write_state(state)
     output = search.search_dir / "probe/a"
@@ -980,8 +934,6 @@ def test_failed_probe_terminates_search_before_array(tmp_path, monkeypatch):
         search.release_probe(0)
 
     updated = search.read_state()
-    assert updated.status == SearchStatus.FAILED
-    assert updated.failure is not None
-    assert updated.failure.stage == "rung_probe"
-    assert updated.rungs[0].probe is not None
-    assert updated.rungs[0].probe.status == ProbeStatus.FAILED
+    assert updated["status"] == "failed"
+    assert updated["failure"]["stage"] == "rung_probe"
+    assert updated["rungs"][0]["probe"]["status"] == "failed"

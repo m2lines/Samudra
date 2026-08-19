@@ -16,7 +16,6 @@ import pandas as pd
 import s3fs
 
 from samudra.search.config import ArtifactConfig
-from samudra.search.state import CandidateResult, SearchState
 from samudra.utils.atomic import atomic_path
 from samudra.utils.location import LocalLocation, S3Location, UnresolvedLocation
 from samudra.utils.training_summary import (
@@ -82,7 +81,7 @@ class ArtifactPublisher:
             return f"{self.config.public_url.rstrip('/')}/{self.search.run_id}"
         return str(self.destination)
 
-    def publish(self, state: SearchState) -> None:
+    def publish(self, state: dict[str, Any]) -> None:
         files = self._files(state)
         self._write_epochs(files)
         files = self._files(state)
@@ -114,7 +113,7 @@ class ArtifactPublisher:
                 encoding="utf-8",
             )
 
-    def _files(self, state: SearchState) -> list[tuple[Path, str]]:
+    def _files(self, state: dict[str, Any]) -> list[tuple[Path, str]]:
         """List local search files to publish and their destination-relative keys."""
         files: list[tuple[Path, str]] = []
         for name in (
@@ -143,8 +142,9 @@ class ArtifactPublisher:
                 relative = path.relative_to(self.search.search_dir)
                 files.append((path, str(relative)))
 
-        for result in state.results():
-            output = Path(result.output_dir)
+        rows = self.search.result_rows(state)
+        for row in rows:
+            output = Path(row["output_dir"])
             prefix = f"runs/{output.name}"
             for name in RUN_FILES:
                 path = output / name
@@ -159,20 +159,20 @@ class ArtifactPublisher:
                 if path.is_file():
                     relative = path.relative_to(output)
                     files.append((path, f"{prefix}/{relative}"))
-            for checkpoint in self._checkpoints(output, result, state):
+            for checkpoint in self._checkpoints(output, row, state):
                 relative = checkpoint.relative_to(output)
                 files.append((checkpoint, f"{prefix}/{relative}"))
         return files
 
     def _checkpoints(
-        self, output: Path, result: CandidateResult, state: SearchState
+        self, output: Path, row: dict[str, Any], state: dict[str, Any]
     ) -> list[Path]:
         if self.config.checkpoints == "none":
             return []
         if self.config.checkpoints == "all":
             return sorted((output / "saved_nets").glob("*.pt"))
-        final_rung = len(state.rungs) - 1
-        if not result.eligible or result.rung != final_rung:
+        final_rung = len(state["rungs"]) - 1
+        if not row.get("eligible") or int(row["rung"]) != final_rung:
             return []
         best = output / "saved_nets/best_validation_ckpt.pt"
         latest = output / self.search.checkpoint
@@ -190,9 +190,11 @@ class ArtifactPublisher:
             )
 
     def _catalog_rows(
-        self, files: list[tuple[Path, str]], state: SearchState
+        self, files: list[tuple[Path, str]], state: dict[str, Any]
     ) -> list[dict[str, Any]]:
-        runs = {Path(result.output_dir).name: result for result in state.results()}
+        runs = {
+            Path(row["output_dir"]).name: row for row in self.search.result_rows(state)
+        }
         rows = []
         for source, relative in files:
             parts = Path(relative).parts
@@ -203,9 +205,9 @@ class ArtifactPublisher:
                     "search_run": self.search.run_id,
                     "artifact": relative,
                     "kind": self._kind(relative),
-                    "candidate": run.candidate if run else None,
-                    "rung": run.rung if run else None,
-                    "eligible": run.eligible if run else None,
+                    "candidate": run.get("candidate") if run else None,
+                    "rung": run.get("rung") if run else None,
+                    "eligible": run.get("eligible") if run else None,
                     "media_type": self._media_type(source),
                     "bytes": source.stat().st_size,
                     "sha256": _sha256(source),

@@ -255,13 +255,9 @@ partition, CPU count, memory, and walltime are configurable with
 `controller_time`. Published-object hashes are recorded locally after each
 successful upload, so retries skip unchanged multi-gigabyte checkpoints.
 
-The resumable `state.json` contract is versioned and represented by typed
-Pydantic records throughout the controller, executor, publisher, and report
-code. Validation on every read and write rejects malformed fields, unknown
-schema versions, impossible promotions, incomplete advanced rungs, mismatched
-search identities, and attempts to resume a terminal search. State therefore
-fails at the controller boundary instead of producing a later key error or
-silently scheduling the wrong work.
+The resumable `state.json` contract is versioned and validated on every read
+and write. A malformed or stale state therefore fails at the controller
+boundary with a schema error instead of producing a later key error.
 
 ## W&B
 

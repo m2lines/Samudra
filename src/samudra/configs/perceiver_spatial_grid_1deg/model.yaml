@@ -1,0 +1,63 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+# yaml-language-server: $schema=../schemas/SamudraMultiConfig.json
+
+pred_residuals: true
+last_kernel_size: 3
+pad: circular
+checkpointing: all
+embedding_dim: 128
+use_bfloat16: true
+perceiver_implementation: auto
+
+# A 6 x 10 degree group contains 6 x 10 one-degree cells. The encoder emits a
+# 2 x 2 spatial query grid, yielding the historical 3 x 5 degree, 60 x 72
+# processor grid without collapsing each group to one unordered vector.
+patch_extent: [6.0, 10.0]
+
+encoder:
+  architecture: spatial_grid
+  spatial_query_shape: [2, 2]
+  queries_dim: 64
+  perceiver:
+    depth: 2
+    latent_dim: 64
+    num_latents: 64
+    cross_heads: 1
+    latent_heads: 8
+    cross_dim_head: 64
+    latent_dim_head: 64
+
+decoder:
+  architecture: direct_cross_attention
+  queries_dim: 128
+  # The processor grid is 60 x 72; six-patch cores divide both axes. A one-ring
+  # query halo is predicted by adjacent windows and blended smoothly.
+  window_patches: 6
+  context_patches: 0
+  output_overlap_patches: 1
+  processor_conditioning: true
+  perceiver:
+    depth: 2
+    latent_dim: 64
+    num_latents: 64
+    cross_heads: 2
+    latent_heads: 8
+    cross_dim_head: 64
+    latent_dim_head: 64
+
+processor:
+  ch_width: [380, 480]
+  dilation: [1, 1]
+  n_layers: [1, 1]
+  core_block:
+    block_type: conv_next_block
+    kernel_size: 3
+    activation: capped_gelu
+    upscale_factor: 2
+    norm: instance
+    pointwise_linear: true
+  down_sampling_block: avg_pool
+  up_sampling_block: zonally_periodic_upsample

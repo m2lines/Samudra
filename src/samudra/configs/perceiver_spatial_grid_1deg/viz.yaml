@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+# yaml-language-server: $schema=../schemas/VizConfig.json
+
+base_output_dir: .LOCAL
+name: perceiver-spatial-grid-1deg-viz
+dataset_name: OM4 1 degree
+data: !include data.yaml
+basins_location:
+  type: s3
+  anon: true
+  bucket: m2lines-pubs
+  path: Samudra/basins/basin_masks_original.zarr
+  endpoint_url: https://nyu1.osn.mghpcc.org
+groundtruth_time_range:
+  start: "2014-10-20"
+  end: "2015-10-05"
+runs:
+  - name: perceiver-spatial-grid-1deg
+    location: .LOCAL/perceiver-spatial-grid-1deg-eval/predictions.zarr

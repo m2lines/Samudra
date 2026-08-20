@@ -530,6 +530,20 @@ claims must allocate wall time from the slowest preflight arm or use smaller
 budgets; otherwise runtime becomes correlated with architecture and creates
 informative missingness.
 
+### Alex's takes
+
+This so_13 image error snapshop set of maps is really informative to me about how well the pixel dealiasing actually works: 
+
+https://wandb.ai/ocean_emulators/default?nw=nwuseralxmrs&panelDisplayName=val%2Fsnapshot%2Fimage-error%2Fso_13&panelSectionName=val%2Fsnapshot%2Fimage-error
+
+Most notably, it seems like `residual-refine` and `residual-condition-refine` still have bad seams/patching artifacts.  However, `residual-condition` does not. That is very interesting!
+`residual-none` seems to show some patching issues on so_12:
+
+https://wandb.ai/ocean_emulators/default?nw=nwuseralxmrs&panelDisplayName=val%2Fsnapshot%2Fimage-error%2Fso_12&panelSectionName=val%2Fsnapshot%2Fimage-error
+
+
+
+
 ## Conclusions
 
 1. Keep residual prediction for the next Perceiver v2 generation; it retained

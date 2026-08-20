@@ -29,10 +29,12 @@ be recorded here before results are inspected.
 Both searches were submitted on 2026-08-20 from immutable code revision
 [`36ff2a2b`](https://github.com/m2lines/Samudra/tree/36ff2a2b34c4fa9c71708415f4d0573c43fb289f).
 Their real-data Slurm probes completed 32 accumulated batches and one finite
-optimizer update before releasing either candidate array. Search A's four
-workers started immediately. Search B's eight workers were submitted and are
-waiting behind the account's active GPU limit; this is scheduler backpressure,
-not an experiment failure.
+optimizer update before releasing either candidate array. Both arrays ran and
+published epoch histories, seam metrics, logs, and worker health. The planned
+six-epoch factorials were only partially completed: every Search A worker and
+five of eight Search B workers reached their wall-clock limit. The conclusions
+below therefore use matched completed epochs and explicitly leave the
+pixel-refinement question open.
 
 ## Prior evidence
 
@@ -361,10 +363,9 @@ remains important but is not an adequate single objective for this experiment.
   update.
 - Slurm candidate array: `16057724` (`0-3%4`); all four tasks began running
   immediately, registered online W&B runs, and made optimizer progress.
-- Expected completion: approximately three to four hours after array start.
-  Early first-epoch throughput ranges from roughly 0.6 to 1.4 seconds per
-  batch across candidates; the four-hour allocation is therefore useful but
-  fairly tight, and the final record should note any timeout explicitly.
+- Final search state: `failed`; all four workers were cancelled at the
+  wall-clock boundary before epoch 6. Published histories contain 2--5 epochs
+  per candidate.
 
 ### Search B
 
@@ -380,50 +381,53 @@ remains important but is not an adequate single objective for this experiment.
   update.
 - Slurm candidate array: `16057734` (`0-7%8`); submitted successfully and
   initially pending on the account GPU-QOS limit.
-- Expected completion: approximately six to eight hours after Search A began,
-  if the four-GPU account limit continues to schedule Search B in two waves.
-  This estimate will be revised from its first full-worker throughput.
+- Final search state: `complete` at the controller level with three eligible
+  candidates; five other workers were cancelled before epoch 6. This state
+  means the run produced rankable results, not that the intended factorial was
+  complete.
 
 ## Query templates
 
-The final result and epoch-history URLs will be inserted after submission. The
-following queries define the intended first-pass analyses.
+The following queries define the first-pass analyses. Replace `<SEARCH_RUN>`
+with either run identifier in [Search records](#search-records).
 
 <details>
 
-<summary>Final candidate health and skill</summary>
+<summary>Final candidate health</summary>
 
 ```sql
 SELECT
     candidate,
     epochs,
     eligible,
-    validation_loss,
-    train_loss,
-    optimizer_steps,
-    round(train_seconds / 60, 2) AS train_minutes,
-    round(validation_seconds / 60, 2) AS validation_minutes,
     worker_stage,
-    error
-FROM read_parquet('<SEARCH_ARTIFACT_URL>/results.parquet')
-ORDER BY validation_loss ASC NULLS LAST;
+    worker_optimizer_steps,
+    coalesce(worker_error, error) AS error
+FROM read_parquet(
+    'https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/<SEARCH_RUN>/results.parquet'
+)
+ORDER BY eligible DESC, candidate;
 ```
 
 </details>
 
 <details>
 
-<summary>Final aggregate seam comparison</summary>
+<summary>Latest observed skill and aggregate seam comparison</summary>
 
 ```sql
 SELECT
     candidate,
+    epoch,
     validation_loss,
     "val/seam/window_jump_ratio/zos" AS zos_window_jump_ratio,
     "val/seam/window_jump_ratio/channel_mean" AS mean_window_jump_ratio,
     "val/seam/patch_jump_ratio/zos" AS zos_patch_jump_ratio,
     "val/seam/patch_jump_ratio/channel_mean" AS mean_patch_jump_ratio
-FROM read_parquet('<SEARCH_ARTIFACT_URL>/results.parquet')
+FROM read_parquet(
+    'https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/<SEARCH_RUN>/epochs.parquet'
+)
+QUALIFY row_number() OVER (PARTITION BY candidate ORDER BY epoch DESC) = 1
 ORDER BY mean_window_jump_ratio, validation_loss;
 ```
 
@@ -435,16 +439,126 @@ inventing columns that workers do not yet publish.
 
 ## Results
 
-Pending.
+### Search A: residual prediction and output assembly
+
+The four workers all made real optimizer progress, but none completed the
+six-epoch target before cancellation. Absolute candidates completed two epochs;
+`blend1-residual` completed three, and `hard-residual` completed five. The
+controlled assembly comparison therefore uses epoch 2 for absolute prediction
+and epoch 3 for residual prediction.
+
+| Prediction | Assembly | Matched epoch | Validation loss | Window jump mean | Window jump p90 | Window jump max | Patch jump mean |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Absolute | Hard | 2 | 0.298535 | 2.602 | 4.395 | 9.443 | 1.326 |
+| Absolute | Blend 1 | 2 | **0.297689** | **1.235** | **1.604** | **2.031** | **1.084** |
+| Residual | Hard | 3 | 0.075199 | 1.899 | 3.685 | 9.441 | 1.164 |
+| Residual | Blend 1 | 3 | **0.075115** | **1.086** | **1.509** | **2.175** | **1.016** |
+
+At matched budgets, overlap-add changed loss by less than 0.3%, but reduced the
+mean decoder-window jump by 52.5% for absolute prediction and 42.8% for
+residual prediction. It reduced the corresponding p90 by 63.5% and 59.0%, and
+the maxima by 78.5% and 77.0%. The encoder-patch jump mean also fell by 18.3%
+and 12.7%. Residual prediction reduced loss by approximately 75% under either
+assembly at epoch 2, reproducing its dominant early optimization advantage.
+
+The longer unmatched `hard-residual` curve reached 0.072789 at epoch 5. It is
+useful evidence that the candidate continued to learn, but it is not a valid
+final comparison against the three-epoch blended run.
+
+### Search B: pixel-space de-aliasing
+
+Three controls completed all six epochs. Five more expensive conditioning or
+refinement arms reached only one or two epochs before cancellation.
+
+| Candidate | Completed epochs | Eligible | Final observed validation loss | Window jump mean | Window jump p90 | Window power mean | Patch power mean |
+| --- | ---: | :---: | ---: | ---: | ---: | ---: | ---: |
+| `residual-condition` | 6 | Yes | **0.069835** | **0.966** | **1.093** | **0.00831** | **0.000325** |
+| `residual-none` | 6 | Yes | 0.071140 | 0.982 | 1.153 | 0.00913 | 0.000334 |
+| `absolute-none` | 6 | Yes | 0.234208 | 1.126 | 1.321 | 0.00772 | 0.000403 |
+| `residual-condition-refine` | 2 | No | 0.075348 | 1.046 | 1.388 | 0.00843 | 0.000348 |
+| `absolute-refine` | 2 | No | 0.288471 | 1.209 | 1.580 | 0.00912 | 0.000380 |
+| `absolute-condition-refine` | 1 | No | 0.339520 | 1.271 | 1.719 | 0.00949 | 0.000363 |
+| `absolute-condition` | 1 | No | 0.344762 | 1.283 | 1.765 | 0.00981 | 0.000358 |
+| `residual-refine` | 1 | No | 0.075472 | 1.037 | 1.348 | 0.01059 | 0.000357 |
+
+For the only matched six-epoch intervention, smooth processor conditioning
+improved residual validation loss by 1.83%, window-jump mean by 1.67%,
+window-jump p90 by 5.24%, and window-jump maximum by 6.19%. It also reduced
+window- and patch-periodic power means by 9.0% and 2.6%, respectively. Patch
+jump mean was 0.6% worse, so the benefit is modest rather than universal.
+
+The refinement arms cannot be compared at epoch 6. At their common first epoch,
+refined and unrefined residual losses differed by less than 0.003%, and their
+seam metrics were similarly indistinguishable. That is evidence only that the
+identity-initialized refinement is a valid neutral starting point, not that it
+does or does not learn to remove artifacts.
+
+No final 5-, 10-, or 20-step rollout suite was produced because the intended
+factorial checkpoints did not all complete. One-step metrics in this table
+must not be interpreted as a rollout-stability result.
 
 ## Analysis and discussion
 
-Pending.
+The experiment separates two effects that the earlier seam search had
+confounded. Residual prediction primarily changes optimization and forecast
+skill; overlap-add primarily changes spatial consistency. Their nearly zero
+loss interaction and large seam interaction support H1 and H2: a residual
+identity route does not make independent hard windows agree, so smooth output
+assembly remains necessary even when validation MSE barely notices it.
+
+Search A also demonstrates why validation loss cannot be the sole objective for
+this architecture. The hard and blended residual models differ by only
+0.000084 loss at epoch 3, yet the hard model's p90 boundary jump is 2.44 times
+larger and its maximum is 4.34 times larger. A loss-only search would call the
+models tied while preserving the visually dominant defect.
+
+Search B gives encouraging but narrower evidence for the manuscript-inspired
+adaptation. A smooth, globally continuous processor feature improves the
+residual model after several epochs, despite its zero-initialized influence.
+The separation from `residual-none` grows after epoch 2, which is consistent
+with learning a useful conditioning route rather than receiving a favorable
+initialization. However, the local pixel refiner is computationally expensive
+at full resolution and did not receive enough steps to test H4--H6. Its neutral
+epoch-1 behavior is expected from identity initialization.
+
+The runtime failure is part of the result. The fixed four-hour estimate was
+valid for the lighter residual controls but not for every cell: observed epoch
+times ranged from roughly 27 minutes for completed residual controls to
+50--104 minutes for several refinement/conditioning arms. Simultaneous workers
+also experienced variable throughput. A factorial intended to make causal
+claims must allocate wall time from the slowest preflight arm or use smaller
+budgets; otherwise runtime becomes correlated with architecture and creates
+informative missingness.
 
 ## Conclusions
 
-Pending.
+1. Keep residual prediction for the next Perceiver v2 generation; it retained
+   an approximately 75% early-loss advantage over absolute prediction.
+2. Keep one-ring overlap-add. It removed 43--53% of mean boundary jumps and
+   77--79% of worst boundary jumps at almost no loss cost.
+3. Retain smooth processor conditioning as a promising low-risk decoder route.
+   Its six-epoch residual control improved both loss and most window diagnostics.
+4. Do not yet adopt or reject pixel refinement. The search did not provide a
+   matched trained comparison, and no rollout evidence exists.
+5. Treat this as a scientifically useful partial factorial, not a completed
+   eight-cell experiment. Missing cells were caused by wall-clock allocation,
+   not numerical failure or lack of optimizer progress.
 
 ## Future work
 
-Pending.
+1. Rerun only the four residual cells
+   (`none`, `condition`, `refine`, `condition-refine`) with architecture-aware
+   wall times or a fixed optimizer-step budget. This is the smallest controlled
+   search that answers whether refinement adds value beyond conditioning.
+2. Evaluate the resulting matched checkpoints at 1, 5, 10, and 20 steps using
+   identical initial conditions. Rank on a Pareto view of RMSE, window-jump
+   tails, periodic power, gradient retention, runtime, and memory.
+3. Profile the full-resolution refiner. Test activation checkpointing, a
+   narrower hidden width, or refinement at half resolution followed by a small
+   full-resolution head before spending another large factorial budget.
+4. Repeat the final hard-versus-overlap residual comparison with a second seed;
+   the seam effect is large, but the small loss difference is within plausible
+   seed noise.
+5. Make search preflight estimate time per epoch for every distinct expensive
+   path and reject a manifest whose requested wall time cannot accommodate its
+   target budget. Completion eligibility should remain architecture-neutral.

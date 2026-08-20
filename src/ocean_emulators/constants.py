@@ -172,7 +172,7 @@ PROGNOSTIC_VARS: dict[str, PrognosticVarNames] = {
     # Add "W_" below to train with vertical velocity. It goes last so the
     # existing channel indices do not move. Needs W_lev_* in the means/stds and
     # W channels in the patch cache.
-    # + [k + str(j) for k in ["W_"] for j in DEPTH_I_LEVELS],
+    + [k + str(j) for k in ["W_"] for j in DEPTH_I_LEVELS],
 }
 
 BoundaryVarNames = list[str]

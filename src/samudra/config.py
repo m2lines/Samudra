@@ -42,13 +42,18 @@ from samudra.models.modules import (
     ConvNeXtBlock,
     CoreBlock,
     CoreBlockBuilder,
+    DCTDetailDecoder,
+    DCTDetailEncoder,
     DirectCrossAttentionIO,
     MaxPool,
+    PatchMomentEncoder,
     Perceiver,
     PerceiverDecoder,
     PerceiverEncoder,
     PerceiverIO,
     ReLU,
+    SpatialLatentGridEncoder,
+    SpatialQueryPerceiver,
     TransposedConvUpsample,
     UNetBackbone,
 )
@@ -636,8 +641,20 @@ def _attention_backend(
             assert_never(implementation)
 
 
+EncoderArchitecture = Literal[
+    "perceiver", "spatial_query", "spatial_grid", "patch_moment", "dct_detail"
+]
+
+
 class EncoderConfig(BaseConfig):
+    architecture: EncoderArchitecture = "perceiver"
     perceiver: PerceiverConfig = PerceiverConfig()
+    spatial_query_shape: tuple[int, int] = (2, 2)
+    spatial_query_channels: int = Field(default=32, ge=1)
+    queries_dim: int = Field(default=64, ge=1)
+    moment_count: int = Field(default=4, ge=1)
+    mean_channels: int = Field(default=32, ge=1)
+    detail_count: int = Field(default=4, ge=0)
 
     def build(
         self,
@@ -647,8 +664,70 @@ class EncoderConfig(BaseConfig):
         max_lat_size: int,
         max_lon_size: int,
         implementation: PerceiverImpl,
-    ) -> PerceiverEncoder:
+    ) -> nn.Module:
         max_patch_size = patch_from(patch_extent, max_lat_size, max_lon_size)
+        if self.architecture == "patch_moment":
+            return PatchMomentEncoder(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                patch_extent=patch_extent,
+                moment_count=self.moment_count,
+                mean_channels=self.mean_channels,
+            )
+        if self.architecture == "dct_detail":
+            if self.detail_count >= max_patch_size[0] * max_patch_size[1]:
+                raise ValueError(
+                    "encoder.detail_count must be smaller than the number of "
+                    f"cells in the largest patch ({max_patch_size})."
+                )
+            return DCTDetailEncoder(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                patch_extent=patch_extent,
+                detail_count=self.detail_count,
+            )
+        if self.architecture in ("spatial_query", "spatial_grid"):
+            query_count = self.spatial_query_shape[0] * self.spatial_query_shape[1]
+            query_channels = (
+                out_channels
+                if self.architecture == "spatial_grid"
+                else self.spatial_query_channels
+            )
+            if (
+                self.architecture == "spatial_query"
+                and query_count * query_channels != out_channels
+            ):
+                raise ValueError(
+                    "spatial_query_shape product times spatial_query_channels "
+                    f"must equal embedding_dim={out_channels}."
+                )
+            num_freq_bands = 4
+            spatial_perceiver = SpatialQueryPerceiver(
+                query_shape=self.spatial_query_shape,
+                queries_dim=self.queries_dim,
+                channels_per_query=query_channels,
+                perceiver_io=self.perceiver.build_io(
+                    in_channels + fourier_features_2d_dim(num_freq_bands),
+                    self.queries_dim,
+                    query_channels,
+                    implementation,
+                ),
+                num_freq_bands=num_freq_bands,
+                max_freq=max(*max_patch_size),
+            )
+            if self.architecture == "spatial_grid":
+                return SpatialLatentGridEncoder(
+                    in_channels=in_channels,
+                    out_channels=out_channels,
+                    patch_extent=patch_extent,
+                    spatial_perceiver=spatial_perceiver,
+                )
+            return PerceiverEncoder(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                patch_extent=patch_extent,
+                perceiver=spatial_perceiver,
+            )
         return PerceiverEncoder(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -659,7 +738,7 @@ class EncoderConfig(BaseConfig):
         )
 
 
-DecoderArchitecture = Literal["perceiver_io", "direct_cross_attention"]
+DecoderArchitecture = Literal["perceiver_io", "direct_cross_attention", "dct_detail"]
 
 
 class DecoderConfig(BaseConfig):
@@ -709,6 +788,11 @@ class DecoderConfig(BaseConfig):
         default=False,
         description="Apply an identity-initialized full-resolution depthwise residual block after output assembly.",
     )
+    detail_count: int = Field(
+        default=4,
+        ge=0,
+        description="Number of non-DC patch modes synthesized by the dct_detail decoder.",
+    )
 
     def build(
         self,
@@ -716,13 +800,26 @@ class DecoderConfig(BaseConfig):
         out_channels: int,
         patch_extent: tuple[float, float],
         implementation: PerceiverImpl,
-    ) -> PerceiverDecoder:
+    ) -> nn.Module:
         if (
-            self.processor_conditioning or self.pixel_refinement
-        ) and self.architecture != "direct_cross_attention":
+            self.processor_conditioning
+            and self.architecture != "direct_cross_attention"
+        ):
             raise ValueError(
-                "processor_conditioning and pixel_refinement require "
-                "architecture='direct_cross_attention'."
+                "processor_conditioning requires architecture='direct_cross_attention'."
+            )
+        if self.pixel_refinement and self.architecture == "perceiver_io":
+            raise ValueError(
+                "pixel_refinement requires architecture='direct_cross_attention' "
+                "or architecture='dct_detail'."
+            )
+        if self.architecture == "dct_detail":
+            return DCTDetailDecoder(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                patch_extent=patch_extent,
+                detail_count=self.detail_count,
+                pixel_refinement=self.pixel_refinement,
             )
         if self.architecture == "perceiver_io":
             decoder_core = self.perceiver.build_io(
@@ -942,6 +1039,18 @@ class SamudraMultiConfig(BaseModelConfig):
             max(g[1] for g in all_grid_sizes),
         )
 
+        dct_encoder = self.encoder.architecture == "dct_detail"
+        dct_decoder = self.decoder.architecture == "dct_detail"
+        if dct_encoder != dct_decoder:
+            raise ValueError(
+                "The dct_detail representation requires paired encoder and decoder "
+                "architectures."
+            )
+        if dct_encoder and self.encoder.detail_count != self.decoder.detail_count:
+            raise ValueError(
+                "Paired dct_detail encoder and decoder detail_count values must match."
+            )
+
         impl = self.perceiver_implementation
         if impl == "flash" and not self.use_bfloat16:
             raise ValueError(
@@ -968,7 +1077,7 @@ class SamudraMultiConfig(BaseModelConfig):
         decoder = self.decoder.build(
             processor.out_channels,
             out_channels,
-            extent,
+            getattr(encoder, "output_patch_extent", extent),
             impl,
         )
 

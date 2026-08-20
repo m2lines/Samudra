@@ -14,10 +14,15 @@ from samudra.constants import Boundary, Prognostic
 from samudra.models.base import BaseModel
 from samudra.models.modules import (
     Attention,
+    DCTDetailDecoder,
+    DCTDetailEncoder,
     FeedForward,
+    PatchMomentEncoder,
     Perceiver,
     PerceiverDecoder,
     PerceiverEncoder,
+    SpatialLatentGridEncoder,
+    SpatialQueryPerceiver,
 )
 from samudra.models.modules.unet_backbone import UNetBackbone
 from samudra.utils.ctx import GridContext
@@ -33,6 +38,11 @@ _checkpoint_types: tuple[type, ...] = (
     Perceiver,
     PerceiverDecoder,
     PerceiverEncoder,
+    SpatialLatentGridEncoder,
+    SpatialQueryPerceiver,
+    PatchMomentEncoder,
+    DCTDetailEncoder,
+    DCTDetailDecoder,
     UNetBackbone,
     Attention,
 )
@@ -52,9 +62,9 @@ class SamudraMulti(BaseModel):
         last_kernel_size: int,
         pad: str,
         add_3d_coordinates: nn.Module | None,
-        encoder: PerceiverEncoder,
+        encoder: nn.Module,
         processor: UNetBackbone,
-        decoder: PerceiverDecoder,
+        decoder: nn.Module,
         hist: int,
         checkpointing: "Checkpointing | None",
         gradient_detach_interval: int,

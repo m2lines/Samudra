@@ -1,0 +1,114 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+# yaml-language-server: $schema=../schemas/SearchConfig.json
+
+name: perceiver-pixel-dealiasing-2deg
+algorithm:
+  type: successive_halving
+  rungs: [6]
+  promotion_fraction: 1.0
+  minimum_promoted: 8
+objective: {metric: validation_loss, mode: min}
+metrics:
+  - validation_loss
+  - train_loss
+  - best_validation_loss
+  - val/seam/window_jump_ratio/zos
+  - val/seam/window_jump_ratio/channel_mean
+  - val/seam/window_jump_ratio/channel_p90
+  - val/seam/window_jump_ratio/channel_max
+  - val/seam/patch_jump_ratio/zos
+  - val/seam/patch_jump_ratio/channel_mean
+  - val/seam/patch_jump_ratio/channel_p90
+  - val/seam/patch_jump_ratio/channel_max
+  - val/seam/window_periodic_power_ratio/zos
+  - val/seam/window_periodic_power_ratio/channel_mean
+  - val/seam/window_periodic_power_ratio/channel_p90
+  - val/seam/window_periodic_power_ratio/channel_max
+  - val/seam/patch_periodic_power_ratio/zos
+  - val/seam/patch_periodic_power_ratio/channel_mean
+  - val/seam/patch_periodic_power_ratio/channel_p90
+  - val/seam/patch_periodic_power_ratio/channel_max
+
+executor:
+  type: slurm
+  output_dir: /scratch/am16581/searches
+  harness: /scratch/am16581/Samudra/scripts/slurm_apptainer_train.sbatch
+  account: torch_pr_347_lzanna
+  partition: rtx6000_lzanna
+  controller_partition: cpu_short
+  python: /scratch/am16581/Samudra/experiments/perceiver_search_2deg/container_python.sh
+  cpus_per_task: 4
+  memory: 32G
+  gres: gpu:rtx6000:1
+  time_by_rung: ["04:00:00"]
+  max_concurrent: 8
+  rung0_probe: true
+  data_root: /scratch/am16581
+  scratch_dir: /scratch/am16581
+  apptainer_module: singularity-ce/4.3.3
+
+artifacts:
+  destination:
+    type: s3
+    endpoint_url: https://nyu1.osn.mghpcc.org
+    bucket: m2lines-pubs
+    path: FOMO/experiments/searches
+    anon: false
+  public_url: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches
+  checkpoints: final
+
+candidates:
+  # The first candidate is the Slurm optimizer probe; exercise the full new path.
+  - name: residual-condition-refine
+    config: perceiver_dealias_search_2deg/train.yaml
+    args:
+      - --model.pred_residuals=true
+      - --model.decoder.output_overlap_patches=1
+      - --model.decoder.processor_conditioning=true
+      - --model.decoder.pixel_refinement=true
+
+  - name: absolute-none
+    config: perceiver_dealias_search_2deg/train.yaml
+    args: [--model.decoder.output_overlap_patches=1]
+
+  - name: absolute-condition
+    config: perceiver_dealias_search_2deg/train.yaml
+    args:
+      - --model.decoder.output_overlap_patches=1
+      - --model.decoder.processor_conditioning=true
+
+  - name: absolute-refine
+    config: perceiver_dealias_search_2deg/train.yaml
+    args:
+      - --model.decoder.output_overlap_patches=1
+      - --model.decoder.pixel_refinement=true
+
+  - name: absolute-condition-refine
+    config: perceiver_dealias_search_2deg/train.yaml
+    args:
+      - --model.decoder.output_overlap_patches=1
+      - --model.decoder.processor_conditioning=true
+      - --model.decoder.pixel_refinement=true
+
+  - name: residual-none
+    config: perceiver_dealias_search_2deg/train.yaml
+    args:
+      - --model.pred_residuals=true
+      - --model.decoder.output_overlap_patches=1
+
+  - name: residual-condition
+    config: perceiver_dealias_search_2deg/train.yaml
+    args:
+      - --model.pred_residuals=true
+      - --model.decoder.output_overlap_patches=1
+      - --model.decoder.processor_conditioning=true
+
+  - name: residual-refine
+    config: perceiver_dealias_search_2deg/train.yaml
+    args:
+      - --model.pred_residuals=true
+      - --model.decoder.output_overlap_patches=1
+      - --model.decoder.pixel_refinement=true

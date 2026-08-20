@@ -190,11 +190,17 @@ class Trainer:
                 *self.primary_src.grid_size,
             )
             window = cfg.model.decoder.window_patches
+            spacings = {"patch": patch}
             if window is not None:
-                self.validation_seam_spacings = {
-                    "patch": patch,
-                    "window": (patch[0] * window, patch[1] * window),
-                }
+                window_spacing = patch[0] * window, patch[1] * window
+                if all(
+                    spacing < size
+                    for spacing, size in zip(
+                        window_spacing, self.primary_src.grid_size, strict=True
+                    )
+                ):
+                    spacings["window"] = window_spacing
+            self.validation_seam_spacings = spacings
 
         # We use dask for inference since it has memory issues otherwise.
         # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset

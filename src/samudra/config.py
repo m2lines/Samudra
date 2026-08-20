@@ -705,6 +705,14 @@ class DecoderConfig(BaseConfig):
         ge=0,
         description="Number of output-query patch rings decoded on each side of a window and cosine-blended with neighboring windows. Zero preserves hard assembly.",
     )
+    processor_conditioning: bool = Field(
+        default=False,
+        description="Add a smoothly upsampled processor-grid conditioning field to globally assembled decoder features.",
+    )
+    pixel_refinement: bool = Field(
+        default=False,
+        description="Apply an identity-initialized full-resolution depthwise residual block after output assembly.",
+    )
 
     def build(
         self,
@@ -713,6 +721,13 @@ class DecoderConfig(BaseConfig):
         patch_extent: tuple[float, float],
         implementation: PerceiverImpl,
     ) -> PerceiverDecoder:
+        if (
+            self.processor_conditioning or self.pixel_refinement
+        ) and self.architecture != "direct_cross_attention":
+            raise ValueError(
+                "processor_conditioning and pixel_refinement require "
+                "architecture='direct_cross_attention'."
+            )
         if self.architecture == "perceiver_io":
             decoder_core = self.perceiver.build_io(
                 in_channels, self.queries_dim, out_channels, implementation
@@ -735,6 +750,8 @@ class DecoderConfig(BaseConfig):
             window_patches=self.window_patches,
             context_patches=self.context_patches,
             output_overlap_patches=self.output_overlap_patches,
+            processor_conditioning=self.processor_conditioning,
+            pixel_refinement=self.pixel_refinement,
         )
 
 

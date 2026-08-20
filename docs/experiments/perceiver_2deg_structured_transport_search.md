@@ -330,6 +330,9 @@ Both the DTC models, when they err in making maps, produce really "unphysical" o
 
 This makes me want to rule out options that use DTC. My understanding of this approach is that it is more of a "feature engineering" trick anyway; that makes me not want to include it in principle.
 
+Finally: this panel gives a good overfiew at a "hard" map. Each one errs, but how they err is informative: 
+https://wandb.ai/ocean_emulators/default?nw=nwuseralxmrs&panelDisplayName=val%2Fsnapshot%2Fimage-error%2Fso_11&panelSectionName=val%2Fsnapshot%2Fimage-error
+
 ## Conclusions
 
 1. Promote a complete fixed mean/detail analysis-synthesis route as the leading

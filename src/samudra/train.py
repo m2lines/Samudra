@@ -4,6 +4,7 @@
 
 import contextlib
 import datetime
+import gc
 import logging
 import multiprocessing
 import os
@@ -49,6 +50,7 @@ from samudra.datasets import (
     TrainDataLoader,
 )
 from samudra.models.base import BaseModel
+from samudra.post_train_eval import CheckpointSweep
 from samudra.stepper import (
     TrainBatchOutput,
     ValBatchOutput,
@@ -111,7 +113,15 @@ class Trainer:
     def __init__(self, cfg: TrainConfig) -> None:
         cfg.prepare_output_dirs()
         cfg.save_yaml(cfg.experiment.output_dir / "config.yaml")
-
+        self.post_train_sweep: CheckpointSweep | None = (
+            cfg.post_train_eval.build(
+                nets_dir=cfg.experiment.nets_dir,
+                output_dir=cfg.experiment.output_dir,
+                data_root=cfg.experiment.resolved_data_root,
+            )
+            if cfg.post_train_eval is not None
+            else None
+        )
         # Backend
         self.device, self.distributed = init_train_backend(cfg.backend)
 
@@ -462,7 +472,7 @@ class Trainer:
         total_time = time.perf_counter() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         logger.info(f"Training time {total_time_str}")
-        self.finish()
+        self.wandb_logger.finish()
 
     def train_one_epoch(self, epoch):
         self.model.train(True)
@@ -1098,8 +1108,29 @@ class Trainer:
         finally:
             self._ema.restore(parameters=self.model.parameters())
 
-    def finish(self):
-        self.wandb_logger.finish()
+
+def run_training(cfg: TrainConfig) -> None:
+    trainer = Trainer(cfg)
+    trainer.run()
+
+    # Keep only the lightweight orchestration state, then drop the whole trainer
+    # so future GPU-owning fields do not need to be added to a cleanup list.
+    main_process = is_main_process()
+    distributed = trainer.distributed is not None
+    post_train_sweep = trainer.post_train_sweep if main_process else None
+    del trainer
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    if distributed:
+        # Every rank releases its training state before rank 0 claims the GPUs for
+        # the post-training sweep.
+        torch.distributed.barrier()
+        torch.distributed.destroy_process_group()
+
+    if post_train_sweep is not None:
+        post_train_sweep.run()
 
 
 def main():
@@ -1110,10 +1141,8 @@ def main():
     handle_logging(cfg.debug, cfg.experiment.output_dir)
     handle_warnings()
 
-    trainer = Trainer(cfg)
-
     try:
-        trainer.run()
+        run_training(cfg)
     except Exception as e:
         logger.exception("Training failed with an exception")
         raise e

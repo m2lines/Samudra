@@ -112,8 +112,7 @@ decoder to predict a smaller tendency. It may therefore reduce visible seams,
 although its short-budget loss ordering can differ because this changes the
 prediction parameterization rather than window assembly alone.
 
-### H6: global shared context is a useful 2-degree gold standard, not the
-long-term scalable solution
+### H6: global shared context is a useful 2-degree gold standard, not the long-term scalable solution
 
 When every query tile sees the same 1,080 processor tokens, query chunking
 should no longer introduce support discontinuities. This anchor is expected to

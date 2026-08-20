@@ -316,6 +316,20 @@ must account for the number of *additional* epochs and the slowest promoted
 architecture. Geometry divisibility should also be validated from the resolved
 dataset shape before array submission.
 
+### Alex's visual inspections
+
+Check out the snapshot error of so_14 for both `spatial-grid2` vs `mean64-direct`"
+- https://wandb.ai/ocean_emulators/default/runs/qbtnuac5?nw=nwuseralxmrs&panelDisplayName=val%2Fsnapshot%2Fimage-error%2Fso_14&panelSectionName=val%2Fsnapshot%2Fimage-error
+- https://wandb.ai/ocean_emulators/default/runs/12q09xaf?nw=nwuseralxmrs&panelDisplayName=val%2Fsnapshot%2Fimage-error%2Fso_14&panelSectionName=val%2Fsnapshot%2Fimage-error
+
+Looking at the maps, these are the biggest failure cases that I've seen. They both err in ways that are improvements to prior models seams, which is good. They seem less checkerboardy and more "physical".
+
+Both the DTC models, when they err in making maps, produce really "unphysical" or weird artifact full errors in their maps, see: 
+- https://wandb.ai/ocean_emulators/default/runs/k3ntxof5?nw=nwuseralxmrs&panelDisplayName=val%2Fsnapshot%2Fimage-error%2Fthetao_7&panelSectionName=val%2Fsnapshot%2Fimage-error
+- https://wandb.ai/ocean_emulators/default/runs/u73vpn9s?nw=nwuseralxmrs&panelDisplayName=val%2Fsnapshot%2Fimage-error%2Fthetao_8&panelSectionName=val%2Fsnapshot%2Fimage-error
+
+This makes me want to rule out options that use DTC. My understanding of this approach is that it is more of a "feature engineering" trick anyway; that makes me not want to include it in principle.
+
 ## Conclusions
 
 1. Promote a complete fixed mean/detail analysis-synthesis route as the leading

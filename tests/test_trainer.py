@@ -5,6 +5,7 @@
 import json
 import logging
 import tempfile
+import weakref
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, cast
@@ -22,6 +23,7 @@ from samudra.config import (
 from samudra.models.base import BaseModel
 from samudra.train import (
     Trainer,
+    run_training,
     should_log_validation_images,
     should_run_on_epoch_freq,
 )
@@ -78,6 +80,43 @@ def test_handle_logging_replaces_handlers_between_local_jobs(tmp_path):
     assert "first candidate" in (first / "experiment.log").read_text()
     assert "second candidate" not in (first / "experiment.log").read_text()
     assert (second / "experiment.log").read_text().count("second candidate") == 1
+
+
+def test_run_training_drops_trainer_before_post_train_sweep(monkeypatch):
+    events = []
+    trainer_ref = None
+
+    class Sweep:
+        def run(self):
+            assert trainer_ref is not None and trainer_ref() is None
+            events.append("sweep")
+
+    class FakeTrainer:
+        distributed = object()
+        post_train_sweep = Sweep()
+
+        def run(self):
+            events.append("train")
+
+    def build_trainer(_cfg):
+        nonlocal trainer_ref
+        trainer = FakeTrainer()
+        trainer_ref = weakref.ref(trainer)
+        return trainer
+
+    monkeypatch.setattr("samudra.train.Trainer", build_trainer)
+    monkeypatch.setattr("samudra.train.is_main_process", lambda: True)
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    monkeypatch.setattr(torch.distributed, "barrier", lambda: events.append("barrier"))
+    monkeypatch.setattr(
+        torch.distributed,
+        "destroy_process_group",
+        lambda: events.append("destroy"),
+    )
+
+    run_training(TrainConfig.model_construct())
+
+    assert events == ["train", "barrier", "destroy", "sweep"]
 
 
 @pytest.mark.manual

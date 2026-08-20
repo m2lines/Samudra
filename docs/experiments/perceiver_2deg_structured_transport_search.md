@@ -8,9 +8,10 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## Status
 
-Implementation and preflight are in progress. This notebook records the design
-before inspecting forecast results. Launch provenance and final results will be
-added below.
+The immutable search was submitted on 2026-08-20. The `spatial-grid2` optimizer
+probe is queued behind the account's four active GPUs; its release controller
+will submit the candidate array only after verified optimizer progress. This
+notebook recorded the design before inspecting forecast results.
 
 ## Motivation
 
@@ -122,7 +123,8 @@ Before launch:
 - [x] run forward/backward tests for spatial-query, spatial-grid, DCT encoder,
       and paired DCT decoder paths;
 - [x] validate and instantiate all nine resolved candidate models;
-- [ ] pass the full standard test suite;
+- [x] pass the full standard test suite (411 passed, 2 skipped, 10 expected
+      failures);
 - [ ] pass a real 2-degree Slurm optimizer probe through `spatial-grid2`;
 - [ ] confirm online W&B registration and public worker lifecycle artifacts.
 
@@ -146,11 +148,17 @@ loss alone does not establish spectral or stability quality.
 
 ## Launch record
 
-- Search run: Pending.
-- Git revision: Pending.
-- W&B group: Pending.
-- Public artifacts: Pending.
-- Slurm probe and controller: Pending.
+- Search run:
+  `perceiver-structured-transport-2deg--20260820T035545.388436Z`.
+- Git revision: `005f952cb4c8ef1b9ce7aca280b48fe6470eaa3d`.
+- Code-layer SHA-256:
+  `4931762355174d86a2598838c6c8e47a6a9dbe56f0ba3f082cb7a06996333535`.
+- W&B group:
+  `perceiver-structured-transport-2deg--20260820T035545.388436Z`.
+- Public artifacts:
+  [OSN search record](https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/perceiver-structured-transport-2deg--20260820T035545.388436Z/).
+- Slurm probe and controller: `16063700` and `16063701`; the probe was initially
+  pending on `QOSGrpGRES` behind the active pixel-dealiasing search.
 - Slurm candidate array: Pending.
 
 ## Query templates
@@ -175,7 +183,7 @@ SELECT
     worker_stage,
     worker_error
 FROM read_parquet(
-    'PUBLIC_SEARCH_URL/results.parquet'
+    'https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/perceiver-structured-transport-2deg--20260820T035545.388436Z/results.parquet'
 )
 ORDER BY rung DESC, eligible DESC, validation_loss ASC NULLS LAST;
 ```
@@ -196,7 +204,7 @@ SELECT
     round(epoch_train_seconds / 60, 2) AS train_minutes,
     round(epoch_validation_seconds / 60, 2) AS validation_minutes
 FROM read_parquet(
-    'PUBLIC_SEARCH_URL/epochs.parquet'
+    'https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/perceiver-structured-transport-2deg--20260820T035545.388436Z/epochs.parquet'
 )
 ORDER BY candidate, epoch;
 ```

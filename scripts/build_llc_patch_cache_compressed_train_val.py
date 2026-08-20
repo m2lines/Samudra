@@ -305,8 +305,23 @@ def write_training_ready_in_batches(
     time_encoding = {k: v for k, v in encoding.items() if k in time_skeleton.variables}
 
     # Phase 1: write coords + static vars (masks/means/stds) with real values.
+    #
+    # Materialize them first. The source store's own chunking survives the tile
+    # slice -- LLC is chunked 720x720 in y/x, so a 1104-wide tile straddling
+    # three of those arrives as a (372, 720, 12) dask grid -- while the encoding
+    # asks for ONE chunk across y/x, which is the whole point of this cache: one
+    # chunk per timestep for the model to grab in a single read. xarray refuses
+    # to write many dask chunks into one zarr chunk in parallel because it cannot
+    # rule out corruption, so the build dies here on XC/YC/rA and the masks.
+    # `prognostic`/`boundary` are already rechunked by build_packed_data_array
+    # and so were never affected; tiles that happened to sit inside a single
+    # source chunk (the 368 and 720 ones) never hit it either.
+    #
+    # These are small -- the largest is the (channels, y, x) int8 prognostic mask
+    # at ~300 MiB for a 1104 tile -- so loading them is cheaper than a rechunk
+    # and leaves no dask/zarr grid to disagree about.
     logger.info("Writing coordinates and static variables")
-    static_ds.to_zarr(
+    static_ds.load().to_zarr(
         tmp_path, mode="w", encoding=static_encoding, consolidated=False
     )
 

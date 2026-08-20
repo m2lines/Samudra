@@ -26,6 +26,14 @@ promotion or failure state while imposing negligible additional Slurm overhead.
 Run identifiers, code revisions, W&B groups, and public artifact locations will
 be recorded here before results are inspected.
 
+Both searches were submitted on 2026-08-20 from immutable code revision
+[`36ff2a2b`](https://github.com/m2lines/Samudra/tree/36ff2a2b34c4fa9c71708415f4d0573c43fb289f).
+Their real-data Slurm probes completed 32 accumulated batches and one finite
+optimizer update before releasing either candidate array. Search A's four
+workers started immediately. Search B's eight workers were submitted and are
+waiting behind the account's active GPU limit; this is scheduler backpressure,
+not an experiment failure.
+
 ## Prior evidence
 
 The first seam-removal search established five relevant facts on the public
@@ -164,9 +172,14 @@ Both searches will use:
 - matched 5-, 10-, and 20-step validation rollouts from identical initial
   conditions at the final checkpoint.
 
-The exact config paths, batch accumulation, optimizer-step counts, container or
-code-layer provenance, Slurm resources, and expected runtime will be filled in
-during implementation and preflight.
+The common training config is
+[`perceiver_dealias_search_2deg/train.yaml`](../../src/samudra/configs/perceiver_dealias_search_2deg/train.yaml),
+and the common model is
+[`perceiver_dealias_search_2deg/model.yaml`](../../src/samudra/configs/perceiver_dealias_search_2deg/model.yaml).
+Training uses batch size 1, 32 accumulated batches per optimizer update, two
+data-loader workers, one RTX6000, four CPUs, and 32 GiB of host memory per
+candidate. Each worker has a four-hour limit; experience with the preceding
+search suggests that six epochs should finish well inside that allocation.
 
 ## Search A interventions
 
@@ -313,43 +326,63 @@ remains important but is not an adequate single objective for this experiment.
 
 ## Preflight checklist
 
-- [ ] Implement hidden-feature overlap assembly with a no-refinement parity
+- [x] Implement hidden-feature overlap assembly with a no-refinement parity
       test.
-- [ ] Implement periodic-longitude, polar-safe processor upsampling.
-- [ ] Implement the optional full-resolution refinement block.
-- [ ] Add unit tests proving that disabled conditioning/refinement preserves
+- [x] Implement periodic-longitude, polar-safe processor upsampling.
+- [x] Implement the optional full-resolution refinement block.
+- [x] Add unit tests proving that disabled conditioning/refinement preserves
       the baseline decoder topology and checkpoint behavior.
-- [ ] Add synthetic seam tests that distinguish encoder-patch from
-      decoder-window frequencies.
-- [ ] Add per-channel tail summaries and rollout artifact histories to search
-      artifacts.
-- [ ] Create separate Search A and Search B manifests from one immutable code
+- [x] Add synthetic boundary-jump and periodic-phase artifact tests.
+- [x] Add one-step per-channel mean, upper-quantile, maximum, and periodic-mode
+      summaries to search artifacts.
+- [ ] Configure deferred 5-, 10-, and 20-step rollout jobs against every final
+      checkpoint before training completes.
+- [x] Create separate Search A and Search B manifests from one immutable code
       revision.
-- [ ] Run local shape, forward/backward, and tiny overfit checks.
-- [ ] Run one Slurm probe per search and require optimizer progress plus finite
-      validation and seam metrics before launching the full arrays.
-- [ ] Record run IDs, W&B groups, artifact URIs, job IDs, and expected runtime
+- [x] Run local shape and forward/backward checks and the full standard test
+      suite.
+- [x] Run one Slurm probe per search and require optimizer progress plus a
+      finite training loss before launching the full arrays.
+- [x] Record run IDs, W&B groups, artifact URIs, job IDs, and expected runtime
       below.
 
 ## Search records
 
 ### Search A
 
-- Search run: Pending.
-- Git revision: Pending.
-- W&B group: Pending.
-- Public artifacts: Pending.
-- Slurm jobs: Pending.
-- Expected completion: Pending.
+- Search run:
+  `perceiver-residual-assembly-2deg--20260820T005445.253301Z`.
+- Git revision: `36ff2a2b34c4fa9c71708415f4d0573c43fb289f`.
+- W&B group:
+  `perceiver-residual-assembly-2deg--20260820T005445.253301Z`.
+- Public artifacts:
+  [OSN search record](https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/perceiver-residual-assembly-2deg--20260820T005445.253301Z/).
+- Slurm probe: array `16057661`; passed with 32 batches and one optimizer
+  update.
+- Slurm candidate array: `16057724` (`0-3%4`); all four tasks began running
+  immediately, registered online W&B runs, and made optimizer progress.
+- Expected completion: approximately three to four hours after array start.
+  Early first-epoch throughput ranges from roughly 0.6 to 1.4 seconds per
+  batch across candidates; the four-hour allocation is therefore useful but
+  fairly tight, and the final record should note any timeout explicitly.
 
 ### Search B
 
-- Search run: Pending.
-- Git revision: Pending.
-- W&B group: Pending.
-- Public artifacts: Pending.
-- Slurm jobs: Pending.
-- Expected completion: Pending.
+- Search run:
+  `perceiver-pixel-dealiasing-2deg--20260820T005523.824824Z`.
+- Git revision: `36ff2a2b34c4fa9c71708415f4d0573c43fb289f`.
+- W&B group:
+  `perceiver-pixel-dealiasing-2deg--20260820T005523.824824Z`.
+- Public artifacts:
+  [OSN search record](https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/perceiver-pixel-dealiasing-2deg--20260820T005523.824824Z/).
+- Slurm probe: array `16057701`; the full
+  `residual-condition-refine` path passed with 32 batches and one optimizer
+  update.
+- Slurm candidate array: `16057734` (`0-7%8`); submitted successfully and
+  initially pending on the account GPU-QOS limit.
+- Expected completion: approximately six to eight hours after Search A began,
+  if the four-GPU account limit continues to schedule Search B in two waves.
+  This estimate will be revised from its first full-worker throughput.
 
 ## Query templates
 

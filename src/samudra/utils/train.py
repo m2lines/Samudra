@@ -2,7 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import re
 from collections.abc import Sequence
 from itertools import tee
 from pathlib import Path
@@ -51,7 +50,7 @@ def collate_inference_data(
 
 
 class CheckpointPaths:
-    _PERIODIC_CHECKPOINT_PATTERN = re.compile(r"^ckpt_(\d+)\.pt$")
+    _PERIODIC_CHECKPOINT_PREFIX = "ckpt_"
     EMA_CHECKPOINT_NAME = "ema_ckpt.pt"
 
     def __init__(self, checkpoint_dir: Path):
@@ -75,8 +74,12 @@ class CheckpointPaths:
 
     @classmethod
     def periodic_checkpoint_epoch(cls, checkpoint_path: Path) -> int | None:
-        match = cls._PERIODIC_CHECKPOINT_PATTERN.fullmatch(checkpoint_path.name)
-        return int(match.group(1)) if match is not None else None
+        if checkpoint_path.suffix != ".pt" or not checkpoint_path.stem.startswith(
+            cls._PERIODIC_CHECKPOINT_PREFIX
+        ):
+            return None
+        epoch = checkpoint_path.stem.removeprefix(cls._PERIODIC_CHECKPOINT_PREFIX)
+        return int(epoch) if epoch.isdecimal() else None
 
     @property
     def best_inference_checkpoint_path(self) -> Path:

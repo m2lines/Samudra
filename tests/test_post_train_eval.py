@@ -57,6 +57,19 @@ def test_discovers_all_periodic_plus_ema(checkpoint_dir: Path):
     assert checkpoint_label(targets[-1]) == "ema_latest"
 
 
+@pytest.mark.parametrize(
+    ("filename", "expected"),
+    [
+        ("ckpt_12.pt", 12),
+        ("ckpt_latest.pt", None),
+        ("ckpt_12.pth", None),
+        ("checkpoint_12.pt", None),
+    ],
+)
+def test_periodic_checkpoint_epoch(filename: str, expected: int | None):
+    assert CheckpointPaths.periodic_checkpoint_epoch(Path(filename)) == expected
+
+
 def test_last_n_counts_only_periodic_checkpoints(checkpoint_dir: Path):
     targets = discover_checkpoints_from_directory(
         CheckpointPaths(checkpoint_dir), last_n_checkpoints=3

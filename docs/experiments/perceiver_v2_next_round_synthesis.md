@@ -442,30 +442,49 @@ artifacts. Select one decoder recipe using loss, per-channel seam tails,
 periodic-mode power, and matched short rollouts. Do not open another broad
 decoder sweep unless these experiments falsify their mechanisms.
 
-### Stage 2: recommended next primary search -- structured encoder information
+### Stage 2: recommended next primary search -- structured latent transport
 
-The next primary search should vary how the patch Perceiver exposes spatial
-information, while fixing the direct decoder and the reconstruction recipe
-selected in Stage 1. This attacks the largest unresolved architectural question:
-whether a scalable coarse Perceiver state can retain subpatch phase rather than
-mean-pooling an unordered latent bank into one vector.
+The next primary search should permit paired encoder/decoder changes rather than
+holding the direct decoder completely fixed. Its central question is whether a
+scalable Perceiver can transport spatially addressable coarse and subpatch
+state without forcing all information through one mean-pooled patch vector.
 
-Use the following causal candidate set:
+Three external architecture ideas sharpen this direction. The
+[Hierarchical Perceiver](https://arxiv.org/abs/2202.10890) restores locality and
+hierarchical grouping so Perceiver-like models can scale to much larger raw
+signals. [GINO](https://arxiv.org/abs/2309.00583) maps irregular physical points
+to and from a regular latent grid using local geometric operators. The
+[Fourier Neural Operator](https://arxiv.org/abs/2010.08895) motivates learning
+between function spaces rather than binding every parameter to one grid,
+although Samudra should not assume that Fourier truncation alone preserves the
+fine ocean spectrum. These suggest testing locality, explicit latent geometry,
+and multiresolution transport as mechanisms, not importing any entire model.
 
-| Candidate family | Representation | Role |
+Use the following architecture-level candidate set:
+
+| Candidate family | Paired encoder/decoder contract | Role |
 | --- | --- | --- |
-| `perceiver-mean64` | Current 64-latent encoder, mean-pooled to one patch token | Efficient Perceiver baseline |
-| `perceiver-mean256` | Current 256-latent encoder, mean-pooled to one patch token | Latent-count control |
-| `perceiver-resolved-mean` | Explicit area-weighted resolved mean plus a learned Perceiver anomaly summary | Tests whether preserving the resolved quantity supplies the missing identity route |
-| `perceiver-phase4` | Resolved mean plus four coordinate-conditioned anomaly coefficients or spatially addressed subpatch tokens | Small structured phase representation |
-| `perceiver-phase16` | Resolved mean plus 16 structured anomaly coefficients or tokens | Capacity/phase-resolution comparison |
-| `coarse-moment-control` | Jesse's resolved-mean plus learned-moment encoder | Positive coarse-latent control |
-| `native-grid-anchor` | Direct/native-cell representation with no coarse compression | Information-preserving diagnostic ceiling |
+| `mean64-direct` | Current 64-latent mean-pooled patch encoder plus selected direct overlap decoder | Efficient Perceiver baseline |
+| `resolved-anomaly` | Exact masked, area-weighted patch mean plus one learned Perceiver anomaly summary; deterministic mean prolongation plus learned anomaly correction | Minimal physically anchored intervention |
+| `spatial-latent-grid` | Cross-attend each patch into a small coordinate-tied latent grid, such as 2 x 2, preserve those token coordinates through processing, and query them directly on decode | Tests whether spatially addressable latents remove the phase/routing failure |
+| `hierarchical-perceiver` | Local coordinate-tied latents at two levels, with grouped restriction to coarse global tokens and symmetric local prolongation | HiP-inspired scalable candidate for LLC-sized inputs |
+| `mean-detail-pyramid` | Exact conservative coarse state plus masked Haar/lifting-style detail coefficients; use Perceiver blocks to encode and evolve learned detail features, then reconstruct through the paired inverse transform | Preserves resolved means and subpatch phase by construction |
+| `local-operator-bridge` | Geometry- and mask-aware local cross-attention from physical cells to a fixed latent mesh, and local coordinate queries back to the output grid | GINO-like test of patch-free, resolution-flexible transport |
+| `native-grid-anchor` | Native-cell learned inverse and direct output projection | Information-preserving diagnostic ceiling, not a scalable finalist |
 
-If implementation cost permits one additional arm, add a structured Perceiver
-without the explicit resolved-mean route. That ablation separates the benefit
-of physical preservation from the benefit of multiple spatially addressable
-outputs.
+Jesse's coarse-moment encoder remains a valuable positive control in the
+representation gate, but it need not consume a full forecast arm if
+`resolved-anomaly` reproduces its reconstruction and counterfactual behavior.
+Likewise, the already-tested 256-latent mean-pooled encoder should not be rerun:
+the completed search showed that generic latent count is low-information.
+
+The highest-priority new candidate is `mean-detail-pyramid`. It combines an
+exact low-frequency route, explicit phase-carrying detail state, linear local
+transforms, and a natural hierarchy across resolutions. The
+`spatial-latent-grid` candidate is the cleanest test of a more recognizably
+Perceiver-native solution. The `local-operator-bridge` is the strongest
+resolution-flexibility control and tests whether fixed patch boundaries are
+the wrong abstraction entirely.
 
 This should be a gated search rather than seven equally expensive full runs:
 
@@ -484,11 +503,12 @@ This should be a gated search rather than seven equally expensive full runs:
    short 5-, 10-, and 20-step rollouts. A difference smaller than seed spread is
    not an architecture decision.
 
-Transport width 128 should be the default because it is the width of the
-final-budget winner; retain one `perceiver-mean64` width-256 arm only as a bridge
-to the fast-learning finalist. Likewise, use zero decoder context unless a separately
-anchored-context implementation is ready. This keeps decoder uncertainty from
-turning the encoder study into another large Cartesian search.
+Use transport width 128 and zero anonymous context for candidates that retain
+the existing direct decoder. New paired decoders should use coordinate-local
+routing, the selected overlap rule, and the same output projection capacity so
+that the search compares representation contracts rather than arbitrary decoder
+size. Retain one `mean64-direct` width-256 arm only as a bridge to the fast-
+learning finalist.
 
 ### Stage 3: repair the temporal and multi-resolution contract
 
@@ -534,12 +554,14 @@ Select residual versus absolute prediction and optional full-resolution
 refinement from the two active controlled searches before freezing the decoder
 recipe.
 
-The best next primary search is the structured encoder-information experiment
-in Stage 2, not another broad sweep over decoder heads, context, latent count,
-and learning rate. The top three primary-search finalists are separated by only
-2.2%, while Jesse's evidence identifies loss of subpatch phase as a much larger
-and more fundamental scaling limitation. A generic mean-pooled latent bank is
-unlikely to close that gap simply by adding more latents, heads, or epochs.
+The best next primary search is the structured latent-transport experiment in
+Stage 2, not another broad sweep over decoder heads, context, latent count, and
+learning rate. Encoder and decoder should be co-designed where the latent
+contract requires it. The top three primary-search finalists are separated by
+only 2.2%, while Jesse's evidence identifies loss of subpatch phase as a much
+larger and more fundamental scaling limitation. A generic mean-pooled latent
+bank is unlikely to close that gap simply by adding more latents, heads, or
+epochs.
 
 ## Results and discussion
 
@@ -567,9 +589,10 @@ queryable.
 
 ## Next-round decision record
 
-Proceed with the structured encoder-information search after the active decoder
-reconstruction searches select a fixed output recipe. Implement representation
-and counterfactual gates first; then compare the scalable encoders on matched
+Proceed with the structured latent-transport search after the active decoder
+reconstruction searches select the common output assembly and prediction
+parameterization. Implement paired encoders and decoders plus representation
+and counterfactual gates first; then compare the scalable contracts on matched
 three-epoch forecasts, promote three to epoch 12, and confirm the best two with
 additional seeds and short rollouts. Do not combine this with another broad
 decoder or optimizer Cartesian sweep.

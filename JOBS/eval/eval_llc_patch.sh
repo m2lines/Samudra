@@ -1,12 +1,14 @@
 #!/bin/bash
-#SBATCH -p pi_abodner
-#SBATCH --job-name=2026-06-08-eval:Samudra_LLC:B_ckpt-38
+#SBATCH -p mit_normal_gpu
+#SBATCH --account=mit_amf_advanced_gpu
+#SBATCH --qos=mit_amf_advanced_gpu
+#SBATCH --job-name=2026-08-20-eval:samudra_rb_llc:1-tile-all_3D_var_and_corrected_grad_z_loss-lambda_z-0.1
 #SBATCH -N 1
 #SBATCH --mem=100GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
-#SBATCH --gres=gpu:1
-#SBATCH --time=00-06:00:00
+#SBATCH -G h200:1
+#SBATCH --time=00-10:00:00
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 
@@ -28,15 +30,15 @@ export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
-CKPT_PATH="${CKPT_PATH:-/home/codycruz/Ocean_Emulator/.LOCAL/2026-06-05:samudra_llc:B-6-15508055/saved_nets/ckpt_38.pt}"
+CKPT_PATH="${CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-08-19:samudra_rb_llc:1-tile-all_3D_var_and_corrected_grad_z_loss-lambda_z-0.1-4-20765650/saved_nets/ckpt.pt}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-/orcd/data/abodner/002/cody/inference_patch}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 
 INFER_START="${INFER_START:-2012-10-14}"
-INFER_END="${INFER_END:-2012-10-19}"
-INFERENCE_STRIDE="${INFERENCE_STRIDE:-3}"
-NUM_MODEL_STEPS_FORWARD="${NUM_MODEL_STEPS_FORWARD:-4}"
+INFER_END="${INFER_END:-2012-11-14}"
+INFERENCE_STRIDE="${INFERENCE_STRIDE:-1}"
+NUM_MODEL_STEPS_FORWARD="${NUM_MODEL_STEPS_FORWARD:-7}"
 MODEL_NORM="${MODEL_NORM:-group}"
 GROUP_NORM_GROUPS="${GROUP_NORM_GROUPS:-32}"
 PRED_RESIDUALS="${PRED_RESIDUALS:-true}"
@@ -45,10 +47,15 @@ MODEL_PAD="${MODEL_PAD:-constant}"
 DATA_ROOT="${DATA_ROOT:-/orcd/data/abodner/}"
 DATA_LOCATION="${DATA_LOCATION:-/orcd/data/abodner/003/LLC4320/LLC4320}"
 LLC_FACE="${LLC_FACE:-1}"
-LLC_I_START="${LLC_I_START:-2880}" # 1440 
-LLC_I_END="${LLC_I_END:-3600}" #2160 
+LLC_I_START="${LLC_I_START:-2880}" # 1440  2880
+LLC_I_END="${LLC_I_END:-3600}" #2160   3600
 LLC_J_START="${LLC_J_START:-720}" # 1440
 LLC_J_END="${LLC_J_END:-1440}" # 2160
+
+# Must match how the checkpoint was TRAINED: the valid-mask channel changes
+# num_in, so a mismatch fails the checkpoint input-channel check. Runs trained
+# before the valid mask existed (VALID_MASK=false in the train .sh) need false.
+VALID_MASK="${VALID_MASK:-false}"
 
 
 RAW_PRED_ZARR="${RAW_PRED_ZARR:-${BASE_OUTPUT_DIR}/${EXPERIMENT_NAME}/predictions.zarr}"
@@ -73,6 +80,7 @@ echo "raw prediction zarr: ${RAW_PRED_ZARR}"
 echo "target repacked zarr: ${TARGET_ZARR}"
 echo "repack overwrite: ${REPACK_OVERWRITE}"
 echo "llc crop: face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
+echo "valid_mask: ${VALID_MASK} (must match the checkpoint's training setting)"
 echo
 echo "Note: dates are parsed as Julian-noon in this codebase; with hist=1 this yields"
 echo "      prediction times offset from midnight (first prediction starts $((2 * INFERENCE_STRIDE)) hours"
@@ -112,7 +120,8 @@ fi
   --data.llc_i_start "${LLC_I_START}" \
   --data.llc_i_end "${LLC_I_END}" \
   --data.llc_j_start "${LLC_J_START}" \
-  --data.llc_j_end "${LLC_J_END}"
+  --data.llc_j_end "${LLC_J_END}" \
+  --data.valid_mask "${VALID_MASK}"
 
 if [[ ! -d "${RAW_PRED_ZARR}" ]]; then
   echo "Expected raw prediction zarr not found: ${RAW_PRED_ZARR}" >&2

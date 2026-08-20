@@ -49,6 +49,11 @@ LLC_I_END="${LLC_I_END:-3600}" #2160   3600
 LLC_J_START="${LLC_J_START:-720}" # 1440
 LLC_J_END="${LLC_J_END:-1440}" # 2160
 
+# Must match how the checkpoint was TRAINED: the valid-mask channel changes
+# num_in, so a mismatch fails the checkpoint input-channel check. Runs trained
+# before the valid mask existed (VALID_MASK=false in the train .sh) need false.
+VALID_MASK="${VALID_MASK:-false}"
+
 
 RAW_PRED_ZARR="${RAW_PRED_ZARR:-${BASE_OUTPUT_DIR}/${EXPERIMENT_NAME}/predictions.zarr}"
 REPACK_OVERWRITE="${REPACK_OVERWRITE:-false}"
@@ -90,6 +95,7 @@ if [[ -n "${RESUME_PREDICTION_ZARR}" ]]; then
   echo "resume prediction zarr: ${RESUME_PREDICTION_ZARR}"
 fi
 echo "llc crop: face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
+echo "valid_mask: ${VALID_MASK} (must match the checkpoint's training setting)"
 echo
 echo "Note: dates are parsed as Julian-noon in this codebase; with hist=1 this yields"
 echo "      prediction times offset from midnight (first prediction starts $((2 * INFERENCE_STRIDE)) hours"
@@ -135,7 +141,8 @@ fi
   --data.llc_i_start "${LLC_I_START}" \
   --data.llc_i_end "${LLC_I_END}" \
   --data.llc_j_start "${LLC_J_START}" \
-  --data.llc_j_end "${LLC_J_END}"
+  --data.llc_j_end "${LLC_J_END}" \
+  --data.valid_mask "${VALID_MASK}"
 
 if [[ ! -d "${RAW_PRED_ZARR}" ]]; then
   echo "Expected raw prediction zarr not found: ${RAW_PRED_ZARR}" >&2

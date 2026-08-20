@@ -306,20 +306,39 @@ class Eval:
     def _check_checkpoint_input_channels(self, state_dict: dict) -> None:
         """Fail with an actionable message instead of a raw shape mismatch.
 
-        The input channel count depends on whether the checkpoint was trained
-        with the four appended spatial channels, which is easy to get wrong and
-        otherwise surfaces as an opaque strict-load error deep in the backbone.
+        The input channel count depends on which fixed channels were appended
+        during training -- the four spatial ones and the valid mask -- which is
+        easy to get wrong and otherwise surfaces as an opaque strict-load error
+        deep in the backbone. Naming the exact deficit and both knobs keeps the
+        fix from being a guess.
         """
         for name, expected in self.model.state_dict().items():
             saved = state_dict.get(name)
             if saved is None or tuple(saved.shape) == tuple(expected.shape):
                 continue
+            hint = ""
+            if len(saved.shape) == 4 and len(expected.shape) == 4:
+                delta = int(expected.shape[1]) - int(saved.shape[1])
+                extras = {
+                    1: "data.valid_mask=false",
+                    -1: "data.valid_mask=true",
+                    SPATIAL_FEATURE_CHANNELS: "spatial_features=false",
+                    -SPATIAL_FEATURE_CHANNELS: "spatial_features=true",
+                    SPATIAL_FEATURE_CHANNELS + 1: (
+                        "spatial_features=false and data.valid_mask=false"
+                    ),
+                    -(SPATIAL_FEATURE_CHANNELS + 1): (
+                        "spatial_features=true and data.valid_mask=true"
+                    ),
+                }
+                if delta in extras:
+                    hint = f" This is off by {delta:+d}: set {extras[delta]}."
             raise ValueError(
                 f"Checkpoint parameter '{name}' has shape {tuple(saved.shape)} but "
                 f"this model was built with {tuple(expected.shape)}. Eval is using "
-                f"num_in={self.num_in} (spatial_features={self.spatial_features}); "
-                f"set the `spatial_features` eval config field explicitly to match "
-                f"how the checkpoint was trained."
+                f"num_in={self.num_in} (spatial_features={self.spatial_features}, "
+                f"valid_mask={self.valid_mask}); these must match how the checkpoint "
+                f"was trained.{hint}"
             )
 
     def apply_ablation(self, cfg: EvalAblationConfig) -> None:

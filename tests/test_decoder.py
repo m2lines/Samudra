@@ -6,7 +6,9 @@ import pytest
 import torch
 from test_encoder import make_resolution  # type: ignore
 
+from samudra.config import DecoderConfig
 from samudra.models.modules import (
+    DirectCrossAttentionIO,
     Perceiver,
     PerceiverDecoder,
     PerceiverEncoder,
@@ -59,6 +61,16 @@ def make_decoder_perceiver_io(in_channels=IN_CHANNELS, out_channels=OUT_CHANNELS
     )
 
 
+def make_direct_cross_attention_io(in_channels=IN_CHANNELS, out_channels=OUT_CHANNELS):
+    return DirectCrossAttentionIO(
+        input_dim=in_channels,
+        queries_dim=QUERIES_DIM,
+        output_dim=out_channels,
+        heads=2,
+        dim_head=8,
+    )
+
+
 @pytest.fixture()
 def resolution():
     """Standard (H, W) = (8, 16) resolution grid."""
@@ -108,6 +120,8 @@ def make_decoder_with_shared_weights(
         perceiver_io=reference.perceiver_io,
         window_patches=reference.window_patches,
         context_patches=reference.context_patches,
+        output_overlap_patches=reference.output_overlap_patches,
+        processor_conditioning=reference.processor_conditioner is not None,
     )
     kwargs.update(overrides)
     other = PerceiverDecoder(**kwargs)  # type: ignore
@@ -210,6 +224,74 @@ def test_full_context_matches_non_windowed(resolution, latent_input, decoder_kwa
     assert torch.allclose(y_full, y_windowed, atol=1e-5), (
         "Full-context windowed and non-windowed results should match."
     )
+
+
+def test_overlapping_direct_decoder_supports_backward(
+    resolution, latent_input, decoder_kwargs
+):
+    decoder_kwargs["perceiver_io"] = make_direct_cross_attention_io()
+    decoder = PerceiverDecoder(
+        **decoder_kwargs,
+        window_patches=2,
+        context_patches=0,
+        output_overlap_patches=1,
+        processor_conditioning=True,
+    )
+    latent_input.requires_grad_()
+
+    output = decoder(latent_input, resolution)
+    output.square().mean().backward()
+
+    assert output.shape == (BATCH, OUT_CHANNELS, H, W)
+    assert latent_input.grad is not None
+    assert torch.isfinite(latent_input.grad).all()
+    assert decoder.conditioning_strength is not None
+    assert decoder.conditioning_strength.grad is not None
+
+
+def test_overlap_requires_window_and_fits_inside_core():
+    with pytest.raises(ValueError, match="window_patches must be set"):
+        PerceiverDecoder(
+            in_channels=IN_CHANNELS,
+            out_channels=OUT_CHANNELS,
+            patch_extent=PATCH_EXTENT,
+            queries_dim=QUERIES_DIM,
+            perceiver_io=make_decoder_perceiver_io(),
+            window_patches=None,
+            context_patches=None,
+            output_overlap_patches=1,
+        )
+
+    with pytest.raises(ValueError, match="must not exceed half"):
+        PerceiverDecoder(
+            in_channels=IN_CHANNELS,
+            out_channels=OUT_CHANNELS,
+            patch_extent=PATCH_EXTENT,
+            queries_dim=QUERIES_DIM,
+            perceiver_io=make_decoder_perceiver_io(),
+            window_patches=2,
+            context_patches=0,
+            output_overlap_patches=2,
+        )
+
+
+def test_decoder_config_builds_direct_cross_attention():
+    config = DecoderConfig.model_validate(
+        {
+            "architecture": "direct_cross_attention",
+            "queries_dim": QUERIES_DIM,
+            "perceiver": {"cross_heads": 2, "cross_dim_head": 8},
+        }
+    )
+
+    decoder = config.build(
+        in_channels=IN_CHANNELS,
+        out_channels=OUT_CHANNELS,
+        patch_extent=(1.0, 1.0),
+        implementation="naive",
+    )
+
+    assert isinstance(decoder.perceiver_io, DirectCrossAttentionIO)
 
 
 def test_context_patches_affects_output(resolution, latent_input, decoder_kwargs):

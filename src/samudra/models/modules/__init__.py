@@ -15,8 +15,8 @@ from .blocks import (
     UpsamplingBlockBuilder,
     ZonallyPeriodicBilinearUpsample,
 )
-from .decoder import PerceiverDecoder
-from .encoder import PerceiverEncoder
+from .decoder import DirectCrossAttentionIO, PerceiverDecoder
+from .encoder import PerceiverEncoder, SpatialLatentGridEncoder, SpatialQueryPerceiver
 from .perceiver import Attention, FeedForward, Perceiver, PerceiverIO, PreNorm
 from .unet_backbone import UNetBackbone
 
@@ -27,12 +27,15 @@ __all__ = [
     "ConvBlock",
     "ConvNeXtBlock",
     "CoreBlock",
+    "DirectCrossAttentionIO",
     "TransposedConvUpsample",
     "CappedGELU",
     "CappedLeakyReLU",
     "MaxPool",
     "PerceiverDecoder",
     "PerceiverEncoder",
+    "SpatialLatentGridEncoder",
+    "SpatialQueryPerceiver",
     "Attention",
     "FeedForward",
     "Perceiver",

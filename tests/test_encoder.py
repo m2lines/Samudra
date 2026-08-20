@@ -5,8 +5,13 @@
 import torch
 
 from samudra.constants import Lat, Lon
-from samudra.models.modules import Perceiver
-from samudra.models.modules.encoder import PerceiverEncoder, patch_from
+from samudra.models.modules import Perceiver, PerceiverIO
+from samudra.models.modules.encoder import (
+    PerceiverEncoder,
+    SpatialLatentGridEncoder,
+    SpatialQueryPerceiver,
+    patch_from,
+)
 
 
 def make_perceiver(in_channels, out_channels, *, num_latents=2, input_axis=2):
@@ -93,6 +98,43 @@ def test_makes_patches__more_variables():
     patches = patch_embed(x, make_resolution(x))
 
     assert patches.shape == (1, 4, 1, 2)
+
+
+def test_spatial_latent_grid_keeps_queries_as_spatial_tokens():
+    spatial = SpatialQueryPerceiver(
+        query_shape=(2, 2),
+        queries_dim=4,
+        channels_per_query=8,
+        perceiver_io=PerceiverIO(
+            depth=1,
+            dim=20,
+            queries_dim=4,
+            logits_dim=8,
+            num_latents=4,
+            latent_dim=8,
+            cross_heads=1,
+            latent_heads=1,
+            cross_dim_head=4,
+            latent_dim_head=4,
+            decoder_ff=True,
+        ),
+        num_freq_bands=4,
+        max_freq=2,
+    )
+    encoder = SpatialLatentGridEncoder(
+        in_channels=2,
+        out_channels=8,
+        patch_extent=(90.0, 180.0),
+        spatial_perceiver=spatial,
+    )
+    x = torch.randn(1, 2, 8, 8, requires_grad=True)
+
+    encoded = encoder(x, make_resolution(x))
+
+    assert encoded.shape == (1, 8, 4, 4)
+    assert encoder.output_patch_extent == (45.0, 90.0)
+    encoded.mean().backward()
+    assert x.grad is not None
 
 
 def test_patch_from__full_globe():

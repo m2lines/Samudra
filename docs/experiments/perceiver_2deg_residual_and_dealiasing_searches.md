@@ -541,6 +541,13 @@ Most notably, it seems like `residual-refine` and `residual-condition-refine` st
 
 https://wandb.ai/ocean_emulators/default?nw=nwuseralxmrs&panelDisplayName=val%2Fsnapshot%2Fimage-error%2Fso_12&panelSectionName=val%2Fsnapshot%2Fimage-error
 
+For the assembly charts, the theatao_2 image error snapshot maps are revealing: 
+
+https://wandb.ai/ocean_emulators/default?nw=nwuseralxmrs&panelDisplayName=val%2Fsnapshot%2Fimage-error%2Fthetao_2&panelSectionName=val%2Fsnapshot%2Fimage-error
+
+The residual blending does better than the residual hard. Both the absolute plots do poorly. The blend1 intervention is an improvement over the hard map in the absolute maps.
+Even still, for the best case (residual blend1), I still notice some checkerboard like patterns, especially next to Australia.
+
 
 
 

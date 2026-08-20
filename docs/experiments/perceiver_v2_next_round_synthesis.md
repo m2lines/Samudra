@@ -8,18 +8,21 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## Status
 
-This is a living planning report. It synthesizes Jesse's decoder-root-cause,
-learned-inverse, single-step, and coarse-latent experiments with the preliminary
-first-rung results from the current 2-degree Perceiver v2 search. It is intended
-to define the questions for the next experiment round, not to select a final
-architecture before the current successive-halving search finishes.
+This report synthesizes Jesse's decoder-root-cause, learned-inverse,
+single-step, and coarse-latent experiments with the completed 2-degree
+Perceiver v2 architecture search. It records what the first search established,
+what remains ambiguous, and the recommended experiment funnel for selecting a
+second-generation Perceiver architecture.
 
-The current search is
+The completed primary search is
 `perceiver-v2-2deg-architecture--20260814T171003.874785Z`, running immutable
 code revision
 [`6bac8ff4`](https://github.com/m2lines/Samudra/tree/6bac8ff4f2acb1edddcf184f1cbd9cfe0f00a762).
 Its pre-registered design is documented in
 [`perceiver_v2_2deg_architecture_search.md`](perceiver_v2_2deg_architecture_search.md).
+All three finalists reached the full 12-epoch budget, including two candidates
+recovered from cluster-side cancellation, and the controller's public Parquet
+record was reconciled on 2026-08-18.
 
 ## Evidence reviewed
 
@@ -218,13 +221,38 @@ were strongly attenuated, and teacher-latent error grew with lead. Jesse therefo
 retained it as the preferred coarse-latent research architecture, not as the
 production replacement.
 
-## Current Perceiver v2 search: preliminary rung-zero evidence
+## Completed Perceiver v2 search
 
-All 18 W&B workers completed epoch one and 89 optimizer updates. At the time of
-this note, the public controller state still reports `running`, contains no rung
-results, and has not published `results.parquet` or `epochs.parquet`. The values
-below are therefore read directly from finished W&B summaries and are provisional
-until the controller validates and publishes the rung.
+The search trained 18 initial candidates for one epoch, promoted nine to epoch
+3, five to epoch 6, and three to epoch 12. Every promoted learning curve
+improved monotonically. The complete finalist comparison is:
+
+| Candidate | Epoch 1 | Epoch 3 | Epoch 6 | Epoch 12 | Final rank |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `direct-no-context-lr4` | 0.356488 | 0.272234 | 0.234455 | **0.198794** | **1** |
+| `direct-transport256-lr8` | **0.319645** | **0.263441** | **0.231851** | 0.201974 | 2 |
+| `direct-enc64-lr8` | 0.321942 | 0.265365 | 0.236658 | 0.203297 | 3 |
+
+The winner is `direct-no-context-lr4`: a patch-local Perceiver encoder with
+256 internal latents, direct query decoding, transport width 128, no decoder
+context rings, 6 x 10 degree patches, and learning rate `4e-4`. Its validation
+loss fell 44.2% from epoch 1 to epoch 12. It finished 1.6% below the wide-
+transport finalist and 2.2% below the 64-latent finalist. It also had the lowest
+epoch-12 train loss, and led at epochs 10, 11, and 12; the final result is not a
+single noisy validation point.
+
+The three finalists are close enough that their exact order should not be
+treated as a universal architecture ranking. The search used one seed per
+candidate, and successive halving pruned the `8e-4` no-context arm at epoch 3,
+so context and learning rate remain partly confounded. The durable conclusion
+is instead that all three viable directions use direct output queries and avoid
+the original second Perceiver IO latent bank.
+
+### Rung-zero screen
+
+All 18 initial workers completed epoch one and 89 optimizer updates. The early
+family comparison explains the promotion decisions and remains useful for
+separating fast-learning interventions from the final-budget ranking.
 
 | Architecture family | LR `4e-4` | LR `8e-4` | Two-rate mean | Change from direct-control mean | Mean train time |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -243,35 +271,55 @@ processor-bypassed reconstruction task. They are more relevant to forecast
 selection, but less able to localize whether an effect belongs to the inverse,
 processor, or temporal feedback path.
 
-### What rung zero tentatively says
+### What the completed search says
 
-1. **Direct decoding is strongly favored.** Every direct candidate beats every
-   full Perceiver IO candidate. The direct control mean is 13.1% below the PIO
-   control mean, and the direct path is substantially faster. This agrees with
-   Jesse's diagnosis of the redundant unordered decoder latent bank.
-2. **A wider decoder path remains promising.** Transport width 256 is the best
-   individual run and second-best family mean. The result is consistent with
-   Jesse's value-path bottleneck, although widths 64/128/256 are not monotonic,
-   so the evidence does not yet establish a simple capacity law.
-3. **Extra unanchored context does not help.** Zero context beats the control;
-   two context rings are tied with or worse than it. This agrees with Jesse's
-   finding that irrelevant context competes with the correct spatial route when
-   attention lacks a physical anchor.
-4. **Fewer encoder latents are not harmful at this budget.** Reducing 256 to 64
-   improves the two-rate mean and training time. This falsifies the preliminary
-   expectation that encoder latent count alone would be a limiting capacity
-   measure at 2 degrees. It does not test spatial phase preservation: both
-   configurations still mean-pool the latent bank to one vector per patch.
-5. **Coarser patches optimize quickly, but may be smoothing.** The 10 x 20 degree
-   patch is the best family by epoch-one mean and trains about 25% faster than the
-   direct control because its processor grid is 70% smaller. Validation MSE alone
-   cannot tell whether it retained velocity and high-wavenumber structure. Jesse's
-   coarse-latent evidence makes this the most important result to audit before
-   promotion, not an automatic architecture win.
-6. **The higher learning rate wins every pair.** `8e-4` is better in all nine
-   families. Architecture rankings may still change as training continues, but
-   the next search should include at least one rate above `8e-4` or use a short
-   learning-rate range test before spending the full architecture budget.
+1. **Direct decoding is strongly favored.** Every direct candidate beat every
+   full Perceiver IO candidate at epoch one, and no full-PIO candidate survived
+   promotion. The direct control mean was 13.1% below the PIO control mean, and
+   the eventual winner also used direct output queries. This is the strongest
+   topological decision from the search.
+2. **Removing unanchored decoder context is the best final-budget
+   intervention.** `direct-no-context-lr4` won at epoch 12. The processor already
+   mixes neighboring spatial information; anonymous neighboring tokens in the
+   final query operation appear to make routing harder rather than add useful
+   context.
+3. **Wider value transport accelerates early learning but is not the final
+   winner.** Transport width 256 led at epochs 3 and 6 and finished second at
+   epoch 12. The width sweep was not monotonic, and width remains confounded with
+   head count, so the result does not establish a simple capacity law.
+4. **Fewer encoder latents are competitive and cheaper.** The 64-latent encoder
+   finished only 2.2% behind the winner and trained faster. Generic internal
+   latent count is therefore not the principal encoder-capacity knob at 2
+   degrees. Both models still mean-pool the latent bank to one patch vector, so
+   neither tests spatial phase preservation.
+5. **Coarser patches are efficient but not selected.** The 10 x 20 degree patch
+   was the best epoch-one family and reduced the processor grid by 70%, but it
+   was fourth at epoch 6 and was pruned. Aggregate loss still cannot determine
+   whether its early advantage came from smoothing fine structure.
+6. **Learning rate interacts with architecture and budget.** `8e-4` won every
+   epoch-one pair, but the `4e-4` no-context candidate won at epoch 12. The next
+   search should not multiply a wide rate sweep across every structural arm;
+   it should retain `4e-4` and `8e-4` only for the small set needed to resolve
+   this interaction, then fix the selected schedule.
+
+### Subsequent decoder evidence
+
+The later
+[`perceiver_2deg_seam_removal_search.md`](perceiver_2deg_seam_removal_search.md)
+does not change the primary search's direct-decoder conclusion, but it changes
+what should be fixed before the next encoder search. One-ring overlap-add cut
+the major absolute-model `zos` window seam by more than half, and the residual
+overlap winner reached one-step validation loss `0.07291` versus `0.23530` for
+the best absolute overlap model. Decoder context did not improve the matched
+absolute overlap model. The scalable default should therefore move from hard
+window assembly to overlap-add, while residual prediction remains the leading
+parameterization pending short-rollout stability checks.
+
+Two controlled follow-ups are currently running: a residual/absolute by
+hard/overlap assembly experiment, and a residual/absolute by processor-
+conditioning by pixel-refinement experiment. Their results should select the
+decoder reconstruction details used by the next encoder search; they should not
+delay defining or implementing the encoder candidates.
 
 ## Which open questions the current search answers
 
@@ -305,7 +353,11 @@ mechanisms are resolved. It does not test:
 These omissions are expected: the current search is an economical first screen,
 not a reproduction of the full root-cause program.
 
-## Questions and hypotheses for the next round
+## Remaining research questions
+
+These questions should not be combined into one Cartesian search. The active
+decoder-reconstruction experiments address parts of Q1--Q3; the recommended
+next primary search concentrates on Q4--Q5.
 
 ### Q1: can explicit physical anchoring make context useful?
 
@@ -361,57 +413,82 @@ A strong result would reproduce the counterfactual property from Jesse's
 coarse-moment experiment: two fields with equal patch means but different front
 positions produce distinguishable latents and different future coarse tendencies.
 
-### Q6: is `8e-4` still below the useful learning-rate range?
+### Q6: which learning-rate schedule compares structures fairly?
 
-**Hypothesis.** At least part of the current ranking is undertraining. A short
-range test or paired `8e-4`/`1.2e-3` screen on the promoted families will improve
-sample efficiency without destabilizing validation. Rates should be selected
-before a larger structural matrix rather than multiplied across every expensive
-candidate indefinitely.
+**Hypothesis.** `8e-4` is useful for fast screening, while `4e-4` has a better
+late-budget asymptote for at least the no-context decoder. A small matched bridge
+on the selected baseline should decide whether to use one fixed rate, a schedule,
+or a longer first rung. Rates should be selected before the structural matrix
+rather than multiplied across every expensive candidate indefinitely.
 
 ## Proposed experiment funnel
 
-### Stage 0: finish and diagnose the current search
+### Stage 0: completed primary architecture screen
 
-1. Allow successive halving to complete at cumulative epochs 3, 6, and 12.
-2. Publish and compare `results.parquet` and `epochs.parquet` rather than selecting
-   from W&B summaries alone.
-3. Run the durable metric suite on at least the direct control, the final winner,
-   the best full-PIO control, and any pruned candidate whose rung-zero result
-   poses a distinct mechanistic question.
-4. Report variable/depth MSE, velocity spectra, amplitude, bias, seams, parameter
-   count, and runtime before deciding whether coarse patches advance.
+The original 18-candidate search is complete and durably published. It selected
+direct output queries, rejected the full Perceiver IO decoder as a primary path,
+showed that unanchored decoder context is unnecessary, and established that a
+64-latent patch encoder is a competitive compute control. The remaining metric
+audit is useful characterization, but is no longer a prerequisite for choosing
+the topology of the next search.
 
-### Stage 1: decoder-mechanism search on the fixed encoder
+### Stage 1: finish decoder reconstruction selection
 
-Keep the best current encoder/patch setting fixed and compare a small causal set:
+The seam-removal search selected overlap-add and residual prediction on one-step
+evidence. The two active controlled searches should now determine whether the
+residual advantage survives a matched assembly comparison and whether
+processor conditioning or pixel refinement removes the remaining channel-tail
+artifacts. Select one decoder recipe using loss, per-channel seam tails,
+periodic-mode power, and matched short rollouts. Do not open another broad
+decoder sweep unless these experiments falsify their mechanisms.
 
-1. plain direct decoder at the promoted transport width;
-2. direct decoder with continuous physical position bias;
-3. anchored direct decoder with zero versus one context ring;
-4. raw-amplitude value path versus normalized value path; and
-5. deterministic physical-coordinate base plus a zero-initialized anchored
-   correction, if the latent/output coordinate contract permits it.
+### Stage 2: recommended next primary search -- structured encoder information
 
-Use the promoted learning-rate range and at least two seeds for finalists. The
-goal is not a Cartesian sweep; it is to determine whether anchoring, context, and
-value transport explain distinct residual errors.
+The next primary search should vary how the patch Perceiver exposes spatial
+information, while fixing the direct decoder and the reconstruction recipe
+selected in Stage 1. This attacks the largest unresolved architectural question:
+whether a scalable coarse Perceiver state can retain subpatch phase rather than
+mean-pooling an unordered latent bank into one vector.
 
-### Stage 2: encoder-information search with the selected decoder
+Use the following causal candidate set:
 
-Compare:
+| Candidate family | Representation | Role |
+| --- | --- | --- |
+| `perceiver-mean64` | Current 64-latent encoder, mean-pooled to one patch token | Efficient Perceiver baseline |
+| `perceiver-mean256` | Current 256-latent encoder, mean-pooled to one patch token | Latent-count control |
+| `perceiver-resolved-mean` | Explicit area-weighted resolved mean plus a learned Perceiver anomaly summary | Tests whether preserving the resolved quantity supplies the missing identity route |
+| `perceiver-phase4` | Resolved mean plus four coordinate-conditioned anomaly coefficients or spatially addressed subpatch tokens | Small structured phase representation |
+| `perceiver-phase16` | Resolved mean plus 16 structured anomaly coefficients or tokens | Capacity/phase-resolution comparison |
+| `coarse-moment-control` | Jesse's resolved-mean plus learned-moment encoder | Positive coarse-latent control |
+| `native-grid-anchor` | Direct/native-cell representation with no coarse compression | Information-preserving diagnostic ceiling |
 
-1. current mean-pooled Perceiver patch encoder;
-2. fewer-latent current encoder as the compute control;
-3. explicit resolved mean plus learned Perceiver anomaly summary;
-4. resolved mean plus multiple coordinate-conditioned subpatch tokens or moment
-   blocks;
-5. Jesse's moment encoder as a positive coarse-latent control; and
-6. native-grid/direct projection as an information-preserving diagnostic anchor.
+If implementation cost permits one additional arm, add a structured Perceiver
+without the explicit resolved-mean route. That ablation separates the benefit
+of physical preservation from the benefit of multiple spatially addressable
+outputs.
 
-First run reconstruction and synthetic counterfactual gates. Promote only
-representations that retain fine structure and change future coarse tendencies,
-then spend four-step OM4 forecast compute.
+This should be a gated search rather than seven equally expensive full runs:
+
+1. **Representation gate.** Test held-out reconstruction, velocity-spectrum
+   retention, and an equal-patch-mean/different-front-position counterfactual.
+   Reject an encoder if its latents cannot distinguish the counterfactual or if
+   its decoder cannot reconstruct the difference.
+2. **Forecast screen.** Train all passing scalable candidates for three epochs
+   on the same 2-degree four-step task. Use the selected learning-rate schedule,
+   not another full rate Cartesian product. Keep the native-grid anchor for
+   diagnosis rather than promotion.
+3. **Promotion.** Advance the best three scalable representations to 12 epochs.
+   Rank by autoregressive validation loss subject to spectral, amplitude, and
+   seam guardrails, rather than aggregate MSE alone.
+4. **Confirmation.** Repeat the best two representations with two new seeds and
+   short 5-, 10-, and 20-step rollouts. A difference smaller than seed spread is
+   not an architecture decision.
+
+Transport width 128 should be the default because it is the width of the
+final-budget winner; retain one `perceiver-mean64` width-256 arm only as a bridge
+to the fast-learning finalist. Likewise, use zero decoder context unless a separately
+anchored-context implementation is ready. This keeps decoder uncertainty from
+turning the encoder study into another large Cartesian search.
 
 ### Stage 3: repair the temporal and multi-resolution contract
 
@@ -427,12 +504,15 @@ Once a single-scale representation is selected:
 This stage should reuse Jesse's demonstrated contract rather than asking the
 architecture search to rediscover it indirectly.
 
-## Search-system finding from this rung
+## Search-system finding from this search
 
-All 18 W&B runs report `finished`, finite validation loss, and 89 optimizer
-updates, while the public state still reports a running first rung with zero
-results. This is a correctness-observability gap even if the delayed Slurm
-controller eventually reconciles it.
+The public controller record and Parquet tables are now reconciled, but the run
+exposed two important states that were not represented clearly while it was
+active. First, all 18 initial W&B workers were terminal while the public
+controller still showed a running empty rung. Second, two healthy finalists
+were cancelled by Slurm, while the search temporarily reported `complete`
+because one finalist succeeded. Both were manually resumed from checkpoints to
+obtain the final comparison.
 
 Before the next search, the durable system should distinguish:
 
@@ -446,43 +526,50 @@ the public bucket would let an agent and a human detect this state without W&B
 API access. The search should also alert when every array worker is terminal but
 the rung has not advanced within a bounded grace period.
 
-## Provisional recommendation
+## Recommendation
 
-Continue the current search. If the direct-decoder advantage survives later
-rungs, retire full Perceiver IO from the primary decoder path. Carry forward
-the 256-wide direct decoder and the best learning-rate region, but do not select
-coarse patches until spectral and variable-wise diagnostics are available.
+Retire the full Perceiver IO latent bank from the primary decoder path. Use
+direct output queries, zero anonymous context rings, and overlap-add assembly.
+Select residual versus absolute prediction and optional full-resolution
+refinement from the two active controlled searches before freezing the decoder
+recipe.
 
-For the next architecture round, prioritize physically anchored direct decoding
-and structured Perceiver patch outputs. That direction is consistent with the
-long-term need for scalable, resolution-flexible latent states and with Jesse's
-strongest causal evidence. A generic mean-pooled latent bank is unlikely to close
-the remaining gap simply by adding more latents, heads, or epochs.
+The best next primary search is the structured encoder-information experiment
+in Stage 2, not another broad sweep over decoder heads, context, latent count,
+and learning rate. The top three primary-search finalists are separated by only
+2.2%, while Jesse's evidence identifies loss of subpatch phase as a much larger
+and more fundamental scaling limitation. A generic mean-pooled latent bank is
+unlikely to close that gap simply by adding more latents, heads, or epochs.
 
 ## Results and discussion
 
-The preliminary result changes the next-round priorities in six concrete ways:
+The completed result changes the next-round priorities in six concrete ways:
 
 | Current finding | Planning consequence |
 | --- | --- |
-| Every direct decoder beats both full Perceiver IO families | Remove full Perceiver IO from the primary path if the gap persists beyond rung zero; retain one arm as a diagnostic control |
-| Transport width 256 is the best individual candidate | Carry a wide value path forward, then separate total width from head count and inspect variable-wise gains |
-| Zero context beats one or two unanchored rings | Test physically anchored context rather than sweeping still larger unanchored neighborhoods |
-| Encoder 64 beats encoder 256 | Stop treating generic latent count as the principal encoder-capacity knob; test spatially structured outputs |
-| Coarse patches win early loss and throughput | Require spectra, velocity/depth losses, amplitude, and seam diagnostics before promotion |
-| `8e-4` wins every learning-rate pair | Calibrate the upper learning-rate range before the next expensive architecture matrix |
+| Every direct decoder beats both full Perceiver IO families at the screen, and every finalist is direct | Remove full Perceiver IO from the primary path; retain it only as a historical diagnostic control |
+| Transport width 256 leads through epoch 6 and finishes second | Keep one width-256 bridge arm, but do not make width the main next-round axis |
+| Zero context wins at epoch 12 | Use zero anonymous decoder context by default; test context again only with explicit physical anchoring |
+| Encoder 64 finishes within 2.2% of the winner at lower cost | Use it as the efficient baseline and shift encoder capacity experiments toward structured spatial outputs |
+| Coarse patches win early but rank fourth at epoch 6 | Treat them as an efficiency point and require spectral/information gates before promotion |
+| `8e-4` wins early, while `4e-4` wins the final budget | Resolve the schedule on a small bridge comparison instead of multiplying rates across every structural candidate |
 
-These decisions are provisional because epoch-one successive-halving comparisons
-favor fast starters, have one seed per cell, and do not yet include spatial
-diagnostics. The strongest conclusion is topological rather than numerical: the
-full decoder latent bank is consistently worse, while where and how spatial
-information is compressed remains unresolved.
+The exact finalist order remains provisional because there is one seed per cell
+and the no-context learning-rate pair did not both reach epoch 12. The strongest
+conclusion is topological rather than numerical: the full decoder latent bank is
+consistently worse, while where and how spatial information is compressed
+remains unresolved.
 
-The controller/publication lag is also part of the experimental result. W&B
-proves that workers trained, but durable search consumers cannot yet rank them.
-The next search-system iteration should make terminal-worker reconciliation and
-publication health directly queryable.
+The controller/publication lag and partial-finalist completion are also part of
+the experimental result. The next search-system iteration should make
+terminal-worker reconciliation, retry state, and publication health directly
+queryable.
 
 ## Next-round decision record
 
-_Pending review of this synthesis and the completed current search._
+Proceed with the structured encoder-information search after the active decoder
+reconstruction searches select a fixed output recipe. Implement representation
+and counterfactual gates first; then compare the scalable encoders on matched
+three-epoch forecasts, promote three to epoch 12, and confirm the best two with
+additional seeds and short rollouts. Do not combine this with another broad
+decoder or optimizer Cartesian sweep.

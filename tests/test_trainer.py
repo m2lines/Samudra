@@ -5,6 +5,7 @@
 import json
 import logging
 import tempfile
+import weakref
 from pathlib import Path
 
 import pytest
@@ -12,11 +13,48 @@ import torch
 
 from samudra.config import CpuDataLoadingConfig, DynamicLossConfig, TrainConfig
 from samudra.models.base import BaseModel
-from samudra.train import Trainer, should_log_validation_images
+from samudra.train import Trainer, run_training, should_log_validation_images
 from samudra.utils.ctx import GridContext
 from samudra.utils.loss import DynamicLoss
 from samudra.utils.multiton import MultitonScope
 from tests.conftest import DEFAULT_CONFIG, SAMUDRA_MULTI_CONFIG, TrainPair
+
+
+def test_run_training_drops_trainer_before_post_train_sweep(monkeypatch):
+    events = []
+    trainer_ref = None
+
+    class Sweep:
+        def run(self):
+            assert trainer_ref is not None and trainer_ref() is None
+            events.append("sweep")
+
+    class FakeTrainer:
+        distributed = object()
+        post_train_sweep = Sweep()
+
+        def run(self):
+            events.append("train")
+
+    def build_trainer(_cfg):
+        nonlocal trainer_ref
+        trainer = FakeTrainer()
+        trainer_ref = weakref.ref(trainer)
+        return trainer
+
+    monkeypatch.setattr("samudra.train.Trainer", build_trainer)
+    monkeypatch.setattr("samudra.train.is_main_process", lambda: True)
+    monkeypatch.setattr(torch.cuda, "is_available", lambda: False)
+    monkeypatch.setattr(torch.distributed, "barrier", lambda: events.append("barrier"))
+    monkeypatch.setattr(
+        torch.distributed,
+        "destroy_process_group",
+        lambda: events.append("destroy"),
+    )
+
+    run_training(TrainConfig.model_construct())
+
+    assert events == ["train", "barrier", "destroy", "sweep"]
 
 
 @pytest.mark.manual

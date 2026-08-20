@@ -51,14 +51,13 @@ VizStep = Annotated[
 ]
 
 
-def default_viz_variables() -> list[str]:
-    return ["thetao", "so", "uo", "vo", "tos", "zos"]
+DEFAULT_VIZ_VARIABLES = ("thetao", "so", "uo", "vo", "tos", "zos")
 
 
 class VizRunConfig(BaseModel):
     name: str
     location: Location
-    variables: list[str] = Field(default_factory=default_viz_variables)
+    variables: list[str] = Field(default_factory=lambda: list(DEFAULT_VIZ_VARIABLES))
 
     def build(self, data_root: ResolvedLocation) -> VizRun:
         return VizRun(
@@ -72,7 +71,7 @@ class VizTemplateConfig(TopLevelConfig):
     base_output_dir: Path
     dataset_name: str
     # Return a fresh default variable list for each config instance.
-    variables: list[str] = Field(default_factory=default_viz_variables)
+    variables: list[str] = Field(default_factory=lambda: list(DEFAULT_VIZ_VARIABLES))
     data_root: Location | None = None
     data: DataConfig | None = Field(
         default=None,

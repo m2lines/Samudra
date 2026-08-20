@@ -13,6 +13,7 @@ from samudra.models.modules import (
     PerceiverEncoder,
     PerceiverIO,
 )
+from samudra.models.modules.decoder import zonally_periodic_bilinear_interpolate
 
 # Small values for fast tests.
 LATENT_DIM = 8
@@ -122,6 +123,8 @@ def make_decoder_with_shared_weights(
         window_patches=reference.window_patches,
         context_patches=reference.context_patches,
         output_overlap_patches=reference.output_overlap_patches,
+        processor_conditioning=reference.processor_conditioner is not None,
+        pixel_refinement=reference.pixel_refiner is not None,
     )
     kwargs.update(overrides)
     other = PerceiverDecoder(**kwargs)  # type: ignore
@@ -298,6 +301,26 @@ def test_direct_cross_attention_retains_query_dependence_with_one_context_token(
     assert queries.grad.norm() > 0
 
 
+def test_direct_cross_attention_feature_projection_matches_forward():
+    decoder = make_direct_cross_attention_io(in_channels=4, out_channels=3)
+    data = torch.randn(2, 6, 4)
+    queries = torch.randn(5, QUERIES_DIM)
+
+    features = decoder.decode_features(data, queries=queries)
+    expected = decoder(data, queries=queries)
+
+    assert torch.equal(decoder.project_features(features), expected)
+
+
+def test_periodic_bilinear_interpolation_is_longitude_roll_equivariant():
+    coarse = torch.randn(2, 3, 4, 6)
+
+    actual = zonally_periodic_bilinear_interpolate(coarse.roll(1, dims=-1), (8, 18))
+    expected = zonally_periodic_bilinear_interpolate(coarse, (8, 18)).roll(3, dims=-1)
+
+    assert torch.allclose(actual, expected, atol=1e-6)
+
+
 def test_direct_cross_attention_decoder_supports_windowing(
     resolution, latent_input, decoder_kwargs
 ):
@@ -331,6 +354,57 @@ def test_overlapping_decoder_supports_backward_and_periodic_longitude(
     assert output.shape == (BATCH, OUT_CHANNELS, H, W)
     assert latent_input.grad is not None
     assert torch.isfinite(latent_input.grad).all()
+
+
+def test_identity_initialized_pixel_path_preserves_overlap_output(
+    resolution, latent_input, decoder_kwargs
+):
+    decoder_kwargs["perceiver_io"] = make_direct_cross_attention_io()
+    baseline = PerceiverDecoder(
+        **decoder_kwargs,
+        window_patches=2,
+        context_patches=0,
+        output_overlap_patches=1,
+    )
+    refined = PerceiverDecoder(
+        **decoder_kwargs,
+        window_patches=2,
+        context_patches=0,
+        output_overlap_patches=1,
+        processor_conditioning=True,
+        pixel_refinement=True,
+    )
+    incompatible = refined.load_state_dict(baseline.state_dict(), strict=False)
+    assert not incompatible.unexpected_keys
+
+    with torch.no_grad():
+        expected = baseline(latent_input, resolution)
+        actual = refined(latent_input, resolution)
+
+    assert torch.allclose(actual, expected, atol=1e-6)
+
+
+def test_pixel_path_supports_backward(resolution, latent_input, decoder_kwargs):
+    decoder_kwargs["perceiver_io"] = make_direct_cross_attention_io()
+    decoder = PerceiverDecoder(
+        **decoder_kwargs,
+        window_patches=2,
+        context_patches=0,
+        output_overlap_patches=1,
+        processor_conditioning=True,
+        pixel_refinement=True,
+    )
+    latent_input.requires_grad_()
+
+    output = decoder(latent_input, resolution)
+    output.square().mean().backward()
+
+    assert latent_input.grad is not None
+    assert torch.isfinite(latent_input.grad).all()
+    assert decoder.conditioning_strength is not None
+    assert decoder.conditioning_strength.grad is not None
+    assert decoder.pixel_refiner is not None
+    assert decoder.pixel_refiner.pointwise.linear.weight.grad is not None
 
 
 def test_overlapping_full_context_matches_non_windowed(
@@ -394,3 +468,17 @@ def test_decoder_config_builds_direct_cross_attention():
     )
 
     assert isinstance(decoder.perceiver_io, DirectCrossAttentionIO)
+
+
+def test_pixel_options_require_direct_cross_attention():
+    config = DecoderConfig.model_validate(
+        {"architecture": "perceiver_io", "pixel_refinement": True}
+    )
+
+    with pytest.raises(ValueError, match="direct_cross_attention"):
+        config.build(
+            in_channels=IN_CHANNELS,
+            out_channels=OUT_CHANNELS,
+            patch_extent=(1.0, 1.0),
+            implementation="naive",
+        )

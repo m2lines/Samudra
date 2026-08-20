@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+pred_residuals: false
+last_kernel_size: 3
+pad: circular
+checkpointing: null
+embedding_dim: 128
+perceiver_implementation: auto
+patch_extent: [6.0, 10.0]
+
+encoder:
+  perceiver:
+    depth: 2
+    latent_dim: 64
+    num_latents: 256
+    cross_heads: 1
+    latent_heads: 8
+    cross_dim_head: 64
+    latent_dim_head: 64
+
+decoder:
+  architecture: direct_cross_attention
+  perceiver:
+    depth: 2
+    latent_dim: 64
+    num_latents: 256
+    cross_heads: 2
+    latent_heads: 8
+    cross_dim_head: 64
+    latent_dim_head: 64
+  queries_dim: 128
+  window_patches: 6
+  context_patches: 0
+  output_overlap_patches: 0
+  processor_conditioning: false
+  pixel_refinement: false
+
+processor:
+  ch_width: [380, 480]
+  dilation: [1, 1]
+  n_layers: [1, 1]
+  core_block:
+    block_type: conv_next_block
+    kernel_size: 3
+    activation: capped_gelu
+    upscale_factor: 2
+    norm: instance
+    pointwise_linear: true
+  down_sampling_block: avg_pool
+  up_sampling_block: zonally_periodic_upsample

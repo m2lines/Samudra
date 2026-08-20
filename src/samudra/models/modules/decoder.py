@@ -14,7 +14,10 @@ from torch import nn
 
 from samudra.constants import Lat, Lon
 from samudra.models.modules.augment_input import make_3d_coordinate_grid
-from samudra.models.modules.blocks import PointwiseLinear
+from samudra.models.modules.blocks import (
+    PointwiseLinear,
+    ZonallyPeriodicBilinearUpsample,
+)
 from samudra.models.modules.encoder import patch_from
 from samudra.models.modules.perceiver import (
     Attention,
@@ -24,30 +27,15 @@ from samudra.models.modules.perceiver import (
 )
 
 
-def zonally_periodic_bilinear_interpolate(
-    x: torch.Tensor,
-    size: tuple[int, int],
-) -> torch.Tensor:
-    """Bilinearly resize a grid while interpolating across the longitude seam."""
-    target_height, target_width = size
-    width = x.shape[-1]
-    if target_width % width:
-        raise ValueError(
-            f"Target width {target_width} must be an integer multiple of {width}."
-        )
-    scale_width = target_width // width
-    padded = F.pad(x, (1, 1, 0, 0), mode="circular")
-    resized = F.interpolate(
-        padded,
-        size=(target_height, target_width + 2 * scale_width),
-        mode="bilinear",
-        align_corners=False,
-    )
-    return resized[..., scale_width : scale_width + target_width]
-
-
 class DirectCrossAttentionIO(nn.Module):
-    """Apply Perceiver output queries directly to spatial processor tokens."""
+    """Apply the Perceiver IO decode head directly to processor tokens.
+
+    This is a transformer cross-attention block, not a complete Perceiver by
+    itself. It deliberately retains the output-query portion of Perceiver IO
+    while omitting a second latent bank and its self-attention stack: the encoder
+    already performed Perceiver compression and the spatial processor already
+    mixed the resulting tokens.
+    """
 
     def __init__(
         self,
@@ -285,7 +273,12 @@ class PerceiverDecoder(nn.Module):
         out = self._decode(data_grid, queries, pos_patch_h, pos_patch_w)
 
         if self.processor_conditioner is not None:
-            processor = zonally_periodic_bilinear_interpolate(x, (H, W))
+            if H % nh or W % nw:
+                raise ValueError(
+                    "Processor conditioning requires integer output scale factors; "
+                    f"got processor={(nh, nw)} and output={(H, W)}."
+                )
+            processor = ZonallyPeriodicBilinearUpsample((H // nh, W // nw))(x)
             conditioning = self.processor_conditioner(processor)
             assert self.conditioning_strength is not None
             out = out + self.conditioning_strength * conditioning

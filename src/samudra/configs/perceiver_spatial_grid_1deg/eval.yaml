@@ -21,5 +21,5 @@ experiment:
     project: default
     tags: [torch-hpc, om4-1deg, perceiver-spatial-grid, evaluation]
 
-data: !include data.yaml
+data: !include ../data/om4.yaml
 model: !include model.yaml

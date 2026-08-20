@@ -52,10 +52,10 @@ The complete preset is
 
 | Component | Selection |
 | --- | --- |
-| Data | OM4 one degree only, 1975--2013 train and 2013--2014 validation |
+| Data | Shared OM4 preset pointed at one-degree data; 1975--2013 train and 2013--2014 validation |
 | Encoder | 6 x 10 degree groups, 2 x 2 coordinate-tied spatial queries |
 | Processor grid | 60 x 72 at 3 x 5 degree spacing |
-| Processor | Two-level ConvNeXt U-Net, widths 380 and 480 |
+| Processor | Three-level ConvNeXt U-Net, widths 380, 480, and 520 |
 | Prediction | Same-grid physical residual |
 | Decoder | Direct SDPA cross-attention, transported width 128 |
 | Routing | Six-patch windows, zero anonymous context |
@@ -64,6 +64,7 @@ The complete preset is
 | Excluded | DCT transport and pixel refinement |
 | Training | 70 epochs, LR `6e-4`, cosine schedule, normalized MSE |
 | Intended allocation | Two GPUs, per-rank batch 2, accumulation 8, effective global batch 32 |
+| Trainable parameters | 75,194,225 |
 
 The model uses PyTorch SDPA through the native Perceiver implementation from
 PR #842. `perceiver_implementation: auto` permits PyTorch to select Flash
@@ -87,6 +88,21 @@ Before the full allocation:
 - [ ] estimate completion within the cluster's requeue/time-limit contract.
 
 No 70-epoch job should be released until the real-data optimizer probe passes.
+
+## Deferred attention-depth ablation
+
+The encoder is a complete local Perceiver IO: input cross-attention, two latent
+self-attention stages, and output-query cross-attention. The decoder is
+intentionally only the Perceiver IO output head--one direct cross-attention plus
+a feed-forward residual--because the processor has already performed spatial
+mixing and the root-cause experiments rejected a second decoder latent bank.
+
+After this run establishes a convergence and rollout baseline, a focused screen
+can compare encoder depths `{1, 2, 4}` and direct decoder cross-attention depths
+`{1, 2}`. Adding output-query self-attention is not in that first ablation: its
+cost is quadratic in output pixels within each window and it would mix physical
+outputs in the decoder rather than leaving spatial dynamics to the processor.
+It should require separate evidence before being introduced.
 
 ## Evaluation and visualization plan
 

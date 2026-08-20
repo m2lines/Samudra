@@ -7,7 +7,7 @@
 base_output_dir: .LOCAL
 name: perceiver-spatial-grid-1deg-viz
 dataset_name: OM4 1 degree
-data: !include data.yaml
+data: !include ../data/om4.yaml
 basins_location:
   type: s3
   anon: true
@@ -16,7 +16,7 @@ basins_location:
   endpoint_url: https://nyu1.osn.mghpcc.org
 groundtruth_time_range:
   start: "2014-10-20"
-  end: "2015-10-05"
+  end: "2022-12-24"
 runs:
   - name: perceiver-spatial-grid-1deg
     location: .LOCAL/perceiver-spatial-grid-1deg-eval/predictions.zarr

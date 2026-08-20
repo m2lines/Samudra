@@ -13,6 +13,17 @@ from samudra.models.modules.blocks import (
 )
 
 
+def test_zonally_periodic_upsample_supports_anisotropic_integer_scales():
+    coarse = torch.randn(2, 3, 4, 6)
+    upsample = ZonallyPeriodicBilinearUpsample((3, 5))
+
+    actual = upsample(coarse.roll(1, dims=-1))
+    expected = upsample(coarse).roll(5, dims=-1)
+
+    assert actual.shape == (2, 3, 12, 30)
+    assert torch.allclose(actual, expected, atol=1e-6)
+
+
 def _pad_like_unet(feature: torch.Tensor, skip: torch.Tensor) -> torch.Tensor:
     crop = np.array(feature.shape[2:])
     target = np.array(skip.shape[2:])

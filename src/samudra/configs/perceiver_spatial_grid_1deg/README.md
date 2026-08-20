@@ -15,11 +15,13 @@ residual prediction.
 
 The train preset assumes two GPUs: per-rank batch 2 and eight accumulation steps
 produce effective global batch 32. Change accumulation if the world size changes
-so optimizer exposure remains comparable. Pass the validation-selected
-checkpoint explicitly to evaluation:
+so optimizer exposure remains comparable. The preset reuses the shared
+`configs/data/om4.yaml`; set `experiment.data_root` to the one-degree directory
+that contains `OM4.zarr`, `OM4_means.zarr`, and `OM4_stds.zarr`. Pass the
+validation-selected checkpoint explicitly to evaluation:
 
 ```bash
-samudra train perceiver_spatial_grid_1deg/train.yaml
-samudra eval perceiver_spatial_grid_1deg/eval.yaml --ckpt_path=/path/to/ckpt.pt
-samudra viz perceiver_spatial_grid_1deg/viz.yaml
+samudra train perceiver_spatial_grid_1deg/train.yaml --experiment.data_root=/path/to/om4_onedeg_v3
+samudra eval perceiver_spatial_grid_1deg/eval.yaml --experiment.data_root=/path/to/om4_onedeg_v3 --ckpt_path=/path/to/ckpt.pt
+samudra viz perceiver_spatial_grid_1deg/viz.yaml --data_root=/path/to/om4_onedeg_v3
 ```

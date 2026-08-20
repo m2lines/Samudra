@@ -10,10 +10,13 @@ SPDX-License-Identifier: CC-BY-4.0
 
 This review was written on 2026-08-20 after rereading Jesse Derer's complete
 decoder-root-cause experiment series and the subsequent 2-degree Perceiver
-search notebooks. It asks:
+search notebooks. It asks two related questions:
 
 > What encoder/decoder architecture is most likely to make SamudraMulti a
 > strong, scalable multi-resolution ocean predictor?
+
+> Before sharing parameters across resolutions, what is the strongest
+> encoder-processor-decoder we can train and evaluate at one degree?
 
 The answer is intentionally not the candidate with the smallest number in one
 table. The experiments differ in grid, target, training duration, temporal
@@ -22,21 +25,33 @@ supported by controlled comparisons, then makes compositional predictions where
 separate experiments support compatible mechanisms. Predictions without a
 direct experiment are labeled as such and converted into proposed tests.
 
-The current evidence supports two different answers:
+The current evidence supports three different answers:
 
-1. **Best demonstrated architecture today:** Jesse's native-grid, state-only
+1. **Best demonstrated single-scale architecture today:** Jesse's native-grid,
+   state-only
    learned inverse with projection-before-channel-masked coordinate resampling,
    frozen during forecast training and followed by a latent ReZero transition.
-   It is the accuracy and correctness reference through one and half degree.
-2. **Best predicted scalable architecture:** a hierarchical, conservative
+   Its completed full-data one-degree run selected epoch 58 at lead-1/2/4 MSE
+   `0.020519/0.034380/0.046903`, while its frozen inverse remained at
+   `0.000648`. It is the accuracy and correctness reference through one and half
+   degree.
+2. **Best current single-scale Perceiver candidate:** a coordinate-tied
+   `spatial-grid2` encoder, the direct output-query decoder, physical residual
+   prediction, one-ring overlap assembly, and smooth processor conditioning,
+   with no anonymous decoder context and no pixel-refinement block. This exact
+   composition has not been trained to convergence; it is the most informative
+   scalable candidate, not the measured champion.
+3. **Best predicted multiscale architecture:** a hierarchical, conservative
    mean/detail transport with coordinate-tied local Perceiver latents and a
    paired synthesis decoder. It should preserve an exact resolved route and
    explicit spatial phase, use Perceiver attention for learned local detail
    compression and coupling, and retain Jesse's temporal, geometry, boundary,
    masking, and frozen-inverse contracts.
 
-The second architecture has not yet been tested as a whole. That is the main
-research opportunity identified by this review.
+The second and third architectures have not yet been tested as a whole. That is
+the main research opportunity identified by this review. The immediate
+one-degree decision and the longer-term LLC design should therefore be reported
+separately rather than forcing one architecture to answer both questions.
 
 ## Source record
 
@@ -68,9 +83,12 @@ branch:
 The public OSN Parquet histories were queried directly for all four 2-degree
 search records. Key W&B summaries were also checked for the primary finalists,
 the seam winner, DCT-14, spatial-grid-2, processor conditioning, Jesse's native
-multiresolution run, and Jesse's coarse-latent run. The durable OSN histories,
-rather than dashboard-selected points, are the numerical source for the
-2-degree tables below.
+multiresolution run, and Jesse's coarse-latent run. After the first draft, every
+W&B image linked from Alex's visual-review sections in the residual/de-aliasing
+and structured-transport notebooks was inspected at its original resolution.
+That audit changes the DCT recommendation and qualifies the pixel-refinement
+recommendation below. The durable OSN histories, rather than
+dashboard-selected points, remain the numerical source for the 2-degree tables.
 
 ## Comparability and inference rules
 
@@ -111,6 +129,9 @@ Several caveats apply throughout:
 - One-step validation cannot establish rollout stability. Artifact ratios near
   one do not establish physical skill, and low MSE does not establish spectral
   fidelity.
+- W&B snapshot panels use independent color limits. They support comparisons of
+  error morphology, not visual comparisons of amplitude, unless their limits
+  are matched.
 - “Width” refers to several different controls: internal Perceiver latent
   count, latent feature dimension, processor width, and decoder transported
   value width. Evidence for one is not automatically evidence for another.
@@ -197,6 +218,16 @@ physical residual head defined as
 `masked_resample(source_state) + predicted_increment`. Do not assume the
 single-grid residual result transfers unchanged.
 
+The image audit adds an important implementation qualification. In `so_13`,
+`residual-condition` produced coherent basin-scale error without the sharp
+rectilinear divisions visible in `residual-none`; `residual-condition-refine`
+still showed a strong horizontal division and block structure. In `so_12`, the
+unconditioned residual arm showed an especially clear zonal stripe. These are
+early, unmatched checkpoints--the refinement arms reached only epochs 1--2--so
+they do not estimate converged loss. They nevertheless support smooth processor
+conditioning as the safer anti-aliasing path and provide no reason to add pixel
+refinement to the full run.
+
 ### 5. Generic latent count is not the important encoder capacity axis
 
 Reducing the original patch Perceiver from 256 to 64 internal latents improved
@@ -230,14 +261,27 @@ Four lines of evidence agree:
    incomplete local basis can improve MSE while breaking reconstruction.
 
 The result is not “DCT is proven best.” DCT-14's mean patch-periodic error power
-was 4.15 times the baseline, despite good jump metrics. It also uses a complete
-basis only because a 2-degree patch contains 3 x 5 cells; a complete basis grows
-to 60 or 240 coefficients per channel at half or quarter degree. A flat complete
-DCT is therefore a diagnostic ceiling, not itself a scalable LLC solution.
+was 4.15 times the baseline, despite good jump metrics. The post-search image
+audit makes that metric concrete: DCT-14 errors contain dense high-frequency,
+grid-aligned texture, while DCT-4 produces an unmistakable rectangular lattice.
+The same morphology appears across the reviewed salinity and temperature
+channels. By contrast, `spatial-grid2` and `mean64-direct` errors are dominated
+by smoother, more physically plausible basin-scale structures, even where their
+scalar MSE is larger.
 
-**Judgment:** preserve an exact resolved component and explicit phase-addressed
-detail state. Use a hierarchy to prevent detail count from growing as the full
-number of cells in a fixed physical patch.
+DCT also uses a complete basis only because a 2-degree patch contains 3 x 5
+cells; a complete basis grows to 60 or 240 coefficients per channel at half or
+quarter degree. A flat complete DCT is therefore a diagnostic showing that
+phase-addressed information improves short-budget MSE, not a candidate to
+promote. Its low MSE is vetoed by a pre-registered spectral guardrail and the
+corresponding images. This is an example of why the selection rule cannot be a
+scalar-loss minimum.
+
+**Judgment:** preserve explicit phase-addressed state, but learn or
+coordinate-tie that state rather than using the fixed DCT basis in the immediate
+model. `spatial-grid2` is the strongest existing Perceiver mechanism for doing
+so. A future hierarchy may still include a conservative resolved stream, but it
+must pass the same spatial-error and spectral gates as every learned route.
 
 ### 7. Native-grid transport is the demonstrated ceiling; coarse transport is the target
 
@@ -315,6 +359,100 @@ fixed rate is optimal. This schedule and width combination is a Level C
 prediction and needs a small bridge experiment before multiplying it across the
 architecture matrix.
 
+## Single-scale decision for the one-degree run
+
+### What “most powerful” means here
+
+There are two legitimate one-degree choices, depending on the question the run
+is intended to answer.
+
+**For the lowest-risk, strongest one-degree predictor, use Jesse's native-grid
+frozen-inverse architecture.** This is not merely an autoencoder result. Its
+full-data forecast trained for 65 fragmentation-adjusted epochs (6,110 updates),
+selected epoch 58, and reached normalized lead-1/2/4 MSE
+`0.020519/0.034380/0.046903`. It beat matched persistence by large margins,
+retained a frozen zero-depth reconstruction MSE of `0.000648`, and retained
+high-wavenumber power ratios of `0.968/0.983/0.811/0.839/0.991` for
+temperature/salinity/zonal velocity/meridional velocity/SSH. No Perceiver
+candidate in this study has comparable full-data or rollout evidence. If the
+only objective were one-degree skill, repeating that architecture would be the
+evidence-based decision.
+
+That full run has already been performed, however. Repeating it would validate
+reproducibility but would add little architecture information. It also processes
+the native input grid, so its cost scales with resolution and it does not test
+the compression needed for LLC.
+
+**For the strongest one-degree Perceiver experiment, use a spatially structured
+Perceiver encoder and the already selected simple decoder.** The recommended
+composition is:
+
+| Component | One-degree choice | Reason |
+| --- | --- | --- |
+| Input contract | Prognostic state separated from aligned boundary forcing when the implementation permits | Jesse's causal and reconstruction evidence; concatenation remains a known current-code compromise |
+| Encoder | `SpatialLatentGridEncoder`, query grid 2 x 2, group extent 6 x 10 degrees | Produces a 3 x 5 degree, 60 x 72 processor grid while retaining four coordinate-tied outputs per local group |
+| Processor | Existing ConvNeXt U-Net processor | Keeps the experiment focused on transport and supplies cross-patch mixing |
+| Temporal output | Same-grid physical residual for this screen | Approximately 75% short-budget loss reduction in two searches |
+| Decoder routing | Direct output cross-attention, transport width 128, context 0 | Direct routing decisively beats Perceiver IO; wider transport did not help under the residual regime |
+| Assembly | One-ring overlap-add | Large, controlled reduction in window discontinuities with negligible loss cost |
+| Conditioning | Smooth processor conditioning enabled | Best matched residual comparison and best reviewed conditioned morphology |
+| Refinement | Pixel refinement disabled | Unmatched training and visible divisions in both refined residual snapshots; no positive evidence yet |
+| Optimizer | Initial LR `6e-4`, cosine decay over optimizer updates; retain the best checkpoint | Interpolates the separately observed fast/high-rate and better-late/lower-rate regimes and matches the validated full-run schedule class |
+| Fixed basis | No DCT | Short-budget loss win is outweighed by 4.15x periodic power and visibly unphysical basis-aligned errors |
+
+At one degree, `patch_extent: [6.0, 10.0]` with a 2 x 2 spatial query grid is
+the resolution-scaled counterpart of the 2-degree `spatial-grid2` experiment:
+each Perceiver group contains 6 x 10 input cells and emits four ordered tokens,
+so the processor receives the historical 60 x 72 grid at 3 x 5 degree spacing.
+It tests meaningful compression while avoiding the mean-pooled encoder's
+one-vector-per-patch phase loss.
+
+This is a Level C composition. `spatial-grid2` tied the mean-pooled baseline in
+epoch-one loss, had better jump means, and showed more coherent error morphology,
+but was not trained beyond that budget. Processor conditioning was established
+with the mean-pooled encoder, not with `spatial-grid2`. The recommendation joins
+compatible mechanisms; it is not presented as an already measured winner.
+
+### Optional 2-degree decision screen before the EOD launch
+
+The most informative small screen is not another broad successive-halving
+search. Run these four arms for the same fixed three-epoch optimizer budget:
+
+1. `mean64-direct`, conditioned;
+2. `spatial-grid2`, unconditioned;
+3. `spatial-grid2`, conditioned; and
+4. `spatial-grid2`, conditioned, decoder transport width 256.
+
+All four should use residual prediction, one-ring overlap, zero anonymous
+context, no pixel refinement, fixed `4e-4`, the same seed, and the same batch and
+update count. Arms 1--3 isolate representation and conditioning; arm 4 cheaply
+tests whether width becomes useful once phase is retained. Do not prune before
+three epochs.
+
+Choose the one-degree architecture using validation loss *subject to* an
+artifact veto. Inspect the same preregistered channels (`so_11`, `so_13`,
+`so_14`, `thetao_2`, `thetao_7`, `thetao_8`) with common color limits, and reject
+an arm with strong grid-periodic power, sharp window bands, or checkerboard
+errors even if its scalar loss is smallest. If the screen does not complete in
+time, launch arm 3. If arm 4 improves loss without worsening the image and
+spectral diagnostics, promote its wider transport; otherwise retain width 128.
+
+### Full-run evaluation contract
+
+Train 70 epochs but select by validation checkpoint rather than the terminal
+epoch. Evaluate both checkpoints if they differ materially. At minimum report:
+
+- normalized validation loss and physical-unit variable/depth RMSE;
+- 1-, 2-, 4-, 10-, and 20-step rollout skill against persistence;
+- gradient/high-wavenumber power for scalar and velocity groups;
+- window/patch jump and periodic-power diagnostics; and
+- the preregistered snapshot panels above with common color limits.
+
+The subsequent visualization run should use the selected checkpoint and include
+error maps, spectra, and rollout curves. A one-step loss improvement without
+stable rollout or with a newly periodic error mode is not a successful
+single-scale architecture.
+
 ## Predicted best architecture
 
 ```text
@@ -337,10 +475,12 @@ For each fixed physical region and prognostic channel:
 
 1. Compute an exact, wet-mask- and area-aware resolved coefficient. This is the
    amplitude-preserving DC route and should never pass through LayerNorm.
-2. Apply a paired local mean/detail transform to the anomaly. DCT-14 is the
-   current 2-degree diagnostic; a masked lifting or wavelet pyramid is the more
-   plausible multiresolution implementation because its cost grows by level
-   rather than requiring one flat complete patch basis.
+2. Preserve a paired local mean/detail route for the anomaly, but do not assume
+   that a fixed DCT is its implementation. The DCT experiment diagnoses the
+   value of explicit phase and the danger of fixed patch bases simultaneously.
+   Coordinate-tied learned tokens, a masked lifting scheme, or a learned
+   multilevel basis are more plausible implementations because they can retain
+   locality without imposing the observed periodic texture.
 3. Keep detail coefficients as coordinate-tied tokens or explicit local spatial
    axes. Do not average them and do not pack them into channels unless the
    decoder has the exact inverse coordinate contract.
@@ -392,28 +532,30 @@ The decoder should:
    neighboring tokens are used, supply query-to-token physical offsets or a
    distance bias.
 
-Smooth processor conditioning is a reasonable default candidate: in the only
+Smooth processor conditioning is the reasonable single-scale default: in the only
 matched six-epoch residual comparison it improved loss by 1.83%, window-jump
-p90 by 5.24%, and periodic-power means. Full-resolution pixel refinement is not
-yet supported or rejected; its workers did not reach a matched budget.
+p90 by 5.24%, and periodic-power means, and its reviewed error map was the cleanest
+conditioned residual example. Full-resolution pixel refinement is not promoted:
+its workers did not reach a matched budget and both reviewed refined residual
+snapshots retained visible rectilinear structure.
 
 ### Near-term 2-degree instantiation
 
-Before the hierarchy exists, the best data-backed 2-degree spike is:
+Before the hierarchy exists, the best risk-adjusted 2-degree spike is:
 
-- paired DCT-14 encoder/decoder;
+- coordinate-tied `spatial-grid2` encoding;
 - residual prediction for the single-grid screen;
-- a 160- or 256-wide structured state, with width tested explicitly;
+- transport width 128, with 256 tested only as a matched arm;
 - smooth processor conditioning;
-- a cross-patch zero-initialized correction or overlap-compatible synthesis to
-  target DCT-14's periodic mode;
+- one-ring overlap assembly;
 - no anonymous decoder context; and
-- a learning-rate schedule that starts near `8e-4` and decays through `4e-4`,
-  compared with fixed `4e-4`.
+- no pixel refinement or fixed DCT basis.
 
-Only DCT-14, residual prediction, and no anonymous context have direct support
-in this exact regime. Their combination with greater width, conditioning, and
-the proposed schedule is a prediction.
+Residual prediction, no anonymous context, overlap assembly, and conditioning
+have direct support in adjacent controlled comparisons. The exact
+`spatial-grid2` composition remains a prediction, but it is preferable to the
+lower-loss DCT arm because it did not trigger the same spectral and visual
+artifact vetoes.
 
 ### Implementation map
 
@@ -451,11 +593,11 @@ reimplemented indirectly inside another decoder.
 | Latent ReZero is the better final temporal contract | Jesse's frozen-inverse proxy and full runs | High through one/half degree | Use residual latent transition and freeze inverse |
 | Internal latent count is not the phase bottleneck | 64 vs 256 search and decoder latent sweeps | High | Stop sweeping unordered latent count |
 | Explicit phase state is necessary | Native anchor, moment ablation, fronts, DCT result | High | Preserve resolved mean plus coordinate-tied details |
-| DCT-14 is the final scalable encoder | Two observed epochs; periodic power 4.15x baseline | Low | Treat as a diagnostic and hierarchy seed |
-| Spatial-grid Perceiver will win with more training | Better jump means, tied epoch-1 loss | Medium-low | Retain as efficient alternative and hybrid component |
+| DCT-14 should be promoted on loss | Two observed epochs, periodic power 4.15x baseline, visibly basis-aligned errors | Rejected | Retain only as mechanistic evidence that phase matters |
+| Spatial-grid Perceiver is the strongest current compressed candidate | Better jump means, tied epoch-1 loss, more physical error morphology | Medium | Run the matched conditioned screen and a full single-scale test |
 | Width 256 plus low late LR improves the structured model | Separate early-width and late-LR effects | Medium-low | Run a small factorial; do not assume additivity |
 | Smooth processor conditioning helps | One matched residual pair | Medium | Carry one conditioned control forward |
-| Full-resolution pixel refinement helps | No matched trained comparison | Unknown | Profile and rerun only after cheaper controls |
+| Full-resolution pixel refinement helps | No matched trained comparison; both early refined residual maps retain visible divisions | Low/unknown | Exclude from the one-degree run; revisit only with a controlled anti-aliasing design |
 | Native-grid processing scales to LLC | Accuracy is strong; state and processor scale with all cells | Low | Use only as a diagnostic ceiling |
 
 ## Recommended next experiment
@@ -465,41 +607,39 @@ The next experiment should answer one central question:
 > Can a structured, phase-preserving Perceiver transport close a meaningful
 > fraction of the native-grid gap without reproducing patch-periodic artifacts?
 
-### Gate 0: optimizer bridge
+### Gate 0: tactical composition check
 
-Use `mean64-direct` and DCT-14 to compare only:
+Run the four-arm, fixed three-epoch 2-degree screen specified in the
+single-scale section. This is optional for the EOD launch: it can select between
+mean pooling and `spatial-grid2`, test whether conditioning composes with the
+spatial encoder, and test width 256 once without reopening the whole search.
+Use fixed optimizer steps and do not halve the candidates.
 
-- fixed `4e-4`;
-- fixed `8e-4`; and
-- warmup to `8e-4` followed by decay through `4e-4`.
+### Gate 1: full one-degree Perceiver forecast
 
-Run to a fixed optimizer-step budget long enough to include the observed late
-crossover. Select one schedule before the architecture screen.
+Train the selected Perceiver composition for 70 epochs with checkpoint
+selection, then run the evaluation and visualization contract above. Compare it
+against the completed native-grid architecture and the historical Samudra v2
+values, but describe those as external references because temporal and
+representation contracts differ. This gate answers whether the compressed
+Perceiver is a credible *single-scale* predictor; it does not establish shared
+multiscale skill.
 
-### Gate 1: representation tests before forecasting
+### Gate 2: representation tests for the hierarchy
 
-For every candidate, measure held-out reconstruction, per-variable spectra,
+For future candidates, measure held-out reconstruction, per-variable spectra,
 coastal and wet-mask behavior, patch/window jumps, and equal-mean
 different-front counterfactual distinguishability. Include:
 
 1. native-grid learned inverse as the information ceiling;
-2. `mean64-direct` as the scalable negative control;
-3. DCT-14 as the current phase-preserving positive lead;
-4. `spatial-grid2` as the efficient Perceiver-native control;
-5. a hierarchical complete mean/detail transform; and
-6. a hybrid mean/detail plus coordinate-tied Perceiver detail grid.
+2. `mean64-direct` as the phase-poor compressed control;
+3. `spatial-grid2` as the current Perceiver lead;
+4. a learned hierarchical mean/detail representation; and
+5. a hybrid resolved stream plus coordinate-tied Perceiver detail grid.
 
-Reject any model that cannot retain the counterfactual or that gains MSE by
+DCT-14 may remain as a diagnostic control but is not promotion-eligible. Reject
+any learned model that cannot retain the counterfactual or that gains MSE by
 creating a large periodic mode.
-
-### Gate 2: matched 2-degree forecast screen
-
-Do not halve before three complete epochs; the first search showed that rate
-and structure cross over. Train the representation survivors with residual
-prediction, zero anonymous context, smooth assembly, and the selected schedule.
-Use fixed optimizer steps rather than equal wall time. Add width 256 only for
-the top DCT and spatial/hybrid arms, producing the missing composition test
-without doubling the whole matrix.
 
 Promotion should use a Pareto gate over:
 
@@ -534,6 +674,13 @@ historical control. Jesse's native-grid inverse should remain the accuracy and
 contract reference, but its processor grid is not the intended LLC-scale
 solution.
 
+For the immediate one-degree objective, the evidence-backed champion is Jesse's
+native-grid frozen inverse. The recommended new full run is instead the
+`spatial-grid2` Perceiver composition because it is the strongest experiment
+that can improve the scalable architecture thesis. These statements are not in
+conflict: one names what has won; the other names the most valuable candidate to
+test next.
+
 The most likely successful SamudraMulti architecture is a **hierarchical
 resolved-plus-detail latent state**: exact conservative means, explicit
 phase-addressed local details, coordinate-tied local Perceiver attention, a
@@ -543,17 +690,17 @@ geometry sidecar, mask ordering, frozen inverse, and latent-autoregressive
 training contract.
 
 The strongest immediate experiment is not another generic hyperparameter
-search. It is the controlled comparison of DCT-14, spatial-grid-2, and their
-hierarchical hybrid against mean-pooled and native-grid anchors, with the
-missing low-late-rate plus wide-path combination tested explicitly and with
-spectral/rollout guardrails preventing a low-MSE periodic artifact from winning.
+search. It is the small conditioned `spatial-grid2` composition check followed
+by the 70-epoch one-degree train/eval/viz run. DCT-14 is no longer a finalist:
+the agreement between its periodic-power metric and its visibly unphysical
+errors is sufficient to reject it despite its lower two-epoch MSE.
 
 ### Evidence that would change this recommendation
 
 This recommendation should be revised if any of the following occur:
 
-- DCT-14's periodic mode grows over matched 10- or 20-step rollouts, while a
-  trained spatial-grid candidate retains comparable loss without that mode;
+- a trained `spatial-grid2` model fails to separate from mean pooling in loss,
+  spectra, or front counterfactuals after a matched budget;
 - the equal-mean front gate shows that a hierarchical detail bottleneck cannot
   retain dynamically relevant phase at half or quarter degree;
 - a native-grid or sparse-native processor becomes computationally practical at

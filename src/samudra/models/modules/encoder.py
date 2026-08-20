@@ -15,6 +15,7 @@ from jaxtyping import Float
 from torch import nn
 
 from samudra.constants import Input, Lat, Lon
+from samudra.models.modules.augment_input import FourierFeatures2D
 
 
 def patch_from(
@@ -29,6 +30,366 @@ def patch_from(
     patch_w = int(round(patch_extent[1] / lon_spacing))
 
     return patch_h, patch_w
+
+
+class SpatialQueryPerceiver(nn.Module):
+    """Encode a patch as ordered, coordinate-conditioned Perceiver outputs."""
+
+    def __init__(
+        self,
+        *,
+        query_shape: tuple[int, int],
+        queries_dim: int,
+        channels_per_query: int,
+        perceiver_io: nn.Module,
+        num_freq_bands: int,
+        max_freq: float,
+    ) -> None:
+        super().__init__()
+        query_h, query_w = query_shape
+        if query_h < 1 or query_w < 1:
+            raise ValueError("query_shape entries must be positive.")
+        self.query_shape = query_shape
+        self.channels_per_query = channels_per_query
+        self.out_channels = query_h * query_w * channels_per_query
+        self.input_position_features = FourierFeatures2D(
+            num_freq_bands=num_freq_bands,
+            max_freq=max_freq,
+        )
+        self.query_embed = nn.Linear(2, queries_dim)
+        self.query_offset = nn.Parameter(torch.zeros(query_h * query_w, queries_dim))
+        self.perceiver_io = perceiver_io
+
+        query_lat = torch.linspace(-1.0, 1.0, query_h)
+        query_lon = torch.linspace(-1.0, 1.0, query_w)
+        positions = torch.stack(
+            torch.meshgrid(query_lat, query_lon, indexing="ij"), dim=-1
+        ).flatten(0, 1)
+        self.register_buffer("query_positions", positions, persistent=False)
+
+    def encode_queries(self, x: torch.Tensor) -> torch.Tensor:
+        data = self.input_position_features(x)
+        data = rearrange(data, "b ph pw v -> b (ph pw) v")
+        queries = self.query_embed(
+            self.query_positions.to(device=x.device, dtype=x.dtype)
+        )
+        queries = queries + self.query_offset.to(dtype=queries.dtype)
+        encoded = self.perceiver_io(data, queries=queries)
+        if encoded.shape[1:] != (queries.shape[0], self.channels_per_query):
+            raise ValueError(
+                "Spatial-query Perceiver returned an unexpected shape: "
+                f"{tuple(encoded.shape)}."
+            )
+        return encoded
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return rearrange(self.encode_queries(x), "b query channel -> b (query channel)")
+
+
+class SpatialLatentGridEncoder(nn.Module):
+    """Keep coordinate-conditioned patch queries as an explicit spatial grid."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        patch_extent: tuple[float, float],
+        spatial_perceiver: SpatialQueryPerceiver,
+    ) -> None:
+        super().__init__()
+        if spatial_perceiver.channels_per_query != out_channels:
+            raise ValueError(
+                "Spatial-grid query channels must equal encoder out_channels."
+            )
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.patch_extent = patch_extent
+        self.spatial_perceiver = spatial_perceiver
+        query_h, query_w = spatial_perceiver.query_shape
+        self.output_patch_extent = (
+            patch_extent[0] / query_h,
+            patch_extent[1] / query_w,
+        )
+        self.pos_embed = nn.Linear(out_channels, out_channels)
+        self.scale_embed = nn.Linear(out_channels, out_channels)
+
+    def forward(self, x: Input, resolution: tuple[Lat, Lon]) -> torch.Tensor:
+        batch, channels, height, width = x.shape
+        if channels != self.in_channels:
+            raise ValueError(f"Expected {self.in_channels} channels, got {channels}.")
+        lat, lon = resolution
+        patch_h, patch_w = patch_from(self.patch_extent, height, width)
+        query_h, query_w = self.spatial_perceiver.query_shape
+        if patch_h % query_h or patch_w % query_w:
+            raise ValueError(
+                "Patch pixels must divide evenly over the spatial query grid; got "
+                f"patch={(patch_h, patch_w)} and queries={(query_h, query_w)}."
+            )
+        if height % patch_h or width % patch_w:
+            raise ValueError("Input grid must divide evenly into Perceiver groups.")
+        coarse_h, coarse_w = height // patch_h, width // patch_w
+        patches = rearrange(
+            x,
+            "b c (h ph) (w pw) -> (b h w) ph pw c",
+            ph=patch_h,
+            pw=patch_w,
+        )
+        encoded = self.spatial_perceiver.encode_queries(patches)
+        encoded = rearrange(
+            encoded,
+            "(b h w) (qh qw) c -> b (h qh w qw) c",
+            b=batch,
+            h=coarse_h,
+            w=coarse_w,
+            qh=query_h,
+            qw=query_w,
+        )
+        return _add_patch_geometry(
+            encoded,
+            lat,
+            lon,
+            (patch_h // query_h, patch_w // query_w),
+            self.pos_embed,
+            self.scale_embed,
+            coarse_h * query_h,
+            coarse_w * query_w,
+        )
+
+
+def dct_detail_basis(
+    height: int,
+    width: int,
+    detail_count: int,
+    *,
+    device: torch.device,
+    dtype: torch.dtype,
+) -> torch.Tensor:
+    """Return the DC mode followed by low-frequency orthonormal 2-D DCT modes."""
+    if detail_count < 0 or detail_count >= height * width:
+        raise ValueError(
+            f"detail_count must be in [0, {height * width - 1}], got {detail_count}."
+        )
+    y = torch.arange(height, device=device, dtype=dtype) + 0.5
+    x = torch.arange(width, device=device, dtype=dtype) + 0.5
+    modes = sorted(
+        ((ky, kx) for ky in range(height) for kx in range(width)),
+        key=lambda mode: (mode[0] ** 2 + mode[1] ** 2, mode[0], mode[1]),
+    )[: detail_count + 1]
+    columns = []
+    for ky, kx in modes:
+        basis_y = torch.cos(torch.pi * ky * y / height)
+        basis_x = torch.cos(torch.pi * kx * x / width)
+        basis_y = basis_y * ((1 / height) ** 0.5 if ky == 0 else (2 / height) ** 0.5)
+        basis_x = basis_x * ((1 / width) ** 0.5 if kx == 0 else (2 / width) ** 0.5)
+        columns.append(torch.outer(basis_y, basis_x).flatten())
+    return torch.stack(columns, dim=-1)
+
+
+def _add_patch_geometry(
+    tokens: torch.Tensor,
+    lat: Lat,
+    lon: Lon,
+    patch_size: tuple[int, int],
+    pos_embed: nn.Linear,
+    scale_embed: nn.Linear,
+    height: int,
+    width: int,
+) -> torch.Tensor:
+    channels = tokens.shape[-1]
+    pos_encode, scale_encode = pos_scale_enc(
+        channels,
+        lat,
+        lon,
+        patch_size,
+        pos_expansion=pos_expansion,
+        scale_expansion=scale_expansion,
+    )
+    tokens = (
+        tokens
+        + pos_embed(pos_encode.to(dtype=tokens.dtype, device=tokens.device))[None]
+    )
+    tokens = (
+        tokens
+        + scale_embed(scale_encode.to(dtype=tokens.dtype, device=tokens.device))[None]
+    )
+    return rearrange(tokens, "b (h w) c -> b c h w", h=height, w=width)
+
+
+class PatchMomentEncoder(nn.Module):
+    """Preserve an area-weighted patch mean plus learned phase-sensitive moments."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        patch_extent: tuple[float, float],
+        *,
+        moment_count: int,
+        mean_channels: int,
+    ) -> None:
+        super().__init__()
+        if moment_count < 1:
+            raise ValueError("moment_count must be positive.")
+        if not 0 < mean_channels < out_channels:
+            raise ValueError("mean_channels must lie between zero and out_channels.")
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.patch_extent = patch_extent
+        self.moment_count = moment_count
+        self.mean_projection = nn.Linear(in_channels, mean_channels)
+        self.coordinate_basis = nn.Sequential(
+            nn.Linear(2, 64), nn.GELU(), nn.Linear(64, moment_count)
+        )
+        self.moment_projection = nn.Linear(
+            in_channels * moment_count, out_channels - mean_channels
+        )
+        self.pos_embed = nn.Linear(out_channels, out_channels)
+        self.scale_embed = nn.Linear(out_channels, out_channels)
+
+    @staticmethod
+    def _coordinates(
+        patch_h: int,
+        patch_w: int,
+        *,
+        device: torch.device,
+        dtype: torch.dtype,
+    ) -> torch.Tensor:
+        lat = (
+            2 * (torch.arange(patch_h, device=device, dtype=dtype) + 0.5) / patch_h - 1
+        )
+        lon = (
+            2 * (torch.arange(patch_w, device=device, dtype=dtype) + 0.5) / patch_w - 1
+        )
+        return torch.stack(torch.meshgrid(lat, lon, indexing="ij"), dim=-1).flatten(
+            0, 1
+        )
+
+    def forward(self, x: Input, resolution: tuple[Lat, Lon]) -> torch.Tensor:
+        batch, channels, height, width = x.shape
+        if channels != self.in_channels:
+            raise ValueError(f"Expected {self.in_channels} channels, got {channels}.")
+        lat, lon = resolution
+        patch_h, patch_w = patch_from(self.patch_extent, height, width)
+        if height % patch_h or width % patch_w:
+            raise ValueError("Input grid must divide evenly into moment patches.")
+        coarse_h, coarse_w = height // patch_h, width // patch_w
+        tokens = rearrange(
+            x,
+            "b c (h ph) (w pw) -> (b h w) (ph pw) c",
+            ph=patch_h,
+            pw=patch_w,
+        )
+        latitude_weight = torch.cos(
+            torch.deg2rad(lat.to(device=x.device, dtype=x.dtype))
+        ).clamp_min(torch.finfo(x.dtype).eps)
+        weights = rearrange(latitude_weight, "(h ph) -> h ph", h=coarse_h)
+        weights = weights[:, None, :, None].expand(coarse_h, coarse_w, patch_h, patch_w)
+        weights = rearrange(weights, "h w ph pw -> (h w) (ph pw)").repeat(batch, 1)
+        denominator = weights.sum(dim=1, keepdim=True).clamp_min(
+            torch.finfo(x.dtype).eps
+        )
+        mean = (tokens * weights[..., None]).sum(dim=1) / denominator
+        anomaly = tokens - mean[:, None]
+        basis = self.coordinate_basis(
+            self._coordinates(patch_h, patch_w, device=x.device, dtype=x.dtype)
+        )
+        weighted_mean = torch.einsum("bn,nm->bm", weights, basis) / denominator
+        centered = basis[None] - weighted_mean[:, None]
+        rms = (
+            ((centered.square() * weights[..., None]).sum(dim=1) / denominator)
+            .sqrt()
+            .clamp_min(1e-6)
+        )
+        centered = centered / rms[:, None]
+        moments = torch.einsum("bnc,bnm,bn->bcm", anomaly, centered, weights)
+        moments = moments / denominator[:, None]
+        encoded = torch.cat(
+            (
+                self.mean_projection(mean),
+                self.moment_projection(moments.flatten(1)),
+            ),
+            dim=-1,
+        )
+        encoded = rearrange(
+            encoded,
+            "(b h w) c -> b (h w) c",
+            b=batch,
+            h=coarse_h,
+            w=coarse_w,
+        )
+        return _add_patch_geometry(
+            encoded,
+            lat,
+            lon,
+            (patch_h, patch_w),
+            self.pos_embed,
+            self.scale_embed,
+            coarse_h,
+            coarse_w,
+        )
+
+
+class DCTDetailEncoder(nn.Module):
+    """Encode fixed low-frequency patch coefficients without erasing phase."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        patch_extent: tuple[float, float],
+        *,
+        detail_count: int,
+    ) -> None:
+        super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.patch_extent = patch_extent
+        self.detail_count = detail_count
+        self.projection = nn.Linear(in_channels * (detail_count + 1), out_channels)
+        self.pos_embed = nn.Linear(out_channels, out_channels)
+        self.scale_embed = nn.Linear(out_channels, out_channels)
+
+    def forward(self, x: Input, resolution: tuple[Lat, Lon]) -> torch.Tensor:
+        batch, channels, height, width = x.shape
+        if channels != self.in_channels:
+            raise ValueError(f"Expected {self.in_channels} channels, got {channels}.")
+        lat, lon = resolution
+        patch_h, patch_w = patch_from(self.patch_extent, height, width)
+        if height % patch_h or width % patch_w:
+            raise ValueError("Input grid must divide evenly into DCT patches.")
+        coarse_h, coarse_w = height // patch_h, width // patch_w
+        tokens = rearrange(
+            x,
+            "b c (h ph) (w pw) -> (b h w) (ph pw) c",
+            ph=patch_h,
+            pw=patch_w,
+        )
+        basis = dct_detail_basis(
+            patch_h,
+            patch_w,
+            self.detail_count,
+            device=x.device,
+            dtype=x.dtype,
+        )
+        coefficients = torch.einsum("bnc,nk->bck", tokens, basis)
+        encoded = self.projection(coefficients.flatten(1))
+        encoded = rearrange(
+            encoded,
+            "(b h w) c -> b (h w) c",
+            b=batch,
+            h=coarse_h,
+            w=coarse_w,
+        )
+        return _add_patch_geometry(
+            encoded,
+            lat,
+            lon,
+            (patch_h, patch_w),
+            self.pos_embed,
+            self.scale_embed,
+            coarse_h,
+            coarse_w,
+        )
 
 
 class PerceiverEncoder(nn.Module):

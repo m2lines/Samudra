@@ -16,7 +16,13 @@ from torch import nn
 from samudra.constants import Lat, Lon
 from samudra.models.modules.augment_input import make_3d_coordinate_grid
 from samudra.models.modules.blocks import PointwiseLinear
-from samudra.models.modules.encoder import patch_from
+from samudra.models.modules.encoder import dct_detail_basis, patch_from
+from samudra.models.modules.perceiver import (
+    Attention,
+    AttentionBackend,
+    FeedForward,
+    PreNorm,
+)
 
 
 def zonally_periodic_bilinear_interpolate(
@@ -142,6 +148,75 @@ class DirectCrossAttentionIO(nn.Module):
         queries: torch.Tensor,
     ) -> torch.Tensor:
         return self.project_features(self.decode_features(data, queries=queries))
+
+
+class DCTDetailDecoder(nn.Module):
+    """Synthesize output patches from learned coefficients in a fixed DCT basis."""
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        patch_extent: tuple[float, float],
+        *,
+        detail_count: int,
+        pixel_refinement: bool = False,
+    ) -> None:
+        super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.patch_extent = patch_extent
+        self.detail_count = detail_count
+        self.coefficient_projection = nn.Conv2d(
+            in_channels,
+            out_channels * (detail_count + 1),
+            kernel_size=1,
+        )
+        self.pixel_refiner = (
+            PixelRefinementBlock(out_channels) if pixel_refinement else None
+        )
+
+    def forward(
+        self,
+        x: Float[torch.Tensor, "batch channels nh nw"],
+        resolution: tuple[Lat, Lon],
+    ) -> Float[torch.Tensor, "batch {self.out_channels} H W"]:
+        batch, channels, coarse_h, coarse_w = x.shape
+        if channels != self.in_channels:
+            raise ValueError(f"Expected {self.in_channels} channels, got {channels}.")
+        lat, lon = resolution
+        height, width = len(lat), len(lon)
+        patch_h, patch_w = patch_from(self.patch_extent, height, width)
+        if (coarse_h * patch_h, coarse_w * patch_w) != (height, width):
+            raise ValueError(
+                "DCT decoder latent grid and patch extent do not cover the output "
+                f"grid: latent={(coarse_h, coarse_w)}, patch={(patch_h, patch_w)}, "
+                f"output={(height, width)}."
+            )
+        coefficients = self.coefficient_projection(x)
+        coefficients = rearrange(
+            coefficients,
+            "b (c k) h w -> b h w c k",
+            c=self.out_channels,
+            k=self.detail_count + 1,
+        )
+        basis = dct_detail_basis(
+            patch_h,
+            patch_w,
+            self.detail_count,
+            device=x.device,
+            dtype=x.dtype,
+        )
+        patches = torch.einsum("bhwck,nk->bhwcn", coefficients, basis)
+        patches = rearrange(
+            patches,
+            "b h w c (ph pw) -> b c (h ph) (w pw)",
+            ph=patch_h,
+            pw=patch_w,
+        )
+        if self.pixel_refiner is not None:
+            patches = self.pixel_refiner(patches)
+        return patches
 
 
 class PerceiverDecoder(nn.Module):

@@ -5,8 +5,15 @@
 import torch
 
 from samudra.constants import Lat, Lon
-from samudra.models.modules import Perceiver
-from samudra.models.modules.encoder import PerceiverEncoder, patch_from
+from samudra.models.modules import Perceiver, PerceiverIO
+from samudra.models.modules.encoder import (
+    DCTDetailEncoder,
+    PerceiverEncoder,
+    SpatialLatentGridEncoder,
+    SpatialQueryPerceiver,
+    dct_detail_basis,
+    patch_from,
+)
 
 
 def make_perceiver(in_channels, out_channels, *, num_latents=2, input_axis=2):
@@ -111,3 +118,98 @@ def test_patch_from__half_extent():
     )
     assert patch_h == 2
     assert patch_w == 4
+
+
+def test_dct_detail_basis_is_orthonormal_and_phase_sensitive():
+    basis = dct_detail_basis(2, 2, 3, device=torch.device("cpu"), dtype=torch.float32)
+    torch.testing.assert_close(basis.T @ basis, torch.eye(4))
+
+    constant = torch.ones(4)
+    checkerboard = torch.tensor([1.0, -1.0, -1.0, 1.0])
+    constant_coefficients = constant @ basis
+    checkerboard_coefficients = checkerboard @ basis
+    assert torch.allclose(constant_coefficients[1:], torch.zeros(3), atol=1e-6)
+    assert checkerboard_coefficients[1:].abs().max() > 1
+
+
+def test_dct_detail_encoder_preserves_patch_shape_and_gradients():
+    encoder = DCTDetailEncoder(
+        in_channels=2,
+        out_channels=8,
+        patch_extent=(90.0, 180.0),
+        detail_count=3,
+    )
+    x = torch.randn(1, 2, 4, 4, requires_grad=True)
+    encoded = encoder(x, make_resolution(x))
+    assert encoded.shape == (1, 8, 2, 2)
+    encoded.square().mean().backward()
+    assert x.grad is not None
+
+
+def test_spatial_query_encoder_emits_ordered_patch_features():
+    spatial = SpatialQueryPerceiver(
+        query_shape=(2, 2),
+        queries_dim=4,
+        channels_per_query=2,
+        perceiver_io=PerceiverIO(
+            depth=1,
+            dim=20,
+            queries_dim=4,
+            logits_dim=2,
+            num_latents=4,
+            latent_dim=8,
+            cross_heads=1,
+            latent_heads=1,
+            cross_dim_head=4,
+            latent_dim_head=4,
+            decoder_ff=True,
+        ),
+        num_freq_bands=4,
+        max_freq=2,
+    )
+    encoder = PerceiverEncoder(
+        in_channels=2,
+        out_channels=8,
+        patch_extent=(90.0, 180.0),
+        perceiver=spatial,
+    )
+    x = torch.randn(1, 2, 4, 4, requires_grad=True)
+    encoded = encoder(x, make_resolution(x))
+    assert encoded.shape == (1, 8, 2, 2)
+    encoded.mean().backward()
+    assert x.grad is not None
+
+
+def test_spatial_latent_grid_keeps_queries_as_spatial_tokens():
+    spatial = SpatialQueryPerceiver(
+        query_shape=(2, 2),
+        queries_dim=4,
+        channels_per_query=8,
+        perceiver_io=PerceiverIO(
+            depth=1,
+            dim=20,
+            queries_dim=4,
+            logits_dim=8,
+            num_latents=4,
+            latent_dim=8,
+            cross_heads=1,
+            latent_heads=1,
+            cross_dim_head=4,
+            latent_dim_head=4,
+            decoder_ff=True,
+        ),
+        num_freq_bands=4,
+        max_freq=2,
+    )
+    encoder = SpatialLatentGridEncoder(
+        in_channels=2,
+        out_channels=8,
+        patch_extent=(90.0, 180.0),
+        spatial_perceiver=spatial,
+    )
+    x = torch.randn(1, 2, 8, 8, requires_grad=True)
+    encoded = encoder(x, make_resolution(x))
+    assert encoded.shape == (1, 8, 4, 4)
+    assert encoder.output_patch_extent == (45.0, 90.0)
+    encoded.mean().backward()
+    assert x.grad is not None

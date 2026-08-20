@@ -8,6 +8,7 @@ from test_encoder import make_resolution  # type: ignore
 
 from samudra.config import DecoderConfig
 from samudra.models.modules import (
+    DCTDetailDecoder,
     DirectCrossAttentionIO,
     Perceiver,
     PerceiverDecoder,
@@ -481,3 +482,36 @@ def test_pixel_options_require_direct_cross_attention():
             patch_extent=(1.0, 1.0),
             implementation="naive",
         )
+
+
+def test_dct_detail_decoder_synthesizes_output_and_gradients():
+    decoder = DCTDetailDecoder(
+        in_channels=8,
+        out_channels=3,
+        patch_extent=(90.0, 180.0),
+        detail_count=3,
+        pixel_refinement=True,
+    )
+    latent = torch.randn(2, 8, 2, 2, requires_grad=True)
+    output_grid = torch.empty(2, 3, 4, 4)
+    output = decoder(latent, make_resolution(output_grid))
+    assert output.shape == output_grid.shape
+    output.square().mean().backward()
+    assert latent.grad is not None
+
+
+def test_decoder_config_builds_dct_detail_decoder():
+    config = DecoderConfig.model_validate(
+        {
+            "architecture": "dct_detail",
+            "detail_count": 3,
+            "pixel_refinement": True,
+        }
+    )
+    decoder = config.build(
+        in_channels=8,
+        out_channels=3,
+        patch_extent=(90.0, 180.0),
+        implementation="naive",
+    )
+    assert isinstance(decoder, DCTDetailDecoder)

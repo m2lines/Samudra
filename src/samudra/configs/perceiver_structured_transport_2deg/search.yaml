@@ -1,0 +1,111 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+# yaml-language-server: $schema=../schemas/SearchConfig.json
+
+name: perceiver-structured-transport-2deg
+algorithm:
+  type: successive_halving
+  rungs: [1, 3, 6, 12]
+  promotion_fraction: 0.5
+  minimum_promoted: 2
+objective: {metric: validation_loss, mode: min}
+metrics:
+  - validation_loss
+  - train_loss
+  - best_validation_loss
+  - val/seam/window_jump_ratio/zos
+  - val/seam/window_jump_ratio/channel_mean
+  - val/seam/window_jump_ratio/channel_p90
+  - val/seam/window_jump_ratio/channel_max
+  - val/seam/patch_jump_ratio/zos
+  - val/seam/patch_jump_ratio/channel_mean
+  - val/seam/patch_jump_ratio/channel_p90
+  - val/seam/patch_jump_ratio/channel_max
+  - val/seam/window_periodic_power_ratio/channel_mean
+  - val/seam/window_periodic_power_ratio/channel_p90
+  - val/seam/window_periodic_power_ratio/channel_max
+  - val/seam/patch_periodic_power_ratio/channel_mean
+  - val/seam/patch_periodic_power_ratio/channel_p90
+  - val/seam/patch_periodic_power_ratio/channel_max
+
+executor:
+  type: slurm
+  output_dir: /scratch/am16581/searches
+  harness: /scratch/am16581/Samudra/scripts/slurm_apptainer_train.sbatch
+  account: torch_pr_347_lzanna
+  partition: rtx6000_lzanna
+  controller_partition: cpu_short
+  python: /scratch/am16581/Samudra/experiments/perceiver_search_2deg/container_python.sh
+  cpus_per_task: 4
+  memory: 32G
+  gres: gpu:rtx6000:1
+  time_by_rung: ["02:00:00", "02:00:00", "03:00:00", "04:00:00"]
+  max_concurrent: 4
+  rung0_probe: true
+  data_root: /scratch/am16581
+  scratch_dir: /scratch/am16581
+  apptainer_module: singularity-ce/4.3.3
+
+artifacts:
+  destination:
+    type: s3
+    endpoint_url: https://nyu1.osn.mghpcc.org
+    bucket: m2lines-pubs
+    path: FOMO/experiments/searches
+    anon: false
+  public_url: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches
+  checkpoints: final
+
+candidates:
+  # Probe the new native-SDPA spatial-query path before releasing the array.
+  - name: spatial-grid2
+    config: perceiver_structured_transport_2deg/train.yaml
+    args:
+      - --model.encoder.architecture=spatial_grid
+      - --model.patch_extent=[12.0,20.0]
+
+  - name: mean64-direct
+    config: perceiver_structured_transport_2deg/train.yaml
+
+  - name: mean64-wide
+    config: perceiver_structured_transport_2deg/train.yaml
+    args: [--model.decoder.perceiver.cross_heads=4]
+
+  - name: packed-query2
+    config: perceiver_structured_transport_2deg/train.yaml
+    args: [--model.encoder.architecture=spatial_query]
+
+  - name: spatial-grid4
+    config: perceiver_structured_transport_2deg/train.yaml
+    args:
+      - --model.encoder.architecture=spatial_grid
+      - --model.encoder.spatial_query_shape=[4,4]
+      - --model.patch_extent=[24.0,40.0]
+
+  - name: resolved-moment4
+    config: perceiver_structured_transport_2deg/train.yaml
+    args: [--model.encoder.architecture=patch_moment]
+
+  - name: resolved-moment16
+    config: perceiver_structured_transport_2deg/train.yaml
+    args:
+      - --model.encoder.architecture=patch_moment
+      - --model.encoder.moment_count=16
+
+  - name: dct-detail4
+    config: perceiver_structured_transport_2deg/train.yaml
+    args:
+      - --model.encoder.architecture=dct_detail
+      - --model.decoder.architecture=dct_detail
+      - --model.decoder.pixel_refinement=true
+
+  - name: dct-detail14
+    config: perceiver_structured_transport_2deg/train.yaml
+    args:
+      - --model.encoder.architecture=dct_detail
+      - --model.encoder.detail_count=14
+      - --model.decoder.architecture=dct_detail
+      - --model.decoder.detail_count=14
+      - --model.decoder.pixel_refinement=true

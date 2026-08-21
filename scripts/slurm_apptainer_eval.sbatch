@@ -20,6 +20,9 @@
 #   export CONTAINER_TAG=26.05-latest
 # Optional code layer built by scripts/build_apptainer_code_layer.sh:
 #   export CODE_LAYER=/scratch/$USER/.apptainer-code-layers/samudra-code-<hash>.img
+# Or a clean, commit-pinned checkout mounted read-only:
+#   export CODE_DIR=/path/to/Samudra
+#   export CODE_COMMIT=<full-git-sha>
 #
 # Checkpoint selection (pick one):
 #   export TARGET_CHECKPOINT=<path-relative-to-OUTPUT_BASE>
@@ -41,6 +44,17 @@
 
 set -euo pipefail
 
+if ! command -v apptainer >/dev/null 2>&1 \
+  && ! command -v singularity >/dev/null 2>&1; then
+  if [[ -f /etc/profile.d/modules.sh ]]; then
+    # shellcheck source=/etc/profile.d/modules.sh
+    source /etc/profile.d/modules.sh
+  fi
+  if command -v module >/dev/null 2>&1; then
+    module load "${APPTAINER_MODULE:-apptainer}"
+  fi
+fi
+
 if command -v apptainer >/dev/null 2>&1; then
   APPTAINER_BIN=apptainer
 elif command -v singularity >/dev/null 2>&1; then
@@ -56,6 +70,12 @@ NAME_SUFFIX="${NAME_SUFFIX:-}"
 ARGS="${ARGS:-}"
 BACKEND="${BACKEND:-cuda}"
 CODE_LAYER="${CODE_LAYER:-}"
+CODE_DIR="${CODE_DIR:-}"
+CODE_COMMIT="${CODE_COMMIT:-}"
+if [[ -n "${CODE_LAYER}" && -n "${CODE_DIR}" ]]; then
+  echo "Specify only one of CODE_LAYER or CODE_DIR." >&2
+  exit 2
+fi
 if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then
   NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"
 fi
@@ -195,20 +215,90 @@ else
   echo "Using existing SIF."
 fi
 
-CONTAINER_GIT_COMMIT="$(
-  "${APPTAINER_BIN}" exec "${SIF_PATH}" \
-    bash -lc 'printf %s "${SAMUDRA_CONTAINER_GIT_COMMIT:-${WANDB_GIT_COMMIT:-unknown}}"'
-)"
-CONTAINER_GIT_REMOTE_URL="$(
-  "${APPTAINER_BIN}" exec "${SIF_PATH}" \
-    bash -lc 'printf %s "${SAMUDRA_CONTAINER_GIT_REMOTE_URL:-${WANDB_GIT_REMOTE_URL:-unknown}}"'
-)"
 CODE_ROOT=/workspace
-CODE_GIT_COMMIT="${CONTAINER_GIT_COMMIT}"
-CODE_GIT_REMOTE_URL="${CONTAINER_GIT_REMOTE_URL}"
+CODE_GIT_COMMIT=""
+CODE_GIT_REMOTE_URL=""
 CODE_LAYER_SHA256=""
 CODE_LAYER_MANIFEST=""
 OVERLAY_ARGS=()
+CODE_BIND_ARGS=()
+if [[ -n "${CODE_DIR}" ]]; then
+  if [[ -z "${CODE_COMMIT}" ]]; then
+    echo "CODE_COMMIT is required when CODE_DIR is set." >&2
+    exit 9
+  fi
+  if [[ ! "${CODE_COMMIT}" =~ ^[0-9a-fA-F]{40}$ ]]; then
+    echo "CODE_COMMIT must be a full 40-character Git commit: ${CODE_COMMIT}" >&2
+    exit 9
+  fi
+  if [[ ! -d "${CODE_DIR}" ]]; then
+    echo "CODE_DIR does not exist or is not a directory: ${CODE_DIR}" >&2
+    exit 9
+  fi
+  CODE_DIR="$(realpath "${CODE_DIR}")"
+  if ! CODE_GIT_COMMIT="$(git -C "${CODE_DIR}" rev-parse --verify HEAD^{commit})"; then
+    echo "CODE_DIR is not a Git checkout: ${CODE_DIR}" >&2
+    exit 9
+  fi
+  CODE_GIT_COMMIT="${CODE_GIT_COMMIT,,}"
+  if [[ "${CODE_GIT_COMMIT}" != "${CODE_COMMIT,,}" ]]; then
+    echo "CODE_DIR HEAD does not match CODE_COMMIT." >&2
+    echo "CODE_DIR HEAD: ${CODE_GIT_COMMIT}" >&2
+    echo "CODE_COMMIT:    ${CODE_COMMIT,,}" >&2
+    exit 9
+  fi
+  if [[ -n "$(git -C "${CODE_DIR}" status --porcelain)" ]]; then
+    echo "CODE_DIR must be clean, including untracked files: ${CODE_DIR}" >&2
+    exit 9
+  fi
+  for source_path in src pyproject.toml uv.lock; do
+    if [[ ! -e "${CODE_DIR}/${source_path}" ]]; then
+      echo "Required source path is absent from CODE_DIR: ${source_path}" >&2
+      exit 9
+    fi
+  done
+  CODE_GIT_REMOTE_URL="$(git -C "${CODE_DIR}" config --get remote.origin.url || true)"
+  if [[ -z "${CODE_GIT_REMOTE_URL}" ]]; then
+    echo "CODE_DIR does not have a remote.origin.url: ${CODE_DIR}" >&2
+    exit 9
+  fi
+  CODE_ROOT=/opt/samudra-code
+  CODE_BIND_ARGS=(--bind "${CODE_DIR}:${CODE_ROOT}:ro")
+  export APPTAINERENV_SAMUDRA_CODE_DIR_PREFLIGHT=1
+fi
+
+if ! CONTAINER_METADATA_TEXT="$(
+  "${APPTAINER_BIN}" exec \
+    "${CODE_BIND_ARGS[@]}" \
+    "${SIF_PATH}" \
+    bash -lc '
+      set -euo pipefail
+      if [[ "${SAMUDRA_CODE_DIR_PREFLIGHT:-0}" == "1" ]]; then
+        cmp -s /opt/samudra-code/uv.lock /workspace/uv.lock
+        cmp -s /opt/samudra-code/pyproject.toml /workspace/pyproject.toml
+      fi
+      printf "%s\n%s\n" \
+        "${SAMUDRA_CONTAINER_GIT_COMMIT:-${WANDB_GIT_COMMIT:-unknown}}" \
+        "${SAMUDRA_CONTAINER_GIT_REMOTE_URL:-${WANDB_GIT_REMOTE_URL:-unknown}}"
+    '
+)"; then
+  echo "Container metadata or CODE_DIR dependency compatibility check failed." >&2
+  echo "CODE_DIR uv.lock and pyproject.toml must match the container SIF." >&2
+  exit 9
+fi
+unset APPTAINERENV_SAMUDRA_CODE_DIR_PREFLIGHT
+readarray -t CONTAINER_METADATA <<<"${CONTAINER_METADATA_TEXT}"
+if [[ "${#CONTAINER_METADATA[@]}" -ne 2 ]]; then
+  echo "Container has invalid commit/repository metadata: ${SIF_PATH}" >&2
+  exit 9
+fi
+CONTAINER_GIT_COMMIT="${CONTAINER_METADATA[0]}"
+CONTAINER_GIT_REMOTE_URL="${CONTAINER_METADATA[1]}"
+if [[ -z "${CODE_DIR}" ]]; then
+  CODE_GIT_COMMIT="${CONTAINER_GIT_COMMIT}"
+  CODE_GIT_REMOTE_URL="${CONTAINER_GIT_REMOTE_URL}"
+fi
+
 if [[ -n "${CODE_LAYER}" ]]; then
   if [[ ! -s "${CODE_LAYER}" ]]; then
     echo "CODE_LAYER does not exist or is empty: ${CODE_LAYER}" >&2
@@ -274,8 +364,10 @@ echo "Code commit:     ${CODE_GIT_COMMIT}"
 if [[ -n "${CODE_LAYER}" ]]; then
   echo "Code layer:      ${CODE_LAYER}"
   echo "Code layer SHA:  ${CODE_LAYER_SHA256}"
+elif [[ -n "${CODE_DIR}" ]]; then
+  echo "Code directory:  ${CODE_DIR} (read-only bind)"
 else
-  echo "Code layer:      none (using source baked into container SIF)"
+  echo "Code source:     container SIF"
 fi
 
 export APPTAINERENV_WANDB_GIT_COMMIT="${CODE_GIT_COMMIT}"
@@ -283,6 +375,7 @@ export APPTAINERENV_WANDB_GIT_REMOTE_URL="${CODE_GIT_REMOTE_URL}"
 export APPTAINERENV_SAMUDRA_CODE_COMMIT="${CODE_GIT_COMMIT}"
 export APPTAINERENV_SAMUDRA_CODE_REPO_URL="${CODE_GIT_REMOTE_URL}"
 export APPTAINERENV_SAMUDRA_CODE_LAYER_SHA256="${CODE_LAYER_SHA256}"
+export APPTAINERENV_SAMUDRA_CODE_DIR="${CODE_DIR}"
 export APPTAINERENV_SAMUDRA_CONTAINER_GIT_COMMIT="${CONTAINER_GIT_COMMIT}"
 export APPTAINERENV_SAMUDRA_CONTAINER_GIT_REMOTE_URL="${CONTAINER_GIT_REMOTE_URL}"
 export APPTAINERENV_SAMUDRA_CONTAINER_IMAGE_REF="${CONTAINER_IMAGE_REF}"
@@ -292,6 +385,7 @@ export SINGULARITYENV_WANDB_GIT_REMOTE_URL="${CODE_GIT_REMOTE_URL}"
 export SINGULARITYENV_SAMUDRA_CODE_COMMIT="${CODE_GIT_COMMIT}"
 export SINGULARITYENV_SAMUDRA_CODE_REPO_URL="${CODE_GIT_REMOTE_URL}"
 export SINGULARITYENV_SAMUDRA_CODE_LAYER_SHA256="${CODE_LAYER_SHA256}"
+export SINGULARITYENV_SAMUDRA_CODE_DIR="${CODE_DIR}"
 export SINGULARITYENV_SAMUDRA_CONTAINER_GIT_COMMIT="${CONTAINER_GIT_COMMIT}"
 export SINGULARITYENV_SAMUDRA_CONTAINER_GIT_REMOTE_URL="${CONTAINER_GIT_REMOTE_URL}"
 export SINGULARITYENV_SAMUDRA_CONTAINER_IMAGE_REF="${CONTAINER_IMAGE_REF}"
@@ -334,11 +428,40 @@ BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 mkdir -p "${RUN_DIR}"
 if [[ -n "${CODE_LAYER_MANIFEST}" ]]; then
   cp "${CODE_LAYER_MANIFEST}" "${RUN_DIR}/source-manifest.json"
+elif [[ -n "${CODE_DIR}" ]]; then
+  SAMUDRA_SOURCE_MANIFEST_PATH="${RUN_DIR}/source-manifest.json" \
+  SAMUDRA_CODE_COMMIT="${CODE_GIT_COMMIT}" \
+  SAMUDRA_CODE_REPO_URL="${CODE_GIT_REMOTE_URL}" \
+  SAMUDRA_CODE_DIR="${CODE_DIR}" \
+  SAMUDRA_UV_LOCK_SHA256="$(sha256sum "${CODE_DIR}/uv.lock" | awk '{print $1}')" \
+  SAMUDRA_PYPROJECT_SHA256="$(sha256sum "${CODE_DIR}/pyproject.toml" | awk '{print $1}')" \
+  python3 - <<'PY'
+import datetime
+import json
+import os
+
+manifest = {
+    "schema_version": 1,
+    "source_mode": "read_only_bind",
+    "source_root": "/opt/samudra-code",
+    "host_source_path": os.environ["SAMUDRA_CODE_DIR"],
+    "code_commit": os.environ["SAMUDRA_CODE_COMMIT"],
+    "code_repo_url": os.environ["SAMUDRA_CODE_REPO_URL"],
+    "uv_lock_sha256": os.environ["SAMUDRA_UV_LOCK_SHA256"],
+    "pyproject_sha256": os.environ["SAMUDRA_PYPROJECT_SHA256"],
+    "included_paths": ["src", "pyproject.toml", "uv.lock"],
+    "recorded_at_utc": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+}
+with open(os.environ["SAMUDRA_SOURCE_MANIFEST_PATH"], "w", encoding="utf-8") as stream:
+    json.dump(manifest, stream, indent=2, sort_keys=True)
+    stream.write("\n")
+PY
 fi
 SAMUDRA_PROVENANCE_PATH="${RUN_DIR}/run-provenance.json" \
 SAMUDRA_CODE_COMMIT="${CODE_GIT_COMMIT}" \
 SAMUDRA_CODE_REPO_URL="${CODE_GIT_REMOTE_URL}" \
 SAMUDRA_CODE_LAYER_SHA256="${CODE_LAYER_SHA256}" \
+SAMUDRA_CODE_DIR="${CODE_DIR}" \
 SAMUDRA_CONTAINER_GIT_COMMIT="${CONTAINER_GIT_COMMIT}" \
 SAMUDRA_CONTAINER_GIT_REMOTE_URL="${CONTAINER_GIT_REMOTE_URL}" \
 SAMUDRA_CONTAINER_IMAGE_REF="${CONTAINER_IMAGE_REF}" \
@@ -351,6 +474,7 @@ keys = (
     "SAMUDRA_CODE_COMMIT",
     "SAMUDRA_CODE_REPO_URL",
     "SAMUDRA_CODE_LAYER_SHA256",
+    "SAMUDRA_CODE_DIR",
     "SAMUDRA_CONTAINER_GIT_COMMIT",
     "SAMUDRA_CONTAINER_GIT_REMOTE_URL",
     "SAMUDRA_CONTAINER_IMAGE_REF",
@@ -367,6 +491,7 @@ PY
 srun --ntasks=1 --ntasks-per-node=1 \
   "${APPTAINER_BIN}" exec --nv \
     "${OVERLAY_ARGS[@]}" \
+    "${CODE_BIND_ARGS[@]}" \
     --bind "${BIND_ARG}" \
     --pwd "${CODE_ROOT}" \
     "${SIF_PATH}" \
@@ -380,7 +505,7 @@ srun --ntasks=1 --ntasks-per-node=1 \
       fi
       if [[ ! -f \"${CONFIG_IN_CONTAINER}\" ]]; then
         echo \"ERROR: config not found inside container: ${CONFIG_IN_CONTAINER}\" >&2
-        echo \"Hint: verify CONFIG and the selected code layer.\" >&2
+        echo \"Hint: verify CONFIG and the selected code source.\" >&2
         exit 2
       fi
       /workspace/.venv/bin/python -m samudra.eval \"${CONFIG_IN_CONTAINER}\" \

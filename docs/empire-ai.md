@@ -244,6 +244,72 @@ tail "$SCRATCH/logs/pull-sif-JOB_ID.out"
 ls -lh "$SIF_PATH"
 ```
 
+## Build a code overlay on a compute node
+
+For source or configuration changes that leave `uv.lock` and `pyproject.toml`
+unchanged, use a small code overlay instead of rebuilding the 12 GiB SIF. The
+Torch guide's default overlay directory is `/scratch/$USER`, which is not the
+Empire AI scratch path. Set `CODE_LAYER_DIR` explicitly.
+
+Do not run the builder on the login or transfer nodes. It invokes Apptainer
+several times, and those hosts do not provide a working `squashfuse` setup.
+Submit the build to a compute node. Alpha's `test` QoS currently requires a GPU
+GRES even though the overlay build itself is CPU-only:
+
+```bash
+ssh eai
+cd ~/Samudra
+
+git fetch origin feature/native-sdpa-perceiver
+export CODE_REF="$(git rev-parse FETCH_HEAD)"
+export SCRATCH="/mnt/lustre/nyu/$USER"
+export SIF_PATH="$SCRATCH/.apptainer-images/physicsnemo-26.05-native-sdpa.sif"
+export CODE_LAYER_DIR="$SCRATCH/.apptainer-code-layers"
+export CODE_LAYER="$CODE_LAYER_DIR/samudra-code-${CODE_REF}.img"
+export APPTAINER_CACHEDIR="$SCRATCH/.apptainer-cache"
+export APPTAINER_TMPDIR=/tmp
+mkdir -p "$CODE_LAYER_DIR" "$APPTAINER_CACHEDIR" "$SCRATCH/logs"
+
+BUILD_JOB_ID="$(sbatch --parsable \
+  --account=nyu \
+  --partition=nyu \
+  --qos=test \
+  --constraint=h100 \
+  --nodes=1 \
+  --ntasks=1 \
+  --cpus-per-task=8 \
+  --mem=64G \
+  --gres=gpu:nvidia_h100_80gb_hbm3:1 \
+  --time=00:30:00 \
+  --chdir="$SCRATCH" \
+  --output="$SCRATCH/logs/code-layer-%j.out" \
+  --error="$SCRATCH/logs/code-layer-%j.err" \
+  --export=ALL \
+  --wrap='source /etc/profile.d/modules.sh; module load apptainer; bash "$HOME/Samudra/scripts/build_apptainer_code_layer.sh" "$CODE_REF" "$SIF_PATH"')"
+echo "Overlay build job: $BUILD_JOB_ID"
+```
+
+Use a full pushed commit for `CODE_REF`, as above. This makes the expected
+`CODE_LAYER` path known before the build finishes, which allows later jobs to
+depend on it. The builder verifies dependency-file equality, the overlay
+checksum, and a `samudra` import before publishing the layer atomically. If the
+dependency files differ, rebuild the container; do not bypass that check.
+
+Each Apptainer invocation currently expands the SIF into a node-local temporary
+sandbox because Alpha compute nodes lack `squashfuse` and `fuse2fs`. Several
+minutes of startup time and related warnings are therefore expected. A
+30-minute `test` allocation leaves reasonable margin. Confirm `COMPLETED`
+before using the layer when submitting jobs manually:
+
+```bash
+sacct -j "$BUILD_JOB_ID" --format=JobID,State,Elapsed,ExitCode
+tail "$SCRATCH/logs/code-layer-$BUILD_JOB_ID.out"
+ls -lh "$CODE_LAYER" "$CODE_LAYER.sha256" "$CODE_LAYER.json"
+```
+
+Set `CODE_LAYER` for training and evaluation jobs. Both harnesses verify and
+mount it read-only, and record its commit and checksum in run provenance.
+
 ## Shell conveniences and secrets
 
 It is reasonable to add non-secret cluster paths to `~/.bashrc`:
@@ -255,15 +321,16 @@ export PATH="$HOME/software/alpha-x86/rclone/bin:$PATH"
 ```
 
 If every process in the account is trusted and experiment-related, keeping
-`WANDB_API_KEY` in `~/.bashrc` is convenient because `--export=ALL` forwards it
-to Slurm jobs. Set `chmod 600 ~/.bashrc`, and never print or commit the file:
+`WANDB_API_KEY` in `~/.bashrc` is convenient for interactive shells. Set
+`chmod 600 ~/.bashrc`, and never print or commit the file:
 
 ```bash
 export WANDB_API_KEY='...'
 ```
 
-For narrower exposure, use `wandb login`, which stores the credential in a
-mode-600 `~/.netrc`, or keep project secrets in a dedicated file:
+Do not assume that `ssh eai 'command'`, a non-interactive shell, or a future
+shell configuration will source `.bashrc`. For automation, a dedicated secret
+file is a clearer interface:
 
 ```bash
 mkdir -p ~/.config/samudra
@@ -273,15 +340,20 @@ chmod 700 ~/.config/samudra
 chmod 600 ~/.config/samudra/secrets.env
 ```
 
-Source that file only before an online W&B submission:
+Source that file explicitly before an online W&B submission and test that the
+key exists without printing it:
 
 ```bash
 source ~/.config/samudra/secrets.env
+test -n "${WANDB_API_KEY:-}"
 export WANDB_MODE=online
 ```
 
-Slurm receives exported submission-shell variables through `--export=ALL`.
-The pilot below disables W&B so it does not require a credential.
+If the key is kept only in `.bashrc`, explicitly run `source "$HOME/.bashrc"`
+and the same `test -n` check instead. Place the export before any
+interactive-shell early return in that file. Slurm receives exported
+submission-shell variables through `--export=ALL`. The pilot below disables
+W&B so it does not require a credential.
 
 ## Submit the 1° SamudraMini pilot
 
@@ -356,6 +428,41 @@ sandboxes. The shared harness performs three container invocations during
 startup, adding roughly two minutes in this pilot. The warnings are non-fatal;
 the final job state and exit code are the authoritative result.
 
+## Compare queue-aware resource shapes
+
+A full node has the greatest instantaneous throughput, but it may wait longer
+than a smaller request. Before a production submission, compare several valid
+shapes with `sbatch --test-only` using the same QoS, wall time, constraints, and
+roughly proportional CPU and memory requests as the real job:
+
+```bash
+for shape in 1:16:200G 4:48:800G 8:96:1600G; do
+  IFS=: read -r gpus cpus memory <<<"$shape"
+  echo "--- ${gpus}x H100 ---"
+  sbatch --test-only \
+    --account=nyu \
+    --partition=nyu \
+    --qos=standard \
+    --constraint=h100 \
+    --nodes=1 \
+    --ntasks=1 \
+    --cpus-per-task="$cpus" \
+    --mem="$memory" \
+    --gres="gpu:nvidia_h100_80gb_hbm3:$gpus" \
+    --time=2-00:00:00 \
+    --wrap=true
+done
+```
+
+The projected start time is a transient scheduler estimate, not a reservation
+or guarantee. Balance it against the expected scaling efficiency and runtime;
+four GPUs can finish sooner than eight when the smaller request starts much
+earlier.
+
+`sbatch --test-only` prints job-like IDs as part of its estimate, but it does
+**not** enqueue those jobs. Confirm with `squeue -u "$USER"` if there is any
+doubt. A `QOSMinGRES` result is a rejected shape, not a queued job.
+
 ## Scale to a full H100 node
 
 After the pilot succeeds, a full-node 8-GPU run uses all 96 CPU cores. Do not
@@ -363,13 +470,23 @@ copy Torch's 128-CPU request; Alpha GPU nodes expose 96 schedulable CPU cores.
 For example:
 
 ```bash
-export NAME="$(date +%F)-samudra-mini-onedeg-eai-8gpu"
+export NAME="$(date +%F)-samudra-onedeg-eai-8gpu"
 export DATA_CACHE_DIR="$SCRATCH/.data_cache/$NAME"
+export CONFIG=src/samudra/configs/samudra_om4/train.yaml
 export WANDB_MODE=online
 export ARGS='--data.loading.num_workers=2 --preemptible=true'
 export REQUEUE_ON_USR1=1
 
-sbatch \
+dependency_args=()
+if [[ -n "${BUILD_JOB_ID:-}" ]]; then
+  dependency_args=(
+    --dependency="afterok:$BUILD_JOB_ID"
+    --kill-on-invalid-dep=yes
+  )
+fi
+
+TRAIN_JOB_ID="$(sbatch --parsable \
+  "${dependency_args[@]}" \
   --account="$ACCOUNT" \
   --partition="$ACCOUNT" \
   --qos=long \
@@ -386,7 +503,8 @@ sbatch \
   --output="$SCRATCH/logs/samudra-eai-%j.out" \
   --error="$SCRATCH/logs/samudra-eai-%j.err" \
   --export=ALL \
-  ~/Samudra/scripts/slurm_apptainer_train.sbatch
+  ~/Samudra/scripts/slurm_apptainer_train.sbatch)"
+echo "Training job: $TRAIN_JOB_ID"
 ```
 
 The harness traps `USR1`, requeues the job, and resumes from the latest
@@ -404,6 +522,111 @@ To target H200 instead, replace the constraint and GRES:
 ```bash
 --constraint=h200 --gres=gpu:nvidia_h200:8
 ```
+
+## Chain evaluation and visualization
+
+For normal experiments, submit the stages as one failure-safe dependency chain:
+
+```text
+overlay build ──afterok──> training ──afterok──> evaluation ──afterok──> visualization
+```
+
+Use `--kill-on-invalid-dep=yes` at every edge. If an upstream job fails or is
+cancelled, Slurm then cancels the dependent job instead of leaving it pending
+forever or producing artifacts from stale inputs.
+
+The validated `samudra_mini_om4` pilot does not currently ship a matching eval
+preset. The concrete example below applies when training with
+`samudra_om4/train.yaml`; use the matching eval and visualization configs for
+any other model.
+
+After submitting the training command above, submit a one-GPU evaluation:
+
+```bash
+export TRAIN_NAME="$NAME"
+export EVAL_NAME="${TRAIN_NAME}-eval"
+export CONFIG=src/samudra/configs/samudra_om4/eval.yaml
+export NAME="$EVAL_NAME"
+export TARGET_CHECKPOINT="$TRAIN_NAME/saved_nets/ema_ckpt.pt"
+export ARGS='--num_model_steps_forward=25'
+export DATA_CACHE_DIR="$SCRATCH/.data_cache/$EVAL_NAME"
+
+EVAL_JOB_ID="$(sbatch --parsable \
+  --dependency="afterok:$TRAIN_JOB_ID" \
+  --kill-on-invalid-dep=yes \
+  --account="$ACCOUNT" \
+  --partition="$ACCOUNT" \
+  --qos=standard \
+  --constraint=h100 \
+  --nodes=1 \
+  --ntasks-per-node=1 \
+  --cpus-per-task=16 \
+  --mem=128G \
+  --gres=gpu:nvidia_h100_80gb_hbm3:1 \
+  --time=04:00:00 \
+  --chdir="$SCRATCH" \
+  --output="$SCRATCH/logs/samudra-eval-%j.out" \
+  --error="$SCRATCH/logs/samudra-eval-%j.err" \
+  --export=ALL \
+  ~/Samudra/scripts/slurm_apptainer_eval.sbatch)"
+echo "Evaluation job: $EVAL_JOB_ID"
+```
+
+Visualization does not yet have a dedicated Slurm harness, so invoke the same
+SIF and optional code overlay explicitly. The `samudra_om4/viz.yaml` preset
+reads its basin mask anonymously from public OSN:
+
+```bash
+export VIZ_CONFIG=src/samudra/configs/samudra_om4/viz.yaml
+export VIZ_NAME="${TRAIN_NAME}-viz"
+export RUNS="[{\"name\":\"$EVAL_NAME\",\"location\":\"$OUTPUT_BASE/$EVAL_NAME/predictions.zarr\"}]"
+
+VIZ_JOB_ID="$(sbatch --parsable \
+  --dependency="afterok:$EVAL_JOB_ID" \
+  --kill-on-invalid-dep=yes \
+  --account="$ACCOUNT" \
+  --partition="$ACCOUNT" \
+  --qos=standard \
+  --constraint=h100 \
+  --nodes=1 \
+  --ntasks=1 \
+  --cpus-per-task=16 \
+  --mem=128G \
+  --gres=gpu:nvidia_h100_80gb_hbm3:1 \
+  --time=04:00:00 \
+  --chdir="$SCRATCH" \
+  --output="$SCRATCH/logs/samudra-viz-%j.out" \
+  --error="$SCRATCH/logs/samudra-viz-%j.err" \
+  --export=ALL \
+  --wrap='set -euo pipefail
+    source /etc/profile.d/modules.sh
+    module load apptainer
+    code_root=/workspace
+    overlay_args=()
+    if [[ -n "${CODE_LAYER:-}" ]]; then
+      code_root=/opt/samudra-code
+      overlay_args=(--overlay "$CODE_LAYER:ro")
+    fi
+    apptainer exec --nv \
+      "${overlay_args[@]}" \
+      --bind "$DATA_ROOT:$DATA_ROOT,$OUTPUT_BASE:$OUTPUT_BASE" \
+      --pwd "$code_root" \
+      "$SIF_PATH" \
+      env PYTHONPATH="$code_root/src" \
+      /workspace/.venv/bin/python -m samudra.viz \
+      "$code_root/$VIZ_CONFIG" \
+      --data_root="$DATA_ROOT" \
+      --base_output_dir="$OUTPUT_BASE" \
+      --name="$VIZ_NAME" \
+      --runs="$RUNS"')"
+echo "Visualization job: $VIZ_JOB_ID"
+```
+
+Although visualization is CPU-oriented, an otherwise valid CPU-only Alpha
+request currently fails with `QOSMinGRES`. The practical Alpha workaround is
+to reserve one H100 as above. Alternatives are running visualization on
+another compatible system, or maintaining a separate `arm64` environment for
+the CPU-only Grace system. Do not reuse an Alpha x86 SIF or overlay on Grace.
 
 ## Monitor and diagnose
 

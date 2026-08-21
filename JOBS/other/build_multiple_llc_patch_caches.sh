@@ -102,9 +102,12 @@ SHUFFLE="${SHUFFLE:-shuffle}"
 NAME_SUFFIX="${NAME_SUFFIX:-_trainval_ready}"
 
 # ---------------------------------------------------------------- run mode
-# init -> create the stores and their statics, write no timesteps
-# fill -> write this array task's slice of the time axis into existing stores
-# all  -> both, in one job (only sensible with TIME_SPLITS=1)
+# init    -> create the stores and their statics, write no timesteps
+# fill    -> write this array task's Nth equal slice of the time axis
+# gapfill -> write this array task's Nth range from GAPS_JSON, for mopping up
+#            after a task hit its wall clock limit. Produce the file with:
+#              scripts/check_llc_cache_gaps.py <root> --emit-json gaps.json
+# all     -> init and fill the whole axis in one job
 MODE="${MODE:-all}"
 # How many equal time ranges the fill is divided into. Under `sbatch --array`
 # this defaults to the array width, so the splits and the tasks cannot disagree
@@ -142,6 +145,24 @@ ARGS=(
 
 case "${MODE}" in
   init) ARGS+=(--init) ;;
+  gapfill)
+    if [[ -z "${GAPS_JSON:-}" ]]; then
+      echo "ERROR: MODE=gapfill needs GAPS_JSON=<path from check_llc_cache_gaps.py --emit-json>" >&2
+      exit 1
+    fi
+    read -r gap_start gap_stop < <(
+      "${PYTHON_BIN}" -c "
+import json,sys
+gaps=json.load(open(sys.argv[1]))
+i=int(sys.argv[2])
+if i>=len(gaps):
+    sys.stderr.write(f'array task {i} but only {len(gaps)} gap(s)\n'); sys.exit(1)
+print(gaps[i][0], gaps[i][1])
+" "${GAPS_JSON}" "${SLURM_ARRAY_TASK_ID:-0}"
+    )
+    echo "gapfill: range [${gap_start}:${gap_stop}) from ${GAPS_JSON}"
+    ARGS+=(--fill --time-index-start "${gap_start}" --time-index-stop "${gap_stop}")
+    ;;
   fill)
     # A warning, not an error: rerunning a single failed task is
     # `--array=3` with an explicit TIME_SPLITS=8, where the two legitimately
@@ -157,7 +178,7 @@ case "${MODE}" in
     # One job, start to finish. Nothing to split.
     TIME_SPLITS=1
     ;;
-  *) echo "ERROR: MODE must be init, fill, or all (got '${MODE}')." >&2; exit 1 ;;
+  *) echo "ERROR: MODE must be init, fill, gapfill, or all (got '${MODE}')." >&2; exit 1 ;;
 esac
 
 echo "======== build multiple LLC packed caches (chunk-first) ========"

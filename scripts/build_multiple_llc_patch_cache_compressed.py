@@ -269,10 +269,28 @@ def build_compressor(args: argparse.Namespace):
     return numcodecs.Blosc(cname=args.compressor, clevel=args.compression_level, shuffle=shuffle)
 
 
-def create_array(group, name, shape, chunks, dtype, dims, compressor=None):
+def create_array(group, name, shape, chunks, dtype, dims, compressor=None,
+                 fill_value="auto"):
+    """Create one array with xarray-compatible fill-value semantics.
+
+    `fill_value` is not cosmetic. xarray treats a zarr `fill_value` as
+    `_FillValue` and masks any stored value equal to it, so zarr's default of 0
+    is actively wrong here:
+
+    * `time` would decode index 0 to NaT, which then overflows cftime in
+      `_with_julian_time_coord` -- the trainer cannot open the store at all;
+    * a wet mask would have every land cell (0) masked to NaN, and NaN casts to
+      True, so land would silently become ocean.
+
+    So: NaN for float arrays (matching the source's own missing-data
+    convention), and no fill value at all for integer coordinates and masks,
+    where 0 is a legitimate value.
+    """
+    if fill_value == "auto":
+        fill_value = float("nan") if np.issubdtype(np.dtype(dtype), np.floating) else None
     array = group.create_dataset(
         name, shape=shape, chunks=chunks, dtype=dtype,
-        compressor=compressor, overwrite=True,
+        compressor=compressor, overwrite=True, fill_value=fill_value,
     )
     array.attrs["_ARRAY_DIMENSIONS"] = list(dims)
     return array

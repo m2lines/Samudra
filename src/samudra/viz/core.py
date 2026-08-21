@@ -3967,8 +3967,24 @@ def postprocess_for_plot(
     coords = ds_groundtruth.coords
 
     for key in pred_dict.keys():
+        prediction = pred_dict[key]["ds_prediction"]
+        # Rollouts written by the current writer retain native ``y``/``x``
+        # dimensions plus two-dimensional ``lat``/``lon`` coordinates.  Older
+        # rollouts use ``lat``/``lon`` as the dimensions themselves.  Normalize
+        # the current layout before assigning the ground-truth coordinates;
+        # otherwise the final lon->x rename conflicts with the retained x
+        # coordinate when old and new rollouts are visualized together.
+        if "y" in prediction.dims or "x" in prediction.dims:
+            if not {"y", "x"}.issubset(prediction.dims):
+                raise ValueError(
+                    f"Prediction {key!r} has only one native spatial dimension: "
+                    f"{tuple(prediction.dims)}"
+                )
+            prediction = prediction.drop_vars(["lat", "lon"], errors="ignore")
+            prediction = prediction.rename({"y": "lat", "x": "lon"})
+
         pred_dict[key]["ds_prediction"] = _postprocess_for_plot(
-            pred_dict[key]["ds_prediction"],
+            prediction,
             areacello_values,
             areacello_spherical_values,
             dz,

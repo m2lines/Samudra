@@ -52,7 +52,7 @@ class SamudraMulti(BaseModel):
         last_kernel_size: int,
         pad: str,
         add_3d_coordinates: nn.Module | None,
-        encoder: PerceiverEncoder,
+        encoder: nn.Module,
         processor: UNetBackbone,
         decoder: PerceiverDecoder,
         hist: int,

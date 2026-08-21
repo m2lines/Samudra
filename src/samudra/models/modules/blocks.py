@@ -82,10 +82,8 @@ class ZonallyPeriodicBilinearUpsample(torch.nn.Module):
         super().__init__()
         if isinstance(upsampling, int):
             upsampling = (upsampling, upsampling)
-        if tuple(upsampling) != (2, 2):
-            raise ValueError(
-                "ZonallyPeriodicBilinearUpsample only supports 2x upsampling"
-            )
+        if len(upsampling) != 2 or any(scale < 1 for scale in upsampling):
+            raise ValueError("upsampling must contain two positive integer scales")
         self.scale_h, self.scale_w = upsampling
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

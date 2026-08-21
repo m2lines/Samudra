@@ -1,0 +1,40 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+# yaml-language-server: $schema=../schemas/TrainConfig.json
+
+debug: false
+disk_mode: true
+pin_mem: true
+save_freq: 5
+validation_image_log_freq: 5
+epochs: 70
+batch_size: 1
+# Eight ranks and four accumulation steps preserve effective global batch 32.
+gradient_accumulation_steps: 4
+learning_rate: 0.0006
+scheduler: {type: cosine}
+loss: mse
+finetune: false
+resume_ckpt_path: null
+inference_epochs: []
+data_stride: [1]
+steps: [4]
+step_transition: []
+preemptible: true
+backend: auto
+
+experiment:
+  name: perceiver-spatial-grid-quarterdeg
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: online
+    entity: ocean_emulators
+    project: default
+    tags: [empire-ai, om4-quarterdeg, perceiver-spatial-grid, native-sdpa]
+    notes: Full 70-epoch quarter-degree scaling test of the selected structured Perceiver architecture.
+
+data: !include ../perceiver_spatial_grid_1deg/data.yaml
+model: !include ../perceiver_spatial_grid_1deg/model.yaml

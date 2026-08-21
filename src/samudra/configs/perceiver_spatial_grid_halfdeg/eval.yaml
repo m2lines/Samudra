@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+# yaml-language-server: $schema=../schemas/EvalConfig.json
+
+debug: false
+save_zarr: true
+disk_mode: true
+num_model_steps_forward: 25
+ckpt_path: null
+backend: auto
+
+experiment:
+  name: perceiver-spatial-grid-halfdeg-eval
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: online
+    entity: ocean_emulators
+    project: default
+    tags: [empire-ai, om4-halfdeg, perceiver-spatial-grid, evaluation]
+
+data: !include ../perceiver_spatial_grid_1deg/data.yaml
+model: !include ../perceiver_spatial_grid_1deg/model.yaml

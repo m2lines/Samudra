@@ -63,6 +63,7 @@ For NYU, use this layout:
 ├── .apptainer-cache/
 ├── .apptainer-images/
 ├── .data_cache/
+├── code/
 ├── data/
 │   └── om4_onedeg/
 ├── logs/
@@ -166,10 +167,8 @@ Exit the transfer node after the copy and verification finish.
 ## Build and publish the exact container
 
 The container workflow is `.github/workflows/container-physicsnemo.yml`.
-Source/config-only changes can normally use the code-overlay workflow described
-in [the Torch guide](torch.md), but dependency or lockfile changes require an
-exact container rebuild. PR 842 changes `uv.lock`, so dispatch its container
-workflow before using it:
+Dependency or lockfile changes require an exact container rebuild. PR 842
+changes `uv.lock`, so dispatch its container workflow before using it:
 
 ```bash
 gh workflow run container-physicsnemo.yml \
@@ -244,71 +243,67 @@ tail "$SCRATCH/logs/pull-sif-JOB_ID.out"
 ls -lh "$SIF_PATH"
 ```
 
-## Build a code overlay on a compute node
+## Choose a reproducible code source
 
-For source or configuration changes that leave `uv.lock` and `pyproject.toml`
-unchanged, use a small code overlay instead of rebuilding the 12 GiB SIF. The
-Torch guide's default overlay directory is `/scratch/$USER`, which is not the
-Empire AI scratch path. Set `CODE_LAYER_DIR` explicitly.
+Use one of these supported paths on Alpha:
 
-Do not run the builder on the login or transfer nodes. It invokes Apptainer
-several times, and those hosts do not provide a working `squashfuse` setup.
-Submit the build to a compute node. Alpha's `test` QoS currently requires a GPU
-GRES even though the overlay build itself is CPU-only:
+1. Build and use an exact SIF for the experiment commit. This is required when
+   `uv.lock` or `pyproject.toml` changes and is the strongest isolation.
+2. For source/config-only changes, mount a clean, commit-pinned Git checkout
+   read-only with the harness's `CODE_DIR` support.
+
+Do **not** use the Torch EXT3 `CODE_LAYER` mechanism on Alpha. `apptainer
+overlay create` can succeed, which is misleading, but the later `apptainer exec
+--overlay` fails for ordinary users while attaching `/dev/loop0`:
+
+```text
+failed to find loop device
+could not open /dev/loop0: permission denied
+```
+
+This limitation applies on Alpha compute nodes as well as login nodes.
+
+To prepare the read-only-bind option, resolve a pushed ref to a full commit and
+create a detached worktree. Do not edit this checkout after submitting jobs:
 
 ```bash
 ssh eai
-cd ~/Samudra
-
-git fetch origin feature/native-sdpa-perceiver
-export CODE_REF="$(git rev-parse FETCH_HEAD)"
 export SCRATCH="/mnt/lustre/nyu/$USER"
-export SIF_PATH="$SCRATCH/.apptainer-images/physicsnemo-26.05-native-sdpa.sif"
-export CODE_LAYER_DIR="$SCRATCH/.apptainer-code-layers"
-export CODE_LAYER="$CODE_LAYER_DIR/samudra-code-${CODE_REF}.img"
-export APPTAINER_CACHEDIR="$SCRATCH/.apptainer-cache"
-export APPTAINER_TMPDIR=/tmp
-mkdir -p "$CODE_LAYER_DIR" "$APPTAINER_CACHEDIR" "$SCRATCH/logs"
+export CODE_REF=feature/native-sdpa-perceiver
 
-BUILD_JOB_ID="$(sbatch --parsable \
-  --account=nyu \
-  --partition=nyu \
-  --qos=test \
-  --constraint=h100 \
-  --nodes=1 \
-  --ntasks=1 \
-  --cpus-per-task=8 \
-  --mem=64G \
-  --gres=gpu:nvidia_h100_80gb_hbm3:1 \
-  --time=00:30:00 \
-  --chdir="$SCRATCH" \
-  --output="$SCRATCH/logs/code-layer-%j.out" \
-  --error="$SCRATCH/logs/code-layer-%j.err" \
-  --export=ALL \
-  --wrap='source /etc/profile.d/modules.sh; module load apptainer; bash "$HOME/Samudra/scripts/build_apptainer_code_layer.sh" "$CODE_REF" "$SIF_PATH"')"
-echo "Overlay build job: $BUILD_JOB_ID"
+git -C ~/Samudra fetch origin "$CODE_REF"
+export CODE_COMMIT="$(git -C ~/Samudra rev-parse FETCH_HEAD)"
+export CODE_DIR="$SCRATCH/code/Samudra-$CODE_COMMIT"
+mkdir -p "$SCRATCH/code"
+if [[ ! -d "$CODE_DIR" ]]; then
+  git -C ~/Samudra worktree add --detach "$CODE_DIR" "$CODE_COMMIT"
+fi
+
+test "$(git -C "$CODE_DIR" rev-parse HEAD)" = "$CODE_COMMIT"
+test -z "$(git -C "$CODE_DIR" status --porcelain)"
 ```
 
-Use a full pushed commit for `CODE_REF`, as above. This makes the expected
-`CODE_LAYER` path known before the build finishes, which allows later jobs to
-depend on it. The builder verifies dependency-file equality, the overlay
-checksum, and a `samudra` import before publishing the layer atomically. If the
-dependency files differ, rebuild the container; do not bypass that check.
-
-Each Apptainer invocation currently expands the SIF into a node-local temporary
-sandbox because Alpha compute nodes lack `squashfuse` and `fuse2fs`. Several
-minutes of startup time and related warnings are therefore expected. A
-30-minute `test` allocation leaves reasonable margin. Confirm `COMPLETED`
-before using the layer when submitting jobs manually:
+Export both `CODE_DIR` and `CODE_COMMIT` when submitting training and eval.
+The shared harness repeats those two Git checks on the compute node, requires
+a full 40-character commit, and mounts the checkout at
+`/opt/samudra-code:ro`. In the same container preflight used to read image
+metadata, it verifies:
 
 ```bash
-sacct -j "$BUILD_JOB_ID" --format=JobID,State,Elapsed,ExitCode
-tail "$SCRATCH/logs/code-layer-$BUILD_JOB_ID.out"
-ls -lh "$CODE_LAYER" "$CODE_LAYER.sha256" "$CODE_LAYER.json"
+cmp -s /opt/samudra-code/uv.lock /workspace/uv.lock
+cmp -s /opt/samudra-code/pyproject.toml /workspace/pyproject.toml
 ```
 
-Set `CODE_LAYER` for training and evaluation jobs. Both harnesses verify and
-mount it read-only, and record its commit and checksum in run provenance.
+A mismatch fails before creating the run directory. Successful jobs pass the
+code commit and repository to W&B and record the bind path, commit, dependency
+hashes, container identity, and SIF path in `source-manifest.json` and
+`run-provenance.json`.
+
+Alpha lacks `squashfuse` and `fuse2fs`, so every `apptainer exec` may unpack the
+12 GiB SIF into a temporary sandbox. The harness combines container metadata
+and `CODE_DIR` compatibility into one preflight, followed by the actual run,
+instead of using a separate invocation for every check. Startup can still take
+several minutes.
 
 ## Shell conveniences and secrets
 
@@ -424,9 +419,10 @@ The pilot above was validated on 2026-08-21 with these results:
 
 Alpha currently lacks `squashfuse` and `fuse2fs` on compute nodes. Apptainer
 therefore prints warnings and expands the SIF to node-local temporary
-sandboxes. The shared harness performs three container invocations during
-startup, adding roughly two minutes in this pilot. The warnings are non-fatal;
-the final job state and exit code are the authoritative result.
+sandboxes. The original harness performed three container invocations during
+startup, adding roughly two minutes in this pilot; the current harness combines
+metadata and compatibility checks into one preflight. The warnings are
+non-fatal; the final job state and exit code are the authoritative result.
 
 ## Compare queue-aware resource shapes
 
@@ -454,10 +450,11 @@ for shape in 1:16:200G 4:48:800G 8:96:1600G; do
 done
 ```
 
-The projected start time is a transient scheduler estimate, not a reservation
-or guarantee. Balance it against the expected scaling efficiency and runtime;
-four GPUs can finish sooner than eight when the smaller request starts much
-earlier.
+The projected start time is a volatile scheduler snapshot, not a reservation
+or guarantee; it can move by hours within minutes. A submitted job may also
+temporarily report `StartTime=Unknown`. Balance queue state against expected
+scaling efficiency and runtime: four GPUs can finish sooner than eight when the
+smaller request starts much earlier.
 
 `sbatch --test-only` prints job-like IDs as part of its estimate, but it does
 **not** enqueue those jobs. Confirm with `squeue -u "$USER"` if there is any
@@ -477,16 +474,7 @@ export WANDB_MODE=online
 export ARGS='--data.loading.num_workers=2 --preemptible=true'
 export REQUEUE_ON_USR1=1
 
-dependency_args=()
-if [[ -n "${BUILD_JOB_ID:-}" ]]; then
-  dependency_args=(
-    --dependency="afterok:$BUILD_JOB_ID"
-    --kill-on-invalid-dep=yes
-  )
-fi
-
 TRAIN_JOB_ID="$(sbatch --parsable \
-  "${dependency_args[@]}" \
   --account="$ACCOUNT" \
   --partition="$ACCOUNT" \
   --qos=long \
@@ -528,7 +516,7 @@ To target H200 instead, replace the constraint and GRES:
 For normal experiments, submit the stages as one failure-safe dependency chain:
 
 ```text
-overlay build ──afterok──> training ──afterok──> evaluation ──afterok──> visualization
+training ──afterok──> evaluation ──afterok──> visualization
 ```
 
 Use `--kill-on-invalid-dep=yes` at every edge. If an upstream job fails or is
@@ -573,7 +561,8 @@ echo "Evaluation job: $EVAL_JOB_ID"
 ```
 
 Visualization does not yet have a dedicated Slurm harness, so invoke the same
-SIF and optional code overlay explicitly. The `samudra_om4/viz.yaml` preset
+SIF and optional read-only code checkout explicitly. The
+`samudra_om4/viz.yaml` preset
 reads its basin mask anonymously from public OSN:
 
 ```bash
@@ -602,23 +591,32 @@ VIZ_JOB_ID="$(sbatch --parsable \
     source /etc/profile.d/modules.sh
     module load apptainer
     code_root=/workspace
-    overlay_args=()
-    if [[ -n "${CODE_LAYER:-}" ]]; then
+    code_bind_args=()
+    if [[ -n "${CODE_DIR:-}" ]]; then
+      test "$(git -C "$CODE_DIR" rev-parse HEAD)" = "$CODE_COMMIT"
+      test -z "$(git -C "$CODE_DIR" status --porcelain)"
       code_root=/opt/samudra-code
-      overlay_args=(--overlay "$CODE_LAYER:ro")
+      code_bind_args=(--bind "$CODE_DIR:$code_root:ro")
     fi
     apptainer exec --nv \
-      "${overlay_args[@]}" \
+      "${code_bind_args[@]}" \
       --bind "$DATA_ROOT:$DATA_ROOT,$OUTPUT_BASE:$OUTPUT_BASE" \
       --pwd "$code_root" \
       "$SIF_PATH" \
-      env PYTHONPATH="$code_root/src" \
-      /workspace/.venv/bin/python -m samudra.viz \
-      "$code_root/$VIZ_CONFIG" \
-      --data_root="$DATA_ROOT" \
-      --base_output_dir="$OUTPUT_BASE" \
-      --name="$VIZ_NAME" \
-      --runs="$RUNS"')"
+      bash -c "
+        set -euo pipefail
+        if [[ \"\$1\" == /opt/samudra-code ]]; then
+          cmp -s /opt/samudra-code/uv.lock /workspace/uv.lock
+          cmp -s /opt/samudra-code/pyproject.toml /workspace/pyproject.toml
+        fi
+        export PYTHONPATH=\"\$1/src\"
+        exec /workspace/.venv/bin/python -m samudra.viz \
+          \"\$1/\$2\" \
+          --data_root=\"\$3\" \
+          --base_output_dir=\"\$4\" \
+          --name=\"\$5\" \
+          --runs=\"\$6\"
+      " bash "$code_root" "$VIZ_CONFIG" "$DATA_ROOT" "$OUTPUT_BASE" "$VIZ_NAME" "$RUNS"')"
 echo "Visualization job: $VIZ_JOB_ID"
 ```
 
@@ -626,7 +624,14 @@ Although visualization is CPU-oriented, an otherwise valid CPU-only Alpha
 request currently fails with `QOSMinGRES`. The practical Alpha workaround is
 to reserve one H100 as above. Alternatives are running visualization on
 another compatible system, or maintaining a separate `arm64` environment for
-the CPU-only Grace system. Do not reuse an Alpha x86 SIF or overlay on Grace.
+the CPU-only Grace system. Do not reuse an Alpha x86 SIF or checkout artifacts
+on Grace.
+
+The dependency policy has been validated in failure as well as success: when
+an earlier EXT3 overlay-preparation experiment failed, `afterok` with
+`--kill-on-invalid-dep=yes` cancelled its training, evaluation, and
+visualization dependents immediately. No downstream stage ran with incorrect
+code or stale artifacts.
 
 ## Monitor and diagnose
 
@@ -651,9 +656,11 @@ Common failures:
   the directory containing `OM4.zarr`, `OM4_means.zarr`, and `OM4_stds.zarr`.
 - Architecture or `exec format` errors: confirm `uname -m` is `x86_64` and use
   the x86 image on Alpha, not an arm64 image intended for Grace.
-- An import or lockfile mismatch with a code overlay: rebuild the container
-  when `uv.lock` or `pyproject.toml` changes; do not bypass the overlay
-  builder's dependency check.
+- `/dev/loop0: permission denied`: an EXT3 `CODE_LAYER` was selected. It is not
+  supported on Alpha; use an exact SIF or the clean `CODE_DIR` read-only bind.
+- A `CODE_DIR` commit, cleanliness, or lockfile failure: recreate the detached
+  checkout from the pushed commit. Rebuild the container if `uv.lock` or
+  `pyproject.toml` changed.
 - A run name already exists: choose a new `NAME`. The harness refuses to mix a
   new job with an existing run except for a Slurm requeue.
 

@@ -70,6 +70,11 @@ The overlay is checksum-verified and mounted read-only under
 `/opt/samudra-code`; it is not a live checkout, so later host edits cannot alter
 a queued, running, requeued, or resumed job.
 
+`CODE_DIR` is a second, mutually exclusive option for systems where EXT3
+overlays are unavailable. It mounts a clean Git checkout read-only and requires
+`CODE_COMMIT` to match its full `HEAD`. The harness also rejects untracked
+files and verifies that `uv.lock` and `pyproject.toml` match the SIF.
+
 It expects environment variables:
 
 - `CONFIG` (required): config path inside the container image. Relative paths are
@@ -87,6 +92,10 @@ It expects environment variables:
   caches (default: `/scratch/<current_user>`)
 - `CODE_LAYER` (optional): absolute path to a code overlay produced by
   `scripts/build_apptainer_code_layer.sh`
+- `CODE_DIR` (optional): clean Git checkout to mount read-only; mutually
+  exclusive with `CODE_LAYER`
+- `CODE_COMMIT` (required with `CODE_DIR`): full 40-character commit expected
+  at the checkout's `HEAD`
 - `REQUEUE_ON_USR1` (optional): set to `1` when submitting with
   `--requeue --signal=B:USR1@300`; the harness requeues the job when Slurm sends
   the warning signal.
@@ -102,6 +111,8 @@ Key behavior:
   instructions to set the corresponding env var.
 - Uses the container venv explicitly (`/workspace/.venv/bin/python`) to avoid missing deps.
 - Source/config-only changes can use a code overlay without rebuilding the container.
+- Systems without usable EXT3 overlays can use a clean, commit-pinned
+  `CODE_DIR` read-only bind.
 - Dependency changes require a new container because the overlay builder refuses
   any `uv.lock` or `pyproject.toml` mismatch with the container SIF.
 - Caches the pulled SIF under `${SCRATCH_DIR}/.apptainer-images/` by default.
@@ -396,6 +407,10 @@ It expects environment variables:
   caches (default: `/scratch/<current_user>`)
 - `CODE_LAYER` (optional): absolute path to a code overlay produced by
   `scripts/build_apptainer_code_layer.sh`
+- `CODE_DIR` (optional): clean Git checkout mounted read-only; mutually
+  exclusive with `CODE_LAYER`
+- `CODE_COMMIT` (required with `CODE_DIR`): full 40-character commit expected
+  at the checkout's `HEAD`
 - `WANDB_API_KEY` (optional): if set and `WANDB_MODE` unset, defaults to W&B online
 - `WANDB_MODE` (optional): `online` or `disabled` (if unset, defaults based on
   whether `WANDB_API_KEY` is present)

@@ -7,7 +7,7 @@
 base_output_dir: .LOCAL
 name: perceiver-spatial-grid-1deg-viz
 dataset_name: OM4 1 degree
-data: !include ../data/om4.yaml
+data: !include data.yaml
 basins_location:
   type: s3
   anon: true

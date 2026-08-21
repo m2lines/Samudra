@@ -52,7 +52,7 @@ The complete preset is
 
 | Component | Selection |
 | --- | --- |
-| Data | Shared OM4 preset pointed at one-degree data; 1975--2013 train and 2013--2014 validation |
+| Data | One-degree OM4 with raw `hfds` forcing; 1975--2013 train and 2013--2014 validation |
 | Encoder | 6 x 10 degree groups, 2 x 2 coordinate-tied spatial queries |
 | Processor grid | 60 x 72 at 3 x 5 degree spacing |
 | Processor | Three-level ConvNeXt U-Net, widths 380, 480, and 520 |

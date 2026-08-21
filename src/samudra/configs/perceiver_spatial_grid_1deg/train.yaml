@@ -36,5 +36,5 @@ experiment:
     tags: [torch-hpc, om4-1deg, perceiver-spatial-grid, native-sdpa]
     notes: Full 70-epoch single-scale test of the selected structured Perceiver architecture.
 
-data: !include ../data/om4.yaml
+data: !include data.yaml
 model: !include model.yaml

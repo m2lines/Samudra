@@ -28,8 +28,10 @@ from torch.nn import GELU
 from samudra.config_base import BaseConfig, TopLevelConfig
 from samudra.constants import (
     DatasetSpec,
+    Grid,
     GridType,
     LoaderVersion,
+    TensorMap,
     build_llc_spec,
     build_om4_spec,
 )
@@ -57,7 +59,7 @@ from samudra.models.modules.augment_input import (
 )
 from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from samudra.models.modules.encoder import patch_from
-from samudra.utils.data import DataContainer, DataSource, DataSourceSplits
+from samudra.utils.data import DataContainer, DataSource, DataSourceSplits, Normalize
 from samudra.utils.llc import canonicalize_llc_datasets
 from samudra.utils.location import (
     LocalLocation,
@@ -209,6 +211,8 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         data: xr.Dataset,
         means: xr.Dataset,
         stds: xr.Dataset,
+        *,
+        static_data_vars: list[str] | None,
     ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
         raise NotImplementedError
 
@@ -217,11 +221,13 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         data_root: ResolvedLocation,
         *,
         use_dask: bool,
+        static_data_vars: list[str] | None,
         is_primary: bool,
     ) -> DataSourceSplits:
         source = self._build_source(
             data_root,
             turn_on_dask=use_dask,
+            static_data_vars=static_data_vars,
         )
         inference_source = None
         if is_primary and self.inference_times:
@@ -231,6 +237,7 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
                 full_inference_source = self._build_source(
                     data_root,
                     turn_on_dask=True,
+                    static_data_vars=static_data_vars,
                 )
             # TODO: remove multiple inference time ranges altogether (see #813)
             assert len(self.inference_times) == 1, (
@@ -249,6 +256,7 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         data_root: ResolvedLocation,
         *,
         turn_on_dask: bool,
+        static_data_vars: list[str] | None,
     ) -> DataSource:
         resolved_data_location = data_root.resolve(self.data_location)
         resolved_means_location = data_root.resolve(self.data_means_location)
@@ -262,6 +270,7 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
             data,
             means,
             stds,
+            static_data_vars=static_data_vars,
         )
         dataset_spec = self.dataset_spec
 
@@ -272,6 +281,7 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
             dataset_spec=dataset_spec,
             prognostic_var_names=dataset_spec.prognostic_var_names,
             boundary_var_names=dataset_spec.boundary_var_names,
+            static_data_vars=static_data_vars,
             name=f"{resolved_data_location}-{turn_on_dask}",
         )
         return source
@@ -345,6 +355,8 @@ class Om4DataSourceConfig(BaseDataSourceConfig[Om4TimeConfig]):
         data: xr.Dataset,
         means: xr.Dataset,
         stds: xr.Dataset,
+        *,
+        static_data_vars: list[str] | None,
     ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
         # TODO: move OM4 canonicalization in here instead of in validation afte.
         return data, means, stds
@@ -389,7 +401,11 @@ class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
         data: xr.Dataset,
         means: xr.Dataset,
         stds: xr.Dataset,
+        *,
+        static_data_vars: list[str] | None,
     ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset]:
+        if static_data_vars:
+            raise ValueError("LLC data sources do not support static_data_vars")
         return canonicalize_llc_datasets(
             data,
             means,
@@ -417,6 +433,7 @@ class DataConfig(BaseConfig):
         ),
         min_length=1,
     )
+    static_data_vars: list[str] | None = None
     loading: DataLoadingConfig = Field(default_factory=CpuDataLoadingConfig)
     hist: int = 1
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
@@ -439,12 +456,20 @@ class DataConfig(BaseConfig):
             source_cfg.build(
                 data_root,
                 use_dask=use_dask,
+                static_data_vars=self.static_data_vars,
                 is_primary=index == 0,
             )
             for index, source_cfg in enumerate(self.sources)
         ]
         train_sources = [splits.train for splits in source_splits]
         val_sources = [splits.val for splits in source_splits]
+        primary_source = train_sources[0]
+
+        static_data = (
+            primary_source.data[self.static_data_vars]
+            if self.static_data_vars is not None
+            else None
+        )
 
         return DataContainer(
             train_sources=train_sources,
@@ -452,6 +477,7 @@ class DataConfig(BaseConfig):
             inference_source=source_splits[0].inference,
             loader_version=loader_version,
             dataset_spec=dataset_spec,
+            static_data=static_data,
         )
 
 
@@ -517,6 +543,37 @@ class BlockConfig(BaseConfig):
                     assert_never(self.block_type)
 
         return create_block
+
+
+class CorrectorConfig(BaseConfig):
+    non_negative_corrector_names: list[str] | None = None
+    ocean_heat_corrector: bool = False
+    imbalance_penalty_weight: float = 0.0
+
+    def build(
+        self,
+        hist: int,
+        area_weights: Grid,
+        static_data: xr.Dataset | None,
+        *,
+        tensor_map: TensorMap,
+        normalize: Normalize,
+        dataset_spec: DatasetSpec,
+    ) -> nn.Module:
+        # This prevents a circular import bug.
+        from samudra.models.corrector import Correctors
+
+        return Correctors(
+            non_negative_corrector_names=self.non_negative_corrector_names,
+            ocean_heat_corrector=self.ocean_heat_corrector,
+            hist=hist,
+            area_weights=area_weights,
+            static_data=static_data,
+            tensor_map=tensor_map,
+            normalize=normalize,
+            dataset_spec=dataset_spec,
+            imbalance_penalty_weight=self.imbalance_penalty_weight,
+        )
 
 
 PerceiverImpl = Literal["auto", "naive", "flash"]
@@ -837,13 +894,18 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         boundary_channels: int,
         out_channels: int,
         hist: int,
+        static_data_for_corrector: xr.Dataset | None,
         srcs: list[DataSource],
+        tensor_map: TensorMap,
+        normalize: Normalize,
+        dataset_spec: DatasetSpec,
     ) -> BaseModel:
         pass
 
 
 class SamudraConfig(BaseModelConfig):
     unet: UNetBackboneConfig = UNetBackboneConfig()
+    corrector: CorrectorConfig | None = None  # None turns all correctors off.
     pos_channels: int = Field(
         default=0,
         description="""Number of channels used for a learned positional embedding""",
@@ -859,13 +921,27 @@ class SamudraConfig(BaseModelConfig):
         boundary_channels: int,
         out_channels: int,
         hist: int,
+        static_data_for_corrector: xr.Dataset | None,
         srcs: list[DataSource],
+        tensor_map: TensorMap,
+        normalize: Normalize,
+        dataset_spec: DatasetSpec,
     ) -> Samudra:
+        corrector = None
         if len(srcs) != 1:
             raise ValueError(
                 "Samudra only supports training at a single scale! Please configure exactly one data source."
             )
         src = srcs[0]
+        if self.corrector is not None:
+            corrector = self.corrector.build(
+                hist,
+                src.spherical_area_weights,
+                static_data_for_corrector,
+                tensor_map=tensor_map,
+                normalize=normalize,
+                dataset_spec=dataset_spec,
+            )
         in_channels = prog_channels + boundary_channels
         total_in_channels = (
             in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
@@ -882,6 +958,7 @@ class SamudraConfig(BaseModelConfig):
                 pad=self.pad,
                 checkpointing=self.checkpointing,
             ),
+            corrector=corrector,
             pos_channels=self.pos_channels,
             add_3d_coordinates=add_3d_coordinates,
             hist=hist,
@@ -917,7 +994,11 @@ class SamudraMultiConfig(BaseModelConfig):
         boundary_channels: int,
         out_channels: int,
         hist: int,
+        static_data_for_corrector: xr.Dataset | None,
         srcs: list[DataSource],
+        tensor_map: TensorMap,
+        normalize: Normalize,
+        dataset_spec: DatasetSpec,
     ) -> SamudraMulti:
         assert len(self.patch_extent) == 2, "patch_extent must be a pair of floats."
         extent = self.patch_extent[0], self.patch_extent[1]
@@ -1011,7 +1092,11 @@ class SamudraMiniConfig(BaseModelConfig):
         boundary_channels: int,
         out_channels: int,
         hist: int,
+        static_data_for_corrector: xr.Dataset | None,
         srcs: list[DataSource],
+        tensor_map: TensorMap,
+        normalize: Normalize,
+        dataset_spec: DatasetSpec,
     ) -> SamudraMini:
         if self.add_3d_coordinates:
             raise ValueError(

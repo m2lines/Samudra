@@ -46,6 +46,7 @@ sources:
       anon: true
       bucket: m2lines-pubs
       path: Samudra/v2026-07/om4_twodeg/OM4_stds.zarr
+static_data_vars: []
 concurrent_compute: true
 loading:
   type: cpu

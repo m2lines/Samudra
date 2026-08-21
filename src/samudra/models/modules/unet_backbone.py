@@ -20,7 +20,7 @@ from samudra.models.modules.blocks import (
 from samudra.utils.train import pairwise
 
 if TYPE_CHECKING:
-    from samudra.config import Checkpointing  # noqa: F401
+    from samudra.config import LayerCheckpointing
 
 
 class UNetBackbone(nn.Module):
@@ -57,7 +57,7 @@ class UNetBackbone(nn.Module):
         create_block: CoreBlockBuilder,
         downsampling_block: nn.Module,
         create_upsampling_block: UpsamplingBlockBuilder,
-        checkpointing: "Checkpointing | None",
+        checkpointing: "LayerCheckpointing | None",
         drop_path_rate: float = 0.0,
     ):
         super().__init__()

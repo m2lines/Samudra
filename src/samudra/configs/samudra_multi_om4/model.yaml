@@ -4,32 +4,54 @@
 
 # yaml-language-server: $schema=../schemas/SamudraMultiConfig.json
 
+# The native-grid arrangement that fixed single-scale reconstruction.
+#
+# Three changes from the original patch-compressing SamudraMulti, each isolated
+# in the decoder root-cause experiments:
+#
+#   1. The encoder keeps one learned vector per native input cell rather than
+#      compressing a fixed 3x5 degree patch to one token. Patch compression
+#      discarded fine-scale structure before the decoder ever ran: half-degree
+#      reconstruction retained only 49.6% of target high-wavenumber power even
+#      when input and output shared a grid. Native projection restores it
+#      (high-k 0.992 at one degree, 1.000 at half degree).
+#
+#   2. The decoder replaces learned Perceiver IO query routing with
+#      deterministic physical-coordinate transport plus a learned pointwise
+#      channel map. In a matched one-degree proxy this single change moved MSE
+#      from 0.381735 to 0.051655.
+#
+#   3. Prognostic channels are decoded on the source grid before that transport,
+#      so each channel's own wet mask renormalizes the interpolation weights.
+#      Ocean validity is channel dependent and those per-channel denominators
+#      cannot be recovered after latent channel mixing.
+#
+# Geometry enters only as a zero-initialized processor sidecar, and forcing only
+# through its own encoder, so neither contaminates the state representation the
+# decoder has to invert.
 pred_residuals: false
 last_kernel_size: 3
 pad: "circular"
-checkpointing: "all"
-embedding_dim: 128  # Reduced from 280
-perceiver_implementation: "auto"
-# TODO(alxmrs): How fine of a resolution should each patch be? This produces a 60x72 latent grid.
-patch_extent: [3.0, 5.0]
+checkpointing: "selective"
+embedding_dim: 160
+perceiver_implementation: "flash"
+# One latent cell per native input cell.
+patch_extent: [1.0, 1.0]
+processor_residual: true
 
 encoder:
-  perceiver:
-    depth: 2
-    latent_dim: 64
-    num_latents: 256
+  geometry_mode: "sidecar"
+  native_projection: true
 
 decoder:
-  perceiver:
-    depth: 2
-    latent_dim: 64
-    num_latents: 256
-  queries_dim: 64  # on the small end, but typical for PercieverIO models (usually in the ~100s-1000s).
-  window_patches: 12  # Must evenly divide latent grid (60x72). Enables real spatial windowing.
-  context_patches: 1  # Look at this many window_patches around the target patch.
+  resample_projection: true
+  coordinate_resampling: true
+  project_before_resample: true
 
 processor:
-  ch_width: [380, 480, 520]
+  # The first width matches embedding_dim so the zero-initialized latent
+  # residual has equal state and processor widths.
+  ch_width: [160, 480, 520]
   dilation: [1, 1, 1]
   n_layers: [1, 1, 1]
 

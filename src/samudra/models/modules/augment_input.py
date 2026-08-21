@@ -30,6 +30,158 @@ def make_3d_coordinate_grid(lat: Lat, lon: Lon) -> Float[torch.Tensor, "3 H W"]:
     return torch.stack([x, y, z], dim=0).float()  # [3, H, W]
 
 
+def normalized_log_cell_area(lat: Lat, lon: Lon) -> Float[torch.Tensor, "H W"]:
+    """Return per-cell spherical area as a zero-mean, unit-RMS log feature.
+
+    This is the same quantity as `aurora.model.posencoding.patch_root_area`
+    (verified equal to float32 rounding), but for cell centers on separable 1-D
+    coordinates rather than explicit patch corners, and normalized rather than
+    in km. Because the result is standardized, every constant factor -- Earth
+    radius included -- cancels; only the latitudinal variation carries signal.
+
+    Kept separate from `make_position_scale_grid` because this is the part that
+    assumes a separable lat/lon grid. Curvilinear grids need `lat`/`lon` as 2-D
+    matrices, at which point `aurora.area.compute_patch_areas` computes real
+    spherical-polygon areas and should replace this body.
+    """
+    if lat.ndim != 1 or lon.ndim != 1:
+        raise ValueError("Position/scale conditioning requires vector coordinates.")
+    if len(lat) < 2 or len(lon) < 2:
+        raise ValueError("At least two latitude and longitude cells are required.")
+
+    lat_midpoints = (lat[:-1] + lat[1:]) / 2
+    lat_edges = torch.cat(
+        (
+            torch.clamp(
+                lat[0] - (lat_midpoints[0] - lat[0]), min=-90.0, max=90.0
+            ).unsqueeze(0),
+            lat_midpoints,
+            torch.clamp(
+                lat[-1] + (lat[-1] - lat_midpoints[-1]), min=-90.0, max=90.0
+            ).unsqueeze(0),
+        )
+    )
+    lon_midpoints = (lon[:-1] + lon[1:]) / 2
+    lon_edges = torch.cat(
+        (
+            (lon[0] - (lon_midpoints[0] - lon[0])).unsqueeze(0),
+            lon_midpoints,
+            (lon[-1] + (lon[-1] - lon_midpoints[-1])).unsqueeze(0),
+        )
+    )
+
+    lat_area = torch.abs(
+        torch.sin(torch.deg2rad(lat_edges[1:]))
+        - torch.sin(torch.deg2rad(lat_edges[:-1]))
+    )
+    lon_width = torch.abs(torch.deg2rad(lon_edges[1:] - lon_edges[:-1]))
+    area = lat_area[:, None] * lon_width[None, :]
+    if not torch.all(area > 0):
+        raise ValueError("Coordinates must define cells with positive physical area.")
+
+    log_area = torch.log(area)
+    log_area = log_area - log_area.mean()
+    return log_area / log_area.square().mean().sqrt().clamp_min(1e-6)
+
+
+def make_position_scale_grid(lat: Lat, lon: Lon) -> Float[torch.Tensor, "4 H W"]:
+    """Return unit-sphere position and a normalized physical cell-area feature.
+
+    This representation is intended for processor conditioning. It keeps grid
+    geometry separate from encoder content while still exposing both position
+    and resolution to every processor application.
+    """
+    log_area = normalized_log_cell_area(lat, lon)
+    return torch.cat((make_3d_coordinate_grid(lat, lon), log_area.unsqueeze(0)), dim=0)
+
+
+class ProcessorGeometryConditioner(nn.Module):
+    """Inject source-grid geometry before each shared processor application.
+
+    Unlike the concatenating helpers in this module, this one is a `Module`
+    because it owns weights. The four geometry channels are projected into the
+    processor's own width by a 1x1 convolution and *added* to the latent, rather
+    than concatenated onto it. Three things follow, and together they are the
+    reason geometry lives here instead of in the encoder:
+
+    - The processor's input width does not depend on whether geometry is on, so
+      the same weights can be applied zero or N times in a row.
+    - The projection is zero-initialized, so enabling the sidecar is an exact
+      no-op at initialization and cannot perturb an already-trained inverse.
+    - Geometry never enters the representation the decoder has to invert. Adding
+      position and scale directly to encoder output measurably hurt
+      reconstruction; supplying it per processor call did not.
+    """
+
+    def __init__(self, channels: int) -> None:
+        super().__init__()
+        self.channels = channels
+        self.projection = nn.Conv2d(4, channels, kernel_size=1, bias=False)
+        nn.init.zeros_(self.projection.weight)
+
+    def forward(
+        self,
+        fts: Float[torch.Tensor, "batch channel height width"],
+        resolution: tuple[Lat, Lon],
+    ) -> Float[torch.Tensor, "batch channel height width"]:
+        if fts.shape[1] != self.channels:
+            raise ValueError(
+                f"Expected {self.channels} processor channels, got {fts.shape[1]}."
+            )
+        lat, lon = resolution
+        if fts.shape[-2:] != (len(lat), len(lon)):
+            raise ValueError(
+                "Processor features and source coordinates disagree: got feature "
+                f"grid {tuple(fts.shape[-2:])} and coordinate grid "
+                f"{(len(lat), len(lon))}."
+            )
+        geometry = make_position_scale_grid(lat, lon).to(
+            device=fts.device, dtype=fts.dtype
+        )
+        return fts + self.projection(geometry.unsqueeze(0))
+
+
+class BoundaryEncoder(nn.Module):
+    """Encode one boundary state for one physical latent-processor step."""
+
+    def __init__(self, boundary_channels: int, processor_channels: int) -> None:
+        super().__init__()
+        if boundary_channels <= 0 or processor_channels <= 0:
+            raise ValueError("Boundary and processor channels must be positive.")
+        self.boundary_channels = boundary_channels
+        self.out_channels = processor_channels
+        self.projection = nn.Conv2d(
+            boundary_channels, processor_channels, kernel_size=1, bias=False
+        )
+
+    def forward(
+        self,
+        boundary: Float[torch.Tensor, "batch boundary height width"],
+        source_resolution: tuple[Lat, Lon],
+        target_resolution: tuple[Lat, Lon],
+    ) -> Float[torch.Tensor, "batch processor_channel height width"]:
+        if boundary.shape[1] != self.boundary_channels:
+            raise ValueError(
+                f"Expected {self.boundary_channels} boundary channels, "
+                f"got {boundary.shape[1]}."
+            )
+        encoded = self.projection(boundary)
+        source_lat, source_lon = source_resolution
+        target_lat, target_lon = target_resolution
+        if torch.equal(source_lat, target_lat) and torch.equal(source_lon, target_lon):
+            return encoded
+
+        # Imported lazily because decoder.py imports geometry helpers from the
+        # encoder module, which also imports this module.
+        from samudra.models.modules.decoder import coordinate_bilinear_resample
+
+        return coordinate_bilinear_resample(
+            encoded,
+            source_resolution,
+            target_resolution,
+        )
+
+
 class Concat3dCoordinates(nn.Module):
     """Add 3d Cartesian Coordinates on a unit sphere to the channel dimension.
 

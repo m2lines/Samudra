@@ -26,14 +26,24 @@ class GridContext:
         output_resolution_cpu: Tuple of (latitude, longitude) coordinate tensors defining
             the output spatial grid. Used by decoders to determine output shape and
             pixel-query positions. Defaults to input_resolution_cpu for single-scale use.
+        input_mask: Optional channel-wise validity mask on the input grid. Decoders that
+            render prognostic channels before changing resolution use it to exclude land
+            values independently for each channel during interpolation.
     """
 
     label_mask: PrognosticMask
     input_resolution_cpu: tuple[Lat, Lon]
     output_resolution_cpu: tuple[Lat, Lon]
+    input_mask: PrognosticMask | None = None
 
     def to(self, device: torch.device) -> Self:
         """Move the label mask to the specified device."""
         return dataclasses.replace(
-            self, label_mask=self.label_mask.to(device, non_blocking=True)
+            self,
+            label_mask=self.label_mask.to(device, non_blocking=True),
+            input_mask=(
+                None
+                if self.input_mask is None
+                else self.input_mask.to(device, non_blocking=True)
+            ),
         )

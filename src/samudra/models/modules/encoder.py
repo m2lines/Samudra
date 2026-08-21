@@ -7,6 +7,8 @@
 # - https://github.com/microsoft/aurora/blob/main/aurora/model/encoder.py
 # - https://github.com/lucidrains/vit-pytorch
 
+from typing import Literal, cast
+
 import torch
 from aurora.model.fourier import pos_expansion, scale_expansion
 from aurora.model.posencoding import pos_scale_enc
@@ -15,6 +17,8 @@ from jaxtyping import Float
 from torch import nn
 
 from samudra.constants import Input, Lat, Lon
+
+EncoderGeometryMode = Literal["additive", "none", "sidecar"]
 
 
 def patch_from(
@@ -29,6 +33,143 @@ def patch_from(
     patch_w = int(round(patch_extent[1] / lon_spacing))
 
     return patch_h, patch_w
+
+
+def pos_scale_enc_for_grid(
+    encode_dim: int,
+    lat: Lat,
+    lon: Lon,
+    patch_size: tuple[int, int],
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Build Aurora position/scale encodings, including one-pixel patches.
+
+    Aurora normally estimates patch area from the extrema of grid-cell centers
+    inside each patch. Those extrema coincide for a one-pixel patch, yielding
+    zero area. For that case, infer cell edges from neighboring center
+    coordinates before applying the same Fourier expansions.
+    """
+    if patch_size != (1, 1):
+        return cast(
+            tuple[torch.Tensor, torch.Tensor],
+            pos_scale_enc(
+                encode_dim,
+                lat,
+                lon,
+                patch_size,
+                pos_expansion=pos_expansion,
+                scale_expansion=scale_expansion,
+            ),
+        )
+    if lat.ndim != 1 or lon.ndim != 1:
+        raise ValueError(
+            "One-pixel position/scale encoding currently requires vector latitude "
+            "and longitude coordinates."
+        )
+    if len(lat) < 2 or len(lon) < 2:
+        raise ValueError("At least two latitude and longitude cells are required.")
+
+    lat_midpoints = (lat[:-1] + lat[1:]) / 2
+    lat_lower_edge = torch.clamp(lat[0] - (lat_midpoints[0] - lat[0]), min=-90.0)
+    lat_upper_edge = torch.clamp(lat[-1] + (lat[-1] - lat_midpoints[-1]), max=90.0)
+    lat_lower = torch.cat((lat_lower_edge.unsqueeze(0), lat_midpoints))
+    lat_upper = torch.cat((lat_midpoints, lat_upper_edge.unsqueeze(0)))
+    lon_midpoints = (lon[:-1] + lon[1:]) / 2
+    lon_lower = torch.cat(
+        ((lon[0] - (lon_midpoints[0] - lon[0])).unsqueeze(0), lon_midpoints)
+    )
+    lon_upper = torch.cat(
+        (lon_midpoints, (lon[-1] + (lon[-1] - lon_midpoints[-1])).unsqueeze(0))
+    )
+
+    lat_grid, lon_grid = torch.meshgrid(lat, lon, indexing="ij")
+    lat_lower_grid, lon_lower_grid = torch.meshgrid(lat_lower, lon_lower, indexing="ij")
+    lat_upper_grid, lon_upper_grid = torch.meshgrid(lat_upper, lon_upper, indexing="ij")
+    area = (
+        6371.0**2
+        * torch.pi
+        * (
+            torch.sin(torch.deg2rad(lat_upper_grid))
+            - torch.sin(torch.deg2rad(lat_lower_grid))
+        )
+        * torch.deg2rad(lon_upper_grid - lon_lower_grid)
+    )
+    if not torch.all(area > 0):
+        raise ValueError(
+            "Latitude and longitude cell edges must define positive areas."
+        )
+    root_area = torch.sqrt(area)
+
+    encoded_lat = pos_expansion(lat_grid.reshape(1, -1), encode_dim // 2)
+    encoded_lon = pos_expansion(lon_grid.reshape(1, -1), encode_dim // 2)
+    pos_encoding = torch.cat((encoded_lat, encoded_lon), dim=-1).squeeze(0)
+    scale_encoding = scale_expansion(root_area.reshape(1, -1), encode_dim).squeeze(0)
+    return pos_encoding, scale_encoding
+
+
+class NativeProjectionEncoder(nn.Module):
+    """Learn one latent vector per native input cell.
+
+    A pointwise channel map, applied at every source cell, with no pooling or
+    resampling: the latent grid is the input grid. This is what removes the
+    spatial compression that a fixed-extent patch encoder performs before the
+    decoder ever runs, and it leaves all spatial mixing to the processor, which
+    is fully convolutional and therefore indifferent to grid size.
+    """
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        geometry_mode: EncoderGeometryMode = "additive",
+    ) -> None:
+        super().__init__()
+        if out_channels % 4 != 0:
+            raise ValueError(
+                "out_channels must be divisible by four for processor positional encoding."
+            )
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.geometry_mode = geometry_mode
+        self.projection = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+        self.pos_embed: nn.Linear | None = None
+        self.scale_embed: nn.Linear | None = None
+        if geometry_mode == "additive":
+            self.pos_embed = nn.Linear(out_channels, out_channels)
+            self.scale_embed = nn.Linear(out_channels, out_channels)
+
+    def output_resolution(self, resolution: tuple[Lat, Lon]) -> tuple[Lat, Lon]:
+        """Return the input grid unchanged: this encoder does not resample."""
+        return resolution
+
+    def forward(
+        self, x: Input, resolution: tuple[Lat, Lon]
+    ) -> Float[torch.Tensor, "batch {self.out_channels} h w"]:
+        _, channels, height, width = x.shape
+        if channels != self.in_channels:
+            raise ValueError(
+                f"Expected {self.in_channels} input channels, got {channels}."
+            )
+        encoded = self.projection(x)
+        if self.geometry_mode != "additive":
+            return encoded
+
+        tokens = rearrange(encoded, "b c h w -> b (h w) c")
+        lat, lon = resolution
+        pos_encode, scale_encode = pos_scale_enc_for_grid(
+            self.out_channels,
+            lat,
+            lon,
+            (1, 1),
+        )
+        assert self.pos_embed is not None
+        assert self.scale_embed is not None
+        tokens = tokens + self.pos_embed(
+            pos_encode.to(dtype=tokens.dtype, device=tokens.device)
+        ).unsqueeze(0)
+        tokens = tokens + self.scale_embed(
+            scale_encode.to(dtype=tokens.dtype, device=tokens.device)
+        ).unsqueeze(0)
+        return rearrange(tokens, "b (h w) c -> b c h w", h=height, w=width)
 
 
 class PerceiverEncoder(nn.Module):
@@ -64,15 +205,33 @@ class PerceiverEncoder(nn.Module):
         out_channels: int,
         patch_extent: tuple[float, float],
         perceiver: nn.Module,
+        geometry_mode: EncoderGeometryMode = "additive",
     ) -> None:
         super().__init__()
         self.in_channels = in_channels
         self.out_channels: int = out_channels  # aka, `embed_dim`.
         self.patch_extent = patch_extent
         self.perceiver = perceiver
+        self.geometry_mode = geometry_mode
         # TODO(#451): The input to these position and scale linear units could be a hparam.
-        self.pos_embed = nn.Linear(self.out_channels, self.out_channels)
-        self.scale_embed = nn.Linear(self.out_channels, self.out_channels)
+        self.pos_embed: nn.Linear | None = None
+        self.scale_embed: nn.Linear | None = None
+        if geometry_mode == "additive":
+            self.pos_embed = nn.Linear(self.out_channels, self.out_channels)
+            self.scale_embed = nn.Linear(self.out_channels, self.out_channels)
+
+    def output_resolution(self, resolution: tuple[Lat, Lon]) -> tuple[Lat, Lon]:
+        """Return physical centers of the encoder's canonical patch grid."""
+        lat, lon = resolution
+        patch_h, patch_w = patch_from(self.patch_extent, len(lat), len(lon))
+        if len(lat) % patch_h or len(lon) % patch_w:
+            raise ValueError(
+                "Input coordinates must divide evenly into encoder patches; got "
+                f"grid {(len(lat), len(lon))} and patch {(patch_h, patch_w)}."
+            )
+        patch_lat = rearrange(lat, "(h ph) -> h ph", ph=patch_h).mean(dim=-1)
+        patch_lon = rearrange(lon, "(w pw) -> w pw", pw=patch_w).mean(dim=-1)
+        return patch_lat, patch_lon
 
     def forward(
         self, x: Input, resolution: tuple[Lat, Lon]
@@ -107,24 +266,23 @@ class PerceiverEncoder(nn.Module):
             w=(W // patch_w),
         )
 
-        # Calculate and add positional + scale encoding
-        pos_encode, scale_encode = pos_scale_enc(
-            self.out_channels,  # aka "embed_dim"
-            lat,
-            lon,
-            (patch_h, patch_w),
-            # TODO(#452): Pos and scale wavelengths range all the way to the whole Earth by default; we could probably
-            #  better tune these for our Oceans modeling use case.
-            pos_expansion=pos_expansion,
-            scale_expansion=scale_expansion,
-        )
-        pos_encoding = self.pos_embed(
-            pos_encode.to(dtype=x.dtype, device=x.device)
-        ).unsqueeze(0)
-        scale_encoding = self.scale_embed(
-            scale_encode.to(dtype=x.dtype, device=x.device)
-        ).unsqueeze(0)
-        x = x + pos_encoding + scale_encoding
+        if self.geometry_mode == "additive":
+            # Calculate and add positional + scale encoding
+            pos_encode, scale_encode = pos_scale_enc_for_grid(
+                self.out_channels,  # aka "embed_dim"
+                lat,
+                lon,
+                (patch_h, patch_w),
+            )
+            assert self.pos_embed is not None
+            assert self.scale_embed is not None
+            pos_encoding = self.pos_embed(
+                pos_encode.to(dtype=x.dtype, device=x.device)
+            ).unsqueeze(0)
+            scale_encoding = self.scale_embed(
+                scale_encode.to(dtype=x.dtype, device=x.device)
+            ).unsqueeze(0)
+            x = x + pos_encoding + scale_encoding
 
         # Unpack spatial channels, move channel dimension to correct location.
         x = rearrange(

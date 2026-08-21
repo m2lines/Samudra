@@ -38,15 +38,19 @@ from samudra.models.base import BaseModel
 from samudra.models.modules import (
     AvgPool,
     BilinearUpsample,
+    BoundaryEncoder,
     CappedGELU,
     ConvBlock,
     ConvNeXtBlock,
     CoreBlock,
     CoreBlockBuilder,
     MaxPool,
+    NativeProjectionEncoder,
     PerceiverDecoder,
     PerceiverEncoder,
+    ProcessorGeometryConditioner,
     ReLU,
+    ResampleProjectionDecoder,
     TransposedConvUpsample,
     UNetBackbone,
 )
@@ -56,7 +60,7 @@ from samudra.models.modules.augment_input import (
     fourier_features_2d_dim,
 )
 from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
-from samudra.models.modules.encoder import patch_from
+from samudra.models.modules.encoder import EncoderGeometryMode, patch_from
 from samudra.utils.data import DataContainer, DataSource, DataSourceSplits
 from samudra.utils.llc import canonicalize_llc_datasets
 from samudra.utils.location import (
@@ -666,6 +670,22 @@ def _flash_import_error() -> ValueError:
 
 
 class EncoderConfig(BaseConfig):
+    geometry_mode: EncoderGeometryMode = Field(
+        default="additive",
+        description="How source-grid position and scale enter the learned encoder "
+        "representation. 'additive' preserves the existing learned additions; "
+        "'none' leaves the post-Perceiver content representation unchanged; "
+        "'sidecar' does the same in the encoder and injects position/scale only "
+        "before processor applications.",
+    )
+    native_projection: bool = Field(
+        default=False,
+        description="Apply a learned pointwise channel projection at every native "
+        "input cell and keep that native latent grid. This removes the fixed-patch "
+        "spatial compression that discarded fine-scale structure before decoding; "
+        "the shared processor remains fully convolutional and only the decoder "
+        "changes output resolution.",
+    )
     perceiver: PerceiverConfig = PerceiverConfig()
 
     def build(
@@ -676,12 +696,19 @@ class EncoderConfig(BaseConfig):
         max_lat_size: int,
         max_lon_size: int,
         implementation: PerceiverImpl,
-    ) -> PerceiverEncoder:
+    ) -> PerceiverEncoder | NativeProjectionEncoder:
         max_patch_size = patch_from(patch_extent, max_lat_size, max_lon_size)
+        if self.native_projection:
+            return NativeProjectionEncoder(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                geometry_mode=self.geometry_mode,
+            )
         return PerceiverEncoder(
             in_channels=in_channels,
             out_channels=out_channels,
             patch_extent=patch_extent,
+            geometry_mode=self.geometry_mode,
             perceiver=self.perceiver.build(
                 in_channels, out_channels, max_patch_size, implementation
             ),
@@ -693,15 +720,38 @@ class DecoderConfig(BaseConfig):
 
     Uses PerceiverIO (with an explicit query mechanism) rather than a regular
     Perceiver.  Output pixel positions are encoded as queries, so the output
-    size is determined by the query count — not by ``num_latents``.
+    size is determined by the query count -- not by ``num_latents``.
 
     When ``window_patches`` is set, the decoder tiles the output grid into
     spatial blocks of that many patches per side.  Each block's PerceiverIO
     call receives only the overlapping latent tokens plus ``context_patches``
     extra rings of neighbors, keeping cost bounded even when the latent grid
     is large (i.e. fine ``patch_extent``).
+
+    Setting ``resample_projection`` replaces all of that with deterministic
+    physical-coordinate transport plus a learned pointwise channel map, which
+    is the arrangement that fixed reconstruction.
     """
 
+    resample_projection: bool = Field(
+        default=False,
+        description="Replace the Perceiver decoder with spatial resampling "
+        "followed by a shared 1x1 channel projection.",
+    )
+    coordinate_resampling: bool = Field(
+        default=False,
+        description="Resample on physical latitude/longitude with periodic "
+        "longitude rather than on tensor indices. Index interpolation silently "
+        "assumes the source and output grids are aligned and equally spaced.",
+    )
+    project_before_resample: bool = Field(
+        default=False,
+        description="Decode prognostic channels on the source grid before "
+        "spatial transport, so each channel's own wet mask renormalizes the "
+        "interpolation weights. Ocean validity is channel dependent, and those "
+        "per-channel denominators cannot be recovered after latent channel "
+        "mixing.",
+    )
     perceiver: PerceiverConfig = PerceiverConfig()
     queries_dim: int = Field(
         default=64,
@@ -725,7 +775,19 @@ class DecoderConfig(BaseConfig):
         out_channels: int,
         patch_extent: tuple[float, float],
         implementation: PerceiverImpl,
-    ) -> PerceiverDecoder:
+    ) -> PerceiverDecoder | ResampleProjectionDecoder:
+        if self.resample_projection:
+            return ResampleProjectionDecoder(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                coordinate_resampling=self.coordinate_resampling,
+                project_before_resample=self.project_before_resample,
+            )
+        if self.coordinate_resampling or self.project_before_resample:
+            raise ValueError(
+                "coordinate_resampling and project_before_resample only apply to "
+                "the resampling decoder; set resample_projection: true."
+            )
         return PerceiverDecoder(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -743,7 +805,11 @@ DownSamplingBlocks = Literal["avg_pool", "max_pool"]
 UpSamplingBlocks = Literal[
     "bilinear_upsample", "transposed_conv", "zonally_periodic_upsample"
 ]
-Checkpointing = Literal["all", "simple"]
+# The UNet layers understand only these two. "selective" is a SamudraMulti-level
+# mode that checkpoints the representation heads and lets the processor
+# checkpoint its own layers, rather than wrapping the processor twice.
+LayerCheckpointing = Literal["all", "simple"]
+Checkpointing = Literal["all", "simple", "selective"]
 
 
 class UNetBackboneConfig(BaseConfig):
@@ -762,7 +828,7 @@ class UNetBackboneConfig(BaseConfig):
         self,
         in_channels: int,
         pad: str,
-        checkpointing: Checkpointing | None,
+        checkpointing: LayerCheckpointing | None,
     ) -> UNetBackbone:
         assert len(self.ch_width) == len(self.dilation) == len(self.n_layers), (
             "`ch_width`, `dilation`, and `n_layers` must have the same length."
@@ -843,6 +909,14 @@ class BaseModelConfig(BaseConfig, abc.ABC):
 
 
 class SamudraConfig(BaseModelConfig):
+    @pydantic.model_validator(mode="after")
+    def reject_selective_checkpointing(self) -> Self:
+        if self.checkpointing == "selective":
+            raise ValueError(
+                "Selective checkpointing is only supported by SamudraMulti."
+            )
+        return self
+
     unet: UNetBackboneConfig = UNetBackboneConfig()
     pos_channels: int = Field(
         default=0,
@@ -871,6 +945,8 @@ class SamudraConfig(BaseModelConfig):
             in_channels + self.pos_channels + (3 if self.add_3d_coordinates else 0)
         )
         add_3d_coordinates = Concat3dCoordinates() if self.add_3d_coordinates else None
+        layer_checkpointing = self.checkpointing
+        assert layer_checkpointing != "selective"
         return Samudra(
             in_channels=total_in_channels,
             out_channels=out_channels,
@@ -880,7 +956,7 @@ class SamudraConfig(BaseModelConfig):
             unet=self.unet.build(
                 in_channels=total_in_channels,
                 pad=self.pad,
-                checkpointing=self.checkpointing,
+                checkpointing=layer_checkpointing,
             ),
             pos_channels=self.pos_channels,
             add_3d_coordinates=add_3d_coordinates,
@@ -906,10 +982,22 @@ class SamudraMultiConfig(BaseModelConfig):
         "Shared by the encoder and decoder for consistent spatial semantics.",
     )
     embedding_dim: int = 128
+    processor_residual: bool = Field(
+        default=False,
+        description=(
+            "Apply the transition as a per-channel zero-initialized latent "
+            "residual, so an attached processor starts as latent persistence "
+            "and learns away from it."
+        ),
+    )
     use_bfloat16: bool = Field(
         default=True,
         description="Use bfloat16 for most layers rather than float32. Required for flash attention.",
     )
+
+    def processor_checkpointing(self) -> LayerCheckpointing | None:
+        """Resolve the processor-local mode without its redundant outer wrapper."""
+        return "all" if self.checkpointing == "selective" else self.checkpointing
 
     def build(
         self,
@@ -935,8 +1023,10 @@ class SamudraMultiConfig(BaseModelConfig):
                 "Please set `use_bfloat16=True` or `perceiver_implementation='naive'`."
             )
 
-        in_channels = prog_channels + boundary_channels
-        total_in_channels = in_channels + (3 if self.add_3d_coordinates else 0)
+        # The state encoder takes prognostics only. Forcing reaches the model
+        # through its own encoder, once per transition, so the representation
+        # the decoder inverts is not a function of transient boundary values.
+        total_in_channels = prog_channels + (3 if self.add_3d_coordinates else 0)
 
         encoder = self.encoder.build(
             total_in_channels,
@@ -947,9 +1037,22 @@ class SamudraMultiConfig(BaseModelConfig):
             impl,
         )
         processor = self.processor.build(
-            self.embedding_dim,
+            encoder.out_channels,
             self.pad,
-            self.checkpointing,
+            self.processor_checkpointing(),
+        )
+        processor_geometry = (
+            ProcessorGeometryConditioner(encoder.out_channels)
+            if self.encoder.geometry_mode == "sidecar"
+            else None
+        )
+        if boundary_channels % (hist + 1) != 0:
+            raise ValueError(
+                "Boundary history channels must divide into complete states."
+            )
+        boundary_encoder = BoundaryEncoder(
+            boundary_channels=boundary_channels // (hist + 1),
+            processor_channels=encoder.out_channels,
         )
         decoder = self.decoder.build(
             processor.out_channels,
@@ -973,10 +1076,21 @@ class SamudraMultiConfig(BaseModelConfig):
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
+            processor_geometry=processor_geometry,
+            boundary_encoder=boundary_encoder,
+            processor_residual=self.processor_residual,
         )
 
 
 class SamudraMiniConfig(BaseModelConfig):
+    @pydantic.model_validator(mode="after")
+    def reject_selective_checkpointing(self) -> Self:
+        if self.checkpointing == "selective":
+            raise ValueError(
+                "Selective checkpointing is only supported by SamudraMulti."
+            )
+        return self
+
     perceiver: PerceiverConfig = PerceiverConfig()
     perceiver_implementation: PerceiverImpl = Field(
         default="auto",

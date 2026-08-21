@@ -2,14 +2,13 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-08-19:samudra_rb_llc:1-tile-all_3D_var_and_corrected_grad_z_loss-lambda_z-0.1-4
-#SBATCH -x node3400,node3101
+#SBATCH --job-name=2026-08-21:samudra_rb_llc:1-tile-all_3D_var_and_corrected_grad_z_loss-W-5
 #SBATCH -N 1
 #SBATCH --mem=254GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
 #SBATCH -G h200:1
-#SBATCH --time=48:00:00
+#SBATCH --time=6:00:00
 #SBATCH --signal=B:USR1@300
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
@@ -131,7 +130,7 @@ HIST="${HIST:-0}"
 VALID_MASK="${VALID_MASK:-false}"
 
 # CHECKPOINTING / RESUME
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-08-18:samudra_rb_llc:1-tile-all_3D_var_and_corrected_grad_z_loss-lambda_z-0.1-3-20700417/saved_nets/ckpt_emergency.pt}"
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-08-19:samudra_rb_llc:1-tile-all_3D_var_and_corrected_grad_z_loss-W-4-20765255/saved_nets/ckpt_emergency.pt}"
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"

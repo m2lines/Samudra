@@ -2,7 +2,7 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-08-18:samudra_rb_llc:4-tile_group-experiment-2
+#SBATCH --job-name=2026-08-20:samudra_rb_llc:4-tile_group-experiment-3
 #SBATCH -x node4100,node3401,node3000,node3400
 #SBATCH -N 1
 #SBATCH --mem=254GB
@@ -76,7 +76,7 @@ fi
 # GPUS / DATA WORKERS
 GPUS="${GPUS:-1}"
 DATA_NUM_WORKERS="${DATA_NUM_WORKERS:-12}"
-DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-10}"
+DATA_PREFETCH_FACTOR="${DATA_PREFETCH_FACTOR:-8}"
 BLOSC_THREADS="${BLOSC_THREADS:-1}"
 export OCEAN_BLOSC_THREADS="${OCEAN_BLOSC_THREADS:-${BLOSC_THREADS}}"
 BATCH_SIZE="${BATCH_SIZE:-2}"
@@ -131,7 +131,7 @@ HIST="${HIST:-0}"
 VALID_MASK="${VALID_MASK:-false}"
 
 # CHECKPOINTING / RESUME
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-08-15:samudra_rb_llc:4-tile_group-experiment-20537273/saved_nets/ckpt_emergency.pt}"
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-08-18:samudra_rb_llc:4-tile_group-experiment-2-20700320/saved_nets/ckpt.pt}"
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"

@@ -212,9 +212,9 @@ def test_perceiver_io_preserves_legacy_decoder_without_query_residual():
 
 @pytest.mark.parametrize(
     ("implementation", "backend"),
-    [("auto", "auto"), ("sdpa", "auto"), ("naive", "math"), ("flash", "flash")],
+    [("auto", "auto"), ("naive", "math"), ("flash", "flash")],
 )
-def test_config_maps_compatible_names_to_sdpa_backends(implementation, backend):
+def test_config_maps_implementation_to_sdpa_backend(implementation, backend):
     config = PerceiverConfig(depth=1, latent_dim=8, num_latents=4)
 
     encoder = config.build(

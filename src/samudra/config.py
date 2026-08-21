@@ -520,7 +520,7 @@ class BlockConfig(BaseConfig):
         return create_block
 
 
-PerceiverImpl = Literal["auto", "sdpa", "naive", "flash"]
+PerceiverImpl = Literal["auto", "naive", "flash"]
 
 
 class PerceiverConfig(BaseConfig):
@@ -601,7 +601,7 @@ def _attention_backend(
     implementation: PerceiverImpl,
 ) -> Literal["auto", "math", "flash"]:
     match implementation:
-        case "auto" | "sdpa":
+        case "auto":
             return "auto"
         case "naive":
             return "math"
@@ -844,7 +844,7 @@ class SamudraMultiConfig(BaseModelConfig):
     perceiver_implementation: PerceiverImpl = Field(
         default="auto",
         description="Perceiver attention implementation shared by the encoder and decoder. "
-        "'auto' and 'sdpa' let PyTorch select the best SDPA kernel; 'naive' "
+        "'auto' lets PyTorch select the best SDPA kernel; 'naive' "
         "forces math attention and 'flash' forces PyTorch FlashAttention.",
     )
     patch_extent: list[float] = Field(
@@ -928,7 +928,7 @@ class SamudraMiniConfig(BaseModelConfig):
     perceiver_implementation: PerceiverImpl = Field(
         default="auto",
         description="Perceiver attention implementation for the single PerceiverIO model. "
-        "'auto' and 'sdpa' let PyTorch select the best SDPA kernel; 'naive' "
+        "'auto' lets PyTorch select the best SDPA kernel; 'naive' "
         "forces math attention and 'flash' forces PyTorch FlashAttention.",
     )
     embedding_dim: int = Field(

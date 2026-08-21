@@ -177,11 +177,20 @@ gh workflow run container-physicsnemo.yml \
   --ref feature/native-sdpa-perceiver
 ```
 
-After the workflow succeeds, its manual x86 image tag is:
+After the workflow's `build-and-smoke` job completes its `Publish x86_64
+image` step, its manual x86 image tag is:
 
 ```text
 ghcr.io/m2lines/ocean-emulator-physicsnemo:26.05-manual-feature-native-sdpa-perceiver
 ```
+
+Check the x86 build and publication jobs directly rather than relying only on
+the workflow's overall conclusion: architecture-specific builds and later test
+jobs can fail independently. During the 2026-08-21 validation, the x86 image
+published successfully, while a later container CPU-test job failed collection
+because `scripts.build_quickstart_notebook` was not present in the image. That
+packaging issue did not affect training; the published image completed the EAI
+pilot below.
 
 For other refs, replace slashes in the branch name with hyphens. A production
 run should prefer the immutable SHA tag when the same image has been published
@@ -190,36 +199,96 @@ from `main`.
 ## Pull the SIF once
 
 The training harness can pull an absent SIF, but doing this once before a GPU
-job makes startup predictable. The SIF is shared through Lustre, so it can be
-prepared on a transfer node without waiting for an Alpha CPU allocation:
+job makes startup predictable. Do not do this on a transfer node: although an
+Apptainer module is visible there, its global configuration is not usable. The
+Alpha CPU partition can also have a long queue. Use a short, one-GPU `test` QoS
+job and the repository's atomic pull helper. The resulting SIF is shared
+through Lustre and reused by later jobs:
 
 ```bash
 ssh eai
-ssh alpha-dtn1
-
-source /etc/profile.d/modules.sh
-module load apptainer
-
 SCRATCH="/mnt/lustre/nyu/$USER"
 export APPTAINER_CACHEDIR="$SCRATCH/.apptainer-cache"
-export APPTAINER_TMPDIR=/tmp
-mkdir -p "$APPTAINER_CACHEDIR" "$SCRATCH/.apptainer-images"
+export SCRATCH_DIR="$SCRATCH"
+export SIF_DIR="$SCRATCH/.apptainer-images"
+export SIF_PATH="$SIF_DIR/physicsnemo-26.05-native-sdpa.sif"
+export IMAGE_REF=ghcr.io/m2lines/ocean-emulator-physicsnemo:26.05-manual-feature-native-sdpa-perceiver
+mkdir -p "$APPTAINER_CACHEDIR" "$SIF_DIR" "$SCRATCH/logs"
 
-IMAGE_REF=ghcr.io/m2lines/ocean-emulator-physicsnemo:26.05-manual-feature-native-sdpa-perceiver
-SIF_PATH="$SCRATCH/.apptainer-images/physicsnemo-26.05-native-sdpa.sif"
-apptainer pull "$SIF_PATH" "docker://$IMAGE_REF"
-chmod 0444 "$SIF_PATH"
+sbatch \
+  --account=nyu \
+  --partition=nyu \
+  --qos=test \
+  --constraint=h100 \
+  --nodes=1 \
+  --ntasks=1 \
+  --cpus-per-task=8 \
+  --mem=64G \
+  --gres=gpu:nvidia_h100_80gb_hbm3:1 \
+  --time=00:30:00 \
+  --chdir="$SCRATCH" \
+  --output="$SCRATCH/logs/pull-sif-%j.out" \
+  --error="$SCRATCH/logs/pull-sif-%j.err" \
+  --export=ALL \
+  ~/Samudra/scripts/slurm_apptainer_pull.sbatch
 ```
 
-`APPTAINER_TMPDIR=/tmp` is intentional: image conversion uses node-local space
-and avoids filesystem feature mismatches on shared scratch. Alpha's transfer
-nodes had more than 800 GB free in `/tmp` during validation.
+The helper uses node-local `/tmp` for conversion, avoiding filesystem feature
+mismatches on shared scratch. Wait for `COMPLETED` and inspect the log before
+submitting training:
+
+```bash
+squeue -u "$USER"
+sacct -j JOB_ID --format=JobID,State,Elapsed,ExitCode
+tail "$SCRATCH/logs/pull-sif-JOB_ID.out"
+ls -lh "$SIF_PATH"
+```
+
+## Shell conveniences and secrets
+
+It is reasonable to add non-secret cluster paths to `~/.bashrc`:
+
+```bash
+export EAI_ACCOUNT=nyu
+export EAI_SCRATCH="/mnt/lustre/nyu/$USER"
+export PATH="$HOME/software/alpha-x86/rclone/bin:$PATH"
+```
+
+If every process in the account is trusted and experiment-related, keeping
+`WANDB_API_KEY` in `~/.bashrc` is convenient because `--export=ALL` forwards it
+to Slurm jobs. Set `chmod 600 ~/.bashrc`, and never print or commit the file:
+
+```bash
+export WANDB_API_KEY='...'
+```
+
+For narrower exposure, use `wandb login`, which stores the credential in a
+mode-600 `~/.netrc`, or keep project secrets in a dedicated file:
+
+```bash
+mkdir -p ~/.config/samudra
+chmod 700 ~/.config/samudra
+# Create ~/.config/samudra/secrets.env without committing it:
+# export WANDB_API_KEY='...'
+chmod 600 ~/.config/samudra/secrets.env
+```
+
+Source that file only before an online W&B submission:
+
+```bash
+source ~/.config/samudra/secrets.env
+export WANDB_MODE=online
+```
+
+Slurm receives exported submission-shell variables through `--export=ALL`.
+The pilot below disables W&B so it does not require a credential.
 
 ## Submit the 1° SamudraMini pilot
 
-Use Alpha H100 and the `test` QoS for the first end-to-end validation. This
-performs a real one-epoch training run but uses only one GPU and keeps W&B
-disabled unless a key is deliberately supplied.
+Use Alpha H100 and the `test` QoS for the first end-to-end validation. Debug
+mode performs four real training batches and four validation batches, then
+exits cleanly. This exercises data loading, native SDPA forward/backward,
+metrics, checkpointing, and output writing without spending a full epoch.
 
 ```bash
 ssh eai
@@ -238,9 +307,10 @@ export OUTPUT_BASE="$SCRATCH/runs"
 export SCRATCH_DIR="$SCRATCH"
 export SIF_DIR="$SCRATCH/.apptainer-images"
 export SIF_PATH="$SIF_DIR/physicsnemo-26.05-native-sdpa.sif"
+export IMAGE_REF=ghcr.io/m2lines/ocean-emulator-physicsnemo:26.05-manual-feature-native-sdpa-perceiver
 export DATA_CACHE_DIR="$SCRATCH/.data_cache/$NAME"
 export WANDB_MODE=disabled
-export ARGS='--epochs=1 --save_freq=1 --batch_size=1 --data.loading.num_workers=2'
+export ARGS='--debug=true --epochs=1 --save_freq=1 --batch_size=1 --data.loading.num_workers=2'
 
 sbatch \
   --account="$ACCOUNT" \
@@ -252,7 +322,7 @@ sbatch \
   --cpus-per-task=16 \
   --mem=128G \
   --gres=gpu:nvidia_h100_80gb_hbm3:1 \
-  --time=02:00:00 \
+  --time=00:30:00 \
   --chdir="$SCRATCH" \
   --output="$SCRATCH/logs/samudra-eai-%j.out" \
   --error="$SCRATCH/logs/samudra-eai-%j.err" \
@@ -264,6 +334,27 @@ Command-line `sbatch` options override the Torch-specific defaults embedded in
 the shared harness. Keep every resource override above: in particular, the
 account, GRES, CPU count, memory, working directory, and logs must not fall
 back to Torch values.
+
+### Validated result
+
+The pilot above was validated on 2026-08-21 with these results:
+
+- source/container commit
+  `b7f94a312a0d261ce9f65ea2d1d0d86654b1155e` from PR 842;
+- public dataset copy: 91.639 GiB and 380,460 matching files according to
+  `rclone check --size-only --one-way`;
+- SIF preparation job `40324`: `COMPLETED` with exit code `0:0` in 16m49s;
+- H100 debug training job `40380`: `COMPLETED` with exit code `0:0` in 5m26s;
+- internal train/validation work: 54 seconds, train loss 2.420, validation loss
+  0.636, and about 2.35 GB peak GPU memory during training;
+- four checkpoints written: best validation, latest, epoch 1, and EMA; and
+- `run-provenance.json` recorded the same commit for source and container.
+
+Alpha currently lacks `squashfuse` and `fuse2fs` on compute nodes. Apptainer
+therefore prints warnings and expands the SIF to node-local temporary
+sandboxes. The shared harness performs three container invocations during
+startup, adding roughly two minutes in this pilot. The warnings are non-fatal;
+the final job state and exit code are the authoritative result.
 
 ## Scale to a full H100 node
 
@@ -321,7 +412,7 @@ squeue -u "$USER" -o '%.18i %.12q %.9T %.10M %.6D %R'
 sacct -u "$USER" -S today \
   --format=JobID,JobName,QOS,AllocTRES,Elapsed,State,ExitCode
 sprio -j JOB_ID
-ssh alpha-dtn1 tail -f "/mnt/lustre/nyu/$USER/logs/samudra-eai-JOB_ID.out"
+tail -f "/mnt/lustre/nyu/$USER/logs/samudra-eai-JOB_ID.out"
 ```
 
 The run output is under `$OUTPUT_BASE/$NAME`. The harness also records

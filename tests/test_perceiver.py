@@ -39,6 +39,84 @@ def test_attention_matches_explicit_reference_with_mask():
     assert torch.allclose(actual, expected, atol=1e-6)
 
 
+def test_attention_preserves_additive_mask_semantics():
+    attention = Attention(
+        query_dim=12,
+        context_dim=10,
+        heads=3,
+        dim_head=4,
+        backend="math",
+    ).eval()
+    queries = torch.randn(2, 5, 12)
+    context = torch.randn(2, 7, 10)
+    boolean_mask = torch.tensor(
+        [[True, True, False, True, False, True, True], [True] * 7]
+    )
+    additive_mask = torch.where(
+        boolean_mask,
+        torch.tensor(0.0),
+        torch.tensor(float("-inf")),
+    )
+
+    with torch.no_grad():
+        expected = attention(queries, context=context, mask=boolean_mask)
+        actual = attention(queries, context=context, mask=additive_mask)
+
+    assert torch.equal(actual, expected)
+
+
+@pytest.mark.parametrize("additive", [False, True])
+def test_attention_fully_masked_sample_stays_finite(additive: bool):
+    attention = Attention(
+        query_dim=8,
+        context_dim=8,
+        heads=2,
+        dim_head=4,
+        backend="math",
+    )
+    queries = torch.randn(2, 3, 8, requires_grad=True)
+    context = torch.randn(2, 5, 8, requires_grad=True)
+    mask = torch.tensor([[False] * 5, [True] * 5])
+    if additive:
+        mask = torch.where(mask, torch.tensor(0.0), torch.tensor(float("-inf")))
+
+    output = attention(queries, context=context, mask=mask)
+    output.square().mean().backward()
+
+    assert torch.isfinite(output).all()
+    assert queries.grad is not None and torch.isfinite(queries.grad).all()
+    assert context.grad is not None and torch.isfinite(context.grad).all()
+
+
+@pytest.mark.parametrize(
+    "mask",
+    [
+        torch.ones(2, 6, dtype=torch.bool),
+        torch.ones(2, 1, 7, dtype=torch.bool),
+    ],
+)
+def test_attention_rejects_mask_with_wrong_shape(mask: torch.Tensor):
+    attention = Attention(query_dim=8, context_dim=8)
+
+    with pytest.raises(ValueError, match="mask must have shape"):
+        attention(
+            torch.randn(2, 3, 8),
+            context=torch.randn(2, 7, 8),
+            mask=mask,
+        )
+
+
+def test_attention_rejects_integer_mask():
+    attention = Attention(query_dim=8, context_dim=8)
+
+    with pytest.raises(TypeError, match="Boolean or floating-point"):
+        attention(
+            torch.randn(2, 3, 8),
+            context=torch.randn(2, 7, 8),
+            mask=torch.ones(2, 7, dtype=torch.int64),
+        )
+
+
 def test_attention_rejects_unknown_backend():
     with pytest.raises(ValueError, match="unsupported attention backend"):
         Attention(query_dim=8, backend="unknown")  # type: ignore[arg-type]
@@ -66,6 +144,26 @@ def test_perceiver_encoder_shapes_and_weight_tying():
     layers = [cast(torch.nn.ModuleList, layer) for layer in model.layers]
     assert layers[0][0] is not layers[1][0]
     assert layers[1][0] is layers[2][0]
+
+
+def test_perceiver_flattens_mask_over_input_axes():
+    model = Perceiver(
+        num_freq_bands=2,
+        depth=1,
+        max_freq=4,
+        input_channels=5,
+        input_axis=2,
+        num_latents=4,
+        latent_dim=8,
+        num_classes=6,
+    )
+    data = torch.randn(2, 3, 5, 5)
+    mask = torch.ones(2, 3, 5, dtype=torch.bool)
+    mask[:, 1, 2] = False
+
+    output = model(data, mask=mask)
+
+    assert output.shape == (2, 6)
 
 
 def test_perceiver_io_supports_shared_and_batched_queries():

@@ -121,9 +121,24 @@ class Attention(nn.Module):
 
         attention_mask = None
         if mask is not None:
-            if mask.shape[0] != x.shape[0]:
-                raise ValueError("mask and input batch sizes must match")
-            attention_mask = mask.reshape(mask.shape[0], 1, 1, -1).bool()
+            expected_shape = (x.shape[0], context.shape[1])
+            if mask.shape != expected_shape:
+                raise ValueError(
+                    "mask must have shape [batch, context_tokens]; "
+                    f"expected {expected_shape}, got {tuple(mask.shape)}"
+                )
+            if mask.dtype == torch.bool:
+                attention_mask = mask[:, None, None].to(device=query.device)
+            elif torch.is_floating_point(mask):
+                # SDPA floating masks are additive biases, conventionally zero
+                # for allowed keys and -inf for disallowed keys. Preserve those
+                # values instead of coercing them to Boolean (which would invert
+                # the conventional zero/-inf representation).
+                attention_mask = mask[:, None, None].to(
+                    device=query.device, dtype=query.dtype
+                )
+            else:
+                raise TypeError("mask must have Boolean or floating-point dtype")
 
         attended = self._attention(query, key, value, attention_mask)
         attended = attended.transpose(1, 2).contiguous().flatten(2)
@@ -305,6 +320,14 @@ class Perceiver(nn.Module):
             encoded = encoded.unsqueeze(0).expand(batch, *encoded.shape)
             data = torch.cat((data, encoded), dim=-1)
 
+        if mask is not None:
+            expected_mask_shape = (batch, *axes)
+            if mask.shape != expected_mask_shape:
+                raise ValueError(
+                    "Perceiver mask must match the input axes; "
+                    f"expected {expected_mask_shape}, got {tuple(mask.shape)}"
+                )
+            mask = mask.flatten(1)
         data = data.flatten(1, -2)
         x = self.latents.unsqueeze(0).expand(batch, -1, -1)
         for untyped_layer in self.layers:

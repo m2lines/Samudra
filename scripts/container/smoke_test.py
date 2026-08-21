@@ -12,6 +12,7 @@ import importlib
 import importlib.metadata as metadata
 
 import torch
+import torch.nn.functional as F
 import zarr  # type: ignore
 
 
@@ -27,15 +28,20 @@ def version(dist_name: str) -> str:
 def main() -> int:
     require_import("samudra")
     require_import("samudra.models.samudra")
-    require_import("flash_attn")
-    require_import("flash_perceiver")
-
     sample = torch.randn(2, 2)
     result = sample @ sample
+    query = torch.randn(1, 1, 2, 8)
+    attention = F.scaled_dot_product_attention(query, query, query)
+    flash_attention_available = torch.backends.cuda.is_flash_attention_available()
+    if torch.version.cuda is not None and not flash_attention_available:
+        raise RuntimeError(
+            "the container has a CUDA-enabled PyTorch build without FlashAttention"
+        )
     print(f"torch: {version('torch')}")
     print(f"torchvision: {version('torchvision')}")
-    print(f"flash-attn: {version('flash-attn')}")
-    print(f"flash-perceiver: {version('flash-perceiver')}")
+    print(f"torch-cuda: {torch.version.cuda}")
+    print(f"torch-flash-attention: {flash_attention_available}")
+    print(f"sdpa: shape={tuple(attention.shape)} dtype={attention.dtype}")
     print(f"zarr: {zarr.__version__}")
     print(f"tensor-op: shape={tuple(result.shape)} dtype={result.dtype}")
     print("smoke-test: OK")

@@ -4,9 +4,9 @@
 
 import pytest
 import torch
-from perceiver_pytorch.perceiver_io import PerceiverIO
 from test_encoder import make_resolution  # type: ignore
 
+from samudra.models.modules import PerceiverIO
 from samudra.models.samudra_mini import SamudraMini
 from samudra.utils.ctx import GridContext
 

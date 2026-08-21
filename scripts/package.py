@@ -10,10 +10,10 @@
 
 Samudra is pure Python, so the build produces a single universal
 ``samudra-<version>-py3-none-any.whl`` that serves both CPU and GPU users. The
-GPU custom kernels (flash-attn, flash-perceiver, torchvision) live in the
-``cuda`` optional extra and compile on the user's machine at install time --
-nothing GPU-specific goes into this wheel. That means there is exactly one
-artifact per build regardless of hardware.
+The optional ``cuda`` extra supplies torchvision while PyTorch's native SDPA
+dispatcher selects optimized attention kernels at runtime. Nothing
+GPU-specific goes into this wheel, so there is exactly one artifact per build
+regardless of hardware.
 
 Versioning is owned by setuptools-scm (see ``[tool.setuptools_scm]`` in
 pyproject.toml): a plain build derives the version from git tags. This script

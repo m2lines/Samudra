@@ -14,15 +14,14 @@ so no API token is stored anywhere.
 ## Installing the package
 
 Samudra itself is pure Python, so one universal wheel serves every platform.
-The GPU custom kernels are opt-in.
+PyTorch provides the optimized attention kernels used on GPUs.
 
 ```bash
-# CPU (default) — everything except the compiled GPU kernels
+# CPU (default)
 uv add samudra
 pip install samudra
 
-# GPU — adds flash-attn, flash-perceiver, and torchvision, which compile
-# against your local CUDA + torch at install time
+# GPU — adds torchvision; PyTorch SDPA supplies optimized attention
 uv add "samudra[cuda]"
 pip install "samudra[cuda]"
 
@@ -31,11 +30,9 @@ uv add samudra --prerelease=allow
 pip install --pre samudra
 ```
 
-The `cuda` extra builds native kernels, so it needs a CUDA toolchain and a
-matching `torch` already present. With `uv` the `[tool.uv]` build settings in
-`pyproject.toml` handle this automatically; with plain `pip` you typically want
-`pip install --no-build-isolation "samudra[cuda]"` in an environment that
-already has `torch`.
+The `cuda` extra does not compile attention extensions. PyTorch's SDPA dispatcher
+selects an available optimized CUDA kernel at runtime, with no additional
+FlashAttention package or CUDA build toolchain required by Samudra.
 
 Installing exposes a `samudra` console command that mirrors the module entry
 points, so you don't need a checkout to run a task:

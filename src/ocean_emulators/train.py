@@ -85,6 +85,7 @@ from ocean_emulators.tiling import (
     build_replay_groups,
     build_tile_catalog,
     ownership_masks,
+    tile_catalog_from_windows,
     validate_tile_group,
 )
 from ocean_emulators.stepper import Stepper, TrainBatchOutput, ValBatchOutput
@@ -3980,6 +3981,23 @@ class Trainer:
         the stores themselves. The gate compares XC/YC directly, which validates
         adjacency without trusting the (face, i, j) indices at all.
         """
+        windows = self.data_container.replay_windows
+        if windows:
+            # Tiles cut out of one raw LLC store. Their geometry is the
+            # configured window, and the store has no packed `prognostic` array
+            # for `validate_tile_group` to probe, so build the specs directly.
+            catalog = tile_catalog_from_windows(windows)
+            layout = build_group_layout(catalog)
+            logger.info(
+                "Tile catalog from data.llc_tiles: %d tiles, canonical %s at "
+                "origin %s, overlaps %s",
+                layout.num_tiles,
+                layout.canonical_shape,
+                layout.canonical_origin,
+                sorted(set(layout.overlaps.values())),
+            )
+            return catalog
+
         locations = self.data_container.replay_locations
         if not locations:
             raise ValueError(

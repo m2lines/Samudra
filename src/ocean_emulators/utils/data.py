@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 from ocean_emulators.constants import (
     DEPTH_I_LEVELS,
+    VERTICAL_DIMS,
     DEPTH_LEVELS,
     MASK_ALL_LEVELS_VAR,
     MASK_VARS,
@@ -35,6 +36,7 @@ from ocean_emulators.constants import (
     TensorMap,
 )
 from ocean_emulators.derived_variables import add_derived_variables
+from ocean_emulators.rust_data import NativeStoreSpec
 from ocean_emulators.utils.location import ResolvedLocation
 from ocean_emulators.utils.multiton import Multiton
 
@@ -201,6 +203,15 @@ def _flatten_dataset_channel_values(data: xr.Dataset) -> np.ndarray:
     return np.concatenate(flattened)
 
 
+def _select_levels(data: xr.Dataset, levels: list[int]) -> xr.Dataset:
+    """Take `levels` from each variable, along whatever vertical axis it has."""
+    selected = {}
+    for name, value in data.data_vars.items():
+        dim = next((d for d in VERTICAL_DIMS if d in value.dims), None)
+        selected[name] = value.isel({dim: levels}) if dim is not None else value
+    return xr.Dataset(selected, attrs=data.attrs)
+
+
 def _slice_llc_dim(data: xr.Dataset, *, dim: str, start: int, end: int) -> xr.Dataset:
     if dim not in data.dims:
         return data
@@ -301,7 +312,10 @@ def _select_required_data_vars(
     boundary_var_names: BoundaryVarNames,
     static_data_vars: list[str] | None,
 ) -> xr.Dataset:
-    required = ["mask_c", "wetmask"]
+    # XC/YC/rA ride along so a raw-store source can build the same spatial and
+    # area-weight channels a packed cache provides. They carry no time axis, so
+    # `_dataset_to_numpy` skips them and they never reach the model as channels.
+    required = ["mask_c", "wetmask", "XC", "YC", "rA"]
     for names in (
         prognostic_var_names,
         boundary_var_names,
@@ -347,6 +361,18 @@ class DataSource:
     spatial_features: torch.Tensor | None = None
     #: Per-cell area [lat, lon] from the grid's own rA, when the cache has one.
     cell_area: torch.Tensor | None = None
+    #: Set only by `data.loader_backend='rust'`. Carries the store and tile
+    #: window the native reader serves, so `TorchTrainDataset` can read through
+    #: Rust instead of xarray. `filter`/`slice`/`map` propagate it for free, and
+    #: it stays None on every other path.
+    native_store: "NativeStoreSpec | None" = None
+    #: Set only by `data.boundary_data_location`. Boundary channels then come
+    #: from this source instead of `self`, which is what lets prognostics be read
+    #: from the raw LLC store while boundaries come from a small packed cache --
+    #: the raw store's 2D fields are chunked one-globe-per-timestamp and cost
+    #: ~1.5 GiB per sample to deliver 8 MiB. `filter(prefix="boundary")` is the
+    #: whole hand-off.
+    boundary_source: "DataSource | None" = None
 
     @cached_property
     def is_compact(self) -> bool:
@@ -376,6 +402,9 @@ class DataSource:
             A new `DataSource` only with the filtered variables and levels.
         """
         name = f"{prefix}[{self.name}]"
+        if prefix == "boundary" and self.boundary_source is not None:
+            return self.boundary_source.filter(var_names, prefix=prefix)
+
         if self.is_packed_train_ready:
             if prefix not in {"prognostic", "boundary"}:
                 raise ValueError(f"Unsupported packed data prefix: {prefix}")
@@ -443,9 +472,15 @@ class DataSource:
             means = self.means[parsed_var_names]
             stds = self.stds[parsed_var_names]
             if levels:
-                data = data.isel(lev=levels)
-                means = means.isel(lev=levels)
-                stds = stds.isel(lev=levels)
+                # Select on whichever vertical axis each variable carries. A
+                # store read straight from LLC has tracers on `k` (renamed to
+                # `lev`) but W on `k_p1`, so a blanket `isel(lev=...)` left W
+                # with all 52 interfaces while everything else had the requested
+                # 51. `W_L` means interface L -- the same positional convention
+                # the patch-cache builder uses, so checkpoints agree.
+                data = _select_levels(data, levels)
+                means = _select_levels(means, levels)
+                stds = _select_levels(stds, levels)
 
             return dataclasses.replace(
                 self, name=name, data=data, means=means, stds=stds
@@ -589,9 +624,22 @@ class DataSource:
         llc_j_start: int = 0,
         llc_j_end: int = 720,
         apply_llc_crop: bool = True,
+        native_store: "NativeStoreSpec | None" = None,
     ) -> Self:
         chunks: dict[str, int] | None = {} if use_dask else None
         data = data_location.open(chunks)
+
+        if native_store is not None:
+            # Rust addresses the store's own time axis, but a DataSource is
+            # sliced to train/val windows before a dataset ever sees it. Riding
+            # along as a coordinate means every downstream `sel`/`isel` keeps the
+            # mapping back to absolute store rows without any extra plumbing.
+            data = data.assign_coords(
+                store_time_index=(
+                    "time",
+                    np.arange(data.sizes["time"], dtype=np.int64),
+                )
+            )
 
         # Apply the configured spatial crop before dispatching to either loader.
         # Packed train-ready stores return early below, so cropping only in the
@@ -656,7 +704,7 @@ class DataSource:
                         data[f"{v}_{lev}"] = data[v].isel(lev=index)
                     data = data.drop_vars(v)
 
-        return cls.from_datasets(
+        source = cls.from_datasets(
             data,
             means,
             stds,
@@ -665,6 +713,36 @@ class DataSource:
             static_data_vars=static_data_vars,
             name=f"{data_location}-{use_dask}",
         )
+
+        # A raw LLC store carries XC/YC/rA just as a packed cache does, so give
+        # it the same spatial-feature and area-weight channels. Without this a
+        # raw-store run silently trains without location inputs, and
+        # `cell_area_weights` falls back to UNIFORM weights because `lat`/`lon`
+        # here are grid indices rather than degrees.
+        if all(name in data for name in ("XC", "YC", "rA")):
+            source = dataclasses.replace(
+                source,
+                spatial_features=_packed_spatial_features(data),
+                cell_area=_packed_cell_area(data),
+            )
+
+        if native_store is None:
+            return source
+
+        # The raw store carries the same XC/YC/rA the packed caches do, so a
+        # native run gets the spatial and area channels a cache run gets. Without
+        # this the two would differ in input channel count and their step times
+        # would not be comparable.
+        # Rust reads the grid fields itself when xarray did not supply them
+        # (e.g. a store whose XC/YC/rA were dropped upstream).
+        if source.spatial_features is None or source.cell_area is None:
+            cell_area = native_store.read_static("rA")
+            source = dataclasses.replace(
+                source,
+                spatial_features=native_store.spatial_features(),
+                cell_area=torch.from_numpy(np.asarray(cell_area, dtype=np.float32)),
+            )
+        return dataclasses.replace(source, native_store=native_store)
 
     @classmethod
     def from_packed_dataset(
@@ -751,6 +829,55 @@ class DataSource:
         )
 
     @classmethod
+    def from_boundary_only_cache(
+        cls,
+        data: xr.Dataset,
+        *,
+        boundary_var_names: BoundaryVarNames,
+        name: str = "BoundaryOnlyDataSource",
+        native_store: "NativeStoreSpec | None" = None,
+    ) -> Self:
+        """Load a `llc-train-ready-v1-boundaryonly` cache.
+
+        Same packed layout as a full train-ready cache, minus the prognostic
+        half, so `filter`/`_dataset_to_numpy` treat it exactly like one. It is
+        only ever reachable through `DataSource.boundary_source`, so the
+        prognostic mask it cannot supply is never read: `TorchTrainDataset` takes
+        both masks from the main source.
+        """
+        data = with_lat_lon_coords(data)
+        data = _with_julian_time_coord(data)
+
+        available = _packed_channel_names(data, "boundary")
+        indices, selected = _packed_channel_indices(
+            available, boundary_var_names, prefix="boundary"
+        )
+        boundary_mask = torch.from_numpy(
+            data["boundary_mask"]
+            .isel(boundary_channel=indices)
+            .to_numpy()
+            .astype(bool, copy=False)
+        )
+        return cls(
+            name=name,
+            data=xr.Dataset(
+                {"boundary": data["boundary"].isel(boundary_channel=indices)}
+            ),
+            means=xr.Dataset(
+                {"boundary_mean": data["boundary_mean"].isel(boundary_channel=indices)}
+            ),
+            stds=xr.Dataset(
+                {"boundary_std": data["boundary_std"].isel(boundary_channel=indices)}
+            ),
+            # A boundary-only cache has no prognostic mask. Stand the boundary
+            # mask in so `Masks` stays well formed; nothing reads it, because a
+            # dataset takes `wet`/`wet_surface` from its main source.
+            masks=Masks(boundary_mask, boundary_mask),
+            packed_channel_names={"boundary": selected},
+            native_store=native_store,
+        )
+
+    @classmethod
     def from_datasets(
         cls,
         data: xr.Dataset,
@@ -793,6 +920,12 @@ class DataContainer:
     #: anything needing the cache's own grid arrays or attrs -- the tile catalog
     #: and its overlap gate -- has to reopen the store from here.
     replay_locations: list["ResolvedLocation"] | None = None
+    #: `(face, i_start, i_end, j_start, j_end)` per replay source, set only when
+    #: `data.llc_tiles` cut the tiles out of one raw LLC store. Reopening the
+    #: store cannot recover them there -- every source shares one location and
+    #: the store's own coords span the whole globe -- so the tile catalog reads
+    #: the windows from here instead.
+    replay_windows: list[tuple[int, int, int, int, int]] | None = None
 
 
 def conditional_rearrange(
@@ -831,20 +964,6 @@ def conditional_rearrange(
     vars_with_dim = [v for v in data if except_dim in data[v].dims]
     vars_without_dim = [v for v in data if except_dim not in data[v].dims]
 
-    # Some of the `vars_without_dim` may need to appear before or behind `vars_with_dim`
-    # in the final data array. These lists help preserve the correct order of the vars,
-    # even after a rearrangement (i.e. merge to two or more dimensions).
-    back = [
-        v
-        for v in vars_without_dim
-        if all_vars.index(v) > all_vars.index(vars_with_dim[0])
-    ]
-    front = [
-        v
-        for v in vars_without_dim
-        if all_vars.index(v) < all_vars.index(vars_with_dim[-1])
-    ]
-
     data_with_dim = (
         data[vars_with_dim]
         .to_array()
@@ -860,24 +979,27 @@ def conditional_rearrange(
 
     da = xr.concat([data_with_dim, data_without_dim], dim=concat_dim)
 
-    n_front = len(front)  # e.g. n_front=2
-    n_center = data_with_dim.sizes[concat_dim]  # e.g. n_center=10
-    n_back = len(back)  # e.g. n_back=3
-
-    # In the `concat` above, we put all the `data_without_dim` vars at the end. Some of
-    # these need to be moved to the front, and the rest stays at the back. Here, we
-    # compute a list of indices that will sort the data in the correct order.
-    #
-    # e.g. with the example constants above, order would look like:
-    #  array([10, 11,  0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 12, 13, 14])
-    order = np.concatenate(
-        (
-            # Moves vars to the front
-            np.roll(np.arange((new_front := n_center + n_front)), n_front),
-            np.arange(new_front, new_front + n_back),  # rest of vars
-        )
+    # The `concat` above put every `except_dim`-bearing channel first and the
+    # rest at the end, so the result has to be permuted back into the dataset's
+    # own variable order. Build that permutation explicitly by naming each
+    # channel, rather than by counting how many variables fall in front of and
+    # behind the levelled block: a surface variable sitting *between* two
+    # levelled variables -- which is exactly `[..., "Eta"] + ["W_0", ...]` --
+    # satisfies both "before the last" and "after the first" and so used to be
+    # counted twice, building an order array one longer than the data.
+    levels = data.sizes[except_dim]
+    concat_order = [
+        (name, level) for name in vars_with_dim for level in range(levels)
+    ] + [(name, None) for name in vars_without_dim]
+    wanted = [
+        (name, level)
+        for name in all_vars
+        for level in (range(levels) if except_dim in data[name].dims else [None])
+    ]
+    rank = {channel: position for position, channel in enumerate(wanted)}
+    order_da = xr.DataArray(
+        np.array([rank[channel] for channel in concat_order]), dims=concat_dim
     )
-    order_da = xr.DataArray(order, dims=concat_dim)
 
     return da.sortby(order_da)
 

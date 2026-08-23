@@ -2,14 +2,14 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-08-22:samudra_rb_llc:1-tile-all_3D_var_and_corrected_grad_z_loss-W-7
+#SBATCH --job-name=2026-08-22:samudra_rb_llc:rust-speedtest
 #SBATCH -x node4100
 #SBATCH -N 1
 #SBATCH --mem=254GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
 #SBATCH -G h200:1
-#SBATCH --time=6:00:00
+#SBATCH --time=1:00:00
 #SBATCH --signal=B:USR1@300
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
@@ -42,8 +42,8 @@ export TORCH_FR_BUFFER_SIZE="${TORCH_FR_BUFFER_SIZE:-1048576}"
 export NCCL_DEBUG=INFO
 
 # PROFILING
-NSYS_ENABLE="${NSYS_ENABLE:-false}"
-export NSYS_ARGS="${NSYS_ARGS:---trace=cuda,nvtx,osrt --sample=cpu --delay=180 --duration=600 --force-overwrite=true}"
+NSYS_ENABLE="${NSYS_ENABLE:-true}"
+export NSYS_ARGS="${NSYS_ARGS:---trace=cuda,nvtx,osrt --sample=cpu --delay=600 --duration=360 --force-overwrite=true}"
 NSYS_OUTPUT_DIR="/orcd/home/002/codycruz/Ocean_Emulator/logs/nsys"
 mkdir -p "${NSYS_OUTPUT_DIR}"
 PROFILER_CMD=()
@@ -102,7 +102,7 @@ LONG_AR_VAL_LENGTH="${LONG_AR_VAL_LENGTH:-480}"
 LONG_AR_VAL_NUM="${LONG_AR_VAL_NUM:-1}"
 # First epoch that runs long AR val. Earlier epochs skip it: the model
 # cannot hold a hundreds-of-steps rollout together yet, so it is wasted time.
-LONG_AR_VAL_START_EPOCH="${LONG_AR_VAL_START_EPOCH:-20}"
+LONG_AR_VAL_START_EPOCH="${LONG_AR_VAL_START_EPOCH:-40}"
 # Rollout steps per chunk. Bounds how much prediction/target is held at once.
 AR_VAL_STEPS_FORWARD="${AR_VAL_STEPS_FORWARD:-4}"
 
@@ -125,12 +125,12 @@ DDP_MAX_DATA_WORKERS_PER_RANK="${DDP_MAX_DATA_WORKERS_PER_RANK:-12}"
 #         Pair it with BOUNDARY_DATA_LOCATION. The raw store's 2D fields are
 #         chunked one-globe-per-timestamp, so reading four of them costs ~1.5 GiB
 #         per sample to deliver 8 MiB; a boundary-only cache removes that.
-LOADER_BACKEND="${LOADER_BACKEND:-cpu}"
+LOADER_BACKEND="${LOADER_BACKEND:-rust}"
 RUST_READ_THREADS="${RUST_READ_THREADS:-8}"
 # Boundary channels come from here instead of the main store. Must be a
 # `llc-train-ready-v1-boundaryonly` cache covering the same tile; it is joined by
 # timestamp, so the two need not share a time origin. Empty = same store.
-BOUNDARY_DATA_LOCATION="${BOUNDARY_DATA_LOCATION:-}"
+BOUNDARY_DATA_LOCATION="${BOUNDARY_DATA_LOCATION:-/orcd/data/abodner/002/cody/LLC_patch/LLC4320_face1_i2880-3600_j720-1440_trainval_ready_20110913_20121014_t1-BOUNDARY-ONLY.zarr}"
 export OCEAN_RUST_LOADER_CACHE_MB="${OCEAN_RUST_LOADER_CACHE_MB:-0}"
 export OCEAN_RUST_LOADER_FULL_ROWS="${OCEAN_RUST_LOADER_FULL_ROWS:-1}"
 
@@ -140,7 +140,7 @@ LLC_I_START="${LLC_I_START:-2880}"
 LLC_I_END="${LLC_I_END:-3600}"
 LLC_J_START="${LLC_J_START:-720}"
 LLC_J_END="${LLC_J_END:-1440}"
-DATA_LOCATION_OVERRIDE="${DATA_LOCATION_OVERRIDE:-/orcd/data/abodner/002/cody/LLC_patch/LLC4320_face1_i2880-3600_j720-1440_trainval_ready_20110913_20121014_t1.zarr}"
+DATA_LOCATION_OVERRIDE="${DATA_LOCATION_OVERRIDE:-/orcd/data/abodner/003/LLC4320/LLC4320}"
 DATA_STRIDE="${DATA_STRIDE:-[1]}"
 TEMPORAL_STRIDE="${TEMPORAL_STRIDE:-1}"
 TEMPORAL_STRIDE_TRANSITION="${TEMPORAL_STRIDE_TRANSITION:-[]}"
@@ -151,10 +151,10 @@ HIST="${HIST:-0}"
 # every other channel). Adds one input channel, so it changes num_in and a
 # checkpoint is only resumable/evaluable with the same setting. Kept false
 # here so in-flight jobs stay resumable; set true for new runs.
-VALID_MASK="${VALID_MASK:-false}"
+VALID_MASK="${VALID_MASK:-true}"
 
 # CHECKPOINTING / RESUME
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-08-21:samudra_rb_llc:1-tile-all_3D_var_and_corrected_grad_z_loss-W-6-20930682/saved_nets/ckpt_emergency.pt}"
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-}"
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"

@@ -1,9 +1,11 @@
 import abc
+import dataclasses
 from functools import cached_property
 from pathlib import Path
 from typing import Annotated, Literal, Self, assert_never
 
 import cftime
+import numpy as np
 import pydantic
 import torch
 import xarray as xr
@@ -40,6 +42,7 @@ from ocean_emulators.models.modules import (
 )
 from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
 from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
+from ocean_emulators.rust_data import NativeStoreSpec
 from ocean_emulators.shardtensor import DomainParallelConfig
 from ocean_emulators.utils.data import DataContainer, DataSource
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
@@ -175,6 +178,46 @@ class DataConfig(BaseConfig):
     llc_i_end: int = 720
     llc_j_start: int = 0
     llc_j_end: int = 720
+    loader_backend: Literal["cpu", "rust"] = Field(
+        default="cpu",
+        description=(
+            "Which reader fills a batch. 'cpu' is the xarray/zarr loader and is "
+            "the only path any existing run uses. 'rust' is the opt-in native "
+            "reader (see ocean_emulators.rust_data), which reads tiles straight "
+            "out of a raw LLC4320 store instead of a preprocessed 3D cache. Keep "
+            "the tile aligned to the store's 720x720 chunk grid: aligned is one "
+            "chunk per variable, misaligned is four."
+        ),
+    )
+    rust_read_threads: int = Field(
+        default=0,
+        description=(
+            "Rayon threads per process for loader_backend='rust'. 0 picks a "
+            "modest default; OCEAN_RUST_LOADER_THREADS overrides that."
+        ),
+    )
+    boundary_data_location: Location | None = Field(
+        default=None,
+        description=(
+            "Optional separate store for the boundary channels, so prognostics "
+            "can be read from a raw LLC store while boundaries come from a small "
+            "`llc-train-ready-v1-boundaryonly` cache. This matters because the "
+            "raw store's 2D fields are chunked one-globe-per-timestamp: they cost "
+            "~390 MiB per variable per sample to deliver 2 MiB of tile, and they "
+            "dominate both read time and the loader's peak memory. The two stores "
+            "are aligned by timestamp, not by index."
+        ),
+    )
+    llc_tiles: list[list[int]] | None = Field(
+        default=None,
+        description=(
+            "Tiles to cut out of a single raw LLC store, as "
+            "[[face, i_start, i_end, j_start, j_end], ...]. Each entry becomes "
+            "one replay source, which is how multi-tile and grouped replay work "
+            "without a directory of prebuilt caches. Overrides llc_face/llc_i_*/"
+            "llc_j_* when set."
+        ),
+    )
 
     def build(
         self,
@@ -208,17 +251,131 @@ class DataConfig(BaseConfig):
         means_location = data_root.resolve(self.data_means_location)
         stds_location = data_root.resolve(self.data_stds_location)
 
-        def load(location: ResolvedLocation, *, dask: bool) -> DataSource:
+        def require_exists(location: ResolvedLocation, knob: str) -> ResolvedLocation:
+            """Fail early, naming the resolved path.
+
+            A relative path is resolved against `experiment.data_root`, so a bare
+            filename lands next to the data root rather than where the store
+            actually is. Left to xarray, that surfaces minutes later as
+            `GroupNotFoundError: group not found at path ''`, which names neither
+            the path nor the knob that produced it.
+            """
+            if isinstance(location, LocalLocation) and not location.path.exists():
+                raise FileNotFoundError(
+                    f"{knob} resolved to {location.path}, which does not exist. "
+                    f"Relative paths are resolved against experiment.data_root "
+                    f"({data_root}), so pass an absolute path or one relative to it."
+                )
+            return location
+
+        require_exists(means_location, "data.data_means_location")
+        require_exists(stds_location, "data.data_stds_location")
+        for location in expanded_locations:
+            require_exists(location, "data.data_location")
+
+        Window = tuple[int, int, int, int, int]
+        default_window: Window = (
+            self.llc_face, self.llc_i_start, self.llc_i_end,
+            self.llc_j_start, self.llc_j_end,
+        )
+
+        def load(
+            location: ResolvedLocation, *, dask: bool, window: Window | None = None
+        ) -> DataSource:
+            face, i_start, i_end, j_start, j_end = window or default_window
+            native_store = None
+            if self.loader_backend == "rust":
+                if not isinstance(location, LocalLocation):
+                    raise ValueError(
+                        "data.loader_backend='rust' reads local Zarr stores only; "
+                        f"{location} is not local."
+                    )
+                native_store = NativeStoreSpec(
+                    path=str(location.path), face=face,
+                    j_start=j_start, j_stop=j_end,
+                    i_start=i_start, i_stop=i_end,
+                    read_threads=self.rust_read_threads,
+                )
             return DataSource.from_locations(
                 data_location=location, means_location=means_location,
                 stds_location=stds_location, prognostic_var_names=prognostic_var_names,
                 boundary_var_names=boundary_var_names, static_data_vars=self.static_data_vars,
-                use_dask=dask, llc_face=self.llc_face, llc_i_start=self.llc_i_start,
-                llc_i_end=self.llc_i_end, llc_j_start=self.llc_j_start,
-                llc_j_end=self.llc_j_end, apply_llc_crop=not multi_cache,
+                use_dask=dask, llc_face=face, llc_i_start=i_start,
+                llc_i_end=i_end, llc_j_start=j_start, llc_j_end=j_end,
+                # An explicit tile list means every source is a window into one
+                # store, so each still needs its own crop -- unlike a directory
+                # of prebuilt caches, which are already cropped.
+                apply_llc_crop=not multi_cache or window is not None,
+                native_store=native_store,
             )
 
-        replay_sources = [load(location, dask=use_dask) for location in expanded_locations]
+        replay_windows: list[Window] | None = None
+        if self.llc_tiles:
+            if len(expanded_locations) != 1:
+                raise ValueError(
+                    "data.llc_tiles cuts tiles out of one store, but "
+                    f"data_location resolved to {len(expanded_locations)} stores."
+                )
+            windows: list[Window] = []
+            for tile in self.llc_tiles:
+                if len(tile) != 5:
+                    raise ValueError(
+                        "Each data.llc_tiles entry must be "
+                        f"[face, i_start, i_end, j_start, j_end]; got {tile}"
+                    )
+                windows.append(tuple(int(value) for value in tile))
+            multi_cache = len(windows) > 1
+            expanded_locations = [data_location] * len(windows)
+            replay_sources = [
+                load(data_location, dask=use_dask, window=window) for window in windows
+            ]
+            replay_windows = windows
+        else:
+            replay_sources = [
+                load(location, dask=use_dask) for location in expanded_locations
+            ]
+
+        if self.boundary_data_location is not None:
+            boundary_location = require_exists(
+                data_root.resolve(self.boundary_data_location),
+                "data.boundary_data_location",
+            )
+            if self.loader_backend == "rust" and not isinstance(
+                boundary_location, LocalLocation
+            ):
+                raise ValueError(
+                    "data.loader_backend='rust' reads local Zarr stores only; "
+                    f"{boundary_location} is not local."
+                )
+            boundary_data = boundary_location.open({} if use_dask else None)
+            boundary_native = None
+            if self.loader_backend == "rust":
+                boundary_native = NativeStoreSpec(
+                    # A packed cache is already cropped to its tile, so the
+                    # window is its whole extent and it has no face axis.
+                    path=str(boundary_location.path), face=None,
+                    j_start=0, j_stop=int(boundary_data.sizes["y"]),
+                    i_start=0, i_stop=int(boundary_data.sizes["x"]),
+                    read_threads=self.rust_read_threads,
+                    packed_prefix="boundary",
+                )
+                boundary_data = boundary_data.assign_coords(
+                    store_time_index=(
+                        "time",
+                        np.arange(boundary_data.sizes["time"], dtype=np.int64),
+                    )
+                )
+            boundary_source = DataSource.from_boundary_only_cache(
+                boundary_data,
+                boundary_var_names=boundary_var_names,
+                name=f"boundary[{boundary_location}]",
+                native_store=boundary_native,
+            )
+            replay_sources = [
+                dataclasses.replace(source, boundary_source=boundary_source)
+                for source in replay_sources
+            ]
+
         source = replay_sources[0]
 
         if use_dask:
@@ -250,6 +407,7 @@ class DataConfig(BaseConfig):
             static_data,
             replay_sources,
             expanded_locations,
+            replay_windows,
         )
 
 

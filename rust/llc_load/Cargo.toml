@@ -1,0 +1,30 @@
+# Ported from m2lines/Samudra#800 (rust/crab_load), retargeted at raw LLC4320
+# Zarr stores. See rust/llc_load/README.md.
+
+[package]
+name = "ocean-llc-loader"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[lib]
+name = "ocean_llc_loader"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+anyhow = "1.0"
+half = "2"
+numpy = "0.25"
+pyo3 = "0.25"
+rayon = "1.11"
+serde_json = "1.0"
+zarrs = { version = "0.21.2", features = ["filesystem"] }
+
+[features]
+extension-module = ["pyo3/extension-module"]
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1

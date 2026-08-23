@@ -305,6 +305,42 @@ def tile_spec_from_coords(
     )
 
 
+def tile_catalog_from_windows(
+    windows: Sequence[tuple[int, int, int, int, int]],
+) -> list[TileSpec]:
+    """Build a catalog from configured `(face, i_start, i_end, j_start, j_end)`.
+
+    This is the `data.llc_tiles` path: every tile is a window into one raw LLC
+    store, so unlike :func:`build_tile_catalog` there is nothing to recover from
+    the stores themselves -- they all share a location and their coordinates
+    span the whole globe. Each tile owns its whole extent; overlaps between
+    tiles are resolved by :func:`build_group_layout` exactly as for caches.
+    """
+    if not windows:
+        raise ValueError("tile_catalog_from_windows needs at least one window")
+    specs: list[TileSpec] = []
+    for tile_id, window in enumerate(windows):
+        if len(window) != 5:
+            raise ValueError(
+                f"Tile {tile_id} window must be "
+                f"(face, i_start, i_end, j_start, j_end); got {window!r}"
+            )
+        face, i_start, i_end, j_start, j_end = (int(value) for value in window)
+        specs.append(
+            TileSpec(
+                tile_id=tile_id,
+                dataset_index=tile_id,
+                face=face,
+                i_start=i_start,
+                i_end=i_end,
+                j_start=j_start,
+                j_end=j_end,
+                owned=(0, j_end - j_start, 0, i_end - i_start),
+            )
+        )
+    return specs
+
+
 def build_tile_catalog(
     datasets: Sequence[xr.Dataset],
     *,

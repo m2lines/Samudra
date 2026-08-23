@@ -111,6 +111,29 @@ DDP_BROADCAST_BUFFERS="${DDP_BROADCAST_BUFFERS:-false}"
 DDP_TIMEOUT_MINUTES="${DDP_TIMEOUT_MINUTES:-300}"
 DDP_MAX_DATA_WORKERS_PER_RANK="${DDP_MAX_DATA_WORKERS_PER_RANK:-12}"
 
+# LOADER BACKEND
+# cpu  -> the xarray/zarr loader; what every run of this script has used.
+# rust -> the opt-in native reader in rust/llc_load, which reads tiles straight
+#         out of a RAW LLC store instead of a preprocessed 3D cache. Needs
+#         `scripts/build_rust_loader.sh` first, and DATA_LOCATION_OVERRIDE
+#         pointing at the raw store.
+#
+#         KEEP THE TILE ALIGNED TO THE 720 CHUNK GRID. Aligned is one chunk per
+#         variable per timestep; off-grid is four, ~1.7x slower. The loader warns
+#         when a window is off-grid.
+#
+#         Pair it with BOUNDARY_DATA_LOCATION. The raw store's 2D fields are
+#         chunked one-globe-per-timestamp, so reading four of them costs ~1.5 GiB
+#         per sample to deliver 8 MiB; a boundary-only cache removes that.
+LOADER_BACKEND="${LOADER_BACKEND:-cpu}"
+RUST_READ_THREADS="${RUST_READ_THREADS:-8}"
+# Boundary channels come from here instead of the main store. Must be a
+# `llc-train-ready-v1-boundaryonly` cache covering the same tile; it is joined by
+# timestamp, so the two need not share a time origin. Empty = same store.
+BOUNDARY_DATA_LOCATION="${BOUNDARY_DATA_LOCATION:-}"
+export OCEAN_RUST_LOADER_CACHE_MB="${OCEAN_RUST_LOADER_CACHE_MB:-0}"
+export OCEAN_RUST_LOADER_FULL_ROWS="${OCEAN_RUST_LOADER_FULL_ROWS:-1}"
+
 # DATA
 # LLC_FACE="${LLC_FACE:-1}"
 # LLC_I_START="${LLC_I_START:-2880}"
@@ -189,6 +212,7 @@ echo "using lr multipliers: lr_multipliers=${LR_MULTIPLIERS}, lr_multiplier_tran
 echo "using replay data: data_stride=${DATA_STRIDE}, temporal_stride=${TEMPORAL_STRIDE}, temporal_stride_transition=${TEMPORAL_STRIDE_TRANSITION}, hist=${HIST}"
 echo "using replay: enabled=${REPLAY_ENABLED}, grouped=${GROUPED_REPLAY} (window=${REPLAY_BLEND_WINDOW}), buffer_size=${REPLAY_BUFFER_SIZE}, refresh_every_n_microbatches=${REPLAY_REFRESH_EVERY_N_MICROBATCHES}, refresh_every_n_microbatches_transition=${REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION}, steps_per_epoch=${REPLAY_STEPS_PER_EPOCH}, max_lead_steps=${REPLAY_MAX_LEAD_STEPS}, max_lead_transition=${REPLAY_MAX_LEAD_TRANSITION}, checkpoint_buffer=${REPLAY_CHECKPOINT_BUFFER}"
 # echo "using data location: LLC face=${LLC_FACE}, i=[${LLC_I_START}:${LLC_I_END}), j=[${LLC_J_START}:${LLC_J_END})"
+echo "using loader_backend=${LOADER_BACKEND} (rust_read_threads=${RUST_READ_THREADS}, boundary=${BOUNDARY_DATA_LOCATION:-<same store>})"
 echo "using padding: pad=${PAD}"
 echo "predicting field or residual: pred_residual=${PRED_RESIDUALS}"
 echo "using batch_size=${BATCH_SIZE}, gradient_accumulation_steps=${GRADIENT_ACCUMULATION_STEPS}, effective_batch_size=$((BATCH_SIZE * GRADIENT_ACCUMULATION_STEPS))"
@@ -203,7 +227,7 @@ if [[ -n "${DATA_LOCATION_OVERRIDE}" ]]; then
   echo "overriding data.data_location=${DATA_LOCATION_OVERRIDE}"
   # A JSON/YAML list or a directory denotes multi-cache mode. The loader must
   # use each cache's full stored extent, not one global LLC i/j crop.
-  if [[ "${DATA_LOCATION_OVERRIDE}" == \[* ]] || [[ -d "${DATA_LOCATION_OVERRIDE}" ]]; then
+  if [[ "${DATA_LOCATION_OVERRIDE}" == \[* ]] || compgen -G "${DATA_LOCATION_OVERRIDE}/*.zarr" >/dev/null; then
     LLC_CROP_ARGS=()
     echo "multi-cache data location: LLC face/i/j overrides are disabled"
   fi
@@ -282,6 +306,9 @@ DATA_OVERRIDE_ARGS=()
 if [[ -n "${DATA_LOCATION_OVERRIDE}" ]]; then
   DATA_OVERRIDE_ARGS+=(--data.data_location "${DATA_LOCATION_OVERRIDE}")
 fi
+if [[ -n "${BOUNDARY_DATA_LOCATION}" ]]; then
+  DATA_OVERRIDE_ARGS+=(--data.boundary_data_location "${BOUNDARY_DATA_LOCATION}")
+fi
 
 TRAIN_PID=""
 forward_signal() {
@@ -324,6 +351,8 @@ trap 'forward_signal INT' INT
   --data.num_workers "${DATA_NUM_WORKERS}" \
   --data.prefetch_factor "${DATA_PREFETCH_FACTOR}" \
   --data.concurrent_compute "${CONCURRENT_COMPUTE}" \
+  --data.loader_backend "${LOADER_BACKEND}" \
+  --data.rust_read_threads "${RUST_READ_THREADS}" \
   --pin_mem "${PIN_MEM}" \
   "${LLC_CROP_ARGS[@]}" \
   --experiment.data_root "/orcd/data/abodner/" \

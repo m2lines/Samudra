@@ -43,3 +43,6 @@ build/
 .pytype/
 .claude/
 /logs
+
+# Rust loader build artifacts (rust/llc_load)
+rust/**/target/

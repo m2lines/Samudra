@@ -15,6 +15,7 @@ from torch.utils.data import Dataset, IterableDataset
 from xarray_einstats.einops import rearrange as xr_rearrange  # noqa: F401
 
 from ocean_emulators.constants import (
+    VERTICAL_DIMS,
     BoundaryVarNames,
     Example,
     GridMask,
@@ -48,6 +49,14 @@ def _packed_channel_dim(data_array: xr.DataArray) -> str | None:
     return None
 
 
+def _vertical_dim_of(data_array: xr.DataArray) -> str | None:
+    """The vertical dimension of `data_array`, or None for a surface field."""
+    for dim in VERTICAL_DIMS:
+        if dim in data_array.dims:
+            return dim
+    return None
+
+
 def _dataset_to_numpy(selected: xr.Dataset, leading_dims: tuple[str, ...]) -> np.ndarray:
     arrays: list[np.ndarray] = []
     leading_dim_set = set(leading_dims)
@@ -65,13 +74,19 @@ def _dataset_to_numpy(selected: xr.Dataset, leading_dims: tuple[str, ...]) -> np
             array = data_array.transpose(
                 *leading_dims, channel_dim, *spatial_dims
             ).to_numpy()
-        elif "lev" in data_array.dims:
+        elif (vertical_dim := _vertical_dim_of(data_array)) is not None:
+            # Whichever vertical axis this variable carries -- `lev` in a packed
+            # cache, `k` for tracers read straight from LLC, `k_p1` for W. Keying
+            # on "lev" alone sent W down the surface branch below, which gave it
+            # an extra axis and broke the concatenate.
             spatial_dims = [
                 dim
                 for dim in data_array.dims
-                if dim not in leading_dim_set and dim != "lev"
+                if dim not in leading_dim_set and dim != vertical_dim
             ]
-            array = data_array.transpose(*leading_dims, "lev", *spatial_dims).to_numpy()
+            array = data_array.transpose(
+                *leading_dims, vertical_dim, *spatial_dims
+            ).to_numpy()
         else:
             spatial_dims = [dim for dim in data_array.dims if dim not in leading_dim_set]
             array = data_array.transpose(*leading_dims, *spatial_dims).to_numpy()
@@ -86,6 +101,34 @@ def _dataset_to_numpy(selected: xr.Dataset, leading_dims: tuple[str, ...]) -> np
         raise ValueError("Dataset did not contain any compatible time-varying data variables.")
 
     return np.concatenate(arrays, axis=len(leading_dims))
+
+
+def _contiguous_indexer(positions: np.ndarray):
+    """A `slice` when the positions are a contiguous ascending run, else the array."""
+    if positions.size and np.array_equal(
+        positions, np.arange(positions[0], positions[0] + positions.size)
+    ):
+        return slice(int(positions[0]), int(positions[0]) + int(positions.size))
+    return positions
+
+
+def _align_times(times: np.ndarray, other_times: np.ndarray, *, name: str) -> np.ndarray:
+    """Position in `other_times` of every entry of `times`.
+
+    Two stores built from the same simulation still start at different
+    timestamps and hold different spans, so a shared position index would
+    silently read the wrong hour. Matching on the timestamp itself is the only
+    safe join, and a missing one is a hard error rather than a nearest match.
+    """
+    lookup = {value: index for index, value in enumerate(other_times)}
+    try:
+        return np.array([lookup[value] for value in times], dtype=np.int64)
+    except KeyError as error:
+        raise ValueError(
+            f"Boundary source {name} does not cover timestamp {error.args[0]}. "
+            "Its time range must contain every timestamp the prognostic source "
+            "serves, or train_time/val_time must be narrowed to the overlap."
+        ) from None
 
 
 def _static_input_channels(
@@ -689,6 +732,59 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         data = src.data
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
+
+        # Opt-in native reader (`data.loader_backend='rust'`). All None on every
+        # other path, and every use of them below is guarded, so the xarray
+        # loader is untouched.
+        #
+        # Prognostics and boundaries get separate readers because they can come
+        # from separate stores (`data.boundary_data_location`) -- raw-store 3D
+        # plus a packed boundary cache is the configuration that makes reading
+        # the raw store affordable. When both come from one store they share one
+        # reader, so an array behind both (`Eta`) is read once per timestamp.
+        self._native_prognostic = None
+        self._native_boundary = None
+        self._prognostic_store_index: np.ndarray | None = None
+        self._boundary_store_index: np.ndarray | None = None
+        prognostic_spec = getattr(self._prognostic_src, "native_store", None)
+        boundary_spec = getattr(self._boundary_src, "native_store", None)
+        if prognostic_spec is not None or boundary_spec is not None:
+            from ocean_emulators.rust_data import NativeLlcReader
+
+            groups = {}
+            if prognostic_spec is not None:
+                groups["prognostic"] = list(prognostic_var_names)
+            if boundary_spec is not None and boundary_spec == prognostic_spec:
+                groups["boundary"] = list(boundary_var_names)
+            if groups:
+                shared = NativeLlcReader(prognostic_spec or boundary_spec, groups)
+                if "prognostic" in groups:
+                    self._native_prognostic = shared
+                if "boundary" in groups:
+                    self._native_boundary = shared
+            if boundary_spec is not None and boundary_spec != prognostic_spec:
+                self._native_boundary = NativeLlcReader(
+                    boundary_spec, {"boundary": list(boundary_var_names)}
+                )
+
+        if self._native_prognostic is not None:
+            self._prognostic_store_index = self._require_store_time_index(
+                self._prognostic_src, "prognostic"
+            )
+        if self._native_boundary is not None:
+            self._boundary_store_index = self._require_store_time_index(
+                self._boundary_src, "boundary"
+            )
+
+        # A separate boundary store has its own time axis, so a position in this
+        # dataset has to be looked up by timestamp rather than reused as-is.
+        self._boundary_positions: np.ndarray | None = None
+        if src.boundary_source is not None:
+            self._boundary_positions = _align_times(
+                src.data["time"].values,
+                self._boundary_src.data["time"].values,
+                name=self._boundary_src.name,
+            )
         self._static_channels = _static_input_channels(
             self._prognostic_src.spatial_features,
             include_spatial=self.append_spatial_features_to_inputs,
@@ -753,16 +849,24 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         for step in range(self.steps):
             x_index = self._get_x_index(idx, step)
             current_x_index = x_index.isel(time=slice(0, self.hist + 1))
-            prognostic_selected = self._prognostic_src.data.isel(time=x_index)
-            boundary_selected = self._boundary_src.data.isel(time=current_x_index)
+            if (
+                self._native_prognostic is None
+                and self._native_boundary is None
+                and self._boundary_positions is None
+            ):
+                prognostic_selected = self._prognostic_src.data.isel(time=x_index)
+                boundary_selected = self._boundary_src.data.isel(time=current_x_index)
 
-            if self._executor is not None:
-                concurrent_compute(
-                    prognostic_selected, boundary_selected, executor=self._executor
-                )
+                if self._executor is not None:
+                    concurrent_compute(
+                        prognostic_selected, boundary_selected, executor=self._executor
+                    )
 
-            prognostic_all = self._dataset_to_tensor(prognostic_selected)
-            boundary = self._dataset_to_tensor(boundary_selected)
+                prognostic_all = self._dataset_to_tensor(prognostic_selected)
+                boundary = self._dataset_to_tensor(boundary_selected)
+            else:
+                prognostic_all = self._read_prognostic(x_index)
+                boundary = self._read_boundary(current_x_index)
 
             TD.insert(prognostic_all, boundary)
         TD.load_stats = LoadStats(time.perf_counter() - start_time)
@@ -771,6 +875,41 @@ class TorchTrainDataset(Dataset[RawTrainData]):
 
     def _dataset_to_tensor(self, selected: xr.Dataset) -> torch.Tensor:
         return torch.from_numpy(_dataset_to_numpy(selected, ("time",)))
+
+    @staticmethod
+    def _require_store_time_index(source, kind: str) -> np.ndarray:
+        if "store_time_index" not in source.data.coords:
+            raise ValueError(
+                f"The Rust loader needs the `store_time_index` coordinate on the "
+                f"{kind} source; it was dropped somewhere between opening the "
+                "store and here."
+            )
+        return np.asarray(source.data.coords["store_time_index"].values, dtype=np.int64)
+
+    @staticmethod
+    def _positions(indexer) -> np.ndarray:
+        """Time positions of an xarray indexer, as a plain integer array."""
+        if isinstance(indexer, slice):
+            return np.arange(indexer.start, indexer.stop, dtype=np.int64)
+        return np.asarray(getattr(indexer, "values", indexer), dtype=np.int64).reshape(-1)
+
+    def _read_prognostic(self, indexer) -> torch.Tensor:
+        if self._native_prognostic is None:
+            return self._dataset_to_tensor(self._prognostic_src.data.isel(time=indexer))
+        rows = self._prognostic_store_index[self._positions(indexer)]
+        return self._native_prognostic.read("prognostic", rows)
+
+    def _read_boundary(self, indexer) -> torch.Tensor:
+        if self._boundary_positions is not None:
+            positions = self._boundary_positions[self._positions(indexer)]
+            # The boundary store has its own time axis, so the caller's indexer
+            # no longer addresses it. Rebuild one, keeping a contiguous run a
+            # slice so the common case still avoids vectorised isel.
+            indexer = _contiguous_indexer(positions)
+        if self._native_boundary is None:
+            return self._dataset_to_tensor(self._boundary_src.data.isel(time=indexer))
+        rows = self._boundary_store_index[self._positions(indexer)]
+        return self._native_boundary.read("boundary", rows)
 
     def get_replay_time_indices(
         self,
@@ -808,11 +947,8 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         t_tgt = int(values[self.hist + 1])
 
         # Basic indexing keeps a length-1 time dim and avoids vectorized/fancy isel.
-        target_selected = self._prognostic_src.data.isel(time=slice(t_tgt, t_tgt + 1))
-        boundary_selected = self._boundary_src.data.isel(time=slice(t_cur, t_cur + 1))
-
-        target_prognostic = self._dataset_to_tensor(target_selected)
-        boundary = self._dataset_to_tensor(boundary_selected)
+        target_prognostic = self._read_prognostic(slice(t_tgt, t_tgt + 1))
+        boundary = self._read_boundary(slice(t_cur, t_cur + 1))
 
         return RawReplayTransition(
             dataset_id=self.id,
@@ -837,9 +973,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         t_cur = int(values[self.hist])
         t_tgt = int(values[self.hist + 1])
         # Basic indexing keeps a length-1 time dim and avoids vectorized/fancy isel.
-        seed_selected = self._prognostic_src.data.isel(time=slice(t_cur, t_cur + 1))
-
-        seed_prognostic = self._dataset_to_tensor(seed_selected)
+        seed_prognostic = self._read_prognostic(slice(t_cur, t_cur + 1))
         return RawReplayTransition(
             dataset_id=self.id,
             dataset_index=dataset_index,

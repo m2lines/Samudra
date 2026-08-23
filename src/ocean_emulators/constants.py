@@ -135,6 +135,13 @@ DEPTH_INTERFACES = _depth_interfaces(DEPTH_LEVELS)
 # one centre-to-centre spacing -- tens of metres different at depth.
 INTERFACE_VARS = frozenset({"W"})
 
+# Vertical dimension names a source variable may carry, most specific first.
+# `k` is cell centres and `k_p1` is cell interfaces (W lives there), so a store
+# read straight from LLC has both; `lev` is what a packed cache uses. Code that
+# needs "the vertical axis of this variable" has to look it up rather than
+# assume `lev`, or W silently ends up treated as a surface field.
+VERTICAL_DIMS = ("lev", "k", "k_p1", "k_l", "k_u")
+
 
 def depth_of_channel(channel_name: str) -> float:
     """Depth in metres of a 3D channel such as `Theta_7` or `W_7`."""

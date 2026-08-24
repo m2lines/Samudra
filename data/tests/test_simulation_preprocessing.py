@@ -3,9 +3,11 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import numpy as np
+import pytest
 import xarray as xr
 from ocean_preprocessing.simulation_preprocessing.gfdl_om4 import (
     normalize_vertical_coords,
+    select_om4_variables,
 )
 
 
@@ -37,3 +39,34 @@ def test_normalize_is_noop_without_raw_vertical_coords():
     ds = _ds_with_vertical(["lev"])
     out = normalize_vertical_coords(ds)
     assert "lev" in out.coords
+
+
+def _om4_source(*extra_vars: str) -> xr.Dataset:
+    required = ["hfds", "so", "tauuo", "tauvo", "thetao", "uo", "vo", "zos"]
+    return xr.Dataset(
+        {name: ("time", np.ones(2)) for name in [*required, *extra_vars]},
+        coords={"time": [0, 1]},
+    )
+
+
+def test_select_om4_variables_retains_declared_snapshot_forcing():
+    out = select_om4_variables(_om4_source("wfo", "hfgeou", "wet"))
+
+    assert set(out.data_vars) == {
+        "hfds",
+        "so",
+        "tauuo",
+        "tauvo",
+        "thetao",
+        "uo",
+        "vo",
+        "wfo",
+        "zos",
+    }
+
+
+def test_select_om4_variables_rejects_incomplete_source():
+    source = _om4_source().drop_vars("thetao")
+
+    with pytest.raises(ValueError, match="missing required variables.*thetao"):
+        select_om4_variables(source)

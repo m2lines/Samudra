@@ -228,7 +228,7 @@ def input_data():
             ]
         },
         coords=coords,
-        attrs={"m2lines/ocean-emulators_git_hash": "dummy"},
+        attrs={"m2lines/ocean_emulators_git_hash": "dummy"},
     )
     # why would they not work when passed at ds creation?
 

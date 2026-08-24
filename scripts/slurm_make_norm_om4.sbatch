@@ -16,7 +16,9 @@
 #
 # --- Common env vars ---------------------------------------------------------
 #   OUTPUT_BASE + RESOLUTION  derive OUTPUT_PATH as
-#                               ${OUTPUT_BASE}/om4_${RESOLUTION}/OM4.zarr
+#                               ${OUTPUT_BASE}/om4_${RESOLUTION}${variant_suffix}/OM4.zarr
+#   DATA_VARIANT averaged (default) | snapshots; adds `_snapshots` to the
+#                derived output directory for snapshot data.
 #   PREPROC_ENV  conda env name (default: ocean_preprocessing)
 #   CONDA_SH     path to conda.sh (autodetected from $CONDA_EXE / common dirs)
 #   REPO_DIR     repo checkout (default: $SLURM_SUBMIT_DIR)
@@ -51,7 +53,16 @@ if [[ -z "${OUTPUT_PATH}" ]]; then
     echo "ERROR: set OUTPUT_PATH, or both OUTPUT_BASE and RESOLUTION." >&2
     exit 2
   fi
-  OUTPUT_PATH="${OUTPUT_BASE%/}/om4_${RESOLUTION}/OM4.zarr"
+  DATA_VARIANT="${DATA_VARIANT:-averaged}"
+  case "${DATA_VARIANT}" in
+    averaged)  OUTPUT_SUFFIX="" ;;
+    snapshots) OUTPUT_SUFFIX="_snapshots" ;;
+    *)
+      echo "ERROR: unknown DATA_VARIANT='${DATA_VARIANT}'." >&2
+      echo "Expected one of: averaged | snapshots." >&2
+      exit 2 ;;
+  esac
+  OUTPUT_PATH="${OUTPUT_BASE%/}/om4_${RESOLUTION}${OUTPUT_SUFFIX}/OM4.zarr"
 fi
 if [[ "${OUTPUT_PATH}" != s3://* ]]; then
   echo "ERROR: make_norm_datasets.py requires an s3:// path; got '${OUTPUT_PATH}'." >&2

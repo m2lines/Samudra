@@ -7,6 +7,7 @@ from xarrera import CoordsSchema, DataArraySchema, DatasetSchema  # noqa: E402
 ### Preprocessing Stage
 vars_3d = ["so", "thetao", "uo", "vo"]
 vars_2d = ["hfds", "tauuo", "tauvo", "zos"]
+optional_vars_2d = ["wfo"]
 ds_processed_coords_schema = CoordsSchema(
     {
         "wetmask": DataArraySchema(dtype=bool, dims=["lev", "y", "x"]),

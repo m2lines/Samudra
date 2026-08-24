@@ -22,9 +22,12 @@
 #
 # --- Common env vars ---------------------------------------------------------
 #   OUTPUT_BASE  s3 prefix; OUTPUT_PATH defaults to
-#                  ${OUTPUT_BASE}/om4_${RESOLUTION}/OM4.zarr
+#                  ${OUTPUT_BASE}/om4_${RESOLUTION}${variant_suffix}/OM4.zarr
 #                e.g. export OUTPUT_BASE="s3://m2lines-pubs/Samudra/v$(date +%Y-%m)"
 #   RAW_ROOT     source prefix (default: s3://m2lines-pubs/Samudra/raw)
+#   DATA_VARIANT averaged (default) | snapshots; selects the raw store and adds
+#                `_snapshots` to derived output directories for snapshot data.
+#   DATA_PATH    exact raw OM4 source; overrides DATA_VARIANT's source selection.
 #   PREPROC_ENV  conda env name (default: ocean_preprocessing)
 #   CONDA_SH     path to conda.sh (autodetected from $CONDA_EXE / common dirs)
 #   REPO_DIR     repo checkout (default: $SLURM_SUBMIT_DIR); we cd here so the
@@ -80,7 +83,7 @@ set -euo pipefail
 # --- Resolve inputs ----------------------------------------------------------
 RESOLUTION="${RESOLUTION:-}"
 if [[ -z "${RESOLUTION}" ]]; then
-  echo "ERROR: RESOLUTION is required (onedeg | onedeg_filter | halfdeg | quarterdeg)." >&2
+  echo "ERROR: RESOLUTION is required (twodeg | twodeg_filter | onedeg | onedeg_filter | halfdeg | quarterdeg)." >&2
   exit 2
 fi
 
@@ -100,7 +103,16 @@ case "${RESOLUTION}" in
 esac
 
 RAW_ROOT="${RAW_ROOT:-s3://m2lines-pubs/Samudra/raw}"
-DATA_PATH="${RAW_ROOT}/om4_5daily.zarr"
+DATA_VARIANT="${DATA_VARIANT:-averaged}"
+case "${DATA_VARIANT}" in
+  averaged)  SOURCE_STORE="om4_5daily.zarr";           OUTPUT_SUFFIX="" ;;
+  snapshots) SOURCE_STORE="om4_5daily_snapshots.zarr"; OUTPUT_SUFFIX="_snapshots" ;;
+  *)
+    echo "ERROR: unknown DATA_VARIANT='${DATA_VARIANT}'." >&2
+    echo "Expected one of: averaged | snapshots." >&2
+    exit 2 ;;
+esac
+DATA_PATH="${DATA_PATH:-${RAW_ROOT}/${SOURCE_STORE}}"
 NATIVE_GRID_PATH="${RAW_ROOT}/ocean_static_no_mask_table.zarr"
 MOSAIC_PATH="${RAW_ROOT}/grids/ocean_hgrid.zarr"
 TARGET_GRID_PATH="${RAW_ROOT}/grids/${GRID}.zarr"
@@ -112,7 +124,7 @@ if [[ -z "${OUTPUT_PATH}" ]]; then
     echo "Example: export OUTPUT_BASE=\"s3://m2lines-pubs/Samudra/v\$(date +%Y-%m)\"" >&2
     exit 2
   fi
-  OUTPUT_PATH="${OUTPUT_BASE%/}/om4_${RESOLUTION}/OM4.zarr"
+  OUTPUT_PATH="${OUTPUT_BASE%/}/om4_${RESOLUTION}${OUTPUT_SUFFIX}/OM4.zarr"
 fi
 
 # --- Credentials preflight ---------------------------------------------------
@@ -182,6 +194,8 @@ REPO_DIR="${REPO_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}"
 cd "${REPO_DIR}"  # so get_git_url_hash() resolves and data/ is importable
 
 echo "Resolution:   ${RESOLUTION}"
+echo "Data variant: ${DATA_VARIANT}"
+echo "Data path:    ${DATA_PATH}"
 echo "Target grid:  ${GRID}  (filter: ${FILTER_FLAG:-on})"
 echo "Raw root:     ${RAW_ROOT}"
 echo "Output path:  ${OUTPUT_PATH}"

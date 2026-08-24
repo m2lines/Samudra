@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787609153445,
+  "lastUpdate": 1787609160451,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -23569,6 +23569,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.2621587622008524",
             "extra": "mean: 47.585062447200016 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1a967fac1b086ef2688782a3083fc13179627cb9",
+          "message": "Add native SDPA Perceiver implementation (#842)\n\n## Summary\n\n- replace `perceiver-pytorch`, `flash-perceiver`, and external\n`flash-attn` with native `Perceiver` and `PerceiverIO` components backed\nby `torch.nn.functional.scaled_dot_product_attention`\n- preserve existing config names: `auto` and `sdpa` use PyTorch\ndispatch, `naive` forces the math backend, and `flash` forces PyTorch\nFlashAttention\n- remove the retired packages from project metadata, lockfile, container\nsetup/checks, quickstart, and installation/release documentation\n- exercise SDPA in the container smoke test and add a CUDA test that\nforces FlashAttention through forward and backward passes\n\n## Backward compatibility\n\nThe native modules retain the constructor shape and parameter hierarchy\nof `perceiver-pytorch`; its state dictionaries were verified to load\ndirectly and reproduce math-backend outputs within `1e-6`. Existing\nmodel config values remain accepted without edits.\n\nThe separate `flash-perceiver` package used a different internal module\nlayout, so checkpoints produced specifically by that backend may require\nmigration even though their configs remain valid.\n\nThis PR does not include any research decoder/model variants or\nexperiment/search configuration.\n\n## Container impact\n\nNo new CUDA binary is required. SDPA and its optimized kernels ship with\nPyTorch. The PhysicsNeMo image continues to supply the compatible\nPyTorch/CUDA stack, while its package verification and smoke test no\nlonger require the removed external attention wheels.\n\n## Validation\n\n- focused Perceiver/encoder/decoder tests with all legacy packages\nphysically absent — 25 passed, 1 CUDA test skipped locally\n- `uv run --locked pytest -m \"not manual and not cuda\" -q` — 394 passed,\n2 skipped, 10 xfailed, 67 deselected\n- `uvx pre-commit run --all-files` — passed",
+          "timestamp": "2026-08-24T21:27:38Z",
+          "tree_id": "99f6f971b762e4f1801f80baa5424d0bbcd7c919",
+          "url": "https://github.com/m2lines/Samudra/commit/1a967fac1b086ef2688782a3083fc13179627cb9"
+        },
+        "date": 1787609160062,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.1510652738235514,
+            "unit": "iter/sec",
+            "range": "stddev: 0.001391713797275488",
+            "extra": "mean: 868.7604628000372 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06670044861451897,
+            "unit": "iter/sec",
+            "range": "stddev: 0.012990846855129811",
+            "extra": "mean: 14.992402911399996 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.021011490919597135,
+            "unit": "iter/sec",
+            "range": "stddev: 0.18402849031596435",
+            "extra": "mean: 47.593005361999964 sec\nrounds: 5"
           }
         ]
       }

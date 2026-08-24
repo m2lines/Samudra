@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787583861188,
+  "lastUpdate": 1787583865557,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -23479,6 +23479,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.04720551407064606",
             "extra": "mean: 47.63332898920007 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "34085119+amogh-gulati@users.noreply.github.com",
+            "name": "Amogh Gulati",
+            "username": "amogh-gulati"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c436923e563a5b87b19055efca798c8b2010705b",
+          "message": "validation rollout sliced (#770)\n\nThis PR adds long-horizon autoregressive rollout validation to the\ntraining loop, complementing the existing single-step validation.\n\nPreviously, validation only checked one-step-ahead prediction error each\nepoch. This change allows training to periodically roll the model\nforward autoregressively over the validation period and log rollout RMSE\nat configured horizons, such as 90 days and 360 days.\n\nThe implementation supports multiple rollout horizons in a single\nrollout. For example, with `rollout_validation_days: [360, 90]`, the\ncode rolls out once to the maximum horizon, records the 90-day metrics\nat the intermediate cutoff, and then continues to 360 days. This avoids\nlaunching a separate 90-day rollout.\n\nMetrics are logged separately by horizon, variable, depth level, and\ndepth band using raw, un-normalized fields. Rollout validation currently\nruns only on rank 0, with other ranks waiting at a barrier, since the\nvalidation window is not sharded across workers. The rollout is\nprocessed in bounded chunks to avoid materializing the full forecast\nhorizon’s targets at once.\n\nThis is currently wired up for the standard single-scale training\nschedule and is a no-op for FOMO’s multi-scale schedule.\n\n* Added rollout validation config options:\n\n  * `rollout_validation_days`\n  * `rollout_validation_steps`\n  * `rollout_validation_freq`\n  * `rollout_validation_steps_forward`\n\n## Config\n\nIn `configs/samudra_om4_v2/train.yaml`, rollout validation is enabled\nwith:\n\n```yaml\nrollout_validation_days: [360, 90]\nrollout_validation_steps_forward: 4\n```\ntest run here -\nhttps://wandb.ai/ocean_emulators/default/runs/e7r70ugc?nw=nwuseramoghgulati\nmetrics present in rollout_val for 90 days and 360 days\n\n---------\n\nCo-authored-by: Amogh Gulati <ag11542@cs787.hpc.nyu.edu>\nCo-authored-by: Amogh Gulati <ag11542@cs636.hpc.nyu.edu>\nCo-authored-by: Amogh Gulati <ag11542@cs624.hpc.nyu.edu>\nCo-authored-by: fomo-bot <266121006+fomo-bot@users.noreply.github.com>\nCo-authored-by: Alex Merose <alex@openathena.ai>",
+          "timestamp": "2026-08-24T14:25:46Z",
+          "tree_id": "80c1fa54b8bcaa554138713bbbb4c06f8c578f9d",
+          "url": "https://github.com/m2lines/Samudra/commit/c436923e563a5b87b19055efca798c8b2010705b"
+        },
+        "date": 1787583865180,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.1615098421557633,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0013290026600482098",
+            "extra": "mean: 860.948365399986 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.0664961287735193,
+            "unit": "iter/sec",
+            "range": "stddev: 0.022518072239883804",
+            "extra": "mean: 15.038469433399996 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.021014998164804167,
+            "unit": "iter/sec",
+            "range": "stddev: 0.2621587622008524",
+            "extra": "mean: 47.585062447200016 sec\nrounds: 5"
           }
         ]
       }

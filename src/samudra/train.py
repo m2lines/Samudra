@@ -32,6 +32,7 @@ from samudra.aggregator.loss import (
     get_depth_loss_dict,
     get_variable_loss_dict,
 )
+from samudra.aggregator.validate.rollout import RolloutValidationAggregator
 from samudra.backend import init_train_backend
 from samudra.config import TrainConfig, build_loss_fn
 from samudra.constants import (
@@ -55,6 +56,7 @@ from samudra.stepper import (
     run_rollout,
     train_batch,
     validate_batch,
+    validate_rollout,
 )
 from samudra.utils.data import Normalize, get_inference_steps
 from samudra.utils.device import using_gpu
@@ -73,6 +75,11 @@ from samudra.utils.logging import (
     handle_warnings,
 )
 from samudra.utils.loss import DynamicLoss, LossFnWithContext
+from samudra.utils.rollout_validation import (
+    RolloutValidationSpec,
+    should_log_validation_images,
+    should_run_on_epoch_freq,
+)
 from samudra.utils.samplers import (
     DistributedEquivalenceGroupBatchSampler,
     EquivalenceGroupBatchSampler,
@@ -86,17 +93,6 @@ from samudra.utils.train_progress import TrainProgress
 from samudra.utils.wandb import WandBLogger
 
 logger = logging.getLogger(__name__)
-
-
-def should_log_validation_images(epoch: int, frequency: int) -> bool:
-    """Return whether to log validation images for a 1-based training epoch."""
-    if epoch < 1:
-        raise ValueError(f"Epoch must be >= 1, got {epoch}")
-    if frequency < 1:
-        raise ValueError(
-            f"Validation image log frequency must be >= 1, got {frequency}"
-        )
-    return (epoch - 1) % frequency == 0
 
 
 class Trainer:
@@ -311,6 +307,8 @@ class Trainer:
         self.step_transition = cfg.step_transition
         self.save_freq = cfg.save_freq
         self.validation_image_log_freq = cfg.validation_image_log_freq
+        self.rollout_validation = cfg.rollout_validation
+        self._rollout_validation_pg: torch.distributed.ProcessGroup | None = None
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
         self.data_stride: list[int] = cfg.data_stride
@@ -419,6 +417,16 @@ class Trainer:
             val_stats = self.validate_one_epoch(epoch)
             end_epoch_val_time = time.perf_counter()
 
+            if self.rollout_validation is not None and should_run_on_epoch_freq(
+                epoch,
+                self.rollout_validation.frequency,
+            ):
+                rollout_val_stats = self.validate_rollout_one_epoch(epoch)
+                end_epoch_rollout_val_time = time.perf_counter()
+            else:
+                rollout_val_stats = {}
+                end_epoch_rollout_val_time = None
+
             if -1 in self.inference_epochs or epoch in self.inference_epochs:
                 inf_stats = self.inference_one_epoch(epoch)
                 end_epoch_inf_time = time.perf_counter()
@@ -443,6 +451,7 @@ class Trainer:
             log_stats = {
                 **train_stats,
                 **val_stats,
+                **rollout_val_stats,
                 **inf_stats,
                 "epoch": epoch,
                 "epoch_train_seconds": end_epoch_train_time - start_epoch_train_time,
@@ -451,9 +460,19 @@ class Trainer:
                 **self.train_progress.to_metrics(),
             }
 
+            if end_epoch_rollout_val_time is not None:
+                log_stats["epoch_rollout_validation_seconds"] = (
+                    end_epoch_rollout_val_time - end_epoch_val_time
+                )
+
             if end_epoch_inf_time is not None:
+                inf_start_time = (
+                    end_epoch_rollout_val_time
+                    if end_epoch_rollout_val_time is not None
+                    else end_epoch_val_time
+                )
                 log_stats["epoch_inference_seconds"] = (
-                    end_epoch_inf_time - end_epoch_val_time
+                    end_epoch_inf_time - inf_start_time
                 )
 
             if is_main_process():
@@ -694,6 +713,158 @@ class Trainer:
 
         logger.info(f"Aggregating validation logs")
         return val_aggregator.get_logs(label="val")
+
+    def _get_rollout_validation_process_group(self):
+        # The rollout on rank 0 can take much longer than the default NCCL
+        # collective timeout, which would abort training while the other ranks
+        # wait. Waiting in a CPU (gloo) barrier with an explicit long timeout
+        # keeps the NCCL watchdog out of the picture.
+        if self._rollout_validation_pg is None:
+            self._rollout_validation_pg = torch.distributed.new_group(
+                backend="gloo", timeout=datetime.timedelta(hours=12)
+            )
+        return self._rollout_validation_pg
+
+    @contextlib.contextmanager
+    def _rank0_rollout_validation_context(self):
+        if self.distributed is None:
+            yield is_main_process()
+            return
+        group = self._get_rollout_validation_process_group()
+        if is_main_process():
+            try:
+                yield True
+            finally:
+                torch.distributed.barrier(group=group)
+        else:
+            torch.distributed.barrier(group=group)
+            yield False
+
+    def validate_rollout_one_epoch(self, epoch):
+        assert self.rollout_validation is not None
+        if len(self.data_container.train_sources) > 1:
+            logger.info(
+                "Skipping rollout validation because it currently supports only "
+                "single-source training."
+            )
+            return {}
+
+        with self._rank0_rollout_validation_context() as should_validate:
+            if not should_validate:
+                return {}
+
+            self.model.eval()
+            rollout_src = self.data_container.val_sources[0]
+            rollout_dataset = InferenceDataset(
+                src=rollout_src,
+                prognostic_var_names=self.prognostic_var_names,
+                boundary_var_names=self.boundary_var_names,
+                hist=self.hist,
+                normalize_before_mask=self.normalize_before_mask,
+                masked_fill_value=self.normalize_fill_value,
+                long_rollout=True,
+            )
+
+            available_steps = len(rollout_dataset)
+            if available_steps == 0:
+                logger.warning(
+                    "Skipping rollout validation because val_time does not contain "
+                    "enough timesteps for one autoregressive rollout step."
+                )
+                return {}
+
+            if self.rollout_validation.days:
+                target_times = rollout_dataset.get_target_time(
+                    0, available_steps
+                ).values
+                specs = [
+                    RolloutValidationSpec.from_day_horizon(
+                        days=days,
+                        start_time=rollout_src.data.time.values[0],
+                        target_times=target_times,
+                        hist=self.hist,
+                    )
+                    for days in self.rollout_validation.days
+                ]
+            else:
+                if self.rollout_validation.model_steps > available_steps:
+                    logger.warning(
+                        f"Requested rollout_validation.model_steps="
+                        f"{self.rollout_validation.model_steps}, "
+                        f"but val_time only supports {available_steps} model steps. "
+                        f"Using {available_steps} steps."
+                    )
+                specs = [
+                    RolloutValidationSpec.from_model_steps(
+                        requested_steps=self.rollout_validation.model_steps,
+                        available_steps=available_steps,
+                        hist=self.hist,
+                    )
+                ]
+                if specs[0].model_steps == 0:
+                    logger.warning(
+                        "Skipping rollout validation because val_time does not contain "
+                        "enough timesteps for one autoregressive rollout step."
+                    )
+                    return {}
+            model = (
+                self.model.module
+                if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
+                else self.model
+            )
+            logs: dict[str, Any] = {}
+            with torch.no_grad(), self._test_context():
+                aggregators_by_step: dict[int, RolloutValidationAggregator] = {}
+                labels_by_step: dict[int, str] = {}
+                for spec in specs:
+                    if spec.model_steps in aggregators_by_step:
+                        raise ValueError(
+                            f"rollout_validation.days resolved two horizons to the "
+                            f"same {spec.model_steps} model steps "
+                            f"({labels_by_step[spec.model_steps]} and {spec.label}); "
+                            "use more widely spaced day horizons."
+                        )
+                    logger.info(
+                        f"Rollout Validation Epoch: [{epoch}] using {spec.model_steps} "
+                        f"model steps ({spec.target_timesteps} target timesteps) "
+                        f"for {spec.label}."
+                    )
+                    rollout_aggregator = RolloutValidationAggregator(
+                        hist=self.hist,
+                        area_weights=self.primary_src.spherical_area_weights.to(
+                            self.device
+                        ),
+                        normalize=self.normalize,
+                        dataset_spec=self.dataset_spec,
+                        prognostic_var_names=self.prognostic_var_names,
+                        distributed_reduce=False,
+                    )
+                    aggregators_by_step[spec.model_steps] = rollout_aggregator
+                    labels_by_step[spec.model_steps] = (
+                        f"rollout_val/{spec.label}"
+                        if self.rollout_validation.days
+                        else "rollout_val"
+                    )
+
+                max_model_steps = max(aggregators_by_step)
+                validate_rollout(
+                    model=model,
+                    dataset=rollout_dataset,
+                    aggregators_by_step=aggregators_by_step,
+                    epoch=epoch,
+                    num_model_steps=max_model_steps,
+                    # Keep validation target materialization small. A 360-day
+                    # rollout at hist=1 is 35 model steps; loading that full
+                    # target block at once can stall on large Zarr data.
+                    num_model_steps_forward=self.rollout_validation.steps_forward,
+                )
+
+                for horizon_steps, rollout_aggregator in aggregators_by_step.items():
+                    label = labels_by_step[horizon_steps]
+                    logs.update(rollout_aggregator.get_logs(label=label))
+
+            logger.info("Aggregating rollout validation logs")
+            return logs
 
     def inference_one_epoch(self, epoch):
         self.model.eval()

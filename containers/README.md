@@ -78,7 +78,7 @@ PYTEST_ARGS="-k test_trainer"
 
 Notes:
 
-- The Docker build keeps `torch`, `torchvision`, and `flash-attn` from the base image.
+- The Docker build keeps `torch` and `torchvision` from the base image.
 - The build creates `.venv` with `--system-site-packages`, then uses `uv sync` for
   the rest of the dependencies (including dev dependencies; this is a dev container).
 - The build script refuses to run from a dirty git checkout (including untracked files);

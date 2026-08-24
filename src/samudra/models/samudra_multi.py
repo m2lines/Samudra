@@ -5,8 +5,6 @@
 from typing import TYPE_CHECKING
 
 import torch
-from perceiver_pytorch import Perceiver
-from perceiver_pytorch.perceiver_pytorch import Attention, FeedForward
 from torch import nn
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
@@ -14,7 +12,13 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
 
 from samudra.constants import Boundary, Prognostic
 from samudra.models.base import BaseModel
-from samudra.models.modules import PerceiverDecoder, PerceiverEncoder
+from samudra.models.modules import (
+    Attention,
+    FeedForward,
+    Perceiver,
+    PerceiverDecoder,
+    PerceiverEncoder,
+)
 from samudra.models.modules.unet_backbone import UNetBackbone
 from samudra.utils.ctx import GridContext
 from samudra.utils.device import autocast
@@ -32,18 +36,6 @@ _checkpoint_types: tuple[type, ...] = (
     UNetBackbone,
     Attention,
 )
-
-try:
-    from flash_attn.modules.block import (
-        Block as FlashBlock,  # type: ignore[import-not-found]
-    )
-    from flash_perceiver.perceiver import (
-        PerceiverBase as FlashPerceiverBase,  # type: ignore[import-not-found]
-    )
-
-    _checkpoint_types = _checkpoint_types + (FlashPerceiverBase, FlashBlock)
-except ImportError:
-    pass
 
 
 class SamudraMulti(BaseModel):

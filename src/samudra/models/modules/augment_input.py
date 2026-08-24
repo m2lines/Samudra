@@ -75,12 +75,11 @@ def fourier_features_2d_dim(num_freq_bands: int) -> int:
 class FourierFeatures2D(nn.Module):
     """Concatenate 2D Fourier positional features along the channel dim.
 
-    Matches the `fourier_encode_data=True, input_axis=2` layout from
-    perceiver-pytorch's Perceiver. Configured encoder Perceiver paths use this
-    module explicitly so flash and naive implementations encode intra-patch
-    position equivalently.
+    Matches the `fourier_encode_data=True, input_axis=2` layout used by the
+    original Perceiver implementation. Configured encoder paths apply this
+    module explicitly so positional features remain inspectable.
 
-    Frequency layout matches `perceiver_pytorch.fourier_encode`: scales are
+    Frequency scales are
     `linspace(1., max_freq / 2, num_freq_bands)`, applied to positions
     in [-1, 1].
 

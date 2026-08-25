@@ -42,6 +42,7 @@ EXCLUDE_PATTERNS = (
     "**/*.pem",
     "**/*.part",
     "**/*.tmp",
+    "/saved_nets/tmp*",
     "**/.nfs*",
     "**/wandb/**",
 )
@@ -112,6 +113,10 @@ def check_command(
     ]
 
 
+def list_command(destination: str, rclone_bin: str = "rclone") -> List[str]:
+    return [rclone_bin, "lsf", destination, "--max-depth", "1"]
+
+
 def validate_run_dir(run_dir: Path) -> Path:
     if run_dir.is_symlink():
         raise ArchiveError(f"refusing symlinked run directory: {run_dir}")
@@ -121,6 +126,43 @@ def validate_run_dir(run_dir: Path) -> Path:
     if resolved == Path("/"):
         raise ArchiveError("refusing to publish filesystem root")
     return resolved
+
+
+def preflight_destination(
+    run_dir: Path,
+    archive_base: str,
+    owner: str,
+    apply: bool,
+    rclone_bin: str = "rclone",
+) -> Dict[str, object]:
+    """Verify that a new run's archive destination has no existing objects."""
+    run_dir = validate_run_dir(run_dir)
+    destination = archive_destination(archive_base, owner, run_dir.name)
+    command = list_command(destination, rclone_bin)
+    print(_display_command(command), flush=True)
+
+    if not apply:
+        return {
+            "destination": destination,
+            "owner": owner,
+            "status": "planned",
+        }
+
+    result = subprocess.run(
+        command,
+        check=True,
+        stdout=subprocess.PIPE,
+    )
+    if result.stdout.strip():
+        raise ArchiveError(
+            f"archive destination already contains objects: {destination}; "
+            "choose a unique run name"
+        )
+    return {
+        "destination": destination,
+        "owner": owner,
+        "status": "available",
+    }
 
 
 def publish_run(
@@ -277,6 +319,16 @@ def _build_parser() -> argparse.ArgumentParser:
         "--no-verify", action="store_true", help="skip rclone's size verification"
     )
 
+    preflight_parser = subparsers.add_parser(
+        "preflight", help="require an unused archive destination for a new run"
+    )
+    preflight_parser.add_argument("run_dir", type=Path)
+    preflight_parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="query the destination; without this flag only print the command",
+    )
+
     watch_parser = subparsers.add_parser(
         "watch", help="periodically publish one active run until signaled"
     )
@@ -311,6 +363,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 args.owner,
                 apply=args.apply,
                 verify=not args.no_verify,
+                rclone_bin=args.rclone_bin,
+            )
+            return 0
+        if args.command == "preflight":
+            preflight_destination(
+                args.run_dir,
+                args.archive_base,
+                args.owner,
+                apply=args.apply,
                 rclone_bin=args.rclone_bin,
             )
             return 0

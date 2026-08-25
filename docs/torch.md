@@ -75,7 +75,8 @@ It expects environment variables:
 - `CONFIG` (required): config path inside the container image. Relative paths are
   resolved under `/workspace/`, e.g. `src/samudra/configs/samudra_om4/train.yaml`.
 - `NAME_SUFFIX` (required): populates the run name by prepending the current date;
-  you can also set `NAME` directly if you prefer.
+  you can also set `NAME` directly if you prefer. `NAME` must be a single path
+  segment, not a nested path.
 - `DATA_ROOT` (optional): host data path passed to
   `--experiment.data_root` (default:
   `/scratch/<current_user>/data/om4_onedeg_v3`)
@@ -108,6 +109,8 @@ Key behavior:
 
 - Refuses to run if `${OUTPUT_BASE}/$NAME` already exists, except when
   `SLURM_RESTART_COUNT` indicates that Slurm restarted the same requeued job.
+- Refuses to start a new run if its owner/name archive destination already has
+  objects. A Slurm requeue is allowed to resume the same destination.
 - Fails early if either `${DATA_ROOT}` or `${OUTPUT_BASE}` does not exist, with
   instructions to set the corresponding env var.
 - Uses the container venv explicitly (`/workspace/.venv/bin/python`) to avoid missing deps.
@@ -176,9 +179,17 @@ count, and final exit code. A successful training process with a failed final
 publication returns nonzero; a failed training process retains its original
 exit code.
 
+If archive preflight fails before a fresh run starts, the local run metadata is
+moved aside under an adjacent
+`<run-name>.archive-preflight-failed-<job>-<timestamp>` directory. No experiment
+data is deleted, and the original name can be retried after archive access is
+fixed. If a partial remote destination was created, choose a new run name or
+have the partial archive reviewed before retrying.
+
 The archive is public. Review new artifact types before adding them to the run
 directory, and never write secrets there. Local W&B state, common credential and
-key filenames, and incomplete temporary files are excluded from publication.
+key filenames, and incomplete temporary files (including atomic checkpoint
+temps under `saved_nets/`) are excluded from publication.
 
 ## Fast Iteration With Ref-Built Code Overlays
 

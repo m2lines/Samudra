@@ -91,6 +91,12 @@ if [[ -z "${CONFIG}" || -z "${NAME}" ]]; then
   echo "Example: export NAME_SUFFIX=om4_samudra_baseline" >&2
   exit 2
 fi
+case "${NAME}" in
+  .|..|[[:space:]]*|*[[:space:]]|*/*|*\\*)
+    echo "NAME must be one path segment without leading/trailing whitespace: ${NAME}" >&2
+    exit 2
+    ;;
+esac
 case "${PUBLISH_TO_OSN}" in
   0|1) ;;
   *)
@@ -456,6 +462,26 @@ run_archive_tool() {
     "$@"
 }
 
+quarantine_unstarted_run() {
+  local quarantine_path
+  quarantine_path="${RUN_DIR}.archive-preflight-failed-${SLURM_JOB_ID:-$$}-$(date +%s)"
+  if mv -- "${RUN_DIR}" "${quarantine_path}"; then
+    echo "Unstarted run retained at: ${quarantine_path}" >&2
+    echo "The original NAME can be retried after fixing archive access." >&2
+    return 0
+  fi
+  echo "Could not quarantine ${RUN_DIR}; move it manually before retrying NAME." >&2
+  return 1
+}
+
+initialize_archive() {
+  run_archive_tool status "${RUN_DIR}" running || return
+  if (( ${SLURM_RESTART_COUNT:-0} == 0 )); then
+    run_archive_tool preflight "${RUN_DIR}" --apply || return
+  fi
+  run_archive_tool publish "${RUN_DIR}" --apply || return
+}
+
 stop_archive_watch() {
   if [[ -z "${ARCHIVE_WATCH_PID}" ]]; then
     return 0
@@ -507,9 +533,14 @@ handle_archive_exit() {
 }
 
 if [[ "${PUBLISH_TO_OSN}" == "1" ]]; then
-  run_archive_tool status "${RUN_DIR}" running
-  if ! run_archive_tool publish "${RUN_DIR}" --apply; then
+  if ! initialize_archive; then
+    run_archive_tool status "${RUN_DIR}" failed --exit-code 8 || true
     echo "Initial public archive preflight failed; training will not start." >&2
+    if (( ${SLURM_RESTART_COUNT:-0} == 0 )); then
+      quarantine_unstarted_run || true
+    else
+      echo "Requeued run retained at its existing path: ${RUN_DIR}" >&2
+    fi
     exit 8
   fi
   run_archive_tool watch "${RUN_DIR}" \

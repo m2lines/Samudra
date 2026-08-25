@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
-DEFAULT_ARCHIVE_BASE = "nyu-osn:m2lines-pubs/FOMO/experiments"
+DEFAULT_ARCHIVE_BASE = "nyu-osn:m2lines-pubs/Samudra/experiments"
 STATUS_FILENAME = "archive-status.json"
 VALID_STATES = ("running", "requeued", "completed", "failed")
 

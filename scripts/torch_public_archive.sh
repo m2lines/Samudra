@@ -5,5 +5,5 @@
 # Source this profile before submitting a Torch training job to opt in to the
 # public experiment archive.
 export PUBLISH_TO_OSN=1
-export ARCHIVE_BASE="nyu-osn:m2lines-pubs/FOMO/experiments"
+export ARCHIVE_BASE="nyu-osn:m2lines-pubs/Samudra/experiments"
 export ARCHIVE_INTERVAL_SECONDS=900

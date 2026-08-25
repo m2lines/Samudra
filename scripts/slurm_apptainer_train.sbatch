@@ -76,7 +76,7 @@ NSYS_ARGS="${NSYS_ARGS:-}"
 REQUEUE_ON_USR1="${REQUEUE_ON_USR1:-0}"
 CODE_LAYER="${CODE_LAYER:-}"
 PUBLISH_TO_OSN="${PUBLISH_TO_OSN:-0}"
-ARCHIVE_BASE="${ARCHIVE_BASE:-nyu-osn:m2lines-pubs/FOMO/experiments}"
+ARCHIVE_BASE="${ARCHIVE_BASE:-nyu-osn:m2lines-pubs/Samudra/experiments}"
 ARCHIVE_INTERVAL_SECONDS="${ARCHIVE_INTERVAL_SECONDS:-900}"
 ARCHIVE_TOOL="${ARCHIVE_TOOL:-${SCRIPT_DIR}/experiment_archive.py}"
 if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then

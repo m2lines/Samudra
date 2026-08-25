@@ -11,6 +11,13 @@ import pytest
 from scripts import experiment_archive
 
 
+def test_default_archive_uses_public_samudra_prefix():
+    assert (
+        experiment_archive.DEFAULT_ARCHIVE_BASE
+        == "nyu-osn:m2lines-pubs/Samudra/experiments"
+    )
+
+
 def test_archive_destination_appends_run_name():
     assert (
         experiment_archive.archive_destination("remote:bucket/archive/", "run-42")

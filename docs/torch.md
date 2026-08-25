@@ -85,7 +85,7 @@ It expects environment variables:
   to the public OSN experiment archive; default `0` leaves existing behavior
   unchanged
 - `ARCHIVE_BASE` (optional): authenticated rclone destination used when
-  publishing (default: `nyu-osn:m2lines-pubs/FOMO/experiments`)
+  publishing (default: `nyu-osn:m2lines-pubs/Samudra/experiments`)
 - `ARCHIVE_INTERVAL_SECONDS` (optional): seconds between incremental copies
   while training runs (default: `900`, minimum: `60`)
 - `ARCHIVE_TOOL` (optional): host path to `scripts/experiment_archive.py`;

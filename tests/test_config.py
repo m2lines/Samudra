@@ -21,11 +21,12 @@ from samudra.config import (
     LlcTimeConfig,
     Om4DataSourceConfig,
     Om4TimeConfig,
+    RolloutValidationConfig,
     TrainConfig,
 )
 from samudra.config_schema import get_pydantic_models
 from samudra.utils.location import LocalLocation, UnresolvedLocation
-from tests.conftest import TEST_CONFIGS_DIR
+from tests.conftest import DEFAULT_CONFIG, TEST_CONFIGS_DIR
 from tests.llc_fixtures import write_raw_llc_datasets
 
 
@@ -69,6 +70,32 @@ def test_data_config_rejects_legacy_num_workers_field():
         )
 
 
+def test_rollout_validation_config_disables_via_null_train_field():
+    with open(TEST_CONFIGS_DIR / DEFAULT_CONFIG) as f:
+        cfg = TrainConfig.model_validate(yaml.safe_load(f))
+
+    assert cfg.rollout_validation is None
+
+
+def test_rollout_validation_config_rejects_zero_model_steps():
+    with pytest.raises(ValidationError, match="rollout_validation.model_steps"):
+        RolloutValidationConfig(model_steps=0)
+
+
+def test_rollout_validation_config_accepts_nested_horizon_options():
+    cfg = RolloutValidationConfig(
+        days=[30, 90],
+        model_steps=12,
+        steps_forward=3,
+        frequency=5,
+    )
+
+    assert cfg.days == [30, 90]
+    assert cfg.model_steps == 12
+    assert cfg.steps_forward == 3
+    assert cfg.frequency == 5
+
+
 def test_data_config_defaults_to_cpu_loading():
     cfg = DataConfig(sources=[om4_source_config()])
 
@@ -76,6 +103,19 @@ def test_data_config_defaults_to_cpu_loading():
     assert cfg.loading.num_workers == 4
     assert cfg.loading.num_pytorch_workers() == 4
     assert isinstance(cfg.sources[0], Om4DataSourceConfig)
+
+
+def test_data_config_output_steps_default_and_override():
+    legacy = DataConfig(sources=[om4_source_config()], hist=1)
+    one_step = DataConfig(sources=[om4_source_config()], hist=1, output_steps=1)
+
+    assert legacy.num_output_steps == 2
+    assert one_step.num_output_steps == 1
+
+
+def test_data_config_rejects_more_outputs_than_inputs():
+    with pytest.raises(ValidationError, match="cannot exceed"):
+        DataConfig(sources=[om4_source_config()], hist=1, output_steps=3)
 
 
 def test_om4_dataset_config_builds_selected_spec():

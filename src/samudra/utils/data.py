@@ -72,7 +72,14 @@ class Masks:
     def prognostic_with_hist(
         self, hist: int
     ) -> Bool[GridMask, " prognostic_vars*({hist}+1)"]:
-        return torch.concat([self.prognostic] * (hist + 1), dim=0)
+        return self.prognostic_for_steps(hist + 1)
+
+    def prognostic_for_steps(
+        self, steps: int
+    ) -> Bool[GridMask, " prognostic_vars*steps"]:
+        if steps < 1:
+            raise ValueError(f"steps must be positive, got {steps}")
+        return torch.concat([self.prognostic] * steps, dim=0)
 
 
 @dataclasses.dataclass
@@ -671,23 +678,29 @@ def spherical_area(data: xr.Dataset) -> Grid:
     return torch.from_numpy(areas)
 
 
-def get_inference_steps(data_source: DataSource, hist: int = 1):
+def get_inference_steps(
+    data_source: DataSource,
+    hist: int = 1,
+    output_steps: int | None = None,
+):
     """
     Get the number of inference/rollout steps for the given time configuration.
 
     Args:
         data_source: The data source sliced to the inference time range
         hist: How many additional history samples we get per step
+        output_steps: Future raw timesteps emitted by each model call. Defaults to
+            ``hist + 1``.
 
     Returns:
         num_steps: Total number of rolled-out inferences which fit into the time range
     """
-    num_steps = data_source.data.time.size
-
-    # Might have extra remaining days, so we remove them
-    mod = num_steps % (hist + 1)
-    num_steps = num_steps - mod
-    return num_steps
+    input_steps = hist + 1
+    output_steps = input_steps if output_steps is None else output_steps
+    available_targets = max(data_source.data.time.size - input_steps, 0)
+    available_targets -= available_targets % output_steps
+    # Aggregators record the initial input history followed by forecast targets.
+    return input_steps + available_targets
 
 
 def convert_tensor_out_to_dict(

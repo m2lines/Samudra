@@ -1,0 +1,41 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+# yaml-language-server: $schema=../schemas/TrainConfig.json
+
+debug: false
+disk_mode: true
+pin_mem: true
+save_freq: 5
+validation_image_log_freq: null
+epochs: 70
+batch_size: 8
+gradient_accumulation_steps: 1
+learning_rate: 0.0006
+scheduler: {type: cosine}
+loss: mse
+finetune: false
+resume_ckpt_path: null
+inference_epochs: []
+data_stride: [1]
+# Four recurrent calls now span four output frames (20 days), rather than the
+# eight output frames produced by four calls to the legacy 2-in/2-out model.
+steps: [4]
+step_transition: []
+preemptible: true
+backend: auto
+
+experiment:
+  name: perceiver-spatial-grid-1deg-2in-1out
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: online
+    entity: ocean_emulators
+    project: default
+    tags: [torch-hpc, om4-1deg, perceiver-spatial-grid, 2in-1out, native-sdpa]
+    notes: Two-state input and single-state output test of the selected structured Perceiver architecture.
+
+data: !include data_2in_1out.yaml
+model: !include model.yaml

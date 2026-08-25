@@ -423,10 +423,31 @@ class DataConfig(BaseConfig):
     )
     loading: DataLoadingConfig = Field(default_factory=CpuDataLoadingConfig)
     hist: int = 1
+    output_steps: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Number of future raw timesteps emitted by each model call. When "
+            "unset, this defaults to hist + 1 for backwards compatibility."
+        ),
+    )
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
     concurrent_compute: bool = False
+
+    @property
+    def num_output_steps(self) -> int:
+        return self.hist + 1 if self.output_steps is None else self.output_steps
+
+    @pydantic.model_validator(mode="after")
+    def validate_output_steps(self) -> Self:
+        if self.num_output_steps > self.hist + 1:
+            raise ValueError(
+                "data.output_steps cannot exceed the number of input timesteps "
+                f"(hist + 1 = {self.hist + 1}); got {self.num_output_steps}"
+            )
+        return self
 
     def build(
         self,
@@ -523,7 +544,7 @@ class BlockConfig(BaseConfig):
         return create_block
 
 
-PerceiverImpl = Literal["auto", "sdpa", "naive", "flash"]
+PerceiverImpl = Literal["auto", "naive", "flash"]
 
 
 class PerceiverConfig(BaseConfig):
@@ -616,7 +637,7 @@ def _attention_backend(
     implementation: PerceiverImpl,
 ) -> Literal["auto", "math", "flash"]:
     match implementation:
-        case "auto" | "sdpa":
+        case "auto":
             return "auto"
         case "naive":
             return "math"
@@ -909,6 +930,7 @@ class SamudraConfig(BaseModelConfig):
             grid_size=src.grid_size,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
+            prognostic_in_channels=prog_channels,
         )
 
 
@@ -919,7 +941,7 @@ class SamudraMultiConfig(BaseModelConfig):
     perceiver_implementation: PerceiverImpl = Field(
         default="auto",
         description="Perceiver attention implementation shared by the encoder and decoder. "
-        "'auto' and 'sdpa' let PyTorch select the best SDPA kernel; 'naive' "
+        "'auto' lets PyTorch select the best SDPA kernel; 'naive' "
         "forces math attention and 'flash' forces PyTorch FlashAttention.",
     )
     patch_extent: list[float] = Field(
@@ -995,6 +1017,7 @@ class SamudraMultiConfig(BaseModelConfig):
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
+            prognostic_in_channels=prog_channels,
         )
 
 
@@ -1003,7 +1026,7 @@ class SamudraMiniConfig(BaseModelConfig):
     perceiver_implementation: PerceiverImpl = Field(
         default="auto",
         description="Perceiver attention implementation for the single PerceiverIO model. "
-        "'auto' and 'sdpa' let PyTorch select the best SDPA kernel; 'naive' "
+        "'auto' lets PyTorch select the best SDPA kernel; 'naive' "
         "forces math attention and 'flash' forces PyTorch FlashAttention.",
     )
     embedding_dim: int = Field(
@@ -1071,6 +1094,7 @@ class SamudraMiniConfig(BaseModelConfig):
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
+            prognostic_in_channels=prog_channels,
         )
 
 
@@ -1126,6 +1150,66 @@ class ProfilerConfig(BaseConfig):
                 f"{device.type}"
             )
         return Profiler(output_dir, self.cuda_snapshot_frequency)
+
+
+class RolloutValidationConfig(BaseConfig):
+    """Configuration for expensive autoregressive validation during training."""
+
+    model_steps: int = Field(
+        default=-1,
+        ge=-1,
+        description=(
+            "Number of autoregressive model steps to run over val_time for "
+            "raw-field rollout validation. Use -1 to use the full validation "
+            "period. Set rollout_validation to null to disable this path. "
+            "Ignored when days is set."
+        ),
+    )
+    days: list[int] = Field(
+        default_factory=list,
+        description=(
+            "Forecast-day horizons to run over val_time for raw-field rollout "
+            "validation, e.g. [30, 90, 180, 360]. Takes precedence over "
+            "model_steps."
+        ),
+    )
+    steps_forward: int = Field(
+        default=1,
+        ge=1,
+        description=(
+            "Number of autoregressive model steps to run per rollout validation "
+            "chunk before recording metrics. Higher values reduce CPU/GPU "
+            "synchronization overhead but increase target materialization memory."
+        ),
+    )
+    frequency: int = Field(
+        default=1,
+        ge=1,
+        description=(
+            "How often to run rollout validation, in epochs. Epochs are 1-based, "
+            "so a value of 10 runs on epochs 1, 11, 21, ..."
+        ),
+    )
+
+    @pydantic.field_validator("model_steps")
+    @classmethod
+    def _model_steps_must_enable_rollout(cls, model_steps: int) -> int:
+        if model_steps == 0:
+            raise ValueError(
+                "rollout_validation.model_steps must be positive or -1; set "
+                "rollout_validation to null to disable rollout validation"
+            )
+        return model_steps
+
+    @pydantic.field_validator("days")
+    @classmethod
+    def _days_must_be_positive(cls, days: list[int]) -> list[int]:
+        invalid_days = [day for day in days if day <= 0]
+        if invalid_days:
+            raise ValueError(
+                f"rollout_validation.days must be positive, got {invalid_days}"
+            )
+        return days
 
 
 # See backend.py for how these are turned into concrete devices
@@ -1200,6 +1284,7 @@ class TrainConfig(TopLevelConfig):
             "a value of 10 logs on epochs 1, 11, 21, ...; null disables images."
         ),
     )
+    rollout_validation: RolloutValidationConfig | None = None
     epochs: int = 120
     preemptible: bool = True
     batch_size: int = 2

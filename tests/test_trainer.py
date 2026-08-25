@@ -12,7 +12,11 @@ import torch
 
 from samudra.config import CpuDataLoadingConfig, DynamicLossConfig, TrainConfig
 from samudra.models.base import BaseModel
-from samudra.train import Trainer, should_log_validation_images
+from samudra.train import (
+    Trainer,
+    should_log_validation_images,
+    should_run_on_epoch_freq,
+)
 from samudra.utils.ctx import GridContext
 from samudra.utils.loss import DynamicLoss
 from samudra.utils.multiton import MultitonScope
@@ -287,19 +291,34 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
 def test_should_log_validation_images_every_n_epochs():
     assert [
         epoch for epoch in range(1, 26) if should_log_validation_images(epoch, 10)
-    ] == [
-        1,
-        11,
-        21,
-    ]
+    ] == [1, 11, 21]
 
 
 def test_should_log_validation_images_rejects_invalid_inputs():
     with pytest.raises(ValueError, match="Epoch must be >= 1"):
         should_log_validation_images(0, 10)
 
-    with pytest.raises(ValueError, match="Validation image log frequency must be >= 1"):
+    with pytest.raises(ValueError, match="Frequency must be >= 1"):
+        should_run_on_epoch_freq(1, 0)
+
+    with pytest.raises(ValueError, match="Validation image log frequency"):
         should_log_validation_images(1, 0)
+
+
+def test_should_run_on_epoch_freq_every_n_epochs():
+    assert [epoch for epoch in range(1, 26) if should_run_on_epoch_freq(epoch, 10)] == [
+        1,
+        11,
+        21,
+    ]
+
+
+def test_should_run_on_epoch_freq_rejects_invalid_inputs():
+    with pytest.raises(ValueError, match="Epoch must be >= 1"):
+        should_run_on_epoch_freq(0, 10)
+
+    with pytest.raises(ValueError, match="Frequency must be >= 1"):
+        should_run_on_epoch_freq(1, 0)
 
 
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)
@@ -337,6 +356,46 @@ def test_multiscale_training_validates_primary_source_and_logs_reduced_metrics(
         val_logs = trainer.validate_one_epoch(epoch=1)
 
     assert any(key.startswith("val/reduced/weighted_rmse/") for key in val_logs)
+
+
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", SAMUDRA_MULTI_CONFIG)],
+    indirect=True,
+)
+def test_trainer_supports_two_input_one_output_batches(train_config):
+    train_config.data.hist = 1
+    train_config.data.output_steps = 1
+    train_config.data.loading.num_workers = 0
+    train_config.model.perceiver_implementation = "naive"
+
+    with MultitonScope():
+        trainer = Trainer(train_config)
+        trainer.init_data_loaders(cur_step=2)
+        batch = trainer.train_loader[0]
+        prognostic, _, label = batch[0]
+
+        assert prognostic.shape[1] == 2 * trainer.N_prog
+        assert label.shape[1] == trainer.N_prog
+        assert trainer.num_out == trainer.N_prog
+
+        assert trainer.model.input_steps == 2
+        assert trainer.model.output_steps == 1
+        assert trainer.model.out_channels == label.shape[1]
+
+        class PerfectOneStepModel(BaseModel):
+            def __init__(self):
+                super().__init__(0, 0, 0, False, 1, "constant", 0)
+
+            def forward(self, batch, loss_fn=None):
+                return [batch.get_label(0)]
+
+        trainer.model = PerfectOneStepModel()
+        trainer.test_using_ema = False
+        validation_logs = trainer.validate_one_epoch(epoch=2)
+
+    assert any(key.startswith("val/reduced/weighted_rmse/") for key in validation_logs)
 
 
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)

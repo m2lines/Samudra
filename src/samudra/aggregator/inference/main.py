@@ -37,6 +37,7 @@ class InferenceEvaluatorAggregator:
         log_global_mean_norm_time_series: bool = True,
         time_mean_reference_data: xr.Dataset | None = None,
         channel_mean_names: list[str] | None = None,
+        output_steps: int | None = None,
     ):
         """
         Args:
@@ -55,6 +56,8 @@ class InferenceEvaluatorAggregator:
                 time series metrics.
             time_mean_reference_data: Reference time means for computing bias stats.
             channel_mean_names: List of channel names to compute the mean of.
+            output_steps: Future raw timesteps emitted by each model call. Defaults
+                to ``hist + 1`` for backwards compatibility.
         """
         self._aggregators: dict[
             str, MeanAggregator | OneStepMeanAggregator | TimeMeanEvaluatorAggregator
@@ -106,7 +109,9 @@ class InferenceEvaluatorAggregator:
         self._normalize = normalize
         self._tensor_map = tensor_map
         self.num_prognostic_channels = num_prognostic_channels
-        self.hist = hist
+        self.input_hist = hist
+        self.output_steps = hist + 1 if output_steps is None else output_steps
+        self.output_hist = self.output_steps - 1
         self.wet = wet
 
     @property
@@ -120,7 +125,7 @@ class InferenceEvaluatorAggregator:
         if len(data.target) == 0:
             raise ValueError("No target values in data")
         total_len = len(data.time)
-        assert data.prediction.shape[0] == total_len // (self.hist + 1)
+        assert data.prediction.shape[0] == total_len // self.output_steps
         target_norm_dict, target_unnorm_dict = get_aggregator_dicts(
             data.target,
             normalize=self._normalize,
@@ -129,7 +134,7 @@ class InferenceEvaluatorAggregator:
             long_rollout=True,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
-            hist=self.hist,
+            hist=self.output_hist,
         )
         gen_norm_dict, gen_unnorm_dict = get_aggregator_dicts(
             data.prediction,
@@ -139,7 +144,7 @@ class InferenceEvaluatorAggregator:
             long_rollout=True,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
-            hist=self.hist,
+            hist=self.output_hist,
         )
 
         for aggregator in self._aggregators.values():
@@ -182,8 +187,10 @@ class InferenceEvaluatorAggregator:
             wet=self.wet,
             long_rollout=True,
             input_type="input",
-            num_prognostic_channels=self.num_prognostic_channels,
-            hist=self.hist,
+            num_prognostic_channels=(
+                len(self._tensor_map.prognostic_var_names) * (self.input_hist + 1)
+            ),
+            hist=self.input_hist,
         )
         for aggregator_name in ["mean", "mean_norm"]:
             aggregator = self._aggregators.get(aggregator_name)

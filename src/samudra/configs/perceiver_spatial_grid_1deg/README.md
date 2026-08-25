@@ -25,3 +25,17 @@ samudra train perceiver_spatial_grid_1deg/train.yaml --experiment.data_root=/pat
 samudra eval perceiver_spatial_grid_1deg/eval.yaml --experiment.data_root=/path/to/om4_onedeg_v3 --ckpt_path=/path/to/ckpt.pt
 samudra viz perceiver_spatial_grid_1deg/viz.yaml --data_root=/path/to/om4_onedeg_v3
 ```
+
+## Two-input/one-output variant
+
+The `*_2in_1out.yaml` presets keep two historical states as model input but
+predict and advance exactly one state per recurrent call. This removes the two
+persistent output-slot identities that can produce alternating rollout errors.
+It is a new model shape and therefore cannot load a checkpoint trained by the
+default two-input/two-output preset.
+
+```bash
+samudra train perceiver_spatial_grid_1deg/train_2in_1out.yaml --experiment.data_root=/path/to/om4_onedeg_v3
+samudra eval perceiver_spatial_grid_1deg/eval_2in_1out.yaml --experiment.data_root=/path/to/om4_onedeg_v3 --ckpt_path=/path/to/ckpt.pt
+samudra viz perceiver_spatial_grid_1deg/viz_2in_1out.yaml --data_root=/path/to/om4_onedeg_v3
+```

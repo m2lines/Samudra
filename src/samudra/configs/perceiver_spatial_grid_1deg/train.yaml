@@ -8,7 +8,9 @@ debug: false
 disk_mode: true
 pin_mem: true
 save_freq: 5
-validation_image_log_freq: 5
+# The standalone eval + viz pipeline produces the diagnostic figures. Avoid
+# serial rank-0 rendering while the other DDP ranks are waiting during training.
+validation_image_log_freq: null
 epochs: 70
 batch_size: 8
 # On the intended four-GPU Torch launch this gives effective global batch 32

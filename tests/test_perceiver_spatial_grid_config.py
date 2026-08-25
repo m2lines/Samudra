@@ -24,6 +24,7 @@ def test_full_one_degree_presets_validate():
     assert train.epochs == 70
     assert train.batch_size == 8
     assert train.gradient_accumulation_steps == 1
+    assert train.validation_image_log_freq is None
     assert len(train.data.sources) == 1
     assert train.data.sources[0].data_location.path == "OM4.zarr"
     assert train.data.sources[0].boundary_vars_key == "tau_hfds"

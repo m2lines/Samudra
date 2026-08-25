@@ -665,7 +665,8 @@ class Trainer:
     def validate_one_epoch(self, epoch):
         self.model.eval()
         log_validation_images = (
-            should_log_validation_images(epoch, self.validation_image_log_freq)
+            self.validation_image_log_freq is not None
+            and should_log_validation_images(epoch, self.validation_image_log_freq)
             and self.validation_images_enabled
         )
 

@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+# yaml-language-server: $schema=../schemas/DataConfig.json
+
+# One-year rollout window for checkpoint diagnostics. With ``hist: 1``, each
+# autoregressive model call emits and advances two five-day OM4 frames. The
+# saved output therefore resolves five-day leads through approximately one year
+# without the cost of the full 2014--2022 production evaluation.
+sources:
+  - type: om4
+    prognostic_vars_key: thermo_dynamic_all
+    boundary_vars_key: tau_hfds
+    train_time:
+      start: "1975-01-03"
+      end: "2013-10-05"
+    val_time:
+      start: "2013-10-05"
+      end: "2014-10-05"
+    inference_times:
+      - start: "2014-10-10"
+        end: "2015-10-05"
+    data_location: OM4.zarr
+    data_means_location: OM4_means.zarr
+    data_stds_location: OM4_stds.zarr
+concurrent_compute: true
+loading:
+  type: cpu

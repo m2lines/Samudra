@@ -122,11 +122,90 @@ promote a checkpoint with strong rectilinear or periodic error morphology.
 
 ## Results
 
-Pending.
+### Preliminary epoch-28 rollout diagnostic
+
+While the full run was training, the rolling EMA checkpoint was snapshotted at
+epoch 28 and evaluated over 2014-10-10--2015-10-05. The one-GPU job
+`16350863` completed in 91 seconds and wrote 70 physical-space frames at
+five-day spacing. The corresponding W&B run is
+[`ezvjkkkk`](https://wandb.ai/ocean_emulators/default/runs/ezvjkkkk). This is an
+interim checkpoint diagnostic, not the final 70-epoch result.
+
+For each variable family, the saved rollout was compared with two baselines:
+
+- persistence repeats the most recent input frame; and
+- climatology repeats the scalar training mean for each channel.
+
+The table reports area-weighted normalized RMSE across every wet cell and depth
+channel in a variable family. Persistence skill is
+`1 - MSE(model) / MSE(persistence)`; positive values favor the model.
+
+| Lead | Variable | Model RMSE | Persistence RMSE | Persistence skill |
+| ---: | :--- | ---: | ---: | ---: |
+| 5 d | `uo` | 0.430 | 0.328 | -0.715 |
+| 5 d | `vo` | 0.661 | 0.480 | -0.898 |
+| 5 d | `thetao` | 0.027 | 0.018 | -1.313 |
+| 5 d | `so` | 0.028 | 0.018 | -1.395 |
+| 5 d | `zos` | 0.052 | 0.037 | -0.964 |
+| 10 d | `uo` | 0.440 | 0.481 | 0.163 |
+| 10 d | `vo` | 0.642 | 0.710 | 0.182 |
+| 10 d | `thetao` | 0.028 | 0.031 | 0.175 |
+| 10 d | `so` | 0.030 | 0.030 | 0.000 |
+| 10 d | `zos` | 0.053 | 0.053 | 0.021 |
+| 100 d | `uo` | 0.893 | 1.063 | 0.295 |
+| 100 d | `vo` | 1.061 | 1.124 | 0.108 |
+| 100 d | `thetao` | 0.090 | 0.168 | 0.711 |
+| 100 d | `so` | 0.090 | 0.102 | 0.228 |
+| 100 d | `zos` | 0.093 | 0.115 | 0.347 |
+| 350 d | `uo` | 0.924 | 0.905 | -0.043 |
+| 350 d | `vo` | 1.126 | 1.123 | -0.006 |
+| 350 d | `thetao` | 0.166 | 0.085 | -2.795 |
+| 350 d | `so` | 0.152 | 0.073 | -3.316 |
+| 350 d | `zos` | 0.160 | 0.106 | -1.275 |
+
+The full lead-time table, including physical-unit surface RMSE and climatology
+skill, is stored alongside the rollout as
+`persistence_climatology_skill.csv`.
 
 ## Analysis
 
-Pending.
+The velocity gap is real in normalized space, but it is not evidence that every
+other variable is solved. At the surface, the five-day physical RMSEs are
+0.0613 m/s for `uo` and 0.0690 m/s for `vo`; their much larger normalized losses
+also reflect the smaller training standard deviations and faster decorrelation
+of velocity than of temperature or salinity.
+
+More importantly, skill alternates between the two frames emitted by each
+autoregressive call. At 5 days every variable is worse than persistence; at 10
+days four families beat persistence and salinity ties it. The same weaker-odd,
+stronger-even pattern remains visible at 15/20 and 25/30 days. With `hist: 1`,
+channels are arranged as two time blocks. Residual assembly adds the first
+decoded output block to the older input frame and the second block to the newer
+input frame. Both are therefore ten-day residual targets, even though the saved
+rollout exposes five-day-spaced frames. The model can attend to both inputs, but
+the identity shortcut for the first output is older than the conventional
+latest-state persistence baseline. This is a plausible structural cause of the
+parity effect and should be tested directly before attributing the velocity
+behavior primarily to patch extent.
+
+The model nevertheless learns nontrivial dynamics. At 100 days it beats
+persistence for every variable family, with particularly strong temperature
+skill. Relative to climatology at 100 days, skill is 0.278 for `uo`, -0.087 for
+`vo`, and approximately 0.99 for `thetao`, `so`, and `zos`. Thus `vo` has a
+genuine medium-range deficiency: after about 50 days it is slightly worse than
+the training-mean baseline even while retaining modest skill over persistence.
+The very negative 350-day persistence skill for thermodynamic variables should
+not be read as catastrophic drift in isolation. A nearly annual lead compares
+similar seasons, making a fixed October initial state an unusually strong
+baseline; climatology skill remains strongly positive for all variables except
+`vo`.
+
+These results motivate three separate checks on the final checkpoint: compare
+current same-slot residual assembly with residuals anchored to the latest input
+frame (and with direct prediction), inspect `uo`/`vo` vorticity and spectra, and
+measure error conditioned on encoder-patch and decoder-window boundaries. The
+lead-time parity test isolates residual/output assembly; the latter two tests
+isolate missing dynamics and spatial patch artifacts.
 
 ## Conclusion and future work
 

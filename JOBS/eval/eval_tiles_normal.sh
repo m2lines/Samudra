@@ -1,13 +1,12 @@
 #!/bin/bash
 #SBATCH -p pi_abodner
-#SBATCH --job-name=2026-08-12-eval:Samudra_LLC:4-tile-blend=false
-#SBATCH -x node4100,node3401,node3000
+#SBATCH --job-name=2026-08-24-eval:samudra_rb_llc:4-tile_group-experiment
 #SBATCH -N 1
 #SBATCH --mem=100GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
 #SBATCH -G h100:1
-#SBATCH --time=00-2:30:00
+#SBATCH --time=00-16:00:00
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 set -euo pipefail
@@ -29,7 +28,7 @@ export OMP_NUM_THREADS=1
 export MKL_NUM_THREADS=1
 
 # ============== CHECKPOINT AND OUTPUT ==============
-CKPT_PATH="${CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-08-10:samudra_rb_llc:4-tile-base-experiment-data_fix-20093377/saved_nets/ckpt_50.pt}"
+CKPT_PATH="${CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-08-20:samudra_rb_llc:4-tile_group-experiment-3-20920753/saved_nets/ckpt.pt}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME:-${SLURM_JOB_NAME:-$(basename "$0" .sh)}}"
 BASE_OUTPUT_DIR="${BASE_OUTPUT_DIR:-/orcd/data/abodner/002/cody/inference_patch}"
 EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
@@ -37,8 +36,8 @@ EXPERIMENT_NAME="${EXPERIMENT_NAME}${SLURM_JOB_ID:+-${SLURM_JOB_ID}}"
 # ============== DATA ==============
 # DATA_LOCATION must be the DIRECTORY of tile caches, not a single .zarr.
 # The tile catalog is built from each cache's absolute LLC x/y index arrays.
-DATA_ROOT="${DATA_ROOT:-/orcd/data/abodner/002/cody/LLC_patch}"
-DATA_LOCATION="${DATA_LOCATION:-720-div-4-test}"
+DATA_ROOT="${DATA_ROOT:-/orcd/data/abodner}"
+DATA_LOCATION="${DATA_LOCATION:-002/cody/LLC_patch/720-div-4-test}"
 
 INFER_START="${INFER_START:-2012-10-14}"
 INFER_END="${INFER_END:-2012-11-14}"
@@ -58,7 +57,7 @@ PRED_RESIDUALS="${PRED_RESIDUALS:-true}"
 # ============== BLENDING ==============
 # BLEND=false is the hard-crop control: tiles step independently and are simply
 # cut and stitched. That is rung 2 of the ladder; BLEND=true is rung 3.
-BLEND="${BLEND:-false}"
+BLEND="${BLEND:-true}"
 # WINDOW=quintic  -> smootherstep partition of unity (our operator, the default)
 # WINDOW=kbd      -> Kaiser-Bessel-derived, STRATA's window
 WINDOW="${WINDOW:-quintic}"
@@ -72,7 +71,7 @@ RAMP_WIDTH="${RAMP_WIDTH:-}"
 # summary -> preblend.zarr with RMS |delta_A - delta_B| per channel per offset
 #            across each seam. Small; this is what notebook 2 reads.
 # full    -> additionally store the raw overlap-band residual differences. Large.
-PREBLEND_MODE="${PREBLEND_MODE:-none}"
+PREBLEND_MODE="${PREBLEND_MODE:-summary}"
 
 # ============== DIAGNOSTIC: FAR-FIELD PERTURBATION (default off) ==============
 # Perturbs a box far from the seam and records the induced one-step response, to

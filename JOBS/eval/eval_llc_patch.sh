@@ -151,11 +151,18 @@ if [[ -e "${TARGET_ZARR}" && "${REPACK_OVERWRITE}" != "true" ]]; then
   exit 1
 fi
 
+# Empty = repack every levelled field the prediction zarr actually holds, so a
+# W run gets W without anyone remembering to add it here. Name fields explicitly
+# only to repack a subset.
+REPACK_FIELDS="${REPACK_FIELDS:-}"
 REPACK_ARGS=(
   --input-zarr "${RAW_PRED_ZARR}"
   --output-zarr "${TARGET_ZARR}"
-  --fields U V Theta Salt
 )
+if [[ -n "${REPACK_FIELDS}" ]]; then
+  # shellcheck disable=SC2206  # word splitting is how multiple fields arrive
+  REPACK_ARGS+=(--fields ${REPACK_FIELDS})
+fi
 if [[ "${REPACK_OVERWRITE}" == "true" ]]; then
   REPACK_ARGS+=(--overwrite)
 fi

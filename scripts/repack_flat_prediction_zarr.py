@@ -7,8 +7,13 @@ Input format (from ocean_emulators.utils.writer.ZarrWriter):
   - Dims: time, lat, lon
 
 Output format:
-  - Variables: U, V, Theta, Salt
+  - Variables: every levelled field the input actually contains
   - Dims: time, k, lat, lon
+
+Which fields get repacked is discovered from the input by default, rather than
+fixed to a list. A hardcoded list silently drops whatever it does not name: a
+W-trained run wrote W_0..W_50 into the flat zarr and the repacked output came
+back holding only U, V, Theta and Salt, with no warning.
 """
 
 from __future__ import annotations
@@ -21,7 +26,10 @@ from pathlib import Path
 import xarray as xr
 
 
-DEFAULT_FIELDS = ("U", "V", "Theta", "Salt")
+#: Emitted first when present, so output variable order is stable across runs.
+#: Anything else the input carries is appended in first-seen order.
+PREFERRED_ORDER = ("U", "V", "Theta", "Salt", "W")
+LEVEL_VAR = re.compile(r"^(?P<field>.+)_(?P<level>\d+)$")
 
 
 def parse_args() -> argparse.Namespace:
@@ -39,8 +47,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--fields",
         nargs="+",
-        default=list(DEFAULT_FIELDS),
-        help="Field names to repack (default: U V Theta Salt).",
+        default=None,
+        help=(
+            "Field names to repack. Default: every levelled field found in the "
+            "input, so a run that predicted W gets W repacked without anyone "
+            "remembering to ask for it."
+        ),
     )
     parser.add_argument(
         "--overwrite",
@@ -48,6 +60,19 @@ def parse_args() -> argparse.Namespace:
         help="Overwrite output zarr if it already exists.",
     )
     return parser.parse_args()
+
+
+def _discover_fields(ds: xr.Dataset) -> list[str]:
+    """Levelled field names present in `ds`, e.g. `U_0..U_50` -> `U`."""
+    found: list[str] = []
+    for var_name in ds.data_vars:
+        match = LEVEL_VAR.match(str(var_name))
+        if match:
+            field = match.group("field")
+            if field not in found:
+                found.append(field)
+    preferred = [f for f in PREFERRED_ORDER if f in found]
+    return preferred + [f for f in found if f not in preferred]
 
 
 def _matching_level_vars(ds: xr.Dataset, field: str) -> list[tuple[int, str]]:
@@ -124,7 +149,15 @@ def main() -> None:
             )
 
     ds = xr.open_zarr(input_zarr, chunks="auto")
-    out = _repack(ds, args.fields)
+    fields = args.fields or _discover_fields(ds)
+    if not fields:
+        raise SystemExit(
+            f"No levelled variables (e.g. 'Theta_0') found in {args.input_zarr}; "
+            "nothing to repack."
+        )
+    if args.fields is None:
+        print(f"Discovered fields: {fields}")
+    out = _repack(ds, fields)
 
     if output_zarr.exists():
         shutil.rmtree(output_zarr)

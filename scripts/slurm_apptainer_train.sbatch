@@ -11,6 +11,7 @@
 #   export NAME_SUFFIX=om4_samudra_baseline   # NAME becomes YYYY-MM-DD-<suffix>
 #   export ARGS="--epochs=2 --batch_size=1"
 #   export WANDB_API_KEY=...   # optional; if unset, wandb is disabled
+#   export PUBLISH_TO_OSN=0     # optional; team Torch jobs publish by default
 #   sbatch --nodes=1 --gres=gpu:rtx6000:8 scripts/slurm_apptainer_train.sbatch
 #
 # Multi-node example (requires enough nodes available):
@@ -75,7 +76,7 @@ ARGS="${ARGS:-}"
 NSYS_ARGS="${NSYS_ARGS:-}"
 REQUEUE_ON_USR1="${REQUEUE_ON_USR1:-0}"
 CODE_LAYER="${CODE_LAYER:-}"
-PUBLISH_TO_OSN="${PUBLISH_TO_OSN:-0}"
+PUBLISH_TO_OSN="${PUBLISH_TO_OSN:-1}"
 ARCHIVE_BASE="${ARCHIVE_BASE:-nyu-osn:m2lines-pubs/Samudra/experiments}"
 ARCHIVE_INTERVAL_SECONDS="${ARCHIVE_INTERVAL_SECONDS:-900}"
 ARCHIVE_TOOL="${ARCHIVE_TOOL:-${SCRIPT_DIR}/experiment_archive.py}"

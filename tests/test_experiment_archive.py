@@ -5,10 +5,18 @@
 import json
 import subprocess
 import threading
+from pathlib import Path
 
 import pytest
 
 from scripts import experiment_archive
+
+
+def test_team_torch_harness_publishes_by_default():
+    harness = Path(__file__).parents[1] / "scripts" / "slurm_apptainer_train.sbatch"
+    contents = harness.read_text(encoding="utf-8")
+
+    assert 'PUBLISH_TO_OSN="${PUBLISH_TO_OSN:-1}"' in contents
 
 
 def test_default_archive_uses_public_samudra_prefix():

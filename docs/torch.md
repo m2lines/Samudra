@@ -81,9 +81,8 @@ It expects environment variables:
   `/scratch/<current_user>/data/om4_onedeg_v3`)
 - `OUTPUT_BASE` (optional): host output base dir passed to
   `--experiment.base_output_dir` (default: `/scratch/<current_user>/runs`)
-- `PUBLISH_TO_OSN` (optional): set to `1` to publish the current run directory
-  to the public OSN experiment archive; default `0` leaves existing behavior
-  unchanged
+- `PUBLISH_TO_OSN` (optional): set to `0` to keep the current run private; the
+  team Torch harness defaults to `1` and publishes it to the public OSN archive
 - `ARCHIVE_BASE` (optional): authenticated rclone destination used when
   publishing (default: `nyu-osn:m2lines-pubs/Samudra/experiments`)
 - `ARCHIVE_INTERVAL_SECONDS` (optional): seconds between incremental copies
@@ -121,9 +120,10 @@ Key behavior:
   these locations to `/scratch/$USER` so large files do not consume home quota.
 - If `NSYS_ARGS` is set and does not include `-o`/`--output`, reports are written under
   `${OUTPUT_BASE}/${NAME}/nsys/`.
-- Public archive publication is opt-in. Enabled runs still write to fast local
-  scratch, then copy the run directory at startup, periodically, on failure or
-  requeue, and at successful completion. The final copy is size-verified.
+- The team Torch harness publishes to the public archive by default. Runs still
+  write to fast local scratch, then copy the run directory at startup,
+  periodically, on failure or requeue, and at successful completion. Set
+  `PUBLISH_TO_OSN=0` to opt out. The final copy is size-verified.
 
 When `preemptible: true`, training detects the latest checkpoint in an existing
 run directory and resumes from it after a Slurm requeue. The requeue hook does
@@ -132,10 +132,11 @@ restarting from the most recent completed epoch is acceptable.
 
 ## Publish Current and Future Torch Experiments
 
-Source the public archive profile before submitting a team experiment. Training
-continues to write to `/scratch/$USER/runs`; publication copies only the current
-run directory to OSN. Ordinary users who do not source the profile retain the
-existing scratch-only behavior.
+The team Torch harness publishes experiments by default. Training continues to
+write to `/scratch/$USER/runs`; publication copies only the current run
+directory to OSN. This default is scoped to the Torch harness and does not
+change Samudra's generic training configuration, SkyPilot, or third-party
+workflows.
 
 Configure an authenticated OSN rclone remote without storing credentials in the
 repository:
@@ -150,9 +151,16 @@ export AWS_SECRET_ACCESS_KEY=...
 ```
 
 ```bash
-source scripts/torch_public_archive.sh
 export CONFIG=src/samudra/configs/samudra_om4/train.yaml
 export NAME_SUFFIX=public-baseline
+sbatch scripts/slurm_apptainer_train.sbatch
+```
+
+To keep a particular run private, explicitly disable publication before
+submitting it. OSN credentials are not required for an opted-out run.
+
+```bash
+export PUBLISH_TO_OSN=0
 sbatch scripts/slurm_apptainer_train.sbatch
 ```
 
@@ -180,7 +188,6 @@ scp scripts/slurm_apptainer_pull.sbatch torch:~/slurm_apptainer_pull.sbatch
 scp scripts/build_apptainer_code_layer.sh torch:~/build_apptainer_code_layer.sh
 scp scripts/slurm_apptainer_train.sbatch torch:~/slurm_apptainer_train.sbatch
 scp scripts/experiment_archive.py torch:~/experiment_archive.py
-scp scripts/torch_public_archive.sh torch:~/torch_public_archive.sh
 ```
 
 Prepare a stable container SIF, then build the layer on Torch:

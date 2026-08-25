@@ -25,7 +25,7 @@ import sys
 import threading
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, Iterable, List, Optional, Sequence
 
 DEFAULT_ARCHIVE_BASE = "nyu-osn:m2lines-pubs/Samudra/experiments"
 STATUS_FILENAME = "archive-status.json"
@@ -121,6 +121,40 @@ def validate_run_dir(run_dir: Path) -> Path:
     if resolved == Path("/"):
         raise ArchiveError("refusing to publish filesystem root")
     return resolved
+
+
+def _validate_source_root(source_root: Path) -> Path:
+    if source_root.is_symlink():
+        raise ArchiveError(f"refusing symlinked source root: {source_root}")
+    if not source_root.is_dir():
+        raise ArchiveError(f"source root does not exist: {source_root}")
+    resolved = source_root.resolve()
+    if resolved in (Path("/"), Path("/scratch")):
+        raise ArchiveError(
+            "source root is too broad; pass the directory containing run directories"
+        )
+    return resolved
+
+
+def discover_runs(source_root: Path, requested: Iterable[str]) -> List[Path]:
+    source_root = _validate_source_root(source_root)
+    requested = list(requested)
+    if requested:
+        runs = []
+        for run_name in requested:
+            archive_destination("validation", "validation", run_name)
+            runs.append(validate_run_dir(source_root / run_name))
+        return runs
+
+    runs = []
+    for candidate in sorted(source_root.iterdir(), key=lambda path: path.name):
+        if candidate.name.startswith(".") or candidate.is_symlink():
+            continue
+        if candidate.is_dir():
+            runs.append(candidate.resolve())
+    if not runs:
+        raise ArchiveError(f"no run directories found under {source_root}")
+    return runs
 
 
 def publish_run(
@@ -251,6 +285,61 @@ def watch_run(
     return 1 if failures else 0
 
 
+def backfill(
+    source_root: Path,
+    archive_base: str,
+    owner: str,
+    requested_runs: Iterable[str],
+    apply: bool,
+    report_path: Optional[Path],
+    rclone_bin: str = "rclone",
+) -> int:
+    source_root = _validate_source_root(source_root)
+    owner = _validate_archive_segment(owner, "archive owner")
+    runs = discover_runs(source_root, requested_runs)
+    run_reports = []  # type: List[Dict[str, object]]
+    report = {
+        "schema_version": 1,
+        "created_at": utc_now(),
+        "source_root": str(source_root),
+        "archive_base": archive_base,
+        "owner": owner,
+        "apply": apply,
+        "runs": run_reports,
+    }  # type: Dict[str, object]
+    failures = 0
+
+    for run_dir in runs:
+        try:
+            result = publish_run(
+                run_dir,
+                archive_base,
+                owner,
+                apply=apply,
+                verify=True,
+                rclone_bin=rclone_bin,
+            )
+        except subprocess.CalledProcessError as error:
+            failures += 1
+            result = {
+                "source": str(run_dir),
+                "destination": archive_destination(archive_base, owner, run_dir.name),
+                "owner": owner,
+                "status": "failed",
+                "verified": False,
+                "failed_command": _display_command(error.cmd),
+                "returncode": error.returncode,
+            }
+        run_reports.append(result)
+
+    report["completed_at"] = utc_now()
+    report["failure_count"] = failures
+    if report_path is not None:
+        _write_json_atomic(report_path, report)
+        print(f"Wrote migration report: {report_path.resolve()}")
+    return 1 if failures else 0
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -295,6 +384,26 @@ def _build_parser() -> argparse.ArgumentParser:
     status_parser.add_argument("state", choices=VALID_STATES)
     status_parser.add_argument("--exit-code", type=int)
 
+    backfill_parser = subparsers.add_parser(
+        "backfill", help="publish historical child run directories"
+    )
+    backfill_parser.add_argument("source_root", type=Path)
+    backfill_parser.add_argument(
+        "--run",
+        action="append",
+        default=[],
+        help="publish only this direct child; repeat to select several runs",
+    )
+    backfill_parser.add_argument(
+        "--apply",
+        action="store_true",
+        help="perform copies; without this flag only print the migration plan",
+    )
+    backfill_parser.add_argument(
+        "--report",
+        type=Path,
+        help="write a JSON report containing every planned or verified run",
+    )
     return parser
 
 
@@ -314,6 +423,16 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 rclone_bin=args.rclone_bin,
             )
             return 0
+        if args.command == "backfill":
+            return backfill(
+                args.source_root,
+                args.archive_base,
+                args.owner,
+                args.run,
+                apply=args.apply,
+                report_path=args.report,
+                rclone_bin=args.rclone_bin,
+            )
         if args.command == "status":
             write_status(args.run_dir, args.owner, args.state, args.exit_code)
             return 0

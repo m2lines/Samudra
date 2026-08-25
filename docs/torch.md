@@ -180,6 +180,42 @@ The archive is public. Review new artifact types before adding them to the run
 directory, and never write secrets there. Local W&B state, common credential and
 key filenames, and incomplete temporary files are excluded from publication.
 
+## Backfill Historical Experiments to the Public OSN Archive
+
+After configuring the authenticated rclone remote above, an operator can copy
+completed and failed experiment directories from Torch scratch. Run the tool
+once per authorized user root; it never scans all of `/scratch`, and it copies
+only direct child run directories. It never deletes local or remote files and is
+a dry run unless `--apply` is present.
+
+Set the owner to the user whose run directory is being migrated, then inspect
+the complete plan or select named runs:
+
+```bash
+export ARCHIVE_OWNER=aa1234
+python3 scripts/experiment_archive.py --owner "$ARCHIVE_OWNER" \
+  backfill "/scratch/$ARCHIVE_OWNER/runs"
+python3 scripts/experiment_archive.py --owner "$ARCHIVE_OWNER" \
+  backfill "/scratch/$ARCHIVE_OWNER/runs" \
+  --run 2026-08-01-baseline \
+  --run 2026-08-02-ablation
+```
+
+Then perform and verify the copy, retaining the migration report:
+
+```bash
+python3 scripts/experiment_archive.py --owner "$ARCHIVE_OWNER" \
+  backfill "/scratch/$ARCHIVE_OWNER/runs" \
+  --apply \
+  --report experiment-backfill-report.json
+```
+
+The default destination is
+`nyu-osn:m2lines-pubs/Samudra/experiments/<owner>/<run-name>`. Inspect every
+selected run before publishing because its contents become publicly readable.
+The operator must have read permission for the source path and write credentials
+for OSN.
+
 ## Fast Iteration With Ref-Built Code Overlays
 
 The code-layer builder fetches a pushed Git ref, resolves it to a full commit,

@@ -101,6 +101,57 @@ def test_publish_copies_then_verifies(tmp_path, monkeypatch):
     assert result["verified"] is True
 
 
+def test_discover_runs_uses_direct_non_hidden_directories(tmp_path):
+    (tmp_path / "b-run").mkdir()
+    (tmp_path / "a-run").mkdir()
+    (tmp_path / ".cache").mkdir()
+    (tmp_path / "file.txt").write_text("not a run", encoding="utf-8")
+    (tmp_path / "linked-run").symlink_to(tmp_path / "a-run", target_is_directory=True)
+
+    runs = experiment_archive.discover_runs(tmp_path, [])
+
+    assert [run.name for run in runs] == ["a-run", "b-run"]
+
+
+def test_backfill_writes_report_and_returns_nonzero_for_failures(tmp_path, monkeypatch):
+    source_root = tmp_path / "runs"
+    source_root.mkdir()
+    (source_root / "good-run").mkdir()
+    (source_root / "bad-run").mkdir()
+    report_path = tmp_path / "report.json"
+
+    def fake_run(command, check):
+        assert check is True
+        if "bad-run" in command[2]:
+            raise subprocess.CalledProcessError(7, command)
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    result = experiment_archive.backfill(
+        source_root,
+        "remote:bucket/archive",
+        "owner-a",
+        [],
+        apply=True,
+        report_path=report_path,
+    )
+
+    assert result == 1
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    assert report["failure_count"] == 1
+    assert report["owner"] == "owner-a"
+    assert {run["status"] for run in report["runs"]} == {"failed", "verified"}
+    assert all(
+        run["destination"].startswith("remote:bucket/archive/owner-a/")
+        for run in report["runs"]
+    )
+
+
+def test_source_root_rejects_filesystem_root():
+    with pytest.raises(experiment_archive.ArchiveError, match="too broad"):
+        experiment_archive.discover_runs(Path("/"), [])
+
+
 def test_status_tracks_run_lifecycle(tmp_path, monkeypatch):
     run_dir = tmp_path / "run-a"
     run_dir.mkdir()

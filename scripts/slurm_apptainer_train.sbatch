@@ -48,6 +48,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPOSITORY_URL_SANITIZER="${SCRIPT_DIR}/sanitize_repository_url.py"
 
 if ! command -v apptainer >/dev/null 2>&1 \
   && ! command -v singularity >/dev/null 2>&1; then
@@ -104,6 +105,15 @@ case "${PUBLISH_TO_OSN}" in
     exit 2
     ;;
 esac
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "The training harness requires python3 on the host PATH." >&2
+  exit 2
+fi
+if [[ ! -f "${REPOSITORY_URL_SANITIZER}" ]]; then
+  echo "Repository URL sanitizer not found: ${REPOSITORY_URL_SANITIZER}" >&2
+  echo "Copy scripts/sanitize_repository_url.py next to this harness." >&2
+  exit 2
+fi
 if [[ "${PUBLISH_TO_OSN}" == "1" ]]; then
   if [[ ! "${ARCHIVE_INTERVAL_SECONDS}" =~ ^[0-9]+$ ]] \
     || (( ARCHIVE_INTERVAL_SECONDS < 60 )); then
@@ -114,16 +124,16 @@ if [[ "${PUBLISH_TO_OSN}" == "1" ]]; then
     echo "PUBLISH_TO_OSN=1 requires rclone on the host PATH." >&2
     exit 2
   fi
-  if ! command -v python3 >/dev/null 2>&1; then
-    echo "PUBLISH_TO_OSN=1 requires python3 on the host PATH." >&2
-    exit 2
-  fi
   if [[ ! -f "${ARCHIVE_TOOL}" ]]; then
     echo "Experiment archive tool not found: ${ARCHIVE_TOOL}" >&2
     echo "Copy scripts/experiment_archive.py next to this harness or set ARCHIVE_TOOL." >&2
     exit 2
   fi
 fi
+
+sanitize_repository_url() {
+  printf %s "$1" | python3 "${REPOSITORY_URL_SANITIZER}"
+}
 
 if [[ "${REQUEUE_ON_USR1}" == "1" ]]; then
   handle_requeue() {
@@ -258,6 +268,12 @@ CONTAINER_GIT_REMOTE_URL="$(
   "${APPTAINER_BIN}" exec "${SIF_PATH}" \
     bash -lc 'printf %s "${SAMUDRA_CONTAINER_GIT_REMOTE_URL:-${WANDB_GIT_REMOTE_URL:-unknown}}"'
 )"
+if ! CONTAINER_GIT_REMOTE_URL="$(
+  sanitize_repository_url "${CONTAINER_GIT_REMOTE_URL}"
+)"; then
+  echo "Container repository URL metadata is invalid." >&2
+  exit 7
+fi
 CODE_ROOT=/workspace
 CODE_GIT_COMMIT="${CONTAINER_GIT_COMMIT}"
 CODE_GIT_REMOTE_URL="${CONTAINER_GIT_REMOTE_URL}"
@@ -292,13 +308,22 @@ print(manifest["code_repo_url"])
     echo "Could not parse code-layer manifest: ${CODE_LAYER_MANIFEST}" >&2
     exit 7
   fi
-  readarray -t CODE_METADATA <<<"${CODE_METADATA_TEXT}"
-  if [[ "${#CODE_METADATA[@]}" -ne 2 ]]; then
+  if [[ "${CODE_METADATA_TEXT}" != *$'\n'* ]]; then
     echo "Code-layer manifest has invalid commit/repository metadata: ${CODE_LAYER_MANIFEST}" >&2
     exit 7
   fi
-  CODE_GIT_COMMIT="${CODE_METADATA[0]}"
-  CODE_GIT_REMOTE_URL="${CODE_METADATA[1]}"
+  CODE_GIT_COMMIT="${CODE_METADATA_TEXT%%$'\n'*}"
+  CODE_LAYER_REPO_URL="${CODE_METADATA_TEXT#*$'\n'}"
+  if [[ -z "${CODE_GIT_COMMIT}" || "${CODE_LAYER_REPO_URL}" == *$'\n'* ]]; then
+    echo "Code-layer manifest has invalid commit/repository metadata: ${CODE_LAYER_MANIFEST}" >&2
+    exit 7
+  fi
+  if ! CODE_GIT_REMOTE_URL="$(
+    sanitize_repository_url "${CODE_LAYER_REPO_URL}"
+  )"; then
+    echo "Code-layer repository URL metadata is invalid." >&2
+    exit 7
+  fi
   CODE_LAYER_SHA256="$(awk 'NR == 1 {print $1}' "${CODE_LAYER_SHA_FILE}")"
   CODE_ROOT=/opt/samudra-code
   OVERLAY_ARGS=(--overlay "${CODE_LAYER}:ro")
@@ -419,10 +444,9 @@ BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 # Create the run directory after preflight validation so early failures are
 # retryable with the same NAME.
 mkdir -p "${RUN_DIR}"
-if [[ -n "${CODE_LAYER_MANIFEST}" ]]; then
-  cp "${CODE_LAYER_MANIFEST}" "${RUN_DIR}/source-manifest.json"
-fi
 SAMUDRA_PROVENANCE_PATH="${RUN_DIR}/run-provenance.json" \
+SAMUDRA_PUBLIC_SOURCE_MANIFEST_PATH="${RUN_DIR}/source-manifest.json" \
+SAMUDRA_CODE_LAYER_MANIFEST="${CODE_LAYER_MANIFEST}" \
 SAMUDRA_CODE_COMMIT="${CODE_GIT_COMMIT}" \
 SAMUDRA_CODE_REPO_URL="${CODE_GIT_REMOTE_URL}" \
 SAMUDRA_CODE_LAYER_SHA256="${CODE_LAYER_SHA256}" \
@@ -433,6 +457,17 @@ SAMUDRA_CONTAINER_SIF_PATH="${SIF_PATH}" \
 python3 - <<'PY'
 import json
 import os
+
+source_manifest = os.environ["SAMUDRA_CODE_LAYER_MANIFEST"]
+if source_manifest:
+    with open(source_manifest, encoding="utf-8") as stream:
+        public_manifest = json.load(stream)
+    public_manifest["code_repo_url"] = os.environ["SAMUDRA_CODE_REPO_URL"]
+    with open(
+        os.environ["SAMUDRA_PUBLIC_SOURCE_MANIFEST_PATH"], "w", encoding="utf-8"
+    ) as stream:
+        json.dump(public_manifest, stream, indent=2, sort_keys=True)
+        stream.write("\n")
 
 keys = (
     "SAMUDRA_CODE_COMMIT",

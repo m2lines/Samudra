@@ -191,6 +191,12 @@ directory, and never write secrets there. Local W&B state, common credential and
 key filenames, and incomplete temporary files (including atomic checkpoint
 temps under `saved_nets/`) are excluded from publication.
 
+If `CODE_REPO_URL` contains authentication information, the builder uses the
+original URL only for `git fetch`. Repository URL user information, query
+parameters, and fragments are removed from logs, code-layer manifests, W&B
+metadata, and public run provenance. The training harness also sanitizes
+metadata from existing code layers and container images before publication.
+
 ## Fast Iteration With Ref-Built Code Overlays
 
 The code-layer builder fetches a pushed Git ref, resolves it to a full commit,
@@ -204,6 +210,7 @@ scp scripts/slurm_apptainer_pull.sbatch torch:~/slurm_apptainer_pull.sbatch
 scp scripts/build_apptainer_code_layer.sh torch:~/build_apptainer_code_layer.sh
 scp scripts/slurm_apptainer_train.sbatch torch:~/slurm_apptainer_train.sbatch
 scp scripts/experiment_archive.py torch:~/experiment_archive.py
+scp scripts/sanitize_repository_url.py torch:~/sanitize_repository_url.py
 ```
 
 Prepare a stable container SIF, then build the layer on Torch:

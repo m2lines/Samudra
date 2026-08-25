@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import hashlib
 import json
 import os
 import subprocess
@@ -10,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts import experiment_archive
+from scripts import experiment_archive, sanitize_repository_url
 
 
 def _write_executable(path, contents):
@@ -19,7 +20,12 @@ def _write_executable(path, contents):
 
 
 def _run_harness_to_archive_failure(
-    tmp_path, restart_count, failed_command, name="run-a"
+    tmp_path,
+    restart_count,
+    failed_command,
+    name="run-a",
+    code_layer_repo_url=None,
+    container_repo_url="unknown",
 ):
     repository = Path(__file__).parents[1]
     harness = repository / "scripts" / "slurm_apptainer_train.sbatch"
@@ -29,7 +35,11 @@ def _run_harness_to_archive_failure(
         fake_bin / "apptainer",
         """#!/bin/bash
 if [[ "$1" == "exec" ]]; then
-  printf unknown
+  if [[ "$*" == *SAMUDRA_CONTAINER_GIT_REMOTE_URL* ]]; then
+    printf %s "${FAKE_CONTAINER_GIT_REMOTE_URL}"
+  elif [[ "$*" == *SAMUDRA_CONTAINER_GIT_COMMIT* ]]; then
+    printf container-commit
+  fi
 fi
 """,
     )
@@ -58,6 +68,26 @@ fi
     scratch_dir.mkdir()
     image_path = tmp_path / "image.sif"
     image_path.write_text("image", encoding="utf-8")
+    code_layer = ""
+    if code_layer_repo_url is not None:
+        code_layer_path = tmp_path / "code-layer.img"
+        code_layer_path.write_text("code layer", encoding="utf-8")
+        layer_digest = hashlib.sha256(code_layer_path.read_bytes()).hexdigest()
+        Path(f"{code_layer_path}.sha256").write_text(
+            f"{layer_digest}  {code_layer_path.name}\n", encoding="utf-8"
+        )
+        Path(f"{code_layer_path}.json").write_text(
+            json.dumps(
+                {
+                    "schema_version": 1,
+                    "code_commit": "code-layer-commit",
+                    "code_repo_url": code_layer_repo_url,
+                    "requested_code_ref": "feature",
+                }
+            ),
+            encoding="utf-8",
+        )
+        code_layer = str(code_layer_path)
     if restart_count:
         run_dir.mkdir()
         (run_dir / "checkpoint").write_text("existing", encoding="utf-8")
@@ -73,6 +103,7 @@ fi
             "OUTPUT_BASE": str(output_base),
             "SCRATCH_DIR": str(scratch_dir),
             "SIF_PATH": str(image_path),
+            "CODE_LAYER": code_layer,
             "PUBLISH_TO_OSN": "1",
             "ARCHIVE_BASE": "remote:bucket/archive",
             "ARCHIVE_OWNER": "owner-a",
@@ -86,6 +117,7 @@ fi
             "SLURM_RESTART_COUNT": str(restart_count),
             "RCLONE_LOG": str(tmp_path / "rclone.log"),
             "RCLONE_FAIL_COMMAND": failed_command,
+            "FAKE_CONTAINER_GIT_REMOTE_URL": container_repo_url,
         }
     )
     result = subprocess.run(
@@ -107,6 +139,48 @@ def test_team_torch_harness_publishes_by_default():
     assert "*/*|*\\\\*)" in contents
     assert 'preflight "${RUN_DIR}" --apply' in contents
     assert 'mv -- "${RUN_DIR}" "${quarantine_path}"' in contents
+
+
+def test_repository_url_sanitizer_removes_credentials_and_query_secrets():
+    assert (
+        sanitize_repository_url.sanitize_repository_url(
+            "https://user:token@github.com/m2lines/Samudra.git"  # pragma: allowlist secret
+            "?access_token=other-secret#fragment"
+        )
+        == "https://github.com/m2lines/Samudra.git"
+    )
+    assert (
+        sanitize_repository_url.sanitize_repository_url(
+            "ssh://git@github.com:22/m2lines/Samudra.git"
+        )
+        == "ssh://github.com:22/m2lines/Samudra.git"
+    )
+    assert (
+        sanitize_repository_url.sanitize_repository_url(
+            "git@github.com:m2lines/Samudra.git"
+        )
+        == "ssh://github.com/m2lines/Samudra.git"
+    )
+
+
+@pytest.mark.parametrize(
+    "value", ["", " leading-space", "https:user@host/repo", "https://host/repo\nnext"]
+)
+def test_repository_url_sanitizer_rejects_invalid_values(value):
+    with pytest.raises(ValueError):
+        sanitize_repository_url.sanitize_repository_url(value)
+
+
+def test_code_layer_builder_records_only_sanitized_repository_url():
+    builder = (
+        Path(__file__).parents[1] / "scripts" / "build_apptainer_code_layer.sh"
+    ).read_text(encoding="utf-8")
+
+    assert "from ${CODE_REPO_PUBLIC_URL}" in builder
+    assert '"code_repo_url": os.environ["CODE_REPO_PUBLIC_URL"]' in builder
+    assert '2>"${BUILD_DIR}/git-fetch-error.log"' in builder
+    assert "unset CODE_REPO_URL" in builder
+    assert "from ${CODE_REPO_URL}" not in builder
 
 
 def test_harness_rejects_nested_run_name(tmp_path):
@@ -139,6 +213,45 @@ def test_fresh_run_preflight_failure_is_quarantined(tmp_path):
     assert "lsf remote:bucket/archive/owner-a/run-a" in rclone_log.read_text(
         encoding="utf-8"
     )
+
+
+def test_public_provenance_strips_repository_credentials(tmp_path):
+    code_layer_url = (
+        "https://layer-user:layer-token@github.com/m2lines/Samudra.git"  # pragma: allowlist secret
+        "?access_token=query-secret"
+    )
+    container_url = "https://container-user:container-token@github.com/m2lines/Samudra.git"  # pragma: allowlist secret
+    result, run_dir, _ = _run_harness_to_archive_failure(
+        tmp_path,
+        restart_count=0,
+        failed_command="lsf",
+        code_layer_repo_url=code_layer_url,
+        container_repo_url=container_url,
+    )
+
+    assert result.returncode == 8
+    quarantined = list(run_dir.parent.glob("run-a.archive-preflight-failed-123-*"))
+    assert len(quarantined) == 1
+    provenance_text = (quarantined[0] / "run-provenance.json").read_text(
+        encoding="utf-8"
+    )
+    source_manifest_text = (quarantined[0] / "source-manifest.json").read_text(
+        encoding="utf-8"
+    )
+    provenance = json.loads(provenance_text)
+    source_manifest = json.loads(source_manifest_text)
+
+    assert provenance["code_repo_url"] == "https://github.com/m2lines/Samudra.git"
+    assert (
+        provenance["container_git_remote_url"]
+        == "https://github.com/m2lines/Samudra.git"
+    )
+    assert source_manifest["code_repo_url"] == (
+        "https://github.com/m2lines/Samudra.git"
+    )
+    for secret in ("layer-token", "query-secret", "container-token"):
+        assert secret not in provenance_text
+        assert secret not in source_manifest_text
 
 
 def test_requeued_run_archive_failure_keeps_existing_directory(tmp_path):

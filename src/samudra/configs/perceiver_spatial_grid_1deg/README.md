@@ -13,9 +13,9 @@ encoder/decoder meta-analysis. It uses one-degree OM4 only. The encoder groups
 context, one-ring overlap assembly, smooth processor conditioning, and physical
 residual prediction.
 
-The train preset assumes two GPUs: per-rank batch 2 and eight accumulation steps
-produce effective global batch 32. Change accumulation if the world size changes
-so optimizer exposure remains comparable. The experiment data preset uses raw
+The train preset assumes four GPUs: per-rank batch 8 with no gradient
+accumulation produces effective global batch 32. Change the local batch if the
+world size changes so optimizer exposure remains comparable. The experiment data preset uses raw
 `hfds` forcing (it does not compute `hfds` anomalies). Set `experiment.data_root`
 to the one-degree directory that contains `OM4.zarr`, `OM4_means.zarr`, and
 `OM4_stds.zarr`. Pass the validation-selected checkpoint explicitly to evaluation:

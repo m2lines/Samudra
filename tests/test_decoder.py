@@ -2,8 +2,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+from unittest.mock import patch
+
 import pytest
 import torch
+import torch.nn.functional as F
+from einops import rearrange
 from test_encoder import make_resolution  # type: ignore
 
 from samudra.config import DecoderConfig
@@ -132,6 +136,88 @@ def make_decoder_with_shared_weights(
     return other
 
 
+def serial_overlapping_decode(
+    decoder: PerceiverDecoder,
+    data_grid: torch.Tensor,
+    queries_grid: torch.Tensor,
+    patch_h: int,
+    patch_w: int,
+) -> torch.Tensor:
+    """Reference implementation retained to test vectorized numerical parity."""
+    batch, nh, nw, _ = data_grid.shape
+    height, width, _ = queries_grid.shape
+    wp = decoder.window_patches
+    cp = decoder.context_patches
+    op = decoder.output_overlap_patches
+    assert wp is not None and op > 0
+
+    weighted = data_grid.new_zeros(batch, height, width, decoder.decoded_channels)
+    weight_sum = data_grid.new_zeros(height, width, 1)
+    n_blocks_h = nh // wp
+    n_blocks_w = nw // wp
+    halo_h = op * patch_h
+    halo_w = op * patch_w
+
+    if cp == 0:
+        data = rearrange(data_grid, "b nh nw c -> b c nh nw")
+        data_windows = data.unfold(2, wp, wp).unfold(3, wp, wp)
+    else:
+        assert cp is not None
+        data = rearrange(data_grid, "b nh nw c -> b c nh nw")
+        data = F.pad(data, (cp, cp, 0, 0), mode="circular")
+        data = F.pad(data, (0, 0, cp, cp), mode="constant", value=0)
+        window_size = wp + 2 * cp
+        data_windows = data.unfold(2, window_size, wp).unfold(3, window_size, wp)
+
+    for bi in range(n_blocks_h):
+        query_i0 = max(0, (bi * wp - op) * patch_h)
+        query_i1 = min(height, ((bi + 1) * wp + op) * patch_h)
+        lat_indices = torch.arange(query_i0, query_i1, device=data_grid.device)
+        lat_weights = decoder._overlap_weights(
+            len(lat_indices),
+            halo_h,
+            fade_start=bi > 0,
+            fade_end=bi + 1 < n_blocks_h,
+            device=data_grid.device,
+            dtype=data_grid.dtype,
+        )
+        for bj in range(n_blocks_w):
+            lon_indices = torch.arange(
+                (bj * wp - op) * patch_w,
+                ((bj + 1) * wp + op) * patch_w,
+                device=data_grid.device,
+            ).remainder(width)
+            local_data = rearrange(data_windows[:, :, bi, bj], "b c h w -> b (h w) c")
+            local_queries = queries_grid.index_select(0, lat_indices)
+            local_queries = local_queries.index_select(1, lon_indices)
+            local_out = decoder._decode_queries(
+                local_data, rearrange(local_queries, "h w d -> (h w) d")
+            )
+            local_out = rearrange(
+                local_out,
+                "b (h w) c -> b h w c",
+                h=len(lat_indices),
+                w=len(lon_indices),
+            )
+            lon_weights = decoder._overlap_weights(
+                len(lon_indices),
+                halo_w,
+                fade_start=True,
+                fade_end=True,
+                device=data_grid.device,
+                dtype=data_grid.dtype,
+            )
+            weights = lat_weights[:, None] * lon_weights[None, :]
+            weighted[:, lat_indices[:, None], lon_indices[None, :], :] += (
+                local_out * weights[None, :, :, None]
+            )
+            weight_sum[lat_indices[:, None], lon_indices[None, :], :] += weights[
+                :, :, None
+            ]
+
+    return rearrange(weighted / weight_sum, "b h w c -> b c h w")
+
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
@@ -247,6 +333,63 @@ def test_overlapping_direct_decoder_supports_backward(
     assert torch.isfinite(latent_input.grad).all()
     assert decoder.conditioning_strength is not None
     assert decoder.conditioning_strength.grad is not None
+
+
+@pytest.mark.parametrize("context_patches", [0, 1])
+def test_vectorized_overlap_matches_serial_forward_and_backward(context_patches):
+    """Window batching preserves outputs and gradients, including polar halos."""
+    torch.manual_seed(0)
+    kwargs = dict(
+        in_channels=IN_CHANNELS,
+        out_channels=OUT_CHANNELS,
+        patch_extent=(30.0, 60.0),
+        queries_dim=QUERIES_DIM,
+        window_patches=2,
+        context_patches=context_patches,
+        output_overlap_patches=1,
+        processor_conditioning=False,
+    )
+    vectorized = PerceiverDecoder(
+        **kwargs, perceiver_io=make_direct_cross_attention_io()
+    )
+    serial = PerceiverDecoder(**kwargs, perceiver_io=make_direct_cross_attention_io())
+    serial.load_state_dict(vectorized.state_dict())
+
+    vectorized_data = torch.randn(BATCH, 6, 6, IN_CHANNELS, requires_grad=True)
+    serial_data = vectorized_data.detach().clone().requires_grad_()
+    vectorized_queries = torch.randn(12, 24, QUERIES_DIM, requires_grad=True)
+    serial_queries = vectorized_queries.detach().clone().requires_grad_()
+
+    with patch.object(
+        vectorized, "_decode_queries", wraps=vectorized._decode_queries
+    ) as decode_queries:
+        actual = vectorized._decode_overlapping(
+            vectorized_data, vectorized_queries, patch_h=2, patch_w=4
+        )
+    assert decode_queries.call_count == 2
+    expected = serial_overlapping_decode(
+        serial, serial_data, serial_queries, patch_h=2, patch_w=4
+    )
+    torch.testing.assert_close(actual, expected, atol=2e-5, rtol=2e-5)
+
+    output_gradient = torch.randn_like(actual)
+    actual.backward(output_gradient)
+    expected.backward(output_gradient)
+    torch.testing.assert_close(
+        vectorized_data.grad, serial_data.grad, atol=2e-5, rtol=2e-5
+    )
+    torch.testing.assert_close(
+        vectorized_queries.grad, serial_queries.grad, atol=2e-5, rtol=2e-5
+    )
+    for actual_parameter, expected_parameter in zip(
+        vectorized.parameters(), serial.parameters(), strict=True
+    ):
+        torch.testing.assert_close(
+            actual_parameter.grad,
+            expected_parameter.grad,
+            atol=2e-5,
+            rtol=2e-5,
+        )
 
 
 def test_overlap_requires_window_and_fits_inside_core():

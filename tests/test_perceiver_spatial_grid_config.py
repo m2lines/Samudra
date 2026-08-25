@@ -22,10 +22,11 @@ def test_full_one_degree_presets_validate():
     visualization = VizConfig.from_yaml_and_cli([str(CONFIG_DIR / "viz.yaml")])
 
     assert train.epochs == 70
-    assert train.gradient_accumulation_steps == 8
+    assert train.batch_size == 8
+    assert train.gradient_accumulation_steps == 1
     assert len(train.data.sources) == 1
     assert train.data.sources[0].data_location.path == "OM4.zarr"
-    assert train.data.sources[0].boundary_vars_key == "tau_hfds_hfds_anom"
+    assert train.data.sources[0].boundary_vars_key == "tau_hfds"
     assert isinstance(train.model, SamudraMultiConfig)
     assert train.model.patch_extent == [6.0, 10.0]
     assert train.model.encoder.architecture == "spatial_grid"

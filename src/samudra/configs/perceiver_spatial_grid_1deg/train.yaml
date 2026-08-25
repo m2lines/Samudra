@@ -10,9 +10,10 @@ pin_mem: true
 save_freq: 5
 validation_image_log_freq: 5
 epochs: 70
-batch_size: 2
-# On the intended two-GPU Torch launch this gives effective global batch 32.
-gradient_accumulation_steps: 8
+batch_size: 8
+# On the intended four-GPU Torch launch this gives effective global batch 32
+# while keeping each GPU's attention batches large enough for efficient SDPA.
+gradient_accumulation_steps: 1
 learning_rate: 0.0006
 scheduler: {type: cosine}
 loss: mse

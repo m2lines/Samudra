@@ -309,6 +309,36 @@ class PerceiverDecoder(nn.Module):
         assert isinstance(direct_decoder, DirectCrossAttentionIO)
         return direct_decoder.decode_features(data, queries=queries)
 
+    @staticmethod
+    def _local_data_windows(
+        data_grid: torch.Tensor,
+        *,
+        window_patches: int,
+        context_patches: int,
+    ) -> torch.Tensor:
+        """Return local latent windows as ``[batch, window, token, channel]``."""
+        data = rearrange(data_grid, "b nh nw c -> b c nh nw")
+        if context_patches:
+            data = F.pad(
+                data,
+                (context_patches, context_patches, 0, 0),
+                mode="circular",
+            )
+            data = F.pad(
+                data,
+                (0, 0, context_patches, context_patches),
+                mode="constant",
+                value=0,
+            )
+        window_size = window_patches + 2 * context_patches
+        windows = data.unfold(2, window_size, window_patches).unfold(
+            3, window_size, window_patches
+        )
+        return rearrange(
+            windows,
+            "b c bh bw wh ww -> b (bh bw) (wh ww) c",
+        )
+
     def _decode(
         self,
         data_grid: Float[torch.Tensor, "batch nh nw channels"],
@@ -347,57 +377,65 @@ class PerceiverDecoder(nn.Module):
         block_ph = wp * patch_h  # pixel height per query block
         block_pw = wp * patch_w  # pixel width per query block
 
-        # --- Prepare data windows ---
+        # Full context cannot be folded into the window batch without
+        # materializing the complete latent grid once per window. Retain the
+        # memory-bounded path for that uncommon mode; local windows are decoded
+        # together below.
         if cp is None:
-            # Full context: every window sees all latent tokens.
             full_data = rearrange(data_grid, "b nh nw c -> b (nh nw) c")
-        elif cp == 0:
-            # No context padding — unfold with exact window size.
-            data = rearrange(data_grid, "b nh nw c -> b c nh nw")
-            data_windows = data.unfold(2, wp, wp).unfold(3, wp, wp)
-        else:
-            # Pad: circular along longitude (last dim), zero along latitude.
-            data = rearrange(data_grid, "b nh nw c -> b c nh nw")
-            data = F.pad(data, (cp, cp, 0, 0), mode="circular")
-            data = F.pad(data, (0, 0, cp, cp), mode="constant", value=0)
-            win_size_h = wp + 2 * cp
-            win_size_w = wp + 2 * cp
-            data_windows = data.unfold(2, win_size_h, wp).unfold(3, win_size_w, wp)
-        # data_windows shape (when cp is not None):
-        #   (B, C, n_blocks_h, n_blocks_w, win_h, win_w)
-
-        # --- Decode each spatial block ---
-        out = data_grid.new_zeros(B, H, W, self.decoded_channels)
-
-        for bi in range(n_blocks_h):
-            for bj in range(n_blocks_w):
-                if cp is None:
-                    local_data = full_data
-                else:
-                    local_data = rearrange(
-                        data_windows[:, :, bi, bj], "b c h w -> b (h w) c"
+            rows = []
+            for bi in range(n_blocks_h):
+                columns = []
+                for bj in range(n_blocks_w):
+                    local_queries = queries_grid[
+                        bi * block_ph : (bi + 1) * block_ph,
+                        bj * block_pw : (bj + 1) * block_pw,
+                    ]
+                    local_out = self._decode_queries(
+                        full_data,
+                        rearrange(local_queries, "h w d -> (h w) d"),
                     )
+                    columns.append(
+                        rearrange(
+                            local_out,
+                            "b (h w) c -> b h w c",
+                            h=block_ph,
+                            w=block_pw,
+                        )
+                    )
+                rows.append(torch.cat(columns, dim=2))
+            return rearrange(torch.cat(rows, dim=1), "b h w c -> b c h w")
 
-                qi_start = bi * block_ph
-                qj_start = bj * block_pw
-                local_queries = queries_grid[
-                    qi_start : qi_start + block_ph,
-                    qj_start : qj_start + block_pw,
-                ]
-                local_queries = rearrange(local_queries, "h w d -> (h w) d")
-
-                local_out = self._decode_queries(local_data, local_queries)
-                local_out = rearrange(
-                    local_out, "b (h w) c -> b h w c", h=block_ph, w=block_pw
-                )
-                out[
-                    :,
-                    qi_start : qi_start + block_ph,
-                    qj_start : qj_start + block_pw,
-                    :,
-                ] = local_out
-
-        return rearrange(out, "b h w c -> b c h w")
+        data_windows = self._local_data_windows(
+            data_grid,
+            window_patches=wp,
+            context_patches=cp,
+        )
+        query_windows = rearrange(
+            queries_grid,
+            "(bh ph) (bw pw) d -> (bh bw) (ph pw) d",
+            bh=n_blocks_h,
+            bw=n_blocks_w,
+            ph=block_ph,
+            pw=block_pw,
+        )
+        window_count = n_blocks_h * n_blocks_w
+        batched_data = rearrange(data_windows, "b n t c -> (b n) t c")
+        batched_queries = (
+            query_windows.unsqueeze(0)
+            .expand(B, window_count, -1, -1)
+            .reshape(B * window_count, block_ph * block_pw, -1)
+        )
+        decoded = self._decode_queries(batched_data, batched_queries)
+        return rearrange(
+            decoded,
+            "(b bh bw) (ph pw) c -> b c (bh ph) (bw pw)",
+            b=B,
+            bh=n_blocks_h,
+            bw=n_blocks_w,
+            ph=block_ph,
+            pw=block_pw,
+        )
 
     def _decode_overlapping(
         self,
@@ -417,33 +455,45 @@ class PerceiverDecoder(nn.Module):
             "An overlapping longitude window must not wrap over itself."
         )
 
-        weighted = data_grid.new_zeros(batch, height, width, self.decoded_channels)
-        weight_sum = data_grid.new_zeros(height, width, 1)
+        # With full latent context, adjacent windows make the same prediction
+        # for every repeated query. Decode each global query once instead of
+        # materializing the complete latent grid once per window.
+        if cp is None:
+            full_data = rearrange(data_grid, "b nh nw c -> b (nh nw) c")
+            all_queries = rearrange(queries_grid, "h w d -> (h w) d")
+            decoded = self._decode_queries(full_data, all_queries)
+            return rearrange(
+                decoded,
+                "b (h w) c -> b c h w",
+                h=height,
+                w=width,
+            )
+
+        weighted = data_grid.new_zeros(batch, height * width, self.decoded_channels)
+        weight_sum = data_grid.new_zeros(height * width, 1)
         n_blocks_h = nh // wp
         n_blocks_w = nw // wp
         halo_h = op * patch_h
         halo_w = op * patch_w
 
-        if cp is None:
-            full_data = rearrange(data_grid, "b nh nw c -> b (nh nw) c")
-        elif cp == 0:
-            data = rearrange(data_grid, "b nh nw c -> b c nh nw")
-            data_windows = data.unfold(2, wp, wp).unfold(3, wp, wp)
-        else:
-            data = rearrange(data_grid, "b nh nw c -> b c nh nw")
-            data = F.pad(data, (cp, cp, 0, 0), mode="circular")
-            data = F.pad(data, (0, 0, cp, cp), mode="constant", value=0)
-            window_size = wp + 2 * cp
-            data_windows = data.unfold(2, window_size, wp).unfold(3, window_size, wp)
+        data_windows = self._local_data_windows(
+            data_grid,
+            window_patches=wp,
+            context_patches=cp,
+        )
 
+        # Polar windows have a shorter latitude query halo than interior
+        # windows. Group windows by query height, reducing the 1-degree
+        # configuration from 120 decoder launches to two.
+        latitude_groups: dict[int, list[int]] = {}
+        latitude_weights: dict[int, torch.Tensor] = {}
         for bi in range(n_blocks_h):
-            core_patch_i0 = bi * wp
-            core_patch_i1 = (bi + 1) * wp
-            query_i0 = max(0, (core_patch_i0 - op) * patch_h)
-            query_i1 = min(height, (core_patch_i1 + op) * patch_h)
-            lat_indices = torch.arange(query_i0, query_i1, device=data_grid.device)
-            lat_weights = self._overlap_weights(
-                len(lat_indices),
+            query_i0 = max(0, (bi * wp - op) * patch_h)
+            query_i1 = min(height, ((bi + 1) * wp + op) * patch_h)
+            query_height = query_i1 - query_i0
+            latitude_groups.setdefault(query_height, []).append(bi)
+            latitude_weights[bi] = self._overlap_weights(
+                query_height,
                 halo_h,
                 fade_start=bi > 0,
                 fade_end=bi + 1 < n_blocks_h,
@@ -451,52 +501,77 @@ class PerceiverDecoder(nn.Module):
                 dtype=data_grid.dtype,
             )
 
-            for bj in range(n_blocks_w):
-                core_patch_j0 = bj * wp
-                core_patch_j1 = (bj + 1) * wp
-                query_j0 = (core_patch_j0 - op) * patch_w
-                query_j1 = (core_patch_j1 + op) * patch_w
-                lon_indices = torch.arange(
-                    query_j0, query_j1, device=data_grid.device
-                ).remainder(width)
+        query_width = (wp + 2 * op) * patch_w
+        lon_weights = self._overlap_weights(
+            query_width,
+            halo_w,
+            fade_start=True,
+            fade_end=True,
+            device=data_grid.device,
+            dtype=data_grid.dtype,
+        )
 
-                if cp is None:
-                    local_data = full_data
-                else:
-                    local_data = rearrange(
-                        data_windows[:, :, bi, bj], "b c h w -> b (h w) c"
-                    )
+        for query_height, block_rows in latitude_groups.items():
+            block_row_index = torch.tensor(block_rows, device=data_grid.device)
+            block_i = block_row_index.repeat_interleave(n_blocks_w)
+            block_j = torch.arange(n_blocks_w, device=data_grid.device).repeat(
+                len(block_rows)
+            )
+            window_index = block_i * n_blocks_w + block_j
+            lat_start = ((block_i * wp - op) * patch_h).clamp_min(0)
+            lat_index = lat_start[:, None] + torch.arange(
+                query_height, device=data_grid.device
+            )
+            lon_start = (block_j * wp - op) * patch_w
+            lon_index = (
+                lon_start[:, None] + torch.arange(query_width, device=data_grid.device)
+            ).remainder(width)
+            lat_weight = torch.stack(
+                [latitude_weights[bi] for bi in block_rows]
+            ).repeat_interleave(n_blocks_w, dim=0)
+            weights = lat_weight[:, :, None] * lon_weights[None, None, :]
+            queries = queries_grid[
+                lat_index[:, :, None],
+                lon_index[:, None, :],
+            ]
+            query_count = query_height * query_width
 
-                local_queries = queries_grid.index_select(0, lat_indices)
-                local_queries = local_queries.index_select(1, lon_indices)
-                local_queries = rearrange(local_queries, "h w d -> (h w) d")
-                local_out = self._decode_queries(local_data, local_queries)
-                local_out = rearrange(
-                    local_out,
-                    "b (h w) c -> b h w c",
-                    h=len(lat_indices),
-                    w=len(lon_indices),
-                )
-
-                lon_weights = self._overlap_weights(
-                    len(lon_indices),
-                    halo_w,
-                    fade_start=True,
-                    fade_end=True,
-                    device=data_grid.device,
-                    dtype=data_grid.dtype,
-                )
-                weights = lat_weights[:, None] * lon_weights[None, :]
-                weighted[:, lat_indices[:, None], lon_indices[None, :], :] += (
-                    local_out * weights[None, :, :, None]
-                )
-                weight_sum[lat_indices[:, None], lon_indices[None, :], :] += weights[
-                    :, :, None
-                ]
+            local_data = rearrange(
+                data_windows.index_select(1, window_index),
+                "b n t c -> (b n) t c",
+            )
+            batched_queries = (
+                rearrange(queries, "n h w d -> n (h w) d")
+                .unsqueeze(0)
+                .expand(batch, -1, -1, -1)
+                .reshape(batch * len(window_index), query_count, -1)
+            )
+            local_out = self._decode_queries(local_data, batched_queries)
+            local_out = rearrange(
+                local_out,
+                "(b n) q c -> b (n q) c",
+                b=batch,
+                n=len(window_index),
+            )
+            flat_indices = (
+                lat_index[:, :, None] * width + lon_index[:, None, :]
+            ).flatten()
+            flat_weights = weights.flatten()
+            weighted.index_add_(
+                1,
+                flat_indices,
+                local_out * flat_weights[None, :, None],
+            )
+            weight_sum.index_add_(0, flat_indices, flat_weights[:, None])
 
         if not torch.all(weight_sum > 0):
             raise RuntimeError("Overlapping decoder left output pixels uncovered.")
-        return rearrange(weighted / weight_sum, "b h w c -> b c h w")
+        return rearrange(
+            weighted / weight_sum.unsqueeze(0),
+            "b (h w) c -> b c h w",
+            h=height,
+            w=width,
+        )
 
     @staticmethod
     def _overlap_weights(

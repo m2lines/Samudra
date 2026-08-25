@@ -80,6 +80,10 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=om4_data_variant.sh
+source "${SCRIPT_DIR}/om4_data_variant.sh"
+
 # --- Resolve inputs ----------------------------------------------------------
 RESOLUTION="${RESOLUTION:-}"
 if [[ -z "${RESOLUTION}" ]]; then
@@ -103,16 +107,8 @@ case "${RESOLUTION}" in
 esac
 
 RAW_ROOT="${RAW_ROOT:-s3://m2lines-pubs/Samudra/raw}"
-DATA_VARIANT="${DATA_VARIANT:-averaged}"
-case "${DATA_VARIANT}" in
-  averaged)  SOURCE_STORE="om4_5daily.zarr";           OUTPUT_SUFFIX="" ;;
-  snapshots) SOURCE_STORE="om4_5daily_snapshots.zarr"; OUTPUT_SUFFIX="_snapshots" ;;
-  *)
-    echo "ERROR: unknown DATA_VARIANT='${DATA_VARIANT}'." >&2
-    echo "Expected one of: averaged | snapshots." >&2
-    exit 2 ;;
-esac
-DATA_PATH="${DATA_PATH:-${RAW_ROOT}/${SOURCE_STORE}}"
+resolve_om4_data_variant
+DATA_PATH="${DATA_PATH:-${RAW_ROOT}/${OM4_SOURCE_STORE}}"
 NATIVE_GRID_PATH="${RAW_ROOT}/ocean_static_no_mask_table.zarr"
 MOSAIC_PATH="${RAW_ROOT}/grids/ocean_hgrid.zarr"
 TARGET_GRID_PATH="${RAW_ROOT}/grids/${GRID}.zarr"
@@ -124,7 +120,7 @@ if [[ -z "${OUTPUT_PATH}" ]]; then
     echo "Example: export OUTPUT_BASE=\"s3://m2lines-pubs/Samudra/v\$(date +%Y-%m)\"" >&2
     exit 2
   fi
-  OUTPUT_PATH="${OUTPUT_BASE%/}/om4_${RESOLUTION}${OUTPUT_SUFFIX}/OM4.zarr"
+  OUTPUT_PATH="${OUTPUT_BASE%/}/om4_${RESOLUTION}${OM4_OUTPUT_SUFFIX}/OM4.zarr"
 fi
 
 # --- Credentials preflight ---------------------------------------------------

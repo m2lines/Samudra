@@ -228,7 +228,13 @@ def input_data():
             ]
         },
         coords=coords,
-        attrs={"m2lines/ocean_emulators_git_hash": "dummy"},
+        attrs={
+            "grid_type": "gaussian",
+            "m2lines/cli_args": "test",
+            "m2lines/date_created": "2026-08-25T00:00:00",
+            "m2lines/ocean_emulators_git_hash": "dummy",
+            "m2lines/samudra_git_hash": "dummy",
+        },
     )
     # why would they not work when passed at ds creation?
 

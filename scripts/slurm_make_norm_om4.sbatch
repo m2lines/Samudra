@@ -47,22 +47,18 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=om4_data_variant.sh
+source "${SCRIPT_DIR}/om4_data_variant.sh"
+
 OUTPUT_PATH="${OUTPUT_PATH:-}"
 if [[ -z "${OUTPUT_PATH}" ]]; then
   if [[ -z "${OUTPUT_BASE:-}" || -z "${RESOLUTION:-}" ]]; then
     echo "ERROR: set OUTPUT_PATH, or both OUTPUT_BASE and RESOLUTION." >&2
     exit 2
   fi
-  DATA_VARIANT="${DATA_VARIANT:-averaged}"
-  case "${DATA_VARIANT}" in
-    averaged)  OUTPUT_SUFFIX="" ;;
-    snapshots) OUTPUT_SUFFIX="_snapshots" ;;
-    *)
-      echo "ERROR: unknown DATA_VARIANT='${DATA_VARIANT}'." >&2
-      echo "Expected one of: averaged | snapshots." >&2
-      exit 2 ;;
-  esac
-  OUTPUT_PATH="${OUTPUT_BASE%/}/om4_${RESOLUTION}${OUTPUT_SUFFIX}/OM4.zarr"
+  resolve_om4_data_variant
+  OUTPUT_PATH="${OUTPUT_BASE%/}/om4_${RESOLUTION}${OM4_OUTPUT_SUFFIX}/OM4.zarr"
 fi
 if [[ "${OUTPUT_PATH}" != s3://* ]]; then
   echo "ERROR: make_norm_datasets.py requires an s3:// path; got '${OUTPUT_PATH}'." >&2

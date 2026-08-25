@@ -26,6 +26,7 @@ import xarray as xr
 
 from ocean_preprocessing.dataset_validation import (
     ds_flattened_input_validate,
+    ds_input_validate,
     ds_processed_validate,
 )
 from ocean_preprocessing.plotting import rotated_vectors_qc_plots
@@ -462,7 +463,7 @@ class CLI:
         # regular (rectilinear) lat-lon grid, so downstream code may treat the 2-D
         # lat/lon as separable. Curvilinear (e.g. tripolar) outputs must set this to
         # the matching grid_type so consumers do not broadcast their geometry.
-        ds_input.attrs["grid_type"] = "gaussian"
+        ds_input.attrs["grid_type"] = "tripolar" if self.skip_regridding else "gaussian"
         # Label wetmask via attrs
         if len(ds_input["wetmask"].attrs) == 0:
             ds_input["wetmask"].attrs["long_name"] = "ocean mask"
@@ -490,7 +491,10 @@ class CLI:
         ds = ds.chunk({"time": 1})
 
         logger.info("validating final output structure")
-        ds_flattened_input_validate(ds)
+        if self.skip_flattening:
+            ds_input_validate(ds)
+        else:
+            ds_flattened_input_validate(ds)
 
         logger.info("collecting!")
         self._collect(ds)

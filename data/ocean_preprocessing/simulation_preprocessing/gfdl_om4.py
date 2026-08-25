@@ -10,16 +10,19 @@ import xarray as xr
 from xgcm import Grid
 
 from ocean_preprocessing.dataset_validation import ds_processed_validate
+from ocean_preprocessing.schema import (
+    OM4_3D_VARS,
+    OM4_OPTIONAL_2D_VARS,
+    OM4_REQUIRED_2D_VARS,
+)
 from ocean_preprocessing.utils import apply_mask
 
 from .interpolate import interpolate_to_cell_centers
 
 logger = logging.getLogger(__name__)
 
-OM4_REQUIRED_DATA_VARS = frozenset(
-    {"hfds", "so", "tauuo", "tauvo", "thetao", "uo", "vo", "zos"}
-)
-OM4_OPTIONAL_DATA_VARS = frozenset({"wfo"})
+OM4_REQUIRED_DATA_VARS = frozenset(OM4_3D_VARS + OM4_REQUIRED_2D_VARS)
+OM4_OPTIONAL_DATA_VARS = frozenset(OM4_OPTIONAL_2D_VARS)
 
 
 # load supergrid and extract the angles

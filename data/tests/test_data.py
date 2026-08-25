@@ -30,6 +30,13 @@ def test_input_data(input_data):
     ds_input_validate(input_data)
 
 
+def test_input_data_requires_current_provenance(input_data):
+    del input_data.attrs["m2lines/samudra_git_hash"]
+
+    with pytest.raises(ValueError, match="required attributes.*samudra_git_hash"):
+        ds_input_validate(input_data)
+
+
 def test_prediction_data(prediction_data):
     ds_prediction_validate(prediction_data)
 
@@ -100,4 +107,34 @@ def test_flattened_input_contract_requires_provenance():
     del ds.attrs["m2lines/samudra_git_hash"]
 
     with pytest.raises(ValueError, match="required attributes.*samudra_git_hash"):
+        ds_flattened_input_validate(ds)
+
+
+def test_flattened_tripolar_contract_does_not_require_ocean_fraction():
+    ds = _flattened_input().drop_vars("ocean_fraction")
+    ds.attrs["grid_type"] = "tripolar"
+
+    ds_flattened_input_validate(ds)
+
+
+def test_flattened_gaussian_contract_requires_ocean_fraction():
+    ds = _flattened_input().drop_vars("ocean_fraction")
+
+    with pytest.raises(ValueError, match="required coordinates.*ocean_fraction"):
+        ds_flattened_input_validate(ds)
+
+
+def test_flattened_contract_rejects_unknown_grid_type():
+    ds = _flattened_input()
+    ds.attrs["grid_type"] = "cubed_sphere"
+
+    with pytest.raises(ValueError, match="grid_type must be one of"):
+        ds_flattened_input_validate(ds)
+
+
+def test_flattened_contract_rejects_non_float_data():
+    ds = _flattened_input()
+    ds["hfds"] = ds.hfds.astype("float64")
+
+    with pytest.raises(ValueError, match="'hfds' has dtype float64; expected float32"):
         ds_flattened_input_validate(ds)

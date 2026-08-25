@@ -55,6 +55,11 @@ LLC_J_END="${LLC_J_END:-1440}" # 2160
 # before the valid mask existed (VALID_MASK=false in the train .sh) need false.
 VALID_MASK="${VALID_MASK:-false}"
 
+# Boundary forcing channels the checkpoint was TRAINED with. "all" is the
+# 4-channel set; "all_fw" adds oceFWflx. Must match the training run or num_in
+# will not match the checkpoint.
+BOUNDARY_VARS_KEY="${BOUNDARY_VARS_KEY:-all}"
+
 # Also must match how the checkpoint was TRAINED. The spatial channels
 # (sphere_xyz + log_rA, from XC/YC/rA) add 4 to num_in.
 #   false -> never append them, whatever the store carries
@@ -129,7 +134,7 @@ fi
   --experiment.data_root "${DATA_ROOT}" \
   --experiment.wandb.mode disabled \
   --experiment.prognostic_vars_key all \
-  --experiment.boundary_vars_key all \
+  --experiment.boundary_vars_key "${BOUNDARY_VARS_KEY}" \
   --data.data_location "${DATA_LOCATION}" \
   "${MODEL_ARGS[@]}" \
   --data.llc_face "${LLC_FACE}" \

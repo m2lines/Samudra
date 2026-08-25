@@ -187,6 +187,16 @@ BOUNDARY_VARS: dict[str, BoundaryVarNames] = {
     "single": ["oceQnet"],
     "double": ["oceQnet", "Eta"],
     "all": ["oceTAUX", "oceTAUY", "oceQnet", "Eta"],
+    # Adds the freshwater flux, the salinity counterpart of oceQnet. Note
+    # oceSflux is NOT the analogue here: LLC4320 runs natural boundary
+    # conditions, so E-P-R arrives as mass in oceFWflx and oceSflux carries only
+    # the sea-ice salt flux -- identically zero outside ice, which would be a
+    # dead channel with std 0 and a degenerate z-scoring. Under ice both terms
+    # matter: dS/dt = (oceSflux - oceFWflx*S) / (rho*dz).
+    #
+    # A separate key rather than an extra entry in "all", so existing
+    # checkpoints keep their 4-channel boundary and their num_in.
+    "all_fw": ["oceTAUX", "oceTAUY", "oceQnet", "Eta", "oceFWflx"],
 }
 
 DEFAULT_METADATA = {
@@ -217,6 +227,10 @@ DEFAULT_METADATA = {
     "oceTAUY": {
         "long_name": "Surface Downward Y Stress",
         "units": "N/m^2",
+    },
+    "oceFWflx": {
+        "long_name": "Net Surface Freshwater Flux Into The Ocean",
+        "units": "kg/m^2/s",
     },
     "oceQnet": {
         "long_name": "Surface ocean heat flux from "

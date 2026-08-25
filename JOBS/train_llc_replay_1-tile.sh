@@ -2,14 +2,14 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-08-22:samudra_rb_llc:1-tile-all_3D_var_and_corrected_grad_z_loss-W-7
+#SBATCH --job-name=2026-08-25:samudra_rb_llc:wider_model-[384,576,768,1024]
 #SBATCH -x node4100
 #SBATCH -N 1
 #SBATCH --mem=254GB
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=15
 #SBATCH -G h200:1
-#SBATCH --time=6:00:00
+#SBATCH --time=48:00:00
 #SBATCH --signal=B:USR1@300
 #SBATCH -o /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
 #SBATCH -e /orcd/home/002/codycruz/Ocean_Emulator/logs/%x-%j.out
@@ -97,12 +97,12 @@ ONE_STEP_VAL_NUM="${ONE_STEP_VAL_NUM:-100}"
 # end of val_time; *_NUM is reduced automatically if val_time is too short.
 # Set a length or a num to 0 to disable that rollout validation.
 SHORT_AR_VAL_LENGTH="${SHORT_AR_VAL_LENGTH:-72}"
-SHORT_AR_VAL_NUM="${SHORT_AR_VAL_NUM:-3}"
+SHORT_AR_VAL_NUM="${SHORT_AR_VAL_NUM:-2}"
 LONG_AR_VAL_LENGTH="${LONG_AR_VAL_LENGTH:-480}"
 LONG_AR_VAL_NUM="${LONG_AR_VAL_NUM:-1}"
 # First epoch that runs long AR val. Earlier epochs skip it: the model
 # cannot hold a hundreds-of-steps rollout together yet, so it is wasted time.
-LONG_AR_VAL_START_EPOCH="${LONG_AR_VAL_START_EPOCH:-20}"
+LONG_AR_VAL_START_EPOCH="${LONG_AR_VAL_START_EPOCH:-40}"
 # Rollout steps per chunk. Bounds how much prediction/target is held at once.
 AR_VAL_STEPS_FORWARD="${AR_VAL_STEPS_FORWARD:-4}"
 
@@ -151,10 +151,20 @@ HIST="${HIST:-0}"
 # every other channel). Adds one input channel, so it changes num_in and a
 # checkpoint is only resumable/evaluable with the same setting. Kept false
 # here so in-flight jobs stay resumable; set true for new runs.
-VALID_MASK="${VALID_MASK:-false}"
+VALID_MASK="${VALID_MASK:-true}"
+
+# BOUNDARY FORCING CHANNELS
+# Selects the boundary_vars_key in constants.py. Empty (the default) means "do
+# not override", so the value in the config yaml wins -- that is "all", the
+# 4-channel set (oceTAUX, oceTAUY, oceQnet, Eta). Set to "all_fw" to add
+# oceFWflx as a 5th channel. Channels are resolved from the cache BY NAME, so a
+# 5-channel cache serves both settings; this knob alone decides which are read.
+# Changing it changes num_in, so a checkpoint is only resumable/evaluable with
+# the same setting.
+BOUNDARY_VARS_KEY="${BOUNDARY_VARS_KEY:-}"
 
 # CHECKPOINTING / RESUME
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-08-21:samudra_rb_llc:1-tile-all_3D_var_and_corrected_grad_z_loss-W-6-20930682/saved_nets/ckpt_emergency.pt}"
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-}"
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
@@ -206,6 +216,7 @@ if [[ "${GPUS}" -gt 0 ]]; then
 fi
 echo "using validation surface_snapshot=${SURFACE_SNAPSHOT}, one_step_val_num=${ONE_STEP_VAL_NUM}"
 echo "using valid_mask=${VALID_MASK} (adds 1 input channel when true)"
+echo "using boundary_vars_key=${BOUNDARY_VARS_KEY:-<config default: all>}"
 echo "using autoregressive validation: short=${SHORT_AR_VAL_NUM}x${SHORT_AR_VAL_LENGTH} steps, long=${LONG_AR_VAL_NUM}x${LONG_AR_VAL_LENGTH} steps, steps_forward=${AR_VAL_STEPS_FORWARD}, long_start_epoch=${LONG_AR_VAL_START_EPOCH}"
 echo "using ddp_broadcast_buffers=${DDP_BROADCAST_BUFFERS}, ddp_timeout_minutes=${DDP_TIMEOUT_MINUTES}, ddp_max_data_workers_per_rank=${DDP_MAX_DATA_WORKERS_PER_RANK}"
 echo "using optimization: learning_rate=${LEARNING_RATE}, scheduler_mode=${SCHEDULER_MODE}, scheduler_target_epochs=${SCHEDULER_TARGET_EPOCHS:-<default>}"
@@ -249,6 +260,10 @@ echo "overriding experiment.name=${EXPERIMENT_NAME}"
 if [[ -n "${BASE_OUTPUT_DIR}" ]]; then
   EXPERIMENT_ARGS+=(--experiment.base_output_dir "${BASE_OUTPUT_DIR}")
   echo "overriding experiment.base_output_dir=${BASE_OUTPUT_DIR}"
+fi
+if [[ -n "${BOUNDARY_VARS_KEY}" ]]; then
+  EXPERIMENT_ARGS+=(--experiment.boundary_vars_key "${BOUNDARY_VARS_KEY}")
+  echo "overriding experiment.boundary_vars_key=${BOUNDARY_VARS_KEY}"
 fi
 
 OPTIM_ARGS=(--learning_rate "${LEARNING_RATE}")
@@ -325,7 +340,7 @@ trap 'forward_signal INT' INT
 
 "${PROFILER_CMD[@]}" "${PYTHON_BIN}" -m torch.distributed.run \
   --standalone --nnodes=1 --nproc_per_node="${GPUS}" \
-  -m ocean_emulators.train configs/samudra_llc/train_replay.yaml \
+  -m ocean_emulators.train configs/samudra_llc/train_replay-1.yaml \
   --save_freq "${SAVE_FREQ}" \
   --epochs "${EPOCHS}" \
   --emergency_checkpoint_interval_minutes "${EMERGENCY_CHECKPOINT_INTERVAL_MINUTES}" \

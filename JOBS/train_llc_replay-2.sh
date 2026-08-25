@@ -2,8 +2,8 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-08-25:samudra_rb_llc:freshwater_flux
-#SBATCH -x node4100
+#SBATCH --job-name=2026-08-25:samudra_rb_llc:4-752-tile-wide-fw
+#SBATCH -x node4100,node3401,node3000,node3400
 #SBATCH -N 1
 #SBATCH --mem=254GB
 #SBATCH --ntasks=1
@@ -135,12 +135,12 @@ export OCEAN_RUST_LOADER_CACHE_MB="${OCEAN_RUST_LOADER_CACHE_MB:-0}"
 export OCEAN_RUST_LOADER_FULL_ROWS="${OCEAN_RUST_LOADER_FULL_ROWS:-1}"
 
 # DATA
-LLC_FACE="${LLC_FACE:-1}"
-LLC_I_START="${LLC_I_START:-2880}"
-LLC_I_END="${LLC_I_END:-3600}"
-LLC_J_START="${LLC_J_START:-720}"
-LLC_J_END="${LLC_J_END:-1440}"
-DATA_LOCATION_OVERRIDE="${DATA_LOCATION_OVERRIDE:-/orcd/data/abodner/002/cody/LLC_patch/LLC4320_face1_i2880-3600_j720-1440_trainval_ready_20110913_20121014_t1.zarr}"
+# LLC_FACE="${LLC_FACE:-1}"
+# LLC_I_START="${LLC_I_START:-2880}"
+# LLC_I_END="${LLC_I_END:-3600}"
+# LLC_J_START="${LLC_J_START:-720}"
+# LLC_J_END="${LLC_J_END:-1440}"
+DATA_LOCATION_OVERRIDE="${DATA_LOCATION_OVERRIDE:-/orcd/data/abodner/002/cody/LLC_patch/752-4-tile}"
 DATA_STRIDE="${DATA_STRIDE:-[1]}"
 TEMPORAL_STRIDE="${TEMPORAL_STRIDE:-1}"
 TEMPORAL_STRIDE_TRANSITION="${TEMPORAL_STRIDE_TRANSITION:-[]}"
@@ -154,13 +154,13 @@ HIST="${HIST:-0}"
 VALID_MASK="${VALID_MASK:-true}"
 
 # BOUNDARY FORCING CHANNELS
-# Selects the boundary_vars_key in constants.py. Empty (the default) means "do
-# not override", so the value in the config yaml wins -- that is "all", the
-# 4-channel set (oceTAUX, oceTAUY, oceQnet, Eta). Set to "all_fw" to add
-# oceFWflx as a 5th channel. Channels are resolved from the cache BY NAME, so a
-# 5-channel cache serves both settings; this knob alone decides which are read.
-# Changing it changes num_in, so a checkpoint is only resumable/evaluable with
-# the same setting.
+# Selects the boundary_vars_key in constants.py. "all" is the 4-channel set
+# (oceTAUX, oceTAUY, oceQnet, Eta); "all_fw" adds oceFWflx as a 5th. Channels
+# are resolved from the cache BY NAME, so one 5-channel store serves both
+# settings and this knob alone decides which get read. Changing it changes
+# num_in, so a checkpoint is only resumable/evaluable with the same setting.
+# here so this run trains WITH freshwater flux. Set to "all" (or export
+# BOUNDARY_VARS_KEY=all) to fall back to the 4-channel set.
 BOUNDARY_VARS_KEY="${BOUNDARY_VARS_KEY:-all_fw}"
 
 # CHECKPOINTING / RESUME
@@ -195,11 +195,10 @@ REPLAY_BUFFER_SIZE="${REPLAY_BUFFER_SIZE:-32}"
 #                         2026-08-10 data-fix run is training, so set it false to
 #                         reproduce that job exactly.
 # Inert with a single cache: one tile per group is the identity.
-GROUPED_REPLAY="${GROUPED_REPLAY:-false}"
+GROUPED_REPLAY="${GROUPED_REPLAY:-true}"
 # Overlap window used to reconcile grouped tiles: quintic (partition of unity)
 # or kbd (Kaiser-Bessel-derived, STRATA's).
 REPLAY_BLEND_WINDOW="${REPLAY_BLEND_WINDOW:-quintic}"
-
 REPLAY_REFRESH_EVERY_N_MICROBATCHES="${REPLAY_REFRESH_EVERY_N_MICROBATCHES:-[8,12,16,20,24,28,32,36,40,44]}"
 REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION="${REPLAY_REFRESH_EVERY_N_MICROBATCHES_TRANSITION:-[6, 11, 16, 21, 26, 31, 36, 41, 46]}"
 REPLAY_STEPS_PER_EPOCH="${REPLAY_STEPS_PER_EPOCH:-8760}" #8760
@@ -340,7 +339,7 @@ trap 'forward_signal INT' INT
 
 "${PROFILER_CMD[@]}" "${PYTHON_BIN}" -m torch.distributed.run \
   --standalone --nnodes=1 --nproc_per_node="${GPUS}" \
-  -m ocean_emulators.train configs/samudra_llc/train_replay.yaml \
+  -m ocean_emulators.train configs/samudra_llc/train_replay-1.yaml \
   --save_freq "${SAVE_FREQ}" \
   --epochs "${EPOCHS}" \
   --emergency_checkpoint_interval_minutes "${EMERGENCY_CHECKPOINT_INTERVAL_MINUTES}" \

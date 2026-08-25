@@ -2,7 +2,7 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-08-20:samudra_rb_llc:4-tile_group-experiment-3
+#SBATCH --job-name=2026-08-25:samudra_rb_llc:4-752-tile
 #SBATCH -x node4100,node3401,node3000,node3400
 #SBATCH -N 1
 #SBATCH --mem=254GB
@@ -97,14 +97,14 @@ ONE_STEP_VAL_NUM="${ONE_STEP_VAL_NUM:-100}"
 # end of val_time; *_NUM is reduced automatically if val_time is too short.
 # Set a length or a num to 0 to disable that rollout validation.
 SHORT_AR_VAL_LENGTH="${SHORT_AR_VAL_LENGTH:-72}"
-SHORT_AR_VAL_NUM="${SHORT_AR_VAL_NUM:-3}"
+SHORT_AR_VAL_NUM="${SHORT_AR_VAL_NUM:-2}"
 LONG_AR_VAL_LENGTH="${LONG_AR_VAL_LENGTH:-480}"
 LONG_AR_VAL_NUM="${LONG_AR_VAL_NUM:-1}"
 # First epoch that runs long AR val. Earlier epochs skip it: the model
 # cannot hold a hundreds-of-steps rollout together yet, so it is wasted time.
-LONG_AR_VAL_START_EPOCH="${LONG_AR_VAL_START_EPOCH:-20}"
+LONG_AR_VAL_START_EPOCH="${LONG_AR_VAL_START_EPOCH:-40}"
 # Rollout steps per chunk. Bounds how much prediction/target is held at once.
-AR_VAL_STEPS_FORWARD="${AR_VAL_STEPS_FORWARD:-8}"
+AR_VAL_STEPS_FORWARD="${AR_VAL_STEPS_FORWARD:-4}"
 
 # DDP
 DDP_BROADCAST_BUFFERS="${DDP_BROADCAST_BUFFERS:-false}"
@@ -140,7 +140,7 @@ export OCEAN_RUST_LOADER_FULL_ROWS="${OCEAN_RUST_LOADER_FULL_ROWS:-1}"
 # LLC_I_END="${LLC_I_END:-3600}"
 # LLC_J_START="${LLC_J_START:-720}"
 # LLC_J_END="${LLC_J_END:-1440}"
-DATA_LOCATION_OVERRIDE="${DATA_LOCATION_OVERRIDE:-/orcd/data/abodner/002/cody/LLC_patch/720-div-4-test}"
+DATA_LOCATION_OVERRIDE="${DATA_LOCATION_OVERRIDE:-/orcd/data/abodner/002/cody/LLC_patch/752-4-tile}"
 DATA_STRIDE="${DATA_STRIDE:-[1]}"
 TEMPORAL_STRIDE="${TEMPORAL_STRIDE:-1}"
 TEMPORAL_STRIDE_TRANSITION="${TEMPORAL_STRIDE_TRANSITION:-[]}"
@@ -151,10 +151,20 @@ HIST="${HIST:-0}"
 # every other channel). Adds one input channel, so it changes num_in and a
 # checkpoint is only resumable/evaluable with the same setting. Kept false
 # here so in-flight jobs stay resumable; set true for new runs.
-VALID_MASK="${VALID_MASK:-false}"
+VALID_MASK="${VALID_MASK:-true}"
+
+# BOUNDARY FORCING CHANNELS
+# Selects the boundary_vars_key in constants.py. "all" is the 4-channel set
+# (oceTAUX, oceTAUY, oceQnet, Eta); "all_fw" adds oceFWflx as a 5th. Channels
+# are resolved from the cache BY NAME, so one 5-channel store serves both
+# settings and this knob alone decides which get read. Changing it changes
+# num_in, so a checkpoint is only resumable/evaluable with the same setting.
+# empty here, meaning "do not override" -- the config yaml wins, which is
+# "all". Set to "all_fw" to train with freshwater flux.
+BOUNDARY_VARS_KEY="${BOUNDARY_VARS_KEY:-}"
 
 # CHECKPOINTING / RESUME
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-08-18:samudra_rb_llc:4-tile_group-experiment-2-20700320/saved_nets/ckpt.pt}"
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-}"
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"
@@ -205,6 +215,7 @@ if [[ "${GPUS}" -gt 0 ]]; then
 fi
 echo "using validation surface_snapshot=${SURFACE_SNAPSHOT}, one_step_val_num=${ONE_STEP_VAL_NUM}"
 echo "using valid_mask=${VALID_MASK} (adds 1 input channel when true)"
+echo "using boundary_vars_key=${BOUNDARY_VARS_KEY:-<config default: all>}"
 echo "using autoregressive validation: short=${SHORT_AR_VAL_NUM}x${SHORT_AR_VAL_LENGTH} steps, long=${LONG_AR_VAL_NUM}x${LONG_AR_VAL_LENGTH} steps, steps_forward=${AR_VAL_STEPS_FORWARD}, long_start_epoch=${LONG_AR_VAL_START_EPOCH}"
 echo "using ddp_broadcast_buffers=${DDP_BROADCAST_BUFFERS}, ddp_timeout_minutes=${DDP_TIMEOUT_MINUTES}, ddp_max_data_workers_per_rank=${DDP_MAX_DATA_WORKERS_PER_RANK}"
 echo "using optimization: learning_rate=${LEARNING_RATE}, scheduler_mode=${SCHEDULER_MODE}, scheduler_target_epochs=${SCHEDULER_TARGET_EPOCHS:-<default>}"
@@ -248,6 +259,10 @@ echo "overriding experiment.name=${EXPERIMENT_NAME}"
 if [[ -n "${BASE_OUTPUT_DIR}" ]]; then
   EXPERIMENT_ARGS+=(--experiment.base_output_dir "${BASE_OUTPUT_DIR}")
   echo "overriding experiment.base_output_dir=${BASE_OUTPUT_DIR}"
+fi
+if [[ -n "${BOUNDARY_VARS_KEY}" ]]; then
+  EXPERIMENT_ARGS+=(--experiment.boundary_vars_key "${BOUNDARY_VARS_KEY}")
+  echo "overriding experiment.boundary_vars_key=${BOUNDARY_VARS_KEY}"
 fi
 
 OPTIM_ARGS=(--learning_rate "${LEARNING_RATE}")

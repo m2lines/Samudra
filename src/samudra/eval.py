@@ -73,7 +73,8 @@ class Eval:
         self.num_prog_in = int((cfg.data.hist + 1) * self.N_prog)
         self.num_boundary_in = int((cfg.data.hist + 1) * self.N_bound)
         self.num_in = self.num_prog_in + self.num_boundary_in
-        self.num_out = self.num_prog_in
+        self.output_steps = cfg.data.num_output_steps
+        self.num_out = self.output_steps * self.N_prog
 
         self.tensor_map = TensorMap(dataset_spec=self.dataset_spec).to(self.device)
 
@@ -88,7 +89,7 @@ class Eval:
         self.src = self.data_container.inference_source
         self.data = self.src.data
         self.metadata = self.src.metadata
-        self.wet = self.src.masks.prognostic_with_hist(cfg.data.hist)
+        self.wet = self.src.masks.prognostic_for_steps(self.output_steps)
         self.area_weights: Grid = spherical_area_weights(self.data)
         self.area_weights = self.area_weights.to(self.device)
 
@@ -156,12 +157,14 @@ class Eval:
         self.num_time_steps = get_inference_steps(
             self.src,
             hist=self.hist,
+            output_steps=self.output_steps,
         )
         self.inference_dataset = InferenceDataset(
             src=self.src,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             hist=self.hist,
+            output_steps=self.output_steps,
             normalize_before_mask=self.normalize_before_mask,
             masked_fill_value=self.masked_fill_value,
             long_rollout=True,
@@ -235,6 +238,7 @@ class Eval:
             self.tensor_map,
             self.normalize,
             self.prognostic_var_names,
+            output_steps=self.output_steps,
         )
 
         run_rollout(

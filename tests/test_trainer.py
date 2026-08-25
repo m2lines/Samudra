@@ -361,6 +361,46 @@ def test_multiscale_training_validates_primary_source_and_logs_reduced_metrics(
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)
 @pytest.mark.parametrize(
     "data_source,config_name",
+    [("mock-om4", SAMUDRA_MULTI_CONFIG)],
+    indirect=True,
+)
+def test_trainer_supports_two_input_one_output_batches(train_config):
+    train_config.data.hist = 1
+    train_config.data.output_steps = 1
+    train_config.data.loading.num_workers = 0
+    train_config.model.perceiver_implementation = "naive"
+
+    with MultitonScope():
+        trainer = Trainer(train_config)
+        trainer.init_data_loaders(cur_step=2)
+        batch = trainer.train_loader[0]
+        prognostic, _, label = batch[0]
+
+        assert prognostic.shape[1] == 2 * trainer.N_prog
+        assert label.shape[1] == trainer.N_prog
+        assert trainer.num_out == trainer.N_prog
+
+        assert trainer.model.input_steps == 2
+        assert trainer.model.output_steps == 1
+        assert trainer.model.out_channels == label.shape[1]
+
+        class PerfectOneStepModel(BaseModel):
+            def __init__(self):
+                super().__init__(0, 0, 0, False, 1, "constant", 0)
+
+            def forward(self, batch, loss_fn=None):
+                return [batch.get_label(0)]
+
+        trainer.model = PerfectOneStepModel()
+        trainer.test_using_ema = False
+        validation_logs = trainer.validate_one_epoch(epoch=2)
+
+    assert any(key.startswith("val/reduced/weighted_rmse/") for key in validation_logs)
+
+
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name",
     [("mock-om4", "train_default.yaml")],
     indirect=True,
 )

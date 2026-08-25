@@ -156,7 +156,8 @@ class Trainer:
         self.num_prog_in = int((cfg.data.hist + 1) * self.N_prog)
         self.num_boundary_in = int((cfg.data.hist + 1) * self.N_bound)
         self.num_in = self.num_prog_in + self.num_boundary_in
-        self.num_out = self.num_prog_in
+        self.output_steps = cfg.data.num_output_steps
+        self.num_out = self.output_steps * self.N_prog
 
         self.tensor_map = TensorMap(dataset_spec=self.dataset_spec).to(self.device)
 
@@ -318,8 +319,8 @@ class Trainer:
         self.persistent_workers: bool = persistent_workers
         self.pin_mem: bool = cfg.pin_mem
         self.inference_epochs = cfg.inference_epochs
-        self.max_train_model_steps_forward = MAX_TRAIN_MODEL_STEPS_FORWARD // (
-            self.hist + 1
+        self.max_train_model_steps_forward = (
+            MAX_TRAIN_MODEL_STEPS_FORWARD // self.output_steps
         )
         self.normalize_before_mask: bool = cfg.data.normalize_before_mask
         self.normalize_fill_value: float = cfg.data.masked_fill_value
@@ -358,12 +359,14 @@ class Trainer:
         num_time_steps = get_inference_steps(
             self.inference_src,
             hist=self.hist,
+            output_steps=self.output_steps,
         )
         inference_dataset = InferenceDataset(
             src=self.inference_src,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             hist=self.hist,
+            output_steps=self.output_steps,
             normalize_before_mask=self.normalize_before_mask,
             masked_fill_value=self.normalize_fill_value,
             long_rollout=True,
@@ -695,6 +698,7 @@ class Trainer:
             self.num_out,
             self.tensor_map,
             self.normalize,
+            output_steps=self.output_steps,
             include_image_aggregators=log_validation_images,
         )
         metric_logger = MetricLogger(delimiter="  ")
@@ -760,6 +764,7 @@ class Trainer:
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
+                output_steps=self.output_steps,
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 long_rollout=True,
@@ -783,6 +788,7 @@ class Trainer:
                         start_time=rollout_src.data.time.values[0],
                         target_times=target_times,
                         hist=self.hist,
+                        output_steps=self.output_steps,
                     )
                     for days in self.rollout_validation.days
                 ]
@@ -799,6 +805,7 @@ class Trainer:
                         requested_steps=self.rollout_validation.model_steps,
                         available_steps=available_steps,
                         hist=self.hist,
+                        output_steps=self.output_steps,
                     )
                 ]
                 if specs[0].model_steps == 0:
@@ -831,6 +838,7 @@ class Trainer:
                     )
                     rollout_aggregator = RolloutValidationAggregator(
                         hist=self.hist,
+                        output_steps=self.output_steps,
                         area_weights=self.primary_src.spherical_area_weights.to(
                             self.device
                         ),
@@ -884,6 +892,7 @@ class Trainer:
                     self.tensor_map,
                     self.normalize,
                     self.prognostic_var_names,
+                    output_steps=self.output_steps,
                 )
 
                 # TODO(jder): we need the underlying model so we can use forward_once;
@@ -952,6 +961,7 @@ class Trainer:
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
                 steps=cur_step,
+                output_steps=self.output_steps,
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,
@@ -971,6 +981,7 @@ class Trainer:
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
                 steps=1,  # current_step set to 1 for validation
+                output_steps=self.output_steps,
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.normalize_fill_value,
                 stride=stride,

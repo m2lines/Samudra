@@ -105,6 +105,19 @@ def test_data_config_defaults_to_cpu_loading():
     assert isinstance(cfg.sources[0], Om4DataSourceConfig)
 
 
+def test_data_config_output_steps_default_and_override():
+    legacy = DataConfig(sources=[om4_source_config()], hist=1)
+    one_step = DataConfig(sources=[om4_source_config()], hist=1, output_steps=1)
+
+    assert legacy.num_output_steps == 2
+    assert one_step.num_output_steps == 1
+
+
+def test_data_config_rejects_more_outputs_than_inputs():
+    with pytest.raises(ValidationError, match="cannot exceed"):
+        DataConfig(sources=[om4_source_config()], hist=1, output_steps=3)
+
+
 def test_om4_dataset_config_builds_selected_spec():
     cfg = om4_source_config(
         prognostic_vars_key="thetao_1",

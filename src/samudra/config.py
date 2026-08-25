@@ -420,10 +420,31 @@ class DataConfig(BaseConfig):
     )
     loading: DataLoadingConfig = Field(default_factory=CpuDataLoadingConfig)
     hist: int = 1
+    output_steps: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Number of future raw timesteps emitted by each model call. When "
+            "unset, this defaults to hist + 1 for backwards compatibility."
+        ),
+    )
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
     concurrent_compute: bool = False
+
+    @property
+    def num_output_steps(self) -> int:
+        return self.hist + 1 if self.output_steps is None else self.output_steps
+
+    @pydantic.model_validator(mode="after")
+    def validate_output_steps(self) -> Self:
+        if self.num_output_steps > self.hist + 1:
+            raise ValueError(
+                "data.output_steps cannot exceed the number of input timesteps "
+                f"(hist + 1 = {self.hist + 1}); got {self.num_output_steps}"
+            )
+        return self
 
     def build(
         self,
@@ -834,6 +855,7 @@ class SamudraConfig(BaseModelConfig):
             grid_size=src.grid_size,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
+            prognostic_in_channels=prog_channels,
         )
 
 
@@ -920,6 +942,7 @@ class SamudraMultiConfig(BaseModelConfig):
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
+            prognostic_in_channels=prog_channels,
         )
 
 
@@ -996,6 +1019,7 @@ class SamudraMiniConfig(BaseModelConfig):
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
+            prognostic_in_channels=prog_channels,
         )
 
 

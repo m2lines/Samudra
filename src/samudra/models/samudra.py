@@ -34,6 +34,7 @@ class Samudra(BaseModel):
         grid_size: GridSize,
         gradient_detach_interval: int,
         use_bfloat16: bool,
+        prognostic_in_channels: int | None = None,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -43,6 +44,7 @@ class Samudra(BaseModel):
             last_kernel_size=last_kernel_size,
             pad=pad,
             gradient_detach_interval=gradient_detach_interval,
+            prognostic_in_channels=prognostic_in_channels,
         )
 
         if pos_channels > 0:

@@ -336,7 +336,15 @@ def test_overlapping_direct_decoder_supports_backward(
 
 
 @pytest.mark.parametrize("context_patches", [0, 1])
-def test_vectorized_overlap_matches_serial_forward_and_backward(context_patches):
+@pytest.mark.parametrize(
+    ("max_window_batch_size", "expected_decode_calls"),
+    [(128, 2), (4, 5)],
+)
+def test_vectorized_overlap_matches_serial_forward_and_backward(
+    context_patches,
+    max_window_batch_size,
+    expected_decode_calls,
+):
     """Window batching preserves outputs and gradients, including polar halos."""
     torch.manual_seed(0)
     kwargs = dict(
@@ -352,6 +360,7 @@ def test_vectorized_overlap_matches_serial_forward_and_backward(context_patches)
     vectorized = PerceiverDecoder(
         **kwargs, perceiver_io=make_direct_cross_attention_io()
     )
+    vectorized._MAX_WINDOW_BATCH_SIZE = max_window_batch_size
     serial = PerceiverDecoder(**kwargs, perceiver_io=make_direct_cross_attention_io())
     serial.load_state_dict(vectorized.state_dict())
 
@@ -366,7 +375,7 @@ def test_vectorized_overlap_matches_serial_forward_and_backward(context_patches)
         actual = vectorized._decode_overlapping(
             vectorized_data, vectorized_queries, patch_h=2, patch_w=4
         )
-    assert decode_queries.call_count == 2
+    assert decode_queries.call_count == expected_decode_calls
     expected = serial_overlapping_decode(
         serial, serial_data, serial_queries, patch_h=2, patch_w=4
     )

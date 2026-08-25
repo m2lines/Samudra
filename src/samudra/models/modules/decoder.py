@@ -163,6 +163,12 @@ class PerceiverDecoder(nn.Module):
         [2]: https://ar5iv.labs.arxiv.org/html/2107.14795
     """
 
+    # A window-batched decoder item contains one model sample and one spatial
+    # window. Bounding this dimension avoids oversized fused-attention and
+    # feed-forward workspaces while retaining far fewer launches than the
+    # original one-window-at-a-time implementation.
+    _MAX_WINDOW_BATCH_SIZE = 128
+
     def __init__(
         self,
         in_channels: int,
@@ -309,6 +315,24 @@ class PerceiverDecoder(nn.Module):
         assert isinstance(direct_decoder, DirectCrossAttentionIO)
         return direct_decoder.decode_features(data, queries=queries)
 
+    def _decode_window_batch(
+        self,
+        data: torch.Tensor,
+        queries: torch.Tensor,
+    ) -> torch.Tensor:
+        """Decode flattened batch-window items in bounded native-kernel batches."""
+        if data.shape[0] != queries.shape[0]:
+            raise ValueError("Window data and queries must have the same batch size.")
+        outputs = [
+            self._decode_queries(data_chunk, queries=queries_chunk)
+            for data_chunk, queries_chunk in zip(
+                data.split(self._MAX_WINDOW_BATCH_SIZE),
+                queries.split(self._MAX_WINDOW_BATCH_SIZE),
+                strict=True,
+            )
+        ]
+        return torch.cat(outputs)
+
     @staticmethod
     def _local_data_windows(
         data_grid: torch.Tensor,
@@ -426,7 +450,7 @@ class PerceiverDecoder(nn.Module):
             .expand(B, window_count, -1, -1)
             .reshape(B * window_count, block_ph * block_pw, -1)
         )
-        decoded = self._decode_queries(batched_data, batched_queries)
+        decoded = self._decode_window_batch(batched_data, batched_queries)
         return rearrange(
             decoded,
             "(b bh bw) (ph pw) c -> b c (bh ph) (bw pw)",
@@ -483,8 +507,9 @@ class PerceiverDecoder(nn.Module):
         )
 
         # Polar windows have a shorter latitude query halo than interior
-        # windows. Group windows by query height, reducing the 1-degree
-        # configuration from 120 decoder launches to two.
+        # windows. Group windows by query height, then split only when the
+        # combined model-batch/window dimension exceeds the bounded native
+        # kernel batch size.
         latitude_groups: dict[int, list[int]] = {}
         latitude_weights: dict[int, torch.Tensor] = {}
         for bi in range(n_blocks_h):
@@ -546,7 +571,7 @@ class PerceiverDecoder(nn.Module):
                 .expand(batch, -1, -1, -1)
                 .reshape(batch * len(window_index), query_count, -1)
             )
-            local_out = self._decode_queries(local_data, batched_queries)
+            local_out = self._decode_window_batch(local_data, batched_queries)
             local_out = rearrange(
                 local_out,
                 "(b n) q c -> b (n q) c",

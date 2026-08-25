@@ -85,6 +85,8 @@ It expects environment variables:
   team Torch harness defaults to `1` and publishes it to the public OSN archive
 - `ARCHIVE_BASE` (optional): authenticated rclone destination used when
   publishing (default: `nyu-osn:m2lines-pubs/Samudra/experiments`)
+- `ARCHIVE_OWNER` (optional): owner namespace below `ARCHIVE_BASE` (default:
+  the current Torch `$USER`)
 - `ARCHIVE_INTERVAL_SECONDS` (optional): seconds between incremental copies
   while training runs (default: `900`, minimum: `60`)
 - `ARCHIVE_TOOL` (optional): host path to `scripts/experiment_archive.py`;
@@ -136,7 +138,9 @@ The team Torch harness publishes experiments by default. Training continues to
 write to `/scratch/$USER/runs`; publication copies only the current run
 directory to OSN. This default is scoped to the Torch harness and does not
 change Samudra's generic training configuration, SkyPilot, or third-party
-workflows.
+workflows. Published runs are stored under
+`s3://m2lines-pubs/Samudra/experiments/<owner>/<run-name>`; owner defaults to
+the current Torch user and can be overridden with `ARCHIVE_OWNER`.
 
 Configure an authenticated OSN rclone remote without storing credentials in the
 repository:
@@ -167,9 +171,10 @@ sbatch scripts/slurm_apptainer_train.sbatch
 The harness performs an initial copy before starting training, starts
 an incremental copy every 15 minutes, and performs a final verified copy for
 successful, failed, and requeued runs. `archive-status.json` in each published
-run records its lifecycle state, timestamps, Slurm identity, restart count, and
-final exit code. A successful training process with a failed final publication
-returns nonzero; a failed training process retains its original exit code.
+run records its owner, lifecycle state, timestamps, Slurm identity, restart
+count, and final exit code. A successful training process with a failed final
+publication returns nonzero; a failed training process retains its original
+exit code.
 
 The archive is public. Review new artifact types before adding them to the run
 directory, and never write secrets there. Local W&B state, common credential and

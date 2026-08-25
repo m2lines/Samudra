@@ -66,12 +66,23 @@ def _exclusion_args() -> List[str]:
     return args
 
 
-def archive_destination(archive_base: str, run_name: str) -> str:
+def _validate_archive_segment(value: str, label: str) -> str:
+    if (
+        value in ("", ".", "..")
+        or value != value.strip()
+        or "/" in value
+        or "\\" in value
+    ):
+        raise ArchiveError(f"invalid {label}: {value!r}")
+    return value
+
+
+def archive_destination(archive_base: str, owner: str, run_name: str) -> str:
     if not archive_base.strip():
         raise ArchiveError("archive base must not be empty")
-    if run_name in ("", ".", "..") or "/" in run_name or "\\" in run_name:
-        raise ArchiveError(f"invalid run name: {run_name!r}")
-    return f"{archive_base.rstrip('/')}/{run_name}"
+    owner = _validate_archive_segment(owner, "archive owner")
+    run_name = _validate_archive_segment(run_name, "run name")
+    return f"{archive_base.rstrip('/')}/{owner}/{run_name}"
 
 
 def copy_command(
@@ -115,12 +126,13 @@ def validate_run_dir(run_dir: Path) -> Path:
 def publish_run(
     run_dir: Path,
     archive_base: str,
+    owner: str,
     apply: bool,
     verify: bool = True,
     rclone_bin: str = "rclone",
 ) -> Dict[str, object]:
     run_dir = validate_run_dir(run_dir)
-    destination = archive_destination(archive_base, run_dir.name)
+    destination = archive_destination(archive_base, owner, run_dir.name)
     commands = [copy_command(run_dir, destination, rclone_bin)]
     if verify:
         commands.append(check_command(run_dir, destination, rclone_bin))
@@ -133,6 +145,7 @@ def publish_run(
     return {
         "source": str(run_dir),
         "destination": destination,
+        "owner": owner,
         "status": "verified" if apply and verify else "copied" if apply else "planned",
         "verified": bool(apply and verify),
     }
@@ -148,8 +161,11 @@ def _write_json_atomic(path: Path, payload: Dict[str, object]) -> None:
     os.replace(str(temporary), str(path))
 
 
-def write_status(run_dir: Path, state: str, exit_code: Optional[int] = None) -> Path:
+def write_status(
+    run_dir: Path, owner: str, state: str, exit_code: Optional[int] = None
+) -> Path:
     run_dir = validate_run_dir(run_dir)
+    owner = _validate_archive_segment(owner, "archive owner")
     if state not in VALID_STATES:
         raise ArchiveError(f"invalid archive state: {state!r}")
     status_path = run_dir / STATUS_FILENAME
@@ -164,10 +180,16 @@ def write_status(run_dir: Path, state: str, exit_code: Optional[int] = None) -> 
         if not isinstance(loaded, dict):
             raise ArchiveError(f"existing status file is not an object: {status_path}")
         previous = loaded
+        previous_owner = previous.get("owner")
+        if previous_owner is not None and previous_owner != owner:
+            raise ArchiveError(
+                f"archive owner changed from {previous_owner!r} to {owner!r}"
+            )
 
     now = utc_now()
     status = {
         "schema_version": 1,
+        "owner": owner,
         "run_name": run_dir.name,
         "state": state,
         "started_at": previous.get("started_at", now),
@@ -191,6 +213,7 @@ def write_status(run_dir: Path, state: str, exit_code: Optional[int] = None) -> 
 def watch_run(
     run_dir: Path,
     archive_base: str,
+    owner: str,
     interval_seconds: float,
     apply: bool,
     rclone_bin: str = "rclone",
@@ -199,6 +222,8 @@ def watch_run(
 ) -> int:
     if interval_seconds <= 0:
         raise ArchiveError("archive interval must be positive")
+    owner = _validate_archive_segment(owner, "archive owner")
+    validate_run_dir(run_dir)
     stop_event = stop_event or threading.Event()
     failures = 0
     cycles = 0
@@ -207,6 +232,7 @@ def watch_run(
             publish_run(
                 run_dir,
                 archive_base,
+                owner,
                 apply=apply,
                 verify=False,
                 rclone_bin=rclone_bin,
@@ -230,7 +256,12 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--archive-base",
         default=DEFAULT_ARCHIVE_BASE,
-        help="rclone destination containing one directory per experiment run",
+        help="rclone destination containing owner and experiment directories",
+    )
+    parser.add_argument(
+        "--owner",
+        required=True,
+        help="archive namespace for the user or team that owns the experiment",
     )
     parser.add_argument("--rclone-bin", default="rclone", help=argparse.SUPPRESS)
     subparsers = parser.add_subparsers(dest="command")
@@ -277,13 +308,14 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             publish_run(
                 args.run_dir,
                 args.archive_base,
+                args.owner,
                 apply=args.apply,
                 verify=not args.no_verify,
                 rclone_bin=args.rclone_bin,
             )
             return 0
         if args.command == "status":
-            write_status(args.run_dir, args.state, args.exit_code)
+            write_status(args.run_dir, args.owner, args.state, args.exit_code)
             return 0
         if args.command == "watch":
             stop_event = threading.Event()
@@ -297,6 +329,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             return watch_run(
                 args.run_dir,
                 args.archive_base,
+                args.owner,
                 interval_seconds=args.interval,
                 apply=args.apply,
                 rclone_bin=args.rclone_bin,

@@ -70,6 +70,7 @@ else
 fi
 
 CONFIG="${CONFIG:-}"
+CURRENT_USER="${USER:-$(id -un)}"
 NAME="${NAME:-}"
 NAME_SUFFIX="${NAME_SUFFIX:-}"
 ARGS="${ARGS:-}"
@@ -78,6 +79,7 @@ REQUEUE_ON_USR1="${REQUEUE_ON_USR1:-0}"
 CODE_LAYER="${CODE_LAYER:-}"
 PUBLISH_TO_OSN="${PUBLISH_TO_OSN:-1}"
 ARCHIVE_BASE="${ARCHIVE_BASE:-nyu-osn:m2lines-pubs/Samudra/experiments}"
+ARCHIVE_OWNER="${ARCHIVE_OWNER:-${CURRENT_USER}}"
 ARCHIVE_INTERVAL_SECONDS="${ARCHIVE_INTERVAL_SECONDS:-900}"
 ARCHIVE_TOOL="${ARCHIVE_TOOL:-${SCRIPT_DIR}/experiment_archive.py}"
 if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then
@@ -128,7 +130,6 @@ if [[ "${REQUEUE_ON_USR1}" == "1" ]]; then
 fi
 
 # Data + outputs (host paths; will be bind-mounted into the container at same paths).
-CURRENT_USER="${USER:-$(id -un)}"
 DATA_ROOT_DEFAULT="/scratch/${CURRENT_USER}/data/om4_onedeg_v3"
 OUTPUT_BASE_DEFAULT="/scratch/${CURRENT_USER}/runs"
 DATA_ROOT="${DATA_ROOT:-${DATA_ROOT_DEFAULT}}"
@@ -222,7 +223,7 @@ echo "Name:       ${NAME}"
 echo "Data root:  ${DATA_ROOT}"
 echo "Outputs:    ${OUTPUT_BASE}"
 if [[ "${PUBLISH_TO_OSN}" == "1" ]]; then
-  echo "Archive:    ${ARCHIVE_BASE}/${NAME} (every ${ARCHIVE_INTERVAL_SECONDS}s)"
+  echo "Archive:    ${ARCHIVE_BASE}/${ARCHIVE_OWNER}/${NAME} (every ${ARCHIVE_INTERVAL_SECONDS}s)"
 else
   echo "Archive:    disabled"
 fi
@@ -449,7 +450,10 @@ ARCHIVE_FINAL_STATE="failed"
 TRAIN_EXIT_CODE=1
 
 run_archive_tool() {
-  python3 "${ARCHIVE_TOOL}" --archive-base "${ARCHIVE_BASE}" "$@"
+  python3 "${ARCHIVE_TOOL}" \
+    --archive-base "${ARCHIVE_BASE}" \
+    --owner "${ARCHIVE_OWNER}" \
+    "$@"
 }
 
 stop_archive_watch() {

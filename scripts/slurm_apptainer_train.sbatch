@@ -46,6 +46,8 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 if ! command -v apptainer >/dev/null 2>&1 \
   && ! command -v singularity >/dev/null 2>&1; then
   if [[ -f /etc/profile.d/modules.sh ]]; then
@@ -73,6 +75,10 @@ ARGS="${ARGS:-}"
 NSYS_ARGS="${NSYS_ARGS:-}"
 REQUEUE_ON_USR1="${REQUEUE_ON_USR1:-0}"
 CODE_LAYER="${CODE_LAYER:-}"
+PUBLISH_TO_OSN="${PUBLISH_TO_OSN:-0}"
+ARCHIVE_BASE="${ARCHIVE_BASE:-nyu-osn:m2lines-pubs/FOMO/experiments}"
+ARCHIVE_INTERVAL_SECONDS="${ARCHIVE_INTERVAL_SECONDS:-900}"
+ARCHIVE_TOOL="${ARCHIVE_TOOL:-${SCRIPT_DIR}/experiment_archive.py}"
 if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then
   NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"
 fi
@@ -82,9 +88,37 @@ if [[ -z "${CONFIG}" || -z "${NAME}" ]]; then
   echo "Example: export NAME_SUFFIX=om4_samudra_baseline" >&2
   exit 2
 fi
+case "${PUBLISH_TO_OSN}" in
+  0|1) ;;
+  *)
+    echo "PUBLISH_TO_OSN must be 0 or 1, got: ${PUBLISH_TO_OSN}" >&2
+    exit 2
+    ;;
+esac
+if [[ "${PUBLISH_TO_OSN}" == "1" ]]; then
+  if [[ ! "${ARCHIVE_INTERVAL_SECONDS}" =~ ^[0-9]+$ ]] \
+    || (( ARCHIVE_INTERVAL_SECONDS < 60 )); then
+    echo "ARCHIVE_INTERVAL_SECONDS must be an integer of at least 60 seconds." >&2
+    exit 2
+  fi
+  if ! command -v rclone >/dev/null 2>&1; then
+    echo "PUBLISH_TO_OSN=1 requires rclone on the host PATH." >&2
+    exit 2
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "PUBLISH_TO_OSN=1 requires python3 on the host PATH." >&2
+    exit 2
+  fi
+  if [[ ! -f "${ARCHIVE_TOOL}" ]]; then
+    echo "Experiment archive tool not found: ${ARCHIVE_TOOL}" >&2
+    echo "Copy scripts/experiment_archive.py next to this harness or set ARCHIVE_TOOL." >&2
+    exit 2
+  fi
+fi
 
 if [[ "${REQUEUE_ON_USR1}" == "1" ]]; then
   handle_requeue() {
+    ARCHIVE_FINAL_STATE="requeued"
     echo "Received USR1; requeueing Slurm job ${SLURM_JOB_ID}."
     scontrol requeue "${SLURM_JOB_ID}"
     exit 0
@@ -186,6 +220,11 @@ echo "Config:     ${CONFIG}"
 echo "Name:       ${NAME}"
 echo "Data root:  ${DATA_ROOT}"
 echo "Outputs:    ${OUTPUT_BASE}"
+if [[ "${PUBLISH_TO_OSN}" == "1" ]]; then
+  echo "Archive:    ${ARCHIVE_BASE}/${NAME} (every ${ARCHIVE_INTERVAL_SECONDS}s)"
+else
+  echo "Archive:    disabled"
+fi
 echo "W&B mode:   ${WANDB_MODE}"
 echo "Image ref:  ${IMAGE_REF}"
 echo "SIF path:   ${SIF_PATH}"
@@ -403,6 +442,77 @@ with open(os.environ["SAMUDRA_PROVENANCE_PATH"], "w", encoding="utf-8") as strea
     json.dump(provenance, stream, indent=2, sort_keys=True)
     stream.write("\n")
 PY
+
+ARCHIVE_WATCH_PID=""
+ARCHIVE_FINAL_STATE="failed"
+TRAIN_EXIT_CODE=1
+
+run_archive_tool() {
+  python3 "${ARCHIVE_TOOL}" --archive-base "${ARCHIVE_BASE}" "$@"
+}
+
+stop_archive_watch() {
+  if [[ -z "${ARCHIVE_WATCH_PID}" ]]; then
+    return 0
+  fi
+  if kill -0 "${ARCHIVE_WATCH_PID}" 2>/dev/null; then
+    kill -TERM "${ARCHIVE_WATCH_PID}" 2>/dev/null || true
+  fi
+  if ! wait "${ARCHIVE_WATCH_PID}"; then
+    echo "A periodic archive copy failed; the final copy will retry it." >&2
+  fi
+  ARCHIVE_WATCH_PID=""
+}
+
+finalize_archive() {
+  local status_args=(status "${RUN_DIR}" "${ARCHIVE_FINAL_STATE}")
+  local archive_exit_code=0
+  stop_archive_watch
+  if [[ "${ARCHIVE_FINAL_STATE}" == "completed" \
+    || "${ARCHIVE_FINAL_STATE}" == "failed" ]]; then
+    status_args+=(--exit-code "${TRAIN_EXIT_CODE}")
+  fi
+  if ! run_archive_tool "${status_args[@]}"; then
+    echo "Could not write final experiment archive status." >&2
+    archive_exit_code=8
+  fi
+  if ! run_archive_tool publish "${RUN_DIR}" --apply; then
+    echo "Final experiment archive publication failed." >&2
+    archive_exit_code=8
+  fi
+  return "${archive_exit_code}"
+}
+
+handle_archive_exit() {
+  local process_exit_code=$?
+  local archive_exit_code=0
+  trap - EXIT
+  if finalize_archive; then
+    archive_exit_code=0
+  else
+    archive_exit_code=$?
+  fi
+  if (( process_exit_code != 0 )); then
+    exit "${process_exit_code}"
+  fi
+  if (( archive_exit_code != 0 )); then
+    exit "${archive_exit_code}"
+  fi
+  exit 0
+}
+
+if [[ "${PUBLISH_TO_OSN}" == "1" ]]; then
+  run_archive_tool status "${RUN_DIR}" running
+  if ! run_archive_tool publish "${RUN_DIR}" --apply; then
+    echo "Initial public archive preflight failed; training will not start." >&2
+    exit 8
+  fi
+  run_archive_tool watch "${RUN_DIR}" \
+    --interval "${ARCHIVE_INTERVAL_SECONDS}" \
+    --apply &
+  ARCHIVE_WATCH_PID=$!
+  trap handle_archive_exit EXIT
+fi
 if [[ -n "${NSYS_ARGS}" ]]; then
   mkdir -p "${NSYS_OUTPUT_DIR}"
 fi
@@ -410,6 +520,7 @@ fi
 export OE_NSYS_ARGS="${NSYS_ARGS}"
 export OE_NSYS_OUTPUT_DIR="${NSYS_OUTPUT_DIR}"
 
+set +e
 srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
   "${APPTAINER_BIN}" exec --nv \
     "${OVERLAY_ARGS[@]}" \
@@ -476,3 +587,11 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         --backend=\"nccl\" \
         ${ARGS}
     "
+TRAIN_EXIT_CODE=$?
+set -e
+if (( TRAIN_EXIT_CODE == 0 )); then
+  ARCHIVE_FINAL_STATE="completed"
+else
+  ARCHIVE_FINAL_STATE="failed"
+fi
+exit "${TRAIN_EXIT_CODE}"

@@ -81,6 +81,15 @@ It expects environment variables:
   `/scratch/<current_user>/data/om4_onedeg_v3`)
 - `OUTPUT_BASE` (optional): host output base dir passed to
   `--experiment.base_output_dir` (default: `/scratch/<current_user>/runs`)
+- `PUBLISH_TO_OSN` (optional): set to `1` to publish the current run directory
+  to the public OSN experiment archive; default `0` leaves existing behavior
+  unchanged
+- `ARCHIVE_BASE` (optional): authenticated rclone destination used when
+  publishing (default: `nyu-osn:m2lines-pubs/FOMO/experiments`)
+- `ARCHIVE_INTERVAL_SECONDS` (optional): seconds between incremental copies
+  while training runs (default: `900`, minimum: `60`)
+- `ARCHIVE_TOOL` (optional): host path to `scripts/experiment_archive.py`;
+  defaults to the file next to the training harness
 - `ARGS` (optional): extra CLI overrides, e.g. `--batch_size=1`
 - `NSYS_ARGS` (optional): if set, wrap the training launch with `nsys profile`
 - `SCRATCH_DIR` (optional): host scratch/work directory for default SIF and data
@@ -112,11 +121,51 @@ Key behavior:
   these locations to `/scratch/$USER` so large files do not consume home quota.
 - If `NSYS_ARGS` is set and does not include `-o`/`--output`, reports are written under
   `${OUTPUT_BASE}/${NAME}/nsys/`.
+- Public archive publication is opt-in. Enabled runs still write to fast local
+  scratch, then copy the run directory at startup, periodically, on failure or
+  requeue, and at successful completion. The final copy is size-verified.
 
 When `preemptible: true`, training detects the latest checkpoint in an existing
 run directory and resumes from it after a Slurm requeue. The requeue hook does
 not create a checkpoint at signal time, so checkpoint frequently enough that
 restarting from the most recent completed epoch is acceptable.
+
+## Publish Current and Future Torch Experiments
+
+Source the public archive profile before submitting a team experiment. Training
+continues to write to `/scratch/$USER/runs`; publication copies only the current
+run directory to OSN. Ordinary users who do not source the profile retain the
+existing scratch-only behavior.
+
+Configure an authenticated OSN rclone remote without storing credentials in the
+repository:
+
+```bash
+rclone config create nyu-osn s3 \
+  provider=AWS \
+  env_auth=true \
+  endpoint=https://nyu1.osn.mghpcc.org/
+export AWS_ACCESS_KEY_ID=...
+export AWS_SECRET_ACCESS_KEY=...
+```
+
+```bash
+source scripts/torch_public_archive.sh
+export CONFIG=src/samudra/configs/samudra_om4/train.yaml
+export NAME_SUFFIX=public-baseline
+sbatch scripts/slurm_apptainer_train.sbatch
+```
+
+The harness performs an initial copy before starting training, starts
+an incremental copy every 15 minutes, and performs a final verified copy for
+successful, failed, and requeued runs. `archive-status.json` in each published
+run records its lifecycle state, timestamps, Slurm identity, restart count, and
+final exit code. A successful training process with a failed final publication
+returns nonzero; a failed training process retains its original exit code.
+
+The archive is public. Review new artifact types before adding them to the run
+directory, and never write secrets there. Local W&B state, common credential and
+key filenames, and incomplete temporary files are excluded from publication.
 
 ## Fast Iteration With Ref-Built Code Overlays
 
@@ -130,6 +179,8 @@ Copy the builder and harnesses to Torch:
 scp scripts/slurm_apptainer_pull.sbatch torch:~/slurm_apptainer_pull.sbatch
 scp scripts/build_apptainer_code_layer.sh torch:~/build_apptainer_code_layer.sh
 scp scripts/slurm_apptainer_train.sbatch torch:~/slurm_apptainer_train.sbatch
+scp scripts/experiment_archive.py torch:~/experiment_archive.py
+scp scripts/torch_public_archive.sh torch:~/torch_public_archive.sh
 ```
 
 Prepare a stable container SIF, then build the layer on Torch:

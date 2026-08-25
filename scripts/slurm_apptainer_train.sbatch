@@ -11,6 +11,7 @@
 #   export NAME_SUFFIX=om4_samudra_baseline   # NAME becomes YYYY-MM-DD-<suffix>
 #   export ARGS="--epochs=2 --batch_size=1"
 #   export WANDB_API_KEY=...   # optional; if unset, wandb is disabled
+#   export PUBLISH_TO_OSN=0     # optional; team Torch jobs publish by default
 #   sbatch --nodes=1 --gres=gpu:rtx6000:8 scripts/slurm_apptainer_train.sbatch
 #
 # Multi-node example (requires enough nodes available):
@@ -46,6 +47,9 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPOSITORY_URL_SANITIZER="${SCRIPT_DIR}/sanitize_repository_url.py"
+
 if ! command -v apptainer >/dev/null 2>&1 \
   && ! command -v singularity >/dev/null 2>&1; then
   if [[ -f /etc/profile.d/modules.sh ]]; then
@@ -67,12 +71,18 @@ else
 fi
 
 CONFIG="${CONFIG:-}"
+CURRENT_USER="${USER:-$(id -un)}"
 NAME="${NAME:-}"
 NAME_SUFFIX="${NAME_SUFFIX:-}"
 ARGS="${ARGS:-}"
 NSYS_ARGS="${NSYS_ARGS:-}"
 REQUEUE_ON_USR1="${REQUEUE_ON_USR1:-0}"
 CODE_LAYER="${CODE_LAYER:-}"
+PUBLISH_TO_OSN="${PUBLISH_TO_OSN:-1}"
+ARCHIVE_BASE="${ARCHIVE_BASE:-nyu-osn:m2lines-pubs/Samudra/experiments}"
+ARCHIVE_OWNER="${ARCHIVE_OWNER:-${CURRENT_USER}}"
+ARCHIVE_INTERVAL_SECONDS="${ARCHIVE_INTERVAL_SECONDS:-900}"
+ARCHIVE_TOOL="${ARCHIVE_TOOL:-${SCRIPT_DIR}/experiment_archive.py}"
 if [[ -z "${NAME}" && -n "${NAME_SUFFIX}" ]]; then
   NAME="$(date +%Y-%m-%d)-${NAME_SUFFIX}"
 fi
@@ -82,9 +92,52 @@ if [[ -z "${CONFIG}" || -z "${NAME}" ]]; then
   echo "Example: export NAME_SUFFIX=om4_samudra_baseline" >&2
   exit 2
 fi
+case "${NAME}" in
+  .|..|[[:space:]]*|*[[:space:]]|*/*|*\\*)
+    echo "NAME must be one path segment without leading/trailing whitespace: ${NAME}" >&2
+    exit 2
+    ;;
+esac
+case "${PUBLISH_TO_OSN}" in
+  0|1) ;;
+  *)
+    echo "PUBLISH_TO_OSN must be 0 or 1, got: ${PUBLISH_TO_OSN}" >&2
+    exit 2
+    ;;
+esac
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "The training harness requires python3 on the host PATH." >&2
+  exit 2
+fi
+if [[ ! -f "${REPOSITORY_URL_SANITIZER}" ]]; then
+  echo "Repository URL sanitizer not found: ${REPOSITORY_URL_SANITIZER}" >&2
+  echo "Copy scripts/sanitize_repository_url.py next to this harness." >&2
+  exit 2
+fi
+if [[ "${PUBLISH_TO_OSN}" == "1" ]]; then
+  if [[ ! "${ARCHIVE_INTERVAL_SECONDS}" =~ ^[0-9]+$ ]] \
+    || (( ARCHIVE_INTERVAL_SECONDS < 60 )); then
+    echo "ARCHIVE_INTERVAL_SECONDS must be an integer of at least 60 seconds." >&2
+    exit 2
+  fi
+  if ! command -v rclone >/dev/null 2>&1; then
+    echo "PUBLISH_TO_OSN=1 requires rclone on the host PATH." >&2
+    exit 2
+  fi
+  if [[ ! -f "${ARCHIVE_TOOL}" ]]; then
+    echo "Experiment archive tool not found: ${ARCHIVE_TOOL}" >&2
+    echo "Copy scripts/experiment_archive.py next to this harness or set ARCHIVE_TOOL." >&2
+    exit 2
+  fi
+fi
+
+sanitize_repository_url() {
+  printf %s "$1" | python3 "${REPOSITORY_URL_SANITIZER}"
+}
 
 if [[ "${REQUEUE_ON_USR1}" == "1" ]]; then
   handle_requeue() {
+    ARCHIVE_FINAL_STATE="requeued"
     echo "Received USR1; requeueing Slurm job ${SLURM_JOB_ID}."
     scontrol requeue "${SLURM_JOB_ID}"
     exit 0
@@ -93,7 +146,6 @@ if [[ "${REQUEUE_ON_USR1}" == "1" ]]; then
 fi
 
 # Data + outputs (host paths; will be bind-mounted into the container at same paths).
-CURRENT_USER="${USER:-$(id -un)}"
 DATA_ROOT_DEFAULT="/scratch/${CURRENT_USER}/data/om4_onedeg_v3"
 OUTPUT_BASE_DEFAULT="/scratch/${CURRENT_USER}/runs"
 DATA_ROOT="${DATA_ROOT:-${DATA_ROOT_DEFAULT}}"
@@ -186,6 +238,11 @@ echo "Config:     ${CONFIG}"
 echo "Name:       ${NAME}"
 echo "Data root:  ${DATA_ROOT}"
 echo "Outputs:    ${OUTPUT_BASE}"
+if [[ "${PUBLISH_TO_OSN}" == "1" ]]; then
+  echo "Archive:    ${ARCHIVE_BASE}/${ARCHIVE_OWNER}/${NAME} (every ${ARCHIVE_INTERVAL_SECONDS}s)"
+else
+  echo "Archive:    disabled"
+fi
 echo "W&B mode:   ${WANDB_MODE}"
 echo "Image ref:  ${IMAGE_REF}"
 echo "SIF path:   ${SIF_PATH}"
@@ -211,6 +268,12 @@ CONTAINER_GIT_REMOTE_URL="$(
   "${APPTAINER_BIN}" exec "${SIF_PATH}" \
     bash -lc 'printf %s "${SAMUDRA_CONTAINER_GIT_REMOTE_URL:-${WANDB_GIT_REMOTE_URL:-unknown}}"'
 )"
+if ! CONTAINER_GIT_REMOTE_URL="$(
+  sanitize_repository_url "${CONTAINER_GIT_REMOTE_URL}"
+)"; then
+  echo "Container repository URL metadata is invalid." >&2
+  exit 7
+fi
 CODE_ROOT=/workspace
 CODE_GIT_COMMIT="${CONTAINER_GIT_COMMIT}"
 CODE_GIT_REMOTE_URL="${CONTAINER_GIT_REMOTE_URL}"
@@ -245,13 +308,22 @@ print(manifest["code_repo_url"])
     echo "Could not parse code-layer manifest: ${CODE_LAYER_MANIFEST}" >&2
     exit 7
   fi
-  readarray -t CODE_METADATA <<<"${CODE_METADATA_TEXT}"
-  if [[ "${#CODE_METADATA[@]}" -ne 2 ]]; then
+  if [[ "${CODE_METADATA_TEXT}" != *$'\n'* ]]; then
     echo "Code-layer manifest has invalid commit/repository metadata: ${CODE_LAYER_MANIFEST}" >&2
     exit 7
   fi
-  CODE_GIT_COMMIT="${CODE_METADATA[0]}"
-  CODE_GIT_REMOTE_URL="${CODE_METADATA[1]}"
+  CODE_GIT_COMMIT="${CODE_METADATA_TEXT%%$'\n'*}"
+  CODE_LAYER_REPO_URL="${CODE_METADATA_TEXT#*$'\n'}"
+  if [[ -z "${CODE_GIT_COMMIT}" || "${CODE_LAYER_REPO_URL}" == *$'\n'* ]]; then
+    echo "Code-layer manifest has invalid commit/repository metadata: ${CODE_LAYER_MANIFEST}" >&2
+    exit 7
+  fi
+  if ! CODE_GIT_REMOTE_URL="$(
+    sanitize_repository_url "${CODE_LAYER_REPO_URL}"
+  )"; then
+    echo "Code-layer repository URL metadata is invalid." >&2
+    exit 7
+  fi
   CODE_LAYER_SHA256="$(awk 'NR == 1 {print $1}' "${CODE_LAYER_SHA_FILE}")"
   CODE_ROOT=/opt/samudra-code
   OVERLAY_ARGS=(--overlay "${CODE_LAYER}:ro")
@@ -372,10 +444,9 @@ BIND_ARG="$(IFS=,; echo "${binds[*]}")"
 # Create the run directory after preflight validation so early failures are
 # retryable with the same NAME.
 mkdir -p "${RUN_DIR}"
-if [[ -n "${CODE_LAYER_MANIFEST}" ]]; then
-  cp "${CODE_LAYER_MANIFEST}" "${RUN_DIR}/source-manifest.json"
-fi
 SAMUDRA_PROVENANCE_PATH="${RUN_DIR}/run-provenance.json" \
+SAMUDRA_PUBLIC_SOURCE_MANIFEST_PATH="${RUN_DIR}/source-manifest.json" \
+SAMUDRA_CODE_LAYER_MANIFEST="${CODE_LAYER_MANIFEST}" \
 SAMUDRA_CODE_COMMIT="${CODE_GIT_COMMIT}" \
 SAMUDRA_CODE_REPO_URL="${CODE_GIT_REMOTE_URL}" \
 SAMUDRA_CODE_LAYER_SHA256="${CODE_LAYER_SHA256}" \
@@ -386,6 +457,17 @@ SAMUDRA_CONTAINER_SIF_PATH="${SIF_PATH}" \
 python3 - <<'PY'
 import json
 import os
+
+source_manifest = os.environ["SAMUDRA_CODE_LAYER_MANIFEST"]
+if source_manifest:
+    with open(source_manifest, encoding="utf-8") as stream:
+        public_manifest = json.load(stream)
+    public_manifest["code_repo_url"] = os.environ["SAMUDRA_CODE_REPO_URL"]
+    with open(
+        os.environ["SAMUDRA_PUBLIC_SOURCE_MANIFEST_PATH"], "w", encoding="utf-8"
+    ) as stream:
+        json.dump(public_manifest, stream, indent=2, sort_keys=True)
+        stream.write("\n")
 
 keys = (
     "SAMUDRA_CODE_COMMIT",
@@ -403,6 +485,105 @@ with open(os.environ["SAMUDRA_PROVENANCE_PATH"], "w", encoding="utf-8") as strea
     json.dump(provenance, stream, indent=2, sort_keys=True)
     stream.write("\n")
 PY
+
+ARCHIVE_WATCH_PID=""
+ARCHIVE_FINAL_STATE="failed"
+TRAIN_EXIT_CODE=1
+
+run_archive_tool() {
+  python3 "${ARCHIVE_TOOL}" \
+    --archive-base "${ARCHIVE_BASE}" \
+    --owner "${ARCHIVE_OWNER}" \
+    "$@"
+}
+
+quarantine_unstarted_run() {
+  local quarantine_path
+  quarantine_path="${RUN_DIR}.archive-preflight-failed-${SLURM_JOB_ID:-$$}-$(date +%s)"
+  if mv -- "${RUN_DIR}" "${quarantine_path}"; then
+    echo "Unstarted run retained at: ${quarantine_path}" >&2
+    echo "The original NAME can be retried after fixing archive access." >&2
+    return 0
+  fi
+  echo "Could not quarantine ${RUN_DIR}; move it manually before retrying NAME." >&2
+  return 1
+}
+
+initialize_archive() {
+  run_archive_tool status "${RUN_DIR}" running || return
+  if (( ${SLURM_RESTART_COUNT:-0} == 0 )); then
+    run_archive_tool preflight "${RUN_DIR}" --apply || return
+  fi
+  run_archive_tool publish "${RUN_DIR}" --apply || return
+}
+
+stop_archive_watch() {
+  if [[ -z "${ARCHIVE_WATCH_PID}" ]]; then
+    return 0
+  fi
+  if kill -0 "${ARCHIVE_WATCH_PID}" 2>/dev/null; then
+    kill -TERM "${ARCHIVE_WATCH_PID}" 2>/dev/null || true
+  fi
+  if ! wait "${ARCHIVE_WATCH_PID}"; then
+    echo "A periodic archive copy failed; the final copy will retry it." >&2
+  fi
+  ARCHIVE_WATCH_PID=""
+}
+
+finalize_archive() {
+  local status_args=(status "${RUN_DIR}" "${ARCHIVE_FINAL_STATE}")
+  local archive_exit_code=0
+  stop_archive_watch
+  if [[ "${ARCHIVE_FINAL_STATE}" == "completed" \
+    || "${ARCHIVE_FINAL_STATE}" == "failed" ]]; then
+    status_args+=(--exit-code "${TRAIN_EXIT_CODE}")
+  fi
+  if ! run_archive_tool "${status_args[@]}"; then
+    echo "Could not write final experiment archive status." >&2
+    archive_exit_code=8
+  fi
+  if ! run_archive_tool publish "${RUN_DIR}" --apply; then
+    echo "Final experiment archive publication failed." >&2
+    archive_exit_code=8
+  fi
+  return "${archive_exit_code}"
+}
+
+handle_archive_exit() {
+  local process_exit_code=$?
+  local archive_exit_code=0
+  trap - EXIT
+  if finalize_archive; then
+    archive_exit_code=0
+  else
+    archive_exit_code=$?
+  fi
+  if (( process_exit_code != 0 )); then
+    exit "${process_exit_code}"
+  fi
+  if (( archive_exit_code != 0 )); then
+    exit "${archive_exit_code}"
+  fi
+  exit 0
+}
+
+if [[ "${PUBLISH_TO_OSN}" == "1" ]]; then
+  if ! initialize_archive; then
+    run_archive_tool status "${RUN_DIR}" failed --exit-code 8 || true
+    echo "Initial public archive preflight failed; training will not start." >&2
+    if (( ${SLURM_RESTART_COUNT:-0} == 0 )); then
+      quarantine_unstarted_run || true
+    else
+      echo "Requeued run retained at its existing path: ${RUN_DIR}" >&2
+    fi
+    exit 8
+  fi
+  run_archive_tool watch "${RUN_DIR}" \
+    --interval "${ARCHIVE_INTERVAL_SECONDS}" \
+    --apply &
+  ARCHIVE_WATCH_PID=$!
+  trap handle_archive_exit EXIT
+fi
 if [[ -n "${NSYS_ARGS}" ]]; then
   mkdir -p "${NSYS_OUTPUT_DIR}"
 fi
@@ -410,6 +591,7 @@ fi
 export OE_NSYS_ARGS="${NSYS_ARGS}"
 export OE_NSYS_OUTPUT_DIR="${NSYS_OUTPUT_DIR}"
 
+set +e
 srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
   "${APPTAINER_BIN}" exec --nv \
     "${OVERLAY_ARGS[@]}" \
@@ -476,3 +658,11 @@ srun --ntasks="${SLURM_NNODES}" --ntasks-per-node=1 \
         --backend=\"nccl\" \
         ${ARGS}
     "
+TRAIN_EXIT_CODE=$?
+set -e
+if (( TRAIN_EXIT_CODE == 0 )); then
+  ARCHIVE_FINAL_STATE="completed"
+else
+  ARCHIVE_FINAL_STATE="failed"
+fi
+exit "${TRAIN_EXIT_CODE}"

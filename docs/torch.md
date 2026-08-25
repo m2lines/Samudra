@@ -75,12 +75,23 @@ It expects environment variables:
 - `CONFIG` (required): config path inside the container image. Relative paths are
   resolved under `/workspace/`, e.g. `src/samudra/configs/samudra_om4/train.yaml`.
 - `NAME_SUFFIX` (required): populates the run name by prepending the current date;
-  you can also set `NAME` directly if you prefer.
+  you can also set `NAME` directly if you prefer. `NAME` must be a single path
+  segment, not a nested path.
 - `DATA_ROOT` (optional): host data path passed to
   `--experiment.data_root` (default:
   `/scratch/<current_user>/data/om4_onedeg_v3`)
 - `OUTPUT_BASE` (optional): host output base dir passed to
   `--experiment.base_output_dir` (default: `/scratch/<current_user>/runs`)
+- `PUBLISH_TO_OSN` (optional): set to `0` to keep the current run private; the
+  team Torch harness defaults to `1` and publishes it to the public OSN archive
+- `ARCHIVE_BASE` (optional): authenticated rclone destination used when
+  publishing (default: `nyu-osn:m2lines-pubs/Samudra/experiments`)
+- `ARCHIVE_OWNER` (optional): owner namespace below `ARCHIVE_BASE` (default:
+  the current Torch `$USER`)
+- `ARCHIVE_INTERVAL_SECONDS` (optional): seconds between incremental copies
+  while training runs (default: `900`, minimum: `60`)
+- `ARCHIVE_TOOL` (optional): host path to `scripts/experiment_archive.py`;
+  defaults to the file next to the training harness
 - `ARGS` (optional): extra CLI overrides, e.g. `--batch_size=1`
 - `NSYS_ARGS` (optional): if set, wrap the training launch with `nsys profile`
 - `SCRATCH_DIR` (optional): host scratch/work directory for default SIF and data
@@ -98,6 +109,8 @@ Key behavior:
 
 - Refuses to run if `${OUTPUT_BASE}/$NAME` already exists, except when
   `SLURM_RESTART_COUNT` indicates that Slurm restarted the same requeued job.
+- Refuses to start a new run if its owner/name archive destination already has
+  objects. A Slurm requeue is allowed to resume the same destination.
 - Fails early if either `${DATA_ROOT}` or `${OUTPUT_BASE}` does not exist, with
   instructions to set the corresponding env var.
 - Uses the container venv explicitly (`/workspace/.venv/bin/python`) to avoid missing deps.
@@ -112,11 +125,77 @@ Key behavior:
   these locations to `/scratch/$USER` so large files do not consume home quota.
 - If `NSYS_ARGS` is set and does not include `-o`/`--output`, reports are written under
   `${OUTPUT_BASE}/${NAME}/nsys/`.
+- The team Torch harness publishes to the public archive by default. Runs still
+  write to fast local scratch, then copy the run directory at startup,
+  periodically, on failure or requeue, and at successful completion. Set
+  `PUBLISH_TO_OSN=0` to opt out. The final copy is size-verified.
 
 When `preemptible: true`, training detects the latest checkpoint in an existing
 run directory and resumes from it after a Slurm requeue. The requeue hook does
 not create a checkpoint at signal time, so checkpoint frequently enough that
 restarting from the most recent completed epoch is acceptable.
+
+## Publish Current and Future Torch Experiments
+
+The team Torch harness publishes experiments by default. Training continues to
+write to `/scratch/$USER/runs`; publication copies only the current run
+directory to OSN. This default is scoped to the Torch harness and does not
+change Samudra's generic training configuration, SkyPilot, or third-party
+workflows. Published runs are stored under
+`s3://m2lines-pubs/Samudra/experiments/<owner>/<run-name>`; owner defaults to
+the current Torch user and can be overridden with `ARCHIVE_OWNER`.
+
+Configure an authenticated OSN rclone remote without storing credentials in the
+repository:
+
+```bash
+rclone config create nyu-osn s3 \
+  provider=AWS \
+  env_auth=true \
+  endpoint=https://nyu1.osn.mghpcc.org/
+export AWS_ACCESS_KEY_ID=...
+export AWS_SECRET_ACCESS_KEY=...
+```
+
+```bash
+export CONFIG=src/samudra/configs/samudra_om4/train.yaml
+export NAME_SUFFIX=public-baseline
+sbatch scripts/slurm_apptainer_train.sbatch
+```
+
+To keep a particular run private, explicitly disable publication before
+submitting it. OSN credentials are not required for an opted-out run.
+
+```bash
+export PUBLISH_TO_OSN=0
+sbatch scripts/slurm_apptainer_train.sbatch
+```
+
+The harness performs an initial copy before starting training, starts
+an incremental copy every 15 minutes, and performs a final verified copy for
+successful, failed, and requeued runs. `archive-status.json` in each published
+run records its owner, lifecycle state, timestamps, Slurm identity, restart
+count, and final exit code. A successful training process with a failed final
+publication returns nonzero; a failed training process retains its original
+exit code.
+
+If archive preflight fails before a fresh run starts, the local run metadata is
+moved aside under an adjacent
+`<run-name>.archive-preflight-failed-<job>-<timestamp>` directory. No experiment
+data is deleted, and the original name can be retried after archive access is
+fixed. If a partial remote destination was created, choose a new run name or
+have the partial archive reviewed before retrying.
+
+The archive is public. Review new artifact types before adding them to the run
+directory, and never write secrets there. Local W&B state, common credential and
+key filenames, and incomplete temporary files (including atomic checkpoint
+temps under `saved_nets/`) are excluded from publication.
+
+If `CODE_REPO_URL` contains authentication information, the builder uses the
+original URL only for `git fetch`. Repository URL user information, query
+parameters, and fragments are removed from logs, code-layer manifests, W&B
+metadata, and public run provenance. The training harness also sanitizes
+metadata from existing code layers and container images before publication.
 
 ## Fast Iteration With Ref-Built Code Overlays
 
@@ -130,6 +209,8 @@ Copy the builder and harnesses to Torch:
 scp scripts/slurm_apptainer_pull.sbatch torch:~/slurm_apptainer_pull.sbatch
 scp scripts/build_apptainer_code_layer.sh torch:~/build_apptainer_code_layer.sh
 scp scripts/slurm_apptainer_train.sbatch torch:~/slurm_apptainer_train.sbatch
+scp scripts/experiment_archive.py torch:~/experiment_archive.py
+scp scripts/sanitize_repository_url.py torch:~/sanitize_repository_url.py
 ```
 
 Prepare a stable container SIF, then build the layer on Torch:

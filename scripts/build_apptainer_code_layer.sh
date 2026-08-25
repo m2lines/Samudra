@@ -10,6 +10,9 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPOSITORY_URL_SANITIZER="${SCRIPT_DIR}/sanitize_repository_url.py"
+
 usage() {
   cat <<'EOF'
 Usage:
@@ -64,9 +67,16 @@ for command_name in git python3 sha256sum flock; do
     exit 4
   fi
 done
+if [[ ! -f "${REPOSITORY_URL_SANITIZER}" ]]; then
+  echo "Repository URL sanitizer not found: ${REPOSITORY_URL_SANITIZER}" >&2
+  exit 4
+fi
 
 CURRENT_USER="${USER:-$(id -un)}"
 CODE_REPO_URL="${CODE_REPO_URL:-https://github.com/m2lines/Samudra.git}"
+CODE_REPO_PUBLIC_URL="$(
+  printf %s "${CODE_REPO_URL}" | python3 "${REPOSITORY_URL_SANITIZER}"
+)"
 CODE_LAYER_DIR="${CODE_LAYER_DIR:-/scratch/${CURRENT_USER}/.apptainer-code-layers}"
 CODE_LAYER_SIZE_MB="${CODE_LAYER_SIZE_MB:-128}"
 if [[ ! "${CODE_LAYER_SIZE_MB}" =~ ^[1-9][0-9]*$ ]]; then
@@ -86,11 +96,14 @@ trap cleanup EXIT
 CHECKOUT_DIR="${BUILD_DIR}/repo"
 git init --quiet "${CHECKOUT_DIR}"
 git -C "${CHECKOUT_DIR}" remote add origin "${CODE_REPO_URL}"
-echo "Fetching pushed ref ${CODE_REF} from ${CODE_REPO_URL}"
-if ! git -C "${CHECKOUT_DIR}" fetch --quiet --no-tags --depth=1 origin "${CODE_REF}"; then
+echo "Fetching pushed ref ${CODE_REF} from ${CODE_REPO_PUBLIC_URL}"
+if ! git -C "${CHECKOUT_DIR}" fetch \
+  --quiet --no-tags --depth=1 origin "${CODE_REF}" \
+  2>"${BUILD_DIR}/git-fetch-error.log"; then
   echo "Could not fetch ${CODE_REF}; ensure the ref has been pushed and is reachable." >&2
   exit 5
 fi
+unset CODE_REPO_URL
 RESOLVED_COMMIT="$(git -C "${CHECKOUT_DIR}" rev-parse --verify FETCH_HEAD^{commit})"
 CODE_COMMIT="${RESOLVED_COMMIT,,}"
 echo "Resolved ${CODE_REF} to ${CODE_COMMIT}."
@@ -147,7 +160,8 @@ verify_existing_layer() {
   local manifest_commit manifest_repo_url
   manifest_commit="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["code_commit"])' "${MANIFEST_PATH}")"
   manifest_repo_url="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["code_repo_url"])' "${MANIFEST_PATH}")"
-  [[ "${manifest_commit}" == "${CODE_COMMIT}" && "${manifest_repo_url}" == "${CODE_REPO_URL}" ]]
+  [[ "${manifest_commit}" == "${CODE_COMMIT}" \
+    && "${manifest_repo_url}" == "${CODE_REPO_PUBLIC_URL}" ]]
 }
 
 if verify_existing_layer; then
@@ -168,7 +182,7 @@ SOURCE_PYPROJECT_SHA256="$(sha256sum "${CHECKOUT_DIR}/pyproject.toml" | awk '{pr
 BUILD_MANIFEST="${BUILD_DIR}/source-manifest.json"
 CODE_COMMIT="${CODE_COMMIT}" \
 CODE_REF="${CODE_REF}" \
-CODE_REPO_URL="${CODE_REPO_URL}" \
+CODE_REPO_PUBLIC_URL="${CODE_REPO_PUBLIC_URL}" \
 BUILD_TIMESTAMP="${BUILD_TIMESTAMP}" \
 SOURCE_UV_LOCK_SHA256="${SOURCE_UV_LOCK_SHA256}" \
 SOURCE_PYPROJECT_SHA256="${SOURCE_PYPROJECT_SHA256}" \
@@ -181,7 +195,7 @@ manifest = {
     "schema_version": 1,
     "code_commit": os.environ["CODE_COMMIT"],
     "requested_code_ref": os.environ["CODE_REF"],
-    "code_repo_url": os.environ["CODE_REPO_URL"],
+    "code_repo_url": os.environ["CODE_REPO_PUBLIC_URL"],
     "built_at_utc": os.environ["BUILD_TIMESTAMP"],
     "source_root": "/opt/samudra-code",
     "uv_lock_sha256": os.environ["SOURCE_UV_LOCK_SHA256"],

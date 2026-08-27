@@ -23,7 +23,10 @@ TRAINING_SUMMARY_SCHEMA_VERSION = 1
 SEARCH_METRICS_NAME = "search_metrics.parquet"
 SEARCH_WORKER_STATUS_NAME = "search_worker_status.json"
 SEARCH_WORKER_STATUS_SCHEMA_VERSION = 1
-_SECRET_NAME = re.compile(r"(?:SECRET|TOKEN|PASSWORD|CREDENTIAL|API_KEY|ACCESS_KEY)")
+_SECRET_NAME = re.compile(
+    r"(?:^|_)(?:SECRET|TOKEN|PASSWORD|CREDENTIALS?|API_KEY|ACCESS_KEY)(?:_|$)",
+    re.IGNORECASE,
+)
 _SECRET_ASSIGNMENT = re.compile(
     r"(?i)((?:secret|token|password|credential|api[_-]?key|access[_-]?key)\s*[=:]\s*)([^\s,;]+)"
 )
@@ -31,13 +34,26 @@ _SECRET_ASSIGNMENT = re.compile(
 
 def _redact_secrets(value: Any) -> Any:
     """Remove environment credentials from structured public diagnostics."""
-    if not isinstance(value, str):
-        return value
-    redacted = value
-    for name, secret in os.environ.items():
-        if _SECRET_NAME.search(name) and len(secret) >= 4:
-            redacted = redacted.replace(secret, "[REDACTED]")
-    return _SECRET_ASSIGNMENT.sub(r"\1[REDACTED]", redacted)
+    if isinstance(value, str):
+        redacted = value
+        for name, secret in os.environ.items():
+            if _SECRET_NAME.search(name) and len(secret) >= 4:
+                redacted = redacted.replace(secret, "[REDACTED]")
+        return _SECRET_ASSIGNMENT.sub(r"\1[REDACTED]", redacted)
+    if isinstance(value, dict):
+        return {
+            name: (
+                "[REDACTED]"
+                if isinstance(name, str) and _SECRET_NAME.search(name)
+                else _redact_secrets(item)
+            )
+            for name, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_secrets(item) for item in value]
+    if isinstance(value, tuple):
+        return tuple(_redact_secrets(item) for item in value)
+    return value
 
 
 def write_search_worker_status(output_dir: Path, stage: str, **details: Any) -> Path:

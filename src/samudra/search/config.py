@@ -135,6 +135,12 @@ class SearchConfig(TopLevelConfig):
             raise ValueError("candidate names must be unique after slug normalization")
         if all(candidate.fixed for candidate in self.candidates):
             raise ValueError("at least one candidate must participate in promotion")
+        competing = sum(not candidate.fixed for candidate in self.candidates)
+        if self.algorithm.minimum_promoted > competing:
+            raise ValueError(
+                "algorithm.minimum_promoted cannot exceed the number of "
+                f"non-fixed candidates ({competing})"
+            )
         if self.objective.metric not in self.metrics:
             raise ValueError("objective.metric must be included in metrics")
         if (

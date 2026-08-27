@@ -117,7 +117,7 @@ artifacts: !include osn-artifacts.yaml
 ```
 
 The packaged template publishes under
-`s3://m2lines-pubs/FOMO/experiments/searches/<run-id>/`. It does not contain
+`s3://m2lines-pubs/Samudra/experiments/searches/<run-id>/`. It does not contain
 credentials. On every machine that may run the search controller, provide
 write credentials through the normal environment:
 
@@ -171,7 +171,7 @@ public HTTP endpoint, DuckDB needs no local download:
 ```sql
 SELECT candidate, rung, epochs, validation_loss, error
 FROM read_parquet(
-  'https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches/my-search--20260813T192612.123456Z/results.parquet'
+  'https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/experiments/searches/my-search--20260813T192612.123456Z/results.parquet'
 )
 ORDER BY rung, validation_loss;
 ```
@@ -232,6 +232,11 @@ training, validation, or inference can be named here, including namespaced
 diagnostics such as `val/seam/window_jump_ratio/zos`. A missing or non-finite
 metric, an incomplete epoch budget, or a missing checkpoint makes that result
 ineligible.
+
+`minimum_promoted` is a floor, so promotion can intentionally stop reducing the
+candidate pool once it reaches that size. It cannot exceed the number of
+non-fixed candidates configured for the search; if worker failures leave fewer
+eligible candidates, every eligible candidate advances.
 
 A search is `complete` only when every scheduled candidate result across all
 rungs and fixed anchors is eligible. If the search can continue after one or

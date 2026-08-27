@@ -73,6 +73,28 @@ def test_write_search_worker_status_redacts_environment_secrets(tmp_path, monkey
     assert "[REDACTED]" in text
 
 
+def test_write_search_worker_status_redacts_nested_credentials(tmp_path, monkeypatch):
+    monkeypatch.setenv("WANDB_API_KEY", "super-secret-value")
+    monkeypatch.setenv("TOKENIZERS_PARALLELISM", "not-a-credential")
+
+    path = write_search_worker_status(
+        tmp_path,
+        "failed",
+        context={
+            "auth": {"api_key": "nested-secret"},  # pragma: allowlist secret
+            "messages": ["request used super-secret-value"],
+            "tokenizer_setting": "not-a-credential",
+        },
+    )
+
+    status = json.loads(path.read_text())
+    assert status["context"] == {
+        "auth": {"api_key": "[REDACTED]"},
+        "messages": ["request used [REDACTED]"],
+        "tokenizer_setting": "not-a-credential",
+    }
+
+
 def test_failed_atomic_write_removes_temporary_file(tmp_path):
     with pytest.raises(TypeError):
         write_search_worker_status(tmp_path, "failed", unsupported={"a", "set"})

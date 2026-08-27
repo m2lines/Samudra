@@ -93,6 +93,11 @@ def test_config_validates_objective_and_rungs(tmp_path):
     with pytest.raises(ValidationError, match="strictly increasing"):
         SearchConfig.model_validate(value)
 
+    value["algorithm"]["rungs"] = [1, 3]
+    value["algorithm"]["minimum_promoted"] = 4
+    with pytest.raises(ValidationError, match=r"non-fixed candidates \(3\)"):
+        SearchConfig.model_validate(value)
+
 
 def test_config_rejects_candidate_names_with_colliding_resource_slugs(tmp_path):
     value = config(tmp_path).model_dump(mode="json")
@@ -311,10 +316,42 @@ def test_local_artifact_publisher_writes_queryable_research_record(
     )
     figure = catalog[catalog["artifact"].str.endswith("loss.png")].iloc[0]
     assert figure["kind"] == "figure"
+    assert figure["media_type"] == "image/png"
     assert figure["candidate"] == "a"
     report = catalog[catalog["artifact"] == "analysis/report.md"].iloc[0]
     assert report["kind"] == "report"
     assert report["media_type"] == "text/markdown"
+
+
+def test_all_checkpoint_publication_includes_epoch_checkpoints(tmp_path):
+    search_config = config(tmp_path)
+    search_config.artifacts = ArtifactConfig.model_validate(
+        {
+            "destination": {"type": "local", "path": tmp_path / "published"},
+            "checkpoints": "all",
+        }
+    )
+    search = search_config.build()
+    state = search_state(search)
+    output = search.output_dir("a", 0)
+    saved_nets = output / "saved_nets"
+    saved_nets.mkdir(parents=True)
+    epoch_checkpoint = saved_nets / "ckpt_1.pt"
+    epoch_checkpoint.touch()
+    state["rungs"][0]["results"] = [
+        {
+            "candidate": "a",
+            "rung": 0,
+            "eligible": True,
+            "output_dir": str(output),
+        }
+    ]
+
+    assert search.publisher is not None
+    files = search.publisher._files(state)
+    relative = f"runs/{output.name}/saved_nets/ckpt_1.pt"
+    assert (epoch_checkpoint, relative) in files
+    assert search.publisher._kind(relative) == "checkpoint"
 
 
 def test_start_records_and_publishes_submission_failure(tmp_path, monkeypatch):
@@ -620,6 +657,7 @@ def test_advance_retry_finishes_publication_and_submission(tmp_path, monkeypatch
     search.write_state(state)
     events: list[object] = []
     monkeypatch.setattr(search, "_write_results", lambda state: events.append("write"))
+    monkeypatch.setattr(search, "_write_report", lambda state: events.append("report"))
     monkeypatch.setattr(search, "publish", lambda state: events.append("publish"))
     monkeypatch.setattr(
         search.executor,
@@ -629,7 +667,40 @@ def test_advance_retry_finishes_publication_and_submission(tmp_path, monkeypatch
 
     search.advance(0)
 
-    assert events == ["write", "publish", ("submit", 1)]
+    assert events == [
+        "write",
+        "publish",
+        ("submit", 1),
+        "report",
+        "publish",
+    ]
+
+
+def test_report_failure_does_not_block_next_rung_submission(tmp_path, monkeypatch):
+    search = config(tmp_path).build()
+    search.search_dir.mkdir(parents=True)
+    state = search_state(search)
+    state["rungs"][0]["candidates"] = ["a", "b", "c"]
+    search.write_state(state)
+    for name, score in {"a": 0.3, "b": 0.1, "c": 0.2}.items():
+        write_result(search, name, 0, score)
+    submitted = []
+    monkeypatch.setattr(
+        search.executor,
+        "submit_rung",
+        lambda state, rung: submitted.append(rung),
+    )
+    monkeypatch.setattr(
+        search,
+        "_write_report",
+        lambda state: (_ for _ in ()).throw(RuntimeError("report failed")),
+    )
+
+    with pytest.raises(RuntimeError, match="report failed"):
+        search.advance(0)
+
+    assert submitted == [1]
+    assert search.read_state()["rungs"][0]["advanced"] is True
 
 
 def test_final_rung_with_failed_jobs_is_partial_not_complete(tmp_path):

@@ -6,7 +6,7 @@ destination:
   type: s3
   endpoint_url: https://nyu1.osn.mghpcc.org
   bucket: m2lines-pubs
-  path: FOMO/experiments/searches
+  path: Samudra/experiments/searches
   anon: false
-public_url: https://nyu1.osn.mghpcc.org/m2lines-pubs/FOMO/experiments/searches
+public_url: https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/experiments/searches
 checkpoints: final

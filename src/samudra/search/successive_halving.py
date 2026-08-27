@@ -214,14 +214,19 @@ class SuccessiveHalving:
             }
             self.write_state(state)
             try:
+                self._write_results(state)
+                self.publish(state)
+                self._write_report(state)
                 self.publish(state)
             except Exception as publication_error:
                 error.add_note(
-                    "Failed to publish the terminal search state: "
+                    "Failed to render or publish the terminal search record: "
                     f"{publication_error!r}"
                 )
             raise
-        self.publish(self.read_state())
+        state = self.read_state()
+        self._write_report(state)
+        self.publish(state)
         return self.state_path
 
     def read_state(self) -> dict[str, Any]:
@@ -405,6 +410,11 @@ class SuccessiveHalving:
             self.write_state(state)
             self._write_results(state)
             self.publish(state)
+            try:
+                self._write_report(state)
+                self.publish(state)
+            except Exception as report_error:
+                error.add_note(f"Failed to render or publish report: {report_error!r}")
             raise ValueError(f"Rung {rung} probe failed: {error}") from error
         probe.update(
             status="complete",
@@ -540,6 +550,9 @@ class SuccessiveHalving:
         atomic_local_parquet(frame, self.results_parquet_path)
         with atomic_path(self.results_path, suffix=".csv") as temporary:
             frame.to_csv(temporary, index=False)
+
+    def _write_report(self, state: dict[str, Any]) -> None:
+        """Render the human-facing report after critical scheduler operations."""
         write_search_report(self, state)
 
     @staticmethod
@@ -567,9 +580,14 @@ class SuccessiveHalving:
             self.publish(state)
             next_rung = rung + 1
             if next_rung == len(self.rungs):
+                self._write_report(state)
+                self.publish(state)
                 return
             if "controller_job_id" not in state["rungs"][next_rung]:
                 self.executor.submit_rung(state, next_rung)
+            state = self.read_state()
+            self._write_report(state)
+            self.publish(state)
             return
         results = [self._result(name, rung) for name in current["candidates"]]
         eligible = pd.DataFrame([row for row in results if row["eligible"]])
@@ -584,6 +602,8 @@ class SuccessiveHalving:
             }
             self.write_state(state)
             self._write_results(state)
+            self.publish(state)
+            self._write_report(state)
             self.publish(state)
             raise ValueError(f"No candidate completed rung {rung}")
         ascending = self.config.objective.mode == "min"
@@ -611,6 +631,8 @@ class SuccessiveHalving:
             self.write_state(state)
             self._write_results(state)
             self.publish(state)
+            self._write_report(state)
+            self.publish(state)
             if is_main_process():
                 print(f"Search {state['status']}: {self.results_path}", flush=True)
             return
@@ -619,3 +641,6 @@ class SuccessiveHalving:
         self._write_results(state)
         self.publish(state)
         self.executor.submit_rung(state, next_rung)
+        state = self.read_state()
+        self._write_report(state)
+        self.publish(state)

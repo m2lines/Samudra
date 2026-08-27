@@ -219,7 +219,7 @@ class ArtifactPublisher:
 
     @staticmethod
     def _kind(relative: str) -> str:
-        if relative.endswith("ckpt.pt"):
+        if Path(relative).suffix == ".pt":
             return "checkpoint"
         if Path(relative).suffix == ".md":
             return "report"
@@ -241,7 +241,10 @@ class ArtifactPublisher:
             ".log": "text/plain",
             ".md": "text/markdown",
             ".parquet": "application/vnd.apache.parquet",
+            ".pdf": "application/pdf",
+            ".png": "image/png",
             ".pt": "application/x-pytorch",
+            ".svg": "image/svg+xml",
             ".yaml": "application/yaml",
         }.get(path.suffix, "application/octet-stream")
 

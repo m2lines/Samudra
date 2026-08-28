@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1787609160451,
+  "lastUpdate": 1787960263849,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -11780,6 +11780,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.2805870497999288",
             "extra": "mean: 53.275172210200004 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "69daeef78884301fa274a093139e7945a64fc146",
+          "message": "Add successive-halving Slurm architecture harness (#841)\n\n## Goal\n\nUse fragmented compute capacity to compare model architectures quickly,\nthen allocate larger epoch budgets only to promising candidates.\n\nThis implements one successive-halving bracket, the resource-allocation\nprimitive underlying\n[Hyperband](https://jmlr.org/papers/v18/16-558.html). It deliberately\nleaves multiple-bracket Hyperband and deferred rollout metrics for later\nwork.\n\n## User interface\n\nRun a complete search with:\n\n```console\npython -m samudra.search path/to/search.yaml\n```\n\nUsers do not manually advance rungs. The Local executor runs candidates\nsequentially in isolated multiton/logging scopes; the Slurm executor\nsubmits arrays and dependent promotion jobs automatically. Search\nconfigs use Samudra's Pydantic/YAML system, including `!include`,\npackaged presets, CLI overrides, and generated schemas.\n\n## Design and correctness\n\n- `SuccessiveHalving` owns ranking and promotion; `SearchConfig.build()`\nconstructs it.\n- Local and Slurm backends are selected through the exercised executor\nseam.\n- Rung budgets are cumulative. Promoted candidates resume checkpoints\nwhile all rungs share the final-rung LR-scheduler horizon, preventing\n`T_max` corruption.\n- A Slurm rung-zero probe must complete a real optimizer update before\neither candidate arrays or full-budget anchors are released.\n- Array job IDs are persisted before controller submission, so\ncontroller retries cannot double-submit training work.\n- Search state is versioned and Pydantic-validated on every read/write,\nincluding run identity and rung layout.\n- A search is `complete` only if every scheduled result is eligible;\nrecoverable worker failures produce `partial`, and a rung with no\neligible candidate records a durable terminal failure.\n\n## Reproducibility, observability, and W&B\n\n- The search snapshots each fully resolved candidate config and rejects\ndirty Slurm launches. Controllers receive the immutable recorded commit\nand do not require a Git checkout.\n- W&B uses the unique `run_id` as the group; runs receive stable\nsearch-name, run-ID, and candidate tags.\n- Structured worker status records bounded lifecycle events (`launched`,\n`initialized`, `first_batch`, first `optimizer_step`, terminal stage),\nrather than rewriting unbounded per-step history.\n- Non-finite metrics are represented explicitly and classified as\ndivergence rather than masquerading as missing output.\n- `results.csv`/`results.parquet`, `epochs.parquet`,\n`artifacts.parquet`, resolved configs, reports, state, provenance, W&B\nidentity, and configurable checkpoints form the agent-observable record.\n- Raw scheduler and process logs are excluded from publication by\ndefault because workers inherit credentials. They require explicit\n`artifacts.logs: all`; structured error strings are scrubbed.\n- Successful upload hashes are retained locally, so publication retries\nskip unchanged large checkpoints.\n- Controller CPU, memory, partition, and walltime are configurable.\n\nSee `docs/search.md` for setup, schemas, safety policy, and DuckDB\nexamples.\n\n## Verification\n\n- Standard non-manual/non-CUDA suite: 401 passed, 2 skipped, 10 xfailed.\n- Review-focused scheduler, search, artifact, summary, local-isolation,\nand logging tests: 41 passed; atomic failure cleanup: 1 passed.\n- Pre-commit: all checks passed, including Ruff, mypy, generated\nschemas, secret detection, and REUSE.",
+          "timestamp": "2026-08-28T22:59:27Z",
+          "tree_id": "cb079e996da57b29cb362d7b13ec5caf21dda120",
+          "url": "https://github.com/m2lines/Samudra/commit/69daeef78884301fa274a093139e7945a64fc146"
+        },
+        "date": 1787960262457,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.189119866200597,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0024402787152314302",
+            "extra": "mean: 840.9581140000114 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06586082224854939,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11723845285121312",
+            "extra": "mean: 15.183533485600014 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.018891315875311218,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1628109939992259",
+            "extra": "mean: 52.93437506420001 sec\nrounds: 5"
           }
         ]
       }

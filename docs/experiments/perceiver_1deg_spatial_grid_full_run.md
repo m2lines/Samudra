@@ -8,7 +8,12 @@ SPDX-License-Identifier: CC-BY-4.0
 
 ## Status
 
-Prepared for review. No full training allocation has been submitted.
+The full training configuration has been exercised on Torch, and rolling
+checkpoints have produced the diagnostics below. This entry does not yet claim
+a successful final 70-epoch model: the terminal checkpoint and its complete
+evaluation still need to be consolidated here. The current evidence is already
+strong enough to identify a qualitative rollout failure that validation loss
+alone did not expose.
 
 ## Question
 
@@ -78,11 +83,11 @@ Before the full allocation:
 - [x] focused spatial-encoder and decoder forward/backward tests pass;
 - [x] lint, formatting, typing, schema validation, secret scanning, and REUSE
       checks pass;
-- [ ] run one real one-degree optimizer update on the intended Torch image;
+- [x] run real one-degree optimizer updates on the intended Torch image;
 - [ ] record peak memory, optimizer-step time, data-wait time, and selected SDPA
       backend;
-- [ ] verify W&B receives loss, optimizer-step, snapshot, seam, and periodic
-      metrics;
+- [x] verify W&B receives loss and rollout diagnostics;
+- [ ] verify W&B receives the complete snapshot, seam, and periodic metric set;
 - [ ] confirm the requested GPU count and accumulation preserve effective batch
       32; and
 - [ ] estimate completion within the cluster's requeue/time-limit contract.
@@ -167,6 +172,44 @@ The full lead-time table, including physical-unit surface RMSE and climatology
 skill, is stored alongside the rollout as
 `persistence_climatology_skill.csv`.
 
+### Epoch-30 2-in/1-out rollout diagnostic
+
+The prediction-horizon intervention was subsequently evaluated using the
+epoch-30 EMA checkpoint. This model consumes two states but emits one new
+five-day state per autoregressive call, eliminating the ambiguous two-slot
+residual assembly described above. The one-year diagnostic is W&B run
+[`0pfwupbr`](https://wandb.ai/ocean_emulators/default/runs/0pfwupbr).
+
+The intervention removed the earlier odd/even pair staircase. Across the first
+18 transitions, the old 2-in/2-out rollout's within-pair change RMSE was only
+0.098 times its between-pair value. The corresponding alternating-edge ratio
+for 2-in/1-out was 1.404, so the new rollout no longer locks adjacent frames
+into output pairs. It also improved early velocity RMSE:
+
+| Lead | 2-in/2-out velocity RMSE | 2-in/1-out velocity RMSE |
+| ---: | ---: | ---: |
+| 5 d | 0.546 | 0.356 |
+| 10 d | 0.546 | 0.538 |
+| 15 d | 0.711 | 0.642 |
+| 20 d | 0.714 | 0.707 |
+| 25 d | 0.802 | 0.765 |
+| 30 d | 0.808 | 0.806 |
+
+This structural correction did **not** make the rollout physical. In the
+normalized, area-weighted `vo_9` mean, the target continues to oscillate close
+to zero (approximately -0.004 to +0.008 over the inspected values). The first
+generated prediction is already about -0.006, after which the generated series
+loses the target's medium-frequency changes and follows a nearly monotone trend
+to approximately -0.205 by the end of the rollout. The corresponding raw mean
+reaches about -0.0089 while the target remains close to its initial range.
+
+The qualitative W&B review found the same broad failure beyond `uo` and `vo`:
+the generated time series for **all predicted variable families** lose much of
+the target's medium- and higher-frequency temporal variation and instead settle
+into smooth, nearly flat or drifting trends. The generated trajectories are
+therefore unphysical even where aggregate RMSE initially appears competitive.
+This is a shared-model failure, not solely a velocity-head problem.
+
 ## Analysis
 
 The velocity gap is real in normalized space, but it is not evidence that every
@@ -207,6 +250,70 @@ measure error conditioned on encoder-patch and decoder-window boundaries. The
 lead-time parity test isolates residual/output assembly; the latter two tests
 isolate missing dynamics and spatial patch artifacts.
 
+### Qualitative review: shared temporal-frequency collapse
+
+The 2-in/1-out diagnostic changes the interpretation of the preliminary
+results. Residual-slot assembly caused the odd/even artifact, but it was not the
+cause of the more fundamental loss of temporal variation. Likewise, low
+temperature or salinity RMSE is insufficient evidence of a credible emulator:
+a smooth prediction can score well under pointwise MSE while suppressing the
+lower-amplitude changes that determine subsequent dynamics.
+
+The leading hypothesis from review is excessive compression in the encoder.
+At one degree, each 6 x 10 degree encoder group contains 60 physical grid cells
+but emits only a 2 x 2 grid of spatial queries. The representation therefore
+falls from 180 x 360 = 64,800 physical locations to a 60 x 72 = 4,320-location
+processor grid--a 15:1 reduction in spatial token count before the processor.
+Each emitted token must summarize approximately a 3 x 5 degree region while
+also preserving distinctions among variables, depths, history states, and
+boundary forcing. Information discarded at this step cannot be recovered by a
+coordinate-query decoder. The decoder can synthesize a smooth field at every
+output coordinate, but coordinates cannot tell it the missing phase or
+amplitude of an evolving feature.
+
+This hypothesis is consistent with the failure appearing across every output
+family because the encoder, processor, and decoder pathway is shared. It is not
+yet a demonstrated root cause. Other shared mechanisms can produce the same
+symptom, including deterministic MSE regression toward the conditional mean,
+concatenating history as channels rather than modeling time explicitly,
+normalization in the processor, an autoregressive training horizon that is too
+short, and decoder queries that contain coordinates but no local current-state
+features.
+
+The encoder-compression hypothesis should be tested directly rather than
+inferred only from rollout loss:
+
+1. Measure the spatial transfer function of an identity reconstruction probe:
+   encode and decode an observed state with no learned time advance, then
+   compare target and reconstruction power by wavenumber and variable.
+2. Compare spatial query shapes `2 x 2`, `3 x 5`, and `6 x 10` within the same
+   6 x 10 degree group. The last arm removes spatial token-count compression at
+   one degree while retaining the Perceiver mechanism.
+3. Separately compare finer physical patch extents at fixed query density. This
+   distinguishes within-patch compression from insufficient communication
+   between large patches.
+4. Condition decoder queries on the latest native-grid state and local tendency,
+   testing whether a direct high-resolution information path restores phase
+   without replacing the global Perceiver processor.
+5. Promote candidates using a free-running autoregressive metric that combines
+   lead-weighted RMSE with temporal spectral coherence, first-difference
+   correlation, variance retention, and drift. Spectrum magnitude alone is not
+   sufficient because an out-of-phase oscillation can have the correct power.
+
 ## Conclusion and future work
 
-Pending.
+The spatial-grid Perceiver learned useful short- and medium-range signal, and
+2-in/1-out prediction fixed the identifiable output-slot parity bug. Neither
+result is sufficient for a physically credible model. The clearest current
+failure is shared temporal-frequency collapse: all variable families become
+too smooth and often drift during free-running rollout.
+
+Encoder compression is the leading architectural hypothesis because the model
+reduces the native spatial token count by 15 times before shared dynamics are
+processed, then asks a coordinate-only decoder to reconstruct the full field.
+The next architecture search should therefore include controlled encoder query
+density and reconstruction-transfer probes, while retaining alternatives that
+test explicit temporal encoding and state-conditioned decoding. Candidates
+must be selected by autoregressive physical behavior rather than validation
+loss alone. Final conclusions remain pending the terminal-checkpoint evaluation
+and these causal ablations.

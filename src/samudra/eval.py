@@ -70,10 +70,11 @@ class Eval:
         self.N_bound = len(self.boundary_var_names)
         self.N_prog = len(self.prognostic_var_names)
 
-        self.num_prog_in = int((cfg.data.hist + 1) * self.N_prog)
-        self.num_boundary_in = int((cfg.data.hist + 1) * self.N_bound)
+        self.input_steps = cfg.data.resolved_input_steps
+        self.output_steps = cfg.data.resolved_output_steps
+        self.num_prog_in = self.input_steps * self.N_prog
+        self.num_boundary_in = self.input_steps * self.N_bound
         self.num_in = self.num_prog_in + self.num_boundary_in
-        self.output_steps = cfg.data.num_output_steps
         self.num_out = self.output_steps * self.N_prog
 
         self.tensor_map = TensorMap(dataset_spec=self.dataset_spec).to(self.device)
@@ -104,7 +105,7 @@ class Eval:
             prog_channels=self.num_prog_in,
             boundary_channels=self.num_boundary_in,
             out_channels=self.num_out,
-            hist=cfg.data.hist,
+            input_steps=self.input_steps,
             srcs=self.data_container.train_sources,
         ).to(self.device)
 
@@ -130,7 +131,6 @@ class Eval:
         )
 
         # Eval
-        self.hist = cfg.data.hist
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
         self.num_workers = data_num_workers
@@ -156,14 +156,14 @@ class Eval:
     def init_inference_store(self):
         self.num_time_steps = get_inference_steps(
             self.src,
-            hist=self.hist,
+            input_steps=self.input_steps,
             output_steps=self.output_steps,
         )
         self.inference_dataset = InferenceDataset(
             src=self.src,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
-            hist=self.hist,
+            input_steps=self.input_steps,
             output_steps=self.output_steps,
             normalize_before_mask=self.normalize_before_mask,
             masked_fill_value=self.masked_fill_value,
@@ -231,14 +231,14 @@ class Eval:
         inf_aggregator = Aggregator.get_standalone_inference_aggregator(
             self.num_time_steps,
             self.metadata,
-            self.hist,
+            self.input_steps,
+            self.output_steps,
             self.area_weights,
             self.src.masks.prognostic.to(self.device),
             self.num_out,
             self.tensor_map,
             self.normalize,
             self.prognostic_var_names,
-            output_steps=self.output_steps,
         )
 
         run_rollout(

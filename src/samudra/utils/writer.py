@@ -21,12 +21,11 @@ class ZarrWriter:
         self,
         output_dir: str | os.PathLike,
         coords: dict[str, xr.DataArray],
-        hist: int,
+        output_steps: int,
         model_path: str | os.PathLike,
         time_chunk_size: int,
         normalize: Normalize,
         tensor_map: TensorMap,
-        output_steps: int | None = None,
     ):
         self.pred_path = os.path.join(output_dir, "predictions.zarr")
 
@@ -35,8 +34,7 @@ class ZarrWriter:
                 f"Predictions already exist at {self.pred_path}. Please choose a unique experiment name, output directory, or delete the existing predictions."
             )
 
-        self.hist = hist
-        self.output_steps = hist + 1 if output_steps is None else output_steps
+        self.output_steps = output_steps
         self.buffer: torch.Tensor | None = None
         self.time_buffer: xr.DataArray | None = None
         self.coords = coords

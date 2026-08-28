@@ -30,7 +30,7 @@ class Samudra(BaseModel):
         unet: UNetBackbone,
         pos_channels: int,
         add_3d_coordinates: nn.Module | None,
-        hist: int,
+        input_steps: int,
         grid_size: GridSize,
         gradient_detach_interval: int,
         use_bfloat16: bool,
@@ -39,7 +39,7 @@ class Samudra(BaseModel):
         super().__init__(
             in_channels=in_channels,
             out_channels=out_channels,
-            hist=hist,
+            input_steps=input_steps,
             pred_residuals=pred_residuals,
             last_kernel_size=last_kernel_size,
             pad=pad,

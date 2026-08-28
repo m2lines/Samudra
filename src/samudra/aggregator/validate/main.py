@@ -19,17 +19,17 @@ class ValidateAggregator(TrainAggregator):
     def __init__(
         self,
         aggregators: dict[str, ValidateSubAggregator],
-        hist: int,
+        input_steps: int,
+        output_steps: int,
         num_prognostic_channels: int,
         *,
         tensor_map: TensorMap,
         normalize: Normalize,
-        input_hist: int | None = None,
     ):
         super().__init__(tensor_map)
         self._aggregators = aggregators
-        self.input_hist = hist if input_hist is None else input_hist
-        self.output_hist = hist
+        self.input_steps = input_steps
+        self.output_steps = output_steps
         self.num_prognostic_channels = num_prognostic_channels
         self.normalize = normalize
 
@@ -49,15 +49,15 @@ class ValidateAggregator(TrainAggregator):
             return
 
         # Translate the GridContext mask by removing history.
-        target_data = batch.target_data  # [B, C*(hist+1), H, W]
-        wet = batch.ctx.label_mask  # [C*(hist+1), H, W]
+        target_data = batch.target_data  # [B, C*output_steps, H, W]
+        wet = batch.ctx.label_mask  # [C*output_steps, H, W]
         assert wet.shape == target_data.shape[1:], (
             "The wetmask must match the target data shape excluding batch."
         )
-        assert wet.shape[0] % (self.output_hist + 1) == 0, (
-            "The wetmask channel count must be divisible by history size."
+        assert wet.shape[0] % self.output_steps == 0, (
+            "The wetmask channel count must be divisible by output_steps."
         )
-        first_wetmask_chunk = wet.shape[0] // (self.output_hist + 1)
+        first_wetmask_chunk = wet.shape[0] // self.output_steps
         wet = wet[:first_wetmask_chunk]  # [C, H, W]
 
         if len(target_data) == 0:
@@ -74,7 +74,7 @@ class ValidateAggregator(TrainAggregator):
             long_rollout=False,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
-            hist=self.output_hist,
+            steps=self.output_steps,
         )
 
         gen_data_dict, gen_data_unnorm_dict = get_aggregator_dicts(
@@ -85,7 +85,7 @@ class ValidateAggregator(TrainAggregator):
             long_rollout=False,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
-            hist=self.output_hist,
+            steps=self.output_steps,
         )
         input_data_dict, input_data_unnorm_dict = get_aggregator_dicts(
             batch.input_data,
@@ -95,9 +95,9 @@ class ValidateAggregator(TrainAggregator):
             long_rollout=False,
             input_type="input",
             num_prognostic_channels=(
-                len(self.tensor_map.prognostic_var_names) * (self.input_hist + 1)
+                len(self.tensor_map.prognostic_var_names) * self.input_steps
             ),
-            hist=self.input_hist,
+            steps=self.input_steps,
         )
 
         for agg in self._aggregators.values():

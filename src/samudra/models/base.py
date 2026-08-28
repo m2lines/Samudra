@@ -30,7 +30,7 @@ class BaseModel(torch.nn.Module):
         self,
         in_channels,
         out_channels,
-        hist,
+        input_steps,
         pred_residuals,
         last_kernel_size,
         pad,
@@ -44,16 +44,11 @@ class BaseModel(torch.nn.Module):
         self.N_pad = int((last_kernel_size - 1) / 2)
         self.pad: str = pad
         self.pred_residuals = pred_residuals
-        self.hist = hist
-        self.input_steps = hist + 1
+        if input_steps < 1:
+            raise ValueError(f"input_steps must be positive, got {input_steps}")
+        self.input_steps = input_steps
         if prognostic_in_channels is None:
             prognostic_in_channels = out_channels
-        if prognostic_in_channels % self.input_steps != 0:
-            # Before input/output horizons were separated, direct model builders
-            # could provide a `hist` value that did not describe their already-
-            # flattened input channels. Preserve that API behavior. Trainer and
-            # Eval always construct divisible channel counts from DataConfig.
-            self.input_steps = 1
         if prognostic_in_channels == 0 and out_channels == 0:
             # Lightweight test doubles may override the complete forward path and
             # intentionally carry no channels.
@@ -61,6 +56,12 @@ class BaseModel(torch.nn.Module):
             self.output_steps = self.input_steps
             self.gradient_detach_interval = gradient_detach_interval
             return
+        if prognostic_in_channels % self.input_steps != 0:
+            raise ValueError(
+                "Prognostic input channels must contain complete input timesteps; "
+                f"got {prognostic_in_channels} channels for "
+                f"input_steps={self.input_steps}"
+            )
         self.prognostic_channels_per_step = prognostic_in_channels // self.input_steps
         if out_channels % self.prognostic_channels_per_step != 0:
             raise ValueError(

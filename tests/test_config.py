@@ -107,15 +107,22 @@ def test_data_config_defaults_to_cpu_loading():
 
 def test_data_config_output_steps_default_and_override():
     legacy = DataConfig(sources=[om4_source_config()], hist=1)
-    one_step = DataConfig(sources=[om4_source_config()], hist=1, output_steps=1)
+    explicit = DataConfig(sources=[om4_source_config()], input_steps=2)
+    one_step = DataConfig(sources=[om4_source_config()], input_steps=2, output_steps=1)
 
-    assert legacy.num_output_steps == 2
-    assert one_step.num_output_steps == 1
+    assert legacy.resolved_input_steps == explicit.resolved_input_steps == 2
+    assert legacy.resolved_output_steps == explicit.resolved_output_steps == 2
+    assert one_step.resolved_output_steps == 1
+
+
+def test_data_config_rejects_hist_with_input_steps():
+    with pytest.raises(ValidationError, match="mutually exclusive"):
+        DataConfig(sources=[om4_source_config()], hist=1, input_steps=2)
 
 
 def test_data_config_rejects_more_outputs_than_inputs():
     with pytest.raises(ValidationError, match="cannot exceed"):
-        DataConfig(sources=[om4_source_config()], hist=1, output_steps=3)
+        DataConfig(sources=[om4_source_config()], input_steps=2, output_steps=3)
 
 
 def test_om4_dataset_config_builds_selected_spec():

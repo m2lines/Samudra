@@ -680,23 +680,20 @@ def spherical_area(data: xr.Dataset) -> Grid:
 
 def get_inference_steps(
     data_source: DataSource,
-    hist: int = 1,
-    output_steps: int | None = None,
+    input_steps: int,
+    output_steps: int,
 ):
     """
     Get the number of inference/rollout steps for the given time configuration.
 
     Args:
         data_source: The data source sliced to the inference time range
-        hist: How many additional history samples we get per step
-        output_steps: Future raw timesteps emitted by each model call. Defaults to
-            ``hist + 1``.
+        input_steps: Raw timesteps consumed by each model call.
+        output_steps: Future raw timesteps emitted by each model call.
 
     Returns:
         num_steps: Total number of rolled-out inferences which fit into the time range
     """
-    input_steps = hist + 1
-    output_steps = input_steps if output_steps is None else output_steps
     available_targets = max(data_source.data.time.size - input_steps, 0)
     available_targets -= available_targets % output_steps
     # Aggregators record the initial input history followed by forecast targets.
@@ -725,7 +722,7 @@ def get_aggregator_dicts(
     long_rollout: bool,
     input_type: Literal["prognostic", "input"] = "prognostic",
     num_prognostic_channels: int = 0,
-    hist: int = 1,
+    steps: int = 2,
 ) -> tuple[DictSingleChannelVar, DictSingleChannelVar]:
     # Remove boundary data if input
     if input_type == "input":
@@ -736,11 +733,11 @@ def get_aggregator_dicts(
     if long_rollout:
         # All batches are part of the same rollout during inference
         data_reshaped = rearrange(
-            data, "n (hi c) h w -> (n hi) c h w", hi=hist + 1
+            data, "n (hi c) h w -> (n hi) c h w", hi=steps
         ).unsqueeze(0)  # add artificial batch dim
     elif data.ndim != 5:
         # Batches are independent rollouts during validation
-        data_reshaped = rearrange(data, "n (hi c) h w -> n hi c h w", hi=hist + 1)
+        data_reshaped = rearrange(data, "n (hi c) h w -> n hi c h w", hi=steps)
     else:
         # This case comes up in tests; typically, data is not in the desired shape automatically.
         data_reshaped = data

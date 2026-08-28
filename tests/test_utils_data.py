@@ -608,7 +608,7 @@ def test_get_norm_unnorm_dicts(data_init, input_type, long_rollout, hist):
         long_rollout=long_rollout,
         input_type=input_type,
         num_prognostic_channels=num_prognostic_channels * (hist + 1),
-        hist=hist,
+        steps=hist + 1,
     )
 
     var_name = tensor_map.prognostic_var_names[0]

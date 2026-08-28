@@ -55,20 +55,19 @@ class InferenceDataset(Dataset):
         src: DataSource,
         prognostic_var_names,
         boundary_var_names,
-        hist,
+        input_steps,
+        output_steps,
         normalize_before_mask,
         masked_fill_value,
         long_rollout,
-        output_steps=None,
     ):
         super().__init__()
         # NOTE: Keep tensors on CPU during initialization. This allows the dataset
         # to be passed between DataLoader worker processes. Call to(device) before
         # using the dataset for inference.
 
-        self.hist = hist
-        self.input_steps = hist + 1
-        self.output_steps = self.input_steps if output_steps is None else output_steps
+        self.input_steps = input_steps
+        self.output_steps = output_steps
         if not 1 <= self.output_steps <= self.input_steps:
             raise ValueError(
                 f"output_steps must be between 1 and {self.input_steps}, "
@@ -238,8 +237,8 @@ class InferenceDataset(Dataset):
         """
         This function returns the boundary condition for the current time step.
 
-        With hist > 0, the boundary condition considered is always the last step of
-        the input.
+        With multiple input steps, the boundary condition considered is always the
+        last input step.
         """
         data_in_boundary_src = self._boundary_src.map_data(
             lambda ds: ds.isel(time=x_index).isel(time=slice(None, self.input_steps))
@@ -464,20 +463,19 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         src: DataSource,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
-        hist: int,
+        input_steps: int,
+        output_steps: int,
         steps: int,
         normalize_before_mask: bool,
         masked_fill_value: float,
         stride: int = 1,
         concurrent_compute_: bool = False,
-        output_steps: int | None = None,
     ):
         super().__init__()
         self.id = f"{self.__class__.__name__}_{str(id(self))}"
 
-        self.hist: int = hist
-        self.input_steps: int = hist + 1
-        self.output_steps = self.input_steps if output_steps is None else output_steps
+        self.input_steps = input_steps
+        self.output_steps = output_steps
         if not 1 <= self.output_steps <= self.input_steps:
             raise ValueError(
                 f"output_steps must be between 1 and {self.input_steps}, "
@@ -529,7 +527,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         self.size: int = (
             time_.size
             - self.steps * self.output_steps * self.stride
-            - self.hist * self.stride
+            - (self.input_steps - 1) * self.stride
         )
 
     def __len__(self) -> int:

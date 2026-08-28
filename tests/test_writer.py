@@ -60,7 +60,7 @@ def test_writer_output_is_analysis_ready(tmp_path):
     writer = ZarrWriter(
         tmp_path,
         coords=coords,
-        hist=0,
+        output_steps=1,
         model_path="dummy.ckpt",
         time_chunk_size=4,
         normalize=_NO_NORMALIZE,
@@ -113,7 +113,6 @@ def test_writer_flattens_configured_output_steps(tmp_path):
     writer = ZarrWriter(
         tmp_path,
         coords=_source_coords(2, 3),
-        hist=1,
         output_steps=1,
         model_path="dummy.ckpt",
         time_chunk_size=4,
@@ -158,7 +157,7 @@ def test_writer_prefers_real_2d_lat_lon(tmp_path):
     writer = ZarrWriter(
         tmp_path,
         coords=coords,
-        hist=0,
+        output_steps=1,
         model_path="dummy.ckpt",
         time_chunk_size=4,
         normalize=_NO_NORMALIZE,
@@ -189,7 +188,7 @@ def test_writer_appends_along_time(tmp_path):
     writer = ZarrWriter(
         tmp_path,
         coords=coords,
-        hist=0,
+        output_steps=1,
         model_path="dummy.ckpt",
         time_chunk_size=4,
         normalize=_NO_NORMALIZE,
@@ -239,7 +238,7 @@ def test_writer_shallow_spec_slices_depth_metadata(tmp_path):
     writer = ZarrWriter(
         tmp_path,
         coords=coords,
-        hist=0,
+        output_steps=1,
         model_path="dummy.ckpt",
         time_chunk_size=4,
         normalize=_NO_NORMALIZE,
@@ -281,7 +280,7 @@ def test_writer_curvilinear_grid_without_real_coords_raises(tmp_path):
     writer = ZarrWriter(
         tmp_path,
         coords=coords,
-        hist=0,
+        output_steps=1,
         model_path="dummy.ckpt",
         time_chunk_size=4,
         normalize=_NO_NORMALIZE,

@@ -77,14 +77,14 @@ def _depth_weight(depth_index: int | None, dataset_spec: DatasetSpec) -> float:
 def _get_raw_rollout_dict(
     data: torch.Tensor,
     *,
-    hist: int,
+    output_steps: int,
     normalize: Normalize,
     field_names: tuple[str, ...],
 ) -> dict[str, torch.Tensor]:
     data_reshaped = rearrange(
         data,
         "n (hi c) h w -> (n hi) c h w",
-        hi=hist + 1,
+        hi=output_steps,
     ).unsqueeze(0)
     data_unnorm = normalize.unnormalize_tensor_prognostic(
         data_reshaped,
@@ -106,15 +106,14 @@ class RolloutValidationAggregator:
     def __init__(
         self,
         *,
-        hist: int,
+        output_steps: int,
         area_weights: torch.Tensor,
         normalize: Normalize,
         dataset_spec: DatasetSpec,
         prognostic_var_names: PrognosticVarNames,
         distributed_reduce: bool = True,
-        output_steps: int | None = None,
     ):
-        self.hist = hist if output_steps is None else output_steps - 1
+        self.output_steps = output_steps
         self._normalize = normalize
         self._dataset_spec = dataset_spec
         self._raw_field_names = tuple(prognostic_var_names)
@@ -133,13 +132,13 @@ class RolloutValidationAggregator:
 
         target_unnorm = _get_raw_rollout_dict(
             data.target,
-            hist=self.hist,
+            output_steps=self.output_steps,
             normalize=self._normalize,
             field_names=self._raw_field_names,
         )
         gen_unnorm = _get_raw_rollout_dict(
             data.prediction,
-            hist=self.hist,
+            output_steps=self.output_steps,
             normalize=self._normalize,
             field_names=self._raw_field_names,
         )

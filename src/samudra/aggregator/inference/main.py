@@ -26,7 +26,8 @@ class InferenceEvaluatorAggregator:
         self,
         n_timesteps: int,
         metadata: dict[str, dict[str, str]],
-        hist: int,
+        input_steps: int,
+        output_steps: int,
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
@@ -37,14 +38,14 @@ class InferenceEvaluatorAggregator:
         log_global_mean_norm_time_series: bool = True,
         time_mean_reference_data: xr.Dataset | None = None,
         channel_mean_names: list[str] | None = None,
-        output_steps: int | None = None,
     ):
         """
         Args:
             n_timesteps: Number of timesteps of inference that will be run.
             metadata: Mapping of variable names their metadata that will
                 used in generating logged image captions.
-            hist: Number of timesteps of history.
+            input_steps: Raw timesteps consumed by each model call.
+            output_steps: Future raw timesteps emitted by each model call.
             area_weights: Area weights for the data.
             wet: Wet mask for the data.
             num_prognostic_channels: Number of prognostic channels in the data.
@@ -56,8 +57,6 @@ class InferenceEvaluatorAggregator:
                 time series metrics.
             time_mean_reference_data: Reference time means for computing bias stats.
             channel_mean_names: List of channel names to compute the mean of.
-            output_steps: Future raw timesteps emitted by each model call. Defaults
-                to ``hist + 1`` for backwards compatibility.
         """
         self._aggregators: dict[
             str, MeanAggregator | OneStepMeanAggregator | TimeMeanEvaluatorAggregator
@@ -109,9 +108,8 @@ class InferenceEvaluatorAggregator:
         self._normalize = normalize
         self._tensor_map = tensor_map
         self.num_prognostic_channels = num_prognostic_channels
-        self.input_hist = hist
-        self.output_steps = hist + 1 if output_steps is None else output_steps
-        self.output_hist = self.output_steps - 1
+        self.input_steps = input_steps
+        self.output_steps = output_steps
         self.wet = wet
 
     @property
@@ -134,7 +132,7 @@ class InferenceEvaluatorAggregator:
             long_rollout=True,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
-            hist=self.output_hist,
+            steps=self.output_steps,
         )
         gen_norm_dict, gen_unnorm_dict = get_aggregator_dicts(
             data.prediction,
@@ -144,7 +142,7 @@ class InferenceEvaluatorAggregator:
             long_rollout=True,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
-            hist=self.output_hist,
+            steps=self.output_steps,
         )
 
         for aggregator in self._aggregators.values():
@@ -188,9 +186,9 @@ class InferenceEvaluatorAggregator:
             long_rollout=True,
             input_type="input",
             num_prognostic_channels=(
-                len(self._tensor_map.prognostic_var_names) * (self.input_hist + 1)
+                len(self._tensor_map.prognostic_var_names) * self.input_steps
             ),
-            hist=self.input_hist,
+            steps=self.input_steps,
         )
         for aggregator_name in ["mean", "mean_norm"]:
             aggregator = self._aggregators.get(aggregator_name)

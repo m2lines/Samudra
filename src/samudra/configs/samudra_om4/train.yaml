@@ -33,5 +33,5 @@ experiment:
   wandb:
     mode: disabled
     project: default
-data: !include ../data/om4.yaml
+data: !include om4-2in1out.yaml
 model: !include model.yaml

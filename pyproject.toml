@@ -38,6 +38,7 @@ dependencies = [
   "microsoft-aurora>=1.8",
   "numpy>=1.26.4,<2",             # There is some incompatibility between a dependency and numpy 2+
   "pandas>=2.2",                  # tidy metric frames are part of samudra.metrics' API
+  "pyarrow>=18",                  # portable Parquet experiment catalogs
   "pydantic-settings>=2.8.1",
   "pytest-xdist[psutil]>=3.6.1",
   "pyyaml>=6.0.2",
@@ -174,6 +175,7 @@ overrides = [
     "cftime.*",
     "scipy.*",
     "fsspec.*",
+    "s3fs.*",
     "aurora.*",
   ], follow_untyped_imports = true },
 ]

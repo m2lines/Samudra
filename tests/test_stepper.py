@@ -225,7 +225,6 @@ def test_two_input_one_output_residual_rollout_anchors_latest_state(
         last_kernel_size=3,
         pad="circular",
         gradient_detach_interval=0,
-        prognostic_in_channels=2,
     )
 
     output = model.inference(
@@ -265,7 +264,6 @@ def test_two_input_one_output_training_shifts_predicted_history():
         last_kernel_size=3,
         pad="circular",
         gradient_detach_interval=0,
-        prognostic_in_channels=2,
     )
 
     outputs = model(batch)

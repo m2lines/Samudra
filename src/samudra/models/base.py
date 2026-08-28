@@ -35,7 +35,6 @@ class BaseModel(torch.nn.Module):
         last_kernel_size,
         pad,
         gradient_detach_interval: int,
-        prognostic_in_channels: int | None = None,
     ) -> None:
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
@@ -47,34 +46,6 @@ class BaseModel(torch.nn.Module):
         if input_steps < 1:
             raise ValueError(f"input_steps must be positive, got {input_steps}")
         self.input_steps = input_steps
-        if prognostic_in_channels is None:
-            prognostic_in_channels = out_channels
-        if prognostic_in_channels == 0 and out_channels == 0:
-            # Lightweight test doubles may override the complete forward path and
-            # intentionally carry no channels.
-            self.prognostic_channels_per_step = 0
-            self.output_steps = self.input_steps
-            self.gradient_detach_interval = gradient_detach_interval
-            return
-        if prognostic_in_channels % self.input_steps != 0:
-            raise ValueError(
-                "Prognostic input channels must contain complete input timesteps; "
-                f"got {prognostic_in_channels} channels for "
-                f"input_steps={self.input_steps}"
-            )
-        self.prognostic_channels_per_step = prognostic_in_channels // self.input_steps
-        if out_channels % self.prognostic_channels_per_step != 0:
-            raise ValueError(
-                "Output channels must contain complete prognostic timesteps; "
-                f"got {out_channels} channels for "
-                f"{self.prognostic_channels_per_step} channels per timestep"
-            )
-        self.output_steps = out_channels // self.prognostic_channels_per_step
-        if not 1 <= self.output_steps <= self.input_steps:
-            raise ValueError(
-                f"Model output_steps must be between 1 and {self.input_steps}, "
-                f"got {self.output_steps}"
-            )
         self.gradient_detach_interval = gradient_detach_interval
 
     def _assemble_prediction(

@@ -381,7 +381,7 @@ def test_trainer_supports_two_input_one_output_batches(train_config):
         assert trainer.num_out == trainer.N_prog
 
         assert trainer.input_steps == trainer.model.input_steps == 2
-        assert trainer.model.output_steps == 1
+        assert trainer.output_steps == 1
         assert trainer.model.out_channels == label.shape[1]
 
         class PerfectOneStepModel(BaseModel):

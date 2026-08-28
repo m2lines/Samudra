@@ -69,7 +69,6 @@ class SamudraMini(BaseModel):
         checkpointing: "Checkpointing | None",
         gradient_detach_interval: int,
         use_bfloat16: bool,
-        prognostic_in_channels: int | None = None,
     ) -> None:
         super().__init__(
             in_channels=in_channels,
@@ -79,7 +78,6 @@ class SamudraMini(BaseModel):
             last_kernel_size=last_kernel_size,
             pad=pad,
             gradient_detach_interval=gradient_detach_interval,
-            prognostic_in_channels=prognostic_in_channels,
         )
         if query_chunk_size is not None and query_chunk_size <= 0:
             raise ValueError(

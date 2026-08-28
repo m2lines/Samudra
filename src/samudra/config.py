@@ -883,7 +883,6 @@ class SamudraConfig(BaseModelConfig):
             grid_size=src.grid_size,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
-            prognostic_in_channels=prog_channels,
         )
 
 
@@ -970,7 +969,6 @@ class SamudraMultiConfig(BaseModelConfig):
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
-            prognostic_in_channels=prog_channels,
         )
 
 
@@ -1047,7 +1045,6 @@ class SamudraMiniConfig(BaseModelConfig):
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
-            prognostic_in_channels=prog_channels,
         )
 
 

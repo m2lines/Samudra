@@ -59,7 +59,6 @@ class SamudraMulti(BaseModel):
         checkpointing: "Checkpointing | None",
         gradient_detach_interval: int,
         use_bfloat16: bool,
-        prognostic_in_channels: int | None = None,
     ):
         super().__init__(
             in_channels=in_channels,
@@ -69,7 +68,6 @@ class SamudraMulti(BaseModel):
             last_kernel_size=last_kernel_size,
             pad=pad,
             gradient_detach_interval=gradient_detach_interval,
-            prognostic_in_channels=prognostic_in_channels,
         )
 
         self.maybe_add_3d_coordinates = add_3d_coordinates

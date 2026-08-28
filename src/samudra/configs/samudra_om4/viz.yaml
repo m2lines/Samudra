@@ -9,7 +9,7 @@ name: "samudra_om4_viz"
 dataset_name: "OM4"
 # Ground truth comes from this data source (same shape as train/eval), so
 # `--data @data/om4_demo.yaml` points viz at the demo data just like the others.
-data: !include ../data/om4.yaml
+data: !include om4-2in1out.yaml
 basins_location:
   type: s3
   anon: true

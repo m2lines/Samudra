@@ -423,13 +423,12 @@ class DataConfig(BaseConfig):
         default=None,
         ge=0,
         description=(
-            "Legacy number of additional input-history timesteps. When neither "
-            "hist nor input_steps is set, hist defaults semantically to 1. "
-            "Cannot be set together with input_steps."
+            "Legacy number of additional input-history timesteps. This is "
+            "translated to input_steps and cannot be set together with it."
         ),
     )
-    input_steps: int | None = Field(
-        default=None,
+    input_steps: int = Field(
+        default=2,
         ge=1,
         description=(
             "Number of raw timesteps consumed by each model call. Cannot be set "
@@ -450,27 +449,22 @@ class DataConfig(BaseConfig):
     concurrent_compute: bool = False
 
     @property
-    def resolved_input_steps(self) -> int:
-        if self.input_steps is not None:
-            return self.input_steps
-        return (1 if self.hist is None else self.hist) + 1
-
-    @property
     def resolved_output_steps(self) -> int:
-        return (
-            self.resolved_input_steps
-            if self.output_steps is None
-            else self.output_steps
-        )
+        return self.input_steps if self.output_steps is None else self.output_steps
 
     @pydantic.model_validator(mode="after")
     def validate_step_configuration(self) -> Self:
-        if self.hist is not None and self.input_steps is not None:
-            raise ValueError("data.hist and data.input_steps are mutually exclusive")
-        if self.resolved_output_steps > self.resolved_input_steps:
+        if self.hist is not None:
+            if "input_steps" in self.model_fields_set:
+                raise ValueError(
+                    "data.hist and data.input_steps are mutually exclusive"
+                )
+            self.input_steps = self.hist + 1
+            self.hist = None
+        if self.resolved_output_steps > self.input_steps:
             raise ValueError(
                 "data.output_steps cannot exceed the number of input timesteps "
-                f"({self.resolved_input_steps}); got {self.resolved_output_steps}"
+                f"({self.input_steps}); got {self.resolved_output_steps}"
             )
         return self
 

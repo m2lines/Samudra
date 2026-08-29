@@ -106,13 +106,27 @@ def test_data_config_defaults_to_cpu_loading():
 
 
 def test_data_config_output_steps_default_and_override():
+    default = DataConfig(sources=[om4_source_config()])
     legacy = DataConfig(sources=[om4_source_config()], hist=1)
     explicit = DataConfig(sources=[om4_source_config()], input_steps=2)
     one_step = DataConfig(sources=[om4_source_config()], input_steps=2, output_steps=1)
 
-    assert legacy.resolved_input_steps == explicit.resolved_input_steps == 2
+    assert default.input_steps == legacy.input_steps == explicit.input_steps == 2
+    assert legacy.hist is None
     assert legacy.resolved_output_steps == explicit.resolved_output_steps == 2
     assert one_step.resolved_output_steps == 1
+
+
+@pytest.mark.parametrize(("hist", "input_steps"), [(0, 1), (1, 2), (3, 4)])
+def test_data_config_translates_legacy_hist(hist, input_steps):
+    legacy = DataConfig(sources=[om4_source_config()], hist=hist)
+
+    assert legacy.hist is None
+    assert legacy.input_steps == input_steps
+    assert (
+        DataConfig.model_validate(legacy.model_dump()).model_dump()
+        == legacy.model_dump()
+    )
 
 
 def test_data_config_rejects_hist_with_input_steps():

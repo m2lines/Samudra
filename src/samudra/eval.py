@@ -70,7 +70,7 @@ class Eval:
         self.N_bound = len(self.boundary_var_names)
         self.N_prog = len(self.prognostic_var_names)
 
-        self.input_steps = cfg.data.resolved_input_steps
+        self.input_steps = cfg.data.input_steps
         self.output_steps = cfg.data.resolved_output_steps
         self.num_prog_in = self.input_steps * self.N_prog
         self.num_boundary_in = self.input_steps * self.N_bound

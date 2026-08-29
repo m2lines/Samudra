@@ -153,7 +153,7 @@ class Trainer:
         if data_num_workers > 0:
             self.mp_context = multiprocessing.get_context("spawn")
 
-        self.input_steps = cfg.data.resolved_input_steps
+        self.input_steps = cfg.data.input_steps
         self.output_steps = cfg.data.resolved_output_steps
         self.num_prog_in = self.input_steps * self.N_prog
         self.num_boundary_in = self.input_steps * self.N_bound

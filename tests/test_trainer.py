@@ -364,7 +364,6 @@ def test_multiscale_training_validates_primary_source_and_logs_reduced_metrics(
     indirect=True,
 )
 def test_trainer_supports_two_input_one_output_batches(train_config):
-    train_config.data.hist = None
     train_config.data.input_steps = 2
     train_config.data.output_steps = 1
     train_config.data.loading.num_workers = 0

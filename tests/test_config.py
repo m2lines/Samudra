@@ -22,9 +22,11 @@ from samudra.config import (
     Om4DataSourceConfig,
     Om4TimeConfig,
     RolloutValidationConfig,
+    SamudraConfig,
     TrainConfig,
 )
 from samudra.config_schema import get_pydantic_models
+from samudra.models.modules.blocks import ConvNeXtBlock
 from samudra.utils.location import LocalLocation, UnresolvedLocation
 from tests.conftest import DEFAULT_CONFIG, TEST_CONFIGS_DIR
 from tests.llc_fixtures import write_raw_llc_datasets
@@ -449,6 +451,40 @@ def test_get_pydantic_models_collects_loading_variants():
 
     assert models["CpuDataLoadingConfig"] is CpuDataLoadingConfig
     assert models["GpuDataLoadingConfig"] is GpuDataLoadingConfig
+
+
+def test_llc_train_config_uses_group_norm_and_temporal_stride(tmp_path):
+    cfg = TrainConfig.from_yaml_and_cli(
+        [
+            "samudra_llc/train.yaml",
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+        ]
+    )
+
+    assert cfg.temporal_stride == 24
+    assert cfg.data.sources[0].type == "llc"
+    assert cfg.data.sources[0].prognostic_vars_key == "single_1"
+    assert cfg.data.sources[0].boundary_vars_key == "single_1"
+    assert isinstance(cfg.model, SamudraConfig)
+    assert cfg.model.unet.core_block.norm == "group"
+    assert cfg.model.unet.core_block.group_norm_groups == 32
+    block = cfg.model.unet.core_block.build()(1, 1, 1, 1, "constant", False)
+    assert isinstance(block, ConvNeXtBlock)
+
+
+def test_llc_train_config_allows_cli_override_for_temporal_stride(tmp_path):
+    cfg = TrainConfig.from_yaml_and_cli(
+        [
+            "samudra_llc/train.yaml",
+            "--experiment.base_output_dir",
+            str(tmp_path / "outputs"),
+            "--temporal_stride",
+            "12",
+        ]
+    )
+
+    assert cfg.temporal_stride == 12
 
 
 @pytest.mark.parametrize(

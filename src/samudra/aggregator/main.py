@@ -30,31 +30,30 @@ class Aggregator:
     @staticmethod
     def get_validation_aggregator(
         metadata: dict[str, dict[str, str]],
-        hist: int,
+        input_steps: int,
+        output_steps: int,
         area_weights: torch.Tensor,
         num_prognostic_channels: int,
         tensor_map: TensorMap,
         normalize: Normalize,
         *,
-        output_steps: int | None = None,
         include_image_aggregators: bool = True,
     ) -> ValidateAggregator:
-        output_hist = hist if output_steps is None else output_steps - 1
         val_aggregators: dict[str, ValidateSubAggregator] = {
-            "reduced": MeanAggregator(area_weights, output_hist),
+            "reduced": MeanAggregator(area_weights, output_steps - 1),
         }
         if include_image_aggregators:
             val_aggregators.update(
                 {
-                    "snapshot": SnapshotAggregator(metadata, hist),
-                    "mean_map": MapAggregator(metadata, output_hist),
+                    "snapshot": SnapshotAggregator(metadata, input_steps),
+                    "mean_map": MapAggregator(metadata, output_steps),
                 }
             )
 
         return ValidateAggregator(
             val_aggregators,
-            hist=output_hist,
-            input_hist=hist,
+            input_steps=input_steps,
+            output_steps=output_steps,
             num_prognostic_channels=num_prognostic_channels,
             tensor_map=tensor_map,
             normalize=normalize,
@@ -64,19 +63,19 @@ class Aggregator:
     def get_inline_inference_aggregator(
         n_timesteps: int,
         metadata: dict[str, dict[str, str]],
-        hist: int,
+        input_steps: int,
+        output_steps: int,
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
         tensor_map: TensorMap,
         normalize: Normalize,
         channel_mean_names: list[str] | None = None,
-        output_steps: int | None = None,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(
             n_timesteps=n_timesteps,
             metadata=metadata,
-            hist=hist,
+            input_steps=input_steps,
             output_steps=output_steps,
             area_weights=area_weights,
             wet=wet,
@@ -93,19 +92,19 @@ class Aggregator:
     def get_standalone_inference_aggregator(
         n_timesteps: int,
         metadata: dict[str, dict[str, str]],
-        hist: int,
+        input_steps: int,
+        output_steps: int,
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
         tensor_map: TensorMap,
         normalize: Normalize,
         channel_mean_names: list[str] | None = None,
-        output_steps: int | None = None,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(
             n_timesteps=n_timesteps,
             metadata=metadata,
-            hist=hist,
+            input_steps=input_steps,
             output_steps=output_steps,
             area_weights=area_weights,
             wet=wet,

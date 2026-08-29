@@ -65,21 +65,19 @@ class SamudraMini(BaseModel):
         queries_dim: int,
         query_chunk_size: int | None,
         perceiver_io: nn.Module,
-        hist: int,
+        input_steps: int,
         checkpointing: "Checkpointing | None",
         gradient_detach_interval: int,
         use_bfloat16: bool,
-        prognostic_in_channels: int | None = None,
     ) -> None:
         super().__init__(
             in_channels=in_channels,
             out_channels=out_channels,
-            hist=hist,
+            input_steps=input_steps,
             pred_residuals=pred_residuals,
             last_kernel_size=last_kernel_size,
             pad=pad,
             gradient_detach_interval=gradient_detach_interval,
-            prognostic_in_channels=prognostic_in_channels,
         )
         if query_chunk_size is not None and query_chunk_size <= 0:
             raise ValueError(

@@ -187,12 +187,11 @@ def run_rollout(
         writer = ZarrWriter(
             output_dir,
             coords=coords,
-            hist=inf_aggregator.output_hist,
+            output_steps=dataset.output_steps,
             model_path=model_path,
             time_chunk_size=chunk_size,
             normalize=normalize,
             tensor_map=tensor_map,
-            output_steps=dataset.output_steps,
         )
     else:
         writer = None

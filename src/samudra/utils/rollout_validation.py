@@ -66,8 +66,7 @@ class RolloutValidationSpec:
         *,
         requested_steps: int,
         available_steps: int,
-        hist: int,
-        output_steps: int | None = None,
+        output_steps: int,
     ) -> "RolloutValidationSpec":
         model_steps = resolve_rollout_validation_steps(
             requested_steps,
@@ -76,8 +75,7 @@ class RolloutValidationSpec:
         return cls(
             label="steps",
             model_steps=model_steps,
-            target_timesteps=model_steps
-            * (hist + 1 if output_steps is None else output_steps),
+            target_timesteps=model_steps * output_steps,
         )
 
     @classmethod
@@ -87,8 +85,7 @@ class RolloutValidationSpec:
         days: int,
         start_time: Any,
         target_times: Any,
-        hist: int,
-        output_steps: int | None = None,
+        output_steps: int,
     ) -> "RolloutValidationSpec":
         if days <= 0:
             raise ValueError(f"rollout_validation.days must be positive, got {days}")
@@ -107,13 +104,12 @@ class RolloutValidationSpec:
             )
 
         target_timesteps = int(np.count_nonzero(target_elapsed_days <= days))
-        steps_per_output = hist + 1 if output_steps is None else output_steps
-        model_steps = target_timesteps // steps_per_output
-        target_timesteps = model_steps * steps_per_output
+        model_steps = target_timesteps // output_steps
+        target_timesteps = model_steps * output_steps
         if model_steps < 1:
             raise ValueError(
                 f"rollout_validation.days={days} is shorter than one model step "
-                f"for hist={hist}"
+                f"for output_steps={output_steps}"
             )
 
         return cls(

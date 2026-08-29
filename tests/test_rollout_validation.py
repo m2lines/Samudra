@@ -22,7 +22,7 @@ def test_rollout_validation_spec_resolves_day_horizon_to_model_steps():
         days=3,
         start_time=np.datetime64("2026-01-01"),
         target_times=target_times,
-        hist=1,
+        output_steps=2,
     )
 
     assert spec == RolloutValidationSpec(
@@ -38,5 +38,5 @@ def test_rollout_validation_spec_rejects_uncovered_day_horizon():
             days=10,
             start_time=np.datetime64("2026-01-01"),
             target_times=np.array([np.datetime64("2026-01-02")]),
-            hist=0,
+            output_steps=1,
         )

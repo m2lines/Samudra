@@ -80,11 +80,13 @@ def inf_data_init(hist: int):
             prognostic_var_names=tensor_map.prognostic_var_names,
             boundary_var_names=tensor_map.boundary_var_names,
         )
+        input_steps = hist + 1
         inference_dataset = InferenceDataset(
             val,
             tensor_map.prognostic_var_names,
             tensor_map.boundary_var_names,
-            hist,
+            input_steps=input_steps,
+            output_steps=input_steps,
             normalize_before_mask=True,
             masked_fill_value=0.0,
             long_rollout=True,
@@ -150,7 +152,7 @@ def two_input_one_output_dataset(inf_data_init):
         src=src,
         prognostic_var_names=TEST_DATASET_SPEC.prognostic_var_names,
         boundary_var_names=TEST_DATASET_SPEC.boundary_var_names,
-        hist=1,
+        input_steps=2,
         output_steps=1,
         normalize_before_mask=True,
         masked_fill_value=0.0,
@@ -171,7 +173,7 @@ def test_validate_batch_uses_absolute_predictions_for_residual_models():
     model = ConstantResidualModel(
         in_channels=2,
         out_channels=1,
-        hist=0,
+        input_steps=1,
         pred_residuals=True,
         last_kernel_size=3,
         pad="circular",
@@ -218,12 +220,11 @@ def test_two_input_one_output_residual_rollout_anchors_latest_state(
     model = ConstantOneStepResidualModel(
         in_channels=3,
         out_channels=1,
-        hist=1,
+        input_steps=2,
         pred_residuals=True,
         last_kernel_size=3,
         pad="circular",
         gradient_detach_interval=0,
-        prognostic_in_channels=2,
     )
 
     output = model.inference(
@@ -258,12 +259,11 @@ def test_two_input_one_output_training_shifts_predicted_history():
     model = ConstantOneStepResidualModel(
         in_channels=4,
         out_channels=1,
-        hist=1,
+        input_steps=2,
         pred_residuals=True,
         last_kernel_size=3,
         pad="circular",
         gradient_detach_interval=0,
-        prognostic_in_channels=2,
     )
 
     outputs = model(batch)
@@ -344,7 +344,7 @@ def test_inference_rollout(inf_data_init, hist, num_steps):
     model = MockModel(
         in_channels=1,
         out_channels=inference_dataset.num_prognostic_channels,
-        hist=hist,
+        input_steps=hist + 1,
         pred_residuals=False,
         last_kernel_size=3,
         pad="circular",
@@ -397,7 +397,7 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
     model = MockModel(
         in_channels=1,
         out_channels=inference_dataset.num_prognostic_channels,
-        hist=hist,
+        input_steps=hist + 1,
         pred_residuals=False,
         last_kernel_size=3,
         pad="circular",

@@ -419,13 +419,28 @@ class DataConfig(BaseConfig):
         min_length=1,
     )
     loading: DataLoadingConfig = Field(default_factory=CpuDataLoadingConfig)
-    hist: int = 1
+    hist: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Legacy number of additional input-history timesteps. This is "
+            "translated to input_steps and cannot be set together with it."
+        ),
+    )
+    input_steps: int = Field(
+        default=2,
+        ge=1,
+        description=(
+            "Number of raw timesteps consumed by each model call. Cannot be set "
+            "together with the legacy hist option."
+        ),
+    )
     output_steps: int | None = Field(
         default=None,
         ge=1,
         description=(
             "Number of future raw timesteps emitted by each model call. When "
-            "unset, this defaults to hist + 1 for backwards compatibility."
+            "unset, this defaults to the resolved number of input steps."
         ),
     )
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
@@ -434,15 +449,22 @@ class DataConfig(BaseConfig):
     concurrent_compute: bool = False
 
     @property
-    def num_output_steps(self) -> int:
-        return self.hist + 1 if self.output_steps is None else self.output_steps
+    def resolved_output_steps(self) -> int:
+        return self.input_steps if self.output_steps is None else self.output_steps
 
     @pydantic.model_validator(mode="after")
-    def validate_output_steps(self) -> Self:
-        if self.num_output_steps > self.hist + 1:
+    def validate_step_configuration(self) -> Self:
+        if self.hist is not None:
+            if "input_steps" in self.model_fields_set:
+                raise ValueError(
+                    "data.hist and data.input_steps are mutually exclusive"
+                )
+            self.input_steps = self.hist + 1
+            self.hist = None
+        if self.resolved_output_steps > self.input_steps:
             raise ValueError(
                 "data.output_steps cannot exceed the number of input timesteps "
-                f"(hist + 1 = {self.hist + 1}); got {self.num_output_steps}"
+                f"({self.input_steps}); got {self.resolved_output_steps}"
             )
         return self
 
@@ -803,7 +825,7 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         prog_channels: int,
         boundary_channels: int,
         out_channels: int,
-        hist: int,
+        input_steps: int,
         srcs: list[DataSource],
     ) -> BaseModel:
         pass
@@ -825,7 +847,7 @@ class SamudraConfig(BaseModelConfig):
         prog_channels: int,
         boundary_channels: int,
         out_channels: int,
-        hist: int,
+        input_steps: int,
         srcs: list[DataSource],
     ) -> Samudra:
         if len(srcs) != 1:
@@ -851,11 +873,10 @@ class SamudraConfig(BaseModelConfig):
             ),
             pos_channels=self.pos_channels,
             add_3d_coordinates=add_3d_coordinates,
-            hist=hist,
+            input_steps=input_steps,
             grid_size=src.grid_size,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
-            prognostic_in_channels=prog_channels,
         )
 
 
@@ -885,7 +906,7 @@ class SamudraMultiConfig(BaseModelConfig):
         prog_channels: int,
         boundary_channels: int,
         out_channels: int,
-        hist: int,
+        input_steps: int,
         srcs: list[DataSource],
     ) -> SamudraMulti:
         assert len(self.patch_extent) == 2, "patch_extent must be a pair of floats."
@@ -938,11 +959,10 @@ class SamudraMultiConfig(BaseModelConfig):
             processor=processor,
             decoder=decoder,
             add_3d_coordinates=add_3d_coordinates,
-            hist=hist,
+            input_steps=input_steps,
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
-            prognostic_in_channels=prog_channels,
         )
 
 
@@ -981,7 +1001,7 @@ class SamudraMiniConfig(BaseModelConfig):
         prog_channels: int,
         boundary_channels: int,
         out_channels: int,
-        hist: int,
+        input_steps: int,
         srcs: list[DataSource],
     ) -> SamudraMini:
         if self.add_3d_coordinates:
@@ -1015,11 +1035,10 @@ class SamudraMiniConfig(BaseModelConfig):
             queries_dim=self.queries_dim,
             query_chunk_size=self.query_chunk_size,
             perceiver_io=perceiver_io,
-            hist=hist,
+            input_steps=input_steps,
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
-            prognostic_in_channels=prog_channels,
         )
 
 

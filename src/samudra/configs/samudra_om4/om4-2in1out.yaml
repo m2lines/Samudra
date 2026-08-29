@@ -23,5 +23,5 @@ sources:
 concurrent_compute: true
 loading:
   type: cpu
-hist: 1
+input_steps: 2
 output_steps: 1

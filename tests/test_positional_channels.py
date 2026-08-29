@@ -5,9 +5,8 @@
 import torch
 
 from samudra.config import SamudraConfig, UNetBackboneConfig
-from samudra.constants import TensorMap
 from samudra.utils.ctx import GridContext
-from samudra.utils.data import DataSource, Normalize
+from samudra.utils.data import DataSource
 
 
 def test_positional_parameters_update(dummy_src: DataSource):
@@ -25,22 +24,12 @@ def test_positional_parameters_update(dummy_src: DataSource):
         ),
         pos_channels=1,
     )
-    tensor_map = TensorMap(dataset_spec=src.dataset_spec)
-    normalize = Normalize(
-        src,
-        tensor_map.prognostic_var_names,
-        tensor_map.boundary_var_names,
-    )
     model = config.build(
         prog_channels=1,
         boundary_channels=1,
         out_channels=1,
         hist=0,
-        static_data_for_corrector=None,
         srcs=[src],
-        tensor_map=tensor_map,
-        normalize=normalize,
-        dataset_spec=src.dataset_spec,
     )
 
     # Verify we have created the positional embeddings

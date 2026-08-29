@@ -91,10 +91,10 @@ git push --force-with-lease
 
    To validate the PhysicsNeMo-based container locally:
    ```shell
-   scripts/container/build_physicsnemo_25_11.sh
+   scripts/container/build_physicsnemo_26_05.sh
    scripts/container/run_cuda_tests_in_image.sh
    ```
-   The corresponding CI workflow is `Container PhysicsNeMo 25.11` in
+   The corresponding CI workflow is `Container PhysicsNeMo 26.05` in
    `.github/workflows/container-physicsnemo.yml` (x86 build + smoke checks, publish, and containerized CPU/GPU tests).
 
    **Recommended**: For convenience, we've collected lint checks as a [pre-commit](https://pre-commit.com/)
@@ -243,10 +243,10 @@ pytest -m "not manual and not cuda"
 
 ### Running tests in the PhysicsNeMo container
 
-If you want to run tests using the PhysicsNeMo 25.11-based image, build it first:
+If you want to run tests using the PhysicsNeMo 26.05-based image, build it first:
 
 ```bash
-BUILD_APPTAINER=0 scripts/container/build_physicsnemo_25_11.sh
+BUILD_APPTAINER=0 scripts/container/build_physicsnemo_26_05.sh
 ```
 
 Run the CPU test set (same marker expression as CPU CI) inside the built image:
@@ -255,7 +255,7 @@ Run the CPU test set (same marker expression as CPU CI) inside the built image:
 docker run --rm \
   -v "$PWD":/repo \
   -w /workspace \
-  ocean-emulator:physicsnemo-25.11 \
+  ocean-emulator:physicsnemo-26.05 \
   bash -lc '. .venv/bin/activate && cd /repo && python -m pytest -m "not manual and not cuda"'
 ```
 
@@ -358,13 +358,13 @@ We also have a few other profiling tools available in the environment, including
 
 [py-spy](https://github.com/benfred/py-spy), which captures python + native CPU usage:
 ```shell
-uv run py-spy record --native -o profile.svg -- ./.venv/bin/python  src/samudra/train.py configs/samudra_vnext/train.yaml
+uv run py-spy record --native -o profile.svg -- ./.venv/bin/python  src/samudra/train.py src/samudra/configs/samudra_vnext/train.yaml
 ```
 
 [memray](https://github.com/bloomberg/memray), which captures peak memory usage:
 
 ```shell
-uv run memray run src/samudra/train.py --config configs/samudra_vnext/train.yaml
+uv run memray run src/samudra/train.py --config src/samudra/configs/samudra_vnext/train.yaml
 uv run memray flamegraph path/to/memray-output.bin
 ```
 
@@ -372,7 +372,7 @@ And [scalene](https://github.com/joaomdmoura/scalene), which shows per-line pyth
 memory usage and GPU (though the latter is a bit deceptive since it is async wrt the highlighted code).
 
 ```shell
-uv run scalene src/samudra/train.py configs/samudra_vnext/train.yaml
+uv run scalene src/samudra/train.py src/samudra/configs/samudra_vnext/train.yaml
 ```
 
 ### Profiling CUDA Memory
@@ -381,7 +381,7 @@ You can turn on profiling of CUDA memory by setting the `profiler.cuda_snapshot_
 in the config. eg:
 
 ```shell
-uv run memray run src/samudra/train.py --config configs/samudra_vnext/train.yaml --profiler.cuda_snapshot_frequency 10
+uv run memray run src/samudra/train.py --config src/samudra/configs/samudra_vnext/train.yaml --profiler.cuda_snapshot_frequency 10
 ```
 
 This will take a snapshot of the CUDA memory every 10 batches in the output directory. These can be visualized with

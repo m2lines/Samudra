@@ -28,7 +28,6 @@ class Samudra(BaseModel):
         last_kernel_size: int,
         pad: str,
         unet: UNetBackbone,
-        corrector: nn.Module | None,
         pos_channels: int,
         add_3d_coordinates: nn.Module | None,
         hist: int,
@@ -56,7 +55,6 @@ class Samudra(BaseModel):
         self.unet = unet
         self.decoder = nn.Conv2d(unet.out_channels, out_channels, last_kernel_size)
 
-        self.corrector = corrector
         self.use_bfloat16 = use_bfloat16
 
     def forward_once(
@@ -65,8 +63,6 @@ class Samudra(BaseModel):
         # Samudra is a single-scale model; fuse prognostic + boundary into
         # the single channel-stacked input its backbone expects.
         fts = torch.cat((prognostic, boundary), dim=1)
-        if self.corrector is not None:
-            fts_input = fts.clone().detach()
 
         with autocast(enabled=self.use_bfloat16, dtype=torch.bfloat16):
             if self.positional_params is not None:
@@ -90,6 +86,4 @@ class Samudra(BaseModel):
         fts = fts.to(torch.float32)
         fts = self.decoder(fts)
 
-        if self.corrector is not None:
-            fts = self.corrector(fts_input, fts)
         return torch.where(ctx.label_mask, fts, 0.0)

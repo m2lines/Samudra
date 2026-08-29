@@ -12,8 +12,9 @@ import sys
 import warnings
 from collections.abc import Iterable
 from copy import deepcopy
+from pathlib import Path
 from subprocess import PIPE, STDOUT, Popen
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import cartopy.crs as ccrs  # type: ignore
 import cartopy.feature as cfeature  # type: ignore
@@ -27,74 +28,24 @@ from dask.array.core import Array as DaskArray
 from dask.base import compute
 from dask.delayed import delayed
 from dask.diagnostics.progress import ProgressBar
-from matplotlib import colors
 from matplotlib.ticker import FixedLocator, MaxNLocator, ScalarFormatter
 from tqdm.auto import tqdm
 
 from samudra.constants import DatasetSpec, build_om4_spec
+from samudra.metrics.run import score_rollouts
 from samudra.utils.data import (
     spherical_area,
     spherical_area_weights,
     with_level_index_vars,
 )
+from samudra.utils.location import ResolvedLocation
+from samudra.viz import observations as obs_figures
+from samudra.viz.norms import percentile_norm, symmetric_percentile_norm
+
+if TYPE_CHECKING:
+    from samudra.config import ObsMetricsConfig
 
 logger = logging.getLogger(__name__)
-
-
-def _flatten_for_norm(data: Any) -> np.ndarray:
-    if isinstance(data, xr.DataArray):
-        arr = data.data
-    elif isinstance(data, np.ndarray):
-        arr = data
-    elif isinstance(data, DaskArray):
-        arr = data
-    elif isinstance(data, Iterable) and not isinstance(data, (str, bytes)):
-        arrays = [_flatten_for_norm(item) for item in data]
-        if arrays:
-            return np.concatenate(arrays)
-        return np.array([], dtype=float)
-    else:
-        arr = data
-
-    if isinstance(arr, DaskArray):
-        arr = arr.compute()
-    return np.asarray(arr).ravel()
-
-
-def symmetric_percentile_norm(
-    data: Any, percentile: float = 98.0, fallback: float = 1.0
-) -> colors.Normalize:
-    flat = _flatten_for_norm(data)
-    flat = flat[~np.isnan(flat)]
-    if flat.size == 0:
-        max_abs = fallback
-    else:
-        max_abs = np.percentile(np.abs(flat), percentile)
-        if not np.isfinite(max_abs) or max_abs == 0:
-            max_abs = fallback
-    return colors.Normalize(vmin=-max_abs, vmax=max_abs)
-
-
-def percentile_norm(
-    data: Any, lower: float = 2.0, upper: float = 98.0, fallback: float = 1.0
-) -> colors.Normalize:
-    flat = _flatten_for_norm(data)
-    flat = flat[~np.isnan(flat)]
-    if flat.size == 0:
-        vmin = 0.0
-        vmax = fallback
-    else:
-        vmin = np.percentile(flat, lower)
-        vmax = np.percentile(flat, upper)
-        if not np.isfinite(vmin) or not np.isfinite(vmax):
-            vmin = 0.0
-            vmax = fallback
-        elif vmin == vmax:
-            vmin = vmin - fallback
-            vmax = vmax + fallback
-        elif vmin > vmax:
-            vmin, vmax = vmax, vmin
-    return colors.Normalize(vmin=vmin, vmax=vmax)
 
 
 @dataclasses.dataclass
@@ -115,6 +66,8 @@ class Viz:
         basins: xr.Dataset,
         groundtruth_rollout: xr.Dataset,
         time_range: slice,
+        observations: "ObsMetricsConfig | None" = None,
+        data_root: ResolvedLocation | None = None,
     ):
         pred_dict: dict[str, dict[str, Any]] = {}
         for run in runs:
@@ -248,6 +201,16 @@ class Viz:
         self.levels: int = levels
         self.key1: str = key1
         self.output_path: str = output_path
+
+        # The observation steps work from the rollouts as written, not from the
+        # `pred_dict` the other steps share: they reduce through
+        # `samudra.metrics`, which needs the same input `samudra.eval` gets if
+        # the figures are to carry the same numbers.
+        self.observations = observations
+        self.obs_data_root = data_root
+        self.raw_runs: list[VizRun] = list(runs)
+        self.obs_path = os.path.join(output_path, "Figures_observations")
+        self._obs_cache: tuple | None = None
 
     def step_timeseries_plots(self):
         ### Plotting timeseries for each variable for each level
@@ -3741,6 +3704,133 @@ class Viz:
                 progress=True,
                 overwrite_existing=True,
             )
+
+    # Observation comparison
+    #
+    # These recompute through `samudra.metrics` rather than reading anything
+    # `samudra.eval` wrote, so viz runs against any rollout on its own. Sharing
+    # the kernels is what keeps the numbers on the figures equal to the numbers
+    # in W&B.
+    # ------------------------------------------------------------------
+
+    def _obs_inputs(self):
+        """Observation products, rollouts on the observation grid, and the frame.
+
+        The same pass `samudra.eval` runs, so the CSV beside these figures is the
+        one the eval job would have written and the numbers annotated on them are
+        the ones it would have logged.
+
+        Computed once and cached: it costs a full reduction over the record, and
+        every observation step wants the same one.
+        """
+        if getattr(self, "_obs_cache", None) is not None:
+            return self._obs_cache
+        if self.observations is None or self.obs_data_root is None:
+            raise ValueError(
+                "This viz config has no `observations` block, so there is "
+                "nothing to compare against. Add one (see "
+                "src/samudra/configs/data/obs.yaml)."
+            )
+
+        # Copied because `process_data` writes stacked variables back into these
+        # same objects during construction; scoring what was read keeps this
+        # independent of whatever the other steps have done to them.
+        runs = {run.name: run.data.copy() for run in self.raw_runs}
+        if self.observations.baselines:
+            # `baselines` adds the ground-truth comparison to an eval job, which
+            # scores whatever it was handed. viz draws the runs its config
+            # lists, so the key has no effect here; saying so beats a figure
+            # quietly missing a panel the CSV beside it would have had.
+            logger.info(
+                "Ignoring observations.baselines=%s: viz draws the runs in its "
+                "own `runs:` list. Add the baseline there to see it.",
+                self.observations.baselines,
+            )
+        scored = score_rollouts(
+            self.observations,
+            rollouts=runs,
+            dataset_spec=self.dataset_spec,
+            data_root=self.obs_data_root,
+            primary_label=next(iter(runs)),
+            output_dir=Path(self.obs_path),
+        )
+        self._obs_cache = (scored.rollouts, scored.products, scored.frame)
+        return self._obs_cache
+
+    def _observations_configured(self, step: str) -> bool:
+        """Whether there is anything for the observation steps to draw against.
+
+        The observation steps are part of the default run, so a preset without
+        an `observations` block has to skip them rather than fail: most presets
+        do not configure one, and `VizConfig.observations` says omitting it
+        skips these steps.
+        """
+        if self.observations is None or self.obs_data_root is None:
+            logger.info(
+                "Skipping %s: no `observations` block in this viz config "
+                "(see src/samudra/configs/data/obs.yaml).",
+                step,
+            )
+            return False
+        return True
+
+    def step_obs_rmse_maps(self):
+        """Per-cell RMSE maps for velocity, EKE, SST and both OHC layers."""
+        if not self._observations_configured("obs_rmse_maps"):
+            return
+
+        rollouts, products, frame = self._obs_inputs()
+        assert self.observations is not None  # established by _obs_inputs
+        obs_figures.rmse_map_figures(
+            rollouts,
+            products,
+            frame,
+            self.observations.window,
+            self.obs_path,
+            self.observations.velocity_kind,
+        )
+
+    def step_obs_annual_rmse(self):
+        """Per-year totals behind each headline score, with its interval."""
+        if not self._observations_configured("obs_annual_rmse"):
+            return
+
+        _, _, frame = self._obs_inputs()
+        obs_figures.save(
+            obs_figures.annual_rmse_panel(frame, "Annual total RMSE vs observations"),
+            self.obs_path,
+            "annual_total_rmse_vs_observations",
+        )
+
+    def step_obs_variance_maps(self):
+        """Residual-anomaly variance maps for SST and upper-700 m OHC."""
+        if not self._observations_configured("obs_variance_maps"):
+            return
+
+        rollouts, products, frame = self._obs_inputs()
+        obs_figures.variance_map_figures(rollouts, products, frame, self.obs_path)
+
+    def step_obs_timeseries(self):
+        """Global-mean SST, EKE and OHC series, with trends and residuals."""
+        if not self._observations_configured("obs_timeseries"):
+            return
+
+        rollouts, products, _ = self._obs_inputs()
+        assert self.observations is not None  # established by _obs_inputs
+        obs_figures.timeseries_figures(
+            rollouts, products, self.obs_path, self.observations.velocity_kind
+        )
+
+    def step_obs_spectra(self):
+        """Spatial and temporal spectra, and their interannual bands."""
+        if not self._observations_configured("obs_spectra"):
+            return
+
+        rollouts, products, _ = self._obs_inputs()
+        assert self.observations is not None  # established by _obs_inputs
+        obs_figures.spectra_figures(
+            rollouts, products, self.obs_path, self.observations.velocity_kind
+        )
 
 
 def isnan(x: xr.DataArray) -> xr.DataArray:

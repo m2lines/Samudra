@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/VizConfig.json
+
+base_output_dir: ".LOCAL"
+name: "samudra_om4_viz"
+dataset_name: "OM4"
+# Ground truth comes from this data source (same shape as train/eval), so
+# `--data @data/om4_demo.yaml` points viz at the demo data just like the others.
+data: !include ../data/om4.yaml
+basins_location:
+  type: s3
+  anon: true
+  bucket: "m2lines-pubs"
+  path: "Samudra/basins/basin_masks_original.zarr"
+  endpoint_url: "https://nyu1.osn.mghpcc.org"
+groundtruth_time_range:
+  start: "2014-10-20"
+  end: "2022-12-24"
+runs:
+  - name: "samudra_om4_eval"
+    location: ".LOCAL/samudra_om4_eval/predictions.zarr"
+observations: !include ../data/obs.yaml

@@ -35,7 +35,7 @@ repos:
         entry: uv run --dev mypy
         types_or: [python, pyi]
         args: ["--config", "pyproject.toml"]
-        exclude: ^(notebooks/|data/)
+        exclude: ^(notebooks/|data/|tests/reference/)
   - repo: https://github.com/tox-dev/pyproject-fmt
     rev: "v2.5.0"
     hooks:

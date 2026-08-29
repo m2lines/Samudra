@@ -18,7 +18,7 @@ from packaging.requirements import Requirement
 from packaging.specifiers import SpecifierSet
 from packaging.utils import canonicalize_name
 
-DEFAULT_PACKAGES = ("torch", "torchvision", "flash-attn")
+DEFAULT_PACKAGES = ("torch", "torchvision")
 
 
 def parse_args() -> argparse.Namespace:

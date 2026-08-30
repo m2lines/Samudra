@@ -24,10 +24,12 @@ class ValidateAggregator(TrainAggregator):
         *,
         tensor_map: TensorMap,
         normalize: Normalize,
+        input_hist: int | None = None,
     ):
         super().__init__(tensor_map)
         self._aggregators = aggregators
-        self.hist = hist
+        self.input_hist = hist if input_hist is None else input_hist
+        self.output_hist = hist
         self.num_prognostic_channels = num_prognostic_channels
         self.normalize = normalize
 
@@ -52,10 +54,10 @@ class ValidateAggregator(TrainAggregator):
         assert wet.shape == target_data.shape[1:], (
             "The wetmask must match the target data shape excluding batch."
         )
-        assert wet.shape[0] % (self.hist + 1) == 0, (
+        assert wet.shape[0] % (self.output_hist + 1) == 0, (
             "The wetmask channel count must be divisible by history size."
         )
-        first_wetmask_chunk = wet.shape[0] // (self.hist + 1)
+        first_wetmask_chunk = wet.shape[0] // (self.output_hist + 1)
         wet = wet[:first_wetmask_chunk]  # [C, H, W]
 
         if len(target_data) == 0:
@@ -72,7 +74,7 @@ class ValidateAggregator(TrainAggregator):
             long_rollout=False,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
-            hist=self.hist,
+            hist=self.output_hist,
         )
 
         gen_data_dict, gen_data_unnorm_dict = get_aggregator_dicts(
@@ -83,7 +85,7 @@ class ValidateAggregator(TrainAggregator):
             long_rollout=False,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
-            hist=self.hist,
+            hist=self.output_hist,
         )
         input_data_dict, input_data_unnorm_dict = get_aggregator_dicts(
             batch.input_data,
@@ -92,8 +94,10 @@ class ValidateAggregator(TrainAggregator):
             wet=wet,
             long_rollout=False,
             input_type="input",
-            num_prognostic_channels=self.num_prognostic_channels,
-            hist=self.hist,
+            num_prognostic_channels=(
+                len(self.tensor_map.prognostic_var_names) * (self.input_hist + 1)
+            ),
+            hist=self.input_hist,
         )
 
         for agg in self._aggregators.values():

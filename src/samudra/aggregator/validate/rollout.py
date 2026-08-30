@@ -112,8 +112,9 @@ class RolloutValidationAggregator:
         dataset_spec: DatasetSpec,
         prognostic_var_names: PrognosticVarNames,
         distributed_reduce: bool = True,
+        output_steps: int | None = None,
     ):
-        self.hist = hist
+        self.hist = hist if output_steps is None else output_steps - 1
         self._normalize = normalize
         self._dataset_spec = dataset_spec
         self._raw_field_names = tuple(prognostic_var_names)

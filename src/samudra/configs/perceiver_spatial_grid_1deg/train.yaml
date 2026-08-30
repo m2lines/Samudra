@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+# yaml-language-server: $schema=../schemas/TrainConfig.json
+
+debug: false
+disk_mode: true
+pin_mem: true
+save_freq: 5
+# The standalone eval + viz pipeline produces the diagnostic figures. Avoid
+# serial rank-0 rendering while the other DDP ranks are waiting during training.
+validation_image_log_freq: null
+epochs: 70
+batch_size: 8
+# On the intended four-GPU Torch launch this gives effective global batch 32
+# while keeping each GPU's attention batches large enough for efficient SDPA.
+gradient_accumulation_steps: 1
+learning_rate: 0.0006
+scheduler: {type: cosine}
+loss: mse
+finetune: false
+resume_ckpt_path: null
+inference_epochs: []
+data_stride: [1]
+steps: [4]
+step_transition: []
+preemptible: true
+backend: auto
+
+experiment:
+  name: perceiver-spatial-grid-1deg
+  rand_seed: 15
+  base_output_dir: .LOCAL
+  wandb:
+    mode: online
+    entity: ocean_emulators
+    project: default
+    tags: [torch-hpc, om4-1deg, perceiver-spatial-grid, native-sdpa]
+    notes: Full 70-epoch single-scale test of the selected structured Perceiver architecture.
+
+data: !include data.yaml
+model: !include model.yaml

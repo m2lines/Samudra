@@ -146,7 +146,7 @@ def validate_rollout(
             num_steps=num_steps,
             epoch=epoch,
         )
-        initial_prognostic = output.prediction[-1].unsqueeze(0).clone()
+        initial_prognostic = output.final_prognostic.clone()
         _record_rollout_horizon_batch(
             aggregators_by_step=aggregators_by_step,
             step=step,
@@ -187,11 +187,12 @@ def run_rollout(
         writer = ZarrWriter(
             output_dir,
             coords=coords,
-            hist=inf_aggregator.hist,
+            hist=inf_aggregator.output_hist,
             model_path=model_path,
             time_chunk_size=chunk_size,
             normalize=normalize,
             tensor_map=tensor_map,
+            output_steps=dataset.output_steps,
         )
     else:
         writer = None
@@ -224,7 +225,7 @@ def run_rollout(
             epoch=epoch,
         )
         # Setting initial prognostic for next loop
-        initial_prognostic = IO.prediction[-1].unsqueeze(0).clone()
+        initial_prognostic = IO.final_prognostic.clone()
         if writer:
             logger.info("Writing to zarr...")
             writer.record_batch(IO)

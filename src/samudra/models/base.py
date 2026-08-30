@@ -35,6 +35,7 @@ class BaseModel(torch.nn.Module):
         last_kernel_size,
         pad,
         gradient_detach_interval: int,
+        prognostic_in_channels: int | None = None,
     ) -> None:
         super().__init__()
         assert last_kernel_size % 2 != 0, "Cannot use even kernel sizes!"
@@ -44,7 +45,53 @@ class BaseModel(torch.nn.Module):
         self.pad: str = pad
         self.pred_residuals = pred_residuals
         self.hist = hist
+        self.input_steps = hist + 1
+        if prognostic_in_channels is None:
+            prognostic_in_channels = out_channels
+        if prognostic_in_channels % self.input_steps != 0:
+            # Before input/output horizons were separated, direct model builders
+            # could provide a `hist` value that did not describe their already-
+            # flattened input channels. Preserve that API behavior. Trainer and
+            # Eval always construct divisible channel counts from DataConfig.
+            self.input_steps = 1
+        if prognostic_in_channels == 0 and out_channels == 0:
+            # Lightweight test doubles may override the complete forward path and
+            # intentionally carry no channels.
+            self.prognostic_channels_per_step = 0
+            self.output_steps = self.input_steps
+            self.gradient_detach_interval = gradient_detach_interval
+            return
+        self.prognostic_channels_per_step = prognostic_in_channels // self.input_steps
+        if out_channels % self.prognostic_channels_per_step != 0:
+            raise ValueError(
+                "Output channels must contain complete prognostic timesteps; "
+                f"got {out_channels} channels for "
+                f"{self.prognostic_channels_per_step} channels per timestep"
+            )
+        self.output_steps = out_channels // self.prognostic_channels_per_step
+        if not 1 <= self.output_steps <= self.input_steps:
+            raise ValueError(
+                f"Model output_steps must be between 1 and {self.input_steps}, "
+                f"got {self.output_steps}"
+            )
         self.gradient_detach_interval = gradient_detach_interval
+
+    def _assemble_prediction(
+        self, prognostic: Prognostic, decoding: Prognostic
+    ) -> Prognostic:
+        if not self.pred_residuals:
+            return decoding
+        # Anchor each predicted timestep to the corresponding most-recent input
+        # timestep. For 2-in/1-out this is x[t]; for the legacy 2-in/2-out case
+        # this remains the original elementwise, same-slot residual assembly.
+        residual_base = prognostic[:, -self.out_channels :]
+        return residual_base + decoding
+
+    def _advance_prognostic_history(
+        self, prognostic: Prognostic, prediction: Prognostic
+    ) -> Prognostic:
+        """Drop the oldest predicted span and append the new prediction block."""
+        return torch.cat((prognostic[:, self.out_channels :], prediction), dim=1)
 
     def forward_once(
         self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
@@ -58,24 +105,18 @@ class BaseModel(torch.nn.Module):
     ) -> torch.Tensor | list[torch.Tensor]:
         outputs: list[torch.Tensor] = []
         loss = torch.tensor(torch.nan)
+        prog_tensor, _ = train_data.get_initial_input()
         for step in range(len(train_data)):
-            if step == 0:
-                prog_tensor, boundary_tensor = train_data.get_initial_input()
-            else:
-                prev_output = outputs[-1]
+            _, boundary_tensor = train_data.get_input(step)
+            if step > 0:
                 if (
                     self.gradient_detach_interval > 0
                     and step % self.gradient_detach_interval == 0
                 ):
-                    prev_output = prev_output.detach()
-                _, boundary_tensor = train_data.get_input(step)
-                prog_tensor = prev_output
+                    prog_tensor = prog_tensor.detach()
 
             decodings = self.forward_once(prog_tensor, boundary_tensor, train_data.ctx)
-            if self.pred_residuals:
-                pred = prog_tensor + decodings  # Residual prediction
-            else:
-                pred = decodings  # Absolute prediction
+            pred = self._assemble_prediction(prog_tensor, decodings)
 
             if loss_fn is not None:
                 if step == 0:
@@ -90,6 +131,7 @@ class BaseModel(torch.nn.Module):
                     )
 
             outputs.append(pred)
+            prog_tensor = self._advance_prognostic_history(prog_tensor, pred)
 
         if loss_fn is None:
             return outputs
@@ -111,33 +153,30 @@ class BaseModel(torch.nn.Module):
         initial_prognostic = initial_prognostic.to(get_device())
         target_time = dataset.get_target_time(steps_completed, num_steps)
 
+        prog_tensor = initial_prognostic
         for step in range(num_steps):
             logger.info(
                 f"Inference [epoch {epoch}]: Rollout step {steps_completed + step} "
                 f"of {steps_completed + num_steps - 1}."
             )
-            if step == 0:
-                prog_tensor = initial_prognostic
-                boundary_tensor = dataset.get_boundary(steps_completed).to(
-                    device=prog_tensor.device
-                )
-            else:
-                prog_tensor = pred_tensor[step - 1].unsqueeze(0)
-                boundary_tensor = dataset.get_boundary(
-                    steps_completed + step,
-                ).to(device=prog_tensor.device)
+            boundary_tensor = dataset.get_boundary(
+                steps_completed + step,
+            ).to(device=prog_tensor.device)
 
             decodings = self.forward_once(prog_tensor, boundary_tensor, dataset.ctx)
-            if self.pred_residuals:
-                pred = prog_tensor[0].to(device=get_device()) + decodings
-            else:
-                pred = decodings
+            pred = self._assemble_prediction(prog_tensor, decodings)
 
-            pred_tensor[step] = pred
+            pred_tensor[step] = pred[0]
+            prog_tensor = self._advance_prognostic_history(prog_tensor, pred)
 
         target_tensor = dataset.inference_target(
             slice(steps_completed, steps_completed + num_steps)
         ).to(device=get_device())
 
-        IO = ModelInferenceOutput(pred_tensor, target_tensor, target_time)
+        IO = ModelInferenceOutput(
+            pred_tensor,
+            target_tensor,
+            target_time,
+            final_prognostic=prog_tensor,
+        )
         return IO

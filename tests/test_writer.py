@@ -11,12 +11,18 @@ import xarray as xr
 
 from samudra.constants import TensorMap, build_om4_spec
 from samudra.utils.data import Normalize
+from samudra.utils.output import ModelInferenceOutput
 from samudra.utils.writer import ZarrWriter
 from tests.conftest import TEST_FULL_DATASET_SPEC
 
 # write() never touches normalization (record_batch does), so these tests drive
 # the writer directly with a buffer and omit a real Normalize.
 _NO_NORMALIZE = cast(Normalize, None)
+
+
+class _IdentityNormalize:
+    def unnormalize_tensor_prognostic(self, data, fill_value):
+        return data
 
 
 def _source_coords(ny, nx):
@@ -99,6 +105,32 @@ def test_writer_output_is_analysis_ready(tmp_path):
     assert out["lat"].dims == ("y", "x") and out["lon"].dims == ("y", "x")
     np.testing.assert_allclose(out["lat"].isel(x=0).values, coords["lat"].values)
     np.testing.assert_allclose(out["lon"].isel(y=0).values, coords["lon"].values)
+
+
+def test_writer_flattens_configured_output_steps(tmp_path):
+    tensor_map = TensorMap(dataset_spec=TEST_FULL_DATASET_SPEC)
+    n_channels = len(tensor_map.prognostic_var_names)
+    writer = ZarrWriter(
+        tmp_path,
+        coords=_source_coords(2, 3),
+        hist=1,
+        output_steps=1,
+        model_path="dummy.ckpt",
+        time_chunk_size=4,
+        normalize=cast(Normalize, _IdentityNormalize()),
+        tensor_map=tensor_map,
+    )
+    prediction = torch.zeros(3, n_channels, 2, 3)
+    output = ModelInferenceOutput(
+        prediction=prediction,
+        target=prediction.clone(),
+        time=xr.DataArray(np.arange(3), dims="time"),
+    )
+
+    writer.record_batch(output)
+
+    assert writer.buffer is not None
+    assert writer.buffer.shape == (3, n_channels, 2, 3)
 
 
 def test_writer_prefers_real_2d_lat_lon(tmp_path):

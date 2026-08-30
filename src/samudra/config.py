@@ -42,12 +42,15 @@ from samudra.models.modules import (
     ConvNeXtBlock,
     CoreBlock,
     CoreBlockBuilder,
+    DirectCrossAttentionIO,
     MaxPool,
     Perceiver,
     PerceiverDecoder,
     PerceiverEncoder,
     PerceiverIO,
     ReLU,
+    SpatialLatentGridEncoder,
+    SpatialQueryPerceiver,
     TransposedConvUpsample,
     UNetBackbone,
 )
@@ -420,10 +423,31 @@ class DataConfig(BaseConfig):
     )
     loading: DataLoadingConfig = Field(default_factory=CpuDataLoadingConfig)
     hist: int = 1
+    output_steps: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Number of future raw timesteps emitted by each model call. When "
+            "unset, this defaults to hist + 1 for backwards compatibility."
+        ),
+    )
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
     concurrent_compute: bool = False
+
+    @property
+    def num_output_steps(self) -> int:
+        return self.hist + 1 if self.output_steps is None else self.output_steps
+
+    @pydantic.model_validator(mode="after")
+    def validate_output_steps(self) -> Self:
+        if self.num_output_steps > self.hist + 1:
+            raise ValueError(
+                "data.output_steps cannot exceed the number of input timesteps "
+                f"(hist + 1 = {self.hist + 1}); got {self.num_output_steps}"
+            )
+        return self
 
     def build(
         self,
@@ -540,6 +564,10 @@ class PerceiverConfig(BaseConfig):
         default=512,
         description="The number of latent vectors in the Perceiver. This is the `M` dimension for the Perceiver's `O(M*N)` complexity",
     )
+    cross_heads: int = Field(default=1, ge=1)
+    latent_heads: int = Field(default=8, ge=1)
+    cross_dim_head: int = Field(default=64, ge=1)
+    latent_dim_head: int = Field(default=64, ge=1)
 
     def build(
         self,
@@ -569,6 +597,10 @@ class PerceiverConfig(BaseConfig):
                 num_classes=out_channels,
                 latent_dim=self.latent_dim,
                 num_latents=self.num_latents,
+                cross_heads=self.cross_heads,
+                latent_heads=self.latent_heads,
+                cross_dim_head=self.cross_dim_head,
+                latent_dim_head=self.latent_dim_head,
                 weight_tie_layers=True,
                 fourier_encode_data=False,
                 self_per_cross_attn=2,
@@ -591,6 +623,10 @@ class PerceiverConfig(BaseConfig):
             logits_dim=out_channels,
             num_latents=self.num_latents,
             latent_dim=self.latent_dim,
+            cross_heads=self.cross_heads,
+            latent_heads=self.latent_heads,
+            cross_dim_head=self.cross_dim_head,
+            latent_dim_head=self.latent_dim_head,
             weight_tie_layers=True,
             decoder_ff=True,
             attention_backend=_attention_backend(implementation),
@@ -611,8 +647,14 @@ def _attention_backend(
             assert_never(implementation)
 
 
+EncoderArchitecture = Literal["perceiver", "spatial_grid"]
+
+
 class EncoderConfig(BaseConfig):
+    architecture: EncoderArchitecture = "perceiver"
     perceiver: PerceiverConfig = PerceiverConfig()
+    spatial_query_shape: tuple[int, int] = (2, 2)
+    queries_dim: int = Field(default=64, ge=1)
 
     def build(
         self,
@@ -622,8 +664,29 @@ class EncoderConfig(BaseConfig):
         max_lat_size: int,
         max_lon_size: int,
         implementation: PerceiverImpl,
-    ) -> PerceiverEncoder:
+    ) -> nn.Module:
         max_patch_size = patch_from(patch_extent, max_lat_size, max_lon_size)
+        if self.architecture == "spatial_grid":
+            num_freq_bands = 4
+            spatial_perceiver = SpatialQueryPerceiver(
+                query_shape=self.spatial_query_shape,
+                queries_dim=self.queries_dim,
+                channels_per_query=out_channels,
+                perceiver_io=self.perceiver.build_io(
+                    in_channels + fourier_features_2d_dim(num_freq_bands),
+                    self.queries_dim,
+                    out_channels,
+                    implementation,
+                ),
+                num_freq_bands=num_freq_bands,
+                max_freq=max(*max_patch_size),
+            )
+            return SpatialLatentGridEncoder(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                patch_extent=patch_extent,
+                spatial_perceiver=spatial_perceiver,
+            )
         return PerceiverEncoder(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -632,6 +695,9 @@ class EncoderConfig(BaseConfig):
                 in_channels, out_channels, max_patch_size, implementation
             ),
         )
+
+
+DecoderArchitecture = Literal["perceiver_io", "direct_cross_attention"]
 
 
 class DecoderConfig(BaseConfig):
@@ -648,6 +714,7 @@ class DecoderConfig(BaseConfig):
     is large (i.e. fine ``patch_extent``).
     """
 
+    architecture: DecoderArchitecture = "perceiver_io"
     perceiver: PerceiverConfig = PerceiverConfig()
     queries_dim: int = Field(
         default=64,
@@ -664,6 +731,15 @@ class DecoderConfig(BaseConfig):
         description="Number of extra patch rings around each window to include as data context. "
         "Only used when window_patches is set. None = full context (every window sees all latent tokens).",
     )
+    output_overlap_patches: int = Field(
+        default=0,
+        ge=0,
+        description="Number of latent-patch rings decoded beyond each output window and blended with a partition of unity.",
+    )
+    processor_conditioning: bool = Field(
+        default=False,
+        description="Add a zero-initialized, smoothly upsampled processor path before final output projection.",
+    )
 
     def build(
         self,
@@ -672,16 +748,36 @@ class DecoderConfig(BaseConfig):
         patch_extent: tuple[float, float],
         implementation: PerceiverImpl,
     ) -> PerceiverDecoder:
+        if (
+            self.processor_conditioning
+            and self.architecture != "direct_cross_attention"
+        ):
+            raise ValueError(
+                "processor_conditioning requires architecture='direct_cross_attention'."
+            )
+        if self.architecture == "perceiver_io":
+            decoder_core: nn.Module = self.perceiver.build_io(
+                in_channels, self.queries_dim, out_channels, implementation
+            )
+        else:
+            decoder_core = DirectCrossAttentionIO(
+                input_dim=in_channels,
+                queries_dim=self.queries_dim,
+                output_dim=out_channels,
+                heads=self.perceiver.cross_heads,
+                dim_head=self.perceiver.cross_dim_head,
+                attention_backend=_attention_backend(implementation),
+            )
         return PerceiverDecoder(
             in_channels=in_channels,
             out_channels=out_channels,
             patch_extent=patch_extent,
             queries_dim=self.queries_dim,
-            perceiver_io=self.perceiver.build_io(
-                in_channels, self.queries_dim, out_channels, implementation
-            ),
+            perceiver_io=decoder_core,
             window_patches=self.window_patches,
             context_patches=self.context_patches,
+            output_overlap_patches=self.output_overlap_patches,
+            processor_conditioning=self.processor_conditioning,
         )
 
 
@@ -834,6 +930,7 @@ class SamudraConfig(BaseModelConfig):
             grid_size=src.grid_size,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
+            prognostic_in_channels=prog_channels,
         )
 
 
@@ -901,7 +998,7 @@ class SamudraMultiConfig(BaseModelConfig):
         decoder = self.decoder.build(
             processor.out_channels,
             out_channels,
-            extent,
+            getattr(encoder, "output_patch_extent", extent),
             impl,
         )
 
@@ -920,6 +1017,7 @@ class SamudraMultiConfig(BaseModelConfig):
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
+            prognostic_in_channels=prog_channels,
         )
 
 
@@ -996,6 +1094,7 @@ class SamudraMiniConfig(BaseModelConfig):
             checkpointing=self.checkpointing,
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
+            prognostic_in_channels=prog_channels,
         )
 
 
@@ -1197,12 +1296,12 @@ class TrainConfig(TopLevelConfig):
     disk_mode: bool = True
     pin_mem: bool = True
     save_freq: int = 5
-    validation_image_log_freq: int = Field(
+    validation_image_log_freq: int | None = Field(
         default=10,
         ge=1,
         description=(
             "How often to log expensive validation images. Epochs are 1-based, so "
-            "a value of 10 logs on epochs 1, 11, 21, ..."
+            "a value of 10 logs on epochs 1, 11, 21, ...; null disables images."
         ),
     )
     rollout_validation: RolloutValidationConfig | None = None

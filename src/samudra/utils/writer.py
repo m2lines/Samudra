@@ -26,6 +26,7 @@ class ZarrWriter:
         time_chunk_size: int,
         normalize: Normalize,
         tensor_map: TensorMap,
+        output_steps: int | None = None,
     ):
         self.pred_path = os.path.join(output_dir, "predictions.zarr")
 
@@ -35,6 +36,7 @@ class ZarrWriter:
             )
 
         self.hist = hist
+        self.output_steps = hist + 1 if output_steps is None else output_steps
         self.buffer: torch.Tensor | None = None
         self.time_buffer: xr.DataArray | None = None
         self.coords = coords
@@ -48,7 +50,7 @@ class ZarrWriter:
         pred_tensor = IO.prediction
         pred_time = IO.time
         pred_tensor = rearrange(
-            pred_tensor, "n (hi c) h w -> (n hi) c h w", hi=self.hist + 1
+            pred_tensor, "n (hi c) h w -> (n hi) c h w", hi=self.output_steps
         )
         pred_tensor = self.normalize.unnormalize_tensor_prognostic(
             pred_tensor, fill_value=0.0

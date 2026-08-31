@@ -20,8 +20,6 @@ exec apptainer exec \
   --bind "$CODE_DIR:/opt/samudra-code:ro" \
   --bind "$SCRATCH_DIR:$SCRATCH_DIR" \
   --bind /cm:/cm:ro \
-  --bind /usr/lib64/libmunge.so.2:/usr/lib64/libmunge.so.2:ro \
-  --bind /usr/lib64/libmunge.so.2.0.0:/usr/lib64/libmunge.so.2.0.0:ro \
   --bind /run/munge:/run/munge:ro \
   --pwd /opt/samudra-code \
   --env PATH=/cm/shared/apps/slurm/current/bin:/workspace/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin \

@@ -23,6 +23,8 @@ exec apptainer exec \
   --bind /usr/lib/x86_64-linux-gnu/libmunge.so.2:/usr/lib/x86_64-linux-gnu/libmunge.so.2:ro \
   --bind /usr/lib/x86_64-linux-gnu/libmunge.so.2.0.1:/usr/lib/x86_64-linux-gnu/libmunge.so.2.0.1:ro \
   --bind /run/munge:/run/munge:ro \
+  --bind /etc/passwd:/etc/passwd:ro \
+  --bind /etc/group:/etc/group:ro \
   --pwd /opt/samudra-code \
   --env PATH=/cm/shared/apps/slurm/current/bin:/workspace/.venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin \
   --env LD_LIBRARY_PATH=/cm/shared/apps/slurm/current/lib64/slurm:/usr/lib/x86_64-linux-gnu \

@@ -48,6 +48,8 @@ Each Alpha worker uses two GPUs with DDP. This resource shape had an immediate
 `test`-QoS scheduler estimate on launch day, while Alpha's one-GPU RTX pool was
 backlogged until the following day; it also keeps both allocated GPUs doing
 model work rather than reserving idle capacity.
+Gradient accumulation is 16, preserving the prior effective batch of 32
+(`batch_size=1 × accumulation=16 × world_size=2`).
 
 Live scheduler probes showed that CPU shape, rather than GPU or memory demand,
 controlled placement on the partially occupied H100 nodes: four CPUs with 28

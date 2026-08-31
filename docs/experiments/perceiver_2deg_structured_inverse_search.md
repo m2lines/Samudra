@@ -44,6 +44,12 @@ Each Alpha worker uses two GPUs with DDP. This resource shape had an immediate
 backlogged until the following day; it also keeps both allocated GPUs doing
 model work rather than reserving idle capacity.
 
+Live scheduler probes showed that CPU shape, rather than GPU or memory demand,
+controlled placement on the partially occupied H100 nodes: four CPUs with 28
+GiB could backfill immediately, whereas 6--12 CPUs moved the same two-GPU job
+behind a later reservation. The final search therefore uses two loader workers,
+four CPUs, and 28 GiB per two-GPU candidate.
+
 The candidate matrix is defined in
 [`search.yaml`](../../src/samudra/configs/perceiver_structured_inverse_2deg/search.yaml).
 The exact launch commit, search run ID, Slurm jobs, and W&B group will be added

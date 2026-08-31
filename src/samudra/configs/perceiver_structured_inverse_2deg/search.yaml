@@ -38,8 +38,8 @@ executor:
   controller_qos: test
   controller_gres: gpu:2
   python: /mnt/lustre/nyu/amerose/code/Samudra-structured-perceiver-alpha/experiments/perceiver_search_2deg/container_python_alpha.sh
-  cpus_per_task: 12
-  memory: 96G
+  cpus_per_task: 4
+  memory: 28G
   gres: gpu:2
   time_by_rung: ["02:00:00", "02:00:00", "02:00:00", "02:00:00"]
   max_concurrent: 4

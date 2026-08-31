@@ -59,8 +59,29 @@ four CPUs, and 28 GiB per two-GPU candidate.
 
 The candidate matrix is defined in
 [`search.yaml`](../../src/samudra/configs/perceiver_structured_inverse_2deg/search.yaml).
-The exact launch commit, search run ID, Slurm jobs, and W&B group will be added
-once the Alpha correctness probe reaches its first optimizer update.
+## Launch record
+
+The accepted immutable run is
+`perceiver-structured-inverse-2deg--20260831T191355.834091Z` at commit
+`5a7fc7716df710c162f2b6cdfab0b4413ea4f772`. The W&B group is the same run ID.
+
+- Alpha launch controller: `56021` (`COMPLETED`)
+- two-GPU DDP correctness probe: `56023_0` (`COMPLETED`)
+- probe-release controller: `56024` (`COMPLETED`)
+- rung-zero candidate array: `56030` (tasks 0--9, concurrency 4)
+- rung-zero advancement controller: `56031` (`afterany:56030`)
+
+The probe loaded the public 2° data, built the complete model, ran both DDP
+ranks, consumed 16 microbatches, and recorded one real optimizer update with a
+finite loss of 2.3714. Its steady-state microbatch time was approximately
+0.6--1.5 seconds and peak memory approximately 3.4 GiB per GPU. Rung zero was
+released only after this evidence was durable.
+
+At the first status check, array tasks 0--2 were concurrently training
+`spatial-grid2-direct`, `moment16-geometry-direct`, and `moment16-direct`.
+All three recorded a finite first batch; the geometry-moment candidate had
+already recorded two optimizer updates. Remaining tasks backfill as one of the
+four concurrent slots becomes available.
 
 ## Results
 

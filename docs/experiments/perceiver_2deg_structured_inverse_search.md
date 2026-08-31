@@ -39,6 +39,11 @@ velocity RMSE, gradient-magnitude fidelity, and seam diagnostics are retained fo
 scientific review and Pareto analysis rather than collapsed prematurely into one
 score.
 
+Each Alpha worker uses two GPUs with DDP. This resource shape had an immediate
+`test`-QoS scheduler estimate on launch day, while Alpha's one-GPU RTX pool was
+backlogged until the following day; it also keeps both allocated GPUs doing
+model work rather than reserving idle capacity.
+
 The candidate matrix is defined in
 [`search.yaml`](../../src/samudra/configs/perceiver_structured_inverse_2deg/search.yaml).
 The exact launch commit, search run ID, Slurm jobs, and W&B group will be added

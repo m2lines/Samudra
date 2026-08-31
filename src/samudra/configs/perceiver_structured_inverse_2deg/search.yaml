@@ -36,13 +36,13 @@ executor:
   controller_partition: nyu
   qos: test
   controller_qos: test
-  controller_gres: gpu:1
+  controller_gres: gpu:2
   python: /mnt/lustre/nyu/amerose/code/Samudra-structured-perceiver-alpha/experiments/perceiver_search_2deg/container_python_alpha.sh
   cpus_per_task: 12
   memory: 96G
-  gres: gpu:1
+  gres: gpu:2
   time_by_rung: ["02:00:00", "02:00:00", "02:00:00", "02:00:00"]
-  max_concurrent: 8
+  max_concurrent: 4
   rung0_probe: true
   data_root: /mnt/lustre/nyu/amerose/data/om4_twodeg
   scratch_dir: /mnt/lustre/nyu/amerose

@@ -31,9 +31,14 @@ export APPTAINERENV_WANDB_GIT_COMMIT="$CODE_COMMIT"
 export APPTAINERENV_WANDB_GIT_REMOTE_URL="$(git -C "$CODE_DIR" config --get remote.origin.url)"
 
 read -r -a module_args <<<"$SAMUDRA_MODULE_ARGS"
+gpu_count="${SLURM_GPUS_ON_NODE:-1}"
+gpu_count="${gpu_count%%(*}"
 srun --ntasks=1 apptainer exec --nv \
   --bind "$CODE_DIR:/opt/samudra-code:ro" \
   --bind "$SCRATCH_DIR:$SCRATCH_DIR" \
   --pwd /opt/samudra-code \
   "$SIF_PATH" \
-  /workspace/.venv/bin/python -m "$SAMUDRA_MODULE" "${module_args[@]}"
+  /workspace/.venv/bin/python -m torch.distributed.run \
+    --standalone \
+    --nproc_per_node="$gpu_count" \
+    -m "$SAMUDRA_MODULE" "${module_args[@]}"

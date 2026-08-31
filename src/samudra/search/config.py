@@ -68,6 +68,11 @@ class SlurmExecutorConfig(BaseConfig):
     controller_cpus_per_task: int = Field(default=1, ge=1)
     controller_memory: str = "4G"
     controller_time: str = "01:00:00"
+    qos: str | None = None
+    constraint: str | None = None
+    controller_qos: str | None = None
+    controller_constraint: str | None = None
+    controller_gres: str | None = None
     python: str = "python"
     cpus_per_task: int = Field(default=4, ge=1)
     memory: str = "32G"
@@ -81,8 +86,15 @@ class SlurmExecutorConfig(BaseConfig):
     sif_path: Path | None = None
     image_ref: str | None = None
     code_layer: Path | None = None
+    code_dir: Path | None = None
     apptainer_module: str | None = None
     dry_run: bool = False
+
+    @model_validator(mode="after")
+    def _code_source_is_unambiguous(self) -> Self:
+        if self.code_layer is not None and self.code_dir is not None:
+            raise ValueError("Specify only one of code_layer or code_dir")
+        return self
 
 
 ExecutorConfig = Annotated[

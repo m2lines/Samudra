@@ -8,7 +8,7 @@ import torch
 import torch.nn.functional as F
 from aurora.model.fourier import pos_expansion, scale_expansion
 from aurora.model.posencoding import pos_scale_enc
-from einops import rearrange
+from einops import rearrange, repeat
 from jaxtyping import Float
 from perceiver_pytorch.perceiver_io import Attention, FeedForward, PreNorm
 from torch import nn
@@ -45,6 +45,196 @@ def zonally_periodic_bilinear_interpolate(
         align_corners=False,
     )
     return resized[..., scale_width : scale_width + target_width]
+
+
+class StructuredLocalDecoder(nn.Module):
+    """Coordinate-resampled base plus a zero-initialized local SDPA residual.
+
+    The base gives every output a smooth, amplitude-preserving route from the
+    processor grid.  The residual evaluates query-relative values from a fixed
+    neighborhood and blends them with position-anchored attention.  This is the
+    compact Samudra implementation of the inverse promoted by Jesse's coarse
+    latent/high-resolution dynamics study.
+    """
+
+    def __init__(
+        self,
+        *,
+        in_channels: int,
+        out_channels: int,
+        hidden_dim: int,
+        heads: int = 4,
+        dim_head: int = 32,
+        neighborhood_radius: int = 1,
+        position_bias_strength: float = 8.0,
+        query_chunk_size: int = 4096,
+    ) -> None:
+        super().__init__()
+        if neighborhood_radius < 0:
+            raise ValueError("neighborhood_radius must be non-negative.")
+        if query_chunk_size < 1:
+            raise ValueError("query_chunk_size must be positive.")
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.heads = heads
+        self.dim_head = dim_head
+        self.neighborhood_radius = neighborhood_radius
+        self.position_bias_strength = position_bias_strength
+        self.query_chunk_size = query_chunk_size
+        inner_dim = heads * dim_head
+        self.base_projection = nn.Conv2d(in_channels, out_channels, kernel_size=1)
+        self.content_norm = nn.LayerNorm(in_channels)
+        self.query_projection = nn.Linear(5, inner_dim, bias=False)
+        self.query_hidden_projection = nn.Linear(5, hidden_dim)
+        self.key_projection = nn.Linear(in_channels, inner_dim, bias=False)
+        self.value_projection = nn.Sequential(
+            nn.Linear(in_channels + 2, inner_dim),
+            nn.GELU(),
+            nn.Linear(inner_dim, inner_dim),
+        )
+        self.context_projection = nn.Linear(inner_dim, hidden_dim)
+        self.feed_forward = nn.Sequential(
+            nn.LayerNorm(hidden_dim),
+            nn.Linear(hidden_dim, hidden_dim * 2),
+            nn.GELU(),
+            nn.Linear(hidden_dim * 2, hidden_dim),
+        )
+        self.output_projection = nn.Linear(hidden_dim, out_channels)
+        nn.init.zeros_(self.output_projection.weight)
+        nn.init.zeros_(self.output_projection.bias)
+
+    def _routing(
+        self,
+        source_resolution: tuple[Lat, Lon],
+        output_resolution: tuple[Lat, Lon],
+        *,
+        device: torch.device,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        source_lat, source_lon = (
+            coordinate.to(device=device, dtype=torch.float32)
+            for coordinate in source_resolution
+        )
+        output_lat, output_lon = (
+            coordinate.to(device=device, dtype=torch.float32)
+            for coordinate in output_resolution
+        )
+        lat_spacing = (source_lat[1:] - source_lat[:-1]).median()
+        lon_spacing = (source_lon[1:] - source_lon[:-1]).median()
+        lat_position = (output_lat - (source_lat[0] - lat_spacing / 2)) / lat_spacing
+        lon_position = (
+            torch.remainder(output_lon - (source_lon[0] - lon_spacing / 2), 360.0)
+            / lon_spacing
+        )
+        lat_index = lat_position.floor().long().clamp(0, len(source_lat) - 1)
+        lon_index = lon_position.floor().long().remainder(len(source_lon))
+        relative_lat = 2 * (lat_position - lat_index) - 1
+        relative_lon = 2 * (lon_position - lon_index) - 1
+        lat_grid, lon_grid = torch.meshgrid(lat_index, lon_index, indexing="ij")
+        relative_lat_grid, relative_lon_grid = torch.meshgrid(
+            relative_lat, relative_lon, indexing="ij"
+        )
+        offsets = torch.arange(
+            -self.neighborhood_radius,
+            self.neighborhood_radius + 1,
+            device=device,
+        )
+        offset_lat, offset_lon = torch.meshgrid(offsets, offsets, indexing="ij")
+        offset_lat = offset_lat.flatten()
+        offset_lon = offset_lon.flatten()
+        neighbor_lat = (lat_grid[..., None] + offset_lat).clamp(0, len(source_lat) - 1)
+        neighbor_lon = (lon_grid[..., None] + offset_lon).remainder(len(source_lon))
+        neighbor_indices = (neighbor_lat * len(source_lon) + neighbor_lon).flatten(0, 1)
+        relative_to_neighbor = torch.stack(
+            (
+                relative_lat_grid.flatten()[:, None] / 2 - offset_lat,
+                relative_lon_grid.flatten()[:, None] / 2 - offset_lon,
+            ),
+            dim=-1,
+        )
+        position_bias = (
+            -self.position_bias_strength * relative_to_neighbor.square().sum(dim=-1)
+        )
+        output_lat_grid, output_lon_grid = torch.meshgrid(
+            output_lat, output_lon, indexing="ij"
+        )
+        lat_radians = torch.deg2rad(output_lat_grid)
+        lon_radians = torch.deg2rad(output_lon_grid)
+        query_features = torch.stack(
+            (
+                torch.cos(lat_radians) * torch.cos(lon_radians),
+                torch.cos(lat_radians) * torch.sin(lon_radians),
+                torch.sin(lat_radians),
+                torch.full_like(
+                    output_lat_grid,
+                    float((180.0 / len(output_lat) / lat_spacing).item()),
+                ),
+                torch.full_like(
+                    output_lon_grid,
+                    float((360.0 / len(output_lon) / lon_spacing).item()),
+                ),
+            ),
+            dim=-1,
+        ).flatten(0, 1)
+        return neighbor_indices, position_bias, relative_to_neighbor, query_features
+
+    def forward(
+        self,
+        x: Float[torch.Tensor, "batch channels H_source W_source"],
+        resolution: tuple[Lat, Lon],
+        *,
+        source_resolution: tuple[Lat, Lon],
+    ) -> Float[torch.Tensor, "batch channels_out H_output W_output"]:
+        batch, channels, source_height, source_width = x.shape
+        if channels != self.in_channels:
+            raise ValueError(f"Expected {self.in_channels} channels, got {channels}.")
+        if (source_height, source_width) != tuple(map(len, source_resolution)):
+            raise ValueError("Source coordinates must match the processor grid.")
+        output_shape = (len(resolution[0]), len(resolution[1]))
+        base = self.base_projection(
+            zonally_periodic_bilinear_interpolate(x, output_shape)
+        )
+        neighbor_indices, position_bias, relative_offsets, query_features = (
+            self._routing(source_resolution, resolution, device=x.device)
+        )
+        content = rearrange(x, "b c h w -> b (h w) c")
+        keys = self.key_projection(self.content_norm(content))
+        keys = rearrange(keys, "b n (h d) -> b h n d", h=self.heads)
+        chunks: list[torch.Tensor] = []
+        for start in range(0, len(query_features), self.query_chunk_size):
+            stop = min(start + self.query_chunk_size, len(query_features))
+            indices = neighbor_indices[start:stop]
+            query_count, neighbors = indices.shape
+            local_content = content[:, indices]
+            offsets = relative_offsets[start:stop].to(dtype=x.dtype)
+            offsets = offsets[None].expand(batch, -1, -1, -1)
+            values = self.value_projection(torch.cat((local_content, offsets), dim=-1))
+            values = rearrange(values, "b q k (h d) -> (b q) h k d", h=self.heads)
+            local_keys = keys[:, :, indices]
+            local_keys = rearrange(local_keys, "b h q k d -> (b q) h k d")
+            query = self.query_projection(query_features[start:stop].to(dtype=x.dtype))
+            query = rearrange(query, "q (h d) -> q h 1 d", h=self.heads)
+            query = repeat(query, "q h one d -> (b q) h one d", b=batch)
+            bias = position_bias[start:stop].to(dtype=x.dtype)
+            bias = repeat(bias, "q k -> (b q) h 1 k", b=batch, h=self.heads)
+            context = F.scaled_dot_product_attention(
+                query, local_keys, values, attn_mask=bias
+            )
+            context = rearrange(
+                context, "(b q) h 1 d -> b q (h d)", b=batch, q=query_count
+            )
+            query_chunk = query_features[start:stop].to(dtype=x.dtype)
+            hidden = self.context_projection(context)
+            hidden = hidden + self.query_hidden_projection(query_chunk)[None]
+            hidden = hidden + self.feed_forward(hidden)
+            chunks.append(self.output_projection(hidden))
+        correction = torch.cat(chunks, dim=1)
+        correction = rearrange(
+            correction,
+            "b (h w) c -> b c h w",
+            h=output_shape[0],
+            w=output_shape[1],
+        )
+        return base + correction
 
 
 class PixelRefinementBlock(nn.Module):

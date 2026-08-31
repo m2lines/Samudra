@@ -15,7 +15,12 @@ from .blocks import (
     UpsamplingBlockBuilder,
     ZonallyPeriodicBilinearUpsample,
 )
-from .decoder import DCTDetailDecoder, DirectCrossAttentionIO, PerceiverDecoder
+from .decoder import (
+    DCTDetailDecoder,
+    DirectCrossAttentionIO,
+    PerceiverDecoder,
+    StructuredLocalDecoder,
+)
 from .encoder import (
     DCTDetailEncoder,
     PatchMomentEncoder,
@@ -40,6 +45,7 @@ __all__ = [
     "PerceiverDecoder",
     "DCTDetailDecoder",
     "DirectCrossAttentionIO",
+    "StructuredLocalDecoder",
     "DCTDetailEncoder",
     "PatchMomentEncoder",
     "PerceiverEncoder",

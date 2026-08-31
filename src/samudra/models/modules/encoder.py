@@ -155,6 +155,23 @@ class SpatialLatentGridEncoder(nn.Module):
             coarse_w * query_w,
         )
 
+    def output_resolution(self, resolution: tuple[Lat, Lon]) -> tuple[Lat, Lon]:
+        """Return coordinates of the explicit spatial-query token grid."""
+        lat, lon = resolution
+        patch_h, patch_w = patch_from(self.patch_extent, len(lat), len(lon))
+        query_h, query_w = self.spatial_perceiver.query_shape
+        cell_h, cell_w = patch_h // query_h, patch_w // query_w
+        if len(lat) % cell_h or len(lon) % cell_w:
+            raise ValueError("Input coordinates must divide over the spatial grid.")
+        latitude_weight = torch.cos(torch.deg2rad(lat)).clamp_min(
+            torch.finfo(lat.dtype).eps
+        )
+        output_lat = rearrange(lat * latitude_weight, "(h p) -> h p", p=cell_h).sum(
+            1
+        ) / rearrange(latitude_weight, "(h p) -> h p", p=cell_h).sum(1)
+        output_lon = rearrange(lon, "(w p) -> w p", p=cell_w).mean(1)
+        return output_lat, output_lon
+
 
 def dct_detail_basis(
     height: int,
@@ -226,6 +243,7 @@ class PatchMomentEncoder(nn.Module):
         *,
         moment_count: int,
         mean_channels: int,
+        add_geometry: bool = True,
     ) -> None:
         super().__init__()
         if moment_count < 1:
@@ -236,6 +254,7 @@ class PatchMomentEncoder(nn.Module):
         self.out_channels = out_channels
         self.patch_extent = patch_extent
         self.moment_count = moment_count
+        self.add_geometry = add_geometry
         self.mean_projection = nn.Linear(in_channels, mean_channels)
         self.coordinate_basis = nn.Sequential(
             nn.Linear(2, 64), nn.GELU(), nn.Linear(64, moment_count)
@@ -317,6 +336,8 @@ class PatchMomentEncoder(nn.Module):
             h=coarse_h,
             w=coarse_w,
         )
+        if not self.add_geometry:
+            return rearrange(encoded, "b (h w) c -> b c h w", h=coarse_h, w=coarse_w)
         return _add_patch_geometry(
             encoded,
             lat,
@@ -327,6 +348,23 @@ class PatchMomentEncoder(nn.Module):
             coarse_h,
             coarse_w,
         )
+
+    def output_resolution(self, resolution: tuple[Lat, Lon]) -> tuple[Lat, Lon]:
+        """Return area-centred coordinates for the coarse moment grid."""
+        lat, lon = resolution
+        patch_h, patch_w = patch_from(self.patch_extent, len(lat), len(lon))
+        if len(lat) % patch_h or len(lon) % patch_w:
+            raise ValueError(
+                "Input coordinates must divide evenly into moment patches."
+            )
+        latitude_weight = torch.cos(torch.deg2rad(lat)).clamp_min(
+            torch.finfo(lat.dtype).eps
+        )
+        coarse_lat = rearrange(lat * latitude_weight, "(h ph) -> h ph", ph=patch_h).sum(
+            1
+        ) / rearrange(latitude_weight, "(h ph) -> h ph", ph=patch_h).sum(1)
+        coarse_lon = rearrange(lon, "(w pw) -> w pw", pw=patch_w).mean(1)
+        return coarse_lat, coarse_lon
 
 
 class DCTDetailEncoder(nn.Module):

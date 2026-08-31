@@ -54,6 +54,7 @@ from samudra.models.modules import (
     ReLU,
     SpatialLatentGridEncoder,
     SpatialQueryPerceiver,
+    StructuredLocalDecoder,
     TransposedConvUpsample,
     UNetBackbone,
 )
@@ -658,6 +659,7 @@ class EncoderConfig(BaseConfig):
     queries_dim: int = Field(default=64, ge=1)
     moment_count: int = Field(default=4, ge=1)
     mean_channels: int = Field(default=32, ge=1)
+    moment_add_geometry: bool = Field(default=True)
     detail_count: int = Field(default=4, ge=0)
 
     def build(
@@ -677,6 +679,7 @@ class EncoderConfig(BaseConfig):
                 patch_extent=patch_extent,
                 moment_count=self.moment_count,
                 mean_channels=self.mean_channels,
+                add_geometry=self.moment_add_geometry,
             )
         if self.architecture == "dct_detail":
             if self.detail_count >= max_patch_size[0] * max_patch_size[1]:
@@ -742,7 +745,9 @@ class EncoderConfig(BaseConfig):
         )
 
 
-DecoderArchitecture = Literal["perceiver_io", "direct_cross_attention", "dct_detail"]
+DecoderArchitecture = Literal[
+    "perceiver_io", "direct_cross_attention", "dct_detail", "structured_local"
+]
 
 
 class DecoderConfig(BaseConfig):
@@ -797,6 +802,12 @@ class DecoderConfig(BaseConfig):
         ge=0,
         description="Number of non-DC patch modes synthesized by the dct_detail decoder.",
     )
+    residual_hidden_dim: int = Field(default=128, ge=1)
+    residual_heads: int = Field(default=4, ge=1)
+    residual_dim_head: int = Field(default=32, ge=1)
+    residual_neighborhood_radius: int = Field(default=1, ge=0)
+    residual_position_bias_strength: float = Field(default=8.0, gt=0)
+    residual_query_chunk_size: int = Field(default=4096, ge=1)
 
     def build(
         self,
@@ -824,6 +835,17 @@ class DecoderConfig(BaseConfig):
                 patch_extent=patch_extent,
                 detail_count=self.detail_count,
                 pixel_refinement=self.pixel_refinement,
+            )
+        if self.architecture == "structured_local":
+            return StructuredLocalDecoder(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                hidden_dim=self.residual_hidden_dim,
+                heads=self.residual_heads,
+                dim_head=self.residual_dim_head,
+                neighborhood_radius=self.residual_neighborhood_radius,
+                position_bias_strength=self.residual_position_bias_strength,
+                query_chunk_size=self.residual_query_chunk_size,
             )
         if self.architecture == "perceiver_io":
             decoder_core = self.perceiver.build_io(

@@ -59,6 +59,7 @@ class SlurmExecutor(Executor):
             "SIF_PATH": self.config.sif_path,
             "IMAGE_REF": self.config.image_ref,
             "CODE_LAYER": self.config.code_layer,
+            "CODE_DIR": self.config.code_dir,
             "APPTAINER_MODULE": self.config.apptainer_module,
         }
         values.update({key: str(value) for key, value in optional.items() if value})
@@ -108,6 +109,12 @@ class SlurmExecutor(Executor):
                 f"--array={task_start}-{task_end}%{maximum}",
                 f"--account={self.config.account}",
                 f"--partition={self.config.partition}",
+                *([f"--qos={self.config.qos}"] if self.config.qos else []),
+                *(
+                    [f"--constraint={self.config.constraint}"]
+                    if self.config.constraint
+                    else []
+                ),
                 "--nodes=1",
                 "--ntasks=1",
                 f"--cpus-per-task={self.config.cpus_per_task}",
@@ -176,6 +183,21 @@ class SlurmExecutor(Executor):
                 f"--dependency=afterany:{job_id}",
                 f"--account={self.config.account}",
                 f"--partition={self.config.controller_partition}",
+                *(
+                    [f"--qos={self.config.controller_qos}"]
+                    if self.config.controller_qos
+                    else []
+                ),
+                *(
+                    [f"--constraint={self.config.controller_constraint}"]
+                    if self.config.controller_constraint
+                    else []
+                ),
+                *(
+                    [f"--gres={self.config.controller_gres}"]
+                    if self.config.controller_gres
+                    else []
+                ),
                 f"--cpus-per-task={self.config.controller_cpus_per_task}",
                 f"--mem={self.config.controller_memory}",
                 f"--time={self.config.controller_time}",
@@ -223,6 +245,21 @@ class SlurmExecutor(Executor):
                 f"--dependency={dependency}",
                 f"--account={self.config.account}",
                 f"--partition={self.config.controller_partition}",
+                *(
+                    [f"--qos={self.config.controller_qos}"]
+                    if self.config.controller_qos
+                    else []
+                ),
+                *(
+                    [f"--constraint={self.config.controller_constraint}"]
+                    if self.config.controller_constraint
+                    else []
+                ),
+                *(
+                    [f"--gres={self.config.controller_gres}"]
+                    if self.config.controller_gres
+                    else []
+                ),
                 f"--cpus-per-task={self.config.controller_cpus_per_task}",
                 f"--mem={self.config.controller_memory}",
                 f"--time={self.config.controller_time}",

@@ -23,6 +23,7 @@ from samudra.models.modules import (
     PerceiverEncoder,
     SpatialLatentGridEncoder,
     SpatialQueryPerceiver,
+    StructuredLocalDecoder,
 )
 from samudra.models.modules.unet_backbone import UNetBackbone
 from samudra.utils.ctx import GridContext
@@ -45,6 +46,7 @@ _checkpoint_types: tuple[type, ...] = (
     DCTDetailDecoder,
     UNetBackbone,
     Attention,
+    StructuredLocalDecoder,
 )
 
 
@@ -105,8 +107,21 @@ class SamudraMulti(BaseModel):
                 fts = self.maybe_add_3d_coordinates(fts, ctx.input_resolution_cpu)
             fts = self.encoder(fts, ctx.input_resolution_cpu)
             fts = self.processor(fts)
-
-            fts = self.decoder(fts, ctx.output_resolution_cpu)
+            if isinstance(self.decoder, StructuredLocalDecoder):
+                output_resolution = getattr(self.encoder, "output_resolution", None)
+                if not callable(output_resolution):
+                    raise TypeError(
+                        "structured_local decoding requires an encoder with "
+                        "output_resolution()."
+                    )
+                source_resolution = output_resolution(ctx.input_resolution_cpu)
+                fts = self.decoder(
+                    fts,
+                    ctx.output_resolution_cpu,
+                    source_resolution=source_resolution,
+                )
+            else:
+                fts = self.decoder(fts, ctx.output_resolution_cpu)
 
         # Convert back to float32
         # TODO(alxmrs): We actually only support float16 when turned on; this kind of tricks us.

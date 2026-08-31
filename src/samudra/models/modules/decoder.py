@@ -10,7 +10,6 @@ from aurora.model.fourier import pos_expansion, scale_expansion
 from aurora.model.posencoding import pos_scale_enc
 from einops import rearrange, repeat
 from jaxtyping import Float
-from perceiver_pytorch.perceiver_io import Attention, FeedForward, PreNorm
 from torch import nn
 
 from samudra.constants import Lat, Lon

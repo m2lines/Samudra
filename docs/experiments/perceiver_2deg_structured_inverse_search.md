@@ -39,6 +39,11 @@ velocity RMSE, gradient-magnitude fidelity, and seam diagnostics are retained fo
 scientific review and Pareto analysis rather than collapsed prematurely into one
 score.
 
+Encoder group extents are chosen to make the processor grid comparable rather
+than naively held equal: 2×2 spatial-query groups cover 12°×20°, 4×4 groups
+cover 24°×40°, and single-token moment, DCT, and pooled routes cover 6°×10°.
+At 2° all three choices produce a 30×36 token grid.
+
 Each Alpha worker uses two GPUs with DDP. This resource shape had an immediate
 `test`-QoS scheduler estimate on launch day, while Alpha's one-GPU RTX pool was
 backlogged until the following day; it also keeps both allocated GPUs doing

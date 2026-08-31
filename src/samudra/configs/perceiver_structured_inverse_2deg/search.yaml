@@ -59,16 +59,20 @@ candidates:
     args:
       - --model.encoder.architecture=patch_moment
       - --model.encoder.moment_add_geometry=true
+      - --model.patch_extent=[6.0,10.0]
 
   - name: moment16-direct
     config: perceiver_structured_inverse_2deg/train.yaml
-    args: [--model.encoder.architecture=patch_moment]
+    args:
+      - --model.encoder.architecture=patch_moment
+      - --model.patch_extent=[6.0,10.0]
 
   - name: moment16-local
     config: perceiver_structured_inverse_2deg/train.yaml
     args:
       - --model.encoder.architecture=patch_moment
       - --model.decoder.architecture=structured_local
+      - --model.patch_extent=[6.0,10.0]
 
   - name: moment4-local
     config: perceiver_structured_inverse_2deg/train.yaml
@@ -76,6 +80,7 @@ candidates:
       - --model.encoder.architecture=patch_moment
       - --model.encoder.moment_count=4
       - --model.decoder.architecture=structured_local
+      - --model.patch_extent=[6.0,10.0]
 
   - name: spatial-grid2-local
     config: perceiver_structured_inverse_2deg/train.yaml
@@ -93,13 +98,17 @@ candidates:
       - --model.encoder.architecture=dct_detail
       - --model.decoder.architecture=dct_detail
       - --model.decoder.pixel_refinement=true
+      - --model.patch_extent=[6.0,10.0]
 
   - name: moment16-wide-direct
     config: perceiver_structured_inverse_2deg/train.yaml
     args:
       - --model.encoder.architecture=patch_moment
       - --model.decoder.perceiver.cross_heads=4
+      - --model.patch_extent=[6.0,10.0]
 
   - name: pooled-perceiver-direct
     config: perceiver_structured_inverse_2deg/train.yaml
-    args: [--model.encoder.architecture=perceiver]
+    args:
+      - --model.encoder.architecture=perceiver
+      - --model.patch_extent=[6.0,10.0]

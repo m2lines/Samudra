@@ -8,7 +8,7 @@ pad: circular
 checkpointing: null
 embedding_dim: 128
 perceiver_implementation: auto
-patch_extent: [6.0, 10.0]
+patch_extent: [12.0, 20.0]
 
 encoder:
   architecture: spatial_grid

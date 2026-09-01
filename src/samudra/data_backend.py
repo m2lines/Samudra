@@ -4,11 +4,14 @@
 
 """Backend-specific decoration of canonical training sources."""
 
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from samudra.config import BaseDataLoadingConfig, RustDataLoadingConfig
 from samudra.utils.data import CanonicalSource
 from samudra.utils.location import LocalLocation, ResolvedLocation
+
+if TYPE_CHECKING:
+    from samudra.rust_data import RustIoRuntime
 
 
 class TrainingSourceBackend(Protocol):
@@ -55,9 +58,8 @@ class _PythonSourceBackend:
 
 class _RustOm4SourceBackend:
     def __init__(self, max_concurrent_reads: int) -> None:
-        from samudra.rust_data import create_rust_io_runtime
-
-        self._runtime = create_rust_io_runtime(max_concurrent_reads)
+        self._max_concurrent_reads = max_concurrent_reads
+        self._runtime: RustIoRuntime | None = None
 
     def validate_locations(
         self,
@@ -104,9 +106,11 @@ class _RustOm4SourceBackend:
                 "loading.type='cpu'"
             )
 
-        from samudra.rust_data import native_om4_source
+        from samudra.rust_data import create_rust_io_runtime, native_om4_source
 
         assert isinstance(data_location, LocalLocation)
+        if self._runtime is None:
+            self._runtime = create_rust_io_runtime(self._max_concurrent_reads)
         return native_om4_source(source, data_location, self._runtime)
 
 

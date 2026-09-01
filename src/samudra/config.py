@@ -363,9 +363,9 @@ class Om4DataSourceConfig(BaseDataSourceConfig[Om4TimeConfig]):
 
         def expand_levels(dataset: xr.Dataset) -> xr.Dataset:
             canonical = xr.Dataset(attrs=dataset.attrs)
-            for coord in ("time", "lat", "lon"):
-                if coord in dataset.coords:
-                    canonical = canonical.assign_coords({coord: dataset.coords[coord]})
+            for name, coordinate in dataset.coords.items():
+                if "lev" not in coordinate.dims:
+                    canonical = canonical.assign_coords({name: coordinate})
             for name, variable in dataset.data_vars.items():
                 if "lev" not in variable.dims:
                     canonical[str(name)] = variable

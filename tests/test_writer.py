@@ -9,8 +9,9 @@ import pytest
 import torch
 import xarray as xr
 
+from samudra.config import Om4DataSourceConfig
 from samudra.constants import build_om4_layout
-from samudra.utils.data import BatchPreprocessor
+from samudra.utils.data import BatchPreprocessor, CanonicalSource
 from samudra.utils.writer import ZarrWriter
 from tests.conftest import TEST_FULL_DATA_LAYOUT
 
@@ -140,6 +141,65 @@ def test_writer_prefers_real_2d_lat_lon(tmp_path):
     # the transitional `lat_2d`/`lon_2d` names.
     assert out["lat"].dims == ("y", "x") and out["lon"].dims == ("y", "x")
     assert "lat_2d" not in out.variables and "lon_2d" not in out.variables
+    np.testing.assert_allclose(out["lat"].values, lat2d)
+    np.testing.assert_allclose(out["lon"].values, lon2d)
+
+
+def test_tripolar_om4_canonicalization_preserves_writer_geometry(tmp_path):
+    """Canonicalization carries curvilinear coordinates into eval output."""
+    nt, ny, nx = 2, 3, 4
+    y = np.linspace(-60, 60, ny)
+    x = np.linspace(0, 270, nx)
+    lat2d = y[:, None] + 0.1 * x[None, :]
+    lon2d = x[None, :] + 0.1 * y[:, None]
+    data = xr.Dataset(
+        {
+            "thetao": (("time", "lev", "y", "x"), np.ones((nt, 1, ny, nx))),
+            "hfds": (("time", "y", "x"), np.ones((nt, ny, nx))),
+            "wetmask": (("lev", "y", "x"), np.ones((1, ny, nx), dtype=bool)),
+        },
+        coords={
+            "time": np.arange(nt),
+            "lev": [2.5],
+            "y": y,
+            "x": x,
+            "lat": (("y", "x"), lat2d),
+            "lon": (("y", "x"), lon2d),
+        },
+    )
+    means = data[["thetao", "hfds"]].mean("time")
+    stds = xr.ones_like(means)
+    canonicalizer = Om4DataSourceConfig.model_construct(
+        prognostic_vars_key="thetao_1",
+        boundary_vars_key="hfds",
+        grid_type="tripolar",
+    )
+    canonical_data, canonical_means, canonical_stds, data_layout = (
+        canonicalizer.canonicalize_datasets(data, means, stds)
+    )
+    source = CanonicalSource.from_datasets(
+        canonical_data,
+        canonical_means,
+        canonical_stds,
+        data_layout=data_layout,
+        prognostic_var_names=data_layout.prognostic_var_names,
+        boundary_var_names=data_layout.boundary_var_names,
+    )
+
+    writer = ZarrWriter(
+        tmp_path,
+        coords=source.coordinates(),
+        hist=0,
+        model_path="dummy.ckpt",
+        time_chunk_size=4,
+        preprocessor=_NO_PREPROCESSOR,
+        data_layout=data_layout,
+    )
+    writer.buffer = torch.zeros(1, len(data_layout.prognostic_var_names), ny, nx)
+    writer.time_buffer = xr.DataArray([0], dims="time")
+    writer.write()
+
+    out = xr.open_zarr(writer.pred_path)
     np.testing.assert_allclose(out["lat"].values, lat2d)
     np.testing.assert_allclose(out["lon"].values, lon2d)
 

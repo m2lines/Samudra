@@ -8,6 +8,7 @@ import contextlib
 import dataclasses
 import datetime
 import itertools
+import pathlib
 from collections.abc import Generator
 
 import cftime
@@ -49,6 +50,28 @@ from tests.llc_fixtures import write_raw_llc_zarr_datasets
 def inference_loader_pair(trainer_pair: TrainPair) -> tuple[TrainConfig, DataLoader]:
     cfg, trainer = trainer_pair
     return cfg, trainer.inference_loader
+
+
+def test_cache_dir_defaults_to_worktree(
+    pytestconfig: pytest.Config, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("SAMUDRA_TEST_DATA_CACHE", raising=False)
+
+    assert cache_dir(pytestconfig) == pytestconfig.rootpath / ".data_cache"
+
+
+def test_cache_dir_supports_shared_cache(
+    pytestconfig: pytest.Config,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: pathlib.Path,
+) -> None:
+    shared_cache = tmp_path / "samudra-test-data"
+    monkeypatch.setenv("SAMUDRA_TEST_DATA_CACHE", str(shared_cache))
+
+    actual = cache_dir(pytestconfig)
+
+    assert actual == shared_cache / "v1"
+    assert actual.is_dir()
 
 
 def coarsen_data(ds: xr.Dataset) -> xr.Dataset:

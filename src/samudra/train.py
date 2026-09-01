@@ -1420,6 +1420,9 @@ class Trainer:
         finally:
             self._ema.restore(parameters=self.model.parameters())
 
+    def finish(self):
+        self.wandb_logger.finish()
+
 
 def run_training(cfg: TrainConfig) -> None:
     trainer = Trainer(cfg)

@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import dataclasses
+import os
 import pathlib
 from collections.abc import Generator, Iterable
 from typing import ClassVar, Self
@@ -36,6 +37,7 @@ TEST_FULL_DATASET_SPEC = c.build_om4_spec(
     prognostic_vars_key="thermo_dynamic_all",
     boundary_vars_key="tau_hfds_hfds_anom",
 )
+TEST_DATA_CACHE_VERSION = "v1"
 
 
 def _om4_canonical_var_names(var_names: Iterable[str]) -> list[str]:
@@ -297,7 +299,10 @@ class DataSourceDims:
 
 
 def cache_dir(pytestconfig: pytest.Config) -> pathlib.Path:
-    dir = pytestconfig.rootpath / ".data_cache"
+    if shared_cache := os.environ.get("SAMUDRA_TEST_DATA_CACHE"):
+        dir = pathlib.Path(shared_cache).expanduser() / TEST_DATA_CACHE_VERSION
+    else:
+        dir = pytestconfig.rootpath / ".data_cache"
     dir.mkdir(parents=True, exist_ok=True)
     return dir
 

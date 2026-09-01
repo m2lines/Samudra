@@ -209,6 +209,18 @@ pytest -m manual
 We use `pytest` as a test runner. All tests in this project have several [_marks_](https://docs.pytest.org/en/stable/how-to/mark.html)
 that allow developers to control what tests are run locally. Two marks of particular interest are `cuda` and `manual`.
 
+The test suite generates about 5 GB of reusable ocean data under `.data_cache` by default. To avoid creating a copy in
+every Git worktree, set `SAMUDRA_TEST_DATA_CACHE` to a shared directory before running tests:
+
+```bash
+export SAMUDRA_TEST_DATA_CACHE="$HOME/Library/Caches/samudra/test-data"
+pytest -m "not manual and not cuda"
+```
+
+Samudra adds a versioned subdirectory to this path and uses file locks so concurrent test runs can safely initialize the
+shared data. The default remains the worktree-local `.data_cache` when the environment variable is unset. When a change
+makes the cached test-data format incompatible, increment `TEST_DATA_CACHE_VERSION` in `tests/conftest.py`.
+
 "cuda" tests are tests that require an NVIDIA GPU to run. If tests use the `device` fixture, then they'll automatically
 be configured to run on both GPU and CPU simultaneously. Certain tests, however, can be marked with `@pytest.mark.cuda`
 if they need to run on that hardware. To run CUDA-only tests, call:

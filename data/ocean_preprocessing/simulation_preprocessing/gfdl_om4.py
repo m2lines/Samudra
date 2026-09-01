@@ -84,25 +84,14 @@ def select_om4_variables(ds: xr.Dataset) -> xr.Dataset:
     return ds[sorted(selected)]
 
 
-def om4_preprocessing(
-    zarr_data_path, nc_grid_path, nc_mosaic_path, fs=fsspec, backend_kwargs=None
-):
-    """OM4 specific preprocessing."""
-    ds = xr.open_dataset(
-        zarr_data_path, engine="zarr", chunks={}, backend_kwargs=backend_kwargs
-    )
-
-    ds = select_om4_variables(ds)
-    ds = normalize_vertical_coords(ds)
-
+def vertical_cell_metadata(ds: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:
+    """Return consistently typed cell thickness and interface coordinates."""
     if "ilev" in ds.coords:
-        dz = xr.DataArray(
-            ds.ilev.diff("ilev").values,
-            dims=["lev"],
-        ).astype("int64")
+        dz = xr.DataArray(ds.ilev.diff("ilev").values, dims=["lev"])
         ilev = ds["ilev"]
     else:
-        # add vertical info
+        # The snapshot archive omits interface depths, so add the canonical
+        # OM4 vertical grid used by the existing processed datasets.
         dz = xr.DataArray(
             [
                 5,
@@ -126,7 +115,7 @@ def om4_preprocessing(
                 1000,
             ],
             dims=["lev"],
-        ).astype("float64")
+        )
         ilev = xr.DataArray(
             [
                 0,
@@ -151,7 +140,25 @@ def om4_preprocessing(
                 6500,
             ],
             dims=["ilev"],
-        ).astype("float64")
+        )
+
+    # The processed coordinate contract is float64 for both averaged sources
+    # (which provide ilev) and snapshot sources (which use the fallback above).
+    return dz.astype("float64"), ilev.astype("float64")
+
+
+def om4_preprocessing(
+    zarr_data_path, nc_grid_path, nc_mosaic_path, fs=fsspec, backend_kwargs=None
+):
+    """OM4 specific preprocessing."""
+    ds = xr.open_dataset(
+        zarr_data_path, engine="zarr", chunks={}, backend_kwargs=backend_kwargs
+    )
+
+    ds = select_om4_variables(ds)
+    ds = normalize_vertical_coords(ds)
+
+    dz, ilev = vertical_cell_metadata(ds)
 
     ds = ds.assign_coords(dz=dz)
 

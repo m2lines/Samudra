@@ -83,7 +83,6 @@ def _validate_common_input_contract(ds_input: xr.Dataset) -> None:
 
     expected_coord_dims = {
         "areacello": ("y", "x"),
-        "dz": ("lev",),
         "lat": ("y", "x"),
         "lat_b": ("y_b", "x_b"),
         "lev": ("lev",),
@@ -101,6 +100,13 @@ def _validate_common_input_contract(ds_input: xr.Dataset) -> None:
                 f"Output coordinate {coord!r} has dimensions "
                 f"{ds_input[coord].dims}; expected {expected_dims}."
             )
+
+    allowed_dz_dims = {("lev",), ("lev", "y", "x")}
+    if ds_input.dz.dims not in allowed_dz_dims:
+        raise ValueError(
+            f"Output coordinate 'dz' has dimensions {ds_input.dz.dims}; "
+            f"expected one of {sorted(allowed_dz_dims)}."
+        )
 
     for bound, center in (("x_b", "x"), ("y_b", "y")):
         if ds_input.sizes[bound] != ds_input.sizes[center] + 1:

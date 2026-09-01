@@ -333,6 +333,13 @@ class CLI:
             logger.info("**small-run**: filtering data to 10 time steps.")
             ds_processed = ds_processed.isel(time=slice(0, 10))
 
+        # Validate the model-specific output before optional generic transforms.
+        # Partial-depth accounting intentionally expands dz from (lev,) to
+        # (lev, y, x), which is validated by the final input-data contract.
+        if not self.skip_validation:
+            logger.info("validating preprocessing.")
+            ds_processed_validate(ds_processed, deep=True)
+
         if self.account_for_partial_depths:
             logger.info("Apply processing to account for partial depths levels.")
             if native_grid_path.endswith(".zarr"):
@@ -341,10 +348,6 @@ class CLI:
                 with fsspec.open(native_grid_path) as f:
                     native_grid_ds = xr.open_dataset(f).load()
             ds_processed = account_for_partial_depths(ds_processed, native_grid_ds)
-
-        if not self.skip_validation:
-            logger.info("validating preprocessing.")
-            ds_processed_validate(ds_processed, deep=True)
 
         saved_attrs = {}
         for var in ds_processed.data_vars:

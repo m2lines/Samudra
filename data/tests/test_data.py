@@ -138,3 +138,13 @@ def test_flattened_contract_rejects_non_float_data():
 
     with pytest.raises(ValueError, match="'hfds' has dtype float64; expected float32"):
         ds_flattened_input_validate(ds)
+
+
+def test_flattened_contract_accepts_partial_cell_thickness():
+    ds = _flattened_input().drop_vars("dz")
+    partial_dz = np.ones(
+        (ds.sizes["lev"], ds.sizes["y"], ds.sizes["x"]), dtype="float64"
+    )
+    ds = ds.assign_coords(dz=(("lev", "y", "x"), partial_dz))
+
+    ds_flattened_input_validate(ds)

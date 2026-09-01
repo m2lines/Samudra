@@ -312,11 +312,17 @@ changes it, so you can turn this example into a new experiment.
 """
 
 DATA_CHECK_PY = """\
+from samudra.constants import build_om4_layout
+
 source = cfg.data.sources[0]
 ds = source.data_location.open()
 train_window = ds.sel(time=source.train_time.time_slice)
 val_window = ds.sel(time=source.val_time.time_slice)
-data_layout = source.data_layout
+data_layout = build_om4_layout(
+    source.prognostic_vars_key,
+    source.boundary_vars_key,
+    grid_type=source.grid_type,
+)
 expected_variables = set(
     data_layout.prognostic_var_names + data_layout.boundary_var_names
 )
@@ -455,9 +461,9 @@ with torch.no_grad():
     prediction = trainer.model(batch)[0]
 target = batch.get_label(0)
 
-prognostic_names = cfg.data.sources[0].data_layout.prognostic_var_names
+prognostic_names = trainer.data_layout.prognostic_var_names
 zos_index = prognostic_names.index("zos")
-zos_mask = trainer.primary_src.masks.prognostic[zos_index].cpu().numpy()
+zos_mask = trainer.primary_source.masks.prognostic[zos_index].cpu().numpy()
 predicted_zos = np.where(
     zos_mask, prediction[0, zos_index].detach().cpu().numpy(), np.nan
 )

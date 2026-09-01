@@ -6,6 +6,8 @@ import json
 import logging
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any, cast
 
 import pandas as pd
 import pytest
@@ -28,6 +30,38 @@ from samudra.utils.logging import handle_logging
 from samudra.utils.loss import DynamicLoss
 from samudra.utils.multiton import MultitonScope
 from tests.conftest import DEFAULT_CONFIG, SAMUDRA_MULTI_CONFIG, TrainPair
+
+
+def test_rollout_validation_passes_source_to_inference_dataset(monkeypatch):
+    validation_source = object()
+    captured_source = None
+
+    class EmptyInferenceDataset:
+        def __init__(self, *, source, **kwargs):
+            nonlocal captured_source
+            captured_source = source
+
+        def __len__(self):
+            return 0
+
+    trainer = cast(Any, object.__new__(Trainer))
+    trainer.rollout_validation = object()
+    trainer.data_bundle = SimpleNamespace(
+        train_sources=[object()], val_sources=[validation_source]
+    )
+    trainer.distributed = None
+    trainer.model = SimpleNamespace(eval=lambda: None)
+    trainer.prognostic_var_names = []
+    trainer.boundary_var_names = []
+    trainer.hist = 0
+    trainer.normalize_before_mask = True
+    trainer.masked_fill_value = 0.0
+
+    monkeypatch.setattr("samudra.train.InferenceDataset", EmptyInferenceDataset)
+    monkeypatch.setattr("samudra.train.is_main_process", lambda: True)
+
+    assert trainer.validate_rollout_one_epoch(epoch=1) == {}
+    assert captured_source is validation_source
 
 
 def test_handle_logging_replaces_handlers_between_local_jobs(tmp_path):

@@ -891,7 +891,7 @@ class Trainer:
             self.model.eval()
             rollout_src = self.data_bundle.val_sources[0]
             rollout_dataset = InferenceDataset(
-                src=rollout_src,
+                source=rollout_src,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,

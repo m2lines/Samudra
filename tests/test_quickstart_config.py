@@ -100,6 +100,13 @@ def test_quickstart_notebook_is_valid_and_current():
     assert "s3://m2lines-pubs/Samudra/v2026-07/om4_twodeg/" in sources
     assert "data/om4_demo.yaml" in sources
     assert "source.data_location.open()" in sources
+    assert "from samudra.constants import build_om4_layout" in sources
+    assert "data_layout = build_om4_layout(" in sources
+    assert "source.data_layout" not in sources
+    assert "cfg.data.sources[0].data_layout" not in sources
+    assert "prognostic_names = trainer.data_layout.prognostic_var_names" in sources
+    assert "trainer.primary_source.masks.prognostic" in sources
+    assert "trainer.primary_src" not in sources
     for location_field in (
         "data_location",
         "data_means_location",

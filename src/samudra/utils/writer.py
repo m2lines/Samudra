@@ -9,8 +9,8 @@ import torch
 import xarray as xr
 from einops import rearrange
 
-from samudra.constants import TensorMap
-from samudra.utils.data import Normalize, stack_levels
+from samudra.constants import DataLayout
+from samudra.utils.data import BatchPreprocessor, stack_levels
 from samudra.utils.output import ModelInferenceOutput
 
 
@@ -24,8 +24,8 @@ class ZarrWriter:
         hist: int,
         model_path: str | os.PathLike,
         time_chunk_size: int,
-        normalize: Normalize,
-        tensor_map: TensorMap,
+        preprocessor: BatchPreprocessor,
+        data_layout: DataLayout,
     ):
         self.pred_path = os.path.join(output_dir, "predictions.zarr")
 
@@ -41,16 +41,16 @@ class ZarrWriter:
         self.model_path = model_path
         self.time_chunk_size = time_chunk_size
 
-        self.normalize = normalize
-        self.tensor_map = tensor_map
+        self.preprocessor = preprocessor
+        self.data_layout = data_layout
 
-    def record_batch(self, IO: ModelInferenceOutput):
-        pred_tensor = IO.prediction
-        pred_time = IO.time
+    def record_batch(self, inference_output: ModelInferenceOutput):
+        pred_tensor = inference_output.prediction
+        pred_time = inference_output.time
         pred_tensor = rearrange(
             pred_tensor, "n (hi c) h w -> (n hi) c h w", hi=self.hist + 1
         )
-        pred_tensor = self.normalize.unnormalize_tensor_prognostic(
+        pred_tensor = self.preprocessor.unnormalize_tensor_prognostic(
             pred_tensor, fill_value=0.0
         )
         if self.buffer is None:
@@ -81,11 +81,11 @@ class ZarrWriter:
         per_level = xr.Dataset(
             {
                 name: (["time", "y", "x"], buffer[:, channel, :, :])
-                for channel, name in enumerate(self.tensor_map.prognostic_var_names)
+                for channel, name in enumerate(self.data_layout.prognostic_var_names)
             },
             coords=coords,
         )
-        ds = stack_levels(per_level, self.tensor_map.dataset_spec)
+        ds = stack_levels(per_level, self.data_layout)
         ds = ds.transpose("time", "lev", "y", "x", ...)
         ds.attrs["model_path"] = str(self.model_path)
         ds = ds.chunk({"time": self.time_chunk_size})
@@ -118,8 +118,7 @@ class ZarrWriter:
         x_vals = np.asarray(src["lon"].values)  # 1-D longitude axis
         ny, nx = y_vals.size, x_vals.size
 
-        spec = self.tensor_map.dataset_spec
-        n_levels = spec.num_prognostic_depth_levels
+        n_levels = self.data_layout.num_prognostic_depth_levels
 
         # 2-D lat/lon on the (y, x) grid, matching the ground-truth layout. Prefer
         # the real coordinates the source preserved (`lat_2d`/`lon_2d`), which are
@@ -130,12 +129,13 @@ class ZarrWriter:
         if "lat_2d" in src and "lon_2d" in src:
             lat2d = np.asarray(src["lat_2d"].values)
             lon2d = np.asarray(src["lon_2d"].values)
-        elif spec.grid_type == "gaussian":
+        elif self.data_layout.grid_type == "gaussian":
             lat2d = np.broadcast_to(y_vals[:, None], (ny, nx)).copy()
             lon2d = np.broadcast_to(x_vals[None, :], (ny, nx)).copy()
         else:
             raise ValueError(
-                f"Cannot build 2-D lat/lon for grid_type={spec.grid_type!r}: the "
+                "Cannot build 2-D lat/lon for "
+                f"grid_type={self.data_layout.grid_type!r}: the "
                 "source coords carry no real 'lat_2d'/'lon_2d', and broadcasting the "
                 "1-D axes is only valid on a 'gaussian' (rectilinear) grid. Preserve "
                 "the true 2-D coordinates through preprocessing for curvilinear grids."
@@ -146,7 +146,7 @@ class ZarrWriter:
             "x": ("x", x_vals),
             "lat": (("y", "x"), lat2d),
             "lon": (("y", "x"), lon2d),
-            "lev": ("lev", np.array(spec.depth_levels[:n_levels])),
+            "lev": ("lev", np.array(self.data_layout.depth_levels[:n_levels])),
         }
 
         rename = {"lat": "y", "lon": "x"}

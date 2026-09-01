@@ -19,11 +19,11 @@ import xarray as xr
 
 matplotlib.use("Agg")
 
-from samudra.constants import build_om4_spec  # noqa: E402
+from samudra.constants import build_om4_layout  # noqa: E402
 from samudra.metrics import comparisons, observations, report, spectra  # noqa: E402
 from samudra.viz import observations as figures  # noqa: E402
 
-OM4_SPEC = build_om4_spec(prognostic_vars_key="thermo_dynamic_all")
+OM4_SPEC = build_om4_layout(prognostic_vars_key="thermo_dynamic_all")
 WINDOW = (pd.Timestamp("2021-01-01"), pd.Timestamp("2022-12-31"))
 
 

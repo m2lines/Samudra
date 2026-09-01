@@ -2,7 +2,7 @@
 #SBATCH -p mit_normal_gpu
 #SBATCH --account=mit_amf_advanced_gpu
 #SBATCH --qos=mit_amf_advanced_gpu
-#SBATCH --job-name=2026-08-31:samudra_rb_llc:freshwater_flux-4
+#SBATCH --job-name=2026-09-01:samudra_rb_llc:freshwater_flux-5-scratch-test
 #SBATCH -x node4100
 #SBATCH -N 1
 #SBATCH --mem=254GB
@@ -164,7 +164,7 @@ VALID_MASK="${VALID_MASK:-true}"
 BOUNDARY_VARS_KEY="${BOUNDARY_VARS_KEY:-all_fw}"
 
 # CHECKPOINTING / RESUME
-RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-08-29:samudra_rb_llc:freshwater_flux-3-21569342/saved_nets/ckpt.pt}"
+RESUME_CKPT_PATH="${RESUME_CKPT_PATH:-/orcd/data/abodner/002/cody/overflow/wandb_overflow/rb/2026-08-31:samudra_rb_llc:freshwater_flux-4-21687910/saved_nets/ckpt_emergency.pt}"
 FINETUNE="${FINETUNE:-false}"
 RESET_OPTIMIZER_ON_RESUME="${RESET_OPTIMIZER_ON_RESUME:-false}"
 RESET_SCHEDULER_ON_RESUME="${RESET_SCHEDULER_ON_RESUME:-false}"

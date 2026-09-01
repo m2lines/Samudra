@@ -66,3 +66,14 @@ def test_slurm_harness_resolves_sidecar_from_repo_checkout(harness):
     assert script.index('REPO_DIR="${REPO_DIR:-') < script.index(
         'source "${VARIANT_SCRIPT}"'
     )
+
+
+def test_preprocessing_harness_runs_selected_data_subproject():
+    script = SLURM_HARNESSES[0].read_text()
+
+    # An editable conda install may reference another checkout. Running from
+    # REPO_DIR/data ensures Python imports the revision selected for this job.
+    assert 'cd "${REPO_DIR}/data"' in script
+    assert script.index('cd "${REPO_DIR}/data"') < script.index(
+        "\npython -m ocean_preprocessing om4"
+    )

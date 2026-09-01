@@ -194,7 +194,11 @@ if [[ "${SKIP_VALIDATION:-1}" == "1" ]]; then
 fi
 
 # --- Run ---------------------------------------------------------------------
-cd "${REPO_DIR}"  # so get_git_url_hash() resolves and data/ is importable
+# Enter the selected data subproject before invoking Python. The conda env is
+# created with an editable install, which may point at a different checkout;
+# putting this directory first on sys.path guarantees that the job executes the
+# exact REPO_DIR revision whose provenance it records.
+cd "${REPO_DIR}/data"
 
 echo "Resolution:   ${RESOLUTION}"
 echo "Data variant: ${DATA_VARIANT}"
@@ -205,6 +209,7 @@ echo "Output path:  ${OUTPUT_PATH}"
 echo "Conda env:    ${PREPROC_ENV}  (via ${CONDA_SH})"
 echo "LocalCluster: n_workers=${N_WORKERS} threads_per_worker=${THREADS_PER_WORKER} memory_limit=${MEMORY_LIMIT:-auto}"
 echo "Repo dir:     ${REPO_DIR}"
+echo "Python source: $(python -c 'import ocean_preprocessing; print(ocean_preprocessing.__file__)')"
 
 set -x
 python -m ocean_preprocessing om4 \

@@ -50,6 +50,8 @@ executor:
   code_dir: /mnt/lustre/nyu/amerose/code/Samudra-structured-perceiver-alpha
   apptainer_module: apptainer
 
+artifacts: !include ../search/osn-artifacts.yaml
+
 candidates:
   - name: spatial-grid2-direct
     config: perceiver_structured_inverse_2deg/train.yaml

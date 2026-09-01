@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788304422411,
+  "lastUpdate": 1788304430223,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -23749,6 +23749,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.4858651029670692",
             "extra": "mean: 47.5342340016 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "bc2624c1e445d3bfc71f7df78e564c170a37f2cc",
+          "message": "Simplify the canonical data loading boundary (#823)\n\n## Summary\n\n- rebase the canonical-reader refactor needed by #800 onto the LLC\nsupport landed in #670\n- replace the overlapping `DatasetSpec` / `CanonicalDataset` /\n`OceanData` abstractions with `DataLayout`, `CanonicalSource`,\n`BatchPreprocessor`, `HostBatch`, and `ModelBatch`\n- make the storage-independent reader accept explicit time indices and\ncanonical channel names\n- push prognostic-versus-boundary selection into read requests instead\nof maintaining sliced source objects\n- move OM4-specific canonicalization into\n`Om4DataSourceConfig.canonicalize_datasets`\n- make OM4 and LLC canonicalizers derive their channel selections from\nvariable keys and return the resulting `DataLayout`\n- keep raw source conventions such as LLC staggered masks and OM4 mask\nnames out of `DataLayout`\n- preserve the grid-geometry, analysis-ready writer output, and\ntraining-progress changes currently on `main`\n\nThis intentionally does not add an LLC Rust loader. It establishes the\nnarrower `CanonicalReader` seam that the Rust loader can implement later\nwithout exposing xarray or source-specific naming to the training\npipeline.\n\n## Impact\n\nCallers now request ordered canonical channels directly.\nCanonicalization owns source-specific naming, dimension, mask, and\nvariable-selection rules, while `DataLayout` describes only the\ncanonical/model-facing result. This removes repeated variable filtering\nand normalization wrappers from the hot data-loading path.\n\n## Validation\n\n- `uvx pre-commit run --all-files`\n- `CUDA_VISIBLE_DEVICES='' uv run pytest -q -m 'not manual and not\ncuda'`\n  - 323 passed, 2 skipped, 10 xfailed\n\n---------\n\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>\nCo-authored-by: Alexander Merose <alex@openathena.ai>",
+          "timestamp": "2026-09-01T15:54:15-07:00",
+          "tree_id": "0c72a8ee41f777e905857ceb1fc33074b207c526",
+          "url": "https://github.com/m2lines/Samudra/commit/bc2624c1e445d3bfc71f7df78e564c170a37f2cc"
+        },
+        "date": 1788304429821,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.1661792927794765,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0020778528041852516",
+            "extra": "mean: 857.5010774000248 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.08168356336296818,
+            "unit": "iter/sec",
+            "range": "stddev: 0.12562415178278544",
+            "extra": "mean: 12.242365034400018 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.024187419525549727,
+            "unit": "iter/sec",
+            "range": "stddev: 0.18107054592734884",
+            "extra": "mean: 41.343806805999996 sec\nrounds: 5"
           }
         ]
       }

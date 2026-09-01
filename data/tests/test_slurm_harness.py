@@ -9,6 +9,10 @@ from pathlib import Path
 import pytest
 
 VARIANT_SCRIPT = Path(__file__).parents[2] / "scripts" / "om4_data_variant.sh"
+SLURM_HARNESSES = [
+    VARIANT_SCRIPT.parent / "slurm_preprocess_om4.sbatch",
+    VARIANT_SCRIPT.parent / "slurm_make_norm_om4.sbatch",
+]
 
 
 def _resolve_variant(variant: str) -> subprocess.CompletedProcess[str]:
@@ -49,3 +53,16 @@ def test_om4_data_variant_rejects_unknown_value():
 
     assert result.returncode == 2
     assert "unknown DATA_VARIANT='instantaneous'" in result.stderr
+
+
+@pytest.mark.parametrize("harness", SLURM_HARNESSES)
+def test_slurm_harness_resolves_sidecar_from_repo_checkout(harness):
+    script = harness.read_text()
+
+    # sbatch executes a copy under Slurm's spool directory, so BASH_SOURCE
+    # cannot locate a helper stored beside the original script.
+    assert 'dirname -- "${BASH_SOURCE[0]}"' not in script
+    assert 'VARIANT_SCRIPT="${REPO_DIR%/}/scripts/om4_data_variant.sh"' in script
+    assert script.index('REPO_DIR="${REPO_DIR:-') < script.index(
+        'source "${VARIANT_SCRIPT}"'
+    )

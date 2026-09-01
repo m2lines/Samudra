@@ -80,9 +80,17 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# Slurm executes a spool copy of this batch script, so BASH_SOURCE points into
+# Slurm's private job directory rather than this repository. Resolve sidecars
+# from the explicitly supplied checkout (or the submission directory) instead.
+REPO_DIR="${REPO_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}"
+VARIANT_SCRIPT="${REPO_DIR%/}/scripts/om4_data_variant.sh"
+if [[ ! -f "${VARIANT_SCRIPT}" ]]; then
+  echo "ERROR: OM4 variant helper not found at '${VARIANT_SCRIPT}'. Set REPO_DIR to the Samudra checkout." >&2
+  exit 3
+fi
 # shellcheck source=om4_data_variant.sh
-source "${SCRIPT_DIR}/om4_data_variant.sh"
+source "${VARIANT_SCRIPT}"
 
 # --- Resolve inputs ----------------------------------------------------------
 RESOLUTION="${RESOLUTION:-}"
@@ -186,7 +194,6 @@ if [[ "${SKIP_VALIDATION:-1}" == "1" ]]; then
 fi
 
 # --- Run ---------------------------------------------------------------------
-REPO_DIR="${REPO_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}"
 cd "${REPO_DIR}"  # so get_git_url_hash() resolves and data/ is importable
 
 echo "Resolution:   ${RESOLUTION}"

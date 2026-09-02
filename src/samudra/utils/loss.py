@@ -9,7 +9,7 @@ import torch
 import torch.nn.functional as F
 from jaxtyping import Float
 
-from samudra.utils.ctx import GridContext
+from samudra.utils.ctx import BatchGrid
 
 LossFn = Callable[[torch.Tensor, torch.Tensor], torch.Tensor]
 
@@ -19,7 +19,7 @@ class LossFnWithContext(Protocol):
         self,
         pred: torch.Tensor,
         target: torch.Tensor,
-        ctx: GridContext,
+        ctx: BatchGrid,
     ) -> torch.Tensor: ...
 
 
@@ -47,7 +47,7 @@ def loss_fn_from_metric(metric: LossMetric) -> LossFnWithContext:
     def loss_fn_with_ctx(
         pred: torch.Tensor,
         target: torch.Tensor,
-        ctx: GridContext,
+        ctx: BatchGrid,
     ) -> torch.Tensor:
         wet = ctx.label_mask.to(device=pred.device)
         pred = pred * wet
@@ -176,7 +176,7 @@ class DynamicLoss:
         self,
         pred: Float[torch.Tensor, "batch hist*var lat lon"],
         target: Float[torch.Tensor, "batch hist*var lat lon"],
-        ctx: GridContext,
+        ctx: BatchGrid,
     ) -> Float[torch.Tensor, " hist*var"]:
         loss_with_history_channels: Float[torch.Tensor, " hist*var"] = self.loss_fn(
             pred, target, ctx
@@ -255,7 +255,7 @@ class GradientLoss:
         self,
         pred: Float[torch.Tensor, "batch hist*var lat lon"],
         target: Float[torch.Tensor, "batch hist*var lat lon"],
-        ctx: GridContext,
+        ctx: BatchGrid,
     ) -> Float[torch.Tensor, " hist*var"]:
         base_loss = self.loss_fn(pred, target, ctx)
         # Ensure mask is on the same device as pred for gradient computation

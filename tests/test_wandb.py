@@ -18,18 +18,19 @@ class DummyWandbConfig:
 
 
 class DummyConfig:
-    def __init__(self, output_dir: Path):
+    def __init__(self, output_dir: Path, config: dict | None = None):
         self.experiment = SimpleNamespace(
             output_dir=output_dir,
             wandb=DummyWandbConfig(),
         )
+        self.config = config or {}
 
     def model_dump(self):
-        return {}
+        return self.config
 
 
-class DummyDataContainer:
-    sources: list[Any] = []
+class DummyDataBundle:
+    train_sources: list[Any] = []
 
 
 def test_wandb_resume_setup_skips_checkpoint_load_when_disabled(tmp_path, monkeypatch):
@@ -48,7 +49,7 @@ def test_wandb_resume_setup_skips_checkpoint_load_when_disabled(tmp_path, monkey
         assert logger.setup_run(
             str(checkpoint_path),
             cast(Any, DummyConfig(tmp_path)),
-            cast(Any, DummyDataContainer()),
+            cast(Any, DummyDataBundle()),
         ) == (None, None)
 
 
@@ -75,10 +76,30 @@ def test_wandb_resume_setup_loads_metadata_on_cpu(tmp_path, monkeypatch):
         assert logger.setup_run(
             str(checkpoint_path),
             cast(Any, DummyConfig(tmp_path)),
-            cast(Any, DummyDataContainer()),
+            cast(Any, DummyDataBundle()),
         ) == ("run-123", "resume-me")
 
     assert init_kwargs["resume"] == "must"
     assert init_kwargs["id"] == "run-123"
     assert init_kwargs["name"] == "resume-me"
     assert init_kwargs["dir"] == tmp_path
+
+
+def test_wandb_config_preserves_namespaced_search_config(tmp_path):
+    expected = {
+        "experiment": {
+            "search": {
+                "name": "perceiver-search",
+                "candidate": "direct-query",
+                "rung": 2,
+            }
+        }
+    }
+    with MultitonScope():
+        logger = WandBLogger.init_instance()
+        config = logger._make_config(
+            cast(Any, DummyConfig(tmp_path, expected)),
+            cast(Any, DummyDataBundle()),
+        )
+
+    assert config["config"] == expected

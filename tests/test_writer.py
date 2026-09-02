@@ -1,0 +1,319 @@
+# SPDX-FileCopyrightText: 2026 Ocean Emulator Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+from typing import cast
+
+import numpy as np
+import pytest
+import torch
+import xarray as xr
+
+from samudra.config import Om4DataSourceConfig
+from samudra.constants import build_om4_layout
+from samudra.utils.data import BatchPreprocessor, CanonicalSource
+from samudra.utils.writer import ZarrWriter
+from tests.conftest import TEST_FULL_DATA_LAYOUT
+
+# write() never touches preprocessing (record_batch does), so these tests drive
+# the writer directly with a buffer and omit a real preprocessor.
+_NO_PREPROCESSOR = cast(BatchPreprocessor, None)
+
+
+def _source_coords(ny, nx):
+    """Coords as `get_coords_dict` should be returned: 1D lat/lon dims,
+    plus the grid metadata that survives `with_lat_lon_coords` (areacello, dz,
+    lev, ocean_fraction)."""
+    data_layout = TEST_FULL_DATA_LAYOUT
+    n_lev = data_layout.num_prognostic_depth_levels
+    lat = xr.DataArray(np.linspace(-89, 89, ny), dims="lat")
+    lon = xr.DataArray(np.linspace(0, 359, nx), dims="lon")
+    return {
+        "lat": lat,
+        "lon": lon,
+        "lev": xr.DataArray(list(data_layout.depth_levels), dims="lev"),
+        "dz": xr.DataArray(list(data_layout.depth_thickness), dims="lev"),
+        "areacello": xr.DataArray(np.ones((ny, nx)), dims=["lat", "lon"]),
+        "ocean_fraction": xr.DataArray(
+            np.ones((n_lev, ny, nx)), dims=["lev", "lat", "lon"]
+        ),
+        # cell bounds survive on y_b/x_b dims (kept by with_lat_lon_coords)
+        "lat_b": xr.DataArray(np.zeros((ny + 1, nx + 1)), dims=["y_b", "x_b"]),
+        "lon_b": xr.DataArray(np.zeros((ny + 1, nx + 1)), dims=["y_b", "x_b"]),
+    }
+
+
+def test_writer_output_is_analysis_ready(tmp_path):
+    """The eval writer emits depth-stacked vars on y/x dims with grid metadata."""
+    data_layout = TEST_FULL_DATA_LAYOUT
+    names = list(data_layout.prognostic_var_names)
+    n_channels, n_lev = len(names), data_layout.num_prognostic_depth_levels
+    nt, ny, nx = 2, 3, 4
+
+    coords = _source_coords(ny, nx)
+    writer = ZarrWriter(
+        tmp_path,
+        coords=coords,
+        hist=0,
+        model_path="dummy.ckpt",
+        time_chunk_size=4,
+        preprocessor=_NO_PREPROCESSOR,
+        data_layout=data_layout,
+    )
+
+    # buffer[t, c] is uniformly the channel index c, so each reassembled level can
+    # be checked against the channel it must have come from.
+    buffer = np.broadcast_to(
+        np.arange(n_channels)[None, :, None, None],
+        (nt, n_channels, ny, nx),
+    ).astype("float32")
+    writer.buffer = torch.from_numpy(buffer.copy())
+    writer.time_buffer = xr.DataArray(np.arange(nt), dims="time")
+
+    writer.write()
+    out = xr.open_zarr(writer.pred_path)
+
+    # (#1) 3D vars are depth-stacked; (#2) on y/x dims; zos stays 2D.
+    assert set(out.data_vars) == {"thetao", "so", "uo", "vo", "zos"}
+    assert out["thetao"].dims == ("time", "lev", "y", "x")
+    assert out["zos"].dims == ("time", "y", "x")
+    assert not any(f"thetao_{i}" in out.variables for i in range(n_lev))
+
+    # Each level holds exactly the channel it was flattened from (no transposition).
+    for base in ["thetao", "so", "uo", "vo"]:
+        for i in range(n_lev):
+            assert (out[base].isel(lev=i).values == names.index(f"{base}_{i}")).all()
+    assert (out["zos"].values == names.index("zos")).all()
+
+    # (#3) grid metadata propagated, with horizontal dims renamed lat/lon -> y/x.
+    np.testing.assert_array_equal(out["lev"].values, data_layout.depth_levels)
+    np.testing.assert_array_equal(out["dz"].values, data_layout.depth_thickness)
+    assert out["areacello"].dims == ("y", "x")
+    assert out["ocean_fraction"].dims == ("lev", "y", "x")
+    # cell bounds propagate unchanged (enables dx/dy in analysis).
+    assert out["lat_b"].dims == ("y_b", "x_b")
+    assert out["lon_b"].dims == ("y_b", "x_b")
+
+    # 2D lat/lon reconstructed to match the truth layout. This source carries no
+    # `lat_2d`/`lon_2d`, so the writer falls back to broadcasting the 1D y/x axes.
+    assert out["lat"].dims == ("y", "x") and out["lon"].dims == ("y", "x")
+    np.testing.assert_allclose(out["lat"].isel(x=0).values, coords["lat"].values)
+    np.testing.assert_allclose(out["lon"].isel(y=0).values, coords["lon"].values)
+
+
+def test_writer_prefers_real_2d_lat_lon(tmp_path):
+    """When the source carries real 2D lat/lon, the writer uses them verbatim.
+
+    On a curvilinear grid (e.g. tripolar) lat/lon vary along both dims and cannot
+    be rebuilt by broadcasting the 1D axes. `with_lat_lon_coords` preserves the
+    real coords as `lat_2d`/`lon_2d`; the writer must emit those, not a broadcast.
+    """
+    data_layout = TEST_FULL_DATA_LAYOUT
+    n_channels = len(data_layout.prognostic_var_names)
+    ny, nx = 3, 4
+
+    coords = _source_coords(ny, nx)
+    lat1d = coords["lat"].values
+    lon1d = coords["lon"].values
+    # A curvilinear twist: each coordinate varies along BOTH dims, so it differs
+    # from the broadcast of the 1D axes (which the fallback would produce).
+    lat2d = lat1d[:, None] + 0.1 * lon1d[None, :]
+    lon2d = lon1d[None, :] + 0.1 * lat1d[:, None]
+    coords["lat_2d"] = xr.DataArray(lat2d, dims=["lat", "lon"])
+    coords["lon_2d"] = xr.DataArray(lon2d, dims=["lat", "lon"])
+
+    writer = ZarrWriter(
+        tmp_path,
+        coords=coords,
+        hist=0,
+        model_path="dummy.ckpt",
+        time_chunk_size=4,
+        preprocessor=_NO_PREPROCESSOR,
+        data_layout=data_layout,
+    )
+    writer.buffer = torch.zeros(1, n_channels, ny, nx)
+    writer.time_buffer = xr.DataArray(np.arange(1), dims="time")
+
+    writer.write()
+    out = xr.open_zarr(writer.pred_path)
+
+    # Real coords are emitted as `lat`/`lon` on y/x -- not broadcast, and not under
+    # the transitional `lat_2d`/`lon_2d` names.
+    assert out["lat"].dims == ("y", "x") and out["lon"].dims == ("y", "x")
+    assert "lat_2d" not in out.variables and "lon_2d" not in out.variables
+    np.testing.assert_allclose(out["lat"].values, lat2d)
+    np.testing.assert_allclose(out["lon"].values, lon2d)
+
+
+def test_tripolar_om4_canonicalization_preserves_writer_geometry(tmp_path):
+    """Canonicalization carries curvilinear coordinates into eval output."""
+    nt, ny, nx = 2, 3, 4
+    y = np.linspace(-60, 60, ny)
+    x = np.linspace(0, 270, nx)
+    lat2d = y[:, None] + 0.1 * x[None, :]
+    lon2d = x[None, :] + 0.1 * y[:, None]
+    data = xr.Dataset(
+        {
+            "thetao": (("time", "lev", "y", "x"), np.ones((nt, 1, ny, nx))),
+            "hfds": (("time", "y", "x"), np.ones((nt, ny, nx))),
+            "wetmask": (("lev", "y", "x"), np.ones((1, ny, nx), dtype=bool)),
+        },
+        coords={
+            "time": np.arange(nt),
+            "lev": [2.5],
+            "y": y,
+            "x": x,
+            "lat": (("y", "x"), lat2d),
+            "lon": (("y", "x"), lon2d),
+        },
+    )
+    means = data[["thetao", "hfds"]].mean("time")
+    stds = xr.ones_like(means)
+    canonicalizer = Om4DataSourceConfig.model_construct(
+        prognostic_vars_key="thetao_1",
+        boundary_vars_key="hfds",
+        grid_type="tripolar",
+    )
+    canonical_data, canonical_means, canonical_stds, data_layout = (
+        canonicalizer.canonicalize_datasets(data, means, stds)
+    )
+    source = CanonicalSource.from_datasets(
+        canonical_data,
+        canonical_means,
+        canonical_stds,
+        data_layout=data_layout,
+        prognostic_var_names=data_layout.prognostic_var_names,
+        boundary_var_names=data_layout.boundary_var_names,
+    )
+
+    writer = ZarrWriter(
+        tmp_path,
+        coords=source.coordinates(),
+        hist=0,
+        model_path="dummy.ckpt",
+        time_chunk_size=4,
+        preprocessor=_NO_PREPROCESSOR,
+        data_layout=data_layout,
+    )
+    writer.buffer = torch.zeros(1, len(data_layout.prognostic_var_names), ny, nx)
+    writer.time_buffer = xr.DataArray([0], dims="time")
+    writer.write()
+
+    out = xr.open_zarr(writer.pred_path)
+    np.testing.assert_allclose(out["lat"].values, lat2d)
+    np.testing.assert_allclose(out["lon"].values, lon2d)
+
+
+def test_writer_appends_along_time(tmp_path):
+    """A second write extends the time axis without disturbing other coords."""
+    data_layout = TEST_FULL_DATA_LAYOUT
+    n_channels = len(data_layout.prognostic_var_names)
+    ny, nx = 3, 4
+
+    coords = _source_coords(ny, nx)
+    writer = ZarrWriter(
+        tmp_path,
+        coords=coords,
+        hist=0,
+        model_path="dummy.ckpt",
+        time_chunk_size=4,
+        preprocessor=_NO_PREPROCESSOR,
+        data_layout=data_layout,
+    )
+
+    def _write(times):
+        writer.buffer = torch.zeros(len(times), n_channels, ny, nx)
+        writer.time_buffer = xr.DataArray(np.array(times), dims="time")
+        writer.write()
+
+    _write([0, 1])
+    _write([2, 3, 4])
+
+    out = xr.open_zarr(writer.pred_path)
+    np.testing.assert_array_equal(out["time"].values, [0, 1, 2, 3, 4])
+    assert out["thetao"].sizes["time"] == 5
+    assert out["areacello"].dims == ("y", "x")  # static coord unaffected
+
+
+def test_writer_shallow_spec_slices_depth_metadata(tmp_path):
+    """A shallow model spec must not conflict with full-depth source coords.
+
+    A full-depth source carries 19-level `dz`/`ocean_fraction`, but a shallow spec
+    (e.g. thermo_dynamic_5) emits fewer levels. The writer slices the depth-resolved
+    coords to the emitted level count instead of raising on a conflicting `lev` dim.
+    """
+    data_layout = build_om4_layout(
+        prognostic_vars_key="thermo_dynamic_5", boundary_vars_key="tau_hfds"
+    )
+    n_prog = data_layout.num_prognostic_depth_levels
+    n_channels = len(data_layout.prognostic_var_names)
+    ny, nx, nt = 3, 4, 1
+
+    # Source coords carry the FULL 19-level depth metadata.
+    coords = {
+        "lat": xr.DataArray(np.linspace(-89, 89, ny), dims="lat"),
+        "lon": xr.DataArray(np.linspace(0, 359, nx), dims="lon"),
+        "lev": xr.DataArray(list(data_layout.depth_levels), dims="lev"),
+        "dz": xr.DataArray(list(data_layout.depth_thickness), dims="lev"),
+        "ocean_fraction": xr.DataArray(
+            np.ones((19, ny, nx)), dims=["lev", "lat", "lon"]
+        ),
+        "areacello": xr.DataArray(np.ones((ny, nx)), dims=["lat", "lon"]),
+    }
+    writer = ZarrWriter(
+        tmp_path,
+        coords=coords,
+        hist=0,
+        model_path="dummy.ckpt",
+        time_chunk_size=4,
+        preprocessor=_NO_PREPROCESSOR,
+        data_layout=data_layout,
+    )
+    writer.buffer = torch.zeros(nt, n_channels, ny, nx)
+    writer.time_buffer = xr.DataArray(np.arange(nt), dims="time")
+
+    writer.write()  # must not raise on conflicting lev sizes
+    out = xr.open_zarr(writer.pred_path)
+
+    # Depth axis and all depth-resolved coords are sliced to the emitted levels.
+    assert out.sizes["lev"] == n_prog
+    assert out["thetao"].sizes["lev"] == n_prog
+    assert out["dz"].sizes["lev"] == n_prog
+    assert out["ocean_fraction"].sizes["lev"] == n_prog
+    np.testing.assert_array_equal(out["lev"].values, data_layout.depth_levels[:n_prog])
+    np.testing.assert_array_equal(
+        out["dz"].values, data_layout.depth_thickness[:n_prog]
+    )
+
+
+def test_writer_curvilinear_grid_without_real_coords_raises(tmp_path):
+    """On a curvilinear grid, the writer refuses to fabricate lat/lon by broadcast.
+
+    A tripolar spec whose source coords lack real 2D lat/lon can't have its geometry
+    rebuilt from the 1D axes, so the writer raises rather than emit wrong
+    coordinates. (The gaussian grid broadcasts fine -- see
+    test_writer_output_is_analysis_ready, which drives the same coords.)
+    """
+    data_layout = build_om4_layout(
+        prognostic_vars_key="thermo_dynamic_all",
+        boundary_vars_key="tau_hfds_hfds_anom",
+        grid_type="tripolar",
+    )
+    n_channels = len(data_layout.prognostic_var_names)
+    ny, nx = 3, 4
+
+    coords = _source_coords(ny, nx)  # 1D lat/lon only; no lat_2d/lon_2d
+    writer = ZarrWriter(
+        tmp_path,
+        coords=coords,
+        hist=0,
+        model_path="dummy.ckpt",
+        time_chunk_size=4,
+        preprocessor=_NO_PREPROCESSOR,
+        data_layout=data_layout,
+    )
+    writer.buffer = torch.zeros(1, n_channels, ny, nx)
+    writer.time_buffer = xr.DataArray(np.arange(1), dims="time")
+
+    with pytest.raises(ValueError, match="grid_type"):
+        writer.write()

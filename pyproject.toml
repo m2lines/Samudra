@@ -4,28 +4,32 @@
 
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = [ "setuptools", "wheel" ]
+# setuptools>=62.3 is required for recursive `**` globs in package-data
+# (configs/**/*.yaml); without it the presets would be silently omitted.
+requires = [ "setuptools>=62.3", "setuptools-scm>=8", "wheel" ]
 
 [project]
 name = "samudra"
-version = "1.0"
 description = "Train and evaluate ocean model emulators"
 readme = "README.md"
 keywords = [ "climate", "emulation", "machine learning", "ocean" ]
 license = { file = "LICENSE" }
-requires-python = ">=3.12"
+# We currently only test 3.12
+requires-python = ">=3.12,<3.13"
 classifiers = [
   "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",
   "License :: OSI Approved :: Apache Software License",
   "Programming Language :: Python :: 3 :: Only",
   "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
+dynamic = [ "version" ] # derived from git tags by setuptools-scm
 dependencies = [
   "aiohttp>=3.11.13",
+  "cartopy>=0.24.1",              # `samudra viz` imports it at module load
   "cftime>=1.6.4.post1",
+  "cmocean>=4.0.3",
   "dacite>=1.9.2",
   "dask>=2025.2",
   "einops>=0.7",
@@ -33,7 +37,8 @@ dependencies = [
   "matplotlib>=3.10.1",
   "microsoft-aurora>=1.8",
   "numpy>=1.26.4,<2",             # There is some incompatibility between a dependency and numpy 2+
-  "perceiver-pytorch>=0.8.8",
+  "pandas>=2.2",                  # tidy metric frames are part of samudra.metrics' API
+  "pyarrow>=18",                  # portable Parquet experiment catalogs
   "pydantic-settings>=2.8.1",
   "pytest-xdist[psutil]>=3.6.1",
   "pyyaml>=6.0.2",
@@ -42,8 +47,10 @@ dependencies = [
   "scipy>=1.15.2",
   "skypilot[aws,lambda]>=0.10",
   "sqlalchemy>=2",                # skypilot requires sqlalchemy 2.0 but doesn't include that requirement
-  "torch>=2.9.0a0,<2.10",         # Matches PhysicsNeMo 25.11 for Docker build
+  "torch>=2.9.0a0,<2.13",         # Matches PhysicsNeMo container builds
   "torchinfo>=1.8",
+  "tqdm>=4.67.1",
+  "typing-extensions>=4.15",
   "wandb>=0.19.8",
   "xarray[io]>=2025.1.2",
   "xarray-einstats[einops]>=0.8",
@@ -51,16 +58,19 @@ dependencies = [
   "zarr<3",
 ]
 optional-dependencies.cuda = [
-  "flash-attn>=2.7.4.post1,<3",
-  "flash-perceiver>=0.2",
   "torchvision>=0.24.0a0",
 ]
+
+urls.Documentation = "https://m2lines.github.io/Samudra/docs/"
+urls.Homepage = "https://m2lines.github.io/Samudra/"
+urls.Issues = "https://github.com/m2lines/Samudra/issues"
+urls.Repository = "https://github.com/m2lines/Samudra"
+# `samudra train|eval|viz CONFIG` for installed users; mirrors `python -m samudra.train`.
+scripts.samudra = "samudra.cli:main"
 
 [dependency-groups]
 dev = [
   "beartype>=0.20",
-  "cartopy>=0.24.1",
-  "cmocean>=4.0.3",
   "coiled>=1.99",
   "filelock>=3.17",
   "fsspec>=2025.3",
@@ -79,7 +89,6 @@ dev = [
   "scalene>=1.5.51",
   "snakeviz>=2.2.2",
   "tenacity>=9",
-  "tqdm>=4.67.1",
   "types-pyyaml>=6.0.12.20241230",
   "types-tqdm>=4.67.0.20250516",
   "xarrayutils>=2.0.1",
@@ -90,7 +99,36 @@ docs = [
   "zensical",
 ]
 
+[tool.setuptools]
+package-dir = { "" = "src" }
+# Ship py.typed plus the example config presets so installed users can run
+# `samudra train samudra_om4/train.yaml` without a checkout (resolved by
+# config_base.py). The `!include`s between presets and configs/data are
+# relative, so the whole tree stays self-consistent inside the package. Test
+# fixtures live under tests/, not here, so they never reach the wheel; the JSON
+# schemas under configs/schemas are gitignored generated output and this glob
+# doesn't match them.
+package-data = { samudra = [ "py.typed", "configs/**/*.yaml" ] }
+
+# Pin discovery to src/ so setuptools auto-discovery can't sweep stray
+# top-level dirs (e.g. a stale build/lib/) into the wheel.
+[tool.setuptools.packages.find]
+where = [ "src" ]
+
+# The version comes from git tags (v1.2.3 -> 1.2.3); commits past a tag get a
+# `.devN` suffix. no-local-version drops the `+g<sha>` segment PyPI rejects.
+# fallback_version is the last released version before the first tag exists
+# (0.0.0 = none yet, so builds target 0.0.1); guess-next-dev bumps it. Keep it
+# in sync with FALLBACK_VERSION in scripts/package.py.
+
+[tool.setuptools_scm]
+local_scheme = "no-local-version"
+fallback_version = "0.0.0"
+
 [tool.ruff]
+# tests/reference holds code copied verbatim from the implementation the port is
+# compared against. Reformatting it, even harmlessly, stops it being a copy.
+extend-exclude = [ "tests/reference" ]
 lint.select = [ "B006", "D", "E", "F", "I", "UP", "W" ]
 # F722: https://docs.kidger.site/jaxtyping/faq/#flake8-or-ruff-are-throwing-an-error
 lint.ignore = [
@@ -126,24 +164,21 @@ ini_options.addopts = "--jaxtyping-packages=data,datasets,beartype.beartype --st
 
 [tool.mypy]
 check_untyped_defs = true
-exclude = [ "^data/" ]
+# tests/reference holds code copied verbatim from the implementation being
+# compared against; it is checked by running it, not by type-checking it.
+exclude = [ "^data/", "^tests/reference/" ]
 overrides = [
+  # Copied verbatim from the implementation under comparison; rewriting it to
+  # satisfy a type checker would stop it being that implementation.
+  { module = [ "tests.reference.*" ], ignore_errors = true },
   { module = [
     "cftime.*",
     "scipy.*",
     "fsspec.*",
-    "perceiver_pytorch.*",
+    "s3fs.*",
     "aurora.*",
   ], follow_untyped_imports = true },
-  { module = [
-    "flash_perceiver.*",
-    "flash_attn.*",
-  ], ignore_missing_imports = true, follow_untyped_imports = true },
 ]
-
-[tool.uv]
-extra-build-dependencies.flash-attn = [ { requirement = "torch", match-runtime = true } ]
-extra-build-variables.flash-attn = { FLASH_ATTENTION_SKIP_CUDA_BUILD = "TRUE" }
 
 [tool.uv.sources]
 torch = [

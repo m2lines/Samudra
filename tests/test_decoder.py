@@ -4,10 +4,14 @@
 
 import pytest
 import torch
-from perceiver_pytorch.perceiver_io import PerceiverIO
 from test_encoder import make_resolution  # type: ignore
 
-from samudra.models.modules import PerceiverDecoder, PerceiverEncoder
+from samudra.models.modules import (
+    Perceiver,
+    PerceiverDecoder,
+    PerceiverEncoder,
+    PerceiverIO,
+)
 
 # Small values for fast tests.
 LATENT_DIM = 8
@@ -27,8 +31,6 @@ H, W = 8, 16
 
 def make_perceiver_encoder(in_channels, out_channels, *, num_latents=2):
     """Build a regular Perceiver for the encoder (uses mean-pooling)."""
-    from perceiver_pytorch import Perceiver
-
     return Perceiver(
         num_freq_bands=4,
         max_freq=1.0,

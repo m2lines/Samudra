@@ -5,8 +5,6 @@
 from typing import TYPE_CHECKING
 
 import torch
-from perceiver_pytorch import Perceiver
-from perceiver_pytorch.perceiver_pytorch import Attention, FeedForward
 from torch import nn
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
@@ -14,9 +12,15 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
 
 from samudra.constants import Boundary, Prognostic
 from samudra.models.base import BaseModel
-from samudra.models.modules import PerceiverDecoder, PerceiverEncoder
+from samudra.models.modules import (
+    Attention,
+    FeedForward,
+    Perceiver,
+    PerceiverDecoder,
+    PerceiverEncoder,
+)
 from samudra.models.modules.unet_backbone import UNetBackbone
-from samudra.utils.ctx import GridContext
+from samudra.utils.ctx import BatchGrid
 from samudra.utils.device import autocast
 
 if TYPE_CHECKING:
@@ -32,18 +36,6 @@ _checkpoint_types: tuple[type, ...] = (
     UNetBackbone,
     Attention,
 )
-
-try:
-    from flash_attn.modules.block import (
-        Block as FlashBlock,  # type: ignore[import-not-found]
-    )
-    from flash_perceiver.perceiver import (
-        PerceiverBase as FlashPerceiverBase,  # type: ignore[import-not-found]
-    )
-
-    _checkpoint_types = _checkpoint_types + (FlashPerceiverBase, FlashBlock)
-except ImportError:
-    pass
 
 
 class SamudraMulti(BaseModel):
@@ -91,7 +83,7 @@ class SamudraMulti(BaseModel):
             )
 
     def forward_once(
-        self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
+        self, prognostic: Prognostic, boundary: Boundary, ctx: BatchGrid
     ) -> Prognostic:
         # Prognostic and boundary are carried as separate tensors through the
         # data pipeline, but this encoder still expects a single concatenated
@@ -104,8 +96,6 @@ class SamudraMulti(BaseModel):
             fts = self.encoder(fts, ctx.input_resolution_cpu)
             fts = self.processor(fts)
 
-            # TODO(alxmrs): When the output resolution differs from the input (i.e. in a "mix" schedule), we cannot use
-            #  residual predictions (`self.pred_residuals` must be `False`).
             fts = self.decoder(fts, ctx.output_resolution_cpu)
 
         # Convert back to float32

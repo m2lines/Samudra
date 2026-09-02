@@ -91,10 +91,10 @@ git push --force-with-lease
 
    To validate the PhysicsNeMo-based container locally:
    ```shell
-   scripts/container/build_physicsnemo_25_11.sh
+   scripts/container/build_physicsnemo_26_05.sh
    scripts/container/run_cuda_tests_in_image.sh
    ```
-   The corresponding CI workflow is `Container PhysicsNeMo 25.11` in
+   The corresponding CI workflow is `Container PhysicsNeMo 26.05` in
    `.github/workflows/container-physicsnemo.yml` (x86 build + smoke checks, publish, and containerized CPU/GPU tests).
 
    **Recommended**: For convenience, we've collected lint checks as a [pre-commit](https://pre-commit.com/)
@@ -209,6 +209,18 @@ pytest -m manual
 We use `pytest` as a test runner. All tests in this project have several [_marks_](https://docs.pytest.org/en/stable/how-to/mark.html)
 that allow developers to control what tests are run locally. Two marks of particular interest are `cuda` and `manual`.
 
+The test suite generates about 5 GB of reusable ocean data under `.data_cache` by default. To avoid creating a copy in
+every Git worktree, set `SAMUDRA_TEST_DATA_CACHE` to a shared directory before running tests:
+
+```bash
+export SAMUDRA_TEST_DATA_CACHE="$HOME/Library/Caches/samudra/test-data"
+pytest -m "not manual and not cuda"
+```
+
+Samudra adds a versioned subdirectory to this path and uses file locks so concurrent test runs can safely initialize the
+shared data. The default remains the worktree-local `.data_cache` when the environment variable is unset. When a change
+makes the cached test-data format incompatible, increment `TEST_DATA_CACHE_VERSION` in `tests/conftest.py`.
+
 "cuda" tests are tests that require an NVIDIA GPU to run. If tests use the `device` fixture, then they'll automatically
 be configured to run on both GPU and CPU simultaneously. Certain tests, however, can be marked with `@pytest.mark.cuda`
 if they need to run on that hardware. To run CUDA-only tests, call:
@@ -243,10 +255,10 @@ pytest -m "not manual and not cuda"
 
 ### Running tests in the PhysicsNeMo container
 
-If you want to run tests using the PhysicsNeMo 25.11-based image, build it first:
+If you want to run tests using the PhysicsNeMo 26.05-based image, build it first:
 
 ```bash
-BUILD_APPTAINER=0 scripts/container/build_physicsnemo_25_11.sh
+BUILD_APPTAINER=0 scripts/container/build_physicsnemo_26_05.sh
 ```
 
 Run the CPU test set (same marker expression as CPU CI) inside the built image:
@@ -255,7 +267,7 @@ Run the CPU test set (same marker expression as CPU CI) inside the built image:
 docker run --rm \
   -v "$PWD":/repo \
   -w /workspace \
-  ocean-emulator:physicsnemo-25.11 \
+  ocean-emulator:physicsnemo-26.05 \
   bash -lc '. .venv/bin/activate && cd /repo && python -m pytest -m "not manual and not cuda"'
 ```
 
@@ -358,13 +370,13 @@ We also have a few other profiling tools available in the environment, including
 
 [py-spy](https://github.com/benfred/py-spy), which captures python + native CPU usage:
 ```shell
-uv run py-spy record --native -o profile.svg -- ./.venv/bin/python  src/samudra/train.py configs/samudra_vnext/train.yaml
+uv run py-spy record --native -o profile.svg -- ./.venv/bin/python  src/samudra/train.py src/samudra/configs/samudra_vnext/train.yaml
 ```
 
 [memray](https://github.com/bloomberg/memray), which captures peak memory usage:
 
 ```shell
-uv run memray run src/samudra/train.py --config configs/samudra_vnext/train.yaml
+uv run memray run src/samudra/train.py --config src/samudra/configs/samudra_vnext/train.yaml
 uv run memray flamegraph path/to/memray-output.bin
 ```
 
@@ -372,7 +384,7 @@ And [scalene](https://github.com/joaomdmoura/scalene), which shows per-line pyth
 memory usage and GPU (though the latter is a bit deceptive since it is async wrt the highlighted code).
 
 ```shell
-uv run scalene src/samudra/train.py configs/samudra_vnext/train.yaml
+uv run scalene src/samudra/train.py src/samudra/configs/samudra_vnext/train.yaml
 ```
 
 ### Profiling CUDA Memory
@@ -381,7 +393,7 @@ You can turn on profiling of CUDA memory by setting the `profiler.cuda_snapshot_
 in the config. eg:
 
 ```shell
-uv run memray run src/samudra/train.py --config configs/samudra_vnext/train.yaml --profiler.cuda_snapshot_frequency 10
+uv run memray run src/samudra/train.py --config src/samudra/configs/samudra_vnext/train.yaml --profiler.cuda_snapshot_frequency 10
 ```
 
 This will take a snapshot of the CUDA memory every 10 batches in the output directory. These can be visualized with

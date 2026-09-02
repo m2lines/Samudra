@@ -11,11 +11,12 @@ import torch
 
 from samudra.aggregator import Aggregator
 from samudra.backend import init_eval_backend
-from samudra.config import EvalConfig
-from samudra.constants import BoundaryVarNames, Grid, PrognosticVarNames, TensorMap
+from samudra.config import EvalConfig, ObsMetricsConfig
+from samudra.constants import BoundaryVarNames, Grid, PrognosticVarNames
 from samudra.datasets import InferenceDataset
+from samudra.metrics.run import open_predictions, run_observation_metrics
 from samudra.stepper import run_rollout
-from samudra.utils.data import Normalize, get_inference_steps, spherical_area_weights
+from samudra.utils.data import BatchPreprocessor, get_inference_steps
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import is_main_process, set_seed
 from samudra.utils.logging import get_model_summary, handle_logging, handle_warnings
@@ -46,13 +47,18 @@ class Eval:
         # Set seeds
         set_seed(cfg.experiment.rand_seed)
 
-        # Getting prognostic and boundary variables
-        self.dataset_spec = cfg.data.dataset.build()
-        self.prognostic_var_names: PrognosticVarNames = (
-            self.dataset_spec.prognostic_var_names
+        logger.info("Loading data")
+        self.data_bundle = cfg.data.build(
+            cfg.experiment.resolved_data_root,
         )
-        self.boundary_var_names: BoundaryVarNames = self.dataset_spec.boundary_var_names
-        self.levels = self.dataset_spec.num_prognostic_depth_levels
+
+        # Getting prognostic and boundary variables
+        self.data_layout = self.data_bundle.data_layout
+        self.prognostic_var_names: PrognosticVarNames = (
+            self.data_layout.prognostic_var_names
+        )
+        self.boundary_var_names: BoundaryVarNames = self.data_layout.boundary_var_names
+        self.levels = self.data_layout.num_prognostic_depth_levels
 
         str_prognostics = ", ".join([i for i in self.prognostic_var_names])
         str_boundaries = ", ".join([i for i in self.boundary_var_names])
@@ -69,27 +75,24 @@ class Eval:
         self.num_in = self.num_prog_in + self.num_boundary_in
         self.num_out = self.num_prog_in
 
-        self.tensor_map = TensorMap(dataset_spec=self.dataset_spec).to(self.device)
+        self.data_layout = self.data_layout.to(self.device)
 
         logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
 
         # Dataloaders
-        logger.info(f"Loading data")
-        self.data_container = cfg.data.build(
-            cfg.experiment.resolved_data_root,
-        )
-
-        self.src = self.data_container.inference_source
-        self.data = self.src.data
-        self.static_data = self.data_container.static_data
-        self.metadata = self.src.metadata
-        self.wet = self.src.masks.prognostic_with_hist(cfg.data.hist)
-        self.area_weights: Grid = spherical_area_weights(self.data)
+        if self.data_bundle.inference_source is None:
+            raise ValueError(
+                "Inference time is not configured for the first data source"
+            )
+        self.source = self.data_bundle.inference_source
+        self.metadata = self.source.metadata
+        self.wet = self.source.masks.prognostic_with_hist(cfg.data.hist)
+        self.area_weights: Grid = self.source.spherical_area_weights
         self.area_weights = self.area_weights.to(self.device)
 
-        self.normalize = Normalize(
-            self.src,
+        self.preprocessor = BatchPreprocessor(
+            self.source,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
         )
@@ -100,11 +103,7 @@ class Eval:
             boundary_channels=self.num_boundary_in,
             out_channels=self.num_out,
             hist=cfg.data.hist,
-            static_data_for_corrector=self.static_data,
-            srcs=self.data_container.sources,
-            tensor_map=self.tensor_map,
-            normalize=self.normalize,
-            dataset_spec=self.dataset_spec,
+            grid_sizes=[source.grid_size for source in self.data_bundle.train_sources],
         ).to(self.device)
 
         get_model_summary(self.model, None, cfg.debug)
@@ -125,7 +124,7 @@ class Eval:
 
         # Set up wandb run
         self.wandb_id, self.wandb_name = self.wandb_logger.setup_run(
-            None, cfg, data_container=self.data_container, finetune=False
+            None, cfg, data_bundle=self.data_bundle, finetune=False
         )
 
         # Eval
@@ -133,12 +132,14 @@ class Eval:
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
         self.num_workers = data_num_workers
-        self.inference_time = cfg.inference_time
         self.num_model_steps_forward = cfg.num_model_steps_forward
         self.save_zarr = cfg.save_zarr
         self.model_path = cfg.ckpt_path
         self.normalize_before_mask = cfg.data.normalize_before_mask
         self.masked_fill_value = cfg.data.masked_fill_value
+        self.observations = cfg.observations
+        self.resolved_data_root = cfg.experiment.resolved_data_root
+        self.experiment_name = cfg.experiment.name
         self.init_inference_store()
 
     def load_checkpoint(self, ckpt_path: str):
@@ -151,13 +152,12 @@ class Eval:
         self.model.load_state_dict(new_state_dict)
 
     def init_inference_store(self):
-        sliced_src = self.src.slice(self.inference_time)
         self.num_time_steps = get_inference_steps(
-            sliced_src,
+            self.source,
             hist=self.hist,
         )
         self.inference_dataset = InferenceDataset(
-            src=sliced_src,
+            source=self.source,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             hist=self.hist,
@@ -179,10 +179,47 @@ class Eval:
         if is_main_process():
             self.wandb_logger.log(log_stats, step=None)
 
-        total_time = time.perf_counter() - start_time
-        total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        logger.info(f"Eval time (Including wandb logging) {total_time_str}")
-        self.finish()
+        # Logged after the rollout's own metrics, deliberately: the observation
+        # phase reads the rollout back off disk and can fail on data problems
+        # that have nothing to do with the model. When it does, it should raise
+        # loudly without also costing us the rollout results already computed.
+        try:
+            if self.observations is not None and is_main_process():
+                self.report_observation_metrics(self.observations)
+        finally:
+            # The observation phase reads ~65 GB back off remote storage, so it
+            # can fail for reasons unrelated to the model. It should still
+            # raise -- but not by skipping `finish()`, which would leave the run
+            # marked crashed in W&B with the rollout's own metrics stranded
+            # inside it.
+            total_time = time.perf_counter() - start_time
+            total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+            logger.info(f"Eval time (Including wandb logging) {total_time_str}")
+            self.finish()
+
+    def report_observation_metrics(self, obs_cfg: ObsMetricsConfig) -> None:
+        """Score the finished rollout against observation products."""
+        logger.info("Computing observation metrics")
+        baselines = {}
+        if "om4" in obs_cfg.baselines:
+            # The ground-truth data the eval already staged. The metric table
+            # is only interpretable next to it, so scoring it costs one extra
+            # pass over data that is local anyway.
+            baselines["om4"] = self.source.to_xarray_dataset()
+
+        frame, scalars = run_observation_metrics(
+            obs_cfg,
+            predictions=open_predictions(self.output_dir),
+            data_layout=self.data_layout,
+            data_root=self.resolved_data_root,
+            model_label=self.experiment_name,
+            baselines=baselines,
+            output_dir=self.output_dir,
+        )
+        self.wandb_logger.log(
+            {**scalars, "obs/metrics_table": self.wandb_logger.Table(dataframe=frame)},
+            step=None,
+        )
 
     @torch.no_grad()
     def standalone_inference(self):
@@ -192,10 +229,10 @@ class Eval:
             self.metadata,
             self.hist,
             self.area_weights,
-            self.src.masks.prognostic.to(self.device),
+            self.source.masks.prognostic.to(self.device),
             self.num_out,
-            self.tensor_map,
-            self.normalize,
+            self.data_layout,
+            self.preprocessor,
             self.prognostic_var_names,
         )
 
@@ -208,8 +245,8 @@ class Eval:
             model_path=self.model_path,
             num_model_steps_forward=self.num_model_steps_forward,
             save_zarr=self.save_zarr,
-            tensor_map=self.tensor_map,
-            normalize=self.normalize,
+            data_layout=self.data_layout,
+            preprocessor=self.preprocessor,
         )
         logs = inf_aggregator.get_summary_logs()
         return {f"inference/{k}": v for k, v in logs.items()}

@@ -6,8 +6,6 @@ from typing import TYPE_CHECKING
 
 import torch
 from einops import rearrange
-from perceiver_pytorch.perceiver_io import PerceiverIO
-from perceiver_pytorch.perceiver_pytorch import Attention, FeedForward
 from torch import nn
 from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
     apply_activation_checkpointing,
@@ -15,8 +13,9 @@ from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (
 
 from samudra.constants import Boundary, Prognostic
 from samudra.models.base import BaseModel
+from samudra.models.modules import Attention, FeedForward, PerceiverIO
 from samudra.models.modules.augment_input import make_3d_coordinate_grid
-from samudra.utils.ctx import GridContext
+from samudra.utils.ctx import BatchGrid
 from samudra.utils.device import autocast
 
 if TYPE_CHECKING:
@@ -29,18 +28,6 @@ _checkpoint_types: tuple[type, ...] = (
     PerceiverIO,
     Attention,
 )
-
-try:
-    from flash_attn.modules.block import (
-        Block as FlashBlock,  # type: ignore[import-not-found]
-    )
-    from flash_perceiver.perceiver import (
-        PerceiverBase as FlashPerceiverBase,  # type: ignore[import-not-found]
-    )
-
-    _checkpoint_types = _checkpoint_types + (FlashPerceiverBase, FlashBlock)
-except ImportError:
-    pass
 
 
 class CoordinateEmbedding(nn.Module):
@@ -131,7 +118,7 @@ class SamudraMini(BaseModel):
         return torch.cat(out_chunks, dim=1)
 
     def forward_once(
-        self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
+        self, prognostic: Prognostic, boundary: Boundary, ctx: BatchGrid
     ) -> Prognostic:
         # SamudraMini is a single-scale pixel-token model; fuse prognostic +
         # boundary into the single channel-stacked input it expects.

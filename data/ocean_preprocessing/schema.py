@@ -4,9 +4,14 @@
 
 from xarrera import CoordsSchema, DataArraySchema, DatasetSchema  # noqa: E402
 
+OM4_3D_VARS = ("so", "thetao", "uo", "vo")
+OM4_REQUIRED_2D_VARS = ("hfds", "tauuo", "tauvo", "zos")
+# Keep this policy explicit until the matching averaged-run wfo source in #838
+# is identified. Snapshot sources currently provide wfo; averaged sources do not.
+OM4_OPTIONAL_2D_VARS = ("wfo",)
+
+
 ### Preprocessing Stage
-vars_3d = ["so", "thetao", "uo", "vo"]
-vars_2d = ["hfds", "tauuo", "tauvo", "zos"]
 ds_processed_coords_schema = CoordsSchema(
     {
         "wetmask": DataArraySchema(dtype=bool, dims=["lev", "y", "x"]),
@@ -35,54 +40,12 @@ ds_processed_coords_schema = CoordsSchema(
 ds_processed_schema = DatasetSchema(
     {
         k: DataArraySchema(dtype="float32", dims=["time", "y", "x"], name=k)
-        for k in vars_2d
+        for k in OM4_REQUIRED_2D_VARS
     }
     | {
         k: DataArraySchema(dtype="float32", dims=["time", "lev", "y", "x"], name=k)
-        for k in vars_3d
+        for k in OM4_3D_VARS
     }
-)
-
-### Input Stage
-vars_3d = ["so", "thetao", "uo", "vo"]
-vars_2d = ["hfds", "tauuo", "tauvo", "zos"]
-# TODO: add flux components + ice variables         "sithick","siconc",
-ds_input_coords_schema = CoordsSchema(
-    {
-        "wetmask": DataArraySchema(dtype=bool, dims=["lev", "y", "x"]),
-        "ocean_fraction": DataArraySchema(dtype="float64", dims=["lev", "y", "x"]),
-        "lon_b": DataArraySchema(
-            dtype="float64", shape=(181, 361), dims=["y_b", "x_b"]
-        ),
-        "lat_b": DataArraySchema(
-            dtype="float64", shape=(181, 361), dims=["y_b", "x_b"]
-        ),
-        "lon": DataArraySchema(dtype="float64", shape=(180, 360), dims=["y", "x"]),
-        "lat": DataArraySchema(dtype="float64", shape=(180, 360), dims=["y", "x"]),
-        "areacello": DataArraySchema(
-            dtype="float64", shape=(180, 360), dims=["y", "x"]
-        ),
-        "dz": DataArraySchema(dtype="int64", shape=(19,), dims=["lev"]),
-        "lev": DataArraySchema(dtype="float64", shape=(19,), dims=["lev"]),
-        "x": DataArraySchema(dtype="float64", shape=(360,), dims=["x"]),
-        "y": DataArraySchema(dtype="float64", shape=(180,), dims=["y"]),
-        "time": DataArraySchema(
-            dims=["time"]
-        ),  # can I check that this is actually cftime?
-    }
-)
-
-# ds_input_attrs_schema = AttrsSchema({"m2lines/ocean-emulators_git_hash":'dummy'})
-
-ds_input_schema = DatasetSchema(
-    {
-        k: DataArraySchema(dtype="float32", dims=["time", "y", "x"], name=k)
-        for k in vars_2d
-    }
-    | {
-        k: DataArraySchema(dtype="float32", dims=["time", "lev", "y", "x"], name=k)
-        for k in vars_3d
-    },
 )
 
 ### Prediction

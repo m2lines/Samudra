@@ -2,22 +2,47 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from pathlib import Path
 
+import pathlib
+
+import cftime
+import numpy as np
 import pytest
+import yaml
 from pydantic import ValidationError
 
 from samudra.config import (
     CpuDataLoadingConfig,
     DataConfig,
-    DataSourceConfig,
+    EvalConfig,
     GpuDataLoadingConfig,
-    LlcDatasetConfig,
-    Om4DatasetConfig,
+    JulianDate,
+    LlcDataSourceConfig,
+    LlcTimeConfig,
+    Om4DataSourceConfig,
+    Om4TimeConfig,
+    RolloutValidationConfig,
     TrainConfig,
 )
 from samudra.config_schema import get_pydantic_models
-from samudra.utils.location import UnresolvedLocation
+from samudra.utils.location import LocalLocation, UnresolvedLocation
+from tests.conftest import DEFAULT_CONFIG, TEST_CONFIGS_DIR
+from tests.llc_fixtures import write_raw_llc_datasets
+
+
+def om4_source_config(**kwargs) -> Om4DataSourceConfig:
+    return Om4DataSourceConfig(
+        train_time=Om4TimeConfig(
+            start=JulianDate("1975-01-03"), end=JulianDate("2013-10-05")
+        ),
+        val_time=Om4TimeConfig(
+            start=JulianDate("2013-10-05"), end=JulianDate("2014-10-05")
+        ),
+        data_location=UnresolvedLocation(path="data.zarr"),
+        data_means_location=UnresolvedLocation(path="means.zarr"),
+        data_stds_location=UnresolvedLocation(path="stds.zarr"),
+        **kwargs,
+    )
 
 
 def test_data_config_rejects_legacy_num_workers_field():
@@ -26,6 +51,15 @@ def test_data_config_rejects_legacy_num_workers_field():
             {
                 "sources": [
                     {
+                        "type": "om4",
+                        "train_time": {
+                            "start": "1975-01-03",
+                            "end": "2013-10-05",
+                        },
+                        "val_time": {
+                            "start": "2013-10-05",
+                            "end": "2014-10-05",
+                        },
                         "data_location": "data.zarr",
                         "data_means_location": "means.zarr",
                         "data_stds_location": "stds.zarr",
@@ -36,48 +70,140 @@ def test_data_config_rejects_legacy_num_workers_field():
         )
 
 
-def test_data_config_defaults_to_cpu_loading():
-    cfg = DataConfig(
-        sources=[
-            DataSourceConfig(
-                data_location=UnresolvedLocation(path="data.zarr"),
-                data_means_location=UnresolvedLocation(path="means.zarr"),
-                data_stds_location=UnresolvedLocation(path="stds.zarr"),
-            )
-        ]
+def test_rollout_validation_config_disables_via_null_train_field():
+    with open(TEST_CONFIGS_DIR / DEFAULT_CONFIG) as f:
+        cfg = TrainConfig.model_validate(yaml.safe_load(f))
+
+    assert cfg.rollout_validation is None
+
+
+def test_rollout_validation_config_rejects_zero_model_steps():
+    with pytest.raises(ValidationError, match="rollout_validation.model_steps"):
+        RolloutValidationConfig(model_steps=0)
+
+
+def test_rollout_validation_config_accepts_nested_horizon_options():
+    cfg = RolloutValidationConfig(
+        days=[30, 90],
+        model_steps=12,
+        steps_forward=3,
+        frequency=5,
     )
+
+    assert cfg.days == [30, 90]
+    assert cfg.model_steps == 12
+    assert cfg.steps_forward == 3
+    assert cfg.frequency == 5
+
+
+def test_data_config_defaults_to_cpu_loading():
+    cfg = DataConfig(sources=[om4_source_config()])
 
     assert isinstance(cfg.loading, CpuDataLoadingConfig)
     assert cfg.loading.num_workers == 4
     assert cfg.loading.num_pytorch_workers() == 4
-    assert isinstance(cfg.dataset, Om4DatasetConfig)
+    assert isinstance(cfg.sources[0], Om4DataSourceConfig)
 
 
-def test_om4_dataset_config_builds_selected_spec():
-    cfg = Om4DatasetConfig(
+def test_om4_dataset_config_retains_selected_variable_keys():
+    cfg = om4_source_config(
         prognostic_vars_key="thetao_1",
         boundary_vars_key="hfds",
     )
 
-    spec = cfg.build()
+    assert cfg.prognostic_vars_key == "thetao_1"
+    assert cfg.boundary_vars_key == "hfds"
 
-    assert spec.prognostic_var_names == ["thetao_0"]
-    assert spec.boundary_var_names == ["hfds"]
+
+def test_data_source_time_configs_use_native_types():
+    om4_time = Om4TimeConfig.model_validate(
+        {"start": "2011-09-10", "end": "2011-09-20"}
+    )
+    llc_time = LlcTimeConfig.model_validate(
+        {"start": "2011-09-10T14:00:00+02:00", "end": "2011-09-20T18:00:00Z"}
+    )
+
+    assert isinstance(om4_time.start.datetime, cftime.datetime)
+    assert om4_time.start.datetime.calendar == "julian"
+    assert str(om4_time.start) == "2011-09-10"
+    assert isinstance(llc_time.start, np.datetime64)
+    assert llc_time.start == np.datetime64("2011-09-10T12:00:00", "ns")
+    assert llc_time.model_dump(mode="json")["start"].endswith("Z")
+
+
+def test_llc_time_config_serializes_as_safe_yaml():
+    time = LlcTimeConfig.model_validate(
+        {"start": "2011-09-10T12:00:00Z", "end": "2011-09-20T12:00:00Z"}
+    )
+
+    serialized = yaml.dump(time.model_dump())
+
+    assert yaml.safe_load(serialized) == {
+        "start": "2011-09-10T12:00:00.000000000Z",
+        "end": "2011-09-20T12:00:00.000000000Z",
+    }
+
+
+def test_data_source_time_fields_are_immutable():
+    source = om4_source_config(
+        inference_times=[
+            Om4TimeConfig(start=JulianDate("2014-10-10"), end=JulianDate("2014-10-20"))
+        ]
+    )
+    replacement = Om4TimeConfig(
+        start=JulianDate("1980-01-01"), end=JulianDate("1981-01-01")
+    )
+
+    assert isinstance(source.inference_times, tuple)
+    with pytest.raises(ValidationError, match="Field is frozen"):
+        source.train_time = replacement
+    with pytest.raises(ValidationError, match="Instance is frozen"):
+        source.train_time.start = JulianDate("1980-01-01")
+
+
+def test_om4_time_config_accepts_julian_leap_day():
+    time = Om4TimeConfig.model_validate({"start": "1900-02-29", "end": "1900-03-01"})
+
+    assert str(time.start) == "1900-02-29"
+
+
+def test_llc_time_config_rejects_date_only():
+    with pytest.raises(ValidationError, match="should have timezone info"):
+        LlcTimeConfig.model_validate({"start": "2011-09-10", "end": "2011-09-20"})
+
+
+def test_llc_time_config_requires_utc_offset():
+    with pytest.raises(ValidationError, match="should have timezone info"):
+        LlcTimeConfig.model_validate(
+            {"start": "2011-09-10T12:00:00", "end": "2011-09-20T18:00:00Z"}
+        )
 
 
 def test_data_config_accepts_llc_dataset_type():
     cfg = DataConfig.model_validate(
         {
-            "dataset": {
-                "type": "llc",
-                "face": 2,
-                "i_start": 10,
-                "i_end": 20,
-                "j_start": 30,
-                "j_end": 40,
-            },
             "sources": [
                 {
+                    "type": "llc",
+                    "face": 2,
+                    "i_start": 10,
+                    "i_end": 20,
+                    "j_start": 30,
+                    "j_end": 40,
+                    "train_time": {
+                        "start": "2011-09-10T12:00:00Z",
+                        "end": "2012-09-01T12:00:00Z",
+                    },
+                    "val_time": {
+                        "start": "2012-09-01T12:00:00Z",
+                        "end": "2012-11-15T12:00:00Z",
+                    },
+                    "inference_times": [
+                        {
+                            "start": "2012-11-15T12:00:00Z",
+                            "end": "2012-12-15T12:00:00Z",
+                        }
+                    ],
                     "data_location": "data.zarr",
                     "data_means_location": "means.zarr",
                     "data_stds_location": "stds.zarr",
@@ -86,9 +212,142 @@ def test_data_config_accepts_llc_dataset_type():
         }
     )
 
-    assert isinstance(cfg.dataset, LlcDatasetConfig)
-    assert cfg.dataset.face == 2
-    assert cfg.dataset.build().prognostic_var_names == ["Theta_0"]
+    source = cfg.sources[0]
+    assert isinstance(source, LlcDataSourceConfig)
+    assert source.face == 2
+    assert isinstance(source.inference_times[0], LlcTimeConfig)
+    assert source.prognostic_vars_key == "single_1"
+
+
+def test_data_config_rejects_invalid_llc_crop():
+    with pytest.raises(ValidationError, match="i_start < i_end"):
+        DataConfig.model_validate(
+            {
+                "sources": [
+                    {
+                        "type": "llc",
+                        "i_start": 20,
+                        "i_end": 20,
+                        "train_time": {
+                            "start": "2011-09-10T12:00:00Z",
+                            "end": "2012-09-01T12:00:00Z",
+                        },
+                        "val_time": {
+                            "start": "2012-09-01T12:00:00Z",
+                            "end": "2012-11-15T12:00:00Z",
+                        },
+                        "data_location": "data.zarr",
+                        "data_means_location": "means.zarr",
+                        "data_stds_location": "stds.zarr",
+                    }
+                ],
+            }
+        )
+
+
+def test_data_source_rejects_overlapping_time_splits():
+    with pytest.raises(ValidationError, match="Training time range.*overlaps"):
+        Om4DataSourceConfig(
+            train_time=Om4TimeConfig(
+                start=JulianDate("1975-01-03"), end=JulianDate("2013-10-05")
+            ),
+            val_time=Om4TimeConfig(
+                start=JulianDate("2013-01-01"), end=JulianDate("2014-10-05")
+            ),
+            data_location=UnresolvedLocation(path="data.zarr"),
+            data_means_location=UnresolvedLocation(path="means.zarr"),
+            data_stds_location=UnresolvedLocation(path="stds.zarr"),
+        )
+
+
+def test_data_config_builds_llc_source_from_local_files(tmp_path):
+    write_raw_llc_datasets(tmp_path)
+    cfg = DataConfig.model_validate(
+        {
+            "sources": [
+                {
+                    "type": "llc",
+                    "face": 1,
+                    "i_start": 1,
+                    "i_end": 4,
+                    "j_start": 1,
+                    "j_end": 3,
+                    "train_time": {
+                        "start": "2011-09-10T12:00:00Z",
+                        "end": "2011-09-11T12:00:00Z",
+                    },
+                    "val_time": {
+                        "start": "2011-09-11T12:00:00Z",
+                        "end": "2011-09-12T12:00:00Z",
+                    },
+                    "inference_times": [
+                        {
+                            "start": "2011-09-10T12:00:00Z",
+                            "end": "2011-09-11T12:00:00Z",
+                        }
+                    ],
+                    "data_location": "data.zarr",
+                    "data_means_location": "means.nc",
+                    "data_stds_location": "stds.nc",
+                }
+            ],
+        }
+    )
+
+    container = cfg.build(LocalLocation(path=tmp_path))
+    source = container.train_sources[0]
+    source_data, _, _ = source._xarray_datasets_for_testing()
+
+    assert source.data_layout.prognostic_var_names == ["Theta_0"]
+    assert "Theta_0" in source_data.variables
+    assert "mask_0" in source_data.variables
+    assert "face" not in source_data.dims
+    assert source_data["Theta_0"].dims == ("time", "lat", "lon")
+    assert source_data["mask_0"].dims == ("lat", "lon")
+    assert source_data["Theta_0"].shape == (2, 2, 3)
+    assert np.issubdtype(source.time.dtype, np.datetime64)
+    assert container.train_sources[0].time.size == 2
+    assert container.val_sources[0].time.size == 2
+    assert container.inference_source is not None
+    assert container.inference_source.time.size == 2
+
+    sliced = source.slice_time(
+        LlcTimeConfig(
+            start=np.datetime64("2011-09-10T12:00:00", "ns"),
+            end=np.datetime64("2011-09-11T12:00:00", "ns"),
+        )
+    )
+    assert sliced.time.size == 2
+
+
+def test_data_config_rejects_multiple_data_layouts(tmp_path):
+    write_raw_llc_datasets(tmp_path)
+    source = {
+        "type": "llc",
+        "train_time": {
+            "start": "2011-09-10T12:00:00Z",
+            "end": "2011-09-11T12:00:00Z",
+        },
+        "val_time": {
+            "start": "2011-09-11T12:00:00Z",
+            "end": "2011-09-12T12:00:00Z",
+        },
+        "data_location": "data.zarr",
+        "data_means_location": "means.nc",
+        "data_stds_location": "stds.nc",
+        "prognostic_vars_key": "single_1",
+    }
+    cfg = DataConfig.model_validate(
+        {
+            "sources": [
+                source,
+                source | {"prognostic_vars_key": "all"},
+            ]
+        }
+    )
+
+    with pytest.raises(ValueError, match="same data layout"):
+        cfg.build(LocalLocation(path=tmp_path))
 
 
 def test_data_config_accepts_gpu_loading():
@@ -96,6 +355,15 @@ def test_data_config_accepts_gpu_loading():
         {
             "sources": [
                 {
+                    "type": "om4",
+                    "train_time": {
+                        "start": "1975-01-03",
+                        "end": "2013-10-05",
+                    },
+                    "val_time": {
+                        "start": "2013-10-05",
+                        "end": "2014-10-05",
+                    },
                     "data_location": "data.zarr",
                     "data_means_location": "means.zarr",
                     "data_stds_location": "stds.zarr",
@@ -116,9 +384,7 @@ def test_data_config_accepts_gpu_loading():
 
 
 def test_train_config_allows_cli_override_for_cpu_num_workers(tmp_path):
-    config_path = (
-        Path(__file__).resolve().parents[1] / "configs" / "test" / "train_default.yaml"
-    )
+    config_path = TEST_CONFIGS_DIR / "train_default.yaml"
 
     cfg = TrainConfig.from_yaml_and_cli(
         [
@@ -141,3 +407,24 @@ def test_get_pydantic_models_collects_loading_variants():
 
     assert models["CpuDataLoadingConfig"] is CpuDataLoadingConfig
     assert models["GpuDataLoadingConfig"] is GpuDataLoadingConfig
+
+
+@pytest.mark.parametrize(
+    "preset",
+    sorted(
+        path
+        for path in (pathlib.Path(__file__).parents[1] / "src/samudra/configs").glob(
+            "*/eval.yaml"
+        )
+    ),
+    ids=lambda path: path.parent.name,
+)
+def test_shipped_eval_presets_load(preset: pathlib.Path):
+    """Every shipped eval preset must parse and satisfy its own validators.
+
+    The presets are what an installed user runs by name, and they carry
+    cross-field rules -- an `observations` block requires `save_zarr` -- that
+    nothing else exercises. Without this, a preset could stop validating and
+    only a real eval job would notice.
+    """
+    EvalConfig.from_yaml_and_cli([str(preset)])

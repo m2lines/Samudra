@@ -13,6 +13,7 @@ import pydantic
 import yaml
 
 from samudra.config import EvalConfig, TrainConfig
+from samudra.search.config import SearchConfig
 from samudra.viz import VizConfig
 
 
@@ -150,13 +151,13 @@ def main():
     parser.add_argument(
         "--output-dir",
         type=Path,
-        default=Path("configs/schemas"),
+        default=Path("src/samudra/configs/schemas"),
         help="Directory to save the generated schemas",
     )
     parser.add_argument(
         "--validate-dir",
         type=Path,
-        default=Path("configs"),
+        default=Path("src/samudra/configs"),
         help="Directory of config files to validate",
     )
 
@@ -166,6 +167,7 @@ def main():
     models = get_pydantic_models(TrainConfig)
     models.update(get_pydantic_models(EvalConfig))
     models.update(get_pydantic_models(VizConfig))
+    models.update(get_pydantic_models(SearchConfig))
 
     generate_schemas(args.output_dir, models)
 

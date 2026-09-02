@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import torch
-from perceiver_pytorch import Perceiver
 
 from samudra.constants import Lat, Lon
+from samudra.models.modules import Perceiver
 from samudra.models.modules.encoder import PerceiverEncoder, patch_from
 
 

@@ -39,7 +39,7 @@ fi
 
 if [[ -z "${IMAGE_TAG}" ]]; then
   docker_repo_lower="$(echo "${DOCKER_REPO}" | tr '[:upper:]' '[:lower:]')"
-  IMAGE_TAG="${docker_repo_lower}/ocean-emulator-physicsnemo:25.11-arm64-latest"
+  IMAGE_TAG="${docker_repo_lower}/ocean-emulator-physicsnemo:26.05-arm64-latest"
 fi
 
 login_token="${GHCR_TOKEN:-${GITHUB_TOKEN:-${GH_TOKEN:-}}}"

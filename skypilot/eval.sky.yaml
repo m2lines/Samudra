@@ -44,11 +44,15 @@ envs:
   # Run `sky check aws -v` to verify that AWS storage is properly set up.
   # If you still hit permission issues, consider making a dedicated SkyPilot IAM via these docs:
   # https://docs.skypilot.co/en/latest/cloud-setup/cloud-permissions/aws.html#dedicated-skypilot-iam-user
-  OSN_KEY_ID: null
-  OSN_KEY_SECRET: null
-  OSN_DATA_PATH: emulators/jr7309/data/om4_halfdeg # Tip: Don't add a trailing `/`!
+  OSN_KEY_ID: ""
+  OSN_KEY_SECRET: ""
+  OSN_DATA_PATH: m2lines-pubs/Samudra/v2026-07/om4_halfdeg # Tip: Don't add a trailing `/`!
   # Comma-separated list of OSN paths. If unset, defaults to OSN_DATA_PATH.
   OSN_DATA_PATHS: ""
+  # Observation products (DUACS, OISST, ARGO-IAP) for the post-rollout metrics,
+  # staged into ~/data/obs/ where `observations.*_location` in the eval config
+  # resolves. Leave empty when the config sets `observations.enabled: false`.
+  OSN_OBS_PATH: ""
 
   CONFIG: null
   OUTPUTS_BUCKET: oa-fomo-outputs
@@ -73,7 +77,14 @@ setup: |
   # Ensure CUDA dependencies are installed
   uv sync --extra cuda
 
-  rclone config create nyu-osn s3 provider=AWS endpoint=https://nyu1.osn.mghpcc.org/ access_key_id="$OSN_KEY_ID" secret_access_key="$OSN_KEY_SECRET"
+  # OSN inputs (data + basins) default to the public m2lines-pubs bucket, so read
+  # the OSN pod anonymously. Set OSN_KEY_ID/OSN_KEY_SECRET only to reach a private
+  # path (e.g. an emulators/... OSN_DATA_PATH override).
+  if [ -z "$OSN_KEY_ID" ] || [ "$OSN_KEY_ID" = "null" ]; then
+    rclone config create nyu-osn s3 provider=AWS endpoint=https://nyu1.osn.mghpcc.org/ anonymous=true
+  else
+    rclone config create nyu-osn s3 provider=AWS endpoint=https://nyu1.osn.mghpcc.org/ access_key_id="$OSN_KEY_ID" secret_access_key="$OSN_KEY_SECRET"
+  fi
 
   mkdir -p ~/data/
   # Handle data copying with backwards compatibility:
@@ -100,7 +111,16 @@ setup: |
   fi
 
   mkdir -p ~/basins/
-  rclone copy --progress nyu-osn:emulators/jr7309/basins ~/basins
+  rclone copy --progress nyu-osn:m2lines-pubs/Samudra/basins ~/basins
+
+  # Observation products for the post-rollout metrics. Copied locally rather
+  # than streamed: the RMSE maps sweep the full multi-year record, so repeated
+  # remote reads would dominate the metrics runtime.
+  if [ -n "$OSN_OBS_PATH" ] && [ "$OSN_OBS_PATH" != "null" ]; then
+    mkdir -p ~/data/obs/
+    echo "Copying observation products from $OSN_OBS_PATH to ~/data/obs/"
+    rclone copy --progress nyu-osn:${OSN_OBS_PATH}/ ~/data/obs/ --ignore-existing --transfers=32
+  fi
 
 #### End of shared setup ####
 

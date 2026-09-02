@@ -19,6 +19,8 @@ dependencies:
     - xesmf
     - bokeh
     - h5netcdf
+    - h5py  # h5netcdf backend for the HDF5-based OISST/ARGO-IAP NetCDF files
+    - copernicusmarine  # DUACS downloads; needs a free Copernicus Marine account
     - matplotlib
     - coiled
     - distributed

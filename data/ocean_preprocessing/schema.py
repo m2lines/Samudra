@@ -5,10 +5,8 @@
 from xarrera import CoordsSchema, DataArraySchema, DatasetSchema  # noqa: E402
 
 OM4_3D_VARS = ("so", "thetao", "uo", "vo")
-OM4_REQUIRED_2D_VARS = ("hfds", "tauuo", "tauvo", "zos")
-# Raw snapshot sources provide wfo directly. Raw averaged sources can acquire it
-# through the validated supplemental-source surgery in gfdl_om4.transplant_wfo.
-OM4_OPTIONAL_2D_VARS = ("wfo",)
+OM4_REQUIRED_2D_VARS = ("hfds", "tauuo", "tauvo", "wfo", "zos")
+OM4_OPTIONAL_2D_VARS = ()
 
 
 ### Preprocessing Stage

@@ -13,11 +13,6 @@ resolve_om4_data_variant() {
     averaged)
       OM4_SOURCE_STORE="om4_5daily.zarr"
       OM4_OUTPUT_SUFFIX=""
-      OM4_WFO_SOURCE_STORE=""
-      ;;
-    averaged_with_wfo)
-      OM4_SOURCE_STORE="om4_5daily.zarr"
-      OM4_OUTPUT_SUFFIX="_with_wfo"
       OM4_WFO_SOURCE_STORE="om4_5daily_snapshots.zarr"
       ;;
     snapshots)
@@ -27,7 +22,7 @@ resolve_om4_data_variant() {
       ;;
     *)
       echo "ERROR: unknown DATA_VARIANT='${DATA_VARIANT}'." >&2
-      echo "Expected one of: averaged | averaged_with_wfo | snapshots." >&2
+      echo "Expected one of: averaged | snapshots." >&2
       return 2
       ;;
   esac

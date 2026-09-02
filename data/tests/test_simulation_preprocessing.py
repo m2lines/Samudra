@@ -60,7 +60,17 @@ def test_averaged_vertical_cell_metadata_matches_processed_schema_dtype():
 
 
 def _om4_source(*extra_vars: str) -> xr.Dataset:
-    required = ["hfds", "so", "tauuo", "tauvo", "thetao", "uo", "vo", "zos"]
+    required = [
+        "hfds",
+        "so",
+        "tauuo",
+        "tauvo",
+        "thetao",
+        "uo",
+        "vo",
+        "wfo",
+        "zos",
+    ]
     return xr.Dataset(
         {name: ("time", np.ones(2)) for name in [*required, *extra_vars]},
         coords={"time": [0, 1]},
@@ -68,7 +78,7 @@ def _om4_source(*extra_vars: str) -> xr.Dataset:
 
 
 def test_select_om4_variables_retains_declared_snapshot_forcing():
-    out = select_om4_variables(_om4_source("wfo", "hfgeou", "wet"))
+    out = select_om4_variables(_om4_source("hfgeou", "wet"))
 
     assert set(out.data_vars) == {
         "hfds",
@@ -90,7 +100,8 @@ def test_select_om4_variables_rejects_incomplete_source():
         select_om4_variables(source)
 
 
-def _wfo_surgery_sources():
+@pytest.fixture
+def wfo_surgery_sources():
     midpoint = np.array(["1958-01-03T12:00", "1958-01-08T12:00"], dtype="datetime64[m]")
     interval_end = np.array(
         ["1958-01-06T00:00", "1958-01-11T00:00"], dtype="datetime64[m]"
@@ -129,8 +140,10 @@ def _wfo_surgery_sources():
     return recipient, donor
 
 
-def test_transplant_wfo_relabels_matching_intervals_and_records_provenance():
-    recipient, donor = _wfo_surgery_sources()
+def test_transplant_wfo_relabels_matching_intervals_and_records_provenance(
+    wfo_surgery_sources,
+):
+    recipient, donor = wfo_surgery_sources
 
     out = transplant_wfo(recipient, donor, donor_path="s3://example/donor.zarr")
 
@@ -140,48 +153,50 @@ def test_transplant_wfo_relabels_matching_intervals_and_records_provenance():
     assert "upper bound" in out.attrs["m2lines/wfo_surgery_alignment"]
 
 
-def test_transplant_wfo_rejects_misaligned_intervals():
-    recipient, donor = _wfo_surgery_sources()
+def test_transplant_wfo_rejects_misaligned_intervals(wfo_surgery_sources):
+    recipient, donor = wfo_surgery_sources
     donor = donor.assign_coords(time=donor.time + np.timedelta64(5, "D"))
 
     with pytest.raises(ValueError, match="timestamps must exactly match"):
         transplant_wfo(recipient, donor, donor_path="donor.zarr")
 
 
-def test_transplant_wfo_requires_centered_five_day_recipient_intervals():
-    recipient, donor = _wfo_surgery_sources()
+def test_transplant_wfo_requires_centered_five_day_recipient_intervals(
+    wfo_surgery_sources,
+):
+    recipient, donor = wfo_surgery_sources
     recipient["time_bnds"][0, 0] = np.datetime64("1958-01-02")
 
     with pytest.raises(ValueError, match="centered five-day intervals"):
         transplant_wfo(recipient, donor, donor_path="donor.zarr")
 
 
-def test_transplant_wfo_rejects_different_native_grid():
-    recipient, donor = _wfo_surgery_sources()
+def test_transplant_wfo_rejects_different_native_grid(wfo_surgery_sources):
+    recipient, donor = wfo_surgery_sources
     donor = donor.assign_coords(xh=[0.5, 1.0])
 
     with pytest.raises(ValueError, match="'xh' grid does not match"):
         transplant_wfo(recipient, donor, donor_path="donor.zarr")
 
 
-def test_transplant_wfo_requires_time_mean_metadata():
-    recipient, donor = _wfo_surgery_sources()
+def test_transplant_wfo_requires_time_mean_metadata(wfo_surgery_sources):
+    recipient, donor = wfo_surgery_sources
     donor.wfo.attrs["cell_methods"] = "area:mean time: point"
 
     with pytest.raises(ValueError, match="not identified as a time mean"):
         transplant_wfo(recipient, donor, donor_path="donor.zarr")
 
 
-def test_transplant_wfo_requires_cf_identity_metadata():
-    recipient, donor = _wfo_surgery_sources()
+def test_transplant_wfo_requires_cf_identity_metadata(wfo_surgery_sources):
+    recipient, donor = wfo_surgery_sources
     donor.wfo.attrs["units"] = "m s-1"
 
     with pytest.raises(ValueError, match="units must be 'kg m-2 s-1'"):
         transplant_wfo(recipient, donor, donor_path="donor.zarr")
 
 
-def test_transplant_wfo_refuses_to_overwrite_existing_data():
-    recipient, donor = _wfo_surgery_sources()
+def test_transplant_wfo_refuses_to_overwrite_existing_data(wfo_surgery_sources):
+    recipient, donor = wfo_surgery_sources
     recipient["wfo"] = recipient.hfds
 
     with pytest.raises(ValueError, match="refusing to overwrite"):

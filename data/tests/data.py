@@ -102,7 +102,7 @@ def processed_data():
                 ),
                 dims=["time", "y", "x"],
             )
-            for v in ["hfds", "tauuo", "tauvo", "zos"]
+            for v in ["hfds", "tauuo", "tauvo", "wfo", "zos"]
         }
         | {
             v: xr.DataArray(
@@ -223,6 +223,7 @@ def input_data():
                 "hfds",
                 "tauuo",
                 "tauvo",
+                "wfo",
                 "sithick",
                 "siconc",
             ]

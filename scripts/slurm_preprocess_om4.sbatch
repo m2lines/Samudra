@@ -25,13 +25,13 @@
 #                  ${OUTPUT_BASE}/om4_${RESOLUTION}${variant_suffix}/OM4.zarr
 #                e.g. export OUTPUT_BASE="s3://m2lines-pubs/Samudra/v$(date +%Y-%m)"
 #   RAW_ROOT     source prefix (default: s3://m2lines-pubs/Samudra/raw)
-#   DATA_VARIANT averaged (default) | averaged_with_wfo | snapshots; selects
-#                the raw store and derived output-directory suffix. The
-#                averaged_with_wfo variant transplants the five-day-mean wfo
-#                from the combined snapshot source after strict alignment QC.
+#   DATA_VARIANT averaged (default) | snapshots; selects the raw store and
+#                derived output-directory suffix. The averaged variant adds
+#                five-day-mean wfo from the combined snapshot source after
+#                strict alignment QC.
 #   DATA_PATH    exact raw OM4 source; overrides DATA_VARIANT's source selection.
 #   WFO_SOURCE_PATH exact supplemental wfo store; defaults to the combined
-#                snapshot source for DATA_VARIANT=averaged_with_wfo.
+#                snapshot source for DATA_VARIANT=averaged.
 #   PREPROC_ENV  conda env name (default: ocean_preprocessing)
 #   CONDA_SH     path to conda.sh (autodetected from $CONDA_EXE / common dirs)
 #   REPO_DIR     repo checkout (default: $SLURM_SUBMIT_DIR); we cd here so the

@@ -52,6 +52,7 @@ python -m ocean_preprocessing om4 \
    "s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr" \
    "s3://m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr" \
    "s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_360_by_720.zarr" \
+    --wfo_source_path="s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr" \
     --output_path="./local_om4_test.zarr" \
     --dry_run \
     --small_run
@@ -82,6 +83,7 @@ python -m ocean_preprocessing om4 \
    "s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr" \
    "s3://m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr" \
    "s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_360_by_720.zarr" \
+    --wfo_source_path="s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr" \
     --output_path="s3://m2lines-pubs/Samudra/v$(date "+%Y-%m")/om4_halfdeg/OM4.zarr" \
     --cluster="coiled" \
     --wait_for_workers=True
@@ -99,9 +101,9 @@ variables (`thetao`, `so`, `uo`, `vo`, and `zos`) are instantaneous values at
 `wfo`) are five-day means, because the state transition responds to their
 time-integrated fluxes.
 
-The pipeline publishes the eight variables shared with the averaged source and
-also retains `wfo` when the source provides it. Other source diagnostics and
-native-grid fields are ignored explicitly. On Torch, select this source with
+The pipeline publishes the nine required emulator inputs, including `wfo`.
+Other source diagnostics and native-grid fields are ignored explicitly. On
+Torch, select this source with
 `DATA_VARIANT=snapshots` in `scripts/slurm_preprocess_om4.sbatch`; derived output
 directories use the name `om4_<resolution>_snapshots`.
 
@@ -119,7 +121,7 @@ python -m ocean_preprocessing om4 \
    "s3://m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr" \
    "s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_180_by_360.zarr" \
    --wfo_source_path="s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr" \
-   --output_path="./om4_onedeg_with_wfo/OM4.zarr" \
+   --output_path="./om4_onedeg/OM4.zarr" \
    --skip_spatial_filtering
 ```
 
@@ -134,8 +136,8 @@ Before relabeling `wfo` with the recipient timestamps, the pipeline requires:
 
 The output records the donor path and alignment rule in
 `m2lines/wfo_surgery_source` and `m2lines/wfo_surgery_alignment`. On Torch,
-`DATA_VARIANT=averaged_with_wfo` configures the donor automatically and writes
-to `om4_<resolution>_with_wfo`.
+the default `DATA_VARIANT=averaged` configures the donor automatically. All
+new canonical `om4_<resolution>` datasets therefore include `wfo`.
 
 ## Observation products
 

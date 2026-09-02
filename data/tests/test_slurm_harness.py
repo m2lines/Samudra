@@ -37,10 +37,9 @@ def _resolve_variant(variant: str) -> subprocess.CompletedProcess[str]:
 @pytest.mark.parametrize(
     ("variant", "expected"),
     [
-        ("averaged", "averaged|om4_5daily.zarr||"),
         (
-            "averaged_with_wfo",
-            "averaged_with_wfo|om4_5daily.zarr|_with_wfo|om4_5daily_snapshots.zarr",
+            "averaged",
+            "averaged|om4_5daily.zarr||om4_5daily_snapshots.zarr",
         ),
         ("snapshots", "snapshots|om4_5daily_snapshots.zarr|_snapshots|"),
     ],

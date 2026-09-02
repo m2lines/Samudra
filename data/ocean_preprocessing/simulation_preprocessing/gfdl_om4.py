@@ -75,8 +75,8 @@ def select_om4_variables(ds: xr.Dataset) -> xr.Dataset:
     Snapshot archives also contain diagnostic and native-grid fields that the
     averaged archive does not. Passing every compatible source variable through
     would make the published dataset depend accidentally on the source archive's
-    contents. ``wfo`` is retained when available because it is an intentional
-    five-day-mean forcing in the snapshot product.
+    contents. ``wfo`` is required: snapshot archives provide it directly, while
+    averaged archives must first acquire it through :func:`transplant_wfo`.
     """
     available = set(ds.data_vars)
     missing = OM4_REQUIRED_DATA_VARS - available

@@ -353,6 +353,7 @@ python -m ocean_preprocessing om4 \
    "s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr" \
    "s3://m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr" \
    "s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_180_by_360.zarr" \
+    --wfo_source_path="s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr" \
     --output_path="s3://m2lines-pubs/Samudra/v$(date "+%Y-%m")/om4_onedeg/OM4.zarr" \
     --skip_spatial_filtering \
     --skip_validation \
@@ -378,6 +379,7 @@ python -m ocean_preprocessing om4 \
    "s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr" \
    "s3://m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr" \
    "s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_180_by_360.zarr" \
+    --wfo_source_path="s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr" \
     --output_path="s3://m2lines-pubs/Samudra/v$(date '+%Y-%m')/om4_onedeg_filter/OM4.zarr" \
     --skip_validation \
     --cluster="coiled" \
@@ -401,6 +403,7 @@ python -m ocean_preprocessing om4 \
    "s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr" \
    "s3://m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr" \
    "s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_360_by_720.zarr" \
+    --wfo_source_path="s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr" \
     --output_path="s3://m2lines-pubs/Samudra/v$(date '+%Y-%m')/om4_halfdeg/OM4.zarr" \
     --skip_spatial_filtering \
     --skip_validation \
@@ -425,6 +428,7 @@ python -m ocean_preprocessing om4 \
    "s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr" \
    "s3://m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr" \
    "s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_720_by_1440.zarr" \
+    --wfo_source_path="s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr" \
     --output_path="s3://m2lines-pubs/Samudra/v$(date '+%Y-%m')/om4_quarterdeg/OM4.zarr" \
     --skip_spatial_filtering \
     --skip_validation \
@@ -504,8 +508,7 @@ output-directory suffix:
 
 | `DATA_VARIANT` | raw source | derived output directory |
 | --- | --- | --- |
-| `averaged` (default) | `om4_5daily.zarr` | `om4_<resolution>/` |
-| `averaged_with_wfo` | `om4_5daily.zarr` + snapshot-source `wfo` | `om4_<resolution>_with_wfo/` |
+| `averaged` (default) | `om4_5daily.zarr` + snapshot-source `wfo` | `om4_<resolution>/` |
 | `snapshots` | `om4_5daily_snapshots.zarr` | `om4_<resolution>_snapshots/` |
 
 For the snapshot source, `thetao`, `so`, `uo`, `vo`, and `zos` are instantaneous
@@ -514,10 +517,11 @@ values at 00:00 UTC every five days. The forcings `hfds`, `tauuo`, `tauvo`, and
 their fluxes over the transition. The processed snapshot datasets retain `wfo`
 and the standard emulator inputs, while ignoring undeclared source diagnostics.
 
-The `averaged_with_wfo` variant performs the freshwater-flux surgery without
+The default `averaged` variant performs the freshwater-flux surgery without
 creating a duplicate raw archive. It preserves the state and forcing variables
 from `om4_5daily.zarr`, then lazily transplants only the five-day-mean `wfo` from
-`om4_5daily_snapshots.zarr`. Before relabeling the donor values with the
+`om4_5daily_snapshots.zarr`. Thus, new canonical averaged datasets always
+contain freshwater forcing. Before relabeling the donor values with the
 recipient's midpoint timestamps, the job requires identical native grids and
 requires each donor timestamp to equal the upper bound of its recipient
 interval. The published store records the donor and alignment rule in
@@ -545,12 +549,12 @@ for R in twodeg onedeg onedeg_filter halfdeg quarterdeg; do
 done
 ```
 
-To produce freshwater-augmented averaged datasets, set the variant for both
-preprocessing and normalization jobs:
+The default commands above produce freshwater-augmented averaged datasets. The
+variant may also be set explicitly for preprocessing and normalization jobs:
 
 ```bash
 export OUTPUT_BASE="s3://m2lines-pubs/Samudra/v$(date +%Y-%m)"
-export DATA_VARIANT=averaged_with_wfo
+export DATA_VARIANT=averaged
 
 RESOLUTION=onedeg EXTRA_ARGS="--small_run --dry_run" \
   sbatch --cpus-per-task=16 --mem=64G --time=00:30:00 scripts/slurm_preprocess_om4.sbatch

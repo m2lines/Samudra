@@ -490,6 +490,50 @@ def test_canonicalize_llc_datasets_uses_hfacc_without_mask_c():
     np.testing.assert_allclose(llc_data["mask_0"].values, expected.values)
 
 
+def test_canonicalize_llc_datasets_preserves_lon_lat_candidate_metadata():
+    data, means, stds = raw_llc_datasets()
+    data = data.rename({"XC": "lon", "YC": "lat", "rA": "areacello"})
+    expected_lon = (
+        data["lon"]
+        .isel(face=1, j=slice(1, 3), i=slice(1, 4), drop=True)
+        .rename({"j": "lat", "i": "lon"})
+        .rename("lon_2d")
+    )
+    expected_lat = (
+        data["lat"]
+        .isel(face=1, j=slice(1, 3), i=slice(1, 4), drop=True)
+        .rename({"j": "lat", "i": "lon"})
+        .rename("lat_2d")
+    )
+    expected_area = (
+        data["areacello"]
+        .isel(face=1, j=slice(1, 3), i=slice(1, 4), drop=True)
+        .rename({"j": "lat", "i": "lon"})
+    )
+
+    llc_data, _, _, _ = canonicalize_llc_datasets(
+        data,
+        means,
+        stds,
+        face=1,
+        i_start=1,
+        i_end=4,
+        j_start=1,
+        j_end=3,
+        prognostic_vars_key="single_1",
+        boundary_vars_key="single_1",
+    )
+
+    assert "lon" not in llc_data.data_vars
+    assert "lat" not in llc_data.data_vars
+    assert llc_data["lon_2d"].dims == ("lat", "lon")
+    assert llc_data["lat_2d"].dims == ("lat", "lon")
+    assert llc_data["areacello"].dims == ("lat", "lon")
+    np.testing.assert_allclose(llc_data["lon_2d"].values, expected_lon.values)
+    np.testing.assert_allclose(llc_data["lat_2d"].values, expected_lat.values)
+    np.testing.assert_allclose(llc_data["areacello"].values, expected_area.values)
+
+
 def test_canonicalize_llc_datasets_selects_requested_vars_from_full_root():
     data, means, stds = raw_llc_datasets()
 

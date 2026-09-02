@@ -81,18 +81,23 @@ def _available_data_vars(data: xr.Dataset, candidates: tuple[str, ...]) -> set[s
 
 
 def _llc_grid_coord(
-    data: xr.Dataset, candidates: tuple[str, ...], target_name: str
+    data: xr.Dataset,
+    candidates: tuple[str, ...],
+    target_name: str,
+    *,
+    horizontal_dims: tuple[str, str],
 ) -> tuple[str, xr.DataArray]:
-    """Return one required 2D LLC grid coordinate on canonical lat/lon dims."""
+    """Return one required 2D LLC grid coordinate on horizontal dims."""
+    lat_dim, lon_dim = horizontal_dims
     incompatible_dims = {}
     for source_name in candidates:
         if source_name not in data.variables:
             continue
         coord = data[source_name]
-        if set(coord.dims) != {"lat", "lon"}:
+        if set(coord.dims) != {lat_dim, lon_dim}:
             incompatible_dims[source_name] = coord.dims
             continue
-        return source_name, coord.transpose("lat", "lon").rename(target_name)
+        return source_name, coord.transpose(lat_dim, lon_dim).rename(target_name)
 
     details = (
         f" Found incompatible candidate dims: {incompatible_dims}."
@@ -105,11 +110,19 @@ def _llc_grid_coord(
     )
 
 
-def _assign_llc_grid_metadata(data: xr.Dataset) -> xr.Dataset:
+def _assign_llc_grid_metadata(
+    data: xr.Dataset, *, horizontal_dims: tuple[str, str]
+) -> xr.Dataset:
     """Attach real LLC geographic coordinates and cell area as coordinates."""
-    lon_source, lon = _llc_grid_coord(data, _LLC_CENTER_LON_CANDIDATES, "lon_2d")
-    lat_source, lat = _llc_grid_coord(data, _LLC_CENTER_LAT_CANDIDATES, "lat_2d")
-    area_source, area = _llc_grid_coord(data, _LLC_CELL_AREA_CANDIDATES, "areacello")
+    lon_source, lon = _llc_grid_coord(
+        data, _LLC_CENTER_LON_CANDIDATES, "lon_2d", horizontal_dims=horizontal_dims
+    )
+    lat_source, lat = _llc_grid_coord(
+        data, _LLC_CENTER_LAT_CANDIDATES, "lat_2d", horizontal_dims=horizontal_dims
+    )
+    area_source, area = _llc_grid_coord(
+        data, _LLC_CELL_AREA_CANDIDATES, "areacello", horizontal_dims=horizontal_dims
+    )
     coords = {
         "lon_2d": lon,
         "lat_2d": lat,
@@ -119,7 +132,7 @@ def _assign_llc_grid_metadata(data: xr.Dataset) -> xr.Dataset:
     raw_metadata_vars = [
         source
         for source in {lon_source, lat_source, area_source}
-        if source not in coords and source in out.data_vars
+        if source not in coords and source in out.variables
     ]
     return out.drop_vars(raw_metadata_vars)
 
@@ -241,6 +254,7 @@ def canonicalize_llc_datasets(
         )
 
     data_copy = data_copy.drop_vars(["i_g", "j_g"], errors="ignore")
+    data_copy = _assign_llc_grid_metadata(data_copy, horizontal_dims=("j", "i"))
     rename_map = {
         old: new
         for old, new in {
@@ -256,7 +270,6 @@ def canonicalize_llc_datasets(
         rename_map[center_mask_var] = "wetmask"
     if rename_map:
         data_copy = data_copy.rename(rename_map)
-    data_copy = _assign_llc_grid_metadata(data_copy)
 
     means_copy = _rename_llc_level_index_vars(means.copy())
     stds_copy = _rename_llc_level_index_vars(stds.copy())

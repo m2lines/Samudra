@@ -25,9 +25,13 @@
 #                  ${OUTPUT_BASE}/om4_${RESOLUTION}${variant_suffix}/OM4.zarr
 #                e.g. export OUTPUT_BASE="s3://m2lines-pubs/Samudra/v$(date +%Y-%m)"
 #   RAW_ROOT     source prefix (default: s3://m2lines-pubs/Samudra/raw)
-#   DATA_VARIANT averaged (default) | snapshots; selects the raw store and adds
-#                `_snapshots` to derived output directories for snapshot data.
+#   DATA_VARIANT averaged (default) | averaged_with_wfo | snapshots; selects
+#                the raw store and derived output-directory suffix. The
+#                averaged_with_wfo variant transplants the five-day-mean wfo
+#                from the combined snapshot source after strict alignment QC.
 #   DATA_PATH    exact raw OM4 source; overrides DATA_VARIANT's source selection.
+#   WFO_SOURCE_PATH exact supplemental wfo store; defaults to the combined
+#                snapshot source for DATA_VARIANT=averaged_with_wfo.
 #   PREPROC_ENV  conda env name (default: ocean_preprocessing)
 #   CONDA_SH     path to conda.sh (autodetected from $CONDA_EXE / common dirs)
 #   REPO_DIR     repo checkout (default: $SLURM_SUBMIT_DIR); we cd here so the
@@ -117,6 +121,10 @@ esac
 RAW_ROOT="${RAW_ROOT:-s3://m2lines-pubs/Samudra/raw}"
 resolve_om4_data_variant
 DATA_PATH="${DATA_PATH:-${RAW_ROOT}/${OM4_SOURCE_STORE}}"
+WFO_SOURCE_PATH="${WFO_SOURCE_PATH:-}"
+if [[ -z "${WFO_SOURCE_PATH}" && -n "${OM4_WFO_SOURCE_STORE}" ]]; then
+  WFO_SOURCE_PATH="${RAW_ROOT}/${OM4_WFO_SOURCE_STORE}"
+fi
 NATIVE_GRID_PATH="${RAW_ROOT}/ocean_static_no_mask_table.zarr"
 MOSAIC_PATH="${RAW_ROOT}/grids/ocean_hgrid.zarr"
 TARGET_GRID_PATH="${RAW_ROOT}/grids/${GRID}.zarr"
@@ -192,6 +200,9 @@ fi
 if [[ "${SKIP_VALIDATION:-1}" == "1" ]]; then
   pipeline_flags+=(--skip_validation)
 fi
+if [[ -n "${WFO_SOURCE_PATH}" ]]; then
+  pipeline_flags+=(--wfo_source_path="${WFO_SOURCE_PATH}")
+fi
 
 # --- Run ---------------------------------------------------------------------
 # Enter the selected data subproject before invoking Python. The conda env is
@@ -203,6 +214,7 @@ cd "${REPO_DIR}/data"
 echo "Resolution:   ${RESOLUTION}"
 echo "Data variant: ${DATA_VARIANT}"
 echo "Data path:    ${DATA_PATH}"
+echo "wfo source:   ${WFO_SOURCE_PATH:-none}"
 echo "Target grid:  ${GRID}  (filter: ${FILTER_FLAG:-on})"
 echo "Raw root:     ${RAW_ROOT}"
 echo "Output path:  ${OUTPUT_PATH}"

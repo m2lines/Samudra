@@ -8,6 +8,7 @@ import xarray as xr
 from ocean_preprocessing.simulation_preprocessing.gfdl_om4 import (
     normalize_vertical_coords,
     select_om4_variables,
+    transplant_wfo,
     vertical_cell_metadata,
 )
 
@@ -87,3 +88,101 @@ def test_select_om4_variables_rejects_incomplete_source():
 
     with pytest.raises(ValueError, match="missing required variables.*thetao"):
         select_om4_variables(source)
+
+
+def _wfo_surgery_sources():
+    midpoint = np.array(["1958-01-03T12:00", "1958-01-08T12:00"], dtype="datetime64[m]")
+    interval_end = np.array(
+        ["1958-01-06T00:00", "1958-01-11T00:00"], dtype="datetime64[m]"
+    )
+    xh = [0.25, 0.75]
+    yh = [-0.25, 0.25]
+    recipient = xr.Dataset(
+        {
+            "hfds": (("time", "yh", "xh"), np.ones((2, 2, 2))),
+            "time_bnds": (
+                ("time", "nv"),
+                np.column_stack(
+                    [
+                        np.array(["1958-01-01", "1958-01-06"], dtype="datetime64[m]"),
+                        interval_end,
+                    ]
+                ),
+            ),
+        },
+        coords={"time": midpoint, "xh": xh, "yh": yh},
+    )
+    donor = xr.Dataset(
+        {
+            "wfo": (
+                ("time", "yh", "xh"),
+                np.arange(8, dtype="float32").reshape(2, 2, 2),
+                {
+                    "cell_methods": "area:mean time: mean",
+                    "standard_name": "water_flux_into_sea_water",
+                    "units": "kg m-2 s-1",
+                },
+            )
+        },
+        coords={"time": interval_end, "xh": xh, "yh": yh},
+    )
+    return recipient, donor
+
+
+def test_transplant_wfo_relabels_matching_intervals_and_records_provenance():
+    recipient, donor = _wfo_surgery_sources()
+
+    out = transplant_wfo(recipient, donor, donor_path="s3://example/donor.zarr")
+
+    xr.testing.assert_equal(out.wfo, donor.wfo.assign_coords(time=recipient.time))
+    assert out.time.identical(recipient.time)
+    assert out.attrs["m2lines/wfo_surgery_source"] == "s3://example/donor.zarr"
+    assert "upper bound" in out.attrs["m2lines/wfo_surgery_alignment"]
+
+
+def test_transplant_wfo_rejects_misaligned_intervals():
+    recipient, donor = _wfo_surgery_sources()
+    donor = donor.assign_coords(time=donor.time + np.timedelta64(5, "D"))
+
+    with pytest.raises(ValueError, match="timestamps must exactly match"):
+        transplant_wfo(recipient, donor, donor_path="donor.zarr")
+
+
+def test_transplant_wfo_requires_centered_five_day_recipient_intervals():
+    recipient, donor = _wfo_surgery_sources()
+    recipient["time_bnds"][0, 0] = np.datetime64("1958-01-02")
+
+    with pytest.raises(ValueError, match="centered five-day intervals"):
+        transplant_wfo(recipient, donor, donor_path="donor.zarr")
+
+
+def test_transplant_wfo_rejects_different_native_grid():
+    recipient, donor = _wfo_surgery_sources()
+    donor = donor.assign_coords(xh=[0.5, 1.0])
+
+    with pytest.raises(ValueError, match="'xh' grid does not match"):
+        transplant_wfo(recipient, donor, donor_path="donor.zarr")
+
+
+def test_transplant_wfo_requires_time_mean_metadata():
+    recipient, donor = _wfo_surgery_sources()
+    donor.wfo.attrs["cell_methods"] = "area:mean time: point"
+
+    with pytest.raises(ValueError, match="not identified as a time mean"):
+        transplant_wfo(recipient, donor, donor_path="donor.zarr")
+
+
+def test_transplant_wfo_requires_cf_identity_metadata():
+    recipient, donor = _wfo_surgery_sources()
+    donor.wfo.attrs["units"] = "m s-1"
+
+    with pytest.raises(ValueError, match="units must be 'kg m-2 s-1'"):
+        transplant_wfo(recipient, donor, donor_path="donor.zarr")
+
+
+def test_transplant_wfo_refuses_to_overwrite_existing_data():
+    recipient, donor = _wfo_surgery_sources()
+    recipient["wfo"] = recipient.hfds
+
+    with pytest.raises(ValueError, match="refusing to overwrite"):
+        transplant_wfo(recipient, donor, donor_path="donor.zarr")

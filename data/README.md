@@ -105,6 +105,38 @@ native-grid fields are ignored explicitly. On Torch, select this source with
 `DATA_VARIANT=snapshots` in `scripts/slurm_preprocess_om4.sbatch`; derived output
 directories use the name `om4_<resolution>_snapshots`.
 
+### Adding freshwater flux to the averaged source
+
+The original averaged archive does not contain `wfo`. To build an averaged-state
+dataset with freshwater forcing, use
+`s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr` as a supplemental
+`wfo` source:
+
+```bash
+python -m ocean_preprocessing om4 \
+   "s3://m2lines-pubs/Samudra/raw/om4_5daily.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_180_by_360.zarr" \
+   --wfo_source_path="s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr" \
+   --output_path="./om4_onedeg_with_wfo/OM4.zarr" \
+   --skip_spatial_filtering
+```
+
+This is not a positional merge. The averaged archive labels intervals at their
+midpoints, whereas the donor labels the same intervals at their upper bounds.
+Before relabeling `wfo` with the recipient timestamps, the pipeline requires:
+
+- exact equality between donor times and recipient `time_bnds` upper bounds;
+- identical native `xh` and `yh` coordinates;
+- `wfo(time, yh, xh)` with `cell_methods` identifying `time: mean`; and
+- no existing `wfo` in the recipient.
+
+The output records the donor path and alignment rule in
+`m2lines/wfo_surgery_source` and `m2lines/wfo_surgery_alignment`. On Torch,
+`DATA_VARIANT=averaged_with_wfo` configures the donor automatically and writes
+to `om4_<resolution>_with_wfo`.
+
 ## Observation products
 
 Emulator evaluation compares rollouts against observations, not just against OM4. A second CLI fetches and prepares the

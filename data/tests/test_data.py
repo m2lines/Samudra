@@ -12,8 +12,8 @@ from ocean_preprocessing.dataset_validation import (
     ds_input_validate,
     ds_prediction_validate,
     ds_processed_validate,
+    require_om4_publication_freshwater_flux,
 )
-from xarrera import SchemaError
 
 from tests.data import input_data, prediction_data, processed_data  # noqa
 
@@ -22,9 +22,17 @@ def test_processed_data(processed_data):
     ds_processed_validate(processed_data)
 
 
-def test_processed_data_requires_freshwater_flux(processed_data):
-    with pytest.raises(SchemaError, match="wfo"):
-        ds_processed_validate(processed_data.drop_vars("wfo"))
+def test_processed_data_allows_snapshot_water_flux(processed_data):
+    processed_data["wfo"] = processed_data["hfds"]
+    ds_processed_validate(processed_data)
+
+
+def test_new_om4_publication_requires_freshwater_flux(processed_data):
+    with pytest.raises(ValueError, match="publications require.*wfo"):
+        require_om4_publication_freshwater_flux(processed_data)
+
+    processed_data["wfo"] = processed_data["hfds"]
+    require_om4_publication_freshwater_flux(processed_data)
 
 
 def test_input_data(input_data):
@@ -90,13 +98,9 @@ def _flattened_input(*, include_wfo: bool = True) -> xr.Dataset:
     )
 
 
-def test_flattened_input_contract_is_resolution_independent():
-    ds_flattened_input_validate(_flattened_input())
-
-
-def test_flattened_input_contract_requires_freshwater_flux():
-    with pytest.raises(ValueError, match="missing required variables.*wfo"):
-        ds_flattened_input_validate(_flattened_input(include_wfo=False))
+@pytest.mark.parametrize("include_wfo", [False, True])
+def test_flattened_input_contract_is_resolution_independent(include_wfo):
+    ds_flattened_input_validate(_flattened_input(include_wfo=include_wfo))
 
 
 def test_flattened_input_contract_rejects_undeclared_variable():

@@ -5,8 +5,10 @@
 from xarrera import CoordsSchema, DataArraySchema, DatasetSchema  # noqa: E402
 
 OM4_3D_VARS = ("so", "thetao", "uo", "vo")
-OM4_REQUIRED_2D_VARS = ("hfds", "tauuo", "tauvo", "wfo", "zos")
-OM4_OPTIONAL_2D_VARS = ()
+OM4_REQUIRED_2D_VARS = ("hfds", "tauuo", "tauvo", "zos")
+# Legacy averaged OM4 and CM4 datasets do not contain freshwater flux. Keep wfo
+# optional in shared validators; the OM4 publication CLI enforces it separately.
+OM4_OPTIONAL_2D_VARS = ("wfo",)
 
 
 ### Preprocessing Stage

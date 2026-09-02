@@ -201,8 +201,9 @@ class SuccessiveHalving:
                 and self.config.executor.rung0_probe
             )
             if not gate_anchors:
-                self.executor.submit_anchors(state)
-            self.executor.submit_rung(self.read_state(), 0)
+                self.executor.submit_initial(state)
+            else:
+                self.executor.submit_rung(self.read_state(), 0)
         except Exception as error:
             state = self.read_state()
             state["status"] = "failed"

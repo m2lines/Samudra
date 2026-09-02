@@ -28,7 +28,10 @@ def test_processed_data_allows_snapshot_water_flux(processed_data):
 
 
 def test_new_om4_publication_requires_freshwater_flux(processed_data):
-    with pytest.raises(ValueError, match="publications require.*wfo"):
+    with pytest.raises(
+        ValueError,
+        match="publications require.*wfo.*primary raw source.*wfo_source_path",
+    ):
         require_om4_publication_freshwater_flux(processed_data)
 
     processed_data["wfo"] = processed_data["hfds"]

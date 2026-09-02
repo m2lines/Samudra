@@ -18,6 +18,7 @@ from samudra.utils.data import (
     compute_anomalies,
     flatten_masks,
     get_aggregator_dicts,
+    spherical_area_weights,
     stack_levels,
     unflatten_masks,
     with_depth_value_vars,
@@ -396,6 +397,24 @@ def test_canonicalize_llc_datasets_standardizes_layout():
     data, means, stds = raw_llc_datasets()
     data_layout = build_llc_layout(prognostic_vars_key="all", boundary_vars_key="all")
     expected_theta_0 = data["Theta"].isel(time=0, face=1, k=0, j=1, i=1).item()
+    expected_lon = (
+        data["XC"]
+        .isel(face=1, j=slice(1, 3), i=slice(1, 4), drop=True)
+        .rename({"j": "lat", "i": "lon"})
+        .rename("lon_2d")
+    )
+    expected_lat = (
+        data["YC"]
+        .isel(face=1, j=slice(1, 3), i=slice(1, 4), drop=True)
+        .rename({"j": "lat", "i": "lon"})
+        .rename("lat_2d")
+    )
+    expected_area = (
+        data["rA"]
+        .isel(face=1, j=slice(1, 3), i=slice(1, 4), drop=True)
+        .rename({"j": "lat", "i": "lon"})
+        .rename("areacello")
+    )
 
     llc_data, llc_means, llc_stds, returned_layout = canonicalize_llc_datasets(
         data,
@@ -428,8 +447,14 @@ def test_canonicalize_llc_datasets_standardizes_layout():
     assert llc_data["mask_0"].dims == ("lat", "lon")
     assert llc_data["mask_w_0"].dims == ("lat", "lon")
     assert llc_data["mask_s_0"].dims == ("lat", "lon")
+    assert llc_data["lon_2d"].dims == ("lat", "lon")
+    assert llc_data["lat_2d"].dims == ("lat", "lon")
+    assert llc_data["areacello"].dims == ("lat", "lon")
     assert llc_data["Theta_0"].shape == (3, 2, 3)
     assert llc_data["Theta_0"].isel(time=0, lat=0, lon=0).item() == expected_theta_0
+    np.testing.assert_allclose(llc_data["lon_2d"].values, expected_lon.values)
+    np.testing.assert_allclose(llc_data["lat_2d"].values, expected_lat.values)
+    np.testing.assert_allclose(llc_data["areacello"].values, expected_area.values)
     assert np.issubdtype(llc_data.time.dtype, np.datetime64)
     assert "Theta_0" in llc_means.variables
     assert "Theta_0" in llc_stds.variables
@@ -462,7 +487,7 @@ def test_canonicalize_llc_datasets_uses_hfacc_without_mask_c():
     )
 
     assert "hFacC" not in llc_data.variables
-    xr.testing.assert_identical(llc_data["mask_0"], expected)
+    np.testing.assert_allclose(llc_data["mask_0"].values, expected.values)
 
 
 def test_canonicalize_llc_datasets_selects_requested_vars_from_full_root():
@@ -487,7 +512,11 @@ def test_canonicalize_llc_datasets_selects_requested_vars_from_full_root():
         *(f"mask_{i}" for i in llc_layout.depth_i_levels),
     }
     assert expected_vars.issubset(llc_data.data_vars)
+    assert {"lon_2d", "lat_2d", "areacello"}.issubset(llc_data.coords)
     assert "XG" not in llc_data.data_vars
+    assert "XC" not in llc_data.data_vars
+    assert "YC" not in llc_data.data_vars
+    assert "rA" not in llc_data.data_vars
     assert "hFacW" not in llc_data.data_vars
     assert "mask_w_0" not in llc_data.data_vars
 
@@ -532,6 +561,40 @@ def test_llc_all_variable_masks_use_staggered_masks():
     assert not bool(source.masks.boundary[tau_x_index, 0, 0])
     assert not bool(source.masks.boundary[tau_y_index, 0, 1])
     assert bool(source.masks.boundary[qnet_index, 0, 0])
+
+
+def test_canonicalize_llc_datasets_requires_real_grid_metadata():
+    data, means, stds = raw_llc_datasets()
+    data = data.drop_vars(["XC", "YC", "rA"])
+
+    with pytest.raises(ValueError, match="requires real grid metadata"):
+        canonicalize_llc_datasets(
+            data,
+            means,
+            stds,
+            face=1,
+            i_start=1,
+            i_end=4,
+            j_start=1,
+            j_end=3,
+            prognostic_vars_key="single_1",
+            boundary_vars_key="single_1",
+        )
+
+
+def test_spherical_area_weights_prefers_areacello():
+    area = np.array([[1.0, 2.0], [3.0, 4.0]], dtype=np.float32)
+    ds = xr.Dataset(
+        coords={
+            "lat": [0.0, 80.0],
+            "lon": [0.0, 1.0],
+            "areacello": (("lat", "lon"), area),
+        },
+    )
+
+    weights = spherical_area_weights(ds)
+
+    np.testing.assert_allclose(weights.numpy(), area / area.sum())
 
 
 @pytest.fixture

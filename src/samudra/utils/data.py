@@ -280,6 +280,10 @@ class CanonicalSource:
 
     @cached_property
     def spherical_area_weights(self) -> Grid:
+        coords = self._reader.coordinates()
+        if "areacello" in coords:
+            return _normalize_area_weights(coords["areacello"])
+
         lat, lon = self.resolution
         weights = torch.cos(torch.deg2rad(lat)).repeat(lon.shape[0], 1).t()
         return weights / weights.sum()
@@ -520,7 +524,45 @@ def unflatten_masks(
     return data_
 
 
+def _normalize_area_weights(area: xr.DataArray) -> Grid:
+    for horizontal_dims in (("lat", "lon"), ("y", "x")):
+        if all(dim in area.dims for dim in horizontal_dims):
+            try:
+                area = area.transpose(*horizontal_dims)
+            except ValueError as exc:
+                raise ValueError(
+                    "`areacello` must be two-dimensional on horizontal dims to "
+                    f"compute area weights; got dims {area.dims}."
+                ) from exc
+            break
+    else:
+        raise ValueError(
+            "`areacello` must use either lat/lon or y/x horizontal dims to "
+            f"compute area weights; got dims {area.dims}."
+        )
+
+    area_values = np.asarray(area.to_numpy(), dtype=np.float64)
+    if area_values.ndim != 2:
+        raise ValueError(
+            "`areacello` must be two-dimensional to compute area weights; "
+            f"got shape {area_values.shape}."
+        )
+    if not np.isfinite(area_values).all():
+        raise ValueError("`areacello` weights must be finite")
+    if (area_values < 0).any():
+        raise ValueError("`areacello` weights must be non-negative")
+
+    weights = torch.from_numpy(area_values)
+    total = weights.sum()
+    if total <= 0:
+        raise ValueError("`areacello` weights must have a positive sum")
+    return weights / total
+
+
 def spherical_area_weights(data: xr.Dataset) -> Grid:
+    if "areacello" in data.variables:
+        return _normalize_area_weights(data["areacello"])
+
     num_lon = data.lon.size
     lats = torch.from_numpy(data.lat.to_numpy())
     weights = torch.cos(torch.deg2rad(lats)).repeat(num_lon, 1).t()

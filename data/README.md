@@ -90,6 +90,21 @@ python -m ocean_preprocessing om4 \
 That's how you can run this package as a command-line utility! Beyond this, `ocean_preprocessing` can be used a library
 in a script or notebook. Continue reading to get a better understanding of this package's capabilities.
 
+### Five-day snapshot source
+
+The snapshot archive is
+`s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr`. Its ocean state
+variables (`thetao`, `so`, `uo`, `vo`, and `zos`) are instantaneous values at
+00:00 UTC every five days. Its forcing variables (`hfds`, `tauuo`, `tauvo`, and
+`wfo`) are five-day means, because the state transition responds to their
+time-integrated fluxes.
+
+The pipeline publishes the eight variables shared with the averaged source and
+also retains `wfo` when the source provides it. Other source diagnostics and
+native-grid fields are ignored explicitly. On Torch, select this source with
+`DATA_VARIANT=snapshots` in `scripts/slurm_preprocess_om4.sbatch`; derived output
+directories use the name `om4_<resolution>_snapshots`.
+
 ## Observation products
 
 Emulator evaluation compares rollouts against observations, not just against OM4. A second CLI fetches and prepares the
@@ -255,6 +270,7 @@ The preprocessing files are the inputs to create curated emulator dataseets for 
 These files live on the OSN pod:
 
 - Data: https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/om4_5daily.zarr
+- Five-day snapshots: https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr
 - Gaussian Grid: https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/grids/gaussian_grid_180_by_360.zarr
 - Mosaic File: https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr
 - Native Grid File: https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr

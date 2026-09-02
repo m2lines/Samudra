@@ -499,6 +499,20 @@ Both the raw **inputs** and the processed **outputs** live under the `Samudra` p
 from `s3://m2lines-pubs/Samudra/raw/...` (`RAW_ROOT`) and results are written under `OUTPUT_BASE`. The raw inputs were
 mirrored there from `FOMO/raw` with a server-side `rclone` copy on the data transfer node.
 
+`DATA_VARIANT` selects the temporal form of the raw OM4 source and the derived
+output-directory suffix:
+
+| `DATA_VARIANT` | raw source | derived output directory |
+| --- | --- | --- |
+| `averaged` (default) | `om4_5daily.zarr` | `om4_<resolution>/` |
+| `snapshots` | `om4_5daily_snapshots.zarr` | `om4_<resolution>_snapshots/` |
+
+For the snapshot source, `thetao`, `so`, `uo`, `vo`, and `zos` are instantaneous
+values at 00:00 UTC every five days. The forcings `hfds`, `tauuo`, `tauvo`, and
+`wfo` are five-day means; this is intentional because the ocean state integrates
+their fluxes over the transition. The processed snapshot datasets retain `wfo`
+and the standard emulator inputs, while ignoring undeclared source diagnostics.
+
 ```bash
 export OUTPUT_BASE="s3://m2lines-pubs/Samudra/v$(date +%Y-%m)"
 
@@ -518,6 +532,30 @@ RESOLUTION=quarterdeg N_WORKERS=16 \
 # Normalization datasets, after each OM4.zarr lands:
 for R in twodeg onedeg onedeg_filter halfdeg quarterdeg; do
   RESOLUTION=$R sbatch scripts/slurm_make_norm_om4.sbatch
+done
+```
+
+To produce the four unfiltered snapshot scales in a new monthly namespace, keep
+the version explicit for the entire submission rather than recomputing the date
+in each job:
+
+```bash
+export OUTPUT_BASE="s3://m2lines-pubs/Samudra/v2026-08"
+export DATA_VARIANT=snapshots
+
+# Real-source smoke test: ten timesteps, no write.
+RESOLUTION=onedeg EXTRA_ARGS="--small_run --dry_run" \
+  sbatch --cpus-per-task=16 --mem=64G --time=00:30:00 scripts/slurm_preprocess_om4.sbatch
+
+RESOLUTION=twodeg    sbatch --cpus-per-task=32  --mem=240G --time=08:00:00   scripts/slurm_preprocess_om4.sbatch
+RESOLUTION=onedeg    sbatch --cpus-per-task=64  --mem=480G --time=12:00:00   scripts/slurm_preprocess_om4.sbatch
+RESOLUTION=halfdeg   sbatch --cpus-per-task=128 --mem=490G --time=1-00:00:00 scripts/slurm_preprocess_om4.sbatch
+RESOLUTION=quarterdeg N_WORKERS=16 \
+                     sbatch --cpus-per-task=128 --mem=490G --time=2-00:00:00 scripts/slurm_preprocess_om4.sbatch
+
+# Submit these only after the corresponding preprocessing jobs succeed.
+for R in twodeg onedeg halfdeg quarterdeg; do
+  DATA_VARIANT=snapshots RESOLUTION=$R sbatch scripts/slurm_make_norm_om4.sbatch
 done
 ```
 

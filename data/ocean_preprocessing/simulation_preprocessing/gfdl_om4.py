@@ -2,16 +2,27 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
+
 import fsspec
 import numpy as np
 import xarray as xr
-from xarrera import SchemaError
 from xgcm import Grid
 
 from ocean_preprocessing.dataset_validation import ds_processed_validate
+from ocean_preprocessing.schema import (
+    OM4_3D_VARS,
+    OM4_OPTIONAL_2D_VARS,
+    OM4_REQUIRED_2D_VARS,
+)
 from ocean_preprocessing.utils import apply_mask
 
 from .interpolate import interpolate_to_cell_centers
+
+logger = logging.getLogger(__name__)
+
+OM4_REQUIRED_DATA_VARS = frozenset(OM4_3D_VARS + OM4_REQUIRED_2D_VARS)
+OM4_OPTIONAL_DATA_VARS = frozenset(OM4_OPTIONAL_2D_VARS)
 
 
 # load supergrid and extract the angles
@@ -52,24 +63,35 @@ def normalize_vertical_coords(ds: xr.Dataset) -> xr.Dataset:
     return ds.rename(vertical_rename) if vertical_rename else ds
 
 
-def om4_preprocessing(
-    zarr_data_path, nc_grid_path, nc_mosaic_path, fs=fsspec, backend_kwargs=None
-):
-    """OM4 specific preprocessing."""
-    ds = xr.open_dataset(
-        zarr_data_path, engine="zarr", chunks={}, backend_kwargs=backend_kwargs
-    )
+def select_om4_variables(ds: xr.Dataset) -> xr.Dataset:
+    """Keep the stable emulator inputs and reject incomplete OM4 sources.
 
-    ds = normalize_vertical_coords(ds)
+    Snapshot archives also contain diagnostic and native-grid fields that the
+    averaged archive does not. Passing every compatible source variable through
+    would make the published dataset depend accidentally on the source archive's
+    contents. ``wfo`` is retained when available because it is an intentional
+    five-day-mean forcing in the snapshot product.
+    """
+    available = set(ds.data_vars)
+    missing = OM4_REQUIRED_DATA_VARS - available
+    if missing:
+        raise ValueError(f"OM4 source is missing required variables: {sorted(missing)}")
 
+    selected = OM4_REQUIRED_DATA_VARS | (OM4_OPTIONAL_DATA_VARS & available)
+    ignored = available - selected
+    if ignored:
+        logger.info("ignoring undeclared OM4 source variables: %s", sorted(ignored))
+    return ds[sorted(selected)]
+
+
+def vertical_cell_metadata(ds: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:
+    """Return consistently typed cell thickness and interface coordinates."""
     if "ilev" in ds.coords:
-        dz = xr.DataArray(
-            ds.ilev.diff("ilev").values,
-            dims=["lev"],
-        ).astype("int64")
+        dz = xr.DataArray(ds.ilev.diff("ilev").values, dims=["lev"])
         ilev = ds["ilev"]
     else:
-        # add vertical info
+        # The snapshot archive omits interface depths, so add the canonical
+        # OM4 vertical grid used by the existing processed datasets.
         dz = xr.DataArray(
             [
                 5,
@@ -93,7 +115,7 @@ def om4_preprocessing(
                 1000,
             ],
             dims=["lev"],
-        ).astype("float64")
+        )
         ilev = xr.DataArray(
             [
                 0,
@@ -118,7 +140,25 @@ def om4_preprocessing(
                 6500,
             ],
             dims=["ilev"],
-        ).astype("float64")
+        )
+
+    # The processed coordinate contract is float64 for both averaged sources
+    # (which provide ilev) and snapshot sources (which use the fallback above).
+    return dz.astype("float64"), ilev.astype("float64")
+
+
+def om4_preprocessing(
+    zarr_data_path, nc_grid_path, nc_mosaic_path, fs=fsspec, backend_kwargs=None
+):
+    """OM4 specific preprocessing."""
+    ds = xr.open_dataset(
+        zarr_data_path, engine="zarr", chunks={}, backend_kwargs=backend_kwargs
+    )
+
+    ds = select_om4_variables(ds)
+    ds = normalize_vertical_coords(ds)
+
+    dz, ilev = vertical_cell_metadata(ds)
 
     ds = ds.assign_coords(dz=dz)
 
@@ -194,8 +234,5 @@ def om4_preprocessing(
     ds = ds.astype(np.float32)
     # higher precision for the area
     ds = ds.assign_coords(areacello=ds.areacello.astype("float64"))
-    try:
-        ds_processed_validate(ds)
-    except SchemaError as err:
-        print(f"Failed validation with error: {str(err)}")
+    ds_processed_validate(ds)
     return ds

@@ -24,7 +24,11 @@ import fire
 import fsspec
 import xarray as xr
 
-from ocean_preprocessing.dataset_validation import ds_processed_validate
+from ocean_preprocessing.dataset_validation import (
+    ds_flattened_input_validate,
+    ds_input_validate,
+    ds_processed_validate,
+)
 from ocean_preprocessing.plotting import rotated_vectors_qc_plots
 from ocean_preprocessing.preprocessing import (
     account_for_partial_depths,
@@ -236,7 +240,11 @@ class CLI:
         if self.small_run:
             ds = ds.isel(time=slice(0, 10))
         if self.dry_run:
-            logger.info(self.dask_client.compute(ds))
+            if self.dask_client is not None:
+                ds = self.dask_client.compute(ds, sync=True)
+            else:
+                ds = ds.compute()
+            logger.info(ds)
             return
 
         logger.info(f"writing dataset to {self.output_path}")
@@ -245,6 +253,7 @@ class CLI:
             self.output_path,
             mode="w",
             consolidated=True,
+            zarr_format=2,
             encoding={
                 var_name: {"compressor": None} for var_name in ds.data_vars.keys()
             },  # Compression turned off
@@ -324,6 +333,13 @@ class CLI:
             logger.info("**small-run**: filtering data to 10 time steps.")
             ds_processed = ds_processed.isel(time=slice(0, 10))
 
+        # Validate the model-specific output before optional generic transforms.
+        # Partial-depth accounting intentionally expands dz from (lev,) to
+        # (lev, y, x), which is validated by the final input-data contract.
+        if not self.skip_validation:
+            logger.info("validating preprocessing.")
+            ds_processed_validate(ds_processed, deep=True)
+
         if self.account_for_partial_depths:
             logger.info("Apply processing to account for partial depths levels.")
             if native_grid_path.endswith(".zarr"):
@@ -332,10 +348,6 @@ class CLI:
                 with fsspec.open(native_grid_path) as f:
                     native_grid_ds = xr.open_dataset(f).load()
             ds_processed = account_for_partial_depths(ds_processed, native_grid_ds)
-
-        if not self.skip_validation:
-            logger.info("validating preprocessing.")
-            ds_processed_validate(ds_processed, deep=True)
 
         saved_attrs = {}
         for var in ds_processed.data_vars:
@@ -454,7 +466,7 @@ class CLI:
         # regular (rectilinear) lat-lon grid, so downstream code may treat the 2-D
         # lat/lon as separable. Curvilinear (e.g. tripolar) outputs must set this to
         # the matching grid_type so consumers do not broadcast their geometry.
-        ds_input.attrs["grid_type"] = "gaussian"
+        ds_input.attrs["grid_type"] = "tripolar" if self.skip_regridding else "gaussian"
         # Label wetmask via attrs
         if len(ds_input["wetmask"].attrs) == 0:
             ds_input["wetmask"].attrs["long_name"] = "ocean mask"
@@ -480,6 +492,12 @@ class CLI:
 
         logger.info("preparing final chunks for output zarr (time=1)")
         ds = ds.chunk({"time": 1})
+
+        logger.info("validating final output structure")
+        if self.skip_flattening:
+            ds_input_validate(ds)
+        else:
+            ds_flattened_input_validate(ds)
 
         logger.info("collecting!")
         self._collect(ds)

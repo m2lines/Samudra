@@ -13,7 +13,11 @@ from pydantic import ValidationError
 from samudra.config import TrainConfig
 from samudra.search import SearchConfig
 from samudra.search.config import ArtifactConfig, SlurmExecutorConfig
-from samudra.search.executors import LocalExecutor, SlurmExecutor
+from samudra.search.executors import (
+    LocalExecutor,
+    SlurmAllocationExecutor,
+    SlurmExecutor,
+)
 from samudra.utils.location import S3Location
 from samudra.utils.schedule import CosineSchedulerConfig
 from samudra.utils.training_summary import (
@@ -25,7 +29,12 @@ from samudra.utils.training_summary import (
 
 def config(tmp_path: Path, *, executor: str = "local") -> SearchConfig:
     executor_config = {"type": "local", "output_dir": tmp_path / "runs"}
-    if executor == "slurm":
+    if executor == "slurm_allocation":
+        executor_config = {
+            "type": "slurm_allocation",
+            "output_dir": tmp_path / "runs",
+        }
+    elif executor == "slurm":
         harness = tmp_path / "train.sbatch"
         harness.touch()
         executor_config = {
@@ -44,7 +53,7 @@ def config(tmp_path: Path, *, executor: str = "local") -> SearchConfig:
             "objective": {"metric": "validation_loss", "mode": "min"},
             "metrics": ["validation_loss", "train_loss"],
             "executor": executor_config,
-            "allow_dirty": executor == "local",
+            "allow_dirty": executor != "slurm",
             "candidates": [
                 {"name": "anchor", "config": "anchor.yaml", "fixed": True},
                 {"name": "a", "config": "a.yaml"},
@@ -112,14 +121,16 @@ def test_slurm_rejects_dirty_worktree_before_submission(tmp_path):
     value = config(tmp_path, executor="slurm").model_dump(mode="json")
     value["allow_dirty"] = True
 
-    with pytest.raises(ValidationError, match="only supported by the local executor"):
+    with pytest.raises(ValidationError, match="not supported by the submitting Slurm"):
         SearchConfig.model_validate(value)
 
 
 def test_executor_dictionary_is_an_explicit_extension_point(tmp_path):
     local = config(tmp_path).build()
+    allocation = config(tmp_path, executor="slurm_allocation").build()
     slurm = config(tmp_path, executor="slurm").build()
     assert isinstance(local.executor, LocalExecutor)
+    assert isinstance(allocation.executor, SlurmAllocationExecutor)
     assert isinstance(slurm.executor, SlurmExecutor)
 
 
@@ -667,9 +678,9 @@ def test_local_executor_coschedules_anchors_and_first_rung(tmp_path, monkeypatch
     assert saved["rungs"][0]["job_id"] == "local"
 
 
-def test_local_executor_uses_exclusive_slurm_gpu_steps(tmp_path, monkeypatch):
-    search = config(tmp_path).build()
-    assert isinstance(search.executor, LocalExecutor)
+def test_slurm_allocation_executor_uses_exclusive_gpu_steps(tmp_path, monkeypatch):
+    search = config(tmp_path, executor="slurm_allocation").build()
+    assert isinstance(search.executor, SlurmAllocationExecutor)
     search.config.executor.max_concurrent = 2
     commands = []
     environments = []
@@ -685,7 +696,7 @@ def test_local_executor_uses_exclusive_slurm_gpu_steps(tmp_path, monkeypatch):
         commands.append(command)
         environments.append(env)
 
-    monkeypatch.setattr("samudra.search.executors.local.subprocess.run", run)
+    monkeypatch.setattr("samudra.search.executors.slurm_allocation.subprocess.run", run)
 
     search.executor._run_tasks(
         [
@@ -705,11 +716,22 @@ def test_local_executor_uses_exclusive_slurm_gpu_steps(tmp_path, monkeypatch):
     assert all("RANK" not in env and "WORLD_SIZE" not in env for env in environments)
 
 
+def test_slurm_allocation_executor_requires_an_allocation(tmp_path, monkeypatch):
+    search = config(tmp_path, executor="slurm_allocation").build()
+    assert isinstance(search.executor, SlurmAllocationExecutor)
+    monkeypatch.delenv("SLURM_JOB_ID", raising=False)
+
+    with pytest.raises(RuntimeError, match="must run inside a Slurm allocation"):
+        search.executor._run_tasks(
+            [type("Task", (), {"rung": 0, "task": 0, "anchor": False})()]
+        )
+
+
 def test_local_executor_preserves_visible_gpu_identifiers(tmp_path, monkeypatch):
     search = config(tmp_path).build()
     assert isinstance(search.executor, LocalExecutor)
     calls = []
-    monkeypatch.delenv("SLURM_JOB_ID", raising=False)
+    monkeypatch.setenv("SLURM_JOB_ID", "ignored-by-local-executor")
     monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "GPU-first,GPU-second")
 
     def run(command, *, check, env):
@@ -724,6 +746,7 @@ def test_local_executor_preserves_visible_gpu_identifiers(tmp_path, monkeypatch)
     )
 
     assert {device for _, device in calls} == {"GPU-first", "GPU-second"}
+    assert all(command[0] != "srun" for command, _ in calls)
     assert all("samudra.search.worker" in command for command, _ in calls)
 
 

@@ -372,12 +372,11 @@ def test_start_records_and_publishes_submission_failure(tmp_path, monkeypatch):
         },
     )
     search = search_config.build()
-    monkeypatch.setattr(search.executor, "submit_anchors", lambda state: None)
 
-    def fail_submission(state, rung):
+    def fail_submission(state):
         raise RuntimeError("scheduler unavailable")
 
-    monkeypatch.setattr(search.executor, "submit_rung", fail_submission)
+    monkeypatch.setattr(search.executor, "submit_initial", fail_submission)
 
     with pytest.raises(RuntimeError, match="scheduler unavailable"):
         search.start()
@@ -641,6 +640,91 @@ def test_local_executor_runs_tasks_then_advances(tmp_path, monkeypatch):
         ("train", 0, 1, False),
         ("advance", 0),
     ]
+
+
+def test_local_executor_coschedules_anchors_and_first_rung(tmp_path, monkeypatch):
+    search = config(tmp_path).build()
+    search.search_dir.mkdir(parents=True)
+    state = search_state(search, status="prepared")
+    state["anchors"]["candidates"] = ["anchor"]
+    state["rungs"][0]["candidates"] = ["a", "b"]
+    search.write_state(state)
+    batches = []
+    monkeypatch.setattr(
+        search.executor,
+        "_run_tasks",
+        lambda tasks: batches.append(
+            [(task.rung, task.task, task.anchor) for task in tasks]
+        ),
+    )
+    monkeypatch.setattr(search, "advance", lambda rung: batches.append(rung))
+
+    search.executor.submit_initial(state)
+
+    assert batches == [[(1, 0, True), (0, 0, False), (0, 1, False)], 0]
+    saved = search.read_state()
+    assert saved["anchors"]["job_id"] == "local"
+    assert saved["rungs"][0]["job_id"] == "local"
+
+
+def test_local_executor_uses_exclusive_slurm_gpu_steps(tmp_path, monkeypatch):
+    search = config(tmp_path).build()
+    assert isinstance(search.executor, LocalExecutor)
+    search.config.executor.max_concurrent = 2
+    commands = []
+    environments = []
+    monkeypatch.setenv("SLURM_JOB_ID", "123")
+    monkeypatch.setenv("SLURM_NNODES", "2")
+    monkeypatch.setenv("SLURM_GPUS_ON_NODE", "8")
+    monkeypatch.setenv("SLURM_CPUS_ON_NODE", "128")
+    monkeypatch.setenv("RANK", "0")
+    monkeypatch.setenv("WORLD_SIZE", "16")
+    monkeypatch.delenv("SLURM_STEP_ID", raising=False)
+
+    def run(command, *, check, env):
+        commands.append(command)
+        environments.append(env)
+
+    monkeypatch.setattr("samudra.search.executors.local.subprocess.run", run)
+
+    search.executor._run_tasks(
+        [
+            type("Task", (), {"rung": 0, "task": task, "anchor": False})()
+            for task in range(3)
+        ]
+    )
+
+    assert len(commands) == 3
+    assert all(command[0] == "srun" for command in commands)
+    assert all(
+        "--exclusive" in command and "--exact" in command for command in commands
+    )
+    assert all("--gpus-per-task=1" in command for command in commands)
+    assert all("--cpus-per-task=16" in command for command in commands)
+    assert all(env["SAMUDRA_DISABLE_DISTRIBUTED"] == "1" for env in environments)
+    assert all("RANK" not in env and "WORLD_SIZE" not in env for env in environments)
+
+
+def test_local_executor_preserves_visible_gpu_identifiers(tmp_path, monkeypatch):
+    search = config(tmp_path).build()
+    assert isinstance(search.executor, LocalExecutor)
+    calls = []
+    monkeypatch.delenv("SLURM_JOB_ID", raising=False)
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "GPU-first,GPU-second")
+
+    def run(command, *, check, env):
+        calls.append((command, env["CUDA_VISIBLE_DEVICES"]))
+
+    monkeypatch.setattr("samudra.search.executors.local.subprocess.run", run)
+    search.executor._run_tasks(
+        [
+            type("Task", (), {"rung": 0, "task": task, "anchor": False})()
+            for task in range(2)
+        ]
+    )
+
+    assert {device for _, device in calls} == {"GPU-first", "GPU-second"}
+    assert all("samudra.search.worker" in command for command, _ in calls)
 
 
 def test_advance_retry_finishes_publication_and_submission(tmp_path, monkeypatch):

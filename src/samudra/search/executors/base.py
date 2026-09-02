@@ -17,6 +17,11 @@ class Executor(ABC):
     def __init__(self, search: "SuccessiveHalving") -> None:
         self.search = search
 
+    def submit_initial(self, state: dict[str, Any]) -> None:
+        """Submit fixed anchors and the first successive-halving rung."""
+        self.submit_anchors(state)
+        self.submit_rung(self.search.read_state(), 0)
+
     @abstractmethod
     def submit_anchors(self, state: dict[str, Any]) -> None: ...
 

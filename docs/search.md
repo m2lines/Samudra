@@ -36,11 +36,50 @@ python -m samudra.search path/to/search.yaml
 
 The runner submits the first rung and fixed baselines. On Slurm, dependent
 controller jobs automatically rank completed candidates and submit each later
-rung; users do not manually advance the search. For a local laptop or Colab
-notebook run, include `search/local.yaml` instead of `search/torch.yaml`;
-candidates then run sequentially in the current environment. Each local task
-gets a fresh multiton scope and releases cached CUDA memory before the next
-candidate, so W&B and normalization state cannot leak between models.
+rung; users do not manually advance the search. For a local laptop,
+workstation, Colab notebook, or an already allocated Slurm job, include
+`search/local.yaml` instead of `search/torch.yaml`. The local executor runs one
+isolated candidate process per visible GPU. With no GPU it runs candidates
+sequentially in the controller process. Fixed anchors and rung zero are
+co-scheduled, and each later rung uses up to the same GPU capacity. Set
+`executor.max_concurrent` only when memory, CPU, storage, or service limits
+require using fewer than the available GPUs.
+
+### Use a whole Slurm allocation for independent trials
+
+When `SLURM_JOB_ID` is present, the local executor treats the current job as a
+resource pool. It launches concurrent, exclusive `srun` steps with one task and
+one GPU each. On a homogeneous multi-node allocation it derives total capacity
+from `SLURM_GPUS` or from `SLURM_NNODES * SLURM_GPUS_ON_NODE`; CPU cores are
+divided evenly among GPUs when Slurm exposes `SLURM_CPUS_ON_NODE`.
+
+For example, Empire AI Alpha+ has eight H100 or H200 GPUs per HGX node. A batch
+allocation shaped like the following lets sixteen candidates occupy two nodes:
+
+```bash
+#!/bin/bash
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=1
+#SBATCH --gres=gpu:8
+#SBATCH --cpus-per-task=<all CPUs on one node>
+#SBATCH --mem=0
+
+module load <modules-needed-by-samudra>
+source <shared-x86-environment>/bin/activate
+python -m samudra.search path/to/search.yaml
+```
+
+Launch the controller directly from the batch script, as above. Do not wrap it
+in `srun`: the executor needs to create its own job steps. The source tree,
+Python executable, candidate configs, data, and output directory must be
+visible at the same paths on every node. Alpha is x86_64; an environment built
+for Alpha must not be reused on Empire's ARM systems. Use an architecture-
+appropriate environment or multi-architecture container for those systems.
+
+The local executor is synchronous: the allocation remains active through every
+rung, and a worker failure stops promotion after the other running workers have
+exited. For separately queued, resumable jobs and controller dependencies, use
+the regular Slurm executor instead.
 
 Clusters that expose the container runtime through environment modules should
 set `executor.apptainer_module` to the exact loadable module name (for example,

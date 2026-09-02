@@ -55,6 +55,7 @@ class SuccessiveHalvingConfig(BaseConfig):
 class LocalExecutorConfig(BaseConfig):
     type: Literal["local"] = "local"
     output_dir: Path
+    max_concurrent: int | None = Field(default=None, ge=1)
     dry_run: bool = False
 
 

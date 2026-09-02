@@ -37,21 +37,22 @@ python -m samudra.search path/to/search.yaml
 The runner submits the first rung and fixed baselines. On Slurm, dependent
 controller jobs automatically rank completed candidates and submit each later
 rung; users do not manually advance the search. For a local laptop,
-workstation, Colab notebook, or an already allocated Slurm job, include
-`search/local.yaml` instead of `search/torch.yaml`. The local executor runs one
-isolated candidate process per visible GPU. With no GPU it runs candidates
-sequentially in the controller process. Fixed anchors and rung zero are
-co-scheduled, and each later rung uses up to the same GPU capacity. Set
-`executor.max_concurrent` only when memory, CPU, storage, or service limits
-require using fewer than the available GPUs.
+workstation, or Colab notebook, include `search/local.yaml` instead of
+`search/torch.yaml`. The local executor runs one isolated candidate process per
+visible GPU and never interprets scheduler environment variables. With no GPU
+it runs candidates sequentially in the controller process. Fixed anchors and
+rung zero are co-scheduled, and each later rung uses up to the same GPU
+capacity. Set `executor.max_concurrent` only when memory, CPU, storage, or
+service limits require using fewer than the available GPUs.
 
 ### Use a whole Slurm allocation for independent trials
 
-When `SLURM_JOB_ID` is present, the local executor treats the current job as a
-resource pool. It launches concurrent, exclusive `srun` steps with one task and
-one GPU each. On a homogeneous multi-node allocation it derives total capacity
-from `SLURM_GPUS` or from `SLURM_NNODES * SLURM_GPUS_ON_NODE`; CPU cores are
-divided evenly among GPUs when Slurm exposes `SLURM_CPUS_ON_NODE`.
+Include `search/slurm-allocation.yaml` to treat an existing Slurm job as a
+resource pool. This distinct executor launches concurrent, exclusive `srun`
+steps with one task and one GPU each. On a homogeneous multi-node allocation it
+derives total capacity from `SLURM_GPUS` or from
+`SLURM_NNODES * SLURM_GPUS_ON_NODE`; CPU cores are divided evenly among GPUs
+when Slurm exposes `SLURM_CPUS_ON_NODE`. It fails loudly outside an allocation.
 
 For example, Empire AI Alpha+ has eight H100 or H200 GPUs per HGX node. A batch
 allocation shaped like the following lets sixteen candidates occupy two nodes:
@@ -76,10 +77,10 @@ visible at the same paths on every node. Alpha is x86_64; an environment built
 for Alpha must not be reused on Empire's ARM systems. Use an architecture-
 appropriate environment or multi-architecture container for those systems.
 
-The local executor is synchronous: the allocation remains active through every
-rung, and a worker failure stops promotion after the other running workers have
-exited. For separately queued, resumable jobs and controller dependencies, use
-the regular Slurm executor instead.
+The Slurm-allocation executor is synchronous: the allocation remains active
+through every rung, and a worker failure stops promotion after the other
+running workers have exited. For separately queued, resumable jobs and
+controller dependencies, use the regular Slurm executor instead.
 
 Clusters that expose the container runtime through environment modules should
 set `executor.apptainer_module` to the exact loadable module name (for example,

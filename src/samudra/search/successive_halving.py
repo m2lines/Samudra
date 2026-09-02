@@ -27,7 +27,12 @@ from samudra.search.config import (
     SlurmExecutorConfig,
     resource_slug,
 )
-from samudra.search.executors import Executor, LocalExecutor, SlurmExecutor
+from samudra.search.executors import (
+    Executor,
+    LocalExecutor,
+    SlurmAllocationExecutor,
+    SlurmExecutor,
+)
 from samudra.search.report import write_search_report
 from samudra.search.state import SearchState
 from samudra.train import Trainer
@@ -43,6 +48,7 @@ from samudra.utils.training_summary import (
 CHECKPOINT = Path("saved_nets/ckpt.pt")
 EXECUTORS: dict[str, type[Executor]] = {
     "local": LocalExecutor,
+    "slurm_allocation": SlurmAllocationExecutor,
     "slurm": SlurmExecutor,
 }
 

@@ -59,6 +59,13 @@ class LocalExecutorConfig(BaseConfig):
     dry_run: bool = False
 
 
+class SlurmAllocationExecutorConfig(BaseConfig):
+    type: Literal["slurm_allocation"] = "slurm_allocation"
+    output_dir: Path
+    max_concurrent: int | None = Field(default=None, ge=1)
+    dry_run: bool = False
+
+
 class SlurmExecutorConfig(BaseConfig):
     type: Literal["slurm"] = "slurm"
     output_dir: Path
@@ -87,7 +94,7 @@ class SlurmExecutorConfig(BaseConfig):
 
 
 ExecutorConfig = Annotated[
-    LocalExecutorConfig | SlurmExecutorConfig,
+    LocalExecutorConfig | SlurmAllocationExecutorConfig | SlurmExecutorConfig,
     Field(discriminator="type"),
 ]
 AlgorithmConfig = SuccessiveHalvingConfig
@@ -152,7 +159,7 @@ class SearchConfig(TopLevelConfig):
             raise ValueError("executor.time_by_rung must have one value per rung")
         if isinstance(self.executor, SlurmExecutorConfig) and self.allow_dirty:
             raise ValueError(
-                "allow_dirty is only supported by the local executor; Slurm "
-                "searches require immutable code provenance"
+                "allow_dirty is not supported by the submitting Slurm executor; "
+                "queued searches require immutable code provenance"
             )
         return self

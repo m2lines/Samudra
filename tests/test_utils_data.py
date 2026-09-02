@@ -534,6 +534,54 @@ def test_canonicalize_llc_datasets_preserves_lon_lat_candidate_metadata():
     np.testing.assert_allclose(llc_data["areacello"].values, expected_area.values)
 
 
+def test_canonicalize_llc_datasets_drops_redundant_grid_metadata_aliases():
+    data, means, stds = raw_llc_datasets()
+    data = data.assign(
+        {
+            "lon": data["XC"] + 1_000_000,
+            "lat": data["YC"] + 1_000_000,
+            "areacello": data["rA"] + 1_000_000,
+        }
+    )
+    expected_lon = (
+        data["XC"]
+        .isel(face=1, j=slice(1, 3), i=slice(1, 4), drop=True)
+        .rename({"j": "lat", "i": "lon"})
+        .rename("lon_2d")
+    )
+    expected_lat = (
+        data["YC"]
+        .isel(face=1, j=slice(1, 3), i=slice(1, 4), drop=True)
+        .rename({"j": "lat", "i": "lon"})
+        .rename("lat_2d")
+    )
+    expected_area = (
+        data["rA"]
+        .isel(face=1, j=slice(1, 3), i=slice(1, 4), drop=True)
+        .rename({"j": "lat", "i": "lon"})
+    )
+
+    llc_data, _, _, _ = canonicalize_llc_datasets(
+        data,
+        means,
+        stds,
+        face=1,
+        i_start=1,
+        i_end=4,
+        j_start=1,
+        j_end=3,
+        prognostic_vars_key="single_1",
+        boundary_vars_key="single_1",
+    )
+
+    assert {"lon_2d", "lat_2d", "areacello"}.issubset(llc_data.coords)
+    for raw_name in ("XC", "YC", "rA", "lon", "lat"):
+        assert raw_name not in llc_data.data_vars
+    np.testing.assert_allclose(llc_data["lon_2d"].values, expected_lon.values)
+    np.testing.assert_allclose(llc_data["lat_2d"].values, expected_lat.values)
+    np.testing.assert_allclose(llc_data["areacello"].values, expected_area.values)
+
+
 def test_canonicalize_llc_datasets_selects_requested_vars_from_full_root():
     data, means, stds = raw_llc_datasets()
 

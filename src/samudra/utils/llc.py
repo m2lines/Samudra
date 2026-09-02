@@ -9,6 +9,11 @@ from samudra.constants import DataLayout, build_llc_layout
 _LLC_CENTER_LON_CANDIDATES = ("XC", "longitude", "lon")
 _LLC_CENTER_LAT_CANDIDATES = ("YC", "latitude", "lat")
 _LLC_CELL_AREA_CANDIDATES = ("rA", "areacello")
+_LLC_GRID_METADATA_CANDIDATES = (
+    *_LLC_CENTER_LON_CANDIDATES,
+    *_LLC_CENTER_LAT_CANDIDATES,
+    *_LLC_CELL_AREA_CANDIDATES,
+)
 
 
 def _rename_llc_level_index_vars(ds: xr.Dataset) -> xr.Dataset:
@@ -131,7 +136,7 @@ def _assign_llc_grid_metadata(
     out = data.assign_coords(coords)
     raw_metadata_vars = [
         source
-        for source in {lon_source, lat_source, area_source}
+        for source in _LLC_GRID_METADATA_CANDIDATES
         if source not in coords and source in out.variables
     ]
     return out.drop_vars(raw_metadata_vars)

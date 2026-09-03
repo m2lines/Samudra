@@ -24,6 +24,13 @@ class ProbeState(BaseModel):
     status: Literal["array_submitted", "submitted", "complete", "failed"]
 
 
+class CandidateResourceState(BaseModel):
+    world_size: int = Field(ge=1)
+    local_batch_size: int = Field(ge=1)
+    gradient_accumulation_steps: int = Field(ge=1)
+    effective_global_batch_size: int = Field(ge=1)
+
+
 class RungState(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -37,6 +44,7 @@ class RungState(BaseModel):
     controller_job_id: str | None = None
     submission_stage: Literal["array_submitted", "controller_submitted"] | None = None
     probe: ProbeState | None = None
+    resources: dict[str, CandidateResourceState] = Field(default_factory=dict)
 
 
 class AnchorState(BaseModel):
@@ -45,6 +53,7 @@ class AnchorState(BaseModel):
     candidates: list[str]
     results: list[dict[str, Any]]
     job_id: str | None = None
+    resources: dict[str, CandidateResourceState] = Field(default_factory=dict)
 
 
 class FailureState(BaseModel):

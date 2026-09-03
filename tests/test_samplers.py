@@ -10,6 +10,7 @@ from samudra.constants import GridSize
 from samudra.utils.samplers import (
     DistributedEquivalenceGroupBatchSampler,
     EquivalenceGroupBatchSampler,
+    FixedGlobalBatchSampler,
 )
 
 
@@ -159,6 +160,61 @@ class TestEquivalenceGroupBatchSampler:
 
         # Should cover all indices 0-7
         assert set(all_indices) == set(range(8))
+
+
+class TestFixedGlobalBatchSampler:
+    @staticmethod
+    def _optimizer_batches(
+        groups: list[list[int]], *, world_size: int, accumulation_steps: int
+    ) -> list[list[int]]:
+        samplers = [
+            iter(
+                FixedGlobalBatchSampler(
+                    groups,
+                    local_batch_size=2,
+                    world_size=world_size,
+                    rank=rank,
+                    accumulation_steps=accumulation_steps,
+                    shuffle=True,
+                    seed=17,
+                )
+            )
+            for rank in range(world_size)
+        ]
+        optimizer_steps = sum(len(group) // 8 for group in groups)
+        batches = []
+        for _ in range(optimizer_steps):
+            batch = []
+            for _ in range(accumulation_steps):
+                for sampler in samplers:
+                    batch.extend(next(sampler))
+            batches.append(batch)
+        return batches
+
+    def test_optimizer_batches_are_invariant_to_world_size(self):
+        groups = [list(range(24)), list(range(24, 40))]
+
+        single_gpu = self._optimizer_batches(groups, world_size=1, accumulation_steps=4)
+        two_gpus = self._optimizer_batches(groups, world_size=2, accumulation_steps=2)
+        four_gpus = self._optimizer_batches(groups, world_size=4, accumulation_steps=1)
+
+        assert single_gpu == two_gpus == four_gpus
+        assert all(len(batch) == 8 for batch in single_gpu)
+        assert len({index for batch in single_gpu for index in batch}) == 40
+
+    def test_drops_the_same_incomplete_tail_from_each_group(self):
+        sampler = FixedGlobalBatchSampler(
+            [list(range(10)), list(range(10, 21))],
+            local_batch_size=2,
+            world_size=2,
+            rank=0,
+            accumulation_steps=2,
+            shuffle=False,
+            seed=0,
+        )
+
+        assert len(sampler) == 4
+        assert list(sampler) == [[0, 1], [4, 5], [10, 11], [14, 15]]
 
 
 class TestSamplersFromDatasets:

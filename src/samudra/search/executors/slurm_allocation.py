@@ -74,6 +74,17 @@ def gpus_per_node() -> int:
     return value
 
 
+def world_size_placement(world_size: int) -> tuple[int, int] | None:
+    """Return ``(nodes, processes_per_node)`` for a uniform placement."""
+    per_node = gpus_per_node()
+    available_nodes = _positive_int_environment("SLURM_NNODES") or 1
+    for nodes in range(1, available_nodes + 1):
+        processes_per_node, remainder = divmod(world_size, nodes)
+        if remainder == 0 and 0 < processes_per_node <= per_node:
+            return nodes, processes_per_node
+    return None
+
+
 class SlurmAllocationExecutor(PoolExecutor):
     """Use exclusive one-GPU job steps within the current allocation."""
 
@@ -94,6 +105,14 @@ class SlurmAllocationExecutor(PoolExecutor):
     def resource_capacity(self) -> int:
         return allocation_gpu_count()
 
+    @property
+    def placeable_world_sizes(self) -> set[int]:
+        return {
+            size
+            for size in range(1, self.resource_capacity + 1)
+            if world_size_placement(size) is not None
+        }
+
     def _run_tasks(self, tasks: list[Task]) -> None:
         if not tasks:
             return
@@ -112,17 +131,17 @@ class SlurmAllocationExecutor(PoolExecutor):
         self._run_concurrently(tasks, concurrency, self._run_slurm_task)
 
     def _run_slurm_task(self, task: Task) -> None:
-        per_node = gpus_per_node()
         world_size = getattr(task, "world_size", 1)
-        if world_size <= per_node:
+        placement = world_size_placement(world_size)
+        if placement is None:
+            raise ValueError(
+                f"world_size={world_size} cannot be placed uniformly across "
+                "this Slurm allocation"
+            )
+        nodes, processes_per_node = placement
+        if nodes == 1:
             self._run_single_node_task(task, world_size=world_size)
             return
-        if world_size % per_node:
-            raise ValueError(
-                f"world_size={world_size} cannot be placed on homogeneous "
-                f"{per_node}-GPU nodes"
-            )
-        nodes = world_size // per_node
         subprocess.run(
             [
                 "srun",
@@ -131,15 +150,15 @@ class SlurmAllocationExecutor(PoolExecutor):
                 f"--nodes={nodes}",
                 f"--ntasks={nodes}",
                 "--ntasks-per-node=1",
-                f"--cpus-per-task={cpus_per_gpu() * per_node}",
-                f"--gpus-per-task={per_node}",
-                *step_memory_arguments(gpus=per_node),
+                f"--cpus-per-task={cpus_per_gpu() * processes_per_node}",
+                f"--gpus-per-task={processes_per_node}",
+                *step_memory_arguments(gpus=processes_per_node),
                 "--gpu-bind=none",
                 sys.executable,
                 "-m",
                 "samudra.search.node_launcher",
                 f"--nnodes={nodes}",
-                f"--nproc-per-node={per_node}",
+                f"--nproc-per-node={processes_per_node}",
                 f"--master-port={self._master_port(task)}",
                 *self._worker_arguments(task),
             ],

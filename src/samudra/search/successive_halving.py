@@ -268,6 +268,7 @@ class SuccessiveHalving:
         *,
         gpu_capacity: int,
         candidate_concurrency: int | None = None,
+        placeable_world_sizes: set[int] | None = None,
         force_single_gpu: bool = False,
     ) -> dict[str, dict[str, int]]:
         configs = {
@@ -279,6 +280,7 @@ class SuccessiveHalving:
             configs,
             gpu_capacity=gpu_capacity,
             candidate_concurrency=candidate_concurrency,
+            placeable_world_sizes=placeable_world_sizes,
             force_single_gpu=force_single_gpu,
         )
         return {name: plan.model_dump(mode="json") for name, plan in plans.items()}

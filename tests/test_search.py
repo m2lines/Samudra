@@ -838,6 +838,33 @@ def test_slurm_allocation_launches_multi_node_torchrun(tmp_path, monkeypatch):
     assert "SAMUDRA_DISABLE_DISTRIBUTED" not in environment
 
 
+def test_slurm_allocation_spreads_ranks_over_partially_used_nodes(
+    tmp_path, monkeypatch
+):
+    search = config(tmp_path, executor="slurm_allocation").build()
+    assert isinstance(search.executor, SlurmAllocationExecutor)
+    monkeypatch.setenv("SLURM_JOB_ID", "123")
+    monkeypatch.setenv("SLURM_NNODES", "2")
+    monkeypatch.setenv("SLURM_GPUS_ON_NODE", "6")
+    monkeypatch.setenv("SLURM_CPUS_ON_NODE", "96")
+    monkeypatch.setenv("SLURM_MEM_PER_NODE", "600000")
+    calls = []
+    monkeypatch.setattr(
+        "samudra.search.executors.slurm_allocation.subprocess.run",
+        lambda command, *, check, env: calls.append(command),
+    )
+
+    search.executor._run_slurm_task(Task(rung=1, task=0, anchor=False, world_size=8))
+
+    command = calls[0]
+    assert "--nodes=2" in command
+    assert "--ntasks-per-node=1" in command
+    assert "--gpus-per-task=4" in command
+    assert "--cpus-per-task=64" in command
+    assert "--mem=400000M" in command
+    assert "--nproc-per-node=4" in command
+
+
 def test_node_launcher_maps_slurm_node_rank_to_torchrun(monkeypatch):
     monkeypatch.setenv("SLURM_STEP_NODELIST", "node-[01-02]")
     monkeypatch.setenv("SLURM_NODEID", "1")

@@ -83,6 +83,12 @@ training configs must use `backend: auto`, allowing the same saved candidate to
 run either as a single process or through the existing distributed
 initialization path.
 
+On homogeneous multi-node Slurm allocations, ranks are spread uniformly over
+the smallest number of nodes that can host them. For example, an eight-rank
+trial on two six-GPU nodes runs four ranks per node. If a custom allowed world
+size has no uniform placement, planning warns and selects the next smaller
+placeable size rather than failing after workers are submitted.
+
 ### Use a whole Slurm allocation for independent trials
 
 Include `search/slurm-allocation.yaml` to treat an existing Slurm job as a

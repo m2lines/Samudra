@@ -262,8 +262,10 @@ class PatchMomentEncoder(nn.Module):
         self.moment_projection = nn.Linear(
             in_channels * moment_count, out_channels - mean_channels
         )
-        self.pos_embed = nn.Linear(out_channels, out_channels)
-        self.scale_embed = nn.Linear(out_channels, out_channels)
+        self.pos_embed = nn.Linear(out_channels, out_channels) if add_geometry else None
+        self.scale_embed = (
+            nn.Linear(out_channels, out_channels) if add_geometry else None
+        )
 
     @staticmethod
     def _coordinates(
@@ -338,6 +340,8 @@ class PatchMomentEncoder(nn.Module):
         )
         if not self.add_geometry:
             return rearrange(encoded, "b (h w) c -> b c h w", h=coarse_h, w=coarse_w)
+        assert self.pos_embed is not None
+        assert self.scale_embed is not None
         return _add_patch_geometry(
             encoded,
             lat,

@@ -8,6 +8,7 @@ from samudra.constants import Lat, Lon
 from samudra.models.modules import Perceiver, PerceiverIO
 from samudra.models.modules.encoder import (
     DCTDetailEncoder,
+    PatchMomentEncoder,
     PerceiverEncoder,
     SpatialLatentGridEncoder,
     SpatialQueryPerceiver,
@@ -144,6 +145,22 @@ def test_dct_detail_encoder_preserves_patch_shape_and_gradients():
     assert encoded.shape == (1, 8, 2, 2)
     encoded.square().mean().backward()
     assert x.grad is not None
+
+
+def test_patch_moment_encoder_without_geometry_has_no_unused_parameters():
+    encoder = PatchMomentEncoder(
+        in_channels=2,
+        out_channels=8,
+        patch_extent=(90.0, 180.0),
+        moment_count=3,
+        mean_channels=2,
+        add_geometry=False,
+    )
+    x = torch.randn(1, 2, 4, 4, requires_grad=True)
+
+    encoder(x, make_resolution(x)).square().mean().backward()
+
+    assert all(parameter.grad is not None for parameter in encoder.parameters())
 
 
 def test_spatial_query_encoder_emits_ordered_patch_features():

@@ -4,7 +4,7 @@
 
 # yaml-language-server: $schema=../schemas/SearchConfig.json
 
-name: perceiver-structured-inverse-2deg
+name: perceiver-structured-inverse-2deg-torch-adaptive
 algorithm:
   type: successive_halving
   rungs: [1, 3, 6, 12]
@@ -18,57 +18,45 @@ metrics:
   - best_validation_loss
   - inference/time_mean_norm/rmse/channel_mean
 
+resources:
+  strategy: adaptive_data_parallel
+  max_gpus_per_candidate: 8
+  effective_global_batch_size: 32
+  allowed_world_sizes: [1, 2, 4, 8]
+
 executor:
-  type: slurm
-  output_dir: /mnt/lustre/nyu/amerose/searches
-  harness: /mnt/lustre/nyu/amerose/code/Samudra-structured-perceiver-alpha/scripts/slurm_apptainer_search_alpha.sbatch
-  account: nyu
-  partition: nyu
-  controller_partition: nyu
-  qos: test
-  controller_qos: test
-  controller_gres: gpu:2
-  python: /mnt/lustre/nyu/amerose/code/Samudra-structured-perceiver-alpha/experiments/perceiver_search_2deg/container_python_alpha.sh
-  cpus_per_task: 4
-  memory: 28G
-  gres: gpu:2
-  time_by_rung: ["02:00:00", "02:00:00", "02:00:00", "02:00:00"]
-  max_concurrent: 4
-  rung0_probe: true
-  data_root: /mnt/lustre/nyu/amerose/data/om4_twodeg
-  scratch_dir: /mnt/lustre/nyu/amerose
-  sif_path: /mnt/lustre/nyu/amerose/.apptainer-images/physicsnemo-26.05-native-sdpa.sif
-  code_dir: /mnt/lustre/nyu/amerose/code/Samudra-structured-perceiver-alpha
-  apptainer_module: apptainer
+  type: slurm_allocation
+  output_dir: /scratch/am16581/searches
+  max_concurrent: 8
 
 artifacts: !include ../search/osn-artifacts.yaml
 
 candidates:
   - name: spatial-grid2-direct
-    config: perceiver_structured_inverse_2deg/train.yaml
+    config: perceiver_structured_inverse_2deg/train_torch.yaml
 
   - name: moment16-geometry-direct
-    config: perceiver_structured_inverse_2deg/train.yaml
+    config: perceiver_structured_inverse_2deg/train_torch.yaml
     args:
       - --model.encoder.architecture=patch_moment
       - --model.encoder.moment_add_geometry=true
       - --model.patch_extent=[6.0,10.0]
 
   - name: moment16-direct
-    config: perceiver_structured_inverse_2deg/train.yaml
+    config: perceiver_structured_inverse_2deg/train_torch.yaml
     args:
       - --model.encoder.architecture=patch_moment
       - --model.patch_extent=[6.0,10.0]
 
   - name: moment16-local
-    config: perceiver_structured_inverse_2deg/train.yaml
+    config: perceiver_structured_inverse_2deg/train_torch.yaml
     args:
       - --model.encoder.architecture=patch_moment
       - --model.decoder.architecture=structured_local
       - --model.patch_extent=[6.0,10.0]
 
   - name: moment4-local
-    config: perceiver_structured_inverse_2deg/train.yaml
+    config: perceiver_structured_inverse_2deg/train_torch.yaml
     args:
       - --model.encoder.architecture=patch_moment
       - --model.encoder.moment_count=4
@@ -76,17 +64,17 @@ candidates:
       - --model.patch_extent=[6.0,10.0]
 
   - name: spatial-grid2-local
-    config: perceiver_structured_inverse_2deg/train.yaml
+    config: perceiver_structured_inverse_2deg/train_torch.yaml
     args: [--model.decoder.architecture=structured_local]
 
   - name: spatial-grid3x4-direct
-    config: perceiver_structured_inverse_2deg/train.yaml
+    config: perceiver_structured_inverse_2deg/train_torch.yaml
     args:
       - --model.encoder.spatial_query_shape=[3,4]
       - --model.patch_extent=[18.0,40.0]
 
   - name: dct14-paired
-    config: perceiver_structured_inverse_2deg/train.yaml
+    config: perceiver_structured_inverse_2deg/train_torch.yaml
     args:
       - --model.encoder.architecture=dct_detail
       - --model.decoder.architecture=dct_detail
@@ -94,14 +82,14 @@ candidates:
       - --model.patch_extent=[6.0,10.0]
 
   - name: moment16-wide-direct
-    config: perceiver_structured_inverse_2deg/train.yaml
+    config: perceiver_structured_inverse_2deg/train_torch.yaml
     args:
       - --model.encoder.architecture=patch_moment
       - --model.decoder.perceiver.cross_heads=4
       - --model.patch_extent=[6.0,10.0]
 
   - name: pooled-perceiver-direct
-    config: perceiver_structured_inverse_2deg/train.yaml
+    config: perceiver_structured_inverse_2deg/train_torch.yaml
     args:
       - --model.encoder.architecture=perceiver
       - --model.patch_extent=[6.0,10.0]

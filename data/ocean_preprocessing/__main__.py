@@ -195,6 +195,9 @@ class CLI:
         write_retries: Number of times the distributed scheduler retries a failed task
             during the final Zarr write. Guards against transient failures. Only applies
              when running on a cluster. Default 5.
+        wfo_source_path: Optional OM4 Zarr store containing five-day-mean ``wfo``
+            on the primary source's native grid and intervals. Its end-of-interval
+            time labels are validated before transplantation.
         cluster: Type of Dask cluster to use for distributed computation. Options are:
             'off' (no cluster, single-threaded), 'local' (LocalCluster), 'kube'
             (KubeCluster), 'slurm' (SlurmCluster), 'coiled' (Coiled cluster).
@@ -214,6 +217,7 @@ class CLI:
         dry_run: bool = False,
         small_run: bool = False,
         write_retries: int = 5,
+        wfo_source_path: str | None = None,
         cluster: Cluster = "off",
         **cluster_opts,
     ):
@@ -227,6 +231,7 @@ class CLI:
         self.dry_run = dry_run
         self.small_run = small_run
         self.write_retries = write_retries
+        self.wfo_source_path = wfo_source_path
         self.dask_client = init_cluster(cluster, **cluster_opts)
 
     def _collect(self, ds: xr.Dataset):
@@ -280,7 +285,6 @@ class CLI:
         nc_mosaic_path: str,
         target_grid_path: str,
         spatial_filter_scale: None | int = None,
-        wfo_source_path: str | None = None,
     ) -> None:
         """Process the OM4 oceans dataset (the ocean component of CMIP).
 
@@ -326,16 +330,13 @@ class CLI:
                 scale determination. When spatial filtering is performed (not --skip-spatial-filtering),
                 this value will be used instead of the scale inferred from the target grid name.
                 By default (None), the scale is automatically estimated from the target grid basename.
-            wfo_source_path: Optional OM4 Zarr store containing five-day-mean ``wfo``
-                on the recipient's native grid and intervals. Its end-of-interval time
-                labels are validated against ``zarr_data_path`` before transplantation.
         """
         logger.info("preprocessing.")
         ds_processed = om4_preprocessing(
             zarr_data_path,
             native_grid_path,
             nc_mosaic_path,
-            wfo_source_path=wfo_source_path,
+            wfo_source_path=self.wfo_source_path,
         )
         # This publication-specific invariant must run even when expensive
         # schema/deep validation is disabled. Shared validators remain backward

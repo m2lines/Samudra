@@ -3,8 +3,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+from unittest.mock import sentinel
 
 import numpy as np
+import ocean_preprocessing.__main__ as main
 import xarray as xr
 from ocean_preprocessing.__main__ import CLI
 
@@ -27,3 +29,24 @@ def test_collect_explicitly_writes_zarr_v2(tmp_path):
 
     metadata = json.loads((output / ".zgroup").read_text(encoding="utf-8"))
     assert metadata["zarr_format"] == 2
+
+
+def test_wfo_source_path_is_not_forwarded_to_cluster(monkeypatch, tmp_path):
+    cluster_calls = []
+
+    def fake_init_cluster(cluster, **cluster_opts):
+        cluster_calls.append((cluster, cluster_opts))
+        return sentinel.client
+
+    monkeypatch.setattr(main, "init_cluster", fake_init_cluster)
+
+    pipeline = CLI(
+        output_path=str(tmp_path / "unused.zarr"),
+        cluster="local",
+        wfo_source_path="s3://example/wfo.zarr",
+        n_workers=4,
+    )
+
+    assert pipeline.wfo_source_path == "s3://example/wfo.zarr"
+    assert pipeline.dask_client is sentinel.client
+    assert cluster_calls == [("local", {"n_workers": 4})]

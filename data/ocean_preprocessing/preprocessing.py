@@ -12,7 +12,7 @@ import numpy as np
 import xarray as xr
 from xgcm import Grid
 
-from ocean_preprocessing.schema import vars_3d
+from ocean_preprocessing.schema import OM4_3D_VARS
 from ocean_preprocessing.utils import split_2d_3d
 
 try:
@@ -374,7 +374,7 @@ def flatten_by_depth_level(ds: xr.Dataset) -> xr.Dataset:
     # integral over depth.
     # Compared to `ilev`, this is the better quantity to store.
     for i, _depth in enumerate(ds["lev"].values):
-        for var in vars_3d:
+        for var in OM4_3D_VARS:
             ds[f"{var}_{i}"] = ds[var].isel({"lev": i})
             if hasattr(ds[var], "long_name"):
                 long_name = ds[var].long_name
@@ -388,7 +388,7 @@ def flatten_by_depth_level(ds: xr.Dataset) -> xr.Dataset:
         ds[f"mask_{i}"].attrs["long_name"] = f"ocean mask level-{i}"
         ds[f"mask_{i}"].attrs["units"] = "0 if land, 1 if ocean"
 
-    ds = ds.drop_vars(vars_3d)
+    ds = ds.drop_vars(OM4_3D_VARS)
 
     # Keep the grid-metadata coordinates needed for downstream physical analysis
     # (areacello, ocean_fraction, cell bounds, depth axis). Previously these were

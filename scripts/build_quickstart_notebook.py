@@ -312,13 +312,19 @@ changes it, so you can turn this example into a new experiment.
 """
 
 DATA_CHECK_PY = """\
+from samudra.constants import build_om4_layout
+
 source = cfg.data.sources[0]
 ds = source.data_location.open()
 train_window = ds.sel(time=source.train_time.time_slice)
 val_window = ds.sel(time=source.val_time.time_slice)
-dataset_spec = source.dataset_spec
+data_layout = build_om4_layout(
+    source.prognostic_vars_key,
+    source.boundary_vars_key,
+    grid_type=source.grid_type,
+)
 expected_variables = set(
-    dataset_spec.prognostic_var_names + dataset_spec.boundary_var_names
+    data_layout.prognostic_var_names + data_layout.boundary_var_names
 )
 lat_dim = "lat" if "lat" in ds.dims else "y"
 lon_dim = "lon" if "lon" in ds.dims else "x"
@@ -338,7 +344,7 @@ display(Markdown(
     "`train_time` |\\n"
     f"| Validation time frames | {val_window.sizes['time']} | "
     "`val_time` |\\n"
-    f"| Prognostic fields | {len(dataset_spec.prognostic_var_names)} | "
+    f"| Prognostic fields | {len(data_layout.prognostic_var_names)} | "
     "`prognostic_vars_key` |\\n"
     f"| Batch size | {cfg.batch_size} | `batch_size` |"
 ))
@@ -455,9 +461,9 @@ with torch.no_grad():
     prediction = trainer.model(batch)[0]
 target = batch.get_label(0)
 
-prognostic_names = cfg.data.sources[0].dataset_spec.prognostic_var_names
+prognostic_names = trainer.data_layout.prognostic_var_names
 zos_index = prognostic_names.index("zos")
-zos_mask = trainer.primary_src.masks.prognostic[zos_index].cpu().numpy()
+zos_mask = trainer.primary_source.masks.prognostic[zos_index].cpu().numpy()
 predicted_zos = np.where(
     zos_mask, prediction[0, zos_index].detach().cpu().numpy(), np.nan
 )

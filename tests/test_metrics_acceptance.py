@@ -35,7 +35,7 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from samudra.constants import build_om4_spec
+from samudra.constants import build_om4_layout
 from samudra.metrics import observations, report
 from samudra.metrics.run import analysis_ready
 
@@ -78,7 +78,7 @@ def test_om4_reproduces_published_observation_metrics():
     if not om4_path:
         pytest.skip("set SAMUDRA_OM4_QUARTERDEG to the quarter-degree OM4 store")
 
-    spec = build_om4_spec(prognostic_vars_key="thermo_dynamic_all")
+    spec = build_om4_layout(prognostic_vars_key="thermo_dynamic_all")
     om4 = observations.model_on_latlon_grid(
         analysis_ready(xr.open_zarr(om4_path, chunks={}), spec), spec
     )

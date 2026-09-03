@@ -24,7 +24,12 @@ import fire
 import fsspec
 import xarray as xr
 
-from ocean_preprocessing.dataset_validation import ds_processed_validate
+from ocean_preprocessing.dataset_validation import (
+    ds_flattened_input_validate,
+    ds_input_validate,
+    ds_processed_validate,
+    require_om4_publication_freshwater_flux,
+)
 from ocean_preprocessing.plotting import rotated_vectors_qc_plots
 from ocean_preprocessing.preprocessing import (
     account_for_partial_depths,
@@ -236,7 +241,11 @@ class CLI:
         if self.small_run:
             ds = ds.isel(time=slice(0, 10))
         if self.dry_run:
-            logger.info(self.dask_client.compute(ds))
+            if self.dask_client is not None:
+                ds = self.dask_client.compute(ds, sync=True)
+            else:
+                ds = ds.compute()
+            logger.info(ds)
             return
 
         logger.info(f"writing dataset to {self.output_path}")
@@ -245,6 +254,7 @@ class CLI:
             self.output_path,
             mode="w",
             consolidated=True,
+            zarr_format=2,
             encoding={
                 var_name: {"compressor": None} for var_name in ds.data_vars.keys()
             },  # Compression turned off
@@ -270,6 +280,7 @@ class CLI:
         nc_mosaic_path: str,
         target_grid_path: str,
         spatial_filter_scale: None | int = None,
+        wfo_source_path: str | None = None,
     ) -> None:
         """Process the OM4 oceans dataset (the ocean component of CMIP).
 
@@ -315,14 +326,31 @@ class CLI:
                 scale determination. When spatial filtering is performed (not --skip-spatial-filtering),
                 this value will be used instead of the scale inferred from the target grid name.
                 By default (None), the scale is automatically estimated from the target grid basename.
+            wfo_source_path: Optional OM4 Zarr store containing five-day-mean ``wfo``
+                on the recipient's native grid and intervals. Its end-of-interval time
+                labels are validated against ``zarr_data_path`` before transplantation.
         """
         logger.info("preprocessing.")
         ds_processed = om4_preprocessing(
-            zarr_data_path, native_grid_path, nc_mosaic_path
+            zarr_data_path,
+            native_grid_path,
+            nc_mosaic_path,
+            wfo_source_path=wfo_source_path,
         )
+        # This publication-specific invariant must run even when expensive
+        # schema/deep validation is disabled. Shared validators remain backward
+        # compatible with legacy OM4 and CM4 datasets that predate wfo.
+        require_om4_publication_freshwater_flux(ds_processed)
         if self.small_run:
             logger.info("**small-run**: filtering data to 10 time steps.")
             ds_processed = ds_processed.isel(time=slice(0, 10))
+
+        # Validate the model-specific output before optional generic transforms.
+        # Partial-depth accounting intentionally expands dz from (lev,) to
+        # (lev, y, x), which is validated by the final input-data contract.
+        if not self.skip_validation:
+            logger.info("validating preprocessing.")
+            ds_processed_validate(ds_processed, deep=True)
 
         if self.account_for_partial_depths:
             logger.info("Apply processing to account for partial depths levels.")
@@ -332,10 +360,6 @@ class CLI:
                 with fsspec.open(native_grid_path) as f:
                     native_grid_ds = xr.open_dataset(f).load()
             ds_processed = account_for_partial_depths(ds_processed, native_grid_ds)
-
-        if not self.skip_validation:
-            logger.info("validating preprocessing.")
-            ds_processed_validate(ds_processed, deep=True)
 
         saved_attrs = {}
         for var in ds_processed.data_vars:
@@ -450,11 +474,17 @@ class CLI:
         ds_input.attrs["m2lines/samudra_git_hash"] = git_hash
         ds_input.attrs["m2lines/date_created"] = datetime.datetime.now().isoformat()
         ds_input.attrs["m2lines/cli_args"] = " ".join(sys.argv)
+        for attr in (
+            "m2lines/wfo_surgery_source",
+            "m2lines/wfo_surgery_alignment",
+        ):
+            if attr in ds_processed.attrs:
+                ds_input.attrs[attr] = ds_processed.attrs[attr]
         # Horizontal grid geometry: this pipeline conservatively regrids onto a
         # regular (rectilinear) lat-lon grid, so downstream code may treat the 2-D
         # lat/lon as separable. Curvilinear (e.g. tripolar) outputs must set this to
         # the matching grid_type so consumers do not broadcast their geometry.
-        ds_input.attrs["grid_type"] = "gaussian"
+        ds_input.attrs["grid_type"] = "tripolar" if self.skip_regridding else "gaussian"
         # Label wetmask via attrs
         if len(ds_input["wetmask"].attrs) == 0:
             ds_input["wetmask"].attrs["long_name"] = "ocean mask"
@@ -480,6 +510,12 @@ class CLI:
 
         logger.info("preparing final chunks for output zarr (time=1)")
         ds = ds.chunk({"time": 1})
+
+        logger.info("validating final output structure")
+        if self.skip_flattening:
+            ds_input_validate(ds)
+        else:
+            ds_flattened_input_validate(ds)
 
         logger.info("collecting!")
         self._collect(ds)

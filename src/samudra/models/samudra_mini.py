@@ -15,7 +15,7 @@ from samudra.constants import Boundary, Prognostic
 from samudra.models.base import BaseModel
 from samudra.models.modules import Attention, FeedForward, PerceiverIO
 from samudra.models.modules.augment_input import make_3d_coordinate_grid
-from samudra.utils.ctx import GridContext
+from samudra.utils.ctx import BatchGrid
 from samudra.utils.device import autocast
 
 if TYPE_CHECKING:
@@ -118,7 +118,7 @@ class SamudraMini(BaseModel):
         return torch.cat(out_chunks, dim=1)
 
     def forward_once(
-        self, prognostic: Prognostic, boundary: Boundary, ctx: GridContext
+        self, prognostic: Prognostic, boundary: Boundary, ctx: BatchGrid
     ) -> Prognostic:
         # SamudraMini is a single-scale pixel-token model; fuse prognostic +
         # boundary into the single channel-stacked input it expects.

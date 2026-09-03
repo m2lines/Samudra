@@ -41,15 +41,14 @@ from samudra.constants import (
     MAX_TRAIN_MODEL_STEPS_FORWARD,
     BoundaryVarNames,
     PrognosticVarNames,
-    TensorMap,
 )
 from samudra.datasets import (
+    BatchLoader,
+    HostBatch,
     InferenceDataset,
     InferenceDatasets,
-    RawTrainData,
+    ModelBatch,
     TorchTrainDataset,
-    TrainData,
-    TrainDataLoader,
 )
 from samudra.models.base import BaseModel
 from samudra.models.modules.encoder import patch_from
@@ -61,10 +60,11 @@ from samudra.stepper import (
     validate_batch,
     validate_rollout,
 )
-from samudra.utils.data import Normalize, get_inference_steps
+from samudra.utils.data import BatchPreprocessor, get_inference_steps
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import (
     all_reduce_mean,
+    get_rank,
     get_world_size,
     is_main_process,
     set_seed,
@@ -86,11 +86,12 @@ from samudra.utils.rollout_validation import (
 from samudra.utils.samplers import (
     DistributedEquivalenceGroupBatchSampler,
     EquivalenceGroupBatchSampler,
+    FixedGlobalBatchSampler,
 )
 from samudra.utils.train import (
     CheckpointPaths,
+    collate_host_batches,
     collate_inference_data,
-    collate_raw_train_data,
 )
 from samudra.utils.train_progress import TrainProgress
 from samudra.utils.training_summary import (
@@ -132,17 +133,17 @@ class Trainer:
         self.rand_seed = cfg.experiment.rand_seed
         set_seed(self.rand_seed)
 
-        self.data_container = cfg.data.build(
+        self.data_bundle = cfg.data.build(
             data_root=cfg.experiment.resolved_data_root,
         )
 
         # Getting prognostic and boundary variables
-        self.dataset_spec = self.data_container.dataset_spec
+        self.data_layout = self.data_bundle.data_layout
         self.prognostic_var_names: PrognosticVarNames = (
-            self.dataset_spec.prognostic_var_names
+            self.data_layout.prognostic_var_names
         )
-        self.boundary_var_names: BoundaryVarNames = self.dataset_spec.boundary_var_names
-        self.levels = self.dataset_spec.num_prognostic_depth_levels
+        self.boundary_var_names: BoundaryVarNames = self.data_layout.boundary_var_names
+        self.levels = self.data_layout.num_prognostic_depth_levels
 
         str_prognostics = ", ".join([i for i in self.prognostic_var_names])
         str_boundaries = ", ".join([i for i in self.boundary_var_names])
@@ -166,7 +167,7 @@ class Trainer:
         self.num_in = self.num_prog_in + self.num_boundary_in
         self.num_out = self.num_prog_in
 
-        self.tensor_map = TensorMap(dataset_spec=self.dataset_spec).to(self.device)
+        self.data_layout = self.data_layout.to(self.device)
 
         logger.info(f"Number of inputs (prognostic + boundary): {self.num_in}")
         logger.info(f"Number of outputs (prognostic): {self.num_out}")
@@ -182,12 +183,12 @@ class Trainer:
         logger.info(f"Loading data")
         self.concurrent_compute = cfg.data.concurrent_compute
 
-        self.primary_src = self.data_container.primary_source
+        self.primary_source = self.data_bundle.train_sources[0]
         self.validation_seam_spacings: dict[str, tuple[int, int]] | None = None
         if isinstance(cfg.model, SamudraMultiConfig):
             patch = patch_from(
                 (cfg.model.patch_extent[0], cfg.model.patch_extent[1]),
-                *self.primary_src.grid_size,
+                *self.primary_source.grid_size,
             )
             window = cfg.model.decoder.window_patches
             spacings = {"patch": patch}
@@ -196,7 +197,7 @@ class Trainer:
                 if all(
                     spacing < size
                     for spacing, size in zip(
-                        window_spacing, self.primary_src.grid_size, strict=True
+                        window_spacing, self.primary_source.grid_size, strict=True
                     )
                 ):
                     spacings["window"] = window_spacing
@@ -205,13 +206,13 @@ class Trainer:
         # We use dask for inference since it has memory issues otherwise.
         # TODO(jder): Could rewrite inference dataset like we did for TorchTrainDataset
         # see https://github.com/m2lines/Samudra/issues/208
-        self.inference_src = self.data_container.inference_source
+        self.inference_source = self.data_bundle.inference_source
 
-        self.loader_version = self.data_container.loader_version
+        self.loader_version = self.data_bundle.loader_version
 
         # Aggregation still works on the primary source only.
-        self.normalize = Normalize(
-            self.primary_src,
+        self.preprocessor = BatchPreprocessor(
+            self.primary_source,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
         )
@@ -221,7 +222,7 @@ class Trainer:
             boundary_channels=self.num_boundary_in,
             out_channels=self.num_out,
             hist=cfg.data.hist,
-            srcs=self.data_container.train_sources,
+            grid_sizes=[source.grid_size for source in self.data_bundle.train_sources],
         ).to(self.device)
 
         self.nets_dir = cfg.experiment.nets_dir
@@ -262,7 +263,7 @@ class Trainer:
         self.wandb_id, self.wandb_name = self.wandb_logger.setup_run(
             cfg.resume_ckpt_path,
             cfg,
-            data_container=self.data_container,
+            data_bundle=self.data_bundle,
             finetune=cfg.finetune,
         )
 
@@ -340,6 +341,28 @@ class Trainer:
         self._rollout_validation_pg: torch.distributed.ProcessGroup | None = None
         self.output_dir = cfg.experiment.output_dir
         self.search_run = cfg.experiment.search
+        if self.search_run is not None and self.search_run.adaptive_data_parallel:
+            if self.world_size != self.search_run.world_size:
+                raise RuntimeError(
+                    "Adaptive search planned world_size="
+                    f"{self.search_run.world_size}, but the worker initialized "
+                    f"world_size={self.world_size}"
+                )
+            if cfg.batch_size != self.search_run.local_batch_size:
+                raise RuntimeError(
+                    "Adaptive search resource state does not match the configured "
+                    f"batch size ({self.search_run.local_batch_size} != "
+                    f"{cfg.batch_size})"
+                )
+            effective_batch_size = (
+                cfg.batch_size * cfg.gradient_accumulation_steps * self.world_size
+            )
+            if effective_batch_size != self.search_run.effective_global_batch_size:
+                raise RuntimeError(
+                    "Adaptive search planned effective_global_batch_size="
+                    f"{self.search_run.effective_global_batch_size}, but the "
+                    f"worker resolved {effective_batch_size}"
+                )
         self.debug = cfg.debug
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size
@@ -352,7 +375,7 @@ class Trainer:
             self.hist + 1
         )
         self.normalize_before_mask: bool = cfg.data.normalize_before_mask
-        self.normalize_fill_value: float = cfg.data.masked_fill_value
+        self.masked_fill_value: float = cfg.data.masked_fill_value
         self.delayed_loss_estimate: bool = cfg.delayed_loss_estimate
 
         self.profiler = cfg.profiler.build(self.output_dir, self.device)
@@ -360,10 +383,10 @@ class Trainer:
             self.wandb_logger.enabled
         )
 
-        assert self.tensor_map is not None
+        assert self.data_layout is not None
 
         if self.inference_epochs:
-            if self.inference_src is None:
+            if self.inference_source is None:
                 raise ValueError(
                     "Inference time is not configured for the first data source"
                 )
@@ -371,7 +394,9 @@ class Trainer:
 
         # Add type annotations for samplers
         self.train_sampler: (
-            EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
+            EquivalenceGroupBatchSampler
+            | DistributedEquivalenceGroupBatchSampler
+            | FixedGlobalBatchSampler
         )
         self.val_sampler: (
             EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
@@ -379,23 +404,23 @@ class Trainer:
         self.inference_sampler: DistributedSampler | RandomSampler
 
         # Add type annotations for loaders
-        self.train_loader: TrainDataLoader
-        self.val_loader: TrainDataLoader
-        self.inference_loader: DataLoader[TrainData]
+        self.train_loader: BatchLoader
+        self.val_loader: BatchLoader
+        self.inference_loader: DataLoader[ModelBatch]
 
     def init_inference_stores(self):
-        assert self.inference_src is not None
+        assert self.inference_source is not None
         num_time_steps = get_inference_steps(
-            self.inference_src,
+            self.inference_source,
             hist=self.hist,
         )
         inference_dataset = InferenceDataset(
-            src=self.inference_src,
+            source=self.inference_source,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
             hist=self.hist,
             normalize_before_mask=self.normalize_before_mask,
-            masked_fill_value=self.normalize_fill_value,
+            masked_fill_value=self.masked_fill_value,
             long_rollout=True,
         )
 
@@ -612,7 +637,7 @@ class Trainer:
 
     def train_one_epoch(self, epoch, *, max_optimizer_steps: int | None = None):
         self.model.train(True)
-        train_aggregator = Aggregator.get_train_aggregator(self.tensor_map)
+        train_aggregator = Aggregator.get_train_aggregator(self.data_layout)
         metric_logger = MetricLogger(delimiter="  ")
         metric_logger.add_meter("lr", SmoothedValue(window_size=1, fmt="{value:.6f}"))
         header = f"Training Epoch: [{epoch}]"
@@ -631,14 +656,14 @@ class Trainer:
             else total_batches
         )
 
-        for data_iter_step, data in enumerate(
+        for batch_index, batch in enumerate(
             metric_logger.log_every(self.train_loader, 1, header)
         ):
-            if self.debug and (data_iter_step + 1) % 5 == 0:
+            if self.debug and (batch_index + 1) % 5 == 0:
                 break
 
             in_final_cycle = (
-                data_iter_step + 1 > final_cycle_start
+                batch_index + 1 > final_cycle_start
             ) and remaining_batches > 0
 
             # Determine the actual number of microbatches in this accumulation cycle
@@ -648,26 +673,34 @@ class Trainer:
                 r = self.gradient_accumulation_steps
 
             if self.num_batches_seen == 0:
-                get_model_summary(self.model, data, self.debug)
+                get_model_summary(self.model, batch, self.debug)
+
+            is_last = batch_index + 1 == total_batches
+            should_step = (batch_index + 1) % self.gradient_accumulation_steps == 0
+            optimizer_stepped = should_step or is_last
+            sync_context: contextlib.AbstractContextManager[Any] = (
+                contextlib.nullcontext()
+            )
+            if self.distributed is not None and not optimizer_stepped:
+                assert isinstance(self.model, nn.parallel.DistributedDataParallel)
+                sync_context = self.model.no_sync()
 
             with self.train_progress.batch(
-                data, world_size=self.world_size, device=self.device
+                batch, world_size=self.world_size, device=self.device
             ) as batch_progress:
-                TO: TrainBatchOutput = train_batch(self.model, data, self.loss_fn)
+                with sync_context:
+                    batch_output: TrainBatchOutput = train_batch(
+                        self.model, batch, self.loss_fn
+                    )
 
-                # Scale loss by this accumulation cycle's actual microbatch count.
-                scaled_loss = TO.loss / r
-                scaled_loss.backward()
+                    # Scale loss by this accumulation cycle's actual microbatch count.
+                    scaled_loss = batch_output.loss / r
+                    scaled_loss.backward()
 
-                train_aggregator.record_batch(TO)
+                train_aggregator.record_batch(batch_output)
 
                 self.num_batches_seen += 1
 
-                is_last = data_iter_step + 1 == total_batches
-                should_step = (
-                    data_iter_step + 1
-                ) % self.gradient_accumulation_steps == 0
-                optimizer_stepped = should_step or is_last
                 batch_progress.optimizer_stepped = optimizer_stepped
                 # Step optimizer after accumulating enough batches or at the end
                 if optimizer_stepped:
@@ -688,8 +721,10 @@ class Trainer:
 
             with torch.no_grad():
                 # Reduce losses
-                loss_value_reduce = all_reduce_mean(TO.loss.detach())
-                loss_per_channel_reduce = all_reduce_mean(TO.loss_per_channel.detach())
+                loss_value_reduce = all_reduce_mean(batch_output.loss.detach())
+                loss_per_channel_reduce = all_reduce_mean(
+                    batch_output.loss_per_channel.detach()
+                )
                 metrics = {
                     "train/batch/loss": loss_value_reduce,
                     "train/batch/lr": lr,
@@ -700,17 +735,17 @@ class Trainer:
                     **get_channel_loss_dict(
                         label="train",
                         loss_per_channel=loss_per_channel_reduce,
-                        tensor_map=self.tensor_map,
+                        data_layout=self.data_layout,
                     ),
                     **get_depth_loss_dict(
                         label="train",
                         loss_per_channel=loss_per_channel_reduce,
-                        tensor_map=self.tensor_map,
+                        data_layout=self.data_layout,
                     ),
                     **get_variable_loss_dict(
                         label="train",
                         loss_per_channel=loss_per_channel_reduce,
-                        tensor_map=self.tensor_map,
+                        data_layout=self.data_layout,
                     ),
                     "train/batch/data_load_time": metric_logger.meters[
                         "data_load_time"
@@ -726,7 +761,7 @@ class Trainer:
                     loss_scale_per_channel = loss_scale_per_channel_fn()
                     # Reshape from time-major channels to [hist, var] and
                     # average along the history dimension.
-                    loss_per_channel = TO.loss_per_channel.reshape(
+                    loss_per_channel = batch_output.loss_per_channel.reshape(
                         -1, loss_scale_per_channel.shape[0]
                     ).mean(dim=0)
 
@@ -740,12 +775,12 @@ class Trainer:
                             **get_channel_loss_scale_dict(
                                 label="train",
                                 loss_scale_per_channel=loss_scale_per_channel,
-                                tensor_map=self.tensor_map,
+                                data_layout=self.data_layout,
                             ),
                             **get_channel_loss_dict(
                                 label="train",
                                 loss_per_channel=unscaled_loss_per_channel,
-                                tensor_map=self.tensor_map,
+                                data_layout=self.data_layout,
                                 loss_name="loss_unscaled",
                             ),
                             "train/batch/loss_unscaled": unscaled_loss,
@@ -781,7 +816,7 @@ class Trainer:
             metric_logger.update(loss=loss_value_reduce.item())
             metric_logger.update(lr=lr)
 
-            self._maybe_update_loss(TO, data)
+            self._maybe_update_loss(batch_output, batch)
 
             self.profiler.after_batch(self.num_batches_seen)
 
@@ -797,7 +832,7 @@ class Trainer:
         logger.info(f"Aggregating train logs")
         return train_aggregator.get_logs()
 
-    def _maybe_update_loss(self, output: TrainBatchOutput, data: TrainData):
+    def _maybe_update_loss(self, output: TrainBatchOutput, batch: ModelBatch):
         if (update := getattr(self.loss_fn, "update", None)) is None:
             return
 
@@ -822,17 +857,15 @@ class Trainer:
             # Run a fresh single-step forward pass so DynamicLoss sees an
             # up-to-date, unscaled loss signal
             with torch.no_grad():
-                single_step_data = TrainData(
-                    data.num_prognostic_channels, data.num_boundary_channels, data.ctx
-                )
-                prog_input, boundary_input, label = data[0]
-                single_step_data.append(prog_input, boundary_input, label)
-                pred = self.model(single_step_data)
+                single_step_batch = ModelBatch(batch.ctx)
+                prog_input, boundary_input, label = batch[0]
+                single_step_batch.append(prog_input, boundary_input, label)
+                pred = self.model(single_step_batch)
                 # Compute the raw (unscaled) per-channel loss via the inner
                 # loss function, bypassing DynamicLoss scaling.
                 if not isinstance(self.loss_fn, DynamicLoss):
                     raise TypeError(f"Expected loss_fn to be DynamicLoss")
-                raw_loss = self.loss_fn.loss_fn(pred[0], label, ctx=data.ctx)
+                raw_loss = self.loss_fn.loss_fn(pred[0], label, ctx=batch.ctx)
             update(raw_loss)
 
     def validate_one_epoch(self, epoch):
@@ -843,12 +876,12 @@ class Trainer:
         )
 
         val_aggregator = Aggregator.get_validation_aggregator(
-            self.primary_src.metadata,
+            self.primary_source.metadata,
             self.hist,
-            self.primary_src.spherical_area_weights.to(self.device),
+            self.primary_source.spherical_area_weights.to(self.device),
             self.num_out,
-            self.tensor_map,
-            self.normalize,
+            self.data_layout,
+            self.preprocessor,
             include_image_aggregators=log_validation_images,
             seam_spacings=self.validation_seam_spacings,
         )
@@ -856,15 +889,17 @@ class Trainer:
         header = f"One-Step Validation Epoch: [{epoch}]"
 
         with torch.no_grad(), self._test_context():
-            for data_iter_step, data in enumerate(
+            for batch_index, batch in enumerate(
                 metric_logger.log_every(self.val_loader, 1, header)
             ):
-                if self.debug and (data_iter_step + 1) % 5 == 0:
+                if self.debug and (batch_index + 1) % 5 == 0:
                     break
 
-                VO: ValBatchOutput = validate_batch(self.model, data, self.loss_fn)
-                val_aggregator.record_validation_batch(VO)
-                metric_logger.update(loss=VO.loss)
+                validation_output: ValBatchOutput = validate_batch(
+                    self.model, batch, self.loss_fn
+                )
+                val_aggregator.record_validation_batch(validation_output)
+                metric_logger.update(loss=validation_output.loss)
 
         logger.info(f"Aggregating validation logs")
         return val_aggregator.get_logs(label="val")
@@ -897,7 +932,7 @@ class Trainer:
 
     def validate_rollout_one_epoch(self, epoch):
         assert self.rollout_validation is not None
-        if len(self.data_container.train_sources) > 1:
+        if len(self.data_bundle.train_sources) > 1:
             logger.info(
                 "Skipping rollout validation because it currently supports only "
                 "single-source training."
@@ -909,14 +944,14 @@ class Trainer:
                 return {}
 
             self.model.eval()
-            rollout_src = self.data_container.val_sources[0]
+            rollout_src = self.data_bundle.val_sources[0]
             rollout_dataset = InferenceDataset(
-                src=rollout_src,
+                source=rollout_src,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
                 normalize_before_mask=self.normalize_before_mask,
-                masked_fill_value=self.normalize_fill_value,
+                masked_fill_value=self.masked_fill_value,
                 long_rollout=True,
             )
 
@@ -935,7 +970,7 @@ class Trainer:
                 specs = [
                     RolloutValidationSpec.from_day_horizon(
                         days=days,
-                        start_time=rollout_src.data.time.values[0],
+                        start_time=rollout_src.time.values[0],
                         target_times=target_times,
                         hist=self.hist,
                     )
@@ -986,11 +1021,11 @@ class Trainer:
                     )
                     rollout_aggregator = RolloutValidationAggregator(
                         hist=self.hist,
-                        area_weights=self.primary_src.spherical_area_weights.to(
+                        area_weights=self.primary_source.spherical_area_weights.to(
                             self.device
                         ),
-                        normalize=self.normalize,
-                        dataset_spec=self.dataset_spec,
+                        preprocessor=self.preprocessor,
+                        data_layout=self.data_layout,
                         prognostic_var_names=self.prognostic_var_names,
                         distributed_reduce=False,
                     )
@@ -1025,19 +1060,19 @@ class Trainer:
         self.model.eval()
 
         with torch.no_grad(), self._test_context():
-            for data_iter_step, (inference_dataset, num_steps) in enumerate(
+            for batch_index, (inference_dataset, num_steps) in enumerate(
                 self.inference_loader
             ):
                 # TODO(alxmrs): Aggregator only supports a single scale.
                 inf_aggregator = Aggregator.get_inline_inference_aggregator(
                     num_steps,
-                    self.primary_src.metadata,
+                    self.primary_source.metadata,
                     self.hist,
-                    self.primary_src.spherical_area_weights.to(self.device),
-                    self.primary_src.masks.prognostic.to(self.device),
+                    self.primary_source.spherical_area_weights.to(self.device),
+                    self.primary_source.masks.prognostic.to(self.device),
                     self.num_out,
-                    self.tensor_map,
-                    self.normalize,
+                    self.data_layout,
+                    self.preprocessor,
                     self.prognostic_var_names,
                 )
 
@@ -1053,8 +1088,8 @@ class Trainer:
                     num_model_steps_forward=min(
                         num_steps // 2, self.max_train_model_steps_forward
                     ),
-                    tensor_map=self.tensor_map,
-                    normalize=self.normalize,
+                    data_layout=self.data_layout,
+                    preprocessor=self.preprocessor,
                 )
 
         logger.info(f"Aggregating inference logs")
@@ -1102,18 +1137,19 @@ class Trainer:
         """
         train_datasets = [
             TorchTrainDataset(
-                src=src,
+                input_source=source,
+                label_source=None,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
                 steps=cur_step,
                 normalize_before_mask=self.normalize_before_mask,
-                masked_fill_value=self.normalize_fill_value,
+                masked_fill_value=self.masked_fill_value,
                 stride=stride,
                 concurrent_compute_=self.concurrent_compute,
             )
             for stride in self.data_stride
-            for src in self.data_container.train_sources
+            for source in self.data_bundle.train_sources
         ]
 
         # Validation is always evaluated on the primary source. This keeps the
@@ -1121,13 +1157,14 @@ class Trainer:
         # regardless of the set of resolutions used for training.
         val_datasets = [
             TorchTrainDataset(
-                src=self.data_container.val_sources[0],
+                input_source=self.data_bundle.val_sources[0],
+                label_source=None,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
                 hist=self.hist,
                 steps=1,  # current_step set to 1 for validation
                 normalize_before_mask=self.normalize_before_mask,
-                masked_fill_value=self.normalize_fill_value,
+                masked_fill_value=self.masked_fill_value,
                 stride=stride,
                 concurrent_compute_=self.concurrent_compute,
             )
@@ -1137,11 +1174,11 @@ class Trainer:
         # Create datasets
         match self.loader_version:
             case TorchTrainDataset.FLAG:
-                train_data: torch.utils.data.Dataset[RawTrainData] = ConcatDataset(
+                host_train_dataset: torch.utils.data.Dataset[HostBatch] = ConcatDataset(
                     train_datasets
                 )
 
-                val_data: torch.utils.data.Dataset[RawTrainData] = ConcatDataset(
+                host_val_dataset: torch.utils.data.Dataset[HostBatch] = ConcatDataset(
                     val_datasets
                 )
 
@@ -1154,7 +1191,7 @@ class Trainer:
 
         match self.loader_version:
             case TorchTrainDataset.FLAG:
-                collate_fn = collate_raw_train_data
+                collate_fn = collate_host_batches
             case _:
                 raise NotImplementedError(
                     f"Collate function not defined for loader version "
@@ -1164,9 +1201,31 @@ class Trainer:
         # Create batch samplers - branch on distributed vs non-distributed
         # Group by resolution so batches stay homogeneous across configured sources.
         def group_key(ds):
-            return ds.prognostic_src.grid_size
+            return tuple(source.grid_size for source in ds.sources)
 
-        if self.distributed is not None:
+        adaptive_batching = (
+            self.search_run is not None and self.search_run.adaptive_data_parallel
+        )
+        train_batch_sampler: (
+            EquivalenceGroupBatchSampler
+            | DistributedEquivalenceGroupBatchSampler
+            | FixedGlobalBatchSampler
+        )
+        val_batch_sampler: (
+            EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
+        )
+        if adaptive_batching:
+            train_batch_sampler = FixedGlobalBatchSampler.from_datasets(
+                datasets=train_datasets,
+                group_key=group_key,
+                local_batch_size=self.batch_size,
+                world_size=self.world_size,
+                rank=get_rank(),
+                accumulation_steps=self.gradient_accumulation_steps,
+                shuffle=True,
+                seed=self.rand_seed,
+            )
+        elif self.distributed is not None:
             # Distributed training
             assert self.distributed.world_size is not None
             assert self.distributed.rank is not None
@@ -1181,6 +1240,19 @@ class Trainer:
                 seed=self.rand_seed,
             )
 
+        else:
+            train_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
+                datasets=train_datasets,
+                group_key=group_key,
+                batch_size=self.batch_size,
+                shuffle=True,
+                drop_last=True,
+                seed=self.rand_seed,
+            )
+
+        if self.distributed is not None:
+            assert self.distributed.world_size is not None
+            assert self.distributed.rank is not None
             val_batch_sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=val_datasets,
                 group_key=group_key,
@@ -1192,16 +1264,6 @@ class Trainer:
                 seed=self.rand_seed,
             )
         else:
-            # Non-distributed training
-            train_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
-                datasets=train_datasets,
-                group_key=group_key,
-                batch_size=self.batch_size,
-                shuffle=True,
-                drop_last=True,
-                seed=self.rand_seed,
-            )
-
             val_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
                 datasets=val_datasets,
                 group_key=group_key,
@@ -1217,8 +1279,8 @@ class Trainer:
 
         # Create data loaders (same for both distributed and non-distributed)
         # When using batch_sampler, don't specify batch_size or sampler
-        train_dataloader = DataLoader(
-            train_data,
+        host_train_loader = DataLoader(
+            host_train_dataset,
             batch_sampler=train_batch_sampler,
             num_workers=self.num_workers,
             persistent_workers=self.persistent_workers and self.num_workers > 0,
@@ -1227,8 +1289,8 @@ class Trainer:
             multiprocessing_context=self.mp_context,
         )
 
-        val_dataloader = DataLoader(
-            val_data,
+        host_val_loader = DataLoader(
+            host_val_dataset,
             batch_sampler=val_batch_sampler,
             num_workers=self.num_workers,
             persistent_workers=self.persistent_workers and self.num_workers > 0,
@@ -1238,10 +1300,8 @@ class Trainer:
         )
 
         # Wrap dataloaders to handle GPU post-processing
-        self.train_loader = TrainDataLoader(
-            train_dataloader, train_datasets, self.device
-        )
-        self.val_loader = TrainDataLoader(val_dataloader, val_datasets, self.device)
+        self.train_loader = BatchLoader(host_train_loader, train_datasets, self.device)
+        self.val_loader = BatchLoader(host_val_loader, val_datasets, self.device)
 
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
         with self._test_context():

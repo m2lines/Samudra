@@ -8,8 +8,8 @@ import torch
 from einops import rearrange
 
 from samudra.aggregator.metrics import area_weighted_rmse
-from samudra.constants import DatasetSpec, PrognosticVarNames
-from samudra.utils.data import Normalize
+from samudra.constants import DataLayout, PrognosticVarNames
+from samudra.utils.data import BatchPreprocessor
 from samudra.utils.device import get_device
 from samudra.utils.distributed import all_reduce_mean
 from samudra.utils.output import ModelInferenceOutput
@@ -57,10 +57,10 @@ def _split_depth_name(name: str) -> tuple[str, str | None]:
     return match.group("base"), match.group("depth")
 
 
-def _depth_band(depth_index: int | None, dataset_spec: DatasetSpec) -> str:
+def _depth_band(depth_index: int | None, data_layout: DataLayout) -> str:
     if depth_index is None:
         return "surface"
-    depth = dataset_spec.depth_levels[depth_index]
+    depth = data_layout.depth_levels[depth_index]
     if depth < 700:
         return "upper"
     if depth < 2000:
@@ -68,17 +68,17 @@ def _depth_band(depth_index: int | None, dataset_spec: DatasetSpec) -> str:
     return "deep"
 
 
-def _depth_weight(depth_index: int | None, dataset_spec: DatasetSpec) -> float:
+def _depth_weight(depth_index: int | None, data_layout: DataLayout) -> float:
     if depth_index is None:
         return 1.0
-    return float(dataset_spec.depth_thickness[depth_index])
+    return float(data_layout.depth_thickness[depth_index])
 
 
 def _get_raw_rollout_dict(
     data: torch.Tensor,
     *,
     hist: int,
-    normalize: Normalize,
+    preprocessor: BatchPreprocessor,
     field_names: tuple[str, ...],
 ) -> dict[str, torch.Tensor]:
     data_reshaped = rearrange(
@@ -86,7 +86,7 @@ def _get_raw_rollout_dict(
         "n (hi c) h w -> (n hi) c h w",
         hi=hist + 1,
     ).unsqueeze(0)
-    data_unnorm = normalize.unnormalize_tensor_prognostic(
+    data_unnorm = preprocessor.unnormalize_tensor_prognostic(
         data_reshaped,
         fill_value=float("nan"),
     )
@@ -108,14 +108,14 @@ class RolloutValidationAggregator:
         *,
         hist: int,
         area_weights: torch.Tensor,
-        normalize: Normalize,
-        dataset_spec: DatasetSpec,
+        preprocessor: BatchPreprocessor,
+        data_layout: DataLayout,
         prognostic_var_names: PrognosticVarNames,
         distributed_reduce: bool = True,
     ):
         self.hist = hist
-        self._normalize = normalize
-        self._dataset_spec = dataset_spec
+        self._preprocessor = preprocessor
+        self._data_layout = data_layout
         self._raw_field_names = tuple(prognostic_var_names)
         self._field_metrics = {
             name: _MeanStepAreaWeightedRmse(
@@ -133,13 +133,13 @@ class RolloutValidationAggregator:
         target_unnorm = _get_raw_rollout_dict(
             data.target,
             hist=self.hist,
-            normalize=self._normalize,
+            preprocessor=self._preprocessor,
             field_names=self._raw_field_names,
         )
         gen_unnorm = _get_raw_rollout_dict(
             data.prediction,
             hist=self.hist,
-            normalize=self._normalize,
+            preprocessor=self._preprocessor,
             field_names=self._raw_field_names,
         )
 
@@ -159,8 +159,8 @@ class RolloutValidationAggregator:
             rmse = metric.rmse()
             base_var, depth = _split_depth_name(name)
             depth_index = int(depth) if depth is not None else None
-            band = _depth_band(depth_index, self._dataset_spec)
-            weight = _depth_weight(depth_index, self._dataset_spec)
+            band = _depth_band(depth_index, self._data_layout)
+            weight = _depth_weight(depth_index, self._data_layout)
             values_by_base_var.setdefault(base_var, []).append(rmse)
             values_by_depth_band.setdefault(base_var, {}).setdefault(band, []).append(
                 (rmse, weight)

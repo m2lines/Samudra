@@ -22,9 +22,16 @@
 #
 # --- Common env vars ---------------------------------------------------------
 #   OUTPUT_BASE  s3 prefix; OUTPUT_PATH defaults to
-#                  ${OUTPUT_BASE}/om4_${RESOLUTION}/OM4.zarr
+#                  ${OUTPUT_BASE}/om4_${RESOLUTION}${variant_suffix}/OM4.zarr
 #                e.g. export OUTPUT_BASE="s3://m2lines-pubs/Samudra/v$(date +%Y-%m)"
 #   RAW_ROOT     source prefix (default: s3://m2lines-pubs/Samudra/raw)
+#   DATA_VARIANT averaged (default) | snapshots; selects the raw store and
+#                derived output-directory suffix. The averaged variant adds
+#                five-day-mean wfo from the combined snapshot source after
+#                strict alignment QC.
+#   DATA_PATH    exact raw OM4 source; overrides DATA_VARIANT's source selection.
+#   WFO_SOURCE_PATH exact supplemental wfo store; defaults to the combined
+#                snapshot source for DATA_VARIANT=averaged.
 #   PREPROC_ENV  conda env name (default: ocean_preprocessing)
 #   CONDA_SH     path to conda.sh (autodetected from $CONDA_EXE / common dirs)
 #   REPO_DIR     repo checkout (default: $SLURM_SUBMIT_DIR); we cd here so the
@@ -77,10 +84,22 @@
 
 set -euo pipefail
 
+# Slurm executes a spool copy of this batch script, so BASH_SOURCE points into
+# Slurm's private job directory rather than this repository. Resolve sidecars
+# from the explicitly supplied checkout (or the submission directory) instead.
+REPO_DIR="${REPO_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}"
+VARIANT_SCRIPT="${REPO_DIR%/}/scripts/om4_data_variant.sh"
+if [[ ! -f "${VARIANT_SCRIPT}" ]]; then
+  echo "ERROR: OM4 variant helper not found at '${VARIANT_SCRIPT}'. Set REPO_DIR to the Samudra checkout." >&2
+  exit 3
+fi
+# shellcheck source=om4_data_variant.sh
+source "${VARIANT_SCRIPT}"
+
 # --- Resolve inputs ----------------------------------------------------------
 RESOLUTION="${RESOLUTION:-}"
 if [[ -z "${RESOLUTION}" ]]; then
-  echo "ERROR: RESOLUTION is required (onedeg | onedeg_filter | halfdeg | quarterdeg)." >&2
+  echo "ERROR: RESOLUTION is required (twodeg | twodeg_filter | onedeg | onedeg_filter | halfdeg | quarterdeg)." >&2
   exit 2
 fi
 
@@ -100,7 +119,12 @@ case "${RESOLUTION}" in
 esac
 
 RAW_ROOT="${RAW_ROOT:-s3://m2lines-pubs/Samudra/raw}"
-DATA_PATH="${RAW_ROOT}/om4_5daily.zarr"
+resolve_om4_data_variant
+DATA_PATH="${DATA_PATH:-${RAW_ROOT}/${OM4_SOURCE_STORE}}"
+WFO_SOURCE_PATH="${WFO_SOURCE_PATH:-}"
+if [[ -z "${WFO_SOURCE_PATH}" && -n "${OM4_WFO_SOURCE_STORE}" ]]; then
+  WFO_SOURCE_PATH="${RAW_ROOT}/${OM4_WFO_SOURCE_STORE}"
+fi
 NATIVE_GRID_PATH="${RAW_ROOT}/ocean_static_no_mask_table.zarr"
 MOSAIC_PATH="${RAW_ROOT}/grids/ocean_hgrid.zarr"
 TARGET_GRID_PATH="${RAW_ROOT}/grids/${GRID}.zarr"
@@ -112,7 +136,7 @@ if [[ -z "${OUTPUT_PATH}" ]]; then
     echo "Example: export OUTPUT_BASE=\"s3://m2lines-pubs/Samudra/v\$(date +%Y-%m)\"" >&2
     exit 2
   fi
-  OUTPUT_PATH="${OUTPUT_BASE%/}/om4_${RESOLUTION}/OM4.zarr"
+  OUTPUT_PATH="${OUTPUT_BASE%/}/om4_${RESOLUTION}${OM4_OUTPUT_SUFFIX}/OM4.zarr"
 fi
 
 # --- Credentials preflight ---------------------------------------------------
@@ -176,18 +200,28 @@ fi
 if [[ "${SKIP_VALIDATION:-1}" == "1" ]]; then
   pipeline_flags+=(--skip_validation)
 fi
+if [[ -n "${WFO_SOURCE_PATH}" ]]; then
+  pipeline_flags+=(--wfo_source_path="${WFO_SOURCE_PATH}")
+fi
 
 # --- Run ---------------------------------------------------------------------
-REPO_DIR="${REPO_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}"
-cd "${REPO_DIR}"  # so get_git_url_hash() resolves and data/ is importable
+# Enter the selected data subproject before invoking Python. The conda env is
+# created with an editable install, which may point at a different checkout;
+# putting this directory first on sys.path guarantees that the job executes the
+# exact REPO_DIR revision whose provenance it records.
+cd "${REPO_DIR}/data"
 
 echo "Resolution:   ${RESOLUTION}"
+echo "Data variant: ${DATA_VARIANT}"
+echo "Data path:    ${DATA_PATH}"
+echo "wfo source:   ${WFO_SOURCE_PATH:-none}"
 echo "Target grid:  ${GRID}  (filter: ${FILTER_FLAG:-on})"
 echo "Raw root:     ${RAW_ROOT}"
 echo "Output path:  ${OUTPUT_PATH}"
 echo "Conda env:    ${PREPROC_ENV}  (via ${CONDA_SH})"
 echo "LocalCluster: n_workers=${N_WORKERS} threads_per_worker=${THREADS_PER_WORKER} memory_limit=${MEMORY_LIMIT:-auto}"
 echo "Repo dir:     ${REPO_DIR}"
+echo "Python source: $(python -c 'import ocean_preprocessing; print(ocean_preprocessing.__file__)')"
 
 set -x
 python -m ocean_preprocessing om4 \

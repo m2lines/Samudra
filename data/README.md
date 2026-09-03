@@ -52,6 +52,7 @@ python -m ocean_preprocessing om4 \
    "s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr" \
    "s3://m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr" \
    "s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_360_by_720.zarr" \
+    --wfo_source_path="s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr" \
     --output_path="./local_om4_test.zarr" \
     --dry_run \
     --small_run
@@ -82,6 +83,7 @@ python -m ocean_preprocessing om4 \
    "s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr" \
    "s3://m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr" \
    "s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_360_by_720.zarr" \
+    --wfo_source_path="s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr" \
     --output_path="s3://m2lines-pubs/Samudra/v$(date "+%Y-%m")/om4_halfdeg/OM4.zarr" \
     --cluster="coiled" \
     --wait_for_workers=True
@@ -89,6 +91,53 @@ python -m ocean_preprocessing om4 \
 
 That's how you can run this package as a command-line utility! Beyond this, `ocean_preprocessing` can be used a library
 in a script or notebook. Continue reading to get a better understanding of this package's capabilities.
+
+### Five-day snapshot source
+
+The snapshot archive is
+`s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr`. Its ocean state
+variables (`thetao`, `so`, `uo`, `vo`, and `zos`) are instantaneous values at
+00:00 UTC every five days. Its forcing variables (`hfds`, `tauuo`, `tauvo`, and
+`wfo`) are five-day means, because the state transition responds to their
+time-integrated fluxes.
+
+The pipeline publishes the nine required emulator inputs, including `wfo`.
+Other source diagnostics and native-grid fields are ignored explicitly. On
+Torch, select this source with
+`DATA_VARIANT=snapshots` in `scripts/slurm_preprocess_om4.sbatch`; derived output
+directories use the name `om4_<resolution>_snapshots`.
+
+### Adding freshwater flux to the averaged source
+
+The original averaged archive does not contain `wfo`. To build an averaged-state
+dataset with freshwater forcing, use
+`s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr` as a supplemental
+`wfo` source:
+
+```bash
+python -m ocean_preprocessing om4 \
+   "s3://m2lines-pubs/Samudra/raw/om4_5daily.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr" \
+   "s3://m2lines-pubs/Samudra/raw/grids/gaussian_grid_180_by_360.zarr" \
+   --wfo_source_path="s3://m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr" \
+   --output_path="./om4_onedeg/OM4.zarr" \
+   --skip_spatial_filtering
+```
+
+This is not a positional merge. The averaged archive labels intervals at their
+midpoints, whereas the donor labels the same intervals at their upper bounds.
+Before relabeling `wfo` with the recipient timestamps, the pipeline requires:
+
+- exact equality between donor times and recipient `time_bnds` upper bounds;
+- identical native `xh` and `yh` coordinates;
+- `wfo(time, yh, xh)` with `cell_methods` identifying `time: mean`; and
+- no existing `wfo` in the recipient.
+
+The output records the donor path and alignment rule in
+`m2lines/wfo_surgery_source` and `m2lines/wfo_surgery_alignment`. On Torch,
+the default `DATA_VARIANT=averaged` configures the donor automatically. All
+new canonical `om4_<resolution>` datasets therefore include `wfo`.
 
 ## Observation products
 
@@ -255,6 +304,7 @@ The preprocessing files are the inputs to create curated emulator dataseets for 
 These files live on the OSN pod:
 
 - Data: https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/om4_5daily.zarr
+- Five-day snapshots: https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/om4_5daily_snapshots.zarr
 - Gaussian Grid: https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/grids/gaussian_grid_180_by_360.zarr
 - Mosaic File: https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/grids/ocean_hgrid.zarr
 - Native Grid File: https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr

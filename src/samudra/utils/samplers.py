@@ -127,17 +127,17 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
             seed: Random seed for deterministic shuffling
 
         Examples:
-                - lambda ds: (ds._input_src.data.sizes['lat'], ds._input_src.data.sizes['lon'])  # group by resolution
-                - lambda ds: ds._input_src.data.sizes['lat']  # group by latitude size only
+                - lambda ds: (ds._input_source.data.sizes['lat'], ds._input_source.data.sizes['lon'])  # group by resolution
+                - lambda ds: ds._input_source.data.sizes['lat']  # group by latitude size only
 
         Returns:
             EquivalenceGroupBatchSampler configured to group by the provided key
 
-        Example:
+        RolloutStep:
             >>> # Group datasets by resolution, allowing different strides to be batched together
             >>> sampler = EquivalenceGroupBatchSampler.from_datasets(
             ...     datasets=dataset_list,
-            ...     group_key=lambda ds: ds.prognostic_src.grid_size,
+            ...     group_key=lambda ds: tuple(source.grid_size for source in ds.sources),
             ...     batch_size=32,
             ...     shuffle=True,
             ...     drop_last=True,
@@ -187,6 +187,114 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
             total_batches += len(sampler)
 
         return total_batches
+
+
+class FixedGlobalBatchSampler(Sampler[Batch]):
+    """Partition invariant global optimizer batches across ranks and microsteps.
+
+    Each rank constructs the same shuffled sequence of global batches. A global
+    batch is then sliced first by gradient-accumulation microstep and then by
+    rank, so changing ``world_size`` does not change which examples contribute
+    to an optimizer update.
+    """
+
+    def __init__(
+        self,
+        groups: list[list[int]],
+        *,
+        local_batch_size: int,
+        world_size: int,
+        rank: int,
+        accumulation_steps: int,
+        shuffle: bool,
+        seed: int,
+    ) -> None:
+        super().__init__()
+        if local_batch_size < 1 or world_size < 1 or accumulation_steps < 1:
+            raise ValueError(
+                "local_batch_size, world_size, and accumulation_steps must be positive"
+            )
+        if not 0 <= rank < world_size:
+            raise ValueError(f"rank {rank} is outside world_size {world_size}")
+        self.groups = groups
+        self.local_batch_size = local_batch_size
+        self.world_size = world_size
+        self.rank = rank
+        self.accumulation_steps = accumulation_steps
+        self.shuffle = shuffle
+        self.seed = seed
+        self.epoch = 0
+        self.global_batch_size = local_batch_size * world_size * accumulation_steps
+        if not any(len(group) >= self.global_batch_size for group in groups):
+            raise ValueError(
+                "No equivalence group contains one complete effective global "
+                f"batch of {self.global_batch_size} samples"
+            )
+
+    @classmethod
+    def from_datasets(
+        cls,
+        datasets: list["TorchTrainDataset"],
+        group_key: Callable[["TorchTrainDataset"], Hashable],
+        *,
+        local_batch_size: int,
+        world_size: int,
+        rank: int,
+        accumulation_steps: int,
+        shuffle: bool,
+        seed: int,
+    ) -> Self:
+        grouped = EquivalenceGroupBatchSampler.from_datasets(
+            datasets=datasets,
+            group_key=group_key,
+            batch_size=local_batch_size,
+            shuffle=False,
+            drop_last=True,
+            seed=seed,
+        )
+        return cls(
+            grouped.groups,
+            local_batch_size=local_batch_size,
+            world_size=world_size,
+            rank=rank,
+            accumulation_steps=accumulation_steps,
+            shuffle=shuffle,
+            seed=seed,
+        )
+
+    def set_epoch(self, epoch: int) -> None:
+        self.epoch = epoch
+
+    def __iter__(self):
+        rng = random.Random(self.seed + self.epoch)
+        optimizer_batches: list[list[int]] = []
+        for group in self.groups:
+            indices = list(group)
+            if self.shuffle:
+                rng.shuffle(indices)
+            complete = len(indices) // self.global_batch_size
+            optimizer_batches.extend(
+                indices[start : start + self.global_batch_size]
+                for start in range(
+                    0,
+                    complete * self.global_batch_size,
+                    self.global_batch_size,
+                )
+            )
+        if self.shuffle:
+            rng.shuffle(optimizer_batches)
+
+        microbatch_width = self.local_batch_size * self.world_size
+        for optimizer_batch in optimizer_batches:
+            for microstep in range(self.accumulation_steps):
+                start = microstep * microbatch_width + self.rank * self.local_batch_size
+                yield optimizer_batch[start : start + self.local_batch_size]
+
+    def __len__(self) -> int:
+        optimizer_steps = sum(
+            len(group) // self.global_batch_size for group in self.groups
+        )
+        return optimizer_steps * self.accumulation_steps
 
 
 class DistributedEquivalenceGroupBatchSampler(Sampler[Batch]):

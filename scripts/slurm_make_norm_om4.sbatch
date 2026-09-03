@@ -16,7 +16,9 @@
 #
 # --- Common env vars ---------------------------------------------------------
 #   OUTPUT_BASE + RESOLUTION  derive OUTPUT_PATH as
-#                               ${OUTPUT_BASE}/om4_${RESOLUTION}/OM4.zarr
+#                               ${OUTPUT_BASE}/om4_${RESOLUTION}${variant_suffix}/OM4.zarr
+#   DATA_VARIANT averaged (default) | snapshots; adds `_snapshots` to the
+#                derived output directory for snapshot data.
 #   PREPROC_ENV  conda env name (default: ocean_preprocessing)
 #   CONDA_SH     path to conda.sh (autodetected from $CONDA_EXE / common dirs)
 #   REPO_DIR     repo checkout (default: $SLURM_SUBMIT_DIR)
@@ -45,13 +47,26 @@
 
 set -euo pipefail
 
+# Slurm executes a spool copy of this batch script, so BASH_SOURCE points into
+# Slurm's private job directory rather than this repository. Resolve sidecars
+# from the explicitly supplied checkout (or the submission directory) instead.
+REPO_DIR="${REPO_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}"
+VARIANT_SCRIPT="${REPO_DIR%/}/scripts/om4_data_variant.sh"
+if [[ ! -f "${VARIANT_SCRIPT}" ]]; then
+  echo "ERROR: OM4 variant helper not found at '${VARIANT_SCRIPT}'. Set REPO_DIR to the Samudra checkout." >&2
+  exit 3
+fi
+# shellcheck source=om4_data_variant.sh
+source "${VARIANT_SCRIPT}"
+
 OUTPUT_PATH="${OUTPUT_PATH:-}"
 if [[ -z "${OUTPUT_PATH}" ]]; then
   if [[ -z "${OUTPUT_BASE:-}" || -z "${RESOLUTION:-}" ]]; then
     echo "ERROR: set OUTPUT_PATH, or both OUTPUT_BASE and RESOLUTION." >&2
     exit 2
   fi
-  OUTPUT_PATH="${OUTPUT_BASE%/}/om4_${RESOLUTION}/OM4.zarr"
+  resolve_om4_data_variant
+  OUTPUT_PATH="${OUTPUT_BASE%/}/om4_${RESOLUTION}${OM4_OUTPUT_SUFFIX}/OM4.zarr"
 fi
 if [[ "${OUTPUT_PATH}" != s3://* ]]; then
   echo "ERROR: make_norm_datasets.py requires an s3:// path; got '${OUTPUT_PATH}'." >&2
@@ -92,7 +107,6 @@ export BLOSC_NOLOCK=1
 export NUMEXPR_NUM_THREADS=1
 export PYTHONUNBUFFERED=1
 
-REPO_DIR="${REPO_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}"
 cd "${REPO_DIR}/data"
 
 echo "Building means/stds for: ${OUTPUT_PATH}"

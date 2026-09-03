@@ -2,16 +2,33 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import logging
+
 import fsspec
 import numpy as np
 import xarray as xr
-from xarrera import SchemaError
 from xgcm import Grid
 
 from ocean_preprocessing.dataset_validation import ds_processed_validate
+from ocean_preprocessing.schema import (
+    OM4_3D_VARS,
+    OM4_OPTIONAL_2D_VARS,
+    OM4_REQUIRED_2D_VARS,
+)
 from ocean_preprocessing.utils import apply_mask
 
 from .interpolate import interpolate_to_cell_centers
+
+logger = logging.getLogger(__name__)
+
+OM4_REQUIRED_DATA_VARS = frozenset(OM4_3D_VARS + OM4_REQUIRED_2D_VARS)
+OM4_OPTIONAL_DATA_VARS = frozenset(OM4_OPTIONAL_2D_VARS)
+WFO_DIMS = ("time", "yh", "xh")
+FIVE_DAYS_SECONDS = 5 * 24 * 60 * 60
+WFO_SURGERY_ALIGNMENT = (
+    "donor time == recipient time_bnds upper bound; "
+    "donor wfo relabeled to recipient interval-midpoint time"
+)
 
 
 # load supergrid and extract the angles
@@ -52,24 +69,139 @@ def normalize_vertical_coords(ds: xr.Dataset) -> xr.Dataset:
     return ds.rename(vertical_rename) if vertical_rename else ds
 
 
-def om4_preprocessing(
-    zarr_data_path, nc_grid_path, nc_mosaic_path, fs=fsspec, backend_kwargs=None
-):
-    """OM4 specific preprocessing."""
-    ds = xr.open_dataset(
-        zarr_data_path, engine="zarr", chunks={}, backend_kwargs=backend_kwargs
+def select_om4_variables(ds: xr.Dataset) -> xr.Dataset:
+    """Keep the stable emulator inputs and reject incomplete OM4 sources.
+
+    Snapshot archives also contain diagnostic and native-grid fields that the
+    averaged archive does not. Passing every compatible source variable through
+    would make the published dataset depend accidentally on the source archive's
+    contents. ``wfo`` is retained when available. The OM4 publication CLI
+    requires it, while this lower-level helper remains usable by legacy CM4.
+    """
+    available = set(ds.data_vars)
+    missing = OM4_REQUIRED_DATA_VARS - available
+    if missing:
+        raise ValueError(f"OM4 source is missing required variables: {sorted(missing)}")
+
+    selected = OM4_REQUIRED_DATA_VARS | (OM4_OPTIONAL_DATA_VARS & available)
+    ignored = available - selected
+    if ignored:
+        logger.info("ignoring undeclared OM4 source variables: %s", sorted(ignored))
+    return ds[sorted(selected)]
+
+
+def transplant_wfo(
+    recipient: xr.Dataset, donor: xr.Dataset, *, donor_path: str
+) -> xr.Dataset:
+    """Add five-day-mean ``wfo`` to an averaged OM4 source.
+
+    The averaged archive labels each five-day interval at its midpoint, while
+    the combined snapshot archive labels the same interval at its upper bound.
+    Validate that relationship and the native tracer grid before relabeling the
+    donor data with the recipient's timestamps. The operation remains lazy;
+    data chunks are read only when the preprocessing result is computed.
+    """
+    if "wfo" in recipient:
+        raise ValueError(
+            "OM4 recipient already contains 'wfo'; refusing to overwrite it"
+        )
+    if "wfo" not in donor:
+        raise ValueError("OM4 freshwater-flux donor is missing required variable 'wfo'")
+    if "time_bnds" not in recipient:
+        raise ValueError(
+            "OM4 recipient must provide time_bnds to validate freshwater-flux alignment"
+        )
+
+    wfo = donor["wfo"]
+    if wfo.dims != WFO_DIMS:
+        raise ValueError(f"Donor 'wfo' has dimensions {wfo.dims}; expected {WFO_DIMS}")
+    if "time" not in donor.coords:
+        raise ValueError("OM4 freshwater-flux donor has no time coordinate")
+
+    bounds = recipient["time_bnds"]
+    if bounds.dims != ("time", "nv") or bounds.sizes["nv"] != 2:
+        raise ValueError(
+            "OM4 recipient time_bnds must have dimensions ('time', 'nv') with nv=2"
+        )
+
+    def timedelta_seconds(value) -> float:
+        if hasattr(value, "total_seconds"):
+            return value.total_seconds()
+        return float(value / np.timedelta64(1, "s"))
+
+    starts = bounds.isel(nv=0).values
+    ends = bounds.isel(nv=1).values
+    midpoints = recipient["time"].values
+    interval_seconds = np.array(
+        [timedelta_seconds(end - start) for start, end in zip(starts, ends)]
     )
+    left_seconds = np.array(
+        [
+            timedelta_seconds(midpoint - start)
+            for midpoint, start in zip(midpoints, starts)
+        ]
+    )
+    right_seconds = np.array(
+        [timedelta_seconds(end - midpoint) for end, midpoint in zip(ends, midpoints)]
+    )
+    if not (
+        np.all(interval_seconds == FIVE_DAYS_SECONDS)
+        and np.array_equal(left_seconds, right_seconds)
+    ):
+        raise ValueError(
+            "OM4 recipient time_bnds must describe centered five-day intervals"
+        )
 
-    ds = normalize_vertical_coords(ds)
+    for coord in ("xh", "yh"):
+        if coord not in recipient.coords or coord not in donor.coords:
+            raise ValueError(f"Both OM4 stores must provide the {coord!r} coordinate")
+        try:
+            xr.testing.assert_identical(recipient[coord], donor[coord])
+        except AssertionError as error:
+            raise ValueError(
+                f"OM4 freshwater-flux donor {coord!r} grid does not match recipient"
+            ) from error
 
+    interval_ends = bounds.isel(nv=1, drop=True)
+    if not np.array_equal(donor["time"].values, interval_ends.values):
+        raise ValueError(
+            "OM4 freshwater-flux donor timestamps must exactly match the upper "
+            "bounds of the recipient's five-day intervals"
+        )
+
+    if "time: mean" not in wfo.attrs.get("cell_methods", ""):
+        raise ValueError(
+            "Donor 'wfo' is not identified as a time mean in its cell_methods attribute"
+        )
+    expected_attrs = {
+        "standard_name": "water_flux_into_sea_water",
+        "units": "kg m-2 s-1",
+    }
+    for attr, expected in expected_attrs.items():
+        if wfo.attrs.get(attr) != expected:
+            raise ValueError(
+                f"Donor 'wfo' {attr} must be {expected!r}; got {wfo.attrs.get(attr)!r}"
+            )
+
+    transplanted = wfo.assign_coords(time=recipient["time"])
+    result = recipient.assign(wfo=transplanted)
+    result.attrs.update(
+        {
+            "m2lines/wfo_surgery_source": donor_path,
+            "m2lines/wfo_surgery_alignment": WFO_SURGERY_ALIGNMENT,
+        }
+    )
+    return result
+
+
+def vertical_cell_metadata(ds: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:
+    """Return consistently typed cell thickness and interface coordinates."""
     if "ilev" in ds.coords:
-        dz = xr.DataArray(
-            ds.ilev.diff("ilev").values,
-            dims=["lev"],
-        ).astype("int64")
+        dz = xr.DataArray(ds.ilev.diff("ilev").values, dims=["lev"])
         ilev = ds["ilev"]
     else:
-        # add vertical info
+        # The snapshot archive omits interface depths, so add the canonical
+        # OM4 vertical grid used by the existing processed datasets.
         dz = xr.DataArray(
             [
                 5,
@@ -93,7 +225,7 @@ def om4_preprocessing(
                 1000,
             ],
             dims=["lev"],
-        ).astype("float64")
+        )
         ilev = xr.DataArray(
             [
                 0,
@@ -118,7 +250,39 @@ def om4_preprocessing(
                 6500,
             ],
             dims=["ilev"],
-        ).astype("float64")
+        )
+
+    # The processed coordinate contract is float64 for both averaged sources
+    # (which provide ilev) and snapshot sources (which use the fallback above).
+    return dz.astype("float64"), ilev.astype("float64")
+
+
+def om4_preprocessing(
+    zarr_data_path,
+    nc_grid_path,
+    nc_mosaic_path,
+    fs=fsspec,
+    backend_kwargs=None,
+    wfo_source_path=None,
+):
+    """OM4 specific preprocessing."""
+    ds = xr.open_dataset(
+        zarr_data_path, engine="zarr", chunks={}, backend_kwargs=backend_kwargs
+    )
+
+    if wfo_source_path is not None:
+        donor = xr.open_dataset(
+            wfo_source_path,
+            engine="zarr",
+            chunks={},
+            backend_kwargs=backend_kwargs,
+        )
+        ds = transplant_wfo(ds, donor, donor_path=wfo_source_path)
+
+    ds = select_om4_variables(ds)
+    ds = normalize_vertical_coords(ds)
+
+    dz, ilev = vertical_cell_metadata(ds)
 
     ds = ds.assign_coords(dz=dz)
 
@@ -194,8 +358,12 @@ def om4_preprocessing(
     ds = ds.astype(np.float32)
     # higher precision for the area
     ds = ds.assign_coords(areacello=ds.areacello.astype("float64"))
-    try:
-        ds_processed_validate(ds)
-    except SchemaError as err:
-        print(f"Failed validation with error: {str(err)}")
+    if wfo_source_path is not None:
+        ds.attrs.update(
+            {
+                "m2lines/wfo_surgery_source": wfo_source_path,
+                "m2lines/wfo_surgery_alignment": WFO_SURGERY_ALIGNMENT,
+            }
+        )
+    ds_processed_validate(ds)
     return ds

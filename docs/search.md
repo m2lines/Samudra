@@ -36,11 +36,88 @@ python -m samudra.search path/to/search.yaml
 
 The runner submits the first rung and fixed baselines. On Slurm, dependent
 controller jobs automatically rank completed candidates and submit each later
-rung; users do not manually advance the search. For a local laptop or Colab
-notebook run, include `search/local.yaml` instead of `search/torch.yaml`;
-candidates then run sequentially in the current environment. Each local task
-gets a fresh multiton scope and releases cached CUDA memory before the next
-candidate, so W&B and normalization state cannot leak between models.
+rung; users do not manually advance the search. For a local laptop,
+workstation, or Colab notebook, include `search/local.yaml` instead of
+`search/torch.yaml`. The local executor runs one isolated candidate process per
+visible GPU and never interprets scheduler environment variables. With no GPU
+it runs candidates sequentially in the controller process. Fixed anchors and
+rung zero are co-scheduled, and each later rung uses up to the same GPU
+capacity. Set `executor.max_concurrent` only when memory, CPU, storage, or
+service limits require using fewer than the available GPUs.
+
+By default, every candidate remains a single-GPU experiment in every rung. To
+assign newly idle GPUs to survivors without changing the scientific training
+trajectory, opt in to adaptive data parallelism:
+
+```yaml
+resources:
+  strategy: adaptive_data_parallel
+  max_gpus_per_candidate: 16
+  effective_global_batch_size: 64
+  allowed_world_sizes: [1, 2, 4, 8, 16]
+```
+
+For each rung, the executor selects the largest allowed world size that fits
+the allocation and the number of candidates allowed to run concurrently. It
+keeps each candidate's configured `batch_size`, adjusts only
+`gradient_accumulation_steps`, and uses a fixed-global-batch sampler. Thus the
+same shuffled examples form each optimizer update even when a promoted
+candidate moves from one GPU to two, four, or more. Learning-rate and scheduler
+configuration remain unchanged because the effective global batch and number
+of optimizer updates per epoch remain unchanged. The selected plan is recorded
+in `state.json` and reused on retries.
+
+`effective_global_batch_size` must be divisible by
+`batch_size * world_size`. If the requested world size is incompatible, the
+runner warns, preserves the user's batch size, and selects the largest smaller
+compatible world size. The warning recommends a compatible local batch size;
+Samudra never silently overrides that scientific choice. Fixed anchors stay on
+one GPU, using accumulation to preserve the configured effective global batch.
+
+Adaptive data parallelism is supported by the `local` and
+`slurm_allocation` executors. The separately submitted `slurm` executor rejects
+it because its array jobs do not share one allocation. Adaptive candidate
+training configs must use `backend: auto`, allowing the same saved candidate to
+run either as a single process or through the existing distributed
+initialization path.
+
+### Use a whole Slurm allocation for independent trials
+
+Include `search/slurm-allocation.yaml` to treat an existing Slurm job as a
+resource pool. This distinct executor launches concurrent, exclusive `srun`
+steps. A step uses one GPU by default or the planned GPU group when adaptive
+data parallelism is enabled. On a homogeneous multi-node allocation it
+derives total capacity from `SLURM_GPUS` or from
+`SLURM_NNODES * SLURM_GPUS_ON_NODE`; CPU cores are divided evenly among GPUs
+when Slurm exposes `SLURM_CPUS_ON_NODE`. It fails loudly outside an allocation.
+
+For example, Empire AI Alpha+ has eight H100 or H200 GPUs per HGX node. A batch
+allocation shaped like the following lets sixteen candidates occupy two nodes:
+
+```bash
+#!/bin/bash
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=1
+#SBATCH --gres=gpu:8
+#SBATCH --cpus-per-task=<all CPUs on one node>
+#SBATCH --mem=0
+
+module load <modules-needed-by-samudra>
+source <shared-x86-environment>/bin/activate
+python -m samudra.search path/to/search.yaml
+```
+
+Launch the controller directly from the batch script, as above. Do not wrap it
+in `srun`: the executor needs to create its own job steps. The source tree,
+Python executable, candidate configs, data, and output directory must be
+visible at the same paths on every node. Alpha is x86_64; an environment built
+for Alpha must not be reused on Empire's ARM systems. Use an architecture-
+appropriate environment or multi-architecture container for those systems.
+
+The Slurm-allocation executor is synchronous: the allocation remains active
+through every rung, and a worker failure stops promotion after the other
+running workers have exited. For separately queued, resumable jobs and
+controller dependencies, use the regular Slurm executor instead.
 
 Clusters that expose the container runtime through environment modules should
 set `executor.apptainer_module` to the exact loadable module name (for example,

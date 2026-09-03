@@ -6,6 +6,8 @@ import json
 import logging
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any, cast
 
 import pandas as pd
 import pytest
@@ -23,11 +25,43 @@ from samudra.train import (
     should_log_validation_images,
     should_run_on_epoch_freq,
 )
-from samudra.utils.ctx import GridContext
+from samudra.utils.ctx import BatchGrid
 from samudra.utils.logging import handle_logging
 from samudra.utils.loss import DynamicLoss
 from samudra.utils.multiton import MultitonScope
 from tests.conftest import DEFAULT_CONFIG, SAMUDRA_MULTI_CONFIG, TrainPair
+
+
+def test_rollout_validation_passes_source_to_inference_dataset(monkeypatch):
+    validation_source = object()
+    captured_source = None
+
+    class EmptyInferenceDataset:
+        def __init__(self, *, source, **kwargs):
+            nonlocal captured_source
+            captured_source = source
+
+        def __len__(self):
+            return 0
+
+    trainer = cast(Any, object.__new__(Trainer))
+    trainer.rollout_validation = object()
+    trainer.data_bundle = SimpleNamespace(
+        train_sources=[object()], val_sources=[validation_source]
+    )
+    trainer.distributed = None
+    trainer.model = SimpleNamespace(eval=lambda: None)
+    trainer.prognostic_var_names = []
+    trainer.boundary_var_names = []
+    trainer.hist = 0
+    trainer.normalize_before_mask = True
+    trainer.masked_fill_value = 0.0
+
+    monkeypatch.setattr("samudra.train.InferenceDataset", EmptyInferenceDataset)
+    monkeypatch.setattr("samudra.train.is_main_process", lambda: True)
+
+    assert trainer.validate_rollout_one_epoch(epoch=1) == {}
+    assert captured_source is validation_source
 
 
 def test_handle_logging_replaces_handlers_between_local_jobs(tmp_path):
@@ -335,10 +369,10 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
     _, trainer = trainer_pair
 
     hist = trainer.hist
-    assert trainer.inference_src is not None
-    resolution = trainer.inference_src.resolution
-    wet = trainer.inference_src.masks.prognostic_with_hist(hist)
-    ctx = GridContext(wet, resolution, resolution).to(trainer.device)
+    assert trainer.inference_source is not None
+    resolution = trainer.inference_source.resolution
+    wet = trainer.inference_source.masks.prognostic_with_hist(hist)
+    ctx = BatchGrid(wet, resolution, resolution).to(trainer.device)
     data = trainer.inference_loader.dataset[0]
     inference_dataset, _num_steps = data
     prog, boundary, _label = inference_dataset[0]
@@ -426,7 +460,7 @@ def test_multiscale_training_validates_primary_source_and_logs_reduced_metrics(
         assert len(trainer.train_loader._datasets) == 2
         assert len(trainer.val_loader._datasets) == 1
         val_dataset = next(iter(trainer.val_loader._datasets.values()))
-        assert val_dataset.prognostic_src.grid_size == trainer.primary_src.grid_size
+        assert val_dataset.sources[0].grid_size == trainer.primary_source.grid_size
 
         class PerfectModel(BaseModel):
             def __init__(self):
@@ -455,9 +489,9 @@ def test_data_loaders_enable_persistent_workers_on_positive_num_workers(
 
     assert trainer.mp_context is not None
     assert trainer.mp_context.get_start_method() == "spawn"
-    assert trainer.train_loader._dataloader.persistent_workers is True
-    assert trainer.val_loader._dataloader.persistent_workers is True
-    assert trainer.inference_src is not None
+    assert trainer.train_loader._host_loader.persistent_workers is True
+    assert trainer.val_loader._host_loader.persistent_workers is True
+    assert trainer.inference_source is not None
 
 
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)
@@ -478,5 +512,5 @@ def test_data_loaders_disable_persistent_workers_when_num_workers_is_zero(
         trainer.init_data_loaders(cur_step=train_config.steps[0])
 
     assert trainer.mp_context is None
-    assert trainer.train_loader._dataloader.persistent_workers is False
-    assert trainer.val_loader._dataloader.persistent_workers is False
+    assert trainer.train_loader._host_loader.persistent_workers is False
+    assert trainer.val_loader._host_loader.persistent_workers is False

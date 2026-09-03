@@ -52,9 +52,44 @@ class SuccessiveHalvingConfig(BaseConfig):
         return self
 
 
+class SingleGpuResourceConfig(BaseConfig):
+    strategy: Literal["single_gpu"] = "single_gpu"
+
+
+class AdaptiveDataParallelResourceConfig(BaseConfig):
+    strategy: Literal["adaptive_data_parallel"] = "adaptive_data_parallel"
+    max_gpus_per_candidate: int = Field(ge=2)
+    effective_global_batch_size: int = Field(ge=1)
+    allowed_world_sizes: list[int] = Field(default_factory=lambda: [1, 2, 4, 8, 16])
+
+    @model_validator(mode="after")
+    def _validate_world_sizes(self) -> Self:
+        if self.allowed_world_sizes != sorted(set(self.allowed_world_sizes)):
+            raise ValueError("allowed_world_sizes must be increasing and unique")
+        if not self.allowed_world_sizes or self.allowed_world_sizes[0] != 1:
+            raise ValueError("allowed_world_sizes must start with 1")
+        if any(size < 1 for size in self.allowed_world_sizes):
+            raise ValueError("allowed_world_sizes must contain positive values")
+        return self
+
+
+ResourceConfig = Annotated[
+    SingleGpuResourceConfig | AdaptiveDataParallelResourceConfig,
+    Field(discriminator="strategy"),
+]
+
+
 class LocalExecutorConfig(BaseConfig):
     type: Literal["local"] = "local"
     output_dir: Path
+    max_concurrent: int | None = Field(default=None, ge=1)
+    dry_run: bool = False
+
+
+class SlurmAllocationExecutorConfig(BaseConfig):
+    type: Literal["slurm_allocation"] = "slurm_allocation"
+    output_dir: Path
+    max_concurrent: int | None = Field(default=None, ge=1)
     dry_run: bool = False
 
 
@@ -98,7 +133,7 @@ class SlurmExecutorConfig(BaseConfig):
 
 
 ExecutorConfig = Annotated[
-    LocalExecutorConfig | SlurmExecutorConfig,
+    LocalExecutorConfig | SlurmAllocationExecutorConfig | SlurmExecutorConfig,
     Field(discriminator="type"),
 ]
 AlgorithmConfig = SuccessiveHalvingConfig
@@ -126,6 +161,7 @@ class SearchConfig(TopLevelConfig):
     algorithm: AlgorithmConfig
     objective: ObjectiveConfig = Field(default_factory=ObjectiveConfig)
     metrics: list[str] = Field(default_factory=lambda: ["validation_loss"])
+    resources: ResourceConfig = Field(default_factory=SingleGpuResourceConfig)
     candidates: list[CandidateConfig] = Field(min_length=1)
     executor: ExecutorConfig
     artifacts: ArtifactConfig | None = None
@@ -163,7 +199,14 @@ class SearchConfig(TopLevelConfig):
             raise ValueError("executor.time_by_rung must have one value per rung")
         if isinstance(self.executor, SlurmExecutorConfig) and self.allow_dirty:
             raise ValueError(
-                "allow_dirty is only supported by the local executor; Slurm "
-                "searches require immutable code provenance"
+                "allow_dirty is not supported by the submitting Slurm executor; "
+                "queued searches require immutable code provenance"
+            )
+        if isinstance(
+            self.resources, AdaptiveDataParallelResourceConfig
+        ) and isinstance(self.executor, SlurmExecutorConfig):
+            raise ValueError(
+                "adaptive_data_parallel requires the local or slurm_allocation "
+                "executor; submitted Slurm arrays do not share an allocation"
             )
         return self

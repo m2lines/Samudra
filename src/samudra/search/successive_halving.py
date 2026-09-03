@@ -333,9 +333,7 @@ class SuccessiveHalving:
             train_config.experiment.wandb.mode = "disabled"
         tags = train_config.experiment.wandb.tags or []
         train_config.experiment.wandb.tags = list(
-            dict.fromkeys(
-                [*tags, "search", self.slug, self.run_id, resource_slug(name)]
-            )
+            dict.fromkeys([*tags, "search", self.slug, resource_slug(name)])
         )
         train_config.prepare_output_dirs()
         handle_logging(train_config.debug, train_config.experiment.output_dir)

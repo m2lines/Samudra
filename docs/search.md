@@ -317,11 +317,13 @@ boundary with a schema error instead of producing a later key error.
 ## W&B
 
 Each candidate uses the unique search run ID as its W&B group and receives the
-tags `search`, the stable search name, the run ID, and the candidate name. This
-makes repeated trials separately filterable while preserving a stable tag for
-cross-run comparisons. Search identity, rung, objective, epoch budget,
-executor, job ID, parent checkpoint, and the public artifact root are stored
-under `config.experiment.search`.
+tags `search`, the stable search name, and the candidate name. The timestamped
+run ID is deliberately omitted from tags because W&B limits tags to 64
+characters; it remains available as the group and in structured search
+metadata. This makes repeated trials separately filterable while preserving a
+stable tag for cross-run comparisons. Search identity, rung, objective, epoch
+budget, executor, job ID, parent checkpoint, and the public artifact root are
+stored under `config.experiment.search`.
 Promoted rungs resume the same W&B run from the checkpoint, preserving one
 continuous learning curve per candidate.
 

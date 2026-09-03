@@ -45,18 +45,48 @@ rung zero are co-scheduled, and each later rung uses up to the same GPU
 capacity. Set `executor.max_concurrent` only when memory, CPU, storage, or
 service limits require using fewer than the available GPUs.
 
-Every candidate remains a single-GPU experiment in every rung. The executor
-does not assign extra GPUs to survivors as the candidate population shrinks:
-doing so would change global batch size and optimizer steps per epoch midway
-through a resumed training trajectory. Adaptive multi-GPU trials need an
-explicit policy for batch size, learning rate, and epoch accounting rather than
-being inferred from momentarily idle hardware.
+By default, every candidate remains a single-GPU experiment in every rung. To
+assign newly idle GPUs to survivors without changing the scientific training
+trajectory, opt in to adaptive data parallelism:
+
+```yaml
+resources:
+  strategy: adaptive_data_parallel
+  max_gpus_per_candidate: 16
+  effective_global_batch_size: 64
+  allowed_world_sizes: [1, 2, 4, 8, 16]
+```
+
+For each rung, the executor selects the largest allowed world size that fits
+the allocation and the number of candidates allowed to run concurrently. It
+keeps each candidate's configured `batch_size`, adjusts only
+`gradient_accumulation_steps`, and uses a fixed-global-batch sampler. Thus the
+same shuffled examples form each optimizer update even when a promoted
+candidate moves from one GPU to two, four, or more. Learning-rate and scheduler
+configuration remain unchanged because the effective global batch and number
+of optimizer updates per epoch remain unchanged. The selected plan is recorded
+in `state.json` and reused on retries.
+
+`effective_global_batch_size` must be divisible by
+`batch_size * world_size`. If the requested world size is incompatible, the
+runner warns, preserves the user's batch size, and selects the largest smaller
+compatible world size. The warning recommends a compatible local batch size;
+Samudra never silently overrides that scientific choice. Fixed anchors stay on
+one GPU, using accumulation to preserve the configured effective global batch.
+
+Adaptive data parallelism is supported by the `local` and
+`slurm_allocation` executors. The separately submitted `slurm` executor rejects
+it because its array jobs do not share one allocation. Adaptive candidate
+training configs must use `backend: auto`, allowing the same saved candidate to
+run either as a single process or through the existing distributed
+initialization path.
 
 ### Use a whole Slurm allocation for independent trials
 
 Include `search/slurm-allocation.yaml` to treat an existing Slurm job as a
 resource pool. This distinct executor launches concurrent, exclusive `srun`
-steps with one task and one GPU each. On a homogeneous multi-node allocation it
+steps. A step uses one GPU by default or the planned GPU group when adaptive
+data parallelism is enabled. On a homogeneous multi-node allocation it
 derives total capacity from `SLURM_GPUS` or from
 `SLURM_NNODES * SLURM_GPUS_ON_NODE`; CPU cores are divided evenly among GPUs
 when Slurm exposes `SLURM_CPUS_ON_NODE`. It fails loudly outside an allocation.

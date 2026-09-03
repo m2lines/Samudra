@@ -1048,6 +1048,11 @@ class SearchRunConfig(BaseConfig):
     artifacts_uri: str | None = None
     job_id: str | None = None
     parent_checkpoint: str | None = None
+    world_size: int = Field(default=1, ge=1)
+    local_batch_size: int = Field(default=1, ge=1)
+    gradient_accumulation_steps: int = Field(default=1, ge=1)
+    effective_global_batch_size: int = Field(default=1, ge=1)
+    adaptive_data_parallel: bool = False
 
 
 class ExperimentConfig(BaseConfig):

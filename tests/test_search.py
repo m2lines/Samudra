@@ -3,7 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import json
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -12,13 +14,18 @@ from pydantic import ValidationError
 
 from samudra.config import TrainConfig
 from samudra.search import SearchConfig
-from samudra.search.config import ArtifactConfig, SlurmExecutorConfig
+from samudra.search.config import (
+    AdaptiveDataParallelResourceConfig,
+    ArtifactConfig,
+    SlurmExecutorConfig,
+)
 from samudra.search.executors import (
     LocalExecutor,
     SlurmAllocationExecutor,
     SlurmExecutor,
 )
 from samudra.search.executors.pool import PoolExecutor, Task
+from samudra.search.node_launcher import main as node_launcher_main
 from samudra.utils.location import S3Location
 from samudra.utils.schedule import CosineSchedulerConfig
 from samudra.utils.training_summary import (
@@ -123,6 +130,18 @@ def test_slurm_rejects_dirty_worktree_before_submission(tmp_path):
     value["allow_dirty"] = True
 
     with pytest.raises(ValidationError, match="not supported by the submitting Slurm"):
+        SearchConfig.model_validate(value)
+
+
+def test_submitted_slurm_rejects_adaptive_data_parallelism(tmp_path):
+    value = config(tmp_path, executor="slurm").model_dump(mode="json")
+    value["resources"] = {
+        "strategy": "adaptive_data_parallel",
+        "max_gpus_per_candidate": 8,
+        "effective_global_batch_size": 64,
+    }
+
+    with pytest.raises(ValidationError, match="do not share an allocation"):
         SearchConfig.model_validate(value)
 
 
@@ -768,6 +787,123 @@ def test_local_executor_preserves_visible_gpu_identifiers(tmp_path, monkeypatch)
     assert all("samudra.search.worker" in command for command, _ in calls)
 
 
+def test_local_executor_launches_one_torchrun_across_reserved_gpus(
+    tmp_path, monkeypatch
+):
+    search = config(tmp_path).build()
+    assert isinstance(search.executor, LocalExecutor)
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "GPU-a,GPU-b,GPU-c,GPU-d")
+    calls = []
+    monkeypatch.setattr(
+        "samudra.search.executors.local.subprocess.run",
+        lambda command, *, check, env: calls.append((command, env)),
+    )
+
+    search.executor._run_tasks([Task(rung=1, task=0, anchor=False, world_size=4)])
+
+    command, environment = calls[0]
+    assert "torch.distributed.run" in command
+    assert "--nproc-per-node=4" in command
+    assert environment["CUDA_VISIBLE_DEVICES"] == "GPU-a,GPU-b,GPU-c,GPU-d"
+    assert "SAMUDRA_DISABLE_DISTRIBUTED" not in environment
+
+
+def test_slurm_allocation_launches_multi_node_torchrun(tmp_path, monkeypatch):
+    search = config(tmp_path, executor="slurm_allocation").build()
+    assert isinstance(search.executor, SlurmAllocationExecutor)
+    monkeypatch.setenv("SLURM_JOB_ID", "123")
+    monkeypatch.setenv("SLURM_NNODES", "2")
+    monkeypatch.setenv("SLURM_GPUS_ON_NODE", "8")
+    monkeypatch.setenv("SLURM_CPUS_ON_NODE", "128")
+    calls = []
+    monkeypatch.setattr(
+        "samudra.search.executors.slurm_allocation.subprocess.run",
+        lambda command, *, check, env: calls.append((command, env)),
+    )
+
+    search.executor._run_slurm_task(Task(rung=1, task=0, anchor=False, world_size=16))
+
+    command, environment = calls[0]
+    assert "--nodes=2" in command
+    assert "--ntasks=2" in command
+    assert "--gpus-per-task=8" in command
+    assert "samudra.search.node_launcher" in command
+    assert "--nnodes=2" in command
+    assert "--nproc-per-node=8" in command
+    assert "SAMUDRA_DISABLE_DISTRIBUTED" not in environment
+
+
+def test_node_launcher_maps_slurm_node_rank_to_torchrun(monkeypatch):
+    monkeypatch.setenv("SLURM_STEP_NODELIST", "node-[01-02]")
+    monkeypatch.setenv("SLURM_NODEID", "1")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "node_launcher",
+            "--nnodes=2",
+            "--nproc-per-node=8",
+            "--master-port=23456",
+            "task",
+            "config.yaml",
+            "state.json",
+            "1",
+            "0",
+        ],
+    )
+    commands = []
+
+    def run(command, **kwargs):
+        if command[0] == "scontrol":
+            return SimpleNamespace(stdout="node-01\nnode-02\n")
+        commands.append(command)
+        return SimpleNamespace()
+
+    monkeypatch.setattr("samudra.search.node_launcher.subprocess.run", run)
+
+    node_launcher_main()
+
+    command = commands[0]
+    assert "--node-rank=1" in command
+    assert "--master-addr=node-01" in command
+    assert "--master-port=23456" in command
+    assert command[-5:] == ["task", "config.yaml", "state.json", "1", "0"]
+
+
+def test_adaptive_resource_plan_is_reused_on_submission_retry(tmp_path, monkeypatch):
+    search = config(tmp_path).build()
+    search.config.resources = AdaptiveDataParallelResourceConfig(
+        max_gpus_per_candidate=4,
+        effective_global_batch_size=32,
+    )
+    search.config.executor.dry_run = True
+    search.search_dir.mkdir(parents=True)
+    state = search_state(search, status="prepared")
+    state["rungs"][0]["candidates"] = ["a"]
+    search.write_state(state)
+    calls = 0
+
+    def plan_resources(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        return {
+            "a": {
+                "world_size": 4,
+                "local_batch_size": 2,
+                "gradient_accumulation_steps": 4,
+                "effective_global_batch_size": 32,
+            }
+        }
+
+    monkeypatch.setattr(search, "plan_resources", plan_resources)
+
+    search.executor.submit_rung(state, 0)
+    search.executor.submit_rung(search.read_state(), 0)
+
+    assert calls == 1
+    assert search.read_state()["rungs"][0]["resources"]["a"]["world_size"] == 4
+
+
 def test_local_executor_keeps_later_rung_trials_on_one_gpu(tmp_path, monkeypatch):
     search = config(tmp_path).build()
     assert isinstance(search.executor, LocalExecutor)
@@ -933,6 +1069,11 @@ def test_task_builds_train_config_and_calls_trainer_directly(tmp_path, monkeypat
         [str(Path("tests/configs/train_default.yaml").resolve())]
     )
     candidate_config.scheduler = CosineSchedulerConfig()
+    effective_batch_size = candidate_config.batch_size * 4 * 3
+    search_config.resources = AdaptiveDataParallelResourceConfig(
+        max_gpus_per_candidate=4,
+        effective_global_batch_size=effective_batch_size,
+    )
     candidate_path = tmp_path / "candidate.yaml"
     candidate_path.write_text(
         yaml.safe_dump(candidate_config.model_dump(mode="json")), encoding="utf-8"
@@ -944,6 +1085,14 @@ def test_task_builds_train_config_and_calls_trainer_directly(tmp_path, monkeypat
     search.search_dir.mkdir(parents=True)
     state = search_state(search)
     state["rungs"][0]["candidates"] = ["a"]
+    state["rungs"][0]["resources"] = {
+        "a": {
+            "world_size": 4,
+            "local_batch_size": candidate_config.batch_size,
+            "gradient_accumulation_steps": 3,
+            "effective_global_batch_size": effective_batch_size,
+        }
+    }
     search.write_state(state)
     received = []
 
@@ -970,7 +1119,14 @@ def test_task_builds_train_config_and_calls_trainer_directly(tmp_path, monkeypat
     assert train_config.epochs == 1
     assert train_config.scheduler is not None
     assert train_config.scheduler.target_epochs == 3
+    assert train_config.batch_size == candidate_config.batch_size
+    assert train_config.gradient_accumulation_steps == 3
     assert train_config.experiment.search.candidate == "a"
+    assert train_config.experiment.search.world_size == 4
+    assert train_config.experiment.search.effective_global_batch_size == (
+        effective_batch_size
+    )
+    assert train_config.experiment.search.adaptive_data_parallel is True
     assert train_config.experiment.search.artifacts_uri == str(
         tmp_path / "published/test-search--run"
     )

@@ -11,7 +11,7 @@ import os
 import sys
 from abc import abstractmethod
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -97,13 +97,32 @@ class PoolExecutor(Executor):
         items: list[Task], concurrency: int, runner: Callable[[Task], None]
     ) -> None:
         errors: list[Exception] = []
-        with ThreadPoolExecutor(max_workers=max(1, concurrency)) as pool:
-            futures = [pool.submit(runner, item) for item in items]
-            for future in as_completed(futures):
-                try:
-                    future.result()
-                except Exception as error:
-                    errors.append(error)
+        pending_items = iter(items)
+        worker_count = max(1, concurrency)
+        with ThreadPoolExecutor(max_workers=worker_count) as pool:
+            futures: set[Future[None]] = set()
+            for item in pending_items:
+                futures.add(pool.submit(runner, item))
+                if len(futures) == worker_count:
+                    break
+
+            while futures:
+                completed, futures = wait(futures, return_when=FIRST_COMPLETED)
+                for future in completed:
+                    try:
+                        future.result()
+                    except Exception as error:
+                        errors.append(error)
+                if errors:
+                    for future in futures:
+                        future.cancel()
+                    break
+                for _ in completed:
+                    try:
+                        item = next(pending_items)
+                    except StopIteration:
+                        break
+                    futures.add(pool.submit(runner, item))
         if errors:
             raise errors[0]
 

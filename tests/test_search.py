@@ -18,6 +18,7 @@ from samudra.search.executors import (
     SlurmAllocationExecutor,
     SlurmExecutor,
 )
+from samudra.search.executors.pool import PoolExecutor, Task
 from samudra.utils.location import S3Location
 from samudra.utils.schedule import CosineSchedulerConfig
 from samudra.utils.training_summary import (
@@ -676,6 +677,23 @@ def test_local_executor_coschedules_anchors_and_first_rung(tmp_path, monkeypatch
     saved = search.read_state()
     assert saved["anchors"]["job_id"] == "local"
     assert saved["rungs"][0]["job_id"] == "local"
+
+
+def test_pool_stops_launching_queued_tasks_after_worker_failure():
+    started = []
+
+    def run(task: Task) -> None:
+        started.append(task.task)
+        if task.task == 0:
+            raise RuntimeError("candidate failed")
+
+    tasks = [Task(rung=0, task=task, anchor=False) for task in range(5)]
+
+    with pytest.raises(RuntimeError, match="candidate failed"):
+        PoolExecutor._run_concurrently(tasks, concurrency=2, runner=run)
+
+    assert 0 in started
+    assert set(started) <= {0, 1}
 
 
 def test_slurm_allocation_executor_uses_exclusive_gpu_steps(tmp_path, monkeypatch):

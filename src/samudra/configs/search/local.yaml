@@ -4,5 +4,5 @@
 
 type: local
 output_dir: .LOCAL/searches
-# By default, use every visible GPU (including GPUs across a Slurm allocation).
+# By default, use every GPU visible to the current machine.
 # max_concurrent: 4

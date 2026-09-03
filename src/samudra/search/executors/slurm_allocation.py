@@ -50,6 +50,21 @@ def cpus_per_gpu() -> int:
     return max(1, cpus // gpus)
 
 
+def step_memory_arguments(*, gpus: int) -> list[str]:
+    """Request the task's proportional share of node memory, when known.
+
+    Without an explicit step memory request, Slurm may assign the entire batch
+    allocation's memory to the first exclusive step and serialize otherwise
+    independent GPU workers.
+    """
+    memory_per_node = _positive_int_environment("SLURM_MEM_PER_NODE")
+    allocated_gpus = _positive_int_environment("SLURM_GPUS_ON_NODE")
+    if memory_per_node is None or allocated_gpus is None:
+        return []
+    memory = max(1, memory_per_node * gpus // allocated_gpus)
+    return [f"--mem={memory}M"]
+
+
 class SlurmAllocationExecutor(PoolExecutor):
     """Use exclusive one-GPU job steps within the current allocation."""
 
@@ -93,6 +108,7 @@ class SlurmAllocationExecutor(PoolExecutor):
                 "--ntasks=1",
                 f"--cpus-per-task={cpus_per_gpu()}",
                 "--gpus-per-task=1",
+                *step_memory_arguments(gpus=1),
                 "--gpu-bind=single:1",
                 *self._worker_command(task),
             ],

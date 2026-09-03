@@ -706,6 +706,7 @@ def test_slurm_allocation_executor_uses_exclusive_gpu_steps(tmp_path, monkeypatc
     monkeypatch.setenv("SLURM_NNODES", "2")
     monkeypatch.setenv("SLURM_GPUS_ON_NODE", "8")
     monkeypatch.setenv("SLURM_CPUS_ON_NODE", "128")
+    monkeypatch.setenv("SLURM_MEM_PER_NODE", "1048576")
     monkeypatch.setenv("RANK", "0")
     monkeypatch.setenv("WORLD_SIZE", "16")
     monkeypatch.delenv("SLURM_STEP_ID", raising=False)
@@ -730,6 +731,7 @@ def test_slurm_allocation_executor_uses_exclusive_gpu_steps(tmp_path, monkeypatc
     )
     assert all("--gpus-per-task=1" in command for command in commands)
     assert all("--cpus-per-task=16" in command for command in commands)
+    assert all("--mem=131072M" in command for command in commands)
     assert all(env["SAMUDRA_DISABLE_DISTRIBUTED"] == "1" for env in environments)
     assert all("RANK" not in env and "WORLD_SIZE" not in env for env in environments)
 

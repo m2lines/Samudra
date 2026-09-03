@@ -59,7 +59,10 @@ resource pool. This distinct executor launches concurrent, exclusive `srun`
 steps with one task and one GPU each. On a homogeneous multi-node allocation it
 derives total capacity from `SLURM_GPUS` or from
 `SLURM_NNODES * SLURM_GPUS_ON_NODE`; CPU cores are divided evenly among GPUs
-when Slurm exposes `SLURM_CPUS_ON_NODE`. It fails loudly outside an allocation.
+when Slurm exposes `SLURM_CPUS_ON_NODE`. Step memory is divided proportionally
+from `SLURM_MEM_PER_NODE` (or `SLURM_MEM_PER_CPU`) so one worker does not reserve
+the entire allocation's memory and serialize the GPU pool. It fails loudly
+outside an allocation.
 
 For example, Empire AI Alpha+ has eight H100 or H200 GPUs per HGX node. A batch
 allocation shaped like the following lets sixteen candidates occupy two nodes:

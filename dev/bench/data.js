@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788478013035,
+  "lastUpdate": 1788478019720,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -23839,6 +23839,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.18107054592734884",
             "extra": "mean: 41.343806805999996 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "718f8fa6a6a28efd95100f953171b83fa20cb754",
+          "message": "Fix freshwater donor CLI routing (#867)\n\n## Summary\n\n- make `wfo_source_path` an explicit top-level preprocessing CLI option\n- keep it out of arbitrary Dask `cluster_opts`\n- use the stored option when running the OM4 subcommand\n- add a regression test proving the donor path is not forwarded to\n`LocalCluster`\n\n## Context\n\nThe September data-release smoke job caught this before any output was\nwritten. Python Fire routed the OM4 method flag into the class\nconstructor's `**cluster_opts`, causing Dask workers to fail with\n`Server.__init__() got an unexpected keyword argument\n'wfo_source_path'`.\n\n## Tests\n\n- `PYTHONPATH=data pytest -q data/tests/test_main.py\ndata/tests/test_simulation_preprocessing.py\ndata/tests/test_slurm_harness.py`\n- `uvx pre-commit run --all-files`",
+          "timestamp": "2026-09-03T22:50:55Z",
+          "tree_id": "ffbf7f9bff27604b373b7f4eb11a4308f7e47163",
+          "url": "https://github.com/m2lines/Samudra/commit/718f8fa6a6a28efd95100f953171b83fa20cb754"
+        },
+        "date": 1788478019300,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.151716736355921,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0012346646184462533",
+            "extra": "mean: 868.2690529999945 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.08204922620163406,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09053723270168446",
+            "extra": "mean: 12.187805373600032 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.024355438759827902,
+            "unit": "iter/sec",
+            "range": "stddev: 0.27571832741890806",
+            "extra": "mean: 41.05859105480003 sec\nrounds: 5"
           }
         ]
       }

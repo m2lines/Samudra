@@ -4,14 +4,19 @@
 
 """Run independent search trials on one local machine."""
 
+from __future__ import annotations
+
 import os
 import subprocess
 from queue import SimpleQueue
+from typing import TYPE_CHECKING, cast
 
 import torch
 
-from samudra.search.config import LocalExecutorConfig
 from samudra.search.executors.pool import PoolExecutor, Task
+
+if TYPE_CHECKING:
+    from samudra.search.config import LocalExecutorConfig
 
 
 def visible_devices() -> list[str]:
@@ -30,9 +35,9 @@ class LocalExecutor(PoolExecutor):
     @property
     def config(self) -> LocalExecutorConfig:
         config = self.search.config.executor
-        if not isinstance(config, LocalExecutorConfig):
+        if config.type != "local":
             raise TypeError("LocalExecutor requires a LocalExecutorConfig")
-        return config
+        return cast("LocalExecutorConfig", config)
 
     @property
     def job_id(self) -> str:

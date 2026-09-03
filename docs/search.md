@@ -40,10 +40,12 @@ rung; users do not manually advance the search. For a local laptop,
 workstation, or Colab notebook, include `search/local.yaml` instead of
 `search/torch.yaml`. The local executor runs one isolated candidate process per
 visible GPU and never interprets scheduler environment variables. With no GPU
-it runs candidates sequentially in the controller process. Fixed anchors and
-rung zero are co-scheduled, and each later rung uses up to the same GPU
-capacity. Set `executor.max_concurrent` only when memory, CPU, storage, or
-service limits require using fewer than the available GPUs.
+it runs candidates sequentially in the controller process. It is also the
+simplest choice inside a single-node Slurm allocation when the batch shell sees
+all allocated GPUs; use `slurm_allocation` when trials must reach other nodes.
+Fixed anchors and rung zero are co-scheduled, and each later rung uses up to the
+same GPU capacity. Set `executor.max_concurrent` only when memory, CPU, storage,
+or service limits require using fewer than the available GPUs.
 
 Every candidate remains a single-GPU experiment in every rung. The executor
 does not assign extra GPUs to survivors as the candidate population shrinks:
@@ -60,7 +62,7 @@ steps with one task and one GPU each. On a homogeneous multi-node allocation it
 derives total capacity from `SLURM_GPUS` or from
 `SLURM_NNODES * SLURM_GPUS_ON_NODE`; CPU cores are divided evenly among GPUs
 when Slurm exposes `SLURM_CPUS_ON_NODE`. Step memory is divided proportionally
-from `SLURM_MEM_PER_NODE` (or `SLURM_MEM_PER_CPU`) so one worker does not reserve
+from `SLURM_MEM_PER_NODE` when Slurm exposes it, so one worker does not reserve
 the entire allocation's memory and serialize the GPU pool. It fails loudly
 outside an allocation.
 

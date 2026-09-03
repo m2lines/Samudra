@@ -4,11 +4,16 @@
 
 """Run independent search trials inside an existing Slurm allocation."""
 
+from __future__ import annotations
+
 import os
 import subprocess
+from typing import TYPE_CHECKING, cast
 
-from samudra.search.config import SlurmAllocationExecutorConfig
 from samudra.search.executors.pool import PoolExecutor, Task
+
+if TYPE_CHECKING:
+    from samudra.search.config import SlurmAllocationExecutorConfig
 
 
 def _positive_int_environment(name: str) -> int | None:
@@ -51,11 +56,11 @@ class SlurmAllocationExecutor(PoolExecutor):
     @property
     def config(self) -> SlurmAllocationExecutorConfig:
         config = self.search.config.executor
-        if not isinstance(config, SlurmAllocationExecutorConfig):
+        if config.type != "slurm_allocation":
             raise TypeError(
                 "SlurmAllocationExecutor requires a SlurmAllocationExecutorConfig"
             )
-        return config
+        return cast("SlurmAllocationExecutorConfig", config)
 
     @property
     def job_id(self) -> str:

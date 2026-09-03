@@ -45,6 +45,13 @@ rung zero are co-scheduled, and each later rung uses up to the same GPU
 capacity. Set `executor.max_concurrent` only when memory, CPU, storage, or
 service limits require using fewer than the available GPUs.
 
+Every candidate remains a single-GPU experiment in every rung. The executor
+does not assign extra GPUs to survivors as the candidate population shrinks:
+doing so would change global batch size and optimizer steps per epoch midway
+through a resumed training trajectory. Adaptive multi-GPU trials need an
+explicit policy for batch size, learning rate, and epoch accounting rather than
+being inferred from momentarily idle hardware.
+
 ### Use a whole Slurm allocation for independent trials
 
 Include `search/slurm-allocation.yaml` to treat an existing Slurm job as a

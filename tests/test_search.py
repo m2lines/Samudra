@@ -750,6 +750,31 @@ def test_local_executor_preserves_visible_gpu_identifiers(tmp_path, monkeypatch)
     assert all("samudra.search.worker" in command for command, _ in calls)
 
 
+def test_local_executor_keeps_later_rung_trials_on_one_gpu(tmp_path, monkeypatch):
+    search = config(tmp_path).build()
+    assert isinstance(search.executor, LocalExecutor)
+    state = search_state(search)
+    state["rungs"][1]["candidates"] = ["a", "b", "c", "d"]
+    search.search_dir.mkdir(parents=True)
+    search.write_state(state)
+    monkeypatch.setenv(
+        "CUDA_VISIBLE_DEVICES", ",".join(f"GPU-{index}" for index in range(8))
+    )
+    visible_devices = []
+
+    def run(command, *, check, env):
+        visible_devices.append(env["CUDA_VISIBLE_DEVICES"])
+
+    monkeypatch.setattr("samudra.search.executors.local.subprocess.run", run)
+    monkeypatch.setattr(search, "advance", lambda rung: None)
+
+    search.executor.submit_rung(state, 1)
+
+    assert len(visible_devices) == 4
+    assert all("," not in device for device in visible_devices)
+    assert len(set(visible_devices)) == 4
+
+
 def test_advance_retry_finishes_publication_and_submission(tmp_path, monkeypatch):
     search = config(tmp_path).build()
     search.search_dir.mkdir(parents=True)

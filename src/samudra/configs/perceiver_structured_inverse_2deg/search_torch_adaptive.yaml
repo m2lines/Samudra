@@ -25,7 +25,9 @@ resources:
   allowed_world_sizes: [1, 2, 4, 8]
 
 executor:
-  type: slurm_allocation
+  # The controller itself runs inside one Slurm allocation. The local pool
+  # assigns disjoint CUDA_VISIBLE_DEVICES subsets to concurrent workers.
+  type: local
   output_dir: /scratch/am16581/searches
   max_concurrent: 8
 

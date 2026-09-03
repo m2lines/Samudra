@@ -1136,6 +1136,7 @@ def test_task_builds_train_config_and_calls_trainer_directly(tmp_path, monkeypat
     )
     assert train_config.experiment.wandb.group == "test-search--run"
     assert "search" in train_config.experiment.wandb.tags
+    assert "test-search--run" not in train_config.experiment.wandb.tags
     assert received[1] == "run"
 
 

@@ -89,6 +89,15 @@ visible at the same paths on every node. Alpha is x86_64; an environment built
 for Alpha must not be reused on Empire's ARM systems. Use an architecture-
 appropriate environment or multi-architecture container for those systems.
 
+Before relying on allocation-wide pooling, verify that the target cluster
+admits concurrent exclusive job steps. Some Slurm installations serialize
+nested `srun` steps even when their GPU, CPU, and memory requests do not
+overlap. From an interactive allocation, a useful smoke check is to start two
+exclusive one-GPU `srun` commands concurrently and confirm with `squeue --steps`
+that both enter `RUNNING`. This scheduler policy cannot be inferred from the
+allocation environment. On a single node where the batch shell sees every
+allocated GPU, use the `local` executor if concurrent job steps are unavailable.
+
 The Slurm-allocation executor is synchronous: the allocation remains active
 through every rung, and a worker failure stops promotion after the other
 running workers have exited. For separately queued, resumable jobs and

@@ -22,8 +22,8 @@ def _resolve_variant(variant: str) -> subprocess.CompletedProcess[str]:
             "bash",
             "-c",
             'source "$1"; resolve_om4_data_variant || exit $?; '
-            'printf "%s|%s|%s" "$DATA_VARIANT" "$OM4_SOURCE_STORE" '
-            '"$OM4_OUTPUT_SUFFIX"',
+            'printf "%s|%s|%s|%s" "$DATA_VARIANT" "$OM4_SOURCE_STORE" '
+            '"$OM4_OUTPUT_SUFFIX" "$OM4_WFO_SOURCE_STORE"',
             "bash",
             str(VARIANT_SCRIPT),
         ],
@@ -37,8 +37,11 @@ def _resolve_variant(variant: str) -> subprocess.CompletedProcess[str]:
 @pytest.mark.parametrize(
     ("variant", "expected"),
     [
-        ("averaged", "averaged|om4_5daily.zarr|"),
-        ("snapshots", "snapshots|om4_5daily_snapshots.zarr|_snapshots"),
+        (
+            "averaged",
+            "averaged|om4_5daily.zarr||om4_5daily_snapshots.zarr",
+        ),
+        ("snapshots", "snapshots|om4_5daily_snapshots.zarr|_snapshots|"),
     ],
 )
 def test_om4_data_variant(variant, expected):

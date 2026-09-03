@@ -28,6 +28,7 @@ from ocean_preprocessing.dataset_validation import (
     ds_flattened_input_validate,
     ds_input_validate,
     ds_processed_validate,
+    require_om4_publication_freshwater_flux,
 )
 from ocean_preprocessing.plotting import rotated_vectors_qc_plots
 from ocean_preprocessing.preprocessing import (
@@ -279,6 +280,7 @@ class CLI:
         nc_mosaic_path: str,
         target_grid_path: str,
         spatial_filter_scale: None | int = None,
+        wfo_source_path: str | None = None,
     ) -> None:
         """Process the OM4 oceans dataset (the ocean component of CMIP).
 
@@ -324,11 +326,21 @@ class CLI:
                 scale determination. When spatial filtering is performed (not --skip-spatial-filtering),
                 this value will be used instead of the scale inferred from the target grid name.
                 By default (None), the scale is automatically estimated from the target grid basename.
+            wfo_source_path: Optional OM4 Zarr store containing five-day-mean ``wfo``
+                on the recipient's native grid and intervals. Its end-of-interval time
+                labels are validated against ``zarr_data_path`` before transplantation.
         """
         logger.info("preprocessing.")
         ds_processed = om4_preprocessing(
-            zarr_data_path, native_grid_path, nc_mosaic_path
+            zarr_data_path,
+            native_grid_path,
+            nc_mosaic_path,
+            wfo_source_path=wfo_source_path,
         )
+        # This publication-specific invariant must run even when expensive
+        # schema/deep validation is disabled. Shared validators remain backward
+        # compatible with legacy OM4 and CM4 datasets that predate wfo.
+        require_om4_publication_freshwater_flux(ds_processed)
         if self.small_run:
             logger.info("**small-run**: filtering data to 10 time steps.")
             ds_processed = ds_processed.isel(time=slice(0, 10))
@@ -462,6 +474,12 @@ class CLI:
         ds_input.attrs["m2lines/samudra_git_hash"] = git_hash
         ds_input.attrs["m2lines/date_created"] = datetime.datetime.now().isoformat()
         ds_input.attrs["m2lines/cli_args"] = " ".join(sys.argv)
+        for attr in (
+            "m2lines/wfo_surgery_source",
+            "m2lines/wfo_surgery_alignment",
+        ):
+            if attr in ds_processed.attrs:
+                ds_input.attrs[attr] = ds_processed.attrs[attr]
         # Horizontal grid geometry: this pipeline conservatively regrids onto a
         # regular (rectilinear) lat-lon grid, so downstream code may treat the 2-D
         # lat/lon as separable. Curvilinear (e.g. tripolar) outputs must set this to

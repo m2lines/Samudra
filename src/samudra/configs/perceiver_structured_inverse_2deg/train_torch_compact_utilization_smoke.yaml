@@ -22,14 +22,14 @@ step_transition: []
 preemptible: false
 backend: auto
 experiment:
-  name: perceiver-compact-utilization-smoke
+  name: perceiver-node-local-utilization-smoke
   rand_seed: 15
   base_output_dir: .LOCAL
   wandb:
     mode: online
     entity: ocean_emulators
     project: default
-    tags: [torch, om4-2deg, utilization-smoke, batch16, compact-zarr]
-    notes: One-GPU compact-layout utilization probe with batch 16, accumulation 2, and eight loader workers.
+    tags: [torch, om4-2deg, utilization-smoke, batch16, node-local-zarr]
+    notes: One-GPU node-local flat-Zarr probe with batch 16, accumulation 2, and eight loader workers.
 data: !include data_torch_compact_utilization_smoke.yaml
 model: !include model.yaml

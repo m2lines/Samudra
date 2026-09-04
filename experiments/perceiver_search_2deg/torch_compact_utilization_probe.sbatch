@@ -4,7 +4,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# Build the compact smoke slice once, then measure training in the same
+# Build the flat-channel smoke slice once, then measure training in the same
 # allocation. The immutable source checkout lives on node-local storage so a
 # congested shared filesystem cannot stall Git/Python source metadata reads.
 
@@ -18,7 +18,7 @@ set -euo pipefail
 
 node_root="${TMPDIR:-/tmp}/samudra-utilization-${SLURM_JOB_ID:-local}"
 repo="$node_root/repo"
-compact_data_root="$node_root/data"
+staged_data_root="$node_root/data"
 runtime_search="$node_root/search.yaml"
 mkdir -p "$repo"
 
@@ -31,9 +31,9 @@ fi
 
 export PYTHONPATH="$repo/src"
 
-if [[ ! -f "$compact_data_root/_SUCCESS" ]]; then
-  test ! -e "$compact_data_root"
-  "$PYTHON" - "$SOURCE_DATA_ROOT" "$compact_data_root" <<'PY'
+if [[ ! -f "$staged_data_root/_SUCCESS" ]]; then
+  test ! -e "$staged_data_root"
+  "$PYTHON" - "$SOURCE_DATA_ROOT" "$staged_data_root" <<'PY'
 import os
 import pathlib
 import sys
@@ -55,17 +55,8 @@ with dask.config.set(scheduler="threads", num_workers=workers):
         )
         if name == "OM4":
             data = data.isel(time=slice(1240, 1830))
-        for base_name in ("uo", "vo", "thetao", "so"):
-            level_names = [f"{base_name}_{level}" for level in range(19)]
-            if not all(level_name in data for level_name in level_names):
-                continue
-            levels = data.coords.get("lev", xr.DataArray(range(19))).values
-            data[base_name] = xr.concat(
-                [data[level_name] for level_name in level_names], dim="lev"
-            ).assign_coords(lev=("lev", levels))
-            data = data.drop_vars(level_names)
         if name == "OM4":
-            data = data.chunk({"time": 1, "lev": 19})
+            data = data.chunk({"time": 1})
         data.to_zarr(os.path.join(destination_root, f"{name}.zarr"))
 
 pathlib.Path(destination_root, "_SUCCESS").touch()
@@ -74,7 +65,7 @@ fi
 
 cd "$repo"
 sed \
-  -e "s|__COMPACT_DATA_ROOT__|$compact_data_root|g" \
+  -e "s|__COMPACT_DATA_ROOT__|$staged_data_root|g" \
   -e "s|../search/osn-artifacts.yaml|$repo/src/samudra/configs/search/osn-artifacts.yaml|g" \
   "$repo/$SEARCH_CONFIG" > "$runtime_search"
 exec "$PYTHON" -m samudra.search "$runtime_search"

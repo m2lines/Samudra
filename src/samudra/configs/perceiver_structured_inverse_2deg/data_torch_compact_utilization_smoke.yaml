@@ -14,8 +14,7 @@ sources:
     val_time: {start: "1982-01-03", end: "1983-01-03"}
     inference_times:
       - {start: "1983-01-03", end: "1983-02-02"}
-    # This smoke clone stores each depth-resolved field as one compact Zarr
-    # variable. CanonicalReader still exposes the identical flattened channels.
+    # The wrapper stages this unchanged flat-channel slice on node-local SSD.
     data_location:
       type: local
       path: OM4.zarr

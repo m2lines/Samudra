@@ -17,7 +17,8 @@
 # raw data is streamed directly from the OSN pod via s3fs (no local staging).
 #
 # --- Required env vars -------------------------------------------------------
-#   RESOLUTION   one of: twodeg | twodeg_filter | onedeg | onedeg_filter | halfdeg | quarterdeg
+#   RESOLUTION   one of: twodeg | twodeg_filter | onedeg | onedeg_filter |
+#                halfdeg | halfdeg_filter | quarterdeg | quarterdeg_filter
 #   OUTPUT_PATH  full s3 zarr path for the result, OR set OUTPUT_BASE (below).
 #
 # --- Common env vars ---------------------------------------------------------
@@ -63,8 +64,8 @@
 # directives below):
 #   twodeg / twodeg_filter : --cpus-per-task=32  --mem=240G --time=08:00:00  (coarsest, fastest)
 #   onedeg / onedeg_filter : --cpus-per-task=64  --mem=480G --time=12:00:00
-#   halfdeg                : --cpus-per-task=128 --mem=490G --time=1-00:00:00
-#   quarterdeg             : --cpus-per-task=128 --mem=490G --time=2-00:00:00 \
+#   halfdeg / halfdeg_filter : --cpus-per-task=128 --mem=490G --time=1-00:00:00
+#   quarterdeg / quarterdeg_filter : --cpus-per-task=128 --mem=490G --time=2-00:00:00 \
 #                            (also set N_WORKERS=16 to cap peak memory; if it
 #                             still OOMs, fall back to --partition=cl for a
 #                             3 TB node -- but that partition queues for days)
@@ -99,7 +100,7 @@ source "${VARIANT_SCRIPT}"
 # --- Resolve inputs ----------------------------------------------------------
 RESOLUTION="${RESOLUTION:-}"
 if [[ -z "${RESOLUTION}" ]]; then
-  echo "ERROR: RESOLUTION is required (twodeg | twodeg_filter | onedeg | onedeg_filter | halfdeg | quarterdeg)." >&2
+  echo "ERROR: RESOLUTION is required (twodeg | twodeg_filter | onedeg | onedeg_filter | halfdeg | halfdeg_filter | quarterdeg | quarterdeg_filter)." >&2
   exit 2
 fi
 
@@ -111,10 +112,12 @@ case "${RESOLUTION}" in
   onedeg)        GRID="gaussian_grid_180_by_360";  FILTER_FLAG="--skip_spatial_filtering" ;;
   onedeg_filter) GRID="gaussian_grid_180_by_360";  FILTER_FLAG="" ;;   # filtering ON (scale 18)
   halfdeg)       GRID="gaussian_grid_360_by_720";  FILTER_FLAG="--skip_spatial_filtering" ;;
+  halfdeg_filter) GRID="gaussian_grid_360_by_720"; FILTER_FLAG="" ;;   # filtering ON (scale 9)
   quarterdeg)    GRID="gaussian_grid_720_by_1440"; FILTER_FLAG="--skip_spatial_filtering" ;;
+  quarterdeg_filter) GRID="gaussian_grid_720_by_1440"; FILTER_FLAG="" ;; # filtering ON (scale 1)
   *)
     echo "ERROR: unknown RESOLUTION='${RESOLUTION}'." >&2
-    echo "Expected one of: twodeg | twodeg_filter | onedeg | onedeg_filter | halfdeg | quarterdeg." >&2
+    echo "Expected one of: twodeg | twodeg_filter | onedeg | onedeg_filter | halfdeg | halfdeg_filter | quarterdeg | quarterdeg_filter." >&2
     exit 2 ;;
 esac
 

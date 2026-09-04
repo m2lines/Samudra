@@ -40,10 +40,12 @@ rung; users do not manually advance the search. For a local laptop,
 workstation, or Colab notebook, include `search/local.yaml` instead of
 `search/torch.yaml`. The local executor runs one isolated candidate process per
 visible GPU and never interprets scheduler environment variables. With no GPU
-it runs candidates sequentially in the controller process. Fixed anchors and
-rung zero are co-scheduled, and each later rung uses up to the same GPU
-capacity. Set `executor.max_concurrent` only when memory, CPU, storage, or
-service limits require using fewer than the available GPUs.
+it runs candidates sequentially in the controller process. It is also the
+simplest choice inside a single-node Slurm allocation when the batch shell sees
+all allocated GPUs; use `slurm_allocation` when trials must reach other nodes.
+Fixed anchors and rung zero are co-scheduled, and each later rung uses up to the
+same GPU capacity. Set `executor.max_concurrent` only when memory, CPU, storage,
+or service limits require using fewer than the available GPUs.
 
 By default, every candidate remains a single-GPU experiment in every rung. To
 assign newly idle GPUs to survivors without changing the scientific training
@@ -67,12 +69,21 @@ configuration remain unchanged because the effective global batch and number
 of optimizer updates per epoch remain unchanged. The selected plan is recorded
 in `state.json` and reused on retries.
 
+Choose `effective_global_batch_size` from the scientific baseline you want to
+preserve: `batch_size * gradient_accumulation_steps * world_size`. For example,
+a prior two-GPU run with local batch 1 and accumulation 16 has an effective
+global batch of 32, even though its single-process configuration alone appears
+to describe a batch of 16.
+
 `effective_global_batch_size` must be divisible by
 `batch_size * world_size`. If the requested world size is incompatible, the
 runner warns, preserves the user's batch size, and selects the largest smaller
 compatible world size. The warning recommends a compatible local batch size;
 Samudra never silently overrides that scientific choice. Fixed anchors stay on
 one GPU, using accumulation to preserve the configured effective global batch.
+Because resource plans are persisted, retry a local run with at least as many
+visible GPUs as its largest planned candidate. The executor fails loudly
+instead of waiting indefinitely if a retry cannot satisfy that plan.
 
 Adaptive data parallelism is supported by the `local` and
 `slurm_allocation` executors. The separately submitted `slurm` executor rejects
@@ -80,6 +91,12 @@ it because its array jobs do not share one allocation. Adaptive candidate
 training configs must use `backend: auto`, allowing the same saved candidate to
 run either as a single process or through the existing distributed
 initialization path.
+
+On homogeneous multi-node Slurm allocations, ranks are spread uniformly over
+the smallest number of nodes that can host them. For example, an eight-rank
+trial on two six-GPU nodes runs four ranks per node. If a custom allowed world
+size has no uniform placement, planning warns and selects the next smaller
+placeable size rather than failing after workers are submitted.
 
 ### Use a whole Slurm allocation for independent trials
 
@@ -89,7 +106,10 @@ steps. A step uses one GPU by default or the planned GPU group when adaptive
 data parallelism is enabled. On a homogeneous multi-node allocation it
 derives total capacity from `SLURM_GPUS` or from
 `SLURM_NNODES * SLURM_GPUS_ON_NODE`; CPU cores are divided evenly among GPUs
-when Slurm exposes `SLURM_CPUS_ON_NODE`. It fails loudly outside an allocation.
+when Slurm exposes `SLURM_CPUS_ON_NODE`. Step memory is divided proportionally
+from `SLURM_MEM_PER_NODE` when Slurm exposes it, so one worker does not reserve
+the entire allocation's memory and serialize the GPU pool. It fails loudly
+outside an allocation.
 
 For example, Empire AI Alpha+ has eight H100 or H200 GPUs per HGX node. A batch
 allocation shaped like the following lets sixteen candidates occupy two nodes:
@@ -114,15 +134,19 @@ visible at the same paths on every node. Alpha is x86_64; an environment built
 for Alpha must not be reused on Empire's ARM systems. Use an architecture-
 appropriate environment or multi-architecture container for those systems.
 
+Before relying on allocation-wide pooling, verify that the target cluster
+admits concurrent exclusive job steps. Some Slurm installations serialize
+nested `srun` steps even when their GPU, CPU, and memory requests do not
+overlap. From an interactive allocation, a useful smoke check is to start two
+exclusive one-GPU `srun` commands concurrently and confirm with `squeue --steps`
+that both enter `RUNNING`. This scheduler policy cannot be inferred from the
+allocation environment. On a single node where the batch shell sees every
+allocated GPU, use the `local` executor if concurrent job steps are unavailable.
+
 The Slurm-allocation executor is synchronous: the allocation remains active
 through every rung, and a worker failure stops promotion after the other
 running workers have exited. For separately queued, resumable jobs and
 controller dependencies, use the regular Slurm executor instead.
-
-Clusters that expose the container runtime through environment modules should
-set `executor.apptainer_module` to the exact loadable module name (for example,
-`singularity-ce/4.3.3` on Torch). The resolved value is exported to every worker
-and retained in the search configuration.
 
 Clusters that expose the container runtime through environment modules should
 set `executor.apptainer_module` to the exact loadable module name (for example,
@@ -349,11 +373,13 @@ boundary with a schema error instead of producing a later key error.
 ## W&B
 
 Each candidate uses the unique search run ID as its W&B group and receives the
-tags `search`, the stable search name, the run ID, and the candidate name. This
-makes repeated trials separately filterable while preserving a stable tag for
-cross-run comparisons. Search identity, rung, objective, epoch budget,
-executor, job ID, parent checkpoint, and the public artifact root are stored
-under `config.experiment.search`.
+tags `search`, the stable search name, and the candidate name. The timestamped
+run ID is deliberately omitted from tags because W&B limits tags to 64
+characters; it remains available as the group and in structured search
+metadata. This makes repeated trials separately filterable while preserving a
+stable tag for cross-run comparisons. Search identity, rung, objective, epoch
+budget, executor, job ID, parent checkpoint, and the public artifact root are
+stored under `config.experiment.search`.
 Promoted rungs resume the same W&B run from the checkpoint, preserving one
 continuous learning curve per candidate.
 

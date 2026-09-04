@@ -126,6 +126,11 @@ class PoolExecutor(Executor):
     @abstractmethod
     def resource_capacity(self) -> int: ...
 
+    @property
+    def placeable_world_sizes(self) -> set[int] | None:
+        """World sizes supported by this executor's hardware topology."""
+        return None
+
     def _ensure_resource_plan(
         self,
         state_section: dict[str, Any],
@@ -145,6 +150,7 @@ class PoolExecutor(Executor):
             candidate_concurrency=min(
                 len(candidates), self.config.max_concurrent or len(candidates)
             ),
+            placeable_world_sizes=self.placeable_world_sizes,
             force_single_gpu=force_single_gpu,
         )
         state_section["resources"] = resources

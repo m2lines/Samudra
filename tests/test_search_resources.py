@@ -83,3 +83,18 @@ def test_adaptive_plan_requires_auto_backend():
 
     with pytest.raises(ValueError, match="requires backend='auto'"):
         plan_candidate_resources(policy(), {"model": candidate}, gpu_capacity=8)
+
+
+def test_adaptive_plan_warns_and_uses_a_placeable_world_size():
+    candidate = train_config(batch_size=2)
+
+    with pytest.warns(UserWarning, match="cannot be placed uniformly"):
+        plan = plan_candidate_resources(
+            policy(),
+            {"model": candidate},
+            gpu_capacity=8,
+            placeable_world_sizes={1, 2, 4},
+        )["model"]
+
+    assert plan.world_size == 4
+    assert plan.gradient_accumulation_steps == 8

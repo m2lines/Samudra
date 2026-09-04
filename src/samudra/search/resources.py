@@ -19,6 +19,7 @@ def plan_candidate_resources(
     *,
     gpu_capacity: int,
     candidate_concurrency: int | None = None,
+    placeable_world_sizes: set[int] | None = None,
     force_single_gpu: bool = False,
 ) -> dict[str, CandidateResourceState]:
     """Resolve reproducible world sizes without changing configured batch sizes."""
@@ -39,21 +40,38 @@ def plan_candidate_resources(
             f"candidates: {', '.join(incompatible_backends)}"
         )
 
+    allowed_world_sizes = [
+        size
+        for size in policy.allowed_world_sizes
+        if placeable_world_sizes is None or size in placeable_world_sizes
+    ]
+    if 1 not in allowed_world_sizes:
+        raise ValueError("The executor must support world_size=1")
+
     requested = 1
     if not force_single_gpu:
         concurrent = candidate_concurrency or len(candidates)
         per_candidate = max(1, gpu_capacity // concurrent)
-        requested = max(
-            size
-            for size in policy.allowed_world_sizes
-            if size <= min(per_candidate, policy.max_gpus_per_candidate)
+        limit = min(per_candidate, policy.max_gpus_per_candidate)
+        capacity_world_size = max(
+            size for size in policy.allowed_world_sizes if size <= limit
         )
+        requested = max(size for size in allowed_world_sizes if size <= limit)
+        if requested != capacity_world_size:
+            warnings.warn(
+                f"world_size={capacity_world_size} fits the GPU count but cannot "
+                "be placed uniformly on this allocation's nodes; using "
+                f"world_size={requested}. Choose a placeable allowed_world_sizes "
+                "entry to avoid idle GPUs.",
+                UserWarning,
+                stacklevel=2,
+            )
 
     plans: dict[str, CandidateResourceState] = {}
     for name, config in candidates.items():
         compatible = [
             size
-            for size in policy.allowed_world_sizes
+            for size in allowed_world_sizes
             if size <= requested
             and policy.effective_global_batch_size % (config.batch_size * size) == 0
         ]

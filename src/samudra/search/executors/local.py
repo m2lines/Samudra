@@ -56,6 +56,15 @@ class LocalExecutor(PoolExecutor):
                 self._run_in_process(task)
             return
 
+        required = max(getattr(task, "world_size", 1) for task in tasks)
+        if required > len(devices):
+            raise RuntimeError(
+                f"A persisted search resource plan requires {required} GPUs for "
+                f"one candidate, but only {len(devices)} are locally visible. "
+                "Retry with at least that many visible GPUs or start a new search "
+                "run so resources can be replanned."
+            )
+
         pool = _DevicePool(devices)
 
         def run_on_available_device(task: Task) -> None:

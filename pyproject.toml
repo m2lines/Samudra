@@ -60,6 +60,9 @@ dependencies = [
 optional-dependencies.cuda = [
   "torchvision>=0.24.0a0",
 ]
+optional-dependencies.tensorstore = [
+  "xarray-tensorstore>=0.3,<0.4",
+]
 
 urls.Documentation = "https://m2lines.github.io/Samudra/docs/"
 urls.Homepage = "https://m2lines.github.io/Samudra/"
@@ -91,6 +94,7 @@ dev = [
   "tenacity>=9",
   "types-pyyaml>=6.0.12.20241230",
   "types-tqdm>=4.67.0.20250516",
+  "xarray-tensorstore>=0.3,<0.4",
   "xarrayutils>=2.0.1",
 ]
 docs = [

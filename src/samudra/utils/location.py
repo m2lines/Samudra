@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 from abc import ABC, abstractmethod
+from importlib import import_module
 from pathlib import Path
 from typing import Annotated, Any, Literal, Self
 from urllib.parse import quote, urljoin, urlparse
@@ -17,6 +18,35 @@ from pydantic import (
     model_serializer,
     model_validator,
 )
+
+XarrayBackend = Literal["zarr-python", "tensorstore"]
+
+
+def _open_tensorstore_zarr(path: str, chunks: dict[str, int] | None) -> xr.Dataset:
+    try:
+        xarray_tensorstore = import_module("xarray_tensorstore")
+    except ImportError as error:
+        raise ImportError(
+            "The TensorStore Xarray backend requires the optional dependency "
+            "xarray-tensorstore. Install it with `pip install samudra[tensorstore]`."
+        ) from error
+
+    dataset = xarray_tensorstore.open_zarr(path)
+    if chunks is None:
+        return dataset
+    if chunks:
+        return dataset.chunk(chunks)
+
+    # Match xr.open_zarr(chunks={}) while preserving each variable's native
+    # chunks. Dataset-level chunking cannot represent differing chunk sizes for
+    # variables that share dimensions.
+    chunked = {
+        name: variable.chunk(variable.encoding["preferred_chunks"])
+        if "preferred_chunks" in variable.encoding
+        else variable
+        for name, variable in dataset.data_vars.items()
+    }
+    return dataset.copy(data=chunked)
 
 
 class UnresolvedLocation(BaseModel):
@@ -47,7 +77,12 @@ class ResolvedLocation(ABC):
     """A location which is ready to be opened or resolved against."""
 
     @abstractmethod
-    def open(self, chunks: dict[str, int] | None = None) -> xr.Dataset:
+    def open(
+        self,
+        chunks: dict[str, int] | None = None,
+        *,
+        xarray_backend: XarrayBackend = "zarr-python",
+    ) -> xr.Dataset:
         pass
 
     @abstractmethod
@@ -80,7 +115,15 @@ class S3Location(ResolvedLocation, BaseModel):
     bucket: str
     path: str
 
-    def open(self, chunks: dict[str, int] | None = None) -> xr.Dataset:
+    def open(
+        self,
+        chunks: dict[str, int] | None = None,
+        *,
+        xarray_backend: XarrayBackend = "zarr-python",
+    ) -> xr.Dataset:
+        if xarray_backend == "tensorstore":
+            return _open_tensorstore_zarr(self.tensorstore_url(), chunks)
+
         # TODO(jder): could consider passing credentials here
         # rather than relying on the environment
         storage_options: dict[str, Any] = {"endpoint_url": self.endpoint_url}
@@ -93,6 +136,22 @@ class S3Location(ResolvedLocation, BaseModel):
             engine="zarr",
             chunks=chunks,
         )
+
+    def tensorstore_url(self) -> str:
+        """Return a URL usable by both Zarr-Python and TensorStore."""
+        path = quote(self.path.lstrip("/"))
+        bucket = quote(self.bucket, safe="")
+        if self.endpoint_url:
+            if not self.anon:
+                raise ValueError(
+                    "The TensorStore backend does not support authenticated custom "
+                    "S3 endpoints through xarray-tensorstore. Use an s3:// AWS "
+                    "location, an anonymous custom endpoint, or zarr-python."
+                )
+            return f"{self.endpoint_url.rstrip('/')}/{bucket}/{path}"
+        if self.anon:
+            return f"https://{bucket}.s3.amazonaws.com/{path}"
+        return self.url()
 
     def url(self) -> str:
         path = quote(self.path.lstrip("/"))
@@ -138,8 +197,17 @@ class LocalLocation(ResolvedLocation, BaseModel):
             )
         return self
 
-    def open(self, chunks: dict[str, int] | None = None) -> xr.Dataset:
+    def open(
+        self,
+        chunks: dict[str, int] | None = None,
+        *,
+        xarray_backend: XarrayBackend = "zarr-python",
+    ) -> xr.Dataset:
         engine = "netcdf4" if self.path.suffix == ".nc" else "zarr"
+        if xarray_backend == "tensorstore":
+            if engine != "zarr":
+                raise ValueError("The TensorStore backend only supports Zarr datasets")
+            return _open_tensorstore_zarr(str(self.path), chunks)
         return xr.open_dataset(self.path, engine=engine, chunks=chunks)
 
     def resolve(self, location: "Location") -> "ResolvedLocation":

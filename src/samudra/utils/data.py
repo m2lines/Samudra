@@ -7,6 +7,7 @@ import logging
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from functools import cached_property
+from importlib import import_module
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Literal, Protocol, Self, final
 
@@ -130,6 +131,7 @@ class _XarrayCanonicalReader:
     means: xr.Dataset
     stds: xr.Dataset
     channels: tuple[str, ...]
+    tensorstore_reads: bool = False
 
     @property
     def time(self) -> xr.DataArray:
@@ -166,6 +168,9 @@ class _XarrayCanonicalReader:
         index_dims = [f"index_{i}" for i in range(request.time_indices.ndim)]
         index = xr.DataArray(request.time_indices, dims=index_dims)
         selected = self.data[list(request.channels)].isel(time=index)
+        if self.tensorstore_reads:
+            xarray_tensorstore = import_module("xarray_tensorstore")
+            selected = xarray_tensorstore.read(selected)
 
         # Materialize one combined graph, rather than loading canonical channels
         # independently. Compact level views share their base-array Dask keys, so
@@ -344,6 +349,7 @@ class CanonicalSource:
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         name: str = "CanonicalSource",
+        tensorstore_reads: bool = False,
     ) -> Self:
         """Build a canonical reader from already-canonicalized xarray datasets."""
         channels = tuple(dict.fromkeys((*prognostic_var_names, *boundary_var_names)))
@@ -381,6 +387,7 @@ class CanonicalSource:
                 means=means[list(channels)],
                 stds=stds[list(channels)],
                 channels=channels,
+                tensorstore_reads=tensorstore_reads,
             ),
             masks=masks,
             data_layout=data_layout,

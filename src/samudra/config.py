@@ -74,6 +74,7 @@ from samudra.utils.location import (
     Location,
     ResolvedLocation,
     UnresolvedLocation,
+    XarrayBackend,
 )
 from samudra.utils.loss import (
     DynamicLoss,
@@ -223,10 +224,12 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         *,
         use_dask: bool,
         is_primary: bool,
+        xarray_backend: XarrayBackend = "zarr-python",
     ) -> SourceSplits:
         source = self._build_source(
             data_root,
             turn_on_dask=use_dask,
+            xarray_backend=xarray_backend,
         )
         inference_source = None
         if is_primary and self.inference_times:
@@ -236,6 +239,7 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
                 full_inference_source = self._build_source(
                     data_root,
                     turn_on_dask=True,
+                    xarray_backend=xarray_backend,
                 )
             # TODO: remove multiple inference time ranges altogether (see #813)
             assert len(self.inference_times) == 1, (
@@ -254,15 +258,16 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         data_root: ResolvedLocation,
         *,
         turn_on_dask: bool,
+        xarray_backend: XarrayBackend = "zarr-python",
     ) -> CanonicalSource:
         resolved_data_location = data_root.resolve(self.data_location)
         resolved_means_location = data_root.resolve(self.data_means_location)
         resolved_stds_location = data_root.resolve(self.data_stds_location)
 
         chunks: dict[str, int] | None = {} if turn_on_dask else None
-        data = resolved_data_location.open(chunks)
-        means = resolved_means_location.open(chunks)
-        stds = resolved_stds_location.open(chunks)
+        data = resolved_data_location.open(chunks, xarray_backend=xarray_backend)
+        means = resolved_means_location.open(chunks, xarray_backend=xarray_backend)
+        stds = resolved_stds_location.open(chunks, xarray_backend=xarray_backend)
         data, means, stds, data_layout = self.canonicalize_datasets(
             data,
             means,
@@ -276,6 +281,7 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
             prognostic_var_names=data_layout.prognostic_var_names,
             boundary_var_names=data_layout.boundary_var_names,
             name=f"{resolved_data_location}-{turn_on_dask}",
+            tensorstore_reads=xarray_backend == "tensorstore" and not turn_on_dask,
         )
         return source
 
@@ -444,6 +450,7 @@ class DataConfig(BaseConfig):
     loading: DataLoadingConfig = Field(default_factory=CpuDataLoadingConfig)
     hist: int = 1
     loader_version: str = str(LoaderVersion.OM4_TORCH.value)
+    xarray_backend: XarrayBackend = "zarr-python"
     normalize_before_mask: bool = True
     masked_fill_value: float = 0.0
     concurrent_compute: bool = False
@@ -460,6 +467,7 @@ class DataConfig(BaseConfig):
                 data_root,
                 use_dask=use_dask,
                 is_primary=index == 0,
+                xarray_backend=self.xarray_backend,
             )
             for index, source_cfg in enumerate(self.sources)
         ]

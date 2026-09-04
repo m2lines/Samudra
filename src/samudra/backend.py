@@ -55,15 +55,19 @@ def init_train_backend(
         case "auto" if torch.cuda.is_available():
             logger.info("auto backend detected CUDA")
             device = torch.device("cuda")
-            try:
-                dist_cfg = init_distributed_mode()
-                logger.info("succeeded in initializing distributed mode")
-            except RuntimeError as e:
-                logger.info(
-                    f"Failed to initialize distributed mode, running on single GPU.",
-                    exc_info=e,
-                )
+            if os.environ.get("SAMUDRA_DISABLE_DISTRIBUTED") == "1":
+                logger.info("distributed initialization disabled for this worker")
                 dist_cfg = None
+            else:
+                try:
+                    dist_cfg = init_distributed_mode()
+                    logger.info("succeeded in initializing distributed mode")
+                except RuntimeError as e:
+                    logger.info(
+                        "Failed to initialize distributed mode, running on single GPU.",
+                        exc_info=e,
+                    )
+                    dist_cfg = None
         case "auto":
             logger.warning(
                 "auto backend: cuda not found, using CPU. " + _cuda_diagnostics()

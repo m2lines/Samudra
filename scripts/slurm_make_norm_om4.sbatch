@@ -22,8 +22,7 @@
 #   PREPROC_ENV  conda env name (default: ocean_preprocessing)
 #   CONDA_SH     path to conda.sh (autodetected from $CONDA_EXE / common dirs)
 #   REPO_DIR     repo checkout (default: $SLURM_SUBMIT_DIR)
-#   NORM_MAX_ATTEMPTS          total attempts for transient failures (default: 3)
-#   NORM_RETRY_DELAY_SECONDS   delay between attempts in seconds (default: 60)
+#   NORM_WRITE_RETRIES  retries per failed Dask task during writes (default: 5)
 #
 # Credentials (required to WRITE to OSN):
 #   export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
@@ -112,35 +111,15 @@ export PYTHONUNBUFFERED=1
 
 cd "${REPO_DIR}/data"
 
-NORM_MAX_ATTEMPTS="${NORM_MAX_ATTEMPTS:-3}"
-NORM_RETRY_DELAY_SECONDS="${NORM_RETRY_DELAY_SECONDS:-60}"
-if [[ ! "${NORM_MAX_ATTEMPTS}" =~ ^[1-9][0-9]*$ ]]; then
-  echo "ERROR: NORM_MAX_ATTEMPTS must be a positive integer; got '${NORM_MAX_ATTEMPTS}'." >&2
-  exit 2
-fi
-if [[ ! "${NORM_RETRY_DELAY_SECONDS}" =~ ^[0-9]+$ ]]; then
-  echo "ERROR: NORM_RETRY_DELAY_SECONDS must be a non-negative integer; got '${NORM_RETRY_DELAY_SECONDS}'." >&2
+NORM_WRITE_RETRIES="${NORM_WRITE_RETRIES:-5}"
+if [[ ! "${NORM_WRITE_RETRIES}" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: NORM_WRITE_RETRIES must be a non-negative integer; got '${NORM_WRITE_RETRIES}'." >&2
   exit 2
 fi
 
 echo "Building means/stds for: ${OUTPUT_PATH}"
-attempt=1
-while (( attempt <= NORM_MAX_ATTEMPTS )); do
-  echo "Normalization attempt ${attempt}/${NORM_MAX_ATTEMPTS}"
-  if python ocean_preprocessing/make_norm_datasets.py "${OUTPUT_PATH}"; then
-    break
-  else
-    status=$?
-  fi
-
-  if (( attempt == NORM_MAX_ATTEMPTS )); then
-    echo "ERROR: normalization failed after ${NORM_MAX_ATTEMPTS} attempts (exit ${status})." >&2
-    exit "${status}"
-  fi
-
-  echo "Normalization attempt ${attempt} failed (exit ${status}); retrying in ${NORM_RETRY_DELAY_SECONDS}s." >&2
-  sleep "${NORM_RETRY_DELAY_SECONDS}"
-  ((attempt += 1))
-done
+python ocean_preprocessing/make_norm_datasets.py \
+  "${OUTPUT_PATH}" \
+  --write-retries="${NORM_WRITE_RETRIES}"
 
 echo "Normalization datasets written next to ${OUTPUT_PATH}"

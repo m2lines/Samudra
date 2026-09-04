@@ -4,16 +4,34 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""A quick utility script to create *_means.zarr and *_stds.zarr from a dataset."""
+"""Create *_means.zarr and *_stds.zarr from a dataset."""
 
+import argparse
 import os
-import sys
 
-import fsspec
 import xarray as xr
-from dask.distributed import LocalCluster
+from dask.distributed import Client, LocalCluster
 
-if __name__ == "__main__":
+
+def write_zarr_with_retries(
+    ds: xr.Dataset, path: str, client: Client, write_retries: int
+) -> None:
+    """Write a derived dataset, retrying failed Dask tasks in place."""
+    delayed = ds.to_zarr(
+        path,
+        mode="w",
+        zarr_format=2,
+        consolidated=True,
+        compute=False,
+    )
+    client.compute(delayed, retries=write_retries, sync=True)
+
+
+def main(src: str, write_retries: int = 5) -> None:
+    """Calculate and write normalization statistics for ``src``."""
+    if write_retries < 0:
+        raise ValueError("write_retries must be non-negative")
+
     client = LocalCluster().get_client()
     # This could be the OSN pod, it just has to be set via environment variable like so:
     # ```
@@ -21,9 +39,6 @@ if __name__ == "__main__":
     # export AWS_ACCESS_KEY_ID=...
     # export AWS_SECRET_ACCESS_KEY=...
     # ```
-    fs_src = fsspec.filesystem("s3")
-
-    src = sys.argv[1]
     assert src.startswith("s3://"), f"{src=} must start with `s3://`"
 
     path, base = os.path.dirname(src), os.path.basename(src)
@@ -74,10 +89,29 @@ if __name__ == "__main__":
     mean_path = os.path.join(path, f"{ds_name}_means{ds_ext}")
     print(f"Writing mean Zarr to {mean_path!r}.")
     # These stores are derived entirely from ``src``. Replace a partial store
-    # left by an interrupted attempt so that batch-level retries are safe.
-    ds_means.to_zarr(mean_path, mode="w", zarr_format=2, consolidated=True)
+    # left by an interrupted/requeued attempt so that restarting is safe.
+    write_zarr_with_retries(ds_means, mean_path, client, write_retries)
     stds_path = os.path.join(path, f"{ds_name}_stds{ds_ext}")
     print(f"Writing std Zarr to {stds_path!r}.")
-    ds_stds.to_zarr(stds_path, mode="w", zarr_format=2, consolidated=True)
+    write_zarr_with_retries(ds_stds, stds_path, client, write_retries)
 
     print("done.")
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("src", help="s3:// path to the source Zarr dataset")
+    parser.add_argument(
+        "--write-retries",
+        "--write_retries",
+        type=int,
+        default=5,
+        help="number of Dask retries for each failed write task (default: 5)",
+    )
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    main(args.src, args.write_retries)

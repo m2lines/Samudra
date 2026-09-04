@@ -10,8 +10,8 @@
 
 set -euo pipefail
 
-: "${CODE_REF:?CODE_REF is required}"
 : "${CODE_COMMIT:?CODE_COMMIT is required}"
+: "${CODE_ARCHIVE:?CODE_ARCHIVE is required}"
 : "${PYTHON:?PYTHON is required}"
 : "${SOURCE_DATA_ROOT:?SOURCE_DATA_ROOT is required}"
 : "${COMPACT_DATA_ROOT:?COMPACT_DATA_ROOT is required}"
@@ -19,13 +19,12 @@ set -euo pipefail
 
 node_root="${TMPDIR:-/tmp}/samudra-utilization-${SLURM_JOB_ID:-local}"
 repo="$node_root/repo"
-mkdir -p "$node_root"
+mkdir -p "$repo"
 
-git clone --depth 1 --single-branch --branch "$CODE_REF" \
-  https://github.com/m2lines/Samudra.git "$repo"
+tar -xzf "$CODE_ARCHIVE" -C "$repo"
 actual_commit="$(git -C "$repo" rev-parse HEAD)"
 if [[ "$actual_commit" != "$CODE_COMMIT" ]]; then
-  echo "Expected $CODE_COMMIT from $CODE_REF, got $actual_commit" >&2
+  echo "Expected $CODE_COMMIT from $CODE_ARCHIVE, got $actual_commit" >&2
   exit 1
 fi
 

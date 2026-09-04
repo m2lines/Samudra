@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788478019720,
+  "lastUpdate": 1788564146126,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -11915,6 +11915,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.16278951676169573",
             "extra": "mean: 46.277358943200014 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "8c098353c0465ece52c390ad8ef0ac3d14b292bb",
+          "message": "Retry transient normalization failures (#870)\n\n## Summary\n\n- retry individual failed Dask tasks during normalization writes, five\ntimes by default\n- expose the retry count through `NORM_WRITE_RETRIES` in the Slurm\nharness\n- mark normalization Slurm jobs requeueable for scheduler or node\ninterruptions\n- replace partial derived normalization stores so a requeued job can\nrestart safely\n- test the Dask retry wiring and Slurm harness configuration\n\n## Failure handling\n\n- transient S3/Dask task failure: Dask retries only the failed task\n- scheduler or node interruption: Slurm may requeue the job\n- interrupted partial output: `mode=\"w\"` safely replaces the derived\nstore\n\n## Testing\n\n- `bash -n scripts/slurm_make_norm_om4.sbatch`\n- `uv run pytest data/tests/test_slurm_harness.py\ndata/tests/test_make_norm_datasets.py -q`\n- `uvx pre-commit run --all-files`\n\nThe September normalization jobs remain paused until this PR is\napproved.",
+          "timestamp": "2026-09-04T22:47:38Z",
+          "tree_id": "bfac1e6a3c0c3c32e71daeb59a52f8dc8adda212",
+          "url": "https://github.com/m2lines/Samudra/commit/8c098353c0465ece52c390ad8ef0ac3d14b292bb"
+        },
+        "date": 1788564144748,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.1171333515968835,
+            "unit": "iter/sec",
+            "range": "stddev: 0.002979052366318687",
+            "extra": "mean: 895.1482816000009 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.08135788269348593,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1151204451763373",
+            "extra": "mean: 12.291371983800001 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.021520068483496767,
+            "unit": "iter/sec",
+            "range": "stddev: 0.19837083878605877",
+            "extra": "mean: 46.46825361020001 sec\nrounds: 5"
           }
         ]
       }

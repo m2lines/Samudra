@@ -30,17 +30,18 @@ logger = logging.getLogger(__name__)
 
 
 class InferenceDataset(Dataset):
-    """This class is used for inference rollouts.
+    """Dataset of overlapping windows used for autoregressive inference.
 
-    It creates rolling indices to keep track of histories/past states.
-    For example,
-    Hist=0 ; 0->[0, 1]; 1->[1, 2]; 2->[2, 3]; 3->[3, 4]
-    Hist=1 ; 0->[[0, 1], [2, 3]]; 1->[[2, 3], [4, 5]];
-            2->[[4, 5], [6, 7]]; 3->[[6, 7], [8, 9]]
-    Hist=2 ; 0->[[0, 1, 2], [3, 4, 5]];
-            1->[[3, 4, 5], [6, 7, 8]];
-            2->[[6, 7, 8], [9, 10, 11]];
-            3->[[9, 10, 11], [12, 13, 14]]
+    Each window contains ``input_steps`` historical states followed by
+    ``output_steps`` target states. Consecutive windows advance by
+    ``output_steps`` so that every model output becomes the newest part of the
+    next input history. For example::
+
+        input_steps=1, output_steps=1: [0 | 1], [1 | 2], [2 | 3]
+        input_steps=2, output_steps=2: [0, 1 | 2, 3], [2, 3 | 4, 5]
+        input_steps=2, output_steps=1: [0, 1 | 2], [1, 2 | 3], [2, 3 | 4]
+
+    The values before ``|`` are inputs and those after it are targets.
     """
 
     @elapsed

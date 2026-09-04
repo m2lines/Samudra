@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+concurrent_compute: true
+loading:
+  type: cpu
+  num_workers: 8
+sources:
+  - type: om4
+    prognostic_vars_key: thermo_dynamic_all
+    boundary_vars_key: tau_hfds
+    train_time: {start: "1975-01-03", end: "1982-01-03"}
+    val_time: {start: "1982-01-03", end: "1983-01-03"}
+    inference_times:
+      - {start: "1983-01-03", end: "1983-02-02"}
+    # This smoke clone stores each depth-resolved field as one compact Zarr
+    # variable. CanonicalReader still exposes the identical flattened channels.
+    data_location:
+      type: local
+      path: /home/am16581/data/om4_twodeg_compact_smoke/OM4.zarr
+    data_means_location:
+      type: local
+      path: /home/am16581/data/om4_twodeg_compact_smoke/OM4_means.zarr
+    data_stds_location:
+      type: local
+      path: /home/am16581/data/om4_twodeg_compact_smoke/OM4_stds.zarr

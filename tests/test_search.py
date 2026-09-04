@@ -811,6 +811,17 @@ def test_local_executor_launches_one_torchrun_across_reserved_gpus(
     assert "SAMUDRA_DISABLE_DISTRIBUTED" not in environment
 
 
+def test_local_executor_rejects_persisted_plan_larger_than_visible_gpus(
+    tmp_path, monkeypatch
+):
+    search = config(tmp_path).build()
+    assert isinstance(search.executor, LocalExecutor)
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "GPU-a,GPU-b")
+
+    with pytest.raises(RuntimeError, match="requires 4 GPUs.*only 2.*visible"):
+        search.executor._run_tasks([Task(rung=1, task=0, anchor=False, world_size=4)])
+
+
 def test_slurm_allocation_launches_multi_node_torchrun(tmp_path, monkeypatch):
     search = config(tmp_path, executor="slurm_allocation").build()
     assert isinstance(search.executor, SlurmAllocationExecutor)

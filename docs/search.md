@@ -69,12 +69,21 @@ configuration remain unchanged because the effective global batch and number
 of optimizer updates per epoch remain unchanged. The selected plan is recorded
 in `state.json` and reused on retries.
 
+Choose `effective_global_batch_size` from the scientific baseline you want to
+preserve: `batch_size * gradient_accumulation_steps * world_size`. For example,
+a prior two-GPU run with local batch 1 and accumulation 16 has an effective
+global batch of 32, even though its single-process configuration alone appears
+to describe a batch of 16.
+
 `effective_global_batch_size` must be divisible by
 `batch_size * world_size`. If the requested world size is incompatible, the
 runner warns, preserves the user's batch size, and selects the largest smaller
 compatible world size. The warning recommends a compatible local batch size;
 Samudra never silently overrides that scientific choice. Fixed anchors stay on
 one GPU, using accumulation to preserve the configured effective global batch.
+Because resource plans are persisted, retry a local run with at least as many
+visible GPUs as its largest planned candidate. The executor fails loudly
+instead of waiting indefinitely if a retry cannot satisfy that plan.
 
 Adaptive data parallelism is supported by the `local` and
 `slurm_allocation` executors. The separately submitted `slurm` executor rejects

@@ -13,6 +13,7 @@ SLURM_HARNESSES = [
     VARIANT_SCRIPT.parent / "slurm_preprocess_om4.sbatch",
     VARIANT_SCRIPT.parent / "slurm_make_norm_om4.sbatch",
 ]
+NORM_HARNESS = SLURM_HARNESSES[1]
 
 
 def _resolve_variant(variant: str) -> subprocess.CompletedProcess[str]:
@@ -80,3 +81,14 @@ def test_preprocessing_harness_runs_selected_data_subproject():
     assert script.index('cd "${REPO_DIR}/data"') < script.index(
         "\npython -m ocean_preprocessing om4"
     )
+
+
+def test_norm_harness_is_requeueable():
+    assert "#SBATCH --requeue" in NORM_HARNESS.read_text()
+
+
+def test_norm_harness_configures_dask_write_retries():
+    script = NORM_HARNESS.read_text()
+
+    assert 'NORM_WRITE_RETRIES="${NORM_WRITE_RETRIES:-5}"' in script
+    assert '--write-retries="${NORM_WRITE_RETRIES}"' in script

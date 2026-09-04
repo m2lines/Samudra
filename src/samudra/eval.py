@@ -70,10 +70,12 @@ class Eval:
         self.N_bound = len(self.boundary_var_names)
         self.N_prog = len(self.prognostic_var_names)
 
-        self.num_prog_in = int((cfg.data.hist + 1) * self.N_prog)
-        self.num_boundary_in = int((cfg.data.hist + 1) * self.N_bound)
+        self.input_steps = cfg.data.input_steps
+        self.output_steps = cfg.data.output_steps
+        self.num_prog_in = self.input_steps * self.N_prog
+        self.num_boundary_in = self.input_steps * self.N_bound
         self.num_in = self.num_prog_in + self.num_boundary_in
-        self.num_out = self.num_prog_in
+        self.num_out = self.output_steps * self.N_prog
 
         self.data_layout = self.data_layout.to(self.device)
 
@@ -87,7 +89,7 @@ class Eval:
             )
         self.source = self.data_bundle.inference_source
         self.metadata = self.source.metadata
-        self.wet = self.source.masks.prognostic_with_hist(cfg.data.hist)
+        self.wet = self.source.masks.prognostic_for_steps(self.output_steps)
         self.area_weights: Grid = self.source.spherical_area_weights
         self.area_weights = self.area_weights.to(self.device)
 
@@ -102,7 +104,7 @@ class Eval:
             prog_channels=self.num_prog_in,
             boundary_channels=self.num_boundary_in,
             out_channels=self.num_out,
-            hist=cfg.data.hist,
+            input_steps=self.input_steps,
             grid_sizes=[source.grid_size for source in self.data_bundle.train_sources],
         ).to(self.device)
 
@@ -128,7 +130,6 @@ class Eval:
         )
 
         # Eval
-        self.hist = cfg.data.hist
         self.output_dir = cfg.experiment.output_dir
         self.debug = cfg.debug
         self.num_workers = data_num_workers
@@ -154,13 +155,15 @@ class Eval:
     def init_inference_store(self):
         self.num_time_steps = get_inference_steps(
             self.source,
-            hist=self.hist,
+            input_steps=self.input_steps,
+            output_steps=self.output_steps,
         )
         self.inference_dataset = InferenceDataset(
             source=self.source,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
-            hist=self.hist,
+            input_steps=self.input_steps,
+            output_steps=self.output_steps,
             normalize_before_mask=self.normalize_before_mask,
             masked_fill_value=self.masked_fill_value,
             long_rollout=True,
@@ -227,7 +230,8 @@ class Eval:
         inf_aggregator = Aggregator.get_standalone_inference_aggregator(
             self.num_time_steps,
             self.metadata,
-            self.hist,
+            self.input_steps,
+            self.output_steps,
             self.area_weights,
             self.source.masks.prognostic.to(self.device),
             self.num_out,

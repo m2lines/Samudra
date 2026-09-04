@@ -53,7 +53,8 @@ def test_rollout_validation_passes_source_to_inference_dataset(monkeypatch):
     trainer.model = SimpleNamespace(eval=lambda: None)
     trainer.prognostic_var_names = []
     trainer.boundary_var_names = []
-    trainer.hist = 0
+    trainer.input_steps = 1
+    trainer.output_steps = 1
     trainer.normalize_before_mask = True
     trainer.masked_fill_value = 0.0
 
@@ -368,10 +369,9 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
     caplog.set_level(logging.INFO)
     _, trainer = trainer_pair
 
-    hist = trainer.hist
     assert trainer.inference_source is not None
     resolution = trainer.inference_source.resolution
-    wet = trainer.inference_source.masks.prognostic_with_hist(hist)
+    wet = trainer.inference_source.masks.prognostic_for_steps(trainer.output_steps)
     ctx = BatchGrid(wet, resolution, resolution).to(trainer.device)
     data = trainer.inference_loader.dataset[0]
     inference_dataset, _num_steps = data
@@ -464,7 +464,7 @@ def test_multiscale_training_validates_primary_source_and_logs_reduced_metrics(
 
         class PerfectModel(BaseModel):
             def __init__(self):
-                super().__init__(0, 0, 0, False, 1, "constant", 0)
+                super().__init__(0, 0, 1, False, 1, "constant", 0)
 
             def forward(self, batch, loss_fn=None):
                 return [batch.get_label(0)]
@@ -474,6 +474,46 @@ def test_multiscale_training_validates_primary_source_and_logs_reduced_metrics(
         val_logs = trainer.validate_one_epoch(epoch=1)
 
     assert any(key.startswith("val/reduced/weighted_rmse/") for key in val_logs)
+
+
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+@pytest.mark.parametrize(
+    "data_source,config_name",
+    [("mock-om4", SAMUDRA_MULTI_CONFIG)],
+    indirect=True,
+)
+def test_trainer_supports_two_input_one_output_batches(train_config):
+    train_config.data.input_steps = 2
+    train_config.data.output_steps = 1
+    train_config.data.loading.num_workers = 0
+    train_config.model.perceiver_implementation = "naive"
+
+    with MultitonScope():
+        trainer = Trainer(train_config)
+        trainer.init_data_loaders(cur_step=2)
+        batch = trainer.train_loader[0]
+        prognostic, _, label = batch[0]
+
+        assert prognostic.shape[1] == 2 * trainer.N_prog
+        assert label.shape[1] == trainer.N_prog
+        assert trainer.num_out == trainer.N_prog
+
+        assert trainer.input_steps == trainer.model.input_steps == 2
+        assert trainer.output_steps == 1
+        assert trainer.model.out_channels == label.shape[1]
+
+        class PerfectOneStepModel(BaseModel):
+            def __init__(self):
+                super().__init__(0, 0, 1, False, 1, "constant", 0)
+
+            def forward(self, batch, loss_fn=None):
+                return [batch.get_label(0)]
+
+        trainer.model = PerfectOneStepModel()
+        trainer.test_using_ema = False
+        validation_logs = trainer.validate_one_epoch(epoch=2)
+
+    assert any(key.startswith("val/reduced/weighted_rmse/") for key in validation_logs)
 
 
 @pytest.mark.parametrize("backend", ["cpu"], indirect=True)

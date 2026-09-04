@@ -70,7 +70,7 @@ def create_samudra_model():
                 prog_channels=1,
                 boundary_channels=1,
                 out_channels=1,
-                hist=1,
+                input_steps=1,
                 grid_sizes=[source.grid_size],
             )
 

@@ -159,10 +159,12 @@ class Trainer:
         if data_num_workers > 0:
             self.mp_context = multiprocessing.get_context("spawn")
 
-        self.num_prog_in = int((cfg.data.hist + 1) * self.N_prog)
-        self.num_boundary_in = int((cfg.data.hist + 1) * self.N_bound)
+        self.input_steps = cfg.data.input_steps
+        self.output_steps = cfg.data.output_steps
+        self.num_prog_in = self.input_steps * self.N_prog
+        self.num_boundary_in = self.input_steps * self.N_bound
         self.num_in = self.num_prog_in + self.num_boundary_in
-        self.num_out = self.num_prog_in
+        self.num_out = self.output_steps * self.N_prog
 
         self.data_layout = self.data_layout.to(self.device)
 
@@ -200,7 +202,7 @@ class Trainer:
             prog_channels=self.num_prog_in,
             boundary_channels=self.num_boundary_in,
             out_channels=self.num_out,
-            hist=cfg.data.hist,
+            input_steps=self.input_steps,
             grid_sizes=[source.grid_size for source in self.data_bundle.train_sources],
         ).to(self.device)
 
@@ -311,7 +313,6 @@ class Trainer:
         # Training
         self.epochs = cfg.epochs
         self.test_using_ema = cfg.test_using_ema
-        self.hist: int = cfg.data.hist
         self.steps = cfg.steps
         self.step_transition = cfg.step_transition
         self.save_freq = cfg.save_freq
@@ -328,8 +329,8 @@ class Trainer:
         self.persistent_workers: bool = persistent_workers
         self.pin_mem: bool = cfg.pin_mem
         self.inference_epochs = cfg.inference_epochs
-        self.max_train_model_steps_forward = MAX_TRAIN_MODEL_STEPS_FORWARD // (
-            self.hist + 1
+        self.max_train_model_steps_forward = (
+            MAX_TRAIN_MODEL_STEPS_FORWARD // self.output_steps
         )
         self.normalize_before_mask: bool = cfg.data.normalize_before_mask
         self.masked_fill_value: float = cfg.data.masked_fill_value
@@ -367,13 +368,15 @@ class Trainer:
         assert self.inference_source is not None
         num_time_steps = get_inference_steps(
             self.inference_source,
-            hist=self.hist,
+            input_steps=self.input_steps,
+            output_steps=self.output_steps,
         )
         inference_dataset = InferenceDataset(
             source=self.inference_source,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
-            hist=self.hist,
+            input_steps=self.input_steps,
+            output_steps=self.output_steps,
             normalize_before_mask=self.normalize_before_mask,
             masked_fill_value=self.masked_fill_value,
             long_rollout=True,
@@ -705,7 +708,7 @@ class Trainer:
                     self.loss_fn, "loss_scale_per_channel", None
                 ):
                     loss_scale_per_channel = loss_scale_per_channel_fn()
-                    # Reshape from time-major channels to [hist, var] and
+                    # Reshape from time-major channels to [input_step, variable] and
                     # average along the history dimension.
                     loss_per_channel = batch_output.loss_per_channel.reshape(
                         -1, loss_scale_per_channel.shape[0]
@@ -823,7 +826,8 @@ class Trainer:
 
         val_aggregator = Aggregator.get_validation_aggregator(
             self.primary_source.metadata,
-            self.hist,
+            self.input_steps,
+            self.output_steps,
             self.primary_source.spherical_area_weights.to(self.device),
             self.num_out,
             self.data_layout,
@@ -894,7 +898,8 @@ class Trainer:
                 source=rollout_src,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
-                hist=self.hist,
+                input_steps=self.input_steps,
+                output_steps=self.output_steps,
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.masked_fill_value,
                 long_rollout=True,
@@ -917,7 +922,7 @@ class Trainer:
                         days=days,
                         start_time=rollout_src.time.values[0],
                         target_times=target_times,
-                        hist=self.hist,
+                        output_steps=self.output_steps,
                     )
                     for days in self.rollout_validation.days
                 ]
@@ -933,7 +938,7 @@ class Trainer:
                     RolloutValidationSpec.from_model_steps(
                         requested_steps=self.rollout_validation.model_steps,
                         available_steps=available_steps,
-                        hist=self.hist,
+                        output_steps=self.output_steps,
                     )
                 ]
                 if specs[0].model_steps == 0:
@@ -965,7 +970,7 @@ class Trainer:
                         f"for {spec.label}."
                     )
                     rollout_aggregator = RolloutValidationAggregator(
-                        hist=self.hist,
+                        output_steps=self.output_steps,
                         area_weights=self.primary_source.spherical_area_weights.to(
                             self.device
                         ),
@@ -989,7 +994,7 @@ class Trainer:
                     epoch=epoch,
                     num_model_steps=max_model_steps,
                     # Keep validation target materialization small. A 360-day
-                    # rollout at hist=1 is 35 model steps; loading that full
+                    # rollout with two input steps is 35 model steps; loading that full
                     # target block at once can stall on large Zarr data.
                     num_model_steps_forward=self.rollout_validation.steps_forward,
                 )
@@ -1012,7 +1017,8 @@ class Trainer:
                 inf_aggregator = Aggregator.get_inline_inference_aggregator(
                     num_steps,
                     self.primary_source.metadata,
-                    self.hist,
+                    self.input_steps,
+                    self.output_steps,
                     self.primary_source.spherical_area_weights.to(self.device),
                     self.primary_source.masks.prognostic.to(self.device),
                     self.num_out,
@@ -1086,8 +1092,9 @@ class Trainer:
                 label_source=None,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
-                hist=self.hist,
+                input_steps=self.input_steps,
                 steps=cur_step,
+                output_steps=self.output_steps,
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.masked_fill_value,
                 stride=stride,
@@ -1106,8 +1113,9 @@ class Trainer:
                 label_source=None,
                 prognostic_var_names=self.prognostic_var_names,
                 boundary_var_names=self.boundary_var_names,
-                hist=self.hist,
+                input_steps=self.input_steps,
                 steps=1,  # current_step set to 1 for validation
+                output_steps=self.output_steps,
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.masked_fill_value,
                 stride=stride,

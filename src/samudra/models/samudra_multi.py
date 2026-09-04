@@ -55,7 +55,7 @@ class SamudraMulti(BaseModel):
         encoder: PerceiverEncoder,
         processor: UNetBackbone,
         decoder: PerceiverDecoder,
-        hist: int,
+        input_steps: int,
         checkpointing: "Checkpointing | None",
         gradient_detach_interval: int,
         use_bfloat16: bool,
@@ -63,7 +63,7 @@ class SamudraMulti(BaseModel):
         super().__init__(
             in_channels=in_channels,
             out_channels=out_channels,
-            hist=hist,
+            input_steps=input_steps,
             pred_residuals=pred_residuals,
             last_kernel_size=last_kernel_size,
             pad=pad,

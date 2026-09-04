@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1788564152439,
+  "lastUpdate": 1788566125748,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -11960,6 +11960,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.19837083878605877",
             "extra": "mean: 46.46825361020001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "55fe01dde9739b1967ecfe9b81a074ef0a61e19a",
+          "message": "Support independent input and output steps (#860)\n\n`hist` has been used to cover two concepts: the number of input steps\nand the number of output steps. These have always been decided together.\nThis PR separates these two concepts so we can change them\nindependently. Doing so, to me, clarifies what concept we actually need\nin various parts of how `hist` was used -- code paths either need input\nor output steps, and this PR makes use of the proper concept by name now\ninstead of implicitly. I find that this makes reading various data flow\npaths more understandable than before.\n\n\n🤖 below\n\n## Summary\n\n- add backwards-compatible `data.output_steps` configuration, defaulting\nto `hist + 1`\n- support rolling input histories when a model emits fewer timesteps\nthan it consumes\n- anchor residual predictions to the most recent matching input span\n- separate input/output timestep handling in validation, rollout\nmetrics, and Zarr writing\n- cover the 2-input / 1-output dataset, residual rollout, Trainer,\nvalidation, and writer paths\n\nThis enables `hist: 1, output_steps: 1`: two input states predict one\nfuture state, and each autoregressive call shifts `[x(t-1), x(t)]` to\n`[x(t), x_hat(t+1)]`.\n\nExisting configs omit `output_steps` and retain their current `hist + 1`\noutput blocks.\n\n## Validation\n\n- `uvx pre-commit run --all-files`\n- `.venv/bin/pytest -m 'not manual and not cuda' -q`\n  - 417 passed, 2 skipped, 67 deselected, 10 xfailed",
+          "timestamp": "2026-09-04T23:19:41Z",
+          "tree_id": "28e47c4369ddbc8879e54bca09bd538f0f641418",
+          "url": "https://github.com/m2lines/Samudra/commit/55fe01dde9739b1967ecfe9b81a074ef0a61e19a"
+        },
+        "date": 1788566124299,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.1625425286393969,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004147015912393043",
+            "extra": "mean: 860.1835849999986 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.08187624219916378,
+            "unit": "iter/sec",
+            "range": "stddev: 0.031743716102336526",
+            "extra": "mean: 12.213555155199993 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.021456150945377585,
+            "unit": "iter/sec",
+            "range": "stddev: 0.5887268144548562",
+            "extra": "mean: 46.606681811 sec\nrounds: 5"
           }
         ]
       }

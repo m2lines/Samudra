@@ -18,10 +18,10 @@ sources:
     # variable. CanonicalReader still exposes the identical flattened channels.
     data_location:
       type: local
-      path: /home/am16581/data/om4_twodeg_compact_smoke/OM4.zarr
+      path: OM4.zarr
     data_means_location:
       type: local
-      path: /home/am16581/data/om4_twodeg_compact_smoke/OM4_means.zarr
+      path: OM4_means.zarr
     data_stds_location:
       type: local
-      path: /home/am16581/data/om4_twodeg_compact_smoke/OM4_stds.zarr
+      path: OM4_stds.zarr

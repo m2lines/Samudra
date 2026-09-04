@@ -14,11 +14,12 @@ set -euo pipefail
 : "${CODE_ARCHIVE:?CODE_ARCHIVE is required}"
 : "${PYTHON:?PYTHON is required}"
 : "${SOURCE_DATA_ROOT:?SOURCE_DATA_ROOT is required}"
-: "${COMPACT_DATA_ROOT:?COMPACT_DATA_ROOT is required}"
 : "${SEARCH_CONFIG:?SEARCH_CONFIG is required relative to the repository root}"
 
 node_root="${TMPDIR:-/tmp}/samudra-utilization-${SLURM_JOB_ID:-local}"
 repo="$node_root/repo"
+compact_data_root="$node_root/data"
+runtime_search="$node_root/search.yaml"
 mkdir -p "$repo"
 
 tar -xzf "$CODE_ARCHIVE" -C "$repo"
@@ -30,9 +31,9 @@ fi
 
 export PYTHONPATH="$repo/src"
 
-if [[ ! -f "$COMPACT_DATA_ROOT/_SUCCESS" ]]; then
-  test ! -e "$COMPACT_DATA_ROOT"
-  "$PYTHON" - "$SOURCE_DATA_ROOT" "$COMPACT_DATA_ROOT" <<'PY'
+if [[ ! -f "$compact_data_root/_SUCCESS" ]]; then
+  test ! -e "$compact_data_root"
+  "$PYTHON" - "$SOURCE_DATA_ROOT" "$compact_data_root" <<'PY'
 import os
 import pathlib
 import sys
@@ -72,4 +73,6 @@ PY
 fi
 
 cd "$repo"
-exec "$PYTHON" -m samudra.search "$repo/$SEARCH_CONFIG"
+sed "s|__COMPACT_DATA_ROOT__|$compact_data_root|g" \
+  "$repo/$SEARCH_CONFIG" > "$runtime_search"
+exec "$PYTHON" -m samudra.search "$runtime_search"

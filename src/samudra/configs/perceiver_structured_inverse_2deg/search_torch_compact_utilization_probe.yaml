@@ -30,6 +30,7 @@ candidates:
   - name: moment16-local
     config: perceiver_structured_inverse_2deg/train_torch_compact_utilization_smoke.yaml
     args:
+      - --experiment.data_root=__COMPACT_DATA_ROOT__
       - --model.encoder.architecture=patch_moment
       - --model.decoder.architecture=structured_local
       - --model.patch_extent=[6.0,10.0]

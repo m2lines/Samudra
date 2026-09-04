@@ -73,6 +73,8 @@ PY
 fi
 
 cd "$repo"
-sed "s|__COMPACT_DATA_ROOT__|$compact_data_root|g" \
+sed \
+  -e "s|__COMPACT_DATA_ROOT__|$compact_data_root|g" \
+  -e "s|../search/osn-artifacts.yaml|$repo/src/samudra/configs/search/osn-artifacts.yaml|g" \
   "$repo/$SEARCH_CONFIG" > "$runtime_search"
 exec "$PYTHON" -m samudra.search "$runtime_search"

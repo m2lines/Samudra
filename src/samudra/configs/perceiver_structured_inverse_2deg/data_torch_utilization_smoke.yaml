@@ -5,7 +5,10 @@
 concurrent_compute: true
 loading:
   type: cpu
-  num_workers: 2
+  # One candidate receives eight of the allocation's 32 CPU cores. The
+  # original two-worker smoke delivered batch pairs every 34--38 seconds and
+  # left the GPU idle between them.
+  num_workers: 8
 sources:
   - type: om4
     prognostic_vars_key: thermo_dynamic_all

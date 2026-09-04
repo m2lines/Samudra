@@ -30,6 +30,6 @@ experiment:
     entity: ocean_emulators
     project: default
     tags: [torch, om4-2deg, utilization-smoke, batch16]
-    notes: Four-way pooled utilization smoke with batch 16 and accumulation 2.
+    notes: Four-way pooled utilization smoke with batch 16, accumulation 2, and eight loader workers per candidate.
 data: !include data_torch_utilization_smoke.yaml
 model: !include model.yaml

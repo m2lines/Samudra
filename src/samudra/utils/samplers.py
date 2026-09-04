@@ -6,15 +6,22 @@ import itertools
 import math
 import random
 from collections.abc import Callable, Hashable
-from typing import TYPE_CHECKING, Self
+from typing import Protocol, Self, TypeVar
 
 from torch.utils.data import BatchSampler, Sampler
 
-if TYPE_CHECKING:
-    from samudra.datasets import TorchTrainDataset
-
 type Batch = list[int]
 type DdpStepChunk = tuple[Batch, ...]
+
+
+class BatchCompatibleDataset(Protocol):
+    @property
+    def batch_compatibility_key(self) -> Hashable: ...
+
+    def __len__(self) -> int: ...
+
+
+DatasetT = TypeVar("DatasetT", bound=BatchCompatibleDataset)
 
 
 class _SimpleSubsetSampler(Sampler):
@@ -105,13 +112,13 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
     @classmethod
     def from_datasets(
         cls,
-        datasets: list["TorchTrainDataset"],
-        group_key: Callable[["TorchTrainDataset"], Hashable],
+        datasets: list[DatasetT],
         batch_size: int,
         shuffle: bool,
         drop_last: bool,
         *,
         seed: int,
+        group_key: Callable[[DatasetT], Hashable] | None = None,
     ) -> Self:
         """Create sampler by grouping datasets using a key function.
 
@@ -120,7 +127,8 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
 
         Args:
             datasets: List of TorchTrainDataset instances to group
-            group_key: Callable that extracts grouping key from a dataset.
+            group_key: Optional legacy override for the dataset's public
+                ``batch_compatibility_key``.
             batch_size: Number of samples per batch
             shuffle: Whether to shuffle indices within groups and shuffle batches globally
             drop_last: Whether to drop incomplete batches at the end of each group
@@ -144,23 +152,18 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
             ...     seed=15,
             ... )
         """
-        from collections import defaultdict
-
-        # Group indices by their key
-        groups: dict[Hashable, list[int]] = defaultdict(list)
+        # Preserve first-seen group order. Compatibility keys define equality,
+        # but need not be comparable or identical objects across processes.
+        groups: dict[Hashable, list[int]] = {}
 
         cumsum = 0
         for ds in datasets:
-            key = group_key(ds)
+            key = group_key(ds) if group_key is not None else ds.batch_compatibility_key
             assert isinstance(key, Hashable), "`group_key` must be hashable."
-            groups[key].extend(range(cumsum, cumsum + len(ds)))
+            groups.setdefault(key, []).extend(range(cumsum, cumsum + len(ds)))
             cumsum += len(ds)
 
-        # Sort by key for deterministic ordering across runs
-        sorted_groups = sorted(groups.items(), key=lambda x: x[0])  # type: ignore
-        group_indices = [indices for _, indices in sorted_groups]
-
-        return cls(group_indices, batch_size, shuffle, drop_last, seed=seed)
+        return cls(list(groups.values()), batch_size, shuffle, drop_last, seed=seed)
 
     def __iter__(self):
         rng = random.Random(self.seed + self.epoch)
@@ -219,14 +222,14 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[Batch]):
 
     def __init__(
         self,
-        datasets: list["TorchTrainDataset"],
-        group_key: Callable[["TorchTrainDataset"], Hashable],
+        datasets: list[DatasetT],
         batch_size: int,
         num_replicas: int,
         rank: int,
         shuffle: bool = True,
         drop_last: bool = False,
         seed: int = 0,
+        group_key: Callable[[DatasetT], Hashable] | None = None,
     ):
         super().__init__()
         if num_replicas <= 0:

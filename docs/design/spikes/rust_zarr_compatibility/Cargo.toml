@@ -1,0 +1,15 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+[package]
+name = "llc-zarr-rust-compatibility-spike"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+anyhow = "1"
+# Match the zarrs version used by Samudra PR #800 rather than testing only the
+# newest Rust reader.
+zarrs = { version = "0.21.2", features = ["filesystem"] }

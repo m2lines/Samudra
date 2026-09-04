@@ -73,9 +73,11 @@ if __name__ == "__main__":
 
     mean_path = os.path.join(path, f"{ds_name}_means{ds_ext}")
     print(f"Writing mean Zarr to {mean_path!r}.")
-    ds_means.to_zarr(mean_path, zarr_format=2, consolidated=True)
+    # These stores are derived entirely from ``src``. Replace a partial store
+    # left by an interrupted attempt so that batch-level retries are safe.
+    ds_means.to_zarr(mean_path, mode="w", zarr_format=2, consolidated=True)
     stds_path = os.path.join(path, f"{ds_name}_stds{ds_ext}")
     print(f"Writing std Zarr to {stds_path!r}.")
-    ds_stds.to_zarr(stds_path, zarr_format=2, consolidated=True)
+    ds_stds.to_zarr(stds_path, mode="w", zarr_format=2, consolidated=True)
 
     print("done.")

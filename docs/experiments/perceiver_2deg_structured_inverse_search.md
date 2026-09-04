@@ -91,6 +91,33 @@ and every allocated GPU sustains more than 50% utilization during steady-state
 training. Validation loss from this shortened data window will not select an
 architecture.
 
+The first Torch utilization smoke,
+`perceiver-2deg-batch16-utilization-smoke--20260904T180756.742480Z`, ran as
+Slurm job `16962858` on four RTX6000s with 32 CPUs and 200 GiB of host memory.
+Every worker used local batch 16, accumulation 2, and effective global batch
+32; all four workers reached two finite batches and one optimizer update before
+the allocation was deliberately cancelled. W&B runs and the
+[public OSN record](https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/experiments/searches/perceiver-2deg-batch16-utilization-smoke--20260904T180756.742480Z/)
+were created successfully.
+
+This first systems gate failed. Initial data wait was approximately 106 seconds
+per candidate. After one prefetched batch, the next pair arrived only after
+34--38 seconds; per-batch load time remained 49--56 seconds while model compute
+took approximately 0.5--3.1 seconds. Both one-second and 100-millisecond device
+sampling therefore observed nearly all GPUs idle between short compute bursts.
+The two-worker loader, not GPU memory or arithmetic, was the immediate
+bottleneck. Peak allocated GPU memory was approximately 18.3 GiB for
+`moment16-direct`, 30.3 GiB for `moment16-local`, 37.8 GiB for
+`spatial-grid2-direct`, and 49.8 GiB for `spatial-grid2-local`; batch 16 fits,
+but the last arm has materially less memory headroom.
+
+The follow-up smoke increases persistent CPU loader workers from two to eight
+per candidate while retaining the same model batch and optimizer batch. It is
+Slurm job `16962966`. If parallel loading still cannot sustain the GPUs, the
+next intervention is to stage the small 2-degree Zarr store once per allocation
+onto node-local storage rather than multiplying reads from the shared scratch
+filesystem.
+
 ## Launch record
 
 The accepted immutable run is

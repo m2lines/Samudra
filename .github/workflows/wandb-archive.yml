@@ -1,0 +1,80 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: Archive W&B runs
+
+on:
+  schedule:
+    # Weekly updates keep each incremental backup small. Avoid the top of the hour,
+    # when scheduled GitHub Actions experience the most load.
+    - cron: "17 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wandb-archive-osn
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check archive credentials
+        env:
+          WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.OSN_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.OSN_SECRET_ACCESS_KEY }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in WANDB_API_KEY AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY; do
+            if [ -z "${!name:-}" ]; then
+              missing+=("${name}")
+            fi
+          done
+          if [ "${#missing[@]}" -ne 0 ]; then
+            echo "Missing required archive credential(s): ${missing[*]}" >&2
+            exit 1
+          fi
+
+  ec2:
+    needs: preflight
+    permissions:
+      contents: read
+      id-token: write
+    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
+    with:
+      aws_region: us-east-1
+      # Export is W&B API/network-bound and does not benefit from a GPU.
+      ec2_instance_type: m7i.xlarge
+      # Ubuntu 24.04 LTS amd64 hvm ebs-gp3 in us-east-1, Canonical owner 099720109477.
+      ec2_image_id: ami-04b70fa74e45c3917
+      ec2_root_device_size: 200
+      max_instance_lifetime: "720"
+      aws_tags: '[{"Key": "project", "Value": "fomo"}, {"Key": "purpose", "Value": "wandb-archive"}]'
+    secrets:
+      GH_SA_TOKEN: ${{ secrets.GH_SA_TOKEN }}
+
+  archive:
+    needs: ec2
+    runs-on: ${{ needs.ec2.outputs.id }}
+    timeout-minutes: 690
+    steps:
+      - name: Check out code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Archive W&B runs to OSN
+        uses: Open-Athena/wandb-archive@5646c052f6e552e8f23e83f345926ad7edf62e2e # v0.1.1
+        with:
+          config: .github/wandb-archive.yaml
+          command: backup
+        env:
+          WANDB_API_KEY: ${{ secrets.WANDB_API_KEY }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.OSN_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.OSN_SECRET_ACCESS_KEY }}
+          # OSN's S3 implementation does not support the new AWS SDK checksum headers.
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required

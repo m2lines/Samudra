@@ -111,12 +111,29 @@ bottleneck. Peak allocated GPU memory was approximately 18.3 GiB for
 `spatial-grid2-direct`, and 49.8 GiB for `spatial-grid2-local`; batch 16 fits,
 but the last arm has materially less memory headroom.
 
-The follow-up smoke increases persistent CPU loader workers from two to eight
-per candidate while retaining the same model batch and optimizer batch. It is
-Slurm job `16962966`. If parallel loading still cannot sustain the GPUs, the
-next intervention is to stage the small 2-degree Zarr store once per allocation
-onto node-local storage rather than multiplying reads from the shared scratch
-filesystem.
+The follow-up smoke increased persistent CPU loader workers from two to eight
+per candidate while retaining the same model batch and optimizer batch. Slurm
+job `16962966` completed successfully in 13 minutes 23 seconds. All four workers
+completed 30 batches and 15 optimizer updates, wrote checkpoints, finished
+validation, logged to W&B, and published the
+[public OSN record](https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/experiments/searches/perceiver-2deg-batch16-utilization-smoke--20260904T223204.477529Z/).
+
+The additional workers improved throughput but did not pass the utilization
+gate. Training took 416--433 seconds per candidate. CUDA-synchronized model
+batch time (`progress/gpu_seconds`) divided by training time gives an upper
+bound on compute duty cycle of 35.7% for `spatial-grid2-direct`, 27.2% for
+`spatial-grid2-local`, 7.1% for `moment16-local`, and 29.5% for
+`moment16-direct`. W&B's lower-frequency NVML samples likewise show long idle
+periods between occasional utilization spikes. Data-load measurements remained
+approximately 42--50 seconds per batch; eight workers converted the earlier
+two-batch bursts into longer runs of ready batches, but still produced
+12--41-second stalls when the prefetch queue emptied.
+
+The full search is therefore not released with this configuration. The next
+systems intervention is to stage the small 2-degree Zarr store once per
+allocation onto node-local storage rather than multiplying reads from the
+shared scratch filesystem. The next smoke should keep the same four scientific
+paths and effective global batch so that only data placement changes.
 
 ## Launch record
 

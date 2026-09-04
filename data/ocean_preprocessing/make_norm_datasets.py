@@ -6,11 +6,16 @@
 
 """Create *_means.zarr and *_stds.zarr from a dataset."""
 
+from __future__ import annotations
+
 import argparse
 import os
+from typing import TYPE_CHECKING
 
 import xarray as xr
-from dask.distributed import Client, LocalCluster
+
+if TYPE_CHECKING:
+    from dask.distributed import Client
 
 
 def write_zarr_with_retries(
@@ -29,6 +34,8 @@ def write_zarr_with_retries(
 
 def main(src: str, write_retries: int = 5) -> None:
     """Calculate and write normalization statistics for ``src``."""
+    from dask.distributed import LocalCluster
+
     if write_retries < 0:
         raise ValueError("write_retries must be non-negative")
 

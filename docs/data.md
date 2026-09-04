@@ -60,6 +60,19 @@ it anonymously (`anon: true`) — no credentials needed.
 Our data is stored in [Zarr](https://zarr.dev) and is canonically opened with [Xarray](https://xarray.dev). Here is a
 quick demonstration on how to open each processed dataset we make available:
 
+Samudra can optionally retain this Xarray data path while using TensorStore's
+native Zarr v2 reader for data arrays. Install `samudra[tensorstore]` and set:
+
+```yaml
+data:
+  xarray_backend: tensorstore
+```
+
+The default is `zarr-python`. TensorStore supports local stores, AWS S3 using
+environment credentials, and anonymous HTTP/S3-compatible endpoints such as
+the OSN datasets below. Authenticated custom S3 endpoints are not supported by
+the current `xarray-tensorstore` API; use `zarr-python` for those locations.
+
 ```shell
 >>> import xarray as xr
 >>> # One degree data with guassian filtering applied

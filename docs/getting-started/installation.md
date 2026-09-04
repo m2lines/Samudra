@@ -20,10 +20,12 @@ scaled dot product attention to an optimized CUDA kernel when supported:
 # Install with `uv` (recommended)
 uv add samudra                    # CPU (default)
 uv add "samudra[cuda]"            # adds torchvision
+uv add "samudra[tensorstore]"     # native Zarr v2 data reads
 uv add samudra --prerelease=allow # latest nightly dev build
 # Install with `pip`
 pip install samudra               # CPU (default)
 pip install "samudra[cuda]"       # adds torchvision
+pip install "samudra[tensorstore]" # native Zarr v2 data reads
 pip install --pre samudra         # latest nightly dev build
 ```
 
@@ -38,6 +40,10 @@ The PhysicsNeMo container inherits its PyTorch and CUDA binaries from NVIDIA.
 Its build-time smoke test verifies that this CUDA-enabled PyTorch reports
 compiled FlashAttention support, while GPU CI forces that backend through a
 forward and backward pass.
+
+The `tensorstore` extra adds the optional native TensorStore backend for Zarr
+v2 datasets. Set `data.xarray_backend: tensorstore` in a Samudra config to use
+it. The default remains `zarr-python`.
 
 ## Development setup
 

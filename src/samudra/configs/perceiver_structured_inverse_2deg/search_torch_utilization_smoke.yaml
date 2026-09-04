@@ -30,12 +30,10 @@ candidates:
   - name: spatial-grid2-direct
     config: perceiver_structured_inverse_2deg/train_torch_utilization_smoke.yaml
 
-  - name: moment16-geometry-direct
+  - name: spatial-grid2-local
     config: perceiver_structured_inverse_2deg/train_torch_utilization_smoke.yaml
     args:
-      - --model.encoder.architecture=patch_moment
-      - --model.encoder.moment_add_geometry=true
-      - --model.patch_extent=[6.0,10.0]
+      - --model.decoder.architecture=structured_local
 
   - name: moment16-local
     config: perceiver_structured_inverse_2deg/train_torch_utilization_smoke.yaml
@@ -44,10 +42,8 @@ candidates:
       - --model.decoder.architecture=structured_local
       - --model.patch_extent=[6.0,10.0]
 
-  - name: dct14-paired
+  - name: moment16-direct
     config: perceiver_structured_inverse_2deg/train_torch_utilization_smoke.yaml
     args:
-      - --model.encoder.architecture=dct_detail
-      - --model.decoder.architecture=dct_detail
-      - --model.decoder.pixel_refinement=true
+      - --model.encoder.architecture=patch_moment
       - --model.patch_extent=[6.0,10.0]

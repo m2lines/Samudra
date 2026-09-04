@@ -30,7 +30,7 @@ fi
 
 export PYTHONPATH="$repo/src"
 
-if [[ ! -f "$COMPACT_DATA_ROOT/OM4.zarr/.zmetadata" ]]; then
+if [[ ! -f "$COMPACT_DATA_ROOT/_SUCCESS" ]]; then
   test ! -e "$COMPACT_DATA_ROOT"
   "$PYTHON" - "$SOURCE_DATA_ROOT" "$COMPACT_DATA_ROOT" <<'PY'
 import os
@@ -39,8 +39,6 @@ import sys
 
 import dask
 import xarray as xr
-
-from samudra.utils.data import compact_dataset
 
 source_root, destination_root = sys.argv[1:]
 pathlib.Path(destination_root).mkdir(parents=True)
@@ -56,10 +54,20 @@ with dask.config.set(scheduler="threads", num_workers=workers):
         )
         if name == "OM4":
             data = data.isel(time=slice(1240, 1830))
-        data = compact_dataset(data)
+        for base_name in ("uo", "vo", "thetao", "so"):
+            level_names = [f"{base_name}_{level}" for level in range(19)]
+            if not all(level_name in data for level_name in level_names):
+                continue
+            levels = data.coords.get("lev", xr.DataArray(range(19))).values
+            data[base_name] = xr.concat(
+                [data[level_name] for level_name in level_names], dim="lev"
+            ).assign_coords(lev=("lev", levels))
+            data = data.drop_vars(level_names)
         if name == "OM4":
             data = data.chunk({"time": 1, "lev": 19})
         data.to_zarr(os.path.join(destination_root, f"{name}.zarr"))
+
+pathlib.Path(destination_root, "_SUCCESS").touch()
 PY
 fi
 

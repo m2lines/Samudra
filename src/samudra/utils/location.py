@@ -204,9 +204,7 @@ class LocalLocation(ResolvedLocation, BaseModel):
         xarray_backend: XarrayBackend = "zarr-python",
     ) -> xr.Dataset:
         engine = "netcdf4" if self.path.suffix == ".nc" else "zarr"
-        if xarray_backend == "tensorstore":
-            if engine != "zarr":
-                raise ValueError("The TensorStore backend only supports Zarr datasets")
+        if xarray_backend == "tensorstore" and engine == "zarr":
             return _open_tensorstore_zarr(str(self.path), chunks)
         return xr.open_dataset(self.path, engine=engine, chunks=chunks)
 

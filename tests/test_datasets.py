@@ -8,6 +8,7 @@ import contextlib
 import dataclasses
 import datetime
 import itertools
+import multiprocessing
 import pathlib
 from collections.abc import Generator
 
@@ -26,6 +27,7 @@ from samudra.config import DataConfig, TrainConfig
 from samudra.constants import DataLayout, LoaderVersion
 from samudra.datasets import (
     BatchLoader,
+    HostBatch,
     InferenceDataset,
     ModelBatch,
     TorchTrainDataset,
@@ -371,6 +373,40 @@ def test_loader__data_shape(
                 180,
                 360,
             )
+
+
+@pytest.mark.parametrize(
+    "data_source,config_name", [("mock", DEFAULT_CONFIG)], indirect=True
+)
+@pytest.mark.parametrize("backend", ["cpu"], indirect=True)
+def test_tensorstore_loader_works_in_spawned_worker(train_config: TrainConfig):
+    pytest.importorskip("xarray_tensorstore")
+    data_config = train_config.data.model_copy(update={"xarray_backend": "tensorstore"})
+    container = data_config.build(train_config.experiment.resolved_data_root)
+    source = container.train_sources[0]
+    dataset = TorchTrainDataset(
+        input_source=source,
+        label_source=None,
+        prognostic_var_names=container.data_layout.prognostic_var_names,
+        boundary_var_names=container.data_layout.boundary_var_names,
+        hist=data_config.hist,
+        steps=train_config.steps[0],
+        normalize_before_mask=data_config.normalize_before_mask,
+        masked_fill_value=data_config.masked_fill_value,
+    )
+    loader = DataLoader(
+        dataset,
+        batch_size=1,
+        num_workers=data_config.loading.num_pytorch_workers(),
+        persistent_workers=data_config.loading.persistent_pytorch_workers(),
+        collate_fn=collate_host_batches,
+        multiprocessing_context=multiprocessing.get_context("spawn"),
+    )
+
+    batch = next(iter(loader))
+
+    assert isinstance(batch, HostBatch)
+    assert len(batch.steps) == train_config.steps[0]
 
 
 @pytest.mark.parametrize(

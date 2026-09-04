@@ -180,11 +180,14 @@ class TestLocalLocation:
             assert opened.a.chunks == ((2, 2), (4,))
             assert opened.b.chunks == ((2, 2), (4,))
 
-    def test_tensorstore_rejects_netcdf(self, tmp_path: Path):
-        location = LocalLocation(path=tmp_path / "test.nc")
+    def test_tensorstore_selection_keeps_xarray_netcdf_backend(self, tmp_path: Path):
+        path = tmp_path / "test.nc"
+        expected = xr.Dataset({"temperature": ("x", [1.0, 2.0])})
+        expected.to_netcdf(path)
 
-        with pytest.raises(ValueError, match="only supports Zarr"):
-            location.open(xarray_backend="tensorstore")
+        actual = LocalLocation(path=path).open(xarray_backend="tensorstore")
+
+        xr.testing.assert_equal(actual, expected)
 
 
 class TestS3Location:

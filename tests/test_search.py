@@ -704,7 +704,8 @@ def test_slurm_allocation_executor_uses_exclusive_gpu_steps(tmp_path, monkeypatc
     environments = []
     monkeypatch.setenv("SLURM_JOB_ID", "123")
     monkeypatch.setenv("SLURM_NNODES", "2")
-    monkeypatch.setenv("SLURM_GPUS_ON_NODE", "8")
+    # Some Slurm installations append a socket/topology suffix.
+    monkeypatch.setenv("SLURM_GPUS_ON_NODE", "8(S:0-1)")
     monkeypatch.setenv("SLURM_CPUS_ON_NODE", "128")
     monkeypatch.setenv("SLURM_MEM_PER_NODE", "1048576")
     monkeypatch.setenv("RANK", "0")

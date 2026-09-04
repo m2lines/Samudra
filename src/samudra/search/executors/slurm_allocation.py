@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 from typing import TYPE_CHECKING, cast
 
@@ -20,10 +21,10 @@ def _positive_int_environment(name: str) -> int | None:
     value = os.environ.get(name)
     if value is None:
         return None
-    try:
-        parsed = int(value)
-    except ValueError:
+    match = re.fullmatch(r"\s*(\d+)(?:\([^)]*\))?\s*", value)
+    if match is None:
         return None
+    parsed = int(match.group(1))
     return parsed if parsed > 0 else None
 
 

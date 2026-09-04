@@ -323,6 +323,7 @@ class Trainer:
         self.search_run = cfg.experiment.search
         self.debug = cfg.debug
         self.data_stride: list[int] = cfg.data_stride
+        self.temporal_stride: int = cfg.temporal_stride
         self.batch_size: int = cfg.batch_size
         self.gradient_accumulation_steps: int = cfg.gradient_accumulation_steps
         self.num_workers: int = data_num_workers
@@ -1099,6 +1100,7 @@ class Trainer:
                 masked_fill_value=self.masked_fill_value,
                 stride=stride,
                 concurrent_compute_=self.concurrent_compute,
+                temporal_stride=self.temporal_stride,
             )
             for stride in self.data_stride
             for source in self.data_bundle.train_sources
@@ -1120,6 +1122,7 @@ class Trainer:
                 masked_fill_value=self.masked_fill_value,
                 stride=stride,
                 concurrent_compute_=self.concurrent_compute,
+                temporal_stride=self.temporal_stride,
             )
             for stride in self.data_stride
         ]

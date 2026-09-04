@@ -6,8 +6,13 @@ source:
   entity: ocean_emulators
   timeout_seconds: 60
   projects:
-    include: ["*"]
-    exclude: ["scratch-*"]
+    # Keep public publication opt-in: new W&B projects must be reviewed here.
+    include:
+      - default
+      - marin
+      - ocean-emulators
+      - samudra-multi-decoder
+    exclude: []
   runs:
     states: [finished, failed, crashed, killed, preempted]
   retry:

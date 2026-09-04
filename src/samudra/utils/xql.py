@@ -128,7 +128,6 @@ class XqlCanonicalReader:
                 ]
                 if auxiliary_coords:
                     query_data = query_data.drop_vars(auxiliary_coords)
-                # TODO(Codex): Would it be better for XQL to implement https://github.com/xqlsystems/xarray-sql/pull/219?
                 query_data = query_data.assign_coords(
                     {
                         dim: np.arange(size, dtype=np.int64)

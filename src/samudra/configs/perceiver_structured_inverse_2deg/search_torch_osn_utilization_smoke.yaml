@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: CC0-1.0
+
+# yaml-language-server: $schema=../schemas/SearchConfig.json
+
+name: perceiver-2deg-osn-batch16-utilization-smoke
+algorithm:
+  type: successive_halving
+  rungs: [1]
+  promotion_fraction: 0.5
+  minimum_promoted: 2
+objective: {metric: validation_loss, mode: min}
+metrics: [validation_loss, train_loss, best_validation_loss]
+
+resources:
+  strategy: adaptive_data_parallel
+  max_gpus_per_candidate: 2
+  effective_global_batch_size: 32
+  allowed_world_sizes: [1, 2]
+
+executor:
+  type: local
+  output_dir: /home/am16581/search-smokes
+  max_concurrent: 4
+
+artifacts: !include ../search/osn-artifacts.yaml
+
+candidates:
+  - name: spatial-grid2-direct
+    config: perceiver_structured_inverse_2deg/train_torch_osn_utilization_smoke.yaml
+
+  - name: spatial-grid2-local
+    config: perceiver_structured_inverse_2deg/train_torch_osn_utilization_smoke.yaml
+    args:
+      - --model.decoder.architecture=structured_local
+
+  - name: moment16-local
+    config: perceiver_structured_inverse_2deg/train_torch_osn_utilization_smoke.yaml
+    args:
+      - --model.encoder.architecture=patch_moment
+      - --model.decoder.architecture=structured_local
+      - --model.patch_extent=[6.0,10.0]
+
+  - name: moment16-direct
+    config: perceiver_structured_inverse_2deg/train_torch_osn_utilization_smoke.yaml
+    args:
+      - --model.encoder.architecture=patch_moment
+      - --model.patch_extent=[6.0,10.0]

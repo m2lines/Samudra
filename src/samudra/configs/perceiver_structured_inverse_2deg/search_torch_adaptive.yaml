@@ -37,13 +37,6 @@ candidates:
   - name: spatial-grid2-direct
     config: perceiver_structured_inverse_2deg/train_torch.yaml
 
-  - name: moment16-geometry-direct
-    config: perceiver_structured_inverse_2deg/train_torch.yaml
-    args:
-      - --model.encoder.architecture=patch_moment
-      - --model.encoder.moment_add_geometry=true
-      - --model.patch_extent=[6.0,10.0]
-
   - name: moment16-direct
     config: perceiver_structured_inverse_2deg/train_torch.yaml
     args:
@@ -74,14 +67,6 @@ candidates:
     args:
       - --model.encoder.spatial_query_shape=[3,4]
       - --model.patch_extent=[18.0,40.0]
-
-  - name: dct14-paired
-    config: perceiver_structured_inverse_2deg/train_torch.yaml
-    args:
-      - --model.encoder.architecture=dct_detail
-      - --model.decoder.architecture=dct_detail
-      - --model.decoder.pixel_refinement=true
-      - --model.patch_extent=[6.0,10.0]
 
   - name: moment16-wide-direct
     config: perceiver_structured_inverse_2deg/train_torch.yaml

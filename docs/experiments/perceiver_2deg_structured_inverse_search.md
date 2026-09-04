@@ -59,6 +59,38 @@ four CPUs, and 28 GiB per two-GPU candidate.
 
 The candidate matrix is defined in
 [`search.yaml`](../../src/samudra/configs/perceiver_structured_inverse_2deg/search.yaml).
+
+### Torch relaunch revision after prior-evidence review
+
+Before the Torch relaunch, the Perceiver lab notebooks and Jesse's decoder and
+coarse-latent reports were reviewed together. Two original Alpha candidates are
+not repeated in the Torch matrix:
+
+- `dct14-paired` is excluded because its low short-budget MSE coincided with
+  4.15 times the baseline patch-periodic power and visibly basis-aligned,
+  unphysical error texture. It remains mechanistic evidence that spatial phase
+  matters, not a promotion-eligible architecture.
+- `moment16-geometry-direct` is excluded because adding absolute geometry to
+  reconstructive content conflicts with the stronger learned-inverse result:
+  keep amplitude-bearing state separate and inject geometry as a
+  zero-initialized processor sidecar.
+
+The revised Torch search therefore contains eight candidates: the pooled
+Perceiver baseline; spatial-grid 2x2 direct and local-decoder arms; a denser
+spatial-grid direct arm; moment-4 and moment-16 local arms; and moment-16 direct
+width-128 and width-256 arms. On a four-GPU allocation this produces an exact
+8 -> 4 -> 2 -> 2 occupancy schedule: four concurrent one-GPU candidates in the
+first two rungs and two concurrent two-GPU candidates in the last two rungs.
+The effective global batch remains 32 throughout.
+
+The utilization smoke is a systems gate rather than a scientific comparison.
+It crosses the two leading phase-preserving encoders (`spatial_grid` and
+`patch_moment`) with direct and physically anchored local decoders. A full
+search will not be released unless all four arms make finite optimizer progress
+and every allocated GPU sustains more than 50% utilization during steady-state
+training. Validation loss from this shortened data window will not select an
+architecture.
+
 ## Launch record
 
 The accepted immutable run is

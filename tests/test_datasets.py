@@ -156,7 +156,8 @@ def make_loader(
                         label_source=None,
                         prognostic_var_names=prognostic,
                         boundary_var_names=boundary,
-                        hist=cfg.data.hist,
+                        input_steps=cfg.data.input_steps,
+                        output_steps=cfg.data.output_steps,
                         steps=cfg.steps[0],
                         normalize_before_mask=cfg.data.normalize_before_mask,
                         masked_fill_value=cfg.data.masked_fill_value,
@@ -216,10 +217,11 @@ def calc_num_samples(cfg: TrainConfig, time_slice: slice, source_count: int = 1)
 
     data_size = ds.sel(time=time_slice).time.size
     steps = cfg.steps[0]
-    hist = cfg.data.hist
+    input_steps = cfg.data.input_steps
+    output_steps = cfg.data.output_steps
     stride = cfg.data_stride[0]
 
-    n_samples = data_size - (steps * (cfg.data.hist + 1) * stride) - hist * stride
+    n_samples = data_size - steps * output_steps * stride - (input_steps - 1) * stride
     return n_samples * source_count
 
 
@@ -334,7 +336,8 @@ def test_test_util__data_source_roundtrip(
 def test_loader__data_shape(
     train_config: TrainConfig, history: int, loader_version: LoaderVersion
 ):
-    train_config.data.hist = history
+    train_config.data.input_steps = history + 1
+    train_config.data.output_steps = history + 1
 
     with make_loader(train_config, version=loader_version) as loader:
         dataset = next(iter(loader._datasets.values()))
@@ -430,7 +433,7 @@ def test_loader__data_shape__across_source_counts(
     multiscale: bool,
     expected_patterns: set[tuple[tuple[int, int], tuple[int, int]]],
 ):
-    history = train_config.data.hist
+    history = train_config.data.input_steps - 1
 
     with make_loader(
         train_config,
@@ -493,12 +496,12 @@ def test_loader__data_shape__across_source_counts(
 def test_inference__data_shape(inference_loader_pair):
     cfg, loader, data_layout = inference_loader_pair
     batch_size = 1  # Inference always uses batch size 1
-    hist = cfg.data.hist + 1
+    input_steps = cfg.data.input_steps
 
     input_var_dim = (
         len(data_layout.prognostic_var_names) + len(data_layout.boundary_var_names)
-    ) * hist
-    output_var_dim = len(data_layout.prognostic_var_names) * hist
+    ) * input_steps
+    output_var_dim = len(data_layout.prognostic_var_names) * cfg.data.output_steps
 
     samples = list(loader)
     assert len(samples) == 1, (
@@ -665,7 +668,8 @@ def _llc_torch_dataset(config: DataConfig, tmp_path) -> TorchTrainDataset:
         label_source=None,
         prognostic_var_names=data_layout.prognostic_var_names,
         boundary_var_names=data_layout.boundary_var_names,
-        hist=config.hist,
+        input_steps=config.input_steps,
+        output_steps=config.output_steps,
         steps=1,
         normalize_before_mask=config.normalize_before_mask,
         masked_fill_value=config.masked_fill_value,
@@ -711,7 +715,8 @@ def test_llc_train_dataset_loads_all_raw_variable_families(tmp_path):
         train_end="2011-09-13T12:00:00Z",
         val_end="2011-09-14T12:00:00Z",
     )
-    config.hist = 0
+    config.input_steps = 1
+    config.output_steps = 1
     torch_dataset = _llc_torch_dataset(config, tmp_path)
     host_batch = collate_host_batches([torch_dataset[0]])
 
@@ -804,7 +809,8 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
             label_source=None,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
-            hist=1,
+            input_steps=2,
+            output_steps=2,
             steps=2,
             normalize_before_mask=normalize_before_mask,
             masked_fill_value=masked_fill_value,
@@ -814,7 +820,8 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
             source=test,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
-            hist=1,
+            input_steps=2,
+            output_steps=2,
             normalize_before_mask=normalize_before_mask,
             masked_fill_value=masked_fill_value,
             long_rollout=True,

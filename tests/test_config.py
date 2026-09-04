@@ -115,6 +115,48 @@ def test_data_config_accepts_tensorstore_backend():
     assert cfg.xarray_backend == "tensorstore"
 
 
+def test_data_config_output_steps_default_and_override():
+    default = DataConfig(sources=[om4_source_config()])
+    legacy = DataConfig(sources=[om4_source_config()], hist=1)
+    explicit = DataConfig(sources=[om4_source_config()], input_steps=2)
+    one_step = DataConfig(sources=[om4_source_config()], input_steps=2, output_steps=1)
+
+    assert default.input_steps == legacy.input_steps == explicit.input_steps == 2
+    assert default.output_steps == legacy.output_steps == explicit.output_steps == 2
+    assert legacy.hist is None
+    assert one_step.output_steps == 1
+
+
+@pytest.mark.parametrize(("hist", "input_steps"), [(0, 1), (1, 2), (3, 4)])
+def test_data_config_translates_legacy_hist(hist, input_steps):
+    legacy = DataConfig(sources=[om4_source_config()], hist=hist)
+
+    assert legacy.hist is None
+    assert legacy.input_steps == input_steps
+    assert legacy.output_steps == input_steps
+    assert (
+        DataConfig.model_validate(legacy.model_dump()).model_dump()
+        == legacy.model_dump()
+    )
+
+
+def test_data_config_rejects_hist_with_input_steps():
+    with pytest.raises(ValidationError, match="mutually exclusive"):
+        DataConfig(sources=[om4_source_config()], hist=1, input_steps=2)
+
+
+def test_data_config_preserves_explicit_output_steps_with_legacy_hist():
+    legacy = DataConfig(sources=[om4_source_config()], hist=2, output_steps=1)
+
+    assert legacy.input_steps == 3
+    assert legacy.output_steps == 1
+
+
+def test_data_config_rejects_more_outputs_than_inputs():
+    with pytest.raises(ValidationError, match="cannot exceed"):
+        DataConfig(sources=[om4_source_config()], input_steps=2, output_steps=3)
+
+
 def test_om4_dataset_config_retains_selected_variable_keys():
     cfg = om4_source_config(
         prognostic_vars_key="thetao_1",

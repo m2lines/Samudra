@@ -32,19 +32,19 @@ class SnapshotAggregator(ValidateSubAggregator):
     }
 
     def __init__(
-        self, metadata: dict[str, dict[str, str]] | None = None, hist: int = 0
+        self, metadata: dict[str, dict[str, str]] | None = None, input_steps: int = 1
     ):
         """
         Args:
             metadata: Mapping of variable names their metadata that will
                 used in generating logged image captions.
-            hist: Number of history steps to include in the snapshot.
+            input_steps: Number of raw input timesteps.
         """
         if metadata is None:
             metadata = {}
         else:
             self._metadata = metadata
-        self.hist = hist
+        self.input_steps = input_steps
 
     @torch.no_grad()
     def record_batch(
@@ -78,7 +78,7 @@ class SnapshotAggregator(ValidateSubAggregator):
 
         time_dim = 1
         target_time = 0  # first output time step
-        input_time = self.hist  # last input time step
+        input_time = self.input_steps - 1
         image_logs = {}
         for name in self._gen_data.keys():
             # use first sample in batch

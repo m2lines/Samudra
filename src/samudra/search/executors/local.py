@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 import subprocess
-from queue import SimpleQueue
+import threading
 from typing import TYPE_CHECKING, cast
 
 import torch
@@ -43,6 +43,10 @@ class LocalExecutor(PoolExecutor):
     def job_id(self) -> str:
         return "local"
 
+    @property
+    def resource_capacity(self) -> int:
+        return max(1, len(visible_devices()))
+
     def _run_tasks(self, tasks: list[Task]) -> None:
         if not tasks:
             return
@@ -52,21 +56,54 @@ class LocalExecutor(PoolExecutor):
                 self._run_in_process(task)
             return
 
-        available_devices: SimpleQueue[str] = SimpleQueue()
-        for device in devices:
-            available_devices.put(device)
+        required = max(getattr(task, "world_size", 1) for task in tasks)
+        if required > len(devices):
+            raise RuntimeError(
+                f"A persisted search resource plan requires {required} GPUs for "
+                f"one candidate, but only {len(devices)} are locally visible. "
+                "Retry with at least that many visible GPUs or start a new search "
+                "run so resources can be replanned."
+            )
+
+        pool = _DevicePool(devices)
 
         def run_on_available_device(task: Task) -> None:
-            device = available_devices.get()
+            world_size = getattr(task, "world_size", 1)
+            assigned = pool.acquire(world_size)
             try:
-                environment = self._worker_environment()
-                environment["CUDA_VISIBLE_DEVICES"] = device
-                subprocess.run(self._worker_command(task), check=True, env=environment)
+                environment = self._worker_environment(distributed=world_size > 1)
+                environment["CUDA_VISIBLE_DEVICES"] = ",".join(assigned)
+                command = (
+                    self._distributed_worker_command(task)
+                    if world_size > 1
+                    else self._worker_command(task)
+                )
+                subprocess.run(command, check=True, env=environment)
             finally:
-                available_devices.put(device)
+                pool.release(assigned)
 
         self._run_concurrently(
             tasks,
             min(self._limit(len(devices)), len(tasks)),
             run_on_available_device,
         )
+
+
+class _DevicePool:
+    """Atomically reserve groups of CUDA identifiers for concurrent trials."""
+
+    def __init__(self, devices: list[str]) -> None:
+        self._available = list(devices)
+        self._condition = threading.Condition()
+
+    def acquire(self, count: int) -> list[str]:
+        with self._condition:
+            self._condition.wait_for(lambda: len(self._available) >= count)
+            assigned = self._available[:count]
+            del self._available[:count]
+            return assigned
+
+    def release(self, devices: list[str]) -> None:
+        with self._condition:
+            self._available.extend(devices)
+            self._condition.notify_all()

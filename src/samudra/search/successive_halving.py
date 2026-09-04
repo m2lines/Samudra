@@ -22,6 +22,7 @@ import yaml
 from samudra.config import SearchRunConfig, TrainConfig
 from samudra.search.artifacts import ArtifactPublisher, atomic_local_parquet
 from samudra.search.config import (
+    AdaptiveDataParallelResourceConfig,
     CandidateConfig,
     SearchConfig,
     SlurmExecutorConfig,
@@ -34,6 +35,7 @@ from samudra.search.executors import (
     SlurmExecutor,
 )
 from samudra.search.report import write_search_report
+from samudra.search.resources import plan_candidate_resources
 from samudra.search.state import SearchState
 from samudra.train import Trainer
 from samudra.utils.atomic import atomic_path
@@ -260,6 +262,29 @@ class SuccessiveHalving:
     def candidate(self, name: str) -> CandidateConfig:
         return next(item for item in self.config.candidates if item.name == name)
 
+    def plan_resources(
+        self,
+        candidates: list[str],
+        *,
+        gpu_capacity: int,
+        candidate_concurrency: int | None = None,
+        placeable_world_sizes: set[int] | None = None,
+        force_single_gpu: bool = False,
+    ) -> dict[str, dict[str, int]]:
+        configs = {
+            name: TrainConfig.from_yaml_and_cli([self.candidate(name).config])
+            for name in candidates
+        }
+        plans = plan_candidate_resources(
+            self.config.resources,
+            configs,
+            gpu_capacity=gpu_capacity,
+            candidate_concurrency=candidate_concurrency,
+            placeable_world_sizes=placeable_world_sizes,
+            force_single_gpu=force_single_gpu,
+        )
+        return {name: plan.model_dump(mode="json") for name, plan in plans.items()}
+
     def output_dir(self, candidate: str, rung: int) -> Path:
         return self.config.executor.output_dir / (
             f"{self.run_id}--{resource_slug(candidate)}--e{self.rungs[rung]}"
@@ -290,6 +315,26 @@ class SuccessiveHalving:
             raise ValueError(f"Refusing to overwrite {output}")
         args = [candidate.config, *candidate.args]
         train_config = TrainConfig.from_yaml_and_cli(args)
+        resource_group = (
+            state["anchors"]["resources"]
+            if anchor
+            else state["rungs"][rung]["resources"]
+        )
+        resource_values = resource_group.get(name)
+        if resource_values is None:
+            resource_values = {
+                "world_size": 1,
+                "local_batch_size": train_config.batch_size,
+                "gradient_accumulation_steps": (
+                    train_config.gradient_accumulation_steps
+                ),
+                "effective_global_batch_size": (
+                    train_config.batch_size * train_config.gradient_accumulation_steps
+                ),
+            }
+        train_config.gradient_accumulation_steps = resource_values[
+            "gradient_accumulation_steps"
+        ]
         train_config.epochs = self.rungs[rung]
         if (
             train_config.scheduler is not None
@@ -326,6 +371,13 @@ class SuccessiveHalving:
             job_id=os.environ.get("SLURM_JOB_ID", self.config.executor.type),
             parent_checkpoint=(
                 str(parent_checkpoint) if parent_checkpoint is not None else None
+            ),
+            world_size=resource_values["world_size"],
+            local_batch_size=resource_values["local_batch_size"],
+            gradient_accumulation_steps=resource_values["gradient_accumulation_steps"],
+            effective_global_batch_size=resource_values["effective_global_batch_size"],
+            adaptive_data_parallel=isinstance(
+                self.config.resources, AdaptiveDataParallelResourceConfig
             ),
         )
         train_config.experiment.wandb.group = self.run_id

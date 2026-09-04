@@ -63,6 +63,7 @@ from samudra.utils.data import BatchPreprocessor, get_inference_steps
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import (
     all_reduce_mean,
+    get_rank,
     get_world_size,
     is_main_process,
     set_seed,
@@ -84,6 +85,7 @@ from samudra.utils.rollout_validation import (
 from samudra.utils.samplers import (
     DistributedEquivalenceGroupBatchSampler,
     EquivalenceGroupBatchSampler,
+    FixedGlobalBatchSampler,
 )
 from samudra.utils.train import (
     CheckpointPaths,
@@ -320,6 +322,28 @@ class Trainer:
         self._rollout_validation_pg: torch.distributed.ProcessGroup | None = None
         self.output_dir = cfg.experiment.output_dir
         self.search_run = cfg.experiment.search
+        if self.search_run is not None and self.search_run.adaptive_data_parallel:
+            if self.world_size != self.search_run.world_size:
+                raise RuntimeError(
+                    "Adaptive search planned world_size="
+                    f"{self.search_run.world_size}, but the worker initialized "
+                    f"world_size={self.world_size}"
+                )
+            if cfg.batch_size != self.search_run.local_batch_size:
+                raise RuntimeError(
+                    "Adaptive search resource state does not match the configured "
+                    f"batch size ({self.search_run.local_batch_size} != "
+                    f"{cfg.batch_size})"
+                )
+            effective_batch_size = (
+                cfg.batch_size * cfg.gradient_accumulation_steps * self.world_size
+            )
+            if effective_batch_size != self.search_run.effective_global_batch_size:
+                raise RuntimeError(
+                    "Adaptive search planned effective_global_batch_size="
+                    f"{self.search_run.effective_global_batch_size}, but the "
+                    f"worker resolved {effective_batch_size}"
+                )
         self.debug = cfg.debug
         self.data_stride: list[int] = cfg.data_stride
         self.batch_size: int = cfg.batch_size
@@ -351,7 +375,9 @@ class Trainer:
 
         # Add type annotations for samplers
         self.train_sampler: (
-            EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
+            EquivalenceGroupBatchSampler
+            | DistributedEquivalenceGroupBatchSampler
+            | FixedGlobalBatchSampler
         )
         self.val_sampler: (
             EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
@@ -629,24 +655,32 @@ class Trainer:
             if self.num_batches_seen == 0:
                 get_model_summary(self.model, batch, self.debug)
 
+            is_last = batch_index + 1 == total_batches
+            should_step = (batch_index + 1) % self.gradient_accumulation_steps == 0
+            optimizer_stepped = should_step or is_last
+            sync_context: contextlib.AbstractContextManager[Any] = (
+                contextlib.nullcontext()
+            )
+            if self.distributed is not None and not optimizer_stepped:
+                assert isinstance(self.model, nn.parallel.DistributedDataParallel)
+                sync_context = self.model.no_sync()
+
             with self.train_progress.batch(
                 batch, world_size=self.world_size, device=self.device
             ) as batch_progress:
-                batch_output: TrainBatchOutput = train_batch(
-                    self.model, batch, self.loss_fn
-                )
+                with sync_context:
+                    batch_output: TrainBatchOutput = train_batch(
+                        self.model, batch, self.loss_fn
+                    )
 
-                # Scale loss by this accumulation cycle's actual microbatch count.
-                scaled_loss = batch_output.loss / r
-                scaled_loss.backward()
+                    # Scale loss by this accumulation cycle's actual microbatch count.
+                    scaled_loss = batch_output.loss / r
+                    scaled_loss.backward()
 
                 train_aggregator.record_batch(batch_output)
 
                 self.num_batches_seen += 1
 
-                is_last = batch_index + 1 == total_batches
-                should_step = (batch_index + 1) % self.gradient_accumulation_steps == 0
-                optimizer_stepped = should_step or is_last
                 batch_progress.optimizer_stepped = optimizer_stepped
                 # Step optimizer after accumulating enough batches or at the end
                 if optimizer_stepped:
@@ -1148,7 +1182,29 @@ class Trainer:
         def group_key(ds):
             return tuple(source.grid_size for source in ds.sources)
 
-        if self.distributed is not None:
+        adaptive_batching = (
+            self.search_run is not None and self.search_run.adaptive_data_parallel
+        )
+        train_batch_sampler: (
+            EquivalenceGroupBatchSampler
+            | DistributedEquivalenceGroupBatchSampler
+            | FixedGlobalBatchSampler
+        )
+        val_batch_sampler: (
+            EquivalenceGroupBatchSampler | DistributedEquivalenceGroupBatchSampler
+        )
+        if adaptive_batching:
+            train_batch_sampler = FixedGlobalBatchSampler.from_datasets(
+                datasets=train_datasets,
+                group_key=group_key,
+                local_batch_size=self.batch_size,
+                world_size=self.world_size,
+                rank=get_rank(),
+                accumulation_steps=self.gradient_accumulation_steps,
+                shuffle=True,
+                seed=self.rand_seed,
+            )
+        elif self.distributed is not None:
             # Distributed training
             assert self.distributed.world_size is not None
             assert self.distributed.rank is not None
@@ -1163,6 +1219,19 @@ class Trainer:
                 seed=self.rand_seed,
             )
 
+        else:
+            train_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
+                datasets=train_datasets,
+                group_key=group_key,
+                batch_size=self.batch_size,
+                shuffle=True,
+                drop_last=True,
+                seed=self.rand_seed,
+            )
+
+        if self.distributed is not None:
+            assert self.distributed.world_size is not None
+            assert self.distributed.rank is not None
             val_batch_sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=val_datasets,
                 group_key=group_key,
@@ -1174,16 +1243,6 @@ class Trainer:
                 seed=self.rand_seed,
             )
         else:
-            # Non-distributed training
-            train_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
-                datasets=train_datasets,
-                group_key=group_key,
-                batch_size=self.batch_size,
-                shuffle=True,
-                drop_last=True,
-                seed=self.rand_seed,
-            )
-
             val_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
                 datasets=val_datasets,
                 group_key=group_key,

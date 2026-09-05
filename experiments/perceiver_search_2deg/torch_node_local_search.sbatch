@@ -9,6 +9,21 @@
 
 set -euo pipefail
 
+if ! command -v apptainer >/dev/null 2>&1 \
+  && ! command -v singularity >/dev/null 2>&1; then
+  if command -v module >/dev/null 2>&1; then
+    module load "${APPTAINER_MODULE:-singularity-ce/4.3.3}"
+  fi
+fi
+if command -v apptainer >/dev/null 2>&1; then
+  apptainer_bin=apptainer
+elif command -v singularity >/dev/null 2>&1; then
+  apptainer_bin=singularity
+else
+  echo "Neither apptainer nor singularity is available" >&2
+  exit 1
+fi
+
 : "${CODE_COMMIT:?CODE_COMMIT is required}"
 : "${CODE_LAYER:?CODE_LAYER is required}"
 : "${CONTAINER_SIF:?CONTAINER_SIF is required}"
@@ -66,7 +81,7 @@ trap cleanup EXIT
 export WANDB_GIT_COMMIT="$CODE_COMMIT"
 export PYTHONPATH=/opt/samudra-code/src
 
-apptainer exec \
+"$apptainer_bin" exec \
   --nv \
   --overlay "$CODE_LAYER:ro" \
   --bind "$node_root:$node_root" \

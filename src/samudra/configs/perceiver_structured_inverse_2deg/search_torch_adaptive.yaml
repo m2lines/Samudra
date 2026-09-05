@@ -29,7 +29,7 @@ executor:
   # assigns disjoint CUDA_VISIBLE_DEVICES subsets to concurrent workers.
   type: local
   output_dir: /scratch/am16581/searches
-  max_concurrent: 8
+  max_concurrent: 4
 
 artifacts: !include ../search/osn-artifacts.yaml
 

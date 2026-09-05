@@ -8,8 +8,8 @@ pin_mem: true
 save_freq: 1
 validation_image_log_freq: 1
 epochs: 12
-batch_size: 1
-gradient_accumulation_steps: 16
+batch_size: 16
+gradient_accumulation_steps: 2
 learning_rate: 0.0004
 scheduler: null
 loss: mse

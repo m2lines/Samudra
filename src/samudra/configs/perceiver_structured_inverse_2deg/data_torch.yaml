@@ -5,7 +5,7 @@
 concurrent_compute: true
 loading:
   type: cpu
-  num_workers: 2
+  num_workers: 8
 sources:
   - type: om4
     prognostic_vars_key: thermo_dynamic_all
@@ -16,10 +16,10 @@ sources:
       - {start: "2014-10-05", end: "2015-10-05"}
     data_location:
       type: local
-      path: /scratch/am16581/data/Samudra/v2026-07/om4_twodeg/OM4.zarr
+      path: __NODE_LOCAL_DATA_ROOT__/OM4.zarr
     data_means_location:
       type: local
-      path: /scratch/am16581/data/Samudra/v2026-07/om4_twodeg/OM4_means.zarr
+      path: __NODE_LOCAL_DATA_ROOT__/OM4_means.zarr
     data_stds_location:
       type: local
-      path: /scratch/am16581/data/Samudra/v2026-07/om4_twodeg/OM4_stds.zarr
+      path: __NODE_LOCAL_DATA_ROOT__/OM4_stds.zarr

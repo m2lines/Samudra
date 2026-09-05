@@ -148,6 +148,107 @@ through every rung, and a worker failure stops promotion after the other
 running workers have exited. For separately queued, resumable jobs and
 controller dependencies, use the regular Slurm executor instead.
 
+### Keep each GPU fed
+
+Search throughput depends on the ratio of model work to data-loading work, not
+only on the number or type of GPUs requested. Before launching a large search,
+run a one-rung smoke with the real data source, model families, rollout length,
+and per-device batch size. Include the least compute-intensive candidate: if it
+stays busy, heavier candidates normally will too. A useful smoke covers enough
+batches to get past worker startup and establish steady-state throughput.
+
+Use the search runner for this controlled matrix, but do not promote candidates
+on GPU utilization. Utilization is a feasibility constraint; validation or
+rollout quality remains the scientific objective. A one-rung search records the
+same resolved configs, timing, W&B identity, and public artifacts as the real
+search without assigning later budgets:
+
+```yaml
+algorithm:
+  type: successive_halving
+  rungs: [1]
+  promotion_fraction: 1.0
+  minimum_promoted: 1
+```
+
+Tune the input pipeline and training shape in this order:
+
+1. Set the largest `batch_size` that fits the largest candidate with reasonable
+   memory headroom. This is the per-device microbatch and directly increases
+   useful work per loader handoff. Raising `gradient_accumulation_steps` alone
+   does not make an individual forward/backward pass larger.
+2. Enable `data.concurrent_compute` and give each simultaneous candidate enough
+   loader workers. As a starting invariant, request at least
+   `executor.max_concurrent * data.loading.num_workers` CPUs for the allocation,
+   plus modest controller overhead. More workers help only until storage or the
+   object store becomes the bottleneck.
+3. Treat storage placement and Zarr layout as one choice. Do not assume that a
+   shared-filesystem copy is faster than a public object store, or that remote
+   streaming will hide a request-heavy layout. For small, reusable datasets,
+   compare direct S3 reads with staging the unchanged store once per allocation
+   onto node-local SSD. Anonymous OSN reads can be configured as follows:
+
+   ```yaml
+   data_location:
+     type: s3
+     endpoint_url: https://nyu1.osn.mghpcc.org
+     anon: true
+     bucket: m2lines-pubs
+     path: Samudra/v2026-07/om4_twodeg/OM4.zarr
+   ```
+
+   Preserve the variable and chunk layout expected by the current reader when
+   making this comparison. A representation with fewer logical variables is not
+   necessarily faster if it introduces indexing or conversion work in every
+   sample. Stage once outside the candidate pool so concurrent workers share the
+   preparation cost. A multi-node allocation needs one staging task per node;
+   a path on one node's local disk is not visible to workers on another node.
+
+4. Set `executor.max_concurrent` to the number of candidates the CPU and storage
+   pipeline can actually serve, even when more GPUs are visible. Packing a
+   candidate onto every GPU is counterproductive when they contend for one
+   saturated input path.
+5. With adaptive data parallelism, verify every planned world size. Samudra
+   preserves the configured per-device `batch_size` and reduces accumulation to
+   hold the effective global batch fixed, but distributed communication and the
+   aggregate read rate can still change utilization in promoted rungs.
+
+Interpret sampled `nvidia-smi` or W&B system utilization cautiously: short
+compute bursts can fall between sampling intervals, and each local W&B worker
+may report every physical GPU in a shared allocation. Candidate progress records
+contain synchronized model-batch seconds and total training seconds; their ratio
+is a reproducible upper bound on compute duty over the recorded training epoch.
+Confirm steady state with a short high-frequency `nvidia-smi dmon` sample when
+scheduler policy depends on a hard utilization threshold.
+
+Also measure the interval the scheduler actually enforces. Python environment
+startup, data staging, loader-process creation, validation, checkpointing, and
+artifact publication can dominate a very short smoke even when steady-state
+training is healthy. Use persistent loader workers, keep the Python environment
+or container image off a metadata-congested shared filesystem when possible,
+and make the smoke long enough to amortize one-time startup. Do not report a
+steady-state sample as whole-job average utilization.
+
+Torch 2-degree probes illustrate the progression. A four-candidate smoke using
+a shared-filesystem Zarr copy, batch size 16, accumulation 2, eight loader
+workers per candidate, four GPUs, and 32 CPUs achieved only 7--36% model duty.
+Logs showed bursts of eight ready batches followed by 12--41-second input
+stalls. Direct anonymous reads from the public OSN copy did not produce a first
+batch within three minutes because its time-one, variable-per-object layout
+required many requests per sample. Repacking levels into compact variables was
+also slower with the current canonical reader.
+
+The successful configuration staged the unchanged flat-channel Zarr slice once
+onto the allocation node's local SSD, then trained the light `moment16-local`
+candidate with one GPU, batch size 16, accumulation 2, eight loader workers,
+eight CPUs, and 64 GiB. After loader startup, data wait was normally 0.03--0.22
+seconds, steps took 0.53--0.77 seconds, and one-second NVML samples over the
+30-batch training interval averaged 78% SM utilization. The first train and
+validation batches still each waited about 200 seconds because multiprocessing
+workers imported Python from a shared environment. Thus node-local data solved
+steady-state starvation, while environment/container placement and sufficient
+rung duration remain necessary for a greater-than-50% whole-job average.
+
 Clusters that expose the container runtime through environment modules should
 set `executor.apptainer_module` to the exact loadable module name (for example,
 `singularity-ce/4.3.3` on Torch). The resolved value is exported to every worker

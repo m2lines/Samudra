@@ -5,6 +5,7 @@
 """Ground-truth resolution for viz: `--data` vs. explicit `groundtruth_location`."""
 
 import pytest
+import xarray as xr
 
 from samudra.config import LlcDataSourceConfig, Om4DataSourceConfig
 from samudra.utils.location import S3Location, UnresolvedLocation
@@ -57,7 +58,7 @@ def test_grid_type_comes_from_the_data_source():
     assert isinstance(source, Om4DataSourceConfig)
     source.grid_type = "tripolar"
 
-    assert cfg._grid_type() == "tripolar"
+    assert cfg._grid_type(xr.Dataset()) == "tripolar"
 
 
 def test_grid_type_defaults_to_gaussian_without_a_data_source():
@@ -65,7 +66,7 @@ def test_grid_type_defaults_to_gaussian_without_a_data_source():
     cfg = _cfg()
     cfg.data = None
 
-    assert cfg._grid_type() == "gaussian"
+    assert cfg._grid_type(xr.Dataset()) == "gaussian"
 
 
 def test_llc_sources_are_always_curvilinear():
@@ -78,4 +79,38 @@ def test_llc_sources_are_always_curvilinear():
     assert cfg.data is not None
     cfg.data.sources[0] = LlcDataSourceConfig.model_construct()
 
-    assert cfg._grid_type() == "tripolar"
+    assert cfg._grid_type(xr.Dataset()) == "tripolar"
+
+
+def test_grid_type_is_read_from_the_store_when_there_is_no_data_block():
+    """`groundtruth_location` alone is a supported way to run viz.
+
+    Preprocessing records the geometry on the store it writes, so a tripolar
+    rollout pointed at directly must not be treated as rectilinear.
+    """
+    cfg = _cfg()
+    cfg.data = None
+    store = xr.Dataset(attrs={"grid_type": "tripolar"})
+
+    assert cfg._grid_type(store) == "tripolar"
+
+
+def test_a_source_and_store_that_disagree_is_an_error():
+    cfg = _cfg("--data", "@data/om4_demo.yaml")
+    assert cfg.data is not None
+    source = cfg.data.sources[0]
+    assert isinstance(source, Om4DataSourceConfig)
+    source.grid_type = "gaussian"
+    store = xr.Dataset(attrs={"grid_type": "tripolar"})
+
+    with pytest.raises(ValueError, match="disagree"):
+        cfg._grid_type(store)
+
+
+def test_an_unrecognised_recorded_grid_type_is_an_error():
+    cfg = _cfg()
+    cfg.data = None
+    store = xr.Dataset(attrs={"grid_type": "cubed_sphere"})
+
+    with pytest.raises(ValueError, match="not one of"):
+        cfg._grid_type(store)

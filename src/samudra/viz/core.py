@@ -288,6 +288,22 @@ class Viz:
             "true 2-D coordinates through preprocessing."
         )
 
+    def _map_plot_kwargs(self, data) -> dict:
+        """Keyword arguments that put an xarray `.plot()` in geographic space.
+
+        `.plot()` picks its own axes from the array's dims. Those are degrees
+        on a rectilinear grid and cell indices on a curvilinear one, so there
+        we have to name the 2-D coordinates and say what they mean.
+        """
+        if self.data_layout.grid_type == "gaussian":
+            return {}
+        map_x, map_y = self._map_coords(data)
+        return {
+            "x": map_x.name,
+            "y": map_y.name,
+            "transform": ccrs.PlateCarree(),
+        }
+
     def _reject_on_curvilinear(self, step: str, reason: str) -> None:
         """Refuse a step whose maths only holds on a rectilinear grid.
 
@@ -2500,6 +2516,7 @@ class Viz:
                 cmap=new_cmap,
                 norm=norm,
                 add_colorbar=False,
+                **self._map_plot_kwargs(data_pred1),
             )
             ax.add_feature(cfeature.COASTLINE, edgecolor="black", linewidth=0.1)
             ax.set_title(self.pred_dict[self.key1]["name"] + " Bias", fontsize=14)

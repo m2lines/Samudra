@@ -61,7 +61,12 @@ def _viz(grid_type: GridType):
     """
     stub = types.SimpleNamespace(data_layout=build_om4_layout(grid_type=grid_type))
     # Bind the real helpers so methods that call them through `self` work too.
-    for name in ("_with_cell_areas", "_map_coords", "_reject_on_curvilinear"):
+    for name in (
+        "_with_cell_areas",
+        "_map_coords",
+        "_map_plot_kwargs",
+        "_reject_on_curvilinear",
+    ):
         setattr(stub, name, types.MethodType(getattr(Viz, name), stub))
     return stub
 
@@ -215,6 +220,25 @@ def test_map_coords_are_2d_geographic_on_tripolar():
     _, _, lat2d, lon2d = _tripolar_coords()
     np.testing.assert_array_equal(map_y.values, lat2d)
     np.testing.assert_array_equal(map_x.values, lon2d)
+
+
+def test_map_plot_kwargs_name_the_2d_coords_on_tripolar():
+    """`.plot()` would otherwise use the index dims as plotting axes."""
+    import cartopy.crs as ccrs  # type: ignore[import-untyped]
+
+    data = preserve_2d_coords(_source()).rename({"lat": "y", "lon": "x"})["tos"]
+
+    kwargs = Viz._map_plot_kwargs(_viz("tripolar"), data)
+
+    assert kwargs["x"] == "lon_2d" and kwargs["y"] == "lat_2d"
+    assert isinstance(kwargs["transform"], ccrs.PlateCarree)
+
+
+def test_map_plot_kwargs_are_empty_for_gaussian():
+    """The rectilinear path keeps letting xarray choose."""
+    data = preserve_2d_coords(_source()).rename({"lat": "y", "lon": "x"})["tos"]
+
+    assert Viz._map_plot_kwargs(_viz("gaussian"), data) == {}
 
 
 def test_map_coords_stay_on_index_axes_for_gaussian():

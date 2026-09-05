@@ -58,6 +58,7 @@ from samudra.models.modules.augment_input import (
 )
 from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from samudra.models.modules.encoder import patch_from
+from samudra.post_train_eval import CheckpointSweep
 from samudra.utils.data import (
     CanonicalSource,
     DataBundle,
@@ -84,6 +85,7 @@ from samudra.utils.loss import (
 )
 from samudra.utils.profiler import Profiler
 from samudra.utils.schedule import SchedulerConfig
+from samudra.utils.train import CheckpointPaths
 
 
 class WandBConfig(BaseConfig):
@@ -1289,6 +1291,7 @@ class TrainConfig(TopLevelConfig):
     steps: list[int] = [4]
     step_transition: list[int] = []
     inference_epochs: list[int] = [-1]
+    post_train_eval: "PostTrainEvalConfig | None" = None
 
     # Config components
     experiment: ExperimentConfig
@@ -1383,6 +1386,47 @@ class ObsMetricsConfig(BaseConfig):
 
 # See backend.py for how these are turned into concrete devices
 EvalBackendConfig = Literal["cpu", "cuda", "auto"]
+
+
+class PostTrainEvalConfig(BaseConfig):
+    eval_config_path: Path
+    viz_config_path: Path | None = None
+    last_n_checkpoints: int | None = Field(default=None, ge=1)
+    epochs: list[int] | None = Field(
+        default=None,
+        description="Explicit list of checkpoint epochs (matching ckpt_<epoch>.pt) "
+        "to evaluate; the final EMA checkpoint is always added. Mutually "
+        "exclusive with last_n_checkpoints.",
+    )
+    eval_dirname: str = "evals"
+    # Subdirectory for visualization outputs within each checkpoint evaluation directory.
+    viz_dirname: str = "viz"
+
+    @pydantic.model_validator(mode="after")
+    def _check_checkpoint_selection(self) -> "PostTrainEvalConfig":
+        if self.last_n_checkpoints is not None and self.epochs is not None:
+            raise ValueError("set only one of last_n_checkpoints or epochs, not both")
+        if self.epochs is not None and len(self.epochs) == 0:
+            raise ValueError("epochs must be a non-empty list when provided")
+        return self
+
+    def build(
+        self,
+        nets_dir: Path,
+        output_dir: Path,
+        data_root: ResolvedLocation,
+    ) -> "CheckpointSweep":
+        """Build the runtime sweep."""
+        return CheckpointSweep(
+            eval_config_path=self.eval_config_path,
+            checkpoint_paths=CheckpointPaths(nets_dir),
+            data_root=data_root,
+            sweep_output_dir=output_dir / self.eval_dirname,
+            viz_config_path=self.viz_config_path,
+            last_n_checkpoints=self.last_n_checkpoints,
+            checkpoints=self.epochs,
+            viz_dirname=self.viz_dirname,
+        )
 
 
 class EvalConfig(TopLevelConfig):

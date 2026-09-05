@@ -25,12 +25,13 @@ else
 fi
 
 : "${CODE_COMMIT:?CODE_COMMIT is required}"
+: "${CODE_ARCHIVE:?CODE_ARCHIVE is required}"
 : "${CODE_LAYER:?CODE_LAYER is required}"
 : "${CONTAINER_SIF:?CONTAINER_SIF is required}"
 : "${SOURCE_DATA_ROOT:?SOURCE_DATA_ROOT is required}"
 : "${SEARCH_CONFIG:?SEARCH_CONFIG is required relative to /opt/samudra-code/src/samudra/configs}"
 
-for path in "$CODE_LAYER" "$CONTAINER_SIF"; do
+for path in "$CODE_ARCHIVE" "$CODE_LAYER" "$CONTAINER_SIF"; do
   if [[ ! -s "$path" ]]; then
     echo "Required container artifact is missing or empty: $path" >&2
     exit 2
@@ -45,9 +46,17 @@ if [[ "$layer_commit" != "$CODE_COMMIT" ]]; then
 fi
 
 node_root="${TMPDIR:-/tmp}/samudra-search-${SLURM_JOB_ID:-local}"
+repo="$node_root/repo"
 staged_data_root="$node_root/data"
 runtime_search="$node_root/search.yaml"
-mkdir -p "$node_root"
+mkdir -p "$repo"
+
+tar -xzf "$CODE_ARCHIVE" -C "$repo"
+archive_commit="$(git -C "$repo" rev-parse HEAD)"
+if [[ "$archive_commit" != "$CODE_COMMIT" ]]; then
+  echo "Code archive commit $archive_commit does not match requested $CODE_COMMIT" >&2
+  exit 4
+fi
 
 if [[ ! -f "$staged_data_root/_SUCCESS" ]]; then
   test ! -e "$staged_data_root"
@@ -64,7 +73,7 @@ if [[ ! -f "$staged_data_root/_SUCCESS" ]]; then
   touch "$staged_data_root/_SUCCESS"
 fi
 
-config_root=/opt/samudra-code/src/samudra/configs
+config_root="$repo/src/samudra/configs"
 sed \
   -e "s|__NODE_LOCAL_DATA_ROOT__|$staged_data_root|g" \
   -e "s|../search/osn-artifacts.yaml|$config_root/search/osn-artifacts.yaml|g" \

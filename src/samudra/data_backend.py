@@ -6,12 +6,16 @@
 
 from typing import TYPE_CHECKING, Protocol
 
-from samudra.config import BaseDataLoadingConfig, RustDataLoadingConfig
+from samudra.config import (
+    BaseDataLoadingConfig,
+    NativeDataLoadingConfig,
+    TensorStoreDataLoadingConfig,
+)
 from samudra.utils.data import CanonicalSource
 from samudra.utils.location import LocalLocation, ResolvedLocation
 
 if TYPE_CHECKING:
-    from samudra.rust_data import RustIoRuntime
+    from samudra.rust_data import Om4IoRuntime
 
 
 class TrainingSourceBackend(Protocol):
@@ -56,10 +60,10 @@ class _PythonSourceBackend:
         return source
 
 
-class _RustOm4SourceBackend:
-    def __init__(self, max_concurrent_reads: int) -> None:
-        self._max_concurrent_reads = max_concurrent_reads
-        self._runtime: RustIoRuntime | None = None
+class _NativeOm4SourceBackend:
+    def __init__(self, loading: NativeDataLoadingConfig) -> None:
+        self._loading = loading
+        self._runtime: Om4IoRuntime | None = None
 
     def validate_locations(
         self,
@@ -71,7 +75,7 @@ class _RustOm4SourceBackend:
     ) -> None:
         if source_type != "om4":
             raise ValueError(
-                "loading.type='rust' currently supports OM4 sources only; "
+                "Native loading currently supports OM4 sources only; "
                 f"got {source_type!r}"
             )
         locations = {
@@ -82,7 +86,7 @@ class _RustOm4SourceBackend:
         for field_name, location in locations.items():
             if not isinstance(location, LocalLocation):
                 raise ValueError(
-                    "loading.type='rust' currently requires local data, "
+                    "Native loading currently requires local data, "
                     f"but {field_name} resolved to {location}"
                 )
 
@@ -101,7 +105,7 @@ class _RustOm4SourceBackend:
         ]
         if derived:
             raise ValueError(
-                "loading.type='rust' does not yet support derived boundary "
+                "Native loading does not yet support derived boundary "
                 f"variables {derived}; select physical boundary variables or use "
                 "loading.type='cpu'"
             )
@@ -110,13 +114,20 @@ class _RustOm4SourceBackend:
 
         assert isinstance(data_location, LocalLocation)
         if self._runtime is None:
-            self._runtime = create_rust_io_runtime(self._max_concurrent_reads)
+            if isinstance(self._loading, TensorStoreDataLoadingConfig):
+                from samudra.tensorstore_data import TensorStoreIoRuntime
+
+                self._runtime = TensorStoreIoRuntime(self._loading.max_concurrent_reads)
+            else:
+                self._runtime = create_rust_io_runtime(
+                    self._loading.max_concurrent_reads
+                )
         return native_om4_source(source, data_location, self._runtime)
 
 
 def build_training_source_backend(
     loading: BaseDataLoadingConfig,
 ) -> TrainingSourceBackend:
-    if isinstance(loading, RustDataLoadingConfig):
-        return _RustOm4SourceBackend(loading.max_concurrent_reads)
+    if isinstance(loading, NativeDataLoadingConfig):
+        return _NativeOm4SourceBackend(loading)
     return _PythonSourceBackend()

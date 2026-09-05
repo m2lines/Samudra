@@ -9,7 +9,7 @@ from multiprocessing.context import BaseContext
 import torch
 from torch.utils.data import ConcatDataset, DataLoader
 
-from samudra.config import BaseDataLoadingConfig, RustDataLoadingConfig
+from samudra.config import BaseDataLoadingConfig, NativeDataLoadingConfig
 from samudra.datasets import BatchLoader, HostBatch, TorchTrainDataset, TrainBatchLoader
 from samudra.rust_data import (
     BatchSampler,
@@ -31,7 +31,7 @@ def build_train_batch_loader(
     worker_seed: int,
 ) -> TrainBatchLoader:
     """Build one loader while keeping backend policy out of Trainer."""
-    if isinstance(loading, RustDataLoadingConfig):
+    if isinstance(loading, NativeDataLoadingConfig):
         prefetch = (
             CudaPrefetch()
             if device.type == "cuda" and loading.prefetch_to_device

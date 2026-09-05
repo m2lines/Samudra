@@ -334,10 +334,9 @@ class GpuDataLoadingConfig(BaseDataLoadingConfig):
         return False
 
 
-class RustDataLoadingConfig(BaseDataLoadingConfig):
-    """Configuration for the local Rust Zarr data loader."""
+class NativeDataLoadingConfig(BaseDataLoadingConfig):
+    """Shared batching and prefetch policy for local native readers."""
 
-    type: Literal["rust"] = "rust"
     prefetch_batches: int = Field(default=2, ge=1)
     max_concurrent_reads: int = Field(
         default=32,
@@ -353,8 +352,19 @@ class RustDataLoadingConfig(BaseDataLoadingConfig):
         return False
 
 
+class RustDataLoadingConfig(NativeDataLoadingConfig):
+    type: Literal["rust"] = "rust"
+
+
+class TensorStoreDataLoadingConfig(NativeDataLoadingConfig):
+    type: Literal["tensorstore"] = "tensorstore"
+
+
 DataLoadingConfig = Annotated[
-    CpuDataLoadingConfig | GpuDataLoadingConfig | RustDataLoadingConfig,
+    CpuDataLoadingConfig
+    | GpuDataLoadingConfig
+    | RustDataLoadingConfig
+    | TensorStoreDataLoadingConfig,
     Field(discriminator="type"),
 ]
 

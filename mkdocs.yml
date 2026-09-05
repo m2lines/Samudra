@@ -52,6 +52,7 @@ nav:
       - Contributing: contributing.md
       - Releasing: releasing.md
       - Rust data loader plan: rust-data-loader-plan.md
+      - TensorStore native loader: tensorstore-native-loader.md
   - API Reference:
       - Models:
           - Base Model: models/base.md

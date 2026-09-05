@@ -199,6 +199,48 @@ All three recorded a finite first batch; the geometry-moment candidate had
 already recorded two optimizer updates. Remaining tasks backfill as one of the
 four concurrent slots becomes available.
 
+### Torch adaptive-search relaunch
+
+The resource-aware local executor was relaunched on Torch as Slurm job
+`16987589`. The immutable search run is
+`perceiver-structured-inverse-2deg-torch-adaptive--20260905T052520.357945Z` at
+commit `e378223756705372ed23d330af1c56575fc81ebe`. Its durable
+[OSN record](https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/experiments/searches/perceiver-structured-inverse-2deg-torch-adaptive--20260905T052520.357945Z/)
+was readable while rung zero was running.
+
+The allocation has two RTX 6000 GPUs, 16 CPUs, and 128 GiB of host memory. The
+launcher stages the unchanged flat-channel 2-degree Zarr store once to local
+SSD, then runs two one-GPU candidates concurrently. Each candidate uses local
+batch 16, accumulation 2, effective global batch 32, and six persistent loader
+workers. The first two candidates reached real optimizer updates with finite
+losses:
+
+- [`spatial-grid2-direct`](https://wandb.ai/ocean_emulators/default/runs/4b7nkuox):
+  first recorded optimizer-step loss 2.4492;
+- [`moment16-direct`](https://wandb.ai/ocean_emulators/default/runs/qhp876rh):
+  first recorded optimizer-step loss 2.1223.
+
+Peak allocation RSS after loader startup was approximately 103 GiB, below the
+128 GiB cgroup limit; reducing from eight to six workers per candidate avoided
+the loader-start OOM seen in the preceding infrastructure attempt. Warm
+data-wait time was approximately 0.03--0.16 seconds, confirming that node-local
+staging removed the storage bottleneck. Nevertheless, the direct decoder arms
+showed bursty device work: the first 80 one-second steady-state samples averaged
+13.3% and 16.5% SM utilization. This is substantially lower than the 78% seen
+for the lighter `moment16-local` utilization probe despite negligible data
+wait. It therefore points to host-side/model execution gaps in these direct
+decoder paths rather than insufficient loader throughput. The search remains
+useful scientifically, but this distinction should inform both interpretation
+and the next performance intervention.
+
+Several failed launch attempts before `16987589` produced no scientific data.
+They exposed two deployment constraints: Torch effectively limits this
+partition to roughly 64 GiB of host memory per requested GPU, and a full home
+quota prevents Slurm from opening its output file, which presents as immediate
+signal 53. Superseded smoke artifacts were preserved under
+`/archive/am16581/search-smokes`, restoring home space before the accepted
+launch.
+
 ## Results
 
 Pending.

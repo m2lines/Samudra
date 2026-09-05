@@ -5,7 +5,7 @@
 concurrent_compute: true
 loading:
   type: cpu
-  num_workers: 8
+  num_workers: 6
 sources:
   - type: om4
     prognostic_vars_key: thermo_dynamic_all

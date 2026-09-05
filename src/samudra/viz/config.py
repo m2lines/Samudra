@@ -7,12 +7,19 @@ import logging
 import time
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, get_args
 
+import xarray as xr
 from pydantic import BaseModel, BeforeValidator, Field, WithJsonSchema
 
-from samudra.config import DataConfig, ObsMetricsConfig, Om4TimeConfig
+from samudra.config import (
+    DataConfig,
+    LlcDataSourceConfig,
+    ObsMetricsConfig,
+    Om4TimeConfig,
+)
 from samudra.config_base import TopLevelConfig
+from samudra.constants import GridType
 from samudra.utils.location import LocalLocation, Location, ResolvedLocation
 from samudra.utils.logging import handle_logging
 from samudra.viz.core import Viz, VizRun
@@ -116,6 +123,47 @@ class VizConfig(TopLevelConfig):
             "data source (e.g. --data @data/om4_demo.yaml)."
         )
 
+    def _configured_grid_type(self) -> GridType | None:
+        """Grid geometry named by the data source, if there is one."""
+        if self.data is None:
+            return None
+        source = self.data.sources[0]
+        if isinstance(source, LlcDataSourceConfig):
+            # LLC (lat-lon-cap) carries no `grid_type` field because it is only
+            # ever curvilinear; `build_llc_layout` hard-codes it.
+            return "tripolar"
+        return source.grid_type
+
+    def _grid_type(self, groundtruth: xr.Dataset) -> GridType:
+        """Horizontal grid geometry for this run.
+
+        Viz must branch on this: on a curvilinear ("tripolar") grid the 2-D
+        lat/lon cannot be rebuilt from the 1-D axes and the rectilinear area
+        helpers are invalid.
+
+        A data source names it, and preprocessing also records it on the store
+        it writes. `groundtruth_location` is a supported way to point viz at a
+        rollout with no data block at all, so the store's own attribute has to
+        be honoured: defaulting to "gaussian" there would silently plot a
+        tripolar rollout against its index axes.
+        """
+        configured = self._configured_grid_type()
+        recorded = groundtruth.attrs.get("grid_type")
+
+        if recorded is not None and recorded not in get_args(GridType):
+            raise ValueError(
+                f"Ground-truth store records grid_type={recorded!r}, which is "
+                f"not one of {get_args(GridType)}."
+            )
+        if configured is not None and recorded is not None and configured != recorded:
+            raise ValueError(
+                f"The data source says grid_type={configured!r} but the "
+                f"ground-truth store records {recorded!r}. Point viz at the "
+                "matching store, or fix the source, rather than letting the two "
+                "disagree about the same grid."
+            )
+        return configured or recorded or "gaussian"
+
     def build(self, default_root: ResolvedLocation) -> Viz:
         if self.data_root is None:
             data_root = default_root
@@ -136,6 +184,7 @@ class VizConfig(TopLevelConfig):
             self.groundtruth_time_range.time_slice,
             observations=self.observations,
             data_root=data_root,
+            grid_type=self._grid_type(groundtruth_rollout),
         )
 
 

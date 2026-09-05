@@ -630,7 +630,7 @@ def test_native_decoration_maps_an_already_sliced_canonical_dataset(
 def test_trainer_selects_rust_loader_with_no_pytorch_workers(flat_om4_source, tmp_path):
     data_root = Path(cast(Any, flat_om4_source.reader).path).parent
     config_path = (
-        Path(__file__).resolve().parents[1] / "configs/test/train_default.yaml"
+        Path(__file__).resolve().parents[1] / "tests/configs/train_default.yaml"
     )
     config = TrainConfig.from_yaml_and_cli(
         [
@@ -689,7 +689,7 @@ def test_trainer_selects_rust_loader_with_no_pytorch_workers(flat_om4_source, tm
 def test_trainer_selects_rust_loader_for_compact_om4(compact_om4_source, tmp_path):
     data_root = Path(cast(Any, compact_om4_source.reader).path).parent
     config_path = (
-        Path(__file__).resolve().parents[1] / "configs/test/train_default.yaml"
+        Path(__file__).resolve().parents[1] / "tests/configs/train_default.yaml"
     )
     config = TrainConfig.from_yaml_and_cli(
         [

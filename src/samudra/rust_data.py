@@ -12,9 +12,10 @@ import time
 import weakref
 from bisect import bisect_right
 from collections import deque
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass, replace
+from pathlib import Path
 from threading import Lock
 from typing import Any, Protocol, Self
 
@@ -45,11 +46,43 @@ def _load_extension() -> Any:
     return extension
 
 
+class Om4PlaneReader(Protocol):
+    """Physical plane I/O into memory owned by the batch loader."""
+
+    @property
+    def shape(self) -> tuple[int, int, int]: ...
+
+    def read_into(
+        self,
+        indices: list[int],
+        variables: Sequence[str | tuple[str, int | None]],
+        output: np.ndarray,
+    ) -> None: ...
+
+
+class Om4IoRuntime(Protocol):
+    """Open persistent plane readers for the shared native batch pipeline."""
+
+    def open_flat(self, path: Path, variables: list[str]) -> Om4PlaneReader: ...
+
+    def open_compact(
+        self, path: Path, variables: list[tuple[str, int | None]]
+    ) -> Om4PlaneReader: ...
+
+
 @dataclass(frozen=True)
-class RustIoRuntime:
+class RustIoRuntime(Om4IoRuntime):
     """Process-local native I/O executor shared by canonical OM4 readers."""
 
     read_pool: Any
+
+    def open_flat(self, path: Path, variables: list[str]) -> Om4PlaneReader:
+        return _load_extension().FlatOm4Reader(path, variables, self.read_pool)
+
+    def open_compact(
+        self, path: Path, variables: list[tuple[str, int | None]]
+    ) -> Om4PlaneReader:
+        return _load_extension().CompactOm4Reader(path, variables, self.read_pool)
 
 
 def create_rust_io_runtime(max_concurrent_reads: int) -> RustIoRuntime:
@@ -195,7 +228,7 @@ class _NativeOm4CanonicalReader:
     semantic: CanonicalReader
     channels: tuple[str, ...]
     path: str
-    _native: Any
+    _native: Om4PlaneReader
     _reader_variables: dict[str, ReaderVariable]
     _physical_time_indices: np.ndarray
     _spatial_shape: tuple[int, int]
@@ -284,7 +317,7 @@ class _NativeOm4CanonicalReader:
 def native_om4_source(
     dataset: CanonicalSource,
     location: LocalLocation,
-    runtime: RustIoRuntime,
+    runtime: Om4IoRuntime,
 ) -> CanonicalSource:
     """Attach native OM4 plane I/O without changing canonical dataset semantics."""
     physical = location.open({})
@@ -318,7 +351,6 @@ def native_om4_source(
             f"Could not map canonical OM4 channel {logical_name!r} in {location.path}"
         )
 
-    extension = _load_extension()
     unique = list(dict.fromkeys(reader_variables.values()))
     if uses_level_axis:
         selectors = [
@@ -327,10 +359,9 @@ def native_om4_source(
             else CompactOm4Variable(value.physical_name, None)
             for value in unique
         ]
-        native = extension.CompactOm4Reader(
+        native = runtime.open_compact(
             location.path,
             [value.extension_selector() for value in selectors],
-            runtime.read_pool,
         )
         reader_variables = {
             name: value
@@ -341,10 +372,9 @@ def native_om4_source(
     else:
         if not all(isinstance(value, FlatOm4Variable) for value in unique):
             raise AssertionError("Flat OM4 mapping unexpectedly contains a level")
-        native = extension.FlatOm4Reader(
+        native = runtime.open_flat(
             location.path,
             [value.physical_name for value in unique],
-            runtime.read_pool,
         )
 
     physical_time = physical["time"].to_index()

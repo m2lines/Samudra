@@ -166,6 +166,11 @@ generic bitshuffle loop remains scalar. Even C-Blosc2 currently leaves its NEON
 bitshuffle path disabled because upstream found it slower than the generic path;
 this is worth benchmarking separately if ARM loading becomes a bottleneck.
 
+## TensorStore comparison
+
+The same batch pipeline can use the optional TensorStore reader. See
+[the draft experiment and benchmark](../../docs/tensorstore-native-loader.md).
+
 ## Further work
 
 The remaining rollout stages and deferred work are in

@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import dataclasses
+import functools
 import gc
 import glob
 import logging
@@ -31,7 +32,7 @@ from dask.diagnostics.progress import ProgressBar
 from matplotlib.ticker import FixedLocator, MaxNLocator, ScalarFormatter
 from tqdm.auto import tqdm
 
-from samudra.constants import DataLayout, build_om4_layout
+from samudra.constants import DataLayout, GridType, build_om4_layout
 from samudra.metrics.run import score_rollouts
 from samudra.utils.data import (
     spherical_area,
@@ -68,37 +69,29 @@ class Viz:
         time_range: slice,
         observations: "ObsMetricsConfig | None" = None,
         data_root: ResolvedLocation | None = None,
+        grid_type: GridType = "gaussian",
     ):
         pred_dict: dict[str, dict[str, Any]] = {}
         for run in runs:
             pred_dict[run.name] = {
                 "name": run.name,
-                "data": run.data,
+                # Rollouts are written on y/x with 2-D lat/lon (see `ZarrWriter`),
+                # the same layout the ground truth arrives in, so they need the
+                # same rename. A no-op for runs already on lat/lon.
+                "data": preserve_2d_coords(run.data),
                 "ls": run.variables,
             }
 
         key1 = runs[0].name
         # TODO: Support non-OM4 data layouts in visualization.
-        self.data_layout = build_om4_layout()
+        self.data_layout = build_om4_layout(grid_type=grid_type)
         levels = len(self.data_layout.depth_levels)
 
         groundtruth_rollout = groundtruth_rollout.sel(time=time_range)
 
-        if "y" in groundtruth_rollout.coords:
-            groundtruth_rollout = groundtruth_rollout.drop_vars(
-                ["lat", "lon"], errors="ignore"
-            )
-            groundtruth_rollout = groundtruth_rollout.rename({"y": "lat", "x": "lon"})
+        groundtruth_rollout = preserve_2d_coords(groundtruth_rollout)
 
-        groundtruth_rollout = groundtruth_rollout.assign(
-            areacello=(["lat", "lon"], spherical_area_weights(groundtruth_rollout))
-        )
-
-        # Compute real grid cell areas for physical calculations
-        groundtruth_rollout["areacello_spherical"] = (
-            ["lat", "lon"],
-            spherical_area(groundtruth_rollout),
-        )
+        groundtruth_rollout = self._with_cell_areas(groundtruth_rollout)
 
         # This function processes the ds_groundtruth and predictions for plotting
         # The predictions are loaded into pred_dict
@@ -155,31 +148,11 @@ class Viz:
 
         clist = ["#ff807a", "#1e8685", "#ffb579", "#63c8ab"]
 
-        atlantic_mask0 = basins["basin_atlantic"]
-        atlantic_mask = atlantic_mask0.where(atlantic_mask0["lat"] >= -32)
-        atlantic_mask = process_mask(data, atlantic_mask)
-        pacific_mask0 = basins["basin_pacific"]
-        pacific_mask = pacific_mask0.where(
-            pacific_mask0["lat"] >= -32
-        )  # TODO: include this -32 masking in the basin data
-        pacific_mask = process_mask(data, pacific_mask)
-        indian_ocean_mask0 = basins["basin_indian"]
-        indian_ocean_mask = indian_ocean_mask0.where(indian_ocean_mask0["lat"] >= -32)
-        indian_ocean_mask = process_mask(data, indian_ocean_mask)
-        southern_ocean_mask0 = basins["basin_southern"]
-        southern_ocean_mask = process_mask(data, southern_ocean_mask0)
-        arctic_mask0 = basins["basin_arctic"]
-        arctic_ocean_mask = process_mask(data, arctic_mask0)
-
-        self.basin_masks = xr.Dataset(
-            {
-                "Atlantic": atlantic_mask,
-                "Pacific": pacific_mask,
-                "Southern": southern_ocean_mask,
-                "Indian": indian_ocean_mask,
-                "Arctic": arctic_ocean_mask,
-            }
-        )
+        # Basin masks are built on first use, not here: only the basin steps
+        # need them, and aligning them can fail on a grid whose published mask
+        # does not match. Constructing them eagerly made every other step --
+        # including a plain smoke test -- depend on that alignment succeeding.
+        self._basins: xr.Dataset = basins
 
         # Compute profile means
         with ProgressBar():
@@ -211,6 +184,121 @@ class Viz:
         self.raw_runs: list[VizRun] = list(runs)
         self.obs_path = os.path.join(output_path, "Figures_observations")
         self._obs_cache: tuple | None = None
+
+    @functools.cached_property
+    def basin_masks(self) -> xr.Dataset:
+        """Basin masks aligned onto the plotting grid, built on first use."""
+        basins = self._basins
+        data = self.data
+        grid_type = self.data_layout.grid_type
+
+        atlantic_mask0 = basins["basin_atlantic"]
+        atlantic_mask = atlantic_mask0.where(atlantic_mask0["lat"] >= -32)
+        atlantic_mask = process_mask(data, atlantic_mask, grid_type)
+        pacific_mask0 = basins["basin_pacific"]
+        pacific_mask = pacific_mask0.where(
+            pacific_mask0["lat"] >= -32
+        )  # TODO: include this -32 masking in the basin data
+        pacific_mask = process_mask(data, pacific_mask, grid_type)
+        indian_ocean_mask0 = basins["basin_indian"]
+        indian_ocean_mask = indian_ocean_mask0.where(indian_ocean_mask0["lat"] >= -32)
+        indian_ocean_mask = process_mask(data, indian_ocean_mask, grid_type)
+        southern_ocean_mask0 = basins["basin_southern"]
+        southern_ocean_mask = process_mask(data, southern_ocean_mask0, grid_type)
+        arctic_mask0 = basins["basin_arctic"]
+        arctic_ocean_mask = process_mask(data, arctic_mask0, grid_type)
+
+        return xr.Dataset(
+            {
+                "Atlantic": atlantic_mask,
+                "Pacific": pacific_mask,
+                "Southern": southern_ocean_mask,
+                "Indian": indian_ocean_mask,
+                "Arctic": arctic_ocean_mask,
+            }
+        )
+
+    def _with_cell_areas(self, data: xr.Dataset) -> xr.Dataset:
+        """Attach the two area fields the reductions downstream expect.
+
+        `areacello` is the *weighting* field (normalized to sum to one) and
+        `areacello_spherical` is the physical cell area in m^2. On a rectilinear
+        grid both follow analytically from the 1-D axes. On a curvilinear grid
+        they do not: once the grid folds, `cos(lat)` stops being proportional to
+        cell area and `np.diff(lat).mean()` stops describing the spacing, so we
+        use the source's own `areacello` and refuse to invent one.
+        """
+        if self.data_layout.grid_type == "gaussian":
+            data = data.assign(areacello=(["lat", "lon"], spherical_area_weights(data)))
+            data["areacello_spherical"] = (["lat", "lon"], spherical_area(data))
+            return data
+
+        if "areacello" not in data.variables:
+            raise ValueError(
+                "Cannot build cell areas for "
+                f"grid_type={self.data_layout.grid_type!r}: the source carries no "
+                "'areacello'. The rectilinear helpers (spherical_area_weights / "
+                "spherical_area) assume separable, uniformly spaced 1-D lat/lon "
+                "and are invalid on a curvilinear grid, so there is nothing safe "
+                "to fall back to. Preserve 'areacello' through preprocessing."
+            )
+
+        area = np.asarray(data["areacello"].values, dtype=np.float64)
+        expected = (data.sizes["lat"], data.sizes["lon"])
+        if area.shape != expected:
+            raise ValueError(
+                f"Source 'areacello' has shape {area.shape}, expected {expected} "
+                "to match the horizontal grid. Cell areas must be given on the "
+                "same grid as the data."
+            )
+        if not np.isfinite(area).any() or np.nansum(area) <= 0:
+            raise ValueError(
+                "Source 'areacello' has no positive finite values, so it cannot "
+                "be used to weight reductions."
+            )
+
+        weights = np.where(np.isfinite(area), area, 0.0)
+        weights = weights / weights.sum()
+
+        # Drop first: `areacello` arrives as a coordinate on OM4 sources, and we
+        # need both fields as data variables for the reductions downstream.
+        data = data.drop_vars(["areacello", "areacello_spherical"], errors="ignore")
+        return data.assign(
+            areacello=(["lat", "lon"], weights),
+            areacello_spherical=(["lat", "lon"], area),
+        )
+
+    def _map_coords(self, data) -> tuple:
+        """Coordinates to hand `pcolormesh`, as (x, y).
+
+        The index axes are only geographic on a rectilinear grid. On a
+        curvilinear grid they are cell indices, and plotting against them draws
+        the fold as if it were geography, so we use the preserved 2-D
+        coordinates instead.
+        """
+        if self.data_layout.grid_type == "gaussian":
+            return data["x"], data["y"]
+        if "lon_2d" in data.coords and "lat_2d" in data.coords:
+            return data["lon_2d"], data["lat_2d"]
+        raise ValueError(
+            "Cannot plot a map for "
+            f"grid_type={self.data_layout.grid_type!r}: no 'lat_2d'/'lon_2d' "
+            "coordinates survived preprocessing, and the 'x'/'y' axes are cell "
+            "indices rather than degrees on a curvilinear grid. Preserve the "
+            "true 2-D coordinates through preprocessing."
+        )
+
+    def _reject_on_curvilinear(self, step: str, reason: str) -> None:
+        """Refuse a step whose maths only holds on a rectilinear grid.
+
+        A clear error beats a plausible-looking wrong figure.
+        """
+        if self.data_layout.grid_type != "gaussian":
+            raise NotImplementedError(
+                f"Step {step!r} is not implemented for "
+                f"grid_type={self.data_layout.grid_type!r}: {reason} Run it on a "
+                "'gaussian' source, or exclude it with --not_steps."
+            )
 
     def step_timeseries_plots(self):
         ### Plotting timeseries for each variable for each level
@@ -1437,6 +1525,13 @@ class Viz:
         )
 
     def step_ocean_temperature_profile_plots(self):
+        self._reject_on_curvilinear(
+            "ocean_temperature_profile_plots",
+            "it averages each basin over 'x' into a section and plots it "
+            "against 'y' labelled as latitude, which only holds when rows of "
+            "the grid follow lines of constant latitude.",
+        )
+
         def ocean_temperature_profile(datasets, titles, plot_title):
             # We import here to avoid importing tk unconditionally above
             from xarrayutils.plotting import linear_piecewise_scale  # type: ignore
@@ -1708,6 +1803,12 @@ class Viz:
         return GT_salinity_slope
 
     def step_thetao_mae_metrics(self):
+        self._reject_on_curvilinear(
+            "thetao_mae_metrics",
+            "it averages over 'x' to form a zonal-mean section, which is only "
+            "a zonal mean when rows of the grid follow lines of constant "
+            "latitude.",
+        )
         da_temp = self.data["thetao"]  # Directly use temperature variable
         section_mask = isnan(da_temp).all("x").isel(time=0)
         da_temp_int_x = da_temp.weighted(self.data["areacello"]).mean(["x", "time"])
@@ -1835,6 +1936,12 @@ class Viz:
         )
 
     def step_enso_plots(self):
+        self._reject_on_curvilinear(
+            "enso_plots",
+            "it selects the Nino regions and averages over 'x' using index "
+            "ranges, which only track the intended geographic boxes on a "
+            "rectilinear grid.",
+        )
         clim = (
             self.data["thetao"]
             .sel(lev=slice(0, 500))
@@ -2261,9 +2368,10 @@ class Viz:
             )  # cm.cm.thermal  # Using thermal colormap from cmocean
             colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
             norm = symmetric_percentile_norm(ohc_data)
+            map_x, map_y = self._map_coords(ohc_data)
             im = ax.pcolormesh(
-                ohc_data["x"],
-                ohc_data["y"],
+                map_x,
+                map_y,
                 ohc_data,
                 shading="auto",
                 cmap=colormap,
@@ -2290,9 +2398,10 @@ class Viz:
             colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
             bias_ohc = ohc_data - gt_ohc_data
             norm = symmetric_percentile_norm(bias_ohc)
+            map_x, map_y = self._map_coords(bias_ohc)
             im = ax.pcolormesh(
-                bias_ohc["x"],
-                bias_ohc["y"],
+                map_x,
+                map_y,
                 bias_ohc,
                 shading="auto",
                 cmap=colormap,
@@ -2520,9 +2629,10 @@ class Viz:
         colormap = cm.cm.thermal
         colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
         norm = percentile_norm(data)
+        map_x, map_y = self._map_coords(data)
         im = ax.pcolormesh(
-            data["x"],
-            data["y"],
+            map_x,
+            map_y,
             data,
             shading="auto",
             cmap=colormap,
@@ -2547,9 +2657,10 @@ class Viz:
         colormap.set_bad(color=(0.7, 0.7, 0.7, 0))
         bias = data - gt_data
         norm = symmetric_percentile_norm(bias)
+        map_x, map_y = self._map_coords(bias)
         im = ax.pcolormesh(
-            bias["x"],
-            bias["y"],
+            map_x,
+            map_y,
             bias,
             shading="auto",
             cmap=colormap,
@@ -2846,6 +2957,11 @@ class Viz:
     # Need atleast two keys otherwise duplicate maps
 
     def step_movies(self):
+        self._reject_on_curvilinear(
+            "movies",
+            "its frames plot against the 'x'/'y' index axes rather than the "
+            "2-D geographic coordinates.",
+        )
         keys = list(self.pred_dict.keys())
         # assert len(keys) >= 2, "Maps supported by atleast two keys"
         self.key1 = keys[0]
@@ -4044,12 +4160,92 @@ def remove_climatology(ds):
     return res
 
 
-def process_mask(data, mask):
+def preserve_2d_coords(data: xr.Dataset) -> xr.Dataset:
+    """Rename y/x to lat/lon, keeping any true 2-D geography as lat_2d/lon_2d.
+
+    Viz works internally on axes named "lat"/"lon" that are really the y/x cell
+    indices. Renaming onto them used to drop the source's real 2-D "lat"/"lon"
+    to avoid the name collision, which is lossless only on a rectilinear grid,
+    where they can be rebuilt by broadcasting. On a curvilinear grid they are
+    the only record of where each cell is, so we move them aside first, the way
+    `with_lat_lon_coords()` and `ZarrWriter` already do.
+    """
+    if "y" not in data.coords:
+        return data
+    # Only move a coordinate aside if its 2-D name is still free. A source that
+    # already carries `lat_2d`/`lon_2d` has been through this once (or through
+    # `with_lat_lon_coords`), and renaming onto an occupied name is an error.
+    names = [name for name in ("lat", "lon") if name in data.coords]
+    preserve = {n: f"{n}_2d" for n in names if f"{n}_2d" not in data.coords}
+    already = [n for n in names if f"{n}_2d" in data.coords]
+    return data.drop_vars(already).rename(preserve).rename({"y": "lat", "x": "lon"})
+
+
+def process_mask(data, mask, grid_type: GridType = "gaussian"):
+    """Align a basin mask onto the plotting grid.
+
+    The mask arrives on its own lat/lon axes and has to end up on the data's
+    y/x axes. Relabeling it by position is only defensible when the two grids
+    are the same rectilinear grid; on a curvilinear grid identical shapes do
+    not imply identical geography, so a positional relabel can silently put the
+    Atlantic where the Pacific is. We check the shape either way, and check the
+    coordinates too when we cannot rely on rectilinearity.
+    """
     mask = mask.where(mask != 0, np.nan)
     mask = mask.transpose("lat", "lon")
+
+    expected = (data.sizes["y"], data.sizes["x"])
+    if mask.shape != expected:
+        raise ValueError(
+            f"Basin mask has shape {mask.shape} but the data grid is {expected}. "
+            "Basin masks must be given on the same grid as the data; the "
+            "published Gaussian masks cannot be reused on a native curvilinear "
+            "grid. Generate a mask on this grid instead."
+        )
+
+    if grid_type != "gaussian":
+        _check_mask_coords_align(data, mask, grid_type)
+
     mask = mask.assign_coords(lat=data.y.values, lon=data.x.values)
     mask = mask.rename({"lat": "y", "lon": "x"})
     return mask
+
+
+def _check_mask_coords_align(data, mask, grid_type: GridType) -> None:
+    """Require a curvilinear mask to carry geography that matches the data.
+
+    Matching shapes are not enough off a rectilinear grid, so the mask has to
+    bring its own 2-D cell centers and they have to agree with the data's.
+    """
+    if "lat_2d" not in data.coords or "lon_2d" not in data.coords:
+        raise ValueError(
+            f"Cannot align a basin mask on grid_type={grid_type!r}: the data "
+            "carries no 'lat_2d'/'lon_2d', so there is nothing to check the "
+            "mask against. Preserve the true 2-D coordinates through "
+            "preprocessing."
+        )
+
+    have = {name for name in ("lat_2d", "lon_2d") if name in mask.coords}
+    if have != {"lat_2d", "lon_2d"}:
+        raise ValueError(
+            f"Cannot align a basin mask on grid_type={grid_type!r}: the mask "
+            "carries no 2-D 'lat_2d'/'lon_2d' cell centers, so it can only be "
+            "matched to the data by position, which does not imply matching "
+            "geography on a curvilinear grid. Generate the mask from the real "
+            "cell centers and keep them on it."
+        )
+
+    for name in ("lat_2d", "lon_2d"):
+        theirs = np.asarray(mask.coords[name].values, dtype=np.float64)
+        ours = np.asarray(data.coords[name].values, dtype=np.float64)
+        if theirs.shape != ours.shape or not np.allclose(
+            theirs, ours, rtol=0, atol=1e-4, equal_nan=True
+        ):
+            raise ValueError(
+                f"Basin mask {name!r} does not match the data's {name!r}. The "
+                "mask is on a different grid than the data, so applying it "
+                "would attribute cells to the wrong basins."
+            )
 
 
 def profile_mean(ds: xr.Dataset) -> xr.Dataset:

@@ -11,8 +11,14 @@ from typing import Annotated
 
 from pydantic import BaseModel, BeforeValidator, Field, WithJsonSchema
 
-from samudra.config import DataConfig, ObsMetricsConfig, Om4TimeConfig
+from samudra.config import (
+    DataConfig,
+    LlcDataSourceConfig,
+    ObsMetricsConfig,
+    Om4TimeConfig,
+)
 from samudra.config_base import TopLevelConfig
+from samudra.constants import GridType
 from samudra.utils.location import LocalLocation, Location, ResolvedLocation
 from samudra.utils.logging import handle_logging
 from samudra.viz.core import Viz, VizRun
@@ -116,6 +122,23 @@ class VizConfig(TopLevelConfig):
             "data source (e.g. --data @data/om4_demo.yaml)."
         )
 
+    def _grid_type(self) -> GridType:
+        """Horizontal grid geometry, reused from the data source.
+
+        Viz must branch on this: on a curvilinear ("tripolar") grid the 2-D
+        lat/lon cannot be rebuilt from the 1-D axes and the rectilinear area
+        helpers are invalid. We read it off the primary source rather than
+        configuring it separately so viz cannot disagree with train/eval.
+        """
+        if self.data is None:
+            return "gaussian"
+        source = self.data.sources[0]
+        if isinstance(source, LlcDataSourceConfig):
+            # LLC (lat-lon-cap) carries no `grid_type` field because it is only
+            # ever curvilinear; `build_llc_layout` hard-codes it.
+            return "tripolar"
+        return source.grid_type
+
     def build(self, default_root: ResolvedLocation) -> Viz:
         if self.data_root is None:
             data_root = default_root
@@ -136,6 +159,7 @@ class VizConfig(TopLevelConfig):
             self.groundtruth_time_range.time_slice,
             observations=self.observations,
             data_root=data_root,
+            grid_type=self._grid_type(),
         )
 
 

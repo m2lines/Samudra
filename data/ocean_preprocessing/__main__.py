@@ -24,6 +24,7 @@ import fire
 import fsspec
 import xarray as xr
 
+from ocean_preprocessing.basin_masks import basin_masks_from_static
 from ocean_preprocessing.dataset_validation import (
     ds_flattened_input_validate,
     ds_input_validate,
@@ -521,6 +522,46 @@ class CLI:
         logger.info("collecting!")
         self._collect(ds)
         logger.info("done!")
+
+    def basin_masks(self, static_path: str):
+        """Build ocean-basin masks on a model's native horizontal grid.
+
+        The published basin masks are all on regular lat-lon grids, so none of
+        them applies to OM4's native 1080x1440 tripolar grid. OM4's
+        `ocean_static` already carries integer region codes there, alongside the
+        real 2-D cell centers and the wet mask, so the masks can be built
+        directly with no regridding.
+
+        Args:
+            static_path: An OM4 `ocean_static` store, e.g.
+                `s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr`.
+
+        Example:
+            python -m ocean_preprocessing \
+              --output_path=basin_masks_native.zarr \
+              basin_masks \
+              --static_path=s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr
+        """
+        logger.info(f"reading ocean_static from {static_path}")
+        static = xr.open_zarr(static_path, chunks={})
+        if "time" in static.dims:
+            static = static.isel(time=0, drop=True)
+
+        masks = basin_masks_from_static(static)
+        logger.info(
+            "built masks: "
+            + ", ".join(
+                f"{name}={int(masks[name].sum())} cells" for name in masks.data_vars
+            )
+        )
+
+        if self.dry_run:
+            logger.info(masks)
+            return
+
+        logger.info(f"writing masks to {self.output_path}")
+        masks.to_zarr(self.output_path, mode="w", consolidated=True, zarr_format=2)
+        logger.info("zarr write complete")
 
     def cm4(self):
         """Process the CM4 oceans dataset (a coupled ocean model from CMIP)."""

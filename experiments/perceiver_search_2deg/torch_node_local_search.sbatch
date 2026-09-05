@@ -37,7 +37,12 @@ mkdir -p "$node_root"
 if [[ ! -f "$staged_data_root/_SUCCESS" ]]; then
   test ! -e "$staged_data_root"
   mkdir -p "$staged_data_root"
-  for name in OM4.zarr OM4_means.zarr OM4_stds.zarr; do
+  test -d "$SOURCE_DATA_ROOT/OM4.zarr"
+  mkdir "$staged_data_root/OM4.zarr"
+  find "$SOURCE_DATA_ROOT/OM4.zarr" -mindepth 1 -maxdepth 1 -print0 \
+    | xargs -0 -n 1 -P "${STAGING_WORKERS:-16}" \
+      cp -a -t "$staged_data_root/OM4.zarr" --
+  for name in OM4_means.zarr OM4_stds.zarr; do
     test -d "$SOURCE_DATA_ROOT/$name"
     cp -a "$SOURCE_DATA_ROOT/$name" "$staged_data_root/$name"
   done

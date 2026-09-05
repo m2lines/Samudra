@@ -129,11 +129,51 @@ approximately 42--50 seconds per batch; eight workers converted the earlier
 two-batch bursts into longer runs of ready batches, but still produced
 12--41-second stalls when the prefetch queue emptied.
 
-The full search is therefore not released with this configuration. The next
-systems intervention is to stage the small 2-degree Zarr store once per
-allocation onto node-local storage rather than multiplying reads from the
-shared scratch filesystem. The next smoke should keep the same four scientific
-paths and effective global batch so that only data placement changes.
+Two controlled follow-ups tested alternatives to the shared-filesystem layout.
+Direct anonymous streaming from the public OSN Zarr store in Torch job
+`16975829` did not produce a first batch in more than three minutes and sampled
+zero GPU work, so it was deliberately cancelled. Individual object reads were
+responsive, but one training sample requires many time-one, variable-per-object
+requests; Xarray/Zarr support for remote stores does not by itself make that
+access pattern efficient. The cancellation also reproduced a search-harness
+correctness defect: the terminated worker left the durable search state marked
+`running` with no results. This is recorded as a merge-blocking issue on the
+resource-aware local-executor PR.
+
+A compact representation that stacked depth levels into fewer logical variables
+was tested in job `16977817`. It likewise failed to reach a first batch promptly
+and was cancelled. The current canonical reader's indexing and conversion path
+does not benefit from that representation, so compactness at the object level is
+not a sufficient optimization criterion.
+
+The final probe staged an eight-year slice of the *unchanged flat-channel Zarr
+layout* once onto the allocation node's local SSD before starting the candidate.
+Torch job `16978214`, search run
+`perceiver-2deg-node-local-utilization-probe--20260904T235931.143524Z`, used the
+light `moment16-local` path on one RTX PRO 6000 Blackwell GPU with batch size 16,
+accumulation 2, eight persistent loader workers, eight CPUs, and 64 GiB. It
+completed 30 training batches, 15 optimizer updates, validation, W&B run
+[`bd8emx91`](https://wandb.ai/ocean_emulators/default/runs/bd8emx91), and the
+[public OSN record](https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/experiments/searches/perceiver-2deg-node-local-utilization-probe--20260904T235931.143524Z/).
+
+This probe passed the steady-state utilization gate. After the first batch,
+data-wait time was normally 0.03--0.22 seconds and batch time was normally
+0.53--0.77 seconds. One-second NVML samples across the 30-batch training interval
+averaged 78% SM utilization, with most samples between 75% and 99%. The model
+therefore has enough arithmetic intensity at batch 16 when data are local, and
+eight workers per GPU are sufficient for this store and reader.
+
+The distinction between steady-state and allocation-average utilization remains
+important. Train and validation each spent about 200 seconds waiting for their
+first batch because eight spawned loader processes imported Python and packages
+from the shared scratch environment. The entire job took 11 minutes 50 seconds,
+while steady training took only about 18 seconds after startup. The full search
+should therefore (1) stage the unchanged store once per allocation, (2) use a
+published container/code layer or otherwise avoid spawning workers from a
+metadata-congested shared environment, (3) retain persistent workers, and (4)
+make rung zero long enough to amortize unavoidable startup. The search runner is
+useful for a fixed one-rung matrix of systems hypotheses, but promotion should
+remain based on scientific loss or rollout metrics rather than utilization.
 
 ## Launch record
 

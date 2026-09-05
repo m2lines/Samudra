@@ -52,7 +52,7 @@ runtime_search="$node_root/search.yaml"
 mkdir -p "$repo"
 
 tar -xzf "$CODE_ARCHIVE" -C "$repo"
-archive_commit="$(git -C "$repo" rev-parse HEAD)"
+archive_commit="$(<"$repo/.samudra-code-commit")"
 if [[ "$archive_commit" != "$CODE_COMMIT" ]]; then
   echo "Code archive commit $archive_commit does not match requested $CODE_COMMIT" >&2
   exit 4

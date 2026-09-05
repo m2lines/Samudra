@@ -47,6 +47,7 @@ fi
 
 node_root="${TMPDIR:-/tmp}/samudra-search-${SLURM_JOB_ID:-local}"
 repo="$node_root/repo"
+runtime_config_root="$node_root/configs"
 staged_data_root="$node_root/data"
 runtime_search="$node_root/search.yaml"
 mkdir -p "$repo"
@@ -73,10 +74,16 @@ if [[ ! -f "$staged_data_root/_SUCCESS" ]]; then
   touch "$staged_data_root/_SUCCESS"
 fi
 
-config_root="$repo/src/samudra/configs"
-sed \
+cp -a "$repo/src/samudra/configs" "$runtime_config_root"
+sed -i \
   -e "s|__NODE_LOCAL_DATA_ROOT__|$staged_data_root|g" \
+  "$runtime_config_root/perceiver_structured_inverse_2deg/data_torch.yaml"
+
+config_root="$runtime_config_root"
+candidate_config="$config_root/perceiver_structured_inverse_2deg/train_torch.yaml"
+sed \
   -e "s|../search/osn-artifacts.yaml|$config_root/search/osn-artifacts.yaml|g" \
+  -e "s|config: perceiver_structured_inverse_2deg/train_torch.yaml|config: $candidate_config|g" \
   "$config_root/$SEARCH_CONFIG" > "$runtime_search"
 
 monitor_log="/home/${USER}/search-gpu-${SLURM_JOB_ID:-local}.dmon"
@@ -88,6 +95,7 @@ cleanup() {
 trap cleanup EXIT
 
 export WANDB_GIT_COMMIT="$CODE_COMMIT"
+export SAMUDRA_CODE_COMMIT="$CODE_COMMIT"
 export PYTHONPATH=/opt/samudra-code/src
 
 "$apptainer_bin" exec \

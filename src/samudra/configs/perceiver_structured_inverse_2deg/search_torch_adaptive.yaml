@@ -28,7 +28,7 @@ executor:
   # The controller itself runs inside one Slurm allocation. The local pool
   # assigns disjoint CUDA_VISIBLE_DEVICES subsets to concurrent workers.
   type: local
-  output_dir: /scratch/am16581/searches
+  output_dir: /home/am16581/searches
   max_concurrent: 4
 
 artifacts: !include ../search/osn-artifacts.yaml

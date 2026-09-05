@@ -70,7 +70,7 @@ sed \
   -e "s|../search/osn-artifacts.yaml|$config_root/search/osn-artifacts.yaml|g" \
   "$config_root/$SEARCH_CONFIG" > "$runtime_search"
 
-monitor_log="/scratch/${USER}/search-gpu-${SLURM_JOB_ID:-local}.dmon"
+monitor_log="/home/${USER}/search-gpu-${SLURM_JOB_ID:-local}.dmon"
 nvidia-smi dmon -s pucvmet -d 1 -o DT > "$monitor_log" &
 monitor_pid=$!
 cleanup() {
@@ -85,7 +85,7 @@ export PYTHONPATH=/opt/samudra-code/src
   --nv \
   --overlay "$CODE_LAYER:ro" \
   --bind "$node_root:$node_root" \
-  --bind "/scratch/${USER}:/scratch/${USER}" \
+  --bind "/home/${USER}:/home/${USER}" \
   --pwd /opt/samudra-code \
   "$CONTAINER_SIF" \
   /workspace/.venv/bin/python -m samudra.search "$runtime_search"

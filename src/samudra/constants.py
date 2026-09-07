@@ -270,6 +270,9 @@ def build_om4_layout(
                 "hfds": ["hfds"],
                 "tau_hfds": ["tauuo", "tauvo", "hfds"],
                 "tau_hfds_hfds_anom": ["tauuo", "tauvo", "hfds", "hfds_anomalies"],
+                # No hfds_anomalies here: the freshwater-augmented v2026-09+
+                # OM4 datasets (see #832/#863) don't carry it, only wfo.
+                "tau_hfds_wfo": ["tauuo", "tauvo", "hfds", "wfo"],
             },
             boundary_vars_key,
             "om4",
@@ -316,6 +319,10 @@ def build_om4_layout(
             "hfds_anomalies": {
                 "long_name": "hfds anomalies",
                 "units": "W/m^2",
+            },
+            "wfo": {
+                "long_name": "Water Flux into Sea Water",
+                "units": "kg/m^2/s",
             },
         },
         ocean_heat_temperature_var="thetao",

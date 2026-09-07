@@ -1,0 +1,31 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+# yaml-language-server: $schema=../schemas/DataConfig.json
+
+# Same as om4.yaml, but selects the freshwater-flux-augmented boundary set
+# (adds wfo). Requires the v2026-09+ OM4 datasets (#832/#863), which carry wfo
+# but not hfds_anomalies -- so boundary_vars_key is tau_hfds_wfo, not baseline's
+# tau_hfds_hfds_anom + wfo. Point --experiment.data_root at the resolution you
+# want (e.g. a v2026-09/om4_<res> root), same as om4.yaml.
+
+sources:
+  - type: om4
+    prognostic_vars_key: thermo_dynamic_all
+    boundary_vars_key: tau_hfds_wfo
+    train_time:
+      start: "1975-01-03"
+      end: "2013-10-05"
+    val_time:
+      start: "2013-10-05"
+      end: "2014-10-05"
+    inference_times:
+      - start: "2014-10-10"
+        end: "2022-12-24"
+    data_location: OM4.zarr
+    data_means_location: OM4_means.zarr
+    data_stds_location: OM4_stds.zarr
+concurrent_compute: true
+loading:
+  type: cpu

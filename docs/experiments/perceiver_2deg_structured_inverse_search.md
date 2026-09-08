@@ -243,12 +243,105 @@ launch.
 
 ## Results
 
-Pending.
+The Torch allocation ended after 34 minutes 23 seconds before rung zero could
+finish. Four candidates nevertheless completed all 176 training batches, 88
+optimizer updates, validation, and the configured 36-step autoregressive
+rollout. Three were recorded as completed workers. `moment4-local` also wrote a
+complete `training_summary.json`, but failed afterward while W&B was writing a
+validation image, so it is reported as a recoverable result rather than an
+accepted search result.
+
+| Candidate | Validation loss | AR inference loss | Train loss | Window-periodic power ratio | Window-jump ratio | Time (min) | Worker outcome |
+|---|---:|---:|---:|---:|---:|---:|---|
+| [`moment4-local`](https://wandb.ai/ocean_emulators/default/runs/es3yksca) | **0.073229** | 0.414186 | 0.809223 | **0.002358** | 0.945746 | **7.5** | Metrics complete; artifact write failed |
+| [`moment16-local`](https://wandb.ai/ocean_emulators/default/runs/8levaldh) | 0.073652 | 0.412987 | 0.787923 | 0.002384 | **0.947076** | 8.1 | Completed |
+| [`moment16-direct`](https://wandb.ai/ocean_emulators/default/runs/qhp876rh) | 0.074977 | **0.383711** | **0.649819** | 0.014533 | 1.069773 | 11.6 | Completed |
+| [`spatial-grid2-direct`](https://wandb.ai/ocean_emulators/default/runs/4b7nkuox) | 0.074997 | 0.383923 | 0.655559 | 0.016021 | 0.867492 | 14.1 | Completed |
+
+Lower is better for the three loss columns and window-periodic power. A
+window-jump ratio of one is ideal, so the table should be read by distance from
+one rather than by its raw minimum. Reported times include training, validation,
+rollout, metrics, and artifact work for epoch one.
+
+`spatial-grid2-local` initialized and reached one optimizer update before the
+allocation failed. `spatial-grid3x4-direct`, `moment16-wide-direct`, and
+`pooled-perceiver-direct` never started. Consequently, the rung-zero comparison
+is incomplete and no candidate was promoted.
+
+The proximate failure was home-directory quota exhaustion, not a non-finite
+model result or GPU OOM. Each completed candidate retained approximately 3.2
+GiB locally: `ckpt_1.pt`, `ckpt.pt`, `best_validation_ckpt.pt`, and
+`best_inference_ckpt.pt` were each about 700 MiB, while `ema_ckpt.pt` was about
+525 MiB. After four candidates had written these largely overlapping states,
+`moment4-local` raised `Disk quota exceeded` while creating a W&B image.
+Slurm job `16987589` then exited with code 1. The local executor did not commit
+the already completed worker results to top-level `results.csv`, and
+`state.json` incorrectly remained `running` with zero results and no
+promotions. Thus the public OSN directory records provenance and initial state,
+while the W&B runs and local worker summaries are the authoritative sources for
+the preliminary numbers above.
 
 ## Analysis
 
-Pending.
+The completed subset exposes a real decoder tradeoff, but it does not yet name a
+winner. The two local-decoder arms improved one-epoch validation loss by
+approximately 1.8--2.4% relative to the direct arms. They also reduced the
+channel-mean window-periodic power ratio by approximately 84--85%, and their
+window-jump ratios were closer to one than either spatial direct result and
+slightly closer than moment direct. This supports the hypothesis that a smooth
+base plus locally anchored correction suppresses patch-periodic structure.
+
+The same local arms were approximately 7.0--7.4% worse on the 36-step
+autoregressive inference loss. Their training losses were also higher. The
+direct decoder therefore appears easier to optimize and retains a meaningful
+early rollout advantage, even though it leaves more periodic spatial error.
+This is precisely why validation loss alone should not drive the architecture
+decision: at epoch one it would favor `moment4-local`, whereas rollout loss
+would favor `moment16-direct`.
+
+Within the direct-decoder pair, `moment16-direct` and
+`spatial-grid2-direct` are effectively tied: their validation losses differ by
+0.03% and their inference losses by 0.06%. One epoch provides no evidence that
+either encoder is superior. Within the local-decoder pair, reducing from 16 to
+four moments improved validation loss by 0.6% and degraded inference loss by
+only 0.3%. That weak early signal suggests the extra moment capacity may not be
+earning its cost, but it is much too small to rule out divergence at later
+rungs.
+
+These conclusions are conditional on only four of eight candidates and one
+epoch of optimization. The absent pooled control, wider direct decoder, and
+denser spatial grid prevent several primary hypotheses from being answered.
+The values should guide the clean rerun and Pareto analysis, not be treated as a
+completed successive-halving result.
 
 ## Conclusion and future work
 
-Pending.
+The strongest current inference is architectural rather than a winning model:
+local structured decoding substantially improves seam behavior and slightly
+improves one-step validation, while direct decoding gives better early
+autoregressive fidelity. A high-value next intervention should try to combine
+the local decoder's smooth spatial assembly with the direct decoder's easier
+optimization and rollout behavior, rather than selecting either endpoint from
+this incomplete rung.
+
+Before resuming the scientific search:
+
+1. Retain only the checkpoint required to promote or resume an early-rung
+   candidate. Publish it with a checksum before pruning local redundant copies.
+2. Reduce early-rung image frequency or generate the full visualization suite
+   only for promoted candidates. Scalar rollout and seam metrics must remain
+   enabled because they revealed the main tradeoff.
+3. Write search outputs to a capacity-appropriate filesystem, or stream durable
+   artifacts to OSN and reclaim local space after verified publication.
+4. Make the controller atomically collect completed worker results even when a
+   sibling fails, and transition top-level state to `failed` rather than leaving
+   a stale `running` record.
+5. Rerun the complete eight-candidate rung at the same immutable code and model
+   settings before promotion. Reusing the four summaries is appropriate for
+   diagnosis, but a clean, controller-recorded rung is preferable for a
+   reproducible successive-halving decision.
+
+After the corrected rung, promotion should consider validation loss, AR
+inference loss, and the seam diagnostics as a small Pareto set. If the local
+versus direct tradeoff persists through epochs three and six, the next model
+search should test hybrid output assembly explicitly.

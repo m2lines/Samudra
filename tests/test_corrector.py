@@ -271,7 +271,10 @@ def test_correctors_exposes_imbalance_penalty(ocean_heat_init):
             "hfgeou": (["lat", "lon"], np.ones(wet_mask.shape)),
             "sea_surface_fraction": (["lat", "lon"], np.ones(wet_mask.shape)),
         },
-        coords={"lat": np.arange(wet_mask.shape[0]), "lon": np.arange(wet_mask.shape[1])},
+        coords={
+            "lat": np.arange(wet_mask.shape[0]),
+            "lon": np.arange(wet_mask.shape[1]),
+        },
     )
     correctors = Correctors(
         non_negative_corrector_names=None,

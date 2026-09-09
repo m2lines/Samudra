@@ -1,0 +1,431 @@
+{
+  "decision_prior": "A",
+  "selection_policy": "Keep A unless a control materially improves representative ready-tensor latency or transferred bytes without unacceptable general-access cost.",
+  "candidates": {
+    "A": {
+      "logical_chunks": [
+        1,
+        17,
+        1,
+        120,
+        120
+      ],
+      "physical_shards": [
+        1,
+        51,
+        1,
+        720,
+        720
+      ],
+      "stored_bytes": 6119364747,
+      "physical_data_objects": 128,
+      "compression_ratio": 0.45206522941358496,
+      "encode_seconds": 90.6214768581558,
+      "validation_seconds": 29.633748283144087,
+      "exact_full_validation": true,
+      "trace_tracker": "sync-and-async-v3-shared-clone-recorder",
+      "workloads": {
+        "aligned_720": {
+          "median_seconds": 0.24595275102183223,
+          "median_data_returned_bytes": 63158793,
+          "median_data_calls": 1,
+          "median_unique_data_objects": 1
+        },
+        "halo_16_752": {
+          "median_seconds": 0.2782054138369858,
+          "median_data_returned_bytes": 63172649,
+          "median_data_calls": 9,
+          "median_unique_data_objects": 9
+        },
+        "halo_32_784": {
+          "median_seconds": 0.3045904980972409,
+          "median_data_returned_bytes": 63172649,
+          "median_data_calls": 9,
+          "median_unique_data_objects": 9
+        },
+        "union_1472": {
+          "median_seconds": 1.117573122959584,
+          "median_data_returned_bytes": 195706932,
+          "median_data_calls": 16,
+          "median_unique_data_objects": 16
+        },
+        "misaligned_720": {
+          "median_seconds": 0.24704483500681818,
+          "median_data_returned_bytes": 63163989,
+          "median_data_calls": 4,
+          "median_unique_data_objects": 4
+        },
+        "shallow_17_halo": {
+          "median_seconds": 0.09447546699084342,
+          "median_data_returned_bytes": 15588,
+          "median_data_calls": 9,
+          "median_unique_data_objects": 9
+        },
+        "point_series": {
+          "median_seconds": 0.006370035000145435,
+          "median_data_returned_bytes": 13856,
+          "median_data_calls": 8,
+          "median_unique_data_objects": 8
+        },
+        "pair_aligned": {
+          "median_seconds": 0.5261046709492803,
+          "median_data_returned_bytes": 126298319,
+          "median_data_calls": 2,
+          "median_unique_data_objects": 2
+        },
+        "pair_offset": {
+          "median_seconds": 0.5173940581735224,
+          "median_data_returned_bytes": 126239300,
+          "median_data_calls": 2,
+          "median_unique_data_objects": 2
+        },
+        "independent_four_752": {
+          "median_seconds": 1.0256657858844846,
+          "median_data_returned_bytes": 195741572,
+          "median_data_calls": 36,
+          "median_unique_data_objects": 16
+        }
+      }
+    },
+    "B": {
+      "logical_chunks": [
+        1,
+        17,
+        1,
+        60,
+        60
+      ],
+      "physical_shards": [
+        1,
+        51,
+        1,
+        720,
+        720
+      ],
+      "stored_bytes": 6090744117,
+      "physical_data_objects": 128,
+      "compression_ratio": 0.4499508932940581,
+      "encode_seconds": 91.00238254899159,
+      "validation_seconds": 36.80333803920075,
+      "exact_full_validation": true,
+      "trace_tracker": "sync-and-async-v3-shared-clone-recorder",
+      "workloads": {
+        "aligned_720": {
+          "median_seconds": 0.33557627396658063,
+          "median_data_returned_bytes": 63008489,
+          "median_data_calls": 1,
+          "median_unique_data_objects": 1
+        },
+        "halo_16_752": {
+          "median_seconds": 0.3301028339192271,
+          "median_data_returned_bytes": 63063817,
+          "median_data_calls": 9,
+          "median_unique_data_objects": 9
+        },
+        "halo_32_784": {
+          "median_seconds": 0.3540040450170636,
+          "median_data_returned_bytes": 63063817,
+          "median_data_calls": 9,
+          "median_unique_data_objects": 9
+        },
+        "union_1472": {
+          "median_seconds": 1.1832018089480698,
+          "median_data_returned_bytes": 195791646,
+          "median_data_calls": 16,
+          "median_unique_data_objects": 16
+        },
+        "misaligned_720": {
+          "median_seconds": 0.26952550117857754,
+          "median_data_returned_bytes": 27664,
+          "median_data_calls": 4,
+          "median_unique_data_objects": 4
+        },
+        "shallow_17_halo": {
+          "median_seconds": 0.10525956796482205,
+          "median_data_returned_bytes": 62244,
+          "median_data_calls": 9,
+          "median_unique_data_objects": 9
+        },
+        "point_series": {
+          "median_seconds": 0.0051537929102778435,
+          "median_data_returned_bytes": 55328,
+          "median_data_calls": 8,
+          "median_unique_data_objects": 8
+        },
+        "pair_aligned": {
+          "median_seconds": 0.5312079328577965,
+          "median_data_returned_bytes": 125998232,
+          "median_data_calls": 2,
+          "median_unique_data_objects": 2
+        },
+        "pair_offset": {
+          "median_seconds": 0.5466754341032356,
+          "median_data_returned_bytes": 125937091,
+          "median_data_calls": 2,
+          "median_unique_data_objects": 2
+        },
+        "independent_four_752": {
+          "median_seconds": 1.1759618460200727,
+          "median_data_returned_bytes": 195929966,
+          "median_data_calls": 36,
+          "median_unique_data_objects": 16
+        }
+      }
+    },
+    "C": {
+      "logical_chunks": [
+        1,
+        51,
+        1,
+        120,
+        120
+      ],
+      "physical_shards": [
+        1,
+        51,
+        1,
+        720,
+        720
+      ],
+      "stored_bytes": 6068910243,
+      "physical_data_objects": 128,
+      "compression_ratio": 0.4483379254494646,
+      "encode_seconds": 66.40521983499639,
+      "validation_seconds": 29.03939102613367,
+      "exact_full_validation": true,
+      "trace_tracker": "sync-and-async-v3-shared-clone-recorder",
+      "workloads": {
+        "aligned_720": {
+          "median_seconds": 0.2620660199318081,
+          "median_data_returned_bytes": 62641977,
+          "median_data_calls": 1,
+          "median_unique_data_objects": 1
+        },
+        "halo_16_752": {
+          "median_seconds": 0.27416693000122905,
+          "median_data_returned_bytes": 62646617,
+          "median_data_calls": 9,
+          "median_unique_data_objects": 9
+        },
+        "halo_32_784": {
+          "median_seconds": 0.3023310429416597,
+          "median_data_returned_bytes": 62646617,
+          "median_data_calls": 9,
+          "median_unique_data_objects": 9
+        },
+        "union_1472": {
+          "median_seconds": 0.9604946509934962,
+          "median_data_returned_bytes": 194285381,
+          "median_data_calls": 16,
+          "median_unique_data_objects": 16
+        },
+        "misaligned_720": {
+          "median_seconds": 0.24264758895151317,
+          "median_data_returned_bytes": 62643717,
+          "median_data_calls": 4,
+          "median_unique_data_objects": 4
+        },
+        "shallow_17_halo": {
+          "median_seconds": 0.0947736210655421,
+          "median_data_returned_bytes": 62646617,
+          "median_data_calls": 9,
+          "median_unique_data_objects": 9
+        },
+        "point_series": {
+          "median_seconds": 0.007927033118903637,
+          "median_data_returned_bytes": 4640,
+          "median_data_calls": 8,
+          "median_unique_data_objects": 8
+        },
+        "pair_aligned": {
+          "median_seconds": 0.4749789978377521,
+          "median_data_returned_bytes": 125268783,
+          "median_data_calls": 2,
+          "median_unique_data_objects": 2
+        },
+        "pair_offset": {
+          "median_seconds": 0.5007900199852884,
+          "median_data_returned_bytes": 125220533,
+          "median_data_calls": 2,
+          "median_unique_data_objects": 2
+        },
+        "independent_four_752": {
+          "median_seconds": 1.0338264210149646,
+          "median_data_returned_bytes": 194296981,
+          "median_data_calls": 36,
+          "median_unique_data_objects": 16
+        }
+      }
+    },
+    "D": {
+      "logical_chunks": [
+        1,
+        17,
+        1,
+        120,
+        120
+      ],
+      "physical_shards": [
+        1,
+        51,
+        1,
+        1440,
+        1440
+      ],
+      "stored_bytes": 6119364365,
+      "physical_data_objects": 32,
+      "compression_ratio": 0.45206520104575637,
+      "encode_seconds": 64.20044920011424,
+      "validation_seconds": 29.62630161596462,
+      "exact_full_validation": true,
+      "trace_tracker": "sync-and-async-v3-shared-clone-recorder",
+      "workloads": {
+        "aligned_720": {
+          "median_seconds": 0.24428317486308515,
+          "median_data_returned_bytes": 6916,
+          "median_data_calls": 1,
+          "median_unique_data_objects": 1
+        },
+        "halo_16_752": {
+          "median_seconds": 0.2895727299619466,
+          "median_data_returned_bytes": 27664,
+          "median_data_calls": 4,
+          "median_unique_data_objects": 4
+        },
+        "halo_32_784": {
+          "median_seconds": 0.29828269011341035,
+          "median_data_returned_bytes": 27664,
+          "median_data_calls": 4,
+          "median_unique_data_objects": 4
+        },
+        "union_1472": {
+          "median_seconds": 1.0619574100710452,
+          "median_data_returned_bytes": 27664,
+          "median_data_calls": 4,
+          "median_unique_data_objects": 4
+        },
+        "misaligned_720": {
+          "median_seconds": 0.24523316510021687,
+          "median_data_returned_bytes": 27664,
+          "median_data_calls": 4,
+          "median_unique_data_objects": 4
+        },
+        "shallow_17_halo": {
+          "median_seconds": 0.08880988601595163,
+          "median_data_returned_bytes": 27664,
+          "median_data_calls": 4,
+          "median_unique_data_objects": 4
+        },
+        "point_series": {
+          "median_seconds": 0.006647104863077402,
+          "median_data_returned_bytes": 55328,
+          "median_data_calls": 8,
+          "median_unique_data_objects": 8
+        },
+        "pair_aligned": {
+          "median_seconds": 0.4708393339533359,
+          "median_data_returned_bytes": 13832,
+          "median_data_calls": 2,
+          "median_unique_data_objects": 2
+        },
+        "pair_offset": {
+          "median_seconds": 0.4916798349004239,
+          "median_data_returned_bytes": 13832,
+          "median_data_calls": 2,
+          "median_unique_data_objects": 2
+        },
+        "independent_four_752": {
+          "median_seconds": 1.0007235151715577,
+          "median_data_returned_bytes": 110656,
+          "median_data_calls": 16,
+          "median_unique_data_objects": 4
+        }
+      }
+    },
+    "E": {
+      "logical_chunks": [
+        1,
+        17,
+        1,
+        120,
+        120
+      ],
+      "physical_shards": [
+        2,
+        51,
+        1,
+        720,
+        720
+      ],
+      "stored_bytes": 6119364491,
+      "physical_data_objects": 64,
+      "compression_ratio": 0.45206521050169923,
+      "encode_seconds": 36.31938421190716,
+      "validation_seconds": 30.2083371670451,
+      "exact_full_validation": true,
+      "trace_tracker": "sync-and-async-v3-shared-clone-recorder",
+      "workloads": {
+        "aligned_720": {
+          "median_seconds": 0.24310426297597587,
+          "median_data_returned_bytes": 3460,
+          "median_data_calls": 1,
+          "median_unique_data_objects": 1
+        },
+        "halo_16_752": {
+          "median_seconds": 0.2904477238189429,
+          "median_data_returned_bytes": 31140,
+          "median_data_calls": 9,
+          "median_unique_data_objects": 9
+        },
+        "halo_32_784": {
+          "median_seconds": 0.3081964801531285,
+          "median_data_returned_bytes": 31140,
+          "median_data_calls": 9,
+          "median_unique_data_objects": 9
+        },
+        "union_1472": {
+          "median_seconds": 1.088807611959055,
+          "median_data_returned_bytes": 55360,
+          "median_data_calls": 16,
+          "median_unique_data_objects": 16
+        },
+        "misaligned_720": {
+          "median_seconds": 0.23079622187651694,
+          "median_data_returned_bytes": 13840,
+          "median_data_calls": 4,
+          "median_unique_data_objects": 4
+        },
+        "shallow_17_halo": {
+          "median_seconds": 0.08975533512420952,
+          "median_data_returned_bytes": 31140,
+          "median_data_calls": 9,
+          "median_unique_data_objects": 9
+        },
+        "point_series": {
+          "median_seconds": 0.004205329110845923,
+          "median_data_returned_bytes": 13840,
+          "median_data_calls": 4,
+          "median_unique_data_objects": 4
+        },
+        "pair_aligned": {
+          "median_seconds": 0.5115540239494294,
+          "median_data_returned_bytes": 126298315,
+          "median_data_calls": 1,
+          "median_unique_data_objects": 1
+        },
+        "pair_offset": {
+          "median_seconds": 0.4928701790049672,
+          "median_data_returned_bytes": 6920,
+          "median_data_calls": 2,
+          "median_unique_data_objects": 2
+        },
+        "independent_four_752": {
+          "median_seconds": 1.0299617948476225,
+          "median_data_returned_bytes": 124560,
+          "median_data_calls": 36,
+          "median_unique_data_objects": 16
+        }
+      }
+    }
+  }
+}

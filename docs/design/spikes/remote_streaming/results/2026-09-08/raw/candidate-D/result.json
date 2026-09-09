@@ -1,0 +1,417 @@
+{
+  "candidate": "D",
+  "logical_chunks": [
+    1,
+    17,
+    1,
+    120,
+    120
+  ],
+  "physical_shards": [
+    1,
+    51,
+    1,
+    1440,
+    1440
+  ],
+  "codec": "blosc-zstd-level-5-bitshuffle",
+  "fixture": "/orcd/scratch/orcd/008/merose/llc_sharding_spikes_20260903/fixtures/face1_t0_t7_region720_3600/Theta.npy",
+  "fixture_shape_without_face": [
+    8,
+    51,
+    2880,
+    2880
+  ],
+  "fixture_decoded_bytes": 13536460800,
+  "encode_seconds": 64.20044920011424,
+  "validation_seconds": 29.62630161596462,
+  "exact_full_validation": true,
+  "stored_files": 34,
+  "stored_bytes": 6119364365,
+  "physical_data_objects": 32,
+  "physical_data_bytes": 6119362873,
+  "compression_ratio": 0.45206520104575637,
+  "workloads": {
+    "aligned_720": {
+      "median_seconds": 0.2554652120452374,
+      "trials": [
+        {
+          "seconds": 0.2554652120452374,
+          "calls": 1,
+          "data_calls": 1,
+          "returned_bytes": 6916,
+          "data_returned_bytes": 6916,
+          "unique_data_objects": 1,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.2325592921115458,
+          "calls": 1,
+          "data_calls": 1,
+          "returned_bytes": 6916,
+          "data_returned_bytes": 6916,
+          "unique_data_objects": 1,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.2626534029841423,
+          "calls": 1,
+          "data_calls": 1,
+          "returned_bytes": 6916,
+          "data_returned_bytes": 6916,
+          "unique_data_objects": 1,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        }
+      ]
+    },
+    "halo_16_752": {
+      "median_seconds": 0.2984669900033623,
+      "trials": [
+        {
+          "seconds": 0.31667533912695944,
+          "calls": 4,
+          "data_calls": 4,
+          "returned_bytes": 27664,
+          "data_returned_bytes": 27664,
+          "unique_data_objects": 4,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.2984669900033623,
+          "calls": 4,
+          "data_calls": 4,
+          "returned_bytes": 27664,
+          "data_returned_bytes": 27664,
+          "unique_data_objects": 4,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.2937277110759169,
+          "calls": 4,
+          "data_calls": 4,
+          "returned_bytes": 27664,
+          "data_returned_bytes": 27664,
+          "unique_data_objects": 4,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        }
+      ]
+    },
+    "halo_32_784": {
+      "median_seconds": 0.32266240078024566,
+      "trials": [
+        {
+          "seconds": 0.32266240078024566,
+          "calls": 4,
+          "data_calls": 4,
+          "returned_bytes": 27664,
+          "data_returned_bytes": 27664,
+          "unique_data_objects": 4,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.33322883397340775,
+          "calls": 4,
+          "data_calls": 4,
+          "returned_bytes": 27664,
+          "data_returned_bytes": 27664,
+          "unique_data_objects": 4,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.31127377203665674,
+          "calls": 4,
+          "data_calls": 4,
+          "returned_bytes": 27664,
+          "data_returned_bytes": 27664,
+          "unique_data_objects": 4,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        }
+      ]
+    },
+    "union_1472": {
+      "median_seconds": 1.0551417539827526,
+      "trials": [
+        {
+          "seconds": 1.1052706821355969,
+          "calls": 4,
+          "data_calls": 4,
+          "returned_bytes": 27664,
+          "data_returned_bytes": 27664,
+          "unique_data_objects": 4,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 1.0551417539827526,
+          "calls": 4,
+          "data_calls": 4,
+          "returned_bytes": 27664,
+          "data_returned_bytes": 27664,
+          "unique_data_objects": 4,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 1.0396623609121889,
+          "calls": 4,
+          "data_calls": 4,
+          "returned_bytes": 27664,
+          "data_returned_bytes": 27664,
+          "unique_data_objects": 4,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        }
+      ]
+    },
+    "misaligned_720": {
+      "median_seconds": 0.26580583094619215,
+      "trials": [
+        {
+          "seconds": 0.26560319191776216,
+          "calls": 4,
+          "data_calls": 4,
+          "returned_bytes": 27664,
+          "data_returned_bytes": 27664,
+          "unique_data_objects": 4,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.26580583094619215,
+          "calls": 4,
+          "data_calls": 4,
+          "returned_bytes": 27664,
+          "data_returned_bytes": 27664,
+          "unique_data_objects": 4,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.28373807296156883,
+          "calls": 4,
+          "data_calls": 4,
+          "returned_bytes": 27664,
+          "data_returned_bytes": 27664,
+          "unique_data_objects": 4,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        }
+      ]
+    },
+    "shallow_17_halo": {
+      "median_seconds": 0.08721237792633474,
+      "trials": [
+        {
+          "seconds": 0.09594365209341049,
+          "calls": 4,
+          "data_calls": 4,
+          "returned_bytes": 27664,
+          "data_returned_bytes": 27664,
+          "unique_data_objects": 4,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.08721237792633474,
+          "calls": 4,
+          "data_calls": 4,
+          "returned_bytes": 27664,
+          "data_returned_bytes": 27664,
+          "unique_data_objects": 4,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.08642337401397526,
+          "calls": 4,
+          "data_calls": 4,
+          "returned_bytes": 27664,
+          "data_returned_bytes": 27664,
+          "unique_data_objects": 4,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        }
+      ]
+    },
+    "point_series": {
+      "median_seconds": 0.0074194190092384815,
+      "trials": [
+        {
+          "seconds": 0.009143967879936099,
+          "calls": 8,
+          "data_calls": 8,
+          "returned_bytes": 55328,
+          "data_returned_bytes": 55328,
+          "unique_data_objects": 8,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.0074194190092384815,
+          "calls": 8,
+          "data_calls": 8,
+          "returned_bytes": 55328,
+          "data_returned_bytes": 55328,
+          "unique_data_objects": 8,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.006343252025544643,
+          "calls": 8,
+          "data_calls": 8,
+          "returned_bytes": 55328,
+          "data_returned_bytes": 55328,
+          "unique_data_objects": 8,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        }
+      ]
+    },
+    "pair_aligned": {
+      "median_seconds": 0.5114457739982754,
+      "trials": [
+        {
+          "seconds": 0.5044477342162281,
+          "calls": 2,
+          "data_calls": 2,
+          "returned_bytes": 13832,
+          "data_returned_bytes": 13832,
+          "unique_data_objects": 2,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.5118935059290379,
+          "calls": 2,
+          "data_calls": 2,
+          "returned_bytes": 13832,
+          "data_returned_bytes": 13832,
+          "unique_data_objects": 2,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.5114457739982754,
+          "calls": 2,
+          "data_calls": 2,
+          "returned_bytes": 13832,
+          "data_returned_bytes": 13832,
+          "unique_data_objects": 2,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        }
+      ]
+    },
+    "pair_offset": {
+      "median_seconds": 0.4584443368948996,
+      "trials": [
+        {
+          "seconds": 0.4771056128665805,
+          "calls": 2,
+          "data_calls": 2,
+          "returned_bytes": 13832,
+          "data_returned_bytes": 13832,
+          "unique_data_objects": 2,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.4519032770767808,
+          "calls": 2,
+          "data_calls": 2,
+          "returned_bytes": 13832,
+          "data_returned_bytes": 13832,
+          "unique_data_objects": 2,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.4584443368948996,
+          "calls": 2,
+          "data_calls": 2,
+          "returned_bytes": 13832,
+          "data_returned_bytes": 13832,
+          "unique_data_objects": 2,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        }
+      ]
+    },
+    "independent_four_752": {
+      "median_seconds": 1.0668127050157636,
+      "trials": [
+        {
+          "seconds": 1.0668127050157636,
+          "calls": 16,
+          "data_calls": 16,
+          "returned_bytes": 110656,
+          "data_returned_bytes": 110656,
+          "unique_data_objects": 4,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 1.0685899518430233,
+          "calls": 16,
+          "data_calls": 16,
+          "returned_bytes": 110656,
+          "data_returned_bytes": 110656,
+          "unique_data_objects": 4,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 1.050334749976173,
+          "calls": 16,
+          "data_calls": 16,
+          "returned_bytes": 110656,
+          "data_returned_bytes": 110656,
+          "unique_data_objects": 4,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        }
+      ]
+    }
+  },
+  "final_rss_bytes": 15151325184
+}

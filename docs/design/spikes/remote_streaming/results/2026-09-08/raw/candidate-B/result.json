@@ -1,0 +1,429 @@
+{
+  "candidate": "B",
+  "logical_chunks": [
+    1,
+    17,
+    1,
+    60,
+    60
+  ],
+  "physical_shards": [
+    1,
+    51,
+    1,
+    720,
+    720
+  ],
+  "codec": "blosc-zstd-level-5-bitshuffle",
+  "fixture": "/orcd/scratch/orcd/008/merose/llc_sharding_spikes_20260903/fixtures/face1_t0_t7_region720_3600/Theta.npy",
+  "fixture_shape_without_face": [
+    8,
+    51,
+    2880,
+    2880
+  ],
+  "fixture_decoded_bytes": 13536460800,
+  "encode_seconds": 91.00238254899159,
+  "validation_seconds": 36.80333803920075,
+  "exact_full_validation": true,
+  "stored_files": 130,
+  "stored_bytes": 6090744117,
+  "physical_data_objects": 128,
+  "physical_data_bytes": 6090742629,
+  "compression_ratio": 0.4499508932940581,
+  "workloads": {
+    "aligned_720": {
+      "median_seconds": 0.2958610961213708,
+      "trials": [
+        {
+          "seconds": 0.3096807210240513,
+          "calls": 1,
+          "data_calls": 1,
+          "returned_bytes": 63008489,
+          "data_returned_bytes": 63008489,
+          "unique_data_objects": 1,
+          "range_descriptions": [
+            "None"
+          ]
+        },
+        {
+          "seconds": 0.29426982207223773,
+          "calls": 1,
+          "data_calls": 1,
+          "returned_bytes": 63008489,
+          "data_returned_bytes": 63008489,
+          "unique_data_objects": 1,
+          "range_descriptions": [
+            "None"
+          ]
+        },
+        {
+          "seconds": 0.2958610961213708,
+          "calls": 1,
+          "data_calls": 1,
+          "returned_bytes": 63008489,
+          "data_returned_bytes": 63008489,
+          "unique_data_objects": 1,
+          "range_descriptions": [
+            "None"
+          ]
+        }
+      ]
+    },
+    "halo_16_752": {
+      "median_seconds": 0.360159614123404,
+      "trials": [
+        {
+          "seconds": 0.3603838528506458,
+          "calls": 9,
+          "data_calls": 9,
+          "returned_bytes": 63063817,
+          "data_returned_bytes": 63063817,
+          "unique_data_objects": 9,
+          "range_descriptions": [
+            "None",
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.360159614123404,
+          "calls": 9,
+          "data_calls": 9,
+          "returned_bytes": 63063817,
+          "data_returned_bytes": 63063817,
+          "unique_data_objects": 9,
+          "range_descriptions": [
+            "None",
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.3300606310367584,
+          "calls": 9,
+          "data_calls": 9,
+          "returned_bytes": 63063817,
+          "data_returned_bytes": 63063817,
+          "unique_data_objects": 9,
+          "range_descriptions": [
+            "None",
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        }
+      ]
+    },
+    "halo_32_784": {
+      "median_seconds": 0.3609631401486695,
+      "trials": [
+        {
+          "seconds": 0.3755627030041069,
+          "calls": 9,
+          "data_calls": 9,
+          "returned_bytes": 63063817,
+          "data_returned_bytes": 63063817,
+          "unique_data_objects": 9,
+          "range_descriptions": [
+            "None",
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.3602038249373436,
+          "calls": 9,
+          "data_calls": 9,
+          "returned_bytes": 63063817,
+          "data_returned_bytes": 63063817,
+          "unique_data_objects": 9,
+          "range_descriptions": [
+            "None",
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.3609631401486695,
+          "calls": 9,
+          "data_calls": 9,
+          "returned_bytes": 63063817,
+          "data_returned_bytes": 63063817,
+          "unique_data_objects": 9,
+          "range_descriptions": [
+            "None",
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        }
+      ]
+    },
+    "union_1472": {
+      "median_seconds": 1.335034407908097,
+      "trials": [
+        {
+          "seconds": 1.4233778219204396,
+          "calls": 16,
+          "data_calls": 16,
+          "returned_bytes": 195791646,
+          "data_returned_bytes": 195791646,
+          "unique_data_objects": 16,
+          "range_descriptions": [
+            "None",
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 1.335034407908097,
+          "calls": 16,
+          "data_calls": 16,
+          "returned_bytes": 195791646,
+          "data_returned_bytes": 195791646,
+          "unique_data_objects": 16,
+          "range_descriptions": [
+            "None",
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 1.231316776946187,
+          "calls": 16,
+          "data_calls": 16,
+          "returned_bytes": 195791646,
+          "data_returned_bytes": 195791646,
+          "unique_data_objects": 16,
+          "range_descriptions": [
+            "None",
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        }
+      ]
+    },
+    "misaligned_720": {
+      "median_seconds": 0.2953073710668832,
+      "trials": [
+        {
+          "seconds": 0.2953073710668832,
+          "calls": 4,
+          "data_calls": 4,
+          "returned_bytes": 27664,
+          "data_returned_bytes": 27664,
+          "unique_data_objects": 4,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.30235929298214614,
+          "calls": 4,
+          "data_calls": 4,
+          "returned_bytes": 27664,
+          "data_returned_bytes": 27664,
+          "unique_data_objects": 4,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.2839676020666957,
+          "calls": 4,
+          "data_calls": 4,
+          "returned_bytes": 27664,
+          "data_returned_bytes": 27664,
+          "unique_data_objects": 4,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        }
+      ]
+    },
+    "shallow_17_halo": {
+      "median_seconds": 0.1191048591863364,
+      "trials": [
+        {
+          "seconds": 0.11324230604805052,
+          "calls": 9,
+          "data_calls": 9,
+          "returned_bytes": 62244,
+          "data_returned_bytes": 62244,
+          "unique_data_objects": 9,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.12700223899446428,
+          "calls": 9,
+          "data_calls": 9,
+          "returned_bytes": 62244,
+          "data_returned_bytes": 62244,
+          "unique_data_objects": 9,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.1191048591863364,
+          "calls": 9,
+          "data_calls": 9,
+          "returned_bytes": 62244,
+          "data_returned_bytes": 62244,
+          "unique_data_objects": 9,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        }
+      ]
+    },
+    "point_series": {
+      "median_seconds": 0.007048880914226174,
+      "trials": [
+        {
+          "seconds": 0.008034553145989776,
+          "calls": 8,
+          "data_calls": 8,
+          "returned_bytes": 55328,
+          "data_returned_bytes": 55328,
+          "unique_data_objects": 8,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.007048880914226174,
+          "calls": 8,
+          "data_calls": 8,
+          "returned_bytes": 55328,
+          "data_returned_bytes": 55328,
+          "unique_data_objects": 8,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 0.006069643190130591,
+          "calls": 8,
+          "data_calls": 8,
+          "returned_bytes": 55328,
+          "data_returned_bytes": 55328,
+          "unique_data_objects": 8,
+          "range_descriptions": [
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        }
+      ]
+    },
+    "pair_aligned": {
+      "median_seconds": 0.5568408989347517,
+      "trials": [
+        {
+          "seconds": 0.5568408989347517,
+          "calls": 2,
+          "data_calls": 2,
+          "returned_bytes": 125998232,
+          "data_returned_bytes": 125998232,
+          "unique_data_objects": 2,
+          "range_descriptions": [
+            "None"
+          ]
+        },
+        {
+          "seconds": 0.5829436560161412,
+          "calls": 2,
+          "data_calls": 2,
+          "returned_bytes": 125998232,
+          "data_returned_bytes": 125998232,
+          "unique_data_objects": 2,
+          "range_descriptions": [
+            "None"
+          ]
+        },
+        {
+          "seconds": 0.5374651080928743,
+          "calls": 2,
+          "data_calls": 2,
+          "returned_bytes": 125998232,
+          "data_returned_bytes": 125998232,
+          "unique_data_objects": 2,
+          "range_descriptions": [
+            "None"
+          ]
+        }
+      ]
+    },
+    "pair_offset": {
+      "median_seconds": 0.5570868321228772,
+      "trials": [
+        {
+          "seconds": 0.5440720410551876,
+          "calls": 2,
+          "data_calls": 2,
+          "returned_bytes": 125937091,
+          "data_returned_bytes": 125937091,
+          "unique_data_objects": 2,
+          "range_descriptions": [
+            "None"
+          ]
+        },
+        {
+          "seconds": 0.5570868321228772,
+          "calls": 2,
+          "data_calls": 2,
+          "returned_bytes": 125937091,
+          "data_returned_bytes": 125937091,
+          "unique_data_objects": 2,
+          "range_descriptions": [
+            "None"
+          ]
+        },
+        {
+          "seconds": 0.5843109309207648,
+          "calls": 2,
+          "data_calls": 2,
+          "returned_bytes": 125937091,
+          "data_returned_bytes": 125937091,
+          "unique_data_objects": 2,
+          "range_descriptions": [
+            "None"
+          ]
+        }
+      ]
+    },
+    "independent_four_752": {
+      "median_seconds": 1.24592986702919,
+      "trials": [
+        {
+          "seconds": 1.2399842110462487,
+          "calls": 36,
+          "data_calls": 36,
+          "returned_bytes": 195929966,
+          "data_returned_bytes": 195929966,
+          "unique_data_objects": 16,
+          "range_descriptions": [
+            "None",
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 1.273494646884501,
+          "calls": 36,
+          "data_calls": 36,
+          "returned_bytes": 195929966,
+          "data_returned_bytes": 195929966,
+          "unique_data_objects": 16,
+          "range_descriptions": [
+            "None",
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        },
+        {
+          "seconds": 1.24592986702919,
+          "calls": 36,
+          "data_calls": 36,
+          "returned_bytes": 195929966,
+          "data_returned_bytes": 195929966,
+          "unique_data_objects": 16,
+          "range_descriptions": [
+            "None",
+            "SuffixByteRequest(suffix=6916)"
+          ]
+        }
+      ]
+    }
+  },
+  "final_rss_bytes": 14765936640
+}

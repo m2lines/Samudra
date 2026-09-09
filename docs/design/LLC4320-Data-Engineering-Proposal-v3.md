@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2026 Samudra Authors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# LLC4320 Remote-Streaming Training Store
+# LLC4320 General Archive and Remote-Streaming Experiment
 
 Status: draft for review
 
@@ -15,33 +15,39 @@ proposal assumes that our allocation can retain only 100 TiB, far less than
 the 2.732 PB decoded LLC4320 archive. Copying the complete archive to every
 training system is therefore not viable.
 
-Build a small, immutable, training-oriented Zarr v3 repository on MIT-managed
-storage and expose it through an operator-approved HTTPS or S3-compatible
-endpoint. Torch or Empire AI workers will read only the byte ranges needed for
-their spatial patches. A bounded cache on each GPU node, optionally backed by
-the remote cluster's shared 100 TiB allocation, will retain compressed ranges
-or complete shards. The replay loader will reuse cached states and predictions
-rather than repeatedly crossing the WAN.
+Build one generally useful, immutable Zarr v3 repository on MIT-managed
+storage. Co-design its physical shards with the current 720-cell training
+patches without encoding halos, overlapping samples, or a four-tile sampler
+into the archive. Expose an experimental subset through an operator-approved
+HTTPS or S3-compatible endpoint. Empire AI workers will read complete
+shards or only the internal logical chunks needed for a patch and its halo.
+Node caching and replay reuse are optimizations to measure, not assumptions
+required to make the base layout viable.
 
 This is not a proposal to serve `/orcd/data/abodner/003` directly, nor to make
 an ad hoc web server on an ORCD login or Slurm compute node. The origin must be
 a separately materialized, read-only repository behind an approved data
 service. The production source remains immutable and private to ORCD.
 
-The v2 experiments remain the local-filesystem baseline, but they do not settle
-the remote layout. WAN latency changes the optimum: a logical chunk that was
-appropriate for arbitrary scientific access may generate too many range
-requests for full-depth training. V3 therefore adds a remote-layout tournament
-and treats the following as hypotheses rather than final choices:
+The v2 experiments remain the local-filesystem baseline, but their winning
+`time=2, 1440 x 1440` candidate changed time and space together and therefore
+did not independently establish either choice for WAN access. V3 adopts this
+working decision for time-varying 3-D fields:
 
-- pack complete depth into each logical training chunk;
-- test `120`, `240`, and `360` spatial widths;
-- retain approximately `1440 x 1440` physical shards and two-time grouping;
-- retain Blosc Zstd level 5 plus bitshuffle as the first codec;
-- compare canonical per-variable arrays with a clearly labeled float16 packed
-  training projection; and
-- fetch the four-tile `1472 x 1472` union once per node and scatter tile views
-  in memory.
+```text
+logical chunk:  (time=1, depth=17, face=1, j=120, i=120)
+physical shard: (time=1, depth=51, face=1, j=720, i=720)
+codec:          Blosc Zstd level 5 + bitshuffle
+```
+
+`time=1` makes every state independently addressable and removes pair-boundary
+effects from adjacent-time training. A 720-square shard corresponds to one
+model core, is a useful cache and recovery unit, and does not assume that every
+consumer uses Cody's 2-by-2 patch group. The smaller internal chunks preserve
+efficient depth slices, crops, and halo range reads. The prototype will try to
+falsify this decision with `60 x 60` logical chunks and `1440 x 1440` physical
+shards as the principal controls; it will not rerun a broad unconstrained
+layout search.
 
 The first goal is not a large training run. It is a small remote corpus and a
 staged benchmark that tells us whether one GPU node, and then several nodes,
@@ -54,9 +60,10 @@ Approve engineering of a bounded remote-streaming prototype, conditional on:
 
 1. ORCD approving the storage location and the read-only HTTPS or
    S3-compatible serving path;
-2. Empire AI and Torch confirming outbound HTTPS/S3 access from compute nodes;
+2. Empire AI confirming outbound HTTPS/S3 access from compute nodes;
 3. an agreed MIT egress and concurrency ceiling; and
-4. approximately 1 TiB of stable MIT-side prototype capacity.
+4. tens of GiB of stable MIT-side prototype capacity for the first fixture,
+   expandable only after the range-read gate passes.
 
 Do not authorize a full LLC4320 rewrite from this document.
 
@@ -68,21 +75,21 @@ Do not authorize a full LLC4320 rewrite from this document.
   patches and replay-buffer behavior.
 - Minimize bytes crossing the WAN and avoid duplicate requests across GPUs on
   one node.
-- Preserve an ordinary Xarray/Zarr view for inspection and debugging, even if
-  the winning training projection also exposes packed arrays.
+- Preserve an ordinary Xarray/Zarr view for inspection, analysis, and training.
 - Use immutable version identifiers so node caches are safe and reproducible.
 - Produce enough evidence to decide between remote streaming, rolling staging,
   and a larger remote storage allocation.
 
 ## Non-goals
 
-- Replacing the complete, generally usable LLC4320 archive proposed in v2.
+- Completing the full 2.7-PB conversion before remote access is validated.
 - Publishing all 67 LLC4320 arrays in the first remote prototype.
 - Serving the source NFS tree over the public internet.
 - Assuming that internal InfiniBand or NVLink performance predicts WAN
   performance.
-- Requiring the experimental Rust loader for the first result. Xarray/Zarr is
-  the acceptance path; the Rust loader is a follow-on optimization.
+- Requiring Samudra's experimental Rust loader for the first result.
+  TensorStore is the performance acceptance path, while Xarray/Zarr remains
+  the labeled correctness path.
 - Claiming GPUDirect Storage. Current Zarr Python GPU buffers can place final
   arrays in device memory, but reads and codec execution still pass through
   host memory.
@@ -127,10 +134,9 @@ a versioned working set rather than treated as the source of record.
 Public Empire AI information describes storage accounting through 100 TB and
 separate management above that threshold. It also documents substantial
 internal storage and network hardware, but neither establishes available WAN
-bandwidth from an allocated GPU node to MIT. Torch documents 100-Gb/s Ethernet
-on its data-transfer nodes and recommends those nodes and Globus for bulk
-transfers. A DTN specification is not evidence that Torch GPU nodes can sustain
-equivalent random range reads from MIT.
+bandwidth from an allocated Empire AI compute node to MIT. The actual
+MIT-to-Empire-AI path must be measured from scheduled nodes; login-node or
+data-transfer-node specifications are not substitutes.
 
 ### Relevant remote-Zarr precedents
 
@@ -155,12 +161,65 @@ The ORCD experiments made the following durable findings:
 | --- | --- | --- |
 | Codec | Blosc Zstd level 5 plus bitshuffle was smallest of seven real-data candidates and approximately 2.3% smaller than matching source objects. | Use it as the first WAN candidate; retain LZ4 as a CPU-latency control. |
 | General logical volume chunk | `(time=1, k=17, face=1, 120, 120)` balanced full-depth training and arbitrary depth crops. | Keep as the scientific-access control, but test full-depth chunks because WAN request latency is more expensive. |
-| General physical volume shard | `(time=2, k=51, face=1, 1440, 1440)` won every measured local workload. | Retain as the initial physical envelope; test changes only after measuring real range requests. |
-| Surface layout | Logical `(1,1,360,360)` in physical `(24,1,1080,1080)` was the best local balance. | Retain initially; surface bytes are secondary to the four full-depth fields. |
+| General physical volume shard | `(time=2, k=51, face=1, 1440, 1440)` won a constant-volume local tournament in which time and spatial extent changed together. | Treat it as useful evidence, not an isolated result. V3 defaults independently to `time=1, 720 x 720` and keeps 1440 as a control. |
+| Surface layout | Logical `(1,1,360,360)` in physical `(24,1,1080,1080)` was the best local balance. | Retain as a later control. Surface object count and time-series access require their own decision; do not silently apply the 3-D volume layout. |
 | Halo sidecar | A 16-cell sidecar duplicated 9.09% and was slower than the general sharded layout; 32 cells duplicated 18.57%. | Do not precompute halos for the canonical remote arrays. |
 | Correctness | Pinned Xarray reads, all-face corners, staggered dimensions, and an independent xgcm topology oracle passed exactly. | Reuse the schema and validators; remote transport must not change scientific semantics. |
 | Recovery | Fork/merge, failure retry, garbage collection, a persistent ledger, and a real Slurm requeue passed. | Build the remote corpus transactionally and publish only an immutable snapshot. |
 | Concurrency | Eight outer readers was the conservative ORCD starting point; 16 increased tail latency. | Do not transfer this number to WAN clients. Measure concurrency independently at each origin/destination pair. |
+
+### V3 focused layout and native-reader tournament
+
+On 2026-09-08, candidates A--E were encoded from the same real LLC `Theta`
+fixture: 8 times, all 51 levels, and a `2880 x 2880` region. The fixture is
+13,536,460,800 decoded bytes. Every candidate passed full-array exact equality
+with Zarr Python 3.3.0, zarrs-python 0.2.3, and TensorStore 0.1.85.
+
+| ID | Logical / physical distinction | Stored GiB | Physical objects | Encode seconds |
+| --- | --- | ---: | ---: | ---: |
+| A | `17 x 120²` logical in `time=1, 720²` physical | 5.699 | 128 | 90.6 |
+| B | `17 x 60²` logical in `time=1, 720²` physical | 5.672 | 128 | 91.0 |
+| C | `51 x 120²` logical in `time=1, 720²` physical | 5.652 | 128 | 66.4 |
+| D | `17 x 120²` logical in `time=1, 1440²` physical | 5.699 | 32 | 64.2 |
+| E | `17 x 120²` logical in `time=2, 720²` physical | 5.699 | 64 | 36.3 |
+
+Logical boundaries affected compressed size by less than 1%. Physical-only
+changes A, D, and E produced effectively identical compressed bytes. Larger
+physical shards reduced object count and made this single-process bulk encoder
+faster, but conversion throughput is not sufficient reason to optimize the
+published access layout.
+
+For candidate A, median local read times were:
+
+| Reader | Aligned 720² | 752² halo | 1472² union | Four separate 752² tiles |
+| --- | ---: | ---: | ---: | ---: |
+| Zarr Python | 0.246 s | 0.278 s | 1.118 s | 1.026 s |
+| zarrs-python | 0.207 s | 0.301 s | 1.130 s | 1.026 s |
+| TensorStore | 0.189 s | 0.216 s | 0.736 s | 0.767 s |
+
+Across eight non-point representative workloads, TensorStore was approximately
+28% faster than Zarr Python for A by geometric mean. zarrs-python was
+approximately equal overall: it improved the aligned core but not the larger
+halo and union selections. This makes TensorStore the current performance
+reader and zarrs-python the Xarray-compatible native control.
+
+Under TensorStore, D was approximately 7--10% faster than A for the aligned
+core, halo, and four-separate-tile reads, but only 2% faster for the union. E
+was approximately 7--14% faster for the aligned core, halos, and separate-tile
+reads, 4% faster for the union, and only 1% faster for an aligned adjacent-time
+pair. These are local, warm-filesystem measurements; they do not measure WAN
+range latency, transferred bytes, or cache churn.
+
+Decision: retain A as the general-archive prior. B's smaller logical chunks
+saved only 0.47% of stored bytes and had reader-dependent performance. C helped
+some full-depth workloads but penalized shallow and point access. D and E stay
+as the two required WAN controls because native local performance shows that
+they are credible, not because they have displaced `time=1, 720²`. The WAN
+HTTP/S3 trace is the deciding experiment for physical shard size and time
+grouping.
+
+The complete trial data and raw JSON are in
+[`spikes/remote_streaming/results/2026-09-08`](spikes/remote_streaming/results/2026-09-08/README.md).
 
 ## Feasibility model
 
@@ -205,11 +264,13 @@ step.
 
 ### Latency and request count
 
-The v2 logical volume chunk is approximately 0.93 MiB decoded and about half
-that size compressed on the fixture. A full-depth selection must retrieve
-three depth chunks at each spatial position. Across four variables and many
-spatial positions, a training example can create hundreds or thousands of
-logical range reads.
+The selected `17 x 120 x 120` logical volume chunk is approximately 0.93 MiB
+decoded and about half that size compressed on the fixture. A full-depth
+selection addresses three depth chunks at each spatial position. These chunks
+are stored inside a much larger shard: clients may retrieve a complete aligned
+720-square shard, or coalesce only the byte ranges intersecting a crop or halo.
+The number of HTTP requests is therefore a reader and coalescing question, not
+necessarily one request per logical chunk.
 
 Zarr Python 3.3 added automatic coalescing of nearby ranges in a shard. Its
 defaults merge gaps up to 1 MiB while capping a merged request at 16 MiB. This
@@ -233,10 +294,7 @@ approved read-only HTTPS/S3 endpoint
               |
               | authenticated byte-range GETs over WAN
               v
-remote shared cache (optional, <= 100 TiB)
-              |
-              v
-one compressed-range/shard cache per GPU node
+optional compressed-range/shard cache per GPU node
               |
               v
 node-level fetch coordinator and prefetch queue
@@ -274,7 +332,8 @@ random Zarr reads in the training hot path.
 
 ### Remote caches
 
-Use three distinct cache layers and report each separately:
+Start with direct reads and add each cache layer separately so its benefit is
+observable:
 
 - **L1 decoded/prefetch cache:** process memory holding ready tensors for the
   next few steps and replay entries.
@@ -286,18 +345,26 @@ Use three distinct cache layers and report each separately:
   by snapshot and object identifier.
 
 Never let eight ranks on one node independently fetch the same shard. Deduplicate
-in-flight requests and fetch the `1472 x 1472` group union once when the four
-tiles share a time and face. Scatter or create views after decode.
+in-flight requests. For Cody's grouped sampler, concurrently fetch the four
+aligned 720-square core shards plus the required ranges from their neighbors,
+assemble the `1472 x 1472` union, and scatter or create views after decode.
 
 Immutable snapshot IDs must be part of every cache key. A release change uses
 a new namespace; it never mutates cached bytes in place.
 
 ### Reader path
 
-Plan A uses pinned Xarray, Zarr Python, and Icechunk versions. Open the
-repository and snapshot once per long-lived worker, preload bounded coordinate
-and relevant time-manifest metadata, and retain persistent HTTP connections.
-Do not reopen the repository per sample.
+Use TensorStore as the performance path for the remote benchmark. It natively
+supports Zarr v3, `sharding_indexed`, Blosc, and concurrent I/O, and it was the
+fastest reader in the focused local tournament. Use Xarray with the
+zarrs-python Rust codec pipeline as the labeled-array compatibility path, and
+plain Zarr Python as the independent correctness baseline. Zarrista remains a
+promising direct zarrs API for explicit subchunk and shard-index-cache control;
+add it after the TensorStore HTTP result if that control is needed.
+
+Open the repository and snapshot once per long-lived worker, preload bounded
+coordinate and relevant time-manifest metadata, and retain persistent HTTP
+connections. Do not reopen the repository per sample.
 
 Start with one outer data-fetch pipeline per GPU node, not one unconstrained
 pipeline per rank. Bound:
@@ -311,16 +378,18 @@ pipeline per rank. Bound:
 Zarr's async concurrency and the DataLoader worker count multiply. Sweep them
 as a joint configuration and enforce a node-wide semaphore.
 
-The Rust loader is Plan B. It should consume the same immutable snapshot and
-cache protocol after Plan A establishes feasibility. It is not a prerequisite
-for creating or publishing the experiment corpus.
+Samudra's experimental Rust loader should consume the same immutable snapshot
+and cache protocol after the standard native readers establish feasibility. It
+is not a prerequisite for creating or publishing the experiment corpus.
 
-## Prototype corpus
+## Prototype fixture
 
 ### Scope
 
-Build a training-specific repository, clearly named as a derivative, for
-example `llc4320-samudra-streaming-pilot-v1`. It is not the public 67-array
+Build a small spatial-and-temporal subset using exactly the schema, dtype, and
+layout proposed for the general archive, for example
+`llc4320-general-streaming-fixture-v1`. It is a test fixture, not a
+training-specific representation and not a commitment to convert the full
 archive.
 
 Include:
@@ -328,46 +397,35 @@ Include:
 - `U`, `V`, `Theta`, and `Salt`, all 51 levels;
 - `Eta`, `oceQnet`, `oceTAUX`, and `oceTAUY`;
 - required masks, coordinates, and normalization metadata;
-- one representative face containing ocean, coast, and land; and
-- consecutive times long enough to exercise ordinary transitions, seed
-  refreshes, and replay; plus
+- representative regions containing ocean, coast, land, and at least one
+  aligned 2-by-2 group of 720-square cores with its exterior halo; and
+- consecutive times sufficient to exercise ordinary transitions, shard-time
+  boundaries, seed refreshes, and replay; plus
 - a two-time sparse seam/corner canary across all 13 faces, reusing the v2
   all-face regions and topology oracle.
 
-For the first retained origin, use 96 consecutive hours and one complete face.
-The source-byte estimate is roughly 0.5 TiB for the eight dynamic arrays,
-although the actual converted size must be measured. This fits a 1 TiB origin
-budget while providing 95 adjacent transitions and many spatial locations.
+Begin with 8 consecutive hours, four complete `720 x 720` core shards, and the
+neighboring physical shards containing the logical chunks needed for 16- and
+32-cell exterior halos. Add the small all-face seam/corner canary separately.
+This should produce a fixture in the tens-of-GiB range while exercising
+adjacent times, exact shard alignment, halo range reads, the four-patch union,
+and partial-shard access. Expand to 96 hours only after the layout and
+transport measurements justify it.
 
-Before retaining that copy, run the layout tournament on a smaller corpus:
+Encode candidates from identical source values and retain measurements and
+manifests. Candidate stores are disposable; the winning fixture is immutable.
 
-- 256 consecutive times;
-- one face;
-- the complete `1472 x 1472` four-tile union plus enough neighboring cells to
-  avoid an artificial alignment advantage; and
-- identical values for every candidate.
+### Canonical representation and fallback control
 
-Encode candidates serially and delete or archive losers only after their
-measurements have been captured. Do not keep several half-terabyte candidate
-stores indefinitely.
+The decision candidate retains canonical source variable names, dimensions,
+and float32 values. This directly exercises the future general archive and is
+the representation that must pass Xarray correctness and usability tests.
 
-### Canonical and packed views
-
-Compare two schema families:
-
-1. **Canonical:** source variable names and dimensions, retaining float32.
-   This is easiest to inspect and most directly exercises the future general
-   archive.
-2. **Training projection:** explicitly lossy float16 arrays, optionally packed
-   as `prognostic(time, face, channel, j, i)` and
-   `boundary(time, face, channel, j, i)`, with a manifest mapping every channel
-   to source variable and level. This follows Cody's successful cache pattern
-   and reduces HTTP requests.
-
-The packed projection is acceptable only as a reproducible derivative. It must
-record source snapshot/provenance, channel order, casting rule, masks, codec,
-and exact generator commit. It must never be presented as the scientific
-archive.
+An explicitly lossy, packed float16 representation may be measured later as a
+fallback control if the canonical archive fails the bandwidth gate. It is not
+part of the first fixture or the proposed public archive. Any future derivative
+must have a distinct name and record its source snapshot, channel order,
+casting rule, masks, codec, and generator commit.
 
 Do not duplicate the four overlapping tiles in the retained origin. Preserve a
 spatial field and select the union at read time. A sample-chunked or duplicated
@@ -377,49 +435,55 @@ amplification.
 
 ## Candidate remote layouts
 
-### Volume arrays
+### Volume arrays: working decision
 
-Keep physical shards fixed initially so the logical tournament isolates WAN
-request behavior:
+Use this layout for the first canonical fixture:
 
 ```text
-physical shard: (time=2, depth=51, face=1, j=1440, i=1440)
+logical chunk:  (time=1, depth=17, face=1, j=120, i=120)
+physical shard: (time=1, depth=51, face=1, j=720, i=720)
 codec:          Blosc Zstd level 5 + bitshuffle
 ```
 
-Test:
+One float32 3-D variable in a complete physical shard is approximately 101 MiB
+decoded. At the fixture's measured compression ratio it is approximately 53
+MiB, subject to variable, depth, and land-mask content. That is large enough to
+amortize WAN setup while remaining a practical unit for concurrency, caching,
+retry, and general spatial access.
 
-| Candidate | Logical chunk | Purpose |
-| --- | --- | --- |
-| V2 general baseline | `(1,17,1,120,120)` | Measures the cost of general depth access over WAN. |
-| Full-depth control | `(1,51,1,120,120)` | Cuts full-depth request count by approximately three without changing spatial granularity. |
-| WAN-balanced | `(1,51,1,240,240)` | Fewer, multi-megabyte ranges with moderate crop amplification. |
-| WAN-coarse | `(1,51,1,360,360)` | Low request count and greater spatial amplification. |
+Run a focused matrix that varies one design dimension at a time:
 
-The leading hypothesis is the WAN-balanced canonical layout:
+| Question | Candidate | Control | What decides |
+| --- | --- | --- | --- |
+| Spatial logical granularity | `120 x 120` | `60 x 60` | Halo/crop transferred bytes versus request, index, and decode overhead. |
+| Depth logical granularity | `17` | `51` | General depth-slice cost versus full-depth ready-tensor latency. |
+| Spatial physical envelope | `720 x 720` | `1440 x 1440` | General access, cache/retry size, and concurrency versus four-tile throughput. |
+| Physical time extent | `1` | `2`, then `4` only if justified | Adjacent-transition bytes, pair-boundary effects, cache reuse, and recovery size. |
 
-```text
-logical chunk:  (time=1, depth=51, face=1, j=240,  i=240)
-physical shard: (time=2, depth=51, face=1, j=1440, i=1440)
-```
+Physical `time=1` is the default, not merely one tournament entry. With
+two-time shards aligned as `[0,1]`, `[2,3]`, and so on, half of ordinary
+adjacent transitions cross two physical objects while half reside in one;
+random/replay access also makes the benefit workload-dependent. Grouping time
+is accepted only if an isolated experiment demonstrates a material gain.
 
-Its decoded float32 logical chunk is about 11.2 MiB per variable. It is large
-enough to amortize a remote request while preserving substantially finer
-spatial access than a complete 720-cell tile. This is a hypothesis to test, not
-a decision imported into metadata before the tournament.
+A 720-aligned core plus a 16- or 32-cell context region reaches neighboring
+physical shards. Small internal chunks bound the bytes read from those
+neighbors, although they do not eliminate topology-aware selection or object
+opens. Conversely, a four-core group with an exterior halo can touch more
+720-square objects than 1440-square objects. The trace must therefore report
+both requested object count and returned bytes.
 
 Also test Zarr range coalescing with explicit gap and maximum-read budgets,
 including the shipped defaults, rather than treating it as an implementation
 detail.
 
-After selecting a logical layout, compare physical time grouping of 2 and 4
-with spatial envelopes of 1440. The logical chunks remain one time each. A
-larger time shard should win only if it reduces metadata/object overhead
-without causing whole-object transfers, cache churn, or poor recovery units.
-
 ### Surface arrays
 
-Begin with the v2 result:
+Surface arrays need fewer bytes but can create many small physical objects.
+Start the fixture with logical `(time=1, face=1, j=120, i=120)` inside physical
+`(time=1, face=1, j=720, i=720)` shards so the first end-to-end trace has simple
+state alignment. This is a fixture default, not yet the full-archive decision.
+After the volume path is understood, compare it with the v2 surface result:
 
 ```text
 logical:  (time=1, face=1, j=360, i=360)
@@ -430,14 +494,14 @@ Add a `720 x 720` logical spatial control. Surface data is a small fraction of
 the prognostic payload, so do not optimize it at the expense of more important
 volume experiments.
 
-### Packed float16 control
+### Packed float16 fallback control
 
 For the packed `205`-channel prognostic array, test full-channel logical chunks
 with spatial widths 120 and 240:
 
 ```text
 logical candidates: (time=1, face=1, channel=205, j={120|240}, i={120|240})
-physical controls:  (time=2, face=1, channel=205, j={720|1440}, i={720|1440})
+physical controls:  (time=1, face=1, channel=205, j={720|1440}, i={720|1440})
 ```
 
 At float16, the 120 and 240 logical candidates decode to approximately 5.6 and
@@ -466,24 +530,55 @@ The spikes form this dependency graph:
 ```text
 endpoint and policy preflight
         |
-        +--> WAN range microbenchmark on Torch
-        |             |
-        |             +--> repeat on Empire AI
-        |
+        +--> WAN range microbenchmark on Empire AI CPU node
+                                  |
+                                  +--> real Zarr range trace
+                                               |
+                                               +--> CPU ready-tensor benchmark
+
 immutable source corpus
         |
-        +--> logical chunk / codec / packing tournament
+        +--> focused logical/physical layout and codec tournament
                         |
-                        +--> publish winning 96-hour snapshot
+                        +--> publish winning 8-hour fixture
                                       |
-                                      +--> reader and cache benchmark
-                                                    |
-                                                    +--> one GPU-node loader benchmark
-                                                                  |
-                                                                  +--> 2/4/8-node scaling
-                                                                                |
-                                                                                +--> short training run
+                                      +------> real Zarr range trace
+                                                   |
+                                                   +--> optional cache benchmark
+                                                                |
+                                                                +--> one GPU-node loader benchmark
+                                                                             |
+                                                                             +--> 2/4/8-node scaling
+                                                                                          |
+                                                                                          +--> short training run
 ```
+
+### Work that can start before the production endpoint exists
+
+Run these bounded tracks in parallel:
+
+1. **MIT layout fixture:** build the `time=1, 720 x 720` physical candidate
+   and its focused controls from identical real LLC values. Measure encoded
+   bytes, object and index counts, encode/decode CPU, and exact equality.
+2. **MIT access-amplification trace:** serve the fixture locally within one
+   scheduled job and record the actual ranges produced by aligned `720 x 720`,
+   halo-bearing `752 x 752`, grouped `1472 x 1472`, shallow-depth, point-series,
+   and deliberately misaligned selections. This validates the Zarr plan and
+   instrumentation without claiming WAN performance.
+3. **Empire AI CPU preflight:** from a scheduled CPU node, record filesystem
+   capacity, Python/runtime availability, DNS/proxy behavior, and outbound
+   HTTPS support. Run the client against a harmless public range-capable object
+   to validate measurement code, not to estimate MIT throughput.
+4. **Empire AI staged decode control:** bulk-copy a few immutable candidate
+   objects using an approved transfer path, then benchmark range planning,
+   decompression, Xarray selection, normalization, and tensor construction
+   locally. This separates codec/CPU limits from the future WAN result.
+
+A short-lived authenticated server on an MIT Slurm node may be used for a
+bounded reachability diagnostic only. ORCD compute addresses may be private,
+and either failure or success is non-representative of an approved production
+service. Do not tunnel through either login node and do not report such a test
+as attainable training throughput.
 
 ### Spike 0: endpoint and policy preflight
 
@@ -493,7 +588,7 @@ Resolve before writing the corpus:
 - authentication method and credential lifetime;
 - TLS and byte-range support;
 - whether `HEAD`, conditional GET, and concurrent range GET are supported;
-- outbound access and proxy requirements on Torch and Empire AI compute nodes;
+- outbound access and proxy requirements on Empire AI compute nodes;
 - MIT egress cap and acceptable experiment windows;
 - origin monitoring and abuse/rate controls; and
 - whether the remote shared filesystem may be used as an automatic cache.
@@ -514,9 +609,10 @@ approximately 512 MiB. From an allocated compute node, measure:
 - complete-object versus range transfer bytes; and
 - at least a two-hour stability run at the proposed egress ceiling.
 
-Repeat from Torch and Empire AI. Use unique ranges for cold-like passes and
-immediate repeats for warm passes; do not claim control of shared server or
-kernel caches.
+Run from an Empire AI CPU node first and repeat from the intended GPU-node
+partition before the GPU loader gate. Use unique ranges for cold-like passes
+and immediate repeats for warm passes; do not claim control of shared server
+or kernel caches.
 
 ### Spike 2: remote layout tournament
 
@@ -536,6 +632,20 @@ Replay these workloads:
 
 Rank by end-to-end ready-tensor time and transferred bytes. Stored size and
 object count are constraints, not the sole score.
+
+The minimum focused matrix is:
+
+| ID | Logical volume chunk | Physical volume shard | Role |
+| --- | --- | --- | --- |
+| A | `(1,17,1,120,120)` | `(1,51,1,720,720)` | Working decision. |
+| B | `(1,17,1,60,60)` | `(1,51,1,720,720)` | Lower halo/crop amplification. |
+| C | `(1,51,1,120,120)` | `(1,51,1,720,720)` | Lower full-depth range count. |
+| D | `(1,17,1,120,120)` | `(1,51,1,1440,1440)` | Four-core-group physical control. |
+| E | `(2,17,1,120,120)` | `(2,51,1,720,720)` | Isolated physical-time control. |
+
+Candidate E exists to quantify the rejected prior, not to give `time=2` equal
+standing. Add physical `time=4` only if E materially outperforms A and its
+pair-boundary behavior is acceptable.
 
 ### Spike 3: cache semantics and failure
 
@@ -624,8 +734,9 @@ gate. The illustrative 1.8-GiB figure must not become an acceptance constant.
 
 ## Decision tree after the prototype
 
-1. **Remote origin meets utilization and egress gates:** proceed with a larger
-   immutable training projection and treat remote storage as a managed cache.
+1. **Remote origin meets utilization and egress gates:** proceed incrementally
+   with the general immutable archive and keep remote storage as an optional
+   managed cache.
 2. **Remote origin works only with high cache reuse:** retain the architecture,
    but schedule rolling working sets into the 100 TiB allocation ahead of each
    training phase. WAN reads refill the cache asynchronously rather than gate
@@ -660,8 +771,8 @@ gate. The illustrative 1.8-GiB figure must not become an acceptance constant.
 
 1. Which MIT service can provide sustained, authenticated HTTPS/S3 range reads
    without an ad hoc server?
-2. What are the measured WAN paths and policy limits from Torch and Empire AI
-   compute nodes, rather than their DTNs or internal fabrics?
+2. What are the measured WAN paths and policy limits from Empire AI CPU and GPU
+   compute nodes, rather than its login nodes or internal fabric?
 3. What is Cody's current median and p95 model step time per GPU?
 4. What fraction of optimizer steps trigger a new source-state read after
    replay and seed reuse?
@@ -672,8 +783,7 @@ gate. The illustrative 1.8-GiB figure must not become an acceptance constant.
 7. Is a float16 packed training derivative acceptable as the primary remote
    representation, with float32 retained only at MIT?
 8. What MIT aggregate egress rate and experiment duration are acceptable?
-9. Does the eventual job target Torch H200 nodes, Empire AI Alpha H100 nodes,
-   or Empire AI Beta B200 nodes first?
+9. Which Empire AI GPU type and partition is the first training target?
 
 ## References
 
@@ -681,13 +791,14 @@ gate. The illustrative 1.8-GiB figure must not become an acceptance constant.
 - [Zarr sharded range-read coalescing](https://zarr.readthedocs.io/en/latest/user-guide/examples/sharding_coalescing/)
 - [Zarr concurrency guidance](https://zarr.readthedocs.io/en/main/user-guide/performance/)
 - [Zarr GPU buffers and current host-codec limitation](https://zarr.readthedocs.io/en/stable/user-guide/gpu/)
+- [TensorStore Zarr v3 driver](https://google.github.io/tensorstore/driver/zarr3/)
+- [zarrs-python Rust codec pipeline](https://github.com/zarrs/zarrs-python)
+- [Zarrista shard-index cache](https://developmentseed.org/zarrista/latest/api/shard-cache/)
 - [Icechunk storage backends, including S3 and read-only HTTP](https://icechunk.io/en/stable/storage/)
 - [Icechunk performance and manifest preloading](https://icechunk.io/en/stable/guides/performance/)
 - [Open Storage Network S3-compatible access](https://openstoragenetwork.github.io/docs/dataset-access/)
 - [MIT ORCD storage services](https://orcd-docs.mit.edu/services/storage-services/)
 - [MIT ORCD transfer guidance](https://orcd-docs.mit.edu/filesystems-file-transfer/transferring-files/)
-- [Torch hardware](https://services.rt.nyu.edu/docs/hpc/spec_sheet/)
-- [Torch data-transfer nodes](https://services.rt.nyu.edu/docs/hpc/storage/data_transfers/)
 - [Empire AI hardware, storage accounting, and transfers](https://www.cuit.columbia.edu/empire-ai)
 - [WeatherBench 2 cloud-optimized datasets](https://github.com/google-research/weatherbench2)
 - [WIND remote Zarr training data path](https://github.com/ml-jku/wind)

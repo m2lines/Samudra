@@ -376,6 +376,7 @@ class TorchTrainDataset(Dataset[HostBatch]):
         masked_fill_value: float,
         stride: int = 1,
         concurrent_compute_: bool = False,
+        temporal_stride: int = 1,
     ):
         super().__init__()
         self.id = f"{self.__class__.__name__}_{str(id(self))}"
@@ -390,6 +391,9 @@ class TorchTrainDataset(Dataset[HostBatch]):
             )
         self.steps: int = steps
         self.stride: int = stride
+        if temporal_stride < 1:
+            raise ValueError("temporal_stride must be >= 1")
+        self.temporal_stride: int = temporal_stride
         self._concurrent_compute = concurrent_compute_
 
         assert np.array_equal(sources[0].time, sources[-1].time), (
@@ -438,10 +442,14 @@ class TorchTrainDataset(Dataset[HostBatch]):
             output_resolution_cpu=self.sources[-1].resolution,
         )
 
-        self.size: int = (
+        base_size = (
             time_.size
             - self.steps * self.output_steps * self.stride
             - (self.input_steps - 1) * self.stride
+        )
+        self.size: int = max(
+            0,
+            (base_size + self.temporal_stride - 1) // self.temporal_stride,
         )
 
     def __len__(self) -> int:
@@ -518,7 +526,9 @@ class TorchTrainDataset(Dataset[HostBatch]):
         if idx >= len(self):
             raise IndexError("Index out of range")
 
-        window_index = idx + step * self.output_steps * self.stride
+        window_index = (
+            idx * self.temporal_stride + step * self.output_steps * self.stride
+        )
         return self.rolling_indices.isel(window=window_index, drop=True)
 
 

@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import xarray as xr
 
-from samudra.constants import DataLayout
+from samudra.constants import DataLayout, is_curvilinear
 from samudra.metrics import kernels
 from samudra.utils.location import ResolvedLocation
 
@@ -183,7 +183,7 @@ def model_on_latlon_grid(ds: xr.Dataset, data_layout: DataLayout) -> xr.Dataset:
     index space, not degrees, and comparing against observations needs a real
     regridding step (xesmf) that is not implemented here yet.
     """
-    if data_layout.grid_type != "gaussian":
+    if is_curvilinear(data_layout.grid_type):
         raise NotImplementedError(
             f"Observation metrics need a rectilinear model grid, but this dataset "
             f"has grid_type={data_layout.grid_type!r}. On a curvilinear grid the "

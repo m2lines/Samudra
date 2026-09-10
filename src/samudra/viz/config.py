@@ -129,9 +129,9 @@ class VizConfig(TopLevelConfig):
             return None
         source = self.data.sources[0]
         if isinstance(source, LlcDataSourceConfig):
-            # LLC (lat-lon-cap) carries no `grid_type` field because it is only
-            # ever curvilinear; `build_llc_layout` hard-codes it.
-            return "tripolar"
+            # LLC carries no `grid_type` field because it is only ever
+            # lat-lon-cap; `build_llc_layout` hard-codes it.
+            return "llc"
         return source.grid_type
 
     def _grid_type(self, groundtruth: xr.Dataset) -> GridType:

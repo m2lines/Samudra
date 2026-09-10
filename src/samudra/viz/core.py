@@ -32,7 +32,7 @@ from dask.diagnostics.progress import ProgressBar
 from matplotlib.ticker import FixedLocator, MaxNLocator, ScalarFormatter
 from tqdm.auto import tqdm
 
-from samudra.constants import DataLayout, GridType, build_om4_layout
+from samudra.constants import DataLayout, GridType, build_om4_layout, is_curvilinear
 from samudra.metrics.run import score_rollouts
 from samudra.utils.data import (
     spherical_area,
@@ -228,7 +228,7 @@ class Viz:
         cell area and `np.diff(lat).mean()` stops describing the spacing, so we
         use the source's own `areacello` and refuse to invent one.
         """
-        if self.data_layout.grid_type == "gaussian":
+        if not is_curvilinear(self.data_layout.grid_type):
             data = data.assign(areacello=(["lat", "lon"], spherical_area_weights(data)))
             data["areacello_spherical"] = (["lat", "lon"], spherical_area(data))
             return data
@@ -276,7 +276,7 @@ class Viz:
         the fold as if it were geography, so we use the preserved 2-D
         coordinates instead.
         """
-        if self.data_layout.grid_type == "gaussian":
+        if not is_curvilinear(self.data_layout.grid_type):
             return data["x"], data["y"]
         if "lon_2d" in data.coords and "lat_2d" in data.coords:
             return data["lon_2d"], data["lat_2d"]
@@ -295,7 +295,7 @@ class Viz:
         on a rectilinear grid and cell indices on a curvilinear one, so there
         we have to name the 2-D coordinates and say what they mean.
         """
-        if self.data_layout.grid_type == "gaussian":
+        if not is_curvilinear(self.data_layout.grid_type):
             return {}
         map_x, map_y = self._map_coords(data)
         return {
@@ -309,7 +309,7 @@ class Viz:
 
         A clear error beats a plausible-looking wrong figure.
         """
-        if self.data_layout.grid_type != "gaussian":
+        if is_curvilinear(self.data_layout.grid_type):
             raise NotImplementedError(
                 f"Step {step!r} is not implemented for "
                 f"grid_type={self.data_layout.grid_type!r}: {reason} Run it on a "
@@ -4220,7 +4220,7 @@ def process_mask(data, mask, grid_type: GridType = "gaussian"):
             "grid. Generate a mask on this grid instead."
         )
 
-    if grid_type != "gaussian":
+    if is_curvilinear(grid_type):
         _check_mask_coords_align(data, mask, grid_type)
 
     mask = mask.assign_coords(lat=data.y.values, lon=data.x.values)

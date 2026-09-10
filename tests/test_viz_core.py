@@ -222,6 +222,22 @@ def test_map_coords_are_2d_geographic_on_tripolar():
     np.testing.assert_array_equal(map_x.values, lon2d)
 
 
+def test_llc_takes_the_curvilinear_path_too():
+    """Tripolar is not the only curvilinear grid `GridType` names.
+
+    Every branch asks `is_curvilinear`, so lat-lon-cap has to get the 2-D
+    coordinates rather than the rectilinear default it would fall into if the
+    branches tested for a specific grid by name.
+    """
+    data = preserve_2d_coords(_source()).rename({"lat": "y", "lon": "x"})
+
+    map_x, map_y = Viz._map_coords(_viz("llc"), data)
+
+    assert map_x.name == "lon_2d" and map_y.name == "lat_2d"
+    with pytest.raises(NotImplementedError, match="llc"):
+        Viz._reject_on_curvilinear(_viz("llc"), "movies", "reason.")
+
+
 def test_map_plot_kwargs_name_the_2d_coords_on_tripolar():
     """`.plot()` would otherwise use the index dims as plotting axes."""
     import cartopy.crs as ccrs  # type: ignore[import-untyped]

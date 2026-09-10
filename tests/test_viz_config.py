@@ -8,6 +8,7 @@ import pytest
 import xarray as xr
 
 from samudra.config import LlcDataSourceConfig, Om4DataSourceConfig
+from samudra.constants import is_curvilinear
 from samudra.utils.location import S3Location, UnresolvedLocation
 from samudra.viz.config import VizConfig
 
@@ -69,7 +70,7 @@ def test_grid_type_defaults_to_gaussian_without_a_data_source():
     assert cfg._grid_type(xr.Dataset()) == "gaussian"
 
 
-def test_llc_sources_are_always_curvilinear():
+def test_llc_sources_are_llc():
     """LLC carries no `grid_type` field, but its layout is never rectilinear.
 
     Defaulting a missing field to "gaussian" would quietly tell viz that
@@ -79,7 +80,10 @@ def test_llc_sources_are_always_curvilinear():
     assert cfg.data is not None
     cfg.data.sources[0] = LlcDataSourceConfig.model_construct()
 
-    assert cfg._grid_type(xr.Dataset()) == "tripolar"
+    grid_type = cfg._grid_type(xr.Dataset())
+
+    assert grid_type == "llc"
+    assert is_curvilinear(grid_type)
 
 
 def test_grid_type_is_read_from_the_store_when_there_is_no_data_block():

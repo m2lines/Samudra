@@ -18,26 +18,39 @@ in the machine learning context.
 
 ## Available datasets
 
-The processed OM4 datasets used for training live on the NYU OSN pod under the base prefix
-`s3://m2lines-pubs/Samudra/v2026-07/` (public read at
-`https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-07/`). Each `om4_<res>/` directory contains the
-dataset `OM4.zarr` alongside its normalization statistics `OM4_means.zarr` and `OM4_stds.zarr`.
+The canonical processed OM4 release used for training lives on the NYU OSN pod under the base prefix
+`s3://m2lines-pubs/Samudra/v2026-09/` (public read at
+`https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/`). Every directory below contains the dataset
+`OM4.zarr` alongside its normalization statistics `OM4_means.zarr` and `OM4_stds.zarr`.
 
 All datasets share the same layout: 4745 five-day timesteps, 19 depth levels, on a regular lat–lon
 (`grid_type = "gaussian"`) grid, with the grid-metadata coordinates needed for physical analysis
 (`areacello`, `dz`, `lev`, 2D `lat`/`lon`, and cell bounds `lat_b`/`lon_b`).
 
-| Directory | Resolution | Grid (y × x) | Spatial filter | Size |
+| Directory | Resolution | State sampling | Spatial filter | Approx. size |
 | --- | --- | --- | --- | --- |
-| `om4_twodeg/` | 2° | 90 × 180 | none | 23 GiB |
-| `om4_onedeg/` | 1° | 180 × 360 | none | 92 GiB |
-| `om4_onedeg_filter/` | 1° | 180 × 360 | 18×18 Gaussian | 92 GiB |
-| `om4_halfdeg/` | 0.5° | 360 × 720 | none | 367 GiB |
-| `om4_quarterdeg/` | 0.25° | 720 × 1440 | none | 1.4 TiB |
+| `om4_twodeg/` | 2° (90 × 180) | five-day mean | none | 23 GiB |
+| `om4_twodeg_filter/` | 2° (90 × 180) | five-day mean | 36×36 Gaussian | 23 GiB |
+| `om4_onedeg/` | 1° (180 × 360) | five-day mean | none | 92 GiB |
+| `om4_onedeg_filter/` | 1° (180 × 360) | five-day mean | 18×18 Gaussian | 92 GiB |
+| `om4_halfdeg/` | 0.5° (360 × 720) | five-day mean | none | 367 GiB |
+| `om4_halfdeg_filter/` | 0.5° (360 × 720) | five-day mean | 9×9 Gaussian | 367 GiB |
+| `om4_quarterdeg/` | 0.25° (720 × 1440) | five-day mean | none | 1.4 TiB |
+| `om4_quarterdeg_filter/` | 0.25° (720 × 1440) | five-day mean | Gaussian (scale 1) | 1.4 TiB |
+| `om4_twodeg_snapshots/` | 2° (90 × 180) | five-day snapshot | none | 23 GiB |
+| `om4_onedeg_snapshots/` | 1° (180 × 360) | five-day snapshot | none | 92 GiB |
+| `om4_halfdeg_snapshots/` | 0.5° (360 × 720) | five-day snapshot | none | 367 GiB |
+| `om4_quarterdeg_snapshots/` | 0.25° (720 × 1440) | five-day snapshot | none | 1.4 TiB |
 
-> We recommend the non-filtered datasets; `om4_onedeg_filter` is provided for comparison. To copy a
-> dataset (or a time slice) to your cluster/local filesystem for training, see
-> [How to get the data](#how-to-get-the-data).
+The averaged datasets contain five-day means of the ocean state and forcing variables. They include `wfo` transplanted
+from the matching five-day intervals in the snapshot source. In the snapshot datasets, `thetao`, `so`, `uo`, `vo`, and
+`zos` are instantaneous states, while `hfds`, `wfo`, `tauuo`, and `tauvo` intentionally remain five-day-mean forcings
+over the transition.
+
+Use an unfiltered dataset for ordinary single-scale training. For multi-scale training, the filtered coarse source can
+be paired with an unfiltered finer source so each scale sees boundary forcings with variance appropriate to its spatial
+scale. To copy a dataset or time slice to your cluster or local filesystem, see
+[How to get the data](#how-to-get-the-data).
 
 ### Basin masks
 
@@ -62,9 +75,9 @@ quick demonstration on how to open each processed dataset we make available:
 
 ```shell
 >>> import xarray as xr
->>> # One degree data with guassian filtering applied
+>>> # One degree data with Gaussian filtering applied
 >>> # > NOTE: We recommend using the non-filtered data (see the next dataset)
->>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-07/om4_onedeg_filter/OM4.zarr')
+>>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/om4_onedeg_filter/OM4.zarr')
 >>> ds
 <xarray.Dataset> Size: 98GB
 Dimensions:         (y: 180, x: 360, lev: 19, time: 4745, y_b: 181, x_b: 361)
@@ -81,7 +94,7 @@ Coordinates:
   * x               (x) float64 3kB 0.5 1.5 2.5 3.5 ... 356.5 357.5 358.5 359.5
   * y               (y) float64 1kB -89.24 -88.25 -87.25 ... 87.25 88.25 89.24
 Dimensions without coordinates: y_b, x_b
-Data variables: (12/99)
+Data variables: (12/100)
     hfds            (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
     mask_0          (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
     mask_1          (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
@@ -99,8 +112,8 @@ Attributes: (12/13)
     grid_type:                         gaussian
     hfds:                              {'cell_measures': 'area: areacello', '...
     m2lines/cli_args:                  /scratch/am16581/Samudra/data/ocean_pr...
-    m2lines/date_created:              2026-07-22T19:32:36.956747
-    m2lines/ocean_emulators_git_hash:  https://github.com/Open-Athena/Samudra...
+    m2lines/date_created:              2026-09-03T19:12:54.791266
+    m2lines/ocean_emulators_git_hash:  https://github.com/m2lines/Samudra/comm...
     regrid_method:                     conservative
     ...                                ...
     tauuo:                             {'cell_methods': 'yh:mean xq:point tim...
@@ -110,7 +123,7 @@ Attributes: (12/13)
     vo:                                {'cell_methods': 'z_l:mean yq:point xh...
     zos:                               {'cell_measures': 'area: areacello', '...
 >>> # One degree data with _no_ gaussian filtering (no filter).
->>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-07/om4_onedeg/OM4.zarr')
+>>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/om4_onedeg/OM4.zarr')
 >>> ds
 <xarray.Dataset> Size: 98GB
 Dimensions:         (y: 180, x: 360, lev: 19, time: 4745, y_b: 181, x_b: 361)
@@ -127,7 +140,7 @@ Coordinates:
   * x               (x) float64 3kB 0.5 1.5 2.5 3.5 ... 356.5 357.5 358.5 359.5
   * y               (y) float64 1kB -89.24 -88.25 -87.25 ... 87.25 88.25 89.24
 Dimensions without coordinates: y_b, x_b
-Data variables: (12/99)
+Data variables: (12/100)
     hfds            (time, y, x) float32 1GB dask.array<chunksize=(1, 180, 360), meta=np.ndarray>
     mask_0          (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
     mask_1          (y, x) bool 65kB dask.array<chunksize=(180, 360), meta=np.ndarray>
@@ -145,8 +158,8 @@ Attributes: (12/13)
     grid_type:                         gaussian
     hfds:                              {'cell_measures': 'area: areacello', '...
     m2lines/cli_args:                  /scratch/am16581/Samudra/data/ocean_pr...
-    m2lines/date_created:              2026-07-22T23:47:14.350900
-    m2lines/ocean_emulators_git_hash:  https://github.com/Open-Athena/Samudra...
+    m2lines/date_created:              2026-09-03T19:12:45.939284
+    m2lines/ocean_emulators_git_hash:  https://github.com/m2lines/Samudra/comm...
     regrid_method:                     conservative
     ...                                ...
     tauuo:                             {'cell_methods': 'yh:mean xq:point tim...
@@ -156,7 +169,7 @@ Attributes: (12/13)
     vo:                                {'cell_methods': 'z_l:mean yq:point xh...
     zos:                               {'cell_measures': 'area: areacello', '...
 >>> # Half degree data with no gaussian filtering
->>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-07/om4_halfdeg/OM4.zarr')
+>>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/om4_halfdeg/OM4.zarr')
 >>> ds
 <xarray.Dataset> Size: 394GB
 Dimensions:         (y: 360, x: 720, lev: 19, time: 4745, y_b: 361, x_b: 721)
@@ -173,7 +186,7 @@ Coordinates:
   * x               (x) float64 6kB 0.25 0.75 1.25 1.75 ... 358.8 359.2 359.8
   * y               (y) float64 3kB -89.62 -89.12 -88.62 ... 88.62 89.12 89.62
 Dimensions without coordinates: y_b, x_b
-Data variables: (12/99)
+Data variables: (12/100)
     hfds            (time, y, x) float32 5GB dask.array<chunksize=(1, 360, 720), meta=np.ndarray>
     mask_0          (y, x) bool 259kB dask.array<chunksize=(360, 720), meta=np.ndarray>
     mask_1          (y, x) bool 259kB dask.array<chunksize=(360, 720), meta=np.ndarray>
@@ -191,8 +204,8 @@ Attributes: (12/13)
     grid_type:                         gaussian
     hfds:                              {'cell_measures': 'area: areacello', '...
     m2lines/cli_args:                  /scratch/am16581/Samudra/data/ocean_pr...
-    m2lines/date_created:              2026-07-22T19:32:13.344718
-    m2lines/ocean_emulators_git_hash:  https://github.com/Open-Athena/Samudra...
+    m2lines/date_created:              2026-09-03T18:24:40.019366
+    m2lines/ocean_emulators_git_hash:  https://github.com/m2lines/Samudra/comm...
     regrid_method:                     conservative
     ...                                ...
     tauuo:                             {'cell_methods': 'yh:mean xq:point tim...
@@ -202,7 +215,7 @@ Attributes: (12/13)
     vo:                                {'cell_methods': 'z_l:mean yq:point xh...
     zos:                               {'cell_measures': 'area: areacello', '...
 >>> # Quarter degree data with no gaussian filtering.
->>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-07/om4_quarterdeg/OM4.zarr')
+>>> ds = xr.open_zarr('https://nyu1.osn.mghpcc.org/m2lines-pubs/Samudra/v2026-09/om4_quarterdeg/OM4.zarr')
 >>> ds
 <xarray.Dataset> Size: 2TB
 Dimensions:         (y: 720, x: 1440, lev: 19, time: 4745, y_b: 721, x_b: 1441)
@@ -219,7 +232,7 @@ Coordinates:
   * x               (x) float64 12kB 0.125 0.375 0.625 ... 359.4 359.6 359.9
   * y               (y) float64 6kB -89.81 -89.56 -89.31 ... 89.31 89.56 89.81
 Dimensions without coordinates: y_b, x_b
-Data variables: (12/99)
+Data variables: (12/100)
     hfds            (time, y, x) float32 20GB dask.array<chunksize=(1, 720, 1440), meta=np.ndarray>
     mask_0          (y, x) bool 1MB dask.array<chunksize=(720, 1440), meta=np.ndarray>
     mask_1          (y, x) bool 1MB dask.array<chunksize=(720, 1440), meta=np.ndarray>
@@ -237,8 +250,8 @@ Attributes: (12/13)
     grid_type:                         gaussian
     hfds:                              {'cell_measures': 'area: areacello', '...
     m2lines/cli_args:                  /scratch/am16581/Samudra/data/ocean_pr...
-    m2lines/date_created:              2026-07-22T19:32:34.683103
-    m2lines/ocean_emulators_git_hash:  https://github.com/Open-Athena/Samudra...
+    m2lines/date_created:              2026-09-03T18:48:57.239202
+    m2lines/ocean_emulators_git_hash:  https://github.com/m2lines/Samudra/comm...
     regrid_method:                     conservative
     ...                                ...
     tauuo:                             {'cell_methods': 'yh:mean xq:point tim...
@@ -285,7 +298,7 @@ We recommend two methods for acquiring the dataset locally.
 
    ```shell
     rclone config create nyu-osn-public s3 provider=Other anonymous=true endpoint=https://nyu1.osn.mghpcc.org/
-    rclone copy --progress nyu-osn-public:m2lines-pubs/FOMO/v2025-11/om4_onedeg ./data_cache/ --ignore-existing --transfers=32
+    rclone copy --progress nyu-osn-public:m2lines-pubs/Samudra/v2026-09/om4_onedeg ./data_cache/ --ignore-existing --transfers=32
    ```
 
 Of course, you are more than welcome to access our Zarr datasets directly from cloud storage without downloading as they
@@ -537,14 +550,18 @@ RESOLUTION=onedeg EXTRA_ARGS="--small_run --dry_run" \
 # Then each dataset. All fit on the `cs` partition (128-core, 513 GB) because
 # the pipeline is chunked one timestep at a time.
 RESOLUTION=twodeg        sbatch --cpus-per-task=32  --mem=240G --time=08:00:00   scripts/slurm_preprocess_om4.sbatch
+RESOLUTION=twodeg_filter sbatch --cpus-per-task=64  --mem=480G --time=1-00:00:00 scripts/slurm_preprocess_om4.sbatch
 RESOLUTION=onedeg        sbatch --cpus-per-task=64  --mem=480G --time=12:00:00   scripts/slurm_preprocess_om4.sbatch
 RESOLUTION=onedeg_filter sbatch --cpus-per-task=64  --mem=480G --time=12:00:00   scripts/slurm_preprocess_om4.sbatch
 RESOLUTION=halfdeg       sbatch --cpus-per-task=128 --mem=490G --time=1-00:00:00 scripts/slurm_preprocess_om4.sbatch
+RESOLUTION=halfdeg_filter sbatch --cpus-per-task=128 --mem=490G --time=1-00:00:00 scripts/slurm_preprocess_om4.sbatch
 RESOLUTION=quarterdeg N_WORKERS=16 \
+                         sbatch --cpus-per-task=128 --mem=490G --time=2-00:00:00 scripts/slurm_preprocess_om4.sbatch
+RESOLUTION=quarterdeg_filter N_WORKERS=16 \
                          sbatch --cpus-per-task=128 --mem=490G --time=2-00:00:00 scripts/slurm_preprocess_om4.sbatch
 
 # Normalization datasets, after each OM4.zarr lands:
-for R in twodeg onedeg onedeg_filter halfdeg quarterdeg; do
+for R in twodeg twodeg_filter onedeg onedeg_filter halfdeg halfdeg_filter quarterdeg quarterdeg_filter; do
   RESOLUTION=$R sbatch scripts/slurm_make_norm_om4.sbatch
 done
 ```
@@ -568,7 +585,7 @@ the version explicit for the entire submission rather than recomputing the date
 in each job:
 
 ```bash
-export OUTPUT_BASE="s3://m2lines-pubs/Samudra/v2026-08"
+export OUTPUT_BASE="s3://m2lines-pubs/Samudra/v2026-09"
 export DATA_VARIANT=snapshots
 
 # Real-source smoke test: ten timesteps, no write.
@@ -596,7 +613,9 @@ done
 | `onedeg`        | `gaussian_grid_180_by_360`  | skipped        | `om4_onedeg`        |
 | `onedeg_filter` | `gaussian_grid_180_by_360`  | on (scale 18)  | `om4_onedeg_filter` |
 | `halfdeg`       | `gaussian_grid_360_by_720`  | skipped        | `om4_halfdeg`       |
+| `halfdeg_filter` | `gaussian_grid_360_by_720` | on (scale 9)   | `om4_halfdeg_filter` |
 | `quarterdeg`    | `gaussian_grid_720_by_1440` | skipped        | `om4_quarterdeg`    |
+| `quarterdeg_filter` | `gaussian_grid_720_by_1440` | on (scale 1) | `om4_quarterdeg_filter` |
 
 ### Partitions
 

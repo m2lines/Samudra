@@ -71,14 +71,64 @@ def _viz(grid_type: GridType):
     return stub
 
 
+# The builders above stay functions because they take arguments and call each
+# other. These fixtures cover the defaults, which is what almost every test
+# below wants.
+
+
+@pytest.fixture
+def tripolar_coords():
+    """The nonseparable axes and 2-D centers the other fixtures are built on."""
+    return _tripolar_coords()
+
+
+@pytest.fixture
+def source():
+    """A source dataset as it arrives from eval, on y/x with 2-D lat/lon."""
+    return _source()
+
+
+@pytest.fixture
+def preserved(source):
+    """`source` after preprocessing: y/x renamed, true geography kept as *_2d."""
+    return preserve_2d_coords(source)
+
+
+@pytest.fixture
+def curvilinear_data(preserved):
+    """`preserved` back on the y/x axis names the plotting helpers read."""
+    return preserved.rename({"lat": "y", "lon": "x"})
+
+
+@pytest.fixture
+def curvilinear_field(curvilinear_data):
+    """A single variable off `curvilinear_data`, for the `.plot()` helpers."""
+    return curvilinear_data["tos"]
+
+
+@pytest.fixture
+def gaussian_viz():
+    return _viz("gaussian")
+
+
+@pytest.fixture
+def tripolar_viz():
+    return _viz("tripolar")
+
+
+@pytest.fixture
+def llc_viz():
+    return _viz("llc")
+
+
 # --- 2-D coordinates survive preprocessing ------------------------------------
 
 
-def test_preserve_2d_coords_keeps_nonseparable_geography():
+def test_preserve_2d_coords_keeps_nonseparable_geography(source, tripolar_coords):
     """The real cell centers survive the y/x -> lat/lon rename, exactly."""
-    _, _, lat2d, lon2d = _tripolar_coords()
+    _, _, lat2d, lon2d = tripolar_coords
 
-    out = preserve_2d_coords(_source())
+    out = preserve_2d_coords(source)
 
     assert out["lat_2d"].dims == ("lat", "lon")
     assert out["lon_2d"].dims == ("lat", "lon")
@@ -86,39 +136,41 @@ def test_preserve_2d_coords_keeps_nonseparable_geography():
     np.testing.assert_array_equal(out["lon_2d"].values, lon2d)
 
 
-def test_preserve_2d_coords_geography_is_not_recoverable_by_broadcasting():
+def test_preserve_2d_coords_geography_is_not_recoverable_by_broadcasting(
+    tripolar_coords,
+):
     """Guards the fixture: broadcasting the axes must not reproduce the truth.
 
     Without this the test above would still pass on a rectilinear grid and
     would not be testing anything.
     """
-    y, x, lat2d, lon2d = _tripolar_coords()
+    y, x, lat2d, lon2d = tripolar_coords
 
     assert not np.allclose(np.broadcast_to(y[:, None], lat2d.shape), lat2d)
     assert not np.allclose(np.broadcast_to(x[None, :], lon2d.shape), lon2d)
 
 
-def test_preserve_2d_coords_is_idempotent():
+def test_preserve_2d_coords_is_idempotent(source, tripolar_coords):
     """A source that has already been through this must not crash.
 
     Renaming `lat` onto an occupied `lat_2d` is an xarray error, and rollouts
     can arrive already carrying the preserved names.
     """
-    once = preserve_2d_coords(_source())
+    once = preserve_2d_coords(source)
     # Put it back on y/x, keeping the preserved names, as a re-fed rollout would.
     again = once.rename({"lat": "y", "lon": "x"})
 
     out = preserve_2d_coords(again)
 
-    _, _, lat2d, lon2d = _tripolar_coords()
+    _, _, lat2d, lon2d = tripolar_coords
     np.testing.assert_array_equal(out["lat_2d"].values, lat2d)
     np.testing.assert_array_equal(out["lon_2d"].values, lon2d)
     assert out["tos"].dims == ("lat", "lon")
 
 
-def test_preserve_2d_coords_renames_axes_to_lat_lon():
+def test_preserve_2d_coords_renames_axes_to_lat_lon(source):
     """The index axes still land on the names the rest of viz works in."""
-    out = preserve_2d_coords(_source())
+    out = preserve_2d_coords(source)
 
     assert out["tos"].dims == ("lat", "lon")
     assert "y" not in out.dims and "x" not in out.dims
@@ -127,7 +179,7 @@ def test_preserve_2d_coords_renames_axes_to_lat_lon():
 # --- cell areas ----------------------------------------------------------------
 
 
-def test_tripolar_uses_source_areacello_not_cosine_latitude():
+def test_tripolar_uses_source_areacello_not_cosine_latitude(tripolar_viz):
     """Weighted means must follow the real areas, not cos(lat).
 
     On a tripolar grid the two disagree: cell area collapses towards the
@@ -136,7 +188,7 @@ def test_tripolar_uses_source_areacello_not_cosine_latitude():
     area = np.linspace(1.0, 50.0, NY * NX).reshape(NY, NX)
     data = preserve_2d_coords(_source(areacello=area))
 
-    out = Viz._with_cell_areas(_viz("tripolar"), data)
+    out = Viz._with_cell_areas(tripolar_viz, data)
 
     # `areacello` is the weighting field, normalized; `areacello_spherical` is
     # the physical area in m^2. Both must come from the source.
@@ -158,34 +210,30 @@ def test_tripolar_uses_source_areacello_not_cosine_latitude():
     )
 
 
-def test_tripolar_without_areacello_fails_loudly():
+def test_tripolar_without_areacello_fails_loudly(tripolar_viz, preserved):
     """A wrong figure is worse than an error, so refuse to invent areas."""
-    data = preserve_2d_coords(_source())
-
     with pytest.raises(ValueError, match="carries no 'areacello'"):
-        Viz._with_cell_areas(_viz("tripolar"), data)
+        Viz._with_cell_areas(tripolar_viz, preserved)
 
 
-def test_tripolar_rejects_areacello_on_the_wrong_grid():
+def test_tripolar_rejects_areacello_on_the_wrong_grid(tripolar_viz, preserved):
     """Areas given on a different grid than the data are refused."""
-    data = preserve_2d_coords(_source())
     # A distinct dim name, so xarray keeps the mismatch instead of aligning it.
-    data["areacello"] = (("lat", "lon_other"), np.ones((NY, NX - 1)))
+    preserved["areacello"] = (("lat", "lon_other"), np.ones((NY, NX - 1)))
 
     with pytest.raises(ValueError, match="expected"):
-        Viz._with_cell_areas(_viz("tripolar"), data)
+        Viz._with_cell_areas(tripolar_viz, preserved)
 
 
-def test_tripolar_rejects_unusable_areacello():
+def test_tripolar_rejects_unusable_areacello(tripolar_viz, preserved):
     """Areas that are all NaN cannot weight anything."""
-    data = preserve_2d_coords(_source())
-    data["areacello"] = (("lat", "lon"), np.full((NY, NX), np.nan))
+    preserved["areacello"] = (("lat", "lon"), np.full((NY, NX), np.nan))
 
     with pytest.raises(ValueError, match="no positive finite values"):
-        Viz._with_cell_areas(_viz("tripolar"), data)
+        Viz._with_cell_areas(tripolar_viz, preserved)
 
 
-def test_gaussian_area_path_is_unchanged():
+def test_gaussian_area_path_is_unchanged(gaussian_viz):
     """The rectilinear path still derives areas from the axes."""
     ny, nx = 5, 8
     data = xr.Dataset(
@@ -196,7 +244,7 @@ def test_gaussian_area_path_is_unchanged():
         },
     )
 
-    out = Viz._with_cell_areas(_viz("gaussian"), data)
+    out = Viz._with_cell_areas(gaussian_viz, data)
 
     assert "areacello" in out and "areacello_spherical" in out
     # Cosine weights, normalized, as before.
@@ -209,78 +257,71 @@ def test_gaussian_area_path_is_unchanged():
 # --- maps ----------------------------------------------------------------------
 
 
-def test_map_coords_are_2d_geographic_on_tripolar():
+def test_map_coords_are_2d_geographic_on_tripolar(
+    tripolar_viz, curvilinear_data, tripolar_coords
+):
     """pcolormesh must receive degrees, not cell indices."""
-    data = preserve_2d_coords(_source()).rename({"lat": "y", "lon": "x"})
-
-    map_x, map_y = Viz._map_coords(_viz("tripolar"), data)
+    map_x, map_y = Viz._map_coords(tripolar_viz, curvilinear_data)
 
     assert map_x.name == "lon_2d" and map_y.name == "lat_2d"
     assert map_x.dims == ("y", "x") and map_y.dims == ("y", "x")
-    _, _, lat2d, lon2d = _tripolar_coords()
+    _, _, lat2d, lon2d = tripolar_coords
     np.testing.assert_array_equal(map_y.values, lat2d)
     np.testing.assert_array_equal(map_x.values, lon2d)
 
 
-def test_llc_takes_the_curvilinear_path_too():
+def test_llc_takes_the_curvilinear_path_too(llc_viz, curvilinear_data):
     """Tripolar is not the only curvilinear grid `GridType` names.
 
     Every branch asks `is_curvilinear`, so lat-lon-cap has to get the 2-D
     coordinates rather than the rectilinear default it would fall into if the
     branches tested for a specific grid by name.
     """
-    data = preserve_2d_coords(_source()).rename({"lat": "y", "lon": "x"})
-
-    map_x, map_y = Viz._map_coords(_viz("llc"), data)
+    map_x, map_y = Viz._map_coords(llc_viz, curvilinear_data)
 
     assert map_x.name == "lon_2d" and map_y.name == "lat_2d"
     with pytest.raises(NotImplementedError, match="llc"):
-        Viz._reject_on_curvilinear(_viz("llc"), "movies", "reason.")
+        Viz._reject_on_curvilinear(llc_viz, "movies", "reason.")
 
 
-def test_map_plot_kwargs_name_the_2d_coords_on_tripolar():
+def test_map_plot_kwargs_name_the_2d_coords_on_tripolar(
+    tripolar_viz, curvilinear_field
+):
     """`.plot()` would otherwise use the index dims as plotting axes."""
     import cartopy.crs as ccrs  # type: ignore[import-untyped]
 
-    data = preserve_2d_coords(_source()).rename({"lat": "y", "lon": "x"})["tos"]
-
-    kwargs = Viz._map_plot_kwargs(_viz("tripolar"), data)
+    kwargs = Viz._map_plot_kwargs(tripolar_viz, curvilinear_field)
 
     assert kwargs["x"] == "lon_2d" and kwargs["y"] == "lat_2d"
     assert isinstance(kwargs["transform"], ccrs.PlateCarree)
 
 
-def test_map_plot_kwargs_are_empty_for_gaussian():
+def test_map_plot_kwargs_are_empty_for_gaussian(gaussian_viz, curvilinear_field):
     """The rectilinear path keeps letting xarray choose."""
-    data = preserve_2d_coords(_source()).rename({"lat": "y", "lon": "x"})["tos"]
-
-    assert Viz._map_plot_kwargs(_viz("gaussian"), data) == {}
+    assert Viz._map_plot_kwargs(gaussian_viz, curvilinear_field) == {}
 
 
-def test_map_coords_stay_on_index_axes_for_gaussian():
+def test_map_coords_stay_on_index_axes_for_gaussian(gaussian_viz, curvilinear_data):
     """The fast rectilinear path is untouched."""
-    data = preserve_2d_coords(_source()).rename({"lat": "y", "lon": "x"})
-
-    map_x, map_y = Viz._map_coords(_viz("gaussian"), data)
+    map_x, map_y = Viz._map_coords(gaussian_viz, curvilinear_data)
 
     assert map_x.name == "x" and map_y.name == "y"
 
 
-def test_map_coords_fail_loudly_when_geography_was_lost():
+def test_map_coords_fail_loudly_when_geography_was_lost(tripolar_viz):
     data = xr.Dataset(
         {"tos": (("y", "x"), np.ones((NY, NX)))},
         coords={"y": np.arange(NY), "x": np.arange(NX)},
     )
 
     with pytest.raises(ValueError, match="lat_2d"):
-        Viz._map_coords(_viz("tripolar"), data)
+        Viz._map_coords(tripolar_viz, data)
 
 
-def test_map_helpers_pass_2d_coords_and_plate_carree(monkeypatch):
+def test_map_helpers_pass_2d_coords_and_plate_carree(tripolar_viz, curvilinear_field):
     """The surface-map helper hands pcolormesh 2-D coords and a transform."""
     import cartopy.crs as ccrs  # type: ignore[import-untyped]
 
-    data = preserve_2d_coords(_source()).rename({"lat": "y", "lon": "x"})["tos"]
     captured = {}
 
     class _Axis:
@@ -306,8 +347,7 @@ def test_map_helpers_pass_2d_coords_and_plate_carree(monkeypatch):
                 xlocator=None,
             )
 
-    viz = _viz("tripolar")
-    Viz.plot_surface_map(viz, _Axis(), data, "title", 0)
+    Viz.plot_surface_map(tripolar_viz, _Axis(), curvilinear_field, "title", 0)
 
     assert captured["x"].name == "lon_2d"
     assert captured["y"].name == "lat_2d"
@@ -331,52 +371,50 @@ def _mask(ny: int, nx: int, *, with_coords: xr.Dataset | None = None):
     return mask
 
 
-def test_mismatched_basin_dimensions_fail_loudly():
+@pytest.fixture
+def matching_mask(preserved):
+    """A mask carrying this grid's own cell centers, so alignment succeeds."""
+    return _mask(NY, NX, with_coords=preserved)
+
+
+def test_mismatched_basin_dimensions_fail_loudly(curvilinear_data):
     """The published Gaussian mask cannot be stretched onto a native grid."""
-    data = preserve_2d_coords(_source()).rename({"lat": "y", "lon": "x"})
-
     with pytest.raises(ValueError, match="same grid as the data"):
-        process_mask(data, _mask(NY + 1, NX), "tripolar")
+        process_mask(curvilinear_data, _mask(NY + 1, NX), "tripolar")
 
 
-def test_basin_mask_without_2d_coords_fails_loudly():
+def test_basin_mask_without_2d_coords_fails_loudly(curvilinear_data):
     """Matching shapes do not imply matching geography off a rectilinear grid."""
-    data = preserve_2d_coords(_source()).rename({"lat": "y", "lon": "x"})
-
     with pytest.raises(ValueError, match="no 2-D"):
-        process_mask(data, _mask(NY, NX), "tripolar")
+        process_mask(curvilinear_data, _mask(NY, NX), "tripolar")
 
 
-def test_basin_mask_on_a_different_grid_fails_loudly():
-    data = preserve_2d_coords(_source()).rename({"lat": "y", "lon": "x"})
+def test_basin_mask_on_a_different_grid_fails_loudly(curvilinear_data):
     other = preserve_2d_coords(_source())
     other["lat_2d"] = other["lat_2d"] + 5.0
     mask = _mask(NY, NX, with_coords=other)
 
     with pytest.raises(ValueError, match="does not match"):
-        process_mask(data, mask, "tripolar")
+        process_mask(curvilinear_data, mask, "tripolar")
 
 
-def test_coordinate_matched_basin_mask_aligns():
+def test_coordinate_matched_basin_mask_aligns(curvilinear_data, matching_mask):
     """A mask carrying this grid's own cell centers is accepted."""
-    data = preserve_2d_coords(_source()).rename({"lat": "y", "lon": "x"})
-    mask = _mask(NY, NX, with_coords=preserve_2d_coords(_source()))
-
-    out = process_mask(data, mask, "tripolar")
+    out = process_mask(curvilinear_data, matching_mask, "tripolar")
 
     assert out.dims == ("y", "x")
-    np.testing.assert_array_equal(out["y"].values, data["y"].values)
-    np.testing.assert_array_equal(out["x"].values, data["x"].values)
+    np.testing.assert_array_equal(out["y"].values, curvilinear_data["y"].values)
+    np.testing.assert_array_equal(out["x"].values, curvilinear_data["x"].values)
 
 
-def test_coordinate_matched_mask_gives_the_expected_basin_weighted_result():
+def test_coordinate_matched_mask_gives_the_expected_basin_weighted_result(
+    curvilinear_data, matching_mask
+):
     """A basin mean must reduce over exactly the cells the mask selects."""
-    data = preserve_2d_coords(_source()).rename({"lat": "y", "lon": "x"})
-    mask = _mask(NY, NX, with_coords=preserve_2d_coords(_source()))
     # Select a single column, so the expected answer is arithmetic.
-    mask = mask.where(mask["lon"] == 2, 0)
+    mask = matching_mask.where(matching_mask["lon"] == 2, 0)
 
-    aligned = process_mask(data, mask, "tripolar")
+    aligned = process_mask(curvilinear_data, mask, "tripolar")
 
     field = xr.DataArray(
         np.arange(NY * NX, dtype=float).reshape(NY, NX), dims=("y", "x")
@@ -387,22 +425,20 @@ def test_coordinate_matched_mask_gives_the_expected_basin_weighted_result():
     assert np.isclose(got, expected)
 
 
-def test_gaussian_mask_path_is_unchanged():
+def test_gaussian_mask_path_is_unchanged(curvilinear_data):
     """Positional relabeling still happens on a rectilinear grid."""
-    data = preserve_2d_coords(_source()).rename({"lat": "y", "lon": "x"})
-
-    out = process_mask(data, _mask(NY, NX), "gaussian")
+    out = process_mask(curvilinear_data, _mask(NY, NX), "gaussian")
 
     assert out.dims == ("y", "x")
-    np.testing.assert_array_equal(out["y"].values, data["y"].values)
+    np.testing.assert_array_equal(out["y"].values, curvilinear_data["y"].values)
 
 
 # --- refusing steps that only hold on a rectilinear grid ------------------------
 
 
-def test_rectilinear_only_step_is_rejected_on_tripolar():
+def test_rectilinear_only_step_is_rejected_on_tripolar(tripolar_viz):
     with pytest.raises(NotImplementedError, match="thetao_mae_metrics"):
-        Viz._reject_on_curvilinear(_viz("tripolar"), "thetao_mae_metrics", "reason.")
+        Viz._reject_on_curvilinear(tripolar_viz, "thetao_mae_metrics", "reason.")
 
 
 @pytest.mark.parametrize(
@@ -414,17 +450,16 @@ def test_rectilinear_only_step_is_rejected_on_tripolar():
         "ocean_temperature_profile_plots",
     ],
 )
-def test_every_rectilinear_only_step_is_guarded(step):
+def test_every_rectilinear_only_step_is_guarded(step, tripolar_viz):
     """These steps average over 'x' or select by index range.
 
     Neither is meaningful once rows of the grid stop following lines of
     constant latitude, so each must refuse rather than draw a wrong figure.
     """
-    viz = _viz("tripolar")
     with pytest.raises(NotImplementedError, match=step):
-        getattr(Viz, f"step_{step}")(viz)
+        getattr(Viz, f"step_{step}")(tripolar_viz)
 
 
-def test_rectilinear_only_step_runs_on_gaussian():
+def test_rectilinear_only_step_runs_on_gaussian(gaussian_viz):
     """No exception is the whole assertion here."""
-    Viz._reject_on_curvilinear(_viz("gaussian"), "thetao_mae_metrics", "reason.")
+    Viz._reject_on_curvilinear(gaussian_viz, "thetao_mae_metrics", "reason.")

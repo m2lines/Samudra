@@ -9,11 +9,25 @@ import pytest
 import xarray as xr
 from ocean_preprocessing.basin_masks import (
     OM4_BASIN_CODES,
+    OM4_MARGINAL_SEA_CODES,
+    PUBLISHED_BASIN_IDS,
     basin_masks_from_static,
     validate_basin_masks,
 )
 
 NY, NX = 4, 6
+
+# `ocean_static.basin`'s CF flag attributes, copied verbatim from the published
+# store so the tables in `basin_masks` can be checked against what they claim to
+# transcribe:
+#   xr.open_zarr(
+#       "s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr"
+#   ).basin.attrs
+OM4_FLAG_VALUES = (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)
+OM4_FLAG_MEANINGS = (
+    "global_land southern_ocean atlantic_ocean pacific_ocean arctic_ocean "
+    "indian_ocean mediterranean_sea black_sea hudson_bay baltic_sea red_sea"
+)
 
 
 def _static(codes: np.ndarray | None = None, wet: np.ndarray | None = None):
@@ -145,3 +159,32 @@ def test_validation_rejects_overlapping_basins():
 
     with pytest.raises(ValueError, match="more than one basin"):
         validate_basin_masks(masks)
+
+
+def test_basin_codes_transcribe_om4s_cf_flag_attributes():
+    """The code table is a transcription, so pin it to what it transcribes."""
+    published = dict(zip(OM4_FLAG_MEANINGS.split(), OM4_FLAG_VALUES, strict=True))
+
+    assert OM4_BASIN_CODES == {
+        "basin_southern": published["southern_ocean"],
+        "basin_atlantic": published["atlantic_ocean"],
+        "basin_pacific": published["pacific_ocean"],
+        "basin_arctic": published["arctic_ocean"],
+        "basin_indian": published["indian_ocean"],
+    }
+
+
+def test_every_om4_region_code_is_accounted_for():
+    """A code we neither map nor drop would vanish without anyone noticing."""
+    land = 0
+
+    assert {land, *OM4_BASIN_CODES.values(), *OM4_MARGINAL_SEA_CODES} == set(
+        OM4_FLAG_VALUES
+    )
+
+
+def test_published_basin_ids_are_alphabetical():
+    """The published stores number their basins by name, not by geography."""
+    assert PUBLISHED_BASIN_IDS == {
+        name: number for number, name in enumerate(sorted(OM4_BASIN_CODES), start=1)
+    }

@@ -21,7 +21,18 @@ from __future__ import annotations
 import numpy as np
 import xarray as xr
 
-# Region codes on OM4's `ocean_static.basin`, from its own CF flag attributes:
+# Region codes on OM4's `ocean_static.basin`. The field is self-describing: it
+# carries CF flag attributes that name every code, so this table is transcribed
+# rather than chosen. Read them back with
+#
+#   xr.open_zarr(
+#       "s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr"
+#   ).basin.attrs
+#
+# which gives, as of the store published at the time of writing:
+#
+#   standard_name: region
+#   long_name:     Region Selection Index
 #   flag_values:   0 1 2 3 4 5 6 7 8 9 10
 #   flag_meanings: global_land southern_ocean atlantic_ocean pacific_ocean
 #                  arctic_ocean indian_ocean mediterranean_sea black_sea
@@ -37,13 +48,18 @@ OM4_BASIN_CODES: dict[str, int] = {
 # The marginal seas (codes 6-10). The published Gaussian masks leave every one
 # of them unassigned -- checked against `basin_masks_original.zarr`, where the
 # Mediterranean, Black Sea, Red Sea, Hudson Bay and Baltic are zero in all five
-# basins -- so we drop them too rather than inventing an attribution the rest of
-# the basin diagnostics have never made.
+# basins, and where each variable says as much in its own `note` attribute --
+# so we drop them too rather than inventing an attribution the rest of the
+# basin diagnostics have never made.
 OM4_MARGINAL_SEA_CODES: tuple[int, ...] = (6, 7, 8, 9, 10)
 
-# `basin_id` as the published masks number them. This is *not* OM4's code: the
-# published stores use their own ordering, and we keep it so the two sets of
-# masks describe themselves the same way.
+# `basin_id` as the published masks number them. This is *not* OM4's code and
+# there is no standard behind it: it is read off the `basin_id` attribute each
+# variable in `s3://m2lines-pubs/Samudra/basins/basin_masks_original.zarr`
+# already carries. That store attributes itself to `basin_<Name>.nc via combined
+# original data`, and the numbering is alphabetical by basin name rather than
+# physical. We reproduce it so the native masks and the published ones describe
+# themselves the same way, not because the order means anything.
 PUBLISHED_BASIN_IDS: dict[str, int] = {
     "basin_arctic": 1,
     "basin_atlantic": 2,

@@ -39,6 +39,18 @@ All datasets share the same layout: 4745 five-day timesteps, 19 depth levels, on
 > dataset (or a time slice) to your cluster/local filesystem for training, see
 > [How to get the data](#how-to-get-the-data).
 
+## Coordinate Conventions
+
+Samudra loaders standardize horizontal tensor axes as `lat` and `lon`. On
+rectilinear OM4 data those one-dimensional axes are geographic latitude and
+longitude. On curvilinear sources such as LLC, the one-dimensional axes are
+model-space crop indices, and the real geographic cell centers are preserved
+separately as two-dimensional `lat_2d` and `lon_2d` coordinates.
+
+Area-weighted training, validation, and inference metrics use `areacello` when a
+source carries real cell areas. The cosine-latitude spherical fallback is only
+used when no `areacello` coordinate is available.
+
 ### Basin masks
 
 The ocean-basin masks used by the visualization step (`samudra viz`) for basin-averaged plots live
@@ -300,8 +312,10 @@ Each of the above datasets includes metadata that explains the exact process use
 used to produce the data, lookup the following attributes:
 ```python
 ds = ...
-ds.attrs["m2lines/cli_args"]                  # Exact arguments used to process this dataset
-ds.attrs["m2lines/ocean_emulators_git_hash"]  # The version of code of the pre-processing codebase, now rebased into data/
+ds.attrs["m2lines/cli_args"]  # Exact arguments used to process this dataset
+ds.attrs[
+    "m2lines/ocean_emulators_git_hash"
+]  # The version of code of the pre-processing codebase, now rebased into data/
 ```
 
 All of our data engineering (for the v2025-11 datasets) was tracked in this GitHub issue: [#450](https://github.com/m2lines/Samudra/issues/450).

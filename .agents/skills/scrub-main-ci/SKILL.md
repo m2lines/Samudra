@@ -11,17 +11,7 @@ schedule_tz: America/New_York
 
 # Main CI scrub
 
-Advance the `main-ci` goal in `AGENTS.md`. Run daily at 09:00
-America/New_York through the repository scrub harness. The harness discovers this
-skill on `origin/main`; its cron controls the next daily run, while the footer
-below controls follow-up turns within the current run.
-
-## Inspect current failures
-
-Use live GitHub Actions data for `m2lines/Samudra` and a clean checkout of current
-`origin/main`. Preserve unrelated work by using a separate branch or worktree.
-Record the main SHA and inspect all main workflows, including builds, containers,
-tests, benchmarks, documentation, and releases.
+Use live GitHub Actions data for `m2lines/Samudra`.
 
 Start with the last seven days of runs and the latest run of each workflow even
 if it is older. Paginate or query by workflow until the window is covered; a
@@ -42,8 +32,7 @@ an aggregate status job often only reports an upstream failure.
 Check later applicable runs before acting. A passing build-only PR run does not
 verify main-only container tests, and a skipped job does not verify recovery.
 Distinguish active regressions, recurring flakes, recovered historical failures,
-pending runs, and intentional cancellation or approval gates. If a workflow has
-no usable results, report the coverage gap instead of calling it green.
+pending runs, and intentional cancellation or approval gates.
 
 ## Check existing work before making changes
 
@@ -52,16 +41,13 @@ using the error text, failing test or file, workflow/job name, and likely cause.
 Read open candidates' descriptions and recent comments; inspect matching PR
 diffs, head SHAs, and current-head checks. Search recently closed issues and
 merged or closed PRs too, since a fix may have landed after the failed run.
-Confirm the candidate's diagnosis and affected check match; keyword hits alone
-do not establish an existing repair.
+Confirm the candidate's diagnosis and affected check match.
 
 - **Matching open PR:** use it as the repair's tracking record. Avoid a competing
-  PR. If it already contains the fix, verify its checks and wait for applicable
-  main validation. Continue a scrub-owned repair branch when further changes are
-  needed; contribute to another author's branch only when that work is authorized.
+  PR. No need to push this forward unless you have new relevant information.
 - **Matching issue:** read its current plan and linked PRs. If someone is actively
   fixing it, avoid duplicating their work. An open issue alone is not a reason to
-  stop: if no repair is underway and a scoped fix is clear, implement it in a PR
+  stop: if no repair is underway and a scoped fix is unblocked, implement it in a PR
   linked to that issue.
 - **Merged fix or closed issue:** compare the fix with the failing SHA and later
   applicable main runs. A pre-fix failure may only need verification; a matching
@@ -78,10 +64,7 @@ plan and current failure evidence instead of treating it as a permanent exemptio
 ## Repair and validate
 
 Distinguish repository regressions from runner provisioning, unavailable services,
-and transient failures. `InsufficientInstanceCapacity` before any GPU tests ran
-is AWS provisioning; check the existing capacity issue and recent successful
-launches before proposing an instance change. It must not hide other failures in
-the same container workflow.
+and transient failures.
 
 For a plausibly transient test/build failure, preserve the log and environment
 details and attempt a focused local reproduction when practical. A CI rerun is
@@ -109,8 +92,7 @@ CUDA, service, or permission limits explicitly when they prevent verification.
 
 If blocked, reuse a matching issue or PR, or file one issue after the duplicate
 check. Include the run URL, SHA, failing step/error, reproduction or retry results,
-and the exact next action. Respect existing repository permissions and approval
-requirements; the scrub does not grant access to credentials or external systems.
+and the exact next action.
 
 ## Finish or follow up
 
@@ -124,14 +106,7 @@ failure can be left for the next daily run without repeated reminders. A repair
 PR being open does not mean main has recovered; verify the relevant main jobs
 after the fix lands on a later scrub.
 
-End each spawned scrub turn with exactly one footer:
-
-```text
-HARNESS_SCRUB_LOOP {"needs_followup_at":null}
-```
-
-Use a future RFC 3339 timestamp with an offset when current work needs another
-turn: about two minutes for active work, or the expected completion time for CI
-or another external wait. If an issue handoff fails, schedule a follow-up to retry
-it. Once the run's work or handoff is complete, use `null`; the daily cron remains
-active independently.
+Schedule a follow-up turn if you're waiting for CI or another external wait; if
+you have a failure trying to post status, you can wait and retry once.
+Once the run's work or handoff is complete or blocked, you can stop;
+the next day's cron will run this again to pick up further investigation.

@@ -8,23 +8,6 @@ SPDX-License-Identifier: CC-BY-4.0
 
 This file provides guidance to automated agents when working with code in this repository.
 
-## Goals
-
-### main-ci
-
----
-name: Healthy main CI
-description: Keep main CI green and address recurring failures without duplicating existing repair work.
----
-
-Every active main CI failure should have a verified fix or a concrete next action
-in an existing or new GitHub issue or PR. Preserve meaningful test coverage and
-check existing issues and PRs before starting a repair. Known failures remain
-tracked until a later applicable main run verifies recovery.
-
-The daily [main CI scrub](.agents/skills/scrub-main-ci/SKILL.md) checks this goal
-and opens validated fixes for failures that are not already being addressed.
-
 ## Overview
 
 Samudra is a PyTorch-based machine learning project for training and evaluating models that emulate ocean physics.

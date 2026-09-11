@@ -111,20 +111,21 @@ Execution order: local Rust integration and tests → branch container → strea
 
 ## Submitted execution
 
-Experiment branch: `codex/duacs-velocity-transfer`. Training, preparation, evaluation, and comparison code are pinned to `744e0d92864721bbfe4f35de5f552c381c87be2a`. The stage controller is separately pinned to commit `908ff7b1704d8353603f1eed78208b7f0ebd19cc` and verifies its deployed file checksum before every stage. Container build: [Actions run 34651347097](https://github.com/m2lines/Samudra/actions/runs/34651347097).
+Experiment branch: `codex/duacs-velocity-transfer`. Training, DUACS preparation, evaluation, and comparison code are pinned to `c4f36fa6194f9af9334d7f9924aace7c2c9c33f2`. OM4 preparation uses `488c572d09dfc20cd75030a33efcb226ca0d614e`; the subsequent change only fixes DUACS coordinate names and velocity unit attributes. The stage controller is separately pinned to commit `908ff7b1704d8353603f1eed78208b7f0ebd19cc` and verifies its deployed file checksum before every stage. Container build: [Actions run 34651347097](https://github.com/m2lines/Samudra/actions/runs/34651347097).
 
-Initial Torch jobs submitted on 2026-09-11:
+Current Torch jobs submitted on 2026-09-11 (superseding the initial staging attempts):
 
-| Job | Purpose |
-| --- | --- |
-| 17410031 | Pull the branch container into a scratch-backed SIF |
-| 17410101 | Build and verify the immutable experiment code layer |
-| 17410102 | Prepare local DUACS velocities |
-| 17410103 | Prepare global 1° OM4 geostrophic velocities |
-| 17410104 | Prepare ¼° OM4 geostrophic velocities |
-| 17410105 | D0 pilot: two A100s, 16 CPUs, 32 GiB host RAM |
-| 17410106 | D3 pilot with the same resource request |
-| 17412750 | Check pilots, then advance the campaign |
+| Job | Purpose | State at this update |
+| --- | --- | --- |
+| 17415893 | Build and verify the immutable experiment code layer | Completed |
+| 17415895 | Prepare local DUACS velocities | Completed in 2m25s; peak host RSS 26.7 GiB |
+| 17415219 | Prepare global 1° OM4 geostrophic velocities | Running |
+| 17415220 | Prepare ¼° OM4 geostrophic velocities | Running |
+| 17415896 | D0 pilot: two A100s, 16 CPUs, 32 GiB host RAM | Waiting for resources |
+| 17415898 | D3 pilot with the same resource request | Waiting for OM4 preparation |
+| 17415899 | Check pilots, then advance the campaign | Waiting for both pilots |
+
+The runtime SIF is ready and its embedded source revision was verified. Initial publication failed at the scratch quota after image creation; the completed cached image was recovered by hard link. Only disposable OCI temporary image cache entries older than 30 days were removed, freeing approximately 56 GiB. Existing datasets, checkpoints, and published SIFs were retained. The pull helper now bounds image compression threads/memory and prefers node-local temporary storage. The first DUACS preparation attempt exposed the local store's `lat`/`lon` naming; preparation now accepts both these names and the raw archive's `latitude`/`longitude`, and the replacement job completed successfully.
 
 The pilots use 128 updates at most and target one GPU-hour each, including their small validation runs; each allocation has a 45-minute wall limit. The controller requires completed pilots, finite validation results, selected checkpoints, and conservative memory margins before submitting the screen. Subsequent jobs use two sequential lanes of four GPUs, limiting simultaneous training to eight A100s. Stage transitions check Slurm allocation accounting against the remaining budget. Failures or incomplete artifacts prevent advancement.
 

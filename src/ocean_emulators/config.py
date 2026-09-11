@@ -1071,6 +1071,17 @@ class ReplayConfig(BaseConfig):
             "Epochs where max_lead_steps advances to the next curriculum value."
         ),
     )
+    blend_before_backward: bool = Field(
+        default=False,
+        description=(
+            "Blend a group's overlapping tiles before the loss instead of after "
+            "backward. Off reproduces the established order exactly: the loss "
+            "scores each tile's own padded prediction and gradients never cross "
+            "tiles. On scores the reconciled field the model deploys -- what "
+            "grouped validation already measures -- and couples tiles in the "
+            "backward pass. No effect on ungrouped runs."
+        ),
+    )
     checkpoint_buffer: bool = Field(
         default=True,
         description="Save rank-local replay buffer sidecars next to checkpoints.",

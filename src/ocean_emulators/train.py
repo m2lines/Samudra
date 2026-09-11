@@ -1981,6 +1981,8 @@ class Trainer:
             with sync_context:
                 outputs = self.model(data)
                 pred = outputs[0]
+                if self.replay_cfg.blend_before_backward:
+                    pred = self._blend_microbatch_predictions(pred, prepared)
                 label = data.get_label(0)
                 loss_per_channel = self.loss_fn(
                     pred,
@@ -2741,6 +2743,30 @@ class Trainer:
             device=self.tile_wet_masks.device,
         )
         return self.tile_wet_masks[source_indices].to(dtype=torch.float32)
+
+    def _blend_microbatch_predictions(self, pred, prepared):
+        """Reconcile each slot's tiles in-graph, before the loss is taken.
+
+        By default a group's tiles are blended *after* `backward`, purely to
+        build the next replay state, so the loss scores each tile's own
+        differently-padded prediction and no gradient crosses a tile boundary.
+        Blending first instead scores the field the model actually deploys --
+        which is already what `validate_one_epoch_grouped` measures -- and lets
+        gradient reach both tiles that share an overlap.
+
+        Ungrouped runs are untouched: `_reconcile_group_prediction` returns its
+        input when a group has no blender.
+        """
+        offset = 0
+        blended: list[torch.Tensor] = []
+        for slot in prepared.request.train_slots:
+            group = self.replay_group_for(slot.cursor)
+            tiles = slice(offset, offset + group.num_tiles)
+            offset += group.num_tiles
+            blended.append(
+                self._reconcile_group_prediction(pred[tiles], group, prepared, slot)
+            )
+        return torch.cat(blended, dim=0) if blended else pred
 
     def _reconcile_group_prediction(
         self,
@@ -4391,7 +4417,13 @@ class Trainer:
     ):
         if for_inference:
             with self._ema_context():
-                model_state_dict = self._model_state_dict_for_save()
+                # `state_dict()` returns tensors that alias live parameter storage,
+                # so the `restore()` at the end of `_ema_context` would overwrite the
+                # EMA values with the raw weights before `torch.save` below runs.
+                # Clone inside the context to snapshot the EMA weights.
+                model_state_dict = self._clone_state_dict(
+                    self._model_state_dict_for_save()
+                )
         else:
             model_state_dict = self._model_state_dict_for_save()
 
@@ -4432,6 +4464,17 @@ class Trainer:
 
             torch.save(checkpoint, temporary_location)
             os.replace(temporary_location, checkpoint_path)
+
+    @staticmethod
+    def _clone_state_dict(state):
+        """Detach and copy a state dict so it no longer aliases live parameters."""
+        cloned = OrderedDict(
+            (name, value.detach().clone() if isinstance(value, torch.Tensor) else value)
+            for name, value in state.items()
+        )
+        if hasattr(state, "_metadata"):
+            cloned._metadata = state._metadata
+        return cloned
 
     def _model_state_dict_for_save(self):
         """Write portable dense weights when model parameters are replicated DTensors."""

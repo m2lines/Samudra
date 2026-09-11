@@ -175,11 +175,16 @@ PROGNOSTIC_VARS: dict[str, PrognosticVarNames] = {
     "all": [
         k + str(j) for k in ["U_", "V_", "Theta_", "Salt_"] for j in DEPTH_I_LEVELS
     ]
+    + ["Eta"],
+    # Same as "all" plus vertical velocity. W goes last so every existing
+    # channel index is unmoved, which is what lets one cache serve both keys --
+    # channels resolve by name. Needs W_lev_* in the means/stds and W channels
+    # in the patch cache; the 720 store already has both.
+    "w_all": [
+        k + str(j) for k in ["U_", "V_", "Theta_", "Salt_"] for j in DEPTH_I_LEVELS
+    ]
     + ["Eta"]
-    # Add "W_" below to train with vertical velocity. It goes last so the
-    # existing channel indices do not move. Needs W_lev_* in the means/stds and
-    # W channels in the patch cache.
-    # + [k + str(j) for k in ["W_"] for j in DEPTH_I_LEVELS],
+    + [k + str(j) for k in ["W_"] for j in DEPTH_I_LEVELS],
 }
 
 BoundaryVarNames = list[str]

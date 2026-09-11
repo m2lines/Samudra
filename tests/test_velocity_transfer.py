@@ -5,10 +5,12 @@
 import json
 
 import numpy as np
+import pandas as pd
 import pytest
 import torch
 import xarray as xr
 
+from samudra.experiments.velocity_transfer.compare import compare
 from samudra.experiments.velocity_transfer.data import (
     VelocitySource,
     eligible_anchors,
@@ -193,3 +195,47 @@ def test_rust_velocity_batch_uses_training_stats_and_masks_missing_cells(tmp_pat
     )
     assert not batch["target_valid"][0, :, 0, 3, 3].any()
     assert torch.isfinite(batch["history"]).all()
+
+
+def test_comparison_preserves_pairing_and_rejects_coverage_changes(tmp_path):
+    paths = []
+    for variant, error in (("D0", 100), ("D3", 81)):
+        path = tmp_path / variant
+        path.mkdir()
+        manifest = {
+            "complete": True,
+            "split": "test",
+            "config": {
+                "variant": variant,
+                "seed": 15,
+                "gpu_hours": 128,
+                "widths": [8, 12],
+                "data_root": "same",
+            },
+        }
+        (path / "manifest.json").write_text(json.dumps(manifest))
+        rows = [
+            {
+                "anchor": f"2021-{month:02d}-01",
+                "target": f"2021-{month:02d}-11",
+                "lead_step": 2,
+                "region": "global",
+                "method": "samudra",
+                "weighted_squared_error": error,
+                "weight": 100,
+                "valid_cell_count": 100,
+                "actual_lead_days": 10,
+            }
+            for month in (1, 4, 7, 10)
+        ]
+        pd.DataFrame(rows).to_csv(path / "scores.csv", index=False)
+        paths.append(path)
+    result = compare([paths[0]], [paths[1]], draws=100)[0]
+    assert result["improvement_percent"] == pytest.approx(10)
+    assert result["paired_block_ci_low"] == pytest.approx(10)
+    assert result["quarter_blocks"] == 4
+    scores = pd.read_csv(paths[1] / "scores.csv")
+    scores.loc[0, "weight"] = 99
+    scores.to_csv(paths[1] / "scores.csv", index=False)
+    with pytest.raises(ValueError, match="Unmatched evaluation cohort"):
+        compare([paths[0]], [paths[1]], draws=10)

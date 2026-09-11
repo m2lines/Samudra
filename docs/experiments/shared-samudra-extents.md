@@ -108,3 +108,28 @@ python -m samudra.experiments.velocity_transfer.evaluate --checkpoint <best.pt> 
 ```
 
 Execution order: local Rust integration and tests → branch container → streaming CPU preparation → D0/D3 memory and throughput pilots → six-arm screen → validation selection → three-seed confirmation → held-out evaluation. Escalate neither model size nor training allocation until pilot evidence supports it.
+
+## Submitted execution
+
+Experiment branch: `codex/duacs-velocity-transfer`. Training, preparation, evaluation, and comparison code are pinned to `744e0d92864721bbfe4f35de5f552c381c87be2a`. The stage controller is separately pinned to commit `908ff7b1704d8353603f1eed78208b7f0ebd19cc` and verifies its deployed file checksum before every stage. Container build: [Actions run 34651347097](https://github.com/m2lines/Samudra/actions/runs/34651347097).
+
+Initial Torch jobs submitted on 2026-09-11:
+
+| Job | Purpose |
+| --- | --- |
+| 17410031 | Pull the branch container into a scratch-backed SIF |
+| 17410101 | Build and verify the immutable experiment code layer |
+| 17410102 | Prepare local DUACS velocities |
+| 17410103 | Prepare global 1° OM4 geostrophic velocities |
+| 17410104 | Prepare ¼° OM4 geostrophic velocities |
+| 17410105 | D0 pilot: two A100s, 16 CPUs, 32 GiB host RAM |
+| 17410106 | D3 pilot with the same resource request |
+| 17412750 | Check pilots, then advance the campaign |
+
+The pilots use 128 updates at most and one GPU-hour each at most, including their small validation runs. The controller requires completed pilots, finite validation results, selected checkpoints, and conservative memory margins before submitting the screen. Subsequent jobs use two sequential lanes of four GPUs, limiting simultaneous training to eight A100s. Stage transitions check Slurm allocation accounting against the remaining budget. Failures or incomplete artifacts prevent advancement.
+
+The controller selects the best transfer arm from D1–D5 on the fixed 10-day validation score, trains that arm and D0 with seeds 15/16/17, then evaluates both validation and test with matched baselines. It produces paired seed/date-block comparisons for each region and lead. No improvement is assumed in advance, and the test set is not used for selection.
+
+Live execution record: `/scratch/jr7309/runs/velocity-transfer/campaign.json`. This contains job IDs for each later stage, source/container identities, resource accounting, selected arm, and any stopped-stage error. Per-run directories contain `config.json`, `run-provenance.json`, `history.jsonl`, `best.pt`, and resumable `checkpoint.pt`. Final comparisons are `validation-comparison.json` and `test-comparison.json` in the campaign directory. Slurm logs are `/scratch/jr7309/velocity-*.out` and `.err`; W&B is `ocean_emulators/samudra-velocity-transfer`.
+
+Verification before cluster launch: full CPU suite 570 passed, two skipped, ten expected failures; subsequent focused comparison/controller tests passed; two-process training, validation, checkpoint resume, and evaluation smoke tests passed. A full 720×1440 two-step CUDA backward pass used about 4.6 GiB on the local GB10. This is a capacity check, not an A100 throughput measurement or a scientific result. The regional halo test verifies that doubling context leaves the scored interior unchanged in evaluation mode.

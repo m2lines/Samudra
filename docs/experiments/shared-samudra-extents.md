@@ -26,6 +26,8 @@ OM4 roots on Torch:
 
 These are regriddings of the same underlying simulation, not independent model trajectories. Prepare derived fields under `/scratch/jr7309/data/velocity-transfer-v1/{duacs,om4_1deg,om4_quarterdeg}`; preserve the shared input archives.
 
+The [prepared-data audit](velocity-transfer-artifacts/data-audit.json), run on CPU job `17423457` with script commit `6f517589`, verified positive finite normalization scales, monotonic dates, finite conditioning and climatology, and the OM4 training cutoff. DUACS has 280 training, 101 validation, and 118 test windows; each OM4 grid has 4,426 training windows. DUACS component scales are 0.128/0.119 m/s, versus 0.046/0.042 m/s at 1° and 0.074/0.069 m/s at ¼°. Sampled raw velocity magnitudes were checked for data quality across splits; no held-out forecast metrics or model selection were involved. The predefined tasks, normalization, and selection rule were retained.
+
 Four input velocity maps span approximately 15 days. Predict the next map and shift the history using predictions during recursive forecasting. Supply actual history and next-step time differences because the OM4 calendar includes occasional six-day increments. Score steps 1, 2, 4, and 6 (nominal 5/10/20/30 days); write actual elapsed days for every forecast. Train two-step global rollouts and one-step regional examples initially.
 
 The existing DUACS store uses centered five-day means on OM4 timestamps. This is a **retrospective mapped-field experiment**, not operational issuance-vintage forecasting. No claim of real-time causality should be made from this archive. Future target values and masks never enter forecast inputs.

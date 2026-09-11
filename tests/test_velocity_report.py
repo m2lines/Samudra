@@ -122,3 +122,20 @@ def test_report_rejects_unfinished_or_unmatched_evidence(
     with pytest.raises(ValueError):
         write_report(root, output)
     assert not output.exists()
+
+
+def test_report_requires_full_audited_date_coverage(completed_campaign, tmp_path):
+    audit = {
+        "duacs": {
+            "splits": {
+                "validation": {
+                    "windows": 5,
+                    "first_anchor": "2021-01-01",
+                    "last_anchor": "2021-10-01",
+                }
+            }
+        }
+    }
+    (completed_campaign / "data-audit.json").write_text(json.dumps(audit))
+    with pytest.raises(ValueError, match="audited date cohort"):
+        write_report(completed_campaign, tmp_path / "invalid-report")

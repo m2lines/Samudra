@@ -78,6 +78,8 @@ def collect(root):
     winner = campaign["selected_transfer_arm"]
     if winner not in {f"D{i}" for i in range(1, 6)}:
         raise ValueError("Invalid transfer arm")
+    audit_path = root / "data-audit.json"
+    audit = json.loads(audit_path.read_text()) if audit_path.exists() else None
     frames, comparisons = [], {}
     reference_baselines: dict[str, pd.DataFrame] = {}
     for split in ("validation", "test"):
@@ -86,6 +88,17 @@ def collect(root):
             for seed in SEEDS:
                 path = root / f"{split}-confirm-{variant}-s{seed}"
                 frame = read_complete_scores(path, split, variant, seed)
+                if audit is not None:
+                    expected = audit["duacs"]["splits"][split]
+                    dates = pd.to_datetime(frame.anchor)
+                    if (
+                        dates.nunique() != expected["windows"]
+                        or dates.min() != pd.Timestamp(expected["first_anchor"])
+                        or dates.max() != pd.Timestamp(expected["last_anchor"])
+                    ):
+                        raise ValueError(
+                            "Evaluation does not cover the audited date cohort"
+                        )
                 baseline = (
                     frame[frame.method != "samudra"]
                     .set_index(KEYS + ["method"])

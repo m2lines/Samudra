@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-from typing import TYPE_CHECKING, assert_never
+from typing import TYPE_CHECKING, Any, assert_never
 
 import numpy as np
 import torch
@@ -153,7 +153,9 @@ class UNetBackbone(nn.Module):
         self.num_steps = int(len(ch_width) - 1)
         self.drop_path = DropPath(drop_path_rate)
 
-    def forward(self, fts: torch.Tensor) -> torch.Tensor:
+    def forward(self, fts: torch.Tensor, pad: str | None = None) -> torch.Tensor:
+        """Apply shared weights with optional per-call regional boundary handling."""
+        padding = pad or self.pad
         skip_inputs: list[torch.Tensor] = []
         for i in range(self.num_steps):
             skip_inputs.append(torch.zeros_like(fts))
@@ -162,17 +164,24 @@ class UNetBackbone(nn.Module):
             # Circular/Globe padding
             if isinstance(layer, nn.Conv2d):
                 fts = torch.nn.functional.pad(
-                    fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
+                    fts, (self.N_pad, self.N_pad, 0, 0), mode=padding
                 )
                 fts = torch.nn.functional.pad(
                     fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
                 )
 
             # (Maybe) apply checkpointing
+            kwargs: dict[str, Any] = {}
+            if isinstance(layer, CoreBlock):
+                kwargs = {"pad": padding}
+            elif isinstance(layer, ZonallyPeriodicBilinearUpsample):
+                kwargs = {"periodic": padding == "circular"}
             if self.checkpoint_all:
-                fts = torch.utils.checkpoint.checkpoint(layer, fts, use_reentrant=False)  # type: ignore
+                fts = torch.utils.checkpoint.checkpoint(
+                    layer, fts, use_reentrant=False, **kwargs
+                )  # type: ignore
             else:
-                fts = layer(fts)
+                fts = layer(fts, **kwargs)
 
             # UNet residuals logic (skip connections)
             if count < self.num_steps:

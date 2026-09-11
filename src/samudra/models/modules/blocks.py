@@ -88,7 +88,14 @@ class ZonallyPeriodicBilinearUpsample(torch.nn.Module):
             )
         self.scale_h, self.scale_w = upsampling
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, periodic: bool = True) -> torch.Tensor:
+        if not periodic:
+            return torch.nn.functional.interpolate(
+                x,
+                scale_factor=(self.scale_h, self.scale_w),
+                mode="bilinear",
+                align_corners=False,
+            )
         # Upsample with periodic padding along longitude to avoid seams and
         # keep interpolation aligned with PyTorch's bilinear sampling grid.
         width = x.shape[-1]
@@ -187,7 +194,7 @@ class CoreBlock(torch.nn.Module):
         self.upscale_factor = upscale_factor
         self.norm = norm
 
-    def forward(self, fts: torch.Tensor) -> torch.Tensor:
+    def forward(self, fts: torch.Tensor, pad: str | None = None) -> torch.Tensor:
         raise NotImplementedError()
 
 
@@ -223,11 +230,11 @@ class ConvBlock(CoreBlock):
         self.layers = nn.ModuleList(layers)
         self.checkpoint_simple = checkpoint_simple
 
-    def forward(self, fts: torch.Tensor) -> torch.Tensor:
+    def forward(self, fts: torch.Tensor, pad: str | None = None) -> torch.Tensor:
         for layer in self.layers:
             if isinstance(layer, nn.Conv2d):
                 fts = torch.nn.functional.pad(
-                    fts, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
+                    fts, (self.N_pad, self.N_pad, 0, 0), mode=pad or self.pad
                 )
                 fts = torch.nn.functional.pad(
                     fts, (0, 0, self.N_pad, self.N_pad), mode="constant"
@@ -343,13 +350,13 @@ class ConvNeXtBlock(CoreBlock):
         self.convblock = torch.nn.Sequential(*convblock)
         self.checkpoint_simple = checkpoint_simple
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, x: torch.Tensor, pad: str | None = None) -> torch.Tensor:
         # return self.skip_module(x) + self.convblock(x)
         skip = self.skip_module(x)
         for layer in self.convblock:
             if isinstance(layer, nn.Conv2d) and layer.kernel_size[0] != 1:
                 x = torch.nn.functional.pad(
-                    x, (self.N_pad, self.N_pad, 0, 0), mode=self.pad
+                    x, (self.N_pad, self.N_pad, 0, 0), mode=pad or self.pad
                 )
                 x = torch.nn.functional.pad(
                     x, (0, 0, self.N_pad, self.N_pad), mode="constant"

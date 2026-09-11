@@ -433,6 +433,83 @@ def test_gaussian_mask_path_is_unchanged(curvilinear_data):
     np.testing.assert_array_equal(out["y"].values, curvilinear_data["y"].values)
 
 
+_BASIN_NAMES = (
+    "basin_atlantic",
+    "basin_pacific",
+    "basin_indian",
+    "basin_southern",
+    "basin_arctic",
+)
+
+
+def _basin_set(preserved: xr.Dataset, assignment: np.ndarray) -> xr.Dataset:
+    """A partitioning mask set on this grid, from one code per cell.
+
+    Codes run 1-5 over `_BASIN_NAMES` in order; 0 leaves a cell unassigned, as
+    the marginal seas and the land are.
+    """
+    return xr.Dataset(
+        {
+            name: (("lat", "lon"), (assignment == code).astype(float))
+            for code, name in enumerate(_BASIN_NAMES, start=1)
+        },
+        coords={
+            # Nominal 1-D axes, as both the published masks and OM4's native
+            # ones carry. The true centers are the 2-D pair below.
+            "lat": preserved["lat"].values,
+            "lon": preserved["lon"].values,
+            "lat_2d": (("lat", "lon"), preserved["lat_2d"].values),
+            "lon_2d": (("lat", "lon"), preserved["lon_2d"].values),
+        },
+    )
+
+
+def _aligned_basins(grid_type: GridType, data: xr.Dataset, basins: xr.Dataset):
+    """`Viz.basin_masks` off a stub, bypassing the cached_property descriptor."""
+    stub = _viz(grid_type)
+    stub.data = data
+    stub._basins = basins
+    return Viz.basin_masks.func(stub)
+
+
+def test_basin_masks_keep_every_cell_the_mask_set_assigns(preserved, curvilinear_data):
+    """A cell in exactly one basin going in must be in exactly one coming out.
+
+    This used to cut the Atlantic, Pacific and Indian at 32S. That was written
+    for the published Gaussian masks, whose Southern Ocean runs north to 32.5S,
+    so it removed nothing there. Masks built from OM4's own region codes put
+    the boundary further south, and the cells between the two lines were
+    deleted from the three basins without the Southern Ocean reaching up to
+    claim them, dropping them out of the basin diagnostics entirely.
+    """
+    lat2d = preserved["lat_2d"].values
+    # Southern Ocean stopping well south of 32S, Atlantic running down to meet
+    # it, which is how OM4's region codes divide this boundary.
+    assignment = np.where(lat2d < -45.0, 4, 1)
+    basins = _basin_set(preserved, assignment)
+
+    masks = _aligned_basins("tripolar", curvilinear_data, basins)
+
+    # `process_mask` writes unassigned cells as NaN rather than zero.
+    claimed = sum(np.nan_to_num(masks[name].values) for name in masks.data_vars)
+    np.testing.assert_array_equal(claimed, np.ones_like(lat2d))
+
+
+def test_the_basin_fixture_straddles_the_old_cut(preserved):
+    """Guards the test above: it only bites if cells sit between the lines.
+
+    Without cells that are south of 32S and north of the Southern Ocean, the
+    old cut would have been a no-op here too and the test would pass either
+    way.
+    """
+    lat2d = preserved["lat_2d"].values
+    nominal = np.broadcast_to(preserved["lat"].values[:, None], lat2d.shape)
+
+    at_risk = (nominal < -32.0) & (lat2d >= -45.0)
+
+    assert at_risk.any()
+
+
 # --- refusing steps that only hold on a rectilinear grid ------------------------
 
 

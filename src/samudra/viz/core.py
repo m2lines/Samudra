@@ -192,29 +192,22 @@ class Viz:
         data = self.data
         grid_type = self.data_layout.grid_type
 
-        atlantic_mask0 = basins["basin_atlantic"]
-        atlantic_mask = atlantic_mask0.where(atlantic_mask0["lat"] >= -32)
-        atlantic_mask = process_mask(data, atlantic_mask, grid_type)
-        pacific_mask0 = basins["basin_pacific"]
-        pacific_mask = pacific_mask0.where(
-            pacific_mask0["lat"] >= -32
-        )  # TODO: include this -32 masking in the basin data
-        pacific_mask = process_mask(data, pacific_mask, grid_type)
-        indian_ocean_mask0 = basins["basin_indian"]
-        indian_ocean_mask = indian_ocean_mask0.where(indian_ocean_mask0["lat"] >= -32)
-        indian_ocean_mask = process_mask(data, indian_ocean_mask, grid_type)
-        southern_ocean_mask0 = basins["basin_southern"]
-        southern_ocean_mask = process_mask(data, southern_ocean_mask0, grid_type)
-        arctic_mask0 = basins["basin_arctic"]
-        arctic_ocean_mask = process_mask(data, arctic_mask0, grid_type)
-
+        # Atlantic, Pacific and Indian used to be cut at 32S here, to keep them
+        # off the Southern Ocean. The masks already draw that line themselves:
+        # in `basin_masks_original.zarr` the Southern Ocean stops at 32.5S and
+        # the other three start at 32S, so the cut removed nothing. It is not
+        # harmless on every mask set, though. Masks built from OM4's own region
+        # codes put the boundary further south, and there the cut deleted 26207
+        # ocean cells that the Southern Ocean mask does not reach up to claim,
+        # dropping them out of every basin. Trust the mask set instead; the
+        # boundary is the data's to draw, not ours.
         return xr.Dataset(
             {
-                "Atlantic": atlantic_mask,
-                "Pacific": pacific_mask,
-                "Southern": southern_ocean_mask,
-                "Indian": indian_ocean_mask,
-                "Arctic": arctic_ocean_mask,
+                "Atlantic": process_mask(data, basins["basin_atlantic"], grid_type),
+                "Pacific": process_mask(data, basins["basin_pacific"], grid_type),
+                "Southern": process_mask(data, basins["basin_southern"], grid_type),
+                "Indian": process_mask(data, basins["basin_indian"], grid_type),
+                "Arctic": process_mask(data, basins["basin_arctic"], grid_type),
             }
         )
 

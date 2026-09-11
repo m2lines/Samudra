@@ -24,6 +24,7 @@ import fire
 import fsspec
 import xarray as xr
 
+from ocean_preprocessing.basin_masks import basin_masks_from_static
 from ocean_preprocessing.dataset_validation import (
     ds_flattened_input_validate,
     ds_input_validate,
@@ -234,16 +235,20 @@ class CLI:
         self.wfo_source_path = wfo_source_path
         self.dask_client = init_cluster(cluster, **cluster_opts)
 
-    def _collect(self, ds: xr.Dataset):
+    def _collect(self, ds: xr.Dataset, *, compress: bool = False):
         """Finalize and write the processed dataset to disk.
 
         Args:
             ds: The processed dataset to write. Should already be chunked appropriately.
+            compress: Leave zarr's default compressor in place. The training
+                stores turn compression off so the loader can read them without
+                a decompression pass; the basin masks are small and are read by
+                hand, so they keep the compression the published masks use.
 
         Note:
             Respects dry_run and small_run flags.
         """
-        if self.small_run:
+        if self.small_run and "time" in ds.dims:
             ds = ds.isel(time=slice(0, 10))
         if self.dry_run:
             if self.dask_client is not None:
@@ -260,9 +265,11 @@ class CLI:
             mode="w",
             consolidated=True,
             zarr_format=2,
-            encoding={
-                var_name: {"compressor": None} for var_name in ds.data_vars.keys()
-            },  # Compression turned off
+            encoding=(
+                None
+                if compress
+                else {var_name: {"compressor": None} for var_name in ds.data_vars}
+            ),
             compute=False,
         )
         # Reading blosc-compressed source chunks over S3 occasionally returns a
@@ -521,6 +528,42 @@ class CLI:
         logger.info("collecting!")
         self._collect(ds)
         logger.info("done!")
+
+    def basin_masks(self, static_path: str):
+        """Build ocean-basin masks on a model's native horizontal grid.
+
+        The published basin masks are all on regular lat-lon grids, so none of
+        them applies to OM4's native 1080x1440 tripolar grid. OM4's
+        `ocean_static` already carries integer region codes there, alongside the
+        real 2-D cell centers and the wet mask, so the masks can be built
+        directly with no regridding.
+
+        Args:
+            static_path: An OM4 `ocean_static` store, e.g.
+                `s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr`.
+
+        Example:
+            python -m ocean_preprocessing \
+              --output_path=basin_masks_native.zarr \
+              basin_masks \
+              --static_path=s3://m2lines-pubs/Samudra/raw/ocean_static_no_mask_table.zarr
+        """
+        logger.info(f"reading ocean_static from {static_path}")
+        static = xr.open_zarr(static_path, chunks={})
+        if "time" in static.dims:
+            static = static.isel(time=0, drop=True)
+
+        masks = basin_masks_from_static(static)
+        logger.info(
+            "built masks: "
+            + ", ".join(
+                f"{name}={int(masks[name].sum())} cells" for name in masks.data_vars
+            )
+        )
+
+        # `compress=True` keeps zarr's default blosc/lz4, which is what the
+        # published masks use, so the two sets of masks stay byte-comparable.
+        self._collect(masks, compress=True)
 
     def cm4(self):
         """Process the CM4 oceans dataset (a coupled ocean model from CMIP)."""

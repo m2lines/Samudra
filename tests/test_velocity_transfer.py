@@ -159,6 +159,31 @@ def test_regional_scored_interior_is_insensitive_to_larger_halo():
     )
 
 
+def test_boundary_override_keeps_existing_upsampling_defaults(monkeypatch):
+    from samudra.config import UNetBackboneConfig
+    from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
+
+    flags = []
+    original = ZonallyPeriodicBilinearUpsample.forward
+
+    def record(self, x, periodic=True):
+        flags.append(periodic)
+        return original(self, x, periodic)
+
+    monkeypatch.setattr(ZonallyPeriodicBilinearUpsample, "forward", record)
+    backbone = (
+        UNetBackboneConfig(ch_width=[4, 6], dilation=[1, 1], n_layers=[1, 1])
+        .build(4, "constant", None)
+        .eval()
+    )
+    features = torch.randn(1, 4, 16, 32)
+    backbone(features)
+    assert flags and all(flags)
+    flags.clear()
+    backbone(features, pad="constant")
+    assert flags and not any(flags)
+
+
 def test_rust_velocity_batch_uses_training_stats_and_masks_missing_cells(tmp_path):
     rust = pytest.importorskip("samudra_rust_loader")
     t, h, w = 12, 8, 16

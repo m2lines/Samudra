@@ -172,9 +172,9 @@ class UNetBackbone(nn.Module):
 
             # (Maybe) apply checkpointing
             kwargs: dict[str, Any] = {}
-            if isinstance(layer, CoreBlock):
+            if pad is not None and isinstance(layer, CoreBlock):
                 kwargs = {"pad": padding}
-            elif isinstance(layer, ZonallyPeriodicBilinearUpsample):
+            elif pad is not None and isinstance(layer, ZonallyPeriodicBilinearUpsample):
                 kwargs = {"periodic": padding == "circular"}
             if self.checkpoint_all:
                 fts = torch.utils.checkpoint.checkpoint(

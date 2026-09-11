@@ -235,19 +235,22 @@ def compact_om4_source(tmp_path):
     )
 
 
-@pytest.mark.parametrize("hist", [0, 1])
+@pytest.mark.parametrize(
+    ("input_steps", "output_steps"), [(1, 1), (2, 2), (3, 1), (3, 2)]
+)
 @pytest.mark.parametrize("steps", [1, 2])
 @pytest.mark.parametrize("stride", [1, 2])
 @pytest.mark.parametrize("normalize_before_mask", [True, False])
 def test_compact_rust_loader_consumes_existing_prefetch_schedule(
-    compact_om4_source, hist, steps, stride, normalize_before_mask
+    compact_om4_source, input_steps, output_steps, steps, stride, normalize_before_mask
 ):
     dataset = TorchTrainDataset(
         input_source=compact_om4_source,
         label_source=None,
         prognostic_var_names=compact_om4_source.data_layout.prognostic_var_names,
         boundary_var_names=compact_om4_source.data_layout.boundary_var_names,
-        hist=hist,
+        input_steps=input_steps,
+        output_steps=output_steps,
         steps=steps,
         normalize_before_mask=normalize_before_mask,
         masked_fill_value=-1.0,
@@ -273,13 +276,42 @@ def test_compact_rust_loader_consumes_existing_prefetch_schedule(
                 )
 
 
+def test_training_shard_overlapping_history_targets_and_last_window(flat_om4_source):
+    dataset = TorchTrainDataset(
+        input_source=flat_om4_source,
+        label_source=None,
+        prognostic_var_names=["thetao_0"],
+        boundary_var_names=["hfds"],
+        input_steps=3,
+        output_steps=1,
+        steps=2,
+        stride=2,
+        normalize_before_mask=True,
+        masked_fill_value=0.0,
+    )
+    assert len(dataset) == 12
+    plan = dataset.shard.window_plan([0, 11])
+    np.testing.assert_array_equal(
+        plan.steps[0].input.request.time_indices, [[0, 2, 4], [11, 13, 15]]
+    )
+    np.testing.assert_array_equal(plan.steps[0].label.request.time_indices, [[6], [17]])
+    np.testing.assert_array_equal(
+        plan.steps[1].input.request.time_indices, [[2, 4, 6], [13, 15, 17]]
+    )
+    np.testing.assert_array_equal(plan.steps[1].label.request.time_indices, [[8], [19]])
+    assert dataset.shard.ctx.label_mask.shape == (1, 3, 4)
+    with pytest.raises(IndexError, match="out of range"):
+        dataset.shard.window_plan([12])
+
+
 def test_train_data_device_preparation_caches_static_tensors(flat_om4_source):
     dataset = TorchTrainDataset(
         input_source=flat_om4_source,
         label_source=None,
         prognostic_var_names=["thetao_0"],
         boundary_var_names=["hfds"],
-        hist=0,
+        input_steps=1,
+        output_steps=1,
         steps=1,
         normalize_before_mask=True,
         masked_fill_value=0.0,
@@ -310,7 +342,8 @@ def test_training_shard_exposes_shaped_full_rollout_plan(flat_om4_source):
         label_source=None,
         prognostic_var_names=["thetao_0"],
         boundary_var_names=["hfds"],
-        hist=1,
+        input_steps=2,
+        output_steps=2,
         steps=2,
         normalize_before_mask=True,
         masked_fill_value=0.0,
@@ -335,19 +368,22 @@ def test_training_shard_exposes_shaped_full_rollout_plan(flat_om4_source):
     assert not hasattr(dataset, "_device_static")
 
 
-@pytest.mark.parametrize("hist", [0, 1])
+@pytest.mark.parametrize(
+    ("input_steps", "output_steps"), [(1, 1), (2, 2), (3, 1), (3, 2)]
+)
 @pytest.mark.parametrize("steps", [1, 2])
 @pytest.mark.parametrize("stride", [1, 2])
 @pytest.mark.parametrize("normalize_before_mask", [True, False])
 def test_rust_loader_consumes_existing_batch_schedule(
-    flat_om4_source, hist, steps, stride, normalize_before_mask
+    flat_om4_source, input_steps, output_steps, steps, stride, normalize_before_mask
 ):
     dataset = TorchTrainDataset(
         input_source=flat_om4_source,
         label_source=None,
         prognostic_var_names=["thetao_0"],
         boundary_var_names=["hfds"],
-        hist=hist,
+        input_steps=input_steps,
+        output_steps=output_steps,
         steps=steps,
         normalize_before_mask=normalize_before_mask,
         masked_fill_value=0.0,
@@ -386,7 +422,8 @@ def test_rust_loader_matches_cpu_with_separate_destination(
         label_source=flat_om4_destination,
         prognostic_var_names=["thetao_0"],
         boundary_var_names=["hfds"],
-        hist=1,
+        input_steps=2,
+        output_steps=2,
         steps=2,
         normalize_before_mask=False,
         masked_fill_value=-1.0,
@@ -421,7 +458,8 @@ def test_rust_loader_deduplicates_full_rollout_before_preprocessing(
         label_source=None,
         prognostic_var_names=["thetao_0"],
         boundary_var_names=["hfds"],
-        hist=1,
+        input_steps=2,
+        output_steps=2,
         steps=2,
         normalize_before_mask=True,
         masked_fill_value=0.0,
@@ -475,7 +513,8 @@ def test_rust_loader_preserves_homogeneous_dataset_id_invariant(flat_om4_source)
         label_source=None,
         prognostic_var_names=["thetao_0"],
         boundary_var_names=["hfds"],
-        hist=0,
+        input_steps=1,
+        output_steps=1,
         steps=1,
         normalize_before_mask=True,
         masked_fill_value=0.0,
@@ -485,7 +524,8 @@ def test_rust_loader_preserves_homogeneous_dataset_id_invariant(flat_om4_source)
         label_source=None,
         prognostic_var_names=["thetao_0"],
         boundary_var_names=["hfds"],
-        hist=0,
+        input_steps=1,
+        output_steps=1,
         steps=1,
         normalize_before_mask=True,
         masked_fill_value=0.0,
@@ -510,7 +550,8 @@ def test_distributed_sampler_never_crosses_dataset_ids(flat_om4_source):
             label_source=None,
             prognostic_var_names=["thetao_0"],
             boundary_var_names=["hfds"],
-            hist=0,
+            input_steps=1,
+            output_steps=1,
             steps=1,
             normalize_before_mask=True,
             masked_fill_value=0.0,
@@ -555,7 +596,8 @@ def test_rust_batch_uses_physical_indices_after_time_slice(flat_om4_source):
         label_source=None,
         prognostic_var_names=["thetao_0"],
         boundary_var_names=["hfds"],
-        hist=1,
+        input_steps=2,
+        output_steps=2,
         steps=2,
         normalize_before_mask=True,
         masked_fill_value=0.0,
@@ -599,7 +641,8 @@ def test_native_decoration_maps_an_already_sliced_canonical_dataset(
         label_source=None,
         prognostic_var_names=["thetao_0"],
         boundary_var_names=["hfds"],
-        hist=1,
+        input_steps=2,
+        output_steps=2,
         steps=1,
         normalize_before_mask=True,
         masked_fill_value=0.0,
@@ -629,9 +672,7 @@ def test_native_decoration_maps_an_already_sliced_canonical_dataset(
 
 def test_trainer_selects_rust_loader_with_no_pytorch_workers(flat_om4_source, tmp_path):
     data_root = Path(cast(Any, flat_om4_source.reader).path).parent
-    config_path = (
-        Path(__file__).resolve().parents[1] / "configs/test/train_default.yaml"
-    )
+    config_path = Path(__file__).resolve().parent / "configs/train_default.yaml"
     config = TrainConfig.from_yaml_and_cli(
         [
             str(config_path),
@@ -688,9 +729,7 @@ def test_trainer_selects_rust_loader_with_no_pytorch_workers(flat_om4_source, tm
 
 def test_trainer_selects_rust_loader_for_compact_om4(compact_om4_source, tmp_path):
     data_root = Path(cast(Any, compact_om4_source.reader).path).parent
-    config_path = (
-        Path(__file__).resolve().parents[1] / "configs/test/train_default.yaml"
-    )
+    config_path = Path(__file__).resolve().parent / "configs/train_default.yaml"
     config = TrainConfig.from_yaml_and_cli(
         [
             str(config_path),
@@ -749,7 +788,8 @@ def test_rust_loader_prefetches_next_batch_during_consumption(
         label_source=None,
         prognostic_var_names=["thetao_0"],
         boundary_var_names=["hfds"],
-        hist=0,
+        input_steps=1,
+        output_steps=1,
         steps=1,
         normalize_before_mask=True,
         masked_fill_value=0.0,
@@ -794,7 +834,8 @@ def test_rust_loader_surfaces_prefetch_errors(flat_om4_source, monkeypatch):
         label_source=None,
         prognostic_var_names=["thetao_0"],
         boundary_var_names=["hfds"],
-        hist=0,
+        input_steps=1,
+        output_steps=1,
         steps=1,
         normalize_before_mask=True,
         masked_fill_value=0.0,
@@ -830,7 +871,8 @@ def test_rust_loader_closes_prefetch_when_partial_iterator_is_abandoned(
         label_source=None,
         prognostic_var_names=["thetao_0"],
         boundary_var_names=["hfds"],
-        hist=0,
+        input_steps=1,
+        output_steps=1,
         steps=1,
         normalize_before_mask=True,
         masked_fill_value=0.0,
@@ -863,7 +905,8 @@ def test_rust_loader_reclaims_completed_pinned_prefetch_on_early_close(
         label_source=None,
         prognostic_var_names=["thetao_0"],
         boundary_var_names=["hfds"],
-        hist=0,
+        input_steps=1,
+        output_steps=1,
         steps=1,
         normalize_before_mask=True,
         masked_fill_value=0.0,
@@ -913,7 +956,8 @@ def test_rust_loader_reclaims_pinned_prefetch_after_producer_error(
         label_source=None,
         prognostic_var_names=["thetao_0"],
         boundary_var_names=["hfds"],
-        hist=0,
+        input_steps=1,
+        output_steps=1,
         steps=1,
         normalize_before_mask=True,
         masked_fill_value=0.0,
@@ -970,7 +1014,8 @@ def test_rust_loader_prefetches_pinned_batch_on_dedicated_cuda_stream(
         label_source=None,
         prognostic_var_names=["thetao_0"],
         boundary_var_names=["hfds"],
-        hist=1,
+        input_steps=2,
+        output_steps=2,
         steps=2,
         normalize_before_mask=True,
         masked_fill_value=0.0,
@@ -1040,7 +1085,8 @@ def test_rust_loader_reuses_pinned_buffers_after_cuda_event(
         label_source=None,
         prognostic_var_names=["thetao_0"],
         boundary_var_names=["hfds"],
-        hist=0,
+        input_steps=1,
+        output_steps=1,
         steps=1,
         normalize_before_mask=True,
         masked_fill_value=0.0,

@@ -22,6 +22,7 @@
 #   PREPROC_ENV  conda env name (default: ocean_preprocessing)
 #   CONDA_SH     path to conda.sh (autodetected from $CONDA_EXE / common dirs)
 #   REPO_DIR     repo checkout (default: $SLURM_SUBMIT_DIR)
+#   NORM_WRITE_RETRIES  retries per failed Dask task during writes (default: 5)
 #
 # Credentials (required to WRITE to OSN):
 #   export FSSPEC_S3_ENDPOINT_URL=https://nyu1.osn.mghpcc.org/
@@ -44,6 +45,7 @@
 #SBATCH --cpus-per-task=32
 #SBATCH --mem=480G
 #SBATCH --time=12:00:00
+#SBATCH --requeue
 
 set -euo pipefail
 
@@ -109,9 +111,15 @@ export PYTHONUNBUFFERED=1
 
 cd "${REPO_DIR}/data"
 
+NORM_WRITE_RETRIES="${NORM_WRITE_RETRIES:-5}"
+if [[ ! "${NORM_WRITE_RETRIES}" =~ ^[0-9]+$ ]]; then
+  echo "ERROR: NORM_WRITE_RETRIES must be a non-negative integer; got '${NORM_WRITE_RETRIES}'." >&2
+  exit 2
+fi
+
 echo "Building means/stds for: ${OUTPUT_PATH}"
-set -x
-python ocean_preprocessing/make_norm_datasets.py "${OUTPUT_PATH}"
-set +x
+python ocean_preprocessing/make_norm_datasets.py \
+  "${OUTPUT_PATH}" \
+  --write-retries="${NORM_WRITE_RETRIES}"
 
 echo "Normalization datasets written next to ${OUTPUT_PATH}"

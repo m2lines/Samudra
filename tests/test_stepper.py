@@ -80,11 +80,13 @@ def inf_data_init(hist: int):
             prognostic_var_names=data_layout.prognostic_var_names,
             boundary_var_names=data_layout.boundary_var_names,
         )
+        input_steps = hist + 1
         inference_dataset = InferenceDataset(
             val,
             data_layout.prognostic_var_names,
             data_layout.boundary_var_names,
-            hist,
+            input_steps=input_steps,
+            output_steps=input_steps,
             normalize_before_mask=True,
             masked_fill_value=0.0,
             long_rollout=True,
@@ -116,6 +118,31 @@ class ConstantResidualModel(BaseModel):
         return torch.ones_like(prognostic)
 
 
+class ConstantOneStepResidualModel(BaseModel):
+    def forward_once(self, prognostic, boundary, ctx: BatchGrid):
+        return torch.ones(
+            prognostic.shape[0],
+            self.out_channels,
+            *prognostic.shape[-2:],
+            device=prognostic.device,
+        )
+
+
+@pytest.fixture
+def two_input_one_output_dataset(inf_data_init):
+    legacy, _ = inf_data_init
+    return InferenceDataset(
+        source=legacy._source,
+        prognostic_var_names=legacy.prognostic_var_names,
+        boundary_var_names=legacy.boundary_var_names,
+        input_steps=2,
+        output_steps=1,
+        normalize_before_mask=True,
+        masked_fill_value=0.0,
+        long_rollout=True,
+    )
+
+
 def test_validate_batch_uses_absolute_predictions_for_residual_models():
     wet = torch.ones((1, 1, 1, 1), dtype=torch.bool)
     grid = torch.zeros(1)
@@ -129,7 +156,7 @@ def test_validate_batch_uses_absolute_predictions_for_residual_models():
     model = ConstantResidualModel(
         in_channels=2,
         out_channels=1,
-        hist=0,
+        input_steps=1,
         pred_residuals=True,
         last_kernel_size=3,
         pad="circular",
@@ -149,6 +176,83 @@ def test_validate_batch_uses_absolute_predictions_for_residual_models():
     assert torch.equal(output.gen_data, label)
     assert torch.equal(output.loss_per_channel, torch.zeros(1))
     assert output.loss.item() == 0.0
+
+
+@pytest.mark.parametrize("hist", [1])
+def test_two_input_one_output_dataset_advances_one_timestep(
+    two_input_one_output_dataset, hist
+):
+    assert hist == 1
+    dataset = two_input_one_output_dataset
+    prognostic, boundary, target = dataset[0]
+    assert prognostic.flatten().tolist() == [0.0, 2.0]
+    assert boundary.flatten().tolist() == [1.0, 3.0]
+    assert target.flatten().tolist() == [4.0]
+
+    next_prognostic, _, next_target = dataset[1]
+    assert next_prognostic.flatten().tolist() == [2.0, 4.0]
+    assert next_target.flatten().tolist() == [6.0]
+
+
+@pytest.mark.parametrize("hist", [1])
+def test_two_input_one_output_residual_rollout_anchors_latest_state(
+    two_input_one_output_dataset, hist
+):
+    assert hist == 1
+    dataset = two_input_one_output_dataset
+    model = ConstantOneStepResidualModel(
+        in_channels=3,
+        out_channels=1,
+        input_steps=2,
+        pred_residuals=True,
+        last_kernel_size=3,
+        pad="circular",
+        gradient_detach_interval=0,
+    )
+
+    output = model.inference(
+        dataset,
+        dataset.initial_prognostic,
+        num_steps=3,
+        epoch=0,
+    )
+
+    # Starting from [0, 2], each one-step residual is anchored to the latest
+    # state and the history shifts: [0,2] -> [2,3] -> [3,4] -> [4,5].
+    assert output.prediction.flatten().tolist() == [3.0, 4.0, 5.0]
+    assert output.final_prognostic.flatten().tolist() == [4.0, 5.0]
+    assert output.target.flatten().tolist() == [4.0, 6.0, 8.0]
+    assert output.time.values.tolist() == [2, 3, 4]
+
+
+def test_two_input_one_output_training_shifts_predicted_history():
+    grid = torch.zeros(1)
+    ctx = BatchGrid(
+        torch.ones((1, 1, 1), dtype=torch.bool),
+        (grid, grid),
+        (grid, grid),
+    )
+    batch = ModelBatch(ctx)
+    for label in (3.0, 4.0):
+        batch.append(
+            torch.tensor([[[[0.0]], [[2.0]]]]),
+            torch.zeros((1, 2, 1, 1)),
+            torch.tensor([[[[label]]]]),
+        )
+    model = ConstantOneStepResidualModel(
+        in_channels=4,
+        out_channels=1,
+        input_steps=2,
+        pred_residuals=True,
+        last_kernel_size=3,
+        pad="circular",
+        gradient_detach_interval=0,
+    )
+
+    outputs = model(batch)
+
+    assert isinstance(outputs, list)
+    assert [output.item() for output in outputs] == [3.0, 4.0]
 
 
 def test_get_rollout_step_chunks_splits_by_forward_window():
@@ -223,7 +327,7 @@ def test_inference_rollout(inf_data_init, hist, num_steps):
     model = MockModel(
         in_channels=1,
         out_channels=inference_dataset.num_prognostic_channels,
-        hist=hist,
+        input_steps=hist + 1,
         pred_residuals=False,
         last_kernel_size=3,
         pad="circular",
@@ -276,7 +380,7 @@ def test_inference_rollout_methods(inf_data_init, hist, merge_step):
     model = MockModel(
         in_channels=1,
         out_channels=inference_dataset.num_prognostic_channels,
-        hist=hist,
+        input_steps=hist + 1,
         pred_residuals=False,
         last_kernel_size=3,
         pad="circular",

@@ -28,7 +28,7 @@ def test_positional_parameters_update(dummy_source: CanonicalSource):
         prog_channels=1,
         boundary_channels=1,
         out_channels=1,
-        hist=0,
+        input_steps=1,
         grid_sizes=[source.grid_size],
     )
 

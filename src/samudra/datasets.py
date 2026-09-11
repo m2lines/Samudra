@@ -37,17 +37,18 @@ logger = logging.getLogger(__name__)
 
 
 class InferenceDataset(Dataset):
-    """This class is used for inference rollouts.
+    """Dataset of overlapping windows used for autoregressive inference.
 
-    It creates rolling indices to keep track of histories/past states.
-    For example,
-    Hist=0 ; 0->[0, 1]; 1->[1, 2]; 2->[2, 3]; 3->[3, 4]
-    Hist=1 ; 0->[[0, 1], [2, 3]]; 1->[[2, 3], [4, 5]];
-            2->[[4, 5], [6, 7]]; 3->[[6, 7], [8, 9]]
-    Hist=2 ; 0->[[0, 1, 2], [3, 4, 5]];
-            1->[[3, 4, 5], [6, 7, 8]];
-            2->[[6, 7, 8], [9, 10, 11]];
-            3->[[9, 10, 11], [12, 13, 14]]
+    Each window contains ``input_steps`` historical states followed by
+    ``output_steps`` target states. Consecutive windows advance by
+    ``output_steps`` so that every model output becomes the newest part of the
+    next input history. For example::
+
+        input_steps=1, output_steps=1: [0 | 1], [1 | 2], [2 | 3]
+        input_steps=2, output_steps=2: [0, 1 | 2, 3], [2, 3 | 4, 5]
+        input_steps=2, output_steps=1: [0, 1 | 2], [1, 2 | 3], [2, 3 | 4]
+
+    The values before ``|`` are inputs and those after it are targets.
     """
 
     @elapsed
@@ -56,7 +57,8 @@ class InferenceDataset(Dataset):
         source: CanonicalSource,
         prognostic_var_names,
         boundary_var_names,
-        hist,
+        input_steps,
+        output_steps,
         normalize_before_mask,
         masked_fill_value,
         long_rollout,
@@ -66,11 +68,18 @@ class InferenceDataset(Dataset):
         # to be passed between DataLoader worker processes. Call to(device) before
         # using the dataset for inference.
 
-        self.hist = hist
+        self.input_steps = input_steps
+        self.output_steps = output_steps
+        if not 1 <= self.output_steps <= self.input_steps:
+            raise ValueError(
+                f"output_steps must be between 1 and {self.input_steps}, "
+                f"got {self.output_steps}"
+            )
         self.prognostic_var_names = tuple(prognostic_var_names)
         self.boundary_var_names = tuple(boundary_var_names)
 
-        self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
+        self.num_prognostic_channels = self.input_steps * len(prognostic_var_names)
+        self.num_output_channels = self.output_steps * len(prognostic_var_names)
         self.input_resolution = source.resolution
         self._device = torch.device("cpu")
         self._source = source
@@ -83,31 +92,25 @@ class InferenceDataset(Dataset):
             masked_fill_value=masked_fill_value,
         )
 
-        time_indices = np.arange(source.time.size)
-        indices = xr.DataArray(
-            time_indices,
-            dims=["time"],
-            coords={"time": time_indices},
+        window_size = self.input_steps + self.output_steps
+        num_windows = (source.time.size - window_size) // self.output_steps + 1
+        if num_windows <= 0:
+            rolling_values = np.empty((0, window_size), dtype=int)
+        else:
+            starts = np.arange(num_windows) * self.output_steps
+            rolling_values = starts[:, None] + np.arange(window_size)[None, :]
+        self.rolling_indices = xr.DataArray(
+            rolling_values,
+            dims=["window_dim", "time"],
         )
-        total_steps = 2 * self.hist + 1
-        rolling_indices = indices.rolling(
-            time=len(time_indices) - total_steps, center=False
-        ).construct("window_dim")
-        rolling_indices = rolling_indices.transpose("window_dim", "time").isel(
-            time=slice(len(time_indices) - total_steps - 1, None)
-        )  # Remove first few null indices
-        self.rolling_indices = rolling_indices.isel(
-            window_dim=slice(0, None, self.hist + 1)
-        )  # Skip indices based on history
-        self.rolling_indices = self.rolling_indices.astype(int)
 
         if long_rollout:
             logger.info(
                 f"Long rollout will use input at time {source.time.values[0]} and produce"
-                f" output at {source.time.values[self.hist + 1]}"
+                f" output at {source.time.values[self.input_steps]}"
             )
 
-        self.wet_label = source.masks.prognostic_with_hist(self.hist)
+        self.wet_label = source.masks.prognostic_for_steps(self.output_steps)
         self.size = len(self.rolling_indices)
 
         if using_gpu():
@@ -151,12 +154,12 @@ class InferenceDataset(Dataset):
     def get_target_time(self, start_step: int, num_steps: int):
         x_index = self._get_x_index(start_step)
         batch_index = x_index.values[0]
-        steps_predicted = len(batch_index) // 2
-        start_target_index = batch_index[steps_predicted]
+        start_target_index = batch_index[self.input_steps]
 
         return self._times.isel(
             time=slice(
-                start_target_index, start_target_index + num_steps * steps_predicted
+                start_target_index,
+                start_target_index + num_steps * self.output_steps,
             )
         )
 
@@ -204,7 +207,7 @@ class InferenceDataset(Dataset):
 
     def _get_prognostic(self, x_index):
         return self._read_and_prepare(
-            x_index.values[:, : self.hist + 1],
+            x_index.values[:, : self.input_steps],
             channels=self.prognostic_var_names,
             prognostic=True,
         )
@@ -213,18 +216,18 @@ class InferenceDataset(Dataset):
         """
         This function returns the boundary condition for the current time step.
 
-        With hist > 0, the boundary condition considered is always the last step of
-        the input.
+        With multiple input steps, the boundary condition considered is always the
+        last input step.
         """
         return self._read_and_prepare(
-            x_index.values[:, : self.hist + 1],
+            x_index.values[:, : self.input_steps],
             channels=self.boundary_var_names,
             prognostic=False,
         )
 
     def _get_label(self, x_index):
         return self._read_and_prepare(
-            x_index.values[:, self.hist + 1 :],
+            x_index.values[:, self.input_steps :],
             channels=self.prognostic_var_names,
             prognostic=True,
         )
@@ -392,7 +395,8 @@ class TrainingShard:
         label_source: CanonicalSource | None,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
-        hist: int,
+        input_steps: int,
+        output_steps: int,
         steps: int,
         normalize_before_mask: bool,
         masked_fill_value: float,
@@ -402,19 +406,26 @@ class TrainingShard:
         self.id = shard_id or f"TrainingShard_{id(self)}"
         self.input_source = input_source
         self.label_source = label_source or input_source
-        self.hist = hist
+        self.input_steps = input_steps
+        self.output_steps = output_steps
+        if not 1 <= self.output_steps <= self.input_steps:
+            raise ValueError(
+                f"output_steps must be between 1 and {self.input_steps}, "
+                f"got {self.output_steps}"
+            )
         self.steps = steps
         self.stride = stride
         self.normalize_before_mask = normalize_before_mask
         self.masked_fill_value = masked_fill_value
         self.prognostic_var_names = tuple(prognostic_var_names)
         self.boundary_var_names = tuple(boundary_var_names)
-        self.num_prognostic_channels = (hist + 1) * len(prognostic_var_names)
-        self.num_boundary_channels = (hist + 1) * len(boundary_var_names)
+        self.num_prognostic_channels = input_steps * len(prognostic_var_names)
+        self.num_output_channels = output_steps * len(prognostic_var_names)
+        self.num_boundary_channels = input_steps * len(boundary_var_names)
         if not np.array_equal(self.input_source.time, self.label_source.time):
             raise ValueError("Input and label sources have different time slices")
 
-        total_times = 2 * hist + 2
+        total_times = input_steps + output_steps
         num_windows = input_source.time.size - (total_times - 1) * stride
         indices = xr.DataArray(np.arange(num_windows), dims=["window"])
         offsets = xr.DataArray(np.arange(total_times), dims=["time"])
@@ -425,11 +436,15 @@ class TrainingShard:
         self.label_prognostic_mask = self.label_source.masks.prognostic
         self.boundary_mask = input_source.masks.boundary
         self.ctx = BatchGrid(
-            label_mask=self.label_source.masks.prognostic_with_hist(hist),
+            label_mask=self.label_source.masks.prognostic_for_steps(output_steps),
             input_resolution_cpu=input_source.resolution,
             output_resolution_cpu=self.label_source.resolution,
         )
-        self.size = input_source.time.size - steps * (hist + 1) * stride - hist * stride
+        self.size = (
+            input_source.time.size
+            - steps * output_steps * stride
+            - (input_steps - 1) * stride
+        )
 
     def __len__(self) -> int:
         return self.size
@@ -450,7 +465,7 @@ class TrainingShard:
             raise IndexError("Negative training-window indices are not supported")
         if index >= len(self):
             raise IndexError("Training-window index out of range")
-        window = index + step * (self.hist + 1) * self.stride
+        window = index + step * self.output_steps * self.stride
         return self.rolling_indices.isel(window=window, drop=True).to_numpy()
 
     def window_plan(self, indices: list[int]) -> BatchReadPlan:
@@ -462,8 +477,8 @@ class TrainingShard:
             relative = np.stack(
                 [self.window_indices(index, step) for index in indices]
             ).astype(np.int64, copy=False)
-            current = relative[:, : self.hist + 1]
-            forecast = relative[:, self.hist + 1 :]
+            current = relative[:, : self.input_steps]
+            forecast = relative[:, self.input_steps :]
             planned_steps.append(
                 BatchReadStep(
                     input=BatchReadUse(
@@ -619,7 +634,8 @@ class TorchTrainDataset(Dataset[HostBatch]):
         label_source: CanonicalSource | None,
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
-        hist: int,
+        input_steps: int,
+        output_steps: int,
         steps: int,
         normalize_before_mask: bool,
         masked_fill_value: float,
@@ -633,7 +649,8 @@ class TorchTrainDataset(Dataset[HostBatch]):
             label_source=label_source,
             prognostic_var_names=prognostic_var_names,
             boundary_var_names=boundary_var_names,
-            hist=hist,
+            input_steps=input_steps,
+            output_steps=output_steps,
             steps=steps,
             normalize_before_mask=normalize_before_mask,
             masked_fill_value=masked_fill_value,
@@ -648,8 +665,12 @@ class TorchTrainDataset(Dataset[HostBatch]):
         return len(self.shard)
 
     @property
-    def hist(self) -> int:
-        return self.shard.hist
+    def input_steps(self) -> int:
+        return self.shard.input_steps
+
+    @property
+    def output_steps(self) -> int:
+        return self.shard.output_steps
 
     @property
     def steps(self) -> int:

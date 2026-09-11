@@ -45,7 +45,7 @@ def make_model(query_chunk_size: int | None) -> SamudraMini:
         queries_dim=10,
         query_chunk_size=query_chunk_size,
         perceiver_io=make_perceiver_io(12, 6, 10),
-        hist=0,
+        input_steps=1,
         checkpointing=None,
         gradient_detach_interval=0,
         use_bfloat16=False,

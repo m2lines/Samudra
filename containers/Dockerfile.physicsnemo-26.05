@@ -47,6 +47,8 @@ COPY src ./src
 COPY tests ./tests
 COPY rust/crab_load ./rust/crab_load
 COPY scripts/container ./scripts/container
+COPY scripts/build_quickstart_notebook.py ./scripts/build_quickstart_notebook.py
+COPY notebooks/quickstart.ipynb ./notebooks/quickstart.ipynb
 
 # Bind-mount targets used by Slurm harnesses (ensure they exist in the image so
 # Apptainer --bind doesn't fail when mounting into subpaths).
@@ -102,7 +104,10 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
         --no-install-package triton \
     && rm -rf /root/.cargo /root/.rustup rust/crab_load/target
 
+# Catch missing test imports and notebook assets on PR builds, before publishing.
 RUN . .venv/bin/activate \
-    && python scripts/container/smoke_test.py
+    && python scripts/container/smoke_test.py \
+    && python -m pytest -p no:zarr --collect-only -q \
+    && python -m pytest -p no:zarr -q tests/test_quickstart_config.py
 
 CMD ["/bin/bash"]

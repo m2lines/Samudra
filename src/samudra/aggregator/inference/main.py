@@ -26,7 +26,8 @@ class InferenceEvaluatorAggregator:
         self,
         n_timesteps: int,
         metadata: dict[str, dict[str, str]],
-        hist: int,
+        input_steps: int,
+        output_steps: int,
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
@@ -43,7 +44,8 @@ class InferenceEvaluatorAggregator:
             n_timesteps: Number of timesteps of inference that will be run.
             metadata: Mapping of variable names their metadata that will
                 used in generating logged image captions.
-            hist: Number of timesteps of history.
+            input_steps: Raw timesteps consumed by each model call.
+            output_steps: Future raw timesteps emitted by each model call.
             area_weights: Area weights for the data.
             wet: Wet mask for the data.
             num_prognostic_channels: Number of prognostic channels in the data.
@@ -106,7 +108,8 @@ class InferenceEvaluatorAggregator:
         self._preprocessor = preprocessor
         self._data_layout = data_layout
         self.num_prognostic_channels = num_prognostic_channels
-        self.hist = hist
+        self.input_steps = input_steps
+        self.output_steps = output_steps
         self.wet = wet
 
     @property
@@ -120,7 +123,7 @@ class InferenceEvaluatorAggregator:
         if len(data.target) == 0:
             raise ValueError("No target values in data")
         total_len = len(data.time)
-        assert data.prediction.shape[0] == total_len // (self.hist + 1)
+        assert data.prediction.shape[0] == total_len // self.output_steps
         target_norm_dict, target_unnorm_dict = get_aggregator_dicts(
             data.target,
             preprocessor=self._preprocessor,
@@ -129,7 +132,7 @@ class InferenceEvaluatorAggregator:
             long_rollout=True,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
-            hist=self.hist,
+            steps=self.output_steps,
         )
         gen_norm_dict, gen_unnorm_dict = get_aggregator_dicts(
             data.prediction,
@@ -139,7 +142,7 @@ class InferenceEvaluatorAggregator:
             long_rollout=True,
             input_type="prognostic",
             num_prognostic_channels=self.num_prognostic_channels,
-            hist=self.hist,
+            steps=self.output_steps,
         )
 
         for aggregator in self._aggregators.values():
@@ -182,8 +185,10 @@ class InferenceEvaluatorAggregator:
             wet=self.wet,
             long_rollout=True,
             input_type="input",
-            num_prognostic_channels=self.num_prognostic_channels,
-            hist=self.hist,
+            num_prognostic_channels=(
+                len(self._data_layout.prognostic_var_names) * self.input_steps
+            ),
+            steps=self.input_steps,
         )
         for aggregator_name in ["mean", "mean_norm"]:
             aggregator = self._aggregators.get(aggregator_name)

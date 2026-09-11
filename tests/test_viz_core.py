@@ -469,7 +469,10 @@ def _aligned_basins(grid_type: GridType, data: xr.Dataset, basins: xr.Dataset):
     stub = _viz(grid_type)
     stub.data = data
     stub._basins = basins
-    return Viz.basin_masks.func(stub)
+    # `Viz.basin_masks` is the descriptor itself at runtime, but mypy types
+    # class-level access as the value it resolves to, so it sees no `.func`.
+    # `__dict__` reaches the same object by a route mypy does not model.
+    return Viz.__dict__["basin_masks"].func(stub)
 
 
 def test_basin_masks_keep_every_cell_the_mask_set_assigns(preserved, curvilinear_data):

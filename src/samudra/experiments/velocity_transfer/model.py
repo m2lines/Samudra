@@ -73,7 +73,8 @@ class VelocitySamudra(nn.Module):
         )
         features = self.stems[source](features)
         features = self.backbone(features, pad="circular" if periodic else "constant")
-        return history[:, -1] + self.heads[source](features)
+        predicted = history[:, -1] + self.heads[source](features)
+        return torch.where(static[:, 5:6].bool(), predicted, 0)
 
 
 def rollout(model, batch, source: str, steps: int, periodic=True):

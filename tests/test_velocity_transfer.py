@@ -123,7 +123,9 @@ def test_rollout_never_reads_future_target_values_or_target_masks():
     assert isinstance(head, torch.nn.Conv2d)
     torch.nn.init.normal_(head.weight)
     batch = synthetic_batch()
+    batch["static"][:, 5, :4] = 0
     a = rollout(model, batch, "duacs", 2)
+    assert not a[..., :4, :].any()
     batch["targets"].fill_(1000)
     batch["target_valid"].fill_(False)
     b = rollout(model, batch, "duacs", 2)

@@ -101,8 +101,11 @@ if [[ "${FORCE}" != "0" && "${FORCE}" != "1" ]]; then
   exit 2
 fi
 
-# Apptainer tmp: keep on node-local /tmp to avoid scratch filesystems that don't support xattrs.
-export APPTAINER_TMPDIR="${APPTAINER_TMPDIR:-/tmp}"
+# Keep extraction on node-local storage, with the scheduler's job directory preferred.
+export APPTAINER_TMPDIR="${APPTAINER_TMPDIR:-${SLURM_TMPDIR:-${TMPDIR:-/tmp}}}"
+mkdir -p "${APPTAINER_TMPDIR}"
+# mksquashfs otherwise sizes buffers from host RAM, which can exceed a Slurm cgroup.
+SIF_MKSQUASHFS_ARGS="${SIF_MKSQUASHFS_ARGS:--processors ${SLURM_CPUS_PER_TASK:-4} -mem 4G}"
 
 # GHCR auth (if image is private).
 if [[ -n "${GHCR_USERNAME:-}" ]] && [[ -z "${APPTAINER_DOCKER_USERNAME:-}" ]]; then
@@ -121,6 +124,9 @@ fi
 echo "Scratch:   ${SCRATCH_DIR}"
 echo "Image ref: ${IMAGE_REF}"
 echo "SIF path:  ${SIF_PATH}"
+echo "Build tmp: ${APPTAINER_TMPDIR}"
+echo "SquashFS:  ${SIF_MKSQUASHFS_ARGS}"
+df -h "${APPTAINER_TMPDIR}"
 
 exec 9>"${SIF_PATH}.lock"
 flock 9
@@ -139,7 +145,7 @@ trap cleanup EXIT
 
 rm -f "${TMP_SIF}"
 echo "Pulling docker://${IMAGE_REF}"
-"${APPTAINER_BIN}" pull "${TMP_SIF}" "docker://${IMAGE_REF}"
+"${APPTAINER_BIN}" build --mksquashfs-args "${SIF_MKSQUASHFS_ARGS}" "${TMP_SIF}" "docker://${IMAGE_REF}"
 chmod 0444 "${TMP_SIF}"
 mv -f "${TMP_SIF}" "${SIF_PATH}"
 trap - EXIT

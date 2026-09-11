@@ -51,3 +51,4 @@ profiles/
 
 # Build artifacts
 dist/
+rust/crab_load/target/

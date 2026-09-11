@@ -85,6 +85,12 @@ def is_main_process():
     return get_rank() == 0
 
 
+def destroy_distributed_mode() -> None:
+    """Release the default process group when distributed mode was initialized."""
+    if is_dist_avail_and_initialized():
+        dist.destroy_process_group()
+
+
 def init_distributed_mode() -> DistributedConfig:
     cfg = DistributedConfig()
 

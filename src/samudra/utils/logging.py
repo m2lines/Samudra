@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 _SAMUDRA_HANDLER = "_samudra_managed_handler"
 
 if TYPE_CHECKING:
-    from samudra.datasets import BatchLoader, ModelBatch
+    from samudra.datasets import ModelBatch, TrainBatchLoader
     from samudra.models.base import BaseModel
     from samudra.utils.ctx import BatchGrid
 
@@ -172,7 +172,7 @@ class MetricLogger:
 
     def log_every(
         self,
-        data_loader: "BatchLoader",
+        data_loader: "TrainBatchLoader",
         print_freq,
         header=None,
     ):

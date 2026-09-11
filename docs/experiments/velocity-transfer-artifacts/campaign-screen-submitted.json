@@ -1,0 +1,93 @@
+{
+  "allocated_gpu_hours_at_last_gate": 0.13611111111111113,
+  "automatic_stages": [
+    "screen",
+    "confirm",
+    "evaluate",
+    "finish"
+  ],
+  "budget_gpu_hours": 1344,
+  "code_commit": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+  "code_layer": "/scratch/jr7309/.apptainer-code-layers/samudra-code-c4f36fa6194f9af9334d7f9924aace7c2c9c33f2.img",
+  "controller_code_commit": "908ff7b1704d8353603f1eed78208b7f0ebd19cc",
+  "controller_path": "/scratch/jr7309/velocity-campaign-908ff7b1.py",
+  "controller_sha256": "429d2a81eaf77e271360b19a7b04dc04f210f6ab82d99088ef477b261ec0c7c7",
+  "data_audit": {
+    "code_commit": "6f517589",
+    "output": "/scratch/jr7309/runs/velocity-transfer/data-audit.json",
+    "script": "/scratch/jr7309/velocity-data-audit-6f517589.py",
+    "sha256": "b87b2072b6fe4562705c723a228d2778dab005c12fe4224033ab472f3a22e4ad"
+  },
+  "jobs": {
+    "cached_sif_origin": "17410031",
+    "cancelled_pull_retry": "17414774",
+    "code_layer": "17415893",
+    "controller_confirm": "17423444",
+    "controller_screen": "17415899",
+    "data_audit": "17423457",
+    "pilots": {
+      "D0": "17415896",
+      "D3": "17415898"
+    },
+    "prepare": {
+      "duacs": "17415895",
+      "om4_1deg": "17415219",
+      "om4_quarterdeg": "17415220"
+    },
+    "screen": {
+      "D0:15": "17423438",
+      "D1:15": "17423439",
+      "D2:15": "17423440",
+      "D3:15": "17423441",
+      "D4:15": "17423442",
+      "D5:15": "17423443"
+    }
+  },
+  "previous_staging_jobs": [
+    {
+      "code_layer": "17410101",
+      "controller_screen": "17412750",
+      "pilots": {
+        "D0": "17410105",
+        "D3": "17410106"
+      },
+      "prepare": {
+        "duacs": "17410102",
+        "om4_1deg": "17410103",
+        "om4_quarterdeg": "17410104"
+      },
+      "pull": "17410031"
+    },
+    {
+      "cached_sif_origin": "17410031",
+      "cancelled_pull_retry": "17414774",
+      "code_layer": "17415214",
+      "controller_screen": "17415223",
+      "pilots": {
+        "D0": "17415221",
+        "D3": "17415222"
+      },
+      "prepare": {
+        "duacs": "17415215",
+        "om4_1deg": "17415219",
+        "om4_quarterdeg": "17415220"
+      }
+    }
+  ],
+  "runtime_commit": "9cd36b1bdcf4921fb027494afa4157e217818ccd",
+  "schema_version": 1,
+  "screen_not_submitted": false,
+  "sif_path": "/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif",
+  "source_preparation_commits": {
+    "duacs": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+    "om4_1deg": "488c572d09dfc20cd75030a33efcb226ca0d614e",
+    "om4_quarterdeg": "488c572d09dfc20cd75030a33efcb226ca0d614e"
+  },
+  "stage": "screen",
+  "staging_recovery": {
+    "cache_cleanup": "OCI temporary image cache entries older than 30 days only",
+    "cached_sif_verified_revision": "9cd36b1bdcf4921fb027494afa4157e217818ccd",
+    "no_datasets_or_published_images_removed": true,
+    "publication": "hard link to verified cached SIF"
+  }
+}

@@ -124,12 +124,28 @@ Current Torch jobs submitted on 2026-09-11 (superseding the initial staging atte
 | 17415219 | Prepare global 1° OM4 geostrophic velocities | Completed in 16m36s |
 | 17415220 | Prepare ¼° OM4 geostrophic velocities | Completed in 18m04s |
 | 17415896 | D0 pilot: two A100s, 16 CPUs, 32 GiB host RAM | Completed 128 updates; 1m54s allocation |
-| 17415898 | D3 pilot with the same resource request | Running on two A100s; started 23:20:45 UTC |
-| 17415899 | Check pilots, then advance the campaign | Waiting for D3 pilot |
+| 17415898 | D3 pilot with the same resource request | Completed 128 updates; 2m11s allocation |
+| 17415899 | Check pilots, then advance the campaign | Completed; all six screen arms submitted |
 
 The runtime SIF is ready and its embedded source revision was verified. Initial publication failed at the scratch quota after image creation; the completed cached image was recovered by hard link. Only disposable OCI temporary image cache entries older than 30 days were removed, freeing approximately 56 GiB. Existing datasets, checkpoints, and published SIFs were retained. The pull helper now bounds image compression threads/memory and prefers node-local temporary storage. The first DUACS preparation attempt exposed the local store's `lat`/`lon` naming; preparation now accepts both these names and the raw archive's `latitude`/`longitude`, and the replacement job completed successfully.
 
-The [D0 pilot](https://wandb.ai/ocean_emulators/samudra-velocity-transfer/runs/pilot-D0-s15) completed with finite training losses, validation metrics, and both checkpoint files. Peak CUDA allocation was 5.10 GiB and peak host RSS was 2.70 GiB on rank zero; Slurm reported 7.86 GiB MaxRSS for the training step. Total allocated compute was approximately 0.063 A100 GPU-hours. Its four-date pilot validation gave 10-day vector RMSE 0.110 m/s versus persistence 0.153 m/s. This small bring-up check does not establish transfer skill; D3 and the matched screen remain outstanding. Status recorded at 22:58 UTC on 2026-09-11.
+The [D0 pilot](https://wandb.ai/ocean_emulators/samudra-velocity-transfer/runs/pilot-D0-s15) completed with finite training losses, validation metrics, and both checkpoint files. Peak CUDA allocation was 5.10 GiB and peak host RSS was 2.70 GiB on rank zero; Slurm reported 7.86 GiB MaxRSS for the training step. Total allocated compute was approximately 0.063 A100 GPU-hours. Its four-date pilot validation gave 10-day vector RMSE 0.110 m/s versus persistence 0.153 m/s. This small bring-up check does not establish transfer skill.
+
+The [D3 pilot](https://wandb.ai/ocean_emulators/samudra-velocity-transfer/runs/pilot-D3-s15) also completed all 128 updates, including DUACS, global 1° OM4, and regional ¼° OM4 batches, with finite validation metrics and saved checkpoints. Peak CUDA allocation was 5.11 GiB and peak host RSS was 2.84 GiB on rank zero; Slurm reported 9.45 GiB MaxRSS for its training step. Both pilots together used 0.1361 allocated A100 GPU-hours. D3's four-date 10-day validation RMSE was 0.120 m/s versus D0's 0.110 m/s. These pilots have different DUACS exposure and only 128 updates, so this is not a matched transfer result.
+
+The controller passed the pilot gates and submitted the screen at 23:22:59 UTC on 2026-09-11:
+
+| Job | Arm | Dependency |
+| --- | --- | --- |
+| 17423438 | D0 | Ready; waiting for A100 resources |
+| 17423439 | D1 | Ready; waiting for priority |
+| 17423440 | D2 | After D0 allocation |
+| 17423441 | D3 | After D1 allocation |
+| 17423442 | D4 | After D2 allocation |
+| 17423443 | D5 | After D3 allocation |
+| 17423444 | Validate screen and submit seed confirmation | After all six screen allocations |
+
+Screen jobs use four A100s, 32 CPUs, 64 GiB host memory, and a 13-hour allocation limit for each 48 GPU-hour target. The live requests were verified to retain preemption routing, automatic requeue, and immutable code commit `c4f36fa6`. The [screen-submission snapshot](velocity-transfer-artifacts/campaign-screen-submitted.json) records identities and accounting. Status checked at 23:32 UTC; scientific screen results remain pending.
 
 The pilots use 128 updates at most and target one GPU-hour each, including their small validation runs; Each pilot retains a 45-minute wall limit. An attempted pending-job reduction to 15 minutes was rejected by the scheduler; verification confirmed D3 started at 23:20:45 UTC with its original request unchanged. The controller requires completed pilots, finite validation results, selected checkpoints, and conservative memory margins before submitting the screen. Subsequent jobs use two sequential lanes of four GPUs, limiting simultaneous training to eight A100s. Stage transitions check Slurm allocation accounting against the remaining budget. Failures or incomplete artifacts prevent advancement.
 

@@ -136,3 +136,13 @@ The controller selects the best transfer arm from D1–D5 on the fixed 10-day va
 Live execution record: `/scratch/jr7309/runs/velocity-transfer/campaign.json`. This contains job IDs for each later stage, source/container identities, resource accounting, selected arm, and any stopped-stage error. Per-run directories contain `config.json`, `run-provenance.json`, `history.jsonl`, `best.pt`, and resumable `checkpoint.pt`. Final comparisons are `validation-comparison.json` and `test-comparison.json` in the campaign directory. Slurm logs are `/scratch/jr7309/velocity-*.out` and `.err`; W&B is `ocean_emulators/samudra-velocity-transfer`.
 
 Verification before cluster launch: full CPU suite 570 passed, two skipped, ten expected failures; subsequent focused comparison/controller tests passed; two-process training, validation, checkpoint resume, and evaluation smoke tests passed. A full 720×1440 two-step CUDA backward pass used about 4.6 GiB on the local GB10. This is a capacity check, not an A100 throughput measurement or a scientific result. The regional halo test verifies that doubling context leaves the scored interior unchanged in evaluation mode.
+
+## Scientific report
+
+Once the controller completes the campaign, generate the brief report from the complete evaluation directory (or a local copy of its JSON/CSV artifacts):
+
+```bash
+python -m samudra.experiments.velocity_transfer.report --campaign-root <campaign-directory> --output <new-report-directory>
+```
+
+This produces `report.md`, `metrics-by-seed.csv`, and `summary.json`. The report includes pooled physical vector RMSE against every baseline, regional 10/30-day transfer differences, individual seed results, paired seed/date-block intervals, coverage, Slurm allocation accounting, and scientific limitations. It recomputes comparisons from the raw score CSVs and rejects unfinished campaigns, over-budget accounting, missing forecast dates/regions/leads, and baseline mismatches across arms or seeds. Report generation does not change the pinned training source or consume GPU time. The final interpretation requires inspection of the completed artifacts; a passing pilot is not evidence of multitask transfer.

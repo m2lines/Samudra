@@ -36,11 +36,72 @@ python -m samudra.search path/to/search.yaml
 
 The runner submits the first rung and fixed baselines. On Slurm, dependent
 controller jobs automatically rank completed candidates and submit each later
-rung; users do not manually advance the search. For a local laptop or Colab
-notebook run, include `search/local.yaml` instead of `search/torch.yaml`;
-candidates then run sequentially in the current environment. Each local task
-gets a fresh multiton scope and releases cached CUDA memory before the next
-candidate, so W&B and normalization state cannot leak between models.
+rung; users do not manually advance the search. For a local laptop,
+workstation, or Colab notebook, include `search/local.yaml` instead of
+`search/torch.yaml`. The local executor runs one isolated candidate process per
+visible GPU and never interprets scheduler environment variables. With no GPU
+it runs candidates sequentially in the controller process. It is also the
+simplest choice inside a single-node Slurm allocation when the batch shell sees
+all allocated GPUs; use `slurm_allocation` when trials must reach other nodes.
+Fixed anchors and rung zero are co-scheduled, and each later rung uses up to the
+same GPU capacity. Set `executor.max_concurrent` only when memory, CPU, storage,
+or service limits require using fewer than the available GPUs.
+
+Every candidate remains a single-GPU experiment in every rung. The executor
+does not assign extra GPUs to survivors as the candidate population shrinks:
+doing so would change global batch size and optimizer steps per epoch midway
+through a resumed training trajectory. Adaptive multi-GPU trials need an
+explicit policy for batch size, learning rate, and epoch accounting rather than
+being inferred from momentarily idle hardware.
+
+### Use a whole Slurm allocation for independent trials
+
+Include `search/slurm-allocation.yaml` to treat an existing Slurm job as a
+resource pool. This distinct executor launches concurrent, exclusive `srun`
+steps with one task and one GPU each. On a homogeneous multi-node allocation it
+derives total capacity from `SLURM_GPUS` or from
+`SLURM_NNODES * SLURM_GPUS_ON_NODE`; CPU cores are divided evenly among GPUs
+when Slurm exposes `SLURM_CPUS_ON_NODE`. Step memory is divided proportionally
+from `SLURM_MEM_PER_NODE` when Slurm exposes it, so one worker does not reserve
+the entire allocation's memory and serialize the GPU pool. It fails loudly
+outside an allocation.
+
+For example, Empire AI Alpha+ has eight H100 or H200 GPUs per HGX node. A batch
+allocation shaped like the following lets sixteen candidates occupy two nodes:
+
+```bash
+#!/bin/bash
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=1
+#SBATCH --gres=gpu:8
+#SBATCH --cpus-per-task=<all CPUs on one node>
+#SBATCH --mem=0
+
+module load <modules-needed-by-samudra>
+source <shared-x86-environment>/bin/activate
+python -m samudra.search path/to/search.yaml
+```
+
+Launch the controller directly from the batch script, as above. Do not wrap it
+in `srun`: the executor needs to create its own job steps. The source tree,
+Python executable, candidate configs, data, and output directory must be
+visible at the same paths on every node. Alpha is x86_64; an environment built
+for Alpha must not be reused on Empire's ARM systems. Use an architecture-
+appropriate environment or multi-architecture container for those systems.
+
+Before relying on allocation-wide pooling, verify that the target cluster
+admits concurrent exclusive job steps. Some Slurm installations serialize
+nested `srun` steps even when their GPU, CPU, and memory requests do not
+overlap. From an interactive allocation, a useful smoke check is to start two
+exclusive one-GPU `srun` commands concurrently and confirm with `squeue --steps`
+that both enter `RUNNING`. This scheduler policy cannot be inferred from the
+allocation environment. On a single node where the batch shell sees every
+allocated GPU, use the `local` executor if concurrent job steps are unavailable.
+
+The Slurm-allocation executor is synchronous: the allocation remains active
+through every rung, and a worker failure stops promotion after the other
+running workers have exited. For separately queued, resumable jobs and
+controller dependencies, use the regular Slurm executor instead.
 
 Clusters that expose the container runtime through environment modules should
 set `executor.apptainer_module` to the exact loadable module name (for example,
@@ -267,11 +328,13 @@ boundary with a schema error instead of producing a later key error.
 ## W&B
 
 Each candidate uses the unique search run ID as its W&B group and receives the
-tags `search`, the stable search name, the run ID, and the candidate name. This
-makes repeated trials separately filterable while preserving a stable tag for
-cross-run comparisons. Search identity, rung, objective, epoch budget,
-executor, job ID, parent checkpoint, and the public artifact root are stored
-under `config.experiment.search`.
+tags `search`, the stable search name, and the candidate name. The timestamped
+run ID is deliberately omitted from tags because W&B limits tags to 64
+characters; it remains available as the group and in structured search
+metadata. This makes repeated trials separately filterable while preserving a
+stable tag for cross-run comparisons. Search identity, rung, objective, epoch
+budget, executor, job ID, parent checkpoint, and the public artifact root are
+stored under `config.experiment.search`.
 Promoted rungs resume the same W&B run from the checkpoint, preserving one
 continuous learning curve per candidate.
 

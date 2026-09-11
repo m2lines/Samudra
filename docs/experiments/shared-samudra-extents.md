@@ -126,7 +126,7 @@ Initial Torch jobs submitted on 2026-09-11:
 | 17410106 | D3 pilot with the same resource request |
 | 17412750 | Check pilots, then advance the campaign |
 
-The pilots use 128 updates at most and one GPU-hour each at most, including their small validation runs. The controller requires completed pilots, finite validation results, selected checkpoints, and conservative memory margins before submitting the screen. Subsequent jobs use two sequential lanes of four GPUs, limiting simultaneous training to eight A100s. Stage transitions check Slurm allocation accounting against the remaining budget. Failures or incomplete artifacts prevent advancement.
+The pilots use 128 updates at most and target one GPU-hour each, including their small validation runs; each allocation has a 45-minute wall limit. The controller requires completed pilots, finite validation results, selected checkpoints, and conservative memory margins before submitting the screen. Subsequent jobs use two sequential lanes of four GPUs, limiting simultaneous training to eight A100s. Stage transitions check Slurm allocation accounting against the remaining budget. Failures or incomplete artifacts prevent advancement.
 
 The controller selects the best transfer arm from D1–D5 on the fixed 10-day validation score, trains that arm and D0 with seeds 15/16/17, then evaluates both validation and test with matched baselines. It produces paired seed/date-block comparisons for each region and lead. No improvement is assumed in advance, and the test set is not used for selection.
 

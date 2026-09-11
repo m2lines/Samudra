@@ -26,10 +26,22 @@ SPLITS = {
 }
 
 
+def duacs_grid(ds: xr.Dataset) -> xr.Dataset:
+    """Normalize the local prepared and raw archives' documented coordinate names."""
+    for lat, lon in (("lat", "lon"), ("latitude", "longitude"), ("y", "x")):
+        if lat in ds.dims and lon in ds.dims:
+            if ds[lat].ndim != 1 or ds[lon].ndim != 1:
+                raise ValueError(
+                    "DUACS requires one-dimensional geographic coordinates"
+                )
+            return ds.rename({lat: "y", lon: "x"}) if lat != "y" else ds
+    raise ValueError("No recognized DUACS latitude/longitude dimensions")
+
+
 def velocity_view(ds: xr.Dataset, kind: str) -> xr.Dataset:
     """Use absolute geostrophic velocities, with no reconstruction of SSH."""
     if kind == "duacs":
-        ds = ds.rename({"latitude": "y", "longitude": "x"})
+        ds = duacs_grid(ds)
         ds = ds.assign_coords(x=ds.x % 360).sortby("x").sortby("y")
         weights = np.cos(np.deg2rad(ds.y))
         fields = {}
@@ -48,6 +60,8 @@ def velocity_view(ds: xr.Dataset, kind: str) -> xr.Dataset:
     else:
         raise ValueError(f"Unknown source kind: {kind}")
     result = result.where(abs(result.y) >= 5)
+    for name in ("u", "v"):
+        result[name].attrs["units"] = "m s-1"
     return result.assign_coords(time=coerce_datetime_values(result.time.values))
 
 
@@ -60,8 +74,10 @@ def prepare(input_path: Path, output_path: Path, kind: str, batch_times: int = 4
     if kind == "om4":
         # Model auxiliary tasks never see the observation validation/test years.
         source = source.sel(time=slice(None, TRAIN_END))
-    if kind == "duacs" and source.sizes.get("latitude") != 1440:
-        raise ValueError("Expected the local native 0.125-degree DUACS archive")
+    if kind == "duacs":
+        source = duacs_grid(source)
+        if (source.sizes["y"], source.sizes["x"]) != (1440, 2880):
+            raise ValueError("Expected the local native 0.125-degree DUACS archive")
     output_path.mkdir(parents=True)
     values_sum = values_sq = count = monthly_sum = monthly_count = None
     for begin in range(0, source.sizes["time"], batch_times):

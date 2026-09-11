@@ -58,7 +58,10 @@ def test_geostrophic_auxiliary_uses_gradients_and_masks_coasts():
     assert np.isnan(actual.u.isel(y=4, x=3)).all()
 
 
-def test_duacs_weighted_coarsening_preserves_constant_and_missing_data():
+@pytest.mark.parametrize(
+    "coordinates", [("latitude", "longitude"), ("lat", "lon"), ("y", "x")]
+)
+def test_duacs_weighted_coarsening_preserves_constant_and_missing_data(coordinates):
     data = np.ones((1, 4, 8), dtype=np.float32)
     data[0, 0, 0] = np.nan
     ds = xr.Dataset(
@@ -72,6 +75,7 @@ def test_duacs_weighted_coarsening_preserves_constant_and_missing_data():
             "longitude": np.arange(8) * 45 - 180,
         },
     )
+    ds = ds.rename({"latitude": coordinates[0], "longitude": coordinates[1]})
     result = velocity_view(ds, "duacs")
     assert result.u.shape == (1, 2, 4)
     np.testing.assert_allclose(result.u.values[np.isfinite(result.u)], 2)

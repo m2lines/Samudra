@@ -51,6 +51,8 @@ nav:
   - Development:
       - Contributing: contributing.md
       - Releasing: releasing.md
+  - Research:
+      - Observational Ocean Prediction: experiments/observational-ocean-prediction.md
   - API Reference:
       - Models:
           - Base Model: models/base.md

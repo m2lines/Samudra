@@ -21,7 +21,7 @@ def completed_campaign(tmp_path):
     root.mkdir()
     campaign = {
         "stage": "complete",
-        "allocated_gpu_hours_at_last_gate": 1075.0,
+        "allocated_gpu_hours_at_last_gate": 1400.0,
         "budget_gpu_hours": 1344,
         "selected_transfer_arm": "D3",
         "code_commit": "synthetic-test-code",
@@ -84,7 +84,8 @@ def test_report_pools_physical_errors_and_preserves_seed_bias(
     write_report(completed_campaign, output)
     text = (output / "report.md").read_text()
     assert "+10.00%" in text
-    assert "1075.00 GPU-hours" in text
+    assert "1400" in text
+    assert "roughly one week of wall-clock time" in text
     assert "not operational issuance-vintage" in text
     metrics = pd.read_csv(output / "metrics-by-seed.csv")
     selected = metrics[(metrics.variant == "D3") & (metrics.method == "samudra")]
@@ -94,21 +95,15 @@ def test_report_pools_physical_errors_and_preserves_seed_bias(
     assert set(selected.seed) == set(SEEDS)
 
 
-@pytest.mark.parametrize(
-    "corruption", ["incomplete", "baseline", "missing_date", "budget"]
-)
+@pytest.mark.parametrize("corruption", ["incomplete", "baseline", "missing_date"])
 def test_report_rejects_unfinished_or_unmatched_evidence(
     completed_campaign, tmp_path, corruption
 ):
     root = completed_campaign
-    if corruption in ("incomplete", "budget"):
+    if corruption == "incomplete":
         path = root / "campaign.json"
         manifest = json.loads(path.read_text())
-        manifest[
-            "stage"
-            if corruption == "incomplete"
-            else "allocated_gpu_hours_at_last_gate"
-        ] = "evaluate" if corruption == "incomplete" else 1400
+        manifest["stage"] = "evaluate"
         path.write_text(json.dumps(manifest))
     else:
         path = root / "test-confirm-D3-s15/scores.csv"

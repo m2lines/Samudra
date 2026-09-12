@@ -47,7 +47,7 @@ def completed_run(path):
     return min(scores), rows
 
 
-def allocation_hours(job_ids):
+def allocation_usage(job_ids):
     """Use Slurm allocation time, including duplicate/requeued accounting records."""
     result = subprocess.run(
         [
@@ -57,13 +57,13 @@ def allocation_hours(job_ids):
             "-nP",
             "-j",
             ",".join(job_ids),
-            "--format=JobIDRaw,State,ElapsedRaw,AllocTRES",
+            "--format=JobIDRaw,State,ElapsedRaw,AllocTRES,Partition",
         ],
         check=True,
         capture_output=True,
         text=True,
     )
-    hours = 0.0
+    usage: dict[str, float] = {}
     seen = set()
     for line in result.stdout.splitlines():
         fields = line.split("|")
@@ -73,13 +73,28 @@ def allocation_hours(job_ids):
         tres = dict(item.split("=", 1) for item in fields[3].split(",") if "=" in item)
         gpus = int(tres.get("gres/gpu", 0))
         if not gpus:
+            if int(fields[2]) == 0 and fields[1].startswith("CANCELLED"):
+                continue
             raise RuntimeError(f"Missing GPU accounting for {fields[0]}")
-        hours += int(fields[2]) * gpus / 3600
+        partition = fields[4] if len(fields) > 4 else ""
+        family = next(
+            (
+                gpu
+                for gpu in ("rtx6000", "a100", "h100", "h200", "l40s")
+                if partition.startswith(gpu)
+            ),
+            "unspecified",
+        )
+        usage[family] = usage.get(family, 0.0) + int(fields[2]) * gpus / 3600
     if seen != set(job_ids):
         raise RuntimeError(
             "Slurm accounting is incomplete; refusing to allocate more compute"
         )
-    return hours
+    return usage
+
+
+def allocation_hours(job_ids):
+    return sum(allocation_usage(job_ids).values())
 
 
 class Campaign:
@@ -112,13 +127,13 @@ class Campaign:
     def save(self):
         write_manifest(self.path, self.manifest)
 
-    def submit(self, name, args, env=None):
+    def submit(self, name, args, env=None, account="torch_pr_347_general"):
         job_env = self.env.copy()
         job_env.update(env or {})
         command = [
             "sbatch",
             "--parsable",
-            "--account=torch_pr_347_general",
+            "--account=" + account,
             "--chdir=" + str(self.scratch),
             "--job-name=velocity-" + name,
             "--output=" + str(self.scratch / ("velocity-" + name + "-%j.out")),
@@ -138,7 +153,7 @@ class Campaign:
         if key in jobs:
             return jobs[key]
         args = [
-            "--constraint=a100",
+            "--constraint=" + self.manifest.get("gpu_constraint", "a100"),
             "--gres=gpu:4",
             "--nodes=1",
             "--ntasks=1",
@@ -178,6 +193,7 @@ class Campaign:
                 "GPUS_PER_NODE": "4",
                 "DATA_CACHE_DIR": str(self.scratch / ".data_cache" / name),
             },
+            account=self.manifest.get("gpu_account", "torch_pr_347_general"),
         )
         jobs[key] = job
         self.save()
@@ -218,20 +234,33 @@ class Campaign:
     def spent(self):
         jobs = self.manifest["jobs"]
         ids = list(jobs["pilots"].values())
+        ids.extend(jobs.get("hardware_pilots", {}).values())
         for stage in ("screen", "confirm", "evaluate"):
             ids.extend(jobs.get(stage, {}).values())
-        hours = allocation_hours(ids)
+        for retired in self.manifest.get("retired_gpu_jobs", []):
+            ids.extend(retired["job_ids"])
+        usage = allocation_usage(list(dict.fromkeys(ids)))
+        hours = sum(usage.values())
         self.manifest["allocated_gpu_hours_at_last_gate"] = hours
+        self.manifest["allocated_gpu_hours_by_type_at_last_gate"] = usage
         self.save()
         return hours
 
     def screen(self):
-        for variant in ("D0", "D3"):
-            _, rows = completed_run(self.root / (f"pilot-{variant}-s15"))
+        pilots = [f"pilot-{variant}-s15" for variant in ("D0", "D3")]
+        pilots.extend(self.manifest.get("hardware_pilot_runs", []))
+        for pilot in pilots:
+            _, rows = completed_run(self.root / pilot)
+            config_path = self.root / pilot / "config.json"
+            world = (
+                json.loads(config_path.read_text())["world_size"]
+                if config_path.exists()
+                else 2
+            )
             measurements = [r for r in rows if "peak_rss_gib_rank0" in r]
             if (
                 not measurements
-                or max(r["peak_rss_gib_rank0"] for r in measurements) * 2 > 24
+                or max(r["peak_rss_gib_rank0"] for r in measurements) * world > 24
                 or max(r["peak_cuda_gib_rank0"] for r in measurements) > 24
             ):
                 raise RuntimeError(
@@ -302,7 +331,7 @@ class Campaign:
                     ]
                     prior = list(jobs.values())[-8] if len(jobs) >= 8 else None
                     sbatch = [
-                        "--constraint=a100",
+                        "--constraint=" + self.manifest.get("gpu_constraint", "a100"),
                         "--gres=gpu:1",
                         "--nodes=1",
                         "--ntasks=1",
@@ -327,6 +356,9 @@ class Campaign:
                             "REQUEUE_ON_USR1": "0",
                             "DATA_CACHE_DIR": str(self.scratch / ".data_cache" / name),
                         },
+                        account=self.manifest.get(
+                            "gpu_account", "torch_pr_347_general"
+                        ),
                     )
                     self.save()
         self.manifest["stage"] = "evaluate"

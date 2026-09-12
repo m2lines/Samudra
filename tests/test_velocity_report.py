@@ -84,7 +84,7 @@ def test_report_pools_physical_errors_and_preserves_seed_bias(
     write_report(completed_campaign, output)
     text = (output / "report.md").read_text()
     assert "+10.00%" in text
-    assert "1075.00 A100 GPU-hours" in text
+    assert "1075.00 GPU-hours" in text
     assert "not operational issuance-vintage" in text
     metrics = pd.read_csv(output / "metrics-by-seed.csv")
     selected = metrics[(metrics.variant == "D3") & (metrics.method == "samudra")]

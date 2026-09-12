@@ -29,6 +29,59 @@ def test_allocation_accounting_counts_requeues_and_requires_gpu_data(
         controller["allocation_hours"](["1", "2", "3"])
 
 
+def test_accounting_tracks_gpu_family_and_cancelled_pending_jobs(
+    controller, monkeypatch
+):
+    monkeypatch.setattr(
+        controller["subprocess"],
+        "run",
+        lambda *a, **kw: SimpleNamespace(
+            stdout=(
+                "1|COMPLETED|3600|gres/gpu=4|rtx6000_lzanna|\n"
+                "2|COMPLETED|900|gres/gpu=2|a100|\n"
+                "3|CANCELLED by 42|0||a100|\n"
+            )
+        ),
+    )
+    assert controller["allocation_usage"](["1", "2", "3"]) == {
+        "rtx6000": 4.0,
+        "a100": 0.5,
+    }
+
+
+def test_training_submission_uses_selected_gpu_family_and_account(
+    controller, tmp_path, monkeypatch
+):
+    path = tmp_path / "runs/campaign/campaign.json"
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        json.dumps(
+            {
+                "jobs": {},
+                "sif_path": "/runtime.sif",
+                "runtime_commit": "abc",
+                "code_layer": "/code.img",
+                "gpu_constraint": "rtx6000",
+                "gpu_account": "torch_pr_347_lzanna",
+            }
+        )
+    )
+    campaign = velocity_campaign.Campaign(path)
+    calls = []
+
+    def submit(name, args, env=None, account=None):
+        calls.append((args, env, account))
+        return "123"
+
+    monkeypatch.setattr(campaign, "submit", submit)
+    campaign.launch_run("screen", "D0", 15, 48)
+    args, env, account = calls[0]
+    assert "--constraint=rtx6000" in args
+    assert "--gres=gpu:4" in args
+    assert env["GPUS_PER_NODE"] == "4"
+    assert account == "torch_pr_347_lzanna"
+
+
 def test_screen_waits_for_pilots_and_limits_parallel_training_to_two_lanes(
     controller, tmp_path
 ):

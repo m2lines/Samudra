@@ -255,8 +255,13 @@ def write_report(root: Path, output: Path):
         "data; linear extrapolation uses a fixed damping coefficient of 0.25.",
         "",
         f"Slurm-accounted allocation: **{campaign['allocated_gpu_hours_at_last_gate']:.2f} "
-        f"A100 GPU-hours**, against the {campaign['budget_gpu_hours']:,} GPU-hour ceiling. "
+        f"GPU-hours**, against the {campaign['budget_gpu_hours']:,} GPU-hour ceiling. "
         "Training uses the locally merged Rust loader and immutable branch code layers.",
+        "GPU family accounting: "
+        + json.dumps(
+            campaign.get("allocated_gpu_hours_by_type_at_last_gate", {}), sort_keys=True
+        )
+        + ". Hours are reported by hardware type; no cross-hardware performance equivalence is assumed.",
         "",
         "Uncertainty resamples paired seeds and calendar-quarter date blocks. "
         "There are only three seeds and fewer than two test years; overlapping "

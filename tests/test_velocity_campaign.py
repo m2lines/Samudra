@@ -67,6 +67,8 @@ def test_training_submission_uses_selected_gpu_family_and_account(
         )
     )
     campaign = velocity_campaign.Campaign(path)
+    assert campaign.env["NCCL_P2P_DISABLE"] == "1"
+    assert campaign.env["TORCH_NCCL_ASYNC_ERROR_HANDLING"] == "1"
     calls = []
 
     def submit(name, args, env=None, account=None):

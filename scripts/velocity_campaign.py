@@ -123,6 +123,9 @@ class Campaign:
             OPENBLAS_NUM_THREADS="1",
             MKL_NUM_THREADS="2",
         )
+        if self.manifest.get("gpu_constraint") == "rtx6000":
+            # Required by the Torch RTX6000 NCCL guidance in docs/torch.md.
+            self.env.update(NCCL_P2P_DISABLE="1", TORCH_NCCL_ASYNC_ERROR_HANDLING="1")
 
     def save(self):
         write_manifest(self.path, self.manifest)

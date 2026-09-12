@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Local DUACS velocity forecasting with a shared original Samudra backbone
 
-Updated 2026-09-11. This campaign implements the user's latest scope: **velocities only, local DUACS, OM4 auxiliary data, original convolutional Samudra**. LLC is unavailable and deferred. The eventual objective remains DUACS SSH evolution, but a positive velocity result does not establish SSH forecast skill or recover the missing SSH datum.
+Updated 2026-09-12. This campaign implements the user's latest scope: **velocities only, local DUACS, OM4 auxiliary data, original convolutional Samudra**. LLC is unavailable and deferred. The eventual objective remains DUACS SSH evolution, but a positive velocity result does not establish SSH forecast skill or recover the missing SSH datum.
 
 The Rust loader is merged **locally** with main on the experiment branch. Do not merge its GitHub PR as part of this campaign. A separate `codex/duacs-velocity-runtime` branch at `9cd36b1bdcf4921fb027494afa4157e217818ccd` supplies the container environment. Experiment source changes use immutable code overlays after exact lockfile checks.
 
@@ -83,7 +83,7 @@ Follow-up diagnostics within contingency: larger regional halos, unseen crop dim
 
 ## Compute and execution
 
-Total ceiling: **1,344 A100 GPU-hours**, approximately eight A100s for seven days. Torch A100 nodes have four GPUs, so run matched jobs as pairs of four-GPU allocations rather than assuming an eight-GPU node.
+Total ceiling: **1,344 GPU-hours**, approximately eight GPUs for seven days. The user clarified on 2026-09-12 UTC that the intended reference was RTX6000, and authorized other available preemptible Torch GPUs. Record actual allocation by GPU family; do not call mixed GPU-hours A100-equivalent compute. Use at most two simultaneous four-GPU training allocations.
 
 | Stage | GPU-hours |
 | --- | ---: |
@@ -94,7 +94,7 @@ Total ceiling: **1,344 A100 GPU-hours**, approximately eight A100s for seven day
 | Contingency | 96 |
 | **Total** | **1,344** |
 
-Count failed/restarted allocations and evaluation toward the ceiling. Screening jobs request four A100s, 32 CPUs, and **64 GiB host memory initially**, with four Rust read threads per rank and zero PyTorch data workers. CPU preparation starts with eight CPUs and 32 GiB. Verify actual Slurm RSS and GPU peaks in the pilots before changing requests; these are initial requests, not measured requirements. Raw fields stay on CPU until the current bounded batch is transferred. A regional read currently loads a full two-channel frame through Rust, then crops; it does not preload the archive or all physical channels.
+Count failed/restarted allocations and evaluation toward the ceiling. New screening jobs request four RTX6000s, 32 CPUs, and **64 GiB host memory initially**, with four Rust read threads per rank and zero PyTorch data workers. CPU preparation starts with eight CPUs and 32 GiB. Verify actual Slurm RSS and GPU peaks in the pilots before changing requests; these are initial requests, not measured requirements. Raw fields stay on CPU until the current bounded batch is transferred. A regional read currently loads a full two-channel frame through Rust, then crops; it does not preload the archive or all physical channels.
 
 The general allocation currently accepts A100 requests through scheduler-managed preemption routing: omit a partition, request `--constraint=a100 --gres=gpu:4 --comment="preemption=yes;requeue=true" --requeue --signal=B:USR1@300`, and set `REQUEUE_ON_USR1=1` in the existing harness. This request passed `sbatch --test-only`; a normal A100 request without the preemption comment was rejected. Save checkpoints every 64 updates and resume automatically on `SLURM_RESTART_COUNT`. Follow the [Torch submission policy](https://services.rt.nyu.edu/docs/hpc/submitting_jobs/slurm_submitting_jobs/) if routing changes.
 
@@ -164,3 +164,11 @@ python -m samudra.experiments.velocity_transfer.report --campaign-root <campaign
 ```
 
 This produces `report.md`, `metrics-by-seed.csv`, and `summary.json`. The report includes pooled physical vector RMSE against every baseline, regional 10/30-day transfer differences, individual seed results, paired seed/date-block intervals, coverage, Slurm allocation accounting, and scientific limitations. It recomputes comparisons from the raw score CSVs and rejects unfinished campaigns, over-budget accounting, missing forecast dates/regions/leads, and baseline mismatches across arms or seeds. Report generation does not change the pinned training source or consume GPU time. The final interpretation requires inspection of the completed artifacts; a passing pilot is not evidence of multitask transfer.
+
+## RTX6000 scheduling update
+
+The user corrected the intended hardware from A100 to RTX6000 and authorized whichever preemptible Torch capacity is available. The scheduler accepted immediate RTX6000 scheduling in `rtx6000_lzanna` with account `torch_pr_347_lzanna`, using the same preemption/requeue comment and no manually selected partition.
+
+A100 D0 screen job `17423438` began during the availability checks and is retained. Only the five still-pending A100 transfer-screen jobs (`17423439`–`17423443`) and their pending confirmation controller were cancelled. They consumed no GPU time. Four-GPU RTX6000 pilot `17425088` and dependent screen controller `17425089` are submitted. Controller code is pinned to `acbbee75db98297e7994d379c735d809acee6527`; training code remains unchanged at `c4f36fa6`.
+
+After the RTX6000 pilot passes, the new controller retains the running D0 job ID and submits D1–D5 on RTX6000. Selection compares D1–D5 only, all on the same hardware. Both arms of the final three-seed confirmation use RTX6000, preserving the primary matched comparison. The A100 D0 screen is a reference run; the mixed-hardware screen is not interpreted as an equal-compute estimate of transfer versus D0. All allocated time, including retired attempts and hardware pilots, counts toward the original 1,344 GPU-hour ceiling and is reported by GPU type.

@@ -191,6 +191,8 @@ def write_report(root: Path, output: Path):
         "uses validation only. D0 and the selected arm are retrained at equal "
         "128 GPU-hour target budgets with seeds 15/16/17.",
         "",
+        campaign.get("screen_hardware_note", ""),
+        "",
         "Training ends 2018-09-30; validation spans 2019-04-01–2020-09-30; test "
         "spans 2021-04-01–2022-12-31 subject to archive coverage. Each full history "
         "and forecast window lies within its split. Normalization and climatology "

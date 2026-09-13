@@ -194,7 +194,9 @@ def write_report(root: Path, output: Path):
             "D4 changes both the task mix and the explicit geometry inputs relative "
             "to D0. This comparison measures their combined effect; attributing a "
             "difference specifically to multitask transfer would require a "
-            "DUACS-only control without geometry channels."
+            "DUACS-only control without geometry channels. D4 retains mean-flow "
+            "maps and masks that provide geographic cues, plus the different grid "
+            "shapes and boundary handling of global and regional inputs."
             if winner == "D4"
             else ""
         ),

@@ -186,7 +186,18 @@ def write_report(root: Path, output: Path):
         "(+1/4° regional OM4), D3 (both), D4 (D3 without explicit position/spacing "
         "channels), and D5 (40% OM4 pretraining, then DUACS fine-tuning). Selection "
         "uses validation only. D0 and the selected arm are retrained at equal "
-        "128 GPU-hour target budgets with seeds 15/16/17.",
+        "128 GPU-hour target budgets with seeds 15/16/17. Checkpoints are selected "
+        "on 12 fixed validation dates, checked every 256 updates during the first "
+        "90% of each target training duration; final evaluation uses all eligible dates.",
+        "",
+        (
+            "D4 changes both the task mix and the explicit geometry inputs relative "
+            "to D0. This comparison measures their combined effect; attributing a "
+            "difference specifically to multitask transfer would require a "
+            "DUACS-only control without geometry channels."
+            if winner == "D4"
+            else ""
+        ),
         "",
         campaign.get("screen_hardware_note", ""),
         "",

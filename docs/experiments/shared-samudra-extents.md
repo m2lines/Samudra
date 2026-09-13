@@ -188,3 +188,24 @@ D0 screening now contains both A100 and RTX6000 compute. It remains a reference 
 D0, D1, D2 and D3 completed their planned screening runs. Their best fixed-cohort 10-day validation vector RMSEs were respectively 0.10212144, 0.10874011, 0.10365186 and 0.10395321 m/s. These are preliminary selection scores, not held-out test results; the mixed-hardware D0 screen does not support a matched-compute transfer claim. D4 and D5 remain incomplete, so no transfer variant has been selected.
 
 Slurm cancelled D5 job `17425539` after 2h25m (`CANCELLED by 0`, reported reason `QOSMaxGRESPerUser`). No training exception preceded the termination. Its checkpoint and original attempt metadata were preserved. The same RTX6000 request passed scheduler preflight, and replacement `17574711` was submitted with `--resume`. It briefly waited at the QoS limit, then started on gr102; update 83670 verified continuation beyond the prior update 76870. D4 `17428067` continues on gr105. Replacement confirmation controller `17574712` waits for these two remaining runs. The interruption added approximately 35 minutes of wall-clock delay without restarting training from scratch.
+
+### Screening complete; D4 selected for confirmation (2026-09-13 UTC)
+
+All six screening runs completed successfully with retained best checkpoints. Best 10-day vector RMSE on the fixed 12-date validation cohort (m/s):
+
+| Arm | Validation RMSE |
+| --- | ---: |
+| D0: DUACS only | 0.10212144 |
+| D1: global 1° auxiliary | 0.10874011 |
+| D2: regional ¼° auxiliary | 0.10365186 |
+| D3: both auxiliary tasks | 0.10395321 |
+| D4: D3 without explicit geometry | 0.10251995 |
+| D5: OM4 pretrain, DUACS fine-tune | 0.12139209 |
+
+D4 wins the prespecified D1–D5 validation selection. D0's screen remains a mixed-hardware reference, and these scores are not held-out test results. Because D4 removes geometry channels as well as adding auxiliary training, the final D0–D4 comparison measures their combined effect. Isolating multitask transfer would require an additional DUACS-only control without geometry. This limitation does not change the planned confirmation comparison.
+
+D5 required a second checkpoint recovery after scheduler cancellation of `17574711`, again after approximately 2h25m. Torch rejected a node-exclusion preflight; the continuation retained normal scheduler placement. Final continuation `17592843` completed on gr102 after 6h50m, including the DUACS fine-tuning phase. No training restart from scratch or model-code change was needed.
+
+Controller `17592844` completed and launched confirmation jobs `17685810`/`17685811` (D0/D4 seed 15), `17685812`/`17685813` (seed 16), and `17685814`/`17685815` (seed 17). The seed-15 pair is training on gr105/gr101. All requests use four RTX6000 GPUs, 64 GiB host memory, and the same immutable training source and settings except the intended variant. Evaluation controller `17685816` waits for all six runs.
+
+Checkpoint selection occurs every 256 updates during the first 90% of each target training duration; the loop ends at approximately 97%. The final report evaluates the selected validation checkpoints, not necessarily the final training states. This shared selection policy is retained across arms and seeds.

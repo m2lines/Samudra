@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Local DUACS velocity forecasting with a shared original Samudra backbone
 
-Updated 2026-09-12. This campaign implements the user's latest scope: **velocities only, local DUACS, OM4 auxiliary data, original convolutional Samudra**. LLC is unavailable and deferred. The eventual objective remains DUACS SSH evolution, but a positive velocity result does not establish SSH forecast skill or recover the missing SSH datum.
+Updated 2026-09-14. This campaign implements the user's latest scope: **velocities only, local DUACS, OM4 auxiliary data, original convolutional Samudra**. LLC is unavailable and deferred. The eventual objective remains DUACS SSH evolution, but a positive velocity result does not establish SSH forecast skill or recover the missing SSH datum.
 
 The Rust loader is merged **locally** with main on the experiment branch. Do not merge its GitHub PR as part of this campaign. A separate `codex/duacs-velocity-runtime` branch at `9cd36b1bdcf4921fb027494afa4157e217818ccd` supplies the container environment. Experiment source changes use immutable code overlays after exact lockfile checks.
 
@@ -48,7 +48,7 @@ Require the entire four-input/six-target window to fit within its split, and rej
 
 Use the repository's `UNetBackbone` and `ConvNeXtBlock` implementation. A DUACS 1×1 input/output adapter and an OM4 1×1 input/output adapter surround **one shared set of all U-Net weights**. The same OM4 adapters serve both resolutions. There are no Perceiver modules or learned fixed-grid positional embeddings.
 
-Pilot widths are `[64, 96, 128, 192]`, with four levels, twofold channel expansion, and dilation `[1,1,1,1]`. These are configurable original Samudra blocks. Using unit dilation keeps the regional context manageable; the standard `[1,2,4,8]` dilation stack has a much larger receptive field. Keep widths and dilation fixed across every screened arm. Checkpoint activations and use bfloat16 on A100.
+Pilot widths are `[64, 96, 128, 192]`, with four levels, twofold channel expansion, and dilation `[1,1,1,1]`. These are configurable original Samudra blocks. Using unit dilation keeps the regional context manageable; the standard `[1,2,4,8]` dilation stack has a much larger receptive field. Keep widths and dilation fixed across every screened arm. Checkpoint activations and use bfloat16.
 
 Inputs are four velocity pairs, four history-validity maps, spherical position (three channels), log physical dx/dy (two), a training wet mask, training mean velocity (two), four actual history offsets, seasonal sine/cosine, and next-step duration. The DUACS-only control has exactly the same target adapter/backbone capacity and conditioning.
 
@@ -217,3 +217,5 @@ D4 removes only the five explicit spherical-position and log-spacing channels. B
 The user authorized other available preemptible compute for faster results and clarified that the week was a wall-clock target. A fresh RTX6000 preflight reported immediate capacity. The four untouched pending seed-16/17 jobs were therefore replaced with requests without predecessor dependencies, preserving every run's seed, hardware family, immutable training source, and 128-GPU-hour target. This changes scheduling only, with at most six four-GPU training jobs and no added experimental runs or total target training work.
 
 Seed 15 retains `17685810`/`17685811`. Seed 16 is now `17756074`/`17756076`, and seed 17 is `17756078`/`17756079` (D0/D4 order). Evaluation controller `17756080` waits for all six. At verification, seed 16 was training successfully on gr101/gr102 alongside seed 15, while seed 17 waited at `QOSMaxGRESPerUser`. The scheduler's quota is respected; no QoS override was requested. Four concurrent runs put Wednesday, September 16 within reach for the report if seed 17 starts when the first pair releases capacity.
+
+The [intermediate scientific report dated September 14](velocity-transfer-interim-2026-09-14/report.md) records the completed screen, provisional seed results, validation learning curves, interpretation limits, and remaining work. It is a frozen snapshot; final held-out results are still pending.

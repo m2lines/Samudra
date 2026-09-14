@@ -1,0 +1,1024 @@
+{
+  "captured_at_utc": "2026-09-14T12:42:31.733910+00:00",
+  "campaign": {
+    "allocated_gpu_hours_at_last_gate": 2.472777777777778,
+    "allocated_gpu_hours_by_type_at_last_gate": {
+      "a100": 1.5494444444444444,
+      "rtx6000": 0.9233333333333333
+    },
+    "automatic_stages": [
+      "screen",
+      "confirm",
+      "evaluate",
+      "finish"
+    ],
+    "budget_gpu_hours": 1344,
+    "budget_is_hard_limit": false,
+    "budget_reference": "RTX6000 intended by user; other available preemptible accelerators authorized",
+    "budget_unit": "GPU-hours",
+    "code_commit": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+    "code_layer": "/scratch/jr7309/.apptainer-code-layers/samudra-code-c4f36fa6194f9af9334d7f9924aace7c2c9c33f2.img",
+    "compute_policy": "Aim for results within roughly one week of wall-clock time; GPU-hours are approximate sizing only, not a hard cutoff.",
+    "confirmation_scheduling_note": "User authorized available preemptible compute for faster results. All six confirmation runs retain their 128 GPU-hour targets and RTX6000 hardware; seed 16/17 jobs are released independently to available capacity instead of waiting for previous seeds. At most six four-GPU jobs, with unchanged total training work.",
+    "controller_code_commit": "be77378db5c3902c2fcd1b1f73e2516c0590c753",
+    "controller_path": "/scratch/jr7309/velocity-campaign-be77378d.py",
+    "controller_sha256": "8163dab22dd184d42b25e762f58a06f2929f6f45146f83ad3324a3c9d372f1f4",
+    "d0_migration": {
+      "checkpoint": "/scratch/jr7309/runs/velocity-transfer/screen-D0-s15/checkpoint.pt",
+      "new_job": "17428065",
+      "old_job": "17423438",
+      "stage": "submitted"
+    },
+    "d5_recovery": {
+      "attempt": 3,
+      "new_job": "17592843",
+      "old_job": "17574711",
+      "stage": "submitted"
+    },
+    "data_audit": {
+      "code_commit": "6f517589",
+      "output": "/scratch/jr7309/runs/velocity-transfer/data-audit.json",
+      "script": "/scratch/jr7309/velocity-data-audit-6f517589.py",
+      "sha256": "b87b2072b6fe4562705c723a228d2778dab005c12fe4224033ab472f3a22e4ad"
+    },
+    "gpu_account": "torch_pr_347_lzanna",
+    "gpu_constraint": "rtx6000",
+    "hardware_pilot_runs": [
+      "pilot-rtx6000-p2p-D3-s15"
+    ],
+    "hardware_transition": {
+      "from": "a100",
+      "gpu_model": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "nccl_environment": {
+        "NCCL_P2P_DISABLE": "1",
+        "TORCH_NCCL_ASYNC_ERROR_HANDLING": "1"
+      },
+      "retained_running_jobs": {
+        "screen-D0-s15": "17423438"
+      },
+      "retiring_jobs": [
+        "17423439",
+        "17423440",
+        "17423441",
+        "17423442",
+        "17423443",
+        "17423444"
+      ],
+      "status": "p2p_disabled_pilot_submitted",
+      "to": "rtx6000",
+      "utc": "2026-09-12T00:18:06.928025+00:00"
+    },
+    "jobs": {
+      "cached_sif_origin": "17410031",
+      "cancelled_pull_retry": "17414774",
+      "code_layer": "17415893",
+      "confirm": {
+        "D0:15": "17685810",
+        "D0:16": "17756074",
+        "D0:17": "17756078",
+        "D4:15": "17685811",
+        "D4:16": "17756076",
+        "D4:17": "17756079"
+      },
+      "controller_confirm": "17592844",
+      "controller_evaluate": "17756080",
+      "controller_screen": "17425403",
+      "data_audit": "17423457",
+      "hardware_pilots": {
+        "rtx6000": "17425402"
+      },
+      "pilots": {
+        "D0": "17415896",
+        "D3": "17415898"
+      },
+      "prepare": {
+        "duacs": "17415895",
+        "om4_1deg": "17415219",
+        "om4_quarterdeg": "17415220"
+      },
+      "screen": {
+        "D0:15": "17428065",
+        "D1:15": "17425534",
+        "D2:15": "17428066",
+        "D3:15": "17425536",
+        "D4:15": "17428067",
+        "D5:15": "17592843"
+      }
+    },
+    "max_parallel_training_gpus": 24,
+    "previous_staging_jobs": [
+      {
+        "code_layer": "17410101",
+        "controller_screen": "17412750",
+        "pilots": {
+          "D0": "17410105",
+          "D3": "17410106"
+        },
+        "prepare": {
+          "duacs": "17410102",
+          "om4_1deg": "17410103",
+          "om4_quarterdeg": "17410104"
+        },
+        "pull": "17410031"
+      },
+      {
+        "cached_sif_origin": "17410031",
+        "cancelled_pull_retry": "17414774",
+        "code_layer": "17415214",
+        "controller_screen": "17415223",
+        "pilots": {
+          "D0": "17415221",
+          "D3": "17415222"
+        },
+        "prepare": {
+          "duacs": "17415215",
+          "om4_1deg": "17415219",
+          "om4_quarterdeg": "17415220"
+        }
+      }
+    ],
+    "retired_controller_jobs": [
+      "17415899",
+      "17423444",
+      "17425089",
+      "17425540",
+      "17427657",
+      "17428069",
+      "17574712",
+      "17685816"
+    ],
+    "retired_gpu_jobs": [
+      {
+        "all_cancelled_before_start": true,
+        "gpu": "a100",
+        "job_ids": [
+          "17423439",
+          "17423440",
+          "17423441",
+          "17423442",
+          "17423443"
+        ],
+        "stage": "screen"
+      },
+      {
+        "gpu": "rtx6000",
+        "job_ids": [
+          "17425088"
+        ],
+        "reason": "Documented NCCL P2P hang: all four GPUs at 100 percent with about 1 GiB, no initial checkpoint or training steps.",
+        "stage": "hardware_pilot"
+      },
+      {
+        "gpu": "a100",
+        "job_ids": [
+          "17423438"
+        ],
+        "reason": "Preempted and pending; resume same checkpoint on available RTX6000 capacity.",
+        "stage": "screen"
+      },
+      {
+        "all_cancelled_before_start": true,
+        "gpu": "rtx6000",
+        "job_ids": [
+          "17425535",
+          "17425537"
+        ],
+        "reason": "Replace dependencies for D0 checkpoint migration; scheduler rejected holding the pending job.",
+        "stage": "screen"
+      },
+      {
+        "gpu": "rtx6000",
+        "job_ids": [
+          "17425539"
+        ],
+        "reason": "Slurm CANCELLED by 0 after 2h25m; reported QOSMaxGRESPerUser. Resume saved checkpoint through same scheduler route after accepted preflight.",
+        "stage": "screen"
+      },
+      {
+        "gpu": "rtx6000",
+        "job_ids": [
+          "17574711"
+        ],
+        "reason": "Second scheduler CANCELLED by 0 after 2h25m on gr102; no Python exception. Node exclusion request rejected by cluster. Continue saved checkpoint through normal scheduler placement.",
+        "stage": "screen"
+      },
+      {
+        "all_cancelled_before_start": true,
+        "gpu": "rtx6000",
+        "job_ids": [
+          "17685812",
+          "17685813",
+          "17685814",
+          "17685815"
+        ],
+        "reason": "Replace sequential dependencies to use available parallel capacity, preserving all training sizes and seeds.",
+        "stage": "confirm"
+      }
+    ],
+    "runtime_commit": "9cd36b1bdcf4921fb027494afa4157e217818ccd",
+    "schema_version": 1,
+    "screen_hardware_note": "D0 screening began on A100 and resumed its checkpoint on RTX6000 after preemption. D1-D5 selection uses RTX6000 throughout. Both arms of the final three-seed confirmation use RTX6000. The mixed-hardware D0 screen is not an equal-compute transfer comparison.",
+    "screen_not_submitted": false,
+    "screen_validation_rmse": {
+      "D0": 0.10212144009958771,
+      "D1": 0.1087401081806968,
+      "D2": 0.10365186005184211,
+      "D3": 0.10395320897342271,
+      "D4": 0.10251994910658659,
+      "D5": 0.12139208734685357
+    },
+    "selected_transfer_arm": "D4",
+    "sif_path": "/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif",
+    "source_preparation_commits": {
+      "duacs": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+      "om4_1deg": "488c572d09dfc20cd75030a33efcb226ca0d614e",
+      "om4_quarterdeg": "488c572d09dfc20cd75030a33efcb226ca0d614e"
+    },
+    "stage": "confirm",
+    "staging_recovery": {
+      "cache_cleanup": "OCI temporary image cache entries older than 30 days only",
+      "cached_sif_verified_revision": "9cd36b1bdcf4921fb027494afa4157e217818ccd",
+      "no_datasets_or_published_images_removed": true,
+      "publication": "hard link to verified cached SIF"
+    }
+  },
+  "snapshot_script_sha256": "80336c37810f65537facdc7c54651aed0306c176a73bd378a1e94d2cb7ac1105",
+  "runs": [
+    {
+      "name": "screen-D0-s15",
+      "stage": "screen",
+      "variant": "D0",
+      "seed": 15,
+      "job_id": "17428065",
+      "started": true,
+      "config": {
+        "data_root": "/scratch/jr7309/data/velocity-transfer-v1",
+        "output": "/scratch/jr7309/runs/velocity-transfer/screen-D0-s15",
+        "variant": "D0",
+        "seed": 15,
+        "gpu_hours": 48.0,
+        "max_updates": 1000000,
+        "validate_every": 256,
+        "checkpoint_every": 64,
+        "validation_count": 12,
+        "learning_rate": 0.0003,
+        "read_threads": 4,
+        "widths": [
+          64,
+          96,
+          128,
+          192
+        ],
+        "resume": true,
+        "wandb_mode": "online",
+        "world_size": 4,
+        "code_commit": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+        "rust_read_threads_per_rank": 4,
+        "cpu_workers": 0
+      },
+      "provenance": {
+        "SAMUDRA_CODE_COMMIT": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+        "SAMUDRA_CODE_REPO_URL": "https://github.com/m2lines/Samudra.git",
+        "SAMUDRA_CODE_LAYER_SHA256": "18f3a31e58a7b18cc9413a65f983ea64acf505af770f2981f745962e1a048f22",
+        "SAMUDRA_CONTAINER_GIT_COMMIT": "9cd36b1bdcf4921fb027494afa4157e217818ccd",
+        "SAMUDRA_CONTAINER_IMAGE_REF": "",
+        "SAMUDRA_CONTAINER_SIF_PATH": "/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif"
+      },
+      "complete": true,
+      "latest_training": {
+        "update": 94430,
+        "task": "duacs",
+        "train/loss": 0.011895932257175446,
+        "train/grad_norm": 0.05641723796725273,
+        "learning_rate": 3.060163929962348e-05,
+        "gpu_hours": 46.557404045064466,
+        "peak_rss_gib_rank0": 3.322620391845703,
+        "peak_cuda_gib_rank0": 5.103652000427246,
+        "exposure/duacs": 377720
+      },
+      "best_observed_validation": {
+        "validation/vector_rmse_5d": 0.05550627240945982,
+        "validation/persistence_rmse_5d": 0.09040817785353505,
+        "validation/skill_5d": 0.3860481017615215,
+        "validation/vector_rmse_10d": 0.10212144009958771,
+        "validation/persistence_rmse_10d": 0.15056903497299973,
+        "validation/skill_10d": 0.3217633352176277,
+        "validation/vector_rmse_20d": 0.1575537157951996,
+        "validation/persistence_rmse_20d": 0.20570422053232093,
+        "validation/skill_20d": 0.2340764064661267,
+        "validation/vector_rmse_30d": 0.1902590300014321,
+        "validation/persistence_rmse_30d": 0.2269714432987899,
+        "validation/skill_30d": 0.16174904104138255,
+        "preceding_training_update": 510,
+        "approx_training_gpu_hours": 0.362984086155581,
+        "approx_duacs_examples": 2040
+      },
+      "completion": {
+        "complete": true,
+        "update": 94434,
+        "gpu_hours": 46.56132177629327,
+        "best_validation_rmse_10d": 0.10212144009958771
+      },
+      "validation_history_count": 342
+    },
+    {
+      "name": "screen-D1-s15",
+      "stage": "screen",
+      "variant": "D1",
+      "seed": 15,
+      "job_id": "17425534",
+      "started": true,
+      "config": {
+        "data_root": "/scratch/jr7309/data/velocity-transfer-v1",
+        "output": "/scratch/jr7309/runs/velocity-transfer/screen-D1-s15",
+        "variant": "D1",
+        "seed": 15,
+        "gpu_hours": 48.0,
+        "max_updates": 1000000,
+        "validate_every": 256,
+        "checkpoint_every": 64,
+        "validation_count": 12,
+        "learning_rate": 0.0003,
+        "read_threads": 4,
+        "widths": [
+          64,
+          96,
+          128,
+          192
+        ],
+        "resume": false,
+        "wandb_mode": "online",
+        "world_size": 4,
+        "code_commit": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+        "rust_read_threads_per_rank": 4,
+        "cpu_workers": 0
+      },
+      "provenance": {
+        "SAMUDRA_CODE_COMMIT": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+        "SAMUDRA_CODE_REPO_URL": "https://github.com/m2lines/Samudra.git",
+        "SAMUDRA_CODE_LAYER_SHA256": "18f3a31e58a7b18cc9413a65f983ea64acf505af770f2981f745962e1a048f22",
+        "SAMUDRA_CONTAINER_GIT_COMMIT": "9cd36b1bdcf4921fb027494afa4157e217818ccd",
+        "SAMUDRA_CONTAINER_IMAGE_REF": "",
+        "SAMUDRA_CONTAINER_SIF_PATH": "/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif"
+      },
+      "complete": true,
+      "latest_training": {
+        "update": 139310,
+        "task": "duacs",
+        "train/loss": 0.01687043160200119,
+        "train/grad_norm": 0.022309891879558563,
+        "learning_rate": 3.060003800453485e-05,
+        "gpu_hours": 46.55931087347162,
+        "peak_rss_gib_rank0": 3.2610740661621094,
+        "peak_cuda_gib_rank0": 5.105734348297119,
+        "exposure/duacs": 334544,
+        "exposure/om4_1deg": 222696
+      },
+      "best_observed_validation": {
+        "validation/vector_rmse_5d": 0.05934192678869898,
+        "validation/persistence_rmse_5d": 0.0904081791481279,
+        "validation/skill_5d": 0.34362214405987423,
+        "validation/vector_rmse_10d": 0.1087401081806968,
+        "validation/persistence_rmse_10d": 0.15056903290012053,
+        "validation/skill_10d": 0.27780562784892693,
+        "validation/vector_rmse_20d": 0.16608206521395869,
+        "validation/persistence_rmse_20d": 0.20570422508417108,
+        "validation/skill_20d": 0.1926171416945841,
+        "validation/vector_rmse_30d": 0.19826821143539372,
+        "validation/persistence_rmse_30d": 0.2269714439863466,
+        "validation/skill_30d": 0.12646186695045003,
+        "preceding_training_update": 510,
+        "approx_training_gpu_hours": 0.1915005576496737,
+        "approx_duacs_examples": 1192
+      },
+      "completion": {
+        "complete": true,
+        "update": 139311,
+        "gpu_hours": 46.56034044678219,
+        "best_validation_rmse_10d": 0.1087401081806968
+      },
+      "validation_history_count": 504
+    },
+    {
+      "name": "screen-D2-s15",
+      "stage": "screen",
+      "variant": "D2",
+      "seed": 15,
+      "job_id": "17428066",
+      "started": true,
+      "config": {
+        "data_root": "/scratch/jr7309/data/velocity-transfer-v1",
+        "output": "/scratch/jr7309/runs/velocity-transfer/screen-D2-s15",
+        "variant": "D2",
+        "seed": 15,
+        "gpu_hours": 48.0,
+        "max_updates": 1000000,
+        "validate_every": 256,
+        "checkpoint_every": 64,
+        "validation_count": 12,
+        "learning_rate": 0.0003,
+        "read_threads": 4,
+        "widths": [
+          64,
+          96,
+          128,
+          192
+        ],
+        "resume": false,
+        "wandb_mode": "online",
+        "world_size": 4,
+        "code_commit": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+        "rust_read_threads_per_rank": 4,
+        "cpu_workers": 0
+      },
+      "provenance": {
+        "SAMUDRA_CODE_COMMIT": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+        "SAMUDRA_CODE_REPO_URL": "https://github.com/m2lines/Samudra.git",
+        "SAMUDRA_CODE_LAYER_SHA256": "18f3a31e58a7b18cc9413a65f983ea64acf505af770f2981f745962e1a048f22",
+        "SAMUDRA_CONTAINER_GIT_COMMIT": "9cd36b1bdcf4921fb027494afa4157e217818ccd",
+        "SAMUDRA_CONTAINER_IMAGE_REF": "",
+        "SAMUDRA_CONTAINER_SIF_PATH": "/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif"
+      },
+      "complete": true,
+      "latest_training": {
+        "update": 137380,
+        "task": "duacs",
+        "train/loss": 0.01966606266796589,
+        "train/grad_norm": 0.03769910708069801,
+        "learning_rate": 3.06024081273116e-05,
+        "gpu_hours": 46.556487206405336,
+        "peak_rss_gib_rank0": 3.3984222412109375,
+        "peak_cuda_gib_rank0": 5.105109691619873,
+        "exposure/duacs": 329728,
+        "exposure/om4_quarterdeg": 219792
+      },
+      "best_observed_validation": {
+        "validation/vector_rmse_5d": 0.056253164753712934,
+        "validation/persistence_rmse_5d": 0.0904081791481279,
+        "validation/skill_5d": 0.3777867745622241,
+        "validation/vector_rmse_10d": 0.10365186005184211,
+        "validation/persistence_rmse_10d": 0.15056903290012053,
+        "validation/skill_10d": 0.3115990847825978,
+        "validation/vector_rmse_20d": 0.15898559766321746,
+        "validation/persistence_rmse_20d": 0.20570422508417108,
+        "validation/skill_20d": 0.22711554612860796,
+        "validation/vector_rmse_30d": 0.19206095710505355,
+        "validation/persistence_rmse_30d": 0.2269714439863466,
+        "validation/skill_30d": 0.15381004001275633,
+        "preceding_training_update": 3580,
+        "approx_training_gpu_hours": 1.1840427431844485,
+        "approx_duacs_examples": 8416
+      },
+      "completion": {
+        "complete": true,
+        "update": 137389,
+        "gpu_hours": 46.560663223176576,
+        "best_validation_rmse_10d": 0.10365186005184211
+      },
+      "validation_history_count": 498
+    },
+    {
+      "name": "screen-D3-s15",
+      "stage": "screen",
+      "variant": "D3",
+      "seed": 15,
+      "job_id": "17425536",
+      "started": true,
+      "config": {
+        "data_root": "/scratch/jr7309/data/velocity-transfer-v1",
+        "output": "/scratch/jr7309/runs/velocity-transfer/screen-D3-s15",
+        "variant": "D3",
+        "seed": 15,
+        "gpu_hours": 48.0,
+        "max_updates": 1000000,
+        "validate_every": 256,
+        "checkpoint_every": 64,
+        "validation_count": 12,
+        "learning_rate": 0.0003,
+        "read_threads": 4,
+        "widths": [
+          64,
+          96,
+          128,
+          192
+        ],
+        "resume": false,
+        "wandb_mode": "online",
+        "world_size": 4,
+        "code_commit": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+        "rust_read_threads_per_rank": 4,
+        "cpu_workers": 0
+      },
+      "provenance": {
+        "SAMUDRA_CODE_COMMIT": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+        "SAMUDRA_CODE_REPO_URL": "https://github.com/m2lines/Samudra.git",
+        "SAMUDRA_CODE_LAYER_SHA256": "18f3a31e58a7b18cc9413a65f983ea64acf505af770f2981f745962e1a048f22",
+        "SAMUDRA_CONTAINER_GIT_COMMIT": "9cd36b1bdcf4921fb027494afa4157e217818ccd",
+        "SAMUDRA_CONTAINER_IMAGE_REF": "",
+        "SAMUDRA_CONTAINER_SIF_PATH": "/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif"
+      },
+      "complete": true,
+      "latest_training": {
+        "update": 135730,
+        "task": "duacs",
+        "train/loss": 0.020267926156520844,
+        "train/grad_norm": 0.03407740592956543,
+        "learning_rate": 3.0602456785846686e-05,
+        "gpu_hours": 46.55653458875604,
+        "peak_rss_gib_rank0": 3.4076004028320312,
+        "peak_cuda_gib_rank0": 5.107333183288574,
+        "exposure/duacs": 325840,
+        "exposure/om4_1deg": 108216,
+        "exposure/om4_quarterdeg": 108864
+      },
+      "best_observed_validation": {
+        "validation/vector_rmse_5d": 0.056598221331794894,
+        "validation/persistence_rmse_5d": 0.0904081791481279,
+        "validation/skill_5d": 0.37397012233746685,
+        "validation/vector_rmse_10d": 0.10395320897342271,
+        "validation/persistence_rmse_10d": 0.15056903290012053,
+        "validation/skill_10d": 0.309597684389859,
+        "validation/vector_rmse_20d": 0.15538761676475366,
+        "validation/persistence_rmse_20d": 0.20570422508417108,
+        "validation/skill_20d": 0.24460658646573075,
+        "validation/vector_rmse_30d": 0.18166795142476494,
+        "validation/persistence_rmse_30d": 0.2269714439863466,
+        "validation/skill_30d": 0.1995999662596626,
+        "preceding_training_update": 2560,
+        "approx_training_gpu_hours": 0.8794046388680322,
+        "approx_duacs_examples": 5996
+      },
+      "completion": {
+        "complete": true,
+        "update": 135736,
+        "gpu_hours": 46.560342711962555,
+        "best_validation_rmse_10d": 0.10395320897342271
+      },
+      "validation_history_count": 491
+    },
+    {
+      "name": "screen-D4-s15",
+      "stage": "screen",
+      "variant": "D4",
+      "seed": 15,
+      "job_id": "17428067",
+      "started": true,
+      "config": {
+        "data_root": "/scratch/jr7309/data/velocity-transfer-v1",
+        "output": "/scratch/jr7309/runs/velocity-transfer/screen-D4-s15",
+        "variant": "D4",
+        "seed": 15,
+        "gpu_hours": 48.0,
+        "max_updates": 1000000,
+        "validate_every": 256,
+        "checkpoint_every": 64,
+        "validation_count": 12,
+        "learning_rate": 0.0003,
+        "read_threads": 4,
+        "widths": [
+          64,
+          96,
+          128,
+          192
+        ],
+        "resume": false,
+        "wandb_mode": "online",
+        "world_size": 4,
+        "code_commit": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+        "rust_read_threads_per_rank": 4,
+        "cpu_workers": 0
+      },
+      "provenance": {
+        "SAMUDRA_CODE_COMMIT": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+        "SAMUDRA_CODE_REPO_URL": "https://github.com/m2lines/Samudra.git",
+        "SAMUDRA_CODE_LAYER_SHA256": "18f3a31e58a7b18cc9413a65f983ea64acf505af770f2981f745962e1a048f22",
+        "SAMUDRA_CONTAINER_GIT_COMMIT": "9cd36b1bdcf4921fb027494afa4157e217818ccd",
+        "SAMUDRA_CONTAINER_IMAGE_REF": "",
+        "SAMUDRA_CONTAINER_SIF_PATH": "/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif"
+      },
+      "complete": true,
+      "latest_training": {
+        "update": 134750,
+        "task": "duacs",
+        "train/loss": 0.022117238491773605,
+        "train/grad_norm": 0.03928687423467636,
+        "learning_rate": 3.060144157180272e-05,
+        "gpu_hours": 46.55768934660539,
+        "peak_rss_gib_rank0": 3.4063072204589844,
+        "peak_cuda_gib_rank0": 5.105513095855713,
+        "exposure/duacs": 323572,
+        "exposure/om4_1deg": 107436,
+        "exposure/om4_quarterdeg": 107992
+      },
+      "best_observed_validation": {
+        "validation/vector_rmse_5d": 0.05822107324237516,
+        "validation/persistence_rmse_5d": 0.0904081791481279,
+        "validation/skill_5d": 0.35601984476444626,
+        "validation/vector_rmse_10d": 0.10251994910658659,
+        "validation/persistence_rmse_10d": 0.15056903290012053,
+        "validation/skill_10d": 0.3191166395111745,
+        "validation/vector_rmse_20d": 0.14743998489990645,
+        "validation/persistence_rmse_20d": 0.20570422508417108,
+        "validation/skill_20d": 0.2832427975673507,
+        "validation/vector_rmse_30d": 0.17086731267181973,
+        "validation/persistence_rmse_30d": 0.2269714439863466,
+        "validation/skill_30d": 0.24718585884267363,
+        "preceding_training_update": 49150,
+        "approx_training_gpu_hours": 16.870140523842224,
+        "approx_duacs_examples": 118040
+      },
+      "completion": {
+        "complete": true,
+        "update": 134754,
+        "gpu_hours": 46.56073308599104,
+        "best_validation_rmse_10d": 0.10251994910658659
+      },
+      "validation_history_count": 489
+    },
+    {
+      "name": "screen-D5-s15",
+      "stage": "screen",
+      "variant": "D5",
+      "seed": 15,
+      "job_id": "17592843",
+      "started": true,
+      "config": {
+        "data_root": "/scratch/jr7309/data/velocity-transfer-v1",
+        "output": "/scratch/jr7309/runs/velocity-transfer/screen-D5-s15",
+        "variant": "D5",
+        "seed": 15,
+        "gpu_hours": 48.0,
+        "max_updates": 1000000,
+        "validate_every": 256,
+        "checkpoint_every": 64,
+        "validation_count": 12,
+        "learning_rate": 0.0003,
+        "read_threads": 4,
+        "widths": [
+          64,
+          96,
+          128,
+          192
+        ],
+        "resume": true,
+        "wandb_mode": "online",
+        "world_size": 4,
+        "code_commit": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+        "rust_read_threads_per_rank": 4,
+        "cpu_workers": 0
+      },
+      "provenance": {
+        "SAMUDRA_CODE_COMMIT": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+        "SAMUDRA_CODE_REPO_URL": "https://github.com/m2lines/Samudra.git",
+        "SAMUDRA_CODE_LAYER_SHA256": "18f3a31e58a7b18cc9413a65f983ea64acf505af770f2981f745962e1a048f22",
+        "SAMUDRA_CONTAINER_GIT_COMMIT": "9cd36b1bdcf4921fb027494afa4157e217818ccd",
+        "SAMUDRA_CONTAINER_IMAGE_REF": "",
+        "SAMUDRA_CONTAINER_SIF_PATH": "/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif"
+      },
+      "complete": true,
+      "latest_training": {
+        "update": 235590,
+        "task": "duacs",
+        "train/loss": 0.04088409245014191,
+        "train/grad_norm": 0.07550150901079178,
+        "learning_rate": 3.0602025591106467e-05,
+        "gpu_hours": 46.55692099214946,
+        "peak_rss_gib_rank0": 3.4674606323242188,
+        "peak_cuda_gib_rank0": 5.103668212890625,
+        "exposure/duacs": 222996,
+        "exposure/om4_1deg": 359656,
+        "exposure/om4_quarterdeg": 359708
+      },
+      "best_observed_validation": {
+        "validation/vector_rmse_5d": 0.06705218192079102,
+        "validation/persistence_rmse_5d": 0.0904081791481279,
+        "validation/skill_5d": 0.25833942733289217,
+        "validation/vector_rmse_10d": 0.12139208734685357,
+        "validation/persistence_rmse_10d": 0.15056903290012053,
+        "validation/skill_10d": 0.19377786382291096,
+        "validation/vector_rmse_20d": 0.18648638244934337,
+        "validation/persistence_rmse_20d": 0.20570422508417108,
+        "validation/skill_20d": 0.09342463737419127,
+        "validation/vector_rmse_30d": 0.22460849025372337,
+        "validation/persistence_rmse_30d": 0.2269714439863466,
+        "validation/skill_30d": 0.010410797460342125,
+        "preceding_training_update": 179960,
+        "approx_training_gpu_hours": 19.256720790634347,
+        "approx_duacs_examples": 476
+      },
+      "completion": {
+        "complete": true,
+        "update": 235598,
+        "gpu_hours": 46.56056814918812,
+        "best_validation_rmse_10d": 0.12139208734685357
+      },
+      "validation_history_count": 892
+    },
+    {
+      "name": "confirm-D0-s15",
+      "stage": "confirm",
+      "variant": "D0",
+      "seed": 15,
+      "job_id": "17685810",
+      "started": true,
+      "config": {
+        "data_root": "/scratch/jr7309/data/velocity-transfer-v1",
+        "output": "/scratch/jr7309/runs/velocity-transfer/confirm-D0-s15",
+        "variant": "D0",
+        "seed": 15,
+        "gpu_hours": 128.0,
+        "max_updates": 1000000,
+        "validate_every": 256,
+        "checkpoint_every": 64,
+        "validation_count": 12,
+        "learning_rate": 0.0003,
+        "read_threads": 4,
+        "widths": [
+          64,
+          96,
+          128,
+          192
+        ],
+        "resume": false,
+        "wandb_mode": "online",
+        "world_size": 4,
+        "code_commit": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+        "rust_read_threads_per_rank": 4,
+        "cpu_workers": 0
+      },
+      "provenance": {
+        "SAMUDRA_CODE_COMMIT": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+        "SAMUDRA_CODE_REPO_URL": "https://github.com/m2lines/Samudra.git",
+        "SAMUDRA_CODE_LAYER_SHA256": "18f3a31e58a7b18cc9413a65f983ea64acf505af770f2981f745962e1a048f22",
+        "SAMUDRA_CONTAINER_GIT_COMMIT": "9cd36b1bdcf4921fb027494afa4157e217818ccd",
+        "SAMUDRA_CONTAINER_IMAGE_REF": "",
+        "SAMUDRA_CONTAINER_SIF_PATH": "/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif"
+      },
+      "complete": false,
+      "latest_training": {
+        "update": 192890,
+        "task": "duacs",
+        "train/loss": 0.011251539923250675,
+        "train/grad_norm": 0.0486404187977314,
+        "learning_rate": 6.880291342376596e-05,
+        "gpu_hours": 96.31649128122463,
+        "peak_rss_gib_rank0": 3.239704132080078,
+        "peak_cuda_gib_rank0": 5.104376316070557,
+        "exposure/duacs": 771560
+      },
+      "best_observed_validation": {
+        "validation/vector_rmse_5d": 0.055507657932957255,
+        "validation/persistence_rmse_5d": 0.0904081791481279,
+        "validation/skill_5d": 0.38603278535217944,
+        "validation/vector_rmse_10d": 0.10212355425739385,
+        "validation/persistence_rmse_10d": 0.15056903290012053,
+        "validation/skill_10d": 0.3217492847607172,
+        "validation/vector_rmse_20d": 0.15737732967154738,
+        "validation/persistence_rmse_20d": 0.20570422508417108,
+        "validation/skill_20d": 0.2349338978956269,
+        "validation/vector_rmse_30d": 0.18996642291268823,
+        "validation/persistence_rmse_30d": 0.2269714439863466,
+        "validation/skill_30d": 0.16303822376829225,
+        "preceding_training_update": 510,
+        "approx_training_gpu_hours": 0.2672220451113147,
+        "approx_duacs_examples": 2040
+      },
+      "validation_history_count": 753
+    },
+    {
+      "name": "confirm-D0-s16",
+      "stage": "confirm",
+      "variant": "D0",
+      "seed": 16,
+      "job_id": "17756074",
+      "started": true,
+      "config": {
+        "data_root": "/scratch/jr7309/data/velocity-transfer-v1",
+        "output": "/scratch/jr7309/runs/velocity-transfer/confirm-D0-s16",
+        "variant": "D0",
+        "seed": 16,
+        "gpu_hours": 128.0,
+        "max_updates": 1000000,
+        "validate_every": 256,
+        "checkpoint_every": 64,
+        "validation_count": 12,
+        "learning_rate": 0.0003,
+        "read_threads": 4,
+        "widths": [
+          64,
+          96,
+          128,
+          192
+        ],
+        "resume": false,
+        "wandb_mode": "online",
+        "world_size": 4,
+        "code_commit": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+        "rust_read_threads_per_rank": 4,
+        "cpu_workers": 0
+      },
+      "provenance": {
+        "SAMUDRA_CODE_COMMIT": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+        "SAMUDRA_CODE_REPO_URL": "https://github.com/m2lines/Samudra.git",
+        "SAMUDRA_CODE_LAYER_SHA256": "18f3a31e58a7b18cc9413a65f983ea64acf505af770f2981f745962e1a048f22",
+        "SAMUDRA_CONTAINER_GIT_COMMIT": "9cd36b1bdcf4921fb027494afa4157e217818ccd",
+        "SAMUDRA_CONTAINER_IMAGE_REF": "",
+        "SAMUDRA_CONTAINER_SIF_PATH": "/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif"
+      },
+      "complete": false,
+      "latest_training": {
+        "update": 33150,
+        "task": "duacs",
+        "train/loss": 0.019102662801742554,
+        "train/grad_norm": 0.15384604036808014,
+        "learning_rate": 0.0002894802411389914,
+        "gpu_hours": 16.191357365538263,
+        "peak_rss_gib_rank0": 3.245635986328125,
+        "peak_cuda_gib_rank0": 5.104376316070557,
+        "exposure/duacs": 132600
+      },
+      "best_observed_validation": {
+        "validation/vector_rmse_5d": 0.05302043905968107,
+        "validation/persistence_rmse_5d": 0.0904081791481279,
+        "validation/skill_5d": 0.4135437793431218,
+        "validation/vector_rmse_10d": 0.09483022231565168,
+        "validation/persistence_rmse_10d": 0.15056903290012053,
+        "validation/skill_10d": 0.370187743859941,
+        "validation/vector_rmse_20d": 0.14216239244515438,
+        "validation/persistence_rmse_20d": 0.20570422508417108,
+        "validation/skill_20d": 0.30889901562797906,
+        "validation/vector_rmse_30d": 0.1679499253452394,
+        "validation/persistence_rmse_30d": 0.2269714439863466,
+        "validation/skill_30d": 0.26003940233405587,
+        "preceding_training_update": 760,
+        "approx_training_gpu_hours": 0.38891142413641017,
+        "approx_duacs_examples": 3040
+      },
+      "validation_history_count": 129
+    },
+    {
+      "name": "confirm-D0-s17",
+      "stage": "confirm",
+      "variant": "D0",
+      "seed": 17,
+      "job_id": "17756078",
+      "started": false,
+      "validation_history_count": 0
+    },
+    {
+      "name": "confirm-D4-s15",
+      "stage": "confirm",
+      "variant": "D4",
+      "seed": 15,
+      "job_id": "17685811",
+      "started": true,
+      "config": {
+        "data_root": "/scratch/jr7309/data/velocity-transfer-v1",
+        "output": "/scratch/jr7309/runs/velocity-transfer/confirm-D4-s15",
+        "variant": "D4",
+        "seed": 15,
+        "gpu_hours": 128.0,
+        "max_updates": 1000000,
+        "validate_every": 256,
+        "checkpoint_every": 64,
+        "validation_count": 12,
+        "learning_rate": 0.0003,
+        "read_threads": 4,
+        "widths": [
+          64,
+          96,
+          128,
+          192
+        ],
+        "resume": false,
+        "wandb_mode": "online",
+        "world_size": 4,
+        "code_commit": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+        "rust_read_threads_per_rank": 4,
+        "cpu_workers": 0
+      },
+      "provenance": {
+        "SAMUDRA_CODE_COMMIT": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+        "SAMUDRA_CODE_REPO_URL": "https://github.com/m2lines/Samudra.git",
+        "SAMUDRA_CODE_LAYER_SHA256": "18f3a31e58a7b18cc9413a65f983ea64acf505af770f2981f745962e1a048f22",
+        "SAMUDRA_CONTAINER_GIT_COMMIT": "9cd36b1bdcf4921fb027494afa4157e217818ccd",
+        "SAMUDRA_CONTAINER_IMAGE_REF": "",
+        "SAMUDRA_CONTAINER_SIF_PATH": "/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif"
+      },
+      "complete": false,
+      "latest_training": {
+        "update": 286170,
+        "task": "om4_1deg",
+        "train/loss": 0.034921757876873016,
+        "train/grad_norm": 0.066694475710392,
+        "learning_rate": 6.881625113606969e-05,
+        "gpu_hours": 96.31042573902549,
+        "peak_rss_gib_rank0": 3.4074783325195312,
+        "peak_cuda_gib_rank0": 5.105513095855713,
+        "exposure/duacs": 686920,
+        "exposure/om4_1deg": 229028,
+        "exposure/om4_quarterdeg": 228732
+      },
+      "best_observed_validation": {
+        "validation/vector_rmse_5d": 0.05761279593550138,
+        "validation/persistence_rmse_5d": 0.0904081791481279,
+        "validation/skill_5d": 0.362747967292798,
+        "validation/vector_rmse_10d": 0.10026464970459141,
+        "validation/persistence_rmse_10d": 0.15056903290012053,
+        "validation/skill_10d": 0.33409514710038923,
+        "validation/vector_rmse_20d": 0.14400754802446478,
+        "validation/persistence_rmse_20d": 0.20570422508417108,
+        "validation/skill_20d": 0.2999290706569636,
+        "validation/vector_rmse_30d": 0.1670922643642661,
+        "validation/persistence_rmse_30d": 0.2269714439863466,
+        "validation/skill_30d": 0.26381811989389514,
+        "preceding_training_update": 234750,
+        "approx_training_gpu_hours": 79.02469351072796,
+        "approx_duacs_examples": 562988
+      },
+      "validation_history_count": 1117
+    },
+    {
+      "name": "confirm-D4-s16",
+      "stage": "confirm",
+      "variant": "D4",
+      "seed": 16,
+      "job_id": "17756076",
+      "started": true,
+      "config": {
+        "data_root": "/scratch/jr7309/data/velocity-transfer-v1",
+        "output": "/scratch/jr7309/runs/velocity-transfer/confirm-D4-s16",
+        "variant": "D4",
+        "seed": 16,
+        "gpu_hours": 128.0,
+        "max_updates": 1000000,
+        "validate_every": 256,
+        "checkpoint_every": 64,
+        "validation_count": 12,
+        "learning_rate": 0.0003,
+        "read_threads": 4,
+        "widths": [
+          64,
+          96,
+          128,
+          192
+        ],
+        "resume": false,
+        "wandb_mode": "online",
+        "world_size": 4,
+        "code_commit": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+        "rust_read_threads_per_rank": 4,
+        "cpu_workers": 0
+      },
+      "provenance": {
+        "SAMUDRA_CODE_COMMIT": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+        "SAMUDRA_CODE_REPO_URL": "https://github.com/m2lines/Samudra.git",
+        "SAMUDRA_CODE_LAYER_SHA256": "18f3a31e58a7b18cc9413a65f983ea64acf505af770f2981f745962e1a048f22",
+        "SAMUDRA_CONTAINER_GIT_COMMIT": "9cd36b1bdcf4921fb027494afa4157e217818ccd",
+        "SAMUDRA_CONTAINER_IMAGE_REF": "",
+        "SAMUDRA_CONTAINER_SIF_PATH": "/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif"
+      },
+      "complete": false,
+      "latest_training": {
+        "update": 47910,
+        "task": "duacs",
+        "train/loss": 0.03427691385149956,
+        "train/grad_norm": 0.07811496406793594,
+        "learning_rate": 0.00028949197318896063,
+        "gpu_hours": 16.18220560860406,
+        "peak_rss_gib_rank0": 3.4238319396972656,
+        "peak_cuda_gib_rank0": 5.104656219482422,
+        "exposure/duacs": 114888,
+        "exposure/om4_1deg": 38280,
+        "exposure/om4_quarterdeg": 38472
+      },
+      "best_observed_validation": {
+        "validation/vector_rmse_5d": 0.05268194069656838,
+        "validation/persistence_rmse_5d": 0.0904081791481279,
+        "validation/skill_5d": 0.41728789150534207,
+        "validation/vector_rmse_10d": 0.09445492463971591,
+        "validation/persistence_rmse_10d": 0.15056903290012053,
+        "validation/skill_10d": 0.3726802728262705,
+        "validation/vector_rmse_20d": 0.14169123089727143,
+        "validation/persistence_rmse_20d": 0.20570422508417108,
+        "validation/skill_20d": 0.3111894962814036,
+        "validation/vector_rmse_30d": 0.16690681262995416,
+        "validation/persistence_rmse_30d": 0.2269714439863466,
+        "validation/skill_30d": 0.26463519067185215,
+        "preceding_training_update": 2810,
+        "approx_training_gpu_hours": 0.9655896018786977,
+        "approx_duacs_examples": 6548
+      },
+      "validation_history_count": 187
+    },
+    {
+      "name": "confirm-D4-s17",
+      "stage": "confirm",
+      "variant": "D4",
+      "seed": 17,
+      "job_id": "17756079",
+      "started": false,
+      "validation_history_count": 0
+    }
+  ]
+}

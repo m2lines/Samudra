@@ -47,6 +47,8 @@ Each D0–D4 pair has the same seed and training target. These are **best valida
 
 At those same selected checkpoints, the 30-day D0→D4 changes are **0.18997→0.16709 m/s for seed 15** (12.0% lower) and **0.16795→0.16691 m/s for seed 16** (0.6% lower). Seed 15 also has a short-lead tradeoff: D4 is about 3.8% worse at five days. Seed 16 is much less mature, so differences between seeds are provisional.
 
+D0's screening and confirmation seed-15 scores both round to 0.10212, but their unrounded values are 0.10212144 and 0.10212355 m/s. Separate checkpoint files both select update 512; the longer run has not improved its validation minimum. D0 and D4 have equal 128 GPU-hour confirmation targets, but their selected checkpoints need not have equal training exposure or update counts.
+
 ![Completed screening and provisional confirmation validation curves](validation-progress.png)
 
 ## Analysis so far

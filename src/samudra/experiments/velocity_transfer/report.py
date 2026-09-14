@@ -186,7 +186,11 @@ def write_report(root: Path, output: Path):
         "(+1/4° regional OM4), D3 (both), D4 (D3 without explicit position/spacing "
         "channels), and D5 (40% OM4 pretraining, then DUACS fine-tuning). Selection "
         "uses validation only. D0 and the selected arm are retrained at equal "
-        "128 GPU-hour target budgets with seeds 15/16/17. Checkpoints are selected "
+        "128 GPU-hour target budgets with seeds 15/16/17. All screens used seed 15 "
+        "and a 48 GPU-hour target. Confirmation seed 15 starts from scratch with "
+        "the same seed and a longer budget, including a stretched time-based cosine "
+        "learning-rate decay; it is not an independent new-seed replication of the "
+        "screen. Seeds 16 and 17 are new-seed replications. Checkpoints are selected "
         "on 12 fixed validation dates, checked every 256 updates during the first "
         "90% of each target training duration; final evaluation uses all eligible dates.",
         "",

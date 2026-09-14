@@ -37,6 +37,8 @@ Persistence on this cohort: **0.15057 m/s at 10 days**, and **0.22697 m/s at 30 
 
 Each D0–D4 pair has the same seed and training target. These are **best validation scores so far**, not final training states or test results. Progress is approximate model-training wall time on four GPUs, toward a roughly 31-hour run.
 
+**Seed and budget clarification:** all screening runs used seed 15 with a 48 GPU-hour target. Confirmation seed 15 restarts from scratch with the same seed and a 128 GPU-hour target (2.67× longer), which also stretches the time-based cosine learning-rate decay. For D4, the saved configurations differ only in that budget and the output directory; architecture, data, task mixture, optimizer settings and initial learning rate are unchanged. Seeds 16 and 17 provide new-seed replications at the longer budget. Confirmation seed 15 is therefore not an independent new-seed replication of the screen.
+
 | Seed | Progress per run | D0 10-day RMSE | D4 10-day RMSE | D4 improvement |
 | --- | --- | ---: | ---: | ---: |
 | 15 | ~24.1 / 31 h; running | 0.10212 | 0.10026 | +1.82% |

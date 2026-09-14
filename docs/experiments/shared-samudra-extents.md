@@ -83,7 +83,7 @@ Follow-up diagnostics within contingency: larger regional halos, unseen crop dim
 
 ## Compute and execution
 
-Scheduling target: **results within roughly one week of wall-clock time**. The original 1,344 GPU-hours is an approximate sizing guide, not a hard cutoff; the user explicitly clarified this on 2026-09-12 UTC. The user clarified on 2026-09-12 UTC that the intended reference was RTX6000, and authorized other available preemptible Torch GPUs. Record actual allocation by GPU family; do not call mixed GPU-hours A100-equivalent compute. Use at most two simultaneous four-GPU training allocations.
+Scheduling target: **results within roughly one week of wall-clock time**. The original 1,344 GPU-hours is an approximate sizing guide, not a hard cutoff; the user explicitly clarified this on 2026-09-12 UTC. The user clarified on 2026-09-12 UTC that the intended reference was RTX6000, and authorized other available preemptible Torch GPUs. Record actual allocation by GPU family; do not call mixed GPU-hours A100-equivalent compute. The initial schedule used two simultaneous four-GPU training allocations; confirmation concurrency was later increased using available capacity, with unchanged per-run sizes (see execution notes below).
 
 | Stage | GPU-hours |
 | --- | ---: |
@@ -211,3 +211,9 @@ Controller `17592844` completed and launched confirmation jobs `17685810`/`17685
 Checkpoint selection occurs every 256 updates during the first 90% of each target training duration; the loop ends at approximately 97%. The final report evaluates the selected validation checkpoints, not necessarily the final training states. This shared selection policy is retained across arms and seeds.
 
 D4 removes only the five explicit spherical-position and log-spacing channels. Both OM4 resolutions share the same 1×1 input adapter and output head, with no global/crop task token. Training-mean velocity maps and masks remain inputs, and global/crop grid shapes and boundary padding differ. Thus D4 retains indirect geographic cues; it is not a removal of all geographic information.
+
+### Concurrent confirmation seeds (2026-09-14 UTC)
+
+The user authorized other available preemptible compute for faster results and clarified that the week was a wall-clock target. A fresh RTX6000 preflight reported immediate capacity. The four untouched pending seed-16/17 jobs were therefore replaced with requests without predecessor dependencies, preserving every run's seed, hardware family, immutable training source, and 128-GPU-hour target. This changes scheduling only, with at most six four-GPU training jobs and no added experimental runs or total target training work.
+
+Seed 15 retains `17685810`/`17685811`. Seed 16 is now `17756074`/`17756076`, and seed 17 is `17756078`/`17756079` (D0/D4 order). Evaluation controller `17756080` waits for all six. At verification, seed 16 was training successfully on gr101/gr102 alongside seed 15, while seed 17 waited at `QOSMaxGRESPerUser`. The scheduler's quota is respected; no QoS override was requested. Four concurrent runs put Wednesday, September 16 within reach for the report if seed 17 starts when the first pair releases capacity.

@@ -62,6 +62,7 @@ def test_training_submission_uses_selected_gpu_family_and_account(
                 "runtime_commit": "abc",
                 "code_layer": "/code.img",
                 "gpu_constraint": "rtx6000",
+                "evaluation_gpu_constraint": "h100",
                 "gpu_account": "torch_pr_347_lzanna",
             }
         )
@@ -82,6 +83,44 @@ def test_training_submission_uses_selected_gpu_family_and_account(
     assert "--gres=gpu:4" in args
     assert env["GPUS_PER_NODE"] == "4"
     assert account == "torch_pr_347_lzanna"
+
+
+@pytest.mark.parametrize("evaluation_gpu", [None, "h100"])
+def test_evaluation_gpu_selection_preserves_existing_jobs(
+    tmp_path, monkeypatch, evaluation_gpu
+):
+    path = tmp_path / "runs/campaign/campaign.json"
+    path.parent.mkdir(parents=True)
+    manifest = {
+        "jobs": {"evaluate": {"validation:D0:15": "existing"}},
+        "selected_transfer_arm": "D4",
+        "sif_path": "/runtime.sif",
+        "runtime_commit": "abc",
+        "code_layer": "/code.img",
+        "gpu_constraint": "rtx6000",
+        "gpu_account": "torch_pr_347_lzanna",
+    }
+    if evaluation_gpu:
+        manifest["evaluation_gpu_constraint"] = evaluation_gpu
+    path.write_text(json.dumps(manifest))
+    campaign = velocity_campaign.Campaign(path)
+    monkeypatch.setattr(velocity_campaign, "completed_run", lambda path: (0.1, []))
+    calls = []
+
+    def submit(name, args, env=None, account=None):
+        calls.append((name, args, env, account))
+        return str(len(calls))
+
+    monkeypatch.setattr(campaign, "submit", submit)
+    monkeypatch.setattr(campaign, "next_stage", lambda stage, dependencies: None)
+    campaign.evaluate()
+    assert len(calls) == 11
+    assert campaign.manifest["jobs"]["evaluate"]["validation:D0:15"] == "existing"
+    for _, args, env, account in calls:
+        assert f"--constraint={evaluation_gpu or 'rtx6000'}" in args
+        assert "--gres=gpu:1" in args
+        assert env["GPUS_PER_NODE"] == "1"
+        assert account == "torch_pr_347_lzanna"
 
 
 def test_screen_waits_for_pilots_and_limits_parallel_training_to_two_lanes(

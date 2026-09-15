@@ -326,7 +326,11 @@ class Campaign:
                     ]
                     prior = list(jobs.values())[-8] if len(jobs) >= 8 else None
                     sbatch = [
-                        "--constraint=" + self.manifest.get("gpu_constraint", "a100"),
+                        "--constraint="
+                        + self.manifest.get(
+                            "evaluation_gpu_constraint",
+                            self.manifest.get("gpu_constraint", "a100"),
+                        ),
                         "--gres=gpu:1",
                         "--nodes=1",
                         "--ntasks=1",

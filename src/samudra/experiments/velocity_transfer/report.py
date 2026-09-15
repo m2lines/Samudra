@@ -206,6 +206,7 @@ def write_report(root: Path, output: Path):
         ),
         "",
         campaign.get("screen_hardware_note", ""),
+        campaign.get("evaluation_hardware_note", ""),
         "",
         "Training ends 2018-09-30; validation spans 2019-04-01–2020-09-30; test "
         "spans 2021-04-01–2022-12-31 subject to archive coverage. Each full history "

@@ -182,6 +182,17 @@ def write_report(root: Path, output: Path):
         "coarsened from 1/8° to 1/4°; OM4 geostrophic velocities are derived from SSH "
         "on the 1° global grid and 1/4° regional crops. No Perceiver or LLC data are used.",
         "",
+        "DUACS contributes only 280 overlapping training windows: four input maps "
+        "and two target maps per window, sampled with replacement. The training "
+        "split contains 289 five-day timesteps (2014-10-20 through 2018-09-30); "
+        "285 distinct maps occur in optimization windows. The shared 30-day "
+        "eligibility rule leaves four additional end-of-split maps unused by the "
+        "10-day training objective. Each map covers the global 1/4° grid. The "
+        "two OM4 resolutions each provide 4,426 eligible windows from the same "
+        "1958–2018 trajectory. More updates therefore mostly repeat existing "
+        "dates, rather than adding independent temporal samples. No external "
+        "wind-stress or heat-flux forcing is supplied.",
+        "",
         "The six-arm screen compares D0 (DUACS only), D1 (+1° global OM4), D2 "
         "(+1/4° regional OM4), D3 (both), D4 (D3 without explicit position/spacing "
         "channels), and D5 (40% OM4 pretraining, then DUACS fine-tuning). Selection "

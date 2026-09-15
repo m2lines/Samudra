@@ -1,0 +1,46 @@
+{
+  "checkpoint": "/tmp/velocity-quicklook-local/best.pt",
+  "checkpoint_sha256": "5f4734308b91ecbe024a8ae58965d5a692235fda08debbdc7c1f018d58135836",
+  "checkpoint_update": 512,
+  "config": {
+    "data_root": "/scratch/jr7309/data/velocity-transfer-v1",
+    "output": "/scratch/jr7309/runs/velocity-transfer/confirm-D0-s15",
+    "variant": "D0",
+    "seed": 15,
+    "gpu_hours": 128.0,
+    "max_updates": 1000000,
+    "validate_every": 256,
+    "checkpoint_every": 64,
+    "validation_count": 12,
+    "learning_rate": 0.0003,
+    "read_threads": 4,
+    "widths": [
+      64,
+      96,
+      128,
+      192
+    ],
+    "resume": false,
+    "wandb_mode": "online",
+    "world_size": 4,
+    "code_commit": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+    "rust_read_threads_per_rank": 4,
+    "cpu_workers": 0
+  },
+  "anchor_index": 328,
+  "selection": "First eligible validation anchor with an exact ten-day lead",
+  "history_dates": [
+    "2019-04-03",
+    "2019-04-08",
+    "2019-04-13",
+    "2019-04-18"
+  ],
+  "initial_date": "2019-04-18",
+  "target_date": "2019-04-28",
+  "lead_days": 10,
+  "precision": "GPU bfloat16",
+  "device": "NVIDIA GB10",
+  "global_vector_rmse_m_per_s": 0.10183948327695282,
+  "global_persistence_rmse_m_per_s": 0.14986231947790768,
+  "valid_cells": 624500
+}

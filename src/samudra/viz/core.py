@@ -94,6 +94,7 @@ class Viz:
 
         groundtruth_rollout = self._with_cell_areas(groundtruth_rollout)
 
+
         # This function processes the ds_groundtruth and predictions for plotting
         # The predictions are loaded into pred_dict
         data, pred_dict = process_data(

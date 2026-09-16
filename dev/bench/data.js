@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789591944652,
+  "lastUpdate": 1789591951855,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -24109,6 +24109,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.10056609586830441",
             "extra": "mean: 41.1066891166 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "alex@openathena.ai",
+            "name": "Alex Merose",
+            "username": "alxmrs"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "868dec0a6324b64d98d199db96f117cdb1d4c043",
+          "message": "Document the September 2026 OM4 data release (#880)\n\n## Summary\n\n- mark `v2026-09` as the canonical processed OM4 release and document\nall 12 averaged, filtered, and snapshot datasets\n- explain freshwater forcing and snapshot timing semantics, plus the\nintended filtered/unfiltered multi-scale pairing\n- **additional human context**: The documented note on the intention for\nwhat data to use for multi-scale modeling is useful to review (it was a\nrecommendation from Laure and Alistair).\n- update the shipped OM4 demo, generated Colab quickstart, SkyPilot\ndefaults, configuration docs, and normalization example to use the\nSeptember release\n- point `clone_data.py` at the canonical Samudra namespace and fix its\nexisting missing `.zarr` suffix\n- document all filtered preprocessing and normalization commands\n\nObservation data remains pinned to `v2026-07/obs`; this PR changes the\ncanonical OM4 release only.\n\n## Verification\n\n- confirmed public HTTP 200 access to `.zmetadata` for all 36 stores (12\ndatasets × data/means/stds)\n- `uvx pre-commit run --all-files`\n- `python -m pytest tests/test_clone_data.py\ntests/test_quickstart_config.py -q`\n- `python scripts/build_quickstart_notebook.py --check`",
+          "timestamp": "2026-09-16T20:08:36Z",
+          "tree_id": "f28def414a3aa28a1e61b40280b0de5ec1818da9",
+          "url": "https://github.com/m2lines/Samudra/commit/868dec0a6324b64d98d199db96f117cdb1d4c043"
+        },
+        "date": 1789591951446,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.1824516459534518,
+            "unit": "iter/sec",
+            "range": "stddev: 0.001094871469812291",
+            "extra": "mean: 845.7005437999669 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.08223466639645502,
+            "unit": "iter/sec",
+            "range": "stddev: 0.09880844832273712",
+            "extra": "mean: 12.160321720999992 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.02339765578655319,
+            "unit": "iter/sec",
+            "range": "stddev: 1.7982521027843312",
+            "extra": "mean: 42.73932436319999 sec\nrounds: 5"
           }
         ]
       }

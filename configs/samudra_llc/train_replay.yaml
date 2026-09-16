@@ -17,6 +17,7 @@ replay:
   steps_per_epoch: 4204
   max_lead_steps: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
   max_lead_transition: [6, 11, 16, 21, 26, 31, 36, 41, 46]
+  max_state_sigma: 50.0
   checkpoint_buffer: true
 loss:
   type: [gradient_h, gradient_z] # gradient_h # 

@@ -80,6 +80,22 @@ def _is_packed_train_ready(data: xr.Dataset) -> bool:
     )
 
 
+def _packed_pre_normalized(data: xr.Dataset) -> bool:
+    """Whether this cache already holds z-scored values.
+
+    `build_llc_face_cache.py` applies the z-score in float32 before the float16
+    cast, which is worth ~79x on deep Salt (see `DataSource.pre_normalized`).
+    Such a store must not be normalized again at load time, and the attr is the
+    only thing that says so -- the values themselves look like plausible data
+    either way, and a double normalization is silent: it flattens every channel
+    towards zero and shows up only as a model that will not converge.
+    """
+    value = data.attrs.get("pre_normalized", False)
+    if isinstance(value, str):
+        return value.strip().lower() in {"true", "1", "yes"}
+    return bool(value)
+
+
 def _packed_channel_names(data: xr.Dataset, prefix: str) -> list[str]:
     attr_name = f"{prefix}_channel_names_json"
     raw = data.attrs.get(attr_name)
@@ -373,6 +389,17 @@ class DataSource:
     #: ~1.5 GiB per sample to deliver 8 MiB. `filter(prefix="boundary")` is the
     #: whole hand-off.
     boundary_source: "DataSource | None" = None
+    #: True when the store already holds z-scored values, so the load path must
+    #: NOT normalize again. Set from the cache's own `pre_normalized` attr, never
+    #: from config, so a store and its reader cannot disagree.
+    #:
+    #: `build_llc_face_cache.py` normalizes in float32 and only then casts to
+    #: float16, because float16 carries relative precision: Salt sits at
+    #: ~34.6 psu, where the float16 step is 7.7% of a standard deviation at
+    #: depth, against a uniform 0.098% once the channel is centred. `means` and
+    #: `stds` still carry the true statistics, so `Normalize.unnormalize_*` and
+    #: everything downstream of it keep returning physical units.
+    pre_normalized: bool = False
 
     @cached_property
     def is_compact(self) -> bool:
@@ -607,6 +634,20 @@ class DataSource:
         norm = norm.to(data.dtype)
         return norm
 
+    def normalized(
+        self, data: torch.Tensor, variable_axis: int = 0, fill_value: float = 0.0
+    ) -> torch.Tensor:
+        """`normalize_with`, or a no-op when the store is already normalized.
+
+        A pre-normalized store has its NaNs already resolved at build time, so
+        the fill that `normalize_with` folds in has nothing left to do either.
+        """
+        if self.pre_normalized:
+            return data
+        return self.normalize_with(
+            data, variable_axis=variable_axis, fill_value=fill_value
+        )
+
     @classmethod
     def from_locations(
         cls,
@@ -826,6 +867,7 @@ class DataSource:
             },
             spatial_features=spatial_features,
             cell_area=_packed_cell_area(data),
+            pre_normalized=_packed_pre_normalized(data),
         )
 
     @classmethod
@@ -875,6 +917,7 @@ class DataSource:
             masks=Masks(boundary_mask, boundary_mask),
             packed_channel_names={"boundary": selected},
             native_store=native_store,
+            pre_normalized=_packed_pre_normalized(data),
         )
 
     @classmethod

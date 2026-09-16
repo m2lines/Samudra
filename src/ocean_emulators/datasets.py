@@ -213,9 +213,22 @@ class InferenceDataset(Dataset):
         append_spatial_features_to_inputs: bool = False,
         append_valid_mask: bool = False,
         log_long_rollout: bool = True,
+        predicted_eta_boundary: bool = False,
     ):
         super().__init__()
         self.device = get_device()
+        # Eta is both a prognostic and a boundary channel. Off, the boundary
+        # slot carries truth at every rollout step, so SSH error never
+        # accumulates. On, it carries the model's own Eta and the rollout is
+        # genuinely free-running. Both channels share a mean/std and a mask, so
+        # the copy needs no rescaling.
+        self._eta_sub = (
+            (boundary_var_names.index("Eta"), prognostic_var_names.index("Eta"))
+            if predicted_eta_boundary
+            and "Eta" in boundary_var_names
+            and "Eta" in prognostic_var_names
+            else None
+        )
 
         self.hist = hist
         self.append_spatial_features_to_inputs = append_spatial_features_to_inputs
@@ -324,6 +337,10 @@ class InferenceDataset(Dataset):
         if boundary is None:
             boundary = self._get_boundary(step)
         boundary = boundary.to(prognostic.device)
+        eta_sub = getattr(self, "_eta_sub", None)
+        if eta_sub is not None:
+            boundary = boundary.clone()
+            boundary[:, eta_sub[0]] = prognostic[:, eta_sub[1]]
         data = torch.cat((prognostic, boundary), dim=1)
         return self.append_static_channels(data)
 
@@ -418,12 +435,12 @@ class InferenceDataset(Dataset):
         array = _dataset_to_numpy(selected, ("time",))
         # [window, time, variable, lat, lon]
         tensor = torch.from_numpy(array).float().unflatten(0, (times.shape[0], -1))
-        if self.normalize_before_mask:
-            tensor = source.normalize_with(tensor, variable_axis=2)
+        if self.normalize_before_mask or source.pre_normalized:
+            tensor = source.normalized(tensor, variable_axis=2)
             tensor = torch.where(mask, tensor, self.masked_fill_value)
         else:
             tensor = torch.where(mask, tensor, self.masked_fill_value)
-            tensor = source.normalize_with(tensor, variable_axis=2)
+            tensor = source.normalized(tensor, variable_axis=2)
         return rearrange(
             tensor,
             "window_dim time variable lat lon -> window_dim (time variable) lat lon",
@@ -732,6 +749,11 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         data = src.data
         self._prognostic_src = src.filter(prognostic_var_names, prefix="prognostic")
         self._boundary_src = src.filter(boundary_var_names, prefix="boundary")
+        # Read off the stores themselves, and separately: with
+        # `data.boundary_data_location` the two halves can come from different
+        # caches, only one of which is pre-normalized.
+        self._prognostic_pre_normalized: bool = self._prognostic_src.pre_normalized
+        self._boundary_pre_normalized: bool = self._boundary_src.pre_normalized
 
         # Opt-in native reader (`data.loader_backend='rust'`). All None on every
         # other path, and every use of them below is guarded, so the xarray
@@ -1050,7 +1072,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             device=state.device,
             dtype=torch.bool,
         )
-        if self.normalize_before_mask:
+        if self.normalize_before_mask or self._prognostic_pre_normalized:
             fill = torch.full_like(state, self.masked_fill_value)
         else:
             fill_value = (
@@ -1097,6 +1119,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             self.prognostic_means,
             self.prognostic_stds,
             self.wet,
+            self._prognostic_pre_normalized,
         )
         if boundary_steps is not None:
             boundary_steps = self._normalize_and_mask_steps(
@@ -1104,6 +1127,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
                 self.boundary_means,
                 self.boundary_stds,
                 self.wet_surface,
+                self._boundary_pre_normalized,
             )
 
         prognostic_steps = self._flatten_steps(prognostic_steps)
@@ -1122,6 +1146,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             self.boundary_means,
             self.boundary_stds,
             self.wet_surface,
+            self._boundary_pre_normalized,
         )
         return self._flatten_steps(boundary_steps)
 
@@ -1135,7 +1160,20 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         means: torch.Tensor,
         stds: torch.Tensor,
         mask: torch.Tensor,
+        pre_normalized: bool = False,
     ) -> torch.Tensor:
+        """Z-score and mask one half of a sample, in that order by default.
+
+        A pre-normalized store (see `DataSource.pre_normalized`) skips the
+        z-score outright -- doing it twice would divide every channel by its std
+        a second time and flatten the field towards zero. Only the mask is left,
+        and it goes on exactly as it does under `normalize_before_mask`, which is
+        the order such a store was written in: the builder normalized, resolved
+        NaNs to 0 and only then cast to float16, so applying the fill afterwards
+        reproduces the same tensor this path has always produced.
+        """
+        if pre_normalized:
+            return torch.where(mask, tensor, self.masked_fill_value)
         if self.normalize_before_mask:
             tensor = self._normalize_steps(tensor, means, stds)
         tensor = torch.where(mask, tensor, self.masked_fill_value)

@@ -175,6 +175,7 @@ class Eval:
             )
         self.load_checkpoint(cfg.ckpt_path)
         self.apply_ablation(cfg.ablation)
+        self.predicted_eta_boundary = cfg.ablation.predicted_eta_boundary
 
         self.network = self.model.__class__.__name__
 
@@ -392,6 +393,7 @@ class Eval:
             inference_stride=self.inference_stride,
             append_spatial_features_to_inputs=self.spatial_features,
             append_valid_mask=self.valid_mask,
+            predicted_eta_boundary=self.predicted_eta_boundary,
         )
 
     def run(self) -> None:

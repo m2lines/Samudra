@@ -202,6 +202,11 @@ BOUNDARY_VARS: dict[str, BoundaryVarNames] = {
     # A separate key rather than an extra entry in "all", so existing
     # checkpoints keep their 4-channel boundary and their num_in.
     "all_fw": ["oceTAUX", "oceTAUY", "oceQnet", "Eta", "oceFWflx"],
+    # `all_fw` without Eta: pure atmospheric forcing. Eta stays a prognostic, so
+    # the model must carry sea surface height forward itself instead of being
+    # handed the true field every step. Used for runs that must be free-running
+    # in SSH; not checkpoint-compatible with `all_fw` (one fewer input channel).
+    "all_fw_noeta": ["oceTAUX", "oceTAUY", "oceQnet", "oceFWflx"],
 }
 
 DEFAULT_METADATA = {

@@ -1071,6 +1071,18 @@ class ReplayConfig(BaseConfig):
             "Epochs where max_lead_steps advances to the next curriculum value."
         ),
     )
+    max_state_sigma: float = Field(
+        default=0.0,
+        description=(
+            "Reject a replay write-back whose predicted state is non-finite or "
+            "exceeds this many standard deviations, reseeding that slot from "
+            "real data instead. States are normalized, so healthy values sit "
+            "within a few sigma; a diverging rollout runs away exponentially "
+            "and, once stored, feeds itself as the next initial condition. "
+            "0 disables the range check (non-finite states are always "
+            "rejected). 50 is a safe starting point."
+        ),
+    )
     blend_before_backward: bool = Field(
         default=False,
         description=(
@@ -1465,6 +1477,16 @@ class EvalAblationConfig(BaseConfig):
             "Comma-separated U-Net skip indices for drop_indices/keep_indices. "
             "Index 0 is the shallowest/highest-resolution skip; larger indices "
             "move deeper/lower-resolution."
+        ),
+    )
+    predicted_eta_boundary: bool = Field(
+        default=False,
+        description=(
+            "Feed the model's own predicted Eta into the Eta boundary channel "
+            "during autoregression instead of truth. Off (default) re-anchors "
+            "SSH to truth every step, so SSH error cannot accumulate; on makes "
+            "the rollout free-running in Eta. No effect unless Eta is both a "
+            "prognostic and a boundary variable."
         ),
     )
     disable_convnext_block_residuals: bool = Field(

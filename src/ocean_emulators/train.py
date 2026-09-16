@@ -1247,6 +1247,8 @@ class Trainer:
         self.replay_cfg = cfg.replay
         self.replay_enabled = cfg.replay.enabled
         self.replay_buffer: ReplayBuffer | None = None
+        self._nonfinite_grad_steps = 0
+        self._diverged_writebacks = 0
         self.replay_resume_checkpoint_path = (
             Path(cfg.resume_ckpt_path)
             if cfg.resume_ckpt_path is not None and not cfg.finetune
@@ -1747,10 +1749,30 @@ class Trainer:
 
             # Step optimizer after accumulating enough batches or at the end
             if sync_gradients:
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
-                self.optimizer.step()
+                grad_norm = torch.nn.utils.clip_grad_norm_(
+                    self.model.parameters(), 1.0
+                )
+                if torch.isfinite(grad_norm):
+                    self.optimizer.step()
+                    self._ema(model=self.model)
+                else:
+                    # `clip_grad_norm_` scales every gradient by
+                    # `max_norm / (total_norm + eps)`. A single non-finite
+                    # gradient makes `total_norm` non-finite, so that factor is
+                    # NaN and stepping here would write NaN into *every*
+                    # parameter and into all Adam moments -- unrecoverably.
+                    # Dropping the batch instead lets training continue.
+                    self._nonfinite_grad_steps += 1
+                    logger.warning(
+                        "Non-finite gradient norm (%s) at epoch %s, batch %s: "
+                        "skipping optimizer step and EMA update (%s skipped so "
+                        "far this run).",
+                        grad_norm,
+                        epoch,
+                        self.num_batches_seen,
+                        self._nonfinite_grad_steps,
+                    )
                 self.optimizer.zero_grad()
-                self._ema(model=self.model)
 
             lr = (
                 self.optimizer.param_groups[-1]["lr"]
@@ -1995,7 +2017,12 @@ class Trainer:
                 scaled_loss.backward()
 
             logging_output = self._materialize_train_output(TO)
-            cap_refreshes, scheduled_refreshes = self.apply_replay_prefetch_updates(
+            (
+                cap_refreshes,
+                scheduled_refreshes,
+                diverged_reseeds,
+                diverged_holds,
+            ) = self.apply_replay_prefetch_updates(
                 prepared,
                 pred,
             )
@@ -2007,10 +2034,30 @@ class Trainer:
             self.num_batches_seen += 1
 
             if sync_gradients:
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
-                self.optimizer.step()
+                grad_norm = torch.nn.utils.clip_grad_norm_(
+                    self.model.parameters(), 1.0
+                )
+                if torch.isfinite(grad_norm):
+                    self.optimizer.step()
+                    self._ema(model=self.model)
+                else:
+                    # `clip_grad_norm_` scales every gradient by
+                    # `max_norm / (total_norm + eps)`. A single non-finite
+                    # gradient makes `total_norm` non-finite, so that factor is
+                    # NaN and stepping here would write NaN into *every*
+                    # parameter and into all Adam moments -- unrecoverably.
+                    # Dropping the batch instead lets training continue.
+                    self._nonfinite_grad_steps += 1
+                    logger.warning(
+                        "Non-finite gradient norm (%s) at epoch %s, batch %s: "
+                        "skipping optimizer step and EMA update (%s skipped so "
+                        "far this run).",
+                        grad_norm,
+                        epoch,
+                        self.num_batches_seen,
+                        self._nonfinite_grad_steps,
+                    )
                 self.optimizer.zero_grad()
-                self._ema(model=self.model)
 
             lr = (
                 self.optimizer.param_groups[-1]["lr"]
@@ -2048,6 +2095,8 @@ class Trainer:
                     "train/batch/replay_buffer_size": len(self.replay_buffer),
                     "train/batch/replay_cap_refreshes": cap_refreshes,
                     "train/batch/replay_scheduled_refreshes": scheduled_refreshes,
+                    "train/batch/replay_diverged_reseeds": diverged_reseeds,
+                    "train/batch/replay_diverged_holds": diverged_holds,
                     **get_channel_loss_dict(
                         label="train", loss_per_channel=loss_per_channel_reduce
                     ),
@@ -2674,6 +2723,23 @@ class Trainer:
         else:
             entry.ready_event.synchronize()
 
+    def _replay_state_diverged(self, state: torch.Tensor) -> bool:
+        """True when a predicted state is unfit to become a replay seed.
+
+        Replay states are normalized, so a healthy field sits within a few
+        standard deviations. A rollout that has started to run away leaves that
+        range long before it reaches the float limits -- catching it here keeps
+        the bad state out of the buffer, where it would otherwise be resampled
+        as an initial condition and amplified on every pass.
+        """
+        if not torch.isfinite(state).all():
+            return True
+        replay_cfg = getattr(self, "replay_cfg", None)
+        max_sigma = getattr(replay_cfg, "max_state_sigma", 0.0) or 0.0
+        if max_sigma <= 0:
+            return False
+        return bool(state.abs().max() > max_sigma)
+
     def _stage_replay_state_for_buffer(
         self,
         state: torch.Tensor,
@@ -2813,6 +2879,8 @@ class Trainer:
 
         cap_refreshes = 0
         scheduled_refreshes = 0
+        diverged_reseeds = 0
+        diverged_holds = 0
         seed_reasons = {
             slot.replay_index: slot.reason for slot in prepared.request.seed_slots
         }
@@ -2851,6 +2919,30 @@ class Trainer:
                             dataset.remask_prognostic_state(reconciled[tile_index])
                         )
                 state = self._stack_tile_states(tile_states)
+                if self._replay_state_diverged(state):
+                    # Storing this would make a diverged rollout the next
+                    # initial condition, which is the feedback loop that drives
+                    # the training loss up exponentially until it overflows.
+                    # Prefer a fresh seed; otherwise keep the previous entry,
+                    # which is still a valid state at an earlier cursor.
+                    self._diverged_writebacks += 1
+                    if seed_entry is not None:
+                        self.replay_buffer.replace(slot.replay_index, seed_entry)
+                        diverged_reseeds += 1
+                    else:
+                        diverged_holds += 1
+                    logger.warning(
+                        "Replay slot %s diverged (|state|max=%.4g, finite=%s); "
+                        "%s instead of storing it (%s diverged write-backs so "
+                        "far this run).",
+                        slot.replay_index,
+                        state.abs().max().item(),
+                        bool(torch.isfinite(state).all()),
+                        "reseeded from data" if seed_entry is not None else
+                        "held previous entry",
+                        self._diverged_writebacks,
+                    )
+                    continue
                 self.replay_buffer.replace(
                     slot.replay_index,
                     self._stage_replay_state_for_buffer(
@@ -2866,7 +2958,7 @@ class Trainer:
                 self.replay_buffer.replace(slot.replay_index, seed_entry)
                 scheduled_refreshes += 1
 
-        return cap_refreshes, scheduled_refreshes
+        return cap_refreshes, scheduled_refreshes, diverged_reseeds, diverged_holds
 
     def _remask_local_replay_state(
         self,
@@ -4426,6 +4518,27 @@ class Trainer:
                 )
         else:
             model_state_dict = self._model_state_dict_for_save()
+
+        nonfinite = [
+            name
+            for name, tensor in model_state_dict.items()
+            if torch.is_tensor(tensor)
+            and tensor.is_floating_point()
+            and not torch.isfinite(tensor).all()
+        ]
+        if nonfinite:
+            # Writing NaN weights here is how a diverged run poisons every
+            # later resume: the emergency checkpoint looks valid and silently
+            # carries NaN into the next job. Keep whatever is already on disk.
+            logger.error(
+                "Refusing to write %s: %s of %s model tensors are non-finite "
+                "(first: %s). Leaving the existing checkpoint intact.",
+                checkpoint_path,
+                len(nonfinite),
+                len(model_state_dict),
+                nonfinite[0],
+            )
+            return
 
         # Create temporary file in the same directory as the target
         temp_dir = os.path.dirname(checkpoint_path)

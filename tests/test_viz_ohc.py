@@ -15,6 +15,109 @@ from samudra.constants import build_om4_layout
 from samudra.viz import core
 
 
+@pytest.fixture
+def constructor_inputs():
+    layout = build_om4_layout()
+    nodes, latitude_weights = np.polynomial.legendre.leggauss(4)
+    lat = np.rad2deg(np.arcsin(nodes))
+    lon = [60.0, 180.0, 300.0]
+    # Gaussian quadrature gives exact cell areas on this Gaussian grid;
+    # one mean latitude spacing does not describe these cells.
+    areas = np.broadcast_to(
+        latitude_weights[:, None] * 2 * np.pi * 6371000**2 / 3, (4, 3)
+    ).copy()
+    temperature = np.broadcast_to(
+        np.array([1.0, 2.0])[:, None, None, None], (2, 19, 4, 3)
+    ).copy()
+    truth = xr.Dataset(
+        {
+            "thetao": (("time", "lev", "y", "x"), temperature),
+            "wetmask": (("lev", "y", "x"), np.ones((19, 4, 3), dtype=bool)),
+            "areacello": (("y", "x"), areas),
+        },
+        coords={
+            "time": pd.date_range("2001-01-01", periods=2, freq="5D"),
+            "lev": list(layout.depth_levels),
+            "y": lat,
+            "x": lon,
+        },
+    )
+    basins = xr.Dataset(
+        {
+            f"basin_{name}": (("lat", "lon"), np.ones((4, 3)))
+            for name in ["atlantic", "pacific", "indian", "southern", "arctic"]
+        },
+        coords={"lat": lat, "lon": lon},
+    )
+    return truth, basins, areas
+
+
+def build_viz(truth, basins, tmp_path):
+    prediction = truth[["thetao"]].rename({"y": "lat", "x": "lon"})
+    return core.Viz(
+        str(tmp_path),
+        "truth",
+        [core.VizRun("model", prediction, ["thetao"])],
+        basins,
+        truth,
+        slice(None),
+    )
+
+
+@pytest.mark.parametrize("as_coordinate", [False, True])
+@pytest.mark.parametrize("transpose_area", [False, True])
+def test_constructor_preserves_source_areas(
+    constructor_inputs, tmp_path, monkeypatch, as_coordinate, transpose_area
+):
+    truth, basins, areas = constructor_inputs
+    if transpose_area:
+        truth["areacello"] = truth.areacello.transpose("x", "y")
+    if as_coordinate:
+        truth = truth.set_coords("areacello")
+    original = truth.copy(deep=True)
+
+    def reject_approximation(*args):
+        pytest.fail("Source cell areas must not be replaced by an approximation")
+
+    monkeypatch.setattr(core, "spherical_area", reject_approximation)
+    viz = build_viz(truth, basins, tmp_path)
+    xr.testing.assert_identical(truth, original)
+    for data in [viz.data, viz.pred_dict["model"]["ds_prediction"]]:
+        np.testing.assert_array_equal(data.areacello_spherical, areas)
+        assert float(data.areacello.sum()) == pytest.approx(1.0)
+
+    monkeypatch.setattr(plt, "savefig", lambda *args, **kwargs: None)
+    try:
+        viz.step_ohc_noanomaly_plots()
+        expected_zj = (
+            4
+            * np.pi
+            * 6371000**2
+            * sum(viz.data_layout.depth_thickness)
+            * 1025
+            * 3850
+            / 1e21
+        )
+        lines = {line.get_label(): line for line in plt.gca().lines}
+        for label in ("truth", "model"):
+            np.testing.assert_allclose(
+                np.asarray(lines[label].get_ydata(), dtype=float), [0.0, expected_zj]
+            )
+    finally:
+        plt.close("all")
+
+
+def test_constructor_derives_areas_when_source_has_none(constructor_inputs, tmp_path):
+    truth, basins, _ = constructor_inputs
+    truth = truth.drop_vars("areacello").assign_coords(y=[-67.5, -22.5, 22.5, 67.5])
+    basins = basins.assign_coords(lat=truth.y.values)
+    viz = build_viz(truth, basins, tmp_path)
+    # Uniform latitude/longitude cells tile a complete sphere.
+    assert float(viz.data.areacello_spherical.sum()) == pytest.approx(
+        4 * np.pi * 6371000**2
+    )
+
+
 @pytest.fixture(params=[1.0, 7.0], ids=["original-area", "seven-times-area"])
 def ocean(request, tmp_path, monkeypatch):
     # Five wet columns and one land column. Changing physical area must scale

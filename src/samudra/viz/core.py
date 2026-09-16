@@ -90,14 +90,21 @@ class Viz:
             )
             groundtruth_rollout = groundtruth_rollout.rename({"y": "lat", "x": "lon"})
 
+        # Save the source's physical areas before `areacello` becomes normalized
+        # mean weights. Gaussian latitude spacing is nonuniform, so source areas
+        # are more accurate than the uniform-spacing spherical approximation.
+        if "areacello" in groundtruth_rollout:
+            cell_areas = groundtruth_rollout["areacello"].transpose("lat", "lon").data
+        else:
+            cell_areas = spherical_area(groundtruth_rollout)
+
         groundtruth_rollout = groundtruth_rollout.assign(
             areacello=(["lat", "lon"], spherical_area_weights(groundtruth_rollout))
         )
 
-        # Compute real grid cell areas for physical calculations
         groundtruth_rollout["areacello_spherical"] = (
             ["lat", "lon"],
-            spherical_area(groundtruth_rollout),
+            cell_areas,
         )
 
         # This function processes the ds_groundtruth and predictions for plotting

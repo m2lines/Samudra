@@ -117,7 +117,10 @@ def write(root, output):
         "",
     ]
     output.mkdir(parents=True)
-    frame.to_csv(output / "validation-exposure.csv.gz", index=False)
+    for (variant, seed), group in frame.groupby(["variant", "seed"]):
+        group.to_csv(
+            output / f"validation-exposure-{variant}-s{seed}.csv.xz", index=False
+        )
     table.to_csv(output / "matched-exposure.csv", index=False)
     (output / "report.md").write_text("\n".join(text))
     (output / "provenance.json").write_text(

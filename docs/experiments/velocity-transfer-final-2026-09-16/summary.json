@@ -1,0 +1,830 @@
+{
+  "campaign": {
+    "allocated_gpu_hours_at_last_gate": 1035.1522222222216,
+    "allocated_gpu_hours_by_type_at_last_gate": {
+      "a100": 2.217222222222222,
+      "h100": 0.08499999999999999,
+      "rtx6000": 1032.8499999999992
+    },
+    "automatic_stages": [
+      "screen",
+      "confirm",
+      "evaluate",
+      "finish"
+    ],
+    "budget_gpu_hours": 1344,
+    "budget_is_hard_limit": false,
+    "budget_reference": "RTX6000 intended by user; other available preemptible accelerators authorized",
+    "budget_unit": "GPU-hours",
+    "code_commit": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+    "code_layer": "/scratch/jr7309/.apptainer-code-layers/samudra-code-c4f36fa6194f9af9334d7f9924aace7c2c9c33f2.img",
+    "comparisons": {
+      "test": "/scratch/jr7309/runs/velocity-transfer/test-comparison.json",
+      "validation": "/scratch/jr7309/runs/velocity-transfer/validation-comparison.json"
+    },
+    "compute_policy": "Aim for results within roughly one week of wall-clock time; GPU-hours are approximate sizing only, not a hard cutoff.",
+    "confirmation_scheduling_note": "User authorized available preemptible compute for faster results. All six confirmation runs retain their 128 GPU-hour targets and RTX6000 hardware; seed 16/17 jobs are released independently to available capacity instead of waiting for previous seeds. At most six four-GPU jobs, with unchanged total training work.",
+    "controller_code_commit": "112cf79c88e2c356bbf862242c3ff40880aa15ca",
+    "controller_path": "/scratch/jr7309/velocity-campaign-112cf79c.py",
+    "controller_sha256": "eb60cb426d9b9e160e7bbd8e367ff00097fb13c03cb6dc82837ffbf03ab30361",
+    "d0_migration": {
+      "checkpoint": "/scratch/jr7309/runs/velocity-transfer/screen-D0-s15/checkpoint.pt",
+      "new_job": "17428065",
+      "old_job": "17423438",
+      "stage": "submitted"
+    },
+    "d5_recovery": {
+      "attempt": 3,
+      "new_job": "17592843",
+      "old_job": "17574711",
+      "stage": "submitted"
+    },
+    "data_audit": {
+      "code_commit": "6f517589",
+      "output": "/scratch/jr7309/runs/velocity-transfer/data-audit.json",
+      "script": "/scratch/jr7309/velocity-data-audit-6f517589.py",
+      "sha256": "b87b2072b6fe4562705c723a228d2778dab005c12fe4224033ab472f3a22e4ad"
+    },
+    "evaluation_gpu_constraint": "rtx6000",
+    "evaluation_hardware_note": "Full validation/test evaluation uses one H100 for seed 15 and one RTX PRO 6000 Blackwell for seeds 16 and 17. D0 and D4 use the same evaluation hardware within each seed pair. All evaluation code, BF16 precision, checkpoints, and cohorts are unchanged. Unstarted H100 seed16/17 jobs were replaced because their predicted start moved beyond the maintenance deadline.",
+    "evaluation_scheduling_note": "User reported Torch maintenance September 16 at 07:00 ET. Queue the unchanged full validation/test evaluations for completed seed-15 checkpoints during remaining training to reduce the final evaluation tail. No added evaluations or changes to model selection; remaining seeds retain fixed training protocols.",
+    "gpu_account": "torch_pr_347_lzanna",
+    "gpu_constraint": "rtx6000",
+    "hardware_pilot_runs": [
+      "pilot-rtx6000-p2p-D3-s15"
+    ],
+    "hardware_transition": {
+      "from": "a100",
+      "gpu_model": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+      "nccl_environment": {
+        "NCCL_P2P_DISABLE": "1",
+        "TORCH_NCCL_ASYNC_ERROR_HANDLING": "1"
+      },
+      "retained_running_jobs": {
+        "screen-D0-s15": "17423438"
+      },
+      "retiring_jobs": [
+        "17423439",
+        "17423440",
+        "17423441",
+        "17423442",
+        "17423443",
+        "17423444"
+      ],
+      "status": "p2p_disabled_pilot_submitted",
+      "to": "rtx6000",
+      "utc": "2026-09-12T00:18:06.928025+00:00"
+    },
+    "jobs": {
+      "cached_sif_origin": "17410031",
+      "cancelled_pull_retry": "17414774",
+      "code_layer": "17415893",
+      "confirm": {
+        "D0:15": "17685810",
+        "D0:16": "17858031",
+        "D0:17": "17756078",
+        "D4:15": "17802486",
+        "D4:16": "17869487",
+        "D4:17": "17829971"
+      },
+      "controller_confirm": "17592844",
+      "controller_evaluate": "17869488",
+      "controller_finish": "17888644",
+      "controller_screen": "17425403",
+      "data_audit": "17423457",
+      "evaluate": {
+        "test:D0:15": "17859577",
+        "test:D0:16": "17887842",
+        "test:D0:17": "17888643",
+        "test:D4:15": "17859578",
+        "test:D4:16": "17887844",
+        "test:D4:17": "17887846",
+        "validation:D0:15": "17859574",
+        "validation:D0:16": "17887841",
+        "validation:D0:17": "17888642",
+        "validation:D4:15": "17859576",
+        "validation:D4:16": "17887843",
+        "validation:D4:17": "17887845"
+      },
+      "hardware_pilots": {
+        "rtx6000": "17425402"
+      },
+      "pilots": {
+        "D0": "17415896",
+        "D3": "17415898"
+      },
+      "prepare": {
+        "duacs": "17415895",
+        "om4_1deg": "17415219",
+        "om4_quarterdeg": "17415220"
+      },
+      "screen": {
+        "D0:15": "17428065",
+        "D1:15": "17425534",
+        "D2:15": "17428066",
+        "D3:15": "17425536",
+        "D4:15": "17428067",
+        "D5:15": "17592843"
+      }
+    },
+    "maintenance_starts_utc": "2026-09-16T11:00:00Z",
+    "max_parallel_training_gpus": 24,
+    "previous_staging_jobs": [
+      {
+        "code_layer": "17410101",
+        "controller_screen": "17412750",
+        "pilots": {
+          "D0": "17410105",
+          "D3": "17410106"
+        },
+        "prepare": {
+          "duacs": "17410102",
+          "om4_1deg": "17410103",
+          "om4_quarterdeg": "17410104"
+        },
+        "pull": "17410031"
+      },
+      {
+        "cached_sif_origin": "17410031",
+        "cancelled_pull_retry": "17414774",
+        "code_layer": "17415214",
+        "controller_screen": "17415223",
+        "pilots": {
+          "D0": "17415221",
+          "D3": "17415222"
+        },
+        "prepare": {
+          "duacs": "17415215",
+          "om4_1deg": "17415219",
+          "om4_quarterdeg": "17415220"
+        }
+      }
+    ],
+    "retired_controller_jobs": [
+      "17415899",
+      "17423444",
+      "17425089",
+      "17425540",
+      "17427657",
+      "17428069",
+      "17574712",
+      "17685816",
+      "17756080",
+      "17802487",
+      "17819437",
+      "17829972",
+      "17838336",
+      "17858033",
+      {
+        "job_id": "17859579",
+        "reason": "D4 seed16 failed validation collective on gr105; checkpoint recovery"
+      }
+    ],
+    "retired_gpu_jobs": [
+      {
+        "all_cancelled_before_start": true,
+        "gpu": "a100",
+        "job_ids": [
+          "17423439",
+          "17423440",
+          "17423441",
+          "17423442",
+          "17423443"
+        ],
+        "stage": "screen"
+      },
+      {
+        "gpu": "rtx6000",
+        "job_ids": [
+          "17425088"
+        ],
+        "reason": "Documented NCCL P2P hang: all four GPUs at 100 percent with about 1 GiB, no initial checkpoint or training steps.",
+        "stage": "hardware_pilot"
+      },
+      {
+        "gpu": "a100",
+        "job_ids": [
+          "17423438"
+        ],
+        "reason": "Preempted and pending; resume same checkpoint on available RTX6000 capacity.",
+        "stage": "screen"
+      },
+      {
+        "all_cancelled_before_start": true,
+        "gpu": "rtx6000",
+        "job_ids": [
+          "17425535",
+          "17425537"
+        ],
+        "reason": "Replace dependencies for D0 checkpoint migration; scheduler rejected holding the pending job.",
+        "stage": "screen"
+      },
+      {
+        "gpu": "rtx6000",
+        "job_ids": [
+          "17425539"
+        ],
+        "reason": "Slurm CANCELLED by 0 after 2h25m; reported QOSMaxGRESPerUser. Resume saved checkpoint through same scheduler route after accepted preflight.",
+        "stage": "screen"
+      },
+      {
+        "gpu": "rtx6000",
+        "job_ids": [
+          "17574711"
+        ],
+        "reason": "Second scheduler CANCELLED by 0 after 2h25m on gr102; no Python exception. Node exclusion request rejected by cluster. Continue saved checkpoint through normal scheduler placement.",
+        "stage": "screen"
+      },
+      {
+        "all_cancelled_before_start": true,
+        "gpu": "rtx6000",
+        "job_ids": [
+          "17685812",
+          "17685813",
+          "17685814",
+          "17685815"
+        ],
+        "reason": "Replace sequential dependencies to use available parallel capacity, preserving all training sizes and seeds.",
+        "stage": "confirm"
+      },
+      {
+        "job_ids": [
+          "17685811"
+        ],
+        "reason": "Cluster cancelled D4 seed 15 at 123.49 GPU-hours; resume remaining duration from checkpoint with unchanged 128 GPU-hour target."
+      },
+      {
+        "job_ids": [
+          "17756076"
+        ],
+        "reason": "Cluster cancelled D4 seed 16 at 45.22 GPU-hours; resume remaining duration from checkpoint with unchanged 128 GPU-hour target."
+      },
+      {
+        "job_ids": [
+          "17819436"
+        ],
+        "reason": "Cluster cancelled D4 seed 16 without requeue; resume recent checkpoint under normal scheduling with unchanged 128 GPU-hour training target."
+      },
+      {
+        "job_ids": [
+          "17756079"
+        ],
+        "reason": "Cluster cancelled D4 seed 17 without requeue; resume recent checkpoint under normal scheduling with unchanged 128 GPU-hour training target."
+      },
+      {
+        "job_ids": [
+          "17829970"
+        ],
+        "reason": "Cluster cancelled D4 seed 16 at 74.71 GPU-hours without requeue; resume same checkpoint and training target under normal scheduling."
+      },
+      {
+        "job_ids": [
+          "17756074"
+        ],
+        "reason": "Cluster cancelled D0 seed 16 without requeue; resume recent checkpoint under normal scheduling with unchanged 128 GPU-hour training target."
+      },
+      {
+        "job_ids": [
+          "17838335"
+        ],
+        "reason": "Cluster cancelled D4 seed 16 without requeue; resume recent checkpoint under normal scheduling with unchanged 128 GPU-hour training target."
+      },
+      {
+        "job_ids": [
+          "17858615",
+          "17858616",
+          "17858613",
+          "17858614"
+        ],
+        "reason": "Unstarted RTX6000 seed-15 evaluation requests replaced with H100 requests after immediate-capacity preflight; same account and evaluation protocol, ahead of maintenance."
+      },
+      {
+        "job_ids": [
+          "17858032"
+        ],
+        "reason": "FAILED during validation with NCCL collective timeout and empty validation target; retry unchanged from checkpoint"
+      },
+      {
+        "job_ids": [
+          "17876664",
+          "17876665",
+          "17885757",
+          "17885758"
+        ],
+        "reason": "Unstarted H100 evaluations rerouted to available RTX6000 capacity before maintenance; D0/D4 remain hardware matched within each seed"
+      }
+    ],
+    "runtime_commit": "9cd36b1bdcf4921fb027494afa4157e217818ccd",
+    "schema_version": 1,
+    "screen_hardware_note": "D0 screening began on A100 and resumed its checkpoint on RTX6000 after preemption. D1-D5 selection uses RTX6000 throughout. Both arms of the final three-seed confirmation use RTX6000. The mixed-hardware D0 screen is not an equal-compute transfer comparison.",
+    "screen_not_submitted": false,
+    "screen_validation_rmse": {
+      "D0": 0.10212144009958771,
+      "D1": 0.1087401081806968,
+      "D2": 0.10365186005184211,
+      "D3": 0.10395320897342271,
+      "D4": 0.10251994910658659,
+      "D5": 0.12139208734685357
+    },
+    "selected_transfer_arm": "D4",
+    "sif_path": "/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif",
+    "source_preparation_commits": {
+      "duacs": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+      "om4_1deg": "488c572d09dfc20cd75030a33efcb226ca0d614e",
+      "om4_quarterdeg": "488c572d09dfc20cd75030a33efcb226ca0d614e"
+    },
+    "stage": "complete",
+    "staging_recovery": {
+      "cache_cleanup": "OCI temporary image cache entries older than 30 days only",
+      "cached_sif_verified_revision": "9cd36b1bdcf4921fb027494afa4157e217818ccd",
+      "no_datasets_or_published_images_removed": true,
+      "publication": "hard link to verified cached SIF"
+    }
+  },
+  "comparisons": {
+    "validation": [
+      {
+        "region": "global_outside_5deg",
+        "nominal_lead_days": 5,
+        "control_vector_rmse": 0.054920917375896196,
+        "candidate_vector_rmse": 0.05619910421021661,
+        "improvement_percent": -2.327322439958701,
+        "paired_block_ci_low": -5.594498874806523,
+        "paired_block_ci_high": 0.5944559767488056,
+        "seed_pairs": 3,
+        "quarter_blocks": 6,
+        "dates_per_seed": 101
+      },
+      {
+        "region": "global_outside_5deg",
+        "nominal_lead_days": 10,
+        "control_vector_rmse": 0.09973612388010776,
+        "candidate_vector_rmse": 0.09921678187416144,
+        "improvement_percent": 0.52071605125803,
+        "paired_block_ci_low": -2.241768352936635,
+        "paired_block_ci_high": 3.603741342181413,
+        "seed_pairs": 3,
+        "quarter_blocks": 6,
+        "dates_per_seed": 101
+      },
+      {
+        "region": "global_outside_5deg",
+        "nominal_lead_days": 20,
+        "control_vector_rmse": 0.15122549764409265,
+        "candidate_vector_rmse": 0.14445644234501226,
+        "improvement_percent": 4.476133591579423,
+        "paired_block_ci_low": -0.12997401583657195,
+        "paired_block_ci_high": 10.062647565671341,
+        "seed_pairs": 3,
+        "quarter_blocks": 6,
+        "dates_per_seed": 101
+      },
+      {
+        "region": "global_outside_5deg",
+        "nominal_lead_days": 30,
+        "control_vector_rmse": 0.18229034346056303,
+        "candidate_vector_rmse": 0.1685869715707308,
+        "improvement_percent": 7.517332860145087,
+        "paired_block_ci_low": 0.5763385066222879,
+        "paired_block_ci_high": 14.993551167073264,
+        "seed_pairs": 3,
+        "quarter_blocks": 6,
+        "dates_per_seed": 101
+      },
+      {
+        "region": "gulf_stream",
+        "nominal_lead_days": 5,
+        "control_vector_rmse": 0.09504991227508883,
+        "candidate_vector_rmse": 0.09869617911359659,
+        "improvement_percent": -3.8361601302218107,
+        "paired_block_ci_low": -8.133795308157676,
+        "paired_block_ci_high": 2.426501562608225,
+        "seed_pairs": 3,
+        "quarter_blocks": 6,
+        "dates_per_seed": 101
+      },
+      {
+        "region": "gulf_stream",
+        "nominal_lead_days": 10,
+        "control_vector_rmse": 0.16051611198447616,
+        "candidate_vector_rmse": 0.16209282567257707,
+        "improvement_percent": -0.9822775225538871,
+        "paired_block_ci_low": -4.285744523615431,
+        "paired_block_ci_high": 2.6652378291375727,
+        "seed_pairs": 3,
+        "quarter_blocks": 6,
+        "dates_per_seed": 101
+      },
+      {
+        "region": "gulf_stream",
+        "nominal_lead_days": 20,
+        "control_vector_rmse": 0.23086460581271925,
+        "candidate_vector_rmse": 0.22559279487176415,
+        "improvement_percent": 2.2835076526332765,
+        "paired_block_ci_low": -0.6825669694940695,
+        "paired_block_ci_high": 4.388590522279619,
+        "seed_pairs": 3,
+        "quarter_blocks": 6,
+        "dates_per_seed": 101
+      },
+      {
+        "region": "gulf_stream",
+        "nominal_lead_days": 30,
+        "control_vector_rmse": 0.26732946026353327,
+        "candidate_vector_rmse": 0.25715690618491616,
+        "improvement_percent": 3.8052499221705727,
+        "paired_block_ci_low": 0.37703310863449474,
+        "paired_block_ci_high": 7.320276528053259,
+        "seed_pairs": 3,
+        "quarter_blocks": 6,
+        "dates_per_seed": 101
+      },
+      {
+        "region": "kuroshio",
+        "nominal_lead_days": 5,
+        "control_vector_rmse": 0.07929823184965477,
+        "candidate_vector_rmse": 0.08349643603029729,
+        "improvement_percent": -5.294196456488565,
+        "paired_block_ci_low": -10.395550803303156,
+        "paired_block_ci_high": 1.594596746647519,
+        "seed_pairs": 3,
+        "quarter_blocks": 6,
+        "dates_per_seed": 101
+      },
+      {
+        "region": "kuroshio",
+        "nominal_lead_days": 10,
+        "control_vector_rmse": 0.1391396917205339,
+        "candidate_vector_rmse": 0.14246864834223374,
+        "improvement_percent": -2.392528386785675,
+        "paired_block_ci_low": -6.788798414503973,
+        "paired_block_ci_high": 1.6958282288570152,
+        "seed_pairs": 3,
+        "quarter_blocks": 6,
+        "dates_per_seed": 101
+      },
+      {
+        "region": "kuroshio",
+        "nominal_lead_days": 20,
+        "control_vector_rmse": 0.20714726135805595,
+        "candidate_vector_rmse": 0.20340011691252205,
+        "improvement_percent": 1.8089278231185224,
+        "paired_block_ci_low": -2.207155499798605,
+        "paired_block_ci_high": 5.736890565379617,
+        "seed_pairs": 3,
+        "quarter_blocks": 6,
+        "dates_per_seed": 101
+      },
+      {
+        "region": "kuroshio",
+        "nominal_lead_days": 30,
+        "control_vector_rmse": 0.2524823149942363,
+        "candidate_vector_rmse": 0.24057580490807987,
+        "improvement_percent": 4.715779830531197,
+        "paired_block_ci_low": 0.418285497184881,
+        "paired_block_ci_high": 10.27813993396256,
+        "seed_pairs": 3,
+        "quarter_blocks": 6,
+        "dates_per_seed": 101
+      },
+      {
+        "region": "north_pacific_gyre",
+        "nominal_lead_days": 5,
+        "control_vector_rmse": 0.03574768366460391,
+        "candidate_vector_rmse": 0.034909738057273584,
+        "improvement_percent": 2.3440556741863183,
+        "paired_block_ci_low": -3.1017162599827968,
+        "paired_block_ci_high": 9.803101282760345,
+        "seed_pairs": 3,
+        "quarter_blocks": 6,
+        "dates_per_seed": 101
+      },
+      {
+        "region": "north_pacific_gyre",
+        "nominal_lead_days": 10,
+        "control_vector_rmse": 0.07252486601977726,
+        "candidate_vector_rmse": 0.07009150070572888,
+        "improvement_percent": 3.355215180107751,
+        "paired_block_ci_low": -4.331558700779109,
+        "paired_block_ci_high": 12.960313521273282,
+        "seed_pairs": 3,
+        "quarter_blocks": 6,
+        "dates_per_seed": 101
+      },
+      {
+        "region": "north_pacific_gyre",
+        "nominal_lead_days": 20,
+        "control_vector_rmse": 0.12075083295461732,
+        "candidate_vector_rmse": 0.11120722251800351,
+        "improvement_percent": 7.903556607514783,
+        "paired_block_ci_low": -4.64490676723674,
+        "paired_block_ci_high": 19.91642013147793,
+        "seed_pairs": 3,
+        "quarter_blocks": 6,
+        "dates_per_seed": 101
+      },
+      {
+        "region": "north_pacific_gyre",
+        "nominal_lead_days": 30,
+        "control_vector_rmse": 0.1527261369050505,
+        "candidate_vector_rmse": 0.13337665654605207,
+        "improvement_percent": 12.669396837443713,
+        "paired_block_ci_low": -2.2074091209804685,
+        "paired_block_ci_high": 26.574141659351778,
+        "seed_pairs": 3,
+        "quarter_blocks": 6,
+        "dates_per_seed": 101
+      },
+      {
+        "region": "southern_ocean",
+        "nominal_lead_days": 5,
+        "control_vector_rmse": 0.06461978157481017,
+        "candidate_vector_rmse": 0.06556853101344119,
+        "improvement_percent": -1.468202794112905,
+        "paired_block_ci_low": -4.116815766535398,
+        "paired_block_ci_high": 1.2845255298369858,
+        "seed_pairs": 3,
+        "quarter_blocks": 6,
+        "dates_per_seed": 101
+      },
+      {
+        "region": "southern_ocean",
+        "nominal_lead_days": 10,
+        "control_vector_rmse": 0.11399760219371806,
+        "candidate_vector_rmse": 0.11190334065362102,
+        "improvement_percent": 1.8371101670526468,
+        "paired_block_ci_low": -0.3482197198638054,
+        "paired_block_ci_high": 3.9910943423151837,
+        "seed_pairs": 3,
+        "quarter_blocks": 6,
+        "dates_per_seed": 101
+      },
+      {
+        "region": "southern_ocean",
+        "nominal_lead_days": 20,
+        "control_vector_rmse": 0.1676543400874962,
+        "candidate_vector_rmse": 0.16120201105866416,
+        "improvement_percent": 3.8485905139495014,
+        "paired_block_ci_low": -0.07779731783206234,
+        "paired_block_ci_high": 7.647809444745172,
+        "seed_pairs": 3,
+        "quarter_blocks": 6,
+        "dates_per_seed": 101
+      },
+      {
+        "region": "southern_ocean",
+        "nominal_lead_days": 30,
+        "control_vector_rmse": 0.1959714741714548,
+        "candidate_vector_rmse": 0.18633557466870573,
+        "improvement_percent": 4.9169908750692155,
+        "paired_block_ci_low": 0.22888206966951322,
+        "paired_block_ci_high": 9.401144112418136,
+        "seed_pairs": 3,
+        "quarter_blocks": 6,
+        "dates_per_seed": 101
+      }
+    ],
+    "test": [
+      {
+        "region": "global_outside_5deg",
+        "nominal_lead_days": 5,
+        "control_vector_rmse": 0.05516383663234138,
+        "candidate_vector_rmse": 0.05647422636529881,
+        "improvement_percent": -2.375450681015856,
+        "paired_block_ci_low": -5.379983750300549,
+        "paired_block_ci_high": 0.11063982036633169,
+        "seed_pairs": 3,
+        "quarter_blocks": 7,
+        "dates_per_seed": 118
+      },
+      {
+        "region": "global_outside_5deg",
+        "nominal_lead_days": 10,
+        "control_vector_rmse": 0.10032080377480088,
+        "candidate_vector_rmse": 0.09990405530398612,
+        "improvement_percent": 0.4154158012432574,
+        "paired_block_ci_low": -1.9802514800624098,
+        "paired_block_ci_high": 3.3004541147329314,
+        "seed_pairs": 3,
+        "quarter_blocks": 7,
+        "dates_per_seed": 118
+      },
+      {
+        "region": "global_outside_5deg",
+        "nominal_lead_days": 20,
+        "control_vector_rmse": 0.15247211869209765,
+        "candidate_vector_rmse": 0.14566699955654053,
+        "improvement_percent": 4.463189200708473,
+        "paired_block_ci_low": -0.44496709427807646,
+        "paired_block_ci_high": 10.19293681437455,
+        "seed_pairs": 3,
+        "quarter_blocks": 7,
+        "dates_per_seed": 118
+      },
+      {
+        "region": "global_outside_5deg",
+        "nominal_lead_days": 30,
+        "control_vector_rmse": 0.18350782653331793,
+        "candidate_vector_rmse": 0.16984198191701488,
+        "improvement_percent": 7.447009140954453,
+        "paired_block_ci_low": -0.06536353522233751,
+        "paired_block_ci_high": 15.336773831179224,
+        "seed_pairs": 3,
+        "quarter_blocks": 7,
+        "dates_per_seed": 118
+      },
+      {
+        "region": "gulf_stream",
+        "nominal_lead_days": 5,
+        "control_vector_rmse": 0.09309022040037909,
+        "candidate_vector_rmse": 0.09700631951363087,
+        "improvement_percent": -4.206778216238738,
+        "paired_block_ci_low": -7.899641279703846,
+        "paired_block_ci_high": 1.5981188120244745,
+        "seed_pairs": 3,
+        "quarter_blocks": 7,
+        "dates_per_seed": 118
+      },
+      {
+        "region": "gulf_stream",
+        "nominal_lead_days": 10,
+        "control_vector_rmse": 0.1572472408136309,
+        "candidate_vector_rmse": 0.15899006201331828,
+        "improvement_percent": -1.108331815979513,
+        "paired_block_ci_low": -4.056656700756641,
+        "paired_block_ci_high": 1.7315937346603576,
+        "seed_pairs": 3,
+        "quarter_blocks": 7,
+        "dates_per_seed": 118
+      },
+      {
+        "region": "gulf_stream",
+        "nominal_lead_days": 20,
+        "control_vector_rmse": 0.2268459374018265,
+        "candidate_vector_rmse": 0.22065669888770256,
+        "improvement_percent": 2.7283885199850477,
+        "paired_block_ci_low": 0.5679858512838613,
+        "paired_block_ci_high": 4.910592824534098,
+        "seed_pairs": 3,
+        "quarter_blocks": 7,
+        "dates_per_seed": 118
+      },
+      {
+        "region": "gulf_stream",
+        "nominal_lead_days": 30,
+        "control_vector_rmse": 0.2617928018369762,
+        "candidate_vector_rmse": 0.24856578143666339,
+        "improvement_percent": 5.052476732553368,
+        "paired_block_ci_low": 2.269065222809979,
+        "paired_block_ci_high": 8.470282216494075,
+        "seed_pairs": 3,
+        "quarter_blocks": 7,
+        "dates_per_seed": 118
+      },
+      {
+        "region": "kuroshio",
+        "nominal_lead_days": 5,
+        "control_vector_rmse": 0.08073975565112201,
+        "candidate_vector_rmse": 0.08542588863860376,
+        "improvement_percent": -5.803996989699356,
+        "paired_block_ci_low": -10.532846565814614,
+        "paired_block_ci_high": 1.4199621327664713,
+        "seed_pairs": 3,
+        "quarter_blocks": 7,
+        "dates_per_seed": 118
+      },
+      {
+        "region": "kuroshio",
+        "nominal_lead_days": 10,
+        "control_vector_rmse": 0.1408236585835282,
+        "candidate_vector_rmse": 0.14555213226874292,
+        "improvement_percent": -3.357726771748415,
+        "paired_block_ci_low": -7.499013742454249,
+        "paired_block_ci_high": 0.9731439175434794,
+        "seed_pairs": 3,
+        "quarter_blocks": 7,
+        "dates_per_seed": 118
+      },
+      {
+        "region": "kuroshio",
+        "nominal_lead_days": 20,
+        "control_vector_rmse": 0.20896011650006455,
+        "candidate_vector_rmse": 0.20644167609737055,
+        "improvement_percent": 1.2052254013235064,
+        "paired_block_ci_low": -2.7157595069485003,
+        "paired_block_ci_high": 5.046645414769325,
+        "seed_pairs": 3,
+        "quarter_blocks": 7,
+        "dates_per_seed": 118
+      },
+      {
+        "region": "kuroshio",
+        "nominal_lead_days": 30,
+        "control_vector_rmse": 0.2541184956431963,
+        "candidate_vector_rmse": 0.24305591161735837,
+        "improvement_percent": 4.353317139642876,
+        "paired_block_ci_low": -0.5025555914438762,
+        "paired_block_ci_high": 10.241050766095759,
+        "seed_pairs": 3,
+        "quarter_blocks": 7,
+        "dates_per_seed": 118
+      },
+      {
+        "region": "north_pacific_gyre",
+        "nominal_lead_days": 5,
+        "control_vector_rmse": 0.033502955230173444,
+        "candidate_vector_rmse": 0.032705595963018454,
+        "improvement_percent": 2.379966966128644,
+        "paired_block_ci_low": -3.591324811333548,
+        "paired_block_ci_high": 10.627383462143422,
+        "seed_pairs": 3,
+        "quarter_blocks": 7,
+        "dates_per_seed": 118
+      },
+      {
+        "region": "north_pacific_gyre",
+        "nominal_lead_days": 10,
+        "control_vector_rmse": 0.06679336150545133,
+        "candidate_vector_rmse": 0.06470625309728921,
+        "improvement_percent": 3.12472431559202,
+        "paired_block_ci_low": -5.611471142933919,
+        "paired_block_ci_high": 13.577493791847706,
+        "seed_pairs": 3,
+        "quarter_blocks": 7,
+        "dates_per_seed": 118
+      },
+      {
+        "region": "north_pacific_gyre",
+        "nominal_lead_days": 20,
+        "control_vector_rmse": 0.1094243116097591,
+        "candidate_vector_rmse": 0.10163076528738241,
+        "improvement_percent": 7.122316976661358,
+        "paired_block_ci_low": -6.607870206311616,
+        "paired_block_ci_high": 19.449749152139834,
+        "seed_pairs": 3,
+        "quarter_blocks": 7,
+        "dates_per_seed": 118
+      },
+      {
+        "region": "north_pacific_gyre",
+        "nominal_lead_days": 30,
+        "control_vector_rmse": 0.1384041405824977,
+        "candidate_vector_rmse": 0.1220830922607494,
+        "improvement_percent": 11.792312175819564,
+        "paired_block_ci_low": -6.7071358082011425,
+        "paired_block_ci_high": 27.13090838310438,
+        "seed_pairs": 3,
+        "quarter_blocks": 7,
+        "dates_per_seed": 118
+      },
+      {
+        "region": "southern_ocean",
+        "nominal_lead_days": 5,
+        "control_vector_rmse": 0.06478591124728626,
+        "candidate_vector_rmse": 0.06563433869737488,
+        "improvement_percent": -1.309586349492231,
+        "paired_block_ci_low": -4.1129801463548805,
+        "paired_block_ci_high": 1.643898975871938,
+        "seed_pairs": 3,
+        "quarter_blocks": 7,
+        "dates_per_seed": 118
+      },
+      {
+        "region": "southern_ocean",
+        "nominal_lead_days": 10,
+        "control_vector_rmse": 0.11481969643791742,
+        "candidate_vector_rmse": 0.11235918985837899,
+        "improvement_percent": 2.1429307478345483,
+        "paired_block_ci_low": -0.3552265394167031,
+        "paired_block_ci_high": 4.666121370970995,
+        "seed_pairs": 3,
+        "quarter_blocks": 7,
+        "dates_per_seed": 118
+      },
+      {
+        "region": "southern_ocean",
+        "nominal_lead_days": 20,
+        "control_vector_rmse": 0.1706146583075541,
+        "candidate_vector_rmse": 0.16318622732059465,
+        "improvement_percent": 4.353923080611722,
+        "paired_block_ci_low": 0.44414215301760207,
+        "paired_block_ci_high": 9.05298968278528,
+        "seed_pairs": 3,
+        "quarter_blocks": 7,
+        "dates_per_seed": 118
+      },
+      {
+        "region": "southern_ocean",
+        "nominal_lead_days": 30,
+        "control_vector_rmse": 0.19997137817138524,
+        "candidate_vector_rmse": 0.1894287341579253,
+        "improvement_percent": 5.272076489078548,
+        "paired_block_ci_low": 0.34251590275672095,
+        "paired_block_ci_high": 10.637939254214722,
+        "seed_pairs": 3,
+        "quarter_blocks": 7,
+        "dates_per_seed": 118
+      }
+    ]
+  }
+}

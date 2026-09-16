@@ -1,0 +1,80 @@
+[
+  {
+    "run": "confirm-D0-s15",
+    "checkpoint_sha256": "5f4734308b91ecbe024a8ae58965d5a692235fda08debbdc7c1f018d58135836",
+    "update": 512,
+    "elapsed_seconds": 243.09460402699187,
+    "exposure": {
+      "duacs": 2048
+    },
+    "best_validation_rmse_10d": 0.10212355425739385,
+    "code_commit": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+    "world_size": 4
+  },
+  {
+    "run": "confirm-D0-s16",
+    "checkpoint_sha256": "b0a0b23a9bb18bd0fbaa3e11a29dcf208539f66dc5cc1f940ff581cd030e639c",
+    "update": 768,
+    "elapsed_seconds": 353.7860107049346,
+    "exposure": {
+      "duacs": 3072
+    },
+    "best_validation_rmse_10d": 0.09483022231565168,
+    "code_commit": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+    "world_size": 4
+  },
+  {
+    "run": "confirm-D0-s17",
+    "checkpoint_sha256": "7ee8d6d39dbd924720bfa86d7756781fa7dae3fe6801a0fbc3778e6c671132a5",
+    "update": 256,
+    "elapsed_seconds": 128.1172013375908,
+    "exposure": {
+      "duacs": 1024
+    },
+    "best_validation_rmse_10d": 0.10137576577201216,
+    "code_commit": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+    "world_size": 4
+  },
+  {
+    "run": "confirm-D4-s15",
+    "checkpoint_sha256": "32c5390c7972d24aecf659f33a01ed805db9b90bcbd17a2e1e168426fbeea293",
+    "update": 234752,
+    "elapsed_seconds": 71123.49171778094,
+    "exposure": {
+      "duacs": 562992,
+      "om4_1deg": 187608,
+      "om4_quarterdeg": 188408
+    },
+    "best_validation_rmse_10d": 0.10026464970459141,
+    "code_commit": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+    "world_size": 4
+  },
+  {
+    "run": "confirm-D4-s16",
+    "checkpoint_sha256": "9650e543c857fb1dbce57c0c86d799534280aea99db52e3616e6599aa3b3f860",
+    "update": 2816,
+    "elapsed_seconds": 872.4560399269685,
+    "exposure": {
+      "duacs": 6568,
+      "om4_1deg": 2328,
+      "om4_quarterdeg": 2368
+    },
+    "best_validation_rmse_10d": 0.09445492463971591,
+    "code_commit": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+    "world_size": 4
+  },
+  {
+    "run": "confirm-D4-s17",
+    "checkpoint_sha256": "3e98485420a73fa0d87649061a7e3380192832ed5d501af9ccc8d7aec180d466",
+    "update": 162560,
+    "elapsed_seconds": 54811.68133793119,
+    "exposure": {
+      "duacs": 392064,
+      "om4_1deg": 128900,
+      "om4_quarterdeg": 129276
+    },
+    "best_validation_rmse_10d": 0.10088827695238868,
+    "code_commit": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+    "world_size": 4
+  }
+]

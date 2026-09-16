@@ -1,0 +1,86 @@
+[
+  {
+    "run": "confirm-D0-s15",
+    "complete": true,
+    "update": 246906,
+    "gpu_hours": 124.16017405070339,
+    "best_validation_rmse_10d": 0.10212355425739385
+  },
+  {
+    "run": "confirm-D0-s16",
+    "complete": true,
+    "update": 216647,
+    "gpu_hours": 124.16108676271926,
+    "best_validation_rmse_10d": 0.09483022231565168
+  },
+  {
+    "run": "confirm-D0-s17",
+    "complete": true,
+    "update": 240042,
+    "gpu_hours": 124.16041626419458,
+    "best_validation_rmse_10d": 0.10137576577201216
+  },
+  {
+    "run": "confirm-D4-s15",
+    "complete": true,
+    "update": 359091,
+    "gpu_hours": 124.16028051748354,
+    "best_validation_rmse_10d": 0.10026464970459141
+  },
+  {
+    "run": "confirm-D4-s16",
+    "complete": true,
+    "update": 306283,
+    "gpu_hours": 124.16011548652624,
+    "best_validation_rmse_10d": 0.09445492463971591
+  },
+  {
+    "run": "confirm-D4-s17",
+    "complete": true,
+    "update": 337392,
+    "gpu_hours": 124.16052326870461,
+    "best_validation_rmse_10d": 0.10088827695238868
+  },
+  {
+    "run": "screen-D0-s15",
+    "complete": true,
+    "update": 94434,
+    "gpu_hours": 46.56132177629327,
+    "best_validation_rmse_10d": 0.10212144009958771
+  },
+  {
+    "run": "screen-D1-s15",
+    "complete": true,
+    "update": 139311,
+    "gpu_hours": 46.56034044678219,
+    "best_validation_rmse_10d": 0.1087401081806968
+  },
+  {
+    "run": "screen-D2-s15",
+    "complete": true,
+    "update": 137389,
+    "gpu_hours": 46.560663223176576,
+    "best_validation_rmse_10d": 0.10365186005184211
+  },
+  {
+    "run": "screen-D3-s15",
+    "complete": true,
+    "update": 135736,
+    "gpu_hours": 46.560342711962555,
+    "best_validation_rmse_10d": 0.10395320897342271
+  },
+  {
+    "run": "screen-D4-s15",
+    "complete": true,
+    "update": 134754,
+    "gpu_hours": 46.56073308599104,
+    "best_validation_rmse_10d": 0.10251994910658659
+  },
+  {
+    "run": "screen-D5-s15",
+    "complete": true,
+    "update": 235598,
+    "gpu_hours": 46.56056814918812,
+    "best_validation_rmse_10d": 0.12139208734685357
+  }
+]

@@ -1,0 +1,35 @@
+{
+  "checkpoint": "/scratch/jr7309/runs/velocity-transfer/confirm-D4-s17/best.pt",
+  "checkpoint_update": 162560,
+  "split": "validation",
+  "anchors": 101,
+  "linear_damping": 0.25,
+  "seconds": 40.151035191025585,
+  "gpu_hours": 0.011153068126683744,
+  "config": {
+    "data_root": "/scratch/jr7309/data/velocity-transfer-v1",
+    "output": "/scratch/jr7309/runs/velocity-transfer/confirm-D4-s17",
+    "variant": "D4",
+    "seed": 17,
+    "gpu_hours": 128.0,
+    "max_updates": 1000000,
+    "validate_every": 256,
+    "checkpoint_every": 64,
+    "validation_count": 12,
+    "learning_rate": 0.0003,
+    "read_threads": 4,
+    "widths": [
+      64,
+      96,
+      128,
+      192
+    ],
+    "resume": true,
+    "wandb_mode": "online",
+    "world_size": 4,
+    "code_commit": "c4f36fa6194f9af9334d7f9924aace7c2c9c33f2",
+    "rust_read_threads_per_rank": 4,
+    "cpu_workers": 0
+  },
+  "complete": true
+}

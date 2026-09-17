@@ -1,0 +1,83 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: Test Rust loader
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - "**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test-rust-loader:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+        python-version: ["3.12"]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: false
+          rustflags: ""
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust/crab_load
+
+      - name: Check Rust
+        run: |
+          cargo fmt --manifest-path rust/crab_load/Cargo.toml -- --check
+          cargo clippy --manifest-path rust/crab_load/Cargo.toml --features extension-module --lib -- -D warnings
+          cargo test --manifest-path rust/crab_load/Cargo.toml --features extension-module --lib
+
+      - name: Build and test the Python extension
+        run: |
+          uv venv --python ${{ matrix.python-version }}
+          uv pip install "maturin>=1.9,<2" "numpy>=1.26.4,<2" pytest xarray "zarr<3"
+          source .venv/bin/activate
+          maturin develop --manifest-path rust/crab_load/Cargo.toml --features extension-module
+          python -m pytest -o addopts='' rust/crab_load/tests/test_extension.py -q
+
+      - name: Build and install the wheel pair
+        run: |
+          mkdir -p dist/native dist/samudra
+          source .venv/bin/activate
+          maturin build --release --manifest-path rust/crab_load/Cargo.toml --features extension-module --out dist/native
+          uv build --wheel --out-dir dist/samudra
+          uv venv --python ${{ matrix.python-version }} .wheel-test
+          uv pip install --python .wheel-test/bin/python --no-deps dist/native/*.whl dist/samudra/*.whl
+          .wheel-test/bin/python - <<'PY'
+          from importlib.metadata import requires, version
+
+          import samudra_rust_loader
+
+          assert version("samudra-rust-loader") == "0.1.0"
+          assert any(
+              requirement.startswith("samudra-rust-loader==0.1")
+              for requirement in requires("samudra") or []
+          )
+          samudra_rust_loader.FlatOm4ReadPool(1)
+          PY

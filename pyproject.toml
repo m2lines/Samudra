@@ -60,6 +60,9 @@ dependencies = [
 optional-dependencies.cuda = [
   "torchvision>=0.24.0a0",
 ]
+optional-dependencies.rust = [
+  "samudra-rust-loader==0.1",
+]
 
 urls.Documentation = "https://m2lines.github.io/Samudra/docs/"
 urls.Homepage = "https://m2lines.github.io/Samudra/"
@@ -181,6 +184,7 @@ overrides = [
 ]
 
 [tool.uv.sources]
+samudra-rust-loader = { path = "rust/crab_load" }
 torch = [
   { index = "pytorch-cu130", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
 ]

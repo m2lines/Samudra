@@ -56,12 +56,31 @@ MAX_TRAIN_MODEL_STEPS_FORWARD = 200
 
 # Horizontal grid geometry. "gaussian" is a regular/rectilinear lat-lon grid whose
 # 2D lat/lon are the outer product of the 1D axes, so they can be reconstructed by
-# broadcasting. "tripolar" is curvilinear: lat/lon vary along both horizontal dims
-# and cannot be rebuilt by broadcasting, so the real 2D coordinates must be carried
-# with the data. Downstream code that reconstructs geometry must branch on this.
-GridType = Literal["gaussian", "tripolar"]
+# broadcasting. The rest are curvilinear: lat/lon vary along both horizontal dims and
+# cannot be rebuilt by broadcasting, so the real 2D coordinates must be carried with
+# the data.
+#
+#   "tripolar" is OM4's native grid, which moves the northern singularity onto two
+#     poles over land so the Arctic is not a hole in the model.
+#   "llc" is MITgcm's lat-lon-cap: 13 faces, regular within each face but not across
+#     them. See https://gmd.copernicus.org/articles/16/7143/2023/ section 2.2.
+#
+# Downstream code depends on the rectilinear/curvilinear split rather than on which
+# curvilinear grid it is, so branch with `is_curvilinear` and not on the name.
+GridType = Literal["gaussian", "tripolar", "llc"]
 PrognosticVarNames = list[str]
 BoundaryVarNames = list[str]
+
+
+def is_curvilinear(grid_type: GridType) -> bool:
+    """Whether 2D lat/lon have to be carried rather than rebuilt from the axes.
+
+    Area weighting, map coordinates and mask alignment are each valid only on
+    the rectilinear grid, and that is the one thing they all test. Asking the
+    question this way means a new curvilinear grid added to `GridType` is
+    refused or handled, rather than quietly falling into the rectilinear path.
+    """
+    return grid_type != "gaussian"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -493,9 +512,7 @@ def build_llc_layout(
             },
         },
         ocean_heat_temperature_var="Theta",
-        # LLC (lat-lon-cap) is curvilinear, so its 2D geometry can't be broadcast
-        # from 1D axes -- same broadcast-unsafe class as the tripolar grid.
-        grid_type="tripolar",
+        grid_type="llc",
     )
 
 

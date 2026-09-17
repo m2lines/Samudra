@@ -90,14 +90,21 @@ class Viz:
             )
             groundtruth_rollout = groundtruth_rollout.rename({"y": "lat", "x": "lon"})
 
+        # Save the source's physical areas before `areacello` becomes normalized
+        # mean weights. Gaussian latitude spacing is nonuniform, so source areas
+        # are more accurate than the uniform-spacing spherical approximation.
+        if "areacello" in groundtruth_rollout:
+            cell_areas = groundtruth_rollout["areacello"].transpose("lat", "lon").data
+        else:
+            cell_areas = spherical_area(groundtruth_rollout)
+
         groundtruth_rollout = groundtruth_rollout.assign(
             areacello=(["lat", "lon"], spherical_area_weights(groundtruth_rollout))
         )
 
-        # Compute real grid cell areas for physical calculations
         groundtruth_rollout["areacello_spherical"] = (
             ["lat", "lon"],
-            spherical_area(groundtruth_rollout),
+            cell_areas,
         )
 
         # This function processes the ds_groundtruth and predictions for plotting
@@ -700,6 +707,8 @@ class Viz:
         )
 
     def step_ohc_noanomaly_plots(self):
+        # Heat integrals need cell areas in m². Normalized `areacello` weights
+        # are for means and would discard the physical volume scale here.
         c_p = 3850  # J/(kg C)
         rho_0 = 1025  # kg/m^3
         f = open(os.path.join(self.output_path, "compare_info.txt"), "a")
@@ -712,7 +721,7 @@ class Viz:
 
         OHC = (
             (self.data["thetao"] * c_p * rho_0)
-            * self.data["areacello"]
+            * self.data["areacello_spherical"]
             * self.data["dz"]
         ).sum(["x", "y", "lev"]) / 1e21
         OHC = OHC - OHC.isel(time=0)
@@ -722,7 +731,7 @@ class Viz:
         for i, k in enumerate(self.pred_dict.keys()):
             OHC_pred = (
                 (self.pred_dict[k]["ds_prediction"]["thetao"] * c_p * rho_0)
-                * self.pred_dict[k]["ds_prediction"]["areacello"]
+                * self.pred_dict[k]["ds_prediction"]["areacello_spherical"]
                 * self.pred_dict[k]["ds_prediction"]["dz"]
             ).sum(["x", "y", "lev"]) / 1e21
             OHC_pred = OHC_pred - OHC_pred.isel(time=0)
@@ -859,7 +868,7 @@ class Viz:
         # Upper - GT
         OHC_truth_upper = (
             (self.data["thetao"].sel(lev=slice(0, 700)) * c_p * rho_0)
-            * self.data["areacello"]
+            * self.data["areacello_spherical"]
             * self.data["dz"]
         ).sum(["x", "y", "lev"]) / 1e21
 
@@ -894,7 +903,7 @@ class Viz:
                     * c_p
                     * rho_0
                 )
-                * self.pred_dict[k]["ds_prediction"]["areacello"]
+                * self.pred_dict[k]["ds_prediction"]["areacello_spherical"]
                 * self.pred_dict[k]["ds_prediction"]["dz"]
             ).sum(["x", "y", "lev"]) / 1e21
 
@@ -949,7 +958,7 @@ class Viz:
         # Middle - GT
         OHC_truth_mid = (
             (self.data["thetao"].sel(lev=slice(700, 2000)) * c_p * rho_0)
-            * self.data["areacello"]
+            * self.data["areacello_spherical"]
             * self.data["dz"]
         ).sum(["x", "y", "lev"]) / 1e21
 
@@ -984,7 +993,7 @@ class Viz:
                     * c_p
                     * rho_0
                 )
-                * self.pred_dict[k]["ds_prediction"]["areacello"]
+                * self.pred_dict[k]["ds_prediction"]["areacello_spherical"]
                 * self.pred_dict[k]["ds_prediction"]["dz"]
             ).sum(["x", "y", "lev"]) / 1e21
 
@@ -1037,7 +1046,7 @@ class Viz:
         # Deep - GT
         OHC_truth_deep = (
             (self.data["thetao"].sel(lev=slice(2000, None)) * c_p * rho_0)
-            * self.data["areacello"]
+            * self.data["areacello_spherical"]
             * self.data["dz"]
         ).sum(["x", "y", "lev"]) / 1e21
 
@@ -1072,7 +1081,7 @@ class Viz:
                     * c_p
                     * rho_0
                 )
-                * self.pred_dict[k]["ds_prediction"]["areacello"]
+                * self.pred_dict[k]["ds_prediction"]["areacello_spherical"]
                 * self.pred_dict[k]["ds_prediction"]["dz"]
             ).sum(["x", "y", "lev"]) / 1e21
 
@@ -1226,7 +1235,7 @@ class Viz:
             var = str(var)
             OHC = (
                 (self.data["thetao"] * c_p * rho_0 * self.basin_masks[var])
-                * self.data["areacello"]
+                * self.data["areacello_spherical"]
                 * self.data["dz"]
             ).sum(["x", "y", "lev"]) / 1e21
 
@@ -1255,7 +1264,7 @@ class Viz:
                         * rho_0
                         * self.basin_masks[var]
                     )
-                    * self.pred_dict[k]["ds_prediction"]["areacello"]
+                    * self.pred_dict[k]["ds_prediction"]["areacello_spherical"]
                     * self.pred_dict[k]["ds_prediction"]["dz"]
                 ).sum(["x", "y", "lev"]) / 1e21
 
@@ -1362,7 +1371,7 @@ class Viz:
                     * rho_0
                     * self.basin_masks[var]
                 )
-                * self.data["areacello"]
+                * self.data["areacello_spherical"]
                 * self.data["dz"]
             ).sum(["x", "y", "lev"]) / 1e21
 
@@ -1389,7 +1398,7 @@ class Viz:
                         * rho_0
                         * self.basin_masks[var]
                     )
-                    * self.pred_dict[k]["ds_prediction"]["areacello"]
+                    * self.pred_dict[k]["ds_prediction"]["areacello_spherical"]
                     * self.pred_dict[k]["ds_prediction"]["dz"]
                 ).sum(["x", "y", "lev"]) / 1e21
 
@@ -2323,7 +2332,7 @@ class Viz:
             section_mask = isnan(ds["thetao"]).all("lev").isel(time=5)
             OHC_pred = (
                 (ds["thetao"][Days_to_Eq:] * c_p * rho_0 / zeta_joules_factor)
-                .weighted(ds["areacello"] * ds["dz"])
+                .weighted(ds["areacello_spherical"] * ds["dz"])
                 .sum(["lev"])
                 .compute()
             )
@@ -2433,7 +2442,7 @@ class Viz:
             section_mask = isnan(ds["thetao"]).all("lev")
             OHC_pred = (
                 (ds["thetao"][Days_to_Eq:] * c_p * rho_0 / zeta_joules_factor)
-                .weighted(ds["areacello"] * ds["dz"])
+                .weighted(ds["areacello_spherical"] * ds["dz"])
                 .sum(["lev"])
                 .compute()
             )
@@ -3634,7 +3643,7 @@ class Viz:
             if var == "OHC":
                 ohc_gt = (
                     (self.data["thetao"] * c_p * rho_0 / zeta_joules_factor)
-                    .weighted(self.data["areacello"] * self.data["dz"])
+                    .weighted(self.data["areacello_spherical"] * self.data["dz"])
                     .sum(["lev"])
                     .compute()
                 )
@@ -3647,7 +3656,7 @@ class Viz:
                         * rho_0
                         / zeta_joules_factor
                     )
-                    .weighted(self.data["areacello"] * self.data["dz"])
+                    .weighted(self.data["areacello_spherical"] * self.data["dz"])
                     .sum(["lev"])
                     .compute()
                 )
@@ -3660,7 +3669,7 @@ class Viz:
                         * rho_0
                         / zeta_joules_factor
                     )
-                    .weighted(self.data["areacello"] * self.data["dz"])
+                    .weighted(self.data["areacello_spherical"] * self.data["dz"])
                     .sum(["lev"])
                     .compute()
                 )

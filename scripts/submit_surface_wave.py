@@ -13,6 +13,12 @@ import subprocess
 from pathlib import Path
 
 
+def save_jobs(root, jobs):
+    temporary = root / "jobs.tmp"
+    temporary.write_text(json.dumps(jobs, indent=2))
+    temporary.replace(root / "jobs.json")
+
+
 def submit(args):
     root = Path(args.root)
     if (root / "jobs.json").exists():
@@ -104,7 +110,7 @@ def submit(args):
             "command": command,
         }
         # Persist after every submission: a partial failure must never hide live jobs.
-        (root / "jobs.json").write_text(json.dumps(jobs, indent=2))
+        save_jobs(root, jobs)
         print(task, phase, job, flush=True)
         return job
 
@@ -146,7 +152,7 @@ def submit(args):
         "gpus": 0,
         "wall_hours": 1 / 6,
     }
-    (root / "jobs.json").write_text(json.dumps(jobs, indent=2))
+    save_jobs(root, jobs)
     print("report", jobs["report"]["id"], flush=True)
     watch_command = shlex.join(["python3", args.watch_script, "--root", str(root)])
     monitor = subprocess.run(
@@ -170,7 +176,7 @@ def submit(args):
         "gpus": 0,
         "wall_hours": 120,
     }
-    (root / "jobs.json").write_text(json.dumps(jobs, indent=2))
+    save_jobs(root, jobs)
     print("monitor", jobs["monitor"]["id"], flush=True)
 
 

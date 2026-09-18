@@ -101,7 +101,11 @@ def summarize(root, jobs):
             for row in csv.DictReader(file):
                 if row["region"] != "global":
                     continue
-                variable = row["channel"].split("_")[0]
+                variable = (
+                    "sst"
+                    if row["channel"] == "thetao_0"
+                    else row["channel"].split("_")[0]
+                )
                 key = (row["mode"], int(row["lead_days"]), variable)
                 groups[key].append(float(row["normalized_rmse"]) ** 2)
                 if variable in ("uo", "vo"):
@@ -117,14 +121,14 @@ def summarize(root, jobs):
         lines += [
             "Global normalized RMSE, equal weight per depth level:",
             "",
-            "| Mode | Lead (days) | T | S | u | v | SSH |",
-            "| --- | ---: | ---: | ---: | ---: | ---: | ---: |",
+            "| Mode | Lead (days) | Subsurface T | S | u | v | SSH | SST |",
+            "| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
         ]
         for mode in ("inferred", "true", "inferred_persistence", "climatology"):
             for lead in (5, 15, 30):
                 values = [
                     scores[(mode, lead, var)]
-                    for var in ("thetao", "so", "uo", "vo", "zos")
+                    for var in ("thetao", "so", "uo", "vo", "zos", "sst")
                 ]
                 lines.append(
                     f"| {mode} | {lead} | "

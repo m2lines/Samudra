@@ -519,7 +519,7 @@ class DataConfig(BaseConfig):
 
 BlockType = Literal["conv_next_block", "conv_block"]
 ActivationType = Literal["relu", "gelu", "capped_gelu"]
-NormType = Literal["batch", "instance", "layer"]
+NormType = Literal["batch", "instance", "group", "nonorm", "layer"]
 
 
 class BlockConfig(BaseConfig):
@@ -528,6 +528,7 @@ class BlockConfig(BaseConfig):
     activation: ActivationType = "capped_gelu"
     upscale_factor: int = 4
     norm: NormType = "batch"
+    group_norm_groups: int = Field(default=32, ge=1)
     pointwise_linear: bool = False
 
     def build(self) -> CoreBlockBuilder:
@@ -572,6 +573,7 @@ class BlockConfig(BaseConfig):
                         kernel_size=self.kernel_size,
                         upscale_factor=self.upscale_factor,
                         norm=self.norm,
+                        group_norm_groups=self.group_norm_groups,
                         activation=activation,
                         pointwise_linear=self.pointwise_linear,
                     )
@@ -1286,6 +1288,7 @@ class TrainConfig(TopLevelConfig):
 
     # Data parameters at root level
     data_stride: list[int] = [1]
+    temporal_stride: int = Field(default=1, ge=1)
     steps: list[int] = [4]
     step_transition: list[int] = []
     inference_epochs: list[int] = [-1]

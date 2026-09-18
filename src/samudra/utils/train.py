@@ -50,6 +50,9 @@ def collate_inference_data(
 
 
 class CheckpointPaths:
+    _PERIODIC_CHECKPOINT_PREFIX = "ckpt_"
+    EMA_CHECKPOINT_NAME = "ema_ckpt.pt"
+
     def __init__(self, checkpoint_dir: Path):
         self.checkpoint_dir = checkpoint_dir
 
@@ -60,13 +63,31 @@ class CheckpointPaths:
     def latest_checkpoint_path_with_epoch(self, epoch: int) -> Path:
         return self.checkpoint_dir / f"ckpt_{epoch}.pt"
 
+    def periodic_checkpoint_paths(self) -> dict[int, Path]:
+        """Return periodic checkpoints indexed by epoch."""
+        return {
+            epoch: path
+            for path in self.checkpoint_dir.iterdir()
+            if path.is_file()
+            and (epoch := self.periodic_checkpoint_epoch(path)) is not None
+        }
+
+    @classmethod
+    def periodic_checkpoint_epoch(cls, checkpoint_path: Path) -> int | None:
+        if checkpoint_path.suffix != ".pt" or not checkpoint_path.stem.startswith(
+            cls._PERIODIC_CHECKPOINT_PREFIX
+        ):
+            return None
+        epoch = checkpoint_path.stem.removeprefix(cls._PERIODIC_CHECKPOINT_PREFIX)
+        return int(epoch) if epoch.isdecimal() else None
+
     @property
     def best_inference_checkpoint_path(self) -> Path:
         return self.checkpoint_dir / "best_inference_ckpt.pt"
 
     @property
     def ema_checkpoint_path(self) -> Path:
-        return self.checkpoint_dir / "ema_ckpt.pt"
+        return self.checkpoint_dir / self.EMA_CHECKPOINT_NAME
 
     @property
     def best_validation_checkpoint_path(self) -> Path:

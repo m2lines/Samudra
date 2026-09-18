@@ -65,6 +65,10 @@ and grouped by calendar month. It is a cheap sampled climatology baseline.
 Use `samudra.experiments.surface_wave` through the existing Apptainer/torchrun
 harness with an immutable code overlay and the matching Rust-enabled SIF.
 Explicitly select account `torch_pr_347_lzanna`, partition `rtx6000_lzanna`.
+Set `NCCL_P2P_DISABLE=1` and `TORCH_NCCL_ASYNC_ERROR_HANDLING=1`, as required
+by the RTX6000 guidance in `docs/torch.md`. Omitting this caused the first
+four-rank qualification jobs to hang in NCCL despite successful eight-GPU
+allocation. Those jobs were cancelled and charged to smoke/recovery accounting.
 Rust uses no PyTorch data-loader workers, two prefetched batches, CUDA prefetch,
 and an explicitly capped native read pool per rank. Initial resource request:
 two CPUs and 16 GiB host RAM per GPU. The qualified configuration uses eight

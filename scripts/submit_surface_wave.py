@@ -44,6 +44,8 @@ def submit(args):
             "OMP_NUM_THREADS": "1",
             "MKL_NUM_THREADS": "1",
             "OPENBLAS_NUM_THREADS": "1",
+            "NCCL_P2P_DISABLE": "1",
+            "TORCH_NCCL_ASYNC_ERROR_HANDLING": "1",
             "WANDB_MODE": "online",
             "SAMUDRA_MANAGE_RUN_DIR": "0",
             "SAMUDRA_MODULE": "samudra.experiments.surface_wave",
@@ -63,7 +65,7 @@ def submit(args):
     def train(task, phase, gpus, wall_hours, train_hours, dependency=None):
         name = root.name + "-" + task
         env = dict(environment)
-        env["NAME"] = name
+        env["NAME"] = root.name + "/" + task
         env["DATA_CACHE_DIR"] = "/scratch/jr7309/.data_cache/" + name
         module_args = [
             "--task",

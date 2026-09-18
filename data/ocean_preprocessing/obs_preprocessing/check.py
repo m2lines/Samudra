@@ -46,7 +46,7 @@ def main() -> None:
     if result.returncode:
         # Do not echo authentication output or secrets into the Slurm log.
         raise SystemExit(
-            "Copernicus credential validation failed; check the Torch login environment"
+            "Copernicus credential validation failed; check the job environment"
         )
     print("Copernicus credentials: valid", flush=True)
 

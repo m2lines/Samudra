@@ -47,7 +47,8 @@ rclone lsf nyu-osn:emulators/jr7309/data/ --max-depth 1 > "$PILOT_ROOT/osn-listi
 probe="$PILOT_ROOT/osn-probe-${SLURM_JOB_ID}.txt"
 printf 'Grace observation pilot %s on %s\n' "$SLURM_JOB_ID" "$(hostname)" > "$probe"
 remote="nyu-osn:emulators/jr7309/data/full_range_pilot_checks/grace-${SLURM_JOB_ID}.txt"
-rclone copyto "$probe" "$remote"
+# The existing OSN bucket can permit object access without bucket creation.
+rclone copyto --s3-no-check-bucket "$probe" "$remote"
 rclone cat "$remote" > "$probe.readback"
 cmp "$probe" "$probe.readback"
 printf 'OSN probe verified: %s\n' "$remote"

@@ -21,8 +21,10 @@ set -euo pipefail
 : "${INVENTORY_DIR:?Set INVENTORY_DIR to the frozen full-range inventory snapshots}"
 [[ "$(uname -m)" == aarch64 ]] || { echo 'Pilot requires an ARM64 compute node'; exit 2; }
 OBS_ENV="${WORK_ROOT}/envs/grace-arm64"
+UV_BIN="${WORK_ROOT}/tools/grace-arm64/uv"
 PILOT_ROOT="${WORK_ROOT}/pilot/20260918"
 export PIP_CACHE_DIR="${WORK_ROOT}/cache/grace-arm64"
+export UV_CACHE_DIR="${WORK_ROOT}/cache/grace-arm64/uv"
 export TMPDIR="${WORK_ROOT}/tmp/grace-arm64"
 export PYTHONPATH="${REPO_DIR}/data${PYTHONPATH:+:${PYTHONPATH}}"
 export PYTHONUNBUFFERED=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 BLOSC_NTHREADS=1
@@ -31,11 +33,13 @@ exec 9>"${WORK_ROOT}/.grace-pilot.lock"
 flock -n 9 || { echo 'Another Grace pilot is active'; exit 2; }
 cd "$REPO_DIR/data"
 printf 'Host=%s Architecture=%s Commit=%s\n' "$(hostname)" "$(uname -m)" "$(git -C "$REPO_DIR" rev-parse HEAD)"
-python3 -m venv "$OBS_ENV"
+"$UV_BIN" --version
+# Grace's system Python lacks ensurepip; uv does not require python3-venv.
+"$UV_BIN" venv --python python3 --allow-existing "$OBS_ENV"
 export PATH="$OBS_ENV/bin:$HOME/bin:$PATH"
 # numcodecs 0.15.1 has no matching ARM64 wheel; pip builds that pin natively.
-python -m pip install -r "$REPO_DIR/scripts/requirements-observations.txt"
-python -m pip freeze > "$PILOT_ROOT/environment-freeze.txt"
+"$UV_BIN" pip install --python "$OBS_ENV/bin/python" -r "$REPO_DIR/scripts/requirements-observations.txt"
+"$UV_BIN" pip freeze --python "$OBS_ENV/bin/python" > "$PILOT_ROOT/environment-freeze.txt"
 python -m ocean_preprocessing.obs_preprocessing.check
 
 # A tiny retained probe outside the final dataset prefix verifies OSN read/write.

@@ -51,6 +51,7 @@ nav:
   - Development:
       - Contributing: contributing.md
       - Releasing: releasing.md
+      - Rust data loader plan: rust-data-loader-plan.md
   - Research:
       - Observational Ocean Prediction: experiments/observational-ocean-prediction.md
       - Ocean Prediction Literature Review: experiments/observational-ocean-literature-review.md

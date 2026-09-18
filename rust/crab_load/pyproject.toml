@@ -1,0 +1,22 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+[build-system]
+build-backend = "maturin"
+
+requires = [ "maturin>=1.9,<2" ]
+
+[project]
+name = "samudra-rust-loader"
+requires-python = ">=3.12"
+classifiers = [
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dynamic = [ "version" ]
+dependencies = [ "numpy>=1.26.4,<2" ]
+
+[tool.maturin]
+features = [ "extension-module" ]

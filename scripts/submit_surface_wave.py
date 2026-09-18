@@ -10,6 +10,7 @@ import json
 import os
 import shlex
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -162,7 +163,7 @@ def submit(args):
     monitor = subprocess.run(
         common
         + [
-            "--partition=all",
+            "--partition=cs",
             "--cpus-per-task=1",
             "--mem=1G",
             "--time=120:00:00",
@@ -196,4 +197,8 @@ if __name__ == "__main__":
     )
     parser.add_argument("--report-script", required=True)
     parser.add_argument("--watch-script", required=True)
-    submit(parser.parse_args())
+    try:
+        submit(parser.parse_args())
+    except subprocess.CalledProcessError as error:
+        print(error.stderr, file=sys.stderr)
+        raise

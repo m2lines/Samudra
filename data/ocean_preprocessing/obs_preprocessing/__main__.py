@@ -221,6 +221,9 @@ class CLI:
     def __init__(self):
         self.download = Download()
         self.prepare = Prepare()
+        from ocean_preprocessing.obs_preprocessing.full_range import FullRange
+
+        self.full_range = FullRange()
 
 
 def main() -> None:

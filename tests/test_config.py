@@ -103,6 +103,16 @@ def test_data_config_defaults_to_cpu_loading():
     assert cfg.loading.num_workers == 4
     assert cfg.loading.num_pytorch_workers() == 4
     assert isinstance(cfg.sources[0], Om4DataSourceConfig)
+    assert cfg.xarray_backend == "zarr-python"
+
+
+def test_data_config_accepts_tensorstore_backend():
+    cfg = DataConfig(
+        sources=[om4_source_config()],
+        xarray_backend="tensorstore",
+    )
+
+    assert cfg.xarray_backend == "tensorstore"
 
 
 def test_data_config_output_steps_default_and_override():

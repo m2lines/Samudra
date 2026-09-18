@@ -53,10 +53,14 @@ make five-day model output a daily prediction.
 Both the checkout (`/scratch/jr7309/Ocean_Emulator`) and the Python venv
 (`/scratch/jr7309/data/obs_full_range/venv`) live on scratch. No container
 or dependency image is used. `~/Ocean_Emulator` may be a symlink to the scratch
-checkout. Torch has Python 3.12 and the `cs` CPU partition. Use account
-`torch_pr_347_lzanna`. No GPUs, GHCR credentials, W&B key, or full training
+checkout. Torch has Python 3.12. Use account `torch_pr_347_lzanna` and let
+Slurm select the partition from the resource request and time limit, as
+[NYU recommends](https://services.rt.nyu.edu/docs/hpc/submitting_jobs/slurm_submitting_jobs/#partitions).
+The short setup/check/discovery requests route to `cpu_short`; the longer
+download/preparation requests route to `cs`. No GPUs, GHCR credentials, W&B key, or full training
 container are needed. `STAGE=setup` builds a scratch-backed venv from
-`scripts/requirements-observations.txt` and records `environment-freeze.txt`. `STAGE=check` runs the small pipeline tests and
+`scripts/requirements-observations.txt` and records `environment-freeze.txt`.
+`STAGE=check` runs the small pipeline tests and
 validates Copernicus authentication without printing credentials.
 Commit these edits into a fixed checkout for the entire run so the stored git
 revision identifies the processing code. A separate SHA-256 of the actual
@@ -112,8 +116,10 @@ resumes at completed 24-timestamp block boundaries.
 | Prepare IAP | 8 | 64 GB | 24 hours | IAP download |
 
 Run these commands on Torch **after copying/committing the implementation into
-an isolated fixed checkout**, choosing its actual path as `REPO_DIR`. No jobs
-were submitted while preparing this proposal.
+an isolated fixed checkout**, choosing its actual path as `REPO_DIR`. This is
+a fresh-run example: do not resubmit it over the active chain recorded in
+`$WORK_ROOT/jobs-20260918.tsv`. Prepared stores and raw inputs remain on scratch;
+publication copies them to OSN without removing the local data.
 
 ```bash
 export REPO_DIR=/scratch/jr7309/Ocean_Emulator  # codex/observations-full-range
@@ -122,7 +128,7 @@ export RAW_ROOT="$WORK_ROOT/raw"
 export OUTPUT_ROOT="$WORK_ROOT/prepared"
 mkdir -p "$WORK_ROOT/logs" "$WORK_ROOT/manifests"
 HARNESS="$REPO_DIR/scripts/slurm_obs_full_range.sbatch"
-common=(--parsable --account=torch_pr_347_lzanna --partition=cs
+common=(--parsable --account=torch_pr_347_lzanna
         --chdir="$WORK_ROOT" --output="$WORK_ROOT/logs/%x-%j.out")
 
 setup=$(STAGE=setup sbatch "${common[@]}" --job-name=obs-env \

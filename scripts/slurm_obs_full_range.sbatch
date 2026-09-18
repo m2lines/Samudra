@@ -5,7 +5,6 @@
 # See docs/observations-full-range.md. This harness never uploads to OSN.
 #SBATCH --job-name=obs-full-range
 #SBATCH --account=torch_pr_347_lzanna
-#SBATCH --partition=cs
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
@@ -14,6 +13,8 @@
 #SBATCH --output=slurm-%j.out
 #SBATCH --open-mode=append
 
+# Let Torch select the partition from the resources and time limit. Forcing cs
+# bypasses the higher-priority cpu_short route for setup/check/discovery jobs.
 set -euo pipefail
 : "${STAGE:?Set STAGE=setup|check|discover|download|prepare|validate}"
 : "${REPO_DIR:?Set REPO_DIR to a fixed checkout containing these edits}"

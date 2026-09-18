@@ -148,6 +148,30 @@ def submit(args):
     }
     (root / "jobs.json").write_text(json.dumps(jobs, indent=2))
     print("report", jobs["report"]["id"], flush=True)
+    watch_command = shlex.join(["python3", args.watch_script, "--root", str(root)])
+    monitor = subprocess.run(
+        common
+        + [
+            "--partition=all",
+            "--cpus-per-task=1",
+            "--mem=1G",
+            "--time=120:00:00",
+            "--job-name=surface-w1-monitor",
+            "--wrap",
+            watch_command,
+        ],
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    jobs["monitor"] = {
+        "id": monitor.stdout.strip().split(";")[0],
+        "gpus": 0,
+        "wall_hours": 120,
+    }
+    (root / "jobs.json").write_text(json.dumps(jobs, indent=2))
+    print("monitor", jobs["monitor"]["id"], flush=True)
 
 
 if __name__ == "__main__":
@@ -161,4 +185,5 @@ if __name__ == "__main__":
         help="All smoke attempts, including failed/cancelled ones",
     )
     parser.add_argument("--report-script", required=True)
+    parser.add_argument("--watch-script", required=True)
     submit(parser.parse_args())

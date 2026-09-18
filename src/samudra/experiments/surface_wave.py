@@ -213,6 +213,7 @@ class Experiment:
 
     def emit(self, metrics):
         if self.rank == 0:
+            metrics["time_utc"] = datetime.datetime.now(datetime.UTC).isoformat()
             metrics["peak_gpu_gib"] = torch.cuda.max_memory_allocated() / 2**30
             metrics["host_peak_gib_rank0"] = (
                 resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 2**20
@@ -488,6 +489,61 @@ class Experiment:
             )
         self.barrier()
 
+    def evaluate_initializer(self):
+        self.sync_buffers(self.initializer)
+        self.initializer.eval()
+        dataset = self.dataset(self.bundle.val_sources[0], 1)
+        indices = list(range(0, len(dataset), 6))[: self.args.val_origins]
+        sampler = batches(indices[self.rank :: self.world], self.args.batch_size)
+        climatology = torch.load(
+            self.out / "climatology.pt", map_location=self.device, weights_only=False
+        )["monthly"]
+        sums = torch.zeros((2, self.channels), device=self.device)
+        count = torch.zeros((), device=self.device)
+        with torch.no_grad():
+            for ids, batch in zip(sampler, self.loader(dataset, sampler), strict=True):
+                history, _, context, _ = self.inputs(batch, dataset, ids)
+                truth = history.reshape(
+                    len(ids), 6, self.channels, *history.shape[-2:]
+                )[:, -2:]
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    prediction = self.initializer(history, context, self.mask)
+                dates = dataset.sources[0].time.values
+                months = [
+                    [dates[i + offset].month - 1 for offset in (4, 5)] for i in ids
+                ]
+                seasonal = climatology[torch.tensor(months, device=self.device)].clone()
+                seasonal[:, :, self.initializer.surface] = truth[
+                    :, :, self.initializer.surface
+                ]
+                for mode, estimate in enumerate((prediction, seasonal)):
+                    sums[mode] += channel_mse(estimate, truth, self.weights).sum((0, 1))
+                count += 2 * len(ids)
+        self.reduce(sums)
+        self.reduce(count)
+        if self.rank == 0:
+            errors = (sums / count).sqrt().cpu().numpy()
+            std = self.std.cpu().numpy()
+            with (self.out / "initializer_metrics.csv").open("w") as file:
+                writer = csv.writer(file)
+                writer.writerow(
+                    ["split", "mode", "channel", "normalized_rmse", "physical_rmse"]
+                )
+                for mode, label in enumerate(
+                    ("inferred", "climatology_with_observed_surface")
+                ):
+                    for c, name in enumerate(self.names):
+                        writer.writerow(
+                            [
+                                "validation",
+                                label,
+                                name,
+                                errors[mode, c],
+                                errors[mode, c] * std[c],
+                            ]
+                        )
+        self.barrier()
+
     def evaluate(self, model, climatology):
         self.sync_buffers(model)
         model.eval()
@@ -609,6 +665,7 @@ class Experiment:
                 self.args.hours * 3600,
                 initializer=True,
             )
+            self.evaluate_initializer()
         else:
             init_path = Path(self.args.initializer_dir) / "initializer-best.pt"
             self.initializer.load_state_dict(

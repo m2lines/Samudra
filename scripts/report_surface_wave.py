@@ -61,6 +61,32 @@ def summarize(root, jobs):
         peaks = [r.get("peak_gpu_gib", 0) for r in records]
         if peaks:
             lines += [f"Peak allocated GPU memory (rank 0): {max(peaks):.2f} GiB.", ""]
+        init_metrics = directory / "initializer_metrics.csv"
+        if init_metrics.exists():
+            interior = defaultdict(list)
+            with init_metrics.open() as file:
+                for row in csv.DictReader(file):
+                    if row["channel"] in ("thetao_0", "zos"):
+                        continue
+                    variable = row["channel"].split("_")[0]
+                    interior[(row["mode"], variable)].append(
+                        float(row["normalized_rmse"]) ** 2
+                    )
+            lines += [
+                "Initializer validation RMSE (surface channels excluded):",
+                "",
+                "| Mode | T | S | u | v |",
+                "| --- | ---: | ---: | ---: | ---: |",
+            ]
+            for mode in ("inferred", "climatology_with_observed_surface"):
+                values = [
+                    math.sqrt(sum(interior[(mode, v)]) / len(interior[(mode, v)]))
+                    for v in ("thetao", "so", "uo", "vo")
+                ]
+                lines.append(
+                    "| " + mode + " | " + " | ".join(f"{v:.4f}" for v in values) + " |"
+                )
+            lines += [""]
         metrics = directory / "heldout_metrics.csv"
         if not metrics.exists():
             lines += [

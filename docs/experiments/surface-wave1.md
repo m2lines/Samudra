@@ -114,3 +114,12 @@ The initial report must distinguish executed work from pending jobs and must
 not interpret missing/failed results as zero skill. Recommend the next wave
 from initializer quality, its downstream forecast gap, AR/direct skill, velocity
 amplitude, throughput, and memory; do not submit that wave without approval.
+
+
+The bounded CPU monitor writes `monitor.json`, `monitor.jsonl`, and a
+`needs_attention.md` file if a job fails, progress stalls, or observed concurrency
+exceeds eight GPUs. It checks every ten minutes and stops after all GPU jobs are
+terminal (or after five days). It does not silently retry failures or submit a
+new wave. The dependent CPU report writes `report.md` and `report.json` after both
+forecast branches terminate. Automated monitoring/reporting is distinct from
+agent diagnosis and fixes; any failure recorded by the monitor still needs review.

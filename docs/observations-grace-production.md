@@ -60,3 +60,25 @@ harness neither uploads to `emulators/jr7309/data/full_range` nor removes local
 data. The approximately 2 TB working budget is inferred from the pilot; the
 user reports 100 TB home capacity, but filesystem-wide free space is not an
 independent measurement of the user's quota.
+
+## Authorized monitoring and publication
+
+The user subsequently authorized an active goal to monitor processing, recover
+straightforward failures, raise complex blockers, and publish on completion.
+The Grace check-in runs every 15 minutes in the existing task and stays quiet
+unless progress is meaningful, recovery occurs, work completes, or user input
+is needed. The old Torch check-in remains disabled.
+
+`scripts/slurm_obs_grace_publish.sbatch` can be submitted with
+`--dependency=afterok:PREPARATION_JOB --kill-on-invalid-dep=yes`. It revalidates
+all three stores before publishing, then runs the portable publisher with the
+native ARM rclone. Publication uses full `rclone check --download`, consolidated
+metadata last, and a byte-verified success record. A processing failure cancels
+the dependent upload job; recovery must recreate the dependency chain.
+
+Keep the running processing checkout pinned. Deploy the publication shell
+scripts into a separate versioned operations directory, setting `PUBLISH_SCRIPT`
+to that fixed copy and `REPO_DIR` to the original processing checkout. The
+publisher's `RCLONE_MODULE=''` selects the already available Grace binary;
+`RCLONE_S3_NO_CHECK_BUCKET=true` avoids an unauthorized bucket-creation check.
+Neither successful publication nor monitoring deletes local data.

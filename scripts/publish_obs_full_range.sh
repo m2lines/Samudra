@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 #
 # SPDX-License-Identifier: Apache-2.0
-# Run on Torch dtn011 AFTER the corresponding prepare job finishes.
+# Run on a transfer node or Grace allocation AFTER preparation succeeds.
 set -euo pipefail
 : "${PRODUCT:?Set PRODUCT=duacs|oisst|argo-iap}"
 : "${REPO_DIR:?Set REPO_DIR to the checkout used for preparation}"
@@ -16,7 +16,12 @@ STORE="${OUTPUT_ROOT}/${PRODUCT}.zarr"
 export PYTHONPATH="${REPO_DIR}/data${PYTHONPATH:+:${PYTHONPATH}}"
 exec 9>"${WORK_ROOT}/.publish-${PRODUCT}.lock"
 flock -n 9 || { echo "Another publication for $PRODUCT is active" >&2; exit 1; }
-module load rclone/1.72.1
+# Torch uses a module; Grace supplies its native rclone on PATH.
+RCLONE_MODULE="${RCLONE_MODULE-rclone/1.72.1}"
+if [[ -n "$RCLONE_MODULE" ]]; then module load "$RCLONE_MODULE"; fi
+command -v rclone >/dev/null
+# The existing OSN bucket permits object access without CreateBucket access.
+export RCLONE_S3_NO_CHECK_BUCKET="${RCLONE_S3_NO_CHECK_BUCKET:-true}"
 "$OBS_PYTHON" -m ocean_preprocessing.obs_preprocessing full_range validate \
     --manifest_path="$MANIFEST_PATH" --store="$STORE"
 scratch=$(mktemp -d "${WORK_ROOT}/.publish-${PRODUCT}.XXXXXX")
@@ -47,4 +52,6 @@ record = dict(product=plan['product'], inventory_sha256=hashlib.sha256(json.dump
 pathlib.Path(sys.argv[2]).write_text(json.dumps(record, indent=2) + '\n')
 PY
 rclone copyto "$scratch/success.json" "${DEST}/${PRODUCT}.SUCCESS.json"
+rclone cat "${DEST}/${PRODUCT}.SUCCESS.json" > "$scratch/success.readback.json"
+cmp "$scratch/success.json" "$scratch/success.readback.json"
 printf 'Published and verified: %s/%s.zarr\n' "$DEST" "$PRODUCT"

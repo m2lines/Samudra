@@ -103,7 +103,7 @@ class Experiment:
         self.world = int(os.environ.get("WORLD_SIZE", 1))
         self.device = torch.device("cuda", int(os.environ.get("LOCAL_RANK", 0)))
         torch.cuda.set_device(self.device)
-        if self.world > 1:
+        if self.world > 1 and not dist.is_initialized():
             dist.init_process_group("nccl", timeout=datetime.timedelta(hours=1))
         torch.set_num_threads(1)
         torch.manual_seed(args.seed)
@@ -656,7 +656,7 @@ class Experiment:
                                 )
             self.emit({"event": "heldout_complete", "origins": int(count.item())})
 
-    def execute(self):
+    def execute(self, *, close_group=True):
         if self.args.task == "initializer":
             self.fit_climatology()
             self.train_phase(
@@ -720,7 +720,7 @@ class Experiment:
             if self.run:
                 self.run.finish()
         self.barrier()
-        if self.world > 1:
+        if self.world > 1 and close_group:
             dist.destroy_process_group()
 
 
@@ -762,7 +762,9 @@ def main():
             selected.output = str(Path(args.output) / task)
             selected.name = args.name + "-" + task
             selected.initializer_dir = str(Path(args.output) / "initializer")
-            Experiment(selected).execute()
+            Experiment(selected).execute(close_group=False)
+        if dist.is_initialized():
+            dist.destroy_process_group()
     else:
         Experiment(args).execute()
 

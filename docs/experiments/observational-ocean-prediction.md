@@ -4,59 +4,76 @@ SPDX-FileCopyrightText: 2026 Samudra Authors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# Predicting the ocean interior from surface observations
+# Predicting ocean state from surface observations
 
-Status: research direction revised 2026-09-17. Intended for human researchers and agents.
+Status: research direction revised 2026-09-18. Intended for human researchers and agents.
 The task and candidate learning strategy are described below; dataset preparation and the exact evaluation
 protocol remain TODOs. This document does not claim an implemented benchmark or demonstrated skill.
 
 ## Scientific objective
 
-How well can we infer the ocean interior from surface observations and predict its future evolution, using all
+How well can we infer ocean state from surface observations and predict its future evolution, using all
 the permitted data and compute available? To what extent does simulation data improve prediction of future
-observed interiors, and which architectures and data strategies realize that benefit? In particular, what do
+observed interior and surface fields, and which architectures and data strategies realize that benefit? What do
 finer-resolution OM4 data, LLC, and additional model sources contribute beyond coarser data?
 
 We have a strong prior that simulation data should help substantially. The objective is to discover how to
 achieve that improvement and measure its extent. Lead with the best performance achieved; controlled comparisons
 help explain the result and guide further experiments without imposing a rigid experiment sequence.
 
-Take as a working premise Laure's concern that prescribed atmospheric forcing makes surface prediction too easy
-to serve as the main scientific test, while removing forcing limits useful evolution. Keep atmospheric forcing
-and make **future observed interior temperature and salinity the primary evaluation targets**. Surface skill is
-supporting evidence. We do not need to resolve this premise through a forcing-ablation campaign first.
+Keep **future observed interior temperature and salinity as primary evaluation targets**, and also predict
+**daily sea surface height (SSH) and sea surface temperature (SST)** for observational scoring with the existing
+metrics. Forcing consists of selected ERA5 atmospheric fields; OISST and DUACS are not forecast-time forcings.
+In particular, SSH is a prediction target, not a prescribed input from the atmosphere. Surface prediction is a
+meaningful part of this task because the future observed surface fields are not supplied to the model.
+
+Pretraining on model outputs also supervises interior velocities. Retain these predictions during observational
+fine-tuning to investigate whether the model can produce plausible velocity fields alongside the observed
+quantities, even without gold observational interior velocity targets.
 
 Historical ocean reconstruction and eventual prediction over decades remain the broader motivation. The immediate
-task is repeated forecasts at monthly to seasonal leads. A continuous eight-year rollout and a 100-year rollout
-are possible later diagnostics and extensions, not the acceptance criteria for this task. Short-lead success
-alone will not establish long-term stability or climate skill.
+task combines daily surface predictions with repeated interior forecasts at monthly to seasonal leads. A continuous
+eight-year rollout and a 100-year rollout are possible later diagnostics and extensions, not the acceptance
+criteria for this task. Short-lead success alone will not establish long-term stability or climate skill.
 
 Budgets, scheduling, and agent execution instructions belong in separate campaign instructions.
 
 ## Target task
 
 At a forecast origin `t`, use a documented history of surface observations ending at `t` to initialize an ocean
-state. Evolve that state under prescribed atmospheric forcing and predict interior temperature and salinity at
-future times. Evaluate against profiles from held-out future periods.
+state. Evolve that state under prescribed atmospheric forcing and predict daily SSH/SST together with interior
+temperature, salinity, and velocities. Evaluate the observed quantities against held-out surface products and
+interior profiles; assess interior velocity plausibility separately.
 
 - **Initialization inputs:** observed surface fields and their history, masks, coordinates, and static geometry.
   SST and sea level are candidate fields; the exact products, history length, and available variables must be
   pinned. Observed interior profiles are training labels and evaluation targets, not required inference inputs.
-- **Forcing:** OM4 and/or ARCO-ERA5 atmospheric inputs, with a common documented protocol for comparisons.
+- **Forcing:** selected ERA5/ARCO-ERA5 atmospheric fields for observational forecasts, with compatible OM4
+  forcing for model-data pretraining and a common documented protocol for comparisons. OISST, DUACS, and
+  forecast-time ocean SSH/SST or observed ocean velocities are not forcing variables. Eligible pre-origin surface
+  observations may initialize the state, and training-period future observations may serve as targets.
   Realized future atmosphere defines a conditional hindcast; it does not establish a forecast with unknown
   future atmospheric conditions. Current OM4 forcings are fluxes; surface-state forcing is a TODO.
-- **Predictions:** an evolving surface and interior state with temperature/salinity available at scoring locations
-  and depths. Architecture, internal representation, spatial grid, and additional state variables remain open.
+- **Predictions:** daily SSH and SST, plus interior temperature/salinity available at scoring locations and depths.
+  Retain interior horizontal velocity components (`uo`, `vo`) at the declared interior state times throughout
+  pretraining, observational fine-tuning, and inference. Architecture, internal representation, spatial grid,
+  and additional state variables remain open.
 - **Forecast boundary:** no surface or interior observations after `t` enter a forecast as ocean-state inputs.
   New forecast origins can use newly available surface observations. These repeated forecasts are distinct from
   one continuously evolving trajectory.
-- **Initial lead proposal:** evaluate roughly one month ahead, then three and six months. Exact lead windows,
-  origins, domain, depth range, and aggregation weights must be fixed before comparing results.
+- **Initial lead proposal:** evaluate interior profiles roughly one month ahead, then three and six months,
+  with daily SSH/SST outputs through the forecast interval. Exact lead windows, origins, domain, depth range,
+  and aggregation weights must be fixed before comparing results.
 
 Monthly lead time does not imply a monthly mean target. Individual profiles have observation times. Prefer
 predictions at those times, for example through a transition conditioned on the exact lead or a defined temporal
 interpolation protocol. A transition from January 1 directly to January 29 can be one learned model application;
 it need not be 28 daily steps. A monthly transition rolled out for six months requires six coarse steps.
+
+Daily surface output is a separate requirement from the internal integration cadence. A model with coarse
+interior transitions can use a daily surface decoder, direct predictions at daily leads, or another documented
+output strategy. It must produce the daily SSH/SST fields needed for scoring without consuming post-origin ocean
+observations. Daily outputs do not require backpropagation through a daily full-interior rollout.
 
 If a model instead predicts monthly averages, explicitly define how those averages are compared with profile
 samples and quantify the mismatch caused by unresolved temporal variability. Do not silently equate an
@@ -70,27 +87,32 @@ strategy, not a restriction on competing architectures.
 
 1. **Surface-to-interior initialization.** Train an initializer on paired surface histories and full ocean states
    from eligible OM4 and/or GLORYS data. It estimates the unobserved interior and combines it with the surface to
-   form an initial state. Allow observation-like masks and source adaptations during training. A surface history
-   may not identify a unique interior; ensembles or probabilistic representations are valid choices.
+   form an initial state, including temperature, salinity, and interior velocities. Allow observation-like masks
+   and source adaptations during training. A surface history may not identify a unique interior; ensembles or
+   probabilistic representations are valid choices.
 2. **Coarse evolution.** Train a dynamics model on full-state transitions from the same permitted sources,
-   conditioned on forcing and the chosen time interval. It evolves interior and surface together. Include the
-   state needed for useful evolution; temperature and salinity need not be the only internal variables.
+   conditioned on forcing and the chosen time interval. Supervise temperature, salinity, SSH/SST, and interior
+   velocities against the source's available fields and time support. The model evolves interior and surface
+   together and provides daily surface outputs for the target task; internal state cadence remains flexible.
 3. **Connect the components.** Train or validate evolution from the initializer's inferred states, rather than
    assuming performance from exact simulation states transfers unchanged. This exposes the dynamics model to
    initialization errors before observational fine-tuning.
-4. **Joint observational fine-tuning.** Initialize from observed surface history and supervise predicted surface
-   fields and interior profiles in the training period. Interior observations remain labels. Sparse profile
-   losses can update both components through differentiable sampling of predicted fields; they do not require
-   filling an observed global interior grid. Simulation replay and auxiliary interior reconstruction can help
-   preserve physical structure. Loss weights and freezing schedules are experiment choices.
+4. **Joint observational fine-tuning.** Initialize from observed surface history and supervise daily SSH/SST and
+   interior T/S profiles in the training period. Interior observations remain labels. Sparse profile losses can
+   update both components through differentiable sampling of predicted fields; they do not require filling an
+   observed global interior grid. Keep predicting interior velocities while optimizing the observed quantities.
+   There are no gold interior velocity observations in this proposal, so observational batches have no direct
+   interior velocity target; missing labels are not zeros. One option is to mix eligible model-output examples
+   into fine-tuning, retaining supervised velocity reconstruction/forecast losses to discourage forgetting.
+   Simulation replay, auxiliary tasks, loss weights, mixing ratios, and freezing schedules are experiment choices.
 
 Surface-only fine-tuning can be an experiment, but improved surface predictions do not demonstrate improved
 interiors. The primary profile evaluation applies regardless of which losses are used in training. Likewise,
 GLORYS agreement measures agreement with a reanalysis, not independent observational success.
 
-Architectures, normalization, model size, source mixtures, additional training tasks, temporal cadence, crops,
-and spatial resolution are open. Models can be replaced entirely. Match observational support where practical,
-and compare candidates on a common evaluation footprint rather than prescribing one internal grid.
+Architectures, normalization, model size, source mixtures, additional training tasks, internal temporal cadence,
+crops, and spatial resolution are open. Models can be replaced entirely. Match observational support where
+practical, and compare candidates on a common evaluation footprint rather than prescribing one internal grid.
 
 ## Data and access
 
@@ -113,6 +135,12 @@ selected dataset and derivative.
 | EN4 profiles | [Met Office EN4](https://www.metoffice.gov.uk/hadobs/en4/); Torch staging TODO | Candidate broader collection of interior profiles; overlaps Argo |
 | LLC and CM4 | Selected releases and Torch paths TODO | Additional simulation sources when available |
 | ARCO-ERA5 | Selected store, fields, and Torch access TODO | Atmospheric forcing |
+
+Prepare daily SSH and SST labels/reference products with eligible training-period coverage. The inspected DUACS
+store has no SSH, and the prepared DUACS/OISST metric stores use centered five-day means on OM4 timestamps.
+They are not substitutes for daily target fields. Preserve daily observations and predictions, and construct
+explicitly matched derivatives when using those existing prepared metric products. OISST/DUACS are observation
+inputs before initialization and labels/references afterward, never forecast-time forcings.
 
 The three OM4 archives are regriddings of the same underlying simulation, not independent simulated trajectories.
 Each has 4,745 records. Distinguish the effect of retaining spatial detail from adding a different simulation or
@@ -173,9 +201,10 @@ development must be distinguished from independent confirmation.
 
 ## Evaluation and success criteria
 
-The primary result is prediction of **unseen future interior observations from surface-initialized states**.
+The primary interior result is prediction of **unseen future interior observations from surface-initialized states**.
 Initializer accuracy at lead zero is a separate diagnostic. A good reconstruction alone does not demonstrate
-skill in evolution, and improvement confined to surface metrics does not satisfy the objective.
+skill in evolution. Daily SSH/SST prediction and surface metric reporting are also required; improvement confined
+to the surface does not establish interior skill.
 
 For each candidate, hold fixed the surface input protocol, forcing, forecast origins and leads, profile collection
 and QC, depth/domain coverage, sampling operator, and aggregation. Save the matched forecast/observation records
@@ -188,8 +217,22 @@ observation evaluator does not implement this protocol by itself.
 | Future profile salinity error | Primary | RMSE and bias in the pinned salinity convention/units, with the same breakdowns |
 | Skill versus reference predictions | Primary interpretation | Compare climatology and persistence of the inferred interior anomaly on identical samples |
 | Profile reconstruction error at initialization | Diagnostic | Separate lead-zero T/S errors from future-lead scores |
-| Surface SST and sea-level/velocity skill | Supporting | Observational errors with compatible time support |
+| Daily SST skill | Required surface evaluation | Existing OISST SST error and variability metrics with documented temporal matching |
+| Daily SSH skill | Required surface evaluation | Existing DUACS surface geostrophic velocity/EKE metrics derived from SSH; direct SSH errors when the reference is prepared |
+| Interior velocity fields | Retained output; plausibility diagnostic | Velocity distributions, kinetic energy, spectra/coherence, and held-out model-data skill as useful; no claim of gold observational verification |
 | OHC, variability, drift, and stability | Supporting/longer-term | Gridded-product comparisons and physical diagnostics with coverage stated |
+
+For the existing evaluator, expose SSH as `zos` and provide the SST field through its documented temperature
+interface (currently `thetao` at the top level), or implement an explicit adapter. The DUACS metrics derive
+surface geostrophic velocity from SSH; they do not validate the model's directly predicted interior `uo`/`vo`.
+The existing scorer requires exact timestamps. Preserve daily outputs and compare with daily references where
+available; for the prepared five-day products, explicitly match averaging support and timestamps before scoring.
+Record which daily and matched-cadence metrics are reported rather than silently treating them as equivalent.
+For repeated forecast origins, specify which leads enter each surface time series before reusing these metrics.
+
+Assess whether velocity fields remain plausible after fine-tuning and whether model-data replay helps retain
+them. Diagnostics and model-data comparisons can support that assessment, but better SSH/SST or T/S scores alone
+do not demonstrate accurate interior velocities. Velocity diagnostics do not replace observational scores.
 
 Define the profile sampling operator explicitly: spatial and vertical interpolation, pressure/depth conversion,
 temperature/salinity conventions, time matching, and wet-cell treatment. Do not score missing depths as zero or
@@ -206,41 +249,49 @@ that limitation and the model's spatial/temporal support. Sparse profile scores 
 observations exist; they do not independently establish global heat-content accuracy. Keep gridded IAP/OHC
 comparisons as complementary large-scale diagnostics.
 
-There is no prescribed scalar reward or percentage threshold. Report the vector of T/S scores, uncertainty,
-coverage, and tradeoffs. Use best achievable performance as the headline; observation-only training, coarse-only
-versus richer simulation training, and compute/data scaling are useful supporting comparisons for attributing
-improvement. Their experiment order and budgets remain flexible.
+There is no prescribed scalar reward or percentage threshold. Report T/S and daily surface scores, velocity
+diagnostics, uncertainty, coverage, and tradeoffs. Use best achievable performance as the headline; observation-only
+training, coarse-only versus richer simulation training, and compute/data scaling are useful supporting comparisons
+for attributing improvement. Their experiment order and budgets remain flexible.
 
 ## Per-experiment evidence
 
 Keep a short Markdown account linked to Git and machine-readable artifacts. Record the question, code commit,
 resolved configuration, checkpoint lineage, model and training strategy, source versions/paths, date splits,
-preprocessing, forcing, input history, forecast origins/leads, evaluator revision, and approximate compute.
+preprocessing, atmospheric forcing fields, input history, forecast origins/leads, daily output and internal state
+cadences, velocity supervision/replay policy, evaluator revision, and approximate compute.
 Include results, uncertainty, coverage, failures, interpretation, and the next proposed experiment.
 
 Save a manifest, per-profile prediction/observation matches (including source IDs and QC), aggregated metrics,
 and deltas versus named references in CSV, JSON, Parquet, or existing equivalent formats. Keep durable pointers
-to checkpoints and output arrays rather than committing them to Git. Label incomplete runs and partial-domain
-results. A human or agent should be able to trace a score back to its model, inputs, and accepted observations.
+to checkpoints, daily SSH/SST, interior velocity outputs, and their diagnostics rather than committing arrays to Git.
+Label incomplete runs and partial-domain results. A human or agent should be able to trace a score back to its
+model, inputs, and accepted observations.
 
 ## TODOs before an executable campaign
 
 - [ ] **Surface initialization:** choose products, variables, history, masks, and geometry; obtain eligible
   pre-cutoff coverage and SSH if selected. Pin how inferred interior state connects to the dynamics model.
+- [ ] **Daily surface outputs and data:** prepare daily SSH/SST labels and references, including missing SSH and
+  pre-cutoff coverage; define daily readout from the chosen internal cadence and adapters for existing metrics.
+  Preserve daily outputs alongside any five-day matched derivatives.
 - [ ] **Profile dataset:** choose Argo, EN4 profiles, or a documented combination; stage on Torch and record QC,
   duplicates, versions, units, depth support, and date coverage. Assess OceanDepths as a preparation option.
 - [ ] **Time target:** choose endpoint/exact-lead predictions versus means; specify matching and interpolation,
   and verify the temporal support available in simulation and observation training sources.
 - [ ] **Evaluation contract:** pin forecast origins, one/three/six-month leads or alternatives, test dates,
-  domain, depth bands, sampling operator, weights, uncertainty procedure, and reference predictors.
+  domain, depth bands, profile sampling, daily surface scoring, weights, uncertainty, and reference predictors.
 - [ ] **Splits and ancestry:** verify full window boundaries, fitted statistics, retrospective input support,
   and exclusions across raw observations, gridded products, GLORYS, and simulation-derived training tasks.
 - [ ] **Surface-state forcing:** replace current OM4 flux inputs with intended atmospheric surface-state inputs;
-  identify OM4/ARCO-ERA5 fields, transformations, time support, and Torch access. Label interim flux experiments.
+  identify OM4/ERA5/ARCO-ERA5 fields, transformations, time support, and Torch access. Exclude forecast-time ocean
+  SSH/SST and observed velocities from the forcing schema, including OISST/DUACS. Label interim flux experiments.
 - [ ] **Additional model data:** inventory GLORYS, LLC, and CM4 paths, fields, geometry, cadence, dates, and
   permitted roles. LLC availability remains an explicit dependency, not an assumed completed transfer.
 - [ ] **Training and scoring implementation:** implement separate pretraining, connected fine-tuning, sparse
-  profile losses, and matched-profile evaluation, or identify reusable implementations with verified semantics.
+  profile and daily surface losses, and matched evaluation, or identify reusable implementations with verified
+  semantics. Retain interior velocity predictions and choose any model-data replay/auxiliary velocity losses;
+  record plausibility diagnostics and forgetting relative to the pretrained model.
 
 ## Source references
 

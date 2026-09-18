@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2026 Samudra Authors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# Literature review: surface-initialized ocean interior prediction
+# Literature review: surface-initialized ocean state prediction
 
 Reviewed 2026-09-18. Companion to the [research plan](observational-ocean-prediction.md).
 This is a targeted literature review, not an exhaustive systematic review or a reproduction of the results.
@@ -12,10 +12,13 @@ Preprints are identified below. Unless qualified, the paper's methods or full te
 performance claims are the authors' results.
 
 The relevant task is surface-history initialization, followed by evolution under prescribed atmospheric forcing,
-with future observed interior temperature and salinity as the primary targets. The literature supports both
-components and their joint training. Direct surface-to-future-interior prediction also has precedent, so the
-scientific contribution should be measured improvement from simulation data and the resulting observational
-skill, rather than the existence of a two-component architecture.
+with future observed interior temperature and salinity as primary targets and daily SSH/SST as required surface
+outputs. Forcing uses selected ERA5 atmospheric fields, not forecast-time OISST/DUACS. Model-data pretraining also
+supervises interior velocities, which remain predicted during observational fine-tuning despite lacking gold
+observational interior velocity targets. The literature supports the initialization and evolution components and
+their joint training. Direct surface-to-future-interior prediction also has precedent, so the scientific contribution
+should be measured improvement from simulation data and the resulting observational skill, rather than the existence
+of a two-component architecture.
 
 Three distinctions matter throughout: reconstructing the present versus forecasting the future; verification
 against simulations/reanalyses versus actual profiles; and observing the surface versus supplying interior
@@ -181,6 +184,12 @@ information at initialization. The best atmospheric architectural analogues ofte
 
 - Keep the proposed initializer plus dynamics model as a strong candidate. Train dynamics on reconstructed
   initial states before joint fine-tuning, following the practical lesson from Aardvark and FuXiWeather2.
+- Predict daily SSH/SST for the existing observational metrics, even if the interior evolves at coarser steps.
+  Supply atmospheric forcing; reserve future OISST/DUACS for training labels and evaluation. Their pre-origin
+  history remains a permitted initialization input. Match the time support of daily versus prepared products.
+- Retain model-supervised interior velocity outputs during fine-tuning on surface and interior T/S observations.
+  Mixing eligible model-output examples with velocity losses is an option to discourage forgetting. Assess
+  plausibility separately: SSH-derived surface geostrophic metrics are not gold interior velocity observations.
 - Include a direct surface-history-to-future-profile predictor as a serious competing approach. Existing ocean
   studies make it a natural baseline; the two-stage factorization should earn its complexity through skill.
   Use the same permitted atmospheric forcing and surface history for fair comparisons.

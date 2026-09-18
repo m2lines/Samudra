@@ -27,6 +27,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 from samudra.config import DataConfig
 from samudra.datasets import TorchTrainDataset
+from samudra.experiments.frame_cache import PreparedFrameCache
 from samudra.experiments.surface_state import (
     Evolution,
     Forecast,
@@ -110,6 +111,7 @@ class Experiment:
         np.random.seed(args.seed)
         self.out = Path(args.output)
         self.out.mkdir(parents=True, exist_ok=True)
+        self.frame_caches: dict[int, PreparedFrameCache] = {}
         self.config = data_config(args)
         self.bundle = self.config.build(LocalLocation(path=args.data_root))
         self.source = self.bundle.train_sources[0]
@@ -181,7 +183,7 @@ class Experiment:
             masked_fill_value=0.0,
         )
 
-    def loader(self, dataset, sampler):
+    def native_loader(self, dataset, sampler):
         return build_train_batch_loader(
             [dataset],
             sampler,
@@ -191,6 +193,68 @@ class Experiment:
             multiprocessing_context=None,
             worker_seed=self.args.seed,
         )
+
+    def loader(self, dataset, sampler):
+        if not self.args.device_cache:
+            return self.native_loader(dataset, sampler)
+        source = dataset.sources[0]
+        if len(dataset.sources) != 1 or dataset.stride != 1:
+            raise ValueError("Resident wave cache requires one source and unit stride")
+        key = id(source)
+        if key not in self.frame_caches:
+            warm = self.dataset(source, 1)
+            frames = len(source.time)
+            shape = tuple(self.mask.shape[-2:])
+            needed = frames * (self.channels + 3) * math.prod(shape) * 4
+            free, _ = torch.cuda.mem_get_info(self.device)
+            if needed + self.args.device_cache_reserve_gib * 2**30 > free:
+                raise MemoryError(
+                    f"Resident cache needs {needed / 2**30:.2f} GiB plus "
+                    f"{self.args.device_cache_reserve_gib} GiB reserve; "
+                    f"only {free / 2**30:.2f} GiB free"
+                )
+            cache = PreparedFrameCache(frames, self.channels, 3, shape, self.device)
+            indices = list(range(0, len(warm), warm.input_steps))
+            if indices[-1] != len(warm) - 1:
+                indices.append(len(warm) - 1)
+            schedule = batches(indices, self.args.batch_size)
+            self.emit(
+                {
+                    "event": "cache_warm_start",
+                    "frames": frames,
+                    "cache_gib": needed / 2**30,
+                }
+            )
+            for ids, batch in zip(
+                schedule, self.native_loader(warm, schedule), strict=True
+            ):
+                cache.record(warm.shard.window_plan(ids), batch)
+            # These are the only boundary frames that any window can request.
+            if not cache.prognostic_ready.all() or not cache.boundary_ready[:-1].all():
+                raise ValueError("Incomplete resident cache coverage")
+            # Verify shuffled, repeated, edge and full-rollout requests through
+            # the independent native path before trusting the cache for training.
+            probes = [[len(dataset) - 1, 0], [len(dataset) // 2, len(dataset) // 2]]
+            for ids, reference in zip(
+                probes, self.native_loader(dataset, probes), strict=True
+            ):
+                cached = cache.batch(dataset, ids)
+                for actual_step, expected_step in zip(cached, reference, strict=True):
+                    for actual, expected in zip(
+                        actual_step, expected_step, strict=True
+                    ):
+                        torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+            self.frame_caches[key] = cache
+            self.emit(
+                {
+                    "event": "cache_ready",
+                    "frames": frames,
+                    "cache_gib": needed / 2**30,
+                    "native_equivalence": "exact",
+                }
+            )
+        cache = self.frame_caches[key]
+        return (cache.batch(dataset, ids) for ids in sampler)
 
     def inputs(self, batch, dataset, indices):
         history = batch.get_initial_input()[0]
@@ -545,6 +609,9 @@ class Experiment:
         self.barrier()
 
     def evaluate(self, model, climatology):
+        # Held-out data use a separate cache; training frames are no longer needed.
+        self.frame_caches.clear()
+        torch.cuda.empty_cache()
         self.sync_buffers(model)
         model.eval()
         source = self.bundle.inference_source
@@ -744,6 +811,12 @@ def main():
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--widths", type=int, nargs="+", default=[128, 192, 256, 384])
     parser.add_argument("--readers", type=int, default=4)
+    parser.add_argument(
+        "--device-cache",
+        action="store_true",
+        help="Cache prepared OM4 frames in GPU memory after exact native-reader verification",
+    )
+    parser.add_argument("--device-cache-reserve-gib", type=float, default=24.0)
     parser.add_argument("--val-origins", type=int, default=12)
     parser.add_argument("--checkpoint-seconds", type=int, default=1200)
     parser.add_argument("--seed", type=int, default=1729)

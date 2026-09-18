@@ -130,3 +130,27 @@ terminal (or after five days). It does not silently retry failures or submit a
 new wave. The dependent CPU report writes `report.md` and `report.json` after both
 forecast branches terminate. Automated monitoring/reporting is distinct from
 agent diagnosis and fixes; any failure recorded by the monitor still needs review.
+
+## Low-utilization recovery
+
+The original two-GPU initializer was cancelled by an administrator after about
+2.2 hours. Its optimizer/model checkpoint remains resumable. A one-GPU resume
+with batch four preserved the global optimizer batch but measured only 3.7%
+average GPU utilization over 55 seconds, so that attempt was stopped before
+restoring dependent jobs. This was not resolved by consolidation alone.
+
+The optional `--device-cache` mode warms prepared float32 frames once through the
+Rust loader, then reconstructs batches using the same canonical window plans.
+It checks exact equality against the native reader for edge, shuffled, repeated,
+and full-rollout requests before training. Training and validation sources use
+separate caches; training caches are released before held-out evaluation. The
+one-degree training cache needs roughly 55 GiB per GPU, with a default 24 GiB
+free-memory reserve required before allocation. This trades unused GPU memory
+for repeated reads and decompression while retaining modest host RAM. It is not
+a new data transformation, source, split, model, or normalization choice.
+
+The initializer recovery uses one GPU and batch four, rather than two GPUs with
+batch two each. Global batches and the saved sampler cursor are preserved, but
+local batch-normalization statistics use four examples rather than two. Record
+this difference and every cancelled/recovery job in the final report. Verify
+actual utilization and training progress before restoring the downstream DAG.

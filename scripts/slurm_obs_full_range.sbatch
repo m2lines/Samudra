@@ -15,7 +15,7 @@
 #SBATCH --open-mode=append
 
 set -euo pipefail
-: "${STAGE:?Set STAGE=setup|discover|download|prepare|validate}"
+: "${STAGE:?Set STAGE=setup|check|discover|download|prepare|validate}"
 : "${REPO_DIR:?Set REPO_DIR to a fixed checkout containing these edits}"
 PRODUCT="${PRODUCT:-duacs}"
 case "$PRODUCT" in duacs|oisst|argo-iap) ;; *) echo "Invalid PRODUCT: $PRODUCT" >&2; exit 2 ;; esac
@@ -41,6 +41,11 @@ if [[ "$STAGE" == setup ]]; then
     exit 0
 fi
 [[ -x "$OBS_PYTHON" ]] || { echo "Run STAGE=setup first" >&2; exit 2; }
+# The DUACS downloader invokes the toolbox CLI as a subprocess.
+export PATH="$(dirname "$OBS_PYTHON"):$PATH"
+if [[ "$STAGE" == check ]]; then
+    exec "$OBS_PYTHON" -m ocean_preprocessing.obs_preprocessing.check
+fi
 args=()
 case "$STAGE" in
     discover)

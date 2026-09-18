@@ -50,10 +50,14 @@ make five-day model output a daily prediction.
 
 ## Environment and credentials
 
-Torch has Python 3.12 and the `cs` CPU partition. Use account
+Both the checkout (`/scratch/jr7309/Ocean_Emulator`) and the Python venv
+(`/scratch/jr7309/data/obs_full_range/venv`) live on scratch. No container
+or dependency image is used. `~/Ocean_Emulator` may be a symlink to the scratch
+checkout. Torch has Python 3.12 and the `cs` CPU partition. Use account
 `torch_pr_347_lzanna`. No GPUs, GHCR credentials, W&B key, or full training
 container are needed. `STAGE=setup` builds a scratch-backed venv from
-`scripts/requirements-observations.txt` and records `environment-freeze.txt`.
+`scripts/requirements-observations.txt` and records `environment-freeze.txt`. `STAGE=check` runs the small pipeline tests and
+validates Copernicus authentication without printing credentials.
 Commit these edits into a fixed checkout for the entire run so the stored git
 revision identifies the processing code. A separate SHA-256 of the actual
 processing modules also protects checkpoint resumes. Do not modify
@@ -98,7 +102,8 @@ resumes at completed 24-timestamp block boundaries.
 | Stage | CPUs | Memory | Time limit | Dependency |
 | --- | --- | --- | --- | --- |
 | Setup | 2 | 8 GB | 1 hour | none |
-| Discover each product | 2 | 8 GB | 1 hour | setup |
+| Tests and authentication check | 4 | 16 GB | 15 minutes | setup |
+| Discover each product | 2 | 8 GB | 1 hour | check |
 | Download DUACS | 8 | 64 GB | 48 hours | DUACS discovery + credentials |
 | Download OISST | 4 | 16 GB | 24 hours | OISST discovery |
 | Download IAP | 4 | 16 GB | 24 hours | IAP discovery |
@@ -111,7 +116,7 @@ an isolated fixed checkout**, choosing its actual path as `REPO_DIR`. No jobs
 were submitted while preparing this proposal.
 
 ```bash
-export REPO_DIR="$HOME/Ocean_Emulator"  # checkout on codex/observations-full-range
+export REPO_DIR=/scratch/jr7309/Ocean_Emulator  # codex/observations-full-range
 export WORK_ROOT=/scratch/jr7309/data/obs_full_range
 export RAW_ROOT="$WORK_ROOT/raw"
 export OUTPUT_ROOT="$WORK_ROOT/prepared"
@@ -122,13 +127,16 @@ common=(--parsable --account=torch_pr_347_lzanna --partition=cs
 
 setup=$(STAGE=setup sbatch "${common[@]}" --job-name=obs-env \
   --cpus-per-task=2 --mem=8G --time=01:00:00 "$HARNESS")
+check=$(STAGE=check sbatch "${common[@]}" --job-name=obs-check \
+  --dependency="afterok:$setup" --cpus-per-task=4 --mem=16G \
+  --time=00:15:00 "$HARNESS")
 
 for product in duacs oisst argo-iap; do
   # sbatch exports these values by default. Do not unset the Copernicus
   # credentials before submitting the DUACS download job.
   export PRODUCT="$product"
   discover=$(STAGE=discover sbatch "${common[@]}" \
-    --dependency="afterok:$setup" --job-name="obs-discover-$product" \
+    --dependency="afterok:$check" --job-name="obs-discover-$product" \
     --cpus-per-task=2 --mem=8G --time=01:00:00 "$HARNESS")
   case "$product" in
     duacs) download_cpu=8; download_mem=64G; download_time=2-00:00:00
@@ -177,7 +185,7 @@ removing remote objects. Consumers should require `<product>.SUCCESS.json`.
 ssh torch
 ssh dtn011
 module load rclone/1.72.1
-export REPO_DIR="$HOME/Ocean_Emulator"
+export REPO_DIR=/scratch/jr7309/Ocean_Emulator
 export WORK_ROOT=/scratch/jr7309/data/obs_full_range
 export PRODUCT=duacs  # repeat for oisst and argo-iap after their prepare jobs
 nohup bash "$REPO_DIR/scripts/publish_obs_full_range.sh" \

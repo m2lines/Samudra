@@ -108,6 +108,21 @@ def test_native_values_and_time_survive_preparation(tmp_path, product):
     assert not (out / f".{product}.progress.json").exists()
 
 
+def test_positive_360_longitude_is_wrapped_with_its_data():
+    source = xr.Dataset(
+        {"temp": (("time", "lat", "lon"), np.array([[[10.0, 20.0, 30.0]]]))},
+        coords={
+            "time": pd.date_range("2023-01-01", periods=1),
+            "lat": [0.0],
+            "lon": [0.5, 180.0, 360.0],
+        },
+    )
+    actual = full.prep._standardize_daily(source)
+    np.testing.assert_array_equal(actual.lon.values, [0.0, 0.5, 180.0])
+    np.testing.assert_array_equal(actual.temp.values, [[[30.0, 10.0, 20.0]]])
+    np.testing.assert_array_equal(source.lon.values, [0.5, 180.0, 360.0])
+
+
 def test_interrupted_block_resumes_without_dropping_or_averaging(tmp_path, monkeypatch):
     manifest, plan, expected = make_archive(tmp_path, "oisst")
     original = full._open_block

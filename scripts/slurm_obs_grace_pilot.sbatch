@@ -22,7 +22,8 @@ set -euo pipefail
 [[ "$(uname -m)" == aarch64 ]] || { echo 'Pilot requires an ARM64 compute node'; exit 2; }
 OBS_ENV="${WORK_ROOT}/envs/grace-arm64"
 UV_BIN="${WORK_ROOT}/tools/grace-arm64/uv"
-PILOT_ROOT="${WORK_ROOT}/pilot/20260918"
+PILOT_ROOT="${PILOT_ROOT:-${WORK_ROOT}/pilot/20260918}"
+PILOT_PRODUCTS="${PILOT_PRODUCTS:-duacs oisst argo-iap}"
 export PIP_CACHE_DIR="${WORK_ROOT}/cache/grace-arm64"
 export UV_CACHE_DIR="${WORK_ROOT}/cache/grace-arm64/uv"
 export TMPDIR="${WORK_ROOT}/tmp/grace-arm64"
@@ -53,9 +54,9 @@ rclone cat "$remote" > "$probe.readback"
 cmp "$probe" "$probe.readback"
 printf 'OSN probe verified: %s\n' "$remote"
 
-for product in duacs oisst argo-iap; do
+for product in $PILOT_PRODUCTS; do
     /usr/bin/time -v python -m ocean_preprocessing.obs_preprocessing.pilot \
         --inventory-dir "$INVENTORY_DIR" --root "$PILOT_ROOT" \
         --product "$product" --threads "${SLURM_CPUS_PER_TASK:-4}"
 done
-printf 'All three native-cadence pilots passed: %s\n' "$PILOT_ROOT"
+printf 'Selected native-cadence pilots passed (%s): %s\n' "$PILOT_PRODUCTS" "$PILOT_ROOT"

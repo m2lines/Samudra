@@ -67,8 +67,11 @@ harness with an immutable code overlay and the matching Rust-enabled SIF.
 Explicitly select account `torch_pr_347_lzanna`, partition `rtx6000_lzanna`.
 Rust uses no PyTorch data-loader workers, two prefetched batches, CUDA prefetch,
 and an explicitly capped native read pool per rank. Initial resource request:
-two CPUs and 16 GiB host RAM per GPU, two native readers per rank. Smoke results
-may justify adjusting these requests within the approved budget.
+two CPUs and 16 GiB host RAM per GPU. The qualified configuration uses eight
+native I/O readers per rank (I/O concurrency, not eight allocated CPUs) and
+batch size two. The two-GPU initializer smoke measured 3.1 samples/s and
+about 4.5 GiB peak host memory per rank. These are short-run measurements,
+not sustained four-GPU throughput claims.
 
 Planned caps (scheduler wall time includes evaluation/setup):
 

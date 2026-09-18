@@ -75,6 +75,8 @@ def submit(args):
             "--hours",
             str(train_hours),
             "--readers",
+            "8",
+            "--batch-size",
             "2",
         ]
         if task != "initializer":

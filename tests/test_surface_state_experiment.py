@@ -94,3 +94,12 @@ def test_training_sampler_partitions_without_duplicates_and_resumes():
     assert len(flattened) == len(set(flattened)) == 96
     assert len({len(rank) for rank in ranks}) == 1
     assert ranks[0][3:] == training_batches(101, 2, 4, 0, 1729, 3)[3:]
+
+
+def test_initializer_preserves_float32_surfaces_under_autocast():
+    history, context, mask, _ = setup_case()
+    model = Initializer(NAMES, [8, 16]).eval()
+    with torch.autocast("cpu", dtype=torch.bfloat16):
+        output = model(history, context, mask)
+    expected = history.reshape(2, 6, len(NAMES), 16, 32)[:, -2:, [2, 5]] * mask[[2, 5]]
+    torch.testing.assert_close(output[:, :, [2, 5]], expected, rtol=0, atol=0)

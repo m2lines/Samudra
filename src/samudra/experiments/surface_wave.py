@@ -35,6 +35,7 @@ from samudra.experiments.surface_state import (
     channel_mse,
     geographic_features,
 )
+from samudra.rust_data import create_rust_io_runtime, native_om4_source
 from samudra.train_data_loader import build_train_batch_loader
 from samudra.utils.location import LocalLocation
 
@@ -134,7 +135,7 @@ class Experiment:
                 "world_size": self.world,
                 "channels": self.names,
                 "depths_m": list(self.bundle.data_layout.depth_levels),
-                "code_commit": os.environ.get("CODE_COMMIT", "unknown"),
+                "code_commit": os.environ.get("SAMUDRA_CODE_COMMIT", "unknown"),
                 "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
                 "device": torch.cuda.get_device_name(self.device),
                 "normalization": "existing mean/std files; date range explicitly approved",
@@ -142,6 +143,9 @@ class Experiment:
                 "claims": "model-world feasibility only; no observational or daily skill claim",
             }
             (self.out / "manifest.json").write_text(json.dumps(manifest, indent=2))
+            (self.out / f"manifest-{manifest['slurm_job_id']}.json").write_text(
+                json.dumps(manifest, indent=2)
+            )
             import wandb
 
             self.run = wandb.init(
@@ -490,6 +494,14 @@ class Experiment:
         source = self.bundle.inference_source
         if source is None:
             raise ValueError("No held-out evaluation source")
+        # Standard DataConfig intentionally uses a Python/Dask inference reader.
+        # This experiment evaluates independent windows with the Rust batch API.
+        # Its evaluation pool is only active after training loaders have closed.
+        source = native_om4_source(
+            source,
+            LocalLocation(path=Path(self.args.data_root) / "OM4.zarr"),
+            create_rust_io_runtime(self.args.readers),
+        )
         dataset = self.dataset(source)
         indices = list(range(0, len(dataset), 6))
         if self.args.max_steps:
@@ -620,19 +632,27 @@ class Experiment:
                         "validation_loss": self.validation(model, mode),
                     }
                 )
-            for p in self.initializer.parameters():
-                p.requires_grad_(True)
-            self.train_phase(
-                model, "joint", self.args.hours * 3600 * 0.3, inferred=True
-            )
-            climatology = torch.load(
-                Path(self.args.initializer_dir) / "climatology.pt",
-                map_location=self.device,
-                weights_only=False,
-            )["monthly"]
-            self.evaluate(model, climatology)
+            if not self.args.stop_after_pretrain:
+                for p in self.initializer.parameters():
+                    p.requires_grad_(True)
+                self.train_phase(
+                    model, "joint", self.args.hours * 3600 * 0.3, inferred=True
+                )
+                climatology = torch.load(
+                    Path(self.args.initializer_dir) / "climatology.pt",
+                    map_location=self.device,
+                    weights_only=False,
+                )["monthly"]
+                self.evaluate(model, climatology)
         if self.rank == 0:
-            (self.out / "COMPLETE.json").write_text(
+            (
+                self.out
+                / (
+                    "PRETRAIN_COMPLETE.json"
+                    if self.args.stop_after_pretrain
+                    else "COMPLETE.json"
+                )
+            ).write_text(
                 json.dumps(
                     {
                         "task": self.args.task,
@@ -655,6 +675,7 @@ def main():
     parser.add_argument("--data-root", default="/scratch/jr7309/data/om4_onedeg_v3")
     parser.add_argument("--output", required=True)
     parser.add_argument("--initializer-dir")
+    parser.add_argument("--stop-after-pretrain", action="store_true")
     parser.add_argument("--name", required=True)
     parser.add_argument("--hours", type=float, required=True)
     parser.add_argument(

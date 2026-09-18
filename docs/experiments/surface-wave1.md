@@ -76,14 +76,19 @@ Planned caps (scheduler wall time includes evaluation/setup):
 | --- | ---: | ---: | ---: |
 | End-to-end smoke | 1 | 1 hour | 1 |
 | Shared initializer and climatology | 2 | 8 hours | 16 |
-| AR pretraining, joint tuning, report metrics | 4 | 60 hours | 240 |
-| Direct pretraining, joint tuning, report metrics | 4 | 60 hours | 240 |
+| AR pretraining | 4 | 40 hours | 160 |
+| AR joint tuning and metrics | 4 | 20 hours | 80 |
+| Direct pretraining | 4 | 40 hours | 160 |
+| Direct joint tuning and metrics | 4 | 20 hours | 80 |
 | Reserved for checks/recovery | — | — | 79 |
 
 Initializer training cap is 7 hours; each forecast's training cap is 54 hours
 (37.8 pretraining, 16.2 joint). Validation time is charged to training caps;
 final evaluation and initialization occupy the scheduler margin. AR/direct
 start only after initializer success and run concurrently when capacity allows.
+Pretraining and joint phases are separate dependent jobs, each below Torch's
+48-hour short-job QOS boundary. The joint job resumes the completed pretraining
+checkpoint and its own joint checkpoint if present.
 The 576 GPU-hour authorization is a ceiling, not an instruction to consume it.
 Record actual GPU-hours from Slurm, including failed attempts, before recovery.
 

@@ -250,6 +250,7 @@ profile-evaluation discussion. The exact open choices above should be resolved i
 
 - [Meeting slides](https://docs.google.com/presentation/d/1WjVueoj0ibFlMIyf3RsEMsthqp7I_4-CTE-tJQtYz3I/edit)
 - [Meeting notes](https://docs.google.com/document/d/1dttyhoUtmnU4bD-hl73mcfbHnaq7rTrdKJ0q23r5qc8/edit)
+- [Literature review: ocean and atmospheric precedents](observational-ocean-literature-review.md)
 - [Reference OM4 split and configuration](https://github.com/m2lines/Samudra/blob/55fe01dde9739b1967ecfe9b81a074ef0a61e19a/src/samudra/configs/data/om4.yaml)
 - [Existing gridded observation products](https://github.com/m2lines/Samudra/blob/55fe01dde9739b1967ecfe9b81a074ef0a61e19a/src/samudra/configs/data/obs.yaml)
 - [Existing gridded metric definitions](https://github.com/m2lines/Samudra/blob/55fe01dde9739b1967ecfe9b81a074ef0a61e19a/src/samudra/metrics/report.py)

@@ -110,7 +110,7 @@ checkpoint rules and Zarr v2 output format.
 
 | Job | Resources | QoS / wall-time ceiling | Purpose |
 | --- | --- | --- | --- |
-| ARM setup and pilot | 1 node, 4 CPUs, 16 GiB | `test`, 1 hour | Native environment, 13 pipeline tests, credentials, small real-data samples |
+| ARM setup and pilot | 1 node, 4 CPUs, 32 GiB | `test`, 1 hour | Native environment, 13 pipeline tests, credentials, small real-data samples |
 | Full product pipelines | 1 node, 32 CPUs, 256 GiB | `standard`, at most 48 hours; reduce after pilot | Three concurrent product pipelines, persisted outputs |
 | OSN publication | Approved transfer host, or permitted Grace allocation | Size after measuring transfer throughput | Copy, read-back verification, retain local files |
 

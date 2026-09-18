@@ -123,13 +123,12 @@ from initializer quality, its downstream forecast gap, AR/direct skill, velocity
 amplitude, throughput, and memory; do not submit that wave without approval.
 
 
-The bounded CPU monitor writes `monitor.json`, `monitor.jsonl`, and a
-`needs_attention.md` file if a job fails, progress stalls, or observed concurrency
-exceeds eight GPUs. It checks every ten minutes and stops after all GPU jobs are
-terminal (or after five days). It does not silently retry failures or submit a
-new wave. The dependent CPU report writes `report.md` and `report.json` after both
-forecast branches terminate. Automated monitoring/reporting is distinct from
-agent diagnosis and fixes; any failure recorded by the monitor still needs review.
+The passive CPU monitor was cancelled at the user's request. An active Codex
+goal now reviews progress, validation and failures, with routine checks every
+60 minutes. GPU-hour accounting is reviewed at phase transitions, before recovery
+submissions and in the final report. The dependent CPU report writes `report.md`
+and `report.json` after both forecast branches terminate. Subsequent waves still
+require explicit approval.
 
 ## Low-utilization recovery
 
@@ -149,8 +148,16 @@ free-memory reserve required before allocation. This trades unused GPU memory
 for repeated reads and decompression while retaining modest host RAM. It is not
 a new data transformation, source, split, model, or normalization choice.
 
-The initializer recovery uses one GPU and batch four, rather than two GPUs with
-batch two each. Global batches and the saved sampler cursor are preserved, but
-local batch-normalization statistics use four examples rather than two. Record
-this difference and every cancelled/recovery job in the final report. Verify
-actual utilization and training progress before restoring the downstream DAG.
+Both four-GPU, batch-two cache qualification runs completed training, joint
+tuning, and held-out evaluation. Joint-phase GPU utilization averaged 92–97%
+for AR and 83–94% for direct prediction over short measurement windows.
+
+The single-GPU, batch-four cached initializer encountered a CUDA illegal-memory-
+access error after cache verification; its root cause remains unresolved. That
+attempt produced no replacement checkpoint. Production recovery therefore uses
+the original two-GPU, batch-two-per-GPU layout and the original saved optimizer
+state. It passed cache equivalence, reproduced the saved validation score, and
+sustained approximately 130 samples/s with 83–85% GPU utilization in its first
+steady training check. Larger local batches are not qualified by these results.
+Record every cancelled/recovery attempt and its checkpoint lineage in the final
+report; the short qualification runs are not scientific model rankings.

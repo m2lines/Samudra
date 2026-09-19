@@ -339,6 +339,7 @@ def duacs(
     credentials_file: Path | str | None = None,
     overwrite: bool = False,
     dry_run: bool = False,
+    dataset_version: str | None = None,
 ) -> None:
     """Download daily DUACS from Copernicus Marine, one zarr per calendar year.
 
@@ -359,6 +360,7 @@ def duacs(
         credentials_file: Toolbox-compatible credentials file, if not using env vars.
         overwrite: Re-download years that already exist.
         dry_run: Ask Copernicus Marine to validate the request without downloading.
+        dataset_version: Pin the provider release for a reproducible archive.
     """
     output_dir = Path(output_dir)
     if not _has_copernicus_credentials(credentials_file):
@@ -405,6 +407,8 @@ def duacs(
         ]
         for variable in wanted:
             cmd.extend(["-v", variable])
+        if dataset_version is not None:
+            cmd.extend(["--dataset-version", dataset_version])
         if credentials_file is not None:
             cmd.extend(["--credentials-file", str(credentials_file)])
         if dry_run:

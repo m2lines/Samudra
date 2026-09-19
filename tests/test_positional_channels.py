@@ -6,7 +6,7 @@ import torch
 
 from samudra.config import SamudraConfig, UNetBackboneConfig
 from samudra.utils.ctx import BatchGrid
-from samudra.utils.data import CanonicalSource
+from samudra.utils.data import BatchPreprocessor, CanonicalSource
 
 
 def test_positional_parameters_update(dummy_source: CanonicalSource):
@@ -24,12 +24,21 @@ def test_positional_parameters_update(dummy_source: CanonicalSource):
         ),
         pos_channels=1,
     )
+    normalize = BatchPreprocessor(
+        source,
+        prognostic_var_names=source.data_layout.prognostic_var_names,
+        boundary_var_names=source.data_layout.boundary_var_names,
+    )
     model = config.build(
         prog_channels=1,
         boundary_channels=1,
         out_channels=1,
         input_steps=1,
         grid_sizes=[source.grid_size],
+        static_data_for_corrector=None,
+        srcs=[source],
+        data_layout=source.data_layout,
+        normalize=normalize,
     )
 
     # Verify we have created the positional embeddings

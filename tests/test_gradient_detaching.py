@@ -10,7 +10,7 @@ import xarray as xr
 from samudra.config import SamudraConfig, UNetBackboneConfig
 from samudra.datasets import ModelBatch
 from samudra.utils.ctx import BatchGrid
-from samudra.utils.data import CanonicalSource, Masks
+from samudra.utils.data import BatchPreprocessor, CanonicalSource, Masks
 from samudra.utils.multiton import MultitonScope
 from tests.conftest import TEST_DATA_LAYOUT
 
@@ -58,6 +58,11 @@ def create_samudra_model():
             )
 
             # Create Samudra model with the specified gradient_detach_interval
+            normalize = BatchPreprocessor(
+                source,
+                prognostic_var_names=source.data_layout.prognostic_var_names,
+                boundary_var_names=source.data_layout.boundary_var_names,
+            )
             model = SamudraConfig(
                 unet=UNetBackboneConfig(
                     ch_width=[4, 8],
@@ -72,6 +77,10 @@ def create_samudra_model():
                 out_channels=1,
                 input_steps=1,
                 grid_sizes=[source.grid_size],
+                static_data_for_corrector=None,
+                srcs=[source],
+                data_layout=source.data_layout,
+                normalize=normalize,
             )
 
             # Create ModelBatch compatible with model dimensions.

@@ -191,7 +191,7 @@ class Trainer:
 
         self.loader_version = self.data_bundle.loader_version
 
-        # Aggregation still works on the primary source only.
+        # This is used by both the aggregator and corrector. It only works at a single scale.
         self.preprocessor = BatchPreprocessor(
             self.primary_source,
             prognostic_var_names=self.prognostic_var_names,
@@ -204,6 +204,11 @@ class Trainer:
             out_channels=self.num_out,
             input_steps=self.input_steps,
             grid_sizes=[source.grid_size for source in self.data_bundle.train_sources],
+            # TODO(559): This won't work at multiple scales. Refactor as part of src.
+            static_data_for_corrector=self.data_bundle.static_data,
+            srcs=self.data_bundle.train_sources,
+            data_layout=self.data_layout,
+            normalize=self.preprocessor,
         ).to(self.device)
 
         self.nets_dir = cfg.experiment.nets_dir

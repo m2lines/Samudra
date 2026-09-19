@@ -88,6 +88,7 @@ class Eval:
                 "Inference time is not configured for the first data source"
             )
         self.source = self.data_bundle.inference_source
+        self.static_data = self.data_bundle.static_data
         self.metadata = self.source.metadata
         self.wet = self.source.masks.prognostic_for_steps(self.output_steps)
         self.area_weights: Grid = self.source.spherical_area_weights
@@ -106,6 +107,10 @@ class Eval:
             out_channels=self.num_out,
             input_steps=self.input_steps,
             grid_sizes=[source.grid_size for source in self.data_bundle.train_sources],
+            static_data_for_corrector=self.static_data,
+            srcs=self.data_bundle.train_sources,
+            data_layout=self.data_layout,
+            normalize=self.preprocessor,
         ).to(self.device)
 
         get_model_summary(self.model, None, cfg.debug)

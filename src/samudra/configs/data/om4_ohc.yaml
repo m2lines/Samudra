@@ -4,6 +4,13 @@
 
 # yaml-language-server: $schema=../schemas/DataConfig.json
 
+# Same as om4.yaml, but also pulls the static hfgeou/sea_surface_fraction
+# variables the OceanHeatCorrector needs (see #224/#822, revived on this
+# branch). Requires preprocessing the data with
+# `--ocean_static_path=.../ocean_static_no_mask_table.zarr` (see
+# data/ocean_preprocessing) so those two variables actually exist in the
+# dataset -- point --experiment.data_root at that output.
+
 sources:
   - type: om4
     prognostic_vars_key: thermo_dynamic_all
@@ -20,7 +27,7 @@ sources:
     data_location: OM4.zarr
     data_means_location: OM4_means.zarr
     data_stds_location: OM4_stds.zarr
-static_data_vars: []
+static_data_vars: [hfgeou, sea_surface_fraction]
 concurrent_compute: true
 loading:
   type: cpu

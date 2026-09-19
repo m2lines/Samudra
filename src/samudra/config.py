@@ -27,6 +27,7 @@ from torch.nn import GELU
 from samudra.config_base import BaseConfig, TopLevelConfig
 from samudra.constants import (
     DataLayout,
+    Grid,
     GridSize,
     GridType,
     LoaderVersion,
@@ -59,6 +60,7 @@ from samudra.models.modules.augment_input import (
 from samudra.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from samudra.models.modules.encoder import patch_from
 from samudra.utils.data import (
+    BatchPreprocessor,
     CanonicalSource,
     DataBundle,
     SourceSplits,
@@ -249,6 +251,29 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
             inference=inference_source,
         )
 
+    def extract_static_data(
+        self,
+        data_root: ResolvedLocation,
+        static_data_vars: list[str],
+    ) -> xr.Dataset:
+        """Pull auxiliary (non-channel) variables straight off the raw source.
+
+        These aren't prognostic or boundary channels -- e.g. the geothermal
+        heat flux / sea-surface-fraction fields `OceanHeatCorrector` needs --
+        so they're read independently of `CanonicalSource`'s canonicalized
+        channel pipeline rather than threaded through it.
+        """
+        resolved_data_location = data_root.resolve(self.data_location)
+        data = resolved_data_location.open({})
+        missing = [v for v in static_data_vars if v not in data.variables]
+        if missing:
+            raise ValueError(f"Static data variable(s) {missing} not found in data")
+        static = data[static_data_vars]
+        for var in static_data_vars:
+            if "time" in static[var].dims:
+                static[var] = static[var].isel(time=0)
+        return static
+
     def _build_source(
         self,
         data_root: ResolvedLocation,
@@ -407,6 +432,13 @@ class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
             raise ValueError("LLC crop bounds must satisfy j_start < j_end")
         return self
 
+    def extract_static_data(
+        self,
+        data_root: ResolvedLocation,
+        static_data_vars: list[str],
+    ) -> xr.Dataset:
+        raise ValueError("LLC data sources do not support static_data_vars")
+
     def canonicalize_datasets(
         self,
         data: xr.Dataset,
@@ -441,6 +473,7 @@ class DataConfig(BaseConfig):
         ),
         min_length=1,
     )
+    static_data_vars: list[str] | None = None
     loading: DataLoadingConfig = Field(default_factory=CpuDataLoadingConfig)
     hist: int | None = Field(
         default=None,
@@ -508,12 +541,21 @@ class DataConfig(BaseConfig):
         if any(source.data_layout != data_layout for source in train_sources[1:]):
             raise ValueError("All data sources must use the same data layout")
 
+        # TODO(559): static_data should belong to the source, since we now deal
+        #  with multiple resolutions.
+        static_data = (
+            self.sources[0].extract_static_data(data_root, self.static_data_vars)
+            if self.static_data_vars is not None
+            else None
+        )
+
         return DataBundle(
             train_sources=train_sources,
             val_sources=val_sources,
             inference_source=source_splits[0].inference,
             loader_version=loader_version,
             data_layout=data_layout,
+            static_data=static_data,
         )
 
 
@@ -579,6 +621,35 @@ class BlockConfig(BaseConfig):
                     assert_never(self.block_type)
 
         return create_block
+
+
+class CorrectorConfig(BaseConfig):
+    non_negative_corrector_names: list[str] | None = None
+    ocean_heat_corrector: bool = False
+    imbalance_penalty_weight: float = 0.0
+
+    def build(
+        self,
+        input_steps: int,
+        area_weights: Grid,
+        static_data: xr.Dataset | None,
+        *,
+        data_layout: DataLayout,
+        normalize: BatchPreprocessor,
+    ) -> nn.Module:
+        # This prevents a circular import bug.
+        from samudra.models.corrector import Correctors
+
+        return Correctors(
+            non_negative_corrector_names=self.non_negative_corrector_names,
+            ocean_heat_corrector=self.ocean_heat_corrector,
+            input_steps=input_steps,
+            area_weights=area_weights,
+            static_data=static_data,
+            data_layout=data_layout,
+            normalize=normalize,
+            imbalance_penalty_weight=self.imbalance_penalty_weight,
+        )
 
 
 PerceiverImpl = Literal["auto", "naive", "flash"]
@@ -845,12 +916,17 @@ class BaseModelConfig(BaseConfig, abc.ABC):
         out_channels: int,
         input_steps: int,
         grid_sizes: list[GridSize],
+        static_data_for_corrector: xr.Dataset | None,
+        srcs: list[CanonicalSource],
+        data_layout: DataLayout,
+        normalize: BatchPreprocessor,
     ) -> BaseModel:
         pass
 
 
 class SamudraConfig(BaseModelConfig):
     unet: UNetBackboneConfig = UNetBackboneConfig()
+    corrector: CorrectorConfig | None = None  # None turns all correctors off.
     pos_channels: int = Field(
         default=0,
         description="""Number of channels used for a learned positional embedding""",
@@ -867,10 +943,23 @@ class SamudraConfig(BaseModelConfig):
         out_channels: int,
         input_steps: int,
         grid_sizes: list[GridSize],
+        static_data_for_corrector: xr.Dataset | None,
+        srcs: list[CanonicalSource],
+        data_layout: DataLayout,
+        normalize: BatchPreprocessor,
     ) -> Samudra:
+        corrector = None
         if len(grid_sizes) != 1:
             raise ValueError(
                 "Samudra only supports training at a single scale! Please configure exactly one data source."
+            )
+        if self.corrector is not None:
+            corrector = self.corrector.build(
+                input_steps,
+                srcs[0].spherical_area_weights,
+                static_data_for_corrector,
+                data_layout=data_layout,
+                normalize=normalize,
             )
         in_channels = prog_channels + boundary_channels
         total_in_channels = (
@@ -894,6 +983,7 @@ class SamudraConfig(BaseModelConfig):
             grid_size=grid_sizes[0],
             gradient_detach_interval=self.gradient_detach_interval,
             use_bfloat16=self.use_bfloat16,
+            corrector=corrector,
         )
 
 
@@ -925,6 +1015,10 @@ class SamudraMultiConfig(BaseModelConfig):
         out_channels: int,
         input_steps: int,
         grid_sizes: list[GridSize],
+        static_data_for_corrector: xr.Dataset | None,
+        srcs: list[CanonicalSource],
+        data_layout: DataLayout,
+        normalize: BatchPreprocessor,
     ) -> SamudraMulti:
         assert len(self.patch_extent) == 2, "patch_extent must be a pair of floats."
         extent = self.patch_extent[0], self.patch_extent[1]
@@ -1019,6 +1113,10 @@ class SamudraMiniConfig(BaseModelConfig):
         out_channels: int,
         input_steps: int,
         grid_sizes: list[GridSize],
+        static_data_for_corrector: xr.Dataset | None,
+        srcs: list[CanonicalSource],
+        data_layout: DataLayout,
+        normalize: BatchPreprocessor,
     ) -> SamudraMini:
         if self.add_3d_coordinates:
             raise ValueError(

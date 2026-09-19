@@ -408,6 +408,7 @@ class DataBundle:
     inference_source: CanonicalSource | None
     loader_version: LoaderVersion
     data_layout: DataLayout
+    static_data: xr.Dataset | None = None
 
 
 def _flatten(ds: xr.Dataset) -> np.ndarray:

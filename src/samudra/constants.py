@@ -77,6 +77,8 @@ class DataLayout:
     boundary_var_names: BoundaryVarNames
     default_metadata: dict[str, dict[str, str]]
     ocean_heat_temperature_var: str
+    surface_heat_flux_var: str
+    seconds_per_time_step: int
     grid_type: GridType = "gaussian"
     variable_indices: dict[str, torch.Tensor] = dataclasses.field(
         init=False, repr=False, compare=False
@@ -319,6 +321,8 @@ def build_om4_layout(
             },
         },
         ocean_heat_temperature_var="thetao",
+        surface_heat_flux_var="hfds",
+        seconds_per_time_step=5 * 24 * 60 * 60,
         grid_type=grid_type,
     )
 
@@ -493,6 +497,8 @@ def build_llc_layout(
             },
         },
         ocean_heat_temperature_var="Theta",
+        surface_heat_flux_var="oceQnet",
+        seconds_per_time_step=60,
         # LLC (lat-lon-cap) is curvilinear, so its 2D geometry can't be broadcast
         # from 1D axes -- same broadcast-unsafe class as the tripolar grid.
         grid_type="tripolar",

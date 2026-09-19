@@ -91,16 +91,33 @@ class BaseModel(torch.nn.Module):
             pred = self._assemble_prediction(prog_tensor, decodings)
 
             if loss_fn is not None:
-                if step == 0:
-                    loss = loss_fn(
-                        pred,
-                        batch.get_label(step),
+                # A hard corrector (e.g. OceanHeatCorrector) can rescale `pred`
+                # to close a physical budget exactly, which makes the
+                # corrected field a poor supervision target: a uniform bias in
+                # the network's own prediction is invisible once the
+                # correction factor has absorbed it. Supervise the raw,
+                # pre-correction prediction instead when one is available, and
+                # keep `pred` (corrected) as the state that actually
+                # propagates the rollout. See https://arxiv.org/abs/2607.18416.
+                corrector = getattr(self, "corrector", None)
+                pre_correction = getattr(self, "_last_pre_correction", None)
+                supervised_pred = pred if pre_correction is None else pre_correction
+
+                step_loss = loss_fn(
+                    supervised_pred,
+                    batch.get_label(step),
+                )
+                if (
+                    corrector is not None
+                    and corrector.last_imbalance_penalty is not None
+                ):
+                    step_loss = (
+                        step_loss
+                        + corrector.imbalance_penalty_weight
+                        * corrector.last_imbalance_penalty
                     )
-                else:
-                    loss += loss_fn(
-                        pred,
-                        batch.get_label(step),
-                    )
+
+                loss = step_loss if step == 0 else loss + step_loss
 
             outputs.append(pred)
             prog_tensor = self._advance_prognostic_history(prog_tensor, pred)

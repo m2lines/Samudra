@@ -34,6 +34,7 @@ experiment:
     mode: disabled
     project: default
 data:
+  static_data_vars: []
   concurrent_compute: true
   loading:
     type: cpu

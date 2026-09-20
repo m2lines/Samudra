@@ -270,9 +270,10 @@ def build_om4_layout(
                 "hfds": ["hfds"],
                 "tau_hfds": ["tauuo", "tauvo", "hfds"],
                 "tau_hfds_hfds_anom": ["tauuo", "tauvo", "hfds", "hfds_anomalies"],
-                # No hfds_anomalies here: the freshwater-augmented v2026-09+
-                # OM4 datasets (see #832/#863) don't carry it, only wfo.
                 "tau_hfds_wfo": ["tauuo", "tauvo", "hfds", "wfo"],
+                "tau_hfds_hfds_anom_wfo": [
+                    "tauuo", "tauvo", "hfds", "hfds_anomalies", "wfo"
+                ],
             },
             boundary_vars_key,
             "om4",

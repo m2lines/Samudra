@@ -91,3 +91,30 @@ qualification under the same path with a `-qualification` suffix. Per-arm manife
 initialization fingerprints, validation progress, checkpoint states, aggregate and
 origin metrics, utilization telemetry, and submission JSON provide reproducibility.
 A completion marker is written only after successful final evaluation.
+
+## Reproducing the paired comparisons
+
+After collecting complete per-arm outputs (A/B/C/D), run:
+
+```bash
+uv run python -m samudra.experiments.surface_adaptation_analysis \
+  --input /path/to/collected-wave2 --output /path/to/analysis
+```
+
+The analysis requires every approved arm and rejects reduced qualification outputs,
+duplicate or missing origin/channel rows, nonfinite errors, mismatched data or
+starting states, changed fixed references, and disagreement between per-origin and
+aggregate metrics. It also checks selected validation scores against logged best
+scores and requires runtime frozen-state verification where applicable. It writes
+training summaries, grouped metrics, paired comparisons and an audit JSON. CSV inputs
+can be stored with an added `.gz` suffix. Follow-up arms can be included using
+`--arms A B C D E`; their manifests retain the changed treatment.
+
+Each bootstrap draw resamples calendar-year blocks with replacement using the same
+blocks for candidate and reference. Errors remain weighted equally by forecast origin,
+including when years contain different numbers of origins. Positive reported percentages
+mean lower candidate RMSE. Intervals are descriptive: only nine partly sampled years
+are available, and the many region/lead/variable comparisons are not adjusted for
+multiple testing. True-initialization comparisons describe an initialization gap;
+they are not deployable baselines. The equal T/S summary averages normalized MSE,
+with no mixed-unit physical RMSE reported.

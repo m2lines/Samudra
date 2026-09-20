@@ -8,11 +8,13 @@ import argparse
 import copy
 import csv
 import datetime
+import faulthandler
 import hashlib
 import json
 import math
 import os
 import time
+import traceback
 from pathlib import Path
 from typing import TypedDict
 
@@ -716,7 +718,21 @@ def main():
     args = parser.parse_args()
     if args.hours <= 0 or args.learning_rate <= 0 or args.patience < 1:
         parser.error("hours, learning rate and patience must be positive")
-    Adaptation(args).execute()
+    # Persist rank-local failures even when Slurm/W&B stream capture is incomplete.
+    directory = Path(args.output)
+    directory.mkdir(parents=True, exist_ok=True)
+    job = os.environ.get("SLURM_JOB_ID", "local")
+    rank = os.environ.get("RANK", "0")
+    with (directory / f"error-{job}-rank{rank}.log").open("a") as errors:
+        faulthandler.enable(file=errors, all_threads=True)
+        try:
+            Adaptation(args).execute()
+        except Exception:
+            traceback.print_exc(file=errors)
+            errors.flush()
+            raise
+        finally:
+            faulthandler.disable()
 
 
 if __name__ == "__main__":

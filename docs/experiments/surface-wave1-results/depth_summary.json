@@ -1,0 +1,66 @@
+{
+  "ar": {
+    "global/thetao/30": {
+      "levels": 18,
+      "levels_beating_persistence": 18,
+      "levels_beating_climatology": 14
+    },
+    "global/so/30": {
+      "levels": 19,
+      "levels_beating_persistence": 17,
+      "levels_beating_climatology": 8
+    },
+    "tropics/thetao/30": {
+      "levels": 18,
+      "levels_beating_persistence": 18,
+      "levels_beating_climatology": 9
+    },
+    "tropics/so/30": {
+      "levels": 19,
+      "levels_beating_persistence": 14,
+      "levels_beating_climatology": 10
+    },
+    "extratropics/thetao/30": {
+      "levels": 18,
+      "levels_beating_persistence": 17,
+      "levels_beating_climatology": 14
+    },
+    "extratropics/so/30": {
+      "levels": 19,
+      "levels_beating_persistence": 17,
+      "levels_beating_climatology": 8
+    }
+  },
+  "direct": {
+    "global/thetao/30": {
+      "levels": 18,
+      "levels_beating_persistence": 16,
+      "levels_beating_climatology": 13
+    },
+    "global/so/30": {
+      "levels": 19,
+      "levels_beating_persistence": 3,
+      "levels_beating_climatology": 4
+    },
+    "tropics/thetao/30": {
+      "levels": 18,
+      "levels_beating_persistence": 12,
+      "levels_beating_climatology": 8
+    },
+    "tropics/so/30": {
+      "levels": 19,
+      "levels_beating_persistence": 5,
+      "levels_beating_climatology": 4
+    },
+    "extratropics/thetao/30": {
+      "levels": 18,
+      "levels_beating_persistence": 17,
+      "levels_beating_climatology": 14
+    },
+    "extratropics/so/30": {
+      "levels": 19,
+      "levels_beating_persistence": 3,
+      "levels_beating_climatology": 4
+    }
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "time_utc": "2026-09-19T01:14:05.353813+00:00",
+  "reason": "Five consecutive validation regressions despite lower training loss",
+  "best_validation_loss": 0.09237930923700333,
+  "recent_validation": [
+    {
+      "phase": "initializer",
+      "step": 46648,
+      "validation_loss": 0.09237930923700333,
+      "best_validation_loss": 0.09237930923700333,
+      "phase_complete": false,
+      "time_utc": "2026-09-18T23:20:50.259325+00:00",
+      "peak_gpu_gib": 58.7828106880188,
+      "host_peak_gib_rank0": 4.287467956542969
+    },
+    {
+      "phase": "initializer",
+      "step": 86383,
+      "validation_loss": 0.09465958923101425,
+      "best_validation_loss": 0.09237930923700333,
+      "phase_complete": false,
+      "time_utc": "2026-09-18T23:40:50.840206+00:00",
+      "peak_gpu_gib": 58.7828106880188,
+      "host_peak_gib_rank0": 4.287467956542969
+    },
+    {
+      "phase": "initializer",
+      "step": 126428,
+      "validation_loss": 0.09645497798919678,
+      "best_validation_loss": 0.09237930923700333,
+      "phase_complete": false,
+      "time_utc": "2026-09-19T00:00:51.368848+00:00",
+      "peak_gpu_gib": 58.7828106880188,
+      "host_peak_gib_rank0": 4.287467956542969
+    },
+    {
+      "phase": "initializer",
+      "step": 166620,
+      "validation_loss": 0.09759896993637085,
+      "best_validation_loss": 0.09237930923700333,
+      "phase_complete": false,
+      "time_utc": "2026-09-19T00:20:51.937151+00:00",
+      "peak_gpu_gib": 58.7828106880188,
+      "host_peak_gib_rank0": 4.287467956542969
+    },
+    {
+      "phase": "initializer",
+      "step": 206925,
+      "validation_loss": 0.09865456074476242,
+      "best_validation_loss": 0.09237930923700333,
+      "phase_complete": false,
+      "time_utc": "2026-09-19T00:40:52.457890+00:00",
+      "peak_gpu_gib": 58.7828106880188,
+      "host_peak_gib_rank0": 4.287467956542969
+    },
+    {
+      "phase": "initializer",
+      "step": 247243,
+      "validation_loss": 0.09920559078454971,
+      "best_validation_loss": 0.09237930923700333,
+      "phase_complete": false,
+      "time_utc": "2026-09-19T01:00:52.991102+00:00",
+      "peak_gpu_gib": 58.7828106880188,
+      "host_peak_gib_rank0": 4.287467956542969
+    }
+  ],
+  "previous_training_cap_hours": 7,
+  "new_training_cap_hours": 4,
+  "original_job": "17971844",
+  "finalization_job": "17977027",
+  "note": "Existing runner resumes its checkpoint above the reduced cap, executes its final step/checkpoint, selects the best weights, evaluates initializer baselines, and writes completion normally. Original pending DAG replaced because Slurm rejected dependency mutation."
+}

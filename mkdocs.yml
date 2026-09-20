@@ -53,6 +53,8 @@ nav:
       - Releasing: releasing.md
       - Rust data loader plan: rust-data-loader-plan.md
   - Research:
+      - Surface-Initialized Wave 1 Plan: experiments/surface-wave1.md
+      - Surface-Initialized Wave 1 Results: experiments/surface-wave1-results/index.md
       - Observational Ocean Prediction: experiments/observational-ocean-prediction.md
       - Ocean Prediction Literature Review: experiments/observational-ocean-literature-review.md
   - API Reference:

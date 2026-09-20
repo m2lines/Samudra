@@ -1,0 +1,81 @@
+{
+  "time_utc": "2026-09-19T08:10:42.687232+00:00",
+  "reason": "Six validation checks over two hours failed to improve and regressed from starting checkpoint",
+  "best_validation": {
+    "phase": "joint",
+    "event": "start",
+    "validation_loss": 0.11795017868280411,
+    "time_utc": "2026-09-19T06:00:00.975003+00:00",
+    "peak_gpu_gib": 6.953325271606445,
+    "host_peak_gib_rank0": 3.6446762084960938
+  },
+  "recent_validation": [
+    {
+      "phase": "joint",
+      "step": 14387,
+      "validation_loss": 0.11953093856573105,
+      "best_validation_loss": 0.11795017868280411,
+      "phase_complete": false,
+      "time_utc": "2026-09-19T06:20:01.624844+00:00",
+      "peak_gpu_gib": 62.86184787750244,
+      "host_peak_gib_rank0": 4.264888763427734
+    },
+    {
+      "phase": "joint",
+      "step": 30912,
+      "validation_loss": 0.12272696942090988,
+      "best_validation_loss": 0.11795017868280411,
+      "phase_complete": false,
+      "time_utc": "2026-09-19T06:40:02.721097+00:00",
+      "peak_gpu_gib": 62.8639760017395,
+      "host_peak_gib_rank0": 4.264888763427734
+    },
+    {
+      "phase": "joint",
+      "step": 47614,
+      "validation_loss": 0.12245488166809082,
+      "best_validation_loss": 0.11795017868280411,
+      "phase_complete": false,
+      "time_utc": "2026-09-19T07:00:03.851551+00:00",
+      "peak_gpu_gib": 62.8639760017395,
+      "host_peak_gib_rank0": 4.264888763427734
+    },
+    {
+      "phase": "joint",
+      "step": 64323,
+      "validation_loss": 0.12358167767524719,
+      "best_validation_loss": 0.11795017868280411,
+      "phase_complete": false,
+      "time_utc": "2026-09-19T07:20:04.945671+00:00",
+      "peak_gpu_gib": 62.8639760017395,
+      "host_peak_gib_rank0": 4.264888763427734
+    },
+    {
+      "phase": "joint",
+      "step": 81020,
+      "validation_loss": 0.12520001828670502,
+      "best_validation_loss": 0.11795017868280411,
+      "phase_complete": false,
+      "time_utc": "2026-09-19T07:40:05.991548+00:00",
+      "peak_gpu_gib": 62.8639760017395,
+      "host_peak_gib_rank0": 4.264888763427734
+    },
+    {
+      "phase": "joint",
+      "step": 97726,
+      "validation_loss": 0.12489888817071915,
+      "best_validation_loss": 0.11795017868280411,
+      "phase_complete": false,
+      "time_utc": "2026-09-19T08:00:07.106741+00:00",
+      "peak_gpu_gib": 62.8639760017395,
+      "host_peak_gib_rank0": 4.264888763427734
+    }
+  ],
+  "previous_joint_cap_hours": 16.2,
+  "new_finalizer_joint_cap_hours": 1.8,
+  "original_job": "18006100",
+  "finalizer_job": "18013772",
+  "allocated_gpu_hours_before_transition": 64.49027777777778,
+  "conservative_projected_total": 281.5413888888889,
+  "note": "Finalizer resumes the last checkpoint above the reduced cap, performs a final update, selects the preserved best checkpoint and runs the full held-out evaluation. Best checkpoint is currently the unfine-tuned pretraining model. No held-out metrics were consulted in this decision. AR unchanged."
+}

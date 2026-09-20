@@ -6,6 +6,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Surface-initialized ocean prediction: wave 1
 
+Wave 1 is complete. See the [results and proposed next wave](surface-wave1-results/index.md) for metrics, artifacts, accounting, and next steps.
+
 Approved September 18, 2026: approximately 576 GPU-hours, at most eight Torch
 RTX6000 GPUs concurrently. Subsequent waves require another explicit go-ahead.
 The branch `codex/surface-initialized-wave1` locally merges Rust loader branch

@@ -19,11 +19,18 @@ ARMS = {
     "B": ("evolution", 1729),
     "C": ("joint", 1729),
     "D": ("joint", 1730),
+    "E": ("joint", 1729),
 }
 
 
 def submit(args):
     root = Path(args.root)
+    if any(not job.isdigit() for job in args.after_jobs):
+        raise ValueError("Dependency IDs must be numeric")
+    if args.stage == "rate-control" and not args.after_jobs:
+        raise ValueError(
+            "Rate control requires dependencies to avoid overlapping the primary wave"
+        )
     if (root / "jobs.json").exists():
         raise FileExistsError(
             "Existing submission: inspect and recover specific jobs, do not duplicate this stage"
@@ -49,7 +56,7 @@ def submit(args):
     ):
         if not Path(path).is_file():
             raise FileNotFoundError(path)
-    if args.stage == "production":
+    if args.stage != "qualification":
         if not args.qualification_root:
             raise ValueError(
                 "Production requires the completed qualification directory"
@@ -89,11 +96,17 @@ def submit(args):
         }
     )
     jobs: dict[str, dict[str, Any]] = {}
-    selected = ("A", "B", "C") if args.stage == "qualification" else tuple(ARMS)
+    selected = {
+        "qualification": ("A", "B", "C"),
+        "production": ("A", "B", "C", "D"),
+        "rate-control": ("E",),
+    }[args.stage]
     for name in selected:
         arm, seed = ARMS[name]
         dependency_key = {"C": "A", "D": "B"}.get(name)
-        dependency = jobs[dependency_key]["id"] if dependency_key else None
+        dependencies = [jobs[dependency_key]["id"]] if dependency_key else []
+        dependencies.extend(args.after_jobs)
+        dependency = ":".join(dependencies) if dependencies else None
         module_args = [
             "--arm",
             arm,
@@ -108,7 +121,7 @@ def submit(args):
             "--hours",
             "3.5",
             "--learning-rate",
-            "1e-5",
+            "1e-4" if name == "E" else "1e-5",
             "--readers",
             "8",
             "--batch-size",
@@ -178,7 +191,9 @@ def submit(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "--stage", choices=("qualification", "production"), required=True
+        "--stage",
+        choices=("qualification", "production", "rate-control"),
+        required=True,
     )
     parser.add_argument("--root", required=True)
     parser.add_argument("--wave1-root", required=True)
@@ -188,6 +203,12 @@ def main():
     parser.add_argument("--container-hash", required=True)
     parser.add_argument("--wrapper", required=True)
     parser.add_argument("--deadline", required=True)
+    parser.add_argument(
+        "--after-jobs",
+        nargs="*",
+        default=[],
+        help="Wait for these existing jobs to succeed",
+    )
     submit(parser.parse_args())
 
 

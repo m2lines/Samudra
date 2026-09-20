@@ -6,11 +6,10 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Wave 2 execution status
 
-September 20, 2026, 19:14 UTC. The [study plan](surface-wave2-plan.md)
-is authorized, with a September 23 16:51:29 UTC target. The goal is now marked
-**blocked pending scratch quota**, after the same write failure persisted across
-three consecutive goal turns.
-Production has not started. No wave-2 jobs are currently running or pending.
+September 20, 2026, resumed after 20:14 UTC. The [study plan](surface-wave2-plan.md)
+is active again, with the original September 23 16:51:29 UTC target. Storage was
+restored, the container and code overlay rebuilt, and qualification attempt 2
+submitted. Production has not started.
 
 ## Qualification attempt 1
 
@@ -69,3 +68,21 @@ The paired-comparison analysis and its four passing tests were added in commit
 `ac923a4f`. They require complete A/B/C/D production outputs, check common inputs
 and fixed references, and compute paired calendar-year uncertainty intervals.
 There are still no completed production results or scientific answers from wave 2.
+
+## Storage recovery and qualification attempt 2
+
+After cache cleanup, `myquota` reported 4.52 TB used of 5 TB (90.31%). A full 10 GiB
+write/fsync succeeded **after** restoring the 12,176,011,264-byte SIF and updated
+code overlay; all probe files were removed. CPU-only restoration job **18094385**
+completed in 29 seconds. Download/unpack temporary paths were configured on its
+node-local storage; the login node's full `/tmp` was avoided. The original AR
+pretraining, selected wave-1 joint, and shared initializer SHA-256 hashes still match
+the checked-in wave-1 records.
+
+Qualification producer: `b46eb446f153a967869bbfc7f9e93783de986579`.
+Remote root: `/scratch/jr7309/runs/2026-09-20-surface-wave2-qualification-v2`.
+Jobs: A **18096965**, B **18096966**, C **18096967** (after A). All use fresh
+qualification outputs and the original shared inputs; attempt 1 is retained.
+A matched 1e-4 joint control E is now pre-registered to isolate learning rate from
+the changed checkpoint-selection rule. It will follow production, within the
+user's authorization for targeted follow-ups.

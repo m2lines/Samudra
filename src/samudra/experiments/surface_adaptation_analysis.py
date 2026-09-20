@@ -315,6 +315,8 @@ def analyze(root, output, arms, replicates):
                 for other in arms
                 if other < arm and other in ("A", "B", "C")
             ]
+        if arm not in ("A", "B", "C", "D"):
+            references.append(("C", "inferred"))
         for reference_arm, mode in references:
             reference_groups = results[reference_arm][4]
             for region, lead, variable in itertools.product(

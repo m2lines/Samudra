@@ -118,3 +118,19 @@ are available, and the many region/lead/variable comparisons are not adjusted fo
 multiple testing. True-initialization comparisons describe an initialization gap;
 they are not deployable baselines. The equal T/S summary averages normalized MSE,
 with no mixed-unit physical RMSE reported.
+
+## Pre-registered matched learning-rate control
+
+Before viewing any full wave-2 held-out evaluation, add arm **E**: joint adaptation,
+seed 1729 and learning rate 1e-4. Every other training, selection and evaluation
+setting matches C. This addresses the learning-rate question directly, without the
+wave-1 checkpoint-selection confound. It compares the result of the same stopping
+policy; different stopping times do not establish equal-update or converged optima.
+
+The `rate-control` launcher stage requires completed qualification and dependencies
+on existing production jobs. Submit it after C and D succeed so that it does not
+increase concurrent GPU use. Charge its maximum additional allocation of 16 GPU-hours
+separately from the initial four-arm envelope. This is within the user's authorization
+for targeted follow-ups needed to answer the proposed questions. Include E in the
+analysis with `--arms A B C D E`; its paired comparison against C measures the
+higher-rate treatment, so a negative reduction means the higher rate was worse.

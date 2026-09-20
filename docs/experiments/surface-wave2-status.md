@@ -1,0 +1,59 @@
+<!--
+SPDX-FileCopyrightText: 2026 Samudra Authors
+
+SPDX-License-Identifier: CC-BY-4.0
+-->
+
+# Wave 2 execution status
+
+September 20, 2026, approximately 19:12 UTC. The [study plan](surface-wave2-plan.md)
+is authorized and the goal remains active, with a September 23 16:51:29 UTC target.
+Production has not started. No wave-2 jobs are currently running or pending.
+
+## Qualification attempt 1
+
+Code: `c4ab5e344ca4c3b73cbbbcd0e289d98fc88751ad`, with the existing Rust-loader SIF.
+Remote root: `/scratch/jr7309/runs/2026-09-20-surface-wave2-qualification`.
+
+| Arm | Slurm job | Outcome | Allocated seconds | GPUs |
+| --- | --- | --- | --- | --- |
+| A, initializer | 18079867 | Failed during training-cache preparation; detailed exception absent from captured streams | 308 | 4 |
+| B, evolution | 18079868 | 30 training steps completed; failed during held-out cache preparation | 278 | 4 |
+| C, joint | 18079869 | Cancelled after dependency failed; never started | 0 | 0 |
+
+Actual allocation consumed: **0.651111 GPU-hours**. A and B did run simultaneously,
+confirming eight-GPU execution was available after the other shared-account job ended.
+B's frozen initializer verification passed and its best validation T/S MSE improved
+from 0.004401835 to 0.004341907 over 30 steps. This is qualification only, not a
+production result. A reached the same starting validation score. Neither arm has a
+successful final evaluation marker.
+
+## Storage blocker and recovery
+
+A subsequent `mkdir` under `/scratch/jr7309` failed with **Disk quota exceeded**.
+The login node's `/tmp` was also full (6 GiB used of 6 GiB), preventing a new code-layer
+fetch. Aggregate scratch filesystem free space was about 519 TiB; that does not
+establish free space within the user's quota. `quota -s` could not query the home
+quota and did not provide usable scratch quota details.
+
+The experiment cache directory occupies only 6 KiB, code layers 104 MiB, wave-1
+outputs 4.7 GiB and qualification outputs 951 MiB. There is no large disposable task
+cache to clear. Existing source and qualification checkpoints were retained. The
+user was asked to free/add at least 10 GiB and received the authorized Slack blocker
+notification successfully. Cancellation was issued for A/C as a safeguard; accounting
+subsequently showed both had already terminated. Do not describe the qualification
+failure's exact cause as proven: stream logs stopped before the exception, and the
+storage failure is independently confirmed.
+
+Commit `b46eb446f153a967869bbfc7f9e93783de986579` adds persistent rank-local Python
+exception and fatal-signal diagnostics. It is pushed but its overlay is **not built**:
+first attempt failed because login `/tmp` was full; scratch temporary-directory
+creation then failed because of quota. The original overlay is intact.
+
+After storage is restored, build the new overlay and requalify all three gradient
+paths under the same producer commit before production. Use a new qualification
+attempt directory and retain/account for attempt 1. Validate original checkpoint
+hashes and qualification checkpoint integrity before using any saved state. Once
+qualification passes, launch the four approved production arms using the launcher.
+The production gate requires matching code, four ranks and 30 qualification steps.
+Continue hourly monitoring and keep all attempts in final compute accounting.

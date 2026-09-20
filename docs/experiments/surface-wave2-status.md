@@ -9,7 +9,7 @@ SPDX-License-Identifier: CC-BY-4.0
 September 20, 2026, resumed after 20:14 UTC. The [study plan](surface-wave2-plan.md)
 is active again, with the original September 23 16:51:29 UTC target. Storage was
 restored, the container and code overlay rebuilt, and qualification attempt 2
-submitted. Production has not started.
+completed successfully. Production and the pre-registered rate control are now submitted.
 
 ## Qualification attempt 1
 
@@ -86,3 +86,28 @@ qualification outputs and the original shared inputs; attempt 1 is retained.
 A matched 1e-4 joint control E is now pre-registered to isolate learning rate from
 the changed checkpoint-selection rule. It will follow production, within the
 user's authorization for targeted follow-ups.
+
+## Qualification passed; production submitted
+
+All attempt-2 jobs completed: A in 222 seconds, B in 517 seconds, C in 217 seconds.
+Each completed 30 optimizer steps, eight-origin evaluation, 8,316 unique finite
+channel rows and 5,184 paired origin/variable rows. Starting model fingerprints
+matched; fixed pretraining, wave-1 joint and climatology references matched within
+numeric tolerance. Runtime frozen-state verification passed for A/B. No rank-local
+error files contained an exception. Attempt 2 used **1.062222 GPU-hours**; cumulative
+qualification attempts used **1.713333 GPU-hours**.
+
+| Arm | Job | Dependency | Max GPUs | Allocation limit |
+| --- | --- | --- | --- | --- |
+| A: initializer | 18097624 | none | 4 | 4 hours |
+| B: evolution | 18097625 | none | 4 | 4 hours |
+| C: joint | 18097626 | A succeeds | 4 | 4 hours |
+| D: joint, alternate data order | 18097627 | B succeeds | 4 | 4 hours |
+| E: matched 1e-4 joint control | 18097633 | C and D succeed | 4 | 4 hours |
+
+A-D outputs: `/scratch/jr7309/runs/2026-09-20-surface-wave2/{A,B,C,D}`.
+E outputs: `/scratch/jr7309/runs/2026-09-20-surface-wave2-rate-control/E`.
+All use producer `b46eb446f153a967869bbfc7f9e93783de986579` and the same qualified
+initial checkpoints. The host submission/analysis update is commit `d5ce271f`.
+The initial four-arm allocation limit is 64 GPU-hours; E adds at most 16.
+These are allocation limits, not completed compute or scientific results.

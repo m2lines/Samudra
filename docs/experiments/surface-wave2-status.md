@@ -6,8 +6,10 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Wave 2 execution status
 
-September 20, 2026, approximately 19:12 UTC. The [study plan](surface-wave2-plan.md)
-is authorized and the goal remains active, with a September 23 16:51:29 UTC target.
+September 20, 2026, 19:14 UTC. The [study plan](surface-wave2-plan.md)
+is authorized, with a September 23 16:51:29 UTC target. The goal is now marked
+**blocked pending scratch quota**, after the same write failure persisted across
+three consecutive goal turns.
 Production has not started. No wave-2 jobs are currently running or pending.
 
 ## Qualification attempt 1
@@ -57,3 +59,13 @@ hashes and qualification checkpoint integrity before using any saved state. Once
 qualification passes, launch the four approved production arms using the launcher.
 The production gate requires matching code, four ranks and 30 qualification steps.
 Continue hourly monitoring and keep all attempts in final compute accounting.
+
+The final recheck at 19:13:58 UTC still returned `OSError(122, Disk quota exceeded)`
+for a one-MiB scratch write, and the user queue was empty. Automatic continuation
+is stopped until the user restores storage and resumes the goal. No additional
+Slack notification was sent because the same blocker was already reported.
+
+The paired-comparison analysis and its four passing tests were added in commit
+`ac923a4f`. They require complete A/B/C/D production outputs, check common inputs
+and fixed references, and compute paired calendar-year uncertainty intervals.
+There are still no completed production results or scientific answers from wave 2.

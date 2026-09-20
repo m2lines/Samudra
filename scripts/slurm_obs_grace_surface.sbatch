@@ -37,7 +37,11 @@ case "$STAGE" in
     prepare)
         # A successful clean pause is continued by the next afterok segment.
         # A failed source/check never becomes an apparently successful pause.
-        "${cli[@]}" run --manifest_path="$manifest" --output_root="$output" --workers=24 --max_seconds="${MAX_SECONDS:-36000}"
+        if [[ "$PRODUCT" == era5-surface ]]; then
+            "${cli[@]}" parallel --manifest_path="$manifest" --output_root="$output" --workers=6 --partitions=4 --max_seconds="${MAX_SECONDS:-36000}"
+        else
+            "${cli[@]}" run --manifest_path="$manifest" --output_root="$output" --workers=24 --max_seconds="${MAX_SECONDS:-36000}"
+        fi
         ;;
     publish)
         "${cli[@]}" validate --manifest_path="$manifest" --store="$output/$PRODUCT.zarr"

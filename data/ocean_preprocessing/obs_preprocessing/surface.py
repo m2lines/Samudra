@@ -18,6 +18,8 @@ import datetime
 import hashlib
 import json
 import logging
+import math
+import multiprocessing
 import os
 import re
 import threading
@@ -279,7 +281,27 @@ def _template(plan, first, staging):
     )
 
 
-def run(manifest_path, output_root, workers=16, max_seconds=36000):
+def _write_block(block, staging, offset, stop):
+    # Direct chunk writes leave shared array metadata untouched. Disjoint time
+    # partitions own complete 24-time chunks and can therefore write safely.
+    group = zarr.open_group(str(staging), mode="r+")
+    names = list(block.data_vars)
+    da.store(
+        [da.from_array(block[n].values, chunks=(BLOCK, 180, 360)) for n in names],
+        [group[n] for n in names],
+        regions=[(slice(offset, stop), slice(None), slice(None)) for _ in names],
+        lock=False,
+    )
+
+
+def run(
+    manifest_path,
+    output_root,
+    workers=16,
+    max_seconds=36000,
+    partition=None,
+    partitions=4,
+):
     """Resume blockwise transfer; return False at a clean wall-time checkpoint."""
     began = time.monotonic()
     plan = _read_plan(manifest_path)
@@ -290,6 +312,15 @@ def run(manifest_path, output_root, workers=16, max_seconds=36000):
     staging = root / f".{product}.partial.zarr"
     checkpoint = root / f".{product}.progress.json"
     receipts = root / f"{product}.blocks"
+    begin, end = 0, plan["time_count"]
+    if partition is not None:
+        if not 0 <= partition < partitions:
+            raise ValueError("Invalid partition")
+        width = math.ceil(math.ceil(end / BLOCK) / partitions) * BLOCK
+        begin, end = min(partition * width, end), min((partition + 1) * width, end)
+        checkpoint = root / f".{product}.part-{partition}.progress.json"
+        if begin == end:
+            return True
     if final.exists():
         validate(manifest_path, str(final))
         return True
@@ -299,6 +330,10 @@ def run(manifest_path, output_root, workers=16, max_seconds=36000):
         processing_code_sha256=_code_hash(),
         block_size=BLOCK,
     )
+    if partition is not None:
+        identity.update(
+            partition=partition, partitions=partitions, begin=begin, end=end
+        )
     with _open(plan) as source:
         source = source.sel(time=slice(plan["start_date"], plan["end_date"]))
         if _coordinates(source) != plan["coordinate_sha256"]:
@@ -311,27 +346,40 @@ def run(manifest_path, output_root, workers=16, max_seconds=36000):
             if any(state.get(k) != v for k, v in identity.items()):
                 raise ValueError("Checkpoint inventory or processing code mismatch")
             start = state["written"]
-            if not 0 <= start <= plan["time_count"] or (
-                start != plan["time_count"] and start % BLOCK
-            ):
+            if not begin <= start <= end or (start != end and start % BLOCK):
                 raise ValueError("Invalid checkpoint boundary")
             with xr.open_zarr(staging, consolidated=False) as old:
                 fr._schema_match(ds.isel(time=slice(0, 0)), old)
         else:
-            if staging.exists():
-                raise FileExistsError(f"Uncheckpointed staging store: {staging}")
-            _template(plan, ds.isel(time=slice(0, 0)), staging)
-            start = 0
-            fr._atomic_json(checkpoint, dict(**identity, written=0))
+            if partition is None:
+                if staging.exists():
+                    raise FileExistsError(f"Uncheckpointed staging store: {staging}")
+                _template(plan, ds.isel(time=slice(0, 0)), staging)
+            else:
+                bootstrap = json.loads((root / f".{product}.progress.json").read_text())
+                if (
+                    any(
+                        bootstrap.get(k) != identity[k]
+                        for k in (
+                            "inventory_sha256",
+                            "processing_code_sha256",
+                            "block_size",
+                        )
+                    )
+                    or bootstrap["written"] != 0
+                ):
+                    raise ValueError("Invalid parallel bootstrap")
+            start = begin
+            fr._atomic_json(checkpoint, dict(**identity, written=start))
         receipts.mkdir(exist_ok=True)
         with dask.config.set(scheduler="threads", num_workers=workers):
-            for offset in range(start, plan["time_count"], BLOCK):
+            for offset in range(start, end, BLOCK):
                 if time.monotonic() - began >= max_seconds:
                     logger.info(
                         "Clean pause: %s at %s/%s", product, offset, plan["time_count"]
                     )
                     return False
-                stop = min(offset + BLOCK, plan["time_count"])
+                stop = min(offset + BLOCK, end)
                 block = ds.isel(time=slice(offset, stop)).load()
                 for name in plan["variables"]:
                     if (
@@ -343,15 +391,7 @@ def run(manifest_path, output_root, workers=16, max_seconds=36000):
                         raise ValueError(
                             f"All-missing source map: {name} block {offset}"
                         )
-                block.drop_vars(list(block.coords)).chunk(
-                    dict(time=BLOCK, lat=180, lon=360)
-                ).to_zarr(
-                    staging,
-                    mode="r+",
-                    region={"time": slice(offset, stop)},
-                    consolidated=False,
-                    write_empty_chunks=True,
-                )
+                _write_block(block, staging, offset, stop)
                 with xr.open_zarr(staging, consolidated=False) as stored:
                     for name in plan["variables"]:
                         actual = stored[name].isel(time=slice(offset, stop)).values
@@ -382,10 +422,64 @@ def run(manifest_path, output_root, workers=16, max_seconds=36000):
                     time.monotonic() - began,
                 )
                 del block
+    if partition is not None:
+        return True
     zarr.consolidate_metadata(str(staging))
     validate(manifest_path, str(staging))
     staging.rename(final)
     checkpoint.unlink()
+    return True
+
+
+def _partition_worker(args):
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+    )
+    return run(**args)
+
+
+def parallel(manifest_path, output_root, workers=6, partitions=4, max_seconds=36000):
+    """One coordinator and disjoint time-chunk writers, all inside one allocation."""
+    if not 1 <= partitions <= 16:
+        raise ValueError("Expected 1..16 partitions")
+    plan = _read_plan(manifest_path)
+    root = Path(output_root)
+    # Create/check metadata once, before any child writes a chunk.
+    if run(manifest_path, output_root, workers=workers, max_seconds=0):
+        return True
+    config_path = root / f".{plan['product']}.parallel.json"
+    config = dict(
+        partitions=partitions,
+        inventory_sha256=fr._digest(plan),
+        processing_code_sha256=_code_hash(),
+    )
+    if config_path.exists() and json.loads(config_path.read_text()) != config:
+        raise ValueError("Parallel configuration changed; refusing overlapping writers")
+    fr._atomic_json(config_path, config)
+    with concurrent.futures.ProcessPoolExecutor(
+        max_workers=partitions, mp_context=multiprocessing.get_context("spawn")
+    ) as pool:
+        jobs = [
+            pool.submit(
+                _partition_worker,
+                dict(
+                    manifest_path=manifest_path,
+                    output_root=output_root,
+                    workers=workers,
+                    max_seconds=max_seconds,
+                    partition=i,
+                    partitions=partitions,
+                ),
+            )
+            for i in range(partitions)
+        ]
+        complete = [job.result() for job in jobs]
+    if not all(complete):
+        return False
+    staging = root / f".{plan['product']}.partial.zarr"
+    zarr.consolidate_metadata(str(staging))
+    validate(manifest_path, str(staging))
+    staging.rename(root / f"{plan['product']}.zarr")
     return True
 
 
@@ -532,5 +626,11 @@ if __name__ == "__main__":
         level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
     )
     fire.Fire(
-        dict(discover=discover, run=run, validate=validate, merge_duacs=merge_duacs)
+        dict(
+            discover=discover,
+            run=run,
+            parallel=parallel,
+            validate=validate,
+            merge_duacs=merge_duacs,
+        )
     )

@@ -6,6 +6,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Full-range observations: verified publication
 
+**Retention update, 2026-09-20:** At the user's request, verified raw downloads
+were removed by Grace job 93535 (355,482,812,609 bytes). All three prepared stores
+remain local and published. Raw-retention statements below describe the original
+completion audit. See [the surface acquisition record](observations-surface-1993.md).
+
 Completed on 2026-09-18. All three native-cadence stores were prepared on
 Empire AI Grace, validated, copied to OSN and verified by full file read-back.
 No temporal averaging, regridding or filtering was applied. Standardization

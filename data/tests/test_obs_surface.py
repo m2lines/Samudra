@@ -74,25 +74,24 @@ def test_exact_values_resume_and_partial_final_chunk(tmp_path, monkeypatch):
 
 def test_interrupted_write_replays_uncommitted_block(tmp_path, monkeypatch):
     manifest, expected, _ = fixture_source(tmp_path, monkeypatch)
-    original = xr.Dataset.to_zarr
+    original = s._write_block
     calls = 0
 
-    def interrupted(self, *args, **kwargs):
+    def interrupted(*args, **kwargs):
         nonlocal calls
-        result = original(self, *args, **kwargs)
-        if "region" in kwargs:
-            calls += 1
-            if calls == 2:
-                raise RuntimeError("simulated interruption after write")
+        result = original(*args, **kwargs)
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("simulated interruption after write")
         return result
 
-    monkeypatch.setattr(xr.Dataset, "to_zarr", interrupted)
+    monkeypatch.setattr(s, "_write_block", interrupted)
     out = tmp_path / "out"
     with pytest.raises(RuntimeError, match="interruption"):
         s.run(str(manifest), str(out))
     state = json.loads((out / ".duacs-ssh.progress.json").read_text())
     assert state["written"] == 24
-    monkeypatch.setattr(xr.Dataset, "to_zarr", original)
+    monkeypatch.setattr(s, "_write_block", original)
     assert s.run(str(manifest), str(out))
     with xr.open_zarr(out / "duacs-ssh.zarr") as actual:
         xr.testing.assert_equal(actual.adt, expected.adt)
@@ -206,3 +205,27 @@ def test_merge_rejects_mismatched_coordinates(tmp_path, monkeypatch):
             str(store),
         )
     assert not (store / "adt").exists()
+
+
+def test_time_partitions_own_disjoint_complete_chunks(tmp_path, monkeypatch):
+    manifest, expected, plan = fixture_source(tmp_path, monkeypatch, count=99)
+    out = tmp_path / "out"
+    s.run(str(manifest), str(out), max_seconds=0)
+    owned = []
+    original = s._write_block
+
+    def record(block, staging, start, stop):
+        owned.append((start, stop))
+        return original(block, staging, start, stop)
+
+    monkeypatch.setattr(s, "_write_block", record)
+    for partition in range(4):
+        assert s.run(str(manifest), str(out), partition=partition, partitions=4)
+    assert sorted(owned) == [(0, 24), (24, 48), (48, 72), (72, 96), (96, 99)]
+    import zarr
+
+    staging = out / ".duacs-ssh.partial.zarr"
+    zarr.consolidate_metadata(str(staging))
+    s.validate(str(manifest), str(staging))
+    with xr.open_zarr(staging) as actual:
+        xr.testing.assert_equal(actual.adt, expected.adt)

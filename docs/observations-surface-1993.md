@@ -29,6 +29,10 @@ and mask before saving each block receipt/checkpoint. Missing source chunks are
 fatal, never implicitly replaced by fill values. There is no averaging,
 regridding or raw source archive. Memory holds the current source block.
 
+ERA5 uses four processes owning disjoint, complete time chunks in one shared
+store; only the coordinator creates metadata and finalizes the store. Each
+partition checkpoints independently, and changing partition counts is rejected.
+
 Checkpoint resumes require matching code/inventory hashes. A clean time-budget
 pause returns successfully for an `afterok` continuation; a source or validation
 failure exits nonzero. Publication requires the final store, so exhausted
@@ -51,3 +55,17 @@ old raw downloads only after checking the corresponding prepared stores and
 remote completion evidence; retain manifests, receipts, provenance and logs.
 The original three-product results document records their historical retention
 state at completion, not the later cleanup state.
+
+## Initial execution evidence (2026-09-20)
+
+Grace preflight 93531 verified public source and authenticated OSN access.
+Pilot 93534 passed 21 focused tests, compared every decoded value/mask for
+48 ERA5 hours and 48 DUACS days, and verified that full DUACS source coordinates
+exactly match the existing velocity store. The four-process writer subsequently
+adds a focused disjoint-chunk ownership test (22 tests total).
+
+Raw cleanup job 93535 completed successfully: it removed 355,482,812,609 bytes
+from `raw/{duacs,oisst,argo-iap}` after validating retained local stores and
+matching remote inventories, consolidated metadata and historical success
+records. Prepared stores, manifests, reports and logs remain. The cleanup
+receipt is `reports/source-cleanup-20260920.json` under the work root.

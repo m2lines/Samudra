@@ -69,3 +69,25 @@ from `raw/{duacs,oisst,argo-iap}` after validating retained local stores and
 matching remote inventories, consolidated metadata and historical success
 records. Prepared stores, manifests, reports and logs remain. The cleanup
 receipt is `reports/source-cleanup-20260920.json` under the work root.
+
+Final parallel pilot **93538** completed with exit 0, passed all 22 tests and
+exactly compared every value/mask in 96 ERA5 hours and 48 DUACS days using the
+production writer. Production uses commit
+`e562fbe008c9ac7e81c2a0b28f970152b283b224` in the isolated
+`code/surface-e562fbe0` checkout and the existing read-only ARM environment.
+
+| Product | Preparation jobs | Publication job | Frozen coverage |
+| --- | --- | --- | --- |
+| DUACS SSH extension | 93546 | 93547 | 1993-01-01–2026-01-16; 12,069 daily maps |
+| ERA5 surface | 93548 → 93549 → 93550 → 93551 → 93552 → 93553 | 93554 | 1993-01-01 00:00–2026-06-30 23:00; 293,616 hourly maps |
+
+Both initial production jobs were observed running on `betagg37`. DUACS uses
+8 CPUs/32 GiB; ERA5 uses 16 CPUs/64 GiB with four disjoint writers. Continuation
+segments stop at a clean checkpoint after ten hours within a twelve-hour
+allocation. Already-complete stores are validated and returned immediately by
+later segments. A failed stage cancels dependent jobs; the chain never publishes
+an incomplete store. Publication jobs use 8 CPUs/32 GiB and twelve hours.
+Job submissions, dependencies and revisions are recorded in
+`jobs-surface-20260920.tsv`. Logs are under `logs/surface-20260920/`.
+These are submission/start observations, not a claim of completed acquisition
+or publication. Previously canceled recurring monitors remain disabled.

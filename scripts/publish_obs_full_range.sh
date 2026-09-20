@@ -4,9 +4,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Run on a transfer node or Grace allocation AFTER preparation succeeds.
 set -euo pipefail
-: "${PRODUCT:?Set PRODUCT=duacs|oisst|argo-iap}"
+: "${PRODUCT:?Set PRODUCT=duacs|oisst|argo-iap|era5-surface}"
 : "${REPO_DIR:?Set REPO_DIR to the checkout used for preparation}"
-case "$PRODUCT" in duacs|oisst|argo-iap) ;; *) echo "Invalid PRODUCT" >&2; exit 2 ;; esac
+case "$PRODUCT" in duacs|oisst|argo-iap|era5-surface) ;; *) echo "Invalid PRODUCT" >&2; exit 2 ;; esac
 WORK_ROOT="${WORK_ROOT:-/scratch/${USER}/data/obs_full_range}"
 OUTPUT_ROOT="${OUTPUT_ROOT:-${WORK_ROOT}/prepared}"
 MANIFEST_PATH="${MANIFEST_PATH:-${WORK_ROOT}/manifests/${PRODUCT}.json}"
@@ -22,8 +22,13 @@ if [[ -n "$RCLONE_MODULE" ]]; then module load "$RCLONE_MODULE"; fi
 command -v rclone >/dev/null
 # The existing OSN bucket permits object access without CreateBucket access.
 export RCLONE_S3_NO_CHECK_BUCKET="${RCLONE_S3_NO_CHECK_BUCKET:-true}"
-"$OBS_PYTHON" -m ocean_preprocessing.obs_preprocessing full_range validate \
-    --manifest_path="$MANIFEST_PATH" --store="$STORE"
+if [[ "$PRODUCT" == era5-surface ]]; then
+    "$OBS_PYTHON" -m ocean_preprocessing.obs_preprocessing.surface validate \
+        --manifest_path="$MANIFEST_PATH" --store="$STORE"
+else
+    "$OBS_PYTHON" -m ocean_preprocessing.obs_preprocessing full_range validate \
+        --manifest_path="$MANIFEST_PATH" --store="$STORE"
+fi
 scratch=$(mktemp -d "${WORK_ROOT}/.publish-${PRODUCT}.XXXXXX")
 trap 'rm -rf "$scratch"' EXIT
 rclone lsf "${DEST}/" --max-depth 1 > "$scratch/listing"
@@ -31,7 +36,22 @@ rclone lsf "${DEST}/" --max-depth 1 > "$scratch/listing"
 # to mix inventories, including a destination left by a different workflow.
 if grep -Fxq "${PRODUCT}.inventory.json" "$scratch/listing"; then
     rclone cat "${DEST}/${PRODUCT}.inventory.json" > "$scratch/inventory.json"
-    cmp "$MANIFEST_PATH" "$scratch/inventory.json" || { echo "Remote inventory differs; use another destination" >&2; exit 1; }
+    if ! cmp -s "$MANIFEST_PATH" "$scratch/inventory.json"; then
+        : "${PREVIOUS_MANIFEST_PATH:?Remote inventory differs; explicit previous inventory required}"
+        [[ "$PRODUCT" == duacs ]] || { echo 'Inventory replacement is restricted to DUACS SSH extension'; exit 1; }
+        cmp "$PREVIOUS_MANIFEST_PATH" "$scratch/inventory.json"
+        # Preserve the original velocity-only inventory before the explicit extension.
+        if grep -Fxq "${PRODUCT}.inventory.previous.json" "$scratch/listing"; then
+            rclone cat "${DEST}/${PRODUCT}.inventory.previous.json" > "$scratch/previous.json"
+            cmp "$PREVIOUS_MANIFEST_PATH" "$scratch/previous.json"
+        else
+            rclone copyto "$PREVIOUS_MANIFEST_PATH" "${DEST}/${PRODUCT}.inventory.previous.json"
+        fi
+        if grep -Fxq "${PRODUCT}.SUCCESS.json" "$scratch/listing"; then
+            rclone deletefile "${DEST}/${PRODUCT}.SUCCESS.json"
+        fi
+        rclone copyto "$MANIFEST_PATH" "${DEST}/${PRODUCT}.inventory.json"
+    fi
 elif grep -Fxq "${PRODUCT}.zarr/" "$scratch/listing"; then
     echo "Unmanaged destination already exists; refusing to overwrite" >&2
     exit 1

@@ -112,7 +112,7 @@ class Experiment:
         self.out = Path(args.output)
         self.out.mkdir(parents=True, exist_ok=True)
         self.frame_caches: dict[int, PreparedFrameCache] = {}
-        self.config = data_config(args)
+        self.config = self.build_data_config(args)
         self.bundle = self.config.build(LocalLocation(path=args.data_root))
         self.source = self.bundle.train_sources[0]
         self.names = self.bundle.data_layout.prognostic_var_names
@@ -128,7 +128,7 @@ class Experiment:
         self.mean = torch.tensor(
             self.source.statistics(self.names).mean, device=self.device
         )
-        self.initializer = Initializer(self.names, args.widths).to(self.device)
+        self.initializer = self.build_initializer(args).to(self.device)
         self.run = None
         if self.rank == 0:
             manifest = {
@@ -160,6 +160,12 @@ class Experiment:
                 mode=args.wandb_mode,
             )
             print(json.dumps({"event": "ready", **manifest}), flush=True)
+
+    def build_data_config(self, args):
+        return data_config(args)
+
+    def build_initializer(self, args):
+        return Initializer(self.names, args.widths)
 
     def barrier(self):
         if self.world > 1:

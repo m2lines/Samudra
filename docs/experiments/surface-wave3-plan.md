@@ -28,7 +28,9 @@ change together, as requested; this wave does not isolate their separate effects
 Wider U-Net widths are 256/384/512/768, retaining the baseline's blocks and
 four scales. The Swin-style variant uses a stride-two patch embedding, widths
 192/384/768/1024, stage depths 2/2/12/2, six-cell shifted attention windows,
-global attention at the coarsest scale, and a multiscale dense decoder. Longitude
+global attention at the coarsest scale, and a multiscale dense decoder with a
+full-resolution input skip and nonlinear refinement. That skip gives the model
+a path for reconstructing detail finer than its two-cell patch embedding. Longitude
 is periodic in window attention; local attention cannot wrap across the poles.
 It is a study-specific Swin variant, not a pretrained image classifier or a claim
 to reproduce an ocean architecture from a paper. Exact parameter counts go in

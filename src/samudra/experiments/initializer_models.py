@@ -108,6 +108,8 @@ class SwinReconstructor(nn.Module):
     ):
         super().__init__()
         self.patch = nn.Conv2d(inputs, widths[0], 2, stride=2)
+        self.detail = nn.Sequential(nn.Conv2d(inputs, 32, 1), nn.GELU())
+        self.refine = nn.Sequential(nn.Conv2d(widths[0] + 32, widths[0], 1), nn.GELU())
         self.stages = nn.ModuleList(
             [
                 nn.ModuleList(
@@ -147,6 +149,7 @@ class SwinReconstructor(nn.Module):
 
     def forward(self, x):
         shape = x.shape[-2:]
+        detail = self.detail(x)
         x = self.patch(self.even_pad(x))
         skips = []
         for i, stage in enumerate(self.stages):
@@ -177,9 +180,8 @@ class SwinReconstructor(nn.Module):
                     1,
                 )
             )
-        return self.head(
-            F.interpolate(x, size=shape, mode="bilinear", align_corners=False)
-        )
+        x = F.interpolate(x, size=shape, mode="bilinear", align_corners=False)
+        return self.head(self.refine(torch.cat((x, detail), 1)))
 
 
 class HistoryInitializer(nn.Module):

@@ -22,6 +22,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 from samudra.config import DataConfig
 from samudra.datasets import TorchTrainDataset
+from samudra.experiments.initializer_diagnostics import ReconstructionDiagnostics
 from samudra.experiments.initializer_models import HistoryInitializer
 from samudra.experiments.surface_adaptation import (
     AdaptationState,
@@ -225,12 +226,9 @@ class InitializerWave(Experiment):
         forcing = cache.boundary[future]
         labels = cache.prognostic[future + 1]
         dates = dataset.sources[0].time.values[np.asarray(ids) + 18]
-        phase = surface.new_tensor(
-            [2 * math.pi * (t.dayofyr - 1) / 365.25 for t in dates]
-        )
-        season = torch.stack((phase.sin(), phase.cos()), 1)[:, :, None, None].expand(
-            -1, -1, *self.mask.shape[-2:]
-        )
+        phases = [2 * math.pi * (t.dayofyr - 1) / 365.25 for t in dates]
+        season = surface.new_tensor([[math.sin(p), math.cos(p)] for p in phases])
+        season = season[:, :, None, None].expand(-1, -1, *self.mask.shape[-2:])
         context = torch.cat((self.geo.expand(len(ids), -1, -1, -1), season), 1)
         return surface, past, context, truth, forcing, labels
 
@@ -522,6 +520,7 @@ class InitializerWave(Experiment):
         indices = list(range(0, len(dataset), 6))
         if self.args.max_steps:
             indices = indices[: self.world * 2]
+        diagnostics = ReconstructionDiagnostics(self, source, indices)
         regions = {
             "global": torch.ones_like(self.lat, dtype=torch.bool),
             "tropics": self.lat.abs() <= 20,
@@ -538,6 +537,8 @@ class InitializerWave(Experiment):
                 "channel",
                 "normalized_mse",
                 "physical_mse",
+                "prediction_second_moment",
+                "target_second_moment",
             ]
             writer = csv.DictWriter(stream, fieldnames=fields)
             writer.writeheader()
@@ -549,6 +550,7 @@ class InitializerWave(Experiment):
                     initial = self.initializer(surface, past, context, self.mask)
                     inferred = self.model.evolve(initial, forcing, context, self.mask)
                     true = self.model.evolve(truth, forcing, context, self.mask)
+                diagnostics.add(initial[:, -1], truth[:, -1], ids)
                 estimates = {
                     "inferred": torch.cat((initial[:, -1:], inferred), 1),
                     "true": torch.cat((truth[:, -1:], true), 1),
@@ -567,6 +569,22 @@ class InitializerWave(Experiment):
                             .cpu()
                             .numpy()
                         )
+                        weights = self.weights * selector[None, :, None]
+                        denominator = weights.sum((-2, -1)).clamp_min(1e-12)
+                        moments = []
+                        for values in (prediction, targets):
+                            physical = (
+                                values.float() * self.std[None, None, :, None, None]
+                                + self.mean[None, None, :, None, None]
+                            )
+                            moments.append(
+                                (
+                                    (physical.square() * weights).sum((-2, -1))
+                                    / denominator
+                                )
+                                .cpu()
+                                .numpy()
+                            )
                         std2 = self.std.square().cpu().numpy()
                         for j, index in enumerate(ids):
                             for lead in range(7):
@@ -584,6 +602,12 @@ class InitializerWave(Experiment):
                                             physical_mse=float(
                                                 errors[j, lead, c] * std2[c]
                                             ),
+                                            prediction_second_moment=float(
+                                                moments[0][j, lead, c]
+                                            ),
+                                            target_second_moment=float(
+                                                moments[1][j, lead, c]
+                                            ),
                                         )
                                     )
                 self.emit(
@@ -594,6 +618,7 @@ class InitializerWave(Experiment):
                     }
                 )
         tmp.replace(output)
+        diagnostics.finish()
         self.barrier()
         if self.rank == 0:
             (self.out / "EVAL_COMPLETE.json").write_text(

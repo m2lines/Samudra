@@ -86,6 +86,10 @@ def test_swin_odd_shapes_and_global_attention_gradient():
     assert isinstance(block, AttentionBlock)
     assert block.qkv.weight.grad is not None
     assert block.qkv.weight.grad.abs().sum() > 0
+    detail = model.detail[0]
+    assert isinstance(detail, torch.nn.Conv2d)
+    assert detail.weight.grad is not None
+    assert detail.weight.grad.abs().sum() > 0
 
 
 def test_compact_sampling_uses_past_only_and_correct_forecast_alignment():
@@ -132,3 +136,62 @@ def test_long_context_preserves_target_period_configuration():
     assert str(context.sources[0].val_time.start) == "2013-08-01"
     assert str(context.sources[0].inference_times[0].start) == "2014-08-06"
     assert str(experiment.config.sources[0].train_time.end) == "2013-10-04"
+
+
+def test_streaming_reconstruction_decomposition_and_fixed_climatology(tmp_path):
+    import pandas as pd
+
+    from samudra.experiments.initializer_diagnostics import ReconstructionDiagnostics
+
+    names = [f"{v}_{i}" for v in ["thetao", "so", "uo", "vo"] for i in range(19)] + [
+        "zos"
+    ]
+    root = tmp_path / "models"
+    (root / "initializer").mkdir(parents=True)
+    torch.save(
+        {"monthly": torch.zeros(12, 77, 6, 12)}, root / "initializer" / "climatology.pt"
+    )
+    out = tmp_path / "diagnostics"
+    out.mkdir()
+    lat = torch.tensor([-45.0, -25.0, -5.0, 5.0, 25.0, 45.0])
+    e = SimpleNamespace(
+        device=torch.device("cpu"),
+        mask=torch.ones(77, 6, 12, dtype=torch.bool),
+        lat=lat,
+        weights=torch.ones(77, 6, 12),
+        channels=77,
+        pretrain=root / "ar" / "pretrain-best.pt",
+        names=names,
+        source=SimpleNamespace(resolution=(lat, torch.arange(12))),
+        bundle=SimpleNamespace(
+            data_layout=SimpleNamespace(depth_levels=list(range(19)))
+        ),
+        rank=0,
+        out=out,
+        reduce=lambda tensor: tensor,
+    )
+    source = SimpleNamespace(
+        time=SimpleNamespace(
+            values=np.array(
+                [
+                    cftime.DatetimeNoLeap(2000, 1, 1) + datetime.timedelta(days=i)
+                    for i in range(20)
+                ]
+            )
+        )
+    )
+    diagnostics = ReconstructionDiagnostics(e, source, [0, 1])
+    truth = torch.randn(2, 77, 6, 12)
+    diagnostics.add(truth + 2, truth, [0, 1])
+    diagnostics.finish()
+    table = pd.read_csv(out / "temporal-decomposition.csv")
+    np.testing.assert_allclose(table["mse"], 4, atol=1e-6)
+    np.testing.assert_allclose(table["mean_bias_mse"], 4, atol=1e-6)
+    np.testing.assert_allclose(table["temporal_amplitude_mse"], 0, atol=1e-10)
+    np.testing.assert_allclose(table["temporal_pattern_mse"], 0, atol=1e-10)
+    scales = pd.read_csv(out / "spatial-scales.csv")
+    np.testing.assert_allclose(
+        scales.loc[scales.box_width_cells > 0, "anomaly_mse"], 0, atol=1e-10
+    )
+    snapshots = np.load(out / "snapshots-rank0.npz")
+    assert {"0_prediction", "1_truth"} <= set(snapshots.files)

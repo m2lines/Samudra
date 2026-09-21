@@ -27,7 +27,13 @@ def pack(source, output):
         raise FileExistsError("Use an empty destination to prevent stale parts")
     sums = []
     for path in sorted(source.rglob("*")):
-        if not path.is_file() or path.suffix not in (".csv", ".json", ".jsonl", ".log"):
+        if not path.is_file() or path.suffix not in (
+            ".csv",
+            ".json",
+            ".jsonl",
+            ".log",
+            ".npz",
+        ):
             continue
         relative = path.relative_to(source)
         data = path.read_bytes()

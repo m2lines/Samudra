@@ -57,3 +57,13 @@ suggested next wave. All 166 packed source files preserve their original bytes;
 all five derived analysis files reproduce exactly. Twenty-six focused tests pass.
 The report distinguishes the training producer from later submission, analysis and
 publication commits. Checkpoint files remain on Torch at the documented run roots.
+
+## Initialization diagnosis follow-up
+
+The [initialization diagnosis](surface-wave2-results/initialization/index.md) adds
+lead-zero, true-state persistence, spatial-scale and temporal error decomposition
+diagnostics at the same 99 origins. Inference-only job 18195421 completed in
+163 seconds on one GPU; a one-second launcher failure (18195300) is retained in
+its separate accounting. The follow-up used 0.04556 GPU-hours and no retraining.
+The main skill graph now includes true-initialized evolution and inferred-state
+persistence; the follow-up shows both no-evolution controls and the initial error.

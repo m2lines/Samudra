@@ -1,0 +1,6 @@
+{
+  "origins": 99,
+  "origin_rows": 960498,
+  "max_persistence_rmse_difference_from_wave2": 8.042147118247911e-07,
+  "scope": "Inference only; original and E initializers; snapshots fixed before evaluation. No observational claim, retraining, or held-out model selection."
+}

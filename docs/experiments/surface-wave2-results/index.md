@@ -64,6 +64,14 @@ The paired calendar-year bootstrap gives 95% descriptive intervals of [5.61%, 6.
 
 The true-interior reference with **fixed pretrained dynamics** has day-30 T/S RMSE 0.042242. Relative to the untuned pair's 0.075645, C/D close 13.56%/13.76% of that RMSE gap; E/F close 14.38%/14.04%. We use A's true-initialization evaluation to hold dynamics fixed: comparing only each adapted model's inferred and true modes could make the gap appear smaller by degrading true-initialized dynamics. True interiors are unavailable at deployment, and this intervention does not prove the missing information can be recovered from surfaces.
 
+### Character of the initialization error
+
+A subsequent [inference-only initialization diagnosis](initialization/index.md) adds lead-zero reconstruction and both inferred/true no-evolution controls. For E, combined T/S RMSE starts at **0.07210**, reaches **0.06956** at day 5 and **0.07084** at day 30. True initialization gives **0.02033 / 0.04527** at days 5/30; true-state persistence gives **0.01618 / 0.05397**. Evolution therefore helps at 30 days even with true initialization, while introducing extra error relative to persistence at five days.
+
+![Lead-zero, true-interior and no-evolution controls](initialization/analysis/initialization_controls.png)
+
+The new spatial diagnostics do **not** support a simple shortage-of-detail explanation: E retains **100% / 95%** of true temperature/salinity small-scale anomaly RMS under the 3-cell high-pass diagnostic, but pattern correspondence is only **0.53 / 0.26**. An exact temporal decomposition attributes **49% / 40%** of initialization MSE to persistent mean error, **11% / 14%** to temporal amplitude mismatch, and the remainder to correlation mismatch. Those components do not uniquely identify blur or displacement. The [full diagnosis](initialization/index.md) includes depth profiles, maps, definitions, caveats and exact artifacts. It added **0.04556 GPU-hours**, including its launcher recovery, to the completed six-arm study; no retraining was performed.
+
 All four joint arms improve day-30 temperature error over the untuned pair at all 18 subsurface levels. C/D/E improve salinity at 18 of 19 levels; F improves 17 of 19. The exceptions are the deepest levels (6,000 m for C/D/E; 5,000–6,000 m for F), which cover relatively few wet cells. Aggregate skill is not uniform improvement with depth.
 
 ![Day-30 depth-resolved forecast skill](figures/depth_skill.png)
@@ -110,7 +118,7 @@ Every arm reached the 3.5-hour training cap; none stopped early. Selected valida
 | Container restoration and checkpoint audit, CPU only | 18094385, 18160463 | 0 |
 | **Total** | **14 terminal jobs** | **86.463** |
 
-[Accounting](accounting.csv), the [completion audit](completion-audit.json) and [original UTC Slurm output](raw/final-accounting.csv) include every attempt. Allocated GPU time includes initialization, validation and evaluation overhead. The initial four-arm envelope was 80 GPU-hours; the two authorized controls each added at most 16. The actual total is below the resulting 112-hour envelope. CPU-only jobs used 29 and 25 wall seconds respectively; login-node preparation is outside GPU accounting. All experiment allocations ended by September 21 08:29:35 UTC, before the September 23 16:51:29 UTC target.
+[Accounting](accounting.csv), the [completion audit](completion-audit.json) and [original UTC Slurm output](raw/final-accounting.csv) include every attempt. Allocated GPU time includes initialization, validation and evaluation overhead. The initial four-arm envelope was 80 GPU-hours; the two authorized controls each added at most 16. The actual total is below the resulting 112-hour envelope. CPU-only jobs used 29 and 25 wall seconds respectively; login-node preparation is outside GPU accounting. All six-arm study allocations ended by September 21 08:29:35 UTC, before the September 23 16:51:29 UTC target.
 
 The first qualification attempt failed before full evaluation. A scratch write then independently confirmed `Disk quota exceeded`; incomplete exception logs prevent attributing the exact training failures with certainty. After the user removed Apptainer caches, the SIF and code overlay were restored. A 10-GiB write/fsync passed after restoration; `myquota` showed 4.52 TB of 5 TB used, about 480 GB free. Probe files were removed. Original input checkpoint hashes still matched. Fresh qualification passed all three gradient paths before production. Persistent rank-local exception logs were added; accepted production emitted no exceptions.
 

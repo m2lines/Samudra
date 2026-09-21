@@ -88,11 +88,36 @@ def plot(raw, analysis, output):
                 color=color,
                 linestyle=style,
             )
+        for arm, mode, label, color, style in [
+            ("A", "true", "True interior + pretrained evolution", "#764f9e", "-"),
+            ("E", "true", "True interior + E evolution", "#764f9e", "--"),
+            (
+                "E",
+                "inferred_persistence",
+                "E inferred interior, no evolution",
+                "#855c32",
+                ":",
+            ),
+        ]:
+            if arm in arms:
+                ax.plot(
+                    leads,
+                    [lookup[arm, mode, "global", lead, variable] for lead in leads],
+                    label=label,
+                    color=color,
+                    linestyle=style,
+                    linewidth=1.6,
+                )
         ax.set(
             title=title, xlabel="Lead (days)", ylabel="Normalized RMSE", xticks=leads
         )
         ax.grid(alpha=0.2)
-    axes[0].legend(fontsize=7)
+    fig.legend(
+        *axes[0].get_legend_handles_labels(),
+        loc="outside lower center",
+        ncol=3,
+        fontsize=7,
+    )
     fig.suptitle(
         "OM4 held-out hindcasts: 99 origins, five-day states\nEqual-depth errors; this is not observational skill"
     )

@@ -6,10 +6,11 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Wave 2 execution status
 
-September 20, 2026, resumed after 20:14 UTC. The [study plan](surface-wave2-plan.md)
+September 21, 2026, approximately 05:00 UTC. The [study plan](surface-wave2-plan.md)
 is active again, with the original September 23 16:51:29 UTC target. Storage was
 restored, the container and code overlay rebuilt, and qualification attempt 2
-completed successfully. Production and the pre-registered rate control are now submitted.
+completed successfully. A-D are complete; matched rate controls E/F are running,
+with a CPU checkpoint audit scheduled after F.
 
 ## Qualification attempt 1
 
@@ -111,3 +112,40 @@ All use producer `b46eb446f153a967869bbfc7f9e93783de986579` and the same qualifi
 initial checkpoints. The host submission/analysis update is commit `d5ce271f`.
 The initial four-arm allocation limit is 64 GPU-hours; E adds at most 16.
 These are allocation limits, not completed compute or scientific results.
+
+
+## Primary results collected; matched controls running
+
+All four primary jobs completed full 99-origin evaluations with 8,316 channel rows
+and 64,152 origin/variable rows per arm. The analysis audits passed, including common
+starting states and fixed references, selected validation minima, and agreement of
+per-origin and aggregate metrics. Their Slurm elapsed times were A 3:31:48,
+B 3:32:06, C 3:31:48 and D 3:31:50. C/D used the same initial weights and different
+data orders.
+
+Global day-30 combined T/S normalized RMSE: untuned pair 0.07564536, selected wave-1
+joint 0.07217639; A 0.07362030, B 0.07401246, C 0.07111591, D 0.07104872.
+C/D improve approximately 6% over the untuned pair and 1.5% over the selected wave-1
+joint result; their combined errors differ by 0.0945%. These are OM4 hindcasts,
+not observational skill. Matched learning-rate conclusions await E/F.
+
+**E 18097633** is the seed-1729, 1e-4 joint control. **F 18160437** repeats that rate
+with seed 1730, matching D. F was added before E's final held-out evaluation, under
+the additional-run authorization, to compare the learning rates at both orders.
+F's first submission was rejected because the completed C/D dependency handles had
+expired from Slurm's active table. Accounting proved both completed; the launcher
+now omits satisfied dependencies, retains their requested IDs in provenance, and
+rejects missing/failed prerequisites. No GPU allocation was created by the rejected
+submission. The repaired launcher is commit `d465a40d`; training remains on the
+unchanged qualified producer `b46eb446`.
+
+CPU-only checkpoint audit **18160463** waits for F. It will load selected and last
+checkpoint files, record hashes and checkpoint state, verify selected scores against
+completion markers, and independently verify frozen component fingerprints for A/B.
+Audit code is commit `2a7765e3`.
+
+Collected A-D originals are in `/tmp/surface-wave2-collected` locally; primary
+analysis is `/tmp/surface-wave2-analysis`. The packing script preserved all 77 current
+result files byte-for-byte, and recomputing from packed artifacts produced identical
+grouped metrics and paired comparisons. Figures are prepared but will be regenerated
+with E/F. The final report, full job accounting and PR update remain outstanding.

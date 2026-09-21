@@ -134,3 +134,14 @@ separately from the initial four-arm envelope. This is within the user's authori
 for targeted follow-ups needed to answer the proposed questions. Include E in the
 analysis with `--arms A B C D E`; its paired comparison against C measures the
 higher-rate treatment, so a negative reduction means the higher rate was worse.
+
+
+Before E's full held-out evaluation is available, add **F**, its seed-1730 repeat.
+E/C and F/D now compare learning rates at matched data orders; C/D and E/F compare
+orders at matched learning rates. This addresses whether a learning-rate conclusion
+is specific to one adaptation order. F uses the same trained starting weights and
+qualified joint path, and the same stopping/selection protocol. It adds at most
+16 GPU-hours, using the additional-run authorization. After C/D complete, E and F
+may run concurrently on four GPUs each. Use `--stage rate-control --control-seed 1730`
+and include F with `--arms A B C D E F` in the analysis. Even this two-order comparison
+does not establish independent pretraining-seed reproducibility.

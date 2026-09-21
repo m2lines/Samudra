@@ -23,6 +23,7 @@ COLORS = {
     "C": "#2467af",
     "D": "#799fd1",
     "E": "#b33a3a",
+    "F": "#db9393",
 }
 LABELS = {
     "A": "A: initializer only",
@@ -30,6 +31,7 @@ LABELS = {
     "C": "C: joint, 1e-5",
     "D": "D: joint, alternate order",
     "E": "E: joint, 1e-4",
+    "F": "F: 1e-4, alternate order",
 }
 LICENSE = "SPDX-FileCopyrightText: 2026 Samudra Authors\n\nSPDX-License-Identifier: CC-BY-4.0\n"
 
@@ -64,7 +66,7 @@ def plot(raw, analysis, output):
                 [lookup[arm, "inferred", "global", lead, variable] for lead in leads],
                 color=COLORS[arm],
                 label=LABELS[arm],
-                linestyle="--" if arm == "D" else "-",
+                linestyle="--" if arm in ("D", "F") else "-",
                 marker="o",
                 markersize=3,
             )
@@ -158,7 +160,7 @@ def plot(raw, analysis, output):
                 [r[field] for r in validation],
                 color=COLORS[arm],
                 label=LABELS[arm],
-                linestyle="--" if arm == "D" else "-",
+                linestyle="--" if arm in ("D", "F") else "-",
                 marker=".",
                 markersize=4,
             )
@@ -218,7 +220,7 @@ def plot(raw, analysis, output):
                 depths,
                 color=COLORS[arm],
                 label=LABELS[arm],
-                linestyle="--" if arm == "D" else "-",
+                linestyle="--" if arm in ("D", "F") else "-",
                 marker=".",
                 markersize=4,
             )

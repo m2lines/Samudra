@@ -61,6 +61,7 @@ def setup_submission(tmp_path, monkeypatch, stage):
         deadline="2099-01-01T00:00:00Z",
         stage=stage,
         after_jobs=[],
+        control_seed=1729,
     )
     return args, calls
 
@@ -102,3 +103,14 @@ def test_code_mismatch_prevents_any_production_submission(tmp_path, monkeypatch)
     with pytest.raises(ValueError, match="Qualification mismatch"):
         SUBMIT(args)
     assert not calls
+
+
+def test_alternate_rate_control_uses_matched_second_order(tmp_path, monkeypatch):
+    args, calls = setup_submission(tmp_path, monkeypatch, "rate-control")
+    args.control_seed = 1730
+    args.after_jobs = ["103", "104"]
+    SUBMIT(args)
+    jobs = json.loads((Path(args.root) / "jobs.json").read_text())
+    assert set(jobs) == {"F"}
+    assert jobs["F"]["seed"] == 1730
+    assert len(calls) == 1

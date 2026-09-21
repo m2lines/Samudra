@@ -211,6 +211,8 @@ def analyze(root, output, arms, replicates):
         "B": ("evolution", 1729),
         "C": ("joint", 1729),
         "D": ("joint", 1730),
+        "E": ("joint", 1729),
+        "F": ("joint", 1730),
     }
     training = []
     for arm, (manifest, marker, initialization, origins, groups) in results.items():
@@ -220,7 +222,7 @@ def analyze(root, output, arms, replicates):
             if (arguments["arm"], arguments["seed"]) != (expected_arm, expected_seed):
                 raise ValueError(f"Incorrect primary arm/seed: {arm}")
             if (
-                arguments["learning_rate"] != 1e-5
+                arguments["learning_rate"] != (1e-4 if arm in ("E", "F") else 1e-5)
                 or arguments["reconstruction_weight"] != 0.1
             ):
                 raise ValueError(f"Incorrect primary adaptation losses/rate: {arm}")
@@ -329,7 +331,9 @@ def analyze(root, output, arms, replicates):
                 for other in arms
                 if other < arm and other in ("A", "B", "C")
             ]
-        if arm not in ("A", "B", "C", "D"):
+        if arm == "F":
+            references.extend([("D", "inferred"), ("E", "inferred")])
+        elif arm not in ("A", "B", "C", "D"):
             references.append(("C", "inferred"))
         for reference_arm, mode in references:
             reference_groups = results[reference_arm][4]

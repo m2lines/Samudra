@@ -20,6 +20,7 @@ ARMS = {
     "C": ("joint", 1729),
     "D": ("joint", 1730),
     "E": ("joint", 1729),
+    "F": ("joint", 1730),
 }
 
 
@@ -99,7 +100,7 @@ def submit(args):
     selected = {
         "qualification": ("A", "B", "C"),
         "production": ("A", "B", "C", "D"),
-        "rate-control": ("E",),
+        "rate-control": ("E",) if args.control_seed == 1729 else ("F",),
     }[args.stage]
     for name in selected:
         arm, seed = ARMS[name]
@@ -121,7 +122,7 @@ def submit(args):
             "--hours",
             "3.5",
             "--learning-rate",
-            "1e-4" if name == "E" else "1e-5",
+            "1e-4" if name in ("E", "F") else "1e-5",
             "--readers",
             "8",
             "--batch-size",
@@ -203,6 +204,7 @@ def main():
     parser.add_argument("--container-hash", required=True)
     parser.add_argument("--wrapper", required=True)
     parser.add_argument("--deadline", required=True)
+    parser.add_argument("--control-seed", type=int, choices=(1729, 1730), default=1729)
     parser.add_argument(
         "--after-jobs",
         nargs="*",

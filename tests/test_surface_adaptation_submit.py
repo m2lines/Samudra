@@ -46,6 +46,9 @@ def setup_submission(tmp_path, monkeypatch, stage):
     calls = []
 
     def record(command, **kwargs):
+        if command[0] == "sacct":
+            ids = command[command.index("-j") + 1].split(",")
+            return SimpleNamespace(stdout="\n".join(f"{job}|RUNNING" for job in ids))
         calls.append((command, kwargs["env"]))
         return SimpleNamespace(stdout=str(100 + len(calls)))
 
@@ -114,3 +117,19 @@ def test_alternate_rate_control_uses_matched_second_order(tmp_path, monkeypatch)
     assert set(jobs) == {"F"}
     assert jobs["F"]["seed"] == 1730
     assert len(calls) == 1
+
+
+def test_completed_prerequisites_need_no_active_slurm_dependency(monkeypatch):
+    pending = SUBMIT.__globals__["pending_dependencies"]
+    monkeypatch.setattr(
+        "subprocess.run",
+        lambda *a, **k: SimpleNamespace(stdout="103|COMPLETED\n104|RUNNING\n"),
+    )
+    assert pending(["103", "104"]) == ["104"]
+    with pytest.raises(ValueError, match="missing or unsuccessful"):
+        pending(["105"])
+    monkeypatch.setattr(
+        "subprocess.run", lambda *a, **k: SimpleNamespace(stdout="103|FAILED\n")
+    )
+    with pytest.raises(ValueError, match="missing or unsuccessful"):
+        pending(["103"])

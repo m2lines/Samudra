@@ -24,6 +24,47 @@ ARMS = {
 }
 
 
+def pending_dependencies(job_ids):
+    """Completed jobs may already be absent from Slurm's active dependency table."""
+    if not job_ids:
+        return []
+    result = subprocess.run(
+        [
+            "sacct",
+            "-X",
+            "-n",
+            "-P",
+            "-j",
+            ",".join(job_ids),
+            "--format=JobIDRaw,State%40",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    states = {}
+    for line in result.stdout.splitlines():
+        fields = line.split("|")
+        if len(fields) >= 2:
+            states[fields[0].strip()] = fields[1].strip()
+    pending = []
+    for job in job_ids:
+        state = states.get(job)
+        if state == "COMPLETED":
+            continue
+        if state not in (
+            "PENDING",
+            "RUNNING",
+            "CONFIGURING",
+            "COMPLETING",
+            "SUSPENDED",
+            "REQUEUED",
+        ):
+            raise ValueError(f"Prerequisite {job} is missing or unsuccessful: {state}")
+        pending.append(job)
+    return pending
+
+
 def submit(args):
     root = Path(args.root)
     if any(not job.isdigit() for job in args.after_jobs):
@@ -96,6 +137,7 @@ def submit(args):
             "SAMUDRA_MODULE": "samudra.experiments.surface_adaptation",
         }
     )
+    active_prerequisites = pending_dependencies(args.after_jobs)
     jobs: dict[str, dict[str, Any]] = {}
     selected = {
         "qualification": ("A", "B", "C"),
@@ -106,7 +148,7 @@ def submit(args):
         arm, seed = ARMS[name]
         dependency_key = {"C": "A", "D": "B"}.get(name)
         dependencies = [jobs[dependency_key]["id"]] if dependency_key else []
-        dependencies.extend(args.after_jobs)
+        dependencies.extend(active_prerequisites)
         dependency = ":".join(dependencies) if dependencies else None
         module_args = [
             "--arm",
@@ -159,9 +201,14 @@ def submit(args):
         if dependency:
             command += ["--dependency=afterok:" + dependency]
         command += [args.wrapper]
-        result = subprocess.run(
-            command, env=env, capture_output=True, text=True, check=True
-        )
+        try:
+            result = subprocess.run(
+                command, env=env, capture_output=True, text=True, check=True
+            )
+        except subprocess.CalledProcessError as error:
+            raise RuntimeError(
+                f"sbatch failed: {error.stderr or error.stdout}"
+            ) from error
         job = result.stdout.strip().split(";")[0]
         if not job.isdigit():
             raise ValueError("Unexpected sbatch response")
@@ -172,6 +219,7 @@ def submit(args):
             gpus=4,
             wall_hours=wall_hours,
             dependency=dependency,
+            requested_prerequisites=args.after_jobs,
             code_commit=args.code_commit,
             module_args=module_args,
             command=command,

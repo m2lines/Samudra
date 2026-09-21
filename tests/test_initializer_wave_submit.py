@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import hashlib
 import json
 import runpy
 from pathlib import Path
@@ -102,3 +103,56 @@ def test_explicit_preemption_only_is_comment_routed(tmp_path, monkeypatch):
         in calls[0][0]
     )
     assert not any(x.startswith("--partition") for x in calls[0][0])
+
+
+def evaluation_source(tmp_path, args):
+    source = tmp_path / "training"
+    source.mkdir()
+    checkpoint = source / "best.pt"
+    checkpoint.write_bytes(b"selected checkpoint fixture")
+    (source / "manifest.json").write_text(
+        json.dumps(
+            {
+                "arguments": {"arm": "A", "phase": "reconstruction"},
+                "code_commit": "qualified",
+            }
+        )
+    )
+    (source / "TRAIN_COMPLETE.json").write_text(
+        json.dumps(
+            {
+                "state": {"complete": True},
+                "code_commit": "qualified",
+                "checkpoint_sha256": hashlib.sha256(
+                    checkpoint.read_bytes()
+                ).hexdigest(),
+            }
+        )
+    )
+    args.stage = "evaluation"
+    args.evaluate_only = True
+    args.initial_checkpoint = str(checkpoint)
+    return source
+
+
+def test_evaluation_preserves_training_and_binds_checkpoint(tmp_path, monkeypatch):
+    args, calls = setup(tmp_path, monkeypatch)
+    source = evaluation_source(tmp_path, args)
+    before = {p.name: p.read_bytes() for p in source.iterdir()}
+    SUBMIT(args)
+    out = Path(args.root) / args.name
+    assert (out / "best.pt").resolve() == source / "best.pt"
+    assert json.loads((out / "evaluation-input.json").read_text())[
+        "training_completion"
+    ]["state"]["complete"]
+    assert {p.name: p.read_bytes() for p in source.iterdir()} == before
+    assert len(calls) == 1
+
+
+def test_modified_selected_checkpoint_is_rejected(tmp_path, monkeypatch):
+    args, calls = setup(tmp_path, monkeypatch)
+    source = evaluation_source(tmp_path, args)
+    (source / "best.pt").write_bytes(b"changed after selection")
+    with pytest.raises(ValueError, match="checksum"):
+        SUBMIT(args)
+    assert not calls

@@ -7,6 +7,7 @@
 
 import argparse
 import datetime
+import hashlib
 import json
 import os
 import shlex
@@ -38,6 +39,44 @@ def submit(args):
             or proof.get("phase") != args.phase
         ):
             raise ValueError("Qualification producer, arm, or phase differs")
+    if args.evaluate_only != (args.stage == "evaluation"):
+        raise ValueError("Evaluation requires both stage evaluation and evaluate-only")
+    if args.evaluate_only:
+        if not args.initial_checkpoint:
+            raise ValueError("Evaluation requires an initial checkpoint")
+        checkpoint = Path(args.initial_checkpoint).resolve()
+        source = checkpoint.parent
+        manifest = json.loads((source / "manifest.json").read_text())
+        completion = json.loads((source / "TRAIN_COMPLETE.json").read_text())
+        if (
+            checkpoint.name != "best.pt"
+            or not completion["state"]["complete"]
+            or manifest["arguments"]["arm"] != args.arm
+            or manifest["arguments"]["phase"] != args.phase
+            or manifest["code_commit"] != args.code_commit
+            or completion["code_commit"] != args.code_commit
+        ):
+            raise ValueError("Evaluation source is incomplete or differs from request")
+        with checkpoint.open("rb") as stream:
+            digest = hashlib.file_digest(stream, "sha256").hexdigest()
+        if digest != completion["checkpoint_sha256"]:
+            raise ValueError("Evaluation checkpoint checksum differs")
+        if out.resolve() == source or out.exists():
+            raise ValueError("Evaluation requires a fresh output directory")
+        out.mkdir(parents=True)
+        (out / "best.pt").symlink_to(checkpoint)
+        (out / "evaluation-input.json").write_text(
+            json.dumps(
+                {
+                    "checkpoint": str(checkpoint),
+                    "sha256": digest,
+                    "training_manifest": manifest,
+                    "training_completion": completion,
+                },
+                indent=2,
+            )
+            + "\n"
+        )
     root.mkdir(parents=True, exist_ok=True)
     module_args = [
         "--arm",

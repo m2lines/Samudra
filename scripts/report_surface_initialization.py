@@ -166,7 +166,16 @@ def summarize(raw, wave, output):
                 ":",
             ),
         ]:
-            ax.plot(leads, values, label=label, color=color, ls=style, marker=".", ms=4)
+            ax.plot(
+                leads,
+                values,
+                label=label,
+                color=color,
+                ls=style,
+                marker={"-": "o", "--": "s", ":": "^"}[style],
+                ms=4.5,
+                markerfacecolor="none" if style == "--" else color,
+            )
         ax.set(
             title=title,
             xlabel="Lead (days)",
@@ -174,7 +183,7 @@ def summarize(raw, wave, output):
             xticks=[0, 10, 20, 30],
         )
         ax.grid(alpha=0.2)
-    axes[0].legend(fontsize=7, loc="lower right")
+    axes[0].legend(fontsize=7, loc="lower right", handlelength=4, markerscale=1.3)
     fig.suptitle(
         "Where does forecast error enter? Arm E; 99 held-out OM4 origins\nLead zero measures the latest reconstructed interior; no evolution means holding that state fixed",
         fontsize=11,
@@ -207,7 +216,7 @@ def summarize(raw, wave, output):
             ylabel="Lead-zero normalized MSE",
         )
         ax.grid(axis="y", alpha=0.2)
-    axes[0].legend(fontsize=7)
+    axes[0].legend(fontsize=7, handlelength=4, markerscale=1.3)
     fig.suptitle(
         "Exact error decomposition at each wet cell over 99 origins\nCorrelation mismatch is not uniquely spatial displacement; mean bias includes persistent spatial errors",
         fontsize=10,
@@ -230,7 +239,10 @@ def summarize(raw, wave, output):
                     label=f"{model}: {var}",
                     color=color,
                     ls=style,
-                    marker="o",
+                    marker="o" if model == "original" else "s",
+                    markersize=5,
+                    markerfacecolor="none" if model == "original" else color,
+                    markeredgewidth=1.2,
                 )
     for ax, label in zip(
         axes,
@@ -244,7 +256,7 @@ def summarize(raw, wave, output):
         )
         ax.axhline(1, color="gray", lw=0.7)
         ax.grid(alpha=0.2)
-    axes[0].legend(fontsize=7)
+    axes[0].legend(fontsize=7, handlelength=4, markerscale=1.3)
     fig.suptitle(
         "Is spatial detail missing at initialization?\nMonthly training climatology removed; mask-normalized box filters, not fixed physical wavelengths",
         fontsize=10,
@@ -294,7 +306,16 @@ def summarize(raw, wave, output):
                     .loc[names]
                     .normalized_rmse.to_numpy()
                 )
-            ax.plot(values, depths, label=label, color=color, ls=style, marker=".")
+            ax.plot(
+                values,
+                depths,
+                label=label,
+                color=color,
+                ls=style,
+                marker="s" if style == "--" else "o",
+                markersize=4,
+                markerfacecolor="none" if style == "--" else color,
+            )
         ax.set(
             yscale="log",
             ylabel="Depth (m)",
@@ -303,7 +324,7 @@ def summarize(raw, wave, output):
         )
         ax.invert_yaxis()
         ax.grid(alpha=0.2)
-    axes[0].legend(fontsize=7)
+    axes[0].legend(fontsize=7, handlelength=4, markerscale=1.3)
     fig.suptitle(
         "Where is initialization error concentrated? Global, 99 origins\nEach depth has its own normalization; not volume- or heat-content-weighted",
         fontsize=10,

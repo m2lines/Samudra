@@ -116,8 +116,14 @@ for i, task in enumerate(models):
                 [lookup[(task, mode, "global", lead, var)] for lead in leads],
                 color=color,
                 linestyle=style,
-                marker="o",
-                markersize=3,
+                marker={
+                    "inferred": "o",
+                    "true": "^",
+                    "inferred_persistence": "s",
+                    "climatology": "D",
+                }[mode],
+                markersize=4,
+                markerfacecolor="none" if mode != "inferred" else color,
                 label=label,
             )
         ax.set_title(task.upper() + ": " + title)
@@ -125,12 +131,12 @@ for i, task in enumerate(models):
         ax.set_ylabel("Normalized RMSE")
         ax.set_xticks(leads)
         ax.grid(alpha=0.25)
-        ax.legend(fontsize=8)
+        ax.legend(fontsize=8, handlelength=4, markerscale=1.3)
 fig.suptitle(
     "Wave 1: OM4-only held-out hindcasts, 99 start dates\nGlobal errors; equal weight per depth level; five-day data",
     fontsize=12,
 )
-fig.savefig(root / "heldout_ts_leads.png", dpi=180)
+fig.savefig(root / "heldout_ts_leads.png", dpi=160)
 fig.savefig(root / "heldout_ts_leads.svg")
 plt.close(fig)
 lines = [

@@ -150,8 +150,14 @@ for task in ("ar", "direct"):
                 depths,
                 color=color,
                 linestyle=style,
-                marker="o",
-                markersize=3,
+                marker={
+                    "inferred": "o",
+                    "true": "^",
+                    "inferred_persistence": "s",
+                    "climatology": "D",
+                }[mode],
+                markersize=4,
+                markerfacecolor="none" if mode != "inferred" else color,
                 label=title,
             )
         ax.set_yscale("log")
@@ -160,7 +166,7 @@ for task in ("ar", "direct"):
         ax.set_xlabel(f"Physical RMSE ({unit})")
         ax.set_ylabel("Depth (m, logarithmic scale)")
         ax.grid(alpha=0.25)
-        ax.legend(fontsize=8)
+        ax.legend(fontsize=8, handlelength=4, markerscale=1.3)
     fig.suptitle(
         f"{task.upper()}: 30-day errors by depth, 99 OM4 held-out starts\nGlobal wet-cell area-weighted errors; five-day data",
         fontsize=12,

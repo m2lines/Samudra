@@ -25,6 +25,7 @@ COLORS = {
     "E": "#b33a3a",
     "F": "#db9393",
 }
+MARKERS = {"A": "^", "B": "v", "C": "o", "D": "s", "E": "D", "F": "P"}
 LABELS = {
     "A": "A: initializer only",
     "B": "B: evolution only",
@@ -74,8 +75,8 @@ def plot(raw, analysis, output):
                 color=COLORS[arm],
                 label=LABELS[arm],
                 linestyle="--" if arm in ("D", "F") else "-",
-                marker="o",
-                markersize=3,
+                marker=MARKERS[arm],
+                markersize=4,
             )
         for mode, label, color, style in [
             ("frozen_pretrain", "Untuned pair", "#222222", "--"),
@@ -87,6 +88,8 @@ def plot(raw, analysis, output):
                 label=label,
                 color=color,
                 linestyle=style,
+                marker="x" if mode == "frozen_pretrain" else "+",
+                markersize=4,
             )
         for arm, mode, label, color, style in [
             ("A", "true", "True interior + pretrained evolution", "#764f9e", "-"),
@@ -107,6 +110,11 @@ def plot(raw, analysis, output):
                     color=color,
                     linestyle=style,
                     linewidth=1.6,
+                    marker="s"
+                    if mode == "inferred_persistence"
+                    else ("^" if arm == "A" else "o"),
+                    markersize=4,
+                    markerfacecolor="none",
                 )
         ax.set(
             title=title, xlabel="Lead (days)", ylabel="Normalized RMSE", xticks=leads
@@ -117,6 +125,8 @@ def plot(raw, analysis, output):
         loc="outside lower center",
         ncol=3,
         fontsize=7,
+        handlelength=4,
+        markerscale=1.3,
     )
     fig.suptitle(
         "OM4 held-out hindcasts: 99 origins, five-day states\nEqual-depth errors; this is not observational skill"
@@ -193,7 +203,7 @@ def plot(raw, analysis, output):
                 color=COLORS[arm],
                 label=LABELS[arm],
                 linestyle="--" if arm in ("D", "F") else "-",
-                marker=".",
+                marker=MARKERS[arm],
                 markersize=4,
             )
             ax.scatter(
@@ -210,7 +220,7 @@ def plot(raw, analysis, output):
                 ylabel="Normalized MSE",
             )
             ax.grid(alpha=0.2)
-    axes[0, 0].legend(fontsize=7)
+    axes[0, 0].legend(fontsize=7, handlelength=4, markerscale=1.3)
     fig.suptitle(
         "Validation over 11 origins; stars mark the T/S-selected checkpoint\nElapsed phase time includes cache preparation and checkpoint work",
         fontsize=11,
@@ -253,7 +263,7 @@ def plot(raw, analysis, output):
                 color=COLORS[arm],
                 label=LABELS[arm],
                 linestyle="--" if arm in ("D", "F") else "-",
-                marker=".",
+                marker=MARKERS[arm],
                 markersize=4,
             )
             ax.set(
@@ -266,7 +276,7 @@ def plot(raw, analysis, output):
         ax.invert_yaxis()
         ax.axvline(0, color="#777777", linewidth=0.8)
         ax.grid(alpha=0.2)
-    axes[0].legend(fontsize=7)
+    axes[0].legend(fontsize=7, handlelength=4, markerscale=1.3)
     fig.suptitle(
         "Depth diagnostic: wet-cell cosine-latitude-weighted error at each level\nDeep levels cover fewer wet cells; the selection score is not volume-weighted",
         fontsize=11,

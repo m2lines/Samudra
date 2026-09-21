@@ -116,7 +116,9 @@ def submit(args):
     if args.gpu == "h200":
         command += [
             "--account=torch_pr_347_general",
-            "--comment=preemption=yes;requeue=true",
+            "--comment=preemption=yes;"
+            + ("preemption_partitions_only=yes;" if args.preemption_only else "")
+            + "requeue=true",
             "--constraint=h200",
             "--gres=gpu:" + str(args.gpus),
             "--requeue",
@@ -174,6 +176,7 @@ def main():
     p.add_argument("--wrapper", default="/scratch/jr7309/slurm_initializer_wave.sbatch")
     p.add_argument("--qualification")
     p.add_argument("--gpu", choices=["h200", "rtx6000"], default="h200")
+    p.add_argument("--preemption-only", action="store_true")
     p.add_argument("--gpus", type=int, choices=[1, 2, 4], default=2)
     p.add_argument("--hours", type=float, default=8)
     p.add_argument("--wall-hours", type=float, default=10)

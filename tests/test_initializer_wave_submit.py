@@ -40,6 +40,7 @@ def setup(tmp_path, monkeypatch):
         learning_rate=1e-4,
         gpus=2,
         gpu="h200",
+        preemption_only=False,
         initial_checkpoint=None,
         evaluate_only=False,
         after=None,
@@ -90,3 +91,14 @@ def test_mismatched_proof_or_expired_deadline_prevents_submission(
     with pytest.raises(ValueError):
         SUBMIT(args)
     assert not calls
+
+
+def test_explicit_preemption_only_is_comment_routed(tmp_path, monkeypatch):
+    args, calls = setup(tmp_path, monkeypatch)
+    args.preemption_only = True
+    SUBMIT(args)
+    assert (
+        "--comment=preemption=yes;preemption_partitions_only=yes;requeue=true"
+        in calls[0][0]
+    )
+    assert not any(x.startswith("--partition") for x in calls[0][0])

@@ -94,6 +94,7 @@ A completion marker is written only after successful final evaluation.
 
 ## Reproducing the paired comparisons
 
+The completed study is documented in the [wave-2 report](surface-wave2-results/index.md).
 After collecting complete per-arm outputs (A/B/C/D), run:
 
 ```bash
@@ -107,8 +108,8 @@ starting states, changed fixed references, and disagreement between per-origin a
 aggregate metrics. It also checks selected validation scores against logged best
 scores and requires runtime frozen-state verification where applicable. It writes
 training summaries, grouped metrics, paired comparisons and an audit JSON. CSV inputs
-can be stored with an added `.gz` suffix. Follow-up arms can be included using
-`--arms A B C D E`; their manifests retain the changed treatment.
+can be stored with an added `.gz` suffix or as ordered gzip binary parts. Follow-up arms can be included using
+`--arms A B C D E F`; their manifests retain the changed treatment.
 
 Each bootstrap draw resamples calendar-year blocks with replacement using the same
 blocks for candidate and reference. Errors remain weighted equally by forecast origin,

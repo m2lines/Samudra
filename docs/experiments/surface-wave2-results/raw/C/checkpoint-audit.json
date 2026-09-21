@@ -1,0 +1,44 @@
+{
+  "selected": {
+    "path": "/scratch/jr7309/runs/2026-09-20-surface-wave2/C/adapt-best.pt",
+    "bytes": 247658997,
+    "sha256": "6f2c1e088d5cb12965e11be871eaa3db9d65bb54f10a27c3bec308484402334a",
+    "state": {
+      "epoch": 150,
+      "cursor": 167,
+      "step": 52967,
+      "elapsed": 12600.059209069004,
+      "best": 0.0038030201103538275,
+      "bad_checks": 0,
+      "complete": false
+    },
+    "initializer_fingerprint": "2446497ead5cf31cada5732a51e6a42719f3d8214fa6c7aaa5b08ccac1827a44",
+    "evolution_fingerprint": "963c2d061a55db65052817d90553d30258c250c7f679332bd54916a79fa84c76"
+  },
+  "last": {
+    "path": "/scratch/jr7309/runs/2026-09-20-surface-wave2/C/adapt-last.pt",
+    "bytes": 742630257,
+    "sha256": "285f7db3f8d23d29a59333f51402fa4bc6000c569b4d9c786da239b393f279ec",
+    "state": {
+      "epoch": 150,
+      "cursor": 167,
+      "step": 52967,
+      "elapsed": 12600.521462163015,
+      "best": 0.0038030201103538275,
+      "bad_checks": 0,
+      "complete": true
+    }
+  },
+  "completion": {
+    "arm": "joint",
+    "seed": 1729,
+    "time_utc": "2026-09-21T03:32:26.075372+00:00",
+    "selected_ts_mse": 0.0038030201103538275
+  },
+  "audit_script": {
+    "path": "/tmp/audit.py",
+    "bytes": 3163,
+    "sha256": "58ef1cb8490c2b5ce4f9b31d5f3093d056608e471353eb96c30c31e8f0968b01"
+  },
+  "frozen_component_verified": null
+}

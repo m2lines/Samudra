@@ -39,7 +39,14 @@ LICENSE = "SPDX-FileCopyrightText: 2026 Samudra Authors\n\nSPDX-License-Identifi
 def save(fig, output, name):
     for suffix in ["png", "svg"]:
         path = output / (name + "." + suffix)
-        fig.savefig(path, dpi=150, bbox_inches="tight")
+        fig.savefig(
+            path, dpi=130 if name == "validation_curves" else 150, bbox_inches="tight"
+        )
+        if suffix == "svg":
+            path.write_text(
+                "\n".join(line.rstrip() for line in path.read_text().splitlines())
+                + "\n"
+            )
         Path(str(path) + ".license").write_text(LICENSE)
     plt.close(fig)
 

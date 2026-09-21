@@ -50,7 +50,7 @@ The shared initializer's validation T/S RMSE was 0.06347/0.06712 versus sampled 
 
 AR joint validation improved from **0.096533 to 0.092951** at step **4,621**, then worsened for seven consecutive checks. Direct joint tuning never beat its starting value **0.117950**. Thus the evaluated AR uses an adapted initializer/evolution pair; the evaluated Direct uses its pre-joint starting model. Joint training did not automatically solve the initialization gap.
 
-Checkpoint selection used the implemented equal-group normalized validation MSE over T, S, u, v and SSH, averaged over six leads and 12 validation origins. It was **not a T/S-only selection metric**. The joint training loss additionally included 0.1 times interior reconstruction loss. Future observation-focused selection should explicitly prioritize interior T/S while retaining velocity diagnostics and simulation supervision.
+Checkpoint selection used the implemented equal-group normalized validation MSE over T, S, u, v and SSH, averaged over six leads and 11 available forecast-validation origins (configured cap: 12). It was **not a T/S-only selection metric**. The joint training loss additionally included 0.1 times interior reconstruction loss. Future observation-focused selection should explicitly prioritize interior T/S while retaining velocity diagnostics and simulation supervision.
 
 ## Surface predictions and velocities
 

@@ -1,0 +1,57 @@
+{
+  "F": {
+    "id": "18160437",
+    "arm": "joint",
+    "seed": 1730,
+    "gpus": 4,
+    "wall_hours": 4.0,
+    "dependency": null,
+    "requested_prerequisites": [
+      "18097626",
+      "18097627"
+    ],
+    "code_commit": "b46eb446f153a967869bbfc7f9e93783de986579",
+    "module_args": [
+      "--arm",
+      "joint",
+      "--seed",
+      "1730",
+      "--wave1-root",
+      "/scratch/jr7309/runs/2026-09-18-surface-wave1",
+      "--output",
+      "/scratch/jr7309/runs/2026-09-20-surface-wave2-rate-control-repeat/F",
+      "--name",
+      "2026-09-20-surface-wave2-rate-control-repeat-F",
+      "--hours",
+      "3.5",
+      "--learning-rate",
+      "1e-4",
+      "--readers",
+      "8",
+      "--batch-size",
+      "2",
+      "--device-cache"
+    ],
+    "command": [
+      "sbatch",
+      "--parsable",
+      "--account=torch_pr_347_lzanna",
+      "--partition=rtx6000_lzanna",
+      "--chdir=/scratch/jr7309",
+      "--output=/scratch/jr7309/slurm-%j.out",
+      "--error=/scratch/jr7309/slurm-%j.err",
+      "--kill-on-invalid-dep=yes",
+      "--nodes=1",
+      "--ntasks-per-node=1",
+      "--cpus-per-task=8",
+      "--mem=64G",
+      "--gres=gpu:rtx6000:4",
+      "--gres-flags=disable-binding",
+      "--time=04:00:00",
+      "--job-name=surface-w2-rate-control-F",
+      "/scratch/jr7309/slurm_surface_adaptation.sbatch"
+    ],
+    "deadline": "2026-09-23T16:51:29+00:00",
+    "submitted_utc": "2026-09-21T04:57:03.117690+00:00"
+  }
+}

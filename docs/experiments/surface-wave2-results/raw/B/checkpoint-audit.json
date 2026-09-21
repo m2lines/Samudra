@@ -1,0 +1,44 @@
+{
+  "selected": {
+    "path": "/scratch/jr7309/runs/2026-09-20-surface-wave2/B/adapt-best.pt",
+    "bytes": 247658997,
+    "sha256": "8d600aaf63fab84924a99840dd77cb450dc9e2ba1f3cc10519af576b313376c5",
+    "state": {
+      "epoch": 168,
+      "cursor": 82,
+      "step": 59218,
+      "elapsed": 12600.207543265016,
+      "best": 0.00415980676189065,
+      "bad_checks": 0,
+      "complete": false
+    },
+    "initializer_fingerprint": "2f70620684763abf786ba727438ef0a186d1d25155f0b278557b2f5c6f99562a",
+    "evolution_fingerprint": "009c173a3a2171be616adda6c30a344829a12194e6d7d1c484c6a0401685c768"
+  },
+  "last": {
+    "path": "/scratch/jr7309/runs/2026-09-20-surface-wave2/B/adapt-last.pt",
+    "bytes": 500802995,
+    "sha256": "6f7506af49510349f71337455b939e3886f200df104b7d625e1131630f4b2797",
+    "state": {
+      "epoch": 168,
+      "cursor": 82,
+      "step": 59218,
+      "elapsed": 12600.781378743995,
+      "best": 0.00415980676189065,
+      "bad_checks": 0,
+      "complete": true
+    }
+  },
+  "completion": {
+    "arm": "evolution",
+    "seed": 1729,
+    "time_utc": "2026-09-21T00:00:52.499265+00:00",
+    "selected_ts_mse": 0.00415980676189065
+  },
+  "audit_script": {
+    "path": "/tmp/audit.py",
+    "bytes": 3163,
+    "sha256": "58ef1cb8490c2b5ce4f9b31d5f3093d056608e471353eb96c30c31e8f0968b01"
+  },
+  "frozen_component_verified": "initializer"
+}

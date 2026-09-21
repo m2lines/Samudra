@@ -1,0 +1,28 @@
+{
+  "initial_model_fingerprint": "12f5afc6b205bbe057cb60074c01f8be37503a5333788526aaf98f881ed59ee8",
+  "initial_initializer_fingerprint": "2f70620684763abf786ba727438ef0a186d1d25155f0b278557b2f5c6f99562a",
+  "initial_evolution_fingerprint": "bf1a6e75183b9b2ca466679ca36ae7a65ed2e693d2715452082643afcb135873",
+  "arm": "evolution",
+  "data_order_seed": 1729,
+  "checkpoint_selection": "mean normalized MSE, equal subsurface T/S and leads 5-30 days",
+  "pretrain": {
+    "path": "/scratch/jr7309/runs/2026-09-18-surface-wave1/ar/pretrain-best.pt",
+    "sha256": "6f35bcb505a29af930211243a9f9a1649d6fff295bd1ebcb1d39dcb8ebf693ea"
+  },
+  "wave1_joint": {
+    "path": "/scratch/jr7309/runs/2026-09-18-surface-wave1/ar/joint-best.pt",
+    "sha256": "0f8349cb0a682f1e7db453060029d8309907dd4ed63454259ad3ef2d5ec893d1"
+  },
+  "shared_initializer": {
+    "path": "/scratch/jr7309/runs/2026-09-18-surface-wave1/initializer/initializer-best.pt",
+    "sha256": "f1090032443afcbe6b5885c23b7c496ba7bb8684bf0074e96c5f5945b8499897"
+  },
+  "protocol": {
+    "learning_rate": 1e-05,
+    "reconstruction_weight": 0.1,
+    "batch_size": 2,
+    "world_size": 4,
+    "max_steps": 0,
+    "val_origins": 12
+  }
+}

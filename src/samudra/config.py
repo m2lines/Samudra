@@ -15,6 +15,7 @@ import pydantic
 import torch
 import xarray as xr
 from pydantic import (
+    BeforeValidator,
     Field,
     PlainSerializer,
     PlainValidator,
@@ -522,14 +523,55 @@ ActivationType = Literal["relu", "gelu", "capped_gelu"]
 NormType = Literal["batch", "instance", "group", "nonorm", "layer"]
 
 
+class BatchNormConfig(BaseConfig):
+    type: Literal["batch"] = "batch"
+
+
+class InstanceNormConfig(BaseConfig):
+    type: Literal["instance"] = "instance"
+
+
+class GroupNormConfig(BaseConfig):
+    type: Literal["group"] = "group"
+    num_groups: int = Field(default=32, ge=1)
+
+
+class NoNormConfig(BaseConfig):
+    type: Literal["nonorm"] = "nonorm"
+
+
+class LayerNormConfig(BaseConfig):
+    type: Literal["layer"] = "layer"
+
+
+def string_to_norm_config(data):
+    if isinstance(data, str):
+        return {"type": data}
+    return data
+
+
+NormConfig = Annotated[
+    BatchNormConfig
+    | InstanceNormConfig
+    | GroupNormConfig
+    | NoNormConfig
+    | LayerNormConfig,
+    Field(discriminator="type"),
+    BeforeValidator(string_to_norm_config),
+]
+
+
 class BlockConfig(BaseConfig):
     block_type: BlockType = "conv_next_block"
     kernel_size: int = 3
     activation: ActivationType = "capped_gelu"
     upscale_factor: int = 4
-    norm: NormType = "batch"
-    group_norm_groups: int = Field(default=32, ge=1)
+    norm: NormConfig = Field(default_factory=BatchNormConfig)
     pointwise_linear: bool = False
+
+    @property
+    def _norm_num_groups(self) -> int | None:
+        return self.norm.num_groups if isinstance(self.norm, GroupNormConfig) else None
 
     def build(self) -> CoreBlockBuilder:
         match self.activation:
@@ -572,8 +614,8 @@ class BlockConfig(BaseConfig):
                         checkpoint_simple=checkpoint_simple,
                         kernel_size=self.kernel_size,
                         upscale_factor=self.upscale_factor,
-                        norm=self.norm,
-                        group_norm_groups=self.group_norm_groups,
+                        norm=self.norm.type,
+                        norm_num_groups=self._norm_num_groups,
                         activation=activation,
                         pointwise_linear=self.pointwise_linear,
                     )
@@ -1287,8 +1329,22 @@ class TrainConfig(TopLevelConfig):
     profiler: ProfilerConfig = ProfilerConfig()
 
     # Data parameters at root level
-    data_stride: list[int] = [1]
-    temporal_stride: int = Field(default=1, ge=1)
+    data_stride: list[int] = Field(
+        default=[1],
+        description=(
+            "Stride, in raw timesteps, between timesteps inside each model input "
+            "and output window. Multiple values build multiple training datasets."
+        ),
+    )
+    temporal_stride: int = Field(
+        default=1,
+        ge=1,
+        description=(
+            "Stride, in dataset windows, between consecutive training samples after "
+            "data_stride has constructed each input/output window. This subsamples "
+            "sample start times without changing the timesteps inside a sample."
+        ),
+    )
     steps: list[int] = [4]
     step_transition: list[int] = []
     inference_epochs: list[int] = [-1]

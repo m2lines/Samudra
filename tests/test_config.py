@@ -12,10 +12,12 @@ import yaml
 from pydantic import ValidationError
 
 from samudra.config import (
+    BlockConfig,
     CpuDataLoadingConfig,
     DataConfig,
     EvalConfig,
     GpuDataLoadingConfig,
+    GroupNormConfig,
     JulianDate,
     LlcDataSourceConfig,
     LlcTimeConfig,
@@ -453,6 +455,17 @@ def test_get_pydantic_models_collects_loading_variants():
     assert models["GpuDataLoadingConfig"] is GpuDataLoadingConfig
 
 
+def test_block_config_accepts_norm_string_short_form():
+    cfg = BlockConfig.model_validate({"norm": "batch"})
+
+    assert cfg.norm.type == "batch"
+
+
+def test_block_config_rejects_group_options_outside_group_norm():
+    with pytest.raises(ValidationError, match="num_groups"):
+        BlockConfig.model_validate({"norm": {"type": "batch", "num_groups": 4}})
+
+
 def test_llc_train_config_uses_group_norm_and_temporal_stride(tmp_path):
     cfg = TrainConfig.from_yaml_and_cli(
         [
@@ -467,9 +480,9 @@ def test_llc_train_config_uses_group_norm_and_temporal_stride(tmp_path):
     assert cfg.data.sources[0].prognostic_vars_key == "single_1"
     assert cfg.data.sources[0].boundary_vars_key == "single_1"
     assert isinstance(cfg.model, SamudraConfig)
-    assert cfg.model.unet.core_block.norm == "group"
-    assert cfg.model.unet.core_block.group_norm_groups == 32
-    block = cfg.model.unet.core_block.build()(1, 1, 1, 1, "constant", False)
+    assert isinstance(cfg.model.unet.core_block.norm, GroupNormConfig)
+    assert cfg.model.unet.core_block.norm.num_groups == 32
+    block = cfg.model.unet.core_block.build()(16, 16, 1, 1, "constant", False)
     assert isinstance(block, ConvNeXtBlock)
 
 

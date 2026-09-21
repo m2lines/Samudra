@@ -280,7 +280,7 @@ class ConvNeXtBlock(CoreBlock):
         pad="circular",
         upscale_factor: int = 4,
         norm="batch",
-        group_norm_groups: int = 32,
+        norm_num_groups: int | None = None,
         checkpoint_simple: bool = False,
         pointwise_linear: bool = False,
     ):
@@ -306,7 +306,7 @@ class ConvNeXtBlock(CoreBlock):
         norm_layer = self._build_norm_layer(
             norm=norm,
             channels=int(in_channels * upscale_factor),
-            group_norm_groups=group_norm_groups,
+            norm_num_groups=norm_num_groups,
         )
         if norm_layer is not None:
             convblock.append(norm_layer)
@@ -323,7 +323,7 @@ class ConvNeXtBlock(CoreBlock):
         norm_layer = self._build_norm_layer(
             norm=norm,
             channels=int(in_channels * upscale_factor),
-            group_norm_groups=group_norm_groups,
+            norm_num_groups=norm_num_groups,
         )
         if norm_layer is not None:
             convblock.append(norm_layer)
@@ -342,19 +342,25 @@ class ConvNeXtBlock(CoreBlock):
     def _build_norm_layer(
         norm: str,
         channels: int,
-        group_norm_groups: int,
+        norm_num_groups: int | None,
     ) -> torch.nn.Module | None:
+        if norm != "group" and norm_num_groups is not None:
+            raise ValueError("norm_num_groups only applies when norm='group'")
         if norm == "batch":
             return torch.nn.BatchNorm2d(channels)
         if norm == "instance":
             return torch.nn.InstanceNorm2d(channels)
         if norm == "group":
-            if group_norm_groups < 1:
-                raise ValueError("group_norm_groups must be >= 1")
-            num_groups = min(group_norm_groups, channels)
-            while channels % num_groups != 0:
-                num_groups -= 1
-            return torch.nn.GroupNorm(num_groups=num_groups, num_channels=channels)
+            if norm_num_groups is None:
+                raise ValueError("norm_num_groups must be set when norm='group'")
+            if norm_num_groups < 1:
+                raise ValueError("norm_num_groups must be >= 1")
+            if channels % norm_num_groups != 0:
+                raise ValueError(
+                    f"norm_num_groups={norm_num_groups} must evenly divide "
+                    f"expanded channels={channels}"
+                )
+            return torch.nn.GroupNorm(num_groups=norm_num_groups, num_channels=channels)
         if norm == "layer":
             return torch.nn.GroupNorm(num_groups=1, num_channels=channels)
         if norm == "nonorm":

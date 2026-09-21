@@ -102,7 +102,7 @@ def test_convnext_block_group_norm_uses_divisible_group_count():
         dilation=1,
         n_layers=1,
         norm="group",
-        group_norm_groups=6,
+        norm_num_groups=5,
     )
 
     norm_layers = [
@@ -149,7 +149,7 @@ def test_convnext_block_nonorm_inserts_no_normalization_layers():
 
 
 def test_convnext_block_group_norm_rejects_nonpositive_group_count():
-    with pytest.raises(ValueError, match="group_norm_groups must be >= 1"):
+    with pytest.raises(ValueError, match="norm_num_groups must be >= 1"):
         ConvNeXtBlock(
             in_channels=8,
             out_channels=8,
@@ -157,5 +157,31 @@ def test_convnext_block_group_norm_rejects_nonpositive_group_count():
             dilation=1,
             n_layers=1,
             norm="group",
-            group_norm_groups=0,
+            norm_num_groups=0,
+        )
+
+
+def test_convnext_block_group_norm_rejects_nondivisible_group_count():
+    with pytest.raises(ValueError, match="must evenly divide"):
+        ConvNeXtBlock(
+            in_channels=10,
+            out_channels=10,
+            kernel_size=3,
+            dilation=1,
+            n_layers=1,
+            norm="group",
+            norm_num_groups=6,
+        )
+
+
+def test_convnext_block_rejects_group_count_without_group_norm():
+    with pytest.raises(ValueError, match="only applies"):
+        ConvNeXtBlock(
+            in_channels=8,
+            out_channels=8,
+            kernel_size=3,
+            dilation=1,
+            n_layers=1,
+            norm="batch",
+            norm_num_groups=4,
         )

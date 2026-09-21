@@ -447,6 +447,14 @@ class TorchTrainDataset(Dataset[HostBatch]):
             - self.steps * self.output_steps * self.stride
             - (self.input_steps - 1) * self.stride
         )
+        if base_size <= 0:
+            raise ValueError(
+                "Time split is too short for TorchTrainDataset: "
+                f"got {time_.size} timesteps, but input_steps={self.input_steps}, "
+                f"output_steps={self.output_steps}, steps={self.steps}, and "
+                f"stride={self.stride} require at least "
+                f"{time_.size - base_size + 1} timesteps."
+            )
         self.size: int = max(
             0,
             (base_size + self.temporal_stride - 1) // self.temporal_stride,

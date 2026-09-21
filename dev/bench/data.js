@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1789591951855,
+  "lastUpdate": 1790026601283,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -12050,6 +12050,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.23639031102886643",
             "extra": "mean: 46.229792956400004 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5358374918e75f90134bfcbdcd9104b1944d1e2f",
+          "message": "Close inactive PRs after a warning, exempting drafts (#888)\n\nAdd a daily workflow that warns after 23 days of PR inactivity and\ncloses the PR after another 7 inactive days. Existing inactive PRs\nreceive the warning and full grace period when first marked stale.\n\nIssues are excluded. Draft PRs and PRs labeled `pinned`, `security`,\n`work-in-progress`, or `wip` are exempt. The warning explains that\ncommenting, updating the PR, or marking it as a draft keeps it open.\nActivity resets the stale timer, and branches are preserved.\n\nUses the same pinned `actions/stale` revision as Marin, with manual\ndispatch available. The scheduled policy starts after merge to the\ndefault branch.\n\nValidation: all applicable pre-commit checks passed; verified the pinned\naction's inputs and first-run grace-period logic. No open Samudra PRs\ncarried the `stale` label at setup time.",
+          "timestamp": "2026-09-21T20:57:24Z",
+          "tree_id": "85b5a1c2a2e5847c25ee1fb34571351370fd6be6",
+          "url": "https://github.com/m2lines/Samudra/commit/5358374918e75f90134bfcbdcd9104b1944d1e2f"
+        },
+        "date": 1790026599867,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 1.1513622258816794,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0018245434679119341",
+            "extra": "mean: 868.5363976000076 msec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.0811426371492547,
+            "unit": "iter/sec",
+            "range": "stddev: 0.13598475633615117",
+            "extra": "mean: 12.323977074599986 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.021540682579856557,
+            "unit": "iter/sec",
+            "range": "stddev: 0.19255441583369773",
+            "extra": "mean: 46.42378421819998 sec\nrounds: 5"
           }
         ]
       }

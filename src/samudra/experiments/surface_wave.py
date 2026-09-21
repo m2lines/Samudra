@@ -212,6 +212,9 @@ class Experiment:
             frames = len(source.time)
             shape = tuple(self.mask.shape[-2:])
             needed = frames * (self.channels + 3) * math.prod(shape) * 4
+            # Native equality probes leave large reusable allocator blocks.
+            # Return those unused blocks before checking driver-visible capacity.
+            torch.cuda.empty_cache()
             free, _ = torch.cuda.mem_get_info(self.device)
             if needed + self.args.device_cache_reserve_gib * 2**30 > free:
                 raise MemoryError(

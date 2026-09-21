@@ -359,7 +359,69 @@ def analyze(root, output, arms, replicates):
                         ),
                     )
                 )
+    diagnostics = []
+    fixed = first[4]
+    sources = [(arm, arm, "inferred") for arm in arms] + [
+        ("untuned", "A", "frozen_pretrain"),
+        ("wave1", "A", "wave1_joint"),
+    ]
+    for arm, source_arm, mode in sources:
+        groups = results[source_arm][4]
+        for region, lead in itertools.product(REGIONS, LEADS):
+            current = {v: groups[(mode, region, lead, v)] for v in VARIABLES}
+            base = float(
+                np.sqrt(
+                    fixed[("frozen_pretrain", region, lead, "ts")][
+                        "normalized_mse"
+                    ].mean()
+                )
+            )
+            oracle = float(
+                np.sqrt(
+                    results["A"][4][("true", region, lead, "ts")][
+                        "normalized_mse"
+                    ].mean()
+                )
+            )
+            candidate = float(
+                np.sqrt(groups[(mode, region, lead, "ts")]["normalized_mse"].mean())
+            )
+            p2 = sum(
+                current[v]["prediction_second_moment"].mean() for v in ("uo", "vo")
+            )
+            t2 = sum(current[v]["target_second_moment"].mean() for v in ("uo", "vo"))
+            diagnostics.append(
+                dict(
+                    arm=arm,
+                    mode=mode,
+                    region=region,
+                    lead_days=lead,
+                    velocity_second_moment_ratio=float(p2 / t2),
+                    velocity_normalized_rmse=float(
+                        np.sqrt(
+                            sum(
+                                current[v]["normalized_mse"].mean()
+                                for v in ("uo", "vo")
+                            )
+                            / 2
+                        )
+                    ),
+                    ssh_physical_rmse=float(
+                        np.sqrt(current["zos"]["physical_mse"].mean())
+                    ),
+                    sst_physical_rmse=float(
+                        np.sqrt(current["sst"]["physical_mse"].mean())
+                    ),
+                    fixed_oracle_ts_rmse=oracle,
+                    fixed_oracle_rmse_gap_closed_pct=100
+                    * (base - candidate)
+                    / (base - oracle)
+                    if base > oracle
+                    else "",
+                )
+            )
     output.mkdir(parents=True, exist_ok=True)
+    write_csv(output / "diagnostics.csv", diagnostics)
     write_csv(output / "training_summary.csv", training)
     write_csv(output / "grouped_metrics.csv", summaries)
     write_csv(output / "paired_comparisons.csv", comparisons)

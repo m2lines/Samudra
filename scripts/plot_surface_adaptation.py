@@ -236,7 +236,7 @@ def plot(raw, analysis, output):
         ax.grid(alpha=0.2)
     axes[0].legend(fontsize=7)
     fig.suptitle(
-        "Depth diagnostic: wet-cell area-weighted error at each level\nDeep levels cover fewer wet cells; the selection score is not volume-weighted",
+        "Depth diagnostic: wet-cell cosine-latitude-weighted error at each level\nDeep levels cover fewer wet cells; the selection score is not volume-weighted",
         fontsize=11,
     )
     save(fig, output, "depth_skill")

@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import gzip
 import itertools
 import json
 import runpy
@@ -44,6 +45,8 @@ def fixture(tmp_path):
                 channel=channel,
                 normalized_mse=error,
                 physical_mse=error * 4,
+                prediction_second_moment=9.0,
+                target_second_moment=4.0,
             )
         )
     frame = pd.DataFrame(rows)
@@ -80,3 +83,19 @@ def test_corrupt_evaluation_rejected(tmp_path, damage):
     frame.to_csv(run / "heldout-rank0.csv", index=False)
     with pytest.raises(AssertionError):
         AUDIT(run.parent, expected, tmp_path / "summary")
+
+
+def test_packed_rank_parts_preserve_values(tmp_path):
+    run, expected, _ = fixture(tmp_path)
+    path = run / "heldout-rank0.csv"
+    compressed = gzip.compress(path.read_bytes())
+    middle = len(compressed) // 2
+    Path(str(path) + ".gz.part000").write_bytes(compressed[:middle])
+    Path(str(path) + ".gz.part001").write_bytes(compressed[middle:])
+    Path(str(path) + ".gz.part000.license").write_text("license")
+    path.unlink()
+    AUDIT(run.parent, expected, tmp_path / "summary")
+    summary = pd.read_csv(tmp_path / "summary" / "summary.csv")
+    velocity = summary[summary["variable"] == "uo"]
+    assert (velocity["rms_ratio"] == 1.5).all()
+    assert (velocity["prediction_rms"] == 3).all()

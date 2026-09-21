@@ -6,15 +6,24 @@
 """Audit and summarize collected wave-three per-channel evaluation rows."""
 
 import argparse
+import io
 import json
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 
+from samudra.experiments.surface_adaptation_analysis import read_bytes
+
 VARIABLES = ("thetao", "so", "uo", "vo", "zos", "sst")
 MODES = ("inferred", "true", "inferred_persistence", "true_persistence")
 REGIONS = ("global", "tropics", "extratropics")
+COLUMNS = [
+    "normalized_mse",
+    "physical_mse",
+    "prediction_second_moment",
+    "target_second_moment",
+]
 
 
 def summarize(root, expected, output):
@@ -26,14 +35,31 @@ def summarize(root, expected, output):
     audit = {}
     references: dict[str, pd.Series] = {}
     for run in sorted(Path(root).iterdir()):
-        files = sorted(run.glob("heldout-rank*.csv")) if run.is_dir() else []
+        files = (
+            sorted(
+                {
+                    run / (path.name.split(".csv")[0] + ".csv")
+                    for path in run.glob("heldout-rank*.csv*")
+                    if not path.name.endswith(".license")
+                }
+            )
+            if run.is_dir()
+            else []
+        )
         if not files:
             continue
-        completion = json.loads((run / "EVAL_COMPLETE.json").read_text())
-        manifest = json.loads((run / "manifest.json").read_text())
+        completion = json.loads(read_bytes(run / "EVAL_COMPLETE.json"))
+        manifest = json.loads(read_bytes(run / "manifest.json"))
         names = manifest["channels"]
         assert len(files) == completion["ranks"]
-        frame = pd.concat([pd.read_csv(path) for path in files], ignore_index=True)
+        assert {p.name for p in files} == {
+            f"heldout-rank{rank}.csv" for rank in range(completion["ranks"])
+        }
+        assert completion["origins"] == len(expected)
+        frame = pd.concat(
+            [pd.read_csv(io.BytesIO(read_bytes(path))) for path in files],
+            ignore_index=True,
+        )
         keys = ["mode", "region", "origin_time", "lead_days", "channel"]
         expected_rows = len(MODES) * len(REGIONS) * len(expected) * 7 * len(names)
         assert len(frame) == expected_rows, (run, len(frame), expected_rows)
@@ -43,8 +69,8 @@ def summarize(root, expected, output):
         assert set(frame["origin_time"]) == set(expected)
         assert set(frame["lead_days"]) == set(range(0, 31, 5))
         assert set(frame["channel"]) == set(names)
-        assert np.isfinite(frame[["normalized_mse", "physical_mse"]]).all().all()
-        assert (frame[["normalized_mse", "physical_mse"]] >= 0).all().all()
+        assert np.isfinite(frame[COLUMNS]).all().all()
+        assert (frame[COLUMNS] >= 0).all().all()
         zero = frame[
             (frame["mode"].isin(["true", "true_persistence"]))
             & (frame["lead_days"] == 0)
@@ -64,9 +90,7 @@ def summarize(root, expected, output):
             else:
                 references[mode] = ref
         depths = (
-            frame.groupby(["mode", "region", "lead_days", "channel"])[
-                ["normalized_mse", "physical_mse"]
-            ]
+            frame.groupby(["mode", "region", "lead_days", "channel"])[COLUMNS]
             .mean()
             .reset_index()
         )
@@ -86,7 +110,7 @@ def summarize(root, expected, output):
             selected = frame[frame["channel"].isin(channels)]
             grouped = (
                 selected.groupby(["mode", "region", "origin_time", "lead_days"])[
-                    ["normalized_mse", "physical_mse"]
+                    COLUMNS
                 ]
                 .mean()
                 .reset_index()
@@ -119,14 +143,17 @@ def summarize(root, expected, output):
         output / "depth-summary.csv", index=False
     )
     means = (
-        origins.groupby(["run", "mode", "region", "lead_days", "variable"])[
-            ["normalized_mse", "physical_mse"]
-        ]
+        origins.groupby(["run", "mode", "region", "lead_days", "variable"])[COLUMNS]
         .mean()
         .reset_index()
     )
     means["normalized_rmse"] = np.sqrt(means["normalized_mse"])
     means["physical_rmse"] = np.sqrt(means["physical_mse"])
+    means["prediction_rms"] = np.sqrt(means["prediction_second_moment"])
+    means["target_rms"] = np.sqrt(means["target_second_moment"])
+    means["rms_ratio"] = means["prediction_rms"] / means["target_rms"].replace(
+        0, np.nan
+    )
     means.to_csv(output / "summary.csv", index=False)
     (output / "audit.json").write_text(json.dumps(audit, indent=2) + "\n")
     print(json.dumps(audit, indent=2))

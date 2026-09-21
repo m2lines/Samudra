@@ -48,7 +48,7 @@ through October 4, 2013. Every arm uses the same eligible 19-frame training
 windows; short arms consume only the final six surface frames. This reduces the
 training-origin count slightly relative to wave 1, equally in all six arms.
 
-Keep the original approximately monthly validation and 99 held-out forecast
+Keep the original approximately monthly validation and [99 held-out forecast](surface-wave3-origins.json)
 origins, and six five-day forecast leads. To supply earlier history without
 moving these origins, validation/test context stores begin 65 days earlier:
 August 1, 2013 and August 6, 2014 respectively. Those extra frames are read-only

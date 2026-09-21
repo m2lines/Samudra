@@ -57,6 +57,7 @@ nav:
       - Surface-Initialized Wave 1 Results: experiments/surface-wave1-results/index.md
       - Surface-Initialized Wave 2 Plan: experiments/surface-wave2-plan.md
       - Surface-Initialized Wave 2 Results: experiments/surface-wave2-results/index.md
+      - Initializer Capacity and History Wave 3: experiments/surface-wave3-plan.md
       - Observational Ocean Prediction: experiments/observational-ocean-prediction.md
       - Ocean Prediction Literature Review: experiments/observational-ocean-literature-review.md
   - API Reference:

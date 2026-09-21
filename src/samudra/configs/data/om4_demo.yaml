@@ -33,19 +33,19 @@ sources:
       endpoint_url: "https://nyu1.osn.mghpcc.org"
       anon: true
       bucket: m2lines-pubs
-      path: Samudra/v2026-07/om4_twodeg/OM4.zarr
+      path: Samudra/v2026-09/om4_twodeg/OM4.zarr
     data_means_location:
       type: s3
       endpoint_url: "https://nyu1.osn.mghpcc.org"
       anon: true
       bucket: m2lines-pubs
-      path: Samudra/v2026-07/om4_twodeg/OM4_means.zarr
+      path: Samudra/v2026-09/om4_twodeg/OM4_means.zarr
     data_stds_location:
       type: s3
       endpoint_url: "https://nyu1.osn.mghpcc.org"
       anon: true
       bucket: m2lines-pubs
-      path: Samudra/v2026-07/om4_twodeg/OM4_stds.zarr
+      path: Samudra/v2026-09/om4_twodeg/OM4_stds.zarr
 concurrent_compute: true
 loading:
   type: cpu

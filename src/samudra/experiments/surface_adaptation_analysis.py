@@ -7,6 +7,7 @@
 import argparse
 import csv
 import gzip
+import io
 import itertools
 import json
 from pathlib import Path
@@ -27,11 +28,24 @@ VARIABLES = ("thetao", "so", "uo", "vo", "zos", "sst")
 ORIGIN_KEY = ("mode", "region", "lead_days", "variable", "origin_index", "origin_time")
 
 
-def read_csv(path):
+def read_bytes(path):
+    """Read original bytes from raw, gzip, or bounded-size gzip parts."""
     if path.exists():
-        with path.open(newline="") as stream:
-            return list(csv.DictReader(stream))
-    with gzip.open(str(path) + ".gz", "rt", newline="") as stream:
+        return path.read_bytes()
+    compressed = Path(str(path) + ".gz")
+    if compressed.exists():
+        return gzip.decompress(compressed.read_bytes())
+    parts = sorted(path.parent.glob(path.name + ".gz.part[0-9][0-9][0-9]"))
+    if not parts:
+        raise FileNotFoundError(path)
+    expected = [Path(str(path) + f".gz.part{index:03d}") for index in range(len(parts))]
+    if parts != expected:
+        raise ValueError(f"Missing or out-of-order compressed parts: {path}")
+    return gzip.decompress(b"".join(part.read_bytes() for part in parts))
+
+
+def read_csv(path):
+    with io.StringIO(read_bytes(path).decode(), newline="") as stream:
         return list(csv.DictReader(stream))
 
 
@@ -219,7 +233,7 @@ def analyze(root, output, arms, replicates):
             raise ValueError(f"Incorrect per-rank batch size: {arm}")
         progress = [
             json.loads(line)
-            for line in (root / arm / "progress.jsonl").read_text().splitlines()
+            for line in read_bytes(root / arm / "progress.jsonl").decode().splitlines()
         ]
         validation = [
             row for row in progress if row.get("phase") == "adapt" and "ts_mse" in row

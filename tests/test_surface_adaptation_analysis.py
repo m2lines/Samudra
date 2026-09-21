@@ -43,3 +43,25 @@ def test_duplicate_origin_identity_is_an_error():
     row = dict(mode="inferred", origin_index="0", origin_time="2014-11-04")
     with pytest.raises(ValueError, match="Duplicate metric key"):
         unique_rows([row, row.copy()], ("mode", "origin_index", "origin_time"))
+
+
+def test_compressed_parts_preserve_original_csv_bytes(tmp_path):
+    import gzip
+
+    from samudra.experiments.surface_adaptation_analysis import read_bytes, read_csv
+
+    original = b"first,second\r\n1,2\r\n3,4\r\n"
+    compressed = gzip.compress(original, mtime=0)
+    path = tmp_path / "example.csv"
+    for index, start in enumerate(range(0, len(compressed), 7)):
+        (tmp_path / f"example.csv.gz.part{index:03d}").write_bytes(
+            compressed[start : start + 7]
+        )
+    assert read_bytes(path) == original
+    assert read_csv(path) == [
+        {"first": "1", "second": "2"},
+        {"first": "3", "second": "4"},
+    ]
+    (tmp_path / "example.csv.gz.part001").unlink()
+    with pytest.raises(ValueError, match="Missing"):
+        read_bytes(path)

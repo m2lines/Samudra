@@ -29,7 +29,18 @@ def main():
     best = json.loads((run / "best.json").read_text())
     if digest(checkpoint) != best["checkpoint_sha256"]:
         raise ValueError("Selected checkpoint checksum mismatch")
-    output.mkdir(parents=True, exist_ok=False)
+    output.mkdir(parents=True, exist_ok=True)
+    fingerprint = {
+        "checkpoint_sha256": digest(checkpoint),
+        "split": args.split,
+        "data_manifest_sha256": manifest["data_manifest_sha256"],
+    }
+    signature = output / "evaluation-input.json"
+    if signature.exists() and json.loads(signature.read_text()) != fingerprint:
+        raise ValueError("Evaluation resume input differs")
+    atomic_json(fingerprint, signature)
+    if (output / "COMPLETE.json").exists():
+        return
     evaluator = Pilot.__new__(Pilot)
     evaluator.data = Samples(manifest["arguments"]["data"], "cuda")
     if manifest["arguments"].get("from_scratch", False):
@@ -43,17 +54,21 @@ def main():
     expected = 96 if args.split == "test" else 9
     if len(paths) != expected:
         raise ValueError("Incomplete reporting cohort")
-    result = evaluator.evaluate(paths, export=output / "selected-predictions.npz")
-    atomic_json(
-        {
-            "selected_checkpoint": str(checkpoint),
-            "sha256": digest(checkpoint),
-            "validation_selection_score": best["score"],
-            "split": args.split,
-            "metrics": result,
-        },
-        output / "selected.json",
-    )
+    if not (
+        (output / "selected.json").exists()
+        and (output / "selected-predictions.npz").exists()
+    ):
+        result = evaluator.evaluate(paths, export=output / "selected-predictions.npz")
+        atomic_json(
+            {
+                "selected_checkpoint": str(checkpoint),
+                "sha256": digest(checkpoint),
+                "validation_selection_score": best["score"],
+                "split": args.split,
+                "metrics": result,
+            },
+            output / "selected.json",
+        )
     source = manifest["arguments"]["checkpoint"]
     evaluator.data = Samples(manifest["arguments"]["data"], "cuda")
     evaluator.model.load_core(
@@ -68,6 +83,10 @@ def main():
         ("source-with-zero-forcing", False),
         ("source-inferred-persistence", True),
     ]:
+        if (output / (label + ".json")).exists() and (
+            output / (label + ".npz")
+        ).exists():
+            continue
         reference = evaluator.evaluate(
             paths, persistence=persistence, export=output / (label + ".npz")
         )
@@ -76,6 +95,10 @@ def main():
         ("seasonal-climatology", {"climatology": True}),
         ("inferred-anomaly-persistence", {"anomaly": True}),
     ]:
+        if (output / (label + ".json")).exists() and (
+            output / (label + ".npz")
+        ).exists():
+            continue
         reference = evaluator.evaluate(
             paths, export=output / (label + ".npz"), **options
         )

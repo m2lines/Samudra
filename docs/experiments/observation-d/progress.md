@@ -145,3 +145,20 @@ updates. No test observations enter this gate.
 
 Current targeted verification: **52 tests passed**, including future-ocean-input
 independence, forcing visibility by lead, and scratch BatchNorm recomputation.
+
+## Full-grid runtime result
+
+H200 job **18288326 completed successfully** in 30 seconds. Strict loading passed
+for the recorded D checkpoint, the zero-adapter initializer output was bitwise
+identical to its original path, and gradient norms were 1.2885 for D and 0.005716
+for the adapter. Peak GPU allocation was **2.82 GiB**, with output shape
+`1 × 2 × 77 × 180 × 360`. This remains a synthetic contract test, not an
+observational skill result.
+
+A gated submission driver will wait for verified data, submit the observational
+fitting check, then submit primary and adapter-only runs behind its successful
+completion. Production validates the fitting proof's code/data hashes and shared
+selection-reference hash. Scratch fitting/training follow both transfer arms.
+Evaluation and scratch jobs are ordered to keep at most two GPUs active. Evaluation
+artifacts are atomic and resumable at predictor boundaries for preemptible jobs.
+The nine-hour H200 production request passed the scheduler's `--test-only` check.

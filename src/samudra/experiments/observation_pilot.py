@@ -63,9 +63,33 @@ class Pilot:
             self.data.use_observation_normalization()
             self.model.update_batchnorm = True
         else:
+            contract = json.loads(Path(args.source_contract).read_text())
+            if digest(args.checkpoint) != contract["checkpoint_sha256"]:
+                raise ValueError(
+                    "Source checkpoint differs from the qualified D artifact"
+                )
             saved = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
             self.model.load_core(saved["model"])
             del saved
+        if not args.fit_probe:
+            if not args.qualification:
+                raise ValueError(
+                    "Production requires a completed fitting qualification"
+                )
+            qualification = json.loads(Path(args.qualification).read_text())
+            if (
+                qualification["code_commit"] != os.environ.get("SAMUDRA_CODE_COMMIT")
+                or qualification["data_manifest_sha256"]
+                != digest(Path(args.data) / "SHA256SUMS")
+                or not args.selection_reference
+                or qualification["selection_reference_sha256"]
+                != digest(args.selection_reference)
+                or not all(qualification["gradient_reached"].values())
+                or qualification["losses"][-1] >= qualification["losses"][0]
+            ):
+                raise ValueError(
+                    "Fitting qualification does not match this producer/data"
+                )
         self.model.to(self.device)
         self.training = self.data.paths("train")
         self.validation = self.data.paths("validation")
@@ -186,6 +210,19 @@ class Pilot:
             references.append(truth)
             ohc.append(predicted_ohc)
             reference_ohc.append(observed_ohc)
+            if export:
+                print(
+                    json.dumps(
+                        {
+                            "event": "evaluation_origin",
+                            "method": Path(export).stem,
+                            "origin": sample["name"],
+                            "completed": len(predictions),
+                            "total": len(paths),
+                        }
+                    ),
+                    flush=True,
+                )
             physical_ts = self.data.physical(monthly[:, None])[
                 :, 0, self.data.ts_indices
             ]
@@ -220,7 +257,10 @@ class Pilot:
         }
         result["origins"] = [p.stem for p in paths]
         if export:
-            np.savez_compressed(export, **arrays, origins=result["origins"])
+            temporary = Path(export).with_suffix(".tmp")
+            with temporary.open("wb") as stream:
+                np.savez_compressed(stream, **arrays, origins=result["origins"])
+            temporary.replace(export)
         return result
 
     def qualify_selection(self):
@@ -554,8 +594,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data", required=True)
     parser.add_argument("--checkpoint", required=True)
+    parser.add_argument("--source-contract", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--name", required=True)
+    parser.add_argument("--qualification")
     parser.add_argument("--fit-probe", action="store_true")
     parser.add_argument("--selection-reference")
     parser.add_argument("--adapter-only", action="store_true")

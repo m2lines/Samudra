@@ -6,18 +6,22 @@
 """Render native-cell four-panel maps with common scales across runs and dates."""
 
 import argparse
+import io
 from pathlib import Path
 
 import matplotlib
 import numpy as np
 
+from samudra.experiments.surface_adaptation_analysis import read_bytes
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from matplotlib.transforms import Bbox
 
 
-def plot(path, output, dates, scale, limit):
+def plot(path, output, dates, scale, limit, panels=False):
     output.mkdir(parents=True, exist_ok=True)
-    with np.load(path) as data:
+    with np.load(io.BytesIO(read_bytes(path))) as data:
         keys = {
             str(data[k]).split()[0]: k.removesuffix("_date")
             for k in data.files
@@ -28,6 +32,13 @@ def plot(path, output, dates, scale, limit):
         std = float(data["std"])
         weights = mask * np.cos(np.deg2rad(latitude))[:, None]
         weights = weights / weights.sum()
+        label = {
+            "precision": "D baseline",
+            "continued-control-eval": "D: continued full-objective training",
+            "field-specialization-eval": "D: salinity-only fine-tuning",
+            "fit-one": "D: fitted to one training example",
+            "fit-sixteen": "D: fitted to 16 training examples",
+        }.get(path.parent.name, path.parent.name)
         for day in dates:
             idx = keys[day]
             t, c, p = [
@@ -52,7 +63,7 @@ def plot(path, output, dates, scale, limit):
             fig.text(
                 0.5,
                 1 - 24 / height,
-                f"550 m salinity | {day} | {path.parent.name}",
+                f"550 m salinity | {day} | {label}",
                 ha="center",
                 fontsize=13,
             )
@@ -122,6 +133,28 @@ def plot(path, output, dates, scale, limit):
                 box = ax.get_window_extent()
                 assert abs(box.width - pw) < 1e-6 and abs(box.height - ph) < 1e-6
             fig.savefig(output / f"{path.parent.name}-{day}-{scale}x.png", dpi=100)
+            if panels:
+                for k, ax in enumerate(fig.axes[:4]):
+                    box = ax.get_window_extent()
+                    fig.savefig(
+                        output / f"{path.parent.name}-{day}-{scale}x-panel{k + 1}.png",
+                        dpi=100,
+                        pad_inches=0,
+                        bbox_inches=Bbox.from_bounds(
+                            (box.x0 - 60) / 100,
+                            (box.y0 - 45) / 100,
+                            (pw + 70) / 100,
+                            (ph + 80) / 100,
+                        ),
+                    )
+                fig.savefig(
+                    output / f"legend-{scale}x.png",
+                    dpi=100,
+                    pad_inches=0,
+                    bbox_inches=Bbox.from_bounds(
+                        (left - 5) / 100, 25 / 100, (2 * pw + gap + 10) / 100, 75 / 100
+                    ),
+                )
             plt.close(fig)
 
 
@@ -141,13 +174,14 @@ def main():
             "2022-11-24",
         ],
     )
+    p.add_argument("--panels", action="store_true")
     p.add_argument("--scale", type=int, choices=[1, 2, 3], default=2)
     # Physical equivalent of the original fixed 2018 true-anomaly 98th percentile.
     p.add_argument(
         "--limit", type=float, default=0.2043664735555648 * 0.709178633744918
     )
     args = p.parse_args()
-    plot(args.maps, args.output, args.dates, args.scale, args.limit)
+    plot(args.maps, args.output, args.dates, args.scale, args.limit, args.panels)
 
 
 if __name__ == "__main__":

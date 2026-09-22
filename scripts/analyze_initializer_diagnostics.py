@@ -6,12 +6,15 @@
 """Summarize precision and field-fitting runs without selecting on test data."""
 
 import argparse
+import io
 import json
 from pathlib import Path
 
 import matplotlib
 import numpy as np
 import pandas as pd
+
+from samudra.experiments.surface_adaptation_analysis import read_bytes
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -34,7 +37,7 @@ def summarize(root, output):
             if "field_mse" not in rows:
                 continue
             maps = table.with_name(table.stem + "-maps.npz")
-            with np.load(maps) as data:
+            with np.load(io.BytesIO(read_bytes(maps))) as data:
                 std = float(data["std"])
             a2 = rows.true_anomaly_m2.mean()
             b2 = rows.pred_anomaly_m2.mean()
@@ -72,8 +75,12 @@ def summarize(root, output):
     if folder.is_dir():
         for split in ["train", "validation"]:
             with (
-                np.load(folder / f"{split}-bf16-maps.npz") as bf,
-                np.load(folder / f"{split}-fp32-maps.npz") as fp,
+                np.load(
+                    io.BytesIO(read_bytes(folder / f"{split}-bf16-maps.npz"))
+                ) as bf,
+                np.load(
+                    io.BytesIO(read_bytes(folder / f"{split}-fp32-maps.npz"))
+                ) as fp,
             ):
                 weights = bf["mask"] * np.cos(np.deg2rad(bf["latitude"]))[:, None]
                 std = float(bf["std"])
@@ -106,21 +113,35 @@ def summarize(root, output):
         if not directory.is_dir() or directory.name == "smoke":
             continue
         path = directory / "progress.jsonl"
-        if not path.exists():
+        events = directory / "learning-events.csv"
+        if events.exists():
+            checks_table = pd.read_csv(events)
+            x = checks_table.step.tolist()
+            y = np.sqrt(checks_table.selection_field_mse).tolist()
+            fitting = checks_table.selection_split.iloc[0] == "fitting_set"
+        elif path.exists():
+            records = [json.loads(line) for line in path.read_text().splitlines()]
+            checks = [
+                r
+                for r in records
+                if r.get("event") in ["baseline", "validation"] and "selection" in r
+            ]
+            if not checks:
+                continue
+            protocol = json.loads((directory / "diagnostic-protocol.json").read_text())
+            fitting = len(protocol["population"]) <= 16
+            x = [r.get("step", 0) for r in checks]
+            y = [np.sqrt(r["selection"]["field_mse"]) for r in checks]
+        else:
             continue
-        records = [json.loads(line) for line in path.read_text().splitlines()]
-        checks = [
-            r
-            for r in records
-            if r.get("event") in ["baseline", "validation"] and "selection" in r
-        ]
-        if not checks:
-            continue
-        protocol = json.loads((directory / "diagnostic-protocol.json").read_text())
-        ax = axes[0 if len(protocol["population"]) <= 16 else 1]
-        x = [r.get("step", 0) for r in checks]
-        y = [np.sqrt(r["selection"]["field_mse"]) for r in checks]
-        ax.plot(x, y, marker="o", label=directory.name)
+        ax = axes[0 if fitting else 1]
+        marker = {
+            "fit-one": "o",
+            "fit-sixteen": "s",
+            "continued-control": "^",
+            "field-specialization": "D",
+        }.get(directory.name, "o")
+        ax.plot(x, y, marker=marker, label=directory.name)
         progress.extend(
             {"run": directory.name, "step": i, "selection_rmse": v}
             for i, v in zip(x, y, strict=True)

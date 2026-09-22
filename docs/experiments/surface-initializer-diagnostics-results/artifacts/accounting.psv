@@ -1,0 +1,8 @@
+18259726|COMPLETED|320|billing=2,cpu=2,gres/gpu=1,mem=24G,node=1
+18260077|COMPLETED|377|billing=2,cpu=2,gres/gpu=1,mem=24G,node=1
+18260078|COMPLETED|383|billing=2,cpu=2,gres/gpu=1,mem=24G,node=1
+18260079|COMPLETED|434|billing=2,cpu=2,gres/gpu=1,mem=24G,node=1
+18260080|FAILED|645|billing=2,cpu=2,gres/gpu=1,mem=24G,node=1
+18260081|FAILED|599|billing=2,cpu=2,gres/gpu=1,mem=24G,node=1
+18260694|COMPLETED|400|billing=2,cpu=2,gres/gpu=1,mem=24G,node=1
+18260933|COMPLETED|392|billing=2,cpu=2,gres/gpu=1,mem=24G,node=1

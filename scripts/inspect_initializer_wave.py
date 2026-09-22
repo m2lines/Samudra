@@ -68,18 +68,23 @@ def inspect(roots):
         args = submission["arguments"]
         out = Path(args["root"]) / args["name"]
         log = out / "progress.jsonl"
-        metrics = []
+        last: dict[str, Any] = {}
+        validation: dict[str, Any] = {}
+        malformed_records = 0
         if log.exists():
-            with log.open("rb") as stream:
-                stream.seek(max(0, log.stat().st_size - 100000))
-                lines = stream.read().decode(errors="replace").splitlines()
-            for line in lines:
-                try:
-                    metrics.append(json.loads(line))
-                except json.JSONDecodeError:
-                    continue
-        last = metrics[-1] if metrics else {}
-        validations = [m for m in metrics if m.get("event") == "validation"]
+            # Keep constant memory while retaining sparse validation events even
+            # when frequent training records have pushed them beyond a short tail.
+            with log.open() as stream:
+                for line in stream:
+                    try:
+                        event = json.loads(line)
+                    except json.JSONDecodeError:
+                        # A concurrent writer can leave the final line incomplete.
+                        malformed_records += 1
+                        continue
+                    last = event
+                    if event.get("event") == "validation":
+                        validation = event
         allowed = (
             "event",
             "phase",
@@ -106,11 +111,8 @@ def inspect(roots):
                 "requested_gpu": args["gpu"],
                 **states.get(submission["id"], {}),
                 "latest": {k: v for k, v in last.items() if k in allowed},
-                "validation": {
-                    k: v
-                    for k, v in (validations[-1] if validations else {}).items()
-                    if k in allowed
-                },
+                "validation": {k: v for k, v in validation.items() if k in allowed},
+                "malformed_progress_records": malformed_records,
                 "train_complete": (out / "TRAIN_COMPLETE.json").exists(),
                 "evaluation_complete": (out / "EVAL_COMPLETE.json").exists(),
                 "complete": (out / "COMPLETE.json").exists(),

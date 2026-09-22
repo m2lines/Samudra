@@ -13,7 +13,7 @@ All runs begin at the original wave-3 D best checkpoint, use its existing normal
 
 | Run | Question | Protocol |
 | --- | --- | --- |
-| Precision | Is BF16 causing the structure errors? | Identical weights/batches, BF16 versus FP32 inference on 16 separated training origins and all 11 validation origins. Save paired maps and metrics. |
+| Precision | Is BF16 causing the structure errors? | Identical weights/batches, BF16 versus FP32 inference on 16 separated training origins and all 11 validation origins. Save paired maps and metrics, plus unchanged-D BF16 maps at all 99 held-out origins after the first-stage choices are locked. |
 | Fit one | Can the model fit one field? | Only so_9 loss, one training origin, 300 updates. |
 | Fit sixteen | Does fitting break as examples vary? | Only so_9 loss, 16 evenly spaced training origins, 300 updates. |
 | Continued control | Does more ordinary optimization help? | Original all-interior-variable loss, 1,000 updates on all eligible training windows. |
@@ -33,3 +33,9 @@ No fitting uses the displayed 2018 test date. After all first-stage choices are 
 4. If fitting succeeds but generalization remains poor, test additional information (surface salinity, longer history, then explicitly privileged interior inputs) with matched controls before attributing the remaining error to irreducible ambiguity.
 
 Publish the diagnostic report, plots and code to the existing draft PR. Do not interpret prettier or sharper maps alone as increased conditional prediction skill.
+
+## Launch record
+
+Runtime producer: `349f6c9ec`. Smoke job `18259726` completed three updates and exact native/cache equivalence checks before production submission. The first-stage jobs are precision `18260077`, one-example fitting `18260078`, sixteen-example fitting `18260079`, continued control `18260080`, and field specialization `18260081`. All use RTX PRO 6000 Blackwell GPUs.
+
+The inherited wave-3 `study-manifest.json` retains its original T/S selection description; for these diagnostics the selection rule above and `diagnostic-protocol.json` plus `selection` events are authoritative. Both generalization arms select on so_9 validation MSE.

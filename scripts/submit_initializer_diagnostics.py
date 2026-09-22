@@ -22,6 +22,10 @@ def main():
     p.add_argument("--code-layer", required=True)
     p.add_argument("--container-hash", required=True)
     p.add_argument("--task", choices=["precision", "fit"], required=True)
+    p.add_argument(
+        "--initial-checkpoint",
+        default="/scratch/jr7309/runs/2026-09-22-initializer-wave3-primary/D/best.pt",
+    )
     p.add_argument("--objective", choices=["full", "field"], default="field")
     p.add_argument("--subset", type=int, choices=[0, 1, 16], default=0)
     p.add_argument("--steps", type=int, default=1000)
@@ -65,7 +69,7 @@ def main():
         "--name",
         root.name + "-" + args.name,
         "--initial-checkpoint",
-        "/scratch/jr7309/runs/2026-09-22-initializer-wave3-primary/D/best.pt",
+        args.initial_checkpoint,
     ]
     if args.heldout:
         module_args.append("--heldout")

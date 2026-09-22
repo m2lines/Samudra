@@ -1,0 +1,16 @@
+{
+  "A": {
+    "origins": 99,
+    "rows": 640332,
+    "first_origin": "2014-11-04 12:00:00",
+    "last_origin": "2022-11-24 12:00:00",
+    "phase": "joint"
+  },
+  "D": {
+    "origins": 99,
+    "rows": 640332,
+    "first_origin": "2014-11-04 12:00:00",
+    "last_origin": "2022-11-24 12:00:00",
+    "phase": "joint"
+  }
+}

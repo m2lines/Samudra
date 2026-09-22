@@ -1,0 +1,16 @@
+{
+  "A-s2718": {
+    "origins": 99,
+    "rows": 640332,
+    "first_origin": "2014-11-04 12:00:00",
+    "last_origin": "2022-11-24 12:00:00",
+    "phase": "reconstruction"
+  },
+  "D-s2718": {
+    "origins": 99,
+    "rows": 640332,
+    "first_origin": "2014-11-04 12:00:00",
+    "last_origin": "2022-11-24 12:00:00",
+    "phase": "reconstruction"
+  }
+}

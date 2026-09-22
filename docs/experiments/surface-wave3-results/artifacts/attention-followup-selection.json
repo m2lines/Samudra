@@ -1,0 +1,46 @@
+{
+  "locked_utc": "2026-09-22T15:31:07.379798+00:00",
+  "scores": {
+    "E-lr1": {
+      "mse": 0.009320602752268314,
+      "rmse": 0.09654326880869693,
+      "checkpoint_sha256": "96fec1be3cb2ca339863d25d3a69064010f6c919b9549a02680140cabf5be598"
+    },
+    "F-lr1": {
+      "mse": 0.007438898552209139,
+      "rmse": 0.08624904957278741,
+      "checkpoint_sha256": "f71cdd68976a707c798c5d8365d3a6d4176ba59c7026f78c1d8c1ad2b5583263"
+    },
+    "A": {
+      "mse": 0.004442956764250994,
+      "rmse": 0.06665550813136896
+    },
+    "B": {
+      "mse": 0.004207345191389322,
+      "rmse": 0.0648640516109603
+    },
+    "C": {
+      "mse": 0.0035975920036435127,
+      "rmse": 0.05997993000699078
+    },
+    "D": {
+      "mse": 0.003484002547338605,
+      "rmse": 0.05902543983180985
+    },
+    "E": {
+      "mse": 0.007439487148076296,
+      "rmse": 0.08625246169284849
+    },
+    "F": {
+      "mse": 0.0067640673369169235,
+      "rmse": 0.08224395015389839
+    }
+  },
+  "selected_alternatives": [
+    "D"
+  ],
+  "attention_followup": null,
+  "rationale": "All four attention original-checkpoint forecast-validation scores are worse than baseline A and selected D. Lowering the constant LR did not improve the selected attention checkpoints. Do not add an attention replica or joint adaptation under the competitive-alternative rule. Evaluate all six primary arms plus both stability arms, A/D replicas and A/D joint checkpoints. This is a result about the tested architecture/training recipes, not attention architectures in general.",
+  "heldout_used_for_selection": false,
+  "evaluation_count": 12
+}

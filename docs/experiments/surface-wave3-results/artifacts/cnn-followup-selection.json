@@ -1,0 +1,37 @@
+{
+  "locked_utc": "2026-09-22T07:26:36.628569+00:00",
+  "selected_cnn": "D",
+  "baseline": "A",
+  "scores": {
+    "A": {
+      "forecast_ts_mse": 0.004442956764250994,
+      "forecast_ts_rmse": 0.06665550813136896,
+      "reconstruction_ts_mse": 0.00418263953179121,
+      "checkpoint_sha256": "35e1f06b8b0da4626941541743ef24e7cd713a18fcdefeb5b47e6054d80b91c7",
+      "validation_origins": 11
+    },
+    "B": {
+      "forecast_ts_mse": 0.004207345191389322,
+      "forecast_ts_rmse": 0.0648640516109603,
+      "reconstruction_ts_mse": 0.0039086421020329,
+      "checkpoint_sha256": "83183931b0dfa31ad93869460809d1bf53fd7df3e50ea6dff52627a2f2be7b9c",
+      "validation_origins": 11
+    },
+    "C": {
+      "forecast_ts_mse": 0.0035975920036435127,
+      "forecast_ts_rmse": 0.05997993000699078,
+      "reconstruction_ts_mse": 0.003159459913149476,
+      "checkpoint_sha256": "34da7f91687a491778051e7dfea6f7948af9bb12dfda5d7efb663176fea24725",
+      "validation_origins": 11
+    },
+    "D": {
+      "forecast_ts_mse": 0.003484002547338605,
+      "forecast_ts_rmse": 0.05902543983180985,
+      "reconstruction_ts_mse": 0.0030457323882728815,
+      "checkpoint_sha256": "22e629f41c418fa93ee3ec0a3257d80d71d77b02b2fe1cbd89eae04507d22905",
+      "validation_origins": 11
+    }
+  },
+  "rationale": "D has lowest original-checkpoint forecast validation T/S MSE among B/C/D. Select seed-2718 fresh replication and 3h joint adaptation at 1e-4 from original primary best. No production heldout metrics used. Attention decision remains pending.",
+  "qualification_updated_weights_used": false
+}

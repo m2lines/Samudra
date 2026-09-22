@@ -1,0 +1,66 @@
+{
+  "architecture": "wide",
+  "expanded_inputs": true,
+  "initializer_parameters": 121684010,
+  "pretrained_evolution_fingerprint": "bf1a6e75183b9b2ca466679ca36ae7a65ed2e693d2715452082643afcb135873",
+  "train_origins": 2805,
+  "validation_origins": [
+    "2013-10-30 12:00:00",
+    "2013-11-29 12:00:00",
+    "2013-12-29 12:00:00",
+    "2014-01-28 12:00:00",
+    "2014-02-27 12:00:00",
+    "2014-03-29 12:00:00",
+    "2014-04-28 12:00:00",
+    "2014-05-28 12:00:00",
+    "2014-06-27 12:00:00",
+    "2014-07-27 12:00:00",
+    "2014-08-26 12:00:00"
+  ],
+  "context_source_config": {
+    "sources": [
+      {
+        "type": "om4",
+        "train_time": {
+          "start": "1975-01-03",
+          "end": "2013-07-31"
+        },
+        "val_time": {
+          "start": "2013-08-01",
+          "end": "2014-10-05"
+        },
+        "inference_times": [
+          {
+            "start": "2014-08-06",
+            "end": "2022-12-24"
+          }
+        ],
+        "data_location": "OM4.zarr",
+        "data_means_location": "OM4_means.zarr",
+        "data_stds_location": "OM4_stds.zarr",
+        "prognostic_vars_key": "thermo_dynamic_all",
+        "boundary_vars_key": "tau_hfds",
+        "grid_type": "gaussian"
+      }
+    ],
+    "loading": {
+      "type": "rust",
+      "prefetch_batches": 2,
+      "max_concurrent_reads": 8,
+      "prefetch_to_device": true
+    },
+    "inference_loading": {
+      "num_workers": 4,
+      "persistent_workers": true
+    },
+    "hist": null,
+    "input_steps": 19,
+    "output_steps": 1,
+    "loader_version": "om4-torch",
+    "normalize_before_mask": true,
+    "masked_fill_value": 0.0,
+    "concurrent_compute": false
+  },
+  "context_policy": "19 frames fetched in all arms; short arms consume last six surfaces only; earlier validation/test context is read-only",
+  "training_selection": "equal subsurface T and S normalized MSE; both reconstructed times in reconstruction phase; six forecast leads in joint phase"
+}

@@ -1,0 +1,13 @@
+{
+  "reference": "docs/experiments/surface-wave2-results/raw/A",
+  "runs": {
+    "A": {
+      "rows": 10692,
+      "max_absolute_differences": {
+        "normalized_mse": 5.2546200002279164e-08,
+        "physical_mse": 1.4103635342932463e-08,
+        "target_second_moment": 0.0002505653783373418
+      }
+    }
+  }
+}

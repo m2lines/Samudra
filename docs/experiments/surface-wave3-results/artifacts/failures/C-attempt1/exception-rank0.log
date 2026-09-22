@@ -1,0 +1,21 @@
+Traceback (most recent call last):
+  File "/opt/samudra-code/src/samudra/experiments/initializer_wave.py", line 640, in run_wave
+    self.evaluate_wave()
+  File "/opt/samudra-code/src/samudra/experiments/initializer_wave.py", line 550, in evaluate_wave
+    initial = self.initializer(surface, past, context, self.mask)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py", line 1778, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/local/lib/python3.12/dist-packages/torch/nn/modules/module.py", line 1789, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/samudra-code/src/samudra/experiments/initializer_models.py", line 214, in forward
+    result[:, :, self.surface] = surface[:, -2:]
+    ~~~~~~^^^^^^^^^^^^^^^^^^^^
+torch.AcceleratorError: CUDA error: an illegal memory access was encountered
+Search for `cudaErrorIllegalAddress' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
+CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
+For debugging consider passing CUDA_LAUNCH_BLOCKING=1
+Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
+

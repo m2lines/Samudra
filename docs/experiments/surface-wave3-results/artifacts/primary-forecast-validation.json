@@ -1,0 +1,32 @@
+{
+  "A": {
+    "forecast_validation_mse": 0.004442956764250994,
+    "forecast_validation_rmse": 0.06665550813136896,
+    "origins": 11
+  },
+  "B": {
+    "forecast_validation_mse": 0.004207345191389322,
+    "forecast_validation_rmse": 0.0648640516109603,
+    "origins": 11
+  },
+  "C": {
+    "forecast_validation_mse": 0.0035975920036435127,
+    "forecast_validation_rmse": 0.05997993000699078,
+    "origins": 11
+  },
+  "D": {
+    "forecast_validation_mse": 0.003484002547338605,
+    "forecast_validation_rmse": 0.05902543983180985,
+    "origins": 11
+  },
+  "E": {
+    "forecast_validation_mse": 0.007439487148076296,
+    "forecast_validation_rmse": 0.08625246169284849,
+    "origins": 11
+  },
+  "F": {
+    "forecast_validation_mse": 0.0067640673369169235,
+    "forecast_validation_rmse": 0.08224395015389839,
+    "origins": 11
+  }
+}

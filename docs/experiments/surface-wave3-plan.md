@@ -187,3 +187,21 @@ sharply later in training. Thus optimization instability is a confounder for
 architecture comparisons. The attention follow-up decision remains pending F's
 completion and the full forecast-validation checks; any stability follow-up will
 be labeled separately from the predefined six primary runs.
+
+### Attention stability follow-up (September 22, 07:30 UTC)
+
+E's training-probe error rose alongside validation error, from approximately
+0.007 to 0.86 MSE. The 30-minute pilots did not expose this later instability.
+Run fresh seed-1729 E and F at **1e-4**, retaining all other primary settings,
+including the eight-hour maximum and validation stopping rule. These are
+separately labeled stability runs, adding at most 32 GPU-hours; they do not
+replace the predefined six-arm comparison. F's primary run continues unchanged.
+
+Select each stability checkpoint by reconstruction validation. Assess attention
+follow-up candidacy using full original-checkpoint forecast validation across
+primary E/F and stability E/F, before production held-out evaluation. Record the
+additional tuning budget explicitly; any improved result is evidence about this
+training recipe, not an equal-tuning-budget architecture comparison.
+
+Stability jobs: E-lr1 18241180; F-lr1 18241183. Both request the same two-RTX
+allocation as the primaries.

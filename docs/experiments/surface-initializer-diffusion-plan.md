@@ -30,3 +30,19 @@ Select EMA checkpoints every 1,000 updates using validation empirical ensemble C
 Run final evaluation in fresh processes to release training caches. Use 16 members and 32 Heun intervals (63 denoiser calls per member). Retain all held-out member fields and the exact common targets, D fields, climatology, masks, dates, and normalization. Compute per-origin ensemble-mean MSE/correlation, individual-member MSE, empirical CRPS, spread, central 90% empirical interval coverage, anomaly amplitude, and spatial spectra/covariance. Compare with D, the previous salinity specialist, climatology, and the matched deterministic control. Examine training residuals versus validation/held-out residuals for underdispersion. Finite-ensemble interval coverage and nine held-out calendar years limit calibration claims.
 
 Show the same native-cell map dates and scales as the previous report, with ensemble mean, fixed-index sample members, spread, and error. Never select the visually best member. Quantify uncertainty in paired score differences with calendar-year block bootstrap; one training seed does not quantify training-seed uncertainty. A good-looking sample alone is not success. Report all terminal attempts and allocated GPU-hours, along with code/checkpoint provenance and reproducible assets in draft PR #885.
+
+
+## Finite-ensemble interpretation
+
+Keep the empirical CRPS as the predeclared primary score. Also report fair CRPS, which removes the finite-member sampling bias under conditionally independent ensemble draws, and a wet-cell/area-weighted rank histogram. For 16 exchangeable members and a continuous target, coverage between the ensemble minimum and maximum has reference 15/17 (88.2%). The raw interpolated 5th–95th percentile interval does not have an exact 90% finite-member coverage reference. Likewise, the implemented population-variance spread divided by ensemble-mean RMSE has an idealized reference of sqrt(15/17), rather than one. These are interpretive checks, not new checkpoint-selection criteria.
+
+## Submitted jobs
+
+Runtime producer: `3c8ac4634`. Qualification job 18273094 passed loading, native-cache equality, training, checkpoint reload, validation sampling and held-out sampling. The denoiser has 3,523,009 parameters. Main jobs:
+
+| Arm | Training job | Fresh evaluation job | Dependency |
+| --- | ---: | ---: | --- |
+| Diffusion | 18274504 | 18274505 | Evaluation after successful training |
+| Deterministic residual control | 18274507 | 18274509 | Evaluation after successful training |
+
+Outputs live under `/scratch/jr7309/runs/2026-09-22-initializer-diffusion/{diffusion,deterministic}`. Both arms use one RTX PRO 6000 Blackwell, two CPUs and 24 GiB host memory. Each training loop is capped at four hours; its Slurm allocation permits five hours including setup, and each evaluation permits three hours. These are caps, not measured usage. W&B runs are [diffusion](https://wandb.ai/ocean_emulators/surface-initialized-ocean/runs/2026-09-22-initializer-diffusion-diffusion) and [deterministic](https://wandb.ai/ocean_emulators/surface-initialized-ocean/runs/2026-09-22-initializer-diffusion-deterministic). No scientific pilot result is available at submission time.

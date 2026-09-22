@@ -25,7 +25,7 @@ def analyze(root, reference, output, origins):
             read_bytes(reference / "field-specialization-eval/heldout-bf16-maps.npz")
         )
     )
-    rows, spatial, spectra = [], [], []
+    rows, spatial, spectra, ranks = [], [], [], []
     for run in ["diffusion", "deterministic"]:
         directory = root / run
         logged = pd.read_csv(directory / "heldout.csv").sort_values("index")
@@ -76,6 +76,33 @@ def analyze(root, reference, output, origins):
                 )
                 row: dict[str, Any] = {str(k): v for k, v in record.items()}
                 row["run"] = run
+                correction = np.abs(samples - truth).mean(0) - crps
+                fair_crps = crps - correction / (count - 1) if count > 1 else crps
+                row["fair_crps"] = float(avg(fair_crps) * std)
+                row["coverage_minmax"] = float(
+                    avg((truth >= samples.min(0)) & (truth <= samples.max(0)))
+                )
+                row["calibrated_minmax_reference"] = (count - 1) / (count + 1)
+                row["calibrated_spread_rmse_reference"] = np.sqrt(
+                    (count - 1) / (count + 1)
+                )
+                if count > 1:
+                    less = (samples < truth).sum(0)
+                    ties = (samples == truth).sum(0)
+                    rng_ties = np.random.default_rng(1729 + int(idx))
+                    rank = less + np.floor(
+                        rng_ties.random(truth.shape) * (ties + 1)
+                    ).astype(int)
+                    for bin_index in range(count + 1):
+                        ranks.append(
+                            dict(
+                                run=run,
+                                date=record["date"],
+                                rank=bin_index,
+                                weight=float(avg(rank == bin_index)),
+                                calibrated_reference=1 / (count + 1),
+                            )
+                        )
                 row["specialist_mse"] = float(
                     avg((specialist[idx + "_prediction"] - truth) ** 2) * std**2
                 )
@@ -129,6 +156,7 @@ def analyze(root, reference, output, origins):
                         )
     table = pd.DataFrame(rows)
     table.to_csv(output / "per-origin.csv", index=False)
+    pd.DataFrame(ranks).to_csv(output / "rank-histogram.csv", index=False)
     pd.DataFrame(spatial).to_csv(output / "spatial-covariance.csv", index=False)
     pd.DataFrame(spectra).groupby(
         ["run", "field", "zonal_wavenumber"]
@@ -144,6 +172,10 @@ def analyze(root, reference, output, origins):
                 d_rmse=np.sqrt(g.d_mse.mean()),
                 specialist_rmse=np.sqrt(g.specialist_mse.mean()),
                 crps=g.crps.mean(),
+                fair_crps=g.fair_crps.mean(),
+                coverage_minmax=g.coverage_minmax.mean(),
+                calibrated_minmax_reference=g.calibrated_minmax_reference.mean(),
+                calibrated_spread_rmse_reference=g.calibrated_spread_rmse_reference.mean(),
                 d_mae=g.d_mae.mean(),
                 specialist_mae=g.specialist_mae.mean(),
                 coverage90=g.coverage90.mean(),

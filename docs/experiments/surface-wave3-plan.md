@@ -132,3 +132,25 @@ Observe bring-up until real steps appear, then inspect approximately hourly.
 Recover safe failures, reassess prolonged low utilization, and report meaningful
 changes or blockers. No extra wave outside this approved protocol is submitted.
 The saved goal remains active through report publication.
+
+## Initial execution record
+
+All six reconstruction configurations passed real-data qualification on two
+RTX PRO 6000 Blackwell GPUs. Twelve 30-minute learning-rate pilots then completed
+on that same hardware, with the same seed, global batch, data and validation
+protocol. The predefined paired-input selection rule chose **3e-4 for all three
+architectures**. The [frozen decision](surface-wave3-pilot-selection.json) contains
+all pilot scores and job IDs; it was recorded before primary submission.
+
+Six primary jobs were submitted September 21, 2026 (Eastern), starting from
+fresh seed-1729 weights: A 18221169, B 18221171, C 18221172, D 18221173,
+E 18221174 and F 18221175. They retain the eight-hour maximum and validation
+stopping rule above. This is an execution record, not the final results report.
+
+H200 execution also passed a reconstruction check and baseline/largest-model
+joint-adaptation checks. Final comparisons will use matched RTX hardware:
+across four qualification origins, H200 versus RTX fixed-dynamics T/S RMSE
+changed by at most 0.015%, while some individual velocity errors changed more.
+The unchanged persistence control matched exactly; cross-hardware bitwise or
+near-bitwise evolution equality is not assumed. H200s remain available for
+training and auxiliary work with hardware recorded explicitly.

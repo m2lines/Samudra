@@ -66,3 +66,23 @@ and a case where spectral collapse loses despite improving pointwise errors.
 All pre-commit checks passed for the initial implementation. Full-checkpoint strict
 loading, full-grid GPU gradients, observational fitting and training are not yet
 verified. No observational skill result is available yet.
+
+## Training-path implementation update
+
+The optimizer now supports adapter warming, initializer reconstruction adaptation,
+and joint forecast adaptation, with atomic resume checkpoints and validation-only
+selection. An adapter-only frozen-core arm uses the same data and selection rule.
+The held-out evaluator refuses to run before selection completes and checks the
+selected checkpoint checksum. Its controls include source zero-forcing transfer,
+inferred persistence, inferred anomaly persistence and seasonal climatology.
+
+The new identity test caught and fixed an axis-order mismatch after the existing
+geostrophic kernel returned latitude before time. Fifty targeted tests now pass,
+including the existing metric suite. Missing labels do not contribute gradients,
+and the copied surface temperature is excluded from interior loss.
+
+GPU execution is still pending. The first code-layer build exhausted login-node
+`/tmp`; its replacement uses scratch for the source checkout. The builder now
+fetches only source and lockfiles, avoiding approximately 691 MiB of documentation,
+while retaining the exact resolved commit, lockfile comparison and read-only layer.
+Monthly assembly job **96584** waits on the complete coarsening array **96574**.

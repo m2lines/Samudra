@@ -1,0 +1,457 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+"""Bounded, resumable deterministic-D observational fine-tuning pilot."""
+
+import argparse
+import datetime
+import hashlib
+import json
+import math
+import os
+import time
+from pathlib import Path
+
+import numpy as np
+import torch
+
+from samudra.experiments.observation_metrics import PROTOCOL, score, selection_score
+from samudra.experiments.observation_model import ObservationTransfer
+from samudra.experiments.observation_training import Samples
+
+
+def atomic_torch(value, path):
+    temporary = path.with_suffix(".tmp")
+    torch.save(value, temporary)
+    temporary.replace(path)
+
+
+def atomic_json(value, path):
+    temporary = path.with_suffix(".tmp")
+    temporary.write_text(json.dumps(value, indent=2, allow_nan=False) + "\n")
+    temporary.replace(path)
+
+
+def digest(path):
+    with Path(path).open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+class Pilot:
+    def __init__(self, args):
+        self.args = args
+        self.out = Path(args.output)
+        self.out.mkdir(parents=True, exist_ok=True)
+        self.device = torch.device("cuda")
+        torch.manual_seed(args.seed)
+        np.random.seed(args.seed)
+        self.data = Samples(args.data, self.device)
+        self.model = ObservationTransfer(self.data.grid["names"].tolist())
+        saved = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
+        self.model.load_core(saved["model"])
+        del saved
+        self.model.to(self.device)
+        self.training = self.data.paths("train")
+        self.validation = self.data.paths("validation")
+        if len(self.training) != 243 or len(self.validation) != 9:
+            raise ValueError("Incomplete fixed training/validation cohort")
+        self.manifest = {
+            "arguments": vars(args),
+            "source_checkpoint_sha256": digest(args.checkpoint),
+            "grid_sha256": digest(Path(args.data) / "grid.npz"),
+            "statistics_sha256": digest(Path(args.data) / "statistics.npz"),
+            "protocol": PROTOCOL,
+            "code_commit": os.environ.get("SAMUDRA_CODE_COMMIT"),
+            "training_months": [p.stem for p in self.training],
+            "validation_months": [p.stem for p in self.validation],
+        }
+        manifest_file = self.out / "manifest.json"
+        if (
+            manifest_file.exists()
+            and json.loads(manifest_file.read_text()) != self.manifest
+        ):
+            raise ValueError("Resume manifest differs from frozen run")
+        atomic_json(self.manifest, manifest_file)
+        self.wandb = None
+        if args.wandb_mode != "disabled":
+            import wandb
+
+            self.wandb = wandb.init(
+                entity="ocean_emulators",
+                project="observational-transfer",
+                name=args.name,
+                id=hashlib.sha256(str(self.out).encode()).hexdigest()[:12],
+                resume="allow",
+                dir=str(self.out),
+                mode=args.wandb_mode,
+                config=self.manifest,
+            )
+        self.control = None
+        self.spectral_keys = None
+        self.global_best = math.inf
+        self.started = time.monotonic()
+
+    def emit(self, value):
+        record = {"time_utc": datetime.datetime.now(datetime.UTC).isoformat(), **value}
+        with (self.out / "events.jsonl").open("a") as stream:
+            stream.write(json.dumps(record, allow_nan=False) + "\n")
+        print(json.dumps(record, allow_nan=False), flush=True)
+        if self.wandb:
+            numeric = {k: v for k, v in record.items() if isinstance(v, (int, float))}
+            self.wandb.log(numeric)
+
+    def arguments(
+        self, sample
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        return (
+            sample["surface"],
+            sample["atmosphere"],
+            sample["contexts"],
+            self.data.mask,
+            sample["validity"],
+        )
+
+    @torch.no_grad()
+    def evaluate(
+        self, paths, persistence=False, export=None, climatology=False, anomaly=False
+    ):
+        self.model.eval()
+        predictions, references, ohc, reference_ohc = [], [], [], []
+        interior_error, interior_bias, interior_count = (
+            np.zeros(28),
+            np.zeros(28),
+            np.zeros(28),
+        )
+        for path in paths:
+            sample = self.data.load(path)
+            with torch.autocast("cuda", dtype=torch.bfloat16):
+                prediction, initial = self.model.forecast(*self.arguments(sample))
+            if persistence:
+                prediction = initial[:, -1:].expand(
+                    -1, len(sample["month_weights"]), -1, -1, -1
+                )
+            if anomaly:
+                state = self.data.persistence_anomaly(initial, sample)
+                prediction = state[:, None].expand(
+                    -1, len(sample["month_weights"]), -1, -1, -1
+                )
+            if climatology:
+                prediction = self.data.climatology_prediction(sample)
+            monthly = (
+                prediction * sample["month_weights"][None, :, None, None, None]
+            ).sum(1)
+            surface = self.data.physical(prediction)[:, :6, [38, 76]].cpu().numpy()[0]
+            truth = np.concatenate(
+                [sample["raw"]["surface"][19:25], sample["raw"]["velocity"][19:25]],
+                axis=1,
+            )
+            predicted_ohc = self.data.ohc(monthly)[0]
+            observed_ohc = np.where(
+                np.isfinite(predicted_ohc), sample["raw"]["ohc"], np.nan
+            )
+            predictions.append(surface)
+            references.append(truth)
+            ohc.append(predicted_ohc)
+            reference_ohc.append(observed_ohc)
+            physical_ts = self.data.physical(monthly[:, None])[
+                :, 0, self.data.ts_indices
+            ]
+            target = sample["interior"]
+            valid = torch.isfinite(target) & self.data.ts_mask.bool()
+            weights = valid * self.data.area
+            error = torch.where(valid, physical_ts - target, 0)
+            interior_error += (error.square() * weights).sum((0, 2, 3)).cpu().numpy()
+            interior_bias += (error * weights).sum((0, 2, 3)).cpu().numpy()
+            interior_count += weights.sum((0, 2, 3)).cpu().numpy()
+        arrays = dict(
+            prediction=np.array(predictions),
+            reference=np.array(references),
+            predicted_ohc=np.array(ohc),
+            reference_ohc=np.array(reference_ohc),
+        )
+        result = score(
+            **arrays,
+            lat=self.data.grid["lat"],
+            lon=self.data.grid["lon"],
+            mask=self.data.grid["mask"][0],
+        )
+        supported = interior_count > 0
+        result["thermohaline"] = {
+            "channels": np.array(self.data.grid["names"])[self.data.ts_indices][
+                supported
+            ].tolist(),
+            "rmse": np.sqrt(
+                interior_error[supported] / interior_count[supported]
+            ).tolist(),
+            "bias": (interior_bias[supported] / interior_count[supported]).tolist(),
+        }
+        result["origins"] = [p.stem for p in paths]
+        if export:
+            np.savez_compressed(export, **arrays, origins=result["origins"])
+        return result
+
+    def qualify_selection(self):
+        frozen = self.out / "selection-reference.json"
+        if frozen.exists():
+            record = json.loads(frozen.read_text())
+            self.control, self.spectral_keys = (
+                record["control"],
+                record["spectral_keys"],
+            )
+            self.global_best = float(
+                json.loads((self.out / "best.json").read_text())["score"]
+            )
+            return
+        control = self.evaluate(self.validation, persistence=True)
+        baseline = self.evaluate(self.validation)
+        keys = sorted(set(control["spectra"]) & set(baseline["spectra"]))
+        if not keys or not any(k.startswith("sst/") for k in keys):
+            raise ValueError(
+                "No qualified SST spectra; refuse RMSE-only checkpoint selection"
+            )
+        self.control, self.spectral_keys = control, keys
+        initial_score = selection_score(baseline, control, keys)
+        self.global_best = initial_score
+        atomic_json(
+            {"control": control, "spectral_keys": keys, "protocol": PROTOCOL}, frozen
+        )
+        atomic_json(baseline, self.out / "baseline-validation.json")
+        self.save_best(initial_score, "source", 0, baseline)
+        self.emit(
+            {
+                "event": "selection_qualified",
+                "validation/obs_score": initial_score,
+                "spectral_components": len(keys),
+            }
+        )
+
+    def save_best(self, value, phase, step, metrics):
+        self.global_best = value
+        atomic_torch(
+            {
+                "model": self.model.state_dict(),
+                "score": value,
+                "phase": phase,
+                "step": step,
+            },
+            self.out / "best.pt",
+        )
+        atomic_json(
+            {
+                "score": value,
+                "phase": phase,
+                "step": step,
+                "metrics": metrics,
+                "checkpoint_sha256": digest(self.out / "best.pt"),
+            },
+            self.out / "best.json",
+        )
+
+    def objective(self, sample, phase):
+        arguments = self.arguments(sample)
+        if phase == "joint":
+            prediction, _ = self.model.forecast(*arguments)
+            loss = self.data.forecast_loss(prediction, sample)
+            if self.args.reconstruction_weight:
+                reconstructed = self.model.reconstruct_month(
+                    *arguments, sample["month_weights"]
+                )
+                loss = loss + self.args.reconstruction_weight * self.data.interior_loss(
+                    reconstructed, sample
+                )
+        else:
+            reconstructed = self.model.reconstruct_month(
+                *arguments, sample["month_weights"]
+            )
+            loss = self.data.interior_loss(reconstructed, sample)
+        return loss
+
+    def phase(self, name, max_steps, hours):
+        complete = self.out / (name + "-complete.json")
+        if complete.exists():
+            self.model.load_state_dict(
+                torch.load(
+                    self.out / (name + "-best.pt"),
+                    map_location=self.device,
+                    weights_only=False,
+                )["model"]
+            )
+            return
+        train_phase = "adapter" if self.args.adapter_only or name == "adapter" else name
+        self.model.set_phase(train_phase)
+        core = list(self.model.initializer.parameters()) + list(
+            self.model.evolution.parameters()
+        )
+        optimizer = torch.optim.AdamW(
+            [
+                {"params": [p for p in core if p.requires_grad], "lr": 1e-5},
+                {
+                    "params": self.model.adapter.parameters(),
+                    "lr": 1e-4 if name == "joint" else 1e-3,
+                },
+            ],
+            weight_decay=0.01,
+        )
+        state = {"step": 0, "elapsed": 0.0, "best": math.inf, "bad_checks": 0}
+        last = self.out / (name + "-last.pt")
+        best = self.out / (name + "-best.pt")
+        if last.exists():
+            saved = torch.load(last, map_location=self.device, weights_only=False)
+            self.model.load_state_dict(saved["model"])
+            optimizer.load_state_dict(saved["optimizer"])
+            state = saved["state"]
+            torch.set_rng_state(saved["torch_rng"].cpu())
+            torch.cuda.set_rng_state(saved["cuda_rng"].cpu())
+        else:
+            metrics = self.evaluate(self.validation)
+            state["best"] = selection_score(metrics, self.control, self.spectral_keys)
+            atomic_torch(
+                {"model": self.model.state_dict(), "score": state["best"]}, best
+            )
+        self.model.set_phase(train_phase)
+        phase_start, prior, last_save = (
+            time.monotonic(),
+            state["elapsed"],
+            time.monotonic(),
+        )
+        while state["step"] < max_steps and state["elapsed"] < hours * 3600:
+            optimizer.zero_grad(set_to_none=True)
+            indices = np.random.default_rng(self.args.seed + state["step"]).choice(
+                len(self.training), self.args.accumulate, replace=False
+            )
+            loss_sum = 0.0
+            for index in indices:
+                sample = self.data.load(self.training[index])
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    loss = self.objective(sample, name)
+                if not torch.isfinite(loss):
+                    raise FloatingPointError("Nonfinite training loss")
+                (loss / self.args.accumulate).backward()
+                loss_sum += float(loss.detach()) / self.args.accumulate
+            norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+            if not torch.isfinite(norm):
+                raise FloatingPointError("Nonfinite training gradient")
+            optimizer.step()
+            state["step"] += 1
+            state["elapsed"] = prior + time.monotonic() - phase_start
+            done = state["step"] >= max_steps or state["elapsed"] >= hours * 3600
+            self.emit(
+                {
+                    "event": "training",
+                    "phase": name,
+                    "step": state["step"],
+                    "train/normalized_loss": loss_sum,
+                    "train/normalized_rms": math.sqrt(loss_sum),
+                    "train/gradient_norm": float(norm),
+                    "phase_seconds": state["elapsed"],
+                }
+            )
+            validate = state["step"] % self.args.validate_every == 0 or done
+            if validate:
+                metrics = self.evaluate(self.validation)
+                value = selection_score(metrics, self.control, self.spectral_keys)
+                atomic_json(
+                    metrics, self.out / f"{name}-validation-{state['step']:05d}.json"
+                )
+                improved = value < state["best"]
+                state["bad_checks"] = 0 if improved else state["bad_checks"] + 1
+                if improved:
+                    state["best"] = value
+                    atomic_torch(
+                        {"model": self.model.state_dict(), "score": value}, best
+                    )
+                if value < self.global_best:
+                    self.save_best(value, name, state["step"], metrics)
+                done |= state["bad_checks"] >= self.args.patience
+                self.emit(
+                    {
+                        "event": "validation",
+                        "phase": name,
+                        "step": state["step"],
+                        "validation/obs_score": value,
+                        "validation/best_obs_score": self.global_best,
+                        **{f"obs/{k}": v for k, v in metrics["metrics"].items()},
+                    }
+                )
+                self.model.set_phase(train_phase)
+            if validate or done or time.monotonic() - last_save >= 180:
+                state["elapsed"] = prior + time.monotonic() - phase_start
+                atomic_torch(
+                    {
+                        "model": self.model.state_dict(),
+                        "optimizer": optimizer.state_dict(),
+                        "state": state,
+                        "torch_rng": torch.get_rng_state(),
+                        "cuda_rng": torch.cuda.get_rng_state(),
+                    },
+                    last,
+                )
+                last_save = time.monotonic()
+            if done:
+                break
+        self.model.load_state_dict(
+            torch.load(best, map_location=self.device, weights_only=False)["model"]
+        )
+        atomic_json(state, complete)
+
+    def run(self):
+        try:
+            self.qualify_selection()
+            self.phase("adapter", self.args.adapter_steps, self.args.adapter_hours)
+            if not self.args.adapter_only:
+                self.phase(
+                    "reconstruction",
+                    self.args.reconstruction_steps,
+                    self.args.reconstruction_hours,
+                )
+            self.phase("joint", self.args.joint_steps, self.args.joint_hours)
+            atomic_json(
+                {
+                    "best_score": self.global_best,
+                    "best_checkpoint_sha256": digest(self.out / "best.pt"),
+                    "completed_utc": datetime.datetime.now(datetime.UTC).isoformat(),
+                },
+                self.out / "TRAIN_COMPLETE.json",
+            )
+        finally:
+            if self.wandb:
+                self.wandb.finish()
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data", required=True)
+    parser.add_argument("--checkpoint", required=True)
+    parser.add_argument("--output", required=True)
+    parser.add_argument("--name", required=True)
+    parser.add_argument("--adapter-only", action="store_true")
+    parser.add_argument("--adapter-steps", type=int, default=200)
+    parser.add_argument("--adapter-hours", type=float, default=0.5)
+    parser.add_argument("--reconstruction-steps", type=int, default=1000)
+    parser.add_argument("--reconstruction-hours", type=float, default=2)
+    parser.add_argument("--joint-steps", type=int, default=1000)
+    parser.add_argument("--joint-hours", type=float, default=4)
+    parser.add_argument("--reconstruction-weight", type=float, default=0.1)
+    parser.add_argument("--accumulate", type=int, default=8)
+    parser.add_argument("--validate-every", type=int, default=100)
+    parser.add_argument("--patience", type=int, default=5)
+    parser.add_argument("--seed", type=int, default=1729)
+    parser.add_argument(
+        "--wandb-mode", choices=["online", "offline", "disabled"], default="online"
+    )
+    args = parser.parse_args()
+    for value in (
+        args.accumulate,
+        args.validate_every,
+        args.adapter_steps,
+        args.reconstruction_steps,
+        args.joint_steps,
+    ):
+        if value < 1:
+            parser.error("Update counts and accumulation must be positive")
+    Pilot(args).run()
+
+
+if __name__ == "__main__":
+    main()

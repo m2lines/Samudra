@@ -108,6 +108,8 @@ def score(prediction, reference, predicted_ohc, reference_ohc, lat, lon, mask):
         pu, pv = kernels.geostrophic_velocity_from_zos(
             _field(p[:, 1], lat, lon), "lat", "lon"
         )
+        pu = pu.transpose("time", "lat", "lon")
+        pv = pv.transpose("time", "lat", "lon")
         u, v = r[:, 2], r[:, 3]
         velocity_support = (
             (np.abs(lat[:, None]) >= 5)

@@ -86,8 +86,13 @@ trap cleanup EXIT
 CHECKOUT_DIR="${BUILD_DIR}/repo"
 git init --quiet "${CHECKOUT_DIR}"
 git -C "${CHECKOUT_DIR}" remote add origin "${CODE_REPO_URL}"
+# Only source and dependency manifests enter the overlay. Keep large research
+# figures out of both the network transfer and temporary checkout.
+git -C "${CHECKOUT_DIR}" config remote.origin.promisor true
+git -C "${CHECKOUT_DIR}" config remote.origin.partialclonefilter blob:none
+git -C "${CHECKOUT_DIR}" sparse-checkout set --no-cone /src/ /pyproject.toml /uv.lock
 echo "Fetching pushed ref ${CODE_REF} from ${CODE_REPO_URL}"
-if ! git -C "${CHECKOUT_DIR}" fetch --quiet --no-tags --depth=1 origin "${CODE_REF}"; then
+if ! git -C "${CHECKOUT_DIR}" fetch --quiet --no-tags --filter=blob:none --depth=1 origin "${CODE_REF}"; then
   echo "Could not fetch ${CODE_REF}; ensure the ref has been pushed and is reachable." >&2
   exit 5
 fi

@@ -637,13 +637,15 @@ class DataSource:
     def normalized(
         self, data: torch.Tensor, variable_axis: int = 0, fill_value: float = 0.0
     ) -> torch.Tensor:
-        """`normalize_with`, or a no-op when the store is already normalized.
+        """`normalize_with`, or NaN-filling alone when already normalized.
 
-        A pre-normalized store has its NaNs already resolved at build time, so
-        the fill that `normalize_with` folds in has nothing left to do either.
+        A pre-normalized store still keeps land as NaN -- only the z-score was
+        applied at build time, deliberately, so that missing data stays
+        distinguishable from a channel value of 0. So the NaN fill that
+        `normalize_with` folds in is still owed.
         """
         if self.pre_normalized:
-            return data
+            return data.nan_to_num(nan=fill_value)
         return self.normalize_with(
             data, variable_axis=variable_axis, fill_value=fill_value
         )

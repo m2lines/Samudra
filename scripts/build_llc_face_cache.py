@@ -35,11 +35,13 @@ Boundary fields are read once per timestep, not once per tile.
     would inflate it 36 times over. Each surface field is read once, normalized
     once across the face, and then sliced into all 36 tiles.
 
-Land cells are stored as 0. A variable's NaN set does not always agree with
-`mask_c` -- U and V live on staggered faces (`i_g`, `j_g`) and carry their own
-land edges -- but the trainer re-applies `prognostic_mask` after loading, so any
-disagreement resolves exactly as it does today. Baking `nan_to_num` in here also
-keeps the safety net that the skipped normalization step used to provide.
+Land cells stay NaN, exactly as the source has them, so that missing data never
+becomes an ordinary-looking 0 -- and 0 IS ordinary-looking here, being the mean
+of a normalized channel. The loader collapses NaN to the masked fill value at
+read time (`_normalize_and_mask_steps`), which is also the safety net for a NaN
+on a WET cell: a variable's NaN set does not always agree with `mask_c`, since U
+and V live on staggered faces (`i_g`, `j_g`) and carry their own land edges, so
+the mask alone would not catch every one.
 """
 
 from __future__ import annotations
@@ -430,7 +432,7 @@ def init_store(
         # docstring; `DataSource.from_packed_dataset` picks it up.
         "pre_normalized": True,
         "normalization": "z-score applied in float32 before the float16 cast",
-        "masked_fill_value": 0.0,
+        "land_fill": "NaN",
         "train_start": args.train_start, "train_end": args.train_end,
         "val_start": args.val_start, "val_end": args.val_end,
         "train_time_count": int(train_count), "val_time_count": int(val_count),
@@ -516,12 +518,37 @@ def fill_time_range(
     origins = domain.tiles()
     chunk_probe = store_path / "prognostic"
 
+    # A surface field is normalized ONCE for the whole face and then sliced into
+    # every tile, which is the read-once optimization this builder exists for.
+    # That is only sound while every output channel fed by one source array
+    # shares its statistics -- true whenever a variable appears in a single
+    # channel group, and true in practice even across groups since both stats
+    # come from the same store under the same name. Checked here rather than
+    # assumed, because getting it wrong would mis-scale one of the two copies
+    # and nothing downstream would flag it.
+    for base, slots in plan.surface.items():
+        stat_values = {
+            (float(stats[which][0][position]), float(stats[which][1][position]))
+            for (which, position), _ in slots
+        }
+        if len(stat_values) > 1:
+            raise ValueError(
+                f"{base} feeds channels with differing statistics {stat_values}; "
+                "it cannot share one normalized plane. Normalize it per channel "
+                "group instead."
+            )
+
     def normalize(plane: np.ndarray, slot: tuple[int, int]) -> np.ndarray:
-        """Physical float32 -> normalized float16, land as 0."""
+        """Physical float32 -> normalized float16, land left as NaN.
+
+        NaN is kept rather than collapsed to 0 so that "no data here" stays
+        distinguishable from "this cell is 0 standard deviations from the mean",
+        which is a perfectly ordinary value for a normalized field. The loader
+        resolves it: see `_normalize_and_mask_steps`.
+        """
         which, position = slot
         mu, sd = stats[which]
         result = (plane - mu[position]) / sd[position]
-        np.nan_to_num(result, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
         return result.astype(float_dtype, copy=False)
 
     def tile_job(
@@ -534,7 +561,7 @@ def fill_time_range(
         y = slice(j0 - domain.j_start, j0 - domain.j_start + TILE)
         x = slice(i0 - domain.i_start, i0 - domain.i_start + TILE)
         buffers = [
-            np.zeros((n, TILE, TILE), dtype=float_dtype) for n in shapes
+            np.full((n, TILE, TILE), np.nan, dtype=float_dtype) for n in shapes
         ]
         for base, slots in plan.volume.items():
             # One source chunk: (1, 51, 1, 720, 720) is exactly this read.
@@ -638,8 +665,8 @@ def parse_args(argv=None) -> argparse.Namespace:
                    help="Depth levels a bare 3D variable name expands to")
     p.add_argument("--float-type", default="float16", choices=sorted(FLOAT_TYPES))
     p.add_argument("--time-chunk", type=int, default=1)
-    p.add_argument("--compressor", default="lz4hc")
-    p.add_argument("--compression-level", type=int, default=5)
+    p.add_argument("--compressor", default="zstd")
+    p.add_argument("--compression-level", type=int, default=3)
     p.add_argument("--shuffle", default="shuffle",
                    choices=("shuffle", "bitshuffle", "noshuffle"))
     p.add_argument("--workers", type=int, default=36,
@@ -667,6 +694,22 @@ def parse_args(argv=None) -> argparse.Namespace:
     args = p.parse_args(argv)
     if not args.init and not args.fill:
         args.init = args.fill = True
+    if args.time_chunk != 1:
+        # A chunk spanning several timesteps stops being the unit a single task
+        # owns: two array tasks filling adjacent ranges would read-modify-write
+        # the same chunk concurrently and lose each other's timesteps. The
+        # resume probe below also assumes one timestep per chunk.
+        if args.time_splits > 1 or args.time_split_index is not None:
+            raise ValueError(
+                f"--time-chunk {args.time_chunk} cannot be combined with a "
+                "split fill: adjacent tasks would write the same chunk "
+                "concurrently. Use --time-chunk 1 for array jobs."
+            )
+        if args.skip_existing:
+            raise ValueError(
+                "--skip-existing assumes one timestep per chunk; it cannot be "
+                f"used with --time-chunk {args.time_chunk}."
+            )
     return args
 
 

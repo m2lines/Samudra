@@ -333,7 +333,22 @@ class Eval:
                     ),
                 }
                 if delta in extras:
-                    hint = f" This is off by {delta:+d}: set {extras[delta]}."
+                    # Deliberately phrased as one candidate among several. The
+                    # channel COUNT does not identify the cause: 205 prognostic
+                    # + all_fw(5) + no valid mask and 205 + all_fw_noeta(4) +
+                    # valid mask are both 210, so "set valid_mask=false" would
+                    # load happily while feeding Eta where the model expects
+                    # oceFWflx. The vars keys are the other half of num_in and
+                    # have to be checked against the run's own config.yaml.
+                    hint = (
+                        f" This is off by {delta:+d}, which is consistent with "
+                        f"{extras[delta]} -- but the boundary/prognostic vars "
+                        "keys change num_in too, and a count that matches is "
+                        "NOT proof the channels line up. Check "
+                        "prognostic_vars_key and boundary_vars_key against the "
+                        "training run's saved config.yaml before changing "
+                        "anything here."
+                    )
             raise ValueError(
                 f"Checkpoint parameter '{name}' has shape {tuple(saved.shape)} but "
                 f"this model was built with {tuple(expected.shape)}. Eval is using "

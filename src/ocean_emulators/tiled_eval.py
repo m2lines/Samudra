@@ -294,8 +294,16 @@ class TiledEval:
         if cfg.spatial_features is not None:
             spatial = cfg.spatial_features
         self.spatial_features = spatial
-        self.num_in = int((self.hist + 1) * (self.N_prog + self.N_bound)) + (
-            SPATIAL_FEATURE_CHANNELS if spatial else 0
+        # The valid-mask channel, like the spatial ones, is baked into a
+        # checkpoint's input count, so eval has to reproduce whatever training
+        # used -- `data.valid_mask`, which defaults to True. Tiled eval used to
+        # ignore the field entirely and always build without the channel, so a
+        # checkpoint trained with it failed to load with an off-by-one num_in.
+        self.valid_mask = bool(cfg.data.valid_mask)
+        self.num_in = (
+            int((self.hist + 1) * (self.N_prog + self.N_bound))
+            + (SPATIAL_FEATURE_CHANNELS if spatial else 0)
+            + (1 if self.valid_mask else 0)
         )
         self.num_out = int((self.hist + 1) * self.N_prog)
         logger.info("Number of inputs: %d, outputs: %d", self.num_in, self.num_out)
@@ -338,6 +346,24 @@ class TiledEval:
             dtype=torch.float32,
         ).to(self.device)
         self.seam_pairs = _seam_pairs(self.layout)
+
+        # Land on the stitched canvas. The rollout keeps land at 0 in normalized
+        # space (advance_state remasks per tile), but the SAVED field has to say
+        # so too, and `Normalize`'s mask is only sources[0]'s -- which is all
+        # ocean here, so relying on it wrote the channel mean over every land
+        # cell of the other tiles. Stitched rather than masked per tile because
+        # `to_canonical` is a weighted SUM: a NaN in a tile multiplied by weight
+        # 0 is still NaN, so masking before the stitch poisons the whole canvas.
+        with torch.no_grad():
+            stitched = self.blender.to_canonical(
+                torch.stack([wet.to(torch.float32) for wet in self.tile_wet])
+                .unsqueeze(0)
+            )[0]
+        self.canonical_wet = (stitched > 0.5).cpu()
+        logger.info(
+            "Canonical wet fraction %.4f (land written as NaN)",
+            float(self.canonical_wet.to(torch.float32).mean()),
+        )
         logger.info(
             "Blend %s with window=%r; seams: %s",
             "enabled" if cfg.tiling.blend else "DISABLED (hard-crop control)",
@@ -360,6 +386,7 @@ class TiledEval:
                     long_rollout=True,
                     inference_stride=cfg.inference_stride,
                     append_spatial_features_to_inputs=spatial,
+                    append_valid_mask=self.valid_mask,
                 )
             )
         self.num_steps = get_inference_steps(
@@ -404,7 +431,10 @@ class TiledEval:
                     f"Checkpoint parameter '{name}' has shape {tuple(saved.shape)} "
                     f"but this model was built with {tuple(expected.shape)}. Tiled "
                     f"eval is using num_in={self.num_in} "
-                    f"(spatial_features={self.spatial_features})."
+                    f"(spatial_features={self.spatial_features}, "
+                    f"valid_mask={self.valid_mask}). Both are baked into a "
+                    "checkpoint's input count; set --data.valid_mask / "
+                    "--spatial_features to match how it was trained."
                 )
         self.model.load_state_dict(state_dict)
         logger.info("Loaded checkpoint %s", ckpt_path)
@@ -486,18 +516,25 @@ class TiledEval:
             )
             state = [next_state[index : index + 1] for index in range(len(state))]
 
-            # Unnormalize per tile, then stitch. Normalize's wet mask is a single
-            # tile's, so it cannot be applied to a canonical frame; and because
-            # unnormalization is affine per channel while the blend is a weighted
-            # mean with weights summing to one, the two commute. (The tile masks
-            # were verified to agree exactly in every overlap, so a land cell is
-            # never averaged against a live one.)
+            # Unnormalize per tile, then stitch: unnormalization is affine per
+            # channel while the blend is a weighted mean with weights summing to
+            # one, so the two commute. (The tile masks were verified to agree
+            # exactly in every overlap, so a land cell is never averaged against
+            # a live one.)
+            #
+            # fill_value is irrelevant here -- Normalize's mask is sources[0]'s,
+            # which is all ocean -- so land is masked on the canvas afterwards
+            # with `canonical_wet` instead. Doing it here with the old
+            # single-tile mask silently wrote `0 * std + mean`, i.e. the channel
+            # mean, over every land cell of the other three tiles.
             unnormalized = self.normalize.unnormalize_tensor_prognostic(
                 next_state.cpu(), fill_value=0.0
             )
-            buffers.canonical.append(
-                self.blender.to_canonical(unnormalized.unsqueeze(0))[0].numpy()
+            canonical = self.blender.to_canonical(unnormalized.unsqueeze(0))[0]
+            canonical = torch.where(
+                self.canonical_wet, canonical, torch.nan
             )
+            buffers.canonical.append(canonical.numpy())
             buffers.times.append(self.datasets[0].get_target_time(step, 1))
 
             if len(buffers) >= steps_per_write:

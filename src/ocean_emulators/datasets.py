@@ -1173,6 +1173,13 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         reproduces the same tensor this path has always produced.
         """
         if pre_normalized:
+            # The z-score is already applied, but its `nan_to_num` is not: a
+            # pre-normalized store keeps land as NaN so that missing data stays
+            # distinct from a legitimate 0. Collapse it here, and note the mask
+            # alone would not be enough -- U and V sit on staggered faces and
+            # carry NaNs on cells `mask_c` calls wet, which would otherwise
+            # reach the model.
+            tensor = tensor.nan_to_num(nan=0.0)
             return torch.where(mask, tensor, self.masked_fill_value)
         if self.normalize_before_mask:
             tensor = self._normalize_steps(tensor, means, stds)

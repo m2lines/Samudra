@@ -97,7 +97,7 @@ def test_quickstart_notebook_is_valid_and_current():
     assert "Latest checkpoint" in sources
     assert "good first issues" in sources
 
-    assert "s3://m2lines-pubs/Samudra/v2026-07/om4_twodeg/" in sources
+    assert "s3://m2lines-pubs/Samudra/v2026-09/om4_twodeg/" in sources
     assert "data/om4_demo.yaml" in sources
     assert "source.data_location.open()" in sources
     assert "from samudra.constants import build_om4_layout" in sources

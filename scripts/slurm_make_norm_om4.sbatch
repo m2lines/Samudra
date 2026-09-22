@@ -29,7 +29,7 @@
 #   export AWS_ACCESS_KEY_ID=...  AWS_SECRET_ACCESS_KEY=...
 #
 # --- Example -----------------------------------------------------------------
-#   export OUTPUT_PATH="s3://m2lines-pubs/Samudra/v2026-07/om4_onedeg/OM4.zarr"
+#   export OUTPUT_PATH="s3://m2lines-pubs/Samudra/v2026-09/om4_onedeg/OM4.zarr"
 #   sbatch scripts/slurm_make_norm_om4.sbatch
 #
 # Defaults target Torch's `cs` CPU partition. mean/std reduce over the whole

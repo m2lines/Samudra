@@ -456,9 +456,79 @@ class Pilot:
         )
         atomic_json(state, complete)
 
+    def fit_probe(self):
+        """Small training-only fitting check, separate from scientific comparisons."""
+        self.model.set_phase("joint")
+        core = list(self.model.initializer.parameters()) + list(
+            self.model.evolution.parameters()
+        )
+        optimizer = torch.optim.AdamW(
+            [
+                {"params": core, "lr": 1e-4 if self.args.from_scratch else 1e-5},
+                {"params": self.model.adapter.parameters(), "lr": 1e-4},
+            ],
+            weight_decay=0.01,
+        )
+        sample = self.data.load(self.training[0])
+        losses, reached = (
+            [],
+            {"initializer": False, "evolution": False, "adapter": False},
+        )
+        for step in range(11):
+            optimizer.zero_grad(set_to_none=True)
+            with torch.autocast("cuda", dtype=torch.bfloat16):
+                loss = self.objective(sample, "joint")
+            if not torch.isfinite(loss):
+                raise FloatingPointError("Nonfinite fitting-probe loss")
+            losses.append(float(loss.detach()))
+            self.emit({"event": "fit_probe", "step": step, "loss": losses[-1]})
+            if step == 10:
+                break
+            loss.backward()
+            for name in reached:
+                module = getattr(self.model, name)
+                norm = (
+                    sum(
+                        float(p.grad.float().square().sum())
+                        for p in module.parameters()
+                        if p.grad is not None
+                    )
+                    ** 0.5
+                )
+                if not math.isfinite(norm):
+                    raise FloatingPointError(f"Nonfinite {name} gradient")
+                reached[name] |= norm > 0
+            norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+            if not torch.isfinite(norm):
+                raise FloatingPointError("Nonfinite fitting-probe gradient")
+            optimizer.step()
+        if not all(reached.values()) or not losses[-1] < losses[0]:
+            raise ValueError(
+                f"Training-only fitting qualification failed: {losses}, {reached}"
+            )
+        atomic_json(
+            {
+                "losses": losses,
+                "gradient_reached": reached,
+                "training_origin": self.training[0].stem,
+                "code_commit": self.manifest["code_commit"],
+                "data_manifest_sha256": self.manifest["data_manifest_sha256"],
+                "selection_reference_sha256": digest(
+                    self.out / "selection-reference.json"
+                ),
+                "gpu": torch.cuda.get_device_name(),
+                "max_gpu_memory_gib": torch.cuda.max_memory_allocated() / 2**30,
+                "scope": "training-only ten-update fitting and integrated-validation qualification, not held-out skill",
+            },
+            self.out / "QUALIFIED.json",
+        )
+
     def run(self):
         try:
             self.qualify_selection()
+            if self.args.fit_probe:
+                self.fit_probe()
+                return
             if not self.args.from_scratch:
                 self.phase("adapter", self.args.adapter_steps, self.args.adapter_hours)
             self.phase(
@@ -486,6 +556,7 @@ def main():
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--name", required=True)
+    parser.add_argument("--fit-probe", action="store_true")
     parser.add_argument("--selection-reference")
     parser.add_argument("--adapter-only", action="store_true")
     parser.add_argument("--from-scratch", action="store_true")

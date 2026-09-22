@@ -125,3 +125,23 @@ silently filled as targets. Full validation support will be frozen before traini
 Torch DTN staging process **4037693** is alive and waiting for the publication
 proof. It will copy the dataset and verify all 350 NPZ source hashes before creating
 `DATA_READY.json`. The trainer refuses datasets without that verification marker.
+
+## Scheduler and qualification update
+
+RTX qualification 18287283 remained pending with `QOSGrpGRES`; it never ran.
+After a scheduler test accepted the preemption-only H200 route, replacement
+qualification **18288326** was submitted with requeue enabled and the original
+queued RTX job was cancelled. This changes the execution hardware, not the source
+checkpoint or task. The synthetic check qualifies initializer loading/equivalence
+and gradients; the full observational forecast path still requires its own fitting
+check.
+
+The training implementation is staged in immutable code layer
+`samudra-code-652796441b3fd65bdaef858fe574b397b7baeb15.img` on Torch. A subsequent
+training-only fitting gate performs ten updates on one training month, requires
+finite nonzero gradients in initializer, evolution and adapter, and requires the
+fixed-sample loss to decrease. Its selection reference is frozen before those
+updates. No test observations enter this gate.
+
+Current targeted verification: **52 tests passed**, including future-ocean-input
+independence, forcing visibility by lead, and scratch BatchNorm recomputation.

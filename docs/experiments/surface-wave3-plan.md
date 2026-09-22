@@ -160,3 +160,30 @@ changed by at most 0.015%, while some individual velocity errors changed more.
 The unchanged persistence control matched exactly; cross-hardware bitwise or
 near-bitwise evolution equality is not assumed. H200s remain available for
 training and auxiliary work with hardware recorded explicitly.
+
+### CNN follow-up decision (September 22, 07:26 UTC)
+
+A–D completed their prescribed validation stopping rule. Scoring each selected
+initializer through the unchanged pretrained dynamics on all 11 validation
+origins, before any joint update, gave:
+
+| Arm | Forecast validation T/S normalized RMSE |
+| --- | ---: |
+| A | 0.06666 |
+| B | 0.06486 |
+| C | 0.05998 |
+| D | 0.05903 |
+
+D is the selected CNN alternative: its validation forecast RMSE is 11.45% lower
+than A. This decision uses no production held-out scores. Baseline and D fresh
+seed-2718 replicas retain the primary eight-hour maximum (jobs 18238731 and
+18241142). Their matched joint adaptations use a three-hour training maximum,
+learning rate 1e-4 and the original primary best checkpoints (jobs 18240594 and
+18241143). Qualification-updated checkpoints are not used as warm starts.
+
+The short-history Swin arm E stopped after six non-improving checks. Its best
+checkpoint remains intact, but both training-probe and validation error rose
+sharply later in training. Thus optimization instability is a confounder for
+architecture comparisons. The attention follow-up decision remains pending F's
+completion and the full forecast-validation checks; any stability follow-up will
+be labeled separately from the predefined six primary runs.

@@ -162,3 +162,14 @@ selection-reference hash. Scratch fitting/training follow both transfer arms.
 Evaluation and scratch jobs are ordered to keep at most two GPUs active. Evaluation
 artifacts are atomic and resumable at predictor boundaries for preemptible jobs.
 The nine-hour H200 production request passed the scheduler's `--test-only` check.
+
+## Execution controller staged (22 September, 23:15 UTC)
+
+Production code commit `d8949bb15d9fa92e6c8c94702092360bbe9005ef` is pushed and
+published as a verified Torch overlay (SHA-256
+`3c68d4475f45a139631c55f0711f252af781a4e578966952f91bb055ca25a952`).
+Controller PID **2228710** is running on the Torch login host, waiting for
+`DATA_READY.json`; no production GPU job has been submitted yet. It will submit
+the fitting gate and dependent comparison/evaluation jobs after staging completes.
+At 23:11 UTC, all eight preparation workers were running, with monthly
+materialization and publication waiting on their successful completion.

@@ -235,9 +235,24 @@ class Pilot:
                 json.loads((self.out / "best.json").read_text())["score"]
             )
             return
-        control = self.evaluate(self.validation, climatology=True)
         baseline = self.evaluate(self.validation)
-        keys = sorted(set(control["spectra"]) & set(baseline["spectra"]))
+        if self.args.selection_reference:
+            reference = json.loads(Path(self.args.selection_reference).read_text())
+            if (
+                reference["protocol"] != PROTOCOL
+                or reference["data_manifest_sha256"]
+                != self.manifest["data_manifest_sha256"]
+                or reference["control"]["origins"] != [p.stem for p in self.validation]
+            ):
+                raise ValueError(
+                    "Shared selection reference has different data or protocol"
+                )
+            control, keys = reference["control"], reference["spectral_keys"]
+            if not set(keys).issubset(baseline["spectra"]):
+                raise ValueError("Candidate cannot supply all shared selection spectra")
+        else:
+            control = self.evaluate(self.validation, climatology=True)
+            keys = sorted(set(control["spectra"]) & set(baseline["spectra"]))
         missing_groups = [
             name
             for name in ("sst", "adt", "eke")
@@ -251,7 +266,13 @@ class Pilot:
         initial_score = selection_score(baseline, control, keys)
         self.global_best = initial_score
         atomic_json(
-            {"control": control, "spectral_keys": keys, "protocol": PROTOCOL}, frozen
+            {
+                "control": control,
+                "spectral_keys": keys,
+                "protocol": PROTOCOL,
+                "data_manifest_sha256": self.manifest["data_manifest_sha256"],
+            },
+            frozen,
         )
         atomic_json(baseline, self.out / "baseline-validation.json")
         self.save_best(initial_score, "source", 0, baseline)
@@ -440,12 +461,11 @@ class Pilot:
             self.qualify_selection()
             if not self.args.from_scratch:
                 self.phase("adapter", self.args.adapter_steps, self.args.adapter_hours)
-            if not self.args.adapter_only:
-                self.phase(
-                    "reconstruction",
-                    self.args.reconstruction_steps,
-                    self.args.reconstruction_hours,
-                )
+            self.phase(
+                "reconstruction",
+                self.args.reconstruction_steps,
+                self.args.reconstruction_hours,
+            )
             self.phase("joint", self.args.joint_steps, self.args.joint_hours)
             atomic_json(
                 {
@@ -466,6 +486,7 @@ def main():
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--name", required=True)
+    parser.add_argument("--selection-reference")
     parser.add_argument("--adapter-only", action="store_true")
     parser.add_argument("--from-scratch", action="store_true")
     parser.add_argument("--adapter-steps", type=int, default=200)

@@ -118,9 +118,9 @@ practical, and compare candidates on a common evaluation footprint rather than p
 
 Torch paths below were checked on 2026-09-12 for presence and basic metadata, not re-audited for this revision.
 They are access pointers, not assertions that each store already supports this task or covers its training period.
-The full-range OSN and Empire AI (EAI) observation copies below were checked separately on 2026-09-18. Record
-versions, fields, units, spatial and temporal support, masks, source ancestry, and permitted dates for every
-selected dataset and derivative. Availability of later dates does not change the training cutoff.
+The full-range OSN and Empire AI (EAI) copies were published and audited on September 18–21, 2026, as
+detailed below. Record versions, fields, units, spatial and temporal support, masks, source ancestry, and
+permitted dates for every selected dataset and derivative. Availability of later dates does not change the training cutoff.
 
 | Dataset | Access pointer | Role and qualification |
 | --- | --- | --- |
@@ -135,7 +135,7 @@ selected dataset and derivative. Availability of later dates does not change the
 | Individual Argo profiles | [Argo access](https://argo.ucsd.edu/data/data-from-gdacs/); Torch staging TODO | Candidate primary interior labels and evaluation observations |
 | EN4 profiles | [Met Office EN4](https://www.metoffice.gov.uk/hadobs/en4/); Torch staging TODO | Candidate broader collection of interior profiles; overlaps Argo |
 | LLC and CM4 | Selected releases and Torch paths TODO | Additional simulation sources when available |
-| ARCO-ERA5 | Selected store, fields, and Torch access TODO | Atmospheric forcing |
+| ERA5 surface | Verified OSN and EAI paths below; no Torch copy claimed | Eight hourly atmospheric fields from 1993; model forcing adapter still required |
 
 The three OM4 archives are regriddings of the same underlying simulation, not independent simulated trajectories.
 Each has 4,745 records. Distinguish the effect of retaining spatial detail from adding a different simulation or
@@ -146,41 +146,108 @@ The legacy observation copies configured by the existing evaluator also exist un
 `https://nyu1.osn.mghpcc.org`. Their DUACS/OISST fields use centered five-day means on OM4 timestamps. Preserve
 daily observations and predictions, and construct explicitly matched derivatives when using those legacy products.
 
-### Full-range observations on OSN and EAI
+### Native-cadence observations and ERA5 on OSN and EAI
 
-Task `01a0aad5-4372-71c0-b1d3-b121e0408166` produced and published these stores on 2026-09-18. Each product is
-a consolidated Zarr store retaining its upstream grid and native cadence, with coordinate/schema standardization
-and no additional temporal averaging, regridding, or filtering. The providers' own analysis/interpolation remains
-part of the products; the IAP store contains monthly gridded T/S, not individual Argo profiles.
+Task `01a0aad5-4372-71c0-b1d3-b121e0408166` published OISST/IAP and the original DUACS velocities on
+2026-09-18, extended DUACS with SSH on 2026-09-20, and completed ERA5 publication and its independent audit
+on 2026-09-21. Each product is one consolidated Zarr store retaining its upstream grid and native cadence,
+with coordinate/schema standardization and no additional temporal averaging, regridding, or filtering.
+The providers' own analysis/interpolation remains part of the products; IAP contains monthly gridded T/S,
+not individual Argo profiles. These are frozen inventories, not automatically updated archives.
 
 | Dataset | OSN S3 location | EAI Grace location (access via `ssh alpha`) |
 | --- | --- | --- |
-| DUACS | `s3://emulators/jr7309/data/full_range/duacs.zarr` | `/mnt/home/jrusak/data/obs_full_range/prepared/duacs.zarr` |
+| DUACS, velocities and SSH | `s3://emulators/jr7309/data/full_range/duacs.zarr` | `/mnt/home/jrusak/data/obs_full_range/prepared/duacs.zarr` |
 | OISST | `s3://emulators/jr7309/data/full_range/oisst.zarr` | `/mnt/home/jrusak/data/obs_full_range/prepared/oisst.zarr` |
 | Argo/IAP | `s3://emulators/jr7309/data/full_range/argo-iap.zarr` | `/mnt/home/jrusak/data/obs_full_range/prepared/argo-iap.zarr` |
+| ERA5 surface | `s3://emulators/jr7309/data/full_range/era5-surface.zarr` | `/mnt/home/jrusak/data/obs_full_range/prepared/era5-surface.zarr` |
 
 | Dataset | Frozen coverage and cadence | Native grid | Fields and use |
 | --- | --- | --- | --- |
-| DUACS | 1993-01-01–2026-01-16; 12,069 daily records at 00:00 UTC | 0.125°; 1440 × 2880 | `ugos`, `vgos`, `ugosa`, `vgosa`; reference for SSH-derived surface geostrophic velocity/EKE; no `adt`/`sla` SSH field |
+| DUACS, release `202411` | 1993-01-01–2026-01-16; 12,069 daily records at 00:00 UTC | 0.125°; 1440 × 2880 | `adt`, `sla`, `ugos`, `vgos`, `ugosa`, `vgosa`; direct SSH initialization/labels and geostrophic velocity/EKE reference |
 | OISST v2.1 final | 1981-09-01–2026-09-03; 16,439 daily records at 12:00 UTC | 0.25°; 720 × 1440 | `sst`; daily surface labels/reference and eligible pre-origin initialization |
 | IAP/CZ16 | 1960-01-01–2023-09-01; 765 monthly records, labeled at month start | 0.5°; 360 × 720; 41 depths | `temp`, `salt`; gridded interior supervision and OHC diagnostics |
+| ERA5 surface, final only | 1993-01-01 00:00–2026-06-30 23:00 UTC; 293,616 hourly records | 0.25°; 721 × 1440 | Eight fields below; atmospheric forcing, with ERA5T excluded |
+
+DUACS SSH comes from the Copernicus Marine product `SEALEVEL_GLO_PHY_L4_MY_008_047`, dataset
+`cmems_obs-sl_glo_phy-ssh_my_allsat-l4-duacs-0.125deg_P1D`, release `202411`. The extension preserves the
+existing four velocity arrays and coordinate bytes. It adds `adt` and `sla` to the **same** local/remote
+`duacs.zarr` after exact time/latitude/longitude matching; original velocity provenance remains recorded.
+Select and document ADT versus SLA, reference datum/climatology, and alignment with simulated SSH before
+using either as an input or target; their availability does not implement a direct-SSH metric.
+
+ERA5 was streamed from the public
+[ARCO ERA5 store](https://storage.googleapis.com/gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3/.zmetadata).
+Its final-data validity bound, rather than the source array's allocated time axis, fixes the end date above.
+The retained fields are `10m_u_component_of_wind`, `10m_v_component_of_wind`, `2m_temperature`,
+`2m_dewpoint_temperature`, `surface_pressure`, `surface_solar_radiation_downwards`,
+`surface_thermal_radiation_downwards`, and `total_precipitation`. Decoded values, masks, units, and provider
+time labels are preserved. Radiation and precipitation retain their provider accumulation units; they have
+not been converted to flux rates. Define accumulation windows, conversions, interpolation, and the
+OM4/ERA5 forcing interface before training. This archive is atmospheric reanalysis, not an operational
+forecast; retain the stated conditional-forcing interpretation when supplying future atmospheric fields.
 
 Use S3 endpoint `https://nyu1.osn.mghpcc.org` with credentials authorized for the `emulators` bucket, or the
-configured rclone prefix `nyu-osn:emulators/jr7309/data/full_range`. Authenticated reads succeeded; anonymous
-requests returned HTTP 403 on 2026-09-18. The retained source downloads are on EAI under
-`/mnt/home/jrusak/data/obs_full_range/raw/{duacs,oisst,argo-iap}/`.
+configured rclone prefix `nyu-osn:emulators/jr7309/data/full_range`. Authenticated access was verified;
+anonymous requests returned HTTP 403 in the September 18 check. All four **prepared stores persist locally**.
+Source downloads under `obs_full_range/raw/{duacs,oisst,argo-iap}/` were removed after verification on
+2026-09-20 with user authorization, freeing 355,482,812,609 bytes; new SSH/ERA5 source blocks streamed through
+memory. Inventories, provenance, block-verification receipts, reports, and failed-job logs remain available.
 
-The [publication report](https://github.com/m2lines/Samudra/blob/04d9dbf46f7c24646b2e487a7143e90a36b688d3/docs/observations-full-range-results.md)
-records preparation/validation and full transfer read-back with zero differences for all three stores.
-Each OSN store has sibling `PRODUCT.inventory.json` and `PRODUCT.SUCCESS.json` records under the same prefix.
-The EAI audit is `/mnt/home/jrusak/data/obs_full_range/reports/publication-completion-20260918.json`.
-This plan revision rechecked OSN success records and consolidated metadata, EAI metadata and raw-directory
-presence, and that audit report; it did not repeat the full data read-back.
+| Newly published store | Stored bytes | Files including consolidated metadata | Successful publication / independent audit jobs |
+| --- | ---: | ---: | --- |
+| Combined DUACS | 1,305,414,878,529 | 193,176 | `93663` / `93702` |
+| ERA5 surface | 5,497,241,311,236 | 1,957,475 | `93554` / `94809` |
 
-Use the full-range OISST and DUACS stores for daily SST and geostrophic metric references, with explicit handling
-of their different time labels. Direct SSH labels/initialization still require an additional field or product;
-the full-range DUACS store is velocity-only. Individual profile preparation remains a separate TODO. OISST/DUACS
-are observation inputs before initialization and labels/references afterward, never forecast-time forcings.
+Each OSN store has sibling `PRODUCT.inventory.json` and `PRODUCT.SUCCESS.json` records. The immutable
+original DUACS inventory is also retained as `duacs.inventory.previous.json`; the local combined inventory is
+`manifests/duacs-with-ssh.json`. Processing used commit
+[`e562fbe008c9ac7e81c2a0b28f970152b283b224`](https://github.com/m2lines/Samudra/commit/e562fbe008c9ac7e81c2a0b28f970152b283b224).
+The scripts are in [PR #884](https://github.com/m2lines/Samudra/pull/884).
+
+Verification evidence under `/mnt/home/jrusak/data/obs_full_range/reports/`:
+
+- `duacs-ssh-publication-20260920.json`: combined-store inventory, metadata, size/count and success record
+  match local/remote; publication read-back found zero differences across 193,175 payload files.
+- `era5-surface-publication-20260921.json`: matching local/remote inventory, metadata, size/count and success
+  record; publication read-back found zero differences across 1,957,474 payload files.
+- `publication-completion-20260918.json`: original DUACS/OISST/IAP publication audit, also described in the
+  [original report](https://github.com/m2lines/Samudra/blob/04d9dbf46f7c24646b2e487a7143e90a36b688d3/docs/observations-full-range-results.md).
+- `source-cleanup-20260920.json`: verified removal of the old raw downloads, with prepared copies retained.
+
+Every new SSH and ERA5 output block was read back and compared exactly against all decoded source values
+and masks before checkpointing. Final validation checked timestamps, coordinates, schema/units, chunk presence,
+receipts, and decoded samples. Publication performed full `rclone check --download`, then byte-verified
+consolidated metadata and success records; the separate audit checked inventory, metadata and size/count.
+Original velocity/OISST/IAP source-value comparisons were sampled, not exhaustive full-store source comparisons.
+These checks establish data preparation and transfer integrity, not scientific forecast skill.
+
+Use the full-range OISST and DUACS stores for daily SST/SSH/geostrophic references with explicit treatment of
+00:00 versus 12:00 time labels. Individual profile preparation remains a separate TODO. OISST/DUACS are
+observation inputs before initialization and labels/references afterward, never forecast-time forcings.
+
+### Quarter-degree OM4 snapshots on EAI
+
+The single selected quarter-degree variant is the **unfiltered snapshot** release documented in
+[PR #880](https://github.com/m2lines/Samudra/pull/880). The OSN directory is
+`s3://m2lines-pubs/Samudra/v2026-09/om4_quarterdeg_snapshots/`, with anonymous access at the same OSN endpoint.
+Its retained local copy is `/mnt/home/jrusak/data/om4/v2026-09/om4_quarterdeg_snapshots/`.
+Both contain `OM4.zarr`, `OM4_means.zarr`, and `OM4_stds.zarr`; averaged and filtered quarter-degree variants
+were not copied in this transfer.
+
+The main store has 4,745 five-day snapshots labeled 1958-01-06 00:00 through 2023-01-01 00:00,
+19 depths, and a 720 × 1440 Gaussian latitude/longitude grid (`grid_type=gaussian`, source grid
+`gaussian_grid_720_by_1440`). Upstream preparation conservatively regridded the OM4 source and skipped spatial filtering. Ocean state (`thetao`, `so`, `uo`, `vo`, `zos`) is instantaneous;
+`hfds`, `wfo`, `tauuo`, and `tauvo` remain five-day-mean forcings over the transition. Snapshot labels mark
+interval upper bounds and are 2.5 days later than the matching averaged-state labels. Preserve the stored
+Julian calendar and verify normalization fitting dates against the experiment split before using the supplied
+statistics. This is the same underlying OM4 trajectory, not an additional independent simulation.
+
+Grace copy job `94565` completed on 2026-09-21, retaining **1,594,021,376,137 bytes in 385,330 files**.
+Full `rclone check --download` found zero differences across 385,327 payload files; the three consolidated
+metadata files were checked for source stability and installed last. Source/local byte totals and file counts
+matched. This was a byte copy with no new scientific preprocessing. Evidence:
+`/mnt/home/jrusak/data/om4-v2026-09-transfer/reports/94565/SUCCESS.json`.
 
 ### Interior observation choice
 
@@ -225,9 +292,9 @@ already entered a reanalysis used for training. Apply the temporal exclusion acr
 time support around boundaries. Future atmospheric forcing remains a separately declared conditional input.
 [GLORYS product description](https://data.marine.copernicus.eu/product/GLOBAL_MULTIYEAR_PHY_001_030/description)
 
-The full-range surface stores provide pre-cutoff coverage; select eligible windows and obtain missing SSH before
-using it as an input or direct label. Check whether retrospective surface products use observations beyond a nominal
-forecast origin; pin either a causal input construction or explicitly label a retrospective reconstruction task.
+The full-range surface stores now include daily SSH and provide pre-cutoff coverage; select eligible windows
+and align SSH reference conventions before using it as an input or direct label. Check whether retrospective
+surface products use observations beyond a nominal forecast origin; pin either a causal input construction or explicitly label a retrospective reconstruction task.
 A separate hidden-test governance policy remains outside this problem statement, but repeated evaluation-informed
 development must be distinguished from independent confirmation.
 
@@ -250,7 +317,7 @@ observation evaluator does not implement this protocol by itself.
 | Skill versus reference predictions | Primary interpretation | Compare climatology and persistence of the inferred interior anomaly on identical samples |
 | Profile reconstruction error at initialization | Diagnostic | Separate lead-zero T/S errors from future-lead scores |
 | Daily SST skill | Required surface evaluation | Existing OISST SST error and variability metrics with documented temporal matching |
-| Daily SSH skill | Required surface evaluation | Existing DUACS surface geostrophic velocity/EKE metrics derived from SSH; direct SSH errors when the reference is prepared |
+| Daily SSH skill | Required surface evaluation | Existing DUACS surface geostrophic velocity/EKE metrics derived from SSH; direct SSH errors using the available ADT/SLA after implementing the scoring adapter |
 | Interior velocity fields | Retained output; plausibility diagnostic | Velocity distributions, kinetic energy, spectra/coherence, and held-out model-data skill as useful; no claim of gold observational verification |
 | OHC, variability, drift, and stability | Supporting/longer-term | Gridded-product comparisons and physical diagnostics with coverage stated |
 
@@ -303,11 +370,11 @@ model, inputs, and accepted observations.
 ## TODOs before an executable campaign
 
 - [ ] **Surface initialization:** choose products, variables, history, masks, and geometry; select eligible
-  pre-cutoff windows from the full-range stores and obtain SSH if selected. Pin how inferred interior state
-  connects to the dynamics model.
-- [ ] **Daily surface outputs and data:** integrate the available full-range OISST/DUACS references and obtain
-  direct SSH labels; define daily readout from the chosen internal cadence, time-label handling, and adapters for
-  existing metrics. Preserve daily outputs alongside any five-day matched derivatives.
+  pre-cutoff windows from the full-range stores, including the available DUACS SSH fields. Pin how inferred
+  interior state connects to the dynamics model.
+- [ ] **Daily surface outputs and data:** integrate the available full-range OISST SST and DUACS ADT/SLA labels;
+  select SSH reference conventions and implement direct SSH scoring; define daily readout from the chosen internal
+  cadence, time-label handling, and adapters for existing metrics. Preserve daily outputs alongside any five-day matched derivatives.
 - [ ] **Profile dataset:** choose Argo, EN4 profiles, or a documented combination; stage on Torch and record QC,
   duplicates, versions, units, depth support, and date coverage. Assess OceanDepths as a preparation option.
 - [ ] **Time target:** choose endpoint/exact-lead predictions versus means; specify matching and interpolation,
@@ -317,8 +384,9 @@ model, inputs, and accepted observations.
 - [ ] **Splits and ancestry:** verify full window boundaries, fitted statistics, retrospective input support,
   and exclusions across raw observations, gridded products, GLORYS, and simulation-derived training tasks.
 - [ ] **Surface-state forcing:** replace current OM4 flux inputs with intended atmospheric surface-state inputs;
-  identify OM4/ERA5/ARCO-ERA5 fields, transformations, time support, and Torch access. Exclude forecast-time ocean
-  SSH/SST and observed velocities from the forcing schema, including OISST/DUACS. Label interim flux experiments.
+  adapt the eight archived ERA5 fields to the model interface and pin transformations, accumulation/time support,
+  and compatibility with OM4 pretraining. EAI/OSN copies are available; Torch staging is optional. Exclude
+  forecast-time ocean SSH/SST and observed velocities from the forcing schema, including OISST/DUACS. Label interim flux experiments.
 - [ ] **Additional model data:** inventory GLORYS, LLC, and CM4 paths, fields, geometry, cadence, dates, and
   permitted roles. LLC availability remains an explicit dependency, not an assumed completed transfer.
 - [ ] **Training and scoring implementation:** implement separate pretraining, connected fine-tuning, sparse

@@ -163,7 +163,7 @@ Evaluation and scratch jobs are ordered to keep at most two GPUs active. Evaluat
 artifacts are atomic and resumable at predictor boundaries for preemptible jobs.
 The nine-hour H200 production request passed the scheduler's `--test-only` check.
 
-## Execution controller staged (22 September, 23:15 UTC)
+## Execution controller staged (22 September, 23:13 UTC)
 
 Production code commit `d8949bb15d9fa92e6c8c94702092360bbe9005ef` is pushed and
 published as a verified Torch overlay (SHA-256
@@ -173,3 +173,8 @@ Controller PID **2228710** is running on the Torch login host, waiting for
 the fitting gate and dependent comparison/evaluation jobs after staging completes.
 At 23:11 UTC, all eight preparation workers were running, with monthly
 materialization and publication waiting on their successful completion.
+
+A read-only snapshot collector captures controller process state, Slurm accounting,
+run manifests, the integrated selection score and spectral curves, and completed
+held-out results. Its first live staging capture succeeded; it does not evaluate or
+modify models. Captures are timestamped and refuse to overwrite existing evidence.

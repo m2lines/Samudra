@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Proposal: fine-tune deterministic D on coarsened observations
 
-22 September 2026. **Approved for implementation and pilot execution; not yet launched.**
+22 September 2026. **Approved pilot in progress: preparation and GPU qualification launched; optimization awaits verified data.**
 
 Progress snapshot due **23 September 2026, 10:00 a.m. America/New_York (14:00 UTC)**.
 Delivering that snapshot completes the requested goal; ongoing runs may continue.
@@ -42,8 +42,9 @@ initializer with adapted dynamics silently. D-joint can be a later warm-start co
 **What is not a drop-in:** the current loader/loss assume dense OM4 full-state labels. They need an
 observation loader, validity-aware losses, and monthly aggregation. The eight archived ERA5 fields are
 not the three physical fluxes D expects. Those are adapter/training-harness changes, not reasons to
-repeat 121M-parameter pretraining. This conclusion follows from code and checkpoint provenance; an
-actual strict-load/forward compatibility test remains part of implementation qualification.
+repeat 121M-parameter pretraining. This conclusion follows from code and checkpoint provenance; the
+full-grid GPU strict-load/forward compatibility test has passed (job 18288326). Actual
+observational fitting remains a separate gate.
 
 ## Fixed data choices
 
@@ -59,7 +60,7 @@ it to the training machine; the legacy 2014–2022 metric stores cannot supply t
 | Temperature semantics | Use IAP Celsius directly, as the existing OHC comparison does; retain the existing shallowest-model-level SST convention. Document this approximation rather than delaying for a temperature-definition overhaul |
 | Salinity semantics | Given the stored Absolute Salinity metadata, convert once to Practical Salinity using pressure/location before remapping. This is a small deterministic conversion, not a model-development project |
 | Atmosphere | All eight already archived ERA5 fields; five-day means of state variables and properly converted radiation/precipitation rates; fit input standardization on training data only |
-| Geometry / missingness | Keep the OM4 state mask. Supervise only where both model and observation are supported; require at least 90% valid source wet area in a coarse cell. Primary scores cover 60°S–60°N to defer ice-region decisions |
+| Geometry / missingness | Keep the OM4 state mask. Supervise only where both model and observation are supported; require finite source coverage over at least 90% of the full target cell area. Primary scores cover 60°S–60°N to defer ice-region decisions |
 
 The salinity conversion is [the standard TEOS-10 `SP_from_SA` operation](https://www.teos-10.org/pubs/gsw/html/gsw_SP_from_SA.html),
 using pressure derived from depth/latitude. Save the source convention and converted values separately.

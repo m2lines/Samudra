@@ -1,0 +1,18 @@
+Filesystem                                         Size  Used Avail Use% Mounted on
+/dev/nvme0n1p3                                     816G   18G  798G   3% /state/partition1
+vast-ib.torch.hpc.nyu.edu:/vast/hpc/torch/scratch  3.3P  2.8P  520T  85% /scratch
+Scratch:   /scratch/jr7309
+Image ref: ghcr.io/m2lines/ocean-emulator-physicsnemo:26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd
+SIF path:  /scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif
+Pulling docker://ghcr.io/m2lines/ocean-emulator-physicsnemo:26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd
+Published SIF: /scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif
+SIF_PATH=/scratch/jr7309/.apptainer-images/ghcr.io-m2lines-ocean-emulator-physicsnemo-26.05-9cd36b1bdcf4921fb027494afa4157e217818ccd.sif
+Fetching pushed ref b46eb446f153a967869bbfc7f9e93783de986579 from https://github.com/m2lines/Samudra.git
+Resolved b46eb446f153a967869bbfc7f9e93783de986579 to b46eb446f153a967869bbfc7f9e93783de986579.
+Container lockfiles match b46eb446f153a967869bbfc7f9e93783de986579.
+Creating 128 MiB sparse EXT3 code layer.
+Published code layer: /scratch/jr7309/.apptainer-code-layers/samudra-code-b46eb446f153a967869bbfc7f9e93783de986579.img
+Layer SHA-256:       5904a50be159bada86139b42e123d3b05cd4b665396402007f9a654627289b10
+CODE_REF=b46eb446f153a967869bbfc7f9e93783de986579
+CODE_COMMIT=b46eb446f153a967869bbfc7f9e93783de986579
+CODE_LAYER=/scratch/jr7309/.apptainer-code-layers/samudra-code-b46eb446f153a967869bbfc7f9e93783de986579.img

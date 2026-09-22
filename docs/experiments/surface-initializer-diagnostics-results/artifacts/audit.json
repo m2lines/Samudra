@@ -1,0 +1,20 @@
+{
+  "precision": {
+    "origins": 99,
+    "maps_match_metrics": true,
+    "finite": true,
+    "std": 0.709178626537323
+  },
+  "continued-control-eval": {
+    "origins": 99,
+    "maps_match_metrics": true,
+    "finite": true,
+    "std": 0.709178626537323
+  },
+  "field-specialization-eval": {
+    "origins": 99,
+    "maps_match_metrics": true,
+    "finite": true,
+    "std": 0.709178626537323
+  }
+}

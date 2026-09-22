@@ -1,0 +1,6 @@
+{
+  "origins_per_arm": 99,
+  "common_truth_climatology_mask": true,
+  "metrics_reconciled": true,
+  "spectra": "Common-mask grid-space zonal spectra; land edges affect power. Not an isotropic physical ocean spectrum."
+}

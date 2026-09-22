@@ -1,0 +1,3 @@
+JobID|State|Start|End|ElapsedRaw|AllocTRES|ExitCode
+18195300|FAILED|2026-09-21T14:05:02|2026-09-21T14:05:03|1|billing=4,cpu=4,gres/gpu=1,mem=32G,node=1|1:0
+18195421|COMPLETED|2026-09-21T14:08:34|2026-09-21T14:11:17|163|billing=4,cpu=4,gres/gpu=1,mem=32G,node=1|0:0

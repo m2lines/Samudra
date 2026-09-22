@@ -1,0 +1,105 @@
+{
+  "time_utc": "2026-09-19T05:53:50.998064+00:00",
+  "reason": "Eight consecutive validation checks worse than best despite lower training loss",
+  "best_validation": {
+    "phase": "pretrain",
+    "step": 133755,
+    "validation_loss": 0.091447614133358,
+    "best_validation_loss": 0.091447614133358,
+    "phase_complete": false,
+    "time_utc": "2026-09-19T03:11:47.862297+00:00",
+    "peak_gpu_gib": 61.83896017074585,
+    "host_peak_gib_rank0": 4.179653167724609
+  },
+  "recent_validation": [
+    {
+      "phase": "pretrain",
+      "step": 161270,
+      "validation_loss": 0.09294283390045166,
+      "best_validation_loss": 0.091447614133358,
+      "phase_complete": false,
+      "time_utc": "2026-09-19T03:31:48.766077+00:00",
+      "peak_gpu_gib": 61.83896017074585,
+      "host_peak_gib_rank0": 4.179653167724609
+    },
+    {
+      "phase": "pretrain",
+      "step": 188824,
+      "validation_loss": 0.09258799254894257,
+      "best_validation_loss": 0.091447614133358,
+      "phase_complete": false,
+      "time_utc": "2026-09-19T03:51:49.504887+00:00",
+      "peak_gpu_gib": 61.83896017074585,
+      "host_peak_gib_rank0": 4.179653167724609
+    },
+    {
+      "phase": "pretrain",
+      "step": 216356,
+      "validation_loss": 0.09417710453271866,
+      "best_validation_loss": 0.091447614133358,
+      "phase_complete": false,
+      "time_utc": "2026-09-19T04:11:50.295252+00:00",
+      "peak_gpu_gib": 61.83896017074585,
+      "host_peak_gib_rank0": 4.179653167724609
+    },
+    {
+      "phase": "pretrain",
+      "step": 243864,
+      "validation_loss": 0.09420286864042282,
+      "best_validation_loss": 0.091447614133358,
+      "phase_complete": false,
+      "time_utc": "2026-09-19T04:31:51.047314+00:00",
+      "peak_gpu_gib": 61.83896017074585,
+      "host_peak_gib_rank0": 4.179653167724609
+    },
+    {
+      "phase": "pretrain",
+      "step": 271361,
+      "validation_loss": 0.09420520812273026,
+      "best_validation_loss": 0.091447614133358,
+      "phase_complete": false,
+      "time_utc": "2026-09-19T04:51:51.811492+00:00",
+      "peak_gpu_gib": 61.83896017074585,
+      "host_peak_gib_rank0": 4.183559417724609
+    },
+    {
+      "phase": "pretrain",
+      "step": 298685,
+      "validation_loss": 0.09343797713518143,
+      "best_validation_loss": 0.091447614133358,
+      "phase_complete": false,
+      "time_utc": "2026-09-19T05:11:52.583697+00:00",
+      "peak_gpu_gib": 61.83896017074585,
+      "host_peak_gib_rank0": 4.183559417724609
+    },
+    {
+      "phase": "pretrain",
+      "step": 326127,
+      "validation_loss": 0.09548094123601913,
+      "best_validation_loss": 0.091447614133358,
+      "phase_complete": false,
+      "time_utc": "2026-09-19T05:31:53.389747+00:00",
+      "peak_gpu_gib": 61.83896017074585,
+      "host_peak_gib_rank0": 4.183559417724609
+    },
+    {
+      "phase": "pretrain",
+      "step": 353314,
+      "validation_loss": 0.09540373831987381,
+      "best_validation_loss": 0.091447614133358,
+      "phase_complete": false,
+      "time_utc": "2026-09-19T05:51:54.204681+00:00",
+      "peak_gpu_gib": 61.83896017074585,
+      "host_peak_gib_rank0": 4.183559417724609
+    }
+  ],
+  "previous_pretrain_cap_hours": 37.8,
+  "new_finalizer_cap_hours": 4.2,
+  "joint_cap_hours": 16.2,
+  "original_job": "17977417",
+  "finalizer_job": "18006099",
+  "joint_job": "18006100",
+  "allocated_gpu_hours_before_transition": 46.418055555555554,
+  "conservative_projected_total": 350.58805555555557,
+  "note": "Same producer and batch/DDP settings; finalizer resumes last checkpoint past reduced cap, performs one final update, then selects best checkpoint. Joint training retains original 16.2-hour cap. AR curriculum unchanged. Unequal realized training budgets must be reported."
+}

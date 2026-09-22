@@ -1,0 +1,27 @@
+{
+  "origin_index": 294,
+  "origin_time": "2018-11-14 12:00:00",
+  "reference": "docs/experiments/surface-wave2-results/initialization/raw/snapshots.npz",
+  "channels": {
+    "thetao_5": {
+      "wet_cells": 42685,
+      "normalized_color_limit": 0.22141119480133054,
+      "depth_m": 105.0
+    },
+    "thetao_9": {
+      "wet_cells": 39710,
+      "normalized_color_limit": 0.30970520436763765,
+      "depth_m": 550.0
+    },
+    "so_5": {
+      "wet_cells": 42685,
+      "normalized_color_limit": 0.2739208173751831,
+      "depth_m": 105.0
+    },
+    "so_9": {
+      "wet_cells": 39710,
+      "normalized_color_limit": 0.2043664735555648,
+      "depth_m": 550.0
+    }
+  }
+}

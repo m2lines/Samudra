@@ -52,6 +52,17 @@ nav:
       - Contributing: contributing.md
       - Releasing: releasing.md
       - Rust data loader plan: rust-data-loader-plan.md
+  - Research:
+      - Surface-Initialized Wave 1 Plan: experiments/surface-wave1.md
+      - Surface-Initialized Wave 1 Results: experiments/surface-wave1-results/index.md
+      - Surface-Initialized Wave 2 Plan: experiments/surface-wave2-plan.md
+      - Surface-Initialized Wave 2 Results: experiments/surface-wave2-results/index.md
+      - Initializer Capacity and History Wave 3: experiments/surface-wave3-plan.md
+      - Initializer Wave 3 Results: experiments/surface-wave3-results/index.md
+      - Initializer diagnostics: experiments/surface-initializer-diagnostics-results/index.md
+      - One-field diffusion initializer pilot: experiments/surface-initializer-diffusion-results/index.md
+      - Observational Ocean Prediction: experiments/observational-ocean-prediction.md
+      - Ocean Prediction Literature Review: experiments/observational-ocean-literature-review.md
   - API Reference:
       - Models:
           - Base Model: models/base.md

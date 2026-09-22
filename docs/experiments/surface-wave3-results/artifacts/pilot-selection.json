@@ -1,0 +1,131 @@
+{
+  "criterion": "mean selected/initial validation T/S reconstruction MSE across the two input conditions; lower wins",
+  "protocol": {
+    "seed": 1729,
+    "batch_size": 2,
+    "accumulate": 2,
+    "hours": 0.5,
+    "data_root": "/scratch/jr7309/data/om4_onedeg_v3",
+    "val_origins": 12,
+    "world_size": 2,
+    "device": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+    "producer": "96aea56c92d82aa18255942b3443b87ed510a589"
+  },
+  "selected": {
+    "unet": {
+      "learning_rate": 0.0003,
+      "mean_selected_over_initial": {
+        "lr1": 0.004493606537429024,
+        "lr3": 0.004075963942943657
+      },
+      "pilots": {
+        "A-lr1": {
+          "selected_ts_mse": 0.004712906666100025,
+          "initial_ts_mse": 1.0436779260635376,
+          "selected_over_initial": 0.004515671500187607,
+          "steps": 33672
+        },
+        "A-lr3": {
+          "selected_ts_mse": 0.004343898966908455,
+          "initial_ts_mse": 1.0436779260635376,
+          "selected_over_initial": 0.004162106774924743,
+          "steps": 34390
+        },
+        "B-lr1": {
+          "selected_ts_mse": 0.004661234095692635,
+          "initial_ts_mse": 1.0424221754074097,
+          "selected_over_initial": 0.0044715415746704405,
+          "steps": 27651
+        },
+        "B-lr3": {
+          "selected_ts_mse": 0.004159078001976013,
+          "initial_ts_mse": 1.0424221754074097,
+          "selected_over_initial": 0.003989821110962573,
+          "steps": 27111
+        }
+      }
+    },
+    "wide": {
+      "learning_rate": 0.0003,
+      "mean_selected_over_initial": {
+        "lr1": 0.0035732029567080363,
+        "lr3": 0.003251390208616055
+      },
+      "pilots": {
+        "C-lr1": {
+          "selected_ts_mse": 0.003717042738571763,
+          "initial_ts_mse": 1.0893574953079224,
+          "selected_over_initial": 0.0034121422531921794,
+          "steps": 14137
+        },
+        "C-lr3": {
+          "selected_ts_mse": 0.003422376001253724,
+          "initial_ts_mse": 1.0893574953079224,
+          "selected_over_initial": 0.00314164635208788,
+          "steps": 12888
+        },
+        "D-lr1": {
+          "selected_ts_mse": 0.0038777561858296394,
+          "initial_ts_mse": 1.0384259223937988,
+          "selected_over_initial": 0.003734263660223893,
+          "steps": 13151
+        },
+        "D-lr3": {
+          "selected_ts_mse": 0.0034902887418866158,
+          "initial_ts_mse": 1.0384259223937988,
+          "selected_over_initial": 0.00336113406514423,
+          "steps": 12501
+        }
+      }
+    },
+    "swin": {
+      "learning_rate": 0.0003,
+      "mean_selected_over_initial": {
+        "lr1": 0.012206218127486904,
+        "lr3": 0.009396387336155988
+      },
+      "pilots": {
+        "E-lr1": {
+          "selected_ts_mse": 0.01088021695613861,
+          "initial_ts_mse": 0.9249292612075806,
+          "selected_over_initial": 0.01176329630001486,
+          "steps": 11805
+        },
+        "E-lr3": {
+          "selected_ts_mse": 0.008487904444336891,
+          "initial_ts_mse": 0.9249292612075806,
+          "selected_over_initial": 0.00917681470392141,
+          "steps": 11245
+        },
+        "F-lr1": {
+          "selected_ts_mse": 0.011659801006317139,
+          "initial_ts_mse": 0.9217860698699951,
+          "selected_over_initial": 0.01264913995495895,
+          "steps": 12451
+        },
+        "F-lr3": {
+          "selected_ts_mse": 0.008863857947289944,
+          "initial_ts_mse": 0.9217860698699951,
+          "selected_over_initial": 0.009615959968390568,
+          "steps": 12428
+        }
+      }
+    }
+  },
+  "locked_utc": "2026-09-22T00:47:39.193607+00:00",
+  "completed_pilot_jobs": {
+    "A-lr1": "18216271",
+    "A-lr3": "18216272",
+    "B-lr1": "18216273",
+    "B-lr3": "18216274",
+    "C-lr1": "18216275",
+    "C-lr3": "18216276",
+    "D-lr1": "18216278",
+    "D-lr3": "18216279",
+    "E-lr1": "18216428",
+    "E-lr3": "18216430",
+    "F-lr1": "18218824",
+    "F-lr3": "18218825"
+  },
+  "policy": "Validation only; all six primary runs restart from seed 1729 with fresh weights. No pilot checkpoint warm starts."
+}

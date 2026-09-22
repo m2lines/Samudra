@@ -1,0 +1,25 @@
+{
+  "state": {
+    "epoch": 35,
+    "cursor": 502,
+    "step": 12501,
+    "elapsed": 1801.098252839991,
+    "best": 0.0034902887418866158,
+    "bad_checks": 0,
+    "complete": true
+  },
+  "selected_validation": {
+    "ts_mse": 0.0034902887418866158,
+    "reconstruction_ts_mse": 0.0034902887418866158,
+    "full_mse": 0.07216817885637283,
+    "origins": 11
+  },
+  "selected_train_probe": {
+    "ts_mse": 0.002368485787883401,
+    "reconstruction_ts_mse": 0.002368485787883401,
+    "full_mse": 0.033167265355587006,
+    "origins": 11
+  },
+  "code_commit": "96aea56c92d82aa18255942b3443b87ed510a589",
+  "checkpoint_sha256": "43fc846b5b35850708d3f1b6cbecb7ba74a33abab7adec1a20bbab77ab07e9ab"
+}

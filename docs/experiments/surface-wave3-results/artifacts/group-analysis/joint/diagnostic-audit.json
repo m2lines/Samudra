@@ -1,0 +1,12 @@
+{
+  "A": {
+    "temporal_rows": 231,
+    "spatial_rows": 693,
+    "max_primary_mse_difference": 3.368726625430085e-08
+  },
+  "D": {
+    "temporal_rows": 231,
+    "spatial_rows": 693,
+    "max_primary_mse_difference": 2.4592010317014967e-08
+  }
+}

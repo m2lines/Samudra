@@ -1,0 +1,44 @@
+{
+  "selected": {
+    "path": "/scratch/jr7309/runs/2026-09-20-surface-wave2-rate-control/E/adapt-best.pt",
+    "bytes": 247658997,
+    "sha256": "893d390787c6a0b4c04450f7a9104f825c3c52fc22c5c73e4610014c9f2d94c9",
+    "state": {
+      "epoch": 152,
+      "cursor": 237,
+      "step": 53741,
+      "elapsed": 12600.193524718983,
+      "best": 0.0037730836775153875,
+      "bad_checks": 0,
+      "complete": false
+    },
+    "initializer_fingerprint": "399827ab2ac6fad5f659b106b5307c363a4a67c0824adf817a9a23f02d89bd0e",
+    "evolution_fingerprint": "a34e745bf004a8f5ea810947b7d30661bcb30d216e1a0a956d819a0e33207b78"
+  },
+  "last": {
+    "path": "/scratch/jr7309/runs/2026-09-20-surface-wave2-rate-control/E/adapt-last.pt",
+    "bytes": 742630257,
+    "sha256": "0856fef2816fbde097a68399b53f9e6c9077384ef361d52ea96dfea1fb2b5f41",
+    "state": {
+      "epoch": 152,
+      "cursor": 237,
+      "step": 53741,
+      "elapsed": 12600.642539627966,
+      "best": 0.0037730836775153875,
+      "bad_checks": 0,
+      "complete": true
+    }
+  },
+  "completion": {
+    "arm": "joint",
+    "seed": 1729,
+    "time_utc": "2026-09-21T07:04:28.477805+00:00",
+    "selected_ts_mse": 0.0037730836775153875
+  },
+  "audit_script": {
+    "path": "/tmp/audit.py",
+    "bytes": 3163,
+    "sha256": "58ef1cb8490c2b5ce4f9b31d5f3093d056608e471353eb96c30c31e8f0968b01"
+  },
+  "frozen_component_verified": null
+}

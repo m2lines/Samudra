@@ -1,0 +1,26 @@
+{
+  "verified_utc": "2026-09-20T12:21:04.489473+00:00",
+  "scope": "OM4-only five-day 5\u201330-day hindcasts, not observations or continuous long rollouts",
+  "source_files_sha256_verified": 26,
+  "heldout_rows_per_model": 5544,
+  "heldout_origins_per_model": 99,
+  "target_second_moments_max_difference": 0.0,
+  "climatology_metrics_identical": true,
+  "terminal_jobs": 41,
+  "gpu_hours": 176.08583333333334,
+  "budget_gpu_hours": 576,
+  "peak_concurrent_gpus": 8,
+  "peak_example": {
+    "time_utc": "2026-09-18T19:42:14Z",
+    "jobs": [
+      "17958513",
+      "17958514"
+    ]
+  },
+  "ar_gpu_hours": 138.25666666666666,
+  "direct_gpu_hours": 26.74222222222222,
+  "initializer_gpu_hours": 9.193888888888889,
+  "passive_monitor_cancelled": true,
+  "next_wave_submitted": false,
+  "other_smoke_and_recovery_gpu_hours": 1.89305555555557
+}

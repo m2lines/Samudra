@@ -1,0 +1,8 @@
+{"event": "cache_warm_start", "frames": 600, "cache_gib": 11.587142944335938, "time_utc": "2026-09-21T14:08:54.022303+00:00", "peak_gpu_gib": 12.615370273590088, "host_peak_gib_rank0": 1.3823471069335938}
+{"event": "cache_ready", "frames": 600, "cache_gib": 11.587142944335938, "native_equivalence": "exact", "time_utc": "2026-09-21T14:09:25.595253+00:00", "peak_gpu_gib": 18.01239252090454, "host_peak_gib_rank0": 2.8260650634765625}
+{"event": "diagnostic_progress", "origins": 20, "time_utc": "2026-09-21T14:09:48.194568+00:00", "peak_gpu_gib": 18.01239252090454, "host_peak_gib_rank0": 3.5417442321777344}
+{"event": "diagnostic_progress", "origins": 40, "time_utc": "2026-09-21T14:10:09.432743+00:00", "peak_gpu_gib": 18.01239252090454, "host_peak_gib_rank0": 3.6081504821777344}
+{"event": "diagnostic_progress", "origins": 60, "time_utc": "2026-09-21T14:10:30.656172+00:00", "peak_gpu_gib": 18.01239252090454, "host_peak_gib_rank0": 3.6823692321777344}
+{"event": "diagnostic_progress", "origins": 80, "time_utc": "2026-09-21T14:10:51.874840+00:00", "peak_gpu_gib": 18.01239252090454, "host_peak_gib_rank0": 3.7507286071777344}
+{"event": "diagnostic_progress", "origins": 99, "time_utc": "2026-09-21T14:11:12.105423+00:00", "peak_gpu_gib": 18.01239252090454, "host_peak_gib_rank0": 3.8894729614257812}
+{"event": "diagnostic_complete", "origins": 99, "time_utc": "2026-09-21T14:11:15.143866+00:00", "peak_gpu_gib": 18.01239252090454, "host_peak_gib_rank0": 3.9197616577148438}

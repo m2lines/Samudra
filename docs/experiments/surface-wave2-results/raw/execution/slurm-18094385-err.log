@@ -1,0 +1,4 @@
+WARNING: SINGULARITY_CACHEDIR and APPTAINER_CACHEDIR have different values, using the latter
+INFO:    Using cached SIF image
+INFO:    Creating overlay image for use without fakeroot.
+INFO:    Consider re-running with --fakeroot option.

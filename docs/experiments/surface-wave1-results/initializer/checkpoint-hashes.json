@@ -1,0 +1,12 @@
+{
+  "initializer-best.pt": {
+    "sha256": "f1090032443afcbe6b5885c23b7c496ba7bb8684bf0074e96c5f5945b8499897",
+    "bytes": 120996307,
+    "mtime_utc": "2026-09-18T23:20:49.753170+00:00"
+  },
+  "initializer-last.pt": {
+    "sha256": "7435e7570df83fec0eb9dc68d111fc5ceac8e2afb1d23e39227a54986bd81f1b",
+    "bytes": 362827077,
+    "mtime_utc": "2026-09-19T01:21:35.813431+00:00"
+  }
+}

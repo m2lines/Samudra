@@ -1,0 +1,22 @@
+{
+  "pretrain-best.pt": {
+    "sha256": "7ad28f1e68e9dcad9f5f4898f6fe5ffea46ef6178ae1783195ae953478b53c67",
+    "bytes": 248711875,
+    "mtime_utc": "2026-09-19T03:11:47.198246+00:00"
+  },
+  "pretrain-last.pt": {
+    "sha256": "951b44eea399e7a70d48f5a6da0d15218337b04c0b3701d12bef0e7a9598e664",
+    "bytes": 503960875,
+    "mtime_utc": "2026-09-19T05:59:19.896923+00:00"
+  },
+  "joint-best.pt": {
+    "sha256": "8e5183f48c2a662972e1af178b6bc5ab475f4a34717c36fa8156c7f2c342b3ee",
+    "bytes": 248710777,
+    "mtime_utc": "2026-09-19T06:00:00.966249+00:00"
+  },
+  "joint-last.pt": {
+    "sha256": "e6bbf46600938650b224a26c661d728cb08df984376e414be96bea58afae7b80",
+    "bytes": 745787209,
+    "mtime_utc": "2026-09-19T08:14:13.673450+00:00"
+  }
+}

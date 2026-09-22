@@ -1,0 +1,122 @@
+[
+  {
+    "run": "C",
+    "checkpoint": "/scratch/jr7309/runs/2026-09-22-initializer-wave3-primary/C/best.pt",
+    "sha256": "34da7f91687a491778051e7dfea6f7948af9bb12dfda5d7efb663176fea24725",
+    "producer": "96aea56c92d82aa18255942b3443b87ed510a589",
+    "evaluation_job": "18254612",
+    "training_job": "18221172",
+    "origins": 99,
+    "world_size": 2
+  },
+  {
+    "run": "E",
+    "checkpoint": "/scratch/jr7309/runs/2026-09-22-initializer-wave3-primary/E/best.pt",
+    "sha256": "6c7b8c755c053d3291c0d6f91dca49609b1544278300c373a7eb4c82577108cb",
+    "producer": "96aea56c92d82aa18255942b3443b87ed510a589",
+    "evaluation_job": "18253472",
+    "training_job": "18221174",
+    "origins": 99,
+    "world_size": 2
+  },
+  {
+    "run": "F",
+    "checkpoint": "/scratch/jr7309/runs/2026-09-22-initializer-wave3-primary/F/best.pt",
+    "sha256": "65d346592b44523e9e7c8ad34df35340d70304ed4a6d520334af5d2a1cfce704",
+    "producer": "96aea56c92d82aa18255942b3443b87ed510a589",
+    "evaluation_job": "18253474",
+    "training_job": "18221175",
+    "origins": 99,
+    "world_size": 2
+  },
+  {
+    "run": "F-lr1",
+    "checkpoint": "/scratch/jr7309/runs/2026-09-22-initializer-wave3-stability/F-lr1/best.pt",
+    "sha256": "f71cdd68976a707c798c5d8365d3a6d4176ba59c7026f78c1d8c1ad2b5583263",
+    "producer": "96aea56c92d82aa18255942b3443b87ed510a589",
+    "evaluation_job": "18253476",
+    "training_job": "18241183",
+    "origins": 99,
+    "world_size": 2
+  },
+  {
+    "run": "D",
+    "checkpoint": "/scratch/jr7309/runs/2026-09-22-initializer-wave3-primary/D/best.pt",
+    "sha256": "22e629f41c418fa93ee3ec0a3257d80d71d77b02b2fe1cbd89eae04507d22905",
+    "producer": "96aea56c92d82aa18255942b3443b87ed510a589",
+    "evaluation_job": "18253470",
+    "training_job": "18221173",
+    "origins": 99,
+    "world_size": 2
+  },
+  {
+    "run": "A",
+    "checkpoint": "/scratch/jr7309/runs/2026-09-22-initializer-wave3-primary/A/best.pt",
+    "sha256": "35e1f06b8b0da4626941541743ef24e7cd713a18fcdefeb5b47e6054d80b91c7",
+    "producer": "96aea56c92d82aa18255942b3443b87ed510a589",
+    "evaluation_job": "18253464",
+    "training_job": "18221169",
+    "origins": 99,
+    "world_size": 2
+  },
+  {
+    "run": "D-joint",
+    "checkpoint": "/scratch/jr7309/runs/2026-09-22-initializer-wave3-joint/D/best.pt",
+    "sha256": "a0c42c23d38050a9789c54474ab88feafaea78a874af1935511c80e42c959756",
+    "producer": "96aea56c92d82aa18255942b3443b87ed510a589",
+    "evaluation_job": "18253487",
+    "training_job": "18241143",
+    "origins": 99,
+    "world_size": 2
+  },
+  {
+    "run": "E-lr1",
+    "checkpoint": "/scratch/jr7309/runs/2026-09-22-initializer-wave3-stability/E-lr1/best.pt",
+    "sha256": "96fec1be3cb2ca339863d25d3a69064010f6c919b9549a02680140cabf5be598",
+    "producer": "96aea56c92d82aa18255942b3443b87ed510a589",
+    "evaluation_job": "18253475",
+    "training_job": "18241180",
+    "origins": 99,
+    "world_size": 2
+  },
+  {
+    "run": "A-s2718",
+    "checkpoint": "/scratch/jr7309/runs/2026-09-22-initializer-wave3-replicates/A-s2718/best.pt",
+    "sha256": "d36b4081e8ff16926009b46024e1bbeb5f2ea225205d491db7fb45f39a8bd944",
+    "producer": "96aea56c92d82aa18255942b3443b87ed510a589",
+    "evaluation_job": "18253477",
+    "training_job": "18238731",
+    "origins": 99,
+    "world_size": 2
+  },
+  {
+    "run": "B",
+    "checkpoint": "/scratch/jr7309/runs/2026-09-22-initializer-wave3-primary/B/best.pt",
+    "sha256": "83183931b0dfa31ad93869460809d1bf53fd7df3e50ea6dff52627a2f2be7b9c",
+    "producer": "96aea56c92d82aa18255942b3443b87ed510a589",
+    "evaluation_job": "18253467",
+    "training_job": "18221171",
+    "origins": 99,
+    "world_size": 2
+  },
+  {
+    "run": "A-joint",
+    "checkpoint": "/scratch/jr7309/runs/2026-09-22-initializer-wave3-joint/A/best.pt",
+    "sha256": "7863b6084d9bf97c739307510d583502e32b239389c830e7c8145ca506ff276e",
+    "producer": "96aea56c92d82aa18255942b3443b87ed510a589",
+    "evaluation_job": "18253481",
+    "training_job": "18240594",
+    "origins": 99,
+    "world_size": 2
+  },
+  {
+    "run": "D-s2718",
+    "checkpoint": "/scratch/jr7309/runs/2026-09-22-initializer-wave3-replicates/D-s2718/best.pt",
+    "sha256": "fbb7870b79c923175ea5385cbcafe7731b1570b82403b0ab2f152b62860cf704",
+    "producer": "96aea56c92d82aa18255942b3443b87ed510a589",
+    "evaluation_job": "18253479",
+    "training_job": "18241142",
+    "origins": 99,
+    "world_size": 2
+  }
+]

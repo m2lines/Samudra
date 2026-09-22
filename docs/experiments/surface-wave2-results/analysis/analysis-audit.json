@@ -1,0 +1,1706 @@
+{
+  "arms": {
+    "A": {
+      "manifest": {
+        "arguments": {
+          "arm": "initializer",
+          "wave1_root": "/scratch/jr7309/runs/2026-09-18-surface-wave1",
+          "output": "/scratch/jr7309/runs/2026-09-20-surface-wave2/A",
+          "name": "2026-09-20-surface-wave2-A",
+          "data_root": "/scratch/jr7309/data/om4_onedeg_v3",
+          "hours": 3.5,
+          "learning_rate": 1e-05,
+          "reconstruction_weight": 0.1,
+          "seed": 1729,
+          "batch_size": 2,
+          "widths": [
+            128,
+            192,
+            256,
+            384
+          ],
+          "readers": 8,
+          "device_cache": true,
+          "device_cache_reserve_gib": 24,
+          "val_origins": 12,
+          "checkpoint_seconds": 1200,
+          "patience": 6,
+          "min_hours": 1,
+          "max_steps": 0,
+          "wandb_mode": "online"
+        },
+        "data": {
+          "sources": [
+            {
+              "type": "om4",
+              "train_time": {
+                "start": "1975-01-03",
+                "end": "2013-10-04"
+              },
+              "val_time": {
+                "start": "2013-10-05",
+                "end": "2014-10-05"
+              },
+              "inference_times": [
+                {
+                  "start": "2014-10-10",
+                  "end": "2022-12-24"
+                }
+              ],
+              "data_location": "OM4.zarr",
+              "data_means_location": "OM4_means.zarr",
+              "data_stds_location": "OM4_stds.zarr",
+              "prognostic_vars_key": "thermo_dynamic_all",
+              "boundary_vars_key": "tau_hfds",
+              "grid_type": "gaussian"
+            }
+          ],
+          "loading": {
+            "type": "rust",
+            "prefetch_batches": 2,
+            "max_concurrent_reads": 8,
+            "prefetch_to_device": true
+          },
+          "inference_loading": {
+            "num_workers": 4,
+            "persistent_workers": true
+          },
+          "hist": null,
+          "input_steps": 6,
+          "output_steps": 1,
+          "loader_version": "om4-torch",
+          "normalize_before_mask": true,
+          "masked_fill_value": 0.0,
+          "concurrent_compute": false
+        },
+        "world_size": 4,
+        "channels": [
+          "uo_0",
+          "uo_1",
+          "uo_2",
+          "uo_3",
+          "uo_4",
+          "uo_5",
+          "uo_6",
+          "uo_7",
+          "uo_8",
+          "uo_9",
+          "uo_10",
+          "uo_11",
+          "uo_12",
+          "uo_13",
+          "uo_14",
+          "uo_15",
+          "uo_16",
+          "uo_17",
+          "uo_18",
+          "vo_0",
+          "vo_1",
+          "vo_2",
+          "vo_3",
+          "vo_4",
+          "vo_5",
+          "vo_6",
+          "vo_7",
+          "vo_8",
+          "vo_9",
+          "vo_10",
+          "vo_11",
+          "vo_12",
+          "vo_13",
+          "vo_14",
+          "vo_15",
+          "vo_16",
+          "vo_17",
+          "vo_18",
+          "thetao_0",
+          "thetao_1",
+          "thetao_2",
+          "thetao_3",
+          "thetao_4",
+          "thetao_5",
+          "thetao_6",
+          "thetao_7",
+          "thetao_8",
+          "thetao_9",
+          "thetao_10",
+          "thetao_11",
+          "thetao_12",
+          "thetao_13",
+          "thetao_14",
+          "thetao_15",
+          "thetao_16",
+          "thetao_17",
+          "thetao_18",
+          "so_0",
+          "so_1",
+          "so_2",
+          "so_3",
+          "so_4",
+          "so_5",
+          "so_6",
+          "so_7",
+          "so_8",
+          "so_9",
+          "so_10",
+          "so_11",
+          "so_12",
+          "so_13",
+          "so_14",
+          "so_15",
+          "so_16",
+          "so_17",
+          "so_18",
+          "zos"
+        ],
+        "depths_m": [
+          2.5,
+          10.0,
+          22.5,
+          40.0,
+          65.0,
+          105.0,
+          165.0,
+          250.0,
+          375.0,
+          550.0,
+          775.0,
+          1050.0,
+          1400.0,
+          1850.0,
+          2400.0,
+          3100.0,
+          4000.0,
+          5000.0,
+          6000.0
+        ],
+        "code_commit": "b46eb446f153a967869bbfc7f9e93783de986579",
+        "slurm_job_id": "18097624",
+        "device": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "normalization": "existing mean/std files; date range explicitly approved",
+        "boundary": "OM4 tauuo/tauvo/hfds at interval-start frame, five-day cadence",
+        "claims": "model-world feasibility only; no observational or daily skill claim"
+      },
+      "completion": {
+        "arm": "initializer",
+        "seed": 1729,
+        "time_utc": "2026-09-21T00:00:30.956669+00:00",
+        "selected_ts_mse": 0.004116050433367491
+      },
+      "initialization": {
+        "initial_model_fingerprint": "12f5afc6b205bbe057cb60074c01f8be37503a5333788526aaf98f881ed59ee8",
+        "initial_initializer_fingerprint": "2f70620684763abf786ba727438ef0a186d1d25155f0b278557b2f5c6f99562a",
+        "initial_evolution_fingerprint": "bf1a6e75183b9b2ca466679ca36ae7a65ed2e693d2715452082643afcb135873",
+        "arm": "initializer",
+        "data_order_seed": 1729,
+        "checkpoint_selection": "mean normalized MSE, equal subsurface T/S and leads 5-30 days",
+        "pretrain": {
+          "path": "/scratch/jr7309/runs/2026-09-18-surface-wave1/ar/pretrain-best.pt",
+          "sha256": "6f35bcb505a29af930211243a9f9a1649d6fff295bd1ebcb1d39dcb8ebf693ea"
+        },
+        "wave1_joint": {
+          "path": "/scratch/jr7309/runs/2026-09-18-surface-wave1/ar/joint-best.pt",
+          "sha256": "0f8349cb0a682f1e7db453060029d8309907dd4ed63454259ad3ef2d5ec893d1"
+        },
+        "shared_initializer": {
+          "path": "/scratch/jr7309/runs/2026-09-18-surface-wave1/initializer/initializer-best.pt",
+          "sha256": "f1090032443afcbe6b5885c23b7c496ba7bb8684bf0074e96c5f5945b8499897"
+        },
+        "protocol": {
+          "learning_rate": 1e-05,
+          "reconstruction_weight": 0.1,
+          "batch_size": 2,
+          "world_size": 4,
+          "max_steps": 0,
+          "val_origins": 12
+        }
+      }
+    },
+    "B": {
+      "manifest": {
+        "arguments": {
+          "arm": "evolution",
+          "wave1_root": "/scratch/jr7309/runs/2026-09-18-surface-wave1",
+          "output": "/scratch/jr7309/runs/2026-09-20-surface-wave2/B",
+          "name": "2026-09-20-surface-wave2-B",
+          "data_root": "/scratch/jr7309/data/om4_onedeg_v3",
+          "hours": 3.5,
+          "learning_rate": 1e-05,
+          "reconstruction_weight": 0.1,
+          "seed": 1729,
+          "batch_size": 2,
+          "widths": [
+            128,
+            192,
+            256,
+            384
+          ],
+          "readers": 8,
+          "device_cache": true,
+          "device_cache_reserve_gib": 24,
+          "val_origins": 12,
+          "checkpoint_seconds": 1200,
+          "patience": 6,
+          "min_hours": 1,
+          "max_steps": 0,
+          "wandb_mode": "online"
+        },
+        "data": {
+          "sources": [
+            {
+              "type": "om4",
+              "train_time": {
+                "start": "1975-01-03",
+                "end": "2013-10-04"
+              },
+              "val_time": {
+                "start": "2013-10-05",
+                "end": "2014-10-05"
+              },
+              "inference_times": [
+                {
+                  "start": "2014-10-10",
+                  "end": "2022-12-24"
+                }
+              ],
+              "data_location": "OM4.zarr",
+              "data_means_location": "OM4_means.zarr",
+              "data_stds_location": "OM4_stds.zarr",
+              "prognostic_vars_key": "thermo_dynamic_all",
+              "boundary_vars_key": "tau_hfds",
+              "grid_type": "gaussian"
+            }
+          ],
+          "loading": {
+            "type": "rust",
+            "prefetch_batches": 2,
+            "max_concurrent_reads": 8,
+            "prefetch_to_device": true
+          },
+          "inference_loading": {
+            "num_workers": 4,
+            "persistent_workers": true
+          },
+          "hist": null,
+          "input_steps": 6,
+          "output_steps": 1,
+          "loader_version": "om4-torch",
+          "normalize_before_mask": true,
+          "masked_fill_value": 0.0,
+          "concurrent_compute": false
+        },
+        "world_size": 4,
+        "channels": [
+          "uo_0",
+          "uo_1",
+          "uo_2",
+          "uo_3",
+          "uo_4",
+          "uo_5",
+          "uo_6",
+          "uo_7",
+          "uo_8",
+          "uo_9",
+          "uo_10",
+          "uo_11",
+          "uo_12",
+          "uo_13",
+          "uo_14",
+          "uo_15",
+          "uo_16",
+          "uo_17",
+          "uo_18",
+          "vo_0",
+          "vo_1",
+          "vo_2",
+          "vo_3",
+          "vo_4",
+          "vo_5",
+          "vo_6",
+          "vo_7",
+          "vo_8",
+          "vo_9",
+          "vo_10",
+          "vo_11",
+          "vo_12",
+          "vo_13",
+          "vo_14",
+          "vo_15",
+          "vo_16",
+          "vo_17",
+          "vo_18",
+          "thetao_0",
+          "thetao_1",
+          "thetao_2",
+          "thetao_3",
+          "thetao_4",
+          "thetao_5",
+          "thetao_6",
+          "thetao_7",
+          "thetao_8",
+          "thetao_9",
+          "thetao_10",
+          "thetao_11",
+          "thetao_12",
+          "thetao_13",
+          "thetao_14",
+          "thetao_15",
+          "thetao_16",
+          "thetao_17",
+          "thetao_18",
+          "so_0",
+          "so_1",
+          "so_2",
+          "so_3",
+          "so_4",
+          "so_5",
+          "so_6",
+          "so_7",
+          "so_8",
+          "so_9",
+          "so_10",
+          "so_11",
+          "so_12",
+          "so_13",
+          "so_14",
+          "so_15",
+          "so_16",
+          "so_17",
+          "so_18",
+          "zos"
+        ],
+        "depths_m": [
+          2.5,
+          10.0,
+          22.5,
+          40.0,
+          65.0,
+          105.0,
+          165.0,
+          250.0,
+          375.0,
+          550.0,
+          775.0,
+          1050.0,
+          1400.0,
+          1850.0,
+          2400.0,
+          3100.0,
+          4000.0,
+          5000.0,
+          6000.0
+        ],
+        "code_commit": "b46eb446f153a967869bbfc7f9e93783de986579",
+        "slurm_job_id": "18097625",
+        "device": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "normalization": "existing mean/std files; date range explicitly approved",
+        "boundary": "OM4 tauuo/tauvo/hfds at interval-start frame, five-day cadence",
+        "claims": "model-world feasibility only; no observational or daily skill claim"
+      },
+      "completion": {
+        "arm": "evolution",
+        "seed": 1729,
+        "time_utc": "2026-09-21T00:00:52.499265+00:00",
+        "selected_ts_mse": 0.00415980676189065
+      },
+      "initialization": {
+        "initial_model_fingerprint": "12f5afc6b205bbe057cb60074c01f8be37503a5333788526aaf98f881ed59ee8",
+        "initial_initializer_fingerprint": "2f70620684763abf786ba727438ef0a186d1d25155f0b278557b2f5c6f99562a",
+        "initial_evolution_fingerprint": "bf1a6e75183b9b2ca466679ca36ae7a65ed2e693d2715452082643afcb135873",
+        "arm": "evolution",
+        "data_order_seed": 1729,
+        "checkpoint_selection": "mean normalized MSE, equal subsurface T/S and leads 5-30 days",
+        "pretrain": {
+          "path": "/scratch/jr7309/runs/2026-09-18-surface-wave1/ar/pretrain-best.pt",
+          "sha256": "6f35bcb505a29af930211243a9f9a1649d6fff295bd1ebcb1d39dcb8ebf693ea"
+        },
+        "wave1_joint": {
+          "path": "/scratch/jr7309/runs/2026-09-18-surface-wave1/ar/joint-best.pt",
+          "sha256": "0f8349cb0a682f1e7db453060029d8309907dd4ed63454259ad3ef2d5ec893d1"
+        },
+        "shared_initializer": {
+          "path": "/scratch/jr7309/runs/2026-09-18-surface-wave1/initializer/initializer-best.pt",
+          "sha256": "f1090032443afcbe6b5885c23b7c496ba7bb8684bf0074e96c5f5945b8499897"
+        },
+        "protocol": {
+          "learning_rate": 1e-05,
+          "reconstruction_weight": 0.1,
+          "batch_size": 2,
+          "world_size": 4,
+          "max_steps": 0,
+          "val_origins": 12
+        }
+      }
+    },
+    "C": {
+      "manifest": {
+        "arguments": {
+          "arm": "joint",
+          "wave1_root": "/scratch/jr7309/runs/2026-09-18-surface-wave1",
+          "output": "/scratch/jr7309/runs/2026-09-20-surface-wave2/C",
+          "name": "2026-09-20-surface-wave2-C",
+          "data_root": "/scratch/jr7309/data/om4_onedeg_v3",
+          "hours": 3.5,
+          "learning_rate": 1e-05,
+          "reconstruction_weight": 0.1,
+          "seed": 1729,
+          "batch_size": 2,
+          "widths": [
+            128,
+            192,
+            256,
+            384
+          ],
+          "readers": 8,
+          "device_cache": true,
+          "device_cache_reserve_gib": 24,
+          "val_origins": 12,
+          "checkpoint_seconds": 1200,
+          "patience": 6,
+          "min_hours": 1,
+          "max_steps": 0,
+          "wandb_mode": "online"
+        },
+        "data": {
+          "sources": [
+            {
+              "type": "om4",
+              "train_time": {
+                "start": "1975-01-03",
+                "end": "2013-10-04"
+              },
+              "val_time": {
+                "start": "2013-10-05",
+                "end": "2014-10-05"
+              },
+              "inference_times": [
+                {
+                  "start": "2014-10-10",
+                  "end": "2022-12-24"
+                }
+              ],
+              "data_location": "OM4.zarr",
+              "data_means_location": "OM4_means.zarr",
+              "data_stds_location": "OM4_stds.zarr",
+              "prognostic_vars_key": "thermo_dynamic_all",
+              "boundary_vars_key": "tau_hfds",
+              "grid_type": "gaussian"
+            }
+          ],
+          "loading": {
+            "type": "rust",
+            "prefetch_batches": 2,
+            "max_concurrent_reads": 8,
+            "prefetch_to_device": true
+          },
+          "inference_loading": {
+            "num_workers": 4,
+            "persistent_workers": true
+          },
+          "hist": null,
+          "input_steps": 6,
+          "output_steps": 1,
+          "loader_version": "om4-torch",
+          "normalize_before_mask": true,
+          "masked_fill_value": 0.0,
+          "concurrent_compute": false
+        },
+        "world_size": 4,
+        "channels": [
+          "uo_0",
+          "uo_1",
+          "uo_2",
+          "uo_3",
+          "uo_4",
+          "uo_5",
+          "uo_6",
+          "uo_7",
+          "uo_8",
+          "uo_9",
+          "uo_10",
+          "uo_11",
+          "uo_12",
+          "uo_13",
+          "uo_14",
+          "uo_15",
+          "uo_16",
+          "uo_17",
+          "uo_18",
+          "vo_0",
+          "vo_1",
+          "vo_2",
+          "vo_3",
+          "vo_4",
+          "vo_5",
+          "vo_6",
+          "vo_7",
+          "vo_8",
+          "vo_9",
+          "vo_10",
+          "vo_11",
+          "vo_12",
+          "vo_13",
+          "vo_14",
+          "vo_15",
+          "vo_16",
+          "vo_17",
+          "vo_18",
+          "thetao_0",
+          "thetao_1",
+          "thetao_2",
+          "thetao_3",
+          "thetao_4",
+          "thetao_5",
+          "thetao_6",
+          "thetao_7",
+          "thetao_8",
+          "thetao_9",
+          "thetao_10",
+          "thetao_11",
+          "thetao_12",
+          "thetao_13",
+          "thetao_14",
+          "thetao_15",
+          "thetao_16",
+          "thetao_17",
+          "thetao_18",
+          "so_0",
+          "so_1",
+          "so_2",
+          "so_3",
+          "so_4",
+          "so_5",
+          "so_6",
+          "so_7",
+          "so_8",
+          "so_9",
+          "so_10",
+          "so_11",
+          "so_12",
+          "so_13",
+          "so_14",
+          "so_15",
+          "so_16",
+          "so_17",
+          "so_18",
+          "zos"
+        ],
+        "depths_m": [
+          2.5,
+          10.0,
+          22.5,
+          40.0,
+          65.0,
+          105.0,
+          165.0,
+          250.0,
+          375.0,
+          550.0,
+          775.0,
+          1050.0,
+          1400.0,
+          1850.0,
+          2400.0,
+          3100.0,
+          4000.0,
+          5000.0,
+          6000.0
+        ],
+        "code_commit": "b46eb446f153a967869bbfc7f9e93783de986579",
+        "slurm_job_id": "18097626",
+        "device": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "normalization": "existing mean/std files; date range explicitly approved",
+        "boundary": "OM4 tauuo/tauvo/hfds at interval-start frame, five-day cadence",
+        "claims": "model-world feasibility only; no observational or daily skill claim"
+      },
+      "completion": {
+        "arm": "joint",
+        "seed": 1729,
+        "time_utc": "2026-09-21T03:32:26.075372+00:00",
+        "selected_ts_mse": 0.0038030201103538275
+      },
+      "initialization": {
+        "initial_model_fingerprint": "12f5afc6b205bbe057cb60074c01f8be37503a5333788526aaf98f881ed59ee8",
+        "initial_initializer_fingerprint": "2f70620684763abf786ba727438ef0a186d1d25155f0b278557b2f5c6f99562a",
+        "initial_evolution_fingerprint": "bf1a6e75183b9b2ca466679ca36ae7a65ed2e693d2715452082643afcb135873",
+        "arm": "joint",
+        "data_order_seed": 1729,
+        "checkpoint_selection": "mean normalized MSE, equal subsurface T/S and leads 5-30 days",
+        "pretrain": {
+          "path": "/scratch/jr7309/runs/2026-09-18-surface-wave1/ar/pretrain-best.pt",
+          "sha256": "6f35bcb505a29af930211243a9f9a1649d6fff295bd1ebcb1d39dcb8ebf693ea"
+        },
+        "wave1_joint": {
+          "path": "/scratch/jr7309/runs/2026-09-18-surface-wave1/ar/joint-best.pt",
+          "sha256": "0f8349cb0a682f1e7db453060029d8309907dd4ed63454259ad3ef2d5ec893d1"
+        },
+        "shared_initializer": {
+          "path": "/scratch/jr7309/runs/2026-09-18-surface-wave1/initializer/initializer-best.pt",
+          "sha256": "f1090032443afcbe6b5885c23b7c496ba7bb8684bf0074e96c5f5945b8499897"
+        },
+        "protocol": {
+          "learning_rate": 1e-05,
+          "reconstruction_weight": 0.1,
+          "batch_size": 2,
+          "world_size": 4,
+          "max_steps": 0,
+          "val_origins": 12
+        }
+      }
+    },
+    "D": {
+      "manifest": {
+        "arguments": {
+          "arm": "joint",
+          "wave1_root": "/scratch/jr7309/runs/2026-09-18-surface-wave1",
+          "output": "/scratch/jr7309/runs/2026-09-20-surface-wave2/D",
+          "name": "2026-09-20-surface-wave2-D",
+          "data_root": "/scratch/jr7309/data/om4_onedeg_v3",
+          "hours": 3.5,
+          "learning_rate": 1e-05,
+          "reconstruction_weight": 0.1,
+          "seed": 1730,
+          "batch_size": 2,
+          "widths": [
+            128,
+            192,
+            256,
+            384
+          ],
+          "readers": 8,
+          "device_cache": true,
+          "device_cache_reserve_gib": 24,
+          "val_origins": 12,
+          "checkpoint_seconds": 1200,
+          "patience": 6,
+          "min_hours": 1,
+          "max_steps": 0,
+          "wandb_mode": "online"
+        },
+        "data": {
+          "sources": [
+            {
+              "type": "om4",
+              "train_time": {
+                "start": "1975-01-03",
+                "end": "2013-10-04"
+              },
+              "val_time": {
+                "start": "2013-10-05",
+                "end": "2014-10-05"
+              },
+              "inference_times": [
+                {
+                  "start": "2014-10-10",
+                  "end": "2022-12-24"
+                }
+              ],
+              "data_location": "OM4.zarr",
+              "data_means_location": "OM4_means.zarr",
+              "data_stds_location": "OM4_stds.zarr",
+              "prognostic_vars_key": "thermo_dynamic_all",
+              "boundary_vars_key": "tau_hfds",
+              "grid_type": "gaussian"
+            }
+          ],
+          "loading": {
+            "type": "rust",
+            "prefetch_batches": 2,
+            "max_concurrent_reads": 8,
+            "prefetch_to_device": true
+          },
+          "inference_loading": {
+            "num_workers": 4,
+            "persistent_workers": true
+          },
+          "hist": null,
+          "input_steps": 6,
+          "output_steps": 1,
+          "loader_version": "om4-torch",
+          "normalize_before_mask": true,
+          "masked_fill_value": 0.0,
+          "concurrent_compute": false
+        },
+        "world_size": 4,
+        "channels": [
+          "uo_0",
+          "uo_1",
+          "uo_2",
+          "uo_3",
+          "uo_4",
+          "uo_5",
+          "uo_6",
+          "uo_7",
+          "uo_8",
+          "uo_9",
+          "uo_10",
+          "uo_11",
+          "uo_12",
+          "uo_13",
+          "uo_14",
+          "uo_15",
+          "uo_16",
+          "uo_17",
+          "uo_18",
+          "vo_0",
+          "vo_1",
+          "vo_2",
+          "vo_3",
+          "vo_4",
+          "vo_5",
+          "vo_6",
+          "vo_7",
+          "vo_8",
+          "vo_9",
+          "vo_10",
+          "vo_11",
+          "vo_12",
+          "vo_13",
+          "vo_14",
+          "vo_15",
+          "vo_16",
+          "vo_17",
+          "vo_18",
+          "thetao_0",
+          "thetao_1",
+          "thetao_2",
+          "thetao_3",
+          "thetao_4",
+          "thetao_5",
+          "thetao_6",
+          "thetao_7",
+          "thetao_8",
+          "thetao_9",
+          "thetao_10",
+          "thetao_11",
+          "thetao_12",
+          "thetao_13",
+          "thetao_14",
+          "thetao_15",
+          "thetao_16",
+          "thetao_17",
+          "thetao_18",
+          "so_0",
+          "so_1",
+          "so_2",
+          "so_3",
+          "so_4",
+          "so_5",
+          "so_6",
+          "so_7",
+          "so_8",
+          "so_9",
+          "so_10",
+          "so_11",
+          "so_12",
+          "so_13",
+          "so_14",
+          "so_15",
+          "so_16",
+          "so_17",
+          "so_18",
+          "zos"
+        ],
+        "depths_m": [
+          2.5,
+          10.0,
+          22.5,
+          40.0,
+          65.0,
+          105.0,
+          165.0,
+          250.0,
+          375.0,
+          550.0,
+          775.0,
+          1050.0,
+          1400.0,
+          1850.0,
+          2400.0,
+          3100.0,
+          4000.0,
+          5000.0,
+          6000.0
+        ],
+        "code_commit": "b46eb446f153a967869bbfc7f9e93783de986579",
+        "slurm_job_id": "18097627",
+        "device": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "normalization": "existing mean/std files; date range explicitly approved",
+        "boundary": "OM4 tauuo/tauvo/hfds at interval-start frame, five-day cadence",
+        "claims": "model-world feasibility only; no observational or daily skill claim"
+      },
+      "completion": {
+        "arm": "joint",
+        "seed": 1730,
+        "time_utc": "2026-09-21T03:32:46.209585+00:00",
+        "selected_ts_mse": 0.003800775855779648
+      },
+      "initialization": {
+        "initial_model_fingerprint": "12f5afc6b205bbe057cb60074c01f8be37503a5333788526aaf98f881ed59ee8",
+        "initial_initializer_fingerprint": "2f70620684763abf786ba727438ef0a186d1d25155f0b278557b2f5c6f99562a",
+        "initial_evolution_fingerprint": "bf1a6e75183b9b2ca466679ca36ae7a65ed2e693d2715452082643afcb135873",
+        "arm": "joint",
+        "data_order_seed": 1730,
+        "checkpoint_selection": "mean normalized MSE, equal subsurface T/S and leads 5-30 days",
+        "pretrain": {
+          "path": "/scratch/jr7309/runs/2026-09-18-surface-wave1/ar/pretrain-best.pt",
+          "sha256": "6f35bcb505a29af930211243a9f9a1649d6fff295bd1ebcb1d39dcb8ebf693ea"
+        },
+        "wave1_joint": {
+          "path": "/scratch/jr7309/runs/2026-09-18-surface-wave1/ar/joint-best.pt",
+          "sha256": "0f8349cb0a682f1e7db453060029d8309907dd4ed63454259ad3ef2d5ec893d1"
+        },
+        "shared_initializer": {
+          "path": "/scratch/jr7309/runs/2026-09-18-surface-wave1/initializer/initializer-best.pt",
+          "sha256": "f1090032443afcbe6b5885c23b7c496ba7bb8684bf0074e96c5f5945b8499897"
+        },
+        "protocol": {
+          "learning_rate": 1e-05,
+          "reconstruction_weight": 0.1,
+          "batch_size": 2,
+          "world_size": 4,
+          "max_steps": 0,
+          "val_origins": 12
+        }
+      }
+    },
+    "E": {
+      "manifest": {
+        "arguments": {
+          "arm": "joint",
+          "wave1_root": "/scratch/jr7309/runs/2026-09-18-surface-wave1",
+          "output": "/scratch/jr7309/runs/2026-09-20-surface-wave2-rate-control/E",
+          "name": "2026-09-20-surface-wave2-rate-control-E",
+          "data_root": "/scratch/jr7309/data/om4_onedeg_v3",
+          "hours": 3.5,
+          "learning_rate": 0.0001,
+          "reconstruction_weight": 0.1,
+          "seed": 1729,
+          "batch_size": 2,
+          "widths": [
+            128,
+            192,
+            256,
+            384
+          ],
+          "readers": 8,
+          "device_cache": true,
+          "device_cache_reserve_gib": 24,
+          "val_origins": 12,
+          "checkpoint_seconds": 1200,
+          "patience": 6,
+          "min_hours": 1,
+          "max_steps": 0,
+          "wandb_mode": "online"
+        },
+        "data": {
+          "sources": [
+            {
+              "type": "om4",
+              "train_time": {
+                "start": "1975-01-03",
+                "end": "2013-10-04"
+              },
+              "val_time": {
+                "start": "2013-10-05",
+                "end": "2014-10-05"
+              },
+              "inference_times": [
+                {
+                  "start": "2014-10-10",
+                  "end": "2022-12-24"
+                }
+              ],
+              "data_location": "OM4.zarr",
+              "data_means_location": "OM4_means.zarr",
+              "data_stds_location": "OM4_stds.zarr",
+              "prognostic_vars_key": "thermo_dynamic_all",
+              "boundary_vars_key": "tau_hfds",
+              "grid_type": "gaussian"
+            }
+          ],
+          "loading": {
+            "type": "rust",
+            "prefetch_batches": 2,
+            "max_concurrent_reads": 8,
+            "prefetch_to_device": true
+          },
+          "inference_loading": {
+            "num_workers": 4,
+            "persistent_workers": true
+          },
+          "hist": null,
+          "input_steps": 6,
+          "output_steps": 1,
+          "loader_version": "om4-torch",
+          "normalize_before_mask": true,
+          "masked_fill_value": 0.0,
+          "concurrent_compute": false
+        },
+        "world_size": 4,
+        "channels": [
+          "uo_0",
+          "uo_1",
+          "uo_2",
+          "uo_3",
+          "uo_4",
+          "uo_5",
+          "uo_6",
+          "uo_7",
+          "uo_8",
+          "uo_9",
+          "uo_10",
+          "uo_11",
+          "uo_12",
+          "uo_13",
+          "uo_14",
+          "uo_15",
+          "uo_16",
+          "uo_17",
+          "uo_18",
+          "vo_0",
+          "vo_1",
+          "vo_2",
+          "vo_3",
+          "vo_4",
+          "vo_5",
+          "vo_6",
+          "vo_7",
+          "vo_8",
+          "vo_9",
+          "vo_10",
+          "vo_11",
+          "vo_12",
+          "vo_13",
+          "vo_14",
+          "vo_15",
+          "vo_16",
+          "vo_17",
+          "vo_18",
+          "thetao_0",
+          "thetao_1",
+          "thetao_2",
+          "thetao_3",
+          "thetao_4",
+          "thetao_5",
+          "thetao_6",
+          "thetao_7",
+          "thetao_8",
+          "thetao_9",
+          "thetao_10",
+          "thetao_11",
+          "thetao_12",
+          "thetao_13",
+          "thetao_14",
+          "thetao_15",
+          "thetao_16",
+          "thetao_17",
+          "thetao_18",
+          "so_0",
+          "so_1",
+          "so_2",
+          "so_3",
+          "so_4",
+          "so_5",
+          "so_6",
+          "so_7",
+          "so_8",
+          "so_9",
+          "so_10",
+          "so_11",
+          "so_12",
+          "so_13",
+          "so_14",
+          "so_15",
+          "so_16",
+          "so_17",
+          "so_18",
+          "zos"
+        ],
+        "depths_m": [
+          2.5,
+          10.0,
+          22.5,
+          40.0,
+          65.0,
+          105.0,
+          165.0,
+          250.0,
+          375.0,
+          550.0,
+          775.0,
+          1050.0,
+          1400.0,
+          1850.0,
+          2400.0,
+          3100.0,
+          4000.0,
+          5000.0,
+          6000.0
+        ],
+        "code_commit": "b46eb446f153a967869bbfc7f9e93783de986579",
+        "slurm_job_id": "18097633",
+        "device": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "normalization": "existing mean/std files; date range explicitly approved",
+        "boundary": "OM4 tauuo/tauvo/hfds at interval-start frame, five-day cadence",
+        "claims": "model-world feasibility only; no observational or daily skill claim"
+      },
+      "completion": {
+        "arm": "joint",
+        "seed": 1729,
+        "time_utc": "2026-09-21T07:04:28.477805+00:00",
+        "selected_ts_mse": 0.0037730836775153875
+      },
+      "initialization": {
+        "initial_model_fingerprint": "12f5afc6b205bbe057cb60074c01f8be37503a5333788526aaf98f881ed59ee8",
+        "initial_initializer_fingerprint": "2f70620684763abf786ba727438ef0a186d1d25155f0b278557b2f5c6f99562a",
+        "initial_evolution_fingerprint": "bf1a6e75183b9b2ca466679ca36ae7a65ed2e693d2715452082643afcb135873",
+        "arm": "joint",
+        "data_order_seed": 1729,
+        "checkpoint_selection": "mean normalized MSE, equal subsurface T/S and leads 5-30 days",
+        "pretrain": {
+          "path": "/scratch/jr7309/runs/2026-09-18-surface-wave1/ar/pretrain-best.pt",
+          "sha256": "6f35bcb505a29af930211243a9f9a1649d6fff295bd1ebcb1d39dcb8ebf693ea"
+        },
+        "wave1_joint": {
+          "path": "/scratch/jr7309/runs/2026-09-18-surface-wave1/ar/joint-best.pt",
+          "sha256": "0f8349cb0a682f1e7db453060029d8309907dd4ed63454259ad3ef2d5ec893d1"
+        },
+        "shared_initializer": {
+          "path": "/scratch/jr7309/runs/2026-09-18-surface-wave1/initializer/initializer-best.pt",
+          "sha256": "f1090032443afcbe6b5885c23b7c496ba7bb8684bf0074e96c5f5945b8499897"
+        },
+        "protocol": {
+          "learning_rate": 0.0001,
+          "reconstruction_weight": 0.1,
+          "batch_size": 2,
+          "world_size": 4,
+          "max_steps": 0,
+          "val_origins": 12
+        }
+      }
+    },
+    "F": {
+      "manifest": {
+        "arguments": {
+          "arm": "joint",
+          "wave1_root": "/scratch/jr7309/runs/2026-09-18-surface-wave1",
+          "output": "/scratch/jr7309/runs/2026-09-20-surface-wave2-rate-control-repeat/F",
+          "name": "2026-09-20-surface-wave2-rate-control-repeat-F",
+          "data_root": "/scratch/jr7309/data/om4_onedeg_v3",
+          "hours": 3.5,
+          "learning_rate": 0.0001,
+          "reconstruction_weight": 0.1,
+          "seed": 1730,
+          "batch_size": 2,
+          "widths": [
+            128,
+            192,
+            256,
+            384
+          ],
+          "readers": 8,
+          "device_cache": true,
+          "device_cache_reserve_gib": 24,
+          "val_origins": 12,
+          "checkpoint_seconds": 1200,
+          "patience": 6,
+          "min_hours": 1,
+          "max_steps": 0,
+          "wandb_mode": "online"
+        },
+        "data": {
+          "sources": [
+            {
+              "type": "om4",
+              "train_time": {
+                "start": "1975-01-03",
+                "end": "2013-10-04"
+              },
+              "val_time": {
+                "start": "2013-10-05",
+                "end": "2014-10-05"
+              },
+              "inference_times": [
+                {
+                  "start": "2014-10-10",
+                  "end": "2022-12-24"
+                }
+              ],
+              "data_location": "OM4.zarr",
+              "data_means_location": "OM4_means.zarr",
+              "data_stds_location": "OM4_stds.zarr",
+              "prognostic_vars_key": "thermo_dynamic_all",
+              "boundary_vars_key": "tau_hfds",
+              "grid_type": "gaussian"
+            }
+          ],
+          "loading": {
+            "type": "rust",
+            "prefetch_batches": 2,
+            "max_concurrent_reads": 8,
+            "prefetch_to_device": true
+          },
+          "inference_loading": {
+            "num_workers": 4,
+            "persistent_workers": true
+          },
+          "hist": null,
+          "input_steps": 6,
+          "output_steps": 1,
+          "loader_version": "om4-torch",
+          "normalize_before_mask": true,
+          "masked_fill_value": 0.0,
+          "concurrent_compute": false
+        },
+        "world_size": 4,
+        "channels": [
+          "uo_0",
+          "uo_1",
+          "uo_2",
+          "uo_3",
+          "uo_4",
+          "uo_5",
+          "uo_6",
+          "uo_7",
+          "uo_8",
+          "uo_9",
+          "uo_10",
+          "uo_11",
+          "uo_12",
+          "uo_13",
+          "uo_14",
+          "uo_15",
+          "uo_16",
+          "uo_17",
+          "uo_18",
+          "vo_0",
+          "vo_1",
+          "vo_2",
+          "vo_3",
+          "vo_4",
+          "vo_5",
+          "vo_6",
+          "vo_7",
+          "vo_8",
+          "vo_9",
+          "vo_10",
+          "vo_11",
+          "vo_12",
+          "vo_13",
+          "vo_14",
+          "vo_15",
+          "vo_16",
+          "vo_17",
+          "vo_18",
+          "thetao_0",
+          "thetao_1",
+          "thetao_2",
+          "thetao_3",
+          "thetao_4",
+          "thetao_5",
+          "thetao_6",
+          "thetao_7",
+          "thetao_8",
+          "thetao_9",
+          "thetao_10",
+          "thetao_11",
+          "thetao_12",
+          "thetao_13",
+          "thetao_14",
+          "thetao_15",
+          "thetao_16",
+          "thetao_17",
+          "thetao_18",
+          "so_0",
+          "so_1",
+          "so_2",
+          "so_3",
+          "so_4",
+          "so_5",
+          "so_6",
+          "so_7",
+          "so_8",
+          "so_9",
+          "so_10",
+          "so_11",
+          "so_12",
+          "so_13",
+          "so_14",
+          "so_15",
+          "so_16",
+          "so_17",
+          "so_18",
+          "zos"
+        ],
+        "depths_m": [
+          2.5,
+          10.0,
+          22.5,
+          40.0,
+          65.0,
+          105.0,
+          165.0,
+          250.0,
+          375.0,
+          550.0,
+          775.0,
+          1050.0,
+          1400.0,
+          1850.0,
+          2400.0,
+          3100.0,
+          4000.0,
+          5000.0,
+          6000.0
+        ],
+        "code_commit": "b46eb446f153a967869bbfc7f9e93783de986579",
+        "slurm_job_id": "18160437",
+        "device": "NVIDIA RTX PRO 6000 Blackwell Server Edition",
+        "normalization": "existing mean/std files; date range explicitly approved",
+        "boundary": "OM4 tauuo/tauvo/hfds at interval-start frame, five-day cadence",
+        "claims": "model-world feasibility only; no observational or daily skill claim"
+      },
+      "completion": {
+        "arm": "joint",
+        "seed": 1730,
+        "time_utc": "2026-09-21T08:29:00.093820+00:00",
+        "selected_ts_mse": 0.003774006851017475
+      },
+      "initialization": {
+        "initial_model_fingerprint": "12f5afc6b205bbe057cb60074c01f8be37503a5333788526aaf98f881ed59ee8",
+        "initial_initializer_fingerprint": "2f70620684763abf786ba727438ef0a186d1d25155f0b278557b2f5c6f99562a",
+        "initial_evolution_fingerprint": "bf1a6e75183b9b2ca466679ca36ae7a65ed2e693d2715452082643afcb135873",
+        "arm": "joint",
+        "data_order_seed": 1730,
+        "checkpoint_selection": "mean normalized MSE, equal subsurface T/S and leads 5-30 days",
+        "pretrain": {
+          "path": "/scratch/jr7309/runs/2026-09-18-surface-wave1/ar/pretrain-best.pt",
+          "sha256": "6f35bcb505a29af930211243a9f9a1649d6fff295bd1ebcb1d39dcb8ebf693ea"
+        },
+        "wave1_joint": {
+          "path": "/scratch/jr7309/runs/2026-09-18-surface-wave1/ar/joint-best.pt",
+          "sha256": "0f8349cb0a682f1e7db453060029d8309907dd4ed63454259ad3ef2d5ec893d1"
+        },
+        "shared_initializer": {
+          "path": "/scratch/jr7309/runs/2026-09-18-surface-wave1/initializer/initializer-best.pt",
+          "sha256": "f1090032443afcbe6b5885c23b7c496ba7bb8684bf0074e96c5f5945b8499897"
+        },
+        "protocol": {
+          "learning_rate": 0.0001,
+          "reconstruction_weight": 0.1,
+          "batch_size": 2,
+          "world_size": 4,
+          "max_steps": 0,
+          "val_origins": 12
+        }
+      }
+    }
+  },
+  "origins": [
+    [
+      "0",
+      "2014-11-04 12:00:00"
+    ],
+    [
+      "6",
+      "2014-12-04 12:00:00"
+    ],
+    [
+      "12",
+      "2015-01-03 12:00:00"
+    ],
+    [
+      "18",
+      "2015-02-02 12:00:00"
+    ],
+    [
+      "24",
+      "2015-03-04 12:00:00"
+    ],
+    [
+      "30",
+      "2015-04-03 12:00:00"
+    ],
+    [
+      "36",
+      "2015-05-03 12:00:00"
+    ],
+    [
+      "42",
+      "2015-06-02 12:00:00"
+    ],
+    [
+      "48",
+      "2015-07-02 12:00:00"
+    ],
+    [
+      "54",
+      "2015-08-01 12:00:00"
+    ],
+    [
+      "60",
+      "2015-08-31 12:00:00"
+    ],
+    [
+      "66",
+      "2015-09-30 12:00:00"
+    ],
+    [
+      "72",
+      "2015-10-30 12:00:00"
+    ],
+    [
+      "78",
+      "2015-11-29 12:00:00"
+    ],
+    [
+      "84",
+      "2015-12-29 12:00:00"
+    ],
+    [
+      "90",
+      "2016-01-28 12:00:00"
+    ],
+    [
+      "96",
+      "2016-02-27 12:00:00"
+    ],
+    [
+      "102",
+      "2016-03-28 12:00:00"
+    ],
+    [
+      "108",
+      "2016-04-27 12:00:00"
+    ],
+    [
+      "114",
+      "2016-05-27 12:00:00"
+    ],
+    [
+      "120",
+      "2016-06-26 12:00:00"
+    ],
+    [
+      "126",
+      "2016-07-26 12:00:00"
+    ],
+    [
+      "132",
+      "2016-08-25 12:00:00"
+    ],
+    [
+      "138",
+      "2016-09-24 12:00:00"
+    ],
+    [
+      "144",
+      "2016-10-24 12:00:00"
+    ],
+    [
+      "150",
+      "2016-11-23 12:00:00"
+    ],
+    [
+      "156",
+      "2016-12-23 12:00:00"
+    ],
+    [
+      "162",
+      "2017-01-23 12:00:00"
+    ],
+    [
+      "168",
+      "2017-02-22 12:00:00"
+    ],
+    [
+      "174",
+      "2017-03-24 12:00:00"
+    ],
+    [
+      "180",
+      "2017-04-23 12:00:00"
+    ],
+    [
+      "186",
+      "2017-05-23 12:00:00"
+    ],
+    [
+      "192",
+      "2017-06-22 12:00:00"
+    ],
+    [
+      "198",
+      "2017-07-22 12:00:00"
+    ],
+    [
+      "204",
+      "2017-08-21 12:00:00"
+    ],
+    [
+      "210",
+      "2017-09-20 12:00:00"
+    ],
+    [
+      "216",
+      "2017-10-20 12:00:00"
+    ],
+    [
+      "222",
+      "2017-11-19 12:00:00"
+    ],
+    [
+      "228",
+      "2017-12-19 12:00:00"
+    ],
+    [
+      "234",
+      "2018-01-18 12:00:00"
+    ],
+    [
+      "240",
+      "2018-02-17 12:00:00"
+    ],
+    [
+      "246",
+      "2018-03-19 12:00:00"
+    ],
+    [
+      "252",
+      "2018-04-18 12:00:00"
+    ],
+    [
+      "258",
+      "2018-05-18 12:00:00"
+    ],
+    [
+      "264",
+      "2018-06-17 12:00:00"
+    ],
+    [
+      "270",
+      "2018-07-17 12:00:00"
+    ],
+    [
+      "276",
+      "2018-08-16 12:00:00"
+    ],
+    [
+      "282",
+      "2018-09-15 12:00:00"
+    ],
+    [
+      "288",
+      "2018-10-15 12:00:00"
+    ],
+    [
+      "294",
+      "2018-11-14 12:00:00"
+    ],
+    [
+      "300",
+      "2018-12-14 12:00:00"
+    ],
+    [
+      "306",
+      "2019-01-13 12:00:00"
+    ],
+    [
+      "312",
+      "2019-02-12 12:00:00"
+    ],
+    [
+      "318",
+      "2019-03-14 12:00:00"
+    ],
+    [
+      "324",
+      "2019-04-13 12:00:00"
+    ],
+    [
+      "330",
+      "2019-05-13 12:00:00"
+    ],
+    [
+      "336",
+      "2019-06-12 12:00:00"
+    ],
+    [
+      "342",
+      "2019-07-12 12:00:00"
+    ],
+    [
+      "348",
+      "2019-08-11 12:00:00"
+    ],
+    [
+      "354",
+      "2019-09-10 12:00:00"
+    ],
+    [
+      "360",
+      "2019-10-10 12:00:00"
+    ],
+    [
+      "366",
+      "2019-11-09 12:00:00"
+    ],
+    [
+      "372",
+      "2019-12-09 12:00:00"
+    ],
+    [
+      "378",
+      "2020-01-08 12:00:00"
+    ],
+    [
+      "384",
+      "2020-02-07 12:00:00"
+    ],
+    [
+      "390",
+      "2020-03-08 12:00:00"
+    ],
+    [
+      "396",
+      "2020-04-07 12:00:00"
+    ],
+    [
+      "402",
+      "2020-05-07 12:00:00"
+    ],
+    [
+      "408",
+      "2020-06-06 12:00:00"
+    ],
+    [
+      "414",
+      "2020-07-06 12:00:00"
+    ],
+    [
+      "420",
+      "2020-08-05 12:00:00"
+    ],
+    [
+      "426",
+      "2020-09-04 12:00:00"
+    ],
+    [
+      "432",
+      "2020-10-04 12:00:00"
+    ],
+    [
+      "438",
+      "2020-11-03 12:00:00"
+    ],
+    [
+      "444",
+      "2020-12-03 12:00:00"
+    ],
+    [
+      "450",
+      "2021-01-03 12:00:00"
+    ],
+    [
+      "456",
+      "2021-02-02 12:00:00"
+    ],
+    [
+      "462",
+      "2021-03-04 12:00:00"
+    ],
+    [
+      "468",
+      "2021-04-03 12:00:00"
+    ],
+    [
+      "474",
+      "2021-05-03 12:00:00"
+    ],
+    [
+      "480",
+      "2021-06-02 12:00:00"
+    ],
+    [
+      "486",
+      "2021-07-02 12:00:00"
+    ],
+    [
+      "492",
+      "2021-08-01 12:00:00"
+    ],
+    [
+      "498",
+      "2021-08-31 12:00:00"
+    ],
+    [
+      "504",
+      "2021-09-30 12:00:00"
+    ],
+    [
+      "510",
+      "2021-10-30 12:00:00"
+    ],
+    [
+      "516",
+      "2021-11-29 12:00:00"
+    ],
+    [
+      "522",
+      "2021-12-29 12:00:00"
+    ],
+    [
+      "528",
+      "2022-01-28 12:00:00"
+    ],
+    [
+      "534",
+      "2022-02-27 12:00:00"
+    ],
+    [
+      "540",
+      "2022-03-29 12:00:00"
+    ],
+    [
+      "546",
+      "2022-04-28 12:00:00"
+    ],
+    [
+      "552",
+      "2022-05-28 12:00:00"
+    ],
+    [
+      "558",
+      "2022-06-27 12:00:00"
+    ],
+    [
+      "564",
+      "2022-07-27 12:00:00"
+    ],
+    [
+      "570",
+      "2022-08-26 12:00:00"
+    ],
+    [
+      "576",
+      "2022-09-25 12:00:00"
+    ],
+    [
+      "582",
+      "2022-10-25 12:00:00"
+    ],
+    [
+      "588",
+      "2022-11-24 12:00:00"
+    ]
+  ],
+  "channel_rows_per_arm": 8316,
+  "origin_rows_per_arm": 64152,
+  "bootstrap": {
+    "method": "paired calendar-year blocks, origin-weighted RMSE",
+    "replicates": 5000,
+    "seed": 1729
+  },
+  "limitations": "Descriptive intervals over nine partly sampled calendar years; no multiple-comparison adjustment. Same pretrained model, not independent pretraining-seed replication. No observational or daily-output skill claim."
+}

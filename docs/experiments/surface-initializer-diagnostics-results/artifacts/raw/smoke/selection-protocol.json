@@ -1,0 +1,8 @@
+{
+  "objective": "full",
+  "field": "so_9",
+  "times": "Both reconstructed times, equal average",
+  "selection_split": "fitting_set",
+  "selection_metric": "field_mse",
+  "note": "This diagnostic-specific record overrides the inherited wave-3 training_selection description in study-manifest.json."
+}

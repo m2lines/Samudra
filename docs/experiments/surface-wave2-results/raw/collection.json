@@ -1,0 +1,12 @@
+{
+  "collected_utc": "2026-09-21T08:33:21.377030+00:00",
+  "host": "torch",
+  "roots": {
+    "A-D": "/scratch/jr7309/runs/2026-09-20-surface-wave2",
+    "E": "/scratch/jr7309/runs/2026-09-20-surface-wave2-rate-control",
+    "F": "/scratch/jr7309/runs/2026-09-20-surface-wave2-rate-control-repeat",
+    "qualification_attempt1": "/scratch/jr7309/runs/2026-09-20-surface-wave2-qualification",
+    "qualification_attempt2": "/scratch/jr7309/runs/2026-09-20-surface-wave2-qualification-v2"
+  },
+  "collection_boundary": "All production non-checkpoint/non-W&B result files; qualification manifests, progress, markers and error logs; CPU job logs; all-attempt Slurm accounting with TZ=UTC. Checkpoint bytes remain on Torch, verified there by the CPU audit."
+}

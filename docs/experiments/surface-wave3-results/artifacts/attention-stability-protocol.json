@@ -1,0 +1,18 @@
+{
+  "locked_utc": "2026-09-22T07:30:29.562966+00:00",
+  "trigger": "Primary E train-probe and validation MSE rose from about 0.007 to 0.86 after the 30-minute pilot window. F primary is still running; no production heldout scores have been evaluated.",
+  "arms": [
+    "E",
+    "F"
+  ],
+  "learning_rate": 0.0001,
+  "seed": 1729,
+  "hours": 8,
+  "wall_hours": 10,
+  "gpus": 2,
+  "hardware": "RTX PRO 6000 Blackwell",
+  "fresh_initialization": true,
+  "other_protocol": "Identical to primary: global batch 8, constant LR, AdamW wd .01, clip 1, BF16, 20min validation, six bad checks after >=2h. Existing runtime and qualification.",
+  "selection": "Primary six-arm results remain separate. For attention follow-up candidacy, first select each run checkpoint by reconstruction validation, then compare original-checkpoint full forecast-validation T/S MSE across primary E/F and stability E/F. No heldout selection. Replication and joint adaptation only if competitive or a separately documented scientific rationale warrants them.",
+  "max_added_gpu_hours": 32
+}

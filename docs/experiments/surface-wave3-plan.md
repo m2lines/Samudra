@@ -205,3 +205,20 @@ training recipe, not an equal-tuning-budget architecture comparison.
 
 Stability jobs: E-lr1 18241180; F-lr1 18241183. Both request the same two-RTX
 allocation as the primaries.
+
+### Final follow-up selection (September 22, 15:31 UTC)
+
+All training and full original-checkpoint validation checks are complete. The
+forecast-validation normalized T/S RMSE is 0.06666 for A and 0.05903 for D,
+versus 0.08625/0.08224 for primary E/F and 0.09654/0.08625 for their 1e-4
+stability runs. The lower rate did not improve the selected attention checkpoints.
+Under the competitive-alternative rule, D remains the only selected alternative;
+no attention replica or joint run is added. This does not establish a general
+limit on attention architectures: these particular optimization recipes were
+unstable and unsuccessful.
+
+The final held-out evaluation includes all six primaries, both stability runs,
+independent A/D replicas and matched A/D joint adaptations: twelve checkpoints.
+This selection was locked before any production held-out evaluation. Each job
+uses the same 99 origins and two RTX GPUs, preserves its training metadata, and
+binds the selected checkpoint by checksum in a separate evaluation directory.

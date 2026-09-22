@@ -13,6 +13,7 @@ import tempfile
 import time
 import warnings
 from collections import OrderedDict
+from copy import deepcopy
 from multiprocessing.context import BaseContext
 from pathlib import Path
 from typing import Any
@@ -1289,7 +1290,9 @@ class Trainer:
     ):
         if for_inference:
             with self._ema_context():
-                model_state_dict = self.model.state_dict()
+                # state_dict tensors alias the live model. Snapshot them before
+                # leaving the context restores raw weights into that storage.
+                model_state_dict = deepcopy(self.model.state_dict())
         else:
             model_state_dict = self.model.state_dict()
 

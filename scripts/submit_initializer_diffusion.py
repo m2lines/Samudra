@@ -33,8 +33,11 @@ def main():
     p.add_argument("--train-hours", type=float, default=4)
     p.add_argument("--wall-hours", type=float, default=6)
     p.add_argument("--qualification")
+    p.add_argument("--dependency", help="After-success Slurm job id")
     p.add_argument("--smoke", action="store_true")
     args = p.parse_args()
+    if args.dependency and not args.dependency.isdigit():
+        p.error("Dependency must be a numeric Slurm job id")
     if not args.smoke:
         proof = json.loads(Path(args.qualification).read_text())
         if proof["protocol"]["producer"] != args.code_commit:
@@ -105,12 +108,14 @@ def main():
         "--mem=24G",
         "--gres-flags=disable-binding",
         "--time=" + str(int(args.wall_hours * 60)),
-        "--job-name=surface-diff-" + args.name,
+        "--job-name=surface-diff-" + args.name + "-" + args.task,
         "--account=torch_pr_347_lzanna",
         "--partition=rtx6000_lzanna",
         "--gres=gpu:rtx6000:1",
         "/scratch/jr7309/slurm_initializer_wave.sbatch",
     ]
+    if args.dependency:
+        command.insert(-1, "--dependency=afterok:" + args.dependency)
     result = subprocess.run(
         command, env=env, check=True, capture_output=True, text=True
     )

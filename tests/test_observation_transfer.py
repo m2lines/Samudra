@@ -112,3 +112,84 @@ def test_loss_ignores_missing_labels_and_copied_temperature():
     assert prediction.grad[:, 38].count_nonzero() == 0
     assert prediction.grad[:, 40, 1, 1].item() == 0
     assert prediction.grad[:, 57].abs().sum() > 0
+
+
+def test_forecast_cannot_read_future_ocean_observations(monkeypatch):
+    from samudra.experiments import surface_state
+    from samudra.experiments.observation_model import ObservationTransfer
+
+    def factory(inputs, outputs, widths):
+        return nn.Conv2d(inputs, outputs, 1)
+
+    monkeypatch.setattr(initializer_models, "make_unet", factory)
+    monkeypatch.setattr(surface_state, "make_unet", factory)
+    names = [f"{v}_{j}" for v in ("uo", "vo", "thetao", "so") for j in range(19)] + [
+        "zos"
+    ]
+    torch.manual_seed(19)
+    model = ObservationTransfer(names).eval()
+    mask = torch.ones(77, 4, 8)
+    surface = torch.randn(1, 26, 2, 4, 8)
+    atmosphere = torch.randn(1, 26, 8, 4, 8)
+    contexts = torch.randn(1, 26, 5, 4, 8)
+    validity = torch.ones_like(surface)
+    expected, _ = model.forecast(surface, atmosphere, contexts, mask, validity)
+    changed = surface.clone()
+    changed[:, 19:] = 1e6
+    changed_validity = validity.clone()
+    changed_validity[:, 19:] = 0
+    actual, _ = model.forecast(changed, atmosphere, contexts, mask, changed_validity)
+    torch.testing.assert_close(actual, expected, rtol=0, atol=0)
+    assert actual.shape == (1, 7, 77, 4, 8)
+    # Once trained, the atmosphere is visible only through its own forecast step.
+    with torch.no_grad():
+        adapter_output = model.adapter[-1]
+        assert isinstance(adapter_output, nn.Conv2d)
+        adapter_output.weight.fill_(0.01)
+    before, _ = model.forecast(surface, atmosphere, contexts, mask, validity)
+    late_forcing = atmosphere.clone()
+    late_forcing[:, -1] += 10
+    after, _ = model.forecast(surface, late_forcing, contexts, mask, validity)
+    torch.testing.assert_close(before[:, :-1], after[:, :-1], rtol=0, atol=0)
+    assert not torch.equal(before[:, -1], after[:, -1])
+
+
+def test_scratch_batchnorm_updates_once_with_activation_checkpointing(monkeypatch):
+    import copy
+
+    from samudra.experiments import surface_state
+    from samudra.experiments.observation_model import ObservationTransfer
+
+    def factory(inputs, outputs, widths):
+        return nn.Sequential(nn.Conv2d(inputs, outputs, 1), nn.BatchNorm2d(outputs))
+
+    monkeypatch.setattr(initializer_models, "make_unet", factory)
+    monkeypatch.setattr(surface_state, "make_unet", factory)
+    names = [f"{v}_{j}" for v in ("uo", "vo", "thetao", "so") for j in range(19)] + [
+        "zos"
+    ]
+    torch.manual_seed(18)
+    checked = ObservationTransfer(names)
+    checked.update_batchnorm = True
+    checked.set_phase("reconstruction")
+    plain = copy.deepcopy(checked)
+    plain.activation_checkpointing = False
+    surface = torch.randn(1, 19, 2, 4, 8)
+    atmosphere = torch.randn(1, 19, 8, 4, 8)
+    context = torch.randn(1, 5, 4, 8)
+    mask = torch.ones(77, 4, 8)
+    validity = torch.ones_like(surface)
+    for model in (checked, plain):
+        output = model.initialize(surface, atmosphere, context, mask, validity)
+        output[:, :, 40:50].square().mean().backward()
+    for (name, value), (other_name, other) in zip(
+        checked.named_buffers(), plain.named_buffers(), strict=True
+    ):
+        assert name == other_name
+        torch.testing.assert_close(value, other, atol=0, rtol=0)
+    for (name, value), (other_name, other) in zip(
+        checked.named_parameters(), plain.named_parameters(), strict=True
+    ):
+        assert name == other_name
+        if value.grad is not None:
+            torch.testing.assert_close(value.grad, other.grad)

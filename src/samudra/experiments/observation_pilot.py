@@ -46,11 +46,26 @@ class Pilot:
         self.device = torch.device("cuda")
         torch.manual_seed(args.seed)
         np.random.seed(args.seed)
+        ready = Path(args.data) / "DATA_READY.json"
+        if not ready.exists():
+            raise ValueError(
+                "Dataset must pass full source-hash verification before training"
+            )
+        readiness = json.loads(ready.read_text())
+        if (
+            readiness.get("verification")
+            != "all 350 NPZ files checked against source SHA256SUMS"
+        ):
+            raise ValueError("Unknown data verification protocol")
         self.data = Samples(args.data, self.device)
         self.model = ObservationTransfer(self.data.grid["names"].tolist())
-        saved = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
-        self.model.load_core(saved["model"])
-        del saved
+        if args.from_scratch:
+            self.data.use_observation_normalization()
+            self.model.update_batchnorm = True
+        else:
+            saved = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
+            self.model.load_core(saved["model"])
+            del saved
         self.model.to(self.device)
         self.training = self.data.paths("train")
         self.validation = self.data.paths("validation")
@@ -58,7 +73,15 @@ class Pilot:
             raise ValueError("Incomplete fixed training/validation cohort")
         self.manifest = {
             "arguments": vars(args),
-            "source_checkpoint_sha256": digest(args.checkpoint),
+            "source_checkpoint_sha256": None
+            if args.from_scratch
+            else digest(args.checkpoint),
+            "normalization_mode": "observation-only"
+            if args.from_scratch
+            else "source-model",
+            "effective_mean": self.data.grid["mean"].tolist(),
+            "effective_std": self.data.grid["std"].tolist(),
+            "data_manifest_sha256": digest(Path(args.data) / "SHA256SUMS"),
             "grid_sha256": digest(Path(args.data) / "grid.npz"),
             "statistics_sha256": digest(Path(args.data) / "statistics.npz"),
             "protocol": PROTOCOL,
@@ -125,19 +148,28 @@ class Pilot:
         )
         for path in paths:
             sample = self.data.load(path)
-            with torch.autocast("cuda", dtype=torch.bfloat16):
-                prediction, initial = self.model.forecast(*self.arguments(sample))
-            if persistence:
-                prediction = initial[:, -1:].expand(
-                    -1, len(sample["month_weights"]), -1, -1, -1
+            if climatology:
+                prediction = self.data.climatology_prediction(sample)
+            elif persistence or anomaly:
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    initial = self.model.initialize(
+                        sample["surface"][:, :19],
+                        sample["atmosphere"][:, :19],
+                        sample["contexts"][:, 18],
+                        self.data.mask,
+                        sample["validity"][:, :19],
+                    )
+                state = (
+                    self.data.persistence_anomaly(initial, sample)
+                    if anomaly
+                    else initial[:, -1]
                 )
-            if anomaly:
-                state = self.data.persistence_anomaly(initial, sample)
                 prediction = state[:, None].expand(
                     -1, len(sample["month_weights"]), -1, -1, -1
                 )
-            if climatology:
-                prediction = self.data.climatology_prediction(sample)
+            else:
+                with torch.autocast("cuda", dtype=torch.bfloat16):
+                    prediction, _ = self.model.forecast(*self.arguments(sample))
             monthly = (
                 prediction * sample["month_weights"][None, :, None, None, None]
             ).sum(1)
@@ -203,12 +235,17 @@ class Pilot:
                 json.loads((self.out / "best.json").read_text())["score"]
             )
             return
-        control = self.evaluate(self.validation, persistence=True)
+        control = self.evaluate(self.validation, climatology=True)
         baseline = self.evaluate(self.validation)
         keys = sorted(set(control["spectra"]) & set(baseline["spectra"]))
-        if not keys or not any(k.startswith("sst/") for k in keys):
+        missing_groups = [
+            name
+            for name in ("sst", "adt", "eke")
+            if not any(key.startswith(name + "/") for key in keys)
+        ]
+        if missing_groups:
             raise ValueError(
-                "No qualified SST spectra; refuse RMSE-only checkpoint selection"
+                f"No qualified spectra for {missing_groups}; refuse incomplete selection"
             )
         self.control, self.spectral_keys = control, keys
         initial_score = selection_score(baseline, control, keys)
@@ -285,7 +322,10 @@ class Pilot:
         )
         optimizer = torch.optim.AdamW(
             [
-                {"params": [p for p in core if p.requires_grad], "lr": 1e-5},
+                {
+                    "params": [p for p in core if p.requires_grad],
+                    "lr": 1e-4 if self.args.from_scratch else 1e-5,
+                },
                 {
                     "params": self.model.adapter.parameters(),
                     "lr": 1e-4 if name == "joint" else 1e-3,
@@ -398,7 +438,8 @@ class Pilot:
     def run(self):
         try:
             self.qualify_selection()
-            self.phase("adapter", self.args.adapter_steps, self.args.adapter_hours)
+            if not self.args.from_scratch:
+                self.phase("adapter", self.args.adapter_steps, self.args.adapter_hours)
             if not self.args.adapter_only:
                 self.phase(
                     "reconstruction",
@@ -426,6 +467,7 @@ def main():
     parser.add_argument("--output", required=True)
     parser.add_argument("--name", required=True)
     parser.add_argument("--adapter-only", action="store_true")
+    parser.add_argument("--from-scratch", action="store_true")
     parser.add_argument("--adapter-steps", type=int, default=200)
     parser.add_argument("--adapter-hours", type=float, default=0.5)
     parser.add_argument("--reconstruction-steps", type=int, default=1000)
@@ -450,6 +492,8 @@ def main():
     ):
         if value < 1:
             parser.error("Update counts and accumulation must be positive")
+    if args.from_scratch and args.adapter_only:
+        parser.error("Scratch control must train its core")
     Pilot(args).run()
 
 

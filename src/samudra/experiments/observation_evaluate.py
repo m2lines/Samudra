@@ -32,6 +32,8 @@ def main():
     output.mkdir(parents=True, exist_ok=False)
     evaluator = Pilot.__new__(Pilot)
     evaluator.data = Samples(manifest["arguments"]["data"], "cuda")
+    if manifest["arguments"].get("from_scratch", False):
+        evaluator.data.use_observation_normalization()
     evaluator.model = ObservationTransfer(evaluator.data.grid["names"].tolist()).cuda()
     evaluator.model.load_state_dict(
         torch.load(checkpoint, map_location="cuda", weights_only=False)["model"],
@@ -53,6 +55,7 @@ def main():
         output / "selected.json",
     )
     source = manifest["arguments"]["checkpoint"]
+    evaluator.data = Samples(manifest["arguments"]["data"], "cuda")
     evaluator.model.load_core(
         torch.load(source, map_location="cpu", weights_only=False)["model"]
     )

@@ -4,6 +4,8 @@
 
 """Deterministic D transfer without changing any pretrained parameter shapes."""
 
+from contextlib import contextmanager, nullcontext
+
 import torch
 from torch import nn
 from torch.utils.checkpoint import checkpoint
@@ -26,6 +28,7 @@ class ObservationTransfer(nn.Module):
         nn.init.zeros_(last.weight)
         nn.init.zeros_(last.bias)
         self.activation_checkpointing = True
+        self.update_batchnorm = False
 
     def load_core(self, state):
         # Strict core loading catches missing buffers, extra keys and wrong shapes.
@@ -38,7 +41,10 @@ class ObservationTransfer(nn.Module):
         super().train(mode)
         # Preserve source running means/variances even during recomputation.
         for module in self.modules():
-            if isinstance(module, nn.modules.batchnorm._BatchNorm):
+            if (
+                isinstance(module, nn.modules.batchnorm._BatchNorm)
+                and not self.update_batchnorm
+            ):
                 module.eval()
         return self
 
@@ -54,9 +60,38 @@ class ObservationTransfer(nn.Module):
         b, t, _, h, w = atmosphere.shape
         return self.adapter(atmosphere.reshape(b * t, 8, h, w)).reshape(b, t, 3, h, w)
 
+    @contextmanager
+    def restore_batchnorm_buffers(self):
+        # Scratch BatchNorm learns from each forward exactly once. Activation
+        # recomputation must use training batch statistics without advancing its
+        # running statistics a second time.
+        buffers = [
+            (module, name, buffer.clone())
+            for module in self.modules()
+            if isinstance(module, nn.modules.batchnorm._BatchNorm)
+            for name, buffer in module.named_buffers(recurse=False)
+        ]
+        try:
+            yield
+        finally:
+            with torch.no_grad():
+                for module, name, previous in buffers:
+                    setattr(module, name, previous)
+
     def call(self, function, *args):
         if self.training and self.activation_checkpointing and torch.is_grad_enabled():
+            if self.update_batchnorm:
+                return checkpoint(
+                    function,
+                    *args,
+                    use_reentrant=False,
+                    context_fn=lambda: (
+                        nullcontext(),
+                        self.restore_batchnorm_buffers(),
+                    ),
+                )
             return checkpoint(function, *args, use_reentrant=False)
+
         return function(*args)
 
     def initialize(self, surface, atmosphere, context, mask, validity):

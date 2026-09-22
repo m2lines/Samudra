@@ -45,7 +45,7 @@ still pending.
 
 Selection protocol is versioned in `observation_metrics.PROTOCOL`: half the score
 is the mean of five integrated observation errors (SST, geostrophic velocity, EKE,
-and OHC in two layers), each divided by its fixed validation persistence-control
+and OHC in two layers), each divided by its fixed validation seasonal-climatology control
 error. Half is the mean spatial spectral error in dex for qualified SST/ADT/EKE
 region/lead pairs. Smaller is better. Freeze the available spectral keys before
 training; missing required spectra or nonfinite components are errors, not permission
@@ -86,3 +86,42 @@ GPU execution is still pending. The first code-layer build exhausted login-node
 fetches only source and lockfiles, avoiding approximately 691 MiB of documentation,
 while retaining the exact resolved commit, lockfile comparison and read-only layer.
 Monthly assembly job **96584** waits on the complete coarsening array **96574**.
+
+
+## Matched controls and pending jobs
+
+The common selection reference is now seasonal climatology estimated exclusively
+from training observations, evaluated on validation. It is shared conceptually
+across transferred and fresh-weight arms; no arm-specific initializer determines
+its denominators. Require usable SST, ADT and EKE spectral groups before optimization.
+This is protocol version 2 and is fixed before any observational training.
+
+A fresh-weight control path uses observation-only normalization, retaining only the
+common architecture/grid/masks. Its unobserved velocity scales are zero/one and its
+unobserved deeper T/S scales use the deepest observed scale, with no invented labels.
+Scratch BatchNorm learns its running statistics; recomputation restores buffers so
+activation checkpointing does not count each forward twice. Transferred BatchNorm
+keeps its source statistics. A unit test checks buffer and gradient equivalence.
+Use learning rate 1e-4 for scratch core parameters, 1e-5 for transferred core parameters.
+A capped scratch run is an optimization pilot, not evidence of a converged best
+analysis-only baseline.
+
+Torch full-grid contract qualification: **18287283**, initially queued. The
+preparation chain is Grace **96574 → 96584 → 96619** (coarsening, monthly samples,
+publication plus full read-back verification). Torch DTN access to the OSN source
+was checked successfully; the prepared dataset has not yet been transferred.
+
+## Coarsened spectral support probe
+
+The 1–2 January 1993 preparation samples support all three existing boxes (North
+Pacific, Gulf Stream, Agulhas) for SST, ADT and DUACS-derived EKE. After requiring
+wavelengths of at least four model grid cells, each box has only **three radial
+spectral bins**. These are broad-scale diagnostics, not resolved mesoscale spectra.
+This probe verifies data support, not predictive skill or full validation coverage.
+Within the model's 60°S–60°N wet-cell domain, finite observation fractions by cell
+count are 93.95% for SST, 94.19% for ADT and 94.12% for EKE. Remaining cells are not
+silently filled as targets. Full validation support will be frozen before training.
+
+Torch DTN staging process **4037693** is alive and waiting for the publication
+proof. It will copy the dataset and verify all 350 NPZ source hashes before creating
+`DATA_READY.json`. The trainer refuses datasets without that verification marker.

@@ -16,7 +16,7 @@ import xarray as xr
 from samudra.metrics import kernels, spectra
 
 PROTOCOL: dict[str, Any] = {
-    "version": 1,
+    "version": 2,
     "selection": "0.5 * mean(normalized integrated errors) + 0.5 * mean(spatial spectral error in dex)",
     "integrated": [
         "sst_rmse",
@@ -25,7 +25,7 @@ PROTOCOL: dict[str, Any] = {
         "ohc_0_700_rmse",
         "ohc_700_2000_rmse",
     ],
-    "normalization": "fixed validation persistence control error; immutable once scored",
+    "normalization": "fixed validation seasonal-climatology control error; immutable once scored",
     "spatial_spectra": ["sst", "adt", "eke"],
     "regions": [r[0] for r in spectra.SPATIAL_REGIONS],
     "leads_days": [5, 15, 30],

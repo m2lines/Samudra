@@ -36,6 +36,28 @@ class Samples:
             None, None, :, None, None
         ]
 
+    def use_observation_normalization(self):
+        """Scratch control: no simulation-derived normalization statistics."""
+        mean, std = np.zeros(77, dtype=np.float32), np.ones(77, dtype=np.float32)
+        for offset, group in ((38, 0), (57, 1)):
+            mean[offset : offset + 14] = self.stats["interior_mean"][
+                group * 14 : (group + 1) * 14
+            ]
+            std[offset : offset + 14] = self.stats["interior_std"][
+                group * 14 : (group + 1) * 14
+            ]
+            # Unsupervised deep slots retain the deepest observed scale. No
+            # simulation values or invented deep labels enter this control.
+            mean[offset + 14 : offset + 19] = mean[offset + 13]
+            std[offset + 14 : offset + 19] = std[offset + 13]
+        mean[[38, 76]], std[[38, 76]] = (
+            self.stats["surface_mean"],
+            self.stats["surface_std"],
+        )
+        self.grid["mean"], self.grid["std"] = mean, std
+        self.mean = self.tensor(mean)[None, None, :, None, None]
+        self.std = self.tensor(std)[None, None, :, None, None]
+
     @cached_property
     def interior_climatology(self):
         h, w = self.grid["mask"].shape[-2:]

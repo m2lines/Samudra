@@ -101,7 +101,12 @@ def submit(args):
         str(4 // args.gpus),
     ]
     if args.stage == "qualification":
-        module_args += ["--max-steps", "3", "--val-origins", "4"]
+        module_args += [
+            "--max-steps",
+            "3",
+            "--val-origins",
+            str(args.qualification_val_origins),
+        ]
     if args.stage == "pilot":
         module_args += ["--validation-seconds", "600"]
     if args.initial_checkpoint:
@@ -214,6 +219,13 @@ def main():
     p.add_argument("--container-hash", required=True)
     p.add_argument("--wrapper", default="/scratch/jr7309/slurm_initializer_wave.sbatch")
     p.add_argument("--qualification")
+    p.add_argument(
+        "--qualification-val-origins",
+        type=int,
+        choices=[4, 12],
+        default=4,
+        help="Use 12 when qualifying a selected primary checkpoint to obtain full forecast validation before adaptation",
+    )
     p.add_argument("--gpu", choices=["h200", "rtx6000"], default="h200")
     p.add_argument("--preemption-only", action="store_true")
     p.add_argument("--gpus", type=int, choices=[1, 2, 4], default=2)

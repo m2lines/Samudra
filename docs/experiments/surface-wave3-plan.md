@@ -83,8 +83,14 @@ All new initializers start from scratch; references retain their original weight
 4. Replicate A and up to two validation-selected alternatives from independent
    initial weights/data order. Select at most one improved-input CNN and one
    attention model when both remain competitive; final choices and rationale are
-   recorded before held-out evaluation. Extend promising unconverged training
-   only when validation curves and the report deadline justify it.
+   recorded before held-out evaluation. Before these choices, qualify joint
+   adaptation from each completed primary checkpoint using the full validation
+   set. Its baseline event scores the unmodified checkpoint through fixed
+   pretrained dynamics, before any adaptation update. Use this forecast validation
+   to choose promising follow-ups, while retaining reconstruction validation for
+   primary checkpoint selection. The subsequent three qualification updates are
+   plumbing only; they are not warm starts for adaptation. Extend promising
+   unconverged training only when validation curves and the report deadline justify it.
 5. Run matched short joint adaptation of A and selected alternatives, initialized
    with each chosen initializer and the same wave-1 pretrained evolution model.
    Use six-step full-variable forecast loss plus 0.1 reconstruction loss,

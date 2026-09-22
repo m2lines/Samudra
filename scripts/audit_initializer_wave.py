@@ -26,7 +26,53 @@ COLUMNS = [
 ]
 
 
-def summarize(root, expected, output):
+def compare_previous_wave(origins, raw_reference, runs, output):
+    """Check fixed pretrained dynamics against the previously published control."""
+    reference = Path(raw_reference)
+    manifest = json.loads(read_bytes(reference / "manifest.json"))
+    old = pd.concat(
+        [
+            pd.read_csv(
+                io.BytesIO(read_bytes(reference / f"heldout-origins-rank{rank}.csv"))
+            )
+            for rank in range(manifest["world_size"])
+        ],
+        ignore_index=True,
+    )
+    old = old[old["mode"] == "true"]
+    keys = ["region", "origin_time", "lead_days", "variable"]
+    records = {}
+    for run in runs:
+        current = origins[
+            (origins["run"] == run)
+            & (origins["mode"] == "true")
+            & (origins["lead_days"] > 0)
+            & (origins["variable"] != "ts")
+        ]
+        matched = current.merge(
+            old, on=keys, suffixes=("_new", "_old"), validate="one_to_one"
+        )
+        if len(matched) != len(current) or not len(current):
+            raise ValueError(
+                "Previous-wave control does not cover current origins and metrics"
+            )
+        differences = {}
+        for field in ["normalized_mse", "physical_mse", "target_second_moment"]:
+            np.testing.assert_allclose(
+                matched[field + "_new"], matched[field + "_old"], rtol=2e-5, atol=1e-8
+            )
+            differences[field] = float(
+                (matched[field + "_new"] - matched[field + "_old"]).abs().max()
+            )
+        records[run] = {"rows": len(matched), "max_absolute_differences": differences}
+    if not records:
+        raise ValueError("No fixed-dynamics runs to compare")
+    Path(output).write_text(
+        json.dumps({"reference": str(reference), "runs": records}, indent=2) + "\n"
+    )
+
+
+def summarize(root, expected, output, reference_wave=None):
     expected = json.loads(Path(expected).read_text())
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
@@ -156,6 +202,17 @@ def summarize(root, expected, output):
     )
     means.to_csv(output / "summary.csv", index=False)
     (output / "audit.json").write_text(json.dumps(audit, indent=2) + "\n")
+    if reference_wave is not None:
+        compare_previous_wave(
+            origins,
+            reference_wave,
+            [
+                name
+                for name, record in audit.items()
+                if record["phase"] == "reconstruction"
+            ],
+            output / "previous-wave-control-audit.json",
+        )
     print(json.dumps(audit, indent=2))
 
 
@@ -166,8 +223,12 @@ def main():
         "--expected-origins", default="docs/experiments/surface-wave3-origins.json"
     )
     p.add_argument("--output", required=True)
+    p.add_argument(
+        "--reference-wave",
+        help="Previous wave's frozen-dynamics arm directory, e.g. docs/experiments/surface-wave2-results/raw/A",
+    )
     args = p.parse_args()
-    summarize(args.raw, args.expected_origins, args.output)
+    summarize(args.raw, args.expected_origins, args.output, args.reference_wave)
 
 
 if __name__ == "__main__":

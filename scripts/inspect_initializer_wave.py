@@ -38,6 +38,7 @@ def inspect(roots):
         capture_output=True,
     )
     states = {}
+    accounting_rows = []
     hours = 0.0
     for line in result.stdout.splitlines():
         row = line.split("|")
@@ -61,6 +62,7 @@ def inspect(roots):
             start=row[6],
             end=row[7],
         )
+        accounting_rows.append({"job_id": row[0], **states[row[0]]})
     jobs = []
     for submission in submissions:
         args = submission["arguments"]
@@ -99,6 +101,9 @@ def inspect(roots):
                 "name": args["name"],
                 "arm": args["arm"],
                 "stage": args["stage"],
+                "phase": args["phase"],
+                "root": args["root"],
+                "requested_gpu": args["gpu"],
                 **states.get(submission["id"], {}),
                 "latest": {k: v for k, v in last.items() if k in allowed},
                 "validation": {
@@ -121,6 +126,7 @@ def inspect(roots):
     return {
         "time_utc": datetime.datetime.now(datetime.UTC).isoformat(),
         "allocated_gpu_hours": hours,
+        "accounting_rows": accounting_rows,
         "jobs": jobs,
         "queue": queue.stdout.splitlines(),
     }

@@ -34,6 +34,7 @@ def setup(tmp_path, monkeypatch):
         wall_hours=10,
         hours=8,
         qualification=str(proof),
+        qualification_val_origins=4,
         code_commit="qualified",
         code_layer="layer",
         container_hash="container",
@@ -156,3 +157,18 @@ def test_modified_selected_checkpoint_is_rejected(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="checksum"):
         SUBMIT(args)
     assert not calls
+
+
+def test_joint_qualification_can_score_full_validation_before_updates(
+    tmp_path, monkeypatch
+):
+    args, calls = setup(tmp_path, monkeypatch)
+    args.stage = "qualification"
+    args.phase = "joint"
+    args.qualification_val_origins = 12
+    SUBMIT(args)
+    record = json.loads((Path(args.root) / "A-submission.json").read_text())
+    module = record["module_args"]
+    assert module[module.index("--max-steps") + 1] == "3"
+    assert module[module.index("--val-origins") + 1] == "12"
+    assert len(calls) == 1

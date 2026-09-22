@@ -36,6 +36,7 @@ from samudra.metrics.run import score_rollouts
 from samudra.utils.data import (
     spherical_area,
     spherical_area_weights,
+    with_lat_lon_coords,
     with_level_index_vars,
 )
 from samudra.utils.location import ResolvedLocation
@@ -3901,6 +3902,10 @@ def _postprocess_for_plot(
     """
     Postprocess the dataset to make it compatible with plotting functions.
     """
+    # Writer outputs use y/x dimensions with auxiliary 2-D lat/lon.
+    # Align dimensions before applying the lat/lon wet mask to avoid an
+    # unintended Cartesian product of the two horizontal grids.
+    ds = with_lat_lon_coords(ds)
     ds = ds.transpose("time", "lev", ...)
     ds["time"] = times
     if coords is not None:

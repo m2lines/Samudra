@@ -41,7 +41,7 @@ Yes, substantially more faithfully than its original predictions. Both tests fin
 | One training origin | **0.00642** | **0.994** | 0.990 | 0.09849 |
 | 16 separated training origins | **0.01320** | **0.956** | 0.969 | 0.04019 |
 
-Relative to each fitting set's starting checkpoint, both-time field RMSE falls 80.3% and 57.8%, respectively. The one-example model generalizes very poorly; the sixteen-example model also fails to beat original D on validation. These are memorization checks, not evidence of improved prediction. Neither was trained to convergence or to a numerical floor. Nonetheless, the results argue against a hard architectural inability to represent the field's spatial structure.
+Relative to each fitting set's starting checkpoint, both-time field RMSE falls 80.3% and 57.8%, respectively. The one-example model generalizes very poorly; the sixteen-example model also fails to beat original D on validation. [Compare both fitted models on the exact single training example](maps.md#shared-training-example-1975-04-03), alongside original D and the target, with common color limits. These are memorization checks, not evidence of improved prediction. Neither was trained to convergence or to a numerical floor. Nonetheless, the results argue against a hard architectural inability to represent the field's spatial structure.
 
 ![Fitting and validation curves](figures/learning.png)
 

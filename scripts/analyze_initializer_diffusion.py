@@ -76,6 +76,7 @@ def analyze(root, reference, output, origins):
                 )
                 row: dict[str, Any] = {str(k): v for k, v in record.items()}
                 row["run"] = run
+                row["climatology_mae"] = float(avg(np.abs(climate - truth)) * std)
                 correction = np.abs(samples - truth).mean(0) - crps
                 fair_crps = crps - correction / (count - 1) if count > 1 else crps
                 row["fair_crps"] = float(avg(fair_crps) * std)
@@ -170,6 +171,8 @@ def analyze(root, reference, output, origins):
                 mean_rmse=np.sqrt(g.mean_mse.mean()),
                 sample_rmse=np.sqrt(g.sample_mse.mean()),
                 d_rmse=np.sqrt(g.d_mse.mean()),
+                climatology_rmse=np.sqrt(g.climatology_mse.mean()),
+                climatology_mae=g.climatology_mae.mean(),
                 specialist_rmse=np.sqrt(g.specialist_mse.mean()),
                 crps=g.crps.mean(),
                 fair_crps=g.fair_crps.mean(),

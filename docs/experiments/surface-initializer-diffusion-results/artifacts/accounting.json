@@ -1,0 +1,40 @@
+{
+  "jobs": [
+    {
+      "id": "18273094",
+      "state": "COMPLETED",
+      "elapsed_seconds": "424",
+      "resources": "billing=2,cpu=2,gres/gpu=1,mem=24G,node=1",
+      "exit_code": "0:0"
+    },
+    {
+      "id": "18274504",
+      "state": "COMPLETED",
+      "elapsed_seconds": "2772",
+      "resources": "billing=2,cpu=2,gres/gpu=1,mem=24G,node=1",
+      "exit_code": "0:0"
+    },
+    {
+      "id": "18274505",
+      "state": "COMPLETED",
+      "elapsed_seconds": "475",
+      "resources": "billing=2,cpu=2,gres/gpu=1,mem=24G,node=1",
+      "exit_code": "0:0"
+    },
+    {
+      "id": "18274507",
+      "state": "COMPLETED",
+      "elapsed_seconds": "2513",
+      "resources": "billing=2,cpu=2,gres/gpu=1,mem=24G,node=1",
+      "exit_code": "0:0"
+    },
+    {
+      "id": "18274509",
+      "state": "COMPLETED",
+      "elapsed_seconds": "130",
+      "resources": "billing=2,cpu=2,gres/gpu=1,mem=24G,node=1",
+      "exit_code": "0:0"
+    }
+  ],
+  "allocated_gpu_hours": 1.7538888888888888
+}

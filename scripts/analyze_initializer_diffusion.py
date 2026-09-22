@@ -238,7 +238,7 @@ def main():
         "--reference",
         type=Path,
         default=Path(
-            "docs/experiments/surface-initializer-diagnostics-results/artifacts"
+            "docs/experiments/surface-initializer-diagnostics-results/artifacts/raw"
         ),
     )
     p.add_argument("--output", type=Path, required=True)

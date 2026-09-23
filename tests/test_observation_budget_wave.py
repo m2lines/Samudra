@@ -75,3 +75,42 @@ def test_fixed_budget_ignores_plateau_and_preserves_prefix(tmp_path, monkeypatch
         not torch.equal(prefix["model"][k], final["model"][k]) for k in prefix["model"]
     )
     assert (tmp_path / "joint-00002-best.json").exists()
+
+
+def test_submitted_dependencies_bound_concurrency_and_budget(tmp_path, monkeypatch):
+    import importlib.util
+    import itertools
+    import sys
+    from pathlib import Path
+
+    path = Path(__file__).parents[1] / "scripts/submit_observation_budget_wave.py"
+    spec = importlib.util.spec_from_file_location("budget_submission_test", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    requests = {}
+
+    def capture(args, name, target, arguments, hours, dependencies):
+        requests[name] = {"dependencies": set(dependencies), "hours": hours}
+        return name
+
+    monkeypatch.setattr(module.submission, "submit", capture)
+    monkeypatch.setattr(
+        sys, "argv", ["submit", "--root", str(tmp_path), "--code-commit", "producer"]
+    )
+    module.main()
+    assert sum(x["hours"] for x in requests.values()) == 81
+    assert requests["random"]["dependencies"] == {"calibration"}
+    maximum = 0
+    for count in range(len(requests) + 1):
+        for subset in itertools.combinations(requests, count):
+            complete = set(subset)
+            if any(not requests[name]["dependencies"] <= complete for name in complete):
+                continue
+            runnable = [
+                name
+                for name, request in requests.items()
+                if name not in complete and request["dependencies"] <= complete
+            ]
+            maximum = max(maximum, len(runnable))
+    assert maximum == 4

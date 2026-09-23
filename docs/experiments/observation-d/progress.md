@@ -962,3 +962,35 @@ Regenerated all six maps as lossless PNGs with 720 × 240 pixel panels for
 All 36 panels were checked pixel by pixel against the source cell colors,
 including masked cells. Updated native-grid PDFs and report links. Predictions,
 checkpoints and scores are unchanged; no new training or inference was needed.
+
+## One-seed update-allocation wave submitted — 23 September, 17:53 ET
+
+Authorized the four D allocation arms plus the observation-only random control,
+with the latter extended to 8,000 joint updates to assess plateauing. Producer
+`5b3456699` is pushed on `codex/d-observation-pilot`; the Torch overlay was built
+and checksum verified on a CPU node. No input data transfer or scratch cleanup was
+needed. Live quota was 3.71/5.00 TB used. The login node's full temporary filesystem
+was avoided by building on a CPU node; an initial abbreviated-ref fetch was fixed
+by using the full commit ID. Neither build attempt used GPUs.
+
+Root: `/scratch/jr7309/runs/2026-09-23-observation-budget`.
+
+| Stage | Slurm job | Scheduled work |
+|---|---|---|
+| Calibration | 18376773 | Two 200-update rate trials each for OM4, transfer and scratch, with fitting checks |
+| OM4 prefix | 18376774 | 3,000 joint updates, retaining 1,000/2,000/3,000 terminal checkpoints |
+| D → observations | 18376775 | 1,000 observation reconstruction + 4,000 joint updates |
+| Observation-only random | 18376776 | 1,000 reconstruction + 8,000 joint updates; immutable 4k/6k/8k snapshots |
+| D → 25% OM4 → observations | 18376777 | 1,000 reconstruction + 3,000 observation joint updates |
+| D → 50% OM4 → observations | 18376778 | 1,000 reconstruction + 2,000 observation joint updates |
+| D → 75% OM4 → observations | 18376779 | 1,000 reconstruction + 1,000 observation joint updates |
+
+Initial scheduler verification: calibration pending for priority, all later stages
+pending dependencies; H200 routing, one GPU per job, requeue and preemption comment
+confirmed. This records submission, not observed training or successful completion.
+The dependency graph permits at most four concurrent GPUs. Requested wall caps
+sum to 81 GPU-hours; reserve 19 for recovery within the proposed 100-hour envelope.
+Final evaluations are included in production stages, with separate random-4k and
+random-8k selected-checkpoint evaluations. Selection remains integrated-plus-spectral
+validation; the previously viewed historical test does not select models. All
+23 focused tests and full repository hooks passed before publishing the producer.

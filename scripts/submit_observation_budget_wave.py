@@ -24,6 +24,7 @@ def main():
     parser.add_argument(
         "--root", default="/scratch/jr7309/runs/2026-09-23-observation-budget"
     )
+    parser.add_argument("--gpu-type", choices=["rtx6000", "h200"], default="rtx6000")
     args = parser.parse_args()
     root = Path(args.root)
     root.mkdir(parents=True, exist_ok=True)

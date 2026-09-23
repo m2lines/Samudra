@@ -110,6 +110,17 @@ def submit(args, name, module, module_args, hours, dependencies=()):
         "--job-name=obs-D-" + name,
         "--kill-on-invalid-dep=yes",
     ]
+    if getattr(args, "gpu_type", "h200") == "rtx6000":
+        command = [x for x in command if not x.startswith("--comment=")]
+        command = [
+            "--account=torch_pr_347_lzanna"
+            if x.startswith("--account=")
+            else "--constraint=rtx6000"
+            if x.startswith("--constraint=")
+            else x
+            for x in command
+        ]
+        command.append("--partition=rtx6000_lzanna")
     dependencies, dependency_checks = pending_dependencies(dependencies)
     if dependencies:
         command += ["--dependency=afterok:" + ":".join(dependencies)]

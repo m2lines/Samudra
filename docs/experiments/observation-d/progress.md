@@ -994,3 +994,28 @@ Final evaluations are included in production stages, with separate random-4k and
 random-8k selected-checkpoint evaluations. Selection remains integrated-plus-spectral
 validation; the previously viewed historical test does not select models. All
 23 focused tests and full repository hooks passed before publishing the producer.
+
+### RTX routing update — 23 September, 17:57 ET
+
+Following the user's preference for RTX access, replaced all seven pending H200
+jobs with RTX PRO 6000 jobs on account `torch_pr_347_lzanna`, partition
+`rtx6000_lzanna`. All superseded H200 jobs were cancelled with zero elapsed time.
+The training producer and update budgets are unchanged; only the launcher routing
+and output root changed. New root:
+`/scratch/jr7309/runs/2026-09-23-observation-budget-rtx`.
+
+| Stage | Replacement job |
+|---|---|
+| Calibration | 18376929 |
+| OM4 prefix | 18376930 |
+| D → observations | 18376931 |
+| Observation-only random, extended | 18376932 |
+| D → 25% OM4 → observations | 18376933 |
+| D → 50% OM4 → observations | 18376934 |
+| D → 75% OM4 → observations | 18376938 |
+
+Calibration started on `gr102` at 17:57:19 ET. The immutable code layer and W&B
+online mode were verified in the actual job log. Production remains dependency-
+gated; first optimizer-update bring-up is checked separately below. A Slurm
+`--test-only` request was accepted before replacement; its predicted next-day
+start proved pessimistic, so queue estimates were not reported as guarantees.

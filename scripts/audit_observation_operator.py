@@ -10,6 +10,7 @@ import datetime
 import hashlib
 import json
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import xarray as xr
@@ -45,36 +46,44 @@ def velocity_support_audit(prediction, reference, grid):
         pu, pv = velocity(prediction[:, lead, 1])
         ou, ov = velocity(reference[:, lead, 1])
         u, v = reference[:, lead, 2], reference[:, lead, 3]
-        if not np.array_equal(np.isfinite(u), np.isfinite(v)):
-            raise ValueError("Velocity reference components have different support")
+        reference_velocity = np.stack([u, v], 1)
+        predicted_velocity = np.stack([pu, pv], 1)
         valid = (
-            np.isfinite(u)
-            & np.isfinite(v)
-            & np.isfinite(pu).all(0)
-            & np.isfinite(pv).all(0)
+            np.isfinite(reference_velocity)
+            & (np.isfinite(pu).all(0) & np.isfinite(pv).all(0))[None, None]
             & (np.abs(lat[:, None]) >= 5)
         )
-        observed_stencil = np.isfinite(ou) & np.isfinite(ov)
-        if not (
-            np.allclose(pu[valid & observed_stencil], ou[valid & observed_stencil])
-            and np.allclose(pv[valid & observed_stencil], ov[valid & observed_stencil])
+        observed_stencil = (np.isfinite(ou) & np.isfinite(ov))[:, None]
+        strict = np.stack([ou, ov], 1)
+        if not np.allclose(
+            predicted_velocity[valid & observed_stencil],
+            strict[valid & observed_stencil],
         ):
             raise ValueError("Filling changed a complete observed stencil")
-        groups = {}
+        groups: dict[str, Any] = {
+            "reference_component_support_equal": bool(
+                np.array_equal(np.isfinite(u), np.isfinite(v))
+            )
+        }
         total_weight = np.sum(valid * area)
         for name, accepted in (
             ("all_scored", valid),
             ("complete_observed_stencil", valid & observed_stencil),
             ("incomplete_observed_stencil", valid & ~observed_stencil),
         ):
-            weight = accepted * area
-            mass = weight.sum()
+            mass = np.sum(accepted * area)
             groups[name] = {
-                "area_origin_fraction": float(mass / total_weight),
+                "component_area_origin_fraction": float(mass / total_weight),
                 "vector_rmse_m_s": float(
                     np.sqrt(
-                        np.sum(
-                            np.where(accepted, (pu - u) ** 2 + (pv - v) ** 2, 0) * area
+                        2
+                        * np.sum(
+                            np.where(
+                                accepted,
+                                (predicted_velocity - reference_velocity) ** 2,
+                                0,
+                            )
+                            * area
                         )
                         / mass
                     )
@@ -82,7 +91,11 @@ def velocity_support_audit(prediction, reference, grid):
                 if mass > 0
                 else None,
                 "reference_vector_rms_m_s": float(
-                    np.sqrt(np.sum(np.where(accepted, u**2 + v**2, 0) * area) / mass)
+                    np.sqrt(
+                        2
+                        * np.sum(np.where(accepted, reference_velocity**2, 0) * area)
+                        / mass
+                    )
                 )
                 if mass > 0
                 else None,
@@ -125,6 +138,14 @@ def main():
     for key, curve in result["spectra"].items():
         if not key.startswith("eke/") and abs(curve["error_dex"]) > 1e-12:
             raise ValueError("Direct observed SST/ADT spectra must agree")
+    support = velocity_support_audit(prediction, arrays["reference"], grid)
+    for lead, groups in support.items():
+        if not np.isclose(
+            groups["all_scored"]["vector_rmse_m_s"],
+            result["metrics"][f"velocity_rmse/{lead}"],
+            rtol=1e-7,
+        ):
+            raise ValueError("Partitioned audit must reproduce the unchanged scorer")
     output = {
         "completed_utc": datetime.datetime.now(datetime.UTC).isoformat(),
         "scope": "Data-only operator diagnostic, not a forecast, candidate or error floor",
@@ -133,9 +154,7 @@ def main():
         "climatology_export_sha256": digest(args.climatology_export),
         "grid_sha256": digest(args.grid),
         "script_sha256": digest(Path(__file__)),
-        "velocity_support_audit": velocity_support_audit(
-            prediction, arrays["reference"], grid
-        ),
+        "velocity_support_audit": support,
         "protocol": PROTOCOL,
         "result": result,
     }

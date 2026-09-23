@@ -16,6 +16,8 @@ import numpy as np
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+from samudra.experiments.observation_metrics import selection_score
+
 ARM_LABELS = (
     ("primary", "Full fine-tuning"),
     ("adapter-only", "Adapter only"),
@@ -106,6 +108,42 @@ def main():
     stem = "validation" if args.split == "validation" else "heldout"
     caption = "Validation" if args.split == "validation" else "Held-out 2015–2022"
     args.output.mkdir(parents=True, exist_ok=True)
+    if args.split == "validation":
+        fig, ax = plt.subplots(figsize=(8, 4.5), layout="constrained")
+        for index, (arm, label) in enumerate(ARM_LABELS):
+            # A requeue may repeat a validation update. Use its last recorded
+            # result, not a fictitious extra optimization step.
+            by_step = {
+                event["step"]: event["validation/obs_score"]
+                for event in snapshot["arms"][arm].get("validation_events", [])
+                if event["phase"] == "joint"
+            }
+            if by_step:
+                steps = sorted(by_step)
+                ax.plot(
+                    steps,
+                    [by_step[k] for k in steps],
+                    "o-",
+                    label=label,
+                    color=plt.get_cmap("tab10")(index + 2),
+                )
+        climatology_score = selection_score(
+            reference["control"], reference["control"], reference["spectral_keys"]
+        )
+        ax.axhline(
+            climatology_score,
+            color="black",
+            linestyle="--",
+            label="Seasonal climatology",
+        )
+        ax.set_xlabel("Retained joint-training updates (not matched GPU time)")
+        ax.set_ylabel("Validation integrated + spectral score (lower is better)")
+        ax.set_title("Joint-stage forecast validation · all checks, not held-out skill")
+        ax.grid(alpha=0.2)
+        ax.legend(fontsize=8)
+        fig.savefig(args.output / "validation-joint-trajectory.png", dpi=180)
+        fig.savefig(args.output / "validation-joint-trajectory.pdf")
+        plt.close(fig)
     names = reference["protocol"]["integrated"]
     labels = ["SST", "Geostrophic velocity", "EKE", "OHC 0–700 m", "OHC 700–2000 m"]
     colors = dict(
@@ -249,6 +287,7 @@ def main():
         "snapshot_time": snapshot["snapshot_finished_utc"],
         "scope": f"Recorded {caption.lower()} metrics; no model execution",
         "split": args.split,
+        "joint_trajectory": "Validation checks during joint training; repeated updates deduplicated; different initialization and normalization across arms; update count is not matched compute",
         "grid_sha256": grid_sha256,
         "bar_normalization": f"{caption} seasonal climatology errors; descriptive plot, not a new selection score",
         "spectral_ordinate": "Existing kernel k times azimuthally averaged 2D power; spacing in metres and k in cycles/metre. Only the abscissa is converted to wavelength in km.",

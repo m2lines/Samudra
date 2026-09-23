@@ -750,3 +750,22 @@ Capture: `snapshots/all-arms-joint-validated-20260923T0554Z.json`.
 A fresh **05:33 UTC** `myquota` check reported scratch **3.70 TB / 5 TB** and
 1,646,874 of 5,000,000 files. The compact dataset occupies **21 GiB** and the pilot
 run tree **17 GiB** (`du -sh`, rounded). No cleanup or full-source transfer was needed.
+
+## Joint update 400 comparison
+
+Capture `snapshots/joint400-20260923T0649Z.json` records primary and scratch at
+selected joint update **400**, scoring **0.6693107** and **1.0427907**. Scratch
+first crossed below the climatology composite (**1.3151773**) at joint update 300.
+Its SST and both OHC errors still exceed climatology, so this is not an
+across-the-board improvement. Primary's mean spectral error is **0.488466 dex**,
+scratch's **0.807396 dex**. Primary integrated errors: SST **0.557140 °C**,
+velocity **0.140177 m/s**, EKE **0.0203540 m²/s²**, OHC **6.45310e8 / 4.09691e8
+J/m²**. Adapter-only remains at **2.3374584**, selected at joint update 300.
+
+The reporting plotter now includes a joint-stage forecast-validation trajectory
+using every recorded validation check, deduplicating repeated updates after
+requeue. It was rendered and visually inspected from this immutable capture.
+Its horizontal axis is retained joint updates, explicitly not matched GPU time;
+the arms also differ in initialization, normalization and earlier phase budgets.
+The continuing decline, particularly for scratch, argues against calling these
+bounded runs converged baselines. No held-out model result is available yet.

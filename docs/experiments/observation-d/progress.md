@@ -179,7 +179,7 @@ run manifests, the integrated selection score and spectral curves, and completed
 held-out results. Its first live staging capture succeeded; it does not evaluate or
 modify models. Captures are timestamped and refuse to overwrite existing evidence.
 
-## Resource clarification (23 September, 00:39 UTC)
+## Resource clarification (23 September, 00:36 UTC)
 
 The user's one-host/four-GPU constraint applies to beta training, not Torch.
 The existing Torch pilot layout is retained (at most two concurrent GPUs).

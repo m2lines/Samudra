@@ -261,3 +261,21 @@ own live qualification. The independent-arm coordinator passes two subprocess
 sequencing/device/failure-isolation tests. It can run transfer and scratch arms
 inside one four-GPU allocation, with evaluation on the fourth GPU. This fallback
 is not yet a successful fitting or skill result, and Torch production has not run.
+
+Beta's live account association permits `priority` QoS. Test-only requests for
+one-host/four-GPU qualification and production were accepted with that QoS.
+Qualification **204384** was updated to `priority`, 15 minutes; production
+**204388** is queued with `afterok:204384`, `priority`, one host/four GPUs and a
+12-hour allocation cap. Production source is
+`e57997d2c42f2a8b57d7d245c81ec7ce114ac579`, staged read-only on EAI. The coordinator
+runs the same bounded optimization arms, with scratch concurrent with transfer
+arms and completed-arm evaluation on the fourth GPU. No production has started.
+At approximately 01:30 UTC, beta's scheduler forecast qualification around
+10:30–11:10 UTC; forecasts are provisional and imply only early progress may be
+available for the 14:00 UTC report.
+
+Torch rejected attempts to hold the duplicate pending production jobs with an
+unspecified scheduler error. Those seven never-started jobs were then cancelled;
+queue inspection confirms only Torch fitting **18294932** remains pending.
+No running experiment was stopped. If Torch becomes available first, its fitting
+check remains useful, but production will use only one selected backend.

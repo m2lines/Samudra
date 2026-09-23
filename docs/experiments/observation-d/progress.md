@@ -426,3 +426,33 @@ saved reconstruction step **48**, elapsed **368.905 s**; adapter-only saved step
 and the adapter-only job will repeat four updates after resumption. Both records
 retain their best score, patience counter and RNG payloads. Successful tensor and
 optimizer loading still requires observing the resumed job.
+
+
+## Recovery verified and first initializer-adaptation comparison
+
+Both jobs restarted at **02:34:09 UTC**, on `gh108` (primary) and `gh115`
+(adapter-only), under their original IDs. The first resumed updates were exactly
+primary reconstruction **49** and adapter-only **53**, following the inspected
+recovery states. W&B resumed the same two run IDs. This verifies execution resumed
+from the saved phase/optimizer/RNG path rather than repeating adapter warm-up.
+
+At reconstruction update 100, primary validation composite was **0.8544912** and
+adapter-only **2.3929534**. Primary OHC errors were **1.04123e9 J/m²** (0–700 m)
+and **7.15992e8 J/m²** (700–2000 m), compared with initial source errors of
+6.11550e9 and 4.25319e9 J/m². Primary SST error was **1.16884 °C**, geostrophic
+vector error **0.138371 m/s**, EKE error **0.0200167 m²/s²**, and mean spatial
+spectral error **0.442292 dex**. Adaptation has greatly reduced the source's
+interior mismatch; spectral error has increased from the initial 0.401463 dex.
+
+The primary beats climatology's **composite** (1.3151773), not every component.
+Its errors divided by climatology errors are **1.371 SST**, **0.703 velocity**,
+**0.853 EKE**, **1.441 upper OHC**, and **1.965 lower OHC**. Thus climatology still
+wins SST and both OHC RMSEs, while the primary's much better spectral structure
+than climatology, velocity and EKE offset those deficits in the frozen score.
+Do not reduce this to an unconditional skill claim. These are nine-month validation
+forecasts after reconstruction training; joint forecast training and held-out
+reporting have not yet occurred.
+
+Immutable capture:
+`/scratch/jr7309/runs/2026-09-22-observation-D/snapshots/reconstruction100-20260923T0243Z.json`.
+Updated comparison figures are generated locally from that capture.

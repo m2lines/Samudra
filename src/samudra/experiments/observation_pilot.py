@@ -385,7 +385,8 @@ class Pilot:
             [
                 {
                     "params": [p for p in core if p.requires_grad],
-                    "lr": 1e-4 if self.args.from_scratch else 1e-5,
+                    "lr": getattr(self.args, "core_lr", None)
+                    or (1e-4 if self.args.from_scratch else 1e-5),
                 },
                 {
                     "params": self.model.adapter.parameters(),
@@ -416,7 +417,17 @@ class Pilot:
             state["elapsed"],
             time.monotonic(),
         )
+        base_rates = [group["lr"] for group in optimizer.param_groups]
+        # Adam's saved group rate may be in warm-up; use explicit configured peaks.
+        base_rates[0] = getattr(self.args, "core_lr", None) or (
+            1e-4 if self.args.from_scratch else 1e-5
+        )
+        base_rates[1] = 1e-4 if name == "joint" else 1e-3
         while state["step"] < max_steps and state["elapsed"] < hours * 3600:
+            warmup = getattr(self.args, "warmup_steps", 0)
+            factor = min(1.0, (state["step"] + 1) / warmup) if warmup else 1.0
+            for group, rate in zip(optimizer.param_groups, base_rates, strict=True):
+                group["lr"] = rate * factor
             optimizer.zero_grad(set_to_none=True)
             indices = np.random.default_rng(self.args.seed + state["step"]).choice(
                 len(self.training), self.args.accumulate, replace=False
@@ -464,7 +475,8 @@ class Pilot:
                     )
                 if value < self.global_best:
                     self.save_best(value, name, state["step"], metrics)
-                done |= state["bad_checks"] >= self.args.patience
+                if not getattr(self.args, "fixed_updates", False):
+                    done |= state["bad_checks"] >= self.args.patience
                 self.emit(
                     {
                         "event": "validation",
@@ -475,6 +487,21 @@ class Pilot:
                         **{f"obs/{k}": v for k, v in metrics["metrics"].items()},
                     }
                 )
+                milestones = getattr(self.args, "milestone_steps", [])
+                if name == "joint" and state["step"] in milestones:
+                    import shutil
+
+                    prefix = self.out / f"joint-{state['step']:05d}"
+                    atomic_torch(
+                        {
+                            "model": self.model.state_dict(),
+                            "score": value,
+                            "step": state["step"],
+                        },
+                        prefix.with_suffix(".pt"),
+                    )
+                    shutil.copyfile(self.out / "best.pt", str(prefix) + "-best.pt")
+                    shutil.copyfile(self.out / "best.json", str(prefix) + "-best.json")
                 self.model.set_phase(train_phase)
             if validate or done or time.monotonic() - last_save >= 180:
                 state["elapsed"] = prior + time.monotonic() - phase_start
@@ -491,6 +518,10 @@ class Pilot:
                 last_save = time.monotonic()
             if done:
                 break
+        if getattr(self.args, "fixed_updates", False) and state["step"] < max_steps:
+            raise RuntimeError(
+                f"{name} hit its time cap before its fixed update budget"
+            )
         self.model.load_state_dict(
             torch.load(best, map_location=self.device, weights_only=False)["model"]
         )
@@ -569,7 +600,7 @@ class Pilot:
             if self.args.fit_probe:
                 self.fit_probe()
                 return
-            if not self.args.from_scratch:
+            if not self.args.from_scratch and self.args.adapter_steps:
                 self.phase("adapter", self.args.adapter_steps, self.args.adapter_hours)
             self.phase(
                 "reconstruction",
@@ -612,6 +643,10 @@ def main():
     parser.add_argument("--accumulate", type=int, default=8)
     parser.add_argument("--validate-every", type=int, default=100)
     parser.add_argument("--patience", type=int, default=5)
+    parser.add_argument("--core-lr", type=float)
+    parser.add_argument("--warmup-steps", type=int, default=0)
+    parser.add_argument("--fixed-updates", action="store_true")
+    parser.add_argument("--milestone-steps", type=int, nargs="*", default=[])
     parser.add_argument("--seed", type=int, default=1729)
     parser.add_argument(
         "--wandb-mode", choices=["online", "offline", "disabled"], default="online"
@@ -620,12 +655,22 @@ def main():
     for value in (
         args.accumulate,
         args.validate_every,
-        args.adapter_steps,
         args.reconstruction_steps,
         args.joint_steps,
     ):
         if value < 1:
             parser.error("Update counts and accumulation must be positive")
+    if args.adapter_steps < 0 or args.warmup_steps < 0:
+        parser.error("Adapter/warm-up counts must be nonnegative")
+    if args.core_lr is not None and args.core_lr <= 0:
+        parser.error("Core learning rate must be positive")
+    if any(
+        x <= 0 or x > args.joint_steps or x % args.validate_every
+        for x in args.milestone_steps
+    ):
+        parser.error(
+            "Milestones must be positive validation steps within the joint budget"
+        )
     if args.from_scratch and args.adapter_only:
         parser.error("Scratch control must train its core")
     Pilot(args).run()

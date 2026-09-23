@@ -296,6 +296,7 @@ class InitializerWave(Experiment):
             "learning_rate": args.learning_rate,
             "batch_size": args.batch_size,
             "accumulate": args.accumulate,
+            "warmup_steps": getattr(args, "warmup_steps", 0),
             "world_size": self.world,
             "data_config": self.config.model_dump(mode="json"),
             "data_root": args.data_root,
@@ -350,6 +351,10 @@ class InitializerWave(Experiment):
                 state["cursor"] = 0
                 continue
             for ids in schedule[state["cursor"] :]:
+                warmup = getattr(args, "warmup_steps", 0)
+                factor = min(1.0, (state["step"] + 1) / warmup) if warmup else 1.0
+                for group in optimizer.param_groups:
+                    group["lr"] = args.learning_rate * factor
                 surface, past, context, truth, forcing, labels = self.sample(
                     self.trainset, ids
                 )
@@ -451,6 +456,14 @@ class InitializerWave(Experiment):
                             **metrics,
                         }
                     )
+                milestone = state["step"] in getattr(args, "milestone_steps", [])
+                if milestone:
+                    self.sync_buffers(model)
+                    if self.rank == 0:
+                        atomic_save(
+                            {"model": model.state_dict(), "state": state.copy()},
+                            self.out / f"step-{state['step']:05d}.pt",
+                        )
                 state["complete"] = done
                 if save or validate or done:
                     state["elapsed"] = prior + time.monotonic() - started
@@ -636,7 +649,9 @@ class InitializerWave(Experiment):
         try:
             if not self.args.evaluate_only:
                 self.fit()
-            if self.args.evaluate_only or self.args.max_steps:
+            if self.args.evaluate_only or (
+                self.args.max_steps and not getattr(self.args, "train_only", False)
+            ):
                 self.evaluate_wave()
             if self.rank == 0:
                 (self.out / "COMPLETE.json").write_text(
@@ -692,6 +707,9 @@ def main():
     parser.add_argument("--validation-seconds", type=int, default=1200)
     parser.add_argument("--min-hours", type=float, default=2)
     parser.add_argument("--patience", type=int, default=6)
+    parser.add_argument("--train-only", action="store_true")
+    parser.add_argument("--warmup-steps", type=int, default=0)
+    parser.add_argument("--milestone-steps", type=int, nargs="*", default=[])
     parser.add_argument("--seed", type=int, default=1729)
     parser.add_argument(
         "--wandb-mode", choices=["online", "disabled", "offline"], default="online"

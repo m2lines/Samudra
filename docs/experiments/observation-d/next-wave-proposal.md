@@ -218,3 +218,27 @@ allocation/seed manifests and reports showing both update counts and cost. Verif
 optimizer resume, finite fitting, exact masks and budget accounting before production.
 The current architecture is adequate; rebuilding D or repeating its original
 pretraining is not a prerequisite for this wave.
+
+## Authorized execution: 23 September
+
+User approved one seed and a longer random-model run to test for a plateau.
+Use seed 1729. Random runs continuously to 8,000 joint updates, preserving terminal
+and best-so-far weights at 4,000/6,000/8,000. Its 4,000-update selected checkpoint
+is immutable and evaluated separately; later selection cannot alter the matched
+comparison. All other allocations remain as above. No multiple-seed wave is launched.
+
+For shared-prefix compatibility and simple continuation, use 50 warm-up updates
+in each phase followed by constant LR (replaces the fractional warm-up proposal).
+Calibration uses 200 joint updates per rate after 1,000 observational reconstruction
+updates; selection among observational rates uses joint-validation scores only.
+The OM4 3,000-update run saves exact 1,000/2,000/3,000 terminal weights for the
+three transfer allocations. This physically reuses pretraining work while charging
+each model its own full pathway. Both OM4 and observation calibration retain their
+original validation cohorts. Fixed observation budgets disable patience stopping.
+
+Torch preflight found 3.71/5.00 TB used, no active user jobs, and all required data
+and container files already present. Reserve about 100 GiB for new checkpoints and
+exports, well below the approximately 1.29 TB headroom. Request seven single-H200
+jobs, dependency-limited to four simultaneous GPUs. Initial wall-time caps sum to
+81 allocated GPU-hours, leaving 19 hours of the proposed ceiling for recovery.
+Live progress must establish actual throughput; these are caps, not measured costs.

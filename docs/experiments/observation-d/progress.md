@@ -575,3 +575,20 @@ climatology's **0.541 / 0.453 °C**. At 2.5 m, practical-salinity bias changes f
 climatology's **0.1240**. These observations support interpreting the initial OHC
 gain as substantial mean-state adaptation; they do not alone establish superior
 dynamical skill. Refresh the figure from the morning-selected checkpoint.
+
+
+## Metric selection continues to reject worse later checkpoints
+
+At 03:43 UTC all three arms were still running. Primary reconstruction update
+400 scored **0.8606395** with mean spectral error **0.53280 dex** and SST error
+**1.27118 °C**; OHC errors were **8.54340e8 / 6.10656e8 J/m²**. Update **200**
+remains selected at **0.8493170**, rather than following the improving interior
+training objective. Adapter-only update 500 is selected at **2.3632209**.
+Scratch update 200 scored **6.4840486**, so its update **100** remains selected at
+**6.4633877**. The fixed patience/update/hour limits continue unchanged.
+
+Morning capture must preserve any still-active arm's selected checkpoint under
+an immutable filename and verify the copied bytes against its best-record SHA-256.
+A running job may replace its live `best.pt` after the report, so the filename alone
+is insufficient snapshot provenance. Completed-arm selections and immutable JSON
+captures already provide stable metric records.

@@ -6,7 +6,7 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Proposal: fine-tune deterministic D on coarsened observations
 
-22 September 2026. **Approved pilot in progress: preparation and GPU qualification launched; optimization awaits verified data.**
+22 September 2026. **Approved pilot in progress: prepared data and GPU fitting qualification verified; Torch optimization started 23 September at 01:44 UTC.**
 
 Progress snapshot due **23 September 2026, 10:00 a.m. America/New_York (14:00 UTC)**.
 Delivering that snapshot completes the requested goal; ongoing runs may continue.

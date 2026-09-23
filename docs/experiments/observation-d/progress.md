@@ -334,3 +334,25 @@ batch used an unavailable module name and then the container's system Python.
 The successful job uses the existing Apptainer binary and `/workspace/.venv/bin/python`,
 matching the production environment. These diagnostic launch errors did not affect
 training or its fixed selection reference.
+
+
+## Post-selection reporting staged
+
+`analyze_observation_predictions.py` now supplements the selected-checkpoint
+exports with pooled area-weighted anomaly correlation, RMS anomaly amplitude and
+bias for SST/ADT at days 5/15/30 and monthly OHC. Both prediction and reference
+subtract the same training-only seasonal climatology. A constant climatology
+prediction has zero anomaly amplitude and undefined correlation, recorded as null.
+The report requires all 96 test origins and identical reference arrays across
+methods. It also recomputes the existing integrated and spectral scorer separately
+for each of the eight held-out calendar years, retaining the frozen validation
+normalization. Paired annual composite differences quantify year-to-year variation;
+they are explicitly not confidence intervals or eight independent trials.
+
+Three targeted tests passed, covering known anomaly scaling, missing prediction
+rejection, degenerate climatology, all eight paired years and changed-support
+rejection. No production training or selection code changed. CPU-only reporting
+jobs **18297298** (primary), **18297299** (adapter-only) and **18297300** (scratch)
+are submitted after their respective held-out evaluations, each capped at 30 minutes,
+four CPUs and 32 GiB. Report implementation `eea0ccde1` records its script and input
+hashes. Results are pending actual evaluation exports.

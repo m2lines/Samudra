@@ -1019,3 +1019,10 @@ online mode were verified in the actual job log. Production remains dependency-
 gated; first optimizer-update bring-up is checked separately below. A Slurm
 `--test-only` request was accepted before replacement; its predicted next-day
 start proved pessimistic, so queue estimates were not reported as guarantees.
+
+RTX bring-up verified at **18:00:10 ET**: the first OM4 calibration trial completed
+optimizer update 1 with finite loss **0.0262172**, effective batch eight, peak GPU
+memory **73.61 GiB**, and peak host RSS **5.54 GiB**. Both training and validation
+resident caches passed exact native-data equivalence checks. This establishes
+single-RTX OM4 training compatibility; calibration and production are not yet
+complete. Observation-only fitting remains separately qualified by the staged job.

@@ -954,3 +954,11 @@ Direct model instantiation on the meta device counted **121,684,010** initialize
 Both full fine-tuning and scratch train that full parameter set in the joint phase;
 adapter-only trains 387. The methods now describe architecture widths, channel
 interfaces, normalization, optimization and phase-specific trainable counts.
+
+## Requested follow-up: exact grid-cell pixels
+
+Regenerated all six maps as lossless PNGs with 720 × 240 pixel panels for
+360 × 120 grid locations: exactly 2 × 2 pixels per cell, without interpolation.
+All 36 panels were checked pixel by pixel against the source cell colors,
+including masked cells. Updated native-grid PDFs and report links. Predictions,
+checkpoints and scores are unchanged; no new training or inference was needed.

@@ -29,7 +29,8 @@ See the [snapshot report](../../snapshot-2026-09-23.md) for interpretation.
 - `model-details.json`: exact architecture and phase-specific trainable parameter counts.
 - `maps/`: fixed January/July 2022 day-30 surface examples, absolute fields and
   anomalies relative to training seasonal climatology, with common masks/color scales.
-  Each JPEG has a matching PDF and source/checkpoint provenance. The 2.8 MB extracted
+  Each lossless PNG uses exactly 2 × 2 pixels per grid location at native image
+  size, with a matching native-grid PDF and source/checkpoint provenance. The 2.8 MB extracted
   bundle remains on Torch at `day30-map-examples.npz` under the run root.
 - `quota.txt`: final live Torch quota readout.
 - `SHA256SUMS`: artifact checksums, excluding the checksum manifest itself.

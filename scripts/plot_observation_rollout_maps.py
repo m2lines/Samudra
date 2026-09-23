@@ -113,6 +113,7 @@ def plot(bundle, output):
 
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
+    from PIL import Image
 
     with np.load(bundle) as archive:
         arrays = {key: archive[key] for key in archive.files}
@@ -120,6 +121,12 @@ def plot(bundle, output):
     lon = (arrays["lon"] + 180) % 360 - 180
     order = np.argsort(lon)
     lat = arrays["lat"]
+    latitude_rows = np.flatnonzero(np.abs(lat) <= 60)
+    pixels_per_cell, dpi = 2, 128
+    panel_width = len(lon) * pixels_per_cell
+    panel_height = len(latitude_rows) * pixels_per_cell
+    left, right, top, gap, bottom = 70, 30, 80, 55, 130
+    width = left + panel_width + right
     domain = arrays["mask"] & (np.abs(lat[:, None]) <= 60)
     # Identical reference-valid support for every candidate; filled cells are hidden.
     valid = np.isfinite(arrays["reference"]) & domain
@@ -138,9 +145,21 @@ def plot(bundle, output):
             for column, (variable, unit) in enumerate(
                 (("SST", "°C"), ("ADT / SSH", "m"))
             ):
-                fig, axes = plt.subplots(
-                    len(labels), 1, figsize=(6, 11), layout="constrained"
-                )
+                height = top + len(labels) * (panel_height + gap) - gap + bottom
+                fig = plt.figure(figsize=(width / dpi, height / dpi), dpi=dpi)
+                axes = [
+                    fig.add_axes(
+                        (
+                            left / width,
+                            (height - top - (row + 1) * panel_height - row * gap)
+                            / height,
+                            panel_width / width,
+                            panel_height / height,
+                        )
+                    )
+                    for row in range(len(labels))
+                ]
+                expected_pixels = []
                 vmin, vmax = limits[column]
                 for row, label in enumerate(labels):
                     ax = axes[row]
@@ -148,30 +167,40 @@ def plot(bundle, output):
                         valid[case_index, column], fields[row, column], np.nan
                     )
                     ax.set_facecolor("0.82")
-                    im = ax.pcolormesh(
-                        lon[order],
-                        lat,
-                        values[:, order],
-                        shading="nearest",
+                    im = ax.imshow(
+                        values[latitude_rows][:, order],
+                        origin="lower",
+                        interpolation="none",
+                        aspect="equal",
                         cmap="RdBu_r" if anomaly or column == 1 else "turbo",
                         vmin=vmin,
                         vmax=vmax,
-                        rasterized=True,
                     )
-                    ax.set_xlim(-180, 180)
-                    ax.set_ylim(-60, 60)
-                    ax.set_xticks([-180, -90, 0, 90, 180])
-                    ax.set_yticks([-60, 0, 60])
-                    ax.tick_params(labelsize=7)
+                    rgba = im.to_rgba(values[latitude_rows][:, order], bytes=True)
+                    expected_pixels.append(
+                        np.where(rgba[..., 3:] > 0, rgba[..., :3], 209)[::-1]
+                    )
+                    # Index-space axes keep every grid location exactly square.
+                    # Tick labels report real coordinates, not an equidistant projection.
+                    xticks = [0, 90, 180, 270, len(lon) - 1]
+                    yticks = [0, len(latitude_rows) // 2, len(latitude_rows) - 1]
+                    ax.set_xticks(xticks, [f"{lon[order][i]:.1f}" for i in xticks])
+                    ax.set_yticks(
+                        yticks, [f"{lat[latitude_rows][i]:.1f}" for i in yticks]
+                    )
+                    for spine in ax.spines.values():
+                        spine.set_visible(False)
+                    ax.tick_params(labelsize=7, length=0)
                     ax.set_title(label, fontsize=9)
                     ax.set_ylabel("Latitude (°)")
                 axes[-1].set_xlabel("Longitude (°)")
+                color_ax = fig.add_axes(
+                    (left / width, 55 / height, panel_width / width, 18 / height)
+                )
                 fig.colorbar(
                     im,
-                    ax=axes,
+                    cax=color_ax,
                     orientation="horizontal",
-                    shrink=0.85,
-                    pad=0.015,
                     label=f"{variable}{' anomaly' if anomaly else ''} ({unit})",
                     extend="both",
                 )
@@ -185,16 +214,45 @@ def plot(bundle, output):
                         else "absolute fields"
                     ),
                     fontsize=10,
+                    y=1 - 12 / height,
                 )
                 stem = f"day30-{case}-{kind}-{'sst' if column == 0 else 'adt'}"
-                fig.savefig(
-                    output / (stem + ".jpg"),
-                    dpi=100,
-                    pil_kwargs={"quality": 75, "optimize": True},
-                )
-                fig.savefig(output / (stem + ".pdf"), dpi=72)
+                fig.canvas.draw()
+                for ax in axes:
+                    np.testing.assert_allclose(
+                        ax.get_window_extent().size,
+                        [panel_width, panel_height],
+                        atol=1e-8,
+                    )
+                fig.savefig(output / (stem + ".png"), dpi=dpi)
+                with Image.open(output / (stem + ".png")) as saved:
+                    np.testing.assert_array_equal(saved.size, [width, height])
+                    pixels = np.asarray(saved)
+                for row, expected in enumerate(expected_pixels):
+                    y = top + row * (panel_height + gap)
+                    actual = pixels[y : y + panel_height, left : left + panel_width, :3]
+                    target = np.repeat(
+                        np.repeat(expected, pixels_per_cell, axis=0),
+                        pixels_per_cell,
+                        axis=1,
+                    )
+                    np.testing.assert_array_equal(actual, target)
+                fig.savefig(output / (stem + ".pdf"), dpi=dpi)
                 plt.close(fig)
-                render.append({"file": stem, "limits": [vmin, vmax]})
+                render.append(
+                    {
+                        "file": stem,
+                        "limits": [vmin, vmax],
+                        "figure_pixels": [width, height],
+                        "panel_pixels": [panel_width, panel_height],
+                        "panel_grid_shape_yx": [len(latitude_rows), len(lon)],
+                        "panel_left_px": left,
+                        "panel_top_px": [
+                            top + row * (panel_height + gap)
+                            for row in range(len(labels))
+                        ],
+                    }
+                )
     for source in provenance["sources"]:
         source["weights_used_sha256"] = (
             None
@@ -208,6 +266,9 @@ def plot(bundle, output):
             "bundle_sha256": digest(bundle),
             "plot_script_sha256": digest(Path(__file__)),
             "rendered": render,
+            "pixel_verification": "Every saved panel RGB pixel equals the source colormap cell repeated exactly 2x2, including the common missing-data mask",
+            "rasterization": "Lossless PNG: exactly 2 x 2 pixels per retained grid cell at native image size; no interpolation. PDF embeds native grid with interpolation disabled.",
+            "coordinates": "Square cells in grid-index space, sorted longitude and retained 60S-60N latitude rows; ticks label actual cell-center coordinates. No geographic resampling.",
             "mask": "60S-60N model wet domain intersected with finite target observations, identical across candidates",
             "interpretation": "Illustrative cases, not aggregate skill; gray is land or unavailable observations. Colorbar extensions mark saturation. Endpoint is the last common exported surface lead, not a multi-year continuous rollout.",
         }

@@ -70,13 +70,34 @@
     }
   },
   "bundle_sha256": "fa75429ad70040ed73f3b919664062e5424596ae9673a030303ee976bcf13d47",
-  "plot_script_sha256": "be1f7e24090f0bfef260f845ea028537c5d6cef259448f7e52ec45255ccd90c1",
+  "plot_script_sha256": "32dcc2939ebd987d270dbecb419249f471e4cb6eb3e6efc4ae03661f7638b63f",
   "rendered": [
     {
       "file": "day30-2022-01-anomalies-sst",
       "limits": [
         -3,
         3
+      ],
+      "figure_pixels": [
+        820,
+        1925
+      ],
+      "panel_pixels": [
+        720,
+        240
+      ],
+      "panel_grid_shape_yx": [
+        120,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        375,
+        670,
+        965,
+        1260,
+        1555
       ]
     },
     {
@@ -84,6 +105,27 @@
       "limits": [
         -0.25,
         0.25
+      ],
+      "figure_pixels": [
+        820,
+        1925
+      ],
+      "panel_pixels": [
+        720,
+        240
+      ],
+      "panel_grid_shape_yx": [
+        120,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        375,
+        670,
+        965,
+        1260,
+        1555
       ]
     },
     {
@@ -91,6 +133,27 @@
       "limits": [
         -2,
         32
+      ],
+      "figure_pixels": [
+        820,
+        1925
+      ],
+      "panel_pixels": [
+        720,
+        240
+      ],
+      "panel_grid_shape_yx": [
+        120,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        375,
+        670,
+        965,
+        1260,
+        1555
       ]
     },
     {
@@ -98,6 +161,27 @@
       "limits": [
         -1.5,
         1.5
+      ],
+      "figure_pixels": [
+        820,
+        1925
+      ],
+      "panel_pixels": [
+        720,
+        240
+      ],
+      "panel_grid_shape_yx": [
+        120,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        375,
+        670,
+        965,
+        1260,
+        1555
       ]
     },
     {
@@ -105,6 +189,27 @@
       "limits": [
         -3,
         3
+      ],
+      "figure_pixels": [
+        820,
+        1925
+      ],
+      "panel_pixels": [
+        720,
+        240
+      ],
+      "panel_grid_shape_yx": [
+        120,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        375,
+        670,
+        965,
+        1260,
+        1555
       ]
     },
     {
@@ -112,9 +217,33 @@
       "limits": [
         -0.25,
         0.25
+      ],
+      "figure_pixels": [
+        820,
+        1925
+      ],
+      "panel_pixels": [
+        720,
+        240
+      ],
+      "panel_grid_shape_yx": [
+        120,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        375,
+        670,
+        965,
+        1260,
+        1555
       ]
     }
   ],
+  "pixel_verification": "Every saved panel RGB pixel equals the source colormap cell repeated exactly 2x2, including the common missing-data mask",
+  "rasterization": "Lossless PNG: exactly 2 x 2 pixels per retained grid cell at native image size; no interpolation. PDF embeds native grid with interpolation disabled.",
+  "coordinates": "Square cells in grid-index space, sorted longitude and retained 60S-60N latitude rows; ticks label actual cell-center coordinates. No geographic resampling.",
   "mask": "60S-60N model wet domain intersected with finite target observations, identical across candidates",
   "interpretation": "Illustrative cases, not aggregate skill; gray is land or unavailable observations. Colorbar extensions mark saturation. Endpoint is the last common exported surface lead, not a multi-year continuous rollout."
 }

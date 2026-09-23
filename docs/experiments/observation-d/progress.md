@@ -778,3 +778,29 @@ than climatology. Adapter-only and scratch were pending on scheduler priority
 after preemption around 07:02 UTC, with no Slurm start estimate. Their last
 observed joint updates were 476 and 495; no jobs or budgets were replaced.
 Capture: `snapshots/primary-joint600-20260923T0722Z.json`.
+
+## Primary completed its approved training budget
+
+Primary job **18295884** completed successfully at **08:34:49 UTC** (Slurm
+`COMPLETED`, exit 0), after **200 adapter, 700 reconstruction, and 1000 joint
+updates**. It selected joint update 1000 at **0.6141372**. The last validation
+still improved, so reaching this cap does not establish convergence. Summing
+the ten allocation attempts, including nine preemptions, gives **18,443 GPU
+seconds = 5.1231 allocated GPU-hours**. Retained phase clocks were
+1447.92 / 6157.53 / 9812.83 seconds; allocated time also includes startup and
+replayed work.
+
+The final selected checkpoint SHA-256 was independently read back and matched
+both `best.json` and `TRAIN_COMPLETE.json`:
+`11631058d74f0de699ee58951c6884c1471720a15ec633d29fcf872d680a012e`.
+A checksum-verified copy and selection metadata are preserved under
+`selected-checkpoints/primary-<sha256>.pt` and `.json` in the run root.
+
+Final selected validation components: SST **0.534409 °C**, geostrophic velocity
+**0.136382 m/s**, EKE **0.0198038 m²/s²**, OHC **5.95806e8 / 3.77586e8 J/m²**,
+mean spatial spectral error **0.423321 dex**. Day-5/15/30 SST errors are
+**0.421613 / 0.551435 / 0.630177 °C**. The deeper OHC error remains above
+climatology. The other components and spectrum are below it. This is completed
+validation selection; **held-out evaluation 18314442 is pending on priority**.
+Adapter-only and scratch remain active within their original budgets.
+Capture: `snapshots/primary-complete-20260923T0837Z.json`.

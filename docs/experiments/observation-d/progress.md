@@ -718,3 +718,13 @@ validation evidence, not held-out skill or proof that every component improved.
 The matched-lead figure was regenerated and visually inspected from this capture.
 Adapter-only is selected at reconstruction 900 (**2.3471170**); scratch remains
 selected at reconstruction 100 (**6.4633877**) before its joint dynamics training.
+
+At **05:22 UTC**, all three arms had reached joint training. Scratch reconstruction
+stopped at update **600** after five non-improving checks (4647.93 retained seconds),
+restored update 100, and reached joint update **51** with finite loss/gradients.
+Adapter-only completed reconstruction at update **1000** (7204.68 retained seconds),
+selected **2.3468604**, and reached joint update **13**. Primary was preempted after
+observed joint update **133** and was pending automatic requeue under the same job
+ID; its selected joint-100 result remains intact. This is another scheduler
+interruption, not an experiment failure. Capture:
+`snapshots/all-arms-joint-20260923T0522Z.json`.

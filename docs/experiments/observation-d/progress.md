@@ -308,3 +308,29 @@ adapter evaluation **18295889**, scratch evaluation **18295895**. The production
 model source remains `d8949bb15d9fa92e6c8c94702092360bbe9005ef`; only submission
 recovery changed. Prior cancelled submission records are preserved in a separate
 history directory. Keep at most two production GPUs active as originally planned.
+
+
+## Production is running on Torch
+
+Primary **18295884** and adapter-only **18295885** both started at **01:44:12 UTC**
+on 23 September, each on one H200. By 01:46 UTC, both had entered the adapter
+warm-up and completed actual optimization steps with finite loss and gradients.
+Online W&B runs are [primary](https://wandb.ai/ocean_emulators/observational-transfer/runs/af7af77a1573)
+and [adapter-only](https://wandb.ai/ocean_emulators/observational-transfer/runs/fdca5f8e2b72).
+There is not yet a post-adaptation validation result at this capture.
+
+The independent CPU climatology diagnostic **18296459** completed in 44 seconds.
+It reproduced all 27 spectral components and the surface integrated control errors
+exactly; the two OHC errors differed from the GPU reference by less than 2e-8
+relative, consistent with reduction precision. The production GPU reference remains
+unchanged. The seasonal control composite is **1.3151773**, compared with the
+initial pretrained/zero-adapter **2.4949851**. Initial pretrained OHC errors are
+8.46 and 11.67 times climatology, while velocity and EKE errors are 0.726 and
+0.857 times climatology. These opposing components make reporting the individual
+metrics essential; they do not establish any fine-tuning outcome.
+
+Earlier CPU diagnostic attempts failed before computation because the standalone
+batch used an unavailable module name and then the container's system Python.
+The successful job uses the existing Apptainer binary and `/workspace/.venv/bin/python`,
+matching the production environment. These diagnostic launch errors did not affect
+training or its fixed selection reference.

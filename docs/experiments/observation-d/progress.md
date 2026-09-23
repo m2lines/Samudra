@@ -400,3 +400,20 @@ initializer. Immutable capture:
 Live scratch quota at 02:05 UTC: **3.69 TB / 5 TB** (about **1.31 TB** free).
 Prepared samples occupy 21 GiB, pilot run outputs 4.1 GiB. No cleanup has been
 needed or performed.
+
+
+## First preemption and automatic requeue
+
+At **02:15:28/29 UTC**, Torch preempted primary **18295884** and adapter-only
+**18295885**. Both show `Restarts=1`, `Requeue=1` and are pending again under the
+same job IDs; this is scheduler preemption, not a numerical or application failure.
+At 02:20 UTC the final recorded reconstruction steps were 48 and 56 respectively.
+Both have `reconstruction-last.pt` recovery checkpoints (primary written 02:15,
+adapter-only 02:14). The completed adapter phase and selected-checkpoint records
+remain intact. No manual duplicate submission was made; all dependent scratch,
+evaluation and reporting jobs remain attached to the existing job IDs. Actual
+resumption from saved optimizer/RNG state still needs live verification.
+
+The snapshot collector now requests duplicate Slurm accounting records so that
+preempted attempts remain visible alongside the requeued job, rather than only
+showing its latest scheduling state.

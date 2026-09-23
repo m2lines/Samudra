@@ -68,6 +68,7 @@ def main():
                 "-j",
                 ",".join(jobs),
                 "--parsable2",
+                "--duplicates",
                 "--format=JobID,State,ExitCode,Elapsed,Start,End,AllocTRES,NodeList",
             ]
         )

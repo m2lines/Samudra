@@ -503,3 +503,28 @@ pending adapter CPU reporter was replaced with the corrected batch script. Nine
 focused reporting/submission tests pass, including a regression check that the
 adapter evaluation is included. Producer code for all training remains `d8949bb15`;
 launcher/reporting correction is `580e61feb`.
+
+
+## Scratch qualification passed; second scheduler preemption
+
+Scratch fitting **18303300** completed **03:04:07–03:04:55 UTC**, exit 0. The
+training-only probe loss decreased **1.291290 → 0.242077** over ten updates, with
+finite gradients reaching initializer, evolution and adapter; peak allocation
+**5.568 GiB**. Its manifest records `normalization_mode: observation-only` and
+`source_checkpoint_sha256: null`. Initial fresh-weight validation composite was
+**6.758859**. Production scratch **18303301** is eligible and queued; the probe's
+fitted weights are not used to initialize production.
+
+Primary and adapter-only were preempted again at **03:05:08/09 UTC**, after about
+31 minutes of their second allocations, and automatically requeued. Last observed
+reconstruction steps were **282 / 302**; ZIP metadata confirms recovery steps
+**275 / 300**, so seven and two updates respectively will repeat. Latest selected
+scores remain primary **0.849317** (update 200) and adapter-only **2.376090**
+(update 300). No numerical failure was observed.
+
+Alternative routing was checked without submitting a duplicate job. The permitted
+regular RTX6000 allocation has an eight-GPU group limit and all eight are allocated.
+A complete `sbatch --test-only` request allowing normal plus preemptible H200
+capacity routed to `h200_public` with a forecast start after the snapshot deadline.
+That forecast is provisional; it does not justify replacing the currently
+productive, resumable preemption-only jobs. Keep following their existing IDs.

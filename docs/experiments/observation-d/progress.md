@@ -528,3 +528,30 @@ A complete `sbatch --test-only` request allowing normal plus preemptible H200
 capacity routed to `h200_public` with a forecast start after the snapshot deadline.
 That forecast is provisional; it does not justify replacing the currently
 productive, resumable preemption-only jobs. Keep following their existing IDs.
+
+
+## All three arms running; scratch first validation
+
+The next allocations began at approximately **03:14 UTC**. Primary resumed with
+reconstruction update **276** and adapter-only with **301**, exactly after their
+saved states. Scratch **18303301** began from fresh weights; its live manifest
+confirms observation-only normalization and no source checkpoint hash. W&B:
+[analysis-only scratch](https://wandb.ai/ocean_emulators/observational-transfer/runs/e035b83d0956).
+At 03:28 UTC the three live arms had recorded reconstruction updates **320**,
+**416**, and **106**, respectively.
+
+Primary update 300 scored **0.8496353**, slightly worse than update 200's
+**0.8493170** despite further OHC improvements. Selection correctly retained
+update **200**. At update 300, SST error was **1.23592 °C** and mean spectral error
+**0.51472 dex**, while OHC errors fell to **8.70841e8 / 6.12856e8 J/m²**.
+Adapter-only selected update 400 at **2.3693335**.
+
+Scratch's first 100-update validation composite was **6.4633877**, versus initial
+**6.7588586**. SST error was **8.75904 °C**, and mean spectral error **4.06762 dex**.
+This is expected to be a weak forecast at this stage: the scratch evolution
+network is still randomly initialized and frozen during reconstruction training.
+Do not interpret this interim difference as an established pretraining benefit;
+compare after joint forecast optimization and report actual completed budgets.
+
+Immutable capture: `snapshots/all-arms-training-20260923T0329Z.json` under the
+Torch run root. No held-out evaluation has begun.

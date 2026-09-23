@@ -1026,3 +1026,21 @@ memory **73.61 GiB**, and peak host RSS **5.54 GiB**. Both training and validati
 resident caches passed exact native-data equivalence checks. This establishes
 single-RTX OM4 training compatibility; calibration and production are not yet
 complete. Observation-only fitting remains separately qualified by the staged job.
+
+## Hourly monitoring enabled — 23 September, 18:06 ET
+
+User requested roughly 60-minute monitoring, sooner when appropriate. Enabled local
+user timer `oe-obs-budget-monitor-01a0d027.timer`, which queues checks into this same
+Codex conversation rather than creating a separate agent. The service was tested:
+Codex acknowledged queued message `01a0d04e-3e6a-7f43-982d-10344d47387b`. The timer
+is active; next routine wake is **19:06:23 ET**, repeating hourly. A pending marker
+prevents overlapping monitor prompts. The monitor must clear it after each check
+and disable the timer when reporting is complete. Scheduling relies on this local
+host and its Codex service remaining available.
+
+Monitoring covers scheduler/accounting, structured training and validation logs,
+checkpoint/evaluation completeness, accumulated GPU-hours, and routine recovery
+within the approved single-seed scope and 100-GPU-hour envelope. It does not
+authorize further experiment waves. Latest live check: OM4 LR 3e-5 calibration
+completed 200 updates with finite validation T/S MSE 0.00337271; the LR 1e-4
+calibration was running. Production remains held behind calibration completion.

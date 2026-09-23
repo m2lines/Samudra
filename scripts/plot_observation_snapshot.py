@@ -96,6 +96,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("snapshot", type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--grid", type=Path, help="Verified pilot grid for depth-resolved T/S plots"
+    )
     parser.add_argument("--split", choices=("validation", "test"), default="validation")
     args = parser.parse_args()
     snapshot = json.loads(args.snapshot.read_text())
@@ -161,12 +164,63 @@ def main():
     fig.savefig(args.output / f"{stem}-spectra.png", dpi=180)
     fig.savefig(args.output / f"{stem}-spectra.pdf")
     plt.close(fig)
+    grid_sha256 = None
+    if args.grid:
+        grid_sha256 = hashlib.sha256(args.grid.read_bytes()).hexdigest()
+        expected = snapshot["arms"]["fitting"]["manifest"]["grid_sha256"]
+        if grid_sha256 != expected:
+            raise ValueError("Depth coordinate grid differs from the frozen pilot grid")
+        with np.load(args.grid) as grid:
+            depths = grid["depth"]
+        fig, axes = plt.subplots(2, 2, figsize=(11, 9), layout="constrained")
+        for row, (variable, title, unit) in enumerate(
+            (
+                ("thetao", "Temperature", "°C"),
+                ("so", "Practical salinity", "dimensionless"),
+            )
+        ):
+            for column, statistic in enumerate(("rmse", "bias")):
+                ax = axes[row, column]
+                for label, result in candidates.items():
+                    ts = result["thermohaline"]
+                    indices = [
+                        i
+                        for i, name in enumerate(ts["channels"])
+                        if name.startswith(variable + "_")
+                    ]
+                    z = [
+                        depths[int(ts["channels"][i].rsplit("_", 1)[1])]
+                        for i in indices
+                    ]
+                    ax.plot(
+                        [ts[statistic][i] for i in indices],
+                        z,
+                        "o-",
+                        label=label,
+                        color=colors[label],
+                        markersize=3,
+                    )
+                if statistic == "bias":
+                    ax.axvline(0, color="black", linewidth=0.6)
+                ax.set_yscale("log")
+                ax.invert_yaxis()
+                ax.set_ylabel("Depth (m, logarithmic)")
+                ax.set_xlabel(f"{statistic.upper()} ({unit})")
+                ax.set_title(title)
+                ax.grid(alpha=0.2)
+        handles, labels = axes[0, 0].get_legend_handles_labels()
+        fig.legend(handles, labels, loc="outside lower center", ncols=2, fontsize=8)
+        fig.suptitle(f"{caption} monthly forecast T/S against IAP")
+        fig.savefig(args.output / f"{stem}-thermohaline.png", dpi=180)
+        fig.savefig(args.output / f"{stem}-thermohaline.pdf")
+        plt.close(fig)
     provenance = {
         "snapshot": str(args.snapshot),
         "snapshot_sha256": hashlib.sha256(args.snapshot.read_bytes()).hexdigest(),
         "snapshot_time": snapshot["snapshot_finished_utc"],
         "scope": f"Recorded {caption.lower()} metrics; no model execution",
         "split": args.split,
+        "grid_sha256": grid_sha256,
         "bar_normalization": f"{caption} seasonal climatology errors; descriptive plot, not a new selection score",
         "spectral_ordinate": "Existing kernel k times azimuthally averaged 2D power; spacing in metres and k in cycles/metre. Only the abscissa is converted to wavelength in km.",
         "candidates": list(candidates),

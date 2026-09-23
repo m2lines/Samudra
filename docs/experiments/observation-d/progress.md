@@ -417,3 +417,12 @@ resumption from saved optimizer/RNG state still needs live verification.
 The snapshot collector now requests duplicate Slurm accounting records so that
 preempted attempts remain visible alongside the requeued job, rather than only
 showing its latest scheduling state.
+
+
+Recovery metadata was inspected directly in the PyTorch ZIP archives using
+`pickletools` (without loading tensors or executing pickle constructors). Primary
+saved reconstruction step **48**, elapsed **368.905 s**; adapter-only saved step
+**52**, elapsed **367.030 s**. Thus the primary's last recorded update is retained,
+and the adapter-only job will repeat four updates after resumption. Both records
+retain their best score, patience counter and RNG payloads. Successful tensor and
+optimizer loading still requires observing the resumed job.

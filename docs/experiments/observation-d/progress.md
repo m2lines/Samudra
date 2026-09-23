@@ -211,3 +211,28 @@ the pilot budget plus headroom, and rejects an incoming NPZ payload over 40 GiB.
 Malformed quota output also prevents copying. Guard checks cover current capacity,
 tight quota, an oversized payload and malformed output. Existing datasets and
 checkpoints were not deleted.
+
+## Coarsening complete; first monthly sample checked
+
+All eight tasks of Grace job **96574** completed with exit code 0; the longest
+elapsed time was 2:23:36. Materialization **96584** is running. At the 00:51 UTC
+check it had written 73 training months totaling 4,590,567,473 bytes; these counts
+are an intermediate observation, not the final publication manifest.
+
+The actual May 1993 training sample was independently read locally. Its 26 bins
+contain 19 historical and seven future bins on the exact 180 × 360 grid; all eight
+atmospheric fields are finite. Monthly weights are six times 5/31 plus 1/31.
+SST and ADT finite fractions over 60°S–60°N model surface cells are 93.95% and
+94.19%. These are cell-count support figures for one sample, not full-record or
+area-weighted coverage claims. Interior arrays have the expected 2 × 14 depth
+channels. [Full shapes, ranges and checksum](materialized-sample-audit.json) retain
+the sample's provenance. No training benefit follows from this preprocessing check.
+
+For the same 26-bin sample, deriving geostrophic velocity from coarsened ADT and
+comparing it with separately coarsened DUACS velocity gives **0.0656 m/s vector
+RMSE**, versus 0.1673 m/s reference RMS speed (39.2%). This retains the existing
+geostrophic kernel and common finite support, excluding 5°S–5°N. Coarsening and
+spatial differentiation do not generally commute; this is a processing-consistency
+diagnostic, not forecast error or an irreducible bound. Keep the published metric
+reference definition fixed for all candidates and include this caveat in result
+interpretation. [Recorded diagnostic](coarsening-consistency.json).

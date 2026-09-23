@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Plot recorded validation components and spectra without running a model."""
+"""Plot recorded validation or held-out metrics without running a model."""
 
 import argparse
 import hashlib
@@ -16,33 +16,89 @@ import numpy as np
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+ARM_LABELS = (
+    ("primary", "Full fine-tuning"),
+    ("adapter-only", "Adapter only"),
+    ("scratch", "Observation-only scratch"),
+)
+
+
+def candidates_for_split(snapshot, split):
+    arms = snapshot["arms"]
+    reference = arms["fitting"]["selection-reference"]
+    if reference is None:
+        raise ValueError("No qualified validation reference has been recorded")
+    if split == "validation":
+        control = reference["control"]
+        candidates = {"Seasonal climatology": control}
+        baseline = arms["fitting"]["baseline-validation"]
+        if baseline:
+            candidates["Pretrained / zero adapter"] = baseline
+        for arm, label in ARM_LABELS:
+            best = arms[arm]["best"]
+            if best:
+                status = "selected" if arms[arm]["TRAIN_COMPLETE"] else "best so far"
+                candidates[f"{label} ({status}; {best['phase']}:{best['step']})"] = (
+                    best["metrics"]
+                )
+        return reference, control, candidates
+    if split != "test":
+        raise ValueError("Unknown split")
+    completed = []
+    for arm, label in ARM_LABELS:
+        evaluation = snapshot["evaluations"].get(arm + "-evaluation", {})
+        if not evaluation.get("COMPLETE"):
+            continue
+        best = arms[arm]["best"]
+        selected = evaluation["selected"]
+        if (
+            not arms[arm]["TRAIN_COMPLETE"]
+            or selected["sha256"] != best["checkpoint_sha256"]
+            or selected["split"] != "test"
+            or evaluation["COMPLETE"]["origins"] != 96
+        ):
+            raise ValueError(
+                "Held-out result does not match a completed selected checkpoint"
+            )
+        completed.append((label, evaluation))
+    if not completed:
+        raise ValueError("No complete held-out evaluation; do not relabel validation")
+    controls = completed[0][1]
+    control = controls["seasonal-climatology"]
+    candidates = {
+        "Seasonal climatology": control,
+        "Pretrained / zero adapter": controls["source-with-zero-forcing"],
+        "Inferred-state persistence": controls["source-inferred-persistence"],
+        "Inferred-anomaly persistence": controls["inferred-anomaly-persistence"],
+    }
+    for label, evaluation in completed:
+        candidates[label + " (selected)"] = evaluation["selected"]["metrics"]
+    expected = [
+        f"{year}-{month:02d}" for year in range(2015, 2023) for month in range(1, 13)
+    ]
+    for label, result in candidates.items():
+        if result["origins"] != expected:
+            raise ValueError(f"Incomplete held-out cohort: {label}")
+        for key in reference["spectral_keys"]:
+            curve, target = result["spectra"][key], control["spectra"][key]
+            for field in ("k_rad_km", "reference_power"):
+                if not np.allclose(curve[field], target[field], rtol=1e-8, atol=0):
+                    raise ValueError(
+                        f"Different held-out spectral reference: {label}/{key}"
+                    )
+    return reference, control, candidates
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("snapshot", type=Path)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--split", choices=("validation", "test"), default="validation")
     args = parser.parse_args()
     snapshot = json.loads(args.snapshot.read_text())
-    arms = snapshot["arms"]
-    reference = arms["fitting"]["selection-reference"]
-    if reference is None:
-        raise ValueError("No qualified validation reference has been recorded")
-    control = reference["control"]
-    candidates = {"Seasonal climatology": control}
-    baseline = arms["fitting"]["baseline-validation"]
-    if baseline:
-        candidates["Pretrained / zero adapter"] = baseline
-    for arm, label in (
-        ("primary", "Full fine-tuning"),
-        ("adapter-only", "Adapter only"),
-        ("scratch", "Observation-only scratch"),
-    ):
-        best = arms[arm]["best"]
-        if best:
-            status = "selected" if arms[arm]["TRAIN_COMPLETE"] else "best so far"
-            candidates[f"{label} ({status}; {best['phase']}:{best['step']})"] = best[
-                "metrics"
-            ]
+    reference, control, candidates = candidates_for_split(snapshot, args.split)
+    stem = "validation" if args.split == "validation" else "heldout"
+    caption = "Validation" if args.split == "validation" else "Held-out 2015–2022"
     args.output.mkdir(parents=True, exist_ok=True)
     names = reference["protocol"]["integrated"]
     labels = ["SST", "Geostrophic velocity", "EKE", "OHC 0–700 m", "OHC 700–2000 m"]
@@ -57,11 +113,14 @@ def main():
         ax.bar(positions, ratios, width, label=label, color=colors[label])
     ax.axhline(1, color="black", linewidth=0.6)
     ax.set_xticks(np.arange(len(names)), labels)
-    ax.set_ylabel("Error / fixed validation climatology error (lower is better)")
-    ax.set_title("Validation integrated components — not held-out performance")
+    ax.set_ylabel(f"Error / {caption.lower()} climatology error (lower is better)")
+    ax.set_title(
+        f"{caption} integrated components"
+        + (" — not held-out performance" if args.split == "validation" else "")
+    )
     ax.legend(fontsize=8)
-    fig.savefig(args.output / "validation-components.png", dpi=180)
-    fig.savefig(args.output / "validation-components.pdf")
+    fig.savefig(args.output / f"{stem}-components.png", dpi=180)
+    fig.savefig(args.output / f"{stem}-components.pdf")
     plt.close(fig)
 
     fields = ["sst", "adt", "eke"]
@@ -95,15 +154,17 @@ def main():
             ax.grid(alpha=0.2)
     handles, labels = axes[0, 0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="outside lower center", ncols=2, fontsize=8)
-    fig.suptitle("Validation day-30 spatial spectra · broad scales only")
-    fig.savefig(args.output / "validation-spectra.png", dpi=180)
-    fig.savefig(args.output / "validation-spectra.pdf")
+    fig.suptitle(f"{caption} day-30 spatial spectra · broad scales only")
+    fig.savefig(args.output / f"{stem}-spectra.png", dpi=180)
+    fig.savefig(args.output / f"{stem}-spectra.pdf")
     plt.close(fig)
     provenance = {
         "snapshot": str(args.snapshot),
         "snapshot_sha256": hashlib.sha256(args.snapshot.read_bytes()).hexdigest(),
         "snapshot_time": snapshot["snapshot_finished_utc"],
-        "scope": "Recorded validation metrics; no model execution or held-out claim",
+        "scope": f"Recorded {caption.lower()} metrics; no model execution",
+        "split": args.split,
+        "bar_normalization": f"{caption} seasonal climatology errors; descriptive plot, not a new selection score",
         "spectral_ordinate": "Existing kernel k times azimuthally averaged 2D power; spacing in metres and k in cycles/metre. Only the abscissa is converted to wavelength in km.",
         "candidates": list(candidates),
     }

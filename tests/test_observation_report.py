@@ -4,6 +4,7 @@
 
 import importlib.util
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -121,3 +122,63 @@ def test_post_selection_report_pairs_all_years_and_rejects_changed_reference(
     )
     with pytest.raises(ValueError, match="Different reporting cohort/support"):
         report.main()
+
+
+def test_heldout_plot_requires_complete_selection_and_matching_cohort():
+    from copy import deepcopy
+
+    plot_spec = importlib.util.spec_from_file_location(
+        "observation_plot",
+        Path(__file__).parents[1] / "scripts/plot_observation_snapshot.py",
+    )
+    assert plot_spec is not None and plot_spec.loader is not None
+    plot = importlib.util.module_from_spec(plot_spec)
+    plot_spec.loader.exec_module(plot)
+    origins = [
+        f"{year}-{month:02d}" for year in range(2015, 2023) for month in range(1, 13)
+    ]
+    metrics = {
+        "origins": origins,
+        "spectra": {
+            "sst/region/day30": {"k_rad_km": [1.0, 2.0], "reference_power": [1.0, 2.0]}
+        },
+    }
+    frozen = {"spectral_keys": ["sst/region/day30"], "control": metrics}
+    snapshot: dict[str, Any] = {
+        "arms": {
+            "fitting": {"selection-reference": frozen},
+            "primary": {
+                "TRAIN_COMPLETE": {},
+                "best": {"checkpoint_sha256": "selected"},
+            },
+        },
+        "evaluations": {},
+    }
+    with pytest.raises(ValueError, match="No complete held-out"):
+        plot.candidates_for_split(snapshot, "test")
+    evaluation: dict[str, Any] = {
+        "COMPLETE": {"origins": 96},
+        "selected": {
+            "sha256": "selected",
+            "split": "test",
+            "metrics": deepcopy(metrics),
+        },
+        **{
+            key: deepcopy(metrics)
+            for key in (
+                "seasonal-climatology",
+                "source-with-zero-forcing",
+                "source-inferred-persistence",
+                "inferred-anomaly-persistence",
+            )
+        },
+    }
+    snapshot["evaluations"]["primary-evaluation"] = evaluation
+    with pytest.raises(ValueError, match="completed selected checkpoint"):
+        plot.candidates_for_split(snapshot, "test")
+    snapshot["arms"]["primary"]["TRAIN_COMPLETE"] = {"completed_utc": "recorded"}
+    _, _, candidates = plot.candidates_for_split(snapshot, "test")
+    assert len(candidates) == 5
+    evaluation["selected"]["metrics"]["origins"].pop()
+    with pytest.raises(ValueError, match="Incomplete held-out cohort"):
+        plot.candidates_for_split(snapshot, "test")

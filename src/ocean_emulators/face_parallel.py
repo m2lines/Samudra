@@ -168,6 +168,7 @@ class FaceParallelContext:
         window: WindowKind = "quintic",
         ramp_width: int | None = None,
         dtype: torch.dtype = torch.float32,
+        device: torch.device | str | None = None,
         process_group: object | None = None,
     ) -> None:
         self.layout = layout
@@ -186,6 +187,13 @@ class FaceParallelContext:
             dtype=dtype,
             process_group=process_group,
         )
+        if device is not None:
+            # Move here, not in the caller. `collective_device` reads the
+            # blender's buffers, and the loss normalization issues collectives
+            # during construction -- so any window in which the blender is
+            # still on the host is a window in which those collectives are
+            # sent to a backend that cannot reach them.
+            self.blender.to(device)
         logger.info(
             "Face-parallel rank %d/%d: tiles %s, %d chunk(s) of %s, %d halo "
             "message(s) per blend",
@@ -296,6 +304,23 @@ class FaceParallelContext:
             ),
         )
 
+    @property
+    def collective_device(self) -> torch.device:
+        """Where this context's collectives have to run.
+
+        NCCL registers no CPU backend, so a tensor allocated on the host fails
+        the moment it reaches `all_reduce` with "No backend type associated
+        with device type cpu" -- which is exactly how the first multi-rank run
+        died, on a one-element control-flow flag.
+
+        The blender's weights are a registered buffer, so they follow the
+        module's `.to()`; they name the device the blend actually happens on,
+        which is by construction the device its collectives happen on too.
+        Reading it at call time rather than caching a constructor argument is
+        what keeps this true after a later `.to()`.
+        """
+        return self.blender.weights.device
+
     def agree(self, flag: bool) -> bool:
         """True if ANY rank raises the flag.
 
@@ -305,9 +330,19 @@ class FaceParallelContext:
         advancing, the buffers silently part company and the tiles of a "face"
         stop being one timestamp.
         """
-        return bool(self._all_reduce(torch.tensor([float(flag)]), op="max").item())
+        vote = torch.tensor(
+            [float(flag)], dtype=torch.float32, device=self.collective_device
+        )
+        return bool(self._all_reduce(vote, op="max").item())
 
     def _all_reduce(self, tensor: torch.Tensor, *, op: str) -> torch.Tensor:
+        """Reduce across ranks, on whatever device the backend can reach.
+
+        The move is done here rather than left to callers so that adding a
+        collective later cannot reintroduce the CPU-tensor-under-NCCL failure.
+        The result comes back on the collective device; every caller either
+        reads a scalar from it or re-homes it at the point of use.
+        """
         if self.world_size == 1:
             return tensor
         import torch.distributed as dist
@@ -319,6 +354,7 @@ class FaceParallelContext:
                 "initialized."
             )
         reduce_op = {"sum": dist.ReduceOp.SUM, "max": dist.ReduceOp.MAX}[op]
+        tensor = tensor.to(device=self.collective_device)
         dist.all_reduce(tensor, op=reduce_op, group=self.process_group)
         return tensor
 

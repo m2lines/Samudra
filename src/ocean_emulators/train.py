@@ -126,7 +126,11 @@ from ocean_emulators.utils.logging import (
     handle_logging,
     handle_warnings,
 )
-from ocean_emulators.utils.loss import LossFn
+from ocean_emulators.utils.loss import (
+    LossFn,
+    gradient_z_norms,
+    weighted_channel_denominator,
+)
 from ocean_emulators.utils.schedule import EpochMultiplierScheduler
 from ocean_emulators.utils.train import (
     CheckpointPaths,
@@ -2874,7 +2878,12 @@ class Trainer:
             [index // num_strides for index in indices],
             device=self.tile_wet_masks.device,
         )
-        return self.tile_wet_masks[source_indices].to(dtype=torch.float32)
+        # Left as bool. The loss casts whatever it is given
+        # (`_channel_weight`, and gradient_z's own reshape), and it only ever
+        # sees one chunk at a time -- so converting the whole microbatch here
+        # would quadruple a tensor that is 3.9 GB at nine 752^2 tiles and
+        # throw away all but a slice of it per chunk.
+        return self.tile_wet_masks[source_indices]
 
     def _microbatch_spans(self, data: TrainData) -> list[tuple[int, int]]:
         """How to split one microbatch into forward/backward chunks.
@@ -3482,7 +3491,21 @@ class Trainer:
         ownership term the shared cells would count twice and pull every metric
         toward the seams.
         """
-        ownership = ownership_masks(group.layout).to(self.device)
+        # The layout is the whole face even when this rank holds a slice of
+        # it, so the masks have to be narrowed to the tiles actually in the
+        # batch. Leaving them at face width does not broadcast -- it raises --
+        # but only once validation runs, an epoch after the mistake.
+        ownership = ownership_masks(group.layout)
+        fp_ctx = getattr(self, "fp_ctx", None)
+        if fp_ctx is not None:
+            ownership = ownership[list(fp_ctx.local_tiles)]
+        if ownership.shape[0] != group.num_tiles:
+            raise RuntimeError(
+                f"Group {group.group_id} scores {group.num_tiles} tile(s) but "
+                f"{ownership.shape[0]} ownership mask(s) were built from a "
+                f"{group.layout.num_tiles}-tile layout."
+            )
+        ownership = ownership.to(self.device)
         wet = self.tile_wet_masks
         if wet is None:
             return ownership.expand(-1, self.num_out, -1, -1).contiguous()
@@ -3504,6 +3527,57 @@ class Trainer:
         return current + group.blender.blend(prediction - current)
 
     @torch.no_grad()
+    def _fixed_denominator_loss(self, sample_weight: torch.Tensor, *, tiles: int):
+        """A loss whose chunks sum to what one call over `tiles` would give.
+
+        Same device as `_install_face_loss_normalization`, but scoped to one
+        batch rather than to the face: the denominators come from this
+        batch's own masks, with no cross-rank reduction, so the result is the
+        ordinary mean and stays comparable to every other validation number.
+        """
+        return build_loss_fn(
+            self._loss_cfg,
+            wet=self.domain_wet,
+            y_coord=self.data.lat,
+            device=self.device,
+            num_channels=self.N_prog,
+            pad_mode=self._pad_mode,
+            denominator=weighted_channel_denominator(
+                wet=self.domain_wet, batch=tiles, extra_weight=sample_weight
+            ),
+            gradient_z_norms=gradient_z_norms(
+                wet=self.domain_wet, batch=tiles, sample_weight=sample_weight
+            ),
+        )
+
+    def _predict_in_chunks(self, model, inputs: torch.Tensor) -> torch.Tensor:
+        """`predict_step` over a batch too large to hold in one forward.
+
+        Validation steps a rank's whole tile set at once. For a face that is
+        nine 752^2 tiles, and one GroupNorm output at the widest stage is
+        ~17 GB of them -- which is exactly the allocation that OOMed the first
+        face validation, an epoch after the training step (which does chunk)
+        had been running happily at 74 GB.
+
+        Reuses the training split, so the two cannot disagree about what fits.
+        No grad here, so this only bounds transient activations.
+        """
+        fp_ctx = getattr(self, "fp_ctx", None)
+        if fp_ctx is None or len(fp_ctx.chunks) <= 1:
+            return model.predict_step(inputs)
+        if inputs.shape[0] != len(fp_ctx.local_tiles):
+            raise ValueError(
+                f"Expected one sample per local tile ({len(fp_ctx.local_tiles)}), "
+                f"got {inputs.shape[0]}"
+            )
+        return torch.cat(
+            [
+                model.predict_step(inputs[chunk[0] : chunk[-1] + 1])
+                for chunk in fp_ctx.chunks
+            ],
+            dim=0,
+        )
+
     def validate_one_epoch_grouped(self, epoch, group: ReplayGroup) -> MetricsDict:
         """One-step validation stepped across the whole cluster at once.
 
@@ -3517,8 +3591,48 @@ class Trainer:
             if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
             else self.model
         )
+        if torch.cuda.is_available():
+            # Training leaves the allocator holding far more than it is using.
+            # Measured entering this function on an 80 GB card: 15.3 GB live
+            # against 72.1 GB reserved -- the chunked step allocates and frees
+            # differently shaped activations five times per face advance, and
+            # the cached segments do not fit what validation asks for next.
+            # Validation then OOMed on 886 MiB with 56.8 GB of the card
+            # reserved but unused.
+            #
+            # So this is about the allocator's cache, not about anything
+            # training retains, and it has to be released HERE. The same call
+            # at the end of the training epoch did nothing, because the
+            # references were still live at that point.
+            live = torch.cuda.memory_allocated() / 2**30
+            reserved = torch.cuda.memory_reserved() / 2**30
+            torch.cuda.empty_cache()
+            logger.info(
+                "Entering grouped validation: %.1f GB live, %.1f GB reserved "
+                "-> %.1f GB after releasing the allocator's cache",
+                live,
+                reserved,
+                torch.cuda.memory_reserved() / 2**30,
+            )
         datasets = self._grouped_val_datasets(group)
         weight = self._grouped_val_weight(group)
+        # The loss has to be chunked as well as the forward. `gradient_h`
+        # alone builds about eight tensors the size of its input, so scoring
+        # nine 752^2 tiles in one call is ~31 GB of transients -- which OOMed
+        # an 80 GB card one validation batch after the chunked forward had
+        # made room. Fixed denominators make the chunks sum to exactly the
+        # value one call would have returned, so the reported number does not
+        # change.
+        chunks = (
+            self.fp_ctx.chunks
+            if self.fp_ctx is not None
+            else [tuple(range(len(datasets)))]
+        )
+        scored = (
+            self._fixed_denominator_loss(weight, tiles=len(datasets))
+            if len(chunks) > 1
+            else self.loss_fn
+        )
 
         val_aggregator = Aggregator.get_validation_aggregator(
             self.metadata,
@@ -3548,10 +3662,18 @@ class Trainer:
                 input, label = self._grouped_val_example(
                     datasets, index, read_executor=read_executor
                 )
-                prediction = model.predict_step(input)
+                prediction = self._predict_in_chunks(model, input)
                 blended = self._blend_group(group, input, prediction)
 
-                loss_per_channel = self.loss_fn(blended, label, sample_weight=weight)
+                loss_per_channel = None
+                for chunk in chunks:
+                    span = slice(chunk[0], chunk[-1] + 1)
+                    part = scored(
+                        blended[span], label[span], sample_weight=weight[span]
+                    )
+                    loss_per_channel = (
+                        part if loss_per_channel is None else loss_per_channel + part
+                    )
                 VO = ValBatchOutput(
                     torch.mean(loss_per_channel),
                     loss_per_channel,
@@ -3998,7 +4120,9 @@ class Trainer:
                     ],
                     dim=0,
                 )
-                blended = self._blend_group(group, inputs, model.predict_step(inputs))
+                blended = self._blend_group(
+                    group, inputs, self._predict_in_chunks(model, inputs)
+                )
                 # Remask per tile before the state becomes the next step's context.
                 for index, dataset in enumerate(datasets):
                     blended[index] = torch.where(
@@ -4374,6 +4498,8 @@ class Trainer:
             tiles_per_chunk=self.face_parallel_cfg.tiles_per_chunk,
             window=getattr(self.replay_cfg, "blend_window", "quintic"),
             dtype=torch.float32,
+            # Before the loss normalization below, which collectives.
+            device=self.device,
         )
         return build_face_replay_groups(
             layout,

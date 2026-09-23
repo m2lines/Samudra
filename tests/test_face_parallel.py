@@ -14,6 +14,7 @@ import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
 
+from ocean_emulators.constants import TensorMap
 from ocean_emulators.face_parallel import (
     FaceParallelContext,
     assign_tiles,
@@ -28,6 +29,7 @@ from ocean_emulators.tiling import (
     ownership_masks,
     tile_catalog_from_windows,
 )
+from ocean_emulators.utils.multiton import MultitonScope
 
 EXTENT = 240
 TILE = 40
@@ -408,3 +410,113 @@ def test_the_face_denominator_is_identical_on_every_rank(world_size: int) -> Non
     shares = [torch.tensor(entry[2]) for entry in collected]
     assert all(torch.isfinite(share).all() for share in shares)
     assert len({round(float(share.sum()), 6) for share in shares}) > 1
+
+
+# --------------------------------------------------------------------------
+# Collective device
+# --------------------------------------------------------------------------
+
+
+class _RecordingAllReduce:
+    """Stands in for `dist.all_reduce`, remembering what device it was handed.
+
+    NCCL registers no CPU backend, so handing it a host tensor raises "No
+    backend type associated with device type cpu". Gloo accepts one happily,
+    which is why the multi-rank tests above cannot catch it and why this
+    checks the device directly instead.
+    """
+
+    def __init__(self):
+        self.devices: list[torch.device] = []
+
+    def __call__(self, tensor, op=None, group=None):
+        self.devices.append(tensor.device)
+
+
+@pytest.fixture
+def recorded_all_reduce(monkeypatch):
+    recorder = _RecordingAllReduce()
+    monkeypatch.setattr(dist, "all_reduce", recorder)
+    monkeypatch.setattr(dist, "is_initialized", lambda: True)
+    monkeypatch.setattr(dist, "is_available", lambda: True)
+    return recorder
+
+
+def _context_on(device: torch.device, world_size: int = 4):
+    context = FaceParallelContext(
+        face_layout(), world_size=world_size, rank=0, tiles_per_chunk=3
+    )
+    context.blender.to(device)
+    return context
+
+
+def test_the_collective_device_follows_the_blender(recorded_all_reduce) -> None:
+    """The blender's buffers move with `.to()`, so they name where the blend
+    -- and therefore the exchange -- happens."""
+    context = _context_on(torch.device("cpu"))
+    assert context.collective_device == torch.device("cpu")
+
+
+def test_the_divergence_vote_is_allocated_on_the_collective_device(
+    recorded_all_reduce,
+) -> None:
+    """The first multi-rank run died here: the vote was a bare
+    `torch.tensor([...])`, i.e. on the host, under an NCCL process group."""
+    context = _context_on(torch.device("cpu"))
+    context.agree(True)
+    assert recorded_all_reduce.devices == [context.collective_device]
+
+
+def test_a_host_tensor_handed_to_all_reduce_is_moved_first(
+    recorded_all_reduce,
+) -> None:
+    """`_all_reduce` re-homes whatever it is given, so a collective added
+    later cannot reintroduce the failure by allocating on the host."""
+    context = _context_on(torch.device("cpu"))
+    context._all_reduce(torch.zeros(3, device="cpu"), op="sum")
+    assert recorded_all_reduce.devices[-1] == context.collective_device
+
+
+def test_the_loss_norms_collectives_use_the_collective_device(
+    recorded_all_reduce,
+) -> None:
+    """Both the base denominator and every gradient_z pair count."""
+    context = _context_on(torch.device("cpu"))
+    channels = 2
+    size = TILE + 2 * OVERLAP
+    wet = torch.ones(channels, size, size)
+    local = torch.ones(len(context.local_tiles), channels, size, size)
+    with MultitonScope():
+        TensorMap.init_instance("single_2", "single")
+        wet = torch.ones(2, size, size)
+        context.global_loss_norms(wet, local, tiles=local.shape[0])
+    assert recorded_all_reduce.devices, "no collective was issued"
+    assert all(
+        device == context.collective_device for device in recorded_all_reduce.devices
+    )
+
+
+@pytest.mark.cuda
+def test_the_vote_lands_on_cuda_when_the_blender_does(recorded_all_reduce) -> None:
+    """The real configuration: NCCL would reject anything else."""
+    context = _context_on(torch.device("cuda"))
+    context.agree(False)
+    assert recorded_all_reduce.devices[-1].type == "cuda"
+
+
+def test_the_context_homes_the_blender_before_anything_collectives(
+    recorded_all_reduce,
+) -> None:
+    """The loss normalization issues collectives while the trainer is still
+    building itself, so the blender has to be on its device by the time the
+    context constructor returns -- not by the time some later loop gets to it.
+    """
+    context = FaceParallelContext(
+        face_layout(),
+        world_size=4,
+        rank=0,
+        tiles_per_chunk=3,
+        device=torch.device("cpu"),
+    )
+    assert context.collective_device == torch.device("cpu")
+    assert context.blender.weights.device == torch.device("cpu")

@@ -289,3 +289,96 @@ def test_without_face_parallel_both_losses_are_the_same_object(face_root) -> Non
         assert trainer.fp_ctx is None
         assert trainer.train_loss_fn is trainer.loss_fn
         assert not trainer._loss_denominator_is_fixed
+
+
+def test_grouped_validation_scores_only_the_ranks_own_tiles(face_root) -> None:
+    """`ownership_masks` is built from the LAYOUT, which is the whole face
+    even when a rank holds a slice of it. Narrowing it is not cosmetic: the
+    per-tile wet masks are the rank's, so a face-wide ownership tensor does
+    not broadcast against them -- and it only raises once validation runs,
+    an epoch after the mistake.
+    """
+    with MultitonScope():
+        trainer = Trainer(_face_config(face_root))
+        trainer.run()  # replay_groups is built by init_data_loaders
+        group = trainer.replay_groups[0]
+        weight = trainer._grouped_val_weight(group)
+        assert weight.shape[0] == group.num_tiles
+        assert weight.shape[0] == len(trainer.fp_ctx.local_tiles)
+        # Overlaps are halved between neighbours, so the weight is not all-ones
+        # anywhere two tiles meet.
+        assert float(weight.min()) == 0.0
+
+
+def test_validation_forwards_are_chunked_like_training(face_root, monkeypatch) -> None:
+    """Validation steps a rank's whole tile set, where training steps a chunk.
+    On a real face that is nine 752^2 tiles through one forward -- ~17 GB for a
+    single GroupNorm output, which OOMed an 80 GB card an epoch after the
+    training step had been running fine. Both paths must use the same split.
+    """
+    with MultitonScope():
+        trainer = Trainer(_face_config(face_root))
+        trainer.run()
+
+        model = trainer.model
+        model = getattr(model, "module", model)
+        seen: list[int] = []
+        original = model.predict_step
+
+        def recording(inputs):
+            seen.append(inputs.shape[0])
+            return original(inputs)
+
+        monkeypatch.setattr(model, "predict_step", recording)
+        tiles = len(trainer.fp_ctx.local_tiles)
+        inputs = torch.zeros(
+            tiles, trainer.num_in, SIZE, SIZE, device=trainer.device
+        )
+        out = trainer._predict_in_chunks(model, inputs)
+
+        assert out.shape[0] == tiles
+        assert seen == [len(chunk) for chunk in trainer.fp_ctx.chunks]
+        assert max(seen) <= trainer.face_parallel_cfg.tiles_per_chunk
+
+
+def test_unchunked_prediction_is_untouched_without_a_face(face_root) -> None:
+    with MultitonScope():
+        trainer = Trainer(
+            _face_config(face_root, **{"--face_parallel.enabled": "false"})
+        )
+        model = getattr(trainer.model, "module", trainer.model)
+        inputs = torch.zeros(2, trainer.num_in, SIZE, SIZE, device=trainer.device)
+        assert trainer._predict_in_chunks(model, inputs).shape[0] == 2
+
+
+def test_grouped_validation_loss_is_chunked_but_unchanged(face_root) -> None:
+    """`gradient_h` builds ~8 tensors the size of its input, so scoring a
+    rank's whole tile set in one call is ~31 GB of transients on a real face
+    -- which OOMed one validation batch after the chunked forward had made
+    room. Chunking it must not move the number, or every validation curve
+    shifts and `best_validation_ckpt` ranks on something new.
+    """
+    with MultitonScope():
+        trainer = Trainer(_face_config(face_root))
+        trainer.run()
+        group = trainer.replay_groups[0]
+        weight = trainer._grouped_val_weight(group)
+        tiles = weight.shape[0]
+
+        generator = torch.Generator().manual_seed(11)
+        shape = (tiles, len(PROGNOSTIC), SIZE, SIZE)
+        blended = torch.randn(shape, generator=generator, device=trainer.device)
+        label = torch.randn(shape, generator=generator, device=trainer.device)
+
+        whole = trainer.loss_fn(blended, label, sample_weight=weight)
+        scored = trainer._fixed_denominator_loss(weight, tiles=tiles)
+        chunked = sum(
+            scored(
+                blended[chunk[0] : chunk[-1] + 1],
+                label[chunk[0] : chunk[-1] + 1],
+                sample_weight=weight[chunk[0] : chunk[-1] + 1],
+            )
+            for chunk in trainer.fp_ctx.chunks
+        )
+        assert len(trainer.fp_ctx.chunks) > 1, "this test needs more than one chunk"
+        assert torch.allclose(chunked, whole, rtol=1e-5, atol=1e-7)

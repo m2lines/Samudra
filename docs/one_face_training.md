@@ -599,8 +599,61 @@ sbatch --export=ALL,SMOKE=true JOBS/train_llc_replay-1_face.sh
 * `Group frame reader: 9 tiles, N chunk decode(s) per frame ... would decode M`
   with M/N around 4-5.
 * `Face loss normalization installed`.
-* `max gpu mem` under ~130 GB, `replay_diverged_*` at zero, and
-  `data_load_time` not climbing.
+* `replay_diverged_*` at zero, and `data_load_time` not climbing.
+
+### What the first hardware runs cost us
+
+Three failures the CPU tests could not have found, in the order they appeared:
+
+1. **`No backend type associated with device type cpu`** in the divergence
+   vote. `agree()` allocated its one-element flag with a bare
+   `torch.tensor([...])`, i.e. on the host, under an NCCL process group. The
+   multi-rank tests use gloo, which reduces host tensors happily. Fixed by
+   deriving a `collective_device` from the blender's buffers and re-homing in
+   `_all_reduce`, so a collective added later cannot reintroduce it.
+2. **Grouped validation OOM**, an epoch after training had been running fine.
+   The training step chunks; validation stepped the rank's whole tile set
+   through one forward, and nine 752^2 tiles at the widest stage is ~17 GB for
+   a single GroupNorm output. `_predict_in_chunks` reuses the training split.
+3. **One GPU cannot hold a face**, even at 139.8 GiB -- see below.
+4. **Grouped validation OOM again**, now in the LOSS rather than the forward.
+   `gradient_h_l1_loss` builds about eight tensors the size of its input
+   (masked pred and target, four spatial gradients, two differences), so nine
+   752^2 tiles is ~31 GB of transients. Chunking the forward did nothing for
+   it. Fixed by scoring validation in the same chunks, with denominators from
+   `_fixed_denominator_loss` so the chunks sum to exactly the value one call
+   returned and no validation curve moves.
+5. **And again at 886 MiB**, with 75.8 GB already live. At that point the
+   chunking was demonstrably working -- 886 MiB IS a two-tile temporary --
+   and the problem was simply that nothing had been released after training.
+   The epoch's last microbatch stays referenced (input and label alone are
+   8 GB), and those are live allocations the caching allocator cannot reuse,
+   so `train_one_epoch_replay` now drops them and calls `empty_cache` before
+   returning.
+
+The pattern in all of these: **each fix exposes the next thing sized by tiles
+per RANK.** Chunking bounds what one forward or one loss call holds; it does
+nothing about the tensors that live across the whole step.
+
+### Memory: what scales with what
+
+`tiles_per_chunk` bounds *activations*. The *resident* tensors scale with
+tiles per RANK, so a face has a minimum GPU count and not merely a
+divisibility constraint:
+
+| per rank | G=4 (9 tiles) | G=1 (36 tiles) |
+|---|---:|---:|
+| microbatch input + label, fp32 | 8.0 GB | 31.7 GB |
+| per-tile wet weight | 3.9 GB | 15.5 GB |
+| predictions held for the blend, bf16 | 1.9 GB | 7.8 GB |
+| **resident** | **13.8 GB** | **55.0 GB** |
+
+Measured: G=4 peaks at **71.5 GB** with `tiles_per_chunk=2` (H100, 80 GB).
+G=1 OOMs on an H200. Keeping the wet weight `bool` until the loss casts a
+chunk of it saved ~3 GB of the earlier 74.5 GB peak, bit-identically.
+
+Note the cards report **139.80 GiB**, not the ~180 GB assumed while planning.
+That leaves G=4 at about half the card with `tiles_per_chunk=3`.
 
 ### Full run
 
@@ -620,7 +673,13 @@ epochs. `GPUS` must divide 36 -- 4, 6, 9 or 12, **not** 8. If you change
   its *speed* in the live loop is still only inferred from the benchmark.
 * **Read concurrency is now a real tuning knob.** 4×15 is 2.7× slower than
   4×8 on the same work, so a well-meant `DATA_NUM_WORKERS` bump can cost more
-  than it buys.
+  than it buys. The first hardware run used 4 threads/rank (16 total, half the
+  measured optimum) and spent ~5 s of a ~13 s step waiting on data.
+* **Gold reseeds are not overlapped at small buffer sizes.** A scheduled
+  refresh reads a whole fresh face, and `prefetch_horizon` is
+  `min(workers x prefetch_factor, buffer_size/batch_size - 1)` -- which is 1
+  when `buffer_size=2`, so the smoke run shows 28 s and 83 s spikes on refresh
+  steps. At `buffer_size=8` the horizon is 7 and they should overlap.
 * Pinning ~67 GB is routine, but pinned allocation is slow at startup; watch the
   first-epoch timings.
 * A per-rank divergence reseed desyncing the buffers is silent if the

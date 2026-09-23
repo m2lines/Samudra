@@ -129,6 +129,35 @@ def main():
     fig.savefig(args.output / f"{stem}-components.pdf")
     plt.close(fig)
 
+    leads = reference["protocol"]["leads_days"]
+    fig, axes = plt.subplots(1, 3, figsize=(12, 4.5), layout="constrained")
+    for ax, metric, title, unit in zip(
+        axes,
+        ("sst_rmse", "velocity_rmse", "eke_rmse"),
+        ("SST", "Geostrophic velocity", "EKE"),
+        ("°C", "m s⁻¹", "m² s⁻²"),
+        strict=True,
+    ):
+        for label, result in candidates.items():
+            ax.plot(
+                leads,
+                [result["metrics"][f"{metric}/day{lead}"] for lead in leads],
+                "o-",
+                label=label,
+                color=colors[label],
+            )
+        ax.set_title(title)
+        ax.set_xlabel("Forecast bin end (day)")
+        ax.set_ylabel(f"RMSE ({unit})")
+        ax.set_xticks(leads)
+        ax.grid(alpha=0.2)
+    handles, labels = axes[0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="outside lower center", ncols=2, fontsize=8)
+    fig.suptitle(f"{caption} surface errors · matched five-day means")
+    fig.savefig(args.output / f"{stem}-leads.png", dpi=180)
+    fig.savefig(args.output / f"{stem}-leads.pdf")
+    plt.close(fig)
+
     fields = ["sst", "adt", "eke"]
     regions = reference["protocol"]["regions"]
     fig, axes = plt.subplots(3, len(regions), figsize=(12, 10), layout="constrained")

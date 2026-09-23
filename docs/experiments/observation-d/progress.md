@@ -603,3 +603,24 @@ updates were 420, 550 and 233, so 20, 4 and 10 updates will repeat. Selected met
 records are unchanged. Snapshot: `snapshots/preemption-20260923T0351Z.json`.
 The three completed transfer allocations were each about 31 minutes; this describes
 observed scheduling, not a guaranteed allocation duration or policy.
+
+
+## Held-out pipeline no longer waits unnecessarily for a slower arm
+
+At 04:10 UTC primary had resumed on `gh114` and reached reconstruction step 441;
+adapter-only and scratch remained pending on priority. With three Torch GPU slots
+now permitted, the old barrier delaying primary evaluation until adapter-only
+finished is unnecessary. The launcher now releases primary evaluation after
+primary training alone. Adapter evaluation explicitly requires its own completed
+training plus completion of primary evaluation; scratch evaluation requires its own
+training plus adapter evaluation. This retains serialized evaluation and at most
+three concurrent GPUs. Two DAG tests verify each evaluation's own-training gate
+and the maximum concurrent-job bound in both the two- and three-GPU modes; all
+seven submission tests pass.
+
+Only never-started evaluations and CPU reporters were replaced. Current GPU eval
+jobs: primary **18310184**, adapter **18310185**, scratch **18310186**. CPU reports:
+primary **18310192**, adapter-only **18310194**, scratch **18310196**. Training IDs
+and all model/selection settings are unchanged. Prior submission records remain
+in `retired-submissions-before-independent-evaluation`. Launcher revision
+`29fb1b83c`; all GPU producers remain pinned to `d8949bb15`.

@@ -692,3 +692,29 @@ its SHA-256 is
 Core training, model, data, and metric modules are unchanged from the training
 producer. All seven methods will be reported; the overview plots retain a
 smaller set of curves, with the original controls explicitly labeled source-state.
+
+## First joint validation
+
+At **05:10:31 UTC**, primary joint update **100** became the selected checkpoint,
+with composite **0.7424292** (previous reconstruction selection **0.8493170**).
+Snapshot `snapshots/primary-joint100-20260923T0512Z.json` records all components
+and the still-running jobs. Selected checkpoint SHA-256:
+`d0f0675a60adad38aba141c9fb06d56e14a1761a21f8a4c3926e2dbc6e044410`.
+
+| Validation component | Joint 100 | Seasonal climatology |
+| --- | ---: | ---: |
+| SST RMSE, °C | 0.612139 | 0.852329 |
+| Geostrophic velocity RMSE, m/s | 0.143203 | 0.196765 |
+| EKE RMSE, m²/s² | 0.0207353 | 0.0234677 |
+| OHC 0–700 m RMSE, J/m² | 7.48995e8 | 7.22737e8 |
+| OHC 700–2000 m RMSE, J/m² | 4.51636e8 | 3.64326e8 |
+| Mean spatial spectral error, dex | 0.563752 | 1.630355 |
+
+SST RMSE at days 5/15/30 is **0.443752 / 0.620396 / 0.772268 °C**; each
+improves on reconstruction step 200. The spectral error increased from **0.489933**
+to **0.563752 dex**, while SST and both OHC errors fell enough to improve the
+unchanged composite. Both OHC errors remain above seasonal climatology. This is
+validation evidence, not held-out skill or proof that every component improved.
+The matched-lead figure was regenerated and visually inspected from this capture.
+Adapter-only is selected at reconstruction 900 (**2.3471170**); scratch remains
+selected at reconstruction 100 (**6.4633877**) before its joint dynamics training.

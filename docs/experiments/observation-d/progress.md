@@ -624,3 +624,24 @@ primary **18310192**, adapter-only **18310194**, scratch **18310196**. Training 
 and all model/selection settings are unchanged. Prior submission records remain
 in `retired-submissions-before-independent-evaluation`. Launcher revision
 `29fb1b83c`; all GPU producers remain pinned to `d8949bb15`.
+
+
+## Held-out control coverage verified on CPU
+
+CPU-only job **18311289** completed in **1:40**, exit 0, and wrote
+`cpu-seasonal-test.json` at **04:34:57 UTC**. It evaluated training-only seasonal
+climatology over all **96 held-out target months (2015–2022)**. All **27 frozen
+spectral components** are supported. Using the unchanged validation denominators,
+the held-out control composite is **1.3780513**. Integrated errors: SST
+**0.903905 °C**, velocity **0.200221 m/s**, EKE **0.0309310 m²/s²**, OHC 0–700 m
+**8.38172e8 J/m²**, OHC 700–2000 m **3.72852e8 J/m²**. This is a control and
+coverage audit, not a trained-model held-out result. No training, key set or
+selection weight changed after inspecting it.
+
+The CPU helper records its own script hash, the pinned metric producer, data hash
+and frozen selection-reference hash. The snapshot collector now includes both
+CPU control diagnostics; capture `snapshots/heldout-control-20260923T0436Z.json`
+contains this result. Post-selection CPU reports additionally include physical
+pointwise SST/ADT RMSE alongside anomaly correlation/amplitude and bias; the new
+RMSE calculation passed its known-scaling test and was staged while all three
+report jobs were still pending.

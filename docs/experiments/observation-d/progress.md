@@ -474,3 +474,32 @@ all 96 origins and matching spectral references. Held-out component bars use
 held-out climatology errors for descriptive normalization; this does not modify
 the frozen validation selection score. Four report tests pass, including refusal
 to relabel incomplete or mismatched evaluations as held-out results.
+
+
+## Analysis-only control moved earlier under Torch flexibility
+
+At 02:58 UTC the scratch control was scheduled independently of primary/adapter
+completion so it has more training time before the report. This uses at most a
+third Torch GPU, consistent with the user's clarification that the one-host/four-GPU
+constraint applies to beta and Torch layout is flexible. Every arm retains its
+original step/hour cap; no extra experiment or duplicate training was added.
+
+Torch rejected changing the pending dependency with an unspecified scheduler
+error. Only never-started scratch-chain jobs **18295886**, **18295887** and
+**18295895**, plus pending CPU reporters **18297300** and **18297299**, were
+cancelled and replaced. Their records are preserved in
+`retired-submissions-before-parallel-scratch`. Active primary **18295884** and
+adapter-only **18295885**, and their GPU evaluation dependencies, were untouched.
+
+Current scratch fitting **18303300** has no outstanding dependency; scratch
+**18303301** waits for its qualification, and scratch evaluation **18303304** waits
+for scratch training and adapter evaluation. CPU report jobs are now adapter-only
+**18303306** and scratch **18303307**; primary reporting remains **18297298**.
+
+A reporting-path mismatch was found before execution: the existing adapter GPU
+evaluation writes `adapter-evaluation`, whereas the new CPU reporter and plotting
+helper had expected `adapter-only-evaluation`. Both now use the actual path; the
+pending adapter CPU reporter was replaced with the corrected batch script. Nine
+focused reporting/submission tests pass, including a regression check that the
+adapter evaluation is included. Producer code for all training remains `d8949bb15`;
+launcher/reporting correction is `580e61feb`.

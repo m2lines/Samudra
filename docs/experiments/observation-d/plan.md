@@ -167,7 +167,9 @@ convolutions/FP32 reductions:
 4. Validate every 100 updates, keep the starting checkpoint eligible, and stop after five non-improving
    checks under the observational selection protocol below. Track training RMSE as a diagnostic. Record actual
    updates and GPU-hours; the clocks are caps, not evidence of convergence. Budget two GPUs for the primary
-   pilot, with a separate measured allowance for data preparation and evaluation.
+   and adapter comparison, plus a third Torch GPU for the analysis-only control
+   under the user's clarified Torch flexibility. Beta remains limited to one host
+   with four GPUs. Per-arm update/time limits are unchanged.
 
 ### Observational selection and reporting: approved amendment
 

@@ -90,7 +90,8 @@ def main():
                 )
             ax.set_title(f"{field.upper()} · {region}")
             ax.set_xlabel("Wavelength (km)")
-            ax.set_ylabel("Power (existing spectral-kernel convention)")
+            units = {"sst": "°C² m", "adt": "m³", "eke": "m⁵ s⁻⁴"}
+            ax.set_ylabel(f"Radial spectrum ({units[field]})")
             ax.grid(alpha=0.2)
     handles, labels = axes[0, 0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="outside lower center", ncols=2, fontsize=8)
@@ -103,6 +104,7 @@ def main():
         "snapshot_sha256": hashlib.sha256(args.snapshot.read_bytes()).hexdigest(),
         "snapshot_time": snapshot["snapshot_finished_utc"],
         "scope": "Recorded validation metrics; no model execution or held-out claim",
+        "spectral_ordinate": "Existing kernel k times azimuthally averaged 2D power; spacing in metres and k in cycles/metre. Only the abscissa is converted to wavelength in km.",
         "candidates": list(candidates),
     }
     (args.output / "provenance.json").write_text(

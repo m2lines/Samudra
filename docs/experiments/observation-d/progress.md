@@ -356,3 +356,26 @@ jobs **18297298** (primary), **18297299** (adapter-only) and **18297300** (scrat
 are submitted after their respective held-out evaluations, each capped at 30 minutes,
 four CPUs and 32 GiB. Report implementation `eea0ccde1` records its script and input
 hashes. Results are pending actual evaluation exports.
+
+
+## First post-adaptation validation, 01:58 UTC
+
+Both runs completed their first 100-update adapter validation. Primary composite
+**2.4536713**, adapter-only **2.4535973**, versus source **2.4949851**; both still
+trail the seasonal-control composite **1.3151773**. The two arms have not yet
+unfrozen different weights, so their close warm-up results are expected and are
+not a full-versus-frozen-core comparison.
+
+Primary SST error increased from **1.0430 to 1.1722 °C**; geostrophic vector error
+fell from **0.14280 to 0.14131 m/s**; EKE error changed from **0.020119 to 0.020075
+m²/s²**. OHC 0–700 m increased from **6.1155e9 to 6.2284e9 J/m²**, while
+700–2000 m decreased from **4.2532e9 to 3.9871e9 J/m²**. Mean spatial spectral
+error changed from **0.40146 to 0.40523 dex**. Thus the small composite improvement
+contains real tradeoffs; training loss alone would not show them. No held-out
+result is available yet.
+
+Immutable evidence:
+`/scratch/jr7309/runs/2026-09-22-observation-D/snapshots/adapter100-20260923T0158Z.json`.
+Component and day-30 spectral plots were generated and visually inspected from
+that capture. Three bins per regional spectrum span approximately 600–3000 km.
+They must remain labeled broad-scale diagnostics.

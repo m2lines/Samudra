@@ -73,11 +73,18 @@ def candidates_for_split(snapshot, split):
     candidates = {
         "Seasonal climatology": control,
         "Pretrained / zero adapter": controls["source-with-zero-forcing"],
-        "Source-state persistence": controls["source-inferred-persistence"],
-        "Source-state anomaly persistence": controls["inferred-anomaly-persistence"],
     }
     for label, evaluation in completed:
         candidates[label + " (selected)"] = evaluation["selected"]["metrics"]
+    # Show dynamics against the same selected initializer in the overview.
+    # Source-initializer controls remain in the full evaluation/CPU tables.
+    owner = completed[0][0]
+    candidates[owner + " / inferred-state persistence"] = controls[
+        "selected-inferred-persistence"
+    ]
+    candidates[owner + " / interior-anomaly persistence"] = controls[
+        "selected-inferred-anomaly-persistence"
+    ]
     expected = [
         f"{year}-{month:02d}" for year in range(2015, 2023) for month in range(1, 13)
     ]

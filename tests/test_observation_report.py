@@ -173,6 +173,8 @@ def test_heldout_plot_requires_complete_selection_and_matching_cohort():
                 "source-with-zero-forcing",
                 "source-inferred-persistence",
                 "inferred-anomaly-persistence",
+                "selected-inferred-persistence",
+                "selected-inferred-anomaly-persistence",
             )
         },
     }
@@ -182,6 +184,8 @@ def test_heldout_plot_requires_complete_selection_and_matching_cohort():
     snapshot["arms"]["primary"]["TRAIN_COMPLETE"] = {"completed_utc": "recorded"}
     _, _, candidates = plot.candidates_for_split(snapshot, "test")
     assert len(candidates) == 5
+    assert "Full fine-tuning / inferred-state persistence" in candidates
+    assert "Full fine-tuning / interior-anomaly persistence" in candidates
     snapshot["arms"]["adapter-only"] = deepcopy(snapshot["arms"]["primary"])
     snapshot["evaluations"]["adapter-evaluation"] = deepcopy(evaluation)
     _, _, candidates = plot.candidates_for_split(snapshot, "test")

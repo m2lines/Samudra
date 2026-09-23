@@ -830,3 +830,44 @@ Training producer **d8949bb15d9fa92e6c8c94702092360bbe9005ef**, evaluation produ
 **5b8d391230e9a0b97afd232520335c8036363248**, weights, cohorts, and metric definitions
 are unchanged. The scheduler confirms H200, one GPU per evaluation and requeue
 enabled. No model job was stopped or restarted for this launcher fix.
+
+## All training complete; anomaly-control compatibility repair
+
+Adapter-only completed at **08:58:50 UTC**, selecting joint update **800** at
+**2.3343760** after 200/1000/1000 phase updates and **5.1000 allocated GPU-hours**.
+Scratch completed at **09:20:31 UTC**, selecting joint update **900** at
+**0.9128040** after 600 reconstruction and 1000 joint updates and **4.1950 allocated
+GPU-hours**. Both jobs exited 0. All three selected checkpoints and metadata have
+checksum-verified copies under `selected-checkpoints/`; adapter SHA-256 is
+`6756d13b81ad8df3b5ee24d9d7a34cc5f5e8dd9b78fe6a62fe8be4057a1a791b`, scratch is
+`4d2c15b4dba7ea6869ea9b3884653481aed998fcf52206f42f88af8af0800b78`.
+Total allocated training time across the three arms is **14.4181 GPU-hours**,
+excluding qualification and evaluation. Capture:
+`snapshots/all-training-complete-20260923T0922Z.json`.
+
+Primary evaluation **18328848** passed the launcher and completed the selected
+forecast and selected-initializer persistence over all 96 held-out origins, then
+failed in anomaly persistence at **09:08:28 UTC**: container pandas rejected a
+NumPy Unicode scalar passed to `Timestamp`. Producer **7a8923203** converts that
+scalar to a Python string. A year-boundary regression checks seasonal adjustment,
+normalization, unchanged input, and preserved surface/unsupervised channels;
+nine focused tests and a functional run in the exact pinned container passed.
+Training and scoring code paths are unchanged. Completed method files are reused,
+with their hashes and original **5b8d39123** producer recorded in
+`primary-evaluation/reused-output-provenance.json`.
+
+Replacement evaluations: primary **18329670**, adapter **18329671**, scratch
+**18329673**. CPU reports: **18329674**, **18329675**, **18329676**. The failed chain
+and its zero-runtime cancelled descendants are preserved in
+`retired-submissions-after-anomaly-timestamp-failure`. Evaluation overlay SHA-256:
+`083a445a28cddaf76dacd8482a80c3d0450fb0574ee2815b601e1415d49f194e`.
+
+The two completed held-out methods already show a tradeoff: primary forecast
+composite **0.6578108**, selected-state persistence **0.6223205**. Forecast SST
+RMSE is **0.504931 versus 0.791236 °C** and velocity RMSE **0.140903 versus
+0.193295 m/s**, but spectral error is **0.424640 versus 0.215470 dex**. Under the
+frozen weighting, persistence is ahead despite worse SST/velocity errors. This
+is a partial comparison; anomaly persistence and the remaining arms are unfinished.
+The overview plots now use persistence controls from the selected initializer;
+source-initializer controls remain in the complete tables. Four reporting tests
+passed, including completed-cohort and selected-checkpoint gates.

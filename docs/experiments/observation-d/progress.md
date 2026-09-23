@@ -379,3 +379,24 @@ Immutable evidence:
 Component and day-30 spectral plots were generated and visually inspected from
 that capture. Three bins per regional spectrum span approximately 600–3000 km.
 They must remain labeled broad-scale diagnostics.
+
+
+## Reconstruction adaptation started, 02:10 UTC
+
+Both live jobs completed 200 adapter updates in approximately 24 minutes and
+entered reconstruction. Primary **18295884** now updates the initializer and
+adapter; adapter-only **18295885** keeps both pretrained networks frozen. At
+02:10 UTC, primary had completed seven reconstruction updates with finite losses
+and gradients, and adapter-only eleven. These losses are optimization diagnostics,
+not held-out accuracy.
+
+Warm-up selected composite: **2.4074208** primary, **2.4074118** adapter-only.
+Primary mean spectral error **0.40339 dex**, versus initial **0.40146 dex**.
+The selected score still trails seasonal climatology (**1.3151773**). The next
+reconstruction validation will be the first test of updating the pretrained
+initializer. Immutable capture:
+`/scratch/jr7309/runs/2026-09-22-observation-D/snapshots/reconstruction-start-20260923T0210Z.json`.
+
+Live scratch quota at 02:05 UTC: **3.69 TB / 5 TB** (about **1.31 TB** free).
+Prepared samples occupy 21 GiB, pilot run outputs 4.1 GiB. No cleanup has been
+needed or performed.

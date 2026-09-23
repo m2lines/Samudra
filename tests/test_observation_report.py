@@ -179,6 +179,10 @@ def test_heldout_plot_requires_complete_selection_and_matching_cohort():
     snapshot["arms"]["primary"]["TRAIN_COMPLETE"] = {"completed_utc": "recorded"}
     _, _, candidates = plot.candidates_for_split(snapshot, "test")
     assert len(candidates) == 5
+    snapshot["arms"]["adapter-only"] = deepcopy(snapshot["arms"]["primary"])
+    snapshot["evaluations"]["adapter-evaluation"] = deepcopy(evaluation)
+    _, _, candidates = plot.candidates_for_split(snapshot, "test")
+    assert "Adapter only (selected)" in candidates
     evaluation["selected"]["metrics"]["origins"].pop()
     with pytest.raises(ValueError, match="Incomplete held-out cohort"):
         plot.candidates_for_split(snapshot, "test")

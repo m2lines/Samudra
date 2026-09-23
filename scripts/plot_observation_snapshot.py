@@ -46,7 +46,10 @@ def candidates_for_split(snapshot, split):
         raise ValueError("Unknown split")
     completed = []
     for arm, label in ARM_LABELS:
-        evaluation = snapshot["evaluations"].get(arm + "-evaluation", {})
+        directory = (
+            "adapter-evaluation" if arm == "adapter-only" else arm + "-evaluation"
+        )
+        evaluation = snapshot["evaluations"].get(directory, {})
         if not evaluation.get("COMPLETE"):
             continue
         best = arms[arm]["best"]

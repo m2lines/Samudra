@@ -143,6 +143,11 @@ def main():
     )
     parser.add_argument("--data", default="/scratch/jr7309/data/obs-d-pilot")
     parser.add_argument("--wait-hours", type=float, default=8)
+    parser.add_argument(
+        "--parallel-scratch",
+        action="store_true",
+        help="Allow a third Torch GPU for the scratch control",
+    )
     args = parser.parse_args()
     root = Path(args.root)
     root.mkdir(parents=True, exist_ok=True)
@@ -190,12 +195,12 @@ def main():
     qualified = ["--qualification", str(root / "fitting/QUALIFIED.json")] + reference
     primary = train("primary", qualified, [fit])
     adapter = train("adapter-only", qualified + ["--adapter-only"], [fit])
-    # Primary and adapter share budgets and each use one GPU. Once both finish,
-    # run the scratch fitting gate beside primary evaluation, retaining <=2 GPUs.
+    # Primary and adapter share budgets and each use one GPU. The optional
+    # third Torch GPU starts scratch early without changing any per-arm budget.
     scratch_fit = train(
         "scratch-fitting",
         ["--fit-probe", "--from-scratch", "--wandb-mode", "disabled"] + reference,
-        [primary, adapter],
+        [fit] if args.parallel_scratch else [primary, adapter],
         hours=1,
     )
     scratch = train(

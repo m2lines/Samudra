@@ -178,3 +178,14 @@ A read-only snapshot collector captures controller process state, Slurm accounti
 run manifests, the integrated selection score and spectral curves, and completed
 held-out results. Its first live staging capture succeeded; it does not evaluate or
 modify models. Captures are timestamped and refuse to overwrite existing evidence.
+
+## Resource clarification (23 September, 00:39 UTC)
+
+The user's one-host/four-GPU constraint applies to beta training, not Torch.
+The existing Torch pilot layout is retained (at most two concurrent GPUs).
+No four-GPU production job was submitted. The waiting controller was briefly
+stopped during clarification and restarted as PID **2799320**; data preparation
+and the DTN receiver continued uninterrupted. EAI preparation is reached through
+the `alpha` login alias but runs on the Grace compute host `betagg12`.
+The compact prepared dataset is published to OSN with full read-back verification,
+then received through Torch's `dtn011` and checked against all source file hashes.

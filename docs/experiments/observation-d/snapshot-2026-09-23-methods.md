@@ -25,6 +25,59 @@ interior targets are gridded IAP analyses. All arms retain the same model grid a
 ocean masks. “Observation-only” describes the ocean
 training source, not raw, independent measurements or an operational forecast.
 
+## Result-table method names
+
+The following are the literal names in the snapshot results table. Persistence
+controls reuse a selected checkpoint; they are evaluation procedures, not separately
+trained models. The initializer copies the latest observed SST/ADT into its surface
+channels, so matched persistence retains these inputs while holding the inferred
+interior fixed (or advancing its seasonal mean for the anomaly control).
+
+| Result-table name | Definition |
+|---|---|
+| Full model: inferred-state persistence | Use the selected full fine-tuned initializer and adapter, then hold the latest reconstructed ocean state fixed for every forecast lead. The evolution network is bypassed; no separate model is trained. |
+| Full model: interior-anomaly persistence | Use the same full fine-tuned initializer, keep its interior T/S anomalies relative to training seasonal climatology fixed, and advance only the seasonal mean. Surface fields persist unchanged; learned evolution is bypassed. |
+| Full fine-tuning forecast | Start from OM4-pretrained D, fine-tune initializer, evolution and atmospheric adapter on the observational training package, then run autoregressive evolution from the selected initializer. |
+| Scratch: inferred-state persistence | Use the selected observation-only scratch initializer and adapter, then hold its latest reconstructed state fixed; bypass evolution. |
+| Observation-only scratch forecast | Train the same architecture from random weights with observation-derived normalization, then run autoregressive evolution. No OM4 weights or normalization are used. |
+| Training seasonal climatology | Predict the training-set seasonal climatology at the target dates. No neural initializer or evolution network is used. |
+| Atmospheric adapter only | Use frozen OM4-pretrained initializer and evolution networks with the selected observationally trained 387-parameter atmospheric adapter. Run autoregressive evolution. |
+| Source D with zero adapter | Use the original OM4-pretrained initializer and evolution networks with zero adapter outputs and source normalization. Run autoregressive evolution. Zero denotes normalized conditioning, not physically zero atmospheric flux. |
+
+In the execution table, **Full fine-tuning**, **Adapter only**, and **Scratch**
+are the training-arm names for **Full fine-tuning forecast**, **Atmospheric adapter
+only**, and **Observation-only scratch forecast**, respectively.
+
+The complete component table retains machine-readable arm/method labels. Each
+literal row name is mapped below; `primary` is the full fine-tuning arm.
+
+| Complete-table name | Definition |
+|---|---|
+| primary / selected | Forecast with the selected full fine-tuning checkpoint, including autoregressive evolution. |
+| primary / selected-inferred-persistence | Hold the selected full fine-tuning initializer’s latest state fixed; bypass evolution. |
+| primary / selected-inferred-anomaly-persistence | Use the selected full fine-tuning initializer; preserve interior T/S anomalies while advancing the training seasonal mean. Surface fields persist; bypass evolution. |
+| primary / source-with-zero-forcing | Source D with zero adapter: original OM4 weights and normalization, with autoregressive evolution. |
+| primary / source-inferred-persistence | Hold the original source D initializer’s latest state fixed, using zero adapter outputs and source normalization; bypass evolution. |
+| primary / inferred-anomaly-persistence | Original source D initializer with zero adapter outputs and source normalization; preserve interior T/S anomalies while advancing the training seasonal mean. Surface fields persist; bypass evolution. |
+| primary / seasonal-climatology | Training seasonal climatology at target dates; no neural forecast. |
+| adapter-only / selected | Forecast with the selected adapter-only checkpoint, including autoregressive evolution. |
+| adapter-only / selected-inferred-persistence | Hold the selected adapter-only initializer’s latest state fixed; bypass evolution. |
+| adapter-only / selected-inferred-anomaly-persistence | Use the selected adapter-only initializer; preserve interior T/S anomalies while advancing the training seasonal mean. Surface fields persist; bypass evolution. |
+| adapter-only / source-with-zero-forcing | Source D with zero adapter: original OM4 weights and normalization, with autoregressive evolution. |
+| adapter-only / source-inferred-persistence | Hold the original source D initializer’s latest state fixed, using zero adapter outputs and source normalization; bypass evolution. |
+| adapter-only / inferred-anomaly-persistence | Original source D initializer with zero adapter outputs and source normalization; preserve interior T/S anomalies while advancing the training seasonal mean. Surface fields persist; bypass evolution. |
+| adapter-only / seasonal-climatology | Training seasonal climatology at target dates; no neural forecast. |
+| scratch / selected | Forecast with the selected observation-only scratch checkpoint, including autoregressive evolution. |
+| scratch / selected-inferred-persistence | Hold the selected observation-only scratch initializer’s latest state fixed; bypass evolution. |
+| scratch / selected-inferred-anomaly-persistence | Use the selected observation-only scratch initializer; preserve interior T/S anomalies while advancing the training seasonal mean. Surface fields persist; bypass evolution. |
+| scratch / source-with-zero-forcing | Source D with zero adapter: original OM4 weights and normalization, with autoregressive evolution. |
+| scratch / source-inferred-persistence | Hold the original source D initializer’s latest state fixed, using zero adapter outputs and source normalization; bypass evolution. |
+| scratch / inferred-anomaly-persistence | Original source D initializer with zero adapter outputs and source normalization; preserve interior T/S anomalies while advancing the training seasonal mean. Surface fields persist; bypass evolution. |
+| scratch / seasonal-climatology | Training seasonal climatology at target dates; no neural forecast. |
+
+Source and seasonal-climatology controls are identical across arms and repeated
+for completeness; they are not additional independently fitted models.
+
 ## Model architecture and optimization
 
 We use a deterministic, non-diffusion model consisting of a surface-history initializer,
@@ -107,10 +160,24 @@ not copied to Torch. No scratch cleanup or deletion was needed.
 
 ## How selection and evaluation work
 
+The held-out table aggregates 96 separately initialized monthly forecasts spanning
+2015–2022. It is an eight-year sampling period, not an eight-year forecast lead.
+Surface forecasts are scored at days 5, 15 and 30; next-calendar-month interior
+means may require a seventh five-day step. No continuous eight-year rollout was
+evaluated for these pilot models.
+
 Checkpoint selection used the frozen validation objective throughout:
 
 `0.5 × mean(five integrated errors / fixed validation-climatology errors)`
 `+ 0.5 × mean(27 spatial spectral errors in dex)`.
+
+For each spectral comparison, error in **dex** is
+`sqrt(mean((log10(predicted power) - log10(reference power))²))` over
+retained wavenumber bins, with log-log interpolation onto reference wavenumbers.
+The spectral term averages 27 such errors (three variables × three regions ×
+three leads). A uniform ×2 or ÷2 power mismatch gives 0.301 dex; ×10 or ÷10 gives
+1 dex. These scores do not identify whether power is too high or too low, and
+power agreement does not establish phase or timing skill.
 
 The five integrated errors are SST, geostrophic velocity, EKE and OHC in 0–700 m
 and 700–2000 m. Surface metrics average the matched day-5, day-15 and day-30 bin

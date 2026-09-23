@@ -728,3 +728,25 @@ observed joint update **133** and was pending automatic requeue under the same j
 ID; its selected joint-100 result remains intact. This is another scheduler
 interruption, not an experiment failure. Capture:
 `snapshots/all-arms-joint-20260923T0522Z.json`.
+
+## All arms have joint-validation evidence
+
+By **05:54 UTC**, all three jobs had resumed on `gh118`, one allocated GPU each.
+Primary joint update **200** selected **0.7060693**, adapter-only joint update
+**100** selected **2.3393796**, and scratch joint update **100** selected
+**1.6767055**. Mean spectral errors are **0.529542 / 0.416356 / 1.781731 dex**,
+respectively. The adapter's relatively good spectrum does not offset its large
+interior/OHC errors under the fixed composite. Scratch's large improvement from
+its reconstruction-stage score demonstrates why that earlier random-dynamics
+result was insufficient for a pretraining-benefit claim.
+
+Primary integrated errors at joint 200: SST **0.580489 °C**, geostrophic velocity
+**0.142043 m/s**, EKE **0.0206008 m²/s²**, OHC **6.92470e8 / 4.27745e8 J/m²**.
+The upper OHC error is now below validation climatology's **7.22737e8 J/m²**;
+the deeper error remains above its **3.64326e8 J/m²**. These remain selected
+validation results, with production and held-out evaluation unfinished.
+Capture: `snapshots/all-arms-joint-validated-20260923T0554Z.json`.
+
+A fresh **05:33 UTC** `myquota` check reported scratch **3.70 TB / 5 TB** and
+1,646,874 of 5,000,000 files. The compact dataset occupies **21 GiB** and the pilot
+run tree **17 GiB** (`du -sh`, rounded). No cleanup or full-source transfer was needed.

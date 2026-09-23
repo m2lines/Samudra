@@ -871,3 +871,66 @@ is a partial comparison; anomaly persistence and the remaining arms are unfinish
 The overview plots now use persistence controls from the selected initializer;
 source-initializer controls remain in the complete tables. Four reporting tests
 passed, including completed-cohort and selected-checkpoint gates.
+
+## Completed primary/adapter held-out evaluation and operator audit
+
+Primary held-out evaluation **18329670** completed at **09:33:28 UTC**, followed
+by its CPU anomaly/year report **18329674** at **09:36:00 UTC**. Adapter evaluation
+**18329671** completed at **09:47:12 UTC**, and report **18329675** at **09:48:58 UTC**.
+All exited 0 and cover all 96 origins and seven methods. Primary selected forecast
+composite is **0.6578108**, selected-initializer persistence **0.6223205**, and its
+interior-anomaly persistence **0.6333984**. Both persistence controls beat the
+learned forecast's composite in all eight calendar-year rescoring checks. Primary
+beats seasonal climatology (**1.3780513**) in all eight years. Annual variation is
+not a confidence interval. Adapter-only selected forecast is **2.4573085**;
+its selected-initializer persistence is **2.3260292**. Scratch evaluation remained
+queued at the 09:49 capture. Live scratch quota then was **3.71 / 5.00 TB**;
+no source deletion or raw-store transfer was needed.
+
+A reporting-only CPU audit uses target-time observed SST/ADT in the unchanged
+scoring pipeline, with training climatology at missing surface cells. Job
+**18330224** completed in 17 seconds and confirmed zero direct SST/OHC and SST/ADT
+spectral errors. This is not a forecasting candidate or a new selection criterion.
+Its full-support velocity RMS disagreement is **0.160342 m/s** and EKE spectral
+error **0.635343 dex**; median day-30 EKE power is **0.2420** of the DUACS reference
+across the nine region/bin comparisons. Thus much of the EKE power mismatch is
+already present without a learned forecast.
+
+The stencil audit's initial assumption that DUACS u/v masks match failed loudly
+in **18330253** (15 seconds); component-wise support is required by the actual
+scorer. Producer **bb7c3b787** preserves those separate masks and asserts that the
+partitioned full-support RMSE reproduces the unchanged scorer. Job **18330279**
+produced the qualified partition: complete observed gradient stencils cover
+**94.621%** of weighted component/origin support and have **0.0729–0.0731 m/s** RMS
+disagreement; the remaining **5.379%** has **0.6186–0.6207 m/s**, about 80% of the
+full-support squared error. Filling is verified not to change a complete observed
+stencil. The report retains this as a limitation of physical interpretation and a
+future mask/operator decision; training, validation selection and held-out scores
+were not changed. Outputs and all submission records are retained under the run root.
+
+## Final morning snapshot: all planned runs and reports complete
+
+Scratch evaluation **18329673** completed at **10:06:59 UTC** (12m38s), and its
+CPU report **18329676** at **10:08:56 UTC** (1m54s), both exit 0. It selected joint
+update 900 on validation, then scored **0.9827232** on all 96 held-out origins.
+Its selected-state persistence scored **0.7170391**, and interior-anomaly
+persistence **0.7208893**. Every arm's selected-state persistence beats its own
+learned forecast composite in all eight annual rescoring checks. Full fine-tuning
+is the strongest learned forecast under these bounded budgets; this does not
+establish convergence, a general pretraining advantage, or operational skill.
+
+The final immutable evidence capture finished at **10:10:27 UTC (06:10 ET)**:
+`snapshots/final-report-20260923T1010Z.json`. No jobs remained in the queue.
+Prepared data occupied 21 GiB and the run tree 29 GiB; the 10:11 UTC quota check
+reported 3.71 / 5.00 TB used. No deletion was performed.
+
+The [snapshot report](snapshot-2026-09-23.md), [technical methods](snapshot-2026-09-23-methods.md)
+and [artifact index](artifacts/2026-09-23/README.md) contain all 21 arm/method
+rows, physical component errors, integrated-plus-spectral scores, anomaly/year
+diagnostics, validation trajectory, spectra and selected-checkpoint provenance.
+The EKE spectral panels include the target-time observed-ADT operator diagnostic,
+clearly separate from forecasting candidates. Plotting verified common references
+and selected checkpoint hashes; four report tests passed. Full live operator
+partitioning reproduced the unchanged velocity scorer and checked that filling
+cannot alter a complete observed stencil. The score/selection protocol was never
+changed after inspecting held-out results. No follow-up training was launched.

@@ -109,9 +109,44 @@ def main():
         "--grid", type=Path, help="Verified pilot grid for depth-resolved T/S plots"
     )
     parser.add_argument("--split", choices=("validation", "test"), default="validation")
+    parser.add_argument(
+        "--operator-audit",
+        type=Path,
+        help="Optional held-out observed-ADT operator diagnostic",
+    )
+    parser.add_argument(
+        "--png-dpi",
+        type=int,
+        default=180,
+        help="PNG preview resolution; PDFs remain vector",
+    )
     args = parser.parse_args()
     snapshot = json.loads(args.snapshot.read_text())
     reference, control, candidates = candidates_for_split(snapshot, args.split)
+    operator = None
+    if args.operator_audit:
+        if args.split != "test":
+            raise ValueError("Operator audit is a held-out diagnostic only")
+        operator = json.loads(args.operator_audit.read_text())
+        if operator["origins"] != control["origins"]:
+            raise ValueError("Operator audit uses different origins")
+        if (
+            args.grid
+            and operator["grid_sha256"]
+            != hashlib.sha256(args.grid.read_bytes()).hexdigest()
+        ):
+            raise ValueError("Operator audit uses a different grid")
+        for key in reference["spectral_keys"]:
+            for field in ("k_rad_km", "reference_power"):
+                if not np.allclose(
+                    operator["result"]["spectra"][key][field],
+                    control["spectra"][key][field],
+                    rtol=1e-8,
+                    atol=0,
+                ):
+                    raise ValueError(
+                        "Operator audit uses different spectral references"
+                    )
     stem = "validation" if args.split == "validation" else "heldout"
     caption = "Validation" if args.split == "validation" else "Held-out 2015–2022"
     args.output.mkdir(parents=True, exist_ok=True)
@@ -148,7 +183,7 @@ def main():
         ax.set_title("Joint-stage forecast validation · all checks, not held-out skill")
         ax.grid(alpha=0.2)
         ax.legend(fontsize=8)
-        fig.savefig(args.output / "validation-joint-trajectory.png", dpi=180)
+        fig.savefig(args.output / "validation-joint-trajectory.png", dpi=args.png_dpi)
         fig.savefig(args.output / "validation-joint-trajectory.pdf")
         plt.close(fig)
     names = reference["protocol"]["integrated"]
@@ -170,7 +205,7 @@ def main():
         + (" — not held-out performance" if args.split == "validation" else "")
     )
     ax.legend(fontsize=8)
-    fig.savefig(args.output / f"{stem}-components.png", dpi=180)
+    fig.savefig(args.output / f"{stem}-components.png", dpi=args.png_dpi)
     fig.savefig(args.output / f"{stem}-components.pdf")
     plt.close(fig)
 
@@ -199,7 +234,7 @@ def main():
     handles, labels = axes[0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="outside lower center", ncols=2, fontsize=8)
     fig.suptitle(f"{caption} surface errors · matched five-day means")
-    fig.savefig(args.output / f"{stem}-leads.png", dpi=180)
+    fig.savefig(args.output / f"{stem}-leads.png", dpi=args.png_dpi)
     fig.savefig(args.output / f"{stem}-leads.pdf")
     plt.close(fig)
 
@@ -227,15 +262,25 @@ def main():
                     color=colors[label],
                     label=label,
                 )
+            if field == "eke" and operator:
+                diagnostic = operator["result"]["spectra"][key]
+                ax.loglog(
+                    wavelength,
+                    diagnostic["prediction_power"],
+                    "--",
+                    color="0.4",
+                    linewidth=2,
+                    label="Target-time observed ADT operator (diagnostic)",
+                )
             ax.set_title(f"{field.upper()} · {region}")
             ax.set_xlabel("Wavelength (km)")
             units = {"sst": "°C² m", "adt": "m³", "eke": "m⁵ s⁻⁴"}
             ax.set_ylabel(f"Radial spectrum ({units[field]})")
             ax.grid(alpha=0.2)
-    handles, labels = axes[0, 0].get_legend_handles_labels()
+    handles, labels = axes[-1, 0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="outside lower center", ncols=2, fontsize=8)
     fig.suptitle(f"{caption} day-30 spatial spectra · broad scales only")
-    fig.savefig(args.output / f"{stem}-spectra.png", dpi=180)
+    fig.savefig(args.output / f"{stem}-spectra.png", dpi=args.png_dpi)
     fig.savefig(args.output / f"{stem}-spectra.pdf")
     plt.close(fig)
     grid_sha256 = None
@@ -285,7 +330,7 @@ def main():
         handles, labels = axes[0, 0].get_legend_handles_labels()
         fig.legend(handles, labels, loc="outside lower center", ncols=2, fontsize=8)
         fig.suptitle(f"{caption} monthly forecast T/S against IAP")
-        fig.savefig(args.output / f"{stem}-thermohaline.png", dpi=180)
+        fig.savefig(args.output / f"{stem}-thermohaline.png", dpi=args.png_dpi)
         fig.savefig(args.output / f"{stem}-thermohaline.pdf")
         plt.close(fig)
     provenance = {
@@ -298,7 +343,16 @@ def main():
         "grid_sha256": grid_sha256,
         "bar_normalization": f"{caption} seasonal climatology errors; descriptive plot, not a new selection score",
         "spectral_ordinate": "Existing kernel k times azimuthally averaged 2D power; spacing in metres and k in cycles/metre. Only the abscissa is converted to wavelength in km.",
+        "operator_audit_sha256": hashlib.sha256(
+            args.operator_audit.read_bytes()
+        ).hexdigest()
+        if args.operator_audit
+        else None,
+        "operator_diagnostic_scope": "EKE spectra only; target-time observations, not a forecast or selection candidate"
+        if operator
+        else None,
         "candidates": list(candidates),
+        "png_dpi": args.png_dpi,
     }
     (args.output / "provenance.json").write_text(
         json.dumps(provenance, indent=2) + "\n"

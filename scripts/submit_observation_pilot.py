@@ -230,7 +230,13 @@ def main():
         eval_args,
         "primary-evaluation",
         eval_module,
-        ["--run", str(root / "primary"), "--output", str(root / "primary-evaluation")],
+        [
+            "--",
+            "--run",
+            str(root / "primary"),
+            "--output",
+            str(root / "primary-evaluation"),
+        ],
         3,
         [primary] if args.parallel_scratch else [primary, adapter],
     )
@@ -239,6 +245,7 @@ def main():
         "adapter-evaluation",
         eval_module,
         [
+            "--",
             "--run",
             str(root / "adapter-only"),
             "--output",
@@ -251,7 +258,13 @@ def main():
         eval_args,
         "scratch-evaluation",
         eval_module,
-        ["--run", str(root / "scratch"), "--output", str(root / "scratch-evaluation")],
+        [
+            "--",
+            "--run",
+            str(root / "scratch"),
+            "--output",
+            str(root / "scratch-evaluation"),
+        ],
         3,
         [scratch, adapter_eval],
     )

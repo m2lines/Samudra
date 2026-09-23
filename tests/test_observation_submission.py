@@ -79,6 +79,15 @@ def test_dag_requires_completed_own_training_and_bounds_gpu_concurrency(
     def submit(args, name, module, module_args, hours, predecessors=()):
         dependencies[name] = set(predecessors)
         producers[name] = args.code_commit
+        if name.endswith("-evaluation"):
+            from torch.distributed.run import get_args_parser
+
+            # In the pinned container Python, --run otherwise abbreviates
+            # torchrun's --run-path/--run_path before reaching the evaluator.
+            assert module_args[0] == "--"
+            parsed = get_args_parser().parse_args(["-m", module, *module_args])
+            assert parsed.training_script == module
+            assert parsed.training_script_args == module_args[1:]
         return name
 
     monkeypatch.setattr(submission, "submit", submit)

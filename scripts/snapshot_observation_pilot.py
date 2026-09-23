@@ -41,6 +41,10 @@ def main():
         "root": str(root),
         "data_ready": read_json(data / "DATA_READY.json"),
         "materialization": read_json(data / "COMPLETE.json"),
+        "control_diagnostics": {
+            split: read_json(root / f"cpu-seasonal-{split}.json")
+            for split in ("validation", "test")
+        },
         "source_contract": read_json(
             Path(args.source_contract)
             if args.source_contract

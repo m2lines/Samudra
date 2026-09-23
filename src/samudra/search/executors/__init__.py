@@ -5,5 +5,11 @@
 from samudra.search.executors.base import Executor
 from samudra.search.executors.local import LocalExecutor
 from samudra.search.executors.slurm import SlurmExecutor
+from samudra.search.executors.slurm_allocation import SlurmAllocationExecutor
 
-__all__ = ["Executor", "LocalExecutor", "SlurmExecutor"]
+__all__ = [
+    "Executor",
+    "LocalExecutor",
+    "SlurmAllocationExecutor",
+    "SlurmExecutor",
+]

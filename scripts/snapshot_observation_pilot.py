@@ -33,6 +33,7 @@ def main():
     )
     parser.add_argument("--data", default="/scratch/jr7309/data/obs-d-pilot")
     parser.add_argument("--output", required=True)
+    parser.add_argument("--source-contract")
     args = parser.parse_args()
     root, data = Path(args.root), Path(args.data)
     result = {
@@ -40,7 +41,11 @@ def main():
         "root": str(root),
         "data_ready": read_json(data / "DATA_READY.json"),
         "materialization": read_json(data / "COMPLETE.json"),
-        "source_contract": read_json(root / "qualification-h200/QUALIFIED.json"),
+        "source_contract": read_json(
+            Path(args.source_contract)
+            if args.source_contract
+            else root / "qualification-h200/QUALIFIED.json"
+        ),
         "submissions": {
             p.stem: read_json(p) for p in sorted(root.glob("*-submission.json"))
         },

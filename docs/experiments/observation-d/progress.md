@@ -769,3 +769,12 @@ Its horizontal axis is retained joint updates, explicitly not matched GPU time;
 the arms also differ in initialization, normalization and earlier phase budgets.
 The continuing decline, particularly for scratch, argues against calling these
 bounded runs converged baselines. No held-out model result is available yet.
+
+At **07:21 UTC**, primary had reached joint update 619, selecting update **600**
+at **0.6441195**. Its mean spectral error is **0.465091 dex**; integrated errors
+are SST **0.545617 °C**, velocity **0.138740 m/s**, EKE **0.0201660 m²/s²**, and
+OHC **6.21156e8 / 3.83172e8 J/m²**. The deeper OHC error is still slightly higher
+than climatology. Adapter-only and scratch were pending on scheduler priority
+after preemption around 07:02 UTC, with no Slurm start estimate. Their last
+observed joint updates were 476 and 495; no jobs or budgets were replaced.
+Capture: `snapshots/primary-joint600-20260923T0722Z.json`.

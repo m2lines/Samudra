@@ -15,6 +15,36 @@ import time
 from pathlib import Path
 
 
+def pending_dependencies(jobs):
+    """Retain live dependencies; use accounting to prove expired jobs succeeded."""
+    pending, checks = [], []
+    for job in jobs:
+        queue = subprocess.run(
+            ["squeue", "-h", "-j", job, "-o", "%i|%T"],
+            capture_output=True,
+            text=True,
+        )
+        rows = [line.split("|") for line in queue.stdout.splitlines()]
+        if any(row[0] == job for row in rows):
+            pending.append(job)
+            checks.append({"job": job, "proof": "live scheduler dependency"})
+            continue
+        accounting = subprocess.check_output(
+            ["sacct", "-nXP", "-j", job, "--format=JobIDRaw,State,ExitCode"],
+            text=True,
+        )
+        rows = [line.strip().split("|") for line in accounting.splitlines()]
+        matching = [row for row in rows if row[0] == job]
+        if len(matching) != 1 or matching[0][1:3] != ["COMPLETED", "0:0"]:
+            raise ValueError(
+                f"Dependency {job} lacks successful completion proof: {accounting}"
+            )
+        checks.append(
+            {"job": job, "proof": "accounting COMPLETED 0:0; dependency satisfied"}
+        )
+    return pending, checks
+
+
 def submit(args, name, module, module_args, hours, dependencies=()):
     root = Path(args.root)
     record_path = root / (name + "-submission.json")
@@ -79,12 +109,15 @@ def submit(args, name, module, module_args, hours, dependencies=()):
         "--job-name=obs-D-" + name,
         "--kill-on-invalid-dep=yes",
     ]
+    dependencies, dependency_checks = pending_dependencies(dependencies)
     if dependencies:
         command += ["--dependency=afterok:" + ":".join(dependencies)]
     command += ["/scratch/jr7309/slurm_initializer_wave.sbatch"]
     result = subprocess.run(
-        command, env=environment, check=True, capture_output=True, text=True
+        command, env=environment, check=False, capture_output=True, text=True
     )
+    if result.returncode:
+        raise RuntimeError(f"sbatch rejected {name}: {result.stderr.strip()}")
     job = result.stdout.strip().split(";")[0]
     if not job.isdigit():
         raise ValueError(result.stdout)
@@ -94,6 +127,7 @@ def submit(args, name, module, module_args, hours, dependencies=()):
         command=command,
         module=module,
         module_args=module_args,
+        dependency_checks=dependency_checks,
         submitted_utc=datetime.datetime.now(datetime.UTC).isoformat(),
     )
     record_path.write_text(json.dumps(record, indent=2) + "\n")

@@ -279,3 +279,32 @@ unspecified scheduler error. Those seven never-started jobs were then cancelled;
 queue inspection confirms only Torch fitting **18294932** remains pending.
 No running experiment was stopped. If Torch becomes available first, its fitting
 check remains useful, but production will use only one selected backend.
+
+## Torch reopened; real-data fitting passed and production restored
+
+At 01:35 UTC the live `gpu48` limit had risen to 16 GPUs per user. Fitting
+**18294932** completed successfully in **1:06** (01:33:33–01:34:39 UTC). The fixed
+May 1993 training-sample objective decreased from **0.461634 to 0.063591** over ten
+updates, and finite gradients reached initializer, evolution and adapter. Peak GPU
+allocation was **5.57 GiB**. All **27** requested validation spectral components
+qualified. The initial pretrained/zero-adapter validation composite was **2.494985**.
+These observations qualify optimization and metric support; they are not held-out
+skill or evidence that the ten-update probe generalizes.
+
+Never-started beta jobs **204384** and **204388** were cancelled before restoring
+Torch production. Their fallback implementation remains available, but no beta
+training or qualification ran. A CPU-only validation-control diagnostic was also
+submitted as **18295846**; it does not train or select any checkpoint.
+
+The first Torch resubmission hit an expired completed-job dependency. The launcher
+now retains live dependencies and omits an expired prerequisite only after `sacct`
+proves `COMPLETED` with `0:0` exit status; five regression cases cover live,
+successful, failed and missing prerequisite evidence. Existing fitting qualification
+and data/reference-hash guards remain enforced by the trainer.
+
+Restored jobs submitted at 01:38 UTC: primary **18295884**, adapter-only **18295885**,
+scratch fitting **18295886**, scratch **18295887**, primary evaluation **18295888**,
+adapter evaluation **18295889**, scratch evaluation **18295895**. The production
+model source remains `d8949bb15d9fa92e6c8c94702092360bbe9005ef`; only submission
+recovery changed. Prior cancelled submission records are preserved in a separate
+history directory. Keep at most two production GPUs active as originally planned.

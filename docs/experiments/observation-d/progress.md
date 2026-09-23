@@ -555,3 +555,23 @@ compare after joint forecast optimization and report actual completed budgets.
 
 Immutable capture: `snapshots/all-arms-training-20260923T0329Z.json` under the
 Torch run root. No held-out evaluation has begun.
+
+
+## Depth-resolved report diagnostics
+
+The plotter now accepts `--grid` to draw monthly forecast temperature/salinity
+RMSE and bias against physical depth, separately from surface/spectral charts.
+It verifies the supplied grid's SHA-256 against the fitting manifest. The locally
+cached grid matches exactly; the new figure was rendered and visually inspected
+using the immutable reconstruction-100 snapshot. These are monthly **forecast**
+errors after reconstruction training, not direct reconstruction scores.
+
+That early diagnostic shows substantial mean-state correction: temperature bias
+at **105 / 165 m** changes from **+3.742 / +3.821 °C** in the source to
+**+0.100 / +0.135 °C** in primary update 100. Corresponding RMSE drops from
+**4.532 / 4.526 °C** to **0.884 / 0.779 °C**, but remains above seasonal
+climatology's **0.541 / 0.453 °C**. At 2.5 m, practical-salinity bias changes from
+**−0.3843** to **+0.0127**, while RMSE falls **0.9833 → 0.2383**, still above
+climatology's **0.1240**. These observations support interpreting the initial OHC
+gain as substantial mean-state adaptation; they do not alone establish superior
+dynamical skill. Refresh the figure from the morning-selected checkpoint.

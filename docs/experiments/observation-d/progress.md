@@ -934,3 +934,23 @@ and selected checkpoint hashes; four report tests passed. Full live operator
 partitioning reproduced the unchanged velocity scorer and checked that filling
 cannot alter a complete observed stencil. The score/selection protocol was never
 changed after inspecting held-out results. No follow-up training was launched.
+
+## Requested follow-up: rollout maps and model description
+
+Added fixed January/July 2022 day-30 surface maps from saved predictions: SST and
+ADT absolute fields for July, and training-climatology anomalies for both seasons.
+All candidates share target-valid masks and fixed color limits; no new forecast
+or training was run. CPU extraction job **18331812** completed successfully in
+31 seconds. It checked all source NPZ hashes against the completed CPU reports,
+verified identical observation slices, and produced a 2,814,917-byte bundle. The
+local copy matched SHA-256
+`fa75429ad70040ed73f3b919664062e5424596ae9673a030303ee976bcf13d47`.
+The figures record source/checkpoint lineage and include observations, full fine-tuning,
+scratch, adapter-only, unadapted D and matched persistence. Day 30 is the last common
+exported surface lead, not a continuous multi-year rollout endpoint.
+
+Direct model instantiation on the meta device counted **121,684,010** initializer,
+**31,631,677** evolution and **387** adapter parameters: **153,316,074** total.
+Both full fine-tuning and scratch train that full parameter set in the joint phase;
+adapter-only trains 387. The methods now describe architecture widths, channel
+interfaces, normalization, optimization and phase-specific trainable counts.

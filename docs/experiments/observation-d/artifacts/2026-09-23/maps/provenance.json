@@ -1,0 +1,120 @@
+{
+  "scope": "Saved day-30 five-day mean forecasts; no new inference or training",
+  "cases": [
+    "2022-01",
+    "2022-07"
+  ],
+  "case_choice": "January and July of the final held-out year, fixed before inspecting maps",
+  "lead_index": 5,
+  "lead_bin_end_days": 30,
+  "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+  "script_sha256": "782d086176b60a76f790313d6d03c0213c018be4832e3532f307d9083ed9f3e9",
+  "sources": [
+    {
+      "method": "Full fine-tuning",
+      "path": "/scratch/jr7309/runs/2026-09-22-observation-D/primary-evaluation/selected-predictions.npz",
+      "sha256": "6216b3723f4377a6feb6dd49a26e2e5bd0585cf6b657caf58024d7429c1960e1",
+      "selected_checkpoint_sha256": "11631058d74f0de699ee58951c6884c1471720a15ec633d29fcf872d680a012e",
+      "source_checkpoint_sha256": "22e629f41c418fa93ee3ec0a3257d80d71d77b02b2fe1cbd89eae04507d22905",
+      "weights_used_sha256": "11631058d74f0de699ee58951c6884c1471720a15ec633d29fcf872d680a012e"
+    },
+    {
+      "method": "Observation-only scratch",
+      "path": "/scratch/jr7309/runs/2026-09-22-observation-D/scratch-evaluation/selected-predictions.npz",
+      "sha256": "0ad86c938016133e3f8dd6515587fe8ca34df7854e7d763d0fd16c4b45cb7909",
+      "selected_checkpoint_sha256": "4d2c15b4dba7ea6869ea9b3884653481aed998fcf52206f42f88af8af0800b78",
+      "source_checkpoint_sha256": "22e629f41c418fa93ee3ec0a3257d80d71d77b02b2fe1cbd89eae04507d22905",
+      "weights_used_sha256": "4d2c15b4dba7ea6869ea9b3884653481aed998fcf52206f42f88af8af0800b78"
+    },
+    {
+      "method": "Adapter only",
+      "path": "/scratch/jr7309/runs/2026-09-22-observation-D/adapter-evaluation/selected-predictions.npz",
+      "sha256": "efd0f9f350b97278a56b5899df770fe300ce4a6e961cd8e504d24d34078ea821",
+      "selected_checkpoint_sha256": "6756d13b81ad8df3b5ee24d9d7a34cc5f5e8dd9b78fe6a62fe8be4057a1a791b",
+      "source_checkpoint_sha256": "22e629f41c418fa93ee3ec0a3257d80d71d77b02b2fe1cbd89eae04507d22905",
+      "weights_used_sha256": "6756d13b81ad8df3b5ee24d9d7a34cc5f5e8dd9b78fe6a62fe8be4057a1a791b"
+    },
+    {
+      "method": "Source D / zero adapter",
+      "path": "/scratch/jr7309/runs/2026-09-22-observation-D/primary-evaluation/source-with-zero-forcing.npz",
+      "sha256": "56485c7d2c44e0cec2d0a1fc8447a18fef909c3397f6771543f2f4f0cdfe11cc",
+      "selected_checkpoint_sha256": "11631058d74f0de699ee58951c6884c1471720a15ec633d29fcf872d680a012e",
+      "source_checkpoint_sha256": "22e629f41c418fa93ee3ec0a3257d80d71d77b02b2fe1cbd89eae04507d22905",
+      "weights_used_sha256": "22e629f41c418fa93ee3ec0a3257d80d71d77b02b2fe1cbd89eae04507d22905"
+    },
+    {
+      "method": "Full-model initial-state persistence",
+      "path": "/scratch/jr7309/runs/2026-09-22-observation-D/primary-evaluation/selected-inferred-persistence.npz",
+      "sha256": "7ebde61ee7cb4b0d44f5283d077ebb97a23f2636dc074706255305c0a5007c5e",
+      "selected_checkpoint_sha256": "11631058d74f0de699ee58951c6884c1471720a15ec633d29fcf872d680a012e",
+      "source_checkpoint_sha256": "22e629f41c418fa93ee3ec0a3257d80d71d77b02b2fe1cbd89eae04507d22905",
+      "weights_used_sha256": "11631058d74f0de699ee58951c6884c1471720a15ec633d29fcf872d680a012e"
+    },
+    {
+      "method": "Training seasonal climatology",
+      "path": "/scratch/jr7309/runs/2026-09-22-observation-D/primary-evaluation/seasonal-climatology.npz",
+      "sha256": "5c381753c44cc4cca3c23a50d1328aac8bd1831e041e541f0f9d2a4d645db205",
+      "selected_checkpoint_sha256": "11631058d74f0de699ee58951c6884c1471720a15ec633d29fcf872d680a012e",
+      "source_checkpoint_sha256": "22e629f41c418fa93ee3ec0a3257d80d71d77b02b2fe1cbd89eae04507d22905",
+      "weights_used_sha256": null
+    }
+  ],
+  "case_times": {
+    "2022-01": {
+      "last_history_midpoint": "2021-12-29T12:00:00",
+      "day30_bin_midpoint": "2022-01-28T12:00:00"
+    },
+    "2022-07": {
+      "last_history_midpoint": "2022-06-28T12:00:00",
+      "day30_bin_midpoint": "2022-07-28T12:00:00"
+    }
+  },
+  "bundle_sha256": "fa75429ad70040ed73f3b919664062e5424596ae9673a030303ee976bcf13d47",
+  "plot_script_sha256": "be1f7e24090f0bfef260f845ea028537c5d6cef259448f7e52ec45255ccd90c1",
+  "rendered": [
+    {
+      "file": "day30-2022-01-anomalies-sst",
+      "limits": [
+        -3,
+        3
+      ]
+    },
+    {
+      "file": "day30-2022-01-anomalies-adt",
+      "limits": [
+        -0.25,
+        0.25
+      ]
+    },
+    {
+      "file": "day30-2022-07-fields-sst",
+      "limits": [
+        -2,
+        32
+      ]
+    },
+    {
+      "file": "day30-2022-07-fields-adt",
+      "limits": [
+        -1.5,
+        1.5
+      ]
+    },
+    {
+      "file": "day30-2022-07-anomalies-sst",
+      "limits": [
+        -3,
+        3
+      ]
+    },
+    {
+      "file": "day30-2022-07-anomalies-adt",
+      "limits": [
+        -0.25,
+        0.25
+      ]
+    }
+  ],
+  "mask": "60S-60N model wet domain intersected with finite target observations, identical across candidates",
+  "interpretation": "Illustrative cases, not aggregate skill; gray is land or unavailable observations. Colorbar extensions mark saturation. Endpoint is the last common exported surface lead, not a multi-year continuous rollout."
+}

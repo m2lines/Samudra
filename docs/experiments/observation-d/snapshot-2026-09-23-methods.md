@@ -25,6 +25,47 @@ interior targets are gridded IAP analyses. All arms retain the same model grid a
 ocean masks. “Observation-only” describes the ocean
 training source, not raw, independent measurements or an operational forecast.
 
+## Model architecture and optimization
+
+We use a deterministic, non-diffusion model consisting of a surface-history initializer,
+an autoregressive ocean evolution network and a shared atmospheric adapter. Both ocean
+networks are ConvNeXt-style U-Nets on the 180 × 360 Gaussian grid. The initializer uses
+four channel widths **256/384/512/768**; the evolution network uses **128/192/256/384**.
+The U-Net blocks use BatchNorm and capped GELU; the atmospheric adapter uses GELU.
+
+| Component | Interface | Parameters (approximately) |
+|---|---|---:|
+| History initializer | 19 five-day SST/ADT frames, validity masks, adapted atmosphere and five geographic/seasonal channels; 138 input channels → two 77-channel states | **121.7 million** |
+| Ocean evolution | Two previous states + three adapted forcing channels + five context channels; 162 inputs → 77 outputs per five-day step | **31.6 million** |
+| Atmospheric adapter | Shared pointwise 1×1 convolutions, 8 → 32 → 3, with GELU | **387** |
+| Complete model | Initializer + evolution + adapter | **153.3 million** |
+
+Exact counts are [recorded here](artifacts/2026-09-23/model-details.json):
+121,684,010 + 31,631,677 + 387 = **153,316,074** scalar parameters, excluding
+BatchNorm buffers, optimizer state and activations. Each ocean state contains T, S,
+u and v at 19 depths plus SSH. The initializer copies the final two supplied SST/ADT
+frames into the corresponding surface output channels; it learns the remaining state.
+Forecasting then advances recursively, supplying prescribed ERA5 through the adapter.
+Future surface observations are not fed back during a forecast.
+
+Full fine-tuning and observation-only scratch have identical architectures and parameter
+counts. Both train all **153.3 million** parameters during the joint stage. The
+adapter-only arm trains just **387**, keeping both ocean networks frozen. The earlier
+reconstruction stage trains the initializer and adapter (about **121.7 million**);
+adapter warm-up trains 387. Persistence reuses the chosen initializer and holds its
+state fixed, adding no learned parameters; seasonal climatology has no neural weights.
+
+The pilot uses AdamW (weight decay 0.01), gradient clipping at norm 1, an effective
+batch of eight monthly examples accumulated one at a time, BF16 convolution with
+FP32 loss reductions, and activation checkpointing. Core learning rates are 10⁻⁵
+for transferred weights and 10⁻⁴ for scratch; the adapter uses 10⁻³ before joint
+training and 10⁻⁴ in the joint stage. Transferred models retain source ocean
+normalization and frozen BatchNorm running statistics; scratch uses training-observation
+normalization and updates those statistics. Seed 1729 is used throughout. Validation
+checks every 100 updates select checkpoints using the integrated-plus-spectral score,
+with patience five and the phase update/time caps in the approved plan. Actual retained
+updates and selected checkpoints are tabulated in the snapshot report.
+
 ## Data and physical conventions resolved
 
 - **Common grid:** conservatively remap to D's actual 180 × 360 Gaussian coordinates,

@@ -26,6 +26,11 @@ See the [snapshot report](../../snapshot-2026-09-23.md) for interpretation.
   including separate complete/incomplete observed gradient stencils. This is not
   a forecast candidate, and does not change selection. Producer `bb7c3b787`,
   CPU job 18330279; script and source-array hashes are embedded.
+- `model-details.json`: exact architecture and phase-specific trainable parameter counts.
+- `maps/`: fixed January/July 2022 day-30 surface examples, absolute fields and
+  anomalies relative to training seasonal climatology, with common masks/color scales.
+  Each JPEG has a matching PDF and source/checkpoint provenance. The 2.8 MB extracted
+  bundle remains on Torch at `day30-map-examples.npz` under the run root.
 - `quota.txt`: final live Torch quota readout.
 - `SHA256SUMS`: artifact checksums, excluding the checksum manifest itself.
 
@@ -44,6 +49,7 @@ Repository scripts:
 - `scripts/plot_observation_snapshot.py`
 - `scripts/analyze_observation_predictions.py`
 - `scripts/audit_observation_operator.py`
+- `scripts/plot_observation_rollout_maps.py`
 
 Run root on Torch: `/scratch/jr7309/runs/2026-09-22-observation-D`.
 Prepared data: `/scratch/jr7309/data/obs-d-pilot`.
@@ -73,3 +79,11 @@ Selected checkpoint files are named `<arm>-<sha256>.pt` under the run root's
 `selected-checkpoints/` directory. Each is 613,575,397 bytes and was copied and
 read back with a matching SHA-256. Their exact identities are in `summary.json`
 and `archive-and-wandb-evidence.json`.
+
+## Map PDFs
+
+| Case | SST | ADT / SSH |
+|---|---|---|
+| July absolute fields | [PDF](maps/day30-2022-07-fields-sst.pdf) | [PDF](maps/day30-2022-07-fields-adt.pdf) |
+| July anomalies | [PDF](maps/day30-2022-07-anomalies-sst.pdf) | [PDF](maps/day30-2022-07-anomalies-adt.pdf) |
+| January anomalies | [PDF](maps/day30-2022-01-anomalies-sst.pdf) | [PDF](maps/day30-2022-01-anomalies-adt.pdf) |

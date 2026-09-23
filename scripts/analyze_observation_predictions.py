@@ -79,6 +79,11 @@ def main():
         "scope": "Post-selection held-out diagnostics; yearly variation is not a confidence interval",
         "anomalies": "Subtract training seasonal climatology at each origin, lead and cell; pooled area-weighted space/origin correlation and RMS amplitude",
         "evaluation_input": signature,
+        "report_script_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "grid_sha256": hashlib.sha256(args.grid.read_bytes()).hexdigest(),
+        "selection_reference_sha256": hashlib.sha256(
+            args.selection_reference.read_bytes()
+        ).hexdigest(),
         "protocol": PROTOCOL,
         "methods": {},
         "files_sha256": {},

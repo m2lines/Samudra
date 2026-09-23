@@ -236,3 +236,28 @@ spatial differentiation do not generally commute; this is a processing-consisten
 diagnostic, not forecast error or an irreducible bound. Keep the published metric
 reference definition fixed for all candidates and include this caveat in result
 interpretation. [Recorded diagnostic](coarsening-consistency.json).
+
+## Data verified; Torch QoS change and beta qualification
+
+Materialization **96584** completed in 33:25; publication **96619** completed in
+57 seconds. All 243/9/96 monthly examples plus grid/statistics are published:
+**350 NPZ files, 21,888,642,966 bytes (20.4 GiB)**. OSN full read-back found zero
+differences across the 352 payload/manifest files. Torch verified every NPZ hash
+and wrote `DATA_READY.json` at **01:21:44 UTC** on 23 September. The live pre-copy
+quota guard passed with 1.32 TB conservative free space after its rounding margin.
+
+Torch jobs were submitted: fitting **18294932**, primary **18294934**, adapter
+**18294935**, scratch fitting **18294939**, scratch **18294946**, and evaluations
+**18294974–18294976**. The fitting job is pending because the live `gpu48` QoS now
+has a per-user GPU maximum of **zero**. Earlier qualification used that same QoS
+successfully. A test-only `gpu168` request was rejected as inappropriate for the
+job; its restriction is not bypassed by inflating requested wall time.
+
+A beta fallback qualification, **204384**, is submitted as **one host × four GPUs**
+under `ny_lz1955_multiscale`, QoS `test`. It uses the already prepared EAI data and
+the identical SHA-verified D checkpoint transferred via Torch DTN → OSN. The pinned
+ARM64 image has prior one-host training evidence; this pilot still requires its
+own live qualification. The independent-arm coordinator passes two subprocess
+sequencing/device/failure-isolation tests. It can run transfer and scratch arms
+inside one four-GPU allocation, with evaluation on the fourth GPU. This fallback
+is not yet a successful fitting or skill result, and Torch production has not run.

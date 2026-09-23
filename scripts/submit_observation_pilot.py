@@ -225,7 +225,7 @@ def main():
         eval_module,
         ["--run", str(root / "primary"), "--output", str(root / "primary-evaluation")],
         3,
-        [primary, adapter],
+        [primary] if args.parallel_scratch else [primary, adapter],
     )
     adapter_eval = submit(
         args,
@@ -238,7 +238,7 @@ def main():
             str(root / "adapter-evaluation"),
         ],
         3,
-        [primary_eval],
+        [adapter, primary_eval],
     )
     scratch_eval = submit(
         args,

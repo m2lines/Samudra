@@ -26,6 +26,7 @@ def test_anomaly_correlation_amplitude_and_fixed_support():
     result = report.anomaly_statistics(prediction, reference, climatology, area)
     assert result["correlation"] == pytest.approx(1)
     assert result["rms_amplitude_ratio"] == pytest.approx(2)
+    assert result["pointwise_rmse"] == pytest.approx(np.sqrt(2.5))
     assert result["accepted_values"] == 6
     prediction[0, 0, 0] = np.nan
     with pytest.raises(ValueError, match="fixed reference support"):

@@ -43,6 +43,7 @@ def anomaly_statistics(prediction, reference, climatology, area):
         if reference_power > 0
         else None,
         "anomaly_bias": float(pm - rm),
+        "pointwise_rmse": float(np.sqrt(np.sum(weights * (p - r) ** 2))),
         "accepted_values": int(valid.sum()),
     }
 

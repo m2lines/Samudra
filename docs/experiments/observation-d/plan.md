@@ -43,8 +43,11 @@ initializer with adapted dynamics silently. D-joint can be a later warm-start co
 observation loader, validity-aware losses, and monthly aggregation. The eight archived ERA5 fields are
 not the three physical fluxes D expects. Those are adapter/training-harness changes, not reasons to
 repeat 121M-parameter pretraining. This conclusion follows from code and checkpoint provenance; the
-full-grid GPU strict-load/forward compatibility test has passed (job 18288326). Actual
-observational fitting remains a separate gate.
+full-grid GPU strict-load/forward compatibility test has passed (job 18288326).
+The separate observational fitting gate also passed: job 18294932 lowered the
+ten-update training-probe loss from 0.461634 to 0.063591 with finite gradients in
+initializer, evolution and adapter. Those probe updates were not used to warm-start
+production. See the [progress log](progress.md) for execution evidence.
 
 ## Fixed data choices
 

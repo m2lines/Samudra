@@ -4,214 +4,217 @@ SPDX-FileCopyrightText: 2026 Samudra Authors
 SPDX-License-Identifier: CC-BY-4.0
 -->
 
-# Proposed next experiments: does OM4 pretraining help?
+# Proposed next wave: allocate additional training between OM4 and observations
 
-23 September 2026. Proposal for review; no runs submitted. Each later wave needs
-its own compute approval. Keep the deterministic D architecture, one-degree grid,
-five-day step and observational training sources fixed.
+23 September 2026. Revised after reviewing the other thread's source training
+artifacts. Supersedes the earlier hyperparameter-screening proposal in this file.
+The user accepts rough matching by updates; detailed FLOP profiling is not a
+prerequisite. **Proposal only: no training or evaluation jobs submitted.** Later waves require
+separate approval. Keep deterministic D's architecture and the observational task.
 
-## Questions and current evidence
+## What the other thread actually trained
 
-Separate three claims: (1) better forecasts at a fixed observational training
-budget, (2) faster learning or fewer observational examples to reach a fixed skill,
-and (3) better skill after a substantially larger training budget. A short run
-cannot establish the third claim or convergence.
+The observational pilot's source is primary D, SHA-256 beginning `22e629f4`, not
+joint D (`a0c42c23`). It combines a newly trained wide history initializer with
+previously pretrained wave-1 autoregressive dynamics. These are separate training
+histories, not a single short pretraining run.
 
-The pilot is encouraging, but transfer and scratch used different learning rates,
-normalization, BatchNorm handling and phase lengths. There was one seed. Transfer
-validation score improved at every saved joint checkpoint, from 0.7424 at update
-100 to 0.6141 at 1000. Scratch improved from 1.6767 to 0.9128 at update 900, then
-0.9196 at 1000. Neither curve establishes a plateau. These numbers come from the
-[archived validation events](artifacts/2026-09-23/evidence.json.gz).
+| Component | Observed training history | Interpretation for the next wave |
+|---|---|---|
+| D initializer: 121.7M parameters | AdamW, constant LR 3e-4, global batch 8; 95,919 optimizer updates, epoch counter 274, 3.669 training hours on two RTX PRO 6000 GPUs. Best reconstruction validation at update 43,439; stopped after six non-improving validations. | Reconstruction had plateaued under this recipe. Do not spend the main OM4 allocation repeating it unchanged. |
+| Inherited evolution: 31.6M parameters | Wave-1 AR pretraining, constant LR 3e-4 and one/three/six-step curriculum. Selected update 1,260,598; production ran about 31h25m. Seven subsequent validation checks failed to improve after more than 12 hours at six-step horizon. | Substantial dynamics pretraining already occurred. This is a marginal-compute experiment from an established model, not early pretraining versus scratch. |
+| Joint D: same initializer and evolution | Constant LR 1e-4, six-step full-variable forecast loss + 0.1 reconstruction loss; 20,268 updates in three hours on two RTX GPUs. Best forecast validation at update 18,041; the run ended at its time cap with one non-improving check. | Joint adaptation was not shown to have converged. This is the most relevant OM4 continuation objective. |
+| Observational fine-tuning | Constant core LR 1e-5, adapter LR 1e-4 in joint training; 1,000 joint updates. Validation improved at every saved joint check through the last one. | Additional observational training is also plausible; allocation needs a direct test. |
 
-Two comparisons are needed. Equal-budget independent tuning asks which approach
-produces the better usable model. A separate matched-recipe initialization ablation
-asks which part of pretraining supplies the gain. Do not describe the first as an
-isolated effect of learned weights.
+D reconstruction-validation normalized T/S RMSE was 0.05519 at the selected
+checkpoint and 0.05528 at the final checkpoint. The final training-probe RMSE was
+about 0.04048, so continuing the same reconstruction recipe was not obviously
+limited by too few optimizer updates. The source learning rates were constant:
+there was no exhausted cosine/decay schedule to restart.
 
-## Fixed evaluation protocol
+On the other thread's OM4 held-out cohort, joint D improved day-30 T/S RMSE from
+0.06918 to 0.06653 (3.8%), while initialization RMSE slightly worsened. This is
+existing model-world evidence for joint training, not evidence that joint D
+transfers better to observations. The observational pilot deliberately used
+pre-joint D, so it does not answer that question.
 
-Continue selecting and reporting the integrated-plus-spatial-spectral observation
-score, with fixed validation-climatology denominators. RMSE remains a component
-and training diagnostic, never a replacement selection criterion. Freeze score
-weights, regions, leads and masks before this wave. Preserve the pilot score for
-comparability; report complete-ADT-stencil velocity/EKE diagnostics alongside it.
-Do not change the primary metric after seeing which model wins.
+Primary evidence:
 
-The current nine-month validation period is weak for tuning. Before the search,
-reserve two complete seasonal cycles from the previously available development
-period and retrain both arms on the same reduced training partition. Choose exact
-month boundaries from actual product coverage, with a purge at least as long as
-the 95-day input support plus 35-day forecast support, enlarged for documented
-provider temporal smoothing. Recompute training normalization, climatology and
-validation reference denominators. New scores must be labeled as a new protocol;
-old selected observational checkpoints cannot initialize these experiments if they
-saw the new validation months. Original OM4 D remains the transfer starting point.
+- [Other thread's wave-3 report](../surface-wave3-results/index.md),
+  [training protocol](../surface-wave3-plan.md), and
+  [learning curves](../surface-wave3-results/figures/optimization/learning-curves.csv).
+- [D training completion](../surface-wave3-results/artifacts/training/primary/D/TRAIN_COMPLETE.json),
+  [joint D completion](../surface-wave3-results/artifacts/training/joint/D/TRAIN_COMPLETE.json),
+  and [checkpoint lineage](../surface-wave3-results/artifacts/lineage-audit.json).
+- [Wave-1 report](../surface-wave1-results/index.md) and
+  [AR pretraining early-stop record](../surface-wave1-results/ar-pretrain-early-stop.json).
+- [Observation pilot report](snapshot-2026-09-23.md).
 
-The already inspected 2015–2022 cohort remains a historical comparison, not a
-pristine final test. Audit a common, unused 2023-onward OISST/DUACS/IAP/ERA5 interval
-before promising fresh confirmation; availability and sufficient duration are not
-yet verified. Lock that interval and inspect it only after recipes and checkpoints
-are fixed. If unavailable, report the results as exploratory and obtain new data
-before making a confirmatory claim. Also audit the dates used for OM4 dynamics
-training, initializer training, normalization and checkpoint selection: common
-forcing/calendar years can weaken a claim of temporal generalization even without
-using observational targets.
+These are checked-in historical execution records, not a fresh cluster inventory.
+The source code increments the wave-3 step counter at optimizer steps after
+accumulation; nevertheless, those counts are not FLOP-equivalent to monthly
+observational updates with multiple reconstruction/forecast forwards.
 
-## Wave A: improve both approaches with equal search budgets
+## Question and fixed starting point
 
-Use the same 153.3M-parameter architecture, adapter, data order, effective batch of
-eight, optimizer, loss scales, training examples and validation cadence. Pair the
-search seed between arms. Start each trial afresh, including all adaptation phases;
-do not reuse the observationally fine-tuned pilot weights.
+**From the exact same primary D checkpoint, where should the next unit of training
+compute go: joint OM4 training or observational adaptation?** Hold architecture,
+source checkpoint, observation splits, data operators and evaluation fixed. No
+capacity, history-length, resolution, spectral-loss or forcing-adapter expansion
+search in this first allocation wave. All observation stages restart from their
+assigned OM4 endpoint, not the already observation-adapted pilot checkpoint.
 
-| Hyperparameter | OM4-initialized candidates | Observation-only candidates | Purpose |
-|---|---|---|---|
-| Core peak learning rate | 3e-6, 1e-5, 3e-5 | 3e-5, 1e-4, 3e-4 | Avoid imposing the transfer learning rate on scratch |
-| Added spectral loss coefficient | 0 or 0.05 | 0 or 0.05 | Test whether power loss can be reduced without degrading prediction |
-| Core schedule | 200-update warm-up, then cosine decay to 10% of peak | Same | Replace the current constant learning rate |
-| Adapter joint peak learning rate | 1e-4 | 1e-4 | Hold forcing adaptation policy fixed |
-| Weight decay / clipping | 0.01 / norm 1 | Same | Retain known working settings |
-| Reconstruction auxiliary weight | 0.1 | 0.1 | Retain current joint-stage balance initially |
+Interpret results conditional on the already spent OM4 pretraining. A separate
+end-to-end comparison would charge the original dynamics and initializer training,
+including curriculum-dependent costs, to transfer. Neither the original million
+updates nor the entire multi-arm 122-GPU-hour wave is the correct direct training
+cost of D without reconstructing its specific lineage.
 
-This is six configurations per arm, twelve trials total. Keep the original forecast
-loss weights (T/S/SST/ADT = 0.4/0.4/0.1/0.1) in this screen. The proposed spectral
-term is a differentiable, dimensionless log-power error on training SST/ADT at the
-same broad resolved scales, masks and regions as evaluation; average over fields,
-regions and scored leads before multiplying by 0.05. No velocity/EKE spectral loss
-in the first wave because the ADT-gradient support effect remains unresolved.
-Use a training-derived positive power floor, fixed taper/mask treatment, and check
-finite gradients and relative loss/gradient magnitudes before production. The
-coefficient is a hypothesis, not a demonstrated optimum. Always retain the
-zero-spectral-loss controls. Evaluate EKE in the unchanged selection score.
+## Qualification and small learning-rate calibration
 
-Give every trial 1000 reconstruction updates and 2000 joint updates. No separate
-transfer-only warm-up in the matched schedule. Use the same freshly initialized
-zero-output adapter. Keep the pilot's native normalization/BatchNorm policy for
-this practical comparison and explicitly report that it compares training recipes:
-source normalization/frozen running statistics for transfer, observation-only
-normalization/updating statistics for scratch. Loss normalization is observation-
-derived for both. Report all candidates, including divergence and non-improvement.
+Before production, verify source checkpoint hashes, data availability and space;
+strict-load both original D and archived joint D for reference. Reuse existing
+normalization stores. The transfer allocation arms all retain the same source
+normalization, adapter design and observation-only loss scaling. Do not introduce
+a new split or normalization change inside the allocation comparison.
 
-Validate every 250 joint updates. Do not terminate scratch just because it starts
-worse; no score-based early stopping before the common screening budget. Stop on
-nonfinite states or losses and count failed trials against the search budget. Use
-the same compute cap per arm; record examples, updates and GPU-hours separately.
-A spectral-loss trial may be more expensive, so equal updates alone are insufficient.
+Use **optimizer updates at effective batch eight** as the primary budget unit.
+Both joint paths roll out roughly a month: six five-day OM4 steps versus six/seven
+observational steps. Observation training also performs auxiliary monthly
+reconstruction, so equal updates are explicitly not equal FLOPs. Count actual
+examples, forecast steps and reconstruction forwards, and report GPU-hours and
+wall time alongside score. A short timing check of roughly 20 steady-state updates
+per path is sufficient for resource planning; no full FLOP profiler is required.
+If one path costs dramatically more, show that directly rather than calling this
+compute-equivalent. A later hardware-time-matched sensitivity check can address it.
 
-A scheduler must support these staged comparisons without an artificial learning-
-rate reset at promotion. Use a predeclared 8000-update cosine horizon for screening
-and extensions, and preserve optimizer/scheduler/RNG state when extending.
+Run two short, equal-update learning-rate trials per domain (200 joint updates each):
 
-## Wave B: longer training and final repeated comparisons
+- OM4 joint core LR: **3e-5 versus 1e-4**.
+- Observation joint core LR: **1e-5 versus 3e-5**, adapter LR fixed at **1e-4**.
+- AdamW weight decay 0.01, gradient clipping 1, effective batch 8; preserve phase-
+  specific BatchNorm policies and log them. Adapter starts with zero outputs.
+- Select OM4 rate on its forecast validation score; observation rate on the frozen
+  integrated-plus-spectral observation score. Qualification updates are discarded.
+  Observation calibration uses a common fresh reconstruction warm-up for both rates.
 
-Promote the best two configurations per arm on validation only and extend each to
-8000 joint updates. Preserve equal aggregate search budgets. Retain best checkpoints
-by the observation score, but also show learning curves at 1000, 2000, 4000 and 8000
-updates and common GPU-hour budgets, including reconstruction cost. If scratch is
-still improving, report the budget-limited result rather than declaring convergence.
+Use a short warm-up (5% of each phase's update budget), then a constant selected LR
+for the first wave. This deliberately avoids conflating allocation with different
+positions in a cosine schedule and permits exact-prefix continuation. Fix optimizer
+reset policy: fresh optimizer from D for OM4 continuation, then fresh observation
+optimizer after switching domains. Retain optimizer state for budget extensions
+within a phase. A second LR check at the two allocation extremes is a follow-up
+if the ranking is small or unstable, not an unbounded tuning search.
 
-Lock the best recipe for each arm, then run three new paired seeds per arm from
-original OM4 weights or random weights, respectively (six full runs). Do not select
-the luckiest seed. Report every seed and the mean/spread. Pair initial adapter weights
-and sample order where possible. These repetitions measure observational training
-variation conditional on one source D checkpoint, not variation across OM4
-pretraining seeds. A general claim about the pretraining procedure eventually needs
-independent source checkpoints too.
+## First production wave
 
-If Wave A/B exposes a specific bottleneck, a separately approved small follow-up can
-vary initializer:evolution learning-rate ratio (0.3, 1, 3), reconstruction weight
-(0, 0.1), surface/interior loss balance (0.1/0.1/0.4/0.4 versus 0.25 each), or BatchNorm
-training-only recalibration versus online updates. Give both approaches the same
-number of extra trials; do not grant transfer a larger tuning budget. Do not expand
-all these into a large Cartesian search before the first screen informs it.
+Every model gets **1,000 observation reconstruction updates plus a pool of
+4,000 joint updates**, at effective batch eight. Allocate that joint-update pool
+between OM4 and observations. Run OM4 first, then the common observation
+reconstruction stage, then observation joint training. The common reconstruction
+stage is performed separately for each arm, because its starting weights differ.
 
-## Wave C: identify what transfers
+| Literal result name | Initial weights | OM4 joint updates | Observation reconstruction updates | Observation joint updates |
+|---|---|---:|---:|---:|
+| D → observations | Original D | 0 | 1,000 | 4,000 |
+| D → 25% OM4 → observations | Original D | 1,000 | 1,000 | 3,000 |
+| D → 50% OM4 → observations | Original D | 2,000 | 1,000 | 2,000 |
+| D → 75% OM4 → observations | Original D | 3,000 | 1,000 | 1,000 |
+| Observation-only random | Random initializer/evolution | 0 | 1,000 | 4,000 |
 
-Run a 2 × 2 initialization ablation with a common recipe and three paired seeds.
+The percentages apply to the 4,000 joint updates, not all 5,000 updates or FLOPs.
+The most OM4-heavy arm still gets the pilot's 1,000 observation joint updates.
+This is a deliberately rough **update-matched** comparison, not a FLOP-matched
+one. The different supervision, six/seven-step windows and auxiliary reconstruction
+cost must accompany interpretation. A shared OM4 prefix can supply snapshots at
+1,000/2,000/3,000 updates if its schedule and seed are identical; report both each
+model's training pathway and the smaller actual campaign cost when reusing it.
 
-| Literal model name | Initializer | Evolution | Meaning |
-|---|---|---|---|
-| OM4 initializer + OM4 evolution | OM4 | OM4 | Full transfer |
-| OM4 initializer + random evolution | OM4 | Random | Test transferred reconstruction without transferred dynamics |
-| Random initializer + OM4 evolution | Random | OM4 | Test transferred dynamics without transferred reconstruction |
-| Random initializer + random evolution | Random | Random | No learned OM4 weights |
+Observation-only random retains observation-derived normalization and learns
+BatchNorm statistics as in the pilot. It has no learned OM4 weights or OM4
+normalization. Its core LR is separately calibrated at **3e-5 versus 1e-4** using
+the same 200-update trial budget. It is an equal-additional-update practical baseline;
+it is not equal-total-lifetime-compute to pretrained D. Retained source grid and
+architecture are common structural priors and disclosed as before.
 
-For this controlled ablation, use common source-coordinate normalization for all
-four cells, identical learning rates, phase lengths and trainable parameters, and
-reset/recalibrate BatchNorm running statistics on training observations with the
-same policy in all cells. All cores then train; all adapters start identically.
-This deliberately separates initialization from recipe changes. The random/random
-cell uses OM4 normalization information and MUST be labeled that way; it is not
-the strict observation-only baseline. Keep the pure observation-only model from
-Waves A/B in the report. The ablation estimates the weight-transfer effect under
-this shared coordinate system. It does not eliminate every dependence on OM4.
+Use one paired observational sampling seed for this screen. Match adapter seed
+and the prefix of the observation sample sequence across transfer arms. Keep the
+original observational forecast loss and auxiliary reconstruction weight 0.1.
+During OM4 training use native OM4 forcings and full-state labels, with six-step
+joint forecast loss + 0.1 reconstruction, as in the successful joint-D experiment;
+the ERA5 adapter is trained only on observations. This compares two data/objective
+packages, not data provenance under an identical loss.
 
-Choose the common recipe by a prespecified symmetric validation rule (e.g. lowest
-mean score across all four initialization cells under equal small tuning budgets),
-not the best transfer-only recipe. Mixed initializations require finite-forward,
-small-batch fitting and physical-interface checks; mismatched initializer/evolution
-states can make their interaction scientifically meaningful but hard to optimize.
-Report all four outcomes and their interaction, not an additive attribution assumed
-in advance. Budget these as new runs; the independently tuned Wave B runs are not
-substitutes for this controlled factorial.
+Take the terminal checkpoint of each finite, fixed-update OM4 phase into adaptation;
+do not add per-arm OM4 best-checkpoint searches. Monitor its validation as a
+diagnostic. Select final observational checkpoints using the agreed observation
+score, at the same prespecified five fractional observation-joint checkpoints
+(including the phase start). Also report terminal-checkpoint scores so early
+selection cannot conceal wasted allocated compute. Keep all costs, including
+failed/divergent trials; do not silently restart only unfavorable arms.
 
-For every trained model report its own inferred-state persistence, interior-anomaly
-persistence and seasonal-climatology comparisons. Also compare forecast-minus-
-matched-persistence skill per metric. If transfer only improves OHC persistence,
-the defensible conclusion is improved state reconstruction, not improved dynamics.
-If desired, a common supplied-state evolution diagnostic can probe dynamics more
-directly, but label it separately from each model's end-to-end forecast.
+## Reporting, confirmation and scope
 
-## Evidence to report and optional follow-ups
+Primary output: observation score versus fraction of joint updates allocated to
+OM4, with total updates, examples, forecast/reconstruction work counts and
+wall/GPU-hours. Also plot score against actual training GPU-hours. Report all integrated components,
+spectral error by region/field/lead, anomaly correlation/amplitude, and each
+model's own inferred-state and interior-anomaly persistence. Persistence gains
+without forecast-over-persistence gains support better initialization, not better
+dynamics. Preserve the complete-stencil velocity/EKE diagnostic because the
+existing ADT-boundary issue can influence the composite.
 
-Report integrated-plus-spectral score, all five integrated components, spectra by
-field/region/lead, anomaly correlation and amplitude, deep-OHC anomalies, and maps
-at fixed origins. Include signed log-power ratios so damping and excess power are
-not hidden by unsigned dex errors. Winning the score alone does not establish
-better phase skill or physical realism. Spectral improvement is useful only when
-viewed alongside the integrated and anomaly diagnostics.
+The main decision uses validation only. Freeze the pilot score and masks; do not
+add a spectral training loss or change the velocity metric during this comparison.
+The nine-month validation record is limited, and 2015–2022 results have already
+been inspected. Report those as historical benchmarks, not new blind evidence.
+Before a confirmatory claim, audit and reserve a previously unused common product
+interval (possibly 2023 onward, not yet verified). A broader blocked validation
+scheme is a separate protocol change, requiring symmetric reruns; do not quietly
+mix it into the existing-score comparison. Audit source OM4 normalization dates
+and forcing/year overlap when making temporal-generalization claims.
 
-For final comparisons, compute paired differences on common origins. Resample
-contiguous temporal blocks and recompute complete metrics, including EKE, rather
-than treating grid cells or monthly starts as independent samples. Predeclare block
-length/sensitivity using development data; report seed spread separately from
-finite-test-period uncertainty. Three seeds and a short fresh test support limited,
-conditional claims, not precise population confidence statements.
+After reviewing the screen, repeat the observation-heavy baseline and the best
+nonzero OM4 allocation with three fresh paired seeds at the same 4,000-joint-update budget. Retain random
+observation-only repetitions if making a pretraining-versus-no-pretraining claim.
+If the screen cannot separate allocations, report that and choose a prespecified
+contrast (0% versus 50%) rather than declaring the small numerical winner optimal.
+A separately approved second budget of 8,000 joint updates tests whether the preferred allocation
+changes with scale. Show paired seed differences and temporal-block uncertainty;
+do not treat grid cells or monthly starts as independent replicates. Claims remain
+conditional on the one shared source checkpoint unless source seeds are replicated.
 
-A later sample-efficiency study can use nested 25%, 50%, 100% training subsets with
-seasonal coverage, chosen before scoring, and all preprocessing fit within each
-subset. Use identical subsets across arms and show both fixed-example and fixed-
-compute comparisons. Another later study should run 90/180/365-day forecasts and
-then continuous eight-year trajectories for stability and temporal spectra. Those
-need contiguous forcing and long-rollout evaluation changes; present one-month
-results cannot establish those capabilities. Test long runs from fixed checkpoints,
-not select again using the final test.
+Archived joint D is a useful cheap historical transfer check, but not a free
+member of the update-matched curve: it already consumed 20,268 joint OM4
+updates (selected at 18,041) and three training hours. If adapted, plot it
+separately with that historical work explicitly charged. Do not replace one production arm with it silently.
 
-## Resources and implementation before launch
+This wave answers marginal allocation for one-month observation prediction.
+It does not establish eight-year stability, a universal optimal pretraining ratio,
+or the cost-effectiveness of OM4 pretraining from random initialization.
 
-Plan at most four independent one-GPU trials concurrently. On beta this means one
-host with four GPUs; first verify four independent trials fit host memory and I/O.
-Avoid assuming the pilot harness already supports DDP. Torch remains an alternative
-subject to live quota/capacity checks. Reuse the compact data design, stage only the
-needed revised split/new coverage, retain selected/last checkpoints and scalar
-histories, and export large prediction arrays only for finalists. Measure actual
-checkpoint size before multiplying by trial count and check scratch quota.
+## Resource envelope and launch gates
 
-The original runs cost about 4–5 allocated GPU-hours each for roughly 1600–1900
-retained core-stage updates plus qualification/restarts. A rough Wave A envelope is
-80–120 GPU-hours, not a reservation or measured new-run estimate. Benchmark validation
-and spectral-loss overhead first and revise the budget before submission. Twelve
-8000-update factorial runs and seed repetitions make the complete study several
-hundred GPU-hours; approve later waves separately. Report downstream training and
-search cost both excluding and, where available, including amortized OM4 pretraining
-cost. Fast fine-tuning alone is not an end-to-end compute saving.
+Propose **a first-wave ceiling of 100 allocated GPU-hours**, including calibration,
+short timing checks, five screening runs, validation and recovery; this is a ceiling for
+review, not a throughput-backed promise. Benchmark first. If the 5,000-update-per-model
+matrix does not fit, report measured costs and revise the entire budget before
+production rather than shortening selected arms. Later seed/budget waves are
+separate decisions. No runs are launched by this proposal.
 
-Required code changes: configurable initializer/evolution/adapter rates and schedule;
-explicit initialization, normalization and BatchNorm switches; differentiable masked
-spectral loss; fixed-budget promotion/resume and compute accounting; split/provenance
-checks; paired-seed/factorial manifests and report generation. Validate unchanged
-zero-spectral-loss behavior, checkpoint loading, scheduler resume, masks/gradients,
-and no validation/test examples in preprocessing. These are planned changes, not
-features claimed to be available today. No architecture or OM4 pretraining rerun is
-required for the primary next wave.
+On beta use at most one host/four GPUs. Start from the already working OM4 two-GPU
+recipe (two concurrent jobs) unless one-GPU memory/throughput qualification supports
+four independent trials. Keep observational jobs single-GPU unless distribution is
+explicitly qualified; do not assume their harness supports DDP. Torch is an allowed
+alternative after live storage/capacity checks. Check space for OM4, the compact
+observational package, optimizer checkpoints and exports; no full-resolution
+observation transfer is required. No cluster/quota check was performed for this
+proposal because nothing is being submitted.
+
+Implementation needed: explicit per-phase update caps and work/time logging; configurable
+learning rates and phase optimizer policies; common checkpoint loading between OM4
+and observation harnesses; phase-normalized validation cadence; reproducible
+allocation/seed manifests and reports showing both update counts and cost. Verify loading/equivalence,
+optimizer resume, finite fitting, exact masks and budget accounting before production.
+The current architecture is adequate; rebuilding D or repeating its original
+pretraining is not a prerequisite for this wave.

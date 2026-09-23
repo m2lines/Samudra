@@ -91,6 +91,8 @@ def main():
     }
     files = {
         "selected": "selected-predictions.npz",
+        "selected-inferred-persistence": "selected-inferred-persistence.npz",
+        "selected-inferred-anomaly-persistence": "selected-inferred-anomaly-persistence.npz",
         "source": "source-with-zero-forcing.npz",
         "inferred-persistence": "source-inferred-persistence.npz",
         "seasonal-climatology": "seasonal-climatology.npz",

@@ -74,9 +74,11 @@ def test_dag_requires_completed_own_training_and_bounds_gpu_concurrency(
         )
     )
     dependencies = {}
+    producers = {}
 
     def submit(args, name, module, module_args, hours, predecessors=()):
         dependencies[name] = set(predecessors)
+        producers[name] = args.code_commit
         return name
 
     monkeypatch.setattr(submission, "submit", submit)
@@ -91,10 +93,16 @@ def test_dag_requires_completed_own_training_and_bounds_gpu_concurrency(
             str(tmp_path),
             "--code-commit",
             "pinned",
+            "--eval-code-commit",
+            "evaluation-only",
         ]
         + (["--parallel-scratch"] if parallel else []),
     )
     submission.main()
+    for name, producer in producers.items():
+        assert producer == (
+            "evaluation-only" if name.endswith("-evaluation") else "pinned"
+        )
 
     def ancestors(name):
         result = set(dependencies[name])

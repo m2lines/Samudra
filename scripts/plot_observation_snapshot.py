@@ -71,8 +71,8 @@ def candidates_for_split(snapshot, split):
     candidates = {
         "Seasonal climatology": control,
         "Pretrained / zero adapter": controls["source-with-zero-forcing"],
-        "Inferred-state persistence": controls["source-inferred-persistence"],
-        "Inferred-anomaly persistence": controls["inferred-anomaly-persistence"],
+        "Source-state persistence": controls["source-inferred-persistence"],
+        "Source-state anomaly persistence": controls["inferred-anomaly-persistence"],
     }
     for label, evaluation in completed:
         candidates[label + " (selected)"] = evaluation["selected"]["metrics"]

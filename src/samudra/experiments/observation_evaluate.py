@@ -31,6 +31,7 @@ def main():
         raise ValueError("Selected checkpoint checksum mismatch")
     output.mkdir(parents=True, exist_ok=True)
     fingerprint = {
+        "evaluation_protocol": "selected-and-source-initializer-controls-v2",
         "checkpoint_sha256": digest(checkpoint),
         "split": args.split,
         "data_manifest_sha256": manifest["data_manifest_sha256"],
@@ -69,6 +70,20 @@ def main():
             },
             output / "selected.json",
         )
+    # Keep both selected weights and their normalization for these controls.
+    # They isolate forecast dynamics from improvements to the inferred state.
+    for label, options in [
+        ("selected-inferred-persistence", {"persistence": True}),
+        ("selected-inferred-anomaly-persistence", {"anomaly": True}),
+    ]:
+        if (output / (label + ".json")).exists() and (
+            output / (label + ".npz")
+        ).exists():
+            continue
+        reference = evaluator.evaluate(
+            paths, export=output / (label + ".npz"), **options
+        )
+        atomic_json(reference, output / (label + ".json"))
     source = manifest["arguments"]["checkpoint"]
     evaluator.data = Samples(manifest["arguments"]["data"], "cuda")
     evaluator.model.load_core(
@@ -105,6 +120,7 @@ def main():
         atomic_json(reference, output / (label + ".json"))
     atomic_json(
         {
+            "evaluation_protocol": fingerprint["evaluation_protocol"],
             "split": args.split,
             "origins": expected,
             "source_sha256": digest(source),

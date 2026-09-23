@@ -6,6 +6,7 @@
 """Submit a pinned observational pilot DAG after verified data arrive on Torch."""
 
 import argparse
+import copy
 import datetime
 import json
 import os
@@ -139,6 +140,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--code-commit", required=True)
     parser.add_argument(
+        "--eval-code-commit",
+        help="Optional evaluation-only producer; training stays pinned",
+    )
+    parser.add_argument(
         "--root", default="/scratch/jr7309/runs/2026-09-22-observation-D"
     )
     parser.add_argument("--data", default="/scratch/jr7309/data/obs-d-pilot")
@@ -219,8 +224,10 @@ def main():
         hours=10,
     )
     eval_module = "samudra.experiments.observation_evaluate"
+    eval_args = copy.copy(args)
+    eval_args.code_commit = args.eval_code_commit or args.code_commit
     primary_eval = submit(
-        args,
+        eval_args,
         "primary-evaluation",
         eval_module,
         ["--run", str(root / "primary"), "--output", str(root / "primary-evaluation")],
@@ -228,7 +235,7 @@ def main():
         [primary] if args.parallel_scratch else [primary, adapter],
     )
     adapter_eval = submit(
-        args,
+        eval_args,
         "adapter-evaluation",
         eval_module,
         [
@@ -241,7 +248,7 @@ def main():
         [adapter, primary_eval],
     )
     scratch_eval = submit(
-        args,
+        eval_args,
         "scratch-evaluation",
         eval_module,
         ["--run", str(root / "scratch"), "--output", str(root / "scratch-evaluation")],

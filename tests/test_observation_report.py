@@ -57,6 +57,8 @@ def test_post_selection_report_pairs_all_years_and_rejects_changed_reference(
     ohc = np.ones((96, 2, 2, 2))
     filenames = [
         "selected-predictions.npz",
+        "selected-inferred-persistence.npz",
+        "selected-inferred-anomaly-persistence.npz",
         "source-with-zero-forcing.npz",
         "source-inferred-persistence.npz",
         "seasonal-climatology.npz",
@@ -109,7 +111,7 @@ def test_post_selection_report_pairs_all_years_and_rejects_changed_reference(
     )
     report.main()
     result = json.loads((tmp_path / "report.json").read_text())
-    assert calls == [12] * 40
+    assert calls == [12] * 56
     assert result["paired_year_composite_differences"]["source"]["mean"] == 0
     assert len(result["methods"]["selected"]["annual"]) == 8
     reference[0, 0, 0, 0, 0] = np.nan

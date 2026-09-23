@@ -592,3 +592,14 @@ an immutable filename and verify the copied bytes against its best-record SHA-25
 A running job may replace its live `best.pt` after the report, so the filename alone
 is insufficient snapshot provenance. Completed-arm selections and immutable JSON
 captures already provide stable metric records.
+
+
+## Third transfer preemption; first scratch preemption
+
+At **03:45:29 UTC**, all three allocations were preempted and automatically
+requeued. Retained reconstruction checkpoints are primary **400 updates / 3840.43 s**,
+adapter-only **546 / 3991.46 s**, and scratch **223 / 1751.31 s**. Last recorded
+updates were 420, 550 and 233, so 20, 4 and 10 updates will repeat. Selected metric
+records are unchanged. Snapshot: `snapshots/preemption-20260923T0351Z.json`.
+The three completed transfer allocations were each about 31 minutes; this describes
+observed scheduling, not a guaranteed allocation duration or policy.

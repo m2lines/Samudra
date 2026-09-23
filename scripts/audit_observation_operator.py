@@ -12,13 +12,83 @@ import json
 from pathlib import Path
 
 import numpy as np
+import xarray as xr
 
 from samudra.experiments.observation_metrics import PROTOCOL, score
+from samudra.metrics import kernels
 
 
 def digest(path):
     with path.open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def velocity_support_audit(prediction, reference, grid):
+    """Partition common scoring support by availability of observed ADT stencils."""
+    lat, lon = grid["lat"], grid["lon"]
+    domain = grid["mask"][0] & (np.abs(lat[:, None]) <= 60)
+    area = np.cos(np.deg2rad(lat))[:, None]
+
+    def velocity(adt):
+        field = xr.DataArray(
+            np.where(domain, adt, np.nan),
+            dims=("time", "lat", "lon"),
+            coords={"lat": lat, "lon": lon},
+        )
+        return [
+            value.transpose("time", "lat", "lon").values
+            for value in kernels.geostrophic_velocity_from_zos(field, "lat", "lon")
+        ]
+
+    output = {}
+    for lead in (0, 2, 5):
+        pu, pv = velocity(prediction[:, lead, 1])
+        ou, ov = velocity(reference[:, lead, 1])
+        u, v = reference[:, lead, 2], reference[:, lead, 3]
+        if not np.array_equal(np.isfinite(u), np.isfinite(v)):
+            raise ValueError("Velocity reference components have different support")
+        valid = (
+            np.isfinite(u)
+            & np.isfinite(v)
+            & np.isfinite(pu).all(0)
+            & np.isfinite(pv).all(0)
+            & (np.abs(lat[:, None]) >= 5)
+        )
+        observed_stencil = np.isfinite(ou) & np.isfinite(ov)
+        if not (
+            np.allclose(pu[valid & observed_stencil], ou[valid & observed_stencil])
+            and np.allclose(pv[valid & observed_stencil], ov[valid & observed_stencil])
+        ):
+            raise ValueError("Filling changed a complete observed stencil")
+        groups = {}
+        total_weight = np.sum(valid * area)
+        for name, accepted in (
+            ("all_scored", valid),
+            ("complete_observed_stencil", valid & observed_stencil),
+            ("incomplete_observed_stencil", valid & ~observed_stencil),
+        ):
+            weight = accepted * area
+            mass = weight.sum()
+            groups[name] = {
+                "area_origin_fraction": float(mass / total_weight),
+                "vector_rmse_m_s": float(
+                    np.sqrt(
+                        np.sum(
+                            np.where(accepted, (pu - u) ** 2 + (pv - v) ** 2, 0) * area
+                        )
+                        / mass
+                    )
+                )
+                if mass > 0
+                else None,
+                "reference_vector_rms_m_s": float(
+                    np.sqrt(np.sum(np.where(accepted, u**2 + v**2, 0) * area) / mass)
+                )
+                if mass > 0
+                else None,
+            }
+        output[f"day{5 * (lead + 1)}"] = groups
+    return output
 
 
 def main():
@@ -63,6 +133,9 @@ def main():
         "climatology_export_sha256": digest(args.climatology_export),
         "grid_sha256": digest(args.grid),
         "script_sha256": digest(Path(__file__)),
+        "velocity_support_audit": velocity_support_audit(
+            prediction, arrays["reference"], grid
+        ),
         "protocol": PROTOCOL,
         "result": result,
     }

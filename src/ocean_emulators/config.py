@@ -43,12 +43,14 @@ from ocean_emulators.models.modules import (
 from ocean_emulators.models.modules.augment_input import Concat3dCoordinates
 from ocean_emulators.models.modules.blocks import ZonallyPeriodicBilinearUpsample
 from ocean_emulators.rust_data import NativeStoreSpec
+from ocean_emulators.face_parallel import FaceParallelConfig
 from ocean_emulators.shardtensor import DomainParallelConfig
 from ocean_emulators.utils.data import DataContainer, DataSource
 from ocean_emulators.utils.location import LocalLocation, Location, ResolvedLocation
 from ocean_emulators.utils.loss import (
     DynamicLoss,
     GradientLoss,
+    GradientZNorms,
     LossFn,
     LossMetric,
     WeightedLoss,
@@ -1135,6 +1137,18 @@ class GradientLossConfig(pydantic.BaseModel):
         default=0.1,
         ge=0.0,
     )
+    channel_weights: dict[str, float] | None = Field(
+        default=None,
+        description=(
+            "Per-VARIABLE loss weights, e.g. {'Eta': 5.0}. The final loss is a "
+            "mean over channels and a channel is a variable at a depth, so a "
+            "51-level field contributes 51 channels while a surface field like "
+            "Eta contributes one and is outvoted 51-to-1. Variables left out "
+            "default to 1.0; a name that matches no prognostic variable of the "
+            "run is an error. None applies no channel weighting, which is what "
+            "this loss has always done."
+        ),
+    )
 
     @pydantic.model_validator(mode="before")
     @classmethod
@@ -1186,7 +1200,16 @@ def build_loss_fn(
     device: torch.device,
     num_channels: int,
     pad_mode: str,
+    denominator: torch.Tensor | None = None,
+    gradient_z_norms: "GradientZNorms | None" = None,
 ) -> LossFn:
+    """Build the loss. `denominator`/`gradient_z_norms` fix the normalization.
+
+    Pass them when one call scores a PIECE of a domain -- a rank's tiles, or a
+    chunk of them -- so that the pieces sum to what scoring the whole domain
+    at once would give. Leave them None and each call normalizes by its own
+    batch, which is every non-face run.
+    """
     spatial_weight = None
     match loss_cfg:
         case str():
@@ -1196,6 +1219,7 @@ def build_loss_fn(
                 y_coord=y_coord,
                 device=device,
                 spatial_weight=spatial_weight,
+                denominator=denominator,
             )
         case DynamicLossConfig(metric=metric, limit=limit):
             loss_fn = loss_fn_from_metric(
@@ -1204,6 +1228,7 @@ def build_loss_fn(
                 y_coord=y_coord,
                 device=device,
                 spatial_weight=spatial_weight,
+                denominator=denominator,
             )
             return DynamicLoss(
                 loss_fn=loss_fn,
@@ -1218,6 +1243,7 @@ def build_loss_fn(
                 y_coord=y_coord,
                 device=device,
                 spatial_weight=spatial_weight,
+                denominator=denominator,
             )
             return WeightedLoss(
                 loss_fn=loss_fn,
@@ -1225,7 +1251,11 @@ def build_loss_fn(
                 num_channels=num_channels,
             )
         case GradientLossConfig(
-            metric=metric, type=loss_type, lambda_h=lambda_h, lambda_z=lambda_z
+            metric=metric,
+            type=loss_type,
+            lambda_h=lambda_h,
+            lambda_z=lambda_z,
+            channel_weights=channel_weights,
         ):
             loss_fn = loss_fn_from_metric(
                 metric,
@@ -1233,17 +1263,30 @@ def build_loss_fn(
                 y_coord=y_coord,
                 device=device,
                 spatial_weight=spatial_weight,
+                denominator=denominator,
             )
             gradient_types = _gradient_loss_types(loss_type)
-            if not gradient_types:
+            if gradient_types:
+                loss_fn = GradientLoss(
+                    loss_fn=loss_fn,
+                    wet=wet,
+                    lambda_h=lambda_h if "gradient_h" in gradient_types else 0.0,
+                    lambda_z=lambda_z if "gradient_z" in gradient_types else 0.0,
+                    pad_mode=pad_mode,
+                    spatial_weight=spatial_weight,
+                    denominator=denominator,
+                    gradient_z_norms=gradient_z_norms,
+                )
+            if channel_weights is None:
                 return loss_fn
-            return GradientLoss(
+            # Wrap outside the gradient terms so one weight scales a variable's
+            # whole contribution -- base metric and both penalties alike --
+            # rather than silently reweighting the penalties against the base.
+            return WeightedLoss(
                 loss_fn=loss_fn,
-                wet=wet,
-                lambda_h=lambda_h if "gradient_h" in gradient_types else 0.0,
-                lambda_z=lambda_z if "gradient_z" in gradient_types else 0.0,
-                pad_mode=pad_mode,
-                spatial_weight=spatial_weight,
+                device=device,
+                num_channels=num_channels,
+                weights=channel_weights,
             )
         case _:
             assert_never(loss_cfg)
@@ -1362,6 +1405,16 @@ class TrainConfig(TopLevelConfig):
         description=(
             "Optional PhysicsNeMo ShardTensor domain parallelism. The current "
             "gate supports one spatial cluster with curriculum or replay training."
+        ),
+    )
+    face_parallel: FaceParallelConfig = Field(
+        default_factory=FaceParallelConfig,
+        description=(
+            "Advance a whole LLC face as one replay row, its tiles split across "
+            "the ranks. Needs replay.grouped=true and a group covering the face "
+            "(data.llc_tiles, see tiling.face_tile_windows). Unlike "
+            "domain_parallel this shards TILES, not pixels, so the model, the "
+            "loss and the blender are unchanged."
         ),
     )
     ddp_bucket_cap_mb: int | None = Field(

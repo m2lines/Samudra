@@ -568,6 +568,29 @@ class TrainData:
         boundary = input_[:, self.num_prognostic_channels :]
         return torch.cat((prognostic, boundary), dim=1)
 
+    def slice_batch(self, start: int, stop: int) -> "TrainData":
+        """A view over a contiguous run of samples, sharing their storage.
+
+        One face-sized replay row is more tiles than a GPU can hold at once, so
+        the step runs in chunks and accumulates gradients over them. Slicing
+        rather than copying matters: the tensors are ~0.5 GB per tile per
+        channel stack, and a copy per chunk would undo the point of chunking.
+        """
+        if not 0 <= start < stop:
+            raise ValueError(f"empty or reversed batch slice [{start}:{stop}]")
+        sliced = TrainData(self.num_prognostic_channels)
+        for step in self:
+            input_, label = self[step]
+            if stop > input_.shape[0]:
+                raise ValueError(
+                    f"batch slice [{start}:{stop}] is outside a batch of "
+                    f"{input_.shape[0]}"
+                )
+            sliced.append(input_[start:stop], label[start:stop])
+        sliced.source_indices = self.source_indices[start:stop]
+        sliced.load_stats = self.load_stats
+        return sliced
+
     def values(self):
         return self.example_by_step
 

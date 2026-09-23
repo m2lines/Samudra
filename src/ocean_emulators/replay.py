@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -8,6 +9,94 @@ import torch
 from ocean_emulators.datasets import ReplayCursor
 
 logger = logging.getLogger(__name__)
+
+
+@dataclasses.dataclass(frozen=True)
+class TileDivergence:
+    """One tile's reason for making a replay row unfit to become a seed.
+
+    Which tile went first is the diagnostic that matters. A face advances 36
+    tiles on one shared cursor, so by the time the row is unusable every tile
+    may look wrong; naming the worst one, and by how much, is what points at
+    the region -- a land-heavy tile, a seam, a particular corner -- rather than
+    at "the model diverged".
+    """
+
+    #: Position within the row, which is also the catalog order of the group.
+    tile_index: int
+    #: Largest finite ``|value|`` in the tile; 0.0 if every cell is non-finite.
+    max_abs: float
+    nonfinite_cells: int
+    limit: float
+
+    @property
+    def reason(self) -> str:
+        if self.nonfinite_cells:
+            return "non-finite"
+        return "over the sigma limit"
+
+    def __str__(self) -> str:
+        detail = f"|state|max={self.max_abs:.4g}"
+        if self.nonfinite_cells:
+            detail += f", {self.nonfinite_cells} non-finite cell(s)"
+        return f"tile {self.tile_index} {self.reason} ({detail}, limit {self.limit:g})"
+
+
+def diagnose_replay_state(
+    state: torch.Tensor, *, max_state_sigma: float
+) -> list[TileDivergence]:
+    """Per-tile reasons a replay row must not be stored; empty when it is fit.
+
+    Replay states are normalized, so a healthy field sits within a few standard
+    deviations. A rollout that has started to run away leaves that range long
+    before it reaches the float limits, and catching it here keeps the bad
+    state out of the buffer where it would be resampled as an initial condition
+    and amplified on every pass.
+
+    Accepts a bare ``[C, H, W]`` row as a single tile, so an ungrouped run
+    reports exactly what it did before.
+    """
+    if state.ndim == 3:
+        tiles = state.unsqueeze(0)
+    elif state.ndim == 4:
+        tiles = state
+    else:
+        raise ValueError(f"Replay entry state has unexpected shape {tuple(state.shape)}")
+
+    limit = max(float(max_state_sigma or 0.0), 0.0)
+    found: list[TileDivergence] = []
+    for index, tile in enumerate(tiles):
+        finite = torch.isfinite(tile)
+        nonfinite = int((~finite).sum())
+        # `.abs().max()` over a tile holding a NaN is NaN, which would hide the
+        # magnitude the finite cells had reached -- the useful half of the
+        # report when a rollout blows up in one corner.
+        largest = (
+            float(tile[finite].abs().max()) if bool(finite.any()) else 0.0
+        )
+        if nonfinite or (limit > 0 and largest > limit):
+            found.append(
+                TileDivergence(
+                    tile_index=index,
+                    max_abs=largest,
+                    nonfinite_cells=nonfinite,
+                    limit=limit,
+                )
+            )
+    return found
+
+
+def describe_divergence(found: Sequence[TileDivergence], *, worst_first: int = 3) -> str:
+    """A one-line summary naming the worst offenders, for the run log."""
+    if not found:
+        return "no divergence"
+    ranked = sorted(
+        found, key=lambda d: (d.nonfinite_cells > 0, d.max_abs), reverse=True
+    )
+    shown = "; ".join(str(entry) for entry in ranked[:worst_first])
+    if len(ranked) > worst_first:
+        shown += f"; and {len(ranked) - worst_first} more tile(s)"
+    return f"{len(found)} tile(s) diverged -- {shown}"
 
 
 @dataclasses.dataclass

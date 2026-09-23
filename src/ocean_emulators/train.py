@@ -76,7 +76,19 @@ from ocean_emulators.datasets import (
     TrainDataLoader,
 )
 from ocean_emulators.models.base import BaseModel
-from ocean_emulators.replay import ReplayBuffer, ReplayEntry, replay_sidecar_path
+from ocean_emulators.replay import (
+    ReplayBuffer,
+    ReplayEntry,
+    describe_divergence,
+    diagnose_replay_state,
+    replay_sidecar_path,
+)
+from ocean_emulators.face_parallel import (
+    FaceParallelContext,
+    build_face_replay_groups,
+    face_group_is_shardable,
+)
+from ocean_emulators.chunk_reader import GroupFrameReader
 from ocean_emulators.shardtensor import DomainParallelContext, validate_shardable
 from ocean_emulators.tiling import (
     ReplayGroup,
@@ -577,6 +589,12 @@ class _ReplayPrefetchPipeline:
         # is the whole point of grouping.
         def load(slot, *, seed: bool):
             group = self.trainer.replay_group_for(slot.cursor)
+            grouped = self.trainer.read_group_frame(slot, seed=seed)
+            if grouped is not None:
+                return [
+                    self._prepare_raw_transition_for_transport(transition)
+                    for transition in grouped
+                ]
             loaded = []
             for tile_index, dataset_index in enumerate(group.dataset_indices):
                 dataset = self.trainer.train_datasets[dataset_index]
@@ -703,6 +721,29 @@ class Trainer:
         # Backend. PhysicsNeMo owns process-group initialization in DP mode;
         # the ordinary single-GPU/DDP path remains exactly as before.
         self.dp_ctx: DomainParallelContext | None = None
+        # Built in init_data_loaders, once the tile catalog exists: a face
+        # group's geometry comes from the data config, not from here.
+        self.fp_ctx: FaceParallelContext | None = None
+        self.face_parallel_cfg = cfg.face_parallel
+        if cfg.face_parallel.enabled:
+            if not cfg.replay.enabled or not cfg.replay.grouped:
+                raise ValueError(
+                    "face_parallel.enabled=true needs replay.enabled=true and "
+                    "replay.grouped=true: a face is one grouped replay row."
+                )
+            if cfg.domain_parallel.enabled:
+                raise ValueError(
+                    "face_parallel and domain_parallel both claim the ranks. "
+                    "face_parallel shards tiles, domain_parallel shards pixels; "
+                    "combining them needs a device mesh that does not exist yet."
+                )
+            if cfg.replay.blend_before_backward:
+                raise ValueError(
+                    "face_parallel with replay.blend_before_backward=true would "
+                    "put the halo exchange inside the autograd graph, so every "
+                    "chunk's backward would have to collective-wait on its "
+                    "neighbours. Blend after backward instead."
+                )
         self._physicsnemo_dm = None
         if cfg.domain_parallel.enabled:
             self.device, self.distributed, self._physicsnemo_dm = (
@@ -1075,6 +1116,11 @@ class Trainer:
         self.network = self.model.__class__.__name__
 
         # Loss function
+        # Kept so the loss can be rebuilt once the tile assignment is known;
+        # a face run replaces its normalization, nothing else about it.
+        self._loss_cfg = cfg.loss
+        self._pad_mode = cfg.model.pad
+        self._data_cfg = cfg.data
         self.loss_fn: LossFn = build_loss_fn(
             cfg.loss,
             wet=self.domain_wet,
@@ -1083,6 +1129,11 @@ class Trainer:
             num_channels=self.N_prog,
             pad_mode=cfg.model.pad,
         )
+        # Face training scores a SHARE of a face rather than a mean over its
+        # own batch, which is right for accumulating gradients and wrong for
+        # anything reported. Validation, checkpoint selection and the
+        # autoregressive rollouts keep the ordinary batch-normalized loss.
+        self.train_loss_fn: LossFn = self.loss_fn
 
         # Optimizer
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=cfg.learning_rate)
@@ -1249,6 +1300,7 @@ class Trainer:
         self.replay_buffer: ReplayBuffer | None = None
         self._nonfinite_grad_steps = 0
         self._diverged_writebacks = 0
+        self._loss_denominator_is_fixed = False
         self.replay_resume_checkpoint_path = (
             Path(cfg.resume_ckpt_path)
             if cfg.resume_ckpt_path is not None and not cfg.finetune
@@ -1259,9 +1311,15 @@ class Trainer:
             torch.bfloat16 if getattr(cfg.model, "use_bfloat16", False) else torch.float32
         )
         self.replay_generator = torch.Generator(device="cpu")
+        # Ranks normally hold independent buffers, so their planners are
+        # deliberately decorrelated. Face-parallel inverts that: the ranks
+        # advance ONE row together, so they must draw the same row, the same
+        # seed time and the same refresh schedule -- which a shared seed gives
+        # for free, the planner being deterministic.
+        shares_one_buffer = self.dp_ctx is not None or cfg.face_parallel.enabled
         replay_seed = (
             cfg.experiment.rand_seed
-            if self.dp_ctx is not None
+            if shares_one_buffer
             else cfg.experiment.rand_seed + 104729 * get_rank()
         )
         self.replay_generator.manual_seed(replay_seed)
@@ -1727,12 +1785,6 @@ class Trainer:
             ) % self.gradient_accumulation_steps == 0
             sync_gradients = should_step or is_last
 
-            sync_context: contextlib.AbstractContextManager
-            if use_no_sync and not sync_gradients:
-                sync_context = ddp_model.no_sync()
-            else:
-                sync_context = contextlib.nullcontext()
-
             with sync_context:
                 TO: TrainBatchOutput = Stepper.train_batch(
                     self.model, data, self.loss_fn
@@ -2000,21 +2052,14 @@ class Trainer:
             else:
                 sync_context = contextlib.nullcontext()
 
-            with sync_context:
-                outputs = self.model(data)
-                pred = outputs[0]
-                if self.replay_cfg.blend_before_backward:
-                    pred = self._blend_microbatch_predictions(pred, prepared)
-                label = data.get_label(0)
-                loss_per_channel = self.loss_fn(
-                    pred,
-                    label,
-                    sample_weight=self._batch_wet_weight(prepared.request.train_slots),
-                )
-                loss = torch.mean(loss_per_channel)
-                TO = TrainBatchOutput(loss, loss_per_channel)
-                scaled_loss = TO.loss / r
-                scaled_loss.backward()
+            pred, TO = self._replay_forward_backward(
+                data,
+                prepared,
+                scale=r,
+                ddp_model=ddp_model,
+                use_no_sync=use_no_sync,
+                sync_gradients=sync_gradients,
+            )
 
             logging_output = self._materialize_train_output(TO)
             (
@@ -2641,7 +2686,16 @@ class Trainer:
         return chunks
 
     def _seed_transitions_for_slot(self, slot) -> list[RawReplayTransition]:
-        """Gold seed reads for every tile of a slot's group, in canonical order."""
+        """Gold seed reads for every tile of a slot's group, in canonical order.
+
+        This is the startup and reseed path, and with `checkpoint_buffer=false`
+        it runs for every row on every restart -- so it takes the group reader
+        too when there is one, rather than paying the per-tile read a few
+        hundred extra chunk decodes per row.
+        """
+        grouped = self.read_group_frame(slot, seed=True)
+        if grouped is not None:
+            return grouped
         transitions = []
         group = self.replay_group_for(slot.cursor)
         for tile_index, dataset_index in enumerate(group.dataset_indices):
@@ -2723,22 +2777,34 @@ class Trainer:
         else:
             entry.ready_event.synchronize()
 
-    def _replay_state_diverged(self, state: torch.Tensor) -> bool:
-        """True when a predicted state is unfit to become a replay seed.
+    def _replay_state_divergence(self, state: torch.Tensor):
+        """Which tiles of a predicted row are unfit to become a replay seed.
 
-        Replay states are normalized, so a healthy field sits within a few
-        standard deviations. A rollout that has started to run away leaves that
-        range long before it reaches the float limits -- catching it here keeps
-        the bad state out of the buffer, where it would otherwise be resampled
-        as an initial condition and amplified on every pass.
+        See :func:`ocean_emulators.replay.diagnose_replay_state`. The result is
+        per tile because a group is discarded as a whole: every tile of a row
+        shares one cursor, so the row must stay internally consistent and a
+        single bad tile takes the rest with it. Knowing which tile went first,
+        and by how much, is the only part of that event that localizes the
+        problem.
         """
-        if not torch.isfinite(state).all():
-            return True
         replay_cfg = getattr(self, "replay_cfg", None)
-        max_sigma = getattr(replay_cfg, "max_state_sigma", 0.0) or 0.0
-        if max_sigma <= 0:
-            return False
-        return bool(state.abs().max() > max_sigma)
+        return diagnose_replay_state(
+            state,
+            max_state_sigma=getattr(replay_cfg, "max_state_sigma", 0.0) or 0.0,
+        )
+
+    def _replay_state_diverged(self, state: torch.Tensor) -> bool:
+        return bool(
+            diagnose_replay_state(
+                state,
+                max_state_sigma=(
+                    getattr(
+                        getattr(self, "replay_cfg", None), "max_state_sigma", 0.0
+                    )
+                    or 0.0
+                ),
+            )
+        )
 
     def _stage_replay_state_for_buffer(
         self,
@@ -2809,6 +2875,123 @@ class Trainer:
             device=self.tile_wet_masks.device,
         )
         return self.tile_wet_masks[source_indices].to(dtype=torch.float32)
+
+    def _microbatch_spans(self, data: TrainData) -> list[tuple[int, int]]:
+        """How to split one microbatch into forward/backward chunks.
+
+        One span unless a replay row is a whole face, which no GPU holds at
+        once. The span count comes from `FaceParallelContext`, which derives it
+        from the tiles a rank owns -- identical on every rank, because a rank
+        that ran fewer chunks would never reach the gradient all-reduce the
+        others are waiting in.
+        """
+        fp_ctx = getattr(self, "fp_ctx", None)
+        if fp_ctx is None:
+            return [(0, data.get_input(0).shape[0])]
+        samples = data.get_input(0).shape[0]
+        tiles = len(fp_ctx.local_tiles)
+        if samples % tiles:
+            raise ValueError(
+                f"A face-parallel microbatch holds {samples} samples, which is "
+                f"not a whole number of the {tiles} tiles this rank owns."
+            )
+        rows = samples // tiles
+        spans: list[tuple[int, int]] = []
+        for row in range(rows):
+            base = row * tiles
+            for chunk in fp_ctx.chunks:
+                spans.append((base + chunk[0], base + chunk[-1] + 1))
+        return spans
+
+    def _replay_forward_backward(
+        self,
+        data: TrainData,
+        prepared: "_ReplayPreparedBatch",
+        *,
+        scale: float,
+        ddp_model,
+        use_no_sync: bool,
+        sync_gradients: bool,
+    ) -> tuple[torch.Tensor, TrainBatchOutput]:
+        """Forward, loss and backward for one microbatch, chunked if need be.
+
+        With a single chunk this is exactly the unchunked path -- same order,
+        same weight of 1.0 -- so every existing run is untouched.
+
+        How the chunks recombine depends on how the loss is normalized:
+
+        * **Fixed denominator** (a face run). Each chunk already scores its
+          share of one face-wide weighted mean, so the shares simply sum and
+          the result is exact -- tested to 6.5e-08 through the whole loss
+          stack in `tests/test_chunked_step.py`.
+        * **Batch-derived denominator** (everything else). Each chunk is a
+          mean over its own cells, so they are recombined by sample-count
+          share. That is exact only while the tiles share a land mask, which
+          is why the face path does not rely on it.
+
+        DDP syncs once, on the last chunk of a gradient-accumulation cycle.
+        Syncing per chunk would all-reduce the full parameter set three times
+        per face advance for no benefit.
+        """
+        spans = self._microbatch_spans(data)
+        samples = data.get_input(0).shape[0]
+        sample_weight = self._batch_wet_weight(prepared.request.train_slots)
+
+        predictions: list[torch.Tensor] = []
+        total_loss: torch.Tensor | None = None
+        total_per_channel: torch.Tensor | None = None
+
+        for index, (start, stop) in enumerate(spans):
+            is_last = index == len(spans) - 1
+            sync_now = sync_gradients and is_last
+            sync_context: contextlib.AbstractContextManager
+            if use_no_sync and not sync_now:
+                sync_context = ddp_model.no_sync()
+            else:
+                sync_context = contextlib.nullcontext()
+
+            # With a fixed denominator each chunk already scores its own
+            # share of the face, so the chunks SUM. Without one they are
+            # means and have to be recombined, which is only exact while the
+            # tiles share a land mask -- see this method's docstring.
+            share = (
+                1.0
+                if getattr(self, "_loss_denominator_is_fixed", False)
+                else (stop - start) / samples
+            )
+            with sync_context:
+                chunk = data if len(spans) == 1 else data.slice_batch(start, stop)
+                pred = self.model(chunk)[0]
+                if self.replay_cfg.blend_before_backward:
+                    pred = self._blend_microbatch_predictions(pred, prepared)
+                loss_per_channel = self.train_loss_fn(
+                    pred,
+                    chunk.get_label(0),
+                    sample_weight=(
+                        None if sample_weight is None else sample_weight[start:stop]
+                    ),
+                )
+                loss = torch.mean(loss_per_channel)
+                (loss * share / scale).backward()
+
+            # Detached: the blend and the buffer write-back that consume these
+            # run under no_grad, and holding the graph for every chunk would
+            # defeat the chunking.
+            predictions.append(pred.detach())
+            weighted = loss.detach() * share
+            weighted_channels = loss_per_channel.detach() * share
+            total_loss = weighted if total_loss is None else total_loss + weighted
+            total_per_channel = (
+                weighted_channels
+                if total_per_channel is None
+                else total_per_channel + weighted_channels
+            )
+
+        assert total_loss is not None and total_per_channel is not None
+        return (
+            torch.cat(predictions, dim=0) if len(predictions) > 1 else predictions[0],
+            TrainBatchOutput(total_loss, total_per_channel),
+        )
 
     def _blend_microbatch_predictions(self, pred, prepared):
         """Reconcile each slot's tiles in-graph, before the loss is taken.
@@ -2919,12 +3102,33 @@ class Trainer:
                             dataset.remask_prognostic_state(reconciled[tile_index])
                         )
                 state = self._stack_tile_states(tile_states)
-                if self._replay_state_diverged(state):
+                divergence = self._replay_state_divergence(state)
+                # A face's tiles are spread over the ranks, so one rank can see
+                # a runaway tile the others cannot. Letting each decide for
+                # itself would reseed the row here and advance it there, and
+                # the "face" would stop being one timestamp. Every rank votes,
+                # and any rank is enough. Safe to call unconditionally: the
+                # plans are identical, so every rank reaches this the same
+                # number of times.
+                # `getattr`, as everywhere `dp_ctx` is read: tests build a
+                # Trainer without running __init__, and this method is one they
+                # call directly.
+                fp_ctx = getattr(self, "fp_ctx", None)
+                row_diverged = (
+                    fp_ctx.agree(bool(divergence))
+                    if fp_ctx is not None
+                    else bool(divergence)
+                )
+                if row_diverged:
                     # Storing this would make a diverged rollout the next
                     # initial condition, which is the feedback loop that drives
                     # the training loss up exponentially until it overflows.
-                    # Prefer a fresh seed; otherwise keep the previous entry,
-                    # which is still a valid state at an earlier cursor.
+                    # The whole row goes, not just the offending tiles: the
+                    # tiles of a group share a cursor and agree in their
+                    # overlaps, and keeping the healthy ones beside a reseeded
+                    # neighbour would break both. Prefer a fresh seed;
+                    # otherwise keep the previous entry, which is still a valid
+                    # state at an earlier cursor.
                     self._diverged_writebacks += 1
                     if seed_entry is not None:
                         self.replay_buffer.replace(slot.replay_index, seed_entry)
@@ -2932,14 +3136,16 @@ class Trainer:
                     else:
                         diverged_holds += 1
                     logger.warning(
-                        "Replay slot %s diverged (|state|max=%.4g, finite=%s); "
-                        "%s instead of storing it (%s diverged write-backs so "
-                        "far this run).",
+                        "Replay slot %s (group %s, lead %s): %s. Reseeding the "
+                        "whole row -- %s (%s diverged write-backs so far).",
                         slot.replay_index,
-                        state.abs().max().item(),
-                        bool(torch.isfinite(state).all()),
-                        "reseeded from data" if seed_entry is not None else
-                        "held previous entry",
+                        group.group_id,
+                        slot.cursor.lead_step,
+                        describe_divergence(divergence)
+                        if divergence
+                        else "clean on this rank, another rank's tiles diverged",
+                        "fresh gold seed" if seed_entry is not None else
+                        "no seed available, held the previous entry",
                         self._diverged_writebacks,
                     )
                     continue
@@ -4144,6 +4350,183 @@ class Trainer:
         )
         return catalog
 
+    def _build_face_replay_groups(self) -> list[ReplayGroup]:
+        """One group holding this rank's share of a face-sized tile catalog."""
+        catalog = getattr(self, "tile_catalog", None)
+        if not catalog:
+            raise ValueError(
+                "face_parallel.enabled=true needs a tile catalog. Set "
+                "data.llc_tiles to a whole face -- see "
+                "ocean_emulators.tiling.face_tile_windows."
+            )
+        layout = build_group_layout(catalog)
+        world_size = get_world_size()
+        shardable, reason = face_group_is_shardable(layout, world_size)
+        if not shardable:
+            raise ValueError(
+                f"face_parallel.enabled=true but this group cannot be split "
+                f"over {world_size} rank(s): {reason}"
+            )
+        self.fp_ctx = FaceParallelContext(
+            layout,
+            world_size=world_size,
+            rank=get_rank(),
+            tiles_per_chunk=self.face_parallel_cfg.tiles_per_chunk,
+            window=getattr(self.replay_cfg, "blend_window", "quintic"),
+            dtype=torch.float32,
+        )
+        return build_face_replay_groups(
+            layout,
+            self.fp_ctx,
+            num_strides=len(self.data_stride),
+            dataset_index_of=[tile.dataset_index for tile in catalog],
+        )
+
+    def read_group_frame(self, slot, *, seed: bool):
+        """A whole group's transitions in one chunk-streaming pass, or None.
+
+        None means "no group reader configured", and the caller falls back to
+        the per-tile path -- which is every run that is not a face cut out of
+        one packed cache.
+        """
+        reader = getattr(self, "group_frame_reader", None)
+        if reader is None:
+            return None
+        group = self.replay_group_for(slot.cursor)
+        datasets = self.datasets_for(slot.cursor)
+        # Every tile of a group is validated to share one clock, so the first
+        # speaks for all of them.
+        reference = datasets[0]
+        values = reference._get_x_index(
+            slot.cursor.source_index, slot.cursor.lead_step
+        ).values
+        current = int(values[reference.hist])
+        target = int(values[reference.hist + 1])
+        times = reference._prognostic_src.data["time"].to_numpy()
+
+        if seed:
+            frames = reader.read_prognostic(times[current])
+            boundaries: list[torch.Tensor] | None = None
+        else:
+            frames = reader.read_prognostic(times[target])
+            boundaries = reader.read_boundary(times[current])
+
+        transitions = []
+        for tile_index, dataset_index in enumerate(group.dataset_indices):
+            transitions.append(
+                RawReplayTransition(
+                    dataset_id=datasets[tile_index].id,
+                    dataset_index=dataset_index,
+                    source_index=slot.cursor.source_index,
+                    lead_step=slot.cursor.lead_step,
+                    current_time_index=current,
+                    target_time_index=target,
+                    tile_index=tile_index,
+                    seed_prognostic=frames[tile_index] if seed else None,
+                    target_prognostic=None if seed else frames[tile_index],
+                    boundary=None if boundaries is None else boundaries[tile_index],
+                )
+            )
+        return transitions
+
+    def _build_group_frame_reader(self) -> None:
+        """Open a chunk-streaming reader for this rank's tiles, if it applies.
+
+        Only for tiles cut out of ONE packed cache -- `data.llc_tiles`. A
+        directory of pre-cut caches is already one store per tile, so there is
+        nothing to share and the per-tile path is right for it.
+        """
+        self.group_frame_reader = None
+        windows = self.data_container.replay_windows
+        if not windows:
+            logger.info(
+                "No group frame reader: the tiles are separate stores, so "
+                "there are no shared chunks to stream."
+            )
+            return
+        if self._data_cfg.boundary_data_location is not None:
+            raise ValueError(
+                "data.boundary_data_location splits the boundaries into a "
+                "second store, which the group frame reader does not read "
+                "yet. The face cache holds both, so leave it unset."
+            )
+        location = self.data_container.replay_locations[0]
+        path = getattr(location, "path", None)
+        if path is None:
+            raise ValueError(
+                f"The group frame reader reads a local Zarr store; got {location}."
+            )
+        group = self.replay_groups[0]
+        num_strides = max(1, len(self.data_stride))
+        local = [windows[index // num_strides] for index in group.dataset_indices]
+        self.group_frame_reader = GroupFrameReader(
+            str(path),
+            windows=local,
+            prognostic_var_names=self.prognostic_var_names,
+            boundary_var_names=self.boundary_var_names,
+            threads=self.face_parallel_cfg.read_threads,
+        )
+        logger.info(
+            "Group frame reader: %d tiles, %d chunk decode(s) per frame "
+            "(prognostic + boundary), %d read thread(s). The per-tile path "
+            "would decode %d.",
+            len(local),
+            self.group_frame_reader.chunks_per_frame,
+            self.face_parallel_cfg.read_threads,
+            self.group_frame_reader.naive_chunks_per_frame,
+        )
+
+    def _install_face_loss_normalization(self) -> None:
+        """Rebuild the loss to normalize by the face, not by the batch in flight.
+
+        Two distortions go at once. A rank scores its tiles a chunk at a time,
+        and a chunk mean cannot be added to another chunk's; and DDP averages
+        per-rank means, which hands a rank holding the face's all-land tiles
+        the same say as one holding open ocean. Both come from deriving the
+        denominator from whatever happens to be in the batch. Deriving it from
+        the masks instead -- constant, known before the first forward -- makes
+        each piece a true share of one face-wide weighted mean.
+
+        Built here rather than in `__init__` because it needs the tile
+        assignment, which needs the catalog, which needs the sources open.
+        """
+        if self.fp_ctx is None:
+            raise RuntimeError("Face loss normalization needs a face context")
+        group = self.replay_groups[0]
+        # Exactly the weight `_batch_wet_weight` hands the loss for this
+        # rank's tiles, so the denominator is built from the same expression
+        # it will later divide.
+        if self.tile_wet_masks is None:
+            sample_weight = None
+        else:
+            num_strides = max(1, len(self.data_stride))
+            sources = torch.tensor(
+                [index // num_strides for index in group.dataset_indices],
+                device=self.tile_wet_masks.device,
+            )
+            sample_weight = self.tile_wet_masks[sources].to(dtype=torch.float32)
+
+        denominator, gradient_z = self.fp_ctx.global_loss_norms(
+            self.domain_wet, sample_weight, tiles=group.num_tiles
+        )
+        self.train_loss_fn = build_loss_fn(
+            self._loss_cfg,
+            wet=self.domain_wet,
+            y_coord=self.data.lat,
+            device=self.device,
+            num_channels=self.N_prog,
+            pad_mode=self._pad_mode,
+            denominator=denominator,
+            gradient_z_norms=gradient_z,
+        )
+        self._loss_denominator_is_fixed = True
+        logger.info(
+            "Face loss normalization installed: every rank divides by the "
+            "face's own wet-cell counts, so the training score no longer "
+            "depends on which tiles it holds. Validation keeps the ordinary "
+            "batch-normalized loss, so its numbers stay means."
+        )
+
     def replay_group_for(self, cursor: ReplayCursor) -> ReplayGroup:
         """The group a cursor addresses. Ungrouped, this is dataset `i` as group `i`.
 
@@ -4224,6 +4607,14 @@ class Trainer:
             window=getattr(self.replay_cfg, "blend_window", "quintic"),
             dtype=torch.float32,
         )
+        # A face is one group whose tiles live on different ranks. Build the
+        # context here rather than in __init__ because the layout comes from
+        # the tile catalog, which only exists once the sources are open.
+        if getattr(self, "face_parallel_cfg", None) and self.face_parallel_cfg.enabled:
+            self.replay_groups = self._build_face_replay_groups()
+            self._install_face_loss_normalization()
+            self._build_group_frame_reader()
+
         for group in self.replay_groups:
             if group.blender is not None:
                 group.blender.to(self.device)

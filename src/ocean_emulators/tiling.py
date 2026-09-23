@@ -305,6 +305,78 @@ def tile_spec_from_coords(
     )
 
 
+def tile_origins(extent: int, size: int, stride: int, *, lead: int) -> list[int]:
+    """Start indices of ``extent // stride`` windows of ``size``, clamped inside.
+
+    The interior origin is ``stride * c - lead``: the window reaches ``lead``
+    cells back into the previous tile and ``lead`` cells forward into the next,
+    so neighbouring windows share ``2 * lead`` cells. At the two ends that would
+    run off the face, so the origin is clamped into ``[0, extent - size]``
+    rather than the window being shrunk.
+
+    Clamping rather than shrinking is the whole point: every window keeps the
+    same shape, so one batched forward covers them all and
+    :class:`TileBlender` -- which requires uniform tiles -- needs no change. The
+    price is that the two end seams share ``3 * lead`` cells instead of
+    ``2 * lead``, which the blender already handles because it stores an overlap
+    width per ``(tile, side)`` rather than one width for the group.
+    """
+    if stride < 1:
+        raise ValueError(f"stride must be >= 1, got {stride}")
+    if size < stride:
+        raise ValueError(
+            f"window size {size} is smaller than the stride {stride}; the "
+            "windows would not cover the face"
+        )
+    if size > extent:
+        raise ValueError(
+            f"window size {size} does not fit in an extent of {extent}"
+        )
+    if extent % stride:
+        raise ValueError(
+            f"extent {extent} is not a whole number of {stride}-cell tiles"
+        )
+    return [
+        min(max(0, stride * index - lead), extent - size)
+        for index in range(extent // stride)
+    ]
+
+
+def face_tile_windows(
+    face: int,
+    *,
+    extent: int = 4320,
+    tile: int = 720,
+    overlap: int = 16,
+) -> list[tuple[int, int, int, int, int]]:
+    """Cover one LLC face with uniformly shaped, overlapping tile windows.
+
+    Returns ``(face, i_start, i_end, j_start, j_end)`` in row-major order, which
+    is the shape ``data.llc_tiles`` takes, so a whole face becomes a replay
+    group without a directory of prebuilt caches.
+
+    ``tile`` is the stride -- the region a tile is the sole owner of -- and
+    ``overlap`` is how far it reads into each neighbour, so the stored window is
+    ``tile + 2 * overlap`` and adjacent tiles share ``2 * overlap`` cells. For
+    the default LLC face that is 36 windows of 752x752 sharing 32-cell seams,
+    which is exactly the geometry the `752-4-tile` caches already use.
+    """
+    if overlap < 0:
+        raise ValueError(f"overlap must be >= 0, got {overlap}")
+    size = tile + 2 * overlap
+    if 2 * overlap >= tile:
+        raise ValueError(
+            f"overlap {overlap} is at least half the {tile}-cell tile; "
+            "neighbouring windows would overlap by more than a whole tile"
+        )
+    origins = tile_origins(extent, size, tile, lead=overlap)
+    return [
+        (face, i_start, i_start + size, j_start, j_start + size)
+        for j_start in origins
+        for i_start in origins
+    ]
+
+
 def tile_catalog_from_windows(
     windows: Sequence[tuple[int, int, int, int, int]],
 ) -> list[TileSpec]:
@@ -732,6 +804,63 @@ def build_replay_groups(
     return groups
 
 
+def tile_window(
+    layout: TileGroupLayout,
+    tile: TileSpec,
+    *,
+    window: WindowKind = "quintic",
+    kbd_beta: float = DEFAULT_KBD_BETA,
+    ramp_width: int | None = None,
+    dtype: torch.dtype = torch.float32,
+) -> torch.Tensor:
+    """One tile's ``[H, W]`` blending weight, tapered on every shared side.
+
+    Module level rather than a `TileBlender` method because the distributed
+    blender needs the same weights without owning a canonical grid: a rank
+    holding nine of thirty-six tiles must still build the exact weights the
+    single-process blender would have used, or the two disagree in the seams.
+    """
+    height, width = tile.shape
+    profile_j = torch.ones(height, dtype=dtype)
+    profile_i = torch.ones(width, dtype=dtype)
+    spans: dict[Side, int] = {}
+    for side in SIDES:
+        overlap = layout.overlaps.get((tile.tile_id, side))
+        if not overlap:
+            # Exterior: no neighbour to hand off to, so hold weight at 1.
+            continue
+        # A ramp wider than the overlap is legitimate -- it is how STRATA
+        # windows a whole tile rather than just its seam. Outside the
+        # overlap the tile is the sole contributor, so normalization
+        # returns its weight to one; only the shared cells see the change.
+        spans[side] = overlap if ramp_width is None else ramp_width
+
+    for axis, (lo, hi, extent) in (
+        ("j", ("jlo", "jhi", height)),
+        ("i", ("ilo", "ihi", width)),
+    ):
+        if spans.get(lo, 0) + spans.get(hi, 0) > extent:
+            raise ValueError(
+                f"Tile {tile.tile_id} ramps of {spans.get(lo, 0)} and "
+                f"{spans.get(hi, 0)} cells collide on the {axis} axis "
+                f"(extent {extent}); reduce ramp_width."
+            )
+
+    for side, span in spans.items():
+        ramp = ramp_profile(window, span, beta=kbd_beta, dtype=torch.float64).to(
+            dtype=dtype
+        )
+        if side == "jlo":
+            profile_j[:span] = ramp
+        elif side == "jhi":
+            profile_j[height - span :] = ramp.flip(0)
+        elif side == "ilo":
+            profile_i[:span] = ramp
+        else:
+            profile_i[width - span :] = ramp.flip(0)
+    return profile_j.unsqueeze(1) * profile_i.unsqueeze(0)
+
+
 class TileBlender(torch.nn.Module):
     r"""Reconcile per-tile predictions in their overlaps.
 
@@ -815,45 +944,14 @@ class TileBlender(torch.nn.Module):
         self.register_buffer("denominator", denominator)
 
     def _tile_window(self, tile: TileSpec, *, dtype: torch.dtype) -> torch.Tensor:
-        height, width = tile.shape
-        profile_j = torch.ones(height, dtype=dtype)
-        profile_i = torch.ones(width, dtype=dtype)
-        spans: dict[Side, int] = {}
-        for side in SIDES:
-            overlap = self.layout.overlaps.get((tile.tile_id, side))
-            if not overlap:
-                # Exterior: no neighbour to hand off to, so hold weight at 1.
-                continue
-            # A ramp wider than the overlap is legitimate -- it is how STRATA
-            # windows a whole tile rather than just its seam. Outside the
-            # overlap the tile is the sole contributor, so normalization
-            # returns its weight to one; only the shared cells see the change.
-            spans[side] = overlap if self.ramp_width is None else self.ramp_width
-
-        for axis, (lo, hi, extent) in (
-            ("j", ("jlo", "jhi", height)),
-            ("i", ("ilo", "ihi", width)),
-        ):
-            if spans.get(lo, 0) + spans.get(hi, 0) > extent:
-                raise ValueError(
-                    f"Tile {tile.tile_id} ramps of {spans.get(lo, 0)} and "
-                    f"{spans.get(hi, 0)} cells collide on the {axis} axis "
-                    f"(extent {extent}); reduce ramp_width."
-                )
-
-        for side, span in spans.items():
-            ramp = ramp_profile(
-                self.window, span, beta=self.kbd_beta, dtype=torch.float64
-            ).to(dtype=dtype)
-            if side == "jlo":
-                profile_j[:span] = ramp
-            elif side == "jhi":
-                profile_j[height - span :] = ramp.flip(0)
-            elif side == "ilo":
-                profile_i[:span] = ramp
-            else:
-                profile_i[width - span :] = ramp.flip(0)
-        return profile_j.unsqueeze(1) * profile_i.unsqueeze(0)
+        return tile_window(
+            self.layout,
+            tile,
+            window=self.window,
+            kbd_beta=self.kbd_beta,
+            ramp_width=self.ramp_width,
+            dtype=dtype,
+        )
 
     def _scatter_with(
         self, tiles: torch.Tensor, weights: torch.Tensor
@@ -932,4 +1030,400 @@ class TileBlender(torch.nn.Module):
         return (
             f"tiles={self.layout.num_tiles}, window={self.window!r}, "
             f"tile_shape={self.tile_shape}, canonical={self.canonical_shape}"
+        )
+
+
+# --------------------------------------------------------------------------
+# Distributed blending
+# --------------------------------------------------------------------------
+
+
+def contiguous_tile_blocks(num_tiles: int, world_size: int) -> list[list[int]]:
+    """Split a square tile grid into ``world_size`` contiguous, equal blocks.
+
+    Contiguity is an I/O decision, not a load-balancing one. Tiles overlap
+    their neighbours, so a rank holding a compact block of them touches far
+    fewer store chunks than one holding the same number scattered over the
+    face -- and a compact block also has the shortest perimeter, which is
+    exactly the surface the halo exchange has to move.
+
+    Land is deliberately *not* balanced here. Per-rank loss normalization is
+    what land would otherwise distort, and that is fixed exactly by scoring
+    against a face-wide denominator instead, which no assignment can affect.
+    """
+    side = int(round(num_tiles**0.5))
+    if side * side != num_tiles:
+        raise ValueError(f"{num_tiles} tiles is not a square grid")
+    if world_size < 1 or num_tiles % world_size:
+        raise ValueError(
+            f"{num_tiles} tiles do not divide evenly over {world_size} rank(s)"
+        )
+    per_rank = num_tiles // world_size
+
+    # The squarest block whose area is `per_rank` and which tiles the grid.
+    shape = None
+    for rows in range(1, side + 1):
+        if per_rank % rows or side % rows:
+            continue
+        cols = per_rank // rows
+        if cols > side or side % cols:
+            continue
+        if shape is None or abs(rows - cols) < abs(shape[0] - shape[1]):
+            shape = (rows, cols)
+    if shape is None:
+        raise ValueError(
+            f"a {side}x{side} tile grid cannot be split into {world_size} equal "
+            "rectangular blocks; choose a world size that divides the grid"
+        )
+    rows, cols = shape
+
+    return [
+        [
+            (block_j * rows + dj) * side + (block_i * cols + di)
+            for dj in range(rows)
+            for di in range(cols)
+        ]
+        for block_j in range(side // rows)
+        for block_i in range(side // cols)
+    ]
+
+
+@dataclasses.dataclass(frozen=True)
+class HaloOp:
+    """One tile's contribution to another tile, over the cells they share.
+
+    ``src_box`` and ``dst_box`` are ``(j0, j1, i0, i1)`` in the source tile's
+    and the destination tile's own local coordinates; they address the same
+    physical cells.
+    """
+
+    src_tile: int
+    dst_tile: int
+    src_box: tuple[int, int, int, int]
+    dst_box: tuple[int, int, int, int]
+
+    @property
+    def shape(self) -> tuple[int, int]:
+        j0, j1, i0, i1 = self.dst_box
+        return (j1 - j0, i1 - i0)
+
+
+def halo_ops(layout: TileGroupLayout) -> list[HaloOp]:
+    """Every ordered pair of overlapping tiles, in a deterministic order.
+
+    Ordered pairs, not unordered: tile A contributes to tile B's cells *and*
+    B contributes to A's, and once the two live on different ranks those are
+    two separate messages.
+
+    The order is ``(src_tile, dst_tile)`` ascending and is load-bearing twice.
+    NCCL matches point-to-point operations by the order they are posted rather
+    than by tag, so both ends must walk the same list; and accumulating in
+    ascending source order is what makes the distributed result bit-identical
+    to :meth:`TileBlender.blend`, which scatters tiles in catalog order.
+    """
+    ops: list[HaloOp] = []
+    for src, source in enumerate(layout.tiles):
+        for dst, destination in enumerate(layout.tiles):
+            if src == dst or source.face != destination.face:
+                continue
+            j0 = max(source.j_start, destination.j_start)
+            j1 = min(source.j_end, destination.j_end)
+            i0 = max(source.i_start, destination.i_start)
+            i1 = min(source.i_end, destination.i_end)
+            if j1 <= j0 or i1 <= i0:
+                continue
+            ops.append(
+                HaloOp(
+                    src_tile=src,
+                    dst_tile=dst,
+                    src_box=(
+                        j0 - source.j_start,
+                        j1 - source.j_start,
+                        i0 - source.i_start,
+                        i1 - source.i_start,
+                    ),
+                    dst_box=(
+                        j0 - destination.j_start,
+                        j1 - destination.j_start,
+                        i0 - destination.i_start,
+                        i1 - destination.i_start,
+                    ),
+                )
+            )
+    return ops
+
+
+class DistributedTileBlender(torch.nn.Module):
+    r"""The same normalized overlap-add as :class:`TileBlender`, tile-sharded.
+
+    A face is 36 tiles and one GPU holds at most a handful, so the canonical
+    grid that :class:`TileBlender` scatters onto cannot be built on any single
+    rank. It does not need to be. For a cell ``g`` of tile ``i`` the consensus
+    is
+
+    .. math:: \bar\delta(g) = \frac{\sum_k w_k(g)\,\delta_k(g)}{\sum_k w_k(g)}
+
+    over the tiles ``k`` that cover ``g`` -- and every such ``k`` overlaps tile
+    ``i``. So the sum can be accumulated directly on tile ``i``'s own extent,
+    and the only thing that has to cross a rank boundary is the shared band
+    itself. The denominator is pure geometry and is precomputed per local tile.
+
+    The weights are 1 outside a tile's overlaps and form a partition of unity,
+    so this is exact, not an approximation: the interior of every tile is
+    untouched and only the seams move.
+
+    ``tile_ranks[t]`` is the rank that owns tile ``t``. With one rank, or with
+    every tile local, no collective is issued at all -- which is what keeps
+    single-process replay and the tests working without a process group.
+    """
+
+    def __init__(
+        self,
+        layout: TileGroupLayout,
+        *,
+        tile_ranks: Sequence[int],
+        rank: int,
+        window: WindowKind = "quintic",
+        kbd_beta: float = DEFAULT_KBD_BETA,
+        ramp_width: int | None = None,
+        dtype: torch.dtype = torch.float32,
+        eps: float = 1e-8,
+        process_group: object | None = None,
+    ) -> None:
+        super().__init__()
+        if len(tile_ranks) != layout.num_tiles:
+            raise ValueError(
+                f"tile_ranks has {len(tile_ranks)} entries for "
+                f"{layout.num_tiles} tiles"
+            )
+        shapes = {tile.shape for tile in layout.tiles}
+        if len(shapes) != 1:
+            raise ValueError(
+                f"DistributedTileBlender needs uniformly shaped tiles, got "
+                f"{sorted(shapes)}"
+            )
+
+        self.layout = layout
+        self.window = window
+        self.kbd_beta = kbd_beta
+        self.ramp_width = ramp_width
+        self.eps = eps
+        self.rank = rank
+        self.tile_ranks = tuple(int(owner) for owner in tile_ranks)
+        self.process_group = process_group
+        self.tile_shape = layout.tiles[0].shape
+
+        self.local_tiles: tuple[int, ...] = tuple(
+            index for index, owner in enumerate(self.tile_ranks) if owner == rank
+        )
+        if not self.local_tiles:
+            raise ValueError(f"Rank {rank} owns no tile of group {layout.group_id}")
+        self._position = {tile: slot for slot, tile in enumerate(self.local_tiles)}
+
+        all_weights = [
+            tile_window(
+                layout,
+                tile,
+                window=window,
+                kbd_beta=kbd_beta,
+                ramp_width=ramp_width,
+                dtype=dtype,
+            )
+            for tile in layout.tiles
+        ]
+        weights = torch.stack(
+            [all_weights[index] for index in self.local_tiles]
+        ).unsqueeze(1)  # [Tlocal, 1, H, W]
+
+        ops = halo_ops(layout)
+        full_box = (0, self.tile_shape[0], 0, self.tile_shape[1])
+        # Contributors to each local tile, in ascending source order with the
+        # tile's own contribution at its own index. That order is what makes
+        # the floating-point sum here identical to the catalog-order scatter
+        # `TileBlender` performs on the canonical grid -- the numerator below
+        # and this denominator both walk it.
+        plan: dict[int, list[tuple[int, tuple[int, int, int, int], tuple[int, int, int, int]]]] = {
+            tile: [(tile, full_box, full_box)] for tile in self.local_tiles
+        }
+        for op in ops:
+            if self.tile_ranks[op.dst_tile] == rank:
+                plan[op.dst_tile].append((op.src_tile, op.dst_box, op.src_box))
+        self._plan = {
+            tile: tuple(sorted(items)) for tile, items in plan.items()
+        }
+
+        # Sum of every contributor's weight, evaluated on each local tile's own
+        # extent. Same number `TileBlender` divides by, read off the canonical
+        # grid at this tile's box -- just never materialized globally.
+        denominator = torch.zeros_like(weights)
+        for tile, items in self._plan.items():
+            slot = self._position[tile]
+            for src, (dj0, dj1, di0, di1), (sj0, sj1, si0, si1) in items:
+                denominator[slot, :, dj0:dj1, di0:di1] = (
+                    denominator[slot, :, dj0:dj1, di0:di1]
+                    + all_weights[src][sj0:sj1, si0:si1]
+                )
+        uncovered = denominator <= 0
+        if bool(uncovered.any()):
+            raise ValueError(
+                f"Group {layout.group_id} leaves {int(uncovered.sum())} cells of "
+                f"rank {rank}'s tiles with zero total weight; the tiles do not "
+                "cover their canonical grid, or a window tapers to zero with no "
+                "neighbour."
+            )
+
+        self.register_buffer("weights", weights)
+        self.register_buffer("denominator", denominator)
+
+        self.local_ops: tuple[HaloOp, ...] = tuple(
+            op
+            for op in ops
+            if self.tile_ranks[op.dst_tile] == rank
+            and self.tile_ranks[op.src_tile] == rank
+        )
+        self.recv_ops: tuple[HaloOp, ...] = tuple(
+            op
+            for op in ops
+            if self.tile_ranks[op.dst_tile] == rank
+            and self.tile_ranks[op.src_tile] != rank
+        )
+        self.send_ops: tuple[HaloOp, ...] = tuple(
+            op
+            for op in ops
+            if self.tile_ranks[op.src_tile] == rank
+            and self.tile_ranks[op.dst_tile] != rank
+        )
+        # The global cross-rank list, so every rank posts in the same order.
+        self.exchange_ops: tuple[HaloOp, ...] = tuple(
+            op for op in ops if self.tile_ranks[op.src_tile] != self.tile_ranks[op.dst_tile]
+        )
+
+    @property
+    def exchanges(self) -> int:
+        return len(self.send_ops) + len(self.recv_ops)
+
+    def exchanged_elements(self) -> int:
+        """Cells crossing a rank boundary per blend, per channel."""
+        return sum(op.shape[0] * op.shape[1] for op in self.send_ops)
+
+    def _as_batched(self, tiles: torch.Tensor) -> tuple[torch.Tensor, bool]:
+        if tiles.ndim == 4:
+            return tiles.unsqueeze(0), True
+        if tiles.ndim == 5:
+            return tiles, False
+        raise ValueError(
+            f"Expected [T, C, H, W] or [B, T, C, H, W], got {tuple(tiles.shape)}"
+        )
+
+    def _exchange(self, weighted: torch.Tensor) -> dict[tuple[int, int], torch.Tensor]:
+        """Trade shared bands with the other ranks; returns them keyed by op."""
+        if not self.exchange_ops:
+            return {}
+
+        import torch.distributed as dist
+
+        if not dist.is_available() or not dist.is_initialized():
+            raise RuntimeError(
+                "DistributedTileBlender has cross-rank overlaps but "
+                "torch.distributed is not initialized."
+            )
+
+        batch, _, channels = weighted.shape[:3]
+        received: dict[tuple[int, int], torch.Tensor] = {}
+        outgoing: list[torch.Tensor] = []
+        requests = []
+        for tag, op in enumerate(self.exchange_ops):
+            height, width = op.shape
+            if self.tile_ranks[op.src_tile] == self.rank:
+                sj0, sj1, si0, si1 = op.src_box
+                payload = weighted[
+                    :, self._position[op.src_tile], :, sj0:sj1, si0:si1
+                ].contiguous()
+                outgoing.append(payload)
+                requests.append(
+                    dist.P2POp(
+                        dist.isend,
+                        payload,
+                        self.tile_ranks[op.dst_tile],
+                        group=self.process_group,
+                        tag=tag,
+                    )
+                )
+            elif self.tile_ranks[op.dst_tile] == self.rank:
+                buffer = torch.empty(
+                    (batch, channels, height, width),
+                    dtype=weighted.dtype,
+                    device=weighted.device,
+                )
+                received[(op.src_tile, op.dst_tile)] = buffer
+                requests.append(
+                    dist.P2POp(
+                        dist.irecv,
+                        buffer,
+                        self.tile_ranks[op.src_tile],
+                        group=self.process_group,
+                        tag=tag,
+                    )
+                )
+        if requests:
+            for work in dist.batch_isend_irecv(requests):
+                work.wait()
+        return received
+
+    def blend(self, tiles: torch.Tensor) -> torch.Tensor:
+        """Reconcile this rank's tiles against the whole group's overlaps.
+
+        Takes and returns ``[Tlocal, C, H, W]`` (or a batched ``[B, Tlocal, ...]``)
+        holding only the tiles this rank owns, in ``local_tiles`` order.
+
+        Applied to *residuals*, exactly as :meth:`TileBlender.blend` is: the
+        current state already agrees in every overlap, so blending residuals
+        and blending full fields are the same thing, and the residual form
+        avoids averaging a large shared background.
+        """
+        batched, squeeze = self._as_batched(tiles)
+        if batched.shape[1] != len(self.local_tiles):
+            raise ValueError(
+                f"Rank {self.rank} owns {len(self.local_tiles)} tile(s) but got "
+                f"{batched.shape[1]}"
+            )
+        if tuple(batched.shape[-2:]) != self.tile_shape:
+            raise ValueError(
+                f"Expected tiles shaped {self.tile_shape}, got "
+                f"{tuple(batched.shape[-2:])}"
+            )
+
+        weights = self.weights.to(dtype=batched.dtype, device=batched.device)
+        weighted = batched * weights
+        received = self._exchange(weighted)
+
+        # Walk the same per-destination, ascending-source plan the denominator
+        # was built from, so the sum lands in the same order as TileBlender's
+        # canonical scatter and the two agree bit for bit.
+        total = torch.zeros_like(weighted)
+        for tile, items in self._plan.items():
+            slot = self._position[tile]
+            for src, (dj0, dj1, di0, di1), (sj0, sj1, si0, si1) in items:
+                if self.tile_ranks[src] == self.rank:
+                    payload = weighted[
+                        :, self._position[src], :, sj0:sj1, si0:si1
+                    ]
+                else:
+                    payload = received[(src, tile)]
+                total[:, slot, :, dj0:dj1, di0:di1] = (
+                    total[:, slot, :, dj0:dj1, di0:di1] + payload
+                )
+
+        denominator = self.denominator.to(dtype=batched.dtype, device=batched.device)
+        blended = total / denominator.clamp_min(self.eps)
+        return blended.squeeze(0) if squeeze else blended
+
+    def forward(self, tiles: torch.Tensor) -> torch.Tensor:
+        return self.blend(tiles)
+
+    def extra_repr(self) -> str:
+        return (
+            f"rank={self.rank}, local_tiles={len(self.local_tiles)}/"
+            f"{self.layout.num_tiles}, window={self.window!r}, "
+            f"tile_shape={self.tile_shape}, exchanges={self.exchanges}"
         )

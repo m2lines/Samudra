@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../schemas/DataConfig.json
+#
+# The whole LLC face as ONE packed cache. The 36 overlapping tile windows are
+# not listed here: the job script generates them from TILE_OVERLAP with
+# `ocean_emulators.tiling.face_tile_windows` and passes them as
+# --data.llc_tiles, so the overlap is a single knob rather than 36 hand-kept
+# rows that can silently disagree with it.
+data_location: /orcd/data/abodner/002/cody/LLC_patch/face_1/LLC4320_face1_i0-4320_j0-4320.zarr
+data_means_location: 002/cody/LLC_means_stds/var_96_LLC_means.zarr
+data_stds_location: 002/cody/LLC_means_stds/var_96_LLC_stds.zarr
+static_data_vars: []
+concurrent_compute: false
+# Face frames are read by the group chunk reader, whose own pool bounds how
+# many chunks inflate at once; these workers only drive it.
+num_workers: 4
+prefetch_factor: 2
+hist: 0
+valid_mask: true

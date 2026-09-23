@@ -11,10 +11,13 @@ from ocean_emulators.tiling import (
     TileSpec,
     build_group_layout,
     build_tile_catalog,
+    face_tile_windows,
     ownership_boxes,
     ownership_masks,
     ramp_profile,
     resolve_face,
+    tile_catalog_from_windows,
+    tile_origins,
     tile_spec_from_coords,
     validate_tile_group,
 )
@@ -603,3 +606,109 @@ def test_ownership_masks_are_tile_shaped_and_sum_to_the_canonical_area() -> None
     masks = ownership_masks(layout)
     assert masks.shape == (4, 1, TILE, TILE)
     assert float(masks.sum()) == float(np.prod(layout.canonical_shape))
+
+
+# --------------------------------------------------------------------------
+# Whole-face tiling
+# --------------------------------------------------------------------------
+
+#: The live 1-face geometry: 6x6 tiles of 752 cells over a 4320-cell face.
+FACE_EXTENT = 4320
+FACE_TILE = 720
+FACE_OVERLAP = 16
+FACE_SIZE = FACE_TILE + 2 * FACE_OVERLAP
+
+
+def test_face_windows_are_uniformly_shaped_and_cover_the_face() -> None:
+    """Uniform shape is the requirement `TileBlender` imposes, and the reason
+    the boundary origin is clamped instead of the boundary window shrunk."""
+    windows = face_tile_windows(1, extent=FACE_EXTENT, tile=FACE_TILE, overlap=FACE_OVERLAP)
+    assert len(windows) == 36
+    for _, i0, i1, j0, j1 in windows:
+        assert (i1 - i0, j1 - j0) == (FACE_SIZE, FACE_SIZE)
+        assert 0 <= i0 and i1 <= FACE_EXTENT
+        assert 0 <= j0 and j1 <= FACE_EXTENT
+
+    covered = np.zeros((FACE_EXTENT, FACE_EXTENT), dtype=bool)
+    for _, i0, i1, j0, j1 in windows:
+        covered[j0:j1, i0:i1] = True
+    assert covered.all()
+
+
+def test_face_window_origins_match_the_existing_752_tile_caches() -> None:
+    """The interior windows must be the ones the `752-4-tile` caches already
+    hold, or the 1-face run is training on a different convention than the 2x2
+    run it is meant to extend."""
+    origins = tile_origins(FACE_EXTENT, FACE_SIZE, FACE_TILE, lead=FACE_OVERLAP)
+    assert origins == [0, 704, 1424, 2144, 2864, 3568]
+
+
+def test_face_seams_are_two_overlaps_inside_and_three_at_the_boundary() -> None:
+    """Clamping the end origins inward buys uniform shape at the price of a
+    wider seam there; the blender takes an overlap per (tile, side), so a wider
+    end seam is data, not a special case."""
+    windows = face_tile_windows(1, extent=FACE_EXTENT, tile=FACE_TILE, overlap=FACE_OVERLAP)
+    layout = build_group_layout(tile_catalog_from_windows(windows))
+    assert sorted(set(layout.overlaps.values())) == [2 * FACE_OVERLAP, 3 * FACE_OVERLAP]
+
+    # Only the four face-edge seams are the wide ones.
+    wide = {
+        (tile_id, side)
+        for (tile_id, side), width in layout.overlaps.items()
+        if width == 3 * FACE_OVERLAP
+    }
+    assert {side for _, side in wide} == set(SIDES)
+    # Two wide seam lines per axis (columns 0|1 and 4|5, rows 0|1 and 4|5),
+    # each crossing 6 tiles, and each seam names a side on both of its tiles:
+    # 2 lines x 6 tiles x 2 sides x 2 axes.
+    assert len(wide) == 48
+
+
+def test_face_ownership_partitions_the_face_exactly() -> None:
+    """A wider seam at the face edge must not cost or duplicate a single cell."""
+    windows = face_tile_windows(1, extent=FACE_EXTENT, tile=FACE_TILE, overlap=FACE_OVERLAP)
+    tiles = tile_catalog_from_windows(windows)
+    layout = build_group_layout(tiles)
+    assert layout.canonical_shape == (FACE_EXTENT, FACE_EXTENT)
+
+    counts = np.zeros((FACE_EXTENT, FACE_EXTENT), dtype=np.int32)
+    for spec, (j0, j1, i0, i1) in zip(tiles, ownership_boxes(layout), strict=True):
+        counts[spec.j_start + j0 : spec.j_start + j1,
+               spec.i_start + i0 : spec.i_start + i1] += 1
+    assert counts.min() == 1 and counts.max() == 1
+
+
+def test_face_window_size_is_divisible_by_the_unet_downsampling() -> None:
+    """Four downsampling stages (one per ch_width pair) need a multiple of 16."""
+    assert FACE_SIZE % 16 == 0
+
+
+@pytest.mark.parametrize("overlap", [0, 4, 8, 16])
+def test_face_tiling_covers_and_partitions_for_several_overlaps(overlap: int) -> None:
+    """tile_overlap is a tunable, so coverage cannot depend on its value."""
+    extent, tile = 240, 40
+    windows = face_tile_windows(3, extent=extent, tile=tile, overlap=overlap)
+    assert len(windows) == (extent // tile) ** 2
+    layout = build_group_layout(tile_catalog_from_windows(windows))
+    assert layout.canonical_shape == (extent, extent)
+    masks = ownership_masks(layout)
+    assert float(masks.sum()) == float(extent * extent)
+
+
+def test_face_tiling_rejects_an_overlap_that_swallows_a_tile() -> None:
+    with pytest.raises(ValueError, match="at least half"):
+        face_tile_windows(1, extent=240, tile=40, overlap=20)
+
+
+def test_face_tiling_rejects_a_face_that_is_not_whole_tiles() -> None:
+    with pytest.raises(ValueError, match="whole number"):
+        face_tile_windows(1, extent=250, tile=40, overlap=4)
+
+
+def test_zero_overlap_face_tiling_is_the_plain_tile_grid() -> None:
+    """The 1-tile task is the same geometry with overlap 0, which keeps the
+    multitask extension from needing a second code path."""
+    windows = face_tile_windows(1, extent=240, tile=40, overlap=0)
+    layout = build_group_layout(tile_catalog_from_windows(windows))
+    assert layout.overlaps == {}
+    assert len(layout.exterior_sides) == 36 * len(SIDES)

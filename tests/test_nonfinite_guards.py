@@ -129,28 +129,28 @@ def test_replay_state_diverged_always_rejects_nonfinite():
     """Non-finite states are rejected even with the range check disabled."""
     trainer = _trainer_with_sigma(0.0)
     for bad in (float("nan"), float("inf"), float("-inf")):
-        state = torch.ones(2, 2)
-        state[0, 0] = bad
+        state = torch.ones(1, 2, 2)
+        state[0, 0, 0] = bad
         assert Trainer._replay_state_diverged(trainer, state)
 
 
 def test_replay_state_diverged_range_check_is_opt_in():
     """max_state_sigma=0 keeps the established write-back behaviour."""
     trainer = _trainer_with_sigma(0.0)
-    assert not Trainer._replay_state_diverged(trainer, torch.full((2, 2), 1e6))
+    assert not Trainer._replay_state_diverged(trainer, torch.full((1, 2, 2), 1e6))
 
 
 def test_replay_state_diverged_rejects_runaway_magnitudes():
     trainer = _trainer_with_sigma(50.0)
-    assert not Trainer._replay_state_diverged(trainer, torch.full((2, 2), 3.0))
-    assert not Trainer._replay_state_diverged(trainer, torch.full((2, 2), -49.0))
-    assert Trainer._replay_state_diverged(trainer, torch.full((2, 2), 51.0))
-    assert Trainer._replay_state_diverged(trainer, torch.full((2, 2), -1e4))
+    assert not Trainer._replay_state_diverged(trainer, torch.full((1, 2, 2), 3.0))
+    assert not Trainer._replay_state_diverged(trainer, torch.full((1, 2, 2), -49.0))
+    assert Trainer._replay_state_diverged(trainer, torch.full((1, 2, 2), 51.0))
+    assert Trainer._replay_state_diverged(trainer, torch.full((1, 2, 2), -1e4))
 
 
 def test_replay_state_diverged_catches_a_single_bad_cell():
     """One runaway grid point is enough to poison the slot."""
     trainer = _trainer_with_sigma(50.0)
-    state = torch.zeros(4, 4)
-    state[2, 3] = 1e3
+    state = torch.zeros(1, 4, 4)
+    state[0, 2, 3] = 1e3
     assert Trainer._replay_state_diverged(trainer, state)

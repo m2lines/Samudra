@@ -45,6 +45,7 @@ from ocean_emulators.tiling import (
     TileBlender,
     build_group_layout,
     build_tile_catalog,
+    tile_catalog_from_windows,
     validate_tile_group,
 )
 from ocean_emulators.utils.data import (
@@ -259,22 +260,36 @@ class TiledEval:
             )
         self.sources = sources
 
-        # The catalog and its overlap gate need the cache's own grid arrays and
-        # attrs. A loaded DataSource keeps only prognostic/boundary under
-        # renamed lat/lon dims and drops XC/YC/rA, so validating against it
-        # would compare nothing and pass vacuously. Reopen the raw stores.
-        raw = self._open_raw_caches()
-        catalog = build_tile_catalog(raw, names=[str(name) for name in self._raw_names])
-        self.layout = build_group_layout(catalog)
-        report = validate_tile_group(
-            self.layout, raw, probe_times=(0,), probe_vars=("prognostic",)
-        )
-        if not report.is_clean:
-            logger.warning(
-                "Tile group reported non-finite probe times %s; if the rollout "
-                "starts on one of these the state is poisoned from step 0.",
-                report.nonfinite_times,
+        windows = self.data_container.replay_windows
+        if windows:
+            # Tiles cut out of ONE store (`data.llc_tiles`), which is how a
+            # whole face is addressed. Their geometry is the configured window;
+            # reopening the store per tile would hand every one of them the
+            # store's full extent and quietly collapse the catalog to 36
+            # identical tiles.
+            catalog = tile_catalog_from_windows(windows)
+            self.layout = build_group_layout(catalog)
+        else:
+            # The catalog and its overlap gate need the cache's own grid arrays
+            # and attrs. A loaded DataSource keeps only prognostic/boundary
+            # under renamed lat/lon dims and drops XC/YC/rA, so validating
+            # against it would compare nothing and pass vacuously. Reopen the
+            # raw stores.
+            raw = self._open_raw_caches()
+            catalog = build_tile_catalog(
+                raw, names=[str(name) for name in self._raw_names]
             )
+            self.layout = build_group_layout(catalog)
+            report = validate_tile_group(
+                self.layout, raw, probe_times=(0,), probe_vars=("prognostic",)
+            )
+            if not report.is_clean:
+                logger.warning(
+                    "Tile group reported non-finite probe times %s; if the "
+                    "rollout starts on one of these the state is poisoned "
+                    "from step 0.",
+                    report.nonfinite_times,
+                )
         logger.info(
             "Tile group: %d tiles, canonical %s at origin %s, overlaps %s",
             self.layout.num_tiles,

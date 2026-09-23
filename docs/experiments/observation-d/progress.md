@@ -189,3 +189,25 @@ and the DTN receiver continued uninterrupted. EAI preparation is reached through
 the `alpha` login alias but runs on the Grace compute host `betagg12`.
 The compact prepared dataset is published to OSN with full read-back verification,
 then received through Torch's `dtn011` and checked against all source file hashes.
+
+## Scratch capacity audit (23 September)
+
+The earlier wave-2 report records a quota failure resolved after user cache cleanup.
+A fresh `myquota` read now reports **3.66 TB / 5 TB** scratch usage (1,646,160 /
+5,000,000 files), approximately **1.34 TB free**. The aggregate filesystem's free
+space was not used as the user's quota allowance. No cleanup is currently required.
+
+Conservative storage estimates: monthly sample arrays 30,848,947,200 bytes;
+fifteen evaluation exports 29,859,840,000 bytes (allowing float64 throughout);
+checkpoint/optimizer/atomic-replacement allowance 26,988,293,472 bytes. Including
+one temporary evaluation export gives **89,687,736,672 bytes** (~83.5 GiB).
+The model state size was computed from the actual architecture: 613,458,648 bytes.
+Reserve **150 GiB** for the pilot, plus **128 GiB** additional free headroom.
+Existing container/cache usage is already included in current quota usage.
+
+The waiting receiver was paused during this audit, then replaced with a guarded
+version. Before copying it reruns `myquota`, subtracts a rounding margin, requires
+the pilot budget plus headroom, and rejects an incoming NPZ payload over 40 GiB.
+Malformed quota output also prevents copying. Guard checks cover current capacity,
+tight quota, an oversized payload and malformed output. Existing datasets and
+checkpoints were not deleted.

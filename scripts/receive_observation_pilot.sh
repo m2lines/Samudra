@@ -26,6 +26,8 @@ if ((ready != 1)); then
     echo 'Publication proof did not appear within the six-hour staging window.' >&2
     exit 1
 fi
+incoming_bytes=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["npz_bytes"])' "$proof")
+python3 "$(dirname "$0")/check_observation_capacity.py" --incoming-bytes "$incoming_bytes" --output "$target/capacity-check.json"
 rclone copy "$source_remote" "$target" --transfers=32 --checkers=16 --progress --stats=30s --stats-one-line
 cd "$target"
 sha256sum --check --status SHA256SUMS

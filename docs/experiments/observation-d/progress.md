@@ -663,3 +663,32 @@ reconstruction. Snapshot: `snapshots/primary-joint-start-20260923T0455Z.json`.
 The report plotter also now provides matched-lead SST/velocity/EKE error curves,
 so the average over days 5/15/30 does not hide lead-dependent behavior. The new
 figure was rendered and inspected on recorded validation evidence.
+
+## Controls that isolate dynamics from the selected initializer
+
+At **05:03 UTC**, the pending evaluation DAG was replaced with producer
+**5b8d391230e9a0b97afd232520335c8036363248**. It adds persistence and anomaly
+persistence initialized by each arm's **selected** initializer, preserving that
+arm's normalization. Existing source-initializer controls remain. This separates
+forecast-dynamics skill from the benefit of correcting the inferred starting
+state; it does not change training, checkpoint selection, or metric definitions.
+The seven-method CPU report includes both new controls, with paired annual
+differences on the fixed validation-normalized composite.
+
+Training jobs and producer **d8949bb15d9fa92e6c8c94702092360bbe9005ef** are unchanged.
+New GPU evaluation jobs: primary **18314442**, adapter **18314443**, scratch
+**18314444**. Their CPU reporting jobs are **18314449**, **18314450**, and
+**18314452**, respectively. All six replaced jobs were verified pending with zero
+runtime before cancellation; records are preserved under
+`retired-submissions-before-selected-state-controls`. Dependencies still bound
+Torch GPU concurrency to three and require each arm's completed selection.
+
+Thirteen focused tests passed, including selected weights and scratch
+normalization across control evaluation, immutable protocol fingerprints on
+resume, unchanged training producers, and DAG concurrency. Pre-commit checks
+passed. The evaluation overlay's dependency manifests match the existing SIF;
+its SHA-256 is
+`11f2e39b0b151de570df76b27b1fb26bfbd01d1b91d2f8f0344e3982cc913599`.
+Core training, model, data, and metric modules are unchanged from the training
+producer. All seven methods will be reported; the overview plots retain a
+smaller set of curves, with the original controls explicitly labeled source-state.

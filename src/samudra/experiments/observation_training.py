@@ -78,7 +78,7 @@ class Samples:
 
     def persistence_anomaly(self, initial, sample):
         state = initial[:, -1].clone()
-        previous_month = pd.Timestamp(sample["raw"]["midpoints"][18]).month - 1
+        previous_month = pd.Timestamp(str(sample["raw"]["midpoints"][18])).month - 1
         target_month = pd.Timestamp(sample["name"]).month - 1
         difference = (
             self.interior_climatology[target_month]

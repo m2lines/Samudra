@@ -13,6 +13,29 @@ from samudra.experiments import initializer_models
 from samudra.experiments.observation_metrics import PROTOCOL, selection_score
 
 
+def test_anomaly_persistence_handles_numpy_timestamps_and_year_boundary():
+    from samudra.experiments.observation_training import Samples
+
+    samples = Samples.__new__(Samples)
+    samples.device = "cpu"
+    samples.std = torch.full((1, 1, 77, 1, 1), 2.0)
+    samples.ts_indices = list(range(38, 52)) + list(range(57, 71))
+    samples.__dict__["interior_climatology"] = np.broadcast_to(
+        np.arange(12, dtype=np.float32)[:, None, None, None], (12, 28, 2, 3)
+    ).copy()
+    initial = torch.full((1, 2, 77, 2, 3), 10.0)
+    sample: dict[str, Any] = {
+        "name": "2015-01",
+        "raw": {"midpoints": np.array(["2014-12-29T12:00:00"] * 19)},
+    }
+    assert isinstance(sample["raw"]["midpoints"][18], np.str_)
+    result = samples.persistence_anomaly(initial, sample)
+    expected = initial[:, -1].clone()
+    expected[:, samples.ts_indices[1:]] -= 11 / 2
+    torch.testing.assert_close(result, expected)
+    torch.testing.assert_close(initial, torch.full_like(initial, 10.0))
+
+
 def test_per_frame_validity_retains_old_path_and_surface_copy(monkeypatch):
     monkeypatch.setattr(
         initializer_models, "make_unet", lambda i, o, w: nn.Conv2d(i, o, 1)

@@ -456,3 +456,21 @@ reporting have not yet occurred.
 Immutable capture:
 `/scratch/jr7309/runs/2026-09-22-observation-D/snapshots/reconstruction100-20260923T0243Z.json`.
 Updated comparison figures are generated locally from that capture.
+
+
+## Reconstruction update 200, 02:56 UTC
+
+Both jobs remain running after recovery. Primary selected composite **0.8493170**,
+adapter-only **2.3838305**. Primary OHC errors improve further to **9.27860e8**
+and **6.42251e8 J/m²**, but SST error rises to **1.21098 °C** and mean spectral
+error to **0.48993 dex**. The small composite improvement over update 100 therefore
+continues the OHC-versus-surface/spectral tradeoff. Joint forecast training has not
+yet begun. Capture: `snapshots/reconstruction200-20260923T0256Z.json` beneath the
+Torch run root.
+
+The plotting tool now accepts `--split test` for completed 2015–2022 evaluations.
+It requires a completed training selection, matching selected-checkpoint hashes,
+all 96 origins and matching spectral references. Held-out component bars use
+held-out climatology errors for descriptive normalization; this does not modify
+the frozen validation selection score. Four report tests pass, including refusal
+to relabel incomplete or mismatched evaluations as held-out results.

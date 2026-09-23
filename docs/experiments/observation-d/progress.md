@@ -645,3 +645,21 @@ contains this result. Post-selection CPU reports additionally include physical
 pointwise SST/ADT RMSE alongside anomaly correlation/amplitude and bias; the new
 RMSE calculation passed its known-scaling test and was staged while all three
 report jobs were still pending.
+
+
+## Primary joint forecast training started
+
+Primary reconstruction stopped automatically at **700 updates**, with **6157.53 s**
+(1.71 hours) retained phase time and **five non-improving validation checks**.
+The phase restored update **200**, selected at **0.8493170**, before starting
+joint optimization. Its first joint update completed at **04:55:03 UTC** with
+finite loss and gradients. Initializer, evolution and adapter are now trainable;
+the fixed joint forecast objective retains the predeclared 0.1 reconstruction term.
+This is a training-stage transition under the original protocol, not a manual
+change prompted by held-out results.
+
+Adapter-only and scratch resumed again on `gh124` and `gh129` and remain in
+reconstruction. Snapshot: `snapshots/primary-joint-start-20260923T0455Z.json`.
+The report plotter also now provides matched-lead SST/velocity/EKE error curves,
+so the average over days 5/15/30 does not hide lead-dependent behavior. The new
+figure was rendered and inspected on recorded validation evidence.

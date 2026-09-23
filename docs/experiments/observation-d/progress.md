@@ -804,3 +804,29 @@ climatology. The other components and spectrum are below it. This is completed
 validation selection; **held-out evaluation 18314442 is pending on priority**.
 Adapter-only and scratch remain active within their original budgets.
 Capture: `snapshots/primary-complete-20260923T0837Z.json`.
+
+## Evaluation launcher recovery
+
+Primary evaluation **18314442** failed after **17 seconds** at **08:44:23 UTC**,
+before loading the model or creating evaluation outputs. The pinned container's
+`torchrun` parser treated evaluator option `--run` as an ambiguous abbreviation
+of `--run-path` / `--run_path`. All five downstream jobs were automatically
+cancelled with zero runtime. Their submission records and terminal accounting
+are preserved in `retired-submissions-after-torchrun-argument-failure`.
+
+Launcher commit **08eecaee0** adds an explicit `--` separator before the
+evaluator's arguments. The exact pinned-container argument parser reproduced
+the failure and accepted the corrected argument list. Nine focused tests passed,
+including forwarding through the torchrun parser and unchanged training/evaluation
+producers. An optional full `torchrun --help` probe on the login host did not
+launch a child and was stopped; it is not counted as runtime qualification.
+The real GPU allocation will provide that qualification.
+
+At **08:50 UTC**, replacement evaluations were submitted as primary **18328848**,
+adapter **18328849**, scratch **18328850**; CPU reports are **18328851**,
+**18328852**, and **18328853**. Primary training completion was independently
+proved with accounting; the other dependencies retain the original training IDs.
+Training producer **d8949bb15d9fa92e6c8c94702092360bbe9005ef**, evaluation producer
+**5b8d391230e9a0b97afd232520335c8036363248**, weights, cohorts, and metric definitions
+are unchanged. The scheduler confirms H200, one GPU per evaluation and requeue
+enabled. No model job was stopped or restarted for this launcher fix.

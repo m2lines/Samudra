@@ -5,16 +5,23 @@
 import itertools
 import math
 import random
-from collections.abc import Callable, Hashable
-from typing import TYPE_CHECKING, Self
+from collections.abc import Hashable
+from typing import Protocol, Self, TypeVar
 
 from torch.utils.data import BatchSampler, Sampler
 
-if TYPE_CHECKING:
-    from samudra.datasets import TorchTrainDataset
-
 type Batch = list[int]
 type DdpStepChunk = tuple[Batch, ...]
+
+
+class BatchCompatibleDataset(Protocol):
+    @property
+    def batch_compatibility_key(self) -> Hashable: ...
+
+    def __len__(self) -> int: ...
+
+
+DatasetT = TypeVar("DatasetT", bound=BatchCompatibleDataset)
 
 
 class _SimpleSubsetSampler(Sampler):
@@ -105,62 +112,32 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
     @classmethod
     def from_datasets(
         cls,
-        datasets: list["TorchTrainDataset"],
-        group_key: Callable[["TorchTrainDataset"], Hashable],
+        datasets: list[DatasetT],
         batch_size: int,
         shuffle: bool,
         drop_last: bool,
         *,
         seed: int,
     ) -> Self:
-        """Create sampler by grouping datasets using a key function.
+        """Batch datasets with equal public compatibility keys.
 
-        This factory method allows grouping datasets by arbitrary criteria (e.g., resolution,
-        regardless of other parameters like stride). Datasets with the same key are batched together.
-
-        Args:
-            datasets: List of TorchTrainDataset instances to group
-            group_key: Callable that extracts grouping key from a dataset.
-            batch_size: Number of samples per batch
-            shuffle: Whether to shuffle indices within groups and shuffle batches globally
-            drop_last: Whether to drop incomplete batches at the end of each group
-            seed: Random seed for deterministic shuffling
-
-        Examples:
-                - lambda ds: (ds._input_source.data.sizes['lat'], ds._input_source.data.sizes['lon'])  # group by resolution
-                - lambda ds: ds._input_source.data.sizes['lat']  # group by latitude size only
-
-        Returns:
-            EquivalenceGroupBatchSampler configured to group by the provided key
-
-        RolloutStep:
-            >>> # Group datasets by resolution, allowing different strides to be batched together
-            >>> sampler = EquivalenceGroupBatchSampler.from_datasets(
-            ...     datasets=dataset_list,
-            ...     group_key=lambda ds: tuple(source.grid_size for source in ds.sources),
-            ...     batch_size=32,
-            ...     shuffle=True,
-            ...     drop_last=True,
-            ...     seed=15,
-            ... )
+        Groups follow first-seen dataset order, which must be the same on every
+        DDP rank. Keys need only support equality and hashing, not ordering.
         """
-        from collections import defaultdict
-
-        # Group indices by their key
-        groups: dict[Hashable, list[int]] = defaultdict(list)
+        # Preserve first-seen group order. Compatibility keys define equality,
+        # but need not be comparable or identical objects across processes.
+        groups: dict[Hashable, list[int]] = {}
 
         cumsum = 0
         for ds in datasets:
-            key = group_key(ds)
-            assert isinstance(key, Hashable), "`group_key` must be hashable."
-            groups[key].extend(range(cumsum, cumsum + len(ds)))
+            key = ds.batch_compatibility_key
+            assert isinstance(key, Hashable), (
+                "`batch_compatibility_key` must be hashable."
+            )
+            groups.setdefault(key, []).extend(range(cumsum, cumsum + len(ds)))
             cumsum += len(ds)
 
-        # Sort by key for deterministic ordering across runs
-        sorted_groups = sorted(groups.items(), key=lambda x: x[0])  # type: ignore
-        group_indices = [indices for _, indices in sorted_groups]
-
-        return cls(group_indices, batch_size, shuffle, drop_last, seed=seed)
+        return cls(list(groups.values()), batch_size, shuffle, drop_last, seed=seed)
 
     def __iter__(self):
         rng = random.Random(self.seed + self.epoch)
@@ -207,7 +184,6 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[Batch]):
 
     Args:
         datasets: List of TorchTrainDataset instances to group
-        group_key: Callable that extracts grouping key from a dataset
         batch_size: Number of samples per batch
         num_replicas: Number of distributed workers (world size)
         rank: Index of current worker (0 to num_replicas-1)
@@ -219,8 +195,7 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[Batch]):
 
     def __init__(
         self,
-        datasets: list["TorchTrainDataset"],
-        group_key: Callable[["TorchTrainDataset"], Hashable],
+        datasets: list[DatasetT],
         batch_size: int,
         num_replicas: int,
         rank: int,
@@ -246,7 +221,6 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[Batch]):
         # Delegate batching logic to inner sampler (without shuffle for determinism)
         self._inner = EquivalenceGroupBatchSampler.from_datasets(
             datasets=datasets,
-            group_key=group_key,
             batch_size=batch_size,
             shuffle=False,  # We handle shuffling with seeded RNG
             drop_last=drop_last,

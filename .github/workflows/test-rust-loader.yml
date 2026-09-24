@@ -1,0 +1,90 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: Test Rust loader
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - "**"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test-rust-loader:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+        python-version: ["3.12"]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
+        with:
+          cache: false
+          rustflags: ""
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          workspaces: rust/loader
+
+      - name: Install extension and test dependencies
+        run: uv sync --project rust/loader --python ${{ matrix.python-version }} --locked --group test
+
+      - name: Check Rust
+        env:
+          PYO3_PYTHON: ${{ github.workspace }}/rust/loader/.venv/bin/python
+        run: |
+          cargo fmt --manifest-path rust/loader/Cargo.toml -- --check
+          cargo clippy --manifest-path rust/loader/Cargo.toml --all-targets -- -D warnings
+          export PYTHONPATH="$(uv run --project rust/loader --locked python -c 'import site; print(site.getsitepackages()[0])')"
+          cargo test --manifest-path rust/loader/Cargo.toml --lib
+
+      - name: Test the Python extension
+        run: uv run --project rust/loader --locked --group test pytest -c rust/loader/pyproject.toml rust/loader/tests -q
+
+      - name: Build and install the wheel pair
+        run: |
+          mkdir -p dist/native dist/samudra
+          uv run --project rust/loader --locked maturin build --release --manifest-path rust/loader/Cargo.toml --features extension-module --out dist/native
+          uv build --wheel --out-dir dist/samudra
+          uv venv --python ${{ matrix.python-version }} .wheel-test
+          uv pip install --python .wheel-test/bin/python --no-deps dist/native/*.whl dist/samudra/*.whl
+          .wheel-test/bin/python -c 'import samudra_rust_loader; samudra_rust_loader.ZarrReadPool(1)'
+
+  test-rust-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
+        with:
+          cache: false
+          rustflags: ""
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          workspaces: rust/loader
+      - run: uv sync --locked --dev --extra rust
+      - run: uv run --locked pytest tests/test_rust_data.py -m "not manual and not cuda" -q

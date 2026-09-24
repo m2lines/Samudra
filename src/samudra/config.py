@@ -6,7 +6,7 @@ import abc
 import datetime
 from functools import cached_property
 from pathlib import Path
-from typing import Annotated, Literal, Self, assert_never
+from typing import TYPE_CHECKING, Annotated, Literal, Self, assert_never
 
 import cftime
 import numpy as np
@@ -84,6 +84,9 @@ from samudra.utils.loss import (
 )
 from samudra.utils.profiler import Profiler
 from samudra.utils.schedule import SchedulerConfig
+
+if TYPE_CHECKING:
+    from samudra.data_backend import TrainingSourceBackend
 
 
 class WandBConfig(BaseConfig):
@@ -194,7 +197,11 @@ LOCATION_DOCS = (
 )
 
 
+type DataSourceType = Literal["om4", "llc"]
+
+
 class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
+    type: DataSourceType
     train_time: SourceTimeConfigT = Field(frozen=True)
     val_time: SourceTimeConfigT = Field(frozen=True)
     inference_times: tuple[SourceTimeConfigT, ...] = Field(default=(), frozen=True)
@@ -223,10 +230,12 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         *,
         use_dask: bool,
         is_primary: bool,
+        source_backend: "TrainingSourceBackend",
     ) -> SourceSplits:
         source = self._build_source(
             data_root,
             turn_on_dask=use_dask,
+            source_backend=source_backend,
         )
         inference_source = None
         if is_primary and self.inference_times:
@@ -236,6 +245,7 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
                 full_inference_source = self._build_source(
                     data_root,
                     turn_on_dask=True,
+                    source_backend=source_backend,
                 )
             # TODO: remove multiple inference time ranges altogether (see #813)
             assert len(self.inference_times) == 1, (
@@ -254,11 +264,18 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         data_root: ResolvedLocation,
         *,
         turn_on_dask: bool,
+        source_backend: "TrainingSourceBackend",
     ) -> CanonicalSource:
         resolved_data_location = data_root.resolve(self.data_location)
         resolved_means_location = data_root.resolve(self.data_means_location)
         resolved_stds_location = data_root.resolve(self.data_stds_location)
 
+        source_backend.validate_locations(
+            data_location=resolved_data_location,
+            means_location=resolved_means_location,
+            stds_location=resolved_stds_location,
+            source_type=self.type,
+        )
         chunks: dict[str, int] | None = {} if turn_on_dask else None
         data = resolved_data_location.open(chunks)
         means = resolved_means_location.open(chunks)
@@ -277,10 +294,21 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
             boundary_var_names=data_layout.boundary_var_names,
             name=f"{resolved_data_location}-{turn_on_dask}",
         )
+        if not turn_on_dask:
+            source = source_backend.prepare(
+                source,
+                data_location=resolved_data_location,
+                source_type=self.type,
+            )
         return source
 
 
 class BaseDataLoadingConfig(BaseConfig):
+    def build_source_backend(self) -> "TrainingSourceBackend":
+        from samudra.data_backend import PythonSourceBackend
+
+        return PythonSourceBackend()
+
     def num_pytorch_workers(self) -> int:
         raise NotImplementedError
 
@@ -314,10 +342,41 @@ class GpuDataLoadingConfig(BaseDataLoadingConfig):
         return False
 
 
+class RustDataLoadingConfig(BaseDataLoadingConfig):
+    """Configuration for the local Rust Zarr data loader."""
+
+    def build_source_backend(self) -> "TrainingSourceBackend":
+        from samudra.data_backend import RustOm4SourceBackend
+
+        return RustOm4SourceBackend(self.max_concurrent_reads)
+
+    type: Literal["rust"] = "rust"
+    prefetch_batches: int = Field(default=2, ge=1)
+    max_concurrent_reads: int = Field(
+        default=32,
+        ge=1,
+        description="Shared native Zarr read concurrency limit for this process/rank.",
+    )
+    prefetch_to_device: bool = True
+
+    def num_pytorch_workers(self) -> int:
+        return 0
+
+    def persistent_pytorch_workers(self) -> bool:
+        return False
+
+
 DataLoadingConfig = Annotated[
-    CpuDataLoadingConfig | GpuDataLoadingConfig,
+    CpuDataLoadingConfig | GpuDataLoadingConfig | RustDataLoadingConfig,
     Field(discriminator="type"),
 ]
+
+
+class InferenceDataLoadingConfig(BaseConfig):
+    """PyTorch worker policy for inference, independent of training I/O."""
+
+    num_workers: int = Field(default=4, ge=0)
+    persistent_workers: bool = True
 
 
 class Om4DataSourceConfig(BaseDataSourceConfig[Om4TimeConfig]):
@@ -446,6 +505,9 @@ class DataConfig(BaseConfig):
         min_length=1,
     )
     loading: DataLoadingConfig = Field(default_factory=CpuDataLoadingConfig)
+    inference_loading: InferenceDataLoadingConfig = Field(
+        default_factory=InferenceDataLoadingConfig
+    )
     hist: int | None = Field(
         default=None,
         ge=0,
@@ -497,11 +559,13 @@ class DataConfig(BaseConfig):
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
 
+        source_backend = self.loading.build_source_backend()
         source_splits = [
             source_cfg.build(
                 data_root,
                 use_dask=use_dask,
                 is_primary=index == 0,
+                source_backend=source_backend,
             )
             for index, source_cfg in enumerate(self.sources)
         ]

@@ -1493,3 +1493,20 @@ Training remains finite; no new intervention. All-attempt allocation, including
 37 seconds for the requested historical-D diagnostic, is **38.1928 GPU-hours**.
 The frozen 4k comparison is unchanged. Continue to the approved 6k/8k milestones;
 a smaller one-interval gain alone does not establish a plateau.
+
+## Conditional 16k extension authorized — 24 September, 18:15 ET
+
+User authorized continuing the same observation-only run to **16,000 joint
+updates if it has not plateaued at 8,000**. Preserve the immutable 4k/6k/8k
+milestones and their existing selections/evaluations. No new seed or transfer arm.
+Review the 6k–8k validation trend before extending; use the same integrated-plus-
+spectral objective. The morning report remains a snapshot even if 16k is still
+running. The 100 allocated GPU-hour ceiling remains in force.
+
+The pinned pilot enforces exact manifests and completed-phase markers. Therefore
+an extension must use an explicitly audited continuation directory, copying the
+terminal 8k model/optimizer/RNG checkpoint and selected-best state, with only the
+output/name, joint cap and additional milestone list changed. Original 8k outputs
+must remain intact. Reconstruction must be reused, not repeated; warm-up/sample
+ordering and optimizer state must continue at step 8,000. Verify that contract
+before submitting any extension. No running job or training producer changed.

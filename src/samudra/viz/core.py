@@ -34,11 +34,7 @@ from tqdm.auto import tqdm
 
 from samudra.constants import DataLayout, GridType, build_om4_layout, is_rectilinear
 from samudra.metrics.run import score_rollouts
-from samudra.utils.data import (
-    spherical_area,
-    spherical_area_weights,
-    with_level_index_vars,
-)
+from samudra.utils.data import spherical_area, with_level_index_vars
 from samudra.utils.location import ResolvedLocation
 from samudra.viz import observations as obs_figures
 from samudra.viz.norms import percentile_norm, symmetric_percentile_norm
@@ -93,7 +89,6 @@ class Viz:
         groundtruth_rollout = preserve_2d_coords(groundtruth_rollout)
 
         groundtruth_rollout = self._with_cell_areas(groundtruth_rollout)
-
 
         # This function processes the ds_groundtruth and predictions for plotting
         # The predictions are loaded into pred_dict
@@ -206,53 +201,50 @@ class Viz:
         )
 
     def _with_cell_areas(self, data: xr.Dataset) -> xr.Dataset:
-        """Attach the two area fields the reductions downstream expect.
+        """Keep physical cell areas (m²) separate from normalized mean weights.
 
-        `areacello` is the *weighting* field (normalized to sum to one) and
-        `areacello_spherical` is the physical cell area in m^2. On a rectilinear
-        grid both follow analytically from the 1-D axes. On a curvilinear grid
-        they do not: once the grid folds, `cos(lat)` stops being proportional to
-        cell area and `np.diff(lat).mean()` stops describing the spacing, so we
-        use the source's own `areacello` and refuse to invent one.
+        Source areas take precedence on every grid, including Gaussian grids
+        whose latitude spacing is nonuniform. Only rectilinear legacy stores
+        without areas use the spherical approximation. Curvilinear grids must
+        supply their own areas.
         """
-        if is_rectilinear(self.data_layout.grid_type):
-            data = data.assign(areacello=(["lat", "lon"], spherical_area_weights(data)))
-            data["areacello_spherical"] = (["lat", "lon"], spherical_area(data))
-            return data
-
-        if "areacello" not in data.variables:
+        if "areacello" in data.variables:
+            source = data["areacello"]
+            if set(source.dims) != {"lat", "lon"}:
+                raise ValueError(
+                    f"Source 'areacello' has dimensions {source.dims}, expected "
+                    "('lat', 'lon') to match the horizontal grid."
+                )
+            area = np.asarray(source.transpose("lat", "lon").values, dtype=np.float64)
+        elif is_rectilinear(self.data_layout.grid_type):
+            area = np.asarray(spherical_area(data), dtype=np.float64)
+        else:
             raise ValueError(
                 "Cannot build cell areas for "
                 f"grid_type={self.data_layout.grid_type!r}: the source carries no "
-                "'areacello'. The rectilinear helpers (spherical_area_weights / "
-                "spherical_area) assume separable, uniformly spaced 1-D lat/lon "
-                "and are invalid on a curvilinear grid, so there is nothing safe "
-                "to fall back to. Preserve 'areacello' through preprocessing."
+                "'areacello'. Spherical areas assume separable, uniformly spaced "
+                "1-D lat/lon and are invalid on a curvilinear grid. "
+                "Preserve 'areacello' through preprocessing."
             )
 
-        area = np.asarray(data["areacello"].values, dtype=np.float64)
-        expected = (data.sizes["lat"], data.sizes["lon"])
-        if area.shape != expected:
-            raise ValueError(
-                f"Source 'areacello' has shape {area.shape}, expected {expected} "
-                "to match the horizontal grid. Cell areas must be given on the "
-                "same grid as the data."
-            )
         if not np.isfinite(area).any() or np.nansum(area) <= 0:
             raise ValueError(
                 "Source 'areacello' has no positive finite values, so it cannot "
                 "be used to weight reductions."
             )
+        if np.isinf(area).any() or np.any(area < 0):
+            raise ValueError("Source 'areacello' contains infinite or negative areas.")
 
         weights = np.where(np.isfinite(area), area, 0.0)
         weights = weights / weights.sum()
 
-        # Drop first: `areacello` arrives as a coordinate on OM4 sources, and we
-        # need both fields as data variables for the reductions downstream.
-        data = data.drop_vars(["areacello", "areacello_spherical"], errors="ignore")
+        # Source areas may be coordinates; expose both fields as data variables.
+        data = data.drop_vars(["areacello", "areacello_weights"], errors="ignore")
         return data.assign(
-            areacello=(["lat", "lon"], weights),
-            areacello_spherical=(["lat", "lon"], area),
+            areacello=xr.DataArray(area, dims=("lat", "lon"), attrs={"units": "m2"}),
+            areacello_weights=xr.DataArray(
+                weights, dims=("lat", "lon"), attrs={"units": "1"}
+            ),
         )
 
     def _map_coords(self, data) -> tuple:
@@ -704,7 +696,7 @@ class Viz:
 
         thetao = (
             self.data["thetao"]
-            .weighted(self.data["areacello"] * self.data["dz"])
+            .weighted(self.data["areacello_weights"] * self.data["dz"])
             .mean(["x", "y", "lev"])
         )
         thetao = thetao.rename(r"$\theta_O$")
@@ -713,7 +705,7 @@ class Viz:
         for i, k in enumerate(self.pred_dict.keys()):
             thetao_pred = (
                 self.pred_dict[k]["ds_prediction"][var]
-                .weighted(self.data["areacello"] * self.data["dz"])
+                .weighted(self.data["areacello_weights"] * self.data["dz"])
                 .mean(["x", "y", "lev"])
             )
             thetao_pred.plot(ax=ax, label=self.pred_dict[k]["name"], c=self.clist[i])
@@ -750,7 +742,7 @@ class Viz:
 
         salinity = (
             self.data["so"]
-            .weighted(self.data["areacello"] * self.data["dz"])
+            .weighted(self.data["areacello_weights"] * self.data["dz"])
             .mean(["x", "y", "lev"])
         )
         salinity = salinity.rename("S")
@@ -759,7 +751,7 @@ class Viz:
         for i, k in enumerate(self.pred_dict.keys()):
             salinity_pred = (
                 self.pred_dict[k]["ds_prediction"][var]
-                .weighted(self.data["areacello"] * self.data["dz"])
+                .weighted(self.data["areacello_weights"] * self.data["dz"])
                 .mean(["x", "y", "lev"])
             )
             salinity_pred.plot(ax=ax, label=self.pred_dict[k]["name"], c=self.clist[i])
@@ -788,7 +780,7 @@ class Viz:
         )
 
     def step_ohc_noanomaly_plots(self):
-        # Heat integrals need cell areas in m². Normalized `areacello` weights
+        # Heat integrals need cell areas in m². Normalized `areacello_weights` weights
         # are for means and would discard the physical volume scale here.
         c_p = 3850  # J/(kg C)
         rho_0 = 1025  # kg/m^3
@@ -802,7 +794,7 @@ class Viz:
 
         OHC = (
             (self.data["thetao"] * c_p * rho_0)
-            * self.data["areacello_spherical"]
+            * self.data["areacello"]
             * self.data["dz"]
         ).sum(["x", "y", "lev"]) / 1e21
         OHC = OHC - OHC.isel(time=0)
@@ -812,7 +804,7 @@ class Viz:
         for i, k in enumerate(self.pred_dict.keys()):
             OHC_pred = (
                 (self.pred_dict[k]["ds_prediction"]["thetao"] * c_p * rho_0)
-                * self.pred_dict[k]["ds_prediction"]["areacello_spherical"]
+                * self.pred_dict[k]["ds_prediction"]["areacello"]
                 * self.pred_dict[k]["ds_prediction"]["dz"]
             ).sum(["x", "y", "lev"]) / 1e21
             OHC_pred = OHC_pred - OHC_pred.isel(time=0)
@@ -867,8 +859,8 @@ class Viz:
         c_p = 3850  # J/(kg C)
         rho_0 = 1025  # kg/m^3
 
-        # Use real areacello for physical calculations
-        areacello = data["areacello_spherical"]
+        # Use physical cell areas for heat integrals.
+        areacello = data["areacello"]
 
         OHC = ((data["thetao"] * c_p * rho_0) * areacello * data["dz"]).sum(
             ["x", "y", "lev"]
@@ -949,7 +941,7 @@ class Viz:
         # Upper - GT
         OHC_truth_upper = (
             (self.data["thetao"].sel(lev=slice(0, 700)) * c_p * rho_0)
-            * self.data["areacello_spherical"]
+            * self.data["areacello"]
             * self.data["dz"]
         ).sum(["x", "y", "lev"]) / 1e21
 
@@ -984,7 +976,7 @@ class Viz:
                     * c_p
                     * rho_0
                 )
-                * self.pred_dict[k]["ds_prediction"]["areacello_spherical"]
+                * self.pred_dict[k]["ds_prediction"]["areacello"]
                 * self.pred_dict[k]["ds_prediction"]["dz"]
             ).sum(["x", "y", "lev"]) / 1e21
 
@@ -1039,7 +1031,7 @@ class Viz:
         # Middle - GT
         OHC_truth_mid = (
             (self.data["thetao"].sel(lev=slice(700, 2000)) * c_p * rho_0)
-            * self.data["areacello_spherical"]
+            * self.data["areacello"]
             * self.data["dz"]
         ).sum(["x", "y", "lev"]) / 1e21
 
@@ -1074,7 +1066,7 @@ class Viz:
                     * c_p
                     * rho_0
                 )
-                * self.pred_dict[k]["ds_prediction"]["areacello_spherical"]
+                * self.pred_dict[k]["ds_prediction"]["areacello"]
                 * self.pred_dict[k]["ds_prediction"]["dz"]
             ).sum(["x", "y", "lev"]) / 1e21
 
@@ -1127,7 +1119,7 @@ class Viz:
         # Deep - GT
         OHC_truth_deep = (
             (self.data["thetao"].sel(lev=slice(2000, None)) * c_p * rho_0)
-            * self.data["areacello_spherical"]
+            * self.data["areacello"]
             * self.data["dz"]
         ).sum(["x", "y", "lev"]) / 1e21
 
@@ -1162,7 +1154,7 @@ class Viz:
                     * c_p
                     * rho_0
                 )
-                * self.pred_dict[k]["ds_prediction"]["areacello_spherical"]
+                * self.pred_dict[k]["ds_prediction"]["areacello"]
                 * self.pred_dict[k]["ds_prediction"]["dz"]
             ).sum(["x", "y", "lev"]) / 1e21
 
@@ -1316,7 +1308,7 @@ class Viz:
             var = str(var)
             OHC = (
                 (self.data["thetao"] * c_p * rho_0 * self.basin_masks[var])
-                * self.data["areacello_spherical"]
+                * self.data["areacello"]
                 * self.data["dz"]
             ).sum(["x", "y", "lev"]) / 1e21
 
@@ -1345,7 +1337,7 @@ class Viz:
                         * rho_0
                         * self.basin_masks[var]
                     )
-                    * self.pred_dict[k]["ds_prediction"]["areacello_spherical"]
+                    * self.pred_dict[k]["ds_prediction"]["areacello"]
                     * self.pred_dict[k]["ds_prediction"]["dz"]
                 ).sum(["x", "y", "lev"]) / 1e21
 
@@ -1452,7 +1444,7 @@ class Viz:
                     * rho_0
                     * self.basin_masks[var]
                 )
-                * self.data["areacello_spherical"]
+                * self.data["areacello"]
                 * self.data["dz"]
             ).sum(["x", "y", "lev"]) / 1e21
 
@@ -1479,7 +1471,7 @@ class Viz:
                         * rho_0
                         * self.basin_masks[var]
                     )
-                    * self.pred_dict[k]["ds_prediction"]["areacello_spherical"]
+                    * self.pred_dict[k]["ds_prediction"]["areacello"]
                     * self.pred_dict[k]["ds_prediction"]["dz"]
                 ).sum(["x", "y", "lev"]) / 1e21
 
@@ -1733,7 +1725,7 @@ class Viz:
 
         salinity = (
             self.data["so"]
-            .weighted(self.data["areacello"] * self.data["dz"])
+            .weighted(self.data["areacello_weights"] * self.data["dz"])
             .mean(["x", "y", "lev"])
         )
 
@@ -1746,7 +1738,7 @@ class Viz:
                 salinity_pred = (
                     self.pred_dict[k]["ds_prediction"]["so"]
                     .weighted(
-                        self.pred_dict[k]["ds_prediction"]["areacello"]
+                        self.pred_dict[k]["ds_prediction"]["areacello_weights"]
                         * self.pred_dict[k]["ds_prediction"]["dz"]
                     )
                     .mean(["x", "y", "lev"])
@@ -1813,14 +1805,18 @@ class Viz:
         )
         da_temp = self.data["thetao"]  # Directly use temperature variable
         section_mask = isnan(da_temp).all("x").isel(time=0)
-        da_temp_int_x = da_temp.weighted(self.data["areacello"]).mean(["x", "time"])
+        da_temp_int_x = da_temp.weighted(self.data["areacello_weights"]).mean(
+            ["x", "time"]
+        )
         temp_pred = da_temp_int_x.where(~section_mask)
         GT_temp_pred = temp_pred
 
         for j, (model_key, model_data) in enumerate(self.pred_dict.items(), start=1):
             da_temp = model_data["ds_prediction"]["thetao"]  # Use temperature variable
             section_mask = isnan(da_temp).all("x").isel(time=0)
-            da_temp_int_x = da_temp.weighted(self.data["areacello"]).mean(["x", "time"])
+            da_temp_int_x = da_temp.weighted(self.data["areacello_weights"]).mean(
+                ["x", "time"]
+            )
             temp_pred = da_temp_int_x.where(~section_mask)
             self.pred_dict[model_key]["temp_profile"] = temp_pred
 
@@ -1981,7 +1977,7 @@ class Viz:
             return T_clim[window:]
 
         nino_true_compute_clim = NinoIndexComputeClim(
-            data_surface["thetao"][:, 0], self.data["areacello"]
+            data_surface["thetao"][:, 0], self.data["areacello_weights"]
         )
         nino_true_compute_clim = nino_true_compute_clim.rename("Nino 3.4")
         nino_true_compute_clim = nino_true_compute_clim.assign_attrs(
@@ -1991,7 +1987,7 @@ class Viz:
         for k in self.pred_dict.keys():
             self.pred_dict[k]["nino_pred_compute_clim"] = NinoIndexComputeClim(
                 self.pred_dict[k]["ds_prediction_surface"]["thetao"][:, 0],
-                self.pred_dict[k]["ds_prediction"]["areacello"],
+                self.pred_dict[k]["ds_prediction"]["areacello_weights"],
             )
             self.pred_dict[k]["nino_pred_compute_clim"] = self.pred_dict[k][
                 "nino_pred_compute_clim"
@@ -2434,7 +2430,7 @@ class Viz:
             section_mask = isnan(ds["thetao"]).all("lev").isel(time=5)
             OHC_pred = (
                 (ds["thetao"][Days_to_Eq:] * c_p * rho_0 / zeta_joules_factor)
-                .weighted(ds["areacello_spherical"] * ds["dz"])
+                .weighted(ds["areacello"] * ds["dz"])
                 .sum(["lev"])
                 .compute()
             )
@@ -2545,7 +2541,7 @@ class Viz:
             section_mask = isnan(ds["thetao"]).all("lev")
             OHC_pred = (
                 (ds["thetao"][Days_to_Eq:] * c_p * rho_0 / zeta_joules_factor)
-                .weighted(ds["areacello_spherical"] * ds["dz"])
+                .weighted(ds["areacello"] * ds["dz"])
                 .sum(["lev"])
                 .compute()
             )
@@ -3753,7 +3749,7 @@ class Viz:
             if var == "OHC":
                 ohc_gt = (
                     (self.data["thetao"] * c_p * rho_0 / zeta_joules_factor)
-                    .weighted(self.data["areacello_spherical"] * self.data["dz"])
+                    .weighted(self.data["areacello"] * self.data["dz"])
                     .sum(["lev"])
                     .compute()
                 )
@@ -3766,7 +3762,7 @@ class Viz:
                         * rho_0
                         / zeta_joules_factor
                     )
-                    .weighted(self.data["areacello_spherical"] * self.data["dz"])
+                    .weighted(self.data["areacello"] * self.data["dz"])
                     .sum(["lev"])
                     .compute()
                 )
@@ -3779,7 +3775,7 @@ class Viz:
                         * rho_0
                         / zeta_joules_factor
                     )
-                    .weighted(self.data["areacello_spherical"] * self.data["dz"])
+                    .weighted(self.data["areacello"] * self.data["dz"])
                     .sum(["lev"])
                     .compute()
                 )
@@ -4010,8 +4006,8 @@ def combine_variables_by_level(
 
 def _postprocess_for_plot(
     ds,
+    areacello_weights: np.ndarray,
     areacello: np.ndarray,
-    areacello_spherical: np.ndarray,
     dz,
     times,
     wetmask,
@@ -4047,29 +4043,29 @@ def _postprocess_for_plot(
         else:
             ds[var] = ds[var].where(wetmask.isel(lev=0))
 
-    ds["areacello"] = (["lat", "lon"], areacello)
-    ds["areacello_spherical"] = (["lat", "lon"], areacello_spherical)
+    ds["areacello_weights"] = (["lat", "lon"], areacello_weights, {"units": "1"})
+    ds["areacello"] = (["lat", "lon"], areacello, {"units": "m2"})
     ds["dz"] = ("lev", dz)
     return ds
 
 
 def postprocess_for_plot(
-    ds_groundtruth, areacello: xr.DataArray, dz: np.ndarray, pred_dict
+    ds_groundtruth, areacello_weights: xr.DataArray, dz: np.ndarray, pred_dict
 ):
     """
     Postprocess for plotting.
 
     Parameters:
     ds_groundtruth (xarray.Dataset): The ground truth dataset.
-    areacello (xarray.DataArray): areacello dataarray.
+    areacello_weights (xarray.DataArray): areacello_weights dataarray.
     pred_dict (dict): Dictionary containing prediction datasets.
 
     Returns:
     xarray.Dataset, dict: Postprocessed ground truth and prediction datasets.
     """
-    areacello_values = areacello.values
+    areacello_weights_values = areacello_weights.values
     times = ds_groundtruth.time
-    areacello_spherical_values = ds_groundtruth["areacello_spherical"].values
+    areacello_values = ds_groundtruth["areacello"].values
 
     # Masking land with NaNs
     if "mask" in ds_groundtruth.data_vars:
@@ -4080,7 +4076,7 @@ def postprocess_for_plot(
         wetmask = ds_groundtruth.wetmask
 
     ds_groundtruth = _postprocess_for_plot(
-        ds_groundtruth, areacello_values, areacello_spherical_values, dz, times, wetmask
+        ds_groundtruth, areacello_weights_values, areacello_values, dz, times, wetmask
     )
 
     coords = ds_groundtruth.coords
@@ -4088,8 +4084,8 @@ def postprocess_for_plot(
     for key in pred_dict.keys():
         pred_dict[key]["ds_prediction"] = _postprocess_for_plot(
             pred_dict[key]["ds_prediction"],
+            areacello_weights_values,
             areacello_values,
-            areacello_spherical_values,
             dz,
             times,
             wetmask,
@@ -4144,7 +4140,7 @@ def process_data(
     ### Postprocess predictions for plotting
     ds_groundtruth, pred_dict = postprocess_for_plot(
         ds_groundtruth,
-        ds_groundtruth.areacello,
+        ds_groundtruth.areacello_weights,
         np.array(data_layout.depth_thickness),
         pred_dict,
     )
@@ -4253,38 +4249,38 @@ def profile_mean(ds: xr.Dataset) -> xr.Dataset:
     """
     Compute the mean of each variable for each time step.
     """
-    return ds.weighted(ds.areacello).mean(["y", "x"])
+    return ds.weighted(ds.areacello_weights).mean(["y", "x"])
 
 
 def get_basin_datasets(ds, basin_masks, data):
     da_temp = ds * basin_masks["Atlantic"]
     section_mask = isnan(da_temp).all("x")
-    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
+    da_temp_int_x = da_temp.weighted(data["areacello_weights"]).mean(["x"])
     At = da_temp_int_x.where(~section_mask)
 
     da_temp = ds * basin_masks["Indian"]
     section_mask = isnan(da_temp).all("x")
-    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
+    da_temp_int_x = da_temp.weighted(data["areacello_weights"]).mean(["x"])
     In = da_temp_int_x.where(~section_mask)
 
     da_temp = ds * basin_masks["Pacific"]
     section_mask = np.isnan(da_temp).all("x")
-    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
+    da_temp_int_x = da_temp.weighted(data["areacello_weights"]).mean(["x"])
     Pa = da_temp_int_x.where(~section_mask)
 
     da_temp = ds * basin_masks["Southern"]
     section_mask = isnan(da_temp).all("x")
-    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
+    da_temp_int_x = da_temp.weighted(data["areacello_weights"]).mean(["x"])
     So = da_temp_int_x.where(~section_mask)
 
     da_temp = ds * basin_masks["Arctic"]
     section_mask = isnan(da_temp).all("x")
-    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
+    da_temp_int_x = da_temp.weighted(data["areacello_weights"]).mean(["x"])
     Ar = da_temp_int_x.where(~section_mask)
 
     da_temp = ds
     section_mask = isnan(da_temp).all("x")
-    da_temp_int_x = da_temp.weighted(data["areacello"]).mean(["x"])
+    da_temp_int_x = da_temp.weighted(data["areacello_weights"]).mean(["x"])
     Gl = da_temp_int_x.where(~section_mask)
 
     return [At, In, Pa, So, Ar, Gl], [

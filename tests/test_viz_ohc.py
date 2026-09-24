@@ -52,7 +52,7 @@ def constructor_inputs():
     return truth, basins, areas
 
 
-def build_viz(truth, basins, tmp_path):
+def build_viz(truth, basins, tmp_path, grid_type="gaussian"):
     prediction = truth[["thetao"]].rename({"y": "lat", "x": "lon"})
     return core.Viz(
         str(tmp_path),
@@ -61,13 +61,15 @@ def build_viz(truth, basins, tmp_path):
         basins,
         truth,
         slice(None),
+        grid_type=grid_type,
     )
 
 
+@pytest.mark.parametrize("grid_type", ["gaussian", "tripolar"])
 @pytest.mark.parametrize("as_coordinate", [False, True])
 @pytest.mark.parametrize("transpose_area", [False, True])
 def test_constructor_preserves_source_areas(
-    constructor_inputs, tmp_path, monkeypatch, as_coordinate, transpose_area
+    constructor_inputs, tmp_path, monkeypatch, as_coordinate, transpose_area, grid_type
 ):
     truth, basins, areas = constructor_inputs
     if transpose_area:
@@ -80,11 +82,14 @@ def test_constructor_preserves_source_areas(
         pytest.fail("Source cell areas must not be replaced by an approximation")
 
     monkeypatch.setattr(core, "spherical_area", reject_approximation)
-    viz = build_viz(truth, basins, tmp_path)
+    viz = build_viz(truth, basins, tmp_path, grid_type)
     xr.testing.assert_identical(truth, original)
     for data in [viz.data, viz.pred_dict["model"]["ds_prediction"]]:
-        np.testing.assert_array_equal(data.areacello_spherical, areas)
-        assert float(data.areacello.sum()) == pytest.approx(1.0)
+        np.testing.assert_array_equal(data.areacello, areas)
+        assert float(data.areacello_weights.sum()) == pytest.approx(1.0)
+        assert data.areacello.attrs["units"] == "m2"
+        assert data.areacello_weights.attrs["units"] == "1"
+        assert "areacello_spherical" not in data
 
     monkeypatch.setattr(plt, "savefig", lambda *args, **kwargs: None)
     try:
@@ -113,9 +118,7 @@ def test_constructor_derives_areas_when_source_has_none(constructor_inputs, tmp_
     basins = basins.assign_coords(lat=truth.y.values)
     viz = build_viz(truth, basins, tmp_path)
     # Uniform latitude/longitude cells tile a complete sphere.
-    assert float(viz.data.areacello_spherical.sum()) == pytest.approx(
-        4 * np.pi * 6371000**2
-    )
+    assert float(viz.data.areacello.sum()) == pytest.approx(4 * np.pi * 6371000**2)
 
 
 @pytest.fixture(params=[1.0, 7.0], ids=["original-area", "seven-times-area"])
@@ -129,8 +132,8 @@ def ocean(request, tmp_path, monkeypatch):
     ds = xr.Dataset(
         {
             "thetao": (("time", "lev", "y", "x"), temperature),
-            "areacello": (("y", "x"), area / area.sum()),
-            "areacello_spherical": (("y", "x"), area),
+            "areacello_weights": (("y", "x"), area / area.sum()),
+            "areacello": (("y", "x"), area),
             "dz": ("lev", [200.0, 1000.0, 2000.0]),
         },
         coords={
@@ -185,6 +188,13 @@ def expected_heat(warming, area_scale, area_units=20, thickness=3200):
     # rho * cp * volume * delta_temperature gives joules; 10^21 J = 1 ZJ.
     volume = area_units * 1e10 * area_scale * thickness
     return warming * volume * 1025 * 3850 / 1e21
+
+
+def test_salt_integral_uses_physical_volume(ocean):
+    viz, _, scale = ocean
+    data = viz.data.assign(so=xr.where(viz.data.thetao.notnull(), 35.0, np.nan))
+    expected_grams = 35.0 * 1025 * (20 * 1e10 * scale) * 3200
+    np.testing.assert_allclose(viz.salinity_global(data), expected_grams)
 
 
 def test_reference_time_ohc_has_physical_magnitude(ocean):

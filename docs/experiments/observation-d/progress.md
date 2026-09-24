@@ -1552,3 +1552,15 @@ At 19:03, random is running at **5,588/8,000** joint updates; no new validation
 beyond 5k yet. Total allocated GPU-hours including all diagnostic jobs and retries
 is **38.9492**. The conditional 16k continuation utility has three passing tests
 and all repository hooks passing; it is not yet launched. Continue hourly checks.
+
+## Batch-statistics curves — 24 September, 19:40 ET
+
+Requested all-model retrospective rescoring completed: job **18469640**, 108
+allocated GPU-seconds, 12 retained checkpoints, unchanged producer and weights.
+Scratch per-sample validation improves from **0.5726404 at 4k** to **0.5645622
+at 5k**. All transfer checkpoints were also rescored; per-sample statistics
+worsen D, consistent with its frozen-statistics training. Published both the
+training-consistent comparison and common per-sample policy in
+[batch-stat-curves.md](batch-stat-curves.md); the main report displays the former.
+Earlier overwritten checkpoints are explicitly missing; no dense retrospective
+trajectory or replacement official selection is claimed. Add 6k/8k as available.

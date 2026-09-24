@@ -281,6 +281,25 @@ class _NativeOm4CanonicalReader:
         return tensor
 
 
+def _validate_native_encoding(variable: xr.DataArray, location: LocalLocation) -> None:
+    """Reject CF transforms that direct physical plane reads do not implement."""
+    # Xarray moves decoded CF metadata out of attrs and into encoding. Inspect
+    # metadata only: reading values here could load an entire ocean field.
+    encoding = variable.attrs | variable.encoding
+    unsupported = [name for name in ("scale_factor", "add_offset") if name in encoding]
+    for name in ("_FillValue", "missing_value"):
+        fill = encoding.get(name)
+        if fill is not None and not np.all(np.isnan(fill)):
+            unsupported.append(name)
+    if unsupported:
+        raise ValueError(
+            "loading.type='rust' does not support CF encoding "
+            f"{unsupported} on variable {variable.name!r} in {location.path}; "
+            "native reads require unscaled float32 values and NaN missing-value "
+            "sentinels. Use loading.type='cpu' to apply Xarray's CF decoding."
+        )
+
+
 def native_om4_source(
     dataset: CanonicalSource,
     location: LocalLocation,
@@ -317,6 +336,11 @@ def native_om4_source(
         raise ValueError(
             f"Could not map canonical OM4 channel {logical_name!r} in {location.path}"
         )
+
+    for physical_name in dict.fromkeys(
+        value.physical_name for value in reader_variables.values()
+    ):
+        _validate_native_encoding(physical[physical_name], location)
 
     extension = _load_extension()
     unique = list(dict.fromkeys(reader_variables.values()))
@@ -770,15 +794,19 @@ class _PreparedIterator(Iterator[ModelBatch]):
         self._host = host
 
     def __next__(self) -> ModelBatch:
-        loaded = next(self._host)
-        event: torch.cuda.Event | None = None
         try:
-            return self._loader._prepare_batch(loaded)
-        finally:
-            if self._loader._device.type == "cuda":
-                event = torch.cuda.Event()
-                event.record(torch.cuda.current_stream(self._loader._device))
-            self._loader._release_raw(loaded[1], event)
+            loaded = next(self._host)
+            try:
+                return self._loader._prepare_batch(loaded)
+            finally:
+                event: torch.cuda.Event | None = None
+                if self._loader._device.type == "cuda":
+                    event = torch.cuda.Event()
+                    event.record(torch.cuda.current_stream(self._loader._device))
+                self._loader._release_raw(loaded[1], event)
+        except BaseException:
+            self.close()
+            raise
 
     def close(self) -> None:
         self._host.close()
@@ -795,11 +823,15 @@ class _CudaPrefetchIterator(Iterator[ModelBatch]):
     ) -> None:
         self._loader = loader
         self._host = host
-        self._stream = torch.cuda.Stream(device=loader._device)
         self._next_data: ModelBatch | None = None
         self._next_event: torch.cuda.Event | None = None
         self._closed = False
-        self._preload()
+        try:
+            self._stream = torch.cuda.Stream(device=loader._device)
+            self._preload()
+        except BaseException:
+            self.close()
+            raise
 
     def _preload(self) -> None:
         try:
@@ -823,12 +855,16 @@ class _CudaPrefetchIterator(Iterator[ModelBatch]):
             self.close()
             raise StopIteration
 
-        current_stream = torch.cuda.current_stream(self._loader._device)
-        current_stream.wait_event(self._next_event)
-        data = self._next_data
-        data.record_stream(current_stream)
-        self._preload()
-        return data
+        try:
+            current_stream = torch.cuda.current_stream(self._loader._device)
+            current_stream.wait_event(self._next_event)
+            data = self._next_data
+            data.record_stream(current_stream)
+            self._preload()
+            return data
+        except BaseException:
+            self.close()
+            raise
 
     def close(self) -> None:
         if self._closed:

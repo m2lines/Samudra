@@ -133,7 +133,9 @@ largest free buffers, enough for one input/boundary/label group set. On a CPU pa
 there is no asynchronous H2D consumer, so pooled tensors return to the free list
 immediately after batch preparation.
 
-Iterator exhaustion, early close, and producer errors reclaim completed buffers.
+Iterator exhaustion, early close, and producer or preparation errors close the
+prefetch producer and reclaim completed buffers. Already queued CUDA transfers
+retain their event-protected buffer leases even when preparation fails.
 A load failure returns every tensor acquired for the partial batch immediately
 because no device transfer was queued.
 
@@ -148,6 +150,10 @@ physical array's scratch per concurrent time index.
   names and are passed directly to Rust.
 - **Compact OM4:** Python maps `thetao_4` to the explicit selector
   `("thetao", 4)`. Rust groups requested levels backed by the same physical array.
+- **Encoded values:** direct reads do not apply Xarray's CF decoding. Selected
+  physical arrays with `scale_factor`, `add_offset`, or non-NaN `_FillValue` /
+  `missing_value` sentinels are rejected before a native reader is opened. Use
+  `loading.type: cpu` for these stores. NaN fill values remain supported.
 - **Derived channels:** seasonal-climatology fields such as `hfds_anomalies` are
   unsupported. The current check runs after Python canonicalization; configurations
   that compute these fields can therefore do expensive work before failing.

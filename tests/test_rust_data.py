@@ -15,6 +15,7 @@ import xarray as xr
 
 pytest.importorskip("samudra_rust_loader")
 
+import samudra.rust_data as rust_data
 from samudra.config import (
     InferenceDataLoadingConfig,
     Om4DataSourceConfig,
@@ -302,6 +303,76 @@ def test_training_shard_overlapping_history_targets_and_last_window(flat_om4_sou
     assert dataset.shard.ctx.label_mask.shape == (1, 3, 4)
     with pytest.raises(IndexError, match="out of range"):
         dataset.shard.window_plan([12])
+
+
+@pytest.mark.parametrize("source_fixture", ["flat_om4_source", "compact_om4_source"])
+@pytest.mark.parametrize(
+    "encoding",
+    [
+        {"scale_factor": 0.5},
+        {"add_offset": 10.0},
+        {"_FillValue": -9999.0},
+        {"missing_value": -9999.0},
+        {"missing_value": [np.nan, -9999.0]},
+    ],
+)
+def test_native_source_rejects_cf_encoding_before_opening_reader(
+    source_fixture, encoding, request, tmp_path, monkeypatch
+):
+    source = request.getfixturevalue(source_fixture)
+    reader = source.reader
+    with xr.open_zarr(reader.path, mask_and_scale=False) as physical:
+        data = physical.load()
+    variable = "thetao" if "thetao" in data else "thetao_0"
+    encoded_path = tmp_path / "encoded.zarr"
+    # Write actual encoding metadata: Xarray moves these keys from attrs to
+    # encoding when the native adapter opens this physical store.
+    data[variable].encoding.clear()
+    data[variable].attrs.pop("_FillValue", None)
+    if "missing_value" in encoding:
+        data[variable].attrs.update(encoding)
+        data.to_zarr(encoded_path, consolidated=True)
+    else:
+        data.to_zarr(encoded_path, encoding={variable: encoding}, consolidated=True)
+    runtime = create_rust_io_runtime(1)
+
+    def no_native_open():
+        pytest.fail("Unsupported encoding reached native reader construction")
+
+    monkeypatch.setattr(rust_data, "_load_extension", no_native_open)
+    with pytest.raises(ValueError, match="does not support CF encoding") as error:
+        native_om4_source(
+            source.with_reader(reader.semantic),
+            LocalLocation(path=encoded_path),
+            runtime,
+        )
+    assert variable in str(error.value)
+    assert next(iter(encoding)) in str(error.value)
+    assert str(encoded_path) in str(error.value)
+    assert "loading.type='cpu'" in str(error.value)
+
+
+@pytest.mark.parametrize("source_fixture", ["flat_om4_source", "compact_om4_source"])
+def test_native_source_allows_nan_fill_values(source_fixture, request, tmp_path):
+    source = request.getfixturevalue(source_fixture)
+    reader = source.reader
+    with xr.open_zarr(reader.path, mask_and_scale=False) as physical:
+        data = physical.load()
+    variable = "thetao" if "thetao" in data else "thetao_0"
+    data[variable].encoding.clear()
+    data[variable].attrs.pop("_FillValue", None)
+    encoded_path = tmp_path / "allowed-fill.zarr"
+    data.to_zarr(
+        encoded_path, encoding={variable: {"_FillValue": np.nan}}, consolidated=True
+    )
+    native = native_om4_source(
+        source.with_reader(reader.semantic),
+        LocalLocation(path=encoded_path),
+        create_rust_io_runtime(1),
+    )
+    times = np.array([0, 4], dtype=np.int64)
+    actual = cast(Any, native.reader).read_unique(times, channels=("thetao_0",))
+    np.testing.assert_array_equal(actual.numpy(), source.read(times, ["thetao_0"]))
 
 
 def test_train_data_device_preparation_caches_static_tensors(flat_om4_source):
@@ -1118,3 +1189,106 @@ def test_rust_loader_reuses_pinned_buffers_after_cuda_event(
 
     assert len(loader._pinned_pool._free) <= 3
     assert len(set(pointers)) < len(pointers)
+
+
+@pytest.mark.parametrize(
+    "device_type,device_prefetch,fail_at",
+    [
+        ("cpu", False, 1),
+        pytest.param("cuda", False, 1, marks=pytest.mark.cuda),
+        pytest.param("cuda", True, 1, marks=pytest.mark.cuda),
+        pytest.param("cuda", True, 2, marks=pytest.mark.cuda),
+    ],
+)
+def test_preparation_failure_closes_retained_iterator_and_releases_buffers(
+    flat_om4_source, monkeypatch, device_type, device_prefetch, fail_at
+):
+    dataset = TorchTrainDataset(
+        input_source=flat_om4_source,
+        label_source=None,
+        prognostic_var_names=["thetao_0"],
+        boundary_var_names=["hfds"],
+        input_steps=1,
+        output_steps=1,
+        steps=1,
+        normalize_before_mask=True,
+        masked_fill_value=0.0,
+    )
+    loader = rust_train_loader(
+        [dataset],
+        [[0], [1], [2], [3]],
+        torch.device(device_type),
+        max_concurrent_reads=1,
+        prefetch_batches=2,
+        pin_memory=device_type == "cuda",
+        prefetch_to_device=device_prefetch,
+    )
+    # Retain host iterators and exceptions so destructors cannot make a missing
+    # explicit cleanup path pass this test, including failure during iter(loader).
+    hosts = []
+    original_host_init = rust_data._RustHostPrefetchIterator.__init__
+
+    def retain_host(host, *args):
+        original_host_init(host, *args)
+        hosts.append(host)
+
+    monkeypatch.setattr(rust_data._RustHostPrefetchIterator, "__init__", retain_host)
+    acquired: list[int] = []
+    released: list[int] = []
+    events: list[torch.cuda.Event | None] = []
+    if loader._pinned_pool is not None:
+        pool = loader._pinned_pool
+        original_acquire = pool.acquire
+        original_release = pool.release_tensors
+
+        def acquire(shape):
+            value = original_acquire(shape)
+            acquired.append(id(value))
+            return value
+
+        def release(tensors, event=None):
+            released.extend(id(value) for value in tensors)
+            events.append(event)
+            return original_release(tensors, event)
+
+        monkeypatch.setattr(pool, "acquire", acquire)
+        monkeypatch.setattr(pool, "release_tensors", release)
+
+    original_prepare = loader._prepare_batch
+    calls = 0
+
+    def fail_after_preparing(loaded):
+        nonlocal calls
+        calls += 1
+        result = original_prepare(loaded)
+        if calls == fail_at:
+            # Complete queued host reads explicitly; never depend on a sleep or
+            # I/O speed to leave completed buffers for close() to reclaim.
+            for future in list(hosts[0]._pending):
+                future.result()
+            raise ValueError("intentional batch preparation failure")
+        return result
+
+    monkeypatch.setattr(loader, "_prepare_batch", fail_after_preparing)
+    iterator = None
+    with pytest.raises(
+        ValueError, match="intentional batch preparation failure"
+    ) as error:
+        iterator = iter(loader)
+        next(iterator)
+    assert str(error.value) == "intentional batch preparation failure"
+    host = hosts[0]
+    assert host._closed
+    assert not host._pending
+    assert not any(thread.is_alive() for thread in host._executor._threads)
+    if iterator is not None:
+        with pytest.raises(StopIteration):
+            next(iterator)
+    if device_type == "cuda":
+        assert acquired
+        assert sorted(acquired) == sorted(released)
+        # Preparation queued GPU copies before failing, so current-batch buffers
+        # must be released behind an event, not immediately recycled.
+        assert sum(event is not None for event in events) == fail_at
+        torch.cuda.synchronize()
+    loader.close()

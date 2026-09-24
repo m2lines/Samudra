@@ -31,7 +31,8 @@ def digest(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def extract(root, data, bundle):
+def extract(root, data, bundle, methods=None):
+    methods = METHODS if methods is None else methods
     provenance = {
         "scope": "Saved day-30 five-day mean forecasts; no new inference or training",
         "cases": CASES,
@@ -48,10 +49,10 @@ def extract(root, data, bundle):
         arrays["mask"] = grid["mask"][0]
     predictions = []
     reference = None
-    for label, directory, filename in METHODS + [
+    for label, directory, filename in methods + [
         (
             "Training seasonal climatology",
-            "primary-evaluation",
+            methods[0][1],
             "seasonal-climatology.npz",
         )
     ]:
@@ -131,7 +132,13 @@ def plot(bundle, output):
     # Identical reference-valid support for every candidate; filled cells are hidden.
     valid = np.isfinite(arrays["reference"]) & domain
     all_fields = np.concatenate([arrays["reference"][None], arrays["prediction"]])
-    labels = ["Observations"] + [item[0] for item in METHODS]
+    labels = ["Observations"] + [
+        item["method"]
+        for item in provenance["sources"]
+        if item["method"] != "Training seasonal climatology"
+    ]
+    if len(labels) != len(all_fields):
+        raise ValueError("Map labels do not match the exported methods")
     output.mkdir(parents=True, exist_ok=True)
     render = []
     for case_index, case in enumerate(CASES):
@@ -279,13 +286,19 @@ def plot(bundle, output):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--extract", action="store_true")
+    parser.add_argument(
+        "--methods",
+        type=Path,
+        help="JSON list of [label, evaluation directory, export filename]",
+    )
     parser.add_argument("--root", type=Path)
     parser.add_argument("--data", type=Path)
     parser.add_argument("--bundle", type=Path, required=True)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     if args.extract:
-        extract(args.root, args.data, args.bundle)
+        methods = json.loads(args.methods.read_text()) if args.methods else None
+        extract(args.root, args.data, args.bundle, methods)
     else:
         plot(args.bundle, args.output)
 

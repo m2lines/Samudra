@@ -1387,3 +1387,49 @@ remain unchanged; obs75 has not trained previously. At 13:19 it is **pending
 Resources**, while the other three H200 arms continue. Preflight had estimated
 an immediate slot; that estimate did not guarantee a live allocation. No running
 H200 job was interrupted. The four-GPU maximum remains intact.
+
+## Concurrency authorization updated — 24 September, 13:56 ET
+
+The user explicitly lifted the four-GPU concurrency cap. Additional GPUs may be
+used for useful independent work within this same one-seed wave; the existing
+100 allocated GPU-hour ceiling and scientific protocol remain unchanged. All five
+observation arms have already launched (obs50 completed; obs75 verified training
+on RTX at reconstruction step 152 at 13:29). No new seeds or experiment arms
+are implied by this resource authorization.
+
+## Requested ETA and separate 4k evaluation — 24 September, 14:26 ET
+
+Obs25 and obs50 training and historical evaluations are complete. Latest joint
+steps: obs0 3,556/4,000; obs75 234/1,000; random 3,303/8,000. Random's
+net wall-clock progress is approximately 519 updates/hour over the last hour
+and 575/hour over the last two hours, including pauses. This implies roughly
+8.2–9.1 hours remaining for its full extension at the observed rate.
+
+Estimated main matched-budget comparison: 16:00–17:00 ET today. Estimated full
+scratch-extension/plateau report: 23:00–00:30 ET, subject to further scheduler
+preemption. To avoid delaying the main comparison, evaluate the immutable random
+4,000-update snapshot in a separate allocation as soon as it exists, using the
+same evaluator/producer and output directory that the original driver would
+produce after 8,000 updates. Its existing completion check will reuse the finished
+evaluation; this adds scheduling parallelism, not a new seed, checkpoint-selection
+rule, cohort or experiment arm. Extra allocation time remains charged to the
+100-GPU-hour ceiling.
+
+## Report preparation — 24 September, 14:39 ET
+
+User requested completion before the morning. Obs25 completed its full pathway;
+selected validation composite **0.5488323** at 3,000 observation joint updates,
+with the 96-origin held-out evaluation complete. Obs50 selected validation remains
+0.5560779. Current joint steps: obs0 3,695/4,000, obs75 417/1,000, random
+3,464/8,000. Random improved to **0.9208738** at 3,000, from 1.0023157 at
+2,000; this is not yet a plateau. Cumulative allocation, including all requeued
+attempts and earlier failures, is **33.8075 GPU-hours**.
+
+CPU reporting jobs **18447281 (obs25)** and **18447283 (obs50)** are running the
+existing anomaly/paired-year diagnostics on completed exports. They retain the
+original frozen validation reference, held-out cohort, and training producer
+79e8e6fde70e27317cfe89f308d0ab1212bcb6c4. Reporting script SHA-256 is
+7649143658163f20ef0ac22bd9cbebd342ded77f86ce923f15921bdaf188243b.
+The map exporter now accepts explicit method definitions and reads plot labels
+from the audited bundle, preserving the fixed January/July cases and native grid
+geometry for the new wave's models.

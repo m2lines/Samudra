@@ -8,7 +8,7 @@ import pytest
 import xarray as xr
 
 from samudra.config import LlcDataSourceConfig, Om4DataSourceConfig
-from samudra.constants import is_curvilinear
+from samudra.constants import is_rectilinear
 from samudra.utils.location import S3Location, UnresolvedLocation
 from samudra.viz.config import VizConfig
 
@@ -83,7 +83,7 @@ def test_llc_sources_are_llc():
     grid_type = cfg._grid_type(xr.Dataset())
 
     assert grid_type == "llc"
-    assert is_curvilinear(grid_type)
+    assert not is_rectilinear(grid_type)
 
 
 def test_grid_type_is_read_from_the_store_when_there_is_no_data_block():

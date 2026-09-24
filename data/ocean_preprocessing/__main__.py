@@ -240,10 +240,7 @@ class CLI:
 
         Args:
             ds: The processed dataset to write. Should already be chunked appropriately.
-            compress: Leave zarr's default compressor in place. The training
-                stores turn compression off so the loader can read them without
-                a decompression pass; the basin masks are small and are read by
-                hand, so they keep the compression the published masks use.
+            compress: Compress the resulting dataset.
 
         Note:
             Respects dry_run and small_run flags.
@@ -266,7 +263,7 @@ class CLI:
             consolidated=True,
             zarr_format=2,
             encoding=(
-                None
+                None  # by default zarr uses compression
                 if compress
                 else {var_name: {"compressor": None} for var_name in ds.data_vars}
             ),
@@ -561,8 +558,6 @@ class CLI:
             )
         )
 
-        # `compress=True` keeps zarr's default blosc/lz4, which is what the
-        # published masks use, so the two sets of masks stay byte-comparable.
         self._collect(masks, compress=True)
 
     def cm4(self):

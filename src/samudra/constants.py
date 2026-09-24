@@ -66,21 +66,15 @@ MAX_TRAIN_MODEL_STEPS_FORWARD = 200
 #     them. See https://gmd.copernicus.org/articles/16/7143/2023/ section 2.2.
 #
 # Downstream code depends on the rectilinear/curvilinear split rather than on which
-# curvilinear grid it is, so branch with `is_curvilinear` and not on the name.
+# curvilinear grid it is, so branch with `is_rectilinear` and not on the name.
 GridType = Literal["gaussian", "tripolar", "llc"]
 PrognosticVarNames = list[str]
 BoundaryVarNames = list[str]
 
 
-def is_curvilinear(grid_type: GridType) -> bool:
-    """Whether 2D lat/lon have to be carried rather than rebuilt from the axes.
-
-    Area weighting, map coordinates and mask alignment are each valid only on
-    the rectilinear grid, and that is the one thing they all test. Asking the
-    question this way means a new curvilinear grid added to `GridType` is
-    refused or handled, rather than quietly falling into the rectilinear path.
-    """
-    return grid_type != "gaussian"
+def is_rectilinear(grid_type: GridType) -> bool:
+    """Whether 2D lat/lon can be rebuilt from the 1D axes."""
+    return grid_type == "gaussian"
 
 
 @dataclasses.dataclass(frozen=True)

@@ -32,7 +32,7 @@ from dask.diagnostics.progress import ProgressBar
 from matplotlib.ticker import FixedLocator, MaxNLocator, ScalarFormatter
 from tqdm.auto import tqdm
 
-from samudra.constants import DataLayout, GridType, build_om4_layout, is_curvilinear
+from samudra.constants import DataLayout, GridType, build_om4_layout, is_rectilinear
 from samudra.metrics.run import score_rollouts
 from samudra.utils.data import (
     spherical_area,
@@ -69,7 +69,8 @@ class Viz:
         time_range: slice,
         observations: "ObsMetricsConfig | None" = None,
         data_root: ResolvedLocation | None = None,
-        grid_type: GridType = "gaussian",
+        *,
+        grid_type: GridType,
     ):
         pred_dict: dict[str, dict[str, Any]] = {}
         for run in runs:
@@ -148,10 +149,8 @@ class Viz:
 
         clist = ["#ff807a", "#1e8685", "#ffb579", "#63c8ab"]
 
-        # Basin masks are built on first use, not here: only the basin steps
-        # need them, and aligning them can fail on a grid whose published mask
-        # does not match. Constructing them eagerly made every other step --
-        # including a plain smoke test -- depend on that alignment succeeding.
+        # Basin masks are built on first use to avoid breaking when no correct mask
+        # is available and you're not doing basin-based analyses anyway.
         self._basins: xr.Dataset = basins
 
         # Compute profile means
@@ -193,14 +192,8 @@ class Viz:
         grid_type = self.data_layout.grid_type
 
         # Atlantic, Pacific and Indian used to be cut at 32S here, to keep them
-        # off the Southern Ocean. The masks already draw that line themselves:
-        # in `basin_masks_original.zarr` the Southern Ocean stops at 32.5S and
-        # the other three start at 32S, so the cut removed nothing. It is not
-        # harmless on every mask set, though. Masks built from OM4's own region
-        # codes put the boundary further south, and there the cut deleted 26207
-        # ocean cells that the Southern Ocean mask does not reach up to claim,
-        # dropping them out of every basin. Trust the mask set instead; the
-        # boundary is the data's to draw, not ours.
+        # off the Southern Ocean but OM4's region codes put the boundary further south
+        # so we just trust the data.
         return xr.Dataset(
             {
                 "Atlantic": process_mask(data, basins["basin_atlantic"], grid_type),
@@ -221,7 +214,7 @@ class Viz:
         cell area and `np.diff(lat).mean()` stops describing the spacing, so we
         use the source's own `areacello` and refuse to invent one.
         """
-        if not is_curvilinear(self.data_layout.grid_type):
+        if is_rectilinear(self.data_layout.grid_type):
             data = data.assign(areacello=(["lat", "lon"], spherical_area_weights(data)))
             data["areacello_spherical"] = (["lat", "lon"], spherical_area(data))
             return data
@@ -269,7 +262,7 @@ class Viz:
         the fold as if it were geography, so we use the preserved 2-D
         coordinates instead.
         """
-        if not is_curvilinear(self.data_layout.grid_type):
+        if is_rectilinear(self.data_layout.grid_type):
             return data["x"], data["y"]
         if "lon_2d" in data.coords and "lat_2d" in data.coords:
             return data["lon_2d"], data["lat_2d"]
@@ -288,7 +281,7 @@ class Viz:
         on a rectilinear grid and cell indices on a curvilinear one, so there
         we have to name the 2-D coordinates and say what they mean.
         """
-        if not is_curvilinear(self.data_layout.grid_type):
+        if is_rectilinear(self.data_layout.grid_type):
             return {}
         map_x, map_y = self._map_coords(data)
         return {
@@ -298,11 +291,8 @@ class Viz:
         }
 
     def _reject_on_curvilinear(self, step: str, reason: str) -> None:
-        """Refuse a step whose maths only holds on a rectilinear grid.
-
-        A clear error beats a plausible-looking wrong figure.
-        """
-        if is_curvilinear(self.data_layout.grid_type):
+        """Refuse a step whose maths only holds on a rectilinear grid."""
+        if not is_rectilinear(self.data_layout.grid_type):
             raise NotImplementedError(
                 f"Step {step!r} is not implemented for "
                 f"grid_type={self.data_layout.grid_type!r}: {reason} Run it on a "
@@ -4174,11 +4164,9 @@ def preserve_2d_coords(data: xr.Dataset) -> xr.Dataset:
     """Rename y/x to lat/lon, keeping any true 2-D geography as lat_2d/lon_2d.
 
     Viz works internally on axes named "lat"/"lon" that are really the y/x cell
-    indices. Renaming onto them used to drop the source's real 2-D "lat"/"lon"
-    to avoid the name collision, which is lossless only on a rectilinear grid,
-    where they can be rebuilt by broadcasting. On a curvilinear grid they are
-    the only record of where each cell is, so we move them aside first, the way
-    `with_lat_lon_coords()` and `ZarrWriter` already do.
+    indices.
+
+    TODO: we should just use y/x instead of the deceptive names.
     """
     if "y" not in data.coords:
         return data
@@ -4213,7 +4201,7 @@ def process_mask(data, mask, grid_type: GridType = "gaussian"):
             "grid. Generate a mask on this grid instead."
         )
 
-    if is_curvilinear(grid_type):
+    if not is_rectilinear(grid_type):
         _check_mask_coords_align(data, mask, grid_type)
 
     mask = mask.assign_coords(lat=data.y.values, lon=data.x.values)

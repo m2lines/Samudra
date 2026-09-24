@@ -273,7 +273,7 @@ def test_map_coords_are_2d_geographic_on_tripolar(
 def test_llc_takes_the_curvilinear_path_too(llc_viz, curvilinear_data):
     """Tripolar is not the only curvilinear grid `GridType` names.
 
-    Every branch asks `is_curvilinear`, so lat-lon-cap has to get the 2-D
+    Every branch asks `is_rectilinear`, so lat-lon-cap has to get the 2-D
     coordinates rather than the rectilinear default it would fall into if the
     branches tested for a specific grid by name.
     """

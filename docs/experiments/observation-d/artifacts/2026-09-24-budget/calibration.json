@@ -1,0 +1,47 @@
+{
+  "om4": {
+    "rate": 3e-05,
+    "trials": [
+      {
+        "rate": 3e-05,
+        "score": 0.0033703723456710577,
+        "run": "/scratch/jr7309/runs/2026-09-23-observation-budget-rtx-cache/om4-lr0"
+      },
+      {
+        "rate": 0.0001,
+        "score": 0.0034318631514906883,
+        "run": "/scratch/jr7309/runs/2026-09-23-observation-budget-rtx-cache/om4-lr1"
+      }
+    ]
+  },
+  "transfer": {
+    "rate": 3e-05,
+    "trials": [
+      {
+        "rate": 1e-05,
+        "score": 0.7140466323830246,
+        "run": "/scratch/jr7309/runs/2026-09-23-observation-budget-rtx-cache/transfer-lr0"
+      },
+      {
+        "rate": 3e-05,
+        "score": 0.6712186222879579,
+        "run": "/scratch/jr7309/runs/2026-09-23-observation-budget-rtx-cache/transfer-lr1"
+      }
+    ]
+  },
+  "scratch": {
+    "rate": 0.0001,
+    "trials": [
+      {
+        "rate": 3e-05,
+        "score": 2.021934295483038,
+        "run": "/scratch/jr7309/runs/2026-09-23-observation-budget-rtx-cache/scratch-lr0"
+      },
+      {
+        "rate": 0.0001,
+        "score": 1.5404643481641231,
+        "run": "/scratch/jr7309/runs/2026-09-23-observation-budget-rtx-cache/scratch-lr1"
+      }
+    ]
+  }
+}

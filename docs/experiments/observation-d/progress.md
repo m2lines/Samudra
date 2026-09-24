@@ -1174,3 +1174,36 @@ its step-150 validation score is 0.68665. Scratch calibration has not begun.
 GPU utilization averages 70.35% over the last hour and 66.24% over the allocation.
 Cumulative usage is 4.4939 GPU-hours. All production remains dependency-pending;
 no calibration-selection marker or production/evaluation completion exists.
+
+## Hourly check — 24 September, 00:07 ET
+
+Both transfer calibrations completed: joint-validation composites 0.7140466
+(LR 1e-5) and 0.6712186 (LR 3e-5). Scratch fitting qualification passed and
+scratch LR 3e-5 reached joint step 105/200 after its 1,000 reconstruction updates;
+step-100 validation composite is 2.13216. Scratch LR 1e-4 remains to be run, so
+there is still no final calibration marker and all production stays dependency-pending.
+Calibration elapsed 3:23:49, last-hour GPU utilization 70.74%; cumulative allocation
+including retries 5.5047 GPU-hours. No new failures.
+
+## Hourly check — 24 September, 01:07 ET
+
+Scratch LR 3e-5 finished its 200 joint updates with validation score 2.0219343.
+The final calibration trial, scratch LR 1e-4, finished reconstruction and reached
+joint step 32/200, with finite loss. Last-hour GPU utilization is 71.35%;
+cumulative allocated usage is 6.5128 GPU-hours. No production has started.
+Next check is shortened to verify the expected calibration-to-production handoff.
+
+## Calibration complete — 24 September, 01:28 ET
+
+Calibration 18386026 completed successfully (`COMPLETED`, exit 0:0) after
+16,629 seconds. Verified `calibration.json` selects OM4 LR 3e-5 (T/S validation
+MSE 0.00337037 versus 0.00343186 at 1e-4), transfer LR 3e-5 (observation
+composite 0.6712186 versus 0.7140466 at 1e-5), and scratch LR 1e-4 (1.5404643
+versus 2.0219343 at 3e-5). Observation choices use joint integrated-plus-spectral
+validation only. Calibration artifact is mirrored under
+`artifacts/2026-09-24-budget/calibration.json`.
+
+OM4, obs0 and random are now eligible but **pending `QOSGrpGRES`**, with no
+production logs or GPU allocations. The remaining three arms retain their
+dependencies. This is a scheduler capacity wait, not a training failure. Total
+allocated usage including recovery is **6.7269 GPU-hours**. Continue hourly sleeps.

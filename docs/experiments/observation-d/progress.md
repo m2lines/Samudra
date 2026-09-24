@@ -1138,3 +1138,19 @@ OM4 18386029, obs0 18386038, random 18386056, obs25 18386058, obs50 18386059,
 obs75 18386060. The final arm depends on both OM4 and obs0, retaining the
 four-GPU maximum. New root is `/scratch/jr7309/runs/2026-09-23-observation-budget-rtx-cache`.
 All six production jobs are gated by successful calibration, directly or transitively.
+
+## Cache throughput verified — 23 September, 21:05 ET
+
+Calibration 18386026 remains running on gr101. Both OM4 200-update trials and
+transfer fitting qualification completed under the new producer. Transfer LR 1e-5
+reconstruction reached step 122/1,000 with finite loss 0.01659. Recent ten-step
+throughput is **2.82 seconds/update**, versus approximately 6.2 seconds late in
+the uncached reconstruction. GPU utilization averages **55.85% over the latest
+40 telemetry samples** (roughly ten minutes), and 53.3% over the latest 20.
+This verifies a substantial loader improvement, but not immunity to utilization
+cancellation; continue checking through the two-hour boundary.
+
+All six production jobs remain dependency-pending; calibration has not selected
+rates yet. Accumulated allocated GPU time, including both canceled attempts and
+the current 1,305 seconds, is **2.4703 GPU-hours**. Routine monitoring returns to
+hourly sleeps within this conversation.

@@ -436,6 +436,10 @@ class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
     j_start: int = Field(default=0, ge=0)
     j_end: int = Field(default=720, gt=0)
 
+    @property
+    def grid_type(self) -> GridType:
+        return "llc"
+
     @pydantic.model_validator(mode="after")
     def validate_time_splits(self) -> Self:
         if self.train_time.overlaps(self.val_time):

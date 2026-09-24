@@ -1279,39 +1279,37 @@ class Trainer:
         checkpoint_path: Path,
         for_inference: bool = False,
     ):
-        if for_inference:
-            with self._ema_context():
-                model_state_dict = self.model.state_dict()
-        else:
-            model_state_dict = self.model.state_dict()
+        # Serialize before restoring raw weights: state_dict tensors alias the
+        # live model, and copying them would require another full model allocation.
+        context = self._ema_context() if for_inference else contextlib.nullcontext()
+        with context:
+            # Create temporary file in the same directory as the target
+            temp_dir = os.path.dirname(checkpoint_path)
+            with tempfile.NamedTemporaryFile(dir=temp_dir, delete=False) as tmp:
+                temporary_location = tmp.name
+                checkpoint = {
+                    "model": self.model.state_dict(),
+                    "optimizer": self.optimizer.state_dict(),
+                    "epoch": epoch,
+                    "best_val_loss": self.best_val_loss,
+                    "best_inf_loss": self.best_inf_loss,
+                    "ema": self._ema.get_state(include_ema_params=not for_inference),
+                    "num_batches_seen": self.num_batches_seen,
+                    "train_progress": self.train_progress.state_dict(),
+                    "wandb_id": self.wandb_id,
+                    "wandb_name": self.wandb_name,
+                }
+                loss_state: dict[str, Any] | None = None
+                if state_dict_fn := getattr(self.loss_fn, "state_dict", None):
+                    loss_state = state_dict_fn()
 
-        # Create temporary file in the same directory as the target
-        temp_dir = os.path.dirname(checkpoint_path)
-        with tempfile.NamedTemporaryFile(dir=temp_dir, delete=False) as tmp:
-            temporary_location = tmp.name
-            checkpoint = {
-                "model": model_state_dict,
-                "optimizer": self.optimizer.state_dict(),
-                "epoch": epoch,
-                "best_val_loss": self.best_val_loss,
-                "best_inf_loss": self.best_inf_loss,
-                "ema": self._ema.get_state(include_ema_params=not for_inference),
-                "num_batches_seen": self.num_batches_seen,
-                "train_progress": self.train_progress.state_dict(),
-                "wandb_id": self.wandb_id,
-                "wandb_name": self.wandb_name,
-            }
-            loss_state: dict[str, Any] | None = None
-            if state_dict_fn := getattr(self.loss_fn, "state_dict", None):
-                loss_state = state_dict_fn()
+                if loss_state is not None:
+                    checkpoint["loss_fn_state"] = loss_state
+                if self.scheduler:
+                    checkpoint["scheduler"] = self.scheduler.state_dict()
 
-            if loss_state is not None:
-                checkpoint["loss_fn_state"] = loss_state
-            if self.scheduler:
-                checkpoint["scheduler"] = self.scheduler.state_dict()
-
-            torch.save(checkpoint, temporary_location)
-            os.replace(temporary_location, checkpoint_path)
+                torch.save(checkpoint, temporary_location)
+                os.replace(temporary_location, checkpoint_path)
 
     def load_checkpoint(self, checkpoint_path, finetune=False):
         logger.info(f"Loading checkpoint from {checkpoint_path}")

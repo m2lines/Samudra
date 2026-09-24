@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: Stale PRs
+
+on:
+  schedule:
+    - cron: "0 0 * * *"
+  workflow_dispatch:
+
+permissions:
+  pull-requests: write
+
+concurrency:
+  group: stale-prs
+  cancel-in-progress: false
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mark and close inactive PRs
+        uses: actions/stale@eb5cf3af3ac0a1aa4c9c45633dd1ae542a27a899 # v10.3.0
+        with:
+          # Disable issue processing; this policy applies only to PRs.
+          days-before-issue-stale: -1
+          days-before-issue-close: -1
+          remove-issue-stale-when-updated: false
+
+          # Warn after 23 inactive days, then allow 7 more days before closing.
+          days-before-pr-stale: 23
+          days-before-pr-close: 7
+          stale-pr-label: stale
+          stale-pr-message: |
+            This pull request has been inactive for 23 days and is marked as stale.
+            It will be automatically closed if there is no further activity within 7 days.
+            Add a comment, update the PR, or mark it as a draft to keep it open.
+          close-pr-message: |
+            This pull request has been automatically closed due to inactivity.
+            Please reopen it if you would like to continue working on it.
+          remove-pr-stale-when-updated: true
+          exempt-draft-pr: true
+          exempt-pr-labels: pinned,security,work-in-progress,wip
+          delete-branch: false
+          operations-per-run: 300

@@ -1099,3 +1099,34 @@ for dependencies. Maximum concurrency remains four GPUs. Replacement wallcaps
 sum to 81 hours; adding the failed attempt gives 83.0497 GPU-hours worst case,
 leaving 16.9503 of the approved 100 for further recovery. Scratch usage is
 3.72/5.00 TB. Monitoring continues via sleep; the timer remains disabled.
+
+## Low-utilization diagnosis and cache recovery — 23 September, 20:42 ET
+
+User clarified that root cancellation around two hours often indicates GPU
+utilization below 50%; this operational guidance was added to the torch-train
+skill. The canceled attempt's 492 telemetry samples average **32.64% GPU
+utilization**, median 1%; 66.3% of samples are below 50%. This is consistent with
+the policy, although no administrator explanation was obtained. A short CPU-only
+benchmark on the allocated node measured 0.426–0.437 seconds per compressed sample
+read, about 3.4 seconds per effective batch of eight. The resumed joint training
+was finite but took about 8 seconds/update.
+
+Stopped the retry and its pending descendants to address the bottleneck. Retry
+18385561 consumed 209 GPU-seconds; cumulative allocation is now **2.1078 GPU-hours**.
+All original artifacts remain at the original root. The correction caches up to
+256 raw CPU samples, covering the 243 training and 9 validation months (20.50 GiB).
+Normalization, GPU transfers, sampling, objectives and scores retain their existing
+paths. Wave jobs request 64 GiB host RAM for cache/checkpoint headroom.
+
+Use a fresh successor root `2026-09-23-observation-budget-rtx-cache` with a new
+pinned producer and fresh calibration/qualification. Do not migrate old producer
+qualifications or checkpoints into new manifests. This conservatively repeats
+calibration from the same original D checkpoint, resolves the exact-producer resume
+contract without weakening it, and keeps the interrupted trials as charged recovery
+work. The new 81-hour request caps plus both attempts total at most **83.1078
+GPU-hours**, before any further recovery. No scientific protocol changes.
+
+Validation: 29 focused tests passed, including cached/uncached tensor and missing-value
+equality, normalization changes, fixed-budget milestones, submission contracts and
+the four-GPU dependency bound. Cluster cache throughput and utilization still need
+verification; a code change alone does not establish that the bottleneck is fixed.

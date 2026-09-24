@@ -26,6 +26,7 @@ def main():
     )
     parser.add_argument("--gpu-type", choices=["rtx6000", "h200"], default="rtx6000")
     args = parser.parse_args()
+    args.memory_gb = 64  # CPU observation cache plus model/checkpoint headroom.
     root = Path(args.root)
     root.mkdir(parents=True, exist_ok=True)
     jobs: dict[str, str] = {}

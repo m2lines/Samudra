@@ -4,7 +4,7 @@
 
 """Observation-only supervision and inference inputs for transferred D."""
 
-from functools import cached_property
+from functools import cached_property, lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -112,9 +112,20 @@ class Samples:
     def paths(self, split):
         return sorted((self.root / split).glob("*.npz"))
 
+    @cached_property
+    def read_sample(self):
+        # Cache only CPU source arrays: normalization and GPU transfer stay on
+        # the original path. 256 entries cover 243 training + 9 validation
+        # months (20.5 GiB); historical evaluation evicts training entries.
+        @lru_cache(maxsize=256)
+        def read(path):
+            with np.load(path) as saved:
+                return {k: saved[k] for k in saved.files}
+
+        return read
+
     def load(self, path):
-        with np.load(path) as saved:
-            sample = {k: saved[k] for k in saved.files}
+        sample = self.read_sample(Path(path))
         raw = sample["surface"]
         validity = np.isfinite(raw) & self.grid["mask"][[38, 76]]
         months = pd.DatetimeIndex(sample["midpoints"]).month.to_numpy() - 1

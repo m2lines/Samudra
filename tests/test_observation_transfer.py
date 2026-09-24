@@ -216,3 +216,50 @@ def test_scratch_batchnorm_updates_once_with_activation_checkpointing(monkeypatc
         assert name == other_name
         if value.grad is not None:
             torch.testing.assert_close(value.grad, other.grad)
+
+
+def test_cached_observation_load_preserves_missing_values_and_normalization(tmp_path):
+    from samudra.experiments.observation_training import Samples
+
+    data = Samples.__new__(Samples)
+    data.device = "cpu"
+    data.grid = {
+        "mask": np.ones((77, 2, 3), dtype=bool),
+        "mean": np.linspace(0, 1, 77, dtype=np.float32),
+        "std": np.linspace(1, 2, 77, dtype=np.float32),
+        "lat": np.array([-30, 30]),
+        "lon": np.array([0, 120, 240]),
+    }
+    data.grid["mask"][:, 0, 0] = False
+    data.stats = {
+        "surface_climatology": np.ones((12, 2, 2, 3), dtype=np.float32),
+        "atmosphere_mean": np.zeros(8, dtype=np.float32),
+        "atmosphere_std": np.ones(8, dtype=np.float32),
+    }
+    surface = np.arange(25 * 2 * 2 * 3, dtype=np.float32).reshape(25, 2, 2, 3)
+    surface[3, 0, 1, 1] = np.nan
+    path = tmp_path / "2001-01.npz"
+    np.savez_compressed(
+        path,
+        surface=surface,
+        atmosphere=np.ones((25, 8, 2, 3), dtype=np.float32),
+        midpoints=np.array(["2001-01-15T12:00:00"] * 25),
+        interior=np.ones((28, 2, 3), dtype=np.float32),
+        month_weights=np.full(6, 1 / 6, dtype=np.float32),
+    )
+    cold = data.load(path)
+    warm = data.load(path)
+    assert data.read_sample.cache_info().hits == 1
+    with np.load(path) as original:
+        for key in original.files:
+            np.testing.assert_array_equal(warm["raw"][key], original[key])
+    for key in cold:
+        if isinstance(cold[key], torch.Tensor):
+            torch.testing.assert_close(
+                cold[key], warm[key], rtol=0, atol=0, equal_nan=True
+            )
+    # Reusing raw data must still respect a changed normalization mode.
+    data.grid["mean"][38] += 2
+    changed = data.load(path)
+    assert not torch.equal(cold["surface"], changed["surface"])
+    np.testing.assert_array_equal(changed["raw"]["surface"], surface)

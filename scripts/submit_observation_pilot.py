@@ -100,7 +100,7 @@ def submit(args, name, module, module_args, hours, dependencies=()):
         "--nodes=1",
         "--ntasks-per-node=1",
         "--cpus-per-task=4",
-        "--mem=32G",
+        "--mem=" + str(getattr(args, "memory_gb", 32)) + "G",
         "--requeue",
         "--signal=B:USR1@300",
         "--chdir=/scratch/jr7309",

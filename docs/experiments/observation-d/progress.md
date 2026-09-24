@@ -1218,3 +1218,73 @@ current authenticated Slack profile; explicit destination confirmation was reque
 and remains pending. This is a resource
 wait, not an SSH or numerical failure. No rerouting or extra
 allocations submitted; continue hourly checks without duplicate blocker notices.
+
+## Production routing change — 24 September, 04:34 ET
+
+Repeated hourly checks showed no production start and unchanged 6.7269 GPU-hours.
+Live QoS inspection identifies the constraint: partition QoS `rtx6000_lzanna`
+caps the pool at eight GPUs, all occupied by two other four-GPU allocations.
+The shorter running allocation had more than eleven requested hours remaining;
+this is not a completion forecast. H200 preflight estimated a start around
+09:07 ET for both the two-hour prefix and 27-hour random request (not guaranteed).
+
+User already authorized either H200 or RTX, preferring RTX when accessible.
+Moved only the six verified, zero-elapsed pending production jobs to the existing
+H200 preemption route. Archived RTX DAG/submission/accounting records under
+`routing-h200-20260924T0834Z/`. The root retains its historical `rtx-cache` name,
+but **calibration ran on RTX; production now requests H200**. Report hardware
+separately when comparing actual GPU-hours; update matching remains unchanged.
+
+| Stage | H200 replacement | Dependencies |
+|---|---:|---|
+| OM4 prefix | 18409909 | calibration already completed |
+| obs0 | 18409910 | calibration already completed |
+| Random | 18409920 | calibration already completed |
+| obs25 | 18409921 | OM4 prefix |
+| obs50 | 18409922 | OM4 prefix |
+| obs75 | 18409924 | OM4 prefix and obs0 |
+
+Verified partition `h200`, account `torch_pr_347_general`, single GPU, 64 GiB
+RAM, requeue enabled and preemption comment. All are still pending. Producer
+remains `79e8e6fde70e27317cfe89f308d0ab1212bcb6c4`; no training command or
+scientific protocol changed. Completed calibration was proved by accounting
+`COMPLETED 0:0`; each observation production arm performs a fresh fitting
+qualification on its assigned hardware. Maximum concurrency remains four GPUs.
+Remaining production wallcaps sum to 71 GPU-hours, so current use plus full
+remaining caps is 77.7269 hours within the approved 100.
+
+Publishing this update was blocked by automatic approval review, which requested
+explicit authorization to push scheduler/job/quota/hardware/budget details to the
+repository. The user explicitly approved publishing these operational reports on 24 September;
+publication resumes on `codex/d-observation-pilot`.
+
+## H200 bring-up and automatic preemption — 24 September, 05:36 ET
+
+OM4 began at 04:54 ET; obs0 and random began at 05:04 ET. Both observation
+fitting probes passed on NVIDIA H200 with gradients reaching initializer, evolution
+and adapter. Finite reconstruction training reached obs0 step 250 and random
+step 284 before scheduler preemption at 05:35. Both have atomic reconstruction
+checkpoints saved at 05:33 and are requeued automatically. OM4 was preempted
+after 1,886 seconds, restarted at 05:34, and is warming its GPU data cache.
+These are explicit `PREEMPTED` events, not root-utilization cancellation.
+
+Use `sacct -D -X` from now on: ordinary accounting omits previous allocations
+of requeued job IDs. At this check the three preempted allocations consumed
+1,886 + 1,818 + 1,818 GPU-seconds, and resumed OM4 consumed 108 seconds.
+Total including all prior attempts is **8.2908 GPU-hours**. No more than three
+GPUs have run concurrently. Remaining observation arms are dependency-pending.
+H200 reconstruction is slower than RTX here (roughly 5–6 seconds/update); recent
+utilization was 43.7% for obs0 and 26.1% for random. Monitor resumed utilization
+and checkpoint progress; do not assume the RTX speedup transfers quantitatively.
+
+## OM4 complete; four observation jobs active — 24 September, 06:47 ET
+
+Verified OM4 prefix `TRAIN_COMPLETE.json`: step 3,000, finite T/S validation MSE
+0.0032690, producer `79e8e6fde70e27317cfe89f308d0ab1212bcb6c4`, final checkpoint
+SHA256 `5890f61019b581eee38d5545020e9a9c280acf0006e45d52586d817892c787f6`.
+OM4 completed after one preemption and successful resume. Obs0, random, obs25
+and obs50 are now running, exactly four GPUs; obs75 remains dependency-pending.
+Latest finite reconstruction steps are 894, 385, 380 and 97 respectively.
+Obs0 has resumed twice and random once. `sacct -D -X` total, including all
+preemptions and earlier cancellations, is **10.2608 GPU-hours**. No observation
+production training or evaluations are complete yet.

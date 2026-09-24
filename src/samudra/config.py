@@ -197,8 +197,11 @@ LOCATION_DOCS = (
 )
 
 
+type DataSourceType = Literal["om4", "llc"]
+
+
 class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
-    type: str
+    type: DataSourceType
     train_time: SourceTimeConfigT = Field(frozen=True)
     val_time: SourceTimeConfigT = Field(frozen=True)
     inference_times: tuple[SourceTimeConfigT, ...] = Field(default=(), frozen=True)
@@ -301,6 +304,11 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
 
 
 class BaseDataLoadingConfig(BaseConfig):
+    def build_source_backend(self) -> "TrainingSourceBackend":
+        from samudra.data_backend import PythonSourceBackend
+
+        return PythonSourceBackend()
+
     def num_pytorch_workers(self) -> int:
         raise NotImplementedError
 
@@ -336,6 +344,11 @@ class GpuDataLoadingConfig(BaseDataLoadingConfig):
 
 class RustDataLoadingConfig(BaseDataLoadingConfig):
     """Configuration for the local Rust Zarr data loader."""
+
+    def build_source_backend(self) -> "TrainingSourceBackend":
+        from samudra.data_backend import RustOm4SourceBackend
+
+        return RustOm4SourceBackend(self.max_concurrent_reads)
 
     type: Literal["rust"] = "rust"
     prefetch_batches: int = Field(default=2, ge=1)
@@ -546,9 +559,7 @@ class DataConfig(BaseConfig):
         loader_version = LoaderVersion(self.loader_version)
         use_dask = loader_version != LoaderVersion.OM4_TORCH
 
-        from samudra.data_backend import build_training_source_backend
-
-        source_backend = build_training_source_backend(self.loading)
+        source_backend = self.loading.build_source_backend()
         source_splits = [
             source_cfg.build(
                 data_root,

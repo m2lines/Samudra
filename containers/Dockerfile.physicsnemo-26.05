@@ -45,7 +45,7 @@ COPY LICENSE README.md pyproject.toml rust-toolchain.toml uv.lock ./
 COPY .cargo ./.cargo
 COPY src ./src
 COPY tests ./tests
-COPY rust/crab_load ./rust/crab_load
+COPY rust/loader ./rust/loader
 COPY scripts/container ./scripts/container
 COPY scripts/build_quickstart_notebook.py ./scripts/build_quickstart_notebook.py
 COPY notebooks/quickstart.ipynb ./notebooks/quickstart.ipynb
@@ -102,7 +102,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
         --no-install-package nvidia-nvshmem-cu13 \
         --no-install-package nvidia-nvtx \
         --no-install-package triton \
-    && rm -rf /root/.cargo /root/.rustup rust/crab_load/target
+    && rm -rf /root/.cargo /root/.rustup rust/loader/target
 
 # Catch missing test imports and notebook assets on PR builds, before publishing.
 RUN . .venv/bin/activate \

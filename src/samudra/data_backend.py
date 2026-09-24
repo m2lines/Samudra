@@ -6,7 +6,7 @@
 
 from typing import TYPE_CHECKING, Protocol
 
-from samudra.config import BaseDataLoadingConfig, RustDataLoadingConfig
+from samudra.config import DataSourceType
 from samudra.utils.data import CanonicalSource
 from samudra.utils.location import LocalLocation, ResolvedLocation
 
@@ -23,7 +23,7 @@ class TrainingSourceBackend(Protocol):
         data_location: ResolvedLocation,
         means_location: ResolvedLocation,
         stds_location: ResolvedLocation,
-        source_type: str,
+        source_type: DataSourceType,
     ) -> None: ...
 
     def prepare(
@@ -31,18 +31,18 @@ class TrainingSourceBackend(Protocol):
         source: CanonicalSource,
         *,
         data_location: ResolvedLocation,
-        source_type: str,
+        source_type: DataSourceType,
     ) -> CanonicalSource: ...
 
 
-class _PythonSourceBackend:
+class PythonSourceBackend:
     def validate_locations(
         self,
         *,
         data_location: ResolvedLocation,
         means_location: ResolvedLocation,
         stds_location: ResolvedLocation,
-        source_type: str,
+        source_type: DataSourceType,
     ) -> None:
         pass
 
@@ -51,12 +51,12 @@ class _PythonSourceBackend:
         source: CanonicalSource,
         *,
         data_location: ResolvedLocation,
-        source_type: str,
+        source_type: DataSourceType,
     ) -> CanonicalSource:
         return source
 
 
-class _RustOm4SourceBackend:
+class RustOm4SourceBackend:
     def __init__(self, max_concurrent_reads: int) -> None:
         self._max_concurrent_reads = max_concurrent_reads
         self._runtime: RustIoRuntime | None = None
@@ -67,7 +67,7 @@ class _RustOm4SourceBackend:
         data_location: ResolvedLocation,
         means_location: ResolvedLocation,
         stds_location: ResolvedLocation,
-        source_type: str,
+        source_type: DataSourceType,
     ) -> None:
         if source_type != "om4":
             raise ValueError(
@@ -91,9 +91,10 @@ class _RustOm4SourceBackend:
         source: CanonicalSource,
         *,
         data_location: ResolvedLocation,
-        source_type: str,
+        source_type: DataSourceType,
     ) -> CanonicalSource:
         assert source_type == "om4"
+        # Check for known computed vars to give a better error message.
         derived = [
             name
             for name in source.data_layout.boundary_var_names
@@ -112,11 +113,3 @@ class _RustOm4SourceBackend:
         if self._runtime is None:
             self._runtime = create_rust_io_runtime(self._max_concurrent_reads)
         return native_om4_source(source, data_location, self._runtime)
-
-
-def build_training_source_backend(
-    loading: BaseDataLoadingConfig,
-) -> TrainingSourceBackend:
-    if isinstance(loading, RustDataLoadingConfig):
-        return _RustOm4SourceBackend(loading.max_concurrent_reads)
-    return _PythonSourceBackend()

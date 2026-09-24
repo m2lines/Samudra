@@ -4,10 +4,10 @@
 
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use numpy::{PyArray4, PyArrayMethods, PyUntypedArrayMethods};
 use pyo3::{exceptions::PyRuntimeError, prelude::*};
-use rayon::{prelude::*, ThreadPool, ThreadPoolBuilder};
+use rayon::{ThreadPool, ThreadPoolBuilder, prelude::*};
 use zarrs::{
     array::{Array, DataType},
     array_subset::ArraySubset,
@@ -16,6 +16,10 @@ use zarrs::{
 };
 
 type OpenArray = Array<dyn ReadableWritableListableStorageTraits>;
+// Xarray's Zarr v2 encoding stores ordered dimension names in this attribute:
+// https://docs.xarray.dev/en/stable/internals/zarr-encoding-spec.html
+// Zarr v3 instead has a native dimension_names field:
+// https://zarr-specs.readthedocs.io/en/latest/v3/core/index.html#dimension-names
 const XARRAY_DIMENSIONS_ATTRIBUTE: &str = "_ARRAY_DIMENSIONS";
 
 fn python_error(error: anyhow::Error) -> PyErr {
@@ -113,14 +117,14 @@ fn validate_compact_om4_dimensions(
     Ok(axes.expect("axes was checked above"))
 }
 
-/// Shared bounded Rayon pool for every flat-OM4 reader in one training process.
+/// Shared bounded Rayon pool for local Zarr readers in one training process.
 #[pyclass]
-struct FlatOm4ReadPool {
+struct ZarrReadPool {
     thread_pool: Arc<ThreadPool>,
 }
 
 #[pymethods]
-impl FlatOm4ReadPool {
+impl ZarrReadPool {
     #[new]
     fn new(max_concurrent_reads: usize) -> PyResult<Self> {
         if max_concurrent_reads == 0 {
@@ -130,7 +134,7 @@ impl FlatOm4ReadPool {
         }
         let thread_pool = ThreadPoolBuilder::new()
             .num_threads(max_concurrent_reads)
-            .thread_name(|index| format!("samudra-zarr-{index}"))
+            .thread_name(|index| format!("samudra-rust-loader-{index}"))
             .build()
             .context("creating the shared Rust Zarr read pool")
             .map_err(python_error)?;
@@ -308,6 +312,63 @@ impl FlatOm4Reader {
         })?;
 
         Ok(())
+    }
+}
+
+// PyO3 exports every method in this block. Keep Rust-only helpers in the
+// adjacent impl above: they accept native buffers and return anyhow::Result.
+#[pymethods]
+impl FlatOm4Reader {
+    #[new]
+    fn new(
+        py: Python<'_>,
+        path: PathBuf,
+        variables: Vec<String>,
+        read_pool: PyRef<'_, ZarrReadPool>,
+    ) -> PyResult<Self> {
+        let thread_pool = read_pool.thread_pool.clone();
+        py.allow_threads(|| Self::open(path, variables, thread_pool))
+            .map_err(python_error)
+    }
+
+    /// Fill a writable C-contiguous float32 NumPy array without an intermediate copy.
+    fn read_into(
+        &self,
+        py: Python<'_>,
+        indexes: Vec<i64>,
+        variables: Vec<String>,
+        target: Bound<'_, PyArray4<f32>>,
+    ) -> PyResult<()> {
+        let mut target = target.try_readwrite().map_err(|error| {
+            python_error(anyhow::anyhow!(
+                "flat OM4 output could not be borrowed for writing: {error}"
+            ))
+        })?;
+        let expected_shape = [
+            indexes.len(),
+            variables.len(),
+            self.shape[1] as usize,
+            self.shape[2] as usize,
+        ];
+        if target.shape() != expected_shape {
+            return Err(python_error(anyhow::anyhow!(
+                "flat OM4 output has shape {:?}; expected {:?}",
+                target.shape(),
+                expected_shape
+            )));
+        }
+        let target = target
+            .as_slice_mut()
+            .context("flat OM4 output must be C-contiguous")
+            .map_err(python_error)?;
+        py.allow_threads(|| self.read_into_impl(&indexes, &variables, target))
+            .map_err(python_error)?;
+        Ok(())
+    }
+
+    #[getter]
+    fn shape(&self) -> (u64, u64, u64) {
+        (self.shape[0], self.shape[1], self.shape[2])
     }
 }
 
@@ -640,6 +701,7 @@ impl CompactOm4Reader {
     }
 }
 
+// Python bindings; Rust-only helpers above are intentionally not exported.
 #[pymethods]
 impl CompactOm4Reader {
     #[new]
@@ -647,7 +709,7 @@ impl CompactOm4Reader {
         py: Python<'_>,
         path: PathBuf,
         variable_selectors: Vec<(String, Option<u64>)>,
-        read_pool: PyRef<'_, FlatOm4ReadPool>,
+        read_pool: PyRef<'_, ZarrReadPool>,
     ) -> PyResult<Self> {
         let thread_pool = read_pool.thread_pool.clone();
         py.allow_threads(|| Self::open(path, variable_selectors, thread_pool))
@@ -695,64 +757,9 @@ impl CompactOm4Reader {
     }
 }
 
-#[pymethods]
-impl FlatOm4Reader {
-    #[new]
-    fn new(
-        py: Python<'_>,
-        path: PathBuf,
-        variables: Vec<String>,
-        read_pool: PyRef<'_, FlatOm4ReadPool>,
-    ) -> PyResult<Self> {
-        let thread_pool = read_pool.thread_pool.clone();
-        py.allow_threads(|| Self::open(path, variables, thread_pool))
-            .map_err(python_error)
-    }
-
-    /// Fill a writable C-contiguous float32 NumPy array without an intermediate copy.
-    fn read_into(
-        &self,
-        py: Python<'_>,
-        indexes: Vec<i64>,
-        variables: Vec<String>,
-        target: Bound<'_, PyArray4<f32>>,
-    ) -> PyResult<()> {
-        let mut target = target.try_readwrite().map_err(|error| {
-            python_error(anyhow::anyhow!(
-                "flat OM4 output could not be borrowed for writing: {error}"
-            ))
-        })?;
-        let expected_shape = [
-            indexes.len(),
-            variables.len(),
-            self.shape[1] as usize,
-            self.shape[2] as usize,
-        ];
-        if target.shape() != expected_shape {
-            return Err(python_error(anyhow::anyhow!(
-                "flat OM4 output has shape {:?}; expected {:?}",
-                target.shape(),
-                expected_shape
-            )));
-        }
-        let target = target
-            .as_slice_mut()
-            .context("flat OM4 output must be C-contiguous")
-            .map_err(python_error)?;
-        py.allow_threads(|| self.read_into_impl(&indexes, &variables, target))
-            .map_err(python_error)?;
-        Ok(())
-    }
-
-    #[getter]
-    fn shape(&self) -> (u64, u64, u64) {
-        (self.shape[0], self.shape[1], self.shape[2])
-    }
-}
-
 #[pymodule]
 fn samudra_rust_loader(module: &Bound<'_, PyModule>) -> PyResult<()> {
-    module.add_class::<FlatOm4ReadPool>()?;
+    module.add_class::<ZarrReadPool>()?;
     module.add_class::<FlatOm4Reader>()?;
     module.add_class::<CompactOm4Reader>()?;
     Ok(())
@@ -760,22 +767,66 @@ fn samudra_rust_loader(module: &Bound<'_, PyModule>) -> PyResult<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::validate_index;
+    use super::*;
+
+    #[test]
+    fn readers_reject_an_output_with_an_existing_write_borrow() {
+        pyo3::prepare_freethreaded_python();
+        Python::with_gil(|py| {
+            let target = PyArray4::<f32>::zeros(py, [1, 1, 3, 5], false);
+            // Holding the guard makes contention deterministic; no threads or
+            // assumptions about how long a filesystem read takes are needed.
+            let guard = target.readwrite();
+            let pool = Arc::new(ThreadPoolBuilder::new().num_threads(1).build().unwrap());
+            let flat = FlatOm4Reader {
+                path: PathBuf::new(),
+                arrays: HashMap::new(),
+                shape: [1, 3, 5],
+                thread_pool: pool.clone(),
+            };
+            let compact = CompactOm4Reader {
+                path: PathBuf::new(),
+                variables: HashMap::new(),
+                shape: [1, 3, 5],
+                thread_pool: pool,
+            };
+            let flat_error = flat
+                .read_into(py, vec![0], vec!["first".into()], target.clone())
+                .unwrap_err();
+            let compact_error = compact
+                .read_into(py, vec![0], vec![("first".into(), None)], target.clone())
+                .unwrap_err();
+            for error in [flat_error, compact_error] {
+                assert!(error.is_instance_of::<PyRuntimeError>(py));
+                assert!(
+                    error
+                        .to_string()
+                        .contains("could not be borrowed for writing")
+                );
+            }
+            drop(guard);
+            assert!(target.try_readwrite().is_ok());
+        });
+    }
 
     #[test]
     fn rejects_negative_indexes() {
-        assert!(validate_index(-1, 4)
-            .unwrap_err()
-            .to_string()
-            .contains("non-negative"));
+        assert!(
+            validate_index(-1, 4)
+                .unwrap_err()
+                .to_string()
+                .contains("non-negative")
+        );
     }
 
     #[test]
     fn rejects_indexes_past_the_end() {
-        assert!(validate_index(4, 4)
-            .unwrap_err()
-            .to_string()
-            .contains("out of bounds"));
+        assert!(
+            validate_index(4, 4)
+                .unwrap_err()
+                .to_string()
+                .contains("out of bounds")
+        );
     }
 
     #[test]

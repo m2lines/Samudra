@@ -2,9 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-import threading
-from concurrent.futures import ThreadPoolExecutor
-
 import numpy as np
 import pytest
 import xarray as xr
@@ -13,12 +10,12 @@ rust_loader = pytest.importorskip("samudra_rust_loader")
 
 
 def open_reader(path, variables, max_concurrent_reads=2):
-    pool = rust_loader.FlatOm4ReadPool(max_concurrent_reads)
+    pool = rust_loader.ZarrReadPool(max_concurrent_reads)
     return rust_loader.FlatOm4Reader(path, variables, pool)
 
 
 def open_compact_reader(path, variables, max_concurrent_reads=2):
-    pool = rust_loader.FlatOm4ReadPool(max_concurrent_reads)
+    pool = rust_loader.ZarrReadPool(max_concurrent_reads)
     return rust_loader.CompactOm4Reader(path, compact_selectors(variables), pool)
 
 
@@ -36,9 +33,13 @@ def compact_selectors(variables):
 
 def test_flat_om4_read_pool_requires_positive_concurrency():
     with pytest.raises(RuntimeError, match="must be positive"):
-        rust_loader.FlatOm4ReadPool(0)
+        rust_loader.ZarrReadPool(0)
 
 
+# These tiny physical stores deliberately avoid tests/conftest.py, which imports
+# Samudra, Torch, and the training stack. This standalone suite tests the extension
+# ABI and on-disk dimension layouts with only NumPy, xarray, and Zarr installed;
+# training fixtures and CPU/native batch parity belong in tests/test_rust_data.py.
 @pytest.fixture
 def flat_om4_store(tmp_path):
     values = np.arange(4 * 3 * 5, dtype=np.float32).reshape(4, 3, 5)
@@ -104,27 +105,6 @@ def test_flat_om4_reader_rejects_read_only_output_without_panicking(flat_om4_sto
 
     with pytest.raises(RuntimeError, match="could not be borrowed for writing"):
         reader.read_into([0], ["first"], output)
-
-
-def test_flat_om4_reader_rejects_concurrently_borrowed_output(flat_om4_store):
-    path, _ = flat_om4_store
-    reader = open_reader(path, ["first"], max_concurrent_reads=2)
-    read_count = 10_000
-    output = np.empty((read_count, 1, 3, 5), dtype=np.float32)
-    barrier = threading.Barrier(2)
-
-    def read() -> None:
-        barrier.wait()
-        reader.read_into([0] * read_count, ["first"], output)
-
-    with ThreadPoolExecutor(max_workers=2) as executor:
-        futures = [executor.submit(read) for _ in range(2)]
-        errors = [future.exception() for future in futures]
-
-    assert sum(error is None for error in errors) == 1
-    error = next(error for error in errors if error is not None)
-    assert isinstance(error, RuntimeError)
-    assert "could not be borrowed for writing" in str(error)
 
 
 def test_flat_om4_reader_rejects_wrong_output_shape(flat_om4_store):

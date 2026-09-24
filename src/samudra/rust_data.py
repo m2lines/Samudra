@@ -53,7 +53,7 @@ class RustIoRuntime:
 
 
 def create_rust_io_runtime(max_concurrent_reads: int) -> RustIoRuntime:
-    return RustIoRuntime(_load_extension().FlatOm4ReadPool(max_concurrent_reads))
+    return RustIoRuntime(_load_extension().ZarrReadPool(max_concurrent_reads))
 
 
 class BatchSampler(Protocol):

@@ -42,11 +42,10 @@ class MockDataset:
 def sampler_from_datasets(request):
     """Factory fixture that creates either standard or distributed sampler."""
 
-    def _make_sampler(datasets, group_key, batch_size, shuffle, drop_last):
+    def _make_sampler(datasets, batch_size, shuffle, drop_last):
         if request.param == "standard":
             return EquivalenceGroupBatchSampler.from_datasets(
                 datasets=datasets,
-                group_key=group_key,
                 batch_size=batch_size,
                 shuffle=shuffle,
                 drop_last=drop_last,
@@ -55,7 +54,6 @@ def sampler_from_datasets(request):
         else:
             return DistributedEquivalenceGroupBatchSampler(
                 datasets=datasets,
-                group_key=group_key,
                 batch_size=batch_size,
                 num_replicas=1,  # Single worker to match standard behavior
                 rank=0,
@@ -183,7 +181,6 @@ class TestSamplersFromDatasets:
         datasets = [MockDataset(10), MockDataset(10)]
         sampler = sampler_from_datasets(
             datasets=datasets,
-            group_key=lambda ds: ds.grid_size,
             batch_size=2,
             shuffle=False,
             drop_last=False,
@@ -197,7 +194,6 @@ class TestSamplersFromDatasets:
         datasets = [MockDataset(10), MockDataset(10)]
         sampler = sampler_from_datasets(
             datasets=datasets,
-            group_key=lambda ds: ds.grid_size,
             batch_size=3,
             shuffle=False,
             drop_last=False,
@@ -215,7 +211,6 @@ class TestSamplersFromDatasets:
         ]
         sampler = sampler_from_datasets(
             datasets=datasets,
-            group_key=lambda ds: ds.grid_size,
             batch_size=2,
             shuffle=False,
             drop_last=False,
@@ -283,7 +278,6 @@ class TestDistributedBatchSamplerDistribution:
         for rank in range(num_replicas):
             sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=datasets,  # type: ignore[arg-type]
-                group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
                 batch_size=2,
                 num_replicas=num_replicas,
                 rank=rank,
@@ -307,7 +301,6 @@ class TestDistributedBatchSamplerDistribution:
         for rank in range(num_replicas):
             sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=datasets,  # type: ignore[arg-type]
-                group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
                 batch_size=2,
                 num_replicas=num_replicas,
                 rank=rank,
@@ -329,7 +322,6 @@ class TestDistributedBatchSamplerDistribution:
         for rank in range(num_replicas):
             sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=datasets,  # type: ignore[arg-type]
-                group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
                 batch_size=2,
                 num_replicas=num_replicas,
                 rank=rank,
@@ -352,7 +344,6 @@ class TestDistributedBatchSamplerDistribution:
                 for rank in range(num_replicas):
                     sampler = DistributedEquivalenceGroupBatchSampler(
                         datasets=datasets,  # type: ignore[arg-type]
-                        group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
                         batch_size=2,
                         num_replicas=num_replicas,
                         rank=rank,
@@ -376,7 +367,6 @@ class TestDistributedBatchSamplerDistribution:
         for rank in range(num_replicas):
             sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=datasets,  # type: ignore[arg-type]
-                group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
                 batch_size=2,
                 num_replicas=num_replicas,
                 rank=rank,
@@ -396,7 +386,6 @@ class TestDistributedBatchSamplerDistribution:
 
         sampler = DistributedEquivalenceGroupBatchSampler(
             datasets=datasets,  # type: ignore[arg-type]
-            group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
             batch_size=2,
             num_replicas=2,
             rank=0,
@@ -424,7 +413,6 @@ class TestDistributedBatchSamplerDistribution:
         for rank in range(num_replicas):
             sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=datasets,  # type: ignore[arg-type]
-                group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
                 batch_size=2,
                 num_replicas=num_replicas,
                 rank=rank,
@@ -444,7 +432,6 @@ class TestDistributedBatchSamplerDistribution:
         for rank in range(num_replicas):
             sampler = DistributedEquivalenceGroupBatchSampler(
                 datasets=datasets,  # type: ignore[arg-type]
-                group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
                 batch_size=2,
                 num_replicas=num_replicas,
                 rank=rank,
@@ -468,7 +455,6 @@ class TestDistributedBatchSamplerDistribution:
         with pytest.raises(ValueError, match="Invalid rank"):
             DistributedEquivalenceGroupBatchSampler(
                 datasets=datasets,  # type: ignore[arg-type]
-                group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
                 batch_size=2,
                 num_replicas=3,
                 rank=rank,
@@ -491,7 +477,6 @@ def test_group_batch_sampler__distributed__replica_chunks_are_homogeneous():
     for rank in range(n_workers):
         sampler = DistributedEquivalenceGroupBatchSampler(
             datasets=datasets,  # type: ignore[arg-type]
-            group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
             batch_size=2,
             num_replicas=n_workers,
             rank=rank,
@@ -531,7 +516,6 @@ def test_group_batch_sampler__n_workers_no_drop_last__all_steps_homogeneous():
     for rank in range(n_workers):
         sampler = DistributedEquivalenceGroupBatchSampler(
             datasets=datasets,  # type: ignore[arg-type]
-            group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
             batch_size=2,
             num_replicas=n_workers,
             rank=rank,
@@ -570,7 +554,6 @@ def test_group_batch_sampler__distributed__small_group_is_padded_when_not_droppi
     for rank in range(n_workers):
         sampler = DistributedEquivalenceGroupBatchSampler(
             datasets=datasets,  # type: ignore[arg-type]
-            group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
             batch_size=2,
             num_replicas=n_workers,
             rank=rank,
@@ -611,7 +594,6 @@ def test_group_batch_sampler__distributed__padding_cycles_group_batches():
     for rank in range(n_workers):
         sampler = DistributedEquivalenceGroupBatchSampler(
             datasets=datasets,  # type: ignore[arg-type]
-            group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
             batch_size=2,
             num_replicas=n_workers,
             rank=rank,
@@ -641,7 +623,6 @@ def test_group_batch_sampler__distributed__shuffle_false_is_deterministic_across
 
     sampler = DistributedEquivalenceGroupBatchSampler(
         datasets=datasets,  # type: ignore[arg-type]
-        group_key=lambda ds: ds.grid_size,  # type: ignore[attr-defined]
         batch_size=2,
         num_replicas=n_workers,
         rank=0,
@@ -667,7 +648,6 @@ def test_distributed_sampler__all_ranks_same_resolution_per_step():
         MockDataset(11, grid_size=(360, 720)),
         MockDataset(9, grid_size=(720, 1440)),
     ]
-    group_key = lambda ds: ds.grid_size  # noqa: E731
     group_boundary = 13
     second_boundary = 13 + 11
 
@@ -685,7 +665,6 @@ def test_distributed_sampler__all_ranks_same_resolution_per_step():
             for rank in range(num_replicas):
                 sampler = DistributedEquivalenceGroupBatchSampler(
                     datasets=datasets,  # type: ignore[arg-type]
-                    group_key=group_key,
                     batch_size=1,
                     num_replicas=num_replicas,
                     rank=rank,

@@ -51,7 +51,7 @@ nav:
   - Development:
       - Contributing: contributing.md
       - Releasing: releasing.md
-      - Rust data loader plan: rust-data-loader-plan.md
+      - Rust data loader: rust-data-loader.md
   - API Reference:
       - Models:
           - Base Model: models/base.md

@@ -184,7 +184,7 @@ overrides = [
 ]
 
 [tool.uv.sources]
-samudra-rust-loader = { path = "rust/crab_load" }
+samudra-rust-loader = { path = "rust/loader" }
 torch = [
   { index = "pytorch-cu130", marker = "sys_platform == 'linux' and platform_machine == 'aarch64'" },
 ]

@@ -5,7 +5,7 @@
 import itertools
 import math
 import random
-from collections.abc import Callable, Hashable
+from collections.abc import Hashable
 from typing import Protocol, Self, TypeVar
 
 from torch.utils.data import BatchSampler, Sampler
@@ -118,39 +118,11 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
         drop_last: bool,
         *,
         seed: int,
-        group_key: Callable[[DatasetT], Hashable] | None = None,
     ) -> Self:
-        """Create sampler by grouping datasets using a key function.
+        """Batch datasets with equal public compatibility keys.
 
-        This factory method allows grouping datasets by arbitrary criteria (e.g., resolution,
-        regardless of other parameters like stride). Datasets with the same key are batched together.
-
-        Args:
-            datasets: List of TorchTrainDataset instances to group
-            group_key: Optional legacy override for the dataset's public
-                ``batch_compatibility_key``.
-            batch_size: Number of samples per batch
-            shuffle: Whether to shuffle indices within groups and shuffle batches globally
-            drop_last: Whether to drop incomplete batches at the end of each group
-            seed: Random seed for deterministic shuffling
-
-        Examples:
-                - lambda ds: (ds._input_source.data.sizes['lat'], ds._input_source.data.sizes['lon'])  # group by resolution
-                - lambda ds: ds._input_source.data.sizes['lat']  # group by latitude size only
-
-        Returns:
-            EquivalenceGroupBatchSampler configured to group by the provided key
-
-        RolloutStep:
-            >>> # Group datasets by resolution, allowing different strides to be batched together
-            >>> sampler = EquivalenceGroupBatchSampler.from_datasets(
-            ...     datasets=dataset_list,
-            ...     group_key=lambda ds: tuple(source.grid_size for source in ds.sources),
-            ...     batch_size=32,
-            ...     shuffle=True,
-            ...     drop_last=True,
-            ...     seed=15,
-            ... )
+        Groups follow first-seen dataset order, which must be the same on every
+        DDP rank. Keys need only support equality and hashing, not ordering.
         """
         # Preserve first-seen group order. Compatibility keys define equality,
         # but need not be comparable or identical objects across processes.
@@ -158,8 +130,10 @@ class EquivalenceGroupBatchSampler(Sampler[Batch]):
 
         cumsum = 0
         for ds in datasets:
-            key = group_key(ds) if group_key is not None else ds.batch_compatibility_key
-            assert isinstance(key, Hashable), "`group_key` must be hashable."
+            key = ds.batch_compatibility_key
+            assert isinstance(key, Hashable), (
+                "`batch_compatibility_key` must be hashable."
+            )
             groups.setdefault(key, []).extend(range(cumsum, cumsum + len(ds)))
             cumsum += len(ds)
 
@@ -210,7 +184,6 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[Batch]):
 
     Args:
         datasets: List of TorchTrainDataset instances to group
-        group_key: Callable that extracts grouping key from a dataset
         batch_size: Number of samples per batch
         num_replicas: Number of distributed workers (world size)
         rank: Index of current worker (0 to num_replicas-1)
@@ -229,7 +202,6 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[Batch]):
         shuffle: bool = True,
         drop_last: bool = False,
         seed: int = 0,
-        group_key: Callable[[DatasetT], Hashable] | None = None,
     ):
         super().__init__()
         if num_replicas <= 0:
@@ -249,7 +221,6 @@ class DistributedEquivalenceGroupBatchSampler(Sampler[Batch]):
         # Delegate batching logic to inner sampler (without shuffle for determinism)
         self._inner = EquivalenceGroupBatchSampler.from_datasets(
             datasets=datasets,
-            group_key=group_key,
             batch_size=batch_size,
             shuffle=False,  # We handle shuffling with seeded RNG
             drop_last=drop_last,

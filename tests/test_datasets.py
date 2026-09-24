@@ -168,13 +168,9 @@ def make_loader(
                 host_dataset: ConcatDataset = ConcatDataset(dataset_list)
                 collate_fn = collate_host_batches
 
-                # Group datasets by resolution, allowing different strides to batch
-                # together.
+                # Keep each batch within its public compatibility group.
                 batch_sampler = EquivalenceGroupBatchSampler.from_datasets(
                     datasets=dataset_list,
-                    group_key=lambda ds: tuple(
-                        source.grid_size for source in ds.sources
-                    ),
                     batch_size=cfg.batch_size,
                     drop_last=drop_last,
                     shuffle=shuffle,

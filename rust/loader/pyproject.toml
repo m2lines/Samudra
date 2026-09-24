@@ -18,5 +18,14 @@ classifiers = [
 dynamic = [ "version" ]
 dependencies = [ "numpy>=1.26.4,<2" ]
 
+[dependency-groups]
+dev = [ "maturin>=1.9,<2" ]
+# The standalone extension suite does not use Samudra's jaxtyping pytest plugin.
+test = [ "pytest>=8.3.4", "xarray>=2025.1.2", "zarr<3" ]
+
 [tool.maturin]
 features = [ "extension-module" ]
+
+[tool.pytest.ini_options]
+testpaths = [ "tests" ]
+addopts = "--strict-markers"

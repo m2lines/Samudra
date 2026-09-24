@@ -3567,7 +3567,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "requests", specifier = ">=2.32.3" },
     { name = "s3fs", specifier = ">=2025.5.1" },
-    { name = "scipy", specifier = ">=1.15.2" },
+    { name = "scipy", specifier = ">=1.17.1" },
     { name = "skypilot", extras = ["aws", "lambda"], specifier = ">=0.10" },
     { name = "sqlalchemy", specifier = ">=2" },
     { name = "torch", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'", specifier = ">=2.9.0a0,<2.13" },

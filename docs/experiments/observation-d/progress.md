@@ -1130,3 +1130,11 @@ Validation: 29 focused tests passed, including cached/uncached tensor and missin
 equality, normalization changes, fixed-budget milestones, submission contracts and
 the four-GPU dependency bound. Cluster cache throughput and utilization still need
 verification; a code change alone does not establish that the bottleneck is fixed.
+
+Cache recovery producer: `79e8e6fde70e27317cfe89f308d0ab1212bcb6c4`. CPU build
+18386015 succeeded and submitted the replacement DAG at 20:43 ET. Calibration
+18386026 is allocated on gr101; production jobs remain dependency-pending:
+OM4 18386029, obs0 18386038, random 18386056, obs25 18386058, obs50 18386059,
+obs75 18386060. The final arm depends on both OM4 and obs0, retaining the
+four-GPU maximum. New root is `/scratch/jr7309/runs/2026-09-23-observation-budget-rtx-cache`.
+All six production jobs are gated by successful calibration, directly or transitively.

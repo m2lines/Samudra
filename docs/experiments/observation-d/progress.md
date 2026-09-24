@@ -1288,3 +1288,19 @@ Latest finite reconstruction steps are 894, 385, 380 and 97 respectively.
 Obs0 has resumed twice and random once. `sacct -D -X` total, including all
 preemptions and earlier cancellations, is **10.2608 GPU-hours**. No observation
 production training or evaluations are complete yet.
+
+## Requested live update — 24 September, 07:11 ET
+
+All four started observation jobs are currently pending after verified scheduler
+preemptions; obs75 remains dependency-pending. Last logged progress: obs0 finished
+1,000 reconstruction updates and reached joint step 204/4,000; random reconstruction
+594/1,000; obs25 reconstruction 536/1,000; obs50 reconstruction 302/1,000. These are
+logged steps, potentially ahead of the last atomic resume checkpoint. Losses remain
+finite; no production training/evaluation completions exist. Total allocation
+including every preempted attempt is **11.3711 GPU-hours**. Frequent short H200
+allocations are now the main throughput limitation; do not mistake queue time for
+training or extrapolate a completed comparison from calibration scores.
+
+User explicitly approved both operational report publication and future Slack
+blocker alerts to their confirmed account. No stale capacity notification was sent
+after the previous blocker cleared.

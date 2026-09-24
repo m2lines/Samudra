@@ -1207,3 +1207,14 @@ OM4, obs0 and random are now eligible but **pending `QOSGrpGRES`**, with no
 production logs or GPU allocations. The remaining three arms retain their
 dependencies. This is a scheduler capacity wait, not a training failure. Total
 allocated usage including recovery is **6.7269 GPU-hours**. Continue hourly sleeps.
+
+## Scheduler wait — 24 September, 02:33 ET
+
+All production remains pending. Eligible OM4/obs0/random jobs report `QOSGrpGRES`
+with no estimated start; no production logs or completion markers exist. Usage
+remains 6.7269 GPU-hours. The requested Slack notification was rejected by automatic approval review and
+was not delivered. A shorter notification was also rejected despite checking the
+current authenticated Slack profile; explicit destination confirmation was requested
+and remains pending. This is a resource
+wait, not an SSH or numerical failure. No rerouting or extra
+allocations submitted; continue hourly checks without duplicate blocker notices.

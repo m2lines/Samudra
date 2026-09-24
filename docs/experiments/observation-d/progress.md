@@ -1304,3 +1304,25 @@ training or extrapolate a completed comparison from calibration scores.
 User explicitly approved both operational report publication and future Slack
 blocker alerts to their confirmed account. No stale capacity notification was sent
 after the previous blocker cleared.
+
+## Hourly check — 24 September, 08:10 ET
+
+Obs0 last logged joint step 537/4,000 and is queued after preemption; obs25
+and random are running at joint steps 161/3,000 and 152/8,000. All three finished
+1,000 reconstruction updates. Obs50 is queued with reconstruction step 858; obs75
+is dependency-pending. Latest losses are finite. No production joint-validation
+checkpoint has yet reached its scheduled interval, and no production evaluation
+is complete. Both four-GPU allocations still fill the RTX quota. Total charged
+GPU time including every preemption/retry is **13.9836 hours**. Requeue can reset
+Slurm wallcaps, so ongoing enforcement uses cumulative accounting, not only the
+sum of original requested limits.
+
+## Hourly check — 24 September, 09:11 ET
+
+Obs0, obs25 and obs50 are running joint training at logged steps 892/4,000,
+621/3,000 and 286/2,000; random is queued after preemption at 514/8,000.
+All four have completed reconstruction. Obs75 remains dependency-pending.
+No production joint-validation interval has been reached yet; no training/evaluation
+completion markers exist for observation arms. Losses remain finite. Total
+allocation is **16.7447 GPU-hours**, counting repeated job allocations. RTX remains
+fully occupied at its eight-GPU pool limit.

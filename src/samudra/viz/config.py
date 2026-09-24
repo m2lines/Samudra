@@ -144,7 +144,7 @@ class VizConfig(TopLevelConfig):
             raise ValueError(
                 f"The data source says grid_type={configured!r} but the "
                 f"ground-truth store records {recorded!r}. Point viz at the "
-                "matching store, or adjust the ground-truth recorded grid."
+                "matching store, or adjust the metadata so the two do not disagree."
             )
         return configured or recorded or "gaussian"
 

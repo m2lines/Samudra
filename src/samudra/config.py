@@ -4,7 +4,8 @@
 
 import abc
 import datetime
-from functools import cached_property
+from functools import cached_property, partial
+from multiprocessing.context import BaseContext
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Literal, Self, assert_never
 
@@ -30,6 +31,7 @@ from samudra.constants import (
     GridSize,
     GridType,
     LoaderVersion,
+    build_llc_layout,
     build_om4_layout,
 )
 from samudra.models import Samudra, SamudraMini, SamudraMulti
@@ -87,6 +89,8 @@ from samudra.utils.schedule import SchedulerConfig
 
 if TYPE_CHECKING:
     from samudra.data_backend import TrainingSourceBackend
+    from samudra.datasets import TrainBatchLoader, TrainingWindows
+    from samudra.utils.samplers import BatchSchedule
 
 
 class WandBConfig(BaseConfig):
@@ -216,6 +220,10 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
     )
 
     @abc.abstractmethod
+    def build_layout(self) -> DataLayout:
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def canonicalize_datasets(
         self,
         data: xr.Dataset,
@@ -270,11 +278,12 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
         resolved_means_location = data_root.resolve(self.data_means_location)
         resolved_stds_location = data_root.resolve(self.data_stds_location)
 
-        source_backend.validate_locations(
+        source_backend.validate_source(
             data_location=resolved_data_location,
             means_location=resolved_means_location,
             stds_location=resolved_stds_location,
             source_type=self.type,
+            data_layout=self.build_layout(),
         )
         chunks: dict[str, int] | None = {} if turn_on_dask else None
         data = resolved_data_location.open(chunks)
@@ -293,13 +302,16 @@ class BaseDataSourceConfig[SourceTimeConfigT: TimeConfig](BaseConfig, abc.ABC):
             prognostic_var_names=data_layout.prognostic_var_names,
             boundary_var_names=data_layout.boundary_var_names,
             name=f"{resolved_data_location}-{turn_on_dask}",
+            reader_factory=(
+                None
+                if turn_on_dask
+                else partial(
+                    source_backend.build_reader,
+                    data_location=resolved_data_location,
+                    data_layout=data_layout,
+                )
+            ),
         )
-        if not turn_on_dask:
-            source = source_backend.prepare(
-                source,
-                data_location=resolved_data_location,
-                source_type=self.type,
-            )
         return source
 
 
@@ -308,6 +320,30 @@ class BaseDataLoadingConfig(BaseConfig):
         from samudra.data_backend import PythonSourceBackend
 
         return PythonSourceBackend()
+
+    def build_batch_loader(
+        self,
+        windows: list["TrainingWindows"],
+        batch_sampler: "BatchSchedule",
+        device: torch.device,
+        *,
+        pin_memory: bool,
+        multiprocessing_context: BaseContext | None,
+        worker_seed: int,
+        concurrent_compute: bool,
+    ) -> "TrainBatchLoader":
+        from samudra.train_data_loader import build_torch_batch_loader
+
+        return build_torch_batch_loader(
+            windows,
+            batch_sampler,
+            device,
+            self,
+            pin_memory=pin_memory,
+            multiprocessing_context=multiprocessing_context,
+            worker_seed=worker_seed,
+            concurrent_compute=concurrent_compute,
+        )
 
     def num_pytorch_workers(self) -> int:
         raise NotImplementedError
@@ -342,28 +378,66 @@ class GpuDataLoadingConfig(BaseDataLoadingConfig):
         return False
 
 
-class RustDataLoadingConfig(BaseDataLoadingConfig):
-    """Configuration for the local Rust Zarr data loader."""
+class NativeDataLoadingConfig(BaseDataLoadingConfig):
+    """Shared scheduling policy; concrete configs own their I/O settings."""
 
-    def build_source_backend(self) -> "TrainingSourceBackend":
-        from samudra.data_backend import RustOm4SourceBackend
-
-        return RustOm4SourceBackend(self.max_concurrent_reads)
-
-    type: Literal["rust"] = "rust"
     prefetch_batches: int = Field(default=2, ge=1)
-    max_concurrent_reads: int = Field(
-        default=32,
-        ge=1,
-        description="Shared native Zarr read concurrency limit for this process/rank.",
-    )
     prefetch_to_device: bool = True
+
+    @abc.abstractmethod
+    def build_source_backend(self) -> "TrainingSourceBackend":
+        raise NotImplementedError
+
+    def build_batch_loader(
+        self,
+        windows: list["TrainingWindows"],
+        batch_sampler: "BatchSchedule",
+        device: torch.device,
+        *,
+        pin_memory: bool,
+        multiprocessing_context: BaseContext | None,
+        worker_seed: int,
+        concurrent_compute: bool,
+    ) -> "TrainBatchLoader":
+        from samudra.native_loader import CudaPrefetch, HostPrefetch, NativeBatchLoader
+
+        prefetch = (
+            CudaPrefetch()
+            if device.type == "cuda" and self.prefetch_to_device
+            else HostPrefetch(pin_memory=pin_memory)
+        )
+        return NativeBatchLoader(
+            windows,
+            batch_sampler,
+            device,
+            prefetch_batches=self.prefetch_batches,
+            prefetch=prefetch,
+        )
 
     def num_pytorch_workers(self) -> int:
         return 0
 
     def persistent_pytorch_workers(self) -> bool:
         return False
+
+
+class RustDataLoadingConfig(NativeDataLoadingConfig):
+    """Configuration for the local Rust Zarr data loader."""
+
+    type: Literal["rust"] = "rust"
+    max_concurrent_reads: int = Field(
+        default=32,
+        ge=1,
+        description="Shared Rayon Zarr read concurrency limit for this process/rank.",
+    )
+
+    def build_source_backend(self) -> "TrainingSourceBackend":
+        from samudra.data_backend import NativeOm4SourceBackend
+        from samudra.rust_reader import RustIoRuntime
+
+        return NativeOm4SourceBackend(
+            "rust", partial(RustIoRuntime, self.max_concurrent_reads)
+        )
 
 
 DataLoadingConfig = Annotated[
@@ -394,6 +468,13 @@ class Om4DataSourceConfig(BaseDataSourceConfig[Om4TimeConfig]):
             )
         return self
 
+    def build_layout(self) -> DataLayout:
+        return build_om4_layout(
+            self.prognostic_vars_key,
+            self.boundary_vars_key,
+            grid_type=self.grid_type,
+        )
+
     def canonicalize_datasets(
         self,
         data: xr.Dataset,
@@ -401,11 +482,7 @@ class Om4DataSourceConfig(BaseDataSourceConfig[Om4TimeConfig]):
         stds: xr.Dataset,
     ) -> tuple[xr.Dataset, xr.Dataset, xr.Dataset, DataLayout]:
         """Convert raw flat or compact OM4 xarray inputs to canonical channels."""
-        data_layout = build_om4_layout(
-            self.prognostic_vars_key,
-            self.boundary_vars_key,
-            grid_type=self.grid_type,
-        )
+        data_layout = self.build_layout()
         data = data.copy()
         means = means.copy()
         stds = stds.copy()
@@ -469,6 +546,9 @@ class LlcDataSourceConfig(BaseDataSourceConfig[LlcTimeConfig]):
         if self.j_end <= self.j_start:
             raise ValueError("LLC crop bounds must satisfy j_start < j_end")
         return self
+
+    def build_layout(self) -> DataLayout:
+        return build_llc_layout(self.prognostic_vars_key, self.boundary_vars_key)
 
     def canonicalize_datasets(
         self,

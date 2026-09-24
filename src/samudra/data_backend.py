@@ -2,76 +2,80 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Backend-specific decoration of canonical training sources."""
+"""Source construction policies selected by the concrete loading configs."""
 
-from typing import TYPE_CHECKING, Protocol
+from collections.abc import Callable
+from typing import Protocol
 
 from samudra.config import DataSourceType
-from samudra.utils.data import CanonicalSource
+from samudra.constants import DataLayout
+from samudra.native_reader import Om4IoRuntime, build_om4_reader
+from samudra.utils.data import CanonicalReader
 from samudra.utils.location import LocalLocation, ResolvedLocation
-
-if TYPE_CHECKING:
-    from samudra.rust_data import RustIoRuntime
 
 
 class TrainingSourceBackend(Protocol):
-    """Build-lifetime policy for canonical training readers."""
-
-    def validate_locations(
+    def validate_source(
         self,
         *,
         data_location: ResolvedLocation,
         means_location: ResolvedLocation,
         stds_location: ResolvedLocation,
         source_type: DataSourceType,
+        data_layout: DataLayout,
     ) -> None: ...
 
-    def prepare(
+    def build_reader(
         self,
-        source: CanonicalSource,
+        metadata_reader: CanonicalReader,
         *,
         data_location: ResolvedLocation,
-        source_type: DataSourceType,
-    ) -> CanonicalSource: ...
+        data_layout: DataLayout,
+    ) -> CanonicalReader: ...
 
 
 class PythonSourceBackend:
-    def validate_locations(
+    def validate_source(
         self,
         *,
         data_location: ResolvedLocation,
         means_location: ResolvedLocation,
         stds_location: ResolvedLocation,
         source_type: DataSourceType,
+        data_layout: DataLayout,
     ) -> None:
         pass
 
-    def prepare(
+    def build_reader(
         self,
-        source: CanonicalSource,
+        metadata_reader: CanonicalReader,
         *,
         data_location: ResolvedLocation,
-        source_type: DataSourceType,
-    ) -> CanonicalSource:
-        return source
+        data_layout: DataLayout,
+    ) -> CanonicalReader:
+        return metadata_reader
 
 
-class RustOm4SourceBackend:
-    def __init__(self, max_concurrent_reads: int) -> None:
-        self._max_concurrent_reads = max_concurrent_reads
-        self._runtime: RustIoRuntime | None = None
+class NativeOm4SourceBackend:
+    """Validate native OM4 inputs and share a lazily constructed I/O runtime."""
 
-    def validate_locations(
+    def __init__(self, name: str, runtime_factory: Callable[[], Om4IoRuntime]) -> None:
+        self._name = name
+        self._runtime_factory = runtime_factory
+        self._runtime: Om4IoRuntime | None = None
+
+    def validate_source(
         self,
         *,
         data_location: ResolvedLocation,
         means_location: ResolvedLocation,
         stds_location: ResolvedLocation,
         source_type: DataSourceType,
+        data_layout: DataLayout,
     ) -> None:
         if source_type != "om4":
             raise ValueError(
-                "loading.type='rust' currently supports OM4 sources only; "
+                f"loading.type={self._name!r} currently supports OM4 sources only; "
                 f"got {source_type!r}"
             )
         locations = {
@@ -82,34 +86,35 @@ class RustOm4SourceBackend:
         for field_name, location in locations.items():
             if not isinstance(location, LocalLocation):
                 raise ValueError(
-                    "loading.type='rust' currently requires local data, "
+                    f"loading.type={self._name!r} currently requires local data, "
                     f"but {field_name} resolved to {location}"
                 )
-
-    def prepare(
-        self,
-        source: CanonicalSource,
-        *,
-        data_location: ResolvedLocation,
-        source_type: DataSourceType,
-    ) -> CanonicalSource:
-        assert source_type == "om4"
-        # Check for known computed vars to give a better error message.
         derived = [
             name
-            for name in source.data_layout.boundary_var_names
+            for name in data_layout.boundary_var_names
             if name.endswith("_anomalies")
         ]
         if derived:
             raise ValueError(
-                "loading.type='rust' does not yet support derived boundary "
+                f"loading.type={self._name!r} does not yet support derived boundary "
                 f"variables {derived}; select physical boundary variables or use "
                 "loading.type='cpu'"
             )
 
-        from samudra.rust_data import create_rust_io_runtime, native_om4_source
-
+    def build_reader(
+        self,
+        metadata_reader: CanonicalReader,
+        *,
+        data_location: ResolvedLocation,
+        data_layout: DataLayout,
+    ) -> CanonicalReader:
         assert isinstance(data_location, LocalLocation)
         if self._runtime is None:
-            self._runtime = create_rust_io_runtime(self._max_concurrent_reads)
-        return native_om4_source(source, data_location, self._runtime)
+            self._runtime = self._runtime_factory()
+        return build_om4_reader(
+            metadata_reader,
+            data_location,
+            data_layout,
+            self._runtime,
+            backend=self._name,
+        )

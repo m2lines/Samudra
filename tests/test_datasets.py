@@ -25,12 +25,13 @@ from torch.utils.data import ConcatDataset, DataLoader
 from samudra.config import DataConfig, TrainConfig
 from samudra.constants import DataLayout, LoaderVersion
 from samudra.datasets import (
-    BatchLoader,
     InferenceDataset,
     ModelBatch,
+    TorchBatchLoader,
     TorchTrainDataset,
+    TrainingWindows,
 )
-from samudra.utils.data import BatchPreprocessor, CanonicalSource, Masks
+from samudra.utils.data import CanonicalSource, ChannelTransform, Masks
 from samudra.utils.location import LocalLocation
 from samudra.utils.multiton import MultitonScope
 from samudra.utils.samplers import EquivalenceGroupBatchSampler
@@ -127,7 +128,7 @@ def make_loader(
     version: LoaderVersion | None = None,
     multiscale: bool = False,
     shuffle: bool = True,
-) -> Generator[BatchLoader, None, None]:
+) -> Generator[TorchBatchLoader, None, None]:
     data_config = (
         cfg.data
         if version is None
@@ -150,16 +151,18 @@ def make_loader(
             case LoaderVersion.OM4_TORCH:
                 dataset_list = [
                     TorchTrainDataset(
-                        input_source=source,
-                        label_source=None,
-                        prognostic_var_names=prognostic,
-                        boundary_var_names=boundary,
-                        input_steps=cfg.data.input_steps,
-                        output_steps=cfg.data.output_steps,
-                        steps=cfg.steps[0],
-                        normalize_before_mask=cfg.data.normalize_before_mask,
-                        masked_fill_value=cfg.data.masked_fill_value,
-                        stride=stride,
+                        TrainingWindows(
+                            input_source=source,
+                            label_source=None,
+                            prognostic_var_names=prognostic,
+                            boundary_var_names=boundary,
+                            input_steps=cfg.data.input_steps,
+                            output_steps=cfg.data.output_steps,
+                            steps=cfg.steps[0],
+                            normalize_before_mask=cfg.data.normalize_before_mask,
+                            masked_fill_value=cfg.data.masked_fill_value,
+                            stride=stride,
+                        )
                     )
                     for source in sources
                     for stride in cfg.data_stride
@@ -183,7 +186,9 @@ def make_loader(
                     collate_fn=collate_fn,
                 )
 
-                loader = BatchLoader(host_loader, dataset_list, torch.device("cpu"))
+                loader = TorchBatchLoader(
+                    host_loader, dataset_list, torch.device("cpu")
+                )
                 yield loader
             case _:
                 raise ValueError(f"Unknown loader version: {version}")
@@ -624,16 +629,18 @@ def _llc_torch_dataset(config: DataConfig, tmp_path) -> TorchTrainDataset:
     container = config.build(LocalLocation(path=tmp_path))
     data_layout = container.data_layout
     return TorchTrainDataset(
-        input_source=container.train_sources[0],
-        label_source=None,
-        prognostic_var_names=data_layout.prognostic_var_names,
-        boundary_var_names=data_layout.boundary_var_names,
-        input_steps=config.input_steps,
-        output_steps=config.output_steps,
-        steps=1,
-        normalize_before_mask=config.normalize_before_mask,
-        masked_fill_value=config.masked_fill_value,
-        stride=1,
+        TrainingWindows(
+            input_source=container.train_sources[0],
+            label_source=None,
+            prognostic_var_names=data_layout.prognostic_var_names,
+            boundary_var_names=data_layout.boundary_var_names,
+            input_steps=config.input_steps,
+            output_steps=config.output_steps,
+            steps=1,
+            normalize_before_mask=config.normalize_before_mask,
+            masked_fill_value=config.masked_fill_value,
+            stride=1,
+        )
     )
 
 
@@ -759,22 +766,24 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
     )
 
     with MultitonScope():
-        _ = BatchPreprocessor(
+        _ = ChannelTransform(
             test,
             prognostic_var_names=["prognostic1", "prognostic2"],
             boundary_var_names=["boundary1", "boundary2"],
         )
         torch_train_dataset = TorchTrainDataset(
-            input_source=test,
-            label_source=None,
-            prognostic_var_names=prognostic_var_names,
-            boundary_var_names=boundary_var_names,
-            input_steps=2,
-            output_steps=2,
-            steps=2,
-            normalize_before_mask=normalize_before_mask,
-            masked_fill_value=masked_fill_value,
-            stride=1,
+            TrainingWindows(
+                input_source=test,
+                label_source=None,
+                prognostic_var_names=prognostic_var_names,
+                boundary_var_names=boundary_var_names,
+                input_steps=2,
+                output_steps=2,
+                steps=2,
+                normalize_before_mask=normalize_before_mask,
+                masked_fill_value=masked_fill_value,
+                stride=1,
+            )
         )
         inference_dataset = InferenceDataset(
             source=test,
@@ -787,13 +796,13 @@ def tiny_dataset_input(normalize_before_mask: bool, masked_fill_value: float):
             long_rollout=True,
         )
 
-        # Create a BatchLoader wrapper
+        # Create a TorchBatchLoader wrapper
         host_loader = DataLoader(
             torch_train_dataset,
             batch_size=1,
             collate_fn=collate_host_batches,
         )
-        train_loader = BatchLoader(
+        train_loader = TorchBatchLoader(
             host_loader, [torch_train_dataset], torch.device("cpu")
         )
 

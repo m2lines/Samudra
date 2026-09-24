@@ -8,7 +8,7 @@ import wandb
 import xarray as xr
 
 from samudra.constants import DataLayout
-from samudra.utils.data import BatchPreprocessor, get_aggregator_dicts
+from samudra.utils.data import ChannelTransform, get_aggregator_dicts
 from samudra.utils.output import ModelInferenceOutput
 from samudra.utils.wandb import Metrics, MetricsDict
 
@@ -31,7 +31,7 @@ class InferenceEvaluatorAggregator:
         area_weights: torch.Tensor,
         wet: torch.Tensor,
         num_prognostic_channels: int,
-        preprocessor: BatchPreprocessor,
+        preprocessor: ChannelTransform,
         data_layout: DataLayout,
         record_step_20: bool = True,
         log_global_mean_time_series: bool = True,

@@ -19,7 +19,7 @@ from samudra.aggregator.validate.reduced import MeanAggregator
 from samudra.aggregator.validate.snapshot import SnapshotAggregator
 from samudra.aggregator.validate.sub_aggregator import ValidateSubAggregator
 from samudra.constants import DataLayout
-from samudra.utils.data import BatchPreprocessor
+from samudra.utils.data import ChannelTransform
 
 
 class Aggregator:
@@ -35,7 +35,7 @@ class Aggregator:
         area_weights: torch.Tensor,
         num_prognostic_channels: int,
         data_layout: DataLayout,
-        preprocessor: BatchPreprocessor,
+        preprocessor: ChannelTransform,
         *,
         include_image_aggregators: bool = True,
     ) -> ValidateAggregator:
@@ -69,7 +69,7 @@ class Aggregator:
         wet: torch.Tensor,
         num_prognostic_channels: int,
         data_layout: DataLayout,
-        preprocessor: BatchPreprocessor,
+        preprocessor: ChannelTransform,
         channel_mean_names: list[str] | None = None,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(
@@ -98,7 +98,7 @@ class Aggregator:
         wet: torch.Tensor,
         num_prognostic_channels: int,
         data_layout: DataLayout,
-        preprocessor: BatchPreprocessor,
+        preprocessor: ChannelTransform,
         channel_mean_names: list[str] | None = None,
     ) -> InferenceEvaluatorAggregator:
         return InferenceEvaluatorAggregator(

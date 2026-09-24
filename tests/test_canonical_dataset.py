@@ -10,7 +10,7 @@ import torch
 import xarray as xr
 
 from samudra.config import JulianDate, Om4TimeConfig
-from samudra.datasets import InferenceDataset, TorchTrainDataset
+from samudra.datasets import InferenceDataset, TorchTrainDataset, TrainingWindows
 from samudra.utils.data import CanonicalReadRequest, CanonicalSource
 from tests.conftest import TEST_DATA_LAYOUT, canonicalize_mock_om4
 
@@ -182,18 +182,29 @@ def test_read_request_owns_immutable_integer_indices() -> None:
     assert not request.time_indices.flags.writeable
 
 
-def test_source_reader_can_be_replaced_without_mutating_source() -> None:
+def test_source_factory_installs_reader_without_mutating_input() -> None:
     source, _ = _equivalent_om4_sources()
-    replacement = source.reader.slice_time(
-        Om4TimeConfig(start=JulianDate("2000-01-02"), end=JulianDate("2000-01-03"))
+    data, means, stds = source._xarray_datasets_for_testing()
+    selected_time = Om4TimeConfig(
+        start=JulianDate("2000-01-02"), end=JulianDate("2000-01-03")
     )
-    replaced = source.with_reader(replacement)
+    built = CanonicalSource.from_datasets(
+        data,
+        means,
+        stds,
+        data_layout=source.data_layout,
+        prognostic_var_names=["so_0", "so_2", "zos"],
+        boundary_var_names=["hfds"],
+        reader_factory=lambda reader: reader.slice_time(selected_time),
+    )
 
-    assert replaced is not source
-    assert replaced.reader is replacement
     assert source.time.size == 8
-    assert replaced.time.size == 2
-    assert replaced.channels == source.channels
+    assert built.time.size == 2
+    assert built.channels == source.channels
+    np.testing.assert_array_equal(
+        built.read(np.array([0, 1]), ("hfds",)),
+        source.read(np.array([1, 2]), ("hfds",)),
+    )
 
 
 def test_flat_and_compact_cpu_training_and_inference_are_identical() -> None:
@@ -205,15 +216,17 @@ def test_flat_and_compact_cpu_training_and_inference_are_identical() -> None:
         source: CanonicalSource, *, concurrent: bool = False
     ) -> TorchTrainDataset:
         return TorchTrainDataset(
-            input_source=source,
-            label_source=None,
-            prognostic_var_names=prognostic,
-            boundary_var_names=boundary,
-            input_steps=2,
-            output_steps=2,
-            steps=1,
-            normalize_before_mask=True,
-            masked_fill_value=0.0,
+            TrainingWindows(
+                input_source=source,
+                label_source=None,
+                prognostic_var_names=prognostic,
+                boundary_var_names=boundary,
+                input_steps=2,
+                output_steps=2,
+                steps=1,
+                normalize_before_mask=True,
+                masked_fill_value=0.0,
+            ),
             concurrent_compute_=concurrent,
         )
 

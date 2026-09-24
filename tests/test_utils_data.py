@@ -12,8 +12,8 @@ from scipy.stats import pearsonr
 
 from samudra.constants import build_llc_layout
 from samudra.utils.data import (
-    BatchPreprocessor,
     CanonicalSource,
+    ChannelTransform,
     Masks,
     compute_anomalies,
     flatten_masks,
@@ -269,7 +269,7 @@ def preprocessor_input():
         data_layout=TEST_DATA_LAYOUT,
     )
 
-    preprocessor = BatchPreprocessor(
+    preprocessor = ChannelTransform(
         test,
         prognostic_var_names=["var_0", "var_1"],
         boundary_var_names=["var_2"],
@@ -307,7 +307,7 @@ def test_normalize_compact_mixed_depth_and_surface_stats(data_source):
         prognostic_var_names=TEST_FULL_DATA_LAYOUT.prognostic_var_names,
         boundary_var_names=TEST_FULL_DATA_LAYOUT.boundary_var_names,
     )
-    preprocessor = BatchPreprocessor(
+    preprocessor = ChannelTransform(
         source,
         prognostic_var_names=TEST_FULL_DATA_LAYOUT.prognostic_var_names,
         boundary_var_names=TEST_FULL_DATA_LAYOUT.boundary_var_names,
@@ -595,7 +595,7 @@ def data_init(hist: int):
         boundary_var_names=data_layout.boundary_var_names,
     )
 
-    preprocessor = BatchPreprocessor(
+    preprocessor = ChannelTransform(
         val,
         prognostic_var_names=data_layout.prognostic_var_names,
         boundary_var_names=data_layout.boundary_var_names,

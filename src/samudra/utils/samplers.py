@@ -5,13 +5,19 @@
 import itertools
 import math
 import random
-from collections.abc import Hashable
+from collections.abc import Hashable, Iterator
 from typing import Protocol, Self, TypeVar
 
 from torch.utils.data import BatchSampler, Sampler
 
 type Batch = list[int]
 type DdpStepChunk = tuple[Batch, ...]
+
+
+class BatchSchedule(Protocol):
+    def __iter__(self) -> Iterator[list[int]]: ...
+
+    def __len__(self) -> int: ...
 
 
 class BatchCompatibleDataset(Protocol):

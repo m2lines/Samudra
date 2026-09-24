@@ -13,9 +13,12 @@ import pytest
 import torch
 import xarray as xr
 
+from samudra.datasets import TrainingWindows
+
 pytest.importorskip("samudra_rust_loader")
 
-import samudra.rust_data as rust_data
+import samudra.native_loader as native_loader
+import samudra.rust_reader as rust_reader
 from samudra.config import (
     InferenceDataLoadingConfig,
     Om4DataSourceConfig,
@@ -25,24 +28,44 @@ from samudra.config import (
 )
 from samudra.constants import build_om4_layout
 from samudra.datasets import TorchTrainDataset
-from samudra.rust_data import (
-    CudaPrefetch,
-    HostPrefetch,
-    RustTrainDataLoader,
-    create_rust_io_runtime,
-    native_om4_source,
-)
+from samudra.native_loader import CudaPrefetch, HostPrefetch, NativeBatchLoader
+from samudra.native_reader import NativeOm4Reader, PhysicalVariable, build_om4_reader
+from samudra.rust_reader import RustIoRuntime
 from samudra.train import Trainer
-from samudra.utils.data import CanonicalSource
+from samudra.utils.data import CanonicalReadRequest, CanonicalSource
 from samudra.utils.location import LocalLocation, UnresolvedLocation
 from samudra.utils.multiton import MultitonScope
 from samudra.utils.samplers import DistributedEquivalenceGroupBatchSampler
 from samudra.utils.train import collate_host_batches
 
 
+def native_om4_source(source, location, runtime):
+    return dataclasses.replace(
+        source,
+        _reader=build_om4_reader(
+            source.reader, location, source.data_layout, runtime, backend="rust"
+        ),
+    )
+
+
+def reference_dataset(dataset):
+    """Keep parity checks independent of the native I/O under test."""
+    import copy
+
+    def xarray_source(source):
+        reader = source.reader
+        assert isinstance(reader, NativeOm4Reader)
+        return dataclasses.replace(source, _reader=reader.metadata_reader)
+
+    windows = copy.copy(dataset.windows)
+    windows.input_source = xarray_source(windows.input_source)
+    windows.label_source = xarray_source(windows.label_source)
+    return TorchTrainDataset(windows)
+
+
 def rust_train_loader(
     *args: Any, max_concurrent_reads: int, **kwargs: Any
-) -> RustTrainDataLoader:
+) -> NativeBatchLoader:
     del max_concurrent_reads
     datasets, *rest = args
     pin_memory = kwargs.pop("pin_memory")
@@ -51,8 +74,8 @@ def rust_train_loader(
         if kwargs.pop("prefetch_to_device", False)
         else HostPrefetch(pin_memory=pin_memory)
     )
-    return RustTrainDataLoader(
-        [dataset.shard for dataset in datasets], *rest, prefetch=prefetch, **kwargs
+    return NativeBatchLoader(
+        [dataset.windows for dataset in datasets], *rest, prefetch=prefetch, **kwargs
     )
 
 
@@ -108,9 +131,7 @@ def make_flat_om4_source(
         prognostic_var_names=layout.prognostic_var_names,
         boundary_var_names=layout.boundary_var_names,
     )
-    return native_om4_source(
-        source, LocalLocation(path=data_path), create_rust_io_runtime(2)
-    )
+    return native_om4_source(source, LocalLocation(path=data_path), RustIoRuntime(2))
 
 
 @pytest.fixture
@@ -231,9 +252,7 @@ def compact_om4_source(tmp_path):
         prognostic_var_names=layout.prognostic_var_names,
         boundary_var_names=layout.boundary_var_names,
     )
-    return native_om4_source(
-        source, LocalLocation(path=data_path), create_rust_io_runtime(2)
-    )
+    return native_om4_source(source, LocalLocation(path=data_path), RustIoRuntime(2))
 
 
 @pytest.mark.parametrize(
@@ -246,16 +265,18 @@ def test_compact_rust_loader_consumes_existing_prefetch_schedule(
     compact_om4_source, input_steps, output_steps, steps, stride, normalize_before_mask
 ):
     dataset = TorchTrainDataset(
-        input_source=compact_om4_source,
-        label_source=None,
-        prognostic_var_names=compact_om4_source.data_layout.prognostic_var_names,
-        boundary_var_names=compact_om4_source.data_layout.boundary_var_names,
-        input_steps=input_steps,
-        output_steps=output_steps,
-        steps=steps,
-        normalize_before_mask=normalize_before_mask,
-        masked_fill_value=-1.0,
-        stride=stride,
+        TrainingWindows(
+            input_source=compact_om4_source,
+            label_source=None,
+            prognostic_var_names=compact_om4_source.data_layout.prognostic_var_names,
+            boundary_var_names=compact_om4_source.data_layout.boundary_var_names,
+            input_steps=input_steps,
+            output_steps=output_steps,
+            steps=steps,
+            normalize_before_mask=normalize_before_mask,
+            masked_fill_value=-1.0,
+            stride=stride,
+        )
     )
     schedule = [[3, 1], [0, 2]]
     loader = rust_train_loader(
@@ -268,7 +289,9 @@ def test_compact_rust_loader_consumes_existing_prefetch_schedule(
     )
 
     for actual, batch_indices in zip(loader, schedule):
-        expected_raw = collate_host_batches([dataset[index] for index in batch_indices])
+        expected_raw = collate_host_batches(
+            [reference_dataset(dataset)[index] for index in batch_indices]
+        )
         expected = dataset.to_model_batch(expected_raw, torch.device("cpu"))
         for actual_step, expected_step in zip(actual.steps, expected.steps):
             for actual_tensor, expected_tensor in zip(actual_step, expected_step):
@@ -277,21 +300,23 @@ def test_compact_rust_loader_consumes_existing_prefetch_schedule(
                 )
 
 
-def test_training_shard_overlapping_history_targets_and_last_window(flat_om4_source):
+def test_training_windows_overlapping_history_targets_and_last_window(flat_om4_source):
     dataset = TorchTrainDataset(
-        input_source=flat_om4_source,
-        label_source=None,
-        prognostic_var_names=["thetao_0"],
-        boundary_var_names=["hfds"],
-        input_steps=3,
-        output_steps=1,
-        steps=2,
-        stride=2,
-        normalize_before_mask=True,
-        masked_fill_value=0.0,
+        TrainingWindows(
+            input_source=flat_om4_source,
+            label_source=None,
+            prognostic_var_names=["thetao_0"],
+            boundary_var_names=["hfds"],
+            input_steps=3,
+            output_steps=1,
+            steps=2,
+            stride=2,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+        )
     )
     assert len(dataset) == 12
-    plan = dataset.shard.window_plan([0, 11])
+    plan = dataset.windows.window_plan([0, 11])
     np.testing.assert_array_equal(
         plan.steps[0].input.request.time_indices, [[0, 2, 4], [11, 13, 15]]
     )
@@ -300,9 +325,9 @@ def test_training_shard_overlapping_history_targets_and_last_window(flat_om4_sou
         plan.steps[1].input.request.time_indices, [[2, 4, 6], [13, 15, 17]]
     )
     np.testing.assert_array_equal(plan.steps[1].label.request.time_indices, [[8], [19]])
-    assert dataset.shard.ctx.label_mask.shape == (1, 3, 4)
+    assert dataset.windows.ctx.label_mask.shape == (1, 3, 4)
     with pytest.raises(IndexError, match="out of range"):
-        dataset.shard.window_plan([12])
+        dataset.windows.window_plan([12])
 
 
 @pytest.mark.parametrize("source_fixture", ["flat_om4_source", "compact_om4_source"])
@@ -334,15 +359,15 @@ def test_native_source_rejects_cf_encoding_before_opening_reader(
         data.to_zarr(encoded_path, consolidated=True)
     else:
         data.to_zarr(encoded_path, encoding={variable: encoding}, consolidated=True)
-    runtime = create_rust_io_runtime(1)
+    runtime = RustIoRuntime(1)
 
     def no_native_open():
         pytest.fail("Unsupported encoding reached native reader construction")
 
-    monkeypatch.setattr(rust_data, "_load_extension", no_native_open)
+    monkeypatch.setattr(rust_reader, "_load_extension", no_native_open)
     with pytest.raises(ValueError, match="does not support CF encoding") as error:
         native_om4_source(
-            source.with_reader(reader.semantic),
+            dataclasses.replace(source, _reader=reader.metadata_reader),
             LocalLocation(path=encoded_path),
             runtime,
         )
@@ -366,62 +391,68 @@ def test_native_source_allows_nan_fill_values(source_fixture, request, tmp_path)
         encoded_path, encoding={variable: {"_FillValue": np.nan}}, consolidated=True
     )
     native = native_om4_source(
-        source.with_reader(reader.semantic),
+        dataclasses.replace(source, _reader=reader.metadata_reader),
         LocalLocation(path=encoded_path),
-        create_rust_io_runtime(1),
+        RustIoRuntime(1),
     )
     times = np.array([0, 4], dtype=np.int64)
-    actual = cast(Any, native.reader).read_unique(times, channels=("thetao_0",))
+    actual = torch.from_numpy(native.read(times, ("thetao_0",)))
     np.testing.assert_array_equal(actual.numpy(), source.read(times, ["thetao_0"]))
 
 
 def test_train_data_device_preparation_caches_static_tensors(flat_om4_source):
     dataset = TorchTrainDataset(
-        input_source=flat_om4_source,
-        label_source=None,
-        prognostic_var_names=["thetao_0"],
-        boundary_var_names=["hfds"],
-        input_steps=1,
-        output_steps=1,
-        steps=1,
-        normalize_before_mask=True,
-        masked_fill_value=0.0,
+        TrainingWindows(
+            input_source=flat_om4_source,
+            label_source=None,
+            prognostic_var_names=["thetao_0"],
+            boundary_var_names=["hfds"],
+            input_steps=1,
+            output_steps=1,
+            steps=1,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+        )
     )
-    raw = collate_host_batches([dataset[0], dataset[1]])
+    raw = collate_host_batches(
+        [reference_dataset(dataset)[0], reference_dataset(dataset)[1]]
+    )
     device = torch.device("cpu")
 
     first = dataset.to_model_batch(raw, device)
-    cached_static = dict(dataset.preparer._device_static)
+    cached_static = dict(dataset.preparer._input._device_static)
     cached_ctx = dataset.preparer._device_ctx[device]
     second = dataset.to_model_batch(raw, device)
 
     assert first.ctx is cached_ctx
     assert second.ctx is cached_ctx
-    assert dataset.preparer._device_static.keys() == cached_static.keys()
+    assert dataset.preparer._input._device_static.keys() == cached_static.keys()
     for key, expected in cached_static.items():
         assert all(
             actual is expected_tensor
             for actual, expected_tensor in zip(
-                dataset.preparer._device_static[key], expected
+                dataset.preparer._input._device_static[key], expected
             )
         )
 
 
-def test_training_shard_exposes_shaped_full_rollout_plan(flat_om4_source):
+def test_training_windows_exposes_shaped_full_rollout_plan(flat_om4_source):
     dataset = TorchTrainDataset(
-        input_source=flat_om4_source,
-        label_source=None,
-        prognostic_var_names=["thetao_0"],
-        boundary_var_names=["hfds"],
-        input_steps=2,
-        output_steps=2,
-        steps=2,
-        normalize_before_mask=True,
-        masked_fill_value=0.0,
-        stride=2,
+        TrainingWindows(
+            input_source=flat_om4_source,
+            label_source=None,
+            prognostic_var_names=["thetao_0"],
+            boundary_var_names=["hfds"],
+            input_steps=2,
+            output_steps=2,
+            steps=2,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+            stride=2,
+        )
     )
 
-    plan = dataset.shard.window_plan([2, 0])
+    plan = dataset.windows.window_plan([2, 0])
 
     assert plan.dataset_id == dataset.id
     assert len(plan.steps) == 2
@@ -434,7 +465,7 @@ def test_training_shard_exposes_shaped_full_rollout_plan(flat_om4_source):
     np.testing.assert_array_equal(
         plan.steps[1].input.request.time_indices, [[6, 8], [4, 6]]
     )
-    assert plan.steps[0].boundary.source is dataset.shard.input_source
+    assert plan.steps[0].boundary.source is dataset.windows.input_source
     assert dataset.batch_compatibility_key == dataset.id
     assert not hasattr(dataset, "_device_static")
 
@@ -449,16 +480,18 @@ def test_rust_loader_consumes_existing_batch_schedule(
     flat_om4_source, input_steps, output_steps, steps, stride, normalize_before_mask
 ):
     dataset = TorchTrainDataset(
-        input_source=flat_om4_source,
-        label_source=None,
-        prognostic_var_names=["thetao_0"],
-        boundary_var_names=["hfds"],
-        input_steps=input_steps,
-        output_steps=output_steps,
-        steps=steps,
-        normalize_before_mask=normalize_before_mask,
-        masked_fill_value=0.0,
-        stride=stride,
+        TrainingWindows(
+            input_source=flat_om4_source,
+            label_source=None,
+            prognostic_var_names=["thetao_0"],
+            boundary_var_names=["hfds"],
+            input_steps=input_steps,
+            output_steps=output_steps,
+            steps=steps,
+            normalize_before_mask=normalize_before_mask,
+            masked_fill_value=0.0,
+            stride=stride,
+        )
     )
     schedule = [[3, 1], [0, 2]]
     loader = rust_train_loader(
@@ -476,7 +509,9 @@ def test_rust_loader_consumes_existing_batch_schedule(
     assert len(loader) == len(schedule)
     assert not hasattr(loader, "_dataloader")
     for actual, batch_indices in zip(actual_batches, schedule):
-        expected_raw = collate_host_batches([dataset[index] for index in batch_indices])
+        expected_raw = collate_host_batches(
+            [reference_dataset(dataset)[index] for index in batch_indices]
+        )
         expected = dataset.to_model_batch(expected_raw, torch.device("cpu"))
         for actual_step, expected_step in zip(actual.steps, expected.steps):
             for actual_tensor, expected_tensor in zip(actual_step, expected_step):
@@ -489,16 +524,18 @@ def test_rust_loader_matches_cpu_with_separate_destination(
     flat_om4_source, flat_om4_destination
 ):
     dataset = TorchTrainDataset(
-        input_source=flat_om4_source,
-        label_source=flat_om4_destination,
-        prognostic_var_names=["thetao_0"],
-        boundary_var_names=["hfds"],
-        input_steps=2,
-        output_steps=2,
-        steps=2,
-        normalize_before_mask=False,
-        masked_fill_value=-1.0,
-        stride=2,
+        TrainingWindows(
+            input_source=flat_om4_source,
+            label_source=flat_om4_destination,
+            prognostic_var_names=["thetao_0"],
+            boundary_var_names=["hfds"],
+            input_steps=2,
+            output_steps=2,
+            steps=2,
+            normalize_before_mask=False,
+            masked_fill_value=-1.0,
+            stride=2,
+        )
     )
     batch_indices = [0, 2]
     loader = rust_train_loader(
@@ -511,7 +548,9 @@ def test_rust_loader_matches_cpu_with_separate_destination(
     )
 
     actual = next(iter(loader))
-    expected_raw = collate_host_batches([dataset[index] for index in batch_indices])
+    expected_raw = collate_host_batches(
+        [reference_dataset(dataset)[index] for index in batch_indices]
+    )
     expected = dataset.to_model_batch(expected_raw, torch.device("cpu"))
 
     for actual_step, expected_step in zip(actual.steps, expected.steps):
@@ -525,16 +564,18 @@ def test_rust_loader_deduplicates_full_rollout_before_preprocessing(
     flat_om4_source, monkeypatch
 ):
     dataset = TorchTrainDataset(
-        input_source=flat_om4_source,
-        label_source=None,
-        prognostic_var_names=["thetao_0"],
-        boundary_var_names=["hfds"],
-        input_steps=2,
-        output_steps=2,
-        steps=2,
-        normalize_before_mask=True,
-        masked_fill_value=0.0,
-        stride=1,
+        TrainingWindows(
+            input_source=flat_om4_source,
+            label_source=None,
+            prognostic_var_names=["thetao_0"],
+            boundary_var_names=["hfds"],
+            input_steps=2,
+            output_steps=2,
+            steps=2,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+            stride=1,
+        )
     )
     loader = rust_train_loader(
         [dataset],
@@ -544,7 +585,7 @@ def test_rust_loader_deduplicates_full_rollout_before_preprocessing(
         prefetch_batches=1,
         pin_memory=False,
     )
-    chunk_batch = loader._batch_datasets[0].load_chunk_batch([0, 1])
+    chunk_batch = loader._batch_readers[0].load_chunk_batch([0, 1])
 
     # The materialized layout would contain 24 planes: input, boundary, and
     # label each have two samples by two times for both rollout steps. The
@@ -553,7 +594,7 @@ def test_rust_loader_deduplicates_full_rollout_before_preprocessing(
     assert sum(group.shape[0] for group in chunk_batch.groups) == 12
 
     calls = 0
-    preparer = loader._batch_datasets[0].preparer
+    preparer = loader._batch_readers[0].preparer
     original = preparer.normalize_and_mask_device_planes
 
     def record_preprocessing(*args, **kwargs):
@@ -565,7 +606,9 @@ def test_rust_loader_deduplicates_full_rollout_before_preprocessing(
         preparer, "normalize_and_mask_device_planes", record_preprocessing
     )
     actual = next(iter(loader))
-    expected_raw = collate_host_batches([dataset[0], dataset[1]])
+    expected_raw = collate_host_batches(
+        [reference_dataset(dataset)[0], reference_dataset(dataset)[1]]
+    )
     expected = dataset.to_model_batch(expected_raw, torch.device("cpu"))
 
     # Input and label share one unique prognostic transform; boundary uses the
@@ -580,26 +623,30 @@ def test_rust_loader_deduplicates_full_rollout_before_preprocessing(
 
 def test_rust_loader_preserves_homogeneous_dataset_id_invariant(flat_om4_source):
     first = TorchTrainDataset(
-        input_source=flat_om4_source,
-        label_source=None,
-        prognostic_var_names=["thetao_0"],
-        boundary_var_names=["hfds"],
-        input_steps=1,
-        output_steps=1,
-        steps=1,
-        normalize_before_mask=True,
-        masked_fill_value=0.0,
+        TrainingWindows(
+            input_source=flat_om4_source,
+            label_source=None,
+            prognostic_var_names=["thetao_0"],
+            boundary_var_names=["hfds"],
+            input_steps=1,
+            output_steps=1,
+            steps=1,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+        )
     )
     second = TorchTrainDataset(
-        input_source=flat_om4_source,
-        label_source=None,
-        prognostic_var_names=["thetao_0"],
-        boundary_var_names=["hfds"],
-        input_steps=1,
-        output_steps=1,
-        steps=1,
-        normalize_before_mask=True,
-        masked_fill_value=0.0,
+        TrainingWindows(
+            input_source=flat_om4_source,
+            label_source=None,
+            prognostic_var_names=["thetao_0"],
+            boundary_var_names=["hfds"],
+            input_steps=1,
+            output_steps=1,
+            steps=1,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+        )
     )
     loader = rust_train_loader(
         [first, second],
@@ -617,16 +664,18 @@ def test_rust_loader_preserves_homogeneous_dataset_id_invariant(flat_om4_source)
 def test_distributed_sampler_never_crosses_dataset_ids(flat_om4_source):
     datasets = [
         TorchTrainDataset(
-            input_source=flat_om4_source,
-            label_source=None,
-            prognostic_var_names=["thetao_0"],
-            boundary_var_names=["hfds"],
-            input_steps=1,
-            output_steps=1,
-            steps=1,
-            normalize_before_mask=True,
-            masked_fill_value=0.0,
-            stride=stride,
+            TrainingWindows(
+                input_source=flat_om4_source,
+                label_source=None,
+                prognostic_var_names=["thetao_0"],
+                boundary_var_names=["hfds"],
+                input_steps=1,
+                output_steps=1,
+                steps=1,
+                normalize_before_mask=True,
+                masked_fill_value=0.0,
+                stride=stride,
+            )
         )
         for stride in (1, 2)
     ]
@@ -663,19 +712,23 @@ def test_rust_batch_uses_physical_indices_after_time_slice(flat_om4_source):
     )
 
     dataset = TorchTrainDataset(
-        input_source=sliced,
-        label_source=None,
-        prognostic_var_names=["thetao_0"],
-        boundary_var_names=["hfds"],
-        input_steps=2,
-        output_steps=2,
-        steps=2,
-        normalize_before_mask=True,
-        masked_fill_value=0.0,
-        stride=1,
+        TrainingWindows(
+            input_source=sliced,
+            label_source=None,
+            prognostic_var_names=["thetao_0"],
+            boundary_var_names=["hfds"],
+            input_steps=2,
+            output_steps=2,
+            steps=2,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+            stride=1,
+        )
     )
     batch_indices = [0, 1]
-    expected_raw = collate_host_batches([dataset[index] for index in batch_indices])
+    expected_raw = collate_host_batches(
+        [reference_dataset(dataset)[index] for index in batch_indices]
+    )
     expected = dataset.to_model_batch(expected_raw, torch.device("cpu"))
     loader = rust_train_loader(
         [dataset],
@@ -694,32 +747,38 @@ def test_rust_batch_uses_physical_indices_after_time_slice(flat_om4_source):
             )
 
 
-def test_native_decoration_maps_an_already_sliced_canonical_dataset(
+def test_native_reader_maps_an_already_sliced_canonical_dataset(
     flat_om4_source,
 ):
     native_reader = cast(Any, flat_om4_source.reader)
-    canonical = flat_om4_source.with_reader(native_reader.semantic)
+    canonical = dataclasses.replace(
+        flat_om4_source, _reader=native_reader.metadata_reader
+    )
     sliced = canonical.slice_time(
         Om4TimeConfig.model_validate({"start": "2000-01-11", "end": "2000-03-01"})
     )
     native = native_om4_source(
         sliced,
         LocalLocation(path=Path(native_reader.path)),
-        create_rust_io_runtime(2),
+        RustIoRuntime(2),
     )
     dataset = TorchTrainDataset(
-        input_source=native,
-        label_source=None,
-        prognostic_var_names=["thetao_0"],
-        boundary_var_names=["hfds"],
-        input_steps=2,
-        output_steps=2,
-        steps=1,
-        normalize_before_mask=True,
-        masked_fill_value=0.0,
+        TrainingWindows(
+            input_source=native,
+            label_source=None,
+            prognostic_var_names=["thetao_0"],
+            boundary_var_names=["hfds"],
+            input_steps=2,
+            output_steps=2,
+            steps=1,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+        )
     )
     indices = [0, 1]
-    expected_raw = collate_host_batches([dataset[index] for index in indices])
+    expected_raw = collate_host_batches(
+        [reference_dataset(dataset)[index] for index in indices]
+    )
     expected = dataset.to_model_batch(expected_raw, torch.device("cpu"))
     loader = rust_train_loader(
         [dataset],
@@ -741,7 +800,9 @@ def test_native_decoration_maps_an_already_sliced_canonical_dataset(
             )
 
 
-def test_trainer_selects_rust_loader_with_no_pytorch_workers(flat_om4_source, tmp_path):
+def test_trainer_selects_rust_loader_with_no_pytorch_workers(
+    flat_om4_source, tmp_path, monkeypatch
+):
     data_root = Path(cast(Any, flat_om4_source.reader).path).parent
     config_path = Path(__file__).resolve().parent / "configs/train_default.yaml"
     config = TrainConfig.from_yaml_and_cli(
@@ -782,15 +843,20 @@ def test_trainer_selects_rust_loader_with_no_pytorch_workers(flat_om4_source, tm
 
     with MultitonScope():
         trainer = Trainer(config)
+
+        def no_torch_dataset(*args, **kwargs):
+            pytest.fail("Native batch construction created a TorchTrainDataset")
+
+        monkeypatch.setattr(TorchTrainDataset, "__init__", no_torch_dataset)
         trainer.init_data_loaders(cur_step=1)
         batch = next(iter(trainer.train_loader))
 
     assert trainer.num_workers == 0
     assert trainer.inference_num_workers == 3
-    assert isinstance(trainer.train_loader, RustTrainDataLoader)
-    assert isinstance(trainer.val_loader, RustTrainDataLoader)
+    assert isinstance(trainer.train_loader, NativeBatchLoader)
+    assert isinstance(trainer.val_loader, NativeBatchLoader)
     assert not hasattr(trainer.train_loader, "_dataloader")
-    assert len(trainer.train_loader._batch_datasets) == 2
+    assert len(trainer.train_loader._batch_readers) == 2
     for batch_indices in trainer.train_sampler:
         trainer.train_loader._resolve_batch(batch_indices)
     for batch_indices in trainer.val_sampler:
@@ -841,12 +907,12 @@ def test_trainer_selects_rust_loader_for_compact_om4(compact_om4_source, tmp_pat
         trainer.init_data_loaders(cur_step=1)
         batch = next(iter(trainer.train_loader))
 
-    assert isinstance(trainer.train_loader, RustTrainDataLoader)
-    assert isinstance(trainer.val_loader, RustTrainDataLoader)
+    assert isinstance(trainer.train_loader, NativeBatchLoader)
+    assert isinstance(trainer.val_loader, NativeBatchLoader)
     assert all(
-        dataset._input_reader._reader_variables["thetao_0"].extension_selector()
-        == ("thetao", 0)
-        for dataset in trainer.train_loader._batch_datasets
+        cast(NativeOm4Reader, dataset._input_reader)._reader_variables["thetao_0"]
+        == PhysicalVariable("thetao", 0)
+        for dataset in trainer.train_loader._batch_readers
     )
     assert len(batch) == 1
 
@@ -855,15 +921,17 @@ def test_rust_loader_prefetches_next_batch_during_consumption(
     flat_om4_source, monkeypatch
 ):
     dataset = TorchTrainDataset(
-        input_source=flat_om4_source,
-        label_source=None,
-        prognostic_var_names=["thetao_0"],
-        boundary_var_names=["hfds"],
-        input_steps=1,
-        output_steps=1,
-        steps=1,
-        normalize_before_mask=True,
-        masked_fill_value=0.0,
+        TrainingWindows(
+            input_source=flat_om4_source,
+            label_source=None,
+            prognostic_var_names=["thetao_0"],
+            boundary_var_names=["hfds"],
+            input_steps=1,
+            output_steps=1,
+            steps=1,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+        )
     )
     loader = rust_train_loader(
         [dataset],
@@ -873,7 +941,7 @@ def test_rust_loader_prefetches_next_batch_during_consumption(
         prefetch_batches=2,
         pin_memory=False,
     )
-    original_load = loader._batch_datasets[0].load_chunk_batch
+    original_load = loader._batch_readers[0].load_chunk_batch
     second_started = threading.Event()
     call_count = 0
 
@@ -885,7 +953,7 @@ def test_rust_loader_prefetches_next_batch_during_consumption(
         time.sleep(0.03)
         return original_load(indices, buffer_pool=buffer_pool)
 
-    monkeypatch.setattr(loader._batch_datasets[0], "load_chunk_batch", slow_load)
+    monkeypatch.setattr(loader._batch_readers[0], "load_chunk_batch", slow_load)
     iterator = cast(Any, iter(loader))
 
     next(iterator)
@@ -894,22 +962,24 @@ def test_rust_loader_prefetches_next_batch_during_consumption(
     assert len(iterator._host._pending) <= 2
     iterator.close()
     assert not any(
-        thread.name.startswith("samudra-rust-prefetch")
+        thread.name.startswith("samudra-native-prefetch")
         for thread in threading.enumerate()
     )
 
 
 def test_rust_loader_surfaces_prefetch_errors(flat_om4_source, monkeypatch):
     dataset = TorchTrainDataset(
-        input_source=flat_om4_source,
-        label_source=None,
-        prognostic_var_names=["thetao_0"],
-        boundary_var_names=["hfds"],
-        input_steps=1,
-        output_steps=1,
-        steps=1,
-        normalize_before_mask=True,
-        masked_fill_value=0.0,
+        TrainingWindows(
+            input_source=flat_om4_source,
+            label_source=None,
+            prognostic_var_names=["thetao_0"],
+            boundary_var_names=["hfds"],
+            input_steps=1,
+            output_steps=1,
+            steps=1,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+        )
     )
     loader = rust_train_loader(
         [dataset],
@@ -923,13 +993,13 @@ def test_rust_loader_surfaces_prefetch_errors(flat_om4_source, monkeypatch):
     def fail_load(_indices, **_kwargs):
         raise ValueError("intentional Rust producer failure")
 
-    monkeypatch.setattr(loader._batch_datasets[0], "load_chunk_batch", fail_load)
+    monkeypatch.setattr(loader._batch_readers[0], "load_chunk_batch", fail_load)
 
     with pytest.raises(ValueError, match="intentional Rust producer failure"):
         next(iter(loader))
 
     assert not any(
-        thread.name.startswith("samudra-rust-prefetch")
+        thread.name.startswith("samudra-native-prefetch")
         for thread in threading.enumerate()
     )
 
@@ -938,15 +1008,17 @@ def test_rust_loader_closes_prefetch_when_partial_iterator_is_abandoned(
     flat_om4_source,
 ):
     dataset = TorchTrainDataset(
-        input_source=flat_om4_source,
-        label_source=None,
-        prognostic_var_names=["thetao_0"],
-        boundary_var_names=["hfds"],
-        input_steps=1,
-        output_steps=1,
-        steps=1,
-        normalize_before_mask=True,
-        masked_fill_value=0.0,
+        TrainingWindows(
+            input_source=flat_om4_source,
+            label_source=None,
+            prognostic_var_names=["thetao_0"],
+            boundary_var_names=["hfds"],
+            input_steps=1,
+            output_steps=1,
+            steps=1,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+        )
     )
     loader = rust_train_loader(
         [dataset],
@@ -962,7 +1034,7 @@ def test_rust_loader_closes_prefetch_when_partial_iterator_is_abandoned(
     assert loader._active_iterator is not None
     assert loader._active_iterator() is None
     assert not any(
-        thread.name.startswith("samudra-rust-prefetch")
+        thread.name.startswith("samudra-native-prefetch")
         for thread in threading.enumerate()
     )
 
@@ -972,15 +1044,17 @@ def test_rust_loader_reclaims_completed_pinned_prefetch_on_early_close(
     flat_om4_source, monkeypatch
 ):
     dataset = TorchTrainDataset(
-        input_source=flat_om4_source,
-        label_source=None,
-        prognostic_var_names=["thetao_0"],
-        boundary_var_names=["hfds"],
-        input_steps=1,
-        output_steps=1,
-        steps=1,
-        normalize_before_mask=True,
-        masked_fill_value=0.0,
+        TrainingWindows(
+            input_source=flat_om4_source,
+            label_source=None,
+            prognostic_var_names=["thetao_0"],
+            boundary_var_names=["hfds"],
+            input_steps=1,
+            output_steps=1,
+            steps=1,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+        )
     )
     loader = rust_train_loader(
         [dataset],
@@ -1023,15 +1097,17 @@ def test_rust_loader_reclaims_pinned_prefetch_after_producer_error(
     flat_om4_source, monkeypatch
 ):
     dataset = TorchTrainDataset(
-        input_source=flat_om4_source,
-        label_source=None,
-        prognostic_var_names=["thetao_0"],
-        boundary_var_names=["hfds"],
-        input_steps=1,
-        output_steps=1,
-        steps=1,
-        normalize_before_mask=True,
-        masked_fill_value=0.0,
+        TrainingWindows(
+            input_source=flat_om4_source,
+            label_source=None,
+            prognostic_var_names=["thetao_0"],
+            boundary_var_names=["hfds"],
+            input_steps=1,
+            output_steps=1,
+            steps=1,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+        )
     )
     loader = rust_train_loader(
         [dataset],
@@ -1058,7 +1134,7 @@ def test_rust_loader_reclaims_pinned_prefetch_after_producer_error(
 
     monkeypatch.setattr(loader._pinned_pool, "acquire", tracked_acquire)
     monkeypatch.setattr(loader._pinned_pool, "release_tensors", tracked_release)
-    original_load = loader._batch_datasets[0].load_chunk_batch
+    original_load = loader._batch_readers[0].load_chunk_batch
     call_count = 0
 
     def fail_then_load(indices, **kwargs):
@@ -1068,7 +1144,7 @@ def test_rust_loader_reclaims_pinned_prefetch_after_producer_error(
             raise ValueError("intentional Rust producer failure")
         return original_load(indices, **kwargs)
 
-    monkeypatch.setattr(loader._batch_datasets[0], "load_chunk_batch", fail_then_load)
+    monkeypatch.setattr(loader._batch_readers[0], "load_chunk_batch", fail_then_load)
 
     with pytest.raises(ValueError, match="intentional Rust producer failure"):
         next(iter(loader))
@@ -1081,15 +1157,17 @@ def test_rust_loader_prefetches_pinned_batch_on_dedicated_cuda_stream(
     flat_om4_source, monkeypatch
 ):
     dataset = TorchTrainDataset(
-        input_source=flat_om4_source,
-        label_source=None,
-        prognostic_var_names=["thetao_0"],
-        boundary_var_names=["hfds"],
-        input_steps=2,
-        output_steps=2,
-        steps=2,
-        normalize_before_mask=True,
-        masked_fill_value=0.0,
+        TrainingWindows(
+            input_source=flat_om4_source,
+            label_source=None,
+            prognostic_var_names=["thetao_0"],
+            boundary_var_names=["hfds"],
+            input_steps=2,
+            output_steps=2,
+            steps=2,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+        )
     )
     schedule = [[0, 1], [2, 3], [4, 5]]
     loader = rust_train_loader(
@@ -1132,7 +1210,9 @@ def test_rust_loader_prefetches_pinned_batch_on_dedicated_cuda_stream(
     # producer acquires batch N+1, so their two read-group buffers must be distinct.
     assert set(pointers[:2]).isdisjoint(pointers[2:4])
     for actual, batch_indices in zip(actual_batches, schedule):
-        expected_raw = collate_host_batches([dataset[index] for index in batch_indices])
+        expected_raw = collate_host_batches(
+            [reference_dataset(dataset)[index] for index in batch_indices]
+        )
         expected = dataset.to_model_batch(expected_raw, torch.device("cpu"))
         assert actual.ctx.label_mask.device.type == "cuda"
         for actual_step, expected_step in zip(actual.steps, expected.steps):
@@ -1152,15 +1232,17 @@ def test_rust_loader_reuses_pinned_buffers_after_cuda_event(
     flat_om4_source, monkeypatch
 ):
     dataset = TorchTrainDataset(
-        input_source=flat_om4_source,
-        label_source=None,
-        prognostic_var_names=["thetao_0"],
-        boundary_var_names=["hfds"],
-        input_steps=1,
-        output_steps=1,
-        steps=1,
-        normalize_before_mask=True,
-        masked_fill_value=0.0,
+        TrainingWindows(
+            input_source=flat_om4_source,
+            label_source=None,
+            prognostic_var_names=["thetao_0"],
+            boundary_var_names=["hfds"],
+            input_steps=1,
+            output_steps=1,
+            steps=1,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+        )
     )
     loader = rust_train_loader(
         [dataset],
@@ -1204,15 +1286,17 @@ def test_preparation_failure_closes_retained_iterator_and_releases_buffers(
     flat_om4_source, monkeypatch, device_type, device_prefetch, fail_at
 ):
     dataset = TorchTrainDataset(
-        input_source=flat_om4_source,
-        label_source=None,
-        prognostic_var_names=["thetao_0"],
-        boundary_var_names=["hfds"],
-        input_steps=1,
-        output_steps=1,
-        steps=1,
-        normalize_before_mask=True,
-        masked_fill_value=0.0,
+        TrainingWindows(
+            input_source=flat_om4_source,
+            label_source=None,
+            prognostic_var_names=["thetao_0"],
+            boundary_var_names=["hfds"],
+            input_steps=1,
+            output_steps=1,
+            steps=1,
+            normalize_before_mask=True,
+            masked_fill_value=0.0,
+        )
     )
     loader = rust_train_loader(
         [dataset],
@@ -1226,13 +1310,13 @@ def test_preparation_failure_closes_retained_iterator_and_releases_buffers(
     # Retain host iterators and exceptions so destructors cannot make a missing
     # explicit cleanup path pass this test, including failure during iter(loader).
     hosts = []
-    original_host_init = rust_data._RustHostPrefetchIterator.__init__
+    original_host_init = native_loader._HostPrefetchIterator.__init__
 
     def retain_host(host, *args):
         original_host_init(host, *args)
         hosts.append(host)
 
-    monkeypatch.setattr(rust_data._RustHostPrefetchIterator, "__init__", retain_host)
+    monkeypatch.setattr(native_loader._HostPrefetchIterator, "__init__", retain_host)
     acquired: list[int] = []
     released: list[int] = []
     events: list[torch.cuda.Event | None] = []
@@ -1292,3 +1376,24 @@ def test_preparation_failure_closes_retained_iterator_and_releases_buffers(
         assert sum(event is not None for event in events) == fail_at
         torch.cuda.synchronize()
     loader.close()
+
+
+@pytest.mark.parametrize("source_fixture", ["flat_om4_source", "compact_om4_source"])
+@pytest.mark.parametrize(
+    "indices", [np.array(3), np.array([[4, 2], [2, 1]]), np.empty((0, 2), dtype=int)]
+)
+def test_native_ordinary_reads_use_the_configured_reader(
+    source_fixture, indices, request, monkeypatch
+):
+    source = request.getfixturevalue(source_fixture).slice_time(
+        Om4TimeConfig.model_validate({"start": "2000-01-06", "end": "2000-03-10"})
+    )
+    reader = cast(NativeOm4Reader, source.reader)
+    channels = ("hfds", "thetao_0")
+    expected = reader.metadata_reader.read(CanonicalReadRequest(indices, channels))
+
+    def no_xarray_reads(*args, **kwargs):
+        pytest.fail("Native canonical read fell back to Xarray")
+
+    monkeypatch.setattr(type(reader.metadata_reader), "read", no_xarray_reads)
+    np.testing.assert_array_equal(source.read(indices, channels), expected)

@@ -9,7 +9,7 @@ from einops import rearrange
 
 from samudra.aggregator.metrics import area_weighted_rmse
 from samudra.constants import DataLayout, PrognosticVarNames
-from samudra.utils.data import BatchPreprocessor
+from samudra.utils.data import ChannelTransform
 from samudra.utils.device import get_device
 from samudra.utils.distributed import all_reduce_mean
 from samudra.utils.output import ModelInferenceOutput
@@ -78,7 +78,7 @@ def _get_raw_rollout_dict(
     data: torch.Tensor,
     *,
     output_steps: int,
-    preprocessor: BatchPreprocessor,
+    preprocessor: ChannelTransform,
     field_names: tuple[str, ...],
 ) -> dict[str, torch.Tensor]:
     data_reshaped = rearrange(
@@ -108,7 +108,7 @@ class RolloutValidationAggregator:
         *,
         output_steps: int,
         area_weights: torch.Tensor,
-        preprocessor: BatchPreprocessor,
+        preprocessor: ChannelTransform,
         data_layout: DataLayout,
         prognostic_var_names: PrognosticVarNames,
         distributed_reduce: bool = True,

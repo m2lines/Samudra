@@ -504,3 +504,17 @@ def test_shipped_eval_presets_load(preset: pathlib.Path):
     only a real eval job would notice.
     """
     EvalConfig.from_yaml_and_cli([str(preset)])
+
+
+def test_rust_loading_rejects_derived_channels_before_opening_data(
+    tmp_path, monkeypatch
+):
+    source = om4_source_config(boundary_vars_key="tau_hfds_hfds_anom")
+    cfg = DataConfig(sources=[source], loading=RustDataLoadingConfig())
+
+    def unexpected_open(*args, **kwargs):
+        pytest.fail("Unsupported native config opened data before validation")
+
+    monkeypatch.setattr(LocalLocation, "open", unexpected_open)
+    with pytest.raises(ValueError, match="does not yet support derived boundary"):
+        cfg.build(LocalLocation(path=tmp_path))

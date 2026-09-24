@@ -2,64 +2,26 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Local OM4 batch loading through the optional Rust extension."""
+"""Shared native batching, host prefetch and CUDA buffer lifetimes."""
 
 from __future__ import annotations
 
-import importlib
 import math
 import time
 import weakref
 from bisect import bisect_right
 from collections import deque
-from collections.abc import Callable, Iterator
+from collections.abc import Iterator
 from concurrent.futures import Future, ThreadPoolExecutor
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from threading import Lock
-from typing import Any, Protocol, Self
 
 import numpy as np
 import torch
-import xarray as xr
 
-from samudra.datasets import BatchReadUse, ModelBatch, TrainBatchPreparer, TrainingShard
-from samudra.utils.data import (
-    CanonicalReader,
-    CanonicalReadRequest,
-    CanonicalSource,
-    ChannelStatistics,
-    LoadStats,
-)
-from samudra.utils.location import LocalLocation
-
-
-def _load_extension() -> Any:
-    try:
-        extension = importlib.import_module("samudra_rust_loader")
-    except ModuleNotFoundError as error:
-        raise RuntimeError(
-            "Rust data loading requires the optional extension; in a source "
-            "checkout run `uv sync --extra rust`, or install the matching "
-            "samudra-rust-loader platform wheel."
-        ) from error
-    return extension
-
-
-@dataclass(frozen=True)
-class RustIoRuntime:
-    """Process-local native I/O executor shared by canonical OM4 readers."""
-
-    read_pool: Any
-
-
-def create_rust_io_runtime(max_concurrent_reads: int) -> RustIoRuntime:
-    return RustIoRuntime(_load_extension().ZarrReadPool(max_concurrent_reads))
-
-
-class BatchSampler(Protocol):
-    def __iter__(self) -> Iterator[list[int]]: ...
-
-    def __len__(self) -> int: ...
+from samudra.datasets import BatchPreparer, BatchReadUse, ModelBatch, TrainingWindows
+from samudra.utils.data import BulkCanonicalReader, LoadStats
+from samudra.utils.samplers import BatchSchedule
 
 
 @dataclass(frozen=True)
@@ -72,27 +34,7 @@ class CudaPrefetch:
     """Prefetch through pinned host buffers onto a dedicated CUDA stream."""
 
 
-type RustPrefetchPolicy = HostPrefetch | CudaPrefetch
-
-
-@dataclass(frozen=True)
-class FlatOm4Variable:
-    physical_name: str
-
-    def extension_selector(self) -> str:
-        return self.physical_name
-
-
-@dataclass(frozen=True)
-class CompactOm4Variable:
-    physical_name: str
-    level: int | None
-
-    def extension_selector(self) -> tuple[str, int | None]:
-        return self.physical_name, self.level
-
-
-type ReaderVariable = FlatOm4Variable | CompactOm4Variable
+type PrefetchPolicy = HostPrefetch | CudaPrefetch
 
 
 class _PinnedTensorPool:
@@ -183,263 +125,24 @@ class _PinnedBufferLease:
         self._tensors = []
 
 
-@dataclass(frozen=True)
-class _NativeOm4CanonicalReader:
-    """Canonical semantics with a private persistent native plane reader.
-
-    The xarray delegate remains the source of coordinates, statistics, metadata,
-    and ordinary reads. The Rust loader discovers only the narrow native methods
-    below; physical layout and time indices never become CanonicalSource state.
-    """
-
-    semantic: CanonicalReader
-    channels: tuple[str, ...]
-    path: str
-    _native: Any
-    _reader_variables: dict[str, ReaderVariable]
-    _physical_time_indices: np.ndarray
-    _spatial_shape: tuple[int, int]
-
-    @property
-    def time(self) -> xr.DataArray:
-        return self.semantic.time
-
-    @property
-    def resolution(self):
-        return self.semantic.resolution
-
-    def statistics(self, channels: tuple[str, ...]) -> ChannelStatistics:
-        return self.semantic.statistics(channels)
-
-    @property
-    def attrs(self):
-        return self.semantic.attrs
-
-    @property
-    def storage_id(self) -> int:
-        return id(self._native)
-
-    def slice_time(self, time) -> Self:
-        semantic = self.semantic.slice_time(time)
-        positions = self.time.to_index().get_indexer(semantic.time.to_index())
-        if np.any(positions < 0):
-            raise AssertionError("Canonical time slice could not be mapped to storage")
-        physical = self._physical_time_indices[positions].copy()
-        physical.setflags(write=False)
-        return replace(
-            self,
-            semantic=semantic,
-            _physical_time_indices=physical,
-        )
-
-    def read(self, request: CanonicalReadRequest) -> np.ndarray:
-        # Keep the ordinary CanonicalSource path independent from the optimized
-        # training loader. This also gives parity tests a true xarray reference.
-        return self.semantic.read(request)
-
-    def coordinates(self):
-        return self.semantic.coordinates()
-
-    def metadata(self, data_layout):
-        return self.semantic.metadata(data_layout)
-
-    def physical_indices(self, relative: np.ndarray) -> np.ndarray:
-        return self._physical_time_indices[relative]
-
-    def read_unique(
-        self,
-        physical_time_indices: np.ndarray,
-        *,
-        channels: tuple[str, ...],
-        buffer_factory: Callable[[tuple[int, ...]], torch.Tensor] | None = None,
-    ) -> torch.Tensor:
-        """Read unique physical planes for this canonical channel view."""
-        if physical_time_indices.ndim != 1:
-            raise ValueError("Unique physical time indices must be one-dimensional")
-        missing = set(channels).difference(self._reader_variables)
-        if missing:
-            raise KeyError(f"Canonical channels not found: {sorted(missing)}")
-        reader_variables = [
-            self._reader_variables[name].extension_selector() for name in channels
-        ]
-        shape = (len(physical_time_indices), len(channels), *self._spatial_shape)
-        tensor = (
-            buffer_factory(shape)
-            if buffer_factory is not None
-            else torch.empty(shape, dtype=torch.float32)
-        )
-        if tuple(tensor.shape) != shape or tensor.dtype != torch.float32:
-            raise ValueError(
-                f"Rust unique read buffer must have shape {shape} and dtype float32; "
-                f"got shape {tuple(tensor.shape)} and dtype {tensor.dtype}"
-            )
-        if buffer_factory is not None and not tensor.is_pinned():
-            raise ValueError("Rust buffer factory must return pinned memory")
-        self._native.read_into(
-            physical_time_indices.tolist(), reader_variables, tensor.numpy()
-        )
-        return tensor
-
-
-def _validate_native_encoding(variable: xr.DataArray, location: LocalLocation) -> None:
-    """Reject CF transforms that direct physical plane reads do not implement."""
-    # Xarray moves decoded CF metadata out of attrs and into encoding. Inspect
-    # metadata only: reading values here could load an entire ocean field.
-    encoding = variable.attrs | variable.encoding
-    unsupported = [name for name in ("scale_factor", "add_offset") if name in encoding]
-    for name in ("_FillValue", "missing_value"):
-        fill = encoding.get(name)
-        if fill is not None and not np.all(np.isnan(fill)):
-            unsupported.append(name)
-    if unsupported:
-        raise ValueError(
-            "loading.type='rust' does not support CF encoding "
-            f"{unsupported} on variable {variable.name!r} in {location.path}; "
-            "native reads require unscaled float32 values and NaN missing-value "
-            "sentinels. Use loading.type='cpu' to apply Xarray's CF decoding."
-        )
-
-
-def native_om4_source(
-    dataset: CanonicalSource,
-    location: LocalLocation,
-    runtime: RustIoRuntime,
-) -> CanonicalSource:
-    """Attach native OM4 plane I/O without changing canonical dataset semantics."""
-    physical = location.open({})
-    reader_variables: dict[str, ReaderVariable] = {}
-    uses_level_axis = False
-    for logical_name in dataset.channels:
-        if logical_name in physical.data_vars:
-            reader_variables[logical_name] = FlatOm4Variable(logical_name)
-            continue
-        base, separator, level_text = logical_name.rpartition("_")
-        if separator and level_text.isdigit() and base in physical.data_vars:
-            variable = physical[base]
-            if "lev" in variable.dims:
-                reader_variables[logical_name] = CompactOm4Variable(
-                    base, int(level_text)
-                )
-                uses_level_axis = True
-                continue
-        matches = []
-        for physical_name in physical.data_vars:
-            name = str(physical_name)
-            if not name.startswith(f"{base}_lev_"):
-                continue
-            depth = float(name.split("_lev_", 1)[1].replace("_", "."))
-            if dataset.data_layout.depth_levels.index(depth) == int(level_text):
-                matches.append(name)
-        if len(matches) == 1:
-            reader_variables[logical_name] = FlatOm4Variable(matches[0])
-            continue
-        raise ValueError(
-            f"Could not map canonical OM4 channel {logical_name!r} in {location.path}"
-        )
-
-    for physical_name in dict.fromkeys(
-        value.physical_name for value in reader_variables.values()
-    ):
-        _validate_native_encoding(physical[physical_name], location)
-
-    extension = _load_extension()
-    unique = list(dict.fromkeys(reader_variables.values()))
-    if uses_level_axis:
-        selectors = [
-            value
-            if isinstance(value, CompactOm4Variable)
-            else CompactOm4Variable(value.physical_name, None)
-            for value in unique
-        ]
-        native = extension.CompactOm4Reader(
-            location.path,
-            [value.extension_selector() for value in selectors],
-            runtime.read_pool,
-        )
-        reader_variables = {
-            name: value
-            if isinstance(value, CompactOm4Variable)
-            else CompactOm4Variable(value.physical_name, None)
-            for name, value in reader_variables.items()
-        }
-    else:
-        if not all(isinstance(value, FlatOm4Variable) for value in unique):
-            raise AssertionError("Flat OM4 mapping unexpectedly contains a level")
-        native = extension.FlatOm4Reader(
-            location.path,
-            [value.physical_name for value in unique],
-            runtime.read_pool,
-        )
-
-    physical_time = physical["time"].to_index()
-    canonical_time = dataset.time.to_index()
-    if not physical_time.is_unique:
-        raise ValueError(f"Rust store {location.path} has duplicate time coordinates")
-    if not canonical_time.is_unique:
-        raise ValueError("Canonical dataset has duplicate time coordinates")
-    physical_indices = physical_time.get_indexer(canonical_time).astype(
-        np.int64, copy=False
-    )
-    if np.any(physical_indices < 0):
-        missing = canonical_time[physical_indices < 0]
-        raise ValueError(
-            f"Canonical dataset times are missing from Rust store {location.path}: "
-            f"{list(missing[:3])}"
-        )
-
-    time_size, lat, lon = native.shape
-    if time_size != len(physical_time):
-        raise ValueError(
-            f"Rust store {location.path} reports {time_size} rows, but its time "
-            f"coordinate has {len(physical_time)}"
-        )
-    if (lat, lon) != dataset.grid_size:
-        raise ValueError(
-            f"Rust store {location.path} has spatial shape {(lat, lon)}, but the "
-            f"canonical dataset has {dataset.grid_size}"
-        )
-    physical_indices = physical_indices.copy()
-    physical_indices.setflags(write=False)
-    reader = _NativeOm4CanonicalReader(
-        semantic=dataset.reader,
-        channels=dataset.channels,
-        path=str(location.path),
-        _native=native,
-        _reader_variables=reader_variables,
-        _physical_time_indices=physical_indices,
-        _spatial_shape=(lat, lon),
-    )
-    return dataset.with_reader(reader)
-
-
-def _native_reader(source: CanonicalSource) -> _NativeOm4CanonicalReader:
-    reader = source.reader
-    if not isinstance(reader, _NativeOm4CanonicalReader):
-        raise ValueError(
-            "Rust training requires a canonical dataset built by the native OM4 "
-            "backend factory"
-        )
-    return reader
-
-
 @dataclass
-class _RustChunkUse:
+class _ChunkUse:
     group_index: int
     rows: torch.Tensor
     policy: BatchReadUse
 
 
 @dataclass
-class _RustChunkStep:
-    input: _RustChunkUse
-    boundary: _RustChunkUse
-    label: _RustChunkUse
+class _ChunkStep:
+    input: _ChunkUse
+    boundary: _ChunkUse
+    label: _ChunkUse
 
 
 @dataclass
-class _RustChunkBatch:
+class _ChunkBatch:
     groups: list[torch.Tensor]
-    steps: list[_RustChunkStep]
+    steps: list[_ChunkStep]
     load_stats: LoadStats
     lease: _PinnedBufferLease | None
 
@@ -458,39 +161,34 @@ class _PendingChunkStep:
     label: _PendingChunkUse
 
 
-class _RustBatchDataset:
-    """Batch-oriented native reader and preparer for one training shard."""
+class _NativeBatchReader:
+    """Batch-oriented native reader and preparer for one set of training windows."""
 
     def __init__(
         self,
-        shard: TrainingShard,
+        windows: TrainingWindows,
     ) -> None:
-        self.shard = shard
-        self.preparer = TrainBatchPreparer(shard)
-        self._input_reader = _native_reader(self.shard.input_source)
-        self._boundary_reader = self._input_reader
-        self._label_reader = _native_reader(self.shard.label_source)
+        self.windows = windows
+        self.preparer = BatchPreparer(windows)
+        self._input_reader = self.windows.input_source.bulk_reader
+        self._label_reader = self.windows.label_source.bulk_reader
 
     def load_chunk_batch(
         self,
         indices: list[int],
         *,
         buffer_pool: _PinnedTensorPool | None = None,
-    ) -> _RustChunkBatch:
+    ) -> _ChunkBatch:
         """Load every physical plane once and retain logical rollout maps."""
         if not indices:
-            raise ValueError("Cannot load an empty Rust batch")
+            raise ValueError("Cannot load an empty native batch")
         start_time = time.perf_counter()
         lease = buffer_pool.lease() if buffer_pool is not None else None
-        group_specs: dict[tuple[int, tuple[str, ...]], _NativeOm4CanonicalReader] = {}
+        group_specs: dict[tuple[int, tuple[str, ...]], BulkCanonicalReader] = {}
         pending_steps: list[_PendingChunkStep] = []
 
-        def buffer_factory(shape: tuple[int, ...]) -> torch.Tensor:
-            assert lease is not None
-            return lease.acquire(shape)
-
         def pending_use(
-            reader: _NativeOm4CanonicalReader,
+            reader: BulkCanonicalReader,
             use: BatchReadUse,
         ) -> _PendingChunkUse:
             key = (reader.storage_id, use.request.channels)
@@ -502,12 +200,12 @@ class _RustBatchDataset:
             )
 
         try:
-            plan = self.shard.window_plan(indices)
+            plan = self.windows.window_plan(indices)
             for step in plan.steps:
                 pending_steps.append(
                     _PendingChunkStep(
                         input=pending_use(self._input_reader, step.input),
-                        boundary=pending_use(self._boundary_reader, step.boundary),
+                        boundary=pending_use(self._input_reader, step.boundary),
                         label=pending_use(self._label_reader, step.label),
                     )
                 )
@@ -533,27 +231,29 @@ class _RustBatchDataset:
                         [use.physical_indices.reshape(-1) for use in uses_by_key[key]]
                     )
                 ).astype(np.int64, copy=False)
-                values = reader.read_unique(
-                    unique_indices,
-                    channels=key[1],
-                    buffer_factory=buffer_factory if buffer_pool else None,
+                shape = (len(unique_indices), len(key[1]), *reader.spatial_shape)
+                values = (
+                    lease.acquire(shape)
+                    if lease is not None
+                    else torch.empty(shape, dtype=torch.float32)
                 )
+                reader.read_into(unique_indices, key[1], values.numpy())
                 group_metadata[key] = (len(groups), unique_indices)
                 groups.append(values)
 
-            def finalize(use: _PendingChunkUse) -> _RustChunkUse:
+            def finalize(use: _PendingChunkUse) -> _ChunkUse:
                 group_index, unique_indices = group_metadata[use.key]
                 rows = np.searchsorted(unique_indices, use.physical_indices)
                 if not np.array_equal(unique_indices[rows], use.physical_indices):
-                    raise AssertionError("Rust chunk plan lost a physical time index")
-                return _RustChunkUse(
+                    raise AssertionError("Native chunk plan lost a physical time index")
+                return _ChunkUse(
                     group_index=group_index,
                     rows=torch.from_numpy(rows.astype(np.int64, copy=False)),
                     policy=use.policy,
                 )
 
             steps = [
-                _RustChunkStep(
+                _ChunkStep(
                     input=finalize(step.input),
                     boundary=finalize(step.boundary),
                     label=finalize(step.label),
@@ -565,7 +265,7 @@ class _RustBatchDataset:
                 lease.release()
             raise
 
-        return _RustChunkBatch(
+        return _ChunkBatch(
             groups=groups,
             steps=steps,
             load_stats=LoadStats(time.perf_counter() - start_time),
@@ -573,29 +273,28 @@ class _RustBatchDataset:
         )
 
 
-class RustTrainDataLoader:
-    """Batch-sampler preserving loader with bounded Rust host prefetch."""
+class NativeBatchLoader:
+    """Batch-sampler preserving loader with bounded native host prefetch."""
 
     def __init__(
         self,
-        shards: list[TrainingShard],
-        batch_sampler: BatchSampler,
+        windows: list[TrainingWindows],
+        batch_sampler: BatchSchedule,
         device: torch.device,
         *,
         prefetch_batches: int,
-        prefetch: RustPrefetchPolicy,
+        prefetch: PrefetchPolicy,
     ) -> None:
         if prefetch_batches < 1:
             raise ValueError("prefetch_batches must be positive")
-        if not shards:
-            raise ValueError("RustTrainDataLoader requires at least one dataset")
+        if not windows:
+            raise ValueError("NativeBatchLoader requires at least one dataset")
         if not hasattr(batch_sampler, "__iter__") or not hasattr(
             batch_sampler, "__len__"
         ):
             raise TypeError("batch_sampler must be iterable and sized")
 
-        self._shards = shards
-        self._batch_datasets = [_RustBatchDataset(shard) for shard in shards]
+        self._batch_readers = [_NativeBatchReader(window) for window in windows]
         self._batch_sampler = batch_sampler
         self._device = device
         self._prefetch_batches = prefetch_batches
@@ -607,7 +306,7 @@ class RustTrainDataLoader:
             raise ValueError("CUDA prefetch requires a CUDA training device")
         pin_memory = True if isinstance(prefetch, CudaPrefetch) else prefetch.pin_memory
         self._pinned_pool = _PinnedTensorPool() if pin_memory else None
-        self._cumulative_sizes = np.cumsum([len(shard) for shard in shards]).tolist()
+        self._cumulative_sizes = np.cumsum([len(window) for window in windows]).tolist()
 
     def _resolve_batch(self, global_indices: list[int]) -> tuple[int, list[int]]:
         if not global_indices:
@@ -635,26 +334,26 @@ class RustTrainDataLoader:
 
     def _load_raw_batch(
         self, global_indices: list[int]
-    ) -> tuple[_RustBatchDataset, _RustChunkBatch]:
+    ) -> tuple[_NativeBatchReader, _ChunkBatch]:
         dataset_index, local_indices = self._resolve_batch(global_indices)
-        batch_dataset = self._batch_datasets[dataset_index]
-        raw = batch_dataset.load_chunk_batch(
+        batch_reader = self._batch_readers[dataset_index]
+        raw = batch_reader.load_chunk_batch(
             local_indices,
             buffer_pool=self._pinned_pool,
         )
-        return batch_dataset, raw
+        return batch_reader, raw
 
     def _prepare_batch(
-        self, loaded: tuple[_RustBatchDataset, _RustChunkBatch]
+        self, loaded: tuple[_NativeBatchReader, _ChunkBatch]
     ) -> ModelBatch:
-        batch_dataset, raw = loaded
-        preparer = batch_dataset.preparer
+        batch_reader, raw = loaded
+        preparer = batch_reader.preparer
         device_groups = [
             group.to(device=self._device, non_blocking=True) for group in raw.groups
         ]
         transformed: dict[tuple[int, int, int], torch.Tensor] = {}
 
-        def materialize(use: _RustChunkUse) -> torch.Tensor:
+        def materialize(use: _ChunkUse) -> torch.Tensor:
             transform_key = (
                 use.group_index,
                 id(use.policy.source),
@@ -690,7 +389,7 @@ class RustTrainDataLoader:
         return train_data
 
     def _release_raw(
-        self, raw: _RustChunkBatch, event: torch.cuda.Event | None = None
+        self, raw: _ChunkBatch, event: torch.cuda.Event | None = None
     ) -> None:
         if raw.lease is not None:
             raw.lease.release(event)
@@ -699,7 +398,7 @@ class RustTrainDataLoader:
         self.close()
         # Snapshot sampler RNG and rank scheduling before the producer starts.
         schedule = [list(batch) for batch in self._batch_sampler]
-        host_iterator = _RustHostPrefetchIterator(self, schedule)
+        host_iterator = _HostPrefetchIterator(self, schedule)
         if self._prefetch_to_device:
             iterator: _PreparedIterator | _CudaPrefetchIterator = _CudaPrefetchIterator(
                 self, host_iterator
@@ -728,16 +427,14 @@ class RustTrainDataLoader:
                 iterator.close()
 
 
-class _RustHostPrefetchIterator(Iterator[tuple[_RustBatchDataset, _RustChunkBatch]]):
-    def __init__(self, loader: RustTrainDataLoader, schedule: list[list[int]]) -> None:
+class _HostPrefetchIterator(Iterator[tuple[_NativeBatchReader, _ChunkBatch]]):
+    def __init__(self, loader: NativeBatchLoader, schedule: list[list[int]]) -> None:
         self._loader = loader
         self._schedule = iter(schedule)
         self._executor = ThreadPoolExecutor(
-            max_workers=1, thread_name_prefix="samudra-rust-prefetch"
+            max_workers=1, thread_name_prefix="samudra-native-prefetch"
         )
-        self._pending: deque[Future[tuple[_RustBatchDataset, _RustChunkBatch]]] = (
-            deque()
-        )
+        self._pending: deque[Future[tuple[_NativeBatchReader, _ChunkBatch]]] = deque()
         self._closed = False
         self._fill()
 
@@ -751,7 +448,7 @@ class _RustHostPrefetchIterator(Iterator[tuple[_RustBatchDataset, _RustChunkBatc
                 self._executor.submit(self._loader._load_raw_batch, batch)
             )
 
-    def __next__(self) -> tuple[_RustBatchDataset, _RustChunkBatch]:
+    def __next__(self) -> tuple[_NativeBatchReader, _ChunkBatch]:
         if self._closed or not self._pending:
             self.close()
             raise StopIteration
@@ -787,9 +484,7 @@ class _RustHostPrefetchIterator(Iterator[tuple[_RustBatchDataset, _RustChunkBatc
 
 
 class _PreparedIterator(Iterator[ModelBatch]):
-    def __init__(
-        self, loader: RustTrainDataLoader, host: _RustHostPrefetchIterator
-    ) -> None:
+    def __init__(self, loader: NativeBatchLoader, host: _HostPrefetchIterator) -> None:
         self._loader = loader
         self._host = host
 
@@ -818,9 +513,7 @@ class _PreparedIterator(Iterator[ModelBatch]):
 class _CudaPrefetchIterator(Iterator[ModelBatch]):
     """Prepare one batch ahead on a dedicated PyTorch CUDA stream."""
 
-    def __init__(
-        self, loader: RustTrainDataLoader, host: _RustHostPrefetchIterator
-    ) -> None:
+    def __init__(self, loader: NativeBatchLoader, host: _HostPrefetchIterator) -> None:
         self._loader = loader
         self._host = host
         self._next_data: ModelBatch | None = None

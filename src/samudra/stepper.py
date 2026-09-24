@@ -22,7 +22,7 @@ from samudra.aggregator.validate.rollout import RolloutValidationAggregator
 from samudra.constants import DataLayout
 from samudra.datasets import InferenceDataset, ModelBatch
 from samudra.models.base import BaseModel
-from samudra.utils.data import BatchPreprocessor
+from samudra.utils.data import ChannelTransform
 from samudra.utils.device import get_device
 from samudra.utils.output import ModelInferenceOutput, TrainBatchOutput, ValBatchOutput
 from samudra.utils.wandb import get_record_to_wandb
@@ -167,7 +167,7 @@ def run_rollout(
     num_model_steps_forward: int = 200,
     save_zarr: bool = False,
     data_layout: DataLayout | None = None,
-    preprocessor: BatchPreprocessor | None = None,
+    preprocessor: ChannelTransform | None = None,
 ) -> None:
     """Performs inference, which is an auto-regressive rollout."""
     if save_zarr:

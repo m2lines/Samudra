@@ -10,7 +10,7 @@ The optional `samudra-rust-loader` extension accelerates local OM4 training and
 validation without changing Samudra's sampling or batch semantics. Python still
 decides which examples belong in each batch and deduplicates physical planes across
 the autoregressive rollout. Rust keeps the Zarr arrays open and reads each unique
-plane concurrently. The Rust-only fast path transfers and preprocesses those unique
+plane concurrently. The shared native batch pipeline transfers and preprocesses those unique
 planes before gathering the model-facing tensors.
 
 Select it with:
@@ -23,6 +23,37 @@ data:
     max_concurrent_reads: 8
     prefetch_to_device: true
 ```
+
+## Code organization
+
+The selected loading config constructs both the source readers and the batch
+loader. `RustDataLoadingConfig` owns `max_concurrent_reads` and creates one
+`RustIoRuntime` per data bundle/process. `NativeDataLoadingConfig` contains only
+the common host/device prefetch settings and constructs `NativeBatchLoader`.
+A future native backend gets its own concrete config and runtime; its concurrency
+settings need not mean the same thing as Rust's Rayon thread count.
+
+| Component | Responsibility |
+| --- | --- |
+| `TrainingWindows` | Define input history, forecast targets, stride, masks and source pairing. The sampler groups these directly. |
+| `TorchTrainDataset` / `TorchBatchLoader` | Adapt those windows to PyTorch sample loading and collation. |
+| `NativeBatchLoader` (`native_loader.py`) | Deduplicate full-batch reads, prefetch, transfer, gather, and manage pinned-buffer lifetimes. |
+| `BatchPreparer` | Assemble model batches and their grid context. |
+| `ChannelTransform` | Share normalization, masking and device-static caches across sample loading, native loading and inference; restore physical values for output. |
+| `NativeOm4Reader` (`native_reader.py`) | Map canonical channels and sliced time indices to physical OM4 arrays and depth selections. Ordinary reads and bulk reads use the same configured I/O backend. |
+| `RustIoRuntime` (`rust_reader.py`) | Own the Rayon pool and adapt typed physical selections to the optional extension's flat/compact APIs. |
+
+The trainer builds `TrainingWindows` and asks the loading config to build the
+loader. The native path never constructs a PyTorch dataset. Source construction
+installs the final canonical reader; it does not attach a hidden Rust reader for
+later discovery. The batch pipeline uses the explicit `BulkCanonicalReader`
+protocol, without depending on OM4 or a particular native reader class.
+
+`NativeOm4Reader` uses the narrower `PlaneReader` interface for physical I/O.
+Its `read_into` method receives a caller-owned float32 array and typed array/depth
+selections. **Every write must finish before the call returns or raises**, including
+cancellation. An implementation with asynchronous I/O must drain its work before
+propagating an exception, so the batch loader can safely release the destination.
 
 ## Pipeline and ownership
 

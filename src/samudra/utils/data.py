@@ -5,10 +5,10 @@
 import dataclasses
 import logging
 from collections import defaultdict
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from functools import cached_property
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Literal, Protocol, Self, final
+from typing import TYPE_CHECKING, Any, Literal, Protocol, Self, final, runtime_checkable
 
 import numpy as np
 import torch
@@ -104,7 +104,7 @@ class ChannelStatistics:
 
 
 class CanonicalReader(Protocol):
-    """Narrow storage seam implemented by xarray now and native readers later."""
+    """Canonical channel, coordinate, statistics and read semantics."""
 
     @property
     def channels(self) -> tuple[str, ...]: ...
@@ -127,6 +127,31 @@ class CanonicalReader(Protocol):
     def coordinates(self) -> Mapping[str, xr.DataArray]: ...
 
     def metadata(self, data_layout: DataLayout) -> dict: ...
+
+
+@runtime_checkable
+class BulkCanonicalReader(CanonicalReader, Protocol):
+    """Optional bulk I/O capability used by the native batch pipeline.
+
+    Storage identity and physical time indices remain stable across slices. Reads
+    use canonical channel names and fill caller-owned (time, channel, lat, lon)
+    float32 arrays. No writes may outlive a call, including a failed call.
+    """
+
+    @property
+    def storage_id(self) -> int: ...
+
+    @property
+    def spatial_shape(self) -> tuple[int, int]: ...
+
+    def physical_indices(self, relative: np.ndarray) -> np.ndarray: ...
+
+    def read_into(
+        self,
+        physical_time_indices: np.ndarray,
+        channels: tuple[str, ...],
+        output: np.ndarray,
+    ) -> None: ...
 
 
 @dataclasses.dataclass(frozen=True)
@@ -215,17 +240,15 @@ class CanonicalSource:
 
     @property
     def reader(self) -> CanonicalReader:
-        """Return the storage reader so backends can decorate its read behavior."""
+        """Return the configured canonical reader."""
         return self._reader
 
-    def with_reader(self, reader: CanonicalReader) -> Self:
-        """Return an equivalent source backed by a replacement reader."""
-        if reader.channels != self.channels:
-            raise ValueError(
-                "Replacement reader channels must match the canonical source: "
-                f"expected {self.channels}, got {reader.channels}"
-            )
-        return dataclasses.replace(self, _reader=reader)
+    @property
+    def bulk_reader(self) -> BulkCanonicalReader:
+        """Return the explicit bulk I/O capability required by native batching."""
+        if not isinstance(self._reader, BulkCanonicalReader):
+            raise TypeError(f"Source {self.name!r} does not support bulk plane reads")
+        return self._reader
 
     @classmethod
     def from_canonical_datasets(
@@ -351,6 +374,7 @@ class CanonicalSource:
         prognostic_var_names: PrognosticVarNames,
         boundary_var_names: BoundaryVarNames,
         name: str = "CanonicalSource",
+        reader_factory: Callable[[CanonicalReader], CanonicalReader] | None = None,
     ) -> Self:
         """Build a canonical reader from already-canonicalized xarray datasets."""
         channels = tuple(dict.fromkeys((*prognostic_var_names, *boundary_var_names)))
@@ -381,17 +405,17 @@ class CanonicalSource:
                 f"stds={sorted(missing_stds)}"
             )
 
-        return cls(
-            name=name,
-            _reader=_XarrayCanonicalReader(
-                data=data,
-                means=means[list(channels)],
-                stds=stds[list(channels)],
-                channels=channels,
-            ),
-            masks=masks,
-            data_layout=data_layout,
+        reader: CanonicalReader = _XarrayCanonicalReader(
+            data=data,
+            means=means[list(channels)],
+            stds=stds[list(channels)],
+            channels=channels,
         )
+        if reader_factory is not None:
+            reader = reader_factory(reader)
+            if reader.channels != channels:
+                raise ValueError("Reader factory changed the canonical channel order")
+        return cls(name=name, _reader=reader, masks=masks, data_layout=data_layout)
 
 
 @dataclasses.dataclass
@@ -616,7 +640,7 @@ def convert_tensor_out_to_dict(
 
 def get_aggregator_dicts(
     data: Prognostic | Input,
-    preprocessor: "BatchPreprocessor",
+    preprocessor: "ChannelTransform",
     data_layout: DataLayout,
     wet: torch.Tensor,
     long_rollout: bool,
@@ -746,7 +770,7 @@ def with_lat_lon_coords(data: xr.Dataset) -> xr.Dataset:
     return data_copy
 
 
-class BatchPreprocessor:
+class ChannelTransform:
     def __init__(
         self,
         source: CanonicalSource,
@@ -770,6 +794,50 @@ class BatchPreprocessor:
         self._prognostic_std_np = prognostic_statistics.std
         self._boundary_mean_np = boundary_statistics.mean
         self._boundary_std_np = boundary_statistics.std
+
+        self._device_static: dict[
+            tuple[torch.device, torch.dtype, bool],
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+        ] = {}
+
+    def prepare_planes(
+        self, data: torch.Tensor, device: torch.device, *, boundary: bool = False
+    ) -> torch.Tensor:
+        """Normalize and mask (..., channel, lat, lon) without changing shape.
+
+        Sample loading, native bulk loading and inference share this operation;
+        each can choose whether to flatten histories before passing to a model.
+        """
+        data = data.to(device=device, non_blocking=True)
+        key = (device, data.dtype, boundary)
+        static = self._device_static.get(key)
+        if static is None:
+            mean = self._boundary_mean_np if boundary else self._prognostic_mean_np
+            std = self._boundary_std_np if boundary else self._prognostic_std_np
+            mask = self.boundary_mask if boundary else self.prognostic_mask
+            static = (
+                torch.from_numpy(mean).to(device=device, dtype=data.dtype),
+                torch.from_numpy(std).to(device=device, dtype=data.dtype),
+                mask.to(device=device, non_blocking=True),
+            )
+            self._device_static[key] = static
+        mean_tensor, std_tensor, mask_tensor = static
+        if data.shape[-3] != mean_tensor.numel():
+            raise ValueError(
+                f"Expected {mean_tensor.numel()} variable channels, got {data.shape[-3]}"
+            )
+        mean_tensor = self._reshape_statistics(mean_tensor, data.ndim)
+        std_tensor = self._reshape_statistics(std_tensor, data.ndim)
+
+        def normalize(tensor: torch.Tensor) -> torch.Tensor:
+            return ((tensor - mean_tensor) / std_tensor).nan_to_num(nan=0.0)
+
+        if self.normalize_before_mask:
+            data = normalize(data)
+        data = torch.where(mask_tensor, data, self.masked_fill_value)
+        if not self.normalize_before_mask:
+            data = normalize(data)
+        return data
 
     @staticmethod
     def _reshape_statistics(statistics: torch.Tensor, ndim: int) -> torch.Tensor:
@@ -803,25 +871,13 @@ class BatchPreprocessor:
         return normalized.to(data.dtype)
 
     def _prepare(
-        self,
-        data: torch.Tensor,
-        *,
-        mean: np.ndarray,
-        std: np.ndarray,
-        mask: torch.Tensor,
-        device: torch.device,
+        self, data: torch.Tensor, device: torch.device, *, boundary: bool = False
     ) -> Input:
-        tensor = data.to(device, non_blocking=True)
-        if tensor.ndim == 4:
-            tensor = tensor.unsqueeze(0)
-        elif tensor.ndim != 5:
-            raise ValueError(f"Expected 4D or 5D canonical planes, got {tensor.ndim}D")
-        mask = mask.to(device, non_blocking=True)
-        if self.normalize_before_mask:
-            tensor = self._normalize_tensor(tensor, mean, std)
-        tensor = torch.where(mask, tensor, self.masked_fill_value)
-        if not self.normalize_before_mask:
-            tensor = self._normalize_tensor(tensor, mean, std)
+        if data.ndim == 4:
+            data = data.unsqueeze(0)
+        elif data.ndim != 5:
+            raise ValueError(f"Expected 4D or 5D canonical planes, got {data.ndim}D")
+        tensor = self.prepare_planes(data, device, boundary=boundary)
         return rearrange(
             tensor, "batch time variable lat lon -> batch (time variable) lat lon"
         )
@@ -829,22 +885,10 @@ class BatchPreprocessor:
     def prepare_prognostic(
         self, data: torch.Tensor, device: torch.device
     ) -> Prognostic:
-        return self._prepare(
-            data,
-            mean=self._prognostic_mean_np,
-            std=self._prognostic_std_np,
-            mask=self.prognostic_mask,
-            device=device,
-        )
+        return self._prepare(data, device)
 
     def prepare_boundary(self, data: torch.Tensor, device: torch.device) -> Input:
-        return self._prepare(
-            data,
-            mean=self._boundary_mean_np,
-            std=self._boundary_std_np,
-            mask=self.boundary_mask,
-            device=device,
-        )
+        return self._prepare(data, device, boundary=True)
 
     def normalize_tensor_prognostic(
         self, data: torch.Tensor, fill_nan=True, fill_value=0.0

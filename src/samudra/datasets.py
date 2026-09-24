@@ -7,7 +7,7 @@ import time
 from collections.abc import Iterator
 from concurrent.futures.thread import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import ClassVar, Protocol, final
+from typing import ClassVar, Literal, Protocol, final
 
 import numpy as np
 import torch
@@ -25,9 +25,9 @@ from samudra.constants import (
 )
 from samudra.utils.ctx import BatchGrid
 from samudra.utils.data import (
-    BatchPreprocessor,
     CanonicalReadRequest,
     CanonicalSource,
+    ChannelTransform,
     LoadStats,
 )
 from samudra.utils.device import using_gpu
@@ -84,7 +84,7 @@ class InferenceDataset(Dataset):
         self._device = torch.device("cpu")
         self._source = source
         self._times = source.time
-        self.preprocessor = BatchPreprocessor(
+        self.preprocessor = ChannelTransform(
             source,
             self.prognostic_var_names,
             self.boundary_var_names,
@@ -368,7 +368,7 @@ class BatchReadUse:
     source: CanonicalSource
     request: CanonicalReadRequest
     mask: torch.Tensor
-    cache_name: str
+    role: Literal["input", "boundary", "label"]
 
 
 @dataclass(frozen=True)
@@ -386,7 +386,7 @@ class BatchReadPlan:
     steps: tuple[BatchReadStep, ...]
 
 
-class TrainingShard:
+class TrainingWindows:
     """Training-window semantics shared by sample and native batch readers."""
 
     def __init__(
@@ -400,10 +400,10 @@ class TrainingShard:
         steps: int,
         normalize_before_mask: bool,
         masked_fill_value: float,
-        stride: int,
-        shard_id: str | None = None,
+        stride: int = 1,
+        windows_id: str | None = None,
     ) -> None:
-        self.id = shard_id or f"TrainingShard_{id(self)}"
+        self.id = windows_id or f"TrainingWindows_{id(self)}"
         self.input_source = input_source
         self.label_source = label_source or input_source
         self.input_steps = input_steps
@@ -485,48 +485,48 @@ class TrainingShard:
                         self.input_source,
                         CanonicalReadRequest(current, self.prognostic_var_names),
                         self.input_prognostic_mask,
-                        "prognostic_input",
+                        "input",
                     ),
                     boundary=BatchReadUse(
                         self.input_source,
                         CanonicalReadRequest(current, self.boundary_var_names),
                         self.boundary_mask,
-                        "boundary_input",
+                        "boundary",
                     ),
                     label=BatchReadUse(
                         self.label_source,
                         CanonicalReadRequest(forecast, self.prognostic_var_names),
                         self.label_prognostic_mask,
-                        "prognostic_label",
+                        "label",
                     ),
                 )
             )
         return BatchReadPlan(self.id, tuple(planned_steps))
 
 
-class TrainBatchPreparer:
+class BatchPreparer:
     """Rank-local normalization, masking, shaping, and device-static caches."""
 
-    def __init__(self, shard: TrainingShard) -> None:
-        self.shard = shard
-        self._input = BatchPreprocessor(
-            shard.input_source,
-            shard.prognostic_var_names,
-            shard.boundary_var_names,
-            normalize_before_mask=shard.normalize_before_mask,
-            masked_fill_value=shard.masked_fill_value,
+    def __init__(self, windows: TrainingWindows) -> None:
+        self.windows = windows
+        self._input = ChannelTransform(
+            windows.input_source,
+            windows.prognostic_var_names,
+            windows.boundary_var_names,
+            normalize_before_mask=windows.normalize_before_mask,
+            masked_fill_value=windows.masked_fill_value,
         )
-        self._label = BatchPreprocessor(
-            shard.label_source,
-            shard.prognostic_var_names,
-            shard.boundary_var_names,
-            normalize_before_mask=shard.normalize_before_mask,
-            masked_fill_value=shard.masked_fill_value,
+        self._label = (
+            self._input
+            if windows.label_source is windows.input_source
+            else ChannelTransform(
+                windows.label_source,
+                windows.prognostic_var_names,
+                windows.boundary_var_names,
+                normalize_before_mask=windows.normalize_before_mask,
+                masked_fill_value=windows.masked_fill_value,
+            )
         )
-        self._device_static: dict[
-            tuple[torch.device, str],
-            tuple[torch.Tensor, torch.Tensor, torch.Tensor],
-        ] = {}
         self._device_ctx: dict[torch.device, BatchGrid] = {}
 
     def prepare_host_batch(
@@ -545,7 +545,7 @@ class TrainBatchPreparer:
     def new_model_batch(self, device: torch.device) -> ModelBatch:
         device_ctx = self._device_ctx.get(device)
         if device_ctx is None:
-            device_ctx = self.shard.ctx.to(device)
+            device_ctx = self.windows.ctx.to(device)
             self._device_ctx[device] = device_ctx
         return ModelBatch(device_ctx)
 
@@ -563,52 +563,15 @@ class TrainBatchPreparer:
                 f"Unique ocean planes are on {data.device}; expected {device}"
             )
 
-        cache_key = (device, use.cache_name)
-        static = self._device_static.get(cache_key)
-        if static is None:
-            statistics = use.source.statistics(use.request.channels)
-            mean = torch.from_numpy(statistics.mean).to(device=device, dtype=data.dtype)
-            std = torch.from_numpy(statistics.std).to(device=device, dtype=data.dtype)
-            shape = (1, len(use.request.channels), 1, 1)
-            static = (
-                mean.reshape(shape),
-                std.reshape(shape),
-                use.mask.to(device=device, non_blocking=True),
-            )
-            self._device_static[cache_key] = static
-        mean, std, mask = static
-
-        def normalize(tensor: torch.Tensor) -> torch.Tensor:
-            return ((tensor - mean) / std).nan_to_num(nan=0.0)
-
-        if self.shard.normalize_before_mask:
-            data = normalize(data)
-        data = torch.where(mask, data, self.shard.masked_fill_value)
-        if not self.shard.normalize_before_mask:
-            data = normalize(data)
-        return data
+        preprocessor = self._label if use.role == "label" else self._input
+        return preprocessor.prepare_planes(
+            data, device, boundary=use.role == "boundary"
+        )
 
 
 @final
 class TorchTrainDataset(Dataset[HostBatch]):
-    """
-    This class is used for training and validation.
-
-    It creates rolling indices to keep track of histories/past states. But different
-    from InferenceDataset, as it creates rolling indices based on stride. By default,
-    the sliding window / stride is 1.
-
-    We make use of ModelBatch class to store a single sample.
-
-    For example,
-    Hist=0 ; step=0->[0, 1]; step=1->[1, 2]; step=2->[2, 3]; step=3->[3, 4]
-    Hist=1 ; step=0->[[0, 1], [2, 3]]; step=1->[[2, 3], [4, 5]];
-            step=2->[[4, 5], [6, 7]]; step=3->[[6, 7], [8, 9]]
-    Hist=2 ; step=0->[[0, 1, 2], [3, 4, 5]];
-            step=1->[[3, 4, 5], [6, 7, 8]];
-            step=2->[[6, 7, 8], [9, 10, 11]];
-            step=3->[[9, 10, 11], [12, 13, 14]]
-    """
+    """Adapt training windows to PyTorch's per-sample Dataset interface."""
 
     type Id = str
 
@@ -628,79 +591,53 @@ class TorchTrainDataset(Dataset[HostBatch]):
         return cls._shared_executor
 
     @elapsed
-    def __init__(
-        self,
-        input_source: CanonicalSource,
-        label_source: CanonicalSource | None,
-        prognostic_var_names: PrognosticVarNames,
-        boundary_var_names: BoundaryVarNames,
-        input_steps: int,
-        output_steps: int,
-        steps: int,
-        normalize_before_mask: bool,
-        masked_fill_value: float,
-        stride: int = 1,
-        concurrent_compute_: bool = False,
-        shard_id: str | None = None,
-    ):
+    def __init__(self, windows: TrainingWindows, *, concurrent_compute_: bool = False):
         super().__init__()
-        self.shard = TrainingShard(
-            input_source=input_source,
-            label_source=label_source,
-            prognostic_var_names=prognostic_var_names,
-            boundary_var_names=boundary_var_names,
-            input_steps=input_steps,
-            output_steps=output_steps,
-            steps=steps,
-            normalize_before_mask=normalize_before_mask,
-            masked_fill_value=masked_fill_value,
-            stride=stride,
-            shard_id=shard_id,
-        )
-        self.preparer = TrainBatchPreparer(self.shard)
-        self.id = self.shard.id
+        self.windows = windows
+        self.preparer = BatchPreparer(windows)
+        self.id = windows.id
         self._concurrent_compute = concurrent_compute_
 
     def __len__(self) -> int:
-        return len(self.shard)
+        return len(self.windows)
 
     @property
     def input_steps(self) -> int:
-        return self.shard.input_steps
+        return self.windows.input_steps
 
     @property
     def output_steps(self) -> int:
-        return self.shard.output_steps
+        return self.windows.output_steps
 
     @property
     def steps(self) -> int:
-        return self.shard.steps
+        return self.windows.steps
 
     @property
     def stride(self) -> int:
-        return self.shard.stride
+        return self.windows.stride
 
     @property
     def prognostic_var_names(self) -> tuple[str, ...]:
-        return self.shard.prognostic_var_names
+        return self.windows.prognostic_var_names
 
     @property
     def boundary_var_names(self) -> tuple[str, ...]:
-        return self.shard.boundary_var_names
+        return self.windows.boundary_var_names
 
     @property
     def sources(self) -> tuple[CanonicalSource, ...]:
-        return self.shard.sources
+        return self.windows.sources
 
     @property
     def batch_compatibility_key(self) -> str:
-        return self.shard.batch_compatibility_key
+        return self.windows.batch_compatibility_key
 
     @elapsed(level=logging.DEBUG)
     def __getitem__(self, idx: int):
         start_time = time.perf_counter()
         host_batch = HostBatch(self.id)
-        plan = self.shard.window_plan([idx])
+        plan = self.windows.window_plan([idx])
         for step in plan.steps:
             reads = (step.input, step.boundary, step.label)
             if self._concurrent_compute:
@@ -742,7 +679,7 @@ class TorchTrainDataset(Dataset[HostBatch]):
 
 
 @final
-class BatchLoader:
+class TorchBatchLoader:
     """Wrapper around a torch DataLoader that handles GPU post-processing.
 
     This class wraps a DataLoader[HostBatch] and converts the raw data

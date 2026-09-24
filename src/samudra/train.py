@@ -43,6 +43,7 @@ from samudra.datasets import (
     ModelBatch,
     TorchTrainDataset,
     TrainBatchLoader,
+    TrainingWindows,
     close_pytorch_dataloader,
 )
 from samudra.models.base import BaseModel
@@ -54,8 +55,7 @@ from samudra.stepper import (
     validate_batch,
     validate_rollout,
 )
-from samudra.train_data_loader import build_train_batch_loader
-from samudra.utils.data import BatchPreprocessor, get_inference_steps
+from samudra.utils.data import ChannelTransform, get_inference_steps
 from samudra.utils.device import using_gpu
 from samudra.utils.distributed import (
     all_reduce_mean,
@@ -192,7 +192,7 @@ class Trainer:
         self.loader_version = self.data_bundle.loader_version
 
         # Aggregation still works on the primary source only.
-        self.preprocessor = BatchPreprocessor(
+        self.preprocessor = ChannelTransform(
             self.primary_source,
             prognostic_var_names=self.prognostic_var_names,
             boundary_var_names=self.boundary_var_names,
@@ -1104,8 +1104,8 @@ class Trainer:
             self.train_loader.close()
             self.val_loader.close()
 
-        train_datasets = [
-            TorchTrainDataset(
+        train_windows = [
+            TrainingWindows(
                 input_source=source,
                 label_source=None,
                 prognostic_var_names=self.prognostic_var_names,
@@ -1116,8 +1116,7 @@ class Trainer:
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.masked_fill_value,
                 stride=stride,
-                concurrent_compute_=self.concurrent_compute,
-                shard_id=f"train-{shard_index}",
+                windows_id=f"train-{shard_index}",
             )
             for shard_index, (stride, source) in enumerate(
                 (stride, source)
@@ -1129,8 +1128,8 @@ class Trainer:
         # Validation is always evaluated on the primary source. This keeps the
         # validation loss and physical-space metrics comparable across epochs,
         # regardless of the set of resolutions used for training.
-        val_datasets = [
-            TorchTrainDataset(
+        val_windows = [
+            TrainingWindows(
                 input_source=self.data_bundle.val_sources[0],
                 label_source=None,
                 prognostic_var_names=self.prognostic_var_names,
@@ -1141,8 +1140,7 @@ class Trainer:
                 normalize_before_mask=self.normalize_before_mask,
                 masked_fill_value=self.masked_fill_value,
                 stride=stride,
-                concurrent_compute_=self.concurrent_compute,
-                shard_id=f"val-{shard_index}",
+                windows_id=f"val-{shard_index}",
             )
             for shard_index, stride in enumerate(self.data_stride)
         ]
@@ -1160,7 +1158,7 @@ class Trainer:
             assert self.distributed.world_size is not None
             assert self.distributed.rank is not None
             train_batch_sampler = DistributedEquivalenceGroupBatchSampler(
-                datasets=train_datasets,
+                datasets=train_windows,
                 batch_size=self.batch_size,
                 num_replicas=self.distributed.world_size,
                 rank=self.distributed.rank,
@@ -1170,7 +1168,7 @@ class Trainer:
             )
 
             val_batch_sampler = DistributedEquivalenceGroupBatchSampler(
-                datasets=val_datasets,
+                datasets=val_windows,
                 batch_size=self.batch_size,
                 num_replicas=self.distributed.world_size,
                 rank=self.distributed.rank,
@@ -1181,7 +1179,7 @@ class Trainer:
         else:
             # Non-distributed training
             train_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
-                datasets=train_datasets,
+                datasets=train_windows,
                 batch_size=self.batch_size,
                 shuffle=True,
                 drop_last=True,
@@ -1189,7 +1187,7 @@ class Trainer:
             )
 
             val_batch_sampler = EquivalenceGroupBatchSampler.from_datasets(  # type: ignore
-                datasets=val_datasets,
+                datasets=val_windows,
                 batch_size=self.batch_size,
                 shuffle=True,
                 drop_last=False,
@@ -1204,23 +1202,23 @@ class Trainer:
         if self.distributed is not None:
             assert self.distributed.rank is not None
             worker_seed += 2 * self.distributed.rank
-        self.train_loader = build_train_batch_loader(
-            train_datasets,
+        self.train_loader = self.data_loading.build_batch_loader(
+            train_windows,
             train_batch_sampler,
             self.device,
-            self.data_loading,
             pin_memory=self.pin_mem,
             multiprocessing_context=self.mp_context,
             worker_seed=worker_seed,
+            concurrent_compute=self.concurrent_compute,
         )
-        self.val_loader = build_train_batch_loader(
-            val_datasets,
+        self.val_loader = self.data_loading.build_batch_loader(
+            val_windows,
             val_batch_sampler,
             self.device,
-            self.data_loading,
             pin_memory=self.pin_mem,
             multiprocessing_context=self.mp_context,
             worker_seed=worker_seed + 1,
+            concurrent_compute=self.concurrent_compute,
         )
 
     def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):

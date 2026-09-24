@@ -57,6 +57,10 @@ Every arm completed its full prescribed budget. D → observations selected upda
 
 ![Observed validation trajectories](artifacts/2026-09-24-budget/matched/validation-curves.png)
 
+Earlier D checkpoints and logged OM4 errors are now documented in the
+[backward training-history report](d-training-history.md), including the same
+observation score for a retained 12,501-update short pilot.
+
 ## Compute interpretation
 
 This is a comparison of **additional optimizer updates after an already substantially pretrained D**. It does not charge D’s original initializer/dynamics training and does not establish end-to-end compute efficiency versus scratch. Architecture and protocol stayed fixed; no new seed or additional experiment arm was introduced.

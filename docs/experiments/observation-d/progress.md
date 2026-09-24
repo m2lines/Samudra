@@ -1462,3 +1462,25 @@ Cumulative allocation is **36.5531 GPU-hours** including retries. Random is stil
 running, last recorded at joint update 4,221/8,000. Its 4k validation is 0.8803078;
 6k/8k extension and plateau report remain pending. Timer stays disabled; monitoring
 continues in this conversation with sleeps.
+
+## Earlier D history requested — 24 September, 17:30 ET
+
+Created draft PR #892, stacked on source-model PR #885. User then requested earlier
+D errors to extend the learning-curve view backward. Live audit found original
+production D best/final weights only; earlier reconstruction validation metrics
+remain in logs. A same-recipe separate 12,501-update pilot is retained. No dense
+original-production checkpoint sequence or early evolution checkpoints was found
+at the recorded run paths; no new training has been launched for this request.
+
+Read-only diagnostic **18460911** completed on RTX in 37 seconds, using the pinned
+observation scorer and nine validation origins. Unadapted observational composite:
+short pilot **2.4623694**, selected production D at initializer update 43,439
+**2.4950400**. Recomputed production score differs from the recorded baseline by
+0.0022% across hardware. Both retain the evolution checkpoint selected around
+1.26 million earlier OM4 updates. These are separate-run reference points, not a
+continuous pretraining curve or a fine-tuned performance comparison.
+
+[Backward-history report](d-training-history.md) includes both same-observation-
+metric points and a separately labeled original OM4 reconstruction curve. The
+scratch extension continues; its last fresh check at 17:10 recorded 4,766/8,000
+joint updates and 37.3728 total allocated GPU-hours before this diagnostic.

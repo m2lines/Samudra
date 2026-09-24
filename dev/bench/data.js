@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790268545531,
+  "lastUpdate": 1790271317380,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -12138,6 +12138,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.2187733941916094",
             "extra": "mean: 53.61742092979997 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "c1d5f868204f3b173a04e06b7175d22b8912e719",
+          "message": "Use g5.xlarge for GPU CI runners (#890)\n\nRepeated `InsufficientInstanceCapacity` errors prevent GPU CI from\nstarting on `g6.xlarge` (including the September 22 run linked below).\nSwitch the GPU-test, benchmark, and PhysicsNeMo GPU runners to\n`g5.xlarge`.\n\nG5 retains 4 vCPUs, 16 GiB RAM and the 24 GB GPU-memory class, using an\nNVIDIA A10G instead of an L4. Keep the existing AMI, region, and disk\nsettings. The CI account's us-east-1 On-Demand G/VT quota is 128 vCPUs,\nwith no GPU instances running when checked. Linux On-Demand compute cost\nincreases from $0.8048/hour to $1.006/hour. GPU benchmark results need a\nnew hardware baseline.\n\nRelated to #866. Capacity failure:\nhttps://github.com/m2lines/Samudra/actions/runs/35785851136.\n\nValidation at commit `fd9d1a2e`:\n- [Test\nGPU](https://github.com/m2lines/Samudra/actions/runs/36027408301):\npassed; 61 GPU tests passed on G5.\n- PR CPU tests, both data-test workflows, pre-commit (including schema\nvalidation), and PhysicsNeMo container build: passed.\n- [Manual\nbenchmark](https://github.com/m2lines/Samudra/actions/runs/36027422622)\nand [full PhysicsNeMo\nworkflow](https://github.com/m2lines/Samudra/actions/runs/36027427826):\nrunning; results will be recorded when complete.\n- `git diff --check` passed. All local pre-commit hooks passed except\n`validate-schemas`, blocked by a SciPy native-extension loader error on\nmacOS. That hook passed in Linux CI.",
+          "timestamp": "2026-09-24T16:54:18Z",
+          "tree_id": "455cbe2ac35ddb605ec0b4e7e7c70c53097cd0d9",
+          "url": "https://github.com/m2lines/Samudra/commit/c1d5f868204f3b173a04e06b7175d22b8912e719"
+        },
+        "date": 1790271315586,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.9168441193704937,
+            "unit": "iter/sec",
+            "range": "stddev: 0.006410081713342732",
+            "extra": "mean: 1.0906979483999977 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06898043420509183,
+            "unit": "iter/sec",
+            "range": "stddev: 0.11743699408018034",
+            "extra": "mean: 14.496864386599999 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.018270002475995355,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4084182501800656",
+            "extra": "mean: 54.734530075399995 sec\nrounds: 5"
           }
         ]
       }

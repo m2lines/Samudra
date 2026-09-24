@@ -1342,3 +1342,48 @@ hosts have many unallocated GPUs but tight CPU availability (0–7 cores free pe
 node). Test-only scheduling estimates about 12:13 ET for both four- and two-CPU
 single-GPU requests. No jobs were canceled or rerouted at this check; retain
 ongoing H200 work until a useful RTX handoff is established.
+
+## Hourly check — 24 September, 11:14 ET
+
+All four started observation arms are running. Logged joint steps: obs0 1,929,
+obs25 1,622, obs50 1,314, random 1,399. Latest joint scores: obs0 0.5846329
+at 1,000 updates; obs25 0.5743713 at 1,500; obs50 0.5866827 at 1,000; random
+1.0146102 at 1,000. The obs0-versus-random contrast is matched in additional
+observation updates, but does not charge the original historical D pretraining;
+it is preliminary evidence, not the completed plateau or allocation comparison.
+Total all-attempt allocation is **23.1536 GPU-hours**. RTX preflight still estimates
+about two hours of waiting, so no running jobs were interrupted for rerouting.
+
+## Hourly check — 24 September, 12:16 ET
+
+All four started observation arms are running. Latest joint steps: obs0 2,471,
+obs25 2,095, obs50 1,823/2,000, random 2,045. At matched 2,000 additional
+observation updates, obs0 validation composite is 0.5586355 and random is
+1.0023157. Obs50 last validated at 1,500 with 0.5601224; obs25 remains at its
+1,500-update validation score 0.5743713. No production completion/evaluation
+markers yet. Obs75 remains gated on obs0. Total allocated GPU time is
+**26.6947 hours**. RTX quota still has four occupied GPUs; no routing change.
+
+## First completed production arm; release obs75 — 24 September, 13:19 ET
+
+Obs50 completed its full 2,000 OM4 + 1,000 reconstruction + 2,000 observation
+joint-update pathway. Selected validation score is **0.5560779** at joint step
+2,000. Verified successful Slurm completion and `obs50-evaluation/COMPLETE.json`
+with 96 historical origins, selected/source checkpoint hashes, and selected-model
+plus persistence/climatology output files. This is the first completed arm; it
+does not establish the final allocation ranking. At 13:16, obs0 was at joint
+2,952, obs25 at 2,871, random at 2,665. Cumulative allocation was **29.8175
+GPU-hours**.
+
+With obs50 complete, only three other production arms remain, so obs75's
+obs0 dependency is no longer needed for the four-GPU bound. Scheduler rejected
+an in-place dependency edit with an unspecified error and left the job unchanged.
+Canceled only the zero-elapsed pending obs75 job 18409924, preserved its records
+in `obs75-release-20260924T1718Z/`, and submitted replacement **18438483** on
+RTX (`rtx6000_lzanna`, one GPU, 64 GiB RAM, same six-hour cap and producer).
+Both true predecessors, OM4 and obs50, were independently verified `COMPLETED
+0:0` by the submission helper. Existing fitting and exact-command contracts
+remain unchanged; obs75 has not trained previously. At 13:19 it is **pending
+Resources**, while the other three H200 arms continue. Preflight had estimated
+an immediate slot; that estimate did not guarantee a live allocation. No running
+H200 job was interrupted. The four-GPU maximum remains intact.

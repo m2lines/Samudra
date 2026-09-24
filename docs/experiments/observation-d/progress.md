@@ -1053,3 +1053,49 @@ remote scheduler query returned, no authentication retry loop was started, and n
 cluster jobs were modified. Current training state and accumulated GPU-hours are
 therefore **unverified**, not inferred from the previous healthy snapshot. The
 hourly timer remains enabled; user assistance may be needed to restore Torch access.
+
+## Monitoring change requested — 23 September, 20:09 ET
+
+Stopped and disabled `oe-obs-budget-monitor-01a0d027.timer` and removed its pending
+marker at the user's request to avoid repeated context injection. Subsequent checks
+will use sleep within the existing conversation, normally at hourly intervals.
+The user is restoring Torch access before the next check and authorizes Slack
+notification if a blocker remains. Training jobs and the scientific protocol are
+unchanged.
+
+## Restored access and cancellation recovery — 23 September, 20:37 ET
+
+Authenticated Torch access is restored. Accounting shows calibration 18376929
+was canceled by UID 0 at 20:00:18 ET after 7,379 allocated GPU-seconds
+(**2.0497 GPU-hours**); Slurm records a termination signal but no explanatory
+reason. All six downstream jobs canceled without allocating GPUs. This was not
+an observed numerical failure. Both 200-update OM4 trials and the transfer fitting
+qualification completed. Transfer LR 1e-5 completed all 1,000 reconstruction
+updates (last validation composite 0.85955, best 0.80211) and logged three finite
+joint updates before cancellation. No observation joint validation or final
+calibration choice exists yet. These reconstruction scores are not wave results.
+
+Preserved original submission/accounting records in cluster-root
+`recovery-20260924T0037Z/`; retained checkpoints, events and source hashes.
+Resubmitted the same pinned producer `5b345669965ce5da3fcf6894049df1bd1099a584`,
+arguments, RTX resources and dependency graph after scheduler preflight. Existing
+exact-command signatures, data manifests and fitting qualification remain valid.
+Completed child stages and reconstruction will be skipped; the three uncheckpointed
+joint updates will be repeated from reconstruction-best. No code fix or scientific
+protocol change was required.
+
+| Stage | Replacement job | Dependencies |
+|---|---:|---|
+| Calibration | 18385561 | none |
+| OM4 prefix | 18385563 | calibration |
+| obs0 | 18385570 | calibration |
+| Random | 18385576 | calibration |
+| obs25 | 18385580 | OM4 prefix |
+| obs50 | 18385581 | OM4 prefix |
+| obs75 | 18385582 | OM4 prefix and obs0 |
+
+At 20:37 all replacements are **pending**, calibration for priority and production
+for dependencies. Maximum concurrency remains four GPUs. Replacement wallcaps
+sum to 81 hours; adding the failed attempt gives 83.0497 GPU-hours worst case,
+leaving 16.9503 of the approved 100 for further recovery. Scratch usage is
+3.72/5.00 TB. Monitoring continues via sleep; the timer remains disabled.

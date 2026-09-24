@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790274069472,
+  "lastUpdate": 1790274077582,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -24465,6 +24465,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.7544582683012465",
             "extra": "mean: 48.97117377639997 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse@openathena.ai",
+            "name": "Jesse Rusak",
+            "username": "jder"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "23587a12baeb0f39e90a69c2560a5c6a5ddbed21",
+          "message": "Update SciPy to fix imports on macOS 27 (#891)\n\nSciPy 1.15.2 fails to import on an Apple Silicon Mac running macOS 27.0\n(26A428): dyld rejects `_spropack` because `__DATA/__thread_bss` has a\nzero-fill section type with a nonzero offset. This prevents the test\nsuite from starting.\n\nRequire SciPy >=1.17.1 in package metadata and update the lockfile to\n1.17.1 so both package installs and repository environments receive the\nfix; no other dependency versions change. Add a targeted mypy\nsuppression for `signal.welch`, which the newer SciPy exports\ndynamically, without changing runtime behavior.\n\nValidation on macOS arm64 with Python 3.12.12:\n- Reproduced the original loader failure; verified `scipy.linalg`,\n`scipy.sparse`, `scipy.signal`, and `scipy.stats` import with 1.17.1.\n- `uv run --locked pytest -m 'not manual and not cuda' -n 4`: 475\npassed, 2 skipped, 10 xfailed.\n- `uvx pre-commit run --all-files`: all checks passed.\n- `uv lock --check` and `git diff --check`: passed.\n\n\nBuilt a wheel after raising the minimum and verified its metadata\ndeclares `Requires-Dist: scipy>=1.17.1`. The metadata follow-up also\npassed the relevant pre-commit hooks and lockfile checks.",
+          "timestamp": "2026-09-24T17:39:53Z",
+          "tree_id": "108200b62abbf8370ace2769a9a8da8d4a71a07c",
+          "url": "https://github.com/m2lines/Samudra/commit/23587a12baeb0f39e90a69c2560a5c6a5ddbed21"
+        },
+        "date": 1790274077195,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.949521195116311,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0031975011071918233",
+            "extra": "mean: 1.0531623781999997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06863872577896353,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10189022386163463",
+            "extra": "mean: 14.569035025799986 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.02056510389122293,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3893780610116217",
+            "extra": "mean: 48.62606118059993 sec\nrounds: 5"
           }
         ]
       }

@@ -22,7 +22,9 @@ The original held-out table below remains the result of the original protocol,
 but its 37.3% gap should not be interpreted as mostly the benefit of OM4 data.
 This exposes a major normalization-recipe confound. The alternative mode is a
 post-hoc validation diagnostic, not a newly selected model or a replacement
-held-out result. See the [scratch-gap diagnostic report](scratch-gap-diagnostics.md).
+held-out result. Follow-up localizes most of the effect to evolution BatchNorm;
+scratch then reaches day-30 SST anomaly correlation 0.711 versus D’s 0.712,
+although its amplitude and ADT/interior skill remain weaker. See the [scratch-gap diagnostic report](scratch-gap-diagnostics.md).
 
 ## Completed comparison
 

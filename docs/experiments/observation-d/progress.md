@@ -1533,3 +1533,22 @@ initializer versus evolution; this remains bounded read-only diagnosis on fixed
 weights. New diagnostics stay charged to the 100-GPU-hour budget. Any inference
 policy change to the official comparison would need to be explicit and separately
 reported, not silently substituted into the existing table.
+
+## Gap localization and anomaly check — 24 September, 19:04 ET
+
+Read-only localization job **18467051** completed in 41 seconds. Scratch validation
+score with only initializer BatchNorm switched: **0.8332313**; only evolution:
+**0.5816592**; both (prior job): 0.5726404. Most sensitivity lies in evolution.
+Anomaly diagnostic **18467352** completed in 71 seconds. On the same nine validation
+months, scratch per-sample BN has day-30 SST anomaly correlation **0.7107** versus
+D **0.7118**, with amplitude ratios **0.6646 versus 0.7594**. SST persistence
+correlation is -0.0091. ADT correlations remain **0.5741 versus 0.7096**; interior
+anomaly amplitude also favors D. This argues against a simple mean-ocean-only
+interpretation, while narrowing the plausible remaining pretraining benefit.
+Full evidence and qualifications are in the diagnostic report; official results
+and training policy remain unchanged.
+
+At 19:03, random is running at **5,588/8,000** joint updates; no new validation
+beyond 5k yet. Total allocated GPU-hours including all diagnostic jobs and retries
+is **38.9492**. The conditional 16k continuation utility has three passing tests
+and all repository hooks passing; it is not yet launched. Continue hourly checks.

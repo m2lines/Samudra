@@ -1510,3 +1510,26 @@ output/name, joint cap and additional milestone list changed. Original 8k output
 must remain intact. Reconstruction must be reused, not repeated; warm-up/sample
 ordering and optimizer state must continue at step 8,000. Verify that contract
 before submitting any extension. No running job or training producer changed.
+
+## Scratch-gap diagnostic — 24 September, 18:44 ET
+
+User requested diagnostics of the unexpectedly weak scratch result, explicitly
+without seeking the strongest possible baseline. Read-only job **18466058**
+completed in 63 seconds on RTX. Same frozen random-4k checkpoint, same nine
+validation origins: stored-running-statistics score **0.8800987** versus
+**0.5726404** with per-sample BatchNorm statistics. Normal transfer score is
+**0.5270783**. About **87.1% of that validation gap disappears without training**.
+Transfer instead worsens to 0.9100843 under per-sample statistics, consistent with
+its frozen-BatchNorm training recipe. Scratch training-probe objective drops from
+0.014433 to 0.002091 when using per-sample statistics; validation objective drops
+from 0.016408 to 0.005469. This is a major inference-normalization confound, not
+clean evidence of intrinsic observation-only difficulty or an isolated OM4-data
+benefit. No official selection, checkpoint or active training policy was changed.
+
+The main report now prominently qualifies the original gap and links
+[scratch-gap-diagnostics.md](scratch-gap-diagnostics.md). Full scalar/metric and
+script evidence is retained. Follow-up **18467051** localizes the same effect to
+initializer versus evolution; this remains bounded read-only diagnosis on fixed
+weights. New diagnostics stay charged to the 100-GPU-hour budget. Any inference
+policy change to the official comparison would need to be explicit and separately
+reported, not silently substituted into the existing table.

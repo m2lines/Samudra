@@ -10,6 +10,20 @@ SPDX-License-Identifier: CC-BY-4.0
 
 **Starting from D, allocating all 4,000 additional joint updates to observations gives the best selected score in this one-seed comparison.** It scores 0.5861 on held-out observations versus 0.9343 for random initialization: a 37.3% reduction in the agreed composite. The advantage over allocating 25% to further OM4 training is much smaller, 1.0%. These are conditional, update-matched results; observation updates cost substantially more than OM4 updates.
 
+## Diagnostic update: the scratch gap is strongly affected by BatchNorm
+
+**18:44 ET:** a read-only test of the same frozen 4k scratch checkpoint improves
+its observation validation score from **0.8801 to 0.5726** when inference uses
+per-sample BatchNorm statistics instead of stored running statistics. The normal
+D → observations score is **0.5271** in this diagnostic. About **87% of that
+validation gap disappears without changing any weights or adding training**.
+
+The original held-out table below remains the result of the original protocol,
+but its 37.3% gap should not be interpreted as mostly the benefit of OM4 data.
+This exposes a major normalization-recipe confound. The alternative mode is a
+post-hoc validation diagnostic, not a newly selected model or a replacement
+held-out result. See the [scratch-gap diagnostic report](scratch-gap-diagnostics.md).
+
 ## Completed comparison
 
 Each row has 1,000 observation reconstruction updates plus the indicated joint allocation. Selection uses integrated-plus-spectral **validation** metrics only; the historical test set is never used to choose weights or learning rates. Lower scores are better.

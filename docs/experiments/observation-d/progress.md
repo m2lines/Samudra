@@ -1484,3 +1484,12 @@ continuous pretraining curve or a fine-tuned performance comparison.
 metric points and a separately labeled original OM4 reconstruction curve. The
 scratch extension continues; its last fresh check at 17:10 recorded 4,766/8,000
 joint updates and 37.3728 total allocated GPU-hours before this diagnostic.
+
+## Scratch extension check — 24 September, 18:12 ET
+
+Random is running at joint update **5,253/8,000**. Its 5,000-update validation
+composite is **0.8635285**, down from 0.8803078 at 4,000 (1.9% improvement).
+Training remains finite; no new intervention. All-attempt allocation, including
+37 seconds for the requested historical-D diagnostic, is **38.1928 GPU-hours**.
+The frozen 4k comparison is unchanged. Continue to the approved 6k/8k milestones;
+a smaller one-interval gain alone does not establish a plateau.

@@ -8,8 +8,7 @@
 areas from the 1-D axes, dropped the source's 2-D lat/lon, aligned basin masks
 by position, and plotted against the index axes. All four are wrong on a
 curvilinear ("tripolar") grid, where lat/lon vary along both horizontal dims.
-These tests pin the curvilinear behaviour while leaving the Gaussian path as it
-was.
+These tests pin curvilinear behaviour and the rectilinear area fallback.
 """
 
 import types
@@ -19,6 +18,7 @@ import pytest
 import xarray as xr
 
 from samudra.constants import GridType, build_om4_layout
+from samudra.utils.data import spherical_area
 from samudra.viz.core import Viz, preserve_2d_coords, process_mask
 
 NY, NX = 4, 6
@@ -190,15 +190,14 @@ def test_tripolar_uses_source_areacello_not_cosine_latitude(tripolar_viz):
 
     out = Viz._with_cell_areas(tripolar_viz, data)
 
-    # `areacello` is the weighting field, normalized; `areacello_spherical` is
-    # the physical area in m^2. Both must come from the source.
-    np.testing.assert_allclose(out["areacello_spherical"].values, area)
-    np.testing.assert_allclose(out["areacello"].values, area / area.sum())
+    # Physical areas and normalized weights both come from the source.
+    np.testing.assert_allclose(out["areacello"].values, area)
+    np.testing.assert_allclose(out["areacello_weights"].values, area / area.sum())
 
     field = xr.DataArray(
         np.linspace(0.0, 1.0, NY * NX).reshape(NY, NX), dims=("lat", "lon")
     )
-    weighted = float(field.weighted(out["areacello"]).mean().values)
+    weighted = float(field.weighted(out["areacello_weights"]).mean().values)
 
     lat2d = data["lat_2d"].values
     cosine = np.cos(np.deg2rad(lat2d))
@@ -233,7 +232,18 @@ def test_tripolar_rejects_unusable_areacello(tripolar_viz, preserved):
         Viz._with_cell_areas(tripolar_viz, preserved)
 
 
-def test_gaussian_area_path_is_unchanged(gaussian_viz):
+@pytest.mark.parametrize("invalid_area", [-1.0, np.inf])
+def test_tripolar_rejects_negative_or_infinite_area(
+    tripolar_viz, preserved, invalid_area
+):
+    area = np.ones((NY, NX))
+    area[0, 0] = invalid_area
+    preserved["areacello"] = (("lat", "lon"), area)
+    with pytest.raises(ValueError, match="infinite or negative"):
+        Viz._with_cell_areas(tripolar_viz, preserved)
+
+
+def test_gaussian_without_source_areas_uses_spherical_fallback(gaussian_viz):
     """The rectilinear path still derives areas from the axes."""
     ny, nx = 5, 8
     data = xr.Dataset(
@@ -246,12 +256,10 @@ def test_gaussian_area_path_is_unchanged(gaussian_viz):
 
     out = Viz._with_cell_areas(gaussian_viz, data)
 
-    assert "areacello" in out and "areacello_spherical" in out
-    # Cosine weights, normalized, as before.
-    expected = np.cos(np.deg2rad(data["lat"].values))
-    expected = np.repeat(expected[:, None], nx, axis=1)
-    expected = expected / expected.sum()
-    np.testing.assert_allclose(out["areacello"].values, expected, rtol=1e-6)
+    assert "areacello" in out and "areacello_weights" in out
+    expected = np.asarray(spherical_area(data))
+    np.testing.assert_allclose(out["areacello"], expected)
+    np.testing.assert_allclose(out["areacello_weights"], expected / expected.sum())
 
 
 # --- maps ----------------------------------------------------------------------

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790275997383,
+  "lastUpdate": 1790277602958,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -12273,6 +12273,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.9757786018927446",
             "extra": "mean: 55.114956884200026 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "bsse1446@iit.du.ac.bd",
+            "name": "Sumaiya Islam",
+            "username": "SuMayaBee"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "e8e184a8f1ce5c46ffb16fb52023fb163e2c58f4",
+          "message": "Support tripolar grids in viz (#876)\n\nThis is #869.\n\nViz never learned what grid it was on. `Viz.__init__` hard-coded\n`build_om4_layout()`, which defaults to gaussian, so everything\ndownstream treated the native tripolar grid as if it were rectilinear\nand got away with it quietly. It now takes the grid type from the data\nsource and branches on it.\n\nThanks @alxmrs for pointing me at `raw/om4_5daily.zarr` and\n`raw/ocean_static_no_mask_table.zarr`. Everything below is measured\nagainst those rather than a fixture.\n\nThe clearest way I found to show why the areas matter is global mean\n`zos`. It's an anomaly about the global mean, so the answer has to be\nzero:\n\n| weighting | global mean `zos` |\n| --- | --- |\n| source `areacello` | `-3.4e-10 m` |\n| `cos(lat)`, as before | `-0.1345 m` |\n\n13.5 cm of artifact. Cosine weighting starves the tropics by about 8\npoints of total area and inflates the Arctic by 70%, because near the\nfold the cells are small and `cos(lat)` doesn't know that. This isn't\nonly a plotting problem, `spherical_area_weights()` overwrote the source\n`areacello` and fed about thirty reductions including OHC and global\nmean SST.\n\nWhat changed:\n\n- 2-D lat/lon survive the y/x rename as `lat_2d`/`lon_2d`, following\n`with_lat_lon_coords()` and `ZarrWriter`. Predictions too, since\nrollouts land in the same layout.\n- Real `areacello` on curvilinear grids, and a loud failure when it's\nmissing.\n- Basin masks validated instead of relabeled by position.\n- Maps plot against the 2-D coords, all six `pcolormesh` sites.\n- Four steps refuse curvilinear input: `thetao_mae_metrics`,\n`enso_plots`, `movies`, `ocean_temperature_profile_plots`. The last one\naverages each basin over `x` and then labels that axis \"Latitude\".\n- Basin masks build lazily, so a smoke test no longer depends on mask\nalignment succeeding.\n\nThis also turns on the guard already sitting in\n`metrics/observations.py`, which could never fire before.\n\nNew `ocean_preprocessing basin_masks` subcommand for the native masks,\nsince the published ones are all rectilinear. No regridding needed,\n`ocean_static` already has integer region codes on the native grid next\nto the real cell centers and the wet mask, and integer codes partition\nby construction. Against the public store it assigns 953,060 of 969,446\nwet cells, max one basin per cell. Marginal seas stay unassigned, which\nI checked against `basin_masks_original.zarr` rather than guessing.\n\nAgainst the acceptance criteria in #869:\n\n| | criterion | |\n| --- | --- | --- |\n| 1 | Nonseparable fixture keeps exact 2-D lat/lon | ✅ |\n| 2 | Exact `areacello` retained, distinguished from cos-lat | ✅ |\n| 3 | Mismatched basin masks fail with an actionable error | ✅ |\n| 4 | Matching native mask aligns, expected basin result | ✅ |\n| 5 | Map test asserts 2-D coords and Plate Carrée | ✅ |\n| 6 | Gaussian tests unchanged | ✅ |\n| 7 | Torch smoke viz, then the full #492 job | ❌ |\n\n7 needs a tripolar rollout and I don't have Torch access. Happy to run\nit once @YuanYuan98's export lands, or it may be quicker for someone\nwith cluster access to run it against this branch.\n\nRan locally: 86 tests across viz, writer and config, 78 across metrics\nand utils, 11 in the data env, pre-commit clean. The full suite OOMs on\nmy laptop so I'm leaning on CI for the rest.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>",
+          "timestamp": "2026-09-24T14:57:11-04:00",
+          "tree_id": "a45134f2760a517aa8b38bc3671377aed1a30ba4",
+          "url": "https://github.com/m2lines/Samudra/commit/e8e184a8f1ce5c46ffb16fb52023fb163e2c58f4"
+        },
+        "date": 1790277601184,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.927130525843547,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0036837669890729336",
+            "extra": "mean: 1.0785967802000187 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06733905791534574,
+            "unit": "iter/sec",
+            "range": "stddev: 0.48396079330414454",
+            "extra": "mean: 14.850222604199995 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.018051167657032827,
+            "unit": "iter/sec",
+            "range": "stddev: 0.4282919208171497",
+            "extra": "mean: 55.39807834040003 sec\nrounds: 5"
           }
         ]
       }

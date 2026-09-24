@@ -1044,3 +1044,12 @@ within the approved single-seed scope and 100-GPU-hour envelope. It does not
 authorize further experiment waves. Latest live check: OM4 LR 3e-5 calibration
 completed 200 updates with finite validation T/S MSE 0.00337271; the LR 1e-4
 calibration was running. Production remains held behind calibration completion.
+
+## Scheduled check: Torch access unavailable — 23 September, 20:07 ET
+
+The authenticated Torch control socket was absent. One ordinary SSH connection
+attempt remained unresponsive for about a minute and was terminated locally. No
+remote scheduler query returned, no authentication retry loop was started, and no
+cluster jobs were modified. Current training state and accumulated GPU-hours are
+therefore **unverified**, not inferred from the previous healthy snapshot. The
+hourly timer remains enabled; user assistance may be needed to restore Torch access.

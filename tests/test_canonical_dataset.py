@@ -6,17 +6,20 @@ from pathlib import Path
 
 import cftime
 import numpy as np
+import pytest
 import torch
 import xarray as xr
 
 from samudra.config import JulianDate, Om4TimeConfig
 from samudra.datasets import InferenceDataset, TorchTrainDataset
 from samudra.utils.data import CanonicalReadRequest, CanonicalSource
+from samudra.utils.location import LocalLocation, XarrayBackend
 from tests.conftest import TEST_DATA_LAYOUT, canonicalize_mock_om4
 
 
 def _equivalent_om4_sources(
     compact_store_root: Path | None = None,
+    xarray_backend: XarrayBackend = "zarr-python",
 ) -> tuple[CanonicalSource, CanonicalSource]:
     time = xr.CFTimeIndex(
         [cftime.datetime(2000, 1, day, 12, calendar="julian") for day in range(1, 9)]
@@ -94,16 +97,18 @@ def _equivalent_om4_sources(
         compact_data.to_zarr(data_path, mode="w", consolidated=True)
         compact_means.to_zarr(means_path, mode="w", consolidated=True)
         compact_stds.to_zarr(stds_path, mode="w", consolidated=True)
+        chunks: dict[str, int] | None = {} if xarray_backend == "zarr-python" else None
         compact_canonical = canonicalize_mock_om4(
-            xr.open_zarr(data_path, chunks={}),
-            xr.open_zarr(means_path, chunks={}),
-            xr.open_zarr(stds_path, chunks={}),
+            LocalLocation(path=data_path).open(chunks, xarray_backend=xarray_backend),
+            LocalLocation(path=means_path).open(chunks, xarray_backend=xarray_backend),
+            LocalLocation(path=stds_path).open(chunks, xarray_backend=xarray_backend),
         )
         compact = CanonicalSource.from_datasets(
             *compact_canonical,
             data_layout=TEST_DATA_LAYOUT,
             prognostic_var_names=prognostic,
             boundary_var_names=boundary,
+            tensorstore_reads=xarray_backend == "tensorstore",
         )
     return flat, compact
 
@@ -148,6 +153,17 @@ def test_compact_zarr_has_the_same_canonical_contract(tmp_path: Path) -> None:
     )
     np.testing.assert_allclose(
         compact.read(indices, compact.channels), flat.read(indices, flat.channels)
+    )
+
+
+def test_tensorstore_has_the_same_canonical_contract(tmp_path: Path) -> None:
+    pytest.importorskip("xarray_tensorstore")
+    flat, tensorstore = _equivalent_om4_sources(tmp_path, "tensorstore")
+    indices = np.array([[0, 2], [1, 3]], dtype=np.int64)
+
+    np.testing.assert_allclose(
+        tensorstore.read(indices, tensorstore.channels),
+        flat.read(indices, flat.channels),
     )
 
 

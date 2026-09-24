@@ -5,6 +5,7 @@
 import tempfile
 from pathlib import Path
 
+import numpy as np
 import pytest
 import xarray as xr
 from pydantic import ValidationError
@@ -146,6 +147,48 @@ class TestLocalLocation:
             assert "temperature" in opened_ds.data_vars
             assert opened_ds.temperature.chunks == ((2,), (2,))
 
+    def test_open_zarr_with_tensorstore(self):
+        """TensorStore reads the same values while retaining lazy arrays."""
+        pytest.importorskip("xarray_tensorstore")
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            zarr_path = Path(tmp_dir) / "test.zarr"
+            expected = xr.Dataset(
+                {"temperature": (["x", "y"], [[1.0, 2.0], [3.0, 4.0]])}
+            ).chunk({"x": 1, "y": 2})
+            expected.to_zarr(zarr_path)
+
+            opened = LocalLocation(path=zarr_path).open(xarray_backend="tensorstore")
+
+            assert opened.temperature.chunks is None
+            np.testing.assert_array_equal(opened.temperature.values, [[1, 2], [3, 4]])
+
+    def test_tensorstore_preserves_native_chunks_for_dask(self):
+        pytest.importorskip("xarray_tensorstore")
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            zarr_path = Path(tmp_dir) / "test.zarr"
+            xr.Dataset(
+                {
+                    "a": (["x", "y"], np.ones((4, 4))),
+                    "b": (["x", "y"], np.ones((4, 4))),
+                }
+            ).chunk({"x": 2, "y": 4}).to_zarr(zarr_path)
+
+            opened = LocalLocation(path=zarr_path).open(
+                chunks={}, xarray_backend="tensorstore"
+            )
+
+            assert opened.a.chunks == ((2, 2), (4,))
+            assert opened.b.chunks == ((2, 2), (4,))
+
+    def test_tensorstore_selection_keeps_xarray_netcdf_backend(self, tmp_path: Path):
+        path = tmp_path / "test.nc"
+        expected = xr.Dataset({"temperature": ("x", [1.0, 2.0])})
+        expected.to_netcdf(path)
+
+        actual = LocalLocation(path=path).open(xarray_backend="tensorstore")
+
+        xr.testing.assert_equal(actual, expected)
+
 
 class TestS3Location:
     """Test cases for S3Location class."""
@@ -168,6 +211,41 @@ class TestS3Location:
         """Test URL generation with special characters."""
         loc = S3Location(bucket="test-bucket", path="data/test file.zarr")
         assert loc.url() == "s3://test-bucket/data/test%20file.zarr"
+
+    @pytest.mark.parametrize(
+        ("location", "expected"),
+        [
+            (
+                S3Location(bucket="private", path="data.zarr"),
+                "s3://private/data.zarr",
+            ),
+            (
+                S3Location(bucket="public", path="data.zarr", anon=True),
+                "https://public.s3.amazonaws.com/data.zarr",
+            ),
+            (
+                S3Location(
+                    bucket="public",
+                    path="data/test store.zarr",
+                    endpoint_url="https://s3.example.com/",
+                    anon=True,
+                ),
+                "https://s3.example.com/public/data/test%20store.zarr",
+            ),
+        ],
+    )
+    def test_tensorstore_url(self, location: S3Location, expected: str):
+        assert location.tensorstore_url() == expected
+
+    def test_tensorstore_url_rejects_authenticated_custom_endpoint(self):
+        location = S3Location(
+            bucket="private",
+            path="data.zarr",
+            endpoint_url="https://s3.example.com",
+        )
+
+        with pytest.raises(ValueError, match="authenticated custom S3 endpoints"):
+            location.tensorstore_url()
 
     def test_str_representation(self):
         """Test string representation of S3Location."""

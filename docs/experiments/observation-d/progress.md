@@ -1326,3 +1326,19 @@ No production joint-validation interval has been reached yet; no training/evalua
 completion markers exist for observation arms. Losses remain finite. Total
 allocation is **16.7447 GPU-hours**, counting repeated job allocations. RTX remains
 fully occupied at its eight-GPU pool limit.
+
+## First production joint validation — 24 September, 10:12 ET
+
+Four observation jobs are running. Latest logged steps: obs0 1,506/4,000,
+obs25 1,044/3,000, obs50 882/2,000, random 889/8,000. Obs75 is still gated.
+First scheduled joint-validation composites are **0.5846329** for obs0 at
+1,000 updates, **0.6079953** for obs25 at 750, and **0.6196708** for obs50 at
+500. These are different observation/total budgets and are not a final allocation
+ranking. Random has not yet reached its first joint-validation interval.
+Total allocation including all retries/preemptions is **19.8736 GPU-hours**.
+
+RTX pool occupancy fell from eight to four GPUs, opening quota. Physical RTX
+hosts have many unallocated GPUs but tight CPU availability (0–7 cores free per
+node). Test-only scheduling estimates about 12:13 ET for both four- and two-CPU
+single-GPU requests. No jobs were canceled or rerouted at this check; retain
+ongoing H200 work until a useful RTX handoff is established.

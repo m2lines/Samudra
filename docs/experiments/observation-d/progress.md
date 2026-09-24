@@ -1154,3 +1154,23 @@ All six production jobs remain dependency-pending; calibration has not selected
 rates yet. Accumulated allocated GPU time, including both canceled attempts and
 the current 1,305 seconds, is **2.4703 GPU-hours**. Routine monitoring returns to
 hourly sleeps within this conversation.
+
+## Hourly check — 23 September, 22:06 ET
+
+Calibration 18386026 is running at 1:22:37 elapsed. Transfer LR 1e-5 completed
+1,000 reconstruction plus 200 joint updates; final joint integrated-plus-spectral
+validation score is **0.7140466**, also its best score. Transfer LR 3e-5 is at
+reconstruction step 22. These are calibration trials, not production comparisons.
+`calibration.json` is absent and all six production jobs remain dependency-pending.
+GPU utilization is **66.46% over the last hour**, 63.36% over the allocation so far.
+Cumulative allocated GPU time including canceled attempts is **3.4847 hours**.
+No new failures, retries or protocol changes.
+
+## Hourly check — 23 September, 23:06 ET
+
+Calibration remains running beyond the previous failure boundary, at 2:23:10.
+Transfer LR 3e-5 reached joint step 169/200 after completing reconstruction;
+its step-150 validation score is 0.68665. Scratch calibration has not begun.
+GPU utilization averages 70.35% over the last hour and 66.24% over the allocation.
+Cumulative usage is 4.4939 GPU-hours. All production remains dependency-pending;
+no calibration-selection marker or production/evaluation completion exists.

@@ -12,12 +12,7 @@ from typing import Annotated, get_args
 import xarray as xr
 from pydantic import BaseModel, BeforeValidator, Field, WithJsonSchema
 
-from samudra.config import (
-    DataConfig,
-    LlcDataSourceConfig,
-    ObsMetricsConfig,
-    Om4TimeConfig,
-)
+from samudra.config import DataConfig, ObsMetricsConfig, Om4TimeConfig
 from samudra.config_base import TopLevelConfig
 from samudra.constants import GridType
 from samudra.utils.location import LocalLocation, Location, ResolvedLocation
@@ -128,24 +123,14 @@ class VizConfig(TopLevelConfig):
         if self.data is None:
             return None
         source = self.data.sources[0]
-        if isinstance(source, LlcDataSourceConfig):
-            # LLC carries no `grid_type` field because it is only ever
-            # lat-lon-cap; `build_llc_layout` hard-codes it.
-            return "llc"
         return source.grid_type
 
     def _grid_type(self, groundtruth: xr.Dataset) -> GridType:
         """Horizontal grid geometry for this run.
 
-        Viz must branch on this: on a curvilinear ("tripolar") grid the 2-D
-        lat/lon cannot be rebuilt from the 1-D axes and the rectilinear area
-        helpers are invalid.
-
-        A data source names it, and preprocessing also records it on the store
-        it writes. `groundtruth_location` is a supported way to point viz at a
-        rollout with no data block at all, so the store's own attribute has to
-        be honoured: defaulting to "gaussian" there would silently plot a
-        tripolar rollout against its index axes.
+        Viz uses this to determine if we can assume a rectilinear grid or not.
+        We can either be configured to use a DataSource or a raw groundtruth
+        Dataset so we must pull from either.
         """
         configured = self._configured_grid_type()
         recorded = groundtruth.attrs.get("grid_type")
@@ -159,8 +144,7 @@ class VizConfig(TopLevelConfig):
             raise ValueError(
                 f"The data source says grid_type={configured!r} but the "
                 f"ground-truth store records {recorded!r}. Point viz at the "
-                "matching store, or fix the source, rather than letting the two "
-                "disagree about the same grid."
+                "matching store, or adjust the ground-truth recorded grid."
             )
         return configured or recorded or "gaussian"
 

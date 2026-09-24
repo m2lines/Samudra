@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790274077582,
+  "lastUpdate": 1790275989842,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -12228,6 +12228,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.23631033970650644",
             "extra": "mean: 54.94237176139999 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "913f400942457b20637a270ffd04c52155267aea",
+          "message": "Fix EMA checkpoint exports saving raw model weights (#889)\n\n`ema_ckpt.pt` currently contains raw model weights: `state_dict()`\naliases live parameter storage, and leaving `_ema_context()` restores\nraw weights before `torch.save()` serializes them. Keep the EMA context\nactive through serialization and atomic replacement so averaged weights\nreach disk without allocating an additional full model copy on the GPU.\nRaw weights are restored when saving returns or raises.\n\nRegression coverage:\n- Write and reload inference and training checkpoints with raw weights\nof 6 and EMA weights of 4; verify serialized weights, frozen parameters,\nBatchNorm buffers, metadata, preservation of the live model and EMA\ntracker, and the separate EMA state in training checkpoints. The\noriginal inference export fails this test.\n- Check that serialization uses the live model's tensor storage rather\nthan a copied state dictionary.\n- Inject a write failure while EMA weights are active; verify the error\npropagates, raw weights are restored, EMA state is unchanged, and the\nprevious checkpoint remains intact.\n\nValidation:\n- Related checkpoint/resume and training-progress tests: 9 passed\n(`tests/test_trainer.py tests/test_train_progress.py -m 'not manual and\nnot cuda' -k 'checkpoint or ema or progress'`).\n- All applicable pre-commit checks passed for both changed files,\nincluding mypy and schema validation.\n\nThis corrects future exports; existing EMA checkpoint files are not\nrepaired by the change. An ordinary training checkpoint's stored EMA\nparameters can be used to recover the averaged weights when available.\n\n---------\n\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>",
+          "timestamp": "2026-09-24T18:08:01Z",
+          "tree_id": "9eaf3e085e00002cc462dbe30b6c5b00f58ce1f9",
+          "url": "https://github.com/m2lines/Samudra/commit/913f400942457b20637a270ffd04c52155267aea"
+        },
+        "date": 1790275988109,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.9326957566164548,
+            "unit": "iter/sec",
+            "range": "stddev: 0.0028275439003693035",
+            "extra": "mean: 1.0721609838000177 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06808368155457697,
+            "unit": "iter/sec",
+            "range": "stddev: 0.44609470363860004",
+            "extra": "mean: 14.687807374199997 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.018143895169891226,
+            "unit": "iter/sec",
+            "range": "stddev: 0.9757786018927446",
+            "extra": "mean: 55.114956884200026 sec\nrounds: 5"
           }
         ]
       }

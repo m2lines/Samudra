@@ -26,9 +26,11 @@ from samudra.train import (
     should_run_on_epoch_freq,
 )
 from samudra.utils.ctx import BatchGrid
+from samudra.utils.ema import EMATracker
 from samudra.utils.logging import handle_logging
 from samudra.utils.loss import DynamicLoss
 from samudra.utils.multiton import MultitonScope
+from samudra.utils.train_progress import TrainProgress
 from tests.conftest import DEFAULT_CONFIG, SAMUDRA_MULTI_CONFIG, TrainPair
 
 
@@ -404,6 +406,106 @@ def test_checkpoint_inference(trainer_pair: TrainPair, caplog):
     assert trainer.train_progress.target_values_seen == 48
     assert trainer.train_progress.optimizer_steps == 3
     assert trainer.train_progress.gpu_seconds == 12.5
+
+
+@pytest.fixture
+def checkpoint_trainer():
+    trainer = cast(Any, object.__new__(Trainer))
+    trainer.model = torch.nn.Sequential(torch.nn.Linear(2, 2), torch.nn.BatchNorm1d(2))
+    trainer.model[0].bias.requires_grad_(False)
+    with torch.no_grad():
+        for parameter in trainer.model.parameters():
+            parameter.fill_(2.0)
+    trainer._ema = EMATracker(trainer.model, decay=0.5, faster_decay_at_start=False)
+    with torch.no_grad():
+        for parameter in trainer.model.parameters():
+            parameter.fill_(6.0)
+    trainer._ema(cast(BaseModel, trainer.model))
+    trainer.optimizer = torch.optim.SGD(trainer.model.parameters(), lr=0.1)
+    trainer.best_val_loss = 1.0
+    trainer.best_inf_loss = 2.0
+    trainer.num_batches_seen = 1
+    trainer.train_progress = TrainProgress()
+    trainer.wandb_id = None
+    trainer.wandb_name = None
+    trainer.loss_fn = torch.nn.MSELoss()
+    trainer.scheduler = None
+    return trainer
+
+
+@pytest.mark.parametrize("for_inference", [False, True])
+def test_checkpoint_saves_raw_or_ema_weights(
+    tmp_path, for_inference, checkpoint_trainer, monkeypatch
+):
+    trainer = checkpoint_trainer
+    raw = {name: value.clone() for name, value in trainer.model.state_dict().items()}
+    ema = {name: value.clone() for name, value in trainer._ema._ema_params.items()}
+    original_save = torch.save
+
+    def save_without_model_copy(checkpoint, path):
+        # Serialization must use the live model storage, avoiding a GPU-sized copy.
+        for name, value in trainer.model.state_dict().items():
+            assert checkpoint["model"][name].data_ptr() == value.data_ptr()
+        original_save(checkpoint, path)
+
+    monkeypatch.setattr(torch, "save", save_without_model_copy)
+    checkpoint_path = tmp_path / "checkpoint.pt"
+    trainer.save_checkpoint(1, checkpoint_path, for_inference=for_inference)
+    checkpoint = torch.load(checkpoint_path, weights_only=True)
+
+    # Check serialized weights, including frozen parameters and BatchNorm buffers.
+    trainable = {
+        name
+        for name, parameter in trainer.model.named_parameters()
+        if parameter.requires_grad
+    }
+    assert checkpoint["model"].keys() == raw.keys()
+    for name, value in checkpoint["model"].items():
+        expected = (
+            torch.full_like(raw[name], 4.0)
+            if for_inference and name in trainable
+            else raw[name]
+        )
+        torch.testing.assert_close(value, expected, rtol=0, atol=0)
+    assert checkpoint["model"]._metadata == getattr(
+        trainer.model.state_dict(), "_metadata"
+    )
+    for name, value in trainer.model.state_dict().items():
+        torch.testing.assert_close(value, raw[name], rtol=0, atol=0)
+    for name, value in trainer._ema._ema_params.items():
+        torch.testing.assert_close(value, ema[name], rtol=0, atol=0)
+    assert ("ema_params" in checkpoint["ema"]) == (not for_inference)
+    if not for_inference:
+        for name, value in checkpoint["ema"]["ema_params"].items():
+            torch.testing.assert_close(value, ema[name], rtol=0, atol=0)
+
+
+def test_checkpoint_save_failure_restores_raw_weights(
+    tmp_path, checkpoint_trainer, monkeypatch
+):
+    trainer = checkpoint_trainer
+    raw = {name: value.clone() for name, value in trainer.model.state_dict().items()}
+    ema = {name: value.clone() for name, value in trainer._ema._ema_params.items()}
+    checkpoint_path = tmp_path / "checkpoint.pt"
+    checkpoint_path.write_bytes(b"previous checkpoint")
+
+    def fail_save(checkpoint, path):
+        # The exception occurs while averaged weights are installed in the model.
+        torch.testing.assert_close(
+            trainer.model[0].weight, torch.full((2, 2), 4.0), rtol=0, atol=0
+        )
+        raise OSError("simulated checkpoint write failure")
+
+    monkeypatch.setattr(torch, "save", fail_save)
+    with pytest.raises(OSError, match="simulated checkpoint write failure"):
+        trainer.save_checkpoint(1, checkpoint_path, for_inference=True)
+
+    for name, value in trainer.model.state_dict().items():
+        torch.testing.assert_close(value, raw[name], rtol=0, atol=0)
+    for name, value in trainer._ema._ema_params.items():
+        torch.testing.assert_close(value, ema[name], rtol=0, atol=0)
+    assert trainer._ema._stored_params == []
+    assert checkpoint_path.read_bytes() == b"previous checkpoint"
 
 
 def test_should_log_validation_images_every_n_epochs():

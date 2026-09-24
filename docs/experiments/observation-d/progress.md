@@ -1433,3 +1433,32 @@ original frozen validation reference, held-out cohort, and training producer
 The map exporter now accepts explicit method definitions and reads plot labels
 from the audited bundle, preserving the fixed January/July cases and native grid
 geometry for the new wave's models.
+
+## Matched-budget comparison complete — 24 September, 16:12 ET
+
+All four transfer arms and the immutable random-4k model completed their historical
+96-origin evaluations and CPU anomaly/year diagnostics. Held-out integrated-plus-
+spectral scores, ordered 0%/25%/50%/75% OM4 then random-4k, are **0.58605 /
+0.59213 / 0.60779 / 0.62667 / 0.93434**. The best transfer recipe is 37.3% below
+random-4k, conditional on historical D pretraining; zero versus 25% differs only
+1.0%. The first three transfer arms now beat their own inferred-state persistence
+in all eight annual checks. Random-4k does not. These are one-seed, update-matched
+results; observation updates require many more initializer forwards than OM4.
+
+Separate random-4k evaluation 18453534 failed at launch after 13 seconds because
+`torchrun` ambiguously parsed `--run`. Applied the previously tested explicit `--`
+separator (documented in the original pilot), preserved the failed submission in
+`random-4k-launch-recovery/`, and kept its job in the DAG accounting. Replacement
+**18455079** completed successfully in 370 seconds on RTX. No producer or evaluation
+protocol changed. The frozen checkpoint SHA-256 is
+`aa24e4428c6f9b954b8b104ad2d1fe8d24882172d9bdcf13e573ac16dca5dade`.
+The original random driver will reuse the completed evaluation after 8k.
+
+CPU report jobs 18453507/18453508 (obs0/obs75), 18455082 (random-4k), and map
+extraction 18455083 all completed successfully. Original CPU reports 18447281/83
+also succeeded. Pixel-exact map checks passed. Main report:
+[compute-allocation-2026-09-24.md](compute-allocation-2026-09-24.md).
+Cumulative allocation is **36.5531 GPU-hours** including retries. Random is still
+running, last recorded at joint update 4,221/8,000. Its 4k validation is 0.8803078;
+6k/8k extension and plateau report remain pending. Timer stays disabled; monitoring
+continues in this conversation with sleeps.

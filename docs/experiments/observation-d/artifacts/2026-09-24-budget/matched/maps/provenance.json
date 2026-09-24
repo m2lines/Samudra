@@ -1,0 +1,263 @@
+{
+  "scope": "Saved day-30 five-day mean forecasts; no new inference or training",
+  "cases": [
+    "2022-01",
+    "2022-07"
+  ],
+  "case_choice": "January and July of the final held-out year, fixed before inspecting maps",
+  "lead_index": 5,
+  "lead_bin_end_days": 30,
+  "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+  "script_sha256": "f2af74a1471182bb2f542d2185740fe56122528b370190debf74c4ba7d42ea37",
+  "sources": [
+    {
+      "method": "D \u2192 observations",
+      "path": "/scratch/jr7309/runs/2026-09-23-observation-budget-rtx-cache/obs0-evaluation/selected-predictions.npz",
+      "sha256": "a6a0340616bcadba8b39772a1f210d2c70ff2f966ff6fac3edd911e2b3aa6645",
+      "selected_checkpoint_sha256": "ad64fdf0ed830c58d2b6f1875245f2dad86854780eefd9866bb6c53c7738a44d",
+      "source_checkpoint_sha256": "22e629f41c418fa93ee3ec0a3257d80d71d77b02b2fe1cbd89eae04507d22905",
+      "weights_used_sha256": "ad64fdf0ed830c58d2b6f1875245f2dad86854780eefd9866bb6c53c7738a44d"
+    },
+    {
+      "method": "D \u2192 25% OM4 \u2192 observations",
+      "path": "/scratch/jr7309/runs/2026-09-23-observation-budget-rtx-cache/obs25-evaluation/selected-predictions.npz",
+      "sha256": "1a97b7516df963d92ee7da81c5aa547b962232becd383952a63ffad7a4457882",
+      "selected_checkpoint_sha256": "908c3feb01bc44cfe7f08816e61cbbf2732b4db292dddf30c01a866dbc56151f",
+      "source_checkpoint_sha256": "acca4065c0b879f1648b90c7f30c3717bc30aa186d9e3ec533d0d6523bd6b3a0",
+      "weights_used_sha256": "908c3feb01bc44cfe7f08816e61cbbf2732b4db292dddf30c01a866dbc56151f"
+    },
+    {
+      "method": "D \u2192 50% OM4 \u2192 observations",
+      "path": "/scratch/jr7309/runs/2026-09-23-observation-budget-rtx-cache/obs50-evaluation/selected-predictions.npz",
+      "sha256": "af189c5079b2e031ecb46402eecddaac01ba65da2bca73dee725d998b0ec1562",
+      "selected_checkpoint_sha256": "f46a803f8064fc48d94f81de89dbd92899af423bfdb75a834b0788ea5d339eed",
+      "source_checkpoint_sha256": "f5bac5723d17d33a5e2d8caece252f1762eddc54e8e55a22ef29d8bf43bd8c0d",
+      "weights_used_sha256": "f46a803f8064fc48d94f81de89dbd92899af423bfdb75a834b0788ea5d339eed"
+    },
+    {
+      "method": "D \u2192 75% OM4 \u2192 observations",
+      "path": "/scratch/jr7309/runs/2026-09-23-observation-budget-rtx-cache/obs75-evaluation/selected-predictions.npz",
+      "sha256": "6f659f321c1219756d8729e9933be6925b537bcdd7bd3317b1023114b0d7dc2f",
+      "selected_checkpoint_sha256": "3d9c293dfe6f4121d74fe0ab27a191eee9c6dab8a7759e4e969f1682fa747da6",
+      "source_checkpoint_sha256": "c304f9d6b3bd134555b1fa7284de70701bf9a1274cc6dd52d8a4c4c34d689982",
+      "weights_used_sha256": "3d9c293dfe6f4121d74fe0ab27a191eee9c6dab8a7759e4e969f1682fa747da6"
+    },
+    {
+      "method": "Observation-only random (4k)",
+      "path": "/scratch/jr7309/runs/2026-09-23-observation-budget-rtx-cache/random-4000-evaluation/selected-predictions.npz",
+      "sha256": "e245bb52051e064cc4d6f074f417921f8a770c08707d6a0721cbcfd00f5df1a1",
+      "selected_checkpoint_sha256": "aa24e4428c6f9b954b8b104ad2d1fe8d24882172d9bdcf13e573ac16dca5dade",
+      "source_checkpoint_sha256": "22e629f41c418fa93ee3ec0a3257d80d71d77b02b2fe1cbd89eae04507d22905",
+      "weights_used_sha256": "aa24e4428c6f9b954b8b104ad2d1fe8d24882172d9bdcf13e573ac16dca5dade"
+    },
+    {
+      "method": "D \u2192 observations: inferred-state persistence",
+      "path": "/scratch/jr7309/runs/2026-09-23-observation-budget-rtx-cache/obs0-evaluation/selected-inferred-persistence.npz",
+      "sha256": "8c2c96249808d0ecb578a9a9f499c587f78611db71735e5286135f6e094a3c03",
+      "selected_checkpoint_sha256": "ad64fdf0ed830c58d2b6f1875245f2dad86854780eefd9866bb6c53c7738a44d",
+      "source_checkpoint_sha256": "22e629f41c418fa93ee3ec0a3257d80d71d77b02b2fe1cbd89eae04507d22905",
+      "weights_used_sha256": "ad64fdf0ed830c58d2b6f1875245f2dad86854780eefd9866bb6c53c7738a44d"
+    },
+    {
+      "method": "Training seasonal climatology",
+      "path": "/scratch/jr7309/runs/2026-09-23-observation-budget-rtx-cache/obs0-evaluation/seasonal-climatology.npz",
+      "sha256": "5c381753c44cc4cca3c23a50d1328aac8bd1831e041e541f0f9d2a4d645db205",
+      "selected_checkpoint_sha256": "ad64fdf0ed830c58d2b6f1875245f2dad86854780eefd9866bb6c53c7738a44d",
+      "source_checkpoint_sha256": "22e629f41c418fa93ee3ec0a3257d80d71d77b02b2fe1cbd89eae04507d22905",
+      "weights_used_sha256": null
+    }
+  ],
+  "case_times": {
+    "2022-01": {
+      "last_history_midpoint": "2021-12-29T12:00:00",
+      "day30_bin_midpoint": "2022-01-28T12:00:00"
+    },
+    "2022-07": {
+      "last_history_midpoint": "2022-06-28T12:00:00",
+      "day30_bin_midpoint": "2022-07-28T12:00:00"
+    }
+  },
+  "bundle_sha256": "d3f6f14f185da8d916c24796cfa6cbc0ae738ee43752fc249dec97c85f37749d",
+  "plot_script_sha256": "f2af74a1471182bb2f542d2185740fe56122528b370190debf74c4ba7d42ea37",
+  "rendered": [
+    {
+      "file": "day30-2022-01-anomalies-sst",
+      "limits": [
+        -3,
+        3
+      ],
+      "figure_pixels": [
+        820,
+        2220
+      ],
+      "panel_pixels": [
+        720,
+        240
+      ],
+      "panel_grid_shape_yx": [
+        120,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        375,
+        670,
+        965,
+        1260,
+        1555,
+        1850
+      ]
+    },
+    {
+      "file": "day30-2022-01-anomalies-adt",
+      "limits": [
+        -0.25,
+        0.25
+      ],
+      "figure_pixels": [
+        820,
+        2220
+      ],
+      "panel_pixels": [
+        720,
+        240
+      ],
+      "panel_grid_shape_yx": [
+        120,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        375,
+        670,
+        965,
+        1260,
+        1555,
+        1850
+      ]
+    },
+    {
+      "file": "day30-2022-07-fields-sst",
+      "limits": [
+        -2,
+        32
+      ],
+      "figure_pixels": [
+        820,
+        2220
+      ],
+      "panel_pixels": [
+        720,
+        240
+      ],
+      "panel_grid_shape_yx": [
+        120,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        375,
+        670,
+        965,
+        1260,
+        1555,
+        1850
+      ]
+    },
+    {
+      "file": "day30-2022-07-fields-adt",
+      "limits": [
+        -1.5,
+        1.5
+      ],
+      "figure_pixels": [
+        820,
+        2220
+      ],
+      "panel_pixels": [
+        720,
+        240
+      ],
+      "panel_grid_shape_yx": [
+        120,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        375,
+        670,
+        965,
+        1260,
+        1555,
+        1850
+      ]
+    },
+    {
+      "file": "day30-2022-07-anomalies-sst",
+      "limits": [
+        -3,
+        3
+      ],
+      "figure_pixels": [
+        820,
+        2220
+      ],
+      "panel_pixels": [
+        720,
+        240
+      ],
+      "panel_grid_shape_yx": [
+        120,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        375,
+        670,
+        965,
+        1260,
+        1555,
+        1850
+      ]
+    },
+    {
+      "file": "day30-2022-07-anomalies-adt",
+      "limits": [
+        -0.25,
+        0.25
+      ],
+      "figure_pixels": [
+        820,
+        2220
+      ],
+      "panel_pixels": [
+        720,
+        240
+      ],
+      "panel_grid_shape_yx": [
+        120,
+        360
+      ],
+      "panel_left_px": 70,
+      "panel_top_px": [
+        80,
+        375,
+        670,
+        965,
+        1260,
+        1555,
+        1850
+      ]
+    }
+  ],
+  "pixel_verification": "Every saved panel RGB pixel equals the source colormap cell repeated exactly 2x2, including the common missing-data mask",
+  "rasterization": "Lossless PNG: exactly 2 x 2 pixels per retained grid cell at native image size; no interpolation. PDF embeds native grid with interpolation disabled.",
+  "coordinates": "Square cells in grid-index space, sorted longitude and retained 60S-60N latitude rows; ticks label actual cell-center coordinates. No geographic resampling.",
+  "mask": "60S-60N model wet domain intersected with finite target observations, identical across candidates",
+  "interpretation": "Illustrative cases, not aggregate skill; gray is land or unavailable observations. Colorbar extensions mark saturation. Endpoint is the last common exported surface lead, not a multi-year continuous rollout."
+}

@@ -320,3 +320,14 @@ before allocation; accounting-proven completion resolved it. The successful
 audit preserves its qualification dependency proof. Reserve approximately 200 GB
 for all main and calibration checkpoint copies, diagnostics and retained
 superseded attempts; the previously measured 1.16 TB quota headroom is ample.
+
+
+At 16:10 ET, corrected rate pilots 18537519/18537520 had completed their full
+1,000 reconstruction + 250 joint updates. Integrated-plus-spectral validation
+scores were **1.0584885 at 1e-4** and **0.8369917 at 3e-4**. The gate selected 3e-4
+and launched fresh scratch main **18540597** under `handoff-v2`, with the corrected
+handoff and unchanged 1k + 8k budgets. Its dependent monthly, annual and state
+checkpoint diagnostics are queued on successful completion. OM4 main 18530880
+remains running beyond the two-hour mark, at approximately 8,400 updates. Recent
+mean utilization was 95.6% for OM4 and 72–77% for the corrected scratch pilots.
+These are calibration/progress results, not completed main-model comparisons.

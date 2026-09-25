@@ -1691,3 +1691,13 @@ untrained reconstruction-best tensors. Replacement equal-budget rate pilots
 18537519/18537520 were then submitted under `handoff-v2`; all continuation and
 evaluation gates were rebuilt there. OM4 pretraining remains on producer `3dba9696`.
 The canceled old scratch main used 267 GPU-seconds; all attempts stay counted.
+
+
+## Corrected scratch calibration completed — 25 September, 16:10 ET
+
+Replacement pilots 18537519/18537520 completed 1,000 reconstruction + 250 joint
+updates each. LR 3e-4 won the integrated-plus-spectral score (0.8369917 versus
+1.0584885 at 1e-4). Fresh scratch main 18540597 is running under `handoff-v2`;
+its evaluation/diagnostic descendants are correctly waiting on completion.
+OM4 main 18530880 is beyond two hours and approximately 8,400 updates; recent
+utilization averaged 95.6%. The two corrected pilots averaged 72–77%. No blocker.

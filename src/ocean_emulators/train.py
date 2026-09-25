@@ -3526,29 +3526,21 @@ class Trainer:
         current = input[:, : self.num_out]
         return current + group.blender.blend(prediction - current)
 
-    @torch.no_grad()
-    def _fixed_denominator_loss(self, sample_weight: torch.Tensor, *, tiles: int):
-        """A loss whose chunks sum to what one call over `tiles` would give.
+    def _blend_face_in_place(
+        self, group: ReplayGroup, input: torch.Tensor, prediction: torch.Tensor
+    ) -> torch.Tensor:
+        """`_blend_group`, consuming `prediction` instead of copying it.
 
-        Same device as `_install_face_loss_normalization`, but scoped to one
-        batch rather than to the face: the denominators come from this
-        batch's own masks, with no cross-rank reduction, so the result is the
-        ordinary mean and stays comparable to every other validation number.
+        Every temporary here is a whole rank's worth of 752^2 tiles -- 4.2 GB
+        at nine -- so the residual is formed in `prediction`'s own storage and
+        the current state added back into the blend's output. The caller must
+        not use `prediction` afterwards.
         """
-        return build_loss_fn(
-            self._loss_cfg,
-            wet=self.domain_wet,
-            y_coord=self.data.lat,
-            device=self.device,
-            num_channels=self.N_prog,
-            pad_mode=self._pad_mode,
-            denominator=weighted_channel_denominator(
-                wet=self.domain_wet, batch=tiles, extra_weight=sample_weight
-            ),
-            gradient_z_norms=gradient_z_norms(
-                wet=self.domain_wet, batch=tiles, sample_weight=sample_weight
-            ),
-        )
+        current = input[:, : self.num_out]
+        residual = prediction.sub_(current)
+        blended = group.blender.blend(residual)
+        del residual
+        return blended.add_(current)
 
     def _predict_in_chunks(self, model, inputs: torch.Tensor) -> torch.Tensor:
         """`predict_step` over a batch too large to hold in one forward.
@@ -3560,7 +3552,9 @@ class Trainer:
         had been running happily at 74 GB.
 
         Reuses the training split, so the two cannot disagree about what fits.
-        No grad here, so this only bounds transient activations.
+        No grad here, so this only bounds transient activations. Each chunk is
+        written straight into one preallocated output: concatenating a list
+        instead holds every chunk AND the result, a second full copy.
         """
         fp_ctx = getattr(self, "fp_ctx", None)
         if fp_ctx is None or len(fp_ctx.chunks) <= 1:
@@ -3570,12 +3564,44 @@ class Trainer:
                 f"Expected one sample per local tile ({len(fp_ctx.local_tiles)}), "
                 f"got {inputs.shape[0]}"
             )
-        return torch.cat(
-            [
-                model.predict_step(inputs[chunk[0] : chunk[-1] + 1])
-                for chunk in fp_ctx.chunks
-            ],
-            dim=0,
+        output: torch.Tensor | None = None
+        for chunk in fp_ctx.chunks:
+            span = slice(chunk[0], chunk[-1] + 1)
+            part = model.predict_step(inputs[span])
+            if output is None:
+                output = part.new_empty((inputs.shape[0], *part.shape[1:]))
+            output[span] = part
+            del part
+        assert output is not None
+        return output
+
+    def _release_allocator_cache(self, label: str) -> None:
+        """Hand the caching allocator's idle segments back before validating.
+
+        Training leaves the allocator holding far more than it is using.
+        Measured entering validation on an 80 GB card: 15.3 GB live against
+        72.1 GB reserved -- the chunked step allocates and frees differently
+        shaped activations five times per face advance, and the cached segments
+        do not fit what validation asks for next. Validation then OOMed on
+        886 MiB with 56.8 GB of the card reserved but unused.
+
+        So this is about the allocator's cache, not about anything training
+        retains, and it has to be released HERE. The same call at the end of
+        the training epoch did nothing, because the references were still live
+        at that point.
+        """
+        if not torch.cuda.is_available():
+            return
+        live = torch.cuda.memory_allocated() / 2**30
+        reserved = torch.cuda.memory_reserved() / 2**30
+        torch.cuda.empty_cache()
+        logger.info(
+            "Entering %s: %.1f GB live, %.1f GB reserved -> %.1f GB after "
+            "releasing the allocator's cache",
+            label,
+            live,
+            reserved,
+            torch.cuda.memory_reserved() / 2**30,
         )
 
     def validate_one_epoch_grouped(self, epoch, group: ReplayGroup) -> MetricsDict:
@@ -3585,54 +3611,17 @@ class Trainer:
         being asked to do: at inference the overlaps are reconciled before
         anything reads them, so validation has to reconcile them too.
         """
+        if getattr(self, "fp_ctx", None) is not None:
+            return self._validate_one_epoch_face(epoch, group)
         self.model.eval()
         model = (
             self.model.module
             if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
             else self.model
         )
-        if torch.cuda.is_available():
-            # Training leaves the allocator holding far more than it is using.
-            # Measured entering this function on an 80 GB card: 15.3 GB live
-            # against 72.1 GB reserved -- the chunked step allocates and frees
-            # differently shaped activations five times per face advance, and
-            # the cached segments do not fit what validation asks for next.
-            # Validation then OOMed on 886 MiB with 56.8 GB of the card
-            # reserved but unused.
-            #
-            # So this is about the allocator's cache, not about anything
-            # training retains, and it has to be released HERE. The same call
-            # at the end of the training epoch did nothing, because the
-            # references were still live at that point.
-            live = torch.cuda.memory_allocated() / 2**30
-            reserved = torch.cuda.memory_reserved() / 2**30
-            torch.cuda.empty_cache()
-            logger.info(
-                "Entering grouped validation: %.1f GB live, %.1f GB reserved "
-                "-> %.1f GB after releasing the allocator's cache",
-                live,
-                reserved,
-                torch.cuda.memory_reserved() / 2**30,
-            )
+        self._release_allocator_cache("grouped validation")
         datasets = self._grouped_val_datasets(group)
         weight = self._grouped_val_weight(group)
-        # The loss has to be chunked as well as the forward. `gradient_h`
-        # alone builds about eight tensors the size of its input, so scoring
-        # nine 752^2 tiles in one call is ~31 GB of transients -- which OOMed
-        # an 80 GB card one validation batch after the chunked forward had
-        # made room. Fixed denominators make the chunks sum to exactly the
-        # value one call would have returned, so the reported number does not
-        # change.
-        chunks = (
-            self.fp_ctx.chunks
-            if self.fp_ctx is not None
-            else [tuple(range(len(datasets)))]
-        )
-        scored = (
-            self._fixed_denominator_loss(weight, tiles=len(datasets))
-            if len(chunks) > 1
-            else self.loss_fn
-        )
 
         val_aggregator = Aggregator.get_validation_aggregator(
             self.metadata,
@@ -3665,15 +3654,7 @@ class Trainer:
                 prediction = self._predict_in_chunks(model, input)
                 blended = self._blend_group(group, input, prediction)
 
-                loss_per_channel = None
-                for chunk in chunks:
-                    span = slice(chunk[0], chunk[-1] + 1)
-                    part = scored(
-                        blended[span], label[span], sample_weight=weight[span]
-                    )
-                    loss_per_channel = (
-                        part if loss_per_channel is None else loss_per_channel + part
-                    )
+                loss_per_channel = self.loss_fn(blended, label, sample_weight=weight)
                 VO = ValBatchOutput(
                     torch.mean(loss_per_channel),
                     loss_per_channel,
@@ -3723,13 +3704,139 @@ class Trainer:
             raw_tiles = list(
                 read_executor.map(lambda dataset: dataset[index], datasets)
             )
+        return self._grouped_val_tensors(datasets, raw_tiles)
 
+    @staticmethod
+    def _grouped_val_tensors(
+        datasets: Sequence[TorchTrainDataset], raw_tiles: Sequence[RawTrainData]
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Stack each tile's raw sample, prepared by its own dataset."""
         inputs, labels = [], []
         for dataset, raw_tile in zip(datasets, raw_tiles, strict=True):
             data = dataset.to_train_data(collate_raw_train_data([raw_tile]))
             inputs.append(data.get_input(0))
             labels.append(data.get_label(0))
         return torch.cat(inputs, dim=0), torch.cat(labels, dim=0)
+
+    # ------------------------------------------------------------------
+    # Face-parallel validation
+    #
+    # A face-parallel rank holds a slice of the face, so every validation runs
+    # on EVERY rank in lockstep: each advances its own tiles, the distributed
+    # blender reconciles the seams across ranks, and `FaceScorer` reduces the
+    # scores to the whole face. Rank 0 alone could not even take one step --
+    # the blend needs its neighbours' halos -- which is why the rank-0-only
+    # rollout path must never see a face.
+    # ------------------------------------------------------------------
+
+    def _require_face_reader(self) -> GroupFrameReader:
+        reader = getattr(self, "group_frame_reader", None)
+        if reader is None:
+            raise RuntimeError(
+                "Face-parallel validation reads through the group frame reader, "
+                "which needs the tiles cut from one packed cache (data.llc_tiles)."
+            )
+        return reader
+
+    @staticmethod
+    def _pinned(frames: list[torch.Tensor]) -> list[torch.Tensor]:
+        """Pin a read on its reader thread, so the H2D copy can be async."""
+        if not torch.cuda.is_available():
+            return frames
+        return [frame.pin_memory() for frame in frames]
+
+    def _validate_one_epoch_face(self, epoch, group: ReplayGroup) -> MetricsDict:
+        """One-step validation of the whole face, on every rank at once.
+
+        Reads go through the chunk-streaming reader, one sample ahead of the
+        GPU; the seeded timestamps are the same on every rank because the draw
+        depends only on the config.
+        """
+        assert self.fp_ctx is not None
+        scorer = self.face_scorer
+        reader = self._require_face_reader()
+        self.model.eval()
+        model = (
+            self.model.module
+            if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
+            else self.model
+        )
+        self._release_allocator_cache("face one-step validation")
+        datasets = self._grouped_val_datasets(group)
+        reference = datasets[0]
+        if reference.hist != 0:
+            raise ValueError(
+                f"Face validation assumes hist=0 (replay), got hist={reference.hist}"
+            )
+        times = reference._prognostic_src.data["time"].to_numpy()
+        indices = self._grouped_val_indices(len(reference))
+
+        def read(index: int):
+            values = reference._get_x_index(index, 0).values
+            current, target = int(values[0]), int(values[1])
+            return (
+                self._pinned(reader.read_prognostic(times[current])),
+                self._pinned(reader.read_prognostic(times[target])),
+                self._pinned(reader.read_boundary(times[current])),
+            )
+
+        # The one-step loss here is already the face's, so it is handed to the
+        # aggregator as the batch loss; its cross-rank mean of identical values
+        # is a no-op. Only surface snapshots are logged next to it (enforced at
+        # startup), and those need one tile, not nine.
+        val_aggregator = Aggregator.get_validation_aggregator(
+            self.metadata,
+            self.hist,
+            self.area_weights,
+            self.src.masks.prognostic.to(self.device),
+            self.num_out,
+            surface_snapshot=True,
+        )
+        metric_logger = MetricLogger(delimiter="  ")
+        header = f"One-Step Face Validation Epoch: [{epoch}]"
+        rmse_total = torch.zeros((), dtype=torch.float64, device=self.device)
+        scored = 0
+        frames_iter = iter(ReadAhead([partial(read, i) for i in indices], depth=2))
+        try:
+            with self._test_context():
+                for step, _ in enumerate(metric_logger.log_every(indices, 1, header)):
+                    if self.debug and (step + 1) % 5 == 0:
+                        break
+                    now, nxt, boundary = next(frames_iter)
+                    raw_tiles = []
+                    for tile, dataset in enumerate(datasets):
+                        raw = RawTrainData(dataset.id)
+                        raw.insert(torch.cat((now[tile], nxt[tile]), dim=0), boundary[tile])
+                        raw_tiles.append(raw)
+                    del now, nxt, boundary
+                    input, label = self._grouped_val_tensors(datasets, raw_tiles)
+                    del raw_tiles
+                    blended = self._blend_face_in_place(
+                        group, input, self._predict_in_chunks(model, input)
+                    )
+                    metrics = scorer.score(blended, label)
+                    rmse_total += metrics.rmse.to(rmse_total)
+                    scored += 1
+                    val_aggregator.record_validation_batch(
+                        ValBatchOutput(
+                            metrics.loss,
+                            metrics.loss_per_channel,
+                            input[:1],
+                            label[:1],
+                            blended[:1],
+                        ),
+                        record_diagnostics=self.debug or step == len(indices) - 1,
+                    )
+                    metric_logger.update(loss=metrics.loss, rmse=metrics.rmse)
+                    del input, label, blended
+        finally:
+            # Stops the reader thread even when the loop exits early.
+            frames_iter.close()
+
+        logger.info("Aggregating face validation logs over %d sample(s)", scored)
+        logs = dict(val_aggregator.get_logs(label="val"))
+        logs["val/mean/one-step-rmse"] = float(rmse_total.cpu()) / max(scored, 1)
+        return logs
 
     def validate_one_epoch(self, epoch):
         group = self._primary_replay_group()

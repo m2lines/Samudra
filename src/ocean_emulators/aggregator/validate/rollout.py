@@ -161,8 +161,11 @@ class RolloutValidationAggregator:
     step by step. That keeps the reported curve a single line per epoch no
     matter how many initial conditions were rolled out.
 
-    Metrics are not reduced across ranks: the rollouts run on the main process
-    only, which is where wandb logging and checkpoint selection happen.
+    `record_run` does not reduce across ranks: it is for rollouts that run on
+    the main process only, which is where wandb logging and checkpoint
+    selection happen. A face split across ranks is scored with
+    `ocean_emulators.face_validation.FaceScorer` instead and handed in, already
+    reduced, through `record_step`.
     """
 
     def __init__(
@@ -237,6 +240,22 @@ class RolloutValidationAggregator:
             rmse = self._area_weighted_rmse(gen, label)
             self._rmse_sum[step_offset + step] += rmse.to(self._rmse_sum.device)
 
+    def record_step(
+        self, step: int, *, loss: torch.Tensor, rmse: torch.Tensor
+    ) -> None:
+        """Record one step of the current run from values computed elsewhere.
+
+        For a rollout whose domain is sharded across ranks, where neither
+        number can be computed from one rank's tensors. Both arrive already
+        reduced to the whole domain.
+        """
+        if not 0 <= step < self._num_steps:
+            raise ValueError(
+                f"Step {step} is outside the planned {self._num_steps} rollout steps."
+            )
+        self._loss_sum[step] += loss.detach().to(self._loss_sum)
+        self._rmse_sum[step] += rmse.detach().to(self._rmse_sum)
+
     def finish_run(self) -> None:
         """Close the run whose chunks were just recorded."""
         self._n_runs += 1
@@ -305,6 +324,7 @@ class RolloutValidationAggregator:
         )
         logs: MetricsDict = {
             f"val/mean/{label}-autoregressive-loss": self.mean_loss(),
+            f"val/mean/{label}-autoregressive-rmse": float(rmse_by_step.mean()),
             f"val/autoregressive-loss/{label}": plot_metric_by_rollout_step(
                 rmse_by_step,
                 title=f"{label} autoregressive validation RMSE",

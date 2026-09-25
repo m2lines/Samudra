@@ -46,7 +46,10 @@ def main():
     evaluator.data = Samples(manifest["arguments"]["data"], "cuda")
     if manifest["arguments"].get("from_scratch", False):
         evaluator.data.use_observation_normalization()
-    evaluator.model = ObservationTransfer(evaluator.data.grid["names"].tolist()).cuda()
+    evaluator.model = ObservationTransfer(
+        evaluator.data.grid["names"].tolist(),
+        manifest["arguments"].get("normalization", "batch"),
+    ).cuda()
     evaluator.model.load_state_dict(
         torch.load(checkpoint, map_location="cuda", weights_only=False)["model"],
         strict=True,

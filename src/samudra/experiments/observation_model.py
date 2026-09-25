@@ -11,11 +11,12 @@ from torch import nn
 from torch.utils.checkpoint import checkpoint
 
 from samudra.experiments.initializer_models import HistoryInitializer
+from samudra.experiments.normalization import configure_normalization
 from samudra.experiments.surface_state import Evolution
 
 
 class ObservationTransfer(nn.Module):
-    def __init__(self, names):
+    def __init__(self, names, normalization="batch"):
         super().__init__()
         self.initializer = HistoryInitializer(names, "wide", True)
         self.evolution = Evolution(len(names), [128, 192, 256, 384], "ar")
@@ -29,6 +30,7 @@ class ObservationTransfer(nn.Module):
         nn.init.zeros_(last.bias)
         self.activation_checkpointing = True
         self.update_batchnorm = False
+        configure_normalization(self, normalization)
 
     def load_core(self, state):
         # Strict core loading catches missing buffers, extra keys and wrong shapes.

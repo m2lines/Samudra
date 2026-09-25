@@ -24,6 +24,7 @@ from samudra.config import DataConfig
 from samudra.datasets import TorchTrainDataset
 from samudra.experiments.initializer_diagnostics import ReconstructionDiagnostics
 from samudra.experiments.initializer_models import HistoryInitializer
+from samudra.experiments.normalization import configure_normalization
 from samudra.experiments.surface_adaptation import (
     AdaptationState,
     state_fingerprint,
@@ -103,7 +104,10 @@ class InitializerWave(Experiment):
 
     def build_initializer(self, args):
         architecture, expanded = ARMS[args.arm]
-        return HistoryInitializer(self.names, architecture, expanded)
+        return configure_normalization(
+            HistoryInitializer(self.names, architecture, expanded),
+            getattr(args, "normalization", "batch"),
+        )
 
     def dataset(self, source, steps=6):
         return TorchTrainDataset(
@@ -122,16 +126,18 @@ class InitializerWave(Experiment):
         super().__init__(args)
         self.pretrain = Path(args.wave1_root) / "ar/pretrain-best.pt"
         evolution = Evolution(self.channels, [128, 192, 256, 384], "ar").to(self.device)
-        saved = torch.load(self.pretrain, map_location="cpu", weights_only=False)[
-            "model"
-        ]
-        evolution.load_state_dict(
-            {
-                k.removeprefix("evolution."): v
-                for k, v in saved.items()
-                if k.startswith("evolution.")
-            }
-        )
+        configure_normalization(evolution, getattr(args, "normalization", "batch"))
+        if not getattr(args, "fresh_evolution", False):
+            saved = torch.load(self.pretrain, map_location="cpu", weights_only=False)[
+                "model"
+            ]
+            evolution.load_state_dict(
+                {
+                    k.removeprefix("evolution."): v
+                    for k, v in saved.items()
+                    if k.startswith("evolution.")
+                }
+            )
         self.model = Pair(self.initializer, evolution, args.phase == "joint").to(
             self.device
         )
@@ -158,7 +164,10 @@ class InitializerWave(Experiment):
                 "initializer_parameters": sum(
                     p.numel() for p in self.initializer.parameters()
                 ),
-                "pretrained_evolution_fingerprint": self.original_dynamics,
+                "evolution_initialization": "random"
+                if getattr(args, "fresh_evolution", False)
+                else "pretrained",
+                "initial_evolution_fingerprint": self.original_dynamics,
                 "train_origins": len(self.trainset),
                 "validation_origins": [
                     str(self.valset.sources[0].time.values[i + 18])
@@ -301,6 +310,10 @@ class InitializerWave(Experiment):
             "data_config": self.config.model_dump(mode="json"),
             "data_root": args.data_root,
         }
+        if getattr(args, "normalization", "batch") != "batch":
+            signature["normalization"] = args.normalization
+        if getattr(args, "fresh_evolution", False):
+            signature["fresh_evolution"] = True
         optimizer = torch.optim.AdamW(
             [p for p in model.parameters() if p.requires_grad],
             lr=args.learning_rate,
@@ -681,6 +694,10 @@ class InitializerWave(Experiment):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--normalization", choices=["batch", "instance"], default="batch"
+    )
+    parser.add_argument("--fresh-evolution", action="store_true")
     parser.add_argument("--deadline", default="2026-09-24T17:00:00Z")
     parser.add_argument("--arm", choices=ARMS, required=True)
     parser.add_argument(

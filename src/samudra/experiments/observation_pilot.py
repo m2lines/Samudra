@@ -58,7 +58,9 @@ class Pilot:
         ):
             raise ValueError("Unknown data verification protocol")
         self.data = Samples(args.data, self.device)
-        self.model = ObservationTransfer(self.data.grid["names"].tolist())
+        self.model = ObservationTransfer(
+            self.data.grid["names"].tolist(), getattr(args, "normalization", "batch")
+        )
         if args.from_scratch:
             self.data.use_observation_normalization()
             self.model.update_batchnorm = True
@@ -84,6 +86,8 @@ class Pilot:
                 or not args.selection_reference
                 or qualification["selection_reference_sha256"]
                 != digest(args.selection_reference)
+                or qualification.get("normalization", "batch")
+                != getattr(args, "normalization", "batch")
                 or not all(qualification["gradient_reached"].values())
                 or qualification["losses"][-1] >= qualification["losses"][0]
             ):
@@ -579,6 +583,7 @@ class Pilot:
             )
         atomic_json(
             {
+                "normalization": getattr(self.args, "normalization", "batch"),
                 "losses": losses,
                 "gradient_reached": reached,
                 "training_origin": self.training[0].stem,
@@ -623,6 +628,9 @@ class Pilot:
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--normalization", choices=["batch", "instance"], default="batch"
+    )
     parser.add_argument("--data", required=True)
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--source-contract", required=True)

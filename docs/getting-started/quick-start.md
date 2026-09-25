@@ -34,6 +34,42 @@ The samudra-multi model supports multi-scale training across different resolutio
 uv run samudra train samudra_multi_om4/train.yaml
 ```
 
+### Validation and checkpoint selection
+
+The `samudra_om4/train.yaml` preset runs a 360-day autoregressive validation
+rollout every epoch, within the existing one-year validation split. With two
+roughly five-day outputs per model call, this is about 35 calls. Validation
+runs on rank 0 and streams one model call's targets at a time.
+
+The best-validation checkpoint minimizes
+`rollout_val/360d/normalized_rmse/channel_mean`: spatial, area-weighted RMSE
+on wet cells in normalized units, averaged equally over prognostic channels
+and forecast times. The square root is taken before averaging over channels
+and time. Non-finite rollout scores cannot win checkpoint selection.
+W&B receives this scalar alongside the existing physical-unit rollout metrics
+and single-step validation metrics.
+
+```yaml
+rollout_validation:
+  days: [360]
+  frequency: 1
+  steps_forward: 1
+checkpoint_validation_metric: rollout_rmse
+```
+
+For multiple horizons, checkpoint selection uses the longest horizon. If
+`frequency` is increased, only rollout epochs can replace the best-validation
+checkpoint; latest and periodic checkpoints continue to be saved. A requested
+day horizon must fit the configured validation split.
+
+Other presets retain single-step selection. To restore that behavior and disable
+rollout validation, set `checkpoint_validation_metric: one_step_loss` and
+`rollout_validation: null`. Rollout selection currently requires a single data
+source. When resuming, changing the selection metric or configured horizon resets
+the saved best score so incompatible scores are not compared. The checkpoint's
+`best_val_loss` (and search summary's `best_validation_loss`) stores the selected
+score; `validation_loss` continues to report single-step loss.
+
 ### Data Paths
 
 Training configs reference OM4 ocean model data stored in Zarr format. The bundled

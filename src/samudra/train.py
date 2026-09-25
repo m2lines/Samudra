@@ -276,7 +276,9 @@ class Trainer:
             self.wandb_logger.log(initial_metrics, step=0)
 
         self.num_batches_seen = 0
-        self.best_val_loss = 1e8
+        self.checkpoint_validation_metric = cfg.checkpoint_validation_metric
+        self.rollout_validation = cfg.rollout_validation
+        self.best_val_loss = float("inf")
         self.best_inf_loss = 1e8
         self.train_progress = TrainProgress()
         loaded_checkpoint = False
@@ -317,7 +319,6 @@ class Trainer:
         self.step_transition = cfg.step_transition
         self.save_freq = cfg.save_freq
         self.validation_image_log_freq = cfg.validation_image_log_freq
-        self.rollout_validation = cfg.rollout_validation
         self._rollout_validation_pg: torch.distributed.ProcessGroup | None = None
         self.output_dir = cfg.experiment.output_dir
         self.search_run = cfg.experiment.search
@@ -458,7 +459,10 @@ class Trainer:
 
             time_elapsed = time.perf_counter() - start_epoch_train_time
             if is_main_process():
-                self.save_all_checkpoints(epoch, v_loss, inf_loss)
+                checkpoint_score = self.validation_checkpoint_score(
+                    epoch, val_stats, rollout_val_stats
+                )
+                self.save_all_checkpoints(epoch, checkpoint_score, inf_loss)
                 if self.search_run is not None:
                     write_training_summary(
                         self.output_dir,
@@ -1231,16 +1235,47 @@ class Trainer:
         self.train_loader = BatchLoader(host_train_loader, train_datasets, self.device)
         self.val_loader = BatchLoader(host_val_loader, val_datasets, self.device)
 
-    def save_all_checkpoints(self, epoch: int, v_loss: float, inf_loss: float):
+    def validation_checkpoint_score(
+        self, epoch: int, val_stats: dict[str, Any], rollout_val_stats: dict[str, Any]
+    ) -> float | None:
+        if self.checkpoint_validation_metric == "one_step_loss":
+            return float(val_stats["val/mean/loss"])
+        assert self.rollout_validation is not None
+        if not should_run_on_epoch_freq(epoch, self.rollout_validation.frequency):
+            return None
+        label = "rollout_val"
+        if self.rollout_validation.days:
+            label += f"/{max(self.rollout_validation.days)}d"
+        # Fail loudly if a scheduled rollout did not produce the selected score.
+        return float(rollout_val_stats[f"{label}/normalized_rmse/channel_mean"])
+
+    def validation_checkpoint_identity(self) -> dict[str, Any]:
+        identity: dict[str, Any] = {"metric": self.checkpoint_validation_metric}
+        if self.checkpoint_validation_metric == "rollout_rmse":
+            assert self.rollout_validation is not None
+            identity["horizon"] = (
+                {"days": max(self.rollout_validation.days)}
+                if self.rollout_validation.days
+                else {"model_steps": self.rollout_validation.model_steps}
+            )
+        return identity
+
+    def save_all_checkpoints(
+        self, epoch: int, v_loss: float | None, inf_loss: float | None
+    ):
         with self._test_context():
             is_best_val_loss = False
-            if v_loss <= self.best_val_loss:
+            if (
+                v_loss is not None
+                and math.isfinite(v_loss)
+                and v_loss <= self.best_val_loss
+            ):
                 logger.info(
-                    f"Epoch validation loss ({v_loss:.3f}) is lower than "
-                    f"previous best validation loss ({self.best_val_loss:.3f})."
+                    f"Epoch validation checkpoint score ({v_loss:.3f}) is lower than "
+                    f"previous best score ({self.best_val_loss:.3f})."
                 )
                 logger.info(
-                    "Saving lowest validation loss checkpoint to "
+                    "Saving best validation checkpoint to "
                     f"{self.ckpt_paths.best_validation_checkpoint_path}"
                 )
                 self.best_val_loss = v_loss
@@ -1300,6 +1335,7 @@ class Trainer:
                     "optimizer": self.optimizer.state_dict(),
                     "epoch": epoch,
                     "best_val_loss": self.best_val_loss,
+                    "validation_checkpoint_identity": self.validation_checkpoint_identity(),
                     "best_inf_loss": self.best_inf_loss,
                     "ema": self._ema.get_state(include_ema_params=not for_inference),
                     "num_batches_seen": self.num_batches_seen,
@@ -1370,7 +1406,14 @@ class Trainer:
             logger.info(f"Wandb name: {self.wandb_name}")
             logger.info(f"Optimizer LR: {self.optimizer.param_groups[-1]['lr']}")
 
-            self.best_val_loss = checkpoint["best_val_loss"]
+            saved_identity = checkpoint.get(
+                "validation_checkpoint_identity", {"metric": "one_step_loss"}
+            )
+            self.best_val_loss = (
+                checkpoint["best_val_loss"]
+                if saved_identity == self.validation_checkpoint_identity()
+                else float("inf")
+            )
             self.best_inf_loss = checkpoint["best_inf_loss"]
 
     def is_wandb_enabled(self):

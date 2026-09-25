@@ -470,3 +470,18 @@ def test_shipped_eval_presets_load(preset: pathlib.Path):
     only a real eval job would notice.
     """
     EvalConfig.from_yaml_and_cli([str(preset)])
+
+
+def test_rollout_checkpoint_selection_requires_supported_validation():
+    with open(TEST_CONFIGS_DIR / DEFAULT_CONFIG) as f:
+        data = yaml.safe_load(f)
+    data["checkpoint_validation_metric"] = "rollout_rmse"
+    with pytest.raises(ValidationError, match="requires rollout_validation"):
+        TrainConfig.model_validate(data)
+    data["rollout_validation"] = {"days": [360]}
+    assert (
+        TrainConfig.model_validate(data).checkpoint_validation_metric == "rollout_rmse"
+    )
+    data["data"]["sources"] *= 2
+    with pytest.raises(ValidationError, match="requires a single data source"):
+        TrainConfig.model_validate(data)

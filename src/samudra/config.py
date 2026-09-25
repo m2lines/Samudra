@@ -1269,6 +1269,15 @@ class TrainConfig(TopLevelConfig):
         ),
     )
     rollout_validation: RolloutValidationConfig | None = None
+    checkpoint_validation_metric: Literal["one_step_loss", "rollout_rmse"] = Field(
+        default="one_step_loss",
+        description=(
+            "Score for the best-validation checkpoint. rollout_rmse uses normalized, "
+            "area-weighted RMSE averaged over channels and time at the longest "
+            "configured rollout horizon. Only rollout epochs can update it."
+        ),
+    )
+
     epochs: int = 120
     preemptible: bool = True
     batch_size: int = 2
@@ -1298,6 +1307,19 @@ class TrainConfig(TopLevelConfig):
     experiment: ExperimentConfig
     data: DataConfig
     model: AnyModelConfig
+
+    @pydantic.model_validator(mode="after")
+    def validate_checkpoint_metric(self) -> Self:
+        if self.checkpoint_validation_metric == "rollout_rmse":
+            if self.rollout_validation is None:
+                raise ValueError(
+                    "rollout_rmse checkpoint selection requires rollout_validation"
+                )
+            if len(self.data.sources) != 1:
+                raise ValueError(
+                    "rollout_rmse checkpoint selection requires a single data source"
+                )
+        return self
 
     def prepare_output_dirs(self) -> None:
         self.experiment.nets_dir.mkdir(parents=True, exist_ok=True)

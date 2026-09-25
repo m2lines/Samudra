@@ -1573,3 +1573,7 @@ training-history report. Clarified that the allocation study only explores
 continuation after D; earlier pretraining is a justified next hypothesis, not an
 established optimum or proof of severe overfitting. No new training authorized
 or launched by this documentation change.
+
+## Scratch 6k and report focus — 24 September, 20:25 ET
+
+Immutable 6k batch-statistics validation completed in job **18473594** (35 GPU-seconds): **0.5572997**, improved from 0.5645622 at 5k and 0.5726404 at 4k. Original stored-statistics score is 0.8410361. Training job 18409920 resumed after preemption and is running on gh126. The report now leads with scratch versus D → observations, per user direction; extra-OM4 arms remain supporting evidence. Last full all-attempt accounting was 39.7147 GPU-hours before this short diagnostic. No new training arm or policy change.

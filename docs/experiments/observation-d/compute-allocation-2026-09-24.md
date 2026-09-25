@@ -71,11 +71,11 @@ Reconstruction trains the initializer and adapter with monthly interior T/S supe
 
 Every arm completed its full prescribed budget. D → observations selected update 3,000 (0.5273); its terminal 4,000-update score worsened to 0.5428. The other transfer arms selected their endpoints. All transfer arms get four joint-selection checks; random also gets four through 4k. The observation-only validation sequence is 1.0146, 1.0023, 0.9209, 0.8803 at 1k/2k/3k/4k: **no plateau is established yet**.
 
-The original scratch scores above use stored running statistics and are affected by the normalization mismatch. Updated comparison:
+The original scratch scores above use stored running statistics and are affected by the normalization mismatch. The primary comparison is now the scratch extension versus D followed entirely by observation training. Extra-OM4 allocation arms remain supporting results. Updated comparison:
 
-![Validation with training-consistent normalization](artifacts/2026-09-24-budget/batch-stat-curves/validation-training-consistent.png)
+![Validation with training-consistent normalization](artifacts/2026-09-24-budget/batch-stat-curves/validation-scratch-versus-d.png)
 
-[Batch-statistics report: all-model rescoring, methods and retained checkpoints](batch-stat-curves.md). Scratch is 0.57264 at 4k and 0.56456 at 5k with per-sample statistics. Transfer curves retain their training-consistent frozen statistics. The report also shows the requested common per-sample policy for every model. [Original stored-statistics chart](artifacts/2026-09-24-budget/matched/validation-curves.png) remains archived; official selections and held-out numbers are unchanged.
+[Batch-statistics report: all-model rescoring, methods and retained checkpoints](batch-stat-curves.md). Scratch is 0.57264 at 4k, 0.56456 at 5k and 0.55730 at 6k with per-sample statistics. Transfer curves retain their training-consistent frozen statistics. The report also shows the requested common per-sample policy for every model. [Original stored-statistics chart](artifacts/2026-09-24-budget/matched/validation-curves.png) remains archived; official selections and held-out numbers are unchanged.
 
 Earlier D checkpoints and logged OM4 errors are now documented in the
 [backward training-history report](d-training-history.md), including the same

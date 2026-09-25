@@ -5,6 +5,8 @@
 
 **25 September 2026, 00:25 ET.** The observation-only run completed 8,000 joint updates and its original-policy held-out evaluation. Both inference policies stopped improving after 6k. The conditional 16k extension was **not launched**: continued improvement at 8k was the user's condition, and it was not observed. This is an operational plateau decision from one seed and sparse checkpoints, not proof that longer training could never help.
 
+**Normalization follow-up:** [train-only frozen-weight BatchNorm recalibration](batchnorm-recalibration.md) did not recover scratch performance and worsened D; the remaining gap is still normalization-confounded.
+
 ## Main comparison
 
 ![Scratch versus D, validation through 8k](artifacts/2026-09-24-budget/batch-stat-curves/validation-scratch-versus-d.png)

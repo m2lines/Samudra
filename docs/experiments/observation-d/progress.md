@@ -1605,3 +1605,15 @@ Report distinguishes matched monthly reconstruction errors from unlabeled
 initial velocity amplitudes and identifies unsupervised deep-state limitations.
 All map pixels verified at 2×2 per grid cell. Total including this diagnostic:
 **43.0253 allocated GPU-hours**. No new training, selection change or timer.
+
+## Train-only BatchNorm recalibration — 25 September, 09:35 ET
+
+User-authorized diagnostic job **18512340** completed on RTX in 331 seconds.
+All 243 training months, forecast path only, cumulative reset BN statistics;
+weights and original checkpoints verified unchanged. D3k original/recalibrated/
+per-sample scores: **0.52708/0.88636/0.91008**. Scratch6k:
+**0.84104/0.84029/0.55730**. Recalibration did not recover scratch's
+training-consistent performance. Full held-out recalibration evaluation is not
+warranted by these results and was not launched. Report preserves the unresolved
+normalization confound rather than attributing the remaining gap to OM4 weights.
+All integrity checks passed; total **43.1172 GPU-hours**.

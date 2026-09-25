@@ -698,7 +698,6 @@ class Viz:
 
         ax.legend(ncol=3, loc="upper left")
         # ax.set_ylim([34.723, 34.728])
-        ax.set_ylim((34.72, 34.73))
         ax.set_title("")
         ax.yaxis.set_major_formatter(ScalarFormatter(useOffset=False))
         plt.savefig(
@@ -1590,7 +1589,6 @@ class Viz:
             ls="--",
         )
         f.write(f"\nSalinity GT Trend Slope : {coeffs_salinity_trend[0]}")
-        ax.set_ylim((5.861e22, 5.8632e22))
         ax.legend(ncol=3)
         ax.set_title("")
         f.write("\n")
@@ -1836,10 +1834,13 @@ class Viz:
 
             if v not in ["thetao", "SSH"]:
                 axs[i].set_ylim(
-                    (min(true_pdf.min(), pdf_net.min()) + 1e-5, true_pdf.max())
+                    (
+                        min(true_pdf.min(), pdf_net.min()) + 1e-5,
+                        max(true_pdf.max(), pdf_net.max()),
+                    )
                 )
             else:
-                axs[i].set_ylim((1e-3, true_pdf.max()))
+                axs[i].set_ylim((1e-3, max(true_pdf.max(), pdf_net.max())))
         matplotlib.style.use("default")
 
         # Save or show the figure

@@ -1593,3 +1593,15 @@ Published [final plateau report](scratch-plateau-2026-09-25.md), updated graphs
 and full original-policy evidence. Corrected-policy comparison remains
 validation-only; original held-out scratch scores remain normalization-confounded.
 Monitoring ends with all authorized runs and evaluations complete.
+
+## Requested checkpoint maps and initializer characterization — 25 September, 09:15 ET
+
+After Torch authentication was restored, read-only RTX job **18511276** completed
+in 132 seconds. Added the six retained checkpoint day-30 maps, initial T/S/U/V
+maps and nine-validation-month depth profiles to the final report. No unadapted
+D point added, per user correction. T550 monthly reconstruction RMSE is similar
+(0.21–0.22°C), while scratch U105 RMS is 0.76–0.79 m/s versus D ~0.069 m/s.
+Report distinguishes matched monthly reconstruction errors from unlabeled
+initial velocity amplitudes and identifies unsupervised deep-state limitations.
+All map pixels verified at 2×2 per grid cell. Total including this diagnostic:
+**43.0253 allocated GPU-hours**. No new training, selection change or timer.

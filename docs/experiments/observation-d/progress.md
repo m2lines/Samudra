@@ -1577,3 +1577,19 @@ or launched by this documentation change.
 ## Scratch 6k and report focus — 24 September, 20:25 ET
 
 Immutable 6k batch-statistics validation completed in job **18473594** (35 GPU-seconds): **0.5572997**, improved from 0.5645622 at 5k and 0.5726404 at 4k. Original stored-statistics score is 0.8410361. Training job 18409920 resumed after preemption and is running on gh126. The report now leads with scratch versus D → observations, per user direction; extra-OM4 arms remain supporting evidence. Last full all-attempt accounting was 39.7147 GPU-hours before this short diagnostic. No new training arm or policy change.
+
+## Wave complete — 25 September, 00:25 ET
+
+Random completed 8,000 joint updates and its 96-origin held-out evaluation.
+Official best is 6k; original validation 6k/7k/8k = 0.84104/0.84252/0.86768.
+Read-only job **18488061** completed in 34 GPU-seconds: per-sample BN at 8k
+is **0.5627822**, worse than **0.5572997 at 6k**. No 16k continuation was
+launched because the authorized condition of continued improvement was not met.
+This is a bounded operational plateau decision, not a universal convergence claim.
+CPU audit **18488644** completed in 117 seconds; all six original evaluation
+cohorts and selected hashes passed report checks. Total all-attempt allocated
+GPU use **42.9886 hours**. Queue empty; timer verified disabled/inactive.
+Published [final plateau report](scratch-plateau-2026-09-25.md), updated graphs
+and full original-policy evidence. Corrected-policy comparison remains
+validation-only; original held-out scratch scores remain normalization-confounded.
+Monitoring ends with all authorized runs and evaluations complete.

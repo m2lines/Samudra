@@ -6,6 +6,8 @@ SPDX-License-Identifier: CC-BY-4.0
 
 # Observation compute allocation: matched-budget results
 
+**Final extension update:** [scratch-versus-D plateau report, 25 September](scratch-plateau-2026-09-25.md). Scratch completed 8k; batch-statistics validation was best at 6k (0.55730), versus D 0.52729. No improvement at 8k, so the conditional 16k extension was not launched.
+
 **24 September 2026, 16:12 ET.** All five matched-budget pathways and their held-out evaluations are complete. The observation-only extension is still training toward 8,000 joint updates; this report freezes its separate 4,000-update result.
 
 **Starting from D, allocating all 4,000 additional joint updates to observations gives the best selected score in this one-seed comparison.** It scores 0.5861 on held-out observations versus 0.9343 for random initialization: a 37.3% reduction in the agreed composite. The advantage over allocating 25% to further OM4 training is much smaller, 1.0%. These are conditional, update-matched results; observation updates cost substantially more than OM4 updates.

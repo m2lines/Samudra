@@ -86,7 +86,26 @@ def spatial_error(prediction, reference, lat, lon, region):
     }
 
 
-def score(prediction, reference, predicted_ohc, reference_ohc, lat, lon, mask):
+def protocol(strict_velocity_support=False):
+    if not strict_velocity_support:
+        return PROTOCOL
+    return {
+        **PROTOCOL,
+        "version": 3,
+        "velocity_support": "Both observed velocity components and complete observed ADT derivative stencil; prediction-independent; EKE uses identical per-origin support",
+    }
+
+
+def score(
+    prediction,
+    reference,
+    predicted_ohc,
+    reference_ohc,
+    lat,
+    lon,
+    mask,
+    strict_velocity_support=False,
+):
     """Arrays: surface [origins, leads, 2, y, x], velocity refs at slots 2:4.
 
     Prediction only needs SST and ADT. Reference slots are SST, ADT, ugos, vgos.
@@ -116,6 +135,19 @@ def score(prediction, reference, predicted_ohc, reference_ohc, lat, lon, mask):
             & np.isfinite(pu.values).all(0)
             & np.isfinite(pv.values).all(0)
         )
+        if strict_velocity_support:
+            observed_u, observed_v = kernels.geostrophic_velocity_from_zos(
+                _field(r[:, 1], lat, lon), "lat", "lon"
+            )
+            velocity_support = (
+                velocity_support[None]
+                & np.isfinite(observed_u.transpose("time", "lat", "lon").values)
+                & np.isfinite(observed_v.transpose("time", "lat", "lon").values)
+                & np.isfinite(u)
+                & np.isfinite(v)
+            )
+            support = _field(velocity_support, lat, lon)
+            pu, pv = pu.where(support), pv.where(support)
         # Support is geometrically determined by static model mask and supplied refs.
         u, v = (
             np.where(velocity_support, u, np.nan),

@@ -25,6 +25,7 @@ from samudra.datasets import TorchTrainDataset
 from samudra.experiments.initializer_diagnostics import ReconstructionDiagnostics
 from samudra.experiments.initializer_models import HistoryInitializer
 from samudra.experiments.normalization import configure_normalization
+from samudra.experiments.observation_training import Samples
 from samudra.experiments.surface_adaptation import (
     AdaptationState,
     state_fingerprint,
@@ -124,6 +125,26 @@ class InitializerWave(Experiment):
 
     def __init__(self, args):
         super().__init__(args)
+        self.native_mean, self.native_std = self.mean.clone(), self.std.clone()
+        self.scaling_contract = None
+        if getattr(args, "observation_normalization_root", None):
+            scaling = Samples(args.observation_normalization_root, "cpu")
+            scaling.use_observation_normalization()
+            if list(scaling.grid["names"]) != list(self.names):
+                raise ValueError("Observation/OM4 channel order differs")
+            self.mean = scaling.mean[0, 0, :, 0, 0].to(self.device)
+            self.std = scaling.std[0, 0, :, 0, 0].to(self.device)
+            self.scaling_contract = {
+                "root": args.observation_normalization_root,
+                "statistics_sha256": hashlib.sha256(
+                    (
+                        Path(args.observation_normalization_root) / "statistics.npz"
+                    ).read_bytes()
+                ).hexdigest(),
+                "mean": self.mean.cpu().tolist(),
+                "std": self.std.cpu().tolist(),
+                "policy": "Shared observation-training scales; original OM4 forcing normalization unchanged",
+            }
         self.pretrain = Path(args.wave1_root) / "ar/pretrain-best.pt"
         evolution = Evolution(self.channels, [128, 192, 256, 384], "ar").to(self.device)
         configure_normalization(evolution, getattr(args, "normalization", "batch"))
@@ -159,6 +180,7 @@ class InitializerWave(Experiment):
         self.verified_sources = set()
         if self.rank == 0:
             extra = {
+                "state_scaling": self.scaling_contract,
                 "architecture": ARMS[args.arm][0],
                 "expanded_inputs": ARMS[args.arm][1],
                 "initializer_parameters": sum(
@@ -241,6 +263,28 @@ class InitializerWave(Experiment):
         context = torch.cat((self.geo.expand(len(ids), -1, -1, -1), season), 1)
         return surface, past, context, truth, forcing, labels
 
+    def model_sample(self, dataset, ids):
+        surface, past, context, truth, forcing, labels = self.sample(dataset, ids)
+        if self.scaling_contract is None:
+            return surface, past, context, truth, forcing, labels
+
+        def convert(values, channels):
+            old_mean = self.native_mean[channels][None, None, :, None, None]
+            old_std = self.native_std[channels][None, None, :, None, None]
+            mean = self.mean[channels][None, None, :, None, None]
+            std = self.std[channels][None, None, :, None, None]
+            result = (values * old_std + old_mean - mean) / std
+            return result * self.mask[channels][None, None]
+
+        return (
+            convert(surface, self.initializer.surface),
+            past,
+            context,
+            convert(truth, slice(None)),
+            forcing,
+            convert(labels, slice(None)),
+        )
+
     def score(self, dataset, indices, forecast=False):
         self.prepare(dataset)
         self.sync_buffers(self.model)
@@ -248,7 +292,7 @@ class InitializerWave(Experiment):
         totals = torch.zeros(4, device=self.device)
         with torch.no_grad():
             for ids in batches(indices[self.rank :: self.world], self.args.batch_size):
-                surface, past, context, truth, forcing, labels = self.sample(
+                surface, past, context, truth, forcing, labels = self.model_sample(
                     dataset, ids
                 )
                 with torch.autocast("cuda", dtype=torch.bfloat16):
@@ -310,6 +354,8 @@ class InitializerWave(Experiment):
             "data_config": self.config.model_dump(mode="json"),
             "data_root": args.data_root,
         }
+        if self.scaling_contract is not None:
+            signature["state_scaling"] = self.scaling_contract
         if getattr(args, "normalization", "batch") != "batch":
             signature["normalization"] = args.normalization
         if getattr(args, "fresh_evolution", False):
@@ -368,7 +414,7 @@ class InitializerWave(Experiment):
                 factor = min(1.0, (state["step"] + 1) / warmup) if warmup else 1.0
                 for group in optimizer.param_groups:
                     group["lr"] = args.learning_rate * factor
-                surface, past, context, truth, forcing, labels = self.sample(
+                surface, past, context, truth, forcing, labels = self.model_sample(
                     self.trainset, ids
                 )
                 boundary = (state["cursor"] + 1) % args.accumulate == 0
@@ -569,7 +615,7 @@ class InitializerWave(Experiment):
             writer = csv.DictWriter(stream, fieldnames=fields)
             writer.writeheader()
             for ids in batches(indices[self.rank :: self.world], self.args.batch_size):
-                surface, past, context, truth, forcing, labels = self.sample(
+                surface, past, context, truth, forcing, labels = self.model_sample(
                     dataset, ids
                 )
                 with torch.autocast("cuda", dtype=torch.bfloat16):
@@ -698,6 +744,7 @@ def main():
         "--normalization", choices=["batch", "instance"], default="batch"
     )
     parser.add_argument("--fresh-evolution", action="store_true")
+    parser.add_argument("--observation-normalization-root")
     parser.add_argument("--deadline", default="2026-09-24T17:00:00Z")
     parser.add_argument("--arm", choices=ARMS, required=True)
     parser.add_argument(

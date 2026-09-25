@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from samudra.experiments.observation_metrics import PROTOCOL, score, selection_score
+from samudra.experiments.observation_metrics import protocol, score, selection_score
 from samudra.experiments.observation_model import ObservationTransfer
 from samudra.experiments.observation_training import Samples
 
@@ -61,8 +61,9 @@ class Pilot:
         self.model = ObservationTransfer(
             self.data.grid["names"].tolist(), getattr(args, "normalization", "batch")
         )
-        if args.from_scratch:
+        if args.from_scratch or getattr(args, "observation_normalization", False):
             self.data.use_observation_normalization()
+        if args.from_scratch:
             self.model.update_batchnorm = True
         else:
             contract = json.loads(Path(args.source_contract).read_text())
@@ -99,20 +100,21 @@ class Pilot:
         self.validation = self.data.paths("validation")
         if len(self.training) != 243 or len(self.validation) != 9:
             raise ValueError("Incomplete fixed training/validation cohort")
+        self.protocol = protocol(getattr(args, "strict_velocity_support", False))
         self.manifest = {
             "arguments": vars(args),
             "source_checkpoint_sha256": None
             if args.from_scratch
             else digest(args.checkpoint),
             "normalization_mode": "observation-only"
-            if args.from_scratch
+            if args.from_scratch or getattr(args, "observation_normalization", False)
             else "source-model",
             "effective_mean": self.data.grid["mean"].tolist(),
             "effective_std": self.data.grid["std"].tolist(),
             "data_manifest_sha256": digest(Path(args.data) / "SHA256SUMS"),
             "grid_sha256": digest(Path(args.data) / "grid.npz"),
             "statistics_sha256": digest(Path(args.data) / "statistics.npz"),
-            "protocol": PROTOCOL,
+            "protocol": self.protocol,
             "code_commit": os.environ.get("SAMUDRA_CODE_COMMIT"),
             "training_months": [p.stem for p in self.training],
             "validation_months": [p.stem for p in self.validation],
@@ -248,6 +250,9 @@ class Pilot:
             lat=self.data.grid["lat"],
             lon=self.data.grid["lon"],
             mask=self.data.grid["mask"][0],
+            strict_velocity_support=getattr(
+                getattr(self, "args", None), "strict_velocity_support", False
+            ),
         )
         supported = interior_count > 0
         result["thermohaline"] = {
@@ -283,7 +288,7 @@ class Pilot:
         if self.args.selection_reference:
             reference = json.loads(Path(self.args.selection_reference).read_text())
             if (
-                reference["protocol"] != PROTOCOL
+                reference["protocol"] != self.protocol
                 or reference["data_manifest_sha256"]
                 != self.manifest["data_manifest_sha256"]
                 or reference["control"]["origins"] != [p.stem for p in self.validation]
@@ -313,7 +318,7 @@ class Pilot:
             {
                 "control": control,
                 "spectral_keys": keys,
-                "protocol": PROTOCOL,
+                "protocol": self.protocol,
                 "data_manifest_sha256": self.manifest["data_manifest_sha256"],
             },
             frozen,
@@ -415,6 +420,15 @@ class Pilot:
             atomic_torch(
                 {"model": self.model.state_dict(), "score": state["best"]}, best
             )
+            if getattr(self.args, "dense_checkpoints", False):
+                atomic_torch(
+                    {
+                        "model": self.model.state_dict(),
+                        "score": state["best"],
+                        "step": 0,
+                    },
+                    self.out / f"{name}-00000.pt",
+                )
         self.model.set_phase(train_phase)
         phase_start, prior, last_save = (
             time.monotonic(),
@@ -463,7 +477,12 @@ class Pilot:
                     "phase_seconds": state["elapsed"],
                 }
             )
-            validate = state["step"] % self.args.validate_every == 0 or done
+            early_milestone = getattr(self.args, "dense_checkpoints", False) and state[
+                "step"
+            ] in getattr(self.args, "milestone_steps", [])
+            validate = (
+                state["step"] % self.args.validate_every == 0 or done or early_milestone
+            )
             if validate:
                 metrics = self.evaluate(self.validation)
                 value = selection_score(metrics, self.control, self.spectral_keys)
@@ -492,10 +511,12 @@ class Pilot:
                     }
                 )
                 milestones = getattr(self.args, "milestone_steps", [])
-                if name == "joint" and state["step"] in milestones:
+                if (
+                    name == "joint" or getattr(self.args, "dense_checkpoints", False)
+                ) and state["step"] in milestones:
                     import shutil
 
-                    prefix = self.out / f"joint-{state['step']:05d}"
+                    prefix = self.out / f"{name}-{state['step']:05d}"
                     atomic_torch(
                         {
                             "model": self.model.state_dict(),
@@ -641,6 +662,8 @@ def main():
     parser.add_argument("--selection-reference")
     parser.add_argument("--adapter-only", action="store_true")
     parser.add_argument("--from-scratch", action="store_true")
+    parser.add_argument("--observation-normalization", action="store_true")
+    parser.add_argument("--strict-velocity-support", action="store_true")
     parser.add_argument("--adapter-steps", type=int, default=200)
     parser.add_argument("--adapter-hours", type=float, default=0.5)
     parser.add_argument("--reconstruction-steps", type=int, default=1000)
@@ -654,6 +677,7 @@ def main():
     parser.add_argument("--core-lr", type=float)
     parser.add_argument("--warmup-steps", type=int, default=0)
     parser.add_argument("--fixed-updates", action="store_true")
+    parser.add_argument("--dense-checkpoints", action="store_true")
     parser.add_argument("--milestone-steps", type=int, nargs="*", default=[])
     parser.add_argument("--seed", type=int, default=1729)
     parser.add_argument(
@@ -673,7 +697,9 @@ def main():
     if args.core_lr is not None and args.core_lr <= 0:
         parser.error("Core learning rate must be positive")
     if any(
-        x <= 0 or x > args.joint_steps or x % args.validate_every
+        x <= 0
+        or x > max(args.joint_steps, args.reconstruction_steps)
+        or (not args.dense_checkpoints and x % args.validate_every)
         for x in args.milestone_steps
     ):
         parser.error(

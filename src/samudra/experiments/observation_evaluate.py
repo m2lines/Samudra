@@ -7,6 +7,7 @@
 import argparse
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import torch
 
@@ -43,8 +44,15 @@ def main():
     if (output / "COMPLETE.json").exists():
         return
     evaluator = Pilot.__new__(Pilot)
+    evaluator.args = SimpleNamespace(
+        strict_velocity_support=manifest["arguments"].get(
+            "strict_velocity_support", False
+        )
+    )
     evaluator.data = Samples(manifest["arguments"]["data"], "cuda")
-    if manifest["arguments"].get("from_scratch", False):
+    if manifest["arguments"].get("from_scratch", False) or manifest["arguments"].get(
+        "observation_normalization", False
+    ):
         evaluator.data.use_observation_normalization()
     evaluator.model = ObservationTransfer(
         evaluator.data.grid["names"].tolist(),
@@ -89,6 +97,8 @@ def main():
         atomic_json(reference, output / (label + ".json"))
     source = manifest["arguments"]["checkpoint"]
     evaluator.data = Samples(manifest["arguments"]["data"], "cuda")
+    if manifest["arguments"].get("observation_normalization", False):
+        evaluator.data.use_observation_normalization()
     evaluator.model.load_core(
         torch.load(source, map_location="cpu", weights_only=False)["model"]
     )

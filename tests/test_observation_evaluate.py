@@ -45,7 +45,8 @@ def test_control_weights_normalization_and_resume(tmp_path, monkeypatch, scratch
             return list(range(96))
 
     class Model:
-        def __init__(self, names):
+        def __init__(self, names, normalization="batch"):
+            assert normalization in ("batch", "instance")
             self.weights = None
             self.adapter = [torch.nn.Conv2d(1, 1, 1)]
 

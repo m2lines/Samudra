@@ -14,7 +14,9 @@ import threading
 import time
 import warnings
 from collections import OrderedDict
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
+from functools import partial
 from multiprocessing.context import BaseContext
 from pathlib import Path
 from typing import Any
@@ -89,6 +91,7 @@ from ocean_emulators.face_parallel import (
     face_group_is_shardable,
 )
 from ocean_emulators.chunk_reader import GroupFrameReader
+from ocean_emulators.face_validation import FaceScorer, ReadAhead
 from ocean_emulators.shardtensor import DomainParallelContext, validate_shardable
 from ocean_emulators.tiling import (
     ReplayGroup,
@@ -126,11 +129,7 @@ from ocean_emulators.utils.logging import (
     handle_logging,
     handle_warnings,
 )
-from ocean_emulators.utils.loss import (
-    LossFn,
-    gradient_z_norms,
-    weighted_channel_denominator,
-)
+from ocean_emulators.utils.loss import LossFn
 from ocean_emulators.utils.schedule import EpochMultiplierScheduler
 from ocean_emulators.utils.train import (
     CheckpointPaths,
@@ -4051,6 +4050,30 @@ class Trainer:
             return {}
 
         logs: MetricsDict = {}
+        if getattr(self, "fp_ctx", None) is not None:
+            # A face rolls out on EVERY rank: each advances its own tiles and
+            # the blend exchanges halos with the others at every step, so the
+            # rank-0-only path below would block in the first blend waiting on
+            # ranks parked in its barrier. Every rank returns the same
+            # face-reduced metrics.
+            group = self._primary_replay_group()
+            assert group is not None
+            self.model.eval()
+            model = (
+                self.model.module
+                if isinstance(self.model, torch.nn.parallel.DistributedDataParallel)
+                else self.model
+            )
+            sources = self.autoregressive_val_sources()
+            with torch.no_grad(), self._test_context():
+                for spec in specs:
+                    logs.update(
+                        self._run_face_autoregressive_validation(
+                            model, spec, sources, group
+                        )
+                    )
+            return logs
+
         with self._main_process_only_rollout() as should_validate:
             if not should_validate:
                 return {}
@@ -4187,6 +4210,165 @@ class Trainer:
             f"over {aggregator.n_runs} run(s)"
         )
         return dict(aggregator.get_logs(label=spec.label))
+
+    @torch.no_grad()
+    def _run_face_autoregressive_validation(
+        self,
+        model: BaseModel,
+        spec: AutoregressiveValSpec,
+        sources: list[DataSource],
+        group: ReplayGroup,
+    ) -> MetricsDict:
+        """Roll the whole face forward on every rank, scoring the face each step.
+
+        The same step as replay training's write-back: each rank advances its
+        own tiles, the seams are blended across ranks, and each tile is
+        remasked before it becomes the next input. Forcing and truth are read
+        through the chunk-streaming reader two steps ahead of the GPU -- they
+        depend only on the window, never on the prediction.
+        """
+        assert self.fp_ctx is not None
+        scorer = self.face_scorer
+        reader = self._require_face_reader()
+        plan = self._plan_autoregressive_validation(spec, sources)
+        if not plan.enabled:
+            return {}
+        num_steps = min(plan.num_steps, 2) if self.debug else plan.num_steps
+        self._release_allocator_cache(f"face {spec.label} autoregressive validation")
+        datasets = self._grouped_val_datasets(group)
+        if datasets[0].hist != 0:
+            raise ValueError(
+                f"Face validation assumes hist=0 (replay), got hist={datasets[0].hist}"
+            )
+        # Every tile shares one clock, and the reader is addressed by
+        # timestamp, so one source's axis speaks for all of them.
+        times = sources[group.dataset_indices[0]].data["time"].to_numpy()
+        aggregator = RolloutValidationAggregator(
+            num_steps=num_steps,
+            area_weights=self.area_weights,
+            wet=self.wet,
+            loss_fn=self.loss_fn,
+            device=self.device,
+        )
+
+        for run, window in enumerate(plan.windows):
+            start = window.start_index
+            if start + num_steps >= len(times):
+                raise RuntimeError(
+                    f"{spec.label} face autoregressive validation planned "
+                    f"{num_steps} steps from val_time index {start}, but val_time "
+                    f"has only {len(times)} timesteps."
+                )
+            log_prefix = (
+                f"{spec.label.capitalize()} face autoregressive validation "
+                f"[run {run + 1} of {len(plan.windows)}]"
+            )
+            logger.info(
+                "%s: rolling out %d steps from val_time index %d over the whole "
+                "face (%d of %d tiles on this rank).",
+                log_prefix,
+                num_steps,
+                start,
+                len(datasets),
+                group.layout.num_tiles,
+            )
+            state = torch.cat(
+                [
+                    dataset.prepare_state(frame)
+                    for dataset, frame in zip(
+                        datasets, reader.read_prognostic(times[start]), strict=True
+                    )
+                ]
+            )
+
+            def read_step(step: int, start: int = start):
+                return (
+                    self._pinned(reader.read_boundary(times[start + step])),
+                    self._pinned(reader.read_prognostic(times[start + step + 1])),
+                )
+
+            steps = iter(
+                ReadAhead([partial(read_step, s) for s in range(num_steps)], depth=2)
+            )
+            start_time = time.perf_counter()
+            try:
+                for step in range(num_steps):
+                    boundary, truth = next(steps)
+                    inputs = torch.cat(
+                        [
+                            dataset.prepare_input(state[tile : tile + 1], boundary[tile])
+                            for tile, dataset in enumerate(datasets)
+                        ]
+                    )
+                    del state, boundary
+                    blended = self._blend_face_in_place(
+                        group, inputs, self._predict_in_chunks(model, inputs)
+                    )
+                    del inputs
+                    # Remask per tile, exactly as the replay write-back does,
+                    # before the state becomes the next step's context.
+                    for tile, dataset in enumerate(datasets):
+                        blended[tile] = dataset.remask_prognostic_state(blended[tile])
+                    target = torch.cat(
+                        [
+                            dataset.prepare_state(frame)
+                            for dataset, frame in zip(datasets, truth, strict=True)
+                        ]
+                    )
+                    del truth
+                    metrics = scorer.score(blended, target)
+                    aggregator.record_step(step, loss=metrics.loss, rmse=metrics.rmse)
+                    del target
+                    state = blended
+
+                    completed = step + 1
+                    if (
+                        completed % GROUPED_AUTOREGRESSIVE_VAL_LOG_EVERY == 0
+                        or completed == num_steps
+                    ):
+                        self._log_rollout_progress(
+                            log_prefix, completed, num_steps, start_time
+                        )
+            finally:
+                # Stops the reader thread even when the loop exits early.
+                steps.close()
+            del state
+            aggregator.finish_run()
+
+        logger.info(
+            "Aggregating %s face autoregressive validation logs over %d run(s)",
+            spec.label,
+            aggregator.n_runs,
+        )
+        return dict(aggregator.get_logs(label=spec.label))
+
+    def _log_rollout_progress(
+        self, log_prefix: str, completed: int, num_steps: int, start_time: float
+    ) -> None:
+        if self.device.type == "cuda":
+            # Make elapsed time include the preceding asynchronous GPU work, so
+            # the ETA describes actual wall-clock progress.
+            torch.cuda.synchronize(self.device)
+            memory = (
+                "cuda allocated/reserved="
+                f"{torch.cuda.memory_allocated(self.device) / 2**30:.1f}/"
+                f"{torch.cuda.memory_reserved(self.device) / 2**30:.1f} GiB, peak "
+                f"{torch.cuda.max_memory_allocated(self.device) / 2**30:.1f} GiB"
+            )
+        else:
+            memory = "cuda unavailable"
+        elapsed = time.perf_counter() - start_time
+        seconds_per_step = elapsed / completed
+        logger.info(
+            "%s: step %d/%d; elapsed=%s; %.2f s/step; eta=%s; %s",
+            log_prefix,
+            completed,
+            num_steps,
+            datetime.timedelta(seconds=round(elapsed)),
+            seconds_per_step,
+            datetime.timedelta(seconds=round(seconds_per_step * (num_steps - completed))),
+            memory,
+        )
 
     @torch.no_grad()
     def _record_grouped_rollout(

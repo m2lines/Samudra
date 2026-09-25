@@ -2218,19 +2218,16 @@ class Viz:
         axs["map"].stock_img()
         axs["map"].coastlines(color="0.3", lw=0.5)
         axs["map"].gridlines(draw_labels=True, color="0.4")
-        # We import here to avoid importing tk unconditionally above
-        from xarrayutils.plotting import box_plot  # type: ignore
-
-        box_plot(
-            [bound_east, bound_west, bound_south, bound_north],
-            ax=axs["map"],
+        axs["map"].plot(
+            [bound_east, bound_east, bound_west, bound_west, bound_east],
+            [bound_south, bound_north, bound_north, bound_south, bound_south],
             color="orange",
             transform=ccrs.PlateCarree(),
             label="Full Profile",
         )
-        box_plot(
-            [nino_east, nino_west, bound_south, bound_north],
-            ax=axs["map"],
+        axs["map"].plot(
+            [nino_east, nino_east, nino_west, nino_west, nino_east],
+            [bound_south, bound_north, bound_north, bound_south, bound_south],
             color="red",
             ls="--",
             transform=ccrs.PlateCarree(),

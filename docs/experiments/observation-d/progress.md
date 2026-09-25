@@ -1733,3 +1733,19 @@ with `QOSMaxGRESPerUser`, not running. Their selection gate **18549491** waits
 for both successful pilots before choosing the observation score minimum and
 launching the fresh transfer main run. Scratch main **18540597** continues
 normally, past joint update 760. No new scientific arm or seed was added.
+
+
+### 25 September, 23:54 UTC — both main observation paths running
+
+Live accounting confirms transfer LR pilots **18549413/18549415 completed**.
+Their selected integrated-plus-spectral validation scores were 0.656926 (3e-5)
+and **0.619043 (1e-4)**. The selector chose 1e-4 and launched transfer main
+**18555451** from the immutable selected OM4 weights, not calibration weights.
+It is running on gr105, around reconstruction update 200. Scratch main
+**18540597** is running on gr101, around joint update 2,486; its latest validation
+score is 0.579971 at update 2,400 and its best so far is **0.558058**. These
+are different training stages and do not yet establish a matched-budget result.
+
+Both arms have their monthly, annual and checkpoint-state diagnostic descendants
+registered with completion dependencies. They remain pending, not completed
+evaluations. Training continued during the interruption in assistant responses.

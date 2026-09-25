@@ -1448,9 +1448,6 @@ class Viz:
 
     def step_ocean_temperature_profile_plots(self):
         def ocean_temperature_profile(datasets, titles, plot_title):
-            # We import here to avoid importing tk unconditionally above
-            from xarrayutils.plotting import linear_piecewise_scale  # type: ignore
-
             fig, axs = plt.subplots(
                 2,
                 3,
@@ -1478,7 +1475,16 @@ class Viz:
                 im = data.plot(ax=ax[i], cmap="bwr", norm=norm, add_colorbar=False)
                 ax[i].invert_yaxis()
 
-                linear_piecewise_scale(1000, 5, ax=ax[i])
+                # Compress depths below 1000 m without a GUI dependency.
+                limits = ax[i].get_ylim()
+                ax[i].set_yscale(
+                    "function",
+                    functions=(
+                        lambda z: np.where(z <= 1000, z, 1000 + (z - 1000) / 5),
+                        lambda z: np.where(z <= 1000, z, 1000 + (z - 1000) * 5),
+                    ),
+                )
+                ax[i].set_ylim(limits)
                 ax[i].axhline(1000, color="0.5", ls="--")
                 ax[i].set_yticks([0, 250, 500, 750, 1000, 3000, 5000])
                 ax[i].set_xticks([-60, -30, 0, 30, 60])

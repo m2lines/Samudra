@@ -1630,3 +1630,8 @@ scoring producer `3dba9696` is queued for qualification via CPU build 18529768.
 Annual data preparation completed on Empire AI (101098); OSN transfer awaits
 approval. See [the execution plan](instance-norm-wave.md) for contracts and
 provenance. No long production runs have started; the old monitor remains off.
+
+Calibration registration 18529840 is queued behind that build. Its gate will
+check both final qualification outputs before submitting two 500-update OM4
+rate pilots and a dense observation phase/checkpoint probe, capped at three
+GPU-hours total. This does not launch main production.

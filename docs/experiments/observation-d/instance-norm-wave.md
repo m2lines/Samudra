@@ -106,3 +106,16 @@ Torch's user-scoped quota reports 3.84 TB used of 5 TB (about 1.16 TB headroom).
 Reserve 100 GB for this wave's checkpoint copies, optimizer state, diagnostics
 and annual data; preserve historical checkpoints. This is an estimate, to be
 checked against actual usage before long runs.
+
+
+A first calibration stage is queued behind final qualification: registration job
+18529840 waits for build 18529768, then installs an `afterok` dependency on both
+qualification jobs. Its execution also verifies their producer, successful
+fitting gradients/loss and OM4 ten-update completion markers. Only then may it
+submit two 500-update fresh OM4 learning-rate pilots (1e-4 and 3e-4, effective
+batch eight, seed1729, 25-update warmup) and a three-update-per-phase observation
+dense-checkpoint probe. Each has a one-GPU, one-hour scheduler cap: **three
+GPU-hours maximum requested for this stage**, separate from the qualification
+attempts. No main production is submitted by this gate. Observation LR pilots
+and main production await its evidence; the two observation paths will receive
+equal search budgets.

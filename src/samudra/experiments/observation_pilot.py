@@ -374,12 +374,20 @@ class Pilot:
             loss = self.data.interior_loss(reconstructed, sample)
         return loss
 
+    def phase_handoff(self, name):
+        if (
+            name == "reconstruction"
+            and getattr(self.args, "reconstruction_handoff", "best") == "last"
+        ):
+            return self.out / "reconstruction-last.pt"
+        return self.out / (name + "-best.pt")
+
     def phase(self, name, max_steps, hours):
         complete = self.out / (name + "-complete.json")
         if complete.exists():
             self.model.load_state_dict(
                 torch.load(
-                    self.out / (name + "-best.pt"),
+                    self.phase_handoff(name),
                     map_location=self.device,
                     weights_only=False,
                 )["model"]
@@ -548,7 +556,9 @@ class Pilot:
                 f"{name} hit its time cap before its fixed update budget"
             )
         self.model.load_state_dict(
-            torch.load(best, map_location=self.device, weights_only=False)["model"]
+            torch.load(
+                self.phase_handoff(name), map_location=self.device, weights_only=False
+            )["model"]
         )
         atomic_json(state, complete)
 
@@ -666,6 +676,12 @@ def main():
     parser.add_argument("--strict-velocity-support", action="store_true")
     parser.add_argument("--adapter-steps", type=int, default=200)
     parser.add_argument("--adapter-hours", type=float, default=0.5)
+    parser.add_argument(
+        "--reconstruction-handoff",
+        choices=["best", "last"],
+        default="best",
+        help="State passed into joint training; final model selection remains observation-score based",
+    )
     parser.add_argument("--reconstruction-steps", type=int, default=1000)
     parser.add_argument("--reconstruction-hours", type=float, default=2)
     parser.add_argument("--joint-steps", type=int, default=1000)

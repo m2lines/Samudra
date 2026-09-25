@@ -1642,29 +1642,44 @@ GPU-hours total. This does not launch main production.
 Annual bundle publication approved and completed: Empire AI 101147, then DTN
 PID1623986, 421 files matched by full read-back and all 416 payload SHA256 checks
 passed. No transfer blocker remains. Final-contract qualifications 18530032/33,
-dense probe18530319 and resume18530614 completed. OM4 rate pilots18530317/18
-completed500 updates each; LR3e-4 won (T/S MSE0.0156985 versus0.0205135).
-Fresh OM4 main18530880 is queued with24k/eight-training-hour cap. Scratch
-pilots18530615/16 are running. Evidence-gated continuation is registered for
+dense probe 18530319 and resume 18530614 completed. OM4 rate pilots 18530317/18
+completed 500 updates each; LR 3e-4 won (T/S MSE 0.0156985 versus 0.0205135).
+Fresh OM4 main 18530880 is queued with 24k/eight-training-hour cap. Scratch
+pilots 18530615/16 are running. Evidence-gated continuation is registered for
 scratch rate selection and OM4 source export/transfer qualification/calibration;
-main observation paths remain1k reconstruction +8k joint, one seed.
-Evaluation-only producer8056405ac adds the continuous-year evaluator; its
-validation plumbing qualification18530921 is queued. See the
+main observation paths remain 1k reconstruction + 8k joint, one seed.
+Evaluation-only producer `8056405ac` adds the continuous-year evaluator; its
+validation plumbing qualification 18530921 is queued. See the
 [updated plan](instance-norm-wave.md) for exact gates, budgets and semantics.
-New-wave all-attempt ceiling80 GPU-hours; completed probes and OM4 pilots used
+New-wave all-attempt ceiling 80 GPU-hours; completed probes and OM4 pilots used
 0.6494 hours before active/later allocations. Timer remains disabled.
 
-Annual qualification18530921 completed in33 seconds with73 continuous steps,
+Annual qualification 18530921 completed in 33 seconds with 73 continuous steps,
 calendar-month OHC and map exports. This is execution evidence, not a skill
-result. Fresh OM4 main18530880 reached structured per-step training logs.
+result. Fresh OM4 main 18530880 reached structured per-step training logs.
 Dependent monthly/annual evaluation registration is installed for both main
-paths, after completed selection. Completed GPU use is0.6586 hours before
-active allocations; the new-wave ceiling remains80 hours.
+paths, after completed selection. Completed GPU use is 0.6586 hours before
+active allocations; the new-wave ceiling remains 80 hours.
 
-State-diagnostic qualification18532019 completed on the real validation cohort.
+State-diagnostic qualification 18532019 completed on the real validation cohort.
 The evaluator exports full-grid initializer/reconstruction/day30 fields, profiles,
 and forecast changes when initial velocity or deep T/S channels are reset.
 Post-training diagnostics are registered at the retained early and late
 checkpoints; selected annual checkpoint diagnostics are registered as well.
-Training remains pinned to3dba9696; these additions use separate evaluation
+Training remains pinned to `3dba9696`; these additions use separate evaluation
 producers. The execution plan now includes paper-style model/training definitions.
+
+
+## Observation phase-handoff defect and recovery — 25 September, 14:50 ET
+
+Both scratch LR pilots completed1k reconstruction +250 joint, but reconstruction
+handoff selected the untrained initializer (forecast score5.410358) because
+random frozen evolution made all reconstruction forecast scores worse. Thus the
+phase discarded its learned weights. Their rate-selection results are superseded.
+Stopped scratch main18536182 and retired its dependent evaluation pipeline and
+old transfer-export gate18531062; all files/failed-attempt records retained.
+OM4 main18530880 continues. A tested explicit last-reconstruction handoff will
+apply symmetrically to scratch and transfer, preserving integrated-plus-spectral
+final selection. All26 relevant tests passed; replacement observation producer
+and fresh qualification/calibration directories will be pinned before resubmission.
+At18:48UTC, all-attempt use was4.0272 GPU-hours, including active allocations.

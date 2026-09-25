@@ -27,10 +27,16 @@ def test_child_failure_does_not_create_completion(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    "phase,dense", [("joint", False), ("joint", True), ("reconstruction", True)]
+    "phase,dense,handoff",
+    [
+        ("joint", False, "best"),
+        ("joint", True, "last"),
+        ("reconstruction", True, "best"),
+        ("reconstruction", True, "last"),
+    ],
 )
 def test_fixed_budget_ignores_plateau_and_preserves_prefix(
-    tmp_path, monkeypatch, phase, dense
+    tmp_path, monkeypatch, phase, dense, handoff
 ):
     class Model(torch.nn.Module):
         def __init__(self):
@@ -55,6 +61,7 @@ def test_fixed_budget_ignores_plateau_and_preserves_prefix(
         fixed_updates=True,
         milestone_steps=[1, 3, 4] if dense else [2, 4],
         dense_checkpoints=dense,
+        reconstruction_handoff=handoff,
     )
     p.out, p.device = tmp_path, torch.device("cpu")
     p.model = Model()
@@ -85,9 +92,19 @@ def test_fixed_budget_ignores_plateau_and_preserves_prefix(
     if dense:
         assert (tmp_path / f"{phase}-00000.pt").exists()
         assert (tmp_path / f"{phase}-00003.pt").exists()
+    chosen = "last" if phase == "reconstruction" and handoff == "last" else "best"
+    expected = torch.load(tmp_path / f"{phase}-{chosen}.pt", weights_only=False)[
+        "model"
+    ]
+    for key, value in p.model.state_dict().items():
+        torch.testing.assert_close(value, expected[key], rtol=0, atol=0)
+    selected = torch.load(tmp_path / f"{phase}-best.pt", weights_only=False)["model"]
+    assert any(not torch.equal(selected[k], final["model"][k]) for k in selected)
     frozen = (tmp_path / f"{phase}-{first:05d}.pt").read_bytes()
     p.phase(phase, 4, 1)
     assert frozen == (tmp_path / f"{phase}-{first:05d}.pt").read_bytes()
+    for key, value in p.model.state_dict().items():
+        torch.testing.assert_close(value, expected[key], rtol=0, atol=0)
 
 
 def test_submitted_dependencies_bound_concurrency_and_budget(tmp_path, monkeypatch):

@@ -221,23 +221,25 @@ result feeds the rate or checkpoint selection gates.
 | InstanceNorm OM4 → observations | Fresh InstanceNorm initializer/evolution jointly pretrained on OM4, selected by OM4 validation; immutable selected weights then receive observation reconstruction and joint training with the ERA5 adapter. |
 | Fresh InstanceNorm OM4 source | The selected OM4 checkpoint before observation adaptation; source of the preceding transfer model, not historical BatchNorm D. |
 
-The initializer is the wide D ConvNeXt U-Net (widths256/384/512/768,
-approximately121.7M parameters). The evolution U-Net uses widths128/192/256/384
-(approximately31.6M parameters). The pointwise8→32→3 ERA5 adapter has387
-parameters. Total is approximately153.3M trainable parameters; replacing
+The initializer is the wide D ConvNeXt U-Net (widths 256/384/512/768,
+approximately 121.7M parameters). The evolution U-Net uses widths 128/192/256/384
+(approximately 31.6M parameters). The pointwise 8→32→3 ERA5 adapter has 387
+parameters. Total is approximately 153.3M trainable parameters; replacing
 BatchNorm with affine InstanceNorm preserves affine parameter counts and removes
-running-statistic buffers. The initializer consumes19 five-day surface/forcing
-frames and geographic/seasonal context and emits two77-channel states; the
+running-statistic buffers. The initializer consumes 19 five-day surface/forcing
+frames and geographic/seasonal context and emits two 77-channel states; the
 surface values are copied as in D. Observational joint training forecasts the
-roughly one-month target window; evaluation can autoregress73 steps without
+roughly one-month target window; evaluation can autoregress 73 steps without
 increasing the training backpropagation horizon.
 
-Both observation paths use the same observation-training-derived state scaling,
-effective batch eight, seed1729, AdamW with weight decay0.01, gradient clipping1,
-BF16 and25-update learning-rate warmup per observation phase. Core rates are
-chosen independently from equal-budget pilots. Adapter rates remain1e-3 during
-reconstruction and1e-4 during joint training. Joint loss retains0.8 monthly
-interior T/S,0.1 SST and0.1 ADT normalized forecast terms, plus the0.1 auxiliary
+Both observation paths use the same 180 × 360 Gaussian grid and shared static
+model masks, conservatively remapped observational inputs, and the same
+observation-training-derived state scaling,
+effective batch eight, seed1729, AdamW with weight decay 0.01, gradient clipping 1,
+BF16 and 25-update learning-rate warmup per observation phase. Core rates are
+chosen independently from equal-budget pilots. Adapter rates remain 1e-3 during
+reconstruction and 1e-4 during joint training. Joint loss retains 0.8 monthly
+interior T/S, 0.1 SST and0.1 ADT normalized forecast terms, plus the 0.1 auxiliary
 reconstruction term. Surface temperature is excluded from interior supervision;
 velocity and unobserved deep T/S have no observational reconstruction targets.
 Learning-rate differences are part of the calibrated training recipes, so the
@@ -261,9 +263,42 @@ the native model rollout exactly. The qualification checkpoint is only a
 plumbing test, not evidence about either production model.
 
 After each main run, registered diagnostics cover reconstruction updates
-0/10/25/50/100/250/500/1k and joint updates0/10/25/50/100/250/500/1k/2k/4k/6k/8k.
+0/10/25/50/100/250/500/1k and joint updates 0/10/25/50/100/250/500/1k/2k/4k/6k/8k.
 Maps contain the full grid; profile reductions and scores use the fixed scored
 domain. Monthly reconstruction uses target-month surfaces and is labeled
 separately from forecast skill. Additional continuous-year validation diagnostics
-are registered at joint0/100/1k/4k/8k. These predetermined diagnostics run after
+are registered at joint 0/100/1k/4k/8k. These predetermined diagnostics run after
 selection and do not tune either model.
+
+
+## Reconstruction handoff correction — 25 September, 14:50 ET
+
+The completed scratch pilots revealed a handoff defect: each performed 1,000
+reconstruction updates, but its frozen random evolution model made the
+forecast-selection score worse throughout reconstruction. The phase's best
+forecast score remained the untrained initial value **5.410358**. Consequently,
+the old handoff loaded the initial initializer and discarded all reconstruction
+learning before joint training. The earlier scratch LR scores therefore measure
+that old recipe and are **superseded for selecting this wave's rate**.
+
+Scratch main **18536182 was stopped during reconstruction**, with all files kept.
+Its downstream evaluations and the old transfer-export gate 18531062 were retired.
+OM4 main 18530880 continues unchanged: this defect concerns only the observation
+phase boundary. No reconstruction or checkpoint files were deleted.
+
+The correction explicitly uses `--reconstruction-handoff last` for both new
+observation paths. The state after the full 1,000 reconstruction updates seeds
+joint training, including when resuming after a completed reconstruction phase.
+Final checkpoint selection still uses the same integrated-plus-spectral minimum;
+this fix changes the training handoff, not the selection metric. Legacy `best`
+handoff remains available for reproducing previous runs. A regression test
+forces non-improving forecast validation and proves the learned final state is
+handed onward while best-score weights and retained milestones remain unchanged.
+All 26 relevant tests passed.
+
+Replacement observation runs will use a new pinned producer and fresh directories
+under `handoff-v2`, with new fitting/dense/resume qualification and equal-budget
+rate pilots for both paths. No old phase state or optimizer is silently resumed
+under the new contract. The existing successful OM4 pretraining and immutable
+source export remain reusable; only observation training/calibration is replaced.
+All superseded allocations remain in the 80 GPU-hour all-attempt ceiling.

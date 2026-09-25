@@ -64,3 +64,24 @@ checksums, 379,625 half-degree chunks and representative field decoding. Six CPU
 regressions cover end-to-end gradient reach at both target sizes, channel/area
 weighting and readiness rejection of unfinished reports or mismatched weights,
 normalization and selection evidence. One-degree staging remains in progress.
+
+
+## Deployment update — 25 September, 22:42 UTC
+
+Draft [PR #895](https://github.com/m2lines/Samudra/pull/895) is open and assigned
+to jder, with a results table of contents. Qualification producer `9ee94d411`
+is pushed and its source archive passed read-back verification on beta.
+The hourly dependency watcher is active. Its first live check is waiting for
+unfinished upstream training and the exact-release one-degree data verification.
+No GPU job has been submitted by this campaign.
+
+Existing-data verification covers 393,574,212,039 bytes of half-degree chunks,
+21,888,642,966 bytes of monthly observation payloads and 1,025,294,370 bytes of
+annual payloads. The new one-degree copy is progressing. Once its full source
+read-back succeeds, a final audit checks cross-resolution timestamps and data
+readiness automatically.
+
+The watcher will submit one bounded qualification and monitor it hourly,
+collecting all four result records and checking matched A/B input hashes. It
+stops for a report/production-sizing decision after qualification; it does not
+implement unattended execution of the entire 576-GPU-hour campaign.

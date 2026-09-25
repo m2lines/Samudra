@@ -302,3 +302,21 @@ rate pilots for both paths. No old phase state or optimizer is silently resumed
 under the new contract. The existing successful OM4 pretraining and immutable
 source export remain reusable; only observation training/calibration is replaced.
 All superseded allocations remain in the 80 GPU-hour all-attempt ceiling.
+
+
+Recovery producer **`d186758213bf556456de319bba9e311c604bacd2`** is now pinned.
+Fresh fitting 18537338, dense phase 18537397 and resume 18537405 completed in
+42/101/24 GPU-seconds. CPU audit 18537484 then loaded the actual full-model
+checkpoints and verified every tensor: joint update zero equals reconstruction
+last exactly and differs from reconstruction best. Only after this proof did it
+submit replacement rate pilots **18537519/18537520**, each with the full
+1,000 + 250 update budget and the corrected handoff. No old phase state or
+optimizer was imported. Their main-training, source-transfer and evaluation
+registrations now live under `handoff-v2`; historical records are retained.
+
+The canceled old scratch main consumed 267 GPU-seconds. An initial attempt to
+register the audit against an expired Slurm build dependency was rejected
+before allocation; accounting-proven completion resolved it. The successful
+audit preserves its qualification dependency proof. Reserve approximately 200 GB
+for all main and calibration checkpoint copies, diagnostics and retained
+superseded attempts; the previously measured 1.16 TB quota headroom is ample.

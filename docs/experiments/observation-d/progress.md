@@ -1672,14 +1672,22 @@ producers. The execution plan now includes paper-style model/training definition
 
 ## Observation phase-handoff defect and recovery — 25 September, 14:50 ET
 
-Both scratch LR pilots completed1k reconstruction +250 joint, but reconstruction
-handoff selected the untrained initializer (forecast score5.410358) because
+Both scratch LR pilots completed 1k reconstruction + 250 joint, but reconstruction
+handoff selected the untrained initializer (forecast score 5.410358) because
 random frozen evolution made all reconstruction forecast scores worse. Thus the
 phase discarded its learned weights. Their rate-selection results are superseded.
-Stopped scratch main18536182 and retired its dependent evaluation pipeline and
-old transfer-export gate18531062; all files/failed-attempt records retained.
-OM4 main18530880 continues. A tested explicit last-reconstruction handoff will
+Stopped scratch main 18536182 and retired its dependent evaluation pipeline and
+old transfer-export gate 18531062; all files/failed-attempt records retained.
+OM4 main 18530880 continues. A tested explicit last-reconstruction handoff will
 apply symmetrically to scratch and transfer, preserving integrated-plus-spectral
-final selection. All26 relevant tests passed; replacement observation producer
+final selection. All 26 relevant tests passed; replacement observation producer
 and fresh qualification/calibration directories will be pinned before resubmission.
-At18:48UTC, all-attempt use was4.0272 GPU-hours, including active allocations.
+At 18:48 UTC, all-attempt use was 4.0272 GPU-hours, including active allocations.
+
+Recovery producer `d186758213bf556456de319bba9e311c604bacd2` passed fitting
+18537338, dense-phase 18537397 and resume 18537405. CPU audit 18537484 proved
+that joint-zero tensors equal reconstruction-last exactly and differ from the
+untrained reconstruction-best tensors. Replacement equal-budget rate pilots
+18537519/18537520 were then submitted under `handoff-v2`; all continuation and
+evaluation gates were rebuilt there. OM4 pretraining remains on producer `3dba9696`.
+The canceled old scratch main used 267 GPU-seconds; all attempts stay counted.

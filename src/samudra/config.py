@@ -378,15 +378,26 @@ class GpuDataLoadingConfig(BaseDataLoadingConfig):
         return False
 
 
-class NativeDataLoadingConfig(BaseDataLoadingConfig):
-    """Shared scheduling policy; concrete configs own their I/O settings."""
+class RustDataLoadingConfig(BaseDataLoadingConfig):
+    """Configuration for the local Rust Zarr data loader."""
+
+    type: Literal["rust"] = "rust"
+    max_concurrent_reads: int = Field(
+        default=32,
+        ge=1,
+        description="Shared Rayon Zarr read concurrency limit for this process/rank.",
+    )
 
     prefetch_batches: int = Field(default=2, ge=1)
     prefetch_to_device: bool = True
 
-    @abc.abstractmethod
     def build_source_backend(self) -> "TrainingSourceBackend":
-        raise NotImplementedError
+        from samudra.data_backend import NativeOm4SourceBackend
+        from samudra.rust_reader import RustIoRuntime
+
+        return NativeOm4SourceBackend(
+            "rust", partial(RustIoRuntime, self.max_concurrent_reads)
+        )
 
     def build_batch_loader(
         self,
@@ -419,25 +430,6 @@ class NativeDataLoadingConfig(BaseDataLoadingConfig):
 
     def persistent_pytorch_workers(self) -> bool:
         return False
-
-
-class RustDataLoadingConfig(NativeDataLoadingConfig):
-    """Configuration for the local Rust Zarr data loader."""
-
-    type: Literal["rust"] = "rust"
-    max_concurrent_reads: int = Field(
-        default=32,
-        ge=1,
-        description="Shared Rayon Zarr read concurrency limit for this process/rank.",
-    )
-
-    def build_source_backend(self) -> "TrainingSourceBackend":
-        from samudra.data_backend import NativeOm4SourceBackend
-        from samudra.rust_reader import RustIoRuntime
-
-        return NativeOm4SourceBackend(
-            "rust", partial(RustIoRuntime, self.max_concurrent_reads)
-        )
 
 
 DataLoadingConfig = Annotated[

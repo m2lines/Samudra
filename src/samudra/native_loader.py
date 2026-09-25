@@ -26,6 +26,12 @@ from samudra.utils.samplers import BatchSchedule
 
 @dataclass(frozen=True)
 class HostPrefetch:
+    """Read ahead into RAM; prepare on the consumer's CPU or CUDA stream.
+
+    Pinning supports the later host-to-CUDA transfer even without a separate
+    device-prefetch stream. CPU training does not need pinned memory.
+    """
+
     pin_memory: bool
 
 

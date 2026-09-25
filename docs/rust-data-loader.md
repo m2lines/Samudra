@@ -27,11 +27,11 @@ data:
 ## Code organization
 
 The selected loading config constructs both the source readers and the batch
-loader. `RustDataLoadingConfig` owns `max_concurrent_reads` and creates one
-`RustIoRuntime` per data bundle/process. `NativeDataLoadingConfig` contains only
-the common host/device prefetch settings and constructs `NativeBatchLoader`.
-A future native backend gets its own concrete config and runtime; its concurrency
-settings need not mean the same thing as Rust's Rayon thread count.
+loader. `RustDataLoadingConfig` owns its read-concurrency and prefetch settings,
+creates one `RustIoRuntime` per data bundle/process, and constructs the shared
+`NativeBatchLoader`. A future native backend gets its own concrete config and
+runtime; a few repeated construction lines do not require a shared config base,
+and its concurrency settings need not mean the same thing as Rust's Rayon count.
 
 | Component | Responsibility |
 | --- | --- |
@@ -117,8 +117,17 @@ PyTorch `DataLoader` worker processes on the Rust path.
 Pinning happens before the Zarr read. `prefetch_batches` bounds the host read
 queue; `prefetch_to_device: true` separately enables one-batch-ahead transfer and
 preparation on a CUDA stream when training on CUDA. Device prefetch forces pinning
-on even if `pin_mem` is false. With device prefetch disabled, `pin_mem` controls
-whether the loader uses pinned buffers, and preparation runs on the consumer stream. The host producer requests one float32 tensor per unique read group,
+on even if `pin_mem` is false.
+
+`HostPrefetch` means only the disk-to-RAM stage runs ahead. It is selected for CPU
+training and when CUDA device prefetch is disabled. For the latter, the batch is
+still copied to CUDA, normalized, and gathered when consumed, on the model's
+current stream. `pin_mem` then controls pinned staging buffers for that transfer;
+copy and model computation on the same stream execute in order. This avoids
+holding an additional prepared batch on the GPU. Normal CPU training disables
+pinning because there is no host-to-device transfer.
+
+The host producer requests one float32 tensor per unique read group,
 normally prognostic and boundary planes. Input and label share the prognostic
 group when they use the same physical store.
 

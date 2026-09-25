@@ -1564,3 +1564,12 @@ training-consistent comparison and common per-sample policy in
 [batch-stat-curves.md](batch-stat-curves.md); the main report displays the former.
 Earlier overwritten checkpoints are explicitly missing; no dense retrospective
 trajectory or replacement official selection is claimed. Add 6k/8k as available.
+
+## Report navigation and original D training
+
+Added an explicit PR table of contents and consolidated original D architecture,
+data splits, optimizer, selection, update counts and source lineage in the
+training-history report. Clarified that the allocation study only explores
+continuation after D; earlier pretraining is a justified next hypothesis, not an
+established optimum or proof of severe overfitting. No new training authorized
+or launched by this documentation change.

@@ -747,6 +747,13 @@ class Trainer:
                     "chunk's backward would have to collective-wait on its "
                     "neighbours. Blend after backward instead."
                 )
+            if not cfg.surface_snapshot:
+                raise ValueError(
+                    "face_parallel needs surface_snapshot=true. Face validation "
+                    "reports the face's loss and pooled RMSE, reduced across "
+                    "ranks; the full-diagnostics families (per-channel reduced "
+                    "metrics, mean maps) would describe one rank's tiles only."
+                )
         self._physicsnemo_dm = None
         if cfg.domain_parallel.enabled:
             self.device, self.distributed, self._physicsnemo_dm = (
@@ -4942,6 +4949,63 @@ class Trainer:
             "batch-normalized loss, so its numbers stay means."
         )
 
+    def _install_face_validation_scorer(self) -> None:
+        """Build what validation needs to score the face rather than a slice.
+
+        Same device as the training loss, with two differences. The weight is
+        each tile's wet cells restricted to the cells it OWNS, so a seam is
+        scored once -- the training loss scores every tile in full, which is
+        right for gradients and wrong for a reported number. And the result is
+        reduced across ranks, so the value is the face mean, comparable to
+        validation on one GPU.
+
+        Done at startup rather than at the first validation: the float weight
+        is one full-rank transient (4.2 GB at nine 752^2 tiles), and the card
+        is nearly empty now and nearly full then.
+        """
+        assert self.fp_ctx is not None
+        group = self.replay_groups[0]
+        weight = self._grouped_val_weight(group)
+        denominator, gradient_z = self.fp_ctx.global_loss_norms(
+            self.domain_wet, weight, tiles=group.num_tiles
+        )
+        loss_fn = build_loss_fn(
+            self._loss_cfg,
+            wet=self.domain_wet,
+            y_coord=self.data.lat,
+            device=self.device,
+            num_channels=self.N_prog,
+            pad_mode=self._pad_mode,
+            denominator=denominator,
+            gradient_z_norms=gradient_z,
+        )
+        weight = weight > 0
+        num_strides = max(1, len(self.data_stride))
+        replay_sources = self.data_container.replay_sources or []
+        areas = []
+        for index in group.dataset_indices:
+            area = replay_sources[index // num_strides].cell_area
+            if area is None:
+                logger.warning(
+                    "Face validation: tile source %d has no rA, so the face RMSE "
+                    "weights its cells uniformly.",
+                    index,
+                )
+                area = torch.ones(weight.shape[-2:])
+            areas.append(area.to(device=self.device, dtype=torch.float32))
+        self.face_scorer = FaceScorer(
+            loss_fn=loss_fn,
+            weight=weight,
+            wet=self.domain_wet,
+            area=torch.stack(areas).unsqueeze(1),
+            world_size=self.fp_ctx.world_size,
+            reduce_sum=lambda tensor: self.fp_ctx._all_reduce(tensor.clone(), op="sum"),
+        )
+        logger.info(
+            "Face validation scorer installed: one-step and rollout validation "
+            "report the whole face's loss and pooled, area-weighted RMSE."
+        )
+
     def replay_group_for(self, cursor: ReplayCursor) -> ReplayGroup:
         """The group a cursor addresses. Ungrouped, this is dataset `i` as group `i`.
 
@@ -5028,7 +5092,10 @@ class Trainer:
         if getattr(self, "face_parallel_cfg", None) and self.face_parallel_cfg.enabled:
             self.replay_groups = self._build_face_replay_groups()
             self._install_face_loss_normalization()
+            self._install_face_validation_scorer()
             self._build_group_frame_reader()
+            # Fail now rather than an epoch in, at the first validation.
+            self._require_face_reader()
 
         for group in self.replay_groups:
             if group.blender is not None:

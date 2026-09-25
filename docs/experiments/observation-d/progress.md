@@ -1660,3 +1660,11 @@ result. Fresh OM4 main18530880 reached structured per-step training logs.
 Dependent monthly/annual evaluation registration is installed for both main
 paths, after completed selection. Completed GPU use is0.6586 hours before
 active allocations; the new-wave ceiling remains80 hours.
+
+State-diagnostic qualification18532019 completed on the real validation cohort.
+The evaluator exports full-grid initializer/reconstruction/day30 fields, profiles,
+and forecast changes when initial velocity or deep T/S channels are reset.
+Post-training diagnostics are registered at the retained early and late
+checkpoints; selected annual checkpoint diagnostics are registered as well.
+Training remains pinned to3dba9696; these additions use separate evaluation
+producers. The execution plan now includes paper-style model/training definitions.

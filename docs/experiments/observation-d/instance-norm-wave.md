@@ -211,3 +211,59 @@ immutable OM4 source export; annual validation/test evaluations require
 completed main selection. Per arm, their combined scheduler caps are two
 GPU-hours. Failures in preceding stages block their descendants. No held-out
 result feeds the rate or checkpoint selection gates.
+
+
+## Model and training definitions for the new comparison
+
+| Literal model name | Meaning |
+| --- | --- |
+| InstanceNorm scratch | Fresh initializer, evolution and zero-output ERA5 adapter; observation reconstruction followed by joint observation training. No OM4 weights or OM4-derived state normalization. |
+| InstanceNorm OM4 → observations | Fresh InstanceNorm initializer/evolution jointly pretrained on OM4, selected by OM4 validation; immutable selected weights then receive observation reconstruction and joint training with the ERA5 adapter. |
+| Fresh InstanceNorm OM4 source | The selected OM4 checkpoint before observation adaptation; source of the preceding transfer model, not historical BatchNorm D. |
+
+The initializer is the wide D ConvNeXt U-Net (widths256/384/512/768,
+approximately121.7M parameters). The evolution U-Net uses widths128/192/256/384
+(approximately31.6M parameters). The pointwise8→32→3 ERA5 adapter has387
+parameters. Total is approximately153.3M trainable parameters; replacing
+BatchNorm with affine InstanceNorm preserves affine parameter counts and removes
+running-statistic buffers. The initializer consumes19 five-day surface/forcing
+frames and geographic/seasonal context and emits two77-channel states; the
+surface values are copied as in D. Observational joint training forecasts the
+roughly one-month target window; evaluation can autoregress73 steps without
+increasing the training backpropagation horizon.
+
+Both observation paths use the same observation-training-derived state scaling,
+effective batch eight, seed1729, AdamW with weight decay0.01, gradient clipping1,
+BF16 and25-update learning-rate warmup per observation phase. Core rates are
+chosen independently from equal-budget pilots. Adapter rates remain1e-3 during
+reconstruction and1e-4 during joint training. Joint loss retains0.8 monthly
+interior T/S,0.1 SST and0.1 ADT normalized forecast terms, plus the0.1 auxiliary
+reconstruction term. Surface temperature is excluded from interior supervision;
+velocity and unobserved deep T/S have no observational reconstruction targets.
+Learning-rate differences are part of the calibrated training recipes, so the
+comparison is not a strict weights-only intervention.
+
+Training selection remains the fixed nine-origin v3 integrated-plus-spectral
+observation score. Annual evaluation and initializer interventions do not select
+checkpoints. Report both observation updates and total allocated GPU-hours,
+including OM4 pretraining and calibration separately; update counts are not
+claimed to be exact FLOP matches.
+
+## Checkpoint state diagnostics
+
+Producer `5ffcf10069bd25fb61eb6629f8e0cc8d12afe705` adds validation-only
+initializer maps/profiles and controlled initial-state interventions. Real GPU
+qualification **18532019 completed**, exporting both fixed validation map cases,
+nine-origin depth-profile statistics and integrated/spectral changes under
+zeroed initial U/V or mean-reset deep T/S. Two CPU tests check that interventions
+preserve the other channels and that the unmodified diagnostic rollout matches
+the native model rollout exactly. The qualification checkpoint is only a
+plumbing test, not evidence about either production model.
+
+After each main run, registered diagnostics cover reconstruction updates
+0/10/25/50/100/250/500/1k and joint updates0/10/25/50/100/250/500/1k/2k/4k/6k/8k.
+Maps contain the full grid; profile reductions and scores use the fixed scored
+domain. Monthly reconstruction uses target-month surfaces and is labeled
+separately from forecast skill. Additional continuous-year validation diagnostics
+are registered at joint0/100/1k/4k/8k. These predetermined diagnostics run after
+selection and do not tune either model.

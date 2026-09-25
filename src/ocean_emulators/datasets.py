@@ -1111,6 +1111,26 @@ class TorchTrainDataset(Dataset[RawTrainData]):
         masked = torch.where(mask.unsqueeze(0), state, fill)
         return masked.squeeze(0) if squeeze_batch else masked
 
+    def prepare_state(self, raw_prognostic: torch.Tensor) -> Prognostic:
+        """A raw ``[1, C, H, W]`` store frame as a float32 model-space state.
+
+        Normalized and masked exactly as a label is, so a rollout starts from
+        the same field one-step validation scores against. For frames read
+        elsewhere -- the group chunk reader -- rather than through this dataset.
+        """
+        return self._prep_tensor_steps(
+            raw_prognostic.to(device=self.device, non_blocking=True).unsqueeze(0)
+        ).to(dtype=torch.float32)
+
+    def prepare_input(self, state: Prognostic, raw_boundary: torch.Tensor) -> Input:
+        """A model input from a ``[1, C, H, W]`` state and a raw forcing frame."""
+        boundary = self._prep_boundary_steps(
+            raw_boundary.to(device=self.device, non_blocking=True).unsqueeze(0)
+        )
+        return self.append_static_channels(
+            torch.cat((state, boundary.to(dtype=state.dtype)), dim=1)
+        )
+
     def _get_input_and_label(
         self,
         # time includes (self.hist + 1) past steps and the (label) future steps

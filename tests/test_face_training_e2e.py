@@ -131,6 +131,7 @@ def _face_config(root, **overrides) -> TrainConfig:
         "--face_parallel.enabled": "true",
         "--face_parallel.tiles_per_chunk": "6",
         "--face_parallel.read_threads": "2",
+        "--surface_snapshot": "true",
         # The stock test config's window predates this cache; state both.
         "--train_time.start": "1975-08-05",
         "--train_time.end": "1975-09-15",
@@ -351,12 +352,11 @@ def test_unchunked_prediction_is_untouched_without_a_face(face_root) -> None:
         assert trainer._predict_in_chunks(model, inputs).shape[0] == 2
 
 
-def test_grouped_validation_loss_is_chunked_but_unchanged(face_root) -> None:
-    """`gradient_h` builds ~8 tensors the size of its input, so scoring a
-    rank's whole tile set in one call is ~31 GB of transients on a real face
-    -- which OOMed one validation batch after the chunked forward had made
-    room. Chunking it must not move the number, or every validation curve
-    shifts and `best_validation_ckpt` ranks on something new.
+def test_face_validation_loss_is_the_mean_over_owned_wet_cells(face_root) -> None:
+    """On one rank the face scorer's loss is exactly the ordinary batch mean
+    under the ownership weight -- the number grouped validation has always
+    reported -- even though it is scored one tile at a time against fixed
+    denominators. So no validation curve moves when a face is sharded.
     """
     with MultitonScope():
         trainer = Trainer(_face_config(face_root))
@@ -371,14 +371,79 @@ def test_grouped_validation_loss_is_chunked_but_unchanged(face_root) -> None:
         label = torch.randn(shape, generator=generator, device=trainer.device)
 
         whole = trainer.loss_fn(blended, label, sample_weight=weight)
-        scored = trainer._fixed_denominator_loss(weight, tiles=tiles)
-        chunked = sum(
-            scored(
-                blended[chunk[0] : chunk[-1] + 1],
-                label[chunk[0] : chunk[-1] + 1],
-                sample_weight=weight[chunk[0] : chunk[-1] + 1],
-            )
-            for chunk in trainer.fp_ctx.chunks
+        metrics = trainer.face_scorer.score(blended, label)
+        assert torch.allclose(metrics.loss_per_channel, whole, rtol=1e-5, atol=1e-7)
+
+
+def _validation_config(face_root, **overrides):
+    return _face_config(
+        face_root,
+        **{
+            "--one_step_val_num": "2",
+            "--short_autoregressive_val_num": "1",
+            "--short_autoregressive_val_length": "3",
+            "--long_autoregressive_val_num": "1",
+            "--long_autoregressive_val_length": "6",
+            "--long_autoregressive_val_start_epoch": "1",
+            **overrides,
+        },
+    )
+
+
+def test_face_validation_reports_the_whole_face_for_every_horizon(face_root) -> None:
+    """One-step, short and long rollouts all run through the face path and
+    report a finite face loss and a pooled RMSE."""
+    with MultitonScope():
+        trainer = Trainer(_validation_config(face_root))
+        trainer.run()
+        one_step = trainer.validate_one_epoch(1)
+        rollouts = trainer.validate_autoregressive_one_epoch(1)
+
+    for key in ("val/mean/one-step-loss", "val/mean/one-step-rmse"):
+        assert np.isfinite(one_step[key]) and one_step[key] > 0, key
+    for label in ("short", "long"):
+        for metric in ("loss", "rmse"):
+            key = f"val/mean/{label}-autoregressive-{metric}"
+            assert np.isfinite(rollouts[key]) and rollouts[key] > 0, key
+
+
+def test_face_rollout_matches_the_established_grouped_rollout(
+    face_root, monkeypatch
+) -> None:
+    """The face rollout reads through the chunk reader and prepares tensors
+    with the training dataset; the grouped rollout it replaces for faces
+    reads each tile through `InferenceDataset`. On one rank both see the
+    whole face, so they must roll out the same states -- and the loss, which
+    both score under the ownership weight, must agree at every step.
+    """
+    from ocean_emulators.train import AutoregressiveValSpec
+
+    with MultitonScope():
+        trainer = Trainer(_validation_config(face_root))
+        trainer.run()
+        group = trainer.replay_groups[0]
+        spec = AutoregressiveValSpec(
+            label="short", num_steps=4, num_runs=1, seed_offset=0, weight=1.0
         )
-        assert len(trainer.fp_ctx.chunks) > 1, "this test needs more than one chunk"
-        assert torch.allclose(chunked, whole, rtol=1e-5, atol=1e-7)
+        sources = trainer.autoregressive_val_sources()
+        model = getattr(trainer.model, "module", trainer.model)
+        trainer.model.eval()
+
+        captured = {}
+        from ocean_emulators.aggregator.validate import rollout
+
+        original = rollout.RolloutValidationAggregator.get_logs
+
+        def capture(self, label):
+            captured.setdefault("curves", []).append(self.loss_by_step().clone())
+            return original(self, label)
+
+        monkeypatch.setattr(rollout.RolloutValidationAggregator, "get_logs", capture)
+        with torch.no_grad():
+            trainer._run_face_autoregressive_validation(model, spec, sources, group)
+            trainer._run_grouped_autoregressive_validation(
+                model, spec, sources, group, 1
+            )
+
+    face, grouped = captured["curves"]
+    assert torch.allclose(face, grouped, rtol=1e-4, atol=1e-6), (face, grouped)

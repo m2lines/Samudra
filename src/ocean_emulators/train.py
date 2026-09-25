@@ -4983,16 +4983,20 @@ class Trainer:
         num_strides = max(1, len(self.data_stride))
         replay_sources = self.data_container.replay_sources or []
         areas = []
+        without_area = []
         for index in group.dataset_indices:
             area = replay_sources[index // num_strides].cell_area
             if area is None:
-                logger.warning(
-                    "Face validation: tile source %d has no rA, so the face RMSE "
-                    "weights its cells uniformly.",
-                    index,
-                )
+                without_area.append(index)
                 area = torch.ones(weight.shape[-2:])
             areas.append(area.to(device=self.device, dtype=torch.float32))
+        if without_area:
+            logger.warning(
+                "Face validation: %d of %d tile source(s) have no rA, so the face "
+                "RMSE weights their cells uniformly.",
+                len(without_area),
+                len(areas),
+            )
         self.face_scorer = FaceScorer(
             loss_fn=loss_fn,
             weight=weight,

@@ -388,6 +388,53 @@ zarr. It just needs to reach 36 tiles.
 * Keeping eval single-process and independent of the training sharding is
   deliberate: a bug in the distributed blend cannot hide in both.
 
+### Training-time validation on a sharded face
+
+One-step, short-AR and long-AR validation all run on **every rank in
+lockstep** (`Trainer._validate_one_epoch_face`,
+`_run_face_autoregressive_validation`). Each rank advances its own tiles, the
+`DistributedTileBlender` reconciles seams across ranks, each tile is remasked
+exactly as in the replay write-back, and `face_validation.FaceScorer` reduces
+the scores to the face.
+
+The per-rank paths these replace could not work on a face. Rollouts ran on
+rank 0 only while the others waited at a barrier, but the blend exchanges
+halos with those ranks every step, so rank 0 would block in the first blend.
+One-step validation ran, but nothing reduced it: W&B and checkpoint selection
+saw rank 0's quadrant (tiles 0-2, 6-8, 12-14, essentially all open ocean) and
+never the coastal one.
+
+* **Loss.** Built with face-wide denominators from the *validation* weight:
+  each tile's wet cells restricted to the cells it OWNS, so seams count once.
+  (The training loss scores every tile in full, which is right for gradients
+  and wrong for a reported number.) Each rank's value is a share, and the
+  face loss is the mean over ranks. On one rank it equals the ordinary
+  batch-mean validation loss exactly, so no curve moves.
+* **RMSE, pooled.** Every rank sums area-weighted squared error and wet area
+  (each tile's own `rA`) over the cells it owns; one all-reduce adds them;
+  RMSE = sqrt(SSE / area) per channel, then the mean over channels that have
+  a wet cell. This equals the RMSE of the stitched face -- it is *not* a mean
+  of per-tile RMSEs, which would weigh a 6%-wet coastal tile like an
+  open-ocean one. Logged as `val/mean/one-step-rmse`,
+  `val/mean/{short,long}-autoregressive-rmse`, and per step in the
+  RMSE-vs-rollout-step plot.
+* **Reads.** Through the chunk-streaming reader, two steps ahead of the GPU on
+  one background thread (`ReadAhead`): forcing and truth depend only on the
+  window, never on the prediction.
+* **Memory.** The float validation weight is built once at startup; scoring
+  runs one tile at a time; the blend forms the residual in the prediction's
+  own storage.
+* Requires `surface_snapshot=true`: the full-diagnostics families (reduced
+  per-channel metrics, mean maps) would describe one rank's tiles only.
+
+Defaults in the job script: 40 one-step samples, short AR 72 steps, long AR
+480 steps from epoch 40.
+
+Verified by `tests/test_face_validation.py` (the scorer matches the stitched
+face exactly on 1, 4 and 9 gloo ranks) and `tests/test_face_training_e2e.py`
+(all three validations through the real `Trainer`, and the face rollout
+matches the established per-tile `InferenceDataset` rollout step for step).
+
 ---
 
 ## 8. Config and launch
@@ -675,11 +722,16 @@ epochs. `GPUS` must divide 36 -- 4, 6, 9 or 12, **not** 8. If you change
   4×8 on the same work, so a well-meant `DATA_NUM_WORKERS` bump can cost more
   than it buys. The first hardware run used 4 threads/rank (16 total, half the
   measured optimum) and spent ~5 s of a ~13 s step waiting on data.
-* **Gold reseeds are not overlapped at small buffer sizes.** A scheduled
-  refresh reads a whole fresh face, and `prefetch_horizon` is
-  `min(workers x prefetch_factor, buffer_size/batch_size - 1)` -- which is 1
-  when `buffer_size=2`, so the smoke run shows 28 s and 83 s spikes on refresh
-  steps. At `buffer_size=8` the horizon is 7 and they should overlap.
+* ~~**Gold reseeds are not overlapped at small buffer sizes.**~~ Fixed in the
+  job scripts. `prefetch_horizon` is
+  `min(workers_per_rank x prefetch_factor, buffer_size/batch_size - 1)` and
+  counts the batch currently training, so the lookahead is horizon - 1. At
+  `buffer_size=2` that is zero: every step waited out its own read (~6 s of a
+  ~13 s step). The trainer also divides `data.num_workers` by the world size
+  (4 -> 1 per rank at G=4), so `buffer_size=8` with `prefetch_factor=2` gave
+  horizon 2, not 7. Now `DATA_PREFETCH_FACTOR=4` and the smoke buffer is 5,
+  so both run at horizon 4. Measured on 4xH100 (smoke8 vs smoke7):
+  `data_wait_time` 6 s -> 0, step 15.5 s -> 8.9 s, GPU peak unchanged.
 * Pinning ~67 GB is routine, but pinned allocation is slow at startup; watch the
   first-epoch timings.
 * A per-rank divergence reseed desyncing the buffers is silent if the

@@ -119,3 +119,78 @@ GPU-hours maximum requested for this stage**, separate from the qualification
 attempts. No main production is submitted by this gate. Observation LR pilots
 and main production await its evidence; the two observation paths will receive
 equal search budgets.
+
+
+## Transfer and calibration update
+
+The user approved OSN publication. Empire AI upload job **101147** completed in
+seven seconds and its full download comparison found 421 matching files and no
+differences. Torch DTN process **1623986** then downloaded the bundle to
+`/scratch/jr7309/data/obs-d-annual-instance-v1`; another full read-back comparison
+passed, followed by all **416 payload SHA256** checks across four origins.
+`DATA_READY.json` records successful verification. The transfer blocker is resolved.
+
+Final-contract qualification jobs **18530032/18530033** completed; observation
+fitting loss fell to 0.24333 and OM4 completed ten updates with common scaling.
+The dense observation probe **18530319** completed all three updates in both
+phases, retaining phase-zero, update-one and update-three weights. Resume job
+**18530614** completed without further training. The CPU resume regression also
+checks retained milestone bytes.
+
+| Calibration | Job | Completed updates | Selected validation result |
+| --- | --- | --- | --- |
+| Fresh OM4, LR 1e-4 | 18530317 | 500 | normalized subsurface T/S MSE 0.0205135 |
+| Fresh OM4, LR 3e-4 | 18530318 | 500 | normalized subsurface T/S MSE 0.0156985 |
+
+Both pilots used the same seed, effective batch eight and validation cohort.
+**LR 3e-4 was selected.** Fresh OM4 main job **18530880** restarts from seed1729;
+it does not continue the winning pilot. Its cap is 24,000 updates or eight
+training hours, with six non-improving validations after at least two hours;
+the scheduler allocation is capped at nine GPU-hours. Retain early OM4 weights
+at 10/25/50/100/250/500/1k/2k/4k/8k/16k/24k when reached. This fresh joint
+initializer/evolution pretraining is not a reproduction of historical D's
+separate initializer and heavily pretrained evolution stages.
+
+Scratch LR pilots **18530615/18530616** (1e-4/3e-4) are running with 1,000
+reconstruction and 250 joint updates each. After successful completion, gate
+**18531059** verifies exact update counts, producer and selected checkpoint
+hashes, chooses the integrated-plus-spectral validation minimum, and submits a
+fresh scratch main run at that rate. Main observation runs retain 1,000
+reconstruction plus 8,000 joint updates, with separate two-hour/twelve-hour
+training caps and a fifteen-GPU-hour allocation cap each.
+
+After OM4 main completes, gate **18531062** verifies the selected source hash
+and common-scaling statistics, copies immutable source weights, and launches a
+transfer fitting qualification. Only its successful output permits two transfer
+rate pilots (3e-5/1e-4), with the same 1,000 + 250 update search budget as scratch.
+Their integrated-plus-spectral validation minimum chooses the transfer main rate.
+Both main paths restart from their designated initial weights, not pilot weights.
+The adapter remains present and learns during reconstruction/joint training;
+there is no additional adapter-only phase in this wave.
+
+Measured warmed OM4 throughput is approximately one optimizer update/second;
+early observation reconstruction is roughly 4.5 seconds/update. The new wave
+has a conservative **80 allocated GPU-hour all-attempt ceiling**, including
+calibration, training, evaluation and recovery. This is a separate new-wave
+ceiling, not a claim that the previous wave's allocation carries forward.
+Requested primary allocations are substantially below it; do not use the
+remainder for new scientific arms or seeds. Completed initial/final probes,
+dense/resume tests and OM4 pilots consumed **0.6494 GPU-hours**, before active
+scratch pilots and later jobs. Continue accounting for every actual allocation.
+
+## One-year evaluator qualification
+
+Evaluation-only producer `8056405ac6217fbe237859904889591a3b637e23` adds a
+continuous 73-step evaluator; training stays pinned to `3dba9696`. Four CPU tests
+cover calendar overlap, no future-surface leakage, single initialization with
+state propagation, and named velocity dimensions. Real validation-only job
+**18530921** is queued on the three-update qualification checkpoint; it tests
+execution rather than scientific skill. Training is not selected on that result.
+
+The evaluator exports full-grid initial states and forecast states at days
+5/15/30/90/180/365. Scoring retains the fixed 60S–60N domain with observed
+ADT derivative support for geostrophic velocity. Calendar-month OHC uses exact
+bin overlap weights. Continuous-year EKE is explicitly centered on each year's
+own mean and is not the fixed-lead, multi-origin EKE used for training selection.
+Prescribed future ERA5 is supplied through the adapter; this is a conditional
+ocean rollout, not an operational prediction of future atmospheric forcing.

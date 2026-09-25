@@ -1635,3 +1635,21 @@ Calibration registration 18529840 is queued behind that build. Its gate will
 check both final qualification outputs before submitting two 500-update OM4
 rate pilots and a dense observation phase/checkpoint probe, capped at three
 GPU-hours total. This does not launch main production.
+
+
+## Approved annual transfer and InstanceNorm advancement — 25 September
+
+Annual bundle publication approved and completed: Empire AI 101147, then DTN
+PID1623986, 421 files matched by full read-back and all 416 payload SHA256 checks
+passed. No transfer blocker remains. Final-contract qualifications 18530032/33,
+dense probe18530319 and resume18530614 completed. OM4 rate pilots18530317/18
+completed500 updates each; LR3e-4 won (T/S MSE0.0156985 versus0.0205135).
+Fresh OM4 main18530880 is queued with24k/eight-training-hour cap. Scratch
+pilots18530615/16 are running. Evidence-gated continuation is registered for
+scratch rate selection and OM4 source export/transfer qualification/calibration;
+main observation paths remain1k reconstruction +8k joint, one seed.
+Evaluation-only producer8056405ac adds the continuous-year evaluator; its
+validation plumbing qualification18530921 is queued. See the
+[updated plan](instance-norm-wave.md) for exact gates, budgets and semantics.
+New-wave all-attempt ceiling80 GPU-hours; completed probes and OM4 pilots used
+0.6494 hours before active/later allocations. Timer remains disabled.

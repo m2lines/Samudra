@@ -1713,3 +1713,23 @@ No new failures. All-attempt allocated use, including superseded work, was
 **9.7731 GPU-hours**. User scratch quota was 3.96/5 TB, leaving about 1.04 TB.
 The annual daily-archive grid and Torch training grid were also verified
 byte-identical by SHA256, in addition to the annual payload/time audits.
+
+
+### 25 September, 21:55 UTC — OM4 source complete; transfer calibration starts
+
+Fresh InstanceNorm OM4 job **18530880 completed successfully** at 14,261 joint
+updates, after six non-improving validation checks. Its allocation was 14,597
+GPU-seconds (4.0547 GPU-hours). The completion marker reports selected validation
+T/S normalized MSE **0.00506701** over eleven valid origins; this is an OM4
+metric, not the observation selection score. Immutable source export verified
+checkpoint SHA256 `83392ec061400d28eb6a4cd9594376318a6bcf3409f9c9dbecf2bafeedea7557`
+and the common observation-derived state scales.
+
+Transfer fitting qualification **18549360** passed under corrected producer
+`d186758213bf556456de319bba9e311c604bacd2`: training-only loss decreased from
+0.11132 to 0.03932 and gradients reached initializer, evolution and adapter.
+Transfer LR pilot **18549413** (3e-5) is running; **18549415** (1e-4) is pending
+with `QOSMaxGRESPerUser`, not running. Their selection gate **18549491** waits
+for both successful pilots before choosing the observation score minimum and
+launching the fresh transfer main run. Scratch main **18540597** continues
+normally, past joint update 760. No new scientific arm or seed was added.

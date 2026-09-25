@@ -1617,3 +1617,16 @@ training-consistent performance. Full held-out recalibration evaluation is not
 warranted by these results and was not launched. Report preserves the unresolved
 normalization confound rather than attributing the remaining gap to OM4 weights.
 All integrity checks passed; total **43.1172 GPU-hours**.
+
+
+## Fresh InstanceNorm wave — 25 September
+
+User authorized fresh InstanceNorm with original OM4 forcings, ERA5 adapter and
+separate observation reconstruction retained. Initial RTX qualification jobs
+18528438/18528440 completed (282 GPU-seconds combined): observation fitting loss
+1.29126 → 0.24330, OM4 validation normalized T/S MSE 1.20469 → 0.48909.
+These short checks do not establish model skill. Final shared-scaling and v3
+scoring producer `3dba9696` is queued for qualification via CPU build 18529768.
+Annual data preparation completed on Empire AI (101098); OSN transfer awaits
+approval. See [the execution plan](instance-norm-wave.md) for contracts and
+provenance. No long production runs have started; the old monitor remains off.

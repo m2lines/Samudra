@@ -68,3 +68,41 @@ failure must be reported, not hidden by selecting only stable examples.
 
 Execution records and qualification results will be appended below. Production
 is gated on evidence, not the presence of submitted jobs.
+
+
+## Execution record: 25 September
+
+The first fresh InstanceNorm probes passed under producer `b9f6e318`:
+
+| Probe | Torch job | Evidence |
+| --- | --- | --- |
+| Observation fitting | 18528438 | Ten updates reduced training-only loss from 1.29126 to 0.24330; finite, nonzero gradient reached initializer, evolution and adapter. |
+| Fresh OM4 joint training | 18528440 | Ten updates reduced validation T/S normalized MSE from 1.20469 to 0.48909; original OM4 forcings retained. |
+
+These are implementation checks, not comparative skill results. Their allocated
+GPU time was 282 seconds (0.0783 GPU-hours). The CPU code build was 18528423.
+
+Producer `3dba9696` adds the final common observation-derived state scales,
+version-3 observation scoring with complete observed ADT derivative-stencil
+support, and dense checkpoints during both reconstruction and joint training.
+OM4 forcing normalization is unchanged. The OM4 native/cache equivalence audit
+remains in native coordinates; state conversion happens only at the model input
+and target boundary. Eleven targeted CPU tests passed, including physical-unit
+invertibility, dense checkpoint/resume behavior and the coastal-stencil regression.
+Final-contract qualification build **18529768** was submitted; this is not yet
+production or evidence of final-contract qualification success.
+
+Continuous annual evaluation data were prepared on Empire AI in CPU job 101098
+(87 seconds), following an import-path failure in 101097 (3 seconds). Four
+365-day sequences start at validation 2013-11-01 and held-out 2015-01-01,
+2018-01-01 and 2021-01-01. Each contains 19 history bins and 73 forecast bins,
+with exact five-day intervals and monthly interior targets. Existing monthly
+samples cannot be concatenated because their five-day phase resets. The new
+bundle is 1,025,375,724 bytes; manifests record every payload hash. Its transfer
+to Torch is pending explicit approval for OSN publication, following an automatic
+approval-review rejection. No payload has been published.
+
+Torch's user-scoped quota reports 3.84 TB used of 5 TB (about 1.16 TB headroom).
+Reserve 100 GB for this wave's checkpoint copies, optimizer state, diagnostics
+and annual data; preserve historical checkpoints. This is an estimate, to be
+checked against actual usage before long runs.

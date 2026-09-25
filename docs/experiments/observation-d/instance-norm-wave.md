@@ -194,3 +194,20 @@ bin overlap weights. Continuous-year EKE is explicitly centered on each year's
 own mean and is not the fixed-lead, multi-origin EKE used for training selection.
 Prescribed future ERA5 is supplied through the adapter; this is a conditional
 ocean rollout, not an operational prediction of future atmospheric forcing.
+
+
+Annual GPU qualification **18530921 completed in 33 seconds**, including all
+73 autoregressive steps, twelve calendar-month OHC evaluations and map exports.
+The checked completion marker identifies the exact evaluation producer, input
+manifest and checkpoint. This validates execution only: the input was a
+three-update fitting checkpoint. Fresh OM4 main **18530880 is now running**,
+with finite structured training losses and roughly one second/update after
+cache preparation. Successful completed GPU allocations through annual
+qualification total **0.6586 hours**, excluding active jobs.
+
+Dependent evaluation registration is installed for both main paths. Monthly
+held-out evaluation requires both completed main selection and successful
+immutable OM4 source export; annual validation/test evaluations require
+completed main selection. Per arm, their combined scheduler caps are two
+GPU-hours. Failures in preceding stages block their descendants. No held-out
+result feeds the rate or checkpoint selection gates.

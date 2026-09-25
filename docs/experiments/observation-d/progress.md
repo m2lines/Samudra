@@ -1653,3 +1653,10 @@ validation plumbing qualification18530921 is queued. See the
 [updated plan](instance-norm-wave.md) for exact gates, budgets and semantics.
 New-wave all-attempt ceiling80 GPU-hours; completed probes and OM4 pilots used
 0.6494 hours before active/later allocations. Timer remains disabled.
+
+Annual qualification18530921 completed in33 seconds with73 continuous steps,
+calendar-month OHC and map exports. This is execution evidence, not a skill
+result. Fresh OM4 main18530880 reached structured per-step training logs.
+Dependent monthly/annual evaluation registration is installed for both main
+paths, after completed selection. Completed GPU use is0.6586 hours before
+active allocations; the new-wave ceiling remains80 hours.

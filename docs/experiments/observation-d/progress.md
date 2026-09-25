@@ -1701,3 +1701,15 @@ updates each. LR 3e-4 won the integrated-plus-spectral score (0.8369917 versus
 its evaluation/diagnostic descendants are correctly waiting on completion.
 OM4 main 18530880 is beyond two hours and approximately 8,400 updates; recent
 utilization averaged 95.6%. The two corrected pilots averaged 72–77%. No blocker.
+
+
+## Monitoring — 25 September, 17:10 ET
+
+Corrected scratch main 18540597 completed 1,000 reconstruction updates and reached
+joint update 229; the latest validation at 200 was 0.9291353. OM4 main 18530880 was
+at 11,960 updates. Its selected normalized T/S MSE was 0.0050670; the latest was
+0.0065541 with four non-improving checks under the existing six-check rule.
+No new failures. All-attempt allocated use, including superseded work, was
+**9.7731 GPU-hours**. User scratch quota was 3.96/5 TB, leaving about 1.04 TB.
+The annual daily-archive grid and Torch training grid were also verified
+byte-identical by SHA256, in addition to the annual payload/time audits.

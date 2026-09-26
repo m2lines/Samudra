@@ -522,3 +522,21 @@ The final-weight 8/16/32-step validation sampling check completed for both B
 seeds. Completed allocations now total **20.2767 GPU-hours**, including all
 training, checks and this reporting failure. Held-out reporting is being retried;
 full comparisons, member maps, controls and conclusions remain pending.
+
+## Native OM4 controls prepared
+
+A bounded follow-up compares selected OM4-pretrained and observation-fine-tuned
+weights at 24 uniformly spaced native OM4 origins initialized in 2015–2022, with
+all future labels also within 2022. It measures inferred initialization/evolution,
+true-interior evolution, inferred persistence and true persistence at days
+0/5/15/30. B members evolve independently before averaging; member one is also
+recorded without visual selection. Original native OM4 fluxes and the original
+native season/forcing convention are used, bypassing the ERA5 adapter.
+
+The evaluator rejects changed data/scaling/checkpoint contracts or dynamics that
+differ from the frozen pre-observation source. It separates the full globe,
+scored latitudes (±60°) and remaining latitudes, preserving per-channel physical
+and standardized MSE plus wet-area support. This is a model-world diagnostic,
+including velocity/deep-state retention, not observed velocity ground truth.
+The launcher caps four L40S GPUs at one hour (four GPU-hours maximum); no control
+results are claimed before execution.

@@ -210,3 +210,12 @@ rank mass conservation and collapsed ensembles. Pooling uses sums and support
 weights rather than averaging unequal cohorts. Raw finite-ensemble coverage is
 reported with the member count; it is not a claim of resolved tail calibration.
 Eighteen targeted CPU tests pass; real forecast diagnostics are still pending.
+
+
+Coordinate-registration preparation now includes a parameter-free differentiable
+feature mapper that uses actual source/target latitude centers and periodic
+longitude. Tests cover nonuniform latitudes, longitude wrapping, polar extension,
+gradients and unchanged source tensors. This is interpolation of conditioning
+features, not conservative regridding of targets. Integration into the H decoder
+and verification against the staged native grids are still outstanding. Twenty
+targeted CPU tests pass; no H experiment or geometry qualification is claimed.

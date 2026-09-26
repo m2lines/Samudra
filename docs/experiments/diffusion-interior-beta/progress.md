@@ -421,3 +421,12 @@ recurrence, fixed latent trajectories across sampling seeds, future-observation
 exclusion, and exact known-surface preservation under autocast. C/D training and
 evaluation runner integration, real-grid qualification, hyperparameter selection
 and later-wave approval remain pending. The running A/B producer is unchanged.
+
+The A/B report command now has an optional `--annual` path for the frozen 2015,
+2018 and 2021 continuous-year test origins. It reuses the upstream annual point
+metrics and exports rather than defining a new score. B members evolve separately
+before averaging; annual point scores and spectra of that mean do not establish
+member calibration or member field structure. These remain separate diagnostics.
+The annual path verifies payload hashes and uses only historical observed surfaces
+with prescribed ERA5 thereafter. Five existing annual/evaluation tests pass; the
+new report path has not yet run on completed A/B observation checkpoints.

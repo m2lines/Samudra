@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
 
-"""Monthly held-out A/B point scores and raw per-origin calibration statistics.
+"""Held-out A/B monthly reports and optional continuous-year point diagnostics.
 
-Annual rollouts and structural diagnostics remain separate report requirements.
+Annual ensemble calibration and additional structural diagnostics remain separate.
 This command never selects a checkpoint using held-out scores.
 """
 
@@ -15,8 +15,12 @@ from pathlib import Path
 import torch
 
 from samudra.experiments.diffusion_calibration import observation_ensemble_statistics
-from samudra.experiments.diffusion_evaluation import evaluate_point_metrics
+from samudra.experiments.diffusion_evaluation import (
+    EnsembleMeanForecast,
+    evaluate_point_metrics,
+)
 from samudra.experiments.diffusion_physical import JointPhysicalForecast
+from samudra.experiments.observation_annual import evaluate_origins
 from samudra.experiments.observation_model import ObservationTransfer
 from samudra.experiments.observation_pilot import atomic_json, digest
 from samudra.experiments.observation_training import Samples
@@ -65,6 +69,11 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--members", type=int, default=8)
     parser.add_argument("--seed", type=int, default=4041729)
+    parser.add_argument(
+        "--annual",
+        action="store_true",
+        help="Also report the frozen three annual test origins",
+    )
     args = parser.parse_args()
     if args.members < 2:
         parser.error("Use at least two members for calibration")
@@ -153,6 +162,41 @@ def main():
         ),
         args.output / "MONTHLY_REPORT_COMPLETE.json",
     )
+
+    if args.annual:
+        annual = args.root / "data/annual_observations"
+        if not (annual / "DATA_READY.json").exists():
+            raise ValueError("Annual data must pass full transfer verification")
+        origins = sorted((annual / "test").glob("*/COMPLETE.json"))
+        if [path.parent.name for path in origins] != [
+            "2015-01-01",
+            "2018-01-01",
+            "2021-01-01",
+        ]:
+            raise ValueError("Require the frozen three-origin annual test cohort")
+        annual_protocol = dict(
+            **protocol,
+            annual_origins=[path.parent.name for path in origins],
+            annual_manifests={
+                str(path.relative_to(annual)): digest(path) for path in origins
+            },
+            annual_scope="Single initialization; ensemble mean after independent physical evolution; point metrics only",
+            forcing="Prescribed ERA5 through trained adapter; not an operational forcing forecast",
+            eke="Anomalies relative to each sequence's own year mean",
+        )
+        annual_output = args.output / "annual"
+        annual_output.mkdir(parents=True, exist_ok=True)
+        contract = annual_output / "input.json"
+        if contract.exists() and json.loads(contract.read_text()) != annual_protocol:
+            raise ValueError("Existing annual evaluation protocol differs")
+        atomic_json(annual_protocol, contract)
+        evaluate_origins(
+            EnsembleMeanForecast(model, members=args.members, seed=args.seed),
+            data,
+            origins,
+            annual_output,
+            annual_protocol,
+        )
 
 
 if __name__ == "__main__":

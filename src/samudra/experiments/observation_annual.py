@@ -159,6 +159,69 @@ def surface_metrics(prediction, reference, data):
     return result
 
 
+def evaluate_origins(model, data, origins, output, signature):
+    """Write the same year-long point diagnostics for any forecast interface.
+
+    Ensemble callers must average independently evolved members before entering
+    this interface; these point outputs do not measure ensemble calibration.
+    """
+    results = {}
+    for origin_path in origins:
+        description, raw = read_origin(origin_path.parent)
+        origin = description["origin"]
+        with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
+            prediction, initial = model.forecast(*inputs(data, raw))
+        if prediction.shape[1] != 73 or not torch.isfinite(prediction).all():
+            raise ValueError(f"Nonfinite or incomplete annual rollout: {origin}")
+        physical = data.physical(prediction)
+        surface = physical[0, :, [38, 76]].cpu().numpy()
+        reference = np.concatenate([raw["surface"][19:], raw["velocity"][19:]], axis=1)
+        result = surface_metrics(surface, reference, data)
+        months, monthly_predictions, monthly_references = [], [], []
+        area = data.area.cpu().numpy()
+        for record in description["monthly_interiors"]:
+            path = origin_path.parent / record["file"]
+            if (
+                Path(record["file"]).name != record["file"]
+                or digest(path) != record["sha256"]
+            ):
+                raise ValueError("Monthly target hash/path mismatch")
+            month = path.name[:7]
+            weights = data.tensor(month_weights(raw["start"][19:], month))
+            state = (prediction * weights[None, :, None, None, None]).sum(1)
+            ohc = data.ohc(state)[0]
+            with np.load(path) as saved:
+                truth = np.where(np.isfinite(ohc), saved["ohc"], np.nan)
+            result.setdefault("monthly_ohc", {})[month] = {
+                label: weighted_rmse(ohc[i], truth[i], area)
+                for i, label in enumerate(("0_700", "700_2000"))
+            }
+            months.append(month)
+            monthly_predictions.append(ohc)
+            monthly_references.append(truth)
+        result["scope"] = (
+            "Single initialization; 73 five-day steps; no future surface corrections"
+        )
+        atomic_json(result, output / f"{origin}.json")
+        np.savez_compressed(
+            output / f"{origin}.npz",
+            surface=surface,
+            reference=reference,
+            initial=data.physical(initial)[0].cpu().numpy(),
+            state_at_leads=physical[0, [day // 5 - 1 for day in LEADS]].cpu().numpy(),
+            leads_days=LEADS,
+            months=months,
+            predicted_ohc=np.array(monthly_predictions),
+            reference_ohc=np.array(monthly_references),
+        )
+        results[origin] = {"metrics": f"{origin}.json", "arrays": f"{origin}.npz"}
+        print(
+            json.dumps({"event": "annual_origin_complete", "origin": origin}),
+            flush=True,
+        )
+    atomic_json({"inputs": signature, "origins": results}, output / "COMPLETE.json")
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", required=True)
@@ -217,61 +280,7 @@ def main():
         torch.load(checkpoint, map_location="cuda", weights_only=False)["model"],
         strict=True,
     )
-    results = {}
-    for origin_path in origins:
-        description, raw = read_origin(origin_path.parent)
-        origin = description["origin"]
-        with torch.inference_mode(), torch.autocast("cuda", dtype=torch.bfloat16):
-            prediction, initial = model.forecast(*inputs(data, raw))
-        if prediction.shape[1] != 73 or not torch.isfinite(prediction).all():
-            raise ValueError(f"Nonfinite or incomplete annual rollout: {origin}")
-        physical = data.physical(prediction)
-        surface = physical[0, :, [38, 76]].cpu().numpy()
-        reference = np.concatenate([raw["surface"][19:], raw["velocity"][19:]], axis=1)
-        result = surface_metrics(surface, reference, data)
-        months, monthly_predictions, monthly_references = [], [], []
-        area = data.area.cpu().numpy()
-        for record in description["monthly_interiors"]:
-            path = origin_path.parent / record["file"]
-            if (
-                Path(record["file"]).name != record["file"]
-                or digest(path) != record["sha256"]
-            ):
-                raise ValueError("Monthly target hash/path mismatch")
-            month = path.name[:7]
-            weights = data.tensor(month_weights(raw["start"][19:], month))
-            state = (prediction * weights[None, :, None, None, None]).sum(1)
-            ohc = data.ohc(state)[0]
-            with np.load(path) as saved:
-                truth = np.where(np.isfinite(ohc), saved["ohc"], np.nan)
-            result.setdefault("monthly_ohc", {})[month] = {
-                label: weighted_rmse(ohc[i], truth[i], area)
-                for i, label in enumerate(("0_700", "700_2000"))
-            }
-            months.append(month)
-            monthly_predictions.append(ohc)
-            monthly_references.append(truth)
-        result["scope"] = (
-            "Single initialization; 73 five-day steps; no future surface corrections"
-        )
-        atomic_json(result, output / f"{origin}.json")
-        np.savez_compressed(
-            output / f"{origin}.npz",
-            surface=surface,
-            reference=reference,
-            initial=data.physical(initial)[0].cpu().numpy(),
-            state_at_leads=physical[0, [day // 5 - 1 for day in LEADS]].cpu().numpy(),
-            leads_days=LEADS,
-            months=months,
-            predicted_ohc=np.array(monthly_predictions),
-            reference_ohc=np.array(monthly_references),
-        )
-        results[origin] = {"metrics": f"{origin}.json", "arrays": f"{origin}.npz"}
-        print(
-            json.dumps({"event": "annual_origin_complete", "origin": origin}),
-            flush=True,
-        )
-    atomic_json({"inputs": signature, "origins": results}, output / "COMPLETE.json")
+    evaluate_origins(model, data, origins, output, signature)
 
 
 if __name__ == "__main__":

@@ -122,3 +122,15 @@ fine-tuning without fabricating missing interior labels; it does not yet qualify
 the complete monthly observational objective or establish GPU throughput.
 Seven targeted CPU tests pass. Queued qualification remains on its original
 immutable producer; these additions do not alter that allocation's code.
+
+
+## Observation-objective preparation — 26 September
+
+Added masked, area- and channel-balanced fair CRPS for independent trajectory
+ensembles using the existing monthly interior and five-day surface operators.
+CPU tests verify that monthly averaging precedes scoring, missing labels have
+zero gradient, unsupervised velocity/deep channels do not acquire invented labels,
+and temporal gradients follow the duration weights. Nine targeted CPU tests
+pass. This is observation-loss plumbing; real-grid sampler/rollout qualification
+and the production training harness remain outstanding. Qualification 206768
+remains queued on its original immutable code; no new allocation was submitted.

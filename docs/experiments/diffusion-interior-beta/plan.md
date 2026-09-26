@@ -83,6 +83,20 @@ loss: a masked monthly mean is not a fully observed instantaneous diffusion targ
 Sampling/aggregation and gradient estimators must be documented and paired with
 the deterministic control; no complete interior data are assumed at inference.
 
+The prepared observation-training objective samples independent complete trajectories,
+applies the existing duration-weighted monthly operator to each member, then
+scores only observed T/S and the existing five-day SST/SSH bins. Use fair CRPS
+with at least two independent members: mean absolute error minus the unbiased
+pairwise spread correction. This avoids the small-ensemble shrinkage bias of
+empirical CRPS; an individual fair estimate may be negative. Observation masks,
+physical scales and 0.8/0.1/0.1 interior/SST/SSH weights match upstream. Retain
+OM4 denoising replay for velocity and deep channels without observation labels.
+This changes the stochastic arm's objective from squared error to a proper
+probabilistic score; report that distinction and the ensemble-mean squared-error
+metrics rather than attributing any gain solely to architecture. Qualification
+must still establish real-grid sampling cost, stable gradient flow through frozen
+physical dynamics, and sampling-step convergence before production.
+
 Report initialization and days 5/15/30, next-month interiors, and the upstream
 one-year autoregressive diagnostic (no year-long backpropagation). Compare point
 RMSE/anomaly correlation, CRPS/coverage/ranks, depth/cross-variable covariance,

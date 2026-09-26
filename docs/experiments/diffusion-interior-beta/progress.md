@@ -162,3 +162,21 @@ and strict whole-model/optimizer reload. This measures implementation behavior
 and sampling cost; ten fitting updates cannot establish sampler convergence or
 scientific skill. Its optional Slurm stage uses unique job-specific output paths.
 The original queued qualification and its immutable producer remain unchanged.
+
+
+## Resumable OM4 runner prepared
+
+The A/B pretraining entry point now uses the existing Rust-backed frame cache and
+shared observation state scales. Production is gated on baseline reproduction and
+a matching arm/producer/data/source qualification, which is not yet available.
+It selects A by deterministic full-interior validation MSE and B by fixed-noise
+validation denoising loss; these are within-arm pretraining selection objectives,
+not comparable skill results. Observation-based final selection remains required.
+
+Optimizer-boundary checkpoints preserve full weights, optimizer and random-number
+state; data order is reconstructed from the completed update count. A CPU test
+with stochastic dropout confirms bitwise identical weights and optimizer state
+for interrupted/resumed versus uninterrupted training, and rejects changed
+protocols. Fifteen targeted tests pass. Cache preparation, GPU throughput and
+observation fine-tuning integration still require real allocation evidence; no
+production job has been submitted.

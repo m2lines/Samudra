@@ -130,3 +130,29 @@ Build 18581034 subsequently completed in five CPU seconds. Its new jobs are
 the probe is pending dependencies. Original 18580735 / 18580736 were cancelled
 while pending with zero elapsed allocation. All new-campaign GPU allocations
 remain zero at this checkpoint.
+
+### Prespecified mechanism comparisons
+
+Diagnostic producer `d67e600319222fea87d731c65d0b6e04774a285f` adds five annual
+conditions on each previous InstanceNorm selected checkpoint: unmodified;
+initial hidden state replaced with that model's training seasonal mean;
+initial velocity slots alone replaced with their training seasonal mean;
+hidden-state seasonal replacement immediately after day 30; and future ERA5
+forcing replaced with a training-only monthly climatology. Both SST/ADT state
+slots at both history times remain unchanged in the hidden-state replacements.
+The forcing intervention retains the original initialization/history inputs.
+
+Seasonal latent means come from all 243 training initializer outputs, grouped by
+the last history frame's calendar month. Forcing means use only the training
+NPZ inputs, deduplicating identical timestamps. Each model uses its own latent
+means; no cross-model state swaps or assumptions of physical identifiability.
+The day-30 replacement can be outside the evolved-state distribution and will
+be interpreted as a sensitivity diagnostic, not proof of a particular physical
+mechanism. These fixed comparisons use the same three previously inspected
+annual origins; they do not tune or reselect checkpoints.
+
+Six mechanism/annual tests passed, including observed-slot preservation,
+intervention timing and unmodified inputs. Runtime baseline forecasts must also
+match the native forecast path exactly. Commit checks passed. CPU build 18581137
+will submit the two one-hour-capped diagnostic jobs, charged to the new campaign's
+120 GPU-hour ceiling. Training remains pinned to its separate producer 50630959c.

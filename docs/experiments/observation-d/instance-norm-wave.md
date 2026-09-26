@@ -3,6 +3,9 @@
 
 # InstanceNorm follow-up: authorized execution plan
 
+**Completed:** [final comparison, maps and diagnostics](instance-norm-results-2026-09-26.md).
+The dated entries below preserve the execution history.
+
 25 September 2026. User authorized the follow-up with **existing OM4 forcings,
 ERA5 adapter and separate observation reconstruction retained**. No ERA5-for-OM4
 substitution. One seed initially. Unconstrained velocity/deep-state channels are

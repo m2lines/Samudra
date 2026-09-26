@@ -1892,3 +1892,26 @@ This supports a hidden-feedback drift explanation while exposing a spectral
 tradeoff; it is not an improved model under the selection objective. Full plots,
 metrics and intervention limitations are in the findings report. No timer has
 been re-enabled; monitoring remains within the three-day wall-time cap.
+
+
+### 26 September 15:41 UTC — automatic preemption recovery verified
+
+All three production jobs were preempted after roughly 30–35 minutes and Slurm
+requeued them on new H200 nodes. They are running with one recorded restart each;
+finite updates continued beyond the preserved checkpoint counts. This was recorded
+as PREEMPTED, not evidence of low-utilization root cancellation. All evaluation
+dependencies remain pending on the same job IDs. No manual restart or producer
+change was required.
+
+At this check, scratch had 482 observation updates, sequential had 902 OM4 updates,
+and mixed had 621 OM4 + 102 observation updates. The last 40 GPU-utilization samples
+(roughly ten minutes) averaged 82.4%, 94.7%, and 76.9%, respectively. Recent throughput
+was about 620 scratch, 1,405 OM4-only, and 1,058 early-mixture updates/hour. Scratch's
+remaining 15.5k updates project to about 25 hours at that rate, before further
+preemption overhead; this is a throughput estimate, not a completion guarantee.
+The source-containing arms' rate will slow as observation share grows.
+
+Accounting explicitly includes both allocation records for each requeued job:
+**3.3303 allocated GPU-hours** campaign total at 15:41:23 UTC. No completed
+production result is available yet, and unequal early exposure is not a fair
+performance comparison. Next routine check is around 16:40 UTC.

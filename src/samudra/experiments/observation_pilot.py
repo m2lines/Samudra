@@ -664,7 +664,7 @@ class Pilot:
                 self.wandb.finish()
 
 
-def main():
+def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--normalization", choices=["batch", "instance"], default="batch"
@@ -709,6 +709,11 @@ def main():
     parser.add_argument(
         "--wandb-mode", choices=["online", "offline", "disabled"], default="online"
     )
+    return parser
+
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
     for value in (
         args.accumulate,

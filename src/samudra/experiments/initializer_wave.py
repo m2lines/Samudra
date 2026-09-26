@@ -741,7 +741,7 @@ class InitializerWave(Experiment):
                 dist.destroy_process_group()
 
 
-def main():
+def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--normalization", choices=["batch", "instance"], default="batch"
@@ -784,6 +784,11 @@ def main():
     parser.add_argument(
         "--wandb-mode", choices=["online", "disabled", "offline"], default="online"
     )
+    return parser
+
+
+def main():
+    parser = build_parser()
     args = parser.parse_args()
     if args.hours <= 0 or args.accumulate < 1:
         parser.error("positive hours and accumulation required")

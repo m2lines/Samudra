@@ -15,7 +15,10 @@ from samudra.experiments import observation_evaluate as evaluation
 
 
 @pytest.mark.parametrize("scratch", [False, True])
-def test_control_weights_normalization_and_resume(tmp_path, monkeypatch, scratch):
+@pytest.mark.parametrize("selected_only", [False, True])
+def test_control_weights_normalization_and_resume(
+    tmp_path, monkeypatch, scratch, selected_only
+):
     run, output = tmp_path / "run", tmp_path / "evaluation"
     run.mkdir()
     (run / "TRAIN_COMPLETE.json").write_text("{}")
@@ -45,7 +48,8 @@ def test_control_weights_normalization_and_resume(tmp_path, monkeypatch, scratch
             return list(range(96))
 
     class Model:
-        def __init__(self, names, normalization="batch"):
+        def __init__(self, names, normalization="batch", evolution_architecture="d"):
+            assert evolution_architecture == "d"
             assert normalization in ("batch", "instance")
             self.weights = None
             self.adapter = [torch.nn.Conv2d(1, 1, 1)]
@@ -81,7 +85,10 @@ def test_control_weights_normalization_and_resume(tmp_path, monkeypatch, scratch
         },
     )
     monkeypatch.setattr(
-        sys, "argv", ["evaluate", "--run", str(run), "--output", str(output)]
+        sys,
+        "argv",
+        ["evaluate", "--run", str(run), "--output", str(output)]
+        + (["--selected-only"] if selected_only else []),
     )
     evaluation.main()
     selected_norm = "observations" if scratch else "source"
@@ -100,12 +107,25 @@ def test_control_weights_normalization_and_resume(tmp_path, monkeypatch, scratch
             {"anomaly": True},
         ),
     ]
-    assert len(calls) == 7
-    assert all(
-        weights == "source" and norm == "source" for _, weights, norm, _ in calls[3:]
-    )
+    expected_count = 4 if selected_only else 7
+    assert len(calls) == expected_count
+    if selected_only:
+        assert calls[3] == (
+            "seasonal-climatology",
+            "selected",
+            selected_norm,
+            {"climatology": True},
+        )
+        assert (
+            json.loads((output / "COMPLETE.json").read_text())["source_sha256"] is None
+        )
+    else:
+        assert all(
+            weights == "source" and norm == "source"
+            for _, weights, norm, _ in calls[3:]
+        )
     evaluation.main()
-    assert len(calls) == 7
+    assert len(calls) == expected_count
     signature = output / "evaluation-input.json"
     record = json.loads(signature.read_text())
     del record["evaluation_protocol"]

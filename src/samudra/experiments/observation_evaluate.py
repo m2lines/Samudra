@@ -21,6 +21,11 @@ def main():
     parser.add_argument("--run", required=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--split", choices=["validation", "test"], default="test")
+    parser.add_argument(
+        "--selected-only",
+        action="store_true",
+        help="Skip source-checkpoint controls for fresh single-loop runs",
+    )
     args = parser.parse_args()
     run, output = Path(args.run), Path(args.output)
     if not (run / "TRAIN_COMPLETE.json").exists():
@@ -32,7 +37,9 @@ def main():
         raise ValueError("Selected checkpoint checksum mismatch")
     output.mkdir(parents=True, exist_ok=True)
     fingerprint = {
-        "evaluation_protocol": "selected-and-source-initializer-controls-v2",
+        "evaluation_protocol": "selected-controls-v3"
+        if args.selected_only
+        else "selected-and-source-initializer-controls-v2",
         "checkpoint_sha256": digest(checkpoint),
         "split": args.split,
         "data_manifest_sha256": manifest["data_manifest_sha256"],
@@ -96,48 +103,63 @@ def main():
             paths, export=output / (label + ".npz"), **options
         )
         atomic_json(reference, output / (label + ".json"))
-    source = manifest["arguments"]["checkpoint"]
-    evaluator.data = Samples(manifest["arguments"]["data"], "cuda")
-    if manifest["arguments"].get("observation_normalization", False):
-        evaluator.data.use_observation_normalization()
-    evaluator.model.load_core(
-        torch.load(source, map_location="cpu", weights_only=False)["model"]
-    )
-    # Restore the initial zero-output adapter, independently of selected weights.
-    final_adapter = evaluator.model.adapter[-1]
-    assert isinstance(final_adapter, torch.nn.Conv2d) and final_adapter.bias is not None
-    torch.nn.init.zeros_(final_adapter.weight)
-    torch.nn.init.zeros_(final_adapter.bias)
-    for label, persistence in [
-        ("source-with-zero-forcing", False),
-        ("source-inferred-persistence", True),
-    ]:
-        if (output / (label + ".json")).exists() and (
-            output / (label + ".npz")
-        ).exists():
-            continue
-        reference = evaluator.evaluate(
-            paths, persistence=persistence, export=output / (label + ".npz")
+    source = None
+    if args.selected_only:
+        label = "seasonal-climatology"
+        if not (
+            (output / (label + ".json")).exists()
+            and (output / (label + ".npz")).exists()
+        ):
+            reference = evaluator.evaluate(
+                paths, climatology=True, export=output / (label + ".npz")
+            )
+            atomic_json(reference, output / (label + ".json"))
+    else:
+        source = manifest["arguments"]["checkpoint"]
+        evaluator.data = Samples(manifest["arguments"]["data"], "cuda")
+        if manifest["arguments"].get("observation_normalization", False):
+            evaluator.data.use_observation_normalization()
+        evaluator.model.load_core(
+            torch.load(source, map_location="cpu", weights_only=False)["model"]
         )
-        atomic_json(reference, output / (label + ".json"))
-    for label, options in [
-        ("seasonal-climatology", {"climatology": True}),
-        ("inferred-anomaly-persistence", {"anomaly": True}),
-    ]:
-        if (output / (label + ".json")).exists() and (
-            output / (label + ".npz")
-        ).exists():
-            continue
-        reference = evaluator.evaluate(
-            paths, export=output / (label + ".npz"), **options
+        # Restore the initial zero-output adapter, independently of selected weights.
+        final_adapter = evaluator.model.adapter[-1]
+        assert (
+            isinstance(final_adapter, torch.nn.Conv2d)
+            and final_adapter.bias is not None
         )
-        atomic_json(reference, output / (label + ".json"))
+        torch.nn.init.zeros_(final_adapter.weight)
+        torch.nn.init.zeros_(final_adapter.bias)
+        for label, persistence in [
+            ("source-with-zero-forcing", False),
+            ("source-inferred-persistence", True),
+        ]:
+            if (output / (label + ".json")).exists() and (
+                output / (label + ".npz")
+            ).exists():
+                continue
+            reference = evaluator.evaluate(
+                paths, persistence=persistence, export=output / (label + ".npz")
+            )
+            atomic_json(reference, output / (label + ".json"))
+        for label, options in [
+            ("seasonal-climatology", {"climatology": True}),
+            ("inferred-anomaly-persistence", {"anomaly": True}),
+        ]:
+            if (output / (label + ".json")).exists() and (
+                output / (label + ".npz")
+            ).exists():
+                continue
+            reference = evaluator.evaluate(
+                paths, export=output / (label + ".npz"), **options
+            )
+            atomic_json(reference, output / (label + ".json"))
     atomic_json(
         {
             "evaluation_protocol": fingerprint["evaluation_protocol"],
             "split": args.split,
             "origins": expected,
-            "source_sha256": digest(source),
+            "source_sha256": digest(source) if source else None,
             "selected_sha256": digest(checkpoint),
         },
         output / "COMPLETE.json",

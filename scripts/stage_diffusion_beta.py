@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 Samudra Authors
 # SPDX-License-Identifier: Apache-2.0
-"""Audit and register existing beta datasets without modifying their contents.
+"""Audit and register existing campaign datasets without modifying their contents.
 
 Run with the observation preparation Python environment (numpy/xarray/zarr).
 The half-degree store is exposed as targets only. No source weights or GPU jobs
@@ -115,9 +115,16 @@ def main():
         action="store_true",
         help="Verify half-degree and observation data while one-degree copy proceeds",
     )
+    parser.add_argument(
+        "--reuse-one-degree",
+        type=Path,
+        help="Use an existing, user-approved one-degree release; audit locally without claiming an OSN copy verification",
+    )
     args = parser.parse_args()
     root = args.root
     (root / "data").mkdir(parents=True, exist_ok=True)
+    if args.reuse_one_degree is not None:
+        link(root / "data/om4_onedeg_v3", args.reuse_one_degree)
     link(root / "data/om4_halfdeg_targets", args.half)
     link(root / "data/observations", args.observations / "samples")
     link(root / "data/annual_observations", args.observations / "annual-instance-v1")
@@ -170,7 +177,10 @@ def main():
         "baseline_ready": False,
     }
     if not args.existing_only:
-        if not (root / "data/OM4_COPY_VERIFIED.txt").is_file():
+        if (
+            args.reuse_one_degree is None
+            and not (root / "data/OM4_COPY_VERIFIED.txt").is_file()
+        ):
             raise ValueError("One-degree source read-back check is not complete")
         one, one_time, one_attrs = audit_store(
             root / "data/om4_onedeg_v3/OM4.zarr", [180, 360]
@@ -182,7 +192,9 @@ def main():
             "All 4745 numeric CF timestamps and their units/calendar are identical"
         )
         report["one_degree_copy_verification"] = (
-            "rclone check --download against the original OSN release"
+            "Existing local release approved by user; chunk presence and sample decoding only"
+            if args.reuse_one_degree is not None
+            else "rclone check --download against the original OSN release"
         )
     name = "EXISTING_DATA_VERIFIED.json" if args.existing_only else "DATA_READY.json"
     temporary = root / (name + ".tmp")

@@ -1,7 +1,35 @@
 <!-- SPDX-FileCopyrightText: 2026 Samudra Authors -->
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 
-# Beta data staging
+# Campaign data staging
+
+## Engaging migration
+
+The user approved moving the campaign to Engaging and reusing its existing OM4
+releases, including version differences from Torch. The destination is
+`/orcd/pool/008/jrusak/diffusion-interior-engaging`. Its pool had approximately
+520 GiB free when checked on September 26. Observation bundles and selected
+checkpoints are being copied; completion requires payload checksum verification.
+
+Reuse `/orcd/data/abodner/002/jrusak/om4_onedeg_v3` and
+`/orcd/data/abodner/002/jrusak/om4_halfdeg_v4`. The local staging audit records
+each release and checks chunks, sampled decoding, and timestamp alignment; it
+does not claim a full OSN read-back for these existing stores. Invoke
+`scripts/stage_diffusion_beta.py --reuse-one-degree PATH` with the Engaging
+root, half-degree, and observation paths.
+
+All campaign arms use the same local coarse release. For H0/H1, surface inputs,
+forcings, latent grid, observation targets, and common state normalization stay
+fixed; only diffusion targets change. Comparisons with older Torch results must
+identify the changed pretraining data. The selected observation checkpoint and
+observation evaluation bundles remain unchanged.
+
+The Engaging qualification launcher uses four independent tasks on one host,
+initially requesting preemptible L40S GPUs. Production suitability depends on
+measured memory and throughput. All allocated GPU time counts toward the same
+576 GPU-hour campaign cap across both clusters.
+
+## Original beta staging (historical)
 
 Campaign root: `/mnt/home/jrusak/data/diffusion-interior-beta`.
 

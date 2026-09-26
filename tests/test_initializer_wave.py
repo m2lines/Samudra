@@ -226,3 +226,65 @@ def test_streaming_reconstruction_decomposition_and_fixed_climatology(tmp_path):
     )
     snapshots = np.load(out / "snapshots-rank0.npz")
     assert {"0_prediction", "1_truth"} <= set(snapshots.files)
+
+
+def test_initial_only_reader_requests_surface_history_and_aligned_state_pair(
+    monkeypatch,
+):
+    experiment = InitializerWave.__new__(InitializerWave)
+    experiment.device = torch.device("cpu")
+    experiment.initializer = SimpleNamespace(surface=[2, 5])
+    experiment.names, experiment.channels = NAMES, 6
+    experiment.mask = torch.ones(6, 2, 4)
+    experiment.geo = geographic_features(
+        torch.tensor([-30.0, 30.0]), torch.arange(4).float()
+    )
+    experiment.bundle = SimpleNamespace(
+        data_layout=SimpleNamespace(boundary_var_names=["a", "b", "c"])
+    )
+    experiment.frame_caches, experiment.initial_views = {}, {}
+    dates = np.array(
+        [
+            cftime.DatetimeNoLeap(2000, 1, 1) + datetime.timedelta(days=5 * i)
+            for i in range(40)
+        ]
+    )
+    source = SimpleNamespace(time=SimpleNamespace(values=dates))
+    dataset = SimpleNamespace(sources=[source])
+    calls = []
+
+    def constructor(**kwargs):
+        return SimpleNamespace(**kwargs)
+
+    def loader(view, sampler):
+        ids = sampler[0]
+        calls.append((view.prognostic_var_names, view.input_steps, ids))
+        channels = torch.tensor([NAMES.index(n) for n in view.prognostic_var_names])
+        times = torch.tensor(ids)[:, None] + torch.arange(view.input_steps)
+        values = (
+            (times[:, :, None] * 10 + channels)
+            .float()[..., None, None]
+            .expand(-1, -1, -1, 2, 4)
+        )
+        boundary = (times + 100).float()[:, :, None, None, None].expand(-1, -1, 3, 2, 4)
+        return iter(
+            [
+                SimpleNamespace(
+                    get_initial_input=lambda: (
+                        values.flatten(1, 2),
+                        boundary.flatten(1, 2),
+                    )
+                )
+            ]
+        )
+
+    monkeypatch.setattr(
+        "samudra.experiments.initializer_wave.TorchTrainDataset", constructor
+    )
+    monkeypatch.setattr(experiment, "native_loader", loader)
+    surface, past, _, truth = experiment.initial_sample(dataset, [0, 3])
+    assert calls == [(["thetao_0", "zos"], 19, [0, 3]), (NAMES, 2, [17, 20])]
+    torch.testing.assert_close(surface[0, :, 0, 0, 0], torch.arange(19.0) * 10 + 2)
+    torch.testing.assert_close(past[1, :, 0, 0, 0], torch.arange(3.0, 22.0) + 100)
+    torch.testing.assert_close(truth[0, :, 0, 0, 0], torch.tensor([170.0, 180.0]))
+    torch.testing.assert_close(truth[1, :, 5, 0, 0], torch.tensor([205.0, 215.0]))

@@ -189,7 +189,7 @@ def main():
             wave.prepare(wave.valset)
 
         def loss(dataset, ids, seed):
-            surface, past, context, truth, _, _ = wave.model_sample(dataset, ids)
+            surface, past, context, truth = wave.model_initial_sample(dataset, ids)
             with torch.autocast("cuda", dtype=torch.bfloat16):
                 return model.pretraining_loss(
                     surface,

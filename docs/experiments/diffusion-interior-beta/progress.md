@@ -344,3 +344,17 @@ outputs, not the production comparison. The launchers can version their shell
 code separately through `LAUNCHER_COMMIT` while retaining the qualified Python
 producer in `CODE_COMMIT`; training still requires its qualification to match
 that exact Python producer.
+
+The first native-loader runner probe exposed a substantial read bottleneck:
+updates took roughly ten seconds with four concurrent tasks, compared with the
+subsecond in-memory OM4 fitting probe. Its generic rollout loader read full
+interior histories and future labels that A/B reconstruction did not consume.
+The probe was stopped before its 100-update cap to replace that path. It is not a
+completed fitting result; all allocated time remains charged to qualification.
+
+A/B now prepares two native Rust views: 19-frame surface/forcing history and the
+aligned two-frame full-state reconstruction target. Normalization and masking
+remain in the same native preparation path. Preparation asserts bitwise equality
+against the full reader at the first and last usable origins before allowing
+training. CPU tests cover history/channel/target alignment; real-data parity and
+throughput still require a new bounded runner probe.

@@ -178,6 +178,7 @@ class InitializerWave(Experiment):
             0, len(self.trainset) - 1, len(self.val_ids), dtype=int
         ).tolist()
         self.verified_sources = set()
+        self.initial_views = {}
         if self.rank == 0:
             extra = {
                 "state_scaling": self.scaling_contract,
@@ -237,6 +238,11 @@ class InitializerWave(Experiment):
             rtol=0,
             atol=0,
         )
+        compact = self.initial_sample(dataset, ids)
+        for actual, expected in zip(
+            compact, (surface, past, context, truth), strict=True
+        ):
+            torch.testing.assert_close(actual, expected, rtol=0, atol=0)
         self.verified_sources.add(key)
         self.emit(
             {
@@ -277,26 +283,81 @@ class InitializerWave(Experiment):
         context = torch.cat((self.geo.expand(len(ids), -1, -1, -1), season), 1)
         return surface, past, context, truth, forcing, labels
 
-    def model_sample(self, dataset, ids):
-        surface, past, context, truth, forcing, labels = self.sample(dataset, ids)
+    def initial_sample(self, dataset, ids):
+        """Read only surface history and the two reconstructed states for A/B.
+
+        Both views retain native Rust preparation, normalization and masking.
+        The generic full rollout reader remains the parity reference in prepare().
+        """
+        key = id(dataset.sources[0])
+        if key in self.frame_caches:
+            return self.sample(dataset, ids)[:4]
+        if key not in self.initial_views:
+
+            def view(names, history):
+                return TorchTrainDataset(
+                    input_source=dataset.sources[0],
+                    label_source=None,
+                    prognostic_var_names=names,
+                    boundary_var_names=self.bundle.data_layout.boundary_var_names,
+                    input_steps=history,
+                    output_steps=1,
+                    steps=1,
+                    normalize_before_mask=True,
+                    masked_fill_value=0.0,
+                )
+
+            self.initial_views[key] = (
+                view([self.names[i] for i in self.initializer.surface], 19),
+                view(self.names, 2),
+            )
+        surface_view, interior_view = self.initial_views[key]
+        surface_batch = next(iter(self.native_loader(surface_view, [ids])))
+        history, boundary = surface_batch.get_initial_input()
+        h, w = self.mask.shape[-2:]
+        surface = history.reshape(len(ids), 19, len(self.initializer.surface), h, w)
+        past = boundary.reshape(len(ids), 19, 3, h, w)
+        interior_batch = next(
+            iter(self.native_loader(interior_view, [[i + 17 for i in ids]]))
+        )
+        truth = interior_batch.get_initial_input()[0].reshape(
+            len(ids), 2, self.channels, h, w
+        )
+        dates = dataset.sources[0].time.values[np.asarray(ids) + 18]
+        phases = [2 * math.pi * (t.dayofyr - 1) / 365.25 for t in dates]
+        season = surface.new_tensor([[math.sin(p), math.cos(p)] for p in phases])
+        season = season[:, :, None, None].expand(-1, -1, h, w)
+        context = torch.cat((self.geo.expand(len(ids), -1, -1, -1), season), 1)
+        return surface, past, context, truth
+
+    def convert_state(self, values, channels):
         if self.scaling_contract is None:
-            return surface, past, context, truth, forcing, labels
+            return values
+        old_mean = self.native_mean[channels][None, None, :, None, None]
+        old_std = self.native_std[channels][None, None, :, None, None]
+        mean = self.mean[channels][None, None, :, None, None]
+        std = self.std[channels][None, None, :, None, None]
+        result = (values * old_std + old_mean - mean) / std
+        return result * self.mask[channels][None, None]
 
-        def convert(values, channels):
-            old_mean = self.native_mean[channels][None, None, :, None, None]
-            old_std = self.native_std[channels][None, None, :, None, None]
-            mean = self.mean[channels][None, None, :, None, None]
-            std = self.std[channels][None, None, :, None, None]
-            result = (values * old_std + old_mean - mean) / std
-            return result * self.mask[channels][None, None]
-
+    def model_initial_sample(self, dataset, ids):
+        surface, past, context, truth = self.initial_sample(dataset, ids)
         return (
-            convert(surface, self.initializer.surface),
+            self.convert_state(surface, self.initializer.surface),
             past,
             context,
-            convert(truth, slice(None)),
+            self.convert_state(truth, slice(None)),
+        )
+
+    def model_sample(self, dataset, ids):
+        surface, past, context, truth, forcing, labels = self.sample(dataset, ids)
+        return (
+            self.convert_state(surface, self.initializer.surface),
+            past,
+            context,
+            self.convert_state(truth, slice(None)),
             forcing,
-            convert(labels, slice(None)),
+            self.convert_state(labels, slice(None)),
         )
 
     def score(self, dataset, indices, forecast=False):

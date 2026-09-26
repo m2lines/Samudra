@@ -199,3 +199,14 @@ ensemble means. Replay defaults are one additional example every four updates
 at weight 0.1, recorded in the resume protocol along with reference/checkpoint
 hashes. Real-grid fine-tuning, replay memory cost and throughput remain unverified
 until GPU qualification; no production run has been submitted.
+
+
+Ensemble-report diagnostics now include area-weighted additive sums for mean
+squared error, unbiased member variance, empirical and fair CRPS, central 80/90%
+interval coverage and widths, and rank histograms with fractional tie handling.
+They apply the same monthly interior and five-day surface observation operators;
+missing observations do not contribute. Closed-form tests check score values,
+rank mass conservation and collapsed ensembles. Pooling uses sums and support
+weights rather than averaging unequal cohorts. Raw finite-ensemble coverage is
+reported with the member count; it is not a claim of resolved tail calibration.
+Eighteen targeted CPU tests pass; real forecast diagnostics are still pending.

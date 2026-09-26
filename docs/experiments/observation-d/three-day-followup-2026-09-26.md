@@ -69,3 +69,24 @@ Scratch usage is 4.04 TB of 5 TB (approximately 0.96 TB free). Prior InstanceNor
 results and all source checkpoints remain intact. The old monitor timer stays
 disabled; monitoring uses interruptible waits and meaningful updates, with
 previously authorized Slack blocker alerts if user action is required.
+
+
+### Initial implementation and diagnostic checkpoint
+
+Backbone producer `b9d6ebad9f240e5fd92f6e0bb86c4d774ccfe6ea` passed 18 tests
+and pre-commit checks. Build 18580732 completed; GPU qualifications 18580735 and
+18580736 are pending group CPU capacity. The new processor has 83,872,357
+parameters. Annual bias/anomaly producer `6d8a8d26b` passed two tests; CPU retry
+18580810 completed after correcting the interpreter used by failed 18580782.
+[Interim findings](three-day-findings-2026-09-26.md) already distinguish reduced
+bias from year-end predictive skill against training climatology.
+
+Implementation next: a single optimizer/loop for scratch, sequential and mixed
+controls; no reconstruction-only phase or best-weight reload at a task boundary.
+Preserve identical per-task sample order and exact per-task exposure counts
+across sequential/mixed arms. A deterministic cumulative schedule can implement
+an OM4-heavy to observation-heavy mixture while retaining OM4 at the end. Keep
+legacy model loading/evaluation unchanged; checkpoint manifests now carry
+`evolution_architecture` and strict qualification checks. New loop qualification
+and resume tests are required before production. Production counts/rates remain
+unfrozen until real throughput is measured.

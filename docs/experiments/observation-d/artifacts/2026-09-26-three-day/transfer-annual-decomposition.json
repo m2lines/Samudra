@@ -1,0 +1,397 @@
+{
+  "evaluation_completion_sha256": "1ab1c2afb4bd82042356121af2fe00d3af36b59e875b5226ea7d44599ea1d508",
+  "statistics_sha256": "7688d483d4c87a8ce0e2f27a1a342db93eecb3e892187506475d6970e865c001",
+  "scope": "Read-only diagnostic; no selection changes. Climatology from training statistics. Within-year bias decomposition is a descriptive identity, not a fitted forecast.",
+  "origins": {
+    "2015-01-01": {
+      "sst": {
+        "temporal_decomposition": {
+          "mse": 1.013365727303574,
+          "within_year_temporal_mean_bias_mse": 0.5166722918045915,
+          "within_year_temporal_anomaly_error_mse": 0.49669343889074763,
+          "temporal_mean_bias_fraction": 0.5098576731812166
+        },
+        "leads": {
+          "5": {
+            "rmse": 0.38407031187216034,
+            "spatial_mean_bias": -0.0351484306444103,
+            "bias_removed_rmse": 0.3824586147306404,
+            "climatology_rmse": 0.9206062880906515,
+            "prediction_anomaly_rms": 0.8310052253780112,
+            "reference_anomaly_rms": 0.9206062880906515,
+            "centered_anomaly_correlation": 0.9066348055429255
+          },
+          "15": {
+            "rmse": 0.5224875098386174,
+            "spatial_mean_bias": -0.07383089647809726,
+            "bias_removed_rmse": 0.517244812227957,
+            "climatology_rmse": 0.8670993224639097,
+            "prediction_anomaly_rms": 0.6607365933993097,
+            "reference_anomaly_rms": 0.8670993224639097,
+            "centered_anomaly_correlation": 0.7875018223616634
+          },
+          "30": {
+            "rmse": 0.6139318642989812,
+            "spatial_mean_bias": -0.14102644823086305,
+            "bias_removed_rmse": 0.5975147500986979,
+            "climatology_rmse": 0.9704321180403381,
+            "prediction_anomaly_rms": 0.6715829445770576,
+            "reference_anomaly_rms": 0.9704321180403381,
+            "centered_anomaly_correlation": 0.7562833402421819
+          },
+          "90": {
+            "rmse": 0.7733213360712232,
+            "spatial_mean_bias": -0.17561285636942195,
+            "bias_removed_rmse": 0.7531175277606194,
+            "climatology_rmse": 0.8390958028794634,
+            "prediction_anomaly_rms": 0.731833873788185,
+            "reference_anomaly_rms": 0.8390958028794634,
+            "centered_anomaly_correlation": 0.5076787576783226
+          },
+          "180": {
+            "rmse": 1.069911521252955,
+            "spatial_mean_bias": -0.2316864447991046,
+            "bias_removed_rmse": 1.044524797025979,
+            "climatology_rmse": 1.0165179080199729,
+            "prediction_anomaly_rms": 1.127645830052588,
+            "reference_anomaly_rms": 1.0165179080199729,
+            "centered_anomaly_correlation": 0.5150345013128876
+          },
+          "365": {
+            "rmse": 1.3205454614477228,
+            "spatial_mean_bias": -0.4687108294644196,
+            "bias_removed_rmse": 1.234564891122968,
+            "climatology_rmse": 1.1636363102279124,
+            "prediction_anomaly_rms": 1.2480595707190714,
+            "reference_anomaly_rms": 1.1636363102279124,
+            "centered_anomaly_correlation": 0.41938380644237444
+          }
+        }
+      },
+      "adt": {
+        "temporal_decomposition": {
+          "mse": 0.01472007490810147,
+          "within_year_temporal_mean_bias_mse": 0.008140216503882532,
+          "within_year_temporal_anomaly_error_mse": 0.006579858378572146,
+          "temporal_mean_bias_fraction": 0.5530010244310924
+        },
+        "leads": {
+          "5": {
+            "rmse": 0.03352437324470166,
+            "spatial_mean_bias": -0.02493612138220053,
+            "bias_removed_rmse": 0.022406995615949485,
+            "climatology_rmse": 0.08551251445205689,
+            "prediction_anomaly_rms": 0.07438651804977094,
+            "reference_anomaly_rms": 0.08551251445205689,
+            "centered_anomaly_correlation": 0.9566742395991333
+          },
+          "15": {
+            "rmse": 0.05500218881849081,
+            "spatial_mean_bias": -0.03060910978229304,
+            "bias_removed_rmse": 0.04569817474818527,
+            "climatology_rmse": 0.08336988617016355,
+            "prediction_anomaly_rms": 0.06522922159834743,
+            "reference_anomaly_rms": 0.08336988617016355,
+            "centered_anomaly_correlation": 0.7923780543863075
+          },
+          "30": {
+            "rmse": 0.06915434111593807,
+            "spatial_mean_bias": -0.036319951722870294,
+            "bias_removed_rmse": 0.05884882314243216,
+            "climatology_rmse": 0.0828859510846733,
+            "prediction_anomaly_rms": 0.059252672889811,
+            "reference_anomaly_rms": 0.0828859510846733,
+            "centered_anomaly_correlation": 0.6292526170612418
+          },
+          "90": {
+            "rmse": 0.09649388005855483,
+            "spatial_mean_bias": -0.04487475063019578,
+            "bias_removed_rmse": 0.0854243856115038,
+            "climatology_rmse": 0.09084247821963855,
+            "prediction_anomaly_rms": 0.0667208682621055,
+            "reference_anomaly_rms": 0.09084247821963855,
+            "centered_anomaly_correlation": 0.3380728319247379
+          },
+          "180": {
+            "rmse": 0.12271840357988895,
+            "spatial_mean_bias": -0.044471012255257715,
+            "bias_removed_rmse": 0.11437716385985205,
+            "climatology_rmse": 0.09384721406780754,
+            "prediction_anomaly_rms": 0.09023946204054795,
+            "reference_anomaly_rms": 0.09384721406780754,
+            "centered_anomaly_correlation": 0.13832151656762642
+          },
+          "365": {
+            "rmse": 0.15339176743230432,
+            "spatial_mean_bias": -0.04703565252615404,
+            "bias_removed_rmse": 0.14600233508546176,
+            "climatology_rmse": 0.10176771292667092,
+            "prediction_anomaly_rms": 0.11632464566878553,
+            "reference_anomaly_rms": 0.10176771292667092,
+            "centered_anomaly_correlation": 0.02856528040836166
+          }
+        }
+      }
+    },
+    "2018-01-01": {
+      "sst": {
+        "temporal_decomposition": {
+          "mse": 0.9960966355287715,
+          "within_year_temporal_mean_bias_mse": 0.4974051832522374,
+          "within_year_temporal_anomaly_error_mse": 0.4986914543239856,
+          "temporal_mean_bias_fraction": 0.49935434526208705
+        },
+        "leads": {
+          "5": {
+            "rmse": 0.4036248279124456,
+            "spatial_mean_bias": -0.1001412639966492,
+            "bias_removed_rmse": 0.3910047670787337,
+            "climatology_rmse": 0.9083639433731546,
+            "prediction_anomaly_rms": 0.8365443513640369,
+            "reference_anomaly_rms": 0.9083639433731546,
+            "centered_anomaly_correlation": 0.8991874571573019
+          },
+          "15": {
+            "rmse": 0.5034654588957393,
+            "spatial_mean_bias": -0.14833592962519543,
+            "bias_removed_rmse": 0.4811173661353861,
+            "climatology_rmse": 0.7761870355631804,
+            "prediction_anomaly_rms": 0.610519711461524,
+            "reference_anomaly_rms": 0.7761870355631804,
+            "centered_anomaly_correlation": 0.7628040371228891
+          },
+          "30": {
+            "rmse": 0.5818041407897024,
+            "spatial_mean_bias": -0.18407696139403487,
+            "bias_removed_rmse": 0.5519164149910717,
+            "climatology_rmse": 0.9162128604401599,
+            "prediction_anomaly_rms": 0.6526617777143734,
+            "reference_anomaly_rms": 0.9162128604401599,
+            "centered_anomaly_correlation": 0.7660861607654521
+          },
+          "90": {
+            "rmse": 0.7664835466263943,
+            "spatial_mean_bias": -0.19632951458700124,
+            "bias_removed_rmse": 0.7409127821610398,
+            "climatology_rmse": 0.7838705445511438,
+            "prediction_anomaly_rms": 0.6911879544402204,
+            "reference_anomaly_rms": 0.7838705445511438,
+            "centered_anomaly_correlation": 0.4672732565998036
+          },
+          "180": {
+            "rmse": 1.086814346990531,
+            "spatial_mean_bias": -0.18674165219091915,
+            "bias_removed_rmse": 1.0706507296707712,
+            "climatology_rmse": 0.8765724440411229,
+            "prediction_anomaly_rms": 1.0702296488441103,
+            "reference_anomaly_rms": 0.8765724440411229,
+            "centered_anomaly_correlation": 0.3929882203664588
+          },
+          "365": {
+            "rmse": 1.2464738029242493,
+            "spatial_mean_bias": -0.3552195276122322,
+            "bias_removed_rmse": 1.1947870222517194,
+            "climatology_rmse": 0.932140703376584,
+            "prediction_anomaly_rms": 1.2103005742899473,
+            "reference_anomaly_rms": 0.932140703376584,
+            "centered_anomaly_correlation": 0.3640311304227692
+          }
+        }
+      },
+      "adt": {
+        "temporal_decomposition": {
+          "mse": 0.014501919718424364,
+          "within_year_temporal_mean_bias_mse": 0.008234527254813407,
+          "within_year_temporal_anomaly_error_mse": 0.006267392470203974,
+          "temporal_mean_bias_fraction": 0.5678232547620315
+        },
+        "leads": {
+          "5": {
+            "rmse": 0.04264172462989922,
+            "spatial_mean_bias": -0.03576886783668722,
+            "bias_removed_rmse": 0.023214322582361283,
+            "climatology_rmse": 0.09214814480947406,
+            "prediction_anomaly_rms": 0.07402780289060219,
+            "reference_anomaly_rms": 0.09214814480947406,
+            "centered_anomaly_correlation": 0.9516244989030792
+          },
+          "15": {
+            "rmse": 0.06080572122253117,
+            "spatial_mean_bias": -0.04103233325419701,
+            "bias_removed_rmse": 0.044874083454204614,
+            "climatology_rmse": 0.09056683539922895,
+            "prediction_anomaly_rms": 0.0658874825580828,
+            "reference_anomaly_rms": 0.09056683539922895,
+            "centered_anomaly_correlation": 0.8025645470650977
+          },
+          "30": {
+            "rmse": 0.07317928649801902,
+            "spatial_mean_bias": -0.0440862162122614,
+            "bias_removed_rmse": 0.05840901911086419,
+            "climatology_rmse": 0.09009124325354215,
+            "prediction_anomaly_rms": 0.0625071314700126,
+            "reference_anomaly_rms": 0.09009124325354215,
+            "centered_anomaly_correlation": 0.6582085091579828
+          },
+          "90": {
+            "rmse": 0.09572673632268243,
+            "spatial_mean_bias": -0.048291055554485936,
+            "bias_removed_rmse": 0.08265338475756437,
+            "climatology_rmse": 0.08805658858553812,
+            "prediction_anomaly_rms": 0.062092966650951764,
+            "reference_anomaly_rms": 0.08805658858553812,
+            "centered_anomaly_correlation": 0.26786778025006464
+          },
+          "180": {
+            "rmse": 0.12318241810479155,
+            "spatial_mean_bias": -0.05034464615737811,
+            "bias_removed_rmse": 0.11242475142989235,
+            "climatology_rmse": 0.08919853057672378,
+            "prediction_anomaly_rms": 0.08993051168878757,
+            "reference_anomaly_rms": 0.08919853057672378,
+            "centered_anomaly_correlation": 0.07053112898203734
+          },
+          "365": {
+            "rmse": 0.15185131953680536,
+            "spatial_mean_bias": -0.054971305740439035,
+            "bias_removed_rmse": 0.14155203550502932,
+            "climatology_rmse": 0.09214511498931734,
+            "prediction_anomaly_rms": 0.11754316664627378,
+            "reference_anomaly_rms": 0.09214511498931734,
+            "centered_anomaly_correlation": -0.02351551355762173
+          }
+        }
+      }
+    },
+    "2021-01-01": {
+      "sst": {
+        "temporal_decomposition": {
+          "mse": 1.0408342529740076,
+          "within_year_temporal_mean_bias_mse": 0.5478294157686792,
+          "within_year_temporal_anomaly_error_mse": 0.49300483896806074,
+          "temporal_mean_bias_fraction": 0.52633684393394
+        },
+        "leads": {
+          "5": {
+            "rmse": 0.3735695642336441,
+            "spatial_mean_bias": -0.11968643545857305,
+            "bias_removed_rmse": 0.3538776292647596,
+            "climatology_rmse": 0.9486614716301698,
+            "prediction_anomaly_rms": 0.8523835351530712,
+            "reference_anomaly_rms": 0.9486614716301698,
+            "centered_anomaly_correlation": 0.924739602239125
+          },
+          "15": {
+            "rmse": 0.5441789206057679,
+            "spatial_mean_bias": -0.15475705978272974,
+            "bias_removed_rmse": 0.5217096414266243,
+            "climatology_rmse": 0.9065109785233598,
+            "prediction_anomaly_rms": 0.679621703470753,
+            "reference_anomaly_rms": 0.9065109785233598,
+            "centered_anomaly_correlation": 0.8015304877484428
+          },
+          "30": {
+            "rmse": 0.5647923698374733,
+            "spatial_mean_bias": -0.19024704194953546,
+            "bias_removed_rmse": 0.5317861260958424,
+            "climatology_rmse": 0.8650861117890196,
+            "prediction_anomaly_rms": 0.588530312497532,
+            "reference_anomaly_rms": 0.8650861117890196,
+            "centered_anomaly_correlation": 0.749626396583783
+          },
+          "90": {
+            "rmse": 0.7770813141809613,
+            "spatial_mean_bias": -0.22336940347309497,
+            "bias_removed_rmse": 0.7442858876212679,
+            "climatology_rmse": 0.7588352413075095,
+            "prediction_anomaly_rms": 0.675829835988296,
+            "reference_anomaly_rms": 0.7588352413075095,
+            "centered_anomaly_correlation": 0.42000636546546644
+          },
+          "180": {
+            "rmse": 1.0669093188752052,
+            "spatial_mean_bias": -0.3419353990097666,
+            "bias_removed_rmse": 1.0106313287851698,
+            "climatology_rmse": 0.9534721421862821,
+            "prediction_anomaly_rms": 1.1679970182755977,
+            "reference_anomaly_rms": 0.9534721421862821,
+            "centered_anomaly_correlation": 0.5444924698904566
+          },
+          "365": {
+            "rmse": 1.3048945273751866,
+            "spatial_mean_bias": -0.40773502708049075,
+            "bias_removed_rmse": 1.2395571275563189,
+            "climatology_rmse": 1.0159985183441402,
+            "prediction_anomaly_rms": 1.236741961765554,
+            "reference_anomaly_rms": 1.0159985183441402,
+            "centered_anomaly_correlation": 0.37061495982695375
+          }
+        }
+      },
+      "adt": {
+        "temporal_decomposition": {
+          "mse": 0.01578228759138564,
+          "within_year_temporal_mean_bias_mse": 0.009520466579004502,
+          "within_year_temporal_anomaly_error_mse": 0.006261821059114408,
+          "temporal_mean_bias_fraction": 0.603237428280106
+        },
+        "leads": {
+          "5": {
+            "rmse": 0.047950150461743474,
+            "spatial_mean_bias": -0.04139564059446439,
+            "bias_removed_rmse": 0.02419954275817669,
+            "climatology_rmse": 0.10398251929408552,
+            "prediction_anomaly_rms": 0.08026597393267863,
+            "reference_anomaly_rms": 0.10398251929408552,
+            "centered_anomaly_correlation": 0.9547178874063746
+          },
+          "15": {
+            "rmse": 0.06482358413223631,
+            "spatial_mean_bias": -0.045606687424146974,
+            "bias_removed_rmse": 0.04606655104414398,
+            "climatology_rmse": 0.10165025615080149,
+            "prediction_anomaly_rms": 0.07210073041487783,
+            "reference_anomaly_rms": 0.10165025615080149,
+            "centered_anomaly_correlation": 0.8187398643515794
+          },
+          "30": {
+            "rmse": 0.0770858042498422,
+            "spatial_mean_bias": -0.048538209064599686,
+            "bias_removed_rmse": 0.059885419596109796,
+            "climatology_rmse": 0.10216583318882384,
+            "prediction_anomaly_rms": 0.0665827250946989,
+            "reference_anomaly_rms": 0.10216583318882384,
+            "centered_anomaly_correlation": 0.6864472242599766
+          },
+          "90": {
+            "rmse": 0.10181999363851148,
+            "spatial_mean_bias": -0.056765281179057825,
+            "bias_removed_rmse": 0.08452818436891119,
+            "climatology_rmse": 0.1002563177663423,
+            "prediction_anomaly_rms": 0.0652213171213487,
+            "reference_anomaly_rms": 0.1002563177663423,
+            "centered_anomaly_correlation": 0.3181556688908957
+          },
+          "180": {
+            "rmse": 0.13020603421608626,
+            "spatial_mean_bias": -0.06440661698435614,
+            "bias_removed_rmse": 0.1131609428433872,
+            "climatology_rmse": 0.10109210643907825,
+            "prediction_anomaly_rms": 0.09015872521731445,
+            "reference_anomaly_rms": 0.10109210643907825,
+            "centered_anomaly_correlation": 0.08184303270051992
+          },
+          "365": {
+            "rmse": 0.15556621244291793,
+            "spatial_mean_bias": -0.06712545245352941,
+            "bias_removed_rmse": 0.14033894727313156,
+            "climatology_rmse": 0.10372162380002231,
+            "prediction_anomaly_rms": 0.1217274640850467,
+            "reference_anomaly_rms": 0.10372162380002231,
+            "centered_anomaly_correlation": 0.090303982435253
+          }
+        }
+      }
+    }
+  }
+}

@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import dataclasses
 import datetime
 from types import SimpleNamespace
 
@@ -249,7 +250,15 @@ def test_initial_only_reader_requests_surface_history_and_aligned_state_pair(
             for i in range(40)
         ]
     )
-    source = SimpleNamespace(time=SimpleNamespace(values=dates))
+    from samudra.constants import build_om4_layout
+    from samudra.utils.data import Masks
+
+    source_type = dataclasses.make_dataclass("Source", ["time", "masks", "data_layout"])
+    source = source_type(
+        SimpleNamespace(values=dates),
+        Masks(experiment.mask, torch.ones(3, 2, 4)),
+        dataclasses.replace(build_om4_layout(), prognostic_var_names=NAMES),
+    )
     dataset = SimpleNamespace(sources=[source])
     calls = []
 
@@ -258,6 +267,13 @@ def test_initial_only_reader_requests_surface_history_and_aligned_state_pair(
 
     def loader(view, sampler):
         ids = sampler[0]
+        assert view.input_source.masks.prognostic.shape[0] == len(
+            view.prognostic_var_names
+        )
+        assert (
+            view.input_source.data_layout.prognostic_var_names
+            == view.prognostic_var_names
+        )
         calls.append((view.prognostic_var_names, view.input_steps, ids))
         channels = torch.tensor([NAMES.index(n) for n in view.prognostic_var_names])
         times = torch.tensor(ids)[:, None] + torch.arange(view.input_steps)

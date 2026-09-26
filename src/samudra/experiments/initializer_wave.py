@@ -6,6 +6,7 @@
 
 import argparse
 import contextlib
+import dataclasses
 import datetime
 import hashlib
 import json
@@ -295,8 +296,19 @@ class InitializerWave(Experiment):
         if key not in self.initial_views:
 
             def view(names, history):
+                source = dataset.sources[0]
+                indices = [self.names.index(name) for name in names]
+                source = dataclasses.replace(
+                    source,
+                    masks=dataclasses.replace(
+                        source.masks, prognostic=source.masks.prognostic[indices]
+                    ),
+                    data_layout=dataclasses.replace(
+                        source.data_layout, prognostic_var_names=list(names)
+                    ),
+                )
                 return TorchTrainDataset(
-                    input_source=dataset.sources[0],
+                    input_source=source,
                     label_source=None,
                     prognostic_var_names=names,
                     boundary_var_names=self.bundle.data_layout.boundary_var_names,

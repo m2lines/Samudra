@@ -358,3 +358,9 @@ remain in the same native preparation path. Preparation asserts bitwise equality
 against the full reader at the first and last usable origins before allowing
 training. CPU tests cover history/channel/target alignment; real-data parity and
 throughput still require a new bounded runner probe.
+
+The first narrowed-reader probe failed before fitting because its two-channel
+surface view still carried the full 77-channel mask. The immutable source view
+now subsets both its prognostic mask and channel layout. The regression fixture
+checks those dimensions as well as the requested history and target indices.
+Real-data bitwise parity remains a required startup gate for the replacement run.

@@ -364,3 +364,37 @@ surface view still carried the full 77-channel mask. The immutable source view
 now subsets both its prognostic mask and channel layout. The regression fixture
 checks those dimensions as well as the requested history and target indices.
 Real-data bitwise parity remains a required startup gate for the replacement run.
+
+## Production runner qualified; first-wave caps
+
+All four narrowed-reader OM4 probes completed 100 updates, final validation, and
+checkpoint writes. Both training and validation startup checks passed exact
+parity against the full reader. Observed update intervals were 2.61–2.63 seconds,
+versus 10.01–11.75 seconds in the stopped full-reader probe. These runs used
+different nodes/cache histories, so the timing ratio is operational evidence,
+not an isolated benchmark of storage behavior. The completed allocation lasted
+346 seconds. All four subsequent two-update observation probes also completed,
+including loading selected pretraining weights, fixed validation, masked losses,
+OM4 replay, and checkpoints; their allocation lasted 80 seconds.
+
+The first production wave uses A/B with paired seeds 1729 and 1730, batch size
+one, AdamW learning rate 1e-4, native Rust loading with four reader threads, and
+the qualified Python producer `bdc1e62b2`. B uses 16 sampling steps, two training
+members and eight validation members. Observation replay remains every fourth
+update at weight 0.1. Checkpoints save every 100 updates; validation runs every
+500 updates plus the initial/final checks. Selection remains validation-only.
+
+- OM4 pretraining: at most 12,000 updates or 11 training hours per arm; the
+  four-GPU allocation has a 12-hour walltime cap (48 GPU-hours maximum).
+- Observation fine-tuning: at most 6,000 updates or 7 training hours per arm,
+  with at most 8 walltime hours per GPU (32 GPU-hours maximum for all four).
+  Submit after checking pretraining results; these phases belong to the same
+  authorized A/B wave.
+- These 80 allocated GPU-hours fit inside the 120-hour A/B planning ceiling.
+  Qualification, failed attempts, evaluations and any preemption/restarts are
+  charged separately against their reserves and the 576-hour total. Revisit
+  sampling-step convergence on trained weights before scientific conclusions.
+
+Completed setup/probe allocations through the observation-runner check total
+1.2078 GPU-hours. These short fitting runs are execution probes, not the A/B
+scientific comparison, and do not replace the planned held-out report.

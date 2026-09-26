@@ -1,0 +1,46 @@
+{
+  "scope": "Synthetic 8x12 all-wet patch; known surface channels anchored to zero. Not a quantitative real-ocean noise floor.",
+  "unknown_channels": 150,
+  "stem_rank": 64,
+  "constant_channel_nullity": 86,
+  "stem_perturbation_max": 3.641471266746521e-07,
+  "denoising": [
+    {
+      "sigma": 0.01,
+      "maximum_absolute_identity_error": 5.057081580162048e-07
+    },
+    {
+      "sigma": 0.1,
+      "maximum_absolute_identity_error": 9.424984455108643e-07
+    },
+    {
+      "sigma": 1.0,
+      "maximum_absolute_identity_error": 3.3974647521972656e-06
+    },
+    {
+      "sigma": 10.0,
+      "maximum_absolute_identity_error": 1.2636191968340427e-06
+    },
+    {
+      "sigma": 80.0,
+      "maximum_absolute_identity_error": 1.266896333618206e-06
+    }
+  ],
+  "sampling": [
+    {
+      "steps": 8,
+      "initial_unit_noise_survival": 1.2995643615722656,
+      "off_direction_relative_norm": 9.426818905922119e-06
+    },
+    {
+      "steps": 16,
+      "initial_unit_noise_survival": 1.0583486557006836,
+      "off_direction_relative_norm": 3.622798431024421e-06
+    },
+    {
+      "steps": 32,
+      "initial_unit_noise_survival": 1.012716293334961,
+      "off_direction_relative_norm": 3.034978362848051e-06
+    }
+  ]
+}

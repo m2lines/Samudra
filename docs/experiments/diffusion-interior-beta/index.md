@@ -4,7 +4,8 @@
 # Joint interior diffusion and latent evolution
 
 Authorized 25 September 2026; total ceiling **576 allocated GPU-hours**, including
-qualification, evaluation, unsuccessful attempts and repeats. Results are pending.
+qualification, evaluation, unsuccessful attempts and repeats. A/B results are complete;
+later waves await the report/approval gate.
 
 This campaign depends on the final model/checkpoint decision from thread
 `01a0d027-0851-7213-a64e-f1d40d40e64d`, tracked in [PR #892](https://github.com/m2lines/Samudra/pull/892).
@@ -26,13 +27,14 @@ user-approved local OM4 releases; the original branch and report links are retai
 
 ## A/B: full-state initialization
 
-Upstream baseline and observations verified on Engaging. Baseline, observation-
-gradient, native-reader parity and end-to-end runner probes passed. Production
-OM4 pretraining for A/B completed 12,000 updates at each of two paired seeds.
-All four observation runs also completed 6,000 updates. Held-out reporting is
-underway after a readiness-gate correction. [Pretraining sampler sensitivity
-records](trained-sampling.json).
-No held-out comparative results are available yet.
+[Read the A/B report, controls, maps and next-wave proposal](ab-results.md).
+
+B improves monthly interior CRPS but worsens mean-field accuracy. Native controls
+show poor B initialization and the trained decoder has a demonstrated synthetic
+noise bottleneck. Neither A nor B beats the selected upstream composite reference.
+The report recommends a bounded decoder-repair comparison before latent evolution.
+Completed allocations total **21.4211 GPU-hours**; no training job remains active.
+
 
 ## C/D: latent evolution
 

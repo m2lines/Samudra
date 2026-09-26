@@ -540,3 +540,18 @@ and standardized MSE plus wet-area support. This is a model-world diagnostic,
 including velocity/deep-state retention, not observed velocity ground truth.
 The launcher caps four L40S GPUs at one hour (four GPU-hours maximum); no control
 results are claimed before execution.
+
+## A/B report and controls complete
+
+The corrected held-out report and all eight native controls completed. Full
+report copies and native CSVs were hash-verified. [The report](ab-results.md)
+contains monthly/annual point scores, fair CRPS, finite-ensemble calibration,
+three fixed-date four-panel maps, before/after native controls, and a numerical
+trained-decoder noise counterexample. A/B did not beat the upstream composite
+reference. The CRPS benefit is qualified by poor native initialization and a
+structural decoder limitation.
+
+Total completed allocations are **21.4211 GPU-hours**. No GPU job remains active.
+The recommended next wave is a matched width-64/192 A/B OM4-only comparison,
+capped at 32 additional GPU-hours; approval is pending. C/D, H and E remain
+unsubmitted. H still changes diffusion targets only.

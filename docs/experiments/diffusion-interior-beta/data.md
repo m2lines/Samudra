@@ -9,7 +9,11 @@ The user approved moving the campaign to Engaging and reusing its existing OM4
 releases, including version differences from Torch. The destination is
 `/orcd/pool/008/jrusak/diffusion-interior-engaging`. Its pool had approximately
 520 GiB free when checked on September 26. Observation bundles and selected
-checkpoints are being copied; completion requires payload checksum verification.
+checkpoints have been copied and verified: all 350 monthly and 416 annual payloads
+passed checksum checks, and both the selected reference and pre-observation
+source checkpoint hashes match. Each OM4 store passed completeness checks for
+379,625 chunks, sampled decoding, and exact alignment of all 4,745 timestamps.
+The coarse normalization copy matches its beta source across all 900 files.
 
 Reuse `/orcd/data/abodner/002/jrusak/om4_onedeg_v3` and
 `/orcd/data/abodner/002/jrusak/om4_halfdeg_v4`. The local staging audit records

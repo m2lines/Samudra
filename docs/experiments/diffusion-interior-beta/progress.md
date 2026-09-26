@@ -265,3 +265,25 @@ member before scoring; a test distinguishes this from averaging instantaneous
 scores. This command neither selects on held-out scores nor replaces the annual
 rollout, structural diagnostics, controls, figures or final scientific report.
 No completed A/B weights are available yet to run it.
+
+
+## Engaging staging complete; qualification submitted
+
+The destination audit completed successfully on September 26: 350 monthly and
+416 annual observation payloads match their recorded checksums; both checkpoint
+hashes match the selected handoff; one- and half-degree OM4 stores each contain
+379,625 declared chunks with matching 4,745-frame CF times and sampled field
+decoding. The reused local one-degree fields occupy 98,393,557,082 payload bytes;
+half-degree fields occupy 393,574,212,039 bytes. The copied normalization stores
+match beta across all 900 files.
+
+The x86 runtime executes on compute nodes and its Rust read pool constructs
+successfully. The transfer-node build job created the image but failed its final
+execution check because user namespaces are disabled there; compute-node checks
+resolved that issue without rebuilding.
+
+The first Engaging qualification requests four L40S GPUs on one host for at most
+30 minutes (2 allocated GPU-hours). It is pending priority at this update. The
+immutable qualification producer is `ef1d351e8`; later reporting-only changes do
+not alter that producer. The earlier beta job was canceled before allocation.
+Data readiness, runtime checks and submission are not scientific results.

@@ -1951,3 +1951,16 @@ reload, or new phase job was introduced. This verifies operational transition,
 not final transfer benefit. At the 21:44 accounting snapshot, campaign use was
 19.8431 GPU-hours including every preempted allocation. Scratch was at 3,187
 observations and mixed at 3,886 OM4 + 1,265 observations; all three remained live.
+
+
+### 26 September 22:48 UTC — early source-task retention evidence
+
+Added raw validation retention evidence to the findings report. Sequential OM4
+T/S MSE increases from 0.00473 at the 8k OM4 boundary to 0.66556 after 100
+observations, while mixed remains at 0.00591 with 4,287 OM4 + 1,513 observations.
+The report labels these unequal-exposure, unselected snapshots and does not infer
+long-range observation benefit from source retention. It also distinguishes
+initializer/processor changes from a demonstrated physical mechanism.
+At the 22:45 accounting snapshot, total use was **22.6397 GPU-hours**, including
+all preemptions. All three jobs remained running; held-out production evaluation
+is still pending.

@@ -191,6 +191,35 @@ The [frozen protocol](three-day-followup-2026-09-26.md) gives the full schedule,
 checkpoints, qualification contracts and caps. No production performance result
 is reported yet.
 
+## Early production diagnostic: retention of the OM4 task
+
+The new runs are still training. The following are raw validation snapshots,
+not selected final checkpoints; task exposures differ. Lower is better for both
+columns. OM4 T/S MSE uses the common observation normalization and the same eleven
+source-validation origins throughout.
+
+| Model | OM4 updates | Observation updates | Observation selection score | OM4 T/S MSE |
+| --- | ---: | ---: | ---: | ---: |
+| Samudra2 sequential | 8,000 | 0 | 1.2133 | 0.00473 |
+| Samudra2 sequential | 8,000 | 100 | 1.2011 | 0.66556 |
+| Samudra2 sequential | 8,000 | 400 | 0.7584 | 0.65529 |
+| Samudra2 scratch | 0 | 1,500 | 0.6359 | 1.11722 |
+| Samudra2 mixed | 4,287 | 1,513 | 0.5952 | 0.00591 |
+
+Sequential training loses much of its OM4-task accuracy within the first 100
+observation updates: source T/S MSE rises from 0.00473 to 0.66556. Meanwhile, the
+mixed arm still performs well on the source task after more than 1,500 observation
+updates. This is direct evidence that the observation-only continuation changes
+behavior on the original task, and that continued source training can preserve it.
+It does not establish whether that retention causes better observation forecasts,
+particularly at long leads; those production evaluations have not finished.
+
+This also does not identify which component forgets: the shared initializer and
+processor can both change, and OM4 and observation inputs differ. The initializer
+and state diagnostics will help interpret that distinction. Raw
+[snapshot evidence](artifacts/2026-09-26-three-day/early-retention.json) preserves
+producer, timestamps, per-task counts and all underlying retention metrics.
+
 ## Execution and remaining work
 
 The Samudra-2-matched processor has 83,872,357 parameters, versus approximately

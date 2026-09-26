@@ -156,3 +156,26 @@ intervention timing and unmodified inputs. Runtime baseline forecasts must also
 match the native forecast path exactly. Commit checks passed. CPU build 18581137
 will submit the two one-hour-capped diagnostic jobs, charged to the new campaign's
 120 GPU-hour ceiling. Training remains pinned to its separate producer 50630959c.
+
+### H200 capacity recovery, 26 September 14:07 UTC
+
+The RTX partition had idle nodes but its shared QOS CPU limit prevented starts.
+A complete H200 preemption `sbatch --test-only` request was accepted with an
+immediate start estimate. The pending requests were cancelled before allocation
+and replaced using the same code, model/data arguments, one-hour caps and
+explicit dependency graph. Routing and preemption/requeue settings were verified
+with `scontrol`; no scientific protocol changed.
+
+| Work | H200 job | Observed state at 14:07 UTC |
+| --- | ---: | --- |
+| OM4 larger-backbone qualification | 18581191 | Running; verified producer loaded, OM4 cache warming |
+| Observation larger-backbone qualification | 18581192 | Running; pinned container/code loaded |
+| Mixed-task/resume probe | 18581193 | Pending both qualification successes |
+| Previous scratch checkpoint mechanisms | 18581194 | Running; training seasonal-state extraction reached 26/243 |
+| Previous OM4-initialized checkpoint mechanisms | 18581195 | Running; training seasonal-state extraction reached 26/243 |
+
+These replace RTX jobs 18581035/18581036/18581037/18581146/18581147,
+respectively. Diagnostic build 18581137 completed. The five requested caps total
+five GPU-hours within the 120-hour campaign ceiling; actual allocated time will
+be accounted from Slurm, including every retry. Running allocations and startup
+outputs do not yet establish successful qualification or scientific results.

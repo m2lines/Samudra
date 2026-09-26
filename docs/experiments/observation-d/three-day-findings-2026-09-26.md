@@ -62,10 +62,13 @@ reference backbone/output padding and kernel are reused, retaining InstanceNorm
 and fixed loss. Single-loop producer `50630959c6a8aed89fcc0152cab28b16f8c377d3`
 passed 29 targeted tests and all commit checks. It preserves exact per-task
 exposure/sample order, one optimizer, and checkpoint/resume state. Build 18581034
-completed. Its OM4 and observation qualifications **18581035 / 18581036** are
-queued behind `QOSGrpCpuLimit`; mixed-task/resume probe **18581037** depends on
-both succeeding. Superseded 18580735 / 18580736 were cancelled while pending,
-with zero elapsed allocation. New-campaign allocated GPU time is still zero.
+completed. RTX requests were superseded while pending because a shared QOS CPU
+limit prevented starts despite idle nodes. H200 jobs **18581191 / 18581192** are
+now running the OM4/observation qualifications; mixed-task/resume probe
+**18581193** depends on both succeeding. Diagnostic jobs **18581194 / 18581195**
+are also running and extracting training seasonal states. All routing and
+replacement records are in the [execution plan](three-day-followup-2026-09-26.md).
+No completed larger-backbone or mechanism outcomes are available yet.
 No new production training has been submitted.
 
 Bias/anomaly diagnostic producer `6d8a8d26b` passed two decomposition tests and

@@ -91,6 +91,12 @@ pairwise spread correction. This avoids the small-ensemble shrinkage bias of
 empirical CRPS; an individual fair estimate may be negative. Observation masks,
 physical scales and 0.8/0.1/0.1 interior/SST/SSH weights match upstream. Retain
 OM4 denoising replay for velocity and deep channels without observation labels.
+The prepared A/B fine-tuning runner defaults to an additional matched OM4 replay
+example every fourth observation update, weighted 0.1; both arms use the same
+replay dates and schedule. These defaults must be frozen with the production
+caps after qualification. The ERA5 adapter trains while the OM4 physical stepper
+stays frozen. Final selection uses the unchanged upstream validation criterion
+on separately evolved ensemble means, with calibration reported alongside it.
 This changes the stochastic arm's objective from squared error to a proper
 probabilistic score; report that distinction and the ensemble-mean squared-error
 metrics rather than attributing any gain solely to architecture. Qualification

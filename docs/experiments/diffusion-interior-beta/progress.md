@@ -188,3 +188,14 @@ members. Fixed evaluation draws are independent of training RNG. A nonlinear
 regression test verifies averaging after evolution rather than evolving the mean
 initial state. This is point scoring only; calibration and individual-member
 structure remain required in scientific reports. Sixteen targeted CPU tests pass.
+
+
+The runner is now `samudra.experiments.diffusion_train` with explicit `om4` and
+`observation` phases. Observation fine-tuning strictly loads the completed arm's
+selected pretraining checkpoint, trains the initializer/decoder/ERA5 adapter with
+frozen physical dynamics, and retains matched native-OM4 replay supervision.
+Validation uses only the fixed nine-origin cohort and frozen upstream score on
+ensemble means. Replay defaults are one additional example every four updates
+at weight 0.1, recorded in the resume protocol along with reference/checkpoint
+hashes. Real-grid fine-tuning, replay memory cost and throughput remain unverified
+until GPU qualification; no production run has been submitted.

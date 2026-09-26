@@ -1915,3 +1915,28 @@ Accounting explicitly includes both allocation records for each requeued job:
 **3.3303 allocated GPU-hours** campaign total at 15:41:23 UTC. No completed
 production result is available yet, and unequal early exposure is not a fair
 performance comparison. Next routine check is around 16:40 UTC.
+
+
+### 26 September 20:43 UTC — continued training under repeated preemption
+
+All three original main job IDs remain running and resume automatically. Current
+counts are scratch 2,717 observation updates; sequential 6,712 OM4 updates; mixed
+3,541 OM4 + 1,076 observation updates. Recent integrated-plus-spectral validation
+scores are 0.5856 (scratch at 2,700 observations) and 0.6495 (mixed at 1,070
+observations); sequential has not reached observations. These unequal exposures
+are progress measurements, not a final lift comparison.
+
+There have been seven, six and five preemptions for scratch, sequential and mixed,
+respectively. All allocation records are retained in accounting. Total campaign
+use is **17.1525 GPU-hours** at 20:42:48 UTC, including repeated allocations.
+Healthy uninterrupted rates remain roughly 600 observation updates/hour and
+1,400 OM4 updates/hour, but reload/queue overhead makes wall-time completion
+slower. The earlier 25-hour scratch estimate was uninterrupted training time,
+not a guarantee despite preemptions. The three-day deadline still leaves room.
+
+The preferred RTX partition still has its shared 128-CPU quota fully occupied;
+some physical GPUs/CPUs are free, which does not make that quota available. No
+migration, seed, optimizer, producer, or scientific-protocol change was made.
+All selected/fixed-budget/profile evaluation jobs remain dependent on production
+completion. The next hourly check will include the sequential transition to
+observation training if it has been reached.

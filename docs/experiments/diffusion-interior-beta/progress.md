@@ -437,3 +437,18 @@ allocation cap (at most eight GPU-hours). This reporting job has not been
 submitted. Its command requires completed, validation-selected observation
 weights and writes monthly point fields/calibration plus annual mean diagnostics.
 Additional member-structure and control analyses are still needed for the report.
+
+## A/B OM4 pretraining complete
+
+All four main runs completed 12,000 updates; selected checkpoint checksums match
+completion records. The four-GPU allocation lasted 2,825 seconds (3.1389
+GPU-hours), bringing completed setup/probe/training allocations to 4.3467
+GPU-hours. Best own-objective validation values were A: 0.002769/0.002949 and
+B: 0.510895/0.538494 for seeds 1729/1730. These are different objectives and must
+not be compared as A-versus-B scientific skill.
+
+A trained-checkpoint 8/16/32-step sampling diagnostic is being prepared before
+observation fine-tuning. It uses the same eight random members for each step
+count over all nine validation origins, recording observed ensemble diagnostics
+and per-channel/lead differences from the 32-step ensemble mean. Thirty-two
+steps is a numerical comparison, not exact truth. Held-out data remain unused.

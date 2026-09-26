@@ -404,3 +404,20 @@ Production OM4 pretraining has started on one four-L40S host with the caps above
 Experiment logs are stored locally in W&B offline format and JSON records.
 Observation fine-tuning will follow review of completed pretraining; C/D, H and E
 retain their later-wave report/approval gates.
+
+## C/D model preparation while A/B runs
+
+`LatentOceanForecast` now connects the surface initializer, two-slot latent
+processor, and shared-capacity deterministic/diffusion readouts. OM4 supervision
+covers initial and future joint state pairs, with gradients through intervening
+latent steps. Interior targets never enter recurrence. The observation interface
+uses the existing ERA5 adapter and ignores future observed surfaces; only valid
+historical surface cells are anchored. Physical dynamics are absent from this
+model. D draws conditional readouts independently at each lead, so these outputs
+do not establish coherent uncertain trajectories; E remains a separate question.
+
+Six focused CPU tests cover latent/model gradient flow, target-independent
+recurrence, fixed latent trajectories across sampling seeds, future-observation
+exclusion, and exact known-surface preservation under autocast. C/D training and
+evaluation runner integration, real-grid qualification, hyperparameter selection
+and later-wave approval remain pending. The running A/B producer is unchanged.

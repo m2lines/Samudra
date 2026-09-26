@@ -152,3 +152,13 @@ historical full states, and uses the same known-surface noise convention as
 sampling. Tests verify native forcing sensitivity, initializer/decoder gradients,
 and absence of adapter/dynamics updates in this objective. Thirteen targeted CPU
 tests pass. The production training loop remains to be connected and qualified.
+
+
+A second real-data qualification entry point is prepared, but **not submitted**.
+It uses four independent GPUs for A and B with 8/16/32 sampling steps, after
+ten anchored OM4 fitting updates from the verified pre-observation source. It
+checks a training month's observation-gradient path, memory/time, frozen dynamics
+and strict whole-model/optimizer reload. This measures implementation behavior
+and sampling cost; ten fitting updates cannot establish sampler convergence or
+scientific skill. Its optional Slurm stage uses unique job-specific output paths.
+The original queued qualification and its immutable producer remain unchanged.

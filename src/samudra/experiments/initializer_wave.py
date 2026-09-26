@@ -22,6 +22,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 
 from samudra.config import DataConfig
 from samudra.datasets import TorchTrainDataset
+from samudra.experiments.evolution_backbones import build_evolution
 from samudra.experiments.initializer_diagnostics import ReconstructionDiagnostics
 from samudra.experiments.initializer_models import HistoryInitializer
 from samudra.experiments.normalization import configure_normalization
@@ -31,12 +32,7 @@ from samudra.experiments.surface_adaptation import (
     state_fingerprint,
     thermohaline_mse,
 )
-from samudra.experiments.surface_state import (
-    Evolution,
-    advance_season,
-    balanced_loss,
-    channel_mse,
-)
+from samudra.experiments.surface_state import advance_season, balanced_loss, channel_mse
 from samudra.experiments.surface_wave import (
     Experiment,
     atomic_save,
@@ -146,7 +142,12 @@ class InitializerWave(Experiment):
                 "policy": "Shared observation-training scales; original OM4 forcing normalization unchanged",
             }
         self.pretrain = Path(args.wave1_root) / "ar/pretrain-best.pt"
-        evolution = Evolution(self.channels, [128, 192, 256, 384], "ar").to(self.device)
+        architecture = getattr(args, "evolution_architecture", "d")
+        if architecture != "d" and not args.fresh_evolution:
+            raise ValueError(
+                "New backbone requires fresh evolution; old D weights cannot be loaded"
+            )
+        evolution = build_evolution(self.channels, architecture).to(self.device)
         configure_normalization(evolution, getattr(args, "normalization", "batch"))
         if not getattr(args, "fresh_evolution", False):
             saved = torch.load(self.pretrain, map_location="cpu", weights_only=False)[
@@ -354,6 +355,8 @@ class InitializerWave(Experiment):
             "data_config": self.config.model_dump(mode="json"),
             "data_root": args.data_root,
         }
+        if getattr(args, "evolution_architecture", "d") != "d":
+            signature["evolution_architecture"] = args.evolution_architecture
         if self.scaling_contract is not None:
             signature["state_scaling"] = self.scaling_contract
         if getattr(args, "normalization", "batch") != "batch":
@@ -744,6 +747,9 @@ def main():
         "--normalization", choices=["batch", "instance"], default="batch"
     )
     parser.add_argument("--fresh-evolution", action="store_true")
+    parser.add_argument(
+        "--evolution-architecture", choices=["d", "samudra2"], default="d"
+    )
     parser.add_argument("--observation-normalization-root")
     parser.add_argument("--deadline", default="2026-09-24T17:00:00Z")
     parser.add_argument("--arm", choices=ARMS, required=True)

@@ -59,7 +59,9 @@ class Pilot:
             raise ValueError("Unknown data verification protocol")
         self.data = Samples(args.data, self.device)
         self.model = ObservationTransfer(
-            self.data.grid["names"].tolist(), getattr(args, "normalization", "batch")
+            self.data.grid["names"].tolist(),
+            getattr(args, "normalization", "batch"),
+            getattr(args, "evolution_architecture", "d"),
         )
         if args.from_scratch or getattr(args, "observation_normalization", False):
             self.data.use_observation_normalization()
@@ -89,6 +91,8 @@ class Pilot:
                 != digest(args.selection_reference)
                 or qualification.get("normalization", "batch")
                 != getattr(args, "normalization", "batch")
+                or qualification.get("evolution_architecture", "d")
+                != getattr(args, "evolution_architecture", "d")
                 or not all(qualification["gradient_reached"].values())
                 or qualification["losses"][-1] >= qualification["losses"][0]
             ):
@@ -615,6 +619,9 @@ class Pilot:
         atomic_json(
             {
                 "normalization": getattr(self.args, "normalization", "batch"),
+                "evolution_architecture": getattr(
+                    self.args, "evolution_architecture", "d"
+                ),
                 "losses": losses,
                 "gradient_reached": reached,
                 "training_origin": self.training[0].stem,
@@ -672,6 +679,9 @@ def main():
     parser.add_argument("--selection-reference")
     parser.add_argument("--adapter-only", action="store_true")
     parser.add_argument("--from-scratch", action="store_true")
+    parser.add_argument(
+        "--evolution-architecture", choices=["d", "samudra2"], default="d"
+    )
     parser.add_argument("--observation-normalization", action="store_true")
     parser.add_argument("--strict-velocity-support", action="store_true")
     parser.add_argument("--adapter-steps", type=int, default=200)

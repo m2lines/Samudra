@@ -209,6 +209,7 @@ def main():
         ObservationTransfer(
             data.grid["names"].tolist(),
             manifest["arguments"].get("normalization", "batch"),
+            manifest["arguments"].get("evolution_architecture", "d"),
         )
         .cuda()
         .eval()

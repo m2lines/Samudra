@@ -80,7 +80,15 @@ def main():
     reference = json.loads((run / "selection-reference.json").read_text())
     data = Samples(manifest["arguments"]["data"], "cuda")
     data.use_observation_normalization()
-    model = ObservationTransfer(data.grid["names"].tolist(), "instance").cuda().eval()
+    model = (
+        ObservationTransfer(
+            data.grid["names"].tolist(),
+            "instance",
+            manifest["arguments"].get("evolution_architecture", "d"),
+        )
+        .cuda()
+        .eval()
+    )
     pilot: Any = Pilot.__new__(Pilot)
     pilot.data = data
     pilot.args = SimpleNamespace(strict_velocity_support=True)

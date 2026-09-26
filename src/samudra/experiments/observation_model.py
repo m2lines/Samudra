@@ -10,16 +10,16 @@ import torch
 from torch import nn
 from torch.utils.checkpoint import checkpoint
 
+from samudra.experiments.evolution_backbones import build_evolution
 from samudra.experiments.initializer_models import HistoryInitializer
 from samudra.experiments.normalization import configure_normalization
-from samudra.experiments.surface_state import Evolution
 
 
 class ObservationTransfer(nn.Module):
-    def __init__(self, names, normalization="batch"):
+    def __init__(self, names, normalization="batch", evolution_architecture="d"):
         super().__init__()
         self.initializer = HistoryInitializer(names, "wide", True)
-        self.evolution = Evolution(len(names), [128, 192, 256, 384], "ar")
+        self.evolution = build_evolution(len(names), evolution_architecture)
         self.adapter = nn.Sequential(
             nn.Conv2d(8, 32, 1), nn.GELU(), nn.Conv2d(32, 3, 1)
         )

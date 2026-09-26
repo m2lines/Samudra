@@ -57,6 +57,7 @@ def main():
     evaluator.model = ObservationTransfer(
         evaluator.data.grid["names"].tolist(),
         manifest["arguments"].get("normalization", "batch"),
+        manifest["arguments"].get("evolution_architecture", "d"),
     ).cuda()
     evaluator.model.load_state_dict(
         torch.load(checkpoint, map_location="cuda", weights_only=False)["model"],

@@ -69,9 +69,11 @@ class JointPhysicalForecast(nn.Module):
         known = latent.new_zeros(b, 2, self.core.initializer.channels, h, w)
         indices = self.core.initializer.surface
         known[:, :, indices] = surface[:, count - 2 : count]
-        known_mask = torch.zeros_like(mask, dtype=torch.bool)
-        known_mask[indices] = True
-        return latent, known.flatten(1, 2), known_mask.repeat(2, 1, 1)
+        known_mask = torch.zeros_like(known, dtype=torch.bool)
+        known_mask[:, :, indices] = (
+            validity[:, count - 2 : count].bool() & mask[indices].bool()
+        )
+        return latent, known.flatten(1, 2), known_mask.flatten(1, 2)
 
     def pretraining_loss(self, surface, past, context, truth, mask, weights, generator):
         """Use InitializerWave.model_sample outputs and its shared observation state scales.

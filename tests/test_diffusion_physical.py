@@ -121,3 +121,31 @@ def test_om4_pretraining_uses_native_fluxes_and_supervises_velocity(stochastic):
         second, _, _ = model.encode_native(surface, past + 1, context, mask)
     assert not torch.equal(first, second)
     assert torch.equal(weights, mask)
+
+
+@pytest.mark.parametrize("stochastic", [False, True])
+def test_only_valid_historical_surface_cells_are_anchored(stochastic):
+    torch.set_num_threads(1)
+    torch.manual_seed(302)
+    model = JointPhysicalForecast(
+        Core(), stochastic=stochastic, width=8, sampling_steps=3
+    )
+    surface = torch.randn(2, 3, 2, 8, 12)
+    valid = torch.ones_like(surface)
+    valid[0, -1, 0, 2, 3] = 0
+    valid[1, -2, 1, 4, 5] = 0
+    surface[valid == 0] = 0
+    mask = torch.ones(4, 8, 12)
+    latent, known, anchor = model.encode_native(
+        surface, torch.randn(2, 3, 3, 8, 12), torch.randn(2, 5, 8, 12), mask, valid
+    )
+    assert not anchor[0, 4, 2, 3]
+    assert not anchor[1, 3, 4, 5]
+    assert anchor[1, 4, 2, 3]
+    assert anchor[0, 3, 4, 5]
+    result = model.initialize(
+        latent, known, anchor, mask, torch.Generator().manual_seed(42)
+    ).flatten(1, 2)
+    torch.testing.assert_close(result[anchor], known[anchor], rtol=0, atol=0)
+    assert result[0, 4, 2, 3].abs() > 0
+    assert result[1, 3, 4, 5].abs() > 0

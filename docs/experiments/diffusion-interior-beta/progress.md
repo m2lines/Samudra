@@ -246,3 +246,11 @@ training examples, 19-frame histories, forcing alignment, normalization, or
 losses. A temporal-alignment test compares both sampling paths exactly;
 13 initializer, physical-diffusion and resumable-fit tests pass. Real L40S
 memory use and throughput still require qualification.
+
+Before Engaging qualification, review found that A/B's historical surface
+anchoring ignored per-example observation validity. Missing SST/SSH cells would
+have been held at their zero fill value. The anchor mask now respects validity
+separately for each example and historical time; missing cells remain model
+outputs. Tests cover both deterministic and sampled reconstruction, exact
+preservation of valid observations, and batch-dependent channel support. This
+fix does not change the selected upstream reference model.

@@ -84,7 +84,8 @@ def channel_balanced_mse(prediction, target, weights):
     result = ((prediction - target).square() * weights).sum(
         (-2, -1)
     ) / denominator.clamp_min(1e-12)
-    return result[..., denominator > 0].mean(-1)
+    supported = denominator > 0
+    return (result * supported).sum(-1) / supported.sum(-1).clamp_min(1)
 
 
 def denoising_loss(
@@ -97,8 +98,8 @@ def denoising_loss(
     noise = torch.randn(target.shape, device=target.device, generator=generator) * mask
     noisy = target + sigma[:, None, None, None] * noise
     if known_mask is not None:
-        if known_mask.shape != mask.shape:
-            raise ValueError("Known mask must match the shared target mask")
+        if known_mask.shape not in (mask.shape, target.shape):
+            raise ValueError("Known mask must match the shared mask or batched target")
         noisy = torch.where(known_mask.bool(), target, noisy)
         weights = weights * ~known_mask.bool()
     prediction = decoder(noisy, sigma, latent, mask)

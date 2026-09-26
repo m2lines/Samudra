@@ -101,3 +101,10 @@ def test_sampler_keeps_known_surfaces_and_allows_observation_gradients():
     torch.testing.assert_close(result, repeated, rtol=0, atol=0)
     with pytest.raises(ValueError, match="both known"):
         sample_joint(decoder, latent, mask, torch.Generator(), known_mask=known)
+
+
+def test_channel_balance_handles_different_supported_channels_per_example():
+    prediction = torch.tensor([1.0, 3.0, 2.0, 4.0]).reshape(2, 2, 1, 1)
+    weights = torch.tensor([1.0, 0.0, 1.0, 1.0]).reshape(2, 2, 1, 1)
+    result = channel_balanced_mse(prediction, torch.zeros_like(prediction), weights)
+    torch.testing.assert_close(result, torch.tensor([1.0, 10.0]))

@@ -452,3 +452,19 @@ observation fine-tuning. It uses the same eight random members for each step
 count over all nine validation origins, recording observed ensemble diagnostics
 and per-channel/lead differences from the 32-step ensemble mean. Thirty-two
 steps is a numerical comparison, not exact truth. Held-out data remain unused.
+
+
+The trained sampling check completed for both B seeds over all nine validation
+origins with eight paired members. At 16 versus 32 steps, monthly interior RMSE
+changed by about 0.5%, fair CRPS by 0.4%, and ensemble variance by 6%; the eight-step
+variance difference was substantially larger. Average sampling/diagnostic cost
+was about 1.21/2.02/3.82 seconds per origin for 8/16/32 steps. Keep 16 for the
+initial observation wave, but repeat the convergence check on fine-tuned weights
+and retain the variance sensitivity when interpreting calibration. This does not
+establish exact numerical convergence. [Machine-readable aggregates](trained-sampling.json).
+
+Observation fine-tuning is running for all four arms/seeds, preserving
+6,000 updates or seven training hours per run and an eight-hour four-GPU
+allocation cap. The producer and qualified training settings remain unchanged.
+Completed allocations through the trained sampling check total **4.3956
+GPU-hours**, including the 88-second, two-GPU check. Fine-tuning is additional.

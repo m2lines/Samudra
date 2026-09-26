@@ -1,0 +1,98 @@
+{
+  "scope": "Pre-observation trained B sampler sensitivity on all nine validation origins; not an A/B held-out comparison",
+  "training_producer": "bdc1e62b2",
+  "evaluator_producer": "a39e29ddf",
+  "members": 8,
+  "seed": 4041729,
+  "aggregation": "Sum wet-area numerator/denominator over origins and available leads, divide per channel, then average supported channels. Observation-standardized units. Trajectory differences use all wet-state channels and available leads.",
+  "results": {
+    "B-1730": {
+      "8": {
+        "seconds_per_origin": 1.2131771551859047,
+        "interior": {
+          "mean_squared_error": 0.0473027379052167,
+          "fair_crps": 0.10305517157086819,
+          "ensemble_variance": 0.060799938680525085
+        },
+        "surface": {
+          "mean_squared_error": 0.45725017025180686,
+          "fair_crps": 0.4347846962991801,
+          "ensemble_variance": 0.050485194672612206
+        },
+        "rms_mean_difference_from32": 0.022461861631280857
+      },
+      "16": {
+        "seconds_per_origin": 2.0205462732248836,
+        "interior": {
+          "mean_squared_error": 0.044717311754370354,
+          "fair_crps": 0.10022134569836325,
+          "ensemble_variance": 0.04638687372216893
+        },
+        "surface": {
+          "mean_squared_error": 0.4519913374642295,
+          "fair_crps": 0.44082119401138786,
+          "ensemble_variance": 0.03770135782967225
+        },
+        "rms_mean_difference_from32": 0.0037740957836612274
+      },
+      "32": {
+        "seconds_per_origin": 3.829528140473283,
+        "interior": {
+          "mean_squared_error": 0.04429612773535068,
+          "fair_crps": 0.09982033337396923,
+          "ensemble_variance": 0.04376607648856155
+        },
+        "surface": {
+          "mean_squared_error": 0.4511970368198803,
+          "fair_crps": 0.4421521453993589,
+          "ensemble_variance": 0.03549265066373319
+        },
+        "rms_mean_difference_from32": 0.0
+      }
+    },
+    "B-1729": {
+      "8": {
+        "seconds_per_origin": 1.2071325370731454,
+        "interior": {
+          "mean_squared_error": 0.04835185699231066,
+          "fair_crps": 0.10439057412926576,
+          "ensemble_variance": 0.0635068562538328
+        },
+        "surface": {
+          "mean_squared_error": 0.46026623613097695,
+          "fair_crps": 0.43278129796975945,
+          "ensemble_variance": 0.05408041959784913
+        },
+        "rms_mean_difference_from32": 0.023634398403092883
+      },
+      "16": {
+        "seconds_per_origin": 2.0136965014454393,
+        "interior": {
+          "mean_squared_error": 0.04567924324672034,
+          "fair_crps": 0.10138473212287673,
+          "ensemble_variance": 0.048583646947194775
+        },
+        "surface": {
+          "mean_squared_error": 0.45665730091207707,
+          "fair_crps": 0.43977446728489855,
+          "ensemble_variance": 0.0406066858942965
+        },
+        "rms_mean_difference_from32": 0.0039342048974054895
+      },
+      "32": {
+        "seconds_per_origin": 3.8192315267709396,
+        "interior": {
+          "mean_squared_error": 0.04524743945795559,
+          "fair_crps": 0.10096448303912726,
+          "ensemble_variance": 0.04587837232973691
+        },
+        "surface": {
+          "mean_squared_error": 0.45615216932741287,
+          "fair_crps": 0.4412979230996524,
+          "ensemble_variance": 0.038262300738799666
+        },
+        "rms_mean_difference_from32": 0.0
+      }
+    }
+  }
+}

@@ -240,22 +240,36 @@ class InitializerWave(Experiment):
         self.verified_sources.add(key)
         self.emit(
             {
-                "event": "compact_cache_verified",
+                "event": "initializer_sampling_verified",
+                "device_cache": key in self.frame_caches,
                 "source_first_time": str(dataset.sources[0].time.values[0]),
             }
         )
 
     def sample(self, dataset, ids):
-        cache = self.frame_caches[id(dataset.sources[0])]
-        offsets = torch.tensor(ids, device=self.device)[:, None]
-        history = offsets + torch.arange(19, device=self.device)
-        channels = torch.tensor(self.initializer.surface, device=self.device)
-        surface = cache.prognostic[history[:, :, None], channels]
-        past = cache.boundary[history]
-        truth = cache.prognostic[history[:, -2:]]
-        future = offsets + torch.arange(18, 18 + dataset.steps, device=self.device)
-        forcing = cache.boundary[future]
-        labels = cache.prognostic[future + 1]
+        cache = self.frame_caches.get(id(dataset.sources[0]))
+        if cache is None:
+            batch = next(iter(self.native_loader(dataset, [ids])))
+            hist, boundary = batch.get_initial_input()
+            h, w = self.mask.shape[-2:]
+            full = hist.reshape(len(ids), 19, self.channels, h, w)
+            surface = full[:, :, self.initializer.surface]
+            past = boundary.reshape(len(ids), 19, 3, h, w)
+            truth = full[:, -2:]
+            forcing = torch.stack(
+                [batch.get_input(i)[1][:, -3:] for i in range(len(batch))], 1
+            )
+            labels = torch.stack([batch.get_label(i) for i in range(len(batch))], 1)
+        else:
+            offsets = torch.tensor(ids, device=self.device)[:, None]
+            history = offsets + torch.arange(19, device=self.device)
+            channels = torch.tensor(self.initializer.surface, device=self.device)
+            surface = cache.prognostic[history[:, :, None], channels]
+            past = cache.boundary[history]
+            truth = cache.prognostic[history[:, -2:]]
+            future = offsets + torch.arange(18, 18 + dataset.steps, device=self.device)
+            forcing = cache.boundary[future]
+            labels = cache.prognostic[future + 1]
         dates = dataset.sources[0].time.values[np.asarray(ids) + 18]
         phases = [2 * math.pi * (t.dayofyr - 1) / 365.25 for t in dates]
         season = surface.new_tensor([[math.sin(p), math.cos(p)] for p in phases])

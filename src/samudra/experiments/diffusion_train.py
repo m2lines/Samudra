@@ -40,6 +40,11 @@ def main():
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--learning-rate", type=float, default=1e-4)
     parser.add_argument("--readers", type=int, default=4)
+    parser.add_argument(
+        "--device-cache",
+        action="store_true",
+        help="Keep all OM4 frames on GPU; requires sufficient VRAM",
+    )
     parser.add_argument("--cache-reserve-gib", type=float, default=64)
     parser.add_argument("--validate-every", type=int, default=500)
     parser.add_argument("--checkpoint-every", type=int, default=100)
@@ -107,6 +112,7 @@ def main():
         staged_data_manifest_sha256=digest(args.root / "DATA_READY.json"),
         seed=args.seed,
         batch_size=args.batch_size,
+        device_cache=args.device_cache,
         learning_rate=args.learning_rate,
         sampling_steps=qualification["sampling_steps"],
         observation_manifest_sha256=qualification["data_manifest_sha256"],
@@ -121,7 +127,7 @@ def main():
     if manifest_path.exists() and json.loads(manifest_path.read_text()) != signature:
         raise ValueError("Existing training protocol differs")
     atomic_json(signature, manifest_path)
-    # Reuse the verified source loading, state-scale conversion and compact GPU cache.
+    # Reuse native Rust loading and state-scale conversion; GPU caching is optional.
     loader_args = SimpleNamespace(
         arm="D",
         phase="reconstruction",
@@ -137,7 +143,7 @@ def main():
         initial_checkpoint=str(source),
         wave1_root="",
         val_origins=12,
-        device_cache=True,
+        device_cache=args.device_cache,
         device_cache_reserve_gib=args.cache_reserve_gib,
         batch_size=args.batch_size,
     )

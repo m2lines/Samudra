@@ -230,3 +230,19 @@ through three latent steps, with sensitivity to forcing. Configurable default
 width/depth/grid are preparation values, not a frozen production choice; A/B
 results and the wave gate still determine C/D sizing. Twenty-two targeted tests
 pass. C/D training/evaluation integration and all GPU evidence remain pending.
+
+## Engaging migration and bounded-memory loading
+
+The campaign now targets Engaging with user-approved existing OM4 releases.
+The pending beta qualification was canceled before allocation (zero elapsed
+allocation time); the same total 576 GPU-hour cap applies across clusters.
+Observation/checkpoint transfer and an x86 container build are in progress.
+No Engaging GPU result is available yet.
+
+Production A/B training now defaults to native Rust batch loading rather than
+requiring a resident whole-dataset GPU cache. `--device-cache` remains an explicit
+option for sufficiently large devices. This changes storage behavior, not
+training examples, 19-frame histories, forcing alignment, normalization, or
+losses. A temporal-alignment test compares both sampling paths exactly;
+13 initializer, physical-diffusion and resumable-fit tests pass. Real L40S
+memory use and throughput still require qualification.

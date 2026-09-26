@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import cftime
 import numpy as np
+import pytest
 import torch
 
 from samudra.experiments.frame_cache import PreparedFrameCache
@@ -92,7 +93,9 @@ def test_swin_odd_shapes_and_global_attention_gradient():
     assert detail.weight.grad.abs().sum() > 0
 
 
-def test_compact_sampling_uses_past_only_and_correct_forecast_alignment():
+def test_compact_sampling_uses_past_only_and_correct_forecast_alignment(
+    monkeypatch: pytest.MonkeyPatch,
+):
     experiment = InitializerWave.__new__(InitializerWave)
     experiment.device = torch.device("cpu")
     experiment.initializer = SimpleNamespace(surface=[2, 5])
@@ -119,6 +122,34 @@ def test_compact_sampling_uses_past_only_and_correct_forecast_alignment():
     torch.testing.assert_close(forcing[0, :, 0, 0, 0], 100 + torch.arange(18.0, 24.0))
     torch.testing.assert_close(labels[0, :, 0, 0, 0], torch.arange(19.0, 25.0))
     torch.testing.assert_close(labels[1, :, 0, 0, 0], torch.arange(22.0, 28.0))
+
+    class NativeBatch:
+        def __len__(self):
+            return 6
+
+        def get_input(self, step):
+            # Native batches retain all 19 history frames at each forecast step.
+            times = torch.tensor([0, 3])[:, None] + torch.arange(step, step + 19)
+            return (
+                cache.prognostic[times].flatten(1, 2),
+                cache.boundary[times].flatten(1, 2),
+            )
+
+        def get_initial_input(self):
+            return self.get_input(0)
+
+        def get_label(self, step):
+            return cache.prognostic[torch.tensor([19, 22]) + step]
+
+    experiment.channels = 6
+    monkeypatch.setattr(
+        experiment, "native_loader", lambda dataset, sampler: iter([NativeBatch()])
+    )
+    expected = (surface, past, context, truth, forcing, labels)
+    experiment.frame_caches.clear()
+    streamed = experiment.sample(dataset, [0, 3])
+    for actual, wanted in zip(streamed, expected, strict=True):
+        torch.testing.assert_close(actual, wanted, rtol=0, atol=0)
 
 
 def test_long_context_preserves_target_period_configuration():

@@ -4,6 +4,7 @@
 
 """One optimizer, exact task exposure, and resumable OM4/observation scheduling."""
 
+import copy
 import datetime
 import json
 import math
@@ -26,6 +27,49 @@ from samudra.experiments.observation_pilot import (
 )
 from samudra.experiments.surface_state import advance_season, balanced_loss
 from samudra.experiments.task_schedule import TaskSchedule, sample_indices
+
+
+def cpu_copy(value):
+    if isinstance(value, torch.Tensor):
+        return value.detach().cpu().clone()
+    if isinstance(value, dict):
+        return {k: cpu_copy(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [cpu_copy(v) for v in value]
+    if isinstance(value, tuple):
+        return tuple(cpu_copy(v) for v in value)
+    return copy.deepcopy(value)
+
+
+def assert_exact_state(actual, expected):
+    if isinstance(expected, torch.Tensor):
+        torch.testing.assert_close(actual.cpu(), expected.cpu(), rtol=0, atol=0)
+    elif isinstance(expected, np.ndarray):
+        np.testing.assert_array_equal(actual, expected)
+    elif isinstance(expected, dict):
+        if actual.keys() != expected.keys():
+            raise ValueError("Serialized state keys differ")
+        for key in expected:
+            assert_exact_state(actual[key], expected[key])
+    elif isinstance(expected, (tuple, list)):
+        if len(actual) != len(expected):
+            raise ValueError("Serialized state length differs")
+        for a, b in zip(actual, expected, strict=True):
+            assert_exact_state(a, b)
+    elif actual != expected:
+        raise ValueError("Serialized state value differs")
+
+
+def parameter_difference(actual, expected):
+    squared, count, largest = 0.0, 0, 0.0
+    for name, value in actual.items():
+        delta = value.detach().cpu().float() - expected[name].float()
+        if not torch.isfinite(delta).all():
+            raise FloatingPointError("Nonfinite replay difference")
+        squared += float(delta.square().sum(dtype=torch.float64))
+        count += delta.numel()
+        largest = max(largest, float(delta.abs().max()))
+    return {"rmse": math.sqrt(squared / count), "max_absolute": largest}
 
 
 def om4_objective(model, data, ids, reconstruction_weight):
@@ -285,28 +329,84 @@ class JointPilot(Pilot):
         )
 
     def verify_resume_update(self):
-        before = torch.load(self.resume, map_location=self.device, weights_only=False)
-        self.train_update()
-        expected = {
-            k: v.detach().cpu().clone() for k, v in self.model.state_dict().items()
+        serialized = torch.load(self.resume, map_location="cpu", weights_only=False)
+        native = {
+            "model": cpu_copy(self.model.state_dict()),
+            "optimizer": cpu_copy(self.optimizer.state_dict()),
+            "global_step": self.completed,
+            "rng_cpu": torch.get_rng_state(),
+            "rng_cuda": torch.cuda.get_rng_state(),
+            "rng_numpy": np.random.get_state(),
         }
-        self.model.load_state_dict(before["model"])
-        self.optimizer.load_state_dict(before["optimizer"])
-        self.completed = before["global_step"]
-        torch.set_rng_state(before["rng_cpu"].cpu())
-        torch.cuda.set_rng_state(before["rng_cuda"].cpu())
-        np.random.set_state(before["rng_numpy"])
-        self.train_update()
-        for name, value in self.model.state_dict().items():
-            torch.testing.assert_close(
-                value.cpu(), expected[name], rtol=1e-5, atol=1e-6
-            )
+        # Check serialization and restoration exactly. GPU interpolation backward
+        # can be nondeterministic, so separately measure native replay variation.
+        for key, value in native.items():
+            assert_exact_state(value, serialized[key])
+        expected = None
+        differences = {}
+        for label, snapshot in (
+            ("native", native),
+            ("native_repeat", native),
+            ("serialized", serialized),
+        ):
+            saved = cpu_copy(snapshot)
+            self.model.load_state_dict(saved["model"], strict=True)
+            self.optimizer.load_state_dict(saved["optimizer"])
+            self.completed = saved["global_step"]
+            torch.set_rng_state(saved["rng_cpu"])
+            torch.cuda.set_rng_state(saved["rng_cuda"])
+            np.random.set_state(saved["rng_numpy"])
+            assert_exact_state(self.model.state_dict(), snapshot["model"])
+            assert_exact_state(self.optimizer.state_dict(), snapshot["optimizer"])
+            assert_exact_state(torch.get_rng_state(), snapshot["rng_cpu"])
+            assert_exact_state(torch.cuda.get_rng_state(), snapshot["rng_cuda"])
+            self.train_update()
+            if expected is None:
+                expected = cpu_copy(self.model.state_dict())
+            else:
+                differences[label] = parameter_difference(
+                    self.model.state_dict(), expected
+                )
+        for metric, floor in (("rmse", 1e-8), ("max_absolute", 1e-7)):
+            limit = max(floor, 5 * differences["native_repeat"][metric])
+            if differences["serialized"][metric] > limit:
+                raise ValueError(
+                    f"Serialized replay exceeds measured native variation: {differences}"
+                )
+        self.resume_evidence = {
+            "serialization_exact": True,
+            "restoration_exact": True,
+            "native_and_serialized_replay": differences,
+            "acceptance": "Serialized replay difference <= 5x native replay difference, with RMSE floor 1e-8 and maximum absolute floor 1e-7",
+        }
         self.emit(
             {
                 "event": "resume_qualified",
                 "global_step": self.completed,
-                "comparison": "same next update from serialized model and optimizer",
+                **self.resume_evidence,
             }
+        )
+
+    def save_best(self, value, phase, step, metrics):
+        self.global_best = value
+        counts = self.schedule.counts(self.completed)
+        metadata = {
+            "score": value,
+            "phase": phase,
+            "step": step,
+            "global_step": self.completed,
+            "task_counts": counts,
+        }
+        atomic_torch(
+            {"model": self.model.state_dict(), **metadata}, self.out / "best.pt"
+        )
+        atomic_json(
+            {
+                **metadata,
+                "metrics": metrics,
+                "checkpoint_sha256": digest(self.out / "best.pt"),
+            },
+            self.out / "best.json",
         )
 
     def run_joint(self):
@@ -345,7 +445,7 @@ class JointPilot(Pilot):
                     self.checkpoint(self.resume)
                 if milestone:
                     self.checkpoint(self.out / f"joint-{obs_count:05d}.pt")
-                if self.args.joint_probe and self.completed == 2:
+                if self.args.joint_probe and self.completed == 4:
                     self.checkpoint(self.resume)
                     # In-process disk round-trip tests the same model/optimizer
                     # serialization used on restart. Compare the next full update
@@ -356,6 +456,7 @@ class JointPilot(Pilot):
                     {
                         "contract": qualification_contract(self.args),
                         "resume_verified": True,
+                        "resume_evidence": self.resume_evidence,
                         "task_counts": self.schedule.counts(self.completed),
                         "gpu": torch.cuda.get_device_name(),
                         "max_gpu_memory_gib": torch.cuda.max_memory_allocated() / 2**30,
@@ -417,10 +518,10 @@ def main():
             "Single-loop training needs qualified fresh InstanceNorm, positive rates/counts and no separate phases"
         )
     if args.joint_probe and (
-        args.ordering != "mixed" or args.om4_updates != 3 or args.joint_steps != 2
+        args.ordering != "mixed" or args.om4_updates != 6 or args.joint_steps != 4
     ):
         parser.error(
-            "Single-loop probe uses exactly three OM4 and two observation updates"
+            "Single-loop probe uses exactly six OM4 and four observation updates"
         )
     if int(os.environ.get("WORLD_SIZE", 1)) != 1:
         parser.error(

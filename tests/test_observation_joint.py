@@ -104,3 +104,55 @@ def test_nonfinite_does_not_advance_optimizer(monkeypatch):
         pilot.train_update()
     assert pilot.completed == 0
     assert not pilot.optimizer.state
+
+
+def test_disk_resume_verification_and_selected_counts(tmp_path, monkeypatch):
+    pilot = toy_pilot(monkeypatch)
+    monkeypatch.setattr(torch.cuda, "get_rng_state", torch.get_rng_state)
+    monkeypatch.setattr(torch.cuda, "set_rng_state", torch.set_rng_state)
+    pilot.out = tmp_path
+    pilot.resume = tmp_path / "joint-last.pt"
+    pilot.manifest = {"protocol": "test"}
+    pilot.train_update()
+    pilot.train_update()
+    pilot.checkpoint(pilot.resume)
+    pilot.verify_resume_update()
+    assert pilot.completed == 3
+    assert pilot.resume_evidence["restoration_exact"]
+    assert (
+        pilot.resume_evidence["native_and_serialized_replay"]["serialized"]["rmse"] == 0
+    )
+    pilot.save_best(0.5, "joint", 1, {"value": 0.5})
+    saved = torch.load(tmp_path / "best.pt", weights_only=False)
+    assert saved["global_step"] == 3
+    assert saved["task_counts"] == {"om4": 2, "observation": 1}
+
+
+def test_exact_restoration_rejects_lost_optimizer_moments():
+    state = {
+        "state": {0: {"exp_avg": torch.tensor([0.1, 0.2]), "step": torch.tensor(2.0)}}
+    }
+    changed = joint.cpu_copy(state)
+    changed["state"][0]["exp_avg"][0] = 0
+    with pytest.raises(AssertionError):
+        joint.assert_exact_state(changed, state)
+    joint.assert_exact_state(joint.cpu_copy(state), state)
+
+
+def test_mixed_probe_actually_switches_back_to_om4(monkeypatch):
+    pilot = toy_pilot(monkeypatch)
+    pilot.schedule = TaskSchedule(6, 4, "mixed")
+    seen_observation = False
+    returned_to_om4 = False
+    for index in range(10):
+        task = pilot.schedule.task(index)
+        adapter = pilot.model.adapter.weight.detach().clone()
+        pilot.train_update()
+        if task == "observation":
+            seen_observation = True
+        elif seen_observation:
+            returned_to_om4 = True
+            torch.testing.assert_close(
+                pilot.model.adapter.weight, adapter, rtol=0, atol=0
+            )
+    assert returned_to_om4

@@ -219,3 +219,14 @@ gradients and unchanged source tensors. This is interpolation of conditioning
 features, not conservative regridding of targets. Integration into the H decoder
 and verification against the staged native grids are still outstanding. Twenty
 targeted CPU tests pass; no H experiment or geometry qualification is claimed.
+
+
+C/D preparation now includes a surface-feature projection into two persistent
+latent memory slots and a shared residual processor driven only by coarse forcing
+and context. Decoded interiors and diffusion noise never enter the recurrence.
+The processor rejects changed conditioning-grid shapes. CPU tests verify that
+future deterministic and denoising losses reach the initializer and processor
+through three latent steps, with sensitivity to forcing. Configurable default
+width/depth/grid are preparation values, not a frozen production choice; A/B
+results and the wave gate still determine C/D sizing. Twenty-two targeted tests
+pass. C/D training/evaluation integration and all GPU evidence remain pending.

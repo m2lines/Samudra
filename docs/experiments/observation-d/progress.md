@@ -1825,3 +1825,31 @@ helper preserves their records and cancels them only if still pending when
 superseding them. Production counts/rates remain unfrozen until throughput and
 memory are observed. The monitor timer remains disabled. The known preprocessing
 ceiling and quarter-degree training remain excluded.
+
+### 26 September 14:28 UTC — mechanism result and qualification repair
+
+The [three-day report](three-day-findings-2026-09-26.md) now contains paired
+state/forcing intervention curves. Jobs 18581194/18581195 completed all five
+conditions on all three annual origins. Replacing the initial hidden state with
+its own training seasonal mean worsens short-lead performance but preserves the
+year-end SST gap (about 0.820°C before, 0.825°C after). The long-range benefit is
+therefore not explained by case-specific departures of the hidden initialization
+from its seasonal mean in these cases. Actual future forcing helps, but the gap
+also survives replacing it with training climatology. These are exploratory
+sensitivity results, not physical-state identifiability or useful year-ahead
+skill versus climatology.
+
+OM4 larger-backbone qualification 18581191 completed 100 updates in 191 training
+seconds. Observation qualification 18581192 passed with full gradient reach and
+loss 1.2603 → 0.2463. Mixed probe 18581193 failed a tight replay-weight tolerance
+while replay losses matched. The failed attempt/checkpoint remain preserved.
+Producer `dd3a05b07554ce0c1c9f589643d2afb764ab1440` now checks exact serialization
+and restoration separately from measured native GPU arithmetic variation;
+CUDA bilinear interpolation backward is documented as potentially nondeterministic.
+The revised probe includes actual observation-to-OM4 switches. Eighteen tests and
+all commit hooks pass. Build 18582535 submits fresh fitting and mixed qualifications;
+no old-producer checkpoint is resumed. Production is still gated.
+
+New campaign accounting at 14:27:49 UTC: **0.36694 allocated GPU-hours**, including
+the failed probe and completed diagnostics. All cancelled RTX requests had zero
+allocated time. The 120-hour ceiling and 29 September 09:30 ET deadline remain.

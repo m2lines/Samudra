@@ -1,0 +1,42 @@
+# SPDX-FileCopyrightText: 2026 Samudra Authors
+# SPDX-License-Identifier: Apache-2.0
+"""Render paired, fixed-checkpoint mechanism diagnostics from COMPLETE records."""
+import gzip,json
+from pathlib import Path
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import numpy as np
+out=Path(__file__).resolve().parent
+with gzip.open(out/'mechanism-evidence.json.gz','rt') as stream:
+ evidence=json.load(stream)
+leads=[5,15,30,90,180,365]
+styles={
+ 'baseline':('Unmodified','#222222','-'),
+ 'initial-hidden-seasonal':('Initial hidden state → seasonal mean','#0072b2','--'),
+ 'initial-velocity-seasonal':('Initial velocity slots → seasonal mean','#009e73',':'),
+ 'day30-hidden-seasonal':('Day-30 hidden state → seasonal mean','#d55e00','-.'),
+ 'seasonal-future-forcing':('Future forcing → seasonal mean','#cc79a7','--'),
+}
+fig,axes=plt.subplots(2,2,figsize=(11,6.4),sharex=True,sharey='row')
+for col,arm in enumerate(['scratch','transfer']):
+ records=evidence[arm]['results']
+ assert len(records)==3
+ for row,(field,unit) in enumerate([('sst_rmse','SST RMSE (°C)'),('adt_rmse','ADT RMSE (m)')]):
+  ax=axes[row,col]
+  for mode,(label,color,linestyle) in styles.items():
+   values=np.array([[record[mode]['leads'][str(day)][field] for day in leads] for record in records.values()])
+   assert np.isfinite(values).all()
+   ax.plot(leads,values.mean(0),label=label,color=color,linestyle=linestyle,marker='o',markersize=3,linewidth=1.6)
+  ax.set_xscale('log');ax.set_xticks(leads,[str(x) for x in leads]);ax.grid(alpha=.18)
+  if col==0:ax.set_ylabel(unit)
+  if row==1:ax.set_xlabel('Forecast lead (days)')
+ axes[0,col].set_title('InstanceNorm scratch' if arm=='scratch' else 'InstanceNorm OM4 → observations')
+handles,labels=axes[0,0].get_legend_handles_labels()
+fig.legend(handles,labels,loc='lower center',ncol=2,fontsize=9,bbox_to_anchor=(.5,.005))
+fig.suptitle('Initial hidden-state replacement matters early; the long-range gap survives',fontsize=12)
+fig.tight_layout(rect=(0,.14,1,.95))
+fig.savefig(out/'mechanism-rollouts.png',dpi=130)
+plt.close(fig)
+for name in ['mechanism-rollouts.png','mechanism-evidence.json.gz']:
+ (out/(name+'.license')).write_text('SPDX-FileCopyrightText: 2026 Samudra Authors\nSPDX-License-Identifier: CC-BY-4.0\n')

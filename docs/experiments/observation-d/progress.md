@@ -1749,3 +1749,15 @@ are different training stages and do not yet establish a matched-budget result.
 Both arms have their monthly, annual and checkpoint-state diagnostic descendants
 registered with completion dependencies. They remain pending, not completed
 evaluations. Training continued during the interruption in assistant responses.
+
+
+### 26 September, 00:54 UTC — transfer enters joint training
+
+Both main jobs remain running. Scratch is at joint update 3,330, with best
+integrated-plus-spectral validation score **0.549892** (latest 0.552740 at
+3,300). Transfer completed reconstruction and entered joint training, reaching
+update 34. Its early joint score is not a matched-budget comparison with scratch.
+No new failed, timed-out or out-of-memory allocations were found. Recursive
+submission accounting, including superseded attempts, totals **18.745 GPU-hours**;
+`ACCOUNTING_2026-09-26T0054Z.json` preserves the allocation rows. Evaluation
+descendants remain pending on training completion.

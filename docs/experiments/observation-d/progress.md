@@ -1940,3 +1940,14 @@ migration, seed, optimizer, producer, or scientific-protocol change was made.
 All selected/fixed-budget/profile evaluation jobs remain dependent on production
 completion. The next hourly check will include the sequential transition to
 observation training if it has been reached.
+
+
+### 26 September 21:54 UTC — sequential task transition verified
+
+Samudra2 sequential completed its 8,000 OM4 updates and reached 77 observation
+updates with finite loss and gradients. The unchanged single-loop producer carries
+the optimizer across the task boundary; no reconstruction handoff, selected-weight
+reload, or new phase job was introduced. This verifies operational transition,
+not final transfer benefit. At the 21:44 accounting snapshot, campaign use was
+19.8431 GPU-hours including every preempted allocation. Scratch was at 3,187
+observations and mixed at 3,886 OM4 + 1,265 observations; all three remained live.

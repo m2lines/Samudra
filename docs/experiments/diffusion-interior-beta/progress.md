@@ -398,3 +398,9 @@ update at weight 0.1. Checkpoints save every 100 updates; validation runs every
 Completed setup/probe allocations through the observation-runner check total
 1.2078 GPU-hours. These short fitting runs are execution probes, not the A/B
 scientific comparison, and do not replace the planned held-out report.
+
+
+Production OM4 pretraining has started on one four-L40S host with the caps above.
+Experiment logs are stored locally in W&B offline format and JSON records.
+Observation fine-tuning will follow review of completed pretraining; C/D, H and E
+retain their later-wave report/approval gates.

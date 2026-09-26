@@ -26,9 +26,10 @@ user-approved local OM4 releases; the original branch and report links are retai
 
 ## A/B: full-state initialization
 
-Upstream baseline and observations verified on Engaging. Initial four-L40S
-qualification passed; observation-gradient and sampling-cost qualification is
-submitted. No comparative results.
+Upstream baseline and observations verified on Engaging. Baseline, observation-
+gradient, native-reader parity and end-to-end runner probes passed. Production
+OM4 pretraining for A/B at two paired seeds is running on four L40S GPUs.
+No held-out comparative results are available yet.
 
 ## C/D: latent evolution
 

@@ -143,3 +143,12 @@ members, gradients through frozen dynamics into the initializer/adapter/decoder,
 and invariance to changes in future observed surface values. Eleven targeted tests
 pass. Real-data GPU qualification, replay/pretraining orchestration, checkpointed
 production runs and scientific evaluation are still outstanding.
+
+
+The A/B pretraining objective now accepts the existing Rust-backed
+`InitializerWave.model_sample` tensors: observation-scaled states with unchanged
+native OM4 flux normalization. It bypasses the ERA5 adapter, supervises both
+historical full states, and uses the same known-surface noise convention as
+sampling. Tests verify native forcing sensitivity, initializer/decoder gradients,
+and absence of adapter/dynamics updates in this objective. Thirteen targeted CPU
+tests pass. The production training loop remains to be connected and qualified.

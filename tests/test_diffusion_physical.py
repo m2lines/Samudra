@@ -88,3 +88,36 @@ def test_frozen_dynamics_transmit_loss_to_initializer_without_future_surface_lea
     with torch.no_grad():
         changed, _ = run()
     torch.testing.assert_close(changed, forecast, rtol=0, atol=0)
+
+
+@pytest.mark.parametrize("stochastic", [False, True])
+def test_om4_pretraining_uses_native_fluxes_and_supervises_velocity(stochastic):
+    torch.set_num_threads(1)
+    torch.manual_seed(301)
+    model = JointPhysicalForecast(
+        Core(), stochastic=stochastic, width=8, sampling_steps=3
+    )
+    surface = torch.randn(1, 3, 2, 8, 12)
+    past = torch.randn(1, 3, 3, 8, 12)
+    context = torch.randn(1, 5, 8, 12)
+    mask = torch.ones(4, 8, 12)
+    truth = torch.randn(1, 2, 4, 8, 12)
+    truth[:, :, [0, 3]] = surface[:, -2:]
+    weights = mask.clone()
+    loss = model.pretraining_loss(
+        surface, past, context, truth, mask, weights, torch.Generator().manual_seed(30)
+    )
+    loss.backward()
+    assert torch.isfinite(loss)
+    assert model.core.adapter.weight.grad is None
+    assert model.core.evolution.gain.grad is None
+    assert model.core.initializer.net.weight.grad is not None
+    assert model.decoder.head.weight.grad is not None
+    assert model.core.initializer.net.weight.grad.abs().sum() > 0
+    assert model.decoder.head.weight.grad.abs().sum() > 0
+    # Native forcing sensitivity, without an ERA5 adapter in the path.
+    with torch.no_grad():
+        first, _, _ = model.encode_native(surface, past, context, mask)
+        second, _, _ = model.encode_native(surface, past + 1, context, mask)
+    assert not torch.equal(first, second)
+    assert torch.equal(weights, mask)

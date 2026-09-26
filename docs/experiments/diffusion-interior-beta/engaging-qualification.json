@@ -1,0 +1,72 @@
+{
+  "scope": "Implementation qualification, not comparative scientific results",
+  "producer": "ef1d351e8",
+  "hardware": "4 L40S GPUs on one host",
+  "allocated_seconds": 37,
+  "allocated_gpu_hours": 0.04111111111111111,
+  "roles": {
+    "baseline": {
+      "elapsed_seconds": 12.88670917134732,
+      "peak_gpu_gib": 1.7892274856567383,
+      "score": 0.5342519547912079,
+      "upstream_score": 0.534190612259629,
+      "tolerance": "1% relative or 1e-4 absolute"
+    },
+    "deterministic": {
+      "elapsed_seconds": 17.761419248767197,
+      "peak_gpu_gib": 3.5660743713378906,
+      "losses": [
+        1.039766788482666,
+        1.0375823974609375,
+        1.032771348953247,
+        1.0246821641921997,
+        1.012987732887268,
+        0.9975616335868835,
+        0.9790931940078735,
+        0.9576809406280518,
+        0.9324712157249451,
+        0.9038126468658447
+      ],
+      "final_loss": 0.8720332980155945,
+      "reloaded_loss": 0.8720332980155945,
+      "initializer_gradient": 9.037349274582162,
+      "training_origin": "1996-05-12 12:00:00",
+      "fields": 154
+    },
+    "diffusion": {
+      "elapsed_seconds": 17.83434081217274,
+      "peak_gpu_gib": 3.569303512573242,
+      "losses": [
+        1.0161755084991455,
+        1.0137966871261597,
+        1.0090583562850952,
+        1.0011584758758545,
+        0.9899775981903076,
+        0.9759001135826111,
+        0.959648072719574,
+        0.9413579106330872,
+        0.9209854006767273,
+        0.8995078206062317
+      ],
+      "final_loss": 0.8772695660591125,
+      "reloaded_loss": 0.8772695660591125,
+      "initializer_gradient": 7.037012845246451,
+      "training_origin": "1996-05-12 12:00:00",
+      "fields": 154
+    },
+    "geometry": {
+      "elapsed_seconds": 2.310756520368159,
+      "peak_gpu_gib": 0.9794864654541016,
+      "latent_grid": [
+        45,
+        90
+      ],
+      "target_grid": [
+        360,
+        720
+      ],
+      "synthetic_probe": true,
+      "production_geometry_ready": false
+    }
+  }
+}

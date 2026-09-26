@@ -6,6 +6,7 @@
 
 import argparse
 import contextlib
+import dataclasses
 import datetime
 import hashlib
 import json
@@ -179,6 +180,7 @@ class InitializerWave(Experiment):
             0, len(self.trainset) - 1, len(self.val_ids), dtype=int
         ).tolist()
         self.verified_sources = set()
+        self.initial_views = {}
         if self.rank == 0:
             extra = {
                 "state_scaling": self.scaling_contract,
@@ -238,25 +240,44 @@ class InitializerWave(Experiment):
             rtol=0,
             atol=0,
         )
+        compact = self.initial_sample(dataset, ids)
+        for actual, expected in zip(
+            compact, (surface, past, context, truth), strict=True
+        ):
+            torch.testing.assert_close(actual, expected, rtol=0, atol=0)
         self.verified_sources.add(key)
         self.emit(
             {
-                "event": "compact_cache_verified",
+                "event": "initializer_sampling_verified",
+                "device_cache": key in self.frame_caches,
                 "source_first_time": str(dataset.sources[0].time.values[0]),
             }
         )
 
     def sample(self, dataset, ids):
-        cache = self.frame_caches[id(dataset.sources[0])]
-        offsets = torch.tensor(ids, device=self.device)[:, None]
-        history = offsets + torch.arange(19, device=self.device)
-        channels = torch.tensor(self.initializer.surface, device=self.device)
-        surface = cache.prognostic[history[:, :, None], channels]
-        past = cache.boundary[history]
-        truth = cache.prognostic[history[:, -2:]]
-        future = offsets + torch.arange(18, 18 + dataset.steps, device=self.device)
-        forcing = cache.boundary[future]
-        labels = cache.prognostic[future + 1]
+        cache = self.frame_caches.get(id(dataset.sources[0]))
+        if cache is None:
+            batch = next(iter(self.native_loader(dataset, [ids])))
+            hist, boundary = batch.get_initial_input()
+            h, w = self.mask.shape[-2:]
+            full = hist.reshape(len(ids), 19, self.channels, h, w)
+            surface = full[:, :, self.initializer.surface]
+            past = boundary.reshape(len(ids), 19, 3, h, w)
+            truth = full[:, -2:]
+            forcing = torch.stack(
+                [batch.get_input(i)[1][:, -3:] for i in range(len(batch))], 1
+            )
+            labels = torch.stack([batch.get_label(i) for i in range(len(batch))], 1)
+        else:
+            offsets = torch.tensor(ids, device=self.device)[:, None]
+            history = offsets + torch.arange(19, device=self.device)
+            channels = torch.tensor(self.initializer.surface, device=self.device)
+            surface = cache.prognostic[history[:, :, None], channels]
+            past = cache.boundary[history]
+            truth = cache.prognostic[history[:, -2:]]
+            future = offsets + torch.arange(18, 18 + dataset.steps, device=self.device)
+            forcing = cache.boundary[future]
+            labels = cache.prognostic[future + 1]
         dates = dataset.sources[0].time.values[np.asarray(ids) + 18]
         phases = [2 * math.pi * (t.dayofyr - 1) / 365.25 for t in dates]
         season = surface.new_tensor([[math.sin(p), math.cos(p)] for p in phases])
@@ -264,26 +285,92 @@ class InitializerWave(Experiment):
         context = torch.cat((self.geo.expand(len(ids), -1, -1, -1), season), 1)
         return surface, past, context, truth, forcing, labels
 
-    def model_sample(self, dataset, ids):
-        surface, past, context, truth, forcing, labels = self.sample(dataset, ids)
+    def initial_sample(self, dataset, ids):
+        """Read only surface history and the two reconstructed states for A/B.
+
+        Both views retain native Rust preparation, normalization and masking.
+        The generic full rollout reader remains the parity reference in prepare().
+        """
+        key = id(dataset.sources[0])
+        if key in self.frame_caches:
+            return self.sample(dataset, ids)[:4]
+        if key not in self.initial_views:
+
+            def view(names, history):
+                source = dataset.sources[0]
+                indices = [self.names.index(name) for name in names]
+                source = dataclasses.replace(
+                    source,
+                    masks=dataclasses.replace(
+                        source.masks, prognostic=source.masks.prognostic[indices]
+                    ),
+                    data_layout=dataclasses.replace(
+                        source.data_layout, prognostic_var_names=list(names)
+                    ),
+                )
+                return TorchTrainDataset(
+                    input_source=source,
+                    label_source=None,
+                    prognostic_var_names=names,
+                    boundary_var_names=self.bundle.data_layout.boundary_var_names,
+                    input_steps=history,
+                    output_steps=1,
+                    steps=1,
+                    normalize_before_mask=True,
+                    masked_fill_value=0.0,
+                )
+
+            self.initial_views[key] = (
+                view([self.names[i] for i in self.initializer.surface], 19),
+                view(self.names, 2),
+            )
+        surface_view, interior_view = self.initial_views[key]
+        surface_batch = next(iter(self.native_loader(surface_view, [ids])))
+        history, boundary = surface_batch.get_initial_input()
+        h, w = self.mask.shape[-2:]
+        surface = history.reshape(len(ids), 19, len(self.initializer.surface), h, w)
+        past = boundary.reshape(len(ids), 19, 3, h, w)
+        interior_batch = next(
+            iter(self.native_loader(interior_view, [[i + 17 for i in ids]]))
+        )
+        truth = interior_batch.get_initial_input()[0].reshape(
+            len(ids), 2, self.channels, h, w
+        )
+        dates = dataset.sources[0].time.values[np.asarray(ids) + 18]
+        phases = [2 * math.pi * (t.dayofyr - 1) / 365.25 for t in dates]
+        season = surface.new_tensor([[math.sin(p), math.cos(p)] for p in phases])
+        season = season[:, :, None, None].expand(-1, -1, h, w)
+        context = torch.cat((self.geo.expand(len(ids), -1, -1, -1), season), 1)
+        return surface, past, context, truth
+
+    def convert_state(self, values, channels):
         if self.scaling_contract is None:
-            return surface, past, context, truth, forcing, labels
+            return values
+        old_mean = self.native_mean[channels][None, None, :, None, None]
+        old_std = self.native_std[channels][None, None, :, None, None]
+        mean = self.mean[channels][None, None, :, None, None]
+        std = self.std[channels][None, None, :, None, None]
+        result = (values * old_std + old_mean - mean) / std
+        return result * self.mask[channels][None, None]
 
-        def convert(values, channels):
-            old_mean = self.native_mean[channels][None, None, :, None, None]
-            old_std = self.native_std[channels][None, None, :, None, None]
-            mean = self.mean[channels][None, None, :, None, None]
-            std = self.std[channels][None, None, :, None, None]
-            result = (values * old_std + old_mean - mean) / std
-            return result * self.mask[channels][None, None]
-
+    def model_initial_sample(self, dataset, ids):
+        surface, past, context, truth = self.initial_sample(dataset, ids)
         return (
-            convert(surface, self.initializer.surface),
+            self.convert_state(surface, self.initializer.surface),
             past,
             context,
-            convert(truth, slice(None)),
+            self.convert_state(truth, slice(None)),
+        )
+
+    def model_sample(self, dataset, ids):
+        surface, past, context, truth, forcing, labels = self.sample(dataset, ids)
+        return (
+            self.convert_state(surface, self.initializer.surface),
+            past,
+            context,
+            self.convert_state(truth, slice(None)),
             forcing,
-            convert(labels, slice(None)),
+            self.convert_state(labels, slice(None)),
         )
 
     def score(self, dataset, indices, forecast=False):

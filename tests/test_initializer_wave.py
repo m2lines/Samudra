@@ -2,11 +2,13 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
+import dataclasses
 import datetime
 from types import SimpleNamespace
 
 import cftime
 import numpy as np
+import pytest
 import torch
 
 from samudra.experiments.frame_cache import PreparedFrameCache
@@ -92,7 +94,9 @@ def test_swin_odd_shapes_and_global_attention_gradient():
     assert detail.weight.grad.abs().sum() > 0
 
 
-def test_compact_sampling_uses_past_only_and_correct_forecast_alignment():
+def test_compact_sampling_uses_past_only_and_correct_forecast_alignment(
+    monkeypatch: pytest.MonkeyPatch,
+):
     experiment = InitializerWave.__new__(InitializerWave)
     experiment.device = torch.device("cpu")
     experiment.initializer = SimpleNamespace(surface=[2, 5])
@@ -119,6 +123,34 @@ def test_compact_sampling_uses_past_only_and_correct_forecast_alignment():
     torch.testing.assert_close(forcing[0, :, 0, 0, 0], 100 + torch.arange(18.0, 24.0))
     torch.testing.assert_close(labels[0, :, 0, 0, 0], torch.arange(19.0, 25.0))
     torch.testing.assert_close(labels[1, :, 0, 0, 0], torch.arange(22.0, 28.0))
+
+    class NativeBatch:
+        def __len__(self):
+            return 6
+
+        def get_input(self, step):
+            # Native batches retain all 19 history frames at each forecast step.
+            times = torch.tensor([0, 3])[:, None] + torch.arange(step, step + 19)
+            return (
+                cache.prognostic[times].flatten(1, 2),
+                cache.boundary[times].flatten(1, 2),
+            )
+
+        def get_initial_input(self):
+            return self.get_input(0)
+
+        def get_label(self, step):
+            return cache.prognostic[torch.tensor([19, 22]) + step]
+
+    experiment.channels = 6
+    monkeypatch.setattr(
+        experiment, "native_loader", lambda dataset, sampler: iter([NativeBatch()])
+    )
+    expected = (surface, past, context, truth, forcing, labels)
+    experiment.frame_caches.clear()
+    streamed = experiment.sample(dataset, [0, 3])
+    for actual, wanted in zip(streamed, expected, strict=True):
+        torch.testing.assert_close(actual, wanted, rtol=0, atol=0)
 
 
 def test_long_context_preserves_target_period_configuration():
@@ -195,3 +227,80 @@ def test_streaming_reconstruction_decomposition_and_fixed_climatology(tmp_path):
     )
     snapshots = np.load(out / "snapshots-rank0.npz")
     assert {"0_prediction", "1_truth"} <= set(snapshots.files)
+
+
+def test_initial_only_reader_requests_surface_history_and_aligned_state_pair(
+    monkeypatch,
+):
+    experiment = InitializerWave.__new__(InitializerWave)
+    experiment.device = torch.device("cpu")
+    experiment.initializer = SimpleNamespace(surface=[2, 5])
+    experiment.names, experiment.channels = NAMES, 6
+    experiment.mask = torch.ones(6, 2, 4)
+    experiment.geo = geographic_features(
+        torch.tensor([-30.0, 30.0]), torch.arange(4).float()
+    )
+    experiment.bundle = SimpleNamespace(
+        data_layout=SimpleNamespace(boundary_var_names=["a", "b", "c"])
+    )
+    experiment.frame_caches, experiment.initial_views = {}, {}
+    dates = np.array(
+        [
+            cftime.DatetimeNoLeap(2000, 1, 1) + datetime.timedelta(days=5 * i)
+            for i in range(40)
+        ]
+    )
+    from samudra.constants import build_om4_layout
+    from samudra.utils.data import Masks
+
+    source_type = dataclasses.make_dataclass("Source", ["time", "masks", "data_layout"])
+    source = source_type(
+        SimpleNamespace(values=dates),
+        Masks(experiment.mask, torch.ones(3, 2, 4)),
+        dataclasses.replace(build_om4_layout(), prognostic_var_names=NAMES),
+    )
+    dataset = SimpleNamespace(sources=[source])
+    calls = []
+
+    def constructor(**kwargs):
+        return SimpleNamespace(**kwargs)
+
+    def loader(view, sampler):
+        ids = sampler[0]
+        assert view.input_source.masks.prognostic.shape[0] == len(
+            view.prognostic_var_names
+        )
+        assert (
+            view.input_source.data_layout.prognostic_var_names
+            == view.prognostic_var_names
+        )
+        calls.append((view.prognostic_var_names, view.input_steps, ids))
+        channels = torch.tensor([NAMES.index(n) for n in view.prognostic_var_names])
+        times = torch.tensor(ids)[:, None] + torch.arange(view.input_steps)
+        values = (
+            (times[:, :, None] * 10 + channels)
+            .float()[..., None, None]
+            .expand(-1, -1, -1, 2, 4)
+        )
+        boundary = (times + 100).float()[:, :, None, None, None].expand(-1, -1, 3, 2, 4)
+        return iter(
+            [
+                SimpleNamespace(
+                    get_initial_input=lambda: (
+                        values.flatten(1, 2),
+                        boundary.flatten(1, 2),
+                    )
+                )
+            ]
+        )
+
+    monkeypatch.setattr(
+        "samudra.experiments.initializer_wave.TorchTrainDataset", constructor
+    )
+    monkeypatch.setattr(experiment, "native_loader", loader)
+    surface, past, _, truth = experiment.initial_sample(dataset, [0, 3])
+    assert calls == [(["thetao_0", "zos"], 19, [0, 3]), (NAMES, 2, [17, 20])]
+    torch.testing.assert_close(surface[0, :, 0, 0, 0], torch.arange(19.0) * 10 + 2)
+    torch.testing.assert_close(past[1, :, 0, 0, 0], torch.arange(3.0, 22.0) + 100)
+    torch.testing.assert_close(truth[0, :, 0, 0, 0], torch.tensor([170.0, 180.0]))
+    torch.testing.assert_close(truth[1, :, 5, 0, 0], torch.tensor([205.0, 215.0]))

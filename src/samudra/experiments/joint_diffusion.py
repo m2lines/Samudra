@@ -87,17 +87,86 @@ def channel_balanced_mse(prediction, target, weights):
     return result[..., denominator > 0].mean(-1)
 
 
-def denoising_loss(decoder, latent, target, mask, weights, generator):
+def denoising_loss(
+    decoder, latent, target, mask, weights, generator, *, known_mask=None
+):
     sigma = (
         torch.randn(target.shape[0], device=target.device, generator=generator) * 1.2
         - 1.2
     ).exp()
     noise = torch.randn(target.shape, device=target.device, generator=generator) * mask
-    prediction = decoder(
-        target + sigma[:, None, None, None] * noise, sigma, latent, mask
-    )
+    noisy = target + sigma[:, None, None, None] * noise
+    if known_mask is not None:
+        if known_mask.shape != mask.shape:
+            raise ValueError("Known mask must match the shared target mask")
+        noisy = torch.where(known_mask.bool(), target, noisy)
+        weights = weights * ~known_mask.bool()
+    prediction = decoder(noisy, sigma, latent, mask)
     return (
         channel_balanced_mse(prediction, target, weights)
         * (1 + sigma.square())
         / sigma.square()
     ).mean()
+
+
+def sample_joint(
+    decoder,
+    latent,
+    mask,
+    generator,
+    steps=16,
+    *,
+    known_values=None,
+    known_mask=None,
+    checkpoint_denoiser=False,
+):
+    """Heun sampling, optionally differentiable for observation-operator losses.
+
+    Known channels are conditioning values, not stochastic targets. Their state
+    and decoded values stay fixed at every integration stage. Production training
+    must apply the same convention to the noisy denoising inputs.
+    """
+    from torch.utils.checkpoint import checkpoint
+
+    if steps < 2:
+        raise ValueError("At least two integration intervals are required")
+    if (known_values is None) != (known_mask is None):
+        raise ValueError("Provide both known values and their mask")
+    shape = (latent.shape[0], decoder.fields, *mask.shape[-2:])
+    if mask.shape[-3] != decoder.fields:
+        raise ValueError("Target mask does not match decoder fields")
+
+    def anchor(value):
+        if known_mask is not None:
+            value = torch.where(known_mask.bool(), known_values, value)
+        return value * mask
+
+    def denoise(value, sigma):
+        sigma_batch = sigma.expand(latent.shape[0])
+        if checkpoint_denoiser and torch.is_grad_enabled():
+            result = checkpoint(
+                decoder, value, sigma_batch, latent, mask, use_reentrant=False
+            )
+        else:
+            result = decoder(value, sigma_batch, latent, mask)
+        return anchor(result.float())
+
+    sigmas = (
+        80 ** (1 / 7)
+        + torch.linspace(0, 1, steps, device=latent.device)
+        * (0.002 ** (1 / 7) - 80 ** (1 / 7))
+    ) ** 7
+    sigmas = torch.cat((sigmas, sigmas.new_zeros(1)))
+    state = anchor(
+        torch.randn(shape, device=latent.device, generator=generator) * sigmas[0]
+    )
+    for current, following in zip(sigmas[:-1], sigmas[1:], strict=True):
+        derivative = (state - denoise(state, current)) / current
+        trial = anchor(state + (following - current) * derivative)
+        if following > 0:
+            next_derivative = (trial - denoise(trial, following)) / following
+            trial = anchor(
+                state + (following - current) * (derivative + next_derivative) / 2
+            )
+        state = trial
+    return state

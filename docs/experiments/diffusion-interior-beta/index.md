@@ -25,7 +25,7 @@ observation-transfer comparison or final baseline selection.
 
 ## A/B: full-state initialization
 
-Pending upstream baseline selection and GPU qualification. No comparative results.
+Upstream baseline selected and staged; beta qualification queued. No comparative results.
 
 ## C/D: latent evolution
 

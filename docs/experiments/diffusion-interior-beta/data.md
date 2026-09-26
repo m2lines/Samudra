@@ -7,11 +7,11 @@ Campaign root: `/mnt/home/jrusak/data/diffusion-interior-beta`.
 
 | Role | Source / registered beta path | Verification |
 | --- | --- | --- |
-| One-degree OM4 inputs, original forcings and targets | OSN `emulators/am16581/data/2025-11/om4_onedeg_v3` → campaign `data/om4_onedeg_v3` | Copy followed by full source read-back comparison; in progress |
+| One-degree OM4 inputs, original forcings and targets | OSN `emulators/am16581/data/2025-11/om4_onedeg_v3` → campaign `data/om4_onedeg_v3` | Verified: full source read-back comparison, chunk audit and exact timestamp alignment |
 | Half-degree OM4 targets only | `/mnt/home/jrusak/data/om4_halfdeg` → campaign `data/om4_halfdeg_targets` | Verified: 379,625 declared chunks; six fields decoded at three times |
 | Monthly observation samples, grid and scales | `/mnt/home/jrusak/data/obs_full_range/d-observation-pilot/samples` → campaign `data/observations` | Verified: all 350 manifest payloads; 243 train / 9 validation / 96 test samples |
 | Continuous annual observations | `/mnt/home/jrusak/data/obs_full_range/d-observation-pilot/annual-instance-v1` → campaign `data/annual_observations` | Verified: all 416 recorded payload checksums across four origins |
-| Baseline weights, architecture/config and selection evidence | Upstream final observation campaign → campaign `checkpoints` | Pending final upstream selection; no provisional weights substituted |
+| Baseline weights, architecture/config and selection evidence | Upstream final observation campaign → campaign `checkpoints` | Verified: final transfer baseline and its matched pre-observation OM4 source |
 
 The beta `om4/v2026-09/om4_onedeg` release is deliberately not substituted for the
 upstream `om4_onedeg_v3` release. Both old one-/half-degree products have 4,745

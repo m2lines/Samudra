@@ -85,3 +85,40 @@ The watcher will submit one bounded qualification and monitor it hourly,
 collecting all four result records and checking matched A/B input hashes. It
 stops for a report/production-sizing decision after qualification; it does not
 implement unattended execution of the entire 576-GPU-hour campaign.
+
+
+## Upstream complete; beta qualification queued — 26 September
+
+Both final InstanceNorm paths and their monthly/annual reports completed.
+The transfer checkpoint won the frozen validation criterion: **0.5341906**, versus
+**0.5439096** for scratch. Its selected observation joint update is 6,400 (scratch:
+4,900). Selection did not use held-out scores. The selected full model, matching
+normalization/grid contracts and the original pre-observation OM4 checkpoint are
+staged and checksum-verified on beta. New-arm OM4 pretraining can start from that
+pre-observation source; the final observation-selected model remains the reference.
+
+Exact-release one-degree staging passed full remote-source read-back, all declared
+chunks are present, and all 4,745 one-/half-degree CF timestamps, units and calendars
+match. Observation and half-degree audits previously passed.
+
+Qualification **206768** is queued for priority; no GPU time has yet been consumed.
+The live walltime request was shortened from two hours to **30 minutes** to improve
+backfill eligibility, reducing its allocation ceiling to **2 GPU-hours**. The
+original submission record is retained. The broader qualification reserve remains
+24 GPU-hours within the 576-GPU-hour campaign ceiling. The initial scheduler start
+estimate is the following morning; this is not a guaranteed reservation.
+
+An active monitoring goal now covers the campaign through the final report or a
+confirmed blocker, with hourly or shorter checks and Slack notification in either
+case. No completion/blocker notification has been sent while ordinary queueing
+and useful implementation/preparation work remain.
+
+
+CPU preparation now includes a multivariate Heun sampler with optional activation
+checkpointing for gradients through partial observation-operator losses. Tests
+verify finite samples, reproducible draws, exact supplied-surface/land constraints
+and gradients reaching the initializer. This provides plumbing for observation
+fine-tuning without fabricating missing interior labels; it does not yet qualify
+the complete monthly observational objective or establish GPU throughput.
+Seven targeted CPU tests pass. Queued qualification remains on its original
+immutable producer; these additions do not alter that allocation's code.

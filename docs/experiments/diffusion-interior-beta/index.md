@@ -29,8 +29,9 @@ user-approved local OM4 releases; the original branch and report links are retai
 Upstream baseline and observations verified on Engaging. Baseline, observation-
 gradient, native-reader parity and end-to-end runner probes passed. Production
 OM4 pretraining for A/B completed 12,000 updates at each of two paired seeds.
-Trained sampling checks passed; observation fine-tuning is running on
-four L40S GPUs. [Sampler sensitivity records](trained-sampling.json).
+All four observation runs also completed 6,000 updates. Held-out reporting is
+underway after a readiness-gate correction. [Pretraining sampler sensitivity
+records](trained-sampling.json).
 No held-out comparative results are available yet.
 
 ## C/D: latent evolution

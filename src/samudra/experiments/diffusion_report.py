@@ -149,6 +149,30 @@ def member_records(model, data, paths, output, *, members=8, seed=4041729):
         )
 
 
+def verified_annual_origins(root, signature):
+    """Bind annual inputs to the same completed campaign audit used in training."""
+    audit_path = root / "DATA_READY.json"
+    if digest(audit_path) != signature["staged_data_manifest_sha256"]:
+        raise ValueError("Campaign data audit differs from training")
+    audit = json.loads(audit_path.read_text())["annual"]
+    annual = root / "data/annual_observations"
+    if (
+        annual.resolve() != Path(audit["path"]).resolve()
+        or audit["files_verified"] != 416
+        or audit["payload_bytes"] <= 0
+    ):
+        raise ValueError("Annual store differs from the verified campaign audit")
+    origins = sorted((annual / "test").glob("*/COMPLETE.json"))
+    if [path.parent.name for path in origins] != [
+        "2015-01-01",
+        "2018-01-01",
+        "2021-01-01",
+    ]:
+        raise ValueError("Require the frozen three-origin annual test cohort")
+    # evaluate_origins/read_origin subsequently verify each payload hash and time.
+    return origins
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
@@ -252,15 +276,7 @@ def main():
 
     if args.annual:
         annual = args.root / "data/annual_observations"
-        if not (annual / "DATA_READY.json").exists():
-            raise ValueError("Annual data must pass full transfer verification")
-        origins = sorted((annual / "test").glob("*/COMPLETE.json"))
-        if [path.parent.name for path in origins] != [
-            "2015-01-01",
-            "2018-01-01",
-            "2021-01-01",
-        ]:
-            raise ValueError("Require the frozen three-origin annual test cohort")
+        origins = verified_annual_origins(args.root, signature)
         annual_protocol = dict(
             **protocol,
             annual_origins=[path.parent.name for path in origins],

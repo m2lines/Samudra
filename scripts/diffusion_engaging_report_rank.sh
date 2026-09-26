@@ -11,4 +11,4 @@ seed="${seeds[$SLURM_LOCALID]}"
 run="$root/runs/$RUN_GROUP/$arm-$seed"
 exec /workspace/.venv/bin/python -m samudra.experiments.diffusion_report \
   --root "$root" --checkpoint "$run/observation/best.pt" \
-  --output "$run/report-eight-members" --members 8 --seed 4041729 --annual
+  --output "$run/${REPORT_LABEL:-report-eight-members}" --members 8 --seed 4041729 --annual

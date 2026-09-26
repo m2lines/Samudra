@@ -497,3 +497,28 @@ by channel/lead using the same masks and scales. A focused test verifies equalit
 between point-mass MAE and the CRPS of identical ensemble members, including
 missing observations and unequal area weights. This is reporting preparation,
 not a measured skill claim.
+
+## A/B observation fitting complete; reporting recovery
+
+All four runs completed 6,000 observation updates and their selected checkpoint
+hashes were verified. Best frozen validation scores were A: 0.739763/0.726844 and
+B: 0.958528/1.010482 for seeds 1729/1730 (upstream selected reference: 0.534191).
+These bounded runs have not improved that validation criterion. The upstream
+reference used a different training protocol, including effective batch eight,
+1,000 reconstruction and 8,000 joint updates with trainable dynamics; these A/B
+runs use batch one, 6,000 observation updates and frozen dynamics. The reference
+is an anchor, not a matched treatment comparison.
+
+The first held-out reporting allocation stopped at the annual readiness gate:
+it expected a marker within the annual store, whereas the completed staging
+audit is the campaign-root `DATA_READY.json`. The gate now requires the exact
+audit fingerprint recorded by training, its verified annual path/count, and the
+frozen three-origin cohort; per-payload hash and timestamp checks still run in
+the annual reader. A focused test rejects changed audits and redirected stores.
+A fresh report directory preserves the interrupted outputs and evaluator identity.
+The failed 200-second four-GPU allocation is included in the budget.
+
+The final-weight 8/16/32-step validation sampling check completed for both B
+seeds. Completed allocations now total **20.2767 GPU-hours**, including all
+training, checks and this reporting failure. Held-out reporting is being retried;
+full comparisons, member maps, controls and conclusions remain pending.

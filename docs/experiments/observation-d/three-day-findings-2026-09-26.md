@@ -4,8 +4,8 @@
 # Three-day investigation: interim findings
 
 Started 26 September 2026. **Final report due 29 September at 09:30 ET.**
-This is an active investigation; the larger-backbone/mixed-task comparison has
-not run yet. [Plan and scope](three-day-followup-2026-09-26.md).
+This is an active investigation. The larger-backbone scratch, sequential and
+mixed-task production runs have started; their performance comparison is pending. [Plan and scope](three-day-followup-2026-09-26.md).
 
 ## First result: much of the long-range advantage is reduced bias
 
@@ -32,7 +32,7 @@ are in the temporal-mean bias component. The temporal-anomaly error also improve
 the advantage is not exclusively a mean offset. This does not yet identify
 whether weights, initial state or forcing response causes the difference.
 
-## Training climatology is a stronger year-end baseline than either model
+## Training climatology beats both unmodified models at year end
 
 The baseline is the existing training-only monthly surface climatology evaluated
 at each forecast midpoint's calendar month, with the same observed support.
@@ -114,6 +114,50 @@ are diagnostic evidence, not new checkpoint selection or a test-tuned correction
 [Full mechanism evidence](artifacts/2026-09-26-three-day/mechanism-evidence.json.gz)
 includes all five conditions, three origins, lead errors, spectra and hashes.
 
+## Continually resetting hidden state closes most of the point-error gap, at a spectral cost
+
+The initial-state result prompted a fixed follow-up: replace hidden slots with
+their training seasonal mean **before every forecast step**, preserving the
+model's own predicted SST/ADT history. An alternative resets only the internal
+velocity slots. No future surface observations are supplied. These conditions
+were specified before running the follow-up; they remain exploratory analyses
+on the same previously examined annual cases.
+
+![Continuous hidden-memory reset](artifacts/2026-09-26-three-day/memory-reset-rollouts.png)
+
+| Model | Condition | Day-30 SST RMSE (°C) | Day-365 SST RMSE (°C) | Day-365 ADT RMSE (m) | Annual EKE spectral error (dex) |
+| --- | --- | ---: | ---: | ---: | ---: |
+| InstanceNorm scratch | Unmodified | 0.5978 | 2.1101 | 0.2192 | 1.963 |
+| InstanceNorm scratch | Every-step hidden-state seasonal reset | 0.8224 | 0.8932 | 0.1040 | 3.203 |
+| InstanceNorm scratch | Every-step velocity-slot seasonal reset | 1.9071 | 2.0698 | 0.1315 | 3.163 |
+| InstanceNorm OM4 → observations | Unmodified | 0.5870 | 1.2906 | 0.1536 | 1.665 |
+| InstanceNorm OM4 → observations | Every-step hidden-state seasonal reset | 0.7416 | 0.8365 | 0.0990 | 2.698 |
+| InstanceNorm OM4 → observations | Every-step velocity-slot seasonal reset | 0.8150 | 1.2025 | 0.1063 | 2.348 |
+
+The year-end SST gap shrinks from 0.820 to 0.057°C, approximately **93%**, under
+the full hidden-state reset. Both reset models beat the training climatology's
+1.037°C year-end SST RMSE in these conditional-forcing cases. They lose short-lead
+accuracy, however, and their annual EKE spectra become substantially worse.
+The mean EKE-field power ratio across retained regions/wavenumbers, computed
+geometrically, falls from 0.0109 to 0.000628 for scratch and from 0.0218 to 0.00201
+for transfer. These are ratios of **EKE-field spectral power**, not fractions of
+physical kinetic energy. The reset suppresses variability while reducing drift.
+
+This is evidence that evolving hidden-state feedback contributes to the
+long-range point-error gap, and that OM4 training may help by reducing harmful
+drift in that feedback. It is **not** evidence that hidden memory is universally
+unnecessary, that the velocity slots are physically interpretable, or that the
+reset is a better model on the integrated-plus-spectral objective. The large
+short-lead penalty from resetting velocity slots alone also cautions against
+interpreting slot ablations as clean removals of isolated physical processes.
+Model-specific seasonal means still confound mean-state quality with processor
+weights. A prospective training/evaluation comparison would be needed before
+adopting a stabilizing constraint as a model change.
+
+[Full follow-up evidence](artifacts/2026-09-26-three-day/memory-reset-evidence.json.gz)
+retains all conditions, origins, spectral curves and training-mean provenance.
+Jobs 18583498/18583499 completed in 64/62 allocated GPU seconds.
+
 ## Methods and model names
 
 | Literal model name | Meaning |
@@ -126,8 +170,26 @@ six five-day full-state forecast targets; observation training uses calendar-mon
 T/S constraints and six or seven five-day surface targets. Annual forecasts are
 73 autoregressive steps with prescribed ERA5 forcing; there is no year-long
 backpropagation. Training-derived replacements use only training examples.
-The new Samudra-2-matched processor has 83,872,357 parameters; it is a separate
-comparison and has no reported production results yet.
+The new Samudra-2-matched processor has 83,872,357 parameters, for approximately
+205.6M total model parameters with the same initializer and adapter. It is a
+separate comparison, using InstanceNorm and fixed loss rather than reproducing
+the reference BatchNorm/dynamic-loss training recipe.
+
+| Literal new model name | Meaning and frozen exposure |
+| --- | --- |
+| Samudra2 scratch | Random initial weights; 16,000 observation-only updates. The raw 8,000-update checkpoint also supports an equal-observation-exposure comparison. |
+| Samudra2 sequential | Random initial weights; 8,000 OM4 updates followed by 8,000 observation updates in one loop/optimizer, without a boundary reload. |
+| Samudra2 mixed | Same initial seed and per-task examples as sequential; exactly 8,000 updates from each task, scheduled from OM4-heavy to observation-heavy while retaining OM4 in the tail. |
+
+All three use effective batch eight, AdamW learning rate 1e-4, weight decay 0.01,
+gradient norm cap one, no warm-up, and reconstruction auxiliary weight 0.1.
+There is no separate observation reconstruction/adaptation phase. Primary
+selection remains the fixed integrated-plus-spectral observation validation
+score; OM4 retention is diagnostic only. Total-update matching is approximate
+compute matching because OM4 and observation updates have different costs.
+The [frozen protocol](three-day-followup-2026-09-26.md) gives the full schedule,
+checkpoints, qualification contracts and caps. No production performance result
+is reported yet.
 
 ## Execution and remaining work
 
@@ -152,11 +214,17 @@ then compares disk replay variation against measured in-memory replay variation.
 It also records selected checkpoints' global and per-task counts. Eighteen focused
 tests and all commit checks passed. New qualifications use fresh directories;
 the failed producer/checkpoint is preserved. Build **18582535** submits the retry.
-Production remains blocked by qualification, not assumed successful.
+Fresh fitting 18582538 and mixed/resume probe 18582539 then passed. Exact state
+restoration and the native-versus-serialized variation were both verified; the
+probe completed six OM4/four observation updates with switches back to OM4.
+The producer above is now pinned for production.
 
 Mechanism jobs **18581194 / 18581195** completed all five conditions on all three
 annual origins in 278 / 282 allocated GPU seconds, respectively. Their results
-are analyzed above. No new production training has been submitted.
+are analyzed above. Production jobs **18583546 (scratch), 18583547 (sequential),
+and 18583548 (mixed)** were submitted at 14:41 UTC and have running H200
+allocations. Scratch has reached structured training updates; source-task arms
+are warming their OM4 caches. Running allocations do not establish convergence.
 
 Bias/anomaly diagnostic producer `6d8a8d26b` passed two decomposition tests and
 repository checks. CPU job 18580782 failed before analysis because bare container
@@ -166,7 +234,6 @@ Raw [scratch diagnostics](artifacts/2026-09-26-three-day/scratch-annual-decompos
 and [transfer diagnostics](artifacts/2026-09-26-three-day/transfer-annual-decomposition.json)
 retain evaluation and training-statistics hashes.
 
-Next: qualify throughput/memory and the implemented single-loop controls, freeze
-matched task-exposure budgets, and evaluate initial-state
-and forcing interventions. Known preprocessing limits and quarter-degree runs
+Next: monitor the qualified production comparison, evaluate its selected and
+fixed-budget checkpoints, and relate observation performance to OM4 retention. Known preprocessing limits and quarter-degree runs
 are out of scope for this three-day campaign.

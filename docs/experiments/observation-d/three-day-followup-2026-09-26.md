@@ -197,3 +197,54 @@ first diagnostic, not a checkpoint-selection rule or test-tuned correction.
 Continuous resetting can impose an artificial stabilizing constraint; results
 will not establish a physically interpretable latent state. Model-specific mean
 initialization versus processor-weight effects remain only partly separated.
+
+### Qualified production protocol — frozen before submission
+
+Producer **dd3a05b07554ce0c1c9f589643d2afb764ab1440** passed fresh observation
+fitting job 18582538 and mixed-loop/resume job **18582539**. The latter completed
+six OM4 and four observation updates, including switches back from observations
+to OM4. Weights, optimizer moments and RNG state were serialized/restored exactly.
+Native repeated-update weight RMSE was 2.308e-7; disk-restored replay RMSE was
+2.278e-7. Maximum differences were approximately 1.00e-4 for both, consistent
+with the measured native CUDA arithmetic variation rather than a checkpoint-state
+loss. All gate artifacts and the earlier failed probe are preserved.
+
+The 100-update OM4 qualification measured 191 training seconds; observation
+micro-update fitting took approximately 0.66 seconds on a repeated cached
+example. Mixed-probe cold observation batches were slower because they loaded
+new examples. Full OM4 cache initialization on the retry node took several
+minutes and peaked near 78 GiB host RSS; it was allowed to finish without restart.
+
+| Literal new model name | Ordering | OM4 updates | Observation updates | Total updates |
+| --- | --- | ---: | ---: | ---: |
+| Samudra2 scratch | Observation-only training from random weights | 0 | 16,000 | 16,000 |
+| Samudra2 sequential | OM4 first, then observations; one optimizer throughout | 8,000 | 8,000 | 16,000 |
+| Samudra2 mixed | Deterministic OM4-heavy to observation-heavy mixture | 8,000 | 8,000 | 16,000 |
+
+All arms: seed 1729, effective batch eight (eight single-example microbatches),
+AdamW with learning rate 1e-4 for both tasks, weight decay 0.01, gradient norm
+cap one, no warm-up, InstanceNorm, fixed loss and reconstruction auxiliary weight
+0.1. No standalone reconstruction/adaptation phase, optimizer reset or selected
+weight reload occurs within training. Sequential/mixed receive identical example
+streams within each task. The mixed schedule's observation fraction rises from
+approximately 12.5% to 87.5%, retaining OM4 in its tail.
+
+Each update has task-dependent cost; 16,000 updates is rough compute matching,
+not a FLOP-equivalence claim. Report per-task exposure and actual allocated
+GPU-hours. Primary final checkpoints are selected by the unchanged nine-origin
+integrated-plus-spectral observation score over the whole arm. Fixed-budget raw
+checkpoints supply additional comparisons, including scratch at 8,000 observation
+updates against the two 8,000-observation arms. Do not label that raw checkpoint
+as the validation-selected best through 8,000 updates.
+
+Validate every 100 global updates and at observation milestones 10, 25, 50, 100,
+250, 500, 1k, 2k, 4k, 6k, 8k (plus 12k/16k for scratch). Preserve raw milestone
+weights/optimizer and selected weights with their global/per-task counts. Record
+OM4 validation retention for all arms, including scratch, without using it for
+observation checkpoint selection. Scratch receives no OM4 training gradients.
+
+Use one H200 per arm, up to 28 allocated hours each; internal training cap is
+27 hours. Absolute training cutoff is **29 September 07:30:45 UTC**, reserving
+six hours before the report deadline. Requested production caps total 84
+GPU-hours; actual prior allocations, ongoing diagnostics, evaluations and retries
+must remain within the 120-hour campaign ceiling. No new seed is included.

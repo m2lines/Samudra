@@ -134,3 +134,12 @@ and temporal gradients follow the duration weights. Nine targeted CPU tests
 pass. This is observation-loss plumbing; real-grid sampler/rollout qualification
 and the production training harness remain outstanding. Qualification 206768
 remains queued on its original immutable code; no new allocation was submitted.
+
+
+The matched A/B forecast wrapper now connects surface-history conditioning,
+joint initial-pair decoding/sampling, and the frozen upstream physical stepper.
+CPU integration tests verify anchored historical surfaces, independently drawn
+members, gradients through frozen dynamics into the initializer/adapter/decoder,
+and invariance to changes in future observed surface values. Eleven targeted tests
+pass. Real-data GPU qualification, replay/pretraining orchestration, checkpointed
+production runs and scientific evaluation are still outstanding.

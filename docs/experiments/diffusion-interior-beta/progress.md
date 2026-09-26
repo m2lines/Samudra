@@ -430,3 +430,10 @@ member calibration or member field structure. These remain separate diagnostics.
 The annual path verifies payload hashes and uses only historical observed surfaces
 with prescribed ERA5 thereafter. Five existing annual/evaluation tests pass; the
 new report path has not yet run on completed A/B observation checkpoints.
+
+Prepared `slurm_diffusion_engaging_report.sbatch` for the four completed A/B
+observation checkpoints: one GPU per arm/seed, eight members for B, two-hour
+allocation cap (at most eight GPU-hours). This reporting job has not been
+submitted. Its command requires completed, validation-selected observation
+weights and writes monthly point fields/calibration plus annual mean diagnostics.
+Additional member-structure and control analyses are still needed for the report.

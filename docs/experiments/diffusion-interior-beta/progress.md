@@ -317,3 +317,30 @@ observation dtype; deterministic and diffusion autocast regression tests check
 exact float32 anchoring. The initial qualification plus this failed attempt total
 0.0633 allocated GPU-hours. Observation qualification must be rerun before
 production.
+
+## Observation-gradient qualification passed
+
+After the autocast fix, all four observation probes passed in one 30-second,
+four-L40S allocation. Gradients reached initializer, adapter and decoder;
+physical dynamics remained frozen, and strict checkpoint reloads matched.
+
+| Probe | Forward/backward seconds | Peak GPU GiB | Training-month objective |
+| --- | --- | --- | --- |
+| A, deterministic | 0.973 | 4.05 | MSE objective 0.14847 |
+| B, 8 sampling steps | 1.574 | 5.56 | Fair CRPS objective 0.21609 |
+| B, 16 sampling steps | 2.232 | 6.75 | Fair CRPS objective 0.21066 |
+| B, 32 sampling steps | 3.866 | 9.13 | Fair CRPS objective 0.20964 |
+
+These use one training month after only ten OM4 fitting updates. They establish
+execution, gradient flow and approximate cost, not sampling convergence on a
+trained model or comparable A/B skill. Start B with 16 sampling steps and revisit
+8/16/32 convergence on trained weights. Total allocated GPU time through these
+checks is 0.0967 hours, including the failed attempt.
+
+Before the longer first-wave fits, exercise the production runner with native
+Rust loading, real validation and checkpoint writes using bounded 100-update
+OM4 runs for A/B at seeds 1729/1730. These are execution probes with separate
+outputs, not the production comparison. The launchers can version their shell
+code separately through `LAUNCHER_COMMIT` while retaining the qualified Python
+producer in `CODE_COMMIT`; training still requires its qualification to match
+that exact Python producer.

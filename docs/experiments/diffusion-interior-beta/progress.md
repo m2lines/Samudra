@@ -249,8 +249,19 @@ memory use and throughput still require qualification.
 
 Before Engaging qualification, review found that A/B's historical surface
 anchoring ignored per-example observation validity. Missing SST/SSH cells would
-have been held at their zero fill value. The anchor mask now respects validity
+have been held at their filled value (climatology in the prepared observations). The anchor mask now respects validity
 separately for each example and historical time; missing cells remain model
 outputs. Tests cover both deterministic and sampled reconstruction, exact
 preservation of valid observations, and batch-dependent channel support. This
 fix does not change the selected upstream reference model.
+
+The monthly A/B reporting entry point is now prepared as
+`python -m samudra.experiments.diffusion_report`. It requires the selected weights
+from a completed observation stage, unchanged observation-manifest and score
+reference hashes, and all 96 held-out origins. It exports the upstream point
+metrics and field arrays plus stochastic per-origin additive CRPS, spread,
+coverage and rank statistics. Monthly aggregation is applied separately to each
+member before scoring; a test distinguishes this from averaging instantaneous
+scores. This command neither selects on held-out scores nor replaces the annual
+rollout, structural diagnostics, controls, figures or final scientific report.
+No completed A/B weights are available yet to run it.

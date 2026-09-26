@@ -59,9 +59,13 @@ One seed and three previously examined annual origins remain exploratory evidenc
 The Samudra-2-matched processor has 83,872,357 parameters, versus approximately
 31.6M in the previous pilot; the initializer stays approximately 121.7M. The
 reference backbone/output padding and kernel are reused, retaining InstanceNorm
-and fixed loss. Eighteen backbone/observation/evaluator tests passed. Immutable
-producer `b9d6ebad9f240e5fd92f6e0bb86c4d774ccfe6ea` is built; qualification jobs
-18580735 (OM4) and 18580736 (observations) are queued behind `QOSGrpCpuLimit`.
+and fixed loss. Single-loop producer `50630959c6a8aed89fcc0152cab28b16f8c377d3`
+passed 29 targeted tests and all commit checks. It preserves exact per-task
+exposure/sample order, one optimizer, and checkpoint/resume state. Build 18581034
+completed. Its OM4 and observation qualifications **18581035 / 18581036** are
+queued behind `QOSGrpCpuLimit`; mixed-task/resume probe **18581037** depends on
+both succeeding. Superseded 18580735 / 18580736 were cancelled while pending,
+with zero elapsed allocation. New-campaign allocated GPU time is still zero.
 No new production training has been submitted.
 
 Bias/anomaly diagnostic producer `6d8a8d26b` passed two decomposition tests and
@@ -72,7 +76,7 @@ Raw [scratch diagnostics](artifacts/2026-09-26-three-day/scratch-annual-decompos
 and [transfer diagnostics](artifacts/2026-09-26-three-day/transfer-annual-decomposition.json)
 retain evaluation and training-statistics hashes.
 
-Next: qualify throughput/memory, freeze matched task-exposure budgets, implement
-and qualify the single-loop sequential/mixed controls, and evaluate initial-state
+Next: qualify throughput/memory and the implemented single-loop controls, freeze
+matched task-exposure budgets, and evaluate initial-state
 and forcing interventions. Known preprocessing limits and quarter-degree runs
 are out of scope for this three-day campaign.

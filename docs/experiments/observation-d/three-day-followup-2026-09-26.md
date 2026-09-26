@@ -123,3 +123,10 @@ restoration; its extra work counts toward allocated GPU time. Production also
 requires this probe's matching qualification marker. Earlier backbone jobs are
 superseded only if still pending, preserving their submission records. No
 production results are claimed yet.
+
+Build 18581034 subsequently completed in five CPU seconds. Its new jobs are
+18581035 (OM4 qualification), 18581036 (observation qualification), and 18581037
+(mixed probe, dependent on both). The first two are pending group CPU capacity;
+the probe is pending dependencies. Original 18580735 / 18580736 were cancelled
+while pending with zero elapsed allocation. All new-campaign GPU allocations
+remain zero at this checkpoint.

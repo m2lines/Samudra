@@ -95,6 +95,10 @@ advantage still survives. This argues against either case-specific hidden
 initialization or access to actual future forcing being the sole explanation.
 It is consistent with better learned rollout behavior and reduced drift after
 OM4 training; it does not prove which weights or physical mechanism provide it.
+Because each replacement uses that model's **own** seasonal mean, better learned
+mean initialization remains an alternative to better processor weights. The
+experiment also does not remove hidden-state information continually throughout
+the rollout, so it cannot establish that evolving hidden memory is unnecessary.
 The observed initial SST/ADT states are retained in all state interventions, so
 this is not a test of discarding *all* initial-condition information.
 

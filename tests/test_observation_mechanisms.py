@@ -63,3 +63,27 @@ def test_intervention_timing_and_noop():
     assert (arguments[1] == 1).all()
     with pytest.raises(ValueError):
         forecast(Toy(), arguments, months, means, "unknown")
+
+
+def test_continuous_reset_removes_hidden_memory_without_observing_future():
+    arguments = (
+        torch.zeros(1, 19, 2, 1, 1),
+        torch.ones(1, 27, 8, 1, 1),
+        torch.zeros(1, 27, 5, 1, 1),
+        torch.ones(77, 1, 1),
+        torch.ones(1, 19, 2, 1, 1),
+    )
+    means = {
+        "state_mean": np.zeros((12, 2, 77, 1, 1), np.float32),
+        "forcing_mean": np.zeros((12, 8, 1, 1), np.float32),
+    }
+    months = np.zeros(27, int)
+    full = forecast(Toy(), arguments, months, means, "every-step-hidden-seasonal")
+    velocity = forecast(Toy(), arguments, months, means, "every-step-velocity-seasonal")
+    assert (full[:, :, 0] == 1).all()
+    assert (velocity[:, :, 0] == 1).all()
+    assert (full[:, :, 39] == 1).all()
+    torch.testing.assert_close(velocity[0, :, 39, 0, 0], torch.arange(2.0, 10.0))
+    # Surface carries predictions forward; it is never replaced with seasonal
+    # means or supplied observations from the future.
+    torch.testing.assert_close(full[0, :, 38, 0, 0], torch.arange(2.0, 10.0))

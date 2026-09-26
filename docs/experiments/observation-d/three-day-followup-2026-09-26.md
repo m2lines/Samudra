@@ -179,3 +179,21 @@ respectively. Diagnostic build 18581137 completed. The five requested caps total
 five GPU-hours within the 120-hour campaign ceiling; actual allocated time will
 be accounted from Slurm, including every retry. Running allocations and startup
 outputs do not yet establish successful qualification or scientific results.
+
+### Follow-up diagnostic: continuously remove hidden carryover
+
+After the initial-state intervention showed little year-end effect, a fixed
+follow-up will reset hidden state to its training seasonal mean **before every
+forecast step**, either for all non-SST/ADT slots or only the internal velocity
+slots. Each step still carries the model's own predicted SST/ADT history; future
+observations are never supplied. This tests the role of evolving hidden carryover,
+which a one-time initialization intervention cannot remove.
+
+Run these two conditions plus an unmodified paired baseline on each existing
+selected checkpoint and the same three annual origins. Reuse training seasonal
+means only after verifying checkpoint, training manifest, training statistics and
+mean-file hashes. This is an explicitly exploratory follow-up prompted by the
+first diagnostic, not a checkpoint-selection rule or test-tuned correction.
+Continuous resetting can impose an artificial stabilizing constraint; results
+will not establish a physically interpretable latent state. Model-specific mean
+initialization versus processor-weight effects remain only partly separated.

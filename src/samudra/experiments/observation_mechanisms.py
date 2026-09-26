@@ -24,6 +24,8 @@ MODES = (
     "initial-velocity-seasonal",
     "day30-hidden-seasonal",
     "seasonal-future-forcing",
+    "every-step-hidden-seasonal",
+    "every-step-velocity-seasonal",
 )
 
 
@@ -117,9 +119,13 @@ def forecast(model, arguments, months, means, mode):
     predictions = []
     for step in range(forcing.shape[1]):
         intervene = (
-            step == 0
-            and mode in ("initial-hidden-seasonal", "initial-velocity-seasonal")
-        ) or (step == 6 and mode == "day30-hidden-seasonal")
+            (
+                step == 0
+                and mode in ("initial-hidden-seasonal", "initial-velocity-seasonal")
+            )
+            or (step == 6 and mode == "day30-hidden-seasonal")
+            or mode in ("every-step-hidden-seasonal", "every-step-velocity-seasonal")
+        )
         if intervene:
             replacement = torch.as_tensor(
                 means["state_mean"][months[18 + step]],
@@ -127,7 +133,9 @@ def forecast(model, arguments, months, means, mode):
                 dtype=states.dtype,
             )[None]
             states = replace_hidden(
-                states, replacement, mode == "initial-velocity-seasonal"
+                states,
+                replacement,
+                mode in ("initial-velocity-seasonal", "every-step-velocity-seasonal"),
             )
         prediction = model.call(
             model.evolution,
@@ -147,7 +155,14 @@ def main():
     parser.add_argument("--run", required=True)
     parser.add_argument("--annual-data", required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--modes", nargs="+", choices=MODES, default=list(MODES[:5]))
+    parser.add_argument(
+        "--means-from",
+        help="Reuse verified training means from this checkpoint's completed mechanism evaluation",
+    )
     args = parser.parse_args()
+    if "baseline" not in args.modes or len(set(args.modes)) != len(args.modes):
+        parser.error("Require unmodified baseline and unique intervention modes")
     run, annual, output = Path(args.run), Path(args.annual_data), Path(args.output)
     manifest = json.loads((run / "manifest.json").read_text())
     if (
@@ -179,9 +194,28 @@ def main():
             Path(manifest["arguments"]["data"]) / "statistics.npz"
         ),
         "data_manifests": {str(p.relative_to(annual)): digest(p) for p in origins},
-        "modes": list(MODES),
+        "modes": args.modes,
         "scope": "Exploratory diagnostics on previously examined annual origins; no checkpoint selection or tuning. State replacements are this model's training-derived seasonal means; latent channels need not be physical quantities. Late replacement can be out of the evolved-state distribution.",
     }
+    reused_means = None
+    if args.means_from:
+        source = Path(args.means_from)
+        previous = json.loads((source / "COMPLETE.json").read_text())
+        for key in (
+            "checkpoint_sha256",
+            "training_manifest_sha256",
+            "training_statistics_sha256",
+        ):
+            if previous["input"][key] != signature[key]:
+                raise ValueError("Reused seasonal means have different model/data")
+        reused_means = source / "training-means.npz"
+        if digest(reused_means) != previous["training_means_sha256"]:
+            raise ValueError("Reused seasonal means hash differs")
+        signature["reused_means"] = {
+            "path": str(reused_means),
+            "sha256": digest(reused_means),
+            "source_completion_sha256": digest(source / "COMPLETE.json"),
+        }
     contract = output / "input.json"
     if contract.exists() and json.loads(contract.read_text()) != signature:
         raise ValueError("Mechanism evaluation resume differs")
@@ -203,7 +237,7 @@ def main():
         torch.load(checkpoint, map_location="cuda", weights_only=False)["model"],
         strict=True,
     )
-    mean_path = output / "training-means.npz"
+    mean_path = reused_means or output / "training-means.npz"
     if mean_path.exists():
         with np.load(mean_path) as saved:
             means = dict(saved)
@@ -224,7 +258,7 @@ def main():
                 [raw["surface"][19:], raw["velocity"][19:]], axis=1
             )
             results[origin] = {}
-            for mode in MODES:
+            for mode in args.modes:
                 record_path = output / f"{origin}-{mode}.json"
                 if record_path.exists():
                     results[origin][mode] = json.loads(record_path.read_text())

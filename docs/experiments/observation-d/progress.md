@@ -1853,3 +1853,42 @@ no old-producer checkpoint is resumed. Production is still gated.
 New campaign accounting at 14:27:49 UTC: **0.36694 allocated GPU-hours**, including
 the failed probe and completed diagnostics. All cancelled RTX requests had zero
 allocated time. The 120-hour ceiling and 29 September 09:30 ET deadline remain.
+
+
+### 26 September 15:10 UTC — production and evaluation dependencies
+
+Fresh producer-matched fitting 18582538 and mixed/resume probe 18582539 passed.
+The latter verifies exact weight/optimizer/RNG restoration separately from native
+GPU numerical variation. Production producer is pinned to
+`dd3a05b07554ce0c1c9f589643d2afb764ab1440`; all three main H200 jobs
+18583546 / 18583547 / 18583548 have reached finite structured training updates.
+The frozen protocol is 16k total updates per arm: scratch 16k observations,
+sequential and mixed 8k OM4 + 8k observations. No convergence claim is made yet.
+
+Selected-checkpoint monthly/annual evaluation jobs are 18583774/18583776
+(scratch), 18583777/18583779 (sequential), and 18583780/18583781 (mixed).
+Each waits for successful corresponding training and independently checks its
+completion marker and selected-checkpoint hash.
+
+Fixed-budget evaluation producer `b18821b218f6c9dd00cd1de3fb52babba2b1332d`
+passed 16 targeted tests and real-model validation qualification 18584087.
+The qualification evaluated nine origins and verified explicit lineage for
+five OM4/two observation updates without labeling the raw weights as selected.
+The raw 8k-observation monthly/annual jobs are 18584202/18584203 (scratch),
+18584205/18584206 (sequential), and 18584208/18584209 (mixed).
+Initializer/profile/30-day-map validation diagnostics at 0, 10, 100, 1k, 4k,
+8k observation updates (also 16k for scratch) are 18584204, 18584207, 18584216.
+Zero denotes random weights before either task, not a pretrained zero-obs model.
+All nine jobs depend on successful corresponding training; they add nine
+requested GPU-hours. Primary selected evaluations add nine; production caps add
+84. Actual campaign use at 15:08:44 UTC was **1.96 allocated GPU-hours**, including
+failed/replaced attempts, under the 120-hour total ceiling.
+
+Continuous hidden-state reset diagnostics 18583498/18583499 completed. Resetting
+to each model's own training seasonal hidden mean at every forecast step reduced
+the year-end SST gap from 0.820 to 0.057 degrees C, but worsened short-lead error
+and annual EKE spectral error (scratch 1.96 to 3.20 dex; transfer 1.67 to 2.70 dex).
+This supports a hidden-feedback drift explanation while exposing a spectral
+tradeoff; it is not an improved model under the selection objective. Full plots,
+metrics and intervention limitations are in the findings report. No timer has
+been re-enabled; monitoring remains within the three-day wall-time cap.

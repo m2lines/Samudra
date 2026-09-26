@@ -223,8 +223,15 @@ Mechanism jobs **18581194 / 18581195** completed all five conditions on all thre
 annual origins in 278 / 282 allocated GPU seconds, respectively. Their results
 are analyzed above. Production jobs **18583546 (scratch), 18583547 (sequential),
 and 18583548 (mixed)** were submitted at 14:41 UTC and have running H200
-allocations. Scratch has reached structured training updates; source-task arms
-are warming their OM4 caches. Running allocations do not establish convergence.
+allocations. All three have reached finite structured training updates after cache warm-up.
+Running allocations do not establish convergence. Selected monthly/annual
+evaluations, raw 8k-observation comparisons, and initializer/profile/map diagnostics
+are queued behind successful training. The fixed-budget evaluator passed a real
+nine-origin validation qualification and records explicit per-task counts; raw
+weights are not mislabeled as validation-selected. See the
+[progress log](progress.md#26-september-1510-utc--production-and-evaluation-dependencies)
+for the complete job mapping. Actual campaign use at 15:08 UTC was 1.96 allocated
+GPU-hours, including retries, against the 120-hour ceiling.
 
 Bias/anomaly diagnostic producer `6d8a8d26b` passed two decomposition tests and
 repository checks. CPU job 18580782 failed before analysis because bare container

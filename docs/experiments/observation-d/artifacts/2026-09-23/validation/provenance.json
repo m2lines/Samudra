@@ -1,0 +1,21 @@
+{
+  "snapshot": "/tmp/d-observation-pilot/final-snapshot.json",
+  "snapshot_sha256": "6f34c6a23eeda277d903d5434de2161589dff7b8aa9f298495d3f865c384b667",
+  "snapshot_time": "2026-09-23T10:10:27.213321+00:00",
+  "scope": "Recorded validation metrics; no model execution",
+  "split": "validation",
+  "joint_trajectory": "Validation checks during joint training; repeated updates deduplicated; different initialization and normalization across arms; update count is not matched compute",
+  "grid_sha256": "ce96360964a6669d0186b9581abaaffc06f660c4e09e0ac813b3dd1b819e5167",
+  "bar_normalization": "Validation seasonal climatology errors; descriptive plot, not a new selection score",
+  "spectral_ordinate": "Existing kernel k times azimuthally averaged 2D power; spacing in metres and k in cycles/metre. Only the abscissa is converted to wavelength in km.",
+  "operator_audit_sha256": null,
+  "operator_diagnostic_scope": null,
+  "candidates": [
+    "Seasonal climatology",
+    "Pretrained / zero adapter",
+    "Full fine-tuning (selected; joint:1000)",
+    "Adapter only (selected; joint:800)",
+    "Observation-only scratch (selected; joint:900)"
+  ],
+  "png_dpi": 100
+}

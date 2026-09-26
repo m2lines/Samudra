@@ -1,0 +1,16 @@
+{
+  "definition": "Number of scalar nn.Parameter entries; excludes buffers, optimizer state and activations",
+  "components": {
+    "initializer": 121684010,
+    "evolution": 31631677,
+    "adapter": 387
+  },
+  "total": 153316074,
+  "trainable_by_phase": {
+    "adapter": 387,
+    "reconstruction": 121684397,
+    "joint": 153316074
+  },
+  "source": "ObservationTransfer instantiated on meta device with the verified 77-channel pilot grid; no checkpoint or data training",
+  "architecture": "two ConvNeXt-style U-Nets plus pointwise 8-32-3 GELU forcing adapter"
+}

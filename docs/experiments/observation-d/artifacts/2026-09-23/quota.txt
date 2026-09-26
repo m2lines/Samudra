@@ -1,0 +1,9 @@
+Quota Information for jr7309
+Hostname: torch-login-a-1 at 2026-09-23 06:11:03
+
+Filesystem   Environment       Backed up?   Allocation           Current Usage
+Space        Variable          /Flushed?    Space / Files        Space(%) / Files(%)
+
+/home        $HOME             YES/NO       50GB/30k             37GB(73.01%)/933(3.00%)
+/scratch     $SCRATCH          NO/YES       5.00TB/5.00M         3.71TB(74.21%)/1647208(32.00%)
+/archive     $ARCHIVE          YES/NO       2.00TB/20k           0GB(0.00%)/1(0.00%)

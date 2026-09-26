@@ -201,10 +201,16 @@ class HistoryInitializer(nn.Module):
             ]
             self.net = make_unet(inputs, 2 * self.channels, widths)
 
-    def forward(self, surface, past_forcing, context, mask):
+    def forward(self, surface, past_forcing, context, mask, input_mask=None):
         surface = surface[:, -self.history :]
         b, _, _, h, w = surface.shape
         masks = mask[self.surface].expand(b, self.history, 2, h, w)
+        if input_mask is not None:
+            masks = input_mask[:, -self.history :].to(surface.dtype)
+            if masks.shape != surface.shape:
+                raise ValueError(
+                    "Per-frame surface validity must match the surface history"
+                )
         pieces = [surface.flatten(1, 2), masks.flatten(1, 2), context]
         if self.expanded:
             pieces.append(past_forcing[:, -self.history :].flatten(1, 2))

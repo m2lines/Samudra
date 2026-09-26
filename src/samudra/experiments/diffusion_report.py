@@ -11,7 +11,9 @@ import argparse
 import json
 import os
 from pathlib import Path
+from typing import Any
 
+import numpy as np
 import torch
 
 from samudra.experiments.diffusion_calibration import observation_ensemble_statistics
@@ -20,25 +22,43 @@ from samudra.experiments.diffusion_evaluation import (
     evaluate_point_metrics,
 )
 from samudra.experiments.diffusion_physical import JointPhysicalForecast
+from samudra.experiments.diffusion_structure import field_structure
 from samudra.experiments.observation_annual import evaluate_origins
 from samudra.experiments.observation_model import ObservationTransfer
 from samudra.experiments.observation_pilot import atomic_json, digest
 from samudra.experiments.observation_training import Samples
 
+MAP_ORIGINS = ("2015-01", "2018-01", "2021-01")
+
+
+def json_statistics(groups):
+    """Keep unsupported structure values null in portable JSON, with zero support."""
+    result: dict[str, dict[str, Any]] = {}
+    for group, fields in groups.items():
+        result[group] = {}
+        for key, value in fields.items():
+            if isinstance(value, torch.Tensor):
+                array = value.cpu().numpy()
+                objects = array.astype(object)
+                objects[~np.isfinite(array)] = None
+                value = objects.tolist()
+            result[group][key] = value
+    return result
+
 
 @torch.no_grad()
-def calibration_records(model, data, paths, output, *, members=8, seed=4041729):
-    """Save additive sums per origin; preserve channel/lead axes for later aggregation."""
-    if not model.stochastic or members < 2:
-        raise ValueError(
-            "Calibration requires a stochastic model and at least two members"
-        )
+def member_records(model, data, paths, output, *, members=8, seed=4041729):
+    """Save calibration, member/mean structure, and fixed native-grid map examples."""
+    if model.stochastic and members < 2:
+        raise ValueError("Calibration requires at least two members")
+    members = members if model.stochastic else 1
     model.eval()
-    output.mkdir(parents=True, exist_ok=True)
+    for directory in ("calibration", "structure", "members"):
+        (output / directory).mkdir(parents=True, exist_ok=True)
     for path in paths:
         sample = data.load(path)
         with torch.autocast("cuda", dtype=torch.bfloat16):
-            trajectories, _ = model.forecast(
+            trajectories, initial = model.forecast(
                 sample["surface"],
                 sample["atmosphere"],
                 sample["contexts"],
@@ -49,16 +69,61 @@ def calibration_records(model, data, paths, output, *, members=8, seed=4041729):
                 ),
                 members=members,
             )
-        statistics = observation_ensemble_statistics(data, trajectories, sample)
-        payload = {
-            group: {
-                key: value.cpu().tolist() if isinstance(value, torch.Tensor) else value
-                for key, value in fields.items()
-            }
-            for group, fields in statistics.items()
-        }
+        if model.stochastic:
+            statistics = observation_ensemble_statistics(data, trajectories, sample)
+            atomic_json(
+                dict(origin=path.stem, statistics=json_statistics(statistics)),
+                output / "calibration" / (path.stem + ".json"),
+            )
+        physical = trajectories.float() * data.std + data.mean
+        monthly = (
+            physical * sample["month_weights"][None, None, :, None, None, None]
+        ).sum(2)
+        observed_mask = data.ts_mask.bool() & torch.isfinite(sample["interior"])
+        interior = monthly[:, :, data.ts_indices]
+        structure = dict(
+            full_state_members=field_structure(physical, data.mask, data.area),
+            full_state_ensemble_mean=field_structure(
+                physical.mean(0), data.mask, data.area
+            ),
+            monthly_interior_members=field_structure(
+                interior, observed_mask, data.area
+            ),
+            monthly_interior_ensemble_mean=field_structure(
+                interior.mean(0), observed_mask, data.area
+            ),
+            monthly_interior_observations=field_structure(
+                sample["interior"], observed_mask, data.area
+            ),
+        )
         atomic_json(
-            dict(origin=path.stem, statistics=payload), output / (path.stem + ".json")
+            dict(origin=path.stem, statistics=json_statistics(structure)),
+            output / "structure" / (path.stem + ".json"),
+        )
+        if path.stem in MAP_ORIGINS:
+            destination = output / "members" / (path.stem + ".npz")
+            temporary = destination.with_suffix(".tmp")
+            with temporary.open("wb") as stream:
+                np.savez_compressed(
+                    stream,
+                    initial=(initial.float() * data.std + data.mean).cpu().numpy(),
+                    states_at_leads=physical[:, :, [0, 2, 5]].cpu().numpy(),
+                    monthly_states=monthly.cpu().numpy(),
+                    observed_monthly_interior=sample["interior"].cpu().numpy(),
+                    observed_surface=sample["raw_surface"].cpu().numpy(),
+                    month_weights=sample["month_weights"].cpu().numpy(),
+                    leads_days=[5, 15, 30],
+                    forecast_midpoints=sample["raw"]["midpoints"][19:],
+                    channel_names=data.grid["names"],
+                    interior_channel_indices=data.ts_indices,
+                    mask=data.grid["mask"],
+                    lat=data.grid["lat"],
+                    lon=data.grid["lon"],
+                )
+            temporary.replace(destination)
+        print(
+            json.dumps(dict(event="member_diagnostics_origin", origin=path.stem)),
+            flush=True,
         )
 
 
@@ -113,7 +178,7 @@ def main():
     del saved
     model.eval()
     paths = data.paths("test")
-    if len(paths) != 96:
+    if len(paths) != 96 or not set(MAP_ORIGINS).issubset({p.stem for p in paths}):
         raise ValueError("Require the complete frozen 96-origin reporting cohort")
     protocol = dict(
         evaluator_commit=producer,
@@ -122,8 +187,11 @@ def main():
         members=args.members if model.stochastic else 1,
         seed=args.seed,
         origins=[path.stem for path in paths],
-        scope="Monthly held-out evaluation only; annual and structural reports remain separate",
+        scope="Monthly point, calibration and member-field diagnostics; annual point reporting optional; additional controls remain",
         calibration_units="Observation-standardized units; raw wet-area additive sums, not pre-averaged scores",
+        map_origins=list(MAP_ORIGINS),
+        structure_units="Physical field units and squared native-cell increments, not physical gradients; unsupported values null",
+        structure_scope="Individual members and ensemble mean separately; monthly T/S comparisons share observed support; unsupervised velocity is descriptive only",
     )
     args.output.mkdir(parents=True, exist_ok=True)
     contract = args.output / "protocol.json"
@@ -144,18 +212,14 @@ def main():
     atomic_json(
         dict(metrics=metrics, reporting_score=score), args.output / "point-metrics.json"
     )
-    if model.stochastic:
-        calibration_records(
-            model,
-            data,
-            paths,
-            args.output / "calibration",
-            members=args.members,
-            seed=args.seed,
-        )
+    member_records(
+        model, data, paths, args.output, members=args.members, seed=args.seed
+    )
     atomic_json(
         dict(
             **protocol,
+            member_structure="complete",
+            native_grid_member_exports="complete",
             calibration="complete"
             if model.stochastic
             else "not_applicable_deterministic",

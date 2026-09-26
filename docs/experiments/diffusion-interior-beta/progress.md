@@ -468,3 +468,23 @@ Observation fine-tuning is running for all four arms/seeds, preserving
 allocation cap. The producer and qualified training settings remain unchanged.
 Completed allocations through the trained sampling check total **4.3956
 GPU-hours**, including the 88-second, two-GPU check. Fine-tuning is additional.
+
+## Member-field reporting preparation
+
+The monthly report now separates individual-member spatial variability from
+variability of the ensemble mean. It records wet-area means, variance and adjacent
+native-cell squared differences per channel/lead; longitude wraps, latitude does
+not, and coast/missing-data edges are excluded. Differences are not divided by
+physical distance and must not be labeled physical gradients. Monthly T/S
+comparisons use identical observed support for members, their mean and observed
+fields. Unobserved velocity structure is descriptive, not observational skill.
+
+The report also exports physical initial pairs, days 5/15/30 and monthly states
+for every member at three predeclared origins (January 2015/2018/2021), together
+with targets, masks, coordinates and time weights. These arrays support native-
+pixel maps, depth/cross-variable and velocity diagnostics without selecting
+visually favorable samples after seeing outputs. Tests cover area weighting,
+periodic/coastal boundaries, absent support and the distinction between member
+variance and a smooth ensemble mean. Full report execution still awaits completed
+observation fitting; stratification, covariance, controls and rendered figures
+are not claimed complete by this export plumbing.

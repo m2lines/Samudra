@@ -1782,3 +1782,17 @@ not a total-compute-matched or replicated estimate. Full comparison awaits
 transfer completion and its held-out diagnostics. CPU report-array extraction
 job **18573930** reads completed scratch outputs only; no new evaluation or
 training protocol is introduced.
+
+
+### 26 September, 10:58 UTC — InstanceNorm wave complete
+
+Both main runs completed all 8,000 joint updates. Transfer selected update 6,400
+(score 0.534191); scratch selected 4,900 (0.543910). All eighteen dependent
+evaluation/diagnostic completion markers are present, and the user queue is empty.
+All-attempt GPU allocation totals **34.81 hours**, below the 80-hour ceiling.
+CPU report extraction jobs 18573930/18575391/18578592 completed; copied report
+arrays passed SHA256 verification. The final comparison, compute curves, native-grid
+checkpoint maps, profiles and interventions are in
+[the completed InstanceNorm report](instance-norm-results-2026-09-26.md).
+No 16k extension was needed: scratch showed no new validation minimum after 4,900.
+Monitoring for this wave is complete; the old timer remains disabled.

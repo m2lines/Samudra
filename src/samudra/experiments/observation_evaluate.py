@@ -11,6 +11,7 @@ from types import SimpleNamespace
 
 import torch
 
+from samudra.experiments.observation_checkpoint import load_fixed_checkpoint
 from samudra.experiments.observation_model import ObservationTransfer
 from samudra.experiments.observation_pilot import Pilot, atomic_json, digest
 from samudra.experiments.observation_training import Samples
@@ -26,15 +27,43 @@ def main():
         action="store_true",
         help="Skip source-checkpoint controls for fresh single-loop runs",
     )
+    parser.add_argument("--checkpoint", default="best.pt")
+    parser.add_argument("--fixed-om4-updates", type=int)
+    parser.add_argument("--fixed-observation-updates", type=int)
     args = parser.parse_args()
+    fixed = (
+        args.fixed_om4_updates is not None or args.fixed_observation_updates is not None
+    )
+    if fixed and (
+        args.fixed_om4_updates is None
+        or args.fixed_observation_updates is None
+        or not args.selected_only
+    ):
+        parser.error(
+            "Fixed-budget evaluation requires both task counts and --selected-only"
+        )
+    if not fixed and args.checkpoint != "best.pt":
+        parser.error("Non-selected checkpoints require explicit fixed-budget counts")
     run, output = Path(args.run), Path(args.output)
     if not (run / "TRAIN_COMPLETE.json").exists():
         raise ValueError("Selection must finish before held-out evaluation")
     manifest = json.loads((run / "manifest.json").read_text())
-    checkpoint = run / "best.pt"
-    best = json.loads((run / "best.json").read_text())
-    if digest(checkpoint) != best["checkpoint_sha256"]:
-        raise ValueError("Selected checkpoint checksum mismatch")
+    checkpoint = run / args.checkpoint
+    fixed_state, lineage = None, None
+    if fixed:
+        fixed_state, lineage = load_fixed_checkpoint(
+            run,
+            args.checkpoint,
+            args.split,
+            args.fixed_om4_updates,
+            args.fixed_observation_updates,
+        )
+        best = {"score": None}
+    else:
+        best = json.loads((run / "best.json").read_text())
+        if digest(checkpoint) != best["checkpoint_sha256"]:
+            raise ValueError("Selected checkpoint checksum mismatch")
+    label_prefix = "fixed-budget" if fixed else "selected"
     output.mkdir(parents=True, exist_ok=True)
     fingerprint = {
         "evaluation_protocol": "selected-controls-v3"
@@ -44,6 +73,8 @@ def main():
         "split": args.split,
         "data_manifest_sha256": manifest["data_manifest_sha256"],
     }
+    if fixed:
+        fingerprint["fixed_budget_lineage"] = lineage
     signature = output / "evaluation-input.json"
     if signature.exists() and json.loads(signature.read_text()) != fingerprint:
         raise ValueError("Evaluation resume input differs")
@@ -66,34 +97,43 @@ def main():
         manifest["arguments"].get("normalization", "batch"),
         manifest["arguments"].get("evolution_architecture", "d"),
     ).cuda()
-    evaluator.model.load_state_dict(
-        torch.load(checkpoint, map_location="cuda", weights_only=False)["model"],
-        strict=True,
+    state = (
+        fixed_state
+        if fixed
+        else torch.load(checkpoint, map_location="cuda", weights_only=False)["model"]
     )
+    if state is None:
+        raise ValueError("Checkpoint has no model state")
+    evaluator.model.load_state_dict(state, strict=True)
+    del state
+    del fixed_state
     paths = evaluator.data.paths(args.split)
     expected = 96 if args.split == "test" else 9
     if len(paths) != expected:
         raise ValueError("Incomplete reporting cohort")
     if not (
-        (output / "selected.json").exists()
-        and (output / "selected-predictions.npz").exists()
+        (output / (label_prefix + ".json")).exists()
+        and (output / (label_prefix + "-predictions.npz")).exists()
     ):
-        result = evaluator.evaluate(paths, export=output / "selected-predictions.npz")
+        result = evaluator.evaluate(
+            paths, export=output / (label_prefix + "-predictions.npz")
+        )
         atomic_json(
             {
-                "selected_checkpoint": str(checkpoint),
+                "selected_checkpoint": None if fixed else str(checkpoint),
+                "fixed_budget_lineage": lineage,
                 "sha256": digest(checkpoint),
                 "validation_selection_score": best["score"],
                 "split": args.split,
                 "metrics": result,
             },
-            output / "selected.json",
+            output / (label_prefix + ".json"),
         )
     # Keep both selected weights and their normalization for these controls.
     # They isolate forecast dynamics from improvements to the inferred state.
     for label, options in [
-        ("selected-inferred-persistence", {"persistence": True}),
-        ("selected-inferred-anomaly-persistence", {"anomaly": True}),
+        (label_prefix + "-inferred-persistence", {"persistence": True}),
+        (label_prefix + "-inferred-anomaly-persistence", {"anomaly": True}),
     ]:
         if (output / (label + ".json")).exists() and (
             output / (label + ".npz")
@@ -160,7 +200,8 @@ def main():
             "split": args.split,
             "origins": expected,
             "source_sha256": digest(source) if source else None,
-            "selected_sha256": digest(checkpoint),
+            "selected_sha256": None if fixed else digest(checkpoint),
+            "fixed_budget_lineage": lineage,
         },
         output / "COMPLETE.json",
     )

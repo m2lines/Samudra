@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import torch
 
+from samudra.experiments.observation_checkpoint import load_fixed_checkpoint
 from samudra.experiments.observation_data import context_planes
 from samudra.experiments.observation_metrics import _field, spatial_error, weighted_rmse
 from samudra.experiments.observation_model import ObservationTransfer
@@ -166,11 +167,29 @@ def main():
     parser.add_argument("--output", required=True)
     parser.add_argument("--checkpoint", default="best.pt")
     parser.add_argument("--split", choices=("validation", "test"), default="validation")
+    parser.add_argument("--fixed-om4-updates", type=int)
+    parser.add_argument("--fixed-observation-updates", type=int)
     args = parser.parse_args()
+    fixed = (
+        args.fixed_om4_updates is not None or args.fixed_observation_updates is not None
+    )
+    if fixed and (
+        args.fixed_om4_updates is None or args.fixed_observation_updates is None
+    ):
+        parser.error("Fixed-budget evaluation requires both task counts")
     run, annual, output = Path(args.run), Path(args.annual_data), Path(args.output)
     manifest = json.loads((run / "manifest.json").read_text())
     checkpoint = run / args.checkpoint
-    if args.split == "test":
+    fixed_state, lineage = None, None
+    if fixed:
+        fixed_state, lineage = load_fixed_checkpoint(
+            run,
+            args.checkpoint,
+            args.split,
+            args.fixed_om4_updates,
+            args.fixed_observation_updates,
+        )
+    if args.split == "test" and not fixed:
         if not (run / "TRAIN_COMPLETE.json").exists() or args.checkpoint != "best.pt":
             raise ValueError(
                 "Held-out annual evaluation requires completed selected weights"
@@ -196,6 +215,8 @@ def main():
         "eke": "Anomalies relative to each sequence's own year mean",
         "forcing": "Prescribed ERA5 through trained adapter; not an operational forcing forecast",
     }
+    if fixed:
+        signature["fixed_budget_lineage"] = lineage
     output.mkdir(parents=True, exist_ok=True)
     if (output / "input.json").exists() and json.loads(
         (output / "input.json").read_text()
@@ -214,10 +235,16 @@ def main():
         .cuda()
         .eval()
     )
-    model.load_state_dict(
-        torch.load(checkpoint, map_location="cuda", weights_only=False)["model"],
-        strict=True,
+    state = (
+        fixed_state
+        if fixed
+        else torch.load(checkpoint, map_location="cuda", weights_only=False)["model"]
     )
+    if state is None:
+        raise ValueError("Checkpoint has no model state")
+    model.load_state_dict(state, strict=True)
+    del state
+    del fixed_state
     results = {}
     for origin_path in origins:
         description, raw = read_origin(origin_path.parent)

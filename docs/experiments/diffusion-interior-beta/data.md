@@ -16,7 +16,13 @@ Reuse `/orcd/data/abodner/002/jrusak/om4_onedeg_v3` and
 each release and checks chunks, sampled decoding, and timestamp alignment; it
 does not claim a full OSN read-back for these existing stores. Invoke
 `scripts/stage_diffusion_beta.py --reuse-one-degree PATH` with the Engaging
-root, half-degree, and observation paths.
+root, half-degree, and observation paths. The coarse registration uses a campaign
+wrapper: its `OM4.zarr` links to the existing Engaging fields, while its small
+normalization stores are copied from the already verified beta staging. This
+avoids the depth-based variable names in Engaging's older normalization stores
+and preserves the prior forcing normalization. The audit verifies the required
+80 scalar means/stds and records their payload hashes. Common observation-based
+state scales remain unchanged.
 
 All campaign arms use the same local coarse release. For H0/H1, surface inputs,
 forcings, latent grid, observation targets, and common state normalization stay

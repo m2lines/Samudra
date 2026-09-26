@@ -85,6 +85,34 @@ def audit_store(path, grid):
     return result, data.time.values.copy(), dict(data.time.attrs)
 
 
+def audit_normalization(path):
+    names = [
+        f"{variable}_{level}"
+        for variable in ("uo", "vo", "thetao", "so")
+        for level in range(19)
+    ] + ["zos", "tauuo", "tauvo", "hfds"]
+    report = {}
+    for store in ("OM4_means.zarr", "OM4_stds.zarr"):
+        root = path / store
+        data = xr.open_zarr(root, consolidated=True)
+        for name in names:
+            values = np.asarray(data[name].values)
+            if values.size != 1 or not np.isfinite(values).all():
+                raise ValueError(f"Invalid scalar normalization: {root}/{name}")
+            if store == "OM4_stds.zarr" and not (values > 0).all():
+                raise ValueError(f"Non-positive standard deviation: {root}/{name}")
+        report[store] = {
+            "path": str(root.resolve()),
+            "variables_verified": names,
+            "files_sha256": {
+                str(item.relative_to(root)): digest(item)
+                for item in sorted(root.rglob("*"))
+                if item.is_file()
+            },
+        }
+    return report
+
+
 def link(path, target):
     if path.is_symlink():
         if path.resolve() != target.resolve():
@@ -158,6 +186,7 @@ def main():
         raise ValueError(f"Incomplete annual bundle: {annual_records}")
     report = {
         "time_utc": datetime.datetime.now(datetime.UTC).isoformat(),
+        "audit_script_sha256": digest(Path(__file__)),
         "half_degree_targets": half,
         "observations": {
             "path": str(obs),
@@ -188,6 +217,9 @@ def main():
         if one_attrs != half_attrs or not np.array_equal(one_time, half_time):
             raise ValueError("One- and half-degree CF times do not match exactly")
         report["one_degree_inputs_and_targets"] = one
+        report["coarse_normalization"] = audit_normalization(
+            root / "data/om4_onedeg_v3"
+        )
         report["time_alignment"] = (
             "All 4745 numeric CF timestamps and their units/calendar are identical"
         )

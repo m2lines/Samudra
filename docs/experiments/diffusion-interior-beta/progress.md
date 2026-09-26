@@ -180,3 +180,11 @@ for interrupted/resumed versus uninterrupted training, and rejects changed
 protocols. Fifteen targeted tests pass. Cache preparation, GPU throughput and
 observation fine-tuning integration still require real allocation evidence; no
 production job has been submitted.
+
+
+A point-evaluation adapter now applies the unchanged upstream monthly/surface/OHC
+metrics and frozen selection criterion to the mean of separately evolved ensemble
+members. Fixed evaluation draws are independent of training RNG. A nonlinear
+regression test verifies averaging after evolution rather than evolving the mean
+initial state. This is point scoring only; calibration and individual-member
+structure remain required in scientific reports. Sixteen targeted CPU tests pass.

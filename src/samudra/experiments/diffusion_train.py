@@ -27,6 +27,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--qualification", type=Path, required=True)
     parser.add_argument("--arm", choices=["A", "B"], required=True)
+    parser.add_argument("--decoder-width", type=int, default=64)
     parser.add_argument("--phase", choices=["om4", "observation"], required=True)
     parser.add_argument("--pretrained", type=Path)
     parser.add_argument("--training-members", type=int, default=2)
@@ -57,6 +58,8 @@ def main():
         <= 0
     ):
         parser.error("Positive budget and training settings required")
+    if args.decoder_width <= 0 or args.decoder_width % 8:
+        parser.error("Decoder width must be a positive multiple of eight")
     if int(os.environ.get("WORLD_SIZE", 1)) != 1:
         raise ValueError("This campaign uses independent single-GPU arms, not DDP")
     if (
@@ -79,6 +82,7 @@ def main():
     qualification = json.loads(args.qualification.read_text())
     if (
         qualification["arm"] != args.arm
+        or qualification.get("decoder_width", 64) != args.decoder_width
         or qualification["code_commit"] != producer
         or qualification["source_checkpoint_sha256"] != digest(source)
         or qualification["data_manifest_sha256"]
@@ -100,6 +104,7 @@ def main():
     signature = dict(
         selection_reference_sha256=digest(reference_path),
         arm=args.arm,
+        decoder_width=args.decoder_width,
         phase=args.phase,
         pretrained_sha256=digest(args.pretrained) if args.pretrained else None,
         training_members=args.training_members,
@@ -158,6 +163,7 @@ def main():
         model = JointPhysicalForecast(
             core,
             stochastic=args.arm == "B",
+            width=args.decoder_width,
             sampling_steps=qualification["sampling_steps"],
         ).to(wave.device)
         if args.pretrained:
@@ -170,6 +176,8 @@ def main():
                 raise ValueError("Pretraining is unfinished or selected weights differ")
             saved = torch.load(args.pretrained, map_location="cpu", weights_only=False)
             parent = saved["protocol"]["signature"]
+            if parent.get("decoder_width", 64) != args.decoder_width:
+                raise ValueError("Pretraining contract differs: decoder_width")
             for key in (
                 "arm",
                 "producer",

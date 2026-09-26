@@ -555,3 +555,14 @@ Total completed allocations are **21.4211 GPU-hours**. No GPU job remains active
 The recommended next wave is a matched width-64/192 A/B OM4-only comparison,
 capped at 32 additional GPU-hours; approval is pending. C/D, H and E remain
 unsubmitted. H still changes diffusion targets only.
+
+## Decoder-repair runner preparation
+
+Qualification and training now accept `--decoder-width`, bind it into their
+recorded contracts, and reject mismatched qualification/pretraining widths.
+Reporting, sampling checks and native controls restore the recorded width;
+completed original checkpoints without that field retain width 64. Sixteen
+focused CPU tests pass, including the expected constant-channel stem ranks
+64/150 for widths 64/192 on the 150 unknown channels. This checks a structural
+property, not learned predictive skill. Real-grid GPU qualification and all
+repair-wave submissions still await approval.

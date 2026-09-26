@@ -35,9 +35,12 @@ def main():
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--arm", choices=["A", "B"], required=True)
+    parser.add_argument("--decoder-width", type=int, default=64)
     parser.add_argument("--sampling-steps", type=int, default=16)
     parser.add_argument("--fit-steps", type=int, default=10)
     args = parser.parse_args()
+    if args.decoder_width <= 0 or args.decoder_width % 8:
+        parser.error("Decoder width must be a positive multiple of eight")
     if args.fit_steps < 2 or args.sampling_steps < 2:
         raise ValueError("Qualification needs at least two fit and sampling steps")
     args.output.mkdir(parents=True, exist_ok=False)
@@ -75,7 +78,10 @@ def main():
     core.load_core(torch.load(source, map_location="cpu", weights_only=False)["model"])
     model = (
         JointPhysicalForecast(
-            core, stochastic=args.arm == "B", sampling_steps=args.sampling_steps
+            core,
+            stochastic=args.arm == "B",
+            width=args.decoder_width,
+            sampling_steps=args.sampling_steps,
         )
         .cuda()
         .train()
@@ -93,6 +99,7 @@ def main():
     started = time.monotonic()
     report = dict(
         arm=args.arm,
+        decoder_width=args.decoder_width,
         sampling_steps=args.sampling_steps,
         om4_origin=date,
         source_checkpoint_sha256=expected,

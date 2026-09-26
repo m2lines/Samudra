@@ -53,7 +53,9 @@ def main():
         raise ValueError("Require all nine frozen validation origins")
     model = (
         JointPhysicalForecast(
-            ObservationTransfer(list(data.grid["names"]), "instance"), stochastic=True
+            ObservationTransfer(list(data.grid["names"]), "instance"),
+            stochastic=True,
+            width=signature.get("decoder_width", 64),
         )
         .cuda()
         .eval()

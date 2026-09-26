@@ -16,6 +16,8 @@ class JointInteriorDecoder(nn.Module):
 
     def __init__(self, conditions, fields, width=64):
         super().__init__()
+        if width <= 0 or width % 8:
+            raise ValueError("Decoder width must be a positive multiple of eight")
         self.fields = fields
         self.embedding = nn.Sequential(
             nn.Linear(64, 128), nn.SiLU(), nn.Linear(128, 128)

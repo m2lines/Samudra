@@ -219,6 +219,7 @@ def main():
         ObservationTransfer(list(data.grid["names"]), "instance"),
         stochastic=signature["arm"] == "B",
         sampling_steps=signature["sampling_steps"],
+        width=signature.get("decoder_width", 64),
     ).to("cuda")
     model.load_state_dict(saved["model"], strict=True)
     del saved

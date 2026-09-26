@@ -85,6 +85,7 @@ def main():
             core,
             stochastic=signature["arm"] == "B",
             sampling_steps=signature["sampling_steps"],
+            width=signature.get("decoder_width", 64),
         ).to(wave.device)
         model.load_state_dict(saved["model"], strict=True)
         del saved

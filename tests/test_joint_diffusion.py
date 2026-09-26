@@ -108,3 +108,20 @@ def test_channel_balance_handles_different_supported_channels_per_example():
     weights = torch.tensor([1.0, 0.0, 1.0, 1.0]).reshape(2, 2, 1, 1)
     result = channel_balanced_mse(prediction, torch.zeros_like(prediction), weights)
     torch.testing.assert_close(result, torch.tensor([1.0, 10.0]))
+
+
+@pytest.mark.parametrize("width", [0, -8, 65])
+def test_decoder_rejects_widths_incompatible_with_group_normalization(width):
+    with pytest.raises(ValueError, match="positive multiple of eight"):
+        JointInteriorDecoder(8, 8, width=width)
+
+
+def test_widening_removes_forced_constant_channel_noise_nullspace():
+    """Test the repair's linear algebra, not an untrained model's predictive skill."""
+    torch.set_num_threads(1)
+    torch.manual_seed(13)
+    unknown = [i for i in range(154) if i not in (38, 76, 115, 153)]
+    for width, expected_rank in ((64, 64), (192, 150)):
+        decoder = JointInteriorDecoder(154, 154, width=width)
+        kernel = decoder.stem.weight.detach().double().sum((-1, -2))[:, unknown]
+        assert int(torch.linalg.matrix_rank(kernel)) == expected_rank

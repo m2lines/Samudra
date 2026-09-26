@@ -1796,3 +1796,14 @@ checkpoint maps, profiles and interventions are in
 [the completed InstanceNorm report](instance-norm-results-2026-09-26.md).
 No 16k extension was needed: scratch showed no new validation minimum after 4,900.
 Monitoring for this wave is complete; the old timer remains disabled.
+
+
+### 26 September — requested regional velocity and spectra figures
+
+Added observed/scratch/OM4-initialized geostrophic U/V and speed maps for the
+North Pacific, Gulf Stream and Agulhas metric boxes, plus annual day-30/day-365
+velocity comparisons and regional EKE maps. Plots use the saved monthly and
+annual EKE spectral curves. CPU extraction **18580257 completed in 23 seconds**
+and reproduced all six model/region day-30 EKE curves within numerical tolerance.
+Transferred arrays passed SHA256 verification; map pixels retain exact 2×2
+representation. No GPU allocation, training or selection changes were required.

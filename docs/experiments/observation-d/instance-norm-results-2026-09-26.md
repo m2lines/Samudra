@@ -132,6 +132,61 @@ stability. Annual EKE uses each continuous sequence's own mean, unlike the
 fixed-lead, multi-origin EKE used in checkpoint selection. Three annual origins
 and one training seed do not establish statistical robustness.
 
+## Regional velocity maps and EKE spectra
+
+These compare the **validation-selected** checkpoints with observations in the
+same boxes used by the metric kernels:
+
+| Region | Longitude | Latitude |
+| --- | --- | --- |
+| North Pacific | 170°E–160°W (170–200°E) | 25–45°N |
+| Gulf Stream | 60–40°W (300–320°E) | 25–45°N |
+| Agulhas | 40–60°E | 50–30°S |
+
+Predicted velocities below are **geostrophic velocities derived from predicted
+ADT**, matching the scored quantity. Observed velocities are the prepared DUACS
+U/V reference. These are distinct from the unconstrained internal velocity
+channels in the initializer maps. The comparison retains the existing operator
+convention: differentiating coarse predicted ADT versus coarsened supplied
+reference velocities. The resulting gap can include operator/resolution effects;
+matching the coastal support does not remove that distinction.
+
+Day-30 maps use the held-out July 2022 origin, common finite observation/stencil
+support and identical color limits. Gray denotes unavailable support. All crops
+retain two pixels per native grid cell; these one-degree metric boxes contain
+only about 20×20 or 30×20 cells.
+
+![Regional geostrophic speed](artifacts/2026-09-26-instance/regional-velocity-2.png)
+
+- [Eastward geostrophic velocity](artifacts/2026-09-26-instance/regional-velocity-0.png), [northward geostrophic velocity](artifacts/2026-09-26-instance/regional-velocity-1.png), and [global speed context](artifacts/2026-09-26-instance/global-geostrophic-speed.png).
+- Continuous annual rollout from 1 January 2015: [day-30 speed](artifacts/2026-09-26-instance/annual-regional-speed-day30.png) and [day-365 speed](artifacts/2026-09-26-instance/annual-regional-speed-day365.png).
+- Mean instantaneous EKE maps: [96-origin day-30 cohort](artifacts/2026-09-26-instance/regional-monthly-eke.png) and [2015 continuous year](artifacts/2026-09-26-instance/regional-annual-eke.png).
+
+![Monthly-origin regional EKE spectra](artifacts/2026-09-26-instance/regional-eke-spectra.png)
+
+These are the **exact saved EKE metric curves**, including their retained
+wavenumber bins and normalization. They are spatial power spectra of the scalar
+instantaneous EKE field, averaged over origins; they are not velocity-component
+energy spectra or the spectrum of the time-mean EKE map. For each lead, EKE is
+½[(u−mean(u))²+(v−mean(v))²], with the mean taken across the 96 monthly origins.
+The kernel removes a spatial plane, windows the field and radially averages the
+power, using its k-weighted convention. Only wavelengths of at least four grid
+cells are retained. Three retained bins per region are insufficient to establish
+a detailed spectral slope or an inertial range.
+
+Both models substantially underpredict EKE-field spectral power in these boxes.
+The difference between models is much smaller than their gap from observations;
+OM4 initialization does not uniformly improve every region/lead/bin. This is
+power of the EKE field, not a direct percentage of kinetic energy retained.
+
+![Continuous-year regional EKE spectra](artifacts/2026-09-26-instance/annual-regional-eke-spectra.png)
+
+Annual curves average the saved spectra over the three held-out starts (2015,
+2018 and 2021). Each sequence defines velocity anomalies relative to its own
+73-step mean, computes the spectrum at each step, and averages those spectra.
+They describe the whole year, not day 365 alone, and use a different temporal
+anomaly definition from the fixed-lead monthly-origin curves above.
+
 ## Checkpoint maps and initializer diagnostics
 
 All panels use the same November 2013 validation origin, full global grid and

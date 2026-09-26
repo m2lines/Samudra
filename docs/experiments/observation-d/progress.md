@@ -1807,3 +1807,21 @@ annual EKE spectral curves. CPU extraction **18580257 completed in 23 seconds**
 and reproduced all six model/region day-30 EKE curves within numerical tolerance.
 Transferred arrays passed SHA256 verification; map pixels retain exact 2×2
 representation. No GPU allocation, training or selection changes were required.
+
+### 26 September 2026, three-day follow-up implementation
+
+The bounded goal runs to **29 September 09:30 ET**; see the
+[plan](three-day-followup-2026-09-26.md) and
+[interim findings](three-day-findings-2026-09-26.md). Existing annual diagnostics
+show most of the OM4-initialized model's MSE reduction is reduced temporal-mean
+bias; both selected models still lose to training climatology in day-365 SST and
+ADT RMSE. This is a diagnostic finding, not new training success.
+
+New single-loop producer `50630959c6a8aed89fcc0152cab28b16f8c377d3` is pushed;
+29 targeted tests and repository commit checks pass. Build 18581034 queues its
+producer-matched qualifications and dependent mixed-task/resume probe. Original
+backbone qualifications were still pending at the latest check; the submission
+helper preserves their records and cancels them only if still pending when
+superseding them. Production counts/rates remain unfrozen until throughput and
+memory are observed. The monitor timer remains disabled. The known preprocessing
+ceiling and quarter-degree training remain excluded.

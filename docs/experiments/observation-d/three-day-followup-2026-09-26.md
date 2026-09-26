@@ -90,3 +90,36 @@ legacy model loading/evaluation unchanged; checkpoint manifests now carry
 `evolution_architecture` and strict qualification checks. New loop qualification
 and resume tests are required before production. Production counts/rates remain
 unfrozen until real throughput is measured.
+
+### Single-loop implementation, 26 September 13:57 UTC
+
+Producer `50630959c6a8aed89fcc0152cab28b16f8c377d3` implements the single-loop
+trainer with one AdamW optimizer, activation checkpointing, exact task counts,
+and epoch-shuffled sample streams indexed by each task's own update count. A
+sequential/mixed pair therefore receives the same examples in the same order
+within each task. For a mixed run with N OM4 and M observation updates, the
+cumulative observation count at fraction f of the run is
+`floor(M * (f/4 + 3*f*f/4))`. This schedule requires an overall observation
+fraction at most 4/7; the final production fraction will retain OM4 in the tail.
+The code supports a per-task learning rate and per-task warm-up; rates and
+production counts remain subject to qualification, not inferred from this formula.
+
+Both tasks retain reconstruction as an auxiliary loss. OM4 updates bypass the
+ERA5 adapter; observation updates train all three modules. Gradient checks fail
+on missing core gradients or unexpected adapter gradients during OM4 updates.
+Checkpoints include optimizer moments, task/global counts and random-generator
+states. No best-weight reload or optimizer reset occurs at the task boundary.
+Held-out evaluation has an explicit selected-only mode for fresh runs, retaining
+selected-state persistence and training climatology without loading historical
+D source weights into the larger backbone.
+
+Twenty-nine targeted tests passed, including sample/exposure matching, task-switch
+optimizer continuity, CPU restart equivalence, nonfinite rejection, architecture
+and evaluation compatibility. All commit hooks passed. Build **18581034** submits
+fresh producer-matched OM4 and observation qualifications, followed by a mixed
+probe dependent on both succeeding. The probe performs three OM4 and two
+observation updates plus a repeated next-update comparison after checkpoint
+restoration; its extra work counts toward allocated GPU time. Production also
+requires this probe's matching qualification marker. Earlier backbone jobs are
+superseded only if still pending, preserving their submission records. No
+production results are claimed yet.

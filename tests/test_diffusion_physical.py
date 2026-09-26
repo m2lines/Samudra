@@ -149,3 +149,23 @@ def test_only_valid_historical_surface_cells_are_anchored(stochastic):
     torch.testing.assert_close(result[anchor], known[anchor], rtol=0, atol=0)
     assert result[0, 4, 2, 3].abs() > 0
     assert result[1, 3, 4, 5].abs() > 0
+
+
+@pytest.mark.parametrize("stochastic", [False, True])
+def test_autocast_preserves_float32_observation_anchors(stochastic):
+    torch.set_num_threads(1)
+    model = JointPhysicalForecast(
+        Core(), stochastic=stochastic, width=8, sampling_steps=3
+    )
+    surface = torch.full((1, 3, 2, 8, 12), 0.1234567)
+    mask = torch.ones(4, 8, 12)
+    with torch.autocast("cpu", dtype=torch.bfloat16):
+        latent, known, anchor = model.encode_native(
+            surface, torch.randn(1, 3, 3, 8, 12), torch.randn(1, 5, 8, 12), mask
+        )
+        assert latent.dtype == torch.bfloat16
+        assert known.dtype == torch.float32
+        result = model.initialize(
+            latent, known, anchor, mask, torch.Generator().manual_seed(42)
+        )
+    torch.testing.assert_close(result[:, :, [0, 3]], surface[:, -2:], rtol=0, atol=0)

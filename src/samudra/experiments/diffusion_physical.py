@@ -66,7 +66,7 @@ class JointPhysicalForecast(nn.Module):
         )
         latent = self.core.call(self.core.initializer.net, inputs)
         b, _, h, w = latent.shape
-        known = latent.new_zeros(b, 2, self.core.initializer.channels, h, w)
+        known = surface.new_zeros(b, 2, self.core.initializer.channels, h, w)
         indices = self.core.initializer.surface
         known[:, :, indices] = surface[:, count - 2 : count]
         known_mask = torch.zeros_like(known, dtype=torch.bool)

@@ -287,3 +287,33 @@ The first Engaging qualification requests four L40S GPUs on one host for at most
 immutable qualification producer is `ef1d351e8`; later reporting-only changes do
 not alter that producer. The earlier beta job was canceled before allocation.
 Data readiness, runtime checks and submission are not scientific results.
+
+
+## Initial L40S qualification passed
+
+[Machine-readable qualification evidence](engaging-qualification.json) records
+the bounded implementation checks. The four-task allocation completed in
+37 seconds, consuming 0.0411 allocated GPU-hours. This is the only GPU allocation
+consumed so far in this campaign; CPU staging jobs do not add GPU-hours.
+
+| Check | Result | Peak allocated GPU memory |
+| --- | --- | --- |
+| Frozen upstream validation reproduction | 0.53425195 versus 0.53419061 upstream; 0.0115% relative difference | 1.79 GiB |
+| Deterministic 154-field fitting probe | Loss 1.03977 → 0.87203; strict reload exact; initializer gradient nonzero | 3.57 GiB |
+| Diffusion 154-field fitting probe | Loss 1.01618 → 0.87727; strict reload exact; initializer gradient nonzero | 3.57 GiB |
+| Synthetic larger-target shape probe | Passed, with fixed 45×90 conditioning and 360×720 targets | 0.98 GiB |
+
+The fitting objectives differ and these losses are not an A/B skill comparison.
+The geometry probe is synthetic and does not qualify registered half-degree
+production. Next, a separate four-L40S, 30-minute qualification measures real
+observation-gradient flow and sampling cost for A and B with 8/16/32 sampling
+steps. Production has not been submitted.
+
+The first observation-gradient qualification stopped before fitting because
+bfloat16 autocast produced an initializer feature buffer whose dtype differed
+from the supplied float32 historical surfaces. That failed allocation consumed
+20 seconds × 4 GPUs (0.0222 GPU-hours). The anchor buffer now preserves the
+observation dtype; deterministic and diffusion autocast regression tests check
+exact float32 anchoring. The initial qualification plus this failed attempt total
+0.0633 allocated GPU-hours. Observation qualification must be rerun before
+production.

@@ -26,8 +26,9 @@ user-approved local OM4 releases; the original branch and report links are retai
 
 ## A/B: full-state initialization
 
-Upstream baseline and observations verified on Engaging; four-L40S qualification
-submitted with a 30-minute cap. No comparative results.
+Upstream baseline and observations verified on Engaging. Initial four-L40S
+qualification passed; observation-gradient and sampling-cost qualification is
+submitted. No comparative results.
 
 ## C/D: latent evolution
 

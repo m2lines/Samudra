@@ -73,3 +73,21 @@ def test_monthly_calibration_aggregates_each_member_before_scoring():
     torch.testing.assert_close(
         statistics["surface"]["ensemble_variance"], torch.full((1, 2, 2), 2.0)
     )
+
+
+def test_point_mass_crps_matches_identical_member_ensemble():
+    from samudra.experiments.diffusion_calibration import point_field_statistics
+
+    prediction = torch.tensor([[[1.0, 3.0], [2.0, 4.0]]])
+    target = torch.tensor([[[0.0, 1.0], [torch.nan, 8.0]]])
+    mask = torch.ones_like(prediction)
+    area = torch.tensor([[1.0], [2.0]])
+    point = point_field_statistics(prediction, target, mask, area, 2.0)
+    ensemble = ensemble_field_statistics(
+        torch.stack([prediction, prediction]), target, mask, area, 2.0
+    )
+    torch.testing.assert_close(point["absolute_error"], ensemble["fair_crps"])
+    torch.testing.assert_close(
+        point["mean_squared_error"], ensemble["mean_squared_error"]
+    )
+    assert point["absolute_error"].item() == 5.5

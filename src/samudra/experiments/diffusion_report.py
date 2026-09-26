@@ -16,7 +16,10 @@ from typing import Any
 import numpy as np
 import torch
 
-from samudra.experiments.diffusion_calibration import observation_ensemble_statistics
+from samudra.experiments.diffusion_calibration import (
+    observation_ensemble_statistics,
+    point_field_statistics,
+)
 from samudra.experiments.diffusion_evaluation import (
     EnsembleMeanForecast,
     evaluate_point_metrics,
@@ -69,18 +72,37 @@ def member_records(model, data, paths, output, *, members=8, seed=4041729):
                 ),
                 members=members,
             )
-        if model.stochastic:
-            statistics = observation_ensemble_statistics(data, trajectories, sample)
-            atomic_json(
-                dict(origin=path.stem, statistics=json_statistics(statistics)),
-                output / "calibration" / (path.stem + ".json"),
-            )
+        statistics = (
+            observation_ensemble_statistics(data, trajectories, sample)
+            if model.stochastic
+            else {}
+        )
         physical = trajectories.float() * data.std + data.mean
         monthly = (
             physical * sample["month_weights"][None, None, :, None, None, None]
         ).sum(2)
         observed_mask = data.ts_mask.bool() & torch.isfinite(sample["interior"])
         interior = monthly[:, :, data.ts_indices]
+        statistics.update(
+            point_mass_interior=point_field_statistics(
+                interior.mean(0),
+                sample["interior"],
+                data.ts_mask,
+                data.area,
+                data.ts_scale,
+            ),
+            point_mass_surface=point_field_statistics(
+                physical[:, :, :, [38, 76]].mean(0),
+                sample["raw_surface"],
+                data.mask[[38, 76]],
+                data.area,
+                data.surface_scale,
+            ),
+        )
+        atomic_json(
+            dict(origin=path.stem, statistics=json_statistics(statistics)),
+            output / "calibration" / (path.stem + ".json"),
+        )
         structure = dict(
             full_state_members=field_structure(physical, data.mask, data.area),
             full_state_ensemble_mean=field_structure(
@@ -190,6 +212,7 @@ def main():
         scope="Monthly point, calibration and member-field diagnostics; annual point reporting optional; additional controls remain",
         calibration_units="Observation-standardized units; raw wet-area additive sums, not pre-averaged scores",
         map_origins=list(MAP_ORIGINS),
+        point_mass_scores="MAE equals CRPS for a deterministic point mass; recorded for A and the B ensemble mean on identical observed support",
         structure_units="Physical field units and squared native-cell increments, not physical gradients; unsupported values null",
         structure_scope="Individual members and ensemble mean separately; monthly T/S comparisons share observed support; unsupervised velocity is descriptive only",
     )

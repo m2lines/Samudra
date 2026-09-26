@@ -488,3 +488,12 @@ periodic/coastal boundaries, absent support and the distinction between member
 variance and a smooth ensemble mean. Full report execution still awaits completed
 observation fitting; stratification, covariance, controls and rendered figures
 are not claimed complete by this export plumbing.
+
+The same observed-support report now includes deterministic MAE (equivalently,
+CRPS of a point-mass forecast) for A and for B's ensemble mean. This provides a
+proper-score reference for B's fair ensemble CRPS instead of comparing that score
+only with squared error. These are standardized wet-area additive sums, pooled
+by channel/lead using the same masks and scales. A focused test verifies equality
+between point-mass MAE and the CRPS of identical ensemble members, including
+missing observations and unequal area weights. This is reporting preparation,
+not a measured skill claim.

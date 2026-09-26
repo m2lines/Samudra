@@ -88,3 +88,25 @@ def observation_ensemble_statistics(data, members, sample):
             data.surface_scale,
         ),
     )
+
+
+@torch.no_grad()
+def point_field_statistics(prediction, target, mask, area, scale):
+    """Additive point MSE and MAE on identical support; MAE is point-mass CRPS."""
+    if prediction.shape != target.shape:
+        raise ValueError("Point prediction and target shapes differ")
+    valid = torch.isfinite(target) & mask.bool()
+    weights = valid.float() * area
+    if not bool((weights.sum((-2, -1)) > 0).any()):
+        raise ValueError("Empty observation support")
+    values = torch.where(valid, prediction.float(), 0)
+    truth = torch.where(valid, target, 0)
+    if not bool(torch.isfinite(values).all()):
+        raise FloatingPointError("Nonfinite prediction on observed support")
+    error = (values - truth) / scale
+    return dict(
+        weight=weights.sum((-2, -1)),
+        cells=valid.sum((-2, -1)),
+        mean_squared_error=(error.square() * weights).sum((-2, -1)),
+        absolute_error=(error.abs() * weights).sum((-2, -1)),
+    )

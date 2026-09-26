@@ -1761,3 +1761,24 @@ No new failed, timed-out or out-of-memory allocations were found. Recursive
 submission accounting, including superseded attempts, totals **18.745 GPU-hours**;
 `ACCOUNTING_2026-09-26T0054Z.json` preserves the allocation rows. Evaluation
 descendants remain pending on training completion.
+
+
+### 26 September, 06:50 UTC — scratch complete and evaluated
+
+Scratch main **18540597** completed 1,000 reconstruction and 8,000 joint
+updates at 06:37 UTC. The selected score is **0.543910**, reached at joint
+update 4,900; the final update scores 0.558085. No later validation improvement
+was observed, so the conditional 16k extension is not triggered. All nine scratch
+evaluation/diagnostic directories now have checked completion markers, including
+96 held-out monthly origins, three continuous held-out years, one validation
+year, five annual checkpoint diagnostics and dense initializer diagnostics.
+The selected checkpoint hash is
+`7bb03712e1ee5e8bf46b130895a61b7610498f0d6bfef7d1594df0d4850aa652`.
+
+Transfer main remains running, around joint update 4,764, with best validation
+score **0.538717**. At the matched raw 1,000-joint-update checkpoint, transfer
+scored 0.573948 versus scratch 0.629016. This is an observation-update comparison,
+not a total-compute-matched or replicated estimate. Full comparison awaits
+transfer completion and its held-out diagnostics. CPU report-array extraction
+job **18573930** reads completed scratch outputs only; no new evaluation or
+training protocol is introduced.

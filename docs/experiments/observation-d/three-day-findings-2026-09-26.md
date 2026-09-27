@@ -222,12 +222,12 @@ producer, timestamps, per-task counts and all underlying retention metrics.
 
 ## Execution and remaining work
 
-**Monitoring status, 27 September 00:44 UTC:** Torch SSH is currently unreachable
-(`No route to host`). At the last successful check, 26 September 23:42 UTC, all
-three training arms had continued progressing through preemption recovery;
-scratch was temporarily queued and the others were running. Current status is
-unverified. No job was stopped or restarted in response to the connection failure.
-A blocker alert has been sent, and the report deadline remains unchanged.
+**Monitoring status, 27 September 01:06 UTC:** Torch access is restored. All
+three production jobs are running with finite updates: scratch 4,607 observations;
+sequential 8,000 OM4 + 1,256 observations; mixed 5,074 OM4 + 2,104 observations.
+Expected milestone files are present, and downstream evaluations are queued on
+training completion. Actual campaign use is 28.8247 allocated GPU-hours including
+preemptions. The access interruption required no manual job restart.
 
 
 The Samudra-2-matched processor has 83,872,357 parameters, versus approximately

@@ -1979,3 +1979,17 @@ sequential and mixed were running at 8,000 OM4 + 802 observations and 4,666 OM4
 + 1,778 observations, respectively. Total accounted allocation then was
 **25.2136 GPU-hours**. Current counts, allocation use and job state are unverified.
 The report deadline remains 29 September 09:30 ET; the goal is not complete.
+
+
+### 27 September 01:06 UTC — access restored, all jobs progressing
+
+Authenticated Torch access is restored. All three original production jobs are
+running and producing finite updates: scratch 4,607 observations; sequential
+8,000 OM4 + 1,256 observations; mixed 5,074 OM4 + 2,104 observations. Expected
+raw milestone files through those counts are present. All fifteen downstream
+evaluation/diagnostic jobs remain pending on their original training dependencies.
+No manual restart, producer change, or protocol change was required.
+
+Actual campaign accounting is **28.8247 allocated GPU-hours**, including all
+preemptions. The goal resumes with its original 29 September 09:30 ET deadline;
+hourly monitoring continues with the old timer disabled.

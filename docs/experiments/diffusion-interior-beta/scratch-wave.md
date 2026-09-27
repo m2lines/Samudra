@@ -65,3 +65,32 @@ comparing both scratch seeds with this one unchanged reference. Paired year-bloc
 intervals will remain conditional on the fitted seeds and fixed evaluation draws.
 Native controls additionally report an unevolved zero-m/s velocity reference;
 non-velocity channels are excluded from that reference.
+
+
+## OM4 pretraining complete
+
+Both seeds completed all 24,000 updates. Their completion markers and selected
+checkpoint hashes were verified, and both observation-fitting jobs started from
+those selected scratch checkpoints. Best within-seed denoising validation losses
+were 0.0913 and 0.1955; these use different fixed noise draws and are not a common
+cross-seed forecast-skill score.
+
+The 24-origin native OM4 controls completed for both selected pretrained models.
+Their CSV hashes and checkpoint provenance were verified. At initialization,
+within ±60° and excluding known SST/SSH, equal-depth-channel ensemble-mean RMSE is:
+
+| Seed | Temperature, °C | Salinity, dataset units | u, m/s | v, m/s |
+| --- | ---: | ---: | ---: | ---: |
+| 1729 | 0.6391 | 0.1528 | 0.0538 | 0.0462 |
+| 1730 | 0.6409 | 0.1677 | 0.0559 | 0.0577 |
+| Zero-velocity reference | — | — | 0.0813 | 0.0566 |
+
+Both mean predictions improve u over zero; v improvement is not consistent across
+seeds. These are model-world initialization errors, not observed velocity skill or
+proof of realistic stochastic samples. The unchanged baseline observation report,
+post-fine-tuning controls, calibration and maps remain necessary for the final
+comparison. No lift over the selected deterministic baseline is claimed yet.
+
+Completed allocations through pretraining and these controls total **38.7992
+GPU-hours**; observation fitting is additional and remains in progress. The initial
+short attempts and qualification preemption are included.

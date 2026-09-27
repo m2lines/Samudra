@@ -222,12 +222,12 @@ producer, timestamps, per-task counts and all underlying retention metrics.
 
 ## Execution and remaining work
 
-**Monitoring status, 27 September 05:09 UTC:** Torch authentication failed again;
-SSH attempts are paused pending restored access. Last verified counts at 04:08 UTC
-were scratch 5,619 observations, sequential 8,000 OM4 + 2,508 observations, and
-mixed 5,714 OM4 + 2,721 observations. All had continued progressing through
-preemption recovery; current state is unverified. Accounted campaign use at that
-snapshot was 35.8289 GPU-hours. No jobs were stopped or manually restarted.
+**Monitoring status, 27 September 11:12 UTC:** Authenticated access is restored.
+All three production jobs are running: scratch 8,225 observations, sequential
+8,000 OM4 + 4,742 observations, mixed 6,932 OM4 + 4,474 observations. The separate
+raw scratch-8k checkpoint and earlier milestones are present. Downstream
+evaluations remain pending. Allocated campaign use is 52.6992 GPU-hours including
+preemptions; no manual job restart was needed.
 
 
 The Samudra-2-matched processor has 83,872,357 parameters, versus approximately

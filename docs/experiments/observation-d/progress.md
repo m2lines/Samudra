@@ -2008,3 +2008,20 @@ Scratch and sequential were running; mixed was temporarily queued after
 preemption. Total allocated campaign use then was **35.8289 GPU-hours**. Current
 state and additional allocation use are unverified. The existing three-day
 report deadline and scientific protocol remain unchanged.
+
+
+### 27 September 11:12 UTC — authenticated monitoring restored
+
+Authenticated access is restored again. All three production jobs are running
+with fresh finite updates; no manual restart was required. Counts: scratch
+8,225 observations, sequential 8,000 OM4 + 4,742 observations, mixed 6,932 OM4
++ 4,474 observations. The separate raw scratch-8k file exists, along with the
+expected earlier milestones for every arm. All fifteen dependent evaluation
+jobs remain queued. Current allocated campaign use is **52.6992 GPU-hours**,
+including 26/22/24 preemptions for scratch/sequential/mixed.
+
+Scratch still has about 7,775 updates remaining. Its cumulative internal elapsed
+time is 14.53 hours; projected completion is close to the 27-hour internal cap.
+Monitor that boundary explicitly: a partial marker must not be mistaken for
+completion, and dependent evaluators must retain their completion/lineage guards.
+The original 29 September 09:30 ET report deadline and 120 GPU-hour ceiling remain.

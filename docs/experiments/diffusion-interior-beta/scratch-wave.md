@@ -35,4 +35,20 @@ published here and linked from PR #895, followed by the requested Slack notifica
 
 Scratch loading is explicit in qualification/training contracts and never imports
 source initializer parameters into the trained encoder. CPU tests check that only
-evolution weights are inherited. GPU qualification and production results are pending.
+evolution weights are inherited. Real-grid L40S qualification passed: finite observation forecasts, nonzero gradients
+to the encoder/adapter/decoder, frozen dynamics, and identical loss after strict
+checkpoint reload. The observation forward/backward probe took 5.87 seconds and
+used 8.08 GiB. Production peaks so far are 12.5 GiB GPU and about 5.3 GiB host.
+
+Both seeds are pretraining. The first 354-second allocations were stopped because
+measured end-to-end throughput would have truncated the original ten-hour fitting
+cap before 24,000 updates. Their outputs are preserved and costs counted. Identical
+seeds/settings restarted with a 26-hour fitting allowance, reserving the remainder
+of the three-day window for observation fitting and reporting. No training result
+is inferred from qualification loss or these early updates.
+
+The unchanged baseline's matched monthly evaluation completed with composite
+0.591343, versus its previously published 0.591421 (0.013% relative difference).
+Its predictions pass directly through the reporting adapter without another
+learned decoder. Per-origin point-mass CRPS, spatial diagnostics and fixed-date
+arrays are exported for comparison. Annual reporting is still in progress.

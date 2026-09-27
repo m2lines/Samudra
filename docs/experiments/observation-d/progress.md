@@ -1964,3 +1964,18 @@ initializer/processor changes from a demonstrated physical mechanism.
 At the 22:45 accounting snapshot, total use was **22.6397 GPU-hours**, including
 all preemptions. All three jobs remained running; held-out production evaluation
 is still pending.
+
+
+### 27 September 00:44 UTC — Torch access unavailable
+
+The hourly SSH check failed with `No route to host` for the Torch login host.
+This is a monitoring/connectivity failure, not evidence that training terminated.
+No job was cancelled or resubmitted. The authorized Slack blocker alert was sent
+to Jesse. Cluster mutations are paused while access is unavailable.
+
+Last successful snapshot was 26 September 23:42:44 UTC: scratch had reached
+4,188 observations and was temporarily queued after another preemption;
+sequential and mixed were running at 8,000 OM4 + 802 observations and 4,666 OM4
++ 1,778 observations, respectively. Total accounted allocation then was
+**25.2136 GPU-hours**. Current counts, allocation use and job state are unverified.
+The report deadline remains 29 September 09:30 ET; the goal is not complete.

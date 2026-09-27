@@ -222,6 +222,14 @@ producer, timestamps, per-task counts and all underlying retention metrics.
 
 ## Execution and remaining work
 
+**Monitoring status, 27 September 00:44 UTC:** Torch SSH is currently unreachable
+(`No route to host`). At the last successful check, 26 September 23:42 UTC, all
+three training arms had continued progressing through preemption recovery;
+scratch was temporarily queued and the others were running. Current status is
+unverified. No job was stopped or restarted in response to the connection failure.
+A blocker alert has been sent, and the report deadline remains unchanged.
+
+
 The Samudra-2-matched processor has 83,872,357 parameters, versus approximately
 31.6M in the previous pilot; the initializer stays approximately 121.7M. The
 reference backbone/output padding and kernel are reused, retaining InstanceNorm

@@ -2025,3 +2025,18 @@ time is 14.53 hours; projected completion is close to the 27-hour internal cap.
 Monitor that boundary explicitly: a partial marker must not be mistaken for
 completion, and dependent evaluators must retain their completion/lineage guards.
 The original 29 September 09:30 ET report deadline and 120 GPU-hour ceiling remain.
+
+
+### 27 September 14:18 UTC — report learning curves prepared
+
+Added reproducible in-progress validation curves versus observation exposure and
+total updates, plus a separate OM4-retention panel. Raw replayed validation events
+are retained; best-so-far curves and current selected counts are explicit. The
+figure was rendered and visually checked. The report does not treat unequal
+unfinished endpoints as a final performance comparison, or the old/new recipe
+comparison as an isolated architecture ablation.
+
+At 14:16:45 UTC, all main jobs were running: scratch 10,093 observations;
+sequential 8,000 OM4 + 6,503 observations; mixed 7,548 OM4 + 5,978 observations.
+Actual total use was **61.8292 GPU-hours**, including preemptions. Production
+held-out results are still pending.

@@ -191,6 +191,27 @@ The [frozen protocol](three-day-followup-2026-09-26.md) gives the full schedule,
 checkpoints, qualification contracts and caps. No production performance result
 is reported yet.
 
+## Production learning curves (in progress)
+
+![Observation exposure, total updates, and OM4-task retention](artifacts/2026-09-26-three-day/production-learning.png)
+
+These curves use only training-run validation, not held-out test results. Dots
+include all recorded validation attempts, including replay after preemption;
+solid lines show the minimum observed score through each update count, and stars
+mark the currently selected checkpoints. The left panel counts observation
+updates; the center also charges OM4 updates. Equal update counts are only rough
+compute matching because task costs differ; actual allocated GPU-hours include
+retries. Endpoints are currently unequal because training has not finished.
+
+The right panel is a separate diagnostic, not part of checkpoint selection. It
+shows the clear difference between retaining OM4-task performance through mixed
+training and losing much of it during observation-only continuation. The
+[compressed evidence](artifacts/2026-09-26-three-day/production-learning-evidence.json.gz)
+and [plot script](artifacts/2026-09-26-three-day/plot_production_learning.py.txt)
+retain all plotted validation events and selected checkpoint counts. Comparisons
+with the earlier, smaller InstanceNorm pilot cannot isolate architecture effects:
+the new recipe also changes task allocation and reconstruction scheduling.
+
 ## Early production diagnostic: retention of the OM4 task
 
 The new runs are still training. The following are raw validation snapshots,

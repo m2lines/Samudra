@@ -2077,3 +2077,24 @@ its last saved validation checkpoint: latest update 12,618 at 20:27:23 UTC.
 Cumulative internal elapsed time is 21.99 hours; the 27-hour boundary remains
 under review. Total allocated campaign use is 76.6519 GPU-hours including all
 recorded attempts. Report-array transfer approval remains pending.
+
+### 27 September 21:33 UTC — runtime recovery prepared, not launched
+
+Scratch is live at 13,056 observation updates, with 22.75 cumulative internal
+hours; its selected score remains 0.540782 at update 7,900. Repeated preemption
+and checkpoint replay make the 27-hour internal stop likely before 16k.
+Prepared a narrowly scoped runtime-recovery launcher and 14 passing focused
+tests (including the existing joint-training tests). It runs against the
+**unchanged original qualified training overlay**, restores through the existing
+strict constructor, and gives the runner at most three extra cumulative hours.
+It does not alter optimizer state, task ordering, update target, science arguments,
+selection, the absolute deadline, or old checkpoint manifests. A separate hashed
+RUNTIME_RECOVERY record discloses the override; the original partial marker,
+manifest and resume checkpoint are archived before continuation. Existing
+fixed-checkpoint evaluation contracts therefore remain exact. This is operational
+recovery within the 120 GPU-hour campaign ceiling, not a new scientific arm.
+
+No recovery job has been submitted. Before launch, verify the original job is
+terminal with a real time-limit partial marker, refresh total GPU accounting,
+and rewire dependent evaluations to wait for actual recovered completion.
+The completion marker must still come from finishing the original 16k loop.

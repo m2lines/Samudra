@@ -221,6 +221,12 @@ two fixed selected models. They do not alter training or select new weights.
 
 ### Hidden-state feedback and the new models’ annual drift
 
+![Production rollout errors and spectral tradeoffs under hidden-state interventions](artifacts/2026-09-26-three-day/production-mechanisms.png)
+
+Curves average three annual origins. Spectral bars average three regions and
+three origins; dots show the three per-origin regional averages, not confidence
+intervals. Lower is better in every panel.
+
 The same seven interventions were applied to the selected production checkpoints,
 using each model’s own seasonal initializer means from all 243 training examples.
 Baseline checkpoint hashes match the selected monthly and annual evaluations;

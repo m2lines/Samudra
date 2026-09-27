@@ -188,8 +188,36 @@ selection remains the fixed integrated-plus-spectral observation validation
 score; OM4 retention is diagnostic only. Total-update matching is approximate
 compute matching because OM4 and observation updates have different costs.
 The [frozen protocol](three-day-followup-2026-09-26.md) gives the full schedule,
-checkpoints, qualification contracts and caps. No production performance result
-is reported yet.
+checkpoints, qualification contracts and caps. Completed sequential/mixed results are below; scratch remains in progress.
+
+## Completed production results (scratch pending)
+
+Samudra2 sequential and Samudra2 mixed each completed exactly 8,000 OM4 and
+8,000 observation updates. Their monthly, annual, raw-checkpoint and initializer
+diagnostics completed with verified checkpoint hashes. Selection used the fixed
+nine-origin integrated-plus-spectral observation score; the table below reports
+96 held-out monthly origins (2015–2022), and mean day-365 RMSE across the three
+annual starts (1 January 2015, 2018 and 2021). Annual runs use prescribed future
+ERA5, and were not used to choose checkpoints. Lower is better.
+
+| Model | Checkpoint | Selected OM4 / obs updates | Monthly integrated + spectral score | Monthly mean SST RMSE (°C) | Day-365 SST RMSE (°C) | Day-365 ADT RMSE (m) |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| Samudra2 sequential | Validation-selected | 8,000 / 7,700 | 0.5677 | 0.4695 | 2.1854 | 0.2318 |
+| Samudra2 mixed | Validation-selected | 7,467 / 5,733 | 0.5914 | 0.5236 | 4.4749 | 0.3584 |
+
+The same ordering holds for the **raw final checkpoints**, which have identical
+8k/8k task exposure and are not validation-selected: monthly scores are 0.5837
+(sequential) versus 0.6002 (mixed); day-365 SST RMSE is 2.2825 versus 3.7414°C.
+Thus, preserving source-task performance did not translate into better observation
+forecasts in this particular schedule. This is a one-seed result for one mixture
+schedule, not evidence that all joint training is worse. The scratch comparison
+and its 16k plateau assessment remain unfinished.
+
+The numeric evidence for [sequential](artifacts/2026-09-26-three-day/production-sequential.json.gz)
+and [mixed](artifacts/2026-09-26-three-day/production-mixed.json.gz) includes completion markers, manifests, selected hashes, all reporting metrics,
+controls and raw-checkpoint lineages. To investigate the long-range failure, the
+same seven already-defined state/forcing interventions are queued for the new
+fixed selected models. They do not alter training or select new weights.
 
 ## Production learning curves (in progress)
 
@@ -243,12 +271,12 @@ producer, timestamps, per-task counts and all underlying retention metrics.
 
 ## Execution and remaining work
 
-**Monitoring status, 27 September 11:12 UTC:** Authenticated access is restored.
-All three production jobs are running: scratch 8,225 observations, sequential
-8,000 OM4 + 4,742 observations, mixed 6,932 OM4 + 4,474 observations. The separate
-raw scratch-8k checkpoint and earlier milestones are present. Downstream
-evaluations remain pending. Allocated campaign use is 52.6992 GPU-hours including
-preemptions; no manual job restart was needed.
+**Monitoring status, 27 September 20:15 UTC:** Sequential and mixed training,
+monthly/annual evaluations, fixed-budget evaluations and initializer diagnostics
+are complete. Scratch continues toward 16k observations; its evaluations remain
+dependent. The same seven state/forcing diagnostics are now submitted for all
+three selected models, with scratch dependent on completion. Compact plot arrays
+are being extracted on CPU; their transfer is awaiting explicit approval.
 
 
 The Samudra-2-matched processor has 83,872,357 parameters, versus approximately

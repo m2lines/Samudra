@@ -2040,3 +2040,23 @@ At 14:16:45 UTC, all main jobs were running: scratch 10,093 observations;
 sequential 8,000 OM4 + 6,503 observations; mixed 7,548 OM4 + 5,978 observations.
 Actual total use was **61.8292 GPU-hours**, including preemptions. Production
 held-out results are still pending.
+
+
+### 27 September 20:15 UTC — source-containing production arms complete
+
+Sequential completed at 18:29 UTC and mixed at 20:03 UTC, both at exactly 8k OM4
++ 8k observation updates. All ten downstream monthly/annual/fixed-budget/state
+jobs completed. Selected checkpoint hashes match training completion, best.json,
+monthly outputs and annual inputs. The report now contains the two-arm held-out
+comparison and raw-final cross-check: mixed retains the source task but has worse
+monthly and annual observation error than sequential in this schedule. Scratch
+remains running; its comparison and plateau conclusion are not finalized.
+
+The same seven previously implemented state/forcing interventions are submitted
+for the new selected models using unchanged diagnostic producer 83119442c3d:
+18668686 (scratch, dependent), 18668687 (sequential), 18668688 (mixed). Requested
+additional caps total three GPU-hours within the original 120-hour ceiling.
+They are exploratory fixed-model diagnostics, not additional training or selection.
+CPU compact-array extraction 18666514 completed in 18 seconds for sequential,
+reproducing all saved regional day-30 EKE curves; mixed extraction is 18668647.
+Transfer of those arrays awaits explicit approval after an automatic review block.

@@ -5,7 +5,7 @@
 
 Authorized 25 September 2026; total ceiling **576 allocated GPU-hours**, including
 qualification, evaluation, unsuccessful attempts and repeats. A/B results are complete;
-later waves await the report/approval gate.
+the from-scratch follow-up is now authorized.
 
 This campaign depends on the final model/checkpoint decision from thread
 `01a0d027-0851-7213-a64e-f1d40d40e64d`, tracked in [PR #892](https://github.com/m2lines/Samudra/pull/892).
@@ -15,8 +15,14 @@ The upstream observation comparison is complete and its transfer checkpoint is
 the selected reference. Execution moved to Engaging on September 26 with the
 user-approved local OM4 releases; the original branch and report links are retained.
 
+The active wave is [direct diffusion pretraining from scratch](scratch-wave.md).
+It replaces the width ablation/residual proposal following discussion of the A/B
+design. Both the encoder and width-192 decoder start randomly; only dynamics are
+inherited. The unchanged deterministic model is the reference.
+
 ## Contents
 
+- [Active from-scratch wave](scratch-wave.md)
 - [Experiment plan and fixed contracts](plan.md)
 - [Data staging, provenance and readiness](data.md)
 - [Baseline handoff and execution status](progress.md)

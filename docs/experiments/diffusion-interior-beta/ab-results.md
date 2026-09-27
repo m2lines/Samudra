@@ -214,6 +214,10 @@ OM4 truth. They do not by themselves establish realistic mesoscale structure.
 
 ## Recommended next wave
 
+**Superseded after discussion:** the user authorized [direct from-scratch diffusion
+pretraining](scratch-wave.md) against the unchanged deterministic baseline. The
+width-ablation proposal below is retained as historical context and will not run.
+
 **Request approval for a bounded decoder-repair wave before C/D.** Proposed cap:
 32 additional allocated GPU-hours, included in the existing 576-hour ceiling.
 

@@ -566,3 +566,15 @@ focused CPU tests pass, including the expected constant-channel stem ranks
 64/150 for widths 64/192 on the 150 unknown channels. This checks a structural
 property, not learned predictive skill. Real-grid GPU qualification and all
 repair-wave submissions still await approval.
+
+## Direct scratch wave authorized
+
+The user replaced the earlier next-wave proposal with joint OM4 pretraining of a
+random surface encoder and width-192 diffusion decoder, followed by observation
+fine-tuning and comparison with the unchanged selected deterministic baseline.
+Two seeds and a three-day wall-time deadline are authorized. The [new wave
+contract](scratch-wave.md) preserves all data and evaluation constraints.
+
+Seventeen focused CPU tests pass. The immutable producer was verified file by
+file before submission. A single-L40S real-grid qualification job has been
+submitted; production waits for its measured memory/gradient/reload results.

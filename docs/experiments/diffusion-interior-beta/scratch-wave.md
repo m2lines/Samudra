@@ -40,7 +40,7 @@ to the encoder/adapter/decoder, frozen dynamics, and identical loss after strict
 checkpoint reload. The observation forward/backward probe took 5.87 seconds and
 used 8.08 GiB. Production peaks so far are 12.5 GiB GPU and about 5.3 GiB host.
 
-Both seeds are pretraining. The first 354-second allocations were stopped because
+Both seeds completed pretraining; results are below. The first 354-second allocations were stopped because
 measured end-to-end throughput would have truncated the original ten-hour fitting
 cap before 24,000 updates. Their outputs are preserved and costs counted. Identical
 seeds/settings restarted with a 26-hour fitting allowance, reserving the remainder
@@ -55,8 +55,8 @@ arrays are exported for comparison. All three annual origins also completed. The
 (942 MB), fully checked against source hashes. Baseline monthly interior
 point-mass CRPS/MAE is 0.0512984 in the fixed observation-standardized units.
 
-Two 6,000-update observation jobs are queued with a success dependency on both
-pretraining runs and a 20-hour fitting allowance each. The runner verifies the
+Both 6,000-update observation jobs are running after successful completion of
+pretraining, with a 20-hour fitting allowance each. The runner verifies the
 completed pretraining marker and selected checkpoint hash before loading its own
 scratch weights. This is the authorized second phase of this wave.
 

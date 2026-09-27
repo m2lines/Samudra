@@ -219,6 +219,20 @@ controls and raw-checkpoint lineages. To investigate the long-range failure, the
 same seven already-defined state/forcing interventions are queued for the new
 fixed selected models. They do not alter training or select new weights.
 
+### Initializer profiles in the completed production arms
+
+![Evolution of initializer temperature, salinity and velocity-slot profiles](artifacts/2026-09-26-three-day/production-profiles.svg)
+
+Mean temperature and salinity profiles settle relatively quickly, while the
+velocity-designated channels change much more across observation updates. These
+are wet-area-weighted, nominally decoded initializer outputs averaged over nine
+validation origins. They are not verified instantaneous ocean states; even upper
+T/S is constrained through monthly objectives rather than an instantaneous
+initializer target. Velocity and the deeper state remain unconstrained. Similar
+mean profiles therefore do not imply similar dynamics or explain the annual
+error gap by themselves. Zero denotes the common random model before either task;
+subsequent labels count observation updates, with different source exposure.
+
 ## Production learning curves (in progress)
 
 ![Observation exposure, total updates, and OM4-task retention](artifacts/2026-09-26-three-day/production-learning.png)

@@ -22,5 +22,5 @@ export SAMUDRA_CODE_COMMIT="$CODE_COMMIT"
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONUNBUFFERED=1 PYTHONNOUSERSITE=1
 srun --gpus-per-task=1 apptainer exec --nv --bind "$code:/pilot-code,/orcd:/orcd" "$image" \
   env PYTHONPATH=/pilot-code/src /workspace/.venv/bin/python -m samudra.experiments.diffusion_observation_qualify \
-  --root "$root" --output "$root/runs/scratch-qualification/$SLURM_JOB_ID" \
+  --root "$root" --output "$root/runs/scratch-qualification/$SLURM_JOB_ID-r${SLURM_RESTART_COUNT:-0}" \
   --arm B --decoder-width 192 --initialization scratch --sampling-steps 16 --fit-steps 10

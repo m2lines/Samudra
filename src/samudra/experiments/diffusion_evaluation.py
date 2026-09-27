@@ -13,6 +13,26 @@ from samudra.experiments.observation_metrics import selection_score
 from samudra.experiments.observation_pilot import Pilot
 
 
+class DeterministicMembers(nn.Module):
+    """Expose an unchanged deterministic forecast as a one-member distribution."""
+
+    stochastic = False
+
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
+    def forecast(
+        self, surface, atmosphere, contexts, mask, validity, *, generator, members=1
+    ):
+        if members != 1:
+            raise ValueError("An unchanged deterministic model has one member")
+        prediction, initial = self.model.forecast(
+            surface, atmosphere, contexts, mask, validity
+        )
+        return prediction.unsqueeze(0), initial.unsqueeze(0)
+
+
 class EnsembleMeanForecast(nn.Module):
     """Point-score interface only; this does not describe ensemble calibration.
 

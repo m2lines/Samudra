@@ -34,3 +34,18 @@ def test_point_interface_averages_after_member_dynamics_with_fixed_evaluation_dr
     torch.manual_seed(999)
     repeated, _ = wrapper.forecast(*args)
     torch.testing.assert_close(repeated, prediction, rtol=0, atol=0)
+
+
+def test_deterministic_member_adapter_preserves_original_outputs_exactly():
+    from samudra.experiments.diffusion_evaluation import DeterministicMembers
+
+    class Original(nn.Module):
+        def forecast(self, surface, atmosphere, contexts, mask, validity):
+            return surface + atmosphere, contexts - mask
+
+    model = Original()
+    inputs = tuple(torch.randn(1, 2, 3) for _ in range(5))
+    expected = model.forecast(*inputs)
+    actual = EnsembleMeanForecast(DeterministicMembers(model)).forecast(*inputs)
+    for before, after in zip(expected, actual, strict=True):
+        torch.testing.assert_close(before, after, rtol=0, atol=0)

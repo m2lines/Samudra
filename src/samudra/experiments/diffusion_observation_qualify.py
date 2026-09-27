@@ -13,6 +13,7 @@ from pathlib import Path
 import torch
 
 from samudra.experiments.diffusion_beta_qualify import data_inputs
+from samudra.experiments.diffusion_initialization import load_pretraining_source
 from samudra.experiments.diffusion_observations import forecast_observation_crps
 from samudra.experiments.diffusion_physical import JointPhysicalForecast
 from samudra.experiments.observation_model import ObservationTransfer
@@ -35,6 +36,7 @@ def main():
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--arm", choices=["A", "B"], required=True)
+    parser.add_argument("--initialization", choices=["om4", "scratch"], default="om4")
     parser.add_argument("--decoder-width", type=int, default=64)
     parser.add_argument("--sampling-steps", type=int, default=16)
     parser.add_argument("--fit-steps", type=int, default=10)
@@ -75,7 +77,11 @@ def main():
     if digest(source) != expected:
         raise ValueError("Pre-observation source checkpoint changed")
     core = ObservationTransfer(list(data.grid["names"]), "instance")
-    core.load_core(torch.load(source, map_location="cpu", weights_only=False)["model"])
+    load_pretraining_source(
+        core,
+        torch.load(source, map_location="cpu", weights_only=False)["model"],
+        initialization=args.initialization,
+    )
     model = (
         JointPhysicalForecast(
             core,
@@ -100,6 +106,7 @@ def main():
     report = dict(
         arm=args.arm,
         decoder_width=args.decoder_width,
+        initialization=args.initialization,
         sampling_steps=args.sampling_steps,
         om4_origin=date,
         source_checkpoint_sha256=expected,

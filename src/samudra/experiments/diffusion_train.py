@@ -13,6 +13,7 @@ import torch
 
 from samudra.experiments.diffusion_evaluation import evaluate_point_metrics
 from samudra.experiments.diffusion_fit import batch_at, bounded_fit
+from samudra.experiments.diffusion_initialization import load_pretraining_source
 from samudra.experiments.diffusion_observations import forecast_observation_crps
 from samudra.experiments.diffusion_physical import JointPhysicalForecast
 from samudra.experiments.initializer_wave import InitializerWave
@@ -27,6 +28,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--qualification", type=Path, required=True)
     parser.add_argument("--arm", choices=["A", "B"], required=True)
+    parser.add_argument("--initialization", choices=["om4", "scratch"], default="om4")
     parser.add_argument("--decoder-width", type=int, default=64)
     parser.add_argument("--phase", choices=["om4", "observation"], required=True)
     parser.add_argument("--pretrained", type=Path)
@@ -83,6 +85,7 @@ def main():
     if (
         qualification["arm"] != args.arm
         or qualification.get("decoder_width", 64) != args.decoder_width
+        or qualification.get("initialization", "om4") != args.initialization
         or qualification["code_commit"] != producer
         or qualification["source_checkpoint_sha256"] != digest(source)
         or qualification["data_manifest_sha256"]
@@ -105,6 +108,7 @@ def main():
         selection_reference_sha256=digest(reference_path),
         arm=args.arm,
         decoder_width=args.decoder_width,
+        initialization=args.initialization,
         phase=args.phase,
         pretrained_sha256=digest(args.pretrained) if args.pretrained else None,
         training_members=args.training_members,
@@ -157,8 +161,9 @@ def main():
         if wave.run:
             wave.run.config.update({"diffusion_protocol": signature})
         core = ObservationTransfer(wave.names, "instance")
-        core.initializer = wave.initializer
-        core.evolution = wave.model.evolution
+        load_pretraining_source(
+            core, wave.model.state_dict(), initialization=args.initialization
+        )
         core.adapter.requires_grad_(args.phase == "observation")
         model = JointPhysicalForecast(
             core,
@@ -176,6 +181,8 @@ def main():
                 raise ValueError("Pretraining is unfinished or selected weights differ")
             saved = torch.load(args.pretrained, map_location="cpu", weights_only=False)
             parent = saved["protocol"]["signature"]
+            if parent.get("initialization", "om4") != args.initialization:
+                raise ValueError("Pretraining contract differs: initialization")
             if parent.get("decoder_width", 64) != args.decoder_width:
                 raise ValueError("Pretraining contract differs: decoder_width")
             for key in (

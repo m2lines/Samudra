@@ -38,7 +38,8 @@ source initializer parameters into the trained encoder. CPU tests check that onl
 evolution weights are inherited. Real-grid L40S qualification passed: finite observation forecasts, nonzero gradients
 to the encoder/adapter/decoder, frozen dynamics, and identical loss after strict
 checkpoint reload. The observation forward/backward probe took 5.87 seconds and
-used 8.08 GiB. Production peaks so far are 12.5 GiB GPU and about 5.3 GiB host.
+used 8.08 GiB. Pretraining peaks were 12.5 GiB GPU and about 5.3 GiB host. Observation
+fine-tuning caches its training cohort in host memory and has a 48 GiB allocation.
 
 Both seeds completed pretraining; results are below. The first 354-second allocations were stopped because
 measured end-to-end throughput would have truncated the original ten-hour fitting
@@ -64,7 +65,13 @@ The new summary path checks identical cohorts and observation manifests before
 comparing both scratch seeds with this one unchanged reference. Paired year-block
 intervals will remain conditional on the fitted seeds and fixed evaluation draws.
 Native controls additionally report an unevolved zero-m/s velocity reference;
-non-velocity channels are excluded from that reference.
+non-velocity channels are excluded from that reference. A supplemental native
+velocity evaluation measures fair/empirical CRPS, rank histograms, finite-ensemble
+coverage, and the spatial variance and adjacent-cell differences of individual
+members, their mean and OM4 truth. It uses the same 24 origins, four leads and
+three latitude regions, both before and after observation fine-tuning. These
+model-world diagnostics assess distribution and structure; they do not substitute
+for observed velocity truth or establish dynamical plausibility by themselves.
 
 
 ## OM4 pretraining complete

@@ -1993,3 +1993,18 @@ No manual restart, producer change, or protocol change was required.
 Actual campaign accounting is **28.8247 allocated GPU-hours**, including all
 preemptions. The goal resumes with its original 29 September 09:30 ET deadline;
 hourly monitoring continues with the old timer disabled.
+
+
+### 27 September 05:09 UTC — authenticated access failed again
+
+The hourly SSH check terminated with `Too many authentication failures` after
+permission-denied messages. Further SSH attempts are paused, and an updated
+blocker alert was sent in the existing Slack conversation. No job mutation was
+attempted. This does not establish a training failure.
+
+Last successful snapshot, 04:08:34 UTC: scratch had 5,619 observation updates;
+sequential 8,000 OM4 + 2,508 observations; mixed 5,714 OM4 + 2,721 observations.
+Scratch and sequential were running; mixed was temporarily queued after
+preemption. Total allocated campaign use then was **35.8289 GPU-hours**. Current
+state and additional allocation use are unverified. The existing three-day
+report deadline and scientific protocol remain unchanged.

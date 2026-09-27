@@ -16,6 +16,44 @@ ORIGINS = [f"{year}-{month:02}" for year in range(2015, 2023) for month in range
 ANNUAL = ("2015-01-01", "2018-01-01", "2021-01-01")
 
 
+def summarize_structure(records):
+    """Average within-field moments, not variance across dates or ensemble members."""
+    result: dict[str, dict[str, list[float | None]]] = {}
+    for group in records[0]["statistics"]:
+        result[group] = {}
+        for metric, support in (
+            ("mean", "area"),
+            ("variance", "area"),
+            ("zonal_increment_mse", "zonal_pair_area"),
+            ("meridional_increment_mse", "meridional_pair_area"),
+        ):
+            numerator, denominator = [], []
+            for record in records:
+                fields = record["statistics"][group]
+                values = np.asarray(fields[metric], dtype=float)
+                weights = np.broadcast_to(
+                    np.asarray(fields[support], dtype=float), values.shape
+                )
+                if not np.isfinite(weights).all() or (weights < 0).any():
+                    raise ValueError("Invalid structural support")
+                valid = weights > 0
+                if not np.isfinite(values[valid]).all():
+                    raise ValueError("Nonfinite structure on supported cells")
+                numerator.append(
+                    (np.where(valid, values, 0) * weights)
+                    .reshape(-1, values.shape[-1])
+                    .sum(0)
+                )
+                denominator.append(weights.reshape(-1, values.shape[-1]).sum(0))
+            total_weight = np.stack(denominator).sum(0)
+            total = np.stack(numerator).sum(0)
+            result[group][metric] = [
+                float(v / w) if w > 0 else None
+                for v, w in zip(total, total_weight, strict=True)
+            ]
+    return result
+
+
 def read_report(root, *, scratch):
     protocol = json.loads((root / "protocol.json").read_text())
     complete = json.loads((root / "MONTHLY_REPORT_COMPLETE.json").read_text())
@@ -49,12 +87,18 @@ def read_report(root, *, scratch):
     ]
     if [r["origin"] for r in records] != ORIGINS:
         raise ValueError("Incomplete per-origin score records")
+    structures = [
+        json.loads(p.read_text()) for p in sorted((root / "structure").glob("*.json"))
+    ]
+    if [r["origin"] for r in structures] != ORIGINS:
+        raise ValueError("Incomplete structural diagnostic cohort")
     point = json.loads((root / "point-metrics.json").read_text())
     summary = dict(
         checkpoint_prefix=protocol["checkpoint_sha256"][:16],
         evaluator=protocol["evaluator_commit"][:12],
         members=protocol["members"],
         composite=point["reporting_score"],
+        structure=summarize_structure(structures),
         point=point["metrics"],
         probabilistic={
             group: reduce_records(records, group) for group in records[0]["statistics"]

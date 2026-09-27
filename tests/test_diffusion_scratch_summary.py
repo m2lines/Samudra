@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import copy
+from typing import Any
 
 import pytest
 
@@ -36,3 +37,32 @@ def test_single_unchanged_baseline_compared_with_both_diffusion_seeds():
     seeds["B-1729"][0]["statistics"]["interior"]["weight"] = [[0.0, 3.0]]
     with pytest.raises(AssertionError):
         compare_crps(baseline, seeds, draws=20)
+
+
+def test_structure_pools_within_field_moments_with_matching_pair_support():
+    from samudra.experiments.diffusion_scratch_summary import summarize_structure
+
+    values: list[dict[str, Any]] = []
+    for mean, area, pair_area in ((1.0, 1.0, 3.0), (3.0, 3.0, 1.0)):
+        values.append(
+            dict(
+                statistics=dict(
+                    example=dict(
+                        mean=[[mean, None]],
+                        variance=[[mean**2, None]],
+                        area=[area, 0.0],
+                        zonal_increment_mse=[[mean, None]],
+                        zonal_pair_area=[pair_area, 0.0],
+                        meridional_increment_mse=[[mean, None]],
+                        meridional_pair_area=[area, 0.0],
+                    )
+                )
+            )
+        )
+    result = summarize_structure(values)["example"]
+    assert result["mean"] == [2.5, None]
+    assert result["variance"] == [7.0, None]
+    assert result["zonal_increment_mse"] == [1.5, None]
+    values[0]["statistics"]["example"]["mean"][0][0] = None
+    with pytest.raises(ValueError, match="Nonfinite structure"):
+        summarize_structure(values)

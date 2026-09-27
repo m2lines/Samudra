@@ -2060,3 +2060,20 @@ They are exploratory fixed-model diagnostics, not additional training or selecti
 CPU compact-array extraction 18666514 completed in 18 seconds for sequential,
 reproducing all saved regional day-30 EKE curves; mixed extraction is 18668647.
 Transfer of those arrays awaits explicit approval after an automatic review block.
+
+### 27 September 20:27 UTC — production feedback diagnostics complete
+
+Sequential/mixed mechanism jobs 18668687/18668688 completed in 296/307 seconds.
+Their input checkpoint hashes match the selected production models, and baseline
+annual errors reproduce the main evaluations. Continuous hidden-state seasonal
+replacement narrows the year-end SST gap from 2.290 to 0.055°C, but worsens annual
+EKE spectral error from 1.231 to 2.923 dex (sequential) and 1.424 to 2.642 dex
+(mixed). Initial-only replacement does not eliminate the gap. Full numerical
+evidence and interpretation are now included in the report; no model was retrained
+or reselected from these diagnostics.
+
+Scratch is running after another automatic preemption/requeue, replaying from
+its last saved validation checkpoint: latest update 12,618 at 20:27:23 UTC.
+Cumulative internal elapsed time is 21.99 hours; the 27-hour boundary remains
+under review. Total allocated campaign use is 76.6519 GPU-hours including all
+recorded attempts. Report-array transfer approval remains pending.

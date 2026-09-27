@@ -4,8 +4,8 @@
 # Three-day investigation: interim findings
 
 Started 26 September 2026. **Final report due 29 September at 09:30 ET.**
-This is an active investigation. The larger-backbone scratch, sequential and
-mixed-task production runs have started; their performance comparison is pending. [Plan and scope](three-day-followup-2026-09-26.md).
+This is an active investigation. The larger-backbone sequential and mixed-task runs and diagnostics are complete;
+the scratch run and final three-arm comparison remain in progress. [Plan and scope](three-day-followup-2026-09-26.md).
 
 ## First result: much of the long-range advantage is reduced bias
 
@@ -216,8 +216,48 @@ and its 16k plateau assessment remain unfinished.
 The numeric evidence for [sequential](artifacts/2026-09-26-three-day/production-sequential.json.gz)
 and [mixed](artifacts/2026-09-26-three-day/production-mixed.json.gz) includes completion markers, manifests, selected hashes, all reporting metrics,
 controls and raw-checkpoint lineages. To investigate the long-range failure, the
-same seven already-defined state/forcing interventions are queued for the new
-fixed selected models. They do not alter training or select new weights.
+same seven already-defined state/forcing interventions have completed for these
+two fixed selected models. They do not alter training or select new weights.
+
+### Hidden-state feedback and the new models’ annual drift
+
+The same seven interventions were applied to the selected production checkpoints,
+using each model’s own seasonal initializer means from all 243 training examples.
+Baseline checkpoint hashes match the selected monthly and annual evaluations;
+baseline annual errors reproduce those above. Values average the same three
+annual origins. EKE spectral error averages their three predefined regions;
+“dex” means a base-10 logarithmic spectral-power discrepancy, not physical energy.
+
+| Model | Condition | Day-30 SST RMSE (°C) | Day-365 SST RMSE (°C) | Day-365 ADT RMSE (m) | Annual EKE spectral error (dex) |
+| --- | --- | ---: | ---: | ---: | ---: |
+| Samudra2 sequential | Unmodified | 0.5364 | 2.1854 | 0.2318 | 1.231 |
+| Samudra2 sequential | Initial hidden state → seasonal mean | 0.5899 | 2.2348 | 0.2259 | 1.340 |
+| Samudra2 sequential | Every-step hidden-state seasonal reset | 0.7872 | 0.8621 | 0.1014 | 2.923 |
+| Samudra2 sequential | Every-step velocity-slot seasonal reset | 0.8958 | 4.0740 | 0.2073 | 2.237 |
+| Samudra2 mixed | Unmodified | 0.6319 | 4.4749 | 0.3584 | 1.424 |
+| Samudra2 mixed | Initial hidden state → seasonal mean | 0.6679 | 4.0507 | 0.3226 | 1.704 |
+| Samudra2 mixed | Every-step hidden-state seasonal reset | 0.8043 | 0.9174 | 0.0961 | 2.642 |
+| Samudra2 mixed | Every-step velocity-slot seasonal reset | 0.9575 | 8.1160 | 0.5076 | 1.727 |
+
+The mixed-versus-sequential year-end SST gap falls from **2.290 to 0.055°C**
+under continuous full-hidden-state replacement. Replacing only the initial
+hidden state does not eliminate the gap. This supports evolving hidden-state
+feedback as a contributor to the difference in drift. However, continuous resets
+worsen short-lead SST and annual EKE spectra in both models. They are not an
+improvement on the integrated-plus-spectral objective. Resetting velocity slots
+alone can substantially worsen annual SST, especially in the mixed model.
+
+These interventions retain the model’s own evolving SST/ADT and supply no future
+surface observations. They do not establish that the hidden slots are physically
+correct, unnecessary, or separable into clean physical mechanisms. Model-specific
+means confound mean-state quality with weights, and resets can produce states
+outside the training distribution. Together with the retained OM4-task accuracy,
+the mixed model’s failure suggests that source-task retention alone does not
+control observational rollout drift. This remains one seed and three previously
+examined annual cases, not a prospective test of a stabilizing training method.
+
+Full seven-condition evidence: [sequential](artifacts/2026-09-26-three-day/production-mechanisms-sequential.json.gz),
+[mixed](artifacts/2026-09-26-three-day/production-mechanisms-mixed.json.gz).
 
 ### Initializer profiles in the completed production arms
 
@@ -256,7 +296,7 @@ the new recipe also changes task allocation and reconstruction scheduling.
 
 ## Early production diagnostic: retention of the OM4 task
 
-The new runs are still training. The following are raw validation snapshots,
+The following are early raw validation snapshots,
 not selected final checkpoints; task exposures differ. Lower is better for both
 columns. OM4 T/S MSE uses the common observation normalization and the same eleven
 source-validation origins throughout.
@@ -275,7 +315,8 @@ mixed arm still performs well on the source task after more than 1,500 observati
 updates. This is direct evidence that the observation-only continuation changes
 behavior on the original task, and that continued source training can preserve it.
 It does not establish whether that retention causes better observation forecasts,
-particularly at long leads; those production evaluations have not finished.
+particularly at long leads. The completed sequential/mixed evaluations above
+show that retention did not translate into better forecasts for this schedule.
 
 This also does not identify which component forgets: the shared initializer and
 processor can both change, and OM4 and observation inputs differ. The initializer

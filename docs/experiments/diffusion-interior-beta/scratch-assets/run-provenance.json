@@ -1,0 +1,347 @@
+{
+  "training_producer": "04205aae3333",
+  "evaluator_producer": "0faefd0a0529",
+  "baseline_evaluator_producer": "70a8883ffd69",
+  "velocity_evaluator_producer": "f1f2be70fa4b",
+  "baseline_checkpoint_prefix": "775641ad9ba7acfd",
+  "training": {
+    "B-1729": {
+      "om4": {
+        "checkpoint_prefix": "b6fc664b4d8079fd",
+        "step": 24000,
+        "elapsed": 30112.182311954908,
+        "best": 0.09130506183613431,
+        "complete": true
+      },
+      "observation": {
+        "checkpoint_prefix": "83f5a7a220875eb1",
+        "step": 6000,
+        "elapsed": 38008.075599109754,
+        "best": 0.7792020343858687,
+        "complete": true
+      }
+    },
+    "B-1730": {
+      "om4": {
+        "checkpoint_prefix": "59491618277f88c0",
+        "step": 24000,
+        "elapsed": 30317.934945140034,
+        "best": 0.19553627344695004,
+        "complete": true
+      },
+      "observation": {
+        "checkpoint_prefix": "a67d645120aa80c8",
+        "step": 6000,
+        "elapsed": 38249.5257709343,
+        "best": 0.8094901027501581,
+        "complete": true
+      }
+    }
+  },
+  "start_utc": "2026-09-27T00:38:47.519162+00:00",
+  "deadline_utc": "2026-09-30T00:38:47.519162+00:00",
+  "allocations": [
+    {
+      "job": "24016644",
+      "state": "COMPLETED",
+      "gpus": 4,
+      "elapsed_seconds": 37,
+      "gpu_hours": 0.04111111111111111
+    },
+    {
+      "job": "206768",
+      "state": "CANCELLED_BEFORE_ALLOCATION",
+      "gpus": 0,
+      "elapsed_seconds": 0,
+      "gpu_hours": 0
+    },
+    {
+      "job": "24016902",
+      "state": "FAILED",
+      "gpus": 4,
+      "elapsed_seconds": 20,
+      "gpu_hours": 0.022222222222222223
+    },
+    {
+      "job": "24017180",
+      "state": "COMPLETED",
+      "gpus": 4,
+      "elapsed_seconds": 30,
+      "gpu_hours": 0.03333333333333333
+    },
+    {
+      "job": "24017635",
+      "state": "CANCELLED",
+      "gpus": 4,
+      "elapsed_seconds": 477,
+      "gpu_hours": 0.53
+    },
+    {
+      "job": "24018619",
+      "state": "COMPLETED",
+      "gpus": 4,
+      "elapsed_seconds": 44,
+      "gpu_hours": 0.04888888888888889
+    },
+    {
+      "job": "24018691",
+      "state": "FAILED",
+      "gpus": 4,
+      "elapsed_seconds": 24,
+      "gpu_hours": 0.02666666666666667
+    },
+    {
+      "job": "24019004",
+      "state": "COMPLETED",
+      "gpus": 4,
+      "elapsed_seconds": 29,
+      "gpu_hours": 0.03222222222222222
+    },
+    {
+      "job": "24019005",
+      "state": "COMPLETED",
+      "gpus": 4,
+      "elapsed_seconds": 346,
+      "gpu_hours": 0.3844444444444444
+    },
+    {
+      "job": "24019721",
+      "state": "COMPLETED",
+      "gpus": 4,
+      "elapsed_seconds": 80,
+      "gpu_hours": 0.08888888888888889
+    },
+    {
+      "job": "24020170",
+      "state": "COMPLETED",
+      "gpus": 4,
+      "elapsed_seconds": 2825,
+      "gpu_hours": 3.138888888888889
+    },
+    {
+      "job": "24024628",
+      "state": "COMPLETED",
+      "gpus": 2,
+      "elapsed_seconds": 88,
+      "gpu_hours": 0.04888888888888889
+    },
+    {
+      "job": "24024906",
+      "state": "COMPLETED",
+      "gpus": 4,
+      "elapsed_seconds": 14051,
+      "gpu_hours": 15.612222222222222
+    },
+    {
+      "job": "24044087",
+      "state": "FAILED",
+      "gpus": 4,
+      "elapsed_seconds": 200,
+      "gpu_hours": 0.2222222222222222
+    },
+    {
+      "job": "24044101",
+      "state": "COMPLETED",
+      "gpus": 2,
+      "elapsed_seconds": 84,
+      "gpu_hours": 0.04666666666666667
+    },
+    {
+      "job": "24044813",
+      "state": "COMPLETED",
+      "gpus": 4,
+      "elapsed_seconds": 659,
+      "gpu_hours": 0.7322222222222222
+    },
+    {
+      "job": "24047355",
+      "state": "COMPLETED",
+      "gpus": 4,
+      "elapsed_seconds": 371,
+      "gpu_hours": 0.4122222222222222
+    },
+    {
+      "job": "24056738",
+      "attempt_start": "2026-09-26T20:40:52",
+      "state": "PREEMPTED",
+      "gpus": 1,
+      "elapsed_seconds": 17,
+      "gpu_hours": 0.004722222222222222
+    },
+    {
+      "job": "24056738",
+      "attempt_start": "2026-09-26T20:43:37",
+      "state": "COMPLETED",
+      "gpus": 1,
+      "elapsed_seconds": 40,
+      "gpu_hours": 0.011111111111111112
+    },
+    {
+      "job": "24057306_0",
+      "attempt_start": "2026-09-26T20:46:20",
+      "state": "CANCELLED_FOR_LONGER_TIME_ALLOWANCE",
+      "gpus": 1,
+      "elapsed_seconds": 354,
+      "gpu_hours": 0.09833333333333333
+    },
+    {
+      "job": "24057306_1",
+      "attempt_start": "2026-09-26T20:46:20",
+      "state": "CANCELLED_FOR_LONGER_TIME_ALLOWANCE",
+      "gpus": 1,
+      "elapsed_seconds": 354,
+      "gpu_hours": 0.09833333333333333
+    },
+    {
+      "job": "24058412",
+      "attempt_start": "2026-09-26T20:53:19",
+      "state": "COMPLETED",
+      "gpus": 1,
+      "elapsed_seconds": 224,
+      "gpu_hours": 0.06222222222222222
+    },
+    {
+      "job": "24058363_0",
+      "attempt_start": "2026-09-26T20:52:27",
+      "state": "COMPLETED",
+      "gpus": 1,
+      "elapsed_seconds": 30202,
+      "gpu_hours": 8.389444444444445
+    },
+    {
+      "job": "24058363_1",
+      "attempt_start": "2026-09-26T20:52:27",
+      "state": "COMPLETED",
+      "gpus": 1,
+      "elapsed_seconds": 30408,
+      "gpu_hours": 8.446666666666667
+    },
+    {
+      "job": "24059977_0",
+      "attempt_start": "2026-09-27T05:19:37",
+      "state": "COMPLETED",
+      "gpus": 1,
+      "elapsed_seconds": 481,
+      "gpu_hours": 0.13361111111111112
+    },
+    {
+      "job": "24059977_1",
+      "attempt_start": "2026-09-27T05:19:37",
+      "state": "COMPLETED",
+      "gpus": 1,
+      "elapsed_seconds": 481,
+      "gpu_hours": 0.13361111111111112
+    },
+    {
+      "job": "24090520_0",
+      "state": "PREEMPTED",
+      "attempt_start": "2026-09-27T05:46:37",
+      "gpus": 1,
+      "elapsed_seconds": 10,
+      "gpu_hours": 0.002777777777777778
+    },
+    {
+      "job": "24090520_1",
+      "state": "COMPLETED",
+      "attempt_start": "2026-09-27T05:46:37",
+      "gpus": 1,
+      "elapsed_seconds": 188,
+      "gpu_hours": 0.052222222222222225
+    },
+    {
+      "job": "24090520_0",
+      "state": "COMPLETED",
+      "attempt_start": "2026-09-27T05:49:33",
+      "gpus": 1,
+      "elapsed_seconds": 646,
+      "gpu_hours": 0.17944444444444443
+    },
+    {
+      "job": "24059560_0",
+      "state": "PREEMPTED",
+      "attempt_start": "2026-09-27T05:19:37",
+      "gpus": 1,
+      "elapsed_seconds": 12385,
+      "gpu_hours": 3.4402777777777778
+    },
+    {
+      "job": "24059560_1",
+      "state": "PREEMPTED",
+      "attempt_start": "2026-09-27T05:19:37",
+      "gpus": 1,
+      "elapsed_seconds": 12396,
+      "gpu_hours": 3.4433333333333334
+    },
+    {
+      "job": "24059560_0",
+      "state": "COMPLETED",
+      "attempt_start": "2026-09-27T08:49:03",
+      "gpus": 1,
+      "elapsed_seconds": 25997,
+      "gpu_hours": 7.221388888888889
+    },
+    {
+      "job": "24059560_1",
+      "state": "COMPLETED",
+      "attempt_start": "2026-09-27T08:49:03",
+      "gpus": 1,
+      "elapsed_seconds": 26169,
+      "gpu_hours": 7.269166666666667
+    },
+    {
+      "job": "24059978_0",
+      "state": "PREEMPTED",
+      "attempt_start": "2026-09-27T16:06:06",
+      "gpus": 1,
+      "elapsed_seconds": 383,
+      "gpu_hours": 0.1063888888888889
+    },
+    {
+      "job": "24059978_1",
+      "state": "COMPLETED",
+      "attempt_start": "2026-09-27T16:06:06",
+      "gpus": 1,
+      "elapsed_seconds": 2330,
+      "gpu_hours": 0.6472222222222223
+    },
+    {
+      "job": "24090581_0",
+      "state": "COMPLETED",
+      "attempt_start": "2026-09-27T16:51:32",
+      "gpus": 1,
+      "elapsed_seconds": 189,
+      "gpu_hours": 0.0525
+    },
+    {
+      "job": "24090581_1",
+      "state": "COMPLETED",
+      "attempt_start": "2026-09-27T16:51:32",
+      "gpus": 1,
+      "elapsed_seconds": 189,
+      "gpu_hours": 0.0525
+    },
+    {
+      "job": "24059978_0",
+      "state": "COMPLETED",
+      "attempt_start": "2026-09-27T16:15:22",
+      "gpus": 1,
+      "elapsed_seconds": 2152,
+      "gpu_hours": 0.5977777777777777
+    }
+  ],
+  "completed_campaign_gpu_hours": 61.86416666666667,
+  "scratch_wave_gpu_hours": 40.44305555555556,
+  "monthly_report_verification": [
+    {
+      "seed": 1729,
+      "verified_files": 207,
+      "verified_bytes": 2155015055
+    },
+    {
+      "seed": 1730,
+      "verified_files": 207,
+      "verified_bytes": 2157035973
+    }
+  ],
+  "note": "Short checkpoint identifiers for public navigation; full read-back SHA256 proofs retained with campaign outputs. Includes all earlier campaign allocations and preempted attempts."
+}

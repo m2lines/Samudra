@@ -4,8 +4,9 @@
 # Joint interior diffusion and latent evolution
 
 Authorized 25 September 2026; total ceiling **576 allocated GPU-hours**, including
-qualification, evaluation, unsuccessful attempts and repeats. A/B results are complete;
-the from-scratch follow-up is now authorized.
+qualification, evaluation, unsuccessful attempts and repeats. Both A/B and the
+from-scratch follow-up are complete. Total allocated compute is **61.86 GPU-hours**;
+subsequent waves require approval.
 
 This campaign depends on the final model/checkpoint decision from thread
 `01a0d027-0851-7213-a64e-f1d40d40e64d`, tracked in [PR #892](https://github.com/m2lines/Samudra/pull/892).
@@ -15,14 +16,17 @@ The upstream observation comparison is complete and its transfer checkpoint is
 the selected reference. Execution moved to Engaging on September 26 with the
 user-approved local OM4 releases; the original branch and report links are retained.
 
-The active wave is [direct diffusion pretraining from scratch](scratch-wave.md).
+The latest completed wave is [direct diffusion pretraining from scratch](scratch-wave.md).
 It replaces the width ablation/residual proposal following discussion of the A/B
 design. Both the encoder and width-192 decoder start randomly; only dynamics are
-inherited. The unchanged deterministic model is the reference.
+inherited. Against the unchanged deterministic reference, both seeds improve interior
+fair CRPS by 23–24% but worsen mean accuracy and forecast scores. Fine-tuning loses
+native velocity skill, and annual SSH error is dominated by a mean bias. The report
+includes calibration, fixed-date maps, native controls and all machine-readable summaries.
 
 ## Contents
 
-- [Active from-scratch wave](scratch-wave.md)
+- [Completed from-scratch results](scratch-wave.md)
 - [Experiment plan and fixed contracts](plan.md)
 - [Data staging, provenance and readiness](data.md)
 - [Baseline handoff and execution status](progress.md)
@@ -38,13 +42,14 @@ inherited. The unchanged deterministic model is the reference.
 B improves monthly interior CRPS but worsens mean-field accuracy. Native controls
 show poor B initialization and the trained decoder has a demonstrated synthetic
 noise bottleneck. Neither A nor B beats the selected upstream composite reference.
-The report recommends a bounded decoder-repair comparison before latent evolution.
-Completed allocations total **21.4211 GPU-hours**; no training job remains active.
+The originally proposed decoder-repair comparison was superseded by the authorized
+from-scratch wave. These historical A/B allocations total **21.4211 GPU-hours**,
+already included in the campaign total above.
 
 
 ## C/D: latent evolution
 
-Pending the A/B report and implementation qualification. No comparative results.
+Not launched; requires a new wave decision and implementation qualification. No comparative results.
 
 ## H: half-degree target supervision
 

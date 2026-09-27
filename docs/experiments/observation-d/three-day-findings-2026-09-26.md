@@ -183,8 +183,19 @@ the reference BatchNorm/dynamic-loss training recipe.
 
 All three use effective batch eight, AdamW learning rate 1e-4, weight decay 0.01,
 gradient norm cap one, no warm-up, and reconstruction auxiliary weight 0.1.
-There is no separate observation reconstruction/adaptation phase. Primary
-selection remains the fixed integrated-plus-spectral observation validation
+There is no separate observation reconstruction/adaptation phase. **There is no
+explicit task/domain embedding and no task-specific initializer, processor or
+output head.** The processor receives two state frames, five geographic/seasonal
+context channels and three forcing channels. OM4 supplies native forcings;
+observations use the learned ERA5 adapter. Task identity is therefore only
+implicit in input distributions, adapted forcings and masks. The task scheduler
+chooses examples and losses but does not pass its task label to the network.
+A task embedding with per-block modulation is a reasonable controlled follow-up,
+not part of these runs. Missing explicit domain conditioning is one possible
+explanation for mixed-task interference, not a demonstrated cause of its poorer
+observation forecasts.
+
+Primary selection remains the fixed integrated-plus-spectral observation validation
 score; OM4 retention is diagnostic only. Total-update matching is approximate
 compute matching because OM4 and observation updates have different costs.
 The [frozen protocol](three-day-followup-2026-09-26.md) gives the full schedule,

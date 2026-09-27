@@ -121,6 +121,7 @@ def main():
             scope="Model-world held-out control; native OM4 fluxes; no ERA5 adapter; not observed velocity skill",
             context="Original native Pair.evolve season/forcing convention",
             dynamics_fingerprint=wave.original_dynamics,
+            zero_velocity_reference="Zero m/s at each lead, not evolved; emitted for u/v channels only",
         )
         contract = args.output / "protocol.json"
         if contract.exists() and json.loads(contract.read_text()) != protocol:
@@ -175,6 +176,10 @@ def main():
                     true_persistence=truth[:, -1:].expand(-1, 7, -1, -1, -1),
                 )
                 target = torch.cat((truth[:, -1:], labels), 1)
+                # Convert physical zero through the exact state normalization.
+                estimates["zero_velocity"] = (-wave.mean / wave.std)[
+                    None, None, :, None, None
+                ].expand_as(target) * wave.mask
                 regions = {
                     "global": torch.ones_like(wave.lat),
                     "scored_latitudes": (wave.lat.abs() <= 60),
@@ -192,6 +197,10 @@ def main():
                         scales = wave.std.square().cpu().numpy()
                         for lead in (0, 1, 3, 6):
                             for channel, name in enumerate(wave.names):
+                                if mode == "zero_velocity" and not name.startswith(
+                                    ("uo_", "vo_")
+                                ):
+                                    continue
                                 if support[channel] > 0:
                                     writer.writerow(
                                         dict(

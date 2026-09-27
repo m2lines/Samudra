@@ -51,4 +51,17 @@ The unchanged baseline's matched monthly evaluation completed with composite
 0.591343, versus its previously published 0.591421 (0.013% relative difference).
 Its predictions pass directly through the reporting adapter without another
 learned decoder. Per-origin point-mass CRPS, spatial diagnostics and fixed-date
-arrays are exported for comparison. Annual reporting is still in progress.
+arrays are exported for comparison. All three annual origins also completed. The copied report contains 207 files
+(942 MB), fully checked against source hashes. Baseline monthly interior
+point-mass CRPS/MAE is 0.0512984 in the fixed observation-standardized units.
+
+Two 6,000-update observation jobs are queued with a success dependency on both
+pretraining runs and a 20-hour fitting allowance each. The runner verifies the
+completed pretraining marker and selected checkpoint hash before loading its own
+scratch weights. This is the authorized second phase of this wave.
+
+The new summary path checks identical cohorts and observation manifests before
+comparing both scratch seeds with this one unchanged reference. Paired year-block
+intervals will remain conditional on the fitted seeds and fixed evaluation draws.
+Native controls additionally report an unevolved zero-m/s velocity reference;
+non-velocity channels are excluded from that reference.

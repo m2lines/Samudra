@@ -13,7 +13,13 @@ from types import SimpleNamespace
 import numpy as np
 import torch
 
+from samudra.experiments.diffusion_calibration import (
+    ensemble_field_statistics,
+    point_field_statistics,
+)
 from samudra.experiments.diffusion_physical import JointPhysicalForecast
+from samudra.experiments.diffusion_report import json_statistics
+from samudra.experiments.diffusion_structure import field_structure
 from samudra.experiments.initializer_wave import InitializerWave, Pair
 from samudra.experiments.observation_model import ObservationTransfer
 from samudra.experiments.observation_pilot import atomic_json, digest
@@ -23,11 +29,34 @@ from samudra.rust_data import create_rust_io_runtime, native_om4_source
 from samudra.utils.location import LocalLocation
 
 
+@torch.no_grad()
+def velocity_statistics(members, target, mean, std, mask, weights):
+    """Native velocity diagnostics in m/s; callers select channels and lead first.
+
+    Members have shape (member,batch,channel,y,x). The physical zero reference
+    is independent of the training normalization. Spatial moments are computed
+    for each member before averaging and must not be confused with mean-field
+    structure. All groups share exactly the same native wet-area support.
+    """
+    physical = members.float() * std[:, None, None] + mean[:, None, None]
+    truth = target.float() * std[:, None, None] + mean[:, None, None]
+    return dict(
+        ensemble=ensemble_field_statistics(physical, truth, mask, weights, 1),
+        zero_velocity=point_field_statistics(
+            torch.zeros_like(truth), truth, mask, weights, 1
+        ),
+        members_structure=field_structure(physical, mask, weights),
+        mean_structure=field_structure(physical.mean(0), mask, weights),
+        truth_structure=field_structure(truth, mask, weights),
+    )
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--velocity-diagnostics", action="store_true")
     args = parser.parse_args()
     saved = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     signature = saved["protocol"]["signature"]
@@ -123,6 +152,12 @@ def main():
             dynamics_fingerprint=wave.original_dynamics,
             zero_velocity_reference="Zero m/s at each lead, not evolved; emitted for u/v channels only",
         )
+        if args.velocity_diagnostics:
+            if not model.stochastic:
+                raise ValueError("Velocity calibration requires an ensemble")
+            protocol["velocity_diagnostics"] = (
+                "physical m/s; additive calibration and per-field spatial moments; all 24 origins and four leads"
+            )
         contract = args.output / "protocol.json"
         if contract.exists() and json.loads(contract.read_text()) != protocol:
             raise ValueError("Existing control protocol differs")
@@ -185,6 +220,39 @@ def main():
                     "scored_latitudes": (wave.lat.abs() <= 60),
                     "outside_scored_latitudes": (wave.lat.abs() > 60),
                 }
+                if args.velocity_diagnostics:
+                    channels = [
+                        i
+                        for i, name in enumerate(wave.names)
+                        if name.startswith(("uo_", "vo_"))
+                    ]
+                    records = []
+                    for lead in (0, 1, 3, 6):
+                        for region, selector in regions.items():
+                            statistics = velocity_statistics(
+                                members[:, :, lead, channels],
+                                target[:, lead, channels],
+                                wave.mean[channels],
+                                wave.std[channels],
+                                wave.mask[channels],
+                                wave.weights[channels] * selector[None, :, None],
+                            )
+                            records.append(
+                                dict(
+                                    region=region,
+                                    lead_days=5 * lead,
+                                    statistics=json_statistics(statistics),
+                                )
+                            )
+                    atomic_json(
+                        dict(
+                            origin=origin,
+                            channels=[wave.names[i] for i in channels],
+                            units="m/s",
+                            records=records,
+                        ),
+                        args.output / f"velocity-{index}.json",
+                    )
                 for mode, prediction in estimates.items():
                     if not bool(torch.isfinite(prediction).all()):
                         raise FloatingPointError("Nonfinite native control rollout")
@@ -221,8 +289,22 @@ def main():
                     flush=True,
                 )
         temporary.replace(destination)
+        velocity_hashes = (
+            {
+                path.name: digest(path)
+                for path in sorted(args.output.glob("velocity-*.json"))
+            }
+            if args.velocity_diagnostics
+            else {}
+        )
+        if args.velocity_diagnostics and len(velocity_hashes) != len(indices):
+            raise ValueError("Incomplete velocity diagnostic cohort")
         atomic_json(
-            dict(**protocol, metrics_sha256=digest(destination)),
+            dict(
+                **protocol,
+                metrics_sha256=digest(destination),
+                velocity_sha256=velocity_hashes,
+            ),
             args.output / "COMPLETE.json",
         )
     finally:

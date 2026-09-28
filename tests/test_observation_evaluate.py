@@ -48,6 +48,14 @@ def test_control_weights_normalization_and_resume(
             return list(range(96))
 
     class Model:
+        @classmethod
+        def from_arguments(cls, names, arguments):
+            return cls(
+                names,
+                arguments.get("normalization", "batch"),
+                arguments.get("evolution_architecture", "d"),
+            )
+
         def __init__(self, names, normalization="batch", evolution_architecture="d"):
             assert evolution_architecture == "d"
             assert normalization in ("batch", "instance")

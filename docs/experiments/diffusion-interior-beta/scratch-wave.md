@@ -14,7 +14,7 @@ plausible unobserved velocities.
 Both seeds completed 24,000 OM4 updates and 6,000 observation updates. All evaluations
 completed on September 27, within the three-day window. This wave used **40.44
 allocated GPU-hours**; the full campaign, including earlier work and all preempted
-attempts, totals **61.86 of 576 GPU-hours**. No subsequent wave has been launched.
+attempts, totals **61.86 of 576 GPU-hours**. The subsequent [persistent-latent wave](latent-wave.md) is tracked separately.
 
 Follow-up: [diagonal salinity artifact investigation](diagonal-artifact.md) localizes
 the severe directional initialization texture to observation fine-tuning and

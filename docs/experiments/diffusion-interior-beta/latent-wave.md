@@ -150,6 +150,15 @@ Slurm allocation durations were 5:24:00 and 5:20:48, including data-cache prepar
 Recorded fitting time was 19,036 and 18,844 seconds. Selected native denoising
 validation losses were 0.07114 and 0.08855; these are training diagnostics, not
 observational forecast scores. Adaptation array **24147020** started both seeds
-on L40S after verifying their completed pretraining checkpoints. Pretrained
-observation-input maps for seed 1730 completed; native controls and seed 1729 maps
-are still running or queued. Scientific comparisons remain pending.
+on L40S after verifying their completed pretraining checkpoints. Both seeds completed their 24-origin native controls and three-date observation
+map exports; all 80 output files were transferred and checksum-verified.
+Scientific comparisons after adaptation remain pending.
+
+
+Annual evaluation smoke **24168783**, using the selected seed-1730 pretrained
+checkpoint, completed one 73-step year with eight readouts per step in 484 seconds
+and 23.46 GiB peak GPU allocation. This verifies runtime and memory feasibility;
+it is not the final observation-adapted comparison. Fine-tuning is measured at
+roughly 33–37 seconds per update, so its 20-hour cap is expected to bind before
+6,000 updates. Actual completed updates, wall time and validation curves will
+accompany the final report.

@@ -88,7 +88,7 @@ First qualify CPU masking/schedule/checkpoint contracts and GPU fitting/resume,
 then execute production. Qualification is not scientific success. Production and
 evaluation must record immutable source/checkpoint/data hashes and real completion
 markers; preserve failures. Prefer RTX capacity, use H200 if scheduling requires it.
-Operational ceiling: 100 allocated GPU-hours including qualification, diagnostics,
+Operational planning ceiling: 120 allocated GPU-hours including qualification, diagnostics,
 production, evaluation and retries. Reserve 8 hours for recovery; qualify throughput
 before fixing per-job time limits. No assumption that parameter reduction produces
 an equal speedup. Stop at the ceiling and report partial results honestly.
@@ -110,3 +110,20 @@ physical-unit SST/SSH RMSE and bias separated into polar and nonpolar regions.
 Report support counts; absent polar SSH labels produce null scores, not zeros.
 Compare learned completion against observation-training monthly climatology and
 normalized-zero fill. These diagnostics do not change checkpoint selection.
+
+
+### Throughput and final runtime decision
+
+H200 qualification 18724971 measured the last 20 updates of each task at
+2.320 seconds/OM4 update and 4.140 seconds/observation update. Retain the original
+16k-total comparisons in the table above. Scratch jobs receive 20-hour allocations
+(19.5-hour internal limits); other arms receive 16 hours (15.5-hour internal limits).
+Expected update time across all six arms is 94.2 GPU-hours, before overhead.
+Requested production caps total 104 GPU-hours. Track all attempts and evaluation
+against a 120-hour planning ceiling, retaining recovery room where actual usage
+permits. The controlling constraint is completion within the three-day wall-time
+budget (1 October, 18:00 UTC), not the assistant's earlier 100-hour planning limit.
+The user explicitly clarified that feasible GPU spend/update counts should be
+chosen to meet that wall-time budget. No update counts, batch size, scientific
+comparison, or qualification contracts changed. Qualification weights are not
+reused for production initialization.

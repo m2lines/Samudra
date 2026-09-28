@@ -165,7 +165,7 @@ def production(args):
             "--validate-every",
             "100",
             "--joint-hours",
-            "11.5",
+            "19.5" if ordering == "scratch" else "15.5",
             "--milestone-steps",
             "10",
             "25",
@@ -185,7 +185,11 @@ def production(args):
             "16000",
         ]
         jobs[name] = pilot_submit.submit(
-            args, name, "samudra.experiments.observation_joint", command, 12
+            args,
+            name,
+            "samudra.experiments.observation_joint",
+            command,
+            20 if ordering == "scratch" else 16,
         )
     return jobs
 
@@ -211,7 +215,7 @@ def main():
     record = {
         "producer": args.code_commit,
         "jobs": jobs,
-        "operational_gpu_hour_cap": 100,
+        "operational_gpu_hour_cap": 120,
     }
     if path.exists() and json.loads(path.read_text()) != record:
         raise ValueError("DAG differs from existing record")

@@ -2285,3 +2285,33 @@ corrected attempts are running. Evaluation-only producer
 and polar-support audit (two targeted scoring tests pass). Build 18724617 completed;
 GPU audit smoke 18724939 is queued. Training remains pinned to `053e34947` and its
 completed qualification contracts; adding an evaluator does not invalidate them.
+
+At 19:18 UTC all submitted new-wave jobs are terminal and the queue is empty.
+Actual accumulated GPU use is **0.7333 hours**, including every allocated failed
+attempt, qualification, diagnostic, and throughput run. All nine unchanged
+frozen-model/origin forecasts reproduce their original exports exactly. The
+[gap report](initialization-gap-diagnostics-2026-09-28.md) now includes verified
+full-grid initial and forecast maps and all five interventions. Repairing initial
+missing surfaces improves sequential/mixed day-365 SST RMSE by about 5%, but
+annual artifacts persist; history-wide replacement worsens short-lead SST.
+Completion GPU smoke passed and retains absent-support scores as null.
+
+Throughput job 18724971 completed all 120 updates. Last-20-task mean times were
+2.320 seconds/OM4 update and 4.140 seconds/observation update. The original 16k
+counts project 94.2 training GPU-hours before overhead/evaluation/recovery, so
+production is not yet submitted. A [concrete budget decision](throughput-budget-decision-2026-09-28.md)
+proposes matched 12k-total counts within the existing 100-hour cap, or retaining
+16k with a 120-hour cap. Automatic approval review rejected editing the current
+launcher/plan's counts and job limits without explicit user approval; those files
+remain unchanged. Approval is pending in the thread. This is a production blocker,
+not a Torch failure or scientific qualification failure.
+
+The user clarified that feasible GPU spend and sensible update counts should be
+chosen within the wall-time budget; the 100-hour ceiling was only an assistant
+planning assumption. The approval blocker is resolved. Retain all original
+16k-total comparisons and 2k observation-only finish, increasing scratch allocations
+to 20 hours and the other arms to 16 hours. The operational planning ceiling is
+120 GPU-hours, with the three-day deadline controlling the work. No scientific
+counts, batch sizes, losses, qualification contracts or training producer changed.
+Fresh test-only scheduling estimates H200 at 28 September 15:27 ET versus RTX
+at 29 September 13:15 ET, so production will use the qualified H200 hardware.

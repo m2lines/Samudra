@@ -2243,3 +2243,26 @@ contract rather than silently reconstructing the old wide initializer. Gap
 interventions preserve known observations and distinguish initial-state-only from
 history-wide perturbation. Scratch quota was checked with myquota: 4.18/5.00 TB
 used, about 0.82 TB nominal remaining; the new wave is estimated below 160 GB.
+
+At 18:43 UTC, implementation and submission helper are pushed; training producer
+is `053e34947932fdb56c6baf2c717a23f2df3cc733`. All 54 targeted local tests pass,
+including a regression test that finish-only checkpoint selection cannot return
+an earlier mixed checkpoint. Code-layer build 18723915 completed. Qualification
+DAG: legacy fitting/resume 18723921/18723930, masked 18723931/18723932, conditioned
+18723933/18723934. Legacy fitting completed with loss 1.296 to 0.254 and gradients
+reaching initializer, dynamics and forcing adapter; its resume probe is running.
+The other variants are queued. Production is not submitted until every variant
+passes actual fitting and resume checks. H200 comment routing, requeue and GPU
+constraint were verified; RTX's scheduler estimate was the following day, so H200
+is being used for qualification and frozen diagnostics.
+
+CPU climatology job 18723916 failed before data processing because an unnecessary
+module load failed despite Apptainer already being on PATH. Corrected launcher
+18724258 completed in 27 seconds with unchanged scientific producer; both attempts
+are retained. The training-only climatology uses 1975-01-03 through 2013-07-27;
+its SHA256 is `30cc359dba69c859ab96109aeeca90912d43e89c2e43294df737e75cdb784ba5`.
+Frozen scratch/sequential/mixed gap diagnostics are queued as
+18724314/18724315/18724316 after successful climatology completion. No diagnostic
+result is claimed yet. Actual allocated GPU time at this snapshot is 0.0964 hours,
+including qualification; CPU failures consume no GPU-hours. Accounting uses
+Slurm duplicate-attempt records, not requested time limits.

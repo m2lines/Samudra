@@ -216,3 +216,34 @@ def test_initial_gap_intervention_preserves_hidden_state_history_intervention_do
     assert not torch.equal(history[:, :, hidden], original[:, :, hidden])
     assert (initial[:, :, [38, 76], 1, :] == 0).all()
     assert (history[:, :, [38, 76], 1, :] == 0).all()
+
+
+def test_observation_finish_selection_does_not_return_earlier_mixed_weights(
+    tmp_path, monkeypatch
+):
+    import json
+    from types import SimpleNamespace
+    from typing import Any
+
+    from samudra.experiments import observation_joint as joint
+
+    pilot: Any = joint.JointPilot.__new__(joint.JointPilot)
+    pilot.out = tmp_path
+    pilot.schedule = TaskSchedule(8, 8, "mixed-finish", 2)
+    pilot.completed = 14
+    pilot.model = nn.Linear(1, 1)
+    pilot.validation = []
+    pilot.control, pilot.spectral_keys = None, []
+    pilot.om4 = SimpleNamespace(valset=[], val_ids=[], score=lambda *a, **k: {})
+    pilot.emit = lambda *a: None
+    pilot.global_best = float("inf")
+    pilot.evaluate = lambda *a: {"score": 0.1}
+    monkeypatch.setattr(joint, "selection_score", lambda metrics, *a: metrics["score"])
+    pilot.validate()
+    pilot.completed = 15
+    pilot.evaluate = lambda *a: {"score": 0.5}
+    pilot.validate()
+    selected = json.loads((tmp_path / "best.json").read_text())
+    assert selected["global_step"] == 15 and selected["score"] == 0.5
+    anywhere = json.loads((tmp_path / "best-anywhere.json").read_text())
+    assert anywhere["global_step"] == 14 and anywhere["score"] == 0.1

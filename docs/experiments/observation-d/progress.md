@@ -2407,3 +2407,14 @@ contains maps and pooled errors: masked scratch at 100 observation updates has
 1.259°C block-hidden SST RMSE versus 9.531°C for legacy zero fill and 0.821°C for
 monthly observation climatology. This establishes early learned completion, not
 natural-gap truth, forecast improvement, or compute-matched transfer benefit.
+
+At 20:29 UTC all six allocations are RUNNING. Fresh events confirm restoration
+at updates 251/301 for legacy/masked scratch, 501/401 for conditioned finish/mixed,
+and step 1 for the sequential replacement's archived step-zero restart. Their
+latest steps are 272/318/553/452/57 respectively; the masked mixed-finish arm is
+still loading its cache. Sequential's recent median update time is 5.21 seconds,
+far below its failed attempt's stalls, although slower than qualification. The
+other co-located mixed arms are also around 5.3 seconds; do not yet extrapolate
+this startup snapshot to full-run timing. Actual allocated GPU use is 4.6361 hours.
+Next bring-up check should confirm masked mixed-finish restoration and settled
+throughput; resume hourly monitoring when stable.

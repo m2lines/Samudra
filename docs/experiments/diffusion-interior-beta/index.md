@@ -49,7 +49,10 @@ already included in the campaign total above.
 
 ## C/D: latent evolution
 
-Not launched; requires a new wave decision and implementation qualification. No comparative results.
+[The authorized latent diffusion wave is running](latent-wave.md): two scratch
+OM4 pretraining seeds followed by observation adaptation. Real-grid qualification
+passed; comparative results remain pending. The deterministic C arm is not part
+of this wave.
 
 ## H: half-degree target supervision
 

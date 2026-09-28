@@ -4,9 +4,9 @@
 # Persistent latent state with diffusion readouts: active wave
 
 Report deadline: **2026-09-30 01:17 UTC** (September 29, 9:17 p.m. Eastern).
-The user authorized this wave after the diagonal-artifact investigation. Training
-has not yet passed the real-grid qualification gate; this page describes the
-experiment and will be replaced with measured execution and results.
+The user authorized this wave after the diagonal-artifact investigation. Real-grid qualification passed on L40S and H200. Both seeds are now running OM4
+pretraining, with observation adaptation queued per seed. Comparative results
+remain pending.
 
 ## Scientific comparison
 
@@ -48,8 +48,9 @@ call these coherent ensemble trajectories.
   gradients, memory/throughput measurements, actual checkpoint resume and strict
   weight reload.
 - Two independent seeds (1729 and 1730) if qualification confirms feasibility.
-  The production update/time caps will be set from measured throughput with time
-  reserved for observation fine-tuning, evaluation and the report.
+  Each seed has a 24,000-update / 16-hour pretraining cap, followed by a
+  6,000-update / 20-hour observation cap, whichever comes first. These caps leave
+  time for evaluation and the report; matching earlier update counts is not promised.
 - Use single-GPU Engaging jobs, existing Rust loading and optimizer-boundary
   checkpoints. Count allocations, preemptions and evaluations against the
   remaining 576 GPU-hour campaign authorization. Prior completed campaigns and
@@ -71,3 +72,21 @@ measurements; this wave does not establish daily or independent Argo-profile ski
 
 The final report will state incomplete evaluations, partial training or negative
 results rather than substituting nominal configuration for observed execution.
+
+## Observed launch state
+
+Source `0ef9d79a6` passed real-grid qualification (`24144434`) on an H200.
+The earlier L40S gate (`24144026`, source `db7ece865`) also passed. Initial
+measurements were 2.89 s for an OM4 forward/backward/update and 21.37 s for an
+observation update on H200; peak observed allocation was 20.99 GiB. These single
+qualification measurements exclude sustained checkpoint/validation overhead and
+will be replaced with production throughput.
+
+Pretraining array **24144680** has two running single-H200 tasks (seeds 1729/1730).
+Observation array **24144688** is queued with `aftercorr:24144680`, so each seed
+starts only after its own pretraining task succeeds; its runner additionally
+verifies the completion marker and selected checkpoint hash. Jobs resume from
+optimizer-boundary checkpoints. Qualification exercised actual save/resume and
+strict fixed-noise loss reload. Training provenance binds data, observation
+normalization and the frozen validation reference. No held-out test data enter
+training or checkpoint selection.

@@ -23,6 +23,9 @@ code="$root/code/$CODE_COMMIT"
 image=/orcd/scratch/orcd/014/jrusak/apptainer_cache/images/diffusion-26.05-9cd36b1-amd64.sif
 seed=$((1729 + ${SLURM_ARRAY_TASK_ID:-0}))
 extra=()
+if [[ "${DEVICE_CACHE:-0}" == 1 ]]; then
+  extra+=(--device-cache --cache-reserve-gib 32 --readers 16)
+fi
 output="$root/runs/$RUN_GROUP/D-$seed/$TRAIN_PHASE"
 if [[ "$TRAIN_PHASE" != qualify ]]; then
   : "${QUALIFICATION_JOB:?Real-grid qualification required}"

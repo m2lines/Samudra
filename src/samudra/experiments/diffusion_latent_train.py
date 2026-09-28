@@ -70,6 +70,9 @@ def main():
     parser.add_argument("--latent-width", type=int, default=128)
     parser.add_argument("--processor-depth", type=int, default=4)
     parser.add_argument("--sampling-steps", type=int, default=16)
+    parser.add_argument("--device-cache", action="store_true")
+    parser.add_argument("--cache-reserve-gib", type=float, default=32)
+    parser.add_argument("--readers", type=int, default=4)
     parser.add_argument("--validate-every", type=int, default=500)
     parser.add_argument("--checkpoint-every", type=int, default=100)
     args = parser.parse_args()
@@ -107,6 +110,9 @@ def main():
         latent_shape=[45, 90],
         processor_depth=args.processor_depth,
         sampling_steps=args.sampling_steps,
+        device_cache=args.device_cache,
+        cache_reserve_gib=args.cache_reserve_gib,
+        readers=args.readers,
         history=19,
         native_leads=6,
         source_sha256=digest(source),
@@ -142,7 +148,7 @@ def main():
         arm="D",
         phase="reconstruction",
         seed=args.seed,
-        readers=4,
+        readers=args.readers,
         data_root=str(args.root / "data/om4_onedeg_v3"),
         output=str(args.output / "loader"),
         name=f"latent-D-{args.seed}-{args.phase}",
@@ -153,8 +159,8 @@ def main():
         initial_checkpoint=str(source),
         wave1_root="",
         val_origins=12,
-        device_cache=False,
-        device_cache_reserve_gib=64,
+        device_cache=args.device_cache,
+        device_cache_reserve_gib=args.cache_reserve_gib,
         batch_size=1,
     )
     wave = InitializerWave(loader_args)

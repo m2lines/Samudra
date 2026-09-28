@@ -2355,3 +2355,34 @@ warming their verified data caches. No job has a completion or partial marker.
 Actual accumulated allocated GPU time is 1.0000 hours at this snapshot. The
 transient QOSMaxGRESPerUser pending reasons cleared without intervention; no
 replacement, protocol change or user action was needed.
+
+### Sequential startup recovery
+
+By 19:48 UTC the other five arms were updating normally, but sequential
+18726199 stalled in CPU input preparation on gh114. Its recent OM4 updates took
+42–160 seconds versus about 2.3 seconds in the mixed arms. Read-only py-spy showed
+the main thread in NumPy atmospheric normalization in Samples.load; GPU telemetry
+was repeatedly 0%. The job recorded 625 seconds kernel CPU versus 107 seconds user
+CPU, host memory-pressure avg60 about 14%, and no cgroup OOM/high-limit events.
+This is evidence of a host-side performance problem, not a scientific failure or
+proof of a specific kernel root cause. Scratch startup slowness settled naturally.
+
+Archived the sequential logs, telemetry, manifest and checkpoints under
+`masked-sequential/attempt-records/18726199-before-node-relocation`. The archived
+snapshot had observed 13 updates; its latest durable checkpoint was step zero.
+That exact checkpoint was copied to joint-last.pt for deterministic restart;
+SHA256 `05548e668c9895f35e0ee6de42d385563a181d0c361621ad4b66f219d33f76b3`.
+Torch rejected node exclusion and releasing an explicitly held requeue, so the
+held job and its five dependent evaluations were canceled and replaced through
+ordinary scheduling, without forcing a node. New training job **18729753** keeps
+the same output directory, producer, model/optimizer/RNG checkpoint, seed, data,
+update counts and runtime limit. No new qualification or scientific protocol was
+needed. Evaluations **18729754–18729758** now depend on that replacement; actual
+scheduler dependencies were verified. Initial DAG copies and all old submission
+records are retained alongside RECOVERY_1.json. The failed release is explicitly
+corrected there; it was not a successful relocation.
+
+Accounting retains the original job's REQUEUED attempt (1,163 allocated seconds,
+0.3231 GPU-hours) plus the zero-allocation canceled held entry. Diagnostic overlap
+steps are not double-counted. The replacement was pending at its post-submit check;
+recovery performance is not yet verified. The other five training jobs continue.

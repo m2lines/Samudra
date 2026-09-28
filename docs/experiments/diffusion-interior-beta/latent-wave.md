@@ -70,6 +70,16 @@ consistency, and the existing annual rollout diagnostics as budget permits.
 Export the same three observation-input dates from pretrained and adapted
 checkpoints, so the timing of any reappearing artifact can be checked.
 Distinguish OM4 model-world interior/velocity controls from observational skill.
+
+The existing composite scores the ensemble-mean forecast. Separately compare
+individual-member spatial spectra, their average power and range, and the
+spectrum of the ensemble mean against observations on the three saved example
+dates. These are distinct quantities: averaging fields can remove power that is
+present in each member. Export both mean member spectral error and the error of
+mean member power; neither replaces the fixed selection criterion. Report the
+three-date scope and unavailable regions explicitly. Monthly latent samples
+average independent readouts, so examine instantaneous surface spectra as well.
+The reproducible entry point is `samudra.experiments.diffusion_member_spectra`.
 Five-day binned surface observations and monthly IAP fields are the available
 measurements; this wave does not establish daily or independent Argo-profile skill.
 

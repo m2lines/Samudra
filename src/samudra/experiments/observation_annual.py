@@ -83,6 +83,8 @@ def inputs(data, raw):
     normalized = (filled - data.grid["mean"][[38, 76], None, None]) / data.grid["std"][
         [38, 76], None, None
     ]
+    if getattr(data, "surface_fill", "climatology") == "zero":
+        normalized = np.where(validity, normalized, 0)
     normalized *= data.grid["mask"][[38, 76]]
     atmosphere = (
         raw["atmosphere"] - data.stats["atmosphere_mean"][None, :, None, None]
@@ -223,14 +225,16 @@ def main():
     ) != signature:
         raise ValueError("Annual evaluation resume contract differs")
     atomic_json(signature, output / "input.json")
-    data = Samples(manifest["arguments"]["data"], "cuda")
+    data = Samples(
+        manifest["arguments"]["data"],
+        "cuda",
+        manifest["arguments"].get("surface_fill", "climatology"),
+    )
     if manifest["normalization_mode"] == "observation-only":
         data.use_observation_normalization()
     model = (
-        ObservationTransfer(
-            data.grid["names"].tolist(),
-            manifest["arguments"].get("normalization", "batch"),
-            manifest["arguments"].get("evolution_architecture", "d"),
+        ObservationTransfer.from_arguments(
+            data.grid["names"].tolist(), manifest["arguments"]
         )
         .cuda()
         .eval()

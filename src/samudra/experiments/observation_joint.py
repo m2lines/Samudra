@@ -17,6 +17,12 @@ import torch
 
 from samudra.experiments.initializer_wave import InitializerWave, Pair
 from samudra.experiments.initializer_wave import build_parser as om4_parser
+from samudra.experiments.missingness import (
+    TaskView,
+    completion_loss,
+    model_options,
+    structured_visibility,
+)
 from samudra.experiments.observation_metrics import selection_score
 from samudra.experiments.observation_pilot import (
     Pilot,
@@ -72,13 +78,33 @@ def parameter_difference(actual, expected):
     return {"rmse": math.sqrt(squared / count), "max_absolute": largest}
 
 
-def om4_objective(model, data, ids, reconstruction_weight):
+def om4_objective(
+    model,
+    data,
+    ids,
+    reconstruction_weight,
+    mask_seed=None,
+    coverage=None,
+    completion_weight=0.0,
+):
     surface, past, context, truth, forcing, labels = data.model_sample(
         data.trainset, ids
     )
     # OM4 uses its original forcings directly. The ERA5 adapter is used only by
     # observational samples; no fake adapter updates on the OM4 task.
-    initial = model.call(model.initializer, surface, past, context, data.mask)
+    original = surface
+    available = data.mask[model.initializer.surface].bool().expand_as(surface)
+    visible = available
+    if completion_weight:
+        if coverage is None or mask_seed is None:
+            raise ValueError(
+                "OM4 completion needs training-observation coverage and explicit mask seed"
+            )
+        visible = structured_visibility(available & coverage.bool(), mask_seed)
+        surface = torch.where(visible, surface, 0)
+    initial = model.call(
+        model.initializer, surface, past, context, data.mask, visible, "om4"
+    )
     states, predictions = initial, []
     for lead in range(1, 7):
         predicted = model.call(
@@ -88,14 +114,22 @@ def om4_objective(model, data, ids, reconstruction_weight):
             advance_season(context, (lead - 1) * 5),
             data.mask,
             lead,
+            "om4",
         )
         predictions.append(predicted)
         states = torch.stack((states[:, -1], predicted), 1)
-    return balanced_loss(
+    loss = balanced_loss(
         torch.stack(predictions, 1), labels, data.weights, data.names
     ) + reconstruction_weight * balanced_loss(
         initial, truth, data.weights, data.names, True
     )
+    if completion_weight:
+        hidden = available[:, -2:] & ~visible[:, -2:]
+        extra = completion_loss(
+            initial[:, :, model.initializer.surface], original[:, -2:], hidden, data.lat
+        )
+        loss = loss + completion_weight * extra
+    return loss
 
 
 def qualification_contract(args):
@@ -106,6 +140,9 @@ def qualification_contract(args):
         "selection_reference_sha256": digest(args.selection_reference),
         "normalization": args.normalization,
         "evolution_architecture": args.evolution_architecture,
+        "model_options": model_options(vars(args)),
+        "surface_fill": getattr(args, "surface_fill", "climatology"),
+        "completion_weight": getattr(args, "completion_weight", 0.0),
         "reconstruction_weight": args.reconstruction_weight,
         "accumulate": args.accumulate,
         "core_lr": args.core_lr,
@@ -119,7 +156,7 @@ def load_om4(args):
     options = om4_parser().parse_args(
         [
             "--arm",
-            "D",
+            "B" if getattr(args, "initializer_architecture", "wide") == "unet" else "D",
             "--phase",
             "joint",
             "--fresh-evolution",
@@ -155,7 +192,12 @@ def load_om4(args):
 
 class JointPilot(Pilot):
     def __init__(self, args):
-        self.schedule = TaskSchedule(args.om4_updates, args.joint_steps, args.ordering)
+        self.schedule = TaskSchedule(
+            args.om4_updates,
+            args.joint_steps,
+            args.ordering,
+            getattr(args, "observation_finish", 0),
+        )
         self.deadline = datetime.datetime.fromisoformat(
             args.deadline.replace("Z", "+00:00")
         )
@@ -190,8 +232,10 @@ class JointPilot(Pilot):
         )
         longitude = self.om4.source.resolution[1].cpu().numpy()
         np.testing.assert_allclose(longitude, self.data.grid["lon"], atol=1e-5, rtol=0)
-        self.om4.initializer = self.model.initializer
-        self.om4.model = Pair(self.model.initializer, self.model.evolution, joint=True)
+        self.om4.initializer = TaskView(self.model.initializer, "om4")
+        self.om4.model = Pair(
+            self.om4.initializer, TaskView(self.model.evolution, "om4"), joint=True
+        )
         torch.cuda.empty_cache()
         self.model.set_phase("joint")
         self.optimizer = torch.optim.AdamW(
@@ -244,8 +288,16 @@ class JointPilot(Pilot):
         metrics = self.evaluate(self.validation)
         score = selection_score(metrics, self.control, self.spectral_keys)
         counts = self.schedule.counts(self.completed)
+        finish = self.schedule.observation_finish
+        if finish and self.completed > self.schedule.total - finish:
+            selected = json.loads((self.out / "best.json").read_text())
+            if selected["global_step"] <= self.schedule.total - finish:
+                self.global_best = math.inf
         if score < self.global_best:
             self.save_best(score, "joint", counts["observation"], metrics)
+        anywhere = self.out / "best-anywhere.json"
+        if not anywhere.exists() or score < json.loads(anywhere.read_text())["score"]:
+            self.save_candidate("best-anywhere", score, counts["observation"], metrics)
         retention = self.om4.score(self.om4.valset, self.om4.val_ids, forecast=True)
         self.emit(
             {
@@ -282,14 +334,37 @@ class JointPilot(Pilot):
         self.model.train()
         self.optimizer.zero_grad(set_to_none=True)
         loss_sum = 0.0
-        for index in ids:
+        for micro, index in enumerate(ids):
+            mask_seed = seed + 1000000 + count * self.args.accumulate + micro
             with torch.autocast("cuda", dtype=torch.bfloat16):
                 if task == "observation":
-                    loss = self.objective(self.data.load(self.training[index]), "joint")
+                    sample = self.data.load(self.training[index])
+                    if getattr(self.args, "completion_weight", 0.0):
+                        sample["mask_seed"] = mask_seed
+                    loss = self.objective(sample, "joint")
                 else:
-                    loss = om4_objective(
-                        self.model, self.om4, [index], self.args.reconstruction_weight
-                    )
+                    completion_weight = getattr(self.args, "completion_weight", 0.0)
+                    if completion_weight:
+                        coverage_path = self.training[
+                            (count * self.args.accumulate + micro) % len(self.training)
+                        ]
+                        coverage = self.data.load(coverage_path)["validity"][:, :19]
+                        loss = om4_objective(
+                            self.model,
+                            self.om4,
+                            [index],
+                            self.args.reconstruction_weight,
+                            mask_seed,
+                            coverage,
+                            completion_weight,
+                        )
+                    else:
+                        loss = om4_objective(
+                            self.model,
+                            self.om4,
+                            [index],
+                            self.args.reconstruction_weight,
+                        )
                 if not torch.isfinite(loss):
                     raise FloatingPointError(f"Nonfinite {task} loss")
                 (loss / self.args.accumulate).backward()
@@ -308,6 +383,17 @@ class JointPilot(Pilot):
             raise ValueError(f"Missing {task} gradients: {reached}")
         if task == "om4" and reached["adapter"]:
             raise ValueError("OM4 unexpectedly trained ERA5 adapter")
+        for component in (self.model.initializer, self.model.evolution):
+            adapters = getattr(component, "input_adapters", None)
+            if adapters is not None:
+                other = "om4" if task == "observation" else "observation"
+                if any(p.grad is not None for p in adapters[other].parameters()):
+                    raise ValueError("Inactive task adapter received gradients")
+                if not any(
+                    p.grad is not None and bool(p.grad.count_nonzero())
+                    for p in adapters[task].parameters()
+                ):
+                    raise ValueError("Active task adapter received no gradients")
         norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
         if not torch.isfinite(norm) or not math.isfinite(loss_sum):
             raise FloatingPointError("Nonfinite joint gradient")
@@ -389,6 +475,9 @@ class JointPilot(Pilot):
 
     def save_best(self, value, phase, step, metrics):
         self.global_best = value
+        self.save_candidate("best", value, step, metrics, phase)
+
+    def save_candidate(self, stem, value, step, metrics, phase="joint"):
         counts = self.schedule.counts(self.completed)
         metadata = {
             "score": value,
@@ -398,15 +487,15 @@ class JointPilot(Pilot):
             "task_counts": counts,
         }
         atomic_torch(
-            {"model": self.model.state_dict(), **metadata}, self.out / "best.pt"
+            {"model": self.model.state_dict(), **metadata}, self.out / (stem + ".pt")
         )
         atomic_json(
             {
                 **metadata,
                 "metrics": metrics,
-                "checkpoint_sha256": digest(self.out / "best.pt"),
+                "checkpoint_sha256": digest(self.out / (stem + ".pt")),
             },
-            self.out / "best.json",
+            self.out / (stem + ".json"),
         )
 
     def run_joint(self):
@@ -433,6 +522,12 @@ class JointPilot(Pilot):
                 task = self.schedule.task(self.completed)
                 self.train_update()
                 obs_count = self.schedule.counts(self.completed)["observation"]
+                if (
+                    self.schedule.observation_finish
+                    and self.completed
+                    == self.schedule.total - self.schedule.observation_finish
+                ):
+                    self.checkpoint(self.out / "before-observation-finish.pt")
                 milestone = (
                     task == "observation" and obs_count in self.args.milestone_steps
                 )
@@ -481,8 +576,11 @@ class JointPilot(Pilot):
 def main():
     parser = build_parser()
     parser.add_argument(
-        "--ordering", choices=["scratch", "sequential", "mixed"], required=True
+        "--ordering",
+        choices=["scratch", "sequential", "mixed", "mixed-finish"],
+        required=True,
     )
+    parser.add_argument("--observation-finish", type=int, default=0)
     parser.add_argument("--om4-updates", type=int, required=True)
     parser.add_argument("--om4-lr", type=float, required=True)
     parser.add_argument("--om4-data", default="/scratch/jr7309/data/om4_onedeg_v3")
@@ -516,6 +614,17 @@ def main():
     ):
         parser.error(
             "Single-loop training needs qualified fresh InstanceNorm, positive rates/counts and no separate phases"
+        )
+    if args.completion_weight < 0 or (
+        args.completion_weight > 0
+        and (args.surface_policy != "observed-only" or args.surface_fill != "zero")
+    ):
+        parser.error(
+            "Completion requires valid-only copy and normalized zero input fill"
+        )
+    if args.surface_policy == "observed-only" and args.completion_weight <= 0:
+        parser.error(
+            "Learned completion requires positive supervised completion weight"
         )
     if args.joint_probe and (
         args.ordering != "mixed" or args.om4_updates != 6 or args.joint_steps != 4

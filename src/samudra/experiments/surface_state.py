@@ -72,7 +72,7 @@ class Evolution(nn.Module):
             raise ValueError(kind)
         self.net = make_unet(2 * channels + 5 + extra, channels, widths)
 
-    def forward(self, states, forcing, context, mask, lead: int):
+    def forward(self, states, forcing, context, mask, lead: int, task="observation"):
         b, _, _, h, w = states.shape
         if self.kind == "direct":
             # Slice BEFORE encoding: future forcing after requested lead is absent.
@@ -89,6 +89,10 @@ class Evolution(nn.Module):
         else:
             extra = forcing[:, lead - 1]
         inputs = torch.cat((states.flatten(1, 2), context, extra), 1)
+        adapters = getattr(self, "input_adapters", None)
+        if adapters is not None:
+            assert isinstance(adapters, nn.ModuleDict)
+            inputs = adapters[task](inputs)
         return self.net(inputs) * mask
 
 

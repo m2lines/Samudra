@@ -65,6 +65,14 @@ def test_fixed_evaluation_does_not_claim_validation_selection(tmp_path, monkeypa
     # Deliberately no best.json and no source checkpoint: neither belongs to this
     # evaluation and accessing either would fail the test.
     class Model:
+        @classmethod
+        def from_arguments(cls, names, arguments):
+            return cls(
+                names,
+                arguments.get("normalization", "batch"),
+                arguments.get("evolution_architecture", "d"),
+            )
+
         def __init__(self, names, normalization, architecture):
             assert architecture == "samudra2"
 

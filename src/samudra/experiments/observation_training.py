@@ -18,7 +18,10 @@ from samudra.metrics import kernels
 
 
 class Samples:
-    def __init__(self, root, device):
+    def __init__(self, root, device, surface_fill="climatology"):
+        if surface_fill not in ("climatology", "zero"):
+            raise ValueError("Unknown missing surface input fill")
+        self.surface_fill = surface_fill
         self.root = Path(root)
         self.device = device
         self.grid = dict(np.load(self.root / "grid.npz"))
@@ -133,6 +136,8 @@ class Samples:
         normalized = (filled - self.grid["mean"][[38, 76], None, None]) / self.grid[
             "std"
         ][[38, 76], None, None]
+        if getattr(self, "surface_fill", "climatology") == "zero":
+            normalized = np.where(validity, normalized, 0)
         normalized *= self.grid["mask"][[38, 76]]
         atmosphere = (
             sample["atmosphere"] - self.stats["atmosphere_mean"][None, :, None, None]

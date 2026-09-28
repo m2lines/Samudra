@@ -87,15 +87,17 @@ def main():
             "strict_velocity_support", False
         )
     )
-    evaluator.data = Samples(manifest["arguments"]["data"], "cuda")
+    evaluator.data = Samples(
+        manifest["arguments"]["data"],
+        "cuda",
+        manifest["arguments"].get("surface_fill", "climatology"),
+    )
     if manifest["arguments"].get("from_scratch", False) or manifest["arguments"].get(
         "observation_normalization", False
     ):
         evaluator.data.use_observation_normalization()
-    evaluator.model = ObservationTransfer(
-        evaluator.data.grid["names"].tolist(),
-        manifest["arguments"].get("normalization", "batch"),
-        manifest["arguments"].get("evolution_architecture", "d"),
+    evaluator.model = ObservationTransfer.from_arguments(
+        evaluator.data.grid["names"].tolist(), manifest["arguments"]
     ).cuda()
     state = (
         fixed_state
@@ -156,7 +158,11 @@ def main():
             atomic_json(reference, output / (label + ".json"))
     else:
         source = manifest["arguments"]["checkpoint"]
-        evaluator.data = Samples(manifest["arguments"]["data"], "cuda")
+        evaluator.data = Samples(
+            manifest["arguments"]["data"],
+            "cuda",
+            manifest["arguments"].get("surface_fill", "climatology"),
+        )
         if manifest["arguments"].get("observation_normalization", False):
             evaluator.data.use_observation_normalization()
         evaluator.model.load_core(

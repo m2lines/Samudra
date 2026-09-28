@@ -1,0 +1,103 @@
+<!-- SPDX-FileCopyrightText: 2026 Samudra Authors -->
+<!-- SPDX-License-Identifier: CC-BY-4.0 -->
+
+# Initialization gaps and mixed pretraining with an observation-only finish
+
+Authorized 28 September 2026. Goal: diagnose and improve initialization at missing
+surface observations, learn missingness explicitly, and test task-conditioned
+mixed pretraining followed by observation-only fine-tuning. This is a new wave;
+the preceding three-day investigation is complete. No new long-rollout training,
+dense-versus-observable-only OM4 ablation, probabilistic architecture, or resolution
+change is included. Annual autoregressive evaluation remains diagnostic.
+
+## Fixed choices and controls
+
+Use the existing one-degree grid, observation products and chronological splits,
+original OM4 forcings plus the ERA5 adapter, shared observation-derived scaling,
+and v3 integrated-plus-spectral observation validation. One seed (1729), effective
+batch eight, AdamW 1e-4, weight decay 0.01, gradient cap one. Keep the current
+forecast and monthly T/S reconstruction objectives and one-month training horizon.
+The small initializer has 31,243,306 parameters; the D processor has 31,631,677;
+the forcing adapter has 387, totaling 62,875,370 before optional task adapters.
+This requires fresh pretraining, not conversion of historical BatchNorm weights.
+
+| Literal model name | Missingness policy | Ordering | OM4 / observation updates |
+| --- | --- | --- | --- |
+| Small legacy scratch | Existing climatology fill and unconditional surface copy | Observation only | 0 / 16,000 |
+| Small masked scratch | Zero input placeholders, valid-only copy, learned completion | Observation only | 0 / 16,000 |
+| Small masked sequential | Learned completion | OM4 then observations | 8,000 / 8,000 |
+| Small masked mixed-finish | Learned completion, shared inputs | Mixed prefix then 2,000 observation-only updates | 8,000 / 8,000 |
+| Small conditioned mixed-finish | Learned completion, task-specific input adapters | Same mixed prefix and observation-only finish | 8,000 / 8,000 |
+| Small conditioned mixed | Learned completion, same task adapters | Mixed through the end | 8,000 / 8,000 |
+
+All arms use deterministic per-task sample streams. Mixed-finish moves all OM4
+exposure into the first 14,000 updates (8,000 OM4 plus 6,000 observations), retaining
+2,000 observations at the end. Compare raw matched endpoints as well as validation
+selections. For finish arms, report a best-within-finish checkpoint separately
+from best-anywhere: otherwise an earlier mixed checkpoint could silently replace
+the requested observation-finished model. Retain the boundary and early finish
+checkpoints. Scratch 8k and 16k endpoints remain available.
+
+## Frozen-checkpoint gap diagnosis
+
+Use the three completed Samudra2 models. Audit per-variable, per-frame input
+validity separately from scoring coverage. Perturb only missing initial SST/SSH
+cells with alternative fixed fills, preserving observed cells and all hidden
+channels; separately perturb the missing values across the input history to
+measure encoder sensitivity. Use normalized zero and a training-only spatial OM4
+monthly climatology alongside the unchanged baseline. The OM4 fill is explicitly
+a simulation-informed intervention, including when applied to scratch, not an
+observation-only forecast claim. No future ocean observations enter initialization.
+Verify baseline reproduction and checkpoint hashes before interpreting differences.
+Report first-step and 30/90/180/365-day sensitivity, latitude-resolved errors and
+maps. These are causal sensitivity probes, not checkpoint selection or new models.
+
+## Missingness learning
+
+Represent unavailable normalized input values by zero plus existing validity
+channels. Copy only available surface observations to the initial state; elsewhere
+keep network outputs. Missing labels remain missing. Land masking stays separate.
+The old discarded surface head is not a trained completion estimator, so corrected
+models train anew. Structured artificial gaps persist across input history and
+include spatial blocks and bands. Preserve uncorrupted targets for scoring hidden
+known observations, without using those targets as forecast inputs.
+
+OM4 pretraining additionally uses observation-training coverage masks, retaining
+real OM4 surface targets where hidden. Observation-only completion uses genuinely
+available training observations, including available polar observations, with
+full-grid wet-area weighting for this new auxiliary task. Its scored forecast
+objective remains on the original 60S–60N domain. Add 0.1 times normalized masked
+surface reconstruction error at the two initialized history times; do not invent
+labels in naturally missing observational cells. Record coverage and loss terms.
+Qualification must verify copy invariance, missing-head gradients, no target
+leakage, nonzero gradients through initialization/dynamics, and exact resume state.
+
+## Task conditioning
+
+Use separate identity-initialized 1x1 input adapters for OM4 and observations at
+the initializer and processor entrances, sharing the expensive backbones. Explicit
+source labels select adapters; labels are not inferred from missingness or forcing.
+The observation adapter is always selected for observation forecasts. Keep source
+forcings unchanged. Conditioning ablation uses the same architecture/backbone
+initialization and sample stream with task adapters disabled. No physical meaning
+is imposed on otherwise unconstrained latent velocity/deep-state channels.
+
+## Qualification, execution and reporting
+
+First qualify CPU masking/schedule/checkpoint contracts and GPU fitting/resume,
+then execute production. Qualification is not scientific success. Production and
+evaluation must record immutable source/checkpoint/data hashes and real completion
+markers; preserve failures. Prefer RTX capacity, use H200 if scheduling requires it.
+Operational ceiling: 100 allocated GPU-hours including qualification, diagnostics,
+production, evaluation and retries. Reserve 8 hours for recovery; qualify throughput
+before fixing per-job time limits. No assumption that parameter reduction produces
+an equal speedup. Stop at the ceiling and report partial results honestly.
+
+Keep the existing hourly interruptible monitoring style; do not restart the old
+timer. Notify Jesse on Slack for genuine blockers under the existing authorization.
+Push progress and results to codex/d-observation-pilot and update draft PR 892's
+contents. Final report includes literal model definitions, component metrics,
+learning curves, completion/missingness audits, full-grid initializer and forecast
+maps (1:1 or 2:2 pixels per cell), and accumulated GPU-hours. Qualitative improvement
+in unobserved regions is not a claim of validated polar accuracy. Existing annual
+test cases remain exploratory; visual sanity does not replace observation metrics.

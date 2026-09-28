@@ -12,13 +12,24 @@ from torch.utils.checkpoint import checkpoint
 
 from samudra.experiments.evolution_backbones import build_evolution
 from samudra.experiments.initializer_models import HistoryInitializer
+from samudra.experiments.missingness import identity_adapters, model_options
 from samudra.experiments.normalization import configure_normalization
 
 
 class ObservationTransfer(nn.Module):
-    def __init__(self, names, normalization="batch", evolution_architecture="d"):
+    def __init__(
+        self,
+        names,
+        normalization="batch",
+        evolution_architecture="d",
+        initializer_architecture="wide",
+        surface_policy="legacy-copy",
+        task_conditioning="none",
+    ):
         super().__init__()
-        self.initializer = HistoryInitializer(names, "wide", True)
+        self.initializer = HistoryInitializer(
+            names, initializer_architecture, True, surface_policy, task_conditioning
+        )
         self.evolution = build_evolution(len(names), evolution_architecture)
         self.adapter = nn.Sequential(
             nn.Conv2d(8, 32, 1), nn.GELU(), nn.Conv2d(32, 3, 1)
@@ -28,9 +39,20 @@ class ObservationTransfer(nn.Module):
         assert last.bias is not None
         nn.init.zeros_(last.weight)
         nn.init.zeros_(last.bias)
+        if task_conditioning == "input-adapters":
+            self.evolution.input_adapters = identity_adapters(2 * len(names) + 8)
         self.activation_checkpointing = True
         self.update_batchnorm = False
         configure_normalization(self, normalization)
+
+    @classmethod
+    def from_arguments(cls, names, arguments):
+        return cls(
+            names,
+            arguments.get("normalization", "batch"),
+            arguments.get("evolution_architecture", "d"),
+            **model_options(arguments),
+        )
 
     def load_core(self, state):
         # Strict core loading catches missing buffers, extra keys and wrong shapes.

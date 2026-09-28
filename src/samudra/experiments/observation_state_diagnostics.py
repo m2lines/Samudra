@@ -78,13 +78,15 @@ def main():
             "This diagnostic requires common observation scaling and InstanceNorm"
         )
     reference = json.loads((run / "selection-reference.json").read_text())
-    data = Samples(manifest["arguments"]["data"], "cuda")
+    data = Samples(
+        manifest["arguments"]["data"],
+        "cuda",
+        manifest["arguments"].get("surface_fill", "climatology"),
+    )
     data.use_observation_normalization()
     model = (
-        ObservationTransfer(
-            data.grid["names"].tolist(),
-            "instance",
-            manifest["arguments"].get("evolution_architecture", "d"),
+        ObservationTransfer.from_arguments(
+            data.grid["names"].tolist(), manifest["arguments"]
         )
         .cuda()
         .eval()

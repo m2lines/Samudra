@@ -2220,3 +2220,26 @@ No new training arm, seed, task embedding or quarter-degree experiment was added
 All campaign training/evaluations are complete. The original monitor timer is
 verified disabled and inactive. Final recorded GPU use is 83.7039 hours; this
 report finishes before the original 29 September 09:30 ET deadline.
+
+### 28 September — new missingness and conditioned-mixture goal authorized
+
+Created an active goal for initialization-gap diagnostics, smaller missingness-aware
+models, and mixed pretraining with an observation-only finish and explicit task
+conditioning. The preceding campaign remains complete. The new
+[wave plan](missingness-wave-2026-09-28.md) defines six controlled arms, one seed,
+unchanged observation selection and a 100 allocated GPU-hour operational ceiling.
+Long-rollout training and OM4-supervision ablations are deferred by user instruction.
+Authenticated Torch master works; required credentials/data/scratch checks pass,
+queue is empty, and RTX partition nodes currently report allocated. Home quota
+query returned permission denied, so it is not evidence of available scratch quota.
+No new jobs have been submitted yet. Implementation and qualification are next.
+
+Implementation now includes normalized-zero input fill, valid-only surface copy,
+structured persistent masking, a full-grid observed-only completion auxiliary,
+small initializer selection, explicit identity-initialized task input adapters,
+and exact-count mixed schedules with an observation-only tail. Legacy defaults
+remain load-compatible. Monthly/annual/state evaluators read the new model/fill
+contract rather than silently reconstructing the old wide initializer. Gap
+interventions preserve known observations and distinguish initial-state-only from
+history-wide perturbation. Scratch quota was checked with myquota: 4.18/5.00 TB
+used, about 0.82 TB nominal remaining; the new wave is estimated below 160 GB.

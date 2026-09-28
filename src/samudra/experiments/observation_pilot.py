@@ -16,6 +16,12 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from samudra.experiments.missingness import (
+    MODEL_DEFAULTS,
+    completion_loss,
+    corrupt_sample,
+    model_options,
+)
 from samudra.experiments.observation_metrics import protocol, score, selection_score
 from samudra.experiments.observation_model import ObservationTransfer
 from samudra.experiments.observation_training import Samples
@@ -57,11 +63,11 @@ class Pilot:
             != "all 350 NPZ files checked against source SHA256SUMS"
         ):
             raise ValueError("Unknown data verification protocol")
-        self.data = Samples(args.data, self.device)
-        self.model = ObservationTransfer(
-            self.data.grid["names"].tolist(),
-            getattr(args, "normalization", "batch"),
-            getattr(args, "evolution_architecture", "d"),
+        self.data = Samples(
+            args.data, self.device, getattr(args, "surface_fill", "climatology")
+        )
+        self.model = ObservationTransfer.from_arguments(
+            self.data.grid["names"].tolist(), vars(args)
         )
         if args.from_scratch or getattr(args, "observation_normalization", False):
             self.data.use_observation_normalization()
@@ -93,6 +99,12 @@ class Pilot:
                 != getattr(args, "normalization", "batch")
                 or qualification.get("evolution_architecture", "d")
                 != getattr(args, "evolution_architecture", "d")
+                or qualification.get("model_options", MODEL_DEFAULTS)
+                != model_options(vars(args))
+                or qualification.get("surface_fill", "climatology")
+                != getattr(args, "surface_fill", "climatology")
+                or qualification.get("completion_weight", 0.0)
+                != getattr(args, "completion_weight", 0.0)
                 or not all(qualification["gradient_reached"].values())
                 or qualification["losses"][-1] >= qualification["losses"][0]
             ):
@@ -360,10 +372,22 @@ class Pilot:
         )
 
     def objective(self, sample, phase):
+        completion_weight = getattr(self.args, "completion_weight", 0.0)
+        if completion_weight:
+            sample = corrupt_sample(sample, sample.get("mask_seed", self.args.seed))
         arguments = self.arguments(sample)
         if phase == "joint":
-            prediction, _ = self.model.forecast(*arguments)
+            prediction, initial = self.model.forecast(*arguments)
             loss = self.data.forecast_loss(prediction, sample)
+            if completion_weight:
+                extra = completion_loss(
+                    initial[:, :, self.model.initializer.surface],
+                    sample["completion_target"],
+                    sample["completion_valid"],
+                    self.data.grid["lat"],
+                )
+                self.last_completion_loss = float(extra.detach())
+                loss = loss + completion_weight * extra
             if self.args.reconstruction_weight:
                 reconstructed = self.model.reconstruct_month(
                     *arguments, sample["month_weights"]
@@ -584,6 +608,7 @@ class Pilot:
             [],
             {"initializer": False, "evolution": False, "adapter": False},
         )
+        completion_reached = False
         for step in range(11):
             optimizer.zero_grad(set_to_none=True)
             with torch.autocast("cuda", dtype=torch.bfloat16):
@@ -595,6 +620,15 @@ class Pilot:
             if step == 10:
                 break
             loss.backward()
+            if getattr(self.args, "completion_weight", 0.0):
+                head = self.model.initializer.net[-1]
+                rows = self.model.initializer.surface + [
+                    i + self.model.initializer.channels
+                    for i in self.model.initializer.surface
+                ]
+                completion_reached |= head.weight.grad is not None and bool(
+                    head.weight.grad[rows].count_nonzero()
+                )
             for name in reached:
                 module = getattr(self.model, name)
                 norm = (
@@ -612,6 +646,8 @@ class Pilot:
             if not torch.isfinite(norm):
                 raise FloatingPointError("Nonfinite fitting-probe gradient")
             optimizer.step()
+        if getattr(self.args, "completion_weight", 0.0):
+            reached["completion_head"] = completion_reached
         if not all(reached.values()) or not losses[-1] < losses[0]:
             raise ValueError(
                 f"Training-only fitting qualification failed: {losses}, {reached}"
@@ -622,6 +658,9 @@ class Pilot:
                 "evolution_architecture": getattr(
                     self.args, "evolution_architecture", "d"
                 ),
+                "model_options": model_options(vars(self.args)),
+                "surface_fill": getattr(self.args, "surface_fill", "climatology"),
+                "completion_weight": getattr(self.args, "completion_weight", 0.0),
                 "losses": losses,
                 "gradient_reached": reached,
                 "training_origin": self.training[0].stem,
@@ -682,6 +721,21 @@ def build_parser():
     parser.add_argument(
         "--evolution-architecture", choices=["d", "samudra2"], default="d"
     )
+    parser.add_argument(
+        "--initializer-architecture", choices=["wide", "unet"], default="wide"
+    )
+    parser.add_argument(
+        "--surface-policy",
+        choices=["legacy-copy", "observed-only"],
+        default="legacy-copy",
+    )
+    parser.add_argument(
+        "--surface-fill", choices=["climatology", "zero"], default="climatology"
+    )
+    parser.add_argument(
+        "--task-conditioning", choices=["none", "input-adapters"], default="none"
+    )
+    parser.add_argument("--completion-weight", type=float, default=0.0)
     parser.add_argument("--observation-normalization", action="store_true")
     parser.add_argument("--strict-velocity-support", action="store_true")
     parser.add_argument("--adapter-steps", type=int, default=200)

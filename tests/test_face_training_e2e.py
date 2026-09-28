@@ -498,3 +498,38 @@ def test_ungrouped_validation_scores_each_tile_by_its_own_land(face_root) -> Non
                 assert torch.equal(blanked.loss, scored.loss)
                 return
     raise AssertionError("no validation sample came from a tile with land")
+
+
+def test_ungrouped_snapshot_is_drawn_from_a_mostly_ocean_tile(face_root, monkeypatch) -> None:
+    """Validation samples arrive sorted, so the LAST one -- which is what the
+    surface snapshot used to draw -- comes from the last tiles. In this cache,
+    as on face 1, those are mostly land, so the snapshot drew almost nothing.
+    """
+    from ocean_emulators.aggregator.validate.snapshot import SnapshotAggregator
+
+    recorded = []
+    original = SnapshotAggregator.record_batch
+
+    def capture(self, *args, **kwargs):
+        recorded.append(kwargs["gen_data"])
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(SnapshotAggregator, "record_batch", capture)
+    with MultitonScope():
+        trainer = Trainer(
+            _face_config(
+                face_root,
+                **{
+                    "--face_parallel.enabled": "false",
+                    "--replay.grouped": "false",
+                    "--one_step_val_num": "0",
+                },
+            )
+        )
+        trainer.run()
+        recorded.clear()
+        trainer.validate_one_epoch(1)
+
+    assert recorded, "no snapshot was recorded"
+    field = next(iter(recorded[-1].values()))[0]
+    assert float(torch.isnan(field).float().mean()) < 0.5

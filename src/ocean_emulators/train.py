@@ -158,6 +158,9 @@ BEST_VAL_LOSS_METRIC = "one_step_and_autoregressive_mean"
 #: Grouped rollouts can run for hundreds of full-resolution steps. Log enough
 #: progress to expose a slow data path or memory problem without flooding stdout.
 GROUPED_AUTOREGRESSIVE_VAL_LOG_EVERY = 12
+# Tiles of a face run from all ocean to all land; the one-step snapshot is
+# drawn from the last validation sample whose tile is at least this wet.
+SNAPSHOT_MIN_WET_FRACTION = 0.9
 
 
 class GracefulStopRequested(RuntimeError):
@@ -3850,18 +3853,25 @@ class Trainer:
             return self.validate_one_epoch_grouped(epoch, group)
 
         self.model.eval()
+        tile_datasets = self._val_datasets_needing_own_mask()
+        diagnostic_wet = self.src.masks.prognostic.to(self.device)
+        if tile_datasets:
+            # The source mask is the FIRST tile's; applied to every sample it
+            # would blank that tile's land on all of them. Each sample's own
+            # land is blanked per batch instead (`_blank_tile_land`).
+            diagnostic_wet = torch.ones_like(diagnostic_wet, dtype=torch.bool)
 
         val_aggregator = Aggregator.get_validation_aggregator(
             self.metadata,
             self.hist,
             self.area_weights,
-            self.src.masks.prognostic.to(self.device),
+            diagnostic_wet,
             self.num_out,
             surface_snapshot=self.surface_snapshot,
         )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
-        tile_datasets = self._val_datasets_needing_own_mask()
+        snapshot_wet_fraction: float | None = None
 
         with torch.no_grad(), self._test_context():
             for data_iter_step, data in enumerate(
@@ -3871,13 +3881,26 @@ class Trainer:
                     break
 
                 data = self._scatter_domain_batch(data, expected_steps=1)
-                record_diagnostics = (
-                    self.debug
-                    or not self.surface_snapshot
-                    or data_iter_step == len(self.val_loader) - 1
-                )
-
+                is_last = data_iter_step == len(self.val_loader) - 1
                 tile_wet = self._val_batch_tile_wet(data, tile_datasets)
+                if tile_wet is not None and self.surface_snapshot and not self.debug:
+                    # The snapshot is whichever batch was recorded LAST, and the
+                    # samples arrive sorted, so the last one comes from the last
+                    # tiles -- on face 1 the coastal corner, 0-31% ocean, which
+                    # draws as almost nothing. Record every mostly-ocean batch so
+                    # the snapshot is the last of those instead.
+                    wet_fraction = float(tile_wet[0, 0].float().mean())
+                    record_diagnostics = (
+                        wet_fraction >= SNAPSHOT_MIN_WET_FRACTION
+                        or (is_last and snapshot_wet_fraction is None)
+                    )
+                    if record_diagnostics:
+                        snapshot_wet_fraction = wet_fraction
+                else:
+                    record_diagnostics = (
+                        self.debug or not self.surface_snapshot or is_last
+                    )
+
                 VO: ValBatchOutput = Stepper.validate_batch(
                     self.model,
                     data,
@@ -3896,6 +3919,11 @@ class Trainer:
                 )
                 metric_logger.update(loss=VO.loss)
 
+        if snapshot_wet_fraction is not None:
+            logger.info(
+                "One-step validation snapshot drawn from a tile that is %.0f%% ocean.",
+                100 * snapshot_wet_fraction,
+            )
         logger.info(f"Aggregating validation logs")
         return val_aggregator.get_logs(label="val")
 

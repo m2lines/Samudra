@@ -1229,7 +1229,7 @@ def get_aggregator_dicts(
     data_dict = convert_tensor_out_to_dict(data_normalized)
     # Unnormalize
     data_unnorm = normalize.unnormalize_tensor_prognostic(
-        data_reshaped, fill_value=float("nan")
+        data_reshaped, fill_value=float("nan"), wet=wet
     )
     # Get unnormalized dict
     data_unnorm_dict = convert_tensor_out_to_dict(data_unnorm)
@@ -1393,9 +1393,16 @@ class Normalize(Multiton):
         return norm
 
     def unnormalize_tensor_prognostic(
-        self, data: torch.Tensor, fill_value=float("nan")
+        self,
+        data: torch.Tensor,
+        fill_value=float("nan"),
+        wet: torch.Tensor | None = None,
     ) -> torch.Tensor:
-        """Unnormalize prognostic tensor and apply fill value to land cells."""
+        """Unnormalize prognostic tensor and apply fill value to land cells.
+
+        ``wet`` overrides the mask of the source this instance was built from --
+        the first tile, when there are several -- for data from another tile.
+        """
         tensor_mean = self._to_tensor(self._prognostic_mean_np, data.device)
         tensor_std = self._to_tensor(self._prognostic_std_np, data.device)
 
@@ -1406,7 +1413,8 @@ class Normalize(Multiton):
         tensor_std = tensor_std.reshape(expand_var_dim)
 
         unnorm = data * tensor_std + tensor_mean
-        unnorm = torch.where(self.wet_mask.to(data.device) == 0, fill_value, unnorm)
+        mask = self.wet_mask if wet is None else wet
+        unnorm = torch.where(mask.to(data.device) == 0, fill_value, unnorm)
         unnorm = unnorm.to(data.dtype)
         return unnorm
 

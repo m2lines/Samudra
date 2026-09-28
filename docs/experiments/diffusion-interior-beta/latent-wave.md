@@ -5,8 +5,8 @@
 
 Report deadline: **2026-09-30 01:17 UTC** (September 29, 9:17 p.m. Eastern).
 The user authorized this wave after the diagonal-artifact investigation. Real-grid qualification passed on L40S and H200. The first two-seed launch was stopped after repeated preemption and slow
-random-data loading. Host-resident caching is now being qualified on L40S;
-production adaptation has not started. Comparative results remain pending.
+random-data loading. Host-resident caching passed qualification on L40S; replacement pretraining
+is submitted and observation adaptation is queued behind it. Comparative results remain pending.
 
 ## Scientific comparison
 
@@ -94,7 +94,7 @@ training or checkpoint selection.
 
 ### Cache and scheduling recovery
 
-Host-cache qualification **24146352** is running on a single L40S, using source
+Host-cache qualification **24146352** passed on a single L40S, using source
 `8291df4dc`, four allocated CPUs, 16 Rust read threads and 96 GiB host RAM.
 It caches the same float32 prepared frames in host memory and moves selected
 windows to the GPU. Real native-versus-cache comparisons check masks, forcing,
@@ -107,3 +107,20 @@ preserves the global stage budget and does not mislabel an interrupted stage as
 complete. The first completed/terminated latent bring-up allocations consumed
 **0.4472 GPU-hours**, including all preempted attempts (Slurm duplicate accounting
 records); the active host-cache qualification is additional.
+
+
+### Qualified replacement launch
+
+Source `8291df4dc` passed exact prepared-frame equivalence, finite nonzero gradients
+in encoder/processor/decoder, optimizer resume, and identical fixed-noise loss
+following strict reload. Qualification measured 3.33 s for a native update and
+32.11 s for an observation update; peak host RAM was 62.9 GiB and GPU allocation
+20.95 GiB. These timings are individual measurements, not sustained throughput.
+
+Replacement pretraining array **24147018** and dependent observation array
+**24147020** each contain seeds 1729 and 1730, using one L40S and 96 GiB host RAM
+per task. Run group: `latent-d192-host-v1`. The update/time ceilings above remain
+unchanged. The initial report smoke used too few validation origins to compute
+the required spectral comparison; the corrected full-validation smoke is
+**24147021**, using qualification weights solely to test reporting. It is not a
+scientific evaluation of trained skill.

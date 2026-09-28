@@ -124,5 +124,19 @@ Replacement pretraining array **24147018** and dependent observation array
 per task. Run group: `latent-d192-host-v1`. The update/time ceilings above remain
 unchanged. The initial report smoke used too few validation origins to compute
 the required spectral comparison; the corrected full-validation smoke is
-**24147149**, using qualification weights solely to test reporting. It is not a
+**24147149** and passed point-score, eight-member calibration and structure
+exports using qualification weights solely to test reporting. It is not a
 scientific evaluation of trained skill.
+
+
+Both seeds passed 100 updates and wrote resumable checkpoints. The initial
+steady native update interval was approximately 0.7–0.8 s after cache preparation;
+this is faster than the cold qualification measurement, but does not yet include
+a full production validation interval.
+
+Evaluation source `bd6044a2b` is staged separately from the immutable training
+source. Dependent arrays are native OM4 controls before adaptation (**24147533**),
+fixed observation-input maps before adaptation (**24147534**), native controls
+after adaptation (**24147537**), and full observation/annual reports (**24147538**).
+Each follows its corresponding seed's completed stage and verifies the selected
+checkpoint digest. These are queued evaluations, not completed results.

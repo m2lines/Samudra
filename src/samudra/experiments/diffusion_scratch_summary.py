@@ -54,7 +54,9 @@ def summarize_structure(records):
     return result
 
 
-def read_report(root, *, scratch):
+def read_report(root, *, scratch, architecture="physical"):
+    if architecture not in ("physical", "latent"):
+        raise ValueError("Unknown forecast architecture")
     protocol = json.loads((root / "protocol.json").read_text())
     complete = json.loads((root / "MONTHLY_REPORT_COMPLETE.json").read_text())
     annual = json.loads((root / "annual/COMPLETE.json").read_text())["inputs"]
@@ -73,9 +75,17 @@ def read_report(root, *, scratch):
             or training.get("decoder_width") != 192
         ):
             raise ValueError("Require the authorized from-scratch width-192 model")
-        if training["arm"] != "B" or training["phase"] != "observation":
+        if training["phase"] != "observation":
             raise ValueError("Require observation-fine-tuned diffusion")
-        if complete.get("calibration") != "complete" or protocol["members"] != 8:
+        if architecture == "physical":
+            if training["arm"] != "B" or complete.get("calibration") != "complete":
+                raise ValueError("Incomplete physical-state diffusion report")
+        elif (
+            training.get("architecture") != "persistent-latent-diffusion"
+            or protocol.get("scope") != "observation-report"
+        ):
+            raise ValueError("Require completed persistent-latent observation report")
+        if protocol["members"] != 8:
             raise ValueError("Incomplete eight-member report")
         data_hash = training["observation_manifest_sha256"]
     else:

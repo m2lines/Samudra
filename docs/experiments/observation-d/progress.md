@@ -2168,3 +2168,27 @@ Last verified at 03:29 UTC: recovery 18687867 was producing finite updates at
 15,531 and its six replacement evaluations depended on completion. No job was
 mutated in response to the access failure. Current completion and additional GPU
 allocation are unverified. The original report deadline remains unchanged.
+
+### 28 September 11:27 UTC — all production training and evaluations verified complete
+
+Authenticated Torch access is restored. Recovery 18687867 completed at 04:16 UTC
+with exactly 16,000 observation updates and a real TRAIN_COMPLETE marker. All six
+replacement evaluations 18688308–18688313 completed successfully. The selected
+checkpoint hash agrees across the completion marker, best.json, monthly outputs,
+annual inputs and mechanism diagnostics. The archived partial record remains;
+the live partial marker was removed after completion. Runtime recovery metadata
+is included with scratch evidence. Campaign accounting totals **83.7039 GPU-hours**,
+including failed attempts, preemptions, and all numerical evaluations.
+
+Scratch's best score remained 0.540782 at update 7,900 through the full 16k budget.
+Its monthly test composite is 0.596874, versus sequential 0.567688 and mixed
+0.591432. Selected year-end SST RMSE is 2.2711 / 2.1854 / 4.4749°C respectively.
+The report now distinguishes a modest sequential monthly benefit from a weak,
+checkpoint-dependent year-end SST benefit. Scratch also has better annual EKE
+spectral agreement despite worse velocity RMSE. Updated three-arm learning,
+initializer-profile and intervention figures include scratch and its 16k endpoint.
+
+CPU compact-array extraction for scratch is job 18708203. Final map assembly
+still awaits the separately requested transfer approval; no model-output transfer
+has bypassed that review block. The scientific protocol, one seed and original
+report deadline are unchanged.

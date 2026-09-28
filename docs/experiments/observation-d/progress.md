@@ -2266,3 +2266,22 @@ Frozen scratch/sequential/mixed gap diagnostics are queued as
 result is claimed yet. Actual allocated GPU time at this snapshot is 0.0964 hours,
 including qualification; CPU failures consume no GPU-hours. Accounting uses
 Slurm duplicate-attempt records, not requested time limits.
+
+At 18:56 UTC all three fitting and training/resume variants have passed. Masked
+and conditioned fitting records explicitly confirm completion-head gradients.
+Resume serialization and restoration are exact; replay numerical differences are
+bounded against repeated native GPU updates rather than claimed bitwise exact.
+No production model has started. A separate 60-OM4/60-observation throughput probe
+18724971 will measure warmed-data update rates before fixing production limits;
+it is operational qualification, not a scientific comparison arm.
+
+Frozen diagnostic attempt 18724314 failed before inference because torchrun
+intercepted `--run` without the argument separator. Queued siblings 18724315 and
+18724316 were canceled before running. Corrected attempts 18724936/18724937/
+18724938 preserve scientific producer, checkpoint paths and output contracts;
+original submission and failed-attempt records remain intact. The first two
+corrected attempts are running. Evaluation-only producer
+`9999caf5937a8d0983dc0b6b6883011dc6a1a450` adds the fixed validation completion
+and polar-support audit (two targeted scoring tests pass). Build 18724617 completed;
+GPU audit smoke 18724939 is queued. Training remains pinned to `053e34947` and its
+completed qualification contracts; adding an evaluator does not invalidate them.

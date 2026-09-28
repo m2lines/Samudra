@@ -303,6 +303,12 @@ The scratch endpoint costs fewer total updates in this secondary comparison.
 The main selected-checkpoint table instead gives each arm a 16k total-update
 training allowance, with selection allowed anywhere within it.
 
+Actual allocated cost, including each arm’s evaluations and retries, was
+**32.96 GPU-hours for scratch, 24.88 for sequential, and 25.62 for mixed**,
+plus 0.25 shared qualification/diagnostic GPU-hours. Unequal task costs and
+preemption overhead mean this is an equal-update-budget comparison, not exact
+FLOP or GPU-hour matching. The full accounting is retained in the evidence files.
+
 ### Hidden-state feedback and the new models’ annual drift
 
 ![Production rollout errors and spectral tradeoffs under hidden-state interventions](artifacts/2026-09-26-three-day/production-mechanisms.png)

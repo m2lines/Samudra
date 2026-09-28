@@ -122,5 +122,5 @@ Replacement pretraining array **24147018** and dependent observation array
 per task. Run group: `latent-d192-host-v1`. The update/time ceilings above remain
 unchanged. The initial report smoke used too few validation origins to compute
 the required spectral comparison; the corrected full-validation smoke is
-**24147021**, using qualification weights solely to test reporting. It is not a
+**24147149**, using qualification weights solely to test reporting. It is not a
 scientific evaluation of trained skill.

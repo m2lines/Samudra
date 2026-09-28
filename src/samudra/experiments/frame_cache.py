@@ -32,7 +32,9 @@ class PreparedFrameCache:
         if values.dtype != storage.dtype:
             raise ValueError("Cache must preserve prepared-frame dtype")
         storage.index_copy_(
-            0, torch.tensor(indices.reshape(-1), device=storage.device), planes
+            0,
+            torch.tensor(indices.reshape(-1), device=storage.device),
+            planes.to(storage.device),
         )
         ready[indices.reshape(-1)] = True
 
@@ -56,24 +58,25 @@ class PreparedFrameCache:
             ):
                 self._write(storage, ready, use.request.time_indices, value)
 
-    def batch(self, dataset, indices):
-        result = dataset.preparer.new_model_batch(self.prognostic.device)
+    def batch(self, dataset, indices, device=None):
+        device = self.prognostic.device if device is None else device
+        result = dataset.preparer.new_model_batch(device)
         for step in dataset.shard.window_plan(indices).steps:
             result.append(
                 self._read(
                     self.prognostic,
                     self.prognostic_ready,
                     step.input.request.time_indices,
-                ),
+                ).to(device),
                 self._read(
                     self.boundary,
                     self.boundary_ready,
                     step.boundary.request.time_indices,
-                ),
+                ).to(device),
                 self._read(
                     self.prognostic,
                     self.prognostic_ready,
                     step.label.request.time_indices,
-                ),
+                ).to(device),
             )
         return result

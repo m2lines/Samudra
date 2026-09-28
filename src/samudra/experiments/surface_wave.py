@@ -216,13 +216,23 @@ class Experiment:
             # Return those unused blocks before checking driver-visible capacity.
             torch.cuda.empty_cache()
             free, _ = torch.cuda.mem_get_info(self.device)
-            if needed + self.args.device_cache_reserve_gib * 2**30 > free:
+            cache_device = getattr(self.args, "cache_device", "cuda")
+            if (
+                cache_device == "cuda"
+                and needed + self.args.device_cache_reserve_gib * 2**30 > free
+            ):
                 raise MemoryError(
                     f"Resident cache needs {needed / 2**30:.2f} GiB plus "
                     f"{self.args.device_cache_reserve_gib} GiB reserve; "
                     f"only {free / 2**30:.2f} GiB free"
                 )
-            cache = PreparedFrameCache(frames, self.channels, 3, shape, self.device)
+            cache = PreparedFrameCache(
+                frames,
+                self.channels,
+                3,
+                shape,
+                self.device if cache_device == "cuda" else "cpu",
+            )
             indices = list(range(0, len(warm), warm.input_steps))
             if indices[-1] != len(warm) - 1:
                 indices.append(len(warm) - 1)
@@ -232,6 +242,7 @@ class Experiment:
                     "event": "cache_warm_start",
                     "frames": frames,
                     "cache_gib": needed / 2**30,
+                    "cache_device": cache_device,
                 }
             )
             cache_started = time.monotonic()
@@ -258,7 +269,7 @@ class Experiment:
             for ids, reference in zip(
                 probes, self.native_loader(dataset, probes), strict=True
             ):
-                cached = cache.batch(dataset, ids)
+                cached = cache.batch(dataset, ids, device=self.device)
                 for actual_step, expected_step in zip(cached, reference, strict=True):
                     for actual, expected in zip(
                         actual_step, expected_step, strict=True
@@ -270,11 +281,12 @@ class Experiment:
                     "event": "cache_ready",
                     "frames": frames,
                     "cache_gib": needed / 2**30,
+                    "cache_device": cache_device,
                     "native_equivalence": "exact",
                 }
             )
         cache = self.frame_caches[key]
-        return (cache.batch(dataset, ids) for ids in sampler)
+        return (cache.batch(dataset, ids, device=self.device) for ids in sampler)
 
     def inputs(self, batch, dataset, indices):
         history = batch.get_initial_input()[0]

@@ -27,7 +27,7 @@ if [[ -n "${INVOCATION_HOURS:-}" ]]; then
   extra+=(--invocation-hours "$INVOCATION_HOURS")
 fi
 if [[ "${DEVICE_CACHE:-0}" == 1 ]]; then
-  extra+=(--device-cache --cache-reserve-gib 32 --readers 16)
+  extra+=(--device-cache --cache-device "${CACHE_DEVICE:-cuda}" --cache-reserve-gib 32 --readers 16)
 fi
 output="$root/runs/$RUN_GROUP/D-$seed/$TRAIN_PHASE"
 if [[ "$TRAIN_PHASE" != qualify ]]; then

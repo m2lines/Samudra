@@ -72,6 +72,7 @@ def main():
     parser.add_argument("--processor-depth", type=int, default=4)
     parser.add_argument("--sampling-steps", type=int, default=16)
     parser.add_argument("--device-cache", action="store_true")
+    parser.add_argument("--cache-device", choices=["cuda", "cpu"], default="cuda")
     parser.add_argument("--cache-reserve-gib", type=float, default=32)
     parser.add_argument("--readers", type=int, default=4)
     parser.add_argument("--validate-every", type=int, default=500)
@@ -112,6 +113,7 @@ def main():
         processor_depth=args.processor_depth,
         sampling_steps=args.sampling_steps,
         device_cache=args.device_cache,
+        cache_device=args.cache_device,
         cache_reserve_gib=args.cache_reserve_gib,
         readers=args.readers,
         history=19,
@@ -182,6 +184,7 @@ def main():
         wave1_root="",
         val_origins=12,
         device_cache=args.device_cache,
+        cache_device=args.cache_device,
         device_cache_reserve_gib=args.cache_reserve_gib,
         batch_size=1,
     )

@@ -268,15 +268,23 @@ class InitializerWave(Experiment):
             )
             labels = torch.stack([batch.get_label(i) for i in range(len(batch))], 1)
         else:
-            offsets = torch.tensor(ids, device=self.device)[:, None]
-            history = offsets + torch.arange(19, device=self.device)
-            channels = torch.tensor(self.initializer.surface, device=self.device)
+            offsets = torch.tensor(ids, device=cache.prognostic.device)[:, None]
+            history = offsets + torch.arange(19, device=cache.prognostic.device)
+            channels = torch.tensor(
+                self.initializer.surface, device=cache.prognostic.device
+            )
             surface = cache.prognostic[history[:, :, None], channels]
             past = cache.boundary[history]
             truth = cache.prognostic[history[:, -2:]]
-            future = offsets + torch.arange(18, 18 + dataset.steps, device=self.device)
+            future = offsets + torch.arange(
+                18, 18 + dataset.steps, device=cache.prognostic.device
+            )
             forcing = cache.boundary[future]
             labels = cache.prognostic[future + 1]
+            surface, past, truth, forcing, labels = (
+                value.to(self.device)
+                for value in (surface, past, truth, forcing, labels)
+            )
         dates = dataset.sources[0].time.values[np.asarray(ids) + 18]
         phases = [2 * math.pi * (t.dayofyr - 1) / 365.25 for t in dates]
         season = surface.new_tensor([[math.sin(p), math.cos(p)] for p in phases])

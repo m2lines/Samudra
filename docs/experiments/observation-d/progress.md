@@ -2386,3 +2386,24 @@ Accounting retains the original job's REQUEUED attempt (1,163 allocated seconds,
 0.3231 GPU-hours) plus the zero-allocation canceled held entry. Diagnostic overlap
 steps are not double-counted. The replacement was pending at its post-submit check;
 recovery performance is not yet verified. The other five training jobs continue.
+
+### First automatic preemption and early completion checks
+
+At 20:06 UTC, the five non-sequential jobs were explicitly PREEMPTED and
+requeued automatically with the same IDs and dependencies. This was scheduler
+preemption, not an inferred utilization cancellation. Archived their logs and
+selection records under `attempt-records/first-preemption`; all five best.pt hashes
+match best.json. Durable joint-last checkpoints are present. At 20:18 UTC the
+sequential replacement and both conditioned arms have RUNNING allocations on
+gh119, still warming caches; the remaining three arms are pending. Restoration
+and resumed update throughput still need verification. Actual allocated use at
+this snapshot is 3.8903 GPU-hours including failed/requeued attempts.
+
+Early validation-only completion jobs 18731002–18731004 completed on immutable
+checkpoints without selecting models or looking at test data. Their completion
+signatures/checkpoint hashes were checked and the compact bundle transfer hash
+matched. [Early missingness diagnostics](early-missingness-diagnostics-2026-09-28.md)
+contains maps and pooled errors: masked scratch at 100 observation updates has
+1.259°C block-hidden SST RMSE versus 9.531°C for legacy zero fill and 0.821°C for
+monthly observation climatology. This establishes early learned completion, not
+natural-gap truth, forecast improvement, or compute-matched transfer benefit.

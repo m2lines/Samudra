@@ -51,9 +51,9 @@ STYLES = (
 )
 
 
-def profiles(summary, output):
+def profiles(summary, output, styles=STYLES):
     fig, axes = plt.subplots(2, 2, figsize=(10, 9), sharey=True)
-    for name, color, marker, label in STYLES:
+    for name, color, marker, label in styles:
         run = summary["baseline"] if name == "baseline" else summary["runs"][name]
         p = run["probabilistic"]
         point = p["point_mass_interior"]
@@ -98,12 +98,12 @@ def profiles(summary, output):
     plt.close(fig)
 
 
-def annual(summary, output):
+def annual(summary, output, styles=STYLES):
     """Average per-origin RMSEs; this is not a pooled space-time RMSE."""
     fig, axes = plt.subplots(2, 2, figsize=(11, 8))
     days = (5, 15, 30, 90, 180, 365)
     rows: list[dict[str, Any]] = []
-    for name, color, marker, label in STYLES:
+    for name, color, marker, label in styles:
         run = summary["baseline"] if name == "baseline" else summary["runs"][name]
         years = run["annual"]
         for column, metric in enumerate(("sst_rmse", "adt_rmse")):

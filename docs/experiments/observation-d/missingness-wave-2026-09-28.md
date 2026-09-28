@@ -101,3 +101,12 @@ learning curves, completion/missingness audits, full-grid initializer and foreca
 maps (1:1 or 2:2 pixels per cell), and accumulated GPU-hours. Qualitative improvement
 in unobserved regions is not a claim of validated polar accuracy. Existing annual
 test cases remain exploratory; visual sanity does not replace observation metrics.
+
+Completion diagnostics use the same nine validation origins for every model and
+checkpoint. In addition to intact histories, apply fixed artificial blocks and
+hide the polar caps (>60 degrees absolute latitude) across the entire input
+history. Score only genuinely observed cells that were artificially hidden, with
+physical-unit SST/SSH RMSE and bias separated into polar and nonpolar regions.
+Report support counts; absent polar SSH labels produce null scores, not zeros.
+Compare learned completion against observation-training monthly climatology and
+normalized-zero fill. These diagnostics do not change checkpoint selection.

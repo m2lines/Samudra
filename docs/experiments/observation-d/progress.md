@@ -2315,3 +2315,24 @@ to 20 hours and the other arms to 16 hours. The operational planning ceiling is
 counts, batch sizes, losses, qualification contracts or training producer changed.
 Fresh test-only scheduling estimates H200 at 28 September 15:27 ET versus RTX
 at 29 September 13:15 ET, so production will use the qualified H200 hardware.
+
+Production is now submitted with the original counts and qualified training
+producer `053e34947932fdb56c6baf2c717a23f2df3cc733`. Launcher/report revision is
+`64a4264da0c557e9b087e82aac3c0b054131dc2d`.
+
+| Arm | Job | Requested limit |
+| --- | --- | --- |
+| Small legacy scratch | 18726195 | 20 hours |
+| Small masked scratch | 18726197 | 20 hours |
+| Small masked sequential | 18726199 | 16 hours |
+| Small masked mixed-finish | 18726202 | 16 hours |
+| Small conditioned mixed-finish | 18726203 | 16 hours |
+| Small conditioned mixed | 18726205 | 16 hours |
+
+All six were pending for priority at the post-submit check. H200 routing, GPU
+constraint, requeue, preemption comments and exact time limits were verified for
+every job. The helper checked all three successful fitting/resume contracts before
+submission. No production result is claimed yet. Draft PR 892 now links the frozen
+gap report first in its table of contents and distinguishes those completed
+sensitivity results from the new training wave. The prior approval question is
+resolved; no blocker alert was needed after the user's clarification.

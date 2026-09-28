@@ -343,12 +343,14 @@ producer, timestamps, per-task counts and all underlying retention metrics.
 
 ## Execution and remaining work
 
-**Monitoring status, 27 September 20:15 UTC:** Sequential and mixed training,
-monthly/annual evaluations, fixed-budget evaluations and initializer diagnostics
-are complete. Scratch continues toward 16k observations; its evaluations remain
-dependent. The same seven state/forcing diagnostics are now submitted for all
-three selected models, with scratch dependent on completion. Compact plot arrays
-are being extracted on CPU; their transfer is awaiting explicit approval.
+**Monitoring status, 28 September 04:32 UTC:** Sequential and mixed training
+and all their evaluations/diagnostics are complete. Scratch reached the internal
+27-hour limit at 15,504/16,000 updates. A documented runtime-only recovery with
+the original qualified producer was verified training at 15,531; its six
+replacement evaluations depend on completion. The latest SSH check failed with
+`Too many authentication failures`, so final scratch completion and its held-out
+results remain unverified. The original scientific protocol and report deadline
+are unchanged. Compact map-array transfer also remains pending approval.
 
 
 The Samudra-2-matched processor has 83,872,357 parameters, versus approximately

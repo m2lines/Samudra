@@ -3,11 +3,12 @@
 
 # Early missingness-learning diagnostics
 
-The corrected initializer learns to fill artificially hidden observations within
-100 observation updates. Its initial SST map no longer has the legacy warm polar
-speckles. This is an early initialization result, **not a forecast comparison or
-proof of accuracy where observations are naturally missing**. Monthly observation
-climatology still outperforms all these early checkpoints on held-out known cells.
+The corrected initializer learns surface completion within 100 observation
+updates and beats monthly climatology on block-hidden SST by 500 updates.
+Climatology remains better for SSH and entirely hidden polar caps. The warm polar
+speckles disappear, but cold overshoot remains in some naturally missing SST
+cells. These are initialization diagnostics, **not a forecast comparison or proof
+of accuracy where observations are naturally missing**.
 
 ## Methods and model names
 

@@ -2336,3 +2336,22 @@ submission. No production result is claimed yet. Draft PR 892 now links the froz
 gap report first in its table of contents and distinguishes those completed
 sensitivity results from the new training wave. The prior approval question is
 resolved; no blocker alert was needed after the user's clarification.
+
+Evaluation launcher `f800bb151` submitted 32 dependent jobs with evaluator producer
+`9999caf5937a8d0983dc0b6b6883011dc6a1a450`. Every submission has an `afterok`
+dependency on its own production arm; monthly/annual evaluators additionally
+require TRAIN_COMPLETE and selected/fixed-checkpoint lineage. The matrix includes
+selected monthly and annual reports, matched-total endpoint monthly reports,
+scratch raw-8k monthly reports, and validation-only completion/state diagnostics
+at early milestones, selected endpoints and around the observation-only finish.
+The first and last evaluator jobs are 18727181 and 18727734; full immutable records
+are under EVALUATION_DAG.json and each name-submission.json in the cluster root.
+These jobs are submitted dependencies, not completed scientific results. The
+local dry-run verified all 32 command/dependency mappings before submission.
+
+At 19:37 UTC all six production jobs are RUNNING. Both scratch arms have emitted
+real joint-training events (steps 5 and 8); the four OM4-containing arms are still
+warming their verified data caches. No job has a completion or partial marker.
+Actual accumulated allocated GPU time is 1.0000 hours at this snapshot. The
+transient QOSMaxGRESPerUser pending reasons cleared without intervention; no
+replacement, protocol change or user action was needed.

@@ -49,9 +49,10 @@ already included in the campaign total above.
 
 ## C/D: latent evolution
 
-[The authorized latent diffusion wave is running](latent-wave.md): two scratch
-OM4 pretraining seeds followed by observation adaptation. Real-grid qualification
-passed; comparative results remain pending. The deterministic C arm is not part
+[The authorized latent diffusion wave is in bring-up](latent-wave.md). Basic
+real-grid qualification passed; the initial H200 runs were superseded after
+preemption and loading overhead. Host-resident caching on L40S is being qualified
+before restarting two scratch pretraining seeds. Comparative results remain pending. The deterministic C arm is not part
 of this wave.
 
 ## H: half-degree target supervision

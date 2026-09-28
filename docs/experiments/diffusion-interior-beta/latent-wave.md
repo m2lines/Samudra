@@ -4,9 +4,9 @@
 # Persistent latent state with diffusion readouts: active wave
 
 Report deadline: **2026-09-30 01:17 UTC** (September 29, 9:17 p.m. Eastern).
-The user authorized this wave after the diagonal-artifact investigation. Real-grid qualification passed on L40S and H200. Both seeds are now running OM4
-pretraining, with observation adaptation queued per seed. Comparative results
-remain pending.
+The user authorized this wave after the diagonal-artifact investigation. Real-grid qualification passed on L40S and H200. The first two-seed launch was stopped after repeated preemption and slow
+random-data loading. Host-resident caching is now being qualified on L40S;
+production adaptation has not started. Comparative results remain pending.
 
 ## Scientific comparison
 
@@ -82,11 +82,28 @@ observation update on H200; peak observed allocation was 20.99 GiB. These single
 qualification measurements exclude sustained checkpoint/validation overhead and
 will be replaced with production throughput.
 
-Pretraining array **24144680** has two running single-H200 tasks (seeds 1729/1730).
-Observation array **24144688** is queued with `aftercorr:24144680`, so each seed
-starts only after its own pretraining task succeeds; its runner additionally
-verifies the completion marker and selected checkpoint hash. Jobs resume from
-optimizer-boundary checkpoints. Qualification exercised actual save/resume and
+Pretraining array **24144680** started two single-H200 tasks (seeds 1729/1730),
+but both experienced preemption and production updates took 11–22 seconds with
+random reads. It and the dependent observation array **24144688** were stopped;
+outputs are preserved. GPU-cache qualification **24145089** was also preempted
+during warm-up. These are operational bring-up attempts, not completed training
+results. Jobs support optimizer-boundary resume. Qualification exercised actual save/resume and
 strict fixed-noise loss reload. Training provenance binds data, observation
 normalization and the frozen validation reference. No held-out test data enter
 training or checkpoint selection.
+
+### Cache and scheduling recovery
+
+Host-cache qualification **24146352** is running on a single L40S, using source
+`8291df4dc`, four allocated CPUs, 16 Rust read threads and 96 GiB host RAM.
+It caches the same float32 prepared frames in host memory and moves selected
+windows to the GPU. Real native-versus-cache comparisons check masks, forcing,
+labels, edge windows and repeated/shuffled requests before training.
+
+Standard GPU queue estimates were too late for the deadline, including the
+available advanced GPU account/QoS, so production is not waiting on that queue.
+A tested per-invocation time limit is available for shorter allocations; it
+preserves the global stage budget and does not mislabel an interrupted stage as
+complete. The first completed/terminated latent bring-up allocations consumed
+**0.4472 GPU-hours**, including all preempted attempts (Slurm duplicate accounting
+records); the active host-cache qualification is additional.

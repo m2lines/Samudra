@@ -92,7 +92,13 @@ def main():
     producer = os.environ["SAMUDRA_CODE_COMMIT"]
     args.output.mkdir(parents=True, exist_ok=True)
     source = args.root / "checkpoints/om4-source/selected.pt"
+    selection = json.loads((args.root / "checkpoints/selection.json").read_text())
+    reference_path = (
+        args.root / "checkpoints" / selection["selected"] / "selection-reference.json"
+    )
+    reference_hash = digest(reference_path)
     contract = dict(
+        selection_reference_sha256=reference_hash,
         producer=producer,
         architecture="persistent-latent-diffusion",
         initialization="scratch",
@@ -233,15 +239,9 @@ def main():
 
         def validate(step):
             if args.phase == "observation":
-                selection = json.loads(
-                    (args.root / "checkpoints/selection.json").read_text()
-                )
-                ref = (
-                    args.root
-                    / "checkpoints"
-                    / selection["selected"]
-                    / "selection-reference.json"
-                )
+                ref = reference_path
+                if digest(ref) != reference_hash:
+                    raise ValueError("Frozen validation reference changed")
                 metrics, score = evaluate_point_metrics(
                     model, data, validation, json.loads(ref.read_text()), members=8
                 )

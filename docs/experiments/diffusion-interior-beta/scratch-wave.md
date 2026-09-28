@@ -16,6 +16,11 @@ completed on September 27, within the three-day window. This wave used **40.44
 allocated GPU-hours**; the full campaign, including earlier work and all preempted
 attempts, totals **61.86 of 576 GPU-hours**. No subsequent wave has been launched.
 
+Follow-up: [diagonal salinity artifact investigation](diagonal-artifact.md) localizes
+the severe directional initialization texture to observation fine-tuning and
+observational conditioning. It includes paired checkpoints, sampler/precision
+checks, two toy training runs and frozen-dynamics probes (0.30 additional GPU-hours).
+
 ## What was trained and compared
 
 A randomly initialized wide surface-history encoder conditions a randomly initialized

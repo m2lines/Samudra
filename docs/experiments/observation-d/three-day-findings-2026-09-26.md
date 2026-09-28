@@ -1,11 +1,10 @@
 <!-- SPDX-FileCopyrightText: 2026 Samudra Authors -->
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 
-# Three-day investigation: interim findings
+# Three-day investigation: completed findings
 
-Started 26 September 2026. **Final report due 29 September at 09:30 ET.**
-This is an active investigation. All three larger-backbone training runs and their numerical evaluations are complete;
-final map assembly remains pending transfer approval. [Plan and scope](three-day-followup-2026-09-26.md).
+Started 26 September 2026; completed 28 September, before the 29 September
+09:30 ET deadline. All three training runs, evaluations and report figures are complete. [Plan and scope](three-day-followup-2026-09-26.md).
 
 
 The completed one-seed comparison supports a **modest monthly forecast benefit
@@ -231,7 +230,8 @@ ERA5, and were not used to choose checkpoints. Lower is better.
 | Samudra2 sequential | Validation-selected | 8,000 / 7,700 | 0.5677 | 0.4695 | 2.1854 | 0.2318 |
 | Samudra2 mixed | Validation-selected | 7,467 / 5,733 | 0.5914 | 0.5236 | 4.4749 | 0.3584 |
 
-The same ordering holds for the **raw final checkpoints**, which have identical
+Among the two OM4-containing arms, the same ordering holds for their **raw final
+checkpoints**, which have identical
 8k/8k task exposure and are not validation-selected: monthly scores are 0.5837
 (sequential) versus 0.6002 (mixed); day-365 SST RMSE is 2.2825 versus 3.7414°C.
 Thus, preserving source-task performance did not translate into better observation
@@ -348,6 +348,44 @@ mean profiles therefore do not imply similar dynamics or explain the annual
 error gap by themselves. Zero denotes the common random model before either task;
 subsequent labels count observation updates, with different source exposure.
 
+## Checkpoint maps, annual structure and regional spectra
+
+The [complete map collection](three-day-maps-2026-09-28.md) covers early and late
+observation checkpoints, scratch 8k versus 16k, initializer temperature/velocity
+structure, and all three annual test origins. Examples below use raw 8k weights
+for the checkpoint view and validation-selected weights for annual forecasts.
+They must not be confused with the same checkpoint comparison.
+
+![Day-30 SST at raw 8k observation checkpoints](artifacts/2026-09-26-three-day/production-day30-sst-later-part3.png)
+
+![Selected annual SST forecasts versus observations](artifacts/2026-09-26-three-day/production-annual-sst-2015-01-01.png)
+
+In this annual example, scratch develops fine noisy structure, while sequential
+and mixed forecasts are smoother but show broader spatial drift. The mixed model
+shows particularly large changes in tropical structure by day 365. These are
+qualitative observations for the displayed case, not proof of the mechanism or
+an assessment of unscored polar accuracy. Maps show the full grid; aggregate
+observation scores retain the fixed 60°S–60°N support.
+
+![Internal velocity-designated initializer channel at raw 8k checkpoints](artifacts/2026-09-26-three-day/production-initial-u-later-part3.png)
+
+Internal velocity slots have substantially different spatial patterns across
+training recipes despite similar mean temperature profiles. They are unconstrained
+representations, not validated current reconstructions. The following panel instead
+shows **surface-derived geostrophic speed**, the quantity used in the velocity
+metrics, on the predefined spectral regions.
+
+![Regional geostrophic speed at day 365](artifacts/2026-09-26-three-day/production-regional-speed-day365.png)
+
+![Annual regional EKE spectra](artifacts/2026-09-26-three-day/production-annual-eke-spectra.png)
+
+The annual spectra make the metric tradeoff concrete. Scratch has much more
+EKE-field power than the two OM4-containing models and is closer to the observed
+powers overall, despite its worse pointwise velocity error. Sequential and mixed
+are strongly underpowered on these retained scales. This supports reporting both
+point errors and spectra, rather than declaring one recipe uniformly superior.
+The maps are one annual origin; the spectral curves average all three years.
+
 ## Production learning curves
 
 ![Observation exposure, total updates, and OM4-task retention](artifacts/2026-09-26-three-day/production-learning.png)
@@ -407,7 +445,8 @@ completed successfully. All three arms and their numerical diagnostics are now
 complete. Total recorded allocation is **83.7039 GPU-hours**, including retries
 and preemptions, below the 120-hour ceiling. Runtime recovery preserved the
 original scientific manifest and qualifications; details and failed attempts are
-in [progress](progress.md). Compact map-array transfer still awaits approval.
+in [progress](progress.md). All compact map arrays were transferred with approval and verified by full
+SHA-256 read-back; report maps and spectra are complete.
 
 
 The Samudra-2-matched processor has 83,872,357 parameters, versus approximately

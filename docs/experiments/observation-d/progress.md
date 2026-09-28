@@ -2192,3 +2192,31 @@ CPU compact-array extraction for scratch is job 18708203. Final map assembly
 still awaits the separately requested transfer approval; no model-output transfer
 has bypassed that review block. The scientific protocol, one seed and original
 report deadline are unchanged.
+
+### 28 September — report and map collection completed
+
+The user explicitly approved direct authenticated SSH transfer of the compact
+report arrays. Copied 40 NPZ files (137,480,082 bytes total) and their manifests;
+verified every byte count and SHA-256 locally. Scratch extraction job 18708203
+completed successfully. All three extraction manifests confirm reproduction of
+the original monthly regional EKE spectral curves.
+
+Added the complete map collection and plotting source: early/later initializer
+SST, 550 m temperature, velocity-designated and SSH channels; corresponding
+30-day SST/ADT rollouts; raw scratch 8k versus 16k; selected annual forecasts
+against observations for all three test origins; and regional velocity, EKE and
+exact-bin spectra. Thirty-seven map sheets passed native-cell geometry checks
+(1:1 global and 2:2 regional). Representative maps and spectral figures were
+visually inspected; all report artifact links and repository size limits pass.
+The full provenance audit is committed beside the figures. No raw checkpoints
+or full evaluation stores were transferred.
+
+The completed report distinguishes the modest sequential monthly performance
+benefit, the 8k–16k scratch selection plateau, the lack of a robust annual SST
+benefit, and mixed-task retention without better observation forecasts. Maps and
+spectra clarify that scratch's stronger small-scale variability can coexist with
+worse pointwise velocity error; unconstrained initializer slots remain diagnostic.
+No new training arm, seed, task embedding or quarter-degree experiment was added.
+All campaign training/evaluations are complete. The original monitor timer is
+verified disabled and inactive. Final recorded GPU use is 83.7039 hours; this
+report finishes before the original 29 September 09:30 ET deadline.

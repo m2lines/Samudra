@@ -5,8 +5,9 @@
 
 Report deadline: **2026-09-30 01:17 UTC** (September 29, 9:17 p.m. Eastern).
 The user authorized this wave after the diagonal-artifact investigation. Real-grid qualification passed on L40S and H200. The first two-seed launch was stopped after repeated preemption and slow
-random-data loading. Host-resident caching passed qualification on L40S; replacement pretraining
-is submitted and observation adaptation is queued behind it. Comparative results remain pending.
+random-data loading. Host-resident caching passed qualification on L40S. Both replacement seeds
+completed 24,000 OM4 updates; observation adaptation and pretrained diagnostics
+are running. Comparative results remain pending.
 
 ## Scientific comparison
 
@@ -140,3 +141,15 @@ fixed observation-input maps before adaptation (**24147534**), native controls
 after adaptation (**24147537**), and full observation/annual reports (**24147538**).
 Each follows its corresponding seed's completed stage and verifies the selected
 checkpoint digest. These are queued evaluations, not completed results.
+
+
+## Pretraining completed; observation adaptation active
+
+Both seeds completed the full 24,000-update ceiling without production preemption.
+Slurm allocation durations were 5:24:00 and 5:20:48, including data-cache preparation.
+Recorded fitting time was 19,036 and 18,844 seconds. Selected native denoising
+validation losses were 0.07114 and 0.08855; these are training diagnostics, not
+observational forecast scores. Adaptation array **24147020** started both seeds
+on L40S after verifying their completed pretraining checkpoints. Pretrained
+observation-input maps for seed 1730 completed; native controls and seed 1729 maps
+are still running or queued. Scientific comparisons remain pending.

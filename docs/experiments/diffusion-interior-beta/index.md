@@ -51,8 +51,8 @@ already included in the campaign total above.
 
 [The authorized latent diffusion wave is running](latent-wave.md). Host-resident
 caching passed real-grid qualification on L40S after initial H200 runs were
-superseded by preemption and loading overhead. Two scratch pretraining seeds
-are running, with observation adaptation queued behind each. Comparative results
+superseded by preemption and loading overhead. Both seeds completed 24,000 scratch pretraining updates; observation adaptation
+and pretrained diagnostics are running. Comparative results
 remain pending. The deterministic C arm is not part of this wave.
 
 ## H: half-degree target supervision

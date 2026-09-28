@@ -1402,9 +1402,6 @@ class PostTrainEvalConfig(BaseConfig):
         "to evaluate; the final EMA checkpoint is always added. Mutually "
         "exclusive with last_n_checkpoints.",
     )
-    eval_dirname: str = "evals"
-    # Subdirectory for visualization outputs within each checkpoint evaluation directory.
-    viz_dirname: str = "viz"
 
     @pydantic.model_validator(mode="after")
     def _check_checkpoint_selection(self) -> "PostTrainEvalConfig":
@@ -1425,11 +1422,25 @@ class PostTrainEvalConfig(BaseConfig):
             eval_config_path=self.eval_config_path,
             checkpoint_paths=CheckpointPaths(nets_dir),
             data_root=data_root,
-            sweep_output_dir=output_dir / self.eval_dirname,
+            sweep_output_dir=output_dir / "evals",
             viz_config_path=self.viz_config_path,
             last_n_checkpoints=self.last_n_checkpoints,
             checkpoints=self.epochs,
-            viz_dirname=self.viz_dirname,
+        )
+
+
+class PostTrainEvalCliConfig(TopLevelConfig):
+    """Evaluate the saved checkpoints of an already-finished training run."""
+
+    post_train_eval: PostTrainEvalConfig
+    run_dir: Path
+    data_root: Location
+
+    def build(self) -> "CheckpointSweep":
+        return self.post_train_eval.build(
+            nets_dir=self.run_dir / "saved_nets",
+            output_dir=self.run_dir,
+            data_root=LocalLocation(path=Path.cwd()).resolve(self.data_root),
         )
 
 

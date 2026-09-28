@@ -61,7 +61,7 @@ class CheckpointPaths:
         return self.checkpoint_dir / "ckpt.pt"
 
     def latest_checkpoint_path_with_epoch(self, epoch: int) -> Path:
-        return self.checkpoint_dir / f"ckpt_{epoch}.pt"
+        return self.checkpoint_dir / f"{self._PERIODIC_CHECKPOINT_PREFIX}{epoch}.pt"
 
     def periodic_checkpoint_paths(self) -> dict[int, Path]:
         """Return periodic checkpoints indexed by epoch."""

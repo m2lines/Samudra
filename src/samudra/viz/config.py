@@ -176,7 +176,7 @@ class VizTemplateConfig(TopLevelConfig):
     def selected_steps(self) -> list[VizStep]:
         return [s for s in self.steps or _ordered_steps() if s not in self.not_steps]
 
-    def build_template(self, default_root: ResolvedLocation) -> VizTemplate:
+    def build(self, default_root: ResolvedLocation) -> VizTemplate:
         data_root = self._data_root(default_root)
         return VizTemplate(
             dataset_name=self.dataset_name,
@@ -195,8 +195,9 @@ class VizConfig(VizTemplateConfig):
     def output_path(self) -> Path:
         return Path(self.base_output_dir) / self.name
 
-    def build(self, default_root: ResolvedLocation) -> Viz:
-        template = self.build_template(default_root)
+    # VizConfig.build returns a Viz rather than the parent's VizTemplate.
+    def build(self, default_root: ResolvedLocation) -> Viz:  # type: ignore[override]
+        template = super().build(default_root)
         return template.instantiate(
             self.output_path,
             [run.build(template.data_root) for run in self.runs],

@@ -171,7 +171,6 @@ def test_sweep_config_builds_runtime_object(tmp_path: Path, monkeypatch):
     cfg = PostTrainEvalConfig(
         eval_config_path=Path("eval.yaml"),
         viz_config_path=Path("viz.yaml"),
-        eval_dirname="checkpoint_evals",
         epochs=[2, 5],
     )
     data_root = LocalLocation(path=tmp_path.resolve())
@@ -184,7 +183,7 @@ def test_sweep_config_builds_runtime_object(tmp_path: Path, monkeypatch):
 
     assert sweep.eval_config_path == Path("eval.yaml")
     assert sweep.checkpoint_paths.checkpoint_dir == tmp_path / "saved_nets"
-    assert sweep.sweep_output_dir == tmp_path / "checkpoint_evals"
+    assert sweep.sweep_output_dir == tmp_path / "evals"
     assert sweep.viz_config_path == Path("viz.yaml")
     assert sweep.checkpoints == [2, 5]
     assert sweep.data_root == data_root

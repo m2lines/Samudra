@@ -66,6 +66,8 @@ reference and held-out cohorts. Include monthly interior point and probabilistic
 metrics, surface scores, calibration, instantaneous salinity/velocity fields,
 diagonal correlations, member versus ensemble-mean structure, temporal
 consistency, and the existing annual rollout diagnostics as budget permits.
+Export the same three observation-input dates from pretrained and adapted
+checkpoints, so the timing of any reappearing artifact can be checked.
 Distinguish OM4 model-world interior/velocity controls from observational skill.
 Five-day binned surface observations and monthly IAP fields are the available
 measurements; this wave does not establish daily or independent Argo-profile skill.

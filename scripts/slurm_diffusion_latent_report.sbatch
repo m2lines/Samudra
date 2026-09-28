@@ -21,9 +21,17 @@ root=/orcd/pool/008/jrusak/diffusion-interior-engaging
 code="$root/code/$CODE_COMMIT"
 image=/orcd/scratch/orcd/014/jrusak/apptainer_cache/images/diffusion-26.05-9cd36b1-amd64.sif
 seed=$((1729 + ${SLURM_ARRAY_TASK_ID:-0}))
+phase=observation
+report=report-v1
+extra=(--annual)
+if [[ "${PRETRAINING_MAPS:-0}" == 1 ]]; then
+  phase=om4
+  report=pretraining-maps-v1
+  extra=(--pretraining-maps)
+fi
 export SAMUDRA_CODE_COMMIT="$CODE_COMMIT"
 export OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 PYTHONUNBUFFERED=1 PYTHONNOUSERSITE=1
 srun --gpus-per-task=1 apptainer exec --nv --bind "$code:/pilot-code,/orcd:/orcd" "$image" \
   env PYTHONPATH=/pilot-code/src /workspace/.venv/bin/python -m samudra.experiments.diffusion_latent_report \
-  --root "$root" --checkpoint "$root/runs/$RUN_GROUP/D-$seed/observation/best.pt" \
-  --output "$root/runs/$RUN_GROUP/D-$seed/report-v1" --members 8 --annual
+  --root "$root" --checkpoint "$root/runs/$RUN_GROUP/D-$seed/$phase/best.pt" \
+  --output "$root/runs/$RUN_GROUP/D-$seed/$report" --members 8 "${extra[@]}"

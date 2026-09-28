@@ -26,7 +26,8 @@ from samudra.experiments.joint_diffusion import (
 class LatentOceanForecast(nn.Module):
     """Initializer/processor never receive interior targets or decoded states.
 
-    Pass the chosen pretrained initializer and forcing adapter. The physical
+    Pass an initializer architecture and forcing adapter (fresh for scratch training).
+    The physical
     stepper is intentionally absent from this architecture. C and D share all
     trainable components and differ in readout/supervision only.
     """

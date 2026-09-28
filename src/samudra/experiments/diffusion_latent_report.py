@@ -52,17 +52,27 @@ def main():
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--annual", action="store_true")
+    parser.add_argument(
+        "--pretraining-maps",
+        action="store_true",
+        help="Export the three fixed observation-input examples before adaptation",
+    )
     parser.add_argument("--members", type=int, default=8)
     args = parser.parse_args()
     if args.members < 2:
         parser.error("Need at least two members")
-    completed = json.loads(
-        (args.checkpoint.parent / "OBSERVATION_COMPLETE.json").read_text()
+    if args.pretraining_maps and args.annual:
+        parser.error("Pretraining maps do not include annual evaluation")
+    marker = (
+        "PRETRAIN_COMPLETE.json"
+        if args.pretraining_maps
+        else "OBSERVATION_COMPLETE.json"
     )
+    completed = json.loads((args.checkpoint.parent / marker).read_text())
     if not completed["state"]["complete"] or completed[
         "best_checkpoint_sha256"
     ] != digest(args.checkpoint):
-        raise ValueError("Observation stage/checkpoint not verified")
+        raise ValueError("Training stage/checkpoint not verified")
     data = Samples(args.root / "data/observations", "cuda")
     data.use_observation_normalization()
     model, signature = load_latent_checkpoint(args.checkpoint, data)
@@ -80,8 +90,11 @@ def main():
     ref = args.root / "checkpoints" / selection["selected"] / "selection-reference.json"
     if digest(ref) != signature["selection_reference_sha256"]:
         raise ValueError("Frozen score reference changed")
+    if args.pretraining_maps:
+        paths = [p for p in paths if p.stem in MAP_ORIGINS]
     args.output.mkdir(parents=True, exist_ok=True)
     protocol = dict(
+        scope="pretraining-maps" if args.pretraining_maps else "observation-report",
         evaluator_commit=os.environ["SAMUDRA_CODE_COMMIT"],
         training_protocol=signature,
         checkpoint_sha256=digest(args.checkpoint),
@@ -96,6 +109,12 @@ def main():
     if manifest.exists() and json.loads(manifest.read_text()) != protocol:
         raise ValueError("Report protocol differs")
     atomic_json(protocol, manifest)
+    if args.pretraining_maps:
+        member_records(
+            model, data, paths, args.output, members=args.members, seed=4041729
+        )
+        atomic_json(protocol, args.output / "PRETRAINING_MAPS_COMPLETE.json")
+        return
     metrics, score = evaluate_point_metrics(
         model,
         data,

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790277610569,
+  "lastUpdate": 1790613934647,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -12318,6 +12318,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.4282919208171497",
             "extra": "mean: 55.39807834040003 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fomobot640@gmail.com",
+            "name": "fomo-bot",
+            "username": "fomo-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "bd0258ad6273b223fa984df747aa69d276bcbc48",
+          "message": "Select Samudra checkpoints using year-long rollout RMSE (#893)\n\nThe standard Samudra preset currently selects its best-validation\ncheckpoint using single-step loss even though long autoregressive\nvalidation is available. Enable a 360-day rollout every epoch within the\nexisting one-year split and select checkpoints using normalized,\narea-weighted spatial RMSE averaged equally over prognostic channels and\nforecast times.\n\nThe score is logged as `rollout_val/360d/normalized_rmse/channel_mean`,\nalongside existing physical-unit rollout metrics. Spatial RMSE is\ncomputed before averaging channels and times; land is excluded and\nnon-finite scores cannot win. Targets remain streamed in one-model-call\nchunks.\n\n`checkpoint_validation_metric` defaults to `one_step_loss` for existing\nconfigurations; the Samudra OM4 preset opts into `rollout_rmse`. With\nmultiple horizons the longest is used, and skipped rollout epochs leave\nthe best checkpoint unchanged. Checkpoints persist the metric and\nhorizon so switching either on resume resets the previous best score.\nLegacy checkpoints retain their score when continuing single-step\nselection. Documentation covers configuration, metric semantics, and\nresume behavior.\n\nValidation:\n- `CUDA_VISIBLE_DEVICES= uv run pytest tests/test_config.py\ntests/test_rollout_validation.py tests/test_trainer.py -m \"not manual\nand not cuda\" -q`: 61 passed, 9 deselected; includes a synthetic\nend-to-end rollout/checkpoint run.\n- All pre-commit hooks, including mypy and schema validation.\n- Bundled preset parsing and `git diff --check`.\n\nNo full dataset training or distributed GPU validation was run.\n\nCloses #886.",
+          "timestamp": "2026-09-28T16:05:46Z",
+          "tree_id": "941fdb69ce2d38d91a5ce53f89eaad7c8ee779fc",
+          "url": "https://github.com/m2lines/Samudra/commit/bd0258ad6273b223fa984df747aa69d276bcbc48"
+        },
+        "date": 1790613932791,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.9109867986663805,
+            "unit": "iter/sec",
+            "range": "stddev: 0.009538939842363568",
+            "extra": "mean: 1.0977107477999994 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06768898672549369,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1268798139510694",
+            "extra": "mean: 14.773452054400014 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cpu-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.01809426816447302,
+            "unit": "iter/sec",
+            "range": "stddev: 0.15834733223551775",
+            "extra": "mean: 55.26612023819998 sec\nrounds: 5"
           }
         ]
       }

@@ -23,10 +23,14 @@ def main():
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--grid", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--prefix", default="early-")
+    parser.add_argument(
+        "--panel", nargs=3, action="append", metavar=("ARM", "STEP", "LABEL")
+    )
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     summary: dict[str, Any] = {"inputs": {}, "scores": []}
-    for directory in sorted(args.root.glob("early-*-completion")):
+    for directory in sorted(args.root.glob(args.prefix + "*-completion")):
         signature = json.loads((directory / "COMPLETE.json").read_text())
         assert signature == json.loads((directory / "input.json").read_text())
         for path in sorted(directory.glob("joint-*.json")):
@@ -69,22 +73,23 @@ def main():
                         )
                     summary["scores"].append(row)
     grid = np.load(args.grid)
-    panels = [
+    panels = args.panel or [
         ("legacy-scratch", "00100", "Legacy scratch: 0 OM4 + 100 obs"),
         ("masked-scratch", "00100", "Masked scratch: 0 OM4 + 100 obs"),
         ("conditioned-mixed-finish", "00050", "Conditioned mixed: 378 OM4 + 50 obs"),
     ]
+    width = 30 + 410 * len(panels)
     for pattern in ("natural", "polar_caps"):
         for channel, variable, limits, cmap in (
             (0, "sst", (-2, 32), "turbo"),
             (6, "ssh", (-1.8, 1.0), "RdBu_r"),
         ):
-            fig = plt.figure(figsize=(12.6, 3.2), dpi=100)
+            fig = plt.figure(figsize=(width / 100, 3.2), dpi=100)
             tiles = []
             for index, (arm, step, label) in enumerate(panels):
                 path = (
                     args.root
-                    / f"early-{arm}-completion"
+                    / f"{args.prefix}{arm}-completion"
                     / f"joint-{step}-2013-11-{pattern}.npz"
                 )
                 summary["inputs"][str(path.relative_to(args.root))] = hashlib.sha256(
@@ -99,7 +104,7 @@ def main():
                 ]
                 left, top = 45 + 410 * index, 65
                 ax = fig.add_axes(
-                    (left / 1260, (320 - top - 180) / 320, 360 / 1260, 180 / 320)
+                    (left / width, (320 - top - 180) / 320, 360 / width, 180 / 320)
                 )
                 im = ax.imshow(
                     z,
@@ -125,9 +130,10 @@ def main():
                 if pattern == "natural"
                 else "all observations above |60°| hidden"
             )
-            fig.suptitle(
-                f"Initialized {variable.upper()}, November 2013 — {label}", fontsize=11
-            )
+            title = f"Initialized {variable.upper()}, November 2013 — {label}"
+            if width < 1000:
+                title = title.replace(" — ", "\n")
+            fig.suptitle(title, fontsize=11)
             cax = fig.add_axes((0.25, 0.09, 0.5, 0.035))
             fig.colorbar(
                 im,
@@ -135,7 +141,7 @@ def main():
                 orientation="horizontal",
                 label="°C" if variable == "sst" else "m",
             )
-            target = args.output / f"early-{pattern}-{variable}.png"
+            target = args.output / f"{args.prefix}{pattern}-{variable}.png"
             fig.savefig(target, dpi=100)
             plt.close(fig)
             raster = Image.open(target).convert("RGB")
@@ -147,7 +153,7 @@ def main():
                 np.testing.assert_array_equal(
                     pixels[top : top + 180, left : left + 360], tile
                 )
-    (args.output / "early-completion-summary.json.gz").write_bytes(
+    (args.output / (args.prefix + "completion-summary.json.gz")).write_bytes(
         gzip.compress((json.dumps(summary, indent=2) + "\n").encode(), mtime=0)
     )
 

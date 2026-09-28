@@ -2482,3 +2482,31 @@ and producing finite training updates; total allocated use is 13.1331 GPU-hours.
 No full training/evaluation completion is claimed. Return to the ordinary hourly
 cadence, next check around 23:05 UTC, including settled RTX throughput and runtime
 margin. The unchanged strict constructors accepted both resumes and qualifications.
+
+### 23:05 UTC — third RTX recovery and later completion diagnostics
+
+Actual allocated use reached 18.2592 GPU-hours. The two RTX jobs ran uninterrupted
+through the hour, reaching scratch 2,135 observations and conditioned finish
+2,268 OM4 + 463 observations. The other mixed-finish arm had made only about 160
+net updates amid further preemptions and a gh114 placement, so it was migrated to
+regular RTX as job **18743657**. Preserved/stopped the old writer before restart;
+RECOVERY_3.json records its resume SHA and replaces its five evaluation jobs with
+18743658/659/660/671/675. Scheduler routing and all five afterok dependencies were
+verified. It remains PENDING at 23:18; no RTX restoration is claimed yet. The
+three other H200 jobs remain unchanged. Source, optimizer/RNG, counts, selection
+and deadline are unchanged for the replacement.
+
+Completed additional validation-only diagnostics 18743672/18743674 at matched
+250/500/1,000 observation updates. The compact transfer hash and audit signatures
+match; native-cell map geometry is verified. Extended the existing early report:
+masked scratch's block-hidden SST RMSE reaches 0.718°C versus climatology 0.821°C,
+while hidden polar caps and SSH still favor climatology. Naturally missing SST
+cells have cold overshoot (minimum −3.981°C in the November map); report this
+explicitly rather than treating the removal of warm speckles as physical truth.
+The plotting helper now accepts explicit checkpoint panels and audit prefixes;
+its default early outputs were verified byte-for-byte unchanged.
+
+The user requested Pushover notification on completion or genuine blockage.
+Read the pushover-notify skill and checked that local credentials are present
+without sending a notification or exposing credentials. Use that channel for
+those outcomes; no blocker currently requires user action.

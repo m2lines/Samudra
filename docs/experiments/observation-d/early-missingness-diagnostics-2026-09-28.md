@@ -70,6 +70,48 @@ Next checks are completion accuracy and map structure at later immutable
 checkpoints, followed by the already scheduled integrated-plus-spectral forecast
 comparison. Good-looking filled surfaces alone are insufficient.
 
+## Update: 250–1,000 observation steps
+
+The same audit at later immutable checkpoints shows further learned completion.
+These are matched observation counts, both with zero OM4 exposure. Model names,
+validation origins, hiding patterns, pooled errors and units are unchanged.
+
+| Model | Obs updates | Block SST RMSE | Block SSH RMSE | Hidden polar SST RMSE | Hidden polar SSH RMSE |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Legacy scratch | 250, 500 or 1,000 | 9.531 | 0.649 | 20.580 | 1.408 |
+| Masked scratch | 250 | 1.001 | 0.099 | 1.942 | 0.133 |
+| Masked scratch | 500 | 0.725 | 0.094 | 1.327 | 0.112 |
+| Masked scratch | 1,000 | 0.718 | 0.080 | 1.271 | 0.113 |
+| Monthly climatology | — | 0.821 | 0.076 | 0.545 | 0.039 |
+
+By 500 updates, block-hidden SST improves over climatology. SSH and the more
+severe entirely hidden polar caps still favor climatology. This is evidence
+against an inability to learn missingness/completion, but does not establish
+accurate extrapolation to naturally unobserved regions or improved forecasts.
+
+![Initial SST at 1,000 observation updates](artifacts/2026-09-28-missingness/mid-natural-sst.png)
+
+![Initial SSH at 1,000 observation updates](artifacts/2026-09-28-missingness/mid-natural-ssh.png)
+
+The warm SST speckles and constant-fill SSH boundaries disappear, but **cold
+overshoot remains**. In this November case, the 3,598 naturally missing wet SST
+cells range from −3.981°C to 30.914°C in masked scratch; 302 fall below the map's
+−2°C lower color limit. Their 1st percentile is −3.189°C. These cells have no
+observational target in this audit. The legacy filler is 20.113°C at every one of
+these cells. No output clipping or physical constraint was applied. Cleaner map
+structure therefore is not a complete physical-sanity result.
+
+![Polar SST completion at 1,000 updates](artifacts/2026-09-28-missingness/mid-polar_caps-sst.png)
+
+![Polar SSH completion at 1,000 updates](artifacts/2026-09-28-missingness/mid-polar_caps-ssh.png)
+
+Validation-only jobs 18743672/18743674 completed with matching audit signatures.
+Their transferred bundle matched SHA256
+`a4c5ce265b9803dc12475d6cea8394f4f9222ad3f61f68e5eacc792faf9e4766`.
+The adjacent `mid-completion-summary.json.gz` records pooled scores and input
+hashes. Training continues to the original update budgets; no new selection rule
+or scientific arm was introduced.
+
 ## Provenance
 
 Validation-only jobs 18731002, 18731003, and 18731004 completed successfully with

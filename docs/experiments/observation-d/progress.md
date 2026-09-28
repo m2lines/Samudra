@@ -2157,3 +2157,14 @@ Fresh dependent evaluations: selected annual **18688308**, raw-8k annual
 **18688312**, initializer diagnostics **18688313**. All wait for 18687867. The
 failed and cancelled submission records remain available and are charged in
 campaign accounting where allocation occurred.
+
+### 28 September 04:32 UTC — monitoring blocked by authentication again
+
+The hourly check ended with permission-denied messages and `Too many
+authentication failures`. Further SSH attempts are paused under the Torch access
+policy, and Jesse was alerted through the authorized Slack DM. This is an access
+failure, not evidence that the running recovery or dependent evaluations failed.
+Last verified at 03:29 UTC: recovery 18687867 was producing finite updates at
+15,531 and its six replacement evaluations depended on completion. No job was
+mutated in response to the access failure. Current completion and additional GPU
+allocation are unverified. The original report deadline remains unchanged.

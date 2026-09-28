@@ -2115,3 +2115,25 @@ must be submitted with new names after full completion or with a dependency on
 the recovery job. Training was not cancelled. The cluster-side
 SCRATCH_EVALUATION_HOLD.json preserves original dependencies and the failed hold
 attempt; its filename does not imply that a hold succeeded.
+
+### 28 September 03:06 UTC — scratch runtime recovery submitted
+
+Original scratch job 18583546 terminated successfully at the operational cap,
+with a genuine TRAIN_PARTIAL marker at 15,504 observation updates; it did not
+complete the scientific budget. Fresh accounting was 82.4706 allocated GPU-hours.
+Submitted runtime recovery **18687482** (currently queued for priority), keeping
+the original dd3a05b07554 training overlay and both qualification contracts.
+Launcher 474922e44 is separately pinned by SHA-256; the cumulative internal cap
+is now 30 hours, with the original absolute deadline and 16k target unchanged.
+Its Slurm allocation cap is four hours. The launcher archives the old resume
+checkpoint and partial marker before strict restoration; successful completion
+still must be produced by the unmodified training loop.
+
+Replaced the six cancelled, never-started evaluations with afterok dependencies
+on 18687482: selected annual 18687491; raw-8k annual 18687492; raw-8k monthly
+18687493; mechanisms 18687494; selected monthly 18687495; initializer diagnostics
+18687496. Module arguments and evaluator producers are unchanged. Their original
+accounting records show zero allocated seconds. Cluster records
+SCRATCH_RUNTIME_RECOVERY_SUBMITTED.json and SCRATCH_EVALUATION_REPLACEMENTS.json
+preserve the chain. No queued phase is yet claimed running or scientifically
+complete. Remaining requested recovery/evaluation caps fit within 120 GPU-hours.

@@ -88,10 +88,13 @@ First qualify CPU masking/schedule/checkpoint contracts and GPU fitting/resume,
 then execute production. Qualification is not scientific success. Production and
 evaluation must record immutable source/checkpoint/data hashes and real completion
 markers; preserve failures. Prefer RTX capacity, use H200 if scheduling requires it.
-Operational planning ceiling: 120 allocated GPU-hours including qualification, diagnostics,
-production, evaluation and retries. Reserve 8 hours for recovery; qualify throughput
-before fixing per-job time limits. No assumption that parameter reduction produces
-an equal speedup. Stop at the ceiling and report partial results honestly.
+Operational planning estimate: 120 allocated GPU-hours including qualification,
+diagnostics, production, evaluation and retries. This is not a user-imposed cap:
+the user authorized feasible GPU spend and update counts within the three-day
+wall-time budget. The controlling deadline is 1 October 2026 at 18:00 UTC.
+Qualify throughput and record actual allocated use, including retries; no
+assumption that parameter reduction produces an equal speedup. At the deadline,
+report any partial results honestly.
 
 Keep the existing hourly interruptible monitoring style; do not restart the old
 timer. Notify Jesse on Slack for genuine blockers under the existing authorization.

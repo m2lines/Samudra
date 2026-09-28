@@ -2418,3 +2418,27 @@ other co-located mixed arms are also around 5.3 seconds; do not yet extrapolate
 this startup snapshot to full-run timing. Actual allocated GPU use is 4.6361 hours.
 Next bring-up check should confirm masked mixed-finish restoration and settled
 throughput; resume hourly monitoring when stable.
+
+### 20:49 UTC — repeated preemption; regular RTX fallback qualification
+
+All six arms have now emitted fresh post-restart training events. The sequential
+replacement and both conditioned arms were explicitly PREEMPTED again after
+31–33 minutes and returned to the queue. The other three remained running at the
+check. Accounting totals 6.5439 allocated GPU-hours. No completion is claimed.
+
+Test-only scheduling rejects direct regular `h200` requests; enabling normal plus
+preemption routing is accepted on `h200_public`, with a 30 September 01:12 ET
+estimate. Regular `rtx6000_lzanna` is accepted and estimates 29 September 01:12 ET.
+These are scheduler estimates, not reservations. Queued **18733298**, a one-hour
+RTX throughput/memory check using exactly the existing qualified training
+producer, conditioned architecture, seed and 60 OM4 + 60 observation updates.
+Its account, partition, constraint and requeue flag were verified. This is an
+operational hardware qualification, not another scientific arm. Production stays
+on its current jobs while the fallback is assessed; no duplicate production writer
+was launched and no pending job is described as running.
+
+The wave plan now explicitly treats 120 GPU-hours as a planning estimate rather
+than a hard user cap, matching the user's clarification. The original scientific
+counts and 1 October 18:00 UTC wall deadline remain unchanged. Next ordinary check
+is around 21:49 UTC, including RTX qualification state, production restoration,
+settled throughput, accumulated allocation and all completion/error markers.

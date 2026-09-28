@@ -2137,3 +2137,23 @@ accounting records show zero allocated seconds. Cluster records
 SCRATCH_RUNTIME_RECOVERY_SUBMITTED.json and SCRATCH_EVALUATION_REPLACEMENTS.json
 preserve the chain. No queued phase is yet claimed running or scientifically
 complete. Remaining requested recovery/evaluation caps fit within 120 GPU-hours.
+
+### 28 September 03:29 UTC — recovery restored and producing updates
+
+First recovery submission 18687482 failed before model execution because torchrun
+parsed the launcher's `--run` as its own abbreviated option (13 allocated GPU
+seconds). Its six afterok evaluations were cancelled by invalid dependency without
+running. Added the conventional `--` argument separator; verified the corrected
+entry point locally through torchrun. No launcher/training source change was needed.
+
+Replacement recovery **18687867** is running on gh130 and emitted finite updates
+15,529–15,531. It resumed the existing W&B run. The live manifest SHA remains
+identical to the original; RUNTIME_RECOVERY.json records the 27→30-hour operational
+override, original partial step 15,504, and archived resume hash. Both qualifications
+were accepted by the unchanged strict original constructor.
+
+Fresh dependent evaluations: selected annual **18688308**, raw-8k annual
+**18688309**, raw-8k monthly **18688310**, mechanisms **18688311**, selected monthly
+**18688312**, initializer diagnostics **18688313**. All wait for 18687867. The
+failed and cancelled submission records remain available and are charged in
+campaign accounting where allocation occurred.

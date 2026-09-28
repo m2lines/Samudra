@@ -2472,3 +2472,13 @@ the appropriate replacement. Evaluators retain their original producer and H200
 routing. Masked scratch is RUNNING on gr106 but restoration is not yet confirmed;
 conditioned mixed-finish is PENDING. The four other production jobs were left
 untouched. No duplicate production writer was launched.
+
+At 22:05 UTC both RTX replacements have restored successfully: masked scratch
+emitted steps 901 through 1,085, and conditioned mixed-finish 1,101 through 1,132.
+Masked scratch's recent median update time is now 3.36 seconds, versus 7–8 on its
+previous H200 placement. Conditioned mixed-finish is around 5.06 seconds during
+initial warmup, versus the prior 58–76-second stalls. All six jobs are RUNNING
+and producing finite training updates; total allocated use is 13.1331 GPU-hours.
+No full training/evaluation completion is claimed. Return to the ordinary hourly
+cadence, next check around 23:05 UTC, including settled RTX throughput and runtime
+margin. The unchanged strict constructors accepted both resumes and qualifications.

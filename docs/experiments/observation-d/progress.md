@@ -2442,3 +2442,33 @@ than a hard user cap, matching the user's clarification. The original scientific
 counts and 1 October 18:00 UTC wall deadline remain unchanged. Next ordinary check
 is around 21:49 UTC, including RTX qualification state, production restoration,
 settled throughput, accumulated allocation and all completion/error markers.
+
+### 21:49–21:55 UTC — RTX qualified; two slow arms migrated
+
+RTX qualification 18733298 finished successfully on gr106 in 15m16s with the
+original producer, 60 OM4 + 60 observation updates and a real TRAIN_COMPLETE
+marker. The device is NVIDIA RTX PRO 6000 Blackwell Server Edition. Last-20 mean
+update times are 2.008 seconds OM4 and 3.438 seconds observation; the full model,
+optimizer and data caches fit. No configuration or scientific protocol changed.
+
+At the hourly check, actual allocated use was 11.6703 GPU-hours. All six arms had
+made progress, but repeated preemptions continued. Conditioned mixed-finish had
+landed on gh114 and again needed roughly 58–76 seconds per OM4 update; masked
+scratch was around 7–8 seconds per observation update. The other arms' successful
+placements were faster. Move only these two slow arms to regular RTX capacity.
+
+Canceled their original jobs and eleven still-pending dependent evaluations,
+verified that both old writers had stopped, and archived the exact resume/model,
+manifest, selection metadata, events and Slurm logs before submission. Replacement
+**18735489** (masked scratch) and **18735533** (conditioned mixed-finish) retain
+all original module arguments, qualified producer, optimizer/RNG state, counts,
+seed, deadline and output paths. The original strict resume contract remains in
+force; changing GPU family is not a claim of bitwise-identical arithmetic.
+
+RECOVERY_2.json records resume SHA256s and the full old/new job mapping. Current
+PRODUCTION_DAG.json and EVALUATION_DAG.json are updated, with pre-migration copies
+preserved. All eleven new evaluator afterok dependencies were verified against
+the appropriate replacement. Evaluators retain their original producer and H200
+routing. Masked scratch is RUNNING on gr106 but restoration is not yet confirmed;
+conditioned mixed-finish is PENDING. The four other production jobs were left
+untouched. No duplicate production writer was launched.

@@ -165,6 +165,7 @@ class LatentOceanForecast(nn.Module):
                     joint_weights,
                     generator,
                     known_mask=fixed,
+                    checkpoint_denoiser=self.training,
                 )
             else:
                 predicted = self.readout(

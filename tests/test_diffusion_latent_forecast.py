@@ -142,3 +142,39 @@ def test_forecast_keeps_decoding_noise_and_future_observations_out_of_recurrence
     if stochastic:
         assert not torch.equal(forecast, other)
     hook.remove()
+
+
+def test_checkpointed_denoising_preserves_explicit_rng_and_gradients():
+    """Recomputing the decoder must not draw a second corruption from its generator."""
+    from copy import deepcopy
+
+    from samudra.experiments.joint_diffusion import JointInteriorDecoder, denoising_loss
+
+    torch.set_num_threads(1)
+    torch.manual_seed(42)
+    ordinary = JointInteriorDecoder(4, 4, width=8)
+    recomputed = deepcopy(ordinary)
+    target = torch.randn(1, 4, 8, 12)
+    features = torch.randn_like(target)
+    mask = torch.ones(4, 8, 12)
+    outcomes = []
+    for model, enabled in ((ordinary, False), (recomputed, True)):
+        latent = features.clone().requires_grad_()
+        generator = torch.Generator().manual_seed(123)
+        loss = denoising_loss(
+            model,
+            latent,
+            target,
+            mask,
+            mask,
+            generator,
+            checkpoint_denoiser=enabled,
+        )
+        loss.backward()
+        outcomes.append((loss.detach(), latent.grad, generator.get_state()))
+    for expected, actual in zip(outcomes[0], outcomes[1], strict=True):
+        torch.testing.assert_close(expected, actual, rtol=0, atol=0)
+    for expected, actual in zip(
+        ordinary.parameters(), recomputed.parameters(), strict=True
+    ):
+        torch.testing.assert_close(expected.grad, actual.grad, rtol=0, atol=0)

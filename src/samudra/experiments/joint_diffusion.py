@@ -91,7 +91,15 @@ def channel_balanced_mse(prediction, target, weights):
 
 
 def denoising_loss(
-    decoder, latent, target, mask, weights, generator, *, known_mask=None
+    decoder,
+    latent,
+    target,
+    mask,
+    weights,
+    generator,
+    *,
+    known_mask=None,
+    checkpoint_denoiser=False,
 ):
     sigma = (
         torch.randn(target.shape[0], device=target.device, generator=generator) * 1.2
@@ -104,7 +112,16 @@ def denoising_loss(
             raise ValueError("Known mask must match the shared mask or batched target")
         noisy = torch.where(known_mask.bool(), target, noisy)
         weights = weights * ~known_mask.bool()
-    prediction = decoder(noisy, sigma, latent, mask)
+    # Draw noise outside recomputation: explicit generators are not restored by
+    # activation checkpointing, unlike PyTorch's default RNG state.
+    if checkpoint_denoiser and torch.is_grad_enabled():
+        from torch.utils.checkpoint import checkpoint
+
+        prediction = checkpoint(
+            decoder, noisy, sigma, latent, mask, use_reentrant=False
+        )
+    else:
+        prediction = decoder(noisy, sigma, latent, mask)
     return (
         channel_balanced_mse(prediction, target, weights)
         * (1 + sigma.square())

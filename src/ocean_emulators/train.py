@@ -3861,6 +3861,7 @@ class Trainer:
         )
         metric_logger = MetricLogger(delimiter="  ")
         header = f"One-Step Validation Epoch: [{epoch}]"
+        tile_datasets = self._val_datasets_needing_own_mask()
 
         with torch.no_grad(), self._test_context():
             for data_iter_step, data in enumerate(
@@ -3870,21 +3871,82 @@ class Trainer:
                     break
 
                 data = self._scatter_domain_batch(data, expected_steps=1)
-
-                VO: ValBatchOutput = Stepper.validate_batch(
-                    self.model, data, self.loss_fn
+                record_diagnostics = (
+                    self.debug
+                    or not self.surface_snapshot
+                    or data_iter_step == len(self.val_loader) - 1
                 )
+
+                tile_wet = self._val_batch_tile_wet(data, tile_datasets)
+                VO: ValBatchOutput = Stepper.validate_batch(
+                    self.model,
+                    data,
+                    self.loss_fn,
+                    sample_weight=(
+                        None
+                        if tile_wet is None
+                        else tile_wet.expand(data.get_input(0).shape[0], -1, -1, -1)
+                    ),
+                )
+                if tile_wet is not None and record_diagnostics:
+                    VO = self._blank_tile_land(VO, tile_wet)
                 VO = self._materialize_val_output(VO)
                 val_aggregator.record_validation_batch(
-                    VO,
-                    record_diagnostics=(
-                        self.debug or data_iter_step == len(self.val_loader) - 1
-                    ),
+                    VO, record_diagnostics=record_diagnostics
                 )
                 metric_logger.update(loss=VO.loss)
 
         logger.info(f"Aggregating validation logs")
         return val_aggregator.get_logs(label="val")
+
+    def _val_datasets_needing_own_mask(self) -> dict[str, TorchTrainDataset]:
+        """Validation datasets by id, when their tiles do not share a land mask.
+
+        With per-tile masks the model masks its output with their UNION, which
+        on a face is essentially "all ocean". Training weights each sample by its
+        own tile's mask; one-step validation has to as well, or a coastal tile's
+        land is scored -- and drawn -- as ocean full of values nothing trained.
+        Empty when there is one mask, so single-tile runs are untouched.
+        """
+        if getattr(self, "tile_wet_masks", None) is None or self.dp_ctx is not None:
+            return {}
+        return {dataset.id: dataset for dataset in self.val_datasets}
+
+    def _val_batch_tile_wet(
+        self, data: TrainData, tile_datasets: dict[str, TorchTrainDataset]
+    ) -> torch.Tensor | None:
+        """``[1, C, H, W]`` bool wet mask of the tile this batch came from."""
+        if not tile_datasets:
+            return None
+        dataset = tile_datasets.get(getattr(data, "dataset_id", None))
+        if dataset is None:
+            raise RuntimeError(
+                "A validation batch does not name one of the validation datasets "
+                f"(dataset_id={getattr(data, 'dataset_id', None)!r}); its tile's "
+                "land mask cannot be applied."
+            )
+        wet = torch.cat([dataset.wet] * (self.hist + 1), dim=0)
+        return wet.to(device=self.device, dtype=torch.bool).unsqueeze(0)
+
+    def _blank_tile_land(
+        self, output: ValBatchOutput, tile_wet: torch.Tensor
+    ) -> ValBatchOutput:
+        """Set the batch tile's own land to NaN in what the diagnostics draw.
+
+        The aggregators already treat NaN as land (and mask with the union);
+        this narrows it to the tile actually shown. The loss is untouched.
+        """
+        input_data = output.input_data.clone()
+        input_data[:, : self.num_out] = torch.where(
+            tile_wet, input_data[:, : self.num_out], torch.nan
+        )
+        return ValBatchOutput(
+            output.loss,
+            output.loss_per_channel,
+            input_data,
+            torch.where(tile_wet, output.target_data, torch.nan),
+            torch.where(tile_wet, output.gen_data, torch.nan),
+        )
 
     def combined_validation_loss(
         self, one_step_loss: float, autoregressive_val_stats: MetricsDict

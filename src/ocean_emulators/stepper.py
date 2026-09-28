@@ -103,7 +103,15 @@ class Stepper:
         model: BaseModel | torch.nn.parallel.DistributedDataParallel,
         batch: TrainData,
         loss_fn: Callable,
+        sample_weight: torch.Tensor | None = None,
     ) -> ValBatchOutput:
+        """One-step validation of one batch.
+
+        ``sample_weight`` is each sample's own ``[B, C, H, W]`` wet mask, for
+        batches drawn from tiles that do not share a land mask. Without it the
+        loss masks with the model's union mask, which scores a coastal tile's
+        land as ocean.
+        """
         assert len(batch) == 1  # Assert we are using one step of input and output
         input = batch.get_input(0)
         label = batch.get_label(0)
@@ -115,7 +123,11 @@ class Stepper:
             else model
         )
         outs = model.predict_step(input)
-        loss_per_channel = loss_fn(outs, label)
+        loss_per_channel = (
+            loss_fn(outs, label)
+            if sample_weight is None
+            else loss_fn(outs, label, sample_weight=sample_weight)
+        )
         loss = torch.mean(loss_per_channel)
         return ValBatchOutput(loss, loss_per_channel, input, label, outs)
 

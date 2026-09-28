@@ -447,3 +447,54 @@ def test_face_rollout_matches_the_established_grouped_rollout(
 
     face, grouped = captured["curves"]
     assert torch.allclose(face, grouped, rtol=1e-4, atol=1e-6), (face, grouped)
+
+
+def test_ungrouped_validation_scores_each_tile_by_its_own_land(face_root) -> None:
+    """Single-tile runs over a face draw validation samples from 36 tiles with
+    different land. The model masks its output with their UNION -- nearly all
+    ocean -- so scoring with it counts a coastal tile's land as ocean, and the
+    snapshots draw that land as fields nothing was trained to predict. Each
+    sample must be scored and drawn with its own tile's mask, as training
+    already weights it.
+    """
+    from ocean_emulators.stepper import Stepper
+
+    with MultitonScope():
+        trainer = Trainer(
+            _face_config(
+                face_root,
+                **{
+                    "--face_parallel.enabled": "false",
+                    "--replay.grouped": "false",
+                    "--one_step_val_num": "0",
+                },
+            )
+        )
+        trainer.run()
+        tile_datasets = trainer._val_datasets_needing_own_mask()
+        assert len(tile_datasets) == 36
+
+        model = getattr(trainer.model, "module", trainer.model)
+        model.eval()
+        with torch.no_grad():
+            for data in trainer.val_loader:
+                wet = trainer._val_batch_tile_wet(data, tile_datasets)
+                own = tile_datasets[data.dataset_id].wet.bool()
+                assert torch.equal(wet[0].cpu(), own.cpu())
+                if bool(wet.all()):
+                    continue
+                weight = wet.expand(data.get_input(0).shape[0], -1, -1, -1)
+                scored = Stepper.validate_batch(
+                    model, data, trainer.loss_fn, sample_weight=weight
+                )
+                union = Stepper.validate_batch(model, data, trainer.loss_fn)
+                assert not torch.allclose(scored.loss, union.loss)
+
+                blanked = trainer._blank_tile_land(scored, wet)
+                land = ~wet.expand_as(blanked.gen_data)
+                assert torch.isnan(blanked.gen_data[land]).all()
+                assert torch.isnan(blanked.target_data[land]).all()
+                assert not torch.isnan(blanked.gen_data[~land]).any()
+                assert torch.equal(blanked.loss, scored.loss)
+                return
+    raise AssertionError("no validation sample came from a tile with land")

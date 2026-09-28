@@ -547,6 +547,9 @@ class TrainData:
         self.example_by_step: list[Example] = []
         self.load_stats: LoadStats | None = None
         self.source_indices: list[int] = []
+        # The TorchTrainDataset that prepared this batch, so a consumer can
+        # apply that dataset's own land mask (tiles do not share one).
+        self.dataset_id: "TorchTrainDataset.Id | None" = None
 
     def append(self, input_: Input, label: Prognostic):
         """Add another Example as a new step."""
@@ -589,6 +592,7 @@ class TrainData:
             sliced.append(input_[start:stop], label[start:stop])
         sliced.source_indices = self.source_indices[start:stop]
         sliced.load_stats = self.load_stats
+        sliced.dataset_id = self.dataset_id
         return sliced
 
     def values(self):
@@ -1039,6 +1043,7 @@ class TorchTrainDataset(Dataset[RawTrainData]):
             train_data.append(input, label)
         train_data.load_stats = raw_train_data.load_stats
         train_data.source_indices = list(raw_train_data.source_indices)
+        train_data.dataset_id = self.id
         return train_data
 
     def get_replay_transition(

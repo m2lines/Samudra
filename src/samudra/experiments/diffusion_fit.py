@@ -36,16 +36,20 @@ def bounded_fit(
     checkpoint_every=100,
     validate_every=500,
     max_new_updates=None,
+    max_new_seconds=None,
     emit=lambda event: None,
 ):
     """Resume exact optimizer/model/RNG state; objectives derive data order from step.
 
-    `max_new_updates` interrupts an invocation without declaring the stage complete.
+    `max_new_updates` and `max_new_seconds` interrupt an invocation without
+    declaring the stage complete.
     Limits count the full resumed stage, not a fresh allowance on each restart.
     The caller owns allocation accounting, including cache preparation and failures.
     """
     if min(max_updates, max_seconds, checkpoint_every, validate_every) <= 0:
         raise ValueError("Positive fitting limits required")
+    if max_new_seconds is not None and max_new_seconds <= 0:
+        raise ValueError("Positive invocation time required")
     output = Path(output)
     output.mkdir(parents=True, exist_ok=True)
     device = next(model.parameters()).device
@@ -115,6 +119,11 @@ def bounded_fit(
         if (
             max_new_updates is not None
             and state["step"] - initial_step >= max_new_updates
+        ):
+            break
+        if (
+            max_new_seconds is not None
+            and time.monotonic() - started >= max_new_seconds
         ):
             break
         optimizer.zero_grad(set_to_none=True)

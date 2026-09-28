@@ -234,10 +234,21 @@ class Experiment:
                     "cache_gib": needed / 2**30,
                 }
             )
-            for ids, batch in zip(
-                schedule, self.native_loader(warm, schedule), strict=True
+            cache_started = time.monotonic()
+            for count, (ids, batch) in enumerate(
+                zip(schedule, self.native_loader(warm, schedule), strict=True), 1
             ):
                 cache.record(warm.shard.window_plan(ids), batch)
+                if count % 20 == 0:
+                    self.emit(
+                        dict(
+                            event="cache_warm_progress",
+                            windows=count,
+                            prepared_frames=int(cache.prognostic_ready.sum()),
+                            total_frames=frames,
+                            elapsed_seconds=time.monotonic() - cache_started,
+                        )
+                    )
             # These are the only boundary frames that any window can request.
             if not cache.prognostic_ready.all() or not cache.boundary_ready[:-1].all():
                 raise ValueError("Incomplete resident cache coverage")

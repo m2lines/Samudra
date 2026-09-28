@@ -61,3 +61,38 @@ def test_paired_schedule_covers_each_full_batch_once_per_epoch():
     second = [i for step in range(3, 6) for i in batch_at(step, 6, 2, 7)]
     assert sorted(first) == sorted(second) == list(range(6))
     assert first != second
+
+
+def test_invocation_time_pause_preserves_global_stage_budget(tmp_path, monkeypatch):
+    clock = [0.0]
+    monkeypatch.setattr(
+        "samudra.experiments.diffusion_fit.time.monotonic", lambda: clock[0]
+    )
+    model = nn.Linear(1, 1)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=0.01)
+
+    def objective(step):
+        clock[0] += 3
+        return model(torch.ones(1, 1)).square().mean()
+
+    def run(limit):
+        return bounded_fit(
+            model,
+            optimizer,
+            objective,
+            lambda step: model(torch.ones(1, 1)).square().mean(),
+            tmp_path,
+            "same-stage",
+            max_updates=4,
+            max_seconds=100,
+            max_new_seconds=limit,
+            checkpoint_every=1,
+            validate_every=4,
+        )
+
+    first = run(2)
+    assert first["step"] == 1 and not first["complete"]
+    assert first["elapsed"] == 3
+    resumed = run(None)
+    assert resumed["step"] == 4 and resumed["complete"]
+    assert resumed["elapsed"] == 12

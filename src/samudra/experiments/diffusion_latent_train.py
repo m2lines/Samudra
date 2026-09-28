@@ -66,6 +66,7 @@ def main():
     parser.add_argument("--seed", type=int, default=1729)
     parser.add_argument("--updates", type=int, default=24000)
     parser.add_argument("--hours", type=float, default=24)
+    parser.add_argument("--invocation-hours", type=float)
     parser.add_argument("--decoder-width", type=int, default=192)
     parser.add_argument("--latent-width", type=int, default=128)
     parser.add_argument("--processor-depth", type=int, default=4)
@@ -139,11 +140,32 @@ def main():
         phase=args.phase,
         seed=args.seed,
         pretrained_sha256=digest(args.pretrained) if args.pretrained else None,
+        max_updates=args.updates,
+        max_seconds=args.hours * 3600,
     )
     protocol_path = args.output / "protocol.json"
     if protocol_path.exists() and json.loads(protocol_path.read_text()) != signature:
         raise ValueError("Existing run protocol differs")
     atomic_json(signature, protocol_path)
+    if args.phase != "qualify":
+        marker = (
+            "PRETRAIN_COMPLETE.json"
+            if args.phase == "om4"
+            else "OBSERVATION_COMPLETE.json"
+        )
+        finished_path = args.output / marker
+        if finished_path.exists():
+            finished = json.loads(finished_path.read_text())
+            if finished["state"]["complete"]:
+                if finished["best_checkpoint_sha256"] != digest(
+                    args.output / "best.pt"
+                ):
+                    raise ValueError("Completed selected checkpoint changed")
+                print(
+                    json.dumps(dict(event="stage_already_complete", phase=args.phase)),
+                    flush=True,
+                )
+                return
     loader_args = SimpleNamespace(
         arm="D",
         phase="reconstruction",
@@ -368,6 +390,9 @@ def main():
             signature,
             max_updates=args.updates,
             max_seconds=args.hours * 3600,
+            max_new_seconds=args.invocation_hours * 3600
+            if args.invocation_hours
+            else None,
             checkpoint_every=args.checkpoint_every,
             validate_every=args.validate_every,
             emit=wave.emit,

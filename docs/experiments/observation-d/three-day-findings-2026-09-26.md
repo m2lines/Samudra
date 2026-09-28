@@ -252,6 +252,33 @@ controls and raw-checkpoint lineages. To investigate the long-range failure, the
 same seven already-defined state/forcing interventions have completed for these
 three fixed selected models. They do not alter training or select new weights.
 
+### Components and persistence in the same monthly metric
+
+“Inferred persistence” holds each selected model's last initialized full state
+fixed throughout the forecast. Its surface starts from the observed surface,
+while interior temperature is model-inferred; therefore surface errors match
+across arms but OHC and composite scores differ. “Seasonal climatology” uses the
+training-only monthly means. These controls use the same 96 origins, support,
+spectral bins and fixed validation normalization as the forecast scores.
+SST, velocity and EKE errors below average the day-5/15/30 evaluations; OHC uses
+the calendar-month objective. Lower is better.
+
+| Model | Method | Composite | SST RMSE (°C) | Velocity RMSE (m/s) | EKE RMSE (m²/s²) | OHC 0–700 m RMSE (GJ/m²) | OHC 700–2000 m RMSE (GJ/m²) |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Samudra2 scratch | Forecast | 0.5969 | 0.5139 | 0.1124 | 0.02445 | 0.6761 | 0.3923 |
+| Samudra2 scratch | Inferred persistence | 0.6194 | 0.7912 | 0.1290 | 0.02388 | 0.7320 | 0.4661 |
+| Samudra2 sequential | Forecast | 0.5677 | 0.4695 | 0.1071 | 0.02352 | 0.6965 | 0.3881 |
+| Samudra2 sequential | Inferred persistence | 0.6124 | 0.7912 | 0.1290 | 0.02388 | 0.7297 | 0.4418 |
+| Samudra2 mixed | Forecast | 0.5914 | 0.5236 | 0.1089 | 0.02399 | 0.6909 | 0.4074 |
+| Samudra2 mixed | Inferred persistence | 0.6119 | 0.7912 | 0.1290 | 0.02388 | 0.7360 | 0.4370 |
+| Seasonal climatology | Training monthly means | 1.3804 | 0.9039 | 0.1537 | 0.03081 | 0.8382 | 0.3729 |
+
+The sequential forecast beats its persistence control by 7.3% on the composite,
+with much larger SST improvement. It does not dominate every component: scratch
+has lower upper-ocean OHC error, and climatology has lower deep OHC error than any
+forecast. The aggregate score combines these tradeoffs with spatial spectra;
+it is not a standalone SST loss.
+
 ### Scratch plateau and equal observation exposure
 
 The scratch selection score improved from 0.56135 (best through 4k, at update

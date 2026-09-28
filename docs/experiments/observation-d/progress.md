@@ -2098,3 +2098,20 @@ No recovery job has been submitted. Before launch, verify the original job is
 terminal with a real time-limit partial marker, refresh total GPU accounting,
 and rewire dependent evaluations to wait for actual recovered completion.
 The completion marker must still come from finishing the original 16k loop.
+
+### 28 September 00:05 UTC — protect evaluation dependencies at the runtime cap
+
+Scratch reached 14,180 updates (24.72 cumulative internal hours), still selecting
+update 7,900. The runtime-only launcher is committed as 474922e44 and uploaded
+under a content-hash directory; its module entry point was checked in the original
+dd3a05b07554 overlay. No runtime recovery has been launched.
+
+Slurm rejected holds on all six unstarted scratch evaluations with `Unspecified
+error`; subsequent queue inspection confirmed they remained pending on the
+original training job. Cancelled those six pending jobs instead: 18583774,
+18583776, 18584202, 18584203, 18584204 and 18668686. Verified that all disappeared
+from the queue. Their submission records remain intact. Replacement evaluations
+must be submitted with new names after full completion or with a dependency on
+the recovery job. Training was not cancelled. The cluster-side
+SCRATCH_EVALUATION_HOLD.json preserves original dependencies and the failed hold
+attempt; its filename does not imply that a hold succeeded.

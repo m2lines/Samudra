@@ -2618,3 +2618,31 @@ There is spatial variation rather than a constant warm fill, but cold extremes
 remain and no missing-region observational accuracy is inferred. Full comparison
 awaits the remaining arms. A reporting summarizer has been exercised on this
 completed arm; cross-arm and scratch-8k branches await their completed outputs.
+
+### 11:42 UTC — sequential evaluation verified; three training arms complete
+
+Sequential and conditioned mixed training have now finished their exact 8k/8k
+budgets. Sequential's five evaluations are verified; two conditioned mixed monthly
+evaluations were still pending completion at collection time. Mixed-finish was
+at 15,976 total updates, masked scratch at 15,340, and legacy scratch at 12,760.
+Accumulated allocation is 88.1664 GPU-hours, with no TRAIN_PARTIAL markers.
+A reporting-only submission used `job_id` rather than the accounting collector's
+expected `job`; added the equivalent `job` field, restoring monitoring without
+changing jobs or losing allocations.
+
+Verified metrics bundle `report-metrics-1142.json.gz` has SHA
+7aaad30c8dfe5cf4570783ea944094e82e45edf48d827fc6930d501b9b0ce09f, matching local read-back.
+Sequential held-out selected composite is 0.572607 (raw endpoint 0.571255), versus
+0.590619 for conditioned mixed-finish. Its three-case day-365 SST RMSE is 1.088920°C
+versus 0.810858°C for conditioned mixed-finish. Monthly and annual rankings differ;
+these two arms also differ in both task ordering and conditioning, so this is not
+an isolated conditioning effect. Completion block SST RMSE is 0.559°C sequential /
+0.594°C conditioned mixed-finish versus 0.821°C climatology; hidden polar-cap SST
+is 0.540 / 0.516°C versus 0.545°C climatology. These scores use genuinely observed
+artificially hidden labels, not naturally missing cells.
+
+CPU export 18791598 completed, producing lossless sequential and conditioned mixed
+arrays. Report renderers were exercised on the available data, including exact
+native-cell map checks, full-grid initialized/30-day/annual fields, temperature,
+salinity and velocity profiles, and regional spectra. Final six-model figures
+and conclusions await the outstanding runs/evaluations.

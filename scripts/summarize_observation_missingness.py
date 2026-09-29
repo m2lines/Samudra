@@ -8,6 +8,7 @@ import gzip
 import hashlib
 import json
 from pathlib import Path
+from typing import Any
 
 import matplotlib
 import numpy as np
@@ -25,6 +26,43 @@ NAMES = {
     "conditioned-mixed-finish": "Small conditioned mixed-finish",
     "conditioned-mixed": "Small conditioned mixed",
 }
+
+
+def completion_summary(records):
+    result: dict[str, Any] = {}
+    for pattern in ("natural", "blocks", "polar_caps"):
+        selected = [r for r in records if r["pattern"] == pattern]
+        result[pattern] = {}
+        for method in ("model", "climatology", "normalized_zero"):
+            result[pattern][method] = {}
+            for key in selected[0][method]:
+                values = [r[method][key] for r in selected]
+                weight = sum(v["area_weight"] for v in values)
+                result[pattern][method][key] = {
+                    "count": sum(v["count"] for v in values),
+                    "area_weight": weight,
+                    "rmse": float(
+                        np.sqrt(
+                            sum(
+                                v["area_weight"] * v["rmse"] ** 2
+                                for v in values
+                                if v["rmse"] is not None
+                            )
+                            / weight
+                        )
+                    )
+                    if weight
+                    else None,
+                    "bias": sum(
+                        v["area_weight"] * v["bias"]
+                        for v in values
+                        if v["bias"] is not None
+                    )
+                    / weight
+                    if weight
+                    else None,
+                }
+    return result
 
 
 def main():
@@ -79,6 +117,9 @@ def main():
                 "composite": score,
                 "metrics": metrics["metrics"],
                 "source": path,
+                "spectral_error_dex": float(
+                    np.mean([metrics["spectra"][k]["error_dex"] for k in keys])
+                ),
             }
         annual = {}
         for origin in ("2015-01-01", "2018-01-01", "2021-01-01"):
@@ -110,6 +151,17 @@ def main():
             "name": label,
             "selected": best,
             "held_out": rows,
+            "completion": completion_summary(
+                files[arm + "-completion/best.json"]["records"]
+            ),
+            "state_interventions": files[arm + "-state-diagnostics/best.json"][
+                "interventions"
+            ],
+            "selected_om4_retention": next(
+                v["om4_retention"]
+                for v in validations
+                if v["global_step"] == best["global_step"]
+            ),
             "day365_by_origin": annual,
             "day365_mean": {
                 k: float(np.mean([v[k] for v in annual.values()]))

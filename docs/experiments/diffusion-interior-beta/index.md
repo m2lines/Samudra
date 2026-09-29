@@ -6,8 +6,9 @@
 Authorized 25 September 2026; total ceiling **576 allocated GPU-hours**, including
 qualification, evaluation, unsuccessful attempts and repeats. The A/B,
 physical-state scratch, artifact-diagnostic and persistent-latent waves are complete.
-Cumulative allocated compute is **121.5853 GPU-hours**; no jobs remain active.
-Further waves require a new decision.
+Allocated compute through the completed report is **121.5853 GPU-hours**.
+[An authorized two-day continuation of both latent seeds is now running](latent-extension.md);
+its new allocations will be added to that total.
 
 This campaign depends on the final model/checkpoint decision from thread
 `01a0d027-0851-7213-a64e-f1d40d40e64d`, tracked in [PR #892](https://github.com/m2lines/Samudra/pull/892).
@@ -28,6 +29,8 @@ calibration, before/after native controls, annual forecasts and provenance.
 The [previous physical-state diffusion results](scratch-wave.md) remain available:
 23–24% interior CRPS improvement, with worse point scores and velocity retention.
 ## Contents
+
+- [Active two-day latent continuation](latent-extension.md)
 
 - [Completed latent-state results](latent-wave.md)
 - [Completed physical-state from-scratch results](scratch-wave.md)

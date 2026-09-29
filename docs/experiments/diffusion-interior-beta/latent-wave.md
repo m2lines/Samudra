@@ -3,6 +3,9 @@
 
 # Persistent latent state with diffusion readouts
 
+**September 29 follow-up:** [An authorized two-day continuation is running](latent-extension.md).
+The results below remain the completed short-budget comparison.
+
 This two-seed wave learns the initializer, recurrent latent dynamics and physical
 diffusion decoder jointly from scratch on OM4, then adapts them to observations.
 The latent representation substantially reduces the previously observed diagonal
@@ -14,7 +17,7 @@ observation fitting despite replay, and annual forecasts drift substantially.
 The observation stage reached its 20-hour fitting cap at approximately 2,000
 updates per seed, rather than its 6,000-update ceiling. This is a completed
 budget-limited experiment, not a convergence result or a demonstrated ceiling on
-latent modeling. No further wave has been launched.
+latent modeling. A subsequent same-objective continuation is tracked separately above.
 
 ## Model and comparison
 

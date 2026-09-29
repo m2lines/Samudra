@@ -11,6 +11,7 @@ from samudra.experiments.observation_pilot import atomic_json, digest
 
 def test_completed_budget_extension_matches_uninterrupted_optimizer_and_rng(tmp_path):
     def run(path, updates, seconds):
+        path.mkdir(parents=True, exist_ok=True)
         torch.manual_seed(71)
         model = nn.Linear(2, 1)
         optimizer = torch.optim.AdamW(model.parameters(), lr=0.01)

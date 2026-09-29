@@ -2569,3 +2569,26 @@ accumulated allocated use is 38.3081 GPU-hours. With settled RTX throughput, the
 remaining update budgets appear to fit the existing cumulative internal runtime
 limits; keep monitoring this estimate rather than reducing counts. All final
 evaluations remain correctly dependent on the respective current training jobs.
+
+### 09:38 UTC — first complete arm and verified held-out evaluations
+
+Small conditioned mixed-finish completed exactly 8,000 OM4 + 8,000 observation
+updates at 09:29 UTC. The final 2,000 updates were observation-only; its selected
+checkpoint is within that finish, at 8,000 OM4 + 7,200 observations, validation
+score 0.566018. Actual best.pt SHA matches best.json and TRAIN_COMPLETE. All five
+associated evaluation jobs completed successfully, with expected signatures,
+96 monthly test origins, three annual origins and nine diagnostic validation
+origins. A collector verified training/evaluation lineage and copied a small
+metrics bundle with matching transfer SHA; it explicitly labels the five other
+arms incomplete rather than presenting a finished comparison.
+
+First-arm held-out composite is 0.590619 selected / 0.600793 at the raw equal-budget
+endpoint, normalized against test seasonal climatology using the frozen spectral
+key set. Its same-initializer persistence control scores 0.576657, so learned
+monthly evolution is not an across-the-board improvement over this control.
+Three-case mean day-365 SST RMSE is 0.810858°C and ADT RMSE 0.109203 m; this is a
+lead-specific annual diagnostic, not selection or an established benefit relative
+to the five still-running current controls. Diagnostic validation reevaluation
+is 0.565980 versus selected 0.566018 across GPU families. Actual allocated use at
+this snapshot is 77.7517 GPU-hours, including retries and completed evaluations.
+No final cross-model conclusion or goal completion is claimed.

@@ -2510,3 +2510,17 @@ The user requested Pushover notification on completion or genuine blockage.
 Read the pushover-notify skill and checked that local credentials are present
 without sending a notification or exposing credentials. Use that channel for
 those outcomes; no blocker currently requires user action.
+
+### 29 September 01:05 UTC — third RTX arm restored; training continues
+
+Regular RTX replacement 18743657 is RUNNING on gr106 and has advanced beyond its
+1,500-step resume checkpoint to 2,342 total updates (1,966 OM4 + 376 observations).
+All six arms currently have running allocations. Masked scratch reached 4,210
+observation updates; conditioned mixed-finish reached 4,334 OM4 + 1,351 observations.
+Sequential has reached 5,136 OM4 updates and has not yet begun its observation
+phase. H200 preemptions continue with automatic resume; legacy scratch's latest
+training event preceded the latest allocation startup. No TRAIN_COMPLETE or
+TRAIN_PARTIAL marker exists in any arm, and dependent final evaluations remain
+unstarted. Actual accumulated allocated use is 28.2922 GPU-hours including retries
+and diagnostic jobs. The RTX qualification and three production migrations retain
+the original scientific update counts and pinned training/evaluation producers.

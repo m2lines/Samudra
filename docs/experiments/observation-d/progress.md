@@ -2697,3 +2697,19 @@ from the forecast path, and internal U/V diagnostics from geostrophic observatio
 metrics. Model parameter counts were independently reconstructed: 62,875,370
 without task adapters and 62,966,546 with them. Qualification JSON was read back,
 hash-verified, and included as a compact report artifact.
+
+### 14:40 UTC — all training budgets completed
+
+Legacy scratch completed at 14:37 UTC with exactly 16,000 observation updates,
+selecting update 10,900 (validation 0.536989). All six training jobs are now
+COMPLETED 0:0 with no partial markers. Allocated use at the monitor snapshot is
+92.3983 GPU-hours. Its annual evaluator started; the five other legacy evaluators
+remain queued for priority. All other arms' evaluations are complete.
+
+Collector revision 257574bcf additionally checks actual hashes for every diagnostic
+checkpoint, exact nine-origin lists, pinned producers, seed and fixed-budget
+lineage counts. It passes the five finished result sets; the legacy annual output
+is also verified while five remaining evaluations are explicitly marked missing.
+`report-metrics-1443.json.gz` SHA is
+40592fd1d9788b308afdd330882f8f34ee1fe85ed2c28bf73f583c1f5e4fb44b.
+This strengthens the final audit without changing training, selection or evaluation.

@@ -2592,3 +2592,29 @@ to the five still-running current controls. Diagnostic validation reevaluation
 is 0.565980 versus selected 0.566018 across GPU families. Actual allocated use at
 this snapshot is 77.7517 GPU-hours, including retries and completed evaluations.
 No final cross-model conclusion or goal completion is claimed.
+
+### 10:46 UTC — five arms advancing; report arrays verified
+
+All five remaining production jobs were RUNNING with fresh finite events:
+legacy scratch 11,757 observations; masked scratch 14,362; masked sequential
+8,000 OM4 + 7,178 observations; masked mixed-finish 8,000 + 7,005; conditioned
+mixed 7,856 + 7,167. Actual accumulated allocation is 83.3822 GPU-hours. No partial
+completion markers were present.
+
+CPU export job 18790475 completed successfully using reporting producer
+ffea4ccfd (extractor SHA 902575af692c4416570d3b478fdd50232db0fc2a80452518008ac86a126152f9).
+The initial explicit `all` partition request was rejected before allocation;
+`cpu_short` was accepted. Export only subsets existing arrays; it neither runs
+models nor changes selection. Conditioned mixed-finish compact archive is
+35,235,840 bytes, SHA c8d7ef325fdcb501eaf8fa9df8fb566639b50269422a6a51cced7326cc0c681f.
+DTN rclone PID 1805000 copied the archive/manifest to
+`nyu-osn:emulators/jr7309/outputs/2026-09-28-observation-missingness-report`;
+local read-back matched the archive SHA and every member-array SHA.
+
+For selected conditioned mixed-finish, naturally missing wet-cell SST spans
+−2.529 to 31.442°C in November 2013 and −2.266 to 32.959°C in July 2014.
+These are 3,598 missing cells across the globe, not an Arctic-only statistic.
+There is spatial variation rather than a constant warm fill, but cold extremes
+remain and no missing-region observational accuracy is inferred. Full comparison
+awaits the remaining arms. A reporting summarizer has been exercised on this
+completed arm; cross-arm and scratch-8k branches await their completed outputs.

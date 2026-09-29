@@ -30,7 +30,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
+    uses: ./.github/workflows/ec2-runner.yml
     with:
       aws_region: us-east-1
       ec2_instance_type: m7i.xlarge
@@ -132,7 +132,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
+    uses: ./.github/workflows/ec2-runner.yml
     with:
       ec2_instance_type: g5.xlarge
       ec2_image_id: ami-0365bff494b18bf93 # Deep Learning OSS Nvidia Driver AMI GPU PyTorch 2.7 (Ubuntu 22.04) in oa-ci-dev
@@ -146,7 +146,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: Open-Athena/ec2-gha/.github/workflows/runner.yml@v2
+    uses: ./.github/workflows/ec2-runner.yml
     with:
       aws_region: us-east-1
       ec2_instance_type: m7g.xlarge

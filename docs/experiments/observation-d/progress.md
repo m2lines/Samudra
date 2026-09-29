@@ -2524,3 +2524,35 @@ TRAIN_PARTIAL marker exists in any arm, and dependent final evaluations remain
 unstarted. Actual accumulated allocated use is 28.2922 GPU-hours including retries
 and diagnostic jobs. The RTX qualification and three production migrations retain
 the original scientific update counts and pinned training/evaluation producers.
+
+### 02:05 UTC — remaining production routed to regular RTX
+
+The stable RTX jobs sustained about 1,000–1,500 updates/hour. Net H200 progress
+fell to a few hundred updates/hour amid repeated preemption/cache startup. Actual
+allocated use was 33.3486 GPU-hours. All scientific completion markers remain
+absent. To reduce this scheduling overhead, stopped and archived the three
+remaining H200 writers and submitted ordinary RTX replacements with identical
+qualified arguments and optimizer/RNG checkpoints:
+
+| Arm | Previous job | Current RTX job |
+| --- | --- | --- |
+| Small legacy scratch | 18726195 | 18758994 |
+| Small masked sequential | 18729753 | 18759212 |
+| Small conditioned mixed | 18726205 | 18759237 |
+
+RECOVERY_4.json preserves checkpoints, hashes and job mappings. All three RTX
+requests have verified account/partition/constraint/requeue settings and are
+currently PENDING; no restoration is claimed. Existing RTX jobs 18735489,
+18743657 and 18735533 continue. Counts, seed, producer, loss, selection, deadline
+and output paths are unchanged. Hardware migration does not imply bitwise-identical
+floating-point arithmetic.
+
+A migration-script prefix match also captured the similarly named conditioned
+mixed-finish evaluators, canceling five unstarted jobs. Corrected this before any
+evaluation ran: RECOVERY_4_EVALUATION_CORRECTION.json replaces those zero-allocation
+jobs with 18759295/297/299/302/303 depending on the proper existing training job
+18735533. Audited **all 32** current evaluation dependencies using each command's
+explicit `--run` path, rather than name prefixes; every scheduler dependency now
+matches its actual arm. PRODUCTION_DAG.json and EVALUATION_DAG.json are authoritative.
+Future recovery must use explicit run ownership and must not reuse a submission
+record pointing to an already-canceled job.

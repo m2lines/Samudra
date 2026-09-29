@@ -118,6 +118,8 @@ def plot(result, path):
             ax = axes[row, column]
             curve = result["curves"].get(field + "/" + region[0])
             if curve is None:
+                ax.set_title(field + " — " + region[0], fontsize=9)
+                ax.set_axis_off()
                 ax.text(
                     0.5,
                     0.5,
@@ -167,7 +169,7 @@ def plot(result, path):
         "Member versus ensemble-mean spatial spectra: three fixed example dates\nMonthly latent fields average independent readouts; not a full-cohort selection score"
     )
     fig.tight_layout(rect=(0, 0.065, 1, 0.95))
-    save_png(fig, path, dpi=120)
+    save_png(fig, path, dpi=110)
     plt.close(fig)
 
 

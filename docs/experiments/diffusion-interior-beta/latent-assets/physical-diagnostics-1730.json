@@ -1,0 +1,189 @@
+{
+  "checkpoint_sha256": "a67d645120aa80c88a1b9466b1889837daf958a7c48b3843e93b2adf5a606548",
+  "scope": "Three fixed examples, not a population calibration estimate",
+  "temporal_intervals_days": [
+    [
+      5,
+      15
+    ],
+    [
+      15,
+      30
+    ]
+  ],
+  "caution": "Member identity is propagated in physical diffusion but arbitrary across independently decoded latent readouts; correlations describe that difference, not validated uncertainty",
+  "support": "Existing per-channel wet mask within 60S-60N; cosine latitude weights. Diagonal diagnostic uses published 70:100,180:240 tropical crop.",
+  "records": [
+    {
+      "origin": "2015-01",
+      "channels": [
+        "so_9",
+        "thetao_9",
+        "uo_9"
+      ],
+      "members": 8,
+      "initialization_member_deviation_rms": [
+        2.0632695709728748,
+        2.7235543941095703,
+        0.6105522810077144
+      ],
+      "salinity_patch_member_deviation_rms": 2.2461514345996147,
+      "salinity_patch_diagonal_correlations": [
+        0.48848511990247256,
+        0.8551306632519491
+      ],
+      "future": {
+        "member_increment_mse": [
+          [
+            1.8217789207208124,
+            79.89273768873758,
+            17.691570333561504
+          ],
+          [
+            0.12063163099541163,
+            2.9182608240730996,
+            0.03907647303887297
+          ]
+        ],
+        "mean_increment_mse": [
+          [
+            1.7754007103531484,
+            74.06788956543369,
+            16.646724305961495
+          ],
+          [
+            0.11395649652058257,
+            2.529696765359719,
+            0.03559575598168542
+          ]
+        ],
+        "member_anomaly_correlation": [
+          [
+            -0.20950260237211585,
+            0.40890689609057573,
+            -0.557774891152396
+          ],
+          [
+            0.4341711600331121,
+            -0.1434034625984105,
+            0.6433092327882831
+          ]
+        ]
+      }
+    },
+    {
+      "origin": "2018-01",
+      "channels": [
+        "so_9",
+        "thetao_9",
+        "uo_9"
+      ],
+      "members": 8,
+      "initialization_member_deviation_rms": [
+        2.1029737019047468,
+        2.762997857844611,
+        0.6140263354171666
+      ],
+      "salinity_patch_member_deviation_rms": 2.2655699283763546,
+      "salinity_patch_diagonal_correlations": [
+        0.4911706607161568,
+        0.8525565076455305
+      ],
+      "future": {
+        "member_increment_mse": [
+          [
+            1.8519501401011824,
+            81.01212916136674,
+            17.8584409615675
+          ],
+          [
+            0.12211055061564659,
+            2.942541465537964,
+            0.03981135775856724
+          ]
+        ],
+        "mean_increment_mse": [
+          [
+            1.8041286969301624,
+            74.98706511869145,
+            16.773594161538075
+          ],
+          [
+            0.11527818899005164,
+            2.545969013575672,
+            0.03623561691543261
+          ]
+        ],
+        "member_anomaly_correlation": [
+          [
+            -0.21982745165195025,
+            0.40854074798458684,
+            -0.5603369143122781
+          ],
+          [
+            0.44437281744575335,
+            -0.14666539038743406,
+            0.6442432410744715
+          ]
+        ]
+      }
+    },
+    {
+      "origin": "2021-01",
+      "channels": [
+        "so_9",
+        "thetao_9",
+        "uo_9"
+      ],
+      "members": 8,
+      "initialization_member_deviation_rms": [
+        2.1035741154511514,
+        2.759551548018663,
+        0.6160014049278005
+      ],
+      "salinity_patch_member_deviation_rms": 2.203116212151448,
+      "salinity_patch_diagonal_correlations": [
+        0.49123846923713743,
+        0.8510561744788829
+      ],
+      "future": {
+        "member_increment_mse": [
+          [
+            1.834806244421753,
+            81.32275315245818,
+            17.88986979239607
+          ],
+          [
+            0.12220597500702601,
+            2.9542550248070683,
+            0.03986890710332959
+          ]
+        ],
+        "mean_increment_mse": [
+          [
+            1.7869063079412775,
+            75.32033879271893,
+            16.803623798833865
+          ],
+          [
+            0.11528547072670987,
+            2.558635725507716,
+            0.03625189590661759
+          ]
+        ],
+        "member_anomaly_correlation": [
+          [
+            -0.21995888262129187,
+            0.4131736794607596,
+            -0.5563151045948941
+          ],
+          [
+            0.4358170477305288,
+            -0.15087436810649177,
+            0.6388584864794881
+          ]
+        ]
+      }
+    }
+  ]
+}

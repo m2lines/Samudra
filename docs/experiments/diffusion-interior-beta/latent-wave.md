@@ -1,219 +1,258 @@
 <!-- SPDX-FileCopyrightText: 2026 Samudra Authors -->
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 
-# Persistent latent state with diffusion readouts: active wave
+# Persistent latent state with diffusion readouts
 
-Report deadline: **2026-09-30 01:17 UTC** (September 29, 9:17 p.m. Eastern).
-The user authorized this wave after the diagonal-artifact investigation. Real-grid qualification passed on L40S and H200. The first two-seed launch was stopped after repeated preemption and slow
-random-data loading. Host-resident caching passed qualification on L40S. Both replacement seeds
-completed 24,000 OM4 updates and pretrained diagnostics. Observation adaptation
-is running. SSH access was interrupted between the 01:04 and 03:14 UTC checks
-on September 29 and has recovered. Comparative results remain pending.
+This two-seed wave learns the initializer, recurrent latent dynamics and physical
+diffusion decoder jointly from scratch on OM4, then adapts them to observations.
+The latent representation substantially reduces the previously observed diagonal
+salinity artifact in the saved examples. It does **not** improve the established
+forecast score over either the selected deterministic baseline or the preceding
+physical-state diffusion system. Native velocity skill deteriorates during
+observation fitting despite replay, and annual forecasts drift substantially.
 
-## Scientific comparison
+The observation stage reached its 20-hour fitting cap at approximately 2,000
+updates per seed, rather than its 6,000-update ceiling. This is a completed
+budget-limited experiment, not a convergence result or a demonstrated ceiling on
+latent modeling. No further wave has been launched.
 
-Surface history and past forcing initialize two latent memory slots. A learned
-processor advances those slots using coarse forcing and geographic/seasonal
-context. A conditional diffusion decoder reads physical fields from the latent
-state at initialization and future leads. Decoded fields, interior targets and
-readout noise never enter recurrence. OM4 initial and future denoising losses
-train the encoder, processor and decoder jointly from scratch.
+## Model and comparison
 
-This directly tests whether a learned recurrent representation avoids requiring
-information passed between steps to masquerade as a physical ocean state. It
-also replaces the previous frozen physical dynamics with a trainable processor,
-so a difference in skill cannot be attributed solely to where information is
-stored.
+The deterministic encoder uses 19 five-day surface-history frames and past
+forcing to initialize two 128-channel latent slots on a 45×90 grid. Four residual
+processor blocks advance those slots using three forcing channels and five
+geographic/seasonal context planes. A width-192 conditional diffusion decoder
+reads 77 physical fields on the existing 180×360 grid using 16 Heun steps.
+Physical predictions, targets and diffusion noise never enter the recurrence.
 
-The initial configuration uses the existing wide surface-history encoder,
-19 five-day input frames, two 128-channel latent slots on a 45×90 grid, four
-residual processor blocks, and a width-192 diffusion decoder. Training and
-readout targets are the original 77 physical fields at 180×360. The processor
-receives the existing three native OM4 forcings during pretraining and the
-existing learned ERA5 adapter during observation adaptation. There is no new
-forcing, data resolution or observation target in this wave.
+**Diffusion decodes physical fields; it does not sample the latent state.** The
+same deterministic latent trajectory conditions all eight members. A fresh
+readout is sampled at each lead. Monthly members therefore average independent
+readouts, unlike the preceding physical-state model, which evolves sampled
+initial physical states. These are different temporal covariance assumptions.
 
-Diffusion samples readouts independently at each lead on a **deterministic latent
-trajectory**. This is not diffusion in latent space and does not propagate a
-sampled latent initialization. Monthly sample variance therefore depends on a
-different temporal covariance assumption from physical-state diffusion. We will
-report that distinction explicitly and inspect temporal consistency rather than
-call these coherent ensemble trajectories.
+OM4 initial and six future paired-state denoising losses jointly train encoder,
+processor and decoder from random initialization. Observation adaptation trains
+all three plus the existing ERA5 adapter, using two-member fair CRPS with weights
+0.8 interior, 0.1 SST and 0.1 SSH, and native replay every four updates at weight
+0.1. Existing splits, normalization, forcing inputs and resolutions are retained.
+No OISST or DUACS future targets are supplied as forcings.
 
-## Execution gates and budget
+The unchanged deterministic baseline was selected by validation in the upstream
+campaign. The previous physical-state diffusion system used frozen pretrained
+physical dynamics. The new latent system also changes dynamics training and
+optimization budget, so this is a **system comparison**, not an isolated test of
+latent versus physical storage or of a decoder alone.
 
-- Focused tests: target-independent recurrence, future-observation exclusion,
-  gradient flow, anchoring, checkpointed denoising RNG/gradient parity, and
-  optimizer-boundary resume.
-- Full-grid qualification: native initial/future denoising backward, observational
-  monthly/surface-loss backward, finite nonzero encoder/processor/decoder
-  gradients, memory/throughput measurements, actual checkpoint resume and strict
-  weight reload.
-- Two independent seeds (1729 and 1730) if qualification confirms feasibility.
-  Each seed has a 24,000-update / 16-hour pretraining cap, followed by a
-  6,000-update / 20-hour observation cap, whichever comes first. These caps leave
-  time for evaluation and the report; matching earlier update counts is not promised.
-- Use single-GPU Engaging jobs, existing Rust loading and optimizer-boundary
-  checkpoints. Count allocations, preemptions and evaluations against the
-  remaining 576 GPU-hour campaign authorization. Prior completed campaigns and
-  artifact diagnostics account for approximately 62.16 GPU-hours before this wave.
-- Stage completion at a wall-time cap does not imply completion of the requested
-  update ceiling; both actual updates and time will be reported.
+## Held-out observational results
 
-## Evaluation
+All systems use 96 monthly origins in 2015–2022, the same observation/reference
+contracts and ±60° support. Interior scores cover 27 supported normalized T/S
+channels against monthly IAP. Surface targets are five-day bins. The frozen
+composite combines normalized surface SST/velocity/EKE/OHC errors and spectral
+errors with equal total weight. It is calculated on the eight-member mean for
+diffusion systems; smaller is better.
 
-Compare to the selected unchanged deterministic baseline and the completed
-physical-state diffusion wave using the same splits, normalization, frozen score
-reference and held-out cohorts. Include monthly interior point and probabilistic
-metrics, surface scores, calibration, instantaneous salinity/velocity fields,
-diagonal correlations, member versus ensemble-mean structure, temporal
-consistency, and the existing annual rollout diagnostics as budget permits.
-Export the same three observation-input dates from pretrained and adapted
-checkpoints, so the timing of any reappearing artifact can be checked.
-Distinguish OM4 model-world interior/velocity controls from observational skill.
+| Model | Test composite ↓ | Interior RMSE ↓ | Interior fair CRPS ↓ | Raw 90% coverage |
+| --- | ---: | ---: | ---: | ---: |
+| Deterministic | 0.59134 | 0.08057 | 0.05130 | — |
+| B-1729 | 0.82843 | 0.08887 | 0.03890 | 0.716 |
+| B-1730 | 0.85519 | 0.08910 | 0.03949 | 0.697 |
+| D-1729 | 1.01931 | 0.10015 | 0.04574 | 0.751 |
+| D-1730 | 0.96056 | 0.10266 | 0.04739 | 0.744 |
 
-The existing composite scores the ensemble-mean forecast. Separately compare
-individual-member spatial spectra, their average power and range, and the
-spectrum of the ensemble mean against observations on the three saved example
-dates. These are distinct quantities: averaging fields can remove power that is
-present in each member. Export both mean member spectral error and the error of
-mean member power; neither replaces the fixed selection criterion. Report the
-three-date scope and unavailable regions explicitly. Monthly latent samples
-average independent readouts, so examine instantaneous surface spectra as well.
-The reproducible entry point is `samudra.experiments.diffusion_member_spectra`.
-Five-day binned surface observations and monthly IAP fields are the available
-measurements; this wave does not establish daily or independent Argo-profile skill.
+Latent interior fair CRPS improves 10.8% and 7.6% over the deterministic
+reference, less than the physical-state model’s 24.2% and 23.0%. The
+seed-averaged latent improvement is 9.2%, with a paired year-block 95%
+percentile interval of 7.6–10.7%. This interval is conditional on these fitted
+seeds and fixed evaluation draws, excludes training and Monte Carlo uncertainty,
+and uses a development cohort reused across waves. It is not an untouched final
+test-set guarantee.
 
-The final report will state incomplete evaluations, partial training or negative
-results rather than substituting nominal configuration for observed execution.
+Normalized RMSE is the square root of the equally weighted supported-channel
+MSE after pooling wet-area statistics over origins. Deterministic CRPS reduces
+to absolute error. Fair ensemble CRPS removes the finite-member self-pair bias;
+it is not interchangeable with ensemble-mean RMSE. Year-block bootstrap results
+and all component scores are in [the summary](latent-assets/summary.json.gz).
 
-## Observed launch state
+![Interior RMSE and CRPS by depth](latent-assets/interior-depth-profiles.png)
 
-Source `0ef9d79a6` passed real-grid qualification (`24144434`) on an H200.
-The earlier L40S gate (`24144026`, source `db7ece865`) also passed. Initial
-measurements were 2.89 s for an OM4 forward/backward/update and 21.37 s for an
-observation update on H200; peak observed allocation was 20.99 GiB. These single
-qualification measurements exclude sustained checkpoint/validation overhead and
-will be replaced with production throughput.
+![Monthly interior calibration](latent-assets/interior-calibration.png)
 
-Pretraining array **24144680** started two single-H200 tasks (seeds 1729/1730),
-but both experienced preemption and production updates took 11–22 seconds with
-random reads. It and the dependent observation array **24144688** were stopped;
-outputs are preserved. GPU-cache qualification **24145089** was also preempted
-during warm-up. These are operational bring-up attempts, not completed training
-results. Jobs support optimizer-boundary resume. Qualification exercised actual save/resume and
-strict fixed-noise loss reload. Training provenance binds data, observation
-normalization and the frozen validation reference. No held-out test data enter
-training or checkpoint selection.
+![Observation ranks](latent-assets/interior-ranks.png)
 
-### Cache and scheduling recovery
+Raw eight-member 5–95% sample-quantile coverage does not have nominal 90%
+coverage. Assess it with rank histograms, bias, and spread/error ratios rather
+than labeling a model calibrated from that interval alone. These monthly
+statistics do not establish instantaneous or trajectory calibration.
 
-Host-cache qualification **24146352** passed on a single L40S, using source
-`8291df4dc`, four allocated CPUs, 16 Rust read threads and 96 GiB host RAM.
-It caches the same float32 prepared frames in host memory and moves selected
-windows to the GPU. Real native-versus-cache comparisons check masks, forcing,
-labels, edge windows and repeated/shuffled requests before training.
+## Member spectra and physical maps
 
-Standard GPU queue estimates were too late for the deadline, including the
-available advanced GPU account/QoS, so production is not waiting on that queue.
-A tested per-invocation time limit is available for shorter allocations; it
-preserves the global stage budget and does not mislabel an interrupted stage as
-complete. The first completed/terminated latent bring-up allocations consumed
-**0.4472 GPU-hours**, including all preempted attempts (Slurm duplicate accounting
-records); the active host-cache qualification is additional.
+Averaging fields removes power that is present in individual members. We now
+report the spectrum of the mean, each member's spectrum, mean member power, and
+both kinds of spectral error separately. For seed 1729's day-15 North Pacific
+SST across the three saved dates, mean-field spectral error is 0.565 dex,
+mean member error is 0.246 dex, and error of mean member power is 0.208 dex.
+Thus mean-field spectra alone substantially understate member power here.
+The ordering is not universal: seed 1730's Gulf Stream SST mean-field error is
+0.093 dex versus 0.101 dex averaged over members.
 
+![Latent member spectra, seed 1729](latent-assets/observation-spectra-1729.png)
 
-### Qualified replacement launch
+[Seed 1730](latent-assets/observation-spectra-1730.png),
+[physical diffusion 1729](latent-assets/physical-spectra-1729.png),
+[physical diffusion 1730](latent-assets/physical-spectra-1730.png), and
+[all spectral errors](latent-assets/member-spectra.csv).
+These are descriptive three-date diagnostics, not the 96-origin composite.
+Only three broad wavenumber bins are resolved in these regional plots. Monthly
+interior spectra are unavailable on common observed support for these regions;
+we have not filled missing observations to manufacture spectral comparisons.
+Spectral agreement alone does not establish spatial alignment or calibrated
+uncertainty.
 
-Source `8291df4dc` passed exact prepared-frame equivalence, finite nonzero gradients
-in encoder/processor/decoder, optimizer resume, and identical fixed-noise loss
-following strict reload. Qualification measured 3.33 s for a native update and
-32.11 s for an observation update; peak host RAM was 62.9 GiB and GPU allocation
-20.95 GiB. These timings are individual measurements, not sustained throughput.
+The following comparisons preserve exactly two image pixels per native grid
+cell in each axis, use nearest-neighbor display, and share physical color limits
+within each figure. White lines mark the ±60° observation boundary. Limits clip
+the pooled 1–99% tails and are labeled; regions outside the boundary have no
+observational scoring claim.
 
-Replacement pretraining array **24147018** and dependent observation array
-**24147020** each contain seeds 1729 and 1730, using one L40S and 96 GiB host RAM
-per task. Run group: `latent-d192-host-v1`. The update/time ceilings above remain
-unchanged. The initial report smoke used too few validation origins to compute
-the required spectral comparison; the corrected full-validation smoke is
-**24147149** and passed point-score, eight-member calibration and structure
-exports using qualification weights solely to test reporting. It is not a
-scientific evaluation of trained skill.
+![Monthly salinity comparison, seed 1729](latent-assets/monthly-so9-1729-2015-01.png)
 
+- Seed 1729: [2015](latent-assets/monthly-so9-1729-2015-01.png), [2018](latent-assets/monthly-so9-1729-2018-01.png), [2021](latent-assets/monthly-so9-1729-2021-01.png)
+- Seed 1730: [2015](latent-assets/monthly-so9-1730-2015-01.png), [2018](latent-assets/monthly-so9-1730-2018-01.png), [2021](latent-assets/monthly-so9-1730-2021-01.png)
 
-Both seeds passed 100 updates and wrote resumable checkpoints. The initial
-steady native update interval was approximately 0.7–0.8 s after cache preparation;
-this is faster than the cold qualification measurement, but does not yet include
-a full production validation interval.
+## Diagonal artifact and temporal consistency
 
-Evaluation source `bd6044a2b` is staged separately from the immutable training
-source. Dependent arrays are native OM4 controls before adaptation (**24147533**),
-fixed observation-input maps before adaptation (**24147534**), native controls
-after adaptation (**24147537**), and full observation/annual reports (**24147538**).
-Each follows its corresponding seed's completed stage and verifies the selected
-checkpoint digest. The two pre-adaptation arrays completed; the post-adaptation
-arrays were still waiting on training at the last successful remote check.
+The fixed tropical crop diagnostic uses member deviations from their mean,
+with the same crop as the earlier artifact investigation. Post-adaptation latent
+salinity diagonal correlations are approximately −0.05 to −0.03 across both
+seeds and all three dates. Seed 1730's physical-state diffusion correlations
+were approximately 0.49 and 0.85 along the two diagonals. The conspicuous
+previous global diagonal pattern is absent in the inspected latent examples.
+This is evidence on those examples, not proof that every artifact is absent.
 
+![Pretraining and observation-adapted salinity readouts](latent-assets/initial-so_9-1730-2015-01.png)
 
-## Pretraining completed; observation adaptation active
+Scored-domain initialization salinity member-deviation RMS is about 0.079–0.085
+for the adapted latent models, versus about 2.2 for the physical model's seed
+1730. The latent pretrained models already lack the strong diagonal pattern;
+observation fitting does not recreate it in these examples. Both representation
+and optimization changed, so the mechanism is not uniquely identified.
 
-Both seeds completed the full 24,000-update ceiling without production preemption.
-Slurm allocation durations were 5:24:00 and 5:20:48, including data-cache preparation.
-Recorded fitting time was 19,036 and 18,844 seconds. Selected native denoising
-validation losses were 0.07114 and 0.08855; these are training diagnostics, not
-observational forecast scores. Adaptation array **24147020** started both seeds
-on L40S after verifying their completed pretraining checkpoints. Both seeds completed their 24-origin native controls and three-date observation
-map exports; all 80 output files were transferred and checksum-verified.
-Scientific comparisons after adaptation remain pending.
+Adjacent latent member anomalies have correlations near zero, consistent with
+independently sampled readouts. Following the same member index across leads
+therefore does not give a coherent sample trajectory. Monthly averaging can
+suppress that noise. A quieter monthly map is not evidence of realistic
+instantaneous currents or temporally consistent uncertainty. The exported
+[diagnostics](latent-assets/observation-diagnostics-1730.json) contain member and
+mean temporal increments as well as the crop correlations.
 
+## Native OM4 controls and annual forecasts
 
-Annual evaluation smoke **24168783**, using the selected seed-1730 pretrained
-checkpoint, completed one 73-step year with eight readouts per step in 484 seconds
-and 23.46 GiB peak GPU allocation. This verifies runtime and memory feasibility;
-it is not the final observation-adapted comparison. Fine-tuning is measured at
-roughly 33–37 seconds per update, so its 20-hour cap is expected to bind before
-6,000 updates. Actual completed updates, wall time and validation curves will
-accompany the final report.
+Across 24 native held-out origins, pooled initialization velocity RMSE increases
+from 0.0661 to 0.1321 m/s for seed 1729 and from 0.0607 to 0.1325 m/s for seed
+1730 after observation adaptation. Both adapted models are worse than the
+zero-velocity reference, 0.0701 m/s. Their ensemble spread is also large
+(0.2013 and 0.1665 m/s). Retaining velocity channels and this replay schedule did
+not retain native velocity skill. OM4 supplies model-world references here;
+these are not velocity-observation measurements.
 
+Native temperature/salinity initialization error also worsens after adaptation.
+For seed 1730, equally weighted all-depth normalized RMSE changes from
+0.1651 to 0.2597 for temperature and from 0.1377 to 0.2337 for salinity.
+These native all-depth numbers are not the observational interior metric above.
+They indicate that the pretrained representation already has reconstruction
+error and that observation fitting increases the model-world mismatch.
 
-## Interim validation and access interruption — September 29
+![Native velocity retention](latent-assets/native-velocity.png)
 
-These are the fixed nine-origin validation composites, calculated from eight-member
-ensemble means using the same frozen criterion as the deterministic baseline.
-They are not held-out report scores, member spectral scores, or CRPS.
+[Native scores by seed, phase and lead](latent-assets/native-velocity.csv).
+The latent errors remain high over the 30-day native rollout, whereas the
+frozen physical dynamics can damp some of their large initialization errors.
+Neither native skill nor damping by itself establishes observation-world skill.
 
-| Observation updates | Seed 1729 | Seed 1730 |
-| --- | ---: | ---: |
-| 0 | 1.98253 | 2.02898 |
-| 500 | 1.36134 | 1.30082 |
-| 1,000 | 1.21656 | 1.17132 |
-| 1,500 | 1.17556 | 1.03414 |
+![Annual SST and SSH errors](latent-assets/annual-forecasts.png)
 
-Lower is better. Both remain substantially worse than the selected deterministic
-baseline's validation composite of 0.53419. Improvement is not uniform across
-components: seed 1729's SST RMSE increased from 0.893 to 1.071 °C between updates
-1,000 and 1,500 despite improvement in the composite. The comparison is currently
-limited by partial optimization: throughput projects roughly 2,000 adaptation
-updates under the 20-hour cap, versus the baseline's selected update 6,400.
-This does not establish convergence or an architectural performance ceiling.
+D-1729: day-365 SST RMSE 8.70–8.85 °C; SSH RMSE 0.716–0.724 m.
 
-At 01:04 UTC, training tasks `24147020_0` and `24147020_1` were running at updates
-1,763 and 1,782. Host memory remained about 81.64 and 80.80 GiB, below the 96 GiB
-allocations. Native/report arrays `24147537` and `24147538` were waiting on their
-training dependencies. The next hourly SSH poll was rejected by authentication;
-subsequent fresh connections were refused. Remote job state after the last
-successful check is unknown. No jobs were restarted or cancelled because of this
-monitoring failure. The existing checkpoint/resume and dependent evaluation
-jobs remain the recovery path once access returns.
+D-1730: day-365 SST RMSE 5.33–5.45 °C; SSH RMSE 0.584–0.585 m.
 
+The outputs remain finite but accumulate large errors. Removing physical readouts
+from recurrence does not by itself stabilize the learned latent dynamics.
 
-Access returned at the requested hourly retry, 03:14 UTC. Seed 1730 remained
-running at update 2,003; its update-2,000 validation composite was 0.95980.
-Seed 1729 was preempted after a 68,913-second allocation and automatically
-requeued on `node1632`. Its first resumed update was 1,901, following the saved
-update-1,900 checkpoint; it reached 1,926 by the successful check. The resume
-path preserves saved optimizer/RNG state and cumulative fitting time. Lost work
-between the last checkpoint and preemption and the second cache warm-up count
-in allocation accounting, even though they do not advance the completed update
-count. Both dependent evaluation arrays remained queued. No duplicate training
-jobs were submitted during the access interruption.
+The three annual forecasts start in January 2015, 2018 and 2021 and run 73
+five-day steps without reinitialization. These do not constitute a continuous
+eight-year or 100-year forecast, nor independent Argo-profile or daily skill.
+
+## Execution, provenance and reproduction
+
+Both seeds completed 24,000 OM4 updates. Seed 1729 completed 2,026 observation
+updates and selected its final checkpoint; seed 1730 completed 2,059 and selected
+update 2,000. Best validation composites were 1.01125 and 0.95980, respectively,
+versus the deterministic baseline's 0.53419 at update 6,400. Equal update counts
+would still not establish equal compute, but this optimization mismatch matters.
+
+Production used single-L40S jobs with four CPUs and 96 GiB host memory. A
+float32 host-resident cache preserved the prepared samples and reduced steady
+native updates to approximately 0.7–0.8 seconds; observation updates took
+approximately 33–37 seconds. Full-grid qualification verified exact cache
+samples, finite nonzero gradients through all three components, actual optimizer
+resume and fixed-noise reload parity before production.
+
+The first H200 attempts were superseded after preemption and slow random reads.
+The production seed-1729 observation job was preempted and automatically resumed
+from update 1,900. Saved fitting time persisted; lost work and repeat cache
+warm-up count toward allocated GPU time. The transient login outage caused no
+duplicate training submissions.
+
+Training producer: `8291df4dc7600401da4dcd76172eb18a5c7cc6b3`.
+Evaluation producer: `bd6044a2b305252a300f4e10b6c8ade9cf5c4973`.
+Training arrays: `24147018` and `24147020`; native/map evaluations:
+`24147533`, `24147534`, `24147537`; full reports: `24147538`.
+
+Final allocation accounting, including duplicate/preempted attempts and all
+evaluations: **59.4211 GPU-hours for this wave**,
+**121.5853 GPU-hours cumulatively** against the
+576 GPU-hour ceiling. All wave jobs are terminal; no training jobs remain active.
+
+Each report's monthly and annual files were copied and SHA256-readback-verified.
+The annual evaluator omitted source-manifest hashes from its completion record,
+although it verified payloads on read. A separately labeled retrospective audit
+compares source manifests with the baseline and training-bound data audit, and
+checks exact equality (including NaNs) of exported annual observations, OHC,
+months and leads. Original completion records remain unchanged. The correction
+is a provenance supplement, not a rerun or alteration of predictions.
+
+[Machine-readable summary](latent-assets/summary.json.gz),
+[run/checkpoint and transfer provenance](latent-assets/provenance.json.gz),
+[native velocity table](latent-assets/native-velocity.csv), and
+[member spectral table](latent-assets/member-spectra.csv).
+Full member arrays and checkpoints remain under the campaign run directory on
+Engaging; their paths and hashes are recorded in the provenance artifact.
+
+Reproduce from the verified report directories using
+`samudra.experiments.diffusion_latent_annual_audit`,
+`diffusion_latent_summary`, `diffusion_latent_figures`, `diffusion_latent_maps`,
+`diffusion_latent_native_figures`, `diffusion_latent_diagnostics`, and
+`diffusion_member_spectra`. CLI `--help` lists required paths. The analysis
+operates on saved outputs and requires no new training allocations.
+
+## Recommended next wave
+
+1. Retain this checkpoint pair as the short-budget latent reference and extend
+   observation optimization with the same held-out selection rule. Track whether
+   the mean score improves before treating this as an architectural ceiling.
+2. Strengthen preservation of native dynamics and velocities during adaptation:
+   compare an explicitly increased native future-state/replay objective against
+   the current setting, measuring native and observational tradeoffs together.
+3. If coherent ensemble forecasts are the objective, sample uncertainty in a
+   persistent latent initialization or transition, then evaluate member temporal
+   increments and calibration. Independent decoder noise alone cannot supply it.
+4. Keep the half-degree-target experiment a separate controlled wave: only
+   diffusion targets change, with latent grid, inputs, forcings and observation
+   evaluation fixed. The current results do not justify attributing a prospective
+   resolution benefit to this model yet.
+
+These are proposals, not submitted jobs. The immediate scientific conclusion is
+that the latent route is feasible and weakens the visible stripe failure, while
+forecast skill, velocity retention and coherent uncertainty remain unresolved.

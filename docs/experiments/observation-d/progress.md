@@ -2807,3 +2807,19 @@ All GPU jobs are pending: original global reference and control rescoring still
 wait on QOSGrpCpuLimit, and the latent arm waits on those qualification dependencies.
 No GPU allocated or training success claimed. Old jobs and pinned producers remain
 unchanged. Annual exports preserve latent arrays for later diagnostics.
+
+### 20:44 UTC — both global arms training; estimated overnight completion
+
+Both RTX production jobs started at 19:41 UTC and are running: physical-only
+18811860 has 1,515/16,000 updates (1,272 OM4 / 243 observations); latent10
+18815278 has 1,544/16,000 (1,296 / 248). Both fitting markers verify gradient
+reach and both mixed-task probes verify resume equivalence. The latent fitting
+marker explicitly confirms initializer and evolution latent-head gradients.
+All four historical-control global evaluation completion markers are present.
+
+Measured median update times are 1.845/3.333 seconds for OM4/observations in the
+physical arm and 1.809/3.271 seconds in latent10. Accounting for the later schedule's
+higher observation fraction gives 10.4–10.6 hours of remaining update compute,
+plus validation/checkpoints and final evaluation. Estimate results around
+05:00–07:00 ET September 30, contingent on no interruption or evaluation queue
+stalls. This is a throughput extrapolation, not a guaranteed scheduler completion.

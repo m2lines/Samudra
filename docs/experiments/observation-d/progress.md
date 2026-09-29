@@ -2735,3 +2735,21 @@ full 19-level initializer profiles. Map geometry and pixel values are verified;
 links, hashes and representative rendered figures were inspected. The old timer
 is confirmed disabled and inactive. Report publication, PR contents and the
 requested completion notification are the remaining delivery steps.
+
+
+### 16:06 UTC — report published and completion notification accepted
+
+Published the completed [six-model report](missingness-results-2026-09-29.md),
+81 figures and numerical/provenance artifacts. The GitHub report blob matches the
+local file (85ecad47a1103a22d9602a549204e083093e4322). Draft PR 892's description
+and table of contents now lead with this completed wave; read-back matches the
+submitted body. Repository hooks passed. Additional checks verified finite values
+in 136 exported wet-cell state arrays and 450 full-state profile records.
+All report links and artifact hashes pass; the automatic timer remains disabled.
+
+The requested Pushover completion notice was accepted by the service. Automatic
+review rejected a detailed notification; after verifying the active goal's
+explicit Pushover instruction, a minimal report-ready notice containing no
+experiment results, PR details or GPU accounting was accepted. No duplicate
+notification or unauthorized OSN upload was sent. The full authorized experiment
+and report scope is complete; no new wave or follow-up training was launched.

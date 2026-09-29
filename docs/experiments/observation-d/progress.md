@@ -2556,3 +2556,16 @@ explicit `--run` path, rather than name prefixes; every scheduler dependency now
 matches its actual arm. PRODUCTION_DAG.json and EVALUATION_DAG.json are authoritative.
 Future recovery must use explicit run ownership and must not reuse a submission
 record pointing to an already-canceled job.
+
+### 03:05 UTC — all six production arms restored on RTX
+
+All six current jobs are RUNNING and emitting finite updates on regular RTX.
+The latest three replacements have advanced past their restored checkpoints:
+legacy scratch 3,461 observations; sequential 6,399 OM4 / 0 observations;
+conditioned mixed 4,015 OM4 / 1,341 observations. The other RTX arms reached
+masked scratch 6,306 observations, masked mixed-finish 4,112/1,225, and conditioned
+mixed-finish 5,897/2,536. No scientific completion marker is present yet. Actual
+accumulated allocated use is 38.3081 GPU-hours. With settled RTX throughput, the
+remaining update budgets appear to fit the existing cumulative internal runtime
+limits; keep monitoring this estimate rather than reducing counts. All final
+evaluations remain correctly dependent on the respective current training jobs.

@@ -16,6 +16,12 @@ All models use the smaller D processor, InstanceNorm, seed 1729, and the trainin
 protocol in [the wave plan](missingness-wave-2026-09-28.md). These diagnostics do
 not select checkpoints or change the ongoing training protocol.
 
+The initializer receives five fixed context channels: three spherical geographic
+coordinates and sine/cosine of annual phase at the last history frame. These join
+the surface values, per-frame validity and forcing history before the U-Net. They
+are fixed input features, not learned location/month lookup tables, and provide
+location and season information even where surface observations are missing.
+
 - **Legacy scratch:** random initialization, observation training, and the old
   unconditional surface copy, which copies the filler into missing locations.
 - **Masked scratch:** random initialization, observation training, invalid inputs

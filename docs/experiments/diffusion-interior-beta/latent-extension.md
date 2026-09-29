@@ -68,3 +68,5 @@ The previous campaign total was **121.5853 GPU-hours**. This extension should
 add approximately 96 training GPU-hours plus setup, preemption overhead and
 about six evaluation GPU-hours, remaining well within the **576 GPU-hour** cap.
 Actual allocation accounting takes precedence over this estimate.
+
+[Continuation receipts and job manifest](latent-assets/extension-provenance.json.gz).

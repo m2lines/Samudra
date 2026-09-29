@@ -7,8 +7,8 @@ Report deadline: **2026-09-30 01:17 UTC** (September 29, 9:17 p.m. Eastern).
 The user authorized this wave after the diagonal-artifact investigation. Real-grid qualification passed on L40S and H200. The first two-seed launch was stopped after repeated preemption and slow
 random-data loading. Host-resident caching passed qualification on L40S. Both replacement seeds
 completed 24,000 OM4 updates and pretrained diagnostics. Observation adaptation
-was last verified running at 01:04 UTC on September 29; SSH access subsequently
-failed. Current remote state is unknown. Comparative results remain pending.
+is running. SSH access was interrupted between the 01:04 and 03:14 UTC checks
+on September 29 and has recovered. Comparative results remain pending.
 
 ## Scientific comparison
 
@@ -205,3 +205,15 @@ subsequent fresh connections were refused. Remote job state after the last
 successful check is unknown. No jobs were restarted or cancelled because of this
 monitoring failure. The existing checkpoint/resume and dependent evaluation
 jobs remain the recovery path once access returns.
+
+
+Access returned at the requested hourly retry, 03:14 UTC. Seed 1730 remained
+running at update 2,003; its update-2,000 validation composite was 0.95980.
+Seed 1729 was preempted after a 68,913-second allocation and automatically
+requeued on `node1632`. Its first resumed update was 1,901, following the saved
+update-1,900 checkpoint; it reached 1,926 by the successful check. The resume
+path preserves saved optimizer/RNG state and cumulative fitting time. Lost work
+between the last checkpoint and preemption and the second cache warm-up count
+in allocation accounting, even though they do not advance the completed update
+count. Both dependent evaluation arrays remained queued. No duplicate training
+jobs were submitted during the access interruption.

@@ -2753,3 +2753,23 @@ explicit Pushover instruction, a minimal report-ready notice containing no
 experiment results, PR details or GPU accounting was accepted. No duplicate
 notification or unauthorized OSN upload was sent. The full authorized experiment
 and report scope is complete; no new wave or follow-up training was launched.
+
+
+## 2026-09-29 — global observation-domain rerun
+
+User authorized a full matched rerun of Small conditioned mixed, using the existing
+run as control, and explicitly requested no latitude cutoff in inputs or scoring.
+[Protocol and implementation](global-domain-rerun-2026-09-29.md) now remove the polar
+cutoff from observation losses and global selection/evaluation, while preserving
+model, schedule, normalization, seed and 8k/8k task budgets. Inputs already retain
+all available latitudes. Geostrophic diagnostics retain their equatorial validity
+exclusion; surface and thermohaline supervision do not exclude the equator.
+
+Producer `79025a163817a577ab81af95b401f5cb0563cd12` passed 31 targeted tests and all
+repository hooks. CPU build job 18811814 submitted; GPU DAG submission is gated by
+verified overlay construction. Production is gated by fitting and resume probes
+with the global-domain flag in both contracts. The primary comparison is the
+matched final endpoints, rescoring the historical control globally; selected
+checkpoint comparisons will explicitly distinguish their selection domains.
+Torch authentication, credentials and data paths passed; scratch usage 4.31/5 TB.
+The old timer remains off.

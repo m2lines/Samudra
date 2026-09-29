@@ -49,4 +49,10 @@ Root: `/scratch/jr7309/runs/2026-09-29-observation-global`.
 Control: `/scratch/jr7309/runs/2026-09-28-observation-missingness/conditioned-mixed`.
 Submission: `scripts/submit_observation_global.py`.
 
-Status: implementation and local validation in progress; not yet submitted.
+Status at 18:07 UTC: producer `79025a163817a577ab81af95b401f5cb0563cd12`
+is pushed. All 31 targeted tests and repository hooks pass. CPU overlay-build job
+18811814 is submitted; its pinned launcher will enqueue the fitting probe,
+resume probe, production, and both arms' global evaluations. Production must wait
+for both probes to succeed. No GPU training is claimed running at this snapshot.
+Scratch quota check reports 4.31 TB used of 5 TB, sufficient for the approximately
+13 GB training checkpoint set and the additional evaluation exports.

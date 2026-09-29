@@ -2646,3 +2646,21 @@ arrays. Report renderers were exercised on the available data, including exact
 native-cell map checks, full-grid initialized/30-day/annual fields, temperature,
 salinity and velocity profiles, and regional spectra. Final six-model figures
 and conclusions await the outstanding runs/evaluations.
+
+### 12:41 UTC — five arms trained; evaluation capacity is the remaining queue
+
+Five production arms completed their exact budgets. Legacy scratch remains RUNNING
+at 13,844/16,000 observations with fresh finite events. Masked scratch completed at
+12:18 UTC, selecting 10,800 observations (validation 0.575680). Masked mixed-finish
+completed at 11:43 UTC, selecting 8,000 OM4 + 7,900 observations (0.570041). Actual
+allocated use is 89.9739 GPU-hours. No partial training markers are present.
+
+Eight eligible evaluations are PENDING for scheduler priority on H200; the six
+legacy evaluations still depend on its live training job. Completed identical
+protocol evaluations took 1–6 minutes. Attempted to shorten pending requests to
+20 minutes for backfill, but Slurm rejected in-place time-limit updates with
+`Unspecified error`; requests remain unchanged. A regular-RTX test-only request
+estimated a later start (17:04 cluster-local), so no jobs were canceled or
+replaced speculatively. EVALUATION_RUNTIME_REQUEST_REJECTED.json records this
+scheduling check. This is a resource wait, not a scientific failure or a user-action
+blocker. Continue hourly monitoring within the existing wall-time deadline.

@@ -198,6 +198,22 @@ def main():
     fig.suptitle("Validation detail: scores 0.5–1.0; full history shown separately")
     fig.savefig(args.output / "validation-curves-detail.png", dpi=160)
     plt.close(fig)
+    fig, ax = plt.subplots(figsize=(9, 4.5), layout="constrained")
+    for model in result["models"].values():
+        curve = model["validation_curve"]
+        ax.plot(
+            [v["global_step"] for v in curve],
+            [v["om4_retention"]["ts_mse"] for v in curve],
+            label=model["name"],
+        )
+    ax.set_yscale("log")
+    ax.set_xlabel("Total optimizer updates")
+    ax.set_ylabel("OM4 T/S forecast MSE (shared observation normalization)")
+    ax.set_title("Source-task retention: 11 fixed validation origins")
+    ax.legend(fontsize=7)
+    ax.grid(alpha=0.2)
+    fig.savefig(args.output / "source-retention-curves.png", dpi=160)
+    plt.close(fig)
     (args.output / "comparison.json").write_text(json.dumps(result, indent=2) + "\n")
 
 

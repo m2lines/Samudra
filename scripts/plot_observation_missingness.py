@@ -134,6 +134,24 @@ def main():
                         else None,
                     }
             audit["natural_missing"][arm][path.stem] = rows
+    coverage_arm = "masked-scratch" if "masked-scratch" in arms else arms[0]
+    for month in ("2013-11", "2014-07"):
+        data = np.load(args.arrays / coverage_arm / ("best-" + month + "-natural.npz"))
+        panels = []
+        for variable, visible_channel, grid_channel in (("SST", 0, 0), ("SSH", 1, 6)):
+            grid = dict(grids[coverage_arm])
+            grid["mask"] = grid["mask"].copy()
+            grid["mask"][0] = grid["mask"][grid_channel]
+            value = np.zeros_like(data["initial"])
+            value[0] = data["visible"][visible_channel]
+            panels.append((variable, value, grid))
+        name = "surface-coverage-" + month + ".png"
+        audit["figures"][name] = panel_plot(
+            panels,
+            "Surface inputs at initialization: " + month,
+            (0, "Coverage", "0 = missing; 1 = observed; gray = land", (0, 1), "Greens"),
+            args.output / name,
+        )
     for field in FIELDS:
         channel, variable = field[:2]
         for state in ("initial", "day30"):

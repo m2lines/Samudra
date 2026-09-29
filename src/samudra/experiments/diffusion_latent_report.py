@@ -136,6 +136,10 @@ def main():
         annual_protocol = dict(
             **protocol,
             annual_origins=[p.parent.name for p in origins],
+            annual_manifests={
+                str(p.relative_to(args.root / "data/annual_observations")): digest(p)
+                for p in origins
+            },
             annual_scope="Single latent initialization; conditional diffusion readouts at each lead; ensemble-mean point metrics only",
         )
         output = args.output / "annual"

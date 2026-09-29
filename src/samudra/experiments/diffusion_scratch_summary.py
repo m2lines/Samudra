@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 
 from samudra.experiments.diffusion_summary import pool, reduce_records
+from samudra.experiments.observation_pilot import digest
 
 ORIGINS = [f"{year}-{month:02}" for year in range(2015, 2023) for month in range(1, 13)]
 ANNUAL = ("2015-01-01", "2018-01-01", "2021-01-01")
@@ -118,9 +119,22 @@ def read_report(root, *, scratch, architecture="physical"):
             for origin in ANNUAL
         },
     )
-    contract = dict(
-        observation_manifest=data_hash, annual_manifests=annual["annual_manifests"]
-    )
+    annual_manifests = annual.get("annual_manifests")
+    if annual_manifests is None and architecture == "latent":
+        # Original latent evaluator verified inputs but omitted their manifest hashes.
+        # Preserve its outputs; require an explicit, completion-bound retrospective audit.
+        audit = json.loads((root / "annual/source-manifests.json").read_text())
+        if (
+            audit["annual_completion_sha256"] != digest(root / "annual/COMPLETE.json")
+            or audit["checkpoint_sha256"] != protocol["checkpoint_sha256"]
+            or audit["data_audit_sha256"]
+            != protocol["training_protocol"]["data_sha256"]
+        ):
+            raise ValueError("Retrospective annual input audit differs")
+        annual_manifests = audit["annual_manifests"]
+    if annual_manifests is None:
+        raise ValueError("Missing annual input manifests")
+    contract = dict(observation_manifest=data_hash, annual_manifests=annual_manifests)
     return summary, records, contract
 
 

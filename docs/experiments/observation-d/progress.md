@@ -2773,3 +2773,15 @@ matched final endpoints, rescoring the historical control globally; selected
 checkpoint comparisons will explicitly distinguish their selection domains.
 Torch authentication, credentials and data paths passed; scratch usage 4.31/5 TB.
 The old timer remains off.
+
+### 18:17 UTC — global rerun DAG queued
+
+CPU overlay build 18811814 completed 0:0. Fit 18811858, resume probe 18811859,
+and production 18811860 have verified after-success dependencies. Control global
+endpoint monthly/annual evaluators are 18811861/18811862; original-selected control
+is 18811863/18811864. New endpoint evaluators 18811865/18811866 and selected
+evaluators 18811867/18811868 depend on production. All request one RTX6000 on
+LZanna, producer 79025a163817a577ab81af95b401f5cb0563cd12. Fit and independent
+control evaluators remain queued on QOSGrpCpuLimit; no GPU allocated, no training
+or qualification success claimed, 0 GPU-hours consumed. Report and PR contents
+now link the new experiment and clarify the historical input/loss/scoring domains.

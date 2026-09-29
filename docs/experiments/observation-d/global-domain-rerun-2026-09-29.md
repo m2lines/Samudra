@@ -49,10 +49,25 @@ Root: `/scratch/jr7309/runs/2026-09-29-observation-global`.
 Control: `/scratch/jr7309/runs/2026-09-28-observation-missingness/conditioned-mixed`.
 Submission: `scripts/submit_observation_global.py`.
 
-Status at 18:07 UTC: producer `79025a163817a577ab81af95b401f5cb0563cd12`
+Status at 18:17 UTC: producer `79025a163817a577ab81af95b401f5cb0563cd12`
 is pushed. All 31 targeted tests and repository hooks pass. CPU overlay-build job
-18811814 is submitted; its pinned launcher will enqueue the fitting probe,
-resume probe, production, and both arms' global evaluations. Production must wait
-for both probes to succeed. No GPU training is claimed running at this snapshot.
+18811814 completed successfully. The complete GPU DAG is submitted:
+
+| Stage | Slurm jobs | Status at snapshot |
+|---|---|---|
+| Fitting qualification | 18811858 | Pending, QOSGrpCpuLimit |
+| Mixed-task resume qualification | 18811859 | After successful fitting |
+| Global conditioned-mixed training | 18811860 | After successful resume qualification |
+| Control endpoint monthly / annual | 18811861 / 18811862 | Pending, QOSGrpCpuLimit |
+| Control original-selected monthly / annual | 18811863 / 18811864 | Pending, QOSGrpCpuLimit |
+| Global endpoint monthly / annual | 18811865 / 18811866 | After successful training |
+| Global selected monthly / annual | 18811867 / 18811868 | After successful training |
+
+Each job requests one RTX6000 and uses the LZanna partition/account. No GPU is
+allocated yet (0 consumed GPU-hours). Slurm confirms the after-success dependencies,
+requeue behavior, pinned producer and 16-hour production allocation. The shared
+QOS CPU limit is currently delaying the fit and control evaluators despite idle
+RTX nodes; these jobs are queued, not running. The production runtime will also
+verify actual qualification markers and resume contracts before training.
 Scratch quota check reports 4.31 TB used of 5 TB, sufficient for the approximately
 13 GB training checkpoint set and the additional evaluation exports.

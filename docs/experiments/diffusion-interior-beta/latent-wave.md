@@ -6,8 +6,9 @@
 Report deadline: **2026-09-30 01:17 UTC** (September 29, 9:17 p.m. Eastern).
 The user authorized this wave after the diagonal-artifact investigation. Real-grid qualification passed on L40S and H200. The first two-seed launch was stopped after repeated preemption and slow
 random-data loading. Host-resident caching passed qualification on L40S. Both replacement seeds
-completed 24,000 OM4 updates; observation adaptation and pretrained diagnostics
-are running. Comparative results remain pending.
+completed 24,000 OM4 updates and pretrained diagnostics. Observation adaptation
+was last verified running at 01:04 UTC on September 29; SSH access subsequently
+failed. Current remote state is unknown. Comparative results remain pending.
 
 ## Scientific comparison
 
@@ -150,7 +151,8 @@ source. Dependent arrays are native OM4 controls before adaptation (**24147533**
 fixed observation-input maps before adaptation (**24147534**), native controls
 after adaptation (**24147537**), and full observation/annual reports (**24147538**).
 Each follows its corresponding seed's completed stage and verifies the selected
-checkpoint digest. These are queued evaluations, not completed results.
+checkpoint digest. The two pre-adaptation arrays completed; the post-adaptation
+arrays were still waiting on training at the last successful remote check.
 
 
 ## Pretraining completed; observation adaptation active
@@ -172,3 +174,34 @@ it is not the final observation-adapted comparison. Fine-tuning is measured at
 roughly 33–37 seconds per update, so its 20-hour cap is expected to bind before
 6,000 updates. Actual completed updates, wall time and validation curves will
 accompany the final report.
+
+
+## Interim validation and access interruption — September 29
+
+These are the fixed nine-origin validation composites, calculated from eight-member
+ensemble means using the same frozen criterion as the deterministic baseline.
+They are not held-out report scores, member spectral scores, or CRPS.
+
+| Observation updates | Seed 1729 | Seed 1730 |
+| --- | ---: | ---: |
+| 0 | 1.98253 | 2.02898 |
+| 500 | 1.36134 | 1.30082 |
+| 1,000 | 1.21656 | 1.17132 |
+| 1,500 | 1.17556 | 1.03414 |
+
+Lower is better. Both remain substantially worse than the selected deterministic
+baseline's validation composite of 0.53419. Improvement is not uniform across
+components: seed 1729's SST RMSE increased from 0.893 to 1.071 °C between updates
+1,000 and 1,500 despite improvement in the composite. The comparison is currently
+limited by partial optimization: throughput projects roughly 2,000 adaptation
+updates under the 20-hour cap, versus the baseline's selected update 6,400.
+This does not establish convergence or an architectural performance ceiling.
+
+At 01:04 UTC, training tasks `24147020_0` and `24147020_1` were running at updates
+1,763 and 1,782. Host memory remained about 81.64 and 80.80 GiB, below the 96 GiB
+allocations. Native/report arrays `24147537` and `24147538` were waiting on their
+training dependencies. The next hourly SSH poll was rejected by authentication;
+subsequent fresh connections were refused. Remote job state after the last
+successful check is unknown. No jobs were restarted or cancelled because of this
+monitoring failure. The existing checkpoint/resume and dependent evaluation
+jobs remain the recovery path once access returns.

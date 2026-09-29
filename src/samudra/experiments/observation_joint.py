@@ -119,9 +119,12 @@ def om4_objective(
         predictions.append(predicted)
         states = torch.stack((states[:, -1], predicted), 1)
     loss = balanced_loss(
-        torch.stack(predictions, 1), labels, data.weights, data.names
+        torch.stack(predictions, 1)[:, :, : len(data.names)],
+        labels,
+        data.weights,
+        data.names,
     ) + reconstruction_weight * balanced_loss(
-        initial, truth, data.weights, data.names, True
+        initial[:, :, : len(data.names)], truth, data.weights, data.names, True
     )
     if completion_weight:
         hidden = available[:, -2:] & ~visible[:, -2:]

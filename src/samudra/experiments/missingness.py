@@ -10,11 +10,23 @@ MODEL_DEFAULTS = {
     "initializer_architecture": "wide",
     "surface_policy": "legacy-copy",
     "task_conditioning": "none",
+    "latent_channels": 0,
 }
 
 
 def model_options(arguments):
     return {key: arguments.get(key, default) for key, default in MODEL_DEFAULTS.items()}
+
+
+def state_mask(mask, channels):
+    """Physical wet masks plus surface-ocean support for optional latent slots."""
+    extra = channels - mask.shape[0]
+    if extra < 0:
+        raise ValueError("State has fewer channels than the physical wet mask")
+    if not extra:
+        return mask
+    wet = mask.bool().any(0, keepdim=True).to(mask.dtype)
+    return torch.cat((mask, wet.expand(extra, -1, -1)), 0)
 
 
 def identity_adapters(channels):

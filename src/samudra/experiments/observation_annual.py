@@ -309,6 +309,22 @@ def main():
             months=months,
             predicted_ohc=np.array(monthly_predictions),
             reference_ohc=np.array(monthly_references),
+            **(
+                {
+                    "latent_initial": initial[0, :, model.physical_channels :]
+                    .float()
+                    .cpu()
+                    .numpy(),
+                    "latent_at_leads": prediction[
+                        0, [day // 5 - 1 for day in LEADS], model.physical_channels :
+                    ]
+                    .float()
+                    .cpu()
+                    .numpy(),
+                }
+                if model.latent_channels
+                else {}
+            ),
         )
         results[origin] = {"metrics": f"{origin}.json", "arrays": f"{origin}.npz"}
         print(

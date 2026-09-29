@@ -9,7 +9,7 @@ from torch import nn
 from torch.nn import functional as F
 from torch.utils.checkpoint import checkpoint
 
-from samudra.experiments.missingness import identity_adapters
+from samudra.experiments.missingness import identity_adapters, state_mask
 from samudra.experiments.surface_state import make_unet
 
 
@@ -193,6 +193,7 @@ class HistoryInitializer(nn.Module):
         expanded,
         surface_policy="legacy-copy",
         task_conditioning="none",
+        latent_channels=0,
     ):
         super().__init__()
         if surface_policy not in ("legacy-copy", "observed-only"):
@@ -200,7 +201,10 @@ class HistoryInitializer(nn.Module):
         if task_conditioning not in ("none", "input-adapters"):
             raise ValueError("Unknown task conditioning")
         self.surface_policy = surface_policy
-        self.channels = len(names)
+        if latent_channels < 0:
+            raise ValueError("Latent channel count must be nonnegative")
+        self.physical_channels = len(names)
+        self.channels = len(names) + latent_channels
         self.surface = [names.index("thetao_0"), names.index("zos")]
         self.history = 19 if expanded else 6
         self.expanded = expanded
@@ -243,4 +247,4 @@ class HistoryInitializer(nn.Module):
             )
         else:
             result[:, :, self.surface] = surface[:, -2:]
-        return result * mask
+        return result * state_mask(mask, self.channels)

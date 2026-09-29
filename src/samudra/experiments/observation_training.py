@@ -164,7 +164,8 @@ class Samples:
         )
 
     def physical(self, normalized):
-        return normalized.float() * self.std + self.mean
+        # Latent slots have no physical scale or direct observation target.
+        return normalized[:, :, : self.std.shape[2]].float() * self.std + self.mean
 
     def masked_channel_mse(self, prediction, target, mask, scale):
         valid = torch.isfinite(target) & mask.bool()

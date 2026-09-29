@@ -21,16 +21,29 @@ def main():
     parser.add_argument("--gpu-type", default="rtx6000", choices=["rtx6000", "h200"])
     parser.add_argument("--memory-gb", type=int, default=96)
     parser.add_argument("--deadline", default="2026-10-02T20:00:00+00:00")
+    parser.add_argument("--latent-channels", type=int, default=0)
+    parser.add_argument("--skip-control-evaluation", action="store_true")
+    parser.add_argument("--shared-reference")
+    parser.add_argument("--reference-job")
     args = parser.parse_args()
+    if args.latent_channels < 0:
+        parser.error("Latent channel count must be nonnegative")
+    if bool(args.shared_reference) != bool(args.reference_job):
+        parser.error("Shared reference requires its producing job dependency")
     root = Path(args.root)
     root.mkdir(parents=True, exist_ok=True)
     args.reference = str(root / "fit-conditioned" / "selection-reference.json")
 
     def common(name, fit=False):
         result = wave.common(args, name, "conditioned") + ["--global-observations"]
+        if args.latent_channels:
+            result += ["--latent-channels", str(args.latent_channels)]
         if fit:
             i = result.index("--selection-reference")
-            del result[i : i + 2]
+            if args.shared_reference:
+                result[i + 1] = args.shared_reference
+            else:
+                del result[i : i + 2]
         return result
 
     jobs = {}
@@ -40,6 +53,7 @@ def main():
         "samudra.experiments.observation_pilot",
         common("fit-conditioned", True) + ["--fit-probe"],
         1,
+        [args.reference_job] if args.reference_job else [],
     )
     joint = [
         "--qualification",
@@ -73,7 +87,9 @@ def main():
         1,
         [jobs["fit"]],
     )
-    name = "conditioned-mixed-global"
+    name = "conditioned-mixed-global" + (
+        f"-latent{args.latent_channels}" if args.latent_channels else ""
+    )
     jobs["train"] = pilot.submit(
         args,
         name,
@@ -121,6 +137,8 @@ def main():
         ("control", control, []),
         ("global", root / name, [jobs["train"]]),
     ]:
+        if label == "control" and args.skip_control_evaluation:
+            continue
         # Fixed endpoints are the primary causal comparison; selected checkpoints
         # retain their original selection provenance and are secondary diagnostics.
         for fixed in [True, False]:
@@ -172,6 +190,8 @@ def main():
                 "jobs": jobs,
                 "control": str(control),
                 "primary": "matched 8000/8000 endpoint",
+                "latent_channels": args.latent_channels,
+                "shared_reference": args.shared_reference,
             },
             indent=2,
         )

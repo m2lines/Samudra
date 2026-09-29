@@ -71,3 +71,33 @@ RTX nodes; these jobs are queued, not running. The production runtime will also
 verify actual qualification markers and resume contracts before training.
 Scratch quota check reports 4.31 TB used of 5 TB, sufficient for the approximately
 13 GB training checkpoint set and the additional evaluation exports.
+
+## Additional matched arm: ten autoregressive memory channels
+
+The user subsequently authorized a third run: **Small conditioned mixed global +
+10 latent channels**. It matches the global treatment's seed, mixed 8k/8k update
+budget, losses, normalization, task conditioning and global input/loss/score support.
+The initializer now emits two 87-channel states; the processor consumes the two
+87-channel states and predicts the next 87-channel state. The first 77 slots keep
+their physical interpretation and losses. The final ten have no direct target,
+physical normalization or auxiliary penalty: they learn through their effect on
+future physical predictions on both tasks. They are initialized by the network,
+updated at every step, and never reset or detached during the training rollout.
+They use the union of physical ocean wet masks, without a latitude restriction.
+
+The parameter count changes from **62,966,546 to 63,363,656** (+397,110, about
+0.63%). The input/output layers and processor task adapters expand; the U-Net widths,
+blocks and normalization stay fixed. This is an update-matched comparison, not an
+exact FLOP match. The existing two jobs remain pinned to their original producer.
+
+The third arm must pass its own fitting and mixed-task resume qualifications.
+The fitting probe additionally requires physical-loss gradients in both latent
+initializer and latent processor output heads. It shares the global arm's frozen
+validation reference, with an after-success dependency on that reference's fitting
+job. Local tests verify that the latent state is forwarded unchanged into the
+next step, physical-only future losses train latent outputs, OM4 losses accept the
+unlabelled state, and zero-latent models retain checkpoint-compatible shapes.
+Annual exports also retain initial and lead-time latent arrays for diagnostics.
+
+Root: `/scratch/jr7309/runs/2026-09-29-observation-global-latent10`.
+Status: code implemented; 37 targeted tests pass; cluster submission pending.

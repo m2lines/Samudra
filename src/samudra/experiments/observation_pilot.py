@@ -620,6 +620,7 @@ class Pilot:
             {"initializer": False, "evolution": False, "adapter": False},
         )
         completion_reached = False
+        latent_reached = {"initializer": False, "evolution": False}
         for step in range(11):
             optimizer.zero_grad(set_to_none=True)
             with torch.autocast("cuda", dtype=torch.bfloat16):
@@ -640,6 +641,21 @@ class Pilot:
                 completion_reached |= head.weight.grad is not None and bool(
                     head.weight.grad[rows].count_nonzero()
                 )
+            if getattr(self.args, "latent_channels", 0):
+                physical = self.model.physical_channels
+                channels = self.model.initializer.channels
+                for name, rows in (
+                    (
+                        "initializer",
+                        list(range(physical, channels))
+                        + list(range(channels + physical, 2 * channels)),
+                    ),
+                    ("evolution", list(range(physical, channels))),
+                ):
+                    head = getattr(self.model, name).net[-1]
+                    latent_reached[name] |= head.weight.grad is not None and bool(
+                        head.weight.grad[rows].count_nonzero()
+                    )
             for name in reached:
                 module = getattr(self.model, name)
                 norm = (
@@ -659,6 +675,10 @@ class Pilot:
             optimizer.step()
         if getattr(self.args, "completion_weight", 0.0):
             reached["completion_head"] = completion_reached
+        if getattr(self.args, "latent_channels", 0):
+            reached.update(
+                {"latent_" + key: value for key, value in latent_reached.items()}
+            )
         if not all(reached.values()) or not losses[-1] < losses[0]:
             raise ValueError(
                 f"Training-only fitting qualification failed: {losses}, {reached}"
@@ -748,6 +768,7 @@ def build_parser():
         "--task-conditioning", choices=["none", "input-adapters"], default="none"
     )
     parser.add_argument("--completion-weight", type=float, default=0.0)
+    parser.add_argument("--latent-channels", type=int, default=0)
     parser.add_argument("--observation-normalization", action="store_true")
     parser.add_argument("--strict-velocity-support", action="store_true")
     parser.add_argument(

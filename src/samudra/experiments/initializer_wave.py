@@ -303,6 +303,9 @@ class InitializerWave(Experiment):
                         if forecast
                         else initial
                     )
+                # Keep latent slots through evolution, then score physical targets only.
+                initial = initial[:, :, : len(self.names)]
+                prediction = prediction[:, :, : len(self.names)]
                 rec = thermohaline_mse(
                     channel_mse(initial, truth, self.weights), self.names
                 ).mean()

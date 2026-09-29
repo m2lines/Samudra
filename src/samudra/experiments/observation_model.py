@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Deterministic D transfer without changing any pretrained parameter shapes."""
+"""Deterministic observation transfer with optional autoregressive latent memory."""
 
 from contextlib import contextmanager, nullcontext
 
@@ -25,12 +25,22 @@ class ObservationTransfer(nn.Module):
         initializer_architecture="wide",
         surface_policy="legacy-copy",
         task_conditioning="none",
+        latent_channels=0,
     ):
         super().__init__()
         self.initializer = HistoryInitializer(
-            names, initializer_architecture, True, surface_policy, task_conditioning
+            names,
+            initializer_architecture,
+            True,
+            surface_policy,
+            task_conditioning,
+            latent_channels,
         )
-        self.evolution = build_evolution(len(names), evolution_architecture)
+        self.physical_channels = len(names)
+        self.latent_channels = latent_channels
+        self.evolution = build_evolution(
+            len(names) + latent_channels, evolution_architecture
+        )
         self.adapter = nn.Sequential(
             nn.Conv2d(8, 32, 1), nn.GELU(), nn.Conv2d(32, 3, 1)
         )
@@ -40,7 +50,9 @@ class ObservationTransfer(nn.Module):
         nn.init.zeros_(last.weight)
         nn.init.zeros_(last.bias)
         if task_conditioning == "input-adapters":
-            self.evolution.input_adapters = identity_adapters(2 * len(names) + 8)
+            self.evolution.input_adapters = identity_adapters(
+                2 * (len(names) + latent_channels) + 8
+            )
         self.activation_checkpointing = True
         self.update_batchnorm = False
         configure_normalization(self, normalization)
@@ -124,7 +136,7 @@ class ObservationTransfer(nn.Module):
         )
 
     def forecast(self, surface, atmosphere, contexts, mask, validity):
-        """Return physical-state-interface normalized outputs, with 6 or 7 leads."""
+        """Roll out physical slots and optional latent memory without detaching either."""
         initial = self.initialize(
             surface[:, :19], atmosphere[:, :19], contexts[:, 18], mask, validity[:, :19]
         )

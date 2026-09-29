@@ -14,6 +14,7 @@ import torch
 from torch import nn
 
 from samudra.config import BlockConfig, UNetBackboneConfig
+from samudra.experiments.missingness import state_mask
 
 
 def make_unet(inputs: int, outputs: int, widths: list[int]) -> nn.Module:
@@ -93,7 +94,8 @@ class Evolution(nn.Module):
         if adapters is not None:
             assert isinstance(adapters, nn.ModuleDict)
             inputs = adapters[task](inputs)
-        return self.net(inputs) * mask
+        result = self.net(inputs)
+        return result * state_mask(mask, result.shape[1])
 
 
 class Forecast(nn.Module):

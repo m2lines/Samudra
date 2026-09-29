@@ -15,7 +15,9 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from summarize_observation_missingness import NAMES  # type: ignore[import-not-found]
 
-from samudra.experiments.observation_prepare import DEPTHS
+from samudra.constants import build_om4_layout
+
+DEPTHS = np.array(build_om4_layout().depth_levels)
 
 
 def profiles(files, arms, output):
@@ -33,8 +35,14 @@ def profiles(files, arms, output):
             records = files[arm + "-state-diagnostics/best.json"]["profiles"]
             values = np.array([r[statistic] for r in records]).mean(0)
             for ax, (offset, label) in zip(axes, variables, strict=True):
-                ax.plot(values[offset : offset + 14], DEPTHS, label=NAMES[arm])
+                ax.plot(values[offset : offset + len(DEPTHS)], DEPTHS, label=NAMES[arm])
                 ax.set_xlabel(label)
+        for ax in axes:
+            ax.set_yscale("symlog", linthresh=200)
+            ax.set_yticks(
+                [0, 100, 500, 1850, 6000], ["0", "100", "500", "1850", "6000"]
+            )
+            ax.axhspan(1850, 6000, color="gray", alpha=0.1)
         axes[0].invert_yaxis()
         axes[0].set_ylabel("Depth (m)")
         axes[0].legend(fontsize=6)
@@ -66,9 +74,15 @@ def profiles(files, arms, output):
             records = files[key]["profiles"]
             values = np.array([r["initial_mean"] for r in records]).mean(0)
             for ax, (offset, label) in zip(axes, variables, strict=True):
-                ax.plot(values[offset : offset + 14], DEPTHS, label=checkpoint)
+                ax.plot(values[offset : offset + len(DEPTHS)], DEPTHS, label=checkpoint)
                 ax.set_xlabel(label)
                 ax.grid(alpha=0.2)
+        for ax in axes:
+            ax.set_yscale("symlog", linthresh=200)
+            ax.set_yticks(
+                [0, 100, 500, 1850, 6000], ["0", "100", "500", "1850", "6000"]
+            )
+            ax.axhspan(1850, 6000, color="gray", alpha=0.1)
         axes[0].invert_yaxis()
         axes[0].set_ylabel("Depth (m)")
         axes[0].legend(fontsize=6)

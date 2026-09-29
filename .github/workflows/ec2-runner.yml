@@ -75,7 +75,7 @@ jobs:
         uses: ./
         with:
           # Keep bootstrap scripts at the same revision as the checked-out action.
-          action_ref: e021da12a946b653a717738bc704aa7baa95ae8e
+          action_ref: e021da12a946b653a717738bc704aa7baa95ae8e # pragma: allowlist secret
           aws_region: ${{ inputs.aws_region }}
           aws_tags: ${{ inputs.aws_tags }}
           ec2_instance_type: ${{ inputs.ec2_instance_type }}

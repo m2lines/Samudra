@@ -100,4 +100,12 @@ unlabelled state, and zero-latent models retain checkpoint-compatible shapes.
 Annual exports also retain initial and lead-time latent arrays for diagnostics.
 
 Root: `/scratch/jr7309/runs/2026-09-29-observation-global-latent10`.
-Status: code implemented; 37 targeted tests pass; cluster submission pending.
+Status at 19:13 UTC: producer `b95179b963d372b72333c7f0e7e521a67b51ff6e`
+is pushed. All 37 targeted tests and repository hooks pass. CPU build 18815268
+completed 0:0. Fitting job 18815275 depends on global reference producer 18811858;
+resume probe 18815277 depends on that fitting check; training 18815278 depends on
+the resume probe. Endpoint monthly/annual jobs are 18815279/18815280; selected
+monthly/annual jobs are 18815281/18815282, all after successful training. Each
+requests one RTX6000 on LZanna. The shared reference producer remains pending on
+QOSGrpCpuLimit, so this entire arm is queued, not running. No GPU time consumed.
+The previous two arms are unchanged; no duplicate control evaluations submitted.

@@ -2785,3 +2785,25 @@ LZanna, producer 79025a163817a577ab81af95b401f5cb0563cd12. Fit and independent
 control evaluators remain queued on QOSGrpCpuLimit; no GPU allocated, no training
 or qualification success claimed, 0 GPU-hours consumed. Report and PR contents
 now link the new experiment and clarify the historical input/loss/scoring domains.
+
+### 19:13 UTC — matched ten-channel memory arm queued
+
+User authorized a third arm adding ten initialized/autoregressed latent channels.
+It matches the global treatment's 8k OM4/8k observation schedule and all physical
+losses; no direct latent targets or penalties. Counts independently constructed:
+62,966,546 physical-only versus 63,363,656 with memory (+0.63%). Tests verify
+latent carry between steps, physical-loss gradient reach, land masking, physical
+score extraction, OM4 loss compatibility and zero-latent checkpoint compatibility.
+37 targeted tests and all hooks pass. The actual fitting probe additionally checks
+latent initializer and processor gradients; production requires successful fitting
+and mixed-task resume qualification under the new producer.
+
+Producer b95179b963d372b72333c7f0e7e521a67b51ff6e, root
+`/scratch/jr7309/runs/2026-09-29-observation-global-latent10`. Build 18815268 completed
+0:0. Fit 18815275 depends on global reference producer 18811858; resume probe
+18815277 and production 18815278 follow after success. Endpoint monthly/annual
+18815279/18815280 and selected monthly/annual 18815281/18815282 depend on training.
+All GPU jobs are pending: original global reference and control rescoring still
+wait on QOSGrpCpuLimit, and the latent arm waits on those qualification dependencies.
+No GPU allocated or training success claimed. Old jobs and pinned producers remain
+unchanged. Annual exports preserve latent arrays for later diagnostics.

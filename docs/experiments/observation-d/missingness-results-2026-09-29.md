@@ -65,7 +65,9 @@ The initializer consumes 19 five-day surface-history frames plus forcing and
 validity information, and produces two full-state frames. Five fixed context
 channels encode location as spherical x/y/z and annual phase as sine/cosine.
 These give explicit geography and season; they are not learned coordinate tables.
-The processor then takes six autoregressive five-day steps during training.
+OM4 training takes six autoregressive five-day steps. Observation training takes
+six or seven five-day steps to cover the calendar month, with overlap weights
+for monthly T/S; reported surface lead metrics extend through day 30.
 OM4 uses its original forcings; observation forecasts use the existing ERA5
 forcing adapter. Available future ERA5 forcing is prescribed, so these are
 forced hindcasts rather than operational forecasts with uncertain atmospheric
@@ -151,6 +153,9 @@ are counted separately rather than silently treated as plausible.
 Initialized profiles show wet-area means and RMS over the same nine origins,
 through the 14 observed depth levels. They describe what the initializer produces;
 velocity profiles are not observation-validated full-state reconstructions.
+The velocity maps/profiles show model U/V state channels, whereas the observation
+velocity and EKE metrics are geostrophic quantities derived from SSH. They are
+different diagnostics and should not be interpreted as direct comparisons.
 Frozen-state interventions replace initialized velocities by zero or the five
 unobserved deepest T/S levels by their normalization means. Changes in subsequent
 observation errors test sensitivity to these slots, not whether they represent

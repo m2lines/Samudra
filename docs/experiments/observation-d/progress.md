@@ -2664,3 +2664,36 @@ estimated a later start (17:04 cluster-local), so no jobs were canceled or
 replaced speculatively. EVALUATION_RUNTIME_REQUEST_REJECTED.json records this
 scheduling check. This is a resource wait, not a scientific failure or a user-action
 blocker. Continue hourly monitoring within the existing wall-time deadline.
+
+### 13:41 UTC — five complete result sets collected
+
+All 26 evaluations belonging to the five completed arms now have completion
+markers. The collector verified their checkpoint hashes, exact budgets, expected
+origins and selection/endpoint lineage. Legacy scratch remains RUNNING at
+14,943/16,000 observations. Actual allocated use is 91.4525 GPU-hours.
+`report-metrics-1341.json.gz` SHA is
+bdb84b2e04158b16aac527d765c9f58ff589bf88d3b30464493801f0dff0d156,
+matching the local copy. CPU export 18794818 completed; all five available compact
+array archives and every member hash now verify locally.
+
+Automatic approval review rejected an additional OSN upload because authorization
+for that payload/destination was not established. No retry to OSN was made. The
+safe alternative copied the compact report arrays from the DTN directly into the
+user's local workspace, without an external-storage upload. This succeeded and
+is not a user-action blocker.
+
+Among these five, selected masked scratch has monthly test composite 0.568791,
+sequential 0.572607, unconditioned mixed-finish 0.576713, conditioned mixed-finish
+0.590619, and conditioned mixed 0.593176. Raw equal-total-budget endpoints instead
+favor sequential (0.571255 versus scratch 0.598370). Annual and source-retention
+comparisons differ again: conditioned mixed has three-case day-365 SST/ADT RMSE
+0.748294°C / 0.107469 m versus scratch 0.887365°C / 0.159390 m. These results do
+not establish a uniform pretraining benefit or a need for an observation-only tail.
+The full comparison, including the old-fill control, remains pending.
+
+The methods draft now distinguishes 6-step OM4 training from 6/7-step calendar-month
+observation training, auxiliary reconstruction using contemporaneous histories
+from the forecast path, and internal U/V diagnostics from geostrophic observation
+metrics. Model parameter counts were independently reconstructed: 62,875,370
+without task adapters and 62,966,546 with them. Qualification JSON was read back,
+hash-verified, and included as a compact report artifact.

@@ -192,6 +192,11 @@ def main():
         "Validation history; dots mark selected checkpoints. Incomplete arms omitted."
     )
     fig.savefig(args.output / "validation-curves.png", dpi=160)
+    for ax in axes:
+        ax.set_yscale("linear")
+        ax.set_ylim(0.5, 1.0)
+    fig.suptitle("Validation detail: scores 0.5–1.0; full history shown separately")
+    fig.savefig(args.output / "validation-curves-detail.png", dpi=160)
     plt.close(fig)
     (args.output / "comparison.json").write_text(json.dumps(result, indent=2) + "\n")
 

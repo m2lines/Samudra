@@ -90,7 +90,7 @@ def main():
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
     arms = [arm for arm in NAMES if (args.arrays / arm / "manifest.json").exists()]
-    audit: dict[str, Any] = {"inputs": {}, "figures": {}}
+    audit: dict[str, Any] = {"inputs": {}, "figures": {}, "natural_missing": {}}
     for arm in arms:
         root = args.arrays / arm
         manifest = json.loads((root / "manifest.json").read_text())
@@ -102,6 +102,38 @@ def main():
     for arm in arms:
         for key in ("lat", "lon", "mask", "channels"):
             np.testing.assert_array_equal(grids[arm][key], grids[arms[0]][key])
+    for arm in arms:
+        grid = grids[arm]
+        audit["natural_missing"][arm] = {}
+        for path in sorted((args.arrays / arm).glob("best-*-natural.npz")):
+            data = np.load(path)
+            rows = {}
+            for channel, variable, visible_channel in ((0, "sst", 0), (6, "ssh", 1)):
+                missing = grid["mask"][channel] & ~data["visible"][
+                    visible_channel
+                ].astype(bool)
+                for region, latitude_mask in (
+                    ("global", np.ones(180, dtype=bool)),
+                    ("north_of_60", grid["lat"] > 60),
+                    ("south_of_60", grid["lat"] < -60),
+                ):
+                    selected = missing & latitude_mask[:, None]
+                    value = data["initial"][channel][selected]
+                    weight = np.broadcast_to(
+                        np.cos(np.deg2rad(grid["lat"]))[:, None], selected.shape
+                    )[selected]
+                    rows[variable + "/" + region] = {
+                        "count": int(selected.sum()),
+                        "area_weighted_mean": float(np.average(value, weights=weight))
+                        if len(value)
+                        else None,
+                        "percentiles_0_1_50_99_100": np.percentile(
+                            value, [0, 1, 50, 99, 100]
+                        ).tolist()
+                        if len(value)
+                        else None,
+                    }
+            audit["natural_missing"][arm][path.stem] = rows
     for field in FIELDS:
         channel, variable = field[:2]
         for state in ("initial", "day30"):

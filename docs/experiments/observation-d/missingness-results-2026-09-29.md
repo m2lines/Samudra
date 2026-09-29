@@ -71,6 +71,14 @@ Corrected models beat climatology for block completion. Polar-cap SST is close t
 
 Support is 110,942 SST / 88,304 SSH cell-frame samples for blocks and 189,738 / 174,402 for polar caps, pooled across origins; these are repeated samples, not independent spatial cells. All arms use identical support. Bias and north/south breakdowns are retained in the comparison artifact. Naturally missing cells have no truth-based completion score.
 
+These coverage maps show finite supplied inputs at the last five-day initialization
+frame, not the forecast training/scoring domain. Available polar inputs are retained;
+the ±60° cutoff applies to the observation forecast/interior losses and headline
+scores, not to inputs. Green does not establish direct measurement coverage under
+ice. The separately labeled polar-cap experiment artificially withholds those inputs.
+The [global-domain follow-up](global-domain-rerun-2026-09-29.md) removes that loss
+and scoring restriction; its results are pending.
+
 ![Observed versus missing surface inputs at initialization](artifacts/2026-09-28-missingness/final/surface-coverage-2013-11.png)
 
 ![Full-grid initialized SST for all selected models](artifacts/2026-09-28-missingness/final/selected-initial-channel0.png)
@@ -249,8 +257,8 @@ During OM4 updates, observation-training coverage masks and artificial gaps hide
 inputs while real OM4 targets remain available. During observation updates,
 completion targets are only genuinely available observations that were hidden.
 The additional surface-completion term has weight 0.1 and covers full-grid wet
-observed support, including available polar observations. The original forecast
-scoring domain remains 60S–60N. The completion branch can therefore learn polar
+observed support, including available polar observations. The original observation forecast loss, interior reconstruction loss, and
+forecast scoring domain remain 60S–60N. The completion branch can therefore learn polar
 structure even though those regions do not contribute to forecast selection.
 
 Conditioning uses separate identity-initialized 1×1 convolutional adapters for

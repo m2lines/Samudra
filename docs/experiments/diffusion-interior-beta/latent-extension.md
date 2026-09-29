@@ -70,3 +70,9 @@ about six evaluation GPU-hours, remaining well within the **576 GPU-hour** cap.
 Actual allocation accounting takes precedence over this estimate.
 
 [Continuation receipts and job manifest](latent-assets/extension-provenance.json.gz).
+
+At 11:42 UTC September 29, resumed seeds had reached updates **2,029** and
+**2,062**, respectively, with finite losses and approximately 36-second updates.
+Both native-cache equivalence checks passed, and observed host memory was about
+62 GiB per job, below the 96 GiB allocation. This verifies real optimizer
+progress after restart, not just scheduler acceptance.

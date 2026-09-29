@@ -9,8 +9,8 @@ sequential model, an OM4 climatology fill reduces mean day-365 SST RMSE by 5.1%;
 for mixed, by 4.8%; scratch changes by less than 0.1%. Replacing missing values
 throughout the input history worsens day-30 SST error in all three models.
 These are sensitivity results from frozen models, not evidence that missingness-aware
-training cannot help. Fresh training comparisons are still pending in the
-[missingness wave](missingness-wave-2026-09-28.md).
+training cannot help. Fresh training comparisons are now complete in the
+[missingness results](missingness-results-2026-09-29.md).
 
 ## Models and interventions
 

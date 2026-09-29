@@ -3,6 +3,8 @@
 
 # Initialization gaps and mixed pretraining with an observation-only finish
 
+Completed 29 September 2026; see the [results and maps](missingness-results-2026-09-29.md).
+
 Authorized 28 September 2026. Goal: diagnose and improve initialization at missing
 surface observations, learn missingness explicitly, and test task-conditioned
 mixed pretraining followed by observation-only fine-tuning. This is a new wave;
@@ -97,7 +99,8 @@ assumption that parameter reduction produces an equal speedup. At the deadline,
 report any partial results honestly.
 
 Keep the existing hourly interruptible monitoring style; do not restart the old
-timer. Notify Jesse on Slack for genuine blockers under the existing authorization.
+timer. Notify Jesse via Pushover on completion or genuine blockage, following the latest
+notification instruction.
 Push progress and results to codex/d-observation-pilot and update draft PR 892's
 contents. Final report includes literal model definitions, component metrics,
 learning curves, completion/missingness audits, full-grid initializer and forecast

@@ -2713,3 +2713,25 @@ is also verified while five remaining evaluations are explicitly marked missing.
 `report-metrics-1443.json.gz` SHA is
 40592fd1d9788b308afdd330882f8f34ee1fe85ed2c28bf73f583c1f5e4fb44b.
 This strengthens the final audit without changing training, selection or evaluation.
+
+### 15:42 UTC — all evaluations complete; final report assembly
+
+All six training jobs and all 32 current evaluations are COMPLETED 0:0. The final
+collector verifies every requested checkpoint against its actual file hash,
+training/evaluation producers, fixed-budget counts, selection contract and exact
+origin lists; all six result sets pass. No partial-budget outputs remain.
+Final numerical bundle SHA:
+`b64a6e1ab27a04ae2b804ac515b8821dc15b8ae2c6336dfdf8de1bbaedc32305`.
+CPU export 18803869 completed; the last archive and every member hash matched the
+direct DTN-to-local copy. Final allocated use is **92.726944 GPU-hours** across
+142 accounting attempt records, including zero-allocation cancellations and CPU
+jobs; no requested limits are counted as consumed time.
+
+The final report includes all six selected and raw matched-budget scores, scratch
+8k controls, persistence, component metrics, completion support/bias, source
+retention and state interventions. Its 81 figures include 68 native-grid map
+panels/collections, every requested checkpoint series, three annual cases and
+full 19-level initializer profiles. Map geometry and pixel values are verified;
+links, hashes and representative rendered figures were inspected. The old timer
+is confirmed disabled and inactive. Report publication, PR contents and the
+requested completion notification are the remaining delivery steps.

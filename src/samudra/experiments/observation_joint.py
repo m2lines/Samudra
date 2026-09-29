@@ -143,6 +143,7 @@ def qualification_contract(args):
         "model_options": model_options(vars(args)),
         "surface_fill": getattr(args, "surface_fill", "climatology"),
         "completion_weight": getattr(args, "completion_weight", 0.0),
+        "global_observations": getattr(args, "global_observations", False),
         "reconstruction_weight": args.reconstruction_weight,
         "accumulate": args.accumulate,
         "core_lr": args.core_lr,

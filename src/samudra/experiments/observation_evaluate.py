@@ -30,6 +30,11 @@ def main():
     parser.add_argument("--checkpoint", default="best.pt")
     parser.add_argument("--fixed-om4-updates", type=int)
     parser.add_argument("--fixed-observation-updates", type=int)
+    parser.add_argument(
+        "--global-observations",
+        action="store_true",
+        help="Also permits globally rescoring historical restricted runs",
+    )
     args = parser.parse_args()
     fixed = (
         args.fixed_om4_updates is not None or args.fixed_observation_updates is not None
@@ -48,6 +53,9 @@ def main():
     if not (run / "TRAIN_COMPLETE.json").exists():
         raise ValueError("Selection must finish before held-out evaluation")
     manifest = json.loads((run / "manifest.json").read_text())
+    global_observations = args.global_observations or manifest["arguments"].get(
+        "global_observations", False
+    )
     checkpoint = run / args.checkpoint
     fixed_state, lineage = None, None
     if fixed:
@@ -70,6 +78,7 @@ def main():
         if args.selected_only
         else "selected-and-source-initializer-controls-v2",
         "checkpoint_sha256": digest(checkpoint),
+        "global_observations": global_observations,
         "split": args.split,
         "data_manifest_sha256": manifest["data_manifest_sha256"],
     }
@@ -85,12 +94,14 @@ def main():
     evaluator.args = SimpleNamespace(
         strict_velocity_support=manifest["arguments"].get(
             "strict_velocity_support", False
-        )
+        ),
+        global_observations=global_observations,
     )
     evaluator.data = Samples(
         manifest["arguments"]["data"],
         "cuda",
         manifest["arguments"].get("surface_fill", "climatology"),
+        global_observations=global_observations,
     )
     if manifest["arguments"].get("from_scratch", False) or manifest["arguments"].get(
         "observation_normalization", False
@@ -162,6 +173,7 @@ def main():
             manifest["arguments"]["data"],
             "cuda",
             manifest["arguments"].get("surface_fill", "climatology"),
+            global_observations=global_observations,
         )
         if manifest["arguments"].get("observation_normalization", False):
             evaluator.data.use_observation_normalization()

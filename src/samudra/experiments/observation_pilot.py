@@ -64,7 +64,10 @@ class Pilot:
         ):
             raise ValueError("Unknown data verification protocol")
         self.data = Samples(
-            args.data, self.device, getattr(args, "surface_fill", "climatology")
+            args.data,
+            self.device,
+            getattr(args, "surface_fill", "climatology"),
+            global_observations=getattr(args, "global_observations", False),
         )
         self.model = ObservationTransfer.from_arguments(
             self.data.grid["names"].tolist(), vars(args)
@@ -105,6 +108,8 @@ class Pilot:
                 != getattr(args, "surface_fill", "climatology")
                 or qualification.get("completion_weight", 0.0)
                 != getattr(args, "completion_weight", 0.0)
+                or qualification.get("global_observations", False)
+                != getattr(args, "global_observations", False)
                 or not all(qualification["gradient_reached"].values())
                 or qualification["losses"][-1] >= qualification["losses"][0]
             ):
@@ -116,7 +121,10 @@ class Pilot:
         self.validation = self.data.paths("validation")
         if len(self.training) != 243 or len(self.validation) != 9:
             raise ValueError("Incomplete fixed training/validation cohort")
-        self.protocol = protocol(getattr(args, "strict_velocity_support", False))
+        self.protocol = protocol(
+            getattr(args, "strict_velocity_support", False),
+            getattr(args, "global_observations", False),
+        )
         self.manifest = {
             "arguments": vars(args),
             "source_checkpoint_sha256": None
@@ -268,6 +276,9 @@ class Pilot:
             mask=self.data.grid["mask"][0],
             strict_velocity_support=getattr(
                 getattr(self, "args", None), "strict_velocity_support", False
+            ),
+            global_observations=getattr(
+                getattr(self, "args", None), "global_observations", False
             ),
         )
         supported = interior_count > 0
@@ -660,6 +671,7 @@ class Pilot:
                 ),
                 "model_options": model_options(vars(self.args)),
                 "surface_fill": getattr(self.args, "surface_fill", "climatology"),
+                "global_observations": getattr(self.args, "global_observations", False),
                 "completion_weight": getattr(self.args, "completion_weight", 0.0),
                 "losses": losses,
                 "gradient_reached": reached,
@@ -738,6 +750,11 @@ def build_parser():
     parser.add_argument("--completion-weight", type=float, default=0.0)
     parser.add_argument("--observation-normalization", action="store_true")
     parser.add_argument("--strict-velocity-support", action="store_true")
+    parser.add_argument(
+        "--global-observations",
+        action="store_true",
+        help="Use all available latitudes for observation losses and scores",
+    )
     parser.add_argument("--adapter-steps", type=int, default=200)
     parser.add_argument("--adapter-hours", type=float, default=0.5)
     parser.add_argument(

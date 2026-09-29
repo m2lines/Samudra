@@ -18,7 +18,9 @@ from samudra.metrics import kernels
 
 
 class Samples:
-    def __init__(self, root, device, surface_fill="climatology"):
+    def __init__(
+        self, root, device, surface_fill="climatology", global_observations=False
+    ):
         if surface_fill not in ("climatology", "zero"):
             raise ValueError("Unknown missing surface input fill")
         self.surface_fill = surface_fill
@@ -30,7 +32,9 @@ class Samples:
         self.mean = self.tensor(self.grid["mean"])[None, None, :, None, None]
         self.std = self.tensor(self.grid["std"])[None, None, :, None, None]
         self.area = self.tensor(np.cos(np.deg2rad(self.grid["lat"]))[:, None])
-        self.area *= self.tensor(np.abs(self.grid["lat"][:, None]) <= 60)
+        self.global_observations = global_observations
+        if not global_observations:
+            self.area *= self.tensor(np.abs(self.grid["lat"][:, None]) <= 60)
         self.ts_indices = list(range(38, 52)) + list(range(57, 71))
         self.ts_mask = self.mask[self.ts_indices].clone()
         self.ts_mask[0] = 0  # Supplied surface temperature is not interior supervision.

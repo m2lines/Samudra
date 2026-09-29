@@ -37,7 +37,7 @@ def test_control_weights_normalization_and_resume(
     (run / "best.json").write_text('{"checkpoint_sha256":"digest","score":1.0}')
 
     class Data:
-        def __init__(self, *args):
+        def __init__(self, *args, **kwargs):
             self.normalization = "source"
             self.grid = {"names": np.array(["sst"])}
 

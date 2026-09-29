@@ -105,7 +105,9 @@ def inputs(data, raw):
 def surface_metrics(prediction, reference, data):
     lat, lon = data.grid["lat"], data.grid["lon"]
     area = np.cos(np.deg2rad(lat))[:, None] * np.ones((1, len(lon)))
-    domain = data.grid["mask"][0] & (np.abs(lat[:, None]) <= 60)
+    domain = data.grid["mask"][0].copy()
+    if not getattr(data, "global_observations", False):
+        domain &= np.abs(lat[:, None]) <= 60
     p, r = np.where(domain, prediction, np.nan), np.where(domain, reference, np.nan)
     predicted_u, predicted_v = kernels.geostrophic_velocity_from_zos(
         _field(p[:, 1], lat, lon), "lat", "lon"
@@ -171,6 +173,11 @@ def main():
     parser.add_argument("--split", choices=("validation", "test"), default="validation")
     parser.add_argument("--fixed-om4-updates", type=int)
     parser.add_argument("--fixed-observation-updates", type=int)
+    parser.add_argument(
+        "--global-observations",
+        action="store_true",
+        help="Also permits globally rescoring historical restricted runs",
+    )
     args = parser.parse_args()
     fixed = (
         args.fixed_om4_updates is not None or args.fixed_observation_updates is not None
@@ -181,6 +188,9 @@ def main():
         parser.error("Fixed-budget evaluation requires both task counts")
     run, annual, output = Path(args.run), Path(args.annual_data), Path(args.output)
     manifest = json.loads((run / "manifest.json").read_text())
+    global_observations = args.global_observations or manifest["arguments"].get(
+        "global_observations", False
+    )
     checkpoint = run / args.checkpoint
     fixed_state, lineage = None, None
     if fixed:
@@ -210,6 +220,7 @@ def main():
         "protocol": "continuous-365-day-v1",
         "training_manifest_sha256": digest(run / "manifest.json"),
         "checkpoint_sha256": digest(checkpoint),
+        "global_observations": global_observations,
         "data_manifests": {str(p.relative_to(annual)): digest(p) for p in origins},
         "producer": os.environ.get("SAMUDRA_CODE_COMMIT"),
         "split": args.split,
@@ -229,6 +240,7 @@ def main():
         manifest["arguments"]["data"],
         "cuda",
         manifest["arguments"].get("surface_fill", "climatology"),
+        global_observations=global_observations,
     )
     if manifest["normalization_mode"] == "observation-only":
         data.use_observation_normalization()

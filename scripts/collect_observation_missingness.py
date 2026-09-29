@@ -7,8 +7,17 @@ import argparse
 import gzip
 import hashlib
 import json
+from functools import cache
 from pathlib import Path
 from typing import Any
+
+# Public source revisions, not credentials.
+TRAINING_PRODUCER = (
+    "053e34947932fdb56c6baf2c717a23f2df3cc733"  # pragma: allowlist secret
+)
+EVALUATION_PRODUCER = (
+    "9999caf5937a8d0983dc0b6b6883011dc6a1a450"  # pragma: allowlist secret
+)
 
 ARMS = {
     "legacy-scratch": (0, 16000),
@@ -20,6 +29,7 @@ ARMS = {
 }
 
 
+@cache
 def digest(path):
     with path.open("rb") as stream:
         return hashlib.file_digest(stream, "sha256").hexdigest()
@@ -46,6 +56,8 @@ def collect(root):
         assert complete["global_step"] == om4 + obs
         assert not (run / "TRAIN_PARTIAL.json").exists()
         manifest = read(run / "manifest.json")
+        assert manifest["code_commit"] == TRAINING_PRODUCER
+        assert manifest["arguments"]["seed"] == 1729
         best = read(run / "best.json")
         selected_hash = digest(run / "best.pt")
         assert (
@@ -108,10 +120,18 @@ def collect(root):
                     assert (
                         signature["fixed_budget_lineage"]
                         == done["fixed_budget_lineage"]
+                        == result["fixed_budget_lineage"]
+                    )
+                    lineage = signature["fixed_budget_lineage"]
+                    assert lineage["task_counts"] == {"om4": om4, "observation": step}
+                    assert lineage["global_step"] == om4 + step
+                    assert lineage["training_manifest_sha256"] == digest(
+                        run / "manifest.json"
                     )
             elif suffix == "selected-annual":
                 signature = read(directory / "input.json")
                 assert signature == done["inputs"]
+                assert signature["producer"] == EVALUATION_PRODUCER
                 assert signature["checkpoint_sha256"] == selected_hash
                 assert set(done["origins"]) == {
                     "2015-01-01",
@@ -129,7 +149,14 @@ def collect(root):
                 origin_key = (
                     "origins" if suffix == "completion" else "validation_origins"
                 )
-                assert len(signature[origin_key]) == 9
+                assert signature[origin_key] == ["2013-11", "2013-12"] + [
+                    f"2014-{m:02d}" for m in range(1, 8)
+                ]
+                assert signature["producer"] == EVALUATION_PRODUCER
+                for checkpoint, sha in signature["checkpoints"].items():
+                    assert digest(run / checkpoint) == sha
+                    diagnostic = read(directory / (Path(checkpoint).stem + ".json"))
+                    assert diagnostic["checkpoint_sha256"] == sha
             for path in directory.glob("*.json"):
                 read(path)
         status[arm] = (

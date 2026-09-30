@@ -59,6 +59,16 @@ STAGES = [
     ("obs02000", "Middle: 2,000 obs"),
     ("obs08000", "Final: 8,000 obs"),
 ]
+SCRATCH_STAGES = [
+    (key, label)
+    for key, label in [
+        ("scratch08000", "Obs-only: 8,000 obs"),
+        ("scratch16000", "Obs-only: 16,000 obs"),
+    ]
+    if key in meta["checkpoints"]
+]
+STAGES += SCRATCH_STAGES
+ENDPOINTS = ["obs08000", *[key for key, _ in SCRATCH_STAGES]]
 monthly = {k: dict(np.load(arrays_root / (k + "-monthly.npz"))) for k, _ in STAGES}
 OM4 = dict(np.load(arrays_root / "om4-day30.npz"))["surface"]
 native_grids = {
@@ -84,7 +94,18 @@ for c, p in enumerate(["oisst", "duacs"]):
     target = monthly["obs08000"]["reference"][:, c]
     np.testing.assert_array_equal(np.isfinite(coarse), np.isfinite(target))
     np.testing.assert_allclose(coarse, target, atol=2e-6, rtol=1e-6, equal_nan=True)
-print("native/coarse exact-bin equivalence verified", flush=True)
+for values in monthly.values():
+    np.testing.assert_array_equal(values["origins"], monthly["obs08000"]["origins"])
+    np.testing.assert_allclose(
+        values["reference"],
+        monthly["obs08000"]["reference"],
+        rtol=0,
+        atol=0,
+        equal_nan=True,
+    )
+print(
+    "native/coarse exact-bin and checkpoint-reference equivalence verified", flush=True
+)
 results = {
     "checkpoints": meta["checkpoints"],
     "spectra": {},
@@ -163,6 +184,8 @@ colors = {
     "obs00500": "#9c65c5",
     "obs02000": "#35a38f",
     "obs08000": "#2167ad",
+    "scratch08000": "#c87526",
+    "scratch16000": "#7b4caf",
     "OM4 (1°)": "#e29624",
     "Observations (1°)": "#222222",
     "Observations (native)": "#777777",
@@ -255,7 +278,7 @@ for variable, channel, product, unit in [
     for subset, chosen in [
         (
             "final",
-            ["obs08000", "OM4 (1°)", "Observations (1°)", "Observations (native)"],
+            ENDPOINTS + ["OM4 (1°)", "Observations (1°)", "Observations (native)"],
         ),
         (
             "training",
@@ -346,6 +369,7 @@ for origin, annual in meta["checkpoints"]["obs08000"]["annual"].items():
     }
 # Absolute OHC totals use physical cell areas, with identical fixed support for all curves.
 results["annual_heat_content"] = {}
+results["annual_heat_content_by_model"] = {key: {} for key in ENDPOINTS}
 results["annual_heat_content_definition"] = (
     "Sum column OHC (J/m2) times spherical cell area (m2), divided by 1e21 to give ZJ. "
     "Cell midpoint bounds and polar edges match observation remapping; Earth radius "
@@ -355,49 +379,68 @@ results["annual_heat_content_definition"] = (
 )
 for origin in ["2015-01-01", "2018-01-01", "2021-01-01"]:
     a = meta["checkpoints"]["obs08000"]["annual"][origin]
-    arrays = dict(np.load(arrays_root / ("obs08000-" + origin + ".npz")))
-    initial_heat = (
-        heat_context["obs08000-" + origin] if heat_context else arrays["initial_ohc"]
+    endpoint_arrays = {
+        key: dict(np.load(arrays_root / (key + "-" + origin + ".npz")))
+        for key in ENDPOINTS
+    }
+    initial_heat = {
+        key: heat_context[key + "-" + origin]
+        if heat_context
+        else model_arrays["initial_ohc"]
+        for key, model_arrays in endpoint_arrays.items()
+    }
+    annual_arrays = endpoint_arrays["obs08000"]
+    month_indices = (
+        pd.PeriodIndex(annual_arrays["months"], freq="M").month.to_numpy() - 1
     )
-    month_indices = pd.PeriodIndex(arrays["months"], freq="M").month.to_numpy() - 1
-    heat: dict = {}
+    heat: dict = {key: {} for key in ENDPOINTS}
     for c, var in enumerate(["ohc_0_700", "ohc_700_2000"]):
         climate = climate_ohc[month_indices, c]
-        support = (
-            np.isfinite(arrays["reference_ohc"][:, c]).all(0)
-            & np.isfinite(arrays["predicted_ohc"][:, c]).all(0)
-            & np.isfinite(initial_heat[c])
-            & np.isfinite(climate).all(0)
-        )
+        support = np.isfinite(annual_arrays["reference_ohc"][:, c]).all(
+            0
+        ) & np.isfinite(climate).all(0)
+        for key, values in endpoint_arrays.items():
+            np.testing.assert_array_equal(values["months"], annual_arrays["months"])
+            np.testing.assert_allclose(
+                values["reference_ohc"],
+                annual_arrays["reference_ohc"],
+                rtol=0,
+                atol=0,
+                equal_nan=True,
+            )
+            support &= np.isfinite(initial_heat[key][c])
         assert int(support.sum()) == a["support"][var]["cells"]
-        series = {
-            "forecast": heat_total(
-                arrays["predicted_ohc"][:, c], physical_area, support
-            ),
-            "observation": heat_total(
-                arrays["reference_ohc"][:, c], physical_area, support
-            ),
-            "persistence": np.repeat(
-                heat_total(initial_heat[c], physical_area, support),
-                len(month_indices),
-            ),
-            "climatology": heat_total(climate, physical_area, support),
-        }
-        heat[var] = {
-            "units": "ZJ",
-            "series": {k: v.tolist() for k, v in series.items()},
-            "mean_bias_ZJ": {
-                k: float(np.mean(v - series["observation"]))
-                for k, v in series.items()
-                if k != "observation"
-            },
-            "support_area_m2": float(physical_area[support].sum()),
-            "surface_wet_area_fraction": float(
-                physical_area[support].sum() / physical_area[wet[0]].sum()
-            ),
-            "cells": int(support.sum()),
-        }
-    results["annual_heat_content"][origin] = heat
+        for key, values in endpoint_arrays.items():
+            series = {
+                "forecast": heat_total(
+                    values["predicted_ohc"][:, c], physical_area, support
+                ),
+                "observation": heat_total(
+                    annual_arrays["reference_ohc"][:, c], physical_area, support
+                ),
+                "persistence": np.repeat(
+                    heat_total(initial_heat[key][c], physical_area, support),
+                    len(month_indices),
+                ),
+                "climatology": heat_total(climate, physical_area, support),
+            }
+            heat[key][var] = {
+                "units": "ZJ",
+                "series": {k: v.tolist() for k, v in series.items()},
+                "mean_bias_ZJ": {
+                    k: float(np.mean(v - series["observation"]))
+                    for k, v in series.items()
+                    if k != "observation"
+                },
+                "support_area_m2": float(physical_area[support].sum()),
+                "surface_wet_area_fraction": float(
+                    physical_area[support].sum() / physical_area[wet[0]].sum()
+                ),
+                "cells": int(support.sum()),
+            }
+    results["annual_heat_content"][origin] = heat["obs08000"]
+    for key in ENDPOINTS:
+        results["annual_heat_content_by_model"][key][origin] = heat[key]
     fig, axes = plt.subplots(2, 2, figsize=(11, 7), layout="constrained")
     for ax, (var, title) in zip(
         axes.flat,
@@ -409,44 +452,132 @@ for origin in ["2015-01-01", "2018-01-01", "2021-01-01"]:
         ],
     ):
         dates = pd.to_datetime(a["dates"] if var in ["sst", "adt"] else a["months"])
-        series = a["means"][var] if var in ["sst", "adt"] else heat[var]["series"]
-        for method, color, style in [
-            ("forecast", "#2167ad", "-"),
-            ("observation", "#222222", "-"),
-            ("persistence", "#888888", ":"),
-            ("climatology", "#e29624", "--"),
-        ]:
+        series = (
+            a["means"][var]
+            if var in ["sst", "adt"]
+            else heat["obs08000"][var]["series"]
+        )
+        if SCRATCH_STAGES:
+            for key in ENDPOINTS:
+                series_for_model = (
+                    meta["checkpoints"][key]["annual"][origin]["means"][var]
+                    if var in ["sst", "adt"]
+                    else heat[key][var]["series"]
+                )
+                for baseline in ["observation", "climatology"]:
+                    np.testing.assert_allclose(
+                        series_for_model[baseline], series[baseline], rtol=0, atol=0
+                    )
+                ax.plot(
+                    dates,
+                    series_for_model["forecast"],
+                    label=dict(STAGES)[key],
+                    color=colors[key],
+                )
+                if var not in ["sst", "adt"]:
+                    ax.plot(
+                        dates,
+                        series_for_model["persistence"],
+                        label=dict(STAGES)[key] + " persistence",
+                        color=colors[key],
+                        ls=":",
+                        alpha=0.65,
+                    )
+            baselines = [
+                ("observation", "#222222", "-"),
+                ("climatology", "#e29624", "--"),
+            ]
+            if var in ["sst", "adt"]:
+                baselines.append(("persistence", "#888888", ":"))
+        else:
+            baselines = [
+                ("forecast", "#2167ad", "-"),
+                ("observation", "#222222", "-"),
+                ("persistence", "#888888", ":"),
+                ("climatology", "#e29624", "--"),
+            ]
+        for method, color, style in baselines:
             ax.plot(dates, series[method], label=method, color=color, ls=style)
         ax.set_title(title)
         ax.grid(alpha=0.2)
         ax.tick_params(axis="x", rotation=25)
-    axes[0, 0].legend(fontsize=8)
+    if SCRATCH_STAGES:
+        legend_entries: dict = {}
+        for ax in axes.flat:
+            handles, labels = ax.get_legend_handles_labels()
+            legend_entries.update(zip(labels, handles))
+        fig.legend(
+            legend_entries.values(),
+            legend_entries.keys(),
+            loc="outside lower center",
+            ncol=3,
+            fontsize=7,
+        )
+    else:
+        axes[0, 0].legend(fontsize=8)
     fig.suptitle(
-        f"Final physical-only model: {origin}, annual series without detrending"
+        f"Physical-only endpoints: {origin}, annual series without detrending"
+        if SCRATCH_STAGES
+        else f"Final physical-only model: {origin}, annual series without detrending"
     )
     fig.savefig(figure_root / (origin + "-annual-global-means.png"), dpi=150)
     plt.close(fig)
-# Exact day-30 surface error summaries and per-checkpoint exposure.
-fig, axes = plt.subplots(1, 2, figsize=(10, 4), layout="constrained")
-for ax, metric, title in zip(
-    axes,
-    ["sst_rmse", "adt_rmse"],
-    ["Day-30 SST RMSE (°C)", "Day-30 SSH RMSE (m)"],
+# Day-30 errors: separate source trajectories, with both exposure and update-budget axes.
+fig, axes = plt.subplots(
+    2 if SCRATCH_STAGES else 1,
+    2,
+    figsize=(10, 7 if SCRATCH_STAGES else 4),
+    layout="constrained",
+    squeeze=False,
+)
+for row, count_field in enumerate(
+    ["global_step", "observation"] if SCRATCH_STAGES else ["global_step"]
 ):
-    chart_x = [meta["checkpoints"][k]["lineage"]["global_step"] for k, _ in STAGES]
-    for method, style in [
-        ("forecast", "o-"),
-        ("persistence", "o:"),
-        ("climatology", "--"),
-    ]:
-        chart_y = [
-            meta["checkpoints"][k]["day30"][method]["mean"][metric] for k, _ in STAGES
+    for ax, metric, title in zip(
+        axes[row],
+        ["sst_rmse", "adt_rmse"],
+        ["Day-30 SST RMSE (°C)", "Day-30 SSH RMSE (m)"],
+    ):
+        groups = [(STAGES[:4], "Mixed OM4 + obs", "#2167ad")]
+        if SCRATCH_STAGES:
+            groups.append((SCRATCH_STAGES, "Obs-only", "#c87526"))
+        for stages, label, color in groups:
+            chart_x = [
+                meta["checkpoints"][k]["lineage"]["global_step"]
+                if count_field == "global_step"
+                else meta["checkpoints"][k]["lineage"]["task_counts"]["observation"]
+                for k, _ in stages
+            ]
+            chart_y = [
+                meta["checkpoints"][k]["day30"]["forecast"]["mean"][metric]
+                for k, _ in stages
+            ]
+            ax.plot(chart_x, chart_y, "o-", label=label, color=color)
+        all_x = [
+            meta["checkpoints"][k]["lineage"]["global_step"]
+            if count_field == "global_step"
+            else meta["checkpoints"][k]["lineage"]["task_counts"]["observation"]
+            for k, _ in STAGES
         ]
-        ax.plot(chart_x, chart_y, style, label=method)
-    ax.set_xlabel("Total optimizer updates")
-    ax.set_ylabel(title)
-    ax.grid(alpha=0.2)
-    ax.legend()
+        for method, style in [("persistence", ":"), ("climatology", "--")]:
+            baseline_y = meta["checkpoints"]["obs08000"]["day30"][method]["mean"][
+                metric
+            ]
+            ax.plot(
+                [min(all_x), max(all_x)],
+                [baseline_y, baseline_y],
+                style,
+                label=method,
+                color="#888888" if method == "persistence" else "#e29624",
+            )
+        ax.set_xlabel(
+            "Total optimizer updates"
+            if count_field == "global_step"
+            else "Observation optimizer updates"
+        )
+        ax.set_ylabel(title)
+        ax.grid(alpha=0.2)
+        ax.legend()
 fig.savefig(figure_root / "day30-training-errors.png", dpi=150)
 plt.close(fig)
 # Isolate the OHC quadrature/vertical-representation offset using the same analysis.

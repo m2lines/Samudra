@@ -91,3 +91,5 @@ cost belongs to the preceding wave, not this allocation. Initial cold-cache
 updates were slower; refine the duration estimate after cache warming.
 
 [W&B run](https://wandb.ai/ocean_emulators/observational-transfer/runs/2f252fb3ca72).
+
+The final CPU comparison export is submitted as **18892522**, dependent on successful completion of all four fixed-checkpoint evaluations. Collector probe 18892182 and numerical verification 18892367 completed successfully (48 and 7 CPU seconds, respectively; zero GPUs), reproducing all prior control arrays, day-30 reductions, annual means and support exactly. The collector exports initialization OHC and native-IAP training climatology for the supported ZJ totals. The updated renderer adds both obs-only checkpoints to maps and wider spectra, and keeps observation-exposure and total-update axes separate. [Report pipeline evidence](artifacts/2026-09-30-global-scratch/report-pipeline.json.gz).

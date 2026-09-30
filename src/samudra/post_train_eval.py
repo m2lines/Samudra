@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from samudra.viz import VizTemplate
 
 logger = logging.getLogger(__name__)
-WORKER_TIMEOUT_SECONDS = 6 * 60 * 60
+WORKER_TIMEOUT_SECONDS = 12 * 60 * 60
 
 
 def checkpoint_label(checkpoint_path: Path) -> str:

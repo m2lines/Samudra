@@ -58,10 +58,9 @@ def build_viz(truth, basins, tmp_path, grid_type="gaussian"):
         str(tmp_path),
         "truth",
         [core.VizRun("model", prediction, ["thetao"])],
-        basins,
-        truth,
-        slice(None),
-        grid_type=grid_type,
+        prepared_groundtruth=core.prepare_viz_groundtruth(
+            "truth", basins, truth, slice(None), grid_type
+        ),
     )
 
 

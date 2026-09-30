@@ -46,7 +46,7 @@ dependencies = [
   "pypdl>=1.5",          # concurrent, segmented downloads of the observation archives
   "s3fs>=2025.10",
   "setuptools",
-  "xarray",
+  "xarray<2026.9",       # Keep the compressor encoding used for Zarr v2 writes.
   "xarrera",
   "xesmf>=0.8.10",
   "xmip",

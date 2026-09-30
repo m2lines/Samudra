@@ -23,7 +23,6 @@ from typing import Literal
 import fire
 import fsspec
 import xarray as xr
-import zarr
 
 from ocean_preprocessing.basin_masks import basin_masks_from_static
 from ocean_preprocessing.dataset_validation import (
@@ -258,11 +257,6 @@ class CLI:
 
         logger.info(f"writing dataset to {self.output_path}")
 
-        # Zarr 3 uses the plural key even when writing Zarr v2 stores. Xarray
-        # no longer accepts the old key with that API, while Zarr 2 needs it.
-        compression_key = (
-            "compressor" if zarr.__version__.split(".")[0] == "2" else "compressors"
-        )
         delayed = ds.to_zarr(
             self.output_path,
             mode="w",
@@ -271,7 +265,7 @@ class CLI:
             encoding=(
                 None  # by default zarr uses compression
                 if compress
-                else {var_name: {compression_key: None} for var_name in ds.data_vars}
+                else {var_name: {"compressor": None} for var_name in ds.data_vars}
             ),
             compute=False,
         )

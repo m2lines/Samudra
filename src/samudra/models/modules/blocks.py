@@ -280,6 +280,7 @@ class ConvNeXtBlock(CoreBlock):
         pad="circular",
         upscale_factor: int = 4,
         norm="batch",
+        norm_num_groups: int | None = None,
         checkpoint_simple: bool = False,
         pointwise_linear: bool = False,
     ):
@@ -302,16 +303,13 @@ class ConvNeXtBlock(CoreBlock):
                 dilation=dilation,
             )
         )
-        # BatchNorm
-        if norm == "batch":
-            convblock.append(torch.nn.BatchNorm2d(in_channels * upscale_factor))
-        # Instance Norm
-        elif norm == "instance":
-            convblock.append(torch.nn.InstanceNorm2d(in_channels * upscale_factor))
-        elif norm == "nonorm":
-            pass
-        else:
-            raise NotImplementedError
+        norm_layer = self._build_norm_layer(
+            norm=norm,
+            channels=int(in_channels * upscale_factor),
+            norm_num_groups=norm_num_groups,
+        )
+        if norm_layer is not None:
+            convblock.append(norm_layer)
         if activation is not None:
             convblock.append(activation())
         convblock.append(
@@ -322,16 +320,13 @@ class ConvNeXtBlock(CoreBlock):
                 dilation=dilation,
             )
         )
-        # BatchNorm
-        if norm == "batch":
-            convblock.append(torch.nn.BatchNorm2d(in_channels * upscale_factor))
-        # Instance Norm
-        elif norm == "instance":
-            convblock.append(torch.nn.InstanceNorm2d(in_channels * upscale_factor))
-        elif norm == "nonorm":
-            pass
-        else:
-            raise NotImplementedError
+        norm_layer = self._build_norm_layer(
+            norm=norm,
+            channels=int(in_channels * upscale_factor),
+            norm_num_groups=norm_num_groups,
+        )
+        if norm_layer is not None:
+            convblock.append(norm_layer)
         if activation is not None:
             convblock.append(activation())
         # Linear postprocessing
@@ -342,6 +337,35 @@ class ConvNeXtBlock(CoreBlock):
         )
         self.convblock = torch.nn.Sequential(*convblock)
         self.checkpoint_simple = checkpoint_simple
+
+    @staticmethod
+    def _build_norm_layer(
+        norm: str,
+        channels: int,
+        norm_num_groups: int | None,
+    ) -> torch.nn.Module | None:
+        if norm != "group" and norm_num_groups is not None:
+            raise ValueError("norm_num_groups only applies when norm='group'")
+        if norm == "batch":
+            return torch.nn.BatchNorm2d(channels)
+        if norm == "instance":
+            return torch.nn.InstanceNorm2d(channels)
+        if norm == "group":
+            if norm_num_groups is None:
+                raise ValueError("norm_num_groups must be set when norm='group'")
+            if norm_num_groups < 1:
+                raise ValueError("norm_num_groups must be >= 1")
+            if channels % norm_num_groups != 0:
+                raise ValueError(
+                    f"norm_num_groups={norm_num_groups} must evenly divide "
+                    f"expanded channels={channels}"
+                )
+            return torch.nn.GroupNorm(num_groups=norm_num_groups, num_channels=channels)
+        if norm == "layer":
+            return torch.nn.GroupNorm(num_groups=1, num_channels=channels)
+        if norm == "nonorm":
+            return None
+        raise NotImplementedError(f"Unsupported normalization mode {norm!r}")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # return self.skip_module(x) + self.convblock(x)

@@ -306,3 +306,24 @@ def test_harness_initializes_mainline_logger_and_typed_components(
         assert not harness.log.enabled
         harness.emit("fixture", {"validation": {"metrics": {"sst_rmse": 1.0}}})
         assert (args.output / "events.jsonl").exists()
+
+
+def test_already_reached_partial_limit_does_not_train_again(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+
+    from samudra.tasks import observation
+
+    harness = Harness.__new__(Harness)
+    harness.args = SimpleNamespace(stop_after=8)
+    monkeypatch.setattr(harness, "om4", object(), raising=False)
+    harness.out = tmp_path
+    harness.completed = 8
+    harness.stop = False
+    monkeypatch.setattr(harness, "reference", lambda: None)
+    saved = []
+    monkeypatch.setattr(
+        harness, "checkpoint", lambda path: saved.append(harness.completed)
+    )
+    monkeypatch.setattr(observation.signal, "signal", lambda *args: None)
+    harness.train()
+    assert saved == [8]

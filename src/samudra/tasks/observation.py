@@ -375,7 +375,8 @@ class Harness:
             self.validate()
         for sig in (signal.SIGTERM, signal.SIGUSR1):
             signal.signal(sig, lambda *_: setattr(self, "stop", True))
-        while self.completed < TOTAL_UPDATES and not self.stop:
+        limit = min(TOTAL_UPDATES, self.args.stop_after or TOTAL_UPDATES)
+        while self.completed < limit and not self.stop:
             counts = task_counts(self.completed)
             after = task_counts(self.completed + 1)
             task = (
@@ -436,8 +437,6 @@ class Harness:
             )
             if self.completed % VALIDATE_EVERY == 0:
                 self.validate()
-            if self.args.stop_after and self.completed >= self.args.stop_after:
-                self.stop = True
         self.checkpoint(self.out / "last.pt")
         if self.completed == TOTAL_UPDATES:
             self.checkpoint(self.out / "endpoint.pt")
@@ -510,6 +509,8 @@ def main():
     parser.add_argument("--project", default="observational-transfer")
     parser.add_argument("--name", default="global-physical-only")
     args = parser.parse_args()
+    if args.stop_after is not None and args.stop_after < 1:
+        parser.error("--stop-after must be positive")
     harness = Harness(args)
     try:
         if args.command == "train":

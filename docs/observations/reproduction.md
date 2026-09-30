@@ -155,6 +155,11 @@ initialized dates, not an eight-year continuous rollout.
   February 2000 (leap year), November 2013 and December 2022 (cross-year forecast).
   All eight array members match exactly. Their file hashes and target-grid hash
   also match the dataset actually used on Torch.
+- The exported OM4 grid has exactly the same array values and dtypes as the
+  training grid, including depth and normalization metadata.
+- Rescoring all 96 saved monthly endpoint predictions reproduces the integrated
+  scores and combined score (0.592660605079187) exactly. The 27 spectral components
+  differ only by floating-point roundoff (maximum relative difference 1.42e-14).
 - The extracted model's seeded state, parameter count, initialized fields and
   one-step outputs match the experimental implementation exactly on a 64×128
   mixed-validity fixture.

@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790786896170,
+  "lastUpdate": 1790786898673,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -24825,6 +24825,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.1701630359247628",
             "extra": "mean: 48.98017054219997 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fomobot640@gmail.com",
+            "name": "fomo-bot",
+            "username": "fomo-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "602e9dee9fad747a3858d8b0cddd3148d1b0c549",
+          "message": "Authenticate ECR Public pulls across EC2 CI jobs (#901)\n\nEC2 CI launchers currently build `ec2-gha` with an anonymous ECR Public\npull, which can fail with HTTP 429 before a runner starts. Route all\nfive launch jobs (GPU tests, benchmarks, and PhysicsNeMo x86/GPU/ARM\njobs) through a shared workflow that assumes the existing AWS role and\nlogs Docker into ECR Public before building the local Docker action.\n\nThe action and bootstrap scripts are pinned to the current upstream v2\ncommit. Existing runner settings and fork guards are preserved. The\nworkflow fails on authentication errors and logs out afterward.\n`.github/README.md` documents the shared launcher convention and the\nrequired `ecr-public:GetAuthorizationToken` and\n`sts:GetServiceBearerToken` permissions; the role policy is managed\noutside this repository. GHCR retains its existing GitHub-token\nauthentication, and NGC images retain their existing registry source.\n\nValidation: actionlint, all applicable pre-commit hooks (including\nschema validation and REUSE), and `git diff --check` pass. Hosted CI\nsuccessfully assumed the existing role, then both the [GPU\nlauncher](https://github.com/m2lines/Samudra/actions/runs/36590600746/job/109482374277)\nand [x86 build\nlauncher](https://github.com/m2lines/Samudra/actions/runs/36590600781/job/109482493708)\nfailed at ECR login with `AccessDeniedException`: the role lacks\n`ecr-public:GetAuthorizationToken`. No runner was launched.\n\n**Before merging:** add the documented token permissions\n(`ecr-public:GetAuthorizationToken` and `sts:GetServiceBearerToken` on\n`*`) to `github-actions-role-m2lines-samudra-7f7eb17`, then rerun the\nfailed PR workflows to validate authenticated pulls, the x86 build, and\nGPU tests. ARM and post-publication container tests run on main/manual\nevents.\n\nCloses #900.",
+          "timestamp": "2026-09-30T12:25:12-04:00",
+          "tree_id": "8ff3abb39b0f174d53e3e270b8a3cb2e48fa2b48",
+          "url": "https://github.com/m2lines/Samudra/commit/602e9dee9fad747a3858d8b0cddd3148d1b0c549"
+        },
+        "date": 1790786898220,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.9040293491942231,
+            "unit": "iter/sec",
+            "range": "stddev: 0.005373861345214204",
+            "extra": "mean: 1.1061587777999875 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06661013423985941,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10152799635334978",
+            "extra": "mean: 15.012730591400032 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.02000731575127233,
+            "unit": "iter/sec",
+            "range": "stddev: 0.1595868258297991",
+            "extra": "mean: 49.981717309400025 sec\nrounds: 5"
           }
         ]
       }

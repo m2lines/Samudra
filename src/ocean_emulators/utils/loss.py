@@ -376,6 +376,15 @@ class GradientZNorms:
     #: ``[num_times, num_vars]`` pairs contributing to each channel.
     count_by_time: torch.Tensor
 
+    def to(self, device) -> "GradientZNorms":
+        """The same counts on another device. Both fields are small."""
+        return GradientZNorms(
+            valid_cells={
+                name: cells.to(device) for name, cells in self.valid_cells.items()
+            },
+            count_by_time=self.count_by_time.to(device),
+        )
+
 
 #: `wet` -> {(variable, dtype, num_times, num_vars): (spatial_weight, result)}.
 #: The channel weight sits beside the result and is checked by identity, so a

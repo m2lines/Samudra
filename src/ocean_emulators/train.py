@@ -86,6 +86,8 @@ from ocean_emulators.replay import (
     replay_sidecar_path,
 )
 from ocean_emulators.face_parallel import (
+    build_block_replay_groups,
+    split_into_chunks,
     FaceParallelContext,
     build_face_replay_groups,
     face_group_is_shardable,
@@ -1336,10 +1338,17 @@ class Trainer:
             else None
         )
         self._replay_resume_consumed = False
-        self.replay_storage_dtype = (
+        # Storage precision is not the same decision as compute precision,
+        # though one flag used to make both. 'auto' keeps the old coupling.
+        self.replay_storage_dtype = {
+            "float16": torch.float16,
+            "bfloat16": torch.bfloat16,
+            "float32": torch.float32,
+        }.get(
+            getattr(cfg.replay, "storage_dtype", "auto"),
             torch.bfloat16
             if getattr(cfg.model, "use_bfloat16", False)
-            else torch.float32
+            else torch.float32,
         )
         self.replay_generator = torch.Generator(device="cpu")
         # Ranks normally hold independent buffers, so their planners are
@@ -1347,7 +1356,11 @@ class Trainer:
         # advance ONE row together, so they must draw the same row, the same
         # seed time and the same refresh schedule -- which a shared seed gives
         # for free, the planner being deterministic.
-        shares_one_buffer = self.dp_ctx is not None or cfg.face_parallel.enabled
+        # Rank-local blocks are back to independent buffers: each rank draws
+        # its own block centre, seed time and refresh schedule.
+        shares_one_buffer = self.dp_ctx is not None or (
+            cfg.face_parallel.enabled and cfg.face_parallel.blend_scope == "face"
+        )
         replay_seed = (
             cfg.experiment.rand_seed
             if shares_one_buffer
@@ -2920,18 +2933,27 @@ class Trainer:
                 for index in group.dataset_indices
             }
         )
+        # A drawn block can be any nine of the 36, so which masks are wanted is
+        # not known until the row is drawn. Keeping all 36 on the GPU would cost
+        # 4.2 GB, which does not fit beside `checkpointing: simple`; keep them
+        # on pinned host memory instead and move the nine per step.
+        self._wet_masks_on_host = self._rank_local_blocks
+        device = "cpu" if self._wet_masks_on_host else self.device
         self._wet_row_of_source = {source: row for row, source in enumerate(local)}
         self.tile_wet_masks = torch.stack(
             [
-                sources[source].masks.prognostic_with_hist(self.hist).to(self.device)
+                sources[source].masks.prognostic_with_hist(self.hist).to(device)
                 for source in local
             ]
         ).bool()
+        if self._wet_masks_on_host and self.pin_mem and torch.cuda.is_available():
+            self.tile_wet_masks = self.tile_wet_masks.pin_memory()
         logger.info(
-            "Per-tile wet masks: %d of %d tiles on this rank (%.2f GB).",
+            "Per-tile wet masks: %d of %d tiles, %.2f GB on %s.",
             len(local),
             len(sources),
             self.tile_wet_masks.numel() * self.tile_wet_masks.element_size() / 1024**3,
+            self.tile_wet_masks.device,
         )
 
     def _wet_for_sources(self, sources: Sequence[int]) -> torch.Tensor:
@@ -2951,7 +2973,12 @@ class Trainer:
                 f"{sorted(rows)}."
             )
         index = torch.tensor([rows[int(s)] for s in sources], device=masks.device)
-        return masks[index]
+        selected = masks[index]
+        if selected.device == self.device:
+            return selected
+        # Host-resident stack: the nine rows this row wants go over now, on the
+        # copy stream so the transfer overlaps the step that asked for them.
+        return selected.to(self.device, non_blocking=True)
 
     def _ddp_withholds_allreduce(self, ddp_model, *, per_chunk: bool) -> bool:
         """Whether to hold DDP's all-reduce back until the last piece of a step.
@@ -2977,27 +3004,32 @@ class Trainer:
     def _microbatch_spans(self, data: TrainData) -> list[tuple[int, int]]:
         """How to split one microbatch into forward/backward chunks.
 
-        One span unless a replay row is a whole face, which no GPU holds at
-        once. The span count comes from `FaceParallelContext`, which derives it
-        from the tiles a rank owns -- identical on every rank, because a rank
-        that ran fewer chunks would never reach the gradient all-reduce the
-        others are waiting in.
+        One span unless a replay row is more tiles than a GPU holds at once.
+        How many that is depends on the topology: a face row gives a rank its
+        share of the face, a rank-local row gives it a whole 3x3 block. Either
+        way the chunk count is identical on every rank, because a rank that ran
+        fewer chunks would never reach the gradient all-reduce the others are
+        waiting in.
         """
         fp_ctx = getattr(self, "fp_ctx", None)
         if fp_ctx is None:
             return [(0, data.get_input(0).shape[0])]
+        if self._rank_local_blocks:
+            # Every block is the same size, so one chunking serves them all.
+            tiles, chunks = self._block_tiles_per_row, self._block_chunks
+        else:
+            tiles, chunks = len(fp_ctx.local_tiles), fp_ctx.chunks
         samples = data.get_input(0).shape[0]
-        tiles = len(fp_ctx.local_tiles)
         if samples % tiles:
             raise ValueError(
                 f"A face-parallel microbatch holds {samples} samples, which is "
-                f"not a whole number of the {tiles} tiles this rank owns."
+                f"not a whole number of the {tiles} tiles in a row."
             )
         rows = samples // tiles
         spans: list[tuple[int, int]] = []
         for row in range(rows):
             base = row * tiles
-            for chunk in fp_ctx.chunks:
+            for chunk in chunks:
                 spans.append((base + chunk[0], base + chunk[-1] + 1))
         return spans
 
@@ -3208,9 +3240,13 @@ class Trainer:
                 # Trainer without running __init__, and this method is one they
                 # call directly.
                 fp_ctx = getattr(self, "fp_ctx", None)
+                # The vote exists because a face's tiles are spread over the
+                # ranks, so one rank can see a runaway tile the others cannot.
+                # With rank-local blocks nobody else holds any of this row, and
+                # voting would reseed three healthy, unrelated blocks.
                 row_diverged = (
                     fp_ctx.agree(bool(divergence))
-                    if fp_ctx is not None
+                    if fp_ctx is not None and not self._rank_local_blocks
                     else bool(divergence)
                 )
                 if row_diverged:
@@ -3558,6 +3594,11 @@ class Trainer:
         Validation uses one stride, so it takes the first grouped layout; the
         others differ only in which time windows they address.
         """
+        face_group = getattr(self, "face_val_group", None)
+        if face_group is not None:
+            # With rank-local blocks `replay_groups` holds 3x3 blocks, whose
+            # blender exchanges nothing. Validation needs the face.
+            return face_group
         for group in getattr(self, "replay_groups", []) or []:
             if group.is_grouped:
                 return group
@@ -4921,8 +4962,23 @@ class Trainer:
         )
         return catalog
 
+    @property
+    def _rank_local_blocks(self) -> bool:
+        """Whether a replay row is this rank's 3x3 block rather than the face."""
+        cfg = getattr(self, "face_parallel_cfg", None)
+        return bool(cfg and cfg.enabled and cfg.blend_scope == "rank")
+
     def _build_face_replay_groups(self) -> list[ReplayGroup]:
-        """One group holding this rank's share of a face-sized tile catalog."""
+        """Replay groups over a face-sized tile catalog, in either topology.
+
+        `blend_scope="face"` returns one group: this rank's share of a face
+        advanced in lockstep with the others, seams exchanged between ranks.
+        `blend_scope="rank"` returns one group per candidate 3x3 block, each
+        blended inside this rank alone.
+
+        `fp_ctx` and the face group are built either way, because validation
+        is face-synchronous in both -- that is how the model gets deployed.
+        """
         catalog = getattr(self, "tile_catalog", None)
         if not catalog:
             raise ValueError(
@@ -4948,12 +5004,37 @@ class Trainer:
             # Before the loss normalization below, which collectives.
             device=self.device,
         )
-        return build_face_replay_groups(
+        face_groups = build_face_replay_groups(
             layout,
             self.fp_ctx,
             num_strides=len(self.data_stride),
             dataset_index_of=[tile.dataset_index for tile in catalog],
         )
+        # Validation scores the whole face on every rank, in both topologies.
+        self.face_val_group = face_groups[0]
+        if not self._rank_local_blocks:
+            return face_groups
+        grid = math.isqrt(len(catalog))
+        if grid * grid != len(catalog):
+            raise ValueError(
+                f"blend_scope='rank' needs a square face; got {len(catalog)} tiles."
+            )
+        groups = build_block_replay_groups(
+            catalog,
+            num_strides=len(self.data_stride),
+            rank=get_rank(),
+            grid=grid,
+            window=getattr(self.replay_cfg, "blend_window", "quintic"),
+            dtype=torch.float32,
+            device=self.device,
+        )
+        # The forward/backward chunking follows the BLOCK, not the rank's share
+        # of the face -- they are both nine tiles at four ranks, but not at one.
+        self._block_tiles_per_row = groups[0].num_tiles
+        self._block_chunks = split_into_chunks(
+            self._block_tiles_per_row, self.face_parallel_cfg.tiles_per_chunk
+        )
+        return groups
 
     def read_group_frame(self, slot, *, seed: bool):
         """A whole group's transitions in one chunk-streaming pass, or None.
@@ -4977,12 +5058,13 @@ class Trainer:
         target = int(values[reference.hist + 1])
         times = reference._prognostic_src.data["time"].to_numpy()
 
+        windows = self._group_read_windows(group)
         if seed:
-            frames = reader.read_prognostic(times[current])
+            frames = reader.read_prognostic(times[current], windows)
             boundaries: list[torch.Tensor] | None = None
         else:
-            frames = reader.read_prognostic(times[target])
-            boundaries = reader.read_boundary(times[current])
+            frames = reader.read_prognostic(times[target], windows)
+            boundaries = reader.read_boundary(times[current], windows)
 
         transitions = []
         for tile_index, dataset_index in enumerate(group.dataset_indices):
@@ -5001,6 +5083,18 @@ class Trainer:
                 )
             )
         return transitions
+
+    def _group_read_windows(self, group: ReplayGroup):
+        """Store windows for a group's tiles, or None for the reader's default.
+
+        None is the whole point of the default: a face run always reads the
+        same tiles, so it never re-plans.
+        """
+        if not self._rank_local_blocks:
+            return None
+        windows = self.data_container.replay_windows
+        num_strides = max(1, len(self.data_stride))
+        return [windows[index // num_strides] for index in group.dataset_indices]
 
     def _build_group_frame_reader(self) -> None:
         """Open a chunk-streaming reader for this rank's tiles, if it applies.
@@ -5029,7 +5123,10 @@ class Trainer:
             raise ValueError(
                 f"The group frame reader reads a local Zarr store; got {location}."
             )
-        group = self.replay_groups[0]
+        # The DEFAULT tile set is this rank's face share, which is what
+        # validation reads. Training passes its block's windows per read, so
+        # one reader serves both without a second pool or store handle.
+        group = getattr(self, "face_val_group", None) or self.replay_groups[0]
         num_strides = max(1, len(self.data_stride))
         local = [windows[index // num_strides] for index in group.dataset_indices]
         self.group_frame_reader = GroupFrameReader(
@@ -5065,7 +5162,9 @@ class Trainer:
         """
         if self.fp_ctx is None:
             raise RuntimeError("Face loss normalization needs a face context")
-        group = self.replay_groups[0]
+        # The face share, not a drawn block: the constant this installs is the
+        # face's in both topologies.
+        group = self.face_val_group
         # Exactly the weight `_batch_wet_weight` hands the loss for this
         # rank's tiles, so the denominator is built from the same expression
         # it will later divide.
@@ -5076,9 +5175,27 @@ class Trainer:
             sources = [index // num_strides for index in group.dataset_indices]
             sample_weight = self._wet_for_sources(sources).to(dtype=torch.float32)
 
-        denominator, gradient_z = self.fp_ctx.global_loss_norms(
-            self.domain_wet, sample_weight, tiles=group.num_tiles
-        )
+        if self._rank_local_blocks:
+            # The constant must stay the FACE's, not a block's: a block drawn
+            # over land would otherwise scale itself up and outvote the others
+            # through DDP's mean. Every rank has all 36 masks, so the face
+            # total needs no collective -- and it is summed on the host, where
+            # the masks already live, so the startup never holds 4.2 GB of
+            # float mask on the GPU.
+            masks = self.tile_wet_masks
+            assert masks is not None
+            denominator, gradient_z = self.fp_ctx.global_loss_norms(
+                self.domain_wet.cpu(),
+                masks.to(dtype=torch.float32),
+                tiles=masks.shape[0],
+                collective=False,
+            )
+            denominator = denominator.to(self.device)
+            gradient_z = gradient_z.to(self.device)
+        else:
+            denominator, gradient_z = self.fp_ctx.global_loss_norms(
+                self.domain_wet, sample_weight, tiles=group.num_tiles
+            )
         self.train_loss_fn = build_loss_fn(
             self._loss_cfg,
             wet=self.domain_wet,
@@ -5112,7 +5229,11 @@ class Trainer:
         is nearly empty now and nearly full then.
         """
         assert self.fp_ctx is not None
-        group = self.replay_groups[0]
+        # The FACE group: validation covers the whole face in both topologies,
+        # and `_grouped_val_weight` narrows its 36-tile ownership masks by
+        # `fp_ctx.local_tiles`. A 3x3 block's layout would be indexed off the
+        # end of.
+        group = self.face_val_group
         weight = self._grouped_val_weight(group)
         denominator, gradient_z = self.fp_ctx.global_loss_norms(
             self.domain_wet, weight, tiles=group.num_tiles

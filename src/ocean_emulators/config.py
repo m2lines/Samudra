@@ -1094,6 +1094,18 @@ class ReplayConfig(BaseConfig):
             "Epochs where max_lead_steps advances to the next curriculum value."
         ),
     )
+    storage_dtype: Literal["auto", "float16", "bfloat16", "float32"] = Field(
+        default="auto",
+        description=(
+            "How replay rows are held on the host. 'auto' follows "
+            "model.use_bfloat16, which is what it has always done. The cache "
+            "is z-scored and stored float16, so its states sit near 1 and "
+            "never approach either format's range; float16 then carries three "
+            "more mantissa bits, 0.098% of a standard deviation against "
+            "bfloat16's 0.78%. Range is not the constraint either way -- "
+            "max_state_sigma rejects a row long before 65504."
+        ),
+    )
     max_state_sigma: float = Field(
         default=0.0,
         description=(

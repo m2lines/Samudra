@@ -23,6 +23,7 @@ import torch
 import xarray as xr
 
 from ocean_emulators.config import GradientLossConfig, TrainConfig
+from ocean_emulators.face_parallel import block_tiles, interior_centers
 from ocean_emulators.tiling import face_tile_windows
 from ocean_emulators.train import Trainer
 from ocean_emulators.utils.multiton import MultitonScope
@@ -585,3 +586,135 @@ def test_ungrouped_snapshot_is_drawn_from_a_mostly_ocean_tile(
     assert recorded, "no snapshot was recorded"
     field = next(iter(recorded[-1].values()))[0]
     assert float(torch.isnan(field).float().mean()) < 0.5
+
+
+# --------------------------------------------------------------------------
+# Rank-local blocks (face_parallel.blend_scope="rank")
+# --------------------------------------------------------------------------
+
+
+def _block_config(face_root, **overrides):
+    return _face_config(
+        face_root, **{"--face_parallel.blend_scope": "rank", **overrides}
+    )
+
+
+def _prepared(config) -> Trainer:
+    """A Trainer with its loaders built, which is where the groups appear.
+
+    `run()` would do it too, and a whole epoch besides; these tests need
+    only the setup `init_data_loaders` performs.
+    """
+    trainer = Trainer(config)
+    trainer.init_data_loaders(max(trainer.replay_cfg.max_lead_steps))
+    return trainer
+
+
+def test_a_rank_local_block_run_advances_end_to_end(face_root, caplog) -> None:
+    """The load-bearing test for the other topology: real Trainer, no halo."""
+    caplog.set_level(logging.INFO)
+    with MultitonScope():
+        trainer = Trainer(_block_config(face_root))
+        trainer.run()
+
+        # One group per interior centre, nine tiles each.
+        assert len(trainer.replay_groups) == 16
+        assert {group.num_tiles for group in trainer.replay_groups} == {9}
+        # The group id IS the list position -- `sample_replay_seed_cursor`
+        # stamps it onto the cursor and `replay_group_for` indexes by it.
+        assert [group.group_id for group in trainer.replay_groups] == list(range(16))
+        # Nothing is exchanged between ranks, which is the whole point.
+        assert all(not group.blender.exchange_ops for group in trainer.replay_groups)
+        assert trainer._diverged_writebacks == 0
+        assert trainer._loss_denominator_is_fixed
+
+
+def test_a_block_is_its_centre_and_the_eight_around_it(face_root) -> None:
+    with MultitonScope():
+        trainer = _prepared(_block_config(face_root))
+        centres = interior_centers(6)
+        assert len(centres) == 16
+        for group, centre in zip(trainer.replay_groups, centres, strict=True):
+            assert group.dataset_indices == block_tiles(centre, grid=6)
+        # The first block is the corner block a rank of four holds today.
+        assert trainer.replay_groups[0].dataset_indices == (
+            0,
+            1,
+            2,
+            6,
+            7,
+            8,
+            12,
+            13,
+            14,
+        )
+
+
+def test_the_block_layout_leaves_its_outer_sides_unblended(face_root) -> None:
+    """A block's outer edge has no neighbour, so it must keep weight 1.
+
+    Inside the block the seams are still reconciled; it is only the ring's
+    outward sides that stop being tapered, because there is nothing there to
+    hand the cells to.
+    """
+    with MultitonScope():
+        trainer = _prepared(_block_config(face_root))
+        layout = trainer.replay_groups[0].layout
+        assert layout.num_tiles == 9
+        # Corner tile of the block: two sides face outward.
+        assert "jlo" in {side for tile, side in layout.exterior_sides if tile == 0}
+        # The block's centre tile is interior on all four sides.
+        centre = layout.tiles[4].tile_id
+        assert not [side for tile, side in layout.exterior_sides if tile == centre]
+
+
+def test_validation_still_covers_the_whole_face(face_root) -> None:
+    """Training is rank-local; validation is not, because deployment is not."""
+    with MultitonScope():
+        trainer = _prepared(_block_config(face_root))
+        assert trainer.face_val_group is not None
+        # World size 1 here, so the rank's face share is all 36.
+        assert trainer.face_val_group.num_tiles == 36
+        assert trainer._primary_replay_group() is trainer.face_val_group
+        # The reader's DEFAULT tile set is the face share validation reads.
+        assert trainer.group_frame_reader.num_tiles == 36
+
+
+def _score_with(config) -> torch.Tensor:
+    """One loss call on fixed tensors, inside its own multiton scope."""
+    with MultitonScope():
+        trainer = _prepared(config)
+        generator = torch.Generator().manual_seed(11)
+        shape = (9, trainer.N_prog, SIZE, SIZE)
+        pred = torch.randn(shape, generator=generator)
+        target = torch.randn(shape, generator=generator)
+        weight = torch.rand(shape, generator=generator) > 0.2
+        return trainer.train_loss_fn(pred, target, sample_weight=weight)
+
+
+def test_the_denominator_is_the_face_s_not_the_block_s(face_root) -> None:
+    """The constant must not follow the draw.
+
+    A block drawn over land would otherwise scale its own loss up and outvote
+    the others through DDP's mean -- exactly what the face-wide denominator
+    was introduced to stop. At world size 1 the two topologies see the same
+    36 tiles, so the same tensors must score the same.
+    """
+    torch.testing.assert_close(
+        _score_with(_face_config(face_root)),
+        _score_with(_block_config(face_root)),
+        rtol=0,
+        atol=0,
+    )
+
+
+def test_the_wet_masks_sit_on_the_host_for_a_drawn_block(face_root) -> None:
+    """Any of the 36 may be wanted, so they cannot be narrowed to nine."""
+    with MultitonScope():
+        trainer = _prepared(_block_config(face_root))
+        assert trainer.tile_wet_masks is not None
+        assert trainer.tile_wet_masks.shape[0] == 36
+        assert trainer.tile_wet_masks.device.type == "cpu"
+        # And they still resolve by global source index.
+        weight = trainer._wet_for_sources((12, 13, 14))
+        assert weight.shape[0] == 3

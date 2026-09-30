@@ -77,7 +77,9 @@ def chunk_plan(
     many tiles want it, which is the entire point.
     """
     if chunk_rows < 1 or chunk_cols < 1:
-        raise ValueError(f"chunk shape must be positive, got {(chunk_rows, chunk_cols)}")
+        raise ValueError(
+            f"chunk shape must be positive, got {(chunk_rows, chunk_cols)}"
+        )
 
     plan: dict[tuple[int, int], list[ChunkCopy]] = {}
     for tile, (i0, i1, j0, j1) in enumerate(windows):
@@ -103,6 +105,15 @@ def chunk_plan(
                     )
                 )
     return plan
+
+
+@dataclasses.dataclass(frozen=True)
+class _TilePlan:
+    """Everything a read needs that depends only on which tiles it wants."""
+
+    windows: tuple[tuple[int, int, int, int], ...]
+    tile_shapes: tuple[tuple[int, int], ...]
+    plan: dict[tuple[int, int], list[ChunkCopy]]
 
 
 class GroupChunkReader:
@@ -158,25 +169,15 @@ class GroupChunkReader:
         self.store_times = metadata["time"].to_numpy()
         metadata.close()
 
-        local: list[tuple[int, int, int, int]] = []
-        height, width = self.array.shape[-2:]
-        for tile, window in enumerate(windows):
-            _, i0, i1, j0, j1 = window
-            i0, i1 = i0 - self.origin_i, i1 - self.origin_i
-            j0, j1 = j0 - self.origin_j, j1 - self.origin_j
-            if not (0 <= j0 < j1 <= height and 0 <= i0 < i1 <= width):
-                raise ValueError(
-                    f"Tile {tile} window {window} falls outside {store}, whose "
-                    f"extent is j[{self.origin_j}:{self.origin_j + height}) "
-                    f"i[{self.origin_i}:{self.origin_i + width})"
-                )
-            local.append((i0, i1, j0, j1))
-        self.windows = tuple(local)
-        self.tile_shapes = tuple((j1 - j0, i1 - i0) for i0, i1, j0, j1 in local)
-
-        chunk_rows, chunk_cols = self.array.chunks[-2:]
-        self.plan = chunk_plan(local, chunk_rows=chunk_rows, chunk_cols=chunk_cols)
-        self.chunk_shape = (chunk_rows, chunk_cols)
+        self.chunk_shape = tuple(self.array.chunks[-2:])
+        # A read can name its own tiles, so the plan is per tile-set rather
+        # than per reader. Cached because the arithmetic is cheap but not free
+        # and a face offers only sixteen distinct 3x3 blocks.
+        self._plans: dict[tuple, _TilePlan] = {}
+        default = self._plan_for(windows)
+        self.windows = default.windows
+        self.tile_shapes = default.tile_shapes
+        self.plan = default.plan
         self._pool = ThreadPoolExecutor(
             max_workers=threads, thread_name_prefix=f"chunk-{prefix}"
         )
@@ -189,6 +190,38 @@ class GroupChunkReader:
             len(self.plan),
             threads,
         )
+
+    def _plan_for(
+        self, windows: Sequence[tuple[int, int, int, int, int]]
+    ) -> "_TilePlan":
+        """Store-local windows, tile shapes and chunk plan for one tile set."""
+        key = tuple(tuple(int(value) for value in window) for window in windows)
+        cached = self._plans.get(key)
+        if cached is not None:
+            return cached
+        if not windows:
+            raise ValueError("A read needs at least one tile window")
+        local: list[tuple[int, int, int, int]] = []
+        height, width = self.array.shape[-2:]
+        for tile, window in enumerate(windows):
+            _, i0, i1, j0, j1 = window
+            i0, i1 = i0 - self.origin_i, i1 - self.origin_i
+            j0, j1 = j0 - self.origin_j, j1 - self.origin_j
+            if not (0 <= j0 < j1 <= height and 0 <= i0 < i1 <= width):
+                raise ValueError(
+                    f"Tile {tile} window {window} falls outside {self.store}, "
+                    f"whose extent is j[{self.origin_j}:{self.origin_j + height}) "
+                    f"i[{self.origin_i}:{self.origin_i + width})"
+                )
+            local.append((i0, i1, j0, j1))
+        rows, cols = self.chunk_shape
+        entry = _TilePlan(
+            windows=tuple(local),
+            tile_shapes=tuple((j1 - j0, i1 - i0) for i0, i1, j0, j1 in local),
+            plan=chunk_plan(local, chunk_rows=rows, chunk_cols=cols),
+        )
+        self._plans[key] = entry
+        return entry
 
     @property
     def num_chunks(self) -> int:
@@ -226,17 +259,30 @@ class GroupChunkReader:
             )
         return int(matches[0])
 
-    def read(self, store_row: int) -> list[torch.Tensor]:
-        """Every tile's ``[1, C, H, W]`` frame at one store row."""
+    def read(
+        self,
+        store_row: int,
+        windows: Sequence[tuple[int, int, int, int, int]] | None = None,
+    ) -> list[torch.Tensor]:
+        """Every tile's ``[1, C, H, W]`` frame at one store row.
+
+        ``windows`` names a different tile set for this read -- which is what
+        lets one reader serve a replay row whose tiles are drawn per row,
+        without a second thread pool or a second open of the store.
+        """
         if not 0 <= store_row < self.array.shape[0]:
             raise IndexError(
                 f"store row {store_row} is outside {self.store}'s "
                 f"{self.array.shape[0]} timestamps"
             )
+        active = self.plan if windows is None else self._plan_for(windows).plan
+        shapes = (
+            self.tile_shapes if windows is None else self._plan_for(windows).tile_shapes
+        )
         channels = len(self.channel_indices)
         buffers = [
             np.empty((channels, height, width), dtype=self.array.dtype)
-            for height, width in self.tile_shapes
+            for height, width in shapes
         ]
         # Contiguous channel runs are the norm (a packed cache stores variables
         # in blocks), and slicing beats fancy indexing into a fresh array.
@@ -259,7 +305,7 @@ class GroupChunkReader:
 
         # Surface the first worker error rather than leaving a half-filled
         # buffer to become a silently wrong training target.
-        for outcome in [self._pool.submit(fill, item) for item in self.plan.items()]:
+        for outcome in [self._pool.submit(fill, item) for item in active.items()]:
             outcome.result()
 
         return [torch.from_numpy(buffer).unsqueeze(0) for buffer in buffers]
@@ -317,11 +363,17 @@ class GroupFrameReader:
         )
         self.num_tiles = len(windows)
 
-    def read_prognostic(self, timestamp) -> list[torch.Tensor]:
-        return self.prognostic.read(self.prognostic.store_row(timestamp))
+    def read_prognostic(self, timestamp, windows=None) -> list[torch.Tensor]:
+        return self.prognostic.read(self.prognostic.store_row(timestamp), windows)
 
-    def read_boundary(self, timestamp) -> list[torch.Tensor]:
-        return self.boundary.read(self.boundary.store_row(timestamp))
+    def read_boundary(self, timestamp, windows=None) -> list[torch.Tensor]:
+        return self.boundary.read(self.boundary.store_row(timestamp), windows)
+
+    def chunks_for(self, windows) -> int:
+        """Chunk decodes per frame for a tile set, both arrays."""
+        return len(self.prognostic._plan_for(windows).plan) + len(
+            self.boundary._plan_for(windows).plan
+        )
 
     @property
     def chunks_per_frame(self) -> int:

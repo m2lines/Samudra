@@ -40,8 +40,3 @@ and [token permissions](https://docs.aws.amazon.com/cli/latest/reference/ecr-pub
 AWS credentials authenticate ECR pulls only. Published Samudra images on GHCR
 continue to use the existing GitHub-token login; the NVIDIA PhysicsNeMo base
 image is pulled from NGC. Jobs that do not pull ECR images do not need AWS access.
-
-Validate changes with `actionlint` and pre-commit. A same-repository PR exercises
-the hosted launch/login path for GPU tests and the x86 container build without
-publishing container images. Main runs additionally exercise benchmarks and the
-ARM/container CPU/GPU jobs. Fork PRs retain the callers' existing AWS guards.

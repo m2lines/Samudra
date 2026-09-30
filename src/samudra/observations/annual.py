@@ -151,6 +151,8 @@ def surface_metrics(prediction, reference, data):
 @torch.no_grad()
 def evaluate_year(model, data, directory, output):
     manifest, raw = read_origin(directory)
+    if manifest.get("grid_sha256") != digest(data.root / "grid.npz"):
+        raise ValueError("Annual archive and training target grids differ")
     surface, atmosphere, contexts, mask, validity = inputs(data, raw)
     model.eval()
     predictions = []
@@ -208,6 +210,7 @@ def main():
         json.dumps(
             {
                 "origin": origin.isoformat(),
+                "grid_sha256": digest(archive.root / "grid.npz"),
                 "history_bins": 19,
                 "forecast_bins": 73,
                 "bin_days": 5,

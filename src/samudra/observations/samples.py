@@ -36,7 +36,7 @@ class Samples:
         ]
 
     def use_observation_normalization(self):
-        """Scratch control: no simulation-derived normalization statistics."""
+        """Shared state scales fitted exclusively to observation training examples."""
         mean, std = np.zeros(77, dtype=np.float32), np.ones(77, dtype=np.float32)
         for offset, group in ((38, 0), (57, 1)):
             mean[offset : offset + 14] = self.stats["interior_mean"][
@@ -74,19 +74,6 @@ class Samples:
         )
         fallback = self.stats["interior_mean"][None, :, None, None]
         return np.where(np.isfinite(result), result, fallback).astype(np.float32)
-
-    def persistence_anomaly(self, initial, sample):
-        state = initial[:, -1].clone()
-        previous_month = pd.Timestamp(str(sample["raw"]["midpoints"][18])).month - 1
-        target_month = pd.Timestamp(sample["name"]).month - 1
-        difference = (
-            self.interior_climatology[target_month]
-            - self.interior_climatology[previous_month]
-        )
-        difference[0] = 0  # Preserve the same observed-surface persistence control.
-        scale = self.std[0, 0, self.ts_indices]
-        state[:, self.ts_indices] += self.tensor(difference)[None] / scale
-        return state
 
     def climatology_prediction(self, sample):
         count = len(sample["month_weights"])

@@ -28,9 +28,7 @@ class Evaluator:
         )
 
     @torch.no_grad()
-    def evaluate(
-        self, paths, persistence=False, export=None, climatology=False, anomaly=False
-    ):
+    def evaluate(self, paths, persistence=False, export=None, climatology=False):
         self.model.eval()
         predictions, references, ohc, reference_ohc = [], [], [], []
         interior_error, interior_bias, interior_count = (
@@ -42,7 +40,7 @@ class Evaluator:
             sample = self.data.load(path)
             if climatology:
                 prediction = self.data.climatology_prediction(sample)
-            elif persistence or anomaly:
+            elif persistence:
                 with torch.autocast("cuda", dtype=torch.bfloat16):
                     initial = self.model.initialize(
                         sample["surface"][:, :19],
@@ -51,11 +49,7 @@ class Evaluator:
                         self.data.mask,
                         sample["validity"][:, :19],
                     )
-                state = (
-                    self.data.persistence_anomaly(initial, sample)
-                    if anomaly
-                    else initial[:, -1]
-                )
+                state = initial[:, -1]
                 prediction = state[:, None].expand(
                     -1, len(sample["month_weights"]), -1, -1, -1
                 )

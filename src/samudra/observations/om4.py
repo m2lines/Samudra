@@ -3,6 +3,7 @@
 
 """OM4 task samples from Samudra's canonical loader, with shared observation scales."""
 
+import json
 import math
 
 import numpy as np
@@ -107,9 +108,20 @@ class Om4Samples:
         if ids[-1] != len(warm) - 1:
             ids.append(len(warm) - 1)
         schedule = [[i] for i in ids]
-        for indices, batch in zip(
-            schedule, self.native_loader(warm, schedule), strict=True
+        for loaded, (indices, batch) in enumerate(
+            zip(schedule, self.native_loader(warm, schedule), strict=True), 1
         ):
+            if loaded == 1 or loaded % 10 == 0 or loaded == len(schedule):
+                print(
+                    json.dumps(
+                        {
+                            "event": "om4_cache_warm",
+                            "loaded": loaded,
+                            "batches": len(schedule),
+                        }
+                    ),
+                    flush=True,
+                )
             # Cache stores the canonical float32 prepared values, never re-normalizes.
             offsets = np.asarray(indices)[:, None]
             history = offsets + np.arange(19)

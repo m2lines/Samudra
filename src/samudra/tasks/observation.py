@@ -241,11 +241,7 @@ class Harness:
             },
             "source_sha256": {
                 str(p.relative_to(Path(__file__).parents[1])): digest(p)
-                for p in [
-                    Path(__file__),
-                    Path(__file__).parents[1] / "models/surface_initialized.py",
-                    *sorted((Path(__file__).parents[1] / "observations").glob("*.py")),
-                ]
+                for p in sorted(Path(__file__).parents[1].rglob("*.py"))
             },
             "om4_root": str(args.om4.resolve()),
             "om4_metadata": {

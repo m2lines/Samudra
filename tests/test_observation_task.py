@@ -251,3 +251,58 @@ def test_annual_inputs_discard_future_surface_values():
     assert before[0].shape[1] == 19
     assert before[0][0, 0, 0, 0, 0] == 0 and before[-1][0, 0, 0, 0, 0] == 0
     assert before[1].shape[1] == 92
+
+
+def test_harness_initializes_mainline_logger_and_typed_components(
+    tmp_path, monkeypatch
+):
+    from types import SimpleNamespace
+
+    from samudra.observations.archive import SPLITS
+    from samudra.tasks import observation
+    from samudra.utils.multiton import MultitonScope
+
+    class Data:
+        grid = {"names": np.array(["thetao_0", "zos", "thetao_1"])}
+
+        def use_observation_normalization(self):
+            pass
+
+        def paths(self, split):
+            return [
+                tmp_path / f"{m}.npz" for m in pd.period_range(*SPLITS[split], freq="M")
+            ]
+
+    device = torch.device("cpu")
+    calls = []
+
+    def select_device(*args):
+        calls.append(args)
+        return device
+
+    monkeypatch.setattr(observation.torch, "device", select_device)
+    monkeypatch.setattr(torch.cuda, "set_device", lambda _: None)
+    monkeypatch.setattr(observation, "Samples", lambda *_: Data())
+    model = tmp_path / "model.yaml"
+    model.write_text(
+        "initializer: &net\n  ch_width: [8, 12]\n  dilation: [1, 1]\n  n_layers: [1, 1]\n  core_block: {norm: instance, instance_affine: true}\nprocessor: *net\n"
+    )
+    args = SimpleNamespace(
+        output=tmp_path / "run",
+        observations=tmp_path / "data",
+        om4=tmp_path / "om4",
+        model=str(model),
+        om4_config="observation/om4.yaml",
+        command="evaluate",
+        wandb_mode="disabled",
+        entity=None,
+        project="test",
+        name="test",
+    )
+    with MultitonScope():
+        harness = Harness(args)
+        assert ("cuda", 0) in calls
+        assert harness.model.initializer.channels == 3
+        assert not harness.log.enabled
+        harness.emit("fixture", {"validation": {"metrics": {"sst_rmse": 1.0}}})
+        assert (args.output / "events.jsonl").exists()

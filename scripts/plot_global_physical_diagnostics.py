@@ -15,6 +15,10 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 sys.path.insert(0, str(Path(__file__).parent))
+from global_physical_heat_content import (  # type: ignore[import-not-found]
+    cell_areas,
+    heat_total,
+)
 from global_physical_spectra import (  # type: ignore[import-not-found]
     REGIONS,
     geostrophic,
@@ -31,6 +35,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--arrays", type=Path, required=True)
 parser.add_argument("--native", type=Path, required=True)
 parser.add_argument("--output", type=Path, required=True)
+parser.add_argument("--heat-context", type=Path)
 args = parser.parse_args()
 arrays_root = args.arrays
 native_root = args.native
@@ -41,6 +46,13 @@ grid = dict(np.load(arrays_root / "grid.npz"))
 lat, lon = grid["lat"], grid["lon"]
 wet = grid["mask"]
 area = np.cos(np.deg2rad(lat))[:, None]
+physical_area = cell_areas(lat, lon)
+heat_context = dict(np.load(args.heat_context)) if args.heat_context else {}
+climate_ohc = (
+    heat_context["climatology"]
+    if heat_context
+    else np.load(arrays_root / "climatology.npz")["ohc"]
+)
 STAGES = [
     ("obs00050", "Early: 50 obs"),
     ("obs00500", "Developing: 500 obs"),
@@ -78,6 +90,7 @@ results = {
     "spectra": {},
     "maps": {},
     "profiles": {},
+    "reference_coverage": {},
 }
 for origin in ["2015-01-01", "2018-01-01", "2021-01-01"]:
     arrays = {
@@ -126,8 +139,23 @@ for origin in ["2015-01-01", "2018-01-01", "2021-01-01"]:
             if reference_label:
                 panels.append((reference_label, truth, grid))
             name = f"{origin}-{phase}-channel{c}.png"
+            if reference_label:
+                missing = wet[c] & ~np.isfinite(truth[c])
+                results["reference_coverage"][name] = {
+                    "model_wet_cells": int(wet[c].sum()),
+                    "observed_wet_cells": int((wet[c] & np.isfinite(truth[c])).sum()),
+                    "missing_wet_cells": int(missing.sum()),
+                    "missing_cosine_area_fraction": float(
+                        np.sum(missing * area) / np.sum(wet[c] * area)
+                    ),
+                    "color_key": "gray = fixed model land/depth mask; white = missing reference within model wet mask",
+                }
             results["maps"][name] = panel_plot(
-                panels, f"{title}: {origin}, {phase}", field, figure_root / name
+                panels,
+                f"{title}: {origin}, {phase} (gray: model land; white: missing)",
+                field,
+                figure_root / name,
+                distinguish_missing=True,
             )
 # Broad, masked pseudo-spectra. The fixed coarse common mask is shared by every coarse curve.
 colors = {
@@ -316,39 +344,85 @@ for origin, annual in meta["checkpoints"]["obs08000"]["annual"].items():
         }
         for variable, series in annual["means"].items()
     }
-# Annual absolute global means: each series shares a fixed support throughout the year.
+# Absolute OHC totals use physical cell areas, with identical fixed support for all curves.
+results["annual_heat_content"] = {}
+results["annual_heat_content_definition"] = (
+    "Sum column OHC (J/m2) times spherical cell area (m2), divided by 1e21 to give ZJ. "
+    "Cell midpoint bounds and polar edges match observation remapping; Earth radius "
+    "6371000 m. Each depth band's common observed/forecast/baseline support is fixed "
+    "throughout its year. Binary model wet cells; no fractional-wet correction or "
+    "extrapolation to unobserved cells. Temperature reference 0 deg C, rho=1035, cp=3850."
+)
 for origin in ["2015-01-01", "2018-01-01", "2021-01-01"]:
     a = meta["checkpoints"]["obs08000"]["annual"][origin]
+    arrays = dict(np.load(arrays_root / ("obs08000-" + origin + ".npz")))
+    initial_heat = (
+        heat_context["obs08000-" + origin] if heat_context else arrays["initial_ohc"]
+    )
+    month_indices = pd.PeriodIndex(arrays["months"], freq="M").month.to_numpy() - 1
+    heat: dict = {}
+    for c, var in enumerate(["ohc_0_700", "ohc_700_2000"]):
+        climate = climate_ohc[month_indices, c]
+        support = (
+            np.isfinite(arrays["reference_ohc"][:, c]).all(0)
+            & np.isfinite(arrays["predicted_ohc"][:, c]).all(0)
+            & np.isfinite(initial_heat[c])
+            & np.isfinite(climate).all(0)
+        )
+        assert int(support.sum()) == a["support"][var]["cells"]
+        series = {
+            "forecast": heat_total(
+                arrays["predicted_ohc"][:, c], physical_area, support
+            ),
+            "observation": heat_total(
+                arrays["reference_ohc"][:, c], physical_area, support
+            ),
+            "persistence": np.repeat(
+                heat_total(initial_heat[c], physical_area, support),
+                len(month_indices),
+            ),
+            "climatology": heat_total(climate, physical_area, support),
+        }
+        heat[var] = {
+            "units": "ZJ",
+            "series": {k: v.tolist() for k, v in series.items()},
+            "mean_bias_ZJ": {
+                k: float(np.mean(v - series["observation"]))
+                for k, v in series.items()
+                if k != "observation"
+            },
+            "support_area_m2": float(physical_area[support].sum()),
+            "surface_wet_area_fraction": float(
+                physical_area[support].sum() / physical_area[wet[0]].sum()
+            ),
+            "cells": int(support.sum()),
+        }
+    results["annual_heat_content"][origin] = heat
     fig, axes = plt.subplots(2, 2, figsize=(11, 7), layout="constrained")
-    for ax, (var, title, scale) in zip(
+    for ax, (var, title) in zip(
         axes.flat,
         [
-            ("sst", "Global mean SST (°C)", 1),
-            ("adt", "Global mean SSH / ADT (m)", 1),
-            ("ohc_0_700", "Mean OHC 0–700 m (GJ/m²)", 1e9),
-            ("ohc_700_2000", "Mean OHC 700–2000 m (GJ/m²)", 1e9),
+            ("sst", "Global mean SST (°C)"),
+            ("adt", "Global mean SSH / ADT (m)"),
+            ("ohc_0_700", "OHC 0–700 m (ZJ; observed support)"),
+            ("ohc_700_2000", "OHC 700–2000 m (ZJ; observed support)"),
         ],
     ):
         dates = pd.to_datetime(a["dates"] if var in ["sst", "adt"] else a["months"])
+        series = a["means"][var] if var in ["sst", "adt"] else heat[var]["series"]
         for method, color, style in [
             ("forecast", "#2167ad", "-"),
             ("observation", "#222222", "-"),
             ("persistence", "#888888", ":"),
             ("climatology", "#e29624", "--"),
         ]:
-            ax.plot(
-                dates,
-                np.array(a["means"][var][method]) / scale,
-                label=method,
-                color=color,
-                ls=style,
-            )
+            ax.plot(dates, series[method], label=method, color=color, ls=style)
         ax.set_title(title)
         ax.grid(alpha=0.2)
         ax.tick_params(axis="x", rotation=25)
     axes[0, 0].legend(fontsize=8)
     fig.suptitle(
-        f"Final physical-only model: {origin}, annual means without detrending"
+        f"Final physical-only model: {origin}, annual series without detrending"
     )
     fig.savefig(figure_root / (origin + "-annual-global-means.png"), dpi=150)
     plt.close(fig)
@@ -411,13 +485,17 @@ for context_month, origin in [
                 np.sum(np.where(common_ohc, difference, 0) * wet_weights)
                 / wet_weights.sum()
             ),
+            "represented_minus_native_ZJ": float(
+                heat_total(difference, physical_area, common_ohc)
+            ),
+            "support_area_m2": float(physical_area[common_ohc].sum()),
             "cells": int(common_ohc.sum()),
         }
     results["ohc_representation_check"][context_month] = representation_records
 results["ohc_representation_definition"] = (
     "Same preceding-December IAP analysis: integrate its remapped, model-depth "
     "temperature targets over the OM4 layer overlaps and subtract the remapped "
-    "native-IAP-layer OHC integral. Cosine-area means on finite context columns "
+    "native-IAP-layer OHC integral. Area totals in ZJ and retained column means on finite context columns "
     "with complete annual observation support. This is a context check, not a "
     "correction to annual forecasts or a decomposition of annual model bias."
 )

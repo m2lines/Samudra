@@ -28,7 +28,7 @@ FIELDS = [
 ]
 
 
-def panel_plot(panels, title, field, path):
+def panel_plot(panels, title, field, path, *, distinguish_missing=False):
     channel, _, unit, limits, cmap = field
     cols = min(3, len(panels))
     rows = math.ceil(len(panels) / cols)
@@ -57,7 +57,11 @@ def panel_plot(panels, title, field, path):
         ax.tick_params(length=0, labelsize=6)
         np.testing.assert_allclose(ax.get_window_extent().size, [360, 180], atol=1e-6)
         rgba = im.to_rgba(z, bytes=True)
-        tiles.append((left, top, np.where(rgba[..., 3:] > 0, rgba[..., :3], 209)[::-1]))
+        tile = np.where(rgba[..., 3:] > 0, rgba[..., :3], 209)
+        if distinguish_missing:
+            missing = (grid["mask"][channel] & ~np.isfinite(value[channel]))[:, order]
+            tile[missing] = 255
+        tiles.append((left, top, tile[::-1]))
         wet = z[np.isfinite(z)]
         stats.append(
             {

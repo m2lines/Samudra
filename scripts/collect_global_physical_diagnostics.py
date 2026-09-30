@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 """Verified, CPU-only extraction of checkpoint maps, means and OM4 references."""
 
+import argparse
 import hashlib
 import json
 import tarfile
@@ -15,8 +16,35 @@ ROOT = Path("/scratch/jr7309/runs/2026-09-30-global-physical-diagnostics")
 OLD = Path("/scratch/jr7309/runs/2026-09-29-observation-global")
 DATA = Path("/scratch/jr7309/data/obs-d-pilot")
 ANNUAL = Path("/scratch/jr7309/data/obs-d-annual-instance-v1/test")
-OUT = ROOT / "compact-v2"
-OUT.mkdir(exist_ok=True)
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--sources-json", type=Path)
+parser.add_argument("--output", type=Path, default=ROOT / "compact-v3")
+args = parser.parse_args()
+OUT = args.output
+OUT.mkdir(parents=True, exist_ok=True)
+if (OUT / "COMPLETE.json").exists():
+    raise ValueError("Preserve completed exports; choose a new output directory")
+source_specs = (
+    json.loads(args.sources_json.read_text())
+    if args.sources_json
+    else {
+        f"obs{obs:05d}": {
+            "observation_updates": obs,
+            "om4_updates": om4,
+            "monthly": str(
+                OLD / "global-endpoint-monthly"
+                if obs == 8000
+                else ROOT / f"obs{obs:05d}-monthly-retry1"
+            ),
+            "annual": str(
+                OLD / "global-endpoint-annual"
+                if obs == 8000
+                else ROOT / f"obs{obs:05d}-annual-retry1"
+            ),
+        }
+        for obs, om4 in [(50, 324), (500, 2167), (2000, 4949), (8000, 8000)]
+    }
+)
 origins = ["2015-01-01", "2018-01-01", "2021-01-01"]
 channels = [38, 47, 57, 66, 0, 19, 76]
 grid = dict(np.load(DATA / "grid.npz"))
@@ -96,6 +124,9 @@ for p in sorted((DATA / "train").glob("*.npz")):
     total[i] += np.where(valid, values, 0)
     count[i] += valid
 climate_ohc = np.divide(total, count, out=np.full_like(total, np.nan), where=count > 0)
+np.savez_compressed(
+    OUT / "climatology.npz", surface=stats["surface_climatology"], ohc=climate_ohc
+)
 report = {
     "script_sha256": digest(__file__),
     "checkpoints": {},
@@ -103,26 +134,30 @@ report = {
     "sources": {},
     "annual": {},
 }
-for obs in [50, 500, 2000, 8000]:
-    label = f"obs{obs:05d}"
-    monthly = (
-        OLD / "global-endpoint-monthly"
-        if obs == 8000
-        else ROOT / (label + "-monthly-retry1")
-    )
-    annual = (
-        OLD / "global-endpoint-annual"
-        if obs == 8000
-        else ROOT / (label + "-annual-retry1")
-    )
+for label, spec in source_specs.items():
+    obs = spec["observation_updates"]
+    monthly, annual = Path(spec["monthly"]), Path(spec["annual"])
     complete = json.loads((annual / "COMPLETE.json").read_text())
     sig = complete["inputs"]
     assert sig["global_observations"]
     fixed = json.loads((monthly / "fixed-budget.json").read_text())
     lineage = fixed["fixed_budget_lineage"]
     assert sig["checkpoint_sha256"] == lineage["checkpoint_sha256"] == fixed["sha256"]
-    assert lineage["task_counts"]["observation"] == obs
-    m = dict(np.load(monthly / "fixed-budget-predictions.npz"))
+    assert lineage["task_counts"] == {"om4": spec["om4_updates"], "observation": obs}
+    assert lineage["global_step"] == obs + spec["om4_updates"]
+    monthly_input = json.loads((monthly / "evaluation-input.json").read_text())
+    assert monthly_input["global_observations"]
+    assert monthly_input["checkpoint_sha256"] == lineage["checkpoint_sha256"]
+    report["sources"][str(monthly / "evaluation-input.json")] = digest(
+        monthly / "evaluation-input.json"
+    )
+    report["sources"][str(monthly / "fixed-budget.json")] = digest(
+        monthly / "fixed-budget.json"
+    )
+    report["sources"][str(annual / "COMPLETE.json")] = digest(annual / "COMPLETE.json")
+    prediction_source = monthly / "fixed-budget-predictions.npz"
+    report["sources"][str(prediction_source)] = digest(prediction_source)
+    m = dict(np.load(prediction_source))
     assert len(m["origins"]) == 96
     assert list(m["origins"][:12]) == [
         str(v) for v in pd.period_range("2015-01", "2015-12", freq="M")
@@ -132,6 +167,8 @@ for obs in [50, 500, 2000, 8000]:
         for k in ["fixed-budget-inferred-persistence", "seasonal-climatology"]
     }
     baseline = {k: dict(np.load(p)) for k, p in files.items()}
+    for p in files.values():
+        report["sources"][str(p)] = digest(p)
     np.savez_compressed(
         OUT / (label + "-monthly.npz"),
         prediction=m["prediction"][:12, 5],
@@ -140,7 +177,12 @@ for obs in [50, 500, 2000, 8000]:
         persistence=baseline["fixed-budget-inferred-persistence"]["prediction"][:12, 5],
         climatology=baseline["seasonal-climatology"]["prediction"][:12, 5],
     )
-    record = {"lineage": lineage, "day30": {}, "annual": {}}
+    record = {
+        "lineage": lineage,
+        "fixed_budget_evaluation": fixed,
+        "day30": {},
+        "annual": {},
+    }
     for method, z in [
         ("forecast", m),
         ("persistence", baseline["fixed-budget-inferred-persistence"]),
@@ -169,6 +211,7 @@ for obs in [50, 500, 2000, 8000]:
         np.savez_compressed(
             OUT / (label + "-" + origin + ".npz"),
             initial=initial[channels],
+            initial_ohc=ohc(initial[38:57]),
             state=v["state_at_leads"][[2, 5]][:, channels],
             surface=v["surface"],
             reference=v["reference"],
@@ -228,6 +271,7 @@ for obs in [50, 500, 2000, 8000]:
                 ),
             }
         record["annual"][origin] = {
+            "source": str(source),
             "dates": dates.strftime("%Y-%m-%d").tolist(),
             "months": v["months"].tolist(),
             "means": means,
@@ -284,10 +328,10 @@ report["files"] = {
     p.name: {"sha256": digest(p), "bytes": p.stat().st_size} for p in OUT.glob("*.npz")
 }
 (OUT / "COMPLETE.json").write_text(json.dumps(report, indent=2) + "\n")
-archive = ROOT / "compact-v2.tar"
+archive = OUT.with_suffix(".tar")
 with tarfile.open(archive, "w") as tar:
     tar.add(OUT, arcname="compact")
-(ROOT / "compact-v2-receipt.json").write_text(
+(OUT.parent / (OUT.name + "-receipt.json")).write_text(
     json.dumps({"sha256": digest(archive), "bytes": archive.stat().st_size}) + "\n"
 )
 print("COMPLETE", flush=True)

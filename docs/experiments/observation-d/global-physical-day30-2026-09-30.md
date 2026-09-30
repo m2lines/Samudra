@@ -1,7 +1,7 @@
 <!-- SPDX-FileCopyrightText: 2026 Samudra Authors -->
 <!-- SPDX-License-Identifier: CC-BY-4.0 -->
 
-# Global physical-only: initialization, day-30 structure and annual means
+# Global physical-only: initialization, day-30 structure and annual heat content
 
 **The model becomes substantially more observation-like during training, especially in SSH and geostrophic velocity spectra, but important errors remain.** Day-30 SST RMSE falls from 1.486 to 0.640°C; final SSH RMSE is 0.0792 m, only slightly better than persistence (0.0800 m). The annual means expose persistent cold and low-SSH offsets, while spatial ripples remain visible. Observation-like spectra alone therefore do not establish a faithful ocean forecast.
 
@@ -28,12 +28,12 @@ match the mixed endpoint's total optimizer updates. These are rough update-budge
 comparisons, not exact FLOP matches. Intermediate snapshots are retained.
 
 The forthcoming comparison will add both checkpoints to the initializer/day30
-maps, wider day-30 spectra and annual global-mean plots below. Results have not
+maps, wider day-30 spectra and annual SST/SSH means and OHC-total plots below. Results have not
 been evaluated yet. [Run design and verified startup](global-scratch-2026-09-30.md).
 
 ## Initializer examples with observation references
 
-SST and SSH reference panels show the **same final five-day history interval** used by the initializer: the five days immediately before the forecast origin. Available surface values are copied into the initialized state by construction; agreement there verifies the supplied state, rather than learned reconstruction skill. Gray reference cells have no available observation. In those cells the initializer learns a completion from history, geography, season and forcing.
+SST and SSH reference panels show the **same final five-day history interval** used by the initializer: the five days immediately before the forecast origin. Available surface values are copied into the initialized state by construction; agreement there verifies the supplied state, rather than learned reconstruction skill. **Gray marks fixed model land (or the field’s depth mask); white marks missing observations within model ocean cells.** In missing ocean cells the initializer learns a completion from history, geography, season and forcing.
 
 ![Initialized SST with matching observations](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel0.png)
 
@@ -49,6 +49,8 @@ Interior reference panels use the **preceding December IAP monthly analysis**, e
 | Surface salinity | [maps](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel2.png) | [maps](artifacts/2026-09-30-global-physical-focus/2018-01-01-initial-channel2.png) | [maps](artifacts/2026-09-30-global-physical-focus/2021-01-01-initial-channel2.png) |
 | Surface zonal velocity | [maps](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel4.png) | [maps](artifacts/2026-09-30-global-physical-focus/2018-01-01-initial-channel4.png) | [maps](artifacts/2026-09-30-global-physical-focus/2021-01-01-initial-channel4.png) |
 | Surface meridional velocity | [maps](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel5.png) | [maps](artifacts/2026-09-30-global-physical-focus/2018-01-01-initial-channel5.png) | [maps](artifacts/2026-09-30-global-physical-focus/2021-01-01-initial-channel5.png) |
+
+**Why observation coastlines look different:** every panel uses the same fixed OM4 wet-cell mask. The observation panel additionally lacks values in coarse cells rejected during remapping: valid source area must cover at least 90% of the *full* target cell, which excludes many coastal/island cells. In the 2021 day-30 SST example, 3,598 of 44,892 model ocean cells lack an observation (7.0% of cosine-weighted wet area). Those cells were previously the same gray as land; they are now white. The model predicts in those ocean cells, but they have no observation error score. This is coverage, not a learned coastline.
 
 ## Day-30 errors and spatial structure
 
@@ -119,37 +121,37 @@ The plotted KE curve is **½(Su + Sv)** from geostrophic velocities derived from
 
 The figures retain absolute snapshot fluctuations after spatial plane removal; they are not a seasonal-anomaly or continuous eight-year spectrum reproduction of the paper. Powers are averaged after transforming individual snapshots. These wider diagnostics do not replace or alter the validated checkpoint-selection metrics. Native-to-coarse daily remapping and five-day aggregation are numerically checked against the actual coarse targets.
 
-## Annual global means and maps
+## Annual SST/SSH means, OHC totals and maps
 
-One initialization, 73 five-day autoregressive steps, prescribed future ERA5, no future surface-state corrections. The plots show **undetrended absolute global means**, with observations, initialized-state persistence and training-only monthly climatology. SST and SSH use five-day intervals; OHC uses calendar-month averages, separately for 0–700 and 700–2000 m. OHC is an area-mean column integral in GJ/m², not a global heat-content total in ZJ.
+One initialization, 73 five-day autoregressive steps, prescribed future ERA5, no future surface-state corrections. The plots show **undetrended SST/SSH means and total OHC in ZJ**, with observations, initialized-state persistence and training-only monthly climatology. SST and SSH use five-day intervals; OHC uses calendar-month averages, separately for 0–700 and 700–2000 m. OHC is the sum of column heat content times spherical cell area, divided by 10²¹ J/ZJ. It is integrated over fixed, common observed support, with no extrapolation into unobserved ocean. Its temperature reference remains 0°C.
 
-![2015 annual global means](artifacts/2026-09-30-global-physical-focus/2015-01-01-annual-global-means.png)
+![2015 annual SST/SSH means and OHC totals](artifacts/2026-09-30-global-physical-focus/2015-01-01-annual-global-means.png)
 
 [2018 global means](artifacts/2026-09-30-global-physical-focus/2018-01-01-annual-global-means.png) · [2021 global means](artifacts/2026-09-30-global-physical-focus/2021-01-01-annual-global-means.png)
 
-The final model broadly follows the seasonal SST cycle, but remains cold. Its SSH global mean settles close to the older training climatology rather than tracking the later observed level. Both OHC bands have persistent negative offsets; in all three cases the forecast's absolute mean OHC offset is larger than the native-IAP climatology baseline's. The initialized-state persistence lines are already low relative to the observed monthly means, and evolution lowers OHC further. SST/SSH suggest anchoring to the training distribution; OHC additionally contains a vertical-representation mismatch, quantified below.
+The final model broadly follows the seasonal SST cycle, but remains cold. Its SSH global mean settles close to the older training climatology rather than tracking the later observed level. Both OHC bands have persistent negative offsets; in all three cases the forecast's absolute OHC-total offset is larger than the native-IAP climatology baseline's. The initialized-state persistence lines are already low relative to the observed monthly means, and evolution lowers OHC further. SST/SSH suggest anchoring to the training distribution; OHC additionally contains a vertical-representation mismatch, quantified below.
 
 The mean forecast-minus-observation offsets are shown below. SST/SSH average the 73 five-day points; OHC averages the twelve monthly points equally:
 
-| Origin | SST °C | SSH m | OHC 0–700 GJ/m² | OHC 700–2000 GJ/m² |
+| Origin | SST °C | SSH m | OHC 0–700 ZJ | OHC 700–2000 ZJ |
 |---|---:|---:|---:|---:|
-| 2015-01-01 | −0.254 | −0.0413 | −0.504 | −0.197 |
-| 2018-01-01 | −0.202 | −0.0478 | −0.514 | −0.196 |
-| 2021-01-01 | −0.210 | −0.0441 | −0.459 | −0.194 |
+| 2015-01-01 | -0.254 | -0.0413 | -155.7 | -56.7 |
+| 2018-01-01 | -0.202 | -0.0478 | -158.8 | -56.2 |
+| 2021-01-01 | -0.210 | -0.0441 | -141.6 | -55.7 |
 
-These are offsets of the plotted area-mean series, not spatial RMSEs. The annual maps still show nonphysical structure, so matching seasonality or a global mean cannot establish spatial realism.
+These are temporal mean offsets of the plotted series: area means for SST/SSH, supported area totals for OHC. They are not spatial RMSEs. The annual maps still show nonphysical structure, so matching seasonality or a global mean cannot establish spatial realism.
 
 **OHC representation check:** the observed OHC integrates native IAP layers, whereas forecast OHC integrates the model's layers. Taking the *same* preceding-December analysis, sampling it at the model depths and applying the forecast integration already gives the following offsets relative to its native-layer integral:
 
-| IAP context month | Model-layer minus native OHC 0–700 GJ/m² | Model-layer minus native OHC 700–2000 GJ/m² |
+| IAP context month | Model-layer minus native OHC 0–700 ZJ | Model-layer minus native OHC 700–2000 ZJ |
 |---|---:|---:|
-| 2014-12 | −0.211 | −0.060 |
-| 2017-12 | −0.208 | −0.059 |
-| 2020-12 | −0.208 | −0.059 |
+| 2014-12 | -64.7 | -17.2 |
+| 2017-12 | -63.8 | -16.9 |
+| 2020-12 | -63.8 | -17.0 |
 
-This demonstrates a material representation contribution before model error. It is a three-month context check, not a correction to the annual curves or a precise decomposition of their biases. The additional drop from initialized-state persistence to the forecast is independent evidence of evolution changing the mean heat content.
+This demonstrates a material representation contribution before model error. It is a three-month context check, not a correction to the annual curves or a precise decomposition of their biases. The context check has slightly smaller upper-band support (3.073×10¹⁴ m²) because the preceding-December analysis has additional missing columns. The additional drop from initialized-state persistence to the forecast is independent evidence of evolution changing the mean heat content.
 
-Global means use cosine-latitude weights on the model grid. Every curve in a given annual panel uses the same fixed support: model wet cells with finite observations and baseline values throughout that year. This removes changes in missing-data coverage as a source of apparent time-series drift. “Global” therefore means globally distributed observed support, not an estimate of unobserved ocean cells. The retained fraction of the model’s surface wet area is:
+SST/SSH means use cosine-latitude weights on the model grid. OHC totals use spherical areas from the same midpoint latitude/longitude cell bounds as observation remapping (R=6371 km, polar edges at ±90°). Each binary wet cell contributes its full grid-cell area; no fractional wet-area correction is available. The two retained OHC areas are 3.086×10¹⁴ m² (0–700 m) and 2.875×10¹⁴ m² (700–2000 m). Every curve in a given annual panel uses the same fixed support: model wet cells with finite observations and baseline values throughout that year. This removes changes in missing-data coverage as a source of apparent time-series drift. “Global” therefore means globally distributed observed support, not an estimate of unobserved ocean cells. The retained fraction of the model’s surface wet area is:
 
 | Origin | SST | SSH | OHC 0–700 | OHC 700–2000 |
 |---|---:|---:|---:|---:|
@@ -178,10 +180,12 @@ Seed 1729; AdamW at 1e-4, weight decay 0.01, clipping 1, effective batch 8, no w
 
 OHC integrates temperature relative to 0°C, using ρ=1035 kg/m³ and cp=3850 J/(kg K), with each product’s layer overlap against the depth band and complete column support. Forecasts use OM4 model layers; observations use native IAP layers before horizontal remapping. Observation OHC climatology is the per-location, per-calendar-month mean of training-only native IAP OHC integrals; surface climatology is the existing training-only monthly spatial climatology. These baselines do not supply the initializer’s missing values.
 
-All checkpoint lineage hashes and counts, exact cohorts, global evaluation flags, prepared/native reference hashes and archive members are retained in the [evidence and provenance](artifacts/2026-09-30-global-physical-focus/provenance.json.gz). The new regional transform passed amplitude/plane-invariance, resolved-wavelength, Nyquist, empty-support and geostrophic-sign/equator checks. Map pixels and native/coarse equivalence were checked. Failed launch attempts are included in allocation accounting.
+All checkpoint lineage hashes and counts, exact cohorts, global evaluation flags, prepared/native reference hashes and archive members are retained in the [evidence and provenance](artifacts/2026-09-30-global-physical-focus/provenance.json.gz). The ZJ conversion passed full-sphere area and constant-field integration checks, plus missing-support/no-extrapolation checks. The new regional transform passed amplitude/plane-invariance, resolved-wavelength, Nyquist, empty-support and geostrophic-sign/equator checks. Map pixels and native/coarse equivalence were checked. Failed launch attempts are included in allocation accounting.
 
 One trajectory and twelve spectral snapshots support descriptive conclusions about this model, not a causal decomposition of the value of each data source. Both source exposures and observation frequency change together. Internal fields lacking observation supervision remain diagnostic states, and finite analyzed products do not establish direct measurement coverage under ice. Annual means can look good while spatial patterns are poor, which is why the maps remain alongside them.
 
 The additional checkpoint inference used **0.245 allocated GPU-hours**, including all six failed launch attempts and their successful replacements. The first CPU collector was canceled after repeated NPZ decompression was diagnosed; its replacement completed successfully. Original records and outputs are preserved. This report required no retraining; the existing final-checkpoint evaluations were reused.
 
 [Machine-readable results](artifacts/2026-09-30-global-physical-focus/results.json.gz) · [execution plan](global-physical-focus-plan-2026-09-30.md) · [previous global model comparison](global-domain-results-2026-09-30.md)
+
+The ZJ/coverage update reused the existing forecasts and added one 36-second CPU extraction of initialization OHC and training climatology; it used no GPU time. Its output checksum and sources are retained in the [heat-context evidence](artifacts/2026-09-30-global-physical-focus/heat-context-provenance.json.gz).

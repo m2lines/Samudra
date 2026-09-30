@@ -2960,3 +2960,9 @@ actual elapsed allocation, including retries, will be charged. Initial accountin
 at 19:28 UTC is 368 allocated GPU-seconds (0.1022 GPU-hours), all training.
 Cold-cache initial updates were slower than the completed mixed arm; revisit the
 15–17-hour estimate after warm-up. Monitor with interruptible waits, no timer.
+
+### 2026-09-30: focused report heat-content units and coastline coverage
+
+Recomputed OHC as supported area totals in ZJ (0–700 and 700–2000 m), retaining absolute 0°C-reference heat content and the same fixed observation/baseline support. Midpoint spherical cell areas match observation remapping; unobserved ocean is not extrapolated. SST/SSH remain area means. The 2015 forecast-minus-observation offsets are −155.7 and −56.7 ZJ. The same-analysis vertical-representation check remains separate, now in ZJ. CPU extractor 18891351 completed 0:0 in 36 seconds with zero GPUs; complete SHA256 readback verified.
+
+All 54 focused map sheets now distinguish fixed OM4 land/depth mask (gray) from missing observations within model wet cells (white). The linked 2021 day-30 SST reference lacks 3,598 of 44,892 model ocean cells (7.0% cosine-weighted wet area), largely reflecting the existing ≥90%-of-full-cell source-coverage remap rule. Model outputs remain visible there, but no observation error is assigned to missing reference cells. Forecasts, selection and training protocol are unchanged.

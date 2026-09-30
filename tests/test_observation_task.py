@@ -284,8 +284,11 @@ def test_harness_initializes_mainline_logger_and_typed_components(
     monkeypatch.setattr(torch.cuda, "set_device", lambda _: None)
     monkeypatch.setattr(observation, "Samples", lambda *_: Data())
     model = tmp_path / "model.yaml"
+    (tmp_path / "backbone.yaml").write_text(
+        "ch_width: [8, 12]\ndilation: [1, 1]\nn_layers: [1, 1]\ncore_block: {norm: instance, instance_affine: true}\n"
+    )
     model.write_text(
-        "initializer: &net\n  ch_width: [8, 12]\n  dilation: [1, 1]\n  n_layers: [1, 1]\n  core_block: {norm: instance, instance_affine: true}\nprocessor: *net\n"
+        "initializer: !include backbone.yaml\nprocessor: !include backbone.yaml\n"
     )
     args = SimpleNamespace(
         output=tmp_path / "run",

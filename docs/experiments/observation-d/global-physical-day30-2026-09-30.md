@@ -31,24 +31,51 @@ The forthcoming comparison will add both checkpoints to the initializer/day30
 maps, wider day-30 spectra and annual SST/SSH means and OHC-total plots below. Results have not
 been evaluated yet. [Run design and verified startup](global-scratch-2026-09-30.md).
 
-## Initializer examples with observation references
+## Learned initializer fields and observation context
 
-SST and SSH reference panels show the **same final five-day history interval** used by the initializer: the five days immediately before the forecast origin. Available surface values are copied into the initialized state by construction; agreement there verifies the supplied state, rather than learned reconstruction skill. **These panels do not test whether the network learns an identity function: an explicit overwrite supplies observed SST/SSH after the network runs.** Their learned surface behavior is confined to missing ocean cells. The [pinned initializer code](https://github.com/m2lines/Samudra/blob/79025a163817a577ab81af95b401f5cb0563cd12/src/samudra/experiments/initializer_models.py#L244) implements this overwrite. **Gray marks fixed model land (or the field’s depth mask); white marks missing observations within model ocean cells.** In missing ocean cells the initializer learns a completion from history, geography, season and forcing.
+SST and SSH reference panels show the **same final five-day history interval** used by the initializer: the five days immediately before the forecast origin. Available surface values are copied into the initialized state by construction; agreement there verifies the supplied state, rather than learned reconstruction skill. **These panels do not test whether the network learns an identity function: an explicit overwrite supplies observed SST/SSH after the network runs.** Their learned surface behavior is confined to missing ocean cells. The [pinned initializer code](https://github.com/m2lines/Samudra/blob/79025a163817a577ab81af95b401f5cb0563cd12/src/samudra/experiments/initializer_models.py#L240) implements this overwrite. **Gray marks fixed model land (or the field’s depth mask); white marks missing observations within model ocean cells.** In missing ocean cells the initializer learns a completion from history, geography, season and forcing.
 
-![Initialized SST: observed cells are copied; learned completion only in missing ocean cells](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel0.png)
-
-![Initialized SSH: observed cells are copied; learned completion only in missing ocean cells](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel6.png)
+[Initialized SST: copied input plus completion](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel0.png) · [Initialized SSH: copied input plus completion](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel6.png)
 
 Interior reference panels use the **preceding December IAP monthly analysis**, explicitly labeled as context. A monthly average is not instantaneous initializer truth. U/V reference panels use the contemporaneous DUACS geostrophic surface-velocity proxy; these are not direct observations of the model’s full velocity state and are not its observation-task training targets. Those distinctions apply to every map link below.
 
-| Field | Initialization, 2015 | Initialization, 2018 | Initialization, 2021 |
+The featured diagnostics use **learned temperature below the copied surface level and learned salinity**, rather than surface copying or coastal infilling. The depth profiles compare the four checkpoints with the preceding December IAP analysis and **Training December climatology**: per-location, per-depth averages of the twenty December analyses in the training set, 1993–2012. This baseline is a diagnostic reference; it does not provide the model's missing inputs or initialized fields.
+
+![Learned temperature and salinity depth profiles, with IAP and training climatology](artifacts/2026-09-30-global-initializer/2015-01-01-initializer-profiles.png)
+
+Profiles cover global observed support and the displayed North Atlantic, North Pacific and Southern Ocean boxes. Each depth uses the same finite analysis/climatology/model wet support and spherical cell areas for every curve. Temperature at 2.5 m is omitted because it is copied; the displayed temperature depths are 10–1850 m, while all salinity depths from 2.5–1850 m require prediction.
+
+**What changes during training:** the early initializer has strong upper-ocean deviations, especially Southern Ocean temperature and salinity. These largely shrink by the middle checkpoint. Deep regional mean profiles change much less. Subtracting the training December climatology makes the learned departures visible instead of letting the large average ocean structure dominate the comparison:
+
+![Learned temperature and salinity latitude-depth departures from training December climatology](artifacts/2026-09-30-global-initializer/2015-01-01-initializer-zonal-anomalies.png)
+
+![Learned 550 m temperature departures from training December climatology, including IAP context](artifacts/2026-09-30-global-initializer/2015-01-01-initializer-temperature550-anomaly.png)
+
+For a compact numerical comparison, the table averages each depth's global spatial RMSE equally across the learned levels and then across the three January examples. It measures agreement with the **preceding December monthly analysis**, not instantaneous initialization skill, a month-long forecast, or a selection metric.
+
+| Model/reference | Temperature context RMSE, 10–1850 m °C | Salinity context RMSE, 2.5–1850 m psu |
+|---|---:|---:|
+| Early: 50 obs | 0.853 | 0.1552 |
+| Developing: 500 obs | 0.466 | 0.1064 |
+| Middle: 2,000 obs | 0.398 | 0.0919 |
+| Final: 8,000 obs | 0.384 | 0.0916 |
+| Training December climatology | 0.332 | 0.0668 |
+
+Learned initialization improves strongly, but does **not beat the training climatology** in this context comparison; this holds separately in all three examples. Broad regional mean profiles are already close to climatology, while the anomaly sections expose remaining upper-ocean and polar departures. That supports using the climatology as a serious reference and examining anomalies, rather than treating plausible absolute maps as evidence of recovered ocean variability. The December-average versus last-five-day timing difference and joint forecast objective prevent concluding that a climatological initializer would forecast better. The matched observation-only results will help separate source effects from learning a spatial prior.
+
+| Diagnostic | 2015 | 2018 | 2021 |
 |---|---|---|---|
-| SST | [maps](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel0.png) | [maps](artifacts/2026-09-30-global-physical-focus/2018-01-01-initial-channel0.png) | [maps](artifacts/2026-09-30-global-physical-focus/2021-01-01-initial-channel0.png) |
-| SSH | [maps](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel6.png) | [maps](artifacts/2026-09-30-global-physical-focus/2018-01-01-initial-channel6.png) | [maps](artifacts/2026-09-30-global-physical-focus/2021-01-01-initial-channel6.png) |
-| Temperature at 550 m | [maps](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel1.png) | [maps](artifacts/2026-09-30-global-physical-focus/2018-01-01-initial-channel1.png) | [maps](artifacts/2026-09-30-global-physical-focus/2021-01-01-initial-channel1.png) |
-| Surface salinity | [maps](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel2.png) | [maps](artifacts/2026-09-30-global-physical-focus/2018-01-01-initial-channel2.png) | [maps](artifacts/2026-09-30-global-physical-focus/2021-01-01-initial-channel2.png) |
-| Surface zonal velocity | [maps](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel4.png) | [maps](artifacts/2026-09-30-global-physical-focus/2018-01-01-initial-channel4.png) | [maps](artifacts/2026-09-30-global-physical-focus/2021-01-01-initial-channel4.png) |
-| Surface meridional velocity | [maps](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel5.png) | [maps](artifacts/2026-09-30-global-physical-focus/2018-01-01-initial-channel5.png) | [maps](artifacts/2026-09-30-global-physical-focus/2021-01-01-initial-channel5.png) |
+| Learned T/S depth profiles | [profiles](artifacts/2026-09-30-global-initializer/2015-01-01-initializer-profiles.png) | [profiles](artifacts/2026-09-30-global-initializer/2018-01-01-initializer-profiles.png) | [profiles](artifacts/2026-09-30-global-initializer/2021-01-01-initializer-profiles.png) |
+| Context agreement by depth | [errors](artifacts/2026-09-30-global-initializer/2015-01-01-initializer-context-errors.png) | [errors](artifacts/2026-09-30-global-initializer/2018-01-01-initializer-context-errors.png) | [errors](artifacts/2026-09-30-global-initializer/2021-01-01-initializer-context-errors.png) |
+| Latitude–depth anomalies | [sections](artifacts/2026-09-30-global-initializer/2015-01-01-initializer-zonal-anomalies.png) | [sections](artifacts/2026-09-30-global-initializer/2018-01-01-initializer-zonal-anomalies.png) | [sections](artifacts/2026-09-30-global-initializer/2021-01-01-initializer-zonal-anomalies.png) |
+| Learned temperature at 550 m | [absolute](artifacts/2026-09-30-global-initializer/2015-01-01-initializer-temperature550-absolute.png), [anomaly](artifacts/2026-09-30-global-initializer/2015-01-01-initializer-temperature550-anomaly.png) | [absolute](artifacts/2026-09-30-global-initializer/2018-01-01-initializer-temperature550-absolute.png), [anomaly](artifacts/2026-09-30-global-initializer/2018-01-01-initializer-temperature550-anomaly.png) | [absolute](artifacts/2026-09-30-global-initializer/2021-01-01-initializer-temperature550-absolute.png), [anomaly](artifacts/2026-09-30-global-initializer/2021-01-01-initializer-temperature550-anomaly.png) |
+| Learned surface salinity | [absolute](artifacts/2026-09-30-global-initializer/2015-01-01-initializer-salinity0-absolute.png), [anomaly](artifacts/2026-09-30-global-initializer/2015-01-01-initializer-salinity0-anomaly.png) | [absolute](artifacts/2026-09-30-global-initializer/2018-01-01-initializer-salinity0-absolute.png), [anomaly](artifacts/2026-09-30-global-initializer/2018-01-01-initializer-salinity0-anomaly.png) | [absolute](artifacts/2026-09-30-global-initializer/2021-01-01-initializer-salinity0-absolute.png), [anomaly](artifacts/2026-09-30-global-initializer/2021-01-01-initializer-salinity0-anomaly.png) |
+| Supplied/copied SST | [maps](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel0.png) | [maps](artifacts/2026-09-30-global-physical-focus/2018-01-01-initial-channel0.png) | [maps](artifacts/2026-09-30-global-physical-focus/2021-01-01-initial-channel0.png) |
+| Supplied/copied SSH | [maps](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel6.png) | [maps](artifacts/2026-09-30-global-physical-focus/2018-01-01-initial-channel6.png) | [maps](artifacts/2026-09-30-global-physical-focus/2021-01-01-initial-channel6.png) |
+| Surface zonal velocity proxy comparison | [maps](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel4.png) | [maps](artifacts/2026-09-30-global-physical-focus/2018-01-01-initial-channel4.png) | [maps](artifacts/2026-09-30-global-physical-focus/2021-01-01-initial-channel4.png) |
+| Surface meridional velocity proxy comparison | [maps](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel5.png) | [maps](artifacts/2026-09-30-global-physical-focus/2018-01-01-initial-channel5.png) | [maps](artifacts/2026-09-30-global-physical-focus/2021-01-01-initial-channel5.png) |
+
+[Learned initializer numbers](artifacts/2026-09-30-global-initializer/results.json.gz) · [Saved-state export and source provenance](artifacts/2026-09-30-global-initializer/provenance.json.gz). This reuses saved initialized states, adds a 12-second CPU export, and requires no new GPU inference.
 
 **Why observation coastlines look different:** every panel uses the same fixed OM4 wet-cell mask. The observation panel additionally lacks values in coarse cells rejected during remapping: valid source area must cover at least 90% of the *full* target cell, which excludes many coastal/island cells. In the 2021 day-30 SST example, 3,598 of 44,892 model ocean cells lack an observation (7.0% of cosine-weighted wet area). Those cells were previously the same gray as land; they are now white. The model predicts in those ocean cells, but they have no observation error score. This is coverage, not a learned coastline.
 
@@ -71,7 +98,7 @@ The error table averages each origin’s area-weighted RMSE over 96 independentl
 
 At day 30, final SST RMSE is **45.2% lower than persistence** and 56.9% lower than at the first saved stage. SSH improves by 26.2% from the early stage, but its final advantage over persistence is only **1.1%**; the middle checkpoint has lower SSH RMSE than the endpoint. Increasing observation exposure does not improve every quantity monotonically.
 
-The maps show broad interior T/S structure already present at the early checkpoint, with smaller changes in those initialized fields than in the evolved surface fields. This is consistent with interior structure forming early, but the first stage already includes both sources, so it cannot isolate OM4's contribution. Surface values in observed initializer cells are identical across stages because they are copied from the input.
+The learned-initializer diagnostics above show broad interior T/S structure present early, alongside substantial upper-ocean errors that shrink with training. The first stage already includes both data sources, so it cannot isolate OM4's contribution. Surface values in observed initializer cells are identical across stages because they are copied from the input.
 
 The final model retains a mean day-30 SST bias of **−0.273°C** and SSH bias of **−0.0489 m** over the 96 origins. In the January 2015 day-30 example, the coldest wet SST improves from −9.79°C to −3.98°C, still colder than the reference minimum of −1.80°C. SSH ripples and conspicuous internal-velocity bands remain. The internal U/V maps are useful diagnostics of what is carried forward, but their comparison with geostrophic proxies is not a full-current skill assessment.
 

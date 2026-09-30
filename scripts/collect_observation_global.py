@@ -139,6 +139,9 @@ def collect():
     for root in (GLOBAL, LATENT):
         for path in root.glob("*-submission.json"):
             jobs.add(str(json.loads(path.read_text())["job"]))
+    exports = GLOBAL / "EXPORT_DAG.json"
+    if exports.exists():
+        jobs.update(str(row["job"]) for row in json.loads(exports.read_text()).values())
     raw = subprocess.check_output(
         [
             "sacct",

@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 
 
+from typing import Any
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -210,3 +212,42 @@ def test_checkpoint_restores_optimizer_and_rng(tmp_path, monkeypatch):
     h.manifest = {"version": "changed"}
     with pytest.raises(ValueError, match="contract"):
         h.restore(tmp_path / "last.pt")
+
+
+def test_annual_inputs_discard_future_surface_values():
+    from types import SimpleNamespace
+
+    from samudra.observations.annual import inputs
+
+    lat = np.linspace(-85, 85, 8)
+    lon = np.arange(16) * 22.5
+    data = SimpleNamespace(
+        grid={
+            "mask": np.ones((77, 8, 16), bool),
+            "lat": lat,
+            "lon": lon,
+            "mean": np.zeros(77),
+            "std": np.ones(77),
+        },
+        stats={
+            "surface_climatology": np.zeros((12, 2, 8, 16)),
+            "atmosphere_mean": np.zeros(8),
+            "atmosphere_std": np.ones(8),
+        },
+        mask=torch.ones(77, 8, 16),
+        tensor=lambda x: torch.as_tensor(x, dtype=torch.float32),
+    )
+    raw: dict[str, Any] = {
+        "surface": np.ones((92, 2, 8, 16)),
+        "atmosphere": np.ones((92, 8, 8, 16)),
+        "midpoint": pd.date_range("2014-09-28", periods=92, freq="5D"),
+    }
+    raw["surface"][0, 0, 0, 0] = np.nan
+    before = inputs(data, raw)
+    raw["surface"][19:] = 1e6
+    after = inputs(data, raw)
+    for a, b in zip(before, after, strict=True):
+        torch.testing.assert_close(a, b, rtol=0, atol=0)
+    assert before[0].shape[1] == 19
+    assert before[0][0, 0, 0, 0, 0] == 0 and before[-1][0, 0, 0, 0, 0] == 0
+    assert before[1].shape[1] == 92

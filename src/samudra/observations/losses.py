@@ -131,18 +131,22 @@ def om4_objective(
         )
         predictions.append(predicted)
         states = torch.stack((states[:, -1], predicted), 1)
-    loss = balanced_loss(
+    forecast = balanced_loss(
         torch.stack(predictions, 1)[:, :, : len(data.names)],
         labels,
         data.weights,
         data.names,
-    ) + reconstruction_weight * balanced_loss(
+    )
+    reconstruction = balanced_loss(
         initial[:, :, : len(data.names)], truth, data.weights, data.names, True
     )
+    loss = forecast + reconstruction_weight * reconstruction
+    parts = {"forecast": forecast, "reconstruction": reconstruction}
     if completion_weight:
         hidden = available[:, -2:] & ~visible[:, -2:]
         extra = completion_loss(
             initial[:, :, model.initializer.surface], original[:, -2:], hidden, data.lat
         )
         loss = loss + completion_weight * extra
-    return loss
+        parts["completion"] = extra
+    return loss, parts

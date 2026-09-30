@@ -189,7 +189,7 @@ class Harness:
         self.args = args
         self.out = args.output
         self.out.mkdir(parents=True, exist_ok=True)
-        self.device = torch.device("cuda")
+        self.device = torch.device("cuda", 0)
         torch.cuda.set_device(self.device)
         torch.set_num_threads(1)
         self.data = Samples(args.observations, self.device)
@@ -409,7 +409,7 @@ class Harness:
                                 (count * ACCUMULATE + micro) % len(self.training)
                             ]
                         )["validity"][:, :19]
-                        loss = om4_objective(
+                        loss, parts = om4_objective(
                             self.model,
                             self.om4,
                             [index],
@@ -418,7 +418,6 @@ class Harness:
                             coverage,
                             COMPLETION_WEIGHT,
                         )
-                        parts = {}
                 if not torch.isfinite(loss):
                     raise FloatingPointError("Nonfinite training loss")
                 (loss / ACCUMULATE).backward()

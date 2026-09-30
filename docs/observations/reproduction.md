@@ -122,7 +122,7 @@ spectral keys are frozen at qualification. Test scoring uses the common held-out
 climatology denominator, as in the report; test data never selects checkpoints.
 Evaluation also reports initialized-state persistence and climatology.
 
-W&B receives total/per-task updates, observation loss components, OM4 total loss,
+W&B receives total/per-task updates, observation and OM4 loss components,
 learning rate, gradient norm, validation composite, **all nested scalar integrated
 and spectral components**, and OM4 retention. Test/annual namespaces are separate.
 Full spectral arrays and channel profiles remain in JSON outputs. The W&B entity,

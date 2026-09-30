@@ -103,3 +103,11 @@ checkpoint. Write its output into a separate extension-assets directory.
 `diffusion_latent_figures` then plots the baseline, physical diffusion, original
 latent and extended latent results together with distinct colors and markers.
 The original report remains unchanged.
+
+`diffusion_temporal_figures --short-runs PATH --extended-runs PATH --output PATH`
+compares the native 24-origin temporal summaries by depth. It plots individual
+member and ensemble-mean five-day RMS changes relative to OM4, plus adjacent-time
+member-deviation correlations. The CSV also retains absolute RMS changes and
+physical units: ratios can be large when deep-ocean reference changes are tiny.
+The quantities are increment magnitudes, not increment prediction errors, and
+independent readouts do not become coherent trajectories merely by getting quieter.

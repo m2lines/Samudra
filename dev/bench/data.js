@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790788992529,
+  "lastUpdate": 1790789001669,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -24915,6 +24915,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 0.1595868258297991",
             "extra": "mean: 49.981717309400025 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "34085119+amogh-gulati@users.noreply.github.com",
+            "name": "Amogh Gulati",
+            "username": "amogh-gulati"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "8ba7eab49fd1ac985daa8ba016bc5d214f47c586",
+          "message": "Parallel eval (#772)\n\nAdds an optional post-training sweep that evaluates saved checkpoints,\nincludes the final EMA checkpoint when present, and optionally generates\nvisualizations. Results go to each checkpoint's directory under\n`<training-run>/evals/`, with scalar metrics collected in\n`summary.json`.\n\nEvaluation jobs are split across the coordinator host's visible GPUs,\nwith a single CPU worker as the fallback. `run_training()` releases the\ntrainer and CUDA allocations on every rank, synchronizes and destroys\nthe training process group, then launches the sweep on the main process.\nEvaluation has a fixed 12-hour timeout; visualization runs afterward and\nreuses ground truth prepared once.\n\n### Training configuration\n\nAdd `post_train_eval` to the training YAML to enable the sweep. Omit the\nblock, or set it to `null`, to disable it.\n\nEvaluate specific checkpoint epochs:\n\n```yaml\npost_train_eval:\n  eval_config_path: samudra_om4/eval.yaml\n  epochs: [50, 55, 60, 65, 70]\n```\n\nAlternatively, evaluate the last N saved periodic checkpoints:\n\n```yaml\npost_train_eval:\n  eval_config_path: samudra_om4/eval.yaml\n  last_n_checkpoints: 10\n```\n\n`epochs` and `last_n_checkpoints` are mutually exclusive. If both are\nomitted, all saved periodic checkpoints are selected. The EMA checkpoint\nis added after selection when `saved_nets/ema_ckpt.pt` exists. Missing\nexplicitly requested epochs raise an error.\n\n`eval_config_path` accepts a bundled preset name, as above, or a\nfilesystem path to an evaluation YAML. Use an evaluation configuration\nthat matches the trained model and data.\n\n### Optional visualization\n\nSet `viz_config_path` in the `post_train_eval` block to a YAML file for\n`VizTemplateConfig`. It contains the common visualization settings,\nwithout the `name` and `runs` fields from a full `VizConfig`; the sweep\nsupplies each checkpoint's run and output location. The evaluation YAML\nmust have `save_zarr: true`.\n\nGround truth uses the training run's resolved data root unless the\nvisualization template supplies its own `data_root`.\n\n### Standalone sweep\n\nFor an already-finished training run, save a separate YAML such as\n`post_train_eval.yaml`:\n\n```yaml\nrun_dir: /path/to/training_run\ndata_root: /path/to/data\npost_train_eval:\n  eval_config_path: samudra_om4/eval.yaml\n  last_n_checkpoints: 10\n```\n\nRun it with:\n\n```bash\npython -m samudra.post_train_eval post_train_eval.yaml\n```\n\nThe standalone entry point uses the normal YAML and CLI configuration\nsystem. `run_dir` identifies the training output directory containing\n`saved_nets/`.\n\n### Deferred work\n\nReusing distributed workers across multiple hosts is deferred. W&B\nbehavior follows the evaluation configuration; combining checkpoint\nevaluations into one W&B run with a timeline scrubber is also deferred.\n\n---------\n\nCo-authored-by: Amogh Gulati <ag11542@cs631.hpc.nyu.edu>\nCo-authored-by: Amogh Gulati <ag11542@cs602.hpc.nyu.edu>\nCo-authored-by: Amogh Gulati <ag11542@cs656.hpc.nyu.edu>\nCo-authored-by: Amogh Gulati <ag11542@torch-login-a-0.hpc-infra.svc.cluster.local>\nCo-authored-by: Amogh Gulati <ag11542@cs636.hpc.nyu.edu>\nCo-authored-by: Amogh Gulati <ag11542@cs668.hpc.nyu.edu>\nCo-authored-by: Amogh Gulati <ag11542@cs618.hpc.nyu.edu>\nCo-authored-by: Amogh Gulati <ag11542@cs624.hpc.nyu.edu>\nCo-authored-by: Amogh Gulati <ag11542@cs642.hpc.nyu.edu>\nCo-authored-by: Amogh Gulati <ag11542@cs654.hpc.nyu.edu>\nCo-authored-by: fomo-bot <266121006+fomo-bot@users.noreply.github.com>\nCo-authored-by: Jesse Rusak <jesse@openathena.ai>\nCo-authored-by: OA jder bot <jesse+bot@openathena.ai>",
+          "timestamp": "2026-09-30T16:42:37Z",
+          "tree_id": "755b260de1c04c037f60234adc96dee055a7d0fb",
+          "url": "https://github.com/m2lines/Samudra/commit/8ba7eab49fd1ac985daa8ba016bc5d214f47c586"
+        },
+        "date": 1790789000243,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.9288165556137169,
+            "unit": "iter/sec",
+            "range": "stddev: 0.008463456251034594",
+            "extra": "mean: 1.076638862599998 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06600958853115248,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10803040121176971",
+            "extra": "mean: 15.149314247400003 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.018850410571791404,
+            "unit": "iter/sec",
+            "range": "stddev: 2.0478489946447174",
+            "extra": "mean: 53.04924241260001 sec\nrounds: 5"
           }
         ]
       }

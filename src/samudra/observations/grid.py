@@ -34,9 +34,10 @@ def main():
         lat=lat.cpu().numpy(),
         lon=lon.cpu().numpy(),
         mask=source.masks.prognostic.cpu().numpy().astype(bool),
-        mean=np.asarray(source.statistics(names).mean, dtype=np.float32),
-        std=np.asarray(source.statistics(names).std, dtype=np.float32),
+        mean=np.asarray(source.statistics(names).mean, dtype=np.float64),
+        std=np.asarray(source.statistics(names).std, dtype=np.float64),
         names=np.array(names),
+        depth=np.asarray(bundle.data_layout.depth_levels, dtype=np.float64),
     )
 
 

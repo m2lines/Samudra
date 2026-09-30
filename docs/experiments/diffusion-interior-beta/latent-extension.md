@@ -95,6 +95,12 @@ plateau report, completion, or a persistent operational blocker. A failed SSH
 check alone does not establish that Slurm jobs stopped and does not justify
 restarting them.
 
+`diffusion_validation_figures --short-runs PATH --extended-runs PATH --output PATH`
+plots both seeds' complete observed validation histories, marks the continuation
+boundary, and exports the plotted CSV and provisional plateau assessment. It uses
+the same monitoring rule above; the figure is validation progress, not held-out
+test performance or evidence of temporally coherent members.
+
 For the final comparison, `diffusion_latent_summary` accepts
 `--previous-latent-runs` for the original run directories and `--latent-runs` for
 the extension. It checks both completed evaluation contracts and the continuation

@@ -2823,3 +2823,23 @@ higher observation fraction gives 10.4–10.6 hours of remaining update compute,
 plus validation/checkpoints and final evaluation. Estimate results around
 05:00–07:00 ET September 30, contingent on no interruption or evaluation queue
 stalls. This is a throughput extrapolation, not a guaranteed scheduler completion.
+
+## 2026-09-30
+
+### 06:15 UTC — monitoring blocked by Torch connectivity
+
+User requested continued monitoring and an updated report after completion. The
+previous SSH ControlMaster socket is absent; one fresh BatchMode connection with
+15-second timeout failed with `connect to host login.torch.hpc.nyu.edu port 22:
+Connection timed out`. No live queue, accounting or new result files could be
+read. Following torch-train guidance, did not retry authentication/connectivity.
+This establishes loss of monitoring access, not job failure or completion; the
+already-submitted training/evaluation dependencies may continue independently.
+The September 29 20:44 UTC snapshot remains the last verified progress/ETA.
+
+Sent the authorized blocker DM to Jesse's Slack account U086XUETAJ0; service
+returned message link https://openathena.slack.com/archives/D086ET5CVQF/p1790748953259049.
+Pending on restored access: check training and all evaluation markers, safely
+recover routine failures, verify endpoint/selection lineage and global metric
+support, collect three-arm results/maps and publish the updated comparison report.
+The timer remains disabled; no replacement timer was created.

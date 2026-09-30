@@ -33,11 +33,11 @@ been evaluated yet. [Run design and verified startup](global-scratch-2026-09-30.
 
 ## Initializer examples with observation references
 
-SST and SSH reference panels show the **same final five-day history interval** used by the initializer: the five days immediately before the forecast origin. Available surface values are copied into the initialized state by construction; agreement there verifies the supplied state, rather than learned reconstruction skill. **Gray marks fixed model land (or the field’s depth mask); white marks missing observations within model ocean cells.** In missing ocean cells the initializer learns a completion from history, geography, season and forcing.
+SST and SSH reference panels show the **same final five-day history interval** used by the initializer: the five days immediately before the forecast origin. Available surface values are copied into the initialized state by construction; agreement there verifies the supplied state, rather than learned reconstruction skill. **These panels do not test whether the network learns an identity function: an explicit overwrite supplies observed SST/SSH after the network runs.** Their learned surface behavior is confined to missing ocean cells. The [pinned initializer code](https://github.com/m2lines/Samudra/blob/79025a163817a577ab81af95b401f5cb0563cd12/src/samudra/experiments/initializer_models.py#L244) implements this overwrite. **Gray marks fixed model land (or the field’s depth mask); white marks missing observations within model ocean cells.** In missing ocean cells the initializer learns a completion from history, geography, season and forcing.
 
-![Initialized SST with matching observations](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel0.png)
+![Initialized SST: observed cells are copied; learned completion only in missing ocean cells](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel0.png)
 
-![Initialized SSH with matching observations](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel6.png)
+![Initialized SSH: observed cells are copied; learned completion only in missing ocean cells](artifacts/2026-09-30-global-physical-focus/2015-01-01-initial-channel6.png)
 
 Interior reference panels use the **preceding December IAP monthly analysis**, explicitly labeled as context. A monthly average is not instantaneous initializer truth. U/V reference panels use the contemporaneous DUACS geostrophic surface-velocity proxy; these are not direct observations of the model’s full velocity state and are not its observation-task training targets. Those distinctions apply to every map link below.
 

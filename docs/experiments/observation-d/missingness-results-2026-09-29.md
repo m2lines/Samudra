@@ -77,7 +77,7 @@ the ±60° cutoff applies to the observation forecast/interior losses and headli
 scores, not to inputs. Green does not establish direct measurement coverage under
 ice. The separately labeled polar-cap experiment artificially withholds those inputs.
 The [global-domain follow-up](global-domain-rerun-2026-09-29.md) removes that loss
-and scoring restriction; its results are pending.
+and scoring restriction; the [completed comparison](global-domain-results-2026-09-30.md) shows substantially lower polar errors, with no consistent additional benefit from ten memory channels.
 
 ![Observed versus missing surface inputs at initialization](artifacts/2026-09-28-missingness/final/surface-coverage-2013-11.png)
 

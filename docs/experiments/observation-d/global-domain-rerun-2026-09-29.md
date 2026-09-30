@@ -3,6 +3,8 @@
 
 # Global observation supervision: matched Small conditioned mixed rerun
 
+**Completed September 30:** [results, component metrics and full-grid maps](global-domain-results-2026-09-30.md). Both fresh 16k-update runs, all twelve monthly/annual evaluations and all qualification/export jobs completed successfully. Total fresh-wave allocation: **24.619 GPU-hours**. Historical status snapshots below are retained as provenance.
+
 Authorized September 29: repeat Small conditioned mixed with no polar latitude
 cutoff in inputs, observation training losses, checkpoint selection or evaluation.
 The completed restricted-loss run is the control; it is not retrained.

@@ -2865,3 +2865,25 @@ comparison, full-grid native-pixel initial/day30/day365 maps, regional spectra,
 and separate northern/southern polar SST/ADT errors. The latter independently
 reproduce the existing control's global annual scores before splitting latitude
 bands. Final conclusions await both new models' completed held-out evaluations.
+
+### 07:45 UTC — global-domain comparison complete
+
+Both new training runs reached exactly 16,000 updates (8k OM4 / 8k observations).
+Physical-only 18811860 and memory 18815278, all twelve monthly/annual evaluations,
+four qualification probes, two builds and three CPU exports are COMPLETED 0:0.
+No retries were required. Final accounting is **24.618611 GPU-hours**, including
+qualification and control rescoring; historical control training is not recharged.
+
+The final collector verifies actual checkpoint/producer hashes, qualification and
+resume contracts, explicit global scoring, exact cohorts and fixed-budget lineage.
+Evidence SHA256: `13890f750ab84dbcb5b2233c806b931e2eea5c50be4757e989f2e97ad706d25c`.
+All three compact archives and every member passed full SHA read-back. Native-grid
+maps and independent regional/global reductions passed numerical checks.
+
+[Final report](global-domain-results-2026-09-30.md): matched endpoint composites
+0.8388 restricted control, 0.5927 global physical-only, 0.6064 global +10 memory.
+Global supervision sharply reduces polar errors. Added memory has mixed effects,
+not a consistent improvement; cold extremes and spatial ripples remain. Selected
+scores and all components, initializer/day30/day365 maps, spectra, annual cases,
+persistence controls and model definitions are included. Monitoring for this wave
+is complete; the timer remains disabled. No further runs are submitted.

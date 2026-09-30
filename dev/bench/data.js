@@ -1,5 +1,5 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1790791011646,
+  "lastUpdate": 1790791019439,
   "repoUrl": "https://github.com/m2lines/Samudra",
   "entries": {
     "Python Benchmark with pytest-benchmark": [
@@ -25005,6 +25005,51 @@ window.BENCHMARK_DATA = {
             "unit": "iter/sec",
             "range": "stddev: 2.0478489946447174",
             "extra": "mean: 53.04924241260001 sec\nrounds: 5"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "jesse+bot@openathena.ai",
+            "name": "oa-jder-bot",
+            "username": "oa-jder-bot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "3415715a488966c8c2d80e3e36a877f6afc94bbf",
+          "message": "Fix physical area scaling in OHC visualization (#883)\n\nOHC basin totals, depth-band totals, changes from the initial time, and\nper-cell maps currently integrate with normalized `areacello` weights\nwhile labeling the result in ZJ. That discards the physical area scale:\nmultiplying cell areas by seven leaves the reported heat content\nunchanged.\n\nUse the existing `areacello_spherical` field (m²) in these heat\nintegrals for both ground truth and predictions, including the OHC movie\nbranch. This makes them consistent with the already-correct global OHC\nanomaly calculation. Map values represent heat per grid-cell column in\nZJ and sum to the global heat integral.\n\nPreserve the input dataset's `areacello` as the physical-area field\nbefore replacing `areacello` with normalized mean weights. Gaussian\nlatitude spacing is nonuniform, so the source areas take precedence over\nthe uniform-spacing approximation; derive spherical areas only for\nlegacy stores without supplied areas.\n\nThis is a standalone fix based on `main`, independent of #876.\n\nValidation:\n- Added 17 regression cases: 12 analytical heat-integral cases using\nunequal areas, depth bands, land masking, basins, and distinct\ntruth/prediction temperatures; four full-constructor Gaussian-grid cases\ncovering source areas as coordinates/data variables and both dimension\norders; and one legacy-store fallback case. Checks include area scaling,\nexact source-area preservation, known-volume heat change, and\nmap-to-global conservation.\n- 106 focused tests passed across OHC/viz, configuration, writer,\nmetrics, and data utilities.\n- `uvx pre-commit run --all-files` passed, including mypy, schema\nvalidation, and REUSE.\n\n---------\n\nCo-authored-by: fomo-bot <266121006+fomo-bot@users.noreply.github.com>",
+          "timestamp": "2026-09-30T17:19:31Z",
+          "tree_id": "cb7e6b1a081ee49478c63af8346c6040f74c2000",
+          "url": "https://github.com/m2lines/Samudra/commit/3415715a488966c8c2d80e3e36a877f6afc94bbf"
+        },
+        "date": 1790791018985,
+        "tool": "pytest",
+        "benches": [
+          {
+            "name": "tests/test_datasets.py::test_profile__loader__1gb[LoaderVersion.OM4_TORCH-cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.9445071548396015,
+            "unit": "iter/sec",
+            "range": "stddev: 0.004083065720410063",
+            "extra": "mean: 1.0587532289999673 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_datasets.py::test_profile__inference_loader__1gb[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.06909425010865015,
+            "unit": "iter/sec",
+            "range": "stddev: 0.10720878300867855",
+            "extra": "mean: 14.472984342799986 sec\nrounds: 5"
+          },
+          {
+            "name": "tests/test_trainer.py::test_trainer__mini_benchmark[cuda-extra_config_args0-mock-train_default.yaml]",
+            "value": 0.020542287138426565,
+            "unit": "iter/sec",
+            "range": "stddev: 0.3842453218970829",
+            "extra": "mean: 48.68007117519996 sec\nrounds: 5"
           }
         ]
       }

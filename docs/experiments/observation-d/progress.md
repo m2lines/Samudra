@@ -2887,3 +2887,51 @@ not a consistent improvement; cold extremes and spatial ripples remain. Selected
 scores and all components, initializer/day30/day365 maps, spectra, annual cases,
 persistence controls and model definitions are included. Monitoring for this wave
 is complete; the timer remains disabled. No further runs are submitted.
+
+### September 30 — focused global physical-only day-30 report
+
+User authorized a separate report with observed initializer references, saved
+checkpoints across training, wider day-30 spectra against OM4/coarse/native
+observations, and undetrended annual global means with baselines. No new training.
+[Diagnostic plan](global-physical-focus-plan-2026-09-30.md) records the scope.
+
+Native reference extraction on Grace 110827 completed 0:0. Twelve exact five-day
+2015 day-30 windows from the original OISST/DUACS stores, their conservative
+training-grid remaps, and preceding-December IAP context for the three annual
+origins are local. The 139,335,680-byte archive and all members passed full SHA256
+read-back; temporal/coarse equivalence is checked against the model targets.
+
+Checkpoint stages have OM4/obs counts 324/50, 2,167/500, 4,949/2,000, 8,000/8,000.
+The existing pinned evaluator producer is reused. Initial jobs 18883746–18883751
+failed before inference because the submission omitted the torchrun argument
+separator. Their logs/submissions are retained. Corrected jobs 18884170–18884175
+all completed 0:0; the CPU collector 18884176 follows them. Include both attempts
+in final allocated GPU-hour accounting. The final endpoint evaluations are reused.
+
+The first CPU collector was canceled after repeated NPZ member decompression
+was diagnosed. Source and partial arrays remain; replacement 18886425 loaded
+members once and completed 0:0. All additional inference, including failed
+launches, totals **0.245 allocated GPU-hours**; CPU work charged no GPUs.
+Compact archive SHA256:
+`40f0c8b09e9d22f5b84df753a3a0ab73d5b137c89635a8ef1b359dc20a9ef3a0`.
+Native archive SHA256:
+`df0759c84c55bf968ced0a69065fdfb68a5fd05495ea9e5bdb7d424059618c81`.
+Both archives and every member passed full read-back. Native five-day coarse
+references equal the actual model targets (identical finite masks; numerical
+agreement within atol 2e-6 / rtol 1e-6).
+
+[Separate physical-only report](global-physical-day30-2026-09-30.md) is complete:
+64 figures, observed initializer references, four saved stages, wider SST/SSH/
+geostrophic-KE day-30 spectra, and annual global means with persistence and
+training climatology. Day-30 SST RMSE improves 1.486→0.640°C, but final SSH is
+0.0792 m versus persistence 0.0800 m. SSH/velocity spectra shift strongly toward
+observations; annual means expose persistent cold/low-SSH offsets and maps
+retain artifacts. No new training or scientific selection changes. Regional
+transform tests, reference equivalence and map pixel read-back passed.
+
+A same-analysis OHC representation check on the preceding December references
+finds model-layer integration offsets of about −0.21 GJ/m² (0–700 m) and
+−0.059 GJ/m² (700–2000 m) before model error. The report distinguishes this
+contribution from forecast evolution rather than attributing the entire annual
+OHC offset to learned climatology or drift. Annual curves retain the native-layer
+observation baseline; this diagnostic does not correct them or change selection.
